@@ -142,7 +142,13 @@ public abstract class PublicAotBootstrapProviderBase(IAotSeoConfigSnapshot seoCo
             new PublicAotArticleCategorySnapshot(
                 item.CategoryId,
                 string.IsNullOrWhiteSpace(item.CategoryName) ? "未分类" : item.CategoryName),
-            item.Tags.Select(static tag => new PublicAotArticleTagSnapshot(tag.Id, tag.Name)).ToArray());
+            item.Tags.Select(static tag => new PublicAotArticleTagSnapshot(tag.Id, tag.Name)).ToArray())
+        {
+            RevisionId = item.CurrentRevisionId,
+            RevisionNo = item.RevisionNo,
+            PublicationId = item.CurrentPublicationId,
+            PublicationNo = item.PublicationNo
+        };
 
     protected static PublicAotFeaturedArticleSnapshot ToFeaturedArticleSnapshot(FeaturedArticleSummaryDto item)
         => new(
@@ -164,7 +170,13 @@ public abstract class PublicAotBootstrapProviderBase(IAotSeoConfigSnapshot seoCo
             item.Views,
             item.CreateTime,
             new PublicAotArticleCategorySnapshot(item.Category.Id, item.Category.Name),
-            item.Tags.Select(static tag => new PublicAotArticleTagSnapshot(tag.Id, tag.Name)).ToArray());
+            item.Tags.Select(static tag => new PublicAotArticleTagSnapshot(tag.Id, tag.Name)).ToArray())
+        {
+            RevisionId = item.CurrentRevisionId,
+            RevisionNo = item.RevisionNo,
+            PublicationId = item.CurrentPublicationId,
+            PublicationNo = item.PublicationNo
+        };
 
     protected static PublicAotFeaturedArticleSnapshot ToFeaturedArticleSnapshot(FeaturedArticleCoreModel item)
         => new(item.Id, item.Title, item.CoverImageUrl, item.Views, item.CreateTime,
@@ -274,6 +286,10 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
             ToRightsSnapshot(article.Rights),
             ToRelatedReadingSnapshot(relatedReading))
         {
+            RevisionId = article.RevisionId,
+            RevisionNo = article.RevisionNo,
+            PublicationId = article.PublicationId,
+            PublicationNo = article.PublicationNo,
             CoverImageUrl = article.CoverImageUrl ?? string.Empty,
             PublishedAt = article.PublishedAt,
             UpdatedAt = article.UpdatedAt,
@@ -291,26 +307,33 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
         CancellationToken cancellationToken)
     {
         ArticleDetailAotProjection? projection = await db.Queryable<Article>()
-            .LeftJoin<Category>((a, category) => a.CategoryId == category.Id)
-            .LeftJoin<ArticleBody>((a, category, body) => a.Id == body.ArticleId)
+            .InnerJoin<ArticlePublicationRecord>((a, publication) => a.CurrentPublicationId == publication.Id)
+            .InnerJoin<ArticleRevision>((a, publication, revision) => publication.ArticleRevisionId == revision.Id)
+            .LeftJoin<Category>((a, publication, revision, category) => revision.CategoryId == category.Id)
             .Where(a => a.Id == articleId
                 && a.IsDeleted == false
                 && a.Status == ArticleStatus.Published
                 && (a.PublishedAt == null || a.PublishedAt <= utcNow)
                 && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= utcNow))
-            .Select((a, category, body) => new ArticleDetailAotProjection
+            .Select((a, publication, revision, category) => new ArticleDetailAotProjection
             {
                 Id = a.Id,
-                Title = a.Title,
-                Content = body.MarkdownContent,
-                Summary = a.Summary,
-                CoverImageUrl = a.CoverImageUrl,
+                Title = revision.Title,
+                Content = revision.MarkdownContent,
+                Summary = revision.Summary,
+                CoverImageUrl = revision.CoverImageUrl,
                 Views = a.Views,
                 CreateTime = a.CreateTime,
-                PublishedAt = a.PublishedAt,
-                UpdatedAt = body.UpdatedAt,
-                CategoryId = a.CategoryId,
-                CategoryName = category.Name
+                PublishedAt = publication.PublishedAt,
+                UpdatedAt = revision.CreatedAt,
+                CategoryId = revision.CategoryId,
+                CategoryName = category.Name,
+                RevisionId = revision.Id,
+                RevisionNo = revision.RevisionNo,
+                PublicationId = publication.Id,
+                PublicationNo = publication.PublicationNo,
+                RightsSnapshotId = publication.RightsSnapshotId,
+                PublishedTagIds = revision.TagIds
             })
             .FirstAsync(cancellationToken);
         if (projection is null)
@@ -318,11 +341,15 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
             return null;
         }
 
-        List<ArticleTagAotProjection> tags = await db.Queryable<ArticleTag>()
-            .InnerJoin<Tag>((articleTag, tag) => articleTag.TagId == tag.Id)
-            .Where((articleTag, tag) => articleTag.ArticleId == articleId)
-            .OrderBy((articleTag, tag) => tag.Id)
-            .Select((articleTag, tag) => new ArticleTagAotProjection
+        int[] publishedTagIds = FsusBlog.Server.Services.Authoring.AuthoringNormalization
+            .ParseTagIds(projection.PublishedTagIds)
+            .ToArray();
+        List<ArticleTagAotProjection> tags = publishedTagIds.Length == 0
+            ? []
+            : await db.Queryable<Tag>()
+            .Where(tag => publishedTagIds.Contains(tag.Id))
+            .OrderBy(tag => tag.Id)
+            .Select(tag => new ArticleTagAotProjection
             {
                 Id = tag.Id,
                 Name = tag.Name
@@ -331,7 +358,7 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
         projection.Tags = tags
             .Select(static tag => new PublicAotArticleTagSnapshot(tag.Id, tag.Name))
             .ToArray();
-        projection.Rights = await LoadArticleRightsForAotAsync(articleId, cancellationToken);
+        projection.Rights = await LoadArticleRightsForAotAsync(articleId, projection.RightsSnapshotId, cancellationToken);
         projection.AuthorName = string.Empty;
         projection.Content = string.IsNullOrWhiteSpace(projection.Content) ? projection.Summary ?? string.Empty : projection.Content;
         projection.Summary ??= string.Empty;
@@ -340,7 +367,10 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
     }
 
 
-    private async Task<ArticleRightsReadModel> LoadArticleRightsForAotAsync(int articleId, CancellationToken cancellationToken)
+    private async Task<ArticleRightsReadModel> LoadArticleRightsForAotAsync(
+        int articleId,
+        long rightsSnapshotId,
+        CancellationToken cancellationToken)
     {
         const string Sql = """
             SELECT
@@ -375,13 +405,13 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
                 LIMIT 1
             ) rights_proof ON TRUE
             WHERE snapshot.article_id = @ArticleId
-            ORDER BY snapshot.revision_no DESC, snapshot.created_at DESC, snapshot.id DESC
-            LIMIT 1;
+              AND snapshot.id = @RightsSnapshotId;
             """;
 
         using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             Sql,
-            new SugarParameter("@ArticleId", articleId));
+            new SugarParameter("@ArticleId", articleId),
+            new SugarParameter("@RightsSnapshotId", rightsSnapshotId));
         return await reader.ReadAsync(cancellationToken)
             ? ReadArticleRights(reader)
             : new ArticleRightsReadModel();
@@ -530,6 +560,27 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
         public string AuthorName { get; set; } = string.Empty;
         public IReadOnlyList<PublicAotArticleTagSnapshot> Tags { get; set; } = [];
         public ArticleRightsReadModel Rights { get; set; } = new();
+        public long RevisionId
+        {
+            get; init;
+        }
+        public int RevisionNo
+        {
+            get; init;
+        }
+        public long PublicationId
+        {
+            get; init;
+        }
+        public int PublicationNo
+        {
+            get; init;
+        }
+        public long RightsSnapshotId
+        {
+            get; init;
+        }
+        public string PublishedTagIds { get; init; } = string.Empty;
     }
 
     private sealed class ArticleTagAotProjection

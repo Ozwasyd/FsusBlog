@@ -530,7 +530,7 @@ SPA 接管失败时采用 fail-closed：snapshot head 缺失、旧版本、diges
 | status | 名称 | 作者/管理端含义 | 公开可读 | 公开 artifact/feed/sitemap/search |
 | -------- | ------ | ---------------- | ---------- | ---------------------------------- |
 | `0` | `Draft` | 草稿，可预览、保存、发布或丢弃 | 否 | 不进入 |
-| `1` | `Scheduled` | 定时发布，未到点前只在作者/管理端可见 | 仅当调度 worker 转为 `Published` 后 | 未发布前不进入 |
+| `1` | `Scheduled` | 首次定时发布，未到点前只在作者/管理端可见 | 仅当调度 worker 转为 `Published` 后 | 未发布前不进入 |
 | `2` | `Published` | 已发布文章；还需满足发布时间已到 | 是 | 进入公开 Binary、AOT、feed、sitemap、search、related-reading |
 | `3` | `Archived` | 归档保留，仍可由作者/管理端管理 | 否 | 不进入 |
 | `4` | `Deleted` | 回收站 / 删除状态；仅管理端按删除语义读取 | 否 | 不进入 |
@@ -546,6 +546,12 @@ SPA 接管失败时采用 fail-closed：snapshot head 缺失、旧版本、diges
 作者工作台生产 API 放在 `/api/binary/author/**`，全部使用 admin 授权和 AEDS frame；浏览器不可访问 JSON envelope，仓内不保留 runtime internal compatibility 层。预览、草稿、修订、管理端 taxonomy、资产、AI 辅助都属于作者私有能力。未发布正文不得进入 feed、search、sitemap、PublicAOT cache，也不得默认发送到外部 AI provider。
 
 文章发布配置包含 Rights V3 策略。admin 创建/更新文章时，`ArticleWriteRequest` 必须使用 V3 frame 写入 `rights` 段；服务端在同一事务内写入文章修订、`article_rights_policy`、`article_rights_snapshot` 和 mutation outbox 的 `rightsSnapshotId`。前端 UI 尚未暴露完整版权面板时也必须写出默认 rights，不允许因为字段缺省让公开 artifact 后续缺失 rights 快照。
+
+### 修订与发布坐标
+
+`article.current_revision_id` 是作者侧当前可编辑修订；`article.current_publication_id` 是公开侧当前不可变发布记录。`article_publication` 固定关联 revision number、rights snapshot、可选 responsibility snapshot、publication number、转换类型和发布时间。公开 AOT、AEDS、搜索、缓存、feed 与 integrity 投影只能沿 `current_publication_id` 读取，不能在消费 outbox 时重新查询“最新修订”。公开列表与详情必须携带 `currentRevisionId/revisionNo/currentPublicationId/publicationNo`，且正文、标签、rights 与 responsibility 都要能回指同一发布记录。
+
+立即发布、首次定时发布、已发布文章定时更新、归档、恢复与回滚统一经过 `ArticlePublicationTransitionWriter`。已发布文章安排未来更新时，文章继续保持 `Published` 并用 `pending_publication_at` 记录切换点；到点前旧 publication 保持可读，到点后 worker 在同一 PostgreSQL 事务内创建新 publication、切换指针并写出带精确坐标的 outbox。任一步失败都回滚，不能暴露半套新内容。完整模型与无重启回退见 [文章修订与发布坐标](article-publication-revisions.md)。
 
 ### 预览
 
@@ -646,11 +652,11 @@ SEO 预览是作者工作台内的发布前质量门，不是新路由模型：�
 
 ## 公共文章读取投影
 
-`GET /api/binary/article/{id}.aeds` 的公开契约和安全链不变：请求仍先经过 `public_read`、RiskControl/PoW 与现有 L0 artifact 规则。文件/L0 article detail artifact miss 后，应用只允许执行 `public_article_projection(article_id PK)` 的单条 prepared 查询并直接返回已编码 AEDS frame；该读取不得 join article/category/tag/rights/proof，不得在请求时重新估算阅读时长或编码完整投影。投影 frame 必须同时通过 AEDS v2 header、受支持的 ArticleDetail payload（当前新写 `ARD4` V4，只读兼容 `ARD3` V3）、CRC 与 strong ETag 校验，命中后只回填一次文件/L1 路径。
+`GET /api/binary/article/{id}.aeds` 的公开契约和安全链不变：请求仍先经过 `public_read`、RiskControl/PoW 与现有 L0 artifact 规则。文件/L0 article detail artifact miss 后，应用只允许执行 `public_article_projection(article_id PK)` 的单条 prepared 查询并直接返回已编码 AEDS frame；该读取不得 join article/category/tag/rights/proof，不得在请求时重新估算阅读时长或编码完整投影。投影 frame 必须同时通过 AEDS v2 header、受支持的 ArticleDetail payload（当前新写 `ARD5` V5，只读兼容 `ARD4` V4 与 `ARD3` V3）、CRC 与 strong ETag 校验，命中后只回填一次文件/L1 路径。
 
 投影缺失或损坏是可恢复一致性故障：请求可进入旧 source query 兜底，但必须排队 repair；30 秒进程内 negative cache 抑制重复 DB miss，create/publish/restore/update/outbox replay 会同步清除该负缓存。`Database:PublicArticleProjection:Enabled=false` 是 reload-capable 的无需重启回退开关，只停止直接投影读取，不停止 outbox projector、旧查询、鉴权、`X-Fsus-*` headers、PoW 或统一 AEDS 错误语义。
 
-category/tag 重命名、rights/proof、scheduled publish、revision/content 与文章全生命周期 mutation 必须在 primary write 的同一事务写入 `article_mutation_outbox`。`article-detail-aeds` 仍是 required replay edge：DB projection、shadow parity 和 file artifact 任一步失败时不得把 edge/outbox 标记为完成。完整迁移、回填、门禁与回退说明见 [公共文章读取投影](../performance-public-article-projection.md)。
+category/tag 重命名、rights/proof、scheduled publish、revision/content 与文章全生命周期 mutation 必须在 primary write 的同一事务写入 `article_mutation_outbox`。事件列和 payload 都必须保存精确 revision/publication 坐标；replay 只允许加载该坐标，过期 publication 事件不得覆盖更新的公开投影。`article-detail-aeds` 仍是 required replay edge：DB projection、shadow parity 和 file artifact 任一步失败时不得把 edge/outbox 标记为完成。完整迁移、回填、门禁与回退说明见 [公共文章读取投影](../performance-public-article-projection.md) 与 [发布坐标一致性验证](../testing/article-publication-consistency.md)。
 
 ## Out of Scope
 

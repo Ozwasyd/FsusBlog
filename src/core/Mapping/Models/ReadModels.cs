@@ -45,7 +45,11 @@ public readonly record struct ArticleListCoreModel(
     bool? IsDeleted,
     int Status = 2,
     DateTime? ScheduledPublishAt = null,
-    DateTime? PublishedAt = null);
+    DateTime? PublishedAt = null,
+    long CurrentRevisionId = 0,
+    int RevisionNo = 0,
+    long? CurrentPublicationId = null,
+    int? PublicationNo = null);
 
 public readonly record struct ArticleDetailCoreModel(
     ArticleDetailPod Pod,
@@ -67,7 +71,11 @@ public readonly record struct ArticleDetailCoreModel(
     DateTime? ScheduledPublishAt = null,
     DateTime? PublishedAt = null,
     DateTime? UpdatedAt = null,
-    ArticleRightsCoreModel Rights = default);
+    ArticleRightsCoreModel Rights = default,
+    long CurrentRevisionId = 0,
+    int RevisionNo = 0,
+    long? CurrentPublicationId = null,
+    int? PublicationNo = null);
 
 public readonly record struct PopularArticleCoreModel(PopularArticlePod Pod, int Id, string Title, int Views);
 

@@ -11,9 +11,14 @@ const ARTICLE_DETAIL_V3_MAGIC = 0x41524433;
 const ARTICLE_DETAIL_V3_VERSION = 3;
 const ARTICLE_DETAIL_V4_MAGIC = 0x41524434;
 const ARTICLE_DETAIL_V4_VERSION = 4;
+const ARTICLE_DETAIL_V5_MAGIC = 0x41524435;
+const ARTICLE_DETAIL_V5_VERSION = 5;
 const ARTICLE_DETAIL_V3_HEADER_SIZE = 44;
 const ARTICLE_DETAIL_V3_RECORD_SIZE = 84;
 const ARTICLE_DETAIL_V4_RECORD_SIZE = 92;
+const ARTICLE_DETAIL_V5_RECORD_SIZE = 116;
+const ARTICLE_SEARCH_V4_MAGIC = 0x34534146;
+const ARTICLE_SEARCH_V4_VERSION = 4;
 const ARTICLE_DETAIL_TAG_V3_RECORD_SIZE = 12;
 const ARTICLE_RIGHTS_V3_RECORD_SIZE = 112;
 const ARTICLE_DETAIL_RIGHTS_KNOWN_FLAGS = (1 << 11) - 1;
@@ -53,8 +58,8 @@ export function mapArticlePageFromPodPayload(payload: Uint8Array): PageResponse<
   const tagRecordCount = readCountChecked(reader, 'article_page_tag_count_invalid');
   const blob = reader.readBlob();
   const itemRecordBytes = reader.remaining() - tagRecordCount * 12;
-  const itemRecordSize = count === 0 ? 76 : itemRecordBytes / count;
-  if (itemRecordBytes < 0 || (count > 0 && itemRecordBytes % count !== 0) || (itemRecordSize !== 56 && itemRecordSize !== 76)) {
+  const itemRecordSize = count === 0 ? 100 : itemRecordBytes / count;
+  if (itemRecordBytes < 0 || (count > 0 && itemRecordBytes % count !== 0) || (itemRecordSize !== 56 && itemRecordSize !== 76 && itemRecordSize !== 100)) {
     throw createAppError(AppErrorCode.ProtocolFailure, 'article_page_record_layout_invalid');
   }
 
@@ -75,7 +80,12 @@ export function mapArticlePageFromPodPayload(payload: Uint8Array): PageResponse<
   const statuses = new Int32Array(count);
   const scheduledPublishAtUnixMs = new Float64Array(count);
   const publishedAtUnixMs = new Float64Array(count);
-  const hasPublicationTail = itemRecordSize === 76;
+  const currentRevisionIds: string[] = new Array(count).fill('0');
+  const revisionNos = new Int32Array(count);
+  const currentPublicationIds: Array<string | null> = new Array(count).fill(null);
+  const publicationNos: Array<number | null> = new Array(count).fill(null);
+  const hasPublicationTail = itemRecordSize >= 76;
+  const hasVersionCoordinates = itemRecordSize === 100;
 
   for (let i = 0; i < count; i += 1) {
     const record = reader.readSpan(itemRecordSize);
@@ -99,6 +109,14 @@ export function mapArticlePageFromPodPayload(payload: Uint8Array): PageResponse<
     statuses[i] = hasPublicationTail ? readInt32(record, 56) : 2;
     scheduledPublishAtUnixMs[i] = hasPublicationTail ? readInt64Number(record, 60) : 0;
     publishedAtUnixMs[i] = hasPublicationTail ? readInt64Number(record, 68) : 0;
+    if (hasVersionCoordinates) {
+      currentRevisionIds[i] = readInt64String(record, 76);
+      revisionNos[i] = readInt32(record, 84);
+      const publicationId = readInt64String(record, 88);
+      const publicationNo = readInt32(record, 96);
+      currentPublicationIds[i] = publicationId === '0' ? null : publicationId;
+      publicationNos[i] = publicationNo > 0 ? publicationNo : null;
+    }
   }
 
   const tagRecords: ArticleListItemResponse['tags'] = [];
@@ -127,7 +145,11 @@ export function mapArticlePageFromPodPayload(payload: Uint8Array): PageResponse<
         id: categoryIds[i] ?? 0,
         name: readSliceText(blob, { offset: categoryNameOffsets[i] ?? 0, length: categoryNameLengths[i] ?? 0 })
       },
-      tags
+      tags,
+      currentRevisionId: currentRevisionIds[i] ?? '0',
+      revisionNo: revisionNos[i] ?? 0,
+      currentPublicationId: currentPublicationIds[i] ?? null,
+      publicationNo: publicationNos[i] ?? null
     };
     if (hasPublicationTail && hasIsDeletedFlags[i] === 1) {
       item.isDeleted = isDeletedFlags[i] === 1;
@@ -155,12 +177,13 @@ export function mapArticlePageFromPodPayload(payload: Uint8Array): PageResponse<
 }
 
 export function mapArticleSearchFromPodPayload(payload: Uint8Array): PageResponse<ArticleListItemResponse> {
-  if (payload.byteLength < 24 || readInt32(payload, 0) !== 0x33525346) {
+  const magic = payload.byteLength >= 4 ? readInt32(payload, 0) : 0;
+  if (payload.byteLength < 24 || (magic !== 0x33525346 && magic !== 0x34525346)) {
     return mapArticleSearchListPayload(payload);
   }
 
   const version = readInt32(payload, 4);
-  if (version !== 3) {
+  if (version !== 3 && version !== 4) {
     throw createAppError(AppErrorCode.ProtocolFailure, 'search_result_version_invalid');
   }
 
@@ -168,7 +191,8 @@ export function mapArticleSearchFromPodPayload(payload: Uint8Array): PageRespons
   const count = readCountChecked(new BinaryReader(payload.subarray(12, 16)), 'article_search_count_invalid');
   const tagOffset = readInt32(payload, 16);
   const blobOffset = readInt32(payload, 20);
-  const itemRecordSize = 52;
+  const hasVersionCoordinates = version === 4;
+  const itemRecordSize = hasVersionCoordinates ? 76 : 52;
   const tagRecordSize = 12;
   const itemStart = 24;
   const itemEnd = itemStart + count * itemRecordSize;
@@ -217,7 +241,15 @@ export function mapArticleSearchFromPodPayload(payload: Uint8Array): PageRespons
         offset: readInt32(payload, offset + 36),
         length: readInt32(payload, offset + 40)
       }),
-      tags
+      tags,
+      currentRevisionId: hasVersionCoordinates ? readInt64String(payload, offset + 52) : '0',
+      revisionNo: hasVersionCoordinates ? readInt32(payload, offset + 60) : 0,
+      currentPublicationId: hasVersionCoordinates && readInt64String(payload, offset + 64) !== '0'
+        ? readInt64String(payload, offset + 64)
+        : null,
+      publicationNo: hasVersionCoordinates && readInt32(payload, offset + 72) > 0
+        ? readInt32(payload, offset + 72)
+        : null
     });
   }
 
@@ -225,22 +257,39 @@ export function mapArticleSearchFromPodPayload(payload: Uint8Array): PageRespons
 }
 
 function mapArticleSearchListPayload(payload: Uint8Array): PageResponse<ArticleListItemResponse> {
-  const reader = new BinaryReader(payload);
+  const hasVersionCoordinates = payload.byteLength >= 12 && readInt32(payload, 0) === ARTICLE_SEARCH_V4_MAGIC;
+  if (hasVersionCoordinates && readInt32(payload, 4) !== ARTICLE_SEARCH_V4_VERSION) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'article_search_version_invalid');
+  }
+  const reader = new BinaryReader(hasVersionCoordinates ? payload.subarray(8) : payload);
   const count = readCountChecked(reader, 'article_search_count_invalid');
   const items: ArticleListItemResponse[] = [];
   for (let i = 0; i < count; i += 1) {
     const pod = reader.readSpan(ARTICLE_LIST_ITEM_POD_SIZE);
     const tags = readTagList(reader);
     const blob = reader.readBlob();
-    items.push({
+    const item: ArticleListItemResponse = {
       id: readInt32(pod, 0),
       views: readInt32(pod, 4),
       createTime: readIsoDate64(pod, 8),
       category: readCategoryPod(pod, 16, 20, 128),
       title: readFixedUtf8(pod, 148, 256),
       summary: readBlobText(pod, blob, 404),
-      tags
-    });
+      tags,
+      currentRevisionId: '0',
+      revisionNo: 0,
+      currentPublicationId: null,
+      publicationNo: null
+    };
+    if (hasVersionCoordinates) {
+      item.currentRevisionId = readInt64String(reader.readSpan(8), 0);
+      item.revisionNo = reader.readInt32();
+      const publicationId = readInt64String(reader.readSpan(8), 0);
+      const publicationNo = reader.readInt32();
+      item.currentPublicationId = publicationId === '0' ? null : publicationId;
+      item.publicationNo = publicationNo > 0 ? publicationNo : null;
+    }
+    items.push(item);
   }
 
   if (reader.remaining() !== 0) {
@@ -347,13 +396,14 @@ export function mapArticleDetailFromPodPayload(payload: Uint8Array): ArticleDeta
   const blobOffset = readInt32(payload, 36);
   const blobLength = readInt32(payload, 40);
   const isV4 = magic === ARTICLE_DETAIL_V4_MAGIC && version === ARTICLE_DETAIL_V4_VERSION;
+  const isV5 = magic === ARTICLE_DETAIL_V5_MAGIC && version === ARTICLE_DETAIL_V5_VERSION;
   const isV3 = magic === ARTICLE_DETAIL_V3_MAGIC && version === ARTICLE_DETAIL_V3_VERSION;
   if (
-    (!isV3 && !isV4) ||
+    (!isV3 && !isV4 && !isV5) ||
     flags !== 0 ||
     tagCount < 0 ||
     articleRecordOffset !== ARTICLE_DETAIL_V3_HEADER_SIZE ||
-    articleRecordLength !== (isV4 ? ARTICLE_DETAIL_V4_RECORD_SIZE : ARTICLE_DETAIL_V3_RECORD_SIZE) ||
+    articleRecordLength !== (isV5 ? ARTICLE_DETAIL_V5_RECORD_SIZE : isV4 ? ARTICLE_DETAIL_V4_RECORD_SIZE : ARTICLE_DETAIL_V3_RECORD_SIZE) ||
     rightsRecordLength !== ARTICLE_RIGHTS_V3_RECORD_SIZE
   ) {
     throw createAppError(AppErrorCode.ProtocolFailure, 'article_detail_header_invalid');
@@ -377,8 +427,8 @@ export function mapArticleDetailFromPodPayload(payload: Uint8Array): ArticleDeta
   const article = payload.subarray(articleRecordOffset, articleRecordOffset + articleRecordLength);
   const rightsRecord = payload.subarray(rightsRecordOffset, rightsRecordOffset + rightsRecordLength);
   const blob = payload.subarray(blobOffset, blobOffset + blobLength);
-  const sliceOffset = isV4 ? 52 : 44;
-  const isDeletedFlag = article[isV4 ? 48 : 40] ?? 0;
+  const sliceOffset = isV5 ? 76 : isV4 ? 52 : 44;
+  const isDeletedFlag = article[isV5 ? 72 : isV4 ? 48 : 40] ?? 0;
   if (isDeletedFlag > 1 || !validateArticleDetailRecordSlices(article, blob, sliceOffset)) {
     throw createAppError(AppErrorCode.ProtocolFailure, 'article_detail_record_invalid');
   }
@@ -413,7 +463,11 @@ export function mapArticleDetailFromPodPayload(payload: Uint8Array): ArticleDeta
     status: readInt32(article, 20) as ArticleDetailResponse['status'],
     scheduledPublishAt: unixMsToIsoOrNull(readInt64Number(article, 24)),
     publishedAt: unixMsToIsoOrNull(readInt64Number(article, 32)),
-    updatedAt: isV4 ? unixMsToIsoOrNull(readInt64Number(article, 40)) : null,
+    updatedAt: isV4 || isV5 ? unixMsToIsoOrNull(readInt64Number(article, 40)) : null,
+    currentRevisionId: isV5 ? readInt64String(article, 48) : '0',
+    revisionNo: isV5 ? readInt32(article, 56) : 0,
+    currentPublicationId: isV5 && readInt64String(article, 60) !== '0' ? readInt64String(article, 60) : null,
+    publicationNo: isV5 && readInt32(article, 68) > 0 ? readInt32(article, 68) : null,
     rights
   };
 }

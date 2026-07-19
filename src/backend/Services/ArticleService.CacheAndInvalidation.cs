@@ -42,13 +42,14 @@ public partial class ArticleService
         cancellationToken.ThrowIfCancellationRequested();
         DateTime now = DateTime.UtcNow;
         var topFromDb = await _db.Queryable<Article>()
+            .InnerJoin<ArticlePublicationRecord>((article, publication) => article.CurrentPublicationId == publication.Id)
             .Where(a => !a.IsDeleted
                 && a.Status == ArticleStatus.Published
                 && (a.PublishedAt == null || a.PublishedAt <= now)
                 && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= now))
-            .OrderByDescending(a => a.Views)
+            .OrderByDescending((article, publication) => article.Views)
             .Take(count)
-            .Select(a => new { a.Id, a.Views })
+            .Select((article, publication) => new { article.Id, article.Views })
             .ToListAsync(cancellationToken);
 
         if (topFromDb.Count == 0)

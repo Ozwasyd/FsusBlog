@@ -49,6 +49,22 @@ public sealed record class ArticleListItemReadModel
     {
         get; init;
     }
+    public long CurrentRevisionId
+    {
+        get; init;
+    }
+    public int RevisionNo
+    {
+        get; init;
+    }
+    public long? CurrentPublicationId
+    {
+        get; init;
+    }
+    public int? PublicationNo
+    {
+        get; init;
+    }
 }
 
 public sealed record class ArticleDetailReadModel
@@ -107,6 +123,22 @@ public sealed record class ArticleDetailReadModel
         get; init;
     }
     public DateTime? UpdatedAt
+    {
+        get; init;
+    }
+    public long CurrentRevisionId
+    {
+        get; init;
+    }
+    public int RevisionNo
+    {
+        get; init;
+    }
+    public long? CurrentPublicationId
+    {
+        get; init;
+    }
+    public int? PublicationNo
     {
         get; init;
     }

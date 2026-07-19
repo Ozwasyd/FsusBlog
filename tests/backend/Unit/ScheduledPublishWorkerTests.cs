@@ -19,11 +19,13 @@ namespace FsusBlog.Server.Tests;
 [Collection(nameof(SchemaMigrationPostgresCollectionB))]
 public sealed class ScheduledPublishWorkerTests(PostgresSchemaMigrationFixture fixture)
 {
+    private static readonly DateTimeOffset s_now = new(2026, 7, 19, 8, 0, 0, TimeSpan.Zero);
+
     [Fact]
     public async Task PublishDueArticlesAsync_CommitsPublishedStateAndOutboxWithoutSideEffectServices()
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
-        int dueArticleId = InsertScheduledArticle(db, "due", DateTime.UtcNow.AddMinutes(-5));
+        int dueArticleId = InsertScheduledArticle(db, "due", s_now.UtcDateTime.AddMinutes(-5));
         using ServiceProvider provider = CreateWorkerProvider(db);
         var logger = new CapturingLogger<ScheduledPublishWorker>();
         var worker = CreateWorker(provider, logger);
@@ -38,21 +40,30 @@ public sealed class ScheduledPublishWorkerTests(PostgresSchemaMigrationFixture f
         Assert.Equal(ArticleStatus.Published, article.Status);
         Assert.Null(article.ScheduledPublishAt);
         Assert.NotNull(article.PublishedAt);
+        ArticlePublicationRecord publication = Assert.Single(
+            await db.Queryable<ArticlePublicationRecord>().ToListAsync());
+        Assert.Equal(publication.Id, article.CurrentPublicationId);
+        Assert.Equal(1, publication.PublicationNo);
+        Assert.Equal("scheduled-publish", publication.TransitionKind);
         Assert.Equal(dueArticleId, outbox.AggregateId);
         Assert.Equal("article", outbox.AggregateType);
         Assert.Equal("scheduled-published", outbox.EventType);
         Assert.Equal("pending", outbox.Status);
         Assert.Equal(0, outbox.RetryCount);
+        Assert.Equal(publication.ArticleRevisionId, outbox.ArticleRevisionId);
+        Assert.Equal(publication.Id, outbox.ArticlePublicationId);
+        Assert.Equal(publication.PublicationNo, outbox.PublicationNo);
         Assert.Contains($"\"articleId\":{dueArticleId}", outbox.PayloadJson, StringComparison.Ordinal);
+        Assert.Contains($"\"articlePublicationId\":{publication.Id}", outbox.PayloadJson, StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task PublishDueArticlesAsync_ClaimsDueRowsWithLockingBatchAndLeavesFutureRowsScheduled()
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
-        int firstDueId = InsertScheduledArticle(db, "first", DateTime.UtcNow.AddMinutes(-10));
-        int secondDueId = InsertScheduledArticle(db, "second", DateTime.UtcNow.AddMinutes(-5));
-        int futureId = InsertScheduledArticle(db, "future", DateTime.UtcNow.AddHours(1));
+        int firstDueId = InsertScheduledArticle(db, "first", s_now.UtcDateTime.AddMinutes(-10));
+        int secondDueId = InsertScheduledArticle(db, "second", s_now.UtcDateTime.AddMinutes(-5));
+        int futureId = InsertScheduledArticle(db, "future", s_now.UtcDateTime.AddHours(1));
         var executedSql = new List<string>();
         db.Aop.OnLogExecuting = (sql, _) => executedSql.Add(sql);
         using ServiceProvider provider = CreateWorkerProvider(db);
@@ -67,9 +78,10 @@ public sealed class ScheduledPublishWorkerTests(PostgresSchemaMigrationFixture f
             .OrderBy(static item => item.AggregateId)
             .ToListAsync();
         string claimSql = Assert.Single(executedSql, static sql =>
-            sql.Contains("UPDATE article", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains("FOR UPDATE SKIP LOCKED", claimSql, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("RETURNING id", claimSql, StringComparison.OrdinalIgnoreCase);
+            sql.Contains("FOR UPDATE OF article SKIP LOCKED", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains("FOR UPDATE OF article SKIP LOCKED", claimSql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("JOIN article_revision", claimSql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("pending_publication_at", claimSql, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(2, published);
         Assert.Equal([firstDueId, secondDueId], outbox.Select(static item => item.AggregateId).ToArray());
         Assert.All(outbox, static item => Assert.Equal("scheduled-published", item.EventType));
@@ -80,10 +92,59 @@ public sealed class ScheduledPublishWorkerTests(PostgresSchemaMigrationFixture f
     }
 
     [Fact]
+    public async Task PublishDueArticlesAsync_DuePublishedRevision_SwitchesFromOldPublicationAtomically()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        DateTime dueAt = s_now.UtcDateTime.AddMinutes(-5);
+        int articleId = InsertScheduledArticle(db, "published edit", dueAt);
+        Article article = await db.Queryable<Article>().InSingleAsync(articleId);
+        ArticleRightsSnapshot rights = await db.Queryable<ArticleRightsSnapshot>()
+            .Where(snapshot => snapshot.ArticleId == articleId)
+            .SingleAsync();
+        long originalPublicationId = db.Insertable(new ArticlePublicationRecord
+        {
+            ArticleId = articleId,
+            PublicationNo = 1,
+            ArticleRevisionId = article.CurrentRevisionId!.Value,
+            RevisionNo = 1,
+            RightsSnapshotId = rights.Id,
+            TransitionKind = "immediate-publish",
+            PublishedAt = dueAt.AddDays(-1),
+            CreatedAt = dueAt.AddDays(-1)
+        }).ExecuteReturnBigIdentity();
+        db.Updateable<Article>()
+            .SetColumns(current => new Article
+            {
+                Status = ArticleStatus.Published,
+                ScheduledPublishAt = null,
+                PendingPublicationAt = dueAt,
+                CurrentPublicationId = originalPublicationId,
+                PublishedAt = dueAt.AddDays(-1)
+            })
+            .Where(current => current.Id == articleId)
+            .ExecuteCommand();
+        using ServiceProvider provider = CreateWorkerProvider(db);
+        var worker = CreateWorker(provider);
+
+        int published = await worker.PublishDueArticlesAsync(CancellationToken.None);
+
+        Article after = await db.Queryable<Article>().InSingleAsync(articleId);
+        List<ArticlePublicationRecord> publications = await db.Queryable<ArticlePublicationRecord>()
+            .Where(record => record.ArticleId == articleId)
+            .OrderBy(record => record.PublicationNo)
+            .ToListAsync();
+        Assert.Equal(1, published);
+        Assert.Equal([1, 2], publications.Select(static record => record.PublicationNo).ToArray());
+        Assert.Equal(publications[1].Id, after.CurrentPublicationId);
+        Assert.Null(after.PendingPublicationAt);
+        Assert.Equal(ArticleStatus.Published, after.Status);
+    }
+
+    [Fact]
     public async Task PublishDueArticlesAsync_EstablishesDurableFenceBeforePublishingRow()
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
-        int dueArticleId = InsertScheduledArticle(db, "fenced", DateTime.UtcNow.AddMinutes(-5));
+        int dueArticleId = InsertScheduledArticle(db, "fenced", s_now.UtcDateTime.AddMinutes(-5));
         var mutationFence = Substitute.For<IArticlePublicMutationFence>();
         mutationFence
             .BeginPublicMutationFenceAsync(null, Arg.Any<CancellationToken>())
@@ -117,7 +178,7 @@ public sealed class ScheduledPublishWorkerTests(PostgresSchemaMigrationFixture f
     public async Task PublishDueArticlesAsync_WhenFenceFails_LeavesRowScheduledAndWritesNoOutbox()
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
-        int dueArticleId = InsertScheduledArticle(db, "fence failure", DateTime.UtcNow.AddMinutes(-5));
+        int dueArticleId = InsertScheduledArticle(db, "fence failure", s_now.UtcDateTime.AddMinutes(-5));
         var mutationFence = Substitute.For<IArticlePublicMutationFence>();
         mutationFence
             .BeginPublicMutationFenceAsync(null, Arg.Any<CancellationToken>())
@@ -146,7 +207,7 @@ public sealed class ScheduledPublishWorkerTests(PostgresSchemaMigrationFixture f
         var worker = new ScheduledPublishWorker(
             scopeFactory,
             NullLogger<ScheduledPublishWorker>.Instance,
-            TimeProvider.System,
+            new StaticTimeProvider(s_now),
             runtimeState,
             new TestBackgroundWorkerLease(),
             Substitute.For<IActiveReleaseTransactionalCommitGuard>());
@@ -163,12 +224,20 @@ public sealed class ScheduledPublishWorkerTests(PostgresSchemaMigrationFixture f
     private async Task<SqlSugarClient> CreateDatabaseAsync()
     {
         SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
-        PostgresSqlSugarTestClient.InitTables(db, typeof(Article), typeof(ArticleMutationOutboxEvent));
+        PostgresSqlSugarTestClient.InitTables(
+            db,
+            typeof(Article),
+            typeof(ArticleRevision),
+            typeof(ArticleRightsSnapshot),
+            typeof(ArticleResponsibilitySnapshot),
+            typeof(ArticlePublicationRecord),
+            typeof(ArticleMutationOutboxEvent));
         return db;
     }
 
     private static int InsertScheduledArticle(SqlSugarClient db, string title, DateTime scheduledAt)
-        => db.Insertable(new Article
+    {
+        int articleId = db.Insertable(new Article
         {
             Title = title,
             CategoryId = 1,
@@ -178,6 +247,30 @@ public sealed class ScheduledPublishWorkerTests(PostgresSchemaMigrationFixture f
             CreateTime = scheduledAt.AddHours(-1),
             IsDeleted = false
         }).ExecuteReturnIdentity();
+        long revisionId = db.Insertable(new ArticleRevision
+        {
+            ArticleId = articleId,
+            RevisionNo = 1,
+            Title = title,
+            CategoryId = 1,
+            MarkdownContent = title,
+            DiffSummary = "scheduled publish test",
+            CreatedAt = scheduledAt.AddHours(-1)
+        }).ExecuteReturnBigIdentity();
+        db.Updateable<Article>()
+            .SetColumns(article => article.CurrentRevisionId == revisionId)
+            .Where(article => article.Id == articleId)
+            .ExecuteCommand();
+        db.Insertable(new ArticleRightsSnapshot
+        {
+            ArticleId = articleId,
+            ArticleRevisionId = revisionId,
+            RevisionNo = 1,
+            ArticleRightsPolicyId = 1,
+            CreatedAt = scheduledAt.AddHours(-1)
+        }).ExecuteCommand();
+        return articleId;
+    }
 
     private static ServiceProvider CreateWorkerProvider(
         ISqlSugarClient db,
@@ -195,7 +288,7 @@ public sealed class ScheduledPublishWorkerTests(PostgresSchemaMigrationFixture f
         => new(
             provider.GetRequiredService<IServiceScopeFactory>(),
             logger ?? NullLogger<ScheduledPublishWorker>.Instance,
-            TimeProvider.System,
+            new StaticTimeProvider(s_now),
             new ScheduledPublishRuntimeState(),
             new TestBackgroundWorkerLease(),
             Substitute.For<IActiveReleaseTransactionalCommitGuard>());
@@ -223,6 +316,11 @@ public sealed class ScheduledPublishWorkerTests(PostgresSchemaMigrationFixture f
                 Messages.Add(exception.ToString());
             }
         }
+    }
+
+    private sealed class StaticTimeProvider(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
     }
 
     private sealed class ImmediateDbConcurrencyGate : IDbConcurrencyGate

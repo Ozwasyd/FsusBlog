@@ -18,13 +18,13 @@ namespace
 {
 
 constexpr std::uint32_t KShardMagic = 0x32534846u; // FHS2
-constexpr std::uint32_t KShardVersion = 3u;
+constexpr std::uint32_t KShardVersion = 4u;
 constexpr std::uint32_t KPatchMagic = 0x54505346u; // FSPT
 constexpr std::uint32_t KPatchVersion = 3u;
 constexpr std::uint32_t KPackageMagic = 0x4B505346u; // FSPK
-constexpr std::uint32_t KPackageVersion = 3u;
-constexpr std::uint32_t KSearchResultMagic = 0x33525346u; // FSR3
-constexpr std::uint32_t KSearchResultVersion = 3u;
+constexpr std::uint32_t KPackageVersion = 4u;
+constexpr std::uint32_t KSearchResultMagic = 0x34525346u; // FSR4
+constexpr std::uint32_t KSearchResultVersion = 4u;
 constexpr double KBm25K1 = 1.2;
 constexpr double KBm25B = 0.75;
 constexpr double KTitleBoost = 2.5;
@@ -76,6 +76,10 @@ struct SearchDoc
     std::uint32_t Views = 0;
     std::uint32_t CommentCount = 0;
     std::uint32_t DocLength = 1;
+    std::int64_t RevisionId = 0;
+    std::int32_t RevisionNo = 0;
+    std::int64_t PublicationId = 0;
+    std::int32_t PublicationNo = 0;
     std::string Title;
     std::string Summary;
     std::string CategoryName;
@@ -570,7 +574,7 @@ void BuildBinaryPage(const std::vector<ScoreEntry>& scores, std::size_t page, st
     t_lastResult.clear();
     const std::size_t ItemCount = Start < Total ? std::min(Total - Start, SafeSize) : 0;
     constexpr std::size_t HeaderSize = 24;
-    constexpr std::size_t ItemRecordSize = 52;
+    constexpr std::size_t ItemRecordSize = 76;
     constexpr std::size_t TagRecordSize = 12;
     std::string records;
     std::string tagRecords;
@@ -605,6 +609,10 @@ void BuildBinaryPage(const std::vector<ScoreEntry>& scores, std::size_t page, st
         AppendBlobRef(records, blob, doc.Summary);
         WriteU32(records, static_cast<std::uint32_t>(tagRecords.size() / TagRecordSize));
         WriteU32(records, static_cast<std::uint32_t>(doc.Tags.size()));
+        WriteI64(records, doc.RevisionId);
+        WriteU32(records, static_cast<std::uint32_t>(doc.RevisionNo));
+        WriteI64(records, doc.PublicationId);
+        WriteU32(records, static_cast<std::uint32_t>(doc.PublicationNo));
         for (const SearchTag& tag : doc.Tags)
         {
             WriteU32(tagRecords, tag.Id);
@@ -862,6 +870,10 @@ bool ParseShardPayload(const std::uint8_t* data,
         std::uint16_t summaryLength = ReadU16(cursor, end);
         cursor += 2;
         cursor += 4;
+        std::int64_t revisionId = ReadI64(cursor, end);
+        std::int32_t revisionNo = static_cast<std::int32_t>(ReadU32(cursor, end));
+        std::int64_t publicationId = ReadI64(cursor, end);
+        std::int32_t publicationNo = static_cast<std::int32_t>(ReadU32(cursor, end));
 
         if (!t_lastError.empty())
         {
@@ -876,6 +888,10 @@ bool ParseShardPayload(const std::uint8_t* data,
             doc.Views = views;
             doc.CommentCount = commentCount;
             doc.DocLength = docLength == 0 ? 1u : docLength;
+            doc.RevisionId = revisionId;
+            doc.RevisionNo = revisionNo;
+            doc.PublicationId = publicationId;
+            doc.PublicationNo = publicationNo;
             doc.Title = ReadString(base + StringPoolOffset, end, titleOffset, titleLength);
             doc.Summary = ReadString(base + StringPoolOffset, end, summaryOffset, summaryLength);
             if (categoryIndex < categories.size())

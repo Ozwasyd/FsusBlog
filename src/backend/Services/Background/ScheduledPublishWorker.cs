@@ -188,48 +188,77 @@ public sealed class ScheduledPublishWorker(
         int insertedOutboxEvents = 0;
         var tran = await db.Ado.UseTranAsync(async () =>
         {
+            var due = new List<ScheduledPublicationCandidate>();
             using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
-                    """
-                    UPDATE article
-                    SET status = @PublishedStatus,
-                        published_at = @Now,
-                        scheduled_publish_at = NULL
-                    WHERE id IN (
-                        SELECT id
-                        FROM article
-                        WHERE id IN (@CandidateArticleIds)
-                          AND isdeleted = false
-                          AND status = @ScheduledStatus
-                          AND scheduled_publish_at <= @Now
-                        ORDER BY scheduled_publish_at, id
-                        LIMIT @BatchSize
-                        FOR UPDATE SKIP LOCKED
-                    )
-                    RETURNING id;
-                    """,
-                    new SugarParameter[]
-                    {
-                        new("@PublishedStatus", (int)ArticleStatus.Published),
-                        new("@Now", now),
-                        new("@ScheduledStatus", (int)ArticleStatus.Scheduled),
-                        new("@CandidateArticleIds", candidateArticleIds.ToArray()),
-                        new("@BatchSize", 100)
-                    }))
+                """
+                SELECT
+                    article.id,
+                    revision.id AS revision_id,
+                    revision.revision_no,
+                    rights.id AS rights_snapshot_id,
+                    responsibility.id AS responsibility_snapshot_id
+                FROM article article
+                JOIN article_revision revision ON revision.id = article.current_revision_id
+                JOIN article_rights_snapshot rights
+                  ON rights.article_id = article.id
+                 AND rights.article_revision_id = revision.id
+                LEFT JOIN article_responsibility_snapshot responsibility
+                  ON responsibility.article_revision_id = revision.id
+                WHERE article.id IN (@CandidateArticleIds)
+                  AND article.isdeleted = false
+                  AND (
+                    (article.status = @ScheduledStatus AND article.scheduled_publish_at <= @Now)
+                    OR
+                    (article.status = @PublishedStatus AND article.pending_publication_at <= @Now)
+                  )
+                ORDER BY COALESCE(article.pending_publication_at, article.scheduled_publish_at), article.id
+                LIMIT @BatchSize
+                FOR UPDATE OF article SKIP LOCKED;
+                """,
+                new SugarParameter("@PublishedStatus", (int)ArticleStatus.Published),
+                new SugarParameter("@Now", now),
+                new SugarParameter("@ScheduledStatus", (int)ArticleStatus.Scheduled),
+                new SugarParameter("@CandidateArticleIds", candidateArticleIds.ToArray()),
+                new SugarParameter("@BatchSize", 100)))
             {
                 while (await reader.ReadAsync(cancellationToken))
                 {
-                    claimedArticleIds.Add(reader.ReadInt32("id"));
+                    due.Add(new ScheduledPublicationCandidate(
+                        reader.ReadInt32("id"),
+                        reader.ReadInt64("revision_id"),
+                        reader.ReadInt32("revision_no"),
+                        reader.ReadInt64("rights_snapshot_id"),
+                        reader.IsNull("responsibility_snapshot_id")
+                            ? null
+                            : reader.ReadInt64("responsibility_snapshot_id")));
                 }
             }
 
-            if (claimedArticleIds.Count == 0)
+            if (due.Count == 0)
             {
                 return;
             }
 
-            List<ArticleMutationOutboxEvent> outboxEvents = claimedArticleIds
-                .Select(articleId => BuildScheduledPublishOutboxEvent(articleId, now))
-                .ToList();
+            var outboxEvents = new List<ArticleMutationOutboxEvent>(due.Count);
+            foreach (ScheduledPublicationCandidate candidate in due)
+            {
+                ArticleVersionCoordinates published = await ArticlePublicationTransitionWriter.ApplyAsync(
+                    db,
+                    new ArticlePublicationTransitionRequest(
+                        candidate.ArticleId,
+                        ArticleVersionCoordinates.Revision(
+                            candidate.RevisionId,
+                            candidate.RevisionNo,
+                            candidate.RightsSnapshotId,
+                            candidate.ResponsibilitySnapshotId),
+                        ArticleStatus.Published,
+                        null,
+                        now,
+                        ArticlePublicationTransitionKinds.ScheduledPublish),
+                    cancellationToken).ConfigureAwait(false);
+                claimedArticleIds.Add(candidate.ArticleId);
+                outboxEvents.Add(BuildScheduledPublishOutboxEvent(candidate.ArticleId, published, now));
+            }
             insertedOutboxEvents = await db.Insertable(outboxEvents).ExecuteCommandAsync(cancellationToken);
             if (insertedOutboxEvents != claimedArticleIds.Count)
             {
@@ -264,12 +293,16 @@ public sealed class ScheduledPublishWorker(
             SELECT id
             FROM article
             WHERE isdeleted = false
-              AND status = @ScheduledStatus
-              AND scheduled_publish_at <= @Now
-            ORDER BY scheduled_publish_at, id
+              AND (
+                (status = @ScheduledStatus AND scheduled_publish_at <= @Now)
+                OR
+                (status = @PublishedStatus AND pending_publication_at <= @Now)
+              )
+            ORDER BY COALESCE(pending_publication_at, scheduled_publish_at), id
             LIMIT @BatchSize;
             """,
             new SugarParameter("@ScheduledStatus", (int)ArticleStatus.Scheduled),
+            new SugarParameter("@PublishedStatus", (int)ArticleStatus.Published),
             new SugarParameter("@Now", now),
             new SugarParameter("@BatchSize", 100));
         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
@@ -305,24 +338,41 @@ public sealed class ScheduledPublishWorker(
     {
         bool hasBacklog = await db.Queryable<Article>()
             .Where(article => !article.IsDeleted
-                && article.Status == ArticleStatus.Scheduled
-                && article.ScheduledPublishAt <= now)
+                && ((article.Status == ArticleStatus.Scheduled && article.ScheduledPublishAt <= now)
+                    || (article.Status == ArticleStatus.Published && article.PendingPublicationAt <= now)))
             .AnyAsync(cancellationToken);
         return hasBacklog ? 1 : 0;
     }
 
-    private static ArticleMutationOutboxEvent BuildScheduledPublishOutboxEvent(int articleId, DateTime now)
+    private static ArticleMutationOutboxEvent BuildScheduledPublishOutboxEvent(
+        int articleId,
+        ArticleVersionCoordinates version,
+        DateTime now)
         => new()
         {
             EventId = Guid.NewGuid().ToString("N"),
             AggregateId = articleId,
+            ArticleRevisionId = version.RevisionId,
+            RevisionNo = version.RevisionNo,
+            ArticlePublicationId = version.PublicationId,
+            PublicationNo = version.PublicationNo,
             EventType = ArticleMutationEventTypes.ScheduledPublished,
-            PayloadJson = $"{{\"articleId\":{articleId},\"eventType\":\"scheduled-published\"}}",
+            PayloadJson = ArticlePublicationTransitionWriter.BuildOutboxPayload(
+                articleId,
+                ArticleMutationEventTypes.ScheduledPublished,
+                version),
             Status = "pending",
             RetryCount = 0,
             NextRetryAt = now,
             CreatedAt = now
         };
+
+    private sealed record ScheduledPublicationCandidate(
+        int ArticleId,
+        long RevisionId,
+        int RevisionNo,
+        long RightsSnapshotId,
+        long? ResponsibilitySnapshotId);
 
     private sealed record ScheduledPublishBatchCommit(
         IReadOnlyList<int> ClaimedArticleIds,

@@ -47,6 +47,7 @@ public static class PodContractValidation
             && IsReferenceFree<ArticleDetailV3RecordPod>()
             && IsReferenceFree<ArticleDetailV4HeaderPod>()
             && IsReferenceFree<ArticleDetailV4RecordPod>()
+            && IsReferenceFree<ArticleDetailV5RecordPod>()
             && IsReferenceFree<ArticleDetailTagV3RecordPod>()
             && IsReferenceFree<ArticleRightsV3RecordPod>()
             && IsReferenceFree<FeaturedArticlePod>()

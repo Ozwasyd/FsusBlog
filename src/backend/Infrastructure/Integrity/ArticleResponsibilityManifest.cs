@@ -77,6 +77,7 @@ public sealed class ArticleResponsibilityManifestService(
             .Where(it => it.Id == articleId
                 && !it.IsDeleted
                 && it.Status == ArticleStatus.Published
+                && it.CurrentPublicationId != null
                 && (it.PublishedAt == null || it.PublishedAt <= utcNow)
                 && (it.ScheduledPublishAt == null || it.ScheduledPublishAt <= utcNow))
             .AnyAsync(cancellationToken);
@@ -85,11 +86,22 @@ public sealed class ArticleResponsibilityManifestService(
             return NotFound();
         }
 
-        ArticleRevision? revision = await db.Queryable<ArticleRevision>()
-            .Where(it => it.ArticleId == articleId)
-            .WhereIF(requestedRevisionNo.HasValue, it => it.RevisionNo == requestedRevisionNo)
-            .OrderBy(it => it.RevisionNo, OrderByType.Desc)
-            .FirstAsync(cancellationToken);
+        ArticlePublicationRecord? currentPublication = requestedRevisionNo.HasValue
+            ? null
+            : await db.Queryable<Article>()
+                .InnerJoin<ArticlePublicationRecord>((article, publication) => article.CurrentPublicationId == publication.Id)
+                .Where(article => article.Id == articleId)
+                .Select((article, publication) => publication)
+                .FirstAsync(cancellationToken);
+        ArticleRevision? revision = currentPublication is not null
+            ? await db.Queryable<ArticleRevision>()
+                .Where(it => it.Id == currentPublication.ArticleRevisionId && it.ArticleId == articleId)
+                .FirstAsync(cancellationToken)
+            : await db.Queryable<ArticleRevision>()
+                .Where(it => it.ArticleId == articleId)
+                .WhereIF(requestedRevisionNo.HasValue, it => it.RevisionNo == requestedRevisionNo)
+                .OrderBy(it => it.RevisionNo, OrderByType.Desc)
+                .FirstAsync(cancellationToken);
         if (revision is null)
         {
             if (!requestedRevisionNo.HasValue)
@@ -104,8 +116,10 @@ public sealed class ArticleResponsibilityManifestService(
             return NotFound();
         }
 
+        long? currentResponsibilitySnapshotId = currentPublication?.ResponsibilitySnapshotId;
         ArticleResponsibilitySnapshot? snapshot = await db.Queryable<ArticleResponsibilitySnapshot>()
             .Where(it => it.ArticleId == articleId && it.ArticleRevisionId == revision.Id)
+            .WhereIF(currentResponsibilitySnapshotId.HasValue, it => it.Id == currentResponsibilitySnapshotId!.Value)
             .FirstAsync(cancellationToken);
         PublicAotSeoSnapshot site = await seoConfigSnapshot.GetAsync(cancellationToken);
 

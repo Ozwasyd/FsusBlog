@@ -108,6 +108,7 @@ public sealed class ArticleMutationOutboxClaimLeaseTests
             default,
             default!,
             default!,
+            default,
             default!,
             default);
         await cache.DidNotReceiveWithAnyArgs().InvalidateArticleMutationAsync(default, default);

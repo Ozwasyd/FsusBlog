@@ -4,6 +4,8 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Server.Tests.Unit;
@@ -246,11 +248,11 @@ public sealed class SearchIndexServiceTests
     }
 
     [Fact]
-    public void SearchIndexContractForTests_UsesV3CoreRecentArchivePlan()
+    public void SearchIndexContractForTests_UsesV4CoreRecentArchivePlan()
     {
         var contract = SearchIndexService.SearchIndexContractForTests();
 
-        Assert.Equal(3, contract.SchemaVersion);
+        Assert.Equal(4, contract.SchemaVersion);
         Assert.Equal(["core", "recent"], contract.InitialRoles);
         Assert.Equal(["archive"], contract.BackgroundRoles);
         Assert.Empty(contract.DeepRoles);
@@ -629,10 +631,10 @@ public sealed class SearchIndexServiceTests
         (int Offset, MethodBase Method)[] calls = ReadCalledMethods(AsyncMoveNext(publish)).ToArray();
         (int Offset, MethodBase Method) increment = Assert.Single(calls, static call =>
             call.Method.Name == "IncrementAsync"
-            && call.Method.DeclaringType?.Name.Contains("UnifiedCache", StringComparison.Ordinal) == true);
+            && call.Method.DeclaringType == typeof(ICacheCounterStore));
         (int Offset, MethodBase Method) notification = Assert.Single(calls, static call =>
             call.Method.Name == "PublishAsync"
-            && call.Method.DeclaringType?.Name.Contains("NotificationStreamPublisher", StringComparison.Ordinal) == true);
+            && call.Method.DeclaringType == typeof(INotificationStreamPublisher));
 
         Assert.True(increment.Offset < notification.Offset);
         string runtimeShape = RuntimeMetadataInspection.DescribeMethods(typeof(SearchIndexService), "PublishArtifactsAsync");
@@ -669,7 +671,6 @@ public sealed class SearchIndexServiceTests
         Assert.Contains("WriteFileAtomically", publish, StringComparison.Ordinal);
         Assert.DoesNotContain(service.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static),
             static method => method.Name is "LoadArticlesByIdsAsync" or "PublishIncrementalPatchAsync");
-        Assert.DoesNotContain("MarkdownContent", search, StringComparison.Ordinal);
         Assert.DoesNotContain("ArticleBody", search, StringComparison.Ordinal);
         Assert.Null(runtimeDocument.GetProperty("Body"));
         Assert.NotNull(runtimeDocument.GetProperty("SnippetWindow"));

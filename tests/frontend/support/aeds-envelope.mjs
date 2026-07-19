@@ -88,14 +88,18 @@ const ARTICLE_PAGE_CURSOR_ENVELOPE_MAGIC = 0x41535046
 const ARTICLE_PAGE_CURSOR_ENVELOPE_VERSION = 1
 const ARTICLE_LIST_RECORD_SIZE = 56
 const ARTICLE_LIST_RECORD_WITH_STATUS_SIZE = 76
+const ARTICLE_LIST_RECORD_WITH_PUBLICATION_SIZE = 100
 const COMPACT_TAG_RECORD_SIZE = 12
 const ARTICLE_DETAIL_V3_MAGIC = 0x41524433
 const ARTICLE_DETAIL_V3_VERSION = 3
 const ARTICLE_DETAIL_V4_MAGIC = 0x41524434
 const ARTICLE_DETAIL_V4_VERSION = 4
+const ARTICLE_DETAIL_V5_MAGIC = 0x41524435
+const ARTICLE_DETAIL_V5_VERSION = 5
 const ARTICLE_DETAIL_V3_HEADER_SIZE = 44
 const ARTICLE_DETAIL_V3_RECORD_SIZE = 84
 const ARTICLE_DETAIL_V4_RECORD_SIZE = 92
+const ARTICLE_DETAIL_V5_RECORD_SIZE = 116
 const ARTICLE_DETAIL_TAG_V3_RECORD_SIZE = 12
 const ARTICLE_DETAIL_RIGHTS_V3_RECORD_SIZE = 112
 const ARTICLE_DETAIL_RIGHTS_KNOWN_FLAGS = (1 << 11) - 1
@@ -1185,8 +1189,8 @@ function decodeArticlePage(payload) {
   }
   const blob = reader.readBlob()
   const itemRecordBytes = reader.remaining() - tagRecordCount * COMPACT_TAG_RECORD_SIZE
-  const itemRecordSize = count === 0 ? ARTICLE_LIST_RECORD_WITH_STATUS_SIZE : itemRecordBytes / count
-  if (itemRecordBytes < 0 || (count > 0 && itemRecordBytes % count !== 0) || ![ARTICLE_LIST_RECORD_SIZE, ARTICLE_LIST_RECORD_WITH_STATUS_SIZE].includes(itemRecordSize)) {
+  const itemRecordSize = count === 0 ? ARTICLE_LIST_RECORD_WITH_PUBLICATION_SIZE : itemRecordBytes / count
+  if (itemRecordBytes < 0 || (count > 0 && itemRecordBytes % count !== 0) || ![ARTICLE_LIST_RECORD_SIZE, ARTICLE_LIST_RECORD_WITH_STATUS_SIZE, ARTICLE_LIST_RECORD_WITH_PUBLICATION_SIZE].includes(itemRecordSize)) {
     throw new Error('article_page_record_layout_invalid')
   }
 
@@ -1223,11 +1227,19 @@ function decodeArticlePage(payload) {
       },
       tags: tagRecords.slice(tagStart, tagStart + tagCount)
     }
-    if (itemRecordSize === ARTICLE_LIST_RECORD_WITH_STATUS_SIZE) {
+    if (itemRecordSize >= ARTICLE_LIST_RECORD_WITH_STATUS_SIZE) {
       item.isDeleted = record[53] === 1 ? record[52] === 1 : undefined
       item.status = readInt32(view, 56)
       item.scheduledPublishAt = unixMsToIsoOrNull(readInt64Number(view, 60))
       item.publishedAt = unixMsToIsoOrNull(readInt64Number(view, 68))
+    }
+    if (itemRecordSize === ARTICLE_LIST_RECORD_WITH_PUBLICATION_SIZE) {
+      item.currentRevisionId = String(readInt64Number(view, 76))
+      item.revisionNo = readInt32(view, 84)
+      const currentPublicationId = readInt64Number(view, 88)
+      item.currentPublicationId = currentPublicationId === 0 ? null : String(currentPublicationId)
+      const publicationNo = readInt32(view, 96)
+      item.publicationNo = publicationNo <= 0 ? null : publicationNo
     }
     items.push(item)
   }
@@ -1260,13 +1272,14 @@ function decodeArticleDetail(payload) {
   const blobOffset = readInt32(view, 36)
   const blobLength = readInt32(view, 40)
   const isV4 = magic === ARTICLE_DETAIL_V4_MAGIC && version === ARTICLE_DETAIL_V4_VERSION
+  const isV5 = magic === ARTICLE_DETAIL_V5_MAGIC && version === ARTICLE_DETAIL_V5_VERSION
   const isV3 = magic === ARTICLE_DETAIL_V3_MAGIC && version === ARTICLE_DETAIL_V3_VERSION
   if (
-    (!isV3 && !isV4) ||
+    (!isV3 && !isV4 && !isV5) ||
     flags !== 0 ||
     tagCount < 0 ||
     articleRecordOffset !== ARTICLE_DETAIL_V3_HEADER_SIZE ||
-    articleRecordLength !== (isV4 ? ARTICLE_DETAIL_V4_RECORD_SIZE : ARTICLE_DETAIL_V3_RECORD_SIZE) ||
+    articleRecordLength !== (isV5 ? ARTICLE_DETAIL_V5_RECORD_SIZE : isV4 ? ARTICLE_DETAIL_V4_RECORD_SIZE : ARTICLE_DETAIL_V3_RECORD_SIZE) ||
     rightsRecordLength !== ARTICLE_DETAIL_RIGHTS_V3_RECORD_SIZE
   ) {
     throw new Error('article_detail_v3_header_invalid')
@@ -1290,8 +1303,8 @@ function decodeArticleDetail(payload) {
   const article = payload.subarray(articleRecordOffset, articleRecordOffset + articleRecordLength)
   const rightsRecord = payload.subarray(rightsRecordOffset, rightsRecordOffset + rightsRecordLength)
   const blob = payload.subarray(blobOffset, blobOffset + blobLength)
-  const sliceOffset = isV4 ? 52 : 44
-  const isDeletedFlag = article[isV4 ? 48 : 40] ?? 0
+  const sliceOffset = isV5 ? 76 : isV4 ? 52 : 44
+  const isDeletedFlag = article[isV5 ? 72 : isV4 ? 48 : 40] ?? 0
   if (isDeletedFlag > 1 || !validateArticleDetailRecordSlices(article, blob, sliceOffset)) {
     throw new Error('article_detail_v3_record_invalid')
   }
@@ -1323,7 +1336,11 @@ function decodeArticleDetail(payload) {
     status: readInt32FromBytes(article, 20),
     scheduledPublishAt: unixMsToIsoOrNull(readInt64FromBytes(article, 24)),
     publishedAt: unixMsToIsoOrNull(readInt64FromBytes(article, 32)),
-    updatedAt: isV4 ? unixMsToIsoOrNull(readInt64FromBytes(article, 40)) : null,
+    updatedAt: isV4 || isV5 ? unixMsToIsoOrNull(readInt64FromBytes(article, 40)) : null,
+    currentRevisionId: isV5 ? String(readInt64FromBytes(article, 48)) : '0',
+    revisionNo: isV5 ? readInt32FromBytes(article, 56) : 0,
+    currentPublicationId: isV5 && readInt64FromBytes(article, 60) !== 0 ? String(readInt64FromBytes(article, 60)) : null,
+    publicationNo: isV5 && readInt32FromBytes(article, 68) > 0 ? readInt32FromBytes(article, 68) : null,
     rights: decodeArticleDetailRightsV3(rightsRecord, blob)
   }
 }

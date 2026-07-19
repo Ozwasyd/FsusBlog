@@ -70,7 +70,25 @@ public sealed record PublicAotArticleSummarySnapshot(
     int Views,
     DateTime CreateTime,
     PublicAotArticleCategorySnapshot Category,
-    IReadOnlyList<PublicAotArticleTagSnapshot> Tags);
+    IReadOnlyList<PublicAotArticleTagSnapshot> Tags)
+{
+    public long RevisionId
+    {
+        get; init;
+    }
+    public int RevisionNo
+    {
+        get; init;
+    }
+    public long? PublicationId
+    {
+        get; init;
+    }
+    public int? PublicationNo
+    {
+        get; init;
+    }
+}
 
 public sealed record PublicAotFeaturedArticleSnapshot(
     int Id,
@@ -126,6 +144,26 @@ public sealed record PublicArticlePageSnapshot(
     PublicAotRelatedReadingSnapshot? RelatedReading)
     : PublicPageSnapshot(PublicPageKind.ArticleDetail, Seo)
 {
+    public long RevisionId
+    {
+        get; init;
+    }
+
+    public int RevisionNo
+    {
+        get; init;
+    }
+
+    public long PublicationId
+    {
+        get; init;
+    }
+
+    public int PublicationNo
+    {
+        get; init;
+    }
+
     public string CoverImageUrl { get; init; } = string.Empty;
 
     public DateTime? PublishedAt

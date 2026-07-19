@@ -203,7 +203,8 @@ public sealed class AuthoringDraftLifecycleService(
                 revision.CoverImageUrl,
                 revision.CategoryId,
                 AuthoringNormalization.ParseTagIds(revision.TagIds),
-                (int)ArticleStatus.Published)));
+                (int)ArticleStatus.Published),
+            FsusBlog.Core.Services.Articles.ArticleUpdateIntent.Rollback));
         bool updated = updateResult.IsSuccess;
         if (updated)
         {

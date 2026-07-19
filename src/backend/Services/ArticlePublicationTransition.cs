@@ -1,0 +1,290 @@
+using System.Data.Common;
+using System.Text.Json;
+
+using FsusBlog.Server.Entities;
+
+using SqlSugar;
+
+namespace FsusBlog.Server.Services;
+
+public static class ArticlePublicationTransitionKinds
+{
+    public const string ImmediatePublish = "immediate-publish";
+    public const string ScheduledPublish = "scheduled-publish";
+    public const string Archive = "archive";
+    public const string Restore = "restore";
+    public const string Rollback = "rollback";
+    public const string SaveDraft = "save-draft";
+    public const string Schedule = "schedule";
+}
+
+public readonly record struct ArticleVersionCoordinates(
+    long RevisionId,
+    int RevisionNo,
+    long RightsSnapshotId,
+    long? ResponsibilitySnapshotId,
+    long? PublicationId,
+    int? PublicationNo)
+{
+    public static ArticleVersionCoordinates Revision(
+        long revisionId,
+        int revisionNo,
+        long rightsSnapshotId,
+        long? responsibilitySnapshotId = null)
+        => new(revisionId, revisionNo, rightsSnapshotId, responsibilitySnapshotId, null, null);
+}
+
+public sealed record ArticlePublicationTransitionRequest(
+    int ArticleId,
+    ArticleVersionCoordinates Version,
+    ArticleStatus TargetStatus,
+    DateTime? ScheduledPublishAt,
+    DateTime TransitionedAt,
+    string TransitionKind);
+
+public readonly record struct ArticlePublicationTransitionPlan(
+    ArticleStatus StoredStatus,
+    DateTime? ScheduledPublishAt,
+    DateTime? PendingPublicationAt,
+    DateTime? PublishedAt,
+    DateTime? ArchivedAt,
+    bool CreatePublication);
+
+public static class ArticlePublicationTransitionWriter
+{
+    public static async Task<ArticleVersionCoordinates> ApplyAsync(
+        ISqlSugarClient db,
+        ArticlePublicationTransitionRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        Validate(request);
+
+        long? currentPublicationId = null;
+        int? currentPublicationNo = null;
+        using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+                """
+                SELECT a.current_publication_id, publication.publication_no
+                FROM article a
+                LEFT JOIN article_publication publication ON publication.id = a.current_publication_id
+                WHERE a.id = @ArticleId AND a.isdeleted = false
+                FOR UPDATE OF a;
+                """,
+                new SugarParameter("@ArticleId", request.ArticleId)))
+        {
+            if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                throw new InvalidOperationException($"Article {request.ArticleId} was not available for publication transition.");
+            }
+
+            currentPublicationId = reader.IsDBNull(0) ? null : reader.GetInt64(0);
+            currentPublicationNo = reader.IsDBNull(1) ? null : reader.GetInt32(1);
+        }
+
+        ArticlePublicationTransitionPlan plan = CreatePlan(
+            currentPublicationId.HasValue,
+            request.TargetStatus,
+            request.ScheduledPublishAt,
+            request.TransitionedAt);
+
+        if (plan.CreatePublication)
+        {
+            ArticleVersionCoordinates published = await InsertPublicationAsync(db, request, cancellationToken).ConfigureAwait(false);
+            await UpdateArticleStateAsync(
+                    db,
+                    request,
+                    plan.StoredStatus,
+                    plan.ScheduledPublishAt,
+                    plan.PendingPublicationAt,
+                    plan.PublishedAt,
+                    plan.ArchivedAt,
+                    published.PublicationId,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return published;
+        }
+
+        await UpdateArticleStateAsync(
+                db,
+                request,
+                plan.StoredStatus,
+                plan.ScheduledPublishAt,
+                plan.PendingPublicationAt,
+                plan.PublishedAt,
+                plan.ArchivedAt,
+                currentPublicationId,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return request.Version with
+        {
+            PublicationId = currentPublicationId,
+            PublicationNo = currentPublicationNo
+        };
+    }
+
+    public static ArticlePublicationTransitionPlan CreatePlan(
+        bool hasCurrentPublication,
+        ArticleStatus targetStatus,
+        DateTime? scheduledPublishAt,
+        DateTime transitionedAt)
+    {
+        if (targetStatus == ArticleStatus.Scheduled
+            && (!scheduledPublishAt.HasValue || scheduledPublishAt.Value <= transitionedAt))
+        {
+            throw new ArgumentException("Scheduled publication requires a future timestamp.", nameof(scheduledPublishAt));
+        }
+
+        return targetStatus switch
+        {
+            ArticleStatus.Published => new(
+                ArticleStatus.Published,
+                ScheduledPublishAt: null,
+                PendingPublicationAt: null,
+                PublishedAt: transitionedAt,
+                ArchivedAt: null,
+                CreatePublication: true),
+            ArticleStatus.Scheduled when hasCurrentPublication => new(
+                ArticleStatus.Published,
+                ScheduledPublishAt: null,
+                PendingPublicationAt: scheduledPublishAt,
+                PublishedAt: null,
+                ArchivedAt: null,
+                CreatePublication: false),
+            ArticleStatus.Scheduled => new(
+                ArticleStatus.Scheduled,
+                ScheduledPublishAt: scheduledPublishAt,
+                PendingPublicationAt: null,
+                PublishedAt: null,
+                ArchivedAt: null,
+                CreatePublication: false),
+            ArticleStatus.Archived => new(
+                ArticleStatus.Archived,
+                ScheduledPublishAt: null,
+                PendingPublicationAt: null,
+                PublishedAt: null,
+                ArchivedAt: transitionedAt,
+                CreatePublication: false),
+            _ => new(
+                targetStatus,
+                ScheduledPublishAt: null,
+                PendingPublicationAt: null,
+                PublishedAt: null,
+                ArchivedAt: null,
+                CreatePublication: false)
+        };
+    }
+
+    public static string BuildOutboxPayload(int articleId, string eventType, ArticleVersionCoordinates version)
+        => JsonSerializer.Serialize(new
+        {
+            articleId,
+            eventType,
+            articleRevisionId = version.RevisionId,
+            revisionNo = version.RevisionNo,
+            rightsSnapshotId = version.RightsSnapshotId,
+            responsibilitySnapshotId = version.ResponsibilitySnapshotId,
+            articlePublicationId = version.PublicationId,
+            publicationNo = version.PublicationNo
+        });
+
+    private static async Task<ArticleVersionCoordinates> InsertPublicationAsync(
+        ISqlSugarClient db,
+        ArticlePublicationTransitionRequest request,
+        CancellationToken cancellationToken)
+    {
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            INSERT INTO article_publication (
+                article_id,
+                publication_no,
+                article_revision_id,
+                revision_no,
+                rights_snapshot_id,
+                responsibility_snapshot_id,
+                transition_kind,
+                published_at,
+                created_at)
+            SELECT
+                @ArticleId,
+                COALESCE(MAX(publication_no), 0) + 1,
+                @ArticleRevisionId,
+                @RevisionNo,
+                @RightsSnapshotId,
+                CAST(@ResponsibilitySnapshotId AS bigint),
+                @TransitionKind,
+                @PublishedAt,
+                @PublishedAt
+            FROM article_publication
+            WHERE article_id = @ArticleId
+            RETURNING id, publication_no;
+            """,
+            new SugarParameter("@ArticleId", request.ArticleId),
+            new SugarParameter("@ArticleRevisionId", request.Version.RevisionId),
+            new SugarParameter("@RevisionNo", request.Version.RevisionNo),
+            new SugarParameter("@RightsSnapshotId", request.Version.RightsSnapshotId),
+            new SugarParameter("@ResponsibilitySnapshotId", (object?)request.Version.ResponsibilitySnapshotId ?? DBNull.Value),
+            new SugarParameter("@TransitionKind", request.TransitionKind),
+            new SugarParameter("@PublishedAt", request.TransitionedAt));
+        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            throw new InvalidOperationException($"Publication record was not created for article {request.ArticleId}.");
+        }
+
+        return request.Version with
+        {
+            PublicationId = reader.GetInt64(0),
+            PublicationNo = reader.GetInt32(1)
+        };
+    }
+
+    private static Task<int> UpdateArticleStateAsync(
+        ISqlSugarClient db,
+        ArticlePublicationTransitionRequest request,
+        ArticleStatus storedStatus,
+        DateTime? scheduledPublishAt,
+        DateTime? pendingPublicationAt,
+        DateTime? publishedAt,
+        DateTime? archivedAt,
+        long? publicationId,
+        CancellationToken cancellationToken)
+        => db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE article
+            SET current_revision_id = @CurrentRevisionId,
+                current_publication_id = CAST(@CurrentPublicationId AS bigint),
+                status = @Status,
+                scheduled_publish_at = CAST(@ScheduledPublishAt AS timestamp),
+                pending_publication_at = CAST(@PendingPublicationAt AS timestamp),
+                published_at = COALESCE(CAST(@PublishedAt AS timestamp), published_at),
+                archived_at = CAST(@ArchivedAt AS timestamp)
+            WHERE id = @ArticleId
+              AND isdeleted = false;
+            """,
+            new SugarParameter("@ArticleId", request.ArticleId),
+            new SugarParameter("@CurrentRevisionId", request.Version.RevisionId),
+            new SugarParameter("@CurrentPublicationId", (object?)publicationId ?? DBNull.Value),
+            new SugarParameter("@Status", (int)storedStatus),
+            new SugarParameter("@ScheduledPublishAt", (object?)scheduledPublishAt ?? DBNull.Value),
+            new SugarParameter("@PendingPublicationAt", (object?)pendingPublicationAt ?? DBNull.Value),
+            new SugarParameter("@PublishedAt", (object?)publishedAt ?? DBNull.Value),
+            new SugarParameter("@ArchivedAt", (object?)archivedAt ?? DBNull.Value));
+
+    private static void Validate(ArticlePublicationTransitionRequest request)
+    {
+        if (request.ArticleId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(request.ArticleId));
+        if (request.Version.RevisionId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(request.Version.RevisionId));
+        if (request.Version.RevisionNo <= 0)
+            throw new ArgumentOutOfRangeException(nameof(request.Version.RevisionNo));
+        if (request.Version.RightsSnapshotId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(request.Version.RightsSnapshotId));
+        if (request.TargetStatus == ArticleStatus.Scheduled
+            && (!request.ScheduledPublishAt.HasValue || request.ScheduledPublishAt.Value <= request.TransitionedAt))
+        {
+            throw new ArgumentException("Scheduled publication requires a future timestamp.", nameof(request));
+        }
+        if (string.IsNullOrWhiteSpace(request.TransitionKind))
+            throw new ArgumentException("Transition kind is required.", nameof(request));
+    }
+}

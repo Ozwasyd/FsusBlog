@@ -202,6 +202,11 @@ public sealed class ArticleMutationOutboxDispatcher(
                     item.AggregateId,
                     item.EventType,
                     item.EventId,
+                    new ArticleMutationVersionReference(
+                        item.ArticleRevisionId,
+                        item.RevisionNo,
+                        item.ArticlePublicationId,
+                        item.PublicationNo),
                     completedAfterReplay,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -609,6 +614,10 @@ public sealed class ArticleMutationOutboxDispatcher(
                       outbox.event_id,
                       outbox.aggregate_type,
                       outbox.aggregate_id,
+                      outbox.article_revision_id,
+                      outbox.revision_no,
+                      outbox.article_publication_id,
+                      outbox.publication_no,
                       outbox.event_type,
                       outbox.payload_json,
                       outbox.status,
@@ -640,6 +649,10 @@ public sealed class ArticleMutationOutboxDispatcher(
                 EventId = reader.ReadString("event_id"),
                 AggregateType = reader.ReadString("aggregate_type"),
                 AggregateId = reader.ReadInt32("aggregate_id"),
+                ArticleRevisionId = reader.IsNull("article_revision_id") ? null : reader.ReadInt64("article_revision_id"),
+                RevisionNo = reader.IsNull("revision_no") ? null : reader.ReadInt32("revision_no"),
+                ArticlePublicationId = reader.IsNull("article_publication_id") ? null : reader.ReadInt64("article_publication_id"),
+                PublicationNo = reader.IsNull("publication_no") ? null : reader.ReadInt32("publication_no"),
                 EventType = reader.ReadString("event_type"),
                 PayloadJson = reader.ReadString("payload_json"),
                 Status = reader.ReadString("status"),

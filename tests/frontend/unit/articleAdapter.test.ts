@@ -197,12 +197,15 @@ function buildLegacyArticleDetailPayload(opts: {
 const ARTICLE_DETAIL_HEADER_SIZE = 44
 const ARTICLE_DETAIL_V3_RECORD_SIZE = 84
 const ARTICLE_DETAIL_V4_RECORD_SIZE = 92
+const ARTICLE_DETAIL_V5_RECORD_SIZE = 116
 const ARTICLE_DETAIL_TAG_V3_RECORD_SIZE = 12
 const ARTICLE_RIGHTS_V3_RECORD_SIZE = 112
 const ARTICLE_DETAIL_V3_MAGIC = 0x41524433
 const ARTICLE_DETAIL_V3_VERSION = 3
 const ARTICLE_DETAIL_V4_MAGIC = 0x41524434
 const ARTICLE_DETAIL_V4_VERSION = 4
+const ARTICLE_DETAIL_V5_MAGIC = 0x41524435
+const ARTICLE_DETAIL_V5_VERSION = 5
 
 const ArticleDetailRightsFlags = {
   Enabled: 1 << 0,
@@ -389,6 +392,35 @@ function buildArticleDetailV4Payload(opts: {
 
 type ArticleDetailV4FixtureOptions = Parameters<typeof buildArticleDetailV4Payload>[0]
 
+function buildArticleDetailV5Payload(
+  opts: ArticleDetailV4FixtureOptions & {
+    currentRevisionId: bigint
+    revisionNo: number
+    currentPublicationId: bigint
+    publicationNo: number
+  }
+): Uint8Array {
+  const v4 = buildArticleDetailV4Payload(opts)
+  const articleOffset = ARTICLE_DETAIL_HEADER_SIZE
+  const coordinateOffset = articleOffset + 48
+  const v5 = new Uint8Array(v4.byteLength + 24)
+  v5.set(v4.subarray(0, coordinateOffset), 0)
+  v5.set(v4.subarray(coordinateOffset), coordinateOffset + 24)
+
+  const view = new DataView(v5.buffer)
+  view.setUint32(0, ARTICLE_DETAIL_V5_MAGIC, true)
+  view.setInt32(4, ARTICLE_DETAIL_V5_VERSION, true)
+  view.setInt32(16, ARTICLE_DETAIL_V5_RECORD_SIZE, true)
+  view.setInt32(20, view.getInt32(20, true) + 24, true)
+  view.setInt32(28, view.getInt32(28, true) + 24, true)
+  view.setInt32(36, view.getInt32(36, true) + 24, true)
+  view.setBigInt64(coordinateOffset, opts.currentRevisionId, true)
+  view.setInt32(coordinateOffset + 8, opts.revisionNo, true)
+  view.setBigInt64(coordinateOffset + 12, opts.currentPublicationId, true)
+  view.setInt32(coordinateOffset + 20, opts.publicationNo, true)
+  return v5
+}
+
 /** Builds the checked legacy ARD3 record by removing V4's UpdatedAt int64. */
 function buildArticleDetailV3Payload(opts: ArticleDetailV4FixtureOptions): Uint8Array {
   const v4 = buildArticleDetailV4Payload(opts)
@@ -524,6 +556,30 @@ describe('mapArticleDetailFromPodPayload', () => {
     expect(result.rights.articleRevisionId).toBe('801')
     expect(result.rights.revisionNo).toBe(7)
     expect(result.updatedAt).toBe(new Date(Number(updatedAtMs)).toISOString())
+  })
+
+  it('reads exact revision and publication coordinates from the V5 envelope', () => {
+    const payload = buildArticleDetailV5Payload({
+      id: 42,
+      views: 7,
+      categoryId: 3,
+      categoryName: 'Protocol',
+      title: 'Published revision',
+      summary: 'Immutable coordinates',
+      content: 'v5',
+      currentRevisionId: 801n,
+      revisionNo: 7,
+      currentPublicationId: 1201n,
+      publicationNo: 4
+    })
+
+    expect(mapArticleDetailFromPodPayload(payload)).toMatchObject({
+      id: 42,
+      currentRevisionId: '801',
+      revisionNo: 7,
+      currentPublicationId: '1201',
+      publicationNo: 4
+    })
   })
 
   it('keeps the 84-byte ARD3 fixture readable with updatedAt absent', () => {
@@ -957,6 +1013,46 @@ describe('mapArticleSearchFromPodPayload', () => {
       summary: '更小的搜索结果',
       category: { id: 3, name: '技术' },
       tags: [{ id: 9, name: 'wasm' }]
+    })
+  })
+
+  it('decodes exact publication coordinates from compact search result v4', () => {
+    const blob: number[] = []
+    const category = pushText(blob, '技术')
+    const title = pushText(blob, 'Search v4')
+    const summary = pushText(blob, '版本坐标')
+    const records: number[] = []
+    appendU32(records, 42)
+    appendU32(records, 7)
+    appendI64(records, 1_715_299_200_000n)
+    appendU32(records, 3)
+    appendRef(records, category)
+    appendRef(records, title)
+    appendRef(records, summary)
+    appendU32(records, 0)
+    appendU32(records, 0)
+    appendI64(records, 801n)
+    appendU32(records, 7)
+    appendI64(records, 1201n)
+    appendU32(records, 4)
+
+    const header: number[] = []
+    const tagOffset = 24 + records.length
+    appendU32(header, 0x34525346)
+    appendU32(header, 4)
+    appendU32(header, 1)
+    appendU32(header, 1)
+    appendU32(header, tagOffset)
+    appendU32(header, tagOffset)
+
+    const result = mapArticleSearchFromPodPayload(new Uint8Array([...header, ...records, ...blob]))
+
+    expect(result.items[0]).toMatchObject({
+      id: 42,
+      currentRevisionId: '801',
+      revisionNo: 7,
+      currentPublicationId: '1201',
+      publicationNo: 4
     })
   })
 })

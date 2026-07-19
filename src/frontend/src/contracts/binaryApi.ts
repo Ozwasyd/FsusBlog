@@ -47,6 +47,10 @@ export interface ArticleListItemResponse {
   status?: ArticlePublishStatus
   scheduledPublishAt?: string | null
   publishedAt?: string | null
+  currentRevisionId?: string
+  revisionNo?: number
+  currentPublicationId?: string | null
+  publicationNo?: number | null
 }
 
 export interface ArticleRightsResponse {
@@ -89,6 +93,10 @@ export interface ArticleDetailResponse {
   scheduledPublishAt?: string | null
   publishedAt?: string | null
   updatedAt?: string | null
+  currentRevisionId?: string
+  revisionNo?: number
+  currentPublicationId?: string | null
+  publicationNo?: number | null
   rights: ArticleRightsResponse
 }
 

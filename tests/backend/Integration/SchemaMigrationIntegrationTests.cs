@@ -104,6 +104,12 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         int defaultCommentMaxUtf8Bytes = await fixture.QueryScalarAsync<int>(
             connectionString,
             "SELECT comment_max_utf8_bytes FROM anonymous_comment_policy WHERE id = 1;");
+        long currentRevisionId = await fixture.QueryScalarAsync<long>(
+            connectionString,
+            "SELECT current_revision_id FROM article WHERE id = 1;");
+        int publicationConsistencyIssues = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(*) FROM article_publication_consistency_v1;");
 
         Assert.Equal("# legacy body", markdown);
         Assert.Equal("# about from config", pageContent);
@@ -121,6 +127,8 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         Assert.Equal("zk_anonymous", defaultAuthorMode);
         Assert.Equal(1000, defaultCommentMaxChars);
         Assert.Equal(4096, defaultCommentMaxUtf8Bytes);
+        Assert.True(currentRevisionId > 0);
+        Assert.Equal(0, publicationConsistencyIssues);
     }
 
     [Fact]
@@ -412,7 +420,13 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             ArticleMutationReplayEdges.PublicArtifactRevocation,
             ArticleMutationReplayEdges.PublicHotRead
         };
-        coordinator.ReplayOutboxAsync(77, "updated", Arg.Any<string>(), Arg.Any<IReadOnlySet<string>>(), Arg.Any<CancellationToken>())
+        coordinator.ReplayOutboxAsync(
+                77,
+                "updated",
+                Arg.Any<string>(),
+                Arg.Any<ArticleMutationVersionReference>(),
+                Arg.Any<IReadOnlySet<string>>(),
+                Arg.Any<CancellationToken>())
             .Returns(
                 ArticleMutationReplayResult.Failed(
                     "projection-write-failed",

@@ -97,6 +97,24 @@ public class Article
         get; set;
     }
 
+    [SugarColumn(ColumnName = "current_revision_id", IsNullable = true)]
+    public long? CurrentRevisionId
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "current_publication_id", IsNullable = true)]
+    public long? CurrentPublicationId
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "pending_publication_at", IsNullable = true)]
+    public DateTime? PendingPublicationAt
+    {
+        get; set;
+    }
+
     [SugarColumn(ColumnName = "archived_at", IsNullable = true)]
     public DateTime? ArchivedAt
     {
@@ -306,6 +324,67 @@ public class ArticleRevision
     {
         get; set;
     }
+
+    [SugarColumn(ColumnName = "created_at")]
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+/// <summary>
+/// Immutable record of one public article publication. Public projections resolve content and
+/// attached policy snapshots through this record instead of guessing the newest authoring row.
+/// </summary>
+[SugarTable("article_publication")]
+[SugarIndex("ux_article_publication_article_no", nameof(ArticleId), OrderByType.Asc, nameof(PublicationNo), OrderByType.Asc, true)]
+[SugarIndex("idx_article_publication_revision", nameof(ArticleRevisionId), OrderByType.Asc)]
+public class ArticlePublicationRecord
+{
+    [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
+    public long Id
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "article_id")]
+    public int ArticleId
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "publication_no")]
+    public int PublicationNo
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "article_revision_id")]
+    public long ArticleRevisionId
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "revision_no")]
+    public int RevisionNo
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "rights_snapshot_id")]
+    public long RightsSnapshotId
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "responsibility_snapshot_id", IsNullable = true)]
+    public long? ResponsibilitySnapshotId
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "transition_kind", Length = 32)]
+    public string TransitionKind { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "published_at")]
+    public DateTime PublishedAt { get; set; } = DateTime.UtcNow;
 
     [SugarColumn(ColumnName = "created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -979,6 +1058,30 @@ public class ArticleMutationOutboxEvent
 
     [SugarColumn(ColumnName = "aggregate_id")]
     public int AggregateId
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "article_revision_id", IsNullable = true)]
+    public long? ArticleRevisionId
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "revision_no", IsNullable = true)]
+    public int? RevisionNo
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "article_publication_id", IsNullable = true)]
+    public long? ArticlePublicationId
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "publication_no", IsNullable = true)]
+    public int? PublicationNo
     {
         get; set;
     }

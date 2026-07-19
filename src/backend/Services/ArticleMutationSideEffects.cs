@@ -33,9 +33,16 @@ public interface IArticleMutationSideEffectCoordinator
         int articleId,
         string eventType,
         string outboxEventId,
+        ArticleMutationVersionReference version,
         IReadOnlySet<string> completedEdges,
         CancellationToken cancellationToken);
 }
+
+public readonly record struct ArticleMutationVersionReference(
+    long? RevisionId,
+    int? RevisionNo,
+    long? PublicationId,
+    int? PublicationNo);
 
 public static class ArticleMutationReplayEdges
 {
@@ -291,6 +298,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
         int articleId,
         string eventType,
         string outboxEventId,
+        ArticleMutationVersionReference version,
         IReadOnlySet<string> completedEdges,
         CancellationToken cancellationToken)
     {
@@ -381,6 +389,14 @@ public sealed class ArticleMutationSideEffectCoordinator(
         try
         {
             string normalized = TextHelpers.LowerTrimmed(eventType) ?? string.Empty;
+            if (version.PublicationId.HasValue
+                && await IsSupersededPublicationAsync(articleId, version.PublicationId.Value).ConfigureAwait(false))
+            {
+                completedDuringReplay.UnionWith(ArticleMutationReplayEdges.Required);
+                completedDuringReplay.Add(ArticleMutationReplayEdges.Notification);
+                return ArticleMutationReplayResult.Success(completedDuringReplay, failed);
+            }
+
             if (normalized is ArticleMutationEventTypes.Deleted
                 or ArticleMutationEventTypes.PermanentlyDeleted
                 or ArticleMutationEventTypes.TrashCleared)
@@ -388,7 +404,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
                 return await ReplayDeletedArticleEdgesAsync(normalized).ConfigureAwait(false);
             }
 
-            Article? article = await LoadArticleWithContentAsync(articleId).ConfigureAwait(false);
+            Article? article = await LoadArticleWithContentAsync(articleId, version).ConfigureAwait(false);
             if (article is null)
             {
                 return await ReplayMissingArticleEdgesAsync(normalized).ConfigureAwait(false);
@@ -552,6 +568,11 @@ public sealed class ArticleMutationSideEffectCoordinator(
     }
 
     private async Task<Article?> LoadArticleWithContentAsync(int articleId)
+        => await LoadArticleWithContentAsync(articleId, default).ConfigureAwait(false);
+
+    private async Task<Article?> LoadArticleWithContentAsync(
+        int articleId,
+        ArticleMutationVersionReference version)
     {
         Article? article = await db.Queryable<Article>().ClearFilter().InSingleAsync(articleId);
         if (article is null)
@@ -559,12 +580,53 @@ public sealed class ArticleMutationSideEffectCoordinator(
             return null;
         }
 
+        long? publicationId = version.PublicationId ?? article.CurrentPublicationId;
+        if (publicationId.HasValue)
+        {
+            ArticlePublicationRecord? publication = await db.Queryable<ArticlePublicationRecord>()
+                .Where(record => record.Id == publicationId.Value && record.ArticleId == articleId)
+                .FirstAsync();
+            if (publication is null
+                || (version.PublicationNo.HasValue && publication.PublicationNo != version.PublicationNo.Value)
+                || (version.RevisionId.HasValue && publication.ArticleRevisionId != version.RevisionId.Value)
+                || (version.RevisionNo.HasValue && publication.RevisionNo != version.RevisionNo.Value))
+            {
+                throw new InvalidOperationException($"Article mutation event coordinates do not resolve for article {articleId}.");
+            }
+
+            ArticleRevision? revision = await db.Queryable<ArticleRevision>()
+                .Where(candidate => candidate.Id == publication.ArticleRevisionId && candidate.ArticleId == articleId)
+                .FirstAsync();
+            if (revision is null || revision.RevisionNo != publication.RevisionNo)
+            {
+                throw new InvalidOperationException($"Article publication {publication.Id} has an invalid revision coordinate.");
+            }
+
+            article.Title = revision.Title;
+            article.Summary = revision.Summary;
+            article.CoverImageUrl = revision.CoverImageUrl;
+            article.CategoryId = revision.CategoryId;
+            article.Content = revision.MarkdownContent;
+            article.PublishedAt = publication.PublishedAt;
+            return article;
+        }
+
         article.Content = await db.Queryable<ArticleBody>()
-            .Where(it => it.ArticleId == articleId)
-            .Select(it => it.MarkdownContent)
-            .FirstAsync()
+                .Where(it => it.ArticleId == articleId)
+                .Select(it => it.MarkdownContent)
+                .FirstAsync()
             ?? string.Empty;
         return article;
+    }
+
+    private async Task<bool> IsSupersededPublicationAsync(int articleId, long eventPublicationId)
+    {
+        long? currentPublicationId = await db.Queryable<Article>()
+            .ClearFilter()
+            .Where(article => article.Id == articleId)
+            .Select(article => article.CurrentPublicationId)
+            .FirstAsync();
+        return currentPublicationId.HasValue && currentPublicationId.Value != eventPublicationId;
     }
 
     private Task ExecuteAsync(Func<Task> action, string operation)

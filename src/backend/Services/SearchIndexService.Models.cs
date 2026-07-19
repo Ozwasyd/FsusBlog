@@ -84,7 +84,27 @@ public sealed partial class SearchIndexService
         {
             get; init;
         }
+        public DateTime PublishedAt
+        {
+            get; init;
+        }
         public int DocLength
+        {
+            get; init;
+        }
+        public long RevisionId
+        {
+            get; init;
+        }
+        public int RevisionNo
+        {
+            get; init;
+        }
+        public long PublicationId
+        {
+            get; init;
+        }
+        public int PublicationNo
         {
             get; init;
         }
@@ -117,6 +137,28 @@ public sealed partial class SearchIndexService
             get; init;
         }
         public DateTime CreateTime
+        {
+            get; init;
+        }
+        public string MarkdownContent { get; init; } = string.Empty;
+        public string TagIds { get; init; } = string.Empty;
+        public long RevisionId
+        {
+            get; init;
+        }
+        public int RevisionNo
+        {
+            get; init;
+        }
+        public long PublicationId
+        {
+            get; init;
+        }
+        public int PublicationNo
+        {
+            get; init;
+        }
+        public DateTime PublishedAt
         {
             get; init;
         }
@@ -193,6 +235,23 @@ public sealed partial class SearchIndexService
         string Summary,
         ushort[] TagRefs)
     {
+        public long RevisionId
+        {
+            get; init;
+        }
+        public int RevisionNo
+        {
+            get; init;
+        }
+        public long PublicationId
+        {
+            get; init;
+        }
+        public int PublicationNo
+        {
+            get; init;
+        }
+
         public static SearchDocEntry Minimal(int articleId)
             => new(articleId, 0, 0, 0, 0, 1, string.Empty, string.Empty, []);
     }
@@ -240,7 +299,11 @@ public sealed partial class SearchIndexService
         uint TitleOffset,
         ushort TitleLength,
         uint SummaryOffset,
-        ushort SummaryLength);
+        ushort SummaryLength,
+        long RevisionId,
+        int RevisionNo,
+        long PublicationId,
+        int PublicationNo);
 
     private sealed class TermAccumulator
     {

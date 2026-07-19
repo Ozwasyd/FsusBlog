@@ -12,6 +12,8 @@ constexpr std::uint32_t KArticleDetailV3Magic = 0x41524433u;
 constexpr std::int32_t KArticleDetailV3Version = 3;
 constexpr std::uint32_t KArticleDetailV4Magic = 0x41524434u;
 constexpr std::int32_t KArticleDetailV4Version = 4;
+constexpr std::uint32_t KArticleDetailV5Magic = 0x41524435u;
+constexpr std::int32_t KArticleDetailV5Version = 5;
 constexpr std::int32_t KArticleDetailTagRecordSize = 12;
 constexpr std::int32_t KArticleRightsV3RecordSize = 112;
 
@@ -44,10 +46,12 @@ bool ParseArticleDetailPayload(const std::uint8_t* payload, std::size_t payloadL
     ArticleDetailV4HeaderPod header{};
     std::memcpy(&header, payload, sizeof(header));
     const bool IsV4 = header.magic == KArticleDetailV4Magic && header.version == KArticleDetailV4Version;
+    const bool IsV5 = header.magic == KArticleDetailV5Magic && header.version == KArticleDetailV5Version;
     const bool IsV3 = header.magic == KArticleDetailV3Magic && header.version == KArticleDetailV3Version;
-    const std::int32_t ExpectedRecordSize = IsV4 ? static_cast<std::int32_t>(sizeof(ArticleDetailV4RecordPod))
-                                                 : static_cast<std::int32_t>(sizeof(ArticleDetailV3RecordPod));
-    if ((!IsV3 && !IsV4) || header.flags != 0u || header.tag_count < 0
+    const std::int32_t ExpectedRecordSize = IsV5 ? static_cast<std::int32_t>(sizeof(ArticleDetailV5RecordPod))
+        : IsV4 ? static_cast<std::int32_t>(sizeof(ArticleDetailV4RecordPod))
+               : static_cast<std::int32_t>(sizeof(ArticleDetailV3RecordPod));
+    if ((!IsV3 && !IsV4 && !IsV5) || header.flags != 0u || header.tag_count < 0
         || header.article_record_offset != static_cast<std::int32_t>(sizeof(ArticleDetailV4HeaderPod))
         || header.article_record_length != ExpectedRecordSize
         || header.rights_record_length != KArticleRightsV3RecordSize)
@@ -74,10 +78,29 @@ bool ParseArticleDetailPayload(const std::uint8_t* payload, std::size_t payloadL
         return false;
     }
 
-    ArticleDetailV4RecordPod article{};
-    if (IsV4)
+    ArticleDetailV5RecordPod article{};
+    if (IsV5)
     {
         std::memcpy(&article, payload + header.article_record_offset, sizeof(article));
+    }
+    else if (IsV4)
+    {
+        ArticleDetailV4RecordPod v4{};
+        std::memcpy(&v4, payload + header.article_record_offset, sizeof(v4));
+        article.id = v4.id;
+        article.views = v4.views;
+        article.create_time_unix_ms = v4.create_time_unix_ms;
+        article.category_id = v4.category_id;
+        article.status = v4.status;
+        article.scheduled_publish_at_unix_ms = v4.scheduled_publish_at_unix_ms;
+        article.published_at_unix_ms = v4.published_at_unix_ms;
+        article.updated_at_unix_ms = v4.updated_at_unix_ms;
+        article.is_deleted = v4.is_deleted;
+        article.title = v4.title;
+        article.content = v4.content;
+        article.summary = v4.summary;
+        article.cover_image_url = v4.cover_image_url;
+        article.category_name = v4.category_name;
     }
     else
     {
@@ -114,6 +137,10 @@ bool ParseArticleDetailPayload(const std::uint8_t* payload, std::size_t payloadL
     outResult->tag_count = header.tag_count;
     outResult->published_at_unix_ms = article.published_at_unix_ms;
     outResult->updated_at_unix_ms = article.updated_at_unix_ms;
+    outResult->current_revision_id = article.current_revision_id;
+    outResult->revision_no = article.revision_no;
+    outResult->current_publication_id = article.current_publication_id;
+    outResult->publication_no = article.publication_no;
     outResult->title = article.title;
     outResult->category_name = article.category_name;
     outResult->payload_ptr = payload + header.blob_offset;

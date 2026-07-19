@@ -22,7 +22,11 @@ public sealed class ServerCacheBinaryCodecTests
                 CreateItem(created) with
                 {
                     ScheduledPublishAt = scheduled,
-                    PublishedAt = published
+                    PublishedAt = published,
+                    CurrentRevisionId = 801,
+                    RevisionNo = 7,
+                    CurrentPublicationId = 1201,
+                    PublicationNo = 4
                 }
             ]
         };
@@ -38,6 +42,10 @@ public sealed class ServerCacheBinaryCodecTests
         Assert.Equal(DateTimeKind.Utc, item.ScheduledPublishAt!.Value.Kind);
         Assert.Equal(published, item.PublishedAt);
         Assert.Equal(DateTimeKind.Utc, item.PublishedAt!.Value.Kind);
+        Assert.Equal(801, item.CurrentRevisionId);
+        Assert.Equal(7, item.RevisionNo);
+        Assert.Equal(1201, item.CurrentPublicationId);
+        Assert.Equal(4, item.PublicationNo);
     }
 
     [Theory]
@@ -57,12 +65,16 @@ public sealed class ServerCacheBinaryCodecTests
     }
 
     [Fact]
-    public void ArticleDetail_V4RoundTrip_PreservesUpdatedAtAndRightsSnapshot()
+    public void ArticleDetail_V5RoundTrip_PreservesPublicationCoordinatesAndRightsSnapshot()
     {
         DateTime updatedAt = new(2026, 6, 27, 9, 30, 0, DateTimeKind.Utc);
         ArticleDetailReadModel detail = CreateDetail() with
         {
-            UpdatedAt = updatedAt
+            UpdatedAt = updatedAt,
+            CurrentRevisionId = 801,
+            RevisionNo = 7,
+            CurrentPublicationId = 1201,
+            PublicationNo = 4
         };
 
         byte[] payload = ServerCacheBinaryCodec.EncodeArticleDetail(detail);
@@ -71,8 +83,12 @@ public sealed class ServerCacheBinaryCodecTests
         Assert.True(success);
         Assert.NotNull(decoded);
         Assert.Equal(0x34444146u, BinaryPrimitives.ReadUInt32LittleEndian(payload));
-        Assert.Equal(4u, BinaryPrimitives.ReadUInt32LittleEndian(payload.AsSpan(sizeof(uint))));
+        Assert.Equal(5u, BinaryPrimitives.ReadUInt32LittleEndian(payload.AsSpan(sizeof(uint))));
         Assert.Equal(updatedAt, decoded.UpdatedAt);
+        Assert.Equal(801, decoded.CurrentRevisionId);
+        Assert.Equal(7, decoded.RevisionNo);
+        Assert.Equal(1201, decoded.CurrentPublicationId);
+        Assert.Equal(4, decoded.PublicationNo);
         Assert.Equal(901, decoded.Rights.SnapshotId);
         Assert.Equal(801, decoded.Rights.ArticleRevisionId);
         Assert.Equal(7, decoded.Rights.RevisionNo);
@@ -95,29 +111,25 @@ public sealed class ServerCacheBinaryCodecTests
     }
 
     [Fact]
-    public void ArticleDetail_V3CachePayload_RemainsReadableWithoutUpdatedAt()
+    public void ArticleDetail_V4CachePayload_RemainsReadableWithoutVersionCoordinates()
     {
-        byte[] v4 = ServerCacheBinaryCodec.EncodeArticleDetail(CreateDetail() with
-        {
-            UpdatedAt = null
-        });
+        byte[] v5 = ServerCacheBinaryCodec.EncodeArticleDetail(CreateDetail());
         byte[] snapshotMarker = BitConverter.GetBytes(901L);
-        int rightsOffset = v4.AsSpan().IndexOf(snapshotMarker);
+        int rightsOffset = v5.AsSpan().IndexOf(snapshotMarker);
         Assert.True(rightsOffset > 8);
-        Assert.Equal(0, v4[rightsOffset - 1]); // null UpdatedAt marker
+        const int CoordinateBytes = sizeof(long) + sizeof(int) + 1 + sizeof(long) + 1 + sizeof(int);
+        byte[] v4 = new byte[v5.Length - CoordinateBytes];
+        v5.AsSpan(0, rightsOffset - CoordinateBytes).CopyTo(v4);
+        v5.AsSpan(rightsOffset).CopyTo(v4.AsSpan(rightsOffset - CoordinateBytes));
+        BinaryPrimitives.WriteUInt32LittleEndian(v4.AsSpan(sizeof(uint)), 4u);
 
-        byte[] v3 = new byte[v4.Length - 1];
-        v4.AsSpan(0, rightsOffset - 1).CopyTo(v3);
-        v4.AsSpan(rightsOffset).CopyTo(v3.AsSpan(rightsOffset - 1));
-        BinaryPrimitives.WriteUInt32LittleEndian(v3, 0x44434146u); // FACD
-        BinaryPrimitives.WriteUInt32LittleEndian(v3.AsSpan(sizeof(uint)), 3u);
-
-        (bool success, ArticleDetailReadModel? decoded) = ServerCacheBinaryCodec.DecodeArticleDetail(v3);
+        (bool success, ArticleDetailReadModel? decoded) = ServerCacheBinaryCodec.DecodeArticleDetail(v4);
 
         Assert.True(success);
         Assert.NotNull(decoded);
         Assert.Equal(10, decoded.Id);
-        Assert.Null(decoded.UpdatedAt);
+        Assert.Equal(0, decoded.CurrentRevisionId);
+        Assert.Null(decoded.CurrentPublicationId);
         Assert.Equal(901, decoded.Rights.SnapshotId);
     }
 
@@ -156,6 +168,10 @@ public sealed class ServerCacheBinaryCodecTests
             Tags = [new TagReadModel { Id = 3, Name = "Tag" }],
             IsDeleted = false,
             Status = ArticleStatus.Published,
+            CurrentRevisionId = 801,
+            RevisionNo = 7,
+            CurrentPublicationId = 1201,
+            PublicationNo = 4,
             PublishedAt = new DateTime(2026, 6, 26, 9, 30, 0, DateTimeKind.Utc),
             Rights = new ArticleRightsReadModel
             {

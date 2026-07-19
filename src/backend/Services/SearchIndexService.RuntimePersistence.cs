@@ -46,14 +46,24 @@ public sealed partial class SearchIndexService
         }
 
         int[] articleIds = articleRows.Select(it => it.Id).ToArray();
-        Dictionary<int, string> bodyMap = await LoadBodyMapAsync(db, articleIds);
-        Dictionary<int, List<SearchTagItem>> tagMap = await LoadTagMapAsync(db, articleIds);
         Dictionary<int, int> commentMap = await LoadCommentCountMapAsync(db, articleIds);
+        int[] allTagIds = articleRows
+            .SelectMany(static row => FsusBlog.Server.Services.Authoring.AuthoringNormalization.ParseTagIds(row.TagIds))
+            .Distinct()
+            .ToArray();
+        Dictionary<int, string> tagNames = allTagIds.Length == 0
+            ? []
+            : (await db.Queryable<Tag>().Where(tag => allTagIds.Contains(tag.Id)).ToListAsync())
+                .ToDictionary(static tag => tag.Id, static tag => tag.Name);
 
         var list = new List<SearchSourceArticle>(articleRows.Count);
         foreach (SearchArticleRow row in articleRows)
         {
-            string body = bodyMap.TryGetValue(row.Id, out string? markdown) ? markdown : string.Empty;
+            string body = row.MarkdownContent;
+            List<SearchTagItem> tags = FsusBlog.Server.Services.Authoring.AuthoringNormalization.ParseTagIds(row.TagIds)
+                .Where(tagNames.ContainsKey)
+                .Select(tagId => new SearchTagItem(tagId, tagNames[tagId]))
+                .ToList();
             int docLength = Math.Max(CountVisibleTokenOccurrences(body) + 1, 1);
             list.Add(new SearchSourceArticle
             {
@@ -63,11 +73,16 @@ public sealed partial class SearchIndexService
                 Body = body,
                 CategoryId = row.CategoryId,
                 CategoryName = string.IsNullOrWhiteSpace(row.CategoryName) ? "默认" : row.CategoryName,
-                Tags = tagMap.TryGetValue(row.Id, out List<SearchTagItem>? tags) ? tags : [],
+                Tags = tags,
                 Views = row.Views,
                 CommentCount = commentMap.TryGetValue(row.Id, out int count) ? count : 0,
                 CreateTime = NormalizeCreateTimeUtc(row.CreateTime),
-                DocLength = docLength
+                PublishedAt = NormalizeCreateTimeUtc(row.PublishedAt),
+                DocLength = docLength,
+                RevisionId = row.RevisionId,
+                RevisionNo = row.RevisionNo,
+                PublicationId = row.PublicationId,
+                PublicationNo = row.PublicationNo
             });
         }
 
@@ -109,21 +124,31 @@ public sealed partial class SearchIndexService
     private static async Task<List<SearchArticleRow>> LoadArticleRowsAsync(ISqlSugarClient db)
     {
         DateTime now = DateTime.UtcNow;
-        return await db.Queryable<Article, Category>((a, c) => a.CategoryId == c.Id)
-            .Where((a, c) => !a.IsDeleted
+        return await db.Queryable<Article>()
+            .InnerJoin<ArticlePublicationRecord>((a, publication) => a.CurrentPublicationId == publication.Id)
+            .InnerJoin<ArticleRevision>((a, publication, revision) => publication.ArticleRevisionId == revision.Id)
+            .LeftJoin<Category>((a, publication, revision, category) => revision.CategoryId == category.Id)
+            .Where((a, publication, revision, category) => !a.IsDeleted
                 && a.Status == ArticleStatus.Published
                 && (a.PublishedAt == null || a.PublishedAt <= now)
                 && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= now))
-            .OrderByDescending((a, c) => a.CreateTime)
-            .Select((a, c) => new SearchArticleRow
+            .OrderByDescending((a, publication, revision, category) => publication.PublishedAt)
+            .Select((a, publication, revision, category) => new SearchArticleRow
             {
                 Id = a.Id,
-                Title = a.Title,
-                Summary = a.Summary,
-                CategoryId = a.CategoryId,
-                CategoryName = c.Name,
+                Title = revision.Title,
+                Summary = revision.Summary,
+                CategoryId = revision.CategoryId,
+                CategoryName = category.Name,
                 Views = a.Views,
-                CreateTime = a.CreateTime
+                CreateTime = a.CreateTime,
+                MarkdownContent = revision.MarkdownContent,
+                TagIds = revision.TagIds,
+                RevisionId = revision.Id,
+                RevisionNo = revision.RevisionNo,
+                PublicationId = publication.Id,
+                PublicationNo = publication.PublicationNo,
+                PublishedAt = publication.PublishedAt
             })
             .ToListAsync();
     }

@@ -167,6 +167,35 @@ public readonly struct ArticleDetailV4RecordPod
 }
 
 /// <summary>
+/// Defines the fixed-layout binary representation used by the <c>ArticleDetailV5Record</c> wire contract.
+/// The version coordinates bind every public detail payload to one immutable publication.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct ArticleDetailV5RecordPod
+{
+    public readonly int Id;
+    public readonly int Views;
+    public readonly long CreateTimeUnixMs;
+    public readonly int CategoryId;
+    public readonly int Status;
+    public readonly long ScheduledPublishAtUnixMs;
+    public readonly long PublishedAtUnixMs;
+    public readonly long UpdatedAtUnixMs;
+    public readonly long CurrentRevisionId;
+    public readonly int RevisionNo;
+    public readonly long CurrentPublicationId;
+    public readonly int PublicationNo;
+    public readonly byte IsDeleted;
+    public readonly byte Reserved0;
+    public readonly ushort Reserved1;
+    public readonly Utf8SliceRef Title;
+    public readonly Utf8SliceRef Content;
+    public readonly Utf8SliceRef Summary;
+    public readonly Utf8SliceRef CoverImageUrl;
+    public readonly Utf8SliceRef CategoryName;
+}
+
+/// <summary>
 /// Defines the fixed-layout binary representation used by the <c>ArticleDetailTagV3Record</c> wire contract.
 /// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]

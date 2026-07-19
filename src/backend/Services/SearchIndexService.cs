@@ -44,8 +44,8 @@ public sealed partial class SearchIndexService(
 {
     private const uint ShardMagic = 0x32534846; // FHS2
     private const uint PackageMagic = 0x4B505346; // FSPK
-    private const uint SearchShardVersion = 3;
-    private const uint SearchPackageVersion = 3;
+    private const uint SearchShardVersion = 4;
+    private const uint SearchPackageVersion = 4;
     private const int MaxSummaryLength = 180;
     private const int QuantizedTfMaxExact = 10;
     private const int HotFrequencyPercentile = 95;
@@ -53,7 +53,7 @@ public sealed partial class SearchIndexService(
     private const int MaxSearchKeywordChars = 128;
     private const int MaxIndexedBodyChars = 256 * 1024;
     private const int MaxCjkSegmentRunes = 4096;
-    private const int SearchManifestSchemaVersion = 3;
+    private const int SearchManifestSchemaVersion = 4;
     private const int PatchRebuildDocThresholdPercent = 20;
     private const int PatchRebuildByteThresholdPercent = 25;
     private const int PatchRebuildTombstoneThresholdPercent = 15;
@@ -68,7 +68,7 @@ public sealed partial class SearchIndexService(
     private const uint SearchManifestBinaryVersion = 1;
     private const int HeaderSize = 72;
     private const int TermMetadataSize = 24;
-    private const int DocMetadataSize = 52;
+    private const int DocMetadataSize = 76;
     private const int DictionaryMetadataSize = 16;
     private static readonly SemaphoreSlim s_searchIndexWriteGate = new(1, 1);
     private volatile SearchRuntimeSnapshot? _runtimeSnapshot;

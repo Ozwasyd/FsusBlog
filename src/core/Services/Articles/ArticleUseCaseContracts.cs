@@ -18,7 +18,16 @@ public readonly record struct ArticleDetailQuery(int Id, bool IncludePrivate = f
 
 public readonly record struct CreateArticleCommand(ArticleWriteRequestCoreModel Article);
 
-public readonly record struct UpdateArticleCommand(int Id, ArticleWriteRequestCoreModel Article);
+public readonly record struct UpdateArticleCommand(
+    int Id,
+    ArticleWriteRequestCoreModel Article,
+    ArticleUpdateIntent Intent = ArticleUpdateIntent.Standard);
+
+public enum ArticleUpdateIntent
+{
+    Standard = 0,
+    Rollback = 1
+}
 
 public readonly record struct ArticleIdCommand(int Id);
 

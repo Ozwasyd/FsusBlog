@@ -18,12 +18,12 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class ArticleDetailAedsArtifactStoreBehaviorTests
 {
     [Fact]
-    public async Task WriteThenRead_RoundTripsCurrentV4FrameFromMemoryAndDisk()
+    public async Task WriteThenRead_RoundTripsCurrentV5FrameFromMemoryAndDisk()
     {
         await WithArtifactRootAsync(async root =>
         {
             var store = CreateStore(root);
-            byte[] frame = CreateArticleDetailV4Frame();
+            byte[] frame = CreateArticleDetailV5Frame();
 
             await store.WriteAsync(42, frame);
             ArticleDetailAedsArtifact artifact = await store.TryReadAsync(42);
@@ -57,22 +57,25 @@ public sealed class ArticleDetailAedsArtifactStoreBehaviorTests
     }
 
     [Fact]
-    public async Task WriteAsync_AcceptsCurrentV4AndReadCompatibleV3FramesAndRejectsRetiredPayload()
+    public async Task WriteAsync_AcceptsCurrentV5AndReadCompatibleV3V4FramesAndRejectsRetiredPayload()
     {
         await WithArtifactRootAsync(async root =>
         {
             var store = CreateStore(root);
+            byte[] v5Frame = CreateArticleDetailV5Frame();
             byte[] v4Frame = CreateArticleDetailV4Frame();
             byte[] v3Frame = CreateArticleDetailV3Frame();
             byte[] legacyFrame = new AedsEncoder().Encode(AedsFrameType.ArticleDetail, [0x01, 0x02, 0x03]);
 
-            await store.WriteAsync(42, v4Frame);
-            await store.WriteAsync(43, v3Frame);
+            await store.WriteAsync(42, v5Frame);
+            await store.WriteAsync(43, v4Frame);
+            await store.WriteAsync(44, v3Frame);
 
             Assert.True((await store.TryReadAsync(42)).Found);
             Assert.True((await store.TryReadAsync(43)).Found);
-            await Assert.ThrowsAsync<InvalidDataException>(() => store.WriteAsync(44, legacyFrame));
-            Assert.False(File.Exists(ArtifactPath(root, 44)));
+            Assert.True((await store.TryReadAsync(44)).Found);
+            await Assert.ThrowsAsync<InvalidDataException>(() => store.WriteAsync(45, legacyFrame));
+            Assert.False(File.Exists(ArtifactPath(root, 45)));
         });
     }
 
@@ -126,16 +129,18 @@ public sealed class ArticleDetailAedsArtifactStoreBehaviorTests
     }
 
     [Fact]
-    public async Task ClearLegacyPublicArtifactsAsync_PreservesSupportedV3AndV4Frames()
+    public async Task ClearLegacyPublicArtifactsAsync_PreservesSupportedV3V4AndV5Frames()
     {
         await WithArtifactRootAsync(async root =>
         {
             string v3Path = ArtifactPath(root, 1);
             string v4Path = ArtifactPath(root, 2);
-            string legacyPath = ArtifactPath(root, 3);
+            string v5Path = ArtifactPath(root, 3);
+            string legacyPath = ArtifactPath(root, 4);
             Directory.CreateDirectory(Path.GetDirectoryName(v3Path)!);
             await File.WriteAllBytesAsync(v3Path, CreateArticleDetailV3Frame());
             await File.WriteAllBytesAsync(v4Path, CreateArticleDetailV4Frame());
+            await File.WriteAllBytesAsync(v5Path, CreateArticleDetailV5Frame());
             await File.WriteAllBytesAsync(
                 legacyPath,
                 new AedsEncoder().Encode(AedsFrameType.ArticleDetail, [0x01, 0x02, 0x03]));
@@ -149,12 +154,13 @@ public sealed class ArticleDetailAedsArtifactStoreBehaviorTests
 
             ArticleDetailAedsArtifactMaintenanceResult result = await service.ClearLegacyPublicArtifactsAsync();
 
-            Assert.Equal(3, result.Scanned);
+            Assert.Equal(4, result.Scanned);
             Assert.Equal(1, result.Removed);
-            Assert.Equal(2, result.Skipped);
+            Assert.Equal(3, result.Skipped);
             Assert.Equal(0, result.Failed);
             Assert.True(File.Exists(v3Path));
             Assert.True(File.Exists(v4Path));
+            Assert.True(File.Exists(v5Path));
             Assert.False(File.Exists(legacyPath));
         });
     }
@@ -181,6 +187,14 @@ public sealed class ArticleDetailAedsArtifactStoreBehaviorTests
         byte[] payload = new byte[sizeof(uint) + sizeof(int)];
         BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(0, sizeof(uint)), 0x41524434u);
         BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(sizeof(uint), sizeof(int)), 4);
+        return new AedsEncoder().Encode(AedsFrameType.ArticleDetail, payload);
+    }
+
+    private static byte[] CreateArticleDetailV5Frame()
+    {
+        byte[] payload = new byte[sizeof(uint) + sizeof(int)];
+        BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(0, sizeof(uint)), 0x41524435u);
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(sizeof(uint), sizeof(int)), 5);
         return new AedsEncoder().Encode(AedsFrameType.ArticleDetail, payload);
     }
 

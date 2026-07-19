@@ -142,6 +142,8 @@ public sealed class ArticleDetailAedsFileArtifactStore(
     private const int ArticleDetailV3PayloadVersion = 3;
     private const uint ArticleDetailV4PayloadMagic = 0x41524434; // ARD4
     private const int ArticleDetailV4PayloadVersion = 4;
+    private const uint ArticleDetailV5PayloadMagic = 0x41524435; // ARD5
+    private const int ArticleDetailV5PayloadVersion = 5;
     private const int ArticleDetailV3HeaderSize = sizeof(uint) + sizeof(int);
     private static readonly TimeSpan s_memoryTtl = TimeSpan.FromSeconds(30);
     private readonly string _root = Path.Combine(env.ContentRootPath, "runtime-cache", "public", "articles");
@@ -266,7 +268,8 @@ public sealed class ArticleDetailAedsFileArtifactStore(
         uint payloadMagic = BinaryPrimitives.ReadUInt32LittleEndian(payload[..sizeof(uint)]);
         int payloadVersion = BinaryPrimitives.ReadInt32LittleEndian(payload[sizeof(uint)..ArticleDetailV3HeaderSize]);
         return (payloadMagic == ArticleDetailV3PayloadMagic && payloadVersion == ArticleDetailV3PayloadVersion)
-            || (payloadMagic == ArticleDetailV4PayloadMagic && payloadVersion == ArticleDetailV4PayloadVersion);
+            || (payloadMagic == ArticleDetailV4PayloadMagic && payloadVersion == ArticleDetailV4PayloadVersion)
+            || (payloadMagic == ArticleDetailV5PayloadMagic && payloadVersion == ArticleDetailV5PayloadVersion);
     }
 
     private sealed record CachedFrame(byte[] Frame, DateTimeOffset ExpiresAtUtc);

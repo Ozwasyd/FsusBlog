@@ -298,13 +298,19 @@ public sealed partial class SearchIndexService
             docs.Add(new SearchDocEntry(
                 article.Id,
                 categoryIndex.TryGetValue(article.CategoryId, out ushort categoryRef) ? categoryRef : (ushort)0,
-                new DateTimeOffset(article.CreateTime).ToUnixTimeMilliseconds(),
+                new DateTimeOffset(article.PublishedAt).ToUnixTimeMilliseconds(),
                 article.Views,
                 article.CommentCount,
                 article.DocLength,
                 article.Title,
                 article.Summary,
-                tagRefs));
+                tagRefs)
+            {
+                RevisionId = article.RevisionId,
+                RevisionNo = article.RevisionNo,
+                PublicationId = article.PublicationId,
+                PublicationNo = article.PublicationNo
+            });
         }
 
         return docs.MoveToImmutable();
@@ -646,7 +652,11 @@ public sealed partial class SearchIndexService
                 titleOffset,
                 titleLength,
                 summaryOffset,
-                summaryLength);
+                summaryLength,
+                doc.RevisionId,
+                doc.RevisionNo,
+                doc.PublicationId,
+                doc.PublicationNo);
         }
 
         int termOffset = Align(HeaderSize, 8);
@@ -709,6 +719,10 @@ public sealed partial class SearchIndexService
             WriteUInt16(span, ref offset, doc.SummaryLength);
             WriteUInt16(span, ref offset, 0);
             WriteUInt32(span, ref offset, 0);
+            WriteInt64(span, ref offset, doc.RevisionId);
+            WriteUInt32(span, ref offset, checked((uint)doc.RevisionNo));
+            WriteInt64(span, ref offset, doc.PublicationId);
+            WriteUInt32(span, ref offset, checked((uint)doc.PublicationNo));
         }
 
         offset = categoryOffset;

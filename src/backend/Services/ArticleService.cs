@@ -333,13 +333,15 @@ public partial class ArticleService(
         var parameters = new List<SugarParameter>
         {
             new("@Id", id),
-            new("@Now", utcNow)
+            new("@Now", utcNow),
+            new("@IncludePrivate", includePrivate)
         };
         if (!includePrivate)
         {
             visibilitySql = """
                   AND a.isdeleted = false
                   AND a.status = @PublishedStatus
+                  AND a.current_publication_id IS NOT NULL
                   AND (a.published_at IS NULL OR a.published_at <= @Now)
                   AND (a.scheduled_publish_at IS NULL OR a.scheduled_publish_at <= @Now)
                 """;
@@ -351,19 +353,23 @@ public partial class ArticleService(
         string sql = $$"""
             SELECT
                 a.id AS "Id",
-                a.title AS "Title",
-                a.summary AS "Summary",
-                a.coverimageurl AS "CoverImageUrl",
-                a.categoryid AS "CategoryId",
+                CASE WHEN @IncludePrivate THEN a.title ELSE published_revision.title END AS "Title",
+                CASE WHEN @IncludePrivate THEN a.summary ELSE published_revision.summary END AS "Summary",
+                CASE WHEN @IncludePrivate THEN a.coverimageurl ELSE published_revision.cover_image_url END AS "CoverImageUrl",
+                CASE WHEN @IncludePrivate THEN a.categoryid ELSE published_revision.categoryid END AS "CategoryId",
                 a.views AS "Views",
                 a.createtime AS "CreateTime",
                 a.isdeleted AS "IsDeleted",
                 a.status AS "Status",
                 a.scheduled_publish_at AS "ScheduledPublishAt",
-                a.published_at AS "PublishedAt",
-                ab.updated_at AS "UpdatedAt",
+                CASE WHEN @IncludePrivate THEN a.published_at ELSE publication.published_at END AS "PublishedAt",
+                CASE WHEN @IncludePrivate THEN ab.updated_at ELSE published_revision.created_at END AS "UpdatedAt",
+                CASE WHEN @IncludePrivate THEN current_revision.id ELSE published_revision.id END AS "CurrentRevisionId",
+                CASE WHEN @IncludePrivate THEN current_revision.revision_no ELSE published_revision.revision_no END AS "RevisionNo",
+                publication.id AS "CurrentPublicationId",
+                publication.publication_no AS "PublicationNo",
                 c.name AS "CategoryName",
-                COALESCE(ab.markdown_content, '') AS "Content",
+                CASE WHEN @IncludePrivate THEN COALESCE(ab.markdown_content, '') ELSE published_revision.markdown_content END AS "Content",
                 rights.id AS "RightsSnapshotId",
                 rights.article_revision_id AS "RightsArticleRevisionId",
                 rights.revision_no AS "RightsRevisionNo",
@@ -397,12 +403,16 @@ public partial class ArticleService(
                     ARRAY[]::text[]
                 ) AS "TagNames"
             FROM article a
-            LEFT JOIN category c ON a.categoryid = c.id
+            LEFT JOIN article_publication publication ON publication.id = a.current_publication_id
+            LEFT JOIN article_revision published_revision ON published_revision.id = publication.article_revision_id
+            LEFT JOIN article_revision current_revision ON current_revision.id = a.current_revision_id
+            LEFT JOIN category c ON c.id = CASE WHEN @IncludePrivate THEN a.categoryid ELSE published_revision.categoryid END
             LEFT JOIN article_body ab ON ab.article_id = a.id
             LEFT JOIN LATERAL (
                 SELECT snapshot.*
                 FROM article_rights_snapshot snapshot
-                WHERE snapshot.article_id = a.id
+                WHERE (@IncludePrivate AND snapshot.article_revision_id = a.current_revision_id)
+                   OR (NOT @IncludePrivate AND snapshot.id = publication.rights_snapshot_id)
                 ORDER BY snapshot.revision_no DESC, snapshot.created_at DESC, snapshot.id DESC
                 LIMIT 1
             ) rights ON TRUE
@@ -413,8 +423,16 @@ public partial class ArticleService(
                 ORDER BY proof.created_at DESC, proof.id DESC
                 LIMIT 1
             ) rights_proof ON TRUE
-            LEFT JOIN article_tag at ON at.articleid = a.id
-            LEFT JOIN tag t ON t.id = at.tagid
+            LEFT JOIN LATERAL (
+                SELECT unnest(
+                    CASE WHEN @IncludePrivate THEN
+                        ARRAY(SELECT link.tagid FROM article_tag link WHERE link.articleid = a.id ORDER BY link.tagid)
+                    ELSE
+                        COALESCE(string_to_array(NULLIF(published_revision.tag_ids, ''), ',')::integer[], ARRAY[]::integer[])
+                    END
+                ) AS tag_id
+            ) selected_tag ON TRUE
+            LEFT JOIN tag t ON t.id = selected_tag.tag_id
             WHERE a.id = @Id
             {{visibilitySql}}
             GROUP BY
@@ -429,6 +447,19 @@ public partial class ArticleService(
                 a.status,
                 a.scheduled_publish_at,
                 a.published_at,
+                publication.id,
+                publication.publication_no,
+                publication.published_at,
+                published_revision.id,
+                published_revision.revision_no,
+                published_revision.title,
+                published_revision.summary,
+                published_revision.cover_image_url,
+                published_revision.categoryid,
+                published_revision.markdown_content,
+                published_revision.created_at,
+                current_revision.id,
+                current_revision.revision_no,
                 ab.updated_at,
                 c.name,
                 rights.id,
@@ -485,6 +516,10 @@ public partial class ArticleService(
                     ScheduledPublishAt = reader.IsDBNull(fScheduled) ? null : NormalizeArticleListTimestampUtc(reader.GetDateTime(fScheduled)),
                     PublishedAt = reader.IsDBNull(fPublished) ? null : NormalizeArticleListTimestampUtc(reader.GetDateTime(fPublished)),
                     UpdatedAt = reader.IsDBNull(fUpdated) ? null : NormalizeArticleListTimestampUtc(reader.GetDateTime(fUpdated)),
+                    CurrentRevisionId = reader.GetInt64(reader.GetOrdinal("CurrentRevisionId")),
+                    RevisionNo = reader.GetInt32(reader.GetOrdinal("RevisionNo")),
+                    CurrentPublicationId = reader.IsDBNull(reader.GetOrdinal("CurrentPublicationId")) ? null : reader.GetInt64(reader.GetOrdinal("CurrentPublicationId")),
+                    PublicationNo = reader.IsDBNull(reader.GetOrdinal("PublicationNo")) ? null : reader.GetInt32(reader.GetOrdinal("PublicationNo")),
                     CategoryName = reader.IsDBNull(fCatName) ? "默认分类" : reader.GetString(fCatName),
                     Content = content,
                     WordCount = reading.EffectiveChars,
@@ -592,9 +627,11 @@ public partial class ArticleService(
     private async Task<string> LoadArticleContentAsync(int articleId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        string content = await _db.Queryable<ArticleBody>()
-            .Where(it => it.ArticleId == articleId)
-            .Select(it => it.MarkdownContent)
+        string content = await _db.Queryable<Article>()
+            .InnerJoin<ArticlePublicationRecord>((article, publication) => article.CurrentPublicationId == publication.Id)
+            .InnerJoin<ArticleRevision>((article, publication, revision) => publication.ArticleRevisionId == revision.Id)
+            .Where(article => article.Id == articleId && !article.IsDeleted)
+            .Select((article, publication, revision) => revision.MarkdownContent)
             .FirstAsync(cancellationToken) ?? string.Empty;
 
         return content;
@@ -661,7 +698,17 @@ public partial class ArticleService(
                     article.PublishedAt,
                     article.ScheduledPublishAt,
                     rights);
-                await RecordArticleMutationOutboxAsync(id, ArticleMutationEventTypes.Created, rightsSnapshotId);
+                long? responsibilitySnapshotId = await LoadResponsibilitySnapshotIdAsync(revision.Id);
+                ArticleVersionCoordinates version = await ArticlePublicationTransitionWriter.ApplyAsync(
+                    _db,
+                    new ArticlePublicationTransitionRequest(
+                        id,
+                        ArticleVersionCoordinates.Revision(revision.Id, revision.RevisionNo, rightsSnapshotId, responsibilitySnapshotId),
+                        status,
+                        article.ScheduledPublishAt,
+                        now,
+                        TransitionKindFor(status)));
+                await RecordArticleMutationOutboxAsync(id, ArticleMutationEventTypes.Created, version);
                 return id;
             });
 
@@ -1053,22 +1100,74 @@ public partial class ArticleService(
         return string.IsNullOrWhiteSpace(normalized) ? fallback : normalized;
     }
 
-    private Task RecordArticleMutationOutboxAsync(int articleId, string eventType, long? rightsSnapshotId = null)
+    private Task RecordArticleMutationOutboxAsync(int articleId, string eventType, ArticleVersionCoordinates version)
         => _db.Insertable(new ArticleMutationOutboxEvent
         {
             EventId = Guid.NewGuid().ToString("N"),
             AggregateId = articleId,
+            ArticleRevisionId = version.RevisionId,
+            RevisionNo = version.RevisionNo,
+            ArticlePublicationId = version.PublicationId,
+            PublicationNo = version.PublicationNo,
             EventType = eventType,
-            PayloadJson = rightsSnapshotId.HasValue
-                ? $"{{\"articleId\":{articleId},\"eventType\":\"{eventType}\",\"rightsSnapshotId\":{rightsSnapshotId.Value}}}"
-                : $"{{\"articleId\":{articleId},\"eventType\":\"{eventType}\"}}",
+            PayloadJson = ArticlePublicationTransitionWriter.BuildOutboxPayload(articleId, eventType, version),
             Status = "pending",
             RetryCount = 0,
             NextRetryAt = DateTime.UtcNow,
             CreatedAt = DateTime.UtcNow
         }).ExecuteCommandAsync();
 
-    public async Task<bool> UpdateAsync(int id, ArticleWriteRequestCoreModel dto, CancellationToken cancellationToken = default)
+    private async Task RecordArticleMutationOutboxAsync(int articleId, string eventType)
+    {
+        ArticleVersionCoordinates version = await LoadCurrentVersionCoordinatesAsync(articleId).ConfigureAwait(false);
+        await RecordArticleMutationOutboxAsync(articleId, eventType, version).ConfigureAwait(false);
+    }
+
+    private async Task<ArticleVersionCoordinates> LoadCurrentVersionCoordinatesAsync(int articleId)
+    {
+        using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
+            """
+            SELECT
+                revision.id AS revision_id,
+                revision.revision_no,
+                rights.id AS rights_snapshot_id,
+                responsibility.id AS responsibility_snapshot_id,
+                publication.id AS publication_id,
+                publication.publication_no
+            FROM article article
+            JOIN article_revision revision ON revision.id = article.current_revision_id
+            JOIN article_rights_snapshot rights
+              ON rights.article_id = article.id
+             AND rights.article_revision_id = revision.id
+            LEFT JOIN article_responsibility_snapshot responsibility
+              ON responsibility.article_revision_id = revision.id
+            LEFT JOIN article_publication publication
+              ON publication.id = article.current_publication_id
+            WHERE article.id = @ArticleId;
+            """,
+            new SugarParameter("@ArticleId", articleId));
+        if (!await reader.ReadAsync(Ct).ConfigureAwait(false))
+        {
+            throw new InvalidOperationException($"Article {articleId} has no current version coordinates.");
+        }
+
+        return new ArticleVersionCoordinates(
+            reader.ReadInt64("revision_id"),
+            reader.ReadInt32("revision_no"),
+            reader.ReadInt64("rights_snapshot_id"),
+            reader.IsNull("responsibility_snapshot_id") ? null : reader.ReadInt64("responsibility_snapshot_id"),
+            reader.IsNull("publication_id") ? null : reader.ReadInt64("publication_id"),
+            reader.IsNull("publication_no") ? null : reader.ReadInt32("publication_no"));
+    }
+
+    public Task<bool> UpdateAsync(int id, ArticleWriteRequestCoreModel dto, CancellationToken cancellationToken = default)
+        => UpdateAsync(id, dto, transitionKind: null, cancellationToken);
+
+    private async Task<bool> UpdateAsync(
+        int id,
+        ArticleWriteRequestCoreModel dto,
+        string? transitionKind,
+        CancellationToken cancellationToken)
     {
         CancellationToken ct = ResolveCancellationToken(cancellationToken);
         ct.ThrowIfCancellationRequested();
@@ -1156,7 +1255,17 @@ public partial class ArticleService(
                     publishedAt,
                     scheduledPublishAt,
                     rights);
-                await RecordArticleMutationOutboxAsync(id, ArticleMutationEventTypes.Updated, rightsSnapshotId);
+                long? responsibilitySnapshotId = await LoadResponsibilitySnapshotIdAsync(revision.Id);
+                ArticleVersionCoordinates version = await ArticlePublicationTransitionWriter.ApplyAsync(
+                    _db,
+                    new ArticlePublicationTransitionRequest(
+                        id,
+                        ArticleVersionCoordinates.Revision(revision.Id, revision.RevisionNo, rightsSnapshotId, responsibilitySnapshotId),
+                        status,
+                        scheduledPublishAt,
+                        now,
+                        transitionKind ?? TransitionKindFor(status)));
+                await RecordArticleMutationOutboxAsync(id, ArticleMutationEventTypes.Updated, version);
             });
 
             mutationCommitted = result.IsSuccess && articleUpdated;
@@ -1337,6 +1446,24 @@ public partial class ArticleService(
         string RowVersion,
         ArticleStatus Status,
         DateTime? PublishedAt);
+
+    private static string TransitionKindFor(ArticleStatus status)
+        => status switch
+        {
+            ArticleStatus.Draft => ArticlePublicationTransitionKinds.SaveDraft,
+            ArticleStatus.Scheduled => ArticlePublicationTransitionKinds.Schedule,
+            ArticleStatus.Archived => ArticlePublicationTransitionKinds.Archive,
+            _ => ArticlePublicationTransitionKinds.ImmediatePublish
+        };
+
+    private async Task<long?> LoadResponsibilitySnapshotIdAsync(long revisionId)
+    {
+        long value = await _db.Queryable<ArticleResponsibilitySnapshot>()
+            .Where(snapshot => snapshot.ArticleRevisionId == revisionId)
+            .Select(snapshot => snapshot.Id)
+            .FirstAsync(Ct);
+        return value > 0 ? value : null;
+    }
 
     private sealed record ArticleMutationState(List<int> CategoryIds, List<int> TagIds, string RowVersion);
 

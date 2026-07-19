@@ -27,6 +27,10 @@ public static partial class PodBinaryCodec
     private const int ArticleDetailV3PayloadVersion = 3;
     private const uint ArticleDetailV4PayloadMagic = 0x41524434;
     private const int ArticleDetailV4PayloadVersion = 4;
+    private const uint ArticleDetailV5PayloadMagic = 0x41524435;
+    private const int ArticleDetailV5PayloadVersion = 5;
+    private const int ArticleSearchV4PayloadMagic = 0x34534146; // FAS4
+    private const int ArticleSearchV4PayloadVersion = 4;
     private const int ArticleWriteRequestVersion = 3;
     private const int RightsFlagEnabled = 1 << 0;
     private const int RightsFlagAllowCodeCopy = 1 << 1;
@@ -392,6 +396,10 @@ public static partial class PodBinaryCodec
                 writer.WriteInt32(item.Status);
                 writer.WriteInt64(ToUnixMsOrZero(item.ScheduledPublishAt));
                 writer.WriteInt64(ToUnixMsOrZero(item.PublishedAt));
+                writer.WriteInt64(item.CurrentRevisionId);
+                writer.WriteInt32(item.RevisionNo);
+                writer.WriteInt64(item.CurrentPublicationId.GetValueOrDefault());
+                writer.WriteInt32(item.PublicationNo.GetValueOrDefault());
             }
 
             tagIndex = 0;
@@ -474,14 +482,14 @@ public static partial class PodBinaryCodec
         int itemRecordSize = count == 0 ? 76 : itemRecordBytes / count;
         if (itemRecordBytes < 0 ||
             count > 0 && itemRecordBytes % count != 0 ||
-            itemRecordSize is not 56 and not 76 ||
+            itemRecordSize is not 56 and not 76 and not 100 ||
             reader.Remaining != count * itemRecordSize + tagRecordCount * 12)
         {
             page = default;
             return false;
         }
 
-        var pending = new List<(int Id, int Views, long CreateTimeUnixMs, int CategoryId, Utf8SliceRef CategoryName, Utf8SliceRef Title, Utf8SliceRef Summary, int TagStart, int TagCount, bool? IsDeleted, int Status, DateTime? ScheduledPublishAt, DateTime? PublishedAt)>(count);
+        var pending = new List<(int Id, int Views, long CreateTimeUnixMs, int CategoryId, Utf8SliceRef CategoryName, Utf8SliceRef Title, Utf8SliceRef Summary, int TagStart, int TagCount, bool? IsDeleted, int Status, DateTime? ScheduledPublishAt, DateTime? PublishedAt, long CurrentRevisionId, int RevisionNo, long? CurrentPublicationId, int? PublicationNo)>(count);
         for (int i = 0; i < count; i++)
         {
             if (!reader.TryReadInt32(out int id) ||
@@ -510,7 +518,11 @@ public static partial class PodBinaryCodec
             int status = 2;
             DateTime? scheduledPublishAt = null;
             DateTime? publishedAt = null;
-            if (itemRecordSize == 76)
+            long currentRevisionId = 0;
+            int revisionNo = 0;
+            long? currentPublicationId = null;
+            int? publicationNo = null;
+            if (itemRecordSize >= 76)
             {
                 if (!reader.TryReadInt32(out status) ||
                     !reader.TryReadInt64(out long scheduledPublishAtUnixMs) ||
@@ -524,7 +536,22 @@ public static partial class PodBinaryCodec
                 publishedAt = FromUnixMsOrNull(publishedAtUnixMs);
             }
 
-            pending.Add((id, views, createTimeUnixMs, categoryId, categoryName, title, summary, tagStart, tagCount, hasIsDeleted == 1 ? isDeleted == 1 : null, status, scheduledPublishAt, publishedAt));
+            if (itemRecordSize == 100)
+            {
+                if (!reader.TryReadInt64(out currentRevisionId) ||
+                    !reader.TryReadInt32(out revisionNo) ||
+                    !reader.TryReadInt64(out long publicationId) ||
+                    !reader.TryReadInt32(out int decodedPublicationNo))
+                {
+                    page = default;
+                    return false;
+                }
+
+                currentPublicationId = publicationId > 0 ? publicationId : null;
+                publicationNo = decodedPublicationNo > 0 ? decodedPublicationNo : null;
+            }
+
+            pending.Add((id, views, createTimeUnixMs, categoryId, categoryName, title, summary, tagStart, tagCount, hasIsDeleted == 1 ? isDeleted == 1 : null, status, scheduledPublishAt, publishedAt, currentRevisionId, revisionNo, currentPublicationId, publicationNo));
         }
 
         var tagRecords = new List<TagCoreModel>(tagRecordCount);
@@ -561,7 +588,11 @@ public static partial class PodBinaryCodec
                 record.IsDeleted,
                 record.Status,
                 record.ScheduledPublishAt,
-                record.PublishedAt));
+                record.PublishedAt,
+                record.CurrentRevisionId,
+                record.RevisionNo,
+                record.CurrentPublicationId,
+                record.PublicationNo));
         }
 
         string? nextCursor = hasMore && nextCursorUnixMs > 0 && items.Count > 0
@@ -603,7 +634,7 @@ public static partial class PodBinaryCodec
 
         int plannedBlobLength = 0;
         ArticleRightsCoreModel rights = item.Rights;
-        var article = new MutableArticleDetailV4RecordPod
+        var article = new MutableArticleDetailV5RecordPod
         {
             Id = item.Id,
             Views = item.Views,
@@ -613,6 +644,10 @@ public static partial class PodBinaryCodec
             ScheduledPublishAtUnixMs = ToUnixMsOrZero(item.ScheduledPublishAt),
             PublishedAtUnixMs = ToUnixMsOrZero(item.PublishedAt),
             UpdatedAtUnixMs = ToUnixMsOrZero(item.UpdatedAt),
+            CurrentRevisionId = item.CurrentRevisionId,
+            RevisionNo = item.RevisionNo,
+            CurrentPublicationId = item.CurrentPublicationId.GetValueOrDefault(),
+            PublicationNo = item.PublicationNo.GetValueOrDefault(),
             IsDeleted = item.IsDeleted ? (byte)1 : (byte)0,
             Title = PlanUtf8Slice(item.Title, ref plannedBlobLength),
             Content = PlanUtf8Slice(item.Content, ref plannedBlobLength),
@@ -649,7 +684,7 @@ public static partial class PodBinaryCodec
         };
 
         int headerSize = Unsafe.SizeOf<ArticleDetailV4HeaderPod>();
-        int articleRecordSize = Unsafe.SizeOf<ArticleDetailV4RecordPod>();
+        int articleRecordSize = Unsafe.SizeOf<ArticleDetailV5RecordPod>();
         int tagRecordSize = Unsafe.SizeOf<ArticleDetailTagV3RecordPod>();
         int rightsRecordSize = Unsafe.SizeOf<ArticleRightsV3RecordPod>();
         int articleOffset = headerSize;
@@ -658,8 +693,8 @@ public static partial class PodBinaryCodec
         int blobOffset = rightsOffset + rightsRecordSize;
         var header = new MutableArticleDetailV4HeaderPod
         {
-            Magic = ArticleDetailV4PayloadMagic,
-            Version = ArticleDetailV4PayloadVersion,
+            Magic = ArticleDetailV5PayloadMagic,
+            Version = ArticleDetailV5PayloadVersion,
             Flags = 0,
             ArticleRecordOffset = articleOffset,
             ArticleRecordLength = articleRecordSize,
@@ -673,7 +708,7 @@ public static partial class PodBinaryCodec
 
         var writer = new BinaryPodWriter(destination);
         writer.WritePod(Cast<MutableArticleDetailV4HeaderPod, ArticleDetailV4HeaderPod>(header));
-        writer.WritePod(Cast<MutableArticleDetailV4RecordPod, ArticleDetailV4RecordPod>(article));
+        writer.WritePod(Cast<MutableArticleDetailV5RecordPod, ArticleDetailV5RecordPod>(article));
         int nextTagOffset = tagBlobOffset;
         foreach (TagCoreModel tag in item.Tags)
         {
@@ -733,7 +768,7 @@ public static partial class PodBinaryCodec
             + (item.Summary?.Length ?? 0)
             + (item.CoverImageUrl?.Length ?? 0)));
         ArticleRightsCoreModel rights = item.Rights;
-        var article = new MutableArticleDetailV4RecordPod
+        var article = new MutableArticleDetailV5RecordPod
         {
             Id = item.Id,
             Views = item.Views,
@@ -743,6 +778,10 @@ public static partial class PodBinaryCodec
             ScheduledPublishAtUnixMs = ToUnixMsOrZero(item.ScheduledPublishAt),
             PublishedAtUnixMs = ToUnixMsOrZero(item.PublishedAt),
             UpdatedAtUnixMs = ToUnixMsOrZero(item.UpdatedAt),
+            CurrentRevisionId = item.CurrentRevisionId,
+            RevisionNo = item.RevisionNo,
+            CurrentPublicationId = item.CurrentPublicationId.GetValueOrDefault(),
+            PublicationNo = item.PublicationNo.GetValueOrDefault(),
             IsDeleted = item.IsDeleted ? (byte)1 : (byte)0,
             Title = PodUtf8Codec.AppendSlice(item.Title, blob),
             Content = PodUtf8Codec.AppendSlice(item.Content, blob),
@@ -781,7 +820,7 @@ public static partial class PodBinaryCodec
             ProofStatus = PodUtf8Codec.AppendSlice(rights.ProofStatus, blob)
         };
         int headerSize = Unsafe.SizeOf<ArticleDetailV4HeaderPod>();
-        int articleRecordSize = Unsafe.SizeOf<ArticleDetailV4RecordPod>();
+        int articleRecordSize = Unsafe.SizeOf<ArticleDetailV5RecordPod>();
         int tagRecordSize = Unsafe.SizeOf<ArticleDetailTagV3RecordPod>();
         int rightsRecordSize = Unsafe.SizeOf<ArticleRightsV3RecordPod>();
         int articleOffset = headerSize;
@@ -790,8 +829,8 @@ public static partial class PodBinaryCodec
         int blobOffset = rightsOffset + rightsRecordSize;
         var header = new MutableArticleDetailV4HeaderPod
         {
-            Magic = ArticleDetailV4PayloadMagic,
-            Version = ArticleDetailV4PayloadVersion,
+            Magic = ArticleDetailV5PayloadMagic,
+            Version = ArticleDetailV5PayloadVersion,
             Flags = 0,
             ArticleRecordOffset = articleOffset,
             ArticleRecordLength = articleRecordSize,
@@ -805,7 +844,7 @@ public static partial class PodBinaryCodec
 
         var writer = new BinaryPodWriter(destination);
         writer.WritePod(Cast<MutableArticleDetailV4HeaderPod, ArticleDetailV4HeaderPod>(header));
-        writer.WritePod(Cast<MutableArticleDetailV4RecordPod, ArticleDetailV4RecordPod>(article));
+        writer.WritePod(Cast<MutableArticleDetailV5RecordPod, ArticleDetailV5RecordPod>(article));
         foreach (ArticleDetailTagV3RecordPod tag in tags)
         {
             writer.WritePod(tag);
@@ -949,7 +988,11 @@ public static partial class PodBinaryCodec
             FromUnixMsOrNull(article.ScheduledPublishAtUnixMs),
             FromUnixMsOrNull(article.PublishedAtUnixMs),
             FromUnixMsOrNull(article.UpdatedAtUnixMs),
-            BuildArticleRightsCoreModel(rightsPod, blob));
+            BuildArticleRightsCoreModel(rightsPod, blob),
+            article.CurrentRevisionId,
+            article.RevisionNo,
+            article.CurrentPublicationId > 0 ? article.CurrentPublicationId : null,
+            article.PublicationNo > 0 ? article.PublicationNo : null);
         return true;
     }
 
@@ -1147,12 +1190,16 @@ public static partial class PodBinaryCodec
 
     private static bool IsSupportedArticleDetailPayload(uint magic, int version)
         => (magic == ArticleDetailV3PayloadMagic && version == ArticleDetailV3PayloadVersion) ||
-           (magic == ArticleDetailV4PayloadMagic && version == ArticleDetailV4PayloadVersion);
+           (magic == ArticleDetailV4PayloadMagic && version == ArticleDetailV4PayloadVersion) ||
+           (magic == ArticleDetailV5PayloadMagic && version == ArticleDetailV5PayloadVersion);
 
     private static int ResolveArticleDetailRecordSize(int version)
-        => version == ArticleDetailV4PayloadVersion
-            ? Unsafe.SizeOf<ArticleDetailV4RecordPod>()
-            : Unsafe.SizeOf<ArticleDetailV3RecordPod>();
+        => version switch
+        {
+            ArticleDetailV5PayloadVersion => Unsafe.SizeOf<ArticleDetailV5RecordPod>(),
+            ArticleDetailV4PayloadVersion => Unsafe.SizeOf<ArticleDetailV4RecordPod>(),
+            _ => Unsafe.SizeOf<ArticleDetailV3RecordPod>()
+        };
 
     private static bool TryReadArticleDetailRecord(
         ReadOnlySpan<byte> source,
@@ -1161,6 +1208,25 @@ public static partial class PodBinaryCodec
         out DecodedArticleDetailRecord decoded)
     {
         var reader = new BinaryPodReader(source);
+        if (version == ArticleDetailV5PayloadVersion)
+        {
+            if (!reader.TryReadPod(out ArticleDetailV5RecordPod record) ||
+                !reader.IsConsumed ||
+                record.IsDeleted > 1 ||
+                !ValidateArticleDetailRecordSlices(record, blob))
+            {
+                decoded = default;
+                return false;
+            }
+
+            decoded = new DecodedArticleDetailRecord(
+                record.Id, record.Views, record.CreateTimeUnixMs, record.CategoryId, record.Status,
+                record.ScheduledPublishAtUnixMs, record.PublishedAtUnixMs, record.UpdatedAtUnixMs,
+                record.CurrentRevisionId, record.RevisionNo, record.CurrentPublicationId, record.PublicationNo,
+                record.IsDeleted, record.Title, record.Content, record.Summary, record.CoverImageUrl, record.CategoryName);
+            return true;
+        }
+
         if (version == ArticleDetailV4PayloadVersion)
         {
             if (!reader.TryReadPod(out ArticleDetailV4RecordPod record) ||
@@ -1175,6 +1241,7 @@ public static partial class PodBinaryCodec
             decoded = new DecodedArticleDetailRecord(
                 record.Id, record.Views, record.CreateTimeUnixMs, record.CategoryId, record.Status,
                 record.ScheduledPublishAtUnixMs, record.PublishedAtUnixMs, record.UpdatedAtUnixMs,
+                0, 0, 0, 0,
                 record.IsDeleted, record.Title, record.Content, record.Summary, record.CoverImageUrl, record.CategoryName);
             return true;
         }
@@ -1191,6 +1258,7 @@ public static partial class PodBinaryCodec
         decoded = new DecodedArticleDetailRecord(
             legacy.Id, legacy.Views, legacy.CreateTimeUnixMs, legacy.CategoryId, legacy.Status,
             legacy.ScheduledPublishAtUnixMs, legacy.PublishedAtUnixMs, 0,
+            0, 0, 0, 0,
             legacy.IsDeleted, legacy.Title, legacy.Content, legacy.Summary, legacy.CoverImageUrl, legacy.CategoryName);
         return true;
     }
@@ -1203,6 +1271,13 @@ public static partial class PodBinaryCodec
            IsSliceValid(record.CategoryName, blob);
 
     private static bool ValidateArticleDetailRecordSlices(ArticleDetailV4RecordPod record, ReadOnlySpan<byte> blob)
+        => IsSliceValid(record.Title, blob) &&
+           IsSliceValid(record.Content, blob) &&
+           IsSliceValid(record.Summary, blob) &&
+           IsSliceValid(record.CoverImageUrl, blob) &&
+           IsSliceValid(record.CategoryName, blob);
+
+    private static bool ValidateArticleDetailRecordSlices(ArticleDetailV5RecordPod record, ReadOnlySpan<byte> blob)
         => IsSliceValid(record.Title, blob) &&
            IsSliceValid(record.Content, blob) &&
            IsSliceValid(record.Summary, blob) &&
@@ -1278,6 +1353,10 @@ public static partial class PodBinaryCodec
         long ScheduledPublishAtUnixMs,
         long PublishedAtUnixMs,
         long UpdatedAtUnixMs,
+        long CurrentRevisionId,
+        int RevisionNo,
+        long CurrentPublicationId,
+        int PublicationNo,
         byte IsDeleted,
         Utf8SliceRef Title,
         Utf8SliceRef Content,
@@ -1336,7 +1415,7 @@ public static partial class PodBinaryCodec
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    private struct MutableArticleDetailV4RecordPod
+    private struct MutableArticleDetailV5RecordPod
     {
         public int Id;
         public int Views;
@@ -1346,6 +1425,10 @@ public static partial class PodBinaryCodec
         public long ScheduledPublishAtUnixMs;
         public long PublishedAtUnixMs;
         public long UpdatedAtUnixMs;
+        public long CurrentRevisionId;
+        public int RevisionNo;
+        public long CurrentPublicationId;
+        public int PublicationNo;
         public byte IsDeleted;
         public byte Reserved0;
         public ushort Reserved1;
@@ -1390,10 +1473,12 @@ public static partial class PodBinaryCodec
     public static void WriteArticleSearch(IReadOnlyList<ArticleListCoreModel> items, IBufferWriter<byte> destination)
     {
         var writer = new BinaryPodWriter(destination);
+        writer.WriteInt32(ArticleSearchV4PayloadMagic);
+        writer.WriteInt32(ArticleSearchV4PayloadVersion);
         writer.WriteInt32(items.Count);
         foreach (ArticleListCoreModel item in items)
         {
-            WriteArticleListItem(ref writer, item);
+            WriteArticleListItem(ref writer, item, includeVersionCoordinates: true);
         }
     }
 
@@ -1409,7 +1494,22 @@ public static partial class PodBinaryCodec
     public static bool TryDecodeArticleSearch(ReadOnlyMemory<byte> bytes, out IReadOnlyList<ArticleListCoreModel> items)
     {
         var reader = new BinaryPodReader(bytes.Span);
-        if (!reader.TryReadInt32(out int count) || count < 0)
+        if (!reader.TryReadInt32(out int countOrMagic))
+        {
+            items = Array.Empty<ArticleListCoreModel>();
+            return false;
+        }
+        bool hasVersionCoordinates = countOrMagic == ArticleSearchV4PayloadMagic;
+        int count = countOrMagic;
+        if (hasVersionCoordinates &&
+            (!reader.TryReadInt32(out int version) ||
+             version != ArticleSearchV4PayloadVersion ||
+             !reader.TryReadInt32(out count)))
+        {
+            items = Array.Empty<ArticleListCoreModel>();
+            return false;
+        }
+        if (count < 0)
         {
             items = Array.Empty<ArticleListCoreModel>();
             return false;
@@ -1418,7 +1518,7 @@ public static partial class PodBinaryCodec
         var list = new List<ArticleListCoreModel>(count);
         for (int i = 0; i < count; i++)
         {
-            if (!TryReadArticleListItem(ref reader, out ArticleListCoreModel item))
+            if (!TryReadArticleListItem(ref reader, hasVersionCoordinates, out ArticleListCoreModel item))
             {
                 items = Array.Empty<ArticleListCoreModel>();
                 return false;

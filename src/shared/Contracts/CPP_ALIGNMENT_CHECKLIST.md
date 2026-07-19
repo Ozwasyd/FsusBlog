@@ -32,7 +32,7 @@ Use `FsusBlog.Shared.Contracts.Validation.PodSizeCatalog` values as authoritativ
 
 - primitives: `Utf8Fixed*`, `Utf8SliceRef`
 - envelopes: `PodEnvelopeHeader`, `PageEnvelope`, `CursorEnvelope`, `PagedPodEnvelope`, `CursorPodEnvelope`
-- article: `ArticleListItemPod`, legacy `ArticleDetailPod`, `ArticleDetailV3HeaderPod`, 84-byte `ArticleDetailV3RecordPod`, `ArticleDetailV4HeaderPod`, 92-byte `ArticleDetailV4RecordPod`, `ArticleDetailTagV3RecordPod`, `ArticleRightsV3RecordPod`, `TagPod`, `TagWithCountPod`, `CategoryPod`, `ArticleNoticePod`, `ArticleMutationResponsePod`, `TrashClearResponsePod`
+- article: `ArticleListItemPod`, legacy `ArticleDetailPod`, `ArticleDetailV3HeaderPod`, 84-byte `ArticleDetailV3RecordPod`, `ArticleDetailV4HeaderPod`, 92-byte `ArticleDetailV4RecordPod`, 116-byte `ArticleDetailV5RecordPod`, `ArticleDetailTagV3RecordPod`, `ArticleRightsV3RecordPod`, `TagPod`, `TagWithCountPod`, `CategoryPod`, `ArticleNoticePod`, `ArticleMutationResponsePod`, `TrashClearResponsePod`
 - comment: `CommentItemPod`, `UserCommentPod`
 - message: `MessageInboxPod`, `CommentPushPod`, `CommentAddedNotifyPod`, `GlobalNoticePayloadPod`, `MessageRevokedPayloadPod`, `AccountStatusPayloadPod`, `NoticePayloadPod`, `CommentRemovedPayloadPod`
 - user/auth: `TokenResponsePod`, `LoginResponsePod`, `UserListItemPod` (anonymous account list row)
@@ -54,6 +54,6 @@ Use `FsusBlog.Shared.Contracts.Validation.PodSizeCatalog` values as authoritativ
 ## 5. Compatibility Notes
 
 - `DateTime` is always encoded as Unix epoch milliseconds (`std::int64_t`).
-- `ArticleDetail` writers emit `ARD4`/version 4 with a 92-byte record containing `updatedAtUnixMs`. C++, TypeScript and C# decoders must also accept `ARD3`/version 3 with its unchanged 84-byte record in read-only compatibility mode and expose the missing update time as null/zero. Mismatched magic/version pairs, truncation, out-of-range slices and trailing bytes are rejected.
+- `ArticleDetail` writers emit `ARD5`/version 5 with a 116-byte record containing `updatedAtUnixMs` and exact revision/publication coordinates. C++, TypeScript and C# decoders must also accept `ARD4`/version 4 (92 bytes) and `ARD3`/version 3 (84 bytes) in read-only compatibility mode and expose absent fields as null/zero. Mismatched magic/version pairs, truncation, out-of-range slices and trailing bytes are rejected.
 - nullable values are encoded as `Value + HasValue(std::uint8_t)`.
 - no reference types exist in POD structs; `PodContractValidation.AreAllPodModelsReferenceFree()` must remain `true`.

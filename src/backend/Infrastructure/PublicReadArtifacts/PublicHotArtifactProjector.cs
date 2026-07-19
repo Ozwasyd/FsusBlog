@@ -675,6 +675,7 @@ public sealed class PublicHotArtifactProjector(
         [
             "a.isdeleted = @IsDeleted",
             "a.status = @PublishedStatus",
+            "a.current_publication_id IS NOT NULL",
             "(a.published_at IS NULL OR a.published_at <= @Now)",
             "(a.scheduled_publish_at IS NULL OR a.scheduled_publish_at <= @Now)"
         ];
@@ -689,7 +690,7 @@ public sealed class PublicHotArtifactProjector(
 
         if (categoryId.HasValue)
         {
-            whereClauses.Add("a.categoryid = @CategoryId");
+            whereClauses.Add("EXISTS (SELECT 1 FROM article_publication fp JOIN article_revision fr ON fr.id = fp.article_revision_id WHERE fp.id = a.current_publication_id AND fr.categoryid = @CategoryId)");
             parameters.Add(new SugarParameter("@CategoryId", categoryId.Value));
         }
 
@@ -698,8 +699,10 @@ public sealed class PublicHotArtifactProjector(
             whereClauses.Add("""
                 EXISTS (
                     SELECT 1
-                    FROM article_tag at
-                    WHERE at.articleid = a.id AND at.tagid = @TagId
+                    FROM article_publication fp
+                    JOIN article_revision fr ON fr.id = fp.article_revision_id
+                    WHERE fp.id = a.current_publication_id
+                      AND @TagId = ANY(COALESCE(string_to_array(NULLIF(fr.tag_ids, ''), ',')::integer[], ARRAY[]::integer[]))
                 )
                 """);
             parameters.Add(new SugarParameter("@TagId", tagId.Value));
@@ -713,19 +716,25 @@ public sealed class PublicHotArtifactProjector(
 
             SELECT
                 a.id AS "Id",
-                a.title AS "Title",
-                a.summary AS "Summary",
-                a.coverimageurl AS "CoverImageUrl",
+                revision.title AS "Title",
+                revision.summary AS "Summary",
+                revision.cover_image_url AS "CoverImageUrl",
                 a.views AS "Views",
                 a.createtime AS "CreateTime",
-                a.categoryid AS "CategoryId",
+                revision.categoryid AS "CategoryId",
                 c.name AS "CategoryName",
                 a.isdeleted AS "IsDeleted",
                 a.status AS "Status",
                 a.scheduled_publish_at AS "ScheduledPublishAt",
-                a.published_at AS "PublishedAt"
+                publication.published_at AS "PublishedAt",
+                revision.id AS "CurrentRevisionId",
+                revision.revision_no AS "RevisionNo",
+                publication.id AS "CurrentPublicationId",
+                publication.publication_no AS "PublicationNo"
             FROM article a
-            LEFT JOIN category c ON a.categoryid = c.id
+            JOIN article_publication publication ON publication.id = a.current_publication_id
+            JOIN article_revision revision ON revision.id = publication.article_revision_id
+            LEFT JOIN category c ON revision.categoryid = c.id
             WHERE {{whereSql}}
             ORDER BY a.createtime DESC, a.id DESC
             OFFSET @Offset
@@ -758,6 +767,10 @@ public sealed class PublicHotArtifactProjector(
             int fStatus = reader.GetOrdinal("Status");
             int fScheduled = reader.GetOrdinal("ScheduledPublishAt");
             int fPublished = reader.GetOrdinal("PublishedAt");
+            int fRevisionId = reader.GetOrdinal("CurrentRevisionId");
+            int fRevisionNo = reader.GetOrdinal("RevisionNo");
+            int fPublicationId = reader.GetOrdinal("CurrentPublicationId");
+            int fPublicationNo = reader.GetOrdinal("PublicationNo");
 
             while (await reader.ReadAsync(ct).ConfigureAwait(false))
             {
@@ -775,6 +788,10 @@ public sealed class PublicHotArtifactProjector(
                     Status = (ArticleStatus)reader.GetInt32(fStatus),
                     ScheduledPublishAt = reader.IsDBNull(fScheduled) ? null : reader.GetDateTime(fScheduled),
                     PublishedAt = reader.IsDBNull(fPublished) ? null : reader.GetDateTime(fPublished),
+                    CurrentRevisionId = reader.GetInt64(fRevisionId),
+                    RevisionNo = reader.GetInt32(fRevisionNo),
+                    CurrentPublicationId = reader.GetInt64(fPublicationId),
+                    PublicationNo = reader.GetInt32(fPublicationNo),
                     Tags = []
                 });
             }
@@ -813,26 +830,32 @@ public sealed class PublicHotArtifactProjector(
 
         DateTime utcNow = DateTime.UtcNow;
         var query = db.Queryable<Article>()
-            .LeftJoin<Category>((a, c) => a.CategoryId == c.Id)
+            .InnerJoin<ArticlePublicationRecord>((article, publication) => article.CurrentPublicationId == publication.Id)
+            .InnerJoin<ArticleRevision>((article, publication, revision) => publication.ArticleRevisionId == revision.Id)
+            .LeftJoin<Category>((article, publication, revision, category) => revision.CategoryId == category.Id)
             .Where(a => ids.Contains(a.Id)
                 && a.IsDeleted == false
                 && a.Status == ArticleStatus.Published
                 && (a.PublishedAt == null || a.PublishedAt <= utcNow)
                 && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= utcNow))
-            .Select((a, c) => new
+            .Select((article, publication, revision, category) => new
             {
-                a.Id,
-                a.Title,
-                a.Summary,
-                a.CoverImageUrl,
-                a.CategoryId,
-                a.Views,
-                a.CreateTime,
-                a.IsDeleted,
-                a.Status,
-                a.ScheduledPublishAt,
-                a.PublishedAt,
-                CategoryName = c.Name
+                article.Id,
+                revision.Title,
+                revision.Summary,
+                revision.CoverImageUrl,
+                revision.CategoryId,
+                article.Views,
+                article.CreateTime,
+                article.IsDeleted,
+                article.Status,
+                article.ScheduledPublishAt,
+                PublishedAt = publication.PublishedAt,
+                RevisionId = revision.Id,
+                revision.RevisionNo,
+                PublicationId = publication.Id,
+                publication.PublicationNo,
+                CategoryName = category.Name
             });
 
         var sqlObj = query.ToSql();
@@ -851,6 +874,10 @@ public sealed class PublicHotArtifactProjector(
             int fScheduled = reader.GetOrdinal("ScheduledPublishAt");
             int fPublished = reader.GetOrdinal("PublishedAt");
             int fCatName = reader.GetOrdinal("CategoryName");
+            int fRevisionId = reader.GetOrdinal("RevisionId");
+            int fRevisionNo = reader.GetOrdinal("RevisionNo");
+            int fPublicationId = reader.GetOrdinal("PublicationId");
+            int fPublicationNo = reader.GetOrdinal("PublicationNo");
 
             while (await reader.ReadAsync(ct).ConfigureAwait(false))
             {
@@ -868,6 +895,10 @@ public sealed class PublicHotArtifactProjector(
                     Status = (ArticleStatus)reader.GetInt32(fStatus),
                     ScheduledPublishAt = reader.IsDBNull(fScheduled) ? null : reader.GetDateTime(fScheduled),
                     PublishedAt = reader.IsDBNull(fPublished) ? null : reader.GetDateTime(fPublished),
+                    CurrentRevisionId = reader.GetInt64(fRevisionId),
+                    RevisionNo = reader.GetInt32(fRevisionNo),
+                    CurrentPublicationId = reader.GetInt64(fPublicationId),
+                    PublicationNo = reader.GetInt32(fPublicationNo),
                     CategoryName = reader.IsDBNull(fCatName) ? "默认分类" : reader.GetString(fCatName),
                     Tags = []
                 };
@@ -923,14 +954,16 @@ public sealed class PublicHotArtifactProjector(
         count = Math.Clamp(count, 1, MaxHotArticlesCount);
         DateTime now = DateTime.UtcNow;
         var rows = await db.Queryable<Article>()
+            .InnerJoin<ArticlePublicationRecord>((article, publication) => article.CurrentPublicationId == publication.Id)
+            .InnerJoin<ArticleRevision>((article, publication, revision) => publication.ArticleRevisionId == revision.Id)
             .Where(a => !a.IsDeleted
                 && a.Status == ArticleStatus.Published
                 && (a.PublishedAt == null || a.PublishedAt <= now)
                 && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= now))
-            .OrderByDescending(a => a.Views)
-            .OrderByDescending(a => a.Id)
+            .OrderByDescending((article, publication, revision) => article.Views)
+            .OrderByDescending((article, publication, revision) => article.Id)
             .Take(count)
-            .Select(a => new { a.Id, a.Title, a.Views })
+            .Select((article, publication, revision) => new { article.Id, revision.Title, article.Views })
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
@@ -947,25 +980,27 @@ public sealed class PublicHotArtifactProjector(
         int candidateLimit = MaxHotArticlesCount;
         DateTime now = DateTime.UtcNow;
         var rows = await db.Queryable<Article>()
-            .LeftJoin<Category>((a, c) => a.CategoryId == c.Id)
-            .Where(a => !a.IsDeleted
-                && a.Status == ArticleStatus.Published
-                && (a.PublishedAt == null || a.PublishedAt <= now)
-                && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= now)
-                && a.CoverImageUrl != null
-                && a.CoverImageUrl != "")
-            .OrderByDescending(a => a.Views)
-            .OrderByDescending(a => a.Id)
+            .InnerJoin<ArticlePublicationRecord>((article, publication) => article.CurrentPublicationId == publication.Id)
+            .InnerJoin<ArticleRevision>((article, publication, revision) => publication.ArticleRevisionId == revision.Id)
+            .LeftJoin<Category>((article, publication, revision, category) => revision.CategoryId == category.Id)
+            .Where((article, publication, revision, category) => !article.IsDeleted
+                && article.Status == ArticleStatus.Published
+                && (article.PublishedAt == null || article.PublishedAt <= now)
+                && (article.ScheduledPublishAt == null || article.ScheduledPublishAt <= now)
+                && revision.CoverImageUrl != null
+                && revision.CoverImageUrl != "")
+            .OrderByDescending((article, publication, revision, category) => article.Views)
+            .OrderByDescending((article, publication, revision, category) => article.Id)
             .Take(candidateLimit)
-            .Select((a, c) => new
+            .Select((article, publication, revision, category) => new
             {
-                a.Id,
-                a.Title,
-                a.CoverImageUrl,
-                a.Views,
-                a.CreateTime,
-                a.CategoryId,
-                CategoryName = c.Name
+                article.Id,
+                revision.Title,
+                revision.CoverImageUrl,
+                article.Views,
+                article.CreateTime,
+                revision.CategoryId,
+                CategoryName = category.Name
             })
             .ToListAsync(ct)
             .ConfigureAwait(false);
@@ -992,9 +1027,11 @@ public sealed class PublicHotArtifactProjector(
             return new Dictionary<int, string>();
         }
 
-        var rows = await db.Queryable<ArticleBody>()
-            .Where(body => ids.Contains(body.ArticleId))
-            .Select(body => new { body.ArticleId, body.MarkdownContent })
+        var rows = await db.Queryable<Article>()
+            .InnerJoin<ArticlePublicationRecord>((article, publication) => article.CurrentPublicationId == publication.Id)
+            .InnerJoin<ArticleRevision>((article, publication, revision) => publication.ArticleRevisionId == revision.Id)
+            .Where(article => ids.Contains(article.Id))
+            .Select((article, publication, revision) => new { ArticleId = article.Id, revision.MarkdownContent })
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
@@ -1058,19 +1095,17 @@ public sealed class PublicHotArtifactProjector(
                     ELSE concat('urn:fsus:rights-proof:', rights_proof.id::text)
                 END AS "RightsProofUrl",
                 rights_proof.proof_status AS "RightsProofStatus"
-            FROM (
-                SELECT DISTINCT ON (snapshot.article_id) snapshot.*
-                FROM article_rights_snapshot snapshot
-                WHERE snapshot.article_id IN ({idListSql})
-                ORDER BY snapshot.article_id, snapshot.revision_no DESC, snapshot.created_at DESC, snapshot.id DESC
-            ) rights
+            FROM article article
+            JOIN article_publication publication ON publication.id = article.current_publication_id
+            JOIN article_rights_snapshot rights ON rights.id = publication.rights_snapshot_id
             LEFT JOIN LATERAL (
                 SELECT proof.*
                 FROM article_rights_proof proof
                 WHERE proof.article_rights_snapshot_id = rights.id
                 ORDER BY proof.created_at DESC, proof.id DESC
                 LIMIT 1
-            ) rights_proof ON TRUE;
+            ) rights_proof ON TRUE
+            WHERE article.id IN ({idListSql});
             """;
 
         var map = new Dictionary<int, ArticleRightsReadModel>(ids.Length);
@@ -1160,26 +1195,49 @@ public sealed class PublicHotArtifactProjector(
             return new Dictionary<int, List<TagReadModel>>();
         }
 
-        var tagRows = await db.Queryable<ArticleTag>()
-            .InnerJoin<Tag>((at, t) => at.TagId == t.Id)
-            .Where(at => ids.Contains(at.ArticleId))
-            .Select((at, t) => new { at.ArticleId, t.Id, t.Name })
+        var revisionRows = await db.Queryable<Article>()
+            .InnerJoin<ArticlePublicationRecord>((article, publication) => article.CurrentPublicationId == publication.Id)
+            .InnerJoin<ArticleRevision>((article, publication, revision) => publication.ArticleRevisionId == revision.Id)
+            .Where(article => ids.Contains(article.Id))
+            .Select((article, publication, revision) => new PublishedTagCoordinate
+            {
+                ArticleId = article.Id,
+                TagIds = revision.TagIds
+            })
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
-        var tagMap = new Dictionary<int, List<TagReadModel>>(ids.Count);
-        foreach (var row in tagRows)
-        {
-            if (!tagMap.TryGetValue(row.ArticleId, out var tags))
-            {
-                tags = [];
-                tagMap[row.ArticleId] = tags;
-            }
+        Dictionary<int, int[]> articleTagIds = revisionRows.ToDictionary(
+            static row => row.ArticleId,
+            static row => FsusBlog.Server.Services.Authoring.AuthoringNormalization.ParseTagIds(row.TagIds).ToArray());
+        int[] allTagIds = articleTagIds.Values.SelectMany(static values => values).Distinct().ToArray();
+        Dictionary<int, string> tagNames = allTagIds.Length == 0
+            ? []
+            : (await db.Queryable<Tag>()
+                    .Where(tag => allTagIds.Contains(tag.Id))
+                    .ToListAsync(ct)
+                    .ConfigureAwait(false))
+                .ToDictionary(static tag => tag.Id, static tag => tag.Name);
 
-            tags.Add(new TagReadModel { Id = row.Id, Name = row.Name ?? string.Empty });
+        var tagMap = new Dictionary<int, List<TagReadModel>>(ids.Count);
+        foreach ((int articleId, int[] tagIds) in articleTagIds)
+        {
+            tagMap[articleId] = tagIds
+                .Where(tagNames.ContainsKey)
+                .Select(tagId => new TagReadModel { Id = tagId, Name = tagNames[tagId] })
+                .ToList();
         }
 
         return tagMap;
+    }
+
+    private sealed class PublishedTagCoordinate
+    {
+        public int ArticleId
+        {
+            get; init;
+        }
+        public string TagIds { get; init; } = string.Empty;
     }
 
     private static void AttachTags(List<ArticleListItemReadModel> items, IReadOnlyDictionary<int, List<TagReadModel>> tagMap)

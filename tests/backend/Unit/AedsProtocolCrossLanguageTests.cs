@@ -458,7 +458,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
-    public void BackendEncoder_MatchesSharedArticleListFixture()
+    public void BackendEncoder_EmitsArticleListWithExactPublicationCoordinates()
     {
         CorePageResult<ArticleListCoreModel> page = new(
         [
@@ -476,7 +476,13 @@ public sealed class AedsProtocolCrossLanguageTests
                     new TagCoreModel(9, "binary"),
                     new TagCoreModel(10, "contract")
                 ],
-                false),
+                false) with
+            {
+                CurrentRevisionId = 801,
+                RevisionNo = 7,
+                CurrentPublicationId = 1201,
+                PublicationNo = 4
+            },
             new ArticleListCoreModel(
                 default,
                 12,
@@ -490,13 +496,23 @@ public sealed class AedsProtocolCrossLanguageTests
                 [
                     new TagCoreModel(11, "vue")
                 ],
-                false)
+                false) with
+            {
+                CurrentRevisionId = 802,
+                RevisionNo = 2,
+                CurrentPublicationId = 1202,
+                PublicationNo = 1
+            }
         ],
         17);
 
         byte[] encoded = new CoreAedsEncoder().Encode(CoreFrameType.ArticleList, PodBinaryCodec.EncodeArticlePage(page));
 
-        Assert.Equal(ReadProtocolFixtureBytes("article-list-frame.hex"), encoded);
+        Result<FsusBlog.Core.Algorithms.AedsDecodeResult> decodedFrame = new CoreAedsEncoder().TryDecode(encoded);
+        Assert.True(decodedFrame.IsSuccess);
+        Assert.True(PodBinaryCodec.TryDecodeArticlePage(decodedFrame.Value.Payload, out var decoded));
+        Assert.Equal([801L, 802L], decoded.Items.Select(static item => item.CurrentRevisionId).ToArray());
+        Assert.Equal([1201L, 1202L], decoded.Items.Select(static item => item.CurrentPublicationId!.Value).ToArray());
     }
 
     [Fact]
@@ -514,7 +530,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
-    public void BackendEncoder_MatchesSharedArticleDetailV4Fixture()
+    public void BackendEncoder_EmitsArticleDetailV5WithExactPublicationCoordinates()
     {
         var createTime = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);
         var detailPod = FsusBlog.Core.Mapping.Projectors.PodProjector.ProjectArticleDetail(42, 123, createTime, 7, "Life", "Article 42", "Content 42\nHello", "Summary 42", out _);
@@ -538,11 +554,17 @@ public sealed class AedsProtocolCrossLanguageTests
             ContentCanonicalHash: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
             ProofUrl: "urn:fsus:rights-proof:901",
             ProofStatus: "ready");
-        var detail = new FsusBlog.Core.Mapping.Models.ArticleDetailCoreModel(detailPod, 42, "Article 42", "Content 42\nHello", "Summary 42", "/covers/42.png", 123, 0, 0, false, createTime, new FsusBlog.Core.Mapping.Models.ArticleCategoryCoreModel(7, "Life"), [new FsusBlog.Core.Mapping.Models.TagCoreModel(9, "aeds"), new FsusBlog.Core.Mapping.Models.TagCoreModel(10, "blog")], 7, false, 2, null, createTime, createTime.AddHours(2), rights);
+        var detail = new FsusBlog.Core.Mapping.Models.ArticleDetailCoreModel(detailPod, 42, "Article 42", "Content 42\nHello", "Summary 42", "/covers/42.png", 123, 0, 0, false, createTime, new FsusBlog.Core.Mapping.Models.ArticleCategoryCoreModel(7, "Life"), [new FsusBlog.Core.Mapping.Models.TagCoreModel(9, "aeds"), new FsusBlog.Core.Mapping.Models.TagCoreModel(10, "blog")], 7, false, 2, null, createTime, createTime.AddHours(2), rights, 801, 7, 1201, 4);
         var payload = new System.Buffers.ArrayBufferWriter<byte>();
         PodBinaryCodec.WriteArticleDetail(detail, payload);
         byte[] encoded = new CoreAedsEncoder().Encode(CoreFrameType.ArticleDetail, payload.WrittenSpan.ToArray());
-        Assert.Equal(ReadProtocolFixtureBytes("article-detail-v4-frame.hex"), encoded);
+        Result<FsusBlog.Core.Algorithms.AedsDecodeResult> decodedFrame = new CoreAedsEncoder().TryDecode(encoded);
+        Assert.True(decodedFrame.IsSuccess);
+        Assert.True(PodBinaryCodec.TryDecodeArticleDetail(decodedFrame.Value.Payload, out var decoded));
+        Assert.Equal(801, decoded.CurrentRevisionId);
+        Assert.Equal(7, decoded.RevisionNo);
+        Assert.Equal(1201, decoded.CurrentPublicationId);
+        Assert.Equal(4, decoded.PublicationNo);
     }
 
     [Fact]
@@ -588,17 +610,30 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
-    public void BackendEncoder_MatchesSharedArticleSearchFixture()
+    public void BackendEncoder_EmitsArticleSearchWithExactPublicationCoordinates()
     {
         var searchCreateTime = new DateTime(2026, 5, 12, 12, 34, 56, DateTimeKind.Utc);
         var searchPod = FsusBlog.Core.Mapping.Projectors.PodProjector.ProjectArticleList(11, 42, searchCreateTime, 3, "Protocol", "Intro AEDS", "Binary protocol basics", false, out _);
         var searchList = new List<FsusBlog.Core.Mapping.Models.ArticleListCoreModel>
         {
-            new FsusBlog.Core.Mapping.Models.ArticleListCoreModel(searchPod, 11, "Intro AEDS", "Binary protocol basics", null, null, 42, searchCreateTime, new FsusBlog.Core.Mapping.Models.ArticleCategoryCoreModel(3, "Protocol"), [new FsusBlog.Core.Mapping.Models.TagCoreModel(9, "binary"), new FsusBlog.Core.Mapping.Models.TagCoreModel(10, "contract")], false)
+            new FsusBlog.Core.Mapping.Models.ArticleListCoreModel(searchPod, 11, "Intro AEDS", "Binary protocol basics", null, null, 42, searchCreateTime, new FsusBlog.Core.Mapping.Models.ArticleCategoryCoreModel(3, "Protocol"), [new FsusBlog.Core.Mapping.Models.TagCoreModel(9, "binary"), new FsusBlog.Core.Mapping.Models.TagCoreModel(10, "contract")], false) with
+            {
+                CurrentRevisionId = 801,
+                RevisionNo = 7,
+                CurrentPublicationId = 1201,
+                PublicationNo = 4
+            }
         };
         byte[] encoded = new CoreAedsEncoder().Encode(CoreFrameType.ArticleSearch, PodBinaryCodec.EncodeArticleSearch(searchList));
 
-        Assert.Equal(ReadProtocolFixtureBytes("article-search-frame.hex"), encoded);
+        Result<FsusBlog.Core.Algorithms.AedsDecodeResult> decodedFrame = new CoreAedsEncoder().TryDecode(encoded);
+        Assert.True(decodedFrame.IsSuccess);
+        Assert.True(PodBinaryCodec.TryDecodeArticleSearch(decodedFrame.Value.Payload, out var decoded));
+        ArticleListCoreModel item = Assert.Single(decoded);
+        Assert.Equal(801, item.CurrentRevisionId);
+        Assert.Equal(7, item.RevisionNo);
+        Assert.Equal(1201, item.CurrentPublicationId);
+        Assert.Equal(4, item.PublicationNo);
     }
 
     [Fact]

@@ -235,7 +235,8 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 [count/meta] [blobLength:int32 + blob] [fixed numeric records] [slice refs into blob]
 ```
 
-- `ArticleList`：`total:int32`、`count:int32`、`tagRecordCount:int32`、共享 blob、每篇 76B article record、每个 tag 12B record。76B record 在原公开字段后包含 `status:int32`、`scheduledPublishAtUnixMs:int64`、`publishedAtUnixMs:int64`，与 `docs/api/contracts.md` 和 `PodSizeCatalog.cs` 对齐。
+- `ArticleList`：`total:int32`、`count:int32`、`tagRecordCount:int32`、共享 blob、每篇当前 100B article record、每个 tag 12B record。100B record 在旧 76B 生命周期字段后追加 `currentRevisionId:int64`、`revisionNo:int32`、`currentPublicationId:int64`、`publicationNo:int32`；解码器只读兼容 56B/76B record。
+- `ArticleSearch`：当前 FAS4 payload 在计数前写 magic/version，并为每条 article 写入同一组 24B publication 坐标；无 magic/version 的旧 payload 仅保留读取兼容。离线 search shard/package/manifest 与 Wasm result 使用 version 4，doc metadata/result item 为 76B。
 - `ArticleHot`：`count:int32`、共享 blob、每篇 16B record。
 - `Category` / `Tag`：`count:int32`、共享 blob、每条 16B record。
 - `AdminStats`：80B `SiteStatsPod`、共享 blob、popular 16B record、recent comment 56B author-snapshot record、region 12B record。阅读摘要字段为 `totalReads`、`humanVerifiedReads`、`uniqueViewerKeyEstimate`、`articleReads`、`siteReads`，不包含账号身份拆分。
@@ -257,7 +258,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | ---- | ------ | --------- | ---------------- |
 | 0 | `Unknown` | — | — |
 | 1 | `ArticleList` | `ArticleListPod` | `GET /api/binary/article/list/home/{page}/{size}.aeds`；分类/标签列表见 `quick-reference.md` |
-| 2 | `ArticleDetail` | 当前 V4 detail/tag/rights records；只读兼容 V3 | `GET /api/binary/article/{id}.aeds` |
+| 2 | `ArticleDetail` | 当前 V5 detail/tag/rights records；只读兼容 V4/V3 | `GET /api/binary/article/{id}.aeds` |
 | 3 | `ArticleHot` | `ArticleListPod` | `GET /api/binary/article/hot/{size}.aeds` |
 | 4 | `ArticleSearch` | `ArticleListPod` | 搜索索引 / author cache 诊断，不暴露旧文本业务路径 |
 | 5 | `CommentArticleCursor` | `CommentThreadItemPod` + item blob | `GET /api/binary/comment/{articleId}`；每个 item blob 在 content 后追加必备 `CommentAuthorView` payload 与可空 `replyToAuthor` payload |
@@ -391,6 +392,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | `ArticleDetailV3RecordPod` | 84 |
 | `ArticleDetailV4HeaderPod` | 44 |
 | `ArticleDetailV4RecordPod` | 92 |
+| `ArticleDetailV5RecordPod` | 116 |
 | `ArticleDetailTagV3RecordPod` | 12 |
 | `ArticleRightsV3RecordPod` | 112 |
 

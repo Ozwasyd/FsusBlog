@@ -70,7 +70,11 @@ public partial class ArticleService
         => CreateAsync(command.Article, cancellationToken);
 
     Task<bool> IArticleCoreGateway.UpdateAsync(UpdateArticleCommand command, CancellationToken cancellationToken)
-        => UpdateAsync(command.Id, command.Article, cancellationToken);
+        => UpdateAsync(
+            command.Id,
+            command.Article,
+            command.Intent == ArticleUpdateIntent.Rollback ? ArticlePublicationTransitionKinds.Rollback : null,
+            cancellationToken);
 
     Task<bool> IArticleCoreGateway.DeleteAsync(ArticleIdCommand command, CancellationToken cancellationToken)
         => DeleteAsync(command.Id, cancellationToken);

@@ -1860,8 +1860,8 @@ public class PodBinaryCodecTests
         bool ok = PodBinaryCodec.TryDecodeArticleDetail(encoded, out var decoded);
 
         Assert.True(ok);
-        Assert.Equal(0x41524434u, BinaryPrimitives.ReadUInt32LittleEndian(encoded.AsSpan(0, sizeof(uint))));
-        Assert.Equal(4, BinaryPrimitives.ReadInt32LittleEndian(encoded.AsSpan(sizeof(uint), sizeof(int))));
+        Assert.Equal(0x41524435u, BinaryPrimitives.ReadUInt32LittleEndian(encoded.AsSpan(0, sizeof(uint))));
+        Assert.Equal(5, BinaryPrimitives.ReadInt32LittleEndian(encoded.AsSpan(sizeof(uint), sizeof(int))));
         Assert.Equal(10, decoded.Id);
         Assert.Equal("My Post", decoded.Title);
         Assert.Equal("This is the full content of the article.", decoded.Content);

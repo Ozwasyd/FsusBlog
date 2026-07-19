@@ -13,11 +13,16 @@ internal static class SchemaMigrationCatalog20260719
             Dependencies:
             [
                 new SchemaMigrationCatalogDependency(
+                    "20260716-pre-anonymous-eligibility-predicate",
+                    SchemaMigrationPhase.PreCodeFirst),
+                new SchemaMigrationCatalogDependency(
                     "20260716-post-comment-author-mode-retirement",
                     SchemaMigrationPhase.PostCodeFirst)
             ],
             Descriptors:
             [
+                ArticlePublicationMigrationDefinitions.BuildArticlePublicationCoordinatesMigration(),
+                ArticlePublicationMigrationDefinitions.BuildArticlePublicationConsistencyViewMigration(),
                 CommentModerationEventMigrationDefinitions.BuildCommentModerationEventMigration()
             ]);
 }

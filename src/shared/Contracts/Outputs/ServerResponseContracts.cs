@@ -128,6 +128,22 @@ public record struct ArticleListItemResponse
     {
         get; set;
     }
+    public long CurrentRevisionId
+    {
+        get; set;
+    }
+    public int RevisionNo
+    {
+        get; set;
+    }
+    public long? CurrentPublicationId
+    {
+        get; set;
+    }
+    public int? PublicationNo
+    {
+        get; set;
+    }
 
     public ArticleListItemResponse()
     {
@@ -214,6 +230,22 @@ public record struct ArticleDetailResponse
         get; set;
     }
     public DateTime? UpdatedAt
+    {
+        get; set;
+    }
+    public long CurrentRevisionId
+    {
+        get; set;
+    }
+    public int RevisionNo
+    {
+        get; set;
+    }
+    public long? CurrentPublicationId
+    {
+        get; set;
+    }
+    public int? PublicationNo
     {
         get; set;
     }

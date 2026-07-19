@@ -24,7 +24,11 @@ public static class ArticleProjection
             IsDeleted = item.IsDeleted,
             Status = (int)item.Status,
             ScheduledPublishAt = item.ScheduledPublishAt,
-            PublishedAt = item.PublishedAt
+            PublishedAt = item.PublishedAt,
+            CurrentRevisionId = item.CurrentRevisionId,
+            RevisionNo = item.RevisionNo,
+            CurrentPublicationId = item.CurrentPublicationId,
+            PublicationNo = item.PublicationNo
         };
     }
 
@@ -48,6 +52,10 @@ public static class ArticleProjection
             ScheduledPublishAt = item.ScheduledPublishAt,
             PublishedAt = item.PublishedAt,
             UpdatedAt = item.UpdatedAt,
+            CurrentRevisionId = item.CurrentRevisionId,
+            RevisionNo = item.RevisionNo,
+            CurrentPublicationId = item.CurrentPublicationId,
+            PublicationNo = item.PublicationNo,
             Rights = ToRightsResponse(item.Rights)
         };
     }
@@ -110,6 +118,10 @@ public static class ArticleProjection
         response.Status = (int)item.Status;
         response.ScheduledPublishAt = item.ScheduledPublishAt;
         response.PublishedAt = item.PublishedAt;
+        response.CurrentRevisionId = item.CurrentRevisionId;
+        response.RevisionNo = item.RevisionNo;
+        response.CurrentPublicationId = item.CurrentPublicationId;
+        response.PublicationNo = item.PublicationNo;
         return response;
     }
 
@@ -140,7 +152,11 @@ public static class ArticleProjection
             item.IsDeleted,
             (int)item.Status,
             item.ScheduledPublishAt,
-            item.PublishedAt);
+            item.PublishedAt,
+            item.CurrentRevisionId,
+            item.RevisionNo,
+            item.CurrentPublicationId,
+            item.PublicationNo);
     }
 
     public static ArticleDetailCoreModel ToCoreDetailModel(ArticleDetailReadModel item)
@@ -178,7 +194,11 @@ public static class ArticleProjection
             item.ScheduledPublishAt,
             item.PublishedAt,
             item.UpdatedAt,
-            ToRightsCoreModel(item.Rights));
+            ToRightsCoreModel(item.Rights),
+            item.CurrentRevisionId,
+            item.RevisionNo,
+            item.CurrentPublicationId,
+            item.PublicationNo);
     }
 
     private static ArticleRightsResponse ToRightsResponse(ArticleRightsReadModel rights)

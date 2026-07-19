@@ -108,14 +108,14 @@ ABI v4 的 arena 与 payload export 使用单调 `uint64` handle token。`reserv
 
 | FrameType | Payload layout |
 | ----------- | ---------------- |
-| `ArticleList` | `total:int32` + `count:int32` + `tagRecordCount:int32` + shared UTF-8 blob + 76B article records + 12B tag records |
+| `ArticleList` | `total:int32` + `count:int32` + `tagRecordCount:int32` + shared UTF-8 blob + current 100B article records + 12B tag records；只读兼容 56B/76B |
 | `ArticleSearch` | `total:int32` + `count:int32` + `tagRecordCount:int32` + shared UTF-8 blob + 52B search records + 12B tag records |
 | `ArticleHot` | `count:int32` + shared UTF-8 blob + 16B article records |
 | `CategoryList` / `TagList` | `count:int32` + shared UTF-8 blob + 16B taxonomy records |
 | `AdminStats` | `SiteStatsPod` + shared UTF-8 blob + 16B popular records + 32B recent-comment records + 12B region records |
 | `SiteComplianceConfig` | `SiteComplianceConfigPod`，固定宽度 UTF-8 字段；空配置不写占位备案号 |
 
-compact record 内所有文本字段均为 `Utf8SliceRef`，指向当前 payload 的共享 blob。`ArticleList` 的 76B record 在原 56B 公开字段后追加 `status:int32`、`scheduledPublishAtUnixMs:int64`、`publishedAtUnixMs:int64`；`status` 值固定为 `Draft=0`、`Scheduled=1`、`Published=2`、`Archived=3`、`Deleted=4`，公开可见性以 [design.md#文章状态枚举](design.md#文章状态枚举) 为准。写请求、Passkey、上传和复杂评论游标仍使用 v2 header 包裹的 POD + blob 结构；`ArticleDetail` 外层仍是 AEDS v2 frame，新写 payload 使用 `ARD4` V4 envelope，解码器只读兼容 `ARD3` V3，不再允许旧 detail tail payload。
+compact record 内所有文本字段均为 `Utf8SliceRef`，指向当前 payload 的共享 blob。`ArticleList` 当前 100B record 在旧 76B 生命周期字段后追加 revision/publication 四项坐标；`status` 值固定为 `Draft=0`、`Scheduled=1`、`Published=2`、`Archived=3`、`Deleted=4`，公开可见性以 [design.md#文章状态枚举](design.md#文章状态枚举) 为准。写请求、Passkey、上传和复杂评论游标仍使用 v2 header 包裹的 POD + blob 结构；`ArticleDetail` 外层仍是 AEDS v2 frame，新写 payload 使用 `ARD5` V5 envelope，解码器只读兼容 `ARD4` V4 与 `ARD3` V3，不再允许旧 detail tail payload。
 
 所有 `*UnixMs` 字段均为 UTC Unix epoch 毫秒。服务端从数据库读取 `DateTimeKind.Unspecified` 时间时，必须把该 wall-clock 值视为已归一化的 UTC，不得再按宿主机本地时区偏移；`DateTimeKind.Local` 才按其实际时刻转换为 UTC。该规则只约束时间语义，不改变 `int64` wire layout、frame size 或 TypeScript/Worker/Wasm decoder ABI。
 
@@ -676,7 +676,11 @@ Passkey complete、MFA verify 与匿名 bootstrap 的成功响应只表示服务
   "status": 2,
   "scheduledPublishAt": null,
   "publishedAt": "2026-01-01T00:00:00Z",
-  "slug": "article-slug"
+  "slug": "article-slug",
+  "currentRevisionId": 801,
+  "revisionNo": 7,
+  "currentPublicationId": 1201,
+  "publicationNo": 4
 }
 ```
 
@@ -718,11 +722,11 @@ Passkey complete、MFA verify 与匿名 bootstrap 的成功响应只表示服务
 
 源码：`src/shared/Contracts/Models/ArticlePods.cs`
 
-`ArticleDetail` 当前写入为 V4 envelope，外层仍使用 AEDS v2 frame。payload 以 `ArticleDetailV4HeaderPod` 开头，`Magic = 0x41524434` (`ARD4`)、`Version = 4`、`Flags = 0`，随后按 header offset 指向 92B `ArticleDetailV4RecordPod`、`ArticleDetailTagV3RecordPod[]`、必备 `ArticleRightsV3RecordPod` 和共享 UTF-8 blob。解码器只读兼容 `ARD3`/version 3 的 84B `ArticleDetailV3RecordPod`，其缺失的 `updatedAtUnixMs` 映射为空。旧 `ArticleDetailPod + tagCount + cover blob + lifecycle tail` payload已废弃；magic/version 错配、缺失 rights block、offset/length 不一致、截断和尾随 payload 都必须拒绝。
+`ArticleDetail` 当前写入为 V5 envelope，外层仍使用 AEDS v2 frame。payload 以 44B header 开头，`Magic = 0x41524435` (`ARD5`)、`Version = 5`、`Flags = 0`，随后按 header offset 指向 116B `ArticleDetailV5RecordPod`、`ArticleDetailTagV3RecordPod[]`、必备 `ArticleRightsV3RecordPod` 和共享 UTF-8 blob。解码器只读兼容 `ARD4`/version 4 的 92B record 与 `ARD3`/version 3 的 84B record；旧版本缺失的发布坐标映射为零/空，V3 缺失的 `updatedAtUnixMs` 映射为空。旧 `ArticleDetailPod + tagCount + cover blob + lifecycle tail` payload 已废弃；magic/version 错配、缺失 rights block、offset/length 不一致、截断和尾随 payload 都必须拒绝。
 
-`ArticleDetailV4RecordPod` 在 V3 的文章 id/title/content/summary/cover/category/views/status/scheduled/published/isDeleted 字段上新增 `updatedAtUnixMs`；tag record 只保存 tag id/name slice。`ArticleRightsV3RecordPod` 仍记录冻结 snapshot：`snapshotId`、`articleRevisionId`、`revisionNo`、enabled/license/copyright/copy policy/excerpt/code-copy/badge/proof-binding、canonical URL、`policyHash`、`contentCanonicalHash`、proof pointer 和 proof status。所有文本通过 `Utf8SliceRef` 指向同一个 blob。
+`ArticleDetailV5RecordPod` 在 V4 上追加 `currentRevisionId:int64`、`revisionNo:int32`、`currentPublicationId:int64`、`publicationNo:int32`；tag record 只保存 tag id/name slice。`ArticleRightsV3RecordPod` 仍记录同一 publication 冻结的 snapshot：`snapshotId`、`articleRevisionId`、`revisionNo`、enabled/license/copyright/copy policy/excerpt/code-copy/badge/proof-binding、canonical URL、`policyHash`、`contentCanonicalHash`、proof pointer 和 proof status。所有文本通过 `Utf8SliceRef` 指向同一个 blob。
 
-前端 `mapArticleDetailFromPodPayload` 接受当前 V4 与只读兼容 V3 envelope。旧 detail tail payload、magic/version 错配、缺失 rights record、record offset/length 与共享 blob 不一致、截断、尾随 bytes 或 required rights 文本为空时，必须作为协议错误失败；不得 JSON parse 或回退到旧 ArticleDetail 解码。
+前端 `mapArticleDetailFromPodPayload` 接受当前 V5 与只读兼容 V4/V3 envelope。旧 detail tail payload、magic/version 错配、缺失 rights record、record offset/length 与共享 blob 不一致、截断、尾随 bytes 或 required rights 文本为空时，必须作为协议错误失败；不得 JSON parse 或回退到旧 ArticleDetail 解码。`ArticleList` 当前 100B record 和 `ArticleSearch` FAS4 record 也携带同一组 24B 坐标；旧 56B/76B list 与无版本 search payload 仅保留读取兼容。
 
 ---
 
@@ -1797,22 +1801,22 @@ urlset 每页上限为 45,000，超过后根 `/sitemap.xml` 改为 sitemap index
 | 值 | 语义 |
 | ---- | ------ |
 | `Draft` | 草稿，不进入公开读链 |
-| `Scheduled` | 定时发布候选，到点后由 worker 转为 `Published` |
+| `Scheduled` | 首次定时发布候选，到点后由 worker 转为 `Published` |
 | `Published` | 公开可读 |
 | `Archived` | 归档隐藏，不进入公开分发 |
 | `Deleted` | 逻辑删除，保留原有回收站语义 |
 
-`CreateArticleRequest` 与 `UpdateArticleRequest` 支持 `status`、`scheduledPublishAt`、`rights`。公开读路径必须同时检查 `IsDeleted=false`、`Status=Published`、`PublishedAt<=now`、`ScheduledPublishAt<=now`。
+`CreateArticleRequest` 与 `UpdateArticleRequest` 支持 `status`、`scheduledPublishAt`、`rights`。公开读路径必须检查 `IsDeleted=false`、`Status=Published` 和有效 `current_publication_id`，并沿 publication 绑定的 revision/rights/responsibility 读取。首次定时发布仍检查 `ScheduledPublishAt<=now`；已发布文章的未来更新记录在 `pending_publication_at`，不会提前替换当前 publication。
 
 Binary 写入帧 **ArticleWriteRequest V3**（`ArticleWriteRequest` 当前版本）使用旧 `ArticleWriteRequestPod` + `tagIds:int32[]` + article blob 作为主体，随后按顺序追加 `status:int32`、`scheduledPublishAtUnixMs:int64`、`version:int32=3`、`rightsFlags:int32`、`copyrightYear:int32`、`maxExcerptChars:int32`、`ArticleRightsWriteRequestPod`、rights blob。`rightsFlags` bit 定义为：`1 enabled`、`2 allowCodeCopy`、`4 showPublicBadge`、`8 proofBindingEnabled`、`16 hasCopyrightYear`。`ArticleRightsWriteRequestPod` 只包含 UTF-8 slice：`licenseType`、`copyrightHolder`、`rightsStatement`、`attributionTemplate`、`copyPolicy`。缺少 V3 rights 段的 legacy 写入 payload 必须拒绝，不得再按 `Published` / 无定时发布静默补齐。
 
-Binary 读取帧 **ArticleDetail AEDS V4** 使用 `ArticleDetailV4HeaderPod` (`magic=ARD4`, `version=4`) + 92B `ArticleDetailV4RecordPod` + `ArticleDetailTagV3RecordPod[]` + 必备 `ArticleRightsV3RecordPod` + 共享 blob；V3 `ARD3`/84B record 仅保留只读兼容。后端 public artifact、admin detail 和 server cache 都必须从 `article_rights_snapshot` 的冻结读模型投影 rights 字段；retired ArticleDetail tail 必须拒绝，不得新增独立 `/rights.aeds` fallback。
+Binary 读取帧 **ArticleDetail AEDS V5** 使用 `magic=ARD5`、`version=5` + 116B `ArticleDetailV5RecordPod` + `ArticleDetailTagV3RecordPod[]` + 必备 `ArticleRightsV3RecordPod` + 共享 blob；V4 `ARD4`/92B 与 V3 `ARD3`/84B record 仅保留只读兼容。后端 public artifact、admin detail 和 server cache 都必须从 publication 固定的 revision 与 `article_rights_snapshot` 投影字段；retired ArticleDetail tail 必须拒绝，不得新增独立 `/rights.aeds` fallback。
 
 Public Rights V3 presentation 只读取已解码的 `ArticleDetail.rights` / `detailView.rights`，does not request a separate rights endpoint，也不新增 `/rights`、`rights.aeds` 或其它 side channel。公开文章页和 PublicAOT ArticleDetail 由同一个 `PublicArticleDetailPageContent` 渲染可见版权提示与 metadata，PublicAOT ArticleDetail output includes rights metadata：`license`、`copyrightHolder`、`copyrightYear`、rights snapshot id、policy hash、content canonical hash、copy policy。代码块复制增强必须读取 `allowCodeCopy`；当 decoded rights 关闭代码复制时，运行时不得插入复制按钮，并清理已经注入的 code-copy DOM。
 
 `GET /api/binary/admin/article` 的 `status` 查询参数仅 admin 可用。公开 `/api/binary/article/**.aeds` 不接受 query string、请求体或 credentials；admin 不带 `status` 时读取所有非删除状态，带 `status=0/1/2/3/4` 时读取对应 draft/scheduled/published/archived/deleted 集合。admin article list 的 `page` / `size` 缺省为 `1` / `10`，显式传入 `page<1`、`size<1` 或 `size>100` 返回 `400`。
 
-文章更新请求不得把 `status` 设为 `Deleted`；删除必须走专用 delete endpoint，以便写入回收站状态、失效缓存、搜索、PublicAOT、notification stream 和 outbox。对已删除文章重复删除必须是 no-op，不得重复触发派生副作用。restore 只允许从 `IsDeleted=true` 恢复，并恢复为 `Draft`、清空 `PublishedAt`；发布必须由后续显式发布/更新动作完成，避免把删除前的草稿、归档或定时文章意外公开。`DELETE /api/binary/admin/article/trash` 是批量破坏性操作，要求 admin principal、`article.write`、`fixed_ip`、PoW 和一次性 `X-Fsus-Mfa-Proof`，缺失或复用 proof 返回 `428`，不可信 `Origin` / `Referer` 返回 `403`，并写入包含销毁数量与 outcome 的高价值审计。
+文章更新请求不得把 `status` 设为 `Deleted`；删除必须走专用 delete endpoint，以便写入回收站状态、失效缓存、搜索、PublicAOT、notification stream 和 outbox。对已删除文章重复删除必须是 no-op，不得重复触发派生副作用。restore 只允许从 `IsDeleted=true` 恢复；恢复动作通过统一 publication transition 基于当前修订创建新的不可变发布记录并原子切换，不能直接复用删除前的 projection 或从“最新修订”猜测公开内容。`DELETE /api/binary/admin/article/trash` 是批量破坏性操作，要求 admin principal、`article.write`、`fixed_ip`、PoW 和一次性 `X-Fsus-Mfa-Proof`，缺失或复用 proof 返回 `428`，不可信 `Origin` / `Referer` 返回 `403`，并写入包含销毁数量与 outcome 的高价值审计。
 
 delete、restore、permanent-delete 必须先读取 article `xmin`，写入时带 `xmin::text = @RowVersion` 和对应 trash 状态条件。permanent-delete 只允许处理 `IsDeleted=true` 的文章，并在事务内先 `FOR UPDATE` 锁定同一 row-version，再删除评论、标签、正文和文章主行；若 row-version 或 trash 状态已变化，返回 no-op，不得删除子表或发出新 outbox 事件。clear-trash 只能批量处理仍处于 `IsDeleted=true` 的文章，并按实际销毁数量返回 `TrashClearResponse`。
 
@@ -2006,7 +2010,7 @@ Notification deployment drill 请求固定为 `{releaseId,slot,generation,drillI
 
 ### 公共 ArticleDetail DB projection
 
-公开 `GET /api/binary/article/{id}.aeds` 的 wire contract 是 `AedsFrameType.ArticleDetail` + 新写 `ARD4` V4 payload，并只读兼容 `ARD3` V3；V4 新增正文 `updatedAt`，没有 JSON/text fallback。文件 artifact miss 时，内部 `public_article_projection` 只返回 `version/aeds_payload/etag/updated_at_utc`；`aeds_payload` 是 projector 生成的完整 immutable AEDS v2 frame。直接 Npgsql reader 使用 `$1` positional parameter、prepared statement、固定 ordinal 和 `SequentialAccess | SingleRow`，每个请求至多执行一次 projection query。CRC、frame type、受支持的 payload magic/version 与 `SHA-256` ETag 任一不符均视为 corrupt，记录 repair evidence 后走既有动态兜底，不能把损坏 bytes 写入缓存或响应。
+公开 `GET /api/binary/article/{id}.aeds` 的 wire contract 是 `AedsFrameType.ArticleDetail` + 新写 `ARD5` V5 payload，并只读兼容 `ARD4` V4 与 `ARD3` V3；V5 携带正文 `updatedAt` 和精确 revision/publication 坐标，没有 JSON/text fallback。文件 artifact miss 时，内部 `public_article_projection` 只返回 `version/aeds_payload/etag/updated_at_utc`；`aeds_payload` 是 projector 生成的完整 immutable AEDS v2 frame。直接 Npgsql reader 使用 `$1` positional parameter、prepared statement、固定 ordinal 和 `SequentialAccess | SingleRow`，每个请求至多执行一次 projection query。CRC、frame type、受支持的 payload magic/version 与 `SHA-256` ETag 任一不符均视为 corrupt，记录 repair evidence 后走既有动态兜底，不能把损坏 bytes 写入缓存或响应。
 
 投影 row 的 `visible=false` 表示 negative/不可公开状态，payload、etag、content hash 必须为空；publish/restore/update 会通过 outbox 重建为 visible row，archive/delete/permanent-delete 会写回不可用状态。backfill durable watermark 保存 `paused|running|completed`、last article id、rate 和成功/失败计数；author cache action 支持 `public-article-projection-backfill-status`、`public-article-projection-backfill-pause`、`public-article-projection-backfill-resume`。这些动作只控制内部 read model，不改变公开 endpoint、admin permission 或 notification stream 契约。
 
