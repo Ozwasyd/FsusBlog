@@ -3,6 +3,7 @@
         :area-label="workspaceContext.areaMeta.label"
         :nav-groups="navGroups"
         :content-classes="contentClasses"
+        frame-class="admin-workspace-frame"
     />
 </template>
 
@@ -37,11 +38,8 @@ const pageKindClass = computed(() =>
 });
 const contentClasses = computed(() => [
     route.meta.accountContentMode === 'takeover'
-        ? 'max-w-none'
-        : 'max-w-[var(--fsusblog-container-wide)]',
-    route.meta.accountContentMode === 'takeover'
-        ? 'flex min-h-[calc(100dvh-9rem)] min-w-0 flex-col lg:min-h-[calc(100dvh-8rem)]'
-        : 'min-w-0',
+        ? 'account-frame-outlet--takeover'
+        : 'account-frame-outlet--default',
     pageKindClass.value
 ]);
 </script>

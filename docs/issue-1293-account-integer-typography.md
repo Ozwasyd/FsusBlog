@@ -15,7 +15,7 @@ public, and admin small text uses 12/14/16px and does not reintroduce 13px.
 | summary values, policy rows, state messages, secret values | 14px |
 | status values | 16px |
 
-`account-shell.css` keeps `.account-section-eyebrow` at 12px. Display headings may
+`account-shell-base.css` keeps `.account-header-link` at 12px. Display headings may
 continue to use their existing responsive `clamp(...)` rules; they are outside the
 small-text ladder audited by this issue.
 

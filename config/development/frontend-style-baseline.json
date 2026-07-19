@@ -672,18 +672,6 @@
             }
         },
         {
-            "path": "src/frontend/src/assets/account-shell.css",
-            "sourceSha256": "4215e8b2e9a9f5cbd4417747ccbc9d11548f623d8b46ac44394e2a71c4c5133b",
-            "violationCount": 244,
-            "violationDigest": "ddbecd28d9a8b9a8982359b8bca75d5b330ac2f4f5674cbcab35676130f834cb",
-            "rules": {
-                "stylelint/@stylistic/block-opening-brace-newline-before": 57,
-                "stylelint/@stylistic/indentation": 180,
-                "stylelint/custom-property-empty-line-before": 1,
-                "stylelint/media-feature-range-notation": 6
-            }
-        },
-        {
             "path": "src/frontend/src/assets/admin/taxonomy.css",
             "sourceSha256": "94730ac6b03f39c67175d9157e589e7b3e63c42b250db69b35a8cd57a054cbbd",
             "violationCount": 18,

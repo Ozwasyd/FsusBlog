@@ -17,8 +17,8 @@
         />
     </ElDrawer>
 
-    <div class="mx-auto flex w-full max-w-[var(--fsusblog-container-workbench)] flex-1 gap-5 px-4 py-5 sm:px-6 sm:py-8 lg:gap-10 lg:px-10">
-        <aside class="hidden lg:block lg:w-[18rem] lg:shrink-0">
+    <div class="account-route-frame" :class="frameClass">
+        <aside class="account-route-frame__sidebar">
             <AccountNavigationPanel
                 class="account-sidebar-frame sticky top-24 pr-6"
                 :area-label="areaLabel"
@@ -31,7 +31,7 @@
         <main
             id="account-main"
             tabindex="-1"
-            class="account-main-scroll min-w-0 flex-1 outline-none"
+            class="account-main-scroll"
             aria-labelledby="account-shell-area-title"
         >
             <RouterView v-slot="{ Component }">
@@ -39,7 +39,7 @@
                     <component
                         :is="Component"
                         :key="accountRouteViewKey"
-                        class="mx-auto w-full min-w-0"
+                        class="account-frame-outlet"
                         :class="contentClasses"
                     />
                 </FsuTransition>
@@ -65,6 +65,7 @@ const props = defineProps<{
     areaLabel: string;
     navGroups: readonly AccountNavGroup[];
     contentClasses: readonly string[];
+    frameClass: string;
 }>();
 
 const route = useRoute();

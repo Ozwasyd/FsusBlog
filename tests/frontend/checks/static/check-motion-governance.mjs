@@ -156,12 +156,12 @@ if (!accountRouteFrame.includes(':duration="220"')) {
 }
 
 const accountShellCss = expectIncludes(
-  'src/frontend/src/assets/account-shell.css',
+  'src/frontend/src/assets/admin-workspace.css',
   '.account-motion-enter',
-  'account page motion compatibility marker'
+  'admin page motion compatibility marker'
 )
 if (/\.account-motion-enter\s*\{[^}]*blog-motion-page-enter/s.test(accountShellCss)) {
-  errors.push('src/frontend/src/assets/account-shell.css: account-motion-enter must not run page-enter animation; AccountRouteFrame owns account route motion')
+  errors.push('src/frontend/src/assets/admin-workspace.css: account-motion-enter must not run page-enter animation; AccountRouteFrame owns account route motion')
 }
 
 const blogLayout = expectIncludes(

@@ -10,8 +10,8 @@ const identityCenter = readFileSync(
   repoFile('src/frontend/src/views/user/IdentityCenter.vue'),
   'utf8'
 )
-const accountShell = readFileSync(
-  repoFile('src/frontend/src/assets/account-shell.css'),
+const accountShellBase = readFileSync(
+  repoFile('src/frontend/src/assets/account-shell-base.css'),
   'utf8'
 )
 
@@ -31,7 +31,7 @@ describe('account integer typography contract', () => {
   it('keeps all explicit target-file pixel sizes on integer boundaries', () => {
     for (const [label, source] of [
       ['IdentityCenter.vue', identityCenter],
-      ['account-shell.css', accountShell]
+      ['account-shell-base.css', accountShellBase]
     ] as const) {
       expect(source, label).not.toMatch(/font-size\s*:\s*0?\.[0-9]+(?:rem|em)/u)
       for (const match of source.matchAll(/font-size\s*:\s*([0-9.]+)px/gu)) {
@@ -56,8 +56,8 @@ describe('account integer typography contract', () => {
     }
 
     expectFontSize(
-      accountShell,
-      /\.account-section-eyebrow\s*\{(?<body>[^}]*)\}/u,
+      accountShellBase,
+      /\.account-header-link\s*\{(?<body>[^}]*)\}/u,
       '12px'
     )
   })

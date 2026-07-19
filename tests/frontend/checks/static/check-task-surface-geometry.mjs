@@ -7,7 +7,9 @@ import { fileURLToPath } from 'node:url'
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..')
 const sourceRoot = resolve(repoRoot, 'src/frontend/src')
 const geometryRoots = [
-  'assets/account-shell.css',
+  'assets/account-shell-base.css',
+  'assets/account-identity.css',
+  'assets/admin-workspace.css',
   'assets/admin',
   'components/account',
   'components/admin',

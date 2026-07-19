@@ -1,0 +1,190 @@
+/* Admin task composition. FsusUI primitives retain their own internal styles. */
+
+.admin-workspace-frame {
+  --fsusblog-admin-status-info: color-mix(in srgb, var(--fsusblog-color-primary) 46%, var(--fsusblog-text-muted));
+  --fsusblog-admin-status-success: color-mix(in srgb, var(--fsusblog-color-success) 42%, var(--fsusblog-text-muted));
+  --fsusblog-admin-status-warning: color-mix(in srgb, var(--fsusblog-color-warning) 42%, var(--fsusblog-text-muted));
+  --fsusblog-admin-status-danger: color-mix(in srgb, var(--fsusblog-color-error) 46%, var(--fsusblog-text-muted));
+  --fsusblog-admin-status-info-border: color-mix(in srgb, var(--fsusblog-admin-status-info) 24%, var(--fsusblog-panel-border));
+  --fsusblog-admin-status-success-border: color-mix(in srgb, var(--fsusblog-admin-status-success) 24%, var(--fsusblog-panel-border));
+  --fsusblog-admin-status-warning-border: color-mix(in srgb, var(--fsusblog-admin-status-warning) 26%, var(--fsusblog-panel-border));
+  --fsusblog-admin-status-danger-border: color-mix(in srgb, var(--fsusblog-admin-status-danger) 28%, var(--fsusblog-panel-border));
+  --fsusblog-admin-status-weak-bg: color-mix(in srgb, var(--fsusblog-panel-bg) 76%, var(--fsusblog-page-bg) 24%);
+  --fsusblog-admin-alert-bg: color-mix(in srgb, var(--fsusblog-panel-bg) 84%, var(--fsusblog-page-bg) 16%);
+  --fsusblog-admin-alert-border: color-mix(in srgb, var(--fsusblog-text-muted) 18%, var(--fsusblog-panel-border));
+}
+
+.admin-workspace-frame .account-frame-outlet {
+  max-width: var(--fsusblog-container-wide);
+}
+
+.admin-workspace-frame .account-frame-outlet--takeover {
+  display: flex;
+  min-height: calc(100dvh - 9rem);
+  max-width: none;
+  flex-direction: column;
+}
+
+.admin-workspace-frame .account-motion-enter {
+  animation: none;
+}
+
+.admin-workspace-frame .dashboard-section-header--flush {
+  margin-bottom: 0;
+}
+
+.admin-workspace-frame .dashboard-section-note {
+  display: block;
+  max-width: 42rem;
+  margin: var(--fsus-space-1) 0 0;
+  color: var(--fsusblog-text-muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.admin-workspace-frame .admin-muted-alert {
+  border: 1px solid var(--fsusblog-admin-alert-border);
+  border-left: 2px solid var(--fsusblog-admin-alert-accent, var(--fsusblog-admin-status-info-border));
+  border-radius: var(--fsus-radius-control);
+  background: var(--fsusblog-admin-alert-bg);
+  color: var(--fsusblog-text-secondary);
+}
+
+.admin-workspace-frame .admin-muted-alert--info {
+  --fsusblog-admin-alert-accent: var(--fsusblog-admin-status-info-border);
+}
+
+.admin-workspace-frame .admin-muted-alert--warning {
+  --fsusblog-admin-alert-accent: var(--fsusblog-admin-status-warning-border);
+}
+
+.admin-workspace-frame .admin-muted-alert--danger {
+  --fsusblog-admin-alert-accent: var(--fsusblog-admin-status-danger-border);
+}
+
+.admin-workspace-frame .admin-muted-alert strong,
+.admin-workspace-frame .admin-muted-alert__title {
+  color: var(--fsusblog-text-primary);
+}
+
+.admin-workspace-frame .workbench-panel {
+  border-top: 1px solid var(--fsusblog-panel-border);
+  border-bottom: 1px solid var(--fsusblog-panel-border);
+  background: var(--fsusblog-page-bg);
+}
+
+.admin-workspace-frame .workbench-panel__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fsus-space-6);
+  justify-content: space-between;
+  padding: var(--fsus-space-8) var(--fsus-space-4);
+}
+
+.admin-workspace-frame .admin-data-surface {
+  overflow: hidden;
+  border: 1px solid var(--fsusblog-panel-border);
+  border-radius: var(--fsus-radius-control);
+  background: var(--fsusblog-page-bg);
+  box-shadow: none;
+}
+
+.admin-workspace-frame .admin-data-surface__toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fsus-space-3);
+  justify-content: space-between;
+  border-bottom: 1px solid var(--fsusblog-panel-border);
+  padding: var(--fsus-space-3) var(--fsus-space-4);
+  background: var(--fsusblog-page-bg);
+}
+
+.admin-workspace-frame .admin-data-surface__toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fsus-space-3);
+}
+
+.admin-workspace-frame .admin-data-surface__action-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--fsus-space-3);
+  border-top: 1px solid var(--fsusblog-panel-border);
+  padding-top: var(--fsus-space-3);
+}
+
+.admin-workspace-frame .admin-data-surface__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--fsus-space-4);
+  border-top: 1px solid var(--fsusblog-panel-border);
+  padding: var(--fsus-space-3) var(--fsus-space-4);
+  background: var(--fsusblog-page-bg);
+  box-shadow: none;
+}
+
+.admin-workspace-frame .admin-page-shell {
+  width: 100%;
+  min-width: 0;
+}
+
+.admin-workspace-frame .admin-page-shell--dashboard,
+.admin-workspace-frame .admin-page-shell--list,
+.admin-workspace-frame .admin-page-shell--form,
+.admin-workspace-frame .admin-page-shell--settings {
+  width: 100%;
+}
+
+.admin-workspace-frame .admin-page-shell--form {
+  max-width: var(--fsusblog-container-workbench);
+}
+
+.admin-workspace-frame .admin-page-shell--settings {
+  max-width: var(--fsusblog-container-settings);
+}
+
+.admin-workspace-frame .admin-page-shell--list :where(.grid) > * {
+  min-width: 0;
+}
+
+@media (min-width: 640px) {
+  .admin-workspace-frame .workbench-panel__header {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .admin-workspace-frame .admin-data-surface__toolbar {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .admin-workspace-frame .admin-data-surface__toolbar--stacked {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 639px) {
+  .admin-workspace-frame .admin-data-surface__footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+@media (min-width: 1024px) {
+  .admin-workspace-frame .account-frame-outlet--takeover {
+    min-height: calc(100dvh - 8rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-workspace-frame .account-motion-enter {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}

@@ -50,7 +50,7 @@ const publicShellPath = 'src/frontend/src/assets/public-shell-foundation.css'
 const motionPath = 'src/frontend/src/assets/motion.css'
 const tailwindPath = 'src/frontend/src/assets/tailwind.css'
 const markdownPath = 'src/frontend/src/assets/markdown.css'
-const accountShellPath = 'src/frontend/src/assets/account-shell.css'
+const accountShellBasePath = 'src/frontend/src/assets/account-shell-base.css'
 const moderationAuditPath = 'src/frontend/src/views/admin/moderation/ModerationAudit.vue'
 const messagesPath = 'src/frontend/src/components/user/messages/MessagesConversationList.vue'
 const identityPath = 'src/frontend/src/views/user/IdentityCenter.vue'
@@ -62,7 +62,7 @@ const publicShell = read(publicShellPath)
 const motion = read(motionPath)
 const tailwind = read(tailwindPath)
 const markdown = read(markdownPath)
-const accountShell = read(accountShellPath)
+const accountShellBase = read(accountShellBasePath)
 const moderationAudit = read(moderationAuditPath)
 const messages = read(messagesPath)
 const identity = read(identityPath)
@@ -162,7 +162,7 @@ expectNotIncludes(publicShellPath, publicShell, '--fsusblog-public-overlay-radiu
 expectIncludes(markdownPath, markdown, 'border-radius: var(--fsus-radius-panel, 12px);')
 expectIncludes(markdownPath, markdown, 'border-radius: var(--fsus-radius-control-small, 4px)')
 expectIncludes(markdownPath, markdown, 'border-radius: var(--fsus-radius-control, 6px);')
-expectIncludes(accountShellPath, accountShell, 'border-radius: var(--fsus-radius-control, 6px);')
+expectIncludes(accountShellBasePath, accountShellBase, 'border-radius: var(--fsus-radius-control);')
 
 expectIncludes(complianceFooterPath, complianceFooter, 'transition-transform group-hover:-translate-y-px')
 

@@ -3,6 +3,7 @@
     :model-value="visible"
     title="账号封禁处理"
     width="min(92vw, 28rem)"
+    modal-class="admin-workspace-frame"
     @update:model-value="emit('update:visible', $event)"
   >
     <div class="pt-6 pb-2">

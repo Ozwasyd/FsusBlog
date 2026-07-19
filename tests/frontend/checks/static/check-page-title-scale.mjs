@@ -54,7 +54,7 @@ for (const file of ['src/frontend/src/views/error/403.vue', 'src/frontend/src/vi
     assert(/class="mt-6 flex flex-col gap-3 sm:flex-row"/u.test(source), `${file} first action must start 24px after the description`);
 }
 
-const account = read('src/frontend/src/assets/account-shell.css');
+const account = read('src/frontend/src/assets/account-shell-base.css');
 assert(/\.account-task-page-header\s*\{[^}]*margin-bottom:\s*var\(--fsus-space-6\);/s.test(account),
     'account pages must retain only the Blog-owned header-to-content margin handoff');
 for (const selector of ['account-page-header', 'account-page-title', 'account-page-description'])

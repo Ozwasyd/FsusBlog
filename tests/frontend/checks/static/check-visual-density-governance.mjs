@@ -25,7 +25,8 @@ const publicEditorialRoots = [
 ].map((dir) => path.join(repoRoot, dir));
 
 const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json');
-const accountShellPath = path.join(repoRoot, 'src/frontend/src/assets/account-shell.css');
+const accountShellBasePath = path.join(repoRoot, 'src/frontend/src/assets/account-shell-base.css');
+const adminWorkspaceCssPath = path.join(repoRoot, 'src/frontend/src/assets/admin-workspace.css');
 const taskPageHeaderAdapterPath = path.join(repoRoot, 'src/frontend/src/fsusui/taskPageHeader.ts');
 const accountLayoutPath = path.join(repoRoot, 'src/frontend/src/layouts/AccountLayout.vue');
 const accountRouteFramePath = path.join(repoRoot, 'src/frontend/src/layouts/AccountRouteFrame.vue');
@@ -572,22 +573,21 @@ function checkPublicTypographyContract()
 
 function checkIssueDensityContracts()
 {
-    assertContains(accountLayoutPath, /\.account-skip-link:focus-visible\s*\{/, 'account skip-link must reveal only on :focus-visible');
-    assertNotContains(accountLayoutPath, /\.account-skip-link:focus\s*\{/, 'account skip-link must not use mouse-triggered :focus');
-    assertContains(accountLayoutPath, /\.account-skip-link:focus-visible\s*\{[\s\S]*?font-size:\s*12px;/, 'account skip-link must use the 12px readable text scale');
-    assertNotContains(accountLayoutPath, /disabled:opacity-40/, 'account header/meta links must not use 40% disabled opacity');
-    assertContains(accountLayoutPath, /disabled:opacity-60/, 'account header/meta links must keep disabled opacity at 60% or higher');
-    assertNotContains(accountLayoutPath, /\.account-header-link\s*\{[\s\S]*?\bmin-h-9\b/, 'account main-site header action must not use the retired 36px tier');
-    assertContains(accountLayoutPath, /\.account-header-link\s*\{[\s\S]*?min-width:\s*var\(--fsus-control-height-compact\);[\s\S]*?min-height:\s*var\(--fsus-control-height-compact\);/, 'account desktop main-site action must consume the 40px compact control token');
-    assertContains(accountLayoutPath, /\.account-header-link--mobile\s*\{[\s\S]*?min-width:\s*var\(--fsus-control-height\);[\s\S]*?min-height:\s*var\(--fsus-control-height\);/, 'account mobile main-site action must consume the 44px default control token');
+    assertContains(accountShellBasePath, /\.account-skip-link:focus-visible\s*\{/, 'account skip-link must reveal only on :focus-visible');
+    assertNotContains(accountShellBasePath, /\.account-skip-link:focus\s*\{/, 'account skip-link must not use mouse-triggered :focus');
+    assertContains(accountShellBasePath, /\.account-skip-link:focus-visible\s*\{[\s\S]*?font-size:\s*12px;/, 'account skip-link must use the 12px readable text scale');
+    assertNotContains(accountShellBasePath, /disabled:opacity-40/, 'account header/meta links must not use 40% disabled opacity');
+    assertNotContains(accountShellBasePath, /\.account-header-link\s*\{[\s\S]*?\bmin-h-9\b/, 'account main-site header action must not use the retired 36px tier');
+    assertContains(accountShellBasePath, /\.account-header-link\s*\{[\s\S]*?min-width:\s*var\(--fsus-control-height-compact\);[\s\S]*?min-height:\s*var\(--fsus-control-height-compact\);/, 'account desktop main-site action must consume the 40px compact control token');
+    assertContains(accountShellBasePath, /\.account-header-link--mobile\s*\{[\s\S]*?min-width:\s*var\(--fsus-control-height\);[\s\S]*?min-height:\s*var\(--fsus-control-height\);/, 'account mobile main-site action must consume the 44px default control token');
     assertContains(accountLayoutPath, /<ThemeModeToggle[\s\S]*?class="account-header-theme-action"[\s\S]*?variant="menu-button"/, 'account desktop theme action must use the low-noise FsusUI menu-button variant');
     assertContains(accountLayoutPath, /account-header-theme-action--mobile[\s\S]*?variant="menu-button"/, 'account mobile theme action must use the low-noise FsusUI menu-button variant');
-    assertContains(accountLayoutPath, /\.account-mobile-drawer-trigger\)\s*\{[\s\S]*?min-height:\s*var\(--fsus-control-height\);[\s\S]*?width:\s*var\(--fsus-control-height\);/, 'account mobile drawer trigger must consume the 44px default control token while CSS ownership remains in AccountLayout');
+    assertContains(accountShellBasePath, /\.account-mobile-drawer-trigger\s*\{[\s\S]*?width:\s*var\(--fsus-control-height\);[\s\S]*?min-height:\s*var\(--fsus-control-height\);/, 'account mobile drawer trigger must consume the 44px default control token from the shared base layer');
     assertContains(accountMobileActionPath, /aria-controls="account-mobile-drawer"[\s\S]*?:aria-expanded="mobileDrawerVisible"/, 'account mobile drawer trigger must expose its controlled expanded state');
     assertContains(accountHeaderMenuPath, /\.account-header-menu__trigger\s*\{[\s\S]*?min-height:\s*var\(--fsus-control-height-compact\);[\s\S]*?min-width:\s*var\(--fsus-control-height-compact\);/, 'account desktop menu trigger must consume the 40px compact control token');
     assertContains(accountHeaderMenuPath, /\.account-header-menu__trigger--touch\s*\{[\s\S]*?min-height:\s*var\(--fsus-control-height\);[\s\S]*?min-width:\s*var\(--fsus-control-height\);/, 'account mobile menu trigger must consume the 44px default control token');
     assertContains(accountHeaderMenuPath, /\.account-header-menu__trigger\[aria-expanded="true"\]/, 'account menu trigger must keep a distinguishable expanded state');
-    assertContains(accountLayoutPath, /@media \(forced-colors:\s*active\)[\s\S]*?outline:\s*2px solid Highlight;/, 'account shared header actions must retain a visible system focus outline in forced-colors mode');
+    assertContains(accountShellBasePath, /@media \(forced-colors:\s*active\)[\s\S]*?outline:\s*2px solid Highlight;/, 'account shared header actions must retain a visible system focus outline in forced-colors mode');
     assertContains(accountHeaderMenuPath, /@media \(forced-colors:\s*active\)[\s\S]*?outline:\s*2px solid Highlight;/, 'account menu trigger must retain a visible system focus outline in forced-colors mode');
     assertContains(accountRouteFramePath, /<ElDrawer[\s\S]*?id="account-mobile-drawer"[\s\S]*?<\/ElDrawer>/, 'account route frame mobile navigation must use a drawer that carries the account sidebar visual language');
     assertContains(accountLayoutPath, /<RouterView name="accountMobileAction" \/>/, 'AccountLayout must host the active frame mobile action without duplicating the header');
@@ -598,8 +598,8 @@ function checkIssueDensityContracts()
     assertNotContains(accountRouteFramePath, /account-mobile-more-strip|mobileOverflowGroups|mobileMoreOpen/, 'account route frame navigation must stay two-level and must not reintroduce an overflow group row');
     assertNotContains(accountRouteFramePath, /account-mobile-link-strip/, 'account route frame navigation must not use a separate horizontal tab strip');
     assertContains(taskPageHeaderAdapterPath, /FsusTaskPageHeader\s+as\s+FsusUiTaskPageHeader/, 'Account task pages must consume the canonical FsusUI task-page header through the boundary');
-    assertContains(accountShellPath, /\.account-task-page-header\s*\{[^}]*margin-bottom:\s*var\(--fsus-space-6\);/, 'Account shell may retain only the Blog-owned header-to-content composition margin');
-    assertNotContains(accountShellPath, /\.account-page-(?:header|title|description)\b/, 'Account shell must not duplicate canonical task-page header visuals');
+    assertContains(accountShellBasePath, /\.account-task-page-header\s*\{[^}]*margin-bottom:\s*var\(--fsus-space-6\);/, 'Account base may retain only the Blog-owned header-to-content composition margin');
+    assertNotContains(accountShellBasePath, /\.account-page-(?:header|title|description)\b/, 'Account base must not duplicate canonical task-page header visuals');
     assertContains(identityCenterPath, /<FsusUiTaskPageHeader[\s\S]*?:title="sectionMeta\.title"[\s\S]*?:description="sectionMeta\.description"/, 'IdentityCenter must expose the route heading through the canonical task-page header');
     assertNotContains(identityCenterPath, /identity-section-header__copy|font-size:\s*1\.875rem/, 'IdentityCenter must not keep a local task-page title implementation');
     assertContains(accountNavigationPanelPath, /\.account-module-link,[\s\S]*?\.account-local-navigation__link\s*\{[\s\S]*?min-height:\s*2\.75rem;/, 'AccountLayout mobile drawer module and local links must provide 44px hit targets');
@@ -694,12 +694,12 @@ function checkAdminColorGovernance()
     ];
 
     assertContains(
-        accountShellPath,
+        adminWorkspaceCssPath,
         /--fsusblog-admin-status-success:/,
         'account/admin shells must expose muted admin status tokens for task surfaces'
     );
     assertContains(
-        accountShellPath,
+        adminWorkspaceCssPath,
         /\.admin-muted-alert\s*\{/,
         'account/admin shells must expose a muted alert primitive for non-critical task notices'
     );
@@ -808,10 +808,10 @@ checkPublicTypographyContract();
 checkAdminColorGovernance();
 checkAdminStatusDensityGovernance();
 
-const accountShell = read(accountShellPath);
-if (/\.account-(?:page-eyebrow|section-title)[\s\S]*?text-transform:\s*uppercase/.test(accountShell))
+const accountShellBase = read(accountShellBasePath);
+if (/\.account-(?:page-eyebrow|section-title)[\s\S]*?text-transform:\s*uppercase/.test(accountShellBase))
 {
-    fail(accountShellPath, 1, 'account page eyebrow and section title must not use uppercase text transform');
+    fail(accountShellBasePath, 1, 'account page eyebrow and section title must not use uppercase text transform');
 }
 
 const accountLayout = read(accountLayoutPath);

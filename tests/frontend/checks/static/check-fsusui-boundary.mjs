@@ -35,13 +35,6 @@ const allowedRuntimeImports = new Map([
     ['src/frontend/src/services/securityPerceptionChallengeFlow.ts', new Set(['@ozwasyd/element-plus/perception-challenge'])]
 ]);
 const allowedInternalSelectors = new Map([
-    ['src/frontend/src/assets/account-shell.css', new Set([
-        '.el-date-editor',
-        '.el-input',
-        '.el-input-number',
-        '.el-select',
-        '.el-table'
-    ])],
     ['src/frontend/src/components/admin/AdminTaxonomyManageView.vue', new Set([
         '.el-table-fixed-column--right'
     ])],
@@ -74,11 +67,6 @@ const allowedInternalSelectors = new Map([
         '.el-dialog__body',
         '.el-dialog__footer',
         '.el-dialog__header'
-    ])],
-    ['src/frontend/src/layouts/AccountLayout.vue', new Set([
-        '.el-drawer__body',
-        '.el-drawer__header',
-        '.el-drawer__title'
     ])],
     ['src/frontend/src/public-renderers/clientHydrate.ts', new Set([
         '.el-input',

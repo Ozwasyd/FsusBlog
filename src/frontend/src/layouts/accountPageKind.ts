@@ -2,13 +2,13 @@ import type { AccountArea, AccountPageKind } from '@/router/accountRouteMeta';
 
 export const ACCOUNT_PAGE_KIND_CLASSES = {
     self: {
-        'identity-settings': '',
-        inbox: '',
-        dashboard: '',
-        collection: '',
-        form: '',
-        settings: '',
-        console: ''
+        'identity-settings': 'identity-page-shell identity-page-shell--settings',
+        inbox: 'identity-page-shell identity-page-shell--inbox',
+        dashboard: 'identity-page-shell identity-page-shell--dashboard',
+        collection: 'identity-page-shell identity-page-shell--collection',
+        form: 'identity-page-shell identity-page-shell--form',
+        settings: 'identity-page-shell identity-page-shell--settings',
+        console: 'identity-page-shell identity-page-shell--console'
     },
     manage: {
         'identity-settings': 'admin-page-shell admin-page-shell--list',

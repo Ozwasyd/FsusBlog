@@ -11,7 +11,7 @@ const read = (file) => fs.readFileSync(file, 'utf8')
 
 const files = {
   publicPage: path.join(repoRoot, 'src/frontend/src/assets/public-page.css'),
-  accountShell: path.join(repoRoot, 'src/frontend/src/assets/account-shell.css'),
+  accountShellBase: path.join(repoRoot, 'src/frontend/src/assets/account-shell-base.css'),
   accountLayout: path.join(repoRoot, 'src/frontend/src/layouts/AccountLayout.vue'),
   login: path.join(repoRoot, 'src/frontend/src/views/auth/Login.vue'),
   register: path.join(repoRoot, 'src/frontend/src/views/auth/Register.vue'),
@@ -42,7 +42,7 @@ function checkLines(file, checks) {
   })
 }
 
-checkLines(files.accountShell, [
+checkLines(files.accountShellBase, [
   {
     pattern: /box-shadow:\s*var\(--fsus-shadow-floating\)/,
     message: 'account shell panels must not use floating shadow material by default'

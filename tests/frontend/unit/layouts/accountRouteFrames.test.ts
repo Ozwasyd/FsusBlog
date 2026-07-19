@@ -28,12 +28,16 @@ describe('account route frames', () =>
         const identity = readLayout('AccountIdentityFrame.vue');
         const admin = readLayout('AdminWorkspaceFrame.vue');
         const sharedFrame = readLayout('AccountRouteFrame.vue');
+        const identityCss = readFileSync(resolve(process.cwd(), 'src/assets/account-identity.css'), 'utf8');
+        const adminCss = readFileSync(resolve(process.cwd(), 'src/assets/admin-workspace.css'), 'utf8');
 
         expect(identity).toContain("surface: 'self'");
-        expect(identity).toContain('fsusblog-container-account');
+        expect(identity).toContain('frame-class="account-identity-frame"');
+        expect(identityCss).toContain('max-width: var(--fsusblog-container-account)');
         expect(identity).toContain("resolveAccountPageKindClass('self'");
         expect(admin).toContain("surface: 'manage'");
-        expect(admin).toContain('fsusblog-container-wide');
+        expect(admin).toContain('frame-class="admin-workspace-frame"');
+        expect(adminCss).toContain('max-width: var(--fsusblog-container-wide)');
         expect(admin).toContain("resolveAccountPageKindClass('manage'");
         expect(sharedFrame.match(/<ElDrawer/gu)).toHaveLength(1);
         expect(sharedFrame).toContain('variant="mobile"');

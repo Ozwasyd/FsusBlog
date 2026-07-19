@@ -12,7 +12,7 @@ const layoutRulesPath = resolve(repoRoot, 'docs/public-layout-rules.md')
 const markdownPath = resolve(sourceRoot, 'assets/markdown.css')
 const commentListPath = resolve(sourceRoot, 'components/article/ArticleCommentsVirtualList.vue')
 const identityCenterPath = resolve(sourceRoot, 'views/user/IdentityCenter.vue')
-const accountShellPath = resolve(sourceRoot, 'assets/account-shell.css')
+const accountShellBasePath = resolve(sourceRoot, 'assets/account-shell-base.css')
 const sourceExtensions = new Set(['.css', '.scss', '.vue', '.ts', '.tsx', '.js', '.jsx'])
 const excludedDirectories = new Set(['generated'])
 const forbiddenDeclarationPattern = /font-size\s*:\s*(0?\.[6-9][0-9]*(?:rem|em)|(?:11|13)px)(?:\s*!important)?\s*;/gu
@@ -87,12 +87,12 @@ for (const [label, rulePattern, expectedSize] of [
   expectRuleFontSize(identityCenter, identityCenterPath, label, rulePattern, expectedSize)
 }
 
-const accountShell = readFileSync(accountShellPath, 'utf8')
+const accountShellBase = readFileSync(accountShellBasePath, 'utf8')
 expectRuleFontSize(
-  accountShell,
-  accountShellPath,
-  'account section eyebrow',
-  /\.account-section-eyebrow\s*\{(?<body>[^}]*)\}/u,
+  accountShellBase,
+  accountShellBasePath,
+  'account header action',
+  /\.account-header-link\s*\{(?<body>[^}]*)\}/u,
   '12px'
 )
 

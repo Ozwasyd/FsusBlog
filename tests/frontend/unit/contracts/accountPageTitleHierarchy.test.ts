@@ -42,7 +42,7 @@ describe('account task page heading hierarchy', () => {
   })
 
   it('retains only the Blog-owned header-to-content margin handoff', () => {
-    const accountShell = read('src/assets/account-shell.css')
+    const accountShell = read('src/assets/account-shell-base.css')
 
     expect(accountShell).toMatch(/\.account-task-page-header\s*\{[^}]*margin-bottom:\s*var\(--fsus-space-6\);/u)
     expect(accountShell).not.toMatch(/\.account-page-(?:header|title|description)\b/u)
