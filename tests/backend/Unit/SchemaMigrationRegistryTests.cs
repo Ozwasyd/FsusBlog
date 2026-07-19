@@ -67,6 +67,25 @@ public sealed class SchemaMigrationRegistryTests
         Assert.Contains("20260711-post-account-subject-hash-backfill", migrationIds);
         Assert.Contains("20260715-pre-visit-log-ip-pseudonym-epoch", migrationIds);
         Assert.Contains("20260719-post-comment-moderation-event", migrationIds);
+        Assert.Contains("20260719-post-message-admin-queue-state", migrationIds);
+    }
+
+    [Fact]
+    public void GetDescriptors_AdminMessageQueueState_BackfillsOnlyAccountMessages()
+    {
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            new SchemaMigrationRegistry().GetDescriptors(),
+            static item => item.MigrationId == "20260719-post-message-admin-queue-state");
+        string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
+
+        Assert.Equal(SchemaMigrationPhase.PostCodeFirst, descriptor.Phase);
+        Assert.True(descriptor.Transactional);
+        Assert.Contains("msg_admin_queue_state", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("lastreadmessageid", fingerprint, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("unreadcount", fingerprint, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("version", fingerprint, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("message.sendertype = 0", fingerprint, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("ON CONFLICT (conversationid) DO NOTHING", fingerprint, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

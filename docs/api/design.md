@@ -122,6 +122,20 @@ notification stream 不受影响。不能回退到 `OFFSET`、旧 `page` 参数�
 
 ### 消息读取快照与已读游标
 
+管理员共享队列的已读事实独立保存在 `msg_admin_queue_state`，每个 conversation 只有一行，
+包含 `lastReadMessageId`、`unreadCount`、`lastReadAt` 与单调 `version`。账号发送的非 internal
+消息在同一写事务内增加管理队列未读；admin 和 system 消息不增加。admin 列表、详情和
+`unread` 筛选只读取该投影，绝不聚合账号参与者的未读数。打开最新详情会以该响应的
+`readSnapshotMessageId` 单调推进共享队列；读取历史页不会让游标后退。账号参与者状态与
+管理队列状态互不回填。
+
+旧会话由 `20260719-post-message-admin-queue-state` 保守回填：没有历史 admin 已读事实时，
+所有账号消息视为管理队列未读。`IMessageAdminQueueMaintenance` 提供一致性检查和幂等重建，
+会修复缺行、未读计数偏差及无效读取游标。reload-capable
+`Messages:AdminQueueProjectionEnabled=false` 会让两个 admin 读取端点 fail closed 为
+`503 message_admin_queue_projection_disabled`；账号读写和消息落库继续工作，修复/重建后
+可直接重新启用，不需要重启，也不得回退到参与者未读聚合。
+
 账号与 admin 消息详情使用 `ConversationDetailV3`，默认只返回最新 50 条非 internal
 消息。响应的 `previousCursor` 是本页最旧消息 ID；`hasOlder=true` 时，客户端把该值原样
 作为 `beforeMessageId` 发起下一次向前读取。客户端必须按 message ID 去重并保持升序，

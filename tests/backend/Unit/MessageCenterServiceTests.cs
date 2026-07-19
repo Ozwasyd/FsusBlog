@@ -102,6 +102,7 @@ public sealed class MessageCenterServiceTests
         string[] conversation = PropertyNames<MessageConversation>();
         string[] message = PropertyNames<ConversationMessage>();
         string[] participant = PropertyNames<ConversationParticipantState>();
+        string[] adminQueue = PropertyNames<AdminConversationQueueState>();
         Assert.Contains(nameof(MessageConversation.InitiatorAccountId), conversation);
         Assert.Contains(nameof(MessageConversation.CreatedByAccountId), conversation);
         Assert.Contains(nameof(MessageConversation.CreatedByAdminPrincipalId), conversation);
@@ -110,6 +111,11 @@ public sealed class MessageCenterServiceTests
         Assert.Contains(nameof(ConversationMessage.SenderAdminPrincipalId), message);
         Assert.Contains(nameof(ConversationMessage.SenderAdminSessionId), message);
         Assert.Contains(nameof(ConversationParticipantState.AccountId), participant);
+        Assert.Contains(nameof(AdminConversationQueueState.ConversationId), adminQueue);
+        Assert.Contains(nameof(AdminConversationQueueState.LastReadMessageId), adminQueue);
+        Assert.Contains(nameof(AdminConversationQueueState.UnreadCount), adminQueue);
+        Assert.Contains(nameof(AdminConversationQueueState.LastReadAt), adminQueue);
+        Assert.Contains(nameof(AdminConversationQueueState.Version), adminQueue);
         Assert.DoesNotContain("InitiatorUserId", conversation);
         Assert.DoesNotContain("CreatedById", conversation);
         Assert.DoesNotContain("SenderId", message);
@@ -143,7 +149,8 @@ public sealed class MessageCenterServiceTests
         string[] queryPorts = typeof(IMessageQueryService).GetMethods().Select(static methodInfo => methodInfo.Name).ToArray();
         string[] commandPorts = typeof(IMessageCommandService).GetMethods().Select(static methodInfo => methodInfo.Name).ToArray();
         string[] realtimePorts = typeof(IMessageRealtimePublisher).GetMethods().Select(static methodInfo => methodInfo.Name).ToArray();
-        string ports = string.Join('\n', queryPorts.Concat(commandPorts).Concat(realtimePorts));
+        string[] maintenancePorts = typeof(IMessageAdminQueueMaintenance).GetMethods().Select(static methodInfo => methodInfo.Name).ToArray();
+        string ports = string.Join('\n', queryPorts.Concat(commandPorts).Concat(realtimePorts).Concat(maintenancePorts));
         Assert.DoesNotContain("adminUserId", ports, StringComparison.Ordinal);
         Assert.Contains(nameof(AdminMessageActor), RuntimeMetadataInspection.DescribeType(typeof(AdminMessageActor)), StringComparison.Ordinal);
         Assert.Contains("GetAccountConversationsAsync", ports, StringComparison.Ordinal);
@@ -151,6 +158,8 @@ public sealed class MessageCenterServiceTests
         Assert.Contains("ReplyAsAccountAsync", ports, StringComparison.Ordinal);
         Assert.Contains("SendAccountTransactionalNoticeAsync", ports, StringComparison.Ordinal);
         Assert.Contains("PushAccountStatusAsync", ports, StringComparison.Ordinal);
+        Assert.Contains("CheckAdminQueueConsistencyAsync", ports, StringComparison.Ordinal);
+        Assert.Contains("RebuildAdminQueueStateAsync", ports, StringComparison.Ordinal);
         Assert.DoesNotContain("GetUserConversationsAsync", ports, StringComparison.Ordinal);
         Assert.DoesNotContain("CreateUserTicketAsync", ports, StringComparison.Ordinal);
         Assert.DoesNotContain("ReplyAsUserAsync", ports, StringComparison.Ordinal);
@@ -166,6 +175,8 @@ public sealed class MessageCenterServiceTests
         Assert.Contains("message_cursor_pagination_disabled", endpoints, StringComparison.Ordinal);
         Assert.Contains("Messages:ThreadPaginationEnabled", endpoints, StringComparison.Ordinal);
         Assert.Contains("message_thread_pagination_disabled", endpoints, StringComparison.Ordinal);
+        Assert.Contains("Messages:AdminQueueProjectionEnabled", endpoints, StringComparison.Ordinal);
+        Assert.Contains("message_admin_queue_projection_disabled", endpoints, StringComparison.Ordinal);
         Assert.Contains("beforeMessageId", endpoints, StringComparison.Ordinal);
         Assert.Contains("ConversationDetailV3", endpoints, StringComparison.Ordinal);
         Assert.Contains("CreateAccountTicketAsync", endpoints, StringComparison.Ordinal);

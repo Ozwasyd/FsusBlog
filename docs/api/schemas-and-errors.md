@@ -323,6 +323,12 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 202 | `AccountConversationReplyRequest` | `AccountConversationReplyRequestPod` + shared blob | 账号回复正文与显式读取位置；admin 回复继续使用 frame 60 |
 | 203 | `ConversationDetailV2` | `ConversationDetailV2Pod` + message records/blob | 对话详情与可见 `readSnapshotMessageId` |
 | 204 | `ConversationDetailV3` | `ConversationDetailV3Pod` + message records/blob | 固定消息页、`previousCursor`、`hasOlder` 与读取快照 |
+
+`ConversationList(56)` 与 `ConversationDetailV3(204)` 的 wire layout 不因 admin queue state
+新增字段。相同 `unreadCount` 字段按 viewer 使用不同事实源：账号读取 participant state，
+admin 读取 `msg_admin_queue_state`；公共/账号 frame 不暴露 admin queue version、admin session
+或管理主体标识。admin queue 动态关闭时使用 `ApiError(251)` details
+`message_admin_queue_projection_disabled`。
 | 182 | `AnonymousCommentCreateRequest` | `AnonymousCommentCreateRequestPod` | `POST /api/binary/comment/anonymous` 请求体；不包含 user id、username、Authorization token 或 public handle |
 | 183 | `AnonymousPrivacyStateSnapshot` | `AnonymousPrivacyStateSnapshotPod` | 前端匿名隐私状态快照 |
 | 184 | `PerceptionSealedChallengeV2` | `PerceptionSealedChallengeV2Pod` | `fsu.challenge/perception-sealed@v2` issue payload；覆盖 Character、Localization、MicroInteraction 三类 perception task |

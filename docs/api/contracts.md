@@ -972,13 +972,23 @@ version、非法 `HasMore` 或 `hasMore=true` 但 cursor 为空均按 protocol f
 列表端点返回 `503 message_cursor_pagination_disabled`。该降级不恢复旧 `page` 参数、
 本地切片或 OFFSET 查询。
 
+admin `ConversationListItemResponse.unreadCount` 与最新详情的 `unreadCount` 只来自共享
+`msg_admin_queue_state`，不能使用 `msg_participant_state` 的账号未读聚合。该状态按
+conversation 保存 `lastReadMessageId/unreadCount/lastReadAt/version`：账号创建工单或回复
+在消息事务内增加 admin unread；admin/system 消息不增加；打开最新 admin 详情按响应的
+`readSnapshotMessageId` 单调清除已读范围，并保留并发到达的后续账号消息。`filter=unread`
+使用同一投影。旧会话回填把没有可证明 admin read cursor 的账号消息保守计为未读；内部
+一致性检查与重建只按账号发送、非 internal、位于 admin cursor 之后的消息重新计算。
+`Messages:AdminQueueProjectionEnabled=false` 通过配置 reload 暂停 admin 列表与详情并返回
+`503 message_admin_queue_projection_disabled`，不允许回退到账号参与者聚合。
+
 管理员系统消息使用 `POST /api/binary/admin/messages/system-send` 的 `SystemMessageRequest` frame。当前契约只支持单账号目标，`targetAccountId` 必须存在且大于 0；`targetAccountId=null` 不表示广播，后端会返回 validation error。前端管理入口位于 `/user/manage/messages`，普通 `/user/messagebox` 只承载账号消息和工单。
 
 普通消息端点 `/api/binary/messages/**` 只接受 `identity_kind=anonymous_account` 的账号主体，并从 `AccountPrincipalContext.AccountId` 解析当前账号；不得使用 legacy `CurrentUser` 参数绑定器或把 AdminPrincipal 的 `NameIdentifier` 当作账号 id。管理消息端点 `/api/binary/admin/messages/**` 继续要求 admin principal + `admin.manage`，并用 `AdminMessageActor` 携带 `admin_id/admin_sid`。
 
 管理员更新对话状态时只接受当前数据库行版本上的状态转换：服务端先读取 `msg_conversation.status + xmin`，再用 `id + expected status + row version` 执行更新。并发 close/pending/open 修改中只有一个写入会生效；后到请求如果命中旧版本，返回 HTTP `409` + AEDS `ApiError`，不得以 last-write-wins 覆盖。
 
-消息表最终 schema 只允许账号 / 管理员主体列：`msg_conversation.initiatoraccountid`、`msg_message.senderaccountid`、`msg_participant_state.accountid` 以及对应 admin-principal 列。`msg_conversation.initiatoruserid`、`msg_message.senderid`、`msg_participant_state.userid` 和 `*_identity_sync` trigger/function 只属于一次性迁移兼容面，finalize 后不得出现在备份、恢复或运行时契约中。
+消息表最终 schema 只允许账号 / 管理员主体列：`msg_conversation.initiatoraccountid`、`msg_message.senderaccountid`、`msg_participant_state.accountid` 以及对应 admin-principal 列。共享 admin 队列只通过 `msg_admin_queue_state.conversationid` 关联会话，不保存 admin principal/session id。`msg_conversation.initiatoruserid`、`msg_message.senderid`、`msg_participant_state.userid` 和 `*_identity_sync` trigger/function 只属于一次性迁移兼容面，finalize 后不得出现在备份、恢复或运行时契约中。
 
 ### `ConversationMessageResponse`
 

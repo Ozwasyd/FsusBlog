@@ -44,3 +44,15 @@ public interface IMessageRealtimePublisher
     Task PushCacheControlAsync(CacheControlPayload payload);
     Task PushArticleChangedAsync(ArticleNoticeDto payload, string? idempotencyKey = null);
 }
+
+public readonly record struct AdminQueueConsistencyReport(
+    int ConversationCount,
+    int MissingStateCount,
+    int MismatchedUnreadCount,
+    int InvalidReadCursorCount);
+
+public interface IMessageAdminQueueMaintenance
+{
+    Task<AdminQueueConsistencyReport> CheckAdminQueueConsistencyAsync();
+    Task<int> RebuildAdminQueueStateAsync();
+}

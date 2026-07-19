@@ -271,8 +271,8 @@
 
 | 方法 | 路径 | 说明 |
 | ------ | ------ | ------ |
-| GET | `/api/binary/admin/messages/conversations?size=30&filter={filter}&cursor={nextCursor}` | 所有对话列表；消费 `ConversationList.nextCursor`，筛选变化重置游标 |
-| GET | `/api/binary/admin/messages/conversations/{id}?beforeMessageId={previousCursor}` | `ConversationDetailV3(204)`；最新 50 条或向前一页 |
+| GET | `/api/binary/admin/messages/conversations?size=30&filter={filter}&cursor={nextCursor}` | 所有对话列表；未读/筛选只读取共享 admin queue state；消费 `ConversationList.nextCursor` |
+| GET | `/api/binary/admin/messages/conversations/{id}?beforeMessageId={previousCursor}` | `ConversationDetailV3(204)`；最新页推进共享 admin read cursor，历史页不回退 |
 | POST | `/api/binary/admin/messages/conversations/{id}/reply` | 以管理员身份回复 |
 | POST | `/api/binary/admin/messages/conversations/{id}/status` | 更新对话状态（open/pending/closed）；并发状态冲突返回 409 |
 | POST | `/api/binary/admin/messages/system-send` | 单账号系统消息；`targetAccountId` 必填；响应 `ConversationDetailV2(203)` |

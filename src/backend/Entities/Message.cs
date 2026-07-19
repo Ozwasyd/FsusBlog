@@ -186,3 +186,41 @@ public sealed class ConversationParticipantState
 
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
+
+[SugarTable("msg_admin_queue_state")]
+[SugarIndex("idx_msg_admin_queue_unread_updated", nameof(UnreadCount), OrderByType.Desc, nameof(UpdatedAt), OrderByType.Desc)]
+public sealed class AdminConversationQueueState
+{
+    [SugarColumn(IsPrimaryKey = true)]
+    public long ConversationId
+    {
+        get; set;
+    }
+
+    [SugarColumn(IsNullable = true)]
+    public long? LastReadMessageId
+    {
+        get; set;
+    }
+
+    public int UnreadCount
+    {
+        get; set;
+    }
+
+    [SugarColumn(IsNullable = true)]
+    public DateTime? LastReadAt
+    {
+        get; set;
+    }
+
+    public long Version
+    {
+        get; set;
+    } = 1;
+
+    public DateTime UpdatedAt
+    {
+        get; set;
+    } = DateTime.UtcNow;
+}

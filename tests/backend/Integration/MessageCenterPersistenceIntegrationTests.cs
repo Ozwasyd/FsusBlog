@@ -28,7 +28,8 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             db,
             typeof(MessageConversation),
             typeof(ConversationMessage),
-            typeof(ConversationParticipantState));
+            typeof(ConversationParticipantState),
+            typeof(AdminConversationQueueState));
 
         IUnifiedCache cache = Substitute.For<IUnifiedCache>();
         cache.IncrementAsync(
@@ -81,6 +82,12 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         Assert.Equal(42, participant.AccountId);
         Assert.Equal(persistedMessage.Id, participant.LastReadMessageId);
         Assert.Equal(0, participant.UnreadCount);
+        AdminConversationQueueState adminQueue = Assert.Single(
+            await db.Queryable<AdminConversationQueueState>().ToListAsync());
+        Assert.Equal(conversation.Id, adminQueue.ConversationId);
+        Assert.Null(adminQueue.LastReadMessageId);
+        Assert.Equal(1, adminQueue.UnreadCount);
+        Assert.Equal(1, adminQueue.Version);
 
         await cache.Received(1).TrySetStringIfValueAsync(
             CachePolicyId.MessageUnread,
@@ -97,6 +104,220 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
     }
 
     [Fact]
+    public async Task AdminQueueState_SeparatesAccountAdminAndSystemUnreadAndMarksLatestDetailRead()
+    {
+        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        PostgresSqlSugarTestClient.InitTables(
+            db,
+            typeof(MessageConversation),
+            typeof(ConversationMessage),
+            typeof(ConversationParticipantState),
+            typeof(AdminConversationQueueState));
+        IUnifiedCache cache = CreatePermissiveUnifiedCache();
+        IMessageNotificationStreamPort notifications = Substitute.For<IMessageNotificationStreamPort>();
+        MessageCenterService service = CreateService(db, cache, notifications);
+
+        Result<ConversationDetailResponse> created = await service.CreateAccountTicketAsync(42, "queue", "account opens ticket");
+        Assert.True(created.IsSuccess, created.Error.Message);
+        long conversationId = long.Parse(created.Value!.ConversationId);
+        long firstMessageId = long.Parse(Assert.Single(created.Value.Messages).MessageId);
+
+        PageResponse<ConversationListItemResponse> unread =
+            await service.GetAdminConversationsAsync(20, "unread", null);
+        ConversationListItemResponse unreadItem = Assert.Single(unread.Items);
+        Assert.Equal(conversationId.ToString(), unreadItem.ConversationId);
+        Assert.Equal(1, unreadItem.UnreadCount);
+
+        ConversationDetailResponse adminDetail = Assert.IsType<ConversationDetailResponse>(
+            await service.GetAdminConversationDetailAsync(conversationId));
+        Assert.Equal(0, adminDetail.UnreadCount);
+        AdminConversationQueueState queue = Assert.IsType<AdminConversationQueueState>(
+            await db.Queryable<AdminConversationQueueState>().InSingleAsync(conversationId));
+        Assert.Equal(firstMessageId, queue.LastReadMessageId);
+        Assert.Equal(0, queue.UnreadCount);
+        Assert.NotNull(queue.LastReadAt);
+
+        Result<ConversationMessageResponse> adminReply = await service.ReplyAsAdminAsync(
+            conversationId,
+            "admin reply",
+            new AdminMessageActor(7, "admin-session-7"));
+        Assert.True(adminReply.IsSuccess, adminReply.Error.Message);
+        queue = Assert.IsType<AdminConversationQueueState>(
+            await db.Queryable<AdminConversationQueueState>().InSingleAsync(conversationId));
+        Assert.Equal(0, queue.UnreadCount);
+        ConversationParticipantState participant = Assert.IsType<ConversationParticipantState>(
+            await db.Queryable<ConversationParticipantState>()
+                .Where(state => state.ConversationId == conversationId && state.AccountId == 42)
+                .FirstAsync());
+        Assert.Equal(1, participant.UnreadCount);
+
+        Result<ConversationMessageResponse> accountReply = await service.ReplyAsAccountAsync(
+            42,
+            conversationId,
+            long.Parse(adminReply.Value!.MessageId),
+            "account follows up");
+        Assert.True(accountReply.IsSuccess, accountReply.Error.Message);
+        queue = Assert.IsType<AdminConversationQueueState>(
+            await db.Queryable<AdminConversationQueueState>().InSingleAsync(conversationId));
+        Assert.Equal(1, queue.UnreadCount);
+        participant = Assert.IsType<ConversationParticipantState>(
+            await db.Queryable<ConversationParticipantState>()
+                .Where(state => state.ConversationId == conversationId && state.AccountId == 42)
+                .FirstAsync());
+        Assert.Equal(0, participant.UnreadCount);
+
+        Result<ConversationDetailResponse> systemMessage = await service.SendSystemMessageAsync(
+            "system",
+            "system notice",
+            42,
+            AdminMessageActor.System);
+        Assert.True(systemMessage.IsSuccess, systemMessage.Error.Message);
+        long systemConversationId = long.Parse(systemMessage.Value!.ConversationId);
+        AdminConversationQueueState systemQueue = Assert.IsType<AdminConversationQueueState>(
+            await db.Queryable<AdminConversationQueueState>().InSingleAsync(systemConversationId));
+        Assert.Equal(0, systemQueue.UnreadCount);
+
+        unread = await service.GetAdminConversationsAsync(20, "unread", null);
+        unreadItem = Assert.Single(unread.Items);
+        Assert.Equal(conversationId.ToString(), unreadItem.ConversationId);
+        Assert.Equal(1, unreadItem.UnreadCount);
+    }
+
+    [Fact]
+    [Trait("Category", "Concurrency")]
+    public async Task AdminQueueState_ConcurrentAccountRepliesIncrementWithoutLostUpdates()
+    {
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using SqlSugarClient setup = PostgresSqlSugarTestClient.Create(connectionString);
+        PostgresSqlSugarTestClient.InitTables(
+            setup,
+            typeof(MessageConversation),
+            typeof(ConversationMessage),
+            typeof(ConversationParticipantState),
+            typeof(AdminConversationQueueState));
+        IUnifiedCache cache = CreatePermissiveUnifiedCache();
+        IMessageNotificationStreamPort notifications = Substitute.For<IMessageNotificationStreamPort>();
+        MessageCenterService setupService = CreateService(setup, cache, notifications);
+        Result<ConversationDetailResponse> created = await setupService.CreateAccountTicketAsync(42, "concurrent", "first");
+        Assert.True(created.IsSuccess, created.Error.Message);
+        long conversationId = long.Parse(created.Value!.ConversationId);
+        long readThroughMessageId = long.Parse(Assert.Single(created.Value.Messages).MessageId);
+        Assert.NotNull(await setupService.GetAdminConversationDetailAsync(conversationId));
+
+        using SqlSugarClient firstDb = PostgresSqlSugarTestClient.Create(connectionString);
+        using SqlSugarClient secondDb = PostgresSqlSugarTestClient.Create(connectionString);
+        MessageCenterService first = CreateService(firstDb, cache, notifications);
+        MessageCenterService second = CreateService(secondDb, cache, notifications);
+        Task<Result<ConversationMessageResponse>> firstReply =
+            first.ReplyAsAccountAsync(42, conversationId, readThroughMessageId, "reply one");
+        Task<Result<ConversationMessageResponse>> secondReply =
+            second.ReplyAsAccountAsync(42, conversationId, readThroughMessageId, "reply two");
+        Result<ConversationMessageResponse>[] replies = await Task.WhenAll(firstReply, secondReply);
+
+        Assert.All(replies, result => Assert.True(result.IsSuccess, result.Error.Message));
+        AdminConversationQueueState queue = Assert.IsType<AdminConversationQueueState>(
+            await setup.Queryable<AdminConversationQueueState>().InSingleAsync(conversationId));
+        Assert.Equal(2, queue.UnreadCount);
+        Assert.Equal(4, queue.Version);
+    }
+
+    [Fact]
+    public async Task AdminQueueMaintenance_BackfillsAndRepairsMissingMismatchedAndInvalidState()
+    {
+        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        PostgresSqlSugarTestClient.InitTables(
+            db,
+            typeof(MessageConversation),
+            typeof(ConversationMessage),
+            typeof(ConversationParticipantState),
+            typeof(AdminConversationQueueState));
+        const long ConversationId = 8_800;
+        DateTime now = DateTime.UtcNow;
+        await db.Insertable(new MessageConversation
+        {
+            Id = ConversationId,
+            Subject = "legacy",
+            InitiatorAccountId = 42,
+            Status = ConversationStatus.Open,
+            CreatedByType = MessageSenderType.Account,
+            CreatedByAccountId = 42,
+            CreatedAt = now,
+            UpdatedAt = now,
+            LastMessageAt = now
+        }).ExecuteCommandAsync();
+        await db.Insertable(new[]
+        {
+            new ConversationMessage
+            {
+                Id = 8_801,
+                ConversationId = ConversationId,
+                SenderType = MessageSenderType.Account,
+                SenderAccountId = 42,
+                Body = "account one",
+                CreatedAt = now
+            },
+            new ConversationMessage
+            {
+                Id = 8_802,
+                ConversationId = ConversationId,
+                SenderType = MessageSenderType.Admin,
+                SenderAdminPrincipalId = 7,
+                Body = "admin",
+                CreatedAt = now
+            },
+            new ConversationMessage
+            {
+                Id = 8_803,
+                ConversationId = ConversationId,
+                SenderType = MessageSenderType.Account,
+                SenderAccountId = 42,
+                Body = "account two",
+                CreatedAt = now
+            }
+        }).ExecuteCommandAsync();
+        MessageCenterService service = CreateService(
+            db,
+            CreatePermissiveUnifiedCache(),
+            Substitute.For<IMessageNotificationStreamPort>());
+
+        AdminQueueConsistencyReport report = await service.CheckAdminQueueConsistencyAsync();
+        Assert.Equal(1, report.ConversationCount);
+        Assert.Equal(1, report.MissingStateCount);
+        Assert.Equal(1, report.MismatchedUnreadCount);
+        Assert.Equal(0, report.InvalidReadCursorCount);
+        Assert.Equal(1, await service.RebuildAdminQueueStateAsync());
+
+        AdminConversationQueueState queue = Assert.IsType<AdminConversationQueueState>(
+            await db.Queryable<AdminConversationQueueState>().InSingleAsync(ConversationId));
+        Assert.Equal(2, queue.UnreadCount);
+        Assert.Null(queue.LastReadMessageId);
+        await db.Updateable<AdminConversationQueueState>()
+            .SetColumns(state => new AdminConversationQueueState
+            {
+                LastReadMessageId = 999_999,
+                LastReadAt = now,
+                UnreadCount = 99
+            })
+            .Where(state => state.ConversationId == ConversationId)
+            .ExecuteCommandAsync();
+
+        report = await service.CheckAdminQueueConsistencyAsync();
+        Assert.Equal(1, report.MismatchedUnreadCount);
+        Assert.Equal(1, report.InvalidReadCursorCount);
+        Assert.Equal(1, await service.RebuildAdminQueueStateAsync());
+        queue = Assert.IsType<AdminConversationQueueState>(
+            await db.Queryable<AdminConversationQueueState>().InSingleAsync(ConversationId));
+        Assert.Null(queue.LastReadMessageId);
+        Assert.Null(queue.LastReadAt);
+        Assert.Equal(2, queue.UnreadCount);
+
+        report = await service.CheckAdminQueueConsistencyAsync();
+        Assert.Equal(0, report.MissingStateCount);
+        Assert.Equal(0, report.MismatchedUnreadCount);
+        Assert.Equal(0, report.InvalidReadCursorCount);
+    }
+
+    [Fact]
     [Trait("Category", "Concurrency")]
     public async Task AccountReadCursor_DoubleConnectionPreservesSnapshotAcrossInsertReplyAndInternalMessages()
     {
@@ -106,7 +327,8 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             setup,
             typeof(MessageConversation),
             typeof(ConversationMessage),
-            typeof(ConversationParticipantState));
+            typeof(ConversationParticipantState),
+            typeof(AdminConversationQueueState));
 
         const int AccountId = 42;
         const long ConversationId = 1000;
@@ -257,7 +479,8 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             setup,
             typeof(MessageConversation),
             typeof(ConversationMessage),
-            typeof(ConversationParticipantState));
+            typeof(ConversationParticipantState),
+            typeof(AdminConversationQueueState));
 
         const int AccountId = 42;
         const long ConversationId = 9_000;
@@ -365,7 +588,8 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             setup,
             typeof(MessageConversation),
             typeof(ConversationMessage),
-            typeof(ConversationParticipantState));
+            typeof(ConversationParticipantState),
+            typeof(AdminConversationQueueState));
 
         const int AccountId = 42;
         const int ConversationCount = 105;
@@ -589,4 +813,25 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             new MessageCacheService(unifiedCache, unifiedCache, unifiedCache),
             notifications,
             NullLogger<MessageCenterService>.Instance);
+
+    private static IUnifiedCache CreatePermissiveUnifiedCache()
+    {
+        IUnifiedCache cache = Substitute.For<IUnifiedCache>();
+        cache.IncrementAsync(
+                CachePolicyId.MessageUnread,
+                Arg.Any<string>(),
+                1,
+                Arg.Any<CancellationToken>())
+            .Returns(1);
+        cache.TrySetStringIfValueAsync(
+                CachePolicyId.MessageUnread,
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                null,
+                Arg.Any<CancellationToken>())
+            .Returns(true);
+        return cache;
+    }
 }

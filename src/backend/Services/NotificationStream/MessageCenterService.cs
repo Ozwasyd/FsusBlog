@@ -21,7 +21,7 @@ public sealed class MessageCenterService(
     ISqlSugarClient db,
     MessageCacheService cache,
     IMessageNotificationStreamPort notificationStreamPort,
-    ILogger<MessageCenterService> logger) : IMessageQueryService, IMessageCommandService, IMessageRealtimePublisher
+    ILogger<MessageCenterService> logger) : IMessageQueryService, IMessageCommandService, IMessageRealtimePublisher, IMessageAdminQueueMaintenance
 {
     private const int MaxSubjectLength = 160;
     private const int MaxBodyLength = 4000;
@@ -121,15 +121,6 @@ public sealed class MessageCenterService(
             rows.RemoveAt(rows.Count - 1);
         }
 
-        var unreadMap = await GetConversationUnreadMapAsync(CollectConversationIds(rows));
-        foreach (var row in rows)
-        {
-            if (unreadMap.TryGetValue(row.ConversationId, out int unread))
-            {
-                row.UnreadCount = unread;
-            }
-        }
-
         var items = await BuildConversationListAsync(rows, includeUnread: true, snapshotMessageId);
         string? nextCursor = hasMore && rows.Count > 0
             ? new MessageConversationCursor(snapshotMessageId, rows[^1].LastMessageAt, rows[^1].ConversationId).Encode()
@@ -152,14 +143,14 @@ public sealed class MessageCenterService(
             return null;
         }
 
-        int unreadCount = await db.Queryable<ConversationParticipantState>()
-            .Where(it => it.ConversationId == conversationId)
-            .SumAsync(it => it.UnreadCount);
         var page = await LoadConversationMessagePageAsync(conversationId, beforeMessageId);
         if (page.Messages.Count == 0)
         {
             return null;
         }
+        int unreadCount = beforeMessageId.HasValue
+            ? await LoadAdminQueueUnreadCountAsync(conversationId)
+            : await AdvanceAdminQueueReadAsync(conversationId, long.Parse(page.Messages[^1].MessageId, CultureInfo.InvariantCulture), DateTime.UtcNow);
         return new ConversationDetailResponse
         {
             ConversationId = conversation.Id.ToString(),
@@ -175,6 +166,235 @@ public sealed class MessageCenterService(
             Messages = page.Messages
         };
     }
+
+    private async Task<int> LoadAdminQueueUnreadCountAsync(long conversationId)
+    {
+        var state = await db.Queryable<AdminConversationQueueState>().InSingleAsync(conversationId);
+        return state?.UnreadCount ?? 0;
+    }
+
+    private async Task<int> AdvanceAdminQueueReadAsync(long conversationId, long readThroughMessageId, DateTime now)
+    {
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            INSERT INTO msg_admin_queue_state(
+                conversationid,
+                lastreadmessageid,
+                unreadcount,
+                lastreadat,
+                version,
+                updatedat)
+            VALUES (
+                @ConversationId,
+                @ReadThroughMessageId,
+                (
+                    SELECT COUNT(*)::integer
+                    FROM msg_message message
+                    WHERE message.conversationid = @ConversationId
+                      AND message.id > @ReadThroughMessageId
+                      AND message.sendertype = @AccountSenderType
+                      AND message.isinternalnote = false
+                ),
+                @Now,
+                1,
+                @Now)
+            ON CONFLICT (conversationid) DO UPDATE
+            SET lastreadmessageid = GREATEST(
+                    COALESCE(msg_admin_queue_state.lastreadmessageid, 0),
+                    EXCLUDED.lastreadmessageid),
+                unreadcount = (
+                    SELECT COUNT(*)::integer
+                    FROM msg_message message
+                    WHERE message.conversationid = @ConversationId
+                      AND message.id > GREATEST(
+                          COALESCE(msg_admin_queue_state.lastreadmessageid, 0),
+                          @ReadThroughMessageId)
+                      AND message.sendertype = @AccountSenderType
+                      AND message.isinternalnote = false
+                ),
+                lastreadat = @Now,
+                version = msg_admin_queue_state.version + 1,
+                updatedat = @Now
+            RETURNING unreadcount;
+            """,
+            new SugarParameter("@ConversationId", conversationId),
+            new SugarParameter("@ReadThroughMessageId", readThroughMessageId),
+            new SugarParameter("@AccountSenderType", (int)MessageSenderType.Account),
+            new SugarParameter("@Now", now));
+        return await reader.ReadAsync() ? reader.ReadInt32("unreadcount") : 0;
+    }
+
+    private Task<int> IncrementAdminQueueUnreadAsync(long conversationId, DateTime now)
+        => db.Ado.ExecuteCommandAsync(
+            """
+            INSERT INTO msg_admin_queue_state(
+                conversationid,
+                lastreadmessageid,
+                unreadcount,
+                lastreadat,
+                version,
+                updatedat)
+            SELECT @ConversationId,
+                   NULL,
+                   COUNT(*)::integer,
+                   NULL,
+                   1,
+                   @Now
+            FROM msg_message message
+            WHERE message.conversationid = @ConversationId
+              AND message.sendertype = @AccountSenderType
+              AND message.isinternalnote = false
+            ON CONFLICT (conversationid) DO UPDATE
+            SET unreadcount = msg_admin_queue_state.unreadcount + 1,
+                version = msg_admin_queue_state.version + 1,
+                updatedat = @Now;
+            """,
+            new SugarParameter("@ConversationId", conversationId),
+            new SugarParameter("@AccountSenderType", (int)MessageSenderType.Account),
+            new SugarParameter("@Now", now));
+
+    private Task<int> EnsureAdminQueueStateAsync(long conversationId, DateTime now)
+        => db.Ado.ExecuteCommandAsync(
+            """
+            INSERT INTO msg_admin_queue_state(
+                conversationid,
+                lastreadmessageid,
+                unreadcount,
+                lastreadat,
+                version,
+                updatedat)
+            SELECT @ConversationId,
+                   NULL,
+                   COUNT(*) FILTER (
+                       WHERE message.sendertype = @AccountSenderType
+                         AND message.isinternalnote = false)::integer,
+                   NULL,
+                   1,
+                   @Now
+            FROM msg_message message
+            WHERE message.conversationid = @ConversationId
+            ON CONFLICT (conversationid) DO NOTHING;
+            """,
+            new SugarParameter("@ConversationId", conversationId),
+            new SugarParameter("@AccountSenderType", (int)MessageSenderType.Account),
+            new SugarParameter("@Now", now));
+
+    public async Task<AdminQueueConsistencyReport> CheckAdminQueueConsistencyAsync()
+    {
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            WITH queue_consistency AS (
+                SELECT conversation.id,
+                       state.conversationid IS NULL AS missing_state,
+                       state.lastreadmessageid IS NOT NULL
+                           AND NOT EXISTS (
+                               SELECT 1
+                               FROM msg_message read_target
+                               WHERE read_target.conversationid = conversation.id
+                                 AND read_target.id = state.lastreadmessageid
+                                 AND read_target.isinternalnote = false
+                           ) AS invalid_read_cursor,
+                       COALESCE(state.unreadcount, 0) <> (
+                           SELECT COUNT(*)::integer
+                           FROM msg_message message
+                           WHERE message.conversationid = conversation.id
+                             AND message.id > COALESCE(state.lastreadmessageid, 0)
+                             AND message.sendertype = @AccountSenderType
+                             AND message.isinternalnote = false
+                       ) AS unread_mismatch
+                FROM msg_conversation conversation
+                LEFT JOIN msg_admin_queue_state state
+                  ON state.conversationid = conversation.id
+            )
+            SELECT COUNT(*)::integer AS conversation_count,
+                   COUNT(*) FILTER (WHERE missing_state)::integer AS missing_state_count,
+                   COUNT(*) FILTER (WHERE unread_mismatch)::integer AS unread_mismatch_count,
+                   COUNT(*) FILTER (WHERE invalid_read_cursor)::integer AS invalid_read_cursor_count
+            FROM queue_consistency;
+            """,
+            new SugarParameter("@AccountSenderType", (int)MessageSenderType.Account));
+        if (!await reader.ReadAsync())
+        {
+            return default;
+        }
+
+        return new AdminQueueConsistencyReport(
+            reader.ReadInt32("conversation_count"),
+            reader.ReadInt32("missing_state_count"),
+            reader.ReadInt32("unread_mismatch_count"),
+            reader.ReadInt32("invalid_read_cursor_count"));
+    }
+
+    public Task<int> RebuildAdminQueueStateAsync()
+        => db.Ado.ExecuteCommandAsync(
+            """
+            WITH resolved AS (
+                SELECT conversation.id AS conversationid,
+                       CASE
+                           WHEN state.lastreadmessageid IS NULL THEN NULL
+                           WHEN EXISTS (
+                               SELECT 1
+                               FROM msg_message read_target
+                               WHERE read_target.conversationid = conversation.id
+                                 AND read_target.id = state.lastreadmessageid
+                                 AND read_target.isinternalnote = false
+                           ) THEN state.lastreadmessageid
+                           ELSE NULL
+                       END AS lastreadmessageid,
+                       CASE
+                           WHEN state.lastreadmessageid IS NULL THEN NULL
+                           WHEN EXISTS (
+                               SELECT 1
+                               FROM msg_message read_target
+                               WHERE read_target.conversationid = conversation.id
+                                 AND read_target.id = state.lastreadmessageid
+                                 AND read_target.isinternalnote = false
+                           ) THEN state.lastreadat
+                           ELSE NULL
+                       END AS lastreadat
+                FROM msg_conversation conversation
+                LEFT JOIN msg_admin_queue_state state
+                  ON state.conversationid = conversation.id
+            ), rebuilt AS (
+                SELECT resolved.conversationid,
+                       resolved.lastreadmessageid,
+                       (
+                           SELECT COUNT(*)::integer
+                           FROM msg_message message
+                           WHERE message.conversationid = resolved.conversationid
+                             AND message.id > COALESCE(resolved.lastreadmessageid, 0)
+                             AND message.sendertype = @AccountSenderType
+                             AND message.isinternalnote = false
+                       ) AS unreadcount,
+                       resolved.lastreadat
+                FROM resolved
+            )
+            INSERT INTO msg_admin_queue_state(
+                conversationid,
+                lastreadmessageid,
+                unreadcount,
+                lastreadat,
+                version,
+                updatedat)
+            SELECT rebuilt.conversationid,
+                   rebuilt.lastreadmessageid,
+                   rebuilt.unreadcount,
+                   rebuilt.lastreadat,
+                   1,
+                   @Now
+            FROM rebuilt
+            ON CONFLICT (conversationid) DO UPDATE
+            SET lastreadmessageid = EXCLUDED.lastreadmessageid,
+                unreadcount = EXCLUDED.unreadcount,
+                lastreadat = EXCLUDED.lastreadat,
+                version = msg_admin_queue_state.version + 1,
+                updatedat = @Now
+            WHERE msg_admin_queue_state.lastreadmessageid IS DISTINCT FROM EXCLUDED.lastreadmessageid
+               OR msg_admin_queue_state.unreadcount IS DISTINCT FROM EXCLUDED.unreadcount
+               OR msg_admin_queue_state.lastreadat IS DISTINCT FROM EXCLUDED.lastreadat;
+            """,
+            new SugarParameter("@AccountSenderType", (int)MessageSenderType.Account),
+            new SugarParameter("@Now", DateTime.UtcNow));
 
     public async Task<Result<ConversationDetailResponse>> CreateAccountTicketAsync(int accountId, string subject, string body)
     {
@@ -228,6 +448,13 @@ public sealed class MessageCenterService(
             await db.Insertable(conversation).ExecuteCommandAsync();
             await db.Insertable(firstMessage).ExecuteCommandAsync();
             await db.Insertable(participant).ExecuteCommandAsync();
+            await db.Insertable(new AdminConversationQueueState
+            {
+                ConversationId = conversationId,
+                UnreadCount = 1,
+                Version = 1,
+                UpdatedAt = now
+            }).ExecuteCommandAsync();
         });
 
         if (!TransactionSideEffectGuard.CanPublishAfterCommit(tran, logger, "message-center-create-account-ticket"))
@@ -313,6 +540,8 @@ public sealed class MessageCenterService(
                 Body = normalizedBody,
                 CreatedAt = now
             }).ExecuteCommandAsync();
+
+            await IncrementAdminQueueUnreadAsync(conversationId, now);
 
             writeOutcome = new ReplyAccountWriteOutcome(ReadAdvanceOutcome.Accepted, readAdvance.UnreadCount);
         });
@@ -612,6 +841,8 @@ public sealed class MessageCenterService(
                 CreatedAt = now
             }).ExecuteCommandAsync();
 
+            await EnsureAdminQueueStateAsync(conversationId, now);
+
             await db.Updateable<MessageConversation>()
                 .SetColumns(it => new MessageConversation { UpdatedAt = now, LastMessageAt = now })
                 .Where(it => it.Id == conversationId)
@@ -784,6 +1015,13 @@ public sealed class MessageCenterService(
                 UnreadCount = 1,
                 UpdatedAt = now
             }).ExecuteCommandAsync();
+            await db.Insertable(new AdminConversationQueueState
+            {
+                ConversationId = conversationId,
+                UnreadCount = 0,
+                Version = 1,
+                UpdatedAt = now
+            }).ExecuteCommandAsync();
         });
 
         if (!TransactionSideEffectGuard.CanPublishAfterCommit(tran, logger, "message-center-send-system-message"))
@@ -891,32 +1129,6 @@ public sealed class MessageCenterService(
         }
 
         return items;
-    }
-
-    private async Task<Dictionary<long, int>> GetConversationUnreadMapAsync(long[] conversationIds)
-    {
-        if (conversationIds.Length == 0)
-        {
-            return [];
-        }
-
-        var rows = await db.Queryable<ConversationParticipantState>()
-            .Where(it => conversationIds.Contains(it.ConversationId))
-            .GroupBy(it => it.ConversationId)
-            .Select(it => new UnreadRow
-            {
-                ConversationId = it.ConversationId,
-                UnreadCount = SqlFunc.AggregateSum(it.UnreadCount)
-            })
-            .ToListAsync();
-        var unreadMap = new Dictionary<long, int>(rows.Count);
-        for (int i = 0; i < rows.Count; i++)
-        {
-            UnreadRow row = rows[i];
-            unreadMap[row.ConversationId] = row.UnreadCount;
-        }
-
-        return unreadMap;
     }
 
     private async Task<ConversationMessagePage> LoadConversationMessagePageAsync(long conversationId, long? beforeMessageId)
@@ -1241,7 +1453,8 @@ public sealed class MessageCenterService(
             return [];
         }
 
-        var rows = await db.Queryable<ConversationParticipantState>()
+        using SqlSugarClient queryDb = db.CopyNew();
+        var rows = await queryDb.Queryable<ConversationParticipantState>()
             .Where(it => accountIds.Contains(it.AccountId))
             .GroupBy(it => it.AccountId)
             .Select(it => new AccountUnreadRow
@@ -1265,7 +1478,8 @@ public sealed class MessageCenterService(
         ConversationMessageResponse message,
         IReadOnlyList<ConversationParticipantState> participants)
     {
-        MessageConversation? conversation = await db.Queryable<MessageConversation>().InSingleAsync(conversationId);
+        using SqlSugarClient queryDb = db.CopyNew();
+        MessageConversation? conversation = await queryDb.Queryable<MessageConversation>().InSingleAsync(conversationId);
         if (conversation is null)
         {
             return [];
@@ -1390,9 +1604,9 @@ public sealed class MessageCenterService(
         string? filter,
         long snapshotMessageId)
     {
-        string participantJoin = accountId.HasValue
+        string queueStateJoin = accountId.HasValue
             ? "JOIN msg_participant_state participant ON participant.conversationid = conversation.id"
-            : string.Empty;
+            : "LEFT JOIN msg_admin_queue_state admin_queue ON admin_queue.conversationid = conversation.id";
         string accountPredicate = accountId.HasValue ? "AND participant.accountid = @AccountId" : string.Empty;
         string filterPredicate = BuildSnapshotConversationFilter(filter, accountId.HasValue);
         var parameters = new List<SugarParameter>
@@ -1407,7 +1621,7 @@ public sealed class MessageCenterService(
         string sql = $"""
             SELECT COUNT(*)::integer
             FROM msg_conversation conversation
-            {participantJoin}
+            {queueStateJoin}
             WHERE EXISTS (
                 SELECT 1
                 FROM msg_message message
@@ -1428,11 +1642,11 @@ public sealed class MessageCenterService(
         MessageConversationCursor? cursor,
         int take)
     {
-        string participantJoin = accountId.HasValue
+        string queueStateJoin = accountId.HasValue
             ? "JOIN msg_participant_state participant ON participant.conversationid = conversation.id"
-            : string.Empty;
+            : "LEFT JOIN msg_admin_queue_state admin_queue ON admin_queue.conversationid = conversation.id";
         string accountPredicate = accountId.HasValue ? "AND participant.accountid = @AccountId" : string.Empty;
-        string unreadProjection = accountId.HasValue ? "participant.unreadcount" : "0";
+        string unreadProjection = accountId.HasValue ? "participant.unreadcount" : "COALESCE(admin_queue.unreadcount, 0)";
         string filterPredicate = BuildSnapshotConversationFilter(filter, accountId.HasValue);
         string cursorPredicate = cursor.HasValue
             ? "AND (latest.createdat < @CursorLastMessageAt OR (latest.createdat = @CursorLastMessageAt AND conversation.id < @CursorConversationId))"
@@ -1461,7 +1675,7 @@ public sealed class MessageCenterService(
                    latest.createdat AS lastmessageat,
                    conversation.updatedat
             FROM msg_conversation conversation
-            {participantJoin}
+            {queueStateJoin}
             JOIN LATERAL (
                 SELECT message.id,
                        message.createdat
@@ -1487,6 +1701,7 @@ public sealed class MessageCenterService(
         => (TextHelpers.LowerTrimmed(filter) ?? string.Empty) switch
         {
             "unread" when accountScope => "AND participant.unreadcount > 0",
+            "unread" => "AND COALESCE(admin_queue.unreadcount, 0) > 0",
             "system" => "AND conversation.issystemsource = true",
             "open" => $"AND conversation.status = {(int)ConversationStatus.Open}",
             "pending" => $"AND conversation.status = {(int)ConversationStatus.Pending}",
@@ -1549,18 +1764,6 @@ public sealed class MessageCenterService(
             get; set;
         }
         public DateTime UpdatedAt
-        {
-            get; set;
-        }
-    }
-
-    private sealed class UnreadRow
-    {
-        public long ConversationId
-        {
-            get; set;
-        }
-        public int UnreadCount
         {
             get; set;
         }

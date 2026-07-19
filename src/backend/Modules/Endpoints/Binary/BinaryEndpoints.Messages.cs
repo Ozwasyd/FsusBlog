@@ -50,7 +50,6 @@ public static partial class BinaryEndpoints
                     aeds,
                     StatusCodes.Status503ServiceUnavailable);
             }
-
             MessageConversationCursor? position = null;
             if (!string.IsNullOrWhiteSpace(cursor))
             {
@@ -83,7 +82,6 @@ public static partial class BinaryEndpoints
                     aeds,
                     StatusCodes.Status503ServiceUnavailable);
             }
-
             if (beforeMessageId <= 0)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "消息游标非法"), aeds);
@@ -208,6 +206,13 @@ public static partial class BinaryEndpoints
                     aeds,
                     StatusCodes.Status503ServiceUnavailable);
             }
+            if (!IsAdminQueueProjectionEnabled(configuration))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.InfraFailure, "message_admin_queue_projection_disabled"),
+                    aeds,
+                    StatusCodes.Status503ServiceUnavailable);
+            }
 
             MessageConversationCursor? position = null;
             if (!string.IsNullOrWhiteSpace(cursor))
@@ -237,6 +242,13 @@ public static partial class BinaryEndpoints
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.InfraFailure, "message_thread_pagination_disabled"),
+                    aeds,
+                    StatusCodes.Status503ServiceUnavailable);
+            }
+            if (!IsAdminQueueProjectionEnabled(configuration))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.InfraFailure, "message_admin_queue_projection_disabled"),
                     aeds,
                     StatusCodes.Status503ServiceUnavailable);
             }
@@ -371,4 +383,7 @@ public static partial class BinaryEndpoints
 
     private static bool IsMessageThreadPaginationEnabled(IConfiguration configuration)
         => configuration.GetValue<bool?>("Messages:ThreadPaginationEnabled") ?? true;
+
+    private static bool IsAdminQueueProjectionEnabled(IConfiguration configuration)
+        => configuration.GetValue<bool?>("Messages:AdminQueueProjectionEnabled") ?? true;
 }

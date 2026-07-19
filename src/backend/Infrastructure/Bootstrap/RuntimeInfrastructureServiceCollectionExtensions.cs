@@ -160,6 +160,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddScoped<IMessageQueryService>(sp => sp.GetRequiredService<MessageCenterService>());
         services.AddScoped<IMessageCommandService>(sp => sp.GetRequiredService<MessageCenterService>());
         services.AddScoped<IMessageRealtimePublisher>(sp => sp.GetRequiredService<MessageCenterService>());
+        services.AddScoped<IMessageAdminQueueMaintenance>(sp => sp.GetRequiredService<MessageCenterService>());
         return services;
     }
 
