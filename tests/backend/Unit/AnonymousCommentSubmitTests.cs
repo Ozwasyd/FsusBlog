@@ -166,7 +166,7 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
-    public async Task CreateStrongAnonymousCommentAsync_ReplayedTicket_IsRejectedBeforeSecondWrite()
+    public async Task CreateStrongAnonymousCommentAsync_ReplayedTicket_ReturnsOriginalResultWithoutSecondWrite()
     {
         using SqlSugarClient db = await CreateDbAsync();
         CreateTables(db);
@@ -175,9 +175,14 @@ public sealed class AnonymousCommentSubmitTests(
         tickets.Add(s_ticket, TicketPayload(articleId: 42));
         CommentCommandService service = CreateService(db, tickets);
 
-        Assert.True(await service.CreateStrongAnonymousCommentAsync(CreateRequest(), RegionDecision(), CancellationToken.None));
-        Assert.False(await service.CreateStrongAnonymousCommentAsync(CreateRequest(), RegionDecision(), CancellationToken.None));
+        CommentCreateResult created = await service.CreateStrongAnonymousCommentResultAsync(CreateRequest(), RegionDecision(), CancellationToken.None);
+        CommentCreateResult replay = await service.CreateStrongAnonymousCommentResultAsync(CreateRequest(), RegionDecision(), CancellationToken.None);
 
+        Assert.True(created.Created);
+        Assert.True(replay.Created);
+        Assert.False(created.IdempotencyReplay);
+        Assert.True(replay.IdempotencyReplay);
+        Assert.Equal(created.CommentId, replay.CommentId);
         Assert.Equal(1, db.Queryable<Comment>().Count());
         Assert.Equal(2, tickets.ConsumeAttempts);
     }

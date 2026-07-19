@@ -88,23 +88,34 @@ export function mapCommentCursorFromPodPayload(payload: Uint8Array): CursorRespo
 }
 
 export function mapCommentCreateResultFromPayload(payload: Uint8Array): CommentCreateResult {
-  if (payload.byteLength !== 16) {
+  if (payload.byteLength !== 40) {
     throw createAppError(AppErrorCode.ProtocolFailure, 'comment_create_result_size_invalid');
   }
 
-  const moderationStatus = readInt32(payload, 8);
-  const visibilityCode = readByte(payload, 12);
-  const visible = readByte(payload, 13);
-  if (moderationStatus < 0 || moderationStatus > 3 || visibilityCode > 3 || visible > 1
-    || readByte(payload, 14) !== 0 || readByte(payload, 15) !== 0) {
+  const commentId = readInt64String(payload, 0)
+  const rootId = readInt64String(payload, 8)
+  const rawParentId = readInt64String(payload, 16)
+  const createdAtUtc = readIsoDate64(payload, 24)
+  const moderationStatus = readInt32(payload, 32);
+  const visibilityCode = readByte(payload, 36);
+  const visible = readByte(payload, 37);
+  const replay = readByte(payload, 38)
+  const hasParent = readByte(payload, 39)
+  if (commentId === '0' || rootId === '0' || moderationStatus < 0 || moderationStatus > 3
+    || visibilityCode > 3 || visible > 1 || replay > 1 || hasParent > 1
+    || (hasParent === 0 ? rawParentId !== '0' : rawParentId === '0')) {
     throw createAppError(AppErrorCode.ProtocolFailure, 'comment_create_result_value_invalid');
   }
 
   return {
-    commentId: readInt64Number(payload, 0).toString(),
+    commentId,
+    rootId,
+    parentId: hasParent === 1 ? rawParentId : null,
+    createdAtUtc,
     moderationStatus,
     visibilityState: (['pending', 'public', 'hidden', 'rejected'] as const)[visibilityCode],
-    isPubliclyVisible: visible === 1
+    isPubliclyVisible: visible === 1,
+    idempotencyReplay: replay === 1
   };
 }
 

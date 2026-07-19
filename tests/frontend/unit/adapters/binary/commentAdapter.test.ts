@@ -5,6 +5,7 @@ import {
   mapAnonymousCredentialRevocationArtifactFromPayload,
   mapAnonymousCredentialRootSnapshotFromPayload,
   mapAnonymousPrivacyStateSnapshotFromPayload,
+  mapCommentCreateResultFromPayload,
   mapCommentCursorFromPodPayload,
   mapCommentChildCursorFromPayload,
   mapCommentPermalinkContextFromPayload,
@@ -76,6 +77,35 @@ function blobParts(...parts: Uint8Array[]): Uint8Array {
   const lenBuf = new Uint8Array(4); writeInt32(lenBuf, 0, blob.length)
   return buildPayload(lenBuf, blob)
 }
+
+describe('mapCommentCreateResultFromPayload', () => {
+  it.each([
+    { moderationStatus: 0, visibilityCode: 0, visibilityState: 'pending', visible: 0 },
+    { moderationStatus: 2, visibilityCode: 2, visibilityState: 'hidden', visible: 0 }
+  ])('decodes the complete $visibilityState creation result', ({ moderationStatus, visibilityCode, visibilityState, visible }) => {
+    const payload = new Uint8Array(40)
+    writeInt64(payload, 0, 101n)
+    writeInt64(payload, 8, 100n)
+    writeInt64(payload, 16, 99n)
+    writeInt64(payload, 24, 1784510400000n)
+    writeInt32(payload, 32, moderationStatus)
+    payload[36] = visibilityCode
+    payload[37] = visible
+    payload[38] = 1
+    payload[39] = 1
+
+    expect(mapCommentCreateResultFromPayload(payload)).toEqual({
+      commentId: '101',
+      rootId: '100',
+      parentId: '99',
+      createdAtUtc: '2026-07-20T01:20:00.000Z',
+      moderationStatus,
+      visibilityState,
+      isPubliclyVisible: false,
+      idempotencyReplay: true
+    })
+  })
+})
 
 function lengthPrefixed(payload: Uint8Array): Uint8Array {
   const lenBuf = new Uint8Array(4); writeInt32(lenBuf, 0, payload.length)

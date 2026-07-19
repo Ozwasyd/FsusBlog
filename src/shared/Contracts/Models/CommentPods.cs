@@ -113,10 +113,14 @@ public readonly struct CommentCreateV2RequestPod
 public readonly struct CommentCreateResultPod
 {
     public readonly long CommentId;
+    public readonly long RootId;
+    public readonly long ParentId;
+    public readonly long CreatedAtUnixMs;
     public readonly int ModerationStatus;
     public readonly byte VisibilityState;
     public readonly byte IsPubliclyVisible;
-    public readonly ushort Reserved0;
+    public readonly byte IdempotencyReplay;
+    public readonly byte HasParentId;
 }
 
 /// <summary>

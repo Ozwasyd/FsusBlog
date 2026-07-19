@@ -152,7 +152,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 ## Common Response PODs
 
 - `EmptySuccess` payload: `EmptySuccessPod` (`Ok = 1`, remaining bytes reserved).
-- `CommentCreateResult` payload: 16-byte `CommentCreateResultPod` (`int64 commentId`, `int32 moderationStatus`, `uint8 visibilityState`, `uint8 isPubliclyVisible`, two reserved zero bytes). Visibility values are `0 pending`, `1 public`, `2 hidden`, `3 rejected`.
+- `CommentCreateResult` payload: 40-byte `CommentCreateResultPod` (`int64 commentId`, `int64 rootId`, `int64 parentId`, `int64 createdAtUnixMs`, `int32 moderationStatus`, `uint8 visibilityState`, `uint8 isPubliclyVisible`, `uint8 idempotencyReplay`, `uint8 hasParentId`). `parentId=0/hasParentId=0` represents a top-level comment; all IDs are positive otherwise. Visibility values are `0 pending`, `1 public`, `2 hidden`, `3 rejected`.
 - `CommentTreeRootCursor` payload: standard cursor envelope followed by root `CommentTreeNodePod` records. Every root record is followed by its content/author blob, then a 4-byte direct-preview header (`uint8 count`, three reserved zero bytes), then exactly `count` direct-child node records. It never flattens deeper descendants.
 - `CommentChildCursor` payload: 32-byte `CommentChildCursorPod` (`int64 parentId`, `int64 rootId`, `int64 nextCursor`, `int32 count`, `uint8 hasMore`, three reserved zero bytes) followed by exactly `count` direct-child `CommentTreeNodePod` records.
 - `CommentPermalinkContext` payload: 32-byte `CommentPermalinkContextPod` followed by ordered ancestor nodes, optional target node, and sibling nodes. Status `unavailable` has no target and zero node counts; deleted, hidden, region-blocked, and absent targets intentionally share this shape.

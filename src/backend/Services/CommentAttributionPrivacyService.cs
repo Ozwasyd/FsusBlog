@@ -27,9 +27,13 @@ public interface ICommentAttributionPrivacyService
         string? submitRegion,
         CancellationToken cancellationToken);
 
-    Task<AnonymousCommentTicketPayload?> ConsumeStrongAnonymousTicketAsync(
+    Task<AnonymousCommentTicketPayload?> ReadStrongAnonymousTicketAsync(
         AnonymousCommentCreateRequestCoreModel request,
         string normalizedContent,
+        CancellationToken cancellationToken);
+
+    Task FinalizeStrongAnonymousTicketAsync(
+        AnonymousCommentCreateRequestCoreModel request,
         CancellationToken cancellationToken);
 
     Task<CommentActor?> ResolveStrongAnonymousActorAsync(
@@ -95,7 +99,7 @@ public sealed class CommentAttributionPrivacyService(
         return result.Allowed ? result.Actor : null;
     }
 
-    public async Task<AnonymousCommentTicketPayload?> ConsumeStrongAnonymousTicketAsync(
+    public async Task<AnonymousCommentTicketPayload?> ReadStrongAnonymousTicketAsync(
         AnonymousCommentCreateRequestCoreModel request,
         string normalizedContent,
         CancellationToken cancellationToken)
@@ -119,7 +123,7 @@ public sealed class CommentAttributionPrivacyService(
             return null;
         }
 
-        CacheReadResult<AnonymousCommentTicketPayload> consumed = await tickets.ConsumeTicketAsync(
+        CacheReadResult<AnonymousCommentTicketPayload> consumed = await tickets.ReadTicketAsync(
             request.Ticket,
             cancellationToken);
         if (!consumed.Hit || consumed.Value is null || !TicketMatchesRequest(consumed.Value, request))
@@ -136,6 +140,18 @@ public sealed class CommentAttributionPrivacyService(
         }
 
         return consumed.Value;
+    }
+
+    public async Task FinalizeStrongAnonymousTicketAsync(
+        AnonymousCommentCreateRequestCoreModel request,
+        CancellationToken cancellationToken)
+    {
+        if (tickets is null)
+        {
+            return;
+        }
+
+        await tickets.ConsumeTicketAsync(request.Ticket, cancellationToken);
     }
 
     public async Task<CommentActor?> ResolveStrongAnonymousActorAsync(

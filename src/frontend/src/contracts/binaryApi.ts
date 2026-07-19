@@ -277,6 +277,7 @@ export interface CommentAuthorView {
 }
 
 export interface CommentCreateV2Dto {
+    clientMutationId?: string;
     articleId: number;
     content: string;
     parentId?: string | null;
@@ -297,9 +298,13 @@ export interface CommentCreateV2Dto {
 
 export interface CommentCreateResult {
     commentId: string;
+    rootId: string;
+    parentId: string | null;
+    createdAtUtc: string;
     moderationStatus: number;
     visibilityState: 'pending' | 'public' | 'hidden' | 'rejected';
     isPubliclyVisible: boolean;
+    idempotencyReplay: boolean;
 }
 
 export interface AnonymousCommentSubmitDto {

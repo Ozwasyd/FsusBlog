@@ -1,14 +1,15 @@
-export const COMMENT_PUBLIC_DRAFT_STORAGE_PREFIX = 'fsus:comment-public-draft:v2:'
-export const COMMENT_PUBLIC_DRAFT_SCOPE_KEY = 'fsus:comment-public-draft-scope:v2'
+export const COMMENT_PUBLIC_DRAFT_STORAGE_PREFIX = 'fsus:comment-public-draft:v3:'
+export const COMMENT_PUBLIC_DRAFT_SCOPE_KEY = 'fsus:comment-public-draft-scope:v3'
 export const LEGACY_COMMENT_DRAFT_STORAGE_PREFIX = 'fsus:comment-draft:v1:'
 
 const LOCAL_SCOPE_PATTERN = /^[a-f0-9]{32}$/u
 
 export interface PersistedPublicCommentDraft {
-  version: 2
+  version: 3
   content: string
   savedAt: number
   policyHash: string
+  clientMutationId: string
 }
 
 export interface CommentPublicDraftStoragePreparation {
@@ -152,12 +153,14 @@ export function clearAllCommentDraftStorage(storage: Storage): boolean {
 }
 
 function isPersistedPublicCommentDraft(value: Partial<PersistedPublicCommentDraft>): value is PersistedPublicCommentDraft {
-  return value.version === 2 &&
+  return value.version === 3 &&
     typeof value.content === 'string' &&
     Boolean(value.content.trim()) &&
     typeof value.savedAt === 'number' &&
     Number.isFinite(value.savedAt) &&
-    typeof value.policyHash === 'string'
+    typeof value.policyHash === 'string' &&
+    typeof value.clientMutationId === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(value.clientMutationId)
 }
 
 function listStorageKeys(storage: Storage): string[] {

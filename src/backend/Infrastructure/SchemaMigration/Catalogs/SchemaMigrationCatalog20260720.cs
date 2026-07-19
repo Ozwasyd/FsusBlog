@@ -23,6 +23,7 @@ internal static class SchemaMigrationCatalog20260720
             [
                 AccountEnrollmentMigrationDefinitions.BuildMigration(),
                 PasskeySignalMigrationDefinitions.BuildMigration(),
+                CommentMutationIdempotencyMigrationDefinitions.BuildMigration(),
                 ScheduledPublishIndexMigrationDefinitions.BuildMigration()
             ]);
 }

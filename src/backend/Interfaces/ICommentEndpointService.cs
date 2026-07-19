@@ -13,15 +13,19 @@ public readonly record struct AdminPrincipalActor(long AdminPrincipalId, string 
 public readonly record struct CommentCreateResult(
     bool Created,
     long CommentId,
+    long RootId,
+    long? ParentId,
+    DateTime CreatedAtUtc,
     CommentModerationStatus ModerationStatus,
     string VisibilityState,
     bool IsPubliclyVisible,
+    bool IdempotencyReplay,
     string? FailureCode = null)
 {
-    public static CommentCreateResult Failed => new(false, 0, CommentModerationStatus.Pending, "pending", false);
+    public static CommentCreateResult Failed => new(false, 0, 0, null, default, CommentModerationStatus.Pending, "pending", false, false);
 
     public static CommentCreateResult Failure(string code)
-        => new(false, 0, CommentModerationStatus.Pending, "pending", false, code);
+        => new(false, 0, 0, null, default, CommentModerationStatus.Pending, "pending", false, false, code);
 }
 
 public interface ICommentCommandService
@@ -39,12 +43,19 @@ public interface ICommentEndpointService
 
     async Task<CommentCreateResult> CreateAttributablePublicCommentResultAsync(AccountPrincipalContext account, CommentCreateV2RequestCoreModel request, RegionModerationDecision? regionDecision = null)
         => await CreateAttributablePublicCommentAsync(account, request, regionDecision)
-            ? new CommentCreateResult(true, 0, CommentModerationStatus.Pending, "pending", false)
+            ? new CommentCreateResult(true, 0, 0, null, DateTime.UtcNow, CommentModerationStatus.Pending, "pending", false, false)
             : CommentCreateResult.Failed;
+
+    Task<CommentCreateResult> CreateAttributablePublicCommentResultAsync(
+        AccountPrincipalContext account,
+        CommentCreateV2RequestCoreModel request,
+        string clientMutationId,
+        RegionModerationDecision? regionDecision = null)
+        => CreateAttributablePublicCommentResultAsync(account, request, regionDecision);
 
     async Task<CommentCreateResult> CreateStrongAnonymousCommentResultAsync(AnonymousCommentCreateRequestCoreModel request, RegionModerationDecision? regionDecision = null, CancellationToken cancellationToken = default)
         => await CreateStrongAnonymousCommentAsync(request, regionDecision, cancellationToken)
-            ? new CommentCreateResult(true, 0, CommentModerationStatus.Pending, "pending", false)
+            ? new CommentCreateResult(true, 0, 0, null, DateTime.UtcNow, CommentModerationStatus.Pending, "pending", false, false)
             : CommentCreateResult.Failed;
     Task<bool> DeleteCommentAsAccountAsync(long id, int accountId, string reason = "违反社区管理条例");
     Task<bool> DeleteCommentAsAdminAsync(long id, AdminPrincipalActor actor, string reason = "违反社区管理条例");

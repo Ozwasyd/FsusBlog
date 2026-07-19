@@ -29,20 +29,23 @@ describe('comment public draft storage', () => {
     expect(key).not.toContain(':7:')
 
     expect(writeCommentPublicDraft(localStorage, key, {
-      version: 2,
+      version: 3,
       content: '公开草稿',
       savedAt: 123,
-      policyHash: 'policy-a'
+      policyHash: 'policy-a',
+      clientMutationId: '018ff001-1234-7abc-8def-0123456789ab'
     })).toBe(true)
     expect(readCommentPublicDraft(localStorage, key)).toEqual({
       draft: {
-        version: 2,
+        version: 3,
         content: '公开草稿',
         savedAt: 123,
-        policyHash: 'policy-a'
+        policyHash: 'policy-a',
+        clientMutationId: '018ff001-1234-7abc-8def-0123456789ab'
       },
       cleanupComplete: true
     })
+    expect(localStorage.getItem(key)).not.toContain('accountId')
   })
 
   it('purges legacy plaintext drafts before opening the new scope', () => {
@@ -62,10 +65,11 @@ describe('comment public draft storage', () => {
     const first = prepareCommentPublicDraftStorage(localStorage)
     const key = createCommentPublicDraftStorageKey({ scopeId: first.scopeId!, articleId: 42, replyId: '9' })
     writeCommentPublicDraft(localStorage, key, {
-      version: 2,
+      version: 3,
       content: '公开回复',
       savedAt: 456,
-      policyHash: 'policy-a'
+      policyHash: 'policy-a',
+      clientMutationId: '018ff002-1234-7abc-8def-0123456789ab'
     })
 
     expect(clearAllCommentDraftStorage(localStorage)).toBe(true)

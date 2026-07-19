@@ -848,6 +848,19 @@ public readonly record struct CommentAuthorViewDto(
     string? ScopeLabel);
 
 /// <summary>
+/// Defines the complete API output contract represented by the <c>CommentCreateResult</c> AEDS frame.
+/// </summary>
+public readonly record struct CommentCreateResultResponse(
+    string CommentId,
+    string RootId,
+    string? ParentId,
+    DateTime CreatedAtUtc,
+    int ModerationStatus,
+    string VisibilityState,
+    bool IsPubliclyVisible,
+    bool IdempotencyReplay);
+
+/// <summary>
 /// Defines the API output contract represented by <c>CommentReplyItemDto</c>.
 /// </summary>
 public readonly record struct CommentReplyItemDto(

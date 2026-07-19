@@ -131,6 +131,11 @@ GET 与 HEAD 返回相同状态和关键头；HEAD 保留与 GET 相同的 `Cont
 | `CategoryNotFound` | 404 | 分类不存在 |
 | `TagNotFound` | 404 | 标签不存在 |
 
+评论创建幂等边界的固定失败语义：public 缺失/非法 `X-Fsus-Client-Mutation-Id` 返回
+`400 comment_client_mutation_id_required` / `comment_client_mutation_id_invalid`；public 相同账号与 mutation id、
+或 anonymous 相同 ticket 承诺携带不同规范化请求时返回 `409 comment_mutation_content_conflict`。
+动态 fail-close 返回 `503 comment_mutation_idempotency_disabled`。
+
 ### 消息系统错误
 
 | 错误码 | HTTP 状态 | 含义 |
@@ -332,7 +337,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 198 | `AnonymousCommentTicketRequest` | `AnonymousCommentTicketRequestPod` | v5/layout 6 最小资格谓词、root hashes、proof 与 canonical public inputs；不携带精确属性 |
 | 199 | `AnonymousCommentTicketResponse` | `AnonymousCommentTicketResponsePod` | expiry、`common` / `unknown` rate class、审核谓词、opaque ticket 与 moderation subject hash |
 | 200 | `SecurityChallengeCancelRequest` | `SecurityChallengeCancelRequestPod` + shared blob | 撤销 action/route/device/policy 绑定的 aggregate challenge envelope；响应为 `EmptySuccess` |
-| 205 | `CommentCreateResult` | `CommentCreateResultPod` | 评论创建成功后的最终同步状态：comment id、moderation status、visibility state、公开可见标记 |
+| 205 | `CommentCreateResult` | `CommentCreateResultPod` | 40-byte 完整创建结果：comment/root/parent ID、createdAt、moderation/visibility、公开可见与 idempotency replay 标记 |
 | 201 | `ConversationReadRequest` | `ConversationReadRequestPod` | 账号 mark-read 显式 `readThroughMessageId` |
 | 202 | `AccountConversationReplyRequest` | `AccountConversationReplyRequestPod` + shared blob | 账号回复正文与显式读取位置；admin 回复继续使用 frame 60 |
 | 203 | `ConversationDetailV2` | `ConversationDetailV2Pod` + message records/blob | 对话详情与可见 `readSnapshotMessageId` |
@@ -432,7 +437,7 @@ frame 208 的 `no_change`，不属于错误。动态关闭 `Messages:StatusMutat
 | 类型 | 字节数 |
 | ------ | -------- |
 | `EmptySuccessPod` | 4 |
-| `CommentCreateResultPod` | 16 |
+| `CommentCreateResultPod` | 40 |
 | `MutationIdPod` | 8 |
 | `ApiErrorPod` | 584 |
 

@@ -233,10 +233,11 @@ describe('ArticleCommentComposer mounted identity behavior', () => {
     const preparation = prepareCommentPublicDraftStorage(localStorage)
     const key = createCommentPublicDraftStorageKey({ scopeId: preparation.scopeId!, articleId: 42, replyId: null })
     writeCommentPublicDraft(localStorage, key, {
-      version: 2,
+      version: 3,
       content: '跨刷新公开草稿',
       savedAt: 123,
-      policyHash: 'policy-42'
+      policyHash: 'policy-42',
+      clientMutationId: '018ff003-1234-7abc-8def-0123456789ab'
     })
 
     const wrapper = mountComposer({ articleId: 42, accountId: 7 })
@@ -247,6 +248,18 @@ describe('ArticleCommentComposer mounted identity behavior', () => {
     expect(wrapper.emitted('update:publicSendConfirmed')).toContainEqual([true])
     expect(wrapper.text()).toContain('已恢复公开草稿')
 
+    await wrapper.setProps({
+      modelValue: '跨刷新公开草稿',
+      authorMode: 'public',
+      publicSendConfirmed: true
+    })
+    const submit = wrapper.findAll('button').find(button => button.text().includes('发送'))
+    expect(submit).toBeTruthy()
+    await submit!.trigger('click')
+    expect(wrapper.emitted('submit')).toEqual([
+      ['018ff003-1234-7abc-8def-0123456789ab']
+    ])
+
     wrapper.unmount()
   })
 
@@ -254,10 +267,11 @@ describe('ArticleCommentComposer mounted identity behavior', () => {
     const preparation = prepareCommentPublicDraftStorage(localStorage)
     const key = createCommentPublicDraftStorageKey({ scopeId: preparation.scopeId!, articleId: 42, replyId: null })
     writeCommentPublicDraft(localStorage, key, {
-      version: 2,
+      version: 3,
       content: '旧策略公开草稿',
       savedAt: 123,
-      policyHash: 'policy-old'
+      policyHash: 'policy-old',
+      clientMutationId: '018ff004-1234-7abc-8def-0123456789ab'
     })
 
     const wrapper = mountComposer({ articleId: 42, accountId: 7, policySnapshotHash: 'policy-new' })

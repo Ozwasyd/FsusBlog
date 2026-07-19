@@ -7,6 +7,8 @@ namespace FsusBlog.Server.Entities;
 [SugarTable("comment")]
 [SugarIndex("idx_comment_article_parent_id", nameof(ArticleId), OrderByType.Asc, nameof(ParentId), OrderByType.Asc, nameof(Id), OrderByType.Desc)]
 [SugarIndex("idx_comment_article_root_id", nameof(ArticleId), OrderByType.Asc, nameof(RootId), OrderByType.Asc, nameof(Id), OrderByType.Asc)]
+[SugarIndex("ux_comment_client_mutation", nameof(ClientMutationAccountId), OrderByType.Asc, nameof(ClientMutationId), OrderByType.Asc, true)]
+[SugarIndex("ux_comment_anonymous_ticket", nameof(AnonymousTicketHash), OrderByType.Asc, true)]
 public class Comment
 {
     [SugarColumn(IsPrimaryKey = true, ColumnName = "id")]
@@ -26,6 +28,36 @@ public class Comment
 
     [SugarColumn(ColumnName = "create_time")]
     public DateTime CreateTime
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "client_mutation_account_id", IsNullable = true)]
+    public int? ClientMutationAccountId
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "client_mutation_id", Length = 36, IsNullable = true)]
+    public string? ClientMutationId
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "anonymous_ticket_hash", Length = 64, IsNullable = true)]
+    public string? AnonymousTicketHash
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "mutation_request_hash", Length = 64, IsNullable = true)]
+    public string? MutationRequestHash
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "mutation_expires_at_utc", IsNullable = true)]
+    public DateTime? MutationExpiresAtUtc
     {
         get; set;
     }

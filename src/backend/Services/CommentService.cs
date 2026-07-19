@@ -1,4 +1,5 @@
 using System.Data.Common;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -38,6 +39,18 @@ public partial class CommentCommandService(
 {
     private const int DefaultMaxThreadDepth = 32;
     private const int DefaultMaxChildrenPerNode = 500;
+    private const int DefaultMutationTtlHours = 24;
+
+    private sealed record CommentMutationCommand(
+        int? AccountId,
+        string? ClientMutationId,
+        string? AnonymousTicketHash,
+        string RequestHash,
+        DateTime ExpiresAtUtc)
+    {
+        public string PrincipalKind => AccountId.HasValue ? "account" : "anonymous-ticket";
+        public string PrincipalIdentity => AccountId?.ToString(CultureInfo.InvariantCulture) ?? AnonymousTicketHash!;
+    }
 
     private static bool TryParsePositiveCommentId(string? raw, out long value)
     {
@@ -109,13 +122,33 @@ public partial class CommentCommandService(
         }
 
         string normalizedContent = NormalizeCommentContent(request.Content);
-        AnonymousCommentTicketPayload? ticket = await commentAttribution.ConsumeStrongAnonymousTicketAsync(
+        string ticketHash = AnonymousCommentTicketService.HashTicket(request.Ticket);
+        string requestHash = ComputeCommentMutationRequestHash(
+            request.ArticleId,
+            normalizedContent,
+            request.ParentId,
+            request.RootId,
+            request.ReplyToCommentId,
+            request.AnonymousScope,
+            request.DisplayLanguage);
+        CommentMutationCommand mutation = CreateAnonymousMutation(ticketHash, requestHash);
+        CommentCreateResult existing = await TryResolveExistingMutationAsync(mutation, cancellationToken);
+        if (existing.Created)
+        {
+            return existing;
+        }
+        if (string.Equals(existing.FailureCode, "comment_mutation_content_conflict", StringComparison.Ordinal))
+        {
+            return existing;
+        }
+
+        AnonymousCommentTicketPayload? ticket = await commentAttribution.ReadStrongAnonymousTicketAsync(
             request,
             normalizedContent,
             cancellationToken);
         if (ticket is null)
         {
-            return CommentCreateResult.Failed;
+            return await ResolveMutationAfterIdentityMissAsync(mutation, cancellationToken);
         }
 
         RegionModerationDecision effectiveRegionDecision = commentModeration.ResolveSubmissionRegion(
@@ -138,7 +171,7 @@ public partial class CommentCommandService(
             return CommentCreateResult.Failed;
         }
 
-        return await CreateResolvedCommentAsync(
+        CommentCreateResult result = await CreateResolvedCommentAsync(
             request.ArticleId,
             normalizedContent,
             request.ParentId,
@@ -146,7 +179,21 @@ public partial class CommentCommandService(
             request.ReplyToCommentId,
             actor,
             effectiveRegionDecision,
-            cancellationToken);
+            cancellationToken,
+            mutation);
+        if (result.Created)
+        {
+            try
+            {
+                await commentAttribution.FinalizeStrongAnonymousTicketAsync(request, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "匿名评论已提交但 ticket 消费清理失败 | CommentId: {CommentId}", result.CommentId);
+            }
+        }
+
+        return result;
     }
 
     private async Task<CommentCreateResult> CreateResolvedCommentAsync(
@@ -157,7 +204,8 @@ public partial class CommentCommandService(
         string? requestedReplyToCommentIdRaw,
         CommentActor actor,
         RegionModerationDecision regionDecision,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        CommentMutationCommand? mutation = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         DateTime now = DateTime.UtcNow;
@@ -293,12 +341,42 @@ public partial class CommentCommandService(
             DeleteReason = null,
             DeleteTime = null,
             ModerationStatus = initialModeration.Status,
-            ModerationReason = initialModeration.ReasonCode
+            ModerationReason = initialModeration.ReasonCode,
+            ClientMutationAccountId = mutation?.AccountId,
+            ClientMutationId = mutation?.ClientMutationId,
+            AnonymousTicketHash = mutation?.AnonymousTicketHash,
+            MutationRequestHash = mutation?.RequestHash,
+            MutationExpiresAtUtc = mutation?.ExpiresAtUtc
         };
 
         long generatedId = 0;
+        CommentCreateResult replayResult = CommentCreateResult.Failed;
+        bool mutationConflict = false;
         var insertResult = await db.Ado.UseTranAsync(async () =>
         {
+            if (mutation is not null)
+            {
+                await AcquireCommentMutationLockAsync(mutation, cancellationToken);
+                Comment? existingMutation = await FindCommentMutationAsync(mutation);
+                if (existingMutation is not null && existingMutation.MutationExpiresAtUtc > now)
+                {
+                    if (string.Equals(existingMutation.MutationRequestHash, mutation.RequestHash, StringComparison.Ordinal))
+                    {
+                        replayResult = BuildCreateResult(existingMutation, idempotencyReplay: true);
+                    }
+                    else
+                    {
+                        mutationConflict = true;
+                    }
+                    return;
+                }
+
+                if (existingMutation is not null)
+                {
+                    await ClearExpiredMutationIdentityAsync(existingMutation.Id, cancellationToken);
+                }
+            }
+
             if (!await LockVisibleCommentTargetAsync(articleId, parentId, rootId, now, cancellationToken))
             {
                 throw new CommentTargetNotVisibleException();
@@ -335,6 +413,14 @@ public partial class CommentCommandService(
                 }
             }
         });
+        if (mutationConflict)
+        {
+            return CommentCreateResult.Failure("comment_mutation_content_conflict");
+        }
+        if (replayResult.Created)
+        {
+            return replayResult;
+        }
         if (!insertResult.IsSuccess || generatedId <= 0)
         {
             if (insertResult.ErrorException is AnonymousNullifierRejectedException rejected)
@@ -569,15 +655,27 @@ public partial class CommentCommandService(
         AccountPrincipalContext account,
         CommentCreateV2RequestCoreModel request,
         RegionModerationDecision? regionDecision = null)
+        => CreateAttributablePublicCommentResultAsync(
+            account,
+            request,
+            Guid.NewGuid().ToString("D", CultureInfo.InvariantCulture),
+            regionDecision);
+
+    public Task<CommentCreateResult> CreateAttributablePublicCommentResultAsync(
+        AccountPrincipalContext account,
+        CommentCreateV2RequestCoreModel request,
+        string clientMutationId,
+        RegionModerationDecision? regionDecision = null)
     {
         if (account.AccountId <= 0 ||
             !request.PublicSendExplicitlySelected ||
-            !string.Equals(request.AuthorMode, CommentAuthorModes.Public, StringComparison.Ordinal))
+            !string.Equals(request.AuthorMode, CommentAuthorModes.Public, StringComparison.Ordinal) ||
+            !TryNormalizeClientMutationId(clientMutationId, out string mutationId))
         {
             return Task.FromResult(CommentCreateResult.Failed);
         }
 
-        return CreateAttributablePublicCommentCoreAsync(account.AccountId, new CommentDto
+        var dto = new CommentDto
         {
             ArticleId = request.ArticleId,
             Content = request.Content,
@@ -592,7 +690,24 @@ public partial class CommentCommandService(
             ProofToken = null,
             ZkProof = null,
             RegionDecision = regionDecision
-        });
+        };
+        string requestHash = ComputeCommentMutationRequestHash(
+            request.ArticleId,
+            NormalizeCommentContent(request.Content),
+            request.ParentId,
+            request.RootId,
+            request.ReplyToCommentId,
+            CommentAuthorModes.Public,
+            request.DisplayLanguage);
+        return CreateAttributablePublicCommentCoreAsync(
+            account.AccountId,
+            dto,
+            new CommentMutationCommand(
+                account.AccountId,
+                mutationId,
+                null,
+                requestHash,
+                ResolveMutationExpiry()));
     }
 
     public async Task<bool> CreateAttributablePublicCommentAsync(
@@ -601,7 +716,10 @@ public partial class CommentCommandService(
         RegionModerationDecision? regionDecision = null)
         => (await CreateAttributablePublicCommentResultAsync(account, request, regionDecision)).Created;
 
-    private async Task<CommentCreateResult> CreateAttributablePublicCommentCoreAsync(int userId, CommentDto dto)
+    private async Task<CommentCreateResult> CreateAttributablePublicCommentCoreAsync(
+        int userId,
+        CommentDto dto,
+        CommentMutationCommand? mutation = null)
     {
         if (dto.ArticleId <= 0)
         {
@@ -635,13 +753,144 @@ public partial class CommentCommandService(
                 dto.ReplyToCommentId,
                 actor,
                 regionDecision,
-                CancellationToken.None);
+                CancellationToken.None,
+                mutation);
     }
 
-    private static CommentCreateResult BuildCreateResult(Comment comment)
+    private CommentMutationCommand CreateAnonymousMutation(string ticketHash, string requestHash)
+        => new(null, null, ticketHash, requestHash, ResolveMutationExpiry());
+
+    private DateTime ResolveMutationExpiry()
+    {
+        int hours = configuration?.GetValue("Comments:MutationIdempotencyTtlHours", DefaultMutationTtlHours)
+            ?? DefaultMutationTtlHours;
+        return DateTime.UtcNow.AddHours(Math.Clamp(hours, 1, 168));
+    }
+
+    private static bool TryNormalizeClientMutationId(string? value, out string normalized)
+    {
+        normalized = string.Empty;
+        string candidate = value?.Trim() ?? string.Empty;
+        if (!Guid.TryParseExact(candidate, "D", out Guid mutationId))
+        {
+            return false;
+        }
+
+        normalized = mutationId.ToString("D", CultureInfo.InvariantCulture);
+        return string.Equals(candidate, normalized, StringComparison.Ordinal);
+    }
+
+    private static string ComputeCommentMutationRequestHash(
+        int articleId,
+        string content,
+        string? parentId,
+        string? rootId,
+        string? replyToCommentId,
+        string? identityContext,
+        string? displayLanguage)
+    {
+        string[] values =
+        [
+            articleId.ToString(CultureInfo.InvariantCulture),
+            content,
+            parentId?.Trim() ?? string.Empty,
+            rootId?.Trim() ?? string.Empty,
+            replyToCommentId?.Trim() ?? string.Empty,
+            identityContext?.Trim() ?? string.Empty,
+            displayLanguage?.Trim() ?? string.Empty
+        ];
+        var canonical = new StringBuilder();
+        foreach (string value in values)
+        {
+            canonical.Append(value.Length.ToString(CultureInfo.InvariantCulture));
+            canonical.Append(':');
+            canonical.Append(value);
+            canonical.Append(';');
+        }
+        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(canonical.ToString())));
+    }
+
+    private Task AcquireCommentMutationLockAsync(CommentMutationCommand mutation, CancellationToken cancellationToken)
+        => db.Ado.ExecuteCommandAsync(
+            "SELECT pg_advisory_xact_lock(hashtext(@PrincipalKind), hashtext(@MutationIdentity));",
+            new SugarParameter("@PrincipalKind", mutation.PrincipalKind),
+            new SugarParameter("@MutationIdentity", mutation.PrincipalIdentity));
+
+    private async Task<Comment?> FindCommentMutationAsync(CommentMutationCommand mutation)
+    {
+        if (mutation.AccountId.HasValue)
+        {
+            int accountId = mutation.AccountId.Value;
+            string clientMutationId = mutation.ClientMutationId!;
+            return await db.Queryable<Comment>()
+                .Where(item => item.ClientMutationAccountId == accountId
+                    && item.ClientMutationId == clientMutationId)
+                .FirstAsync();
+        }
+
+        string anonymousTicketHash = mutation.AnonymousTicketHash!;
+        return await db.Queryable<Comment>()
+            .Where(item => item.AnonymousTicketHash == anonymousTicketHash)
+            .FirstAsync();
+    }
+
+    private async Task<CommentCreateResult> TryResolveExistingMutationAsync(
+        CommentMutationCommand mutation,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        Comment? existing = await FindCommentMutationAsync(mutation);
+        if (existing is null || existing.MutationExpiresAtUtc <= DateTime.UtcNow)
+        {
+            return CommentCreateResult.Failed;
+        }
+
+        return string.Equals(existing.MutationRequestHash, mutation.RequestHash, StringComparison.Ordinal)
+            ? BuildCreateResult(existing, idempotencyReplay: true)
+            : CommentCreateResult.Failure("comment_mutation_content_conflict");
+    }
+
+    private async Task<CommentCreateResult> ResolveMutationAfterIdentityMissAsync(
+        CommentMutationCommand mutation,
+        CancellationToken cancellationToken)
+    {
+        CommentCreateResult result = CommentCreateResult.Failed;
+        var transaction = await db.Ado.UseTranAsync(async () =>
+        {
+            await AcquireCommentMutationLockAsync(mutation, cancellationToken);
+            Comment? existing = await FindCommentMutationAsync(mutation);
+            if (existing is null || existing.MutationExpiresAtUtc <= DateTime.UtcNow)
+            {
+                return;
+            }
+
+            result = string.Equals(existing.MutationRequestHash, mutation.RequestHash, StringComparison.Ordinal)
+                ? BuildCreateResult(existing, idempotencyReplay: true)
+                : CommentCreateResult.Failure("comment_mutation_content_conflict");
+        });
+        return transaction.IsSuccess ? result : CommentCreateResult.Failed;
+    }
+
+    private Task ClearExpiredMutationIdentityAsync(long commentId, CancellationToken cancellationToken)
+        => db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE comment
+            SET client_mutation_account_id = NULL,
+                client_mutation_id = NULL,
+                anonymous_ticket_hash = NULL,
+                mutation_request_hash = NULL,
+                mutation_expires_at_utc = NULL
+            WHERE id = @CommentId;
+            """,
+            new SugarParameter("@CommentId", commentId));
+
+    private static CommentCreateResult BuildCreateResult(Comment comment, bool idempotencyReplay = false)
         => new(
             true,
             comment.Id,
+            comment.RootId ?? comment.Id,
+            comment.ParentId,
+            DateTime.SpecifyKind(comment.CreateTime, DateTimeKind.Utc),
             comment.ModerationStatus,
             comment.ModerationStatus switch
             {
@@ -650,7 +899,8 @@ public partial class CommentCommandService(
                 CommentModerationStatus.Hidden => "hidden",
                 _ => "pending"
             },
-            comment.ModerationStatus == CommentModerationStatus.Approved);
+            comment.ModerationStatus == CommentModerationStatus.Approved,
+            idempotencyReplay);
 
     public Task<bool> DeleteCommentAsAccountAsync(long id, int accountId, string reason = "违反社区管理条例")
     {

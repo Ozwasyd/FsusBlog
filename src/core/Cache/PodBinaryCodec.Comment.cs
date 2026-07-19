@@ -233,58 +233,106 @@ public static partial class PodBinaryCodec
         int moderationStatus,
         byte visibilityState,
         bool isPubliclyVisible,
+        long rootId,
+        long? parentId,
+        DateTime createdAtUtc,
+        bool idempotencyReplay,
         IBufferWriter<byte> destination)
     {
         var writer = new BinaryPodWriter(destination);
         writer.WriteInt64(commentId);
+        writer.WriteInt64(rootId);
+        writer.WriteInt64(parentId ?? 0);
+        writer.WriteInt64(new DateTimeOffset(DateTime.SpecifyKind(createdAtUtc, DateTimeKind.Utc)).ToUnixTimeMilliseconds());
         writer.WriteInt32(moderationStatus);
         writer.WriteByte(visibilityState);
         writer.WriteByte(isPubliclyVisible ? (byte)1 : (byte)0);
-        writer.WriteByte(0);
-        writer.WriteByte(0);
+        writer.WriteByte(idempotencyReplay ? (byte)1 : (byte)0);
+        writer.WriteByte(parentId.HasValue ? (byte)1 : (byte)0);
     }
 
     public static byte[] EncodeCommentCreateResult(
         long commentId,
         int moderationStatus,
         byte visibilityState,
-        bool isPubliclyVisible)
+        bool isPubliclyVisible,
+        long rootId,
+        long? parentId,
+        DateTime createdAtUtc,
+        bool idempotencyReplay)
         => EncodeToArray(
-            16,
+            40,
             writer => WriteCommentCreateResult(
                 commentId,
                 moderationStatus,
                 visibilityState,
                 isPubliclyVisible,
+                rootId,
+                parentId,
+                createdAtUtc,
+                idempotencyReplay,
                 writer));
 
     public static bool TryDecodeCommentCreateResult(
         ReadOnlyMemory<byte> bytes,
         out long commentId,
+        out long rootId,
+        out long? parentId,
+        out DateTime createdAtUtc,
         out int moderationStatus,
         out byte visibilityState,
-        out bool isPubliclyVisible)
+        out bool isPubliclyVisible,
+        out bool idempotencyReplay)
     {
         var reader = new BinaryPodReader(bytes.Span);
         if (!reader.TryReadInt64(out commentId)
+            || !reader.TryReadInt64(out rootId)
+            || !reader.TryReadInt64(out long rawParentId)
+            || !reader.TryReadInt64(out long createdAtUnixMs)
             || !reader.TryReadInt32(out moderationStatus)
             || !reader.TryReadByte(out visibilityState)
             || !reader.TryReadByte(out byte visible)
-            || !reader.TryReadByte(out byte reserved0)
-            || !reader.TryReadByte(out byte reserved1)
+            || !reader.TryReadByte(out byte replay)
+            || !reader.TryReadByte(out byte hasParent)
             || visible > 1
+            || replay > 1
+            || hasParent > 1
             || visibilityState > 3
-            || reserved0 != 0
-            || reserved1 != 0)
+            || commentId <= 0
+            || rootId <= 0
+            || (hasParent == 0 ? rawParentId != 0 : rawParentId <= 0))
         {
             commentId = 0;
+            rootId = 0;
+            parentId = null;
+            createdAtUtc = default;
             moderationStatus = 0;
             visibilityState = 0;
             isPubliclyVisible = false;
+            idempotencyReplay = false;
             return false;
         }
 
+        try
+        {
+            createdAtUtc = DateTimeOffset.FromUnixTimeMilliseconds(createdAtUnixMs).UtcDateTime;
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            commentId = 0;
+            rootId = 0;
+            parentId = null;
+            createdAtUtc = default;
+            moderationStatus = 0;
+            visibilityState = 0;
+            isPubliclyVisible = false;
+            idempotencyReplay = false;
+            return false;
+        }
+
+        parentId = hasParent == 1 ? rawParentId : null;
         isPubliclyVisible = visible == 1;
+        idempotencyReplay = replay == 1;
         return reader.IsConsumed;
     }
 

@@ -92,6 +92,10 @@ Recovery Key verify 的 AEDS request 只携带 Recovery Key 明文本体与撤�
 
 ---
 
+### 评论创建幂等身份
+
+评论创建是可安全重试的命令。登录态 public 请求必须携带规范小写 UUID `D` 格式（固定 36 字符）的 `X-Fsus-Client-Mutation-Id`，并以 `accountId + clientMutationId` 作为身份；强匿名提交以 opaque ticket 的 SHA-256 承诺作为身份。两条链路都在评论事务中保存规范请求摘要与幂等身份：同身份同摘要返回原 `CommentCreateResult` 且 `idempotencyReplay=true`，同身份不同摘要返回 `409 comment_mutation_content_conflict`，不得重复写地区记录、nullifier 消费、通知或缓存副作用。幂等窗口默认 24 小时，`Comments:MutationIdempotencyTtlHours` 仅允许 1..168 小时；窗口内响应丢失、双击、并发和页面恢复必须复用同一身份。
+
 ## URL 命名约定
 
 | 规则 | 示例 |

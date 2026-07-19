@@ -79,17 +79,26 @@ describe('decodeBinaryFramePayload', () => {
   })
 
   it('decodes the final comment creation moderation state', () => {
-    const payload = new Uint8Array(16)
+    const payload = new Uint8Array(40)
     writeInt64(payload, 0, 9007199254740n)
-    writeInt32(payload, 8, 0)
-    payload[12] = 0
-    payload[13] = 0
+    writeInt64(payload, 8, 9007199254700n)
+    writeInt64(payload, 16, 0n)
+    writeInt64(payload, 24, 1784510400000n)
+    writeInt32(payload, 32, 0)
+    payload[36] = 0
+    payload[37] = 0
+    payload[38] = 1
+    payload[39] = 0
 
     expect(decodeBinaryFramePayload(FrameType.CommentCreateResult, payload)).toEqual({
       commentId: '9007199254740',
+      rootId: '9007199254700',
+      parentId: null,
+      createdAtUtc: '2026-07-20T01:20:00.000Z',
       moderationStatus: 0,
       visibilityState: 'pending',
-      isPubliclyVisible: false
+      isPubliclyVisible: false,
+      idempotencyReplay: true
     })
   })
 

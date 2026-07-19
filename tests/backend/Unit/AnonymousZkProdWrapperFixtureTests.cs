@@ -212,7 +212,8 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             nullifiers ?? new RecordingNullifierService(),
             CreatePolicyService(),
             configuration,
-            time);
+            time,
+            ticketCache);
     }
 
     private static IAnonymousCommentPolicyService CreatePolicyService()

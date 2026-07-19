@@ -1,7 +1,9 @@
 using System.Collections.Concurrent;
 
+using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.CommentIdentity;
@@ -9,6 +11,7 @@ using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Moderation;
+using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
 using Microsoft.Extensions.Configuration;
@@ -27,6 +30,113 @@ namespace FsusBlog.Server.Tests.Unit;
 [Collection(nameof(SchemaMigrationPostgresCollectionB))]
 public sealed class CommentMutationPostgresConcurrencyTests(PostgresSchemaMigrationFixture fixture)
 {
+    [Fact]
+    public async Task CreatePublicCommentAsync_ConcurrentSameMutationCreatesExactlyOnceAndReplaysResult()
+    {
+        string connectionString = await CreateDatabaseAsync();
+        using (SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString))
+        {
+            SeedUser(setupDb, 7);
+            SeedArticle(setupDb, 42);
+        }
+        var invalidations = new RecordingCacheInvalidationDispatcher();
+        IMessageRealtimePublisher realtime = Substitute.For<IMessageRealtimePublisher>();
+        var logger = new RecordingLogger<CommentCommandService>();
+        using var barrier = new Barrier(2);
+        const string mutationId = "018ff010-1234-7abc-8def-0123456789ab";
+        CommentCreateV2RequestCoreModel request = CreatePublicRequest("same comment");
+
+        CommentCreateResult[] results = await Task.WhenAll(
+            StartBarrierTaskAsync(barrier, async () =>
+            {
+                using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
+                return await CreateCommentService(db, invalidations, realtime, CreatePublicAttribution(), logger)
+                    .CreateAttributablePublicCommentResultAsync(new AccountPrincipalContext(7, "session-a"), request, mutationId);
+            }),
+            StartBarrierTaskAsync(barrier, async () =>
+            {
+                using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
+                return await CreateCommentService(db, invalidations, realtime, CreatePublicAttribution(), logger)
+                    .CreateAttributablePublicCommentResultAsync(new AccountPrincipalContext(7, "session-b"), request, mutationId);
+            })).WaitAsync(TimeSpan.FromSeconds(20));
+
+        using SqlSugarClient assertDb = PostgresSqlSugarTestClient.Create(connectionString);
+        Assert.True(results.All(static result => result.Created), logger.Details);
+        Assert.Equal(1, assertDb.Queryable<Comment>().Count());
+        Assert.All(results, static result => Assert.True(result.Created));
+        Assert.Equal(results[0].CommentId, results[1].CommentId);
+        Assert.Equal(results[0].RootId, results[1].RootId);
+        Assert.Equal(1, results.Count(static result => result.IdempotencyReplay));
+        Assert.Equal(1, results.Count(static result => !result.IdempotencyReplay));
+        Assert.Single(invalidations.Scopes);
+    }
+
+    [Fact]
+    public async Task CreatePublicCommentAsync_SameMutationDifferentContentReturnsConflictWithoutSecondWrite()
+    {
+        string connectionString = await CreateDatabaseAsync();
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
+        SeedUser(db, 7);
+        SeedArticle(db, 42);
+        var invalidations = new RecordingCacheInvalidationDispatcher();
+        IMessageRealtimePublisher realtime = Substitute.For<IMessageRealtimePublisher>();
+        var logger = new RecordingLogger<CommentCommandService>();
+        CommentCommandService service = CreateCommentService(db, invalidations, realtime, CreatePublicAttribution(), logger);
+        const string mutationId = "018ff011-1234-7abc-8def-0123456789ab";
+
+        CommentCreateResult created = await service.CreateAttributablePublicCommentResultAsync(
+            new AccountPrincipalContext(7, "session-a"),
+            CreatePublicRequest("first content"),
+            mutationId);
+        CommentCreateResult conflict = await service.CreateAttributablePublicCommentResultAsync(
+            new AccountPrincipalContext(7, "session-a"),
+            CreatePublicRequest("changed content"),
+            mutationId);
+
+        Assert.True(created.Created, logger.Details);
+        Assert.False(conflict.Created);
+        Assert.Equal("comment_mutation_content_conflict", conflict.FailureCode);
+        Assert.Equal(1, db.Queryable<Comment>().Count());
+        Assert.Single(invalidations.Scopes);
+    }
+
+    [Fact]
+    public async Task CreateAnonymousCommentAsync_SameTicketReplaysAndChangedContentConflicts()
+    {
+        string connectionString = await CreateDatabaseAsync();
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
+        SeedArticle(db, 42);
+        var invalidations = new RecordingCacheInvalidationDispatcher();
+        IMessageRealtimePublisher realtime = Substitute.For<IMessageRealtimePublisher>();
+        ICommentAttributionPrivacyService attribution = CreateAnonymousAttribution();
+        var logger = new RecordingLogger<CommentCommandService>();
+        CommentCommandService service = CreateCommentService(db, invalidations, realtime, attribution, logger);
+        byte[] ticket = Enumerable.Range(1, 32).Select(static value => (byte)value).ToArray();
+        AnonymousCommentCreateRequestCoreModel request = CreateAnonymousRequest(ticket, "anonymous content");
+
+        CommentCreateResult created = await service.CreateStrongAnonymousCommentResultAsync(request);
+        CommentCreateResult replay = await service.CreateStrongAnonymousCommentResultAsync(request);
+        CommentCreateResult conflict = await service.CreateStrongAnonymousCommentResultAsync(
+            CreateAnonymousRequest(ticket, "changed anonymous content"));
+
+        Assert.True(created.Created, logger.Details);
+        Assert.True(replay.Created);
+        Assert.False(created.IdempotencyReplay);
+        Assert.True(replay.IdempotencyReplay);
+        Assert.Equal(created.CommentId, replay.CommentId);
+        Assert.False(conflict.Created);
+        Assert.Equal("comment_mutation_content_conflict", conflict.FailureCode);
+        Assert.Equal(1, db.Queryable<Comment>().Count());
+        Assert.Single(invalidations.Scopes);
+        await attribution.Received(1).ReadStrongAnonymousTicketAsync(
+            Arg.Any<AnonymousCommentCreateRequestCoreModel>(),
+            Arg.Any<string>(),
+            Arg.Any<CancellationToken>());
+        await attribution.Received(1).FinalizeStrongAnonymousTicketAsync(
+            Arg.Any<AnonymousCommentCreateRequestCoreModel>(),
+            Arg.Any<CancellationToken>());
+    }
+
     [Fact]
     public async Task DeleteCommentAsync_ConcurrentWritersProduceOneDeleteAndOneInvalidation()
     {
@@ -239,7 +349,9 @@ public sealed class CommentMutationPostgresConcurrencyTests(PostgresSchemaMigrat
             db,
             typeof(User),
             typeof(Article),
+            typeof(ArticlePublicationRecord),
             typeof(Comment),
+            typeof(CommentBlockedRegion),
             typeof(CommentRegionCompliance));
         return connectionString;
     }
@@ -247,7 +359,9 @@ public sealed class CommentMutationPostgresConcurrencyTests(PostgresSchemaMigrat
     private static CommentCommandService CreateCommentService(
         SqlSugarClient db,
         ICacheInvalidationDispatcher invalidations,
-        IMessageRealtimePublisher realtime)
+        IMessageRealtimePublisher realtime,
+        ICommentAttributionPrivacyService? attribution = null,
+        ILogger<CommentCommandService>? logger = null)
     {
         var notifications = new CommentNotificationService(
             realtime,
@@ -261,13 +375,100 @@ public sealed class CommentMutationPostgresConcurrencyTests(PostgresSchemaMigrat
             NullLogger<CommentModerationService>.Instance);
         return new CommentCommandService(
             db,
-            NullLogger<CommentCommandService>.Instance,
+            logger ?? NullLogger<CommentCommandService>.Instance,
             notifications,
             moderation,
-            new CommentAttributionPrivacyService(
+            attribution ?? new CommentAttributionPrivacyService(
                 NullLogger<CommentAttributionPrivacyService>.Instance),
             invalidations);
     }
+
+    private static ICommentAttributionPrivacyService CreatePublicAttribution()
+    {
+        ICommentAttributionPrivacyService attribution = Substitute.For<ICommentAttributionPrivacyService>();
+        attribution.ResolvePublicActorAsync(
+                Arg.Any<int>(),
+                Arg.Any<CommentDto>(),
+                Arg.Any<string>(),
+                Arg.Any<string?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(call => new CommentActor(
+                call.ArgAt<int>(0),
+                CommentAuthorModes.Public,
+                "user-7",
+                null,
+                "user-7",
+                "zh-CN",
+                null,
+                null,
+                "public-subject",
+                "common",
+                false));
+        return attribution;
+    }
+
+    private static ICommentAttributionPrivacyService CreateAnonymousAttribution()
+    {
+        ICommentAttributionPrivacyService attribution = Substitute.For<ICommentAttributionPrivacyService>();
+        attribution.ReadStrongAnonymousTicketAsync(
+                Arg.Any<AnonymousCommentCreateRequestCoreModel>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>())
+            .Returns(new AnonymousCommentTicketPayload(
+                42,
+                "comment:v1:article:42:top",
+                null,
+                null,
+                null,
+                "anonymous-nullifier",
+                "common",
+                false,
+                DateTimeOffset.UtcNow.AddMinutes(2).ToUnixTimeMilliseconds()));
+        attribution.ResolveStrongAnonymousActorAsync(
+                Arg.Any<AnonymousCommentTicketPayload>(),
+                Arg.Any<AnonymousCommentCreateRequestCoreModel>(),
+                Arg.Any<string?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(new CommentActor(
+                null,
+                CommentAuthorModes.ZkAnonymous,
+                null,
+                "anon-test",
+                "匿名读者",
+                "zh-CN",
+                null,
+                null,
+                "anonymous-subject",
+                "common",
+                false));
+        return attribution;
+    }
+
+    private static CommentCreateV2RequestCoreModel CreatePublicRequest(string content)
+        => new(
+            42,
+            content,
+            null,
+            null,
+            null,
+            null,
+            CommentAuthorModes.Public,
+            true,
+            null,
+            "zh-CN",
+            null,
+            []);
+
+    private static AnonymousCommentCreateRequestCoreModel CreateAnonymousRequest(byte[] ticket, string content)
+        => new(
+            42,
+            content,
+            null,
+            null,
+            null,
+            "comment:v1:article:42:top",
+            "zh-CN",
+            ticket);
 
     private static AuthoringModerationWorkflowService CreateAuthoringService(
         SqlSugarClient db,
@@ -301,7 +502,8 @@ public sealed class CommentMutationPostgresConcurrencyTests(PostgresSchemaMigrat
             new SugarParameter("@PrivacyInitializedAt", DateTime.UtcNow));
 
     private static void SeedArticle(SqlSugarClient db, int articleId, bool isDeleted = false)
-        => db.Ado.ExecuteCommand(
+    {
+        db.Ado.ExecuteCommand(
             """
             INSERT INTO article
                 (id, title, categoryid, views, createtime, isdeleted, status, published_at, scheduled_publish_at)
@@ -313,6 +515,27 @@ public sealed class CommentMutationPostgresConcurrencyTests(PostgresSchemaMigrat
             new SugarParameter("@IsDeleted", isDeleted),
             new SugarParameter("@Status", (int)(isDeleted ? ArticleStatus.Deleted : ArticleStatus.Published)),
             new SugarParameter("@PublishedAt", DateTime.UtcNow.AddMinutes(-1)));
+        if (isDeleted)
+        {
+            return;
+        }
+
+        long publicationId = db.Insertable(new ArticlePublicationRecord
+        {
+            ArticleId = articleId,
+            PublicationNo = 1,
+            ArticleRevisionId = 1,
+            RevisionNo = 1,
+            RightsSnapshotId = 1,
+            TransitionKind = "publish",
+            PublishedAt = DateTime.UtcNow.AddMinutes(-1),
+            CreatedAt = DateTime.UtcNow.AddMinutes(-1)
+        }).ExecuteReturnBigIdentity();
+        db.Ado.ExecuteCommand(
+            "UPDATE article SET current_publication_id = @PublicationId WHERE id = @ArticleId;",
+            new SugarParameter("@PublicationId", publicationId),
+            new SugarParameter("@ArticleId", articleId));
+    }
 
     private static void SeedComment(
         SqlSugarClient db,
@@ -374,5 +597,24 @@ public sealed class CommentMutationPostgresConcurrencyTests(PostgresSchemaMigrat
         public Task InvalidateStatsAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task InvalidateArticleViewAsync(int articleId, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task InvalidateHotArticlesAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
+    private sealed class RecordingLogger<T> : ILogger<T>
+    {
+        private readonly ConcurrentQueue<string> _entries = new();
+
+        public string Details => string.Join(Environment.NewLine, _entries);
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+            => _entries.Enqueue($"{logLevel}: {formatter(state, exception)}{Environment.NewLine}{exception}");
     }
 }

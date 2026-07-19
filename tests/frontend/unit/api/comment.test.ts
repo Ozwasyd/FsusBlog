@@ -43,6 +43,7 @@ describe('comment API', () => {
 
   it('createCommentV2 sends CommentCreateV2 binary mutation frame', async () => {
     const dto = {
+      clientMutationId: '018ff005-1234-7abc-8def-0123456789ab',
       articleId: 1,
       content: 'Hello',
       authorMode: 'public',
@@ -58,10 +59,51 @@ describe('comment API', () => {
       requestOptions: expect.objectContaining({
         method: 'POST',
         requiresPow: true,
+        headers: {
+          'X-Fsus-Client-Mutation-Id': '018ff005-1234-7abc-8def-0123456789ab'
+        },
         body: expect.any(ArrayBuffer)
       })
     }))
     expect(readAedsFrameType(body)).toBe(FrameType.CommentCreateV2Request)
+  })
+
+  it('createCommentV2 rejects a non-canonical mutation identity before transport', async () => {
+    expect(() => createCommentV2({
+      clientMutationId: 'comment-42-retry',
+      articleId: 42,
+      content: 'same draft retry',
+      authorMode: 'public',
+      publicSendExplicitlySelected: true,
+      displayLanguage: 'zh-CN'
+    })).toThrow('comment_client_mutation_id_invalid')
+    expect(mockBinary).not.toHaveBeenCalled()
+  })
+
+  it('reuses the same public mutation identity after a lost response', async () => {
+    const dto = {
+      clientMutationId: '018ff005-1234-7abc-8def-0123456789ab',
+      articleId: 42,
+      content: 'retry the same public intent',
+      authorMode: 'public',
+      publicSendExplicitlySelected: true,
+      displayLanguage: 'zh-CN'
+    } as const
+    mockBinary.mockRejectedValueOnce({
+      name: 'BinaryTransportError',
+      kind: 'network',
+      message: 'response lost'
+    })
+
+    await expect(createCommentV2(dto)).rejects.toMatchObject({ kind: 'network' })
+    mockBinary.mockResolvedValueOnce({ commentId: '101' } as never)
+    await createCommentV2(dto)
+
+    expect(mockBinary).toHaveBeenCalledTimes(2)
+    expect(mockBinary.mock.calls.map(call => call[0].requestOptions?.headers)).toEqual([
+      { 'X-Fsus-Client-Mutation-Id': dto.clientMutationId },
+      { 'X-Fsus-Client-Mutation-Id': dto.clientMutationId }
+    ])
   })
 
   it('createCommentV2 keeps retired anonymous wire slots empty for public writes', async () => {
@@ -173,6 +215,27 @@ describe('comment API', () => {
     expect(readSliceText(payload, blob, 40)).toBe('zh-CN')
     expect([...readSliceBytes(payload, blob, 48)]).toEqual([31, 32])
     expect(readSliceText(payload, blob, 56)).toBe('anonymous comment')
+  })
+
+  it('retries one anonymous response loss with the exact same ticket commitment', async () => {
+    mockBinary
+      .mockRejectedValueOnce({ name: 'BinaryTransportError', kind: 'network', message: 'response lost' })
+      .mockResolvedValueOnce({ commentId: '102', idempotencyReplay: true } as never)
+
+    await createAnonymousComment(
+      {
+        articleId: 42,
+        content: 'anonymous response loss',
+        anonymousScope: 'comment:v1:article:42:top',
+        displayLanguage: 'zh-CN'
+      },
+      { ticket: new Uint8Array(32).fill(7) }
+    )
+
+    expect(mockBinary).toHaveBeenCalledTimes(2)
+    const firstBody = new Uint8Array(mockBinary.mock.calls[0][0].requestOptions?.body as ArrayBuffer)
+    const secondBody = new Uint8Array(mockBinary.mock.calls[1][0].requestOptions?.body as ArrayBuffer)
+    expect(secondBody).toEqual(firstBody)
   })
 
   it('createPublicComment forces public author mode and explicit opt-in', async () => {

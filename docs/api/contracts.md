@@ -421,7 +421,9 @@ enrollment token 只允许访问 `POST /auth/enrollment/passkey/register/begin`�
 
 `CommentCreateV2Request` 是 `POST /api/binary/comment` 的唯一登录态评论创建 frame，但生产写入只允许显式公开/可归因发送：`AuthorMode` 必须为 `public`，且 `PublicSendExplicitlySelected` 必须为 `1`。`AnonymousScope`、`ProofToken`、`zkProof` 等字段仅作为既有 wire layout / legacy contract 字段保留，不能作为默认匿名或强匿名提交通道；完整强匿名评论发布必须使用 `AnonymousCommentTicketRequest` / `AnonymousCommentCreateRequest` ticket-submit 流程。`DisplayLanguage` 是展示语言提示。`CommentCreateV2RequestPod` 偏移 4 的旧 `replyToUserId` 兼容槽和偏移 11 的 presence flag 必须固定写入 `0/0`；回复目标只能通过 `replyToCommentId`、端上 nullifier 和作者快照解析。退休的数值 37 frame 不再保留 happy path，必须在预读或 payload decode 阶段作为协议错误拒绝。
 
-两个评论创建端点成功均返回 `CommentCreateResult` (`205`) 而不是 `EmptySuccess`。16-byte `CommentCreateResultPod` 返回 `commentId`、整数 `moderationStatus`、`visibilityState` (`pending|public|hidden|rejected`) 与 `isPubliclyVisible`，表示同步模型处置完成后的最终响应状态。客户端不得把非 `public` 结果自行插入公开评论流。
+两个评论创建端点成功均返回 `CommentCreateResult` (`205`) 而不是 `EmptySuccess`。40-byte `CommentCreateResultPod` 固定为 `commentId:int64`、`rootId:int64`、`parentId:int64`、`createdAtUnixMs:int64`、`moderationStatus:int32`、`visibilityState:uint8`、`isPubliclyVisible:uint8`、`idempotencyReplay:uint8`、`hasParentId:uint8`；`hasParentId=0` 时 `parentId` 必须为零并映射为 `null`。visibility 取值固定为 `0=pending`、`1=public`、`2=hidden`、`3=rejected`。客户端不得把非 `public` 结果自行插入公开评论流。
+
+登录态 public 创建必须携带 `X-Fsus-Client-Mutation-Id`：唯一合法形式是 36 字符、规范小写 UUID `D` 字符串。缺失返回 `400 comment_client_mutation_id_required`，非法格式返回 `400 comment_client_mutation_id_invalid`。数据库以 `(accountId, clientMutationId)` 唯一约束并在同一事务保存规范请求 SHA-256；同键同内容返回最初的 ID、树坐标、创建时间和最终初始可见状态，并令 `idempotencyReplay=true`，同键不同内容返回 `409 comment_mutation_content_conflict`。强匿名提交不新增可关联客户端标识，而以 ticket SHA-256 承诺建立唯一坐标；原 ticket 同内容重放返回原结果，变更正文或树坐标同样返回 conflict。默认幂等 TTL 为 24 小时，配置 `Comments:MutationIdempotencyTtlHours` 被限制为 1..168 小时。
 
 旧字符串 `authorMode=anonymous` 同样已经退休，服务端必须在内容过滤、风险信号、地区判定、限流/信誉和 comment 写入之前返回 `anonymous_author_mode_retired`。public 缺少显式选择返回 `public_opt_in_required`；ZK 通过该 frame 提交返回 `anonymous_ticket_required`。任何分支都不得自动切换 author mode。
 

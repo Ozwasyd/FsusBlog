@@ -433,7 +433,8 @@ public sealed class AnonymousCommentTicketServiceTests
             nullifierService,
             policyService,
             BuildConfiguration(),
-            time);
+            time,
+            cache);
     }
 
     private static AnonymousCommentTicketRequestCoreModel ValidRequest()

@@ -325,7 +325,7 @@ const emit = defineEmits<{
   (e: 'update:authorMode', value: CommentAuthorMode): void;
   (e: 'update:publicSendConfirmed', value: boolean): void;
   (e: 'update:displayLanguage', value: CommentDisplayLanguage): void;
-  (e: 'submit'): void;
+  (e: 'submit', clientMutationId: string): void;
   (e: 'cancel-reply'): void;
   (e: 'privacy-intent'): void;
 }>()
@@ -454,7 +454,8 @@ const requestSubmit = (): void => {
     return
   }
   if (!submitDisabled.value) {
-    emit('submit')
+    flushPublicCommentDraft()
+    emit('submit', localDraft.value?.clientMutationId ?? createCommentMutationId())
   }
 }
 
@@ -640,10 +641,14 @@ const saveCommentDraft = (): void => {
   }
 
   const draft: CommentDraftSnapshot = {
-    version: 2,
+    version: 3,
     content,
     savedAt: Date.now(),
-    policyHash: props.policySnapshotHash
+    policyHash: props.policySnapshotHash,
+    clientMutationId: localDraft.value?.content === content &&
+      localDraft.value.policyHash === props.policySnapshotHash
+      ? localDraft.value.clientMutationId
+      : createCommentMutationId()
   }
 
   if (writeCommentPublicDraft(commentDraftStorage, key, draft)) {
@@ -757,10 +762,11 @@ watch(() => props.accountId, (accountId) => {
 watch(() => props.policySnapshotHash, (policyHash, previousPolicyHash) => {
   if (!previousPolicyHash || policyHash === previousPolicyHash || !contentModel.value.trim()) return
   localDraft.value = {
-    version: 2,
+    version: 3,
     content: contentModel.value,
     savedAt: Date.now(),
-    policyHash: previousPolicyHash
+    policyHash: previousPolicyHash,
+    clientMutationId: createCommentMutationId()
   }
   restoredDraftVisible.value = true
   draftNeedsReview.value = true
@@ -804,6 +810,24 @@ watch(() => contentModel.value, (value) => {
     }
   }
 })
+
+function createCommentMutationId(): string {
+  const native = globalThis.crypto?.randomUUID?.()
+  if (native) return native
+
+  const bytes = new Uint8Array(16)
+  if (globalThis.crypto?.getRandomValues) {
+    globalThis.crypto.getRandomValues(bytes)
+  } else {
+    for (let index = 0; index < bytes.length; index += 1) {
+      bytes[index] = Math.floor(Math.random() * 256)
+    }
+  }
+  bytes[6] = (bytes[6] & 0x0f) | 0x40
+  bytes[8] = (bytes[8] & 0x3f) | 0x80
+  const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+}
 </script>
 
 <style scoped>

@@ -107,7 +107,7 @@ export const createAnonymousComment = (
     ticket: ticket.ticket
   })
 
-  return requestBinaryOnly<CommentCreateResult>({
+  const request = () => requestBinaryOnly<CommentCreateResult>({
     binaryRoute: { operationId: 'binary_post_comment_anonymous' },
     frameType: FrameType.CommentCreateResult,
     signal: config?.signal as AbortSignal | undefined,
@@ -116,6 +116,14 @@ export const createAnonymousComment = (
       credentials: 'omit',
       body: encodeAedsFrame(FrameType.AnonymousCommentCreateRequest, payload)
     }
+  })
+
+  return request().catch((error: unknown) => {
+    if (!isNetworkTransportFailure(error) || config?.signal?.aborted) {
+      throw error
+    }
+
+    return request()
   })
 }
 
@@ -216,6 +224,7 @@ function sendCommentMutation(
   }
 
   const payload = encodeCommentCreateV2Request(data)
+  const clientMutationId = normalizeCommentMutationId(data.clientMutationId)
 
   return requestBinaryOnly<CommentCreateResult>({
     binaryRoute: { operationId: 'binary_post_comment' },
@@ -225,10 +234,27 @@ function sendCommentMutation(
       method: 'POST',
       requiresPow: true,
       riskChallengeProof: config?.riskChallengeProof ?? undefined,
+      headers: {
+        'X-Fsus-Client-Mutation-Id': clientMutationId
+      },
       body: encodeAedsFrame(FrameType.CommentCreateV2Request, payload)
     }
   })
 }
+
+function normalizeCommentMutationId(value?: string): string {
+  const mutationId = value?.trim() || globalThis.crypto?.randomUUID?.() || ''
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(mutationId)) {
+    throw new Error('comment_client_mutation_id_invalid')
+  }
+  return mutationId
+}
+
+const isNetworkTransportFailure = (error: unknown): boolean =>
+  typeof error === 'object'
+  && error !== null
+  && (error as { name?: unknown }).name === 'BinaryTransportError'
+  && (error as { kind?: unknown }).kind === 'network'
 
 /** 获取文章下的评论列表
  * 透传 config.signal，使调用方可中断长列表请求。

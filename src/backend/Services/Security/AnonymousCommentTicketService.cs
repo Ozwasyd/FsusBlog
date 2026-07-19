@@ -58,6 +58,11 @@ public interface IAnonymousCommentTicketService
     Task<CacheReadResult<AnonymousCommentTicketPayload>> ConsumeTicketAsync(
         byte[] ticket,
         CancellationToken cancellationToken = default);
+
+    Task<CacheReadResult<AnonymousCommentTicketPayload>> ReadTicketAsync(
+        byte[] ticket,
+        CancellationToken cancellationToken = default)
+        => ConsumeTicketAsync(ticket, cancellationToken);
 }
 
 public sealed class AnonymousCommentTicketService(
@@ -68,7 +73,8 @@ public sealed class AnonymousCommentTicketService(
     ICommentAnonymousNullifierService nullifierService,
     IAnonymousCommentPolicyService policyService,
     IConfiguration configuration,
-    TimeProvider timeProvider) : IAnonymousCommentTicketService
+    TimeProvider timeProvider,
+    ICacheRawReader cacheReader) : IAnonymousCommentTicketService
 {
     private const int TicketBytes = 32;
     private const int MinHashBytes = 16;
@@ -223,6 +229,28 @@ public sealed class AnonymousCommentTicketService(
             HashTicket(ticket),
             AnonymousCommentTicketPayloadCodec.TryDecode,
             cancellationToken);
+    }
+
+    public async Task<CacheReadResult<AnonymousCommentTicketPayload>> ReadTicketAsync(
+        byte[] ticket,
+        CancellationToken cancellationToken = default)
+    {
+        if (ticket is null || ticket.Length != TicketBytes)
+        {
+            return new CacheReadResult<AnonymousCommentTicketPayload>(false, default);
+        }
+
+        CacheReadResult<ReadOnlyMemory<byte>> cached = await cacheReader.TryGetRawReadonlyAsync(
+            CachePolicyId.AnonymousCommentTicket,
+            HashTicket(ticket),
+            cancellationToken);
+        if (!cached.Hit)
+        {
+            return new CacheReadResult<AnonymousCommentTicketPayload>(false, default);
+        }
+
+        (bool success, AnonymousCommentTicketPayload? payload) = AnonymousCommentTicketPayloadCodec.TryDecode(cached.Value);
+        return new CacheReadResult<AnonymousCommentTicketPayload>(success, success ? payload : default);
     }
 
     public static string HashTicket(byte[] ticket)

@@ -78,6 +78,7 @@ public static partial class BinaryEndpoints
             ISecurityRiskSignalSink riskSignals,
             IZkAnonymousProofService zkProofService,
             IAnonymousCommentPolicyService policyService,
+            IConfiguration configuration,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
             await HandleAnonymousCommentCreateAsync(
@@ -90,7 +91,8 @@ public static partial class BinaryEndpoints
                 zkProofService,
                 aeds,
                 cancellationToken,
-                policyService))
+                policyService,
+                configuration))
         .AllowAnonymous()
         .RequireRateLimiting("public_read")
         .RequireStrongAnonymousRequest();
@@ -104,9 +106,18 @@ public static partial class BinaryEndpoints
             IRegionLegalModerationService regionLegalModerationService,
             ISecurityRiskSignalSink riskSignals,
             IAnonymousCommentPolicyService policyService,
+            IConfiguration configuration,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
+            if (!IsCommentMutationIdempotencyEnabled(configuration))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.InfraFailure, "comment_mutation_idempotency_disabled"),
+                    aeds,
+                    StatusCodes.Status503ServiceUnavailable);
+            }
+
             var payload = await ReadBinaryRequestPayloadAsync(
                 httpContext,
                 aeds,
@@ -121,6 +132,23 @@ public static partial class BinaryEndpoints
             if (!PodBinaryCodec.TryDecodeCommentCreateV2Request(payload.Payload, out CommentCreateV2RequestCoreModel request))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "评论请求体非法"), aeds);
+            }
+
+            string rawClientMutationId = httpContext.Request.Headers["X-Fsus-Client-Mutation-Id"].ToString().Trim();
+            if (string.IsNullOrEmpty(rawClientMutationId))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.Validation, "comment_client_mutation_id_required"),
+                    aeds,
+                    StatusCodes.Status400BadRequest);
+            }
+
+            if (!TryResolveCommentClientMutationId(rawClientMutationId, out string clientMutationId))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.Validation, "comment_client_mutation_id_invalid"),
+                    aeds,
+                    StatusCodes.Status400BadRequest);
             }
 
             CommentAuthorModeDecision authorMode = await policyService.EvaluateAuthorModeAsync(
@@ -208,7 +236,11 @@ public static partial class BinaryEndpoints
             {
                 Content = content
             };
-            CommentCreateResult result = await commentService.CreateAttributablePublicCommentResultAsync(account, request, regionDecision);
+            CommentCreateResult result = await commentService.CreateAttributablePublicCommentResultAsync(
+                account,
+                request,
+                clientMutationId,
+                regionDecision);
 
             return result.Created
                 ? WriteCommentCreateResult(aeds, result)
@@ -598,8 +630,17 @@ public static partial class BinaryEndpoints
         IZkAnonymousProofService zkProofService,
         IAedsEncoder aeds,
         CancellationToken cancellationToken,
-        IAnonymousCommentPolicyService? policyService = null)
+        IAnonymousCommentPolicyService? policyService = null,
+        IConfiguration? configuration = null)
     {
+        if (!(configuration?.GetValue<bool?>("Comments:MutationIdempotencyEnabled") ?? true))
+        {
+            return BinaryResults.FromError(
+                ErrorDetail.Create(ErrorCode.InfraFailure, "comment_mutation_idempotency_disabled"),
+                aeds,
+                StatusCodes.Status503ServiceUnavailable);
+        }
+
         if (!IsZkProdTicketReady(zkProofService.CurrentZkProdPolicy))
         {
             return BinaryResults.FromError(
@@ -706,6 +747,7 @@ public static partial class BinaryEndpoints
         => BinaryResults.FromError(
             ErrorDetail.Create(
                 string.Equals(result.FailureCode, "comment_child_limit", StringComparison.Ordinal)
+                    || string.Equals(result.FailureCode, "comment_mutation_content_conflict", StringComparison.Ordinal)
                     ? ErrorCode.Conflict
                     : ErrorCode.Validation,
                 result.FailureCode ?? fallbackMessage),
@@ -726,7 +768,26 @@ public static partial class BinaryEndpoints
                     _ => (byte)0
                 },
                 result.IsPubliclyVisible,
+                result.RootId,
+                result.ParentId,
+                result.CreatedAtUtc,
+                result.IdempotencyReplay,
                 writer));
+
+    private static bool TryResolveCommentClientMutationId(string candidate, out string clientMutationId)
+    {
+        if (Guid.TryParseExact(candidate, "D", out Guid parsed))
+        {
+            clientMutationId = parsed.ToString("D", System.Globalization.CultureInfo.InvariantCulture);
+            return string.Equals(candidate, clientMutationId, StringComparison.Ordinal);
+        }
+
+        clientMutationId = string.Empty;
+        return false;
+    }
+
+    private static bool IsCommentMutationIdempotencyEnabled(IConfiguration configuration)
+        => configuration.GetValue<bool?>("Comments:MutationIdempotencyEnabled") ?? true;
 
     private static bool IsCommentContentWithinLimit(string content, AnonymousCommentPolicySnapshot policy)
         => !string.IsNullOrWhiteSpace(content)

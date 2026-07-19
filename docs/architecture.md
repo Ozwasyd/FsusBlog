@@ -371,6 +371,10 @@ taxonomy 缓存故障的无需重启回退必须同时处理 raw frame 与 Publi
 
 评论 ownership overlay 复用认证 `CommentUserCursor` 的 article-scoped 窄读，不新增公共 frame：Core gateway 对 article filter 绕过未分区的账号历史 query cache，endpoint 的 owned-frame key 固定包含 account + article + cursor + limit + account version。前端公共线程模型不含 `authorAccountId`；`ArticleDetail` 独立维护 `ownedCommentIds`，冷加载、notification stream 新增/删除、公开提交回包与账号切换都收敛到同一私有读取。该 overlay 失败时只隐藏管理按钮，不会放宽删除权限；无需重启的回退是停止 articleId overlay 请求，公共阅读和服务端权威删除继续工作。
 
+评论创建幂等身份直接保存在 `comment` 行：public 使用 `client_mutation_account_id + client_mutation_id`，强匿名使用不可逆 `anonymous_ticket_hash`，两者同时保存规范请求摘要与到期时间。写入前按身份取得 PostgreSQL advisory transaction lock，再在同一事务创建 comment、地区/blocked-region/nullifier 记录；提交后才消费匿名 ticket 和派发缓存/通知副作用。相同身份同摘要只读取原 comment 并返回 `idempotencyReplay=true`，不会重复 side effect；相同身份不同摘要返回 409。浏览器 public draft 持久化 mutation ID，双击、超时后的人工重试和页面恢复复用它；匿名网络响应丢失只用同一 ticket 自动重试一次。notification stream scheduler 与树合并继续以 `commentId` 去重。`Comments:MutationIdempotencyEnabled=false` 可热重载 fail closed 新的 public/anonymous 创建而不影响读取、审核和 notification stream；修复 schema 后重新开启，不允许回退到无幂等身份写入。
+
+评论创建幂等身份直接保存在 `comment` 行：public 使用 `client_mutation_account_id + client_mutation_id`，强匿名使用不可逆 `anonymous_ticket_hash`，两者同时保存规范请求摘要与到期时间。写入前按身份取得 PostgreSQL advisory transaction lock，再在同一事务创建 comment、地区/blocked-region/nullifier 记录；提交后才消费匿名 ticket 和派发缓存/通知副作用。相同身份同摘要只读取原 comment 并返回 `idempotencyReplay=true`，不会重复 side effect；相同身份不同摘要返回 409。浏览器 public draft 持久化 mutation ID，双击、超时后的人工重试和页面恢复复用它；匿名网络响应丢失只用同一 ticket 自动重试一次。notification stream scheduler 与树合并继续以 `commentId` 去重。`Comments:MutationIdempotencyEnabled=false` 可热重载 fail closed 新的 public/anonymous 创建而不影响读取、审核和 notification stream；修复 schema 后重新开启，不允许回退到无幂等身份写入。
+
 ## AEDS Binary 链
 
 FsusBlog 运行时 API 只维护 AEDS binary 链：

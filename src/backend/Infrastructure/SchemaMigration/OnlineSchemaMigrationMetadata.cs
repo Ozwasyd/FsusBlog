@@ -633,6 +633,28 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
+            CommentMutationIdempotencyMigrationDefinitions.MigrationId,
+            new OnlineSchemaMigrationMetadata(
+                CommentMutationIdempotencyMigrationDefinitions.MigrationId,
+                OnlineSchemaMigrationPhase.Expand,
+                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtRelease: "20260720-comment-mutation-idempotency",
+                ContractAfterRelease: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write",
+                    "comment_mutation_idempotency"
+                ]));
+
+        result.Add(
             ScheduledPublishIndexMigrationDefinitions.MigrationId,
             new OnlineSchemaMigrationMetadata(
                 ScheduledPublishIndexMigrationDefinitions.MigrationId,

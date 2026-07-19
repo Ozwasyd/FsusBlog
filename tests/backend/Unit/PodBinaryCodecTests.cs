@@ -2541,24 +2541,36 @@ public class PodBinaryCodecCommentTests
             9_007_199_254_740L,
             moderationStatus: 0,
             visibilityState: 0,
-            isPubliclyVisible: false);
+            isPubliclyVisible: false,
+            rootId: 9_007_199_254_700L,
+            parentId: 9_007_199_254_701L,
+            createdAtUtc: new DateTime(2026, 7, 20, 4, 30, 0, DateTimeKind.Utc),
+            idempotencyReplay: true);
 
         Assert.Equal(PodSizeCatalog.CommentCreateResultPod, encoded.Length);
         Assert.True(PodBinaryCodec.TryDecodeCommentCreateResult(
             encoded,
             out long commentId,
+            out long rootId,
+            out long? parentId,
+            out DateTime createdAtUtc,
             out int moderationStatus,
             out byte visibilityState,
-            out bool isPubliclyVisible));
+            out bool isPubliclyVisible,
+            out bool idempotencyReplay));
         Assert.Equal(9_007_199_254_740L, commentId);
+        Assert.Equal(9_007_199_254_700L, rootId);
+        Assert.Equal(9_007_199_254_701L, parentId);
+        Assert.Equal(new DateTime(2026, 7, 20, 4, 30, 0, DateTimeKind.Utc), createdAtUtc);
         Assert.Equal(0, moderationStatus);
         Assert.Equal(0, visibilityState);
         Assert.False(isPubliclyVisible);
+        Assert.True(idempotencyReplay);
 
         byte[] trailing = [.. encoded, 0xff];
-        Assert.False(PodBinaryCodec.TryDecodeCommentCreateResult(trailing, out _, out _, out _, out _));
-        encoded[13] = 2;
-        Assert.False(PodBinaryCodec.TryDecodeCommentCreateResult(encoded, out _, out _, out _, out _));
+        Assert.False(PodBinaryCodec.TryDecodeCommentCreateResult(trailing, out _, out _, out _, out _, out _, out _, out _, out _));
+        encoded[37] = 2;
+        Assert.False(PodBinaryCodec.TryDecodeCommentCreateResult(encoded, out _, out _, out _, out _, out _, out _, out _, out _));
     }
 
     [Fact]

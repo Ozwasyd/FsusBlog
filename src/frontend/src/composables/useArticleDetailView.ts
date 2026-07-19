@@ -653,7 +653,7 @@ export function useArticleDetailView() {
   const canAttemptStrongAnonymousSubmit = (): boolean =>
     zkAnonymousEnabled.value && commentPrivacyUiState.value !== 'unavailable'
 
-  const submitComment = async (): Promise<void> => {
+  const submitComment = async (persistedClientMutationId?: string): Promise<void> => {
     if (!commentContent.value.trim() || !article.value) {
       return
     }
@@ -715,8 +715,7 @@ export function useArticleDetailView() {
           displayLanguage: commentDisplayLanguage.value
         }
       : null
-    const commentMutationIdentity = globalThis.crypto?.randomUUID?.()
-      ?? `comment-${article.value.id}-${Date.now()}`
+    const commentMutationIdentity = persistedClientMutationId ?? globalThis.crypto?.randomUUID?.() ?? ''
 
     try {
       await commentSubmitTask.run(
@@ -768,7 +767,7 @@ export function useArticleDetailView() {
                 return
               }
               const result = await createPublicComment(
-                publicCommentPayload,
+                { ...publicCommentPayload, clientMutationId: commentMutationIdentity },
                 { signal, riskChallengeProof: challengeLease }
               )
               createdPublicCommentId = result.commentId

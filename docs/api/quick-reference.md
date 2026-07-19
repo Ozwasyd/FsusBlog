@@ -221,9 +221,11 @@
 公开文章 list/detail/search payload 均携带 `currentRevisionId/revisionNo/currentPublicationId/publicationNo`。已发布文章安排未来修订时，上述文章路由在切换点前持续返回旧 publication；定时 worker 原子切换后各投影才进入新坐标。端点不提供“读取最新修订”的公开 fallback。
 | GET `/api/binary/comment/me` | 🔑 📦 | `CommentUserCursor`(6) | 当前用户可归因评论记录；可选 `articleId` 形成私有 ownership overlay，强匿名评论不进入账号侧记录 |
 | GET `/api/binary/comment/policy` | 🔓 📦 | `CommentPolicySnapshot`(164) | 公开评论 composer 策略与 ZK-Prod readiness |
-| POST `/api/binary/comment` | 🔑 🚦 📦 | `CommentCreateV2Request`(166) → `CommentCreateResult`(205) | 仅显式 opt-in 的 public 评论；响应返回最终 `moderationStatus/visibilityState`，旧 `anonymous` 已退休 |
+| POST `/api/binary/comment` | 🔑 🚦 📦 | `CommentCreateV2Request`(166) → `CommentCreateResult`(205) | 仅显式 opt-in 的 public 评论；必需规范小写 UUID `X-Fsus-Client-Mutation-Id`；响应返回 ID、树坐标、创建时间、最终可见状态与 replay 标记 |
 | POST `/api/binary/comment/anonymous-ticket` | 🔓 🚦 📦 | `AnonymousCommentTicketRequest`(198) → `AnonymousCommentTicketResponse`(199) | v5/layout 6 最小资格谓词；必须 `credentials: omit`；scope v1 按 article top（1 条/凭据周期）或 article+thread（3 条/凭据周期）绑定，ticket 短 TTL 且一次性消费 |
-| POST `/api/binary/comment/anonymous` | 🔓 🚦 📦 | `AnonymousCommentCreateRequest`(182) → `CommentCreateResult`(205) | 强匿名评论提交；只携带 content + ticket，拒绝登录态污染；删除/拒绝不返还 scope 额度，按凭证/地区/模型策略写入 Pending/Hidden/Approved |
+| POST `/api/binary/comment/anonymous` | 🔓 🚦 📦 | `AnonymousCommentCreateRequest`(182) → `CommentCreateResult`(205) | 强匿名评论提交；ticket 承诺同时是幂等身份，同内容合法重放返回原结果，变更内容返回 409；拒绝登录态污染 |
+
+评论创建的幂等窗口默认 24 小时（`Comments:MutationIdempotencyTtlHours` 限制为 1..168）。public 相同账号/相同 mutation ID、anonymous 相同 ticket 承诺在窗口内最多写入一次；完整结果固定为 `commentId/rootId/parentId/createdAtUtc/moderationStatus/visibilityState/isPubliclyVisible/idempotencyReplay`。`Comments:MutationIdempotencyEnabled=false` 可热重载 fail closed 两类创建并返回 `503 comment_mutation_idempotency_disabled`，读取与 notification stream 不受影响。
 | GET `/api/binary/system/seo` | 🔓 📦 | `SeoConfig`(13) | 公开 SEO/品牌/PWA 配置 |
 | GET `/api/binary/system/compliance` | 🔓 📦 | `SiteComplianceConfig`(26) | 公开合规 footer 配置 |
 | GET `/api/binary/system/page/{slug}` | 🔓 📦 | `PageContent`(14) | 公开静态页内容，slug allowlist 同上 |

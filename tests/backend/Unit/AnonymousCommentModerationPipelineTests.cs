@@ -236,7 +236,7 @@ public sealed class AnonymousCommentModerationPipelineTests
             RuntimeMetadataInspection.DescribeMethods(typeof(CommentCommandService), "CreateResolvedCommentAsync"),
             RuntimeMetadataInspection.DescribeMethods(
                 typeof(CommentAttributionPrivacyService),
-                "ConsumeStrongAnonymousTicketAsync",
+                "ReadStrongAnonymousTicketAsync",
                 "HashAnonymousScopeForLog",
                 "HashScopeForLog"));
 
