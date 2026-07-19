@@ -10,9 +10,15 @@ import { useNotificationStreamStore } from '@/store/notificationStream'
 import { useUserStore } from '@/store/user'
 import { dispatchSessionExpired } from '@/bootstrap/sessionExpiryBridge'
 import { dispatchAdminLogout } from '@/bootstrap/adminLogoutBridge'
+import {
+  registerPrivateStateCleanupHandler,
+  type PrivateStateCleanupTrigger
+} from '@/services/privateStorageRegistry'
+import type { PrivateBrowserStateClearReason } from '@/services/serviceWorkerRuntime'
 
 let activePinia: Pinia | null = null
 let unsubscribe: (() => void) | null = null
+let unregisterPrivateCleanupHandlers: Array<() => void> = []
 
 export function installAuthBroadcastComposition(pinia: Pinia): void {
   if (activePinia === pinia && unsubscribe) {
@@ -34,13 +40,33 @@ export function installAuthBroadcastComposition(pinia: Pinia): void {
     void notificationStreamRuntime.stop(true)
   }
 
+  unregisterPrivateCleanupHandlers = [
+    registerPrivateStateCleanupHandler('account-pinia', (trigger: PrivateStateCleanupTrigger) => {
+      userStore.cancelUserInfoRequest()
+      if (trigger === 'account-switch') {
+        userStore.invalidateIdentityCache()
+      } else {
+        userStore.markGuest()
+      }
+    }),
+    registerPrivateStateCleanupHandler('admin-pinia', () => {
+      adminStore.clearAdminPrincipal()
+    }),
+    registerPrivateStateCleanupHandler('notification-runtime', () => {
+      stopAuthenticatedRuntime()
+    }),
+    registerPrivateStateCleanupHandler('challenge-proof-runtime', () => {
+      defaultChallengeProofStore.clear()
+    })
+  ]
+
   unsubscribe = authBroadcastRuntime.subscribe((event, origin) => {
     defaultChallengeProofStore.clear()
     if (event.type === 'admin-logout') {
       if (origin === 'remote') {
         clearLocalFixtureAdminSession()
         adminStore.clearAdminPrincipal()
-        void clearPrivateStateForBroadcast('logout', origin)
+        void clearPrivateStateForBroadcast('admin-logout', origin)
       }
       dispatchAdminLogout()
       return
@@ -99,6 +125,8 @@ export function installAuthBroadcastComposition(pinia: Pinia): void {
 }
 
 export function disposeAuthBroadcastComposition(): void {
+  for (const unregister of unregisterPrivateCleanupHandlers) unregister()
+  unregisterPrivateCleanupHandlers = []
   if (activePinia) {
     useUserStore(activePinia).setLogoutBroadcast(null)
     useAdminStore(activePinia).setLogoutBroadcast(null)
@@ -110,7 +138,7 @@ export function disposeAuthBroadcastComposition(): void {
 }
 
 function clearPrivateStateForBroadcast(
-  reason: 'account-switch' | 'logout' | 'session-expired',
+  reason: Extract<PrivateBrowserStateClearReason, 'account-switch' | 'logout' | 'admin-logout' | 'session-expired'>,
   origin: AuthBroadcastEventOrigin
 ): Promise<void> {
   const clear = origin === 'remote'

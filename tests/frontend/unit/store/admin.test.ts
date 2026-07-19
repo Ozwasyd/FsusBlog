@@ -348,7 +348,7 @@ describe('useAdminStore', () => {
       localCleanupComplete: true
     })
     expect(order).toEqual(['server', 'private', 'broadcast'])
-    expect(clearPrivateBrowserState).toHaveBeenCalledWith('logout')
+    expect(clearPrivateBrowserState).toHaveBeenCalledWith('admin-logout')
     expect(store.adminState).toBe('missing')
     expect(store.adminPrincipal).toBeNull()
   })

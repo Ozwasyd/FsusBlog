@@ -30,6 +30,8 @@ describe('serviceWorkerRuntime private browser cleanup', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    localStorage.clear()
+    sessionStorage.clear()
   })
 
   afterEach(() => {
@@ -45,6 +47,8 @@ describe('serviceWorkerRuntime private browser cleanup', () => {
       value: originalIndexedDb,
       configurable: true
     })
+    localStorage.clear()
+    sessionStorage.clear()
   })
 
   it('notifies active and waiting workers and removes offline history plus legacy sensitive entries', async () => {
@@ -147,13 +151,43 @@ describe('serviceWorkerRuntime private browser cleanup', () => {
     )
     expect(cacheNames).toEqual(new Set(['other-app-cache']))
     expect(deleteDatabase).toHaveBeenCalledWith('fsusblog-comment-privacy-credentials')
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       registeredStorageCleared: true,
       credentialStateCleared: true,
       legacyCredentialDatabaseCleared: true,
       serviceWorkerAcknowledged: true,
       cacheStorageCleared: true
     })
+    expect(result.items.length).toBeGreaterThan(0)
+    expect(result.items.find(item => item.id === 'panic-all-caches')).toMatchObject({ status: 'removed' })
+  })
+
+  it('admin logout clears admin storage without erasing account state or notifying credential workers', async () => {
+    const activeWorker = createAcknowledgingWorker()
+    Object.defineProperty(navigator, 'serviceWorker', {
+      value: {
+        controller: activeWorker,
+        getRegistrations: vi.fn().mockResolvedValue([])
+      },
+      configurable: true
+    })
+    localStorage.setItem('fsus:article-draft:create', 'admin-private')
+    localStorage.setItem('fsus:comment-draft:v1:account:1:root', 'account-private')
+    localStorage.setItem('fsus:theme-mode', 'dark')
+    sessionStorage.setItem('fsusblog_local_fixture_admin_session', '1')
+    sessionStorage.setItem('fsusblog_local_fixture_session', '1')
+
+    const result = await clearPrivateBrowserState('admin-logout')
+
+    expect(localStorage.getItem('fsus:article-draft:create')).toBeNull()
+    expect(sessionStorage.getItem('fsusblog_local_fixture_admin_session')).toBeNull()
+    expect(localStorage.getItem('fsus:comment-draft:v1:account:1:root')).toBe('account-private')
+    expect(sessionStorage.getItem('fsusblog_local_fixture_session')).toBe('1')
+    expect(localStorage.getItem('fsus:theme-mode')).toBe('dark')
+    expect(activeWorker.postMessage).not.toHaveBeenCalled()
+    expect(result.credentialStateCleared).toBe(true)
+    expect(result.items.find(item => item.id === 'article-drafts')?.status).toBe('removed')
+    expect(result.items.find(item => item.id === 'comment-drafts')?.status).toBe('retained')
   })
 })
 

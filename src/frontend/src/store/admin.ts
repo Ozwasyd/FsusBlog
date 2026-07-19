@@ -257,7 +257,7 @@ export const useAdminStore = defineStore('admin', () => {
 
       let localCleanupComplete = true
       try {
-        await clearPrivateBrowserState('logout')
+        await clearPrivateBrowserState('admin-logout')
       } catch {
         localCleanupComplete = false
       }

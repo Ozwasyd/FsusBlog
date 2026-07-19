@@ -7,7 +7,12 @@ import {
   type CommentPrivacyCredentialPurgeReason
 } from '@/privacy/commentPrivacyCredentialLifecycle'
 import { deleteLegacyCommentPrivacyCredentialDatabases } from '@/privacy/commentPrivacyCredentialVault'
-import { clearRegisteredPrivateStorage } from '@/services/privateStorageRegistry'
+import {
+  clearRegisteredPrivateState,
+  type PrivateStateCleanupTrigger,
+  type PrivateStorageCleanupItemResult,
+  type PrivateStorageCleanupResult
+} from '@/services/privateStorageRegistry'
 
 export type SwControlMessage =
   | { type: 'shell.invalidate'; scope?: string | null }
@@ -15,7 +20,7 @@ export type SwControlMessage =
   | { type: 'asset.clear'; cache: string; keys?: string[] | null }
   | { type: 'privacy.clear'; reason: PrivateBrowserStateClearReason }
 
-export type PrivateBrowserStateClearReason = CommentPrivacyCredentialPurgeReason
+export type PrivateBrowserStateClearReason = CommentPrivacyCredentialPurgeReason | 'admin-logout'
 
 export interface PrivateBrowserStateClearResult {
   registeredStorageCleared: boolean
@@ -23,6 +28,7 @@ export interface PrivateBrowserStateClearResult {
   legacyCredentialDatabaseCleared: boolean
   serviceWorkerAcknowledged: boolean
   cacheStorageCleared: boolean
+  items: readonly PrivateStorageCleanupItemResult[]
 }
 
 type SwRuntimeMessage =
@@ -47,18 +53,6 @@ type ServiceWorkerIdleWindow = Window & typeof globalThis & {
 const SERVICE_WORKER_UPDATE_IDLE_TIMEOUT_MS = 30_000
 const SERVICE_WORKER_UPDATE_FALLBACK_DELAY_MS = 1_500
 const SERVICE_WORKER_CONTROL_ACK_TIMEOUT_MS = 2_000
-const PRIVATE_BROWSER_CACHE_NAME_PATTERN = /^fsus-(?:shell|search|search-meta)-/i
-const PRIVATE_OR_SENSITIVE_PATH_PATTERN = /^\/(?:api(?:\/|$)|user(?:\/|$)|admin(?:\/|$)|login(?:\/|$)|account(?:\/|$)|manage(?:\/|$)|author(?:\/|$)|private(?:\/|$)|notifications?(?:\/|$))/i
-const FULL_PRIVATE_STORAGE_CLEAR_REASONS = new Set<PrivateBrowserStateClearReason>([
-  'logout',
-  'session-expired',
-  'account-switch',
-  'account-deletion',
-  'panic',
-  'migration-failure',
-  'shared-device'
-])
-
 function bindListener(): void {
   if (listenerBound || typeof window === 'undefined' || !('serviceWorker' in navigator)) {
     return
@@ -225,75 +219,27 @@ export async function clearPrivateBrowserState(
   reason: PrivateBrowserStateClearReason,
   options: { broadcastCredentialPurge?: boolean } = {}
 ): Promise<PrivateBrowserStateClearResult> {
-  const storageCleanup = FULL_PRIVATE_STORAGE_CLEAR_REASONS.has(reason)
-    ? clearRegisteredPrivateStorage()
-    : { removed: [], failed: [] }
-  const credentialPurge = purgeCommentPrivacyCredentialState(reason, {
-    broadcast: options.broadcastCredentialPurge !== false
+  const storageCleanup = clearRegisteredPrivateState({
+    trigger: reason as PrivateStateCleanupTrigger
   })
-  const legacyDatabasePurge = deleteLegacyCommentPrivacyCredentialDatabases()
+  const credentialPurge = reason === 'admin-logout'
+    ? Promise.resolve()
+    : purgeCommentPrivacyCredentialState(reason, {
+        broadcast: options.broadcastCredentialPurge !== false
+      })
+  const legacyDatabasePurge = reason === 'admin-logout'
+    ? Promise.resolve()
+    : deleteLegacyCommentPrivacyCredentialDatabases()
   const credentialPurgeStatus = cleanupStatus(credentialPurge)
   const legacyDatabasePurgeStatus = cleanupStatus(legacyDatabasePurge)
-  const serviceWorkerPurge = typeof window !== 'undefined' && 'serviceWorker' in navigator
+  const serviceWorkerPurge = reason !== 'admin-logout' && typeof window !== 'undefined' && 'serviceWorker' in navigator
     ? postSwControlMessageToAllWorkers({ type: 'privacy.clear', reason })
     : Promise.resolve({ targetCount: 0, acknowledgedCount: 0 })
-  let cacheStorageCleared = true
-  if (typeof window === 'undefined') {
-    return await buildPrivateBrowserStateClearResult(
-      credentialPurgeStatus,
-      legacyDatabasePurgeStatus,
-      serviceWorkerPurge,
-      cacheStorageCleared,
-      storageCleanup.failed.length === 0
-    )
-  }
-
-  if (typeof caches === 'undefined') {
-    return await buildPrivateBrowserStateClearResult(
-      credentialPurgeStatus,
-      legacyDatabasePurgeStatus,
-      serviceWorkerPurge,
-      cacheStorageCleared,
-      storageCleanup.failed.length === 0
-    )
-  }
-
-  try {
-    const cacheNames = await caches.keys()
-    await Promise.all(cacheNames.map(async (cacheName) => {
-      if (reason === 'panic' && cacheName.startsWith('fsus-')) {
-        await caches.delete(cacheName)
-        return
-      }
-      if (PRIVATE_BROWSER_CACHE_NAME_PATTERN.test(cacheName)) {
-        await caches.delete(cacheName)
-        return
-      }
-
-      if (!cacheName.startsWith('fsus-')) {
-        return
-      }
-
-      const cache = await caches.open(cacheName)
-      const requests = await cache.keys()
-      await Promise.all(requests
-        .filter((request) => PRIVATE_OR_SENSITIVE_PATH_PATTERN.test(new URL(request.url).pathname))
-        .map((request) => cache.delete(request)))
-    }))
-  } catch (error) {
-    cacheStorageCleared = false
-    emitTelemetry('service_worker_private_state_clear_failed', {
-      reason,
-      error: error instanceof Error ? error.message : String(error)
-    }, 'warn')
-  }
-
   return await buildPrivateBrowserStateClearResult(
     credentialPurgeStatus,
     legacyDatabasePurgeStatus,
     serviceWorkerPurge,
-    cacheStorageCleared,
-    storageCleanup.failed.length === 0
+    storageCleanup
   )
 }
 
@@ -353,20 +299,24 @@ async function buildPrivateBrowserStateClearResult(
   credentialPurgeStatus: Promise<boolean>,
   legacyDatabasePurgeStatus: Promise<boolean>,
   serviceWorkerPurge: Promise<{ targetCount: number; acknowledgedCount: number }>,
-  cacheStorageCleared: boolean,
-  registeredStorageCleared: boolean
+  storageCleanup: Promise<PrivateStorageCleanupResult>
 ): Promise<PrivateBrowserStateClearResult> {
-  const [credentialStateCleared, legacyCredentialDatabaseCleared, workerResult] = await Promise.all([
+  const [credentialStateCleared, legacyCredentialDatabaseCleared, workerResult, registryResult] = await Promise.all([
     credentialPurgeStatus,
     legacyDatabasePurgeStatus,
-    serviceWorkerPurge
+    serviceWorkerPurge,
+    storageCleanup
   ])
+  const cacheStorageCleared = registryResult.items
+    .filter(item => item.medium === 'cache-storage')
+    .every(item => item.status !== 'failed')
   return {
-    registeredStorageCleared,
+    registeredStorageCleared: registryResult.complete,
     credentialStateCleared,
     legacyCredentialDatabaseCleared,
     serviceWorkerAcknowledged: workerResult.acknowledgedCount === workerResult.targetCount,
-    cacheStorageCleared
+    cacheStorageCleared,
+    items: registryResult.items
   }
 }
 

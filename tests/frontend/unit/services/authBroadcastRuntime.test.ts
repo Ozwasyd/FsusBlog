@@ -11,6 +11,7 @@ import { useNotificationStreamStore } from '@/store/notificationStream'
 import { useUserStore } from '@/store/user'
 import { notificationStreamRuntime } from '@/services/notificationStreamRuntime'
 import { NotificationStreamEventType } from '@/services/notificationStreamTypes'
+import { clearRegisteredPrivateState } from '@/services/privateStorageRegistry'
 
 vi.mock('@/api/auth', () => ({
   getMe: vi.fn(),
@@ -225,7 +226,7 @@ describe('authBroadcastRuntime', () => {
     expect(userStore.userInfo?.accountId).toBe(1)
     expect(adminStore.adminState).toBe('missing')
     expect(adminStore.adminPrincipal).toBeNull()
-    expect(clearPrivateBrowserState).toHaveBeenCalledWith('logout', {
+    expect(clearPrivateBrowserState).toHaveBeenCalledWith('admin-logout', {
       broadcastCredentialPurge: false
     })
   })
@@ -401,5 +402,35 @@ describe('authBroadcastRuntime', () => {
     MockBroadcastChannel.instances[1]?.dispatch({ type: 'login', at: Date.now() + 1 })
     expect(useUserStore(secondPinia).accountState).toBe('unknown')
     expect(useUserStore(firstPinia).accountState).toBe('guest')
+  })
+
+  it('unregisters private cleanup handlers before replacing the Pinia root', async () => {
+    const firstPinia = createRuntimePinia()
+    const firstAdmin = useAdminStore(firstPinia)
+    firstAdmin.setAdminPrincipal({
+      id: 'first-admin',
+      displayName: 'First',
+      source: 'independent',
+      permissions: ['admin.manage'],
+      adminSessionStatus: 'active'
+    })
+
+    disposeAuthBroadcastComposition()
+    authBroadcastRuntime.dispose()
+    const secondPinia = createRuntimePinia()
+    const secondAdmin = useAdminStore(secondPinia)
+    secondAdmin.setAdminPrincipal({
+      id: 'second-admin',
+      displayName: 'Second',
+      source: 'independent',
+      permissions: ['admin.manage'],
+      adminSessionStatus: 'active'
+    })
+
+    const result = await clearRegisteredPrivateState({ trigger: 'admin-logout' })
+
+    expect(firstAdmin.adminPrincipal?.id).toBe('first-admin')
+    expect(secondAdmin.adminPrincipal).toBeNull()
+    expect(result.items.find(item => item.id === 'admin-pinia')).toMatchObject({ status: 'cleared', affected: 1 })
   })
 })
