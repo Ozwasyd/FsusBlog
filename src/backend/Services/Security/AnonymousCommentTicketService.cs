@@ -90,7 +90,7 @@ public sealed class AnonymousCommentTicketService(
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        string scope = NormalizeScope(request.Scope, request.ArticleId);
+        string scope = NormalizeScope(request.Scope);
         if (!PassesCheapValidation(request, scope))
         {
             return AnonymousCommentTicketIssueResult.Failure(AnonymousCommentTicketStatuses.ValidationFailed);
@@ -247,6 +247,20 @@ public sealed class AnonymousCommentTicketService(
 
     private static bool PassesCheapValidation(AnonymousCommentTicketRequestCoreModel request, string scope)
     {
+        if (!TryParseOptionalCommentId(request.ParentId, out long? parentId) ||
+            !TryParseOptionalCommentId(request.RootId, out long? rootId) ||
+            !TryParseOptionalCommentId(request.ReplyToCommentId, out long? replyToCommentId) ||
+            !AnonymousCommentScopePolicy.TryCreateTicketScope(
+                request.ArticleId,
+                parentId,
+                rootId,
+                replyToCommentId,
+                out string serverScope) ||
+            !string.Equals(scope, serverScope, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
         if (request.ArticleId <= 0 ||
             request.CircuitNumericId == 0 ||
             request.PublicInputLayoutVersion == 0 ||
@@ -255,7 +269,6 @@ public sealed class AnonymousCommentTicketService(
             string.IsNullOrWhiteSpace(request.CircuitId) ||
             !string.Equals(request.CircuitId, AnonymousPrivacyContract.CircuitId, StringComparison.Ordinal) ||
             string.IsNullOrWhiteSpace(request.VerifyingKeyHash) ||
-            !string.Equals(scope, $"article:{request.ArticleId}", StringComparison.Ordinal) ||
             request.Groth16Proof is null ||
             request.Groth16Proof.Length is 0 or > MaxProofBytes ||
             request.PublicInputs is null ||
@@ -268,10 +281,7 @@ public sealed class AnonymousCommentTicketService(
             request.RevocationRoot.Length is < MinHashBytes or > MaxHashBytes ||
             !request.IsEligible ||
             !request.MayComment ||
-            !IsPublicRateClass(request.RateClass) ||
-            !TryParseOptionalCommentId(request.ParentId, out _) ||
-            !TryParseOptionalCommentId(request.RootId, out _) ||
-            !TryParseOptionalCommentId(request.ReplyToCommentId, out _))
+            !IsPublicRateClass(request.RateClass))
         {
             return false;
         }
@@ -290,11 +300,8 @@ public sealed class AnonymousCommentTicketService(
             root.RevocationRoot.AsSpan().SequenceEqual(request.RevocationRoot) &&
             root.RootGraceExpiresAtUnixMs > timeProvider.GetUtcNow().ToUnixTimeMilliseconds();
 
-    private static string NormalizeScope(string? value, int articleId)
-    {
-        string normalized = string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
-        return normalized.Length == 0 ? $"article:{articleId}" : normalized;
-    }
+    private static string NormalizeScope(string? value)
+        => string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
 
     private static bool PublicInputsMatchProofRequest(byte[] publicInputs, ZkProofVerificationRequest proofRequest)
     {

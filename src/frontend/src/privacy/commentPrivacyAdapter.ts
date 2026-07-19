@@ -20,6 +20,7 @@ import type {
   CommentPrivacyTicketResult
 } from './commentPrivacyTypes'
 import { zeroizeCommentPrivacyBytes } from './commentPrivacyCredentialLifecycle'
+import { parseAnonymousCommentScope } from './commentAnonymousScope'
 
 const DEFAULT_CREDENTIAL_LEVEL = 'strong_anonymous'
 const DEFAULT_REPUTATION_BUCKET = 'unrated'
@@ -74,14 +75,15 @@ export function createCommentPrivacyAdapter(options: CommentPrivacyAdapterOption
       }
     },
     async issueAnonymousTicket({ scope, metadata, proof, signal }): Promise<CommentPrivacyTicketResult> {
-      const articleId = parseArticleIdFromScope(scope)
-      if (articleId === null || !hasTicketMetadata(metadata)) {
+      const parsedScope = parseAnonymousCommentScope(scope)
+      if (!parsedScope || !hasTicketMetadata(metadata)) {
         return { ok: false, reason: 'comment_privacy_ticket_metadata_invalid' }
       }
 
       try {
         const ticket = await issueAnonymousCommentTicket({
-          articleId,
+          articleId: parsedScope.articleId,
+          rootId: parsedScope.rootId,
           circuitNumericId: metadata.circuitNumericId,
           publicInputLayoutVersion: metadata.publicInputLayoutVersion,
           actionContext: 'comment.create',
@@ -190,15 +192,6 @@ function hasTicketMetadata(metadata: CommentPrivacyMetadata): metadata is Commen
     metadata.revocationRoot.byteLength > 0 &&
     Boolean(metadata.credentialLevel) &&
     Boolean(metadata.reputationBucket)
-}
-
-function parseArticleIdFromScope(scope: string): number | null {
-  if (!scope.startsWith('article:')) {
-    return null
-  }
-
-  const parsed = Number(scope.slice('article:'.length))
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
 }
 
 function cloneCredentialMaterial(material: CommentPrivacyCredentialMaterial): CommentPrivacyCredentialMaterial {

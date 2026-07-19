@@ -66,7 +66,7 @@ public sealed class CommentAnonymousNullifierService(
         cancellationToken.ThrowIfCancellationRequested();
         string normalizedHash = NormalizeRequired(nullifierHash, nameof(nullifierHash));
         string normalizedScope = NormalizeRequired(scope, nameof(scope));
-        int maxUseCount = Math.Max(1, configuration.GetValue("AnonymousIdentity:NullifierScopeUseLimit", 1));
+        int maxUseCount = ResolveMaxUseCount(normalizedScope);
 
         FsusObservability.RecordAnonymousNullifierPrecheck();
         NullifierState? state = await TryReadStateAsync(normalizedHash, normalizedScope, cancellationToken);
@@ -98,7 +98,7 @@ public sealed class CommentAnonymousNullifierService(
         cancellationToken.ThrowIfCancellationRequested();
         string normalizedHash = NormalizeRequired(nullifierHash, nameof(nullifierHash));
         string normalizedScope = NormalizeRequired(scope, nameof(scope));
-        int maxUseCount = Math.Max(1, configuration.GetValue("AnonymousIdentity:NullifierScopeUseLimit", 1));
+        int maxUseCount = ResolveMaxUseCount(normalizedScope);
 
         DateTime now = DateTime.UtcNow;
         await db.Ado.ExecuteCommandAsync(
@@ -149,7 +149,7 @@ public sealed class CommentAnonymousNullifierService(
         cancellationToken.ThrowIfCancellationRequested();
         string normalizedHash = NormalizeRequired(nullifierHash, nameof(nullifierHash));
         string normalizedScope = NormalizeRequired(scope, nameof(scope));
-        int maxUseCount = Math.Max(1, configuration.GetValue("AnonymousIdentity:NullifierScopeUseLimit", 1));
+        int maxUseCount = ResolveMaxUseCount(normalizedScope);
         DateTime now = DateTime.UtcNow;
         long startedAt = Stopwatch.GetTimestamp();
 
@@ -230,7 +230,7 @@ public sealed class CommentAnonymousNullifierService(
         string normalizedHash = NormalizeRequired(nullifierHash, nameof(nullifierHash));
         string normalizedScope = NormalizeRequired(scope, nameof(scope));
         DateTime now = DateTime.UtcNow;
-        int maxUseCount = Math.Max(1, configuration.GetValue("AnonymousIdentity:NullifierScopeUseLimit", 1));
+        int maxUseCount = ResolveMaxUseCount(normalizedScope);
 
         return await db.Updateable<CommentAnonymousNullifier>()
             .SetColumns(n => n.FirstCommentId == (n.FirstCommentId ?? commentId))
@@ -261,6 +261,11 @@ public sealed class CommentAnonymousNullifierService(
             .Where(n => n.NullifierHash == normalizedHash && n.Scope == normalizedScope)
             .ExecuteCommandAsync() > 0;
     }
+
+    private int ResolveMaxUseCount(string scope)
+        => AnonymousCommentScopePolicy.TryParse(scope, out AnonymousCommentScopeDescriptor descriptor)
+            ? descriptor.MaxUsesPerCredential
+            : Math.Max(1, configuration.GetValue("AnonymousIdentity:NullifierScopeUseLimit", 1));
 
     private static string NormalizeRequired(string value, string name)
     {

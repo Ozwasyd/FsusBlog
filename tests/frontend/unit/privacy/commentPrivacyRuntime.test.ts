@@ -32,13 +32,13 @@ describe('CommentPrivacyRuntime', () => {
         }
       })
 
-      await runtime.prepareAnonymousTicket('article:42')
-      expect(runtime.consumePreparedTicket('article:42')).not.toBeNull()
+      await runtime.prepareAnonymousTicket('comment:v1:article:42:top')
+      expect(runtime.consumePreparedTicket('comment:v1:article:42:top')).not.toBeNull()
 
-      await runtime.prepareAnonymousTicket('article:42')
+      await runtime.prepareAnonymousTicket('comment:v1:article:42:top')
       vi.advanceTimersByTime(1_001)
 
-      expect(runtime.consumePreparedTicket('article:42')).toBeNull()
+      expect(runtime.consumePreparedTicket('comment:v1:article:42:top')).toBeNull()
     } finally {
       vi.useRealTimers()
     }
@@ -79,17 +79,17 @@ describe('CommentPrivacyRuntime', () => {
     runtime.subscribe((state) => states.push(state))
 
     await runtime.preloadPrivacyMetadata(42)
-    await runtime.prepareAnonymousTicket('article:42')
+    await runtime.prepareAnonymousTicket('comment:v1:article:42:top')
 
     expect(adapter.ensureCredentialPrepared).toHaveBeenCalledTimes(2)
     expect(adapter.loadPrivacyMetadata).toHaveBeenCalledWith(expect.objectContaining({
-      scope: 'article:42',
+      scope: 'comment:v1:article:42:top',
       articleId: 42,
       signal: expect.any(AbortSignal)
     }))
     expect(worker.prewarm).toHaveBeenCalledTimes(1)
     expect(worker.prepareProof).toHaveBeenCalledWith(expect.objectContaining({
-      scope: 'article:42',
+      scope: 'comment:v1:article:42:top',
       rootVersion: 'root-v1',
       metadataBytes: expect.any(Uint8Array),
       signal: expect.any(AbortSignal)
@@ -98,15 +98,15 @@ describe('CommentPrivacyRuntime', () => {
     expect(states).toContain('preparing')
     expect(states).toContain('ready')
 
-    const ticket = runtime.consumePreparedTicket('article:42')
+    const ticket = runtime.consumePreparedTicket('comment:v1:article:42:top')
     expect(ticket?.credentialEpoch).toBe(20260618)
     expect([...(ticket?.ticket ?? [])]).toEqual([9, 8, 7])
-    expect(runtime.consumePreparedTicket('article:42')).toBeNull()
+    expect(runtime.consumePreparedTicket('comment:v1:article:42:top')).toBeNull()
 
     now += 30_001
-    await runtime.prepareAnonymousTicket('article:42')
+    await runtime.prepareAnonymousTicket('comment:v1:article:42:top')
     now += 30_001
-    expect(runtime.consumePreparedTicket('article:42')).toBeNull()
+    expect(runtime.consumePreparedTicket('comment:v1:article:42:top')).toBeNull()
   })
 
   it('returns unavailable instead of throwing when privacy endpoints are not ready', async () => {
@@ -141,7 +141,7 @@ describe('CommentPrivacyRuntime', () => {
       workerClient: worker
     })
 
-    await runtime.prepareAnonymousTicket('article:42')
+    await runtime.prepareAnonymousTicket('comment:v1:article:42:top')
 
     expect(worker.prepareProof).toHaveBeenCalledWith(expect.objectContaining({
       credentialSecret: new Uint8Array([11, 12, 13]),
@@ -174,7 +174,7 @@ describe('CommentPrivacyRuntime', () => {
       },
       metadata: async ({ scope, signal }) => {
         signals.push(signal)
-        if (scope === 'article:1') {
+        if (scope === 'comment:v1:article:1:top') {
           await new Promise<void>((resolve) => signal.addEventListener('abort', () => resolve(), { once: true }))
           return { ok: false, reason: 'aborted' }
         }
@@ -204,7 +204,7 @@ describe('CommentPrivacyRuntime', () => {
     await expect(second).resolves.toBe(true)
     expect(credentialSignals[0].aborted).toBe(true)
     expect(runtime.getUiState()).toBe('preparing')
-    await runtime.prepareAnonymousTicket('article:2')
+    await runtime.prepareAnonymousTicket('comment:v1:article:2:top')
     expect(runtime.getUiState()).toBe('ready')
   })
 
@@ -213,7 +213,7 @@ describe('CommentPrivacyRuntime', () => {
     const adapter = createAdapter()
     const runtime = createCommentPrivacyRuntime({ adapter, workerClient: worker })
 
-    await expect(runtime.prepareAnonymousTicket('article:42')).resolves.toBe(true)
+    await expect(runtime.prepareAnonymousTicket('comment:v1:article:42:top')).resolves.toBe(true)
     const proofRequest = vi.mocked(worker.prepareProof).mock.calls[0][0]
 
     await runtime.purge('panic')
@@ -221,7 +221,7 @@ describe('CommentPrivacyRuntime', () => {
     expect(proofRequest.credentialSecret?.every(byte => byte === 0)).toBe(true)
     expect(proofRequest.issuerSignature?.every(byte => byte === 0)).toBe(true)
     expect(proofRequest.revocationWitness?.every(byte => byte === 0)).toBe(true)
-    expect(runtime.consumePreparedTicket('article:42')).toBeNull()
+    expect(runtime.consumePreparedTicket('comment:v1:article:42:top')).toBeNull()
     expect(adapter.purgeCredential).toHaveBeenCalledTimes(1)
     expect(worker.dispose).toHaveBeenCalledTimes(1)
   })
@@ -248,7 +248,7 @@ describe('CommentPrivacyRuntime', () => {
     })
     const worker = createWorker()
     const runtime = createCommentPrivacyRuntime({ adapter, workerClient: worker })
-    const preparing = runtime.prepareAnonymousTicket('article:42')
+    const preparing = runtime.prepareAnonymousTicket('comment:v1:article:42:top')
 
     await vi.waitFor(() => expect(releaseCredential).not.toBeNull())
     await runtime.purge('issuer-key-rotation')
@@ -256,7 +256,7 @@ describe('CommentPrivacyRuntime', () => {
 
     await expect(preparing).resolves.toBe(false)
     expect(adapter.issueAnonymousTicket).not.toHaveBeenCalled()
-    expect(runtime.consumePreparedTicket('article:42')).toBeNull()
+    expect(runtime.consumePreparedTicket('comment:v1:article:42:top')).toBeNull()
   })
 })
 

@@ -50,7 +50,7 @@ public sealed class AnonymousCommentTicketServiceTests
         "disabled");
     private static readonly byte[] s_publicInputs = NativeGroth16PublicInputCodec.Encode(new ProductionZkProofBackendRequest(
         ActionContext: AnonymousPrivacyContract.CommentCreateActionContext,
-        Scope: "article:42",
+        Scope: "comment:v1:article:42:top",
         CircuitId: AnonymousPrivacyContract.CircuitId,
         VerifyingKeyHash: s_verifyingKeyHash,
         PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
@@ -93,7 +93,7 @@ public sealed class AnonymousCommentTicketServiceTests
         Assert.True(consumed.Hit);
         Assert.NotNull(consumed.Value);
         Assert.Equal(42, consumed.Value!.ArticleId);
-        Assert.Equal("article:42", consumed.Value.Scope);
+        Assert.Equal("comment:v1:article:42:top", consumed.Value.Scope);
         Assert.Equal(Convert.ToHexStringLower(s_nullifier), consumed.Value.NullifierHash);
 
         CacheReadResult<AnonymousCommentTicketPayload> replay = await service.ConsumeTicketAsync(result.Response.Ticket, CancellationToken.None);
@@ -184,6 +184,67 @@ public sealed class AnonymousCommentTicketServiceTests
         AnonymousCommentTicketRequestCoreModel request = ValidRequest() with
         {
             PublicInputs = [0x01, 0x02, 0x03]
+        };
+
+        AnonymousCommentTicketIssueResult result = await service.IssueAsync(request, CancellationToken.None);
+
+        Assert.False(result.Issued);
+        Assert.Equal(AnonymousCommentTicketStatuses.ValidationFailed, result.Status);
+        Assert.Empty(proof.Requests);
+    }
+
+    [Fact]
+    public async Task IssueAsync_LegacyArticleScopeFailsClosed()
+    {
+        var proof = new RecordingProofService(ZkProofVerificationResult.Success());
+        var service = CreateService(proofService: proof);
+        AnonymousCommentTicketRequestCoreModel request = ValidRequest() with
+        {
+            Scope = "article:42"
+        };
+
+        AnonymousCommentTicketIssueResult result = await service.IssueAsync(request, CancellationToken.None);
+
+        Assert.False(result.Issued);
+        Assert.Equal(AnonymousCommentTicketStatuses.ValidationFailed, result.Status);
+        Assert.Empty(proof.Requests);
+    }
+
+    [Fact]
+    public async Task IssueAsync_ThreadScopeBindsServerValidatedArticleAndRoot()
+    {
+        const string ThreadScope = "comment:v1:article:42:thread:9001";
+        var service = CreateService();
+        AnonymousCommentTicketRequestCoreModel request = ValidRequest() with
+        {
+            RootId = "9001",
+            Scope = ThreadScope,
+            PublicInputs = PublicInputsForScope(ThreadScope, s_policyHash)
+        };
+
+        AnonymousCommentTicketIssueResult result = await service.IssueAsync(request, CancellationToken.None);
+
+        Assert.True(result.Issued);
+        CacheReadResult<AnonymousCommentTicketPayload> consumed = await service.ConsumeTicketAsync(
+            result.Response.Ticket,
+            CancellationToken.None);
+        Assert.True(consumed.Hit);
+        Assert.Equal(9001, consumed.Value!.RootId);
+        Assert.Equal(ThreadScope, consumed.Value.Scope);
+    }
+
+    [Theory]
+    [InlineData("comment:v1:article:43:top", null)]
+    [InlineData("comment:v1:article:42:thread:9002", "9001")]
+    public async Task IssueAsync_ClientScopeCannotExpandArticleOrThread(string scope, string? rootId)
+    {
+        var proof = new RecordingProofService(ZkProofVerificationResult.Success());
+        var service = CreateService(proofService: proof);
+        AnonymousCommentTicketRequestCoreModel request = ValidRequest() with
+        {
+            RootId = rootId,
+            Scope = scope,
+            PublicInputs = PublicInputsForScope(scope, s_policyHash)
         };
 
         AnonymousCommentTicketIssueResult result = await service.IssueAsync(request, CancellationToken.None);
@@ -384,7 +445,7 @@ public sealed class AnonymousCommentTicketServiceTests
             CircuitNumericId: 7,
             PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
             ActionContext: AnonymousPrivacyContract.CommentCreateActionContext,
-            Scope: "article:42",
+            Scope: "comment:v1:article:42:top",
             CircuitId: AnonymousPrivacyContract.CircuitId,
             VerifyingKeyHash: s_verifyingKeyHash,
             NullifierHash: s_nullifier,
@@ -400,7 +461,25 @@ public sealed class AnonymousCommentTicketServiceTests
     private static byte[] PublicInputsForPolicy(string policyHash)
         => NativeGroth16PublicInputCodec.Encode(new ProductionZkProofBackendRequest(
             ActionContext: AnonymousPrivacyContract.CommentCreateActionContext,
-            Scope: "article:42",
+            Scope: "comment:v1:article:42:top",
+            CircuitId: AnonymousPrivacyContract.CircuitId,
+            VerifyingKeyHash: s_verifyingKeyHash,
+            PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
+            NullifierHash: Convert.ToHexStringLower(s_nullifier),
+            CredentialRoot: Convert.ToHexStringLower(s_credentialRoot),
+            PolicyHash: policyHash,
+            IsEligible: true,
+            MayComment: true,
+            RateClass: AnonymousPrivacyContract.CommonRateClass,
+            RequiresModeration: false,
+            Proof: ReadOnlyMemory<byte>.Empty,
+            RevocationRoot: Convert.ToHexStringLower(s_revocationRoot),
+            IssuerPublicKeyHash: new('f', 64))).ToArray();
+
+    private static byte[] PublicInputsForScope(string scope, string policyHash)
+        => NativeGroth16PublicInputCodec.Encode(new ProductionZkProofBackendRequest(
+            ActionContext: AnonymousPrivacyContract.CommentCreateActionContext,
+            Scope: scope,
             CircuitId: AnonymousPrivacyContract.CircuitId,
             VerifyingKeyHash: s_verifyingKeyHash,
             PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,

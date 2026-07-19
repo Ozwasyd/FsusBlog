@@ -17,6 +17,10 @@ import {
   type CommentPrivacyCredentialPurgeReason,
   zeroizeCommentPrivacyBytes
 } from './commentPrivacyCredentialLifecycle'
+import {
+  createAnonymousTopLevelScope,
+  parseAnonymousCommentScope
+} from './commentAnonymousScope'
 
 export type {
   CommentPrivacyAdapter,
@@ -428,21 +432,15 @@ function zeroizePreparedTicket(ticket: CommentPrivacyPreparedTicket | null | und
 }
 
 function toArticleScope(articleId: number): string {
-  return `article:${articleId}`
+  return createAnonymousTopLevelScope(articleId)
 }
 
 function normalizeScope(scope: string): string {
-  const normalized = scope.trim()
-  return normalized || 'article'
+  return scope.trim()
 }
 
 function parseArticleIdFromScope(scope: string): number | null {
-  if (!scope.startsWith('article:')) {
-    return null
-  }
-
-  const parsed = Number(scope.slice('article:'.length))
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+  return parseAnonymousCommentScope(scope)?.articleId ?? null
 }
 
 function attachCredentialMaterial(

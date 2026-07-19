@@ -40,6 +40,10 @@ import {
   type CommentPrivacyUiState
 } from '@/privacy/commentPrivacyRuntime'
 import {
+  createAnonymousThreadScope,
+  createAnonymousTopLevelScope
+} from '@/privacy/commentAnonymousScope'
+import {
   createArticleDetailPageViewContract,
   createArticleDetailHeaderViewContract,
   emptyArticleDetailHeaderView,
@@ -227,7 +231,15 @@ export function useArticleDetailView() {
   )
 
   const totalCommentCount = computed(() => threads.value.reduce((acc, item) => acc + 1 + item.replyCount, 0))
-  const commentAnonymousScope = computed(() => article.value ? `article:${article.value.id}` : 'article')
+  const commentAnonymousScope = computed(() => {
+    if (!article.value) {
+      return ''
+    }
+
+    return replyTarget.value
+      ? createAnonymousThreadScope(article.value.id, replyTarget.value.rootId)
+      : createAnonymousTopLevelScope(article.value.id)
+  })
   const commentChallengeRouteKey = computed(() => riskChallengeRoutes.commentCreate.routeKey)
   const commentChallengeAttributes = computed<Record<string, unknown>>(() => ({
     surface: 'article-detail-comment',

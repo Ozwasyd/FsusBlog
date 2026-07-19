@@ -215,8 +215,8 @@
 | GET `/api/binary/comment/me` | 🔑 📦 | `CommentUserCursor`(6) | 当前用户可归因评论记录；可选 `articleId` 形成私有 ownership overlay，强匿名评论不进入账号侧记录 |
 | GET `/api/binary/comment/policy` | 🔓 📦 | `CommentPolicySnapshot`(164) | 公开评论 composer 策略与 ZK-Prod readiness |
 | POST `/api/binary/comment` | 🔑 🚦 📦 | `CommentCreateV2Request`(166) → `CommentCreateResult`(205) | 仅显式 opt-in 的 public 评论；响应返回最终 `moderationStatus/visibilityState`，旧 `anonymous` 已退休 |
-| POST `/api/binary/comment/anonymous-ticket` | 🔓 🚦 📦 | `AnonymousCommentTicketRequest`(198) → `AnonymousCommentTicketResponse`(199) | v5/layout 6 最小资格谓词；必须 `credentials: omit`，匿名集 k>=20，ticket 短 TTL 且一次性消费 |
-| POST `/api/binary/comment/anonymous` | 🔓 🚦 📦 | `AnonymousCommentCreateRequest`(182) → `CommentCreateResult`(205) | 强匿名评论提交；只携带 content + ticket，拒绝登录态污染；按凭证/地区/模型策略写入 Pending/Hidden/Approved 并返回最终可见性 |
+| POST `/api/binary/comment/anonymous-ticket` | 🔓 🚦 📦 | `AnonymousCommentTicketRequest`(198) → `AnonymousCommentTicketResponse`(199) | v5/layout 6 最小资格谓词；必须 `credentials: omit`；scope v1 按 article top（1 条/凭据周期）或 article+thread（3 条/凭据周期）绑定，ticket 短 TTL 且一次性消费 |
+| POST `/api/binary/comment/anonymous` | 🔓 🚦 📦 | `AnonymousCommentCreateRequest`(182) → `CommentCreateResult`(205) | 强匿名评论提交；只携带 content + ticket，拒绝登录态污染；删除/拒绝不返还 scope 额度，按凭证/地区/模型策略写入 Pending/Hidden/Approved |
 | GET `/api/binary/system/seo` | 🔓 📦 | `SeoConfig`(13) | 公开 SEO/品牌/PWA 配置 |
 | GET `/api/binary/system/compliance` | 🔓 📦 | `SiteComplianceConfig`(26) | 公开合规 footer 配置 |
 | GET `/api/binary/system/page/{slug}` | 🔓 📦 | `PageContent`(14) | 公开静态页内容，slug allowlist 同上 |

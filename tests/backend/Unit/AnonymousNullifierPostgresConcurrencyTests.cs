@@ -77,7 +77,7 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
     public async Task CreateStrongAnonymousCommentAsync_SameNullifierRaceCommitsOnlyAllowedComments()
     {
         const int Attempts = 8;
-        const int Limit = 2;
+        const int Limit = AnonymousCommentScopePolicy.TopLevelUsesPerCredential;
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
         using (SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString))
         {
@@ -108,18 +108,18 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
 
         Assert.Equal(Limit, results.Count(static result => result));
         Assert.Equal(Attempts - Limit, results.Count(static result => !result));
-        Assert.Equal(Limit, comments.Count);
-        Assert.Equal(Limit, compliance.Count);
+        Assert.Single(comments);
+        Assert.Single(compliance);
         Assert.All(comments, comment =>
         {
             Assert.Equal(NullifierHash, comment.AnonymousNullifierHash);
-            Assert.Equal("article:42", comment.AnonymousScope);
+            Assert.Equal("comment:v1:article:42:top", comment.AnonymousScope);
             Assert.False(comment.IsDeleted);
         });
         Assert.Equal(Limit, nullifier.UseCount);
         Assert.Contains(comments, comment => comment.Id == nullifier.FirstCommentId);
         Assert.Contains(comments, comment => comment.Id == nullifier.LastCommentId);
-        Assert.Equal(Limit, invalidations.Scopes.Count);
+        Assert.Single(invalidations.Scopes);
     }
 
     [Fact]
@@ -297,14 +297,14 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
             ParentId: null,
             RootId: null,
             ReplyToCommentId: null,
-            AnonymousScope: "article:42",
+            AnonymousScope: "comment:v1:article:42:top",
             DisplayLanguage: "en",
             Ticket: ticket);
 
     private static AnonymousCommentTicketPayload CreateTicketPayload()
         => new(
             ArticleId: 42,
-            Scope: "article:42",
+            Scope: "comment:v1:article:42:top",
             ParentId: null,
             RootId: null,
             ReplyToCommentId: null,

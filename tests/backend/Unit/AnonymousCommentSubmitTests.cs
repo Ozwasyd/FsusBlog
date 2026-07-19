@@ -73,7 +73,7 @@ public sealed class AnonymousCommentSubmitTests(
         Assert.Null(comment.UserId);
         Assert.Equal(CommentAuthorModes.ZkAnonymous, comment.AuthorMode);
         Assert.Equal(NullifierHash, comment.AnonymousNullifierHash);
-        Assert.Equal("article:42", comment.AnonymousScope);
+        Assert.Equal("comment:v1:article:42:top", comment.AnonymousScope);
         Assert.Null(comment.CredentialLevel);
         Assert.Null(comment.ReputationBucket);
         Assert.Null(comment.AccountAgeBucket);
@@ -94,7 +94,7 @@ public sealed class AnonymousCommentSubmitTests(
 
         var consume = Assert.Single(nullifiers.Consumes);
         Assert.Equal(NullifierHash, consume.NullifierHash);
-        Assert.Equal("article:42", consume.Scope);
+        Assert.Equal("comment:v1:article:42:top", consume.Scope);
         Assert.Equal(comment.Id, consume.CommentId);
         Assert.Empty(nullifiers.Reservations);
         Assert.Empty(nullifiers.Increments);
@@ -149,7 +149,7 @@ public sealed class AnonymousCommentSubmitTests(
 
         NullifierReservationResult result = await service.TryConsumeAsync(
             NullifierHash,
-            "article:42",
+            "comment:v1:article:42:top",
             commentId: 1234,
             CancellationToken.None);
 
@@ -158,7 +158,7 @@ public sealed class AnonymousCommentSubmitTests(
         Assert.Equal(1, result.CurrentUseCount);
         CommentAnonymousNullifier row = Assert.Single(db.Queryable<CommentAnonymousNullifier>().ToList());
         Assert.Equal(NullifierHash, row.NullifierHash);
-        Assert.Equal("article:42", row.Scope);
+        Assert.Equal("comment:v1:article:42:top", row.Scope);
         Assert.Equal(1, row.UseCount);
         Assert.Equal(1234, row.FirstCommentId);
         Assert.Equal(1234, row.LastCommentId);
@@ -1016,7 +1016,9 @@ public sealed class AnonymousCommentSubmitTests(
             parentId,
             rootId,
             replyToCommentId,
-            "article:42",
+            rootId is null
+                ? AnonymousCommentScopePolicy.CreateTopLevelScope(42)
+                : AnonymousCommentScopePolicy.CreateThreadScope(42, long.Parse(rootId, CultureInfo.InvariantCulture)),
             "en",
             [.. s_ticket]);
 
@@ -1028,10 +1030,12 @@ public sealed class AnonymousCommentSubmitTests(
         long? expiresAtUnixMs = null)
         => new(
             articleId,
-            $"article:{articleId}",
-            parentId,
+            rootId is null
+                ? AnonymousCommentScopePolicy.CreateTopLevelScope(articleId)
+                : AnonymousCommentScopePolicy.CreateThreadScope(articleId, rootId.Value),
+            null,
             rootId,
-            replyToCommentId,
+            null,
             NullifierHash,
             AnonymousPrivacyContract.CommonRateClass,
             false,

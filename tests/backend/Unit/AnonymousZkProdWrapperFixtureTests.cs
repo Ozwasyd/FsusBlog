@@ -80,7 +80,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
         Assert.Null(comment.UserId);
         Assert.Equal(CommentAuthorModes.ZkAnonymous, comment.AuthorMode);
         Assert.Equal(Hex(nullifier), comment.AnonymousNullifierHash);
-        Assert.Equal("article:42", comment.AnonymousScope);
+        Assert.Equal("comment:v1:article:42:top", comment.AnonymousScope);
         Assert.Null(comment.CredentialLevel);
         Assert.Null(comment.ReputationBucket);
         Assert.Null(comment.AccountAgeBucket);
@@ -95,7 +95,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
 
         var increment = Assert.Single(nullifiers.Increments);
         Assert.Equal(Hex(nullifier), increment.NullifierHash);
-        Assert.Equal("article:42", increment.Scope);
+        Assert.Equal("comment:v1:article:42:top", increment.Scope);
         Assert.Equal(comment.Id, increment.CommentId);
 
         CommentCacheInvalidationScope scope = Assert.Single(dispatcher.CommentScopes)!;
@@ -306,7 +306,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             CircuitNumericId: CircuitNumericId,
             PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
             ActionContext: AnonymousPrivacyContract.CommentCreateActionContext,
-            Scope: $"article:{articleId}",
+            Scope: AnonymousCommentScopePolicy.CreateTopLevelScope(articleId),
             CircuitId: AnonymousPrivacyContract.CircuitId,
             VerifyingKeyHash: temp.VerifyingKeySha256,
             NullifierHash: nullifier,
@@ -326,14 +326,14 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             ParentId: null,
             RootId: null,
             ReplyToCommentId: null,
-            "article:42",
+            "comment:v1:article:42:top",
             "en",
             [.. ticket]);
 
     private static byte[] PublicInputs(int articleId, byte[] nullifier, string verifyingKeyHash)
         => NativeGroth16PublicInputCodec.Encode(new ProductionZkProofBackendRequest(
             ActionContext: "comment.create",
-            Scope: $"article:{articleId}",
+            Scope: AnonymousCommentScopePolicy.CreateTopLevelScope(articleId),
             CircuitId: AnonymousPrivacyContract.CircuitId,
             VerifyingKeyHash: verifyingKeyHash,
             PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
@@ -352,7 +352,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
     {
         var request = new ProductionZkProofBackendRequest(
             ActionContext: "comment.create",
-            Scope: $"article:{articleId}",
+            Scope: AnonymousCommentScopePolicy.CreateTopLevelScope(articleId),
             CircuitId: AnonymousPrivacyContract.CircuitId,
             VerifyingKeyHash: temp.VerifyingKeySha256,
             PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,

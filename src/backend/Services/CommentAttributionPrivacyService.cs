@@ -129,7 +129,7 @@ public sealed class CommentAttributionPrivacyService(
                 logger.LogInformation(
                     "匿名评论 ticket 绑定校验失败 | Article: {ArticleId} | ScopeHash: {ScopeHash}",
                     request.ArticleId,
-                    HashScopeForLog(NormalizeScope(request.AnonymousScope, request.ArticleId)));
+                    HashScopeForLog(NormalizeScope(request.AnonymousScope)));
             }
 
             return null;
@@ -244,12 +244,27 @@ public sealed class CommentAttributionPrivacyService(
             return false;
         }
 
-        return ticket.ArticleId == request.ArticleId
-            && ticket.ExpiresAtUnixMs > DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-            && string.Equals(ticket.Scope, NormalizeScope(request.AnonymousScope, request.ArticleId), StringComparison.Ordinal)
-            && ticket.ParentId == parentId
-            && ticket.RootId == rootId
-            && ticket.ReplyToCommentId == replyToCommentId;
+        string scope = NormalizeScope(request.AnonymousScope);
+        if (ticket.ArticleId != request.ArticleId
+            || ticket.ExpiresAtUnixMs <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+            || !string.Equals(ticket.Scope, scope, StringComparison.Ordinal)
+            || !AnonymousCommentScopePolicy.TryParse(scope, out AnonymousCommentScopeDescriptor descriptor)
+            || descriptor.ArticleId != request.ArticleId)
+        {
+            return false;
+        }
+
+        return descriptor.Kind switch
+        {
+            AnonymousCommentScopeKind.TopLevel =>
+                ticket.ParentId is null && ticket.RootId is null && ticket.ReplyToCommentId is null &&
+                parentId is null && rootId is null && replyToCommentId is null,
+            AnonymousCommentScopeKind.ThreadReply =>
+                ticket.ParentId is null && ticket.ReplyToCommentId is null &&
+                ticket.RootId == descriptor.RootId &&
+                parentId is > 0 && rootId == descriptor.RootId && replyToCommentId == parentId,
+            _ => false
+        };
     }
 
     private static bool TryParseOptionalPositiveCommentId(string? raw, out long? value)
@@ -269,11 +284,8 @@ public sealed class CommentAttributionPrivacyService(
         return false;
     }
 
-    private static string NormalizeScope(string? value, int articleId)
-    {
-        string normalized = TextHelpers.TrimOrEmpty(value);
-        return normalized.Length == 0 ? $"article:{articleId}" : normalized;
-    }
+    private static string NormalizeScope(string? value)
+        => TextHelpers.TrimOrEmpty(value);
 
     private static string HashScopeForLog(string? scope)
     {

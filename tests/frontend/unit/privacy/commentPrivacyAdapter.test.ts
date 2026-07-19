@@ -106,7 +106,7 @@ describe('commentPrivacyAdapter', () => {
     })
 
     const credential = await adapter.ensureCredentialPrepared({ signal })
-    const metadata = await adapter.loadPrivacyMetadata({ scope: 'article:42', articleId: 42, signal })
+    const metadata = await adapter.loadPrivacyMetadata({ scope: 'comment:v1:article:42:top', articleId: 42, signal })
     expect(credential.ok).toBe(true)
     expect(metadata.ok).toBe(true)
     if (!metadata.ok) {
@@ -121,7 +121,7 @@ describe('commentPrivacyAdapter', () => {
       reputationBucket: 'rep:low'
     }
     const ticket = await adapter.issueAnonymousTicket({
-      scope: 'article:42',
+      scope: 'comment:v1:article:42:top',
       metadata: ticketMetadata,
       proof: {
         proofBytes: new Uint8Array([12, 13]),
@@ -140,7 +140,7 @@ describe('commentPrivacyAdapter', () => {
       circuitNumericId: 7,
       publicInputLayoutVersion: 6,
       actionContext: 'comment.create',
-      anonymousScope: 'article:42',
+      anonymousScope: 'comment:v1:article:42:top',
       circuitId: 'fsus.anonymous.comment.v5',
       verifyingKeyHash: 'a'.repeat(64),
       nullifierHash: new Uint8Array([16, 17]),
@@ -166,7 +166,7 @@ describe('commentPrivacyAdapter', () => {
     const adapter = createCommentPrivacyAdapter()
 
     await expect(adapter.loadPrivacyMetadata({
-      scope: 'article:42',
+      scope: 'comment:v1:article:42:top',
       articleId: 42,
       signal: new AbortController().signal
     })).resolves.toEqual({

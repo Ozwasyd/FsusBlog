@@ -34,6 +34,9 @@
           <p v-if="publicIdentityModel" class="comment-identity-hint">
             公开发布后，其他人会看到你的公开名称。
           </p>
+          <p v-else-if="effectiveAnonymousCommentsEnabled" class="comment-identity-hint">
+            {{ anonymousQuotaHint }}删除或审核拒绝不会返还额度；凭据更新后按新周期重新计算。
+          </p>
         </div>
         <label
           class="comment-identity-toggle"
@@ -371,6 +374,10 @@ const commentLimitWarning = computed(() =>
 const effectiveAnonymousCommentsEnabled = computed(() => props.anonymousCommentsEnabled && props.zkAnonymousEnabled)
 
 const anonymousStatusText = computed(() => '强匿名发布')
+
+const anonymousQuotaHint = computed(() => props.replyTarget
+  ? '每份匿名凭据在当前讨论串最多回复 3 条。'
+  : '每份匿名凭据在本篇文章最多发布 1 条顶层评论。')
 
 const anonymousUnavailableMessage = computed(() => !effectiveAnonymousCommentsEnabled.value && props.publicCommentsEnabled)
 
