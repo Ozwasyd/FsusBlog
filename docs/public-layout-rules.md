@@ -54,7 +54,7 @@ Glass material 只允许用于以下 surface：
 
 暗色 Scholarly Blue 锁定为 `#4B79CC`。本仓不得把公开阅读面的 focus、active、link 反馈漂移到高饱和蓝或其他装饰色。
 
-导航进度与管理面交互反馈使用同一条 Scholarly Blue 降级链：优先消费已注册 token，最终静态 fallback 为 `#2A599C`。`src/frontend/src` 不得重新引入 Element Plus `#409EFF` 或暖棕 `#4A453C` 作为交互反馈兜底；`check:foundation-token-governance` 会扫描整个前端源码目录守住该契约。
+导航进度与管理面交互反馈使用同一条 Scholarly Blue 降级链：优先消费已注册 token，最终静态 fallback 为 `#2A599C`。文章阅读进度条的已读段固定使用 `--fsusblog-color-primary` 58% 透明混合，未读轨道继续使用 `--fsusblog-panel-border` 72% 透明混合；不得用 `--fsusblog-text-primary` 代替功能反馈色。`src/frontend/src` 不得重新引入 Element Plus `#409EFF` 或暖棕 `#4A453C` 作为交互反馈兜底；`check:foundation-token-governance` 与 `check:public-reading-motion` 共同守住该契约。
 
 ## 7. 字号标度规则
 

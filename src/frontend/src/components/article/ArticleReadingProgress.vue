@@ -39,7 +39,7 @@ const progress = computed(() => rawProgress.value.toFixed(4))
   height: 100%;
   transform: scaleX(var(--article-reading-progress, 0));
   transform-origin: left center;
-  background: color-mix(in srgb, var(--fsusblog-text-primary) 62%, transparent);
+  background: color-mix(in srgb, var(--fsusblog-color-primary) 58%, transparent);
   transition: transform var(--blog-motion-fast) var(--blog-motion-ease);
 }
 
