@@ -1,4 +1,4 @@
-import type { CommentPrivacyCredentialMaterial } from './commentPrivacyTypes'
+import type { CommentPrivacyCredentialMaterial } from './commentPrivacyContracts'
 import {
   getCommentPrivacyLocalVaultGeneration,
   purgeCommentPrivacyCredentialState,

@@ -1,11 +1,15 @@
-import { beforeAll, describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { sha256 } from '@noble/hashes/sha2.js'
 import {
   BLIND_CREDENTIAL_SCHEME,
   createBlindRsaCredentialSuite
 } from '@/privacy/commentPrivacyBlindRsaSuite'
-import type { CommentPrivacyCredentialIssuerMetadata } from '@/privacy/commentPrivacyCredentialProvider'
-import type { BlindCredentialIssueResponse } from '@/api/comment'
+import { createCommentPrivacyCredentialProvider } from '@/privacy/commentPrivacyCredentialProvider'
+import type {
+  CommentPrivacyCredentialIssueResponse,
+  CommentPrivacyCredentialIssuerMetadata,
+  CommentPrivacyCredentialSuite
+} from '@/privacy/commentPrivacyContracts'
 
 const MODULUS_BYTES = 384
 let cryptoKey: CryptoKeyPair
@@ -171,6 +175,69 @@ describe('RFC 9474 blind anonymous credential suite', () => {
       signal
     })).toBeNull()
   }, 30_000)
+
+  it('maps cancellation to the existing fail-closed null result', async () => {
+    const suite = createBlindRsaCredentialSuite({ crypto })
+    const controller = new AbortController()
+    controller.abort()
+    const metadata = issuerMetadata()
+    const response = issuerResponse(new Uint8Array(MODULUS_BYTES))
+
+    expect(await suite.createCredentialRequest({
+      credentialSecret: new Uint8Array(32),
+      clientNonce: new Uint8Array(32),
+      metadata,
+      signal: controller.signal
+    })).toBeNull()
+    expect(await suite.acceptIssuerResponse({
+      credentialSecret: new Uint8Array(32),
+      clientNonce: new Uint8Array(32),
+      credentialOpening: new Uint8Array(),
+      issuerPublicKeyId: response.issuerPublicKeyId,
+      issuerSignature: response.blindSignature,
+      metadata,
+      response,
+      signal: controller.signal
+    })).toBeNull()
+  })
+
+  it('lets the provider own suite selection and maps suite errors to null', async () => {
+    const createCredentialRequest = vi.fn(async () => {
+      throw new Error('opaque suite failure')
+    })
+    const selectedSuite: CommentPrivacyCredentialSuite = {
+      createCredentialRequest,
+      acceptIssuerResponse: vi.fn()
+    }
+    const issueCredential = vi.fn()
+    const provider = createCommentPrivacyCredentialProvider({
+      vault: {
+        async get() { return null },
+        async put() {},
+        async pruneExpired() { return 0 },
+        async clear() {}
+      },
+      loadMetadata: async () => issuerMetadata(),
+      issueCredential,
+      credentialSuite: selectedSuite,
+      crypto,
+      unavailableCacheTtlMs: 0
+    })
+
+    expect(await provider.prepareCredential({ signal: new AbortController().signal })).toBeNull()
+    expect(createCredentialRequest).toHaveBeenCalledOnce()
+    expect(issueCredential).not.toHaveBeenCalled()
+  })
+
+  it('does not enter provider lifecycle when already cancelled', async () => {
+    const loadMetadata = vi.fn()
+    const controller = new AbortController()
+    controller.abort()
+    const provider = createCommentPrivacyCredentialProvider({ loadMetadata })
+
+    expect(await provider.prepareCredential({ signal: controller.signal })).toBeNull()
+    expect(loadMetadata).not.toHaveBeenCalled()
+  })
 })
 
 function issuerMetadata(): CommentPrivacyCredentialIssuerMetadata {
@@ -202,7 +269,7 @@ function issuerMetadata(): CommentPrivacyCredentialIssuerMetadata {
   }
 }
 
-function issuerResponse(blindSignature: Uint8Array): BlindCredentialIssueResponse {
+function issuerResponse(blindSignature: Uint8Array): CommentPrivacyCredentialIssueResponse {
   return {
     credentialEpoch: 42,
     expiresAtUnixMs: Date.now() + 60_000,

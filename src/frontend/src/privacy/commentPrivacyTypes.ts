@@ -1,3 +1,5 @@
+import type { CommentPrivacyCredentialMaterial } from './commentPrivacyContracts'
+
 export type CommentPrivacyUiState = 'ready' | 'preparing' | 'unavailable' | 'publicOnly'
 
 export interface CommentPrivacyMetadata {
@@ -24,16 +26,6 @@ export interface CommentPrivacyPreparedTicket {
   expiresAtUnixMs: number
   rateClass: 'common' | 'unknown'
   requiresModeration: boolean
-}
-
-export interface CommentPrivacyCredentialMaterial {
-  credentialSecret: Uint8Array
-  credentialCommitment: Uint8Array
-  issuerSignature: Uint8Array
-  revocationWitness: Uint8Array
-  revocationHandleHash?: Uint8Array
-  credentialLevel: string
-  reputationBucket: string
 }
 
 export interface CommentPrivacyCredentialSuccess {

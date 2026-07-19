@@ -35,6 +35,16 @@ and exponent 65537 for anonymous credential issuance.
    and verifies the finalized RSA-PSS signature with WebCrypto before creating
    local vault material.
 
+The browser module graph has one composition owner. Pure request/response,
+metadata, credential material and suite types live in
+`commentPrivacyContracts.ts`, which imports no runtime implementation. The
+provider selects and owns the concrete suite and its lifecycle; the Blind-RSA
+suite imports only the contracts module and never imports the provider. This
+keeps replacement decisions at the composition boundary without introducing a
+second suite, fallback, or compatibility provider. Cancellation, malformed
+input and cryptographic failures retain the same opaque fail-closed `null`
+result, so the wire protocol and caller-visible error mapping do not change.
+
 The protocol id is
 `rfc9474-rsabssa-sha384-pss-randomized-3072`. The target presentation contract
 is `fsus.anonymous.comment.v4`, public-input layout 5. Old v3/layout 4
@@ -77,3 +87,5 @@ true.
   access remain observable at the issuer; the threat model records that
   residual boundary.
 - The old issuance endpoint stays permanently fail-closed with HTTP 410.
+- The contract export snapshot and import-boundary checker prevent the provider
+  and Blind-RSA implementation from becoming a strongly connected component.

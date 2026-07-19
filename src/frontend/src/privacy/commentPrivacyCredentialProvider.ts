@@ -5,15 +5,22 @@ import {
   getAnonymousCredentialRevocationArtifact,
   getAnonymousCredentialCircuitSnapshot,
   getAnonymousCredentialRootSnapshot,
-  type BlindCredentialIssueRequestDto,
-  type BlindCredentialIssueResponse,
   type AnonymousCredentialRevocationArtifact,
   type AnonymousCredentialRootSnapshot
 } from '@/api/comment'
 import { requestBinaryOnly } from '@/composition/binaryTransport'
 import { FrameType } from '@wasm/protocol/frame'
-import type { CommentPrivacyCredentialMaterial } from './commentPrivacyTypes'
 import { createBlindRsaCredentialSuite } from './commentPrivacyBlindRsaSuite'
+import type {
+  CommentPrivacyCredentialIssuePayload,
+  CommentPrivacyCredentialIssueRequest,
+  CommentPrivacyCredentialIssueResponse,
+  CommentPrivacyCredentialIssuerMetadata,
+  CommentPrivacyCredentialMaterial,
+  CommentPrivacyCredentialProvider,
+  CommentPrivacyCredentialSuite,
+  CommentPrivacyRevocationDistribution
+} from './commentPrivacyContracts'
 import { getCommentPrivacyWorkerClient } from './commentPrivacyWorkerClient'
 import {
   createCommentPrivacyCredentialVault,
@@ -42,77 +49,20 @@ const revocationArtifactCache = new Map<number, {
   entryHashes: Uint8Array
 }>()
 
-export interface CommentPrivacyCredentialProvider {
-  prepareCredential(request: { signal: AbortSignal }): Promise<CommentPrivacyCredentialMaterial | null>
-}
-
-export interface CommentPrivacyCredentialIssuerMetadata {
-  credentialEpoch: number
-  rootExpiresAtUnixMs: number
-  circuitNumericId: number
-  publicInputLayoutVersion: number
-  circuitId: string
-  credentialLevel: string
-  reputationBucket: string
-  issuerPublicKeyHash: string
-  schemeId: string
-  issuerPublicKeyId: string
-  modulusBytes: number
-  subjectPublicKeyInfo: Uint8Array
-  credentialRoot: Uint8Array
-  revocationRoot: Uint8Array
-  revocationDistribution: CommentPrivacyRevocationDistribution
-}
-
-export interface CommentPrivacyRevocationDistribution {
-  protocol: 'public-snapshot-delta.v1'
-  epoch: number
-  version: number
-  contentAddress: string
-  snapshotPath: string
-  deltaPath: string | null
-  entryBytes: 32
-  maxArtifactBytes: number
-}
-
 export type CommentPrivacyCredentialMetadataLoader = (
   request: { signal: AbortSignal }
 ) => Promise<CommentPrivacyCredentialIssuerMetadata | null>
 
 export type CommentPrivacyCredentialIssuer = (
-  request: BlindCredentialIssueRequestDto,
+  request: CommentPrivacyCredentialIssueRequest,
   config: { signal: AbortSignal }
-) => Promise<BlindCredentialIssueResponse>
+) => Promise<CommentPrivacyCredentialIssueResponse>
 
 export type CommentPrivacyRevocationArtifactLoader = (
   path: string,
   kind: 1 | 2,
   config: { signal: AbortSignal }
 ) => Promise<AnonymousCredentialRevocationArtifact>
-
-export interface CommentPrivacyCredentialIssuePayload {
-  credentialRequest: Uint8Array
-  credentialOpening: Uint8Array
-}
-
-export interface CommentPrivacyCredentialSuite {
-  createCredentialRequest(input: {
-    credentialSecret: Uint8Array
-    clientNonce: Uint8Array
-    metadata: CommentPrivacyCredentialIssuerMetadata
-    signal: AbortSignal
-  }): Promise<CommentPrivacyCredentialIssuePayload | null>
-  acceptIssuerResponse(input: {
-    credentialSecret: Uint8Array
-    clientNonce: Uint8Array
-    credentialOpening: Uint8Array
-    issuerPublicKeyId: string
-    issuerSignature: Uint8Array
-    metadata: CommentPrivacyCredentialIssuerMetadata
-    response: BlindCredentialIssueResponse
-    signal: AbortSignal
-  }): Promise<CommentPrivacyCredentialMaterial | null>
-}
 
 export interface CommentPrivacyCredentialProviderOptions {
   vault?: CommentPrivacyCredentialVault | null
@@ -353,11 +303,11 @@ export function createCommentPrivacyCredentialProvider(
 }
 
 export async function issueAnonymousCredential(
-  request: BlindCredentialIssueRequestDto,
+  request: CommentPrivacyCredentialIssueRequest,
   config: { signal: AbortSignal }
-): Promise<BlindCredentialIssueResponse> {
+): Promise<CommentPrivacyCredentialIssueResponse> {
   const payload = encodeBlindCredentialIssueRequest(request)
-  return await requestBinaryOnly<BlindCredentialIssueResponse>({
+  return await requestBinaryOnly<CommentPrivacyCredentialIssueResponse>({
     binaryUrl: '/api/binary/anonymous-credential/blind-issue',
     frameType: FrameType.BlindCredentialIssueResponse,
     signal: config.signal,
@@ -583,7 +533,7 @@ function isUsableCredentialIssuePayload(
 }
 
 function matchesMetadata(
-  response: BlindCredentialIssueResponse,
+  response: CommentPrivacyCredentialIssueResponse,
   metadata: CommentPrivacyCredentialIssuerMetadata
 ): boolean {
   return response.credentialEpoch === metadata.credentialEpoch &&

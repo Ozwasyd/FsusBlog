@@ -1,9 +1,10 @@
 import { sha256, sha384 } from '@noble/hashes/sha2.js'
 import type {
   CommentPrivacyCredentialIssuePayload,
+  CommentPrivacyCredentialIssuerMetadata,
+  CommentPrivacyCredentialMaterial,
   CommentPrivacyCredentialSuite
-} from './commentPrivacyCredentialProvider'
-import type { CommentPrivacyCredentialMaterial } from './commentPrivacyTypes'
+} from './commentPrivacyContracts'
 
 export const BLIND_CREDENTIAL_SCHEME = 'rfc9474-rsabssa-sha384-pss-randomized-3072'
 const MESSAGE_DOMAIN = 'fsus.anonymous.credential.v4'
@@ -157,7 +158,7 @@ export function createBlindRsaCredentialSuite(
   }
 }
 
-function isMetadataUsable(metadata: Parameters<CommentPrivacyCredentialSuite['createCredentialRequest']>[0]['metadata']): boolean {
+function isMetadataUsable(metadata: CommentPrivacyCredentialIssuerMetadata): boolean {
   return metadata.schemeId === BLIND_CREDENTIAL_SCHEME &&
     metadata.modulusBytes === MODULUS_BYTES &&
     Number.isSafeInteger(metadata.credentialEpoch) &&
@@ -173,7 +174,7 @@ function isMetadataUsable(metadata: Parameters<CommentPrivacyCredentialSuite['cr
 
 async function loadValidatedPublicKey(
   subtle: SubtleCrypto,
-  metadata: Parameters<CommentPrivacyCredentialSuite['createCredentialRequest']>[0]['metadata']
+  metadata: CommentPrivacyCredentialIssuerMetadata
 ): Promise<ValidatedPublicKey | null> {
   const actualHash = sha256(metadata.subjectPublicKeyInfo)
   const expectedHash = hexToBytes(metadata.issuerPublicKeyHash)
@@ -222,7 +223,7 @@ async function importPublicKey(subtle: SubtleCrypto, spki: Uint8Array): Promise<
 }
 
 function encodeCredentialMessage(
-  metadata: Parameters<CommentPrivacyCredentialSuite['createCredentialRequest']>[0]['metadata'],
+  metadata: CommentPrivacyCredentialIssuerMetadata,
   credentialSecret: Uint8Array,
   credentialNonce: Uint8Array
 ): Uint8Array {

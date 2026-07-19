@@ -35,6 +35,8 @@ Before a vault lookup, the provider binds cached material to credential epoch, c
 
 Private/incognito storage denial, Safari/iOS eviction, missing crypto, blocked legacy deletion, worker failure, and malformed metadata all fail closed to public-only commenting. No text/legacy credential path is used as a fallback.
 
+Suite selection is centralized in `commentPrivacyCredentialProvider.ts`. Pure credential, issuer metadata, issue payload/response and suite contracts live in the import-free `commentPrivacyContracts.ts`; `commentPrivacyBlindRsaSuite.ts` consumes that contract and never imports the provider. An aborted operation or suite exception remains an opaque unavailable/null result and all temporary byte ownership rules below stay unchanged. The contract checker rejects reverse imports and snapshots the public type set so a later suite cannot silently create a fallback path.
+
 ## Browser script boundary and residual risk
 
 Strong-anonymous pages must not load third-party script. Production HTML、Public AOT 与静态响应统一下发 `require-trusted-types-for 'script'; trusted-types vue fsusblog fsusblog-spa-entry`：`vue` 只对应当前 Vue runtime 的固定 policy name，应用侧只创建 module-private `fsusblog` policy，并仅允许固定同源 comment prover、固定同源 service worker（可选单一 immutable `build`）与同源、无 query/hash、构建 hash 命名的应用 Worker；Public AOT bootstrap 的闭包内 `fsusblog-spa-entry` 只把服务端已解析的单一同源 SPA entry 与 modulepreload 转为 `TrustedScriptURL`，Vite runtime modulepreload helper 保持关闭，稳定 SPA alias 只 import hashed entry。导航进度条只使用固定 DOM 与外部 CSS。禁止 `default`、`*`、`'allow-duplicates'`、外部/blob URL、任意 worker/prover query、service worker 非 immutable-build query 或对外暴露 policy object。普通 Development/Vite HMR 不启用 Trusted Types enforcement；本地 release acceptance 使用 production CSP 覆盖，同时仍保留 Development fixture endpoints。

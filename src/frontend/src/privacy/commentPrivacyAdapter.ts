@@ -6,12 +6,14 @@ import {
 } from '@/api/comment'
 import { isStrongAnonymousCommentAvailable } from '@/policies/commentPolicy'
 import {
-  createCommentPrivacyCredentialProvider,
-  type CommentPrivacyCredentialProvider
+  createCommentPrivacyCredentialProvider
 } from './commentPrivacyCredentialProvider'
 import type {
-  CommentPrivacyAdapter,
   CommentPrivacyCredentialMaterial,
+  CommentPrivacyCredentialProvider
+} from './commentPrivacyContracts'
+import type {
+  CommentPrivacyAdapter,
   CommentPrivacyCredentialResult,
   CommentPrivacyMetadata,
   CommentPrivacyMetadataResult,

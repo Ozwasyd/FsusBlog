@@ -2,10 +2,10 @@ import {
   getCommentPrivacyWorkerClient
 } from './commentPrivacyWorkerClient'
 import { createCommentPrivacyAdapter } from './commentPrivacyAdapter'
+import type { CommentPrivacyCredentialMaterial } from './commentPrivacyContracts'
 import type {
   CommentPrivacyAdapter,
   CommentPrivacyAdapterFailure,
-  CommentPrivacyCredentialMaterial,
   CommentPrivacyMetadata,
   CommentPrivacyPreparedTicket,
   CommentPrivacyTicketResult,
