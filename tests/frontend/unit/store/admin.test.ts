@@ -277,6 +277,38 @@ describe('useAdminStore', () => {
     warnSpy.mockRestore()
   })
 
+  it('forced revalidation consumes a missing cache before a network failure', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const authApi = await import('@/api/auth') as { getAdminMe: ReturnType<typeof vi.fn> }
+    authApi.getAdminMe.mockRejectedValue(new Error('network down'))
+    const store = useAdminStore()
+    store.markMissing()
+
+    await store.ensureAdminSessionFresh({ force: true })
+
+    expect(store.adminState).toBe('unknown')
+    expect(store.adminPrincipal).toBeNull()
+    expect(store.adminCheckedAt).toBe(0)
+    expect(store.canManage).toBe(false)
+    warnSpy.mockRestore()
+  })
+
+  it('never grants permissions from a principal while the session is a negative cache', () => {
+    const store = useAdminStore()
+    store.setAdminPrincipal({
+      id: 'stale-admin',
+      displayName: 'Stale Admin',
+      source: 'independent',
+      permissions: ['admin.manage'],
+      adminSessionStatus: 'active'
+    })
+    store.adminState = 'missing'
+
+    expect(store.permissions).toEqual([])
+    expect(store.hasPermission('admin.manage')).toBe(false)
+    expect(store.canManage).toBe(false)
+  })
+
   it('clears shared-device browser state on admin logout', async () => {
     const store = useAdminStore()
     store.setAdminPrincipal({

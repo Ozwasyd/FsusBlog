@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
+import { createApp } from 'vue'
+import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import { useUserStore } from '@/store/user'
 
 vi.mock('@/api/auth', () => ({
@@ -184,11 +186,60 @@ describe('useUserStore', () => {
     errorSpy.mockRestore()
   })
 
-  it('legacy persisted isAuthChecked without accountState migrates to unknown', async () => {
-    localStorage.setItem('fsus_user_storage', JSON.stringify({ isAuthChecked: true }))
+  it('forced revalidation consumes a guest cache before a network failure', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockGetMe.mockRejectedValueOnce(new Error('network down'))
     const store = useUserStore()
+    store.markGuest()
+
+    await store.fetchUserInfo(true)
+
     expect(store.accountState).toBe('unknown')
     expect(store.isAuthChecked).toBe(false)
+    expect(store.lastVerifiedAt).toBe(0)
+    errorSpy.mockRestore()
+  })
+
+  it('removes legacy persistence and probes a valid server Session after reload', async () => {
+    localStorage.setItem('fsus_user_storage', JSON.stringify({
+      accountState: 'guest',
+      isAuthChecked: true,
+      lastVerifiedAt: Date.now(),
+      lastFetchedAt: Date.now(),
+      authCacheVersion: 2
+    }))
+    const serverSnapshot = anonymousUser(7)
+    mockGetMe.mockResolvedValueOnce(serverSnapshot as never)
+    const store = useUserStore()
+
+    expect(store.accountState).toBe('unknown')
+    expect(store.isAuthChecked).toBe(false)
+    expect(localStorage.getItem('fsus_user_storage')).toBeNull()
+
+    await store.fetchUserInfo()
+
+    expect(mockGetMe).toHaveBeenCalledTimes(1)
+    expect(store.accountState).toBe('authenticated')
+    expect(store.userInfo).toEqual(serverSnapshot)
+  })
+
+  it('does not persist a guest conclusion across a Pinia reload', () => {
+    const firstPinia = createPinia()
+    firstPinia.use(piniaPluginPersistedstate)
+    createApp({ render: () => null }).use(firstPinia)
+    setActivePinia(firstPinia)
+    useUserStore(firstPinia).markGuest()
+
+    expect(localStorage.getItem('fsus_user_storage')).toBeNull()
+
+    const reloadedPinia = createPinia()
+    reloadedPinia.use(piniaPluginPersistedstate)
+    createApp({ render: () => null }).use(reloadedPinia)
+    setActivePinia(reloadedPinia)
+    const reloadedStore = useUserStore(reloadedPinia)
+
+    expect(reloadedStore.accountState).toBe('unknown')
+    expect(reloadedStore.lastVerifiedAt).toBe(0)
   })
 
   it('fetchUserInfo refreshes when only bootstrap marker was restored', async () => {

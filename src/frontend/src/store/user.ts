@@ -6,42 +6,32 @@ import { getKnownErrorInfo, isAuthFailureError } from '@/utils/errorKinds'
 import { clearLocalFixtureSession } from '@/services/localFixtureSession'
 import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime'
 
-function createMemoryStorage(): Storage {
-    const store = new Map<string, string>()
-    return {
-        get length() {
-            return store.size
-        },
-        clear() {
-            store.clear()
-        },
-        getItem(key: string) {
-            return store.has(String(key)) ? store.get(String(key)) ?? null : null
-        },
-        key(index: number) {
-            return Array.from(store.keys())[index] ?? null
-        },
-        removeItem(key: string) {
-            store.delete(String(key))
-        },
-        setItem(key: string, value: string) {
-            store.set(String(key), String(value))
-        }
-    }
-}
-
-const safeStorage = typeof localStorage !== 'undefined' ? localStorage : createMemoryStorage()
-
 export type AccountSessionState = 'unknown' | 'guest' | 'authenticated'
 
 export const ACCOUNT_GUEST_NEGATIVE_CACHE_MS = 5 * 60 * 1000
+const LEGACY_USER_AUTH_STORAGE_KEY = 'fsus_user_storage'
+
+function clearLegacyPersistedAuthState(): void {
+    if (typeof localStorage === 'undefined') return
+
+    try {
+        // This key only ever contained authentication conclusions and their
+        // verification timestamps. Removing it is deliberately all-or-nothing:
+        // a malformed legacy payload must not survive as an authorization hint.
+        localStorage.removeItem(LEGACY_USER_AUTH_STORAGE_KEY)
+    } catch {
+        // Restricted browser contexts can reject storage access. The current
+        // page still starts from the in-memory unknown state below.
+    }
+}
 
 export const useUserStore = defineStore('user', () => {
+    clearLegacyPersistedAuthState()
+
     // ================= 1. State =================
     const userInfo = ref<CurrentUserSnapshot | null>(null)
     const accountState = ref<AccountSessionState>('unknown')
     const lastVerifiedAt = ref(0)
-    const authCacheVersion = ref(2)
     const isLoading = ref(false)
     const isLoggingOut = ref(false)
     const lastFetchedAt = ref(0)
@@ -101,6 +91,11 @@ export const useUserStore = defineStore('user', () => {
         }
 
         if (fetchPromise) return fetchPromise
+
+        // A negative result belongs to the page epoch only. Once revalidation
+        // starts, it is no longer a fact even if the request later loses the
+        // network, so keep that outcome as unknown.
+        invalidateGuestCache()
 
         abortController = new AbortController()
         const currentController = abortController;
@@ -197,7 +192,6 @@ export const useUserStore = defineStore('user', () => {
         accountState,
         isAuthChecked,
         lastVerifiedAt,
-        authCacheVersion,
         lastFetchedAt,
         isLoggedIn,
         isAdmin,
@@ -211,11 +205,5 @@ export const useUserStore = defineStore('user', () => {
         ensureUserInfoFresh,
         logout,
         updateStatus
-    }
-}, {
-    persist: {
-        key: 'fsus_user_storage',
-        storage: safeStorage,
-        pick: ['accountState', 'lastVerifiedAt', 'authCacheVersion', 'lastFetchedAt']
     }
 })

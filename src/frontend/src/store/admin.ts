@@ -58,7 +58,10 @@ export const useAdminStore = defineStore('admin', () => {
 
     return adminState.value
   })
-  const permissions = computed<readonly string[]>(() => adminPrincipal.value?.permissions ?? [])
+  const permissions = computed<readonly string[]>(() =>
+    adminState.value === 'active' && adminPrincipal.value
+      ? adminPrincipal.value.permissions
+      : [])
   const canManage = computed(() => adminState.value === 'active' && permissions.value.length > 0)
   const anonymousCommentsEnabled = computed(() => anonymousCommentPolicy.value.anonymousCommentsEnabled)
   const publicSendOptionEnabled = computed(() => anonymousCommentPolicy.value.publicSendOptionEnabled)
@@ -71,7 +74,9 @@ export const useAdminStore = defineStore('admin', () => {
   const totpStepUpRequired = computed(() => adminPrincipal.value?.totpStepUpRequired === true || adminSessionStatus.value === 'step_up_required')
 
   const hasPermission = (permission: string): boolean =>
-    permissions.value.includes(permission)
+    adminState.value === 'active'
+    && adminPrincipal.value !== null
+    && permissions.value.includes(permission)
 
   const setAdminPrincipal = (snapshot: AdminPrincipalSnapshot | null): void => {
     adminPrincipal.value = snapshot ? {
@@ -125,6 +130,10 @@ export const useAdminStore = defineStore('admin', () => {
         return
       }
     }
+
+    // A missing result is only a current-page negative cache. Revalidation
+    // consumes it before the request so a transport failure remains unknown.
+    invalidateMissingCache()
 
     try {
       setAdminPrincipal(await getAdminMe())

@@ -7,6 +7,7 @@ import {
   installAuthBroadcastComposition
 } from '@/services/authBroadcastComposition'
 import { useAppShellStore } from '@/store/appShell'
+import { useAdminStore } from '@/store/admin'
 import { useUserStore } from '@/store/user'
 import { isAuthFailureError } from '@/utils/errorKinds'
 import { ensureLocalFixtureSessionCookies, isLocalFixtureSessionActive } from '@/services/localFixtureSession'
@@ -19,6 +20,7 @@ class AuthSessionRuntime {
   private scope: EffectScope | null = null
   private timer: ReturnType<typeof window.setTimeout> | null = null
   private inflight: Promise<void> | null = null
+  private pinia: Pinia | null = null
 
   init(pinia: Pinia): void {
     if (typeof window === 'undefined' || this.scope) {
@@ -26,6 +28,7 @@ class AuthSessionRuntime {
     }
 
     this.scope = effectScope()
+    this.pinia = pinia
     installAuthBroadcastComposition(pinia)
     this.scope.run(() => {
       const userStore = useUserStore(pinia)
@@ -68,17 +71,27 @@ class AuthSessionRuntime {
     window.removeEventListener('focus', this.handleWindowFocus)
     this.scope?.stop()
     this.scope = null
+    this.pinia = null
     disposeAuthBroadcastComposition()
   }
 
   private handleVisibilityChange = (): void => {
     if (document.visibilityState === 'visible') {
-      this.refreshIfNeeded()
+      this.invalidateNegativeCaches()
+      void this.refreshIfNeeded()
     }
   }
 
   private handleWindowFocus = (): void => {
-    this.refreshIfNeeded()
+    this.invalidateNegativeCaches()
+    void this.refreshIfNeeded()
+  }
+
+  private invalidateNegativeCaches(): void {
+    if (!this.pinia) return
+
+    useUserStore(this.pinia).invalidateGuestCache()
+    useAdminStore(this.pinia).invalidateMissingCache()
   }
 
   private scheduleNextRefresh(): void {

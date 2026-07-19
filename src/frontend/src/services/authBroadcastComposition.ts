@@ -34,15 +34,18 @@ export function installAuthBroadcastComposition(pinia: Pinia): void {
 
   unsubscribe = authBroadcastRuntime.subscribe((event, origin) => {
     defaultChallengeProofStore.clear()
+    // Any authentication transition can reflect a Cookie/Session change made
+    // by another tab, Passkey completion, or admin step-up. Neither negative
+    // cache is allowed to outlive that transition.
+    userStore.invalidateGuestCache()
+    adminStore.invalidateMissingCache()
 
     if (event.type === 'login') {
       void clearPrivateStateForBroadcast('account-switch', origin)
-      userStore.invalidateGuestCache()
       return
     }
 
     if (event.type === 'admin-changed') {
-      adminStore.invalidateMissingCache()
       return
     }
 

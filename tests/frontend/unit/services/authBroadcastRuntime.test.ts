@@ -14,6 +14,7 @@ import { NotificationStreamEventType } from '@/services/notificationStreamTypes'
 
 vi.mock('@/api/auth', () => ({
   getMe: vi.fn(),
+  getAdminMe: vi.fn(),
   logout: vi.fn()
 }))
 
@@ -28,6 +29,7 @@ vi.mock('@/services/serviceWorkerRuntime', () => ({
 }))
 
 import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime'
+import { getAdminMe, getMe } from '@/api/auth'
 
 class MockBroadcastChannel {
   static instances: MockBroadcastChannel[] = []
@@ -130,7 +132,7 @@ describe('authBroadcastRuntime', () => {
     expect(clearPrivateBrowserState).toHaveBeenCalledWith('account-switch')
   })
 
-  it('login event invalidates only the account guest cache', () => {
+  it('login event invalidates account and admin negative caches', () => {
     const pinia = createRuntimePinia()
     const userStore = useUserStore(pinia)
     const adminStore = useAdminStore(pinia)
@@ -141,10 +143,42 @@ describe('authBroadcastRuntime', () => {
 
     expect(userStore.accountState).toBe('unknown')
     expect(userStore.lastVerifiedAt).toBe(0)
-    expect(adminStore.adminState).toBe('missing')
+    expect(adminStore.adminState).toBe('unknown')
     expect(clearPrivateBrowserState).toHaveBeenCalledWith('account-switch', {
       broadcastCredentialPurge: false
     })
+  })
+
+  it('account-switch broadcast requires fresh server snapshots before restoring identity', async () => {
+    const pinia = createRuntimePinia()
+    const userStore = useUserStore(pinia)
+    const adminStore = useAdminStore(pinia)
+    userStore.markGuest()
+    adminStore.markMissing()
+    vi.mocked(getMe).mockResolvedValueOnce(anonymousUser(9) as never)
+    vi.mocked(getAdminMe).mockResolvedValueOnce({
+      id: 'admin-9',
+      displayName: 'Admin 9',
+      source: 'independent',
+      permissions: ['admin.manage'],
+      adminSessionStatus: 'active'
+    })
+
+    MockBroadcastChannel.instances[0]?.dispatch({ type: 'login', at: Date.now() })
+
+    expect(userStore.accountState).toBe('unknown')
+    expect(adminStore.adminState).toBe('unknown')
+    await Promise.all([
+      userStore.fetchUserInfo(),
+      adminStore.ensureAdminSessionFresh()
+    ])
+
+    expect(getMe).toHaveBeenCalledTimes(1)
+    expect(getAdminMe).toHaveBeenCalledTimes(1)
+    expect(userStore.accountState).toBe('authenticated')
+    expect(userStore.userInfo?.accountId).toBe(9)
+    expect(adminStore.adminState).toBe('active')
+    expect(adminStore.hasPermission('admin.manage')).toBe(true)
   })
 
   it('logout event marks the account guest without changing the admin session', () => {
@@ -194,7 +228,7 @@ describe('authBroadcastRuntime', () => {
     })
   })
 
-  it('admin-changed invalidates only the independent admin cache', () => {
+  it('admin-changed invalidates both caches because the Cookie identity may have changed', () => {
     const pinia = createRuntimePinia()
     const userStore = useUserStore(pinia)
     const adminStore = useAdminStore(pinia)
@@ -204,7 +238,7 @@ describe('authBroadcastRuntime', () => {
     MockBroadcastChannel.instances[0]?.dispatch({ type: 'admin-changed', at: Date.now() })
 
     expect(adminStore.adminState).toBe('unknown')
-    expect(userStore.accountState).toBe('guest')
+    expect(userStore.accountState).toBe('unknown')
   })
 
   it('clears the sending tab before broadcasting session expiry', () => {
@@ -281,7 +315,7 @@ describe('authBroadcastRuntime', () => {
     window.dispatchEvent(storageEvent)
 
     expect(userStore.accountState).toBe('unknown')
-    expect(adminStore.adminState).toBe('missing')
+    expect(adminStore.adminState).toBe('unknown')
   })
 
   it('drops sensitive extra fields and applies duplicate events once', () => {
