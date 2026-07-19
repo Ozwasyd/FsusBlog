@@ -333,7 +333,7 @@
 
 .markdown-body table::-webkit-scrollbar-thumb {
   background-color: var(--fsusblog-panel-border-strong);
-  border-radius: 3px;
+  border-radius: var(--fsus-radius-pill, 999px);
 }
 
 .markdown-body table::-webkit-scrollbar-track {
@@ -412,7 +412,7 @@
 
 .markdown-body .katex-display::-webkit-scrollbar-thumb {
   background-color: var(--fsusblog-panel-border-strong);
-  border-radius: 2px;
+  border-radius: var(--fsus-radius-pill, 999px);
 }
 
 .markdown-body .katex-display::-webkit-scrollbar-track {

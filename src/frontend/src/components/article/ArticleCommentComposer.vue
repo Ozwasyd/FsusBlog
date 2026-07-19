@@ -795,7 +795,7 @@ watch(() => contentModel.value, (value) => {
   align-items: center;
   justify-content: center;
   border: 1px solid var(--fsusblog-panel-border-strong);
-  border-radius: 0.25rem;
+  border-radius: var(--fsus-radius-control-small, 4px);
   background: var(--fsusblog-panel-bg);
   transition:
     background-color var(--fsus-motion-control-fast) var(--fsus-motion-standard),
@@ -844,7 +844,7 @@ watch(() => contentModel.value, (value) => {
   gap: 0.75rem;
   margin-bottom: 0.75rem;
   border: 1px solid color-mix(in srgb, var(--fsusblog-color-primary) 18%, transparent);
-  border-radius: 0.5rem;
+  border-radius: var(--fsusblog-reading-radius-control, 6px);
   background: color-mix(in srgb, var(--fsusblog-color-primary) 6%, transparent);
   padding: 0.625rem 0.75rem;
   color: var(--fsusblog-text-secondary);
@@ -875,7 +875,7 @@ watch(() => contentModel.value, (value) => {
   max-width: 100%;
   align-items: center;
   border: 1px solid var(--fsusblog-panel-border);
-  border-radius: 0.5rem;
+  border-radius: var(--fsusblog-reading-radius-control, 6px);
   background: color-mix(in srgb, var(--fsusblog-panel-bg) 92%, transparent);
   padding: 0.1875rem;
 }
@@ -883,7 +883,7 @@ watch(() => contentModel.value, (value) => {
 .comment-composer-mode__item {
   min-height: 1.875rem;
   border: 0;
-  border-radius: 0.375rem;
+  border-radius: var(--fsusblog-reading-radius-control, 6px);
   background: transparent;
   color: var(--fsusblog-text-muted);
   cursor: pointer;
@@ -917,7 +917,7 @@ watch(() => contentModel.value, (value) => {
 .comment-composer-preview {
   min-height: 4.75rem;
   border: 1px solid var(--fsusblog-panel-border);
-  border-radius: 0.5rem;
+  border-radius: var(--fsusblog-reading-radius-control, 6px);
   background: var(--fsusblog-panel-bg);
   padding: 0.75rem 0.875rem;
 }
@@ -964,7 +964,7 @@ watch(() => contentModel.value, (value) => {
   box-sizing: border-box;
   resize: none;
   border: 1px solid var(--fsusblog-panel-border);
-  border-radius: 0.5rem;
+  border-radius: var(--fsusblog-reading-radius-control, 6px);
   background: var(--fsusblog-panel-bg);
   color: var(--fsusblog-text-primary);
   font: inherit;

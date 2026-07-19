@@ -87,6 +87,8 @@ Markdown 代码块与管理面审计详情统一使用 `'JetBrains Mono', ui-mon
 
 公开布局圆角使用 4/6/10/12/24/999px 步进。普通阅读卡片、面板和控件默认不超过 12px；24px 只用于明确的 opt-in expressive surface。
 
+行内高亮与紧凑标记使用 `--fsus-radius-control-small`（4px）；按钮、输入框及其 focus ring 使用 `--fsusblog-reading-radius-control`（6px），保证 2px outline 与 offset 外沿曲率连续。横向滚动条 thumb 是真实胶囊几何，只使用 `--fsus-radius-pill`（999px）。`border-radius` 禁止重新引入 2/3/8px 字面值；评论 composer 的控件圆角必须消费 token，不以 `rem` 重复换算标度。
+
 ## 9. 动效标度规则
 
 动效时长只使用 140/220/300/360ms 步进。Reading surface 的颜色与边框反馈消费 `--blog-motion-control` 和 `--blog-motion-ease`，不在组件内复制 easing；同时不使用 translate、scale、stagger、scroll reveal 或 motion trail。`prefers-reduced-motion: reduce` 下非必要动画移除 transform，保留状态机所需过渡时使用 `1ms`，不使用 `0ms` 或 `transition: none` 破坏钩子。

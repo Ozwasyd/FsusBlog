@@ -71,7 +71,7 @@ const previewDocument = computed(() => toTrustedSanitizedHtml(`<!doctype html>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <base target="_blank">
   <style>
-    :root { color-scheme: light dark; font-family: "Google Sans", "Noto Sans SC", "Noto Sans TC", "Noto Sans JP", ui-sans-serif, system-ui, sans-serif; --preview-surface: Canvas; --preview-text: CanvasText; --preview-muted: GrayText; --preview-link: LinkText; --preview-border: ButtonBorder; --preview-code-bg: Field; }
+    :root { color-scheme: light dark; font-family: "Google Sans", "Noto Sans SC", "Noto Sans TC", "Noto Sans JP", ui-sans-serif, system-ui, sans-serif; --preview-surface: Canvas; --preview-text: CanvasText; --preview-muted: GrayText; --preview-link: LinkText; --preview-border: ButtonBorder; --preview-code-bg: Field; --preview-radius-inline: var(--fsus-radius-control-small, 4px); }
     body { margin: 0; padding: 24px; background: var(--preview-surface); color: var(--preview-text); line-height: 1.72; }
     article { max-width: 760px; margin: 0 auto; }
     h1, h2, h3, h4, h5, h6 { color: var(--preview-text); line-height: 1.3; }
@@ -82,7 +82,7 @@ const previewDocument = computed(() => toTrustedSanitizedHtml(`<!doctype html>
     a { color: var(--preview-link); text-decoration: underline; text-underline-offset: 0.16em; }
     img { max-width: 100%; height: auto; border: 1px solid var(--preview-border); }
     blockquote { border-left: 3px solid var(--preview-border); padding-left: 1rem; color: var(--preview-muted); }
-    code { border-radius: 3px; background: var(--preview-code-bg); padding: 0.08rem 0.28rem; font-size: 14px; }
+    code { border-radius: var(--preview-radius-inline); background: var(--preview-code-bg); padding: 0.08rem 0.28rem; font-size: 14px; }
     pre { overflow: auto; border: 1px solid var(--preview-border); background: CanvasText; color: Canvas; padding: 1rem; }
     pre code { background: transparent; padding: 0; color: inherit; }
     .author-preview__summary { color: var(--preview-muted); font-size: 1rem; }

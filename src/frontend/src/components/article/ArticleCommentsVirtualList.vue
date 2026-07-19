@@ -375,7 +375,7 @@ const toggleCommentExpansion = (key: string): void => {
 .fsus-comment__action {
   padding: 0;
   border: none;
-  border-radius: 2px;
+  border-radius: var(--fsusblog-reading-radius-control, 6px);
   background: transparent;
   color: var(--fsusblog-text-quiet);
   font-family: inherit;
@@ -393,7 +393,7 @@ const toggleCommentExpansion = (key: string): void => {
 .fsus-comment__action:focus-visible {
   outline: 2px solid var(--fsusblog-color-focus-ring);
   outline-offset: 4px;
-  border-radius: 2px;
+  border-radius: var(--fsusblog-reading-radius-control, 6px);
 }
 
 .fsus-comment__action:disabled {
