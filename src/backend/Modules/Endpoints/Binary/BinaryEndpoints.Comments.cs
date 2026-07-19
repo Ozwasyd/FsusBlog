@@ -225,7 +225,7 @@ public static partial class BinaryEndpoints
         group.MapGet("/comment/{articleId:int}", static async Task<IResult> (
             int articleId,
             HttpContext httpContext,
-            ICommentEndpointService commentService,
+            ICommentQueryService commentService,
             IClientRegionResolver regionResolver,
             ICommentCursorPolicyResolver cursorPolicies,
             ICacheStringReader cache,
@@ -255,7 +255,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.PreencodedFrame(frame.Lease);
             }
 
-            var result = await commentService.GetCommentThreadsByCursorAsync(articleId, bind.Request, viewerRegion: viewerRegion);
+            var result = await commentService.GetThreadsAsync(articleId, bind.Request, viewerRegion: viewerRegion);
             OwnedAedsFrame ownedFrame = BuildCachedFrame(AedsFrameType.CommentArticleCursor, writer => PodBinaryCodec.WriteCommentThreadCursor(result, writer));
             return await StoreAndReturnOwnedFrameAsync(
                 ownedFrameCache,
@@ -274,7 +274,7 @@ public static partial class BinaryEndpoints
             int articleId,
             long rootId,
             HttpContext httpContext,
-            ICommentEndpointService commentService,
+            ICommentQueryService commentService,
             IClientRegionResolver regionResolver,
             ICommentCursorPolicyResolver cursorPolicies,
             ICacheStringReader cache,
@@ -304,7 +304,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.PreencodedFrame(frame.Lease);
             }
 
-            var result = await commentService.GetThreadRepliesByCursorAsync(articleId, rootId, bind.Request, viewerRegion);
+            var result = await commentService.GetRepliesAsync(articleId, rootId, bind.Request, viewerRegion);
             OwnedAedsFrame ownedFrame = BuildCachedFrame(AedsFrameType.CommentThreadReplyCursor, writer => PodBinaryCodec.WriteCommentReplyCursor(rootId, result, writer));
             return await StoreAndReturnOwnedFrameAsync(
                 ownedFrameCache,

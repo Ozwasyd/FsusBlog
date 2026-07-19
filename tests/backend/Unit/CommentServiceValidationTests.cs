@@ -31,6 +31,9 @@ public class CommentServiceValidationTests
             regionLegalModerationService: new RegionLegalModerationService());
     }
 
+    private static CommentQueryService BuildQueryService()
+        => new(Substitute.For<ISqlSugarClient>(), new RegionLegalModerationService());
+
     private static CursorPageRequest<long> MakeRequest(int limit = 10)
         => new(null, null, limit);
 
@@ -131,8 +134,8 @@ public class CommentServiceValidationTests
     [Fact]
     public async Task GetCommentThreads_ArticleIdZero_ReturnsEmpty()
     {
-        var svc = BuildService();
-        var result = await svc.GetCommentThreadsByCursorAsync(0, MakeRequest());
+        var svc = BuildQueryService();
+        var result = await svc.GetThreadsAsync(0, MakeRequest());
         Assert.Empty(result.Data);
         Assert.Null(result.NextCursor);
         Assert.False(result.HasMore);
@@ -141,8 +144,8 @@ public class CommentServiceValidationTests
     [Fact]
     public async Task GetCommentThreads_NegativeArticleId_ReturnsEmpty()
     {
-        var svc = BuildService();
-        var result = await svc.GetCommentThreadsByCursorAsync(-1, MakeRequest());
+        var svc = BuildQueryService();
+        var result = await svc.GetThreadsAsync(-1, MakeRequest());
         Assert.Empty(result.Data);
         Assert.Null(result.NextCursor);
         Assert.False(result.HasMore);
@@ -153,32 +156,32 @@ public class CommentServiceValidationTests
     [Fact]
     public async Task GetThreadReplies_ArticleIdZero_ReturnsEmpty()
     {
-        var svc = BuildService();
-        var result = await svc.GetThreadRepliesByCursorAsync(0, 1L, MakeRequest());
+        var svc = BuildQueryService();
+        var result = await svc.GetRepliesAsync(0, 1L, MakeRequest());
         Assert.Empty(result.Data);
     }
 
     [Fact]
     public async Task GetThreadReplies_RootIdZero_ReturnsEmpty()
     {
-        var svc = BuildService();
-        var result = await svc.GetThreadRepliesByCursorAsync(1, 0L, MakeRequest());
+        var svc = BuildQueryService();
+        var result = await svc.GetRepliesAsync(1, 0L, MakeRequest());
         Assert.Empty(result.Data);
     }
 
     [Fact]
     public async Task GetThreadReplies_NegativeRootId_ReturnsEmpty()
     {
-        var svc = BuildService();
-        var result = await svc.GetThreadRepliesByCursorAsync(1, -100L, MakeRequest());
+        var svc = BuildQueryService();
+        var result = await svc.GetRepliesAsync(1, -100L, MakeRequest());
         Assert.Empty(result.Data);
     }
 
     [Fact]
     public async Task GetThreadReplies_BothNegative_ReturnsEmpty()
     {
-        var svc = BuildService();
-        var result = await svc.GetThreadRepliesByCursorAsync(-1, -1L, MakeRequest());
+        var svc = BuildQueryService();
+        var result = await svc.GetRepliesAsync(-1, -1L, MakeRequest());
         Assert.Empty(result.Data);
         Assert.False(result.HasMore);
     }
@@ -188,8 +191,8 @@ public class CommentServiceValidationTests
     [Fact]
     public async Task GetAttributableComments_UserIdZero_ReturnsEmpty()
     {
-        var svc = BuildService();
-        var result = await svc.GetAttributableCommentsAsync(0, MakeRequest());
+        var svc = BuildQueryService();
+        var result = await svc.GetAttributableAsync(0, MakeRequest());
         Assert.Empty(result.Data);
         Assert.Null(result.NextCursor);
         Assert.False(result.HasMore);
@@ -198,8 +201,8 @@ public class CommentServiceValidationTests
     [Fact]
     public async Task GetAttributableComments_NegativeUserId_ReturnsEmpty()
     {
-        var svc = BuildService();
-        var result = await svc.GetAttributableCommentsAsync(-99, MakeRequest());
+        var svc = BuildQueryService();
+        var result = await svc.GetAttributableAsync(-99, MakeRequest());
         Assert.Empty(result.Data);
         Assert.False(result.HasMore);
     }
@@ -209,8 +212,8 @@ public class CommentServiceValidationTests
     [Fact]
     public async Task GetCommentsByCursor_ArticleIdZero_ReturnsEmpty()
     {
-        var svc = BuildService();
-        var result = await svc.GetCommentsByCursorAsync(0, MakeRequest());
+        var svc = BuildQueryService();
+        var result = await svc.GetLegacyCommentsAsync(0, MakeRequest());
         Assert.Empty(result.Data);
         Assert.False(result.HasMore);
     }
@@ -218,8 +221,8 @@ public class CommentServiceValidationTests
     [Fact]
     public async Task GetCommentsByCursor_NegativeArticleId_ReturnsEmpty()
     {
-        var svc = BuildService();
-        var result = await svc.GetCommentsByCursorAsync(-5, MakeRequest());
+        var svc = BuildQueryService();
+        var result = await svc.GetLegacyCommentsAsync(-5, MakeRequest());
         Assert.Empty(result.Data);
     }
 
@@ -227,18 +230,18 @@ public class CommentServiceValidationTests
     public void CommentCursorQueries_UseIndexedKeysetPredicates()
     {
         string roots = RuntimeMetadataInspection.DescribeDeclaredMethodContaining(
-            typeof(CommentService),
+            typeof(CommentQueryService),
             "c.id < @Cursor",
             "ORDER BY c.id DESC");
         string replies = RuntimeMetadataInspection.DescribeDeclaredMethodContaining(
-            typeof(CommentService),
+            typeof(CommentQueryService),
             "c.id > @Cursor",
             "ORDER BY c.id");
         string publicPaging = RuntimeMetadataInspection.DescribeMethods(
-            typeof(CommentService),
-            nameof(CommentService.GetCommentThreadsByCursorAsync),
-            nameof(CommentService.GetThreadRepliesByCursorAsync),
-            nameof(CommentService.GetAttributableCommentsAsync));
+            typeof(CommentQueryService),
+            nameof(CommentQueryService.GetThreadsAsync),
+            nameof(CommentQueryService.GetRepliesAsync),
+            nameof(CommentQueryService.GetAttributableAsync));
 
         Assert.Contains("c.id < @Cursor", roots);
         Assert.Contains("c.id > @Cursor", replies);
@@ -253,7 +256,7 @@ public class CommentServiceValidationTests
     public void CommentThreadPreviewQuery_UsesSqlPerRootWindowLimit()
     {
         string runtimeShape = RuntimeMetadataInspection.DescribeDeclaredMethodContaining(
-            typeof(CommentService),
+            typeof(CommentQueryService),
             "ROW_NUMBER() OVER (PARTITION BY c.root_id ORDER BY c.id)",
             "WHERE x.rn <= @PreviewLimit");
 
@@ -266,11 +269,11 @@ public class CommentServiceValidationTests
     public void PublicReplyReadQueries_DoNotProjectReplyToUserIdForAuthorNames()
     {
         string repliesQuery = RuntimeMetadataInspection.DescribeDeclaredMethodContaining(
-            typeof(CommentService),
+            typeof(CommentQueryService),
             "LEFT JOIN comment pc ON c.reply_to_comment_id = pc.id",
             "c.id > @Cursor");
         string previewQuery = RuntimeMetadataInspection.DescribeDeclaredMethodContaining(
-            typeof(CommentService),
+            typeof(CommentQueryService),
             "LEFT JOIN comment pc ON c.reply_to_comment_id = pc.id",
             "ROW_NUMBER() OVER (PARTITION BY c.root_id ORDER BY c.id)");
 
@@ -348,7 +351,10 @@ public class CommentServiceValidationTests
     [InlineData(false, "original", "original")]
     public void ToDisplayContent_ReturnsExpected(bool isDeleted, string content, string expected)
     {
-        var result = InvokePrivateStatic<string>("ToDisplayContent", [(object)isDeleted, content]);
+        MethodInfo method = typeof(CommentQueryService).GetMethod(
+            "ToDisplayContent",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+        var result = (string)method.Invoke(null, [(object)isDeleted, content])!;
         Assert.Equal(expected, result);
     }
 

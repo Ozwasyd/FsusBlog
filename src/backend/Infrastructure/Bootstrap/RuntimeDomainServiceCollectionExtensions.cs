@@ -55,7 +55,9 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IPublicMutationFenceLease, PostgresPublicMutationFenceLease>();
         services.AddScoped<IArticleMutationSideEffectCoordinator, ArticleMutationSideEffectCoordinator>();
         services.AddScoped<IArticleEndpointService, ArticleEndpointService>();
+        services.AddScoped<ICommentQueryService, CommentQueryService>();
         services.AddScoped<ICommentEndpointService>(sp => sp.GetRequiredService<CommentService>());
+        services.AddScoped<ICommentCommandService>(sp => sp.GetRequiredService<CommentService>());
         return services;
     }
 

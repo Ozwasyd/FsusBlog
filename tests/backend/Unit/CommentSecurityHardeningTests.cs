@@ -189,11 +189,12 @@ public sealed class CommentSecurityHardeningTests
         Assert.Contains("NormalizeCommentFrameRegion", cacheResult, StringComparison.Ordinal);
 
         string service = RuntimeMetadataInspection.DescribeType(typeof(CommentService));
+        string queries = RuntimeMetadataInspection.DescribeType(typeof(CommentQueryService));
         Assert.Contains(nameof(CommentRegionCompliance), service, StringComparison.Ordinal);
         Assert.Contains("set_RegionDecision", service, StringComparison.Ordinal);
         Assert.Contains("RegionLegalModerationService.SerializeRegions", service, StringComparison.Ordinal);
         Assert.Contains(nameof(CommentBlockedRegion), service, StringComparison.Ordinal);
-        Assert.Contains("comment_blocked_region br", service, StringComparison.Ordinal);
+        Assert.Contains("comment_blocked_region br", queries, StringComparison.Ordinal);
 
         string authoring = RuntimeMetadataInspection.DescribeType(typeof(AuthoringModerationWorkflowService));
         Assert.Contains("IsRegionApprovalAllowed", authoring, StringComparison.Ordinal);
@@ -283,7 +284,7 @@ public sealed class CommentSecurityHardeningTests
     public void CommentRegionCompliance_PublicReadFiltersAvoidUnsupportedSqlSugarStringComparison()
     {
         string publicReads = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
-            typeof(CommentService),
+            typeof(CommentQueryService),
             "comment_blocked_region br",
             "br.region_code = @ViewerRegion");
 
@@ -299,8 +300,8 @@ public sealed class CommentSecurityHardeningTests
     public void UserCommentHistory_ExposesModerationStatusWithoutInternalReasons()
     {
         string userCommentsBlock = RuntimeMetadataInspection.DescribeMethods(
-            typeof(CommentService),
-            nameof(CommentService.GetAttributableCommentsAsync));
+            typeof(CommentQueryService),
+            nameof(CommentQueryService.GetAttributableAsync));
 
         Assert.Contains("set_ModerationStatus", userCommentsBlock, StringComparison.Ordinal);
         Assert.Contains("set_HasBlockedRegions", userCommentsBlock, StringComparison.Ordinal);

@@ -241,7 +241,8 @@ public sealed class AnonymousCommentSubmitTests(
             .Where(item => item.Id == reply.Id)
             .ExecuteCommandAsync();
 
-        CursorResponse<CommentReplyItemDto> replies = await service.GetThreadRepliesByCursorAsync(
+        var queries = new CommentQueryService(db, new RegionLegalModerationService());
+        CursorResponse<CommentReplyItemDto> replies = await queries.GetRepliesAsync(
             42,
             100,
             new CursorPageRequest<long> { Limit = 5 });
@@ -326,7 +327,8 @@ public sealed class AnonymousCommentSubmitTests(
             credentialLevel: AnonymousCredentialLevels.StrongAnonymous);
         CommentService service = CreateService(db, new RecordingTicketService());
 
-        CursorResponse<CommentThreadItemDto> result = await service.GetCommentThreadsByCursorAsync(
+        var queries = new CommentQueryService(db, new RegionLegalModerationService());
+        CursorResponse<CommentThreadItemDto> result = await queries.GetThreadsAsync(
             42,
             new CursorPageRequest<long> { Limit = 10 });
 
@@ -373,7 +375,8 @@ public sealed class AnonymousCommentSubmitTests(
             depth: 1);
         CommentService service = CreateService(db, new RecordingTicketService());
 
-        CursorResponse<CommentReplyItemDto> result = await service.GetThreadRepliesByCursorAsync(
+        var queries = new CommentQueryService(db, new RegionLegalModerationService());
+        CursorResponse<CommentReplyItemDto> result = await queries.GetRepliesAsync(
             42,
             100,
             new CursorPageRequest<long> { Limit = 10 });
@@ -394,7 +397,8 @@ public sealed class AnonymousCommentSubmitTests(
         SeedStrongAnonymousComment(db, commentId: 101, articleId: 42, legacyUserId: 7);
         CommentService service = CreateService(db, new RecordingTicketService());
 
-        CursorResponse<UserCommentResponse> result = await service.GetAttributableCommentsAsync(
+        var queries = new CommentQueryService(db, new RegionLegalModerationService());
+        CursorResponse<UserCommentResponse> result = await queries.GetAttributableAsync(
             7,
             new CursorPageRequest<long> { Limit = 10 });
 
