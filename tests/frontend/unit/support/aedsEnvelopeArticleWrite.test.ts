@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { encodeArticleWriteRequest } from '../../support/aeds-envelope.mjs'
 
 describe('support ArticleWriteRequest encoder', () => {
-  it('emits the V3 rights section expected by the binary admin article endpoint', () => {
+  it('emits the V4 preserve mode when rights are omitted', () => {
     const payload = encodeArticleWriteRequest({
       title: 'Title',
       content: 'Content',
@@ -16,7 +16,8 @@ describe('support ArticleWriteRequest encoder', () => {
 
     const parsed = parseArticleWriteRequestPayload(payload)
 
-    expect(parsed.version).toBe(3)
+    expect(parsed.version).toBe(4)
+    expect(parsed.rightsMutation).toBe(0)
     expect(parsed.flags).toBe(15)
     expect(parsed.copyrightYear).toBe(0)
     expect(parsed.maxExcerptChars).toBe(300)
@@ -27,6 +28,7 @@ describe('support ArticleWriteRequest encoder', () => {
 
 function parseArticleWriteRequestPayload(payload: Uint8Array): {
   version: number
+  rightsMutation: number
   flags: number
   copyrightYear: number
   maxExcerptChars: number
@@ -41,6 +43,8 @@ function parseArticleWriteRequestPayload(payload: Uint8Array): {
   cursor += 4
   cursor += 8
   const version = view.getInt32(cursor, true)
+  cursor += 4
+  const rightsMutation = view.getInt32(cursor, true)
   cursor += 4
   const flags = view.getInt32(cursor, true)
   cursor += 4
@@ -65,6 +69,7 @@ function parseArticleWriteRequestPayload(payload: Uint8Array): {
 
   return {
     version,
+    rightsMutation,
     flags,
     copyrightYear,
     maxExcerptChars,

@@ -214,10 +214,10 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "文章写入请求体非法"), aeds);
             }
 
-            Result<int> result = await articles.CreateAsync(request, cancellationToken);
+            Result<ArticleMutationResponseDto> result = await articles.CreateAsync(request, cancellationToken);
 
             return result.IsSuccess
-                ? BinaryResults.Frame(aeds, AedsFrameType.MutationId, writer => PodBinaryCodec.WriteMutationId(result.Value, writer))
+                ? BinaryResults.Frame(aeds, AedsFrameType.MutationId, writer => PodBinaryCodec.WriteArticleMutationResponse(result.Value, writer))
                 : BinaryResults.FromError(result.Error, aeds);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
@@ -241,10 +241,10 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "文章写入请求体非法"), aeds);
             }
 
-            Result result = await articles.UpdateAsync(id, request, cancellationToken);
+            Result<ArticleMutationResponseDto> result = await articles.UpdateAsync(id, request, cancellationToken);
 
             return result.IsSuccess
-                ? BinaryResults.Frame(aeds, AedsFrameType.MutationId, writer => PodBinaryCodec.WriteMutationId(id, writer))
+                ? BinaryResults.Frame(aeds, AedsFrameType.MutationId, writer => PodBinaryCodec.WriteArticleMutationResponse(result.Value, writer))
                 : BinaryResults.FromError(result.Error, aeds);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)

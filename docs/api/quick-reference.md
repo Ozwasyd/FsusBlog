@@ -249,6 +249,8 @@
 | GET | `/api/binary/stats` | 👑 📦 | `AdminStats`(7) | Binary 聚合统计（overview + recent comments + regions） |
 | GET | `/api/binary/admin/article` | 👑 📦 | `ArticleList`(1) | 管理端文章列表，可带 `status` / `isDeleted`；`page>=1`、`size=1..100`，非法值返回 400 |
 | GET | `/api/binary/admin/article/{id}` | 👑 📦 | `ArticleDetail`(2) | 管理端文章详情 |
+| POST | `/api/binary/admin/article` | 👑 📦 🚦 PoW | `ArticleWriteRequest` → `MutationId`(241) | 创建文章；V4 rights mutation 为 preserve/replace/reset，响应携带 article ID、绑定的 rights snapshot ID 与 revision no |
+| PUT | `/api/binary/admin/article/{id}` | 👑 📦 🚦 PoW | `ArticleWriteRequest` → `MutationId`(241) | 更新文章；省略 rights 保留当前策略，完整 payload 替换，显式 reset 恢复默认策略 |
 | POST | `/api/binary/upload/init` | 👑 | `UploadInit`(20) | 初始化分片上传 |
 | GET | `/api/binary/upload/{id}` | 👑 📦 | `UploadStatus`(21) | 查询上传状态 |
 | PUT | `/api/binary/upload/{id}/part/{n}` | 👑 📦 | `UploadPartAck`(22) | 上传分片 |
@@ -325,7 +327,7 @@
 | POST | `/api/binary/author/prepublish-check` | 👑 | 发布前 SEO/内容质量检查 |
 | GET | `/api/binary/author/articles/{articleId}/revisions` | 👑 | 文章修订列表 |
 | GET | `/api/binary/author/articles/{articleId}/revisions/{revisionId}` | 👑 | 文章修订详情 |
-| POST | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/rollback` | 👑 | 回滚修订 |
+| POST | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/rollback` | 👑 | 回滚修订；未附带 rights mutation 时保留当前版权策略，新 revision 绑定新 snapshot |
 | POST | `/api/binary/author/articles/{articleId}/assets/reindex` | 👑 | 重建资产引用 |
 | GET | `/api/binary/author/assets` | 👑 | 资产库列表 |
 | DELETE | `/api/binary/author/assets/orphans` | 👑 | 删除孤儿资产库记录 |
@@ -399,7 +401,7 @@
 | POST | `/api/binary/admin/security/risk/ip/reset` | 👑🚦 MFA | 重置指定 IP 风险分 |
 | GET | `/api/binary/author/content/export` | 👑 | 全站内容备份包 |
 | GET | `/api/binary/author/articles/{articleId}/export` | 👑 | 导出 Markdown + frontmatter |
-| POST | `/api/binary/author/articles/import` | 👑 | 导入 Markdown + frontmatter |
+| POST | `/api/binary/author/articles/import` | 👑 | 导入 Markdown + frontmatter；未提供 rights 时按 create 语义绑定默认策略 snapshot |
 | GET | `/api/binary/author/audit` | 👑🚦 | 审计日志 cursor 列表，支持 actor/action/target/outcome/time 过滤 |
 | GET | `/api/binary/author/audit/summary` | 👑🚦 | 审计 facet 汇总与写入 runtime |
 | GET | `/api/binary/author/audit/{id}` | 👑🚦 | 审计详情与 context |

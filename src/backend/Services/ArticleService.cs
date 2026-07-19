@@ -664,7 +664,7 @@ public partial class ArticleService(
         var tagIds = NormalizeTagIds(dto.TagIds);
         ArticleSummaryProjectionResult summaryProjection = ArticleSummaryProjection.Resolve(summary, content);
         string safeSummary = summaryProjection.Text;
-        ArticleRightsWriteModel rights = NormalizeArticleRights(dto.Rights);
+        ArticleRightsWriteModel rights = ResolveCreateArticleRights(dto);
         DateTime now = DateTime.UtcNow;
         ArticleStatus status = (ArticleStatus)dto.Status;
         ValidateWriteTarget(status, dto.ScheduledPublishAt, now);
@@ -918,7 +918,7 @@ public partial class ArticleService(
         DateTime? scheduledPublishAt,
         ArticleRightsWriteModel rights)
     {
-        long policyId = await UpsertArticleRightsPolicyAsync(articleId, rights).ConfigureAwait(false);
+        long policyId = await EnsureArticleRightsPolicyAsync(articleId, rights).ConfigureAwait(false);
         string contentCanonicalHash = "sha256:" + ArticleCanonicalHashV1.ComputeHashHex(new ArticleCanonicalInput(
             ArticleId: articleId,
             ArticleRevisionId: revision.Id,
@@ -1022,8 +1022,17 @@ public partial class ArticleService(
         return reader.ReadInt64("id");
     }
 
-    private async Task<long> UpsertArticleRightsPolicyAsync(int articleId, ArticleRightsWriteModel rights)
+    private async Task<long> EnsureArticleRightsPolicyAsync(int articleId, ArticleRightsWriteModel rights)
     {
+        ArticleRightsPolicy? current = await _db.Queryable<ArticleRightsPolicy>()
+            .Where(item => item.ArticleId == articleId)
+            .FirstAsync(Ct)
+            .ConfigureAwait(false);
+        if (current is not null && ToRightsWriteModel(current) == rights)
+        {
+            return current.Id;
+        }
+
         using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
             """
             INSERT INTO article_rights_policy (
@@ -1133,6 +1142,85 @@ public partial class ArticleService(
             ProofBindingEnabled: value.ProofBindingEnabled);
     }
 
+    private static ArticleRightsWriteModel ResolveCreateArticleRights(ArticleWriteRequestCoreModel request)
+    {
+        ArticleRightsMutationMode mutation = ResolveRightsMutation(request);
+        return mutation switch
+        {
+            ArticleRightsMutationMode.Preserve => NormalizeArticleRights(null),
+            ArticleRightsMutationMode.Reset when request.Rights is null => NormalizeArticleRights(null),
+            ArticleRightsMutationMode.Replace when request.Rights is not null => NormalizeArticleRights(request.Rights),
+            ArticleRightsMutationMode.Reset => throw new ArticleWriteValidationException(
+                "article_rights_reset_payload_conflict",
+                "Rights reset cannot include a replacement payload."),
+            ArticleRightsMutationMode.Replace => throw new ArticleWriteValidationException(
+                "article_rights_payload_required",
+                "Rights replacement requires a complete payload."),
+            _ => throw new ArticleWriteValidationException(
+                "article_rights_mutation_invalid",
+                "Rights mutation mode is invalid.")
+        };
+    }
+
+    private async Task<ArticleRightsWriteModel> ResolveUpdateArticleRightsAsync(
+        int articleId,
+        ArticleWriteRequestCoreModel request)
+    {
+        ArticleRightsMutationMode mutation = ResolveRightsMutation(request);
+        if (mutation == ArticleRightsMutationMode.Replace)
+        {
+            return request.Rights is not null
+                ? NormalizeArticleRights(request.Rights)
+                : throw new ArticleWriteValidationException(
+                    "article_rights_payload_required",
+                    "Rights replacement requires a complete payload.");
+        }
+
+        if (mutation == ArticleRightsMutationMode.Reset)
+        {
+            if (request.Rights is not null)
+            {
+                throw new ArticleWriteValidationException(
+                    "article_rights_reset_payload_conflict",
+                    "Rights reset cannot include a replacement payload.");
+            }
+
+            return NormalizeArticleRights(null);
+        }
+
+        if (mutation != ArticleRightsMutationMode.Preserve)
+        {
+            throw new ArticleWriteValidationException(
+                "article_rights_mutation_invalid",
+                "Rights mutation mode is invalid.");
+        }
+
+        ArticleRightsPolicy? current = await _db.Queryable<ArticleRightsPolicy>()
+            .Where(item => item.ArticleId == articleId)
+            .FirstAsync(Ct)
+            .ConfigureAwait(false);
+        return current is null ? NormalizeArticleRights(null) : ToRightsWriteModel(current);
+    }
+
+    private static ArticleRightsMutationMode ResolveRightsMutation(ArticleWriteRequestCoreModel request)
+        => request.RightsMutation == ArticleRightsMutationMode.Preserve && request.Rights is not null
+            ? ArticleRightsMutationMode.Replace
+            : request.RightsMutation;
+
+    private static ArticleRightsWriteModel ToRightsWriteModel(ArticleRightsPolicy policy)
+        => new(
+            policy.Enabled,
+            policy.LicenseType,
+            policy.CopyrightHolder,
+            policy.CopyrightYear,
+            policy.RightsStatement,
+            policy.AttributionTemplate,
+            policy.CopyPolicy,
+            policy.MaxExcerptChars,
+            policy.AllowCodeCopy,
+            policy.ShowPublicBadge,
+            policy.ProofBindingEnabled);
+
     private static string? NormalizeOptionalRightsText(string? value, int maxLength)
     {
         string normalized = NormalizeText(value, maxLength);
@@ -1235,7 +1323,6 @@ public partial class ArticleService(
         var tagIds = NormalizeTagIds(dto.TagIds);
         ArticleSummaryProjectionResult summaryProjection = ArticleSummaryProjection.Resolve(summary, content);
         string safeSummary = summaryProjection.Text;
-        ArticleRightsWriteModel rights = NormalizeArticleRights(dto.Rights);
         DateTime now = DateTime.UtcNow;
         ArticleStatus requestedStatus = (ArticleStatus)dto.Status;
         ValidateWriteTarget(requestedStatus, dto.ScheduledPublishAt, now);
@@ -1309,6 +1396,7 @@ public partial class ArticleService(
                 var assetReferences = new ArticleAssetReferenceStore(_db);
                 await assetReferences.ReplaceCurrentArticleAsync(id, content, coverImageUrl, ct).ConfigureAwait(false);
                 await assetReferences.ReplaceRevisionAsync(revision.Id, id, content, coverImageUrl, ct).ConfigureAwait(false);
+                ArticleRightsWriteModel rights = await ResolveUpdateArticleRightsAsync(id, dto).ConfigureAwait(false);
                 long rightsSnapshotId = await SaveArticleRightsAsync(
                     id,
                     revision,

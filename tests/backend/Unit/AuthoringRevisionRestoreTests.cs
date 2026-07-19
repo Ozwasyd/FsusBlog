@@ -1,6 +1,9 @@
 using System.Reflection;
 
+using FsusBlog.Core.Common;
+using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Services.Abstractions;
+using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services.Authoring;
@@ -41,6 +44,26 @@ public sealed class AuthoringRevisionRestoreTests(PostgresSchemaMigrationFixture
         ArticleRevision revision = Assert.Single(revisions);
         Assert.Equal(1, revision.RevisionNo);
         Assert.Equal("Original", revision.Title);
+    }
+
+    [Fact]
+    public async Task ImportArticleAsync_DeclaresCreateSideRightsPreserve()
+    {
+        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        var core = Substitute.For<IArticleCoreService>();
+        CreateArticleCommand captured = default;
+        core.CreateAsync(Arg.Do<CreateArticleCommand>(command => captured = command), Arg.Any<CancellationToken>())
+            .Returns(Result<int>.Success(77));
+        AuthoringContentTransferService service = CreateService(db, core);
+
+        ContentImportResponse result = await service.ImportArticleAsync(new ContentImportRequest(
+            "---\ntitle: Imported\ncategoryId: 1\n---\n\n# body",
+            Publish: false,
+            PreserveRevisions: false));
+
+        Assert.Equal(77, result.ArticleId);
+        Assert.Null(captured.Article.Rights);
+        Assert.Equal(ArticleRightsMutationMode.Preserve, captured.Article.RightsMutation);
     }
 
     private static Task<int> InvokeRestoreImportedRevisionsAsync(
@@ -126,10 +149,12 @@ public sealed class AuthoringRevisionRestoreTests(PostgresSchemaMigrationFixture
             EXECUTE FUNCTION fail_imported_revision_insert();
             """);
 
-    private static AuthoringContentTransferService CreateService(SqlSugarClient db)
+    private static AuthoringContentTransferService CreateService(
+        SqlSugarClient db,
+        IArticleCoreService? articleCoreService = null)
         => new(
             db,
-            Substitute.For<IArticleCoreService>(),
+            articleCoreService ?? Substitute.For<IArticleCoreService>(),
             new ConfigurationBuilder().Build(),
             Substitute.For<IAuthoringPrepublishPolicy>(),
             Substitute.For<IAuthoringAuditWriter>(),

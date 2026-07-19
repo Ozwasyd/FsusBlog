@@ -224,7 +224,9 @@ public sealed class AuthoringDraftLifecycleService(
                 revision.CoverImageUrl,
                 revision.CategoryId,
                 AuthoringNormalization.ParseTagIds(revision.TagIds),
-                (int)ArticleStatus.Published),
+                (int)ArticleStatus.Published,
+                Rights: null,
+                RightsMutation: FsusBlog.Core.Mapping.Models.ArticleRightsMutationMode.Preserve),
             FsusBlog.Core.Services.Articles.ArticleUpdateIntent.Rollback));
         bool updated = updateResult.IsSuccess;
         if (updated)

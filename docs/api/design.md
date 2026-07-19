@@ -42,7 +42,7 @@ HTTP shell 契约由 `src/shared/Contracts/Validation/fsusblog.openapi.json` 提
 
 ### 3. 统一响应包装
 
-所有运行时主业务响应体均为 AEDS v2 frame。成功写操作使用 `EmptySuccess` 或 `MutationId`；会被前端立即选中、关联或跳转到新资源的创建操作必须返回 `MutationId`，例如分类、标签和文章创建，不能让前端只靠刷新列表后按名称猜测。失败、鉴权拒绝、限流和异常兜底统一使用 `ApiError` frame。AEDS v1 frame 不再兼容，也不保留旧 frame fallback。
+所有运行时主业务响应体均为 AEDS v2 frame。成功写操作使用 `EmptySuccess` 或 `MutationId`；会被前端立即选中、关联或跳转到新资源的创建操作必须返回 `MutationId`，例如分类、标签和文章创建，不能让前端只靠刷新列表后按名称猜测。分类、标签等通用 mutation 仍返回 8B `MutationIdPod`；文章 create/update 在同一 frame type 下返回 16B `ArticleMutationResponsePod`，同时给出 article ID、绑定的 rights snapshot ID 和 rights revision no，调用方不得从随后读取的“最新策略”猜测本次绑定结果。失败、鉴权拒绝、限流和异常兜底统一使用 `ApiError` frame。AEDS v1 frame 不再兼容，也不保留旧 frame fallback。
 
 ### 4. 原生 AEDS 内部 API 原则
 
@@ -648,7 +648,7 @@ SPA 接管失败时采用 fail-closed：snapshot head 缺失、旧版本、diges
 
 作者工作台生产 API 放在 `/api/binary/author/**`，全部使用 admin 授权和 AEDS frame；浏览器不可访问 JSON envelope，仓内不保留 runtime internal compatibility 层。预览、草稿、修订、管理端 taxonomy、资产、AI 辅助都属于作者私有能力。未发布正文不得进入 feed、search、sitemap、PublicAOT cache，也不得默认发送到外部 AI provider。
 
-文章发布配置包含 Rights V3 策略。admin 创建/更新文章时，`ArticleWriteRequest` 必须使用 V3 frame 写入 `rights` 段；服务端在同一事务内写入文章修订、`article_rights_policy`、`article_rights_snapshot` 和 mutation outbox 的 `rightsSnapshotId`。前端 UI 尚未暴露完整版权面板时也必须写出默认 rights，不允许因为字段缺省让公开 artifact 后续缺失 rights 快照。
+文章发布配置包含 Rights V3 策略。admin 创建/更新文章时，`ArticleWriteRequest V4` 必须明确表达三态 mutation：省略 rights 为 `preserve`，完整 rights payload 为 `replace`，独立 reset 标志为 `reset`；reset 不得与 replacement payload 并存。create 的 preserve/reset 绑定仓库默认策略，update 与 revision rollback 的 preserve 沿用当前有效策略；服务端只在有效策略变化时更新 `article_rights_policy`，但每个新内容 revision 都必须创建并绑定不可变 `article_rights_snapshot`。文章修订、snapshot、publication 和 mutation outbox 的 `rightsSnapshotId` 保持同一事务；计划发布只消费 revision 已绑定的 snapshot，不在 worker 中重新解析策略。
 
 ### 修订与发布坐标
 
@@ -676,7 +676,7 @@ SPA 接管失败时采用 fail-closed：snapshot head 缺失、旧版本、diges
 
 代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringUseCasePorts.cs`](../../src/backend/Services/Authoring/AuthoringUseCasePorts.cs)、[`useAdminArticleWrite.ts`](../../src/frontend/src/composables/useAdminArticleWrite.ts)。
 
-文章修订历史必须通过 admin-only API 读取摘要和单条正文详情：`GET /api/binary/author/articles/{articleId}/revisions` 与 `GET /api/binary/author/articles/{articleId}/revisions/{revisionId}`。响应只暴露 `createdByAdminPrincipalId`，不暴露旧 `createdByUserId`。回滚使用 `POST /api/binary/author/articles/{articleId}/revisions/{revisionId}/rollback`，服务层复用正式文章更新/失效链路写入新修订、刷新 AOT/search/feed/binary cache 并写审计；仓内不存在 issue 中提到的单数 article update 猜测路径，文档不得引用该旧猜测路径。编辑器只在作者工作台内比较当前表单与历史版本，回滚不得直接写表。
+文章修订历史必须通过 admin-only API 读取摘要和单条正文详情：`GET /api/binary/author/articles/{articleId}/revisions` 与 `GET /api/binary/author/articles/{articleId}/revisions/{revisionId}`。响应只暴露 `createdByAdminPrincipalId`，不暴露旧 `createdByUserId`。回滚使用 `POST /api/binary/author/articles/{articleId}/revisions/{revisionId}/rollback`，服务层复用正式文章更新/失效链路写入新修订、刷新 AOT/search/feed/binary cache 并写审计；回滚未提供 rights replacement 时必须保留当前有效版权策略，而不是从旧 revision 猜测策略或恢复默认值，新 rollback revision 仍绑定自己的 rights snapshot。仓内不存在 issue 中提到的单数 article update 猜测路径，文档不得引用该旧猜测路径。编辑器只在作者工作台内比较当前表单与历史版本，回滚不得直接写表。
 
 每个 revision 可绑定不可变的 `article_responsibility_snapshot`，保存文章责任作者（或显式站点作者继承）、可选 reviewer、结构化公开来源、实质更新说明及按内容类型启用的方法/适用范围/局限。公开页先同步渲染站点作者回退，再从 `/integrity/article/{id}/responsibility` 渐进增强多人作者、来源和核验信息；sidecar 不进入内部 AEDS runtime contract，也不泄漏后台 actor。早于 revision 表的公开旧文章在 current sidecar 中返回确定性的站点作者继承，使用 `revisionNo=0`、`proofStatus=unavailable`，不得用 404 触发浏览器错误；指定不存在的历史 revision 仍返回 404。预发布治理只对作者资料不匹配和责任人未确认执行阻断；强结论无来源、链接不可公开、实质修改无更新说明、研究内容缺方法/局限均为人工复核 warning，不得转化为关键词密度或 SEO/GEO/E-E-A-T 分数门禁。
 

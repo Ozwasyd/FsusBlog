@@ -118,16 +118,57 @@ public class PodBinaryCodecTests
         Assert.True(decoded.Rights.Value.AllowCodeCopy);
         Assert.False(decoded.Rights.Value.ShowPublicBadge);
         Assert.True(decoded.Rights.Value.ProofBindingEnabled);
+        Assert.Equal(ArticleRightsMutationMode.Replace, decoded.RightsMutation);
     }
 
     [Fact]
-    public void ArticleWriteRequest_DecodeRejectsLegacyPayloadWithoutRightsV3Section()
+    public void ArticleMutationResponse_RoundTrip_ReportsBoundRightsSnapshot()
+    {
+        var response = new ArticleMutationResponseDto(42, 9007199254740, 7);
+        var buffer = new ArrayBufferWriter<byte>();
+
+        PodBinaryCodec.WriteArticleMutationResponse(response, buffer);
+        bool ok = PodBinaryCodec.TryDecodeArticleMutationResponse(buffer.WrittenMemory, out var decoded);
+
+        Assert.True(ok);
+        Assert.Equal(42, decoded.Id);
+        Assert.Equal(9007199254740, decoded.RightsSnapshotId);
+        Assert.Equal(7, decoded.RightsRevisionNo);
+    }
+
+    [Fact]
+    public void ArticleWriteRequest_DecodeLegacyPayloadWithoutRightsSection_PreservesCurrentPolicy()
     {
         byte[] legacy = EncodeLegacyArticleWriteRequestWithoutRightsV3();
 
-        bool ok = PodBinaryCodec.TryDecodeArticleWriteRequest(legacy, out _);
+        bool ok = PodBinaryCodec.TryDecodeArticleWriteRequest(legacy, out var decoded);
 
-        Assert.False(ok);
+        Assert.True(ok);
+        Assert.Null(decoded.Rights);
+        Assert.Equal(ArticleRightsMutationMode.Preserve, decoded.RightsMutation);
+    }
+
+    [Theory]
+    [InlineData(ArticleRightsMutationMode.Preserve)]
+    [InlineData(ArticleRightsMutationMode.Reset)]
+    public void ArticleWriteRequest_RoundTrip_PreservesRightsMutationWithoutReplacement(
+        ArticleRightsMutationMode mutation)
+    {
+        var request = new ArticleWriteRequestCoreModel(
+            "Title",
+            "Content",
+            "Summary",
+            null,
+            3,
+            [],
+            RightsMutation: mutation);
+
+        byte[] encoded = PodBinaryCodec.EncodeArticleWriteRequest(request);
+        bool ok = PodBinaryCodec.TryDecodeArticleWriteRequest(encoded, out var decoded);
+
+        Assert.True(ok);
+        Assert.Null(decoded.Rights);
+        Assert.Equal(mutation, decoded.RightsMutation);
     }
 
     [Fact]

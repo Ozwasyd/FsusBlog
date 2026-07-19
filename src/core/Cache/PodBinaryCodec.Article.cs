@@ -17,6 +17,40 @@ namespace FsusBlog.Core.Cache;
 /// </summary>
 public static partial class PodBinaryCodec
 {
+    /// <summary>
+    /// Writes an article mutation result with the rights snapshot coordinates bound by the write.
+    /// </summary>
+    public static void WriteArticleMutationResponse(
+        ArticleMutationResponseDto response,
+        IBufferWriter<byte> destination)
+    {
+        var writer = new BinaryPodWriter(destination);
+        writer.WritePod(Cast<MutableArticleMutationResponsePod, ArticleMutationResponsePod>(new MutableArticleMutationResponsePod
+        {
+            Id = response.Id,
+            RightsSnapshotId = response.RightsSnapshotId,
+            RightsRevisionNo = response.RightsRevisionNo
+        }));
+    }
+
+    /// <summary>
+    /// Attempts to decode an article mutation result and its bound rights snapshot coordinates.
+    /// </summary>
+    public static bool TryDecodeArticleMutationResponse(
+        ReadOnlyMemory<byte> source,
+        out ArticleMutationResponseDto response)
+    {
+        var reader = new BinaryPodReader(source.Span);
+        if (!reader.TryReadPod(out ArticleMutationResponsePod pod) || !reader.IsConsumed)
+        {
+            response = default;
+            return false;
+        }
+
+        response = new ArticleMutationResponseDto(pod.Id, pod.RightsSnapshotId, pod.RightsRevisionNo);
+        return true;
+    }
+
     internal const int ArticlePageStackScratchByteBudget = 4 * 1024;
     internal const int ArticleDetailDirectCharThreshold = 8 * 1024;
     // COMPATIBILITY: The wire prefix is ASCII FSPA in little-endian storage order.
@@ -32,7 +66,8 @@ public static partial class PodBinaryCodec
     // COMPATIBILITY: The wire prefix is ASCII FAS4 in little-endian storage order.
     private const int ArticleSearchV4PayloadMagic = 0x34534146;
     private const int ArticleSearchV4PayloadVersion = 4;
-    private const int ArticleWriteRequestVersion = 3;
+    private const int LegacyArticleWriteRequestVersion = 3;
+    private const int ArticleWriteRequestVersion = 4;
     private const int RightsFlagEnabled = 1 << 0;
     private const int RightsFlagAllowCodeCopy = 1 << 1;
     private const int RightsFlagShowPublicBadge = 1 << 2;
@@ -56,6 +91,7 @@ public static partial class PodBinaryCodec
     public static void WriteArticleWriteRequest(ArticleWriteRequestCoreModel request, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(Math.Max(512, request.Title.Length + request.Content.Length + (request.Summary?.Length ?? 0) + (request.CoverImageUrl?.Length ?? 0)));
+        ArticleRightsMutationMode rightsMutation = ResolveArticleRightsMutation(request);
         ArticleRightsRequestCoreModel rights = NormalizeArticleRights(request.Rights);
         var rightsPayload = new ArrayBufferWriter<byte>(Math.Max(256,
             rights.LicenseType.Length
@@ -92,6 +128,7 @@ public static partial class PodBinaryCodec
         writer.WriteInt32(request.Status);
         writer.WriteInt64(ToUnixMsOrZero(request.ScheduledPublishAt));
         writer.WriteInt32(ArticleWriteRequestVersion);
+        writer.WriteInt32((int)rightsMutation);
         writer.WriteInt32(BuildRightsFlags(rights));
         writer.WriteInt32(rights.CopyrightYear.GetValueOrDefault());
         writer.WriteInt32(rights.MaxExcerptChars);
@@ -135,11 +172,64 @@ public static partial class PodBinaryCodec
             return false;
         }
 
-        if (!reader.TryReadInt32(out int status) ||
-            !reader.TryReadInt64(out long scheduledPublishAtUnixMs) ||
-            !reader.TryReadInt32(out int version) ||
-            version != ArticleWriteRequestVersion ||
-            !reader.TryReadInt32(out int rightsFlags) ||
+        int status = 2;
+        DateTime? scheduledPublishAt = null;
+        if (reader.Remaining == 0)
+        {
+            request = BuildArticleWriteRequest(
+                pod,
+                tagIds,
+                payloadSpan,
+                status,
+                scheduledPublishAt,
+                rights: null,
+                ArticleRightsMutationMode.Preserve);
+            return true;
+        }
+
+        if (!reader.TryReadInt32(out status) ||
+            !reader.TryReadInt64(out long scheduledPublishAtUnixMs))
+        {
+            request = default;
+            return false;
+        }
+
+        scheduledPublishAt = FromUnixMsOrNull(scheduledPublishAtUnixMs);
+        if (reader.IsConsumed)
+        {
+            request = BuildArticleWriteRequest(
+                pod,
+                tagIds,
+                payloadSpan,
+                status,
+                scheduledPublishAt,
+                rights: null,
+                ArticleRightsMutationMode.Preserve);
+            return true;
+        }
+
+        if (!reader.TryReadInt32(out int version) ||
+            version is not (LegacyArticleWriteRequestVersion or ArticleWriteRequestVersion))
+        {
+            request = default;
+            return false;
+        }
+
+        ArticleRightsMutationMode rightsMutation = ArticleRightsMutationMode.Replace;
+        int rawRightsMutation = (int)rightsMutation;
+        if (version == ArticleWriteRequestVersion &&
+            (!reader.TryReadInt32(out rawRightsMutation) ||
+             !Enum.IsDefined(typeof(ArticleRightsMutationMode), rawRightsMutation)))
+        {
+            request = default;
+            return false;
+        }
+        else if (version == ArticleWriteRequestVersion)
+        {
+            rightsMutation = (ArticleRightsMutationMode)rawRightsMutation;
+        }
+
+        if (!reader.TryReadInt32(out int rightsFlags) ||
             !reader.TryReadInt32(out int copyrightYearValue) ||
             !reader.TryReadInt32(out int maxExcerptChars) ||
             !reader.TryReadPod(out ArticleRightsWriteRequestPod rightsPod) ||
@@ -150,7 +240,6 @@ public static partial class PodBinaryCodec
             return false;
         }
 
-        DateTime? scheduledPublishAt = FromUnixMsOrNull(scheduledPublishAtUnixMs);
         var rights = new ArticleRightsRequestCoreModel(
             Enabled: (rightsFlags & RightsFlagEnabled) != 0,
             LicenseType: PodProjector.ReadSlice(rightsPod.LicenseType, rightsPayloadSpan),
@@ -164,7 +253,26 @@ public static partial class PodBinaryCodec
             ShowPublicBadge: (rightsFlags & RightsFlagShowPublicBadge) != 0,
             ProofBindingEnabled: (rightsFlags & RightsFlagProofBindingEnabled) != 0);
 
-        request = new ArticleWriteRequestCoreModel(
+        request = BuildArticleWriteRequest(
+            pod,
+            tagIds,
+            payloadSpan,
+            status,
+            scheduledPublishAt,
+            rightsMutation == ArticleRightsMutationMode.Replace ? rights : null,
+            rightsMutation);
+        return reader.IsConsumed;
+    }
+
+    private static ArticleWriteRequestCoreModel BuildArticleWriteRequest(
+        in ArticleWriteRequestPod pod,
+        IReadOnlyList<int> tagIds,
+        ReadOnlySpan<byte> payloadSpan,
+        int status,
+        DateTime? scheduledPublishAt,
+        ArticleRightsRequestCoreModel? rights,
+        ArticleRightsMutationMode rightsMutation)
+        => new(
             PodProjector.ReadSlice(pod.Title, payloadSpan),
             PodProjector.ReadSlice(pod.Content, payloadSpan),
             PodProjector.ReadSlice(pod.Summary, payloadSpan),
@@ -173,9 +281,13 @@ public static partial class PodBinaryCodec
             tagIds,
             status,
             scheduledPublishAt,
-            rights);
-        return reader.IsConsumed;
-    }
+            rights,
+            rightsMutation);
+
+    private static ArticleRightsMutationMode ResolveArticleRightsMutation(ArticleWriteRequestCoreModel request)
+        => request.RightsMutation == ArticleRightsMutationMode.Preserve && request.Rights.HasValue
+            ? ArticleRightsMutationMode.Replace
+            : request.RightsMutation;
 
     private static ArticleRightsRequestCoreModel NormalizeArticleRights(ArticleRightsRequestCoreModel? rights)
     {
@@ -242,6 +354,14 @@ public static partial class PodBinaryCodec
     {
         string value = PodProjector.ReadSlice(slice, payload);
         return value.Length == 0 ? null : value;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableArticleMutationResponsePod
+    {
+        public int Id;
+        public long RightsSnapshotId;
+        public int RightsRevisionNo;
     }
 
     private static Utf8SliceRef PlanUtf8Slice(string? value, ref int nextOffset)

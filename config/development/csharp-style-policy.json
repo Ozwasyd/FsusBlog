@@ -110,7 +110,7 @@
                         ]
                     },
                     {
-                        "name": "InboxConversationClosedPayload",
+                        "name": "InboxConversationStatusChangedPayload",
                         "parameters": [
                             "ConversationId",
                             "Status",
@@ -201,7 +201,8 @@
                             "_mutationFence",
                             "_mutationSideEffects",
                             "_viewWriteBuffer",
-                            "_publicationValidator"
+                            "_publicationValidator",
+                            "_articleBodyRepairQueue"
                         ]
                     }
                 ],

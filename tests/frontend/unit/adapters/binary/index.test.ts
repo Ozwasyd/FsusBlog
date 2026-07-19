@@ -310,4 +310,17 @@ describe('decodeBinaryFramePayload', () => {
     new DataView(payload.buffer).setBigInt64(0, 42n, true)
     expect(decodeBinaryFramePayload(FrameType.MutationId, payload)).toEqual({ id: 42 })
   })
+
+  it('maps article mutation coordinates from the extended MutationId payload', () => {
+    const payload = new Uint8Array(16)
+    writeInt32(payload, 0, 42)
+    writeInt64(payload, 4, 9007199254740n)
+    writeInt32(payload, 12, 7)
+
+    expect(decodeBinaryFramePayload(FrameType.MutationId, payload)).toEqual({
+      id: 42,
+      rightsSnapshotId: 9007199254740,
+      rightsRevisionNo: 7
+    })
+  })
 })

@@ -169,13 +169,14 @@ describe('article API (admin)', () => {
     })
   })
 
-  it('createArticle encodes ArticleWriteRequest V3 rights defaults', async () => {
+  it('createArticle encodes ArticleWriteRequest V4 preserve mode when rights are omitted', async () => {
     const data = { title: 'T', content: 'C', summary: 'S', categoryId: 1, tagIds: [] }
     await createArticle(data)
 
     const parsed = parseArticleWriteRequestPayload(getMutationPayload())
 
-    expect(parsed.version).toBe(3)
+    expect(parsed.version).toBe(4)
+    expect(parsed.rightsMutation).toBe(0)
     expect(parsed.flags).toBe(15)
     expect(parsed.copyrightYear).toBe(0)
     expect(parsed.maxExcerptChars).toBe(300)
@@ -186,7 +187,7 @@ describe('article API (admin)', () => {
     expect(parsed.rights.attributionTemplate).toBe('')
   })
 
-  it('createArticle encodes ArticleWriteRequest V3 explicit rights fields', async () => {
+  it('createArticle encodes ArticleWriteRequest V4 explicit rights replacement', async () => {
     await createArticle({
       title: 'T',
       content: 'C',
@@ -211,7 +212,8 @@ describe('article API (admin)', () => {
     const parsed = parseArticleWriteRequestPayload(getMutationPayload())
 
     expect(parsed.tagIds).toEqual([5, 3])
-    expect(parsed.version).toBe(3)
+    expect(parsed.version).toBe(4)
+    expect(parsed.rightsMutation).toBe(1)
     expect(parsed.flags).toBe(27)
     expect(parsed.copyrightYear).toBe(2026)
     expect(parsed.maxExcerptChars).toBe(128)
@@ -233,6 +235,20 @@ describe('article API (admin)', () => {
         body: expect.any(ArrayBuffer)
       })
     })
+  })
+
+  it('updateArticle encodes explicit rights reset independently from a replacement payload', async () => {
+    const data = {
+      title: 'T',
+      content: 'C',
+      summary: 'S',
+      categoryId: 1,
+      tagIds: [],
+      resetRights: true
+    }
+    await updateArticle(10, data)
+
+    expect(parseArticleWriteRequestPayload(getMutationPayload()).rightsMutation).toBe(2)
   })
 
   it('deleteArticle calls DELETE /Article/:id', async () => {
@@ -308,6 +324,7 @@ function getMutationPayload(): Uint8Array {
 function parseArticleWriteRequestPayload(payload: Uint8Array): {
   tagIds: number[]
   version: number
+  rightsMutation: number
   flags: number
   copyrightYear: number
   maxExcerptChars: number
@@ -328,6 +345,8 @@ function parseArticleWriteRequestPayload(payload: Uint8Array): {
   cursor += 4
   cursor += 8
   const version = view.getInt32(cursor, true)
+  cursor += 4
+  const rightsMutation = view.getInt32(cursor, true)
   cursor += 4
   const flags = view.getInt32(cursor, true)
   cursor += 4
@@ -354,6 +373,7 @@ function parseArticleWriteRequestPayload(payload: Uint8Array): {
   return {
     tagIds,
     version,
+    rightsMutation,
     flags,
     copyrightYear,
     maxExcerptChars,

@@ -38,6 +38,10 @@ public sealed record class CreateArticleRequest
     {
         get; init;
     }
+    public bool ResetRights
+    {
+        get; init;
+    }
 }
 
 public sealed record class UpdateArticleRequest
@@ -72,6 +76,10 @@ public sealed record class UpdateArticleRequest
         get; init;
     }
     public ArticleRightsRequest? Rights
+    {
+        get; init;
+    }
+    public bool ResetRights
     {
         get; init;
     }

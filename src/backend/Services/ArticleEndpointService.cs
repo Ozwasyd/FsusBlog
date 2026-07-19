@@ -209,16 +209,43 @@ public sealed class ArticleEndpointService(
                 new ArticleCategoryView(item.Category.Id, item.Category.Name))).ToArray());
     }
 
-    public Task<Result<int>> CreateAsync(ArticleWriteRequestCoreModel request, CancellationToken cancellationToken = default)
+    public async Task<Result<ArticleMutationResponseDto>> CreateAsync(ArticleWriteRequestCoreModel request, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return core.CreateAsync(new CreateArticleCommand(request), cancellationToken);
+        Result<int> result = await core.CreateAsync(new CreateArticleCommand(request), cancellationToken);
+        return !result.IsSuccess
+            ? Result<ArticleMutationResponseDto>.Failure(result.Error)
+            : await LoadArticleMutationResponseAsync(result.Value, cancellationToken);
     }
 
-    public Task<Result> UpdateAsync(int id, ArticleWriteRequestCoreModel request, CancellationToken cancellationToken = default)
+    public async Task<Result<ArticleMutationResponseDto>> UpdateAsync(int id, ArticleWriteRequestCoreModel request, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return core.UpdateAsync(new UpdateArticleCommand(id, request), cancellationToken);
+        Result result = await core.UpdateAsync(new UpdateArticleCommand(id, request), cancellationToken);
+        return !result.IsSuccess
+            ? Result<ArticleMutationResponseDto>.Failure(result.Error)
+            : await LoadArticleMutationResponseAsync(id, cancellationToken);
+    }
+
+    private async Task<Result<ArticleMutationResponseDto>> LoadArticleMutationResponseAsync(
+        int articleId,
+        CancellationToken cancellationToken)
+    {
+        Result<ArticleDetailCoreModel?> detail = await core.GetByIdAsync(
+            new ArticleDetailQuery(articleId, IncludePrivate: true),
+            cancellationToken);
+        if (!detail.IsSuccess || detail.Value is null)
+        {
+            return Result<ArticleMutationResponseDto>.Failure(
+                ErrorCode.InfraFailure,
+                "article_mutation_version_unavailable");
+        }
+
+        ArticleDetailCoreModel article = detail.Value.Value;
+        return Result<ArticleMutationResponseDto>.Success(new ArticleMutationResponseDto(
+            articleId,
+            article.Rights.SnapshotId,
+            article.Rights.RevisionNo));
     }
 
     public async Task<int> ClearTrashAsync(CancellationToken cancellationToken = default)

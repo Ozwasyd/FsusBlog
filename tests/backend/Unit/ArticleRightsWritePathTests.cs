@@ -1,14 +1,17 @@
 using FsusBlog.Core.Integrity;
 using FsusBlog.Core.Services.Articles;
+using FsusBlog.Core.Services.Implementations;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Services;
-using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Articles;
+using FsusBlog.Server.Services.Authoring;
+using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
 using Microsoft.AspNetCore.Http;
@@ -269,6 +272,157 @@ public sealed class ArticleRightsWritePathTests(
     }
 
     [Fact]
+    public async Task UpdateAsync_OmittedRightsPreservesPolicyAndBindsNewRevisionSnapshot()
+    {
+        using SqlSugarClient db = classDatabase.CreateClient();
+        CreateTables(db);
+        ArticleService service = CreateService(db);
+        int articleId = await service.CreateAsync(new CreateArticleRequest
+        {
+            Title = "Rights article",
+            Content = "# original",
+            Summary = "summary",
+            CategoryId = 1,
+            TagIds = [1],
+            Status = ArticleStatus.Published,
+            Rights = CustomRights("CC-BY-4.0", "Preserved Holder", showBadge: false)
+        });
+        ArticleRightsPolicy originalPolicy = await db.Queryable<ArticleRightsPolicy>()
+            .Where(item => item.ArticleId == articleId)
+            .FirstAsync();
+
+        bool updated = await service.UpdateAsync(articleId, new UpdateArticleRequest
+        {
+            Title = "Metadata updated",
+            Content = "# original",
+            Summary = "summary",
+            CategoryId = 1,
+            TagIds = [1],
+            Status = ArticleStatus.Published
+        });
+
+        ArticleRightsPolicy policy = await db.Queryable<ArticleRightsPolicy>()
+            .Where(item => item.ArticleId == articleId)
+            .FirstAsync();
+        List<ArticleRightsSnapshot> snapshots = await db.Queryable<ArticleRightsSnapshot>()
+            .Where(item => item.ArticleId == articleId)
+            .OrderBy(item => item.RevisionNo)
+            .ToListAsync();
+
+        Assert.True(updated);
+        Assert.Equal(originalPolicy.Id, policy.Id);
+        Assert.Equal("CC-BY-4.0", policy.LicenseType);
+        Assert.Equal("Preserved Holder", policy.CopyrightHolder);
+        Assert.False(policy.ShowPublicBadge);
+        Assert.Equal(2, snapshots.Count);
+        Assert.Equal("CC-BY-4.0", snapshots[1].LicenseType);
+        Assert.Equal("Preserved Holder", snapshots[1].CopyrightHolder);
+        Assert.False(snapshots[1].ShowPublicBadge);
+        Assert.NotEqual(snapshots[0].Id, snapshots[1].Id);
+        Assert.Equal(2, snapshots[1].RevisionNo);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ExplicitResetReplacesPolicyWithDefaults()
+    {
+        using SqlSugarClient db = classDatabase.CreateClient();
+        CreateTables(db);
+        ArticleService service = CreateService(db);
+        int articleId = await service.CreateAsync(new CreateArticleRequest
+        {
+            Title = "Rights article",
+            Content = "# body",
+            Summary = "summary",
+            CategoryId = 1,
+            TagIds = [1],
+            Status = ArticleStatus.Published,
+            Rights = CustomRights("CC-BY-4.0", "Reset Holder", showBadge: false)
+        });
+
+        bool updated = await service.UpdateAsync(articleId, new UpdateArticleRequest
+        {
+            Title = "Rights article",
+            Content = "# body",
+            Summary = "summary",
+            CategoryId = 1,
+            TagIds = [1],
+            Status = ArticleStatus.Published,
+            ResetRights = true
+        });
+
+        ArticleRightsPolicy policy = await db.Queryable<ArticleRightsPolicy>()
+            .Where(item => item.ArticleId == articleId)
+            .FirstAsync();
+        ArticleRightsSnapshot latest = await db.Queryable<ArticleRightsSnapshot>()
+            .Where(item => item.ArticleId == articleId)
+            .OrderByDescending(item => item.RevisionNo)
+            .FirstAsync();
+
+        Assert.True(updated);
+        Assert.Equal("all-rights-reserved", policy.LicenseType);
+        Assert.Equal("append-attribution", policy.CopyPolicy);
+        Assert.Null(policy.CopyrightHolder);
+        Assert.Null(policy.CopyrightYear);
+        Assert.True(policy.ShowPublicBadge);
+        Assert.Equal(policy.LicenseType, latest.LicenseType);
+        Assert.Equal(policy.CopyPolicy, latest.CopyPolicy);
+        Assert.Null(latest.CopyrightHolder);
+        Assert.Equal(2, latest.RevisionNo);
+    }
+
+    [Fact]
+    public async Task RollbackRevisionAsync_OmittedRightsPreservesCurrentPolicy()
+    {
+        using SqlSugarClient db = classDatabase.CreateClient();
+        CreateTables(db);
+        ArticleService articleService = CreateService(db);
+        int articleId = await articleService.CreateAsync(new CreateArticleRequest
+        {
+            Title = "Original",
+            Content = "# original",
+            Summary = "summary",
+            CategoryId = 1,
+            TagIds = [1],
+            Status = ArticleStatus.Published,
+            Rights = CustomRights("CC-BY-4.0", "Original Holder", showBadge: true)
+        });
+        ArticleRevision originalRevision = await db.Queryable<ArticleRevision>()
+            .Where(item => item.ArticleId == articleId)
+            .FirstAsync();
+        Assert.True(await articleService.UpdateAsync(articleId, new UpdateArticleRequest
+        {
+            Title = "Current",
+            Content = "# current",
+            Summary = "summary",
+            CategoryId = 1,
+            TagIds = [1],
+            Status = ArticleStatus.Published,
+            Rights = CustomRights("CC-BY-SA-4.0", "Current Holder", showBadge: false)
+        }));
+        var lifecycle = new AuthoringDraftLifecycleService(
+            db,
+            new ArticleCoreService(articleService),
+            ArticlePublicationValidatorTestFactory.CreateAllowing(),
+            Substitute.For<IAuthoringAuditWriter>());
+
+        bool rolledBack = await lifecycle.RollbackRevisionAsync(17, articleId, originalRevision.Id);
+
+        ArticleRightsPolicy policy = await db.Queryable<ArticleRightsPolicy>()
+            .Where(item => item.ArticleId == articleId)
+            .FirstAsync();
+        ArticleRightsSnapshot latest = await db.Queryable<ArticleRightsSnapshot>()
+            .Where(item => item.ArticleId == articleId)
+            .OrderByDescending(item => item.RevisionNo)
+            .FirstAsync();
+        Assert.True(rolledBack);
+        Assert.Equal("CC-BY-SA-4.0", policy.LicenseType);
+        Assert.Equal("Current Holder", policy.CopyrightHolder);
+        Assert.Equal("CC-BY-SA-4.0", latest.LicenseType);
+        Assert.Equal("Current Holder", latest.CopyrightHolder);
+        Assert.Equal(3, latest.RevisionNo);
+    }
+
+    [Fact]
     public async Task CreateAsync_RollsBackArticlePolicyAndOutboxWhenSnapshotInsertFails()
     {
         using SqlSugarClient db = classDatabase.CreateClient();
@@ -362,6 +516,8 @@ public sealed class ArticleRightsWritePathTests(
             typeof(ArticleAssetReference),
             typeof(ArticleAssetCleanupQueueItem),
             typeof(ArticleMutationOutboxEvent),
+            typeof(ArticlePublicationRecord),
+            typeof(ArticleResponsibilitySnapshot),
             typeof(ArticleRightsPolicy),
             typeof(ArticleRightsSnapshot),
             typeof(ArticleRightsProof));

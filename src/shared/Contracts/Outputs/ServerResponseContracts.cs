@@ -19,7 +19,10 @@ public readonly record struct TagWithCountDto(int Id, string Name, int ArticleCo
 /// <summary>
 /// Defines the API output contract represented by <c>ArticleMutationResponseDto</c>.
 /// </summary>
-public readonly record struct ArticleMutationResponseDto(int Id);
+public readonly record struct ArticleMutationResponseDto(
+    int Id,
+    long RightsSnapshotId,
+    int RightsRevisionNo);
 /// <summary>
 /// Defines the API output contract represented by <c>TrashClearResponseDto</c>.
 /// </summary>

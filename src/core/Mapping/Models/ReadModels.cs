@@ -439,6 +439,13 @@ public readonly record struct ArticleRightsRequestCoreModel(
     bool ShowPublicBadge,
     bool ProofBindingEnabled);
 
+public enum ArticleRightsMutationMode
+{
+    Preserve = 0,
+    Replace = 1,
+    Reset = 2
+}
+
 public readonly record struct ArticleWriteRequestCoreModel(
     string Title,
     string Content,
@@ -448,7 +455,8 @@ public readonly record struct ArticleWriteRequestCoreModel(
     IReadOnlyList<int> TagIds,
     int Status = 2,
     DateTime? ScheduledPublishAt = null,
-    ArticleRightsRequestCoreModel? Rights = null);
+    ArticleRightsRequestCoreModel? Rights = null,
+    ArticleRightsMutationMode RightsMutation = ArticleRightsMutationMode.Preserve);
 
 public readonly record struct RecentCommentCoreModel(
     RecentCommentPod Pod,

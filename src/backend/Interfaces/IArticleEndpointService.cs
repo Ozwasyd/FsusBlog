@@ -46,9 +46,9 @@ public interface IArticleEndpointService
         int count,
         CancellationToken cancellationToken = default);
 
-    Task<Result<int>> CreateAsync(ArticleWriteRequestCoreModel request, CancellationToken cancellationToken = default);
+    Task<Result<ArticleMutationResponseDto>> CreateAsync(ArticleWriteRequestCoreModel request, CancellationToken cancellationToken = default);
 
-    Task<Result> UpdateAsync(int id, ArticleWriteRequestCoreModel request, CancellationToken cancellationToken = default);
+    Task<Result<ArticleMutationResponseDto>> UpdateAsync(int id, ArticleWriteRequestCoreModel request, CancellationToken cancellationToken = default);
 
     Task<int> ClearTrashAsync(CancellationToken cancellationToken = default);
 

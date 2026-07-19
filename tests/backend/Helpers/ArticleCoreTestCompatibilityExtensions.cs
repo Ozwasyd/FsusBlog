@@ -100,10 +100,17 @@ internal static class ArticleCoreTestCompatibilityExtensions
         => service.UpdateAsync(id, ToCore(request), cancellationToken);
 
     private static ArticleWriteRequestCoreModel ToCore(CreateArticleRequest request)
-        => new(request.Title, request.Content, request.Summary, request.CoverImageUrl, request.CategoryId, request.TagIds ?? [], (int)request.Status, request.ScheduledPublishAt, ToCore(request.Rights));
+        => new(request.Title, request.Content, request.Summary, request.CoverImageUrl, request.CategoryId, request.TagIds ?? [], (int)request.Status, request.ScheduledPublishAt, ToCore(request.Rights), ResolveRightsMutation(request.Rights, request.ResetRights));
 
     private static ArticleWriteRequestCoreModel ToCore(UpdateArticleRequest request)
-        => new(request.Title, request.Content, request.Summary, request.CoverImageUrl, request.CategoryId, request.TagIds ?? [], (int)request.Status, request.ScheduledPublishAt, ToCore(request.Rights));
+        => new(request.Title, request.Content, request.Summary, request.CoverImageUrl, request.CategoryId, request.TagIds ?? [], (int)request.Status, request.ScheduledPublishAt, ToCore(request.Rights), ResolveRightsMutation(request.Rights, request.ResetRights));
+
+    private static ArticleRightsMutationMode ResolveRightsMutation(ArticleRightsRequest? request, bool resetRights)
+        => resetRights
+            ? ArticleRightsMutationMode.Reset
+            : request is null
+                ? ArticleRightsMutationMode.Preserve
+                : ArticleRightsMutationMode.Replace;
 
     private static ArticleRightsRequestCoreModel? ToCore(ArticleRightsRequest? request)
         => request is null ? null : new ArticleRightsRequestCoreModel(

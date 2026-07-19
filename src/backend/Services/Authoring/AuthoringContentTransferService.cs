@@ -137,7 +137,9 @@ public sealed class AuthoringContentTransferService(
                 parsed.CategoryId,
                 [.. parsed.TagIds],
                 (int)status,
-                status == ArticleStatus.Scheduled ? parsed.ScheduledPublishAt : null)));
+                status == ArticleStatus.Scheduled ? parsed.ScheduledPublishAt : null,
+                Rights: null,
+                RightsMutation: FsusBlog.Core.Mapping.Models.ArticleRightsMutationMode.Preserve)));
         int articleId = createResult.IsSuccess ? createResult.Value : 0;
         int restoredRevisionCount = articleId > 0 && request.PreserveRevisions
             ? await RestoreImportedRevisionsAsync(articleId, parsed.Metadata, cancellationToken)

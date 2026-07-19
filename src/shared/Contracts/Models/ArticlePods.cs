@@ -289,6 +289,8 @@ public readonly struct ArticleNoticePod
 public readonly struct ArticleMutationResponsePod
 {
     public readonly int Id;
+    public readonly long RightsSnapshotId;
+    public readonly int RightsRevisionNo;
 }
 
 /// <summary>

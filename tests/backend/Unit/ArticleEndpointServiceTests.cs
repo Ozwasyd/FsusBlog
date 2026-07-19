@@ -9,6 +9,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
+using FsusBlog.Shared.Contracts.Outputs;
 
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -355,10 +356,37 @@ public sealed class ArticleEndpointServiceTests
             .Returns(Result<int>.Failure(error));
         var service = Create(core);
 
-        Result<int> result = await service.CreateAsync(default);
+        Result<ArticleMutationResponseDto> result = await service.CreateAsync(default);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ArticleStatusTransitionErrorCodes.UndefinedStatus, result.Error.Details);
+    }
+
+    [Fact]
+    public async Task CreateAsync_ReturnsBoundRightsSnapshotCoordinates()
+    {
+        var core = Substitute.For<IArticleCoreService>();
+        core.CreateAsync(Arg.Any<CreateArticleCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Result<int>.Success(42));
+        var rights = default(ArticleRightsCoreModel) with
+        {
+            SnapshotId = 9001,
+            RevisionNo = 3
+        };
+        var detail = default(ArticleDetailCoreModel) with
+        {
+            Rights = rights
+        };
+        core.GetByIdAsync(new ArticleDetailQuery(42, IncludePrivate: true), Arg.Any<CancellationToken>())
+            .Returns(Result<ArticleDetailCoreModel?>.Success(detail));
+        var service = Create(core);
+
+        Result<ArticleMutationResponseDto> result = await service.CreateAsync(default);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(42, result.Value.Id);
+        Assert.Equal(9001, result.Value.RightsSnapshotId);
+        Assert.Equal(3, result.Value.RightsRevisionNo);
     }
 
     [Fact]
@@ -373,10 +401,37 @@ public sealed class ArticleEndpointServiceTests
             .Returns(Result.Failure(error));
         var service = Create(core);
 
-        Result result = await service.UpdateAsync(42, default);
+        Result<ArticleMutationResponseDto> result = await service.UpdateAsync(42, default);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ArticleStatusTransitionErrorCodes.ScheduledAtMustBeFuture, result.Error.Details);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ReturnsBoundRightsSnapshotCoordinates()
+    {
+        var core = Substitute.For<IArticleCoreService>();
+        core.UpdateAsync(Arg.Any<UpdateArticleCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Result.Success());
+        var rights = default(ArticleRightsCoreModel) with
+        {
+            SnapshotId = 9002,
+            RevisionNo = 4
+        };
+        var detail = default(ArticleDetailCoreModel) with
+        {
+            Rights = rights
+        };
+        core.GetByIdAsync(new ArticleDetailQuery(42, IncludePrivate: true), Arg.Any<CancellationToken>())
+            .Returns(Result<ArticleDetailCoreModel?>.Success(detail));
+        var service = Create(core);
+
+        Result<ArticleMutationResponseDto> result = await service.UpdateAsync(42, default);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(42, result.Value.Id);
+        Assert.Equal(9002, result.Value.RightsSnapshotId);
+        Assert.Equal(4, result.Value.RightsRevisionNo);
     }
 
     private static ArticleEndpointService Create(
