@@ -319,6 +319,23 @@ public sealed class ArticleAssetReferenceLifecycleTests(PostgresSchemaMigrationF
                 .Select(static item => item.NormalizedUrl)
                 .Order(StringComparer.Ordinal)
                 .ToArray());
+
+        int[] replayTargets = db.Queryable<Article>()
+            .ClearFilter()
+            .Where(article => article.Id == targetId && article.IsDeleted)
+            .Select(article => article.Id)
+            .ToList()
+            .ToArray();
+        var replay = await db.Ado.UseTranAsync(() => new ArticleDeletionKernel(db).DeleteLockedAsync(
+            replayTargets,
+            articleId =>
+            {
+                recordedEvents.Add(articleId);
+                return Task.CompletedTask;
+            }));
+        Assert.True(replay.IsSuccess, replay.ErrorMessage);
+        Assert.Equal(0, replay.Data);
+        Assert.Equal([targetId], recordedEvents);
     }
 
     private async Task<SqlSugarClient> CreateDatabaseAsync()
