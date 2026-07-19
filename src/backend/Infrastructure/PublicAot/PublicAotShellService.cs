@@ -1,11 +1,7 @@
 using System.Net;
 
-using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
-using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
-using FsusBlog.Server.Infrastructure.Spa;
-using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Shared.Contracts.Outputs;
 
 using Microsoft.Extensions.Hosting;
@@ -15,12 +11,7 @@ namespace FsusBlog.Server.Infrastructure.PublicAot;
 public sealed class PublicAotShellService(
     IDbConcurrencyGate dbConcurrencyGate,
     IPublicAotDocumentComposition documentComposition,
-    IPublicAotShellCache cache,
-    IPublicAotCacheWriter cacheWriter,
-    IPublicAotBackfillScheduler backfillScheduler,
-    ISpaAssetManifestService assetManifest,
-    IRuntimeKeyScope runtimeKeyScope,
-    PublicAotInvalidationTracker invalidationTracker,
+    IPublicAotArtifactStore artifactStore,
     PublicAotSsrRuntimeState ssrRuntimeState,
     ILogger<PublicAotShellService> logger) : IPublicAotShellService, IPublicAotBackfillGenerator
 {
@@ -73,16 +64,12 @@ public sealed class PublicAotShellService(
         bool classifyColdMiss,
         CancellationToken cancellationToken)
     {
-        string baseDocumentCacheKey = runtimeKeyScope.PrefixKey(CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey));
-        string pagePrefixKey = runtimeKeyScope.PrefixKey(CacheKeyBuilder.PublicAotDocument(match.PageId, string.Empty));
-        string documentCacheKey = ResolveVersionedDocumentCacheKey(match.PageId, baseDocumentCacheKey, pagePrefixKey);
-        string frontendAssetVersion = assetManifest.GetFrontendAssetVersion(context);
-        string assetMode = ResolveAssetMode(frontendAssetVersion);
-        context.Items[PublicAotAssetModeContextKey] = assetMode;
+        PublicAotArtifactLookup lookup = artifactStore.CreateLookup(context, match);
+        context.Items[PublicAotAssetModeContextKey] = lookup.AssetMode;
         if (classifyColdMiss && PublicTagUrlIdentity.IsNameRouteKey(match.RouteKey))
         {
             PublicAotRenderOutcome canonicalOutcome = await documentComposition.ClassifyRouteAsync(match, cancellationToken);
-            SetClassifiedFailureContext(context, canonicalOutcome.Status, assetMode);
+            SetClassifiedFailureContext(context, canonicalOutcome.Status, lookup.AssetMode);
             return canonicalOutcome;
         }
 
@@ -91,7 +78,7 @@ public sealed class PublicAotShellService(
             && !ShouldPreserveLocalFixtureQuery(context, match))
         {
             PublicAotRenderOutcome canonicalOutcome = PublicAotRenderOutcome.PermanentRedirect(match.CanonicalPathAndQuery);
-            SetClassifiedFailureContext(context, canonicalOutcome.Status, assetMode);
+            SetClassifiedFailureContext(context, canonicalOutcome.Status, lookup.AssetMode);
             return canonicalOutcome;
         }
 
@@ -102,11 +89,11 @@ public sealed class PublicAotShellService(
             && !string.Equals(match.Path, match.CanonicalPath, StringComparison.Ordinal))
         {
             PublicAotRenderOutcome canonicalOutcome = PublicAotRenderOutcome.PermanentRedirect(match.CanonicalPathAndQuery);
-            SetClassifiedFailureContext(context, canonicalOutcome.Status, assetMode);
+            SetClassifiedFailureContext(context, canonicalOutcome.Status, lookup.AssetMode);
             return canonicalOutcome;
         }
 
-        if (string.Equals(frontendAssetVersion, SpaAssetManifestService.DevSourceAssetVersion, StringComparison.Ordinal))
+        if (lookup.UsesDevelopmentSourceAssets)
         {
             if (classifyColdMiss)
             {
@@ -128,7 +115,7 @@ public sealed class PublicAotShellService(
         PublicAotCacheEntry? entry;
         try
         {
-            entry = await cache.TryGetEntryAsync(documentCacheKey, frontendAssetVersion, cancellationToken);
+            entry = await artifactStore.TryGetEntryAsync(lookup, cancellationToken);
         }
         catch (OperationCanceledException)
         {
@@ -137,11 +124,11 @@ public sealed class PublicAotShellService(
         catch (Exception ex) when (classifyColdMiss)
         {
             s_publicAotCacheFailedLog(logger, match.Kind, match.RouteKey, ex);
-            SetClassifiedFailureContext(context, PublicAotRenderStatus.TransientFailure, assetMode);
+            SetClassifiedFailureContext(context, PublicAotRenderStatus.TransientFailure, lookup.AssetMode);
             return PublicAotRenderOutcome.TransientFailure(
                 ErrorDetail.Create(ErrorCode.InfraFailure, "public_aot_cache_read_failed"));
         }
-        if (IsRenderableCacheEntry(entry, frontendAssetVersion))
+        if (artifactStore.IsRenderable(entry, lookup.FrontendAssetVersion))
         {
             context.Items[PublicAotSourceContextKey] = entry!.Source.ToHeaderValue();
             context.Items[PublicAotVersionContextKey] = entry.RendererVersion;
@@ -154,7 +141,7 @@ public sealed class PublicAotShellService(
         {
             try
             {
-                await cache.RemoveAsync(documentCacheKey, cancellationToken);
+                await artifactStore.RemoveAsync(lookup, cancellationToken);
             }
             catch (OperationCanceledException)
             {
@@ -163,7 +150,7 @@ public sealed class PublicAotShellService(
             catch (Exception ex) when (classifyColdMiss)
             {
                 s_publicAotCacheFailedLog(logger, match.Kind, match.RouteKey, ex);
-                SetClassifiedFailureContext(context, PublicAotRenderStatus.TransientFailure, assetMode);
+                SetClassifiedFailureContext(context, PublicAotRenderStatus.TransientFailure, lookup.AssetMode);
                 return PublicAotRenderOutcome.TransientFailure(
                     ErrorDetail.Create(ErrorCode.InfraFailure, "public_aot_cache_remove_failed"));
             }
@@ -179,7 +166,7 @@ public sealed class PublicAotShellService(
             }
         }
 
-        bool queued = ScheduleBackfill(context, match, documentCacheKey, pagePrefixKey);
+        bool queued = artifactStore.TryScheduleBackfill(context, match, lookup);
         context.Items[PublicAotSourceContextKey] = classifyColdMiss ? "server-status" : "spa-fallback";
         context.Items[PublicAotVersionContextKey] = PublicRendererVersion;
         context.Items[PublicAotBackfillContextKey] = queued ? "queued" : "dropped";
@@ -248,23 +235,6 @@ public sealed class PublicAotShellService(
         context.Items[PublicAotAssetModeContextKey] = assetMode;
     }
 
-    private bool ScheduleBackfill(
-        HttpContext context,
-        PublicAotRouteMatch match,
-        string documentCacheKey,
-        string pagePrefixKey)
-        => backfillScheduler.TrySchedule(new PublicAotBackfillRequest(
-            match.Kind,
-            match.RouteKey,
-            match.Path,
-            match.QueryString,
-            documentCacheKey)
-        {
-            PagePrefixKey = pagePrefixKey,
-            ScheduledInvalidationVersion = invalidationTracker.GetCurrentVersion(documentCacheKey, pagePrefixKey),
-            TestSessionId = ResolveTestSessionId(context)
-        });
-
     public async Task GenerateAndStoreAsync(
         PublicAotBackfillRequest request,
         CancellationToken cancellationToken = default,
@@ -293,7 +263,7 @@ public sealed class PublicAotShellService(
         }
 
         PublicAotBackfillDocument backfillDocument = document.Value!;
-        if (invalidationTracker.WasInvalidatedAfter(request))
+        if (artifactStore.WasInvalidatedAfter(request))
         {
             logger.LogInformation(
                 "Public AOT backfill skipped stale write after invalidation: {Kind} {RouteKey}",
@@ -302,24 +272,12 @@ public sealed class PublicAotShellService(
             return;
         }
 
-        string frontendAssetVersion = assetManifest.GetFrontendAssetVersion();
         try
         {
-            if (beforeCommit is not null)
-            {
-                await beforeCommit(cancellationToken).ConfigureAwait(false);
-            }
-
-            await cacheWriter.WriteAsync(
-                request.CacheKey,
-                backfillDocument.Match.PageId,
-                backfillDocument.Match.RouteKey,
-                backfillDocument.RendererVersion,
-                frontendAssetVersion,
-                backfillDocument.Html,
-                PublicAotWriteSource.ServerSsrBackfill,
-                DateTimeOffset.UtcNow,
-                TimeSpan.FromDays(30),
+            await artifactStore.WriteBackfillAsync(
+                request,
+                backfillDocument,
+                beforeCommit,
                 cancellationToken);
             ssrRuntimeState.RecordBackfillSuccess(request, TimeSpan.Zero);
         }
@@ -343,59 +301,7 @@ public sealed class PublicAotShellService(
     public async Task<Result> InvalidateAllAsync(CancellationToken cancellationToken = default)
     {
         ssrRuntimeState.ClearAllRouteQuarantines();
-        await cache.InvalidateAllAsync(cancellationToken);
+        await artifactStore.InvalidateAllAsync(cancellationToken);
         return Result.Success();
-    }
-
-    internal static bool IsRenderableCacheEntry(PublicAotCacheEntry? entry, string frontendAssetVersion)
-        => IsCompatibleCacheEntry(entry, frontendAssetVersion)
-            && entry!.ExpiresAtUtc > DateTimeOffset.UtcNow;
-
-    private static bool IsCompatibleCacheEntry(PublicAotCacheEntry? entry, string frontendAssetVersion)
-    {
-        if (entry is null)
-        {
-            return false;
-        }
-
-        if (string.IsNullOrWhiteSpace(entry.RendererVersion) || string.IsNullOrWhiteSpace(entry.FrontendAssetVersion))
-        {
-            return false;
-        }
-
-        return string.Equals(entry.RendererVersion, PublicRendererVersion, StringComparison.Ordinal)
-            && string.Equals(entry.FrontendAssetVersion, frontendAssetVersion, StringComparison.Ordinal)
-            && !entry.GetDocument().Utf8Bytes.IsEmpty;
-    }
-
-    private static string ResolveAssetMode(string frontendAssetVersion)
-        => string.Equals(frontendAssetVersion, SpaAssetManifestService.DevSourceAssetVersion, StringComparison.Ordinal)
-            ? SpaAssetManifestService.DevSourceAssetVersion
-            : "prod-manifest";
-
-    private string ResolveVersionedDocumentCacheKey(PublicPageId pageId, string cacheKey, string pagePrefixKey)
-    {
-        if (!UsesListVersion(pageId))
-        {
-            return cacheKey;
-        }
-
-        long version = invalidationTracker.GetCurrentVersion(cacheKey, pagePrefixKey);
-        return string.Concat(cacheKey, ":lv:", version.ToString());
-    }
-
-    private static bool UsesListVersion(PublicPageId pageId)
-        => pageId is PublicPageId.Home or PublicPageId.Archive or PublicPageId.Filter;
-
-    private static string? ResolveTestSessionId(HttpContext context)
-    {
-        string? raw = context.Request.Headers[HttpTestSessionKeyScope.HeaderName].FirstOrDefault();
-        if (string.IsNullOrWhiteSpace(raw))
-        {
-            return null;
-        }
-
-        string normalized = raw.Trim().ToLowerInvariant();
-        return HttpTestSessionKeyScope.IsValidSessionId(normalized) ? normalized : null;
     }
 }

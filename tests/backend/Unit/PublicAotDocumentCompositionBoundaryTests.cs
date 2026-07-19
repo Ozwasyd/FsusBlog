@@ -2,10 +2,8 @@ using System.Reflection;
 
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Bootstrap;
-using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.PublicAot;
-using FsusBlog.Server.Infrastructure.Spa;
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
@@ -42,12 +40,7 @@ public sealed class PublicAotDocumentCompositionBoundaryTests
         var service = new PublicAotShellService(
             new ImmediateDbConcurrencyGate(),
             composition,
-            Substitute.For<IPublicAotShellCache>(),
-            Substitute.For<IPublicAotCacheWriter>(),
-            Substitute.For<IPublicAotBackfillScheduler>(),
-            Substitute.For<ISpaAssetManifestService>(),
-            Substitute.For<IRuntimeKeyScope>(),
-            new PublicAotInvalidationTracker(),
+            Substitute.For<IPublicAotArtifactStore>(),
             new PublicAotSsrRuntimeState(new ConfigurationBuilder().Build()),
             NullLogger<PublicAotShellService>.Instance);
 
@@ -73,6 +66,7 @@ public sealed class PublicAotDocumentCompositionBoundaryTests
             .Select(static parameter => parameter.ParameterType)
             .ToArray();
         Assert.Contains(typeof(IPublicAotDocumentComposition), shellDependencies);
+        Assert.Contains(typeof(IPublicAotArtifactStore), shellDependencies);
         Assert.DoesNotContain(typeof(IEnumerable<IPublicAotBootstrapProvider>), shellDependencies);
         Assert.DoesNotContain(typeof(IPublicAotEntryRenderer), shellDependencies);
         Assert.DoesNotContain(typeof(IPublicAotDocumentService), shellDependencies);

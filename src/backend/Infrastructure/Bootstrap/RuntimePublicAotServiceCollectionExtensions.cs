@@ -38,6 +38,7 @@ internal static class RuntimePublicAotServiceCollectionExtensions
             services.AddHostedService<PublicAotFileShellCacheInvalidationSubscriber>();
         }
         services.AddScoped<IPublicAotCacheWriter, PublicAotCacheWriter>();
+        services.AddScoped<IPublicAotArtifactStore, PublicAotArtifactStore>();
         services.AddSingleton<IPublicAotRouteRegistry, PublicAotRouteRegistry>();
         services.AddSingleton<IPublicAotRouteIdentity, PublicAotRouteIdentity>();
         services.AddScoped<IPublicAotRouteManifestProvider, PublicAotRouteManifestProvider>();

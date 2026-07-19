@@ -315,7 +315,7 @@ public sealed class PublicAotShellServiceTests
             Value = "<html>cached</html>"
         };
 
-        bool renderable = PublicAotShellService.IsRenderableCacheEntry(entry, "frontend-v2");
+        bool renderable = PublicAotArtifactStore.IsRenderableCacheEntry(entry, "frontend-v2");
 
         Assert.False(renderable);
     }
@@ -333,7 +333,7 @@ public sealed class PublicAotShellServiceTests
             Value = "<html>cached</html>"
         };
 
-        bool renderable = PublicAotShellService.IsRenderableCacheEntry(entry, "frontend-v1");
+        bool renderable = PublicAotArtifactStore.IsRenderableCacheEntry(entry, "frontend-v1");
 
         Assert.True(renderable);
     }
@@ -765,6 +765,8 @@ public sealed class PublicAotShellServiceTests
     {
         IDbConcurrencyGate gate = dbConcurrencyGate ?? Substitute.For<IDbConcurrencyGate>();
         ISpaAssetManifestService manifest = assetManifest ?? new FixedAssetManifestService("frontend-v1");
+        IRuntimeKeyScope keyScope = runtimeKeyScope ?? new DefaultRuntimeKeyScope();
+        PublicAotInvalidationTracker tracker = invalidationTracker ?? new PublicAotInvalidationTracker();
         var documentComposition = new PublicAotDocumentComposition(
             gate,
             new PublicAotRouteIdentity(new FixedRouteRegistry(match)),
@@ -772,15 +774,17 @@ public sealed class PublicAotShellServiceTests
             entryRenderer ?? Substitute.For<IPublicAotEntryRenderer>(),
             CreateDocumentService(match),
             manifest);
-        return new PublicAotShellService(
-            gate,
-            documentComposition,
+        var artifactStore = new PublicAotArtifactStore(
             cache,
             Substitute.For<IPublicAotCacheWriter>(),
             scheduler,
             manifest,
-            runtimeKeyScope ?? new DefaultRuntimeKeyScope(),
-            invalidationTracker ?? new PublicAotInvalidationTracker(),
+            keyScope,
+            tracker);
+        return new PublicAotShellService(
+            gate,
+            documentComposition,
+            artifactStore,
             runtimeState ?? new PublicAotSsrRuntimeState(new ConfigurationBuilder().Build()),
             NullLogger<PublicAotShellService>.Instance);
     }
