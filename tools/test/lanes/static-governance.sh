@@ -22,6 +22,7 @@ StaticRetention() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-ret
 StaticImplementationDrift() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-doc-implementation-drift.mjs"; }
 StaticAuthoritativeDevelopmentDocs() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/check-authoritative-development-docs.mjs"; }
 StaticCodeIntent() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-code-intent.mjs"; }
+StaticCustomRulePlatform() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-rule-platform.mjs" --mode full; }
 StaticAppsettingsAuthority() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/configuration/check-appsettings-authority.mjs"; }
 StaticBackendConfigurationContract() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/configuration/check-backend-configuration-contract.mjs"; }
 StaticCsharpStyle() {
@@ -42,6 +43,7 @@ STATIC_NODE_CONTRACT_FILES=(
     "$ROOT_DIR/tests/tools/issue-1157-authoritative-development-docs.test.mjs"
     "$ROOT_DIR/tests/tools/issue-1158-csharp-style.test.mjs"
     "$ROOT_DIR/tests/tools/issue-1155-code-intent.test.mjs"
+    "$ROOT_DIR/tests/tools/issue-1162-rule-platform.test.mjs"
     "$ROOT_DIR/tests/tools/issue-1171-appsettings-authority.test.mjs"
     "$ROOT_DIR/tests/tools/issue-1172-backend-configuration-contract.test.mjs"
     "$ROOT_DIR/tests/tools/configuration-layout.test.mjs"
@@ -169,6 +171,7 @@ RunStaticPrechecksPhase() {
         implementation-drift StaticImplementationDrift \
         authoritative-development-docs StaticAuthoritativeDevelopmentDocs \
         code-intent StaticCodeIntent \
+        custom-rule-platform StaticCustomRulePlatform \
         appsettings-authority StaticAppsettingsAuthority \
         backend-configuration-contract StaticBackendConfigurationContract \
         csharp-style StaticCsharpStyle

@@ -1,0 +1,152 @@
+{
+    "schema": "fsusblog.complexity-policy.v1",
+    "changedDefaultBase": "origin/master",
+    "inventory": {
+        "packageScripts": {
+            "file": "src/frontend/package.json",
+            "prefix": "check:"
+        },
+        "implementationPatterns": [
+            "tools/**/check-*.mjs",
+            "tools/**/check-*.sh",
+            "tools/check-*.mjs",
+            "tools/check-*.sh",
+            "tools/test/lanes/*.sh",
+            "tests/frontend/checks/**/check-*.mjs",
+            "src/frontend/scripts/lint-*.mjs"
+        ],
+        "ignoredPaths": [
+            ".git/**",
+            ".tmp/**",
+            "artifacts/**",
+            "**/bin/**",
+            "**/obj/**",
+            "**/dist/**",
+            "**/node_modules/**",
+            "src/frontend/wasm/stage/**"
+        ]
+    },
+    "sourceExtensions": [
+        ".c",
+        ".cc",
+        ".cmake",
+        ".cpp",
+        ".cs",
+        ".cxx",
+        ".h",
+        ".hh",
+        ".hpp",
+        ".hxx",
+        ".js",
+        ".mjs",
+        ".sh",
+        ".ts",
+        ".tsx",
+        ".vue"
+    ],
+    "complexityEngine": {
+        "engine": "text",
+        "reason": "The cross-language baseline uses a deterministic comment/string-aware lexical structure pass only for trend metrics; compiler, ESLint/Vue AST, Stylelint and clang remain authoritative for language semantics and style."
+    },
+    "metrics": [
+        {
+            "id": "fileLines",
+            "hardGate": true,
+            "minimumBudget": 120
+        },
+        {
+            "id": "codeLines",
+            "hardGate": true,
+            "minimumBudget": 100
+        },
+        {
+            "id": "typeCount",
+            "hardGate": true,
+            "minimumBudget": 4
+        },
+        {
+            "id": "functionMethodCount",
+            "hardGate": true,
+            "minimumBudget": 8
+        },
+        {
+            "id": "cyclomaticComplexity",
+            "hardGate": true,
+            "minimumBudget": 12
+        },
+        {
+            "id": "cognitiveComplexity",
+            "hardGate": true,
+            "minimumBudget": 18
+        },
+        {
+            "id": "maxNestingDepth",
+            "hardGate": true,
+            "minimumBudget": 5
+        },
+        {
+            "id": "dependencyImportCount",
+            "hardGate": true,
+            "minimumBudget": 8
+        },
+        {
+            "id": "publicSurfaceCount",
+            "hardGate": true,
+            "minimumBudget": 6
+        },
+        {
+            "id": "responsibilityCount",
+            "hardGate": true,
+            "minimumBudget": 3
+        },
+        {
+            "id": "generated",
+            "hardGate": false,
+            "minimumBudget": 0
+        },
+        {
+            "id": "churn365Days",
+            "hardGate": false,
+            "minimumBudget": 0
+        },
+        {
+            "id": "testRelationshipCount",
+            "hardGate": false,
+            "minimumBudget": 0
+        }
+    ],
+    "categories": {
+        "EndpointComposition": {
+            "baselineQuantile": 0.95,
+            "growthAllowancePercent": 10
+        },
+        "ServiceDomainLogic": {
+            "baselineQuantile": 0.95,
+            "growthAllowancePercent": 8
+        },
+        "CodecProtocol": {
+            "baselineQuantile": 0.95,
+            "growthAllowancePercent": 8
+        },
+        "GeneratedContract": {
+            "baselineQuantile": 1,
+            "growthAllowancePercent": 100
+        },
+        "VueViewComponent": {
+            "baselineQuantile": 0.95,
+            "growthAllowancePercent": 10
+        },
+        "BuildTestOrchestrator": {
+            "baselineQuantile": 0.9,
+            "growthAllowancePercent": 5
+        },
+        "ManifestRegistry": {
+            "baselineQuantile": 0.99,
+            "growthAllowancePercent": 20
+        },
+        "HandwrittenModule": {
+            "baselineQuantile": 0.95,
+            "growthAllowancePercent": 10
+        }
+    }
+}

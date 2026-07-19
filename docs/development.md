@@ -10,6 +10,8 @@
 
 ownership、安全边界、TODO lifecycle、公共 API 文档与性能声明等级见 [development/code-intent-governance.md](development/code-intent-governance.md)。该文档消费编码规范而不建立新的同级风格权威。
 
+FsusBlog 专项检查的统一身份、共享 inventory/cache、changed-file dependency closure、执行摘要以及分类复杂度/职责预算见 [development/custom-rule-platform.md](development/custom-rule-platform.md)。新增或迁移 custom rule 时必须同步 machine-readable registry；通用语言规则继续由编译器或 AST 工具负责。
+
 commit/squash title、PR classification、纯格式与命名迁移、performance/generated evidence、release-note label 和 rollback metadata 见 [development/change-contract.md](development/change-contract.md)。它约束 Git/review 元数据，不建立第二套源码命名规范。
 
 修改开发文档中的路径、symbol、命令或规范入口后运行：
@@ -17,6 +19,7 @@ commit/squash title、PR classification、纯格式与命名迁移、performance
 ```bash
 node tools/docs/check-authoritative-development-docs.mjs
 node tools/governance/check-code-intent.mjs
+node tools/governance/check-rule-platform.mjs --mode changed --base origin/master
 ```
 
 门禁会聚合失效路径、退休 symbol、缺失命令、坏链接、style owner 漂移和未分类例外，全部修正后才成功。
