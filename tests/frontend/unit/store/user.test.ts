@@ -115,13 +115,14 @@ describe('useUserStore', () => {
     const authErr = createAppError(AppErrorCode.Unauthorized, 'not authenticated')
     mockGetMe.mockRejectedValueOnce(authErr)
     const store = useUserStore()
+    const generationBefore = store.authGeneration
     await store.fetchUserInfo()
     expect(store.userInfo).toBeNull()
     expect(store.accountState).toBe('guest')
     expect(store.isAuthChecked).toBe(true)
     expect(store.lastFetchedAt).toBeGreaterThan(0)
     expect(store.lastVerifiedAt).toBeGreaterThan(0)
-    expect(store.authGeneration).toBe(1)
+    expect(store.authGeneration).not.toBe(generationBefore)
     expect(mockClearPrivateBrowserState).toHaveBeenCalledWith('session-expired', {
       broadcastCredentialPurge: true
     })

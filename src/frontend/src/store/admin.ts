@@ -5,6 +5,7 @@ import { isAbortError } from '@/utils/errors'
 import { isAuthFailureError } from '@/utils/errorKinds'
 import { clearLocalFixtureAdminSession } from '@/services/localFixtureSession'
 import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime'
+import { privateSurfaceRuntime } from '@/services/privateSurfaceRuntime'
 
 export type AdminSessionStatus = 'missing' | 'active' | 'expired' | 'step_up_required'
 export type AdminSessionState = 'unknown' | AdminSessionStatus
@@ -251,13 +252,14 @@ export const useAdminStore = defineStore('admin', () => {
         }
       }
 
-      cancelAdminSessionRequest()
-      clearLocalFixtureAdminSession()
-      clearAdminPrincipal()
-
       let localCleanupComplete = true
       try {
-        await clearPrivateBrowserState('admin-logout')
+        await privateSurfaceRuntime.invalidate('admin-logout', async () => {
+          cancelAdminSessionRequest()
+          clearLocalFixtureAdminSession()
+          clearAdminPrincipal()
+          await clearPrivateBrowserState('admin-logout')
+        })
       } catch {
         localCleanupComplete = false
       }
@@ -317,6 +319,7 @@ export const useAdminStore = defineStore('admin', () => {
     markMissing,
     invalidateMissingCache,
     ensureAdminSessionFresh,
+    cancelAdminSessionRequest,
     setAnonymousCommentPolicy,
     setLogoutBroadcast,
     logout

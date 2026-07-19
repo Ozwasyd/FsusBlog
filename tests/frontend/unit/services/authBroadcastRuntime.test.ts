@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia, type Pinia } from 'pinia'
+import { defineComponent, h, nextTick, onUnmounted } from 'vue'
+import { mount } from '@vue/test-utils'
 import { authBroadcastRuntime } from '@/services/authBroadcastRuntime'
 import {
   disposeAuthBroadcastComposition,
@@ -12,6 +14,7 @@ import { useUserStore } from '@/store/user'
 import { notificationStreamRuntime } from '@/services/notificationStreamRuntime'
 import { NotificationStreamEventType } from '@/services/notificationStreamTypes'
 import { clearRegisteredPrivateState } from '@/services/privateStorageRegistry'
+import { privateSurfaceRuntime } from '@/services/privateSurfaceRuntime'
 
 vi.mock('@/api/auth', () => ({
   getMe: vi.fn(),
@@ -107,6 +110,7 @@ describe('authBroadcastRuntime', () => {
   beforeEach(() => {
     disposeAuthBroadcastComposition()
     authBroadcastRuntime.dispose()
+    privateSurfaceRuntime.resetForTests()
     MockBroadcastChannel.instances = []
     installBroadcastChannel()
     localStorage.clear()
@@ -116,6 +120,7 @@ describe('authBroadcastRuntime', () => {
   afterEach(() => {
     disposeAuthBroadcastComposition()
     authBroadcastRuntime.dispose()
+    privateSurfaceRuntime.resetForTests()
     installBroadcastChannel()
   })
 
@@ -271,6 +276,64 @@ describe('authBroadcastRuntime', () => {
       broadcastCredentialPurge: false
     })
   })
+
+  it.each(['logout', 'expired'] as const)(
+    '%s broadcast synchronously destroys the mounted private surface before redirect',
+    async (eventType) => {
+      const pinia = createRuntimePinia()
+      const userStore = useUserStore(pinia)
+      userStore.markAuthenticated(anonymousUser(73) as never)
+      const generationBefore = privateSurfaceRuntime.authGeneration.value
+      const request = new AbortController()
+      const unregisterAbort = privateSurfaceRuntime.registerTerminationHandler(() => request.abort())
+      let finishNavigation: (() => void) | undefined
+      const navigation = new Promise<void>(resolve => { finishNavigation = resolve })
+      const navigate = vi.fn(() => navigation)
+      privateSurfaceRuntime.setNavigationHandler(navigate)
+      const workerTerminate = vi.fn()
+      const unsubscribePage = vi.fn()
+      const clearPageTimer = vi.fn()
+      const PrivatePage = defineComponent({
+        setup: () => {
+          onUnmounted(() => {
+            workerTerminate()
+            unsubscribePage()
+            clearPageTimer()
+          })
+          return () => h('section', { 'data-private-surface': '' },
+            `private account ${userStore.userInfo?.accountId ?? 'cleared'}`)
+        }
+      })
+      const wrapper = mount(defineComponent({
+        setup: () => () => privateSurfaceRuntime.isClearing.value
+          ? null
+          : h(PrivatePage, { key: privateSurfaceRuntime.authGeneration.value })
+      }))
+
+      MockBroadcastChannel.instances[0]?.dispatch({ type: eventType, at: Date.now() })
+
+      expect(request.signal.aborted).toBe(true)
+      expect(userStore.accountState).toBe('guest')
+      expect(userStore.userInfo).toBeNull()
+      expect(privateSurfaceRuntime.authGeneration.value).not.toBe(generationBefore)
+      expect(privateSurfaceRuntime.authGeneration.value).not.toContain('73')
+      await nextTick()
+      expect(wrapper.find('[data-private-surface]').exists()).toBe(false)
+      expect(workerTerminate).toHaveBeenCalledTimes(1)
+      expect(unsubscribePage).toHaveBeenCalledTimes(1)
+      expect(clearPageTimer).toHaveBeenCalledTimes(1)
+
+      await vi.waitFor(() => expect(navigate).toHaveBeenCalledWith(
+        eventType === 'expired' ? 'session-expired' : 'logout'
+      ))
+      finishNavigation?.()
+      await vi.waitFor(() => expect(privateSurfaceRuntime.isClearing.value).toBe(false))
+      expect(wrapper.text()).not.toContain('account 73')
+
+      unregisterAbort()
+      wrapper.unmount()
+    }
+  )
 
   it('admin-changed invalidates both caches because the Cookie identity may have changed', () => {
     const pinia = createRuntimePinia()

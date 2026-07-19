@@ -143,6 +143,7 @@ describe('authSessionRuntime negative-cache lifecycle', () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     const userStore = useUserStore(pinia)
+    const generationBefore = userStore.authGeneration
     userStore.markAuthenticated(snapshot('2026-07-19T00:02:00.000Z'))
     vi.mocked(refreshToken).mockRejectedValueOnce(new TypeError('Failed to fetch'))
     vi.mocked(getMe).mockRejectedValueOnce({
@@ -157,7 +158,7 @@ describe('authSessionRuntime negative-cache lifecycle', () => {
 
     await vi.advanceTimersByTimeAsync(5_000)
     expect(userStore.accountState).toBe('guest')
-    expect(userStore.authGeneration).toBe(1)
+    expect(userStore.authGeneration).not.toBe(generationBefore)
   })
 })
 

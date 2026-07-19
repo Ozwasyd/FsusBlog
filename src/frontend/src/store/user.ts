@@ -5,6 +5,7 @@ import { isAbortError } from '@/utils/errors'
 import { getKnownErrorInfo, isAuthFailureError } from '@/utils/errorKinds'
 import { clearLocalFixtureSession } from '@/services/localFixtureSession'
 import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime'
+import { privateSurfaceRuntime } from '@/services/privateSurfaceRuntime'
 
 export type AccountSessionState = 'unknown' | 'guest' | 'authenticated'
 
@@ -35,7 +36,7 @@ export const useUserStore = defineStore('user', () => {
     const isLoading = ref(false)
     const isLoggingOut = ref(false)
     const lastFetchedAt = ref(0)
-    const authGeneration = ref(0)
+    const authGeneration = privateSurfaceRuntime.authGeneration
 
     let fetchPromise: Promise<void> | null = null
     let abortController: AbortController | null = null
@@ -86,11 +87,12 @@ export const useUserStore = defineStore('user', () => {
     }
 
     const expireAuthentication = async (options?: { broadcastCredentialPurge?: boolean }) => {
-        authGeneration.value += 1
-        cancelUserInfoRequest()
-        markGuest()
-        await clearPrivateBrowserState('session-expired', {
-            broadcastCredentialPurge: options?.broadcastCredentialPurge ?? true
+        await privateSurfaceRuntime.invalidate('session-expired', async () => {
+            cancelUserInfoRequest()
+            markGuest()
+            await clearPrivateBrowserState('session-expired', {
+                broadcastCredentialPurge: options?.broadcastCredentialPurge ?? true
+            })
         })
     }
 
@@ -193,13 +195,13 @@ export const useUserStore = defineStore('user', () => {
             console.warn('[UserStore] Logout partial failure.');
         } finally {
             clearLocalFixtureSession()
-            markGuest()
-            await clearPrivateBrowserState('logout')
+            await privateSurfaceRuntime.invalidate('logout', async () => {
+                cancelUserInfoRequest()
+                markGuest()
+                await clearPrivateBrowserState('logout')
+            })
             logoutBroadcast?.()
             isLoggingOut.value = false;
-            if (typeof window !== 'undefined') {
-                window.location.href = '/'
-            }
         }
     }
 

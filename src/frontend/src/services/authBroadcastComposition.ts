@@ -15,10 +15,12 @@ import {
   type PrivateStateCleanupTrigger
 } from '@/services/privateStorageRegistry'
 import type { PrivateBrowserStateClearReason } from '@/services/serviceWorkerRuntime'
+import { privateSurfaceRuntime } from '@/services/privateSurfaceRuntime'
 
 let activePinia: Pinia | null = null
 let unsubscribe: (() => void) | null = null
 let unregisterPrivateCleanupHandlers: Array<() => void> = []
+let unregisterPrivateSurfaceHandlers: Array<() => void> = []
 
 export function installAuthBroadcastComposition(pinia: Pinia): void {
   if (activePinia === pinia && unsubscribe) {
@@ -59,16 +61,32 @@ export function installAuthBroadcastComposition(pinia: Pinia): void {
       defaultChallengeProofStore.clear()
     })
   ]
+  unregisterPrivateSurfaceHandlers = [
+    privateSurfaceRuntime.registerTerminationHandler((reason) => {
+      userStore.cancelUserInfoRequest()
+      if (reason === 'account-switch') {
+        userStore.invalidateIdentityCache()
+      } else if (reason !== 'admin-logout') {
+        userStore.markGuest()
+      }
+    }),
+    privateSurfaceRuntime.registerTerminationHandler((reason) => {
+      adminStore.cancelAdminSessionRequest()
+      if (reason === 'admin-logout') adminStore.clearAdminPrincipal()
+    }),
+    privateSurfaceRuntime.registerTerminationHandler(() => stopAuthenticatedRuntime()),
+    privateSurfaceRuntime.registerTerminationHandler(() => defaultChallengeProofStore.clear())
+  ]
 
   unsubscribe = authBroadcastRuntime.subscribe((event, origin) => {
     defaultChallengeProofStore.clear()
     if (event.type === 'admin-logout') {
       if (origin === 'remote') {
         clearLocalFixtureAdminSession()
-        adminStore.clearAdminPrincipal()
-        void clearPrivateStateForBroadcast('admin-logout', origin)
+        void invalidatePrivateSurfaceForBroadcast('admin-logout', origin).then(() => dispatchAdminLogout())
+      } else {
+        dispatchAdminLogout()
       }
-      dispatchAdminLogout()
       return
     }
 
@@ -85,7 +103,7 @@ export function installAuthBroadcastComposition(pinia: Pinia): void {
     adminStore.invalidateMissingCache()
 
     if (event.type === 'login') {
-      void clearPrivateStateForBroadcast('account-switch', origin)
+      void invalidatePrivateSurfaceForBroadcast('account-switch', origin)
       if (origin === 'remote') {
         userStore.invalidateIdentityCache()
         dispatchSessionExpired()
@@ -95,16 +113,17 @@ export function installAuthBroadcastComposition(pinia: Pinia): void {
 
     if (event.type === 'user-expired') {
       clearLocalFixtureSession()
-      void userStore.expireAuthentication({ broadcastCredentialPurge: origin !== 'remote' })
+      const expiry = userStore.expireAuthentication({ broadcastCredentialPurge: origin !== 'remote' })
       appShellStore.markSessionExpired()
       stopAuthenticatedRuntime()
-      if (origin === 'remote') dispatchSessionExpired()
+      if (origin === 'remote') void expiry.then(() => dispatchSessionExpired())
       return
     }
 
+    let transition: Promise<void> = Promise.resolve()
     if (event.type === 'expired') {
       if (origin === 'remote') {
-        void userStore.expireAuthentication({ broadcastCredentialPurge: false })
+        transition = userStore.expireAuthentication({ broadcastCredentialPurge: false })
       } else {
         // The initiating runtime already advanced authGeneration and cleared
         // private state before publishing. Restore the terminal guest state
@@ -112,11 +131,10 @@ export function installAuthBroadcastComposition(pinia: Pinia): void {
         userStore.markGuest()
       }
     } else {
-      userStore.markGuest()
-      void clearPrivateStateForBroadcast('logout', origin)
+      transition = invalidatePrivateSurfaceForBroadcast('logout', origin)
     }
     stopAuthenticatedRuntime()
-    if (origin === 'remote') dispatchSessionExpired()
+    if (origin === 'remote') void transition.then(() => dispatchSessionExpired())
   })
 
   userStore.setLogoutBroadcast(() => authBroadcastRuntime.broadcastLogout())
@@ -125,6 +143,8 @@ export function installAuthBroadcastComposition(pinia: Pinia): void {
 }
 
 export function disposeAuthBroadcastComposition(): void {
+  for (const unregister of unregisterPrivateSurfaceHandlers) unregister()
+  unregisterPrivateSurfaceHandlers = []
   for (const unregister of unregisterPrivateCleanupHandlers) unregister()
   unregisterPrivateCleanupHandlers = []
   if (activePinia) {
@@ -145,4 +165,11 @@ function clearPrivateStateForBroadcast(
     ? clearPrivateBrowserState(reason, { broadcastCredentialPurge: false })
     : clearPrivateBrowserState(reason)
   return clear.then(() => undefined)
+}
+
+function invalidatePrivateSurfaceForBroadcast(
+  reason: Extract<PrivateBrowserStateClearReason, 'account-switch' | 'logout' | 'admin-logout' | 'session-expired'>,
+  origin: AuthBroadcastEventOrigin
+): Promise<void> {
+  return privateSurfaceRuntime.invalidate(reason, () => clearPrivateStateForBroadcast(reason, origin))
 }

@@ -11,6 +11,7 @@ import { ADMIN_LOGOUT_EVENT, createAdminLogoutNavigationHandler } from '@/bootst
 import { runtimePhase, runtimeReady } from '@/bootstrap/runtimeGate'
 import { isPublicShellRouteName } from '@/public-renderers/publicPageModel'
 import { useThemeRuntime } from '@/services/themeRuntime'
+import { privateSurfaceRuntime, type PrivateSurfaceTransition } from '@/services/privateSurfaceRuntime'
 import { FSUSBLOG_RENDER_PIPELINE_CONFIG } from '@/fsusui/renderPipeline'
 import { fsusBlogMotionPresets } from '@/fsusui/blogMotion'
 import {
@@ -49,6 +50,30 @@ const appRouteViewKey = computed(() => {
   }
 
   return route.fullPath
+})
+const isPrivateSurfaceRoute = computed(() => route.matched.some(record =>
+  record.meta.requiresAccountSession === true
+  || record.meta.requiresAdminSession === true
+  || record.meta.requiresConfirmedIdentity === true
+  || record.meta.requiresAuth === true
+))
+const privateRouteViewKey = computed(() => isPrivateSurfaceRoute.value
+  ? `${appRouteViewKey.value}:${privateSurfaceRuntime.authGeneration.value}`
+  : appRouteViewKey.value)
+const showAppRoute = computed(() => !isPrivateSurfaceRoute.value || !privateSurfaceRuntime.isClearing.value)
+
+privateSurfaceRuntime.setNavigationHandler(async (reason: PrivateSurfaceTransition) => {
+  if (reason === 'admin-logout') {
+    await router.replace(userStore.isLoggedIn ? '/user/identity' : '/')
+    return
+  }
+
+  if (reason === 'session-expired') {
+    await router.replace('/login')
+    return
+  }
+
+  await router.replace('/')
 })
 
 const handleSessionExpired = createSessionExpiredNavigationHandler(router, () => userStore.isLoggedIn)
@@ -144,6 +169,11 @@ function runAppRouteEnter(el: Element, done: () => void): void {
 }
 
 function runAppRouteLeave(el: Element, done: () => void): void {
+  if (privateSurfaceRuntime.isClearing.value) {
+    routeCleanup.cleanup()
+    done()
+    return
+  }
   runAppRouteMotion(el, 'leave', done)
 }
 
@@ -184,6 +214,7 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('click', onDocumentClick)
   routeCleanup.cleanup()
+  privateSurfaceRuntime.setNavigationHandler(null)
 })
 </script>
 
@@ -224,7 +255,7 @@ onUnmounted(() => {
           @enter="runAppRouteEnter"
           @leave="runAppRouteLeave"
         >
-          <component :is="Component" :key="appRouteViewKey" />
+          <component v-if="showAppRoute" :is="Component" :key="privateRouteViewKey" />
         </Transition>
       </router-view>
     </div>
