@@ -236,10 +236,10 @@ public sealed class PublicContentInvalidationFlowTests
     [Fact]
     public void AdminAotRebuild_InvalidatesAotBeforeQueueingPublicHotRead()
     {
-        MethodInfo method = typeof(AdminOperationsService).GetMethod(nameof(AdminOperationsService.RunCacheActionAsync))!;
+        MethodInfo method = typeof(AdminArtifactOperations).GetMethod(nameof(AdminArtifactOperations.RunCacheActionAsync))!;
         string runtime = RuntimeMetadataInspection.DescribeMethods(
-            typeof(AdminOperationsService),
-            nameof(AdminOperationsService.RunCacheActionAsync));
+            typeof(AdminArtifactOperations),
+            nameof(AdminArtifactOperations.RunCacheActionAsync));
         (int Offset, MethodBase Method)[] calls = ReadCalledMethods(AsyncMoveNext(method)).ToArray();
 
         Assert.Contains("IPublicAotInvalidationService.InvalidateArticleMutationAsync", runtime, StringComparison.Ordinal);
@@ -254,8 +254,8 @@ public sealed class PublicContentInvalidationFlowTests
     [Fact]
     public void AdminCacheAction_ExposesOnlyRuntimeArticleDetailAedsV3Actions()
     {
-        Type service = typeof(AdminOperationsService);
-        string runtime = RuntimeMetadataInspection.DescribeMethods(service, nameof(AdminOperationsService.RunCacheActionAsync));
+        Type service = typeof(AdminArtifactOperations);
+        string runtime = RuntimeMetadataInspection.DescribeMethods(service, nameof(AdminArtifactOperations.RunCacheActionAsync));
         Assert.Contains(Assert.Single(service.GetConstructors()).GetParameters(), static parameter =>
             parameter.ParameterType == typeof(IArticleDetailAedsArtifactMaintenanceService));
         Assert.Contains("recompute-article-rights", runtime, StringComparison.Ordinal);

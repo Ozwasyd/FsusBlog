@@ -353,7 +353,7 @@ public static partial class AuthoringEndpoints
         group.MapPost("/cache/actions", async (
             HttpContext context,
             IAedsEncoder aeds,
-            AdminOperationsService operations,
+            [Microsoft.AspNetCore.Mvc.FromServices] IAdminArtifactOperations operations,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {

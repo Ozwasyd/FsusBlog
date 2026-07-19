@@ -56,11 +56,6 @@ public sealed class AdminOperationsBehaviorTests
             scheduledPublishRuntime: null!,
             crawlerDetector: null!,
             distributionService: null!,
-            searchIndexService: null!,
-            publicHotArtifactUpdateQueue: null!,
-            publicAotInvalidationService: null!,
-            articleDetailAedsMaintenance: null!,
-            cacheInvalidationDispatcher: null!,
             cache: null!,
             logger: NullLogger<AdminOperationsService>.Instance);
 }

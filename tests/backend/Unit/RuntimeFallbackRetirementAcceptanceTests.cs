@@ -168,7 +168,9 @@ public sealed class RuntimeFallbackRetirementAcceptanceTests
         Assert.Contains(migration.Steps, static step => step is ClearLegacyPublicArtifactsStep);
 
         string runner = RuntimeMetadataInspection.DescribeMethods(typeof(SchemaMigrationRunner), "ExecuteStepAsync");
-        string actionMethod = RuntimeMetadataInspection.DescribeMethods(typeof(AdminOperationsService), nameof(AdminOperationsService.RunCacheActionAsync));
+        string actionMethod = RuntimeMetadataInspection.DescribeMethods(
+            typeof(AdminArtifactOperations),
+            nameof(AdminArtifactOperations.RunCacheActionAsync));
         Assert.Contains("ClearLegacyPublicArtifactsStep", runner, StringComparison.Ordinal);
         Assert.Contains("ClearLegacyPublicArtifactsAsync", runner, StringComparison.Ordinal);
         Assert.DoesNotContain("clear-legacy-public-artifacts", actionMethod, StringComparison.Ordinal);
