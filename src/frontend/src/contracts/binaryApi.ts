@@ -171,7 +171,7 @@ export interface CurrentUserSnapshot {
 export interface AuthLoginFlow {
   accountId: number
   identityKind: string
-  authPhase: 'authenticated' | 'mfa_required'
+  authPhase: 'authenticated' | 'mfa_required' | 'enrollment_required'
   mfaMode: 'risk' | 'standard' | null
   challengeToken: string | null
 }

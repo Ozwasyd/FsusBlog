@@ -546,6 +546,20 @@ public class PodBinaryCodecTests
     }
 
     [Fact]
+    public void AuthLoginFlow_RoundTrip_PreservesEnrollmentRequiredWithoutFormalSessionData()
+    {
+        var flow = new AuthLoginFlowDto(8, "anonymous_account", "enrollment_required", null, null);
+        byte[] encoded = PodBinaryCodec.EncodeAuthLoginFlow(flow);
+        bool ok = PodBinaryCodec.TryDecodeAuthLoginFlow(encoded, out var decoded);
+
+        Assert.True(ok);
+        Assert.Equal(8, decoded.AccountId);
+        Assert.Equal("enrollment_required", decoded.AuthPhase);
+        Assert.Null(decoded.MfaMode);
+        Assert.Null(decoded.ChallengeToken);
+    }
+
+    [Fact]
     public void CurrentUserSnapshot_RoundTrip_PreservesNullableFields()
     {
         var deletedAt = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);

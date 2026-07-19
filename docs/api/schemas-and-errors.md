@@ -287,7 +287,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 15 | `ArticleFeatured` | compact article records | `GET /api/binary/article/featured/{size}.aeds` |
 | 16 | `TrashClearResponse` | `TrashClearResponsePod` | `DELETE /api/binary/admin/article/trash` |
 | 17 | `AdminUserList` | compact anonymous account records | `GET /api/binary/admin/users` |
-| 18 | `AuthLoginFlow` | auth session flow payload with `accountId` / `identityKind` only | `POST /api/binary/auth/anonymous/bootstrap`, `POST /api/binary/auth/passkey/login/complete` |
+| 18 | `AuthLoginFlow` | auth flow；`AuthPhase=1 authenticated / 2 mfa_required / 3 enrollment_required` | anonymous bootstrap、enrollment status/complete、Passkey login complete |
 | 19 | `CurrentUserSnapshot` | admin-only account status snapshot without username/role | admin-only accountId query / refresh-token compatibility |
 | 20 | `UploadInit` | `UploadInitPod` | `POST /api/binary/upload/init` |
 | 21 | `UploadStatus` | `UploadStatusPod` | `GET /api/binary/upload/{id}` |
@@ -304,10 +304,10 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 32 | `UploadCompleteRequest` | `UploadCompleteRequestPod` | `POST /api/binary/upload/{id}/complete` 请求体 |
 | 35 | `SeoConfigUpdateRequest` | `SeoConfigPod` | `PUT /api/binary/system/seo` 请求体 |
 | 36 | `PageContentUpdateRequest` | `PageContentPod` | `PUT /api/binary/system/page` 请求体 |
-| 63 | `PasskeyRegisterBegin` | `PasskeyRegisterBeginPod` | `POST /api/binary/auth/passkey/register/begin`；admin bootstrap begin 复用；POD 字段使用 `accountHandle`/`accountName`/`accountDisplayName` |
+| 63 | `PasskeyRegisterBegin` | `PasskeyRegisterBeginPod` | 普通注册与首枚 enrollment/admin bootstrap begin 复用；POD 字段使用 `accountHandle`/`accountName`/`accountDisplayName` |
 | 64 | `PasskeyLoginBegin` | `PasskeyLoginBeginPod` | `POST /api/binary/auth/passkey/login/begin`；admin login begin 复用 |
 | 65 | `PasskeyCredentialList` | `PasskeyCredentialSummaryPod[]` | `GET /api/binary/auth/passkey/credentials` |
-| 66 | `PasskeyRegisterCompleteRequest` | `PasskeyRegisterCompleteRequestPod` | `POST /api/binary/auth/passkey/register/complete`；admin bootstrap complete 请求体 |
+| 66 | `PasskeyRegisterCompleteRequest` | `PasskeyRegisterCompleteRequestPod` | 普通注册、首枚 enrollment 与 admin bootstrap complete 请求体 |
 | 67 | `PasskeyLoginCompleteRequest` | `PasskeyLoginCompleteRequestPod` | `POST /api/binary/auth/passkey/login/complete`；admin login complete 请求体 |
 | 68 | `PasskeyCredentialFriendlyNameUpdateRequest` | `PasskeyCredentialFriendlyNameUpdateRequestPod` | `PUT /api/binary/auth/passkey/credentials/{id}/name` 请求体 |
 | 212 | `PasskeySignalState` | `PasskeySignalStatePod` + `PasskeySignalCredentialPod[]` | Passkey 注册/删除响应与 `GET /api/binary/auth/passkey/signal-state`；含单调 revision 和服务端权威完整凭证集 |

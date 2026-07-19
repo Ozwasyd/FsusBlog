@@ -134,7 +134,7 @@
 <script setup lang="ts">
 import { Check } from '@/fsusui/icons'
 import { computed, nextTick, ref, watch } from 'vue'
-import { beginRecoveryPasskeyRegistration, completeRecoveryPasskeyRegistration, getPasskeySignalState, passkeyRegisterBegin, passkeyRegisterComplete, startMfaChallenge, verifyMfaChallenge } from '@/api/auth'
+import { beginRecoveryPasskeyRegistration, completeRecoveryPasskeyRegistration, enrollmentPasskeyRegisterBegin, enrollmentPasskeyRegisterComplete, getPasskeySignalState, passkeyRegisterBegin, passkeyRegisterComplete, startMfaChallenge, verifyMfaChallenge } from '@/api/auth'
 import { webauthnSignalService } from '@/services/webauthnSignal'
 import FsusDialog from '@/components/ui/FsusDialog.vue'
 import { FSUSBLOG_SECURITY_COPY } from '@/copy'
@@ -150,6 +150,8 @@ const props = withDefaults(defineProps<{
   needsMfa?: boolean
   /** Recovery Key 验证后签发的短会话，用于未登录恢复流程绑定新 Passkey */
   recoverySessionToken?: string
+  /** 首枚 Passkey enrollment：仅使用短期 enrollment cookie，不要求正式 Session。 */
+  enrollmentMode?: boolean
 }>(), {
   needsMfa: false
 })
@@ -241,6 +243,8 @@ const runCeremony = async (mfaProofToken: string | undefined) => {
   try {
     const beginResp = props.recoverySessionToken
       ? await beginRecoveryPasskeyRegistration(props.recoverySessionToken)
+      : props.enrollmentMode
+        ? await enrollmentPasskeyRegisterBegin()
       : await passkeyRegisterBegin()
     const sessionKey = (beginResp as any).sessionKey || (beginResp as any).SessionKey
     const options = (beginResp as any).options || (beginResp as any).Options
@@ -263,6 +267,12 @@ const runCeremony = async (mfaProofToken: string | undefined) => {
     if (props.recoverySessionToken) {
       await completeRecoveryPasskeyRegistration({
         recoverySessionToken: props.recoverySessionToken,
+        sessionKey,
+        attestation,
+        friendlyName: friendlyName.value.trim() || undefined
+      })
+    } else if (props.enrollmentMode) {
+      await enrollmentPasskeyRegisterComplete({
         sessionKey,
         attestation,
         friendlyName: friendlyName.value.trim() || undefined

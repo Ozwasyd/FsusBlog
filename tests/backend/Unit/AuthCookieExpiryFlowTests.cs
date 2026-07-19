@@ -71,6 +71,19 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
         Assert.Equal(
             flow == AuthExpiryFlow.LocalAuthFixture ? HttpStatusCode.Found : HttpStatusCode.OK,
             response.StatusCode);
+        if (flow == AuthExpiryFlow.AnonymousBootstrap)
+        {
+            DateTimeOffset enrollmentExpiry = ReadCookieExpiry(response, "EnrollmentToken");
+            Assert.InRange(
+                enrollmentExpiry,
+                DateTimeOffset.UtcNow.AddMinutes(19),
+                DateTimeOffset.UtcNow.AddMinutes(21));
+            Assert.DoesNotContain(
+                response.Headers.GetValues("Set-Cookie"),
+                value => value.StartsWith("AccessToken=", StringComparison.Ordinal));
+            return;
+        }
+
         Assert.Equal(
             flow is AuthExpiryFlow.AdminBootstrap or AuthExpiryFlow.AdminLogin
                 ? s_adminAccessTokenExpiresAtUtc
@@ -357,8 +370,12 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
             anonymousBootstrap.BootstrapAsync(
                     Arg.Any<string?>(),
                     Arg.Any<CancellationToken>())
-                .Returns(Task.FromResult<(bool Success, string Message, UserAccountSnapshot? User)>(
-                    (true, "ok", account)));
+                .Returns(Task.FromResult(new AnonymousAccountBootstrapResult(
+                    true,
+                    "ok",
+                    account,
+                    "enrollment-token-with-more-than-32-characters",
+                    DateTime.UtcNow.AddMinutes(20))));
             mfaVerification.VerifyMfaOrRecoveryCodeAsync(
                     Arg.Any<int>(),
                     Arg.Any<string?>(),

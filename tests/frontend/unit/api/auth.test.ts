@@ -15,7 +15,7 @@ vi.mock('@/api/index', () => ({
 }))
 
 import { requestBinaryOnly } from '@/composition/binaryTransport'
-import { adminStepUpPasskeyBegin, beginRecoveryPasskeyRegistration, bootstrapAnonymousAccount, completeRecoveryPasskeyRegistration, createRecoveryKey, deleteAccount, deletePasskey, disableMfa, getMe, getMfaProfile, getPasskeySignalState, getPowChallenge, listPasskeys, listSessions, logout, logoutAdmin, passkeyLoginBegin, passkeyLoginComplete, passkeyRegisterBegin, passkeyRegisterComplete, refreshToken, regenerateMfaRecoveryCodes, renamePasskey, revokeOtherSessions, revokeSession, rotateRecoveryKey, startMfaChallenge, startMfaSetup, updatePublicHandle, userStepUpPasskeyBegin, userStepUpPasskeyComplete, verifyMfaChallenge, verifyMfaSetup, verifyRecoveryKey } from '@/api/auth'
+import { adminStepUpPasskeyBegin, beginRecoveryPasskeyRegistration, bootstrapAnonymousAccount, cancelEnrollment, completeRecoveryPasskeyRegistration, createRecoveryKey, deleteAccount, deletePasskey, disableMfa, enrollmentPasskeyRegisterBegin, enrollmentPasskeyRegisterComplete, getEnrollmentStatus, getMe, getMfaProfile, getPasskeySignalState, getPowChallenge, listPasskeys, listSessions, logout, logoutAdmin, passkeyLoginBegin, passkeyLoginComplete, passkeyRegisterBegin, passkeyRegisterComplete, refreshToken, regenerateMfaRecoveryCodes, renamePasskey, revokeOtherSessions, revokeSession, rotateRecoveryKey, startMfaChallenge, startMfaSetup, updatePublicHandle, userStepUpPasskeyBegin, userStepUpPasskeyComplete, verifyMfaChallenge, verifyMfaSetup, verifyRecoveryKey } from '@/api/auth'
 
 const mockBinary = vi.mocked(requestBinaryOnly)
 
@@ -43,6 +43,27 @@ describe('auth API binary base session flow', () => {
       requiresPow: true,
       body: expect.any(ArrayBuffer)
     }))
+  })
+
+  it('uses isolated enrollment routes for the first passkey lifecycle', async () => {
+    await enrollmentPasskeyRegisterBegin()
+    expectBinaryRoute('binary_post_auth_enrollment_passkey_register_begin', FrameType.PasskeyRegisterBegin)
+
+    await enrollmentPasskeyRegisterComplete({
+      sessionKey: 'challenge',
+      id: 'credential',
+      rawId: new Uint8Array([1]),
+      clientDataBytes: new Uint8Array([2]),
+      attestationObject: new Uint8Array([3]),
+      transports: []
+    })
+    expectBinaryRoute('binary_post_auth_enrollment_passkey_register_complete', FrameType.AuthLoginFlow)
+
+    await getEnrollmentStatus()
+    expectBinaryRoute('binary_get_auth_enrollment_status', FrameType.AuthLoginFlow)
+
+    await cancelEnrollment()
+    expectBinaryRoute('binary_post_auth_enrollment_cancel', FrameType.EmptySuccess)
   })
 
   it('getMe uses binary anonymous identity account frame', async () => {

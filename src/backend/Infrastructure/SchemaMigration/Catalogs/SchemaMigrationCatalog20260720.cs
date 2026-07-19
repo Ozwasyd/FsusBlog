@@ -21,6 +21,7 @@ internal static class SchemaMigrationCatalog20260720
             ],
             Descriptors:
             [
+                AccountEnrollmentMigrationDefinitions.BuildMigration(),
                 PasskeySignalMigrationDefinitions.BuildMigration(),
                 ScheduledPublishIndexMigrationDefinitions.BuildMigration()
             ]);

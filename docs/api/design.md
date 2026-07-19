@@ -789,6 +789,12 @@ RiskControl 运行态写入只能使用 `/api/binary/admin/security/risk-control
 
 ---
 
+## 首枚 Passkey 原子 enrollment
+
+新账号创建不是登录的同义词。`anonymous/bootstrap` 只建立显式 `provisional` 账号和短期单用途 enrollment authority；在首枚 Passkey 验证、账号 `active` 投影及正式 `UserSession` 同一事务成功前，系统不得暴露普通账号能力或长期 cookie。AEDS 继续复用 `AuthLoginFlow`，以 `enrollment_required` 明确表达客户端状态，而不是以 `passkeyEnabled=false` 猜测。
+
+并发语义以服务端 enrollment state/request hash 为权威：同一请求可在响应丢失后幂等恢复，不同请求或双标签竞争得到 conflict；cleanup 只能删除过期 provisional，不能根据“无 Passkey”删除已迁移 active 账号。第二枚及以后 Passkey 属于已登录账号的安全凭据变更，继续要求正式 session 和 action-bound step-up。
+
 ## 参见
 
 - [contracts.md#基础包装结构](contracts.md#基础包装结构) — 请求/响应 DTO、AOT 契约和 AEDS frame 边界

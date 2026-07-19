@@ -56,7 +56,13 @@ public class UserServiceValidationTests
     }
 
     private static AnonymousAccountBootstrapService BuildBootstrapService(ISqlSugarClient db)
-        => new(db, NullLogger<AnonymousAccountBootstrapService>.Instance);
+        => new(
+            db,
+            new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["AuthEnrollment:ProvisionalTtlMinutes"] = "20"
+            }).Build(),
+            NullLogger<AnonymousAccountBootstrapService>.Instance);
 
     private static UserLoginWorkflowService BuildLoginService(
         ISqlSugarClient db,

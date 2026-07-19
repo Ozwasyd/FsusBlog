@@ -19,7 +19,23 @@ public readonly record struct UserAccountSnapshot(
     bool RecoveryEnabled = false,
     string? AnonymousCredentialStatus = null,
     string? AnonymousCredentialLevel = null,
-    string? AccountSubjectHash = null);
+    string? AccountSubjectHash = null,
+    string RegistrationState = AccountRegistrationStates.Active);
+
+public readonly record struct AnonymousAccountBootstrapResult(
+    bool Success,
+    string Message,
+    UserAccountSnapshot? User,
+    string? EnrollmentToken,
+    DateTime? EnrollmentExpiresAt)
+{
+    public void Deconstruct(out bool success, out string message, out UserAccountSnapshot? user)
+    {
+        success = Success;
+        message = Message;
+        user = User;
+    }
+}
 
 public readonly record struct SessionTokenResponseDto(
     string AccessToken,
@@ -35,7 +51,7 @@ public interface IUserAccountReader
 
 public interface IAnonymousAccountBootstrapService
 {
-    Task<(bool Success, string Message, UserAccountSnapshot? User)> BootstrapAsync(
+    Task<AnonymousAccountBootstrapResult> BootstrapAsync(
         string? publicHandle,
         CancellationToken cancellationToken = default);
 }

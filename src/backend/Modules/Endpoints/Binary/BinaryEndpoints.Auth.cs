@@ -82,6 +82,15 @@ public static partial class BinaryEndpoints
                 return AuthBinaryResponseWriter.Error(aeds, result.Error);
             }
 
+            if (result.EnrollmentCredential is { } enrollment)
+            {
+                authCookieService.SetEnrollmentCookie(
+                    httpContext,
+                    env,
+                    enrollment.Token,
+                    enrollment.ExpiresAt);
+            }
+
             if (result.SessionTokens is { } tokens)
             {
                 authCookieService.SetTokenCookies(
@@ -99,6 +108,106 @@ public static partial class BinaryEndpoints
         .RequireRateLimiting("fixed_ip")
         .AllowAnonymous()
         .AddEndpointFilterWithMetadata<RequiresPowFilter>()
+        .RequireNoStoreResponse();
+
+        group.MapPost("/auth/enrollment/passkey/register/begin", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            AuthCookieService authCookieService,
+            IAccountEnrollmentService enrollments,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await enrollments.BeginPasskeyRegistrationAsync(
+                authCookieService.ReadEnrollmentToken(httpContext),
+                cancellationToken);
+            return result.Success && result.Data is not null
+                ? BinaryResults.Frame(aeds, AedsFrameType.PasskeyRegisterBegin, writer => PodBinaryCodec.WritePasskeyRegisterBegin(result.Data.Options, writer))
+                : AuthBinaryResponseWriter.Error(aeds, result.Error);
+        })
+        .RequireRateLimiting("fixed_ip")
+        .AllowAnonymous()
+        .RequireNoStoreResponse();
+
+        group.MapPost("/auth/enrollment/passkey/register/complete", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            AuthCookieService authCookieService,
+            IAccountEnrollmentService enrollments,
+            IWebHostEnvironment env,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.PasskeyRegisterCompleteRequest, cancellationToken);
+            if (!payload.IsSuccess)
+            {
+                return BinaryResults.FromError(payload.Error, aeds);
+            }
+
+            if (!PodBinaryCodec.TryDecodePasskeyRegisterCompleteRequest(payload.Payload, out var request) ||
+                string.IsNullOrWhiteSpace(request.SessionKey) || request.RawId.Length == 0 ||
+                request.ClientDataBytes.Length == 0 || request.AttestationObject.Length == 0)
+            {
+                return AuthBinaryResponseWriter.Error(aeds, ErrorDetail.Create(ErrorCode.Validation, "请求参数无效"));
+            }
+
+            var result = await enrollments.CompletePasskeyRegistrationAsync(
+                authCookieService.ReadEnrollmentToken(httpContext),
+                request,
+                AuthBinaryClientContext.From(httpContext),
+                cancellationToken);
+            if (!result.Success || result.SessionTokens is not { } tokens)
+            {
+                return AuthBinaryResponseWriter.Error(aeds, result.Error);
+            }
+
+            authCookieService.SetTokenCookies(
+                httpContext,
+                env,
+                tokens.AccessToken,
+                tokens.AccessTokenExpiresAtUtc,
+                tokens.RefreshToken,
+                tokens.SessionId,
+                tokens.RefreshTokenExpiresAt);
+            authCookieService.ClearEnrollmentCookie(httpContext);
+            return AuthBinaryResponseWriter.LoginFlow(aeds, result.Flow);
+        })
+        .RequireRateLimiting("fixed_ip")
+        .AllowAnonymous()
+        .RequireNoStoreResponse();
+
+        group.MapGet("/auth/enrollment/status", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            AuthCookieService authCookieService,
+            IAccountEnrollmentService enrollments,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await enrollments.GetStatusAsync(authCookieService.ReadEnrollmentToken(httpContext), cancellationToken);
+            return result.Success
+                ? AuthBinaryResponseWriter.LoginFlow(aeds, result.Flow)
+                : AuthBinaryResponseWriter.Error(aeds, result.Error);
+        })
+        .RequireRateLimiting("fixed_ip")
+        .AllowAnonymous()
+        .RequireNoStoreResponse();
+
+        group.MapPost("/auth/enrollment/cancel", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            AuthCookieService authCookieService,
+            IAccountEnrollmentService enrollments,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await enrollments.CancelAsync(authCookieService.ReadEnrollmentToken(httpContext), cancellationToken);
+            if (!result.Success)
+            {
+                return AuthBinaryResponseWriter.Error(aeds, result.Error);
+            }
+
+            authCookieService.ClearEnrollmentCookie(httpContext);
+            return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
+        })
+        .RequireRateLimiting("fixed_ip")
+        .AllowAnonymous()
         .RequireNoStoreResponse();
 
         group.MapPost("/auth/admin/bootstrap/passkey/begin", static async Task<BinaryFrameResult> (

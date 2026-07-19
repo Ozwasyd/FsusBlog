@@ -31,7 +31,7 @@ export function mapAuthLoginFlowFromPayload(payload: Uint8Array): AuthLoginFlow 
   return {
     accountId: readInt32(payload, 0),
     identityKind: hasIdentityKind ? normalizeIdentityKind(readFixedUtf8(payload, 8, 64)) : DEFAULT_IDENTITY_KIND,
-    authPhase: authPhase === 2 ? 'mfa_required' : 'authenticated',
+    authPhase: authPhase === 2 ? 'mfa_required' : authPhase === 3 ? 'enrollment_required' : 'authenticated',
     mfaMode: mfaMode === 1 ? 'risk' : mfaMode === 2 ? 'standard' : null,
     challengeToken: hasChallengeToken ? readFixedUtf8(payload, 104, 64) : null
   };

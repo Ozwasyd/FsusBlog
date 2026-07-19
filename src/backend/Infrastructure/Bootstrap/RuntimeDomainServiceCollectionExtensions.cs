@@ -8,9 +8,11 @@ using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Articles;
+using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Distribution;
 using FsusBlog.Server.Services.Moderation;
+using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Services.Subscriptions;
 using FsusBlog.Server.Services.Telemetry;
 
@@ -73,6 +75,8 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<AuthBinaryApplicationFacade>();
         services.AddScoped<IUserAccountReader, UserAccountReader>();
         services.AddScoped<IAnonymousAccountBootstrapService, AnonymousAccountBootstrapService>();
+        services.AddScoped<IAccountEnrollmentService, AccountEnrollmentService>();
+        services.AddHostedService<AccountEnrollmentCleanupWorker>();
         services.AddScoped<IUserLoginWorkflowService, UserLoginWorkflowService>();
         services.AddScoped<IUserProfileCommandService, UserProfileCommandService>();
         services.AddScoped<IUserSessionCommandService, UserSessionCommandService>();

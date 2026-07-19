@@ -49,11 +49,13 @@ public readonly record struct AuthBinaryFlowResult(
     bool Success,
     ErrorDetail Error,
     AuthLoginFlowDto Flow,
-    AuthBinarySessionTokens? SessionTokens);
+    AuthBinarySessionTokens? SessionTokens,
+    AuthBinaryEnrollmentCredential? EnrollmentCredential = null);
+
+public readonly record struct AuthBinaryEnrollmentCredential(string Token, DateTime ExpiresAt);
 
 public sealed class AuthBinaryApplicationFacade(
-    IAnonymousAccountBootstrapService anonymousBootstrap,
-    IUserLoginWorkflowService loginWorkflow)
+    IAnonymousAccountBootstrapService anonymousBootstrap)
 {
     public async Task<AuthBinaryFlowResult> BootstrapAnonymousAccountAsync(AuthAnonymousBootstrapRequestCoreModel request, AuthBinaryClientContext client, CancellationToken cancellationToken = default)
     {
@@ -74,50 +76,22 @@ public sealed class AuthBinaryApplicationFacade(
             return Fail(code, bootstrap.Message);
         }
 
-        var login = await CompleteLoginAsync(bootstrap.User.Value.Id, client, mfaVerified: true, rememberMe: false, cancellationToken: cancellationToken);
-        return login.Success
-            ? login
-            : Fail(ErrorCode.InfraFailure, "匿名账号已创建，但初始化会话失败，请使用 Recovery Key 或 Passkey 继续");
-    }
-
-    private async Task<AuthBinaryFlowResult> CompleteLoginAsync(
-        int userId,
-        AuthBinaryClientContext client,
-        bool mfaVerified,
-        bool rememberMe,
-        CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        var login = await loginWorkflow.CompleteLoginAsync(
-            userId,
-            client.ClientIp,
-            client.DeviceFingerprint,
-            client.UserAgent,
-            mfaVerified,
-            rememberMe,
-            cancellationToken);
-        if (!login.Success || login.Data == null || login.User == null)
-        {
-            return Fail(ErrorCode.Unauthorized, login.Message);
-        }
-
         var flow = new AuthLoginFlowDto(
-            login.User.Value.Id,
-            ResolveIdentityKind(login.User.Value.IdentityKind),
-            "authenticated",
+            bootstrap.User.Value.Id,
+            ResolveIdentityKind(bootstrap.User.Value.IdentityKind),
+            "enrollment_required",
             null,
             null);
-        var tokens = new AuthBinarySessionTokens(
-            login.Data.Value.AccessToken,
-            login.Data.Value.AccessTokenExpiresAtUtc,
-            login.Data.Value.RefreshToken,
-            login.Data.Value.SessionId,
-            login.Data.Value.RefreshTokenExpiresAt);
-        return new AuthBinaryFlowResult(true, ErrorDetail.None, flow, tokens);
+        return new AuthBinaryFlowResult(
+            true,
+            ErrorDetail.None,
+            flow,
+            null,
+            new AuthBinaryEnrollmentCredential(bootstrap.EnrollmentToken!, bootstrap.EnrollmentExpiresAt!.Value));
     }
 
     private static AuthBinaryFlowResult Fail(ErrorCode code, string message)
-        => new(false, ErrorDetail.Create(code, message), default, null);
+        => new(false, ErrorDetail.Create(code, message), default, null, null);
 
     private static string ResolveIdentityKind(string? identityKind)
         => string.IsNullOrWhiteSpace(identityKind) ? AnonymousIdentityRuntime.AnonymousAccountKind : identityKind.Trim();

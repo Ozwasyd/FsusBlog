@@ -93,6 +93,22 @@ describe('binary auth adapter', () => {
     })
   })
 
+  it('maps provisional account enrollment without formal session fields', () => {
+    const payload = new Uint8Array(168)
+    const view = new DataView(payload.buffer)
+    view.setInt32(0, 8, true)
+    payload[4] = 3
+    writeFixed(payload, 8, 64, 'anonymous_account')
+
+    expect(mapAuthLoginFlowFromPayload(payload)).toEqual({
+      accountId: 8,
+      identityKind: 'anonymous_account',
+      authPhase: 'enrollment_required',
+      mfaMode: null,
+      challengeToken: null
+    })
+  })
+
   it('maps current user snapshot payload', () => {
     const payload = new Uint8Array(372)
     const view = new DataView(payload.buffer)

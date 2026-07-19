@@ -201,7 +201,7 @@
         "summary": "/admin/article/{id:int}",
         "responses": {
           "200": {
-            "description": "EmptySuccess AEDS frame",
+            "description": "ConversationStatusMutationResult AEDS frame",
             "content": {
               "application/octet-stream": {
                 "schema": {
@@ -226,7 +226,7 @@
         "x-fsus-protocol": "AEDS",
         "x-fsus-aeds-version": 2,
         "x-fsus-request-frame": null,
-        "x-fsus-response-frame": "EmptySuccess",
+        "x-fsus-response-frame": "ConversationStatusMutationResult",
         "x-fsus-error-frame": "ApiError",
         "x-fsus-auth": "admin",
         "x-fsus-pow": true,
@@ -2674,6 +2674,198 @@
         "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authAdapter.ts"
       }
     },
+    "/api/binary/auth/enrollment/passkey/register/begin": {
+      "post": {
+        "operationId": "binary_post_auth_enrollment_passkey_register_begin",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "/auth/enrollment/passkey/register/begin",
+        "responses": {
+          "200": {
+            "description": "PasskeyRegisterBegin AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "PasskeyRegisterBegin",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "anonymous",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "/auth/enrollment/passkey/register/begin",
+        "x-fsus-source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/auth.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authAdapter.ts"
+      }
+    },
+    "/api/binary/auth/enrollment/passkey/register/complete": {
+      "post": {
+        "operationId": "binary_post_auth_enrollment_passkey_register_complete",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "/auth/enrollment/passkey/register/complete",
+        "responses": {
+          "200": {
+            "description": "AuthLoginFlow AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "PasskeyRegisterCompleteRequest",
+        "x-fsus-response-frame": "AuthLoginFlow",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "anonymous",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "/auth/enrollment/passkey/register/complete",
+        "x-fsus-source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/auth.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authAdapter.ts"
+      }
+    },
+    "/api/binary/auth/enrollment/status": {
+      "get": {
+        "operationId": "binary_get_auth_enrollment_status",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "/auth/enrollment/status",
+        "responses": {
+          "200": {
+            "description": "AuthLoginFlow AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "AuthLoginFlow",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "anonymous",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "/auth/enrollment/status",
+        "x-fsus-source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/auth.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authAdapter.ts"
+      }
+    },
+    "/api/binary/auth/enrollment/cancel": {
+      "post": {
+        "operationId": "binary_post_auth_enrollment_cancel",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "/auth/enrollment/cancel",
+        "responses": {
+          "200": {
+            "description": "EmptySuccess AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "EmptySuccess",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "anonymous",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "/auth/enrollment/cancel",
+        "x-fsus-source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/auth.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authAdapter.ts"
+      }
+    },
     "/api/binary/auth/me": {
       "get": {
         "operationId": "binary_get_auth_me",
@@ -3892,7 +4084,7 @@
         "x-fsus-test-surface": "/auth/passkey/register/complete",
         "x-fsus-source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs",
         "x-fsus-frontend-wrapper": "src/frontend/src/api/auth.ts",
-        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/passkeyAdapter.ts"
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authAdapter.ts"
       }
     },
     "/api/binary/auth/passkey/login/begin": {
@@ -4036,7 +4228,7 @@
         "x-fsus-test-surface": "/auth/passkey/credentials",
         "x-fsus-source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs",
         "x-fsus-frontend-wrapper": "src/frontend/src/api/auth.ts",
-        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/passkeyAdapter.ts"
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authAdapter.ts"
       }
     },
     "/api/binary/auth/passkey/signal-state": {
@@ -4084,7 +4276,7 @@
         "x-fsus-test-surface": "/auth/passkey/signal-state",
         "x-fsus-source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs",
         "x-fsus-frontend-wrapper": "src/frontend/src/api/auth.ts",
-        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/passkeyAdapter.ts"
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authAdapter.ts"
       }
     },
     "/api/binary/auth/passkey/credentials/{id:int}": {
@@ -4132,7 +4324,7 @@
         "x-fsus-test-surface": "/auth/passkey/credentials/{id:int}",
         "x-fsus-source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs",
         "x-fsus-frontend-wrapper": "src/frontend/src/api/auth.ts",
-        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/passkeyAdapter.ts"
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authAdapter.ts"
       }
     },
     "/api/binary/auth/passkey/credentials/{id:int}/name": {
@@ -6107,7 +6299,7 @@
         "summary": "/admin/messages/conversations/{id:long}/status",
         "responses": {
           "200": {
-            "description": "ConversationStatusMutationResult AEDS frame",
+            "description": "EmptySuccess AEDS frame",
             "content": {
               "application/octet-stream": {
                 "schema": {
@@ -6132,7 +6324,7 @@
         "x-fsus-protocol": "AEDS",
         "x-fsus-aeds-version": 2,
         "x-fsus-request-frame": "ConversationStatusRequest",
-        "x-fsus-response-frame": "ConversationStatusMutationResult",
+        "x-fsus-response-frame": "EmptySuccess",
         "x-fsus-error-frame": "ApiError",
         "x-fsus-auth": "admin",
         "x-fsus-pow": true,

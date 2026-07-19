@@ -72,6 +72,8 @@ public sealed class OnlineSchemaMigrationPolicyTests
             metadata[PasskeySignalMigrationDefinitions.MigrationId];
         OnlineSchemaMigrationMetadata scheduledPublishDueIndex =
             metadata[ScheduledPublishIndexMigrationDefinitions.MigrationId];
+        OnlineSchemaMigrationMetadata accountEnrollment =
+            metadata[AccountEnrollmentMigrationDefinitions.MigrationId];
         OnlineSchemaMigrationMetadata userSessionMultiDevice =
             metadata[UserSessionMultiDeviceMigrationDefinitions.MigrationId];
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, passkeyExpand.Phase);
@@ -100,13 +102,14 @@ public sealed class OnlineSchemaMigrationPolicyTests
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, scheduledPublishDueIndex.Phase);
         Assert.Equal(OnlineSchemaMigrationLockRisk.Low, scheduledPublishDueIndex.EstimatedLockRisk);
         Assert.Equal(OnlineSchemaMigrationRollbackMode.CompatibleCode, scheduledPublishDueIndex.RollbackMode);
+        Assert.Equal(OnlineSchemaMigrationPhase.Expand, accountEnrollment.Phase);
         Assert.Equal(OnlineSchemaMigrationPhase.Contract, userSessionMultiDevice.Phase);
         Assert.True(userSessionMultiDevice.Destructive);
         Assert.False(userSessionMultiDevice.LegacyBootstrapOnly);
         Assert.Equal(AccountSubjectHashBackfillStep.BatchSize, subjectBackfill.BatchSize);
         Assert.Equal("last_account_id", subjectBackfill.ResumeTokenName);
         Assert.Equal(OnlineSchemaMigrationRollbackMode.ResumeFromCheckpoint, subjectBackfill.RollbackMode);
-        Assert.All(new[] { passkeyExpand, publicArticleProjectionExpand, articleOutboxClaimLeaseExpand, activeReleaseFenceWitnessExpand, activeReleaseFencedCommitExpand, readEventRetirementCompat, anonymousEligibilityPredicateExpand, subjectExpand, subjectBackfill, articleAssetReferences, articlePublicationCoordinates, articlePublicationConsistency, commentModerationEvent, messageAdminQueue, messageMutationOutbox, messageMutationIdempotency, conversationStatusAudit, messageUnreadAuthority, passkeySignalVersion, scheduledPublishDueIndex }, classification =>
+        Assert.All(new[] { passkeyExpand, publicArticleProjectionExpand, articleOutboxClaimLeaseExpand, activeReleaseFenceWitnessExpand, activeReleaseFencedCommitExpand, readEventRetirementCompat, anonymousEligibilityPredicateExpand, subjectExpand, subjectBackfill, articleAssetReferences, articlePublicationCoordinates, articlePublicationConsistency, commentModerationEvent, messageAdminQueue, messageMutationOutbox, messageMutationIdempotency, conversationStatusAudit, messageUnreadAuthority, passkeySignalVersion, scheduledPublishDueIndex, accountEnrollment }, classification =>
         {
             Assert.False(classification.LegacyBootstrapOnly);
             Assert.False(classification.Destructive);
@@ -135,6 +138,7 @@ public sealed class OnlineSchemaMigrationPolicyTests
             messageUnreadAuthority.MigrationId,
             passkeySignalVersion.MigrationId,
             scheduledPublishDueIndex.MigrationId,
+            accountEnrollment.MigrationId,
             MessagePrivacyRetentionMigrationDefinitions.MigrationId,
             userSessionMultiDevice.MigrationId
         };

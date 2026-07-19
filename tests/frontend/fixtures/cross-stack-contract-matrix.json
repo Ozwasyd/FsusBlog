@@ -961,6 +961,39 @@
           "cache": "no-store"
         },
         {
+          "method": "POST",
+          "path": "/auth/enrollment/passkey/register/begin",
+          "auth": "anonymous",
+          "responseFrame": "PasskeyRegisterBegin",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/enrollment/passkey/register/complete",
+          "auth": "anonymous",
+          "requestFrame": "PasskeyRegisterCompleteRequest",
+          "responseFrame": "AuthLoginFlow",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "method": "GET",
+          "path": "/auth/enrollment/status",
+          "auth": "anonymous",
+          "responseFrame": "AuthLoginFlow",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/enrollment/cancel",
+          "auth": "anonymous",
+          "responseFrame": "EmptySuccess",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip"
+        },
+        {
           "method": "GET",
           "path": "/auth/me",
           "auth": "optional",

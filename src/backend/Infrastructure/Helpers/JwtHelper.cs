@@ -83,6 +83,11 @@ public class JwtHelper : IJwtHelper
 
     public IssuedAccessToken GenerateAccessToken(User user, string? sessionId = null, bool mfaVerified = false)
     {
+        if (!AccountRegistrationStates.IsActive(user.RegistrationState))
+        {
+            throw new InvalidOperationException("Formal access tokens may only be issued for active accounts.");
+        }
+
         string identityKind = string.IsNullOrWhiteSpace(user.IdentityKind)
             ? AnonymousIdentityRuntime.AnonymousAccountKind
             : user.IdentityKind.Trim();

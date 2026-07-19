@@ -22,7 +22,11 @@
 | 方法 | 路径 | 权限 | 说明 |
 | ------ | ------ | ------ | ------ |
 | GET | `/api/binary/auth/pow-challenge` | 🔓 🚦 📦 | 获取 PoW 挑战 |
-| POST | `/api/binary/auth/anonymous/bootstrap` | 🔓 🚦 📦 | 匿名身份模式初始化匿名账号容器并写入 session；请求 `AuthAnonymousBootstrapRequest`，不接受密码 |
+| POST | `/api/binary/auth/anonymous/bootstrap` | 🔓 🚦 📦 | 创建 provisional 账号和短期 enrollment cookie；不写正式 session，不接受密码 |
+| POST | `/api/binary/auth/enrollment/passkey/register/begin` | 🔓 🚦 📦 | 仅凭 enrollment cookie 开始首枚 Passkey 注册 |
+| POST | `/api/binary/auth/enrollment/passkey/register/complete` | 🔓 🚦 📦 | 原子提交首枚 Passkey、active 状态和正式 session；响应 `AuthLoginFlow` |
+| GET | `/api/binary/auth/enrollment/status` | 🔓 🚦 📦 | 查询短期 enrollment 状态，不签发正式凭据 |
+| POST | `/api/binary/auth/enrollment/cancel` | 🔓 🚦 📦 | 取消并清理仍为 provisional 的账号和 challenge |
 | POST | `/api/binary/auth/refresh-token` | 🔓 🚦 📦 | 用 HttpOnly Cookie 续签 Access Token；成功返回 `EmptySuccess`，短竞争窗口内旧 token 返回 409 且不撤销 family，网络未知结果不得自动重放 POST |
 
 ### 当前用户

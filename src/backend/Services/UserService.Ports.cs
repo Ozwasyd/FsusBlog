@@ -172,7 +172,8 @@ public sealed class UserAccountReader(
             user.RecoveryEnabled,
             user.AnonymousCredentialStatus,
             user.AnonymousCredentialLevel,
-            user.AccountSubjectHash);
+            user.AccountSubjectHash,
+            user.RegistrationState);
 
     internal static IdentityAccountSnapshotCoreModel ToAnonymousAccountSnapshot(UserAccountSnapshot account)
         => new(

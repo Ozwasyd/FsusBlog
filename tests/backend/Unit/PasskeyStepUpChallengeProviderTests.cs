@@ -336,6 +336,8 @@ public sealed class PasskeyStepUpChallengeProviderTests
             => throw new NotSupportedException();
 
         public Task<(bool Success, string Message, PasskeyRegBeginData? Data)> BeginRegistrationAsync(int accountId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<(bool Success, string Message, PasskeyRegBeginData? Data)> BeginEnrollmentRegistrationAsync(int accountId, byte[] stableUserHandle, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<PasskeyRegistrationValidationResult> ValidateEnrollmentRegistrationAsync(int accountId, PasskeyRegisterCompleteCoreModel request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<(bool Success, string Message, PasskeySignalStateDto? SignalState)> CompleteRegistrationAsync(int accountId, PasskeyRegisterCompleteCoreModel request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<RecoveryPasskeyRegistrationResult> CompleteRecoveryRegistrationAsync(RecoveryKeySession session, string recoverySessionHash, string recoveryRequestHash, PasskeyRegisterCompleteCoreModel request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<RecoveryPasskeyRegistrationResult?> TryResolveRecoveryRegistrationAsync(string recoverySessionHash, string recoveryRequestHash, string registrationSessionKey, CancellationToken cancellationToken = default) => throw new NotSupportedException();

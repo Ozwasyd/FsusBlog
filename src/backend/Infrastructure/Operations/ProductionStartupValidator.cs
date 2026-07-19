@@ -389,6 +389,7 @@ public static class ProductionStartupValidator
         ValidateFido2Settings(fido2ServerDomain, fido2Origins, seoBaseUrl, corsOrigins, enforceProductionRules, errors);
         ValidateAuthCookieSettings(configuration, enforceProductionRules, errors);
         ValidateUserSessionSettings(configuration, errors);
+        ValidateAccountEnrollmentSettings(configuration, errors);
         errors.AddRange(DataProtectionKeyProtection.ValidateConfiguration(configuration, enforceProductionRules));
         ValidateAnonymousIdentityMode(anonymousIdentityMode, enforceProductionRules, errors);
         ValidatePerceptionSealedTokenSettings(configuration, enforceProductionRules, errors);
@@ -431,6 +432,21 @@ public static class ProductionStartupValidator
             errors.Add(
                 $"{UserSessionPolicy.MaxActiveSessionsConfigurationKey} must be between "
                 + $"{UserSessionPolicy.MinimumMaxActiveSessions} and {UserSessionPolicy.MaximumMaxActiveSessions}.");
+        }
+    }
+
+    private static void ValidateAccountEnrollmentSettings(IConfiguration configuration, List<string> errors)
+    {
+        int? provisionalTtl = configuration.GetValue<int?>("AuthEnrollment:ProvisionalTtlMinutes");
+        if (provisionalTtl is null or < 15 or > 30)
+        {
+            errors.Add("AuthEnrollment:ProvisionalTtlMinutes must be between 15 and 30.");
+        }
+
+        int? cleanupInterval = configuration.GetValue<int?>("AuthEnrollment:CleanupIntervalMinutes");
+        if (cleanupInterval is null or < 1 or > 30)
+        {
+            errors.Add("AuthEnrollment:CleanupIntervalMinutes must be between 1 and 30.");
         }
     }
 

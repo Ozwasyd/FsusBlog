@@ -364,6 +364,12 @@ blind endpoint 只接受 `identity_kind=anonymous_account`；AdminPrincipal、�
 
 ---
 
+### 首枚 Passkey enrollment
+
+anonymous bootstrap 只签发 15–30 分钟、HttpOnly/Strict、path 限定的 enrollment cookie；服务端只保存 SHA-256 token hash，且该 authority 只映射首枚 Passkey begin/complete、status、cancel。`sys_user.registration_state` 与 ban/delete `Status` 分开，provisional 主体不能获得 JWT、Refresh Token、普通 `UserSession`，也不能进入评论、消息、资料、notification stream 或 binary 业务能力。
+
+complete 先用数据库状态、request hash 和 lease 排除并发，再在同一事务锁定 enrollment 与 provisional user，插入首枚 credential、稳定 handle、active 投影和 formal session；任何失败整体回滚。相同请求的响应丢失只允许恢复同一个已提交 session 的 refresh token，不同 attestation 冲突。过期清理只删除仍为 provisional 的账号；active 永不被该 worker 删除。无需重启的回退是关闭 bootstrap 入口并让已有 enrollment 自然 TTL 清理，保留 additive schema，禁止回退为“先正式登录再绑 Passkey”。
+
 ## 多因素认证（MFA / TOTP）
 
 - 标准：RFC 6238 TOTP（Time-based OTP，30 秒窗口）

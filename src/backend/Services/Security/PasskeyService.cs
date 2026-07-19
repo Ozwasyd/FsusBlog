@@ -27,6 +27,8 @@ namespace FsusBlog.Server.Services.Security;
 public interface IPasskeyService
 {
     Task<(bool Success, string Message, PasskeyRegBeginData? Data)> BeginRegistrationAsync(int accountId, CancellationToken cancellationToken = default);
+    Task<(bool Success, string Message, PasskeyRegBeginData? Data)> BeginEnrollmentRegistrationAsync(int accountId, byte[] stableUserHandle, CancellationToken cancellationToken = default);
+    Task<PasskeyRegistrationValidationResult> ValidateEnrollmentRegistrationAsync(int accountId, PasskeyRegisterCompleteCoreModel request, CancellationToken cancellationToken = default);
     Task<(bool Success, string Message, PasskeySignalStateDto? SignalState)> CompleteRegistrationAsync(int accountId, PasskeyRegisterCompleteCoreModel request, CancellationToken cancellationToken = default);
     Task<RecoveryPasskeyRegistrationResult> CompleteRecoveryRegistrationAsync(
         RecoveryKeySession session,
@@ -104,7 +106,7 @@ internal readonly record struct PasskeyAssertionMetadata(
     int AuthenticatorFlagsVersion);
 internal readonly record struct PasskeyCounterSnapshot(long SignCount, string RowVersion);
 internal readonly record struct PasskeyDeleteState(bool UserFound, bool CredentialFound, bool Deleted, int Remaining);
-internal sealed record PasskeyRegistrationValidationResult(bool Success, string Message, PasskeyCredential? Credential)
+public sealed record PasskeyRegistrationValidationResult(bool Success, string Message, PasskeyCredential? Credential)
 {
     public static PasskeyRegistrationValidationResult Rejected(string message) => new(false, message, null);
 
@@ -177,11 +179,57 @@ public sealed class PasskeyService(
             return (false, $"每位用户最多只能注册 {MaxCredentialsPerUser} 枚通行密钥", null);
         }
 
-        var excludeCredentials = existingCreds
+        byte[] stableUserHandle = await GetOrCreateStablePasskeyUserHandleAsync(user, cancellationToken);
+        return await CreateRegistrationOptionsAsync(user, existingCreds, stableUserHandle, cancellationToken);
+    }
+
+    public async Task<(bool Success, string Message, PasskeyRegBeginData? Data)> BeginEnrollmentRegistrationAsync(
+        int accountId,
+        byte[] stableUserHandle,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (stableUserHandle.Length != PasskeyUserHandleBytes)
+        {
+            return (false, "注册会话中的通行密钥句柄无效", null);
+        }
+
+        User? user = await db.Queryable<User>().InSingleAsync(accountId);
+        if (user is null || user.DeletedAt.HasValue || user.Status == 2 ||
+            !string.Equals(user.RegistrationState, AccountRegistrationStates.Provisional, StringComparison.Ordinal))
+        {
+            return (false, "待激活账户不存在或状态已变化", null);
+        }
+
+        var existingCreds = await db.Queryable<PasskeyCredential>()
+            .Where(c => c.AccountId == accountId)
+            .Select(c => c.CredentialId)
+            .Take(1)
+            .ToListAsync();
+        if (existingCreds.Count != 0)
+        {
+            return (false, "待激活账户已存在通行密钥", null);
+        }
+
+        return await CreateRegistrationOptionsAsync(user, existingCreds, stableUserHandle, cancellationToken);
+    }
+
+    public Task<PasskeyRegistrationValidationResult> ValidateEnrollmentRegistrationAsync(
+        int accountId,
+        PasskeyRegisterCompleteCoreModel request,
+        CancellationToken cancellationToken = default)
+        => ValidateRegistrationAsync(accountId, request, cancellationToken);
+
+    private async Task<(bool Success, string Message, PasskeyRegBeginData? Data)> CreateRegistrationOptionsAsync(
+        User user,
+        IReadOnlyCollection<string> existingCredentialIds,
+        byte[] stableUserHandle,
+        CancellationToken cancellationToken)
+    {
+        var excludeCredentials = existingCredentialIds
             .Select(id => new PublicKeyCredentialDescriptor(Base64Url.DecodeFromChars(id)))
             .ToList();
 
-        byte[] stableUserHandle = await GetOrCreateStablePasskeyUserHandleAsync(user, cancellationToken);
         PasskeyAccountMetadata accountMetadata = BuildAnonymousSafeMetadata(
             user.PublicHandle,
             AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled(),

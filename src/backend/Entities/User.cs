@@ -9,6 +9,7 @@ namespace FsusBlog.Server.Entities;
 [SugarIndex("idx_user_public_handle_unique", nameof(PublicHandle), OrderByType.Asc, true)]
 // 为状态字段增加索引，确保系统启动时能瞬间捞出所有黑名单
 [SugarIndex("idx_user_status", nameof(User.Status), OrderByType.Asc)]
+[SugarIndex("idx_user_registration_state", nameof(User.RegistrationState), OrderByType.Asc)]
 public class User
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
@@ -36,6 +37,13 @@ public class User
     {
         get; set;
     }
+
+    /// <summary>
+    /// Auditable account-registration lifecycle. This is intentionally independent
+    /// from moderation/deletion <see cref="Status"/>.
+    /// </summary>
+    [SugarColumn(ColumnName = "registration_state", Length = 24, DefaultValue = "active")]
+    public string RegistrationState { get; set; } = AccountRegistrationStates.Active;
 
     [SugarColumn(ColumnName = "passkey_enabled", DefaultValue = "false")]
     public bool PasskeyEnabled
@@ -143,4 +151,15 @@ public class User
     {
         get; set;
     }
+}
+
+public static class AccountRegistrationStates
+{
+    public const string Provisional = "provisional";
+    public const string Active = "active";
+    public const string Suspended = "suspended";
+    public const string Closed = "closed";
+
+    public static bool IsActive(string? value)
+        => string.Equals(value, Active, StringComparison.Ordinal);
 }

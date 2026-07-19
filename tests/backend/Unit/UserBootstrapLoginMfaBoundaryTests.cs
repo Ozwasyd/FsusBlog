@@ -4,6 +4,7 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Security;
 
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -17,7 +18,7 @@ public sealed class UserBootstrapLoginMfaBoundaryTests
     public void DependencyGraph_BootstrapAndLoginOwnPersistenceWithoutUserServiceCallback()
     {
         Assert.Equal(
-            [typeof(ISqlSugarClient), typeof(ILogger<AnonymousAccountBootstrapService>)],
+            [typeof(ISqlSugarClient), typeof(IConfiguration), typeof(ILogger<AnonymousAccountBootstrapService>)],
             ConstructorDependencies(typeof(AnonymousAccountBootstrapService)));
         Assert.Equal(
             [
@@ -25,7 +26,9 @@ public sealed class UserBootstrapLoginMfaBoundaryTests
                 typeof(ILogger<UserLoginWorkflowService>),
                 typeof(IJwtHelper),
                 typeof(IUserSessionValidationCache),
-                typeof(IAuthRiskService)
+                typeof(IAuthRiskService),
+                typeof(IConfiguration),
+                typeof(FsusBlog.Server.Services.NotificationStream.IMessageNotificationStreamPort)
             ],
             ConstructorDependencies(typeof(UserLoginWorkflowService)));
 

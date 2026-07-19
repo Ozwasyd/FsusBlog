@@ -26,7 +26,11 @@ public static partial class PodBinaryCodec
         var mutable = new MutableAuthLoginFlowPod
         {
             AccountId = flow.AccountId,
-            AuthPhase = string.Equals(flow.AuthPhase, "mfa_required", StringComparison.OrdinalIgnoreCase) ? (byte)2 : (byte)1,
+            AuthPhase = string.Equals(flow.AuthPhase, "mfa_required", StringComparison.OrdinalIgnoreCase)
+                ? (byte)2
+                : string.Equals(flow.AuthPhase, "enrollment_required", StringComparison.OrdinalIgnoreCase)
+                    ? (byte)3
+                    : (byte)1,
             MfaMode = string.Equals(flow.MfaMode, "risk", StringComparison.OrdinalIgnoreCase)
                 ? (byte)1
                 : string.Equals(flow.MfaMode, "standard", StringComparison.OrdinalIgnoreCase)
@@ -56,7 +60,7 @@ public static partial class PodBinaryCodec
     {
         var reader = new BinaryPodReader(source.Span);
         if (!reader.TryReadPod(out AuthLoginFlowPod pod) ||
-            pod.AuthPhase is < 1 or > 2 ||
+            pod.AuthPhase is < 1 or > 3 ||
             pod.MfaMode > 2 ||
             pod.HasChallengeToken > 1 ||
             pod.HasIdentityKind > 1)
@@ -68,7 +72,7 @@ public static partial class PodBinaryCodec
         flow = new AuthLoginFlowDto(
             pod.AccountId,
             pod.HasIdentityKind == 1 ? NormalizeIdentityKind(PodUtf8Codec.FromFixed64(pod.IdentityKind)) : DefaultIdentityKind,
-            pod.AuthPhase == 2 ? "mfa_required" : "authenticated",
+            pod.AuthPhase == 2 ? "mfa_required" : pod.AuthPhase == 3 ? "enrollment_required" : "authenticated",
             pod.MfaMode == 1 ? "risk" : pod.MfaMode == 2 ? "standard" : null,
             pod.HasChallengeToken == 1 ? PodUtf8Codec.FromFixed64(pod.ChallengeToken) : null);
         return reader.IsConsumed;

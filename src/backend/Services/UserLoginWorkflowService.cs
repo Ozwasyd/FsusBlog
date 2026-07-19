@@ -90,6 +90,11 @@ public sealed partial class UserLoginWorkflowService(
         bool mfaVerified,
         bool rememberMe)
     {
+        if (!AccountRegistrationStates.IsActive(user.RegistrationState))
+        {
+            return (false, "账户尚未完成首枚通行密钥绑定", null, null);
+        }
+
         if (user.Status == UserStatusDeleted || user.DeletedAt.HasValue)
         {
             return (false, "账户已注销", null, null);

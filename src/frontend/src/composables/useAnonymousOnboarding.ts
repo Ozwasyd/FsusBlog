@@ -10,7 +10,7 @@ import { toast } from '@/fsusui/feedback'
 import { resolveSafeRedirectTarget } from '@/security/privateNavigationPolicy'
 import { usePostAuthCommit } from '@/composables/usePostAuthCommit'
 
-type AnonymousOnboardingStep = 'account' | 'recovery' | 'passkey' | 'complete'
+type AnonymousOnboardingStep = 'account' | 'passkey' | 'recovery' | 'complete'
 
 const getErrorText = (error: unknown, fallback: string): string => {
   const normalized = toAppError(error, fallback)
@@ -62,16 +62,14 @@ export function useAnonymousOnboarding() {
     step.value === 'account'
   )
   const canRegisterPasskey = computed(() =>
-    step.value === 'recovery' &&
-    recoveryKeySaved.value &&
-    recoveryKeyPlaintext.value.length > 0 &&
+    step.value === 'passkey' &&
     !loading.value
   )
   const submitButtonText = computed(() => {
     if (loading.value) {
       return '正在创建匿名账号'
     }
-    return '创建匿名账号并生成 Recovery Key'
+    return '创建匿名账号并绑定通行密钥'
   })
 
   const handleGuidelinesActivator = (event?: KeyboardEvent | MouseEvent): void => {
@@ -90,23 +88,16 @@ export function useAnonymousOnboarding() {
     localError.value = ''
     try {
       const handle = publicHandle.value.trim()
-      await bootstrapAnonymousAccount({
+      const enrollment = await bootstrapAnonymousAccount({
         publicHandle: handle || undefined,
         acceptedGuidelines: isAgreed.value
       })
-      if (!await commitPostAuthSession()) {
-        localError.value = '账号已创建，但登录状态同步失败。请重新登录。'
-        return
+      if (enrollment.authPhase !== 'enrollment_required') {
+        throw new Error('注册服务未返回首枚通行密钥绑定状态。')
       }
-      authBroadcastRuntime.broadcastLogin()
-
-      const response = await createRecoveryKey()
-      recoveryKeyPlaintext.value = response.recoveryKey
-      recoveryKeyVersion.value = response.keyVersion
-      recoveryKeyCreatedAt.value = response.createdAt
-      recoveryKeySaved.value = false
-      step.value = 'recovery'
-      toast.success('匿名账号已创建。保存 Recovery Key。')
+      step.value = 'passkey'
+      passkeyModalVisible.value = true
+      toast.success('临时注册会话已创建。请绑定首枚通行密钥。')
     } catch (error) {
       localError.value = getErrorText(error, '匿名账号创建失败。稍后重试。')
     } finally {
@@ -125,7 +116,7 @@ export function useAnonymousOnboarding() {
 
   const openPasskeyRegistration = (): void => {
     if (!canRegisterPasskey.value) {
-      localError.value = '先确认已保存 Recovery Key。'
+      localError.value = '当前注册会话无法开始通行密钥绑定。'
       return
     }
 
@@ -136,10 +127,27 @@ export function useAnonymousOnboarding() {
 
   const onPasskeyRegistered = async (): Promise<void> => {
     passkeyRegistered.value = true
-    recoveryKeyPlaintext.value = ''
     passkeyModalVisible.value = false
-    step.value = 'complete'
-    await fetchPasskeys()
+    loading.value = true
+    localError.value = ''
+    try {
+      if (!await commitPostAuthSession()) {
+        throw new Error('正式会话同步失败，请安全重试注册完成请求。')
+      }
+      authBroadcastRuntime.broadcastLogin()
+      const response = await createRecoveryKey()
+      recoveryKeyPlaintext.value = response.recoveryKey
+      recoveryKeyVersion.value = response.keyVersion
+      recoveryKeyCreatedAt.value = response.createdAt
+      recoveryKeySaved.value = false
+      step.value = 'recovery'
+      await fetchPasskeys()
+      toast.success('账户已激活。请保存 Recovery Key。')
+    } catch (error) {
+      localError.value = getErrorText(error, '账户已激活，但后续安全资料初始化失败。')
+    } finally {
+      loading.value = false
+    }
   }
 
   const finishOnboarding = async (): Promise<void> => {

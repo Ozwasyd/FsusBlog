@@ -18,6 +18,8 @@ public sealed class AuthCookieService
     private const string AdminSessionIdCookieName = "AdminSessionId";
     private const string HostAdminAccessTokenCookieName = "__Host-AdminAccessToken";
     private const string HostAdminSessionIdCookieName = "__Host-AdminSessionId";
+    private const string EnrollmentTokenCookieName = "EnrollmentToken";
+    private const string HostEnrollmentTokenCookieName = "__Host-EnrollmentToken";
     private readonly bool _allowInsecureTransportCookies;
     private readonly string _accessTokenCookieName;
     private readonly string _refreshTokenCookieName;
@@ -100,6 +102,32 @@ public sealed class AuthCookieService
         context.Response.Cookies.Append(sessionCookieName, sessionId, new CookieOptions(baseOptions)
         {
             Expires = idleExpiresAt
+        });
+    }
+
+    /// <summary>Writes the short-lived token that is valid only on enrollment endpoints.</summary>
+    public void SetEnrollmentCookie(HttpContext context, IWebHostEnvironment env, string token, DateTime expiresAt)
+    {
+        CookieOptions baseOptions = CreateBaseOptions(env);
+        context.Response.Cookies.Append(
+            baseOptions.Secure ? HostEnrollmentTokenCookieName : EnrollmentTokenCookieName,
+            token,
+            new CookieOptions(baseOptions) { Expires = expiresAt, Path = "/api/binary/auth/enrollment" });
+    }
+
+    public string? ReadEnrollmentToken(HttpContext context)
+        => ReadCookie(context, ShouldUseSecureTransportCookies(null) ? HostEnrollmentTokenCookieName : EnrollmentTokenCookieName)
+            ?? ReadCookie(context, EnrollmentTokenCookieName);
+
+    public void ClearEnrollmentCookie(HttpContext context)
+    {
+        context.Response.Cookies.Delete(EnrollmentTokenCookieName, new CookieOptions { Path = "/api/binary/auth/enrollment" });
+        context.Response.Cookies.Delete(HostEnrollmentTokenCookieName, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Strict,
+            Path = "/api/binary/auth/enrollment"
         });
     }
 

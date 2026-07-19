@@ -91,7 +91,25 @@
           </section>
 
           <section
-            v-if="step === 'recovery' || step === 'passkey'"
+            v-if="step === 'passkey'"
+            class="space-y-5"
+            aria-labelledby="passkey-enrollment-title"
+          >
+            <div>
+              <h2 id="passkey-enrollment-title" class="text-sm font-medium text-[var(--fsusblog-text-primary)]">
+                绑定首枚通行密钥
+              </h2>
+              <p class="mt-2 text-xs leading-6 text-[var(--fsusblog-text-muted)]">
+                账户目前仍是临时状态；只有通行密钥验证成功后才会激活并签发正式会话。
+              </p>
+            </div>
+            <el-button type="primary" :disabled="!canRegisterPasskey" @click="openPasskeyRegistration">
+              {{ copy.registerPasskeyCta }}
+            </el-button>
+          </section>
+
+          <section
+            v-if="step === 'recovery'"
             class="space-y-5"
             aria-labelledby="recovery-key-title"
           >
@@ -133,10 +151,10 @@
               </el-checkbox>
               <el-button
                 type="primary"
-                :disabled="!canRegisterPasskey"
-                @click="openPasskeyRegistration"
+                :disabled="!recoveryKeySaved"
+                @click="finishOnboarding"
               >
-                {{ copy.registerPasskeyCta }}
+                {{ copy.enterAccountCta }}
               </el-button>
             </div>
           </section>
@@ -186,6 +204,7 @@
     <PolicyModal v-model:visible="showGuidelines" type="guidelines" />
     <PasskeyRegisterModal
       v-model:visible="passkeyModalVisible"
+      enrollment-mode
       @success="onPasskeyRegistered"
     />
   </div>
