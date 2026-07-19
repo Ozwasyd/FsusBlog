@@ -1,7 +1,11 @@
+using System.Buffers.Binary;
+using System.Buffers.Text;
 using System.Reflection;
 
 using Fido2NetLib;
+using Fido2NetLib.Objects;
 
+using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -142,6 +146,60 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
     }
 
     [Fact]
+    public async Task UserPasskeyAssertion_ConcurrentCasConflictReloadsWithoutCloneResponse()
+    {
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
+        PostgresSqlSugarTestClient.InitTables(setupDb, typeof(User), typeof(PasskeyCredential));
+        int accountId = await setupDb.Insertable(new User
+        {
+            PublicHandle = "concurrent-passkey",
+            IdentityKind = "anonymous_account",
+            PasskeyEnabled = true,
+            Status = 0
+        }).ExecuteReturnIdentityAsync();
+        string credentialId = $"concurrent-{Guid.NewGuid():N}";
+        await setupDb.Insertable(new PasskeyCredential
+        {
+            AccountId = accountId,
+            CredentialId = credentialId,
+            PublicKey = Base64Url.EncodeToString(new byte[] { 1, 2, 3, 4 }),
+            SignCount = 10,
+            AaGuid = Guid.Empty.ToString()
+        }).ExecuteCommandAsync();
+
+        using SqlSugarClient firstDb = PostgresSqlSugarTestClient.Create(connectionString);
+        using SqlSugarClient secondDb = PostgresSqlSugarTestClient.Create(connectionString);
+        using var barrier = new Barrier(2);
+        IUserSessionCommandService sessions = Substitute.For<IUserSessionCommandService>();
+        PasskeyService firstService = CreateAssertionService(
+            firstDb,
+            CreateConcurrentFido(barrier, actualSignCount: 11),
+            CreateAssertionCache(),
+            sessions);
+        PasskeyService secondService = CreateAssertionService(
+            secondDb,
+            CreateConcurrentFido(barrier, actualSignCount: 12),
+            CreateAssertionCache(),
+            sessions);
+
+        var results = await Task.WhenAll(
+                firstService.CompleteAssertionAsync(
+                    CreateAssertionRequest(credentialId, actualSignCount: 11),
+                    CancellationToken.None),
+                secondService.CompleteAssertionAsync(
+                    CreateAssertionRequest(credentialId, actualSignCount: 12),
+                    CancellationToken.None))
+            .WaitAsync(TimeSpan.FromSeconds(30));
+
+        Assert.All(results, static result => Assert.True(result.Success));
+        PasskeyCredential stored = await setupDb.Queryable<PasskeyCredential>()
+            .SingleAsync(item => item.CredentialId == credentialId);
+        Assert.Equal(12, stored.SignCount);
+        await sessions.DidNotReceiveWithAnyArgs().RevokeAllSessionsAsync(default, default!, default);
+    }
+
+    [Fact]
     public async Task AdminPasskeySignCount_ConcurrentStaleRowVersionAllowsOnlyOneUpdate()
     {
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
@@ -190,6 +248,88 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
             Substitute.For<IMessageNotificationStreamPort>(),
             Substitute.For<IAuditEventService>(),
             NullLogger<PasskeyService>.Instance);
+
+    private static PasskeyService CreateAssertionService(
+        SqlSugarClient db,
+        IFido2 fido,
+        IUnifiedCache cache,
+        IUserSessionCommandService sessions)
+        => new(
+            fido,
+            db,
+            cache,
+            cache,
+            cache,
+            cache,
+            cache,
+            cache,
+            sessions,
+            Substitute.For<IMessageNotificationStreamPort>(),
+            Substitute.For<IAuditEventService>(),
+            NullLogger<PasskeyService>.Instance);
+
+    private static IFido2 CreateConcurrentFido(Barrier barrier, uint actualSignCount)
+    {
+        IFido2 fido = Substitute.For<IFido2>();
+        fido.MakeAssertionAsync(Arg.Any<MakeAssertionParams>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                Assert.True(
+                    barrier.SignalAndWait(TimeSpan.FromSeconds(30)),
+                    "Timed out waiting for concurrent passkey assertions.");
+                return Task.FromResult(new VerifyAssertionResult
+                {
+                    CredentialId = [1, 2, 3],
+                    SignCount = actualSignCount,
+                    IsBackedUp = true
+                });
+            });
+        return fido;
+    }
+
+    private static IUnifiedCache CreateAssertionCache()
+    {
+        IUnifiedCache cache = Substitute.For<IUnifiedCache>();
+        cache.TryGetAsync<PasskeyLoginBeginCoreModel>(
+                CachePolicyId.SecurityPasskeyAuthChallenge,
+                "challenge-token",
+                Arg.Any<Func<ReadOnlyMemory<byte>, (bool Success, PasskeyLoginBeginCoreModel? Value)>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new CacheReadResult<PasskeyLoginBeginCoreModel>(
+                true,
+                new PasskeyLoginBeginCoreModel
+                {
+                    ChallengeToken = "challenge-token",
+                    RpId = "localhost",
+                    UserVerification = (int)UserVerificationRequirement.Required,
+                    Challenge = [1, 2, 3]
+                })));
+        cache.RemoveAsync(
+                CachePolicyId.SecurityPasskeyAuthChallenge,
+                "challenge-token",
+                Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+        return cache;
+    }
+
+    private static PasskeyLoginCompleteCoreModel CreateAssertionRequest(
+        string credentialId,
+        uint actualSignCount)
+    {
+        byte[] authenticatorData = new byte[37];
+        BinaryPrimitives.WriteUInt32BigEndian(
+            authenticatorData.AsSpan(33, sizeof(uint)),
+            actualSignCount);
+        return new PasskeyLoginCompleteCoreModel
+        {
+            ChallengeToken = "challenge-token",
+            Id = credentialId,
+            RawId = [1, 2, 3],
+            ClientDataBytes = [4, 5, 6],
+            AuthenticatorData = authenticatorData,
+            Signature = [7, 8, 9]
+        };
+    }
 
     private static AdminPrincipalService CreateAdminPrincipalService(SqlSugarClient db)
         => new(

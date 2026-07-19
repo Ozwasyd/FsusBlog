@@ -14,6 +14,24 @@ namespace FsusBlog.Server.Tests;
 /// </summary>
 public sealed class PasskeyServiceTests
 {
+    [Theory]
+    [InlineData(0, 0, PasskeyCounterOutcome.Unsupported)]
+    [InlineData(0, 1, PasskeyCounterOutcome.Advanced)]
+    [InlineData(7, 8, PasskeyCounterOutcome.Advanced)]
+    [InlineData(7, 0, PasskeyCounterOutcome.Risk)]
+    [InlineData(7, 7, PasskeyCounterOutcome.Risk)]
+    [InlineData(7, 6, PasskeyCounterOutcome.Risk)]
+    [InlineData(-1, 0, PasskeyCounterOutcome.Risk)]
+    public void ClassifyPasskeyCounter_UsesExplicitWebAuthnStateMachine(
+        long storedSignCount,
+        long actualSignCount,
+        PasskeyCounterOutcome expected)
+    {
+        Assert.Equal(
+            expected,
+            PasskeyService.ClassifyPasskeyCounter(storedSignCount, actualSignCount));
+    }
+
     [Fact]
     public void CachePolicyId_SecurityPasskeyRegChallenge_HasStableNumericValue()
     {

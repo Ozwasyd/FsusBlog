@@ -16,6 +16,7 @@ using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.NotificationStream;
 using FsusBlog.Shared.Contracts.Outputs;
 
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 
 using NSubstitute;
@@ -30,7 +31,7 @@ namespace FsusBlog.Server.Tests.Integration;
 public sealed class PasskeyCounterRollbackIntegrationTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
-    public async Task VerifiedCounterRollback_RevokesAllSessionsBumpsSnapshotAuditsAndNotifies()
+    public async Task ExplicitAccountCompromisePolicy_RevokesAllSessionsBumpsSnapshotAuditsAndNotifies()
     {
         IFido2 fido = Substitute.For<IFido2>();
         fido.MakeAssertionAsync(Arg.Any<MakeAssertionParams>(), Arg.Any<CancellationToken>())
@@ -38,7 +39,10 @@ public sealed class PasskeyCounterRollbackIntegrationTests(PostgresSchemaMigrati
                 new Fido2VerificationException(
                     Fido2ErrorCode.InvalidSignCount,
                     "signature counter rollback")));
-        await using TestHarness harness = await CreateHarnessAsync(fido, "rollback");
+        await using TestHarness harness = await CreateHarnessAsync(
+            fido,
+            "rollback",
+            responseAction: "revoke_account_sessions");
 
         var result = await harness.Service.CompleteAssertionAsync(
             CreateRequest(harness.CredentialId, actualSignCount: 7),
@@ -49,7 +53,7 @@ public sealed class PasskeyCounterRollbackIntegrationTests(PostgresSchemaMigrati
         Assert.Contains("重新认证", result.Message, StringComparison.Ordinal);
         await harness.Sessions.Received(1).RevokeAllSessionsAsync(
             harness.AccountId,
-            "passkey_counter_rollback",
+            "passkey_counter_non_monotonic",
             Arg.Any<CancellationToken>());
         await harness.Cache.Received(1).IncrementAsync(
             CachePolicyId.AccountSnapshotVersion,
@@ -60,13 +64,14 @@ public sealed class PasskeyCounterRollbackIntegrationTests(PostgresSchemaMigrati
             NotificationStreamEventType.SessionRevoked,
             harness.AccountId,
             Arg.Is<SessionRevokedPayload>(payload =>
-                payload.reason == "passkey_counter_rollback"
+                payload.reason == "passkey_counter_non_monotonic"
                 && payload.revokedSessionCount == 2),
-            "passkey-counter-rollback-session-revoked");
+            "passkey-counter-risk-session-revoked");
         await harness.AuditEvents.Received(1).RecordHighValueAsync(
             Arg.Is<AuditEvent>(audit =>
                 audit.Action == AuditActionCatalog.PasskeyCounterRollback
-                && audit.ReasonCode == "passkey_counter_rollback"
+                && audit.ReasonCode == "passkey_counter_non_monotonic"
+                && Equals(audit.Context!["responseAction"], "revoke_account_sessions")
                 && audit.IsHighValue),
             Arg.Any<CancellationToken>());
     }
@@ -96,32 +101,166 @@ public sealed class PasskeyCounterRollbackIntegrationTests(PostgresSchemaMigrati
         await harness.AuditEvents.DidNotReceiveWithAnyArgs().RecordHighValueAsync(default!, default);
     }
 
-    [Fact]
-    public async Task VerifiedZeroCounterAgainstStoredCounter_AlsoRevokesAllSessions()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(9)]
+    [InlineData(10)]
+    public async Task NonMonotonicCounter_DefaultPolicyRejectsCredentialWithoutRevokingSessions(long actualSignCount)
     {
         IFido2 fido = Substitute.For<IFido2>();
         fido.MakeAssertionAsync(Arg.Any<MakeAssertionParams>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(new VerifyAssertionResult
             {
                 CredentialId = [1, 2, 3],
-                SignCount = 0,
+                SignCount = (uint)actualSignCount,
                 IsBackedUp = false
             }));
-        await using TestHarness harness = await CreateHarnessAsync(fido, "zero");
+        await using TestHarness harness = await CreateHarnessAsync(
+            fido,
+            $"risk-{actualSignCount}",
+            responseAction: actualSignCount == 9 ? "unknown-action" : null);
+
+        var result = await harness.Service.CompleteAssertionAsync(
+            CreateRequest(harness.CredentialId, (uint)actualSignCount),
+            CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Contains("重新认证", result.Message, StringComparison.Ordinal);
+        await harness.Sessions.DidNotReceiveWithAnyArgs().RevokeAllSessionsAsync(default, default!, default);
+        await harness.NotificationStream.DidNotReceiveWithAnyArgs().PublishToUserAsync(
+            default,
+            default,
+            default(SessionRevokedPayload),
+            default!);
+        await harness.AuditEvents.Received(1).RecordHighValueAsync(
+            Arg.Is<AuditEvent>(audit =>
+                audit.ReasonCode == "passkey_counter_non_monotonic"
+                && Equals(audit.Context!["responseAction"], "reject_credential")
+                && Equals(audit.Context["revokedSessionCount"], 0)),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task UnsupportedZeroCounter_LoginSucceedsAndTouchesCredential()
+    {
+        IFido2 fido = InvalidSignCountFido();
+        await using TestHarness harness = await CreateHarnessAsync(
+            fido,
+            "unsupported",
+            storedSignCount: 0,
+            backupEligible: true);
 
         var result = await harness.Service.CompleteAssertionAsync(
             CreateRequest(harness.CredentialId, actualSignCount: 0),
             CancellationToken.None);
 
-        Assert.False(result.Success);
-        Assert.Contains("重新认证", result.Message, StringComparison.Ordinal);
-        await harness.Sessions.Received(1).RevokeAllSessionsAsync(
-            harness.AccountId,
-            "passkey_counter_rollback",
-            Arg.Any<CancellationToken>());
+        Assert.True(result.Success);
+        Assert.NotNull(result.User);
+        PasskeyCredential stored = await harness.Database.Queryable<PasskeyCredential>()
+            .SingleAsync(item => item.CredentialId == harness.CredentialId);
+        Assert.Equal(0, stored.SignCount);
+        Assert.NotNull(stored.LastUsedAt);
+        Assert.True(stored.BackupEligible);
+        Assert.True(stored.BackupState);
+        await harness.Sessions.DidNotReceiveWithAnyArgs().RevokeAllSessionsAsync(default, default!, default);
+        await harness.AuditEvents.DidNotReceiveWithAnyArgs().RecordHighValueAsync(default!, default);
     }
 
-    private async Task<TestHarness> CreateHarnessAsync(IFido2 fido, string suffix)
+    [Theory]
+    [InlineData(0, 4)]
+    [InlineData(10, 11)]
+    public async Task AdvancedCounter_LoginSucceedsAndPersistsMonotonicValue(
+        long storedSignCount,
+        long actualSignCount)
+    {
+        IFido2 fido = SuccessfulFido((uint)actualSignCount);
+        await using TestHarness harness = await CreateHarnessAsync(
+            fido,
+            $"advanced-{storedSignCount}-{actualSignCount}",
+            storedSignCount);
+
+        var result = await harness.Service.CompleteAssertionAsync(
+            CreateRequest(harness.CredentialId, (uint)actualSignCount),
+            CancellationToken.None);
+
+        Assert.True(result.Success);
+        PasskeyCredential stored = await harness.Database.Queryable<PasskeyCredential>()
+            .SingleAsync(item => item.CredentialId == harness.CredentialId);
+        Assert.Equal(actualSignCount, stored.SignCount);
+        Assert.NotNull(stored.LastUsedAt);
+    }
+
+    [Fact]
+    public async Task UnsupportedZeroCounter_StepUpUsesSameSemanticsAsLogin()
+    {
+        IFido2 fido = InvalidSignCountFido();
+        await using TestHarness harness = await CreateHarnessAsync(
+            fido,
+            "step-up-unsupported",
+            storedSignCount: 0);
+
+        var result = await harness.Service.CompleteStepUpAssertionAsync(
+            harness.AccountId,
+            CreateRequest(harness.CredentialId, actualSignCount: 0),
+            CancellationToken.None);
+
+        Assert.True(result.Success);
+        await harness.Sessions.DidNotReceiveWithAnyArgs().RevokeAllSessionsAsync(default, default!, default);
+        await harness.AuditEvents.DidNotReceiveWithAnyArgs().RecordHighValueAsync(default!, default);
+    }
+
+    [Fact]
+    public async Task CounterRisk_AuditFailureStillFailsClosedWithoutRevokingUnrelatedSessions()
+    {
+        IFido2 fido = SuccessfulFido(actualSignCount: 9);
+        IAuditEventService auditEvents = Substitute.For<IAuditEventService>();
+        auditEvents.RecordHighValueAsync(Arg.Any<AuditEvent>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(new InvalidOperationException("audit unavailable")));
+        await using TestHarness harness = await CreateHarnessAsync(
+            fido,
+            "audit-failure",
+            auditEvents: auditEvents);
+
+        var result = await harness.Service.CompleteAssertionAsync(
+            CreateRequest(harness.CredentialId, actualSignCount: 9),
+            CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Contains("重新认证", result.Message, StringComparison.Ordinal);
+        await harness.Sessions.DidNotReceiveWithAnyArgs().RevokeAllSessionsAsync(default, default!, default);
+    }
+
+    private static IFido2 InvalidSignCountFido()
+    {
+        IFido2 fido = Substitute.For<IFido2>();
+        fido.MakeAssertionAsync(Arg.Any<MakeAssertionParams>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<VerifyAssertionResult>(
+                new Fido2VerificationException(
+                    Fido2ErrorCode.InvalidSignCount,
+                    "signature counter unavailable")));
+        return fido;
+    }
+
+    private static IFido2 SuccessfulFido(uint actualSignCount)
+    {
+        IFido2 fido = Substitute.For<IFido2>();
+        fido.MakeAssertionAsync(Arg.Any<MakeAssertionParams>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new VerifyAssertionResult
+            {
+                CredentialId = [1, 2, 3],
+                SignCount = actualSignCount,
+                IsBackedUp = false
+            }));
+        return fido;
+    }
+
+    private async Task<TestHarness> CreateHarnessAsync(
+        IFido2 fido,
+        string suffix,
+        long storedSignCount = 10,
+        bool backupEligible = false,
+        string? responseAction = null,
+        IAuditEventService? auditEvents = null)
     {
         SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
         PostgresSqlSugarTestClient.InitTables(db, typeof(User), typeof(PasskeyCredential));
@@ -138,14 +277,30 @@ public sealed class PasskeyCounterRollbackIntegrationTests(PostgresSchemaMigrati
             AccountId = accountId,
             CredentialId = credentialId,
             PublicKey = Base64Url.EncodeToString(new byte[] { 1, 2, 3, 4 }),
-            SignCount = 10,
-            AaGuid = Guid.Empty.ToString()
+            SignCount = storedSignCount,
+            AaGuid = Guid.Empty.ToString(),
+            BackupEligible = backupEligible,
+            BackupState = backupEligible
         }).ExecuteCommandAsync();
 
         IUnifiedCache cache = Substitute.For<IUnifiedCache>();
         cache.TryGetAsync<PasskeyLoginBeginCoreModel>(
                 CachePolicyId.SecurityPasskeyAuthChallenge,
                 "challenge-token",
+                Arg.Any<Func<ReadOnlyMemory<byte>, (bool Success, PasskeyLoginBeginCoreModel? Value)>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new CacheReadResult<PasskeyLoginBeginCoreModel>(
+                true,
+                new PasskeyLoginBeginCoreModel
+                {
+                    ChallengeToken = "challenge-token",
+                    RpId = "localhost",
+                    UserVerification = (int)UserVerificationRequirement.Required,
+                    Challenge = [1, 2, 3]
+                })));
+        cache.ConsumeOnceAndGetAsync<PasskeyLoginBeginCoreModel>(
+                CachePolicyId.SecurityPasskeyAuthChallenge,
+                "stepup:challenge-token",
                 Arg.Any<Func<ReadOnlyMemory<byte>, (bool Success, PasskeyLoginBeginCoreModel? Value)>>(),
                 Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(new CacheReadResult<PasskeyLoginBeginCoreModel>(
@@ -167,10 +322,18 @@ public sealed class PasskeyCounterRollbackIntegrationTests(PostgresSchemaMigrati
             .Returns(Task.FromResult(1L));
 
         IUserSessionCommandService sessions = Substitute.For<IUserSessionCommandService>();
-        sessions.RevokeAllSessionsAsync(accountId, "passkey_counter_rollback", Arg.Any<CancellationToken>())
+        sessions.RevokeAllSessionsAsync(accountId, "passkey_counter_non_monotonic", Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(2));
         IMessageNotificationStreamPort notificationStream = Substitute.For<IMessageNotificationStreamPort>();
-        IAuditEventService auditEvents = Substitute.For<IAuditEventService>();
+        auditEvents ??= Substitute.For<IAuditEventService>();
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(responseAction is null
+                ? null
+                : new Dictionary<string, string?>
+                {
+                    ["PasskeyCounterRisk:ResponseAction"] = responseAction
+                })
+            .Build();
         var service = new PasskeyService(
             fido,
             db,
@@ -183,7 +346,8 @@ public sealed class PasskeyCounterRollbackIntegrationTests(PostgresSchemaMigrati
             sessions,
             notificationStream,
             auditEvents,
-            NullLogger<PasskeyService>.Instance);
+            NullLogger<PasskeyService>.Instance,
+            configuration);
         return new TestHarness(
             db,
             accountId,

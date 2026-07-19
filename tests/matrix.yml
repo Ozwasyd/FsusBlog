@@ -2003,6 +2003,7 @@ tiers:
           - backend-human-read-proof-behavior
           - backend-user-session-revocation-enforcement
           - backend-recovery-passkey-idempotent-completion
+          - backend-passkey-behavior-governance
           - backend-anonymous-identity-behavior
           - backend-projection-serialization-behavior
           - frontend-admin-console-behavior
@@ -2019,6 +2020,8 @@ tiers:
           - tests/backend/issue-1052-user-session-revocation-evidence.json
           - tests/backend/Integration/RecoveryPasskeyCompletionIntegrationTests.cs
           - tests/backend/issue-1054-recovery-passkey-completion-evidence.json
+          - tests/backend/Integration/PasskeyCounterRollbackIntegrationTests.cs
+          - docs/security/passkey-counter-risk-response.md
           - tests/backend/Unit/AdminConsistencyContractTests.cs
           - tests/backend/Unit/AuditProjectionBehaviorTests.cs
           - tests/backend/Unit/ProductionReadinessCoordinatorBehaviorTests.cs

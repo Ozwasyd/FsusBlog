@@ -65,13 +65,16 @@ scenarios:
           - .tmp/security/attack-matrix.json
 
     - id: WEBAUTHN-COUNTER-CLONE
-      scenario: signature counter and cloned credential replay are rejected
+      scenario: signature counter distinguishes unsupported authenticators, monotonic advance, non-monotonic risk and concurrent CAS conflicts
       owner: ServerContractAgent
       status: automated
       code:
           - src/backend/Services/Security/PasskeyService.cs
+          - docs/security/passkey-counter-risk-response.md
       tests:
           - tests/backend/Unit/PasskeyServiceTests.cs
+          - tests/backend/Unit/PasskeySignCountConcurrencyTests.cs
+          - tests/backend/Integration/PasskeyCounterRollbackIntegrationTests.cs
       evidence:
           - .tmp/security/attack-matrix.json
 

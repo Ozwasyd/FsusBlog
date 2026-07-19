@@ -3302,20 +3302,23 @@
         },
         {
             "id": "backend-passkey-behavior-governance",
-            "description": "Passkey coverage preserves cache policy, anonymous-safe metadata, stored random-handle ownership, entity mapping, AEDS round trips and optimistic PostgreSQL races without constructor or private SQL source locks.",
+            "description": "Passkey coverage preserves cache policy, anonymous-safe metadata, stored random-handle ownership, entity mapping, AEDS round trips and the explicit WebAuthn counter state machine without constructor or private SQL source locks.",
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
                 "tests/backend/Unit/PasskeyServiceTests.cs",
                 "tests/backend/Unit/PasskeySignCountConcurrencyTests.cs",
+                "tests/backend/Integration/PasskeyCounterRollbackIntegrationTests.cs",
                 "tests/backend/Unit/PodBinaryCodecTests.cs",
-                "docs/passkey-test-governance.md"
+                "docs/passkey-test-governance.md",
+                "docs/security/passkey-counter-risk-response.md"
             ],
             "assertionType": "integration",
-            "failClosedRule": "Reject changed security cache policy, internal-account-derived handles, mutable metadata aliases, legacy entity identity, stale sign-count double writes, divergent first-registration handles, deletion of the final recovery-less credential or lost credential-list fields.",
-            "minimumRequirement": "Ordinary, concurrency and golden owners must jointly execute public Passkey behavior, PostgreSQL stale-writer races and AEDS credential round trips.",
+            "failClosedRule": "Reject changed security cache policy, internal-account-derived handles, mutable metadata aliases, legacy entity identity, non-monotonic counters, unresolved CAS conflicts, implicit account-wide session revocation, divergent first-registration handles, deletion of the final recovery-less credential or lost credential-list fields.",
+            "minimumRequirement": "Ordinary, integration, concurrency and golden owners must jointly execute the 0/N counter matrix, login and step-up behavior, PostgreSQL concurrent assertions and AEDS credential round trips.",
             "tierIds": [
                 "backend-unit",
+                "integration",
                 "backend-concurrency",
                 "backend-golden"
             ]

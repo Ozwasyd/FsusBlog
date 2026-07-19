@@ -52,6 +52,14 @@ public interface IPasskeyService
 
 public sealed record PasskeyRegBeginData(PasskeyRegisterBeginCoreModel Options);
 public sealed record PasskeyAuthBeginData(PasskeyLoginBeginCoreModel Options);
+public enum PasskeyCounterOutcome
+{
+    Unsupported,
+    Advanced,
+    Risk,
+    ConcurrentConflict
+}
+
 public enum RecoveryPasskeyRegistrationStatus
 {
     Completed,
@@ -85,6 +93,11 @@ public readonly record struct RecoveryPasskeyRegistrationResult(
 
 internal readonly record struct PasskeyAccountMetadata(string Name, string DisplayName, byte[] UserHandle);
 internal sealed record PasskeyAssertionState(PasskeyCredential Credential, User User, string RowVersion);
+internal readonly record struct PasskeyCounterDecision(
+    PasskeyCounterOutcome Outcome,
+    bool IsAccepted,
+    string ResponseAction);
+internal readonly record struct PasskeyCounterSnapshot(long SignCount, string RowVersion);
 internal readonly record struct PasskeyDeleteState(bool UserFound, bool CredentialFound, bool Deleted, int Remaining);
 internal sealed record PasskeyRegistrationValidationResult(bool Success, string Message, PasskeyCredential? Credential)
 {
@@ -111,14 +124,18 @@ public sealed class PasskeyService(
     IUserSessionCommandService sessions,
     IMessageNotificationStreamPort notificationStream,
     IAuditEventService auditEvents,
-    ILogger<PasskeyService> logger) : IPasskeyService
+    ILogger<PasskeyService> logger,
+    IConfiguration? configuration = null) : IPasskeyService
 {
     private const int MaxCredentialsPerUser = 5;
     private const int PasskeyUserHandleBytes = 32;
     private const string AnonymousPasskeyAccountName = "fsus-anonymous-account";
     private const string AnonymousPasskeyDisplayName = "Anonymous account";
     public const string CannotRemoveLastCredentialWithoutRecovery = "CannotRemoveLastCredentialWithoutRecovery";
-    private const string CounterRollbackReason = "passkey_counter_rollback";
+    private const string CounterRiskReason = "passkey_counter_non_monotonic";
+    private const string CounterRiskResponseConfigurationKey = "PasskeyCounterRisk:ResponseAction";
+    private const string RejectCredentialResponseAction = "reject_credential";
+    private const string RevokeAccountSessionsResponseAction = "revoke_account_sessions";
 
     // ─────────────────────────────────────────────────────────────────────
     // Registration
@@ -606,16 +623,30 @@ public sealed class PasskeyService(
         catch (Fido2VerificationException ex) when (ex.Code == Fido2ErrorCode.InvalidSignCount)
         {
             long actualSignCount = ReadAuthenticatorSignCount(request.AuthenticatorData);
-            await RespondToCounterRollbackAsync(
-                user,
-                storedCred,
-                expectedSignCount,
-                actualSignCount,
-                "login",
-                cancellationToken);
-            FsusObservability.RecordPasskeySignCountConflict("login");
-            FsusObservability.RecordPasskeyAssertion("login", 1, Stopwatch.GetElapsedTime(started), CounterRollbackReason);
-            return (false, "通行密钥验证失败，请重新认证", null);
+            PasskeyCounterDecision invalidCounterDecision =
+                ClassifyPasskeyCounter(expectedSignCount, actualSignCount) == PasskeyCounterOutcome.Unsupported
+                    ? await ApplyPasskeyCounterAsync(
+                        assertionState,
+                        actualSignCount,
+                        "login",
+                        cancellationToken)
+                    : await RejectPasskeyCounterRiskAsync(
+                        assertionState,
+                        actualSignCount,
+                        "login",
+                        cancellationToken);
+            if (!invalidCounterDecision.IsAccepted)
+            {
+                FsusObservability.RecordPasskeyAssertion(
+                    "login",
+                    1,
+                    Stopwatch.GetElapsedTime(started),
+                    CounterDecisionResult(invalidCounterDecision));
+                return (false, CounterFailureMessage(invalidCounterDecision, stepUp: false), null);
+            }
+
+            FsusObservability.RecordPasskeyAssertion("login", 1, Stopwatch.GetElapsedTime(started), "success");
+            return (true, "验证成功", user);
         }
         catch (Exception ex)
         {
@@ -630,26 +661,19 @@ public sealed class PasskeyService(
             return (false, "通行密钥验证失败，请重试", null);
         }
 
-        long verifiedSignCount = verifyResult.SignCount;
-        if (!IsPasskeySignCountValid(expectedSignCount, verifiedSignCount))
+        PasskeyCounterDecision counterDecision = await ApplyPasskeyCounterAsync(
+            assertionState,
+            verifyResult.SignCount,
+            "login",
+            cancellationToken);
+        if (!counterDecision.IsAccepted)
         {
-            await RespondToCounterRollbackAsync(
-                user,
-                storedCred,
-                expectedSignCount,
-                verifiedSignCount,
+            FsusObservability.RecordPasskeyAssertion(
                 "login",
-                cancellationToken);
-            FsusObservability.RecordPasskeySignCountConflict("login");
-            FsusObservability.RecordPasskeyAssertion("login", 1, Stopwatch.GetElapsedTime(started), CounterRollbackReason);
-            return (false, "通行密钥验证失败，请重新认证", null);
-        }
-
-        if (!await TryUpdatePasskeySignCountAsync(storedCred.Id, expectedSignCount, assertionState.RowVersion, verifiedSignCount, DateTime.UtcNow, cancellationToken))
-        {
-            FsusObservability.RecordPasskeySignCountConflict("login");
-            FsusObservability.RecordPasskeyAssertion("login", 1, Stopwatch.GetElapsedTime(started), "sign_count_conflict");
-            return (false, "通行密钥验证失败，请重试", null);
+                1,
+                Stopwatch.GetElapsedTime(started),
+                CounterDecisionResult(counterDecision));
+            return (false, CounterFailureMessage(counterDecision, stepUp: false), null);
         }
 
         FsusObservability.RecordPasskeyAssertion("login", 1, Stopwatch.GetElapsedTime(started), "success");
@@ -765,16 +789,30 @@ public sealed class PasskeyService(
         catch (Fido2VerificationException ex) when (ex.Code == Fido2ErrorCode.InvalidSignCount)
         {
             long actualSignCount = ReadAuthenticatorSignCount(request.AuthenticatorData);
-            await RespondToCounterRollbackAsync(
-                user,
-                storedCred,
-                expectedSignCount,
-                actualSignCount,
-                "step_up",
-                cancellationToken);
-            FsusObservability.RecordPasskeySignCountConflict("step_up");
-            FsusObservability.RecordPasskeyAssertion("step_up", 1, Stopwatch.GetElapsedTime(started), CounterRollbackReason);
-            return (false, "通行密钥 step-up 验证失败，请重新认证");
+            PasskeyCounterDecision invalidCounterDecision =
+                ClassifyPasskeyCounter(expectedSignCount, actualSignCount) == PasskeyCounterOutcome.Unsupported
+                    ? await ApplyPasskeyCounterAsync(
+                        assertionState,
+                        actualSignCount,
+                        "step_up",
+                        cancellationToken)
+                    : await RejectPasskeyCounterRiskAsync(
+                        assertionState,
+                        actualSignCount,
+                        "step_up",
+                        cancellationToken);
+            if (!invalidCounterDecision.IsAccepted)
+            {
+                FsusObservability.RecordPasskeyAssertion(
+                    "step_up",
+                    1,
+                    Stopwatch.GetElapsedTime(started),
+                    CounterDecisionResult(invalidCounterDecision));
+                return (false, CounterFailureMessage(invalidCounterDecision, stepUp: true));
+            }
+
+            FsusObservability.RecordPasskeyAssertion("step_up", 1, Stopwatch.GetElapsedTime(started), "success");
+            return (true, "step-up 验证成功");
         }
         catch (Exception ex)
         {
@@ -789,26 +827,19 @@ public sealed class PasskeyService(
             return (false, "通行密钥 step-up 验证失败，请重试");
         }
 
-        long verifiedSignCount = verifyResult.SignCount;
-        if (!IsPasskeySignCountValid(expectedSignCount, verifiedSignCount))
+        PasskeyCounterDecision counterDecision = await ApplyPasskeyCounterAsync(
+            assertionState,
+            verifyResult.SignCount,
+            "step_up",
+            cancellationToken);
+        if (!counterDecision.IsAccepted)
         {
-            await RespondToCounterRollbackAsync(
-                user,
-                storedCred,
-                expectedSignCount,
-                verifiedSignCount,
+            FsusObservability.RecordPasskeyAssertion(
                 "step_up",
-                cancellationToken);
-            FsusObservability.RecordPasskeySignCountConflict("step_up");
-            FsusObservability.RecordPasskeyAssertion("step_up", 1, Stopwatch.GetElapsedTime(started), CounterRollbackReason);
-            return (false, "通行密钥 step-up 验证失败，请重新认证");
-        }
-
-        if (!await TryUpdatePasskeySignCountAsync(storedCred.Id, expectedSignCount, assertionState.RowVersion, verifiedSignCount, DateTime.UtcNow, cancellationToken))
-        {
-            FsusObservability.RecordPasskeySignCountConflict("step_up");
-            FsusObservability.RecordPasskeyAssertion("step_up", 1, Stopwatch.GetElapsedTime(started), "sign_count_conflict");
-            return (false, "通行密钥 step-up 验证失败，请重试");
+                1,
+                Stopwatch.GetElapsedTime(started),
+                CounterDecisionResult(counterDecision));
+            return (false, CounterFailureMessage(counterDecision, stepUp: true));
         }
 
         FsusObservability.RecordPasskeyAssertion("step_up", 1, Stopwatch.GetElapsedTime(started), "success");
@@ -1002,8 +1033,38 @@ public sealed class PasskeyService(
     private static string GenerateChallengeToken()
         => Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(32));
 
-    private static bool IsPasskeySignCountValid(long expectedSignCount, long actualSignCount)
-        => actualSignCount > expectedSignCount;
+    internal static PasskeyCounterOutcome ClassifyPasskeyCounter(
+        long storedSignCount,
+        long actualSignCount)
+    {
+        if (storedSignCount < 0 || actualSignCount < 0)
+        {
+            return PasskeyCounterOutcome.Risk;
+        }
+
+        if (storedSignCount == 0 && actualSignCount == 0)
+        {
+            return PasskeyCounterOutcome.Unsupported;
+        }
+
+        return actualSignCount > storedSignCount
+            ? PasskeyCounterOutcome.Advanced
+            : PasskeyCounterOutcome.Risk;
+    }
+
+    private static string CounterDecisionResult(PasskeyCounterDecision decision)
+        => decision.Outcome == PasskeyCounterOutcome.Risk
+            ? CounterRiskReason
+            : "sign_count_conflict";
+
+    private static string CounterFailureMessage(PasskeyCounterDecision decision, bool stepUp)
+        => decision.Outcome == PasskeyCounterOutcome.Risk
+            ? stepUp
+                ? "通行密钥 step-up 验证失败，请重新认证"
+                : "通行密钥验证失败，请重新认证"
+            : stepUp
+                ? "通行密钥 step-up 验证失败，请重试"
+                : "通行密钥验证失败，请重试";
 
     private static AssertionOptions ToAssertionOptions(PasskeyLoginBeginCoreModel value)
         => new()
@@ -1356,65 +1417,165 @@ public sealed class PasskeyService(
             Convert.ToInt32(reader.ReadValue("remaining"), System.Globalization.CultureInfo.InvariantCulture));
     }
 
-    private async Task RespondToCounterRollbackAsync(
-        User user,
-        PasskeyCredential credential,
-        long expectedSignCount,
+    private async Task<PasskeyCounterDecision> ApplyPasskeyCounterAsync(
+        PasskeyAssertionState assertionState,
         long actualSignCount,
         string flow,
         CancellationToken cancellationToken)
     {
-        int revokedSessionCount;
-        try
+        long storedSignCount = assertionState.Credential.SignCount;
+        PasskeyCounterOutcome outcome = ClassifyPasskeyCounter(storedSignCount, actualSignCount);
+        if (outcome == PasskeyCounterOutcome.Risk)
         {
-            revokedSessionCount = await sessions.RevokeAllSessionsAsync(
-                user.Id,
-                CounterRollbackReason,
+            return await RejectPasskeyCounterRiskAsync(
+                assertionState,
+                actualSignCount,
+                flow,
                 cancellationToken);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+
+        if (await TryUpdatePasskeySignCountAsync(
+            assertionState.Credential.Id,
+            storedSignCount,
+            assertionState.RowVersion,
+            actualSignCount,
+            DateTime.UtcNow,
+            cancellationToken))
         {
-            FsusObservability.RecordSecurityEvent(
-                "passkey_counter_rollback",
-                "session_revoke_failed",
-                "failed");
-            logger.LogCritical(
-                ex,
-                "Passkey counter rollback response failed to revoke sessions. AccountSubjectHash={AccountSubjectHash} CredentialHash={CredentialHash} Flow={Flow}",
-                ResolveAccountSubjectHashForLog(user),
-                HashForLog(credential.CredentialId),
-                flow);
-            throw new InvalidOperationException("passkey_counter_rollback_session_revoke_failed", ex);
+            string responseAction = outcome == PasskeyCounterOutcome.Unsupported
+                ? "counter_unchanged"
+                : "counter_updated";
+            RecordPasskeyCounterOutcome(outcome, responseAction);
+            return new PasskeyCounterDecision(outcome, IsAccepted: true, responseAction);
         }
 
-        try
+        FsusObservability.RecordPasskeySignCountConflict(flow);
+        PasskeyCounterSnapshot? current = await LoadPasskeyCounterSnapshotAsync(
+            assertionState.Credential.Id,
+            assertionState.Credential.AccountId,
+            cancellationToken);
+        if (current is null || current.Value.SignCount < storedSignCount)
         {
-            await AccountSnapshotCacheInvalidator.BumpVersionAsync(counters, user.Id, cancellationToken);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            logger.LogError(
-                ex,
-                "Passkey counter rollback account snapshot invalidation failed. AccountSubjectHash={AccountSubjectHash} Flow={Flow}",
-                ResolveAccountSubjectHashForLog(user),
-                flow);
+            RecordPasskeyCounterOutcome(PasskeyCounterOutcome.ConcurrentConflict, "assertion_rejected");
+            return new PasskeyCounterDecision(
+                PasskeyCounterOutcome.ConcurrentConflict,
+                IsAccepted: false,
+                "assertion_rejected");
         }
 
-        try
+        if (outcome == PasskeyCounterOutcome.Unsupported || current.Value.SignCount >= actualSignCount)
         {
-            await notificationStream.PublishToUserAsync(
-                NotificationStreamEventType.SessionRevoked,
-                user.Id,
-                new SessionRevokedPayload(CounterRollbackReason, revokedSessionCount, DateTime.UtcNow),
-                "passkey-counter-rollback-session-revoked");
+            RecordPasskeyCounterOutcome(PasskeyCounterOutcome.ConcurrentConflict, "accepted_after_reload");
+            return new PasskeyCounterDecision(
+                PasskeyCounterOutcome.ConcurrentConflict,
+                IsAccepted: true,
+                "accepted_after_reload");
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+
+        bool retryUpdated = await TryUpdatePasskeySignCountAsync(
+            assertionState.Credential.Id,
+            current.Value.SignCount,
+            current.Value.RowVersion,
+            actualSignCount,
+            DateTime.UtcNow,
+            cancellationToken);
+        string retryAction = retryUpdated ? "counter_retry_updated" : "assertion_rejected";
+        RecordPasskeyCounterOutcome(PasskeyCounterOutcome.ConcurrentConflict, retryAction);
+        return new PasskeyCounterDecision(
+            PasskeyCounterOutcome.ConcurrentConflict,
+            retryUpdated,
+            retryAction);
+    }
+
+    private async Task<PasskeyCounterDecision> RejectPasskeyCounterRiskAsync(
+        PasskeyAssertionState assertionState,
+        long actualSignCount,
+        string flow,
+        CancellationToken cancellationToken)
+    {
+        string responseAction = await RespondToCounterRiskAsync(
+            assertionState.User,
+            assertionState.Credential,
+            assertionState.Credential.SignCount,
+            actualSignCount,
+            flow,
+            cancellationToken);
+        RecordPasskeyCounterOutcome(PasskeyCounterOutcome.Risk, responseAction);
+        return new PasskeyCounterDecision(
+            PasskeyCounterOutcome.Risk,
+            IsAccepted: false,
+            responseAction);
+    }
+
+    private async Task<PasskeyCounterSnapshot?> LoadPasskeyCounterSnapshotAsync(
+        int credentialRowId,
+        int accountId,
+        CancellationToken cancellationToken)
+    {
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT signcount, xmin::text AS row_version
+            FROM passkey_credential
+            WHERE id = @credentialRowId
+              AND account_id = @accountId
+            LIMIT 1;
+            """,
+            new SugarParameter[]
+            {
+                new("@credentialRowId", credentialRowId),
+                new("@accountId", accountId)
+            });
+        if (!await reader.ReadAsync(cancellationToken))
         {
-            logger.LogError(
-                ex,
-                "Passkey counter rollback notification failed. AccountSubjectHash={AccountSubjectHash} Flow={Flow}",
-                ResolveAccountSubjectHashForLog(user),
-                flow);
+            return null;
+        }
+
+        return new PasskeyCounterSnapshot(
+            reader.GetInt64(reader.GetOrdinal("signcount")),
+            reader.GetString(reader.GetOrdinal("row_version")));
+    }
+
+    private async Task<string> RespondToCounterRiskAsync(
+        User user,
+        PasskeyCredential credential,
+        long storedSignCount,
+        long actualSignCount,
+        string flow,
+        CancellationToken cancellationToken)
+    {
+        string responseAction = ResolveCounterRiskResponseAction();
+        int revokedSessionCount = 0;
+        if (responseAction == RevokeAccountSessionsResponseAction)
+        {
+            try
+            {
+                revokedSessionCount = await sessions.RevokeAllSessionsAsync(
+                    user.Id,
+                    CounterRiskReason,
+                    cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                FsusObservability.RecordSecurityEvent(
+                    "passkey_counter",
+                    "session_revoke_failed",
+                    "failed");
+                logger.LogCritical(
+                    ex,
+                    "Passkey counter risk response failed to revoke sessions. AccountSubjectHash={AccountSubjectHash} Flow={Flow}",
+                    ResolveAccountSubjectHashForLog(user),
+                    flow);
+                throw new InvalidOperationException("passkey_counter_risk_session_revoke_failed", ex);
+            }
+        }
+
+        if (revokedSessionCount > 0)
+        {
+            await InvalidateSessionsAfterCounterRiskAsync(
+                user,
+                revokedSessionCount,
+                flow,
+                cancellationToken);
         }
 
         try
@@ -1426,17 +1587,18 @@ public sealed class PasskeyService(
                     Action: AuditActionCatalog.PasskeyCounterRollback,
                     Outcome: AuditOutcomeCatalog.Denied,
                     Severity: AuditSeverityCatalog.Critical,
-                    EventInfo: "Verified passkey counter rollback forced account reauthentication.",
+                    EventInfo: "Non-monotonic passkey counter risk denied the assertion.",
                     ActorType: AuditActorTypeCatalog.User,
                     ActorId: user.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     TargetType: "passkey_credential",
                     TargetId: credential.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                    ReasonCode: CounterRollbackReason,
+                    ReasonCode: CounterRiskReason,
                     Context: new Dictionary<string, object?>(StringComparer.Ordinal)
                     {
                         ["flow"] = flow,
-                        ["expectedSignCount"] = expectedSignCount,
+                        ["storedSignCount"] = storedSignCount,
                         ["actualSignCount"] = actualSignCount,
+                        ["responseAction"] = responseAction,
                         ["revokedSessionCount"] = revokedSessionCount
                     },
                     IsHighValue: true),
@@ -1446,15 +1608,73 @@ public sealed class PasskeyService(
         {
             logger.LogCritical(
                 ex,
-                "Passkey counter rollback high-value audit failed. AccountSubjectHash={AccountSubjectHash} Flow={Flow}",
+                "Passkey counter risk high-value audit failed. AccountSubjectHash={AccountSubjectHash} Flow={Flow} ResponseAction={ResponseAction}",
+                ResolveAccountSubjectHashForLog(user),
+                flow,
+                responseAction);
+        }
+
+        return responseAction;
+    }
+
+    private async Task InvalidateSessionsAfterCounterRiskAsync(
+        User user,
+        int revokedSessionCount,
+        string flow,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await AccountSnapshotCacheInvalidator.BumpVersionAsync(counters, user.Id, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogError(
+                ex,
+                "Passkey counter risk account snapshot invalidation failed. AccountSubjectHash={AccountSubjectHash} Flow={Flow}",
                 ResolveAccountSubjectHashForLog(user),
                 flow);
         }
 
-        FsusObservability.RecordSecurityEvent(
-            "passkey_counter_rollback",
-            "counter_non_monotonic",
-            "sessions_revoked");
+        try
+        {
+            await notificationStream.PublishToUserAsync(
+                NotificationStreamEventType.SessionRevoked,
+                user.Id,
+                new SessionRevokedPayload(CounterRiskReason, revokedSessionCount, DateTime.UtcNow),
+                "passkey-counter-risk-session-revoked");
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogError(
+                ex,
+                "Passkey counter risk notification failed. AccountSubjectHash={AccountSubjectHash} Flow={Flow}",
+                ResolveAccountSubjectHashForLog(user),
+                flow);
+        }
+    }
+
+    private string ResolveCounterRiskResponseAction()
+        => string.Equals(
+            configuration?[CounterRiskResponseConfigurationKey],
+            RevokeAccountSessionsResponseAction,
+            StringComparison.OrdinalIgnoreCase)
+            ? RevokeAccountSessionsResponseAction
+            : RejectCredentialResponseAction;
+
+    private static void RecordPasskeyCounterOutcome(
+        PasskeyCounterOutcome outcome,
+        string responseAction)
+    {
+        string reason = outcome switch
+        {
+            PasskeyCounterOutcome.Unsupported => "counter_unsupported",
+            PasskeyCounterOutcome.Advanced => "counter_advanced",
+            PasskeyCounterOutcome.Risk => "counter_non_monotonic",
+            PasskeyCounterOutcome.ConcurrentConflict => "counter_concurrent_conflict",
+            _ => "counter_unknown"
+        };
+        FsusObservability.RecordSecurityEvent("passkey_counter", reason, responseAction);
     }
 
     private static long ReadAuthenticatorSignCount(ReadOnlySpan<byte> authenticatorData)
