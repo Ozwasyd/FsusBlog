@@ -1,5 +1,6 @@
 using FsusBlog.Core.Services.Gateways;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Responses;
 using FsusBlog.Server.Services;
@@ -7,7 +8,9 @@ using FsusBlog.Shared.Contracts.AuthSystem;
 
 namespace FsusBlog.Server.Infrastructure.CoreBridge.Gateways;
 
-public sealed class UserCoreGateway(UserService service) : IUserCoreGateway
+public sealed class UserCoreGateway(
+    UserService service,
+    IUserAdminModerationService admin) : IUserCoreGateway
 {
     public async Task<AccountSnapshotContract?> GetByIdAsync(int id)
     {
@@ -27,7 +30,7 @@ public sealed class UserCoreGateway(UserService service) : IUserCoreGateway
 
     public async Task<AdminUserPageContract> GetAdminUserListAsync(int page, int pageSize, string? keyword, int? status)
     {
-        PageResult<AdminAccountListItemDto> result = await service.GetAdminUserListAsync(new UserQueryDto
+        PageResult<AdminAccountListItemDto> result = await admin.GetAdminUserListAsync(new UserQueryDto
         {
             Page = page,
             PageSize = pageSize,
@@ -61,7 +64,7 @@ public sealed class UserCoreGateway(UserService service) : IUserCoreGateway
     }
 
     public Task<(bool Success, string Message)> AdminChangeStatusAsync(int userId, int status, string? reason)
-        => service.AdminChangeStatusAsync(new AdminChangeStatusDto { AccountId = userId, Status = status, Reason = reason });
+        => admin.AdminChangeStatusAsync(new AdminChangeStatusDto { AccountId = userId, Status = status, Reason = reason });
 
     private static AccountSnapshotContract ToAccountSnapshot(User user)
         => new(

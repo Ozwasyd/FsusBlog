@@ -286,9 +286,6 @@ public sealed class UserSessionRevocationIntegrationTests(PostgresSchemaMigratio
             _logger: NullLogger<UserService>.Instance,
             _jwtHelper: jwt,
             _cacheCounters: Substitute.For<ICacheCounterStore>(),
-            _blacklistService: Substitute.For<IBlacklistService>(),
-            _messageCommandService: Substitute.For<IMessageCommandService>(),
-            _messageRealtimePublisher: Substitute.For<IMessageRealtimePublisher>(),
             _totpService: Substitute.For<ITotpService>(),
             _authRiskService: Substitute.For<IAuthRiskService>(),
             _userSessionValidationCache: validationCache);

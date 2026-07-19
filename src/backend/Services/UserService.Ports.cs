@@ -343,12 +343,3 @@ public sealed class UserMfaCommandService(UserService users) : IUserMfaCommandSe
         bool stepUpVerified = false)
         => users.RegenerateMfaRecoveryCodesAsync(userId, password, code, recoveryCode, stepUpVerified);
 }
-
-public sealed class UserAdminModerationService(UserService users) : IUserAdminModerationService
-{
-    public Task<PageResult<AdminAccountListItemDto>> GetAdminUserListAsync(UserQueryDto dto)
-        => users.GetAdminUserListAsync(dto);
-
-    public Task<(bool Success, string Message)> AdminChangeStatusAsync(AdminChangeStatusDto dto)
-        => users.AdminChangeStatusAsync(dto);
-}

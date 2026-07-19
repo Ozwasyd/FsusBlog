@@ -154,7 +154,7 @@ public sealed class AdminAnonymousAccountGovernanceContractTests
                 executedParameters = call.ArgAt<SugarParameter[]>(1);
                 return Task.FromResult((IDataReader)table.CreateDataReader());
             });
-        UserService service = CreateUserService(db);
+        UserAdminModerationService service = CreateAdminService(db);
 
         PageResult<AdminAccountListItemDto> result = await service.GetAdminUserListAsync(new UserQueryDto
         {
@@ -245,12 +245,17 @@ public sealed class AdminAnonymousAccountGovernanceContractTests
             _logger: NullLogger<UserService>.Instance,
             _jwtHelper: Substitute.For<IJwtHelper>(),
             _cacheCounters: Substitute.For<ICacheCounterStore>(),
-            _blacklistService: Substitute.For<IBlacklistService>(),
-            _messageCommandService: Substitute.For<IMessageCommandService>(),
-            _messageRealtimePublisher: Substitute.For<IMessageRealtimePublisher>(),
             _totpService: Substitute.For<ITotpService>(),
             _authRiskService: Substitute.For<IAuthRiskService>(),
             _userSessionValidationCache: Substitute.For<IUserSessionValidationCache>());
+
+    private static UserAdminModerationService CreateAdminService(ISqlSugarClient db)
+        => new(
+            db,
+            NullLogger<UserAdminModerationService>.Instance,
+            Substitute.For<IBlacklistService>(),
+            Substitute.For<IMessageCommandService>(),
+            Substitute.For<ICacheCounterStore>());
 
     private static EndpointContractSnapshot CreateBinaryEndpointApplication()
         => EndpointContractApplication.CreateSnapshot();

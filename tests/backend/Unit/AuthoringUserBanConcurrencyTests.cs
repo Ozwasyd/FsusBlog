@@ -81,7 +81,7 @@ public sealed class AuthoringUserBanConcurrencyTests(PostgresSchemaMigrationFixt
         SeedUser(setupDb, 17);
         using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
         var blacklist = new RecordingBlacklistService();
-        UserService service = CreateUserService(serviceDb, blacklist);
+        UserAdminModerationService service = CreateAdminService(serviceDb, blacklist);
 
         await using var holder = new NpgsqlConnection(connectionString);
         await holder.OpenAsync();
@@ -123,7 +123,7 @@ public sealed class AuthoringUserBanConcurrencyTests(PostgresSchemaMigrationFixt
         SeedUser(setupDb, 18);
         using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
         var blacklist = new RecordingBlacklistService();
-        UserService service = CreateUserService(serviceDb, blacklist);
+        UserAdminModerationService service = CreateAdminService(serviceDb, blacklist);
 
         await using var holder = new NpgsqlConnection(connectionString);
         await holder.OpenAsync();
@@ -237,12 +237,22 @@ public sealed class AuthoringUserBanConcurrencyTests(PostgresSchemaMigrationFixt
             _logger: NullLogger<UserService>.Instance,
             _jwtHelper: Substitute.For<IJwtHelper>(),
             _cacheCounters: Substitute.For<ICacheCounterStore>(),
-            _blacklistService: blacklist,
-            _messageCommandService: messages,
-            _messageRealtimePublisher: realtime,
             _totpService: Substitute.For<ITotpService>(),
             _authRiskService: Substitute.For<IAuthRiskService>(),
             _userSessionValidationCache: Substitute.For<IUserSessionValidationCache>());
+    }
+
+    private static UserAdminModerationService CreateAdminService(SqlSugarClient db, IBlacklistService blacklist)
+    {
+        var messages = Substitute.For<IMessageCommandService>();
+        messages.SendAccountBannedNoticeAsync(Arg.Any<int>(), Arg.Any<string>()).Returns(Task.CompletedTask);
+        messages.SendAccountUnbannedNoticeAsync(Arg.Any<int>()).Returns(Task.CompletedTask);
+        return new UserAdminModerationService(
+            db,
+            NullLogger<UserAdminModerationService>.Instance,
+            blacklist,
+            messages,
+            Substitute.For<ICacheCounterStore>());
     }
 
     private sealed class RecordingBlacklistService : IBlacklistService

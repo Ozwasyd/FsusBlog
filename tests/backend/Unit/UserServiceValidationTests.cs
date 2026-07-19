@@ -52,9 +52,6 @@ public class UserServiceValidationTests
             _logger: NullLogger<UserService>.Instance,
             _jwtHelper: jwtHelper,
             _cacheCounters: Substitute.For<ICacheCounterStore>(),
-            _blacklistService: blacklistService ?? Substitute.For<IBlacklistService>(),
-            _messageCommandService: Substitute.For<IMessageCommandService>(),
-            _messageRealtimePublisher: Substitute.For<IMessageRealtimePublisher>(),
             _totpService: totpService,
             _authRiskService: Substitute.For<IAuthRiskService>(),
             _userSessionValidationCache: sessionValidationCache ?? Substitute.For<IUserSessionValidationCache>());
@@ -71,6 +68,16 @@ public class UserServiceValidationTests
             Substitute.For<ICacheInvalidationStore>(),
             Substitute.For<ICacheCounterStore>(),
             sessionValidation ?? Substitute.For<IUserSessionValidationCache>());
+
+    private static UserAdminModerationService BuildAdminService(
+        ISqlSugarClient db,
+        IBlacklistService? blacklist = null)
+        => new(
+            db,
+            NullLogger<UserAdminModerationService>.Instance,
+            blacklist ?? Substitute.For<IBlacklistService>(),
+            Substitute.For<IMessageCommandService>(),
+            Substitute.For<ICacheCounterStore>());
 
     private static (IInsertable<UserSession> SessionInsert, IUpdateable<User> UserUpdate) ConfigureLoginPersistence(ISqlSugarClient db)
     {
@@ -1410,7 +1417,7 @@ public class UserServiceValidationTests
         PropertyInfo identityKind = Assert.IsAssignableFrom<PropertyInfo>(typeof(User).GetProperty(nameof(User.IdentityKind)));
         Assert.Equal(typeof(string), identityKind.PropertyType);
 
-        Type target = Assert.IsAssignableFrom<Type>(typeof(UserService).GetNestedType("AdminStatusTarget", BindingFlags.NonPublic));
+        Type target = Assert.IsAssignableFrom<Type>(typeof(UserAdminModerationService).GetNestedType("AdminStatusTarget", BindingFlags.NonPublic));
         PropertyInfo targetIdentityKind = Assert.IsAssignableFrom<PropertyInfo>(target.GetProperty("IdentityKind"));
         Assert.Equal(typeof(string), targetIdentityKind.PropertyType);
         Assert.Null(target.GetProperty("LegacyProjectRole"));
@@ -1431,7 +1438,7 @@ public class UserServiceValidationTests
                 deletedAt: null,
                 rowVersion: "admin-row-version")));
         var blacklist = Substitute.For<IBlacklistService>();
-        var service = BuildService(db, Substitute.For<IJwtHelper>(), blacklist);
+        var service = BuildAdminService(db, blacklist);
 
         var result = await service.AdminChangeStatusAsync(new AdminChangeStatusDto
         {
@@ -1466,7 +1473,7 @@ public class UserServiceValidationTests
                 deletedAt: null,
                 rowVersion: "admin-row-version"));
         });
-        var service = BuildService(db, Substitute.For<IJwtHelper>());
+        var service = BuildAdminService(db);
 
         var result = await service.AdminChangeStatusAsync(new AdminChangeStatusDto { AccountId = 42, Status = 1 });
 
@@ -1502,7 +1509,7 @@ public class UserServiceValidationTests
             return Task.FromResult(1);
         });
         var blacklist = Substitute.For<IBlacklistService>();
-        var service = BuildService(db, Substitute.For<IJwtHelper>(), blacklist);
+        var service = BuildAdminService(db, blacklist);
 
         var result = await service.AdminChangeStatusAsync(new AdminChangeStatusDto
         {
