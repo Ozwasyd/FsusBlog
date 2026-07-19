@@ -445,16 +445,13 @@ public sealed class ArticleMutationSideEffectCoordinator(
 
             await ScheduleIntegrityProofIfRequiredEdgesCompleteAsync(normalized).ConfigureAwait(false);
 
-            if (!await RunEdgeAsync(
+            await RunOptionalEdgeAsync(
                     ArticleMutationReplayEdges.Notification,
                     () => delivery.NotifyAsync(
                         articleId,
                         action,
                         idempotencyKey: ArticleMutationDeliveryKey.Build(outboxEventId, ArticleMutationReplayEdges.Notification)))
-                .ConfigureAwait(false))
-            {
-                return FailedResult();
-            }
+                .ConfigureAwait(false);
 
             return ArticleMutationReplayResult.Success(completedDuringReplay, failed);
         }
@@ -501,16 +498,13 @@ public sealed class ArticleMutationSideEffectCoordinator(
 
             await ScheduleIntegrityProofIfRequiredEdgesCompleteAsync(normalized).ConfigureAwait(false);
 
-            if (!await RunEdgeAsync(
+            await RunOptionalEdgeAsync(
                     ArticleMutationReplayEdges.Notification,
                     () => delivery.NotifyAsync(
                         articleId,
                         "Deleted",
                         idempotencyKey: ArticleMutationDeliveryKey.Build(outboxEventId, ArticleMutationReplayEdges.Notification)))
-                .ConfigureAwait(false))
-            {
-                return FailedResult();
-            }
+                .ConfigureAwait(false);
 
             return ArticleMutationReplayResult.Success(completedDuringReplay, failed);
         }
