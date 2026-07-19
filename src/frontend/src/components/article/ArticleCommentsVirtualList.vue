@@ -318,7 +318,7 @@ const toggleCommentExpansion = (key: string): void => {
 
 .fsus-comment__author.is-authenticated {
   color: var(--fsusblog-text-primary);
-  font-weight: 500;
+  font-weight: 700;
 }
 
 .fsus-comment__author.is-anonymous {
@@ -331,10 +331,10 @@ const toggleCommentExpansion = (key: string): void => {
   align-items: center;
   height: 20px;
   padding-inline: 6px;
-  border: 1px solid var(--fsusblog-panel-border);
+  border: 1px solid var(--fsusblog-panel-border-strong);
   border-radius: 999px;
   background: transparent;
-  color: var(--fsusblog-text-quiet);
+  color: var(--fsusblog-text-muted);
   font-size: 12px;
   line-height: 1;
 }
@@ -377,7 +377,7 @@ const toggleCommentExpansion = (key: string): void => {
   border: none;
   border-radius: var(--fsusblog-reading-radius-control, 6px);
   background: transparent;
-  color: var(--fsusblog-text-quiet);
+  color: var(--fsusblog-text-muted);
   font-family: inherit;
   font-size: 14px;
   font-weight: 500;
@@ -407,7 +407,7 @@ const toggleCommentExpansion = (key: string): void => {
   gap: 0;
   margin-top: 8px;
   padding-left: 16px;
-  border-left: 1px solid var(--fsusblog-panel-border);
+  border-left: 2px solid var(--fsusblog-panel-border-strong);
 }
 
 .fsus-comment--reply {
@@ -435,10 +435,10 @@ const toggleCommentExpansion = (key: string): void => {
 }
 
 .fsus-comment__action--danger {
-  color: var(--fsusblog-text-quiet);
+  color: var(--fsusblog-text-muted);
 }
 
 .fsus-comment__action--danger:hover {
-  color: var(--fsusblog-color-primary);
+  color: var(--el-color-danger);
 }
 </style>

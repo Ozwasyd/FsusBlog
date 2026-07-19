@@ -79,4 +79,46 @@ describe('ArticleCommentsVirtualList editorial comment items', () => {
 
     wrapper.unmount()
   })
+
+  it('keeps reply identity and destructive actions semantically distinct', () => {
+    const threadWithReply: CommentThreadItem = {
+      ...baseThread,
+      replyCount: 1,
+      repliesPreview: [{
+        id: 'reply-1',
+        content: 'A nested reply.',
+        createTime: '2026-06-01T03:05:00.000Z',
+        author: {
+          mode: 'anonymous',
+          displayName: 'Anonymous',
+          displayLanguage: 'en'
+        },
+        authorAccountId: 7,
+        replyToAuthor: baseThread.author,
+        isDeleted: false
+      }]
+    }
+    const wrapper = mount(ArticleCommentsVirtualList, {
+      props: {
+        threads: [threadWithReply],
+        isAdmin: true,
+        isLoggedIn: true,
+        currentAccountId: null,
+        loadingReplies: {}
+      },
+      global: {
+        stubs: {
+          CommentMarkdownRenderer: CommentMarkdownRendererStub
+        }
+      }
+    })
+
+    expect(wrapper.get('.fsus-comment__replies').exists()).toBe(true)
+    expect(wrapper.get('.fsus-comment--reply .fsus-comment__author').classes()).toContain('is-anonymous')
+    expect(wrapper.get('.fsus-comment--reply .fsus-comment__badge').text()).toBe('匿名')
+    expect(wrapper.get('.fsus-comment--reply .fsus-comment__reply-target').text()).toContain('@Demo Reader')
+    expect(wrapper.get('.fsus-comment--reply .fsus-comment__action--danger').attributes('aria-label')).toBe('删除回复')
+
+    wrapper.unmount()
+  })
 })

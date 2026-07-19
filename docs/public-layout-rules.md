@@ -83,6 +83,10 @@ Markdown 代码块与管理面审计详情统一使用 `'JetBrains Mono', ui-mon
 - emergency AOT 与 hydration 后的文章列表标题、摘要、metadata 和 CTA 必须使用相同的响应式排版与颜色角色契约。
 - Reading surface 的正文基线为 16px / 1.8 行高；附录链接、标签和空态操作在窄视口与 150% 缩放下仍保持至少 44px 点击高度。
 
+### 评论阅读层级
+
+评论区用稳定的语义角色区分“身份、内容、元信息、操作”：实名作者使用 `700` 与 primary text，匿名作者保持 `400` 与 quiet text；匿名徽章使用 muted text 和 strong border。时间继续使用 quiet text 与 `400`，可操作文字使用 muted text 与 `500`，删除只在 hover 时切换到 `--el-color-danger`，不得复用链接主色。回复区以 2px strong border 表达嵌套边界；评论操作及 focus ring 继续消费 `--fsusblog-reading-radius-control`，不得为层级调整引入新的圆角字面值。
+
 ## 8. 圆角标度规则
 
 公开布局圆角使用 4/6/10/12/24/999px 步进。普通阅读卡片、面板和控件默认不超过 12px；24px 只用于明确的 opt-in expressive surface。
