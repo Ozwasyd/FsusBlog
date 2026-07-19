@@ -1,7 +1,9 @@
 import {
+  cancelSecurityChallenge,
   issueSecurityChallenge,
   SecurityChallengeKind,
   verifySecurityChallenge,
+  type CancelSecurityChallengeRequest,
   type IssueSecurityChallengeRequest,
   type SecurityChallengeAssignment,
   type SecurityChallengeIssueResponse,
@@ -79,6 +81,7 @@ export interface SecurityChallengeClient {
 }
 
 export interface SecurityChallengeClientOptions {
+  cancelChallenge?: (request: CancelSecurityChallengeRequest) => Promise<unknown>
   issueChallenge?: (request: IssueSecurityChallengeRequest, config?: { signal?: AbortSignal }) => Promise<SecurityChallengeIssueResponse>
   verifyChallenge?: (request: VerifySecurityChallengeRequest, config?: { signal?: AbortSignal }) => Promise<SecurityChallengeVerifyResponse>
   proofStore?: ChallengeProofStore
@@ -86,6 +89,7 @@ export interface SecurityChallengeClientOptions {
 }
 
 export function createSecurityChallengeClient(options: SecurityChallengeClientOptions = {}): SecurityChallengeClient {
+  const cancelChallenge = options.cancelChallenge ?? cancelSecurityChallenge
   const issueChallenge = options.issueChallenge ?? issueSecurityChallenge
   const verifyChallenge = options.verifyChallenge ?? verifySecurityChallenge
   const proofStore = options.proofStore ?? defaultChallengeProofStore
@@ -261,6 +265,7 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
 
   function invalidateContext(context: SecurityChallengeContext): void {
     const key = contextKey(context)
+    revokeRun(context, envelopeRuns.get(key))
     activeRequests.get(key)?.abort()
     activeRequests.delete(key)
     contextGenerations.set(key, (contextGenerations.get(key) ?? 0) + 1)
@@ -269,11 +274,27 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
 
   function beginContextGeneration(context: SecurityChallengeContext): ChallengeClientOperation {
     const key = contextKey(context)
+    revokeRun(context, envelopeRuns.get(key))
     activeRequests.get(key)?.abort()
     const generation = (contextGenerations.get(key) ?? 0) + 1
     contextGenerations.set(key, generation)
     envelopeRuns.delete(key)
     return beginRequest(key, generation)
+  }
+
+  function revokeRun(context: SecurityChallengeContext, run: ActiveEnvelopeRun | undefined): void {
+    if (!run) {
+      return
+    }
+
+    const request: CancelSecurityChallengeRequest = {
+      envelopeId: run.envelopeId,
+      action: context.action,
+      routeKey: context.routeKey,
+      deviceFingerprint: context.deviceFingerprint,
+      policyVersion: run.response.policyVersion
+    }
+    void cancelChallenge(request).catch(() => cancelChallenge(request).catch(() => undefined))
   }
 
   function beginRequest(key: string, generation: number): ChallengeClientOperation {

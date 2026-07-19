@@ -317,7 +317,8 @@ describe('security challenge client and proof store', () => {
       .mockResolvedValueOnce(firstIssue)
       .mockResolvedValueOnce(replacement)
     const verifyChallenge = vi.fn()
-    const client = createSecurityChallengeClient({ issueChallenge, verifyChallenge, now: () => 1000 })
+    const cancelChallenge = vi.fn().mockResolvedValue(null)
+    const client = createSecurityChallengeClient({ cancelChallenge, issueChallenge, verifyChallenge, now: () => 1000 })
 
     await client.issue(context)
     const outOfOrder = await client.verify(context, memberRequest('captcha-2'))
@@ -333,6 +334,15 @@ describe('security challenge client and proof store', () => {
     const cancelled = await client.verify(context, memberRequest('captcha-new'))
     expect(cancelled.reason).toBe('security_challenge_envelope_missing')
     expect(verifyChallenge).not.toHaveBeenCalled()
+    expect(cancelChallenge).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      envelopeId: ENVELOPE_ID,
+      action: context.action,
+      routeKey: context.routeKey,
+      policyVersion: 'risk-v1'
+    }))
+    expect(cancelChallenge).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      envelopeId: '01900000-0000-7000-8000-000000000002'
+    }))
   })
 
   it('aborts and tombstones an out-of-order issue response after refresh', async () => {
@@ -371,7 +381,9 @@ describe('security challenge client and proof store', () => {
     const store = createChallengeProofStore({ now: () => 1000 })
     const verification = deferred<SecurityChallengeVerifyResponse>()
     let verifySignal: AbortSignal | undefined
+    const cancelChallenge = vi.fn().mockResolvedValue(null)
     const client = createSecurityChallengeClient({
+      cancelChallenge,
       proofStore: store,
       issueChallenge: vi.fn().mockResolvedValue(captchaIssueResponse()),
       verifyChallenge: vi.fn().mockImplementation((_request, config) => {
@@ -402,6 +414,7 @@ describe('security challenge client and proof store', () => {
 
     await expect(pending).resolves.toMatchObject({ status: 'failed', reason: 'security_challenge_request_cancelled' })
     expect(store.peek(context.action, context.routeKey)).toBeNull()
+    expect(cancelChallenge).toHaveBeenCalledOnce()
   })
 
   it('sends the current capability manifest with every generic issue request', async () => {

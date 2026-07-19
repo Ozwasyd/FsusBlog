@@ -9,8 +9,6 @@ namespace FsusBlog.Server.Infrastructure.NotificationStream;
 
 internal interface INotificationStreamPreflightGrantService
 {
-    Task<string> MintAsync(SecurityChallengeProofClaims proof, CancellationToken cancellationToken);
-
     NotificationStreamPreflightGrantExchange CreateExchangeTarget(
         string proofToken,
         SecurityChallengeProofClaims proof);
@@ -54,51 +52,30 @@ internal sealed record NotificationStreamPreflightGrantClaims(
     string ClientIpHash,
     string DeviceFpHash,
     string PolicyVersion,
+    string EnvelopeId,
+    string ProofTokenHash,
     long ExpiresAtUnixMs);
 
 internal sealed class NotificationStreamPreflightGrantService(
-    ICacheRawWriter cacheWriter,
     ICacheRawReader cacheReader,
     ICacheOneTimeStore oneTimeStore,
-    TimeProvider timeProvider) : INotificationStreamPreflightGrantService
+    TimeProvider timeProvider,
+    ISecurityChallengeEnvelopeStateService envelopeStateService) : INotificationStreamPreflightGrantService
 {
     private static readonly TimeSpan s_maximumGrantTtl = TimeSpan.FromSeconds(30);
     private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
-
-    public async Task<string> MintAsync(SecurityChallengeProofClaims proof, CancellationToken cancellationToken)
-    {
-        DateTimeOffset now = timeProvider.GetUtcNow();
-        DateTimeOffset expiresAt = proof.ExpiresAt < now.Add(s_maximumGrantTtl)
-            ? proof.ExpiresAt
-            : now.Add(s_maximumGrantTtl);
-        if (expiresAt <= now)
-        {
-            throw new InvalidOperationException("notification_preflight_grant_expired");
-        }
-
-        string token = $"fnsg_{Base64Url(RandomNumberGenerator.GetBytes(32))}";
-        var claims = new NotificationStreamPreflightGrantClaims(
-            proof.Action,
-            proof.RouteKey,
-            proof.SubjectHash,
-            proof.ClientIpHash,
-            proof.DeviceFpHash,
-            proof.PolicyVersion,
-            expiresAt.ToUnixTimeMilliseconds());
-        await cacheWriter.SetRawAsync(
-            CachePolicyId.SecurityChallengeProof,
-            Identity(token),
-            JsonSerializer.SerializeToUtf8Bytes(claims, s_jsonOptions),
-            expiresAt - now,
-            cancellationToken);
-        return token;
-    }
 
     public NotificationStreamPreflightGrantExchange CreateExchangeTarget(
         string proofToken,
         SecurityChallengeProofClaims proof)
     {
         string normalizedProofToken = NormalizeProofToken(proofToken);
+        string envelopeId = (proof.EnvelopeId ?? string.Empty).Trim();
+        if (envelopeId.Length is <= 0 or > 256)
+        {
+            throw new InvalidOperationException("notification_preflight_envelope_required");
+        }
+
         DateTimeOffset now = timeProvider.GetUtcNow();
         DateTimeOffset expiresAt = proof.ExpiresAt < now.Add(s_maximumGrantTtl)
             ? proof.ExpiresAt
@@ -109,7 +86,7 @@ internal sealed class NotificationStreamPreflightGrantService(
         }
 
         string token = DeterministicToken(normalizedProofToken);
-        NotificationStreamPreflightGrantClaims claims = CreateClaims(proof, expiresAt);
+        NotificationStreamPreflightGrantClaims claims = CreateClaims(proof, envelopeId, normalizedProofToken, expiresAt);
         return new NotificationStreamPreflightGrantExchange(
             token,
             Identity(token),
@@ -147,7 +124,13 @@ internal sealed class NotificationStreamPreflightGrantService(
             return null;
         }
 
-        return Matches(claims, binding) ? token : null;
+        if (!Matches(claims, binding))
+        {
+            return null;
+        }
+
+        string? envelopeOutcome = await ValidateEnvelopeAsync(claims, cancellationToken).ConfigureAwait(false);
+        return envelopeOutcome is null ? token : null;
     }
 
     public async Task<NotificationStreamPreflightGrantConsumeResult> ConsumeAsync(
@@ -176,10 +159,15 @@ internal sealed class NotificationStreamPreflightGrantService(
             return NotificationStreamPreflightGrantConsumeResult.Reject(SecurityChallengeProofOutcomes.Expired);
         }
 
-        bool matches = Matches(claims, binding);
-        return matches
+        if (!Matches(claims, binding))
+        {
+            return NotificationStreamPreflightGrantConsumeResult.Reject(SecurityChallengeProofOutcomes.BindingMismatch);
+        }
+
+        string? envelopeOutcome = await ValidateEnvelopeAsync(claims, cancellationToken).ConfigureAwait(false);
+        return envelopeOutcome is null
             ? NotificationStreamPreflightGrantConsumeResult.Success
-            : NotificationStreamPreflightGrantConsumeResult.Reject(SecurityChallengeProofOutcomes.BindingMismatch);
+            : NotificationStreamPreflightGrantConsumeResult.Reject(envelopeOutcome);
     }
 
     private static (bool Success, NotificationStreamPreflightGrantClaims? Value) Decode(ReadOnlyMemory<byte> payload)
@@ -203,6 +191,8 @@ internal sealed class NotificationStreamPreflightGrantService(
 
     private static NotificationStreamPreflightGrantClaims CreateClaims(
         SecurityChallengeProofClaims proof,
+        string envelopeId,
+        string proofToken,
         DateTimeOffset expiresAt)
         => new(
             proof.Action,
@@ -211,7 +201,47 @@ internal sealed class NotificationStreamPreflightGrantService(
             proof.ClientIpHash,
             proof.DeviceFpHash,
             proof.PolicyVersion,
+            envelopeId,
+            HashProofToken(proofToken),
             expiresAt.ToUnixTimeMilliseconds());
+
+    private async Task<string?> ValidateEnvelopeAsync(
+        NotificationStreamPreflightGrantClaims claims,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(claims.EnvelopeId) || string.IsNullOrWhiteSpace(claims.ProofTokenHash))
+        {
+            return SecurityChallengeProofOutcomes.Rejected;
+        }
+
+        SecurityChallengeEnvelopeState? state = await envelopeStateService.GetAsync(
+            claims.EnvelopeId,
+            cancellationToken).ConfigureAwait(false);
+        if (state is null)
+        {
+            return SecurityChallengeProofOutcomes.Rejected;
+        }
+
+        if (string.Equals(state.Status, SecurityChallengeEnvelopeStatuses.Revoked, StringComparison.Ordinal))
+        {
+            return SecurityChallengeProofOutcomes.Revoked;
+        }
+
+        if (!string.Equals(state.Status, SecurityChallengeEnvelopeStatuses.Completed, StringComparison.Ordinal)
+            || !state.HasPreparedProof
+            || !FixedEquals(HashProofToken(state.ProofToken ?? string.Empty), claims.ProofTokenHash)
+            || !FixedEquals(state.Action, claims.Action)
+            || !FixedEquals(state.RouteKey, claims.RouteKey)
+            || !FixedEquals(state.SubjectHash, claims.SubjectHash)
+            || !FixedEquals(state.ClientIpHash, claims.ClientIpHash)
+            || !FixedEquals(state.DeviceFpHash, claims.DeviceFpHash)
+            || !FixedEquals(state.PolicyVersion, claims.PolicyVersion))
+        {
+            return SecurityChallengeProofOutcomes.Rejected;
+        }
+
+        return null;
+    }
 
     private static string NormalizeProofToken(string proofToken)
     {
@@ -229,6 +259,9 @@ internal sealed class NotificationStreamPreflightGrantService(
         byte[] digest = SHA256.HashData(Encoding.UTF8.GetBytes(string.Concat("notification-preflight-v1\0", proofToken)));
         return $"fnsg_{Base64Url(digest)}";
     }
+
+    private static string HashProofToken(string proofToken)
+        => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(proofToken)));
 
     private static bool Matches(
         NotificationStreamPreflightGrantClaims claims,

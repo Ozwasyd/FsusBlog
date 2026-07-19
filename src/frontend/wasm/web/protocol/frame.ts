@@ -192,6 +192,7 @@ export const FrameType = {
   AnonymousCredentialRevocationDelta: 197,
   AnonymousCommentTicketRequest: 198,
   AnonymousCommentTicketResponse: 199,
+  SecurityChallengeCancelRequest: 200,
   EmptySuccess: 240,
   MutationId: 241,
   ApiError: 251,

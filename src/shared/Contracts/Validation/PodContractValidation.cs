@@ -59,6 +59,7 @@ public static class PodContractValidation
             && IsReferenceFree<SecurityChallengeIssueResponsePod>()
             && IsReferenceFree<SecurityChallengeProviderPayloadPod>()
             && IsReferenceFree<SecurityChallengeVerifyResponsePod>()
+            && IsReferenceFree<SecurityChallengeCancelRequestPod>()
             && IsReferenceFree<PerceptionSealedChallengeV2Pod>()
             && IsReferenceFree<PerceptionSealedResultV2Pod>()
             && IsReferenceFree<ArticleNoticePod>()

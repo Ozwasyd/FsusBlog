@@ -821,6 +821,10 @@
             "value": 199
         },
         {
+            "name": "SecurityChallengeCancelRequest",
+            "value": 200
+        },
+        {
             "name": "EmptySuccess",
             "value": 240
         },

@@ -1,4 +1,5 @@
 import type {
+  SecurityChallengeCancelPodRequest,
   SecurityChallengeIssuePodRequest,
   SecurityChallengeVerifyPodRequest
 } from '@/contracts/binaryApi'
@@ -29,6 +30,20 @@ export function encodeSecurityChallengeVerifyRequest(request: SecurityChallengeV
   ], 44, 4)
   bytes[0] = request.kind
   return bytes
+}
+
+export function encodeSecurityChallengeCancelRequest(request: SecurityChallengeCancelPodRequest): Uint8Array {
+  if (!isUuidV7(request.envelopeId)) {
+    throw new TypeError('security_challenge_envelope_id_invalid')
+  }
+
+  return encodeSlicePod([
+    request.envelopeId,
+    request.action,
+    request.routeKey,
+    request.deviceFingerprint,
+    request.policyVersion
+  ], 40)
 }
 
 function isUuidV7(value: string): boolean {

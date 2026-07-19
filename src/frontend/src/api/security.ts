@@ -3,6 +3,7 @@ import { FrameType } from '@wasm/protocol/frame'
 import { requestBinaryOnly } from '@/composition/binaryTransport'
 import { encodeAedsFrame } from './binaryFrame'
 import {
+  encodeSecurityChallengeCancelRequest,
   encodeSecurityChallengeIssueRequest,
   encodeSecurityChallengeVerifyRequest
 } from '@/codecs/binary/securityRequestEncoder'
@@ -495,6 +496,14 @@ export interface VerifySecurityChallengeRequest {
   providerPayload: Record<string, string>
 }
 
+export interface CancelSecurityChallengeRequest {
+  envelopeId: string
+  action: string
+  routeKey: string
+  deviceFingerprint?: string
+  policyVersion: string
+}
+
 const securityHeaders = (mfaProofToken?: string | null): Headers => {
   const headers = new Headers()
   headers.set(FSUS_HEADERS.deviceFingerprint, getBrowserFp())
@@ -625,6 +634,29 @@ export const verifySecurityChallenge = (request: VerifySecurityChallengeRequest,
           action: request.action,
           routeKey: request.routeKey,
           providerPayloadJson: JSON.stringify(request.providerPayload)
+        })
+      )
+    },
+    signal: config?.signal as AbortSignal | undefined
+  })
+
+export const cancelSecurityChallenge = (request: CancelSecurityChallengeRequest, config?: ApiRequestConfig) =>
+  requestBinaryOnly<null>({
+    binaryUrl: `${BINARY_API_PREFIX}/security/challenge/cancel`,
+    frameType: FrameType.EmptySuccess,
+    requestOptions: {
+      method: 'POST',
+      credentials: 'include',
+      keepalive: true,
+      headers: securityChallengeHeaders(request.deviceFingerprint),
+      body: encodeAedsFrame(
+        FrameType.SecurityChallengeCancelRequest,
+        encodeSecurityChallengeCancelRequest({
+          envelopeId: request.envelopeId,
+          action: request.action,
+          routeKey: request.routeKey,
+          deviceFingerprint: request.deviceFingerprint?.trim() || getBrowserFp(),
+          policyVersion: request.policyVersion
         })
       )
     },

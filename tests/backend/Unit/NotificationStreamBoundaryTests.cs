@@ -1232,14 +1232,20 @@ public class NotificationStreamBoundaryTests
     {
         public int ResumeOnCall { get; init; } = int.MaxValue;
 
-        public bool ThrowWhenCreatingTarget { get; init; }
+        public bool ThrowWhenCreatingTarget
+        {
+            get; init;
+        }
 
-        public int ResumeCalls { get; private set; }
+        public int ResumeCalls
+        {
+            get; private set;
+        }
 
-        public int CreatedTargets { get; private set; }
-
-        public Task<string> MintAsync(SecurityChallengeProofClaims proof, CancellationToken cancellationToken)
-            => Task.FromResult("grant-token");
+        public int CreatedTargets
+        {
+            get; private set;
+        }
 
         public NotificationStreamPreflightGrantExchange CreateExchangeTarget(
             string proofToken,

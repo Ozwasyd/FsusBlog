@@ -566,6 +566,23 @@
       ]
     },
     {
+      "source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.SecurityChallenge.cs",
+      "frontendWrapper": "src/frontend/src/api/security.ts",
+      "frontendAdapter": "src/frontend/src/adapters/binary/commonAdapter.ts",
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/security/challenge/cancel",
+          "auth": "anonymous",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip",
+          "requestFrame": "SecurityChallengeCancelRequest",
+          "responseFrame": "EmptySuccess",
+          "surface": "risk-control-challenge-cancel"
+        }
+      ]
+    },
+    {
       "source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AnonymousCredential.cs",
       "frontendWrapper": "src/frontend/src/api/comment.ts",
       "frontendAdapter": "src/frontend/src/adapters/binary/commentAdapter.ts",
@@ -2216,5 +2233,5 @@
     "openapi": "src/shared/Contracts/Validation/fsusblog.openapi.json",
     "protocol": "src/shared/Contracts/Validation/aeds-protocol.json"
   },
-  "openapiOperationCount": 213
+  "openapiOperationCount": 214
 }

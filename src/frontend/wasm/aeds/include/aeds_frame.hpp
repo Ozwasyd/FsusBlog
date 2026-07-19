@@ -231,6 +231,7 @@ enum class FrameType : std::uint16_t
     AnonymousCredentialRevocationDelta = 197,
     AnonymousCommentTicketRequest = 198,
     AnonymousCommentTicketResponse = 199,
+    SecurityChallengeCancelRequest = 200,
     EmptySuccess = 240,
     MutationId = 241,
     ApiError = 251,
@@ -431,6 +432,7 @@ enum class FrameType : std::uint16_t
         case FrameType::AnonymousCredentialRevocationDelta:
         case FrameType::AnonymousCommentTicketRequest:
         case FrameType::AnonymousCommentTicketResponse:
+        case FrameType::SecurityChallengeCancelRequest:
         case FrameType::EmptySuccess:
         case FrameType::MutationId:
         case FrameType::ApiError:

@@ -15,7 +15,8 @@ public sealed class NotificationStreamPreflightGrantServiceTests
     public async Task ExchangeTarget_IsDeterministicAndCanResumeOnlyWhileGrantExists()
     {
         var cache = new MemoryGrantCache();
-        var service = new NotificationStreamPreflightGrantService(cache, cache, cache, new FixedTimeProvider(s_now));
+        var envelopeState = new MutableEnvelopeStateService(CreateEnvelope());
+        var service = new NotificationStreamPreflightGrantService(cache, cache, new FixedTimeProvider(s_now), envelopeState);
         SecurityChallengeProofClaims proof = CreateProof();
         NotificationStreamPreflightGrantBinding binding = CreateBinding();
 
@@ -46,7 +47,11 @@ public sealed class NotificationStreamPreflightGrantServiceTests
     public async Task TryResumeExchangeAsync_BindingMismatchDoesNotExposePreparedGrant()
     {
         var cache = new MemoryGrantCache();
-        var service = new NotificationStreamPreflightGrantService(cache, cache, cache, new FixedTimeProvider(s_now));
+        var service = new NotificationStreamPreflightGrantService(
+            cache,
+            cache,
+            new FixedTimeProvider(s_now),
+            new MutableEnvelopeStateService(CreateEnvelope()));
         NotificationStreamPreflightGrantExchange target = service.CreateExchangeTarget("fcp_proof-token", CreateProof());
         await cache.SetRawAsync(CachePolicyId.SecurityChallengeProof, target.CacheIdentity, target.Payload, target.Ttl);
 
@@ -61,6 +66,31 @@ public sealed class NotificationStreamPreflightGrantServiceTests
         Assert.Null(resumed);
     }
 
+    [Fact]
+    public async Task RevokedEnvelope_InvalidatesPreparedAndUnconsumedGrant()
+    {
+        var cache = new MemoryGrantCache();
+        var envelopeState = new MutableEnvelopeStateService(CreateEnvelope());
+        var service = new NotificationStreamPreflightGrantService(cache, cache, new FixedTimeProvider(s_now), envelopeState);
+        NotificationStreamPreflightGrantExchange target = service.CreateExchangeTarget("fcp_proof-token", CreateProof());
+        await cache.SetRawAsync(CachePolicyId.SecurityChallengeProof, target.CacheIdentity, target.Payload, target.Ttl);
+        envelopeState.State = envelopeState.State! with
+        {
+            Status = SecurityChallengeEnvelopeStatuses.Revoked,
+            TerminalReason = "client_cancelled"
+        };
+
+        string? resumed = await service.TryResumeExchangeAsync("fcp_proof-token", CreateBinding(), CancellationToken.None);
+        NotificationStreamPreflightGrantConsumeResult consumed = await service.ConsumeAsync(
+            target.Token,
+            CreateBinding(),
+            CancellationToken.None);
+
+        Assert.Null(resumed);
+        Assert.False(consumed.Accepted);
+        Assert.Equal(SecurityChallengeProofOutcomes.Revoked, consumed.Outcome);
+    }
+
     private static SecurityChallengeProofClaims CreateProof()
         => new(
             "challenge-final",
@@ -73,7 +103,31 @@ public sealed class NotificationStreamPreflightGrantServiceTests
             s_now.AddMinutes(-1),
             s_now.AddMinutes(5),
             "proof-nonce",
-            "risk-v2");
+            "risk-v2",
+            EnvelopeId: "envelope-1",
+            RequiredKinds: ["sha256PowV1"],
+            OrderedMemberChallengeIds: ["challenge-final"]);
+
+    private static SecurityChallengeEnvelopeState CreateEnvelope()
+        => new(
+            "envelope-1",
+            "notification.subscribe",
+            "notification:subscribe",
+            HashA,
+            HashB,
+            HashC,
+            "risk-v2",
+            ["challenge-final"],
+            ["sha256PowV1"],
+            [SecurityChallengeEnvelopeMemberStatuses.Verified],
+            s_now.AddMinutes(-1).ToUnixTimeMilliseconds(),
+            s_now.AddMinutes(5).ToUnixTimeMilliseconds(),
+            SecurityChallengeEnvelopeStatuses.Completed,
+            2,
+            ProofToken: "fcp_proof-token",
+            ProofNonce: "proof-nonce",
+            ProofIssuedAtUnixMs: s_now.AddMinutes(-1).ToUnixTimeMilliseconds(),
+            ProofExpiresAtUnixMs: s_now.AddMinutes(5).ToUnixTimeMilliseconds());
 
     private static NotificationStreamPreflightGrantBinding CreateBinding()
         => new("notification.subscribe", "notification:subscribe", HashA, HashB, HashC, "risk-v2");
@@ -156,5 +210,47 @@ public sealed class NotificationStreamPreflightGrantServiceTests
     private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => now;
+    }
+
+    private sealed class MutableEnvelopeStateService(SecurityChallengeEnvelopeState? state) : ISecurityChallengeEnvelopeStateService
+    {
+        public SecurityChallengeEnvelopeState? State { get; set; } = state;
+
+        public Task<SecurityChallengeEnvelopeState?> GetAsync(string envelopeId, CancellationToken cancellationToken = default)
+            => Task.FromResult(State is not null && string.Equals(State.EnvelopeId, envelopeId, StringComparison.Ordinal)
+                ? State
+                : null);
+
+        public Task<bool> CreateAsync(SecurityChallengeEnvelopeState state, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<SecurityChallengeEnvelopeMemberResult> ValidateMemberAsync(
+            SecurityChallengeEnvelopeMemberRequest request,
+            CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<SecurityChallengeEnvelopeMemberResult> CompleteMemberAsync(
+            SecurityChallengeEnvelopeMemberRequest request,
+            SecurityChallengeProofPreparation? proofPreparation = null,
+            CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<SecurityChallengeEnvelopeMemberResult> CompleteProofAsync(
+            SecurityChallengeEnvelopeMemberRequest request,
+            string proofToken,
+            CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<bool> FailAsync(
+            SecurityChallengeEnvelopeMemberRequest request,
+            string reason,
+            CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<bool> RevokeAsync(
+            SecurityChallengeEnvelopeBindingRequest request,
+            string reason,
+            CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
     }
 }

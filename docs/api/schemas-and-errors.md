@@ -315,6 +315,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 181 | retired | — | 旧精确属性 ticket response；必须按未知/退休 frame fail closed |
 | 198 | `AnonymousCommentTicketRequest` | `AnonymousCommentTicketRequestPod` | v5/layout 6 最小资格谓词、root hashes、proof 与 canonical public inputs；不携带精确属性 |
 | 199 | `AnonymousCommentTicketResponse` | `AnonymousCommentTicketResponsePod` | expiry、`common` / `unknown` rate class、审核谓词、opaque ticket 与 moderation subject hash |
+| 200 | `SecurityChallengeCancelRequest` | `SecurityChallengeCancelRequestPod` + shared blob | 撤销 action/route/device/policy 绑定的 aggregate challenge envelope；响应为 `EmptySuccess` |
 | 182 | `AnonymousCommentCreateRequest` | `AnonymousCommentCreateRequestPod` | `POST /api/binary/comment/anonymous` 请求体；不包含 user id、username、Authorization token 或 public handle |
 | 183 | `AnonymousPrivacyStateSnapshot` | `AnonymousPrivacyStateSnapshotPod` | 前端匿名隐私状态快照 |
 | 184 | `PerceptionSealedChallengeV2` | `PerceptionSealedChallengeV2Pod` | `fsu.challenge/perception-sealed@v2` issue payload；覆盖 Character、Localization、MicroInteraction 三类 perception task |
@@ -480,6 +481,7 @@ replyToAuthorPayload?:CommentAuthorViewPod + blobLength:int32 + blob
 | `SecurityChallengeEnvelopePod` | 132 |
 | `SecurityChallengeVerifyRequestPod` | 44 |
 | `SecurityChallengeVerifyResponsePod` | 232 |
+| `SecurityChallengeCancelRequestPod` | 40 |
 | `PerceptionSealedChallengeV2Pod` | 916 |
 | `PerceptionSealedResultV2Pod` | 892 |
 

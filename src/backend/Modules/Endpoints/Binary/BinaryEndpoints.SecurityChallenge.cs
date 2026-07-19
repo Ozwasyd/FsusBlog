@@ -76,6 +76,24 @@ public static partial class BinaryEndpoints
         .AllowAnonymous()
         .RequireRateLimiting("fixed_ip")
         .RequireNoStoreResponse();
+
+        group.MapPost("/security/challenge/cancel", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            IAedsEncoder aeds,
+            IRiskControlContextFactory riskContextFactory,
+            ISecurityChallengeEnvelopeStateService envelopeStateService,
+            ISecurityChallengePersistenceService challengePersistence,
+            CancellationToken cancellationToken) =>
+            await HandleSecurityChallengeCancelAsync(
+                httpContext,
+                aeds,
+                riskContextFactory,
+                envelopeStateService,
+                challengePersistence,
+                cancellationToken))
+        .AllowAnonymous()
+        .RequireRateLimiting("fixed_ip")
+        .RequireNoStoreResponse();
     }
 
     internal static async Task<BinaryFrameResult> HandleSecurityChallengeIssueAsync(
@@ -258,6 +276,78 @@ public static partial class BinaryEndpoints
         }
 
         return true;
+    }
+
+    internal static async Task<BinaryFrameResult> HandleSecurityChallengeCancelAsync(
+        HttpContext httpContext,
+        IAedsEncoder aeds,
+        IRiskControlContextFactory riskContextFactory,
+        ISecurityChallengeEnvelopeStateService envelopeStateService,
+        ISecurityChallengePersistenceService challengePersistence,
+        CancellationToken cancellationToken)
+    {
+        if (!AcceptsBinaryResponse(httpContext.Request))
+        {
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "binary_accept_required"), aeds, StatusCodes.Status406NotAcceptable);
+        }
+
+        BinaryRequestPayload payload = await ReadBinaryRequestPayloadAsync(
+            httpContext,
+            aeds,
+            AedsFrameType.SecurityChallengeCancelRequest,
+            cancellationToken,
+            SecurityChallengeMaxFrameBytes);
+        if (!payload.IsSuccess)
+        {
+            return BinaryResults.FromError(payload.Error, aeds);
+        }
+
+        if (!PodBinaryCodec.TryDecodeSecurityChallengeCancelRequest(payload.Payload, out SecurityChallengeCancelBinaryRequest request))
+        {
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "security_challenge_cancel_request_invalid"), aeds);
+        }
+
+        string envelopeId = NormalizeRequired(request.EnvelopeId, 64);
+        string action = NormalizeRequired(request.Action, 96);
+        string routeKey = NormalizeRequired(request.RouteKey, 256);
+        string policyVersion = NormalizeRequired(request.PolicyVersion, 64);
+        if (envelopeId.Length == 0 || action.Length == 0 || routeKey.Length == 0 || policyVersion.Length == 0)
+        {
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "security_challenge_cancel_fields_required"), aeds);
+        }
+
+        RiskControlContext baseContext = riskContextFactory.Create(httpContext);
+        RiskControlContext riskContext = baseContext with
+        {
+            ActionName = action,
+            RouteKey = routeKey,
+            ActionStatus = RiskControlContextStatuses.Resolved,
+            DeviceFingerprint = ResolveDeviceFingerprint(request.DeviceFingerprint, baseContext.DeviceFingerprint)
+        };
+        RiskControlProofBinding binding = RiskControlProofBindingFactory.Create(riskContext);
+        SecurityChallengeEnvelopeState? state = await envelopeStateService.GetAsync(envelopeId, cancellationToken).ConfigureAwait(false);
+        bool revoked = await envelopeStateService.RevokeAsync(
+            new SecurityChallengeEnvelopeBindingRequest(
+                envelopeId,
+                action,
+                routeKey,
+                binding.SubjectHash,
+                binding.ClientIpHash,
+                binding.DeviceFpHash,
+                policyVersion),
+            "client_cancelled",
+            cancellationToken).ConfigureAwait(false);
+        if (revoked && state is not null)
+        {
+            foreach (string challengeId in state.ChallengeIds)
+            {
+                _ = await challengePersistence.RevokeAsync(challengeId, "envelope_client_cancelled", cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        // Cancellation is deliberately idempotent and does not expose whether
+        // an attacker guessed an envelope identifier or one of its bindings.
+        return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
     }
 
     internal static async Task<BinaryFrameResult> HandleSecurityChallengeVerifyAsync(

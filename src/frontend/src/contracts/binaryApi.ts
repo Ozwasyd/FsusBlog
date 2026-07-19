@@ -816,7 +816,15 @@ export interface SecurityChallengeVerifyPodRequest {
   kind: SecurityChallengeKind
   action: string
   routeKey: string
-  providerPayloadJson: string
+    providerPayloadJson: string
+}
+
+export interface SecurityChallengeCancelPodRequest {
+  envelopeId: string
+  action: string
+  routeKey: string
+  deviceFingerprint: string
+  policyVersion: string
 }
 
 export interface UploadInitViewModel {

@@ -1,5 +1,9 @@
+using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Shared.Contracts.Security;
+using FsusBlog.Shared.Contracts.Validation;
+
+using SharedFrameType = FsusBlog.Shared.AedsFrameType;
 
 namespace FsusBlog.Server.Tests;
 
@@ -19,6 +23,12 @@ public sealed class SecurityChallengeCancelContractTests
 
         Assert.True(PodBinaryCodec.TryDecodeSecurityChallengeCancelRequest(encoded, out SecurityChallengeCancelBinaryRequest decoded));
         Assert.Equal(request, decoded);
+        Assert.Equal(40, PodSizeCatalog.SecurityChallengeCancelRequestPod);
+        Assert.Equal(200, (ushort)AedsFrameType.SecurityChallengeCancelRequest);
+        Assert.Equal(
+            (ushort)AedsFrameType.SecurityChallengeCancelRequest,
+            (ushort)SharedFrameType.SecurityChallengeCancelRequest);
+        Assert.True(AedsProtocolMetadata.FrameTypes.ContainsKey(nameof(AedsFrameType.SecurityChallengeCancelRequest)));
     }
 
     [Fact]

@@ -16,6 +16,8 @@ using FsusBlog.Shared.Contracts.Security;
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+
+using NSubstitute;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class SecurityChallengeBinaryEndpointTests
@@ -562,6 +564,99 @@ public sealed class SecurityChallengeBinaryEndpointTests
         SecurityRiskSignal signal = Assert.Single(riskSink.Signals);
         Assert.Equal(SecurityRiskReason.SecurityChallengeRejected, signal.Reason);
         Assert.Equal("challenge_verify_rate_limited", signal.Detail);
+    }
+
+    [Fact]
+    public async Task CancelAsync_RevokesEnvelopeAndEveryPersistedMemberIdempotently()
+    {
+        var aeds = new AedsEncoder();
+        string envelopeId = SecurityChallengeContracts.CreateChallengeId();
+        var request = new SecurityChallengeCancelBinaryRequest(
+            envelopeId,
+            "public.read",
+            "article:42",
+            "device-123456",
+            "risk-policy-v2");
+        var context = CreateContext(
+            AedsFrameType.SecurityChallengeCancelRequest,
+            BinaryRequestPayload.Success(PodBinaryCodec.EncodeSecurityChallengeCancelRequest(request)));
+        var stateService = Substitute.For<ISecurityChallengeEnvelopeStateService>();
+        string firstId = SecurityChallengeContracts.CreateChallengeId();
+        string secondId = SecurityChallengeContracts.CreateChallengeId();
+        stateService.GetAsync(envelopeId, Arg.Any<CancellationToken>()).Returns(new SecurityChallengeEnvelopeState(
+            envelopeId,
+            request.Action,
+            request.RouteKey,
+            HashA,
+            HashB,
+            HashC,
+            request.PolicyVersion,
+            [firstId, secondId],
+            ["captchaV1", "sha256PowV1"],
+            [SecurityChallengeEnvelopeMemberStatuses.Issued, SecurityChallengeEnvelopeMemberStatuses.Verified],
+            DateTimeOffset.UtcNow.AddMinutes(-1).ToUnixTimeMilliseconds(),
+            DateTimeOffset.UtcNow.AddMinutes(5).ToUnixTimeMilliseconds(),
+            SecurityChallengeEnvelopeStatuses.Active,
+            0));
+        stateService.RevokeAsync(
+            Arg.Any<SecurityChallengeEnvelopeBindingRequest>(),
+            "client_cancelled",
+            Arg.Any<CancellationToken>()).Returns(true);
+        var persistence = Substitute.For<ISecurityChallengePersistenceService>();
+        persistence.RevokeAsync(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(true);
+
+        BinaryFrameResult result = await BinaryEndpoints.HandleSecurityChallengeCancelAsync(
+            context,
+            aeds,
+            new RiskControlContextFactory(),
+            stateService,
+            persistence,
+            CancellationToken.None);
+
+        AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
+        Assert.Equal(AedsFrameType.EmptySuccess, decoded.FrameType);
+        await stateService.Received(1).RevokeAsync(
+            Arg.Is<SecurityChallengeEnvelopeBindingRequest>(binding =>
+                binding.EnvelopeId == envelopeId
+                && binding.Action == request.Action
+                && binding.RouteKey == request.RouteKey
+                && binding.PolicyVersion == request.PolicyVersion),
+            "client_cancelled",
+            Arg.Any<CancellationToken>());
+        await persistence.Received(1).RevokeAsync(firstId, "envelope_client_cancelled", Arg.Any<CancellationToken>());
+        await persistence.Received(1).RevokeAsync(secondId, "envelope_client_cancelled", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CancelAsync_BindingMissReturnsOpaqueSuccessWithoutTouchingMembers()
+    {
+        var aeds = new AedsEncoder();
+        var request = new SecurityChallengeCancelBinaryRequest(
+            SecurityChallengeContracts.CreateChallengeId(),
+            "public.read",
+            "article:42",
+            "device-123456",
+            "risk-policy-v2");
+        var context = CreateContext(
+            AedsFrameType.SecurityChallengeCancelRequest,
+            BinaryRequestPayload.Success(PodBinaryCodec.EncodeSecurityChallengeCancelRequest(request)));
+        var stateService = Substitute.For<ISecurityChallengeEnvelopeStateService>();
+        var persistence = Substitute.For<ISecurityChallengePersistenceService>();
+
+        BinaryFrameResult result = await BinaryEndpoints.HandleSecurityChallengeCancelAsync(
+            context,
+            aeds,
+            new RiskControlContextFactory(),
+            stateService,
+            persistence,
+            CancellationToken.None);
+
+        AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
+        Assert.Equal(AedsFrameType.EmptySuccess, decoded.FrameType);
+        await persistence.DidNotReceive().RevokeAsync(
+            Arg.Any<string>(),
+            Arg.Any<string?>(),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]

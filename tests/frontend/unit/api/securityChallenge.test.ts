@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
 import { requestBinaryOnly } from '@/composition/binaryTransport'
 import {
+  cancelSecurityChallenge,
   issueSecurityChallenge,
   SecurityChallengeKind,
   verifySecurityChallenge
@@ -77,6 +78,30 @@ describe('security challenge binary API', () => {
       expect(readSlice(payload, blob, 20)).toBe('comment.create')
       expect(readSlice(payload, blob, 28)).toBe('article:42')
       expect(JSON.parse(readSlice(payload, blob, 36))).toMatchObject({ answerText: 'AEF2', nonceHex: '01000000' })
+    })
+  })
+
+  it('cancels one bound envelope through an idempotent keepalive request', async () => {
+    binaryMock.mockResolvedValue(null)
+
+    await cancelSecurityChallenge({
+      envelopeId: '01900000-0000-7000-8000-000000000001',
+      action: 'comment.create',
+      routeKey: 'article:42',
+      policyVersion: 'risk-v1'
+    })
+
+    const call = binaryMock.mock.calls[0]?.[0]
+    expect(call?.binaryUrl).toBe('/api/binary/security/challenge/cancel')
+    expect(call?.frameType).toBe(FrameType.EmptySuccess)
+    expect(call?.requestOptions).toMatchObject({ method: 'POST', credentials: 'include', keepalive: true })
+    expectAedsPodBody(call?.requestOptions?.body, FrameType.SecurityChallengeCancelRequest, (payload) => {
+      const blob = readPodBlob(payload, 40)
+      expect(readSlice(payload, blob, 0)).toBe('01900000-0000-7000-8000-000000000001')
+      expect(readSlice(payload, blob, 8)).toBe('comment.create')
+      expect(readSlice(payload, blob, 16)).toBe('article:42')
+      expect(readSlice(payload, blob, 24)).toBe('fp-captcha-test')
+      expect(readSlice(payload, blob, 32)).toBe('risk-v1')
     })
   })
 
