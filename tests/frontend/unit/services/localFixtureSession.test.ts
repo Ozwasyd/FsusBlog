@@ -2,6 +2,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
+  clearLocalFixtureAdminSession,
   activateLocalFixtureSession,
   buildLocalFixtureAdminUrl,
   canUseLocalFixtureSessionEnvironment,
@@ -81,6 +82,16 @@ describe('local fixture URL hygiene', () => {
     clearLocalFixtureSession()
 
     expect(sessionStorage.getItem('fsusblog_local_fixture_session')).toBeNull()
+    expect(sessionStorage.getItem('fsusblog_local_fixture_admin_session')).toBeNull()
+  })
+
+  it('clears only the admin marker during independent admin logout', () => {
+    sessionStorage.setItem('fsusblog_local_fixture_session', '1')
+    sessionStorage.setItem('fsusblog_local_fixture_admin_session', '1')
+
+    clearLocalFixtureAdminSession()
+
+    expect(sessionStorage.getItem('fsusblog_local_fixture_session')).toBe('1')
     expect(sessionStorage.getItem('fsusblog_local_fixture_admin_session')).toBeNull()
   })
 })

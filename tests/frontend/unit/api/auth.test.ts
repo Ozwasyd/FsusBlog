@@ -15,7 +15,7 @@ vi.mock('@/api/index', () => ({
 }))
 
 import { requestBinaryOnly } from '@/composition/binaryTransport'
-import { adminStepUpPasskeyBegin, beginRecoveryPasskeyRegistration, bootstrapAnonymousAccount, completeRecoveryPasskeyRegistration, createRecoveryKey, deleteAccount, deletePasskey, disableMfa, getMe, getMfaProfile, getPowChallenge, listPasskeys, listSessions, logout, passkeyLoginBegin, passkeyLoginComplete, passkeyRegisterBegin, passkeyRegisterComplete, refreshToken, regenerateMfaRecoveryCodes, renamePasskey, revokeOtherSessions, revokeSession, rotateRecoveryKey, startMfaChallenge, startMfaSetup, updatePublicHandle, userStepUpPasskeyBegin, userStepUpPasskeyComplete, verifyMfaChallenge, verifyMfaSetup, verifyRecoveryKey } from '@/api/auth'
+import { adminStepUpPasskeyBegin, beginRecoveryPasskeyRegistration, bootstrapAnonymousAccount, completeRecoveryPasskeyRegistration, createRecoveryKey, deleteAccount, deletePasskey, disableMfa, getMe, getMfaProfile, getPowChallenge, listPasskeys, listSessions, logout, logoutAdmin, passkeyLoginBegin, passkeyLoginComplete, passkeyRegisterBegin, passkeyRegisterComplete, refreshToken, regenerateMfaRecoveryCodes, renamePasskey, revokeOtherSessions, revokeSession, rotateRecoveryKey, startMfaChallenge, startMfaSetup, updatePublicHandle, userStepUpPasskeyBegin, userStepUpPasskeyComplete, verifyMfaChallenge, verifyMfaSetup, verifyRecoveryKey } from '@/api/auth'
 
 const mockBinary = vi.mocked(requestBinaryOnly)
 
@@ -209,6 +209,38 @@ describe('auth API binary base session flow', () => {
   it('logout uses binary empty success frame', async () => {
     await logout()
     expectBinaryRoute('binary_post_auth_logout', FrameType.EmptySuccess, expect.objectContaining({ method: 'POST' }))
+  })
+
+  it('admin logout uses the independent admin binary route', async () => {
+    await logoutAdmin()
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryRoute: { operationId: 'binary_post_auth_admin_logout' },
+      frameType: FrameType.EmptySuccess,
+      suppressAuthFailureTelemetry: true,
+      requestOptions: expect.objectContaining({ method: 'POST' })
+    }))
+  })
+
+  it('admin logout retries one network failure for an idempotent revocation', async () => {
+    mockBinary
+      .mockRejectedValueOnce({ name: 'BinaryTransportError', kind: 'network', message: 'response lost' })
+      .mockResolvedValueOnce(null as never)
+
+    await logoutAdmin()
+
+    expect(mockBinary).toHaveBeenCalledTimes(2)
+    expect(mockBinary.mock.calls[0]?.[0]).toEqual(mockBinary.mock.calls[1]?.[0])
+  })
+
+  it('admin logout does not retry an explicit 401', async () => {
+    mockBinary.mockRejectedValueOnce({
+      name: 'BinaryTransportError',
+      kind: 'auth_failed',
+      message: 'admin session missing'
+    })
+
+    await expect(logoutAdmin()).rejects.toMatchObject({ kind: 'auth_failed' })
+    expect(mockBinary).toHaveBeenCalledTimes(1)
   })
 
   it('Passkey methods use binary frames', async () => {

@@ -7,6 +7,7 @@ import { useSessionBootstrap } from '@/composables/useSessionBootstrap'
 import { useWindowEvents } from '@/composables/useWindowEvents'
 import { handleRootAotClick } from '@/bootstrap/aotActionBridge'
 import { createSessionExpiredNavigationHandler, SESSION_EXPIRED_EVENT } from '@/bootstrap/sessionExpiryBridge'
+import { ADMIN_LOGOUT_EVENT, createAdminLogoutNavigationHandler } from '@/bootstrap/adminLogoutBridge'
 import { runtimePhase, runtimeReady } from '@/bootstrap/runtimeGate'
 import { isPublicShellRouteName } from '@/public-renderers/publicPageModel'
 import { useThemeRuntime } from '@/services/themeRuntime'
@@ -51,6 +52,7 @@ const appRouteViewKey = computed(() => {
 })
 
 const handleSessionExpired = createSessionExpiredNavigationHandler(router, () => userStore.isLoggedIn)
+const handleAdminLogout = createAdminLogoutNavigationHandler(router, () => userStore.isLoggedIn)
 
 function shouldHandleSpaAnchor(anchor: HTMLAnchorElement): boolean {
   if (!runtimeReady.value || !isPublicShellRoute.value) {
@@ -145,7 +147,10 @@ function runAppRouteLeave(el: Element, done: () => void): void {
   runAppRouteMotion(el, 'leave', done)
 }
 
-useWindowEvents([{ name: SESSION_EXPIRED_EVENT, handler: handleSessionExpired }])
+useWindowEvents([
+  { name: SESSION_EXPIRED_EVENT, handler: handleSessionExpired },
+  { name: ADMIN_LOGOUT_EVENT, handler: handleAdminLogout }
+])
 
 watch(
   () => [userStore.isAuthChecked, userStore.isLoggedIn] as const,

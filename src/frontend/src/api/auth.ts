@@ -127,6 +127,31 @@ export const logout = (config?: ApiRequestConfig) => {
   })
 }
 
+export const logoutAdmin = async (config?: ApiRequestConfig) => {
+  const requestLogout = () => requestBinaryOnly<null>({
+    binaryRoute: { operationId: 'binary_post_auth_admin_logout' },
+    frameType: FrameType.EmptySuccess,
+    signal: config?.signal as AbortSignal | undefined,
+    suppressAuthFailureTelemetry: true,
+    requestOptions: {
+      method: 'POST'
+    }
+  })
+
+  try {
+    return await requestLogout()
+  } catch (error: unknown) {
+    if (!isNetworkTransportFailure(error) || config?.signal?.aborted) {
+      throw error
+    }
+
+    // A response can be lost after the server commits the revocation. The
+    // endpoint is safe to retry; a resulting 401 proves the session is no
+    // longer accepted and is classified by the store as already inactive.
+    return requestLogout()
+  }
+}
+
 export const deleteAccount = (data: DeleteAccountRequest, config?: ApiRequestConfig) => {
   return requestBinaryOnly<null>({
     binaryRoute: { operationId: 'binary_post_auth_delete_account' },

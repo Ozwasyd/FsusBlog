@@ -5,7 +5,7 @@ import {
   type AccountArea,
   type AccountAreaMeta,
 } from '@/layouts/accountNav'
-import { useAdminStore } from '@/store/admin'
+import { useAdminStore, type AdminLogoutOutcome } from '@/store/admin'
 import { useSiteStore } from '@/store/site'
 import { useUserStore } from '@/store/user'
 
@@ -31,7 +31,7 @@ export interface AccountWorkspaceContext {
   areaMeta: AccountAreaMeta
   brandTitle: string
   brandImages: AccountWorkspaceBrandImages
-  logout: () => Promise<void>
+  logout: () => Promise<void | AdminLogoutOutcome>
 }
 
 export interface AccountWorkspaceBrandImages {

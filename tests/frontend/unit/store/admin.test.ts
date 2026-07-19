@@ -2,13 +2,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import {
   ADMIN_ACTIVE_TTL_MS,
+  AdminLogoutCleanupError,
+  AdminLogoutUnconfirmedError,
   ADMIN_NEGATIVE_CACHE_MS,
   useAdminStore
 } from '@/store/admin'
 import { getAccountNavGroups } from '@/layouts/accountNav'
 
 vi.mock('@/api/auth', () => ({
-  getAdminMe: vi.fn()
+  getAdminMe: vi.fn(),
+  logoutAdmin: vi.fn()
 }))
 
 vi.mock('@/services/serviceWorkerRuntime', () => ({
@@ -16,12 +19,20 @@ vi.mock('@/services/serviceWorkerRuntime', () => ({
 }))
 
 import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime'
+import { getAdminMe, logoutAdmin } from '@/api/auth'
+
+const mockGetAdminMe = vi.mocked(getAdminMe)
+const mockLogoutAdmin = vi.mocked(logoutAdmin)
+const mockClearPrivateBrowserState = vi.mocked(clearPrivateBrowserState)
 
 describe('useAdminStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
     vi.useRealTimers()
+    sessionStorage.clear()
+    mockLogoutAdmin.mockResolvedValue(null)
+    mockClearPrivateBrowserState.mockResolvedValue({} as never)
   })
 
   afterEach(() => {
@@ -309,7 +320,45 @@ describe('useAdminStore', () => {
     expect(store.canManage).toBe(false)
   })
 
-  it('clears shared-device browser state on admin logout', async () => {
+  it('revokes the server session before local cleanup and broadcast', async () => {
+    const order: string[] = []
+    mockLogoutAdmin.mockImplementation(async () => {
+      order.push('server')
+      return null
+    })
+    mockClearPrivateBrowserState.mockImplementation(async () => {
+      order.push('private')
+      return {} as never
+    })
+    const store = useAdminStore()
+    store.setLogoutBroadcast(() => order.push('broadcast'))
+    store.setAdminPrincipal({
+      id: 'admin-principal',
+      displayName: 'Security Admin',
+      source: 'independent',
+      permissions: ['admin.manage'],
+      adminSessionStatus: 'active'
+    })
+
+    const outcome = await store.logout()
+
+    expect(outcome).toEqual({
+      status: 'revoked',
+      serverRevocationConfirmed: true,
+      localCleanupComplete: true
+    })
+    expect(order).toEqual(['server', 'private', 'broadcast'])
+    expect(clearPrivateBrowserState).toHaveBeenCalledWith('logout')
+    expect(store.adminState).toBe('missing')
+    expect(store.adminPrincipal).toBeNull()
+  })
+
+  it('treats 401 as an already inactive server session', async () => {
+    mockLogoutAdmin.mockRejectedValue({
+      name: 'BinaryTransportError',
+      kind: 'auth_failed',
+      message: 'admin session missing'
+    })
     const store = useAdminStore()
     store.setAdminPrincipal({
       id: 'admin-principal',
@@ -319,11 +368,158 @@ describe('useAdminStore', () => {
       adminSessionStatus: 'active'
     })
 
-    await store.logout()
+    await expect(store.logout()).resolves.toEqual({
+      status: 'already_inactive',
+      serverRevocationConfirmed: true,
+      localCleanupComplete: true
+    })
+    expect(store.adminState).toBe('missing')
+  })
 
-    expect(clearPrivateBrowserState).toHaveBeenCalledWith('logout')
+  it('fails closed without claiming success after a network failure', async () => {
+    mockLogoutAdmin.mockRejectedValue({
+      name: 'BinaryTransportError',
+      kind: 'network',
+      message: 'offline'
+    })
+    const broadcast = vi.fn()
+    const store = useAdminStore()
+    store.setLogoutBroadcast(broadcast)
+    store.setAdminPrincipal({
+      id: 'admin-principal',
+      displayName: 'Security Admin',
+      source: 'independent',
+      permissions: ['admin.manage'],
+      adminSessionStatus: 'active'
+    })
+
+    await expect(store.logout()).rejects.toBeInstanceOf(AdminLogoutUnconfirmedError)
+
+    expect(store.lastLogoutOutcome).toEqual({
+      status: 'local_only',
+      serverRevocationConfirmed: false,
+      localCleanupComplete: true
+    })
+    expect(store.adminState).toBe('missing')
+    expect(broadcast).toHaveBeenCalledOnce()
+  })
+
+  it('does not report a fully clean logout when private cleanup fails', async () => {
+    mockClearPrivateBrowserState
+      .mockRejectedValueOnce(new Error('private cleanup failed'))
+      .mockResolvedValueOnce({} as never)
+    const broadcast = vi.fn()
+    const store = useAdminStore()
+    store.setLogoutBroadcast(broadcast)
+
+    await expect(store.logout()).rejects.toBeInstanceOf(AdminLogoutCleanupError)
+    expect(store.lastLogoutOutcome).toEqual({
+      status: 'revoked',
+      serverRevocationConfirmed: true,
+      localCleanupComplete: false
+    })
+    expect(broadcast).toHaveBeenCalledOnce()
+
+    await expect(store.logout()).resolves.toEqual({
+      status: 'revoked',
+      serverRevocationConfirmed: true,
+      localCleanupComplete: true
+    })
+    expect(mockLogoutAdmin).toHaveBeenCalledOnce()
+    expect(mockClearPrivateBrowserState).toHaveBeenCalledTimes(2)
+    expect(broadcast).toHaveBeenCalledTimes(2)
+  })
+
+  it('reports broadcast failure as incomplete local cleanup', async () => {
+    const store = useAdminStore()
+    store.setLogoutBroadcast(() => {
+      throw new Error('broadcast unavailable')
+    })
+
+    await expect(store.logout()).rejects.toBeInstanceOf(AdminLogoutCleanupError)
+    expect(store.lastLogoutOutcome).toEqual({
+      status: 'revoked',
+      serverRevocationConfirmed: true,
+      localCleanupComplete: false
+    })
+  })
+
+  it('deduplicates concurrent logout and reuses a confirmed result', async () => {
+    let resolveLogout: (() => void) | null = null
+    mockLogoutAdmin.mockImplementation(() => new Promise<null>((resolve) => {
+      resolveLogout = () => resolve(null)
+    }))
+    const store = useAdminStore()
+
+    const first = store.logout()
+    const second = store.logout()
+    expect(mockLogoutAdmin).toHaveBeenCalledTimes(1)
+    resolveLogout?.()
+
+    const [firstOutcome, secondOutcome] = await Promise.all([first, second])
+    expect(firstOutcome).toEqual(secondOutcome)
+
+    await store.logout()
+    expect(mockLogoutAdmin).toHaveBeenCalledTimes(1)
+  })
+
+  it('cancels a stale admin snapshot before it can restore logged-out state', async () => {
+    let resolveSnapshot: ((value: Awaited<ReturnType<typeof getAdminMe>>) => void) | null = null
+    mockGetAdminMe.mockImplementation(({ signal } = {}) => new Promise((resolve, reject) => {
+      resolveSnapshot = resolve
+      signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')))
+    }))
+    const store = useAdminStore()
+    const refresh = store.ensureAdminSessionFresh({ force: true })
+
+    await store.logout()
+    resolveSnapshot?.({
+      id: 'stale-admin',
+      displayName: 'Stale Admin',
+      source: 'independent',
+      permissions: ['admin.manage'],
+      adminSessionStatus: 'active'
+    })
+    await refresh
+
     expect(store.adminState).toBe('missing')
     expect(store.adminPrincipal).toBeNull()
+  })
+
+  it('does not restore admin permissions after reload once the server session is revoked', async () => {
+    const store = useAdminStore()
+    store.setAdminPrincipal({
+      id: 'admin-principal',
+      displayName: 'Security Admin',
+      source: 'independent',
+      permissions: ['admin.manage'],
+      adminSessionStatus: 'active'
+    })
+    await store.logout()
+
+    setActivePinia(createPinia())
+    mockGetAdminMe.mockRejectedValue({
+      name: 'BinaryTransportError',
+      kind: 'auth_failed',
+      message: 'admin session revoked'
+    })
+    const reloadedStore = useAdminStore()
+    await reloadedStore.ensureAdminSessionFresh({ force: true })
+
+    expect(reloadedStore.adminState).toBe('missing')
+    expect(reloadedStore.adminPrincipal).toBeNull()
+    expect(reloadedStore.canManage).toBe(false)
+  })
+
+  it('clears only the admin fixture marker during admin logout', async () => {
+    sessionStorage.setItem('fsusblog_local_fixture_session', '1')
+    sessionStorage.setItem('fsusblog_local_fixture_admin_session', '1')
+    const store = useAdminStore()
+
+    await store.logout()
+
+    expect(sessionStorage.getItem('fsusblog_local_fixture_session')).toBe('1')
+    expect(sessionStorage.getItem('fsusblog_local_fixture_admin_session')).toBeNull()
   })
 
   it('derives anonymous comment policy states for manage workspace controls', () => {

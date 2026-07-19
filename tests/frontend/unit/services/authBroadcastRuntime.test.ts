@@ -15,7 +15,8 @@ import { NotificationStreamEventType } from '@/services/notificationStreamTypes'
 vi.mock('@/api/auth', () => ({
   getMe: vi.fn(),
   getAdminMe: vi.fn(),
-  logout: vi.fn()
+  logout: vi.fn(),
+  logoutAdmin: vi.fn()
 }))
 
 vi.mock('@/services/notificationStreamRuntime', () => ({
@@ -203,6 +204,48 @@ describe('authBroadcastRuntime', () => {
     expect(clearPrivateBrowserState).toHaveBeenCalledWith('logout', {
       broadcastCredentialPurge: false
     })
+  })
+
+  it('admin logout clears only the admin plane in remote tabs', () => {
+    const pinia = createRuntimePinia()
+    const userStore = useUserStore(pinia)
+    const adminStore = useAdminStore(pinia)
+    userStore.markAuthenticated(anonymousUser(1) as never)
+    adminStore.setAdminPrincipal({
+      id: 'admin',
+      displayName: 'Admin',
+      source: 'independent',
+      permissions: ['admin.manage'],
+      adminSessionStatus: 'active'
+    })
+
+    MockBroadcastChannel.instances[0]?.dispatch({ type: 'admin-logout', at: Date.now() })
+
+    expect(userStore.accountState).toBe('authenticated')
+    expect(userStore.userInfo?.accountId).toBe(1)
+    expect(adminStore.adminState).toBe('missing')
+    expect(adminStore.adminPrincipal).toBeNull()
+    expect(clearPrivateBrowserState).toHaveBeenCalledWith('logout', {
+      broadcastCredentialPurge: false
+    })
+  })
+
+  it('admin logout broadcast contains no identity or session material', async () => {
+    const pinia = createRuntimePinia()
+    const adminStore = useAdminStore(pinia)
+
+    adminStore.setAdminPrincipal({
+      id: 'admin-secret-id',
+      displayName: 'Admin',
+      source: 'independent',
+      permissions: ['admin.manage'],
+      adminSessionStatus: 'active'
+    })
+    await adminStore.logout()
+
+    const [message] = MockBroadcastChannel.instances[0]?.messages ?? []
+    expect(message).toMatchObject({ type: 'admin-logout', at: expect.any(Number) })
+    expect(JSON.stringify(message)).not.toMatch(/admin-secret-id|accountId|permission|token|session/i)
   })
 
   it('expired event stops authenticated runtime', () => {

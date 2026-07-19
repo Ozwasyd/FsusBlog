@@ -3,6 +3,7 @@ export type AuthBroadcastEvent =
   | { type: 'logout'; at: number }
   | { type: 'expired'; at: number }
   | { type: 'user-expired'; at: number }
+  | { type: 'admin-logout'; at: number }
   | { type: 'admin-changed'; at: number }
 
 export type AuthBroadcastEventOrigin = 'local' | 'remote'
@@ -27,6 +28,7 @@ function parseAuthBroadcastEvent(value: unknown): AuthBroadcastEvent | null {
     && candidate.type !== 'logout'
     && candidate.type !== 'expired'
     && candidate.type !== 'user-expired'
+    && candidate.type !== 'admin-logout'
     && candidate.type !== 'admin-changed')
     || typeof candidate.at !== 'number'
     || !Number.isFinite(candidate.at)) {
@@ -113,6 +115,10 @@ export class AuthBroadcastRuntime {
 
   broadcastAdminChanged(): void {
     this.publish(createEvent('admin-changed'))
+  }
+
+  broadcastAdminLogout(): void {
+    this.publish(createEvent('admin-logout'))
   }
 
   private publish(event: AuthBroadcastEvent): void {

@@ -1,8 +1,9 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { getAdminMe } from '@/api/auth'
+import { getAdminMe, logoutAdmin } from '@/api/auth'
+import { isAbortError } from '@/utils/errors'
 import { isAuthFailureError } from '@/utils/errorKinds'
-import { clearLocalFixtureSession } from '@/services/localFixtureSession'
+import { clearLocalFixtureAdminSession } from '@/services/localFixtureSession'
 import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime'
 
 export type AdminSessionStatus = 'missing' | 'active' | 'expired' | 'step_up_required'
@@ -35,6 +36,34 @@ export interface EnsureAdminSessionFreshOptions {
   force?: boolean
 }
 
+export type AdminLogoutStatus = 'revoked' | 'already_inactive' | 'local_only'
+
+export interface AdminLogoutOutcome {
+  status: AdminLogoutStatus
+  serverRevocationConfirmed: boolean
+  localCleanupComplete: boolean
+}
+
+export class AdminLogoutUnconfirmedError extends Error {
+  readonly outcome: AdminLogoutOutcome
+
+  constructor(outcome: AdminLogoutOutcome) {
+    super('管理员会话撤销未确认；本地管理状态已清理，请重试。')
+    this.name = 'AdminLogoutUnconfirmedError'
+    this.outcome = outcome
+  }
+}
+
+export class AdminLogoutCleanupError extends Error {
+  readonly outcome: AdminLogoutOutcome
+
+  constructor(outcome: AdminLogoutOutcome) {
+    super('管理员会话已撤销，但本地私有状态未完全清理。')
+    this.name = 'AdminLogoutCleanupError'
+    this.outcome = outcome
+  }
+}
+
 const DEFAULT_ANONYMOUS_COMMENT_POLICY: AnonymousCommentPolicySnapshot = Object.freeze({
   anonymousCommentsEnabled: true,
   publicSendOptionEnabled: true,
@@ -49,7 +78,13 @@ export const useAdminStore = defineStore('admin', () => {
   const adminPrincipal = ref<AdminPrincipalSnapshot | null>(null)
   const adminState = ref<AdminSessionState>('unknown')
   const adminCheckedAt = ref(0)
+  const lastLogoutOutcome = ref<AdminLogoutOutcome | null>(null)
   const anonymousCommentPolicy = ref<AnonymousCommentPolicySnapshot>({ ...DEFAULT_ANONYMOUS_COMMENT_POLICY })
+  let adminSessionRequest: Promise<void> | null = null
+  let adminSessionController: AbortController | null = null
+  let adminSessionGeneration = 0
+  let logoutRequest: Promise<AdminLogoutOutcome> | null = null
+  let logoutBroadcast: (() => void) | null = null
 
   const adminSessionStatus = computed<AdminSessionStatus>(() => {
     if (adminState.value === 'unknown') {
@@ -85,6 +120,9 @@ export const useAdminStore = defineStore('admin', () => {
     } : null
     adminState.value = snapshot?.adminSessionStatus ?? 'missing'
     adminCheckedAt.value = Date.now()
+    if (snapshot) {
+      lastLogoutOutcome.value = null
+    }
   }
 
   const clearAdminPrincipal = (state: AdminSessionState = 'missing'): void => {
@@ -135,25 +173,123 @@ export const useAdminStore = defineStore('admin', () => {
     // consumes it before the request so a transport failure remains unknown.
     invalidateMissingCache()
 
-    try {
-      setAdminPrincipal(await getAdminMe())
-    } catch (error: unknown) {
-      if (isAuthFailureError(error)) {
-        clearAdminPrincipal('missing')
-        return
-      }
-
-      console.warn('[AdminStore] Admin session refresh failed.')
+    if (adminSessionRequest) {
+      return adminSessionRequest
     }
+
+    const controller = new AbortController()
+    const generation = adminSessionGeneration
+    adminSessionController = controller
+    adminSessionRequest = (async () => {
+      try {
+        const snapshot = await getAdminMe({ signal: controller.signal })
+        if (generation === adminSessionGeneration && adminSessionController === controller) {
+          setAdminPrincipal(snapshot)
+        }
+      } catch (error: unknown) {
+        if (isAbortError(error) || controller.signal.aborted || generation !== adminSessionGeneration) {
+          return
+        }
+
+        if (isAuthFailureError(error)) {
+          clearAdminPrincipal('missing')
+          return
+        }
+
+        console.warn('[AdminStore] Admin session refresh failed.')
+      } finally {
+        if (adminSessionController === controller) {
+          adminSessionController = null
+          adminSessionRequest = null
+        }
+      }
+    })()
+
+    return adminSessionRequest
   }
 
-  const logout = async (): Promise<void> => {
-    clearLocalFixtureSession()
-    clearAdminPrincipal()
-    await clearPrivateBrowserState('logout')
+  const cancelAdminSessionRequest = (): void => {
+    adminSessionGeneration += 1
+    adminSessionController?.abort()
+    adminSessionController = null
+    adminSessionRequest = null
+  }
 
-    if (typeof window !== 'undefined') {
-      window.location.href = '/'
+  const setLogoutBroadcast = (callback: (() => void) | null): void => {
+    logoutBroadcast = callback
+  }
+
+  const logout = async (): Promise<AdminLogoutOutcome> => {
+    if (lastLogoutOutcome.value?.serverRevocationConfirmed && lastLogoutOutcome.value.localCleanupComplete) {
+      return lastLogoutOutcome.value
+    }
+
+    if (logoutRequest) {
+      return logoutRequest
+    }
+
+    logoutRequest = (async () => {
+      const previousOutcome = lastLogoutOutcome.value
+      let status: AdminLogoutStatus = previousOutcome?.serverRevocationConfirmed
+        ? previousOutcome.status
+        : 'revoked'
+      let serverRevocationConfirmed = previousOutcome?.serverRevocationConfirmed === true
+      let serverRevocationFailed = false
+
+      if (!serverRevocationConfirmed) {
+        try {
+          await logoutAdmin()
+          serverRevocationConfirmed = true
+        } catch (error: unknown) {
+          if (isAuthFailureError(error)) {
+            status = 'already_inactive'
+            serverRevocationConfirmed = true
+          } else {
+            status = 'local_only'
+            serverRevocationFailed = true
+          }
+        }
+      }
+
+      cancelAdminSessionRequest()
+      clearLocalFixtureAdminSession()
+      clearAdminPrincipal()
+
+      let localCleanupComplete = true
+      try {
+        await clearPrivateBrowserState('logout')
+      } catch {
+        localCleanupComplete = false
+      }
+
+      try {
+        logoutBroadcast?.()
+      } catch {
+        localCleanupComplete = false
+      }
+
+      const outcome: AdminLogoutOutcome = Object.freeze({
+        status,
+        serverRevocationConfirmed,
+        localCleanupComplete
+      })
+      lastLogoutOutcome.value = outcome
+
+      if (serverRevocationFailed) {
+        throw new AdminLogoutUnconfirmedError(outcome)
+      }
+
+      if (!localCleanupComplete) {
+        throw new AdminLogoutCleanupError(outcome)
+      }
+
+      return outcome
+    })()
+
+    try {
+      return await logoutRequest
+    } finally {
+      logoutRequest = null
     }
   }
 
@@ -161,6 +297,7 @@ export const useAdminStore = defineStore('admin', () => {
     adminPrincipal,
     adminState,
     adminCheckedAt,
+    lastLogoutOutcome,
     anonymousCommentPolicy,
     adminSessionStatus,
     permissions,
@@ -181,6 +318,7 @@ export const useAdminStore = defineStore('admin', () => {
     invalidateMissingCache,
     ensureAdminSessionFresh,
     setAnonymousCommentPolicy,
+    setLogoutBroadcast,
     logout
   }
 })

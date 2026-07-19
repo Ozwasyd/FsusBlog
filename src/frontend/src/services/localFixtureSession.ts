@@ -126,6 +126,19 @@ export function clearLocalFixtureSession(
   }
 }
 
+export function clearLocalFixtureAdminSession(
+  storage: Pick<Storage, 'removeItem'> | undefined = typeof sessionStorage === 'undefined' ? undefined : sessionStorage
+): void {
+  if (!storage) {
+    return
+  }
+  try {
+    storage.removeItem(LOCAL_FIXTURE_ADMIN_SESSION_KEY)
+  } catch {
+    // Ignore storage failures during admin-only logout cleanup.
+  }
+}
+
 function hasLocalFixtureQueryFlag(): boolean {
   if (typeof window === 'undefined') {
     return false

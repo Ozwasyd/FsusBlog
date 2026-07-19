@@ -1,7 +1,7 @@
 import type { Pinia } from 'pinia'
 import { authBroadcastRuntime, type AuthBroadcastEventOrigin } from './authBroadcastRuntime'
 import { notificationStreamRuntime } from './notificationStreamRuntime'
-import { clearLocalFixtureSession } from './localFixtureSession'
+import { clearLocalFixtureAdminSession, clearLocalFixtureSession } from './localFixtureSession'
 import { clearPrivateBrowserState } from './serviceWorkerRuntime'
 import { defaultChallengeProofStore } from '@/security/challenge-proof-store'
 import { useAdminStore } from '@/store/admin'
@@ -9,6 +9,7 @@ import { useAppShellStore } from '@/store/appShell'
 import { useNotificationStreamStore } from '@/store/notificationStream'
 import { useUserStore } from '@/store/user'
 import { dispatchSessionExpired } from '@/bootstrap/sessionExpiryBridge'
+import { dispatchAdminLogout } from '@/bootstrap/adminLogoutBridge'
 
 let activePinia: Pinia | null = null
 let unsubscribe: (() => void) | null = null
@@ -35,6 +36,22 @@ export function installAuthBroadcastComposition(pinia: Pinia): void {
 
   unsubscribe = authBroadcastRuntime.subscribe((event, origin) => {
     defaultChallengeProofStore.clear()
+    if (event.type === 'admin-logout') {
+      if (origin === 'remote') {
+        clearLocalFixtureAdminSession()
+        adminStore.clearAdminPrincipal()
+        void clearPrivateStateForBroadcast('logout', origin)
+      }
+      dispatchAdminLogout()
+      return
+    }
+
+    if (event.type === 'admin-changed') {
+      userStore.invalidateGuestCache()
+      adminStore.invalidateMissingCache()
+      return
+    }
+
     // Any authentication transition can reflect a Cookie/Session change made
     // by another tab, Passkey completion, or admin step-up. Neither negative
     // cache is allowed to outlive that transition.
@@ -47,10 +64,6 @@ export function installAuthBroadcastComposition(pinia: Pinia): void {
         userStore.invalidateIdentityCache()
         dispatchSessionExpired()
       }
-      return
-    }
-
-    if (event.type === 'admin-changed') {
       return
     }
 
@@ -71,12 +84,14 @@ export function installAuthBroadcastComposition(pinia: Pinia): void {
   })
 
   userStore.setLogoutBroadcast(() => authBroadcastRuntime.broadcastLogout())
+  adminStore.setLogoutBroadcast(() => authBroadcastRuntime.broadcastAdminLogout())
   notificationStore.setSessionRevokedHandler(() => authBroadcastRuntime.expireUserSession())
 }
 
 export function disposeAuthBroadcastComposition(): void {
   if (activePinia) {
     useUserStore(activePinia).setLogoutBroadcast(null)
+    useAdminStore(activePinia).setLogoutBroadcast(null)
     useNotificationStreamStore(activePinia).setSessionRevokedHandler(null)
   }
   unsubscribe?.()
