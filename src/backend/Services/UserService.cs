@@ -267,69 +267,6 @@ public partial class UserService(
     private Task InvalidateAccountSnapshotAsync(int userId, CancellationToken cancellationToken = default)
         => AccountSnapshotCacheInvalidator.BumpVersionAsync(_cacheCounters, userId, cancellationToken);
 
-    internal async Task<UserAccountSnapshot?> GetAccountSnapshotProjectionAsync(int id)
-    {
-        const string Sql = """
-            SELECT id AS "Id",
-                   status AS "Status",
-                   banreason AS "BanReason",
-                   mfaenabled AS "MfaEnabled",
-                   deleted_at AS "DeletedAt",
-                   public_handle AS "PublicHandle",
-                   identity_kind AS "IdentityKind",
-                   passkey_enabled AS "PasskeyEnabled",
-                   recovery_enabled AS "RecoveryEnabled",
-                   anonymous_credential_status AS "AnonymousCredentialStatus",
-                   anonymous_credential_level AS "AnonymousCredentialLevel",
-                   account_subject_hash AS "AccountSubjectHash"
-            FROM sys_user
-            WHERE id = @Id
-            LIMIT 1;
-            """;
-
-        using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
-            Sql,
-            new SugarParameter[] { new("@Id", id) }).ConfigureAwait(false);
-        if (!await reader.ReadAsync().ConfigureAwait(false))
-        {
-            return null;
-        }
-
-        int fId = reader.GetOrdinal("Id");
-        int fStatus = reader.GetOrdinal("Status");
-        int fBanReason = reader.GetOrdinal("BanReason");
-        int fMfaEnabled = reader.GetOrdinal("MfaEnabled");
-        int fDeletedAt = reader.GetOrdinal("DeletedAt");
-        int fPublicHandle = reader.GetOrdinal("PublicHandle");
-        int fIdentityKind = reader.GetOrdinal("IdentityKind");
-        int fPasskeyEnabled = reader.GetOrdinal("PasskeyEnabled");
-        int fRecoveryEnabled = reader.GetOrdinal("RecoveryEnabled");
-        int fAnonymousCredentialStatus = reader.GetOrdinal("AnonymousCredentialStatus");
-        int fAnonymousCredentialLevel = reader.GetOrdinal("AnonymousCredentialLevel");
-        int fAccountSubjectHash = reader.GetOrdinal("AccountSubjectHash");
-        int accountId = reader.GetInt32(fId);
-        string identityKind = reader.IsDBNull(fIdentityKind)
-            ? AnonymousIdentityRuntime.AnonymousAccountKind
-            : reader.GetString(fIdentityKind);
-        string? publicHandle = reader.IsDBNull(fPublicHandle) ? null : reader.GetString(fPublicHandle);
-        string? accountSubjectHash = reader.IsDBNull(fAccountSubjectHash)
-            ? null
-            : reader.GetString(fAccountSubjectHash);
-
-        return new UserAccountSnapshot(
-            accountId,
-            reader.GetInt32(fStatus),
-            reader.IsDBNull(fBanReason) ? null : reader.GetString(fBanReason),
-            reader.GetBoolean(fMfaEnabled),
-            reader.IsDBNull(fDeletedAt) ? null : reader.GetDateTime(fDeletedAt),
-            publicHandle,
-            identityKind,
-            reader.GetBoolean(fPasskeyEnabled),
-            reader.GetBoolean(fRecoveryEnabled),
-            reader.IsDBNull(fAnonymousCredentialStatus) ? null : reader.GetString(fAnonymousCredentialStatus),
-            reader.IsDBNull(fAnonymousCredentialLevel) ? null : reader.GetString(fAnonymousCredentialLevel),
-            accountSubjectHash);
-    }
 
     public async Task<(bool Success, string Message)> UpdatePublicHandleAsync(int userId, string? publicHandle)
     {

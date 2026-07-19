@@ -1,3 +1,4 @@
+using System.Data.Common;
 using System.Globalization;
 using System.Text.Json;
 
@@ -12,10 +13,12 @@ using FsusBlog.Server.Models.Responses;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Outputs;
 
+using SqlSugar;
+
 namespace FsusBlog.Server.Services;
 
 public sealed class UserAccountReader(
-    UserService users,
+    ISqlSugarClient db,
     ICacheTypedReader cacheReader,
     ICacheRawWriter cacheWriter,
     ICacheStringReader stringReader,
@@ -46,7 +49,7 @@ public sealed class UserAccountReader(
 
         FsusObservability.RecordAccountSnapshotCacheHit(hit: false);
         FsusObservability.RecordAccountSnapshotDbReadCount();
-        UserAccountSnapshot? snapshot = await users.GetAccountSnapshotProjectionAsync(id).ConfigureAwait(false);
+        UserAccountSnapshot? snapshot = await LoadAccountSnapshotAsync(id).ConfigureAwait(false);
         if (snapshot.HasValue
             && AccountSubjectHashRequirement.TryResolve(snapshot.Value.AccountSubjectHash, out _))
         {
@@ -61,6 +64,66 @@ public sealed class UserAccountReader(
         }
 
         return snapshot;
+    }
+
+    private async Task<UserAccountSnapshot?> LoadAccountSnapshotAsync(int id)
+    {
+        const string Sql = """
+            SELECT id AS "Id",
+                   status AS "Status",
+                   banreason AS "BanReason",
+                   mfaenabled AS "MfaEnabled",
+                   deleted_at AS "DeletedAt",
+                   public_handle AS "PublicHandle",
+                   identity_kind AS "IdentityKind",
+                   passkey_enabled AS "PasskeyEnabled",
+                   recovery_enabled AS "RecoveryEnabled",
+                   anonymous_credential_status AS "AnonymousCredentialStatus",
+                   anonymous_credential_level AS "AnonymousCredentialLevel",
+                   account_subject_hash AS "AccountSubjectHash"
+            FROM sys_user
+            WHERE id = @Id
+            LIMIT 1;
+            """;
+
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            Sql,
+            new SugarParameter[] { new("@Id", id) }).ConfigureAwait(false);
+        if (!await reader.ReadAsync().ConfigureAwait(false))
+        {
+            return null;
+        }
+
+        int fId = reader.GetOrdinal("Id");
+        int fStatus = reader.GetOrdinal("Status");
+        int fBanReason = reader.GetOrdinal("BanReason");
+        int fMfaEnabled = reader.GetOrdinal("MfaEnabled");
+        int fDeletedAt = reader.GetOrdinal("DeletedAt");
+        int fPublicHandle = reader.GetOrdinal("PublicHandle");
+        int fIdentityKind = reader.GetOrdinal("IdentityKind");
+        int fPasskeyEnabled = reader.GetOrdinal("PasskeyEnabled");
+        int fRecoveryEnabled = reader.GetOrdinal("RecoveryEnabled");
+        int fAnonymousCredentialStatus = reader.GetOrdinal("AnonymousCredentialStatus");
+        int fAnonymousCredentialLevel = reader.GetOrdinal("AnonymousCredentialLevel");
+        int fAccountSubjectHash = reader.GetOrdinal("AccountSubjectHash");
+        int accountId = reader.GetInt32(fId);
+        string identityKind = reader.IsDBNull(fIdentityKind)
+            ? AnonymousIdentityRuntime.AnonymousAccountKind
+            : reader.GetString(fIdentityKind);
+
+        return new UserAccountSnapshot(
+            accountId,
+            reader.GetInt32(fStatus),
+            reader.IsDBNull(fBanReason) ? null : reader.GetString(fBanReason),
+            reader.GetBoolean(fMfaEnabled),
+            reader.IsDBNull(fDeletedAt) ? null : reader.GetDateTime(fDeletedAt),
+            reader.IsDBNull(fPublicHandle) ? null : reader.GetString(fPublicHandle),
+            identityKind,
+            reader.GetBoolean(fPasskeyEnabled),
+            reader.GetBoolean(fRecoveryEnabled),
+            reader.IsDBNull(fAnonymousCredentialStatus) ? null : reader.GetString(fAnonymousCredentialStatus),
+            reader.IsDBNull(fAnonymousCredentialLevel) ? null : reader.GetString(fAnonymousCredentialLevel),
+            reader.IsDBNull(fAccountSubjectHash) ? null : reader.GetString(fAccountSubjectHash));
     }
 
     private async Task<long> GetSnapshotVersionAsync(int id)
