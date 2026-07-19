@@ -102,7 +102,7 @@ const emit = defineEmits<{
   width: 100%;
   height: 100%;
   min-width: 0;
-  padding: 12px 16px;
+  padding: var(--fsus-space-3) var(--fsus-space-4);
   background: var(--fsusblog-page-bg);
   border-right: 1px solid var(--fsusblog-panel-border);
   border-bottom: 1px solid var(--fsusblog-panel-border);
@@ -115,12 +115,12 @@ const emit = defineEmits<{
   grid-template-columns: minmax(0, 1fr) minmax(3ch, auto);
   align-content: center;
   align-items: start;
-  gap: 4px 14px;
-  padding: 14px 16px;
+  gap: var(--fsus-space-1) var(--fsus-space-3);
+  padding: var(--fsus-space-3) var(--fsus-space-4);
 }
 
 .admin-status-matrix--compact .admin-status-matrix__label {
-  gap: 6px;
+  gap: var(--fsus-space-1);
   line-height: 1.35;
 }
 
@@ -128,7 +128,7 @@ const emit = defineEmits<{
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 8px;
+  gap: var(--fsus-space-2);
   color: var(--fsusblog-text-muted);
   font-size: 12px;
   font-weight: 700;
@@ -139,7 +139,7 @@ const emit = defineEmits<{
   width: 6px;
   height: 6px;
   flex: 0 0 auto;
-  border-radius: 999px;
+  border-radius: var(--fsus-radius-pill);
   background: var(--fsusblog-panel-border-strong);
 }
 
@@ -160,7 +160,7 @@ const emit = defineEmits<{
 
 .admin-status-matrix__value {
   min-width: 0;
-  margin-top: 6px;
+  margin-top: var(--fsus-space-1);
   color: var(--fsusblog-text-primary);
   font-size: 15px;
   font-weight: 700;
@@ -185,7 +185,7 @@ const emit = defineEmits<{
 }
 
 .admin-status-matrix__helper {
-  margin-top: 4px;
+  margin-top: var(--fsus-space-1);
   color: var(--fsusblog-text-muted);
   font-size: 12px;
   line-height: 1.5;
@@ -225,9 +225,9 @@ const emit = defineEmits<{
   display: inline-block;
   vertical-align: middle;
   height: 2px;
-  margin-left: 8px;
+  margin-left: var(--fsus-space-2);
   background: var(--fsusblog-panel-border);
-  border-radius: 1px;
+  border-radius: var(--fsus-radius-control-small);
 }
 
 .admin-status-matrix__bar[data-tone='info'] {
@@ -262,19 +262,19 @@ const emit = defineEmits<{
   background: var(--fsusblog-admin-status-danger);
 }
 
-@media (max-width: 480px) {
+@media (max-width: 639px) {
   .admin-status-matrix {
     grid-template-columns: 1fr;
   }
 
   .admin-status-matrix__item {
     min-height: 52px;
-    padding: 10px 12px;
+    padding: var(--fsus-space-2) var(--fsus-space-3);
   }
 
   .admin-status-matrix--compact .admin-status-matrix__item {
     min-height: 60px;
-    padding: 12px 14px;
+    padding: var(--fsus-space-3) var(--fsus-space-3);
   }
 }
 </style>

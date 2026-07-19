@@ -82,7 +82,7 @@ const authAction = computed(() => {
   min-height: 2.5rem;
   min-width: 0;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--fsus-space-2);
   border-radius: var(--fsus-radius-control);
   color: var(--fsusblog-text-primary);
   text-decoration: none;
@@ -99,7 +99,7 @@ const authAction = computed(() => {
   align-items: center;
   justify-content: center;
   border-radius: var(--fsus-radius-control-small);
-  padding-inline: 0.75rem;
+  padding-inline: var(--fsus-space-3);
   color: var(--fsusblog-text-tertiary);
   font-size: 12px;
   font-weight: 700;

@@ -280,7 +280,7 @@ const onDateRangeChange = (value: unknown): void => {
   font-size: 14px;
   font-weight: 700;
   line-height: 1;
-  padding: 0 18px;
+  padding: 0 var(--fsus-space-4);
   transition:
     background-color var(--fsus-motion-control, 160ms ease),
     color var(--fsus-motion-control, 160ms ease),

@@ -670,7 +670,7 @@ watch(
 
 .moderation-region-name--child {
   position: relative;
-  padding-left: 14px;
+  padding-left: var(--fsus-space-3);
   color: var(--fsusblog-text-muted);
   font-weight: 700;
 }
@@ -728,7 +728,7 @@ watch(
   position: relative;
   min-height: 58px;
   align-items: center;
-  column-gap: 12px;
+  column-gap: var(--fsus-space-3);
   border: 0;
   border-bottom: 1px solid var(--fsusblog-panel-border);
   background: transparent;
@@ -759,22 +759,22 @@ watch(
   top: 10px;
   bottom: 10px;
   width: 2px;
-  border-radius: 999px;
+  border-radius: var(--fsus-radius-pill);
   background: var(--fsusblog-color-primary);
   content: "";
 }
 
 .moderation-regions-mobile-list :deep(.el-data-list__cell) {
   min-width: 0;
-  padding-block: 11px;
+  padding-block: var(--fsus-space-3);
 }
 
 .moderation-regions-mobile-list :deep(.el-data-list__cell:first-child) {
-  padding-left: 20px;
+  padding-left: var(--fsus-space-5);
 }
 
 .moderation-regions-mobile-list :deep(.el-data-list__cell:last-child) {
-  padding-right: 18px;
+  padding-right: var(--fsus-space-4);
 }
 
 .moderation-regions-mobile-list :deep(.el-data-list__cell--end) {
@@ -784,12 +784,12 @@ watch(
 .moderation-regions-mobile-summary {
   display: grid;
   min-width: 0;
-  gap: 4px;
+  gap: var(--fsus-space-1);
 }
 
 .moderation-regions-mobile-summary--child {
   position: relative;
-  padding-left: 18px;
+  padding-left: var(--fsus-space-4);
 }
 
 .moderation-regions-mobile-summary--child::before {
@@ -856,8 +856,8 @@ watch(
   display: flex;
   min-width: 0;
   flex-wrap: wrap;
-  gap: 4px 12px;
-  margin-top: 4px;
+  gap: var(--fsus-space-1) var(--fsus-space-3);
+  margin-top: var(--fsus-space-1);
   font-size: 14px;
   font-weight: 700;
   line-height: 1.35;
@@ -885,14 +885,14 @@ watch(
   display: grid;
   min-width: 0;
   grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
+  gap: var(--fsus-space-3);
   align-items: start;
 }
 
 .moderation-regions-rule-summary {
   display: grid;
   min-width: 0;
-  gap: 5px;
+  gap: var(--fsus-space-1);
 }
 
 .moderation-regions-rule-category {
@@ -918,14 +918,14 @@ watch(
   display: grid;
   min-width: 0;
   grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-  gap: 12px;
+  gap: var(--fsus-space-3);
   margin: 0;
 }
 
 .moderation-regions-rule-action {
   display: grid;
   min-width: 0;
-  gap: 4px;
+  gap: var(--fsus-space-1);
 }
 
 .moderation-regions-rule-action dt {

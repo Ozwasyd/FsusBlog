@@ -34,7 +34,7 @@ defineProps<{
 <style scoped>
 .analytics-list {
   min-width: 0;
-  padding: 16px;
+  padding: var(--fsus-space-4);
   background: var(--fsusblog-page-bg);
   border-bottom: 1px solid var(--fsusblog-panel-border);
 }
@@ -53,8 +53,8 @@ defineProps<{
 }
 
 .analytics-list__empty {
-  margin: 12px 0 0;
-  padding-top: 12px;
+  margin: var(--fsus-space-3) 0 0;
+  padding-top: var(--fsus-space-3);
   border-top: 1px solid var(--fsusblog-panel-border);
   color: var(--fsusblog-text-tertiary);
   font-size: 14px;
@@ -64,7 +64,7 @@ defineProps<{
 .analytics-list__items {
   display: grid;
   gap: 0;
-  margin: 12px 0 0;
+  margin: var(--fsus-space-3) 0 0;
   padding: 0;
   list-style: none;
   border-top: 1px solid var(--fsusblog-panel-border);
@@ -73,7 +73,7 @@ defineProps<{
 .analytics-list__item {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
+  gap: var(--fsus-space-3);
   align-items: center;
   min-height: 40px;
   border-bottom: 1px solid var(--fsusblog-panel-border);

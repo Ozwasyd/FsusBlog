@@ -113,7 +113,7 @@ const readAuditActionText = (value: string): string => {
   align-items: center;
   min-width: 0;
   border-top: 1px solid var(--fsusblog-panel-border);
-  padding: 0.625rem var(--fsus-space-3);
+  padding: var(--fsus-space-2) var(--fsus-space-3);
   color: inherit;
   text-decoration: none;
   transition:
@@ -204,7 +204,7 @@ const readAuditActionText = (value: string): string => {
   white-space: nowrap;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 767px) {
   .moderation-audit-index__header {
     display: grid;
     align-items: start;

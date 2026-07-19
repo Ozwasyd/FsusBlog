@@ -169,14 +169,14 @@ onMounted(() => {
   display: grid;
   grid-template-columns: minmax(12rem, 16rem) auto;
   align-items: end;
-  gap: 12px;
-  padding: 12px 16px;
+  gap: var(--fsus-space-3);
+  padding: var(--fsus-space-3) var(--fsus-space-4);
   border-top: 1px solid var(--fsusblog-panel-border);
 }
 
 .moderation-runtime-control__field {
   display: grid;
-  gap: 8px;
+  gap: var(--fsus-space-2);
   min-width: 0;
 }
 
@@ -190,7 +190,7 @@ onMounted(() => {
   justify-self: start;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 639px) {
   .moderation-runtime-control {
     grid-template-columns: 1fr;
   }

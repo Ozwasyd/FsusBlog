@@ -130,7 +130,7 @@ expectIncludes('src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.
 expectIncludes('src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue', '阅读数据、搜索表现与运行状态。', 'author analytics header copy must be short and task-oriented')
 expectIncludes('src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue', '仅使用站点运行信号，不采集正文输入或账号敏感字段。', 'author analytics privacy text must stay visible as compact note copy')
 expectIncludes('src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue', 'dashboard-section-note', 'author analytics header note copy must use the compact note treatment')
-expectIncludes('src/frontend/src/assets/account-shell.css', 'margin: 2px 0 0;', 'dashboard section note spacing must stay compact')
+expectIncludes('src/frontend/src/assets/account-shell.css', 'margin: var(--fsus-space-1) 0 0;', 'dashboard section note spacing must stay compact and tokenized')
 expectNotIncludes('src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue', '阅读与性能', 'author analytics must remove eyebrow copy')
 expectNotIncludes('src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue', '聚合真实阅读证明、公开路由、搜索与 AOT 运行信号，不采集正文输入或账号敏感字段。', 'author analytics must not use long PRD-style header copy')
 expectIncludes('src/frontend/src/fsusui/metricPrimitives.ts', 'FsusUiMetricList', 'dashboard metrics must route through FsusUI metric primitives adapter')

@@ -74,7 +74,7 @@ describe('AccountNavigationPanel', () => {
   it('keeps first-level and local navigation on distinct visual hierarchy roles', () => {
     expect(panelSource).toMatch(/\.account-module-link__label\s*\{[^}]*font-size:\s*14px;[^}]*font-weight:\s*700;/u)
     expect(panelSource).toMatch(/\.account-local-navigation__link > span:first-child\s*\{[^}]*font-size:\s*12px;[^}]*font-weight:\s*500;/u)
-    expect(panelSource).toMatch(/\.account-local-navigation__title\s*\{[^}]*\}\s*\.account-local-navigation__link\s*\{[^}]*padding:\s*0\.375rem 0\.5rem 0\.375rem 2rem;/u)
+    expect(panelSource).toMatch(/\.account-local-navigation__title\s*\{[^}]*\}\s*\.account-local-navigation__link\s*\{[^}]*padding:\s*var\(--fsus-space-1\) var\(--fsus-space-2\) var\(--fsus-space-1\) var\(--fsus-space-8\);/u)
     expect(panelSource).toMatch(/\.account-navigation-panel\[data-variant="desktop"\] \.account-local-navigation__link\s*\{[^}]*min-height:\s*2\.5rem;/u)
     expect(panelSource).toMatch(/\.account-module-link,\s*\.account-local-navigation__link\s*\{[^}]*min-height:\s*2\.75rem;/u)
     expect(panelSource).not.toMatch(/font-weight:\s*680;|font-size:\s*13px;|min-height:\s*2\.25rem;/u)

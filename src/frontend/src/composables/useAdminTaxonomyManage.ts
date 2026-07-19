@@ -2,6 +2,7 @@ import { computed, onMounted, reactive, ref, shallowRef, type ComputedRef, type 
 import { type FormInstance } from '@ozwasyd/element-plus'
 import { useRouter } from 'vue-router'
 import { isFsusUiOk } from '@/fsusui/result'
+import type { FsusDialogWidth } from '@/fsusui/dialog'
 import type { ApiRequestConfig } from '@/api/requestConfig'
 import { useMutationFlow } from '@/composables/useMutationFlow'
 import { usePow } from '@/composables/usePow'
@@ -48,7 +49,7 @@ export interface TaxonomySchema<TItem extends AdminTaxonomyItemBase = AdminTaxon
   nameInputName: string
   nameInputLabel: string
   nameInputPlaceholder: string
-  dialogWidth: string
+  dialogWidth: FsusDialogWidth
   dialogDescription: string
   dialogNoteClass: string
   dialogNoteGapClass: string

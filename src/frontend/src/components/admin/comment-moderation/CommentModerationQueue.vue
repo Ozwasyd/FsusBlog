@@ -138,7 +138,7 @@
                 <div class="space-y-2 text-[12px] leading-relaxed">
                   <div class="break-words font-bold text-[var(--fsusblog-text-primary)]">{{ row.articleLabel }}</div>
                   <div class="break-words text-[var(--fsusblog-text-muted)]">{{ row.userLabel }}</div>
-                  <div class="flex flex-wrap gap-1.5">
+                  <div class="flex flex-wrap gap-2">
                     <el-tag v-for="meta in cardMetaItems(row)" :key="`table-meta-${row.id}-${meta.label}`" size="small" type="info">
                       {{ meta.label }}：{{ meta.value }}
                     </el-tag>
@@ -149,7 +149,7 @@
 
             <el-table-column label="命中原因" min-width="180">
               <template #default="{ row }: { row: CommentModerationViewItem }">
-                <div class="flex flex-wrap gap-1.5">
+                <div class="flex flex-wrap gap-2">
                   <el-tag v-for="reason in row.hitReasonLabels" :key="reason" size="small" type="info">
                     {{ reason }}
                   </el-tag>
@@ -171,7 +171,7 @@
 
             <el-table-column label="地区策略" min-width="210">
               <template #default="{ row }: { row: CommentModerationViewItem }">
-                <div class="space-y-1.5 text-xs font-medium leading-relaxed text-[var(--fsusblog-text-muted)]">
+                <div class="space-y-2 text-xs font-medium leading-relaxed text-[var(--fsusblog-text-muted)]">
                   <div>{{ row.regionSummary }}</div>
                   <div>{{ row.regionConfidenceLabel }}</div>
                   <div class="break-words">屏蔽：{{ row.blockedRegionLabel }}</div>
@@ -182,7 +182,7 @@
 
             <el-table-column label="模型风险信号" min-width="190">
               <template #default="{ row }: { row: CommentModerationViewItem }">
-                <div class="space-y-1.5 text-xs font-medium leading-relaxed text-[var(--fsusblog-text-muted)]">
+                <div class="space-y-2 text-xs font-medium leading-relaxed text-[var(--fsusblog-text-muted)]">
                   <div>{{ row.modelSignalLabel }}</div>
                   <div>{{ row.modelConfidenceLabel }}</div>
                   <div class="break-words">{{ row.modelProviderLabel }}</div>
@@ -206,7 +206,7 @@
                   <el-button link type="primary" :icon="ViewIcon" @click="emit('detail', row)">详情</el-button>
                   <el-dropdown>
                     <el-button link type="primary" :loading="processingId === row.id">
-                      审核 <span class="ml-0.5 inline-flex"><el-icon aria-hidden="true"><ArrowDown /></el-icon></span>
+                      审核 <span class="ml-1 inline-flex"><el-icon aria-hidden="true"><ArrowDown /></el-icon></span>
                     </el-button>
                     <template #dropdown>
                       <el-dropdown-menu>
@@ -365,10 +365,10 @@ const modelMetaItems = (item: CommentModerationViewItem): DetailMetaItem[] => [
 
 .recommendation-strip {
   display: grid;
-  gap: 0.25rem;
+  gap: var(--fsus-space-1);
   border-left: 2px solid var(--fsusblog-color-primary);
   background: var(--fsusblog-page-bg-soft);
-  padding: 0.75rem 1rem;
+  padding: var(--fsus-space-3) var(--fsus-space-4);
   color: var(--fsusblog-text-secondary);
   font-size: 12px;
   font-weight: 700;
@@ -392,7 +392,7 @@ const modelMetaItems = (item: CommentModerationViewItem): DetailMetaItem[] => [
 .moderation-detail-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem 0.875rem;
+  gap: var(--fsus-space-1) var(--fsus-space-3);
   margin-block-end: 0;
   color: var(--fsusblog-text-secondary);
   font-size: 12px;
@@ -400,7 +400,7 @@ const modelMetaItems = (item: CommentModerationViewItem): DetailMetaItem[] => [
 }
 
 .moderation-card-meta {
-  gap: 0.4rem 1rem;
+  gap: var(--fsus-space-2) var(--fsus-space-4);
   color: var(--fsusblog-text-muted);
 }
 
@@ -414,7 +414,7 @@ const modelMetaItems = (item: CommentModerationViewItem): DetailMetaItem[] => [
   min-width: 0;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: baseline;
-  column-gap: 0.35rem;
+  column-gap: var(--fsus-space-1);
 }
 
 .moderation-card-meta__label,

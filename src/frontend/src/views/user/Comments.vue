@@ -110,11 +110,11 @@ const {
 .comments-skeleton-wrap {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: var(--fsus-space-6);
 }
 
 .comment-skeleton-item {
-  padding: 1.5rem;
+  padding: var(--fsus-space-6);
   background: var(--fsusblog-panel-bg, Canvas);
   border: 1px solid var(--fsusblog-panel-border);
   border-radius: var(--fsus-radius-popover);
@@ -139,12 +139,12 @@ const {
 }
 
 .skeleton-line--body-full {
-  margin-top: 12px;
+  margin-top: var(--fsus-space-3);
   width: 100%;
 }
 
 .skeleton-line--body-short {
-  margin-top: 8px;
+  margin-top: var(--fsus-space-2);
   width: 80%;
 }
 

@@ -23,7 +23,7 @@ const display = computed(() => formatAuditAction(props.value))
   display: inline-flex;
   min-width: 0;
   align-items: baseline;
-  gap: 0.25rem;
+  gap: var(--fsus-space-1);
 }
 
 .audit-action-label__namespace {

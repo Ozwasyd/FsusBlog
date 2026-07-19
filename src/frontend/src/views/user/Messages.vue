@@ -524,7 +524,7 @@ const formatTime = (input: string): string => {
   width: 100%;
   min-width: 0;
   max-width: 100%;
-  gap: 3rem;
+  gap: var(--fsus-space-8);
 }
 
 .messages-detail-stack {
@@ -533,7 +533,7 @@ const formatTime = (input: string): string => {
   min-width: 0;
   max-width: 100%;
   flex-direction: column;
-  gap: 4rem;
+  gap: var(--fsus-space-8);
 }
 
 .messages-draft-dialog-text {
@@ -545,7 +545,7 @@ const formatTime = (input: string): string => {
 @media (min-width: 1024px) {
   .messages-inbox-layout {
     grid-template-columns: minmax(20rem, 24rem) minmax(0, 1fr);
-    gap: 4rem;
+    gap: var(--fsus-space-8);
     min-height: calc(100dvh - 8rem);
   }
 }
@@ -553,7 +553,7 @@ const formatTime = (input: string): string => {
 @media (max-width: 1023px) {
   .messages-inbox-layout {
     grid-template-columns: minmax(0, 1fr);
-    gap: 2.5rem;
+    gap: var(--fsus-space-8);
   }
 }
 </style>

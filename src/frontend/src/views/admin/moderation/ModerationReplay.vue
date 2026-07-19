@@ -238,17 +238,17 @@ onMounted(() => {
 .moderation-replay-controls {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: var(--fsus-space-3);
   align-items: end;
   border-bottom: 1px solid var(--fsusblog-panel-border);
   background: var(--fsusblog-page-bg-soft);
-  padding: 16px;
+  padding: var(--fsus-space-4);
 }
 
 .moderation-replay-field {
   display: grid;
   min-width: 0;
-  gap: 7px;
+  gap: var(--fsus-space-2);
 }
 
 .moderation-replay-field__label {
@@ -286,7 +286,7 @@ onMounted(() => {
   overflow-x: auto;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .moderation-replay-controls {
     grid-template-columns: 1fr;
   }

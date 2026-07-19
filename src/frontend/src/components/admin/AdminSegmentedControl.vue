@@ -1,6 +1,6 @@
 <template>
   <div
-    class="inline-flex max-w-full flex-wrap items-center gap-1 rounded-md border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg)] p-1"
+    class="inline-flex max-w-full flex-wrap items-center gap-1 rounded-[var(--fsus-radius-control)] border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg)] p-1"
     role="group"
     :aria-label="props.ariaLabel"
   >
@@ -8,7 +8,7 @@
       v-for="item in props.items"
       :key="String(item.value)"
       type="button"
-      class="min-h-10 rounded px-2.5 text-[12px] font-bold transition-colors"
+      class="min-h-10 rounded-[var(--fsus-radius-control-small)] px-2 text-[12px] font-bold transition-colors"
       :class="[
         item.value === props.modelValue
           ? 'bg-[var(--fsusblog-page-bg-soft)] text-[var(--fsusblog-text-primary)] shadow-sm'

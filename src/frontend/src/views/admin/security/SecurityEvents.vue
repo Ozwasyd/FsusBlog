@@ -246,14 +246,14 @@ onMounted(() => {
 .security-events-filters {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 1rem;
+  gap: var(--fsus-space-4);
   align-items: end;
 }
 
 .security-events-filter {
   display: grid;
   min-width: 0;
-  gap: 0.5rem;
+  gap: var(--fsus-space-2);
 }
 
 .security-events-filter span {
@@ -271,7 +271,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--fsus-space-4);
   min-width: 0;
 }
 

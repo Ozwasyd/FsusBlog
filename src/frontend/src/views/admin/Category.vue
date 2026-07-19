@@ -7,6 +7,7 @@ import { listAdminCategories, type AdminCategoryItemResponse } from '@/api/autho
 import { createCategory, deleteCategory, updateCategory } from '@/api/category'
 import AdminTaxonomyManageView from '@/components/admin/AdminTaxonomyManageView.vue'
 import { useAdminTaxonomyManage, type TaxonomySchema } from '@/composables/useAdminTaxonomyManage'
+import { fsusDialogWidths } from '@/fsusui/dialog'
 
 const categorySchema = {
   kind: 'category',
@@ -24,7 +25,7 @@ const categorySchema = {
   nameInputName: 'categoryName',
   nameInputLabel: '分类名称',
   nameInputPlaceholder: '请输入 2-20 个字符的名称',
-  dialogWidth: '400px',
+  dialogWidth: fsusDialogWidths.extraCompact,
   dialogDescription: '变更分类名称会即时同步至主站导航。建议使用通用、简洁的语义词汇。',
   dialogNoteClass: 'italic',
   dialogNoteGapClass: 'gap-5',

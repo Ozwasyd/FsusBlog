@@ -286,7 +286,7 @@ onMounted(loadHealth)
 .ops-error-item {
   min-width: 0;
   border-top: 1px solid var(--fsusblog-panel-border);
-  padding: 1rem 0;
+  padding: var(--fsus-space-4) 0;
 }
 
 .ops-error-item:first-child {
@@ -295,7 +295,7 @@ onMounted(loadHealth)
 }
 
 .ops-error-meta {
-  margin: 0.5rem 0 0;
+  margin: var(--fsus-space-2) 0 0;
   color: var(--fsusblog-text-muted);
   font-size: 12px;
   line-height: 1.5;
@@ -318,12 +318,12 @@ onMounted(loadHealth)
   display: block;
   max-height: 12rem;
   overflow: auto;
-  margin-top: 0.5rem;
+  margin-top: var(--fsus-space-2);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  border-radius: 6px;
+  border-radius: var(--fsus-radius-control);
   background: var(--fsusblog-panel-bg-soft);
-  padding: 0.75rem;
+  padding: var(--fsus-space-3);
   color: var(--fsusblog-text-secondary);
 }
 </style>

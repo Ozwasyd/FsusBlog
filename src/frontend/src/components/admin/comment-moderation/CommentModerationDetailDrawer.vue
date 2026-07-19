@@ -180,10 +180,10 @@ const emit = defineEmits<{
 
 .recommendation-strip {
   display: grid;
-  gap: 0.25rem;
+  gap: var(--fsus-space-1);
   border-left: 2px solid var(--fsusblog-color-primary);
   background: var(--fsusblog-page-bg-soft);
-  padding: 0.75rem 1rem;
+  padding: var(--fsus-space-3) var(--fsus-space-4);
   color: var(--fsusblog-text-secondary);
   font-size: 12px;
   font-weight: 700;

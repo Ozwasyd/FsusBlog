@@ -335,7 +335,7 @@ onMounted(() => {
   min-width: 0;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px 12px;
+  gap: var(--fsus-space-1) var(--fsus-space-3);
   min-height: 22px;
 }
 

@@ -6,12 +6,12 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--fsus-space-3);
 }
 
 .taxonomy-reference-cell {
   display: grid;
-  gap: 0.125rem;
+  gap: var(--fsus-space-1);
   justify-items: center;
 }
 

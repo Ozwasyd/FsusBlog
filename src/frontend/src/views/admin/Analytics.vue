@@ -139,7 +139,7 @@ const regionChartSummary = computed(() => {
 }
 
 .dashboard-card-description {
-  margin: 0.5rem 0 0;
+  margin: var(--fsus-space-2) 0 0;
   color: var(--fsusblog-text-tertiary);
   font-size: 14px;
   line-height: 1.6;

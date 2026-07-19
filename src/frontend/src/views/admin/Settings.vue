@@ -484,7 +484,7 @@
                     <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)] mb-4">大陆上线检查清单</div>
                     <ul class="space-y-3 text-[12px] leading-relaxed">
                       <li v-for="item in mainlandLaunchChecklist" :key="item.label" class="flex items-start gap-3">
-                        <span class="mt-0.5 h-2 w-2 shrink-0 rounded-full" :class="item.done ? 'bg-[var(--fsusblog-color-success)]' : 'bg-[var(--fsusblog-text-muted)]'" />
+                        <span class="mt-1 h-2 w-2 shrink-0 rounded-[var(--fsus-radius-pill)]" :class="item.done ? 'bg-[var(--fsusblog-color-success)]' : 'bg-[var(--fsusblog-text-muted)]'" />
                         <span :class="item.done ? 'text-[var(--fsusblog-text-primary)]' : 'text-[var(--fsusblog-text-muted)]'">{{ item.label }}</span>
                       </li>
                     </ul>
@@ -825,7 +825,7 @@ const confirmPageRefresh = async (): Promise<void> => {
 
 .settings-image-action {
   min-height: 2.5rem;
-  padding-inline: 0.25rem;
+  padding-inline: var(--fsus-space-1);
 }
 
 .settings-tabs {

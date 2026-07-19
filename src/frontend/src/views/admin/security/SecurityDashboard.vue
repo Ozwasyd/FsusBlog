@@ -138,19 +138,19 @@ onMounted(() => {
 <style scoped>
 .security-dashboard {
   display: grid;
-  gap: 24px;
+  gap: var(--fsus-space-6);
 }
 
 .security-dashboard__overview {
   display: grid;
-  gap: 12px;
+  gap: var(--fsus-space-3);
 }
 
 .security-dashboard__overview-toolbar {
   display: flex;
   align-items: end;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--fsus-space-4);
   min-width: 0;
 }
 
@@ -166,7 +166,7 @@ onMounted(() => {
 }
 
 .security-dashboard__overview-copy p {
-  margin-top: 4px;
+  margin-top: var(--fsus-space-1);
   color: var(--fsusblog-text-muted);
   font-size: 14px;
   font-weight: 500;
@@ -186,10 +186,10 @@ onMounted(() => {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
+  gap: var(--fsus-space-3);
   min-width: 0;
   min-height: 56px;
-  padding: 12px 16px;
+  padding: var(--fsus-space-3) var(--fsus-space-4);
   color: var(--fsusblog-text-primary);
   background: var(--fsusblog-page-bg);
   border-right: 1px solid var(--fsusblog-panel-border);
@@ -207,7 +207,7 @@ onMounted(() => {
 .security-dashboard__link-copy {
   display: grid;
   min-width: 0;
-  gap: 3px;
+  gap: var(--fsus-space-1);
 }
 
 .security-dashboard__link-copy strong {
@@ -235,8 +235,8 @@ onMounted(() => {
 
 .security-dashboard__risk {
   display: grid;
-  gap: 10px;
-  padding-top: 2px;
+  gap: var(--fsus-space-2);
+  padding-top: var(--fsus-space-1);
   border-top: 1px solid var(--fsusblog-panel-border);
 }
 
@@ -247,9 +247,9 @@ onMounted(() => {
   line-height: 1.3;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 639px) {
   .security-dashboard {
-    gap: 20px;
+    gap: var(--fsus-space-5);
   }
 
   .security-dashboard__links {

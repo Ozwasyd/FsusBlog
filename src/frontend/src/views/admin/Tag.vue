@@ -7,6 +7,7 @@ import { listAdminTags, type AdminTagItemResponse } from '@/api/authoring'
 import { createTag, deleteTag, updateTag } from '@/api/tag'
 import AdminTaxonomyManageView from '@/components/admin/AdminTaxonomyManageView.vue'
 import { useAdminTaxonomyManage, type TaxonomySchema } from '@/composables/useAdminTaxonomyManage'
+import { fsusDialogWidths } from '@/fsusui/dialog'
 
 const tagSchema = {
   kind: 'tag',
@@ -24,7 +25,7 @@ const tagSchema = {
   nameInputName: 'tagName',
   nameInputLabel: '标签名称',
   nameInputPlaceholder: '标签名称（如：Vue3）',
-  dialogWidth: '380px',
+  dialogWidth: fsusDialogWidths.extraCompact,
   dialogDescription: '变更标签名会即时同步至所有关联博文。建议使用简洁、具有高辨识度的词汇。',
   dialogNoteClass: '',
   dialogNoteGapClass: 'gap-2',

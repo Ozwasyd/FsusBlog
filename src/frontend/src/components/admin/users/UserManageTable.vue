@@ -31,7 +31,7 @@
                 <span class="truncate text-sm font-bold text-[var(--fsusblog-text-primary)]">
                   {{ row.displayHandle }}
                 </span>
-                <span class="bg-[var(--fsusblog-panel-bg-soft)] px-2 py-0.5 text-xs font-medium italic normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
+                <span class="bg-[var(--fsusblog-panel-bg-soft)] px-2 py-1 text-xs font-medium italic normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
                   {{ row.identityKindLabel }}
                 </span>
               </div>
@@ -114,7 +114,7 @@
                       <SemanticTime
                         :value="(rowData as UserListViewItem).createTime"
                         :text="`${(rowData as UserListViewItem).createdAtText} 初始化`"
-                        class="mt-0.5 tabular-nums text-[11px] text-[var(--fsusblog-text-muted)] normal-case tracking-normal"
+                        class="mt-1 tabular-nums text-[11px] text-[var(--fsusblog-text-muted)] normal-case tracking-normal"
                       />
                     </p>
                   </div>
@@ -312,11 +312,11 @@ const emit = defineEmits<{
 .user-resource-list-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.25rem 0.75rem;
+  gap: var(--fsus-space-1) var(--fsus-space-3);
 }
 
 :deep(.user-table-action-button) {
   min-height: 2.5rem;
-  padding-inline: 0.5rem;
+  padding-inline: var(--fsus-space-2);
 }
 </style>

@@ -122,7 +122,7 @@ defineEmits<{
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--fsus-space-4);
 }
 
 .dashboard-page-header__copy {
@@ -148,7 +148,7 @@ defineEmits<{
   justify-content: center;
   cursor: pointer;
   list-style: none;
-  padding-inline: 0.5rem;
+  padding-inline: var(--fsus-space-2);
 }
 
 .dashboard-help-menu__trigger::-webkit-details-marker {
@@ -157,7 +157,7 @@ defineEmits<{
 
 .dashboard-help-menu__trigger::after {
   content: '＋';
-  margin-inline-start: 0.375rem;
+  margin-inline-start: var(--fsus-space-1);
   color: var(--fsusblog-text-muted);
 }
 
@@ -185,11 +185,11 @@ defineEmits<{
   border: 1px solid var(--fsusblog-panel-border);
   background: var(--fsusblog-panel-bg);
   box-shadow: var(--fsus-shadow-floating);
-  padding-block: 0.25rem;
+  padding-block: var(--fsus-space-1);
 }
 
 .dashboard-help-menu__link {
-  padding-inline: 0.75rem;
+  padding-inline: var(--fsus-space-3);
 }
 
 .dashboard-work-section,
@@ -199,13 +199,13 @@ defineEmits<{
 }
 
 .dashboard-work-section {
-  margin-bottom: 1.5rem;
+  margin-bottom: var(--fsus-space-6);
 }
 
 .dashboard-work-section__header,
 .dashboard-summary__header {
   border-bottom: 1px solid var(--fsusblog-panel-border);
-  padding: 0.75rem 1.25rem;
+  padding: var(--fsus-space-3) var(--fsus-space-5);
 }
 
 .dashboard-task-list {
@@ -230,8 +230,8 @@ defineEmits<{
   min-height: 3.25rem;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 1rem;
-  padding: 0.625rem 1.25rem;
+  gap: var(--fsus-space-4);
+  padding: var(--fsus-space-2) var(--fsus-space-5);
   color: inherit;
   transition:
     background var(--fsus-motion-control-fast) var(--fsus-motion-standard),
@@ -249,7 +249,7 @@ defineEmits<{
 .dashboard-task-row__copy {
   display: grid;
   min-width: 0;
-  gap: 0.125rem;
+  gap: var(--fsus-space-1);
 }
 
 .dashboard-task-row__label {
@@ -285,7 +285,7 @@ defineEmits<{
 }
 
 .dashboard-summary {
-  margin-bottom: 2rem;
+  margin-bottom: var(--fsus-space-8);
 }
 
 .dashboard-summary__header {
@@ -293,7 +293,7 @@ defineEmits<{
   min-height: 3rem;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--fsus-space-4);
 }
 
 .dashboard-summary__header h2 {
@@ -317,7 +317,7 @@ defineEmits<{
   font: inherit;
   font-size: 14px;
   font-weight: 700;
-  padding: 0 0.25rem;
+  padding: 0 var(--fsus-space-1);
 }
 
 .dashboard-summary__details:hover,
@@ -336,7 +336,7 @@ defineEmits<{
   color: var(--fsusblog-text-tertiary);
   font-size: 14px;
   line-height: 1.45;
-  padding: 0.75rem 1.25rem;
+  padding: var(--fsus-space-3) var(--fsus-space-5);
 }
 
 .dashboard-inline-state {
@@ -344,7 +344,7 @@ defineEmits<{
   min-height: 3.25rem;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--fsus-space-4);
 }
 
 .dashboard-inline-state:last-child {
@@ -367,9 +367,9 @@ defineEmits<{
   min-height: 3.25rem;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: var(--fsus-space-3);
   border-left: 1px solid var(--fsusblog-panel-border);
-  padding: 0.75rem 1rem;
+  padding: var(--fsus-space-3) var(--fsus-space-4);
 }
 
 .dashboard-stat-ledger__item:first-child {
@@ -397,11 +397,11 @@ defineEmits<{
   text-align: end;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 639px) {
   .dashboard-page-header {
     align-items: stretch;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: var(--fsus-space-2);
   }
 
   .dashboard-help-menu {
@@ -418,11 +418,11 @@ defineEmits<{
   .dashboard-task-row,
   .dashboard-summary__empty,
   .dashboard-inline-state {
-    padding-inline: 0.875rem;
+    padding-inline: var(--fsus-space-3);
   }
 
   .dashboard-task-row {
-    gap: 0.75rem;
+    gap: var(--fsus-space-3);
   }
 
   .dashboard-stat-ledger {
@@ -431,7 +431,7 @@ defineEmits<{
 
   .dashboard-stat-ledger__item {
     border-top: 1px solid var(--fsusblog-panel-border);
-    padding-inline: 0.875rem;
+    padding-inline: var(--fsus-space-3);
   }
 
   .dashboard-stat-ledger__item:nth-child(-n + 2) {
@@ -449,7 +449,7 @@ defineEmits<{
   .dashboard-inline-state {
     align-items: flex-start;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: var(--fsus-space-1);
   }
 }
 </style>

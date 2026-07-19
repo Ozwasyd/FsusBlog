@@ -474,7 +474,7 @@ onMounted(loadAll)
   min-width: 0;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.35rem 0.5rem;
+  gap: var(--fsus-space-1) var(--fsus-space-2);
 }
 
 .integrity-diff-cell--field {
@@ -491,7 +491,7 @@ onMounted(loadAll)
 .integrity-diff-value--technical {
   border-radius: var(--fsus-radius-control-small);
   background: var(--fsusblog-page-bg-soft);
-  padding: 0.1rem 0.35rem;
+  padding: var(--fsus-space-1) var(--fsus-space-1);
   color: var(--fsusblog-text-primary);
   font-size: 12px;
 }
@@ -502,11 +502,11 @@ onMounted(loadAll)
 
 .integrity-apply-row {
   display: grid;
-  gap: 12px;
+  gap: var(--fsus-space-3);
   border: 1px solid var(--fsusblog-panel-border);
   border-radius: var(--fsus-radius-panel);
   background: color-mix(in srgb, var(--fsusblog-panel-bg) 88%, transparent);
-  padding: 14px 16px;
+  padding: var(--fsus-space-3) var(--fsus-space-4);
 }
 
 .integrity-apply-row__copy h4 {
@@ -520,7 +520,7 @@ onMounted(loadAll)
 .integrity-apply-controls {
   display: grid;
   grid-template-columns: max-content minmax(120px, 1fr) minmax(132px, 0.86fr) max-content;
-  gap: 8px;
+  gap: var(--fsus-space-2);
   align-items: center;
   min-width: 0;
 }
@@ -532,7 +532,7 @@ onMounted(loadAll)
   border: 1px solid var(--fsusblog-panel-border);
   border-radius: var(--fsus-radius-control);
   background: var(--fsusblog-page-bg-soft);
-  padding: 0 10px;
+  padding: 0 var(--fsus-space-2);
   color: var(--fsusblog-text-secondary);
   font-size: 14px;
   font-weight: 700;
@@ -547,10 +547,10 @@ onMounted(loadAll)
 
 .integrity-apply-button {
   min-height: 40px;
-  padding-inline: 14px;
+  padding-inline: var(--fsus-space-3);
 }
 
-@media (max-width: 560px) {
+@media (max-width: 639px) {
   .integrity-page .integrity-apply-controls {
     grid-template-columns: minmax(0, 1fr);
   }

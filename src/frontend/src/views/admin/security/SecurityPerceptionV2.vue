@@ -412,7 +412,7 @@ onMounted(() => {
 .perception-v2-number-field {
   display: grid;
   align-content: start;
-  gap: 0.5rem;
+  gap: var(--fsus-space-2);
 }
 
 :deep(.perception-v2-number-field__input) {
@@ -422,7 +422,7 @@ onMounted(() => {
 .perception-v2-sync-state {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--fsus-space-2);
   min-height: 2rem;
   color: var(--fsusblog-text-muted);
   font-size: 12px;
@@ -433,7 +433,7 @@ onMounted(() => {
 .perception-v2-sync-state__dot {
   width: 0.5rem;
   height: 0.5rem;
-  border-radius: 999px;
+  border-radius: var(--fsus-radius-pill);
   background: var(--fsusblog-text-muted);
 }
 

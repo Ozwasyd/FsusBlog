@@ -291,7 +291,7 @@ const runCeremony = async (mfaProofToken: string | undefined) => {
 }
 
 :global(.passkey-register-dialog .el-dialog__header) {
-  padding: 1.25rem 1.5rem 0.75rem;
+  padding: var(--fsus-space-5) var(--fsus-space-6) var(--fsus-space-3);
   border-bottom: 1px solid var(--fsusblog-panel-border);
 }
 
@@ -310,34 +310,34 @@ const runCeremony = async (mfaProofToken: string | undefined) => {
 }
 
 .passkey-register-modal__body {
-  padding: 1.25rem 1.5rem;
+  padding: var(--fsus-space-5) var(--fsus-space-6);
 }
 
 .passkey-register-modal__footer {
   display: flex;
   justify-content: flex-end;
-  gap: 0.75rem;
-  padding: 1rem 1.5rem;
+  gap: var(--fsus-space-3);
+  padding: var(--fsus-space-4) var(--fsus-space-6);
 }
 
 .passkey-register-modal__button {
   min-height: 2.5rem;
-  padding-inline: 1.1rem;
+  padding-inline: var(--fsus-space-4);
 }
 
-@media (max-width: 640px) {
+@media (max-width: 639px) {
   :global(.fsusblog-dialog.passkey-register-dialog) {
     width: calc(100vw - 2rem);
     max-height: calc(100dvh - 2rem);
   }
 
   .passkey-register-modal__body {
-    padding: 1rem;
+    padding: var(--fsus-space-4);
   }
 
   .passkey-register-modal__footer {
     justify-content: stretch;
-    padding: 0.875rem 1rem 1rem;
+    padding: var(--fsus-space-3) var(--fsus-space-4) var(--fsus-space-4);
   }
 
   .passkey-register-modal__button {

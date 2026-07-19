@@ -260,7 +260,7 @@ onMounted(loadDiagnostics)
   max-width: 100%;
   align-items: center;
   justify-content: flex-end;
-  gap: 0.75rem;
+  gap: var(--fsus-space-3);
   white-space: nowrap;
 }
 
@@ -273,7 +273,7 @@ onMounted(loadDiagnostics)
   margin-left: 0;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 639px) {
   .cache-public-read-actions {
     width: 100%;
     flex-wrap: wrap;

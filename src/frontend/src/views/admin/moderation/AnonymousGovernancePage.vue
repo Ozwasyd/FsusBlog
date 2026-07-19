@@ -725,7 +725,7 @@ watch(() => route.name, () => {
 <style scoped>
 .anonymous-governance-page {
   display: grid;
-  gap: 1.25rem;
+  gap: var(--fsus-space-5);
   min-width: 0;
   max-width: 100%;
 }
@@ -742,16 +742,16 @@ watch(() => route.name, () => {
 .anonymous-governance-status-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 0.75rem;
+  gap: var(--fsus-space-3);
 }
 
 .anonymous-governance-signal,
 .anonymous-governance-zk__row {
   display: grid;
-  gap: 0.35rem;
+  gap: var(--fsus-space-1);
   border: 1px solid var(--fsusblog-panel-border);
   border-radius: var(--fsus-radius-panel);
-  padding: 0.875rem;
+  padding: var(--fsus-space-3);
   background: var(--fsusblog-page-bg);
 }
 
@@ -778,23 +778,23 @@ watch(() => route.name, () => {
 
 .anonymous-governance-controls {
   display: grid;
-  gap: 0.75rem;
+  gap: var(--fsus-space-3);
 }
 
 .anonymous-governance-control {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--fsus-space-4);
   border: 0;
   border-radius: var(--fsus-radius-control);
-  padding: 0.75rem;
+  padding: var(--fsus-space-3);
   background: color-mix(in srgb, var(--fsusblog-panel-bg) 46%, transparent);
 }
 
 .anonymous-governance-control span {
   display: grid;
-  gap: 0.25rem;
+  gap: var(--fsus-space-1);
 }
 
 .anonymous-governance-control strong,
@@ -862,7 +862,7 @@ watch(() => route.name, () => {
 }
 
 .anonymous-governance-record-block__header p {
-  margin: 0.25rem 0 0;
+  margin: var(--fsus-space-1) 0 0;
   color: var(--fsusblog-text-secondary);
   font-size: 14px;
   line-height: 1.55;
@@ -873,7 +873,7 @@ watch(() => route.name, () => {
   min-width: 3rem;
   border: 1px solid var(--fsusblog-panel-border);
   border-radius: var(--fsus-radius-pill);
-  padding: 0.125rem 0.5rem;
+  padding: var(--fsus-space-1) var(--fsus-space-2);
   color: var(--fsusblog-text-muted);
   background: color-mix(in srgb, var(--fsusblog-page-bg) 82%, var(--fsusblog-panel-bg) 18%);
   font-size: 12px;
@@ -893,13 +893,13 @@ watch(() => route.name, () => {
 
 .anonymous-governance-subject {
   display: grid;
-  gap: 0.25rem;
+  gap: var(--fsus-space-1);
 }
 
 .anonymous-governance-tags,
 .anonymous-governance-zk {
   display: grid;
-  gap: 0.5rem;
+  gap: var(--fsus-space-2);
 }
 
 .anonymous-governance-tags {

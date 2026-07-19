@@ -205,7 +205,7 @@ const rumAotSourceRows = computed(() => toDistributionRows(analytics.value.rumAo
 
 <style scoped>
 .dashboard-analytics-header {
-  padding: 16px;
+  padding: var(--fsus-space-4);
   border-bottom: 1px solid var(--fsusblog-panel-border);
 }
 
@@ -217,7 +217,7 @@ const rumAotSourceRows = computed(() => toDistributionRows(analytics.value.rumAo
 
 .dashboard-analytics-panel {
   min-width: 0;
-  padding: 16px;
+  padding: var(--fsus-space-4);
   background: var(--fsusblog-page-bg);
   border-bottom: 1px solid var(--fsusblog-panel-border);
 }
@@ -236,7 +236,7 @@ const rumAotSourceRows = computed(() => toDistributionRows(analytics.value.rumAo
 }
 
 .dashboard-analytics-panel__description {
-  margin: 4px 0 0;
+  margin: var(--fsus-space-1) 0 0;
   color: var(--fsusblog-text-tertiary);
   font-size: 14px;
   line-height: 1.5;
@@ -244,8 +244,8 @@ const rumAotSourceRows = computed(() => toDistributionRows(analytics.value.rumAo
 
 .dashboard-analytics-panel__content,
 .dashboard-analytics-panel__empty {
-  margin-top: 12px;
-  padding-top: 12px;
+  margin-top: var(--fsus-space-3);
+  padding-top: var(--fsus-space-3);
   border-top: 1px solid var(--fsusblog-panel-border);
 }
 
@@ -272,7 +272,7 @@ const rumAotSourceRows = computed(() => toDistributionRows(analytics.value.rumAo
 
 .dashboard-rum-metric {
   min-width: 0;
-  padding: 12px 0;
+  padding: var(--fsus-space-3) 0;
   border-bottom: 1px solid var(--fsusblog-panel-border);
 }
 
@@ -300,14 +300,14 @@ const rumAotSourceRows = computed(() => toDistributionRows(analytics.value.rumAo
 }
 
 .dashboard-rum-metric__value {
-  margin-top: 4px;
+  margin-top: var(--fsus-space-1);
   color: var(--fsusblog-text-muted);
   font-size: 12px;
   font-weight: 700;
 }
 
 .dashboard-rum-metric__meta {
-  margin-top: 2px;
+  margin-top: var(--fsus-space-1);
   color: var(--fsusblog-text-tertiary);
   font-size: 12px;
   font-weight: 500;

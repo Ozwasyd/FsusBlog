@@ -89,7 +89,7 @@ const handleCommand = (rawCommand: string | number | object): void => {
   min-width: 2.5rem;
   align-items: center;
   justify-content: center;
-  gap: 0.25rem;
+  gap: var(--fsus-space-1);
   border: 1px solid transparent;
   border-radius: var(--fsus-radius-control-small);
   background: transparent;
@@ -98,7 +98,7 @@ const handleCommand = (rawCommand: string | number | object): void => {
   font: inherit;
   font-size: 12px;
   font-weight: 700;
-  padding-inline: 0.5rem;
+  padding-inline: var(--fsus-space-2);
   transition:
     border-color var(--fsus-motion-control-fast) var(--fsus-motion-standard),
     color var(--fsus-motion-control-fast) var(--fsus-motion-standard);

@@ -175,19 +175,19 @@ const submitForm = (): void => {
 .taxonomy-empty-container {
   min-height: 10rem;
   border-top: 1px solid var(--fsusblog-panel-border);
-  padding-block: 1.25rem 1.5rem;
+  padding-block: var(--fsus-space-5) var(--fsus-space-6);
 }
 
 .taxonomy-empty-state {
   min-height: 7rem;
-  padding: 1.5rem;
+  padding: var(--fsus-space-6);
 }
 
 .taxonomy-empty-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-top: 0.75rem;
+  gap: var(--fsus-space-3);
+  margin-top: var(--fsus-space-3);
 }
 
 .taxonomy-empty-action {
@@ -197,8 +197,8 @@ const submitForm = (): void => {
 .taxonomy-dialog-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.25rem;
-  padding-inline: 0.25rem;
+  gap: var(--fsus-space-5);
+  padding-inline: var(--fsus-space-1);
 }
 
 .taxonomy-table :deep(.el-table-fixed-column--right.is-first-column) {
@@ -211,7 +211,7 @@ const submitForm = (): void => {
 
 @media (max-width: 639px) {
   .taxonomy-empty-state {
-    padding-inline: 1.25rem;
+    padding-inline: var(--fsus-space-5);
   }
 
   .taxonomy-empty-action {

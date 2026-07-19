@@ -171,7 +171,7 @@ const handlePreviewError = (): void => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: var(--fsus-space-2);
   color: var(--fsusblog-text-muted);
   font-size: 12px;
   font-weight: 700;

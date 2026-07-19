@@ -109,7 +109,7 @@ const localNavigationTitleId = computed(() => (
 }
 
 .account-sidebar-index-label + .account-global-module-list {
-  margin-top: 1rem;
+  margin-top: var(--fsus-space-4);
 }
 
 .account-module-link,
@@ -129,8 +129,8 @@ const localNavigationTitleId = computed(() => (
 
 .account-module-link {
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.5rem;
-  padding: 0.375rem 0.5rem 0.375rem 1rem;
+  gap: var(--fsus-space-2);
+  padding: var(--fsus-space-1) var(--fsus-space-2) var(--fsus-space-1) var(--fsus-space-4);
 }
 
 .account-module-link::before,
@@ -198,19 +198,19 @@ const localNavigationTitleId = computed(() => (
 }
 
 .account-local-navigation {
-  margin-top: 1.25rem;
+  margin-top: var(--fsus-space-5);
   border-top: 1px solid var(--fsusblog-panel-border);
-  padding-top: 1rem;
+  padding-top: var(--fsus-space-4);
 }
 
 .account-local-navigation__title {
-  margin-bottom: 0.625rem;
+  margin-bottom: var(--fsus-space-2);
 }
 
 .account-local-navigation__link {
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.5rem;
-  padding: 0.375rem 0.5rem 0.375rem 2rem;
+  gap: var(--fsus-space-2);
+  padding: var(--fsus-space-1) var(--fsus-space-2) var(--fsus-space-1) var(--fsus-space-8);
 }
 
 .account-navigation-panel[data-variant="desktop"] .account-local-navigation__link {
@@ -219,6 +219,6 @@ const localNavigationTitleId = computed(() => (
 
 .account-navigation-panel[data-variant="mobile"] .account-global-module-list,
 .account-navigation-panel[data-variant="mobile"] .account-local-navigation__list {
-  gap: 0.125rem;
+  gap: var(--fsus-space-1);
 }
 </style>

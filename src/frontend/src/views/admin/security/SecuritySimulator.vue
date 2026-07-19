@@ -282,10 +282,10 @@ const runSimulation = async (): Promise<void> => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.375rem;
+  gap: var(--fsus-space-1);
   flex-basis: 100%;
   width: 100%;
-  margin-top: 0.875rem;
+  margin-top: var(--fsus-space-3);
   max-width: 100%;
 }
 
@@ -299,11 +299,11 @@ const runSimulation = async (): Promise<void> => {
 .risk-score-scale__item {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: var(--fsus-space-1);
   min-height: 1.75rem;
   border: 1px solid var(--fsusblog-panel-border);
-  border-radius: 999px;
-  padding: 0 0.625rem;
+  border-radius: var(--fsus-radius-pill);
+  padding: 0 var(--fsus-space-2);
   background: var(--fsusblog-page-bg-soft);
   color: var(--fsusblog-text-muted);
   font-size: 12px;

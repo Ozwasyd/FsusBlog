@@ -608,7 +608,7 @@ const formatTime = (input: string): string => {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--fsus-space-4);
 }
 
 .admin-message-center__layout {
@@ -631,9 +631,9 @@ const formatTime = (input: string): string => {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--fsus-space-4);
   min-width: 0;
-  padding: 1rem;
+  padding: var(--fsus-space-4);
   border-bottom: 1px solid var(--fsusblog-panel-border);
 }
 
@@ -651,7 +651,7 @@ const formatTime = (input: string): string => {
 }
 
 .admin-message-center__pane-description {
-  margin: 0.35rem 0 0;
+  margin: var(--fsus-space-1) 0 0;
   color: var(--fsusblog-text-tertiary);
   font-size: 12px;
   line-height: 1.6;
@@ -668,7 +668,7 @@ const formatTime = (input: string): string => {
 
 .admin-message-center__motion-summary {
   margin: 0;
-  padding: 0.75rem 1rem;
+  padding: var(--fsus-space-3) var(--fsus-space-4);
   color: var(--fsusblog-text-secondary);
   font-size: 12px;
   font-weight: 700;
@@ -679,7 +679,7 @@ const formatTime = (input: string): string => {
 }
 
 .admin-message-center__load-more {
-  margin: 0.75rem 1rem 1rem;
+  margin: var(--fsus-space-3) var(--fsus-space-4) var(--fsus-space-4);
 }
 
 .admin-message-center__load-more--messages {
@@ -690,7 +690,7 @@ const formatTime = (input: string): string => {
   display: inline-flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 0.5rem;
+  gap: var(--fsus-space-2);
   min-width: 0;
 }
 
@@ -709,7 +709,7 @@ const formatTime = (input: string): string => {
 }
 
 .admin-message-center__system-panel {
-  margin-top: 2rem;
+  margin-top: var(--fsus-space-8);
   border: 1px solid var(--fsusblog-panel-border);
   background: var(--fsusblog-page-bg);
 }
@@ -717,7 +717,7 @@ const formatTime = (input: string): string => {
 .admin-message-center__system-form {
   display: grid;
   grid-template-columns: minmax(9rem, 0.3fr) minmax(12rem, 0.7fr);
-  gap: 0.75rem 1rem;
+  gap: var(--fsus-space-3) var(--fsus-space-4);
 }
 
 .admin-message-center__system-form-body {
@@ -730,7 +730,7 @@ const formatTime = (input: string): string => {
   line-height: 1.7;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 767px) {
   .admin-message-center__layout {
     min-height: 28rem;
   }

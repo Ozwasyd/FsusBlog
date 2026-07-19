@@ -636,8 +636,8 @@ onMounted(() => {
 .audit-facet-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  padding: 16px;
-  gap: 16px;
+  padding: var(--fsus-space-4);
+  gap: var(--fsus-space-4);
 }
 
 .audit-facet-grid__col,
@@ -648,13 +648,13 @@ onMounted(() => {
 }
 
 .audit-facet-grid__col--results {
-  gap: 16px;
+  gap: var(--fsus-space-4);
   border-top: 1px solid var(--fsusblog-panel-border);
-  padding-top: 16px;
+  padding-top: var(--fsus-space-4);
 }
 
 .audit-facet-grid__header {
-  padding-bottom: 8px;
+  padding-bottom: var(--fsus-space-2);
   color: var(--fsusblog-text-muted);
   font-size: 12px;
   font-weight: 700;
@@ -665,17 +665,17 @@ onMounted(() => {
 .audit-compact-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
+  gap: var(--fsus-space-3);
   min-width: 0;
   border-bottom: 1px solid var(--fsusblog-panel-border);
   background: var(--fsusblog-page-bg);
-  padding: 10px 16px 12px;
+  padding: var(--fsus-space-2) var(--fsus-space-4) var(--fsus-space-3);
 }
 
 .audit-compact-row__main {
   display: grid;
   min-width: 0;
-  gap: 4px;
+  gap: var(--fsus-space-1);
 }
 
 .audit-compact-row__header {
@@ -683,7 +683,7 @@ onMounted(() => {
   min-width: 0;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--fsus-space-2);
 }
 
 .audit-compact-row__time {
@@ -702,7 +702,7 @@ onMounted(() => {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 4px;
+  gap: var(--fsus-space-1);
 }
 
 .audit-compact-row__title {
@@ -730,7 +730,7 @@ onMounted(() => {
 .audit-compact-row__meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 12px;
+  gap: var(--fsus-space-1) var(--fsus-space-3);
   color: var(--fsusblog-text-secondary);
   font-size: 12px;
   font-weight: 700;
@@ -740,13 +740,13 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   align-self: center;
-  gap: 6px;
+  gap: var(--fsus-space-1);
 }
 
 .audit-compact-row__action {
   min-width: 40px;
   min-height: 40px;
-  padding-inline: 6px;
+  padding-inline: var(--fsus-space-1);
 }
 
 .audit-table-v2-frame {
@@ -761,7 +761,7 @@ onMounted(() => {
   max-width: 100%;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 639px) {
   :deep(.audit-filter-grid .el-date-editor .el-range-input) {
     min-width: 32px;
   }
@@ -780,7 +780,7 @@ onMounted(() => {
     border-top: 0;
     border-left: 1px solid var(--fsusblog-panel-border);
     padding-top: 0;
-    padding-left: 16px;
+    padding-left: var(--fsus-space-4);
   }
 }
 

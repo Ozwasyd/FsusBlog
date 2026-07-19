@@ -439,13 +439,13 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 12px;
+  gap: var(--fsus-space-3);
 }
 
 .moderation-dictionary-runtime-status {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--fsus-space-2);
   min-height: 24px;
   color: var(--fsusblog-text-muted);
   font-size: 12px;
@@ -456,7 +456,7 @@ onMounted(() => {
 .moderation-dictionary-runtime-status__dot {
   width: 6px;
   height: 6px;
-  border-radius: 999px;
+  border-radius: var(--fsus-radius-pill);
   background: var(--fsusblog-color-success);
 }
 
@@ -468,7 +468,7 @@ onMounted(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: var(--fsus-space-2);
 }
 
 @media (min-width: 1024px) {

@@ -1008,13 +1008,13 @@ watch(currentRouteName, () => {
 
 .identity-center {
   display: grid;
-  gap: 2rem;
+  gap: var(--fsus-space-8);
 }
 
 .identity-section-header {
   display: block;
   border-bottom: 1px solid var(--fsusblog-panel-border);
-  padding-bottom: 1rem;
+  padding-bottom: var(--fsus-space-4);
 }
 
 .identity-section-header__copy {
@@ -1032,7 +1032,7 @@ watch(currentRouteName, () => {
 
 .identity-section-header__copy p {
   max-width: 42rem;
-  margin: 1rem 0 0;
+  margin: var(--fsus-space-4) 0 0;
   color: var(--fsusblog-text-tertiary);
   font-size: 14px;
   font-weight: 400;
@@ -1049,7 +1049,7 @@ watch(currentRouteName, () => {
 .identity-status-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1rem;
+  gap: var(--fsus-space-4);
 }
 
 .identity-status-card {
@@ -1057,19 +1057,19 @@ watch(currentRouteName, () => {
   border: 1px solid var(--fsusblog-panel-border);
   border-radius: var(--fsus-radius-panel);
   background: var(--fsusblog-panel-bg-soft);
-  padding: 1rem;
+  padding: var(--fsus-space-4);
 }
 
 .identity-status-card strong {
   display: block;
-  margin-top: 0.35rem;
+  margin-top: var(--fsus-space-1);
   color: var(--fsusblog-text-primary);
   font-size: 16px;
 }
 
 .identity-status-card p,
 .identity-copy-block p {
-  margin: 0.35rem 0 0;
+  margin: var(--fsus-space-1) 0 0;
   color: var(--fsusblog-text-tertiary);
   font-size: 12px;
   line-height: 1.65;
@@ -1085,7 +1085,7 @@ watch(currentRouteName, () => {
 .identity-summary-list,
 .identity-state-row {
   display: grid;
-  gap: 0.65rem;
+  gap: var(--fsus-space-3);
   color: var(--fsusblog-text-secondary);
   font-size: 14px;
 }
@@ -1097,7 +1097,7 @@ watch(currentRouteName, () => {
 .identity-summary-list > div {
   display: grid;
   grid-template-columns: minmax(6rem, max-content) minmax(0, 1fr);
-  gap: 1rem;
+  gap: var(--fsus-space-4);
   align-items: start;
 }
 
@@ -1125,11 +1125,11 @@ watch(currentRouteName, () => {
 }
 
 .identity-profile-form {
-  gap: 1rem;
+  gap: var(--fsus-space-4);
 }
 
 .identity-profile-field {
-  gap: 0.65rem;
+  gap: var(--fsus-space-3);
 }
 
 .identity-profile-field__label {
@@ -1140,14 +1140,14 @@ watch(currentRouteName, () => {
 }
 
 .identity-profile-summary {
-  margin-top: 0.15rem;
+  margin-top: var(--fsus-space-1);
 }
 
 .identity-profile-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
-  padding-top: 0.1rem;
+  gap: var(--fsus-space-3);
+  padding-top: var(--fsus-space-1);
 }
 
 .identity-mfa-status-tag {
@@ -1158,7 +1158,7 @@ watch(currentRouteName, () => {
 .identity-policy-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
-  gap: 1px;
+  gap: var(--fsus-space-1);
   border: 1px solid var(--fsusblog-panel-border);
   border-radius: var(--fsus-radius-panel);
   background: var(--fsusblog-panel-border);
@@ -1169,11 +1169,11 @@ watch(currentRouteName, () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--fsus-space-4);
   min-width: 0;
   min-height: 3.7rem;
   background: var(--fsusblog-page-bg);
-  padding: 0.95rem 1.1rem;
+  padding: var(--fsus-space-4) var(--fsus-space-4);
   color: var(--fsusblog-text-primary);
   font-size: 14px;
   font-weight: 700;
@@ -1188,7 +1188,7 @@ watch(currentRouteName, () => {
 .identity-policy-state {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: var(--fsus-space-2);
   flex: 0 0 auto;
   color: var(--fsusblog-text-tertiary);
   font-size: 12px;
@@ -1201,7 +1201,7 @@ watch(currentRouteName, () => {
   box-sizing: border-box;
   width: 0.35rem;
   height: 0.35rem;
-  border-radius: 999px;
+  border-radius: var(--fsus-radius-pill);
   background: currentColor;
   opacity: 0.72;
 }
@@ -1243,7 +1243,7 @@ watch(currentRouteName, () => {
 .identity-error-state {
   border: 1px solid var(--fsusblog-panel-border);
   border-radius: var(--fsus-radius-control);
-  padding: 0.9rem 1rem;
+  padding: var(--fsus-space-4) var(--fsus-space-4);
   color: var(--fsusblog-text-secondary);
   font-size: 14px;
   line-height: 1.65;
@@ -1251,7 +1251,7 @@ watch(currentRouteName, () => {
 
 .identity-comment-records-state,
 .identity-comment-records-list {
-  margin-top: 1.5rem;
+  margin-top: var(--fsus-space-6);
 }
 
 .identity-error-state {
@@ -1263,11 +1263,11 @@ watch(currentRouteName, () => {
 
 .identity-secret-panel {
   display: grid;
-  gap: 0.85rem;
+  gap: var(--fsus-space-3);
   border: 1px solid var(--fsusblog-panel-border);
   border-radius: var(--fsus-radius-panel);
   background: var(--fsusblog-panel-bg-soft);
-  padding: 1rem;
+  padding: var(--fsus-space-4);
 }
 
 .identity-secret-panel code {
@@ -1282,23 +1282,23 @@ watch(currentRouteName, () => {
   min-width: 44px;
   min-height: 44px;
   justify-content: center;
-  padding-inline: 0.75rem;
+  padding-inline: var(--fsus-space-3);
 }
 
-@media (max-width: 960px) {
+@media (max-width: 1023px) {
   .identity-status-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 560px) {
+@media (max-width: 639px) {
   .identity-status-grid,
   .identity-summary-list > div {
     grid-template-columns: minmax(0, 1fr);
   }
 
   .identity-summary-list > div {
-    gap: 0.2rem;
+    gap: var(--fsus-space-1);
   }
 }
 </style>

@@ -43,7 +43,7 @@ const descriptionText = computed(() => props.description || props.content || '')
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
-  padding: 1.5rem;
+  padding: var(--fsus-space-6);
   text-align: left;
 }
 
@@ -51,17 +51,17 @@ const descriptionText = computed(() => props.description || props.content || '')
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem;
-  margin-top: 0.875rem;
+  gap: var(--fsus-space-3);
+  margin-top: var(--fsus-space-3);
 }
 
 @media (max-width: 639px) {
   .admin-inline-empty-state {
-    padding: 1.25rem;
+    padding: var(--fsus-space-5);
   }
 
   .admin-inline-empty-state__actions {
-    gap: 0.625rem;
+    gap: var(--fsus-space-2);
   }
 }
 </style>

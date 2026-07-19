@@ -273,7 +273,7 @@ onMounted(() => {
 .moderation-model-runtime-field {
   display: grid;
   min-width: 0;
-  gap: 8px;
+  gap: var(--fsus-space-2);
 }
 
 .moderation-model-runtime-field__label {
@@ -309,7 +309,7 @@ onMounted(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: var(--fsus-space-2);
 }
 
 .moderation-model-secondary-actions__link {

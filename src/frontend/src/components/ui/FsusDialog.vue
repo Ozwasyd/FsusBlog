@@ -2,7 +2,7 @@
   <FsusUiDialog
     v-model="visible"
     :title="title"
-    :width="width"
+    :width="resolvedWidth"
     :destroy-on-close="destroyOnClose"
     :close-on-click-modal="closeOnClickModal"
     :show-close="showClose"
@@ -27,19 +27,26 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { FsusUiDialog, fsusDialogClass, fsusDialogModalClass } from '@/fsusui/dialog'
+import {
+  FsusUiDialog,
+  fsusDialogClass,
+  fsusDialogModalClass,
+  fsusDialogWidths,
+  isFsusDialogWidth,
+  type FsusDialogWidth
+} from '@/fsusui/dialog'
 
 const props = withDefaults(defineProps<{
   modelValue: boolean
   title?: string
-  width?: string | number
+  width?: FsusDialogWidth
   destroyOnClose?: boolean
   closeOnClickModal?: boolean
   showClose?: boolean
   modalClass?: string
 }>(), {
   title: '',
-  width: 'min(30rem, calc(100vw - 2rem))',
+  width: fsusDialogWidths.default,
   destroyOnClose: false,
   closeOnClickModal: true,
   showClose: true,
@@ -58,6 +65,10 @@ const visible = computed({
   set: (value: boolean) => emit('update:modelValue', value)
 })
 
+const resolvedWidth = computed<FsusDialogWidth>(() =>
+  isFsusDialogWidth(props.width) ? props.width : fsusDialogWidths.default
+)
+
 const resolvedModalClass = computed(() =>
   [fsusDialogModalClass, props.modalClass].filter(Boolean).join(' ')
 )
@@ -72,15 +83,16 @@ const resolvedModalClass = computed(() =>
   display: grid;
   place-items: center;
   box-sizing: border-box;
-  padding: clamp(1rem, 4vh, 2rem);
+  padding: var(--fsus-space-4);
   overflow: auto;
 }
 
 :global(.fsusblog-dialog-overlay .fsusblog-dialog) {
+  --el-dialog-padding-primary: var(--fsus-space-6);
   display: flex;
   flex-direction: column;
-  max-width: calc(100vw - 2rem);
-  max-height: calc(100dvh - 2rem);
+  max-width: var(--fsus-dialog-mobile-max-width);
+  max-height: calc(100dvh - var(--fsus-space-8));
   margin: 0 !important;
   overflow: hidden;
 }
@@ -98,20 +110,5 @@ const resolvedModalClass = computed(() =>
 
 .fsus-dialog__content {
   min-width: 0;
-}
-
-.fsus-dialog__footer {
-  border-top: 1px solid var(--fsusblog-panel-border);
-  padding-top: 1.5rem;
-}
-
-@media (max-width: 639px) {
-  :global(.fsusblog-dialog-overlay .el-overlay-dialog) {
-    padding: 1rem;
-  }
-
-  :global(.fsusblog-dialog-overlay .fsusblog-dialog) {
-    width: calc(100vw - 2rem) !important;
-  }
 }
 </style>

@@ -268,13 +268,13 @@ const handleLogout = async () => {
   min-height: 2.5rem;
   min-width: 0;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--fsus-space-2);
   color: var(--fsusblog-text-primary);
   text-decoration: none;
 }
 
 .account-skip-link:focus-visible {
-  padding: 1rem;
+  padding: var(--fsus-space-4);
   background: var(--fsusblog-text-primary);
   color: var(--fsusblog-page-bg);
   font-size: 12px;
@@ -323,7 +323,7 @@ const handleLogout = async () => {
 :deep(.account-mobile-drawer .el-drawer__header) {
   margin-bottom: 0;
   border-bottom: 1px solid var(--fsusblog-panel-border);
-  padding: 1rem 1.25rem;
+  padding: var(--fsus-space-4) var(--fsus-space-5);
 }
 
 :deep(.account-mobile-drawer .el-drawer__title) {
@@ -337,19 +337,19 @@ const handleLogout = async () => {
   flex: 1 1 auto;
   min-height: 0;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: var(--fsus-space-5);
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 1.25rem;
+  padding: var(--fsus-space-5);
 }
 
 .account-mobile-drawer-nav {
   flex: 0 0 auto;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
 .account-sidebar-frame {
-  padding-bottom: 1.5rem;
+  padding-bottom: var(--fsus-space-6);
 }
 
 .account-main-scroll {
@@ -363,17 +363,17 @@ const handleLogout = async () => {
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-gutter: stable;
-    padding-bottom: 2rem;
+    padding-bottom: var(--fsus-space-8);
   }
 }
 
 @media (max-height: 520px) and (orientation: landscape) {
   :deep(.account-site-header__inner) {
-    padding-block: 0.5rem;
+    padding-block: var(--fsus-space-2);
   }
 
   :deep(.account-site-header__primary-row) {
-    gap: 0.75rem;
+    gap: var(--fsus-space-3);
   }
 
   :deep(.account-site-header__actions) {
@@ -385,7 +385,7 @@ const handleLogout = async () => {
     min-width: 0;
     align-items: center;
     justify-content: flex-end;
-    gap: 0.5rem;
+    gap: var(--fsus-space-2);
   }
 }
 

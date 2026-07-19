@@ -41,7 +41,7 @@
       <el-button text type="primary" @click="$emit('edit', row.id)">{{ row.primaryActionLabel }}</el-button>
       <el-dropdown>
         <el-button text type="primary">
-          更多 <span class="ml-0.5 inline-flex"><el-icon aria-hidden="true"><ArrowDown /></el-icon></span>
+          更多 <span class="ml-1 inline-flex"><el-icon aria-hidden="true"><ArrowDown /></el-icon></span>
         </el-button>
         <template #dropdown>
           <el-dropdown-menu>
@@ -86,8 +86,8 @@ defineEmits<{
 <style scoped>
 .article-compact-card {
   display: grid;
-  gap: 1rem;
-  padding: 1.25rem 1rem;
+  gap: var(--fsus-space-4);
+  padding: var(--fsus-space-5) var(--fsus-space-4);
   background: var(--fsusblog-page-bg);
 }
 
@@ -104,7 +104,7 @@ defineEmits<{
   min-width: 0;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--fsus-space-2);
 }
 
 .article-compact-cover {
@@ -115,7 +115,7 @@ defineEmits<{
   place-items: center;
   overflow: hidden;
   border: 1px solid var(--fsusblog-panel-border);
-  border-radius: 6px;
+  border-radius: var(--fsus-radius-control);
   background: var(--fsusblog-panel-bg);
   color: var(--fsusblog-text-muted);
   font-weight: 700;

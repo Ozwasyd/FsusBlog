@@ -208,7 +208,7 @@
 
             <el-table-column label="标签" min-width="180">
               <template #default="{ row }: { row: ArticleListViewItem }">
-                <div class="flex flex-wrap gap-1.5">
+                <div class="flex flex-wrap gap-2">
                   <el-tag
                     v-for="tag in row.tags"
                     :key="tag.id"
@@ -228,7 +228,7 @@
                   <el-divider direction="vertical" />
                   <el-dropdown>
                     <el-button link type="primary">
-                      更多 <span class="ml-0.5 inline-flex"><el-icon aria-hidden="true"><ArrowDown /></el-icon></span>
+                      更多 <span class="ml-1 inline-flex"><el-icon aria-hidden="true"><ArrowDown /></el-icon></span>
                     </el-button>
                     <template #dropdown>
                       <el-dropdown-menu>
@@ -367,7 +367,7 @@ const handleMoveToTrash = (row: ArticleListViewItem): void => handleMoreCommand(
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: 0.75rem;
+  gap: var(--fsus-space-3);
   width: 100%;
 }
 
@@ -392,7 +392,7 @@ const handleMoveToTrash = (row: ArticleListViewItem): void => handleMoreCommand(
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--fsus-space-3);
   width: 100%;
 }
 
@@ -434,7 +434,7 @@ const handleMoveToTrash = (row: ArticleListViewItem): void => handleMoreCommand(
   place-items: center;
   overflow: hidden;
   border: 1px solid var(--fsusblog-panel-border);
-  border-radius: 6px;
+  border-radius: var(--fsus-radius-control);
   background: var(--fsusblog-panel-bg);
   color: var(--fsusblog-text-muted);
   font-size: 1rem;
@@ -450,19 +450,19 @@ const handleMoveToTrash = (row: ArticleListViewItem): void => handleMoreCommand(
 .article-list-empty-container {
   min-height: 10rem;
   border-top: 1px solid var(--fsusblog-panel-border);
-  padding-block: 1.25rem 1.5rem;
+  padding-block: var(--fsus-space-5) var(--fsus-space-6);
 }
 
 .article-list-empty-state {
   min-height: 7rem;
-  padding: 1.5rem 1.5rem;
+  padding: var(--fsus-space-6) var(--fsus-space-6);
 }
 
 .article-list-empty-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-top: 0.75rem;
+  gap: var(--fsus-space-3);
+  margin-top: var(--fsus-space-3);
 }
 
 .article-list-empty-action {
@@ -471,11 +471,11 @@ const handleMoveToTrash = (row: ArticleListViewItem): void => handleMoreCommand(
 
 @media (max-width: 639px) {
   .article-list-empty-state {
-    padding-inline: 1.25rem;
+    padding-inline: var(--fsus-space-5);
   }
 
   .article-list-empty-actions {
-    gap: 0.625rem;
+    gap: var(--fsus-space-2);
   }
 
   .article-list-empty-action {
@@ -507,7 +507,7 @@ const handleMoveToTrash = (row: ArticleListViewItem): void => handleMoreCommand(
   .article-list-pagination {
     align-items: flex-start;
     flex-direction: column;
-    gap: 1rem;
+    gap: var(--fsus-space-4);
   }
 }
 </style>
