@@ -93,11 +93,11 @@ public sealed class InputLimitBoundaryTests
                 "SanitizeRedirectPath",
                 BindingFlags.NonPublic | BindingFlags.Static,
                 binder: null,
-                types: [typeof(string), typeof(bool)],
+                types: [typeof(string)],
                 modifiers: null));
         string redirect = Assert.IsType<string>(redirectSanitizer.Invoke(
             null,
-            ["/" + new string('x', 2048), false]));
+            ["/" + new string('x', 2048)]));
         Assert.Equal("/user/manage", redirect);
 
         string storageState = Path.Combine(Path.GetTempPath(), $"fsusblog-storage-state-{Guid.NewGuid():N}.json");
@@ -120,6 +120,24 @@ public sealed class InputLimitBoundaryTests
         {
             File.Delete(storageState);
         }
+    }
+
+    [Fact]
+    public void LocalFixture_RedirectDropsActivationFlagsAndPreservesAllowedLocalParameters()
+    {
+        MethodInfo redirectSanitizer = Assert.IsAssignableFrom<MethodInfo>(
+            typeof(LocalAuthFixtureEndpoints).GetMethod(
+                "SanitizeRedirectPath",
+                BindingFlags.NonPublic | BindingFlags.Static,
+                binder: null,
+                types: [typeof(string)],
+                modifiers: null));
+
+        string redirect = Assert.IsType<string>(redirectSanitizer.Invoke(
+            null,
+            ["/user/manage?fsusLocalFixtureLogin=1&viewport=mobile&fsusLocalFixtureAdmin=1#sessions"]));
+
+        Assert.Equal("/user/manage?viewport=mobile#sessions", redirect);
     }
 
     [Fact]

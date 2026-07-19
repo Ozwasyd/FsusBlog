@@ -4,7 +4,23 @@ import type { CurrentUserSnapshot } from '@/api/auth'
 const LOCAL_FIXTURE_SESSION_KEY = 'fsusblog_local_fixture_session'
 const LOCAL_FIXTURE_ADMIN_SESSION_KEY = 'fsusblog_local_fixture_admin_session'
 const LOCAL_FIXTURE_SECRET_HEADER = 'X-Fsus-Local-Auth-Fixture-Secret'
+const LOCAL_FIXTURE_LOGIN_QUERY = 'fsusLocalFixtureLogin'
+const LOCAL_FIXTURE_ADMIN_QUERY = 'fsusLocalFixtureAdmin'
 let fixtureCookieRefreshPromise: Promise<boolean> | null = null
+
+export interface LocalFixtureEnvironment {
+  hostname: string
+  dev: boolean
+  prod: boolean
+  mode: string
+}
+
+interface LocalFixtureActivationDependencies {
+  environment?: LocalFixtureEnvironment
+  storage?: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
+  location?: Pick<Location, 'href' | 'hostname' | 'pathname' | 'search' | 'hash'>
+  history?: Pick<History, 'state' | 'replaceState'>
+}
 
 interface LocalFixtureStatus {
   hasAccessToken?: boolean
@@ -24,52 +40,87 @@ export function isLocalFixtureQueryEnabled(value: unknown): boolean {
   return value === '1'
 }
 
-function isLocalFixtureHost(): boolean {
-  if (typeof window === 'undefined') {
+function isLocalFixtureHost(hostname: string): boolean {
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
+}
+
+function currentLocalFixtureEnvironment(): LocalFixtureEnvironment | null {
+  if (typeof window === 'undefined') return null
+  return {
+    hostname: window.location.hostname,
+    dev: import.meta.env.DEV,
+    prod: import.meta.env.PROD,
+    mode: import.meta.env.MODE
+  }
+}
+
+export function canUseLocalFixtureSessionEnvironment(environment: LocalFixtureEnvironment): boolean {
+  return isLocalFixtureHost(environment.hostname)
+    && environment.dev
+    && !environment.prod
+    && environment.mode === 'development'
+}
+
+function canUseLocalFixtureSession(environment = currentLocalFixtureEnvironment()): boolean {
+  return environment !== null && canUseLocalFixtureSessionEnvironment(environment)
+}
+
+export function sanitizeLocalFixturePath(path: string, origin: string): string {
+  try {
+    const url = new URL(path, origin)
+    if (url.origin !== origin) return '/user/manage'
+    url.searchParams.delete(LOCAL_FIXTURE_LOGIN_QUERY)
+    url.searchParams.delete(LOCAL_FIXTURE_ADMIN_QUERY)
+    return `${url.pathname}${url.search}${url.hash}`
+  } catch {
+    return '/user/manage'
+  }
+}
+
+export function activateLocalFixtureSession(dependencies: LocalFixtureActivationDependencies = {}): boolean {
+  if (typeof window === 'undefined') return false
+
+  const location = dependencies.location ?? window.location
+  const history = dependencies.history ?? window.history
+  const storage = dependencies.storage ?? sessionStorage
+  const environment = dependencies.environment ?? currentLocalFixtureEnvironment()
+  if (!canUseLocalFixtureSession(environment)) return false
+
+  const query = new URLSearchParams(location.search)
+  if (!isLocalFixtureQueryEnabled(query.get(LOCAL_FIXTURE_LOGIN_QUERY))) return false
+  const adminEnabled = isLocalFixtureQueryEnabled(query.get(LOCAL_FIXTURE_ADMIN_QUERY))
+
+  try {
+    storage.setItem(LOCAL_FIXTURE_SESSION_KEY, '1')
+    if (adminEnabled) {
+      storage.setItem(LOCAL_FIXTURE_ADMIN_SESSION_KEY, '1')
+    }
+    history.replaceState(
+      history.state,
+      '',
+      sanitizeLocalFixturePath(location.href, new URL(location.href).origin)
+    )
+    return true
+  } catch {
+    try {
+      storage.removeItem(LOCAL_FIXTURE_SESSION_KEY)
+      storage.removeItem(LOCAL_FIXTURE_ADMIN_SESSION_KEY)
+    } catch {
+      // Storage may be unavailable in browser privacy modes.
+    }
     return false
   }
-
-  return window.location.hostname === 'localhost' ||
-    window.location.hostname === '127.0.0.1' ||
-    window.location.hostname === '::1'
 }
 
-function canUseLocalFixtureSession(): boolean {
-  const explicitLocalFixture = isLocalFixtureHost() && hasLocalFixtureQueryFlag()
-  return Boolean(
-    isLocalFixtureHost()
-    && (
-      explicitLocalFixture
-      || (
-        import.meta.env.DEV
-        && import.meta.env.MODE === 'development'
-        && !import.meta.env.PROD
-      )
-    )
-  )
-}
-
-export function activateLocalFixtureSession(): void {
-  if (!canUseLocalFixtureSession() || typeof sessionStorage === 'undefined') {
+export function clearLocalFixtureSession(
+  storage: Pick<Storage, 'removeItem'> | undefined = typeof sessionStorage === 'undefined' ? undefined : sessionStorage
+): void {
+  if (!storage) {
     return
   }
   try {
-    sessionStorage.setItem(LOCAL_FIXTURE_SESSION_KEY, '1')
-    if (hasLocalFixtureAdminQueryFlag()) {
-      sessionStorage.setItem(LOCAL_FIXTURE_ADMIN_SESSION_KEY, '1')
-    }
-  } catch {
-    // Storage may be unavailable in browser privacy modes; the query flag remains authoritative.
-  }
-}
-
-export function clearLocalFixtureSession(): void {
-  if (typeof sessionStorage === 'undefined') {
-    return
-  }
-  try {
-    sessionStorage.removeItem(LOCAL_FIXTURE_SESSION_KEY)
-    sessionStorage.removeItem(LOCAL_FIXTURE_ADMIN_SESSION_KEY)
+    storage.removeItem(LOCAL_FIXTURE_SESSION_KEY)
+    storage.removeItem(LOCAL_FIXTURE_ADMIN_SESSION_KEY)
   } catch {
     // Ignore storage failures during logout cleanup.
   }
@@ -80,7 +131,7 @@ function hasLocalFixtureQueryFlag(): boolean {
     return false
   }
 
-  return new URLSearchParams(window.location.search).get('fsusLocalFixtureLogin') === '1'
+  return new URLSearchParams(window.location.search).get(LOCAL_FIXTURE_LOGIN_QUERY) === '1'
 }
 
 function hasLocalFixtureAdminQueryFlag(): boolean {
@@ -88,7 +139,7 @@ function hasLocalFixtureAdminQueryFlag(): boolean {
     return false
   }
 
-  return new URLSearchParams(window.location.search).get('fsusLocalFixtureAdmin') === '1'
+  return new URLSearchParams(window.location.search).get(LOCAL_FIXTURE_ADMIN_QUERY) === '1'
 }
 
 export function isLocalFixtureSessionActive(): boolean {
@@ -130,7 +181,10 @@ function currentRedirectPath(fallback = '/user/manage'): string {
     return fallback
   }
 
-  return `${window.location.pathname}${window.location.search}${window.location.hash}`
+  return sanitizeLocalFixturePath(
+    `${window.location.pathname}${window.location.search}${window.location.hash}`,
+    window.location.origin
+  )
 }
 
 function readLocalFixtureSecret(): string | null {
@@ -183,7 +237,7 @@ export async function readFixtureStatus(): Promise<LocalFixtureStatus | null> {
 
 export function buildLocalFixtureAdminUrl(redirectPath: string): string {
   const endpoint = new URL('/api/local/auth-fixture/admin', window.location.origin)
-  endpoint.searchParams.set('redirect', redirectPath)
+  endpoint.searchParams.set('redirect', sanitizeLocalFixturePath(redirectPath, window.location.origin))
   return endpoint.toString()
 }
 

@@ -1060,6 +1060,8 @@ int64 timestampUnixMs
 
 `GET /__local/auth-fixture/admin` 与 `GET /api/local/auth-fixture/admin` 只在 `Development` 且 `fsus:allowLocalAuthFixture=true` 时映射；调用方还必须来自 loopback 地址，并提供 `X-Fsus-Local-Auth-Fixture-Secret`，其值用固定时间比较匹配 `fsus:localAuthFixtureSecret`。配套的 `/status` 端点使用相同的 loopback + shared-secret 门控。生产启动校验会拒绝 `fsus:allowLocalAuthFixture=true`。该入口只用于本地 Playwright fixture 刷新和 cookie 注入，不能在测试、预发布或生产环境作为匿名 admin 登录 fallback；刷新失败只返回固定失败文案，不回显脚本 stderr/stdout、异常消息或本地 storage-state 绝对路径。
 
+前端只在 localhost + DEV + development mode + 非 PROD 四项同时成立时消费 `fsusLocalFixtureLogin` / `fsusLocalFixtureAdmin`。成功写入当前 tab 的 SessionStorage marker 后必须立即从当前 URL 删除这两个参数，同时保留其他显式本地测试参数、pathname 与 hash。传给 fixture endpoint 的 `redirect` 和 endpoint 成功后的 `Location` 都必须再次删除两个激活参数；失败返回固定本地 Problem 响应且不重定向，避免把 fixture 状态带回业务 URL 或形成循环。
+
 fixture 刷新进程只能通过 `UseShellExecute=false` + `ArgumentList` 调用仓库内固定脚本 `tests/frontend/fixtures/prepare-auth-smoke-users.mjs`。服务端在启动子进程前必须对 repo root、fixtures 目录和脚本路径执行 canonical path 校验，确认目标仍位于预期 fixtures 目录内；executable 与脚本路径都不接受请求参数、配置值、环境派生的相对逃逸或替换文件名。默认 runner 设有 60 秒上限，传播请求取消，非零退出、启动失败和超时均在写 Cookie 前返回固定失败，不向响应或日志转发 stdout/stderr。Production 不映射 fixture endpoint，因而不会从请求链解析或调用 runner；行为测试可通过 DI 注入 fake runner，以真实端点和 storage-state 文件验证成功/失败边界而不启动子进程。
 
 fixture 成功读取 `user.storage-state.json` 的 `AccessToken.expires` 与 `admin.storage-state.json` 的 `AdminAccessToken.expires`，按 Unix 秒转换为绝对 UTC 后原样写入对应 `Set-Cookie Expires`。该路径不得把 access expiry 替换为 fixture 请求时间、refresh/admin idle expiry 或 `Jwt:AccessTokenExpiresMinutes`；runner 失败、storage-state 缺失或 access expiry 非法时不得发出任何新认证 Cookie。

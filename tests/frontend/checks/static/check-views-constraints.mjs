@@ -335,8 +335,8 @@ if (/window\.location\.(?:assign|replace|href)\b/.test(ensureFixtureBlock)) {
 if (!localFixtureSessionSource.includes('export function buildLocalFixtureAdminUrl')) {
   hardViolations.push('src/services/localFixtureSession.ts: local fixture admin endpoint builder must stay explicit for route guard redirects');
 }
-if (!localFixtureSessionSource.includes('new URLSearchParams(window.location.search)') || !localFixtureSessionSource.includes("get('fsusLocalFixtureLogin') === '1'")) {
-  hardViolations.push('src/services/localFixtureSession.ts: local fixture active state must include the current URL flag before router guard writes sessionStorage');
+if (!localFixtureSessionSource.includes('new URLSearchParams(window.location.search)') || !localFixtureSessionSource.includes('get(LOCAL_FIXTURE_LOGIN_QUERY)')) {
+  hardViolations.push('src/services/localFixtureSession.ts: local fixture activation must read the URL flag before persisting and removing it');
 }
 
 const sessionBootstrapPath = join(srcDir, 'composables', 'useSessionBootstrap.ts');

@@ -37,7 +37,7 @@ Integrity verification sidecars under `/integrity/**` are public JSON manifests,
 
 HTTP shell 契约由 `src/shared/Contracts/Validation/fsusblog.openapi.json` 提供，包含 method/path/status/content-type/security 与 `x-fsus-*` 扩展；AEDS payload、frame 编号、POD schema 和 golden fixture 仍由 `aeds-protocol.json`、POD 契约和 fixture 负责。
 
-本地/测试辅助端点不得成为生产身份 fallback。任何会写入登录、admin 或安全态 cookie 的 fixture 入口都必须限定到 Development 映射，并使用独立 `X-Fsus-*` shared-secret header 做固定时间比较；未配置 secret 时 fail closed。
+本地/测试辅助端点不得成为生产身份 fallback。任何会写入登录、admin 或安全态 cookie 的 fixture 入口都必须限定到 Development 映射，并使用独立 `X-Fsus-*` shared-secret header 做固定时间比较；未配置 secret 时 fail closed。浏览器 fixture 激活还必须同时满足 localhost、`import.meta.env.DEV`、development mode 与非 PROD；激活标记写入当前 tab 的 SessionStorage 后立即用 `history.replaceState` 删除 fixture query，服务端 redirect 不得把该 query 加回。
 
 ### 3. 统一响应包装
 

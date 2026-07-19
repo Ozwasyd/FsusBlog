@@ -84,6 +84,7 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
         if (flow == AuthExpiryFlow.LocalAuthFixture)
         {
             Assert.Equal(s_adminAccessTokenExpiresAtUtc, ReadCookieExpiry(response, "AdminAccessToken"));
+            Assert.Equal("/user/manage", response.Headers.Location?.OriginalString);
         }
     }
 

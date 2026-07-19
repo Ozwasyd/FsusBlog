@@ -10,6 +10,7 @@ using FsusBlog.Server.Services.Security;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Configuration;
 
 namespace FsusBlog.Server.Modules.Endpoints;
@@ -83,7 +84,7 @@ public static class LocalAuthFixtureEndpoints
                 adminSessionId,
                 DateTime.UtcNow.AddHours(24));
 
-            return Results.Redirect(SanitizeRedirectPath(redirect, forceLocalFixtureRefresh: true));
+            return Results.Redirect(SanitizeRedirectPath(redirect));
         };
 
         app.MapGet("/__local/auth-fixture/admin", handler).AllowAnonymous().AddEndpointFilter(RequireLocalFixtureSecret).AddEndpointFilter(RequireLoopbackCaller);
@@ -315,7 +316,7 @@ public static class LocalAuthFixtureEndpoints
         => context.Request.Cookies.TryGetValue(cookieName, out string? value) &&
            !string.IsNullOrWhiteSpace(value);
 
-    private static string SanitizeRedirectPath(string? redirect, bool forceLocalFixtureRefresh = false)
+    private static string SanitizeRedirectPath(string? redirect)
     {
         if (string.IsNullOrWhiteSpace(redirect) ||
             redirect.Length > MaxRedirectPathChars ||
@@ -325,18 +326,21 @@ public static class LocalAuthFixtureEndpoints
             redirect = "/user/manage";
         }
 
-        if (!forceLocalFixtureRefresh || !redirect.StartsWith("/user/manage", StringComparison.Ordinal))
+        int fragmentIndex = redirect.IndexOf('#', StringComparison.Ordinal);
+        string fragment = fragmentIndex >= 0 ? redirect[fragmentIndex..] : string.Empty;
+        string withoutFragment = fragmentIndex >= 0 ? redirect[..fragmentIndex] : redirect;
+        int queryIndex = withoutFragment.IndexOf('?', StringComparison.Ordinal);
+        if (queryIndex < 0)
         {
-            return redirect;
+            return withoutFragment + fragment;
         }
 
-        if (redirect.Contains("?fsusLocalFixtureLogin=1", StringComparison.Ordinal) ||
-            redirect.Contains("&fsusLocalFixtureLogin=1", StringComparison.Ordinal))
-        {
-            return redirect;
-        }
-
-        char separator = redirect.Contains('?', StringComparison.Ordinal) ? '&' : '?';
-        return $"{redirect}{separator}fsusLocalFixtureLogin=1";
+        string path = withoutFragment[..queryIndex];
+        string query = withoutFragment[(queryIndex + 1)..];
+        var allowed = QueryHelpers.ParseQuery(query)
+            .Where(static pair => pair.Key is not ("fsusLocalFixtureLogin" or "fsusLocalFixtureAdmin"))
+            .SelectMany(static pair => pair.Value.Select(value =>
+                new KeyValuePair<string, string?>(pair.Key, value)));
+        return path + QueryString.Create(allowed) + fragment;
     }
 }
