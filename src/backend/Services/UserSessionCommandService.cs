@@ -10,7 +10,9 @@ using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Responses;
+using FsusBlog.Server.Services.NotificationStream;
 using FsusBlog.Server.Services.Security;
+using FsusBlog.Shared.Contracts.NotificationStream;
 using FsusBlog.Shared.Contracts.Outputs;
 
 using SqlSugar;
@@ -21,7 +23,8 @@ public sealed partial class UserSessionCommandService(
     ISqlSugarClient db,
     ILogger<UserSessionCommandService> logger,
     IJwtHelper jwt,
-    IUserSessionValidationCache sessionValidation) : IUserSessionCommandService
+    IUserSessionValidationCache sessionValidation,
+    IMessageNotificationStreamPort? notificationStream = null) : IUserSessionCommandService
 {
     private const int UserStatusNormal = 0;
     private const int UserStatusBanned = 1;
@@ -264,6 +267,11 @@ public sealed partial class UserSessionCommandService(
                 ?? new InvalidOperationException("user session revocation transaction failed");
         }
 
+        if (revokedSession is not null)
+        {
+            await PublishSessionRevocationAsync(userId, reason, 1);
+        }
+
         return revokedSession is not null;
     }
 
@@ -273,11 +281,13 @@ public sealed partial class UserSessionCommandService(
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        DateTime revokedAt = DateTime.UtcNow;
+        DateTime requestedAt = DateTime.UtcNow;
+        DateTime revokedAt = requestedAt;
         List<UserSessionValidationCacheState> revokedSessions = [];
         bool publicationAttempted = false;
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
+            await UserSessionConcurrencyGate.AcquireAsync(db, userId);
             using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
                 """
                 UPDATE sys_user_session
@@ -286,6 +296,7 @@ public sealed partial class UserSessionCommandService(
                 WHERE userid = @UserId
                   AND revokedat IS NULL
                   AND (@CurrentSessionId IS NULL OR sessionid <> @CurrentSessionId)
+                  AND createdat <= @RequestedAt
                 RETURNING sessionid,
                           userid,
                           revokedat,
@@ -295,7 +306,8 @@ public sealed partial class UserSessionCommandService(
                 """,
                 new SugarParameter("@RevokedAt", revokedAt),
                 new SugarParameter("@UserId", userId),
-                new SugarParameter("@CurrentSessionId", currentSessionId)))
+                new SugarParameter("@CurrentSessionId", currentSessionId),
+                new SugarParameter("@RequestedAt", requestedAt)))
             {
                 while (await reader.ReadAsync())
                 {
@@ -318,6 +330,7 @@ public sealed partial class UserSessionCommandService(
                 ?? new InvalidOperationException("bulk user session revocation transaction failed");
         }
 
+        await PublishSessionRevocationAsync(userId, "revoke_others", revokedSessions.Count);
         return revokedSessions.Count;
     }
 
@@ -344,6 +357,7 @@ public sealed partial class UserSessionCommandService(
         bool publicationAttempted = false;
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
+            await UserSessionConcurrencyGate.AcquireAsync(db, userId);
             using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
                 """
                 UPDATE sys_user_session
@@ -386,7 +400,29 @@ public sealed partial class UserSessionCommandService(
                 ?? new InvalidOperationException("bulk user session security revocation transaction failed");
         }
 
+        await PublishSessionRevocationAsync(userId, normalizedReason, revokedSessions.Count);
         return revokedSessions.Count;
+    }
+
+    private async Task PublishSessionRevocationAsync(int userId, string reason, int revokedSessionCount)
+    {
+        if (notificationStream is null || revokedSessionCount <= 0)
+        {
+            return;
+        }
+
+        try
+        {
+            await notificationStream.PublishToUserAsync(
+                NotificationStreamEventType.SessionRevoked,
+                userId,
+                new SessionRevokedPayload(reason, revokedSessionCount, DateTime.UtcNow),
+                "user-session-revoked");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "User session revocation notification failed for account {AccountId}", userId);
+        }
     }
 
     private static UserSessionValidationCacheState ReadRevokedSessionValidationState(DbDataReader reader)

@@ -16,6 +16,7 @@ using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.Fixtures;
 
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -60,13 +61,20 @@ public class UserServiceValidationTests
     private static UserLoginWorkflowService BuildLoginService(
         ISqlSugarClient db,
         IJwtHelper jwt,
-        IUserSessionValidationCache? sessionValidationCache = null)
+        IUserSessionValidationCache? sessionValidationCache = null,
+        int maxActiveSessions = UserSessionPolicy.DefaultMaxActiveSessions)
         => new(
             db,
             NullLogger<UserLoginWorkflowService>.Instance,
             jwt,
             sessionValidationCache ?? Substitute.For<IUserSessionValidationCache>(),
-            Substitute.For<IAuthRiskService>());
+            Substitute.For<IAuthRiskService>(),
+            new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    [UserSessionPolicy.MaxActiveSessionsConfigurationKey] = maxActiveSessions.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                })
+                .Build());
 
     private static UserProfileCommandService BuildProfileService(
         ISqlSugarClient? db = null,
@@ -1190,7 +1198,7 @@ public class UserServiceValidationTests
     }
 
     [Fact]
-    public async Task CompleteLoginAsync_UsesPostgresLockBulkRevocationAndInsertInOneTransaction()
+    public async Task CompleteLoginAsync_UsesPostgresLockBoundedAdmissionAndInsertInOneTransaction()
     {
         var db = Substitute.For<ISqlSugarClient>();
         db.CurrentConnectionConfig.Returns(new ConnectionConfig { DbType = SqlSugar.DbType.PostgreSQL });
@@ -1215,6 +1223,7 @@ public class UserServiceValidationTests
             Assert.Contains(parameters, parameter => parameter.ParameterName == "@UserId" && Equals(parameter.Value, 42));
             return Task.FromResult(1);
         });
+        ado.GetIntAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>()).Returns(1);
         DateTime revokedAt = DateTime.UtcNow;
         ado.GetDataReaderAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>()).Returns(call =>
         {
@@ -1275,12 +1284,13 @@ public class UserServiceValidationTests
             sequence);
         Assert.NotNull(revokeSql);
         Assert.Contains("UPDATE sys_user_session", revokeSql, StringComparison.Ordinal);
-        Assert.Contains("revokereason = 'login_replaced'", revokeSql, StringComparison.Ordinal);
-        Assert.Contains("WHERE userid = @UserId", revokeSql, StringComparison.Ordinal);
-        Assert.Contains("AND revokedat IS NULL", revokeSql, StringComparison.Ordinal);
-        Assert.Contains("RETURNING sessionid", revokeSql, StringComparison.Ordinal);
-        Assert.Contains("xmin::text AS row_version", revokeSql, StringComparison.Ordinal);
+        Assert.Contains("WITH ranked_sessions AS", revokeSql, StringComparison.Ordinal);
+        Assert.Contains("active_session_limit", revokeSql, StringComparison.Ordinal);
+        Assert.Contains("session_expired", revokeSql, StringComparison.Ordinal);
+        Assert.Contains("live_rank > @ExistingSessionLimit", revokeSql, StringComparison.Ordinal);
+        Assert.Contains("session.xmin::text AS row_version", revokeSql, StringComparison.Ordinal);
         Assert.Contains(revokeParameters!, parameter => parameter.ParameterName == "@UserId" && Equals(parameter.Value, 42));
+        Assert.Contains(revokeParameters!, parameter => parameter.ParameterName == "@ExistingSessionLimit" && Equals(parameter.Value, 9));
         Assert.NotNull(inserted);
         Assert.Equal(42, inserted!.UserId);
         Assert.NotEqual("previous-session", inserted.SessionId);
@@ -1289,9 +1299,9 @@ public class UserServiceValidationTests
         Assert.Equal("previous-session", state.SessionId);
         Assert.Equal("row-version-17", state.RowVersion);
         Assert.Contains(measurements, measurement =>
-            measurement.Name == "fsus.auth.login.replaced_session_count" && measurement.Value == 1);
+            measurement.Name == "fsus.auth.login.limit_evicted_session_count" && measurement.Value == 1);
         Assert.Contains(measurements, measurement =>
-            measurement.Name == "fsus.auth.login.session_revoke_command_count" && measurement.Value == 1);
+            measurement.Name == "fsus.auth.login.expired_session_count" && measurement.Value == 0);
         Assert.Contains(measurements, measurement =>
             measurement.Name == "fsus.auth.login.transaction_elapsed_ms" && measurement.Value >= 0);
     }
@@ -1356,6 +1366,7 @@ public class UserServiceValidationTests
             sequence.Add("advisory-lock");
             return Task.FromResult(1);
         });
+        ado.GetIntAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>()).Returns(1);
         ado.GetDataReaderAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>()).Returns(_ =>
         {
             sequence.Add("database-revoke");
@@ -1431,16 +1442,16 @@ public class UserServiceValidationTests
     }
 
     [Fact]
-    public void SchemaMigrationRegistry_UserSessionActiveUniqueIndex_BlocksTwoActiveSessions()
+    public void SchemaMigrationRegistry_UserSessionMultiDeviceMigrationRemovesSingleActiveConstraint()
     {
         ISchemaMigrationDescriptor migration = Assert.Single(
             new SchemaMigrationRegistry().GetDescriptors(),
-            static descriptor => descriptor.MigrationId == "20260625-post-user-session-active-unique");
+            static descriptor => descriptor.MigrationId == "20260719-post-user-session-multi-device");
         string fingerprints = string.Join('\n', migration.Steps.Select(static step => step.Fingerprint));
 
         Assert.Contains("ux_user_session_one_active_per_user", fingerprints, StringComparison.Ordinal);
-        Assert.Contains("CREATE UNIQUE INDEX IF NOT EXISTS ux_user_session_one_active_per_user", fingerprints, StringComparison.Ordinal);
-        Assert.Contains("ON sys_user_session(userid) WHERE revokedat IS NULL", fingerprints, StringComparison.Ordinal);
+        Assert.Contains("idx_user_session_active_recency", fingerprints, StringComparison.Ordinal);
+        Assert.DoesNotContain("CREATE UNIQUE INDEX", fingerprints, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1750,7 +1761,8 @@ public class UserServiceValidationTests
         string sessionId,
         int userId,
         DateTime revokedAt,
-        string rowVersion)
+        string rowVersion,
+        string revokeReason = "active_session_limit")
     {
         var table = new DataTable();
         table.Columns.Add("sessionid", typeof(string));
@@ -1758,6 +1770,7 @@ public class UserServiceValidationTests
         table.Columns.Add("revokedat", typeof(DateTime));
         table.Columns.Add("idleexpiresat", typeof(DateTime));
         table.Columns.Add("absoluteexpiresat", typeof(DateTime));
+        table.Columns.Add("revokereason", typeof(string));
         table.Columns.Add("row_version", typeof(string));
         table.Rows.Add(
             sessionId,
@@ -1765,6 +1778,7 @@ public class UserServiceValidationTests
             revokedAt,
             revokedAt.AddHours(1),
             revokedAt.AddDays(1),
+            revokeReason,
             rowVersion);
         return table.CreateDataReader();
     }

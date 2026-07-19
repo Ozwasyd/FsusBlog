@@ -120,6 +120,7 @@ public sealed class UserSessionMappedBoundaryTests(
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["Jwt:SecretKey"] = "issue-1052-mapped-boundary-signing-key-at-least-32-bytes",
+            ["Jwt:KeyVersion"] = "test-v1",
             ["Jwt:Issuer"] = "issue-1052-mapped-boundary-tests",
             ["Jwt:Audience"] = "issue-1052-mapped-boundary-tests",
             ["Jwt:AccessTokenExpiresMinutes"] = "15",
@@ -218,7 +219,7 @@ public sealed class UserSessionMappedBoundaryTests(
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         request.Headers.Add(
             "Cookie",
-            $"AccessToken={accessToken}; RefreshToken=refresh-token; SessionId={sessionId}");
+            $"__Host-AccessToken={accessToken}; __Host-RefreshToken=refresh-token; __Host-SessionId={sessionId}");
         return request;
     }
 

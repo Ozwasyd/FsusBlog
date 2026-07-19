@@ -10,6 +10,7 @@ using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Privacy;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Modules.Endpoints;
+using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Services.Security;
 
@@ -62,7 +63,7 @@ public sealed class ProductionStartupValidationReport(
 
 public static class ProductionStartupValidator
 {
-    private const int SchemaVersion = 19;
+    private const int SchemaVersion = 20;
     private const int PerceptionSealedTokenKeyByteCount = 32;
     private static readonly TimeSpan s_coreValidationCacheTtl = TimeSpan.FromSeconds(15);
     private static readonly object s_coreValidationCacheLock = new();
@@ -161,6 +162,7 @@ public static class ProductionStartupValidator
         new("Fido2:Origins", ReadOriginList),
         Value("Security:Pow:SigningKey"),
         Value("Security:CaptchaV1:SigningKey"),
+        Value(UserSessionPolicy.MaxActiveSessionsConfigurationKey),
         Value($"{PerceptionSealedTokenOptions.SectionName}:CurrentKeyVersion"),
         Value(SecurityRiskPseudonymizer.CurrentEpochKey),
         Value(SecurityRiskPseudonymizer.CurrentKeyKey),
@@ -383,6 +385,7 @@ public static class ProductionStartupValidator
         ValidateSeoBaseUrl(seoBaseUrl, enforceProductionRules, errors);
         ValidateFido2Settings(fido2ServerDomain, fido2Origins, seoBaseUrl, corsOrigins, enforceProductionRules, errors);
         ValidateAuthCookieSettings(configuration, enforceProductionRules, errors);
+        ValidateUserSessionSettings(configuration, errors);
         errors.AddRange(DataProtectionKeyProtection.ValidateConfiguration(configuration, enforceProductionRules));
         ValidateAnonymousIdentityMode(anonymousIdentityMode, enforceProductionRules, errors);
         ValidatePerceptionSealedTokenSettings(configuration, enforceProductionRules, errors);
@@ -412,6 +415,19 @@ public static class ProductionStartupValidator
         foreach (string error in ReleaseIdentityProvider.Validate(snapshot, enforceProductionRules))
         {
             errors.Add($"Release identity invalid: {error}.");
+        }
+    }
+
+    private static void ValidateUserSessionSettings(IConfiguration configuration, List<string> errors)
+    {
+        int? configured = configuration.GetValue<int?>(UserSessionPolicy.MaxActiveSessionsConfigurationKey);
+        if (configured is null
+            || configured < UserSessionPolicy.MinimumMaxActiveSessions
+            || configured > UserSessionPolicy.MaximumMaxActiveSessions)
+        {
+            errors.Add(
+                $"{UserSessionPolicy.MaxActiveSessionsConfigurationKey} must be between "
+                + $"{UserSessionPolicy.MinimumMaxActiveSessions} and {UserSessionPolicy.MaximumMaxActiveSessions}.");
         }
     }
 

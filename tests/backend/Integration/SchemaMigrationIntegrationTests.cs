@@ -1522,14 +1522,15 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
     }
 
     [Fact]
-    public async Task RunAsync_UserSessionActiveUniqueIndexBlocksTwoActiveSessions()
+    public async Task RunAsync_UserSessionMultiDeviceMigrationAllowsTwoActiveSessions()
     {
         string databaseName = await fixture.CreateDatabaseAsync();
         string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
 
         await RunMigrationsAsync(connectionString);
 
-        Assert.True(await fixture.IndexExistsAsync(connectionString, "ux_user_session_one_active_per_user"));
+        Assert.False(await fixture.IndexExistsAsync(connectionString, "ux_user_session_one_active_per_user"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_user_session_active_recency"));
 
         await fixture.ExecuteAsync(connectionString, """
             INSERT INTO sys_user_session(
@@ -1552,8 +1553,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             );
             """);
 
-        PostgresException duplicate = await Assert.ThrowsAsync<PostgresException>(async () =>
-            await fixture.ExecuteAsync(connectionString, """
+        await fixture.ExecuteAsync(connectionString, """
                 INSERT INTO sys_user_session(
                     sessionid,
                     userid,
@@ -1572,9 +1572,12 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
                     TIMESTAMP '2026-07-25 00:01:00',
                     false
                 );
-                """));
+                """);
 
-        Assert.Equal(PostgresErrorCodes.UniqueViolation, duplicate.SqlState);
+        int activeSessionCount = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(*) FROM sys_user_session WHERE userid = 42 AND revokedat IS NULL;");
+        Assert.Equal(2, activeSessionCount);
     }
 
     [Fact]

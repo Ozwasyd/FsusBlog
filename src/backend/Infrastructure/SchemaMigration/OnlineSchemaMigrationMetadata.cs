@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using System.Text.RegularExpressions;
 
+using FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
+
 namespace FsusBlog.Server.Infrastructure.SchemaMigration;
 
 public enum OnlineSchemaMigrationPhase
@@ -431,6 +433,29 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 [
                     "descriptor_policy",
                     "n_minus_one_read_write"
+                ]));
+
+        result.Add(
+            UserSessionMultiDeviceMigrationDefinitions.MigrationId,
+            new OnlineSchemaMigrationMetadata(
+                UserSessionMultiDeviceMigrationDefinitions.MigrationId,
+                OnlineSchemaMigrationPhase.Contract,
+                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                RequiresExclusiveMode: false,
+                Destructive: true,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.BackupRestore,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Medium,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtRelease: "20260719-user-session-multi-device",
+                ContractAfterRelease: "20260719-user-session-multi-device-expand",
+                MinimumRetentionWindow: TimeSpan.FromDays(DestructiveMigrationProofs.MinimumRollbackWindowDays),
+                Validators:
+                [
+                    "destructive_rollback_window_proof",
+                    "n_minus_one_read_write",
+                    "fresh_backup_restore",
+                    "multi_device_session_limit"
                 ]));
 
         return new ReadOnlyDictionary<string, OnlineSchemaMigrationMetadata>(result);

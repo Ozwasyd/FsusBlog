@@ -241,9 +241,9 @@ public static class FsusObservability
     private static readonly Counter<long> s_notificationStreamAdmissionAccountStateCache = s_meter.CreateCounter<long>("fsus.notification_stream.admission.account_state_cache");
     private static readonly Counter<long> s_notificationStreamAdmissionDbReadCount = s_meter.CreateCounter<long>("fsus.notification_stream.admission.db_read_count");
     private static readonly Counter<long> s_notificationStreamAdmissionRejectedCount = s_meter.CreateCounter<long>("fsus.notification_stream.admission.rejected_reason_count");
-    private static readonly Counter<long> s_loginReplacedSessionCount = s_meter.CreateCounter<long>("fsus.auth.login.replaced_session_count");
+    private static readonly Counter<long> s_loginExpiredSessionCount = s_meter.CreateCounter<long>("fsus.auth.login.expired_session_count");
+    private static readonly Counter<long> s_loginLimitEvictedSessionCount = s_meter.CreateCounter<long>("fsus.auth.login.limit_evicted_session_count");
     private static readonly Histogram<double> s_loginTransactionElapsed = s_meter.CreateHistogram<double>("fsus.auth.login.transaction_elapsed_ms", "ms");
-    private static readonly Counter<long> s_loginSessionRevokeCommandCount = s_meter.CreateCounter<long>("fsus.auth.login.session_revoke_command_count");
     private static readonly Counter<long> s_authRefreshSuccessDbCommandCount = s_meter.CreateCounter<long>("fsus.auth.refresh.success_db_command_count");
     private static readonly Histogram<double> s_authRefreshSuccessElapsed = s_meter.CreateHistogram<double>("fsus.auth.refresh.success_elapsed_ms", "ms");
     private static readonly Counter<long> s_authRefreshReplayDetectedCount = s_meter.CreateCounter<long>("fsus.auth.refresh.replay_detected_count");
@@ -1266,13 +1266,13 @@ public static class FsusObservability
         });
     }
 
-    public static void RecordLoginSessionReplacement(long replacedSessionCount, long sessionRevokeCommandCount, TimeSpan transactionElapsed)
+    public static void RecordLoginSessionAdmission(long expiredSessionCount, long limitEvictedSessionCount, TimeSpan transactionElapsed)
     {
         TryRecord(() =>
         {
-            TagList tags = CreateBaseTags("auth-login", "session-replacement", "ok");
-            s_loginReplacedSessionCount.Add(Math.Max(0, replacedSessionCount), tags);
-            s_loginSessionRevokeCommandCount.Add(Math.Max(0, sessionRevokeCommandCount), tags);
+            TagList tags = CreateBaseTags("auth-login", "session-admission", "ok");
+            s_loginExpiredSessionCount.Add(Math.Max(0, expiredSessionCount), tags);
+            s_loginLimitEvictedSessionCount.Add(Math.Max(0, limitEvictedSessionCount), tags);
             s_loginTransactionElapsed.Record(transactionElapsed.TotalMilliseconds, tags);
         });
     }

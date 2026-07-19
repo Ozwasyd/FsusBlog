@@ -23,6 +23,7 @@ internal static class SchemaMigrationCatalog20260719
             [
                 ArticlePublicationMigrationDefinitions.BuildArticlePublicationCoordinatesMigration(),
                 ArticlePublicationMigrationDefinitions.BuildArticlePublicationConsistencyViewMigration(),
-                CommentModerationEventMigrationDefinitions.BuildCommentModerationEventMigration()
+                CommentModerationEventMigrationDefinitions.BuildCommentModerationEventMigration(),
+                UserSessionMultiDeviceMigrationDefinitions.BuildUserSessionMultiDeviceMigration()
             ]);
 }

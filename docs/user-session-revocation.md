@@ -8,6 +8,7 @@
 2. 普通账号 principal 必须同时满足：`identity_kind=anonymous_account`、有效 account id、有效 `sid`、会话未撤销、idle/absolute 未过期、账号未注销、session owner 与 token account id 一致。
 3. admin principal 使用独立的 `admin_session` 与 `IAdminSessionValidationService`，普通会话校验不得读取或清理 admin session/Cookie。
 4. 公开匿名请求没有已认证普通 principal，不执行普通 session cache 或 PostgreSQL 查询。
+5. 账户与会话是 `Account 1 ── N UserSession`；正常登录不得以 `login_replaced` 撤销其他合法设备，active 数量由账号级 admission lock 和可配置上限约束。
 
 ## 请求路径
 
@@ -34,12 +35,17 @@
 | logout / refresh token revoke | `logout` | 无 |
 | 单会话撤销 | 调用方规范化 reason | 其他 session |
 | 撤销其他会话 | `revoke_others` | 当前 `sid` |
-| 新登录替换 | `login_replaced` | 新创建 session |
+| 登录清理过期项 | `session_expired` | 未过期 session 与新创建 session |
+| 登录上限淘汰 | `active_session_limit` | 最近使用的 `MaxActiveSessions - 1` 个旧 session 与新创建 session |
 | refresh token replay | `refresh_token_reuse` | 无 |
 | Recovery Key verify | `recovery_key_verified` | 由请求撤销选项决定 |
 | 账号注销 | `account_deleted` | 无 |
 
 撤销发布使用 overwrite；cache-miss active 回填不允许 overwrite。典型竞态是：请求 A 从数据库读到 active row version 7，撤销请求 B 在事务中把行更新为 version 8 并发布 revoked snapshot，随后 A 尝试写 version 7。版本 Lua 必须拒绝 A，A 再读取 version 8 并返回 `user_session_revoked`，因此旧 active 状态不能复活。
+
+login、revoke-others、账户注销和账户级 revoke-all 使用同一个 PostgreSQL transaction-scoped advisory lock。revoke-others 只处理该操作开始时已经存在的会话，避免等待锁期间刚创建且已成功签发的 session 被并发操作误撤销。登录 admission 在插入新行之前清理过期项并按 `COALESCE(lastseenat, createdat)` 淘汰最久未使用项，因此新 session 永远不进入本轮候选集；同一账号并发登录被锁串行化，最终 active 数不超过配置上限。
+
+targeted revoke 的 notification 继续使用不含 session identity 的账号级 `SessionRevoked` payload。每个收到事件的 tab 强制回查 `/api/binary/auth/me`：自身 `sid` 失效才进入 `user-expired` 清理和跨 tab 广播；回查仍有效的设备保持会话与私有页面，网络未知结果不把 authenticated 状态误判为 guest。
 
 Redis 发布失败会让事务回调失败并回滚数据库更新，调用方不得把该操作报告为成功。批量并行发布可能出现部分 key 已成功、另一个 key 失败，因此只要开始发布且事务最终失败，就对整批 session identity 执行 `InvalidateManyAsync`。数据库 commit 在 Redis 发布之后失败时也执行相同补偿。删除补偿失败时保留 revoked snapshot：这可能暂时拒绝一个数据库已回滚为 active 的 session，但不会让已撤销 session 获得授权，下一次 key 清理、TTL 到期或 DB-only 切换会恢复数据库真相。不得用进程内 fence 代替该跨实例顺序。
 
@@ -63,6 +69,8 @@ Security:UserSessionValidation:DistributedCacheEnabled=false
 
 现有服务实例会在下一次调用读取新值并进入 DB-only 安全模式：跳过 session Redis 读写与 pre-commit Redis publish，每个已签名普通 token 仍按 session 主键查询 PostgreSQL，数据库 commit 成为撤销可见边界，所以撤销语义保持不变。补偿清理不受该 toggle 限制，仍可删除切换前可能提前发布的 key。该模式只用于短期诊断/回退，因为会增加受保护请求数据库负载；恢复 `true` 后由当前数据库状态重新回填。不要用关闭 session 校验、延长 JWT 或 fail-open 代替该回退。环境变量 provider 不支持运行时 reload 时，需要常规滚动发布，不能宣称无重启切换。
 
+若需要无需重启地回退多设备 admission 行为，可将 `Security:UserSessions:MaxActiveSessions` 热更新为 `1`。后续登录会在同一锁内淘汰现有其他 active session，恢复单会话效果；该操作不恢复已移除的 unique index，也不改变主动单条/其他/全部撤销和 refresh-family 语义。恢复更高上限后只影响后续 admission，不会自动创建或复活历史 session。
+
 ## 风险与控制
 
 - Redis 故障会拒绝普通账号认证：这是有意的 fail-closed 选择；使用上面的 DB-only 模式可保持安全语义并临时移除 Redis 依赖。
@@ -77,6 +85,12 @@ Security:UserSessionValidation:DistributedCacheEnabled=false
 | 场景 | 预期 | 覆盖位置 |
 | --- | --- | --- |
 | 匿名请求 | 不读 session cache/DB | `UserSessionRevocationIntegrationTests.UnauthenticatedPrincipal_DoesNotReadSessionCacheOrDatabase` |
+| 两设备登录 | 两个成功响应的 `sid` 均对应 active row | `UserSessionLoginConcurrencyTests.CompleteLoginAsync_TwoDeviceLoginsRemainActive` 与 `CompleteLoginAsync_ConcurrentDevicesUnderLimitReturnActiveSessions` |
+| 同设备双击登录 | 设备指纹不作为授权键，两个成功响应获得独立 active `sid` | `UserSessionLoginConcurrencyTests.CompleteLoginAsync_ConcurrentSameDeviceCreatesIndependentSessions` |
+| 上限淘汰 | 只淘汰最久未使用旧会话，新 session 保持 active | `UserSessionLoginConcurrencyTests.CompleteLoginAsync_ActiveSessionLimitEvictsLeastRecentlyUsedSession` |
+| 并发上限 | 三个并发 admission 在上限 2 时最终只有两个 active row | `UserSessionLoginConcurrencyTests.CompleteLoginAsync_ConcurrentAdmissionsNeverExceedActiveSessionLimit` |
+| 登录与 revoke-others | 操作开始后新创建 session 不被误撤销 | `UserSessionLoginConcurrencyTests.CompleteLoginAsync_ConcurrentRevokeOthersDoesNotRevokeNewSession` |
+| 登录与账户注销 | 注销完成后账户无 active session | `UserSessionLoginConcurrencyTests.CompleteLoginAsync_ConcurrentAccountDeletionLeavesNoActiveSession` |
 | 登录普通账号 | active snapshot 允许，cache hit 不读 DB | `UserSessionValidationServiceTests.CachedActiveSession_AllowsRequestWithoutDatabaseRead` |
 | 单会话撤销 | warmed old principal 下一请求被拒绝 | `UserSessionRevocationIntegrationTests.RevokeSession_RejectsPreviouslyIssuedPrincipalAfterCacheWasWarm` |
 | 撤销其他会话 | 其他 session 被拒绝，当前 session 保持 active | `UserSessionRevocationIntegrationTests.RevokeOtherSessions_InvalidatesOthersAndKeepsCurrentSessionValid` |
@@ -88,8 +102,8 @@ Security:UserSessionValidation:DistributedCacheEnabled=false
 | 无重启回退 | 动态配置关闭 Redis 后跳过 Redis 读写但保留 DB 校验 | `UserSessionValidationServiceTests.DistributedCacheToggle_CanEnterDbOnlyModeWithoutRestartOrRedisWrites` |
 | 发布失败 | Redis 发布异常导致数据库回滚，并清理可能部分发布的 key | `UserServiceValidationTests.RevokeSessionAsync_PublicationFailureRollsBackAndInvalidatesPossiblePartialSnapshot` 与 `RecoveryKeyServiceBehaviorTests.VerifyAsync_RevocationPublicationFailureRollsBackDatabaseAndCleansPossiblePartialFence` |
 | commit 失败 | 已发布的 pre-commit fence 被批量清理；清理失败仍保持安全方向拒绝 | `UserServiceValidationTests.CompleteLoginAsync_CommitFailureInvalidatesPreCommitRevocationFence` |
-| 成功顺序 | logout、revoke-others、登录替换、删号与 Recovery Key 在 commit 前发布 | `UserServiceValidationTests.RevocationProducers_PublishDistributedFenceBeforeTransactionCommit`、`CompleteLoginAsync_UsesPostgresLockBulkRevocationAndInsertInOneTransaction`、`DeleteAccountAsync_ExecutesAnonymousTombstoneAndAssetRevocationInsideTransaction` 与 `RecoveryKeyServiceBehaviorTests.VerifyAsync_WithOnlyRecoveryKey_CreatesPendingSessionWithoutPrematurePasskeyRevocation` |
+| 成功顺序 | logout、revoke-others、登录 admission 淘汰、删号与 Recovery Key 在 commit 前发布 | `UserServiceValidationTests.RevocationProducers_PublishDistributedFenceBeforeTransactionCommit`、`CompleteLoginAsync_UsesPostgresLockBoundedAdmissionAndInsertInOneTransaction`、`DeleteAccountAsync_ExecutesAnonymousTombstoneAndAssetRevocationInsideTransaction` 与 `RecoveryKeyServiceBehaviorTests.VerifyAsync_WithOnlyRecoveryKey_CreatesPendingSessionWithoutPrematurePasskeyRevocation` |
 
-本轮没有改变 endpoint、AEDS frame、错误码或任何请求/响应字段，因此无需修改 API 字段契约；变化只发生在撤销事务的提交顺序和失败语义。notification-stream preflight 与受保护 binary sessions 现已有真实 mapped TestServer 测试代码，但尚未执行，不能把已落测试投影表述为已通过。
+本轮没有改变 endpoint、AEDS frame、错误码或任何请求/响应字段，因此无需修改 API 字段契约；变化只发生在会话 admission、撤销并发边界和客户端收到账号级撤销事件后的重校验语义。
 
 本轮只补测试代码时，不得把“存在测试代码”表述成“测试已通过”；通过状态必须以统一验证阶段的真实执行结果为准。

@@ -260,7 +260,7 @@ AntiCrawler 支持 `disabled | observe | enforce | strict`。`disabled` 只关�
 | 续签方式 | `POST /api/binary/auth/refresh-token`，基于 `UserSession.RefreshTokenHash` 的原子 CAS 轮换（旧 Token 立即失效） |
 | 签名算法 | HS256（密钥来自环境变量，生产启动时强制校验非占位值） |
 
-Refresh Token 只以哈希形式保存在 `sys_user_session`；`sys_user` 不再保存明文 Refresh Token 或全局刷新过期时间。普通登录在同一事务内获取账号级 PostgreSQL advisory lock，使用单条 `UPDATE ... RETURNING sessionid` 将旧 active session 标记为 `login_replaced` 后插入新 session，避免按旧 session 数逐条更新。刷新请求必须同时匹配当前 session id、旧 refresh hash、未撤销状态、idle/absolute 过期窗口；成功轮换时直接返回本次计算出的 `IdleExpiresAt` 作为 Cookie expiry。HTTP 交付边界会用新 refresh hash + session id 在 Cookie 追加前和追加后各回查一次 active session；任一回查缺失、重复或异常时只清普通账号 Cookie、返回 401，并递增 `fsus.auth.refresh.cookie_write_failed_count`，不会把未确认的 token 交给客户端。CAS 失败或旧 Token 重用仍会撤销对应同设备会话族并清理客户端 Cookie。
+Refresh Token 只以哈希形式保存在 `sys_user_session`；`sys_user` 不再保存明文 Refresh Token 或全局刷新过期时间。普通登录在同一事务内获取账号级 PostgreSQL advisory lock，先清理 idle/absolute 已过期会话，再按最近使用顺序将 active 会话收敛到 `Security:UserSessions:MaxActiveSessions - 1`，最后插入新 session；正常登录不再使用 `login_replaced` 撤销其他合法设备。默认上限为 10，可配置范围为 1-50；上限淘汰原因固定为 `active_session_limit`。刷新请求必须同时匹配当前 session id、旧 refresh hash、未撤销状态、idle/absolute 过期窗口；成功轮换时直接返回本次计算出的 `IdleExpiresAt` 作为 Cookie expiry。HTTP 交付边界会用新 refresh hash + session id 在 Cookie 追加前和追加后各回查一次 active session；任一回查缺失、重复或异常时只清普通账号 Cookie、返回 401，并递增 `fsus.auth.refresh.cookie_write_failed_count`，不会把未确认的 token 交给客户端。CAS 失败或旧 Token 重用仍会撤销对应同设备会话族并清理客户端 Cookie。
 
 PostgreSQL commit 与 HTTP `Set-Cookie` 无法组成分布式原子事务。双读能阻止已经失配的 rotation 被发送，但不能宣称消除“最终回查通过后、响应头到达浏览器前进程退出”的物理窗口；进程直接退出时本实例也可能来不及记录 cookie-write-failed 指标。客户端只对明确的 network transport failure 重试一次，401/协议错误不重试；若旧 token 已被 CAS 替换，服务端 replay-family guard 仍 fail closed，用户可能需要重新认证。不得为提高连续性重新接受旧 refresh hash 或禁用 family revoke。
 
@@ -399,9 +399,9 @@ blind endpoint 只接受 `identity_kind=anonymous_account`；AdminPrincipal、�
 
 ## 会话管理
 
-- 每次登录创建会话记录（设备、IP、时间），存储于 PostgreSQL + Redis；普通账号只允许一个 active `UserSession`，新登录必须在同一数据库事务内撤销旧 active session 后插入新 session。
+- 每次登录创建独立会话记录（设备、IP、时间），存储于 PostgreSQL + Redis；一个普通账号允许多个 active `UserSession`。`Security:UserSessions:MaxActiveSessions` 默认 10、范围 1-50，登录 admission 在账号级事务锁内清理过期项并优先淘汰最久未使用的旧会话，新创建会话不参与本轮淘汰。
 - 匿名账号 bootstrap 与 Passkey login complete 复用同一会话创建逻辑（`CompleteLoginAsync`），bootstrap 默认创建非 remember-me 标准会话，Passkey 登录按客户端 rememberMe 请求创建。
-- `CompleteLoginAsync` 是 access token、refresh token 与 `UserSession` 记录的最终签发边界；该边界使用 PostgreSQL transaction-scoped advisory lock、`xmin` row-version 谓词和 `sys_user_session(userid) WHERE revokedat IS NULL` partial unique index 保证同一账号最后一次登录才保持 active。MFA、Passkey 或匿名 bootstrap 已完成验证后，`User.Status == Banned` 会签发受限会话并写入 session，用于展示账号状态、登出、撤销会话、删除本人账号等安全收尾操作。`Deleted` / `DeletedAt` 仍必须返回注销失败且不得生成 token。
+- `CompleteLoginAsync` 是 access token、refresh token 与 `UserSession` 记录的最终签发边界；该边界使用 PostgreSQL transaction-scoped advisory lock 串行化 login、revoke-others、账户注销和上限淘汰，并在 insert 前重新确认账户未注销。`sys_user_session` 不再保留“每账号一个 active session”的 partial unique index，而使用 active recency partial index 支持有界淘汰。MFA、Passkey 或匿名 bootstrap 已完成验证后，`User.Status == Banned` 会签发受限会话并写入 session，用于展示账号状态、登出、撤销会话、删除本人账号等安全收尾操作。`Deleted` / `DeletedAt` 仍必须返回注销失败且不得生成 token。
 - 登录、匿名 bootstrap、MFA login finalize、Passkey login complete 和 refresh 响应写 Cookie 时，`AuthCookieService.SetTokenCookies` 只接受上游显式传入的 `SessionId`；服务端不会为了写 `SessionId` Cookie 再调用 `JwtSecurityTokenHandler.ReadJwtToken` 解析刚签发的 access token。上游未提供 session id 时只写 access/refresh Cookie，不写 session Cookie，等同于旧解析失败 fallback。
 - Refresh rotation 的 Cookie 交付必须保持 `CAS commit -> current hash/session verify -> append ordinary user cookies -> current hash/session verify -> binary success frame`。verify 或 append 失败会在响应尚未开始时追加删除普通账号 Cookie，并返回 AEDS `ApiError`/401；不得清除独立 admin cookies，也不得降级为在响应 body 返回 token。
 - JWT bearer 入口只在 `OnMessageReceived` 读取一次 `AuthCookieService`，并把 admin cookie path 决策缓存到 `HttpContext.Items["Fsus.AdminCookiePathDecision"]`。命中 admin access cookie 时，raw token 写入 `HttpContext.Items["Fsus.AdminAccessToken"]`，`OnTokenValidated` 在 `SecurityToken.RawData` 不可用时复用该值，不再次读取 admin cookie；cookie 命名和 host-prefixed cookie 选择保持不变。legacy plain cookie fallback 已移除：生产只读取 `__Host-*` Cookie，开发环境只有显式启用 `AuthCookies:AllowInsecureTransportCookies` 时才读取当前非 host-prefixed cookie 名称。
@@ -410,6 +410,8 @@ blind endpoint 只接受 `identity_kind=anonymous_account`；AdminPrincipal、�
 - `GET /api/binary/auth/sessions`：列出当前活跃会话
 - `POST /api/binary/auth/sessions/{id}/revoke`：主动吊销单个会话
 - `POST /api/binary/auth/sessions/revoke-others`：仅保留当前会话，吊销全部其他
+- 单条撤销、revoke-others、账户级安全撤销与上限淘汰会发布不含 session id 的 `SessionRevoked` 事件。事件按账号广播，各 tab 必须强制回查 `/auth/me`；只有自身 session 已失效的 tab 才清理本地状态，未被撤销的设备保持登录。
+- 无需重启的行为回退：通过支持 reload 的配置源把 `Security:UserSessions:MaxActiveSessions` 调为 `1`，下一次登录即恢复单 active session 行为；环境变量 provider 不支持 reload 时仍需滚动发布。该回退不恢复旧 unique index，也不关闭服务端 `sid` 校验。
 - 登出（`/logout`）：立即吊销当前 Refresh Token，清除 Cookie
 
 ---

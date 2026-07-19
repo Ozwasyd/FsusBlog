@@ -141,7 +141,17 @@ export function installAuthBroadcastComposition(pinia: Pinia): void {
 
   userStore.setLogoutBroadcast(() => authBroadcastRuntime.broadcastLogout())
   adminStore.setLogoutBroadcast(() => authBroadcastRuntime.broadcastAdminLogout())
-  notificationStore.setSessionRevokedHandler(() => authBroadcastRuntime.expireUserSession())
+  notificationStore.setSessionRevokedHandler(() => {
+    // SessionRevoked is account-scoped so the payload never carries a session
+    // identifier. Revalidate this tab against the server before expiring it:
+    // targeted revoke and active-session-limit events must leave unaffected
+    // devices signed in, while the revoked device still clears immediately.
+    void userStore.fetchUserInfo(true).then(() => {
+      if (!userStore.isLoggedIn) {
+        authBroadcastRuntime.expireUserSession()
+      }
+    })
+  })
 }
 
 export function disposeAuthBroadcastComposition(): void {

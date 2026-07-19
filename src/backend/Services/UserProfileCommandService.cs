@@ -112,6 +112,7 @@ public sealed class UserProfileCommandService(
         bool publicationAttempted = false;
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
+            await UserSessionConcurrencyGate.AcquireAsync(db, userId);
             using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
                 """
                 UPDATE sys_user_session

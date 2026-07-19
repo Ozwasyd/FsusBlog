@@ -380,6 +380,11 @@ describe('authBroadcastRuntime', () => {
     const appShellStore = useAppShellStore(pinia)
     const notificationStore = useNotificationStreamStore(pinia)
     userStore.markAuthenticated(anonymousUser(1) as never)
+    vi.mocked(getMe).mockRejectedValueOnce({
+      name: 'BinaryTransportError',
+      kind: 'auth_failed',
+      message: 'session revoked'
+    })
     adminStore.setAdminPrincipal({
       id: 'admin',
       displayName: 'Admin',
@@ -409,6 +414,34 @@ describe('authBroadcastRuntime', () => {
       at: expect.any(Number)
     })
     expect(notificationStreamRuntime.stop).toHaveBeenCalledWith(true)
+  })
+
+  it('session revocation event keeps an unaffected device after server revalidation', async () => {
+    const pinia = createRuntimePinia()
+    const userStore = useUserStore(pinia)
+    const notificationStore = useNotificationStreamStore(pinia)
+    const current = anonymousUser(7)
+    userStore.markAuthenticated(current as never)
+    vi.mocked(getMe).mockResolvedValueOnce(current as never)
+
+    notificationStore.consumeEvent({
+      id: 43,
+      type: NotificationStreamEventType.SessionRevoked,
+      ts: Date.now(),
+      payload: {
+        reason: 'active_session_limit',
+        revokedSessionCount: 1,
+        time: new Date().toISOString()
+      }
+    })
+
+    await vi.waitFor(() => expect(getMe).toHaveBeenCalledTimes(1))
+    expect(userStore.accountState).toBe('authenticated')
+    expect(userStore.userInfo?.accountId).toBe(7)
+    expect(MockBroadcastChannel.instances[0]?.messages).not.toContainEqual(
+      expect.objectContaining({ type: 'user-expired' })
+    )
+    expect(notificationStreamRuntime.stop).not.toHaveBeenCalled()
   })
 
   it('localStorage fallback dispatches and receives events', () => {

@@ -9,7 +9,10 @@ using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Services.NotificationStream;
 using FsusBlog.Server.Services.Security;
+using FsusBlog.Shared.Contracts.NotificationStream;
+using FsusBlog.Shared.Contracts.Outputs;
 
 using SqlSugar;
 
@@ -20,12 +23,13 @@ public sealed partial class UserLoginWorkflowService(
     ILogger<UserLoginWorkflowService> logger,
     IJwtHelper jwt,
     IUserSessionValidationCache sessionValidation,
-    IAuthRiskService authRisk) : IUserLoginWorkflowService
+    IAuthRiskService authRisk,
+    IConfiguration? configuration = null,
+    IMessageNotificationStreamPort? notificationStream = null) : IUserLoginWorkflowService
 {
     private const int UserStatusNormal = 0;
     private const int UserStatusBanned = 1;
     private const int UserStatusDeleted = 2;
-    private const int UserSessionLoginLockNamespace = 833064;
     private static readonly TimeSpan s_standardSessionIdleTtl = TimeSpan.FromDays(7);
     private static readonly TimeSpan s_rememberMeSessionIdleTtl = TimeSpan.FromDays(30);
     private static readonly TimeSpan s_standardSessionAbsoluteTtl = TimeSpan.FromDays(30);
@@ -106,9 +110,8 @@ public sealed partial class UserLoginWorkflowService(
         string refreshTokenHash = HashToken(refreshToken);
         string sessionId = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
         IssuedAccessToken accessToken = jwt.GenerateAccessToken(user, sessionId, mfaVerified);
-        DateTime now = DateTime.UtcNow;
-        DateTime idleExpiresAt = now.Add(ResolveIdleSessionTtl(rememberMe));
-        DateTime absoluteExpiresAt = now.Add(ResolveAbsoluteSessionTtl(rememberMe));
+        DateTime idleExpiresAt = DateTime.MinValue;
+        DateTime absoluteExpiresAt = DateTime.MinValue;
 
         var session = new UserSession
         {
@@ -118,8 +121,8 @@ public sealed partial class UserLoginWorkflowService(
             DeviceFingerprint = string.IsNullOrWhiteSpace(deviceFingerprint) ? null : deviceFingerprint,
             LastIp = clientIp,
             UserAgent = Truncate(userAgent, 512),
-            CreatedAt = now,
-            LastSeenAt = now,
+            CreatedAt = DateTime.UtcNow,
+            LastSeenAt = DateTime.UtcNow,
             IdleExpiresAt = idleExpiresAt,
             AbsoluteExpiresAt = absoluteExpiresAt,
             MfaVerified = mfaVerified,
@@ -127,33 +130,74 @@ public sealed partial class UserLoginWorkflowService(
         };
 
         long transactionStarted = Stopwatch.GetTimestamp();
-        int replacedSessionCount = 0;
-        List<UserSessionValidationCacheState> replacedSessions = [];
+        int expiredSessionCount = 0;
+        int limitEvictedSessionCount = 0;
+        List<UserSessionValidationCacheState> revokedSessions = [];
         bool publicationAttempted = false;
         var tran = await db.Ado.UseTranAsync(async () =>
         {
-            await AcquireUserSessionLoginLockAsync(user.Id);
+            await UserSessionConcurrencyGate.AcquireAsync(db, user.Id);
+            if (!await AccountCanAcceptSessionAsync(user.Id))
+            {
+                throw new UserSessionAdmissionRejectedException();
+            }
 
-            replacedSessionCount = await RevokeActiveUserSessionsForLoginAsync(user.Id, now, replacedSessions);
+            DateTime admittedAt = DateTime.UtcNow;
+            idleExpiresAt = admittedAt.Add(ResolveIdleSessionTtl(rememberMe));
+            absoluteExpiresAt = admittedAt.Add(ResolveAbsoluteSessionTtl(rememberMe));
+            session.CreatedAt = admittedAt;
+            session.LastSeenAt = admittedAt;
+            session.IdleExpiresAt = idleExpiresAt;
+            session.AbsoluteExpiresAt = absoluteExpiresAt;
+
+            (expiredSessionCount, limitEvictedSessionCount) = await RevokeSessionsForAdmissionAsync(
+                user.Id,
+                admittedAt,
+                Math.Max(0, UserSessionPolicy.ResolveMaxActiveSessions(configuration) - 1),
+                revokedSessions);
 
             await db.Insertable(session).ExecuteCommandAsync();
 
-            publicationAttempted = replacedSessions.Count > 0;
-            await sessionValidation.PublishManyAsync(replacedSessions, allowOverwrite: true);
+            publicationAttempted = revokedSessions.Count > 0;
+            await sessionValidation.PublishManyAsync(revokedSessions, allowOverwrite: true);
         });
-        FsusObservability.RecordLoginSessionReplacement(
-            replacedSessionCount,
-            sessionRevokeCommandCount: tran.IsSuccess ? 1 : 0,
+        FsusObservability.RecordLoginSessionAdmission(
+            expiredSessionCount,
+            limitEvictedSessionCount,
             Stopwatch.GetElapsedTime(transactionStarted));
         if (!tran.IsSuccess)
         {
             if (publicationAttempted)
             {
-                await BestEffortInvalidateRevocationSnapshotsAsync(replacedSessions);
+                await BestEffortInvalidateRevocationSnapshotsAsync(revokedSessions);
+            }
+
+            if (tran.ErrorException is UserSessionAdmissionRejectedException)
+            {
+                return (false, "账户已注销", null, null);
             }
 
             logger.LogError(tran.ErrorException, "User session login transaction failed for account {AccountId}", user.Id);
             return (false, "登录失败，请重试", null, null);
+        }
+
+        if (revokedSessions.Count > 0 && notificationStream is not null)
+        {
+            try
+            {
+                await notificationStream.PublishToUserAsync(
+                    NotificationStreamEventType.SessionRevoked,
+                    user.Id,
+                    new SessionRevokedPayload(
+                        limitEvictedSessionCount > 0 ? "active_session_limit" : "session_expired",
+                        revokedSessions.Count,
+                        DateTime.UtcNow),
+                    "user-session-admission-revoked");
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "User session admission notification failed for account {AccountId}", user.Id);
+            }
         }
 
         return (true, "登录成功", new SessionTokenResponseDto(
@@ -164,49 +208,94 @@ public sealed partial class UserLoginWorkflowService(
             idleExpiresAt), user);
     }
 
-    private async Task<int> RevokeActiveUserSessionsForLoginAsync(
+    private async Task<(int Expired, int LimitEvicted)> RevokeSessionsForAdmissionAsync(
         int userId,
         DateTime revokedAt,
+        int existingSessionLimit,
         List<UserSessionValidationCacheState> revokedSessions)
     {
-        int count = 0;
+        int expired = 0;
+        int limitEvicted = 0;
         using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             """
-            UPDATE sys_user_session
+            WITH ranked_sessions AS (
+                SELECT sessionid,
+                       (idleexpiresat <= @RevokedAt OR absoluteexpiresat <= @RevokedAt) AS is_expired,
+                       SUM(
+                           CASE
+                               WHEN idleexpiresat <= @RevokedAt OR absoluteexpiresat <= @RevokedAt THEN 0
+                               ELSE 1
+                           END
+                       ) OVER (
+                           ORDER BY COALESCE(lastseenat, createdat) DESC NULLS LAST,
+                                    createdat DESC,
+                                    sessionid DESC
+                       ) AS live_rank
+                FROM sys_user_session
+                WHERE userid = @UserId
+                  AND revokedat IS NULL
+            ),
+            revoke_candidates AS (
+                SELECT sessionid,
+                       CASE
+                           WHEN is_expired THEN 'session_expired'
+                           ELSE 'active_session_limit'
+                       END AS revoke_reason
+                FROM ranked_sessions
+                WHERE is_expired OR live_rank > @ExistingSessionLimit
+            )
+            UPDATE sys_user_session session
             SET revokedat = @RevokedAt,
-                revokereason = 'login_replaced'
-            WHERE userid = @UserId
-              AND revokedat IS NULL
-            RETURNING sessionid,
-                      userid,
-                      revokedat,
-                      idleexpiresat,
-                      absoluteexpiresat,
-                      xmin::text AS row_version;
+                revokereason = candidate.revoke_reason
+            FROM revoke_candidates candidate
+            WHERE session.sessionid = candidate.sessionid
+              AND session.revokedat IS NULL
+            RETURNING session.sessionid,
+                      session.userid,
+                      session.revokedat,
+                      session.idleexpiresat,
+                      session.absoluteexpiresat,
+                      session.revokereason,
+                      session.xmin::text AS row_version;
             """,
             new SugarParameter("@UserId", userId),
-            new SugarParameter("@RevokedAt", revokedAt));
+            new SugarParameter("@RevokedAt", revokedAt),
+            new SugarParameter("@ExistingSessionLimit", existingSessionLimit));
 
         while (await reader.ReadAsync())
         {
             revokedSessions.Add(ReadRevokedSessionValidationState(reader));
-            count++;
+            if (string.Equals(reader.ReadString("revokereason"), "session_expired", StringComparison.Ordinal))
+            {
+                expired++;
+            }
+            else
+            {
+                limitEvicted++;
+            }
         }
 
-        return count;
+        return (expired, limitEvicted);
     }
 
-    private async Task AcquireUserSessionLoginLockAsync(int userId)
+    private async Task<bool> AccountCanAcceptSessionAsync(int userId)
     {
         if (db.CurrentConnectionConfig?.DbType != SqlSugar.DbType.PostgreSQL)
         {
-            return;
+            return true;
         }
 
-        await db.Ado.ExecuteCommandAsync(
-            "SELECT pg_advisory_xact_lock(@LockNamespace, @UserId);",
-            new SugarParameter("@LockNamespace", UserSessionLoginLockNamespace),
-            new SugarParameter("@UserId", userId));
+        return await db.Ado.GetIntAsync(
+            """
+            SELECT CASE WHEN EXISTS (
+                SELECT 1
+                FROM sys_user
+                WHERE id = @UserId
+                  AND status <> 2
+                  AND deleted_at IS NULL
+            ) THEN 1 ELSE 0 END;
+            """,
+            new SugarParameter[] { new("@UserId", userId) }) == 1;
     }
 
     private static UserSessionValidationCacheState ReadRevokedSessionValidationState(DbDataReader reader)
@@ -264,4 +353,6 @@ public sealed partial class UserLoginWorkflowService(
 
     [LoggerMessage(EventId = 3, Level = LogLevel.Information, Message = "受限账号登录 | AccountSubject: {AccountSubject} | 状态: 只读模式")]
     private partial void LogBannedAccountLogin(string accountSubject);
+
+    private sealed class UserSessionAdmissionRejectedException : InvalidOperationException;
 }
