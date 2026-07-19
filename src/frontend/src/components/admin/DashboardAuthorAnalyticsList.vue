@@ -75,7 +75,7 @@ defineProps<{
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
-  min-height: 36px;
+  min-height: 40px;
   border-bottom: 1px solid var(--fsusblog-panel-border);
 }
 

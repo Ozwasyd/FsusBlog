@@ -744,8 +744,8 @@ onMounted(() => {
 }
 
 .audit-compact-row__action {
-  min-width: 36px;
-  min-height: 36px;
+  min-width: 40px;
+  min-height: 40px;
   padding-inline: 6px;
 }
 

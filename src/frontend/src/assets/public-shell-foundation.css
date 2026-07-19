@@ -342,7 +342,7 @@ html[data-theme-resolved='dark'] body {
 #fsus-aot-shell .el-theme-mode-toggle__menu-item {
   display: block;
   width: 100%;
-  min-height: 36px;
+  min-height: 40px;
   border: 0;
   border-radius: 6px;
   padding: 8px 10px;
@@ -529,7 +529,7 @@ html[data-theme-resolved='dark'] body {
   #fsus-aot-shell .el-public-shell__mobile-nav-menu-trigger,
   #fsus-aot-shell .el-theme-mode-toggle__menu-button,
   #fsus-aot-shell .el-public-shell__auth-link--desktop {
-    min-height: 36px;
+    min-height: 40px;
   }
 }
 

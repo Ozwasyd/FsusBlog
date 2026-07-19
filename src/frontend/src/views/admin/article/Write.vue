@@ -1012,8 +1012,8 @@ const submitQuickCreateTag = async (): Promise<void> => {
 }
 
 .write-command-back {
-  min-width: 36px;
-  min-height: 36px;
+  min-width: 40px;
+  min-height: 40px;
   align-self: flex-start;
   padding: 0 0.5rem;
   color: var(--fsusblog-text-muted);
@@ -1167,7 +1167,7 @@ const submitQuickCreateTag = async (): Promise<void> => {
 
 .write-title-input :deep(.el-input__inner) {
   height: auto;
-  min-height: 2.25rem;
+  min-height: 2.5rem;
   color: var(--fsusblog-text-primary);
   font-size: clamp(2.25rem, 5vw, 4rem);
   font-weight: 700;

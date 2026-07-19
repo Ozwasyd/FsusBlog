@@ -100,11 +100,15 @@ Markdown 代码块与管理面审计详情统一使用 `'JetBrains Mono', ui-mon
 - 新 glass surface 必须在本文档白名单中登记。
 - 新 public motion 必须说明状态语义，并通过 static governance 检查。
 
+### 触控目标档位
+
+触控目标档位按表面语义收口：public header、主题菜单与公开壳层紧凑操作不得低于 40px；identity 用户操作使用 44px 档；admin 紧凑操作不得低于 40px。移动横屏与窄高视口只能减少外部间距，不能把命中区域降回 36px / `2.25rem`。`check:visual-density-governance` 必须扫描 `src/frontend/src` 并阻止这两个旧 `min-height` 孤值回流。
+
 ### Header 与 sticky 几何契约
 
-公开壳层以应用自有的 `[data-public-shell-header]` 为唯一测量锚点。`usePublicStickyGeometry` 将实际 header 高度发布为 `--fsusblog-public-header-height`，并由此派生 sticky top 与 anchor scroll margin；viewport resize 必须重新测量，组件卸载必须断开 observer 与 listener。Archive 年份标题和 hash target 只能消费这些 token，不得复制固定像素偏移，也不得依赖 FsusUI 内部 class selector。
+公开壳层以应用自有的 `[data-public-shell-header]` 为唯一测量锚点。`usePublicStickyGeometry` 将实际 header 高度发布为 `--fsusblog-public-header-height-current`，并由此派生 sticky top 与 anchor scroll margin；viewport resize、横屏断点或控件触控高度变化必须重新测量，组件卸载必须断开 observer 与 listener。Archive 年份标题和 hash target 只能消费这些 token，不得复制固定像素偏移，也不得依赖 FsusUI 内部 class selector。
 
-SSR/AOT 无 JavaScript 首帧保留静态 token fallback，hydration 后再以实际测量值覆盖。排版调整不能改变这一所有权：标题、摘要和 metadata 可按公开排版角色变化，但 header selector、sticky token 和锚点间距仍由同一几何链路管理。实现与验收映射见 `docs/issue-1016-public-shell-sticky-geometry-handoff.md` 和 `docs/issue-1017-archive-sticky-offset-handoff.md`。
+SSR/AOT 无 JavaScript 首帧保留静态 token fallback，hydration 后再以实际测量值覆盖。排版或触控面积调整不能改变这一所有权：标题、摘要和 metadata 可按公开排版角色变化，但 header selector、sticky token 和锚点间距仍由同一几何链路管理。实现与验收映射见 `docs/issue-1016-public-shell-sticky-geometry-handoff.md`、`docs/issue-1017-archive-sticky-offset-handoff.md` 和 `docs/issue-1285-touch-target-floor.md`。
 
 ## 11. 首页单一编辑主线 recipe
 

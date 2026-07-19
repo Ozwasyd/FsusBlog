@@ -100,7 +100,7 @@ defineEmits<{
 <style scoped>
 .user-comment-delete-button {
   min-width: 2.75rem;
-  min-height: 2.25rem;
+  min-height: 2.75rem;
   padding-inline: 0.5rem;
 }
 </style>

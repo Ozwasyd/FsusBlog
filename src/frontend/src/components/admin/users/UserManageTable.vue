@@ -316,7 +316,7 @@ const emit = defineEmits<{
 }
 
 :deep(.user-table-action-button) {
-  min-height: 2.25rem;
+  min-height: 2.5rem;
   padding-inline: 0.5rem;
 }
 </style>

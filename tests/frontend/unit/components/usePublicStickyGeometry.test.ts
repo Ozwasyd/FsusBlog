@@ -108,11 +108,13 @@ describe('usePublicStickyGeometry', () => {
     const resizeRegistration = addEventListener.mock.calls.find(([type]) => type === 'resize')
     expect(resizeRegistration).toBeDefined()
 
-    header?.setAttribute('data-test-height', '92')
+    // The 40px landscape touch floor can reflow the header; publish the rendered
+    // height instead of copying the four-pixel control delta into sticky offsets.
+    header?.setAttribute('data-test-height', '68')
     resizeObservers[0]?.callback([], {} as ResizeObserver)
-    expect(geometryRule?.style.getPropertyValue(publicStickyGeometryTokens.headerHeight)).toBe('92px')
-    expect(geometryRule?.style.getPropertyValue(publicStickyGeometryTokens.stickyTop)).toBe('92px')
-    expect(geometryRule?.style.getPropertyValue(publicStickyGeometryTokens.anchorOffset)).toBe('calc(92px + 0.75rem)')
+    expect(geometryRule?.style.getPropertyValue(publicStickyGeometryTokens.headerHeight)).toBe('68px')
+    expect(geometryRule?.style.getPropertyValue(publicStickyGeometryTokens.stickyTop)).toBe('68px')
+    expect(geometryRule?.style.getPropertyValue(publicStickyGeometryTokens.anchorOffset)).toBe('calc(68px + 0.75rem)')
 
     header?.setAttribute('data-test-height', '80')
     window.dispatchEvent(new window.Event('resize'))

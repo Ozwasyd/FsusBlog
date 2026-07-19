@@ -119,7 +119,7 @@ const bodyText = computed(() => (
 .console-welcome-callout__link {
   box-sizing: border-box;
   display: inline-flex;
-  min-height: 2.25rem;
+  min-height: 2.5rem;
   align-items: center;
   border: 1px solid var(--fsusblog-panel-border);
   border-radius: var(--fsus-radius-control-small);

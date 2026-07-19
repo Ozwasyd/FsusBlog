@@ -824,7 +824,7 @@ const confirmPageRefresh = async (): Promise<void> => {
 }
 
 .settings-image-action {
-  min-height: 2.25rem;
+  min-height: 2.5rem;
   padding-inline: 0.25rem;
 }
 

@@ -1259,7 +1259,7 @@ watch(currentRouteName, () => {
 
 .identity-touch-action {
   min-width: 44px;
-  min-height: 36px;
+  min-height: 44px;
   justify-content: center;
   padding-inline: 0.75rem;
 }

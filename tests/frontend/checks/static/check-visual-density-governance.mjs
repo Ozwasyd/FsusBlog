@@ -47,6 +47,13 @@ const markdownCssPath = path.join(repoRoot, 'src/frontend/src/assets/markdown.cs
 const publicLayoutRulesPath = path.join(repoRoot, 'docs/public-layout-rules.md')
 const publicRenderersRoot = path.join(repoRoot, 'src/frontend/src/public-renderers')
 const commentDetailViewContractPath = path.join(repoRoot, 'src/frontend/src/view-contracts/commentDetail.ts')
+const identityCenterPath = path.join(repoRoot, 'src/frontend/src/views/user/IdentityCenter.vue')
+const userCommentsListPath = path.join(repoRoot, 'src/frontend/src/components/user/UserCommentsList.vue')
+const messagesConversationListPath = path.join(repoRoot, 'src/frontend/src/components/user/messages/MessagesConversationList.vue')
+const articleTrashPath = path.join(repoRoot, 'src/frontend/src/views/admin/article/Trash.vue')
+const articleWritePath = path.join(repoRoot, 'src/frontend/src/views/admin/article/Write.vue')
+const auditLogPath = path.join(repoRoot, 'src/frontend/src/views/admin/AuditLog.vue')
+const dashboardAuthorAnalyticsListPath = path.join(repoRoot, 'src/frontend/src/components/admin/DashboardAuthorAnalyticsList.vue')
 
 const dashboardPanelPattern = /src\/frontend\/src\/(?:views\/admin\/Dashboard|components\/admin\/Dashboard|views\/admin\/security\/Security|views\/admin\/moderation\/Moderation|components\/admin\/comment-moderation\/CommentModeration)/
 const nonActionHoverPrimaryFiles = new Set([
@@ -109,6 +116,26 @@ function walk(dir, files = []) {
     }
 
     if (entry.isFile() && /\.(vue|ts)$/.test(entry.name)) {
+      files.push(fullPath)
+    }
+  }
+
+  return files
+}
+
+function walkTouchTargetSources(dir, files = []) {
+  if (!fs.existsSync(dir)) {
+    return files
+  }
+
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const fullPath = path.join(dir, entry.name)
+    if (entry.isDirectory()) {
+      walkTouchTargetSources(fullPath, files)
+      continue
+    }
+
+    if (entry.isFile() && /\.(?:css|scss|ts|vue)$/.test(entry.name)) {
       files.push(fullPath)
     }
   }
@@ -199,6 +226,72 @@ function assertNotContains(file, pattern, message) {
   if (match?.index !== undefined) {
     fail(file, lineNumberFromSource(source, match.index), message)
   }
+}
+
+function checkTouchTargetFloor() {
+  const forbiddenHeightPattern = /min-height\s*:\s*(?:36px|2\.25rem)\s*;/g
+
+  for (const file of walkTouchTargetSources(productionSourceRoot)) {
+    const source = read(file)
+    for (const match of source.matchAll(forbiddenHeightPattern)) {
+      fail(
+        file,
+        lineNumberFromSource(source, match.index ?? 0),
+        'touch targets must not use the retired 36px/2.25rem minimum-height tier'
+      )
+    }
+  }
+
+  assertContains(
+    publicShellCriticalCssPath,
+    /\.el-theme-mode-toggle__menu-item\s*\{[\s\S]*?min-height:\s*40px;/,
+    'public theme menu items must keep the 40px touch-target floor'
+  )
+  assertContains(
+    publicShellCriticalCssPath,
+    /@media \(max-height: 520px\) and \(orientation: landscape\)\s*\{[\s\S]*?\.el-public-shell__brand,[\s\S]*?\.el-public-shell__auth-link--desktop\s*\{\s*min-height:\s*40px;/,
+    'public landscape header controls must keep the 40px touch-target floor'
+  )
+  assertContains(
+    identityCenterPath,
+    /\.identity-touch-action\s*\{[\s\S]*?min-width:\s*44px;[\s\S]*?min-height:\s*44px;/,
+    'IdentityCenter touch actions must keep 44px targets on both axes'
+  )
+  assertContains(
+    userCommentsListPath,
+    /\.user-comment-delete-button\s*\{[\s\S]*?min-width:\s*2\.75rem;[\s\S]*?min-height:\s*2\.75rem;/,
+    'user comment delete actions must keep 44px targets on both axes'
+  )
+  assertContains(
+    messagesConversationListPath,
+    /\.messages-header-create-ticket\s*\{[\s\S]*?min-height:\s*2\.75rem;/,
+    'mobile message creation actions must keep the 44px identity touch tier'
+  )
+  assertContains(
+    articleTrashPath,
+    /\.article-trash-empty-action\.el-button\)\s*\{[\s\S]*?min-height:\s*40px;/,
+    'article trash empty actions must keep the 40px admin compact tier'
+  )
+  assertContains(
+    articleWritePath,
+    /\.write-command-back\s*\{[\s\S]*?min-width:\s*40px;[\s\S]*?min-height:\s*40px;/,
+    'article write back actions must keep 40px targets on both axes'
+  )
+  assertContains(
+    auditLogPath,
+    /\.audit-compact-row__action\s*\{[\s\S]*?min-width:\s*40px;[\s\S]*?min-height:\s*40px;/,
+    'audit row actions must keep 40px targets on both axes'
+  )
+  assertContains(
+    dashboardAuthorAnalyticsListPath,
+    /\.analytics-list__item\s*\{[\s\S]*?min-height:\s*40px;/,
+    'dashboard analytics rows must keep the 40px admin compact tier'
+  )
+  assertContains(
+    publicLayoutRulesPath,
+    /触控目标档位[\s\S]*?public header[\s\S]*?40px[\s\S]*?identity[\s\S]*?44px[\s\S]*?admin[\s\S]*?40px/,
+    'public layout rules must document public, identity, and admin touch-target tiers'
+  )
 }
 
 function contrastRatio(foreground, background) {
@@ -628,6 +721,7 @@ for (const file of walk(productionSourceRoot)) {
 }
 
 checkDashboardPopularArticlesFocusContract()
+checkTouchTargetFloor()
 checkIssueDensityContracts()
 checkPublicTypographyContract()
 checkAdminColorGovernance()

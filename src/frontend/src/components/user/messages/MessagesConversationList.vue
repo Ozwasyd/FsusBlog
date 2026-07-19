@@ -257,7 +257,7 @@ defineExpose({
 
   .messages-header-create-ticket {
     align-self: flex-start;
-    min-height: 2.25rem;
+    min-height: 2.75rem;
   }
 
   .messages-filter {

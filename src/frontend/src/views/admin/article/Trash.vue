@@ -216,7 +216,7 @@ const goToArticleList = async (): Promise<void> => {
 }
 
 :deep(.article-trash-empty-action.el-button) {
-  min-height: 36px;
+  min-height: 40px;
   align-items: center;
 }
 
