@@ -41,6 +41,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddMessagingRuntime();
         services.AddCacheRuntime();
         services.AddPublicReadArtifactRuntime(configuration);
+        services.AddFsusDistributedInvalidation(configuration);
         services.AddIdentityRuntime();
         services.AddBackgroundRuntime();
         services.AddSpaRuntime();

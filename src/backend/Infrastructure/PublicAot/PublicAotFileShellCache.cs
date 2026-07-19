@@ -27,6 +27,7 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
     private readonly TimeProvider _timeProvider;
     private readonly IPublicArtifactStorage _publicArtifactStorage;
     private long _memoryGeneration;
+    private long _distributedMemoryInvalidationGeneration;
     private PublicAotRecordedInvalidation? _lastInvalidation;
 
     public PublicAotFileShellCache(
@@ -54,6 +55,16 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
 
     internal PublicAotRecordedInvalidation? LastInvalidationForTests => _lastInvalidation;
     internal PublicAotMemoryCacheSnapshot MemoryCacheSnapshotForTests => _memoryCache.Snapshot();
+    internal long DistributedMemoryInvalidationGenerationForTests
+        => Volatile.Read(ref _distributedMemoryInvalidationGeneration);
+
+    internal void InvalidateDistributedMemoryState()
+    {
+        Interlocked.Increment(ref _memoryGeneration);
+        _memoryCache.Clear();
+        _fileMetadataCache.Clear();
+        Interlocked.Increment(ref _distributedMemoryInvalidationGeneration);
+    }
 
     public async Task<PublicAotCacheEntry?> TryGetEntryAsync(string cacheKey, CancellationToken cancellationToken = default)
         => await TryGetEntryAsync(cacheKey, frontendAssetVersion: null, cancellationToken).ConfigureAwait(false);

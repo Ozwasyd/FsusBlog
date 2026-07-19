@@ -311,6 +311,7 @@
       ],
       "evidencePaths": [
         "tests/backend/Unit/DistributedContractFastTests.cs",
+        "tests/backend/Unit/DistributedInvalidationBusTests.cs",
         "tests/backend/Unit/PublicAotBackfillLeaseTests.cs",
         "tests/backend/Unit/ArticleMutationProjectionCheckpointTests.cs",
         "tests/backend/Unit/ArticleMutationOutboxFailurePropagationTests.cs"
@@ -337,9 +338,10 @@
     {
       "id": "BACKEND-DISTRIBUTED-CONTRACT-FAST",
       "risk": "high",
-      "coverage": "RuntimeMode single/static-role/adaptive binding, cluster component gate, lease identity and TTL, checkpoint serialization and replay, Outbox critical failure propagation, distributed invalidation event schema",
+      "coverage": "RuntimeMode single/static-role/adaptive binding, cluster component gate, lease identity and TTL, checkpoint serialization and replay, Outbox critical failure propagation, distributed invalidation event schema, two-node idempotent local convergence and degraded publication",
       "evidencePaths": [
         "tests/backend/Unit/DistributedContractFastTests.cs",
+        "tests/backend/Unit/DistributedInvalidationBusTests.cs",
         "tests/backend/Unit/PublicAotBackfillLeaseTests.cs",
         "tests/backend/Unit/ArticleMutationProjectionCheckpointTests.cs",
         "tests/backend/Unit/ArticleMutationOutboxFailurePropagationTests.cs"

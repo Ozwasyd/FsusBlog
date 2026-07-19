@@ -1147,11 +1147,13 @@ tiers:
               src/backend/Services/ArticleMutationSideEffects.cs,
               src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs,
               tests/backend/Unit/DistributedContractFastTests.cs,
+              tests/backend/Unit/DistributedInvalidationBusTests.cs,
               tests/backend/Unit/PublicAotBackfillLeaseTests.cs,
               tests/backend/Unit/ArticleMutationProjectionCheckpointTests.cs,
               tests/backend/Unit/ArticleMutationOutboxFailurePropagationTests.cs,
               tools/test/lanes/distributed-contract-fast.sh,
               tools/test/lanes/_suite-support.sh,
+              docs/issue-399-distributed-invalidation.md,
           ]
       runtimeMode: single
       nodeCount: 1
@@ -1176,7 +1178,9 @@ tiers:
       evidence:
           - .tmp/distributed-contract-fast/summary.json
           - tests/backend/Unit/DistributedContractFastTests.cs
+          - tests/backend/Unit/DistributedInvalidationBusTests.cs
           - tests/backend/Unit/PublicAotBackfillLeaseTests.cs
+          - docs/issue-399-distributed-invalidation.md
           - tests/backend/Unit/ArticleMutationProjectionCheckpointTests.cs
           - tests/backend/Unit/ArticleMutationOutboxFailurePropagationTests.cs
       ciJob: fast-backend

@@ -90,6 +90,10 @@ public sealed record DistributedInvalidationEvent(
         {
             throw new InvalidDataException("Distributed invalidation event timestamp is missing.");
         }
+        if (CacheTags is null || RouteKeys is null || ArtifactKeys is null)
+        {
+            throw new InvalidDataException("Distributed invalidation event targets are missing.");
+        }
         if (CacheTags.Count == 0 && RouteKeys.Count == 0 && ArtifactKeys.Count == 0)
         {
             throw new InvalidDataException("Distributed invalidation event has no affected targets.");

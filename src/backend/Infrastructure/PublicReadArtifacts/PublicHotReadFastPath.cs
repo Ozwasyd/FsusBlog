@@ -549,6 +549,7 @@ public sealed class PublicHotReadStore
     private readonly PublicHotReadRetiringLimits _retiringLimits;
     private readonly TimeProvider _timeProvider;
     private readonly TimeSpan _maxSnapshotAge;
+    private long _distributedInvalidationGeneration;
     private long _retiringPrunedCount;
     private long _lastSnapshotOverlapBytes;
     private IReadOnlyList<string> _lastBudgetViolations = Array.Empty<string>();
@@ -773,6 +774,30 @@ public sealed class PublicHotReadStore
     }
 
     public bool IsReady => IsReadyFast;
+
+    internal long DistributedInvalidationGenerationForTests
+        => Volatile.Read(ref _distributedInvalidationGeneration);
+
+    internal void InvalidateDistributedSnapshot(string reason)
+    {
+        lock (_gate)
+        {
+            Volatile.Write(ref _current, PublicHotReadSnapshot.Empty);
+            Volatile.Write(ref _ready, 0);
+            _retiringSnapshots.Clear();
+            _lastSnapshotOverlapBytes = 0;
+            _lastBudgetViolations = Array.Empty<string>();
+            SetLifecycleStageLocked("distributed-invalidated");
+            _runtime = CreateRuntimeSnapshotLocked(
+                nameof(PublicHotReadState.NotStarted),
+                PublicHotReadSnapshot.Empty,
+                _timeProvider.GetUtcNow(),
+                reason,
+                "invalidated",
+                null);
+            Interlocked.Increment(ref _distributedInvalidationGeneration);
+        }
+    }
 
     internal bool TryGetRequestSnapshot(out PublicHotReadSnapshot snapshot, out string reason)
     {

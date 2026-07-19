@@ -9,6 +9,10 @@ public sealed class CacheLocalStore(IMemoryCache memoryCache, TimeProvider timeP
     private readonly ConcurrentDictionary<CacheL1Key, Entry> _entries = new();
     private readonly ConcurrentDictionary<string, Entry> _entriesByRedisKey = new(StringComparer.Ordinal);
     private readonly object _mutationLock = new();
+    private long _distributedInvalidationGeneration;
+
+    internal long DistributedInvalidationGenerationForTests
+        => Volatile.Read(ref _distributedInvalidationGeneration);
 
     internal bool TryGet(CacheL1Key key, out byte[] bytes)
     {
@@ -94,6 +98,22 @@ public sealed class CacheLocalStore(IMemoryCache memoryCache, TimeProvider timeP
         lock (_mutationLock)
         {
             RemoveByRedisKeyCore(redisKey, null);
+        }
+    }
+
+    internal void ClearForDistributedInvalidation()
+    {
+        lock (_mutationLock)
+        {
+            Entry[] entries = _entries.Values.Distinct().ToArray();
+            _entries.Clear();
+            _entriesByRedisKey.Clear();
+            foreach (Entry entry in entries)
+            {
+                memoryCache.Remove(entry);
+            }
+
+            Interlocked.Increment(ref _distributedInvalidationGeneration);
         }
     }
 
