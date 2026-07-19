@@ -297,14 +297,6 @@
                 "resolved": "5.2.0",
                 "contentHash": "po1jhvFd+8pbfvJR/puh+fkHi0GRanAdvayh/0e47yaM6CXWZ6opUjCMFuYlAnD2LcbyvQE7fPJKvogmaUcN+w=="
             },
-            "Microsoft.Extensions.Caching.StackExchangeRedis": {
-                "type": "Transitive",
-                "resolved": "10.0.7",
-                "contentHash": "TvD0totA8qeyrZ2YeY/qRNgYBy4BvO6dG59ziJDLVnLH4s2jeLUFEFcgA3xzqPhCMMbuz9bJTRwHxkZ/7c87jQ==",
-                "dependencies": {
-                    "StackExchange.Redis": "2.7.27"
-                }
-            },
             "Microsoft.Extensions.DependencyModel": {
                 "type": "Transitive",
                 "resolved": "10.0.0",
@@ -665,7 +657,6 @@
                     "MessagePack": "[2.5.301, )",
                     "Microsoft.AspNetCore.Authentication.JwtBearer": "[10.0.7, )",
                     "Microsoft.AspNetCore.OpenApi": "[10.0.9, )",
-                    "Microsoft.Extensions.Caching.StackExchangeRedis": "[10.0.7, )",
                     "Microsoft.OpenApi": "[2.7.5, )",
                     "Microsoft.VisualStudio.Azure.Containers.Tools.Targets": "[1.23.0, )",
                     "Nethermind.MclBindings": "[1.0.5, )",
@@ -681,7 +672,8 @@
                     "Serilog.Sinks.Async": "[2.1.0, )",
                     "Serilog.Sinks.Console": "[6.1.1, )",
                     "Serilog.Sinks.File": "[7.0.0, )",
-                    "SqlSugarCoreNoDrive": "[5.1.4.213, )"
+                    "SqlSugarCoreNoDrive": "[5.1.4.213, )",
+                    "StackExchange.Redis": "[2.7.27, )"
                 }
             },
             "fsusblog.shared": {

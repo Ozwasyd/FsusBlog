@@ -1,3 +1,5 @@
+using FsusBlog.Server.Infrastructure.Cache;
+
 using StackExchange.Redis;
 
 namespace FsusBlog.Server.Infrastructure.Helpers.Initializer;
@@ -30,89 +32,130 @@ public static class RedisInitializer
         redisOptions.AsyncTimeout = 15000;
         redisOptions.SyncTimeout = 15000;
 
-        var multiplexerHolder = new RedisConnectionMultiplexerHolder();
-        services.AddSingleton(multiplexerHolder);
-        services.AddSingleton<IRedisConnectionMultiplexerConnector, StackExchangeRedisConnectionMultiplexerConnector>();
+        services.AddSingleton<RedisConnectionMultiplexerHolder>();
+        services.AddSingleton<IRedisConnectionMultiplexerFactory, StackExchangeRedisConnectionMultiplexerFactory>();
         services.AddHostedService(sp => new RedisMultiplexerHostedService(
             redisOptions,
-            multiplexerHolder,
-            sp.GetRequiredService<IRedisConnectionMultiplexerConnector>(),
+            sp.GetRequiredService<RedisConnectionMultiplexerHolder>(),
+            sp.GetRequiredService<IRedisConnectionMultiplexerFactory>(),
+            sp,
             sp.GetRequiredService<ILogger<RedisMultiplexerHostedService>>()));
-        services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(redisOptions));
+        services.AddSingleton<IConnectionMultiplexer>(sp =>
+        {
+            RedisConnectionMultiplexerHolder holder = sp.GetRequiredService<RedisConnectionMultiplexerHolder>();
+            return holder
+                .GetOrCreateAsync(
+                    sp.GetRequiredService<IRedisConnectionMultiplexerFactory>(),
+                    redisOptions)
+                .GetAwaiter()
+                .GetResult();
+        });
 
         var instanceName = configuration.GetSection("RedisOptions:InstanceName").Value ?? "FsusBlog_";
-
-        services.AddStackExchangeRedisCache(options =>
-        {
-            options.ConnectionMultiplexerFactory = () => multiplexerHolder.WaitAsync();
-            options.InstanceName = instanceName;
-        });
+        services.AddSingleton(new SharedRedisDistributedCacheOptions(instanceName));
+        services.AddSingleton<Microsoft.Extensions.Caching.Distributed.IDistributedCache, SharedRedisDistributedCache>();
     }
 }
 
-internal interface IRedisConnectionMultiplexerConnector
+internal interface IRedisConnectionMultiplexerFactory
 {
-    Task<IConnectionMultiplexer> ConnectAsync(ConfigurationOptions options);
+    Task<IConnectionMultiplexer> CreateAsync(ConfigurationOptions options);
 }
 
-internal sealed class StackExchangeRedisConnectionMultiplexerConnector : IRedisConnectionMultiplexerConnector
+internal sealed class StackExchangeRedisConnectionMultiplexerFactory : IRedisConnectionMultiplexerFactory
 {
-    public async Task<IConnectionMultiplexer> ConnectAsync(ConfigurationOptions options)
-        => await ConnectionMultiplexer.ConnectAsync(options);
+    public async Task<IConnectionMultiplexer> CreateAsync(ConfigurationOptions options)
+        => await ConnectionMultiplexer.ConnectAsync(options).ConfigureAwait(false);
 }
 
-internal sealed class RedisConnectionMultiplexerHolder : IDisposable
+internal sealed class RedisConnectionMultiplexerHolder
 {
-    private readonly TaskCompletionSource<IConnectionMultiplexer> _ready = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly object _creationGate = new();
+    private Task<IConnectionMultiplexer>? _creationTask;
     private IConnectionMultiplexer? _multiplexer;
 
     public IConnectionMultiplexer Current
-        => _multiplexer ?? throw new InvalidOperationException("redis_multiplexer_not_initialized");
+        => Volatile.Read(ref _multiplexer) ?? throw new InvalidOperationException("redis_multiplexer_not_initialized");
 
     public Task<IConnectionMultiplexer> WaitAsync()
-        => _ready.Task;
-
-    public void Set(IConnectionMultiplexer multiplexer)
     {
-        _multiplexer = multiplexer;
-        _ready.TrySetResult(multiplexer);
+        lock (_creationGate)
+        {
+            return _creationTask
+                ?? Task.FromException<IConnectionMultiplexer>(
+                    new InvalidOperationException("redis_multiplexer_creation_not_started"));
+        }
     }
 
-    public void SetException(Exception exception)
-        => _ready.TrySetException(exception);
+    public Task<IConnectionMultiplexer> GetOrCreateAsync(
+        IRedisConnectionMultiplexerFactory factory,
+        ConfigurationOptions options)
+    {
+        lock (_creationGate)
+        {
+            return _creationTask ??= CreateAndPublishAsync(factory, options);
+        }
+    }
 
-    public void Dispose()
-        => _multiplexer?.Dispose();
+    private async Task<IConnectionMultiplexer> CreateAndPublishAsync(
+        IRedisConnectionMultiplexerFactory factory,
+        ConfigurationOptions options)
+    {
+        IConnectionMultiplexer multiplexer = await factory.CreateAsync(options).ConfigureAwait(false);
+        ArgumentNullException.ThrowIfNull(multiplexer);
+        if (Interlocked.CompareExchange(ref _multiplexer, multiplexer, null) is not null)
+        {
+            throw new InvalidOperationException("redis_multiplexer_already_published");
+        }
+
+        return multiplexer;
+    }
 }
 
 internal sealed partial class RedisMultiplexerHostedService(
     ConfigurationOptions options,
     RedisConnectionMultiplexerHolder holder,
-    IRedisConnectionMultiplexerConnector connector,
+    IRedisConnectionMultiplexerFactory factory,
+    IServiceProvider services,
     ILogger<RedisMultiplexerHostedService> logger) : IHostedService
 {
-    public async Task StartAsync(CancellationToken cancellationToken)
+    private readonly object _startGate = new();
+    private Task? _startTask;
+
+    public Task StartAsync(CancellationToken cancellationToken)
+    {
+        lock (_startGate)
+        {
+            return _startTask ??= StartCoreAsync(cancellationToken);
+        }
+    }
+
+    private async Task StartCoreAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
-            IConnectionMultiplexer multiplexer = await connector.ConnectAsync(options);
+            IConnectionMultiplexer multiplexer = await holder
+                .GetOrCreateAsync(factory, options)
+                .ConfigureAwait(false);
+
+            IConnectionMultiplexer registered = services.GetRequiredService<IConnectionMultiplexer>();
+            if (!ReferenceEquals(multiplexer, registered))
+            {
+                throw new InvalidOperationException("redis_multiplexer_identity_mismatch");
+            }
+
             cancellationToken.ThrowIfCancellationRequested();
-            holder.Set(multiplexer);
         }
         catch (Exception ex)
         {
-            holder.SetException(ex);
             LogRedisConnectFailed(logger, ex);
             throw;
         }
     }
 
     public Task StopAsync(CancellationToken cancellationToken)
-    {
-        holder.Dispose();
-        return Task.CompletedTask;
-    }
+        => Task.CompletedTask;
 
     [LoggerMessage(EventId = 3101, Level = LogLevel.Critical, Message = "Redis multiplexer startup connection failed")]
     private static partial void LogRedisConnectFailed(ILogger logger, Exception exception);
