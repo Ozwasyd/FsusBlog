@@ -175,7 +175,7 @@ export const APP_ROUTE_RECORDS: RouteRecordRaw[] = [
           accountMobileAction: () => import('@/layouts/AccountFrameMobileAction.vue')
         },
         children: [
-      { path: ACCOUNT_ROUTE_PATHS.profileChild, name: 'UserProfile', redirect: { name: 'UserIdentityOverview' }, component: () => import('@/views/user/Profile.vue'), meta: selfMeta({ title: '身份中心', pageKind: 'identity-settings' }) } as RouteRecordRaw,
+      { path: ACCOUNT_ROUTE_PATHS.profileChild, name: 'UserProfile', redirect: { name: 'UserIdentityOverview' }, meta: selfMeta({ title: '身份中心', pageKind: 'identity-settings' }) },
       { path: 'comments', name: 'UserComments', component: () => import('@/views/user/Comments.vue'), meta: selfMeta({ title: '公开评论记录', pageKind: 'collection' }) },
       { path: 'messagebox', name: 'UserMessage', component: () => import('@/views/user/Messages.vue'), meta: selfMeta({ title: '我的消息', pageKind: 'inbox', contentMode: 'takeover' }) },
       { path: 'identity', name: 'UserIdentityOverview', component: () => import('@/views/user/IdentityCenter.vue'), meta: selfMeta({ title: '身份总览', pageKind: 'identity-settings' }) },
