@@ -524,6 +524,7 @@ export interface ConversationMessagePreviewResponse {
 export interface ConversationMessageResponse {
   messageId: string
   conversationId: string
+  idempotencyReplay?: boolean
   senderType: 0 | 1 | 2
   senderName?: string | null
   body: string
@@ -549,6 +550,7 @@ export interface AdminConversationListItemResponse extends ConversationListItemR
 
 export interface ConversationDetailResponse {
   conversationId: string
+  idempotencyReplay?: boolean
   readSnapshotMessageId: string
   previousCursor?: string | null
   hasOlder?: boolean

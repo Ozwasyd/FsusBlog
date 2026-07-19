@@ -997,6 +997,26 @@ principal/session 或其它资料。`senderName` 由 viewer 决定：账号端�
 
 管理员系统消息使用 `POST /api/binary/admin/messages/system-send` 的 `SystemMessageRequest` frame。当前契约只支持单账号目标，`targetAccountId` 必须存在且大于 0；`targetAccountId=null` 不表示广播，后端会返回 validation error。前端管理入口位于 `/user/manage/messages`，普通 `/user/messagebox` 只承载账号消息和工单。
 
+消息 mutation 的请求身份位于 HTTP header，不改变现有 AEDS request frame 或 POD 尺寸：
+
+| 写入 | 必需 header | 身份作用域 |
+| ------ | ------ | ------ |
+| 账号创建工单 | `X-Fsus-Client-Mutation-Id`（1..64 字符） | `account + accountId` |
+| 账号回复 | `X-Fsus-Client-Mutation-Id`（1..64 字符） | `account + accountId` |
+| admin 回复 | `X-Fsus-Client-Mutation-Id`（1..64 字符） | `admin + adminPrincipalId` |
+| 系统消息 | `X-Fsus-Source-Event-Id`（正 `int64`） | 全局 source event |
+
+同一次用户意图的双击合并、timeout retry 和 response-loss retry 必须重用同一
+`ClientMutationId`；新的用户意图必须生成新值。服务端在消息事务内保存主体、mutation id 与
+规范化请求 SHA-256，并在 conversation/message 两张表之间做主体级唯一判断。相同 key 与相同
+摘要返回首次提交的 ID；相同 key 与不同摘要返回 `409 client_mutation_content_conflict`。
+系统消息按唯一 `sourceMessageId` 执行同样的摘要校验，冲突返回
+`409 source_event_content_conflict`。
+
+`ConversationDetailV2.idempotencyReplay` 与 `ConversationMessageResponse.idempotencyReplay`
+在首次提交时为 `false`，返回已存在结果时为 `true`。它们复用既有 reserved byte，frame type、
+POD 总长度和 v2 decoder 兼容边界不变。
+
 普通消息端点 `/api/binary/messages/**` 只接受 `identity_kind=anonymous_account` 的账号主体，并从 `AccountPrincipalContext.AccountId` 解析当前账号；不得使用 legacy `CurrentUser` 参数绑定器或把 AdminPrincipal 的 `NameIdentifier` 当作账号 id。管理消息端点 `/api/binary/admin/messages/**` 继续要求 admin principal + `admin.manage`，并用 `AdminMessageActor` 携带 `admin_id/admin_sid`。
 
 管理员更新对话状态时只接受当前数据库行版本上的状态转换：服务端先读取 `msg_conversation.status + xmin`，再用 `id + expected status + row version` 执行更新。并发 close/pending/open 修改中只有一个写入会生效；后到请求如果命中旧版本，返回 HTTP `409` + AEDS `ApiError`，不得以 last-write-wins 覆盖。
@@ -1012,7 +1032,8 @@ principal/session 或其它资料。`senderName` 由 viewer 决定：账号端�
   "senderType": 0,
   "senderName": "你",
   "body": "消息内容",
-  "createdAt": "2026-01-01T00:00:00Z"
+  "createdAt": "2026-01-01T00:00:00Z",
+  "idempotencyReplay": false
 }
 ```
 
@@ -1072,7 +1093,9 @@ status，`closed` 返回 `409`，只能由独立 status mutation 显式重开；
 状态变更都遵循同一事务边界；任一阶段失败都回滚。提交后的本地 worker 才能 claim event
 并投递 notification stream，投递失败不得撤销已提交消息或 unread 状态。回复状态前置条件
 不使用 `xmin`；会话不存在返回 `404`，锁后状态冲突返回 `409`，基础设施失败返回 `503`。
-重复提交在 idempotency 契约落地前仍是两条独立消息，但每次事务的 unread/activity 必须一致。
+重复提交以主体级 `ClientMutationId` 或系统 `SourceEventId` 为边界：相同请求返回最初 ID且不再
+写入 unread/activity/outbox，不同内容返回 `409`。并发相同 key 由 transaction advisory lock
+串行到同一幂等记录，不能依赖 unique violation 作为正常响应路径。
 
 每条 outbox event 为每个目标保存稳定 `deliveryKey`；键绑定已提交的 message ID、read cursor
 或 status mutation coordinate，并由 Redis notification backlog 复用同一 event ID。worker 使用
@@ -1088,6 +1111,11 @@ status，`closed` 返回 `409`，只能由独立 status mutation 显式重开；
 `Messages:ReplyWritesEnabled=false` 可通过配置 reload 同时让账号与 admin reply 端点返回
 `503 message_reply_writes_disabled`，无需重启；它不关闭读取、status mutation 或显式重开，
 也不允许回退为拆分事务或先通知后提交。
+
+`Messages:MutationIdempotencyEnabled=false` 可通过配置 reload 让创建工单、账号/admin 回复和
+系统消息写入统一返回 `503 message_mutation_idempotency_disabled`。该开关只用于 schema 或
+幂等写链路故障时 fail closed；读取、mark-read 和 status mutation 保持可用，且禁止绕过 header
+恢复非幂等写入。
 
 ---
 

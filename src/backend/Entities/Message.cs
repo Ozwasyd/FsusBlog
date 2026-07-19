@@ -30,6 +30,8 @@ public enum MessageSenderType
 [SugarIndex("idx_msg_conversation_last_activity", nameof(LastMessageAt), OrderByType.Desc)]
 [SugarIndex("idx_msg_conversation_status_activity", nameof(Status), OrderByType.Asc, nameof(LastMessageAt), OrderByType.Desc)]
 [SugarIndex("idx_msg_conversation_initiator_account", nameof(InitiatorAccountId), OrderByType.Asc, nameof(LastMessageAt), OrderByType.Desc)]
+[SugarIndex("ux_msg_conversation_client_mutation", nameof(ClientMutationPrincipalKind), OrderByType.Asc, nameof(ClientMutationPrincipalId), OrderByType.Asc, nameof(ClientMutationId), OrderByType.Asc, true)]
+[SugarIndex("ux_msg_conversation_source_message", nameof(SourceMessageId), OrderByType.Asc, true)]
 public sealed class MessageConversation
 {
     [SugarColumn(IsPrimaryKey = true)]
@@ -56,6 +58,30 @@ public sealed class MessageConversation
 
     [SugarColumn(IsNullable = true)]
     public long? SourceMessageId
+    {
+        get; set;
+    }
+
+    [SugarColumn(IsNullable = true, Length = 16)]
+    public string? ClientMutationPrincipalKind
+    {
+        get; set;
+    }
+
+    [SugarColumn(IsNullable = true)]
+    public long? ClientMutationPrincipalId
+    {
+        get; set;
+    }
+
+    [SugarColumn(IsNullable = true, Length = 64)]
+    public string? ClientMutationId
+    {
+        get; set;
+    }
+
+    [SugarColumn(IsNullable = true, Length = 64)]
+    public string? MutationRequestHash
     {
         get; set;
     }
@@ -95,6 +121,7 @@ public sealed class MessageConversation
 
 [SugarTable("msg_message")]
 [SugarIndex("idx_msg_message_conversation_id", nameof(ConversationId), OrderByType.Asc, nameof(Id), OrderByType.Asc)]
+[SugarIndex("ux_msg_message_client_mutation", nameof(ClientMutationPrincipalKind), OrderByType.Asc, nameof(ClientMutationPrincipalId), OrderByType.Asc, nameof(ClientMutationId), OrderByType.Asc, true)]
 public sealed class ConversationMessage
 {
     [SugarColumn(IsPrimaryKey = true)]
@@ -142,7 +169,37 @@ public sealed class ConversationMessage
         get; set;
     }
 
+    [SugarColumn(IsNullable = true, Length = 16)]
+    public string? ClientMutationPrincipalKind
+    {
+        get; set;
+    }
+
+    [SugarColumn(IsNullable = true)]
+    public long? ClientMutationPrincipalId
+    {
+        get; set;
+    }
+
+    [SugarColumn(IsNullable = true, Length = 64)]
+    public string? ClientMutationId
+    {
+        get; set;
+    }
+
+    [SugarColumn(IsNullable = true, Length = 64)]
+    public string? MutationRequestHash
+    {
+        get; set;
+    }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public static class MessageMutationPrincipalKinds
+{
+    public const string Account = "account";
+    public const string Admin = "admin";
 }
 
 [SugarTable("msg_participant_state")]

@@ -134,6 +134,13 @@ GET 与 HEAD 返回相同状态和关键头；HEAD 保留与 GET 相同的 `Cont
 | `MessageNotFound` | 404 | 消息不存在 |
 | `MessageRevoked` | 400 | 消息已撤回 |
 
+消息写入幂等边界的固定失败语义：缺失/非法 `X-Fsus-Client-Mutation-Id` 返回 `400`
+`client_mutation_id_required` / `client_mutation_id_invalid`；相同 mutation id 携带不同规范化内容
+返回 `409 client_mutation_content_conflict`。系统消息缺失/非法
+`X-Fsus-Source-Event-Id` 返回 `400 source_event_id_required` / `source_event_id_invalid`，相同来源
+坐标内容变化返回 `409 source_event_content_conflict`。动态 fail-close 返回
+`503 message_mutation_idempotency_disabled`。
+
 ### Binary / 文件上传错误
 
 | 错误码 | HTTP 状态 | 含义 |

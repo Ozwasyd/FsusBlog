@@ -23,9 +23,9 @@ public sealed class SchemaMigrationCatalogTests
             catalog => Assert.Equal("projection-integrity-20260625-20260704", catalog.CatalogId),
             catalog => Assert.Equal("current-20260709-20260716", catalog.CatalogId),
             catalog => Assert.Equal("current-20260719", catalog.CatalogId));
-        Assert.Equal(98, manifest.Descriptors.Count);
+        Assert.Equal(99, manifest.Descriptors.Count);
         Assert.Equal(
-            "3B9F1BDB1B0EE785E8D73487707F65475968AD72B106DDA049830FF8D2408606",
+            "5709BAFAB5E6CBD4B24E0AF715DC5D83110BE42193E087CB345A2C5CCD1C5D02",
             ComputePlanFingerprint(manifest.Descriptors));
 
         for (int index = 1; index < manifest.Descriptors.Count; index++)
@@ -205,7 +205,7 @@ public sealed class SchemaMigrationCatalogTests
         Assert.DoesNotContain("partial class SchemaMigrationRegistry", registrySource, StringComparison.Ordinal);
         Assert.DoesNotContain("new SchemaMigrationDescriptor(", registrySource, StringComparison.Ordinal);
         Assert.DoesNotContain("Build", registrySource, StringComparison.Ordinal);
-        Assert.Equal(98, descriptorDefinitionCount);
+        Assert.Equal(99, descriptorDefinitionCount);
         Assert.All(
             definitionFiles.Select(File.ReadAllText),
             static source => Assert.DoesNotContain("partial class", source, StringComparison.Ordinal));

@@ -32,6 +32,29 @@ namespace FsusBlog.Server.Tests;
 public sealed class MessageCenterServiceTests
 {
     [Fact]
+    public void BinaryMessageMutationEndpoints_RequireStableCommandIdentityHeaders()
+    {
+        string endpoints = File.ReadAllText(BackendTestPaths.FromRoot(
+            "src",
+            "backend",
+            "Modules",
+            "Endpoints",
+            "Binary",
+            "BinaryEndpoints.Messages.cs"));
+
+        Assert.Contains("X-Fsus-Client-Mutation-Id", endpoints, StringComparison.Ordinal);
+        Assert.Contains("client_mutation_id_required", endpoints, StringComparison.Ordinal);
+        Assert.Contains("X-Fsus-Source-Event-Id", endpoints, StringComparison.Ordinal);
+        Assert.Contains("source_event_id_required", endpoints, StringComparison.Ordinal);
+        Assert.Equal(
+            typeof(bool),
+            typeof(ConversationDetailResponse).GetProperty(nameof(ConversationDetailResponse.IdempotencyReplay))!.PropertyType);
+        Assert.Equal(
+            typeof(bool),
+            typeof(ConversationMessageResponse).GetProperty(nameof(ConversationMessageResponse.IdempotencyReplay))!.PropertyType);
+    }
+
+    [Fact]
     public void MessageConversationCursor_RoundTripsSnapshotAndStableSortKey()
     {
         var expected = new MessageConversationCursor(
@@ -184,6 +207,8 @@ public sealed class MessageCenterServiceTests
         Assert.Contains("AdminConversationDetail", endpoints, StringComparison.Ordinal);
         Assert.Contains("Messages:ReplyWritesEnabled", endpoints, StringComparison.Ordinal);
         Assert.Contains("message_reply_writes_disabled", endpoints, StringComparison.Ordinal);
+        Assert.Contains("Messages:MutationIdempotencyEnabled", endpoints, StringComparison.Ordinal);
+        Assert.Contains("message_mutation_idempotency_disabled", endpoints, StringComparison.Ordinal);
         Assert.Contains("beforeMessageId", endpoints, StringComparison.Ordinal);
         Assert.Contains("ConversationDetailV3", endpoints, StringComparison.Ordinal);
         Assert.Contains("CreateAccountTicketAsync", endpoints, StringComparison.Ordinal);

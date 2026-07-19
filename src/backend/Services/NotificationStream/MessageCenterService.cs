@@ -1,6 +1,8 @@
 using System.Data.Common;
 using System.Diagnostics;
 using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
@@ -414,7 +416,18 @@ public sealed class MessageCenterService(
             new SugarParameter("@AccountSenderType", (int)MessageSenderType.Account),
             new SugarParameter("@Now", DateTime.UtcNow));
 
-    public async Task<Result<ConversationDetailResponse>> CreateAccountTicketAsync(int accountId, string subject, string body)
+    public Task<Result<ConversationDetailResponse>> CreateAccountTicketAsync(int accountId, string subject, string body)
+        => CreateAccountTicketAsync(
+            accountId,
+            subject,
+            body,
+            SnowFlakeSingle.Instance.NextId().ToString(CultureInfo.InvariantCulture));
+
+    public async Task<Result<ConversationDetailResponse>> CreateAccountTicketAsync(
+        int accountId,
+        string subject,
+        string body,
+        string clientMutationId)
     {
         var normalizedSubject = NormalizeSubject(subject, "用户申诉");
         var normalizedBody = NormalizeBody(body);
@@ -422,13 +435,38 @@ public sealed class MessageCenterService(
         {
             return Result<ConversationDetailResponse>.Failure(ErrorCode.Validation, "内容不能为空");
         }
+        if (!TryNormalizeClientMutationId(clientMutationId, out string mutationId))
+        {
+            return Result<ConversationDetailResponse>.Failure(ErrorCode.Validation, "client_mutation_id_invalid");
+        }
 
         long conversationId = 0;
         long messageId = 0;
+        MutationReplayState replayState = MutationReplayState.None;
+        string requestHash = ComputeMutationRequestHash("create", normalizedSubject, normalizedBody);
         DateTime now = DateTime.UtcNow;
 
         var tran = await db.Ado.UseTranAsync(async () =>
         {
+            await AcquireMutationLockAsync(MessageMutationPrincipalKinds.Account, accountId, mutationId);
+            MessageConversation? existing = await FindConversationMutationAsync(
+                MessageMutationPrincipalKinds.Account,
+                accountId,
+                mutationId);
+            if (existing is not null)
+            {
+                conversationId = existing.Id;
+                replayState = string.Equals(existing.MutationRequestHash, requestHash, StringComparison.Ordinal)
+                    ? MutationReplayState.Replay
+                    : MutationReplayState.Conflict;
+                return;
+            }
+            if (await FindMessageMutationAsync(MessageMutationPrincipalKinds.Account, accountId, mutationId) is not null)
+            {
+                replayState = MutationReplayState.Conflict;
+                return;
+            }
+
             var conversation = new MessageConversation
             {
                 Id = SnowFlakeSingle.Instance.NextId(),
@@ -438,6 +476,10 @@ public sealed class MessageCenterService(
                 IsSystemSource = false,
                 CreatedByType = MessageSenderType.Account,
                 CreatedByAccountId = accountId,
+                ClientMutationPrincipalKind = MessageMutationPrincipalKinds.Account,
+                ClientMutationPrincipalId = accountId,
+                ClientMutationId = mutationId,
+                MutationRequestHash = requestHash,
                 CreatedAt = now,
                 UpdatedAt = now,
                 LastMessageAt = now
@@ -451,6 +493,10 @@ public sealed class MessageCenterService(
                 SenderType = MessageSenderType.Account,
                 SenderAccountId = accountId,
                 Body = normalizedBody,
+                ClientMutationPrincipalKind = MessageMutationPrincipalKinds.Account,
+                ClientMutationPrincipalId = accountId,
+                ClientMutationId = mutationId,
+                MutationRequestHash = requestHash,
                 CreatedAt = now
             };
             var participant = new ConversationParticipantState
@@ -483,6 +529,10 @@ public sealed class MessageCenterService(
         {
             return Result<ConversationDetailResponse>.Failure(ErrorCode.InfraFailure, "创建会话失败");
         }
+        if (replayState == MutationReplayState.Conflict)
+        {
+            return Result<ConversationDetailResponse>.Failure(ErrorCode.Conflict, "client_mutation_content_conflict");
+        }
 
         var detail = await GetAccountConversationDetailAsync(accountId, conversationId);
         if (detail is null)
@@ -490,20 +540,40 @@ public sealed class MessageCenterService(
             return Result<ConversationDetailResponse>.Failure(ErrorCode.InfraFailure, "会话创建后读取失败");
         }
 
-        return Result<ConversationDetailResponse>.Success(detail);
+        return Result<ConversationDetailResponse>.Success(detail with
+        {
+            IdempotencyReplay = replayState == MutationReplayState.Replay
+        });
     }
+
+    public Task<Result<ConversationMessageResponse>> ReplyAsAccountAsync(
+        int accountId,
+        long conversationId,
+        long readThroughMessageId,
+        string body)
+        => ReplyAsAccountAsync(
+            accountId,
+            conversationId,
+            readThroughMessageId,
+            body,
+            SnowFlakeSingle.Instance.NextId().ToString(CultureInfo.InvariantCulture));
 
     public async Task<Result<ConversationMessageResponse>> ReplyAsAccountAsync(
         int accountId,
         long conversationId,
         long readThroughMessageId,
-        string body)
+        string body,
+        string clientMutationId)
     {
         long startedAt = Stopwatch.GetTimestamp();
         string normalizedBody = NormalizeBody(body);
         if (normalizedBody.Length == 0)
         {
             return Result<ConversationMessageResponse>.Failure(ErrorCode.Validation, "内容不能为空");
+        }
+        if (!TryNormalizeClientMutationId(clientMutationId, out string mutationId))
+        {
+            return Result<ConversationMessageResponse>.Failure(ErrorCode.Validation, "client_mutation_id_invalid");
         }
 
         ReplyWriteOutcome writeOutcome = await WriteReplyAsync(new ReplyWriteCommand(
@@ -513,7 +583,10 @@ public sealed class MessageCenterService(
             accountId,
             null,
             null,
-            readThroughMessageId));
+            readThroughMessageId,
+            MessageMutationPrincipalKinds.Account,
+            accountId,
+            mutationId));
         if (writeOutcome.Status != ReplyWriteStatus.Succeeded)
         {
             return MapReplyWriteOutcome(writeOutcome);
@@ -526,16 +599,49 @@ public sealed class MessageCenterService(
         }
 
         FsusObservability.RecordMessageCenterReply("account", FsusObservability.GetElapsed(startedAt));
-        return Result<ConversationMessageResponse>.Success(message);
+        return Result<ConversationMessageResponse>.Success(message with
+        {
+            IdempotencyReplay = writeOutcome.IdempotencyReplay
+        });
     }
 
     private async Task<ReplyWriteOutcome> WriteReplyAsync(ReplyWriteCommand command)
     {
         DateTime now = DateTime.UtcNow;
         long messageId = SnowFlakeSingle.Instance.NextId();
+        string requestHash = ComputeMutationRequestHash(
+            "reply",
+            command.ConversationId.ToString(CultureInfo.InvariantCulture),
+            command.ReadThroughMessageId?.ToString(CultureInfo.InvariantCulture) ?? "0",
+            command.Body);
         ReplyWriteOutcome outcome = ReplyWriteOutcome.NotFound;
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
+            await AcquireMutationLockAsync(command.MutationPrincipalKind, command.MutationPrincipalId, command.ClientMutationId);
+            ConversationMessage? existingMutation = await FindMessageMutationAsync(
+                command.MutationPrincipalKind,
+                command.MutationPrincipalId,
+                command.ClientMutationId);
+            if (existingMutation is not null)
+            {
+                outcome = string.Equals(existingMutation.MutationRequestHash, requestHash, StringComparison.Ordinal)
+                    ? ReplyWriteOutcome.Replayed(new ReplyDeliveryEvent(
+                        existingMutation.ConversationId,
+                        existingMutation.Id,
+                        existingMutation.SenderType,
+                        existingMutation.CreatedAt))
+                    : ReplyWriteOutcome.IdempotencyConflict;
+                return;
+            }
+            if (await FindConversationMutationAsync(
+                    command.MutationPrincipalKind,
+                    command.MutationPrincipalId,
+                    command.ClientMutationId) is not null)
+            {
+                outcome = ReplyWriteOutcome.IdempotencyConflict;
+                return;
+            }
+
             ReplyConversationLock? conversation = await LoadReplyConversationForUpdateAsync(command.ConversationId);
             if (conversation is null)
             {
@@ -585,6 +691,10 @@ public sealed class MessageCenterService(
                 SenderAdminPrincipalId = command.SenderAdminPrincipalId,
                 SenderAdminSessionId = command.SenderAdminSessionId,
                 Body = command.Body,
+                ClientMutationPrincipalKind = command.MutationPrincipalKind,
+                ClientMutationPrincipalId = command.MutationPrincipalId,
+                ClientMutationId = command.ClientMutationId,
+                MutationRequestHash = requestHash,
                 CreatedAt = now
             }).ExecuteCommandAsync();
 
@@ -768,6 +878,7 @@ public sealed class MessageCenterService(
             ReplyWriteStatus.Forbidden => Result<ConversationMessageResponse>.Failure(ErrorCode.Forbidden, "无权访问该会话"),
             ReplyWriteStatus.Closed => Result<ConversationMessageResponse>.Failure(ErrorCode.Conflict, "会话已关闭"),
             ReplyWriteStatus.Conflict => Result<ConversationMessageResponse>.Failure(ErrorCode.Conflict, "会话状态冲突"),
+            ReplyWriteStatus.IdempotencyConflict => Result<ConversationMessageResponse>.Failure(ErrorCode.Conflict, "client_mutation_content_conflict"),
             ReplyWriteStatus.CursorRegression => Result<ConversationMessageResponse>.Failure(ErrorCode.Conflict, "已读位置不能后退"),
             ReplyWriteStatus.ReadTargetNotVisible => Result<ConversationMessageResponse>.Failure(ErrorCode.NotFound, "已读位置不属于可见会话消息"),
             ReplyWriteStatus.InfraFailure => Result<ConversationMessageResponse>.Failure(ErrorCode.InfraFailure, "回复写入失败"),
@@ -792,6 +903,7 @@ public sealed class MessageCenterService(
         Forbidden,
         Closed,
         Conflict,
+        IdempotencyConflict,
         CursorRegression,
         ReadTargetNotVisible,
         InfraFailure,
@@ -805,7 +917,10 @@ public sealed class MessageCenterService(
         int? SenderAccountId,
         long? SenderAdminPrincipalId,
         string? SenderAdminSessionId,
-        long? ReadThroughMessageId);
+        long? ReadThroughMessageId,
+        string MutationPrincipalKind,
+        long MutationPrincipalId,
+        string ClientMutationId);
 
     private readonly record struct ReplyDeliveryEvent(
         long ConversationId,
@@ -816,17 +931,21 @@ public sealed class MessageCenterService(
     private readonly record struct ReplyWriteOutcome(
         ReplyWriteStatus Status,
         int UnreadCount,
-        ReplyDeliveryEvent DeliveryEvent)
+        ReplyDeliveryEvent DeliveryEvent,
+        bool IdempotencyReplay)
     {
-        public static ReplyWriteOutcome NotFound => new(ReplyWriteStatus.NotFound, 0, default);
-        public static ReplyWriteOutcome Forbidden => new(ReplyWriteStatus.Forbidden, 0, default);
-        public static ReplyWriteOutcome Closed => new(ReplyWriteStatus.Closed, 0, default);
-        public static ReplyWriteOutcome Conflict => new(ReplyWriteStatus.Conflict, 0, default);
-        public static ReplyWriteOutcome CursorRegression => new(ReplyWriteStatus.CursorRegression, 0, default);
-        public static ReplyWriteOutcome ReadTargetNotVisible => new(ReplyWriteStatus.ReadTargetNotVisible, 0, default);
-        public static ReplyWriteOutcome InfraFailure => new(ReplyWriteStatus.InfraFailure, 0, default);
+        public static ReplyWriteOutcome NotFound => new(ReplyWriteStatus.NotFound, 0, default, false);
+        public static ReplyWriteOutcome Forbidden => new(ReplyWriteStatus.Forbidden, 0, default, false);
+        public static ReplyWriteOutcome Closed => new(ReplyWriteStatus.Closed, 0, default, false);
+        public static ReplyWriteOutcome Conflict => new(ReplyWriteStatus.Conflict, 0, default, false);
+        public static ReplyWriteOutcome IdempotencyConflict => new(ReplyWriteStatus.IdempotencyConflict, 0, default, false);
+        public static ReplyWriteOutcome CursorRegression => new(ReplyWriteStatus.CursorRegression, 0, default, false);
+        public static ReplyWriteOutcome ReadTargetNotVisible => new(ReplyWriteStatus.ReadTargetNotVisible, 0, default, false);
+        public static ReplyWriteOutcome InfraFailure => new(ReplyWriteStatus.InfraFailure, 0, default, false);
         public static ReplyWriteOutcome Succeeded(int unreadCount, ReplyDeliveryEvent deliveryEvent)
-            => new(ReplyWriteStatus.Succeeded, unreadCount, deliveryEvent);
+            => new(ReplyWriteStatus.Succeeded, unreadCount, deliveryEvent, false);
+        public static ReplyWriteOutcome Replayed(ReplyDeliveryEvent deliveryEvent)
+            => new(ReplyWriteStatus.Succeeded, 0, deliveryEvent, true);
     }
 
     private sealed class ReplyWriteConflictException : Exception
@@ -887,12 +1006,30 @@ public sealed class MessageCenterService(
 
     private sealed record MarkConversationReadResult(ReadAdvanceOutcome Outcome, long? LastMessageId, int UnreadCount);
 
-    public async Task<Result<ConversationMessageResponse>> ReplyAsAdminAsync(long conversationId, string body, AdminMessageActor adminActor)
+    public Task<Result<ConversationMessageResponse>> ReplyAsAdminAsync(
+        long conversationId,
+        string body,
+        AdminMessageActor adminActor)
+        => ReplyAsAdminAsync(
+            conversationId,
+            body,
+            adminActor,
+            SnowFlakeSingle.Instance.NextId().ToString(CultureInfo.InvariantCulture));
+
+    public async Task<Result<ConversationMessageResponse>> ReplyAsAdminAsync(
+        long conversationId,
+        string body,
+        AdminMessageActor adminActor,
+        string clientMutationId)
     {
         string normalizedBody = NormalizeBody(body);
         if (normalizedBody.Length == 0)
         {
             return Result<ConversationMessageResponse>.Failure(ErrorCode.Validation, "内容不能为空");
+        }
+        if (!TryNormalizeClientMutationId(clientMutationId, out string mutationId))
+        {
+            return Result<ConversationMessageResponse>.Failure(ErrorCode.Validation, "client_mutation_id_invalid");
         }
 
         ReplyWriteOutcome writeOutcome = await WriteReplyAsync(new ReplyWriteCommand(
@@ -902,7 +1039,10 @@ public sealed class MessageCenterService(
             null,
             adminActor.AdminPrincipalId,
             adminActor.AdminSessionId,
-            null));
+            null,
+            MessageMutationPrincipalKinds.Admin,
+            adminActor.AdminPrincipalId,
+            mutationId));
         if (writeOutcome.Status != ReplyWriteStatus.Succeeded)
         {
             return MapReplyWriteOutcome(writeOutcome);
@@ -914,7 +1054,10 @@ public sealed class MessageCenterService(
             return Result<ConversationMessageResponse>.Failure(ErrorCode.InfraFailure, "回复写入失败");
         }
 
-        return Result<ConversationMessageResponse>.Success(message);
+        return Result<ConversationMessageResponse>.Success(message with
+        {
+            IdempotencyReplay = writeOutcome.IdempotencyReplay
+        });
     }
 
     public async Task<Result> UpdateConversationStatusAsync(long conversationId, ConversationStatusValue status, AdminMessageActor adminActor)
@@ -1028,11 +1171,32 @@ public sealed class MessageCenterService(
             new SugarParameter("@RowVersion", currentState.RowVersion),
             new SugarParameter("@UpdatedAt", now));
 
-    public async Task<Result<ConversationDetailResponse>> SendSystemMessageAsync(string subject, string body, long? targetAccountId, AdminMessageActor adminActor)
+    public Task<Result<ConversationDetailResponse>> SendSystemMessageAsync(
+        string subject,
+        string body,
+        long? targetAccountId,
+        AdminMessageActor adminActor)
+        => SendSystemMessageAsync(
+            subject,
+            body,
+            targetAccountId,
+            adminActor,
+            SnowFlakeSingle.Instance.NextId());
+
+    public async Task<Result<ConversationDetailResponse>> SendSystemMessageAsync(
+        string subject,
+        string body,
+        long? targetAccountId,
+        AdminMessageActor adminActor,
+        long sourceEventId)
     {
         if (!targetAccountId.HasValue || targetAccountId.Value <= 0)
         {
             return Result<ConversationDetailResponse>.Failure(ErrorCode.Validation, "目标账号不能为空");
+        }
+        if (sourceEventId <= 0)
+        {
+            return Result<ConversationDetailResponse>.Failure(ErrorCode.Validation, "source_event_id_invalid");
         }
 
         var normalizedSubject = NormalizeSubject(subject, "系统消息");
@@ -1046,9 +1210,28 @@ public sealed class MessageCenterService(
         bool hasAdminPrincipal = adminActor.HasAdminPrincipal;
         long conversationId = SnowFlakeSingle.Instance.NextId();
         long messageId = SnowFlakeSingle.Instance.NextId();
+        string requestHash = ComputeMutationRequestHash(
+            "system",
+            target.ToString(CultureInfo.InvariantCulture),
+            normalizedSubject,
+            normalizedBody);
+        MutationReplayState replayState = MutationReplayState.None;
         DateTime now = DateTime.UtcNow;
         var tran = await db.Ado.UseTranAsync(async () =>
         {
+            await AcquireMutationLockAsync("system", 0, sourceEventId.ToString(CultureInfo.InvariantCulture));
+            MessageConversation? existing = await db.Queryable<MessageConversation>()
+                .Where(item => item.SourceMessageId == sourceEventId)
+                .FirstAsync();
+            if (existing is not null)
+            {
+                conversationId = existing.Id;
+                replayState = string.Equals(existing.MutationRequestHash, requestHash, StringComparison.Ordinal)
+                    ? MutationReplayState.Replay
+                    : MutationReplayState.Conflict;
+                return;
+            }
+
             await db.Insertable(new MessageConversation
             {
                 Id = conversationId,
@@ -1056,7 +1239,8 @@ public sealed class MessageCenterService(
                 InitiatorAccountId = target,
                 Status = ConversationStatus.Open,
                 IsSystemSource = true,
-                SourceMessageId = null,
+                SourceMessageId = sourceEventId,
+                MutationRequestHash = requestHash,
                 CreatedByType = hasAdminPrincipal ? MessageSenderType.Admin : MessageSenderType.System,
                 CreatedByAdminPrincipalId = hasAdminPrincipal ? adminActor.AdminPrincipalId : null,
                 CreatedByAdminSessionId = hasAdminPrincipal ? adminActor.AdminSessionId : null,
@@ -1098,6 +1282,10 @@ public sealed class MessageCenterService(
         {
             return Result<ConversationDetailResponse>.Failure(ErrorCode.InfraFailure, "系统消息创建失败");
         }
+        if (replayState == MutationReplayState.Conflict)
+        {
+            return Result<ConversationDetailResponse>.Failure(ErrorCode.Conflict, "source_event_content_conflict");
+        }
 
         var detail = await GetAccountConversationDetailAsync(target, conversationId);
         if (detail is null)
@@ -1105,25 +1293,43 @@ public sealed class MessageCenterService(
             return Result<ConversationDetailResponse>.Failure(ErrorCode.InfraFailure, "系统消息创建后读取失败");
         }
 
-        return Result<ConversationDetailResponse>.Success(detail);
+        return Result<ConversationDetailResponse>.Success(detail with
+        {
+            IdempotencyReplay = replayState == MutationReplayState.Replay
+        });
     }
 
     public async Task SendAccountTransactionalNoticeAsync(int accountId, string subject, string body)
         => await LogNotificationFailureAsync(
-            await SendSystemMessageAsync(subject, body, accountId, AdminMessageActor.System),
+            await SendSystemMessageAsync(
+                subject,
+                body,
+                accountId,
+                AdminMessageActor.System,
+                ComputeStableSourceEventId("account-transactional", accountId, subject, body)),
             "send-account-transactional-notice",
             accountId);
 
     public async Task SendCommentDeletedNoticeAsync(int targetAccountId, string articleTitle, string commentSnippet, string reason)
         => await LogNotificationFailureAsync(
-            await SendSystemMessageAsync("评论处理通知", $"您在《{articleTitle}》下的评论「{commentSnippet}...」已被管理员移除。原因：{reason}", targetAccountId, AdminMessageActor.System),
+            await SendSystemMessageAsync(
+                "评论处理通知",
+                $"您在《{articleTitle}》下的评论「{commentSnippet}...」已被管理员移除。原因：{reason}",
+                targetAccountId,
+                AdminMessageActor.System,
+                ComputeStableSourceEventId("comment-deleted", targetAccountId, articleTitle, commentSnippet, reason)),
             "send-comment-deleted-notice",
             targetAccountId);
 
     public async Task SendAccountBannedNoticeAsync(int accountId, string reason)
     {
         await LogNotificationFailureAsync(
-            await SendSystemMessageAsync("账号处罚通知", $"您的账号已被封禁，当前仅保留只读权限。原因：{reason}", accountId, AdminMessageActor.System),
+            await SendSystemMessageAsync(
+                "账号处罚通知",
+                $"您的账号已被封禁，当前仅保留只读权限。原因：{reason}",
+                accountId,
+                AdminMessageActor.System,
+                ComputeStableSourceEventId("account-banned", accountId, reason)),
             "send-account-banned-notice",
             accountId);
         await PushAccountStatusAsync(accountId, 1, reason);
@@ -1132,7 +1338,12 @@ public sealed class MessageCenterService(
     public async Task SendAccountUnbannedNoticeAsync(int accountId)
     {
         await LogNotificationFailureAsync(
-            await SendSystemMessageAsync("账号恢复通知", "您已解除账户管控。", accountId, AdminMessageActor.System),
+            await SendSystemMessageAsync(
+                "账号恢复通知",
+                "您已解除账户管控。",
+                accountId,
+                AdminMessageActor.System,
+                ComputeStableSourceEventId("account-unbanned", accountId)),
             "send-account-unbanned-notice",
             accountId);
         await PushAccountStatusAsync(accountId, 0, null);
@@ -1966,6 +2177,72 @@ public sealed class MessageCenterService(
         return value.Length > MaxBodyLength ? value[..MaxBodyLength] : value;
     }
 
+    private Task AcquireMutationLockAsync(string principalKind, long principalId, string mutationId)
+        => db.Ado.ExecuteCommandAsync(
+            "SELECT pg_advisory_xact_lock(hashtext(@PrincipalKind), hashtext(@MutationScope));",
+            new SugarParameter("@PrincipalKind", principalKind),
+            new SugarParameter("@MutationScope", string.Concat(
+                principalId.ToString(CultureInfo.InvariantCulture),
+                ":",
+                mutationId)));
+
+    private async Task<MessageConversation?> FindConversationMutationAsync(
+        string principalKind,
+        long principalId,
+        string mutationId)
+        => await db.Queryable<MessageConversation>()
+            .Where(item => item.ClientMutationPrincipalKind == principalKind
+                && item.ClientMutationPrincipalId == principalId
+                && item.ClientMutationId == mutationId)
+            .FirstAsync();
+
+    private async Task<ConversationMessage?> FindMessageMutationAsync(
+        string principalKind,
+        long principalId,
+        string mutationId)
+        => await db.Queryable<ConversationMessage>()
+            .Where(item => item.ClientMutationPrincipalKind == principalKind
+                && item.ClientMutationPrincipalId == principalId
+                && item.ClientMutationId == mutationId)
+            .FirstAsync();
+
+    private static bool TryNormalizeClientMutationId(string? value, out string normalized)
+    {
+        normalized = value?.Trim() ?? string.Empty;
+        if (normalized.Length is <= 0 or > 64)
+        {
+            return false;
+        }
+
+        return normalized.All(static character =>
+            char.IsAsciiLetterOrDigit(character) || character is '-' or '_' or '.' or ':');
+    }
+
+    private static string ComputeMutationRequestHash(params string[] values)
+    {
+        var canonical = new StringBuilder();
+        for (int i = 0; i < values.Length; i++)
+        {
+            string value = values[i];
+            canonical.Append(value.Length.ToString(CultureInfo.InvariantCulture));
+            canonical.Append(':');
+            canonical.Append(value);
+            canonical.Append(';');
+        }
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical.ToString())));
+    }
+
+    private static long ComputeStableSourceEventId(string operation, int accountId, params string[] values)
+    {
+        string[] coordinates = new string[values.Length + 2];
+        coordinates[0] = operation;
+        coordinates[1] = accountId.ToString(CultureInfo.InvariantCulture);
+        Array.Copy(values, 0, coordinates, 2, values.Length);
+        byte[] digest = SHA256.HashData(Encoding.UTF8.GetBytes(ComputeMutationRequestHash(coordinates)));
+        long sourceEventId = BitConverter.ToInt64(digest, 0) & long.MaxValue;
+        return sourceEventId == 0 ? 1 : sourceEventId;
+    }
+
     private static ConversationStatusValue ToStatusValue(ConversationStatus status)
         => status switch
         {
@@ -2225,6 +2502,13 @@ public sealed class MessageCenterService(
     {
         Account,
         Admin
+    }
+
+    private enum MutationReplayState
+    {
+        None,
+        Replay,
+        Conflict
     }
 
     private readonly record struct AdminCounterpartyProjection(

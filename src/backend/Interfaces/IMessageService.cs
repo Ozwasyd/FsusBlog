@@ -23,12 +23,12 @@ public interface IMessageQueryService
 
 public interface IMessageCommandService
 {
-    Task<Result<ConversationDetailResponse>> CreateAccountTicketAsync(int accountId, string subject, string body);
-    Task<Result<ConversationMessageResponse>> ReplyAsAccountAsync(int accountId, long conversationId, long readThroughMessageId, string body);
+    Task<Result<ConversationDetailResponse>> CreateAccountTicketAsync(int accountId, string subject, string body, string clientMutationId);
+    Task<Result<ConversationMessageResponse>> ReplyAsAccountAsync(int accountId, long conversationId, long readThroughMessageId, string body, string clientMutationId);
     Task<Result> MarkConversationReadAsync(int accountId, long conversationId, long readThroughMessageId);
-    Task<Result<ConversationMessageResponse>> ReplyAsAdminAsync(long conversationId, string body, AdminMessageActor adminActor);
+    Task<Result<ConversationMessageResponse>> ReplyAsAdminAsync(long conversationId, string body, AdminMessageActor adminActor, string clientMutationId);
     Task<Result> UpdateConversationStatusAsync(long conversationId, ConversationStatusValue status, AdminMessageActor adminActor);
-    Task<Result<ConversationDetailResponse>> SendSystemMessageAsync(string subject, string body, long? targetAccountId, AdminMessageActor adminActor);
+    Task<Result<ConversationDetailResponse>> SendSystemMessageAsync(string subject, string body, long? targetAccountId, AdminMessageActor adminActor, long sourceEventId);
 
     // 治理通知聚合入口
     Task SendAccountTransactionalNoticeAsync(int accountId, string subject, string body);

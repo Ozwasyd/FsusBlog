@@ -259,8 +259,8 @@
 | ------ | ------ | ------ |
 | GET | `/api/binary/messages/conversations?size=20&filter={filter}&cursor={nextCursor}` | 当前用户对话列表；`lastMessageAt + conversationId` 稳定游标，首屏省略 cursor |
 | GET | `/api/binary/messages/conversations/{id}?beforeMessageId={previousCursor}` | `ConversationDetailV3(204)`；最新 50 条或向前一页，返回 `previousCursor/hasOlder/readSnapshotMessageId` |
-| POST | `/api/binary/messages/conversations` | 发起新对话；响应 `ConversationDetailV2(203)` |
-| POST | `/api/binary/messages/conversations/{id}/reply` | `AccountConversationReplyRequest(202)`；正文 + 显式 `readThroughMessageId`；与 admin 回复共用事务状态屏障 |
+| POST | `/api/binary/messages/conversations` | 发起新对话；必需 `X-Fsus-Client-Mutation-Id`；响应 `ConversationDetailV2(203)` 与 `idempotencyReplay` |
+| POST | `/api/binary/messages/conversations/{id}/reply` | 必需 `X-Fsus-Client-Mutation-Id`；`AccountConversationReplyRequest(202)` 正文 + 显式 `readThroughMessageId`；响应保留首次 message ID |
 | POST | `/api/binary/messages/conversations/{id}/read` | `ConversationReadRequest(201)`；精确推进已读游标，不读取当前 `MAX(id)` |
 
 ---
@@ -273,12 +273,14 @@
 | ------ | ------ | ------ |
 | GET | `/api/binary/admin/messages/conversations?size=30&filter={filter}&cursor={nextCursor}` | `AdminConversationList(206)`；最小对方账号投影；未读/筛选只读取共享 admin queue state |
 | GET | `/api/binary/admin/messages/conversations/{id}?beforeMessageId={previousCursor}` | `AdminConversationDetail(207)`；最小对方账号投影；最新页推进共享 admin read cursor，历史页不回退 |
-| POST | `/api/binary/admin/messages/conversations/{id}/reply` | 以管理员身份回复；closed 必须先显式重开，事务冲突返回 409 |
+| POST | `/api/binary/admin/messages/conversations/{id}/reply` | 必需 `X-Fsus-Client-Mutation-Id`；以管理员身份回复；closed 必须先显式重开，事务冲突返回 409 |
 | POST | `/api/binary/admin/messages/conversations/{id}/status` | 更新对话状态（open/pending/closed）；并发状态冲突返回 409 |
-| POST | `/api/binary/admin/messages/system-send` | 单账号系统消息；`targetAccountId` 必填；响应 `ConversationDetailV2(203)` |
+| POST | `/api/binary/admin/messages/system-send` | 必需稳定正整数 `X-Fsus-Source-Event-Id`；单账号系统消息；`targetAccountId` 必填；响应 `ConversationDetailV2(203)` |
 
 `Messages:ReplyWritesEnabled=false` 可动态暂停两个 reply 端点并返回
 `503 message_reply_writes_disabled`，不影响读取和显式状态变更。
+`Messages:MutationIdempotencyEnabled=false` 可动态 fail closed 创建、两类回复和 system-send，
+返回 `503 message_mutation_idempotency_disabled`；不得回退到无 mutation/source identity 写入。
 `Messages:AdminAccountProjectionEnabled=false` 可动态暂停两个 admin 读取端点并返回
 `503 message_admin_account_projection_disabled`；账号消息端点与原有账号 frame 保持可用。
 

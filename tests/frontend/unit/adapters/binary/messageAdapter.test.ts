@@ -179,6 +179,7 @@ describe('binary message adapter', () => {
       messages: [{
         messageId: '11',
         conversationId: '7',
+        idempotencyReplay: false,
         senderType: 0,
         senderName: 'Alice',
         body: 'Message body',
@@ -190,6 +191,7 @@ describe('binary message adapter', () => {
     expect(mapConversationMessageFromPayload(withBlob(messageHeader, parts))).toEqual({
       messageId: '11',
       conversationId: '7',
+      idempotencyReplay: false,
       senderType: 0,
       senderName: 'Alice',
       body: 'Message body',
@@ -211,6 +213,7 @@ describe('binary message adapter', () => {
     view.setBigInt64(24, 11n, true)
     detailHeader[32] = 0
     detailHeader[33] = 1
+    detailHeader[34] = 1
     slice(view, 36, subject.offset, subject.length)
     view.setInt32(44, 1, true)
     view.setBigInt64(48, 11n, true)
@@ -218,15 +221,18 @@ describe('binary message adapter', () => {
     view.setInt32(64, 1, true)
     view.setBigInt64(68, BigInt(Date.parse('2026-01-02T04:04:05.000Z')), true)
     detailHeader[76] = 1
+    detailHeader[77] = 1
     slice(view, 80, sender.offset, sender.length)
     slice(view, 88, body.offset, body.length)
 
     expect(mapConversationDetailV2FromPayload(withBlob(detailHeader, parts))).toMatchObject({
       conversationId: '7',
+      idempotencyReplay: true,
       readSnapshotMessageId: '11',
       subject: 'Read snapshot',
       messages: [{
         messageId: '11',
+        idempotencyReplay: true,
         senderName: 'Admin',
         body: 'Visible before the response completed'
       }]

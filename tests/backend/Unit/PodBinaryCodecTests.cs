@@ -401,6 +401,7 @@ public class PodBinaryCodecTests
         var detail = new ConversationDetailResponse
         {
             ConversationId = "9",
+            IdempotencyReplay = true,
             ReadSnapshotMessageId = "11",
             PreviousCursor = "11",
             HasOlder = true,
@@ -416,6 +417,7 @@ public class PodBinaryCodecTests
                 {
                     MessageId = "11",
                     ConversationId = "9",
+                    IdempotencyReplay = true,
                     SenderType = ConversationSenderValue.Admin,
                     SenderName = "管理员",
                     Body = "已收到",
@@ -439,6 +441,8 @@ public class PodBinaryCodecTests
         byte[] v2Encoded = PodBinaryCodec.EncodeConversationDetailV2(detail);
         Assert.True(PodBinaryCodec.TryDecodeConversationDetailV2(v2Encoded, out var v2Decoded));
         Assert.Equal("11", v2Decoded.ReadSnapshotMessageId);
+        Assert.True(v2Decoded.IdempotencyReplay);
+        Assert.True(Assert.Single(v2Decoded.Messages).IdempotencyReplay);
 
         byte[] v3Encoded = PodBinaryCodec.EncodeConversationDetailV3(detail);
         Assert.True(PodBinaryCodec.TryDecodeConversationDetailV3(v3Encoded, out var v3Decoded));

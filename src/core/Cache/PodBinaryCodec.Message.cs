@@ -328,6 +328,7 @@ public static partial class PodBinaryCodec
             ReadSnapshotMessageId = ParseId(detail.ReadSnapshotMessageId),
             IsSystemSource = detail.IsSystemSource ? (byte)1 : (byte)0,
             CanReply = detail.CanReply ? (byte)1 : (byte)0,
+            IdempotencyReplay = detail.IdempotencyReplay ? (byte)1 : (byte)0,
             Reserved0 = 0,
             Subject = PodUtf8Codec.AppendSlice(detail.Subject, payload)
         };
@@ -358,7 +359,8 @@ public static partial class PodBinaryCodec
             count < 0 ||
             pod.ReadSnapshotMessageId <= 0 ||
             pod.IsSystemSource > 1 ||
-            pod.CanReply > 1)
+            pod.CanReply > 1 ||
+            pod.IdempotencyReplay > 1)
         {
             detail = new ConversationDetailResponse();
             return false;
@@ -367,7 +369,7 @@ public static partial class PodBinaryCodec
         var messagePods = new List<ConversationMessagePod>(count);
         for (int i = 0; i < count; i++)
         {
-            if (!reader.TryReadPod(out ConversationMessagePod messagePod) || messagePod.HasSenderName > 1)
+            if (!reader.TryReadPod(out ConversationMessagePod messagePod) || messagePod.HasSenderName > 1 || messagePod.IdempotencyReplay > 1)
             {
                 detail = new ConversationDetailResponse();
                 return false;
@@ -391,6 +393,7 @@ public static partial class PodBinaryCodec
         detail = new ConversationDetailResponse
         {
             ConversationId = pod.ConversationId.ToString(),
+            IdempotencyReplay = pod.IdempotencyReplay == 1,
             ReadSnapshotMessageId = pod.ReadSnapshotMessageId.ToString(),
             Subject = PodProjector.ReadSlice(pod.Subject, payload),
             Status = ToConversationStatus(pod.Status),
@@ -486,7 +489,7 @@ public static partial class PodBinaryCodec
         var messagePods = new List<ConversationMessagePod>(count);
         for (int i = 0; i < count; i++)
         {
-            if (!reader.TryReadPod(out ConversationMessagePod messagePod) || messagePod.HasSenderName > 1)
+            if (!reader.TryReadPod(out ConversationMessagePod messagePod) || messagePod.HasSenderName > 1 || messagePod.IdempotencyReplay > 1)
             {
                 detail = new AdminConversationDetailResponse();
                 return false;
@@ -555,7 +558,7 @@ public static partial class PodBinaryCodec
         var messagePods = new List<ConversationMessagePod>(count);
         for (int i = 0; i < count; i++)
         {
-            if (!reader.TryReadPod(out ConversationMessagePod messagePod) || messagePod.HasSenderName > 1)
+            if (!reader.TryReadPod(out ConversationMessagePod messagePod) || messagePod.HasSenderName > 1 || messagePod.IdempotencyReplay > 1)
             {
                 detail = new ConversationDetailResponse();
                 return false;
@@ -612,7 +615,7 @@ public static partial class PodBinaryCodec
         var messagePods = new List<ConversationMessagePod>(count);
         for (int i = 0; i < count; i++)
         {
-            if (!reader.TryReadPod(out ConversationMessagePod messagePod) || messagePod.HasSenderName > 1)
+            if (!reader.TryReadPod(out ConversationMessagePod messagePod) || messagePod.HasSenderName > 1 || messagePod.IdempotencyReplay > 1)
             {
                 detail = new ConversationDetailResponse();
                 return false;
@@ -670,7 +673,7 @@ public static partial class PodBinaryCodec
     public static bool TryDecodeConversationMessage(ReadOnlyMemory<byte> source, out ConversationMessageResponse message)
     {
         var reader = new BinaryPodReader(source.Span);
-        if (!reader.TryReadPod(out ConversationMessagePod pod) || pod.HasSenderName > 1 || !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
+        if (!reader.TryReadPod(out ConversationMessagePod pod) || pod.HasSenderName > 1 || pod.IdempotencyReplay > 1 || !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
         {
             message = new ConversationMessageResponse();
             return false;
@@ -978,7 +981,7 @@ public static partial class PodBinaryCodec
             SenderType = (int)message.SenderType,
             CreatedAtUnixMs = PodTimeCodec.ToUnixMs(message.CreatedAt),
             HasSenderName = string.IsNullOrWhiteSpace(message.SenderName) ? (byte)0 : (byte)1,
-            Reserved0 = 0,
+            IdempotencyReplay = message.IdempotencyReplay ? (byte)1 : (byte)0,
             Reserved1 = 0,
             SenderName = PodUtf8Codec.AppendSlice(message.SenderName ?? string.Empty, payload),
             Body = PodUtf8Codec.AppendSlice(message.Body, payload)
@@ -991,6 +994,7 @@ public static partial class PodBinaryCodec
         {
             MessageId = pod.MessageId.ToString(),
             ConversationId = pod.ConversationId.ToString(),
+            IdempotencyReplay = pod.IdempotencyReplay == 1,
             SenderType = ToConversationSender(pod.SenderType),
             SenderName = pod.HasSenderName == 1 ? PodProjector.ReadSlice(pod.SenderName, payload) : null,
             Body = PodProjector.ReadSlice(pod.Body, payload),
@@ -1070,7 +1074,7 @@ public static partial class PodBinaryCodec
         public int SenderType;
         public long CreatedAtUnixMs;
         public byte HasSenderName;
-        public byte Reserved0;
+        public byte IdempotencyReplay;
         public ushort Reserved1;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef SenderName;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Body;
@@ -1099,7 +1103,8 @@ public static partial class PodBinaryCodec
         public long ReadSnapshotMessageId;
         public byte IsSystemSource;
         public byte CanReply;
-        public ushort Reserved0;
+        public byte IdempotencyReplay;
+        public byte Reserved0;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Subject;
     }
 

@@ -29,11 +29,13 @@ export type PageResponse<T> = BinaryPageResponse<T>
 export interface CreateConversationRequest {
   subject: string
   body: string
+  clientMutationId?: string
 }
 
 export interface ReplyConversationRequest {
   body: string
   readThroughMessageId?: string
+  clientMutationId?: string
 }
 
 export interface UpdateConversationStatusRequest {
@@ -44,6 +46,7 @@ export interface SendSystemMessageRequest {
   targetAccountId: number
   subject: string
   body: string
+  sourceEventId?: string
 }
 
 export interface InboxConversationUpsertPayload {
@@ -107,20 +110,26 @@ export const messageApi = {
   },
 
   createAccountConversation(data: CreateConversationRequest, config?: ApiRequestConfig) {
-    return requestBinaryOnly<ConversationDetailResponse>({
+    const identity = resolveStableIdentity(`account-create:${data.subject}\u001f${data.body}`, data.clientMutationId)
+    return settleStableIdentity(identity, requestBinaryOnly<ConversationDetailResponse>({
       binaryRoute: { operationId: 'binary_post_messages_conversations' },
       frameType: FrameType.ConversationDetailV2,
       signal: config?.signal as AbortSignal | undefined,
       requestOptions: {
         method: 'POST',
         requiresPow: true,
+        headers: { 'X-Fsus-Client-Mutation-Id': identity.value },
         body: encodeAedsFrame(FrameType.ConversationCreateRequest, encodeConversationCreateRequest(data))
       }
-    })
+    }))
   },
 
-  replyAccountConversation(conversationId: string | number, data: Required<ReplyConversationRequest>, config?: ApiRequestConfig) {
-    return requestBinaryOnly<ConversationMessageResponse>({
+  replyAccountConversation(conversationId: string | number, data: ReplyConversationRequest & { readThroughMessageId: string }, config?: ApiRequestConfig) {
+    const identity = resolveStableIdentity(
+      `account-reply:${conversationId}:${data.readThroughMessageId}:${data.body}`,
+      data.clientMutationId
+    )
+    return settleStableIdentity(identity, requestBinaryOnly<ConversationMessageResponse>({
       binaryRoute: {
         operationId: 'binary_post_messages_conversations_id_long_reply',
         params: { id: conversationId }
@@ -130,12 +139,13 @@ export const messageApi = {
       requestOptions: {
         method: 'POST',
         requiresPow: true,
+        headers: { 'X-Fsus-Client-Mutation-Id': identity.value },
         body: encodeAedsFrame(
           FrameType.AccountConversationReplyRequest,
           encodeAccountConversationReplyRequest(data.readThroughMessageId, data.body)
         )
       }
-    })
+    }))
   },
 
   markConversationRead(conversationId: string | number, readThroughMessageId: string, config?: ApiRequestConfig) {
@@ -183,7 +193,8 @@ export const messageApi = {
   },
 
   adminReplyConversation(conversationId: string | number, data: ReplyConversationRequest, config?: ApiRequestConfig) {
-    return requestBinaryOnly<ConversationMessageResponse>({
+    const identity = resolveStableIdentity(`admin-reply:${conversationId}:${data.body}`, data.clientMutationId)
+    return settleStableIdentity(identity, requestBinaryOnly<ConversationMessageResponse>({
       binaryRoute: {
         operationId: 'binary_post_admin_messages_conversations_id_long_reply',
         params: { id: conversationId }
@@ -193,9 +204,10 @@ export const messageApi = {
       requestOptions: {
         method: 'POST',
         requiresPow: true,
+        headers: { 'X-Fsus-Client-Mutation-Id': identity.value },
         body: encodeAedsFrame(FrameType.ConversationReplyRequest, encodeStringMutationRequest(data.body))
       }
-    })
+    }))
   },
 
   adminUpdateConversationStatus(conversationId: string | number, data: UpdateConversationStatusRequest, config?: ApiRequestConfig) {
@@ -215,16 +227,64 @@ export const messageApi = {
   },
 
   adminSendSystemMessage(data: SendSystemMessageRequest, config?: ApiRequestConfig) {
-    return requestBinaryOnly<ConversationDetailResponse>({
+    const identity = resolveStableSourceEvent(
+      `system:${data.targetAccountId}:${data.subject}\u001f${data.body}`,
+      data.sourceEventId
+    )
+    return settleStableIdentity(identity, requestBinaryOnly<ConversationDetailResponse>({
       binaryRoute: { operationId: 'binary_post_admin_messages_system_send' },
       frameType: FrameType.ConversationDetailV2,
       signal: config?.signal as AbortSignal | undefined,
       requestOptions: {
         method: 'POST',
         requiresPow: true,
+        headers: { 'X-Fsus-Source-Event-Id': identity.value },
         body: encodeAedsFrame(FrameType.SystemMessageRequest, encodeSystemMessageRequest(data))
       }
-    })
+    }))
+  }
+}
+
+type StableIdentity = { key: string | null; value: string }
+const pendingMutationIdentities = new Map<string, string>()
+
+function resolveStableIdentity(key: string, explicit?: string): StableIdentity {
+  if (explicit?.trim()) return { key: null, value: explicit.trim() }
+  const existing = pendingMutationIdentities.get(key)
+  if (existing) return { key, value: existing }
+  const value = globalThis.crypto?.randomUUID?.() ?? `message-${Date.now()}-${Math.random().toString(16).slice(2)}`
+  pendingMutationIdentities.set(key, value)
+  return { key, value }
+}
+
+function resolveStableSourceEvent(key: string, explicit?: string): StableIdentity {
+  if (explicit?.trim()) return { key: null, value: explicit.trim() }
+  const existing = pendingMutationIdentities.get(key)
+  if (existing) return { key, value: existing }
+  const bytes = new Uint8Array(8)
+  globalThis.crypto?.getRandomValues?.(bytes)
+  let value = 0n
+  for (let index = 0; index < bytes.length; index += 1) value = (value << 8n) | BigInt(bytes[index] ?? 0)
+  value &= 0x7fffffffffffffffn
+  if (value === 0n) value = BigInt(Date.now())
+  const encoded = value.toString()
+  pendingMutationIdentities.set(key, encoded)
+  return { key, value: encoded }
+}
+
+async function settleStableIdentity<T>(identity: StableIdentity, request: Promise<T>): Promise<T> {
+  try {
+    const result = await request
+    if (identity.key) pendingMutationIdentities.delete(identity.key)
+    return result
+  } catch (error) {
+    const status = typeof error === 'object' && error !== null && 'status' in error
+      ? Number((error as { status?: unknown }).status)
+      : 0
+    if (identity.key && status >= 400 && status < 500 && status !== 408 && status !== 429) {
+      pendingMutationIdentities.delete(identity.key)
+    }
+    throw error
   }
 }
 

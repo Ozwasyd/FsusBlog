@@ -153,6 +153,7 @@ export function mapConversationDetailV2FromPayload(payload: Uint8Array): Convers
 
   return {
     conversationId: readInt64String(pod, 0),
+    idempotencyReplay: readByte(pod, 34) === 1,
     readSnapshotMessageId,
     subject: readBlobText(pod, blob, 36),
     status: readInt32(pod, 8) as 0 | 1 | 2,
@@ -282,6 +283,7 @@ function readConversationMessage(pod: Uint8Array, blob: Uint8Array): Conversatio
   return {
     messageId: readInt64String(pod, 0),
     conversationId: readInt64String(pod, 8),
+    idempotencyReplay: readByte(pod, 29) === 1,
     senderType: readInt32(pod, 16) as 0 | 1 | 2,
     senderName: hasSenderName ? readBlobText(pod, blob, 32) : null,
     body: readBlobText(pod, blob, 40),

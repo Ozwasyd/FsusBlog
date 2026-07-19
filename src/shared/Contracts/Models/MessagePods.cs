@@ -181,7 +181,7 @@ public readonly struct ConversationMessagePod
     public readonly int SenderType;
     public readonly long CreatedAtUnixMs;
     public readonly byte HasSenderName;
-    public readonly byte Reserved0;
+    public readonly byte IdempotencyReplay;
     public readonly ushort Reserved1;
     public readonly Utf8SliceRef SenderName;
     public readonly Utf8SliceRef Body;
@@ -217,7 +217,8 @@ public readonly struct ConversationDetailV2Pod
     public readonly long ReadSnapshotMessageId;
     public readonly byte IsSystemSource;
     public readonly byte CanReply;
-    public readonly ushort Reserved0;
+    public readonly byte IdempotencyReplay;
+    public readonly byte Reserved0;
     public readonly Utf8SliceRef Subject;
 }
 

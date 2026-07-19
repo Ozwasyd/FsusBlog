@@ -1107,6 +1107,10 @@ public sealed record class ConversationMessageResponse
 {
     public string MessageId { get; init; } = string.Empty;
     public string ConversationId { get; init; } = string.Empty;
+    public bool IdempotencyReplay
+    {
+        get; init;
+    }
     public ConversationSenderValue SenderType { get; init; } = ConversationSenderValue.System;
     public string? SenderName
     {
@@ -1125,6 +1129,10 @@ public sealed record class ConversationMessageResponse
 public record class ConversationDetailResponse
 {
     public string ConversationId { get; init; } = string.Empty;
+    public bool IdempotencyReplay
+    {
+        get; init;
+    }
     public string ReadSnapshotMessageId { get; init; } = string.Empty;
     public string? PreviousCursor
     {

@@ -98,9 +98,18 @@ public static partial class BinaryEndpoints
             HttpContext httpContext,
             IMessageCommandService command,
             AccountPrincipalContext account,
+            IConfiguration configuration,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
+            if (!IsMessageMutationIdempotencyEnabled(configuration))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.InfraFailure, "message_mutation_idempotency_disabled"),
+                    aeds,
+                    StatusCodes.Status503ServiceUnavailable);
+            }
+
             var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.ConversationCreateRequest, cancellationToken);
             if (!payload.IsSuccess)
             {
@@ -112,7 +121,12 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "会话请求体非法"), aeds);
             }
 
-            var result = await command.CreateAccountTicketAsync(account.AccountId, request.Subject, request.Body);
+            if (!TryResolveClientMutationId(httpContext, out string clientMutationId))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "client_mutation_id_required"), aeds);
+            }
+
+            var result = await command.CreateAccountTicketAsync(account.AccountId, request.Subject, request.Body, clientMutationId);
             return result.IsSuccess
                 ? BinaryResults.Frame(aeds, AedsFrameType.ConversationDetailV2, writer => PodBinaryCodec.WriteConversationDetailV2(result.Value!, writer))
                 : BinaryResults.FromError(result.Error, aeds);
@@ -137,6 +151,14 @@ public static partial class BinaryEndpoints
                     StatusCodes.Status503ServiceUnavailable);
             }
 
+            if (!IsMessageMutationIdempotencyEnabled(configuration))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.InfraFailure, "message_mutation_idempotency_disabled"),
+                    aeds,
+                    StatusCodes.Status503ServiceUnavailable);
+            }
+
             if (!IsPreciseMessageReadCursorEnabled(configuration))
             {
                 return BinaryResults.FromError(
@@ -156,7 +178,12 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "回复请求体非法"), aeds);
             }
 
-            var result = await command.ReplyAsAccountAsync(account.AccountId, id, request.ReadThroughMessageId, request.Body);
+            if (!TryResolveClientMutationId(httpContext, out string clientMutationId))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "client_mutation_id_required"), aeds);
+            }
+
+            var result = await command.ReplyAsAccountAsync(account.AccountId, id, request.ReadThroughMessageId, request.Body, clientMutationId);
             return result.IsSuccess
                 ? BinaryResults.Frame(aeds, AedsFrameType.ConversationMessage, writer => PodBinaryCodec.WriteConversationMessage(result.Value!, writer))
                 : BinaryResults.FromError(result.Error, aeds);
@@ -303,6 +330,14 @@ public static partial class BinaryEndpoints
                     StatusCodes.Status503ServiceUnavailable);
             }
 
+            if (!IsMessageMutationIdempotencyEnabled(configuration))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.InfraFailure, "message_mutation_idempotency_disabled"),
+                    aeds,
+                    StatusCodes.Status503ServiceUnavailable);
+            }
+
             if (!TryResolveAdminMessageActor(httpContext, out AdminMessageActor adminActor))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, StatusCodes.Status401Unauthorized);
@@ -319,7 +354,12 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "回复请求体非法"), aeds);
             }
 
-            var result = await command.ReplyAsAdminAsync(id, body, adminActor);
+            if (!TryResolveClientMutationId(httpContext, out string clientMutationId))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "client_mutation_id_required"), aeds);
+            }
+
+            var result = await command.ReplyAsAdminAsync(id, body, adminActor, clientMutationId);
             return result.IsSuccess
                 ? BinaryResults.Frame(aeds, AedsFrameType.ConversationMessage, writer => PodBinaryCodec.WriteConversationMessage(result.Value!, writer))
                 : BinaryResults.FromError(result.Error, aeds);
@@ -361,9 +401,18 @@ public static partial class BinaryEndpoints
         group.MapPost("/admin/messages/system-send", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IMessageCommandService command,
+            IConfiguration configuration,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
+            if (!IsMessageMutationIdempotencyEnabled(configuration))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.InfraFailure, "message_mutation_idempotency_disabled"),
+                    aeds,
+                    StatusCodes.Status503ServiceUnavailable);
+            }
+
             if (!TryResolveAdminMessageActor(httpContext, out AdminMessageActor adminActor))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, StatusCodes.Status401Unauthorized);
@@ -385,7 +434,12 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "系统消息必须指定目标账号"), aeds);
             }
 
-            var result = await command.SendSystemMessageAsync(request.Subject, request.Body, request.TargetAccountId, adminActor);
+            if (!TryResolveSourceEventId(httpContext, out long sourceEventId))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "source_event_id_required"), aeds);
+            }
+
+            var result = await command.SendSystemMessageAsync(request.Subject, request.Body, request.TargetAccountId, adminActor, sourceEventId);
             return result.IsSuccess
                 ? BinaryResults.Frame(aeds, AedsFrameType.ConversationDetailV2, writer => PodBinaryCodec.WriteConversationDetailV2(result.Value!, writer))
                 : BinaryResults.FromError(result.Error, aeds);
@@ -406,6 +460,20 @@ public static partial class BinaryEndpoints
         return false;
     }
 
+    private static bool TryResolveClientMutationId(HttpContext httpContext, out string clientMutationId)
+    {
+        clientMutationId = httpContext.Request.Headers["X-Fsus-Client-Mutation-Id"].ToString().Trim();
+        return clientMutationId.Length is > 0 and <= 64;
+    }
+
+    private static bool TryResolveSourceEventId(HttpContext httpContext, out long sourceEventId)
+        => long.TryParse(
+            httpContext.Request.Headers["X-Fsus-Source-Event-Id"].ToString(),
+            System.Globalization.NumberStyles.None,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out sourceEventId)
+            && sourceEventId > 0;
+
     private static bool IsPreciseMessageReadCursorEnabled(IConfiguration configuration)
         => configuration.GetValue<bool?>("Messages:PreciseReadCursorEnabled") ?? true;
 
@@ -420,6 +488,9 @@ public static partial class BinaryEndpoints
 
     private static bool IsMessageReplyWritesEnabled(IConfiguration configuration)
         => configuration.GetValue<bool?>("Messages:ReplyWritesEnabled") ?? true;
+
+    private static bool IsMessageMutationIdempotencyEnabled(IConfiguration configuration)
+        => configuration.GetValue<bool?>("Messages:MutationIdempotencyEnabled") ?? true;
 
     private static bool IsAdminAccountProjectionEnabled(IConfiguration configuration)
         => configuration.GetValue<bool?>("Messages:AdminAccountProjectionEnabled") ?? true;

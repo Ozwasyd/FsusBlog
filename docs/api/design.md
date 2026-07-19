@@ -181,6 +181,24 @@ reload-capable `Messages:ReplyWritesEnabled=false` 可在不重启进程的情�
 admin 回复，固定返回 `503 message_reply_writes_disabled`。列表、详情、状态变更和显式重开
 仍可用；恢复前应处理数据库故障并核验投影一致性，不得降级为非事务写入。
 
+### 消息写入幂等身份
+
+账号创建工单、账号回复和 admin 回复都必须携带 `X-Fsus-Client-Mutation-Id`。该值由客户端
+在一次用户意图开始时生成，在双击合并、请求超时和响应丢失后的重试中保持不变；服务端按
+`主体类型 + 主体 ID + ClientMutationId` 建立全局写入身份，而不是按端点或 conversation
+局部去重。系统消息使用稳定的 `X-Fsus-Source-Event-Id`，并把
+`msg_conversation.sourceMessageId` 作为唯一来源坐标。
+
+服务端在现有消息事务中先取得主体级 PostgreSQL advisory transaction lock，再同时检查
+conversation/message 幂等记录。相同身份与相同规范化请求摘要返回最初的 conversation/message
+ID，并在响应的 `idempotencyReplay` 标记重放；相同身份但摘要不同固定返回 `409`，不得覆盖、
+追加消息或增加 unread。消息、activity/unread、outbox 与幂等身份必须同事务提交。
+
+reload-capable `Messages:MutationIdempotencyEnabled=false` 可在不重启进程的情况下 fail closed
+创建、两类回复和系统消息写入，固定返回 `503 message_mutation_idempotency_disabled`；列表、
+详情、已读和状态变更仍可用。修复 schema 或写入链路后直接重新启用，不得回退到无幂等身份
+的写入路径。
+
 详情分页可通过 reload-capable `Messages:ThreadPaginationEnabled=false` 在不重启进程的
 情况下暂停账号与 admin 详情读取，并返回固定 `503 message_thread_pagination_disabled`。
 该降级只阻止详情读取，不恢复全量查询、浏览器本地假分页或文本 API fallback。

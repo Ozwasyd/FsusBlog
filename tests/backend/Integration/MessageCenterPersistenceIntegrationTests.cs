@@ -107,6 +107,151 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
     }
 
     [Fact]
+    public async Task MessageMutations_ReplaySameIdentityAndRejectChangedContent()
+    {
+        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        PostgresSqlSugarTestClient.InitTables(
+            db,
+            typeof(User),
+            typeof(MessageConversation),
+            typeof(ConversationMessage),
+            typeof(ConversationParticipantState),
+            typeof(AdminConversationQueueState),
+            typeof(MessageMutationOutbox));
+        MessageCenterService service = CreateService(
+            db,
+            CreatePermissiveUnifiedCache(),
+            Substitute.For<IMessageNotificationStreamPort>());
+
+        Result<ConversationDetailResponse> created = await service.CreateAccountTicketAsync(
+            42,
+            "stable create",
+            "same body",
+            "client-create-1");
+        Result<ConversationDetailResponse> replayedCreate = await service.CreateAccountTicketAsync(
+            42,
+            "stable create",
+            "same body",
+            "client-create-1");
+        Result<ConversationDetailResponse> conflictingCreate = await service.CreateAccountTicketAsync(
+            42,
+            "stable create",
+            "changed body",
+            "client-create-1");
+
+        Assert.True(created.IsSuccess, created.Error.Message);
+        Assert.True(replayedCreate.IsSuccess, replayedCreate.Error.Message);
+        Assert.False(created.Value!.IdempotencyReplay);
+        Assert.True(replayedCreate.Value!.IdempotencyReplay);
+        Assert.Equal(created.Value.ConversationId, replayedCreate.Value.ConversationId);
+        Assert.False(conflictingCreate.IsSuccess);
+        Assert.Equal(ErrorCode.Conflict, conflictingCreate.Error.Code);
+        Assert.Single(await db.Queryable<MessageConversation>().ToListAsync());
+        Assert.Single(await db.Queryable<ConversationMessage>().ToListAsync());
+
+        long conversationId = long.Parse(created.Value.ConversationId);
+        Result<ConversationMessageResponse> adminReply = await service.ReplyAsAdminAsync(
+            conversationId,
+            "stable admin reply",
+            new AdminMessageActor(7, "admin-session-7"),
+            "client-admin-reply-1");
+        Result<ConversationMessageResponse> replayedAdminReply = await service.ReplyAsAdminAsync(
+            conversationId,
+            "stable admin reply",
+            new AdminMessageActor(7, "admin-session-7"),
+            "client-admin-reply-1");
+        Result<ConversationMessageResponse> conflictingAdminReply = await service.ReplyAsAdminAsync(
+            conversationId,
+            "changed admin reply",
+            new AdminMessageActor(7, "admin-session-7"),
+            "client-admin-reply-1");
+
+        Assert.True(adminReply.IsSuccess, adminReply.Error.Message);
+        Assert.True(replayedAdminReply.IsSuccess, replayedAdminReply.Error.Message);
+        Assert.Equal(adminReply.Value!.MessageId, replayedAdminReply.Value!.MessageId);
+        Assert.True(replayedAdminReply.Value.IdempotencyReplay);
+        Assert.False(conflictingAdminReply.IsSuccess);
+        Assert.Equal(ErrorCode.Conflict, conflictingAdminReply.Error.Code);
+
+        const long SourceEventId = 91231001;
+        Result<ConversationDetailResponse> system = await service.SendSystemMessageAsync(
+            "system source",
+            "same system body",
+            42,
+            AdminMessageActor.System,
+            SourceEventId);
+        Result<ConversationDetailResponse> replayedSystem = await service.SendSystemMessageAsync(
+            "system source",
+            "same system body",
+            42,
+            AdminMessageActor.System,
+            SourceEventId);
+        Result<ConversationDetailResponse> conflictingSystem = await service.SendSystemMessageAsync(
+            "system source",
+            "changed system body",
+            42,
+            AdminMessageActor.System,
+            SourceEventId);
+
+        Assert.True(system.IsSuccess, system.Error.Message);
+        Assert.True(replayedSystem.IsSuccess, replayedSystem.Error.Message);
+        Assert.Equal(system.Value!.ConversationId, replayedSystem.Value!.ConversationId);
+        Assert.True(replayedSystem.Value.IdempotencyReplay);
+        Assert.False(conflictingSystem.IsSuccess);
+        Assert.Equal(ErrorCode.Conflict, conflictingSystem.Error.Code);
+        Assert.Single(
+            await db.Queryable<MessageConversation>()
+                .Where(item => item.SourceMessageId == SourceEventId)
+                .ToListAsync());
+    }
+
+    [Fact]
+    [Trait("Category", "Concurrency")]
+    public async Task AccountReply_ConcurrentSameMutationCommitsOneMessageAndReplaysResult()
+    {
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using SqlSugarClient setup = PostgresSqlSugarTestClient.Create(connectionString);
+        PostgresSqlSugarTestClient.InitTables(
+            setup,
+            typeof(User),
+            typeof(MessageConversation),
+            typeof(ConversationMessage),
+            typeof(ConversationParticipantState),
+            typeof(AdminConversationQueueState),
+            typeof(MessageMutationOutbox));
+        IUnifiedCache cache = CreatePermissiveUnifiedCache();
+        IMessageNotificationStreamPort notifications = Substitute.For<IMessageNotificationStreamPort>();
+        MessageCenterService setupService = CreateService(setup, cache, notifications);
+        Result<ConversationDetailResponse> created = await setupService.CreateAccountTicketAsync(
+            42,
+            "concurrent mutation",
+            "initial",
+            "client-create-concurrent");
+        Assert.True(created.IsSuccess, created.Error.Message);
+        long conversationId = long.Parse(created.Value!.ConversationId);
+        long readThroughMessageId = long.Parse(Assert.Single(created.Value.Messages).MessageId);
+        using SqlSugarClient firstDb = PostgresSqlSugarTestClient.Create(connectionString);
+        using SqlSugarClient secondDb = PostgresSqlSugarTestClient.Create(connectionString);
+        MessageCenterService first = CreateService(firstDb, cache, notifications);
+        MessageCenterService second = CreateService(secondDb, cache, notifications);
+
+        Result<ConversationMessageResponse>[] results = await Task.WhenAll(
+            first.ReplyAsAccountAsync(42, conversationId, readThroughMessageId, "one committed reply", "client-reply-concurrent"),
+            second.ReplyAsAccountAsync(42, conversationId, readThroughMessageId, "one committed reply", "client-reply-concurrent"));
+
+        Assert.All(results, result => Assert.True(result.IsSuccess, result.Error.Message));
+        Assert.Equal(results[0].Value!.MessageId, results[1].Value!.MessageId);
+        Assert.Contains(results, result => result.Value!.IdempotencyReplay);
+        Assert.Contains(results, result => !result.Value!.IdempotencyReplay);
+        Assert.Equal(2, await setup.Queryable<ConversationMessage>().CountAsync());
+        Assert.Equal(
+            1,
+            await setup.Queryable<ConversationMessage>()
+                .Where(item => item.ClientMutationId == "client-reply-concurrent")
+                .CountAsync());
+    }
+
+    [Fact]
     public async Task AdminQueueState_SeparatesAccountAdminAndSystemUnreadAndMarksLatestDetailRead()
     {
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);

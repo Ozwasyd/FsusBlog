@@ -48,6 +48,7 @@ describe('message API binary transport', () => {
       requestOptions: expect.objectContaining({
         method: 'POST',
         requiresPow: true,
+        headers: expect.objectContaining({ 'X-Fsus-Client-Mutation-Id': expect.any(String) }),
         body: expect.any(ArrayBuffer)
       })
     }))
@@ -60,6 +61,7 @@ describe('message API binary transport', () => {
       requestOptions: expect.objectContaining({
         method: 'POST',
         requiresPow: true,
+        headers: expect.objectContaining({ 'X-Fsus-Client-Mutation-Id': expect.any(String) }),
         body: expect.any(ArrayBuffer)
       })
     }))
@@ -76,6 +78,36 @@ describe('message API binary transport', () => {
     const readFrame = new DataView(readCall?.requestOptions?.body as ArrayBuffer)
     expect(readFrame.getUint16(8, true)).toBe(FrameType.ConversationReadRequest)
     expect(readFrame.getBigInt64(16, true)).toBe(11n)
+  })
+
+  it('reuses mutation identity for double click, timeout retry and response loss', async () => {
+    const request = { subject: 'Stable subject', body: 'Stable body' }
+
+    const first = messageApi.createAccountConversation(request)
+    const second = messageApi.createAccountConversation(request)
+    const doubleClickIds = mockBinary.mock.calls.slice(0, 2).map(([call]) =>
+      call.requestOptions?.headers?.['X-Fsus-Client-Mutation-Id']
+    )
+    expect(doubleClickIds[0]).toBe(doubleClickIds[1])
+    await Promise.all([first, second])
+
+    mockBinary.mockRejectedValueOnce({ status: 408 })
+    await expect(messageApi.replyAccountConversation(7, {
+      body: 'Timeout retry',
+      readThroughMessageId: '11'
+    })).rejects.toEqual({ status: 408 })
+    const timeoutId = mockBinary.mock.calls.at(-1)?.[0].requestOptions?.headers?.['X-Fsus-Client-Mutation-Id']
+    await messageApi.replyAccountConversation(7, {
+      body: 'Timeout retry',
+      readThroughMessageId: '11'
+    })
+    expect(mockBinary.mock.calls.at(-1)?.[0].requestOptions?.headers?.['X-Fsus-Client-Mutation-Id']).toBe(timeoutId)
+
+    mockBinary.mockRejectedValueOnce(new TypeError('response lost'))
+    await expect(messageApi.adminReplyConversation(9, { body: 'Response loss' })).rejects.toThrow('response lost')
+    const responseLossId = mockBinary.mock.calls.at(-1)?.[0].requestOptions?.headers?.['X-Fsus-Client-Mutation-Id']
+    await messageApi.adminReplyConversation(9, { body: 'Response loss' })
+    expect(mockBinary.mock.calls.at(-1)?.[0].requestOptions?.headers?.['X-Fsus-Client-Mutation-Id']).toBe(responseLossId)
   })
 
   it('loads bounded account thread pages with beforeMessageId', async () => {
@@ -119,7 +151,10 @@ describe('message API binary transport', () => {
         operationId: 'binary_post_admin_messages_conversations_id_long_reply',
         params: { id: 9 }
       },
-      frameType: FrameType.ConversationMessage
+      frameType: FrameType.ConversationMessage,
+      requestOptions: expect.objectContaining({
+        headers: expect.objectContaining({ 'X-Fsus-Client-Mutation-Id': expect.any(String) })
+      })
     }))
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryRoute: {
@@ -130,7 +165,10 @@ describe('message API binary transport', () => {
     }))
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryRoute: { operationId: 'binary_post_admin_messages_system_send' },
-      frameType: FrameType.ConversationDetailV2
+      frameType: FrameType.ConversationDetailV2,
+      requestOptions: expect.objectContaining({
+        headers: expect.objectContaining({ 'X-Fsus-Source-Event-Id': expect.stringMatching(/^[1-9][0-9]*$/) })
+      })
     }))
     const adminListCall = mockBinary.mock.calls.find(([request]) =>
       request.binaryRoute?.operationId === 'binary_get_admin_messages_conversations'
