@@ -59,11 +59,16 @@ public sealed class AdminCacheDiagnosticsBoundaryTests
     [Fact]
     public void DependencyGraph_MovesCacheDiagnosticPortsOutOfAdminOperationsWithoutCallback()
     {
+        Type[] healthDependencies = Assert.Single(typeof(AdminOperationsHealthReader).GetConstructors(
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+            .GetParameters()
+            .Select(static parameter => parameter.ParameterType)
+            .ToArray();
+        Assert.Contains(typeof(IAdminCacheDiagnosticsReader), healthDependencies);
         Type[] aggregateDependencies = Assert.Single(typeof(AdminOperationsService).GetConstructors())
             .GetParameters()
             .Select(static parameter => parameter.ParameterType)
             .ToArray();
-        Assert.Contains(typeof(IAdminCacheDiagnosticsReader), aggregateDependencies);
         Assert.DoesNotContain(typeof(PublicHotReadCounters), aggregateDependencies);
         Assert.DoesNotContain(typeof(PublicAotInvalidationTracker), aggregateDependencies);
         Assert.DoesNotContain(typeof(CacheInvalidationRuntimeState), aggregateDependencies);

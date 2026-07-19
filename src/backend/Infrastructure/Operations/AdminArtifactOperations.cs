@@ -7,6 +7,13 @@ using FsusBlog.Server.Models.Dtos;
 
 namespace FsusBlog.Server.Infrastructure.Operations;
 
+internal static class PublicArticleProjectionAdminActions
+{
+    internal const string Status = "public-article-projection-backfill-status";
+    internal const string Pause = "public-article-projection-backfill-pause";
+    internal const string Resume = "public-article-projection-backfill-resume";
+}
+
 public interface IAdminArtifactOperations
 {
     Task<AdminCacheActionResponse> RunCacheActionAsync(

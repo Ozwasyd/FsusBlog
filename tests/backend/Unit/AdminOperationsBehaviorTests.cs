@@ -41,14 +41,5 @@ public sealed class AdminOperationsBehaviorTests
     private static AdminOperationsService CreateServiceWithoutDependencies()
         => new(
             db: null!,
-            environment: null!,
-            backupStatusReader: null!,
-            readinessProbe: null!,
-            publicHotReadStore: null!,
-            auditLogRuntime: null!,
-            dependencyGraphRuntime: new DependencyGraphRuntimeState(),
-            startupRuntime: null!,
-            scheduledPublishRuntime: null!,
-            crawlerDetector: null!,
-            cacheDiagnosticsReader: null!);
+            environment: null!);
 }

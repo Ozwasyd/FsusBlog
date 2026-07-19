@@ -10,7 +10,7 @@ public sealed class AdminOperationsRecentErrorsTests
     {
         DateTime occurred = new(2026, 6, 14, 9, 30, 0, DateTimeKind.Utc);
 
-        IReadOnlyList<RecentOpsErrorResponse> errors = AdminOperationsService.BuildRecentErrorResponses(
+        IReadOnlyList<RecentOpsErrorResponse> errors = AdminOperationsHealthReader.BuildRecentErrorResponses(
         [
             new RecentOpsErrorAuditRow
             {
@@ -38,7 +38,7 @@ public sealed class AdminOperationsRecentErrorsTests
         DateTime older = new(2026, 6, 14, 9, 30, 0, DateTimeKind.Utc);
         DateTime latest = older.AddMinutes(7);
 
-        IReadOnlyList<RecentOpsErrorResponse> errors = AdminOperationsService.BuildRecentErrorResponses(
+        IReadOnlyList<RecentOpsErrorResponse> errors = AdminOperationsHealthReader.BuildRecentErrorResponses(
         [
             CreateRow(older, "public_aot.cache", "Boundary execution failed: \"public-aot-node:buildEntry\""),
             CreateRow(latest, "public_aot.cache", "Boundary execution failed: \"public-aot-node:buildEntry\"")
@@ -55,7 +55,7 @@ public sealed class AdminOperationsRecentErrorsTests
     {
         string detail = "System.InvalidOperationException " + new string('x', 420);
 
-        IReadOnlyList<RecentOpsErrorResponse> errors = AdminOperationsService.BuildRecentErrorResponses(
+        IReadOnlyList<RecentOpsErrorResponse> errors = AdminOperationsHealthReader.BuildRecentErrorResponses(
         [
             CreateRow(new DateTime(2026, 6, 14, 9, 30, 0, DateTimeKind.Utc), "public_aot.cache", $"Unhandled exception: {detail}")
         ]);

@@ -293,11 +293,11 @@ public static partial class AuthoringEndpoints
         group.MapGet("/ops/health", async (
             HttpContext context,
             IAedsEncoder aeds,
-            AdminOperationsService operations,
+            [Microsoft.AspNetCore.Mvc.FromServices] IAdminOperationsHealthReader healthReader,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            OpsHealthResponse response = await operations.GetOpsHealthAsync(cancellationToken);
+            OpsHealthResponse response = await healthReader.GetAsync(cancellationToken);
             await auditEvents.RecordAsync(new AuditEvent(
                 AuditSourceCatalog.Admin,
                 AuditTypeCatalog.Infra,

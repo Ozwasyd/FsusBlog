@@ -60,7 +60,7 @@ public sealed class AdminBackupStatusBoundaryTests
     [Fact]
     public void DependencyGraph_MovesBackupPortsOutOfAdminOperationsWithoutCallback()
     {
-        Type[] operationDependencies = Assert.Single(typeof(AdminOperationsService).GetConstructors(
+        Type[] operationDependencies = Assert.Single(typeof(AdminOperationsHealthReader).GetConstructors(
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
             .GetParameters()
             .Select(static parameter => parameter.ParameterType)
@@ -68,7 +68,7 @@ public sealed class AdminBackupStatusBoundaryTests
         Assert.Contains(typeof(IAdminBackupStatusReader), operationDependencies);
         Assert.DoesNotContain(typeof(IConfiguration), operationDependencies);
         Assert.DoesNotContain(
-            typeof(AdminOperationsService).GetMethods(),
+            typeof(AdminOperationsHealthReader).GetMethods(),
             static method => method.Name == "GetBackupStatus");
 
         ParameterInfo[] readerDependencies = Assert.Single(typeof(AdminBackupStatusReader).GetConstructors(
