@@ -54,6 +54,10 @@ src/frontend/
 - Emscripten SDK（可选，仅需本地重新构建 Wasm 时）
 - 后端服务运行在 `http://127.0.0.1:7568`（`npm run dev:debug` 会自动代理）
 
+## 浏览器运行时基线
+
+浏览器端 TypeScript 与 Vite 生产输出统一锁定为 ES2022；Node/Vite 构建工具继续使用隔离的 ES2023 配置。ES2022 不代表完整的浏览器或 Web Platform 支持声明，DOM、Service Worker、WebAuthn、Trusted Types、Wasm 等能力仍通过 feature detection 与浏览器矩阵独立治理。完整约束与回退规则见 [Browser Runtime Baseline](../../docs/frontend/browser-runtime-baseline.md)。
+
 ## 安装
 
 ```bash
@@ -77,7 +81,7 @@ npm ci
 **静态检查**（无需运行服务）：
 
 ```bash
-npm run check:modern-standards        # 现代 API 约束
+npm run check:modern-standards        # 语言版本与 ES2022 浏览器基线
 npm run check:result-boundaries       # Result<T> 边界规范
 npm run check:security-consistency    # 安全配置一致性
 npm run check:error-code-alignment    # 错误码对齐

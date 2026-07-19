@@ -638,6 +638,7 @@ export default defineConfig(({ command, mode }) => {
             }
             : undefined,
         build: {
+            target: 'es2022',
             // Public AOT owns the audited modulepreload set. Vite's generated
             // runtime helper assigns raw strings to modulepreload href, which
             // is a TrustedScriptURL sink under the production CSP.
