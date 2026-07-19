@@ -212,3 +212,20 @@ AccountLayout 将持久导航限制为一级模块，并只展开当前模块的
 - Drawer 标题和触发器同时说明当前模块上下文，并使用站点 motion preset。
 - 顶栏只保留品牌、主站、主题与账号菜单；使用规范、隐私政策和登出统一进入账号菜单。
 - URL、刷新与深链接保持原路由；浏览器后退时根据恢复后的 path 重新计算模块和叶子 current 状态。
+
+### Account route composition metadata
+
+`/user/**` 的叶子路由必须通过 typed route meta 明确页面组合角色。元数据各自回答一个问题，不得相互推导：
+
+| Contract | Question answered | Owner |
+| --- | --- | --- |
+| `accountPageKind` | 页面是 identity settings、inbox、dashboard、collection、form、settings 还是 console？ | Router 声明，layout 做有限且穷尽的 class 映射。 |
+| `accountArea` | 页面属于 self-service 账户区还是 manage 工作区？ | Router 与权限过滤后的 workspace context。 |
+| `accountContentMode` | 内容宽度是 standard、wide 还是 takeover？ | Router；它与 page kind 保持正交。 |
+| `routeState` | URL/query 是否可分享、可恢复、session-sensitive 或只在内存中存在？ | Private navigation security policy。 |
+| `requiredAdminPermissions` | 当前 admin principal 是否可进入页面？ | 服务端权威权限与 router guard。 |
+| feature / policy visibility | 导航入口当前是否应显示？ | Runtime feature/policy snapshot；不替代权限或直接改变 shell。 |
+
+`selfMeta` 与 `manageMeta` 只接受 named options；新增 account leaf 缺少 `accountPageKind` 或 `accountContentMode` 时，development assertion 与 router contract test 必须失败。`AccountLayout` 不得按具体 route name 选择视觉 class。
+
+本次 typed migration 的 class 输出保持原样：self-service kinds 不增加 admin shell class；manage 的 `form`、`settings`、`dashboard` 分别映射到既有 modifier，`identity-settings`、`inbox`、`collection`、`console` 保持既有 list modifier。`ManageSecurityDashboard` 与 `ManageModerationDashboard` 在迁移前实际落入 list shell，因此暂以 `collection` 记录兼容分类；是否在 frame 拆分后提升为 dashboard composition 由 #1309 处理，不能在零视觉预算的 metadata issue 中静默重设计。

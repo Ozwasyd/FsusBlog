@@ -1,5 +1,6 @@
-export type AccountArea = 'self' | 'manage'
-export type AccountContentMode = 'standard' | 'wide' | 'takeover'
+import type { AccountArea } from '@/router/accountRouteMeta'
+
+export type { AccountArea, AccountContentMode } from '@/router/accountRouteMeta'
 export type AccountNavGroupKey =
   | 'self'
   | 'identity'

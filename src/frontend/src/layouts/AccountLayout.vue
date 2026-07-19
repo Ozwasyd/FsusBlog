@@ -158,7 +158,9 @@ import {
     type AccountArea,
     type AccountContentMode
 } from '@/layouts/accountNav';
+import { resolveAccountPageKindClass } from '@/layouts/accountPageKind';
 import { useAccountWorkspaceContext } from '@/layouts/accountWorkspaceContext';
+import { isAccountPageKind } from '@/router/accountRouteMeta';
 import { showErrorToast } from '@/utils/errorPresentation';
 
 const route = useRoute();
@@ -237,22 +239,16 @@ const adminContentClass = computed(() =>
         return '';
     }
 
-    if (route.name === 'ManageWriteArticle' || route.name === 'ManageEditArticle')
+    if (!isAccountPageKind(route.meta.accountPageKind))
     {
-        return 'admin-page-shell admin-page-shell--form';
+        if (import.meta.env.DEV)
+        {
+            throw new Error(`Account route ${route.path} is missing a valid accountPageKind`);
+        }
+        return 'admin-page-shell admin-page-shell--list';
     }
 
-    if (route.name === 'ManageSettings')
-    {
-        return 'admin-page-shell admin-page-shell--settings';
-    }
-
-    if (route.name === 'ManageDashboard')
-    {
-        return 'admin-page-shell admin-page-shell--dashboard';
-    }
-
-    return 'admin-page-shell admin-page-shell--list';
+    return resolveAccountPageKindClass(currentArea.value, route.meta.accountPageKind);
 });
 
 const accountRouteViewKey = computed(() =>

@@ -1,8 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, defineStore, setActivePinia } from 'pinia'
 import { createMemoryHistory } from 'vue-router'
-import type { RouteRecordNormalized, Router } from 'vue-router'
+import type { RouteRecordNormalized, RouteRecordRaw, Router } from 'vue-router'
 import { APP_ROUTE_RECORDS, createAppRouter } from '@/router'
+import {
+  ACCOUNT_CONTENT_MODES,
+  ACCOUNT_PAGE_KINDS,
+  assertAccountLeafRouteMeta,
+  isAccountPageKind
+} from '@/router/accountRouteMeta'
+import { resolveAccountPageKindClass } from '@/layouts/accountPageKind'
 
 const ensureBootstrap = vi.fn<() => Promise<void>>()
 const ensurePublicShell = vi.fn<() => Promise<void>>()
@@ -161,6 +168,65 @@ describe('account router meta and guards', () => {
       if (route.meta.routeState === 'private-recoverable') {
         expect(route.meta.allowLoginRedirect, `${String(route.name)} must explicitly allow login recovery`).toBe(true)
       }
+    }
+  })
+
+  it('classifies every account leaf by an explicit page kind and content mode', async () => {
+    expect(() => assertAccountLeafRouteMeta(APP_ROUTE_RECORDS)).not.toThrow()
+
+    const router = await createTestRouter()
+    const accountLeaves = router.getRoutes().filter((route) => (
+      route.name !== undefined && route.path.startsWith('/user/')
+    ))
+
+    expect(accountLeaves.length).toBeGreaterThan(0)
+    for (const route of accountLeaves) {
+      expect(ACCOUNT_PAGE_KINDS, `${String(route.name)} must declare a typed page kind`)
+        .toContain(route.meta.accountPageKind)
+      expect(ACCOUNT_CONTENT_MODES, `${String(route.name)} must declare a typed content mode`)
+        .toContain(route.meta.accountContentMode)
+    }
+  })
+
+  it('fails closed when a new account leaf omits its composition contract', () => {
+    const invalidRecords: RouteRecordRaw[] = [{
+      path: '/user',
+      component: routeComponentStub,
+      children: [{
+        path: 'missing-kind',
+        name: 'MissingAccountPageKind',
+        component: routeComponentStub,
+        meta: { accountArea: 'self', accountContentMode: 'standard' }
+      }]
+    }]
+
+    expect(() => assertAccountLeafRouteMeta(invalidRecords))
+      .toThrow('MissingAccountPageKind (/user/missing-kind) must declare a valid accountPageKind')
+  })
+
+  it('preserves every account leaf shell class from the route-name inference baseline', async () => {
+    const router = await createTestRouter()
+    const accountLeaves = router.getRoutes().filter((route) => (
+      route.name !== undefined && route.path.startsWith('/user/')
+    ))
+
+    for (const route of accountLeaves) {
+      expect(isAccountPageKind(route.meta.accountPageKind)).toBe(true)
+      if (!isAccountPageKind(route.meta.accountPageKind)) continue
+
+      const area = route.meta.accountArea === 'manage' ? 'manage' : 'self'
+      const legacyClass = area === 'self'
+        ? ''
+        : route.name === 'ManageWriteArticle' || route.name === 'ManageEditArticle'
+          ? 'admin-page-shell admin-page-shell--form'
+          : route.name === 'ManageSettings'
+            ? 'admin-page-shell admin-page-shell--settings'
+            : route.name === 'ManageDashboard'
+              ? 'admin-page-shell admin-page-shell--dashboard'
+              : 'admin-page-shell admin-page-shell--list'
+
+      expect(resolveAccountPageKindClass(area, route.meta.accountPageKind), String(route.name))
+        .toBe(legacyClass)
     }
   })
 
