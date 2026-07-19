@@ -9,9 +9,9 @@ public sealed class AdminOperationsBehaviorTests
     [Fact]
     public void GetDangerousOperationPolicy_RequiresDiffAndStepUpForIntegrityFix()
     {
-        AdminOperationsService service = CreateServiceWithoutDependencies();
+        var service = new AdminDangerousOperationPolicyReader();
 
-        DangerousOperationPolicyResponse policy = service.GetDangerousOperationPolicy();
+        DangerousOperationPolicyResponse policy = service.Get();
 
         Assert.Contains("integrity-fix", policy.DiffRequiredOperations);
         Assert.Contains("integrity-fix", policy.MfaRequiredOperations);

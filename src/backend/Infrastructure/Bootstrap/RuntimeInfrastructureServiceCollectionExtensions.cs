@@ -208,6 +208,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddScoped<IAdminArtifactOperations, AdminArtifactOperations>();
         services.AddScoped<IAdminCacheDiagnosticsReader, AdminCacheDiagnosticsReader>();
         services.AddScoped<IAdminOperationsHealthReader, AdminOperationsHealthReader>();
+        services.AddSingleton<IAdminDangerousOperationPolicyReader, AdminDangerousOperationPolicyReader>();
         services.AddScoped<AdminOperationsService>();
         return services;
     }

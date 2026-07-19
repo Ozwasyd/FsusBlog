@@ -322,8 +322,8 @@ public static partial class AuthoringEndpoints
         group.MapGet("/ops/dangerous-operations/policy", (
             HttpContext context,
             IAedsEncoder aeds,
-            AdminOperationsService operations) =>
-            Ok(context, aeds, operations.GetDangerousOperationPolicy()))
+            [Microsoft.AspNetCore.Mvc.FromServices] IAdminDangerousOperationPolicyReader policyReader) =>
+            Ok(context, aeds, policyReader.Get()))
         .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
