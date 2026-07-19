@@ -59,6 +59,12 @@ GET 与 HEAD 返回相同状态和关键头；HEAD 保留与 GET 相同的 `Cont
 
 错误码以固定宽度 UTF-8 字段写入 AEDS `ApiError` frame，按模块分组。
 
+消息内容校验错误使用 `ErrorCode.Validation`：`message_subject_empty`、
+`message_body_empty`、`message_subject_scalar_limit_exceeded`、
+`message_subject_grapheme_limit_exceeded`、`message_subject_utf8_limit_exceeded` 以及对应的
+`message_body_*`。frame 超过共享 20 KiB 上限时由 binary binder 返回 Validation。错误响应不得
+回显原始主题或正文，且任何超限失败都不得产生会话、消息、outbox 或 unread 变更。
+
 ### 通用错误
 
 | 错误码 | HTTP 状态 | 含义 |

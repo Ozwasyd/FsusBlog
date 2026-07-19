@@ -165,6 +165,12 @@ internal note。
 事件 ID/时间和 `lastMessageAt` 分别作为对应投影的可比较版本，较旧 patch 只能被去重，不能使
 状态回退。
 
+消息内容不得依赖 HTML `maxlength` 或 UTF-16 `String.Length` 作为持久化门禁。共享策略同时
+计算 Unicode scalar、grapheme 与 UTF-8 byte 长度，并在 AEDS 解码后再次验证；账户手工消息、
+admin 回复和 system governance notice 走同一策略。超限必须以 `Validation` 明确失败并保留
+调用方原文，禁止 substring/slice 后继续写入。只有列表 preview 可以按 grapheme 边界生成独立
+截断投影，存储正文和详情响应不得受 preview 影响。
+
 `ConversationDetailV3` 同时返回本次可见结果的 `readSnapshotMessageId`。账号侧 mark-read 必须提交 `ConversationReadRequest` 的
 `readThroughMessageId`；账号回复必须提交 `AccountConversationReplyRequest`，同时携带
 正文与该显式读取位置。服务端不得在 mark-read 或回复事务中用数据库当前

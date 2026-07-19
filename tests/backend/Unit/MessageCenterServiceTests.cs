@@ -15,6 +15,7 @@ using FsusBlog.Server.Services.NotificationStream;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Server.Tests.Unit;
 using FsusBlog.Shared.Contracts.Outputs;
+using FsusBlog.Shared.Contracts.Validation;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Infrastructure;
@@ -693,41 +694,80 @@ public sealed class MessageCenterServiceTests
         }
     }
 
-    [Theory]
-    [InlineData(null, "")]
-    [InlineData("   ", "")]
-    [InlineData("hello", "hello")]
-    [InlineData("  trimmed  ", "trimmed")]
-    public void NormalizeBody_ReturnsExpected(string? input, string expected)
+    [Fact]
+    public void MessageContentPolicy_PreservesUnicodeAndOriginalWhitespace()
     {
-        var result = InvokePrivateStatic<string>("NormalizeBody", [input]);
-        Assert.Equal(expected, result);
+        const string Body = "  中文 e\u0301 😀\n第二行  ";
+        MessageContentValidation result = MessageContentPolicy.ValidateBody(Body);
+
+        Assert.True(result.IsValid);
+        Assert.Equal(Body, result.Value);
+        Assert.Equal(MessageContentViolation.None, result.Violation);
     }
 
     [Fact]
-    public void NormalizeBody_TruncatesAt4000()
+    public void MessageContentPolicy_AcceptsExactEmojiBoundaryAndRejectsGraphemeOverflow()
     {
-        string longBody = new string('a', 5000);
-        var result = InvokePrivateStatic<string>("NormalizeBody", [longBody]);
-        Assert.Equal(4000, result.Length);
-    }
+        string exact = string.Concat(Enumerable.Repeat("😀", MessageContentPolicy.SubjectMaxGraphemes));
+        string overflow = string.Concat(exact, "x");
 
-    [Theory]
-    [InlineData(null, "fallback", "fallback")]
-    [InlineData("   ", "fb", "fb")]
-    [InlineData("subject", "fb", "subject")]
-    public void NormalizeSubject_ReturnsExpected(string? input, string fallback, string expected)
-    {
-        var result = InvokePrivateStatic<string>("NormalizeSubject", [input, fallback]);
-        Assert.Equal(expected, result);
+        Assert.True(MessageContentPolicy.ValidateSubject(exact, "fallback").IsValid);
+        MessageContentValidation rejected = MessageContentPolicy.ValidateSubject(overflow, "fallback");
+        Assert.False(rejected.IsValid);
+        Assert.Equal(MessageContentViolation.GraphemeLimit, rejected.Violation);
+        Assert.Equal(overflow, rejected.Value);
     }
 
     [Fact]
-    public void NormalizeSubject_TruncatesAt160()
+    public void MessageContentPolicy_RejectsUtf8OverflowWithoutTruncating()
     {
-        string longSubject = new string('x', 200);
-        var result = InvokePrivateStatic<string>("NormalizeSubject", [longSubject, "fb"]);
-        Assert.Equal(160, result.Length);
+        string oversizedBytes = string.Concat(Enumerable.Repeat("😀\u0301", MessageContentPolicy.SubjectMaxGraphemes));
+        MessageContentValidation rejected = MessageContentPolicy.ValidateSubject(oversizedBytes, "fallback");
+
+        Assert.False(rejected.IsValid);
+        Assert.Equal(MessageContentViolation.Utf8ByteLimit, rejected.Violation);
+        Assert.Equal(oversizedBytes, rejected.Value);
+    }
+
+    [Fact]
+    public void MessageContentPolicy_PreviewTruncatesOnlyAtGraphemeBoundary()
+    {
+        string cluster = "e\u0301";
+        string body = string.Concat(Enumerable.Repeat(cluster, MessageContentPolicy.PreviewMaxGraphemes + 1));
+
+        Assert.Equal(
+            string.Concat(Enumerable.Repeat(cluster, MessageContentPolicy.PreviewMaxGraphemes)) + "...",
+            MessageContentPolicy.CreatePreview(body));
+    }
+
+    [Fact]
+    public async Task OversizedMessageContent_ReturnsValidationErrorThatRoundTripsThroughApiErrorPod()
+    {
+        var service = BuildService();
+        string oversized = new('a', MessageContentPolicy.BodyMaxGraphemes + 1);
+        Result<ConversationMessageResponse> result = await service.ReplyAsAccountAsync(1, 9, 1, oversized);
+        Result<ConversationMessageResponse> adminResult = await service.ReplyAsAdminAsync(
+            9,
+            oversized,
+            new AdminMessageActor(1, "admin-session"));
+        Result<ConversationDetailResponse> systemResult = await service.SendSystemMessageAsync(
+            "governance notice",
+            oversized,
+            1,
+            new AdminMessageActor(1, "admin-session"));
+
+        Assert.False(result.IsSuccess);
+        Assert.False(adminResult.IsSuccess);
+        Assert.False(systemResult.IsSuccess);
+        Assert.Equal(ErrorCode.Validation, result.Error.Code);
+        Assert.Equal("message_body_grapheme_limit_exceeded", result.Error.Message);
+        Assert.Equal(result.Error, adminResult.Error);
+        Assert.Equal(result.Error, systemResult.Error);
+        byte[] encoded = PodBinaryCodec.EncodeApiError(result.Error, StatusCodes.Status400BadRequest);
+        Assert.True(PodBinaryCodec.TryDecodeApiError(encoded, out var decoded));
+        ErrorDetail restored = PodBinaryCodec.ToErrorDetail(decoded);
+        Assert.Equal(ErrorCode.Validation, restored.Code);
+        Assert.Equal(result.Error.Message, restored.Message);
     }
 
     [Theory]

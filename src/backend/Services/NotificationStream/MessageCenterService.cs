@@ -14,6 +14,7 @@ using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Shared.Contracts.NotificationStream;
 using FsusBlog.Shared.Contracts.Outputs;
+using FsusBlog.Shared.Contracts.Validation;
 
 using SqlSugar;
 
@@ -26,8 +27,6 @@ public sealed class MessageCenterService(
     IConfiguration configuration,
     ILogger<MessageCenterService> logger) : IMessageQueryService, IMessageCommandService, IMessageRealtimePublisher, IMessageAdminQueueMaintenance, IMessageMutationOutboxDelivery
 {
-    private const int MaxSubjectLength = 160;
-    private const int MaxBodyLength = 4000;
     private const int ConversationDetailPageSize = 50;
 
     public async Task<PageResponse<ConversationListItemResponse>> GetAccountConversationsAsync(
@@ -811,12 +810,18 @@ public sealed class MessageCenterService(
         string body,
         string clientMutationId)
     {
-        var normalizedSubject = NormalizeSubject(subject, "用户申诉");
-        var normalizedBody = NormalizeBody(body);
-        if (normalizedBody.Length == 0)
+        MessageContentValidation subjectValidation = MessageContentPolicy.ValidateSubject(subject, "用户申诉");
+        MessageContentValidation bodyValidation = MessageContentPolicy.ValidateBody(body);
+        if (!subjectValidation.IsValid)
         {
-            return Result<ConversationDetailResponse>.Failure(ErrorCode.Validation, "内容不能为空");
+            return Result<ConversationDetailResponse>.Failure(ErrorCode.Validation, ToContentValidationCode("subject", subjectValidation.Violation));
         }
+        if (!bodyValidation.IsValid)
+        {
+            return Result<ConversationDetailResponse>.Failure(ErrorCode.Validation, ToContentValidationCode("body", bodyValidation.Violation));
+        }
+        string normalizedSubject = subjectValidation.Value;
+        string normalizedBody = bodyValidation.Value;
         if (!TryNormalizeClientMutationId(clientMutationId, out string mutationId))
         {
             return Result<ConversationDetailResponse>.Failure(ErrorCode.Validation, "client_mutation_id_invalid");
@@ -948,11 +953,12 @@ public sealed class MessageCenterService(
         string clientMutationId)
     {
         long startedAt = Stopwatch.GetTimestamp();
-        string normalizedBody = NormalizeBody(body);
-        if (normalizedBody.Length == 0)
+        MessageContentValidation bodyValidation = MessageContentPolicy.ValidateBody(body);
+        if (!bodyValidation.IsValid)
         {
-            return Result<ConversationMessageResponse>.Failure(ErrorCode.Validation, "内容不能为空");
+            return Result<ConversationMessageResponse>.Failure(ErrorCode.Validation, ToContentValidationCode("body", bodyValidation.Violation));
         }
+        string normalizedBody = bodyValidation.Value;
         if (!TryNormalizeClientMutationId(clientMutationId, out string mutationId))
         {
             return Result<ConversationMessageResponse>.Failure(ErrorCode.Validation, "client_mutation_id_invalid");
@@ -1404,11 +1410,12 @@ public sealed class MessageCenterService(
         AdminMessageActor adminActor,
         string clientMutationId)
     {
-        string normalizedBody = NormalizeBody(body);
-        if (normalizedBody.Length == 0)
+        MessageContentValidation bodyValidation = MessageContentPolicy.ValidateBody(body);
+        if (!bodyValidation.IsValid)
         {
-            return Result<ConversationMessageResponse>.Failure(ErrorCode.Validation, "内容不能为空");
+            return Result<ConversationMessageResponse>.Failure(ErrorCode.Validation, ToContentValidationCode("body", bodyValidation.Violation));
         }
+        string normalizedBody = bodyValidation.Value;
         if (!TryNormalizeClientMutationId(clientMutationId, out string mutationId))
         {
             return Result<ConversationMessageResponse>.Failure(ErrorCode.Validation, "client_mutation_id_invalid");
@@ -1671,12 +1678,18 @@ public sealed class MessageCenterService(
             return Result<ConversationDetailResponse>.Failure(ErrorCode.Validation, "source_event_id_invalid");
         }
 
-        var normalizedSubject = NormalizeSubject(subject, "系统消息");
-        var normalizedBody = NormalizeBody(body);
-        if (normalizedBody.Length == 0)
+        MessageContentValidation subjectValidation = MessageContentPolicy.ValidateSubject(subject, "系统消息");
+        MessageContentValidation bodyValidation = MessageContentPolicy.ValidateBody(body);
+        if (!subjectValidation.IsValid)
         {
-            return Result<ConversationDetailResponse>.Failure(ErrorCode.Validation, "内容不能为空");
+            return Result<ConversationDetailResponse>.Failure(ErrorCode.Validation, ToContentValidationCode("subject", subjectValidation.Violation));
         }
+        if (!bodyValidation.IsValid)
+        {
+            return Result<ConversationDetailResponse>.Failure(ErrorCode.Validation, ToContentValidationCode("body", bodyValidation.Violation));
+        }
+        string normalizedSubject = subjectValidation.Value;
+        string normalizedBody = bodyValidation.Value;
 
         int target = checked((int)targetAccountId.Value);
         bool hasAdminPrincipal = adminActor.HasAdminPrincipal;
@@ -2756,22 +2769,15 @@ public sealed class MessageCenterService(
             .SumAsync(it => it.UnreadCount);
     }
 
-    private static string NormalizeSubject(string? input, string fallback)
-    {
-        string value = string.IsNullOrWhiteSpace(input) ? fallback : input.Trim();
-        return value.Length > MaxSubjectLength ? value[..MaxSubjectLength] : value;
-    }
-
-    private static string NormalizeBody(string? input)
-    {
-        if (string.IsNullOrWhiteSpace(input))
+    private static string ToContentValidationCode(string field, MessageContentViolation violation)
+        => violation switch
         {
-            return string.Empty;
-        }
-
-        string value = input.Trim();
-        return value.Length > MaxBodyLength ? value[..MaxBodyLength] : value;
-    }
+            MessageContentViolation.Empty => $"message_{field}_empty",
+            MessageContentViolation.ScalarLimit => $"message_{field}_scalar_limit_exceeded",
+            MessageContentViolation.GraphemeLimit => $"message_{field}_grapheme_limit_exceeded",
+            MessageContentViolation.Utf8ByteLimit => $"message_{field}_utf8_limit_exceeded",
+            _ => $"message_{field}_invalid"
+        };
 
     private Task AcquireMutationLockAsync(string principalKind, long principalId, string mutationId)
         => db.Ado.ExecuteCommandAsync(
@@ -3037,7 +3043,7 @@ public sealed class MessageCenterService(
         {
             SenderType = message.SenderType,
             SenderName = message.SenderName,
-            BodyPreview = message.Body.Length <= 96 ? message.Body : $"{message.Body[..96]}...",
+            BodyPreview = MessageContentPolicy.CreatePreview(message.Body),
             CreatedAt = message.CreatedAt
         };
     }

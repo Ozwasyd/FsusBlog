@@ -1113,6 +1113,22 @@ reload-capable `Messages:ThreadPaginationEnabled=false` 可在不重启进程的
 和重连差量读取并返回 `503 message_thread_pagination_disabled`；notification stream 与现有消息
 收发不受影响。修复后可直接重新启用，不得退回文本 API 或使用缓存值覆盖数据库快照。
 
+### 消息内容边界
+
+`FsusBlog.Shared.Contracts.Validation.MessageContentPolicy` 是手工消息与系统治理通知共用的
+权威策略。主题上限为 320 Unicode scalar、160 grapheme、640 UTF-8 bytes；正文上限为
+8000 Unicode scalar、4000 grapheme、16000 UTF-8 bytes；消息写入 AEDS frame 上限为
+20 KiB。任一维度超限均返回 `Validation` 与稳定的
+`message_{subject|body}_{scalar|grapheme|utf8}_limit_exceeded`，AEDS 解码后的服务端校验始终为
+最终门禁。客户端可以提前显示同一错误，但不得截断后发送；原始主题/正文（含首尾空白）按原样
+存储，空白正文仍拒绝，空白主题只使用既有业务 fallback。
+
+列表 `bodyPreview` 最多取前 96 个 grapheme 后追加省略号，截断只作用于读模型预览，不回写
+`msg_message.body`。账号创建/回复、admin 回复、system-send 均受相同 frame 与内容策略约束。
+紧急情况下可热设 `Messages:ReplyWritesEnabled=false` 停止双方回复，并设
+`Messages:MutationIdempotencyEnabled=false` 停止创建/system-send；读取、notification stream 和
+既有原文不受影响，策略修复后可直接重新启用。
+
 `readSnapshotMessageId` 是该响应页中最后一条非 internal、对账号可见的消息 ID。账号读取
 后使用 `ConversationReadRequest` (`201`) 调用
 `POST /api/binary/messages/conversations/{id}/read`：

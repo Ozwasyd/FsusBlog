@@ -12,6 +12,11 @@ import type {
   ConversationStatusMutationResultResponse
 } from '@/contracts/binaryApi'
 import { encodeAedsFrame, encodeStringMutationRequest } from './binaryFrame'
+import {
+  assertMessageFrameSize,
+  validateMessageBody,
+  validateMessageSubject
+} from '@/contracts/messageContentPolicy'
 
 export type ConversationStatus = 'open' | 'pending' | 'closed'
 export type ConversationFilter = 'all' | 'unread' | 'system' | 'open' | 'pending' | 'closed'
@@ -126,7 +131,12 @@ export const messageApi = {
   },
 
   createAccountConversation(data: CreateConversationRequest, config?: ApiRequestConfig) {
-    const identity = resolveStableIdentity(`account-create:${data.subject}\u001f${data.body}`, data.clientMutationId)
+    const normalized = {
+      ...data,
+      subject: validateMessageSubject(data.subject, '用户申诉'),
+      body: validateMessageBody(data.body)
+    }
+    const identity = resolveStableIdentity(`account-create:${normalized.subject}\u001f${normalized.body}`, data.clientMutationId)
     return settleStableIdentity(identity, requestBinaryOnly<ConversationDetailResponse>({
       binaryRoute: { operationId: 'binary_post_messages_conversations' },
       frameType: FrameType.ConversationDetailV2,
@@ -135,14 +145,15 @@ export const messageApi = {
         method: 'POST',
         requiresPow: true,
         headers: { 'X-Fsus-Client-Mutation-Id': identity.value },
-        body: encodeAedsFrame(FrameType.ConversationCreateRequest, encodeConversationCreateRequest(data))
+        body: encodeMessageContentFrame(FrameType.ConversationCreateRequest, encodeConversationCreateRequest(normalized))
       }
     }))
   },
 
   replyAccountConversation(conversationId: string | number, data: ReplyConversationRequest & { readThroughMessageId: string }, config?: ApiRequestConfig) {
+    const body = validateMessageBody(data.body)
     const identity = resolveStableIdentity(
-      `account-reply:${conversationId}:${data.readThroughMessageId}:${data.body}`,
+      `account-reply:${conversationId}:${data.readThroughMessageId}:${body}`,
       data.clientMutationId
     )
     return settleStableIdentity(identity, requestBinaryOnly<ConversationMessageResponse>({
@@ -156,9 +167,9 @@ export const messageApi = {
         method: 'POST',
         requiresPow: true,
         headers: { 'X-Fsus-Client-Mutation-Id': identity.value },
-        body: encodeAedsFrame(
+        body: encodeMessageContentFrame(
           FrameType.AccountConversationReplyRequest,
-          encodeAccountConversationReplyRequest(data.readThroughMessageId, data.body)
+          encodeAccountConversationReplyRequest(data.readThroughMessageId, body)
         )
       }
     }))
@@ -209,7 +220,8 @@ export const messageApi = {
   },
 
   adminReplyConversation(conversationId: string | number, data: ReplyConversationRequest, config?: ApiRequestConfig) {
-    const identity = resolveStableIdentity(`admin-reply:${conversationId}:${data.body}`, data.clientMutationId)
+    const body = validateMessageBody(data.body)
+    const identity = resolveStableIdentity(`admin-reply:${conversationId}:${body}`, data.clientMutationId)
     return settleStableIdentity(identity, requestBinaryOnly<ConversationMessageResponse>({
       binaryRoute: {
         operationId: 'binary_post_admin_messages_conversations_id_long_reply',
@@ -221,7 +233,7 @@ export const messageApi = {
         method: 'POST',
         requiresPow: true,
         headers: { 'X-Fsus-Client-Mutation-Id': identity.value },
-        body: encodeAedsFrame(FrameType.ConversationReplyRequest, encodeStringMutationRequest(data.body))
+        body: encodeMessageContentFrame(FrameType.ConversationReplyRequest, encodeStringMutationRequest(body))
       }
     }))
   },
@@ -243,8 +255,13 @@ export const messageApi = {
   },
 
   adminSendSystemMessage(data: SendSystemMessageRequest, config?: ApiRequestConfig) {
+    const normalized = {
+      ...data,
+      subject: validateMessageSubject(data.subject, '系统消息'),
+      body: validateMessageBody(data.body)
+    }
     const identity = resolveStableSourceEvent(
-      `system:${data.targetAccountId}:${data.subject}\u001f${data.body}`,
+      `system:${normalized.targetAccountId}:${normalized.subject}\u001f${normalized.body}`,
       data.sourceEventId
     )
     return settleStableIdentity(identity, requestBinaryOnly<ConversationDetailResponse>({
@@ -255,7 +272,7 @@ export const messageApi = {
         method: 'POST',
         requiresPow: true,
         headers: { 'X-Fsus-Source-Event-Id': identity.value },
-        body: encodeAedsFrame(FrameType.SystemMessageRequest, encodeSystemMessageRequest(data))
+        body: encodeMessageContentFrame(FrameType.SystemMessageRequest, encodeSystemMessageRequest(normalized))
       }
     }))
   }
@@ -311,6 +328,12 @@ function conversationSearch(size: number, filter: ConversationFilter, cursor?: s
   if (filterParam) search.set('filter', filterParam)
   if (cursor) search.set('cursor', cursor)
   return search
+}
+
+function encodeMessageContentFrame(frameType: FrameType, payload: Uint8Array): ArrayBuffer {
+  const frame = encodeAedsFrame(frameType, payload)
+  assertMessageFrameSize(frame)
+  return frame
 }
 
 function encodeConversationCreateRequest(data: CreateConversationRequest): Uint8Array {

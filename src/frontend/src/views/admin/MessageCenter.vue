@@ -216,7 +216,6 @@
                     :csp-safe="true"
                     type="textarea"
                     :rows="4"
-                    maxlength="4000"
                     show-word-limit
                     :disabled="replyDisabled"
                     placeholder="请输入给账号的回复内容"
@@ -259,7 +258,6 @@
               <el-input
                 v-model="systemSubject"
                 name="adminSystemSubject"
-                maxlength="160"
                 show-word-limit
                 placeholder="例如：系统通知"
               />
@@ -271,7 +269,6 @@
                 :csp-safe="true"
                 type="textarea"
                 :rows="4"
-                maxlength="4000"
                 show-word-limit
                 placeholder="请输入消息正文"
               />

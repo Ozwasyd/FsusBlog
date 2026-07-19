@@ -19,7 +19,6 @@
             <el-input
               :model-value="systemSubject"
               :name="mobile ? 'systemSubjectMobile' : 'systemSubjectDesktop'"
-              maxlength="160"
               show-word-limit
               :placeholder="composeCopy.systemSubjectPlaceholder"
               @update:model-value="emit('update:systemSubject', $event)"
@@ -32,7 +31,6 @@
               :csp-safe="true"
               type="textarea"
               :rows="4"
-              maxlength="4000"
               show-word-limit
               :placeholder="composeCopy.bodyPlaceholderAdmin"
               @update:model-value="emit('update:systemBody', $event)"
@@ -46,7 +44,6 @@
             <el-input
               :model-value="createSubject"
               :name="mobile ? 'ticketSubjectMobile' : 'ticketSubjectDesktop'"
-              maxlength="160"
               show-word-limit
               :placeholder="composeCopy.accountSubjectPlaceholder"
               @update:model-value="emit('update:createSubject', $event)"
@@ -59,7 +56,6 @@
               :csp-safe="true"
               type="textarea"
               :rows="4"
-              maxlength="4000"
               show-word-limit
               :placeholder="composeCopy.bodyPlaceholderAccount"
               @update:model-value="emit('update:createBody', $event)"

@@ -80,6 +80,18 @@ describe('message API binary transport', () => {
     expect(readFrame.getBigInt64(16, true)).toBe(11n)
   })
 
+  it('rejects oversized Unicode content before transport without truncating it', () => {
+    const oversizedSubject = `${'😀'.repeat(160)}x`
+    expect(() => messageApi.createAccountConversation({ subject: oversizedSubject, body: '正文' }))
+      .toThrow('message_subject_grapheme_limit_exceeded')
+    expect(mockBinary).not.toHaveBeenCalled()
+
+    const oversizedBody = 'a'.repeat(4001)
+    expect(() => messageApi.replyAccountConversation(7, { body: oversizedBody, readThroughMessageId: '11' }))
+      .toThrow('message_body_grapheme_limit_exceeded')
+    expect(mockBinary).not.toHaveBeenCalled()
+  })
+
   it('reuses mutation identity for double click, timeout retry and response loss', async () => {
     const request = { subject: 'Stable subject', body: 'Stable body' }
 

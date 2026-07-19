@@ -107,7 +107,6 @@
                   :csp-safe="true"
                   type="textarea"
                   :rows="4"
-                  maxlength="4000"
                   show-word-limit
                   :disabled="replyDisabled"
                   :placeholder="threadCopy.replyPlaceholder"

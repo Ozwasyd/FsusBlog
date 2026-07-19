@@ -25,6 +25,7 @@ using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Outputs;
+using FsusBlog.Shared.Contracts.Validation;
 
 using SqlSugar;
 
@@ -113,7 +114,12 @@ public static partial class BinaryEndpoints
                     StatusCodes.Status503ServiceUnavailable);
             }
 
-            var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.ConversationCreateRequest, cancellationToken);
+            var payload = await ReadBinaryRequestPayloadAsync(
+                httpContext,
+                aeds,
+                AedsFrameType.ConversationCreateRequest,
+                cancellationToken,
+                MessageContentPolicy.MaxRequestFrameBytes);
             if (!payload.IsSuccess)
             {
                 return BinaryResults.FromError(payload.Error, aeds);
@@ -170,7 +176,12 @@ public static partial class BinaryEndpoints
                     StatusCodes.Status503ServiceUnavailable);
             }
 
-            var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.AccountConversationReplyRequest, cancellationToken);
+            var payload = await ReadBinaryRequestPayloadAsync(
+                httpContext,
+                aeds,
+                AedsFrameType.AccountConversationReplyRequest,
+                cancellationToken,
+                MessageContentPolicy.MaxRequestFrameBytes);
             if (!payload.IsSuccess)
             {
                 return BinaryResults.FromError(payload.Error, aeds);
@@ -346,7 +357,12 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, StatusCodes.Status401Unauthorized);
             }
 
-            var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.ConversationReplyRequest, cancellationToken);
+            var payload = await ReadBinaryRequestPayloadAsync(
+                httpContext,
+                aeds,
+                AedsFrameType.ConversationReplyRequest,
+                cancellationToken,
+                MessageContentPolicy.MaxRequestFrameBytes);
             if (!payload.IsSuccess)
             {
                 return BinaryResults.FromError(payload.Error, aeds);
@@ -433,7 +449,12 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, StatusCodes.Status401Unauthorized);
             }
 
-            var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.SystemMessageRequest, cancellationToken);
+            var payload = await ReadBinaryRequestPayloadAsync(
+                httpContext,
+                aeds,
+                AedsFrameType.SystemMessageRequest,
+                cancellationToken,
+                MessageContentPolicy.MaxRequestFrameBytes);
             if (!payload.IsSuccess)
             {
                 return BinaryResults.FromError(payload.Error, aeds);

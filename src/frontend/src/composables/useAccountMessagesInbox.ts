@@ -19,6 +19,7 @@ import { showErrorToast } from '@/utils/errorPresentation'
 import { toast } from '@/fsusui/feedback'
 import { compareConversationByLastMessage, mergeConversationPages } from '@/composables/messageConversationPagination'
 import { compareMessageId, mergeConversationMessagePages } from '@/composables/messageThreadPagination'
+import { truncateMessagePreview } from '@/contracts/messageContentPolicy'
 
 const PAGE_SIZE = 20
 const FILTERS: readonly ConversationFilter[] = ['all', 'unread', 'system', 'open', 'pending', 'closed']
@@ -26,7 +27,7 @@ const FILTERS: readonly ConversationFilter[] = ['all', 'unread', 'system', 'open
 const toMessagePreview = (message: InboxMessageAppendPayload['message']): ConversationMessagePreviewResponse => ({
   senderType: message.senderType,
   senderName: message.senderName,
-  bodyPreview: message.body.length <= 96 ? message.body : `${message.body.slice(0, 96)}...`,
+  bodyPreview: truncateMessagePreview(message.body),
   createdAt: message.createdAt
 })
 
