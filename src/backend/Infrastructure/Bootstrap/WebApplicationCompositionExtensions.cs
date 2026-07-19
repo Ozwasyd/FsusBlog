@@ -475,7 +475,7 @@ public static partial class WebApplicationCompositionExtensions
             if (!string.IsNullOrWhiteSpace(result.PreflightGrantToken))
             {
                 ctx.Response.Cookies.Append(
-                    NotificationStreamHandshakeService.PreflightGrantCookieName,
+                    NotificationStreamRiskProofPolicy.PreflightGrantCookieName,
                     result.PreflightGrantToken,
                     new CookieOptions
                     {

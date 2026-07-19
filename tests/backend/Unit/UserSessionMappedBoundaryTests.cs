@@ -146,20 +146,7 @@ public sealed class UserSessionMappedBoundaryTests(
             .Returns(Task.FromResult(NotificationStreamAdmissionResult.Allowed));
         var riskScores = Substitute.For<ISecurityRiskScoreReader>();
         var cache = Substitute.For<IUnifiedCache>();
-        var handshake = new NotificationStreamHandshakeService(
-            Substitute.For<IPowService>(),
-            new AdaptivePowGovernor(cache, builder.Configuration),
-            riskScores,
-            Substitute.For<ISecurityRiskPolicyProvider>(),
-            Substitute.For<IRiskControlContextFactory>(),
-            Substitute.For<IRiskDecisionService>(),
-            Substitute.For<ISecurityChallengeProofService>(),
-            Substitute.For<ISecurityRiskSignalSink>(),
-            admission,
-            Substitute.For<INotificationStreamAudienceResolver>(),
-            new NotificationStreamOriginSnapshotProvider(builder.Configuration),
-            builder.Environment,
-            NullLoggerFactory.Instance);
+        var handshake = Substitute.For<INotificationStreamHandshakeService>();
 
         builder.Services.AddSingleton<AuthCookieService>();
         builder.Services.AddSingleton<IUserSessionValidationService>(userValidator);

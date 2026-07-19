@@ -340,9 +340,13 @@ public class NotificationStreamBoundaryTests
     {
         MethodInfo validate = typeof(NotificationStreamHandshakeService).GetMethod(nameof(NotificationStreamHandshakeService.ValidateAsync))!;
         (int Offset, MethodBase Method)[] calls = ReadCalledMethods(AsyncMoveNext(validate)).ToArray();
-        int validateOrigin = Assert.Single(calls, static call => call.Method.Name == "ValidateOrigin").Offset;
-        int validatePow = Assert.Single(calls, static call => call.Method.Name == "ValidateAnonymousSubscribeGateAsync").Offset;
-        Assert.True(validateOrigin < validatePow);
+        int validateRequest = Assert.Single(calls, static call =>
+            call.Method.DeclaringType == typeof(INotificationStreamHandshakeRequestValidator)
+            && call.Method.Name == nameof(INotificationStreamHandshakeRequestValidator.Validate)).Offset;
+        int validateRisk = Assert.Single(calls, static call =>
+            call.Method.DeclaringType == typeof(INotificationStreamRiskProofPolicy)
+            && call.Method.Name == nameof(INotificationStreamRiskProofPolicy.ValidateAsync)).Offset;
+        Assert.True(validateRequest < validateRisk);
 
         var measurements = new HashSet<string>(StringComparer.Ordinal);
         using var listener = new MeterListener();
@@ -376,13 +380,14 @@ public class NotificationStreamBoundaryTests
         listener.RecordObservableInstruments();
         Assert.Contains("fsus.notification.handshake.origin_cache.hit_ratio", measurements);
 
-        string runtime = RuntimeMetadataInspection.DescribeType(typeof(NotificationStreamHandshakeService));
+        string runtime = RuntimeMetadataInspection.DescribeType(typeof(NotificationStreamRiskProofPolicy));
         Assert.Contains("PowValidationLogic.ValidateFromQueryAsync", runtime, StringComparison.Ordinal);
-        Assert.Contains("Seo:BaseUrl", runtime, StringComparison.Ordinal);
-        Assert.Contains("Fido2:Origins", runtime, StringComparison.Ordinal);
-        Assert.Contains("CORS_ALLOWED_HOSTS", runtime, StringComparison.Ordinal);
-        Assert.Contains("localhost", runtime, StringComparison.OrdinalIgnoreCase);
-        string originRuntime = RuntimeMetadataInspection.DescribeMethods(typeof(NotificationStreamHandshakeService), "ValidateOrigin");
+        string requestRuntime = RuntimeMetadataInspection.DescribeType(typeof(NotificationStreamHandshakeRequestValidator));
+        Assert.Contains("Seo:BaseUrl", requestRuntime, StringComparison.Ordinal);
+        Assert.Contains("Fido2:Origins", requestRuntime, StringComparison.Ordinal);
+        Assert.Contains("CORS_ALLOWED_HOSTS", requestRuntime, StringComparison.Ordinal);
+        Assert.Contains("localhost", requestRuntime, StringComparison.OrdinalIgnoreCase);
+        string originRuntime = RuntimeMetadataInspection.DescribeMethods(typeof(NotificationStreamHandshakeRequestValidator), "ValidateOrigin");
         Assert.Contains("NotificationStreamOriginSnapshotProvider.get_Current", originRuntime, StringComparison.Ordinal);
         Assert.DoesNotContain("BuildAllowedOrigins", originRuntime, StringComparison.Ordinal);
         Assert.DoesNotContain("BuildAllowedHosts", originRuntime, StringComparison.Ordinal);
@@ -393,6 +398,12 @@ public class NotificationStreamBoundaryTests
             descriptor.ServiceType == typeof(NotificationStreamOriginSnapshotProvider)).Lifetime);
         Assert.Equal(ServiceLifetime.Singleton, Assert.Single(registrations, static descriptor =>
             descriptor.ServiceType == typeof(NotificationStreamAccountAdmissionCache)).Lifetime);
+        Assert.Equal(ServiceLifetime.Scoped, Assert.Single(registrations, static descriptor =>
+            descriptor.ServiceType == typeof(INotificationStreamHandshakeRequestValidator)).Lifetime);
+        Assert.Equal(ServiceLifetime.Scoped, Assert.Single(registrations, static descriptor =>
+            descriptor.ServiceType == typeof(INotificationStreamRiskProofPolicy)).Lifetime);
+        Assert.Equal(ServiceLifetime.Scoped, Assert.Single(registrations, static descriptor =>
+            descriptor.ServiceType == typeof(INotificationStreamConnectionAdmission)).Lifetime);
 
         var blacklist = Substitute.For<IBlacklistService>();
         blacklist.GetBanStateAsync(42, StableAccountSubjectHash).Returns(new BanStateSnapshot(false, null, null));
@@ -437,7 +448,7 @@ public class NotificationStreamBoundaryTests
             riskScore: 50,
             proof);
         DefaultHttpContext context = CreateAnonymousHandshakeContext("https://example.com", "example.com");
-        context.Request.Headers.Cookie = $"{NotificationStreamHandshakeService.PreflightGrantCookieName}=grant-token";
+        context.Request.Headers.Cookie = $"{NotificationStreamRiskProofPolicy.PreflightGrantCookieName}=grant-token";
 
         NotificationStreamHandshakeResult result = await service.ValidateAsync(context, CancellationToken.None);
 
@@ -501,15 +512,15 @@ public class NotificationStreamBoundaryTests
     public void Handshake_RuntimeKeepsLegacyPowCompatibilityAndNotificationRiskAction()
     {
         string runtime = RuntimeMetadataInspection.DescribeMethods(
-            typeof(NotificationStreamHandshakeService),
-            "ValidateAnonymousSubscribeGateAsync");
+            typeof(NotificationStreamRiskProofPolicy),
+            nameof(NotificationStreamRiskProofPolicy.ValidateAsync));
 
         Assert.Contains("PowValidationLogic.ValidateFromQueryAsync", runtime, StringComparison.Ordinal);
         Assert.Contains(RiskActionNames.NotificationSubscribe, runtime, StringComparison.Ordinal);
-        Assert.Equal("X-Fsus-Challenge-Proof", typeof(NotificationStreamHandshakeService)
+        Assert.Equal("X-Fsus-Challenge-Proof", typeof(NotificationStreamRiskProofPolicy)
             .GetField("ChallengeProofHeaderName", BindingFlags.NonPublic | BindingFlags.Static)!
             .GetRawConstantValue());
-        Assert.Equal("Fsus-Notification-Grant", NotificationStreamHandshakeService.PreflightGrantCookieName);
+        Assert.Equal("Fsus-Notification-Grant", NotificationStreamRiskProofPolicy.PreflightGrantCookieName);
     }
 
     [Fact]
@@ -885,7 +896,11 @@ public class NotificationStreamBoundaryTests
                     item[(separator + 1)..]);
             }))
             .Build();
-        return new NotificationStreamHandshakeService(
+        var requestValidator = new NotificationStreamHandshakeRequestValidator(
+            new NotificationStreamOriginSnapshotProvider(configuration),
+            environment,
+            deploymentRuntime);
+        var riskProofPolicy = new NotificationStreamRiskProofPolicy(
             powService ?? Substitute.For<IPowService>(),
             new AdaptivePowGovernor(Substitute.For<IUnifiedCache>()),
             new FixedRiskScoreReader(riskScore),
@@ -894,13 +909,12 @@ public class NotificationStreamBoundaryTests
             new RiskDecisionService(),
             proof ?? new CapturingProofService(),
             riskSink ?? new CapturingRiskSink(),
-            admissionService ?? new AllowingAdmissionService(),
-            new NotificationStreamAudienceResolver(),
-            new NotificationStreamOriginSnapshotProvider(configuration),
-            environment,
             NullLoggerFactory.Instance,
-            deploymentRuntime,
             preflightGrantService ?? new CapturingPreflightGrantService());
+        var connectionAdmission = new NotificationStreamConnectionAdmission(
+            admissionService ?? new AllowingAdmissionService(),
+            new NotificationStreamAudienceResolver());
+        return new NotificationStreamHandshakeService(requestValidator, riskProofPolicy, connectionAdmission);
     }
 
     private static DefaultHttpContext CreateHandshakeContext(string origin, string host)

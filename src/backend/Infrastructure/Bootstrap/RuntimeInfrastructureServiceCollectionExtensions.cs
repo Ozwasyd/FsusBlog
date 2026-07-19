@@ -63,6 +63,9 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<NotificationStreamAccountAdmissionCache>();
         services.AddScoped<INotificationStreamAdmissionService, NotificationStreamAdmissionService>();
         services.AddScoped<INotificationStreamAudienceResolver, NotificationStreamAudienceResolver>();
+        services.AddScoped<INotificationStreamHandshakeRequestValidator, NotificationStreamHandshakeRequestValidator>();
+        services.AddScoped<INotificationStreamRiskProofPolicy, NotificationStreamRiskProofPolicy>();
+        services.AddScoped<INotificationStreamConnectionAdmission, NotificationStreamConnectionAdmission>();
         services.AddScoped<INotificationStreamHandshakeService, NotificationStreamHandshakeService>();
         services.AddScoped<INotificationStreamPreflightGrantService, NotificationStreamPreflightGrantService>();
         services.AddSingleton<INotificationStreamSessionService, NotificationStreamSessionService>();
