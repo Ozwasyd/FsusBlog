@@ -21,11 +21,31 @@ public readonly record struct AdminMessageActor(long AdminPrincipalId, string Ad
 
 public interface IMessageQueryService
 {
-    Task<PageResponse<ConversationListItemResponse>> GetAccountConversationsAsync(int accountId, int size, string? filter, MessageConversationCursor? cursor);
-    Task<ConversationDetailResponse?> GetAccountConversationDetailAsync(int accountId, long conversationId, long? beforeMessageId = null);
-    Task<ConversationDetailResponse?> GetAccountConversationDeltaAsync(int accountId, long conversationId, long afterMessageId);
-    Task<PageResponse<AdminConversationListItemResponse>> GetAdminConversationsAsync(int size, string? filter, MessageConversationCursor? cursor);
-    Task<AdminConversationDetailResponse?> GetAdminConversationDetailAsync(long conversationId, long? beforeMessageId = null);
+    Task<PageResponse<ConversationListItemResponse>> GetAccountConversationsAsync(
+        int accountId,
+        int size,
+        string? filter,
+        MessageConversationCursor? cursor,
+        CancellationToken cancellationToken = default);
+    Task<ConversationDetailResponse?> GetAccountConversationDetailAsync(
+        int accountId,
+        long conversationId,
+        long? beforeMessageId = null,
+        CancellationToken cancellationToken = default);
+    Task<ConversationDetailResponse?> GetAccountConversationDeltaAsync(
+        int accountId,
+        long conversationId,
+        long afterMessageId,
+        CancellationToken cancellationToken = default);
+    Task<PageResponse<AdminConversationListItemResponse>> GetAdminConversationsAsync(
+        int size,
+        string? filter,
+        MessageConversationCursor? cursor,
+        CancellationToken cancellationToken = default);
+    Task<AdminConversationDetailResponse?> GetAdminConversationDetailAsync(
+        long conversationId,
+        long? beforeMessageId = null,
+        CancellationToken cancellationToken = default);
 }
 
 public interface IMessageCommandService

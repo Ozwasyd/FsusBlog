@@ -42,7 +42,8 @@ public static partial class BinaryEndpoints
             IMessageQueryService query,
             AccountPrincipalContext account,
             IConfiguration configuration,
-            IAedsEncoder aeds) =>
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
         {
             if (!IsMessageCursorPaginationEnabled(configuration))
             {
@@ -63,7 +64,7 @@ public static partial class BinaryEndpoints
             }
 
             int pageSize = Math.Clamp(size <= 0 ? 20 : size, 1, 50);
-            var data = await query.GetAccountConversationsAsync(account.AccountId, pageSize, filter, position);
+            var data = await query.GetAccountConversationsAsync(account.AccountId, pageSize, filter, position, cancellationToken);
             return BinaryResults.Frame(aeds, AedsFrameType.ConversationList, writer => PodBinaryCodec.WriteConversationList(data, writer));
         })
         .RequireAnonymousAccountPrincipal();
@@ -75,7 +76,8 @@ public static partial class BinaryEndpoints
             IMessageQueryService query,
             AccountPrincipalContext account,
             IConfiguration configuration,
-            IAedsEncoder aeds) =>
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
         {
             if (!IsMessageThreadPaginationEnabled(configuration))
             {
@@ -90,8 +92,8 @@ public static partial class BinaryEndpoints
             }
 
             var detail = afterMessageId.HasValue
-                ? await query.GetAccountConversationDeltaAsync(account.AccountId, id, afterMessageId.Value)
-                : await query.GetAccountConversationDetailAsync(account.AccountId, id, beforeMessageId);
+                ? await query.GetAccountConversationDeltaAsync(account.AccountId, id, afterMessageId.Value, cancellationToken)
+                : await query.GetAccountConversationDetailAsync(account.AccountId, id, beforeMessageId, cancellationToken);
             return detail is null
                 ? BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "会话不存在"), aeds)
                 : BinaryResults.Frame(aeds, AedsFrameType.ConversationDetailV3, writer => PodBinaryCodec.WriteConversationDetailV3(detail, writer));
@@ -246,7 +248,8 @@ public static partial class BinaryEndpoints
             string? cursor,
             IMessageQueryService query,
             IConfiguration configuration,
-            IAedsEncoder aeds) =>
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
         {
             if (!IsMessageCursorPaginationEnabled(configuration))
             {
@@ -282,7 +285,7 @@ public static partial class BinaryEndpoints
             }
 
             int pageSize = Math.Clamp(size <= 0 ? 20 : size, 1, 100);
-            var data = await query.GetAdminConversationsAsync(pageSize, filter, position);
+            var data = await query.GetAdminConversationsAsync(pageSize, filter, position, cancellationToken);
             return BinaryResults.Frame(aeds, AedsFrameType.AdminConversationList, writer => PodBinaryCodec.WriteAdminConversationList(data, writer));
         })
         .RequireAdminPermission(AdminPermissions.AdminManage);
@@ -292,7 +295,8 @@ public static partial class BinaryEndpoints
             long? beforeMessageId,
             IMessageQueryService query,
             IConfiguration configuration,
-            IAedsEncoder aeds) =>
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
         {
             if (!IsMessageThreadPaginationEnabled(configuration))
             {
@@ -321,7 +325,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "消息游标非法"), aeds);
             }
 
-            var detail = await query.GetAdminConversationDetailAsync(id, beforeMessageId);
+            var detail = await query.GetAdminConversationDetailAsync(id, beforeMessageId, cancellationToken);
             return detail is null
                 ? BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "会话不存在"), aeds)
                 : BinaryResults.Frame(aeds, AedsFrameType.AdminConversationDetail, writer => PodBinaryCodec.WriteAdminConversationDetail(detail, writer));
