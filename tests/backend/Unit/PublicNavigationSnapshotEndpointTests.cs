@@ -23,7 +23,8 @@ public sealed class PublicNavigationSnapshotEndpointTests
             source,
             rawPath,
             out DefaultHttpContext target,
-            out _);
+            out _,
+            new PublicAotRouteIdentity(new PublicAotRouteRegistry()));
 
         Assert.True(ok);
         Assert.Equal(expectedPath, target.Request.Path.Value);
@@ -50,7 +51,8 @@ public sealed class PublicNavigationSnapshotEndpointTests
             source,
             rawPath,
             out _,
-            out string error);
+            out string error,
+            new PublicAotRouteIdentity(new PublicAotRouteRegistry()));
 
         Assert.False(ok);
         Assert.False(string.IsNullOrWhiteSpace(error));

@@ -438,12 +438,13 @@ public static partial class WebApplicationCompositionExtensions
 
         app.MapGet("/", (
             HttpContext ctx,
+            [FromServices] IPublicAotRouteIdentity routeIdentity,
             [FromServices] IPublicAotShellService shellService,
             [FromServices] ISpaAssetManifestService assetService,
             [FromServices] ISystemService systemService,
             [FromServices] IWebHostEnvironment env,
             [FromServices] StartupRuntimeState runtimeState,
-            CancellationToken ct) => ServePublicShellOrIndexAsync(ctx, shellService, assetService, systemService, env, runtimeState, ct))
+            CancellationToken ct) => ServePublicShellOrIndexAsync(ctx, routeIdentity, shellService, assetService, systemService, env, runtimeState, ct))
             .AllowAnonymous()
             .RequireRateLimiting("public_read")
             .WithRiskAction(RiskActionNames.PublicRead, "public.html.home")
@@ -451,12 +452,13 @@ public static partial class WebApplicationCompositionExtensions
             .WithMetadata(new FsusRouteKindMetadata("public"));
         app.MapFallback((
             HttpContext ctx,
+            [FromServices] IPublicAotRouteIdentity routeIdentity,
             [FromServices] IPublicAotShellService shellService,
             [FromServices] ISpaAssetManifestService assetService,
             [FromServices] ISystemService systemService,
             [FromServices] IWebHostEnvironment env,
             [FromServices] StartupRuntimeState runtimeState,
-            CancellationToken ct) => ServePublicShellOrIndexAsync(ctx, shellService, assetService, systemService, env, runtimeState, ct))
+            CancellationToken ct) => ServePublicShellOrIndexAsync(ctx, routeIdentity, shellService, assetService, systemService, env, runtimeState, ct))
             .RequireRateLimiting("public_read")
             .WithRiskAction(RiskActionNames.PublicRead, "public.html.fallback")
             .AddEndpointFilter<RiskAwarePublicReadFilter>()
@@ -686,6 +688,7 @@ public static partial class WebApplicationCompositionExtensions
 
     private static async Task<IResult> ServePublicShellOrIndexAsync(
         HttpContext ctx,
+        IPublicAotRouteIdentity routeIdentity,
         IPublicAotShellService shellService,
         ISpaAssetManifestService assetService,
         ISystemService systemService,
@@ -720,7 +723,7 @@ public static partial class WebApplicationCompositionExtensions
             return TypedResults.Redirect(redirectLocation, permanent: true);
         }
 
-        bool isPublicAotRoute = shellService.TryResolve(ctx, out PublicAotRouteMatch aotMatch);
+        bool isPublicAotRoute = routeIdentity.TryResolve(ctx, out PublicAotRouteMatch aotMatch);
         if (!isPublicAotRoute && !IsKnownSpaRoute(ctx.Request.Path))
         {
             await WritePublicStatusHtmlAsync(ctx, env, StatusCodes.Status404NotFound, ct);

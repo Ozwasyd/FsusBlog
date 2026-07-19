@@ -14,7 +14,7 @@ namespace FsusBlog.Server.Infrastructure.PublicAot;
 
 public sealed class PublicAotShellService(
     IDbConcurrencyGate dbConcurrencyGate,
-    IPublicAotRouteRegistry routeRegistry,
+    IPublicAotRouteIdentity routeIdentity,
     IEnumerable<IPublicAotBootstrapProvider> bootstrapProviders,
     IPublicAotEntryRenderer entryRenderer,
     IPublicAotDocumentService documentService,
@@ -50,9 +50,6 @@ public sealed class PublicAotShellService(
             "Public AOT cache operation failed: {Kind} {RouteKey}");
     private readonly IReadOnlyDictionary<PublicPageKind, IPublicAotBootstrapProvider> _bootstrapProviders =
         BuildBootstrapProviderMap(bootstrapProviders);
-
-    public bool TryResolve(HttpContext context, out PublicAotRouteMatch match)
-        => routeRegistry.TryResolve(context, out match);
 
     public async Task<Result<PublicAotNavigationSnapshot>> BuildNavigationSnapshotAsync(
         HttpContext context,
@@ -531,7 +528,7 @@ public sealed class PublicAotShellService(
         PublicAotBackfillRequest request,
         CancellationToken cancellationToken)
     {
-        PublicAotRouteMatch match = ResolveBackfillMatch(request);
+        PublicAotRouteMatch match = routeIdentity.ResolveBackfillMatch(request);
         if (PublicTagUrlIdentity.IsNameRouteKey(match.RouteKey))
         {
             return Result<(PublicAotRouteMatch Match, string Html, string RendererVersion)>.Failure(
@@ -581,32 +578,6 @@ public sealed class PublicAotShellService(
             },
             document.Value!,
             normalizedEntry.RendererVersion ?? PublicRendererVersion));
-    }
-
-    private PublicAotRouteMatch ResolveBackfillMatch(PublicAotBackfillRequest request)
-    {
-        var context = new DefaultHttpContext();
-        context.Request.Path = string.IsNullOrWhiteSpace(request.Path) ? "/" : request.Path;
-        context.Request.QueryString = string.IsNullOrWhiteSpace(request.QueryString)
-            ? QueryString.Empty
-            : new QueryString(request.QueryString);
-
-        if (routeRegistry.TryResolve(context, out PublicAotRouteMatch match))
-        {
-            return match;
-        }
-
-        PublicAotPageDescriptor descriptor = PublicAotPageCatalog.GetRequired(request.Kind);
-        return new PublicAotRouteMatch(
-            request.Kind,
-            descriptor.PageId,
-            request.RouteKey,
-            PublicRouteIdentity.BuildCanonicalPath(descriptor.PageId, request.RouteKey, null),
-            request.Path,
-            request.QueryString)
-        {
-            Page = PublicRouteIdentity.ParsePageRouteKey(request.RouteKey)
-        };
     }
 
     private static IReadOnlyDictionary<PublicPageKind, IPublicAotBootstrapProvider> BuildBootstrapProviderMap(

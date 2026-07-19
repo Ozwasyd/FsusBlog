@@ -25,6 +25,7 @@ public static class PublicAotEndpoints
         publicGroup.MapGet("/navigation-snapshot.aeds", async (
             HttpContext context,
             string? path,
+            [FromServices] IPublicAotRouteIdentity routeIdentity,
             [FromServices] IPublicAotShellService shellService,
             CancellationToken cancellationToken) =>
         {
@@ -34,8 +35,13 @@ public static class PublicAotEndpoints
                 return Results.StatusCode(StatusCodes.Status406NotAcceptable);
             }
 
-            if (!TryCreateNavigationSnapshotTargetContext(context, path, out DefaultHttpContext targetContext, out string targetError) ||
-                !shellService.TryResolve(targetContext, out PublicAotRouteMatch match))
+            if (!TryCreateNavigationSnapshotTargetContext(
+                    context,
+                    path,
+                    out DefaultHttpContext targetContext,
+                    out string targetError,
+                    routeIdentity)
+                || !routeIdentity.TryResolve(targetContext, out PublicAotRouteMatch match))
             {
                 context.Response.Headers["Cache-Control"] = "no-store";
                 return Results.StatusCode(string.Equals(targetError, "public_navigation_snapshot_path_invalid", StringComparison.Ordinal)
@@ -131,7 +137,8 @@ public static class PublicAotEndpoints
         HttpContext source,
         string? rawPath,
         out DefaultHttpContext target,
-        out string error)
+        out string error,
+        IPublicAotRouteIdentity routeIdentity)
     {
         target = new DefaultHttpContext
         {
@@ -176,7 +183,7 @@ public static class PublicAotEndpoints
 
         target.Request.Path = path;
         target.Request.QueryString = string.IsNullOrWhiteSpace(query) ? QueryString.Empty : new QueryString(query);
-        if (!new PublicAotRouteRegistry().TryResolve(target, out PublicAotRouteMatch match))
+        if (!routeIdentity.TryResolve(target, out PublicAotRouteMatch match))
         {
             error = "public_navigation_snapshot_path_unsupported";
             return false;

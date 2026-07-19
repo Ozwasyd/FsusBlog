@@ -343,7 +343,7 @@ public sealed class PublicAotShellServiceTests
     {
         var ex = Assert.Throws<InvalidOperationException>(() => new PublicAotShellService(
             Substitute.For<IDbConcurrencyGate>(),
-            new FixedRouteRegistry(HomeMatch()),
+            new PublicAotRouteIdentity(new FixedRouteRegistry(HomeMatch())),
             [],
             Substitute.For<IPublicAotEntryRenderer>(),
             Substitute.For<IPublicAotDocumentService>(),
@@ -771,7 +771,7 @@ public sealed class PublicAotShellServiceTests
         IEnumerable<IPublicAotBootstrapProvider>? bootstrapProviders = null)
         => new(
             dbConcurrencyGate ?? Substitute.For<IDbConcurrencyGate>(),
-            new FixedRouteRegistry(match),
+            new PublicAotRouteIdentity(new FixedRouteRegistry(match)),
             bootstrapProviders ?? CreateBootstrapProviders(),
             entryRenderer ?? Substitute.For<IPublicAotEntryRenderer>(),
             CreateDocumentService(match),

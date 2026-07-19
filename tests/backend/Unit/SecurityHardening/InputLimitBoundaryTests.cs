@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Reflection;
 
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
@@ -61,7 +62,8 @@ public sealed class InputLimitBoundaryTests
             source,
             "/" + new string('x', 513),
             out _,
-            out string error);
+            out string error,
+            new PublicAotRouteIdentity(new PublicAotRouteRegistry()));
 
         Assert.False(accepted);
         Assert.Equal("public_navigation_snapshot_path_invalid", error);

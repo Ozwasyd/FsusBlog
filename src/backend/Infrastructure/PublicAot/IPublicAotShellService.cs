@@ -6,8 +6,6 @@ namespace FsusBlog.Server.Infrastructure.PublicAot;
 
 public interface IPublicAotShellService
 {
-    bool TryResolve(HttpContext context, out PublicAotRouteMatch match);
-
     Task<PublicAotCacheEntry?> RenderAsync(HttpContext context, PublicAotRouteMatch match, CancellationToken cancellationToken = default);
 
     Task<PublicAotRenderOutcome> RenderClassifiedAsync(

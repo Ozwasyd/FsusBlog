@@ -9,6 +9,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.Policies;
+using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Modules.Endpoints.Binary;
@@ -144,7 +145,8 @@ public sealed class AuthorizationAccessControlHardeningTests
             source,
             "/",
             out DefaultHttpContext validTarget,
-            out string validError));
+            out string validError,
+            new PublicAotRouteIdentity(new PublicAotRouteRegistry())));
         Assert.Equal(PathString.FromUriComponent("/"), validTarget.Request.Path);
         Assert.Empty(validError);
 
@@ -152,7 +154,8 @@ public sealed class AuthorizationAccessControlHardeningTests
             source,
             new string('x', 513),
             out _,
-            out string rawLengthError));
+            out string rawLengthError,
+            new PublicAotRouteIdentity(new PublicAotRouteRegistry())));
         Assert.Equal("public_navigation_snapshot_path_invalid", rawLengthError);
 
         string paddedOverLimit = string.Concat(' ', new string('/', 512), ' ');
@@ -160,7 +163,8 @@ public sealed class AuthorizationAccessControlHardeningTests
             source,
             paddedOverLimit,
             out _,
-            out string normalizedLengthError));
+            out string normalizedLengthError,
+            new PublicAotRouteIdentity(new PublicAotRouteRegistry())));
         Assert.Equal("public_navigation_snapshot_path_invalid", normalizedLengthError);
     }
 
