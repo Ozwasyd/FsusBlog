@@ -7,6 +7,7 @@ import {
   createPublicComment,
   deleteComment,
   getCommentPolicySnapshot,
+  getMyArticleComments,
   type CommentAuthorMode,
   type CommentAuthorView,
   type CommentDisplayLanguage,
@@ -53,7 +54,6 @@ type CommentAddedSignalPayload = ArticleSignalPayload & {
     content: string
     createTime: string
     author?: CommentAuthorView | null
-    authorAccountId?: number | null
     parentId?: string | null
     rootId?: string | null
     replyToAuthor?: CommentAuthorView | null
@@ -102,9 +102,60 @@ export function useArticleDetailView() {
   const relatedLoadTask = useAbortableTask()
   const commentPolicyTask = useAbortableTask()
   const commentSubmitTask = useAbortableTask()
+  const commentOwnershipTask = useAbortableTask()
   const commentPrivacyRuntime = getCommentPrivacyRuntime()
   const commentRiskChallenge = useRiskChallengeCommand()
   const anonymousSubmitScopesInFlight = new Set<string>()
+  const ownedCommentIds = ref<ReadonlySet<string>>(new Set())
+
+  const clearCommentOwnership = (): void => {
+    commentOwnershipTask.cancel()
+    ownedCommentIds.value = new Set()
+  }
+
+  const addOwnedComment = (commentId: string | number): void => {
+    const next = new Set(ownedCommentIds.value)
+    next.add(String(commentId))
+    ownedCommentIds.value = next
+  }
+
+  const removeOwnedComment = (commentId: string | number): void => {
+    const next = new Set(ownedCommentIds.value)
+    next.delete(String(commentId))
+    ownedCommentIds.value = next
+  }
+
+  const refreshCommentOwnership = async (): Promise<void> => {
+    const articleId = article.value?.id ?? null
+    if (!articleId || !lifecycle.isActive() || !userStore.isLoggedIn || userStore.isAdmin) {
+      clearCommentOwnership()
+      return
+    }
+
+    try {
+      const ids = await commentOwnershipTask.run(async (signal) => {
+        const next = new Set<string>()
+        let cursor: string | null = null
+        do {
+          const response = await getMyArticleComments(articleId, cursor, 100, { signal })
+          for (const item of response.data) {
+            next.add(String(item.id))
+          }
+          cursor = response.hasMore ? response.nextCursor : null
+        } while (cursor && !signal.aborted)
+        return next
+      })
+
+      if (lifecycle.isActive() && article.value?.id === articleId && userStore.isLoggedIn && !userStore.isAdmin) {
+        ownedCommentIds.value = ids
+      }
+    } catch (error: unknown) {
+      if (!isAbortError(error) && lifecycle.isActive()) {
+        console.error('[Comments] Ownership overlay failed:', error)
+        ownedCommentIds.value = new Set()
+      }
+    }
+  }
 
   const articleRendererRef = ref<InstanceType<typeof MarkdownRenderer> | null>(null)
   const commentContent = ref('')
@@ -134,6 +185,7 @@ export function useArticleDetailView() {
       relatedLoadTask.cancel()
       commentPolicyTask.cancel()
       commentSubmitTask.cancel()
+      commentOwnershipTask.cancel()
       commentRiskChallenge.handleCancel()
       anonymousSubmitScopesInFlight.clear()
       unsubscribeCommentPrivacyRuntime()
@@ -217,6 +269,11 @@ export function useArticleDetailView() {
     }
 
     await loadMoreComments()
+    if (!lifecycle.isActive() || article.value?.id !== articleId) {
+      return
+    }
+
+    await refreshCommentOwnership()
     if (!lifecycle.isActive() || article.value?.id !== articleId) {
       return
     }
@@ -415,6 +472,7 @@ export function useArticleDetailView() {
     relatedLoadTask.cancel()
     commentPolicyTask.cancel()
     clearCommentState()
+    clearCommentOwnership()
     clearReplyTarget()
 
     await loadCommentPolicySnapshot()
@@ -630,6 +688,7 @@ export function useArticleDetailView() {
 
     commentSubmitTask.cancel()
     let commentMutationSubmitted = false
+    let createdPublicCommentId: string | null = null
     const publicCommentPayload = selectedAuthorMode === 'public'
       ? {
           articleId: article.value.id,
@@ -694,10 +753,11 @@ export function useArticleDetailView() {
                 challengeLease?.settle('before_send_cancelled')
                 return
               }
-              await createPublicComment(
+              const result = await createPublicComment(
                 publicCommentPayload,
                 { signal, riskChallengeProof: challengeLease }
               )
+              createdPublicCommentId = result.commentId
             }
           )
           commentMutationSubmitted = true
@@ -705,6 +765,9 @@ export function useArticleDetailView() {
       )
 
       if (lifecycle.isActive() && commentMutationSubmitted) {
+        if (createdPublicCommentId) {
+          addOwnedComment(createdPublicCommentId)
+        }
         toast.success('已提交审核')
         commentContent.value = ''
         commentAuthorMode.value = 'zk_anonymous'
@@ -754,6 +817,9 @@ export function useArticleDetailView() {
 
     if (article.value && String(data.articleId) === String(article.value.id)) {
       prependCommentIfAbsent(data.comment)
+      if (userStore.isLoggedIn && !userStore.isAdmin) {
+        void refreshCommentOwnership()
+      }
     }
   }
 
@@ -764,7 +830,11 @@ export function useArticleDetailView() {
 
     if (article.value && String(data.articleId) === String(article.value.id)) {
       removeCommentById(data.commentId, data.rootId ?? null, data.parentId ?? null)
+      removeOwnedComment(data.commentId)
       void reconcileCommentsAfterMutation()
+      if (userStore.isLoggedIn && !userStore.isAdmin) {
+        void refreshCommentOwnership()
+      }
     }
   }
 
@@ -800,6 +870,7 @@ export function useArticleDetailView() {
         await deleteComment(targetId)
         toast.success('已移除')
         removeCommentById(targetId, payload.rootId, payload.parentId)
+        removeOwnedComment(targetId)
         void reconcileCommentsAfterMutation()
       } catch (error: unknown) {
         showErrorToast(error, '操作失败')
@@ -847,6 +918,16 @@ export function useArticleDetailView() {
   onMounted(() => {
     void initializeArticleRoute()
   })
+
+  watch(
+    () => `${userStore.isLoggedIn}:${userStore.isAdmin}:${userStore.userInfo?.accountId ?? ''}`,
+    () => {
+      clearCommentOwnership()
+      if (lifecycle.isActive() && article.value && userStore.isLoggedIn && !userStore.isAdmin) {
+        void refreshCommentOwnership()
+      }
+    }
+  )
 
   watch(
     () => route.params.id,
@@ -914,6 +995,7 @@ export function useArticleDetailView() {
     commentPrivacyUiState,
     submittingComment,
     threads,
+    ownedCommentIds,
     hasMore,
     loadingComments,
     loadingReplies,

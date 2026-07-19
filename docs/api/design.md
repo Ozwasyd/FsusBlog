@@ -609,6 +609,8 @@ SEO 预览是作者工作台内的发布前质量门，不是新路由模型：�
 
 ### 评论治理
 
+评论 ownership 使用独立认证 overlay，不进入 `CommentArticleCursor`、`CommentThreadReplyCursor`、公共 cache identity 或 notification stream payload。`GET /api/binary/comment/me?articleId={id}` 复用私有 `CommentUserCursor`，只返回当前账号在该文章的显式 public 评论记录；浏览器分页收集 comment ID 形成 `ownedCommentIds`，不接收或比较作者 account ID。实时新增后重新读取同一 overlay，登出/换账号立即清空本地集合。overlay 仅决定删除按钮展示，`DELETE /api/binary/comment/{id}` 始终重新校验数据库行的 `user_id + author_mode=public`；ZK anonymous 不进入该集合。
+
 代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringUseCasePorts.cs`](../../src/backend/Services/Authoring/AuthoringUseCasePorts.cs)、[`RegionLegalModerationService.cs`](../../src/backend/Services/Moderation/RegionLegalModerationService.cs)。
 
 评论治理是公开讨论区前置安全门禁：新评论先完成长度、受限 Markdown、地区 `can_publish=false` 等硬拒绝校验；通过后由地区、匿名凭证、风险裁决、模型开关和处置模式计算 `Pending/Hidden/Approved` 初始状态，绝不先公开再异步撤回。需要模型的评论先写 `Pending`，只有最终 `Approved` 才进入公开评论线程；公开评论线程和回复游标仍只读取 `Approved` 且按 viewer region 过滤。模型默认 `FailOpen=false`；缺失、超时或异常保留 `Pending`，显式 fail-open 也必须通过地区与匿名策略门禁。模型与人工状态转换使用 CAS；只有 `Pending -> Approved` 才清理公开缓存并发布 `CommentAdded`，已公开评论转为 `Hidden/Rejected` 才发布 `CommentRemoved`。每次初始状态和状态变化由数据库 trigger 追加到 `comment_moderation_event`，该表拒绝 UPDATE/DELETE。作者工作台与 `/comment/me` 保留 `Pending/Approved/Rejected/Hidden` 区分，管理员权限与匿名治理权限边界不变。

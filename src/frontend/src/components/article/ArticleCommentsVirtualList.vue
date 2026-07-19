@@ -177,7 +177,7 @@ const props = defineProps<{
   threads: CommentThreadItem[]
   isAdmin: boolean
   isLoggedIn: boolean
-  currentAccountId: number | null
+  ownedCommentIds: ReadonlySet<string>
   loadingReplies: Record<string, boolean>
   initialRenderLimit?: number
 }>()
@@ -188,13 +188,8 @@ defineEmits<{
   (e: 'load-more-replies', rootId: string): void
 }>()
 
-const canDeleteByOwnership = (authorAccountId?: number | null): boolean =>
-  props.isAdmin || (
-    props.isLoggedIn &&
-    typeof authorAccountId === 'number' &&
-    typeof props.currentAccountId === 'number' &&
-    authorAccountId === props.currentAccountId
-  )
+const canDeleteByOwnership = (commentId: string): boolean =>
+  props.isAdmin || props.ownedCommentIds.has(String(commentId))
 
 const isAnonymousAuthor = (author: CommentAuthorView): boolean => author.mode !== 'public'
 
@@ -229,11 +224,11 @@ const buildTime = (iso: string): CommentTimeContract => ({
 
 const threadItems = computed(() => props.threads.map((thread) => ({
   ...thread,
-  canDelete: canDeleteByOwnership(thread.authorAccountId),
+  canDelete: canDeleteByOwnership(thread.id),
   time: buildTime(thread.createTime),
   replies: thread.repliesPreview.slice(0, COMMENT_CONTENT_CONSTRAINT.replyRenderLimit).map((reply: CommentReplyPreviewItem) => ({
     ...reply,
-    canDelete: canDeleteByOwnership(reply.authorAccountId),
+    canDelete: canDeleteByOwnership(reply.id),
     time: buildTime(reply.createTime)
   }))
 })))

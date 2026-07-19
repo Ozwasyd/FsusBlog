@@ -37,7 +37,8 @@ public interface ICommentQueryService
 
     Task<CursorResponse<UserCommentResponse>> GetAttributableAsync(
         int userId,
-        CursorPageRequest<long> request);
+        CursorPageRequest<long> request,
+        int? articleId = null);
 }
 
 public sealed class CommentQueryService(
@@ -182,12 +183,17 @@ visible_chain AS (
         };
     }
 
-    public async Task<CursorResponse<UserCommentResponse>> GetAttributableAsync(int userId, CursorPageRequest<long> request)
+    public async Task<CursorResponse<UserCommentResponse>> GetAttributableAsync(
+        int userId,
+        CursorPageRequest<long> request,
+        int? articleId = null)
     {
         if (userId <= 0)
         {
             return new CursorResponse<UserCommentResponse> { Data = [], NextCursor = null, HasMore = false };
         }
+
+        int scopedArticleId = articleId.GetValueOrDefault();
 
         var rows = await db.Queryable<Comment, Article, Comment, CommentRegionCompliance>((c, a, pc, crc) => new object[]
             {
@@ -198,6 +204,7 @@ visible_chain AS (
             .Where((c, a, pc, crc) => c.UserId == userId
                 && c.AuthorMode == CommentAuthorModes.Public
                 && !a.IsDeleted)
+            .WhereIF(scopedArticleId > 0, (c, a, pc, crc) => c.ArticleId == scopedArticleId)
             .WhereIF(request.Cursor.HasValue, (c, a, pc, crc) => c.Id < request.Cursor!.Value)
             .OrderByDescending((c, a, pc, crc) => c.Id)
             .Take(request.Limit + 1)

@@ -489,6 +489,25 @@ public class CommentCoreServiceTests
     }
 
     [Theory]
+    [InlineData(0, 1, 10)]
+    [InlineData(1, 0, 10)]
+    [InlineData(1, 1, 0)]
+    public async Task GetUserCommentsForArticle_InvalidParams_ReturnsValidationFailure(int userId, int articleId, int limit)
+    {
+        var result = await Svc().GetUserCommentsForArticleAsync(userId, articleId, null, limit);
+        Assert.Equal(ErrorCode.Validation, result.Error.Code);
+    }
+
+    [Fact]
+    public async Task GetUserCommentsForArticle_ValidParams_ReturnsPrivateOverlayData()
+    {
+        var empty = new CoreCursorResult<UserCommentCoreModel>([], null, false);
+        _gw.GetUserCommentsForArticleAsync(1, 42, null, 100).Returns(empty);
+        var result = await Svc().GetUserCommentsForArticleAsync(1, 42, null, 100);
+        Assert.True(result.IsSuccess);
+    }
+
+    [Theory]
     [InlineData(0L, 1)]
     [InlineData(1L, 0)]
     public async Task DeleteComment_InvalidParams_ReturnsValidationFailure(long id, int currentUserId)

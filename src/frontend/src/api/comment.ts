@@ -287,6 +287,29 @@ export const getMyComments = (
     signal: config?.signal as AbortSignal | undefined
   })
 
+/** 当前文章的私有 ownership overlay；响应不进入公共评论帧。 */
+export const getMyArticleComments = (
+  articleId: number,
+  cursor?: string | null,
+  limit: number = 100,
+  config?: ApiRequestConfig
+) =>
+  requestBinaryOnly<CursorResponse<UserCommentResponse>>({
+    binaryRoute: {
+      operationId: 'binary_get_comment_me',
+      query: {
+        articleId,
+        ...(cursor ? { cursor } : {}),
+        limit
+      }
+    },
+    frameType: FrameType.CommentUserCursor,
+    signal: config?.signal as AbortSignal | undefined,
+    requestOptions: {
+      cache: 'no-store'
+    }
+  })
+
 /** 删除评论
  * 修改：ID 类型改为 string
  * 安全性保障：删除操作接入 PoW，防止针对他人评论的自动化遍历删除尝试

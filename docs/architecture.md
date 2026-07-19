@@ -364,6 +364,8 @@ taxonomy 缓存故障的无需重启回退必须同时处理 raw frame 与 Publi
 
 线程预览查询在同一个 root batch 内对墓碑链执行 `COUNT(*) OVER (PARTITION BY root_id)`，因此 `ReplyCount`、preview 和 `HasMoreReplies` 共享审核、删除、地区及有效 article publication 条件且没有逐根 N+1。创建、删除、审核转换与地区策略 replay 继续通过 article/root scoped `CommentCursor` 失效入口重建该投影；实时新增可单调递增本地计数，删除后必须回源权威窗口，避免在不知道未加载后代时错误递减。
 
+评论 ownership overlay 复用认证 `CommentUserCursor` 的 article-scoped 窄读，不新增公共 frame：Core gateway 对 article filter 绕过未分区的账号历史 query cache，endpoint 的 owned-frame key 固定包含 account + article + cursor + limit + account version。前端公共线程模型不含 `authorAccountId`；`ArticleDetail` 独立维护 `ownedCommentIds`，冷加载、notification stream 新增/删除、公开提交回包与账号切换都收敛到同一私有读取。该 overlay 失败时只隐藏管理按钮，不会放宽删除权限；无需重启的回退是停止 articleId overlay 请求，公共阅读和服务端权威删除继续工作。
+
 ## AEDS Binary 链
 
 FsusBlog 运行时 API 只维护 AEDS binary 链：

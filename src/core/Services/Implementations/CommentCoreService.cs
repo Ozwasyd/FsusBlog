@@ -39,6 +39,21 @@ public sealed class CommentCoreService(ICommentCoreGateway gateway) : ICommentCo
         return Result<CoreCursorResult<UserCommentCoreModel>>.Success(await gateway.GetUserCommentsAsync(userId, cursor, limit));
     }
 
+    public async Task<Result<CoreCursorResult<UserCommentCoreModel>>> GetUserCommentsForArticleAsync(
+        int userId,
+        int articleId,
+        long? cursor,
+        int limit)
+    {
+        if (userId <= 0 || articleId <= 0 || limit <= 0)
+        {
+            return Result<CoreCursorResult<UserCommentCoreModel>>.Failure(ErrorCode.Validation, "评论 ownership 查询参数非法");
+        }
+
+        return Result<CoreCursorResult<UserCommentCoreModel>>.Success(
+            await gateway.GetUserCommentsForArticleAsync(userId, articleId, cursor, limit));
+    }
+
     public async Task<Result> DeleteCommentAsync(long id, int currentUserId, bool isAdmin, string reason)
     {
         if (id <= 0 || currentUserId <= 0)

@@ -321,6 +321,7 @@ public static partial class BinaryEndpoints
 
         group.MapGet("/comment/me", static async Task<IResult> (
             HttpContext httpContext,
+            int? articleId,
             AccountPrincipalContext account,
             ICommentCoreService core,
             ICommentCursorPolicyResolver cursorPolicies,
@@ -328,6 +329,11 @@ public static partial class BinaryEndpoints
             IOwnedFrameCache ownedFrameCache,
             IAedsEncoder aeds) =>
         {
+            if (articleId is <= 0)
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "articleId 参数非法"), aeds);
+            }
+
             CursorBindResult<long> bind = CursorPageBinder.Bind(
                 httpContext.Request,
                 cursorPolicies.Resolve(CommentCursorPolicyKind.UserComments, ResolveCommentCursorTenant(httpContext)),
@@ -338,7 +344,7 @@ public static partial class BinaryEndpoints
             }
 
             string version = await ReadCommentCursorVersionAsync(cache, articleId: null, rootId: null, accountId: account.AccountId, httpContext.RequestAborted);
-            string identity = BuildUserCommentFrameIdentity(account.AccountId, bind.Request, version);
+            string identity = BuildUserCommentFrameIdentity(account.AccountId, articleId, bind.Request, version);
             OwnedFrameCacheReadResult frame = await ownedFrameCache.TryGetOwnedFrameAsync(
                 CachePolicyId.UserCommentCursorFrame,
                 identity,
@@ -349,7 +355,9 @@ public static partial class BinaryEndpoints
                 return BinaryResults.PreencodedFrame(frame.Lease);
             }
 
-            var result = await core.GetUserCommentsAsync(account.AccountId, bind.Request.Cursor, bind.Request.Limit);
+            var result = articleId.HasValue
+                ? await core.GetUserCommentsForArticleAsync(account.AccountId, articleId.Value, bind.Request.Cursor, bind.Request.Limit)
+                : await core.GetUserCommentsAsync(account.AccountId, bind.Request.Cursor, bind.Request.Limit);
             if (!result.IsSuccess)
             {
                 return BinaryResults.FromError(result.Error, aeds);
@@ -724,8 +732,8 @@ public static partial class BinaryEndpoints
     private static string BuildCommentReplyFrameIdentity(int articleId, long rootId, CursorPageRequest<long> request, string viewerRegion, string version)
         => $"article:{articleId}:root:{rootId}:v:{version}:replies:{request.Cursor?.ToString() ?? "0"}:{request.Limit}:region:{NormalizeCommentFrameRegion(viewerRegion)}";
 
-    private static string BuildUserCommentFrameIdentity(int accountId, CursorPageRequest<long> request, string version)
-        => $"account:{accountId}:v:{version}:comments:{request.Cursor?.ToString() ?? "0"}:{request.Limit}";
+    private static string BuildUserCommentFrameIdentity(int accountId, int? articleId, CursorPageRequest<long> request, string version)
+        => $"account:{accountId}:article:{articleId?.ToString() ?? "all"}:v:{version}:comments:{request.Cursor?.ToString() ?? "0"}:{request.Limit}";
 
     private static async Task<string> ReadCommentCursorVersionAsync(
         ICacheStringReader cache,

@@ -212,7 +212,7 @@
 | GET `/api/binary/comment/{articleId}/thread/{rootId}` | 🔓 📦 | `CommentThreadReplyCursor`(8) | 评论线程 |
 
 公开文章 list/detail/search payload 均携带 `currentRevisionId/revisionNo/currentPublicationId/publicationNo`。已发布文章安排未来修订时，上述文章路由在切换点前持续返回旧 publication；定时 worker 原子切换后各投影才进入新坐标。端点不提供“读取最新修订”的公开 fallback。
-| GET `/api/binary/comment/me` | 🔑 📦 | `CommentUserCursor`(6) | 当前用户可归因评论记录；强匿名评论不进入账号侧记录 |
+| GET `/api/binary/comment/me` | 🔑 📦 | `CommentUserCursor`(6) | 当前用户可归因评论记录；可选 `articleId` 形成私有 ownership overlay，强匿名评论不进入账号侧记录 |
 | GET `/api/binary/comment/policy` | 🔓 📦 | `CommentPolicySnapshot`(164) | 公开评论 composer 策略与 ZK-Prod readiness |
 | POST `/api/binary/comment` | 🔑 🚦 📦 | `CommentCreateV2Request`(166) → `CommentCreateResult`(205) | 仅显式 opt-in 的 public 评论；响应返回最终 `moderationStatus/visibilityState`，旧 `anonymous` 已退休 |
 | POST `/api/binary/comment/anonymous-ticket` | 🔓 🚦 📦 | `AnonymousCommentTicketRequest`(198) → `AnonymousCommentTicketResponse`(199) | v5/layout 6 最小资格谓词；必须 `credentials: omit`，匿名集 k>=20，ticket 短 TTL 且一次性消费 |

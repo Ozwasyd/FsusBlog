@@ -47,7 +47,6 @@ export interface CommentAddedPayload {
       badge?: string | null
       scopeLabel?: string | null
     }
-    authorAccountId?: number | null
     parentId?: string | null
     rootId?: string | null
     replyToAuthor?: {

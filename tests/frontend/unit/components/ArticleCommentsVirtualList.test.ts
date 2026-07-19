@@ -23,7 +23,6 @@ const baseThread: CommentThreadItem = {
     displayName: 'Demo Reader',
     displayLanguage: 'en'
   },
-  authorAccountId: 7,
   rootId: 'thread-1',
   isDeleted: false,
   replyCount: 0,
@@ -31,12 +30,16 @@ const baseThread: CommentThreadItem = {
   repliesPreview: []
 }
 
-const mountList = (thread: CommentThreadItem, isLoggedIn: boolean) => mount(ArticleCommentsVirtualList, {
+const mountList = (
+  thread: CommentThreadItem,
+  isLoggedIn: boolean,
+  ownedCommentIds: ReadonlySet<string> = new Set()
+) => mount(ArticleCommentsVirtualList, {
   props: {
     threads: [thread],
     isAdmin: false,
     isLoggedIn,
-    currentAccountId: null,
+    ownedCommentIds,
     loadingReplies: {}
   },
   global: {
@@ -93,7 +96,6 @@ describe('ArticleCommentsVirtualList editorial comment items', () => {
           displayName: 'Anonymous',
           displayLanguage: 'en'
         },
-        authorAccountId: 7,
         replyToAuthor: baseThread.author,
         isDeleted: false
       }]
@@ -103,7 +105,7 @@ describe('ArticleCommentsVirtualList editorial comment items', () => {
         threads: [threadWithReply],
         isAdmin: true,
         isLoggedIn: true,
-        currentAccountId: null,
+        ownedCommentIds: new Set<string>(),
         loadingReplies: {}
       },
       global: {
@@ -120,5 +122,15 @@ describe('ArticleCommentsVirtualList editorial comment items', () => {
     expect(wrapper.get('.fsus-comment--reply .fsus-comment__action--danger').attributes('aria-label')).toBe('删除回复')
 
     wrapper.unmount()
+  })
+
+  it('uses the private ownership overlay instead of a public author account id', () => {
+    const notOwned = mountList(baseThread, true)
+    expect(notOwned.find('.fsus-comment__action--danger').exists()).toBe(false)
+    notOwned.unmount()
+
+    const owned = mountList(baseThread, true, new Set(['thread-1']))
+    expect(owned.get('.fsus-comment__action--danger').attributes('aria-label')).toBe('删除评论')
+    owned.unmount()
   })
 })

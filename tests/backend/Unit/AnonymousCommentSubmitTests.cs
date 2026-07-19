@@ -667,6 +667,44 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
+    public async Task GetAttributableCommentsAsync_ArticleOverlayIsAccountScopedAndPublicOnly()
+    {
+        using SqlSugarClient db = await CreateDbAsync();
+        CreateTables(db);
+        SeedArticle(db, articleId: 42);
+        SeedArticle(db, articleId: 43);
+        SeedApprovedComment(db, commentId: 100, articleId: 42, userId: 7);
+        SeedApprovedComment(db, commentId: 101, articleId: 42, userId: 8);
+        SeedApprovedComment(db, commentId: 102, articleId: 43, userId: 7);
+        SeedStrongAnonymousComment(db, commentId: 103, articleId: 42, legacyUserId: 7);
+        var queries = new CommentQueryService(db, new RegionLegalModerationService());
+
+        CursorResponse<UserCommentResponse> result = await queries.GetAttributableAsync(
+            7,
+            new CursorPageRequest<long> { Limit = 100 },
+            articleId: 42);
+
+        UserCommentResponse item = Assert.Single(result.Data);
+        Assert.Equal(100, item.Id);
+        Assert.Equal(42, item.ArticleId);
+    }
+
+    [Fact]
+    public async Task DeleteCommentAsync_ForgedOwnershipCannotDeleteAnotherAccountsPublicComment()
+    {
+        using SqlSugarClient db = await CreateDbAsync();
+        CreateTables(db);
+        SeedArticle(db, articleId: 42);
+        SeedApprovedComment(db, commentId: 100, articleId: 42, userId: 8);
+        CommentCommandService service = CreateService(db, new RecordingTicketService());
+
+        bool deleted = await service.DeleteCommentAsync(100, currentUserId: 7, isAdmin: false);
+
+        Assert.False(deleted);
+        Assert.False(db.Queryable<Comment>().InSingle(100).IsDeleted);
+    }
+
+    [Fact]
     public async Task DeleteCommentAsync_AccountCannotDeleteStrongAnonymousCommentEvenWhenLegacyUserIdMatches()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -895,12 +933,14 @@ public sealed class AnonymousCommentSubmitTests(
         string myCommentsHandler = RuntimeMetadataInspection.DescribeMethods(mineMethod.DeclaringType!, mineMethod.Name);
         Assert.Contains("CreateAttributablePublicCommentResultAsync", createHandler, StringComparison.Ordinal);
         Assert.Contains("GetUserCommentsAsync", myCommentsHandler, StringComparison.Ordinal);
+        Assert.Contains("GetUserCommentsForArticleAsync", myCommentsHandler, StringComparison.Ordinal);
         Assert.Contains("AccountPrincipalContext", createHandler, StringComparison.Ordinal);
         Assert.Contains("AccountPrincipalContext", myCommentsHandler, StringComparison.Ordinal);
         Assert.DoesNotContain("GetUserId", createHandler, StringComparison.Ordinal);
         Assert.DoesNotContain("GetUserId", myCommentsHandler, StringComparison.Ordinal);
         Assert.Contains("get_AccountId", createHandler, StringComparison.Ordinal);
         Assert.Contains("get_AccountId", myCommentsHandler, StringComparison.Ordinal);
+        Assert.DoesNotContain("AuthorAccountId", myCommentsHandler, StringComparison.Ordinal);
     }
 
     [Fact]

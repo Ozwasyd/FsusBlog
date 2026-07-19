@@ -262,7 +262,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 3 | `ArticleHot` | `ArticleListPod` | `GET /api/binary/article/hot/{size}.aeds` |
 | 4 | `ArticleSearch` | `ArticleListPod` | 搜索索引 / author cache 诊断，不暴露旧文本业务路径 |
 | 5 | `CommentArticleCursor` | `CommentThreadItemPod` + item blob | `GET /api/binary/comment/{articleId}`；每个 item blob 在 content 后追加必备 `CommentAuthorView` payload 与可空 `replyToAuthor` payload |
-| 6 | `CommentUserCursor` | `CommentPod` | `GET /api/binary/comment/me` 当前用户可归因评论记录 |
+| 6 | `CommentUserCursor` | `CommentPod` | `GET /api/binary/comment/me` 当前用户可归因评论记录；可选 `articleId` 仅用于认证私有 ownership overlay |
 | 7 | `AdminStats` | `AdminStatsPod` | — |
 | 8 | `CommentThreadReplyCursor` | `CommentReplyItemPod` + item blob | `GET /api/binary/comment/{articleId}/thread/{rootId}`；每个 reply item blob 在 content 后追加必备 `CommentAuthorView` payload 与可空 `replyToAuthor` payload |
 | 9 | `CategoryList` | compact taxonomy records | `GET /api/binary/category.aeds` |

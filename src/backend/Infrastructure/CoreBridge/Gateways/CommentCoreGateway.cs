@@ -33,6 +33,13 @@ public sealed class CommentCoreGateway(
         return await queryCache.GetOrLoadUserCommentsAsync(userId, cursor, limit, () => LoadUserCommentsAsync(userId, cursor, limit));
     }
 
+    public Task<CoreCursorResult<UserCommentCoreModel>> GetUserCommentsForArticleAsync(
+        int userId,
+        int articleId,
+        long? cursor,
+        int limit)
+        => LoadUserCommentsAsync(userId, cursor, limit, articleId);
+
     public Task<bool> DeleteCommentAsync(long id, int currentUserId, bool isAdmin, string reason)
         => commands.DeleteCommentAsync(id, currentUserId, isAdmin, reason);
 
@@ -50,13 +57,17 @@ public sealed class CommentCoreGateway(
         }, s_cursorCodec);
     }
 
-    private async Task<CoreCursorResult<UserCommentCoreModel>> LoadUserCommentsAsync(int userId, long? cursor, int limit)
+    private async Task<CoreCursorResult<UserCommentCoreModel>> LoadUserCommentsAsync(
+        int userId,
+        long? cursor,
+        int limit,
+        int? articleId = null)
     {
         var request = new CursorPageRequest<long>(
             cursor.HasValue ? s_cursorCodec.Format(cursor.Value) : null,
             cursor,
             cursorPolicies.Resolve(CommentCursorPolicyKind.UserComments).NormalizeLimit(limit));
-        CursorResponse<UserCommentResponse> source = await queries.GetAttributableAsync(userId, request);
+        CursorResponse<UserCommentResponse> source = await queries.GetAttributableAsync(userId, request, articleId);
         return CursorInterop.ToCore(source, item => CommentProjection.ToCoreModel(new UserCommentReadModel
         {
             Id = item.Id,

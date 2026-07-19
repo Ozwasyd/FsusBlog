@@ -84,7 +84,7 @@
           :threads="threads"
           :is-admin="userStore.isAdmin"
           :is-logged-in="userStore.isLoggedIn"
-          :current-account-id="userStore.userInfo?.accountId ?? null"
+          :owned-comment-ids="ownedCommentIds"
           :loading-replies="loadingReplies"
           @delete="handleCommentDelete"
           @reply="setReplyTarget"
@@ -219,6 +219,7 @@ const {
   commentPrivacyUiState,
   submittingComment,
   threads,
+  ownedCommentIds,
   hasMore,
   loadingComments,
   loadingReplies,
