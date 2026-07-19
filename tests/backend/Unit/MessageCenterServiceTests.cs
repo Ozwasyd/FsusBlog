@@ -121,6 +121,36 @@ public sealed class MessageCenterServiceTests
     }
 
     [Fact]
+    public async Task SendSystemMessageAsync_OutOfRangeTarget_ReturnsNotFound()
+    {
+        var svc = BuildService();
+        Result<ConversationDetailResponse> result = await svc.SendSystemMessageAsync(
+            "subject",
+            "body",
+            (long)int.MaxValue + 1,
+            new AdminMessageActor(1, "admin-session-1"));
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCode.NotFound, result.Error.Code);
+        Assert.Equal("system_message_target_not_found", result.Error.Message);
+    }
+
+    [Fact]
+    public void SystemMessageTargetPolicy_IsExplicitLockedAndFailClosed()
+    {
+        Assert.Equal(0, (int)SystemMessageTargetPolicy.ActiveAccountOnly);
+        Assert.Equal(1, (int)SystemMessageTargetPolicy.AllowRestrictedForGovernance);
+        string service = RuntimeMetadataInspection.DescribeType(typeof(MessageCenterService));
+        Assert.Contains("LoadSystemMessageTargetForUpdateAsync", service, StringComparison.Ordinal);
+        Assert.Contains("ValidateSystemMessageTarget", service, StringComparison.Ordinal);
+        Assert.Contains("SystemMessageTargetValidationEnabled", service, StringComparison.Ordinal);
+        Assert.Contains("system_message_target_not_found", service, StringComparison.Ordinal);
+        Assert.Contains("system_message_target_deleted", service, StringComparison.Ordinal);
+        Assert.Contains("system_message_target_restricted", service, StringComparison.Ordinal);
+        Assert.Contains("system_message_target_validation_disabled", service, StringComparison.Ordinal);
+        Assert.Contains("FOR UPDATE", service, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void MessageDomain_UsesAccountAndAdminPrincipalVocabulary()
     {
         string[] conversation = PropertyNames<MessageConversation>();

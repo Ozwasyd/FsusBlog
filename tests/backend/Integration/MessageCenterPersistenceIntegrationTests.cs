@@ -10,6 +10,7 @@ using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.NotificationStream;
 using FsusBlog.Shared.Contracts.Outputs;
 
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 
 using Npgsql;
@@ -174,23 +175,24 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         Assert.False(conflictingAdminReply.IsSuccess);
         Assert.Equal(ErrorCode.Conflict, conflictingAdminReply.Error.Code);
 
+        int systemTargetAccountId = await InsertAccountAsync(db, 0);
         const long SourceEventId = 91231001;
         Result<ConversationDetailResponse> system = await service.SendSystemMessageAsync(
             "system source",
             "same system body",
-            42,
+            systemTargetAccountId,
             AdminMessageActor.System,
             SourceEventId);
         Result<ConversationDetailResponse> replayedSystem = await service.SendSystemMessageAsync(
             "system source",
             "same system body",
-            42,
+            systemTargetAccountId,
             AdminMessageActor.System,
             SourceEventId);
         Result<ConversationDetailResponse> conflictingSystem = await service.SendSystemMessageAsync(
             "system source",
             "changed system body",
-            42,
+            systemTargetAccountId,
             AdminMessageActor.System,
             SourceEventId);
 
@@ -204,6 +206,149 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             await db.Queryable<MessageConversation>()
                 .Where(item => item.SourceMessageId == SourceEventId)
                 .ToListAsync());
+    }
+
+    [Fact]
+    [Trait("Category", "Concurrency")]
+    public async Task SystemMessage_TargetPolicyLocksAccountAndReturnsDomainErrors()
+    {
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using SqlSugarClient setup = PostgresSqlSugarTestClient.Create(connectionString);
+        PostgresSqlSugarTestClient.InitTables(
+            setup,
+            typeof(User),
+            typeof(MessageConversation),
+            typeof(ConversationMessage),
+            typeof(ConversationParticipantState),
+            typeof(AdminConversationQueueState),
+            typeof(MessageMutationOutbox));
+        int activeAccountId = await InsertAccountAsync(setup, 0);
+        int restrictedAccountId = await InsertAccountAsync(setup, 1);
+        int deletedAccountId = await InsertAccountAsync(setup, 2, DateTime.UtcNow);
+        int replayAccountId = await InsertAccountAsync(setup, 0);
+        int concurrentlyDeletedAccountId = await InsertAccountAsync(setup, 0);
+        MessageCenterService service = CreateService(
+            setup,
+            CreatePermissiveUnifiedCache(),
+            Substitute.For<IMessageNotificationStreamPort>());
+
+        Result<ConversationDetailResponse> active = await service.SendSystemMessageAsync(
+            "ordinary",
+            "active target",
+            activeAccountId,
+            new AdminMessageActor(7, "admin-session-7"),
+            91233001);
+        Result<ConversationDetailResponse> missing = await service.SendSystemMessageAsync(
+            "ordinary",
+            "missing target",
+            int.MaxValue,
+            new AdminMessageActor(7, "admin-session-7"),
+            91233002);
+        Result<ConversationDetailResponse> deleted = await service.SendSystemMessageAsync(
+            "ordinary",
+            "deleted target",
+            deletedAccountId,
+            new AdminMessageActor(7, "admin-session-7"),
+            91233003);
+        Result<ConversationDetailResponse> restricted = await service.SendSystemMessageAsync(
+            "ordinary",
+            "restricted target",
+            restrictedAccountId,
+            new AdminMessageActor(7, "admin-session-7"),
+            91233004);
+        Result<ConversationDetailResponse> governance = await service.SendSystemMessageAsync(
+            "governance",
+            "restricted target allowed",
+            restrictedAccountId,
+            AdminMessageActor.System,
+            91233005,
+            SystemMessageTargetPolicy.AllowRestrictedForGovernance);
+
+        Assert.True(active.IsSuccess, active.Error.Message);
+        Assert.False(missing.IsSuccess);
+        Assert.Equal(ErrorCode.NotFound, missing.Error.Code);
+        Assert.Equal("system_message_target_not_found", missing.Error.Message);
+        Assert.False(deleted.IsSuccess);
+        Assert.Equal(ErrorCode.NotFound, deleted.Error.Code);
+        Assert.Equal("system_message_target_deleted", deleted.Error.Message);
+        Assert.False(restricted.IsSuccess);
+        Assert.Equal(ErrorCode.Forbidden, restricted.Error.Code);
+        Assert.Equal("system_message_target_restricted", restricted.Error.Message);
+        Assert.True(governance.IsSuccess, governance.Error.Message);
+
+        var disabledConfiguration = new Microsoft.Extensions.Configuration.ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Messages:SystemMessageTargetValidationEnabled"] = "false"
+            })
+            .Build();
+        MessageCenterService disabledService = CreateService(
+            setup,
+            CreatePermissiveUnifiedCache(),
+            Substitute.For<IMessageNotificationStreamPort>(),
+            disabledConfiguration);
+        Result<ConversationDetailResponse> disabled = await disabledService.SendSystemMessageAsync(
+            "disabled",
+            "fail closed",
+            activeAccountId,
+            AdminMessageActor.System,
+            91233008);
+        Assert.False(disabled.IsSuccess);
+        Assert.Equal(ErrorCode.InfraFailure, disabled.Error.Code);
+        Assert.Equal("system_message_target_validation_disabled", disabled.Error.Message);
+
+        const long ReplaySourceEventId = 91233006;
+        Result<ConversationDetailResponse> first = await service.SendSystemMessageAsync(
+            "replay",
+            "stable result",
+            replayAccountId,
+            AdminMessageActor.System,
+            ReplaySourceEventId);
+        Assert.True(first.IsSuccess, first.Error.Message);
+        await setup.Updateable<User>()
+            .SetColumns(account => account.Status == 2)
+            .SetColumns(account => account.DeletedAt == DateTime.UtcNow)
+            .Where(account => account.Id == replayAccountId)
+            .ExecuteCommandAsync();
+        Result<ConversationDetailResponse> replay = await service.SendSystemMessageAsync(
+            "replay",
+            "stable result",
+            replayAccountId,
+            AdminMessageActor.System,
+            ReplaySourceEventId);
+        Assert.True(replay.IsSuccess, replay.Error.Message);
+        Assert.True(replay.Value!.IdempotencyReplay);
+        Assert.Equal(first.Value!.ConversationId, replay.Value.ConversationId);
+
+        await using var deleteConnection = new NpgsqlConnection(connectionString);
+        await deleteConnection.OpenAsync();
+        await using NpgsqlTransaction deleteTransaction = await deleteConnection.BeginTransactionAsync();
+        await using (var deleteCommand = new NpgsqlCommand(
+            "UPDATE sys_user SET status = 2, deleted_at = @deletedAt WHERE id = @accountId;",
+            deleteConnection,
+            deleteTransaction))
+        {
+            deleteCommand.Parameters.AddWithValue("deletedAt", DateTime.UtcNow);
+            deleteCommand.Parameters.AddWithValue("accountId", concurrentlyDeletedAccountId);
+            Assert.Equal(1, await deleteCommand.ExecuteNonQueryAsync());
+        }
+
+        using SqlSugarClient concurrentDb = PostgresSqlSugarTestClient.Create(connectionString);
+        MessageCenterService concurrentService = CreateService(
+            concurrentDb,
+            CreatePermissiveUnifiedCache(),
+            Substitute.For<IMessageNotificationStreamPort>());
+        Task<Result<ConversationDetailResponse>> blockedSend = concurrentService.SendSystemMessageAsync(
+            "concurrent delete",
+            "must observe deletion",
+            concurrentlyDeletedAccountId,
+            AdminMessageActor.System,
+            91233007);
+        await deleteTransaction.CommitAsync();
+        Result<ConversationDetailResponse> concurrentDelete = await blockedSend;
+        Assert.False(concurrentDelete.IsSuccess);
+        Assert.Equal(ErrorCode.NotFound, concurrentDelete.Error.Code);
+        Assert.Equal("system_message_target_deleted", concurrentDelete.Error.Message);
     }
 
     [Fact]
@@ -493,10 +638,11 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
                 .FirstAsync());
         Assert.Equal(0, participant.UnreadCount);
 
+        int systemTargetAccountId = await InsertAccountAsync(db, 0);
         Result<ConversationDetailResponse> systemMessage = await service.SendSystemMessageAsync(
             "system",
             "system notice",
-            42,
+            systemTargetAccountId,
             AdminMessageActor.System);
         Assert.True(systemMessage.IsSuccess, systemMessage.Error.Message);
         long systemConversationId = long.Parse(systemMessage.Value!.ConversationId);
@@ -533,7 +679,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             item => item.MessageId == systemMessageId
                 && item.EventKind == MessageMutationOutboxEventKinds.MessageAppend
                 && item.AudienceKind == MessageMutationOutboxAudiences.Account
-                && item.TargetAccountId == 42);
+                && item.TargetAccountId == systemTargetAccountId);
         Assert.Equal(deliveries.Count, deliveries.Select(static item => item.DeliveryKey).Distinct(StringComparer.Ordinal).Count());
     }
 
@@ -1429,13 +1575,23 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
     private static MessageCenterService CreateService(
         SqlSugarClient db,
         IUnifiedCache unifiedCache,
-        IMessageNotificationStreamPort notifications)
+        IMessageNotificationStreamPort notifications,
+        Microsoft.Extensions.Configuration.IConfiguration? configuration = null)
         => new(
             db,
             new MessageCacheService(unifiedCache, unifiedCache, unifiedCache),
             notifications,
-            new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build(),
+            configuration ?? new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build(),
             NullLogger<MessageCenterService>.Instance);
+
+    private static Task<int> InsertAccountAsync(SqlSugarClient db, int status, DateTime? deletedAt = null)
+        => db.Insertable(new User
+        {
+            Status = status,
+            DeletedAt = deletedAt,
+            IdentityKind = "anonymous_account",
+            CreateTime = DateTime.UtcNow
+        }).ExecuteReturnIdentityAsync();
 
     private static IUnifiedCache CreatePermissiveUnifiedCache()
     {

@@ -277,7 +277,7 @@
 | GET | `/api/binary/admin/messages/conversations/{id}?beforeMessageId={previousCursor}` | `AdminConversationDetail(207)`；最小对方账号投影；最新页推进共享 admin read cursor，历史页不回退 |
 | POST | `/api/binary/admin/messages/conversations/{id}/reply` | 必需 `X-Fsus-Client-Mutation-Id`；以管理员身份回复；closed 必须先显式重开，事务冲突返回 409 |
 | POST | `/api/binary/admin/messages/conversations/{id}/status` | `ConversationStatusRequest` 目标状态 + 审计原因；显式状态机/CAS；响应 `ConversationStatusMutationResult(211)`，同状态为 `no_change`，非法或并发冲突为 409 |
-| POST | `/api/binary/admin/messages/system-send` | 必需稳定正整数 `X-Fsus-Source-Event-Id`；单账号系统消息；`targetAccountId` 必填；响应 `ConversationDetailV2(203)` |
+| POST | `/api/binary/admin/messages/system-send` | 必需稳定正整数 `X-Fsus-Source-Event-Id`；单 active 账号系统消息；事务内锁定目标，missing/deleted/restricted 返回明确领域错误；响应 `ConversationDetailV2(203)` |
 
 `Messages:ReplyWritesEnabled=false` 可动态暂停两个 reply 端点并返回
 `503 message_reply_writes_disabled`，不影响读取和显式状态变更。
@@ -287,6 +287,8 @@
 `503 message_admin_account_projection_disabled`；账号消息端点与原有账号 frame 保持可用。
 `Messages:StatusMutationsEnabled=false` 可动态暂停 admin 状态写入并返回
 `503 message_status_mutations_disabled`；读取与 notification stream 不受影响。
+`Messages:SystemMessageTargetValidationEnabled=false` 可动态 fail closed 新系统消息并返回
+`503 system_message_target_validation_disabled`；已提交 source event 的同摘要 replay 仍返回原结果。
 
 ## 开放分发与作者工作台
 

@@ -6,6 +6,12 @@ using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Server.Interfaces;
 
+public enum SystemMessageTargetPolicy
+{
+    ActiveAccountOnly = 0,
+    AllowRestrictedForGovernance = 1
+}
+
 public readonly record struct AdminMessageActor(long AdminPrincipalId, string AdminSessionId)
 {
     public static AdminMessageActor System => new(0, string.Empty);
@@ -32,7 +38,13 @@ public interface IMessageCommandService
         ConversationStatusValue status,
         string reason,
         AdminMessageActor adminActor);
-    Task<Result<ConversationDetailResponse>> SendSystemMessageAsync(string subject, string body, long? targetAccountId, AdminMessageActor adminActor, long sourceEventId);
+    Task<Result<ConversationDetailResponse>> SendSystemMessageAsync(
+        string subject,
+        string body,
+        long? targetAccountId,
+        AdminMessageActor adminActor,
+        long sourceEventId,
+        SystemMessageTargetPolicy targetPolicy = SystemMessageTargetPolicy.ActiveAccountOnly);
 
     // 治理通知聚合入口
     Task SendAccountTransactionalNoticeAsync(int accountId, string subject, string body);

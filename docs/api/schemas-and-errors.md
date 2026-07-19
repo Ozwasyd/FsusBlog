@@ -359,6 +359,12 @@ status 必须为 `3=missing`。动态关闭 admin account projection 时返回 `
 `conversation_status_transition_invalid`；CAS 后发现其它目标状态返回 `409`。相同目标状态返回
 frame 208 的 `no_change`，不属于错误。动态关闭 `Messages:StatusMutationsEnabled` 时返回
 `503` + `message_status_mutations_disabled`，不得降级为无审计或直接实时发布。
+
+系统消息目标错误固定区分：目标不存在为 `404 system_message_target_not_found`，已注销为
+`404 system_message_target_deleted`，普通消息投递到受限账号为
+`403 system_message_target_restricted`，未知账户状态为
+`403 system_message_target_status_invalid`。目标锁定/校验热关闭时，新 source event 返回
+`503 system_message_target_validation_disabled`；已提交的同摘要 replay 不受影响。
 | 182 | `AnonymousCommentCreateRequest` | `AnonymousCommentCreateRequestPod` | `POST /api/binary/comment/anonymous` 请求体；不包含 user id、username、Authorization token 或 public handle |
 | 183 | `AnonymousPrivacyStateSnapshot` | `AnonymousPrivacyStateSnapshotPod` | 前端匿名隐私状态快照 |
 | 184 | `PerceptionSealedChallengeV2` | `PerceptionSealedChallengeV2Pod` | `fsu.challenge/perception-sealed@v2` issue payload；覆盖 Character、Localization、MicroInteraction 三类 perception task |

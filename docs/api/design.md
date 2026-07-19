@@ -208,6 +208,12 @@ reload-capable `Messages:MutationIdempotencyEnabled=false` 可在不重启进程
 详情、已读和状态变更仍可用。修复 schema 或写入链路后直接重新启用，不得回退到无幂等身份
 的写入路径。
 
+系统消息不能把外键异常当作目标账户策略。新 source event 在消息事务内锁定目标账户：普通
+admin/事务通知只接收 active，封禁/恢复治理通知通过强类型 policy 显式允许 restricted；两类
+都拒绝 missing/deleted/未知状态。已提交的同摘要 replay 在锁目标前返回原结果，以保证目标
+随后注销时重试语义不漂移。`Messages:SystemMessageTargetValidationEnabled=false` 可热暂停新系统
+消息而保留 replay，修复后直接重新启用，禁止回退到无锁检查或只靠外键。
+
 详情分页可通过 reload-capable `Messages:ThreadPaginationEnabled=false` 在不重启进程的
 情况下暂停账号与 admin 详情读取，并返回固定 `503 message_thread_pagination_disabled`。
 该降级只阻止详情读取，不恢复全量查询、浏览器本地假分页或文本 API fallback。

@@ -997,6 +997,18 @@ principal/session 或其它资料。`senderName` 由 viewer 决定：账号端�
 
 管理员系统消息使用 `POST /api/binary/admin/messages/system-send` 的 `SystemMessageRequest` frame。当前契约只支持单账号目标，`targetAccountId` 必须存在且大于 0；`targetAccountId=null` 不表示广播，后端会返回 validation error。前端管理入口位于 `/user/manage/messages`，普通 `/user/messagebox` 只承载账号消息和工单。
 
+新系统消息在消息事务内以 `SELECT ... FOR UPDATE` 锁定 `sys_user` 目标行，再创建 conversation、
+participant 与 outbox。普通 admin/事务通知使用 `ActiveAccountOnly`：缺失目标返回
+`404 system_message_target_not_found`，已注销目标返回 `404 system_message_target_deleted`，受限
+目标返回 `403 system_message_target_restricted`。封禁/恢复通知显式使用
+`AllowRestrictedForGovernance`，只额外允许 status=restricted，仍拒绝缺失、注销和未知状态。
+数据库外键保留为最后兜底，但这些领域结果不得统一映射成 `InfraFailure`。
+
+source event 幂等检查先于目标状态检查：已经提交的同 key/同摘要重放即使目标随后受限或注销，
+仍返回原 conversation 且 `idempotencyReplay=true`；新写入必须使用锁后状态。动态设置
+`Messages:SystemMessageTargetValidationEnabled=false` 会在幂等重放之后 fail closed 新系统消息，
+返回 `503 system_message_target_validation_disabled`，不回退到仅依赖外键的旧路径。
+
 消息 mutation 的请求身份位于 HTTP header，不改变现有 AEDS request frame 或 POD 尺寸：
 
 | 写入 | 必需 header | 身份作用域 |

@@ -1273,11 +1273,16 @@ public sealed class MessageCenterService(
         string body,
         long? targetAccountId,
         AdminMessageActor adminActor,
-        long sourceEventId)
+        long sourceEventId,
+        SystemMessageTargetPolicy targetPolicy = SystemMessageTargetPolicy.ActiveAccountOnly)
     {
         if (!targetAccountId.HasValue || targetAccountId.Value <= 0)
         {
             return Result<ConversationDetailResponse>.Failure(ErrorCode.Validation, "目标账号不能为空");
+        }
+        if (targetAccountId.Value > int.MaxValue)
+        {
+            return Result<ConversationDetailResponse>.Failure(ErrorCode.NotFound, "system_message_target_not_found");
         }
         if (sourceEventId <= 0)
         {
@@ -1301,6 +1306,7 @@ public sealed class MessageCenterService(
             normalizedSubject,
             normalizedBody);
         MutationReplayState replayState = MutationReplayState.None;
+        SystemMessageTargetValidation targetValidation = SystemMessageTargetValidation.Allowed;
         DateTime now = DateTime.UtcNow;
         var tran = await db.Ado.UseTranAsync(async () =>
         {
@@ -1314,6 +1320,19 @@ public sealed class MessageCenterService(
                 replayState = string.Equals(existing.MutationRequestHash, requestHash, StringComparison.Ordinal)
                     ? MutationReplayState.Replay
                     : MutationReplayState.Conflict;
+                return;
+            }
+
+            if (!(configuration.GetValue<bool?>("Messages:SystemMessageTargetValidationEnabled") ?? true))
+            {
+                targetValidation = SystemMessageTargetValidation.Disabled;
+                return;
+            }
+
+            SystemMessageTargetLock? targetState = await LoadSystemMessageTargetForUpdateAsync(target);
+            targetValidation = ValidateSystemMessageTarget(targetState, targetPolicy);
+            if (targetValidation != SystemMessageTargetValidation.Allowed)
+            {
                 return;
             }
 
@@ -1371,6 +1390,29 @@ public sealed class MessageCenterService(
         {
             return Result<ConversationDetailResponse>.Failure(ErrorCode.Conflict, "source_event_content_conflict");
         }
+        Result<ConversationDetailResponse>? targetFailure = targetValidation switch
+        {
+            SystemMessageTargetValidation.Missing => Result<ConversationDetailResponse>.Failure(
+                ErrorCode.NotFound,
+                "system_message_target_not_found"),
+            SystemMessageTargetValidation.Deleted => Result<ConversationDetailResponse>.Failure(
+                ErrorCode.NotFound,
+                "system_message_target_deleted"),
+            SystemMessageTargetValidation.Restricted => Result<ConversationDetailResponse>.Failure(
+                ErrorCode.Forbidden,
+                "system_message_target_restricted"),
+            SystemMessageTargetValidation.InvalidStatus => Result<ConversationDetailResponse>.Failure(
+                ErrorCode.Forbidden,
+                "system_message_target_status_invalid"),
+            SystemMessageTargetValidation.Disabled => Result<ConversationDetailResponse>.Failure(
+                ErrorCode.InfraFailure,
+                "system_message_target_validation_disabled"),
+            _ => null
+        };
+        if (targetFailure.HasValue)
+        {
+            return targetFailure.Value;
+        }
 
         var detail = await GetAccountConversationDetailAsync(target, conversationId);
         if (detail is null)
@@ -1414,7 +1456,8 @@ public sealed class MessageCenterService(
                 $"您的账号已被封禁，当前仅保留只读权限。原因：{reason}",
                 accountId,
                 AdminMessageActor.System,
-                ComputeStableSourceEventId("account-banned", accountId, reason)),
+                ComputeStableSourceEventId("account-banned", accountId, reason),
+                SystemMessageTargetPolicy.AllowRestrictedForGovernance),
             "send-account-banned-notice",
             accountId);
         await PushAccountStatusAsync(accountId, 1, reason);
@@ -1428,7 +1471,8 @@ public sealed class MessageCenterService(
                 "您已解除账户管控。",
                 accountId,
                 AdminMessageActor.System,
-                ComputeStableSourceEventId("account-unbanned", accountId)),
+                ComputeStableSourceEventId("account-unbanned", accountId),
+                SystemMessageTargetPolicy.AllowRestrictedForGovernance),
             "send-account-unbanned-notice",
             accountId);
         await PushAccountStatusAsync(accountId, 0, null);
@@ -1440,6 +1484,55 @@ public sealed class MessageCenterService(
             accountId,
             new AccountStatusPayload(status, reason, DateTime.UtcNow),
             "push-account-status");
+
+    private async Task<SystemMessageTargetLock?> LoadSystemMessageTargetForUpdateAsync(int accountId)
+    {
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT id,
+                   status,
+                   deleted_at
+            FROM sys_user
+            WHERE id = @AccountId
+            FOR UPDATE;
+            """,
+            new SugarParameter("@AccountId", accountId));
+        if (!await reader.ReadAsync())
+        {
+            return null;
+        }
+
+        return new SystemMessageTargetLock(
+            reader.ReadInt32("id"),
+            reader.ReadInt32("status"),
+            reader.IsNull("deleted_at") ? null : reader.ReadDateTime("deleted_at"));
+    }
+
+    private static SystemMessageTargetValidation ValidateSystemMessageTarget(
+        SystemMessageTargetLock? target,
+        SystemMessageTargetPolicy policy)
+    {
+        if (target is null)
+        {
+            return SystemMessageTargetValidation.Missing;
+        }
+        if (target.DeletedAt.HasValue || target.Status == 2)
+        {
+            return SystemMessageTargetValidation.Deleted;
+        }
+        if (target.Status == 0)
+        {
+            return SystemMessageTargetValidation.Allowed;
+        }
+        if (target.Status == 1)
+        {
+            return policy == SystemMessageTargetPolicy.AllowRestrictedForGovernance
+                ? SystemMessageTargetValidation.Allowed
+                : SystemMessageTargetValidation.Restricted;
+        }
+
+        return SystemMessageTargetValidation.InvalidStatus;
+    }
 
     public Task PushCommentRemoveAsync(int articleId, long commentId, long? rootId, long? parentId)
         => notificationStreamPort.PublishToContentFeedAsync(
@@ -2607,6 +2700,18 @@ public sealed class MessageCenterService(
         None,
         Replay,
         Conflict
+    }
+
+    private sealed record SystemMessageTargetLock(int AccountId, int Status, DateTime? DeletedAt);
+
+    private enum SystemMessageTargetValidation
+    {
+        Allowed,
+        Missing,
+        Deleted,
+        Restricted,
+        InvalidStatus,
+        Disabled
     }
 
     private readonly record struct AdminCounterpartyProjection(
