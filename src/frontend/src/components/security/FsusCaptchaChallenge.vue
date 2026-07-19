@@ -107,6 +107,7 @@ const loading = ref(false)
 const submitting = ref(false)
 const errorMessage = ref('')
 const currentAssignment = ref<SecurityChallengeAssignment | null>(null)
+const currentEnvelopeId = ref('')
 const currentProviderPayload = ref<Record<string, string> | null>(null)
 const currentRaster = ref<CaptchaRaster | null>(null)
 const challengeStartedAt = ref(0)
@@ -146,6 +147,7 @@ async function refreshChallenge(): Promise<void> {
   errorMessage.value = ''
   answer.value = ''
   currentAssignment.value = null
+  currentEnvelopeId.value = ''
   currentProviderPayload.value = null
   currentRaster.value = null
   emit('refresh')
@@ -159,6 +161,7 @@ async function refreshChallenge(): Promise<void> {
     const selected = selectCaptchaChallenge(response)
     const raster = await resolveWorkerClient().render(selected.payload)
     currentAssignment.value = selected.assignment
+    currentEnvelopeId.value = response.envelope?.envelopeId ?? ''
     currentProviderPayload.value = selected.payload
     currentRaster.value = raster
     challengeStartedAt.value = Date.now()
@@ -187,6 +190,7 @@ async function submitChallenge(): Promise<void> {
     const proof = await resolveWorkerClient().solve(payload, answerText)
     const solveDurationMs = Math.max(0, Date.now() - challengeStartedAt.value)
     const verification = await resolveVerifyChallenge()({
+      envelopeId: currentEnvelopeId.value,
       challengeId: assignment.challengeId,
       kind: SecurityChallengeKind.CaptchaV1,
       action: assignment.action,

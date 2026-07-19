@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => {
     refresh: vi.fn(),
     verify: vi.fn(),
     reserveProof: vi.fn(),
+    cancelEnvelope: vi.fn(),
     clearProof: vi.fn()
   }
   const executor = {
@@ -135,6 +136,35 @@ describe('notification PoSpace headless recovery', () => {
     expect(mocks.runtime.start).toHaveBeenCalledWith(undefined, null, 'auth', mocks.lease)
   })
 
+  it('serializes ordered expensive members and starts only after the final proof', async () => {
+    const first = poSpaceIssue('pospace-1')
+    const second = poSpaceIssue('pospace-2')
+    mocks.client.refresh.mockResolvedValueOnce(first)
+    let activeExecutions = 0
+    let maximumActiveExecutions = 0
+    mocks.executor.execute
+      .mockImplementationOnce(async () => {
+        activeExecutions += 1
+        maximumActiveExecutions = Math.max(maximumActiveExecutions, activeExecutions)
+        activeExecutions -= 1
+        return { status: 'continued', response: { verified: true }, next: second }
+      })
+      .mockImplementationOnce(async () => {
+        activeExecutions += 1
+        maximumActiveExecutions = Math.max(maximumActiveExecutions, activeExecutions)
+        activeExecutions -= 1
+        return { status: 'verified', proof: mocks.lease.proof, response: { verified: true } }
+      })
+
+    await useNotification().initNotification(true)
+
+    expect(mocks.executor.execute).toHaveBeenCalledTimes(2)
+    expect(mocks.executor.execute.mock.calls.map(([input]) => input.assignment.challengeId)).toEqual(['pospace-1', 'pospace-2'])
+    expect(maximumActiveExecutions).toBe(1)
+    expect(mocks.client.reserveProof).toHaveBeenCalledTimes(1)
+    expect(mocks.runtime.start).toHaveBeenCalledTimes(1)
+  })
+
   it('uses bounded server-authoritative reissue and never starts a duplicate stream', async () => {
     mocks.client.refresh
       .mockResolvedValueOnce(poSpaceIssue('pospace-1'))
@@ -190,7 +220,7 @@ function poSpaceIssue(challengeId = 'pospace-1') {
     policyVersion: 'risk-v2',
     retryAfterMs: 0,
     envelope: {
-      envelopeId: 'envelope-1',
+      envelopeId: '01900000-0000-7000-8000-000000000001',
       policyVersion: 'risk-v2',
       assignments: []
     },

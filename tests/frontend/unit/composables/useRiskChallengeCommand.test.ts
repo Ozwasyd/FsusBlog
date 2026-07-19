@@ -231,6 +231,7 @@ function createClient(
     refresh: vi.fn(),
     verify: vi.fn(),
     reserveProof: vi.fn(() => lease),
+    cancelEnvelope: vi.fn(),
     clearProof: vi.fn()
   }
 }

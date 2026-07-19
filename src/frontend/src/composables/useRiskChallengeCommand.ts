@@ -72,6 +72,9 @@ export function useRiskChallengeCommand(
   const rejectPending = (reason: string): void => {
     const current = pending
     pending = null
+    if (current) {
+      baseClient.cancelEnvelope(current.context)
+    }
     closeChallenge()
     current?.reject(createAppError(AppErrorCode.PreconditionRequired, reason))
   }

@@ -7,7 +7,8 @@ import {
 import {
   createSecurityChallengeClient,
   type SecurityChallengeClient,
-  type SecurityChallengeContext
+  type SecurityChallengeContext,
+  type SecurityChallengeIssueResult
 } from '@/security/challenge-client'
 import type { SecurityChallengeProof } from '@/security/challenge-proof-store'
 import type { PoSpaceUnsupportedReason } from '@/generated/poSpaceV1Contract'
@@ -55,6 +56,11 @@ export type PoSpaceChallengeExecuteResult =
       status: 'verified'
       proof: SecurityChallengeProof
       response: SecurityChallengeVerifyResponse
+    }
+  | {
+      status: 'continued'
+      response: SecurityChallengeVerifyResponse
+      next: SecurityChallengeIssueResult
     }
   | {
       status: 'unsupported'
@@ -242,6 +248,13 @@ export function createPoSpaceChallengeExecutor(
       if (!isCurrent(run)) {
         client.clearProof(input.context)
         return cancelledResult(run)
+      }
+      if ((verified.status === 'continue' || verified.status === 'unsupported') && verified.response && verified.next) {
+        return complete(
+          run,
+          { status: 'verified', reason: null },
+          { status: 'continued', response: verified.response, next: verified.next }
+        )
       }
       if (verified.status !== 'verified' || !verified.proof || !verified.response) {
         const reason = verified.reason ?? 'security_challenge_verify_failed'

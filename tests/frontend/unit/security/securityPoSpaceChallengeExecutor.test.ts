@@ -120,6 +120,7 @@ function fakeClient(
     refresh: vi.fn(),
     verify: vi.fn(verifyImplementation),
     reserveProof: vi.fn(),
+    cancelEnvelope: vi.fn(),
     clearProof: vi.fn()
   }
 }

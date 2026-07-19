@@ -224,10 +224,14 @@ export function useNotification() {
                     routeKey: NOTIFICATION_SUBSCRIBE_ROUTE_KEY,
                     providerPayload: { proof }
                 })
-
-                return verified.status === 'verified' && verified.proof
-                    ? notificationChallengeClient.reserveProof(context) ?? 'unavailable'
-                    : 'unavailable'
+                if (verified.status === 'verified' && verified.proof) {
+                    return notificationChallengeClient.reserveProof(context) ?? 'unavailable'
+                }
+                if ((verified.status === 'continue' || verified.status === 'unsupported') && verified.next) {
+                    issue = verified.next
+                    continue
+                }
+                return 'unavailable'
             }
 
             if (issue.capability?.headlessHost !== 'notification-pospace') {
@@ -250,6 +254,11 @@ export function useNotification() {
             if (result.status === 'verified') {
                 notificationPoSpaceUnsupportedReissues = 0
                 return notificationChallengeClient.reserveProof(context) ?? 'unavailable'
+            }
+            if (result.status === 'continued') {
+                notificationPoSpaceUnsupportedReissues = 0
+                issue = result.next
+                continue
             }
             if (result.status !== 'unsupported'
                 || notificationPoSpaceUnsupportedReissues >= poSpaceV1Contract.maxUnsupportedReissues) {
@@ -439,6 +448,7 @@ export function useNotification() {
     const stopNotification = async (clearCursor = false): Promise<void> => {
         clearReauthRetryTimer()
         disposeNotificationChallengeExecution()
+        notificationChallengeClient.cancelEnvelope(notificationChallengeContext())
         notificationPoSpaceUnsupportedReissues = 0
         pendingInitMode = ''
         initNotificationPromise = null

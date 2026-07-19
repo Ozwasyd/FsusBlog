@@ -90,9 +90,13 @@ describe('security challenge client and proof store', () => {
     const issueChallenge = vi.fn().mockResolvedValue(captchaIssueResponse())
     const verifyChallenge = vi.fn().mockResolvedValue({
       verified: true,
+      envelopeId: ENVELOPE_ID,
       challengeId: 'captcha-1',
       kind: SecurityChallengeKind.CaptchaV1,
       policyVersion: 'risk-v1',
+      completedCount: 1,
+      memberCount: 1,
+      envelopeCompleted: true,
       proofToken: 'proof-verified',
       expiresAtUnixMs: 8_000,
       reason: '',
@@ -200,15 +204,26 @@ describe('security challenge client and proof store', () => {
     const store = createChallengeProofStore({ now: () => 1000 })
     const verifyChallenge = vi.fn().mockResolvedValue({
       verified: false,
+      envelopeId: ENVELOPE_ID,
       challengeId: 'captcha-1',
       kind: SecurityChallengeKind.CaptchaV1,
       policyVersion: 'risk-v1',
+      completedCount: 1,
+      memberCount: 1,
+      envelopeCompleted: false,
       proofToken: '',
       expiresAtUnixMs: 0,
       reason: 'captcha_invalid',
       retryAfterMs: 2000
     } satisfies SecurityChallengeVerifyResponse)
-    const client = createSecurityChallengeClient({ proofStore: store, verifyChallenge, now: () => 1000 })
+    const client = createSecurityChallengeClient({
+      proofStore: store,
+      issueChallenge: vi.fn().mockResolvedValue(captchaIssueResponse()),
+      verifyChallenge,
+      now: () => 1000
+    })
+
+    await client.issue(context)
 
     const result = await client.verify(context, {
       challengeId: 'captcha-1',
@@ -221,6 +236,102 @@ describe('security challenge client and proof store', () => {
     expect(result.status).toBe('failed')
     expect(result.reason).toBe('captcha_invalid')
     expect(store.peek(context.action, context.routeKey)).toBeNull()
+  })
+
+  it('runs envelope members in order and stores only the final aggregate proof', async () => {
+    const store = createChallengeProofStore({ now: () => 1000 })
+    const response = captchaIssueResponse()
+    const second = {
+      ...response.envelope!.assignments[0]!,
+      challengeId: 'captcha-2'
+    }
+    response.envelope!.assignments.push(second)
+    response.providerPayloads.push({ challengeId: 'captcha-2', payload: { algorithm: 'second' } })
+    const verifyChallenge = vi.fn()
+      .mockResolvedValueOnce({
+        verified: true,
+        envelopeId: ENVELOPE_ID,
+        challengeId: 'captcha-1',
+        kind: SecurityChallengeKind.CaptchaV1,
+        policyVersion: 'risk-v1',
+        completedCount: 1,
+        memberCount: 2,
+        envelopeCompleted: false,
+        proofToken: '',
+        expiresAtUnixMs: 0,
+        reason: 'ok',
+        retryAfterMs: 0
+      } satisfies SecurityChallengeVerifyResponse)
+      .mockResolvedValueOnce({
+        verified: true,
+        envelopeId: ENVELOPE_ID,
+        challengeId: 'captcha-2',
+        kind: SecurityChallengeKind.CaptchaV1,
+        policyVersion: 'risk-v1',
+        completedCount: 2,
+        memberCount: 2,
+        envelopeCompleted: true,
+        proofToken: 'aggregate-proof',
+        expiresAtUnixMs: 8_000,
+        reason: 'ok',
+        retryAfterMs: 0
+      } satisfies SecurityChallengeVerifyResponse)
+    const client = createSecurityChallengeClient({
+      proofStore: store,
+      issueChallenge: vi.fn().mockResolvedValue(response),
+      verifyChallenge,
+      now: () => 1000
+    })
+
+    const issued = await client.issue(context)
+    const first = await client.verify(context, memberRequest('captcha-1'))
+
+    expect(issued.assignment?.challengeId).toBe('captcha-1')
+    expect(first.status).toBe('continue')
+    expect(first.next?.assignment?.challengeId).toBe('captcha-2')
+    expect(first.proof).toBeNull()
+    expect(store.peek(context.action, context.routeKey)).toBeNull()
+
+    const final = await client.verify(context, memberRequest('captcha-2'))
+    expect(final.status).toBe('verified')
+    expect(final.proof?.proofToken).toBe('aggregate-proof')
+    expect(store.peek(context.action, context.routeKey)?.challengeId).toBe('captcha-2')
+    expect(verifyChallenge.mock.calls.map(([request]) => request.envelopeId)).toEqual([ENVELOPE_ID, ENVELOPE_ID])
+  })
+
+  it('rejects out-of-order members and cancels a replaced envelope before transport', async () => {
+    const firstIssue = captchaIssueResponse()
+    firstIssue.envelope!.assignments.push({
+      ...firstIssue.envelope!.assignments[0]!,
+      challengeId: 'captcha-2'
+    })
+    const replacement = captchaIssueResponse()
+    replacement.envelope = {
+      ...replacement.envelope!,
+      envelopeId: '01900000-0000-7000-8000-000000000002',
+      assignments: [{ ...replacement.envelope!.assignments[0]!, challengeId: 'captcha-new' }]
+    }
+    replacement.providerPayloads = [{ challengeId: 'captcha-new', payload: { algorithm: 'replacement' } }]
+    const issueChallenge = vi.fn()
+      .mockResolvedValueOnce(firstIssue)
+      .mockResolvedValueOnce(replacement)
+    const verifyChallenge = vi.fn()
+    const client = createSecurityChallengeClient({ issueChallenge, verifyChallenge, now: () => 1000 })
+
+    await client.issue(context)
+    const outOfOrder = await client.verify(context, memberRequest('captcha-2'))
+    expect(outOfOrder.reason).toBe('security_challenge_member_mismatch')
+    expect(verifyChallenge).not.toHaveBeenCalled()
+
+    await client.refresh(context)
+    const stale = await client.verify(context, memberRequest('captcha-1'))
+    expect(stale.reason).toBe('security_challenge_member_mismatch')
+    expect(verifyChallenge).not.toHaveBeenCalled()
+
+    client.cancelEnvelope(context)
+    const cancelled = await client.verify(context, memberRequest('captcha-new'))
+    expect(cancelled.reason).toBe('security_challenge_envelope_missing')
+    expect(verifyChallenge).not.toHaveBeenCalled()
   })
 
   it('allows only one concurrent reservation and restores only before send', () => {
@@ -293,7 +404,7 @@ function captchaIssueResponse(kind: SecurityChallengeKind = SecurityChallengeKin
     policyVersion: 'risk-v1',
     retryAfterMs: 0,
     envelope: {
-      envelopeId: 'env-1',
+      envelopeId: ENVELOPE_ID,
       policyVersion: 'risk-v1',
       assignments: [{
         challengeId: 'captcha-1',
@@ -314,5 +425,17 @@ function captchaIssueResponse(kind: SecurityChallengeKind = SecurityChallengeKin
       challengeId: 'captcha-1',
       payload: { algorithm: 'fsus.captcha/chebyshev-noise@v1' }
     }]
+  }
+}
+
+const ENVELOPE_ID = '01900000-0000-7000-8000-000000000001'
+
+function memberRequest(challengeId: string) {
+  return {
+    challengeId,
+    kind: SecurityChallengeKind.CaptchaV1,
+    action: context.action,
+    routeKey: context.routeKey,
+    providerPayload: { answerText: 'AEF2' }
   }
 }

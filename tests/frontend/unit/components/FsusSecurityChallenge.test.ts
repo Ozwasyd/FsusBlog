@@ -127,17 +127,27 @@ describe('FsusSecurityChallenge capability dispatch', () => {
     expect(host.props('policyVersion')).toBe('policy-v1')
     expect(host.props('executorFactory')).toBe(executorFactory)
 
+    const nextAssignment = { ...assignment(kind), challengeId: 'challenge-2' }
+    host.vm.$emit('continued', {
+      ...issueResult,
+      assignment: nextAssignment,
+      providerPayload: { challengeId: 'challenge-2', payload: {} }
+    })
+    await flushPromises()
+    expect(wrapper.findComponent({ name: 'FsusPoSpaceChallenge' }).props('assignment')).toEqual(nextAssignment)
+
     const verified = { verified: true, challengeId: 'challenge-1' }
     const unsupported = {
       status: 'unsupported',
       reason: 'execution_unavailable',
       reissueAttributes: { executionMode: 'headless' }
     }
-    host.vm.$emit('verified', verified)
-    host.vm.$emit('error', 'verification_failed')
-    host.vm.$emit('unsupported', unsupported)
-    host.vm.$emit('expired')
-    host.vm.$emit('cancel')
+    const continuedHost = wrapper.findComponent({ name: 'FsusPoSpaceChallenge' })
+    continuedHost.vm.$emit('verified', verified)
+    continuedHost.vm.$emit('error', 'verification_failed')
+    continuedHost.vm.$emit('unsupported', unsupported)
+    continuedHost.vm.$emit('expired')
+    continuedHost.vm.$emit('cancel')
     await flushPromises()
 
     expect(wrapper.emitted('verified')).toEqual([[verified]])
@@ -163,7 +173,7 @@ const componentStubs = {
   FsusPoSpaceChallenge: {
     name: 'FsusPoSpaceChallenge',
     props: ['assignment', 'providerPayload', 'context', 'policyVersion', 'refresh', 'disabled', 'executorFactory'],
-    emits: ['verified', 'error', 'unsupported', 'expired', 'cancel'],
+    emits: ['verified', 'continued', 'error', 'unsupported', 'expired', 'cancel'],
     template: '<div data-test="pospace-host" />'
   }
 }
@@ -174,6 +184,7 @@ function fakeClient(issueResult: SecurityChallengeIssueResult): SecurityChalleng
     refresh: vi.fn().mockResolvedValue(issueResult),
     verify: vi.fn(),
     reserveProof: vi.fn().mockReturnValue(null),
+    cancelEnvelope: vi.fn(),
     clearProof: vi.fn()
   }
 }

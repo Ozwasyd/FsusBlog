@@ -24,6 +24,7 @@ import type {
 type VerifySecurityChallenge = (request: VerifySecurityChallengeRequest) => Promise<SecurityChallengeVerifyResponse>
 
 export interface PerceptionChallengeRuntimeOptions {
+  envelopeId: string
   assignment: SecurityChallengeAssignment
   providerPayload: SecurityChallengeProviderPayload
   verifyChallenge: VerifySecurityChallenge
@@ -76,6 +77,7 @@ export function createPerceptionChallengeRuntime(options: PerceptionChallengeRun
     client: {
       verify: async (payload) => {
         const response = await options.verifyChallenge({
+          envelopeId: options.envelopeId,
           challengeId: options.assignment.challengeId,
           kind: options.assignment.kind,
           action: options.assignment.action,

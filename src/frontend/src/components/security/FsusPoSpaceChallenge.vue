@@ -31,7 +31,10 @@ import type {
   SecurityChallengeProviderPayload as ExecutorProviderPayload,
   SecurityChallengeVerifyResponse as ExecutorVerifyResponse
 } from '@/api/security'
-import type { SecurityChallengeContext as ExecutorContext } from '@/security/challenge-client'
+import type {
+  SecurityChallengeContext as ExecutorContext,
+  SecurityChallengeIssueResult as ExecutorIssueResult
+} from '@/security/challenge-client'
 import type { SecurityChallengeProof as ExecutorProof } from '@/security/challenge-proof-store'
 
 export type PoSpaceUiState =
@@ -45,11 +48,12 @@ export type PoSpaceUiState =
   | 'cancelled'
 
 export interface PoSpaceExecutorResult {
-  status: 'verified' | 'unsupported' | 'failed' | 'expired' | 'cancelled'
+  status: 'verified' | 'continued' | 'unsupported' | 'failed' | 'expired' | 'cancelled'
   proof?: ExecutorProof | null
   response?: ExecutorVerifyResponse | null
   reason?: string | null
   reissueAttributes?: Record<string, unknown> | null
+  next?: ExecutorIssueResult | null
 }
 
 export interface PoSpaceUnsupportedResult extends PoSpaceExecutorResult {
@@ -96,6 +100,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   verified: [value: SecurityChallengeProof | SecurityChallengeVerifyResponse]
+  continued: [value: import('@/security/challenge-client').SecurityChallengeIssueResult]
   unsupported: [value: PoSpaceUnsupportedResult]
   error: [value: string]
   refresh: []
@@ -243,6 +248,11 @@ async function startChallenge(): Promise<void> {
       }
       state.value = 'failed'
       emit('error', 'security_challenge_verify_result_missing')
+      return
+    }
+    if (result.status === 'continued' && result.next) {
+      state.value = 'verified'
+      emit('continued', result.next)
       return
     }
     if (result.status === 'unsupported') {

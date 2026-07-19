@@ -69,6 +69,7 @@
       :disabled="disabled"
       :executor-factory="executorFactory"
       @verified="emit('verified', $event)"
+      @continued="applyIssueResult"
       @error="handlePoSpaceError"
       @unsupported="emit('unsupported', $event)"
       @expired="handlePoSpaceExpired"
@@ -161,6 +162,8 @@ const issuePolicyVersion = ref('')
 const captchaKey = ref(0)
 const perceptionRuntime = ref<PerceptionChallengeRuntime | null>(null)
 const poSpaceHost = ref<{ dispose?: () => void } | null>(null)
+const lastVerifyResponse = ref<SecurityChallengeVerifyResponse | null>(null)
+let hostGeneration = 0
 
 const title = computed(() => props.title)
 const disabled = computed(() => props.disabled === true)
@@ -180,32 +183,44 @@ function client(): SecurityChallengeClient {
 }
 
 async function ensureChallenge(): Promise<void> {
-  if (disabled.value || busy.value) {
+  if (disabled.value) {
     return
   }
 
+  const generation = ++hostGeneration
   busy.value = true
   errorMessage.value = ''
   try {
-    applyIssueResult(await client().issue(context()))
+    const result = await client().issue(context())
+    if (generation === hostGeneration) {
+      applyIssueResult(result)
+    }
   } finally {
-    busy.value = false
+    if (generation === hostGeneration) {
+      busy.value = false
+    }
   }
 }
 
 async function refreshChallenge(): Promise<void> {
-  if (disabled.value || busy.value) {
+  if (disabled.value) {
     return
   }
 
+  const generation = ++hostGeneration
   emit('refresh')
   poSpaceHost.value?.dispose?.()
   busy.value = true
   errorMessage.value = ''
   try {
-    applyIssueResult(await client().refresh(context()))
+    const result = await client().refresh(context())
+    if (generation === hostGeneration) {
+      applyIssueResult(result)
+    }
   } finally {
-    busy.value = false
+    if (generation === hostGeneration) {
+      busy.value = false
+    }
   }
 }
 
@@ -217,7 +232,7 @@ function applyIssueResult(result: SecurityChallengeIssueResult): void {
   capability.value = result.capability ?? (result.assignment
     ? resolveChallengeCapability(result.assignment.kind, { action: props.action, mode: 'ui' })
     : null)
-  preloadedIssueResponse.value = result.response
+  preloadedIssueResponse.value = memberIssueResponse(result)
   issuePolicyVersion.value = result.response?.policyVersion ?? ''
 
   if (result.status === 'verified' && result.proof) {
@@ -244,15 +259,31 @@ function applyIssueResult(result: SecurityChallengeIssueResult): void {
 
 async function verifyPerceptionChallenge(request: VerifySecurityChallengeRequest): Promise<SecurityChallengeVerifyResponse> {
   const result = await client().verify(context(), request)
-  return result.response ?? {
+  lastVerifyResponse.value = result.response
+  if (result.next) {
+    applyIssueResult(result.next)
+  }
+  return result.response ?? failedVerifyResponse(request, result.reason, result.retryAfterMs)
+}
+
+function failedVerifyResponse(
+  request: VerifySecurityChallengeRequest,
+  reason: string | null,
+  retryAfterMs: number
+): SecurityChallengeVerifyResponse {
+  return {
     verified: false,
+    envelopeId: request.envelopeId,
     challengeId: request.challengeId,
     kind: request.kind,
     policyVersion: '',
+    completedCount: 0,
+    memberCount: 1,
+    envelopeCompleted: false,
     proofToken: '',
     expiresAtUnixMs: 0,
-    reason: result.reason ?? 'security_challenge_verify_failed',
-    retryAfterMs: result.retryAfterMs
+    reason: reason ?? 'security_challenge_verify_failed',
+    retryAfterMs
   }
 }
 
@@ -279,42 +310,29 @@ async function issueCaptchaChallenge(request: IssueSecurityChallengeRequest): Pr
 
 async function verifyCaptchaChallenge(request: VerifySecurityChallengeRequest): Promise<SecurityChallengeVerifyResponse> {
   const result = await client().verify(context(), request)
+  lastVerifyResponse.value = result.response
+  if (result.next) {
+    applyIssueResult(result.next)
+  }
   if (result.status === 'verified' && result.response) {
     return result.response
   }
-  return result.response ?? {
-    verified: false,
-    challengeId: request.challengeId,
-    kind: request.kind,
-    policyVersion: '',
-    proofToken: '',
-    expiresAtUnixMs: 0,
-    reason: result.reason ?? 'security_challenge_verify_failed',
-    retryAfterMs: result.retryAfterMs
-  }
+  return result.response ?? failedVerifyResponse(request, result.reason, result.retryAfterMs)
 }
 
 function handleVerified(value: SecurityChallengeVerifyResponse): void {
-  emit('verified', value)
+  if (value.envelopeCompleted) {
+    emit('verified', value)
+  }
 }
 
 function handlePerceptionVerified(value: PerceptionChallengeVerifyResult): void {
-  const currentAssignment = assignment.value
-  if (!value.verified || !currentAssignment) {
+  const response = lastVerifyResponse.value
+  if (!value.verified || !response) {
     setError(copy.perceptionFailed)
     return
   }
-
-  emit('verified', {
-    verified: true,
-    challengeId: currentAssignment.challengeId,
-    kind: currentAssignment.kind,
-    policyVersion: preloadedIssueResponse.value?.policyVersion ?? '',
-    proofToken: value.proofToken ?? '',
-    expiresAtUnixMs: currentAssignment.expiresAtUnixMs,
-    reason: '',
-    retryAfterMs: value.retryAfterMs ?? 0
-  })
+  handleVerified(response)
 }
 
 function handlePerceptionExpired(): void {
@@ -366,10 +384,24 @@ function rebuildPerceptionRuntime(): void {
   }
 
   perceptionRuntime.value = createPerceptionChallengeRuntime({
+    envelopeId: preloadedIssueResponse.value?.envelope?.envelopeId ?? '',
     assignment: assignment.value,
     providerPayload: providerPayload.value,
     verifyChallenge: verifyPerceptionChallenge
   })
+}
+
+function memberIssueResponse(result: SecurityChallengeIssueResult): SecurityChallengeIssueResponse | null {
+  if (!result.response || !result.assignment) {
+    return result.response
+  }
+  return {
+    ...result.response,
+    envelope: result.response.envelope
+      ? { ...result.response.envelope, assignments: [result.assignment] }
+      : null,
+    providerPayloads: result.providerPayload ? [result.providerPayload] : []
+  }
 }
 
 onMounted(() => {
@@ -379,10 +411,28 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  hostGeneration += 1
+  client().cancelEnvelope(context())
   resetPerceptionRuntime()
 })
 
 watch([assignment, providerPayload, capability], rebuildPerceptionRuntime)
+watch(
+  () => [props.action, props.routeKey] as const,
+  (_current, previous) => {
+    if (!previous) {
+      return
+    }
+    client().cancelEnvelope({ action: previous[0], routeKey: previous[1] })
+    hostGeneration += 1
+    poSpaceHost.value?.dispose?.()
+    resetPerceptionRuntime()
+    assignment.value = null
+    providerPayload.value = null
+    capability.value = null
+    void ensureChallenge()
+  }
+)
 </script>
 
 <style scoped>
