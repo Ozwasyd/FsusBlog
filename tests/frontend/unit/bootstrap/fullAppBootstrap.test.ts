@@ -19,6 +19,8 @@ const fakeRouter = {
   push: vi.fn(async () => {}),
   isReady: vi.fn(async () => {})
 }
+const createAppRouter = vi.fn(() => fakeRouter)
+const prewarmPublicRoute = vi.fn()
 const createApp = vi.fn(() => fakeApp)
 const fakePinia = { use: vi.fn() }
 const createPinia = vi.fn(() => fakePinia)
@@ -70,7 +72,8 @@ vi.mock('@unhead/vue/client', () => ({ createHead }))
 vi.mock('pinia-plugin-persistedstate', () => ({ default: vi.fn() }))
 vi.mock('@/App.vue', () => ({ default: {} }))
 vi.mock('@/components/public/PublicBlogLayoutShell.vue', () => ({ default: {} }))
-vi.mock('@/router', () => ({ default: fakeRouter }))
+vi.mock('@/router', () => ({ createAppRouter }))
+vi.mock('@/router/publicRoutePreload', () => ({ prewarmPublicRoute }))
 vi.mock('@/fsusui/appContext', () => ({ provideFsusUiAppContext: vi.fn() }))
 vi.mock('@/fsusui/feedback', () => ({ installFsusUiLoading: vi.fn() }))
 vi.mock('@/fsusui/motion', () => ({ FsuMotion: {} }))
@@ -99,6 +102,7 @@ vi.mock('@/assets/main.css', () => ({}))
 
 describe('full app bootstrap prepare/commit', () => {
   beforeEach(() => {
+    vi.resetModules()
     vi.clearAllMocks()
     document.body.innerHTML = '<div id="app"><div id="fsus-aot-shell" data-public-hydration-kind="Home">AOT</div></div>'
     window.history.replaceState({}, '', '/current?from=aot')
@@ -111,6 +115,7 @@ describe('full app bootstrap prepare/commit', () => {
     const prepared = prepareFullApp({ takeover: 'public-shell', deferRuntime: true })
 
     expect(prepared.router).toBe(fakeRouter)
+    expect(createAppRouter).toHaveBeenCalledWith({ prewarmPublicRoute })
     expect(createApp).not.toHaveBeenCalled()
     expect(document.querySelector('#app > #fsus-aot-shell')).not.toBeNull()
     expect(appMount).not.toHaveBeenCalled()
@@ -189,11 +194,15 @@ describe('full app bootstrap prepare/commit', () => {
     expect(completePublicTakeoverCommit).not.toHaveBeenCalled()
   })
 
-  it('keeps the single-call direct SPA bootstrap API', async () => {
+  it('deduplicates repeated direct SPA bootstrap calls', async () => {
     const { bootstrapFullApp } = await import('@/bootstrap/fullApp')
     document.getElementById('app')?.replaceChildren()
 
-    await expect(bootstrapFullApp()).resolves.toBe(fakeRouter)
+    const first = bootstrapFullApp()
+    const second = bootstrapFullApp()
+
+    expect(second).toBe(first)
+    await expect(first).resolves.toBe(fakeRouter)
 
     expect(createApp).toHaveBeenCalledTimes(1)
     expect(beginPublicTakeoverCommit).toHaveBeenCalledWith({ reason: 'direct-spa-bootstrap' })
@@ -201,5 +210,20 @@ describe('full app bootstrap prepare/commit', () => {
     expect(appMount).toHaveBeenCalledWith('#app')
     expect(removeGlobalLoader).toHaveBeenCalledTimes(1)
     expect(resetPublicTakeover).not.toHaveBeenCalled()
+  })
+
+  it('clears failed bootstrap ownership so a later call can retry', async () => {
+    const { bootstrapFullApp } = await import('@/bootstrap/fullApp')
+    document.getElementById('app')?.replaceChildren()
+    appMount.mockImplementationOnce(() => {
+      throw new Error('mount failed')
+    })
+
+    await expect(bootstrapFullApp()).rejects.toThrow('mount failed')
+    await expect(bootstrapFullApp()).resolves.toBe(fakeRouter)
+
+    expect(createApp).toHaveBeenCalledTimes(2)
+    expect(appMount).toHaveBeenCalledTimes(2)
+    expect(resetPublicTakeover).toHaveBeenCalledWith({ reason: 'full-app-bootstrap-failed' })
   })
 })

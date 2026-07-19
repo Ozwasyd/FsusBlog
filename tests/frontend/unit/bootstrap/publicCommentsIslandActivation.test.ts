@@ -148,10 +148,10 @@ async function importPublicShell(): Promise<typeof import('@/bootstrap/publicShe
   vi.doMock('@/bootstrap/fullApp', () => ({
     bootstrapFullApp,
     commitPreparedFullApp,
-    prepareFullApp
+    prepareFullApp,
+    prewarmFullAppRoute: prewarmPublicRoute
   }))
   vi.doMock('@/router/publicRoutePreload', () => ({
-    prewarmPublicRoute,
     resolvePublicRoutePrewarmTarget: vi.fn(() => null)
   }))
   vi.doMock('@/public-renderers/publicShellRuntimeState', () => ({

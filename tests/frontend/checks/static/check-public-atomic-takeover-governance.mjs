@@ -16,10 +16,16 @@ function fail(relativePath, message) {
 }
 
 const publicShellPath = 'src/frontend/src/bootstrap/publicShell.ts'
+const fullAppPath = 'src/frontend/src/bootstrap/fullApp.ts'
+const routerPath = 'src/frontend/src/router/index.ts'
+const publicRoutePreloadPath = 'src/frontend/src/router/publicRoutePreload.ts'
 const publicNavigationIntentPath = 'src/frontend/src/bootstrap/publicNavigationIntent.ts'
 const articleDetailViewPath = 'src/frontend/src/composables/useArticleDetailView.ts'
 const packageJsonPath = 'src/frontend/package.json'
 const publicShell = read(publicShellPath)
+const fullApp = read(fullAppPath)
+const router = read(routerPath)
+const publicRoutePreload = read(publicRoutePreloadPath)
 const publicNavigationIntent = read(publicNavigationIntentPath)
 const articleDetailView = read(articleDetailViewPath)
 const packageJson = JSON.parse(read(packageJsonPath))
@@ -45,13 +51,41 @@ for (const token of [
 
 for (const token of [
   'navigateWithAtomicPublicTakeover',
-  'prewarmPublicRoute',
+  'prewarmFullAppRoute',
   'prepareFullApp',
   'commitPreparedFullApp',
   'navigateWithDocumentRequest'
 ]) {
   if (!publicShell.includes(token)) {
     fail(publicShellPath, `atomic takeover navigation contract missing: ${token}`)
+  }
+}
+
+if (publicRoutePreload.includes('@/bootstrap/fullApp')) {
+  fail(publicRoutePreloadPath, 'resource preload must not import or own the FullApp bootstrap')
+}
+
+if (!router.includes("import type { PublicRoutePrewarmPort } from '@/router/publicRoutePreload'")) {
+  fail(routerPath, 'router factory must depend on the prewarm type-only port')
+}
+
+for (const token of ['prewarmPublicRoute?: PublicRoutePrewarmPort', 'options.prewarmPublicRoute']) {
+  if (!router.includes(token)) {
+    fail(routerPath, `router factory prewarm port contract missing: ${token}`)
+  }
+}
+
+if (router.includes('export default router')) {
+  fail(routerPath, 'router module must not recreate a global router singleton outside FullApp composition')
+}
+
+for (const token of [
+  'createAppRouter({',
+  'prewarmPublicRoute',
+  'export function prewarmFullAppRoute'
+]) {
+  if (!fullApp.includes(token)) {
+    fail(fullAppPath, `FullApp router/prewarm composition contract missing: ${token}`)
   }
 }
 

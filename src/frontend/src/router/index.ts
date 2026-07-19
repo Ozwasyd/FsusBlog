@@ -15,7 +15,7 @@ import { isPublicSearchRouteName, isPublicSeoRouteName, isPublicShellRouteName }
 import { PUBLIC_BLOG_CHILD_ROUTES, PUBLIC_SEARCH_ROUTE_NAME } from '@/public-renderers/publicRouteRegistry'
 import { normalizePublicSearchQuery } from '@/public-renderers/publicSearchRoutePolicy'
 import { ACCOUNT_ROUTE_PATHS } from '@/public-renderers/publicRoutePaths'
-import { prewarmPublicRoute } from '@/router/publicRoutePreload'
+import type { PublicRoutePrewarmPort } from '@/router/publicRoutePreload'
 import {
   clearPublicSearchNoIndexHead,
   clearPublicSeoHead,
@@ -204,9 +204,10 @@ export const APP_ROUTE_RECORDS: RouteRecordRaw[] = [
   { path: '/:pathMatch(.*)*', name: 'NotFound', component: () => import('@/views/error/404.vue'), meta: { title: '页面不存在' } }
 ]
 
-type RouterFactoryOptions = Readonly<{
+export type RouterFactoryOptions = Readonly<{
   history?: RouterHistory
   ssr?: boolean
+  prewarmPublicRoute?: PublicRoutePrewarmPort
 }>
 
 function isManageAccountRoute(route: RouteLocationNormalized): boolean {
@@ -308,7 +309,12 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
     if (!options.ssr && publicSeoRoute &&
         (needsInitialSpaFallbackHead || (fullAppOwnsPublicRoute && to.fullPath !== from.fullPath)) &&
       !hasPreparedPublicSeoHead(to.fullPath)) {
-      const prewarm = await prewarmPublicRoute(to.fullPath, { reason: 'atomic-navigation' })
+      if (!options.prewarmPublicRoute) {
+        window.location.assign(to.fullPath)
+        return false
+      }
+
+      const prewarm = await options.prewarmPublicRoute(to.fullPath, { reason: 'atomic-navigation' })
       if (prewarm.status !== 'ready') {
         window.location.assign(to.fullPath)
         return false
@@ -444,9 +450,3 @@ export function createAppRouter(options: RouterFactoryOptions = {}): Router {
   applyRouteGuards(router, options)
   return router
 }
-
-const router = typeof window === 'undefined'
-  ? createAppRouter({ ssr: true })
-  : createAppRouter()
-
-export default router

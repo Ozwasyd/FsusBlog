@@ -3,7 +3,12 @@ import { createPinia } from 'pinia'
 import { createHead } from '@unhead/vue/client'
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import App from '@/App.vue'
-import router from '@/router'
+import { createAppRouter } from '@/router'
+import {
+  prewarmPublicRoute,
+  type PublicRoutePrewarmOptions,
+  type PublicRoutePrewarmResult
+} from '@/router/publicRoutePreload'
 import PublicBlogLayoutShell from '@/components/public/PublicBlogLayoutShell.vue'
 import { provideFsusUiAppContext } from '@/fsusui/appContext'
 import { installFsusUiLoading } from '@/fsusui/feedback'
@@ -40,6 +45,10 @@ import { authBroadcastRuntime } from '@/services/authBroadcastRuntime'
 import { authSessionRuntime } from '@/services/authSessionRuntime'
 import '@/assets/main.css'
 
+const router = createAppRouter({
+  prewarmPublicRoute
+})
+
 export type BootstrapFullAppOptions = {
   deferRuntime?: boolean
   hydrate?: boolean
@@ -50,6 +59,13 @@ export type FullAppNavigationIntent = Readonly<{
   to: string
   replace?: boolean
 }>
+
+export function prewarmFullAppRoute(
+  target: string | URL,
+  options: PublicRoutePrewarmOptions
+): Promise<PublicRoutePrewarmResult> {
+  return prewarmPublicRoute(target, options)
+}
 
 export type CommitPreparedFullAppOptions = Readonly<{
   navigationIntent?: FullAppNavigationIntent

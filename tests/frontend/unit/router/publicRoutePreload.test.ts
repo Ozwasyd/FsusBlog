@@ -110,14 +110,12 @@ describe('public route prewarm', () => {
     resetPublicSeoHeadForTests()
   })
 
-  it('deduplicates full-app, route component and snapshot seed work for the same target', async () => {
+  it('deduplicates route component and snapshot seed work for the same target', async () => {
     const events: string[] = []
-    const loadFullApp = vi.fn(async () => ({ bootstrapFullApp: vi.fn() }))
     const loadArchiveComponent = vi.fn(async () => ({ default: {} }))
     const envelope = await createArchiveEnvelope()
     const fetchSnapshot = vi.fn(async () => snapshotBytes(envelope))
     const prewarm = createPublicRoutePrewarmer({
-      loadFullApp,
       routePreloads: [{
         kind: 'Archive',
         name: 'Archive',
@@ -137,13 +135,11 @@ describe('public route prewarm', () => {
     const [firstResult, secondResult] = await Promise.all([first, second])
     expect(firstResult).toMatchObject({
       status: 'ready',
-      fullAppReady: true,
       routeComponentReady: true,
       seedReady: true,
       routeKind: 'Archive'
     })
     expect(secondResult).toBe(firstResult)
-    expect(loadFullApp).toHaveBeenCalledTimes(1)
     expect(loadArchiveComponent).toHaveBeenCalledTimes(1)
     expect(fetchSnapshot).toHaveBeenCalledTimes(1)
     expect(events).toEqual([
@@ -167,7 +163,6 @@ describe('public route prewarm', () => {
       markFetchStarted = resolve
     })
     const prewarm = createPublicRoutePrewarmer({
-      loadFullApp: vi.fn(async () => ({ bootstrapFullApp: vi.fn() })),
       routePreloads: [{
         kind: 'Archive',
         name: 'Archive',
@@ -191,12 +186,44 @@ describe('public route prewarm', () => {
 
     await expect(task).resolves.toMatchObject({
       status: 'cancelled',
-      fullAppReady: true,
       routeComponentReady: true,
       seedReady: false
     })
     expect(events).toContain('public_route_prewarm_cancel')
     expect(consumePublicRouteSeed('Archive', { fullPath: '/archive' }, { nowMs: 1_001 })).toBeNull()
+  })
+
+  it('evicts failed component work so a later prewarm can retry', async () => {
+    const envelope = await createArchiveEnvelope()
+    const loadArchiveComponent = vi.fn()
+      .mockRejectedValueOnce(new Error('chunk unavailable'))
+      .mockResolvedValue({ default: {} })
+    const fetchSnapshot = vi.fn(async () => snapshotBytes(envelope))
+    const prewarm = createPublicRoutePrewarmer({
+      routePreloads: [{
+        kind: 'Archive',
+        name: 'Archive',
+        match: (url) => url.pathname === '/archive',
+        preloadComponent: loadArchiveComponent
+      }],
+      fetchNavigationSnapshot: fetchSnapshot,
+      preloadStyle: vi.fn(async () => {}),
+      lifetimeSignal: () => new AbortController().signal
+    })
+
+    await expect(prewarm.prewarm('/archive', { reason: 'pointerenter' })).resolves.toMatchObject({
+      status: 'failure',
+      routeComponentReady: false,
+      seedReady: false,
+      error: 'chunk unavailable'
+    })
+    await expect(prewarm.prewarm('/archive', { reason: 'focus' })).resolves.toMatchObject({
+      status: 'ready',
+      routeComponentReady: true,
+      seedReady: true
+    })
+    expect(loadArchiveComponent).toHaveBeenCalledTimes(2)
+    expect(fetchSnapshot).toHaveBeenCalledTimes(1)
   })
 
   it('resolves only same-origin unmodified public route anchors', () => {

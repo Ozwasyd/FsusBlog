@@ -22,7 +22,6 @@ import {
   markPublicTakeoverFallback
 } from '@/bootstrap/publicTakeoverState'
 import {
-  prewarmPublicRoute,
   resolvePublicRoutePrewarmTarget,
   type PublicRoutePrewarmReason
 } from '@/router/publicRoutePreload'
@@ -495,7 +494,9 @@ function requestPublicRoutePrewarm(target: string | null, reason: PublicRoutePre
     return
   }
 
-  void prewarmPublicRoute(target, { reason }).catch(() => {})
+  void import('@/bootstrap/fullApp')
+    .then(({ prewarmFullAppRoute }: FullAppBootstrapModule) => prewarmFullAppRoute(target, { reason }))
+    .catch(() => {})
 }
 
 function schedulePublicRouteIdlePrewarm(): void {
@@ -823,7 +824,8 @@ async function navigateWithAtomicPublicTakeover(intent: PublicAtomicNavigationIn
   }, 'info')
 
   try {
-    const prewarmResult = await prewarmPublicRoute(intent.fullPath, {
+    const fullAppModule: FullAppBootstrapModule = await import('@/bootstrap/fullApp')
+    const prewarmResult = await fullAppModule.prewarmFullAppRoute(intent.fullPath, {
       reason: 'atomic-navigation',
       signal: controller.signal
     })
@@ -849,7 +851,7 @@ async function navigateWithAtomicPublicTakeover(intent: PublicAtomicNavigationIn
       return
     }
 
-    const { commitPreparedFullApp, prepareFullApp }: FullAppBootstrapModule = await import('@/bootstrap/fullApp')
+    const { commitPreparedFullApp, prepareFullApp } = fullAppModule
     const prepared = prepareFullApp({
       deferRuntime: true,
       takeover: 'public-shell'

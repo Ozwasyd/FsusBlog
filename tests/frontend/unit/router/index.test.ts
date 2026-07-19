@@ -9,6 +9,7 @@ const ensureAccountSession = vi.fn<() => Promise<void>>()
 const ensureAdminSession = vi.fn<() => Promise<void>>()
 const syncDocumentTitle = vi.fn()
 let hasServerAotShellResult = false
+let publicRuntimeOwner: 'aot' | 'spa' = 'aot'
 
 const userStore = {
   isLoggedIn: true
@@ -43,6 +44,10 @@ vi.mock('@/store/admin', () => ({
 
 vi.mock('@/bootstrap/publicShellPrimitives', () => ({
   hasServerAotShell: () => hasServerAotShellResult
+}))
+
+vi.mock('@/bootstrap/publicTakeoverState', () => ({
+  getPublicRuntimeOwner: () => publicRuntimeOwner
 }))
 
 const routeComponentStub = { template: '<div />' }
@@ -106,6 +111,7 @@ describe('account router meta and guards', () => {
     ensureAdminSession.mockClear()
     syncDocumentTitle.mockClear()
     hasServerAotShellResult = false
+    publicRuntimeOwner = 'aot'
     document.body.innerHTML = ''
     adminStore.adminState = 'unknown'
     adminStore.canManage = false
@@ -191,6 +197,30 @@ describe('account router meta and guards', () => {
     expect(ensureAccountSession).not.toHaveBeenCalled()
     expect(ensureAdminSession).not.toHaveBeenCalled()
   }, 15_000)
+
+  it('uses the injected prewarm port when the SPA owns public navigation', async () => {
+    publicRuntimeOwner = 'spa'
+    const prewarmPublicRoute = vi.fn(async (target: string) => ({
+      status: 'ready' as const,
+      target,
+      reason: 'atomic-navigation' as const,
+      routeKind: 'Archive' as const,
+      routeComponentReady: true,
+      seedReady: true
+    }))
+    const router = createAppRouter({
+      history: createMemoryHistory(),
+      ssr: false,
+      prewarmPublicRoute
+    })
+
+    await router.push('/archive')
+
+    expect(prewarmPublicRoute).toHaveBeenCalledWith('/archive', {
+      reason: 'atomic-navigation'
+    })
+    expect(router.currentRoute.value.name).toBe('Archive')
+  })
 
   it('guestOnly route probes account only', async () => {
     userStore.isLoggedIn = false

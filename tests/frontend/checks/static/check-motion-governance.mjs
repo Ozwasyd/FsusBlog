@@ -195,7 +195,7 @@ const publicShell = expectIncludes(
   'navigateWithAtomicPublicTakeover',
   'public route atomic takeover navigation'
 )
-for (const token of ['commitPreparedFullApp', 'prewarmPublicRoute', 'navigateWithDocumentRequest']) {
+for (const token of ['commitPreparedFullApp', 'prewarmFullAppRoute', 'navigateWithDocumentRequest']) {
   if (!publicShell.includes(token)) {
     errors.push(`src/frontend/src/bootstrap/publicShell.ts: missing ${token}`)
   }

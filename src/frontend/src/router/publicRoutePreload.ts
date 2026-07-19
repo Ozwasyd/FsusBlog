@@ -45,7 +45,6 @@ export type PublicRoutePrewarmResult = Readonly<{
   target: string
   reason: PublicRoutePrewarmReason
   routeKind: PublicRouteSeedKind | null
-  fullAppReady: boolean
   routeComponentReady: boolean
   seedReady: boolean
   error?: string
@@ -60,7 +59,7 @@ export type PublicRoutePreloadCandidate = Readonly<{
   match?: (url: URL) => boolean
 }>
 
-type PublicRoutePrewarmOptions = Readonly<{
+export type PublicRoutePrewarmOptions = Readonly<{
   reason: PublicRoutePrewarmReason
   signal?: AbortSignal
   timeoutMs?: number
@@ -68,7 +67,6 @@ type PublicRoutePrewarmOptions = Readonly<{
 }>
 
 type PublicRoutePrewarmerDependencies = Readonly<{
-  loadFullApp?: () => Promise<unknown>
   routePreloads?: readonly PublicRoutePreloadCandidate[]
   fetchNavigationSnapshot?: (target: URL, signal: AbortSignal) => Promise<Uint8Array | ArrayBuffer>
   preloadStyle?: (href: string, signal: AbortSignal) => Promise<void>
@@ -195,10 +193,6 @@ function throwIfAborted(signal: AbortSignal): void {
   }
 }
 
-async function defaultLoadFullApp(): Promise<unknown> {
-  return await import('@/bootstrap/fullApp')
-}
-
 async function defaultFetchNavigationSnapshot(target: URL, signal: AbortSignal): Promise<Uint8Array> {
   const endpoint = new URL('/api/public/navigation-snapshot.aeds', resolveBrowserOrigin())
   endpoint.searchParams.set('path', `${target.pathname}${target.search}`)
@@ -289,7 +283,6 @@ export function resolvePublicRoutePrewarmTarget(anchor: HTMLAnchorElement, event
 export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDependencies = {}) {
   const tasks = new Map<string, Promise<PublicRoutePrewarmResult>>()
   const routePreloads = dependencies.routePreloads ?? PUBLIC_ROUTE_PRELOAD_DEFINITIONS
-  const loadFullApp = dependencies.loadFullApp ?? defaultLoadFullApp
   const fetchNavigationSnapshot = dependencies.fetchNavigationSnapshot ?? defaultFetchNavigationSnapshot
   const preloadStyle = dependencies.preloadStyle ?? defaultPreloadStyle
   const emitTelemetry = dependencies.emitTelemetry ?? emitRuntimeTelemetry
@@ -309,7 +302,7 @@ export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDep
     target: NormalizedPrewarmTarget,
     options: PublicRoutePrewarmOptions,
     route: PublicRoutePreloadCandidate | null,
-    state: { fullAppReady: boolean, routeComponentReady: boolean, seedReady: boolean },
+    state: { routeComponentReady: boolean, seedReady: boolean },
     error?: unknown
   ): PublicRoutePrewarmResult {
     return {
@@ -317,7 +310,6 @@ export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDep
       target: target.fullPath,
       reason: options.reason,
       routeKind: route?.kind ?? null,
-      fullAppReady: state.fullAppReady,
       routeComponentReady: state.routeComponentReady,
       seedReady: state.seedReady,
       error: error instanceof Error ? error.message : error === undefined ? undefined : String(error)
@@ -332,7 +324,6 @@ export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDep
         target: String(target),
         reason: options.reason,
         routeKind: null,
-        fullAppReady: false,
         routeComponentReady: false,
         seedReady: false
       })
@@ -358,17 +349,12 @@ export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDep
     }, timeoutMs)
 
     const state = {
-      fullAppReady: false,
       routeComponentReady: false,
       seedReady: false
     }
 
     const task = (async (): Promise<PublicRoutePrewarmResult> => {
       try {
-        await loadFullApp()
-        state.fullAppReady = true
-        throwIfAborted(linked.controller.signal)
-
         if (!route) {
           emit('public_route_prewarm_miss', normalized, options)
           return createResult('miss', normalized, options, null, state)
@@ -449,3 +435,5 @@ const defaultPublicRoutePrewarmer = createPublicRoutePrewarmer()
 export function prewarmPublicRoute(target: string | URL, options: PublicRoutePrewarmOptions): Promise<PublicRoutePrewarmResult> {
   return defaultPublicRoutePrewarmer.prewarm(target, options)
 }
+
+export type PublicRoutePrewarmPort = typeof prewarmPublicRoute
