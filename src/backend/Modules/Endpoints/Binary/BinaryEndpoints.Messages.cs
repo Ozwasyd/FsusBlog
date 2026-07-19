@@ -35,16 +35,35 @@ public static partial class BinaryEndpoints
     private static void MapBinaryMessageEndpoints(IEndpointRouteBuilder group)
     {
         group.MapGet("/messages/conversations", static async Task<BinaryFrameResult> (
-            int page,
             int size,
             string? filter,
+            string? cursor,
             IMessageQueryService query,
             AccountPrincipalContext account,
+            IConfiguration configuration,
             IAedsEncoder aeds) =>
         {
+            if (!IsMessageCursorPaginationEnabled(configuration))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.InfraFailure, "message_cursor_pagination_disabled"),
+                    aeds,
+                    StatusCodes.Status503ServiceUnavailable);
+            }
+
+            MessageConversationCursor? position = null;
+            if (!string.IsNullOrWhiteSpace(cursor))
+            {
+                if (!MessageConversationCursor.TryDecode(cursor, out MessageConversationCursor decoded))
+                {
+                    return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "会话游标非法"), aeds);
+                }
+
+                position = decoded;
+            }
+
             int pageSize = Math.Clamp(size <= 0 ? 20 : size, 1, 50);
-            int pageNum = Math.Max(1, page);
-            var data = await query.GetAccountConversationsAsync(account.AccountId, pageNum, pageSize, filter);
+            var data = await query.GetAccountConversationsAsync(account.AccountId, pageSize, filter, position);
             return BinaryResults.Frame(aeds, AedsFrameType.ConversationList, writer => PodBinaryCodec.WriteConversationList(data, writer));
         })
         .RequireAnonymousAccountPrincipal();
@@ -160,15 +179,34 @@ public static partial class BinaryEndpoints
         .RequireAnonymousAccountPrincipal();
 
         group.MapGet("/admin/messages/conversations", static async Task<BinaryFrameResult> (
-            int page,
             int size,
             string? filter,
+            string? cursor,
             IMessageQueryService query,
+            IConfiguration configuration,
             IAedsEncoder aeds) =>
         {
+            if (!IsMessageCursorPaginationEnabled(configuration))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.InfraFailure, "message_cursor_pagination_disabled"),
+                    aeds,
+                    StatusCodes.Status503ServiceUnavailable);
+            }
+
+            MessageConversationCursor? position = null;
+            if (!string.IsNullOrWhiteSpace(cursor))
+            {
+                if (!MessageConversationCursor.TryDecode(cursor, out MessageConversationCursor decoded))
+                {
+                    return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "会话游标非法"), aeds);
+                }
+
+                position = decoded;
+            }
+
             int pageSize = Math.Clamp(size <= 0 ? 20 : size, 1, 100);
-            int pageNum = Math.Max(1, page);
-            var data = await query.GetAdminConversationsAsync(pageNum, pageSize, filter);
+            var data = await query.GetAdminConversationsAsync(pageSize, filter, position);
             return BinaryResults.Frame(aeds, AedsFrameType.ConversationList, writer => PodBinaryCodec.WriteConversationList(data, writer));
         })
         .RequireAdminPermission(AdminPermissions.AdminManage);
@@ -297,4 +335,7 @@ public static partial class BinaryEndpoints
 
     private static bool IsPreciseMessageReadCursorEnabled(IConfiguration configuration)
         => configuration.GetValue<bool?>("Messages:PreciseReadCursorEnabled") ?? true;
+
+    private static bool IsMessageCursorPaginationEnabled(IConfiguration configuration)
+        => configuration.GetValue<bool?>("Messages:CursorPaginationEnabled") ?? true;
 }

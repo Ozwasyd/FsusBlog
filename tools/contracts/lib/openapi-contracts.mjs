@@ -137,7 +137,7 @@ export function buildOpenApiFromMatrix(matrix = loadMatrix(), protocol = loadPro
         }
       }
     }
-    pathItem[String(route.method).toLowerCase()] = {
+    const operation = {
       operationId: route.operationId,
       tags: ['Binary'],
       summary: route.summary || route.testSurface,
@@ -158,6 +158,10 @@ export function buildOpenApiFromMatrix(matrix = loadMatrix(), protocol = loadPro
       'x-fsus-frontend-wrapper': route.frontendWrapper,
       'x-fsus-frontend-adapter': route.frontendAdapter
     }
+    if (route.parameters && route.parameters.length > 0) {
+      operation.parameters = route.parameters
+    }
+    pathItem[String(route.method).toLowerCase()] = operation
     paths[route.fullPath] = pathItem
   }
   if (invalidFrames.length > 0) {

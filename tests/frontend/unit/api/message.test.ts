@@ -25,7 +25,7 @@ describe('message API binary transport', () => {
   })
 
   it('loads account conversations with binary list frame', async () => {
-    await messageApi.getAccountConversations(2, 20, 'unread')
+    await messageApi.getAccountConversations(20, 'unread', 'cursor-2')
 
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryRoute: expect.objectContaining({
@@ -34,7 +34,7 @@ describe('message API binary transport', () => {
       }),
       frameType: FrameType.ConversationList
     }))
-    expect(queryToString(mockBinary.mock.calls[0][0].binaryRoute?.query)).toBe('page=2&size=20&filter=unread')
+    expect(queryToString(mockBinary.mock.calls[0][0].binaryRoute?.query)).toBe('size=20&filter=unread&cursor=cursor-2')
   })
 
   it('creates and replies through binary mutation frames', async () => {
@@ -79,7 +79,7 @@ describe('message API binary transport', () => {
   })
 
   it('uses binary admin message endpoints', async () => {
-    await messageApi.adminGetConversations(1, 50, 'closed')
+    await messageApi.adminGetConversations(50, 'closed', 'admin-cursor')
     await messageApi.adminGetConversationDetail(9)
     await messageApi.adminReplyConversation(9, { body: 'Admin reply' })
     await messageApi.adminUpdateConversationStatus(9, { status: 'closed' })
@@ -120,6 +120,6 @@ describe('message API binary transport', () => {
     const adminListCall = mockBinary.mock.calls.find(([request]) =>
       request.binaryRoute?.operationId === 'binary_get_admin_messages_conversations'
     )?.[0]
-    expect(queryToString(adminListCall?.binaryRoute?.query)).toBe('page=1&size=50&filter=closed')
+    expect(queryToString(adminListCall?.binaryRoute?.query)).toBe('size=50&filter=closed&cursor=admin-cursor')
   })
 })

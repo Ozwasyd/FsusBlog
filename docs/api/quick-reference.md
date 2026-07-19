@@ -255,7 +255,7 @@
 
 | 方法 | 路径 | 说明 |
 | ------ | ------ | ------ |
-| GET | `/api/binary/messages/conversations` | 当前用户对话列表 |
+| GET | `/api/binary/messages/conversations?size=20&filter={filter}&cursor={nextCursor}` | 当前用户对话列表；`lastMessageAt + conversationId` 稳定游标，首屏省略 cursor |
 | GET | `/api/binary/messages/conversations/{id}` | `ConversationDetailV2(203)`；返回 `readSnapshotMessageId` |
 | POST | `/api/binary/messages/conversations` | 发起新对话；响应 `ConversationDetailV2(203)` |
 | POST | `/api/binary/messages/conversations/{id}/reply` | `AccountConversationReplyRequest(202)`；正文 + 显式 `readThroughMessageId` |
@@ -269,7 +269,7 @@
 
 | 方法 | 路径 | 说明 |
 | ------ | ------ | ------ |
-| GET | `/api/binary/admin/messages/conversations` | 所有对话列表 |
+| GET | `/api/binary/admin/messages/conversations?size=30&filter={filter}&cursor={nextCursor}` | 所有对话列表；消费 `ConversationList.nextCursor`，筛选变化重置游标 |
 | GET | `/api/binary/admin/messages/conversations/{id}` | `ConversationDetailV2(203)` 对话详情 |
 | POST | `/api/binary/admin/messages/conversations/{id}/reply` | 以管理员身份回复 |
 | POST | `/api/binary/admin/messages/conversations/{id}/status` | 更新对话状态（open/pending/closed）；并发状态冲突返回 409 |

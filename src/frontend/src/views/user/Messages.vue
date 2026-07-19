@@ -17,6 +17,8 @@
         :loading="listLoading"
         :rows="visibleConversationRows"
         :hidden-count="hiddenConversationCount"
+        :has-more="hasMoreConversations"
+        :loading-more="loadingMoreConversations"
         :selected-conversation-id="selectedConversationId"
         :motion-summary="conversationMotion.summary.value"
         :status-label="statusLabel"
@@ -24,7 +26,7 @@
         :conversation-row-class="conversationRowClass"
         @select="handleSelectConversation"
         @create-ticket="showMobileTicketCompose = true"
-        @load-more="conversationRenderLimit += CONVERSATION_RENDER_WINDOW"
+        @load-more="handleLoadMoreConversations"
       >
         <template #mobile-compose>
           <MessagesComposePanel
@@ -179,6 +181,15 @@ const {
 const conversations = computed(() =>
   isAdminView.value ? adminCenter.conversations.value : accountInbox.conversations.value
 )
+const totalConversations = computed(() =>
+  isAdminView.value ? adminCenter.totalConversations.value : accountInbox.totalConversations.value
+)
+const hasMoreConversations = computed(() =>
+  isAdminView.value ? adminCenter.hasMoreConversations.value : accountInbox.hasMoreConversations.value
+)
+const loadingMoreConversations = computed(() =>
+  isAdminView.value ? adminCenter.loadingMoreConversations.value : accountInbox.loadingMoreConversations.value
+)
 const detail = computed(() => (isAdminView.value ? adminCenter.detail.value : accountInbox.detail.value))
 const conversationRenderLimit = ref(CONVERSATION_RENDER_WINDOW)
 const messageRenderLimit = ref(MESSAGE_RENDER_WINDOW)
@@ -262,7 +273,8 @@ const visibleConversationRows = computed(() => conversations.value.slice(0, conv
   lastMessageAtText: formatTime(item.lastMessageAt),
   ariaLabel: conversationAriaLabel(item)
 })))
-const hiddenConversationCount = computed(() => Math.max(0, conversations.value.length - visibleConversationRows.value.length))
+const loadedHiddenConversationCount = computed(() => Math.max(0, conversations.value.length - visibleConversationRows.value.length))
+const hiddenConversationCount = computed(() => Math.max(0, totalConversations.value - visibleConversationRows.value.length))
 const visibleMessageRows = computed(() => {
   const messages = detail.value?.messages ?? []
   const visible = messages.slice(Math.max(0, messages.length - messageRenderLimit.value))
@@ -356,6 +368,20 @@ const handleSelectConversation = async (conversationId: string): Promise<void> =
   if (switched) {
     await openDetailPaneAndFocus()
   }
+}
+
+const handleLoadMoreConversations = async (): Promise<void> => {
+  if (loadedHiddenConversationCount.value > 0) {
+    conversationRenderLimit.value += CONVERSATION_RENDER_WINDOW
+    return
+  }
+
+  if (isAdminView.value) {
+    await adminCenter.loadMoreConversations()
+    return
+  }
+
+  await accountInbox.loadMoreConversations()
 }
 
 const handleCreateTicket = async (): Promise<void> => {

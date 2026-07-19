@@ -6,6 +6,7 @@ using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Mapping.Projectors;
 using FsusBlog.Shared.Contracts.Models;
 using FsusBlog.Shared.Contracts.Outputs;
+using FsusBlog.Shared.Contracts.Primitives;
 
 namespace FsusBlog.Core.Cache;
 
@@ -14,6 +15,9 @@ namespace FsusBlog.Core.Cache;
 /// </summary>
 public static partial class PodBinaryCodec
 {
+    private const int ConversationListCursorEnvelopeMagic = 0x4D534743;
+    private const int ConversationListCursorEnvelopeVersion = 1;
+
     /// <summary>
     /// Writes the <c>ConversationList</c> contract to the supplied binary destination.
     /// </summary>
@@ -21,6 +25,15 @@ public static partial class PodBinaryCodec
     {
         var payload = new ArrayBufferWriter<byte>(1024);
         var writer = new BinaryPodWriter(destination);
+        if (page.HasMore || !string.IsNullOrEmpty(page.NextCursor))
+        {
+            Utf8SliceRef nextCursor = PodUtf8Codec.AppendSlice(page.NextCursor ?? string.Empty, payload);
+            writer.WriteInt32(ConversationListCursorEnvelopeMagic);
+            writer.WriteInt32(ConversationListCursorEnvelopeVersion);
+            writer.WriteByte(page.HasMore ? (byte)1 : (byte)0);
+            writer.WriteSliceRef(nextCursor);
+        }
+
         writer.WriteInt32(page.Total);
         writer.WriteInt32(page.Items.Count);
 
@@ -59,7 +72,31 @@ public static partial class PodBinaryCodec
     public static bool TryDecodeConversationList(ReadOnlyMemory<byte> source, out PageResponse<ConversationListItemResponse> page)
     {
         var reader = new BinaryPodReader(source.Span);
-        if (!reader.TryReadInt32(out int total) || !reader.TryReadInt32(out int count) || total < 0 || count < 0)
+        bool hasMore = false;
+        Utf8SliceRef nextCursorSlice = default;
+        if (!reader.TryReadInt32(out int total))
+        {
+            page = new PageResponse<ConversationListItemResponse>();
+            return false;
+        }
+
+        if (total == ConversationListCursorEnvelopeMagic)
+        {
+            if (!reader.TryReadInt32(out int version) ||
+                version != ConversationListCursorEnvelopeVersion ||
+                !reader.TryReadByte(out byte hasMoreByte) ||
+                hasMoreByte > 1 ||
+                !reader.TryReadSliceRef(out nextCursorSlice) ||
+                !reader.TryReadInt32(out total))
+            {
+                page = new PageResponse<ConversationListItemResponse>();
+                return false;
+            }
+
+            hasMore = hasMoreByte == 1;
+        }
+
+        if (!reader.TryReadInt32(out int count) || total < 0 || count < 0)
         {
             page = new PageResponse<ConversationListItemResponse>();
             return false;
@@ -104,7 +141,20 @@ public static partial class PodBinaryCodec
             });
         }
 
-        page = new PageResponse<ConversationListItemResponse> { Total = total, Items = items };
+        string? nextCursor = hasMore ? PodProjector.ReadSlice(nextCursorSlice, payload) : null;
+        if (hasMore && string.IsNullOrWhiteSpace(nextCursor))
+        {
+            page = new PageResponse<ConversationListItemResponse>();
+            return false;
+        }
+
+        page = new PageResponse<ConversationListItemResponse>
+        {
+            Total = total,
+            Items = items,
+            NextCursor = nextCursor,
+            HasMore = hasMore
+        };
         return reader.IsConsumed;
     }
 

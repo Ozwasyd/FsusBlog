@@ -61,6 +61,8 @@ describe('binary message adapter', () => {
 
     expect(mapConversationListFromPayload(withBlob(header, parts))).toEqual({
       total: 1,
+      nextCursor: null,
+      hasMore: false,
       items: [{
         conversationId: '7',
         subject: 'Support',
@@ -77,6 +79,28 @@ describe('binary message adapter', () => {
           createdAt: '2026-01-04T03:04:05.000Z'
         }
       }]
+    })
+  })
+
+  it('maps conversation list cursor metadata', () => {
+    const cursor = encoder.encode('opaque-next-cursor')
+    const payload = new Uint8Array(17 + 8 + 4 + cursor.byteLength)
+    const view = new DataView(payload.buffer)
+    view.setInt32(0, 0x4D534743, true)
+    view.setInt32(4, 1, true)
+    payload[8] = 1
+    view.setInt32(9, 0, true)
+    view.setInt32(13, cursor.byteLength, true)
+    view.setInt32(17, 3, true)
+    view.setInt32(21, 0, true)
+    view.setInt32(25, cursor.byteLength, true)
+    payload.set(cursor, 29)
+
+    expect(mapConversationListFromPayload(payload)).toEqual({
+      total: 3,
+      items: [],
+      nextCursor: 'opaque-next-cursor',
+      hasMore: true
     })
   })
 

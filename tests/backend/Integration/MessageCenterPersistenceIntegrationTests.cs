@@ -2,6 +2,7 @@ using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Services.NotificationStream;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.NotificationStream;
@@ -244,6 +245,169 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         Assert.Equal(5, afterConcurrency.Messages.Count);
         Assert.DoesNotContain(afterConcurrency.Messages, message => message.MessageId == internalMessageId.ToString());
         Assert.NotEqual(internalMessageId.ToString(), afterConcurrency.ReadSnapshotMessageId);
+    }
+
+    [Fact]
+    [Trait("Category", "Concurrency")]
+    public async Task ConversationCursorPagination_TraversesStableSnapshotWithTiesFiltersAndConcurrentMessage()
+    {
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using SqlSugarClient setup = PostgresSqlSugarTestClient.Create(connectionString);
+        PostgresSqlSugarTestClient.InitTables(
+            setup,
+            typeof(MessageConversation),
+            typeof(ConversationMessage),
+            typeof(ConversationParticipantState));
+
+        const int AccountId = 42;
+        const int ConversationCount = 105;
+        DateTime baseline = new(2026, 7, 19, 8, 0, 0, DateTimeKind.Utc);
+        var conversations = new List<MessageConversation>(ConversationCount);
+        var messages = new List<ConversationMessage>(ConversationCount);
+        var participants = new List<ConversationParticipantState>(ConversationCount);
+        for (int i = 0; i < ConversationCount; i++)
+        {
+            long conversationId = 10_000 + i;
+            long messageId = 20_000 + i;
+            DateTime lastMessageAt = baseline.AddMinutes(-(i / 3));
+            conversations.Add(new MessageConversation
+            {
+                Id = conversationId,
+                Subject = $"conversation-{i:D3}",
+                InitiatorAccountId = AccountId,
+                Status = (ConversationStatus)(i % 3),
+                IsSystemSource = i % 10 == 0,
+                CreatedByType = MessageSenderType.Account,
+                CreatedByAccountId = AccountId,
+                CreatedAt = lastMessageAt,
+                UpdatedAt = lastMessageAt,
+                LastMessageAt = lastMessageAt
+            });
+            messages.Add(new ConversationMessage
+            {
+                Id = messageId,
+                ConversationId = conversationId,
+                SenderType = MessageSenderType.Admin,
+                SenderAdminPrincipalId = 7,
+                SenderAdminSessionId = "pagination-fixture",
+                Body = $"message-{i:D3}",
+                CreatedAt = lastMessageAt
+            });
+            participants.Add(new ConversationParticipantState
+            {
+                ConversationId = conversationId,
+                AccountId = AccountId,
+                UnreadCount = i % 2,
+                UpdatedAt = lastMessageAt
+            });
+        }
+
+        await setup.Insertable(conversations).ExecuteCommandAsync();
+        await setup.Insertable(messages).ExecuteCommandAsync();
+        await setup.Insertable(participants).ExecuteCommandAsync();
+
+        IUnifiedCache unifiedCache = Substitute.For<IUnifiedCache>();
+        IMessageNotificationStreamPort notifications = Substitute.For<IMessageNotificationStreamPort>();
+        using SqlSugarClient firstDb = PostgresSqlSugarTestClient.Create(connectionString);
+        using SqlSugarClient secondDb = PostgresSqlSugarTestClient.Create(connectionString);
+        MessageCenterService service = CreateService(firstDb, unifiedCache, notifications);
+
+        PageResponse<ConversationListItemResponse> page =
+            await service.GetAccountConversationsAsync(AccountId, 20, "all", null);
+        Assert.Equal(ConversationCount, page.Total);
+        Assert.True(page.HasMore);
+        Assert.NotNull(page.NextCursor);
+        Assert.True(MessageConversationCursor.TryDecode(page.NextCursor, out MessageConversationCursor firstCursor));
+        Assert.Equal(20_104, firstCursor.SnapshotMessageId);
+        Assert.Equal(conversations[19].Id, firstCursor.ConversationId);
+        Assert.Equal(conversations[19].LastMessageAt, firstCursor.LastMessageAt);
+
+        long concurrentConversationId = conversations[25].Id;
+        await InsertAdminReplyAsync(secondDb, concurrentConversationId, AccountId, "arrived during pagination", 8);
+
+        var traversed = new List<ConversationListItemResponse>(ConversationCount);
+        traversed.AddRange(page.Items);
+        while (page.HasMore)
+        {
+            Assert.True(MessageConversationCursor.TryDecode(page.NextCursor, out MessageConversationCursor cursor));
+            page = await service.GetAccountConversationsAsync(AccountId, 20, "all", cursor);
+            Assert.NotEmpty(page.Items);
+            traversed.AddRange(page.Items);
+        }
+
+        long[] expectedOrder = conversations
+            .OrderByDescending(static item => item.LastMessageAt)
+            .ThenByDescending(static item => item.Id)
+            .Select(static item => item.Id)
+            .ToArray();
+        long[] actualOrder = traversed.Select(static item => long.Parse(item.ConversationId)).ToArray();
+        Assert.Equal(ConversationCount, traversed.Count);
+        Assert.Equal(ConversationCount, actualOrder.Distinct().Count());
+        Assert.Equal(expectedOrder, actualOrder);
+        ConversationListItemResponse concurrentItem = Assert.Single(
+            traversed,
+            item => item.ConversationId == concurrentConversationId.ToString());
+        Assert.Equal("message-025", concurrentItem.LastMessage!.BodyPreview);
+
+        var systemItems = new List<ConversationListItemResponse>();
+        page = await service.GetAccountConversationsAsync(AccountId, 4, "system", null);
+        systemItems.AddRange(page.Items);
+        while (page.HasMore)
+        {
+            Assert.True(MessageConversationCursor.TryDecode(page.NextCursor, out MessageConversationCursor cursor));
+            page = await service.GetAccountConversationsAsync(AccountId, 4, "system", cursor);
+            systemItems.AddRange(page.Items);
+        }
+        Assert.Equal(11, systemItems.Count);
+        Assert.All(systemItems, static item => Assert.True(item.IsSystemSource));
+
+        List<ConversationListItemResponse> unreadItems =
+            await LoadAccountConversationPagesAsync(service, AccountId, 13, "unread");
+        Assert.Equal(52, unreadItems.Count);
+        Assert.All(unreadItems, static item => Assert.True(item.UnreadCount > 0));
+
+        List<ConversationListItemResponse> openItems =
+            await LoadAccountConversationPagesAsync(service, AccountId, 13, "open");
+        Assert.Equal(35, openItems.Count);
+        Assert.All(openItems, static item => Assert.Equal(ConversationStatusValue.Open, item.Status));
+
+        List<ConversationListItemResponse> closedItems =
+            await LoadAccountConversationPagesAsync(service, AccountId, 13, "closed");
+        Assert.Equal(35, closedItems.Count);
+        Assert.All(closedItems, static item => Assert.Equal(ConversationStatusValue.Closed, item.Status));
+
+        var adminItems = new List<ConversationListItemResponse>();
+        page = await service.GetAdminConversationsAsync(30, "all", null);
+        adminItems.AddRange(page.Items);
+        while (page.HasMore)
+        {
+            Assert.True(MessageConversationCursor.TryDecode(page.NextCursor, out MessageConversationCursor cursor));
+            page = await service.GetAdminConversationsAsync(30, "all", cursor);
+            adminItems.AddRange(page.Items);
+        }
+        Assert.Equal(ConversationCount, adminItems.Count);
+        Assert.Equal(ConversationCount, adminItems.Select(static item => item.ConversationId).Distinct().Count());
+    }
+
+    private static async Task<List<ConversationListItemResponse>> LoadAccountConversationPagesAsync(
+        MessageCenterService service,
+        int accountId,
+        int size,
+        string filter)
+    {
+        var items = new List<ConversationListItemResponse>();
+        PageResponse<ConversationListItemResponse> page =
+            await service.GetAccountConversationsAsync(accountId, size, filter, null);
+        items.AddRange(page.Items);
+        while (page.HasMore)
+        {
+            Assert.True(MessageConversationCursor.TryDecode(page.NextCursor, out MessageConversationCursor cursor));
+            page = await service.GetAccountConversationsAsync(accountId, size, filter, cursor);
+            items.AddRange(page.Items);
+        }
+
+        Assert.Equal(items.Count, items.Select(static item => item.ConversationId).Distinct().Count());
+        return items;
     }
 
     private static async Task InsertAdminReplyAsync(

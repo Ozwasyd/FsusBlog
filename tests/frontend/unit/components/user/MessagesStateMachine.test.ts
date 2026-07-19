@@ -110,6 +110,8 @@ describe('message center component state machines', () => {
         filter: 'all',
         rows: [],
         hiddenCount: 0,
+        hasMore: false,
+        loadingMore: false,
         selectedConversationId: '',
         statusLabel,
         statusType,

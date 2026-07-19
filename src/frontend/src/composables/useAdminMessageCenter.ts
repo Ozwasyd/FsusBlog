@@ -11,6 +11,7 @@ import type { NotificationStreamInboxRenderPatch } from '@/services/notification
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
 import { toast } from '@/fsusui/feedback'
 import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
+import { mergeConversationPages } from '@/composables/messageConversationPagination'
 
 const PAGE_SIZE = 30
 
@@ -53,6 +54,11 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
 
   const filter = ref<ConversationFilter>('open')
   const conversations = shallowRef<ConversationListItemResponse[]>([])
+  const totalConversations = ref(0)
+  const nextCursor = ref<string | null>(null)
+  const hasMoreConversations = ref(false)
+  const loadingMoreConversations = ref(false)
+  const loadedPageCount = ref(0)
   const selectedConversationId = ref<string>('')
   const detail = shallowRef<ConversationDetailResponse | null>(null)
   const replyBody = ref('')
@@ -65,16 +71,32 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
     conversations.value.find((it) => it.conversationId === selectedConversationId.value) ?? null
   )
 
-  const loadConversations = async (silent = false): Promise<boolean> => {
+  const resetPagination = (): void => {
+    totalConversations.value = 0
+    nextCursor.value = null
+    hasMoreConversations.value = false
+    loadedPageCount.value = 0
+  }
+
+  const loadConversations = async (silent = false, preserveLoaded = silent): Promise<boolean> => {
     if (!isEnabled()) {
       resetDetailState(detail, selectedConversationId, conversations, replyBody)
+      resetPagination()
       return true
     }
 
     if (!silent) loading.value = true
     try {
-      const data = await messageApi.adminGetConversations(1, PAGE_SIZE, filter.value)
-      conversations.value = [...(data.items || [])]
+      const data = await messageApi.adminGetConversations(PAGE_SIZE, filter.value)
+      if (preserveLoaded && loadedPageCount.value > 1) {
+        conversations.value = mergeConversationPages(conversations.value, data.items || [])
+      } else {
+        conversations.value = mergeConversationPages([], data.items || [])
+        nextCursor.value = data.nextCursor ?? null
+        hasMoreConversations.value = Boolean(data.hasMore && data.nextCursor)
+        loadedPageCount.value = 1
+      }
+      totalConversations.value = data.total
       if (!selectedConversationId.value && conversations.value.length > 0) {
         selectedConversationId.value = conversations.value[0]!.conversationId
       }
@@ -92,6 +114,28 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
     }
 
     return true
+  }
+
+  const loadMoreConversations = async (): Promise<boolean> => {
+    if (!isEnabled() || loadingMoreConversations.value || !hasMoreConversations.value || !nextCursor.value) {
+      return false
+    }
+
+    loadingMoreConversations.value = true
+    try {
+      const data = await messageApi.adminGetConversations(PAGE_SIZE, filter.value, nextCursor.value)
+      conversations.value = mergeConversationPages(conversations.value, data.items || [])
+      totalConversations.value = data.total
+      nextCursor.value = data.nextCursor ?? null
+      hasMoreConversations.value = Boolean(data.hasMore && data.nextCursor)
+      loadedPageCount.value += 1
+      return true
+    } catch (error) {
+      showErrorToast(error, '更多管理员会话加载失败')
+      return false
+    } finally {
+      loadingMoreConversations.value = false
+    }
   }
 
   const loadDetail = async (conversationId: string, silent = false): Promise<boolean> => {
@@ -215,9 +259,7 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
       systemTargetAccountId.value = ''
       systemSubject.value = ''
       systemBody.value = ''
-      const list = conversations.value.slice()
-      list.unshift(toConversationListItem(created))
-      conversations.value = list
+      conversations.value = mergeConversationPages(conversations.value, [toConversationListItem(created)])
       const listSynced = await loadConversations(true)
       taskFeedback.succeed('系统消息已发送', listSynced ? `账号 ${parsedTargetAccountId}` : '列表同步失败，请稍后刷新', 'admin-system-message')
       toast.success('系统消息已发送')
@@ -277,6 +319,7 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
       }
 
       resetDetailState(detail, selectedConversationId, conversations, replyBody)
+      resetPagination()
     }
   )
 
@@ -298,6 +341,9 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
     processing,
     filter,
     conversations,
+    totalConversations,
+    hasMoreConversations,
+    loadingMoreConversations,
     selectedConversationId,
     selectedConversation,
     detail,
@@ -306,6 +352,7 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
     systemSubject,
     systemBody,
     selectConversation,
+    loadMoreConversations,
     reply,
     updateStatus,
     sendSystemMessage

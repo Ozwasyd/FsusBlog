@@ -97,6 +97,24 @@ Recovery Key verify 的 AEDS request 只携带 Recovery Key 明文本体与撤�
 
 作者工作台 cache action 只暴露可重复执行的运行时维护动作，例如 rebuild、invalidate 和 recompute；一次性历史清理必须进入 `SchemaMigrationRunner` 并由 migration history 记录，不再作为 admin cache action 长期暴露。
 
+### 消息会话列表快照与游标
+
+账号和 admin 会话列表使用稳定的 `lastMessageAt DESC, conversationId DESC` keyset
+排序。首屏不传 `cursor`；后续请求必须原样传回 `ConversationList.nextCursor`，不能在
+浏览器按首屏数据做假分页。账号工作区每次请求 20 条，admin 工作区每次请求 30 条；
+筛选条件变化时丢弃已有 cursor 和已加载行，从新筛选的首屏重新开始。
+
+服务端 cursor 是 opaque base64url 值，内部绑定首屏的非 internal 最大 message id、
+最后一项 `lastMessageAt` 与 `conversationId`。后续页只选择该 message-id 快照内的最新
+可见消息，因此翻页期间插入的新消息不会把尚未读取的旧会话移出快照，也不会产生重复
+或静默漏项。同一时间戳必须用 `conversationId` 作为确定性次序。前端收到 notification
+stream 更新时按 conversation id upsert、去重并重排已经加载的行，但保留服务端 cursor；
+重连的首屏刷新不得把已经加载的后续页截断。
+
+无需重启的回退通过 reload-capable `Messages:CursorPaginationEnabled=false` 暂停账号与
+admin 会话列表，统一返回 `503 message_cursor_pagination_disabled`；详情、消息写入和
+notification stream 不受影响。不能回退到 `OFFSET`、旧 `page` 参数或浏览器本地切片。
+
 ### 消息读取快照与已读游标
 
 账号消息详情使用 `ConversationDetailV2` 返回本次可见结果的

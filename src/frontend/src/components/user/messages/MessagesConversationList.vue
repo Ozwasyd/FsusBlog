@@ -95,10 +95,11 @@
             </li>
           </ul>
           <el-button
-            v-if="hiddenCount > 0"
+            v-if="hiddenCount > 0 || hasMore"
             link
             type="primary"
             class="messages-window-more"
+            :loading="loadingMore"
             @click="emit('loadMore')"
           >
             {{ showMoreText }}
@@ -132,6 +133,8 @@ const props = defineProps<{
   filter: ConversationFilter
   rows: ConversationRow[]
   hiddenCount: number
+  hasMore: boolean
+  loadingMore: boolean
   selectedConversationId: string
   motionSummary?: string
   statusLabel: (status: number) => string
@@ -167,7 +170,7 @@ const filterOptions = computed(() =>
       ] satisfies { label: string; value: ConversationFilter }[]
 )
 const showMoreText = computed(() =>
-  conversationListCopy.showMoreLabel.replace('{n}', String(props.hiddenCount))
+  conversationListCopy.showMoreLabel.replace('{n}', String(Math.max(0, props.hiddenCount)))
 )
 
 const handleFilterUpdate = (value: unknown): void => {

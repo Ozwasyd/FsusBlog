@@ -1413,6 +1413,48 @@
           "method": "GET",
           "path": "/messages/conversations",
           "auth": "user",
+          "errorResponses": {
+            "400": "ApiError AEDS frame for an invalid conversation cursor.",
+            "503": "ApiError AEDS frame when cursor pagination is disabled."
+          },
+          "parameters": [
+            {
+              "name": "size",
+              "in": "query",
+              "required": false,
+              "description": "Page size (1..50); the account inbox sends 20.",
+              "schema": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 50
+              }
+            },
+            {
+              "name": "filter",
+              "in": "query",
+              "required": false,
+              "description": "Conversation filter; all is represented by omission.",
+              "schema": {
+                "type": "string",
+                "enum": [
+                  "unread",
+                  "system",
+                  "open",
+                  "pending",
+                  "closed"
+                ]
+              }
+            },
+            {
+              "name": "cursor",
+              "in": "query",
+              "required": false,
+              "description": "Opaque nextCursor from the previous ConversationList frame.",
+              "schema": {
+                "type": "string"
+              }
+            }
+          ],
           "responseFrame": "ConversationList"
         },
         {
@@ -1448,6 +1490,47 @@
           "method": "GET",
           "path": "/admin/messages/conversations",
           "auth": "admin",
+          "errorResponses": {
+            "400": "ApiError AEDS frame for an invalid conversation cursor.",
+            "503": "ApiError AEDS frame when cursor pagination is disabled."
+          },
+          "parameters": [
+            {
+              "name": "size",
+              "in": "query",
+              "required": false,
+              "description": "Page size (1..100); the admin inbox sends 30.",
+              "schema": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100
+              }
+            },
+            {
+              "name": "filter",
+              "in": "query",
+              "required": false,
+              "description": "Conversation filter; all is represented by omission.",
+              "schema": {
+                "type": "string",
+                "enum": [
+                  "system",
+                  "open",
+                  "pending",
+                  "closed"
+                ]
+              }
+            },
+            {
+              "name": "cursor",
+              "in": "query",
+              "required": false,
+              "description": "Opaque nextCursor from the previous ConversationList frame.",
+              "schema": {
+                "type": "string"
+              }
+            }
+          ],
           "responseFrame": "ConversationList"
         },
         {

@@ -3,8 +3,27 @@ import { createAppError, AppErrorCode } from '@/utils/appError';
 import { BinaryReader, readBlobText, readByte, readInt32, readInt64String, readIsoDate64 } from '@/codecs/binary/reader';
 import { CONVERSATION_DETAIL_POD_SIZE, CONVERSATION_DETAIL_V2_POD_SIZE, CONVERSATION_LIST_ITEM_POD_SIZE, CONVERSATION_MESSAGE_POD_SIZE, CONVERSATION_MESSAGE_PREVIEW_POD_SIZE } from './types';
 
+const CONVERSATION_LIST_CURSOR_ENVELOPE_MAGIC = 0x4D534743;
+const CONVERSATION_LIST_CURSOR_ENVELOPE_VERSION = 1;
+const CONVERSATION_LIST_CURSOR_ENVELOPE_SIZE = 17;
+
 export function mapConversationListFromPayload(payload: Uint8Array): PageResponse<ConversationListItemResponse> {
-  const reader = new BinaryReader(payload);
+  let payloadBody = payload;
+  let hasMore = false;
+  let nextCursorPod: Uint8Array | null = null;
+  if (payload.byteLength >= CONVERSATION_LIST_CURSOR_ENVELOPE_SIZE &&
+      readInt32(payload, 0) === CONVERSATION_LIST_CURSOR_ENVELOPE_MAGIC) {
+    const version = readInt32(payload, 4);
+    if (version !== CONVERSATION_LIST_CURSOR_ENVELOPE_VERSION || payload[8]! > 1) {
+      throw createAppError(AppErrorCode.ProtocolFailure, 'conversation_list_cursor_envelope_invalid');
+    }
+
+    hasMore = payload[8] === 1;
+    nextCursorPod = payload.subarray(9, CONVERSATION_LIST_CURSOR_ENVELOPE_SIZE);
+    payloadBody = payload.subarray(CONVERSATION_LIST_CURSOR_ENVELOPE_SIZE);
+  }
+
+  const reader = new BinaryReader(payloadBody);
   const total = reader.readInt32();
   const count = reader.readInt32();
   if (total < 0 || count < 0) {
@@ -17,9 +36,16 @@ export function mapConversationListFromPayload(payload: Uint8Array): PageRespons
   }
   const blob = reader.readBlob();
 
+  const nextCursor = hasMore && nextCursorPod ? readBlobText(nextCursorPod, blob, 0) : null;
+  if (hasMore && !nextCursor) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'conversation_list_next_cursor_missing');
+  }
+
   return {
     total,
-    items: pods.map((pod) => readConversationListItem(pod, blob))
+    items: pods.map((pod) => readConversationListItem(pod, blob)),
+    nextCursor,
+    hasMore
   };
 }
 

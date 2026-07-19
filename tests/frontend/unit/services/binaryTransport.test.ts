@@ -401,6 +401,8 @@ describe('binaryTransport ApiError mapping', () => {
       frameType: FrameType.ConversationList
     })).resolves.toEqual({
       total: 1,
+      nextCursor: null,
+      hasMore: false,
       items: [{
         conversationId: '7',
         subject: 'Support',
@@ -467,6 +469,7 @@ describe('binaryTransport ApiError mapping', () => {
       frameType: FrameType.ConversationDetail
     })).resolves.toEqual({
       conversationId: '7',
+      readSnapshotMessageId: '',
       subject: 'Support',
       status: 0,
       isSystemSource: false,

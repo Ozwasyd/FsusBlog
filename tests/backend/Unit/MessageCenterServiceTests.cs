@@ -7,6 +7,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Modules.Endpoints.Binary;
@@ -30,6 +31,19 @@ namespace FsusBlog.Server.Tests;
 
 public sealed class MessageCenterServiceTests
 {
+    [Fact]
+    public void MessageConversationCursor_RoundTripsSnapshotAndStableSortKey()
+    {
+        var expected = new MessageConversationCursor(
+            987654321,
+            new DateTime(2026, 7, 19, 9, 10, 11, DateTimeKind.Utc).AddTicks(120),
+            123456789);
+
+        Assert.True(MessageConversationCursor.TryDecode(expected.Encode(), out MessageConversationCursor decoded));
+        Assert.Equal(expected, decoded);
+        Assert.False(MessageConversationCursor.TryDecode("not-a-cursor", out _));
+    }
+
     private static MessageCenterService BuildService()
     {
         var db = Substitute.For<ISqlSugarClient>();
@@ -148,6 +162,8 @@ public sealed class MessageCenterServiceTests
         Assert.Contains(nameof(AccountPrincipalContext), endpoints, StringComparison.Ordinal);
         Assert.DoesNotContain("ResolveCurrentAccountId", endpoints, StringComparison.Ordinal);
         Assert.Contains("GetAccountConversationsAsync", endpoints, StringComparison.Ordinal);
+        Assert.Contains("Messages:CursorPaginationEnabled", endpoints, StringComparison.Ordinal);
+        Assert.Contains("message_cursor_pagination_disabled", endpoints, StringComparison.Ordinal);
         Assert.Contains("CreateAccountTicketAsync", endpoints, StringComparison.Ordinal);
         Assert.Contains("ReplyAsAccountAsync", endpoints, StringComparison.Ordinal);
         Assert.DoesNotContain("GetUserConversationsAsync", endpoints, StringComparison.Ordinal);
@@ -198,16 +214,21 @@ public sealed class MessageCenterServiceTests
             Assert.Contains(AnonymousIdentityRuntime.AnonymousAccountKind, identity.AllowedValues ?? []);
         }
 
-        RouteEndpoint admin = EndpointContractApplication.Find(
-            app,
-            "/api/binary/admin/messages/conversations/{id:long}/reply",
-            HttpMethods.Post);
-        ClaimsAuthorizationRequirement permission = Assert.Single(admin.Metadata
-            .GetOrderedMetadata<AuthorizationPolicy>()
-            .SelectMany(static policy => policy.Requirements)
-            .OfType<ClaimsAuthorizationRequirement>(),
-            static requirement => requirement.ClaimType == AdminPermissions.PermissionClaimType);
-        Assert.Contains(AdminPermissions.AdminManage, permission.AllowedValues ?? []);
+        (string Route, string Method)[] adminRoutes =
+        [
+            ("/api/binary/admin/messages/conversations", HttpMethods.Get),
+            ("/api/binary/admin/messages/conversations/{id:long}/reply", HttpMethods.Post)
+        ];
+        foreach ((string route, string method) in adminRoutes)
+        {
+            RouteEndpoint admin = EndpointContractApplication.Find(app, route, method);
+            ClaimsAuthorizationRequirement permission = Assert.Single(admin.Metadata
+                .GetOrderedMetadata<AuthorizationPolicy>()
+                .SelectMany(static policy => policy.Requirements)
+                .OfType<ClaimsAuthorizationRequirement>(),
+                static requirement => requirement.ClaimType == AdminPermissions.PermissionClaimType);
+            Assert.Contains(AdminPermissions.AdminManage, permission.AllowedValues ?? []);
+        }
         Assert.Contains("AdminMessageActor", RuntimeMetadataInspection.DescribeType(typeof(BinaryEndpoints)), StringComparison.Ordinal);
     }
 
@@ -443,13 +464,13 @@ public sealed class MessageCenterServiceTests
             typeof(MessageCenterService),
             "MapMessagesAsync");
 
-        Assert.Contains("BuildAccountConversationQuery", accountList, StringComparison.Ordinal);
-        Assert.Contains("CountAsync", accountList, StringComparison.Ordinal);
-        Assert.Contains("ToListAsync", accountList, StringComparison.Ordinal);
+        Assert.Contains("LoadConversationListSnapshotMessageIdAsync", accountList, StringComparison.Ordinal);
+        Assert.Contains("CountSnapshotConversationsAsync", accountList, StringComparison.Ordinal);
+        Assert.Contains("LoadSnapshotConversationRowsAsync", accountList, StringComparison.Ordinal);
         Assert.DoesNotContain("Task.WhenAll", accountList, StringComparison.Ordinal);
-        Assert.Contains("BuildAdminConversationQuery", adminList, StringComparison.Ordinal);
-        Assert.Contains("CountAsync", adminList, StringComparison.Ordinal);
-        Assert.Contains("ToListAsync", adminList, StringComparison.Ordinal);
+        Assert.Contains("LoadConversationListSnapshotMessageIdAsync", adminList, StringComparison.Ordinal);
+        Assert.Contains("CountSnapshotConversationsAsync", adminList, StringComparison.Ordinal);
+        Assert.Contains("LoadSnapshotConversationRowsAsync", adminList, StringComparison.Ordinal);
         Assert.DoesNotContain("Task.WhenAll", adminList, StringComparison.Ordinal);
 
         Assert.Contains("LoadLastMessagesSingleQueryAsync", lastMessageMap, StringComparison.Ordinal);

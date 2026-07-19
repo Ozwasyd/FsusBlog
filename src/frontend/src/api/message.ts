@@ -76,8 +76,8 @@ const toFilterParam = (filter?: ConversationFilter): string | undefined => {
 }
 
 export const messageApi = {
-  getAccountConversations(page: number, size: number, filter: ConversationFilter = 'all', config?: ApiRequestConfig) {
-    const search = conversationSearch(page, size, filter)
+  getAccountConversations(size: number, filter: ConversationFilter = 'all', cursor?: string | null, config?: ApiRequestConfig) {
+    const search = conversationSearch(size, filter, cursor)
     return requestBinaryOnly<PageResponse<ConversationListItemResponse>>({
       binaryRoute: {
         operationId: 'binary_get_messages_conversations',
@@ -149,8 +149,8 @@ export const messageApi = {
     })
   },
 
-  adminGetConversations(page: number, size: number, filter: ConversationFilter = 'all', config?: ApiRequestConfig) {
-    const search = conversationSearch(page, size, filter)
+  adminGetConversations(size: number, filter: ConversationFilter = 'all', cursor?: string | null, config?: ApiRequestConfig) {
+    const search = conversationSearch(size, filter, cursor)
     return requestBinaryOnly<PageResponse<ConversationListItemResponse>>({
       binaryRoute: {
         operationId: 'binary_get_admin_messages_conversations',
@@ -218,12 +218,12 @@ export const messageApi = {
   }
 }
 
-function conversationSearch(page: number, size: number, filter: ConversationFilter): URLSearchParams {
+function conversationSearch(size: number, filter: ConversationFilter, cursor?: string | null): URLSearchParams {
   const search = new URLSearchParams()
-  search.set('page', String(page))
   search.set('size', String(size))
   const filterParam = toFilterParam(filter)
   if (filterParam) search.set('filter', filterParam)
+  if (cursor) search.set('cursor', cursor)
   return search
 }
 

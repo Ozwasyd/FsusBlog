@@ -462,6 +462,8 @@ public class PodBinaryCodecTests
         var page = new PageResponse<ConversationListItemResponse>
         {
             Total = 1,
+            NextCursor = "opaque-next-cursor",
+            HasMore = true,
             Items =
             [
                 new ConversationListItemResponse
@@ -490,6 +492,8 @@ public class PodBinaryCodecTests
 
         Assert.True(ok);
         Assert.Equal(1, decoded.Total);
+        Assert.Equal("opaque-next-cursor", decoded.NextCursor);
+        Assert.True(decoded.HasMore);
         Assert.Single(decoded.Items);
         Assert.Equal("Support", decoded.Items[0].Subject);
         Assert.NotNull(decoded.Items[0].LastMessage);

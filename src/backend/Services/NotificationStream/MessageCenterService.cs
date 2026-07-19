@@ -8,6 +8,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Shared.Contracts.NotificationStream;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -25,31 +26,40 @@ public sealed class MessageCenterService(
     private const int MaxSubjectLength = 160;
     private const int MaxBodyLength = 4000;
 
-    public async Task<PageResponse<ConversationListItemResponse>> GetAccountConversationsAsync(int accountId, int page, int size, string? filter)
+    public async Task<PageResponse<ConversationListItemResponse>> GetAccountConversationsAsync(
+        int accountId,
+        int size,
+        string? filter,
+        MessageConversationCursor? cursor)
     {
         long startedAt = Stopwatch.GetTimestamp();
-        int pageNum = Math.Max(1, page);
         int pageSize = Math.Clamp(size <= 0 ? 20 : size, 1, 50);
-        int total = await BuildAccountConversationQuery(accountId, filter).CountAsync();
-        List<AccountConversationRow> rows = await BuildAccountConversationQuery(accountId, filter)
-            .OrderBy((p, c) => c.LastMessageAt, OrderByType.Desc)
-            .Select((p, c) => new AccountConversationRow
-            {
-                ConversationId = c.Id,
-                Subject = c.Subject,
-                Status = c.Status,
-                IsSystemSource = c.IsSystemSource,
-                UnreadCount = p.UnreadCount,
-                LastMessageAt = c.LastMessageAt,
-                UpdatedAt = c.UpdatedAt
-            })
-            .Skip((pageNum - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync();
+        long snapshotMessageId = cursor?.SnapshotMessageId ?? await LoadConversationListSnapshotMessageIdAsync();
+        int total = await CountSnapshotConversationsAsync(accountId, filter, snapshotMessageId);
+        List<AccountConversationRow> rows = await LoadSnapshotConversationRowsAsync(
+            accountId,
+            filter,
+            snapshotMessageId,
+            cursor,
+            pageSize + 1);
+        bool hasMore = rows.Count > pageSize;
+        if (hasMore)
+        {
+            rows.RemoveAt(rows.Count - 1);
+        }
 
-        var items = await BuildConversationListAsync(rows, includeUnread: true);
+        var items = await BuildConversationListAsync(rows, includeUnread: true, snapshotMessageId);
+        string? nextCursor = hasMore && rows.Count > 0
+            ? new MessageConversationCursor(snapshotMessageId, rows[^1].LastMessageAt, rows[^1].ConversationId).Encode()
+            : null;
         FsusObservability.RecordMessageCenterList("account", FsusObservability.GetElapsed(startedAt));
-        return new PageResponse<ConversationListItemResponse> { Items = items, Total = total };
+        return new PageResponse<ConversationListItemResponse>
+        {
+            Items = items,
+            Total = total,
+            NextCursor = nextCursor,
+            HasMore = hasMore
+        };
     }
 
     public async Task<ConversationDetailResponse?> GetAccountConversationDetailAsync(int accountId, long conversationId)
@@ -87,27 +97,26 @@ public sealed class MessageCenterService(
         };
     }
 
-    public async Task<PageResponse<ConversationListItemResponse>> GetAdminConversationsAsync(int page, int size, string? filter)
+    public async Task<PageResponse<ConversationListItemResponse>> GetAdminConversationsAsync(
+        int size,
+        string? filter,
+        MessageConversationCursor? cursor)
     {
         long startedAt = Stopwatch.GetTimestamp();
-        int pageNum = Math.Max(1, page);
         int pageSize = Math.Clamp(size <= 0 ? 20 : size, 1, 100);
-        int total = await BuildAdminConversationQuery(filter).CountAsync();
-        List<AccountConversationRow> rows = await BuildAdminConversationQuery(filter)
-            .OrderByDescending(it => it.LastMessageAt)
-            .Select(it => new AccountConversationRow
-            {
-                ConversationId = it.Id,
-                Subject = it.Subject,
-                Status = it.Status,
-                IsSystemSource = it.IsSystemSource,
-                UnreadCount = 0,
-                LastMessageAt = it.LastMessageAt,
-                UpdatedAt = it.UpdatedAt
-            })
-            .Skip((pageNum - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync();
+        long snapshotMessageId = cursor?.SnapshotMessageId ?? await LoadConversationListSnapshotMessageIdAsync();
+        int total = await CountSnapshotConversationsAsync(null, filter, snapshotMessageId);
+        List<AccountConversationRow> rows = await LoadSnapshotConversationRowsAsync(
+            null,
+            filter,
+            snapshotMessageId,
+            cursor,
+            pageSize + 1);
+        bool hasMore = rows.Count > pageSize;
+        if (hasMore)
+        {
+            rows.RemoveAt(rows.Count - 1);
+        }
 
         var unreadMap = await GetConversationUnreadMapAsync(CollectConversationIds(rows));
         foreach (var row in rows)
@@ -118,9 +127,18 @@ public sealed class MessageCenterService(
             }
         }
 
-        var items = await BuildConversationListAsync(rows, includeUnread: true);
+        var items = await BuildConversationListAsync(rows, includeUnread: true, snapshotMessageId);
+        string? nextCursor = hasMore && rows.Count > 0
+            ? new MessageConversationCursor(snapshotMessageId, rows[^1].LastMessageAt, rows[^1].ConversationId).Encode()
+            : null;
         FsusObservability.RecordMessageCenterList("admin", FsusObservability.GetElapsed(startedAt));
-        return new PageResponse<ConversationListItemResponse> { Items = items, Total = total };
+        return new PageResponse<ConversationListItemResponse>
+        {
+            Items = items,
+            Total = total,
+            NextCursor = nextCursor,
+            HasMore = hasMore
+        };
     }
 
     public async Task<ConversationDetailResponse?> GetAdminConversationDetailAsync(long conversationId)
@@ -837,7 +855,10 @@ public sealed class MessageCenterService(
             "push-article-changed",
             idempotencyKey);
 
-    private async Task<List<ConversationListItemResponse>> BuildConversationListAsync(List<AccountConversationRow> rows, bool includeUnread)
+    private async Task<List<ConversationListItemResponse>> BuildConversationListAsync(
+        List<AccountConversationRow> rows,
+        bool includeUnread,
+        long? snapshotMessageId = null)
     {
         if (rows.Count == 0)
         {
@@ -845,7 +866,7 @@ public sealed class MessageCenterService(
         }
 
         long[] ids = CollectConversationIds(rows);
-        var lastMessageMap = await LoadLastMessageMapAsync(ids);
+        var lastMessageMap = await LoadLastMessageMapAsync(ids, snapshotMessageId);
         var items = new List<ConversationListItemResponse>(rows.Count);
         foreach (var row in rows)
         {
@@ -902,14 +923,16 @@ public sealed class MessageCenterService(
         return await MapMessagesAsync(rows);
     }
 
-    private async Task<Dictionary<long, ConversationMessagePreviewResponse>> LoadLastMessageMapAsync(long[] conversationIds)
+    private async Task<Dictionary<long, ConversationMessagePreviewResponse>> LoadLastMessageMapAsync(
+        long[] conversationIds,
+        long? snapshotMessageId = null)
     {
         if (conversationIds.Length == 0)
         {
             return [];
         }
 
-        List<ConversationMessage> rows = await LoadLastMessagesSingleQueryAsync(conversationIds);
+        List<ConversationMessage> rows = await LoadLastMessagesSingleQueryAsync(conversationIds, snapshotMessageId);
         var mapped = await MapMessagesAsync(rows);
         Dictionary<long, ConversationMessagePreviewResponse> mappedByMessageId = BuildMessagePreviewMap(mapped, logger);
         var latestRows = new List<(long ConversationId, long MessageId)>(rows.Count);
@@ -922,15 +945,24 @@ public sealed class MessageCenterService(
         return BuildLatestMessageMap(latestRows, mappedByMessageId);
     }
 
-    private async Task<List<ConversationMessage>> LoadLastMessagesSingleQueryAsync(long[] conversationIds)
+    private async Task<List<ConversationMessage>> LoadLastMessagesSingleQueryAsync(
+        long[] conversationIds,
+        long? snapshotMessageId)
     {
-        var parameters = new SugarParameter[conversationIds.Length];
+        var parameters = new List<SugarParameter>(conversationIds.Length + 1);
         var placeholders = new string[conversationIds.Length];
         for (int i = 0; i < conversationIds.Length; i++)
         {
             string name = "@ConversationId" + i.ToString(CultureInfo.InvariantCulture);
             placeholders[i] = name;
-            parameters[i] = new SugarParameter(name, conversationIds[i]);
+            parameters.Add(new SugarParameter(name, conversationIds[i]));
+        }
+
+        string snapshotPredicate = string.Empty;
+        if (snapshotMessageId.HasValue)
+        {
+            snapshotPredicate = "AND id <= @SnapshotMessageId";
+            parameters.Add(new SugarParameter("@SnapshotMessageId", snapshotMessageId.Value));
         }
 
         string sql = $"""
@@ -947,9 +979,10 @@ public sealed class MessageCenterService(
             FROM msg_message
             WHERE conversationid IN ({string.Join(", ", placeholders)})
               AND isinternalnote = false
+              {snapshotPredicate}
             ORDER BY conversationid, id DESC;
             """;
-        return await db.Ado.SqlQueryAsync<ConversationMessage>(sql, parameters);
+        return await db.Ado.SqlQueryAsync<ConversationMessage>(sql, parameters.ToArray());
     }
 
     private static long[] CollectConversationIds(IReadOnlyList<AccountConversationRow> rows)
@@ -1328,51 +1361,121 @@ public sealed class MessageCenterService(
         return row.SenderType == MessageSenderType.Admin ? "管理员" : "你";
     }
 
-    private static ISugarQueryable<ConversationParticipantState, MessageConversation> ApplyAccountFilter(
-        ISugarQueryable<ConversationParticipantState, MessageConversation> query,
-        string? filter)
+    private async Task<long> LoadConversationListSnapshotMessageIdAsync()
     {
-        if (string.IsNullOrWhiteSpace(filter))
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            "SELECT COALESCE(MAX(id), 0)::bigint AS snapshot_message_id FROM msg_message WHERE isinternalnote = false;");
+        return await reader.ReadAsync() ? reader.ReadInt64("snapshot_message_id") : 0;
+    }
+
+    private async Task<int> CountSnapshotConversationsAsync(
+        int? accountId,
+        string? filter,
+        long snapshotMessageId)
+    {
+        string participantJoin = accountId.HasValue
+            ? "JOIN msg_participant_state participant ON participant.conversationid = conversation.id"
+            : string.Empty;
+        string accountPredicate = accountId.HasValue ? "AND participant.accountid = @AccountId" : string.Empty;
+        string filterPredicate = BuildSnapshotConversationFilter(filter, accountId.HasValue);
+        var parameters = new List<SugarParameter>
         {
-            return query;
+            new("@SnapshotMessageId", snapshotMessageId)
+        };
+        if (accountId.HasValue)
+        {
+            parameters.Add(new SugarParameter("@AccountId", accountId.Value));
         }
 
-        return (TextHelpers.LowerTrimmed(filter) ?? string.Empty) switch
+        string sql = $"""
+            SELECT COUNT(*)::integer
+            FROM msg_conversation conversation
+            {participantJoin}
+            WHERE EXISTS (
+                SELECT 1
+                FROM msg_message message
+                WHERE message.conversationid = conversation.id
+                  AND message.id <= @SnapshotMessageId
+                  AND message.isinternalnote = false
+            )
+            {accountPredicate}
+            {filterPredicate};
+            """;
+        return await db.Ado.GetIntAsync(sql, parameters.ToArray());
+    }
+
+    private async Task<List<AccountConversationRow>> LoadSnapshotConversationRowsAsync(
+        int? accountId,
+        string? filter,
+        long snapshotMessageId,
+        MessageConversationCursor? cursor,
+        int take)
+    {
+        string participantJoin = accountId.HasValue
+            ? "JOIN msg_participant_state participant ON participant.conversationid = conversation.id"
+            : string.Empty;
+        string accountPredicate = accountId.HasValue ? "AND participant.accountid = @AccountId" : string.Empty;
+        string unreadProjection = accountId.HasValue ? "participant.unreadcount" : "0";
+        string filterPredicate = BuildSnapshotConversationFilter(filter, accountId.HasValue);
+        string cursorPredicate = cursor.HasValue
+            ? "AND (latest.createdat < @CursorLastMessageAt OR (latest.createdat = @CursorLastMessageAt AND conversation.id < @CursorConversationId))"
+            : string.Empty;
+        var parameters = new List<SugarParameter>
         {
-            "unread" => query.Where((p, _) => p.UnreadCount > 0),
-            "system" => query.Where((_, c) => c.IsSystemSource),
-            "open" => query.Where((_, c) => c.Status == ConversationStatus.Open),
-            "pending" => query.Where((_, c) => c.Status == ConversationStatus.Pending),
-            "closed" => query.Where((_, c) => c.Status == ConversationStatus.Closed),
-            _ => query
+            new("@SnapshotMessageId", snapshotMessageId),
+            new("@Take", take)
         };
-    }
-
-    private ISugarQueryable<ConversationParticipantState, MessageConversation> BuildAccountConversationQuery(int accountId, string? filter)
-    {
-        var query = db.Queryable<ConversationParticipantState, MessageConversation>(
-                (p, c) => p.ConversationId == c.Id)
-            .Where((p, c) => p.AccountId == accountId);
-        return ApplyAccountFilter(query, filter);
-    }
-
-    private ISugarQueryable<MessageConversation> BuildAdminConversationQuery(string? filter)
-    {
-        var query = db.Queryable<MessageConversation>();
-        if (string.IsNullOrWhiteSpace(filter))
+        if (accountId.HasValue)
         {
-            return query;
+            parameters.Add(new SugarParameter("@AccountId", accountId.Value));
+        }
+        if (cursor.HasValue)
+        {
+            parameters.Add(new SugarParameter("@CursorLastMessageAt", cursor.Value.LastMessageAt));
+            parameters.Add(new SugarParameter("@CursorConversationId", cursor.Value.ConversationId));
         }
 
-        return (TextHelpers.LowerTrimmed(filter) ?? string.Empty) switch
-        {
-            "system" => query.Where(it => it.IsSystemSource),
-            "open" => query.Where(it => it.Status == ConversationStatus.Open),
-            "pending" => query.Where(it => it.Status == ConversationStatus.Pending),
-            "closed" => query.Where(it => it.Status == ConversationStatus.Closed),
-            _ => query
-        };
+        string sql = $"""
+            SELECT conversation.id AS conversationid,
+                   conversation.subject,
+                   conversation.status,
+                   conversation.issystemsource,
+                   {unreadProjection} AS unreadcount,
+                   latest.createdat AS lastmessageat,
+                   conversation.updatedat
+            FROM msg_conversation conversation
+            {participantJoin}
+            JOIN LATERAL (
+                SELECT message.id,
+                       message.createdat
+                FROM msg_message message
+                WHERE message.conversationid = conversation.id
+                  AND message.id <= @SnapshotMessageId
+                  AND message.isinternalnote = false
+                ORDER BY message.id DESC
+                LIMIT 1
+            ) latest ON true
+            WHERE true
+            {accountPredicate}
+            {filterPredicate}
+            {cursorPredicate}
+            ORDER BY latest.createdat DESC,
+                     conversation.id DESC
+            LIMIT @Take;
+            """;
+        return await db.Ado.SqlQueryAsync<AccountConversationRow>(sql, parameters.ToArray());
     }
+
+    private static string BuildSnapshotConversationFilter(string? filter, bool accountScope)
+        => (TextHelpers.LowerTrimmed(filter) ?? string.Empty) switch
+        {
+            "unread" when accountScope => "AND participant.unreadcount > 0",
+            "system" => "AND conversation.issystemsource = true",
+            "open" => $"AND conversation.status = {(int)ConversationStatus.Open}",
+            "pending" => $"AND conversation.status = {(int)ConversationStatus.Pending}",
+            "closed" => $"AND conversation.status = {(int)ConversationStatus.Closed}",
+            _ => string.Empty
+        };
 
     private static ConversationMessagePreviewResponse? ToMessagePreview(ConversationMessageResponse? message)
     {

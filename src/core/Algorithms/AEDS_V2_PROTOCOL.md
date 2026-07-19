@@ -186,7 +186,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `MfaSetupVerify` payload: `MfaSetupVerifyPod` followed by `MfaRecoveryCodePod[count]`.
 - `MfaProfile` payload: `MfaProfilePod`.
 - `MfaChallengeResult` payload: `MfaChallengeResultPod`；当登录 challenge 完成并包含 `user` 时，只返回 `accountId` 与 `identityKind`，不返回 legacy username/role。
-- `ConversationList` payload: `int32 total`, `int32 count`, `ConversationListItemPod[count]`, followed by shared blob payload for subject/preview slices.
+- `ConversationList` payload: when `hasMore=true`, a 17-byte cursor envelope (`int32 0x4D534743`, `int32 version=1`, `byte hasMore`, `Utf8SliceRef nextCursor`) precedes `int32 total`, `int32 count`, `ConversationListItemPod[count]`, followed by the shared blob used by the cursor and subject/preview slices. A terminal/legacy payload may omit the envelope and starts at `total`; decoders normalize it to `nextCursor=null, hasMore=false` and reject unknown envelope versions or a missing cursor when `hasMore=true`.
 - `ConversationDetail` payload: `ConversationDetailPod`, `int32 count`, `ConversationMessagePod[count]`, followed by shared blob payload for subject/body slices.
 - `ConversationDetailV2` payload: `ConversationDetailV2Pod` (including `ReadSnapshotMessageId`), `int32 count`, `ConversationMessagePod[count]`, followed by shared blob payload for subject/body slices.
 - `ConversationMessage` payload: `ConversationMessagePod` followed by blob payload for sender/body slices.

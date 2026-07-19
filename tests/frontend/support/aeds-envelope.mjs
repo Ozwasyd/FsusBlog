@@ -79,6 +79,9 @@ const CONVERSATION_LIST_ITEM_POD_SIZE = 76
 const CONVERSATION_MESSAGE_POD_SIZE = 48
 const CONVERSATION_DETAIL_POD_SIZE = 36
 const CONVERSATION_DETAIL_V2_POD_SIZE = 44
+const CONVERSATION_LIST_CURSOR_ENVELOPE_MAGIC = 0x4D534743
+const CONVERSATION_LIST_CURSOR_ENVELOPE_VERSION = 1
+const CONVERSATION_LIST_CURSOR_ENVELOPE_SIZE = 17
 const ARTICLE_PAGE_CURSOR_ENVELOPE_MAGIC = 0x41535046
 const ARTICLE_PAGE_CURSOR_ENVELOPE_VERSION = 1
 const ARTICLE_LIST_RECORD_SIZE = 56
@@ -1812,7 +1815,20 @@ function decodeUserCommentCursor(payload) {
 }
 
 function decodeConversationList(payload) {
-  const reader = new BinaryReader(payload)
+  let payloadBody = payload
+  let hasMore = false
+  let nextCursorPod = null
+  if (payload.byteLength >= CONVERSATION_LIST_CURSOR_ENVELOPE_SIZE &&
+      readInt32(payload, 0) === CONVERSATION_LIST_CURSOR_ENVELOPE_MAGIC) {
+    if (readInt32(payload, 4) !== CONVERSATION_LIST_CURSOR_ENVELOPE_VERSION || payload[8] > 1) {
+      throw new Error('conversation_list_cursor_envelope_invalid')
+    }
+    hasMore = payload[8] === 1
+    nextCursorPod = payload.subarray(9, CONVERSATION_LIST_CURSOR_ENVELOPE_SIZE)
+    payloadBody = payload.subarray(CONVERSATION_LIST_CURSOR_ENVELOPE_SIZE)
+  }
+
+  const reader = new BinaryReader(payloadBody)
   const total = reader.readInt32()
   const count = reader.readInt32()
   if (total < 0 || count < 0) {
@@ -1824,9 +1840,15 @@ function decodeConversationList(payload) {
     pods.push(reader.readSpan(CONVERSATION_LIST_ITEM_POD_SIZE))
   }
   const blob = reader.readBlob()
+  const nextCursor = hasMore && nextCursorPod ? readBlobText(nextCursorPod, blob, 0) : null
+  if (hasMore && !nextCursor) {
+    throw new Error('conversation_list_next_cursor_missing')
+  }
   return {
     total,
-    items: pods.map((pod) => readConversationListItem(pod, blob))
+    items: pods.map((pod) => readConversationListItem(pod, blob)),
+    nextCursor,
+    hasMore
   }
 }
 

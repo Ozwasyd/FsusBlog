@@ -2684,6 +2684,14 @@
         "responses": {
           "200": {
             "description": "IdentityAccountSnapshot AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
             "headers": {
               "X-Fsus-Access-Expires-At-Utc": {
                 "description": "Validated access-token expiry as an ISO 8601 UTC timestamp",
@@ -2691,14 +2699,6 @@
                 "schema": {
                   "type": "string",
                   "format": "date-time"
-                }
-              }
-            },
-            "content": {
-              "application/octet-stream": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
                 }
               }
             }
@@ -5402,6 +5402,28 @@
               }
             }
           },
+          "400": {
+            "description": "ApiError AEDS frame for an invalid conversation cursor.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "ApiError AEDS frame when cursor pagination is disabled.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
           "default": {
             "description": "ApiError AEDS frame",
             "content": {
@@ -5428,7 +5450,45 @@
         "x-fsus-test-surface": "/messages/conversations",
         "x-fsus-source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Messages.cs",
         "x-fsus-frontend-wrapper": "src/frontend/src/api/message.ts",
-        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/messageAdapter.ts"
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/messageAdapter.ts",
+        "parameters": [
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "description": "Page size (1..50); the account inbox sends 20.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "required": false,
+            "description": "Conversation filter; all is represented by omission.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "unread",
+                "system",
+                "open",
+                "pending",
+                "closed"
+              ]
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque nextCursor from the previous ConversationList frame.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
       },
       "post": {
         "operationId": "binary_post_messages_conversations",
@@ -5640,6 +5700,28 @@
               }
             }
           },
+          "400": {
+            "description": "ApiError AEDS frame for an invalid conversation cursor.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "ApiError AEDS frame when cursor pagination is disabled.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
           "default": {
             "description": "ApiError AEDS frame",
             "content": {
@@ -5666,7 +5748,44 @@
         "x-fsus-test-surface": "/admin/messages/conversations",
         "x-fsus-source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Messages.cs",
         "x-fsus-frontend-wrapper": "src/frontend/src/api/message.ts",
-        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/messageAdapter.ts"
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/messageAdapter.ts",
+        "parameters": [
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "description": "Page size (1..100); the admin inbox sends 30.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "required": false,
+            "description": "Conversation filter; all is represented by omission.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "system",
+                "open",
+                "pending",
+                "closed"
+              ]
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque nextCursor from the previous ConversationList frame.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
       }
     },
     "/api/binary/admin/messages/conversations/{id:long}": {

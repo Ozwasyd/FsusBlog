@@ -435,9 +435,15 @@ replyToAuthorPayload?:CommentAuthorViewPod + blobLength:int32 + blob
 | 类型 | 字节数 |
 | ------ | -------- |
 | `MessagePod` | ~512 |
+| `ConversationListItemPod` | 76 |
 | `ConversationDetailV2Pod` | 44 |
 | `ConversationReadRequestPod` | 8 |
 | `AccountConversationReplyRequestPod` | 16 |
+
+`ConversationList(56)` 有后续页时在 legacy `total + count` 前增加 17B cursor envelope：
+`magic:int32=0x4D534743`、`version:int32=1`、`hasMore:byte`、
+`nextCursor:Utf8SliceRef`。无后续页仍可使用 legacy layout；decoder 必须把 legacy layout
+归一化为 `nextCursor=null / hasMore=false`，并拒绝未知版本或缺失 cursor 的分页 frame。
 
 ### 用户 / 认证 POD
 

@@ -464,7 +464,9 @@ Authoring 和审核 schema 的 fresh DB 最终态不得创建旧用户归因列�
 }
 ```
 
-游标值为 `long` 类型经编码后的字符串，通常为最后一条记录的 ID 或时间戳。
+游标是服务端生成的 opaque 字符串；简单列表可以只编码最后一条 ID 或时间戳，复合
+排序列表必须同时绑定全部 keyset 字段，并可附带首屏快照边界。客户端只能原样回传，
+不得解析、改写或跨筛选条件复用。
 
 ### Binary POD 信封
 
@@ -929,6 +931,38 @@ interface AdminTagItemResponse extends AdminCategoryItemResponse {
 ```
 
 - `status`：`0=open` / `1=pending` / `2=closed`
+
+### `ConversationList` 游标分页
+
+账号列表请求为
+`GET /api/binary/messages/conversations?size=20&filter=<filter>&cursor=<opaque>`；admin
+列表为相同 query contract，默认工作区 page size 为 30、服务端上限为 100。首屏省略
+`cursor`，响应的 `total` 是该首屏 message-id 快照内符合筛选条件的会话总数；
+`hasMore=true` 时 `nextCursor` 必须非空。筛选变化必须重新请求首屏。
+
+排序固定为 `lastMessageAt DESC, conversationId DESC`。opaque cursor 内部绑定首屏
+`snapshotMessageId`、末项 `lastMessageAt` 与末项 `conversationId`；后续页的列表排序和
+消息预览都只读取 `message.id <= snapshotMessageId` 的非 internal 消息。并发新消息不会
+把未遍历的旧会话移出结果，也不会让旧预览被新消息替换。
+
+`ConversationList(56)` 在有后续页时使用 cursor envelope v1：
+
+| 偏移 | 字段 | 类型 | 说明 |
+| ------ | ------ | ------ | ------ |
+| 0 | Magic | int32 LE | `0x4D534743` (`MSGC`) |
+| 4 | Version | int32 LE | `1` |
+| 8 | HasMore | byte | `0` 或 `1` |
+| 9 | NextCursor | `Utf8SliceRef` | 指向当前 frame shared blob 的 opaque cursor |
+| 17 | Total | int32 LE | 快照内总数 |
+| 21 | Count | int32 LE | 本页项数，随后为 `ConversationListItemPod[count]` 与 shared blob |
+
+无后续页时编码器保留 legacy `total + count + pods + blob` 布局，decoder 必须同时接受
+legacy 和 envelope v1；legacy 布局归一化为 `nextCursor=null, hasMore=false`。未知
+version、非法 `HasMore` 或 `hasMore=true` 但 cursor 为空均按 protocol failure 拒绝。
+
+`Messages:CursorPaginationEnabled=false` 可通过配置 reload 在不重启进程的情况下让两个
+列表端点返回 `503 message_cursor_pagination_disabled`。该降级不恢复旧 `page` 参数、
+本地切片或 OFFSET 查询。
 
 管理员系统消息使用 `POST /api/binary/admin/messages/system-send` 的 `SystemMessageRequest` frame。当前契约只支持单账号目标，`targetAccountId` 必须存在且大于 0；`targetAccountId=null` 不表示广播，后端会返回 validation error。前端管理入口位于 `/user/manage/messages`，普通 `/user/messagebox` 只承载账号消息和工单。
 

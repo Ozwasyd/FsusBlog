@@ -101,7 +101,7 @@ export function useAdminDashboardWorkbench() {
 
   const refreshPendingTickets = async (): Promise<boolean> => {
     const page = await ticketsTask.run(
-      async (signal) => await messageApi.adminGetConversations(1, 1, 'pending', { signal }),
+      async (signal) => await messageApi.adminGetConversations(1, 'pending', null, { signal }),
       {
         fallbackMessage: '待处理工单数量加载失败',
         onError: () => {

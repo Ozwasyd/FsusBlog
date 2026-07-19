@@ -1,4 +1,5 @@
 using FsusBlog.Core.Common;
+using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Shared.Contracts.NotificationStream;
 using FsusBlog.Shared.Contracts.Outputs;
 
@@ -13,9 +14,9 @@ public readonly record struct AdminMessageActor(long AdminPrincipalId, string Ad
 
 public interface IMessageQueryService
 {
-    Task<PageResponse<ConversationListItemResponse>> GetAccountConversationsAsync(int accountId, int page, int size, string? filter);
+    Task<PageResponse<ConversationListItemResponse>> GetAccountConversationsAsync(int accountId, int size, string? filter, MessageConversationCursor? cursor);
     Task<ConversationDetailResponse?> GetAccountConversationDetailAsync(int accountId, long conversationId);
-    Task<PageResponse<ConversationListItemResponse>> GetAdminConversationsAsync(int page, int size, string? filter);
+    Task<PageResponse<ConversationListItemResponse>> GetAdminConversationsAsync(int size, string? filter, MessageConversationCursor? cursor);
     Task<ConversationDetailResponse?> GetAdminConversationDetailAsync(long conversationId);
 }
 

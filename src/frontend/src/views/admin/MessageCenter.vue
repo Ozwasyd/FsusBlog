@@ -89,11 +89,12 @@
               </el-conversation-list>
 
               <el-button
-                v-if="hiddenConversationCount > 0"
+                v-if="hiddenConversationCount > 0 || hasMoreConversations"
                 class="admin-message-center__load-more"
                 link
                 type="primary"
-                @click="conversationRenderLimit += CONVERSATION_RENDER_WINDOW"
+                :loading="loadingMoreConversations"
+                @click="handleLoadMoreConversations"
               >
                 显示更多会话（{{ hiddenConversationCount }}）
               </el-button>
@@ -361,6 +362,8 @@ const messageRenderLimit = ref(MESSAGE_RENDER_WINDOW)
 const listLoading = computed(() => adminCenter.loading.value)
 const detailLoading = computed(() => adminCenter.loadingDetail.value)
 const processing = computed(() => adminCenter.processing.value)
+const hasMoreConversations = computed(() => adminCenter.hasMoreConversations.value)
+const loadingMoreConversations = computed(() => adminCenter.loadingMoreConversations.value)
 const detail = computed(() => adminCenter.detail.value)
 const threadSelectionEmpty = computed(() => !selectedConversation.value)
 const replyDisabled = computed(() => adminCenter.processing.value || !detail.value?.canReply)
@@ -418,8 +421,11 @@ const visibleConversationRows = computed<ConversationRow[]>(() =>
     rowClassName: conversationRowClass(item)
   }))
 )
-const hiddenConversationCount = computed(() =>
+const loadedHiddenConversationCount = computed(() =>
   Math.max(0, adminCenter.conversations.value.length - visibleConversationRows.value.length)
+)
+const hiddenConversationCount = computed(() =>
+  Math.max(0, adminCenter.totalConversations.value - visibleConversationRows.value.length)
 )
 const visibleMessageRows = computed<MessageRow[]>(() => {
   const messages = detail.value?.messages ?? []
@@ -502,6 +508,15 @@ const handleSelectConversation = async (conversationId: string): Promise<void> =
   openDetailPane()
   await adminCenter.selectConversation(conversationId)
   await focusDetailPane()
+}
+
+const handleLoadMoreConversations = async (): Promise<void> => {
+  if (loadedHiddenConversationCount.value > 0) {
+    conversationRenderLimit.value += CONVERSATION_RENDER_WINDOW
+    return
+  }
+
+  await adminCenter.loadMoreConversations()
 }
 
 const handleMobileBackToList = (): void => {

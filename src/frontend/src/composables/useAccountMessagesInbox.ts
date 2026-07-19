@@ -16,6 +16,7 @@ import type { NotificationStreamInboxRenderPatch } from '@/services/notification
 import { useNotificationStreamStore } from '@/store/notificationStream'
 import { showErrorToast } from '@/utils/errorPresentation'
 import { toast } from '@/fsusui/feedback'
+import { compareConversationByLastMessage, mergeConversationPages } from '@/composables/messageConversationPagination'
 
 const PAGE_SIZE = 20
 const FILTERS: readonly ConversationFilter[] = ['all', 'unread', 'system', 'open', 'pending', 'closed']
@@ -43,12 +44,6 @@ const toConversationListItem = (detail: ConversationDetailResponse): Conversatio
 }
 
 const normalizeFilter = (value: ConversationFilter): ConversationFilter => value
-
-const compareConversationByLastMessage = (left: ConversationListItemResponse, right: ConversationListItemResponse): number => {
-  const leftTime = Date.parse(left.lastMessageAt) || 0
-  const rightTime = Date.parse(right.lastMessageAt) || 0
-  return rightTime - leftTime || String(right.conversationId).localeCompare(String(left.conversationId))
-}
 
 const upsertConversationListItem = (
   items: readonly ConversationListItemResponse[],
@@ -99,6 +94,11 @@ export function useAccountMessagesInbox(isEnabled: () => boolean = () => true) {
 
   const filter = ref<ConversationFilter>('all')
   const conversations = shallowRef<ConversationListItemResponse[]>([])
+  const totalConversations = ref(0)
+  const nextCursor = ref<string | null>(null)
+  const hasMoreConversations = ref(false)
+  const loadingMoreConversations = ref(false)
+  const loadedPageCount = ref(0)
   const selectedConversationId = ref<string>('')
   const detail = shallowRef<ConversationDetailResponse | null>(null)
 
@@ -161,16 +161,32 @@ export function useAccountMessagesInbox(isEnabled: () => boolean = () => true) {
     replyBody.value = replyDrafts[conversationId] ?? ''
   }
 
-  const refreshList = async (silent = false): Promise<boolean> => {
+  const resetPagination = (): void => {
+    totalConversations.value = 0
+    nextCursor.value = null
+    hasMoreConversations.value = false
+    loadedPageCount.value = 0
+  }
+
+  const refreshList = async (silent = false, preserveLoaded = false): Promise<boolean> => {
     if (!isEnabled()) {
       resetInboxState(detail, selectedConversationId, conversations, replyBody, createSubject, createBody)
+      resetPagination()
       return true
     }
 
     if (!silent) loading.value = true
     try {
-      const data = await messageApi.getAccountConversations(1, PAGE_SIZE, normalizeFilter(filter.value))
-      conversations.value = [...(data.items || [])]
+      const data = await messageApi.getAccountConversations(PAGE_SIZE, normalizeFilter(filter.value))
+      if (preserveLoaded && loadedPageCount.value > 1) {
+        conversations.value = mergeConversationPages(conversations.value, data.items || [])
+      } else {
+        conversations.value = mergeConversationPages([], data.items || [])
+        nextCursor.value = data.nextCursor ?? null
+        hasMoreConversations.value = Boolean(data.hasMore && data.nextCursor)
+        loadedPageCount.value = 1
+      }
+      totalConversations.value = data.total
       if (!selectedConversationId.value && conversations.value.length > 0) {
         selectedConversationId.value = conversations.value[0]!.conversationId
       }
@@ -193,6 +209,32 @@ export function useAccountMessagesInbox(isEnabled: () => boolean = () => true) {
     }
 
     return true
+  }
+
+  const loadMoreConversations = async (): Promise<boolean> => {
+    if (!isEnabled() || loadingMoreConversations.value || !hasMoreConversations.value || !nextCursor.value) {
+      return false
+    }
+
+    loadingMoreConversations.value = true
+    try {
+      const data = await messageApi.getAccountConversations(
+        PAGE_SIZE,
+        normalizeFilter(filter.value),
+        nextCursor.value
+      )
+      conversations.value = mergeConversationPages(conversations.value, data.items || [])
+      totalConversations.value = data.total
+      nextCursor.value = data.nextCursor ?? null
+      hasMoreConversations.value = Boolean(data.hasMore && data.nextCursor)
+      loadedPageCount.value += 1
+      return true
+    } catch (error) {
+      showErrorToast(error, '更多会话加载失败')
+      return false
+    } finally {
+      loadingMoreConversations.value = false
+    }
   }
 
   const loadDetail = async (conversationId: string, markRead = true, silent = false): Promise<boolean> => {
@@ -428,7 +470,7 @@ export function useAccountMessagesInbox(isEnabled: () => boolean = () => true) {
           }
           break
         case 'reconnected':
-          void refreshList(true)
+          void refreshList(true, true)
           break
       }
     }
@@ -489,6 +531,7 @@ export function useAccountMessagesInbox(isEnabled: () => boolean = () => true) {
       }
 
       resetInboxState(detail, selectedConversationId, conversations, replyBody, createSubject, createBody)
+      resetPagination()
     }
   )
 
@@ -516,6 +559,9 @@ export function useAccountMessagesInbox(isEnabled: () => boolean = () => true) {
     creating,
     filter,
     conversations,
+    totalConversations,
+    hasMoreConversations,
+    loadingMoreConversations,
     selectedConversationId,
     selectedConversation,
     detail,
@@ -527,6 +573,7 @@ export function useAccountMessagesInbox(isEnabled: () => boolean = () => true) {
     createBody,
     hasSelection,
     refreshList,
+    loadMoreConversations,
     selectConversation,
     cancelConversationSwitch,
     saveDraftAndSwitch,
