@@ -3,7 +3,7 @@
 本文件是 FsusBlog 所有请求/响应 DTO、通知 WebSocket 信封与 AOT 契约的**完整参考**。
 所有定义的权威源码位于 `src/shared/Contracts/` 目录。
 
-> 最近更新：2026-07-16 — 强匿名评论升级为 `fsus.anonymous.comment.v5` / layout 6；公开契约只保留最小资格谓词。
+> 最近更新：2026-07-19 — RiskControl verify 增加 UUIDv7 envelope identity、member progress，并仅在全部 member 完成后返回 aggregate proof。
 
 ## v5/layout 6 强匿名资格契约（覆盖旧 presentation 描述）
 
@@ -151,17 +151,19 @@ payload 字典化的第一阶段采用兼容 layout：ArticleList/ArticleSearch/
 
 `SecurityChallengeKind` 的 wire/decoder 枚举只表达 `kind_known`，不承诺端到端可执行。仓库随构建发布版本化 capability manifest；每个 enum 值显式记录 provider、executor factory、UI/headless host、取消能力和业务 surface。当前 Captcha 与 Perception 具备 UI executor；`sha256PowV1` 只在 `notification.subscribe` 具备 headless executor/host；`argon2idPoSpaceV1` 通过同一可取消 executor 同时注册 UI host 与 `notification.subscribe` headless host。HumanReadProof 与 Passkey 占位宿主仍不进入可启用 manifest。服务端策略和签发必须同时满足 provider、manifest version、executor 与 action host；未知能力一律 fail closed。该规则不增加 AEDS 字段，不改变 `SecurityChallengeAssignment` / `SecurityChallengeEnvelope` 布局。
 
-RiskControl challenge assignment 使用统一 AEDS 契约，不在 PoW、Captcha、PoSpace、HumanReadProof、Passkey step-up 或匿名 proof provider 中各自定义不同字段。`SecurityChallengeAssignment` 必须包含 `challengeId`、`traceparent`、`tenantId`、`kind`、`escalationLevel`、`action`、`routeKey`、`subjectHash`、`clientIpHash`、`deviceFpHash`、`issuedAtUnixMs` 和 `expiresAtUnixMs`；`expiresAtUnixMs` 必须大于 `issuedAtUnixMs`。`challengeId` 默认使用 UUID v7；`captchaV1` 读取端兼容 UUID v4/v7。`subjectHash`、`clientIpHash`、`deviceFpHash` 均为 64 字符 SHA-256 hex，不携带原文。
+RiskControl challenge assignment 使用统一 AEDS 契约，不在 PoW、Captcha、PoSpace、HumanReadProof、Passkey step-up 或匿名 proof provider 中各自定义不同字段。每次 `challenge|stepUp` issue 生成一个 UUIDv7 `SecurityChallengeEnvelope.envelopeId`；envelope 的 assignment 数组是服务端权威的 ordered required member 集合，顺序必须与 `RiskDecision.RequiredChallenges` 一致且不能由客户端重排。每个 `SecurityChallengeAssignment` 通过其所在 envelope 绑定同一 `envelopeId`，并包含 `challengeId`、`traceparent`、`tenantId`、`kind`、`escalationLevel`、`action`、`routeKey`、`subjectHash`、`clientIpHash`、`deviceFpHash`、`issuedAtUnixMs` 和 `expiresAtUnixMs`；同一 envelope 的 action、routeKey、subject/client/device hash 与 policyVersion 必须一致，`expiresAtUnixMs` 必须大于 `issuedAtUnixMs`。`envelopeId` 只接受 UUID v7；`challengeId` 默认使用 UUID v7，`captchaV1` 读取端兼容 UUID v4/v7。`subjectHash`、`clientIpHash`、`deviceFpHash` 均为 64 字符 SHA-256 hex，不携带原文。
 
 支持的 `SecurityChallengeKind` wire name 为：`sha256PowV1`、`argon2idPoSpaceV1`、`captchaV1`、`humanReadProofV1`、`passkeyStepUpV1`、`adminPasskeyStepUpV1`、`recoveryKeyProofV1`、`anonymousCredentialProofV1`、`zkAnonymousCommentProofV1`、`perceptionTextTaskV2`、`perceptionCharacterV2`、`perceptionLocalizationV2`、`perceptionMicroInteractionV2`。
 
 RiskControl 风险事件使用稳定 source wire value 与 reason enum 名称做跨端归因。旧 reason `VerifiedCrawler` 到 `CommentNullifierAbuse` 的枚举数值保持不变，新生产 challenge reason 只能追加：`CaptchaInvalid`、`CaptchaReplay`、`CaptchaSolveTooFast`、`DeviceFingerprintMissing`、`DeviceFingerprintChanged`、`RegionPolicyHit`、`CommentSpamPatternHit`、`AnonymousNullifierAbuse`、`AuthFailureBurst`、`PasskeyAssertionFailure`、`AdminStepUpRequired`、`AdminStepUpFailed`、`ChallengeExpired`、`ChallengeKindMismatch`、`ChallengeSignatureInvalid`。稳定 source wire value 包括 `anti-crawler`、`auth`、`rate-limiter`、`pow`、`human-read-proof`、`passkey`、`public-read`、`pospace`、`risk-control`、`captcha`、`device-fingerprint`、`region-policy`、`comment-governance` 和 `admin-step-up`。未知 reason 枚举值进入日志/事件时保留原始数值字符串，避免老节点读取新 reason 时失败。
 
-challenge 签发与验证审计由 `security_challenge` 和 `security_challenge_attempt` 持久化，Redis 只作为一次性消费 / 热路径缓存。持久化 metadata 对应 assignment 字段和策略上下文：kind、algorithm、action、routeKey、subjectHash、clientIpHash、deviceFpHash、policyVersion、payloadHash、traceId、traceparent、issued/expires 时间，以及 attempt outcome。payload / proof 原文不得进入持久化表；状态只允许 `issued | verified | expired | replayed | failed | revoked`。`verified`、`revoked`、`expired` 是终态；后续失败、重放或过期 attempt 可以审计落表，但不得把主 challenge 状态降级。
+challenge 签发与验证审计由 `security_challenge` 和 `security_challenge_attempt` 持久化，Redis 保存短 TTL envelope/member 热状态与最终一次性 proof。PostgreSQL 仍按各 member 的 challengeId 保存 assignment 字段和策略上下文：kind、algorithm、action、routeKey、subjectHash、clientIpHash、deviceFpHash、policyVersion、payloadHash、traceId、traceparent、issued/expires 时间，以及 attempt outcome；payload / proof 原文不得进入持久化表。member 仍使用 `issued | verified | expired | replayed | failed | revoked`。Redis envelope 保存 ordered challengeIds、requiredKinds、verifiedMembers、version 与 `active | completed | failed | expired | revoked` 状态；重放是拒绝 reason，不会把 completed envelope 改写为另一成功状态。单 member envelope 也走相同转换。
 
-成功完成 challenge provider 校验后，统一 proof token 使用 `X-Fsus-Challenge-Proof` header 传递。该 token 是 opaque 值；Redis `SecurityChallengeProof` cache 保存一次性 claims，并绑定 `challengeId`、`kind`、`action`、`routeKey`、`subjectHash`、`clientIpHash`、`deviceFpHash`、`issuedAt`、`expiresAt`、`nonce` 和 `policyVersion`。服务端消费时必须先执行 consume-once，再校验绑定字段；replay / Redis miss、action 或 route mismatch、IP/device mismatch、过期 proof 都不得进入业务写入，并必须写 challenge attempt。该 header 不替代 `X-Fsus-Mfa-Proof`、legacy `X-Fsus-Pow-Proof` 或 HumanReadProof 阅读计数 proof。
+Redis envelope state 必须带不超过最短 required member expiry 的 TTL，并以 versioned compare-and-set 原子检查 `envelopeId + next ordinal + member state + binding hashes + policyVersion` 后推进 progress，不能由进程内 read-modify-write 决定 completed。重复 verify 已成功的 member 按 replay fail closed，不得重复推进计数或提前 mint；任一 required member 失败、过期、撤销、重放、顺序错乱，或 CAS 发现 envelope replacement / identity drift 时，整个 envelope fail closed 且不得进入 completed。PostgreSQL audit 不能代替 Redis CAS 放行；Redis miss/断连也不能从客户端自报 progress 重建成功。
 
-challenge provider 统一通过 `ISecurityChallengeProvider` 接入，wire kind 与上表 `SecurityChallengeKind` 一致。provider 必须先持久化 challenge，再返回可下发 assignment；`SecurityChallengeOrchestrator` 根据 `RiskDecision.RequiredChallenges` 调用 provider，可返回单个或多个 `SecurityChallengeAssignment`，并可携带按 `challengeId` 分组的 provider payload 供 binary response 编码；provider missing、provider failure、assignment 无效或 proof mint failure 必须返回可观测错误并 fail closed，不得落入具体业务 endpoint 的 fallback 分支。
+单个 challenge provider 校验成功只把对应 member 标为 verified 并返回 progress，不得签发业务 proof。只有 CAS 确认 ordered required members 全部 verified 后，orchestrator 才能 mint 一个 aggregate proof token，并通过 `X-Fsus-Challenge-Proof` header 传递。该 token 是 opaque 值；Redis `SecurityChallengeProof` cache 保存一次性 claims，并绑定 `envelopeId`、ordered `requiredKinds`、最后一个 ordered member 的 `challengeId` / `kind`、`action`、`routeKey`、`subjectHash`、`clientIpHash`、`deviceFpHash`、`issuedAt`、`expiresAt`、`nonce` 和 `policyVersion`。最终业务请求为兼容既有三项 header，`X-Fsus-Challenge-Id` 与 `X-Fsus-Challenge-Kind` 仍发送最后一个 ordered member 的值；服务端必须从 proof claims 校验 envelopeId 与完整 ordered requiredKinds，不能把 header 中最后一个 member 当作“全部完成”的声明。服务端消费时必须先执行 consume-once，再校验全部绑定字段；replay / Redis miss、action 或 route mismatch、IP/device mismatch、过期 proof、requiredKinds 重排或 envelope replacement 都不得进入业务写入，并必须写 challenge attempt。该 header 不替代 `X-Fsus-Mfa-Proof`、legacy `X-Fsus-Pow-Proof` 或 HumanReadProof 阅读计数 proof。
+
+challenge provider 统一通过 `ISecurityChallengeProvider` 接入，wire kind 与上表 `SecurityChallengeKind` 一致。provider 必须先持久化 challenge，再返回可下发 assignment；`SecurityChallengeOrchestrator` 根据 `RiskDecision.RequiredChallenges` 建立 UUIDv7 envelope，按策略顺序调用 provider，返回完整 assignments，并携带按 `challengeId` 一一对应的 provider payload 供 binary response 编码。provider missing、provider failure、assignment/payload 对应无效、member state CAS 失败或 aggregate proof mint failure 必须返回可观测错误并 fail closed，不得落入具体业务 endpoint 的 fallback 分支。policy validation/readiness 必须在启用组合 band 前确认每个 required kind 同时具备后端 provider、前端 executor 与对应 UI/headless host；尚不满足时拒绝策略启用，而不是让运行时永久返回 `RISK_CHALLENGE_SET_INCOMPLETE`。
 
 `sha256PowV1` provider 的 issue payload 只包含 legacy PoW challenge 必需字段：`salt`、`difficulty`、`timestamp`、`signature`。`signature` 是无 padding Base64Url HMAC，不能使用旧标准 Base64 `+`、`/`、`=` 兼容格式。verify payload 必须包含 `proof`，其值为旧 `X-Fsus-Pow-Proof` 使用的 Base64 FPOW binary proof；服务端复用同一解析器、`IPowService.VerifyAsync` 和 `AdaptivePowGovernor` difficulty 裁决。该 provider 不引入公开 JSON fallback，不改变现有 FPOW wire format，也不删除 `GET /api/binary/auth/pow-challenge` 或 `X-Fsus-Pow-Proof` legacy 路径。
 
@@ -224,13 +226,14 @@ PoSpace UI 与 notification headless 路径都必须调用共享 executor 完成
 | `escalationLevel` | int | 策略要求的升级等级 |
 | `policyVersion` | string | 产生该裁决的 RiskControl policy version |
 | `retryAfterMs` | int | 限流 / 排队建议等待时间；当前 endpoint 返回 0 |
-| `envelope` | `SecurityChallengeEnvelope?` | `challenge` / `stepUp` 时返回 assignment 集合；非 challenge 裁决为空 |
-| `providerPayloads` | array | 按 `challengeId` 返回 provider payload JSON；`sha256PowV1` 包含 `salt`、`difficulty`、`timestamp`、Base64Url `signature` |
+| `envelope` | `SecurityChallengeEnvelope?` | `challenge` / `stepUp` 时返回 UUIDv7 `envelopeId`、policyVersion 与完整 ordered assignments（1..8）；非 challenge 裁决为空 |
+| `providerPayloads` | array | 与 ordered assignments 一一对应并按 `challengeId` 关联的 provider payload JSON；不得只返回第一项；`sha256PowV1` 包含 `salt`、`difficulty`、`timestamp`、Base64Url `signature` |
 
 `SecurityChallengeVerifyRequest` 字段：
 
 | 字段 | 类型 | 说明 |
 | ------ | ------ | ------ |
+| `envelopeId` | string | issue response 的 UUIDv7 envelope id；必填，非 v7 或与 member 不匹配时 fail closed |
 | `challengeId` | string | issue response 中的 assignment id；必填 |
 | `kind` | enum | `SecurityChallengeKind`；未知或未支持 kind fail closed |
 | `action` | string | 必须与 issue / 后续业务 endpoint 绑定的 action 一致 |
@@ -241,27 +244,35 @@ PoSpace UI 与 notification headless 路径都必须调用共享 executor 完成
 
 | 字段 | 类型 | 说明 |
 | ------ | ------ | ------ |
-| `verified` | bool | provider 校验是否通过；成功响应固定为 `true` |
+| `verified` | bool | 本次 member provider 校验是否通过；成功响应固定为 `true`，不代表 envelope 已完成 |
+| `envelopeId` | string | 服务端权威 UUIDv7 envelope id |
 | `challengeId` | string | 被验证的 challenge id |
 | `kind` | enum | 被验证的 provider kind |
 | `policyVersion` | string | proof 绑定的 policy version |
-| `proofToken` | string | 一次性 opaque proof，后续业务请求放入 `X-Fsus-Challenge-Proof` |
-| `expiresAtUnixMs` | int64 | 服务端权威绝对到期时间，来自实际 provider / aggregate mint claims；客户端只可应用保守时钟偏差，不得固定推算 TTL |
+| `completedCount` | int | 已 verified 的 required member 数量；范围 `0..memberCount`，不能由客户端累加推断 |
+| `memberCount` | int | envelope required member 总数；范围 `1..8`，单 challenge 固定为 `1` |
+| `envelopeCompleted` | bool | 仅当本次 member verified 且 `completedCount == memberCount` 时为 `true` |
+| `proofToken` | string | 仅 `envelopeCompleted=true` 时返回 aggregate opaque proof；in-progress 响应必须为空 |
+| `expiresAtUnixMs` | int64 | completed 时来自 aggregate mint claims 的服务端权威绝对到期时间；客户端只可应用保守时钟偏差，不得固定推算 TTL |
 | `reason` | string | 成功为 `ok`；失败走 `ApiError` frame |
 | `retryAfterMs` | int | 当前成功响应为 0 |
 
-受 `RequiresRiskControlFilter` 保护的 endpoint 必须具备 `RiskActionEndpointMetadata`，服务端用 action、routeKey、subjectHash、clientIpHash、deviceFpHash 和 policyVersion 消费统一 proof。RiskControl actor context 不能混用身份平面：普通账号 actor 可携带 `UserId/SessionId`，AdminPrincipal actor 只能携带 `AdminPrincipalId/AdminSessionId` 且 `UserId/SessionId` 必须为 null；subject binding 对 AdminPrincipal 只使用 admin id + admin session。客户端提交已签发 proof 时必须同时发送 `X-Fsus-Challenge-Proof`、`X-Fsus-Challenge-Id`、`X-Fsus-Challenge-Kind`；缺 proof 返回 proof required，重放 / Redis miss、过期、绑定不匹配和撤销分别映射为安全公开分类，并通过 `X-Fsus-Challenge-Proof-Outcome` 返回；该分类不得包含内部 cache 或身份细节。proof 已通过后出现的普通业务校验拒绝不带该 header，transport 仍把 token 视为已消费而不能恢复。block / throttle 类裁决返回 429。`queue` 裁决只允许业务端显式读取 `RiskControlDecisionContext` 后继续执行；评论创建会把 queue 映射为待审队列并记录 `risk_control_queue`，其他未接入 queue 语义的写入口不得默默放行。当前高价值入口使用的 action 为：`POST /api/binary/comment` root create -> `comment.create`，同一路径 reply payload -> `comment.reply`，`POST /api/binary/auth/passkey/login/begin` -> `auth.passkey.begin`，`POST /api/binary/auth/passkey/login/complete` -> `auth.passkey.complete`，`POST /api/binary/auth/recovery-key/verify` -> `recovery-key.verify`，匿名 `GET /api/notifications/stream/preflight` / WebSocket handshake -> `notification.subscribe`。notification preflight 通过 headers 消费原 proof 并签发最长 30 秒、受 proof expiry 上限约束的一次性 HttpOnly grant；WebSocket 只消费 grant，原 proof 不进入 query。旧 `auth.login` action 仅保留给 legacy migration/test policy，不绑定生产用户侧 password endpoint。旧 `RequiresPowFilter` endpoint 仍使用 `X-Fsus-Pow-Proof`；同时保留 PoW 的 auth/comment endpoint 需要同时提交 legacy PoW proof 与 RiskControl proof，notification stream 继续兼容 legacy `pow` query proof。
+受 `RequiresRiskControlFilter` 保护的 endpoint 必须具备 `RiskActionEndpointMetadata`，服务端用 aggregate claims 中的 envelopeId、ordered requiredKinds、action、routeKey、subjectHash、clientIpHash、deviceFpHash 和 policyVersion 消费统一 proof。RiskControl actor context 不能混用身份平面：普通账号 actor 可携带 `UserId/SessionId`，AdminPrincipal actor 只能携带 `AdminPrincipalId/AdminSessionId` 且 `UserId/SessionId` 必须为 null；subject binding 对 AdminPrincipal 只使用 admin id + admin session。客户端提交已签发 proof 时必须同时发送 `X-Fsus-Challenge-Proof`、`X-Fsus-Challenge-Id`、`X-Fsus-Challenge-Kind`；后两项固定取最后一个 ordered member，仅作为 transport compatibility binding，不能替代 aggregate claims 校验。缺 proof 返回 proof required，重放 / Redis miss、过期、绑定不匹配、requiredKinds 重排、incomplete envelope 和撤销分别映射为安全公开分类，并通过 `X-Fsus-Challenge-Proof-Outcome` 返回；该分类不得包含内部 cache 或身份细节。proof 已通过后出现的普通业务校验拒绝不带该 header，transport 仍把 token 视为已消费而不能恢复。block / throttle 类裁决返回 429。`queue` 裁决只允许业务端显式读取 `RiskControlDecisionContext` 后继续执行；评论创建会把 queue 映射为待审队列并记录 `risk_control_queue`，其他未接入 queue 语义的写入口不得默默放行。当前高价值入口使用的 action 为：`POST /api/binary/comment` root create -> `comment.create`，同一路径 reply payload -> `comment.reply`，`POST /api/binary/auth/passkey/login/begin` -> `auth.passkey.begin`，`POST /api/binary/auth/passkey/login/complete` -> `auth.passkey.complete`，`POST /api/binary/auth/recovery-key/verify` -> `recovery-key.verify`，匿名 `GET /api/notifications/stream/preflight` / WebSocket handshake -> `notification.subscribe`。notification preflight 通过 headers 消费 aggregate proof 并签发最长 30 秒、受 proof expiry 上限约束的一次性 HttpOnly grant；WebSocket 只消费 grant，原 proof 不进入 query。旧 `auth.login` action 仅保留给 legacy migration/test policy，不绑定生产用户侧 password endpoint。旧 `RequiresPowFilter` endpoint 仍使用 `X-Fsus-Pow-Proof`；同时保留 PoW 的 auth/comment endpoint 需要同时提交 legacy PoW proof 与 RiskControl aggregate proof，notification stream 继续兼容 legacy `pow` query proof。
 
-前端 `BinaryRequestOptions.riskChallengeProof` 只接受 proof store reservation 产生的 typed lease，不接受 header map。transport 校验 action、routeKey、challengeId、kind、proofToken、policyVersion 与服务端权威 expiry 后统一写 header；旧 `requiresPow/powScope` 始终只生成 legacy `X-Fsus-Pow-Proof`，两者不互转。fetch 前取消恢复 reservation；进入 fetch 后的成功、业务拒绝、明确 expired/replayed/binding mismatch/revoked/rejected 或未知网络结果都进入终态。`BinaryTransportError.riskChallengeFailure` 是 428 的唯一业务可见结构化分类。challenge-aware command 只可重放 `idempotent` 或带固定 `mutationIdentity` 的原始命令，proof 已可能到达服务端时不自动重放。
+前端 `BinaryRequestOptions.riskChallengeProof` 只接受 proof store reservation 产生的 typed aggregate lease，不接受 header map。UI host 与 notification headless host 共用一个 envelope runner：它迭代完整 assignments，用 `challengeId` 查找对应 provider payload 和已注册 executor，逐 member 提交 verify，并只在 `envelopeCompleted=true` 后向业务层暴露 proof。默认顺序执行；只有服务端 policy/capability 明示时才能有界并行，PoSpace、perception 或其他 expensive Worker 必须受固定小并发上限约束，不能按 member 数量无界启动。refresh、cancel、身份变化、route generation 变化、组件 unmount 或 notification dispose 会取消整个 envelope；旧 generation 的迟到 worker/verify 结果不得提交或覆盖新 envelope。
+
+transport 校验 action、routeKey、最后 member challengeId/kind、proofToken、policyVersion 与服务端权威 expiry 后统一写 header；旧 `requiresPow/powScope` 始终只生成 legacy `X-Fsus-Pow-Proof`，两者不互转。fetch 前取消恢复 reservation；进入 fetch 后的成功、业务拒绝、明确 expired/replayed/binding mismatch/revoked/rejected 或未知网络结果都进入终态。`BinaryTransportError.riskChallengeFailure` 是 428 的唯一业务可见结构化分类。challenge-aware command 只可重放 `idempotent` 或带固定 `mutationIdentity` 的原始命令，proof 已可能到达服务端时不自动重放。旧客户端缺少 `envelopeId` verify wire 时在 decode/validation 阶段返回 `security_challenge_verify_request_invalid`；有效 envelope/member 但 binding 不符时内部 reason 为 `challenge_envelope_binding_mismatch`，对 binary caller 统一收敛为 428 `challenge_failed`，不得泄露哪项绑定失败。manifest 不支持组合 capability 时沿用 catalog 的 `capability_unavailable` / `executor_unavailable` 等内部 reason，不承诺新增 public 版本码，也不得执行第一项后继续业务。
+
+无需重启的回退只允许通过 reload-capable RiskControl policy 禁止产生 `RequiredChallenges.Count > 1`、把受影响 action 切到 `observe|disabled`，或回滚 last-known-good policy；已签发的多 member envelope 继续按原 expiry fail closed，不转换为单 member proof。回退不得恢复 `assignments[0]`、多个独立 header token、客户端自报 completed 或公开 JSON fallback。重新启用前，policy validation/readiness 必须确认组合中每个 kind 的 provider、executor、UI/headless host 和 manifest version 全部可执行。
 
 | FrameType | 值 | POD | 用途 |
 | ----------- | ---- | ----- | ------ |
 | `SecurityChallengeAssignment` | 171 | `SecurityChallengeAssignmentPod` | 单个 challenge assignment |
-| `SecurityChallengeEnvelope` | 172 | `SecurityChallengeEnvelopePod` + `SecurityChallengeAssignmentPod[]` | 一次裁决返回的 challenge assignment 集合，最多 8 个 |
+| `SecurityChallengeEnvelope` | 172 | `SecurityChallengeEnvelopePod` + `SecurityChallengeAssignmentPod[]` | UUIDv7 envelope 与 ordered required assignment 集合，最多 8 个；单 challenge 同样使用 |
 | `SecurityChallengeIssueRequest` | 173 | `SecurityChallengeIssueRequestPod` + UTF-8 blob | RiskControl challenge 签发请求 |
-| `SecurityChallengeVerifyRequest` | 174 | `SecurityChallengeVerifyRequestPod` + UTF-8 blob | RiskControl challenge provider proof 验证请求 |
+| `SecurityChallengeVerifyRequest` | 174 | `SecurityChallengeVerifyRequestPod` + UTF-8 blob | 携带 envelopeId/member identity 的 provider proof 验证请求 |
 | `SecurityChallengeIssueResponse` | 175 | `SecurityChallengeIssueResponsePod` + assignment / provider payload records + UTF-8 blob | RiskControl challenge 签发响应 |
-| `SecurityChallengeVerifyResponse` | 176 | `SecurityChallengeVerifyResponsePod` + UTF-8 blob | 一次性 proof token 响应 |
+| `SecurityChallengeVerifyResponse` | 176 | `SecurityChallengeVerifyResponsePod` + UTF-8 blob | member progress；仅全部完成时携带 aggregate proof token |
 | `PerceptionSealedChallengeV2` | 184 | `PerceptionSealedChallengeV2Pod` + UTF-8 blob | perception-sealed@v2 issue payload；三类 task kind 共用 |
 | `PerceptionSealedResultV2` | 185 | `PerceptionSealedResultV2Pod` + UTF-8 blob | perception-sealed@v2 verify payload；三类 response payload 共用 |
 | `RetiredCredentialSpecificRevocationRequest` | 186 | 无有效 payload | 永久 retired；服务端不得读取或恢复 credential-specific handle body |
@@ -947,7 +958,7 @@ interface AdminTagItemResponse extends AdminCategoryItemResponse {
 - 每条消息：完整 AEDS v2 frame
 - 传输语义：notification stream 不是标准 Server-Sent Events，不使用 `EventSource` 或 `text/event-stream`
 - Origin 语义：preflight 与正式 WebSocket 握手共用 allowlist 校验；允许 `Seo:BaseUrl`、`Fido2:Origins`、`CORS_ALLOWED_HOSTS` 与开发 localhost，生产跨站、非 HTTPS/WSS 或浏览器缺失 Origin 返回 AEDS `ApiError`，错误码 `origin_not_allowed`
-- 匿名连接：优先走 `notification.subscribe` RiskControl 准入；preflight 使用 `X-Fsus-Challenge-*` header 原子消费 proof，并设置短效一次性 HttpOnly grant；浏览器 WebSocket 只消费 grant，原 proof 不进入 URL。旧 `pow` query 参数继续兼容，用于传递二进制 FPOW 证明的 base64 文本形式
+- 匿名连接：优先走 `notification.subscribe` RiskControl 准入；UI 与 notification headless 共用同一 ordered envelope runner，preflight 使用 `X-Fsus-Challenge-*` header 原子消费最终 aggregate proof，并设置短效一次性 HttpOnly grant；浏览器 WebSocket 只消费 grant，member proof / aggregate proof 原文都不进入 URL。旧 `pow` query 参数继续兼容，用于传递二进制 FPOW 证明的 base64 文本形式
 - 断线续传：使用 `cursor` query 参数传递最后确认的事件 ID；event id 分配、route backlog append 与本机 fanout enqueue 按全局发布顺序提交，同一 route 不得因并发 publisher 写入倒序 Redis stream id
 
 ### 握手预检

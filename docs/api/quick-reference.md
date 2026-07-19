@@ -220,8 +220,8 @@
 | GET `/api/binary/system/page/{slug}` | 🔓 📦 | `PageContent`(14) | 公开静态页内容，slug allowlist 同上 |
 | POST `/api/binary/read-proof/challenge.aeds` | 🔓 🚦 📦 | `HumanReadChallengeRequest`(73) → `HumanReadChallengeResponse`(28) | 真人阅读 challenge；受 `read_proof` 限流 |
 | POST `/api/binary/read-proof/submit.aeds` | 🔓 🚦 📦 | `HumanReadSubmitRequest`(74) → `HumanReadSubmitResponse`(29) | 真人阅读 proof 提交；raw IP 只同步生成短期 HMAC，去重不可用时丢弃统计 |
-| POST `/api/binary/security/challenge` | 🔓 🚦 📦 | `SecurityChallengeIssueRequest`(173) → `SecurityChallengeIssueResponse`(175) | RiskControl challenge 签发；perception-sealed@v2 记录 issue/payload/task metrics；不提供 JSON fallback |
-| POST `/api/binary/security/challenge/verify` | 🔓 🚦 📦 | `SecurityChallengeVerifyRequest`(174) → `SecurityChallengeVerifyResponse`(176) | Provider proof 验证，成功返回一次性 `proofToken` 与服务端权威 `expiresAtUnixMs`；perception-sealed@v2 metrics 失败不影响验证结果 |
+| POST `/api/binary/security/challenge` | 🔓 🚦 📦 | `SecurityChallengeIssueRequest`(173) → `SecurityChallengeIssueResponse`(175) | 签发 UUIDv7 envelope 与 1..8 个 ordered assignments，保留每个 member 的 provider payload 对应关系；单 challenge 使用同一状态机；不提供 JSON fallback |
+| POST `/api/binary/security/challenge/verify` | 🔓 🚦 📦 | `SecurityChallengeVerifyRequest`(174) → `SecurityChallengeVerifyResponse`(176) | 请求显式携带 envelope/member identity；成功返回 member progress，仅全部完成时返回 aggregate `proofToken` 与权威 `expiresAtUnixMs` |
 | GET `/api/binary/anonymous-credential/root` | 🔓 🚦 📦 | `AnonymousCredentialRootSnapshot`(179) | 公开 credential root / epoch / expiry / circuit metadata；`public_read` 限流 |
 | GET `/api/binary/anonymous-credential/circuit` | 🔓 🚦 📦 | `AnonymousCredentialRootSnapshot`(179) | 同 root snapshot，用于 prover 预热读取 circuit/verifying key metadata |
 | POST `/api/binary/anonymous-credential/revocation-witness` | 🔓 🚦 📦 | 固定 `ApiError` / 410 | credential-specific witness 永久 retired；body/参数均不读取 |
@@ -398,8 +398,8 @@
 
 | 方法 | 路径 | 权限 | 说明 |
 | ------ | ------ | ------ | ------ |
-| GET | `/api/notifications/stream/preflight` | 🔓 🚦 | WebSocket 通知握手预检；RiskControl proof 仅通过 header 原子消费并换取短效 HttpOnly 一次性 grant，成功返回 204；legacy PoW 保持兼容 |
-| GET | `/api/notifications/stream` | 🔓 🚦 | WebSocket 通知通道（子协议 `fsus-aeds.v2`，握手校验 Origin/RiskControl 或 legacy PoW） |
+| GET | `/api/notifications/stream/preflight` | 🔓 🚦 | WebSocket 通知握手预检；notification headless 与 UI 共用 ordered envelope runner，只有 completed aggregate proof 可通过 header 原子消费并换取短效 HttpOnly 一次性 grant；legacy PoW 保持兼容 |
+| GET | `/api/notifications/stream` | 🔓 🚦 | WebSocket 通知通道（子协议 `fsus-aeds.v2`，握手校验 Origin/completed aggregate RiskControl proof 或 legacy PoW） |
 | POST | `/_fsus/testing/notification-stream/publish` | 🔓 | Development/Test-only notification resilience drill；需 `X-Fsus-Notification-Drill-Secret`，生产不映射 |
 | POST | `/api/binary/telemetry/rum` | 🔓🚦 | AEDS RUM 批量遥测入口 |
 | GET | `/health/live` | 🔓 | JSON 存活探针（仅检查进程） |

@@ -2,7 +2,7 @@
 
 本文件说明 FsusBlog API 层的设计原则与约定，是所有 API 变更的**必读前提文件**。
 
-> 最近更新：2026-07-16 — 强匿名资格证明升级为 v5/layout 6 最小公开谓词与生产匿名集下限。
+> 最近更新：2026-07-19 — RiskControl 组合 challenge 收敛为 UUIDv7 envelope、ordered member progress 与单次 aggregate proof。
 
 ## 强匿名资格最小披露
 
@@ -235,11 +235,17 @@ PoSpace capability 不属于客户端授权输入。客户端不能执行已签�
 
 协议已知不等于客户端可执行。服务端和浏览器必须随同一构建发布 `SecurityChallengeCapabilityCatalog` / `challenge-capability-registry`（manifest version `2026.07.19.2`），逐 kind 区分 `kind_known`、`provider_available`、`executor_available`、`host_available` 和 `policy_eligible`。PoSpace 使用同一 universal executor 同时服务 UI 与 `notification.subscribe` headless host；签发前仍必须按 action 对应 surface fail closed，缺 executor、缺 host 或 manifest 不兼容分别返回受控 capability reason，不能进入占位组件或永久 pending。该 manifest 只描述低信息量构建能力，不得包含设备指纹、身份、Token 或 Proof。
 
-受 RiskControl 保护的业务请求不得把 provider proof 直接发给业务 endpoint；客户端必须先调用 `/api/binary/security/challenge/verify` 换取一次性 `X-Fsus-Challenge-Proof`，再与 `X-Fsus-Challenge-Id`、`X-Fsus-Challenge-Kind` 一起提交到业务 endpoint。verify 成功响应同时返回 provider/mint claims 的服务端权威 `expiresAtUnixMs`，客户端不得固定推算五分钟。Proof Store 只允许内存态 `available -> reserved/in_flight -> consumed|expired|replayed|rejected`；只有确定请求尚未发送时才能恢复 reservation，一旦请求可能到达服务端，超时、连接重置与业务拒绝都必须终结 token 并重新 issue。当前业务 endpoint 与 notification stream 只接受单个 challenge proof；若 V2 policy 裁决返回多个 `RequiredChallenges`，请求路径必须返回 428 fail closed，直到引入显式 aggregate proof contract。
+受 RiskControl 保护的业务请求不得把 provider proof 或多个独立 token 直接发给业务 endpoint。每次 `challenge|stepUp` 裁决建立一个 UUIDv7 `envelopeId`，并保存与 `RiskDecision.RequiredChallenges` 完全同序的 required member bindings；issue response 必须返回完整 ordered assignments 及按各自 `challengeId` 对应的 provider payload。客户端按该顺序提交 `/api/binary/security/challenge/verify`，每次 verify 都显式携带 `envelopeId + challengeId + kind`，服务端只返回权威 `completedCount/memberCount/envelopeCompleted` progress。单 challenge 是 `memberCount=1` 的同一状态机，不维护第二套 mint/consume 逻辑。
+
+任一 member 验证成功只推进 envelope，不签发可用于业务的 proof；仅当全部 required members 均为 verified 时才能 mint 一个 aggregate `X-Fsus-Challenge-Proof`。最终业务 header 为兼容现有 transport 仍使用最后一个 ordered member 的 `challengeId` / `kind`，但 opaque proof claims 必须额外绑定 `envelopeId` 与 ordered `requiredKinds`，并继续绑定 action、routeKey、subject、client IP/device、policyVersion、expiry 和一次性 nonce；服务端消费时同时校验这些 claims，客户端不能通过选择最后一项或重排 kinds 声明完成。任一 required member 失败、过期、撤销、重放、顺序错乱或 envelope 被替换时都 fail closed，且不能进入 completed。
+
+aggregate verify 成功响应返回服务端权威 `expiresAtUnixMs`，客户端不得固定推算五分钟。Proof Store 只允许内存态 `available -> reserved/in_flight -> consumed|expired|replayed|rejected`；只有确定请求尚未发送时才能恢复 reservation，一旦请求可能到达服务端，超时、连接重置与业务拒绝都必须终结 token 并重新 issue。旧客户端若不能执行 `memberCount>1`，必须收到明确版本/能力不兼容结果，不能只执行 `assignments[0]` 后继续业务。UI challenge host 与 notification headless flow 必须调用同一个 envelope runner；runner 允许顺序执行或 policy 明示的有界并行，但 expensive Worker 有固定并发上限，refresh、cancel、身份/route generation 变化和 unmount/dispose 会终止整个 envelope并丢弃迟到结果。
+
+无需重启的回退只能热更新 RiskControl policy 禁用 multi-challenge band、把受影响 action 切到 `observe|disabled`，或回滚 last-known-good policy；已签发 envelope 保持 fail closed 直到 TTL 到期。回退不得拆分为多个 proof、恢复 `assignments[0]`、允许客户端自报 completed 或新增 JSON fallback，认证、admin step-up、notification stream、binary-only 与 legacy PoW 边界保持启用。
 
 普通业务命令必须先提交给服务端；只有收到结构化 428，transport 才把 `X-Fsus-Risk-Decision`、action、routeKey、policyVersion 交给统一 challenge runtime。runtime 必须校验 action/routeKey 与原命令完全一致，再按服务端本次签发的 capability 选择 executor；前端不得预先 issue、维护 `securityBusinessChallengeGates` 或缓存 action→kind 映射。策略在流程中切换时，以最新 428/LKG 服务端裁决为准，旧 challenge 被重新签发或 fail closed；评论 mutation 保留同一 payload closure 与固定 mutation identity，未知网络结果不自动重放。
 
-notification stream 匿名订阅的 `notification.subscribe` action 使用同一生命周期，但原始 proof 只进入 preflight 的 `X-Fsus-Challenge-*` headers。preflight 原子消费 proof 后设置 path-bound、HttpOnly、SameSite=Strict 的短效 opaque grant session cookie；正式 WebSocket 只消费该 grant，URL、日志和 reconnect 都不携带原 proof。grant 也是一次性的：断线重连必须重新 preflight；服务端返回 challenge required 时客户端显式 issue 新 proof，同一 token 不得被并发连接保留。legacy FPOW 的 `pow` query 兼容路径不改变。Passkey assertion 失败只能写风险信号，不改变登录响应 frame；Passkey assertion 成功可写负分风险信号，并继续以 Passkey 作为 MFA 已满足的登录凭据。
+notification stream 匿名订阅的 `notification.subscribe` action 使用同一个 ordered envelope runner 和 aggregate proof 生命周期，但最终 proof 只进入 preflight 的 `X-Fsus-Challenge-*` headers。preflight 原子消费 aggregate proof 后设置 path-bound、HttpOnly、SameSite=Strict 的短效 opaque grant session cookie；正式 WebSocket 只消费该 grant，URL、日志和 reconnect 都不携带原 proof。grant 也是一次性的：断线重连必须重新 preflight；服务端返回 challenge required 时客户端显式 issue 新 envelope，同一 token 不得被并发连接保留。legacy FPOW 的 `pow` query 兼容路径不改变。Passkey assertion 失败只能写风险信号，不改变登录响应 frame；Passkey assertion 成功可写负分风险信号，并继续以 Passkey 作为 MFA 已满足的登录凭据。
 
 `/api/binary/security/challenge/verify` 的尝试次数限制是服务端 hot-path 安全控制，不改变 AEDS request / response contract。端点只依赖 `ISecurityChallengeVerifyRateLimiter`；限流状态必须落在统一缓存 `SecurityChallengeVerifyRateLimit` policy 下，按 1 分钟窗口、客户端 IP hash、device fingerprint hash、规范化 action 和 challengeId hash 计数，超过 3 次时仍返回通用 `challenge_failed`，并写 `SecurityChallengeRejected` 风险信号。
 

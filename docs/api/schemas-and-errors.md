@@ -153,15 +153,19 @@ Notification stream preflight 与 WebSocket 握手失败会在 `X-Fsus-Notificat
 | `protocol_mismatch` | 409 | 缺失或不接受 `fsus-aeds.v2` 子协议 |
 | `auth_failed` | 401 | 携带认证头但认证失败 |
 | `pow_failed` | 401/400 | 匿名连接提交了无效 legacy PoW |
-| `risk_challenge_required` | 428 | 匿名 `notification.subscribe` 需要 RiskControl proof，且未提供 legacy `pow` 兼容 proof |
-| `risk_challenge_rejected` | 428 | RiskControl proof 缺失、过期、重放或绑定不匹配 |
-| `risk_challenge_kind_mismatch` | 428 | 提交的 challenge kind 与当前裁决要求不一致 |
+| `risk_challenge_required` | 428 | 匿名 `notification.subscribe` 需要 completed aggregate RiskControl proof，且未提供 legacy `pow` 兼容 proof |
+| `risk_challenge_rejected` | 428 | aggregate proof 缺失，envelope 未完成/失败/过期/撤销/重放，或 action/route/identity/envelope/ordered requiredKinds 绑定不匹配 |
+| `risk_challenge_kind_mismatch` | 428 | 最后 member header kind 或 aggregate claims 的 ordered requiredKinds 与当前裁决要求不一致 |
 | `risk_control_blocked` | 429 | 当前风险裁决阻断匿名订阅 |
 | `risk_control_throttled` | 429 | 当前风险裁决要求限流 / 降速，通知订阅不进入业务通道 |
 | `account_blocked` | 423 | Notification stream 握手期登录用户处于封禁状态 |
 | `ACCOUNT_BANNED_WRITE_LOCKED` | 423 | 受限会话尝试普通业务写入，作为 Binary `ApiError.Details` 返回 |
 | `account_deleted` | 401 | 登录用户不存在、已删除或已停用 |
 | `notification_handshake_failed` | 500 | 未分类握手失败 |
+
+---
+
+RiskControl aggregate verify 的公开失败面保持有界：缺少 `envelopeId` 的旧 verify wire、非 UUIDv7 envelopeId 或结构无效在 decode/validation 阶段返回 `security_challenge_verify_request_invalid`；有效 envelope/member 但 envelopeId、ordinal、action、route、identity、policy 或 member binding 不符时，服务端内部可记录 `challenge_envelope_binding_mismatch`，对 binary caller 统一返回 HTTP 428 + `challenge_failed`，避免形成 binding oracle。member 失败、过期、撤销、重放、顺序错乱、Redis CAS/TTL miss、incomplete aggregate proof 与 requiredKinds mismatch 同样 fail closed，不新增公开 JSON fallback。capability catalog 的 `capability_unavailable` / `executor_unavailable` 等仍是签发/readiness 的内部受控 reason，不承诺新增 public 客户端版本错误码。
 
 ---
 
@@ -278,8 +282,8 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 25 | `AuthSessionList` | `UserSessionSummaryPod[count]` without raw IP/user id fields | `GET /api/binary/auth/sessions` |
 | 26 | `SiteComplianceConfig` | `SiteComplianceConfigPod` | `GET /api/binary/system/compliance` |
 | 170 | `AdminSessionList` | `AdminSessionSummaryPod[count]` | `GET /api/binary/auth/admin/sessions` |
-| 171 | `SecurityChallengeAssignment` | `SecurityChallengeAssignmentPod` | 单个 RiskControl challenge assignment |
-| 172 | `SecurityChallengeEnvelope` | `SecurityChallengeEnvelopePod` + `SecurityChallengeAssignmentPod[]` | 一次 RiskControl 裁决返回的 challenge 集合 |
+| 171 | `SecurityChallengeAssignment` | `SecurityChallengeAssignmentPod` | ordered envelope 中的单个 RiskControl member assignment |
+| 172 | `SecurityChallengeEnvelope` | `SecurityChallengeEnvelopePod` + `SecurityChallengeAssignmentPod[]` | UUIDv7 envelope 与 1..8 个 ordered required members；单 challenge 同样使用 |
 | 30 | `PowChallenge` | `PowChallengePod` | `GET /api/binary/auth/pow-challenge` |
 | 31 | `UploadInitRequest` | `UploadInitRequestPod` | `POST /api/binary/upload/init` 请求体 |
 | 32 | `UploadCompleteRequest` | `UploadCompleteRequestPod` | `POST /api/binary/upload/{id}/complete` 请求体 |
@@ -474,6 +478,8 @@ replyToAuthorPayload?:CommentAuthorViewPod + blobLength:int32 + blob
 | ------ | -------- |
 | `SecurityChallengeAssignmentPod` | 664 |
 | `SecurityChallengeEnvelopePod` | 132 |
+| `SecurityChallengeVerifyRequestPod` | 44 |
+| `SecurityChallengeVerifyResponsePod` | 232 |
 | `PerceptionSealedChallengeV2Pod` | 916 |
 | `PerceptionSealedResultV2Pod` | 892 |
 
