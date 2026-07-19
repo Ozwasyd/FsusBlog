@@ -1,6 +1,6 @@
-using System.Globalization;
-using System.Net;
 using System.Text.RegularExpressions;
+
+using FsusBlog.Server.Infrastructure.Content;
 
 namespace FsusBlog.Server.Helpers;
 
@@ -21,65 +21,11 @@ public static partial class ImageHelper
     private static partial Regex MarkdownIllustrationRegex();
 
     /// <summary>
-    [GeneratedRegex(@"(?s)(?:```.*?```|~~~.*?~~~)")]
-    private static partial Regex MarkdownFenceRegex();
-
-    [GeneratedRegex(@"!\[[^\]]*\]\([^)]*\)")]
-    private static partial Regex MarkdownImageRegex();
-
-    [GeneratedRegex(@"\[([^\]]+)\]\([^)]*\)")]
-    private static partial Regex MarkdownLinkRegex();
-
-    [GeneratedRegex(@"<[^>]+>")]
-    private static partial Regex HtmlTagRegex();
-
-    [GeneratedRegex(@"(?m)^[\t ]{0,3}(?:#{1,6}|>|[-+*]|\d+[.)])[\t ]+|[*_~`]+")]
-    private static partial Regex MarkdownSyntaxRegex();
-
-    [GeneratedRegex(@"\s+")]
-    private static partial Regex WhitespaceRegex();
-
-    /// <summary>
     /// 将 Markdown/HTML 转为摘要纯文本。保留链接文本，移除图片和 fenced code，
     /// 解码 HTML entity，并在句子、单词和 Unicode grapheme 边界安全截断。
     /// </summary>
     public static string StripMarkdown(string content, int maxLength)
-    {
-        if (string.IsNullOrWhiteSpace(content) || maxLength <= 0)
-        {
-            return string.Empty;
-        }
-
-        string plain = MarkdownFenceRegex().Replace(content, " ");
-        plain = MarkdownImageRegex().Replace(plain, " ");
-        plain = MarkdownLinkRegex().Replace(plain, "$1");
-        plain = WebUtility.HtmlDecode(plain);
-        plain = HtmlTagRegex().Replace(plain, " ");
-        plain = MarkdownSyntaxRegex().Replace(plain, string.Empty);
-        plain = WhitespaceRegex().Replace(plain, " ").Trim();
-
-        int[] graphemes = StringInfo.ParseCombiningCharacters(plain);
-        if (graphemes.Length <= maxLength)
-        {
-            return plain;
-        }
-
-        int contentBudget = Math.Max(1, maxLength - 1);
-        int limit = graphemes[contentBudget];
-        int sentenceEnd = plain.LastIndexOfAny(['。', '！', '？', '.', '!', '?', '；', ';'], limit - 1, limit);
-        if (sentenceEnd >= limit / 2)
-        {
-            return plain[..(sentenceEnd + 1)].TrimEnd();
-        }
-
-        int wordBoundary = plain.LastIndexOf(' ', limit - 1, limit);
-        if (wordBoundary >= limit / 2)
-        {
-            limit = wordBoundary;
-        }
-
-        return string.Concat(plain.AsSpan(0, limit).TrimEnd(), "…");
-    }
+        => ArticleSummaryProjection.ToPlainText(content, maxLength);
 
     public static List<string> ExtractIllustrationUrls(string content)
     {

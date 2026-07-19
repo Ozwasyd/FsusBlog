@@ -414,22 +414,6 @@ public partial class ArticleService
     internal static void AttachTagsForTests(List<ArticleListItemReadModel> items, IReadOnlyDictionary<int, List<TagReadModel>> tagMap)
         => AttachTags(items, tagMap);
 
-    // COMPATIBILITY: Truncation must not split a UTF-16 surrogate pair because summaries retain emoji text.
-    private static string GenerateSafeSummary(string? content)
-    {
-        if (string.IsNullOrWhiteSpace(content))
-            return string.Empty;
-        if (content.Length <= 200)
-            return content;
-
-        int len = 200;
-        // 如果截断点切在了一个 4 字节 Emoji (HighSurrogate) 的头上，主动退让 1 字符，保持语义闭环
-        if (char.IsHighSurrogate(content[len - 1]))
-            len--;
-
-        return content[..len];
-    }
-
     private async ValueTask<long> GetListCacheVersionAsync(CancellationToken cancellationToken)
     {
         string? ver = await _stringReader.GetStringAsync(CachePolicyId.ArticleListVersion, "main", cancellationToken);

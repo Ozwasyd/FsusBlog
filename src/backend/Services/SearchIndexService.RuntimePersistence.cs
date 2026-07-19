@@ -15,6 +15,7 @@ using System.Text.RegularExpressions;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Content;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.NotificationStream;
@@ -218,25 +219,7 @@ public sealed partial class SearchIndexService
     }
 
     private static string NormalizeSummary(string? summary, string body)
-    {
-        if (!string.IsNullOrWhiteSpace(summary))
-        {
-            return summary.Trim();
-        }
-
-        if (string.IsNullOrWhiteSpace(body))
-        {
-            return string.Empty;
-        }
-
-        string plain = NormalizeSnippetText(body);
-        if (plain.Length <= MaxSummaryLength)
-        {
-            return plain;
-        }
-
-        return string.Concat(plain.AsSpan(0, MaxSummaryLength), "...");
-    }
+        => ArticleSummaryProjection.Resolve(summary, body, MaxSummaryLength).Text;
 
     private static string BuildServerSearchSnippet(string keyword, string? title, string? summary, string? body)
     {

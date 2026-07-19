@@ -10,6 +10,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Helpers;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Content;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Projections;
@@ -211,12 +212,15 @@ public sealed class AuthoringDraftLifecycleService(
             return false;
         }
 
+        string? summary = ArticleSummaryProjection.WasAutomaticallyGenerated(revision.DiffSummary)
+            ? null
+            : revision.Summary;
         var updateResult = await articleService.UpdateAsync(new FsusBlog.Core.Services.Articles.UpdateArticleCommand(
             articleId,
             new FsusBlog.Core.Mapping.Models.ArticleWriteRequestCoreModel(
                 revision.Title,
                 revision.MarkdownContent,
-                revision.Summary,
+                summary,
                 revision.CoverImageUrl,
                 revision.CategoryId,
                 AuthoringNormalization.ParseTagIds(revision.TagIds),
@@ -234,9 +238,9 @@ public sealed class AuthoringDraftLifecycleService(
     public Task<ArticlePreviewResponse> PreviewAsync(ServerDraftSaveRequest request)
     {
         PrepublishCheckResponse check = RunPrepublishCheck(request.Title, request.Content, request.Summary, request.CoverImageUrl);
-        string plain = ImageHelper.StripMarkdown(request.Content, PreviewLength);
+        string plain = ArticleSummaryProjection.ToPlainText(request.Content, PreviewLength);
         string bodyHtml = RenderPreviewMarkdown(request.Content ?? string.Empty);
-        string summary = request.Summary ?? plain[..Math.Min(plain.Length, 180)];
+        string summary = ArticleSummaryProjection.Resolve(request.Summary, request.Content, 180).Text;
         string? cover = NormalizePreviewUrl(request.CoverImageUrl, allowMailTo: false);
         string coverHtml = cover is null
             ? string.Empty

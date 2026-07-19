@@ -650,7 +650,8 @@ public partial class ArticleService(
         var summary = NormalizeText(dto.Summary, MaxSummaryLength);
         var coverImageUrl = NormalizeText(dto.CoverImageUrl, 512);
         var tagIds = NormalizeTagIds(dto.TagIds);
-        var safeSummary = string.IsNullOrWhiteSpace(summary) ? GenerateSafeSummary(content) : summary;
+        ArticleSummaryProjectionResult summaryProjection = ArticleSummaryProjection.Resolve(summary, content);
+        string safeSummary = summaryProjection.Text;
         ArticleRightsWriteModel rights = NormalizeArticleRights(dto.Rights);
         DateTime now = DateTime.UtcNow;
         ArticleStatus status = (ArticleStatus)dto.Status;
@@ -703,7 +704,15 @@ public partial class ArticleService(
                 {
                     await _db.Insertable(BuildArticleTags(id, tagIds)).ExecuteCommandAsync();
                 }
-                ArticleRevisionCoordinates revision = await SaveArticleRevisionAsync(id, title, content, safeSummary, coverImageUrl, dto.CategoryId, tagIds, "initial publish");
+                ArticleRevisionCoordinates revision = await SaveArticleRevisionAsync(
+                    id,
+                    title,
+                    content,
+                    safeSummary,
+                    coverImageUrl,
+                    dto.CategoryId,
+                    tagIds,
+                    ArticleSummaryProjection.AttachGenerationVersion("initial publish", summaryProjection));
                 var assetReferences = new ArticleAssetReferenceStore(_db);
                 await assetReferences.ReplaceCurrentArticleAsync(id, content, coverImageUrl, ct).ConfigureAwait(false);
                 await assetReferences.ReplaceRevisionAsync(revision.Id, id, content, coverImageUrl, ct).ConfigureAwait(false);
@@ -1212,7 +1221,8 @@ public partial class ArticleService(
         var summary = NormalizeText(dto.Summary, MaxSummaryLength);
         var coverImageUrl = NormalizeText(dto.CoverImageUrl, 512);
         var tagIds = NormalizeTagIds(dto.TagIds);
-        var safeSummary = string.IsNullOrWhiteSpace(summary) ? GenerateSafeSummary(content) : summary;
+        ArticleSummaryProjectionResult summaryProjection = ArticleSummaryProjection.Resolve(summary, content);
+        string safeSummary = summaryProjection.Text;
         ArticleRightsWriteModel rights = NormalizeArticleRights(dto.Rights);
         DateTime now = DateTime.UtcNow;
         ArticleStatus requestedStatus = (ArticleStatus)dto.Status;
@@ -1275,7 +1285,15 @@ public partial class ArticleService(
                 articleUpdated = true;
                 await UpsertArticleBodyAsync(id, content, now);
                 await ApplyArticleTagsAsync(id, tagIds);
-                ArticleRevisionCoordinates revision = await SaveArticleRevisionAsync(id, title, content, safeSummary, coverImageUrl, dto.CategoryId, tagIds, "article updated");
+                ArticleRevisionCoordinates revision = await SaveArticleRevisionAsync(
+                    id,
+                    title,
+                    content,
+                    safeSummary,
+                    coverImageUrl,
+                    dto.CategoryId,
+                    tagIds,
+                    ArticleSummaryProjection.AttachGenerationVersion("article updated", summaryProjection));
                 var assetReferences = new ArticleAssetReferenceStore(_db);
                 await assetReferences.ReplaceCurrentArticleAsync(id, content, coverImageUrl, ct).ConfigureAwait(false);
                 await assetReferences.ReplaceRevisionAsync(revision.Id, id, content, coverImageUrl, ct).ConfigureAwait(false);
