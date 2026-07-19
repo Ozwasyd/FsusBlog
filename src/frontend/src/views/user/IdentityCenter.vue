@@ -51,20 +51,34 @@
         </dl>
       </FsusUiSettingsSection>
 
-      <FsusUiSettingsSection
+      <FsusUiDangerZone
+        id="identity-account-lifecycle"
         class="mt-6"
         :title="copy.lifecycleTitle"
         :description="copy.lifecycleDescription"
-        :title-tag="'h2'"
+        title-tag="h2"
+        density="compact"
       >
-        <div class="identity-copy-block">
+        <FsusUiRiskNotice
+          :title="copy.deleteAccountCta"
+          type="danger"
+          role="note"
+        >
           <p>{{ copy.lifecycleWarning }}</p>
-        </div>
+        </FsusUiRiskNotice>
         <div v-if="deleteAccountError" class="identity-error-state mt-4" role="alert">{{ deleteAccountError }}</div>
-        <div class="mt-5">
-          <el-button type="danger" :loading="deleteAccountLoading" @click="deleteCurrentAccount">{{ copy.deleteAccountCta }}</el-button>
-        </div>
-      </FsusUiSettingsSection>
+        <FsusUiDestructiveActionPanel
+          :title="copy.deleteAccountCta"
+          :description="copy.lifecycleDescription"
+          density="compact"
+        >
+          <template #actions>
+            <FsusUiInlineActions :aria-label="copy.deleteAccountCta" density="compact">
+              <el-button type="danger" :loading="deleteAccountLoading" @click="deleteCurrentAccount">{{ copy.deleteAccountCta }}</el-button>
+            </FsusUiInlineActions>
+          </template>
+        </FsusUiDestructiveActionPanel>
+      </FsusUiDangerZone>
     </template>
 
     <FsusUiSettingsSection
@@ -83,10 +97,14 @@
         <p>{{ passkeysCopy.recoverySuggestion }}</p>
       </div>
 
-      <ProfileResourceList v-if="!passkeyLoading && !passkeyError && passkeyCredentials.length">
-        <ProfileResourceListItem
+      <FsusUiResourceList
+        v-if="!passkeyLoading && !passkeyError && passkeyCredentials.length"
+        density="compact"
+      >
+        <FsusUiResourceListItem
           v-for="credential in passkeyCredentials"
           :key="credential.id"
+          density="compact"
         >
           <template #title>
             <div v-if="passkeyEditingId === credential.id" class="flex items-center gap-3">
@@ -111,27 +129,44 @@
             </div>
           </template>
           <template #meta>
-            <span>{{ passkeysCopy.createdAtLabel }}：<SemanticTime :value="credential.createdAt" format="date" /></span>
-            <span v-if="credential.lastUsedAt">{{ passkeysCopy.activeAtLabel }}：<SemanticTime :value="credential.lastUsedAt" format="date" /></span>
-            <span v-else>{{ passkeysCopy.activeAtLabel }}：{{ passkeysCopy.activeNeverRecorded }}</span>
-            <span>{{ credential.backupEligible ? passkeysCopy.backupEligible : passkeysCopy.backupIneligible }}</span>
+            <FsusUiMetadataRow density="compact">
+              <FsusUiMetadataItem :label="passkeysCopy.createdAtLabel">
+                <SemanticTime :value="credential.createdAt" format="date" />
+              </FsusUiMetadataItem>
+              <FsusUiMetadataItem :label="passkeysCopy.activeAtLabel">
+                <SemanticTime v-if="credential.lastUsedAt" :value="credential.lastUsedAt" format="date" />
+                <template v-else>{{ passkeysCopy.activeNeverRecorded }}</template>
+              </FsusUiMetadataItem>
+              <FsusUiMetadataItem
+                :label="passkeysCopy.backupModeLabel"
+                :value="credential.backupEligible ? passkeysCopy.backupEligible : passkeysCopy.backupIneligible"
+              />
+            </FsusUiMetadataRow>
           </template>
           <template #actions>
+            <FsusUiInlineActions
+              :aria-label="credential.deviceFriendlyName || passkeysCopy.nameEmpty"
+              density="compact"
+            >
               <el-button class="identity-touch-action" link type="danger" @click="confirmDeletePasskey(credential.id)">{{ passkeysCopy.deleteCta }}</el-button>
+            </FsusUiInlineActions>
           </template>
-        </ProfileResourceListItem>
-      </ProfileResourceList>
+        </FsusUiResourceListItem>
+      </FsusUiResourceList>
 
-      <ProfileInlineEmptyState
+      <FsusUiEmptyState
         v-else-if="!passkeyLoading && !passkeyError"
-        class="identity-empty-state"
+        size="inline"
+        :illustration="false"
+        role="status"
+        aria-live="polite"
         :title="passkeysCopy.emptyTitle"
-        :content="passkeysCopy.emptyContent"
+        :description="passkeysCopy.emptyContent"
       >
         <template #actions>
           <el-button type="primary" @click="passkeyRegisterVisible = true">{{ passkeysCopy.addCta }}</el-button>
         </template>
-      </ProfileInlineEmptyState>
+      </FsusUiEmptyState>
 
       <div v-if="passkeyCredentials.length" class="mt-6">
         <el-button type="primary" @click="passkeyRegisterVisible = true">{{ passkeysCopy.addCta }}</el-button>
@@ -257,21 +292,24 @@
       :description="sessionsCopy.sectionDescription"
       :title-tag="'h2'"
     >
+      <template #actions>
+        <FsusUiInlineActions :aria-label="sessionsCopy.sectionTitle" density="compact">
+          <el-button type="primary" plain :disabled="otherSessions.length === 0" @click="revokeOtherSessionDevices">
+            {{ sessionsCopy.revokeOthersCta }}
+          </el-button>
+        </FsusUiInlineActions>
+      </template>
       <div v-if="sessionLoading" class="identity-loading-state">{{ sessionsCopy.loading }}</div>
       <div v-else-if="sessionError" class="identity-error-state" role="alert">{{ sessionError }}</div>
 
       <template v-else>
-        <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <p class="m-0 text-[12px] text-[var(--fsusblog-text-tertiary)]">{{ sessionsActiveCountText }}</p>
-          <el-button type="primary" plain :disabled="otherSessions.length === 0" @click="revokeOtherSessionDevices">
-            {{ sessionsCopy.revokeOthersCta }}
-          </el-button>
-        </div>
+        <p class="mb-6 text-[12px] text-[var(--fsusblog-text-tertiary)]">{{ sessionsActiveCountText }}</p>
 
-        <ProfileResourceList v-if="sessions.length">
-          <ProfileResourceListItem
+        <FsusUiResourceList v-if="sessions.length" density="compact">
+          <FsusUiResourceListItem
             v-for="session in sessions"
             :key="session.sessionId"
+            density="compact"
           >
             <template #title>
               <p class="m-0 block min-w-0 max-w-full truncate text-[14px] font-bold text-[var(--fsusblog-text-primary)]">
@@ -279,28 +317,39 @@
               </p>
             </template>
             <template #meta>
-              <span>{{ session.isCurrent ? sessionsCopy.currentDevice : sessionsCopy.otherDevice }}</span>
-              <span v-if="session.lastSeenAt">{{ sessionsCopy.activeAtPrefix }}<SemanticTime :value="session.lastSeenAt" format="date" /></span>
+              <FsusUiMetadataRow density="compact">
+                <FsusUiMetadataItem
+                  :label="sessionsCopy.sessionTypeLabel"
+                  :value="session.isCurrent ? sessionsCopy.currentDevice : sessionsCopy.otherDevice"
+                />
+                <FsusUiMetadataItem v-if="session.lastSeenAt" :label="sessionsCopy.activeAtLabel">
+                  <SemanticTime :value="session.lastSeenAt" format="date" />
+                </FsusUiMetadataItem>
+              </FsusUiMetadataRow>
             </template>
-            <template #actions>
-              <el-button
-                class="identity-touch-action"
-                v-if="!session.isCurrent"
-                link
-                type="danger"
-                @click="revokeSessionDevice(session.sessionId)"
-              >
-                {{ sessionsCopy.revokeCta }}
-              </el-button>
+            <template v-if="!session.isCurrent" #actions>
+              <FsusUiInlineActions :aria-label="sessionsCopy.revokeCta" density="compact">
+                <el-button
+                  class="identity-touch-action"
+                  link
+                  type="danger"
+                  @click="revokeSessionDevice(session.sessionId)"
+                >
+                  {{ sessionsCopy.revokeCta }}
+                </el-button>
+              </FsusUiInlineActions>
             </template>
-          </ProfileResourceListItem>
-        </ProfileResourceList>
+          </FsusUiResourceListItem>
+        </FsusUiResourceList>
 
-        <ProfileInlineEmptyState
+        <FsusUiEmptyState
           v-else
-          class="identity-empty-state"
+          size="inline"
+          :illustration="false"
+          role="status"
+          aria-live="polite"
           :title="sessionsCopy.emptyTitle"
-          :content="sessionsCopy.emptyContent"
+          :description="sessionsCopy.emptyContent"
         />
       </template>
     </FsusUiSettingsSection>
@@ -385,18 +434,25 @@
 import { startAuthentication } from '@simplewebauthn/browser'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { FsusUiSettingsSection, FsusUiTaskPageHeader } from '@/fsusui'
+import {
+  FsusUiDangerZone,
+  FsusUiDestructiveActionPanel,
+  FsusUiEmptyState,
+  FsusUiInlineActions,
+  FsusUiMetadataItem,
+  FsusUiMetadataRow,
+  FsusUiResourceList,
+  FsusUiResourceListItem,
+  FsusUiRiskNotice,
+  FsusUiSettingsSection,
+  FsusUiTaskPageHeader
+} from '@/fsusui'
 import MfaSetupModal from '@/components/ui/MfaSetupModal.vue'
 import PasskeyRegisterModal from '@/components/ui/PasskeyRegisterModal.vue'
 import SemanticTime from '@/components/ui/SemanticTime.vue'
 import UserCommentsEmptyState from '@/components/user/UserCommentsEmptyState.vue'
 import UserCommentsErrorState from '@/components/user/UserCommentsErrorState.vue'
 import UserCommentsList from '@/components/user/UserCommentsList.vue'
-import {
-  ProfileInlineEmptyState,
-  ProfileResourceList,
-  ProfileResourceListItem
-} from '@/components/user/ProfileSettingsPrimitives'
 import {
   createRecoveryKey,
   deleteAccount,
@@ -1202,7 +1258,6 @@ watch(currentRouteName, () => {
 }
 
 .identity-loading-state,
-.identity-empty-state,
 .identity-error-state {
   border: 1px solid var(--fsusblog-panel-border);
   border-radius: var(--fsus-radius-control);

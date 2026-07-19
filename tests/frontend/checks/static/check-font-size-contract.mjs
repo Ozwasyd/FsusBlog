@@ -81,7 +81,7 @@ for (const [label, rulePattern, expectedSize] of [
   ['summary term', /\.identity-summary-list dt\s*\{(?<body>[^}]*)\}/u, '12px'],
   ['summary detail', /\.identity-summary-list dt\s*\{[^}]*\}\s*\.identity-summary-list dd\s*\{(?<body>[^}]*)\}/u, '14px'],
   ['policy item', /\.identity-policy-item\s*\{(?<body>[^}]*)\}/u, '14px'],
-  ['loading, empty, and error states', /\.identity-loading-state,\s*\.identity-empty-state,\s*\.identity-error-state\s*\{(?<body>[^}]*)\}/u, '14px'],
+  ['loading and error states', /\.identity-loading-state,\s*\.identity-error-state\s*\{(?<body>[^}]*)\}/u, '14px'],
   ['secret value', /\.identity-secret-panel code\s*\{(?<body>[^}]*)\}/u, '14px']
 ]) {
   expectRuleFontSize(identityCenter, identityCenterPath, label, rulePattern, expectedSize)

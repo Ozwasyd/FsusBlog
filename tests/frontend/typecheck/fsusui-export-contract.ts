@@ -9,10 +9,15 @@ import {
   ElKeyValueGrid,
   ElKeyValueItem,
   ElKpiGroup,
+  ElInlineActions,
   ElMarkdownEditor,
+  ElMetadataItem,
+  ElMetadataRow,
   ElMetricItem,
   ElMetricList,
   ElRiskNotice,
+  ElResourceList,
+  ElResourceListItem,
   ElSectionHeader,
   ElSectionNav,
   ElSegmentedControl,
@@ -27,6 +32,9 @@ import {
   type MarkdownEditorCommand,
   type MarkdownEditorMode,
   type MotionPresetName,
+  type InlineActionsProps,
+  type MetadataItemProps,
+  type MetadataRowProps,
   type PerceptionChallengeAssignment,
   type PerceptionChallengeClient,
   type PerceptionChallengeExpiredPayload,
@@ -36,6 +44,8 @@ import {
   type PerceptionChallengeState,
   type PerceptionChallengeSubmitPayload,
   type PerceptionChallengeVerifyResult,
+  type ResourceListItemProps,
+  type ResourceListProps,
 } from '@ozwasyd/element-plus'
 import { themeModes, type ThemeMode } from '@ozwasyd/element-plus/theme'
 import {
@@ -59,7 +69,19 @@ import {
 import { FsusUiSectionHeader } from '../../../src/frontend/src/fsusui/sectionHeader'
 import { FsusUiSectionNav } from '../../../src/frontend/src/fsusui/sectionNav'
 import { FsusUiSegmentedControl } from '../../../src/frontend/src/fsusui/segmentedControl'
-import { FsusUiSettingsSection } from '../../../src/frontend/src/fsusui/settingsSection'
+import {
+  FsusUiInlineActions,
+  FsusUiMetadataItem,
+  FsusUiMetadataRow,
+  FsusUiResourceList,
+  FsusUiResourceListItem,
+  FsusUiSettingsSection,
+  type FsusUiInlineActionsProps,
+  type FsusUiMetadataItemProps,
+  type FsusUiMetadataRowProps,
+  type FsusUiResourceListItemProps,
+  type FsusUiResourceListProps,
+} from '../../../src/frontend/src/fsusui/settingsSection'
 import { FsusUiSiteHeader } from '../../../src/frontend/src/fsusui/siteHeader'
 import { FsusUiTypedConfirmField } from '../../../src/frontend/src/fsusui/typedConfirmField'
 
@@ -82,21 +104,36 @@ type TypePreservingAdapterContract = [
   Expect<Equal<typeof FsusUiKeyValueGrid, typeof ElKeyValueGrid>>,
   Expect<Equal<typeof FsusUiKeyValueItem, typeof ElKeyValueItem>>,
   Expect<Equal<typeof FsusUiKpiGroup, typeof ElKpiGroup>>,
+  Expect<Equal<typeof FsusUiInlineActions, typeof ElInlineActions>>,
+  Expect<Equal<typeof FsusUiMetadataItem, typeof ElMetadataItem>>,
+  Expect<Equal<typeof FsusUiMetadataRow, typeof ElMetadataRow>>,
   Expect<Equal<typeof FsusUiMetricItem, typeof ElMetricItem>>,
   Expect<Equal<typeof FsusUiMetricList, typeof ElMetricList>>,
   Expect<Equal<typeof FsusUiRiskNotice, typeof ElRiskNotice>>,
+  Expect<Equal<typeof FsusUiResourceList, typeof ElResourceList>>,
+  Expect<Equal<typeof FsusUiResourceListItem, typeof ElResourceListItem>>,
   Expect<Equal<typeof FsusUiSectionHeader, typeof ElSectionHeader>>,
   Expect<Equal<typeof FsusUiSectionNav, typeof ElSectionNav>>,
   Expect<Equal<typeof FsusUiSegmentedControl, typeof ElSegmentedControl>>,
   Expect<Equal<typeof FsusUiSettingsSection, typeof ElSettingsSection>>,
   Expect<Equal<typeof FsusUiSiteHeader, typeof ElSiteHeader>>,
   Expect<Equal<typeof FsusUiTypedConfirmField, typeof ElTypedConfirmField>>,
+  Expect<Equal<FsusUiInlineActionsProps, InlineActionsProps>>,
+  Expect<Equal<FsusUiMetadataItemProps, MetadataItemProps>>,
+  Expect<Equal<FsusUiMetadataRowProps, MetadataRowProps>>,
+  Expect<Equal<FsusUiResourceListItemProps, ResourceListItemProps>>,
+  Expect<Equal<FsusUiResourceListProps, ResourceListProps>>,
 ]
 
 const componentExports: Component[] = [
   ElButton,
   ElEmptyState,
+  ElInlineActions,
   ElMarkdownEditor,
+  ElMetadataItem,
+  ElMetadataRow,
+  ElResourceList,
+  ElResourceListItem,
   ElSiteHeader,
   FsusPerceptionChallenge,
   FsusTextTaskChallenge,

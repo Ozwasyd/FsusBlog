@@ -93,6 +93,7 @@ export const FSUSBLOG_IDENTITY_COPY = {
     createdAtLabel: '创建',
     activeAtLabel: '活跃',
     activeNeverRecorded: '未记录',
+    backupModeLabel: '备份',
     backupEligible: '支持同步备份',
     backupIneligible: '仅本设备',
     recoverySuggestion: '当前仅有一枚无法备份的通行密钥。建议再添加一枚通行密钥，或创建 Recovery Key。'
@@ -174,6 +175,8 @@ export const FSUSBLOG_IDENTITY_COPY = {
     currentDevice: '当前设备',
     otherDevice: '其他设备',
     activeAtPrefix: '活跃：',
+    activeAtLabel: '最近活跃',
+    sessionTypeLabel: '会话',
     revokeCta: '下线',
     emptyTitle: '暂无活跃会话',
     emptyContent: '无设备会话。',

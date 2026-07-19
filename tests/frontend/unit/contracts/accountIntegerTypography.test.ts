@@ -49,7 +49,7 @@ describe('account integer typography contract', () => {
       [/\.identity-summary-list dt\s*\{(?<body>[^}]*)\}/u, '12px'],
       [/\.identity-summary-list dt\s*\{[^}]*\}\s*\.identity-summary-list dd\s*\{(?<body>[^}]*)\}/u, '14px'],
       [/\.identity-policy-item\s*\{(?<body>[^}]*)\}/u, '14px'],
-      [/\.identity-loading-state,\s*\.identity-empty-state,\s*\.identity-error-state\s*\{(?<body>[^}]*)\}/u, '14px'],
+      [/\.identity-loading-state,\s*\.identity-error-state\s*\{(?<body>[^}]*)\}/u, '14px'],
       [/\.identity-secret-panel code\s*\{(?<body>[^}]*)\}/u, '14px']
     ] as const) {
       expectFontSize(identityCenter, pattern, expected)

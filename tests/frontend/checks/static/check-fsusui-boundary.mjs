@@ -12,8 +12,12 @@ const fsusuiRoot = path.join(srcRoot, 'fsusui');
 const boundaryDocPath = path.join(fsusuiRoot, 'README.md');
 const themeAdapterPath = path.join(fsusuiRoot, 'theme.ts');
 const taskPageHeaderAdapterPath = path.join(fsusuiRoot, 'taskPageHeader.ts');
+const settingsPrimitivesAdapterPath = path.join(fsusuiRoot, 'settingsSection.ts');
 const primitiveAdaptersPath = path.join(fsusuiRoot, 'primitiveAdapters.ts');
 const adminInlineEmptyStatePath = path.join(srcRoot, 'components/admin/AdminInlineEmptyState.vue');
+const profileSettingsPrimitivesPath = path.join(srcRoot, 'components/user/ProfileSettingsPrimitives.ts');
+const identityCenterPath = path.join(srcRoot, 'views/user/IdentityCenter.vue');
+const profilePath = path.join(srcRoot, 'views/user/Profile.vue');
 const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json');
 const strict = true;
 
@@ -400,6 +404,7 @@ function checkRequiredAdapters()
         'renderPipeline.ts',
         'primitiveAdapters.ts',
         'segmentedControl.ts',
+        'settingsSection.ts',
         'taskPageHeader.ts'
     ];
 
@@ -420,6 +425,78 @@ function checkRequiredAdapters()
     if (fs.existsSync(retiredPageHeader))
     {
         warn(retiredPageHeader, 'retired-page-header', 'remove the local page header implementation');
+    }
+}
+
+function checkIdentitySettingsPrimitiveContract()
+{
+    if (fs.existsSync(profileSettingsPrimitivesPath))
+    {
+        warn(profileSettingsPrimitivesPath, 'retired-profile-settings-primitives', 'delete the duplicate local profile settings primitives');
+    }
+
+    if (!fs.existsSync(settingsPrimitivesAdapterPath))
+    {
+        return;
+    }
+
+    const adapter = fs.readFileSync(settingsPrimitivesAdapterPath, 'utf8');
+    for (const token of [
+        'ElSettingsSection as FsusUiSettingsSection',
+        'ElResourceList as FsusUiResourceList',
+        'ElResourceListItem as FsusUiResourceListItem',
+        'ElMetadataRow as FsusUiMetadataRow',
+        'ElMetadataItem as FsusUiMetadataItem',
+        'ElInlineActions as FsusUiInlineActions',
+        'ResourceListProps as FsusUiResourceListProps',
+        'MetadataItemProps as FsusUiMetadataItemProps',
+        'InlineActionsProps as FsusUiInlineActionsProps'
+    ])
+    {
+        if (!adapter.includes(token))
+        {
+            warn(settingsPrimitivesAdapterPath, 'identity-settings-adapter-contract', `missing ${token}`);
+        }
+    }
+
+    if (/\bas\s+Component\b|defineComponent\s*\(/u.test(adapter))
+    {
+        warn(settingsPrimitivesAdapterPath, 'identity-settings-adapter-contract', 'settings primitives must stay type-preserving named re-exports');
+    }
+
+    const identity = fs.existsSync(identityCenterPath)
+        ? fs.readFileSync(identityCenterPath, 'utf8')
+        : '';
+    for (const token of [
+        'FsusUiResourceList',
+        'FsusUiResourceListItem',
+        'FsusUiMetadataRow',
+        'FsusUiMetadataItem',
+        'FsusUiInlineActions',
+        'FsusUiEmptyState',
+        'FsusUiDangerZone',
+        'FsusUiRiskNotice',
+        'FsusUiDestructiveActionPanel'
+    ])
+    {
+        if (!identity.includes(token))
+        {
+            warn(identityCenterPath, 'identity-settings-consumer-contract', `missing ${token}`);
+        }
+    }
+
+    for (const token of ['ProfileResourceList', 'ProfileResourceListItem', 'ProfileInlineEmptyState', 'ProfileSettingsPrimitives'])
+    {
+        if (identity.includes(token))
+        {
+            warn(identityCenterPath, 'retired-profile-settings-primitives', `uses ${token}`);
+        }
+    }
+
+    const profile = fs.existsSync(profilePath) ? fs.readFileSync(profilePath, 'utf8') : '';
+    if (!profile.includes('FsusUiEmptyState') || profile.includes('ProfileInlineEmptyState'))
+    {
+        warn(profilePath, 'identity-settings-consumer-contract', 'profile redirect surface must use FsusUiEmptyState directly');
     }
 }
 
@@ -606,6 +683,7 @@ for (const file of walk(srcRoot))
 checkPackageMarkdownDependencies();
 checkRequiredAdapters();
 checkTaskPageHeaderContract();
+checkIdentitySettingsPrimitiveContract();
 checkBoundaryDoc();
 checkThemeAdapterContract();
 checkAdminEmptyStateDelegation();

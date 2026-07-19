@@ -1,6 +1,16 @@
-// FsusUI settings-section 替代 admin 自造的 WorkbenchPanel：
-// - title / description 取代旧 title / caption
-// - titleTag 取代旧 titleLevel
-// - id 取代旧 titleId（aria-labelledby 由组件自处理）
-// - 旧 headerClass 由调用方通过 class 传递
-export { ElSettingsSection as FsusUiSettingsSection } from '@ozwasyd/element-plus';
+export {
+    ElInlineActions as FsusUiInlineActions,
+    ElMetadataItem as FsusUiMetadataItem,
+    ElMetadataRow as FsusUiMetadataRow,
+    ElResourceList as FsusUiResourceList,
+    ElResourceListItem as FsusUiResourceListItem,
+    ElSettingsSection as FsusUiSettingsSection
+} from '@ozwasyd/element-plus';
+export type {
+    InlineActionsProps as FsusUiInlineActionsProps,
+    MetadataItemProps as FsusUiMetadataItemProps,
+    MetadataRowProps as FsusUiMetadataRowProps,
+    ResourceListItemProps as FsusUiResourceListItemProps,
+    ResourceListProps as FsusUiResourceListProps,
+    SettingsSectionProps as FsusUiSettingsSectionProps
+} from '@ozwasyd/element-plus';

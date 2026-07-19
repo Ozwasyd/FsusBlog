@@ -55,7 +55,9 @@ const forbiddenProfileTokens = [
   'deleteAccountState',
   'passwordForm',
   'updateUsername',
-  'updatePassword'
+  'updatePassword',
+  'ProfileInlineEmptyState',
+  'ProfileSettingsPrimitives'
 ]
 
 for (const token of forbiddenProfileTokens) {
@@ -70,6 +72,10 @@ const requiredProfileTokens = [
   'profileCopy.emptyTitle',
   'profileCopy.emptyContent',
   'profileCopy.openIdentityCta',
+  'FsusUiEmptyState',
+  'size="inline"',
+  ':illustration="false"',
+  ':description="profileCopy.emptyContent"',
   'router.replace({ name: \'UserIdentityOverview\' })',
   'to="/user/identity"'
 ]
@@ -101,6 +107,36 @@ for (const token of [
 ]) {
   if (!identityCenter.includes(token)) {
     fail(identityCenterPath, 1, `Identity center contract is missing ${token}`)
+  }
+}
+
+for (const token of [
+  'FsusUiResourceList',
+  'FsusUiResourceListItem',
+  'FsusUiMetadataRow',
+  'FsusUiMetadataItem',
+  'FsusUiInlineActions',
+  'FsusUiEmptyState',
+  'FsusUiDangerZone',
+  'FsusUiRiskNotice',
+  'FsusUiDestructiveActionPanel',
+  ':illustration="false"',
+  'copy.lifecycleWarning',
+  'deleteCurrentAccount'
+]) {
+  if (!identityCenter.includes(token)) {
+    fail(identityCenterPath, 1, `Identity center FsusUI primitive contract is missing ${token}`)
+  }
+}
+
+for (const token of [
+  'ProfileResourceList',
+  'ProfileResourceListItem',
+  'ProfileInlineEmptyState',
+  'ProfileSettingsPrimitives'
+]) {
+  if (identityCenter.includes(token)) {
+    fail(identityCenterPath, lineOf(identityCenter, token), `Identity center must not keep retired local primitive ${token}`)
   }
 }
 

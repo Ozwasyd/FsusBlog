@@ -6,9 +6,13 @@
       class="account-task-page-header"
     />
 
-    <ProfileInlineEmptyState
+    <FsusUiEmptyState
+      size="inline"
+      :illustration="false"
+      role="status"
+      aria-live="polite"
       :title="profileCopy.emptyTitle"
-      :content="profileCopy.emptyContent"
+      :description="profileCopy.emptyContent"
     >
       <template #actions>
         <router-link
@@ -18,15 +22,14 @@
           {{ profileCopy.openIdentityCta }}
         </router-link>
       </template>
-    </ProfileInlineEmptyState>
+    </FsusUiEmptyState>
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { FsusUiTaskPageHeader } from "@/fsusui"
-import { ProfileInlineEmptyState } from '@/components/user/ProfileSettingsPrimitives'
+import { FsusUiEmptyState, FsusUiTaskPageHeader } from '@/fsusui'
 import { FSUSBLOG_IDENTITY_COPY } from '@/copy'
 
 const profileCopy = FSUSBLOG_IDENTITY_COPY.profile
