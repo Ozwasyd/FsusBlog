@@ -78,6 +78,21 @@ describe('decodeBinaryFramePayload', () => {
     expect(() => decodeBinaryFramePayload(999 as FrameType, new Uint8Array(0))).toThrow()
   })
 
+  it('decodes the final comment creation moderation state', () => {
+    const payload = new Uint8Array(16)
+    writeInt64(payload, 0, 9007199254740n)
+    writeInt32(payload, 8, 0)
+    payload[12] = 0
+    payload[13] = 0
+
+    expect(decodeBinaryFramePayload(FrameType.CommentCreateResult, payload)).toEqual({
+      commentId: '9007199254740',
+      moderationStatus: 0,
+      visibilityState: 'pending',
+      isPubliclyVisible: false
+    })
+  })
+
   it('throws for FrameType.Unknown (0)', () => {
     expect(() => decodeBinaryFramePayload(FrameType.Unknown, new Uint8Array(0))).toThrow()
   })

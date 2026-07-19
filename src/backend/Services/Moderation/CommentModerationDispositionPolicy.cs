@@ -24,39 +24,79 @@ public sealed class CommentModerationDispositionPolicy(IConfiguration configurat
         RegionModerationDecision regionDecision,
         AntiSpamModerationResult modelResult)
     {
-        _ = regionDecision;
         string mode = NormalizeMode(configuration["Moderation:AntiSpamModel:Mode"]);
-        CommentModerationStatus nextStatus = comment.ModerationStatus;
-        bool autoApplied = false;
-        bool transitionAllowed = false;
+        CommentModerationStatus requestedStatus = comment.ModerationStatus;
         bool requiresHumanReview = false;
         string reason = "score_only";
 
         if (!modelResult.Available || !string.Equals(modelResult.Status, AntiSpamModerationStatuses.Ok, StringComparison.Ordinal))
         {
-            reason = "model_unavailable";
+            bool failOpen = configuration.GetValue<bool?>("Moderation:AntiSpamModel:FailOpen") ?? false;
+            bool mayPublish = failOpen
+                && regionDecision.CanPublish
+                && !regionDecision.RequiresManualReview
+                && !regionDecision.HideUntilReviewed
+                && comment.AnonymousRequiresModeration != true;
+            requestedStatus = mayPublish ? CommentModerationStatus.Approved : comment.ModerationStatus;
+            requiresHumanReview = !mayPublish;
+            reason = mayPublish ? "model_unavailable_fail_open" : "model_unavailable_pending";
         }
         else if (IsModelRiskHit(modelResult))
         {
             double borderlineThreshold = ResolveThreshold("Moderation:AntiSpamModel:BorderlineRiskConfidenceThreshold", 0.90d);
             requiresHumanReview = modelResult.Confidence < borderlineThreshold;
-            transitionAllowed = CommentModerationTransitions.IsAllowed(
-                comment.ModerationStatus,
-                CommentModerationStatus.Hidden);
-            if (transitionAllowed)
+            if (mode is CommentModerationDispositionModes.AutoHideHighRisk
+                or CommentModerationDispositionModes.StrictAutoModerate)
             {
-                nextStatus = CommentModerationStatus.Hidden;
-                autoApplied = true;
+                requestedStatus = CommentModerationStatus.Hidden;
                 reason = requiresHumanReview ? "model_risk_borderline_review" : "model_risk_auto_hidden";
             }
             else
             {
-                reason = "model_risk_noop_state";
+                requiresHumanReview = true;
+                reason = "model_risk_pending_review";
             }
         }
         else
         {
-            reason = "model_clean";
+            bool mayAutoApprove = mode is CommentModerationDispositionModes.AutoLowRiskApprove
+                or CommentModerationDispositionModes.StrictAutoModerate;
+            bool regionAllowsApproval = regionDecision.CanPublish
+                && !regionDecision.RequiresManualReview
+                && !regionDecision.HideUntilReviewed;
+            if (mayAutoApprove && regionAllowsApproval)
+            {
+                double threshold = ResolveThreshold("Moderation:AntiSpamModel:AutoApproveConfidenceThreshold", 0.95d);
+                if (modelResult.Confidence >= threshold)
+                {
+                    requestedStatus = CommentModerationStatus.Approved;
+                    reason = "model_clean_auto_approved";
+                }
+                else
+                {
+                    requiresHumanReview = true;
+                    reason = "model_clean_below_approval_threshold";
+                }
+            }
+            else
+            {
+                requiresHumanReview = comment.ModerationStatus == CommentModerationStatus.Pending;
+                reason = regionAllowsApproval ? "model_clean_pending_policy" : "model_clean_region_review";
+            }
+        }
+
+        bool transitionAllowed = CommentModerationTransitions.IsAllowed(comment.ModerationStatus, requestedStatus);
+        CommentModerationStatus nextStatus = transitionAllowed ? requestedStatus : comment.ModerationStatus;
+        bool autoApplied = transitionAllowed;
+        if (requestedStatus == comment.ModerationStatus
+            && reason is "model_risk_auto_hidden" or "model_risk_borderline_review")
+        {
+            reason = "model_risk_noop_state";
+        }
+        if (requestedStatus != comment.ModerationStatus && !transitionAllowed)
+        {
+            requiresHumanReview = true;
+            reason = "model_transition_not_allowed";
         }
 
         return new CommentModerationDisposition(
@@ -70,6 +110,7 @@ public sealed class CommentModerationDispositionPolicy(IConfiguration configurat
                 modelResult,
                 mode,
                 reason,
+                requestedStatus,
                 nextStatus,
                 autoApplied,
                 transitionAllowed,
@@ -100,6 +141,7 @@ public sealed class CommentModerationDispositionPolicy(IConfiguration configurat
         AntiSpamModerationResult modelResult,
         string mode,
         string reason,
+        CommentModerationStatus requestedStatus,
         CommentModerationStatus nextStatus,
         bool autoApplied,
         bool transitionAllowed,
@@ -117,6 +159,7 @@ public sealed class CommentModerationDispositionPolicy(IConfiguration configurat
             ["mode"] = mode,
             ["reason"] = reason,
             ["previous_status"] = comment.ModerationStatus.ToString(),
+            ["requested_status"] = requestedStatus.ToString(),
             ["next_status"] = nextStatus.ToString(),
             ["transition_allowed"] = transitionAllowed ? "true" : "false",
             ["auto_applied"] = autoApplied ? "true" : "false",

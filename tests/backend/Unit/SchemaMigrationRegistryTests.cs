@@ -66,6 +66,22 @@ public sealed class SchemaMigrationRegistryTests
         Assert.Contains("20260711-pre-account-subject-hash-expand", migrationIds);
         Assert.Contains("20260711-post-account-subject-hash-backfill", migrationIds);
         Assert.Contains("20260715-pre-visit-log-ip-pseudonym-epoch", migrationIds);
+        Assert.Contains("20260719-post-comment-moderation-event", migrationIds);
+    }
+
+    [Fact]
+    public void GetDescriptors_CommentModerationEvent_IsAppendOnlyAndTriggerBacked()
+    {
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            new SchemaMigrationRegistry().GetDescriptors(),
+            static item => item.MigrationId == "20260719-post-comment-moderation-event");
+        string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
+
+        Assert.True(descriptor.Transactional);
+        Assert.Contains("comment_moderation_event", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("AFTER INSERT OR UPDATE OF moderation_status ON comment", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("BEFORE UPDATE OR DELETE ON comment_moderation_event", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("model_policy:%", fingerprint, StringComparison.Ordinal);
     }
 
     [Fact]

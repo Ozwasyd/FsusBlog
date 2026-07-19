@@ -7,6 +7,8 @@ namespace FsusBlog.Server.Services;
 
 public interface ICommentNotificationService
 {
+    Task PublishAddedAsync(Comment comment, DateTime eventTime);
+
     Task PublishRemovedAsync(int articleId, long commentId, long rootId, long? parentId);
 
     Task NotifyDeletionAsync(int userId, string articleTitle, string commentSnippet, string reason);
@@ -19,6 +21,31 @@ public sealed class CommentNotificationService(
     IMessageCommandService commands,
     ILogger<CommentNotificationService> logger) : ICommentNotificationService
 {
+    public Task PublishAddedAsync(Comment comment, DateTime eventTime)
+        => realtime.PushCommentAddAsync(new FsusBlog.Shared.Contracts.Outputs.CommentAddedNotifyDto
+        {
+            ArticleId = comment.ArticleId,
+            Time = eventTime,
+            Comment = new FsusBlog.Shared.Contracts.Outputs.CommentPushDto
+            {
+                Id = comment.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                Content = comment.Content,
+                CreateTime = comment.CreateTime,
+                Author = new FsusBlog.Shared.Contracts.Outputs.CommentAuthorViewDto(
+                    comment.AuthorMode,
+                    ResolveDisplayName(comment),
+                    string.Equals(comment.AnonymousDisplayLanguage, "en", StringComparison.OrdinalIgnoreCase) ? "en" : "zh-CN",
+                    null,
+                    null),
+                ParentId = comment.ParentId?.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                RootId = (comment.RootId ?? comment.Id).ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ReplyToAuthor = null,
+                ReplyToCommentId = comment.ReplyToCommentId?.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                Depth = Math.Clamp(comment.Depth, 0, 2),
+                IsDeleted = false
+            }
+        });
+
     public Task PublishRemovedAsync(int articleId, long commentId, long rootId, long? parentId)
         => realtime.PushCommentRemoveAsync(articleId, commentId, rootId, parentId);
 
@@ -63,4 +90,12 @@ public sealed class CommentNotificationService(
         string normalized = content.ReplaceLineEndings(" ").Trim();
         return normalized.Length <= 60 ? normalized : string.Concat(normalized[..60], "...");
     }
+
+    private static string ResolveDisplayName(Comment comment)
+        => comment.AuthorMode == Models.CommentIdentity.CommentAuthorModes.Public
+            ? comment.PublicHandle ?? "未署名用户"
+            : comment.AnonymousDisplayName
+                ?? (string.Equals(comment.AnonymousDisplayLanguage, "en", StringComparison.OrdinalIgnoreCase)
+                    ? "Anonymous User"
+                    : "匿名用户");
 }

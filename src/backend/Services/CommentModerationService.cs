@@ -26,6 +26,10 @@ public readonly record struct CommentModerationActorContext(
     string RateClass,
     bool RequiresModeration);
 
+public readonly record struct CommentInitialModerationDecision(
+    CommentModerationStatus Status,
+    string ReasonCode);
+
 public interface ICommentModerationService
 {
     RegionModerationDecision ResolveSubmissionRegion(
@@ -33,6 +37,10 @@ public interface ICommentModerationService
         int articleId,
         int userId,
         RegionModerationDecision? suppliedDecision);
+
+    CommentInitialModerationDecision ResolveInitialState(
+        CommentActor actor,
+        RegionModerationDecision regionDecision);
 
     Task PersistVisibilityAsync(
         long commentId,
@@ -55,7 +63,8 @@ public sealed class CommentModerationService(
     IAntiSpamModerationService? antiSpam = null,
     ICommentModerationDispositionPolicy? dispositionPolicy = null,
     AuditLogChannel? audit = null,
-    IAnonymousCommentPolicyService? anonymousPolicy = null) : ICommentModerationService
+    IAnonymousCommentPolicyService? anonymousPolicy = null,
+    IConfiguration? configuration = null) : ICommentModerationService
 {
     public RegionModerationDecision ResolveSubmissionRegion(
         string content,
@@ -72,6 +81,37 @@ public sealed class CommentModerationService(
             null,
             null,
             DateTime.UtcNow));
+
+    public CommentInitialModerationDecision ResolveInitialState(
+        CommentActor actor,
+        RegionModerationDecision regionDecision)
+    {
+        if (regionDecision.HideUntilReviewed)
+        {
+            return new(CommentModerationStatus.Hidden, "hidden_region_review");
+        }
+
+        if (regionDecision.RequiresManualReview)
+        {
+            return new(CommentModerationStatus.Pending, "pending_region_review");
+        }
+
+        if (actor.RequiresModeration)
+        {
+            return new(CommentModerationStatus.Pending, "pending_anonymous_policy");
+        }
+
+        bool modelEnabled = configuration?.GetValue<bool?>("Moderation:AntiSpamModel:Enabled")
+            ?? antiSpam is not null;
+        if (modelEnabled)
+        {
+            return new(
+                CommentModerationStatus.Pending,
+                antiSpam is null ? "pending_model_provider_unavailable" : "pending_model_review");
+        }
+
+        return new(CommentModerationStatus.Approved, "approved_deterministic_low_risk");
+    }
 
     public async Task PersistVisibilityAsync(
         long commentId,
@@ -187,8 +227,21 @@ public sealed class CommentModerationService(
         comment.ModeratedByAdminPrincipalId = null;
         comment.ModeratedAt = moderatedAt;
         WriteAudit(comment, disposition);
-        if (previousStatus == CommentModerationStatus.Approved
-            && disposition.NextStatus == CommentModerationStatus.Hidden)
+        if (previousStatus != CommentModerationStatus.Approved
+            && disposition.NextStatus == CommentModerationStatus.Approved)
+        {
+            await invalidations.InvalidateCommentMutationAsync(
+                new CommentCacheInvalidationScope(
+                    ArticleId: comment.ArticleId,
+                    RootId: comment.RootId ?? comment.Id,
+                    AccountId: comment.UserId,
+                    PublicArticleChanged: true,
+                    UserCommentsChanged: comment.UserId is > 0),
+                cancellationToken);
+            await notifications.PublishAddedAsync(comment, moderatedAt);
+        }
+        else if (previousStatus == CommentModerationStatus.Approved
+            && disposition.NextStatus is CommentModerationStatus.Hidden or CommentModerationStatus.Rejected)
         {
             await invalidations.InvalidateCommentMutationAsync(
                 new CommentCacheInvalidationScope(

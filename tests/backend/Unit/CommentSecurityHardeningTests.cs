@@ -76,7 +76,7 @@ public sealed class CommentSecurityHardeningTests
         IReadOnlyList<IReadOnlyList<string>> creationPaths = RuntimeMetadataInspection
             .DescribeDeclaredMemberReferenceSequencesContaining(
                 typeof(CommentCommandService),
-                "BuildInitialModerationReason",
+                "ICommentModerationService.ResolveInitialState",
                 "Comment.set_ModerationStatus",
                 "ICommentModerationService.ApplyPostInsertAsync");
         Assert.All(creationPaths, creation => Assert.True(
@@ -85,9 +85,9 @@ public sealed class CommentSecurityHardeningTests
 
         string creationBody = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
             typeof(CommentCommandService),
-            "BuildInitialModerationReason",
+            "ICommentModerationService.ResolveInitialState",
             "set_ModerationStatus");
-        Assert.Contains("BuildInitialModerationReason", creationBody, StringComparison.Ordinal);
+        Assert.Contains("ResolveInitialState", creationBody, StringComparison.Ordinal);
         Assert.Contains("Comment.set_ModerationStatus", creationBody, StringComparison.Ordinal);
 
         string notice = RuntimeMetadataInspection.DescribeMethods(
@@ -168,8 +168,8 @@ public sealed class CommentSecurityHardeningTests
             typeof(BinaryEndpoints),
             "IClientRegionResolver.Resolve",
             "IRegionLegalModerationService.EvaluateOnSubmit");
-        Assert.Contains("CreateAttributablePublicCommentAsync", submitEndpoint, StringComparison.Ordinal);
-        Assert.Contains("CreateStrongAnonymousCommentAsync", submitEndpoint, StringComparison.Ordinal);
+        Assert.Contains("CreateAttributablePublicCommentResultAsync", submitEndpoint, StringComparison.Ordinal);
+        Assert.Contains("CreateStrongAnonymousCommentResultAsync", submitEndpoint, StringComparison.Ordinal);
 
         string rootFrame = RuntimeMetadataInspection.DescribeMethods(
             typeof(BinaryEndpoints),

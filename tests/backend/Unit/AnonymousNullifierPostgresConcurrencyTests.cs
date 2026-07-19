@@ -152,7 +152,7 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
     }
 
     [Fact]
-    public async Task CreateStrongAnonymousCommentAsync_AutoHiddenDispositionInvalidatesUsingFinalStatus()
+    public async Task CreateStrongAnonymousCommentAsync_InitiallyHiddenNeverPublishesRemoveEvent()
     {
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
         using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
@@ -192,17 +192,16 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
         Assert.True(created);
         Comment comment = Assert.Single(db.Queryable<Comment>().ToList());
         Assert.Equal(CommentModerationStatus.Hidden, comment.ModerationStatus);
-        Assert.Equal("model_policy:high-risk", comment.ModerationReason);
+        Assert.Equal("hidden_region_review", comment.ModerationReason);
         CommentCacheInvalidationScope[] scopes = invalidations.Scopes.ToArray();
-        Assert.Equal(2, scopes.Length);
-        Assert.True(scopes[0].PublicArticleChanged);
-        Assert.False(scopes[1].PublicArticleChanged);
+        Assert.Single(scopes);
+        Assert.False(scopes[0].PublicArticleChanged);
         Assert.All(scopes, scope =>
         {
             Assert.Equal(42, scope.ArticleId);
             Assert.Equal(comment.Id, scope.RootId);
         });
-        await realtime.Received(1).PushCommentRemoveAsync(42, comment.Id, comment.Id, null);
+        await realtime.DidNotReceive().PushCommentRemoveAsync(Arg.Any<int>(), Arg.Any<long>(), Arg.Any<long?>(), Arg.Any<long?>());
     }
 
     private static IConfiguration BuildConfiguration(int limit)

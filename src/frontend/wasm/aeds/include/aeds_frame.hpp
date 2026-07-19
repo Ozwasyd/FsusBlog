@@ -236,6 +236,7 @@ enum class FrameType : std::uint16_t
     AccountConversationReplyRequest = 202,
     ConversationDetailV2 = 203,
     ConversationDetailV3 = 204,
+    CommentCreateResult = 205,
     EmptySuccess = 240,
     MutationId = 241,
     ApiError = 251,
@@ -441,6 +442,7 @@ enum class FrameType : std::uint16_t
         case FrameType::AccountConversationReplyRequest:
         case FrameType::ConversationDetailV2:
         case FrameType::ConversationDetailV3:
+        case FrameType::CommentCreateResult:
         case FrameType::EmptySuccess:
         case FrameType::MutationId:
         case FrameType::ApiError:

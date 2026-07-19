@@ -277,6 +277,13 @@ export interface CommentCreateV2Dto {
   browserFp?: string
 }
 
+export interface CommentCreateResult {
+  commentId: string
+  moderationStatus: number
+  visibilityState: 'pending' | 'public' | 'hidden' | 'rejected'
+  isPubliclyVisible: boolean
+}
+
 export interface AnonymousCommentSubmitDto {
   articleId: number
   content: string

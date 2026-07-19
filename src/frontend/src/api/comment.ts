@@ -19,6 +19,7 @@ import type {
   CommentAuthorView,
   CommentAuthorViewMode,
   CommentCreateV2Dto,
+  CommentCreateResult,
   CommentDisplayLanguage,
   CommentPolicySnapshot,
   CommentReplyItem,
@@ -50,6 +51,7 @@ export type {
   CommentAuthorView,
   CommentAuthorViewMode,
   CommentCreateV2Dto,
+  CommentCreateResult,
   CommentDisplayLanguage,
   CommentPolicySnapshot,
   CommentReplyItem,
@@ -93,9 +95,9 @@ export const createAnonymousComment = (
     ticket: ticket.ticket
   })
 
-  return requestBinaryOnly<null>({
+  return requestBinaryOnly<CommentCreateResult>({
     binaryRoute: { operationId: 'binary_post_comment_anonymous' },
-    frameType: FrameType.EmptySuccess,
+    frameType: FrameType.CommentCreateResult,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
       method: 'POST',
@@ -203,9 +205,9 @@ function sendCommentMutation(
 
   const payload = encodeCommentCreateV2Request(data)
 
-  return requestBinaryOnly<null>({
+  return requestBinaryOnly<CommentCreateResult>({
     binaryRoute: { operationId: 'binary_post_comment' },
-    frameType: FrameType.EmptySuccess,
+    frameType: FrameType.CommentCreateResult,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
       method: 'POST',

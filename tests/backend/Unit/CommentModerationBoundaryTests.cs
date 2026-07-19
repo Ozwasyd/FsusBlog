@@ -8,6 +8,7 @@ using FsusBlog.Server.Models.Moderation;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Moderation;
 
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -42,7 +43,8 @@ public sealed class CommentModerationBoundaryTests
                 typeof(IAntiSpamModerationService),
                 typeof(ICommentModerationDispositionPolicy),
                 typeof(AuditLogChannel),
-                typeof(IAnonymousCommentPolicyService)
+                typeof(IAnonymousCommentPolicyService),
+                typeof(IConfiguration)
             ],
             moderationDependencies.Select(static parameter => parameter.ParameterType));
         Assert.DoesNotContain(
@@ -74,7 +76,7 @@ public sealed class CommentModerationBoundaryTests
             .ToArray();
 
         Assert.Equal(
-            ["ApplyPostInsertAsync", "PersistVisibilityAsync", "ResolveSubmissionRegion"],
+            ["ApplyPostInsertAsync", "PersistVisibilityAsync", "ResolveInitialState", "ResolveSubmissionRegion"],
             methods);
     }
 }

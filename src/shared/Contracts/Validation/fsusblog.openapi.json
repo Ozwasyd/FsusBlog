@@ -4816,7 +4816,7 @@
         "summary": "/comment/anonymous",
         "responses": {
           "200": {
-            "description": "EmptySuccess AEDS frame",
+            "description": "CommentCreateResult AEDS frame",
             "content": {
               "application/octet-stream": {
                 "schema": {
@@ -4841,7 +4841,7 @@
         "x-fsus-protocol": "AEDS",
         "x-fsus-aeds-version": 2,
         "x-fsus-request-frame": "AnonymousCommentCreateRequest",
-        "x-fsus-response-frame": "EmptySuccess",
+        "x-fsus-response-frame": "CommentCreateResult",
         "x-fsus-error-frame": "ApiError",
         "x-fsus-auth": "anonymous",
         "x-fsus-pow": false,
@@ -4864,7 +4864,7 @@
         "summary": "/comment",
         "responses": {
           "200": {
-            "description": "EmptySuccess AEDS frame",
+            "description": "CommentCreateResult AEDS frame",
             "content": {
               "application/octet-stream": {
                 "schema": {
@@ -4889,7 +4889,7 @@
         "x-fsus-protocol": "AEDS",
         "x-fsus-aeds-version": 2,
         "x-fsus-request-frame": "CommentCreateV2Request",
-        "x-fsus-response-frame": "EmptySuccess",
+        "x-fsus-response-frame": "CommentCreateResult",
         "x-fsus-error-frame": "ApiError",
         "x-fsus-auth": "user",
         "x-fsus-pow": true,

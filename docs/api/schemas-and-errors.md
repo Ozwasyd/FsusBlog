@@ -317,6 +317,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 198 | `AnonymousCommentTicketRequest` | `AnonymousCommentTicketRequestPod` | v5/layout 6 最小资格谓词、root hashes、proof 与 canonical public inputs；不携带精确属性 |
 | 199 | `AnonymousCommentTicketResponse` | `AnonymousCommentTicketResponsePod` | expiry、`common` / `unknown` rate class、审核谓词、opaque ticket 与 moderation subject hash |
 | 200 | `SecurityChallengeCancelRequest` | `SecurityChallengeCancelRequestPod` + shared blob | 撤销 action/route/device/policy 绑定的 aggregate challenge envelope；响应为 `EmptySuccess` |
+| 205 | `CommentCreateResult` | `CommentCreateResultPod` | 评论创建成功后的最终同步状态：comment id、moderation status、visibility state、公开可见标记 |
 | 201 | `ConversationReadRequest` | `ConversationReadRequestPod` | 账号 mark-read 显式 `readThroughMessageId` |
 | 202 | `AccountConversationReplyRequest` | `AccountConversationReplyRequestPod` + shared blob | 账号回复正文与显式读取位置；admin 回复继续使用 frame 60 |
 | 203 | `ConversationDetailV2` | `ConversationDetailV2Pod` + message records/blob | 对话详情与可见 `readSnapshotMessageId` |
@@ -376,6 +377,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 类型 | 字节数 |
 | ------ | -------- |
 | `EmptySuccessPod` | 4 |
+| `CommentCreateResultPod` | 16 |
 | `MutationIdPod` | 8 |
 | `ApiErrorPod` | 584 |
 

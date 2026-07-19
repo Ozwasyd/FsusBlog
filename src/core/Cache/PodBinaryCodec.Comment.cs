@@ -228,6 +228,66 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    public static void WriteCommentCreateResult(
+        long commentId,
+        int moderationStatus,
+        byte visibilityState,
+        bool isPubliclyVisible,
+        IBufferWriter<byte> destination)
+    {
+        var writer = new BinaryPodWriter(destination);
+        writer.WriteInt64(commentId);
+        writer.WriteInt32(moderationStatus);
+        writer.WriteByte(visibilityState);
+        writer.WriteByte(isPubliclyVisible ? (byte)1 : (byte)0);
+        writer.WriteByte(0);
+        writer.WriteByte(0);
+    }
+
+    public static byte[] EncodeCommentCreateResult(
+        long commentId,
+        int moderationStatus,
+        byte visibilityState,
+        bool isPubliclyVisible)
+        => EncodeToArray(
+            16,
+            writer => WriteCommentCreateResult(
+                commentId,
+                moderationStatus,
+                visibilityState,
+                isPubliclyVisible,
+                writer));
+
+    public static bool TryDecodeCommentCreateResult(
+        ReadOnlyMemory<byte> bytes,
+        out long commentId,
+        out int moderationStatus,
+        out byte visibilityState,
+        out bool isPubliclyVisible)
+    {
+        var reader = new BinaryPodReader(bytes.Span);
+        if (!reader.TryReadInt64(out commentId)
+            || !reader.TryReadInt32(out moderationStatus)
+            || !reader.TryReadByte(out visibilityState)
+            || !reader.TryReadByte(out byte visible)
+            || !reader.TryReadByte(out byte reserved0)
+            || !reader.TryReadByte(out byte reserved1)
+            || visible > 1
+            || visibilityState > 3
+            || reserved0 != 0
+            || reserved1 != 0)
+        {
+            commentId = 0;
+            moderationStatus = 0;
+            visibilityState = 0;
+            isPubliclyVisible = false;
+            return false;
+        }
+
+        isPubliclyVisible = visible == 1;
+        return reader.IsConsumed;
+    }
+
     /// <summary>
     /// Writes the <c>AnonymousCredentialIssueRequest</c> contract to the supplied binary destination.
     /// </summary>

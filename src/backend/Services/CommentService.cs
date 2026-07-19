@@ -72,7 +72,7 @@ public partial class CommentCommandService(
             return false;
         }
 
-        return await CreateResolvedCommentAsync(
+        CommentCreateResult result = await CreateResolvedCommentAsync(
             dto.ArticleId,
             normalizedContent,
             dto.ParentId,
@@ -81,6 +81,7 @@ public partial class CommentCommandService(
             actor,
             regionDecision,
             CancellationToken.None);
+        return result.Created;
     }
 
     public async Task<bool> CreateStrongAnonymousCommentAsync(
@@ -88,10 +89,19 @@ public partial class CommentCommandService(
         RegionModerationDecision? regionDecision = null,
         CancellationToken cancellationToken = default)
     {
+        CommentCreateResult result = await CreateStrongAnonymousCommentResultAsync(request, regionDecision, cancellationToken);
+        return result.Created;
+    }
+
+    public async Task<CommentCreateResult> CreateStrongAnonymousCommentResultAsync(
+        AnonymousCommentCreateRequestCoreModel request,
+        RegionModerationDecision? regionDecision = null,
+        CancellationToken cancellationToken = default)
+    {
         cancellationToken.ThrowIfCancellationRequested();
         if (request.ArticleId <= 0)
         {
-            return false;
+            return CommentCreateResult.Failed;
         }
 
         string normalizedContent = NormalizeCommentContent(request.Content);
@@ -101,7 +111,7 @@ public partial class CommentCommandService(
             cancellationToken);
         if (ticket is null)
         {
-            return false;
+            return CommentCreateResult.Failed;
         }
 
         RegionModerationDecision effectiveRegionDecision = commentModeration.ResolveSubmissionRegion(
@@ -111,7 +121,7 @@ public partial class CommentCommandService(
             regionDecision);
         if (!effectiveRegionDecision.CanPublish)
         {
-            return false;
+            return CommentCreateResult.Failed;
         }
 
         CommentActor? actor = await commentAttribution.ResolveStrongAnonymousActorAsync(
@@ -121,7 +131,7 @@ public partial class CommentCommandService(
             cancellationToken);
         if (actor is null)
         {
-            return false;
+            return CommentCreateResult.Failed;
         }
 
         return await CreateResolvedCommentAsync(
@@ -135,7 +145,7 @@ public partial class CommentCommandService(
             cancellationToken);
     }
 
-    private async Task<bool> CreateResolvedCommentAsync(
+    private async Task<CommentCreateResult> CreateResolvedCommentAsync(
         int articleId,
         string normalizedContent,
         string? requestedParentId,
@@ -156,12 +166,12 @@ public partial class CommentCommandService(
             .AnyAsync();
         if (!articleExists)
         {
-            return false;
+            return CommentCreateResult.Failed;
         }
 
         if (!regionDecision.CanPublish)
         {
-            return false;
+            return CommentCreateResult.Failed;
         }
 
         bool enforceAnonymousNullifier = commentAttribution.RequiresAnonymousNullifierEnforcement(actor);
@@ -171,7 +181,7 @@ public partial class CommentCommandService(
                 "匿名评论 nullifier enforcement 未注册，拒绝评论写入 | Article: {ArticleId} | ScopeHash: {ScopeHash}",
                 articleId,
                 commentAttribution.HashAnonymousScopeForLog(actor.AnonymousScope));
-            return false;
+            return CommentCreateResult.Failed;
         }
 
         bool hasReplyContext = !string.IsNullOrWhiteSpace(requestedParentId)
@@ -187,7 +197,7 @@ public partial class CommentCommandService(
         {
             if (!TryParsePositiveCommentId(requestedParentId, out long parsedParentId))
             {
-                return false;
+                return CommentCreateResult.Failed;
             }
 
             long? requestedRootId = null;
@@ -195,7 +205,7 @@ public partial class CommentCommandService(
             {
                 if (!TryParsePositiveCommentId(requestedRootIdRaw, out long parsedRootId))
                 {
-                    return false;
+                    return CommentCreateResult.Failed;
                 }
 
                 requestedRootId = parsedRootId;
@@ -206,7 +216,7 @@ public partial class CommentCommandService(
             {
                 if (!TryParsePositiveCommentId(requestedReplyToCommentIdRaw, out long parsedReplyToCommentId))
                 {
-                    return false;
+                    return CommentCreateResult.Failed;
                 }
 
                 requestedReplyToCommentId = parsedReplyToCommentId;
@@ -215,26 +225,27 @@ public partial class CommentCommandService(
             ReplyTargetRow? parent = await LoadVisibleReplyTargetAsync(parsedParentId, articleId, cancellationToken);
             if (parent is null)
             {
-                return false;
+                return CommentCreateResult.Failed;
             }
 
             parentId = parent.Id;
             rootId = parent.RootId ?? parent.Id;
             if (requestedRootId.HasValue && requestedRootId.Value != rootId.Value)
             {
-                return false;
+                return CommentCreateResult.Failed;
             }
 
             replyToUserId = actor.UserId.HasValue ? parent.UserId : null;
             replyToCommentId = parent.Id;
             if (requestedReplyToCommentId.HasValue && requestedReplyToCommentId.Value != replyToCommentId.Value)
             {
-                return false;
+                return CommentCreateResult.Failed;
             }
 
             depth = Math.Max(1, parent.Depth + 1);
         }
 
+        CommentInitialModerationDecision initialModeration = commentModeration.ResolveInitialState(actor, regionDecision);
         var comment = new Comment
         {
             ArticleId = articleId,
@@ -262,8 +273,8 @@ public partial class CommentCommandService(
             IsDeleted = false,
             DeleteReason = null,
             DeleteTime = null,
-            ModerationStatus = CommentModerationStatus.Approved,
-            ModerationReason = BuildInitialModerationReason(regionDecision)
+            ModerationStatus = initialModeration.Status,
+            ModerationReason = initialModeration.ReasonCode
         };
 
         long generatedId = 0;
@@ -307,16 +318,16 @@ public partial class CommentCommandService(
                     actor.AnonymousScope,
                     rejected.Status,
                     cancellationToken);
-                return false;
+                return CommentCreateResult.Failed;
             }
 
             if (insertResult.ErrorException is CommentTargetNotVisibleException)
             {
-                return false;
+                return CommentCreateResult.Failed;
             }
 
             logger.LogWarning(insertResult.ErrorException, "评论创建或地区合规记录写入失败 | Article: {ArticleId} | User: {UserId}", articleId, actor.UserId);
-            return false;
+            return CommentCreateResult.Failed;
         }
 
         comment.Id = generatedId;
@@ -349,7 +360,7 @@ public partial class CommentCommandService(
             comment.RootId ?? comment.Id,
             comment.ParentId);
 
-        return true;
+        return BuildCreateResult(comment);
     }
 
     private async Task<ReplyTargetRow?> LoadVisibleReplyTargetAsync(long parentId, int articleId, CancellationToken cancellationToken)
@@ -462,26 +473,6 @@ public partial class CommentCommandService(
 
     private sealed record ReplyTargetRow(long Id, int ArticleId, long? RootId, long? ParentId, int Depth, int? UserId);
 
-    private static string BuildInitialModerationReason(RegionModerationDecision decision)
-    {
-        if (decision.DecisionReason.Contains("risk_control_queue", StringComparison.Ordinal))
-        {
-            return TextHelpers.NormalizeNullable($"published_{decision.DecisionReason}", 256) ?? "published_risk_control_queue";
-        }
-
-        if (decision.HideUntilReviewed)
-        {
-            return "published_region_manual_review_no_public_display";
-        }
-
-        if (decision.RequiresManualReview)
-        {
-            return "published_region_manual_review";
-        }
-
-        return "published_pending_review";
-    }
-
     private sealed class AnonymousNullifierRejectedException(string status, string message) : Exception(message)
     {
         public string Status { get; } = status;
@@ -491,7 +482,7 @@ public partial class CommentCommandService(
     {
     }
 
-    public Task<bool> CreateAttributablePublicCommentAsync(
+    public Task<CommentCreateResult> CreateAttributablePublicCommentResultAsync(
         AccountPrincipalContext account,
         CommentCreateV2RequestCoreModel request,
         RegionModerationDecision? regionDecision = null)
@@ -500,10 +491,10 @@ public partial class CommentCommandService(
             !request.PublicSendExplicitlySelected ||
             !string.Equals(request.AuthorMode, CommentAuthorModes.Public, StringComparison.Ordinal))
         {
-            return Task.FromResult(false);
+            return Task.FromResult(CommentCreateResult.Failed);
         }
 
-        return CreateCommentAsync(account.AccountId, new CommentDto
+        return CreateAttributablePublicCommentCoreAsync(account.AccountId, new CommentDto
         {
             ArticleId = request.ArticleId,
             Content = request.Content,
@@ -520,6 +511,63 @@ public partial class CommentCommandService(
             RegionDecision = regionDecision
         });
     }
+
+    public async Task<bool> CreateAttributablePublicCommentAsync(
+        AccountPrincipalContext account,
+        CommentCreateV2RequestCoreModel request,
+        RegionModerationDecision? regionDecision = null)
+        => (await CreateAttributablePublicCommentResultAsync(account, request, regionDecision)).Created;
+
+    private async Task<CommentCreateResult> CreateAttributablePublicCommentCoreAsync(int userId, CommentDto dto)
+    {
+        if (dto.ArticleId <= 0)
+        {
+            return CommentCreateResult.Failed;
+        }
+
+        string normalizedContent = NormalizeCommentContent(dto.Content);
+        RegionModerationDecision regionDecision = commentModeration.ResolveSubmissionRegion(
+            normalizedContent,
+            dto.ArticleId,
+            userId,
+            dto.RegionDecision);
+        if (!regionDecision.CanPublish)
+        {
+            return CommentCreateResult.Failed;
+        }
+
+        CommentActor? actor = await commentAttribution.ResolvePublicActorAsync(
+            userId,
+            dto,
+            normalizedContent,
+            regionDecision.SubmitRegion,
+            CancellationToken.None);
+        return actor is null
+            ? CommentCreateResult.Failed
+            : await CreateResolvedCommentAsync(
+                dto.ArticleId,
+                normalizedContent,
+                dto.ParentId,
+                dto.RootId,
+                dto.ReplyToCommentId,
+                actor,
+                regionDecision,
+                CancellationToken.None);
+    }
+
+    private static CommentCreateResult BuildCreateResult(Comment comment)
+        => new(
+            true,
+            comment.Id,
+            comment.ModerationStatus,
+            comment.ModerationStatus switch
+            {
+                CommentModerationStatus.Approved => "public",
+                CommentModerationStatus.Rejected => "rejected",
+                CommentModerationStatus.Hidden => "hidden",
+                _ => "pending"
+            },
+            comment.ModerationStatus == CommentModerationStatus.Approved);
 
     public Task<bool> DeleteCommentAsAccountAsync(long id, int accountId, string reason = "违反社区管理条例")
     {

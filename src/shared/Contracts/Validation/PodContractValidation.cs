@@ -76,6 +76,7 @@ public static class PodContractValidation
             && IsReferenceFree<CommentPolicySnapshotPod>()
             && IsReferenceFree<CommentPolicyUpdateRequestPod>()
             && IsReferenceFree<CommentCreateV2RequestPod>()
+            && IsReferenceFree<CommentCreateResultPod>()
             && IsReferenceFree<CommentAuthorViewPod>()
             && IsReferenceFree<AnonymousCredentialIssueRequestPod>()
             && IsReferenceFree<AnonymousCredentialIssueResponsePod>()

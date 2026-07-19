@@ -18,7 +18,7 @@ The anti-spam model layer is optional and disabled by default:
       "Mode": "score-only",
       "AutoApproveConfidenceThreshold": 0.95,
       "AutoHideConfidenceThreshold": 0.9,
-      "FailOpen": true,
+      "FailOpen": false,
       "TimeoutMs": 800,
       "MaxContentChars": 2000,
       "ContractVersion": "fsusblog-antispam-signal-v1"
@@ -56,13 +56,13 @@ Supported disposition modes:
 | `score-only` | Default; store the model signal and keep the comment in `Pending` |
 | `auto-low-risk-approve` | Auto-approve only clean high-confidence comments when region policy allows public display and does not require manual review |
 | `auto-hide-high-risk` | Auto-hide high-confidence `risky` / `blocked_candidate` comments, or second-round spam/scam/malicious-link signals |
-| `strict-auto-moderate` | Reserved; currently does not auto-apply a final status |
+| `strict-auto-moderate` | Auto-approve clean high-confidence signals and auto-hide high-risk signals when region policy permits |
 
 Region policy has higher priority than model disposition. A model signal must not auto-approve when `RegionCanPublish=false`, `RegionRequiresManualReview=true`, or `RegionHideUntilReviewed=true`.
 
 ## Signal Storage
 
-When enabled, comment creation stores the latest model output in `comment_moderation_signal`. Runtime unavailable, contract invalid, and other errors are persisted as fail-open signal rows with `status=unavailable|contract_invalid|error`; the comment remains in the normal Pending moderation queue.
+When enabled, a comment is inserted as `Pending` before scoring and stores the latest model output in `comment_moderation_signal`. Runtime unavailable, timeout, contract invalid, missing provider DI, and other errors remain `Pending` by default (`FailOpen=false`). Operators may explicitly set `FailOpen=true`; only a region-safe, non-manual, non-anonymous-review comment may then transition to `Approved`.
 
 Admin queue responses include the latest model signal metadata: built-in runtime id, model, contract version, label, confidence, severity, primary reason, risk categories, evidence JSON, raw reason, latency, status, error code, threshold profile, timestamp, and whether the final moderation state was model-auto-applied.
 

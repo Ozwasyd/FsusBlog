@@ -143,6 +143,51 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
     }
 
     [Fact]
+    public async Task RunAsync_CommentModerationEvents_RecordInitialAndTransitionStatesAndRejectMutation()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+        await RunMigrationsAsync(connectionString);
+
+        await fixture.ExecuteAsync(connectionString, """
+            INSERT INTO comment(id, article_id, content, create_time, author_mode, depth, is_deleted,
+                                moderation_status, moderation_reason)
+            VALUES (701, 1, 'pending comment', now() AT TIME ZONE 'utc', 'public', 0, false,
+                    0, 'pending_model_review');
+
+            UPDATE comment
+            SET moderation_status = 1,
+                moderation_reason = 'model_policy:model_clean_auto_approved',
+                moderated_at = now() AT TIME ZONE 'utc'
+            WHERE id = 701;
+            """);
+
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync();
+        await using (var query = new NpgsqlCommand(
+            "SELECT previous_status, next_status, transition_source FROM comment_moderation_event WHERE comment_id = 701 ORDER BY id;",
+            connection))
+        await using (NpgsqlDataReader reader = await query.ExecuteReaderAsync())
+        {
+            Assert.True(await reader.ReadAsync());
+            Assert.True(await reader.IsDBNullAsync(0));
+            Assert.Equal(0, reader.GetInt32(1));
+            Assert.Equal("initial", reader.GetString(2));
+            Assert.True(await reader.ReadAsync());
+            Assert.Equal(0, reader.GetInt32(0));
+            Assert.Equal(1, reader.GetInt32(1));
+            Assert.Equal("model", reader.GetString(2));
+            Assert.False(await reader.ReadAsync());
+        }
+
+        await using var mutate = new NpgsqlCommand(
+            "UPDATE comment_moderation_event SET reason_code = 'tampered' WHERE comment_id = 701;",
+            connection);
+        PostgresException error = await Assert.ThrowsAsync<PostgresException>(() => mutate.ExecuteNonQueryAsync());
+        Assert.Contains("append-only", error.MessageText, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task RunAsync_PublicArticleProjection_HasPreparedSequentialPrimaryKeyPlanAndVisibilityBoundary()
     {
         string databaseName = await fixture.CreateDatabaseAsync();

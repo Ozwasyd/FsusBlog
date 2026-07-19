@@ -107,6 +107,19 @@ public readonly struct CommentCreateV2RequestPod
 }
 
 /// <summary>
+/// Defines the final moderation state returned after comment creation and any synchronous model disposition.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct CommentCreateResultPod
+{
+    public readonly long CommentId;
+    public readonly int ModerationStatus;
+    public readonly byte VisibilityState;
+    public readonly byte IsPubliclyVisible;
+    public readonly ushort Reserved0;
+}
+
+/// <summary>
 /// Defines the fixed-layout binary representation used by the <c>AnonymousCredentialIssueRequest</c> wire contract.
 /// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]

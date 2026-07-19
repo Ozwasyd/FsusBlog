@@ -1314,7 +1314,7 @@
           "cache": "no-store",
           "rateLimit": "public_read",
           "requestFrame": "AnonymousCommentCreateRequest",
-          "responseFrame": "EmptySuccess"
+          "responseFrame": "CommentCreateResult"
         },
         {
           "method": "POST",
@@ -1322,7 +1322,7 @@
           "auth": "user",
           "pow": true,
           "requestFrame": "CommentCreateV2Request",
-          "responseFrame": "EmptySuccess"
+          "responseFrame": "CommentCreateResult"
         },
         {
           "method": "GET",

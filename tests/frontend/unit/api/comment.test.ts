@@ -54,7 +54,7 @@ describe('comment API', () => {
 
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryRoute: { operationId: 'binary_post_comment' },
-      frameType: FrameType.EmptySuccess,
+      frameType: FrameType.CommentCreateResult,
       requestOptions: expect.objectContaining({
         method: 'POST',
         requiresPow: true,
@@ -147,7 +147,7 @@ describe('comment API', () => {
     const body = call.requestOptions?.body as ArrayBuffer
     expect(call).toEqual(expect.objectContaining({
       binaryRoute: { operationId: 'binary_post_comment_anonymous' },
-      frameType: FrameType.EmptySuccess,
+      frameType: FrameType.CommentCreateResult,
       signal,
       requestOptions: expect.objectContaining({
         method: 'POST',

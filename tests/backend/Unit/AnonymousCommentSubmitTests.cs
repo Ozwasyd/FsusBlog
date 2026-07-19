@@ -54,7 +54,7 @@ public sealed class AnonymousCommentSubmitTests(
     private const string ModerationPepper = "unit-test-moderation-pepper-with-at-least-thirty-two-chars";
 
     [Fact]
-    public async Task CreateStrongAnonymousCommentAsync_ValidTicket_WritesApprovedAnonymousCommentGovernanceFieldsAndInvalidatesPublicScope()
+    public async Task CreateStrongAnonymousCommentAsync_RegionHideUntilReviewed_WritesHiddenWithoutPublicInvalidation()
     {
         using SqlSugarClient db = await CreateDbAsync();
         CreateTables(db);
@@ -83,7 +83,7 @@ public sealed class AnonymousCommentSubmitTests(
                 Encoding.UTF8.GetBytes(ModerationPepper),
                 Encoding.UTF8.GetBytes(NullifierHash))),
             comment.ModerationSubjectHash);
-        Assert.Equal(CommentModerationStatus.Approved, comment.ModerationStatus);
+        Assert.Equal(CommentModerationStatus.Hidden, comment.ModerationStatus);
         Assert.DoesNotContain(Convert.ToHexString(s_ticket), comment.Content, StringComparison.OrdinalIgnoreCase);
 
         CommentRegionCompliance compliance = Assert.Single(db.Queryable<CommentRegionCompliance>().ToList());
@@ -102,7 +102,7 @@ public sealed class AnonymousCommentSubmitTests(
         Assert.Equal(42, scope.ArticleId);
         Assert.Equal(comment.Id, scope.RootId);
         Assert.Null(scope.AccountId);
-        Assert.True(scope.PublicArticleChanged);
+        Assert.False(scope.PublicArticleChanged);
     }
 
     [Fact]
@@ -494,7 +494,7 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
-    public async Task AnonymousCommentCreateEndpoint_DecodesFrameAndReturnsEmptySuccess()
+    public async Task AnonymousCommentCreateEndpoint_DecodesFrameAndReturnsFinalModerationState()
     {
         var aeds = new AedsEncoder();
         var commentService = new CapturingCommentEndpointService();
@@ -514,7 +514,7 @@ public sealed class AnonymousCommentSubmitTests(
             CancellationToken.None);
 
         AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
-        Assert.Equal(AedsFrameType.EmptySuccess, decoded.FrameType);
+        Assert.Equal(AedsFrameType.CommentCreateResult, decoded.FrameType);
         Assert.Equal("hello anonymous", commentService.Request.Content);
         Assert.Equal(RegionCodes.Singapore, commentService.RegionDecision!.SubmitRegion);
         Assert.Equal(1, commentService.AnonymousCreateCalls);
@@ -547,7 +547,7 @@ public sealed class AnonymousCommentSubmitTests(
             }));
 
         AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
-        Assert.Equal(AedsFrameType.EmptySuccess, decoded.FrameType);
+        Assert.Equal(AedsFrameType.CommentCreateResult, decoded.FrameType);
         Assert.Equal(longContent, commentService.Request.Content);
     }
 
@@ -599,14 +599,14 @@ public sealed class AnonymousCommentSubmitTests(
         string anonymousHandler = RuntimeMetadataInspection.DescribeMethods(
             typeof(BinaryEndpoints),
             nameof(BinaryEndpoints.HandleAnonymousCommentCreateAsync));
-        Assert.Contains("CreateStrongAnonymousCommentAsync", anonymousHandler, StringComparison.Ordinal);
+        Assert.Contains("CreateStrongAnonymousCommentResultAsync", anonymousHandler, StringComparison.Ordinal);
         Assert.Contains("TryDecodeAnonymousCommentCreateRequest", anonymousHandler, StringComparison.Ordinal);
 
         string signedHandler = RuntimeMetadataInspection.DescribeMethodClosureContaining(
             typeof(BinaryEndpoints),
-            "CreateAttributablePublicCommentAsync",
+            "CreateAttributablePublicCommentResultAsync",
             "AccountPrincipalContext");
-        Assert.Contains("CreateAttributablePublicCommentAsync", signedHandler, StringComparison.Ordinal);
+        Assert.Contains("CreateAttributablePublicCommentResultAsync", signedHandler, StringComparison.Ordinal);
         Assert.DoesNotContain("CreateCommentV2Async", signedHandler, StringComparison.Ordinal);
         Assert.DoesNotContain("CreateCommentAsync", signedHandler, StringComparison.Ordinal);
     }
@@ -621,7 +621,7 @@ public sealed class AnonymousCommentSubmitTests(
         Assert.DoesNotContain("GetUserId", anonymousHandler, StringComparison.Ordinal);
         Assert.DoesNotContain("get_UserId", anonymousHandler, StringComparison.Ordinal);
         Assert.DoesNotContain("user_id", anonymousHandler, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("CreateStrongAnonymousCommentAsync", anonymousHandler, StringComparison.Ordinal);
+        Assert.Contains("CreateStrongAnonymousCommentResultAsync", anonymousHandler, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -638,7 +638,7 @@ public sealed class AnonymousCommentSubmitTests(
         MethodInfo mineMethod = Assert.IsAssignableFrom<MethodInfo>(mine.Metadata.GetMetadata<MethodInfo>());
         string createHandler = RuntimeMetadataInspection.DescribeMethods(createMethod.DeclaringType!, createMethod.Name);
         string myCommentsHandler = RuntimeMetadataInspection.DescribeMethods(mineMethod.DeclaringType!, mineMethod.Name);
-        Assert.Contains("CreateAttributablePublicCommentAsync", createHandler, StringComparison.Ordinal);
+        Assert.Contains("CreateAttributablePublicCommentResultAsync", createHandler, StringComparison.Ordinal);
         Assert.Contains("GetUserCommentsAsync", myCommentsHandler, StringComparison.Ordinal);
         Assert.Contains("AccountPrincipalContext", createHandler, StringComparison.Ordinal);
         Assert.Contains("AccountPrincipalContext", myCommentsHandler, StringComparison.Ordinal);

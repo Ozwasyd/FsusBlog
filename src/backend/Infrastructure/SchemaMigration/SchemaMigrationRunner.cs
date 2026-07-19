@@ -115,7 +115,8 @@ public sealed class SchemaMigrationRunner(
                 "sys_fenced_commit",
                 "public_article_projection",
                 "public_article_projection_backfill",
-                "public_article_projection_shadow_mismatch"
+                "public_article_projection_shadow_mismatch",
+                "comment_moderation_event"
             ],
             cancellationToken).ConfigureAwait(false);
 

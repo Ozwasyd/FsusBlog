@@ -135,6 +135,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `187`: RetiredCredentialSpecificRevocationResponse (永久保留编号，不再发送)
 - `196`: AnonymousCredentialRevocationSnapshot
 - `197`: AnonymousCredentialRevocationDelta
+- `205`: CommentCreateResult
 - `240`: EmptySuccess
 - `241`: MutationId
 - `251`: ApiError
@@ -144,6 +145,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 ## Common Response PODs
 
 - `EmptySuccess` payload: `EmptySuccessPod` (`Ok = 1`, remaining bytes reserved).
+- `CommentCreateResult` payload: 16-byte `CommentCreateResultPod` (`int64 commentId`, `int32 moderationStatus`, `uint8 visibilityState`, `uint8 isPubliclyVisible`, two reserved zero bytes). Visibility values are `0 pending`, `1 public`, `2 hidden`, `3 rejected`.
 - `MutationId` payload: `MutationIdPod` (`int64 Id`).
 - `ApiError` payload: `ApiErrorPod` (`byte Code`, `byte Category`, `int32 HttpStatus`, fixed UTF-8 `Message`, `Details`, `TraceId`).
 - `CategoryWriteRequest` / `TagWriteRequest` payload: `NameMutationRequestPod` (`Utf8Fixed128 Name`).

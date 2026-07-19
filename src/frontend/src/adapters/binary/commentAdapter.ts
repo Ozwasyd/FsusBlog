@@ -7,6 +7,7 @@ import type {
   BlindCredentialIssueResponse,
   AnonymousPrivacyStateSnapshot,
   CommentAuthorMode,
+  CommentCreateResult,
   CommentReplyItem,
   CommentThreadItem,
   CursorResponse,
@@ -81,6 +82,27 @@ const COMMENT_POLICY_SNAPSHOT_LEGACY_NO_LIMITS_LAYOUT: CommentPolicySnapshotLayo
 export function mapCommentCursorFromPodPayload(payload: Uint8Array): CursorResponse<CommentThreadItem> {
   const reader = new BinaryReader(payload);
   return readCursorEnvelope(reader, () => readThreadItemFromReader(reader), 'comment_thread_cursor_count_invalid', 'comment_thread_cursor_trailing_payload_invalid');
+}
+
+export function mapCommentCreateResultFromPayload(payload: Uint8Array): CommentCreateResult {
+  if (payload.byteLength !== 16) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'comment_create_result_size_invalid');
+  }
+
+  const moderationStatus = readInt32(payload, 8);
+  const visibilityCode = readByte(payload, 12);
+  const visible = readByte(payload, 13);
+  if (moderationStatus < 0 || moderationStatus > 3 || visibilityCode > 3 || visible > 1
+    || readByte(payload, 14) !== 0 || readByte(payload, 15) !== 0) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'comment_create_result_value_invalid');
+  }
+
+  return {
+    commentId: readInt64Number(payload, 0).toString(),
+    moderationStatus,
+    visibilityState: (['pending', 'public', 'hidden', 'rejected'] as const)[visibilityCode],
+    isPubliclyVisible: visible === 1
+  };
 }
 
 export function mapCommentPolicySnapshotFromPayload(payload: Uint8Array): CommentPolicySnapshot {

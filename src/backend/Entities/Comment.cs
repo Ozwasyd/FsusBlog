@@ -160,7 +160,7 @@ public class Comment
     }
 
     [SugarColumn(ColumnName = "moderation_status")]
-    public CommentModerationStatus ModerationStatus { get; set; } = CommentModerationStatus.Approved;
+    public CommentModerationStatus ModerationStatus { get; set; } = CommentModerationStatus.Pending;
 
     [SugarColumn(ColumnName = "moderation_reason", Length = 256, IsNullable = true)]
     public string? ModerationReason

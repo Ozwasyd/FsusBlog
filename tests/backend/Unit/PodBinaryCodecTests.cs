@@ -2453,6 +2453,33 @@ public class PodBinaryCodecCommentTests
     }
 
     [Fact]
+    public void CommentCreateResult_RoundTrip_PreservesFinalVisibility()
+    {
+        byte[] encoded = PodBinaryCodec.EncodeCommentCreateResult(
+            9_007_199_254_740L,
+            moderationStatus: 0,
+            visibilityState: 0,
+            isPubliclyVisible: false);
+
+        Assert.Equal(PodSizeCatalog.CommentCreateResultPod, encoded.Length);
+        Assert.True(PodBinaryCodec.TryDecodeCommentCreateResult(
+            encoded,
+            out long commentId,
+            out int moderationStatus,
+            out byte visibilityState,
+            out bool isPubliclyVisible));
+        Assert.Equal(9_007_199_254_740L, commentId);
+        Assert.Equal(0, moderationStatus);
+        Assert.Equal(0, visibilityState);
+        Assert.False(isPubliclyVisible);
+
+        byte[] trailing = [.. encoded, 0xff];
+        Assert.False(PodBinaryCodec.TryDecodeCommentCreateResult(trailing, out _, out _, out _, out _));
+        encoded[13] = 2;
+        Assert.False(PodBinaryCodec.TryDecodeCommentCreateResult(encoded, out _, out _, out _, out _));
+    }
+
+    [Fact]
     public void UserCommentCursor_Empty_RoundTrip()
     {
         var cursor = new CoreCursorResult<UserCommentCoreModel>([], null, false);

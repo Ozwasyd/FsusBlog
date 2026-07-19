@@ -208,10 +208,10 @@ public static partial class BinaryEndpoints
             {
                 Content = content
             };
-            bool success = await commentService.CreateAttributablePublicCommentAsync(account, request, regionDecision);
+            CommentCreateResult result = await commentService.CreateAttributablePublicCommentResultAsync(account, request, regionDecision);
 
-            return success
-                ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
+            return result.Created
+                ? WriteCommentCreateResult(aeds, result)
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "发布失败：可能文章已关闭评论或数据异常"), aeds);
         })
         .RequireAnonymousAccountPrincipal()
@@ -552,7 +552,7 @@ public static partial class BinaryEndpoints
         }
 
         regionDecision = ApplyRiskControlModerationDecision(httpContext, regionDecision);
-        bool success = await commentService.CreateStrongAnonymousCommentAsync(
+        CommentCreateResult result = await commentService.CreateStrongAnonymousCommentResultAsync(
             request with
             {
                 Content = content
@@ -560,10 +560,27 @@ public static partial class BinaryEndpoints
             regionDecision,
             cancellationToken);
 
-        return success
-            ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
+        return result.Created
+            ? WriteCommentCreateResult(aeds, result)
             : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "anonymous_comment_submit_failed"), aeds);
     }
+
+    private static BinaryFrameResult WriteCommentCreateResult(IAedsEncoder aeds, CommentCreateResult result)
+        => BinaryResults.Frame(
+            aeds,
+            AedsFrameType.CommentCreateResult,
+            writer => PodBinaryCodec.WriteCommentCreateResult(
+                result.CommentId,
+                (int)result.ModerationStatus,
+                result.VisibilityState switch
+                {
+                    "public" => (byte)1,
+                    "hidden" => (byte)2,
+                    "rejected" => (byte)3,
+                    _ => (byte)0
+                },
+                result.IsPubliclyVisible,
+                writer));
 
     private static bool IsCommentContentWithinLimit(string content, AnonymousCommentPolicySnapshot policy)
         => !string.IsNullOrWhiteSpace(content)

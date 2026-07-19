@@ -391,7 +391,7 @@ public sealed class ModerationRuntimeStateService(
         string channel = TextHelpers.TrimOrNull(configuration["Moderation:AntiSpamModel:RuntimeChannel"]) ?? "stable";
         string thresholdProfile = configuration["Moderation:AntiSpamModel:ThresholdProfile"] ?? "default";
         int timeoutMs = Math.Clamp(configuration.GetValue<int?>("Moderation:AntiSpamModel:TimeoutMs") ?? 800, 100, 10_000);
-        bool failOpen = configuration.GetValue<bool?>("Moderation:AntiSpamModel:FailOpen") ?? true;
+        bool failOpen = configuration.GetValue<bool?>("Moderation:AntiSpamModel:FailOpen") ?? false;
         if (!enabled)
         {
             string checksum = BuildChecksum($"disabled:{channel}:{thresholdProfile}:{timeoutMs}:{failOpen}");

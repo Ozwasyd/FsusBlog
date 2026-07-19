@@ -197,6 +197,7 @@ export const FrameType = {
   AccountConversationReplyRequest: 202,
   ConversationDetailV2: 203,
   ConversationDetailV3: 204,
+  CommentCreateResult: 205,
   EmptySuccess: 240,
   MutationId: 241,
   ApiError: 251,

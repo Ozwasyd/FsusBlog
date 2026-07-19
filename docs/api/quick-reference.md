@@ -212,9 +212,9 @@
 | GET `/api/binary/comment/{articleId}/thread/{rootId}` | 🔓 📦 | `CommentThreadReplyCursor`(8) | 评论线程 |
 | GET `/api/binary/comment/me` | 🔑 📦 | `CommentUserCursor`(6) | 当前用户可归因评论记录；强匿名评论不进入账号侧记录 |
 | GET `/api/binary/comment/policy` | 🔓 📦 | `CommentPolicySnapshot`(164) | 公开评论 composer 策略与 ZK-Prod readiness |
-| POST `/api/binary/comment` | 🔑 🚦 📦 | `CommentCreateV2Request`(166) → `EmptySuccess`(240) | 仅显式 opt-in 的 public 评论；旧 `anonymous` 已退休且零业务写，ZK 必须走 ticket-submit |
+| POST `/api/binary/comment` | 🔑 🚦 📦 | `CommentCreateV2Request`(166) → `CommentCreateResult`(205) | 仅显式 opt-in 的 public 评论；响应返回最终 `moderationStatus/visibilityState`，旧 `anonymous` 已退休 |
 | POST `/api/binary/comment/anonymous-ticket` | 🔓 🚦 📦 | `AnonymousCommentTicketRequest`(198) → `AnonymousCommentTicketResponse`(199) | v5/layout 6 最小资格谓词；必须 `credentials: omit`，匿名集 k>=20，ticket 短 TTL 且一次性消费 |
-| POST `/api/binary/comment/anonymous` | 🔓 🚦 📦 | `AnonymousCommentCreateRequest`(182) → `EmptySuccess`(240) | 强匿名评论提交；只携带 content + ticket，拒绝登录态污染，成功写入 Pending 且 `comment.user_id/reply_to_user_id = null` |
+| POST `/api/binary/comment/anonymous` | 🔓 🚦 📦 | `AnonymousCommentCreateRequest`(182) → `CommentCreateResult`(205) | 强匿名评论提交；只携带 content + ticket，拒绝登录态污染；按凭证/地区/模型策略写入 Pending/Hidden/Approved 并返回最终可见性 |
 | GET `/api/binary/system/seo` | 🔓 📦 | `SeoConfig`(13) | 公开 SEO/品牌/PWA 配置 |
 | GET `/api/binary/system/compliance` | 🔓 📦 | `SiteComplianceConfig`(26) | 公开合规 footer 配置 |
 | GET `/api/binary/system/page/{slug}` | 🔓 📦 | `PageContent`(14) | 公开静态页内容，slug allowlist 同上 |
