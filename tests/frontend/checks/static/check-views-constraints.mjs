@@ -239,32 +239,34 @@ for (const file of componentFacingFiles) {
 
 const accountLayoutPath = join(srcDir, 'layouts', 'AccountLayout.vue');
 const accountLayoutSource = readFileSync(accountLayoutPath, 'utf8');
-if (!accountLayoutSource.includes('mobileDrawerVisible')) {
-  hardViolations.push('src/layouts/AccountLayout.vue: mobile account navigation must be carried by the account drawer state');
+const accountRouteFrameSource = readFileSync(join(srcDir, 'layouts', 'AccountRouteFrame.vue'), 'utf8');
+const accountMobileActionSource = readFileSync(join(srcDir, 'layouts', 'AccountFrameMobileAction.vue'), 'utf8');
+if (!accountRouteFrameSource.includes('mobileDrawerVisible')) {
+  hardViolations.push('src/layouts/AccountRouteFrame.vue: mobile account navigation must be carried by the account drawer state');
 }
-if (!accountLayoutSource.includes('id="account-mobile-drawer"')) {
-  hardViolations.push('src/layouts/AccountLayout.vue: mobile account navigation must use the account drawer surface');
+if (!accountRouteFrameSource.includes('id="account-mobile-drawer"')) {
+  hardViolations.push('src/layouts/AccountRouteFrame.vue: mobile account navigation must use the account drawer surface');
 }
-if (!accountLayoutSource.includes('account-mobile-drawer-trigger')) {
-  hardViolations.push('src/layouts/AccountLayout.vue: mobile account navigation trigger must live in the header actions');
+if (!accountLayoutSource.includes('<RouterView name="accountMobileAction" />') || !accountMobileActionSource.includes('account-mobile-drawer-trigger')) {
+  hardViolations.push('src/layouts: the active frame mobile navigation trigger must render in the shared header actions outlet');
 }
-if (accountLayoutSource.includes('FsusUiSegmentedControl')) {
-  hardViolations.push('src/layouts/AccountLayout.vue: mobile account group navigation must not use the FsusUI segmented-control adapter');
+if (accountRouteFrameSource.includes('FsusUiSegmentedControl')) {
+  hardViolations.push('src/layouts/AccountRouteFrame.vue: mobile account group navigation must not use the FsusUI segmented-control adapter');
 }
-if (accountLayoutSource.includes('openMobileGroupKey')) {
-  hardViolations.push('src/layouts/AccountLayout.vue: mobile account drawer must not keep a separate open group state');
+if (accountRouteFrameSource.includes('openMobileGroupKey')) {
+  hardViolations.push('src/layouts/AccountRouteFrame.vue: mobile account drawer must not keep a separate open group state');
 }
-if (accountLayoutSource.includes('class="account-mobile-tab-link"')) {
-  hardViolations.push('src/layouts/AccountLayout.vue: mobile account group navigation must not regress to the legacy hand-rolled tab buttons');
+if (accountRouteFrameSource.includes('class="account-mobile-tab-link"')) {
+  hardViolations.push('src/layouts/AccountRouteFrame.vue: mobile account group navigation must not regress to the legacy hand-rolled tab buttons');
 }
-if (!accountLayoutSource.includes('accountViewRecord')) {
-  hardViolations.push('src/layouts/AccountLayout.vue: account route view key must be based on the direct AccountLayout child record');
+if (!accountRouteFrameSource.includes('accountViewRecord')) {
+  hardViolations.push('src/layouts/AccountRouteFrame.vue: account route view key must be based on the direct frame child record');
 }
-if (/const\s+routeName\s*=\s*typeof\s+route\.name\s*===\s*'string'\s*\?\s*route\.name\s*:\s*route\.path/.test(accountLayoutSource)) {
-  hardViolations.push('src/layouts/AccountLayout.vue: account route view key must not use the deepest route.name because nested admin tabs would remount their parent layout');
+if (/const\s+routeName\s*=\s*typeof\s+route\.name\s*===\s*'string'\s*\?\s*route\.name\s*:\s*route\.path/.test(accountRouteFrameSource)) {
+  hardViolations.push('src/layouts/AccountRouteFrame.vue: account route view key must not use the deepest route.name because nested admin tabs would remount their parent layout');
 }
-if (!/route\.matched\.findIndex\(\(record\)\s*=>\s*record\.path\s*===\s*'\/user'\)/.test(accountLayoutSource)) {
-  hardViolations.push('src/layouts/AccountLayout.vue: account route view key must locate the /user root before choosing the direct child record');
+if (!/route\.matched\.findIndex\(\(record\)\s*=>\s*record\.path\s*===\s*'\/user'\)/.test(accountRouteFrameSource)) {
+  hardViolations.push('src/layouts/AccountRouteFrame.vue: account route view key must locate the /user root before choosing the direct frame child record');
 }
 
 const accountNavPath = join(srcDir, 'layouts', 'accountNav.ts');
@@ -277,8 +279,8 @@ if (!accountNavSource.includes('ACCOUNT_GLOBAL_MODULE_LIMIT = 7')) {
 }
 const accountNavigationPanelPath = join(srcDir, 'components', 'account', 'AccountNavigationPanel.vue');
 const accountNavigationPanelSource = readFileSync(accountNavigationPanelPath, 'utf8');
-if (!accountLayoutSource.includes('AccountNavigationPanel')) {
-  hardViolations.push('src/layouts/AccountLayout.vue: account/admin navigation must use the shared module and local navigation panel');
+if (!accountRouteFrameSource.includes('AccountNavigationPanel')) {
+  hardViolations.push('src/layouts/AccountRouteFrame.vue: account/admin frames must use the shared module and local navigation panel');
 }
 if (!accountNavigationPanelSource.includes('account-global-module-nav') || !accountNavigationPanelSource.includes('account-local-navigation')) {
   hardViolations.push('src/components/account/AccountNavigationPanel.vue: navigation panel must separate global modules from current-module leaves');

@@ -168,7 +168,14 @@ export const APP_ROUTE_RECORDS: RouteRecordRaw[] = [
       allowLoginRedirect: false
     },
     children: [
-      { path: ACCOUNT_ROUTE_PATHS.profileChild, name: 'UserProfile', redirect: { name: 'UserIdentityOverview' }, component: () => import('@/views/user/Profile.vue'), meta: selfMeta({ title: '身份中心', pageKind: 'identity-settings' }) },
+      {
+        path: '',
+        components: {
+          default: () => import('@/layouts/AccountIdentityFrame.vue'),
+          accountMobileAction: () => import('@/layouts/AccountFrameMobileAction.vue')
+        },
+        children: [
+      { path: ACCOUNT_ROUTE_PATHS.profileChild, name: 'UserProfile', redirect: { name: 'UserIdentityOverview' }, component: () => import('@/views/user/Profile.vue'), meta: selfMeta({ title: '身份中心', pageKind: 'identity-settings' }) } as RouteRecordRaw,
       { path: 'comments', name: 'UserComments', component: () => import('@/views/user/Comments.vue'), meta: selfMeta({ title: '公开评论记录', pageKind: 'collection' }) },
       { path: 'messagebox', name: 'UserMessage', component: () => import('@/views/user/Messages.vue'), meta: selfMeta({ title: '我的消息', pageKind: 'inbox', contentMode: 'takeover' }) },
       { path: 'identity', name: 'UserIdentityOverview', component: () => import('@/views/user/IdentityCenter.vue'), meta: selfMeta({ title: '身份总览', pageKind: 'identity-settings' }) },
@@ -179,14 +186,23 @@ export const APP_ROUTE_RECORDS: RouteRecordRaw[] = [
       { path: 'identity/sessions', name: 'UserIdentitySessions', component: () => import('@/views/user/IdentityCenter.vue'), meta: selfMeta({ title: '设备会话', pageKind: 'identity-settings', routeState: 'session-sensitive' }) },
       { path: 'identity/mfa', name: 'UserIdentityMfa', component: () => import('@/views/user/IdentityCenter.vue'), meta: selfMeta({ title: '二次验证', pageKind: 'identity-settings', routeState: 'session-sensitive' }) },
       { path: 'identity/comment-records', name: 'UserIdentityCommentRecords', component: () => import('@/views/user/IdentityCenter.vue'), meta: selfMeta({ title: '公开评论记录', pageKind: 'identity-settings' }) },
-      { path: 'manage', name: 'ManageDashboard', component: () => import('@/views/admin/Dashboard.vue'), meta: manageMeta({ title: '仪表盘', permissions: ['admin.manage'], pageKind: 'dashboard' }) },
-      { path: 'manage/analytics', name: 'ManageAnalytics', component: () => import('@/views/admin/Analytics.vue'), meta: manageMeta({ title: '数据概览', permissions: ['admin.manage'], pageKind: 'collection' }) },
-      { path: 'manage/article/write', name: 'ManageWriteArticle', component: () => import('@/views/admin/article/Write.vue'), meta: manageMeta({ title: '写文章', permissions: ['article.write'], pageKind: 'form' }) },
-      { path: 'manage/article/edit/:id', name: 'ManageEditArticle', component: () => import('@/views/admin/article/Write.vue'), meta: manageMeta({ title: '编辑文章', permissions: ['article.write'], pageKind: 'form', routeState: 'memory-only' }) },
-      { path: 'manage/article/list', name: 'ManageArticleList', component: () => import('@/views/admin/article/List.vue'), meta: manageMeta({ title: '文章管理', permissions: ['article.write'], pageKind: 'collection' }) },
-      { path: 'manage/article/trash', name: 'ManageArticleTrash', component: () => import('@/views/admin/article/Trash.vue'), meta: manageMeta({ title: '回收站', permissions: ['article.write'], pageKind: 'collection' }) },
+        ]
+      },
       {
-        path: 'manage/security',
+        path: 'manage',
+        components: {
+          default: () => import('@/layouts/AdminWorkspaceFrame.vue'),
+          accountMobileAction: () => import('@/layouts/AccountFrameMobileAction.vue')
+        },
+        children: [
+      { path: '', name: 'ManageDashboard', component: () => import('@/views/admin/Dashboard.vue'), meta: manageMeta({ title: '仪表盘', permissions: ['admin.manage'], pageKind: 'dashboard' }) },
+      { path: 'analytics', name: 'ManageAnalytics', component: () => import('@/views/admin/Analytics.vue'), meta: manageMeta({ title: '数据概览', permissions: ['admin.manage'], pageKind: 'collection' }) },
+      { path: 'article/write', name: 'ManageWriteArticle', component: () => import('@/views/admin/article/Write.vue'), meta: manageMeta({ title: '写文章', permissions: ['article.write'], pageKind: 'form' }) },
+      { path: 'article/edit/:id', name: 'ManageEditArticle', component: () => import('@/views/admin/article/Write.vue'), meta: manageMeta({ title: '编辑文章', permissions: ['article.write'], pageKind: 'form', routeState: 'memory-only' }) },
+      { path: 'article/list', name: 'ManageArticleList', component: () => import('@/views/admin/article/List.vue'), meta: manageMeta({ title: '文章管理', permissions: ['article.write'], pageKind: 'collection' }) },
+      { path: 'article/trash', name: 'ManageArticleTrash', component: () => import('@/views/admin/article/Trash.vue'), meta: manageMeta({ title: '回收站', permissions: ['article.write'], pageKind: 'collection' }) },
+      {
+        path: 'security',
         component: () => import('@/views/admin/security/SecurityLayout.vue'),
         meta: manageMeta({ title: '安全系统', permissions: ['system.config'], pageKind: 'console' }),
         children: [
@@ -204,7 +220,7 @@ export const APP_ROUTE_RECORDS: RouteRecordRaw[] = [
         ]
       },
       {
-        path: 'manage/moderation',
+        path: 'moderation',
         component: () => import('@/views/admin/moderation/ModerationLayout.vue'),
         meta: manageMeta({ title: '审核系统', permissions: ['comment.moderate'], pageKind: 'collection' }),
         children: [
@@ -225,19 +241,21 @@ export const APP_ROUTE_RECORDS: RouteRecordRaw[] = [
           { path: 'audit', name: 'ManageModerationAudit', component: () => import('@/views/admin/moderation/ModerationAudit.vue'), meta: manageMeta({ title: '审核审计', permissions: ['comment.moderate'], pageKind: 'collection' }) }
         ]
       },
-      { path: 'manage/comments', name: 'ManageCommentModeration', redirect: { name: 'ManageModerationComments' }, meta: manageMeta({ title: '评论审核', permissions: ['comment.moderate'], pageKind: 'collection' }) },
-      { path: 'manage/messages', name: 'ManageMessages', component: () => import('@/views/admin/MessageCenter.vue'), meta: manageMeta({ title: '站内信中心', permissions: ['admin.manage'], pageKind: 'inbox', contentMode: 'takeover' }) },
-      { path: 'manage/category', name: 'ManageCategory', component: () => import('@/views/admin/Category.vue'), meta: manageMeta({ title: '分类管理', permissions: ['article.write'], pageKind: 'collection' }) },
-      { path: 'manage/tag', name: 'ManageTag', component: () => import('@/views/admin/Tag.vue'), meta: manageMeta({ title: '标签管理', permissions: ['article.write'], pageKind: 'collection' }) },
-      { path: 'manage/assets', name: 'ManageAssets', component: () => import('@/views/admin/Assets.vue'), meta: manageMeta({ title: '资产库', permissions: ['article.write'], pageKind: 'collection' }) },
-      { path: 'manage/content-tools', name: 'ManageContentTools', component: () => import('@/views/admin/ContentTools.vue'), meta: manageMeta({ title: '备份与迁移', permissions: ['system.config'], pageKind: 'console' }) },
-      { path: 'manage/audit', name: 'ManageAuditLog', component: () => import('@/views/admin/AuditLog.vue'), meta: manageMeta({ title: '审计日志', permissions: ['audit.read'], pageKind: 'collection' }) },
-      { path: 'manage/ops', name: 'ManageOpsHealth', component: () => import('@/views/admin/OpsHealth.vue'), meta: manageMeta({ title: '服务与后台状态', permissions: ['system.config'], pageKind: 'console' }) },
-      { path: 'manage/cache', name: 'ManageCacheDiagnostics', component: () => import('@/views/admin/CacheDiagnostics.vue'), meta: manageMeta({ title: '缓存与索引', permissions: ['system.config'], pageKind: 'console' }) },
-      { path: 'manage/integrity', name: 'ManageIntegrity', component: () => import('@/views/admin/Integrity.vue'), meta: manageMeta({ title: '内容一致性', permissions: ['system.config'], pageKind: 'console' }) },
-      { path: 'manage/integrity-proof', name: 'ManageIntegrityProof', component: () => import('@/views/admin/IntegrityProofConsole.vue'), meta: manageMeta({ title: 'Integrity Proof', permissions: ['system.config'], pageKind: 'console', routeState: 'session-sensitive' }) },
-      { path: 'manage/settings', name: 'ManageSettings', component: () => import('@/views/admin/Settings.vue'), meta: manageMeta({ title: '系统设置', permissions: ['system.config'], pageKind: 'settings' }) },
-      { path: 'manage/users', name: 'ManageUsers', component: () => import('@/views/admin/UserManage.vue'), meta: manageMeta({ title: '用户管理', permissions: ['admin.manage'], pageKind: 'collection' }) }
+      { path: 'comments', name: 'ManageCommentModeration', redirect: { name: 'ManageModerationComments' }, meta: manageMeta({ title: '评论审核', permissions: ['comment.moderate'], pageKind: 'collection' }) },
+      { path: 'messages', name: 'ManageMessages', component: () => import('@/views/admin/MessageCenter.vue'), meta: manageMeta({ title: '站内信中心', permissions: ['admin.manage'], pageKind: 'inbox', contentMode: 'takeover' }) },
+      { path: 'category', name: 'ManageCategory', component: () => import('@/views/admin/Category.vue'), meta: manageMeta({ title: '分类管理', permissions: ['article.write'], pageKind: 'collection' }) },
+      { path: 'tag', name: 'ManageTag', component: () => import('@/views/admin/Tag.vue'), meta: manageMeta({ title: '标签管理', permissions: ['article.write'], pageKind: 'collection' }) },
+      { path: 'assets', name: 'ManageAssets', component: () => import('@/views/admin/Assets.vue'), meta: manageMeta({ title: '资产库', permissions: ['article.write'], pageKind: 'collection' }) },
+      { path: 'content-tools', name: 'ManageContentTools', component: () => import('@/views/admin/ContentTools.vue'), meta: manageMeta({ title: '备份与迁移', permissions: ['system.config'], pageKind: 'console' }) },
+      { path: 'audit', name: 'ManageAuditLog', component: () => import('@/views/admin/AuditLog.vue'), meta: manageMeta({ title: '审计日志', permissions: ['audit.read'], pageKind: 'collection' }) },
+      { path: 'ops', name: 'ManageOpsHealth', component: () => import('@/views/admin/OpsHealth.vue'), meta: manageMeta({ title: '服务与后台状态', permissions: ['system.config'], pageKind: 'console' }) },
+      { path: 'cache', name: 'ManageCacheDiagnostics', component: () => import('@/views/admin/CacheDiagnostics.vue'), meta: manageMeta({ title: '缓存与索引', permissions: ['system.config'], pageKind: 'console' }) },
+      { path: 'integrity', name: 'ManageIntegrity', component: () => import('@/views/admin/Integrity.vue'), meta: manageMeta({ title: '内容一致性', permissions: ['system.config'], pageKind: 'console' }) },
+      { path: 'integrity-proof', name: 'ManageIntegrityProof', component: () => import('@/views/admin/IntegrityProofConsole.vue'), meta: manageMeta({ title: 'Integrity Proof', permissions: ['system.config'], pageKind: 'console', routeState: 'session-sensitive' }) },
+      { path: 'settings', name: 'ManageSettings', component: () => import('@/views/admin/Settings.vue'), meta: manageMeta({ title: '系统设置', permissions: ['system.config'], pageKind: 'settings' }) },
+      { path: 'users', name: 'ManageUsers', component: () => import('@/views/admin/UserManage.vue'), meta: manageMeta({ title: '用户管理', permissions: ['admin.manage'], pageKind: 'collection' }) }
+        ]
+      }
     ]
   },
   // --- 错误页 ---
@@ -268,7 +286,8 @@ function readAccountShellRouteKey(route: RouteLocationNormalized): string | null
     return null
   }
 
-  const shellRecord = route.matched[accountRootIndex + 1]
+  // AccountLayout renders an area frame first; the frame renders this record.
+  const shellRecord = route.matched[accountRootIndex + 2]
   return shellRecord?.name !== undefined ? String(shellRecord.name) : shellRecord?.path ?? null
 }
 
@@ -281,8 +300,8 @@ function isSameAccountShellChildSwitch(to: RouteLocationNormalized, from: RouteL
 
   const toAccountRootIndex = to.matched.findIndex((record) => record.path === '/user')
   const fromAccountRootIndex = from.matched.findIndex((record) => record.path === '/user')
-  return to.matched.length > toAccountRootIndex + 2
-    || from.matched.length > fromAccountRootIndex + 2
+  return to.matched.length > toAccountRootIndex + 3
+    || from.matched.length > fromAccountRootIndex + 3
 }
 
 function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): void {

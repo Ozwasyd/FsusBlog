@@ -64,73 +64,11 @@
                     @open-policy="openPolicy"
                     @logout="handleLogout"
                 />
-                <button
-                    type="button"
-                    class="account-mobile-drawer-trigger"
-                    :aria-label="`打开账户导航：${currentNavGroupLabel} / ${currentNavItem?.label ?? '当前页面'}`"
-                    aria-controls="account-mobile-drawer"
-                    :aria-expanded="mobileDrawerVisible"
-                    @click="mobileDrawerVisible = true"
-                >
-                    <ElIcon
-                        :size="18"
-                        aria-hidden="true"
-                    ><Expand /></ElIcon>
-                </button>
+                <RouterView name="accountMobileAction" />
             </template>
         </SiteChromeHeaderAdapter>
 
-        <ElDrawer
-            id="account-mobile-drawer"
-            v-model="mobileDrawerVisible"
-            :title="mobileDrawerTitle"
-            direction="ltr"
-            size="min(86vw, 22rem)"
-            class="account-mobile-drawer"
-            :motion="fsusBlogMotionPresets.mobileDrawer"
-        >
-            <AccountNavigationPanel
-                class="account-mobile-drawer-nav"
-                :area-label="areaMeta.label"
-                :groups="navGroups"
-                variant="mobile"
-                @navigate="closeMobileDrawer"
-            />
-        </ElDrawer>
-
-        <div class="mx-auto flex w-full max-w-[var(--fsusblog-container-workbench)] flex-1 gap-5 px-4 py-5 sm:px-6 sm:py-8 lg:gap-10 lg:px-10">
-            <aside class="hidden lg:block lg:w-[18rem] lg:shrink-0">
-                <AccountNavigationPanel
-                    class="account-sidebar-frame sticky top-24 pr-6"
-                    :area-label="areaMeta.label"
-                    :groups="navGroups"
-                    heading-id="account-shell-area-title"
-                    variant="desktop"
-                />
-            </aside>
-
-            <main
-                id="account-main"
-                tabindex="-1"
-                class="account-main-scroll min-w-0 flex-1 outline-none"
-                aria-labelledby="account-shell-area-title"
-            >
-                <RouterView v-slot="{ Component }">
-                    <FsuTransition
-                        :name="fsusBlogMotionPresets.route"
-                        mode="out-in"
-                        :duration="220"
-                    >
-                        <component
-                            :is="Component"
-                            :key="accountRouteViewKey"
-                            class="mx-auto w-full min-w-0"
-                            :class="[contentViewportClass, contentModeClass, adminContentClass]"
-                        />
-                    </FsuTransition>
-                </RouterView>
-            </main>
-        </div>
+        <RouterView />
 
         <PolicyModal
             v-model:visible="showPolicy"
@@ -141,147 +79,31 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { useRoute } from 'vue-router';
 
 import AccountHeaderMenu from '@/components/account/AccountHeaderMenu.vue';
-import AccountNavigationPanel from '@/components/account/AccountNavigationPanel.vue';
 import SiteChromeHeaderAdapter from '@/components/layout/SiteChromeHeaderAdapter.vue';
 import PolicyModal from '@/components/PolicyModal.vue';
 import ThemeModeToggle from '@/components/ui/ThemeModeToggle.vue';
-import { fsusBlogMotionPresets } from '@/fsusui/blogMotion';
-import { Expand } from '@/fsusui/icons';
-import { FsuTransition } from '@/fsusui/motion';
-import {
-    getAccountNavGroups,
-    isAccountNavGroupActive,
-    isAccountNavItemActive,
-    type AccountArea,
-    type AccountContentMode
-} from '@/layouts/accountNav';
-import { resolveAccountPageKindClass } from '@/layouts/accountPageKind';
+import { provideAccountFrameDrawerState } from '@/layouts/accountFrameContext';
+import type { AccountArea } from '@/layouts/accountNav';
 import { useAccountWorkspaceContext } from '@/layouts/accountWorkspaceContext';
-import { isAccountPageKind } from '@/router/accountRouteMeta';
 import { showErrorToast } from '@/utils/errorPresentation';
 
-const route = useRoute();
 const workspaceContext = useAccountWorkspaceContext();
 
 const showPolicy = ref(false);
 const policyType = ref<'privacy' | 'guidelines'>('guidelines');
 const isLoggingOut = ref(false);
-const mobileDrawerVisible = ref(false);
+provideAccountFrameDrawerState();
 
 const currentArea = computed<AccountArea>(() =>
     workspaceContext.value.surface
 );
 
-const currentContentMode = computed<AccountContentMode>(() =>
-{
-    const mode = route.meta.accountContentMode;
-    if (mode === 'wide' || mode === 'takeover')
-    {
-        return mode;
-    }
-    return 'standard';
-});
-
-const areaMeta = computed(() => workspaceContext.value.areaMeta);
-const navGroups = computed(() => getAccountNavGroups(workspaceContext.value));
-const currentNavGroup = computed(() => (
-    [...navGroups.value].reverse().find((group) => isAccountNavGroupActive(group, route.path))
-    ?? navGroups.value[0]
-    ?? null
-));
-const currentNavGroupLabel = computed(() =>
-    currentNavGroup.value?.label ?? areaMeta.value.label
-);
-const currentNavItem = computed(() =>
-    [...(currentNavGroup.value?.items ?? [])].reverse().find((item) => (
-        isAccountNavItemActive(item, route.path)
-    ))
-);
-const mobileDrawerTitle = computed(() => `${areaMeta.value.label}导航 · ${currentNavGroupLabel.value}`);
-
-const contentViewportClass = computed(() =>
-{
-    if (currentContentMode.value === 'wide')
-    {
-        return 'max-w-[var(--fsusblog-container-wide)]';
-    }
-
-    if (currentContentMode.value === 'takeover')
-    {
-        return 'max-w-none';
-    }
-
-    return 'max-w-[var(--fsusblog-container-account)]';
-});
-
-const contentModeClass = computed(() =>
-{
-    if (currentContentMode.value === 'wide')
-    {
-        return 'min-w-0';
-    }
-
-    if (currentContentMode.value === 'takeover')
-    {
-        return 'flex min-h-[calc(100dvh-9rem)] min-w-0 flex-col lg:min-h-[calc(100dvh-8rem)]';
-    }
-
-    return 'min-w-0';
-});
-
-const adminContentClass = computed(() =>
-{
-    if (currentArea.value !== 'manage')
-    {
-        return '';
-    }
-
-    if (!isAccountPageKind(route.meta.accountPageKind))
-    {
-        if (import.meta.env.DEV)
-        {
-            throw new Error(`Account route ${route.path} is missing a valid accountPageKind`);
-        }
-        return 'admin-page-shell admin-page-shell--list';
-    }
-
-    return resolveAccountPageKindClass(currentArea.value, route.meta.accountPageKind);
-});
-
-const accountRouteViewKey = computed(() =>
-{
-    const accountRootIndex = route.matched.findIndex((record) => record.path === '/user');
-    const accountViewRecord = accountRootIndex >= 0
-        ? route.matched[accountRootIndex + 1]
-        : undefined;
-    const routeName = typeof accountViewRecord?.name === 'string'
-        ? accountViewRecord.name
-        : typeof route.name === 'string'
-            ? route.name
-            : route.path;
-    const id = route.params.id;
-    if (Array.isArray(id))
-    {
-        return `${routeName}:${id.join('/')}`;
-    }
-
-    return typeof id === 'string' && id.length > 0
-        ? `${routeName}:${id}`
-        : routeName;
-});
-
 const openPolicy = (type: 'privacy' | 'guidelines') =>
 {
     policyType.value = type;
     showPolicy.value = true;
-};
-
-const closeMobileDrawer = (): void =>
-{
-    mobileDrawerVisible.value = false;
 };
 
 const handleLogout = async () =>
@@ -391,7 +213,8 @@ const handleLogout = async () =>
     text-transform: none;
 }
 
-.account-mobile-drawer-trigger
+/* Frame CSS ownership remains here until FB-08; :global reaches nested and teleported frame surfaces. */
+:global(.account-mobile-drawer-trigger)
  {
     display: inline-flex;
     min-height: var(--fsus-control-height);
@@ -409,27 +232,21 @@ const handleLogout = async () =>
         color var(--fsus-motion-control-fast) var(--fsus-motion-standard);
 }
 
-.account-mobile-drawer-trigger:hover
+:global(.account-mobile-drawer-trigger:hover),
+:global(.account-mobile-drawer-trigger[aria-expanded="true"])
  {
     border-color: var(--fsusblog-color-primary);
     background: var(--fsusblog-page-bg-soft);
     color: var(--fsusblog-color-primary);
 }
 
-.account-mobile-drawer-trigger[aria-expanded="true"]
- {
-    border-color: var(--fsusblog-color-primary);
-    background: var(--fsusblog-page-bg-soft);
-    color: var(--fsusblog-color-primary);
-}
-
-.account-mobile-drawer-trigger:focus-visible
+:global(.account-mobile-drawer-trigger:focus-visible)
  {
     box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
     outline: none;
 }
 
-:deep(.account-mobile-drawer)
+:global(.account-mobile-drawer)
  {
     display: flex;
     height: 100vh;
@@ -441,21 +258,21 @@ const handleLogout = async () =>
     color: var(--fsusblog-text-primary);
 }
 
-:deep(.account-mobile-drawer .el-drawer__header)
+:global(.account-mobile-drawer .el-drawer__header)
  {
     margin-bottom: 0;
     border-bottom: 1px solid var(--fsusblog-panel-border);
     padding: var(--fsus-space-4) var(--fsus-space-5);
 }
 
-:deep(.account-mobile-drawer .el-drawer__title)
+:global(.account-mobile-drawer .el-drawer__title)
  {
     color: var(--fsusblog-text-primary);
     font-size: 14px;
     font-weight: 700;
 }
 
-:deep(.account-mobile-drawer .el-drawer__body)
+:global(.account-mobile-drawer .el-drawer__body)
  {
     display: flex;
     flex: 1 1 auto;
@@ -467,25 +284,25 @@ const handleLogout = async () =>
     padding: var(--fsus-space-5);
 }
 
-.account-mobile-drawer-nav
+:global(.account-mobile-drawer-nav)
  {
     flex: 0 0 auto;
     padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
-.account-sidebar-frame
+:global(.account-sidebar-frame)
  {
     padding-bottom: var(--fsus-space-6);
 }
 
-.account-main-scroll
+:global(.account-main-scroll)
  {
     min-height: 0;
 }
 
 @media (width >= 1024px)
  {
-    .account-main-scroll
+    :global(.account-main-scroll)
  {
         max-height: calc(100vh - 7rem);
         max-height: calc(100dvh - 7rem);
@@ -526,14 +343,14 @@ const handleLogout = async () =>
 @media (forced-colors: active)
  {
     .account-header-link,
-    .account-mobile-drawer-trigger,
+    :global(.account-mobile-drawer-trigger),
     :deep(.account-header-theme-action > button)
  {
         border-color: ButtonText;
     }
 
     .account-header-link:focus-visible,
-    .account-mobile-drawer-trigger:focus-visible,
+    :global(.account-mobile-drawer-trigger:focus-visible),
     :deep(.account-header-theme-action > button:focus-visible)
  {
         outline: 2px solid Highlight;

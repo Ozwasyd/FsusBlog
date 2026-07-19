@@ -37,13 +37,16 @@ describe('account page kind visual mapping', () => {
     }
   })
 
-  it('removes business route names from AccountLayout visual branching', () => {
-    const source = readFileSync(resolve(process.cwd(), 'src/layouts/AccountLayout.vue'), 'utf8')
+  it('keeps typed admin page composition inside AdminWorkspaceFrame', () => {
+    const layoutSource = readFileSync(resolve(process.cwd(), 'src/layouts/AccountLayout.vue'), 'utf8')
+    const frameSource = readFileSync(resolve(process.cwd(), 'src/layouts/AdminWorkspaceFrame.vue'), 'utf8')
     const routerSource = readFileSync(resolve(process.cwd(), 'src/router/index.ts'), 'utf8')
 
-    expect(source).toContain('resolveAccountPageKindClass(currentArea.value, route.meta.accountPageKind)')
-    expect(source).not.toMatch(/route\.name\s*===\s*['"]Manage/u)
-    expect(source).not.toMatch(/ManageWriteArticle|ManageEditArticle|ManageSettings|ManageDashboard/u)
+    expect(frameSource).toContain("resolveAccountPageKindClass('manage', route.meta.accountPageKind)")
+    expect(frameSource).not.toMatch(/route\.name\s*===\s*['"]Manage/u)
+    expect(frameSource).not.toMatch(/ManageWriteArticle|ManageEditArticle|ManageSettings|ManageDashboard/u)
+    expect(layoutSource).not.toContain('resolveAccountPageKindClass')
+    expect(layoutSource).not.toContain('accountContentMode')
     expect(routerSource).toContain('selfMeta({')
     expect(routerSource).toContain('manageMeta({')
     expect(routerSource).not.toMatch(/\b(?:selfMeta|manageMeta)\(\s*['"]/u)

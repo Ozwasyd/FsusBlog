@@ -143,16 +143,16 @@ for (const forbidden of ['isPublicSeoRouteName', 'v-if="isPublicSeoRoute"', '<Ro
   }
 }
 
-const accountLayout = expectIncludes(
-  'src/frontend/src/layouts/AccountLayout.vue',
+const accountRouteFrame = expectIncludes(
+  'src/frontend/src/layouts/AccountRouteFrame.vue',
   '<FsuTransition :name="fsusBlogMotionPresets.route"',
   'account route transition owner'
 )
-if (!accountLayout.includes(':key="accountRouteViewKey"')) {
-  errors.push('src/frontend/src/layouts/AccountLayout.vue: account route transition must key child pages by accountRouteViewKey')
+if (!accountRouteFrame.includes(':key="accountRouteViewKey"')) {
+  errors.push('src/frontend/src/layouts/AccountRouteFrame.vue: account route transition must key child pages by accountRouteViewKey')
 }
-if (!accountLayout.includes(':duration="220"')) {
-  errors.push('src/frontend/src/layouts/AccountLayout.vue: account route transition must give the FsusUI route preset enough duration to remain visible')
+if (!accountRouteFrame.includes(':duration="220"')) {
+  errors.push('src/frontend/src/layouts/AccountRouteFrame.vue: account route transition must give the FsusUI route preset enough duration to remain visible')
 }
 
 const accountShellCss = expectIncludes(
@@ -161,7 +161,7 @@ const accountShellCss = expectIncludes(
   'account page motion compatibility marker'
 )
 if (/\.account-motion-enter\s*\{[^}]*blog-motion-page-enter/s.test(accountShellCss)) {
-  errors.push('src/frontend/src/assets/account-shell.css: account-motion-enter must not run page-enter animation; AccountLayout owns account route motion')
+  errors.push('src/frontend/src/assets/account-shell.css: account-motion-enter must not run page-enter animation; AccountRouteFrame owns account route motion')
 }
 
 const blogLayout = expectIncludes(

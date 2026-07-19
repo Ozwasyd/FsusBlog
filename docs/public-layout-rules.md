@@ -114,7 +114,7 @@ Markdown 代码块与管理面审计详情统一使用 `'JetBrains Mono', ui-mon
 
 触控目标档位按表面语义收口：desktop public header 控件最小命中区为 `40px`，mobile header 控件最小命中区为 `44px`；identity 用户操作使用 44px 档；admin 紧凑操作不得低于 40px。移动横屏与窄高视口只能减少外部间距，不能把命中区域降回 36px / `2.25rem`。`check:visual-density-governance` 必须扫描 `src/frontend/src` 并阻止这两个旧 `min-height` 孤值回流。
 
-`AccountLayout` 顶栏的主站、主题、账号菜单和移动导航动作使用同一密度链：desktop 消费 `--fsus-control-height-compact`（40px），mobile 与窄高布局消费 `--fsus-control-height`（44px）。持久主题入口使用 FsusUI `ThemeModeToggle` 的 `menu-button` 变体；所有动作保留常驻 1px 边界以避免 open/closed 状态切换引发布局位移，并通过 `aria-expanded`、2px inset focus ring 与 forced-colors outline 区分键盘焦点和打开态。
+`AccountLayout` 顶栏的主站、主题、账号菜单和当前 route frame 提供的移动导航动作使用同一密度链：desktop 消费 `--fsus-control-height-compact`（40px），mobile 与窄高布局消费 `--fsus-control-height`（44px）。持久主题入口使用 FsusUI `ThemeModeToggle` 的 `menu-button` 变体；所有动作保留常驻 1px 边界以避免 open/closed 状态切换引发布局位移，并通过 `aria-expanded`、2px inset focus ring 与 forced-colors outline 区分键盘焦点和打开态。
 
 ### 公共壳层 CSS 所有权
 
@@ -204,7 +204,7 @@ Don't：
 
 ## 14. Account shell module navigation
 
-AccountLayout 将持久导航限制为一级模块，并只展开当前模块的局部导航。完整后台固定为工作台、内容、互动、安全、系统、运维六个模块；permission、feature 和 policy gate 在模块生成前过滤叶子，空模块不渲染。
+`AccountLayout` 只持有共享 chrome；`AccountIdentityFrame` 与 `AdminWorkspaceFrame` 分别持有身份、管理导航和内容容器，并通过同一 `AccountRouteFrame` 结构保持既有几何与滚动策略。持久导航限制为一级模块，并只展开当前模块的局部导航。完整后台固定为工作台、内容、互动、安全、系统、运维六个模块；permission、feature 和 policy gate 在模块生成前过滤叶子，空模块不渲染。
 
 - 桌面侧栏不再因全部叶子页面产生内部滚动；一级模块与当前模块局部导航使用不同的 ARIA label 和 current 状态。
 - 移动端仍只使用一个 Drawer，同时承载一级模块和当前模块局部导航，不新增顶部 Tabs 或第二个抽屉。
@@ -226,6 +226,6 @@ AccountLayout 将持久导航限制为一级模块，并只展开当前模块的
 | `requiredAdminPermissions` | 当前 admin principal 是否可进入页面？ | 服务端权威权限与 router guard。 |
 | feature / policy visibility | 导航入口当前是否应显示？ | Runtime feature/policy snapshot；不替代权限或直接改变 shell。 |
 
-`selfMeta` 与 `manageMeta` 只接受 named options；新增 account leaf 缺少 `accountPageKind` 或 `accountContentMode` 时，development assertion 与 router contract test 必须失败。`AccountLayout` 不得按具体 route name 选择视觉 class。
+`selfMeta` 与 `manageMeta` 只接受 named options；新增 account leaf 缺少 `accountPageKind` 或 `accountContentMode` 时，development assertion 与 router contract test 必须失败。`AccountLayout` 不得按 area 或具体 route name 选择主内容结构；身份与管理 frame 只能使用 typed metadata 选择容器和 page-kind class。
 
 本次 typed migration 的 class 输出保持原样：self-service kinds 不增加 admin shell class；manage 的 `form`、`settings`、`dashboard` 分别映射到既有 modifier，`identity-settings`、`inbox`、`collection`、`console` 保持既有 list modifier。`ManageSecurityDashboard` 与 `ManageModerationDashboard` 在迁移前实际落入 list shell，因此暂以 `collection` 记录兼容分类；是否在 frame 拆分后提升为 dashboard composition 由 #1309 处理，不能在零视觉预算的 metadata issue 中静默重设计。

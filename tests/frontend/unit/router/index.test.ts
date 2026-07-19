@@ -73,6 +73,9 @@ const routeComponentStub = { template: '<div />' }
 vi.mock('@/layouts/BlogLayout.vue', () => ({ default: routeComponentStub }))
 vi.mock('@/layouts/PublicAuthLayout.vue', () => ({ default: routeComponentStub }))
 vi.mock('@/layouts/AccountLayout.vue', () => ({ default: routeComponentStub }))
+vi.mock('@/layouts/AccountIdentityFrame.vue', () => ({ default: routeComponentStub }))
+vi.mock('@/layouts/AdminWorkspaceFrame.vue', () => ({ default: routeComponentStub }))
+vi.mock('@/layouts/AccountFrameMobileAction.vue', () => ({ default: routeComponentStub }))
 vi.mock('@/views/Home.vue', () => ({ default: routeComponentStub }))
 vi.mock('@/views/ArticleDetail.vue', () => ({ default: routeComponentStub }))
 vi.mock('@/views/Archive.vue', () => ({ default: routeComponentStub }))
@@ -186,6 +189,30 @@ describe('account router meta and guards', () => {
       expect(ACCOUNT_CONTENT_MODES, `${String(route.name)} must declare a typed content mode`)
         .toContain(route.meta.accountContentMode)
     }
+  })
+
+  it('resolves identity and manage leaves through distinct nested frames', async () => {
+    const router = await createTestRouter()
+    const identity = router.resolve('/user/identity')
+    const manage = router.resolve('/user/manage/article/list')
+    const identityFrame = identity.matched[1]
+    const manageFrame = manage.matched[1]
+
+    expect(identity.matched.map((record) => record.path)).toEqual([
+      '/user',
+      '/user',
+      '/user/identity'
+    ])
+    expect(manage.matched.map((record) => record.path)).toEqual([
+      '/user',
+      '/user/manage',
+      '/user/manage/article/list'
+    ])
+    expect(identityFrame?.components).toHaveProperty('default')
+    expect(identityFrame?.components).toHaveProperty('accountMobileAction')
+    expect(manageFrame?.components).toHaveProperty('default')
+    expect(manageFrame?.components).toHaveProperty('accountMobileAction')
+    expect(identityFrame?.components?.default).not.toBe(manageFrame?.components?.default)
   })
 
   it('fails closed when a new account leaf omits its composition contract', () => {
