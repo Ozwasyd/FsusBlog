@@ -521,7 +521,7 @@ SPA 接管失败时采用 fail-closed：snapshot head 缺失、旧版本、diges
 
 ### 运维与危险操作
 
-代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AdminOperationsService.cs`](../../src/backend/Infrastructure/Operations/AdminOperationsService.cs)、[`AuthoringUseCasePorts.cs`](../../src/backend/Services/Authoring/AuthoringUseCasePorts.cs)。
+代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AdminOperationsHealthReader.cs`](../../src/backend/Infrastructure/Operations/AdminOperationsHealthReader.cs)、[`AuthoringUseCasePorts.cs`](../../src/backend/Services/Authoring/AuthoringUseCasePorts.cs)。
 
 DI lifetime graph 不属于公开读取面。组合根在 `builder.Build()` 前 fail closed 校验 captive dependency；仅既有 admin-only `/api/binary/author/ops/health` 在 `services` 中追加 `dependency-graph` 汇总计数，不新增公开端点、frame 或字段布局，也不向匿名/登录账号/notification stream 暴露类型名和依赖路径。候选版本若因新规则拒绝启动，保持当前 active slot 服务即可回退；不得热关闭 `ValidateScopes`，PublicHotRead、binary 与 notification stream 的运行契约不受影响。
 
