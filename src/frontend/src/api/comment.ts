@@ -209,6 +209,7 @@ function sendCommentMutation(
     requestOptions: {
       method: 'POST',
       requiresPow: true,
+      riskChallengeProof: config?.riskChallengeProof ?? undefined,
       body: encodeAedsFrame(FrameType.CommentCreateV2Request, payload)
     }
   })

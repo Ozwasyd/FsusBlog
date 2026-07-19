@@ -1,3 +1,5 @@
+import type { RiskChallengeProofContext } from '@/contracts/riskChallenge'
+
 type ApiUploadProgress = {
   loaded: number
   total?: number
@@ -9,4 +11,5 @@ export type ApiRequestConfig = {
   onUploadProgress?: (event: ApiUploadProgress) => void
   requiresPow?: boolean
   mfaProofToken?: string | null
+  riskChallengeProof?: RiskChallengeProofContext | null
 }

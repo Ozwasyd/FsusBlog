@@ -1,27 +1,12 @@
-import type { SecurityChallengeKind } from '@/api/security'
+import type {
+  RiskChallengeProof,
+  RiskChallengeProofSettlement
+} from '@/contracts/riskChallenge'
 
-export interface SecurityChallengeProof {
-  action: string
-  routeKey: string
-  challengeId: string
-  kind: SecurityChallengeKind
-  proofToken: string
-  policyVersion: string
-  verifiedAtUnixMs: number
-  expiresAtUnixMs: number
-}
+export type SecurityChallengeProof = RiskChallengeProof
 
 export type ChallengeProofState = 'available' | 'reserved' | 'consumed' | 'expired' | 'rejected' | 'replayed'
-export type ChallengeProofSettlement =
-  | 'before_send_cancelled'
-  | 'accepted'
-  | 'business_rejected'
-  | 'expired'
-  | 'replayed'
-  | 'binding_mismatch'
-  | 'revoked'
-  | 'rejected'
-  | 'unknown_network'
+export type ChallengeProofSettlement = RiskChallengeProofSettlement
 
 export interface ChallengeProofReservation {
   reservationId: string

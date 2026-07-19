@@ -5,6 +5,8 @@ import { passkeyLoginBegin, passkeyLoginComplete } from '@/api/auth'
 import { useSessionBootstrap } from '@/composables/useSessionBootstrap'
 import { authBroadcastRuntime } from '@/services/authBroadcastRuntime'
 import { toAppError, AppErrorCode } from '@/utils/appError'
+import { useRiskChallengeCommand } from '@/composables/useRiskChallengeCommand'
+import { fixedRiskChallengeContext, riskChallengeRoutes } from '@/security/risk-challenge-routes'
 
 const PASSKEY_LOGIN_ERROR_TEXT = '通行密钥登录失败，请重试'
 
@@ -41,6 +43,7 @@ export function usePasskeyLogin() {
   const router = useRouter()
   const route = useRoute()
   const { ensureBootstrap } = useSessionBootstrap()
+  const riskChallenge = useRiskChallengeCommand()
 
   const loginWithPasskey = async (rememberMe = false): Promise<boolean> => {
     loading.value = true
@@ -48,7 +51,11 @@ export function usePasskeyLogin() {
 
     try {
       // 1. 从服务器获取认证选项
-      const beginResp = await passkeyLoginBegin()
+      const beginResp = await riskChallenge.run(
+        fixedRiskChallengeContext(riskChallengeRoutes.passkeyLoginBegin, { surface: 'login' }),
+        { kind: 'idempotent' },
+        async (proof) => await passkeyLoginBegin({ riskChallengeProof: proof })
+      )
 
       const challengeToken = (beginResp as any).challengeToken || (beginResp as any).ChallengeToken
       const options = (beginResp as any).options || (beginResp as any).Options
@@ -77,11 +84,15 @@ export function usePasskeyLogin() {
       }
 
       // 3. 提交 assertion 到服务器
-      await passkeyLoginComplete({
-        challengeToken,
-        assertion,
-        rememberMe
-      })
+      await riskChallenge.run(
+        fixedRiskChallengeContext(riskChallengeRoutes.passkeyLoginComplete, { surface: 'login' }),
+        { kind: 'mutation_with_identity', mutationIdentity: challengeToken },
+        async (proof) => await passkeyLoginComplete({
+          challengeToken,
+          assertion,
+          rememberMe
+        }, { riskChallengeProof: proof })
+      )
 
       // 4. 刷新 session 状态后跳转
       await ensureBootstrap(true)
@@ -96,5 +107,5 @@ export function usePasskeyLogin() {
     }
   }
 
-  return { loading, error, loginWithPasskey }
+  return { loading, error, loginWithPasskey, riskChallenge }
 }

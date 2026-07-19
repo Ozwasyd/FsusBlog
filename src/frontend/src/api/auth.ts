@@ -385,6 +385,7 @@ export const verifyRecoveryKey = (data: RecoveryKeyVerifyRequest, config?: ApiRe
     requestOptions: {
       method: 'POST',
       requiresPow: true,
+      riskChallengeProof: config?.riskChallengeProof ?? undefined,
       body: encodeAedsFrame(FrameType.RecoveryKeyVerifyRequest, encodeRecoveryKeyVerifyRequest(data))
     }
   })
@@ -421,7 +422,10 @@ export const passkeyLoginBegin = (config?: ApiRequestConfig) =>
     binaryRoute: { operationId: 'binary_post_auth_passkey_login_begin' },
     frameType: FrameType.PasskeyLoginBegin,
     signal: config?.signal as AbortSignal | undefined,
-    requestOptions: { method: 'POST' }
+    requestOptions: {
+      method: 'POST',
+      riskChallengeProof: config?.riskChallengeProof ?? undefined
+    }
   })
 
 export const passkeyLoginComplete = (data: PasskeyLoginCompleteRequest, config?: ApiRequestConfig) =>
@@ -431,6 +435,7 @@ export const passkeyLoginComplete = (data: PasskeyLoginCompleteRequest, config?:
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
       method: 'POST',
+      riskChallengeProof: config?.riskChallengeProof ?? undefined,
       body: encodeAedsFrame(FrameType.PasskeyLoginCompleteRequest, encodePasskeyLoginCompleteRequest(data))
     }
   })

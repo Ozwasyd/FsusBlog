@@ -46,6 +46,15 @@ type PasskeyState = {
   loading: Ref<boolean>
   error: Ref<string>
   loginWithPasskey: ReturnType<typeof vi.fn>
+  riskChallenge: {
+    challengeVisible: Ref<boolean>
+    challengeContext: Ref<unknown | null>
+    challengeClient: object
+    handleVerified: ReturnType<typeof vi.fn>
+    handleError: ReturnType<typeof vi.fn>
+    handleExpired: ReturnType<typeof vi.fn>
+    handleCancel: ReturnType<typeof vi.fn>
+  }
 }
 
 const state = vi.hoisted(() => ({
@@ -185,7 +194,16 @@ describe('auth page component states', () => {
     state.passkey = {
       loading: ref(false),
       error: ref(''),
-      loginWithPasskey: vi.fn()
+      loginWithPasskey: vi.fn(),
+      riskChallenge: {
+        challengeVisible: ref(false),
+        challengeContext: ref(null),
+        challengeClient: {},
+        handleVerified: vi.fn(),
+        handleError: vi.fn(),
+        handleExpired: vi.fn(),
+        handleCancel: vi.fn()
+      }
     }
   })
 

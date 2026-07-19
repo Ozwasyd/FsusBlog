@@ -1,5 +1,6 @@
 import type { FrameType } from '@wasm/protocol/frame'
 import type { FsusBinaryOperationId } from '@/generated/fsusBinaryRoutes'
+import type { RiskChallengeFailureReason, RiskChallengeProofContext } from './riskChallenge'
 
 export const binaryDecodeWorkerProtocolVersion = 1 as const
 
@@ -8,6 +9,7 @@ export type SliceRef = { offset: number; length: number }
 export interface BinaryRequestOptions extends RequestInit {
   requiresPow?: boolean
   powScope?: string
+  riskChallengeProof?: RiskChallengeProofContext
 }
 
 export interface PowParams {
@@ -61,6 +63,7 @@ export interface TransportFailure {
   details?: string
   retryAfter?: string | null
   canceled?: boolean
+  riskChallengeFailure?: RiskChallengeFailureReason
 }
 
 export type BinaryDecodeSuccess<T> = {

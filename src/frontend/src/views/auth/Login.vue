@@ -13,6 +13,19 @@
           </p>
         </header>
 
+        <FsusSecurityChallenge
+          v-if="passkeyChallengeVisible && passkeyChallengeContext"
+          class="mb-6"
+          :action="passkeyChallengeContext.action"
+          :route-key="passkeyChallengeContext.routeKey"
+          :attributes="passkeyChallengeContext.attributes"
+          :client="passkeyChallengeClient"
+          @verified="handlePasskeyChallengeVerified"
+          @error="handlePasskeyChallengeError"
+          @expired="handlePasskeyChallengeExpired"
+          @cancel="handlePasskeyChallengeCancel"
+        />
+
         <form v-if="!requiresMfa" class="space-y-6" novalidate @submit.prevent>
           <div class="grid gap-3">
             <el-checkbox
@@ -150,6 +163,7 @@ import { useAuthLogin } from '@/composables/useAuthLogin'
 import { usePasskeyLogin } from '@/composables/usePasskeyLogin'
 import { themeTokens } from '@/ui-tokens/themeTokens'
 import { FSUSBLOG_AUTH_COPY } from '@/copy'
+import FsusSecurityChallenge from '@/components/security/FsusSecurityChallenge.vue'
 
 const focusRingClass = themeTokens.focusRing
 const copy = FSUSBLOG_AUTH_COPY.login
@@ -165,7 +179,21 @@ const {
   mfaRecoveryCode
 } = useAuthLogin()
 
-const { loading: passkeyLoading, error: passkeyError, loginWithPasskey } = usePasskeyLogin()
+const {
+  loading: passkeyLoading,
+  error: passkeyError,
+  loginWithPasskey,
+  riskChallenge: passkeyRiskChallenge
+} = usePasskeyLogin()
+const {
+  challengeVisible: passkeyChallengeVisible,
+  challengeContext: passkeyChallengeContext,
+  challengeClient: passkeyChallengeClient,
+  handleVerified: handlePasskeyChallengeVerified,
+  handleError: handlePasskeyChallengeError,
+  handleExpired: handlePasskeyChallengeExpired,
+  handleCancel: handlePasskeyChallengeCancel
+} = passkeyRiskChallenge
 
 const handlePasskeyLogin = () => loginWithPasskey(rememberMe.value)
 </script>

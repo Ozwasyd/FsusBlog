@@ -14,6 +14,8 @@ import type {
   TransportFailure,
   TransportFailureKind
 } from '@/contracts/binaryTransport';
+import type { RiskChallengeFailureReason } from '@/contracts/riskChallenge';
+import { FSUS_HEADERS } from '@/api/contracts';
 import { AppError, AppErrorCode, createAppError, isAppError, toAppError } from '@/utils/appError';
 import { isAbortError } from '@/utils/errors';
 import { emitRumMetric, emitTelemetry } from '@/services/telemetryService';
@@ -82,6 +84,7 @@ export class BinaryTransportError extends AppError {
   readonly backendCode?: number;
   readonly backendCategory?: number;
   readonly retryAfter?: string | null;
+  readonly riskChallengeFailure?: RiskChallengeFailureReason;
 
   constructor(failure: TransportFailure) {
     super(transportFailureToCode(failure.kind), failure.message, {
@@ -94,6 +97,7 @@ export class BinaryTransportError extends AppError {
     this.backendCode = failure.backendCode;
     this.backendCategory = failure.backendCategory;
     this.retryAfter = failure.retryAfter;
+    this.riskChallengeFailure = failure.riskChallengeFailure;
   }
 }
 
@@ -566,6 +570,11 @@ async function loadBinaryAndDecodeSafe<T>(
       if (error instanceof BinaryRequestError) {
         const apiError = decodeApiErrorFrame(error.buffer);
         const kind = binaryFailureKindFromStatus(error.status);
+        const riskChallengeFailure = riskChallengeFailureFromResponse(
+          error.status,
+          error.headers,
+          apiError?.message
+        );
         if (apiError) {
           binaryErrorMessage = apiError.message;
           return {
@@ -578,7 +587,8 @@ async function loadBinaryAndDecodeSafe<T>(
               backendCode: apiError.code,
               backendCategory: apiError.category,
               details: apiError.details || undefined,
-              retryAfter: error.retryAfter
+              retryAfter: error.retryAfter,
+              riskChallengeFailure
             }
           };
         }
@@ -600,7 +610,10 @@ async function loadBinaryAndDecodeSafe<T>(
           kind,
           message,
           status: error instanceof BinaryRequestError ? error.status : undefined,
-          retryAfter: error instanceof BinaryRequestError ? error.retryAfter : undefined
+          retryAfter: error instanceof BinaryRequestError ? error.retryAfter : undefined,
+          riskChallengeFailure: error instanceof BinaryRequestError
+            ? riskChallengeFailureFromResponse(error.status, error.headers)
+            : undefined
         }
       };
     });
@@ -684,7 +697,8 @@ async function requestBinaryOnlyWithDecoder<T>(
     backendCategory,
     details,
     retryAfter,
-    canceled
+    canceled,
+    riskChallengeFailure
   } = binaryResult.failure;
   if (canceled) {
     throw createAbortLikeError(message);
@@ -701,6 +715,7 @@ async function requestBinaryOnlyWithDecoder<T>(
       backendCategory,
       details,
       retryAfter,
+      riskChallengeFailure,
       url: binaryUrl,
       frameType: options.frameType
     });
@@ -713,7 +728,8 @@ async function requestBinaryOnlyWithDecoder<T>(
     backendCode,
     backendCategory,
     details,
-    retryAfter
+    retryAfter,
+    riskChallengeFailure
   });
   if (shouldReportFailure) {
     reportTransportEvent('fsus:binary:error', {
@@ -725,11 +741,53 @@ async function requestBinaryOnlyWithDecoder<T>(
       backendCategory,
       details,
       retryAfter,
+      riskChallengeFailure,
       url: binaryUrl,
       frameType: options.frameType
     });
   }
   throw error;
+}
+
+function riskChallengeFailureFromResponse(
+  status: number,
+  headers: Headers,
+  backendMessage?: string
+): RiskChallengeFailureReason | undefined {
+  const outcome = headers.get(FSUS_HEADERS.challengeProofOutcome)
+  switch (outcome) {
+    case 'expired':
+      return 'expired'
+    case 'replayed_or_missing':
+      return 'replayed'
+    case 'binding_mismatch':
+      return 'binding_mismatch'
+    case 'revoked':
+      return 'revoked'
+    case 'rejected':
+      return 'rejected'
+  }
+
+  if (status !== 428) {
+    return undefined
+  }
+
+  switch (backendMessage) {
+    case 'RISK_CHALLENGE_PROOF_EXPIRED':
+      return 'expired'
+    case 'RISK_CHALLENGE_PROOF_REPLAYED':
+      return 'replayed'
+    case 'RISK_CHALLENGE_PROOF_BINDING_MISMATCH':
+    case 'RISK_CHALLENGE_KIND_MISMATCH':
+      return 'binding_mismatch'
+    case 'RISK_CHALLENGE_PROOF_REVOKED':
+      return 'revoked'
+    case 'RISK_CHALLENGE_PROOF_REJECTED':
+    case 'RISK_CHALLENGE_SET_INCOMPLETE':
+      return 'rejected'
+    default:
+      return 'required'
+  }
 }
 
 export function createBinaryTransport(decodeFramePayload: BinaryFramePayloadDecoder): {

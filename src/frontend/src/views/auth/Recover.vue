@@ -15,6 +15,19 @@
         </p>
       </header>
 
+      <FsusSecurityChallenge
+        v-if="recoveryChallengeVisible && recoveryChallengeContext"
+        class="mb-6"
+        :action="recoveryChallengeContext.action"
+        :route-key="recoveryChallengeContext.routeKey"
+        :attributes="recoveryChallengeContext.attributes"
+        :client="recoveryChallengeClient"
+        @verified="handleRecoveryChallengeVerified"
+        @error="handleRecoveryChallengeError"
+        @expired="handleRecoveryChallengeExpired"
+        @cancel="handleRecoveryChallengeCancel"
+      />
+
       <form class="space-y-6" novalidate @submit.prevent>
         <section
           aria-labelledby="recovery-key-title"
@@ -143,6 +156,9 @@ import PasskeyRegisterModal from '@/components/ui/PasskeyRegisterModal.vue'
 import { themeTokens } from '@/ui-tokens/themeTokens'
 import { toAppError } from '@/utils/appError'
 import { FSUSBLOG_AUTH_COPY } from '@/copy'
+import FsusSecurityChallenge from '@/components/security/FsusSecurityChallenge.vue'
+import { useRiskChallengeCommand } from '@/composables/useRiskChallengeCommand'
+import { fixedRiskChallengeContext, riskChallengeRoutes } from '@/security/risk-challenge-routes'
 
 const copy = FSUSBLOG_AUTH_COPY.recover
 const focusRingClass = themeTokens.focusRing
@@ -153,6 +169,16 @@ const recoveryKeyError = ref('')
 const recoverySessionToken = ref('')
 const recoverySessionExpiresAt = ref('')
 const recoveryPasskeyVisible = ref(false)
+const recoveryRiskChallenge = useRiskChallengeCommand()
+const {
+  challengeVisible: recoveryChallengeVisible,
+  challengeContext: recoveryChallengeContext,
+  challengeClient: recoveryChallengeClient,
+  handleVerified: handleRecoveryChallengeVerified,
+  handleError: handleRecoveryChallengeError,
+  handleExpired: handleRecoveryChallengeExpired,
+  handleCancel: handleRecoveryChallengeCancel
+} = recoveryRiskChallenge
 
 const sessionReadyText = computed(() =>
   copy.sessionReadyHint.replace('{expiresAt}', recoverySessionExpiresAt.value)
@@ -175,11 +201,17 @@ const handleRecoveryKeyVerify = async (): Promise<void> => {
   recoverySessionExpiresAt.value = ''
 
   try {
-    const response = await verifyRecoveryKey({
+    const request = {
       recoveryKey: recoveryKeyInput.value.trim(),
       revokeSessions: true,
       revokePasskeys: recoveryRevokePasskeys.value,
-    })
+    }
+    const mutationIdentity = globalThis.crypto?.randomUUID?.() ?? `recovery-${Date.now()}`
+    const response = await recoveryRiskChallenge.run(
+      fixedRiskChallengeContext(riskChallengeRoutes.recoveryKeyVerify, { surface: 'recovery' }),
+      { kind: 'mutation_with_identity', mutationIdentity },
+      async (proof) => await verifyRecoveryKey(request, { riskChallengeProof: proof })
+    )
     recoveryKeyInput.value = ''
     recoverySessionToken.value = response.recoverySessionToken
     recoverySessionExpiresAt.value = new Date(

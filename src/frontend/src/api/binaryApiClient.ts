@@ -8,6 +8,8 @@ import type { BinaryRequestOptions } from '@/contracts/binaryTransport'
 import { applyBinaryRequestHeaders, FSUS_HEADERS, withBinaryAccept } from './contracts'
 import { encodeBinaryPowProofHeader } from '@/services/powProofCodec'
 import { emitRumMetric } from '@/services/telemetryBus'
+import { securityChallengeKindWireName } from '@/security/challenge-kind-wire'
+import type { RiskChallengeProofContext, RiskChallengeProofSettlement } from '@/contracts/riskChallenge'
 
 export type { BinaryRequestOptions } from '@/contracts/binaryTransport'
 
@@ -158,7 +160,7 @@ function hashBytes(bytes: Uint8Array): string {
 }
 
 function shouldDedupeBinaryRequest(url: string, options?: BinaryRequestOptions): boolean {
-  if (options?.requiresPow || url.includes('pow-challenge')) {
+  if (options?.requiresPow || options?.riskChallengeProof || url.includes('pow-challenge')) {
     return false
   }
 
@@ -299,7 +301,15 @@ function decodePowChallenge(buffer: ArrayBuffer): { salt: string; difficulty: nu
 }
 
 async function binaryRequestResultFresh(url: string, options?: BinaryRequestOptions): Promise<AppResult<ArrayBuffer>> {
-  const powHeaders = await buildPowHeadersIfNeeded(url, options)
+  const proofContext = options?.riskChallengeProof
+  let proofInFlight = false
+  let powHeaders: Record<string, string>
+  try {
+    powHeaders = await buildPowHeadersIfNeeded(url, options)
+  } catch (error) {
+    proofContext?.settle('before_send_cancelled')
+    throw error
+  }
   const headers = new Headers(options?.headers)
   if (options?.credentials === 'omit') {
     headers.delete('authorization')
@@ -311,13 +321,48 @@ async function binaryRequestResultFresh(url: string, options?: BinaryRequestOpti
     headers.set(key, value)
   }
 
-  const response = await fetch(url, {
-    credentials: 'include',
-    ...options,
-    headers
-  });
+  if (proofContext) {
+    applyRiskChallengeProofHeaders(headers, proofContext)
+    try {
+      throwIfAborted(options?.signal ?? undefined)
+    } catch (error) {
+      proofContext.settle('before_send_cancelled')
+      throw error
+    }
+    if (!proofContext.markInFlight()) {
+      throw createAppError(AppErrorCode.Conflict, 'risk_challenge_proof_reservation_lost')
+    }
+    proofInFlight = true
+  }
 
-  const buffer = await response.arrayBuffer();
+  const { riskChallengeProof: _riskChallengeProof, ...fetchOptions } = options ?? {}
+  let response: Response
+  try {
+    response = await fetch(url, {
+      credentials: 'include',
+      ...fetchOptions,
+      headers
+    })
+  } catch (error) {
+    if (proofInFlight) {
+      proofContext?.settle('unknown_network')
+    }
+    throw error
+  }
+
+  let buffer: ArrayBuffer
+  try {
+    buffer = await response.arrayBuffer()
+  } catch (error) {
+    if (proofInFlight) {
+      proofContext?.settle('unknown_network')
+    }
+    throw error
+  }
+
+  if (proofInFlight) {
+    proofContext?.settle(settlementFromRiskChallengeResponse(response))
+  }
 
   if (!response.ok) {
     return err(new BinaryRequestError(response.status, `Binary request failed: ${response.status}`, buffer, appErrorFromStatus(response.status, `Binary request failed: ${response.status}`).code, response.headers));
@@ -326,8 +371,55 @@ async function binaryRequestResultFresh(url: string, options?: BinaryRequestOpti
   return ok(buffer);
 }
 
+function applyRiskChallengeProofHeaders(headers: Headers, context: RiskChallengeProofContext): void {
+  const { proof } = context
+  if (
+    !proof.action.trim()
+    || !proof.routeKey.trim()
+    || !proof.challengeId.trim()
+    || !proof.proofToken.trim()
+    || !proof.policyVersion.trim()
+    || !Number.isFinite(proof.expiresAtUnixMs)
+    || securityChallengeKindWireName(proof.kind) === 'unknown'
+  ) {
+    context.settle('before_send_cancelled')
+    throw createAppError(AppErrorCode.Validation, 'risk_challenge_proof_context_invalid')
+  }
+
+  headers.set(FSUS_HEADERS.challengeProof, proof.proofToken)
+  headers.set(FSUS_HEADERS.challengeId, proof.challengeId)
+  headers.set(FSUS_HEADERS.challengeKind, securityChallengeKindWireName(proof.kind))
+}
+
+function settlementFromRiskChallengeResponse(response: Response): RiskChallengeProofSettlement {
+  if (response.ok) {
+    return 'accepted'
+  }
+
+  const outcome = response.headers.get(FSUS_HEADERS.challengeProofOutcome)
+  switch (outcome) {
+    case 'expired':
+      return 'expired'
+    case 'replayed_or_missing':
+      return 'replayed'
+    case 'binding_mismatch':
+      return 'binding_mismatch'
+    case 'revoked':
+      return 'revoked'
+    case 'rejected':
+      return 'rejected'
+    default:
+      return response.status === 428 ? 'rejected' : 'business_rejected'
+  }
+}
+
 async function binaryRequestResult(url: string, options?: BinaryRequestOptions): Promise<AppResult<ArrayBuffer>> {
-  throwIfAborted(options?.signal ?? undefined)
+  try {
+    throwIfAborted(options?.signal ?? undefined)
+  } catch (error) {
+    options?.riskChallengeProof?.settle('before_send_cancelled')
+    throw error
+  }
 
   if (!shouldDedupeBinaryRequest(url, options)) {
     return await binaryRequestResultFresh(url, options)

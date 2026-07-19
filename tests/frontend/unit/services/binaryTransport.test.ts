@@ -1068,6 +1068,33 @@ describe('binaryTransport ApiError mapping', () => {
     })
   })
 
+  it.each([
+    ['RISK_CHALLENGE_PROOF_REQUIRED', undefined, 'required'],
+    ['RISK_CHALLENGE_PROOF_EXPIRED', 'expired', 'expired'],
+    ['RISK_CHALLENGE_PROOF_REPLAYED', 'replayed_or_missing', 'replayed'],
+    ['RISK_CHALLENGE_PROOF_BINDING_MISMATCH', 'binding_mismatch', 'binding_mismatch'],
+    ['RISK_CHALLENGE_PROOF_REVOKED', 'revoked', 'revoked'],
+    ['RISK_CHALLENGE_PROOF_REJECTED', 'rejected', 'rejected']
+  ] as const)('maps structured risk challenge failure %s without business text parsing', async (message, outcome, expected) => {
+    const headers = outcome ? { 'X-Fsus-Challenge-Proof-Outcome': outcome } : undefined
+    mockBinaryRequest.mockRejectedValue(new BinaryRequestError(
+      428,
+      'Binary request failed: 428',
+      encodeApiErrorFrame({ status: 428, message }),
+      undefined,
+      headers
+    ))
+
+    await expect(requestBinaryOnly({
+      binaryUrl: '/api/binary/auth/recovery-key/verify',
+      frameType: FrameType.RecoveryKeyVerifyResponse
+    })).rejects.toMatchObject({
+      name: 'BinaryTransportError',
+      kind: 'precondition_required',
+      riskChallengeFailure: expected
+    })
+  })
+
   it('keeps ApiError code category details and retry-after for rate limits', async () => {
     const buffer = encodeApiErrorFrame({
       status: 429,

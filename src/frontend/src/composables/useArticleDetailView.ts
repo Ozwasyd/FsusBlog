@@ -28,7 +28,6 @@ import { alertInfo } from '@/fsusui/feedback'
 import { requestGlobalConfirm } from '@/composables/useGlobalConfirm'
 import {
   createSecurityChallengeClient,
-  securityBusinessChallengeGates,
   type SecurityChallengeClient,
   type SecurityChallengeContext,
   type SecurityChallengeIssueResult,
@@ -594,10 +593,7 @@ export function useArticleDetailView() {
     selectedAuthorMode: CommentAuthorMode,
     signal: AbortSignal
   ): Promise<SecurityChallengeProofLease | null | 'pending'> => {
-    if (
-      selectedAuthorMode !== 'public' ||
-      securityBusinessChallengeGates[COMMENT_CREATE_CHALLENGE_ACTION] !== 'perception-v2'
-    ) {
+    if (selectedAuthorMode !== 'public') {
       return null
     }
 
@@ -757,29 +753,19 @@ export function useArticleDetailView() {
             return
           }
 
-          if (challengeLease && !challengeLease.markInFlight()) {
-            return
-          }
-
-          try {
-            await createPublicComment(
-              {
-                articleId: article.value!.id,
-                content: commentContent.value,
-                parentId: replyTarget.value?.id ?? null,
-                rootId: replyTarget.value?.rootId ?? null,
-                replyToCommentId: replyTarget.value?.id ?? null,
-                authorMode: 'public',
-                publicSendExplicitlySelected: true,
-                displayLanguage: commentDisplayLanguage.value
-              },
-              { signal }
-            )
-            challengeLease?.settle('accepted')
-          } catch (error) {
-            challengeLease?.settle(isAbortError(error) ? 'unknown_network' : 'business_rejected')
-            throw error
-          }
+          await createPublicComment(
+            {
+              articleId: article.value!.id,
+              content: commentContent.value,
+              parentId: replyTarget.value?.id ?? null,
+              rootId: replyTarget.value?.rootId ?? null,
+              replyToCommentId: replyTarget.value?.id ?? null,
+              authorMode: 'public',
+              publicSendExplicitlySelected: true,
+              displayLanguage: commentDisplayLanguage.value
+            },
+            { signal, riskChallengeProof: challengeLease }
+          )
           commentMutationSubmitted = true
         }
       )

@@ -3,6 +3,7 @@ import { NotificationStreamEventType, NotificationStreamFailureCodes } from '@/s
 import { decodeNotificationApiErrorFrame, decodeNotificationFrame } from '@/adapters/binary/notificationAdapter'
 import { encodeNotificationStreamPowProof } from '@/services/powProofCodec'
 import type { SecurityChallengeProofLease } from '@/security/challenge-client'
+import { securityChallengeKindWireName } from '@/security/challenge-kind-wire'
 import { resolveNotificationStreamCloseRecovery } from '@/services/notificationStreamRestartPolicy'
 
 const RECENT_EVENT_WINDOW = 512
@@ -241,7 +242,7 @@ export class NotificationStreamRuntime {
       if (challengeLease) {
         headers['X-Fsus-Challenge-Proof'] = challengeLease.proof.proofToken
         headers['X-Fsus-Challenge-Id'] = challengeLease.proof.challengeId
-        headers['X-Fsus-Challenge-Kind'] = notificationChallengeKindWireName(challengeLease.proof.kind)
+        headers['X-Fsus-Challenge-Kind'] = securityChallengeKindWireName(challengeLease.proof.kind)
         if (!challengeLease.markInFlight()) {
           this.currentChallengeLease = undefined
           return NotificationStreamFailureCodes.RiskChallengeRequired
@@ -536,39 +537,6 @@ export class NotificationStreamRuntime {
     this.currentChallengeLease = undefined
   }
 
-}
-
-function notificationChallengeKindWireName(kind: SecurityChallengeProofLease['proof']['kind']): string {
-  switch (kind) {
-    case 1:
-      return 'sha256PowV1'
-    case 2:
-      return 'argon2idPoSpaceV1'
-    case 3:
-      return 'captchaV1'
-    case 4:
-      return 'humanReadProofV1'
-    case 5:
-      return 'passkeyStepUpV1'
-    case 6:
-      return 'adminPasskeyStepUpV1'
-    case 7:
-      return 'recoveryKeyProofV1'
-    case 8:
-      return 'anonymousCredentialProofV1'
-    case 9:
-      return 'zkAnonymousCommentProofV1'
-    case 10:
-      return 'perceptionCharacterV2'
-    case 11:
-      return 'perceptionLocalizationV2'
-    case 12:
-      return 'perceptionMicroInteractionV2'
-    case 13:
-      return 'perceptionTextTaskV2'
-    default:
-      return 'unknown'
-  }
 }
 
 function proofSettlementForFailure(errorCode: string | null): Parameters<SecurityChallengeProofLease['settle']>[0] {

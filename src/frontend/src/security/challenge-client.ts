@@ -16,6 +16,7 @@ import {
   type ChallengeProofStore,
   type SecurityChallengeProof
 } from './challenge-proof-store'
+import type { RiskChallengeProofContext } from '@/contracts/riskChallenge'
 
 export type ChallengeKindGroup = 'captcha' | 'pow' | 'pospace' | 'passkey' | 'perception' | 'unsupported'
 export type ChallengeIssueStatus = 'verified' | 'allow' | 'challenge' | 'unsupported' | 'failed'
@@ -47,9 +48,8 @@ export interface SecurityChallengeVerifyResult {
   retryAfterMs: number
 }
 
-export interface SecurityChallengeProofLease {
+export interface SecurityChallengeProofLease extends RiskChallengeProofContext {
   readonly proof: SecurityChallengeProof
-  markInFlight(): boolean
   settle(outcome: ChallengeProofSettlement): boolean
 }
 

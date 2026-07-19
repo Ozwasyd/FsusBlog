@@ -64,7 +64,7 @@
 | ------ | ------ | ------ | ------ |
 | POST | `/api/binary/auth/recovery-key/create` | 🔑 🚦 📦 | 创建账户恢复密钥，明文只在响应中返回一次 |
 | POST | `/api/binary/auth/recovery-key/rotate` | 🔑 🚦 📦 | 轮换账户恢复密钥 |
-| POST | `/api/binary/auth/recovery-key/verify` | 🔓 🚦 📦 | 验证恢复密钥并返回短期 recovery session，需 PoW |
+| POST | `/api/binary/auth/recovery-key/verify` | 🔓 🚦 📦 | 验证恢复密钥并返回短期 recovery session；RiskControl proof 与 legacy PoW 均由统一 transport 附加 |
 | POST | `/api/binary/auth/recovery-key/passkey/register/begin` | 🔓 🚦 📦 | 使用 recovery session 开始绑定新 Passkey |
 | POST | `/api/binary/auth/recovery-key/passkey/register/complete` | 🔓 🚦 📦 | 使用 recovery session 完成新 Passkey 绑定 |
 
@@ -76,8 +76,8 @@
 | ------ | ------ | ------ | ------ |
 | POST | `/api/binary/auth/passkey/register/begin` | 🔑 | 开始注册 Passkey |
 | POST | `/api/binary/auth/passkey/register/complete` | 🔑 | 完成 Passkey 注册 |
-| POST | `/api/binary/auth/passkey/login/begin` | 🔓 🚦 | 开始 Passkey 无密码登录 |
-| POST | `/api/binary/auth/passkey/login/complete` | 🔓 🚦 | 完成 Passkey 登录断言 |
+| POST | `/api/binary/auth/passkey/login/begin` | 🔓 🚦 | 开始 Passkey 无密码登录；使用 challenge-aware command 的 `auth.passkey.begin` proof |
+| POST | `/api/binary/auth/passkey/login/complete` | 🔓 🚦 | 完成 Passkey 登录断言；固定 challenge token mutation identity 后使用 `auth.passkey.complete` proof |
 | GET | `/api/binary/auth/passkey/credentials` | 🔑 | 获取已注册 Passkey 列表（最多 5 枚） |
 | DELETE | `/api/binary/auth/passkey/credentials/{id}` | 🔑 | 删除指定 Passkey |
 | PUT | `/api/binary/auth/passkey/credentials/{id}/name` | 🔑 | 重命名指定 Passkey |

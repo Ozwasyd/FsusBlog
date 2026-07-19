@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { decode } from '@wasm/aeds'
 import { FrameType } from '@wasm/protocol/frame'
 import { binaryRequest, buildBinaryPowHeaders } from '@/api/binaryApiClient'
+import { SecurityChallengeKind } from '@/contracts/binaryApi'
+import type { RiskChallengeProofContext, RiskChallengeProofSettlement } from '@/contracts/riskChallenge'
 
 const powMocks = vi.hoisted(() => ({
   calculate: vi.fn()
@@ -350,3 +352,110 @@ describe('binaryApiClient binary request in-flight dedupe', () => {
     expect(fetch).toHaveBeenCalledTimes(2)
   })
 })
+
+describe('binaryApiClient risk challenge proof transport', () => {
+  beforeEach(() => {
+    powMocks.calculate.mockReset()
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('attaches the three typed proof headers and commits an accepted response', async () => {
+    const lease = createRiskChallengeLease()
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      arrayBuffer: async () => new ArrayBuffer(0)
+    })))
+
+    await binaryRequest('/api/binary/comment', {
+      method: 'POST',
+      riskChallengeProof: lease
+    })
+
+    const headers = vi.mocked(fetch).mock.calls[0]?.[1]?.headers as Headers
+    expect(headers.get('X-Fsus-Challenge-Proof')).toBe('proof-token')
+    expect(headers.get('X-Fsus-Challenge-Id')).toBe('challenge-1')
+    expect(headers.get('X-Fsus-Challenge-Kind')).toBe('captchaV1')
+    expect(lease.markInFlight).toHaveBeenCalledOnce()
+    expect(lease.settle).toHaveBeenCalledWith('accepted')
+  })
+
+  it('restores a reservation when cancellation happens before fetch', async () => {
+    const lease = createRiskChallengeLease()
+    const controller = new AbortController()
+    controller.abort()
+    vi.stubGlobal('fetch', vi.fn())
+
+    await expect(binaryRequest('/api/binary/comment', {
+      method: 'POST',
+      signal: controller.signal,
+      riskChallengeProof: lease
+    })).rejects.toMatchObject({ name: 'AbortError' })
+
+    expect(fetch).not.toHaveBeenCalled()
+    expect(lease.markInFlight).not.toHaveBeenCalled()
+    expect(lease.settle).toHaveBeenCalledWith('before_send_cancelled')
+  })
+
+  it('marks an in-flight network failure terminal instead of restoring it', async () => {
+    const lease = createRiskChallengeLease()
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      throw new TypeError('Failed to fetch')
+    }))
+
+    await expect(binaryRequest('/api/binary/comment', {
+      method: 'POST',
+      riskChallengeProof: lease
+    })).rejects.toThrow('Failed to fetch')
+
+    expect(lease.markInFlight).toHaveBeenCalledOnce()
+    expect(lease.settle).toHaveBeenCalledWith('unknown_network')
+    expect(lease.settle).not.toHaveBeenCalledWith('before_send_cancelled')
+  })
+
+  it.each([
+    ['expired', 'expired'],
+    ['replayed_or_missing', 'replayed'],
+    ['binding_mismatch', 'binding_mismatch'],
+    ['revoked', 'revoked'],
+    ['rejected', 'rejected']
+  ] as const)('settles server proof outcome %s as %s', async (outcome, settlement) => {
+    const lease = createRiskChallengeLease()
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: false,
+      status: 428,
+      headers: new Headers({ 'X-Fsus-Challenge-Proof-Outcome': outcome }),
+      arrayBuffer: async () => new ArrayBuffer(0)
+    })))
+
+    await expect(binaryRequest('/api/binary/comment', {
+      method: 'POST',
+      riskChallengeProof: lease
+    })).rejects.toMatchObject({ status: 428 })
+    expect(lease.settle).toHaveBeenCalledWith(settlement)
+  })
+})
+
+function createRiskChallengeLease(): RiskChallengeProofContext & {
+  markInFlight: ReturnType<typeof vi.fn>
+  settle: ReturnType<typeof vi.fn>
+} {
+  return {
+    proof: {
+      action: 'comment.create',
+      routeKey: 'article:42',
+      challengeId: 'challenge-1',
+      kind: SecurityChallengeKind.CaptchaV1,
+      proofToken: 'proof-token',
+      policyVersion: 'policy-v1',
+      verifiedAtUnixMs: 1_000,
+      expiresAtUnixMs: 60_000
+    },
+    markInFlight: vi.fn(() => true),
+    settle: vi.fn((_outcome: RiskChallengeProofSettlement) => true)
+  }
+}
