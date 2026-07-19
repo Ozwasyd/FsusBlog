@@ -376,8 +376,8 @@ function checkPublicTypographyContract() {
   )
   assertContains(
     markdownRendererPath,
-    /:class="\{\s*'markdown-body--article': props\.mode === 'article',\s*'markdown-body--document': props\.mode === 'about'\s*\}"/,
-    'MarkdownRenderer must separate article prose from about document typography'
+    /:class="\{\s*'markdown-body--article': props\.mode === 'article',\s*'markdown-body--document': props\.mode === 'about',\s*'markdown-body--preview': props\.mode === 'preview' \|\| props\.mode === 'editor'\s*\}"/,
+    'MarkdownRenderer must expose article, document, and preview ownership on one reading surface'
   )
   assertContains(
     markdownCssPath,

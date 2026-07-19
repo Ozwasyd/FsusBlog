@@ -3,6 +3,7 @@
     ref="rootEl"
     class="comment-markdown-renderer fsus-markdown-body"
     :class="{ 'comment-markdown-renderer--collapsed': isCollapsed }"
+    data-fsus-surface="reading"
     v-csp-style="{ '--comment-markdown-collapsed-lines': String(collapsedLines) }"
   >
     <MarkdownRenderer
@@ -63,11 +64,11 @@ onMounted(() => {
 
 <style scoped>
 .comment-markdown-renderer {
-  --comment-markdown-line-height: 1.65em;
+  --comment-markdown-line-height: 1.8rem;
   color: var(--fsusblog-text-primary);
-  font-family: 'Google Sans', 'Noto Sans CJK', sans-serif;
-  font-size: 14px;
-  line-height: 1.65;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.8;
   overflow-wrap: anywhere;
   word-break: break-word;
   text-align: left;
@@ -84,87 +85,14 @@ onMounted(() => {
   position: relative;
 }
 
-.fsus-markdown-body :deep(.blog-markdown-renderer),
-.fsus-markdown-body :deep(.markdown-body) {
-  color: var(--fsusblog-text-primary) !important;
-  font-family: inherit !important;
-  font-size: 14px !important;
-  line-height: 1.6 !important;
-  letter-spacing: normal !important;
-  text-align: left !important;
-}
-
-.fsus-markdown-body :deep(.markdown-body p) {
-  margin: 0 0 12px 0 !important;
-  color: var(--fsusblog-text-primary) !important;
-  font-size: 14px !important;
-  font-weight: 400 !important;
-  line-height: 1.6 !important;
-  letter-spacing: normal !important;
-  text-align: left !important;
-  text-indent: 0 !important;
-}
-
 .fsus-markdown-body :deep(.markdown-body p:last-child) {
   margin-bottom: 0 !important;
 }
 
-.fsus-markdown-body :deep(.markdown-body code) {
-  padding: 2px 4px !important;
-  border: none !important;
-  border-radius: 4px !important;
-  background-color: var(--fsusblog-reading-inline-code-bg) !important;
-  color: var(--fsusblog-text-primary) !important;
-  font-family: monospace !important;
-  font-size: 14px !important;
-  font-weight: 400 !important;
-  white-space: normal !important;
-}
-
-.fsus-markdown-body :deep(.markdown-body pre) {
-  margin: 0 0 12px 0;
-  border: 1px solid var(--fsusblog-panel-border);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--fsusblog-text-primary);
-  font-size: 14px;
-  line-height: 1.45;
-}
-
-.fsus-markdown-body :deep(.markdown-body pre code) {
-  padding: 0 !important;
-  border: 0 !important;
-  background: transparent !important;
-  font-family: monospace !important;
-  font-size: 14px !important;
-}
-
-.fsus-markdown-body :deep(.markdown-body h1),
-.fsus-markdown-body :deep(.markdown-body h2),
-.fsus-markdown-body :deep(.markdown-body h3),
-.fsus-markdown-body :deep(.markdown-body h4),
-.fsus-markdown-body :deep(.markdown-body h5),
-.fsus-markdown-body :deep(.markdown-body h6) {
-  margin: 0 0 12px 0;
-  color: var(--fsusblog-text-primary);
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 1.6;
-  text-align: left;
-}
-
-.fsus-markdown-body :deep(.markdown-body ul),
-.fsus-markdown-body :deep(.markdown-body ol),
-.fsus-markdown-body :deep(.markdown-body blockquote) {
-  margin: 0 0 12px 0;
-  color: var(--fsusblog-text-primary);
-  font-size: 14px;
-  line-height: 1.6;
-}
-
-.fsus-markdown-body :deep(.markdown-body blockquote) {
-  border-left: 1px solid var(--fsusblog-panel-border);
-  padding-left: 12px;
+.fsus-markdown-body :deep(.markdown-body pre),
+.fsus-markdown-body :deep(.markdown-body .shiki) {
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .comment-markdown-renderer :deep(img),

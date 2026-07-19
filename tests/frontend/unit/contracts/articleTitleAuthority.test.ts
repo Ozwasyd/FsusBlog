@@ -22,7 +22,7 @@ const mountRenderer = (mode: 'article' | 'about' | 'preview') => mount(MarkdownR
 })
 
 describe('article title authority', () => {
-  it('assigns chapter-heading typography only to article prose', () => {
+  it('assigns mode ownership without splitting the reading baseline', () => {
     const article = mountRenderer('article')
     const about = mountRenderer('about')
     const preview = mountRenderer('preview')
@@ -33,6 +33,7 @@ describe('article title authority', () => {
     expect(about.classes()).not.toContain('markdown-body--article')
     expect(preview.classes()).not.toContain('markdown-body--article')
     expect(preview.classes()).not.toContain('markdown-body--document')
+    expect(preview.classes()).toContain('markdown-body--preview')
 
     article.unmount()
     about.unmount()
@@ -43,7 +44,8 @@ describe('article title authority', () => {
     expect(themeTokens.articleDetail.title).toContain('text-2xl sm:text-3xl')
     expect(themeTokens.articleDetail.title).toContain('font-bold')
     expect(themeTokens.articleDetail.title).toContain('leading-[1.25] sm:leading-[1.2]')
-    expect(markdownCss).toMatch(/\.markdown-body--article h1\s*\{[^}]*font-size:\s*1\.4em;[^}]*font-weight:\s*700;[^}]*margin-top:\s*3em;[^}]*margin-bottom:\s*1em;[^}]*text-align:\s*left;/u)
+    expect(markdownCss).toMatch(/\.markdown-body h1\s*\{[^}]*font-size:\s*1\.5rem;[^}]*font-weight:\s*700;[^}]*text-align:\s*left;/u)
+    expect(markdownCss).not.toMatch(/\.markdown-body--article h1\s*\{/u)
   })
 
   it('retains the about document and punctuation contracts', () => {

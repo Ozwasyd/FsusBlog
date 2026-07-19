@@ -3,7 +3,8 @@
     class="blog-markdown-renderer markdown-body safe-inline-wrap"
     :class="{
       'markdown-body--article': props.mode === 'article',
-      'markdown-body--document': props.mode === 'about'
+      'markdown-body--document': props.mode === 'about',
+      'markdown-body--preview': props.mode === 'preview' || props.mode === 'editor'
     }"
     data-fsus-surface="reading"
   >

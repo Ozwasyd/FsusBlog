@@ -31,13 +31,13 @@ expectMatch(
 )
 expectMatch(
   renderer,
-  /'markdown-body--article': props\.mode === 'article',[\s\S]*'markdown-body--document': props\.mode === 'about'/u,
+  /'markdown-body--article': props\.mode === 'article',[\s\S]*'markdown-body--document': props\.mode === 'about',[\s\S]*'markdown-body--preview': props\.mode === 'preview' \|\| props\.mode === 'editor'/u,
   'Markdown mode ownership'
 )
 expectMatch(
   markdownCss,
-  /\.markdown-body--article h1\s*\{[^}]*font-size:\s*1\.4em;[^}]*font-weight:\s*700;[^}]*margin-top:\s*3em;[^}]*margin-bottom:\s*1em;[^}]*text-align:\s*left;/u,
-  'article chapter heading'
+  /\.markdown-body h1\s*\{[^}]*font-size:\s*1\.5rem;[^}]*font-weight:\s*700;[^}]*text-align:\s*left;/u,
+  'shared reading chapter heading'
 )
 expectMatch(
   markdownCss,

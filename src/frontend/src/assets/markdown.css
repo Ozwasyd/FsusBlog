@@ -4,7 +4,7 @@
   color: var(--fsusblog-reading-text);
   font-size: 1rem;
   line-height: 1.8;
-  letter-spacing: 0.015em;
+  letter-spacing: normal;
   text-align: left;
   font-weight: 400;
   word-break: break-word;
@@ -36,7 +36,7 @@
    .markdown-renderer__text. Restore the FsusBlog editorial reading contract
    at the consumer boundary without changing the shared component defaults. */
 .markdown-body .markdown-renderer__text {
-  letter-spacing: 0.015em;
+  letter-spacing: normal;
   text-align: left;
 }
 
@@ -76,26 +76,18 @@
 }
 
 .markdown-body h1 {
-  font-size: 1.6em;
+  font-size: 1.5rem;
   font-weight: 700;
   margin-top: 2.5em;
   margin-bottom: 1.5em;
-  text-align: center;
-}
-
-.markdown-body--article h1 {
-  font-size: 1.4em;
-  font-weight: 700;
-  margin-top: 3em;
-  margin-bottom: 1em;
   text-align: left;
 }
 
 .markdown-body h2 {
-  font-size: 1.15em;
+  font-size: 1.25rem;
   font-weight: 500;
   color: var(--fsusblog-reading-text);
-  text-align: center;
+  text-align: left;
   margin-top: 4em;
   margin-bottom: 2em;
   border-bottom: none;
@@ -103,7 +95,7 @@
 }
 
 .markdown-body h3 {
-  font-size: 1.05em;
+  font-size: 1.25rem;
   font-weight: 700;
   text-align: left;
   margin-top: 3em;
@@ -113,7 +105,7 @@
 .markdown-body h4,
 .markdown-body h5,
 .markdown-body h6 {
-  font-size: 1.05em;
+  font-size: 1.25rem;
   font-weight: 500;
   color: var(--fsusblog-reading-subheading);
   text-align: left;
@@ -128,7 +120,7 @@
 
 .markdown-body blockquote {
   border-left: none !important;
-  margin: 2.5rem 3rem !important;
+  margin: 1.5rem 0 !important;
   padding: 0 !important;
   color: var(--fsusblog-reading-quote) !important;
   font-style: normal !important;
@@ -144,21 +136,15 @@
   margin-bottom: 0;
 }
 
-@media (max-width: 640px) {
-  .markdown-body blockquote {
-    margin: 2rem 1.2rem !important;
-  }
-}
-
 .markdown-body ul {
   list-style-type: disc;
-  margin: 1.5rem 3rem;
+  margin: 1.5rem 0;
   padding-left: 1.5em;
 }
 
 .markdown-body ol {
   list-style-type: decimal;
-  margin: 1.5rem 3rem;
+  margin: 1.5rem 0;
   padding-left: 1.5em;
 }
 
@@ -169,13 +155,6 @@
 
 .markdown-body ul ul ul {
   list-style-type: square;
-}
-
-@media (max-width: 640px) {
-  .markdown-body ul,
-  .markdown-body ol {
-    margin: 1.5rem 1.5rem;
-  }
 }
 
 .markdown-body li {
@@ -308,7 +287,7 @@
 }
 
 .markdown-body :not(pre) > code {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, var(--font-sans), monospace !important;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace !important;
   font-weight: 500 !important;
   font-size: 14px;
   background-color: var(--fsusblog-reading-code-bg) !important;

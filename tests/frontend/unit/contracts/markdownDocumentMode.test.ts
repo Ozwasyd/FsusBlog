@@ -32,6 +32,7 @@ describe('MarkdownRenderer document mode', () => {
     expect(about.classes()).toContain('markdown-body--document')
     expect(article.classes()).not.toContain('markdown-body--document')
     expect(preview.classes()).not.toContain('markdown-body--document')
+    expect(preview.classes()).toContain('markdown-body--preview')
 
     about.unmount()
     article.unmount()

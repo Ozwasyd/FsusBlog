@@ -3,7 +3,7 @@
     <MarkdownRenderer
       :content="content"
       :initial-html="initialHtml"
-      mode="article"
+      mode="preview"
       :base-url="baseUrl"
     />
   </ArticleDetailBody>
