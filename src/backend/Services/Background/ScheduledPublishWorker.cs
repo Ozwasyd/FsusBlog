@@ -1,6 +1,7 @@
 using System.Data.Common;
 using System.Diagnostics;
 
+using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
@@ -254,7 +255,8 @@ public sealed class ScheduledPublishWorker(
                         ArticleStatus.Published,
                         null,
                         now,
-                        ArticlePublicationTransitionKinds.ScheduledPublish),
+                        ArticlePublicationTransitionKinds.ScheduledPublish,
+                        ArticleStatusTransitionOperation.ScheduledPublish),
                     cancellationToken).ConfigureAwait(false);
                 claimedArticleIds.Add(candidate.ArticleId);
                 outboxEvents.Add(BuildScheduledPublishOutboxEvent(candidate.ArticleId, published, now));

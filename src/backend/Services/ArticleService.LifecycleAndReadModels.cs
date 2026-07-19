@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 
 using FsusBlog.Core.Integrity;
+using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Helpers;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -125,7 +126,8 @@ public partial class ArticleService
                         ArticleStatus.Published,
                         null,
                         restoredAt,
-                        ArticlePublicationTransitionKinds.Restore),
+                        ArticlePublicationTransitionKinds.Restore,
+                        ArticleStatusTransitionOperation.Restore),
                     ct).ConfigureAwait(false);
                 await RecordArticleMutationOutboxAsync(id, "restored", published);
             }

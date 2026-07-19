@@ -1,6 +1,7 @@
 using System.Data.Common;
 using System.Text.Json;
 
+using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Entities;
 
 using SqlSugar;
@@ -40,7 +41,8 @@ public sealed record ArticlePublicationTransitionRequest(
     ArticleStatus TargetStatus,
     DateTime? ScheduledPublishAt,
     DateTime TransitionedAt,
-    string TransitionKind);
+    string TransitionKind,
+    ArticleStatusTransitionOperation Operation);
 
 public readonly record struct ArticlePublicationTransitionPlan(
     ArticleStatus StoredStatus,
@@ -62,12 +64,17 @@ public static class ArticlePublicationTransitionWriter
 
         long? currentPublicationId = null;
         int? currentPublicationNo = null;
+        ArticleStatus sourceStatus;
         using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
                 """
-                SELECT a.current_publication_id, publication.publication_no
+                SELECT
+                    a.current_publication_id,
+                    publication.publication_no,
+                    a.status,
+                    a.isdeleted
                 FROM article a
                 LEFT JOIN article_publication publication ON publication.id = a.current_publication_id
-                WHERE a.id = @ArticleId AND a.isdeleted = false
+                WHERE a.id = @ArticleId
                 FOR UPDATE OF a;
                 """,
                 new SugarParameter("@ArticleId", request.ArticleId)))
@@ -79,7 +86,17 @@ public static class ArticlePublicationTransitionWriter
 
             currentPublicationId = reader.IsDBNull(0) ? null : reader.GetInt64(0);
             currentPublicationNo = reader.IsDBNull(1) ? null : reader.GetInt32(1);
+            sourceStatus = reader.GetBoolean(3)
+                ? ArticleStatus.Deleted
+                : (ArticleStatus)reader.GetInt32(2);
         }
+
+        ThrowIfInvalid(ArticleStatusTransitionPolicy.ValidateTransition(
+            (int)sourceStatus,
+            (int)request.TargetStatus,
+            request.ScheduledPublishAt,
+            request.TransitionedAt,
+            request.Operation));
 
         ArticlePublicationTransitionPlan plan = CreatePlan(
             currentPublicationId.HasValue,
@@ -128,11 +145,10 @@ public static class ArticlePublicationTransitionWriter
         DateTime? scheduledPublishAt,
         DateTime transitionedAt)
     {
-        if (targetStatus == ArticleStatus.Scheduled
-            && (!scheduledPublishAt.HasValue || scheduledPublishAt.Value <= transitionedAt))
-        {
-            throw new ArgumentException("Scheduled publication requires a future timestamp.", nameof(scheduledPublishAt));
-        }
+        ThrowIfInvalid(ArticleStatusTransitionPolicy.ValidateTarget(
+            (int)targetStatus,
+            scheduledPublishAt,
+            transitionedAt));
 
         return targetStatus switch
         {
@@ -279,12 +295,19 @@ public static class ArticlePublicationTransitionWriter
             throw new ArgumentOutOfRangeException(nameof(request.Version.RevisionNo));
         if (request.Version.RightsSnapshotId <= 0)
             throw new ArgumentOutOfRangeException(nameof(request.Version.RightsSnapshotId));
-        if (request.TargetStatus == ArticleStatus.Scheduled
-            && (!request.ScheduledPublishAt.HasValue || request.ScheduledPublishAt.Value <= request.TransitionedAt))
-        {
-            throw new ArgumentException("Scheduled publication requires a future timestamp.", nameof(request));
-        }
+        ThrowIfInvalid(ArticleStatusTransitionPolicy.ValidateTarget(
+            (int)request.TargetStatus,
+            request.ScheduledPublishAt,
+            request.TransitionedAt));
         if (string.IsNullOrWhiteSpace(request.TransitionKind))
             throw new ArgumentException("Transition kind is required.", nameof(request));
+    }
+
+    private static void ThrowIfInvalid(ArticleStatusTransitionValidation? validation)
+    {
+        if (validation.HasValue)
+        {
+            throw new ArticleStatusTransitionValidationException(validation.Value);
+        }
     }
 }

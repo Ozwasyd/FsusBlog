@@ -16,6 +16,25 @@
 
 所有写入经 `ArticlePublicationTransitionWriter` 收口：
 
+普通创建/更新的状态矩阵如下；`✓` 表示允许，`—` 表示拒绝。`Deleted → Published`
+仅代表专用 restore 操作，普通 update 不得使用该边。
+
+| 源状态 ↓ / 目标状态 → | `Draft` | `Scheduled` | `Published` | `Archived` | `Deleted` |
+|---|---:|---:|---:|---:|---:|
+| `Draft` | ✓ | ✓ | ✓ | ✓ | — |
+| `Scheduled` | ✓ | ✓ | ✓ | ✓ | — |
+| `Published` | ✓ | ✓ | ✓ | ✓ | — |
+| `Archived` | ✓ | ✓ | ✓ | ✓ | — |
+| `Deleted` | — | — | restore only | — | — |
+
+`Scheduled` 必须携带严格晚于服务端当前 UTC 时间的 `scheduledPublishAt`；其它目标状态
+不得携带该字段。未定义枚举、缺失/过期计划时间、非法转换和直接写 `Deleted` 都返回
+`ErrorCode.Validation`，并分别在 error `details` 中返回稳定代码
+`article_status_undefined`、`article_scheduled_at_required`、
+`article_scheduled_at_must_be_future`、`article_status_transition_invalid`、
+`article_deleted_requires_delete_flow`（非定时状态附带时间使用
+`article_scheduled_at_not_allowed`）。
+
 | 操作 | 后台状态 | 公开坐标 |
 |---|---|---|
 | 立即发布 | `Published` | 新建发布记录并原子切换 |
@@ -24,6 +43,11 @@
 | 归档 | `Archived` | 保留历史发布记录，不再公开 |
 | 恢复 | `Published` | 新建恢复发布记录 |
 | 修订回滚 | `Published` | 基于回滚内容新建修订和发布记录，转换类型为 `rollback` |
+
+操作约束在同一策略内叠加：rollback 只到 `Published`；restore 只允许
+`Deleted → Published`；worker 只允许到期的 `Scheduled → Published` 或带 pending
+publication 的 `Published → Published`。writer 在持有文章行锁后复核源状态，不能由
+请求端或 worker 自报状态绕过。
 
 定时任务在同一数据库事务中锁定候选文章、创建发布记录、更新文章指针并写入
 outbox。失败时整个批次回滚，旧发布版本继续可读。
@@ -48,4 +72,3 @@ outbox 事件同时在列和 payload 中保存精确坐标；消费者只处理�
 需要降级时，先停止定时发布 worker 和 outbox 消费（保留待处理事件），再将应用流量
 切回兼容旧列的代码；数据库新增列和表保持不删除。恢复新代码后重新启动 worker，
 按事件内精确坐标继续投影，不需要重启 PostgreSQL 或 Redis。
-

@@ -5,6 +5,7 @@ using System.Text;
 
 using FsusBlog.Core.Integrity;
 using FsusBlog.Core.Mapping.Models;
+using FsusBlog.Core.Services.Articles;
 using FsusBlog.Core.Services.Gateways;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Helpers;
@@ -649,7 +650,8 @@ public partial class ArticleService(
         var safeSummary = string.IsNullOrWhiteSpace(summary) ? GenerateSafeSummary(content) : summary;
         ArticleRightsWriteModel rights = NormalizeArticleRights(dto.Rights);
         DateTime now = DateTime.UtcNow;
-        ArticleStatus status = NormalizeWriteStatus(ArticleStatusProjection.Normalize(dto.Status), dto.ScheduledPublishAt, now);
+        ArticleStatus status = (ArticleStatus)dto.Status;
+        ValidateWriteTarget(status, dto.ScheduledPublishAt, now);
         var article = new Article
         {
             Title = title,
@@ -707,7 +709,8 @@ public partial class ArticleService(
                         status,
                         article.ScheduledPublishAt,
                         now,
-                        TransitionKindFor(status)));
+                        TransitionKindFor(status),
+                        ArticleStatusTransitionOperation.Create));
                 await RecordArticleMutationOutboxAsync(id, ArticleMutationEventTypes.Created, version);
                 return id;
             });
@@ -742,20 +745,6 @@ public partial class ArticleService(
                 await RecoverAbortedPublicMutationFenceAsync(null, "article-create-fence-aborted").ConfigureAwait(false);
             }
         }
-    }
-
-    private static ArticleStatus NormalizeWriteStatus(ArticleStatus requested, DateTime? scheduledPublishAt, DateTime utcNow)
-    {
-        if (requested == ArticleStatus.Scheduled)
-        {
-            return scheduledPublishAt.HasValue && scheduledPublishAt.Value > utcNow
-                ? ArticleStatus.Scheduled
-                : ArticleStatus.Published;
-        }
-
-        return requested is ArticleStatus.Draft or ArticleStatus.Published or ArticleStatus.Archived
-            ? requested
-            : ArticleStatus.Published;
     }
 
     private async Task<ArticleRevisionCoordinates> SaveArticleRevisionAsync(
@@ -1185,16 +1174,12 @@ public partial class ArticleService(
         var safeSummary = string.IsNullOrWhiteSpace(summary) ? GenerateSafeSummary(content) : summary;
         ArticleRightsWriteModel rights = NormalizeArticleRights(dto.Rights);
         DateTime now = DateTime.UtcNow;
-        ArticleStatus requestedStatus = ArticleStatusProjection.Normalize(dto.Status);
-        if (requestedStatus == ArticleStatus.Deleted)
-        {
-            return false;
-        }
+        ArticleStatus requestedStatus = (ArticleStatus)dto.Status;
+        ValidateWriteTarget(requestedStatus, dto.ScheduledPublishAt, now);
 
-        ArticleStatus status = NormalizeWriteStatus(requestedStatus, dto.ScheduledPublishAt, now);
+        ArticleStatus status = requestedStatus;
         DateTime? scheduledPublishAt = status == ArticleStatus.Scheduled ? dto.ScheduledPublishAt : null;
         DateTime? publishedAt = state.PublishedAt ?? (status == ArticleStatus.Published ? now : null);
-        DateTime? archivedAt = status == ArticleStatus.Archived ? now : null;
         bool requiresPublicFence = ArticlePublication.IsPubliclyVisible(
                 state.Status,
                 isDeleted: false,
@@ -1226,13 +1211,7 @@ public partial class ArticleService(
                     title,
                     safeSummary,
                     coverImageUrl,
-                    dto.CategoryId,
-                    status,
-                    scheduledPublishAt,
-                    publishedAt,
-                    archivedAt,
-                    false,
-                    null);
+                    dto.CategoryId);
                 if (!updated)
                 {
                     return;
@@ -1264,7 +1243,10 @@ public partial class ArticleService(
                         status,
                         scheduledPublishAt,
                         now,
-                        transitionKind ?? TransitionKindFor(status)));
+                        transitionKind ?? TransitionKindFor(status),
+                        transitionKind == ArticlePublicationTransitionKinds.Rollback
+                            ? ArticleStatusTransitionOperation.Rollback
+                            : ArticleStatusTransitionOperation.Update));
                 await RecordArticleMutationOutboxAsync(id, ArticleMutationEventTypes.Updated, version);
             });
 
@@ -1352,13 +1334,7 @@ public partial class ArticleService(
         string title,
         string summary,
         string? coverImageUrl,
-        int categoryId,
-        ArticleStatus status,
-        DateTime? scheduledPublishAt,
-        DateTime? publishedAt,
-        DateTime? archivedAt,
-        bool isDeleted,
-        DateTime? deletedAt)
+        int categoryId)
     {
         int affectedRows = await _db.Ado.ExecuteCommandAsync(
             """
@@ -1366,13 +1342,7 @@ public partial class ArticleService(
             SET title = @Title,
                 summary = @Summary,
                 coverimageurl = @CoverImageUrl,
-                categoryid = @CategoryId,
-                status = @Status,
-                scheduled_publish_at = CAST(@ScheduledPublishAt AS timestamp),
-                published_at = CAST(@PublishedAt AS timestamp),
-                archived_at = CAST(@ArchivedAt AS timestamp),
-                isdeleted = @IsDeleted,
-                deleted_at = CAST(@DeletedAt AS timestamp)
+                categoryid = @CategoryId
             WHERE id = @ArticleId
               AND isdeleted = false
               AND xmin::text = @RowVersion;
@@ -1382,13 +1352,7 @@ public partial class ArticleService(
             new SugarParameter("@Title", title),
             new SugarParameter("@Summary", summary),
             new SugarParameter("@CoverImageUrl", (object?)coverImageUrl ?? DBNull.Value),
-            new SugarParameter("@CategoryId", categoryId),
-            new SugarParameter("@Status", (int)status),
-            new SugarParameter("@ScheduledPublishAt", (object?)scheduledPublishAt ?? DBNull.Value),
-            new SugarParameter("@PublishedAt", (object?)publishedAt ?? DBNull.Value),
-            new SugarParameter("@ArchivedAt", (object?)archivedAt ?? DBNull.Value),
-            new SugarParameter("@IsDeleted", isDeleted),
-            new SugarParameter("@DeletedAt", (object?)deletedAt ?? DBNull.Value));
+            new SugarParameter("@CategoryId", categoryId));
         return affectedRows > 0;
     }
 
@@ -1455,6 +1419,21 @@ public partial class ArticleService(
             ArticleStatus.Archived => ArticlePublicationTransitionKinds.Archive,
             _ => ArticlePublicationTransitionKinds.ImmediatePublish
         };
+
+    private static void ValidateWriteTarget(
+        ArticleStatus status,
+        DateTime? scheduledPublishAt,
+        DateTime utcNow)
+    {
+        ArticleStatusTransitionValidation? validation = ArticleStatusTransitionPolicy.ValidateTarget(
+            (int)status,
+            scheduledPublishAt,
+            utcNow);
+        if (validation.HasValue)
+        {
+            throw new ArticleStatusTransitionValidationException(validation.Value);
+        }
+    }
 
     private async Task<long?> LoadResponsibilitySnapshotIdAsync(long revisionId)
     {

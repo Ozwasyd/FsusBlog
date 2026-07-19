@@ -136,6 +136,77 @@ public class ArticleCoreServiceTests
         Assert.Equal(42, result.Value);
     }
 
+    [Theory]
+    [InlineData(-1, ArticleStatusTransitionErrorCodes.UndefinedStatus)]
+    [InlineData(4, ArticleStatusTransitionErrorCodes.DeletedRequiresDeleteFlow)]
+    public async Task Create_InvalidLifecycleTarget_ReturnsDistinguishableValidationCode(
+        int status,
+        string expectedCode)
+    {
+        var service = new ArticleCoreService(
+            _gw,
+            new FixedTimeProvider(new DateTimeOffset(2026, 7, 19, 8, 0, 0, TimeSpan.Zero)));
+        var command = new CreateArticleCommand(new ArticleWriteRequestCoreModel(
+            "title",
+            "content",
+            null,
+            null,
+            1,
+            [],
+            status));
+
+        Result<int> result = await service.CreateAsync(command);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCode.Validation, result.Error.Code);
+        Assert.Equal(expectedCode, result.Error.Details);
+        await _gw.DidNotReceiveWithAnyArgs().CreateAsync(default);
+    }
+
+    [Fact]
+    public async Task Create_ScheduledWithoutTimestamp_UsesFixedClockAndReturnsRequiredCode()
+    {
+        var service = new ArticleCoreService(
+            _gw,
+            new FixedTimeProvider(new DateTimeOffset(2026, 7, 19, 8, 0, 0, TimeSpan.Zero)));
+        var command = new CreateArticleCommand(new ArticleWriteRequestCoreModel(
+            "title",
+            "content",
+            null,
+            null,
+            1,
+            [],
+            ArticleStatusValues.Scheduled));
+
+        Result<int> result = await service.CreateAsync(command);
+
+        Assert.Equal(ErrorCode.Validation, result.Error.Code);
+        Assert.Equal(ArticleStatusTransitionErrorCodes.ScheduledAtRequired, result.Error.Details);
+    }
+
+    [Fact]
+    public async Task Update_ScheduledAtCurrentFixedTime_ReturnsFutureCode()
+    {
+        DateTimeOffset now = new(2026, 7, 19, 8, 0, 0, TimeSpan.Zero);
+        var service = new ArticleCoreService(_gw, new FixedTimeProvider(now));
+        var command = new UpdateArticleCommand(
+            42,
+            new ArticleWriteRequestCoreModel(
+                "title",
+                "content",
+                null,
+                null,
+                1,
+                [],
+                ArticleStatusValues.Scheduled,
+                now.UtcDateTime));
+
+        Result result = await service.UpdateAsync(command);
+
+        Assert.Equal(ErrorCode.Validation, result.Error.Code);
+        Assert.Equal(ArticleStatusTransitionErrorCodes.ScheduledAtMustBeFuture, result.Error.Details);
+    }
+
     // UpdateAsync
     [Theory]
     [InlineData(0, "t", "c", 1)]
@@ -236,6 +307,11 @@ public class ArticleCoreServiceTests
         var result = await Svc().ClearTrashAsync();
         Assert.True(result.IsSuccess);
         Assert.Equal(7, result.Value);
+    }
+
+    private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => utcNow;
     }
 
     // SearchArticlesAsync

@@ -1,3 +1,4 @@
+using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Projections;
 
@@ -11,10 +12,6 @@ public sealed class ArticleStatusProjectionTests
     [InlineData(2, ArticleStatus.Published, true)]
     [InlineData(3, ArticleStatus.Archived, true)]
     [InlineData(4, ArticleStatus.Deleted, true)]
-    [InlineData(int.MinValue, ArticleStatus.Published, false)]
-    [InlineData(-1, ArticleStatus.Published, false)]
-    [InlineData(5, ArticleStatus.Published, false)]
-    [InlineData(int.MaxValue, ArticleStatus.Published, false)]
     public void NormalizeAndIsDefined_RecognizeOnlyDeclaredArticleStatuses(
         int raw,
         ArticleStatus expected,
@@ -22,5 +19,19 @@ public sealed class ArticleStatusProjectionTests
     {
         Assert.Equal(expected, ArticleStatusProjection.Normalize(raw));
         Assert.Equal(isDefined, ArticleStatusProjection.IsDefined(raw));
+    }
+
+    [Theory]
+    [InlineData(int.MinValue)]
+    [InlineData(-1)]
+    [InlineData(5)]
+    [InlineData(int.MaxValue)]
+    public void Normalize_UndefinedStatus_FailsClosed(int raw)
+    {
+        ArticleStatusTransitionValidationException error = Assert.Throws<ArticleStatusTransitionValidationException>(
+            () => ArticleStatusProjection.Normalize(raw));
+
+        Assert.False(ArticleStatusProjection.IsDefined(raw));
+        Assert.Equal(ArticleStatusTransitionErrorCodes.UndefinedStatus, error.Validation.Code);
     }
 }

@@ -37,6 +37,8 @@ ORDER BY issue;
 - 匿名请求：公开列表与详情保持同一 `publicationNo`，定时点前仍读旧版本；
 - 登录请求：私有详情可见当前编辑 `revisionNo`，公开坐标仍保持旧版本；
 - admin 请求：立即发布、定时发布、归档、恢复、修订回滚均经过统一转换入口；
+- 状态矩阵：固定 UTC 时钟覆盖 5×5 源/目标组合，以及 create、rollback、restore、scheduled worker 的操作约束；
+- validation：未知枚举、缺失/到期计划时间、非定时状态夹带时间、直接写 `Deleted` 各自断言稳定 error details code；
 - notification stream：事件预览与 outbox 固定到相同修订/发布坐标；
 - binary：新坐标随列表/详情投影传递，旧缓存版本仍可读取；
 - AOT、搜索、缓存：同一文章的公开内容与发布记录所指修订一致；

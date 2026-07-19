@@ -6,9 +6,12 @@ using FsusBlog.Core.Services.Gateways;
 
 namespace FsusBlog.Core.Services.Implementations;
 
-public sealed class ArticleCoreService(IArticleCoreGateway gateway) : IArticleCoreService
+public sealed class ArticleCoreService(
+    IArticleCoreGateway gateway,
+    TimeProvider? timeProvider = null) : IArticleCoreService
 {
     private const int MaxPageSize = 100;
+    private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
 
     public async Task<Result<CorePageResult<ArticleListCoreModel>>> GetPageListAsync(ArticlePageQuery query, CancellationToken cancellationToken = default)
     {
@@ -49,12 +52,24 @@ public sealed class ArticleCoreService(IArticleCoreGateway gateway) : IArticleCo
             return Result<int>.Failure(ErrorCode.Validation, "发布参数非法");
         }
 
-        if (article.Status is < 0 or > 4)
+        ArticleStatusTransitionValidation? statusValidation = ArticleStatusTransitionPolicy.ValidateTarget(
+            article.Status,
+            article.ScheduledPublishAt,
+            _timeProvider.GetUtcNow().UtcDateTime);
+        if (statusValidation.HasValue)
         {
-            return Result<int>.Failure(ErrorCode.Validation, "文章状态非法");
+            return Result<int>.Failure(ToError(statusValidation.Value));
         }
 
-        var id = await gateway.CreateAsync(command, cancellationToken);
+        int id;
+        try
+        {
+            id = await gateway.CreateAsync(command, cancellationToken);
+        }
+        catch (ArticleStatusTransitionValidationException ex)
+        {
+            return Result<int>.Failure(ToError(ex.Validation));
+        }
         return id > 0
             ? Result<int>.Success(id)
             : Result<int>.Failure(ErrorCode.InfraFailure, "文章创建失败");
@@ -69,14 +84,25 @@ public sealed class ArticleCoreService(IArticleCoreGateway gateway) : IArticleCo
             return Result.Failure(ErrorCode.Validation, "更新参数非法");
         }
 
-        if (article.Status is < 0 or > 4)
+        ArticleStatusTransitionValidation? statusValidation = ArticleStatusTransitionPolicy.ValidateTarget(
+            article.Status,
+            article.ScheduledPublishAt,
+            _timeProvider.GetUtcNow().UtcDateTime);
+        if (statusValidation.HasValue)
         {
-            return Result.Failure(ErrorCode.Validation, "文章状态非法");
+            return Result.Failure(ToError(statusValidation.Value));
         }
 
-        return await gateway.UpdateAsync(command, cancellationToken)
-            ? Result.Success()
-            : Result.Failure(ErrorCode.NotFound, "文章不存在或更新失败");
+        try
+        {
+            return await gateway.UpdateAsync(command, cancellationToken)
+                ? Result.Success()
+                : Result.Failure(ErrorCode.NotFound, "文章不存在或更新失败");
+        }
+        catch (ArticleStatusTransitionValidationException ex)
+        {
+            return Result.Failure(ToError(ex.Validation));
+        }
     }
 
     public async Task<Result> DeleteAsync(ArticleIdCommand command, CancellationToken cancellationToken = default)
@@ -100,9 +126,16 @@ public sealed class ArticleCoreService(IArticleCoreGateway gateway) : IArticleCo
             return Result.Failure(ErrorCode.Validation, "文章ID非法");
         }
 
-        return await gateway.RestoreAsync(command, cancellationToken)
-            ? Result.Success()
-            : Result.Failure(ErrorCode.NotFound, "文章不存在或恢复失败");
+        try
+        {
+            return await gateway.RestoreAsync(command, cancellationToken)
+                ? Result.Success()
+                : Result.Failure(ErrorCode.NotFound, "文章不存在或恢复失败");
+        }
+        catch (ArticleStatusTransitionValidationException ex)
+        {
+            return Result.Failure(ToError(ex.Validation));
+        }
     }
 
     public async Task<Result> PermanentlyDeleteArticleAsync(ArticleIdCommand command, CancellationToken cancellationToken = default)
@@ -124,6 +157,12 @@ public sealed class ArticleCoreService(IArticleCoreGateway gateway) : IArticleCo
         var count = await gateway.ClearTrashAsync(cancellationToken);
         return Result<int>.Success(count);
     }
+
+    private static ErrorDetail ToError(ArticleStatusTransitionValidation validation)
+        => ErrorDetail.Create(
+            ErrorCode.Validation,
+            validation.Message,
+            details: validation.Code);
 
     public async Task<Result<IReadOnlyList<ArticleListCoreModel>>> SearchArticlesAsync(ArticleSearchQuery query, CancellationToken cancellationToken = default)
     {

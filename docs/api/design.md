@@ -557,6 +557,8 @@ SPA 接管失败时采用 fail-closed：snapshot head 缺失、旧版本、diges
 
 立即发布、首次定时发布、已发布文章定时更新、归档、恢复与回滚统一经过 `ArticlePublicationTransitionWriter`。已发布文章安排未来更新时，文章继续保持 `Published` 并用 `pending_publication_at` 记录切换点；到点前旧 publication 保持可读，到点后 worker 在同一 PostgreSQL 事务内创建新 publication、切换指针并写出带精确坐标的 outbox。任一步失败都回滚，不能暴露半套新内容。完整模型与无重启回退见 [文章修订与发布坐标](article-publication-revisions.md)。
 
+状态转换采用严格矩阵：四个可编辑状态 `Draft`、`Scheduled`、`Published`、`Archived` 可经普通更新互转；`Deleted` 只能由专用删除流程进入，且只能由专用 restore 转为 `Published`。rollback 只能落到 `Published`，scheduled worker 只接受 `Scheduled → Published` 或带 pending publication 的 `Published → Published`。`Scheduled` 必须提供严格晚于服务端 UTC 时钟的时间，非 `Scheduled` 不得夹带计划时间。所有入口共用 Core 纯策略，writer 在事务行锁内再次复核，禁止把未知枚举或无效计划静默归一为 `Published`。
+
 ### 预览
 
 代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringUseCasePorts.cs`](../../src/backend/Services/Authoring/AuthoringUseCasePorts.cs)。

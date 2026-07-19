@@ -1,5 +1,6 @@
 using System.Text.Json;
 
+using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Services;
 
@@ -66,11 +67,135 @@ public sealed class ArticlePublicationTransitionTests
 
     [Fact]
     public void CreatePlan_PastScheduledDeadline_IsRejected()
-        => Assert.Throws<ArgumentException>(() => ArticlePublicationTransitionWriter.CreatePlan(
-            hasCurrentPublication: false,
-            ArticleStatus.Scheduled,
+    {
+        ArticleStatusTransitionValidationException error = Assert.Throws<ArticleStatusTransitionValidationException>(
+            () => ArticlePublicationTransitionWriter.CreatePlan(
+                hasCurrentPublication: false,
+                ArticleStatus.Scheduled,
+                s_now,
+                s_now));
+
+        Assert.Equal(ArticleStatusTransitionErrorCodes.ScheduledAtMustBeFuture, error.Validation.Code);
+    }
+
+    public static TheoryData<ArticleStatus, ArticleStatus, bool> CompleteStateMatrix => new()
+    {
+        { ArticleStatus.Draft, ArticleStatus.Draft, true },
+        { ArticleStatus.Draft, ArticleStatus.Scheduled, true },
+        { ArticleStatus.Draft, ArticleStatus.Published, true },
+        { ArticleStatus.Draft, ArticleStatus.Archived, true },
+        { ArticleStatus.Draft, ArticleStatus.Deleted, false },
+        { ArticleStatus.Scheduled, ArticleStatus.Draft, true },
+        { ArticleStatus.Scheduled, ArticleStatus.Scheduled, true },
+        { ArticleStatus.Scheduled, ArticleStatus.Published, true },
+        { ArticleStatus.Scheduled, ArticleStatus.Archived, true },
+        { ArticleStatus.Scheduled, ArticleStatus.Deleted, false },
+        { ArticleStatus.Published, ArticleStatus.Draft, true },
+        { ArticleStatus.Published, ArticleStatus.Scheduled, true },
+        { ArticleStatus.Published, ArticleStatus.Published, true },
+        { ArticleStatus.Published, ArticleStatus.Archived, true },
+        { ArticleStatus.Published, ArticleStatus.Deleted, false },
+        { ArticleStatus.Archived, ArticleStatus.Draft, true },
+        { ArticleStatus.Archived, ArticleStatus.Scheduled, true },
+        { ArticleStatus.Archived, ArticleStatus.Published, true },
+        { ArticleStatus.Archived, ArticleStatus.Archived, true },
+        { ArticleStatus.Archived, ArticleStatus.Deleted, false },
+        { ArticleStatus.Deleted, ArticleStatus.Draft, false },
+        { ArticleStatus.Deleted, ArticleStatus.Scheduled, false },
+        { ArticleStatus.Deleted, ArticleStatus.Published, true },
+        { ArticleStatus.Deleted, ArticleStatus.Archived, false },
+        { ArticleStatus.Deleted, ArticleStatus.Deleted, false }
+    };
+
+    [Theory]
+    [MemberData(nameof(CompleteStateMatrix))]
+    public void ValidateTransition_CoversCompleteStateMatrix(
+        ArticleStatus source,
+        ArticleStatus target,
+        bool expectedAllowed)
+    {
+        ArticleStatusTransitionOperation operation = source == ArticleStatus.Deleted
+            && target == ArticleStatus.Published
+                ? ArticleStatusTransitionOperation.Restore
+                : ArticleStatusTransitionOperation.Update;
+        DateTime? scheduledAt = target == ArticleStatus.Scheduled ? s_now.AddMinutes(5) : null;
+
+        ArticleStatusTransitionValidation? result = ArticleStatusTransitionPolicy.ValidateTransition(
+            (int)source,
+            (int)target,
+            scheduledAt,
             s_now,
-            s_now));
+            operation);
+
+        Assert.Equal(expectedAllowed, !result.HasValue);
+        if (!expectedAllowed)
+        {
+            Assert.Contains(
+                result!.Value.Code,
+                new[]
+                {
+                    ArticleStatusTransitionErrorCodes.DeletedRequiresDeleteFlow,
+                    ArticleStatusTransitionErrorCodes.InvalidTransition
+                });
+        }
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(5)]
+    [InlineData(int.MaxValue)]
+    public void ValidateTarget_UndefinedStatus_IsRejectedWithStableCode(int status)
+    {
+        ArticleStatusTransitionValidation validation = Assert.IsType<ArticleStatusTransitionValidation>(
+            ArticleStatusTransitionPolicy.ValidateTarget(status, null, s_now));
+
+        Assert.Equal(ArticleStatusTransitionErrorCodes.UndefinedStatus, validation.Code);
+    }
+
+    [Fact]
+    public void ValidateTarget_MissingScheduledTimestamp_IsRejectedWithStableCode()
+    {
+        ArticleStatusTransitionValidation validation = Assert.IsType<ArticleStatusTransitionValidation>(
+            ArticleStatusTransitionPolicy.ValidateTarget((int)ArticleStatus.Scheduled, null, s_now));
+
+        Assert.Equal(ArticleStatusTransitionErrorCodes.ScheduledAtRequired, validation.Code);
+    }
+
+    [Fact]
+    public void ValidateTarget_TimestampOnNonScheduledState_IsRejectedWithStableCode()
+    {
+        ArticleStatusTransitionValidation validation = Assert.IsType<ArticleStatusTransitionValidation>(
+            ArticleStatusTransitionPolicy.ValidateTarget(
+                (int)ArticleStatus.Published,
+                s_now.AddMinutes(5),
+                s_now));
+
+        Assert.Equal(ArticleStatusTransitionErrorCodes.ScheduledAtNotAllowed, validation.Code);
+    }
+
+    [Theory]
+    [InlineData(ArticleStatusTransitionOperation.Rollback, ArticleStatus.Draft, ArticleStatus.Published, true)]
+    [InlineData(ArticleStatusTransitionOperation.Rollback, ArticleStatus.Draft, ArticleStatus.Draft, false)]
+    [InlineData(ArticleStatusTransitionOperation.Restore, ArticleStatus.Deleted, ArticleStatus.Published, true)]
+    [InlineData(ArticleStatusTransitionOperation.Restore, ArticleStatus.Archived, ArticleStatus.Published, false)]
+    [InlineData(ArticleStatusTransitionOperation.ScheduledPublish, ArticleStatus.Scheduled, ArticleStatus.Published, true)]
+    [InlineData(ArticleStatusTransitionOperation.ScheduledPublish, ArticleStatus.Published, ArticleStatus.Published, true)]
+    [InlineData(ArticleStatusTransitionOperation.ScheduledPublish, ArticleStatus.Draft, ArticleStatus.Published, false)]
+    public void ValidateTransition_EnforcesOperationSpecificSources(
+        ArticleStatusTransitionOperation operation,
+        ArticleStatus source,
+        ArticleStatus target,
+        bool expectedAllowed)
+    {
+        ArticleStatusTransitionValidation? result = ArticleStatusTransitionPolicy.ValidateTransition(
+            (int)source,
+            (int)target,
+            null,
+            s_now,
+            operation);
+
+        Assert.Equal(expectedAllowed, !result.HasValue);
+    }
 
     [Fact]
     public void BuildOutboxPayload_BindsExactRevisionAndPublication()

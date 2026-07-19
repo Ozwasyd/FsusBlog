@@ -214,11 +214,11 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "文章写入请求体非法"), aeds);
             }
 
-            int id = await articles.CreateAsync(request, cancellationToken);
+            Result<int> result = await articles.CreateAsync(request, cancellationToken);
 
-            return id > 0
-                ? BinaryResults.Frame(aeds, AedsFrameType.MutationId, writer => PodBinaryCodec.WriteMutationId(id, writer))
-                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "发布失败：数据库操作异常"), aeds);
+            return result.IsSuccess
+                ? BinaryResults.Frame(aeds, AedsFrameType.MutationId, writer => PodBinaryCodec.WriteMutationId(result.Value, writer))
+                : BinaryResults.FromError(result.Error, aeds);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
         .AddEndpointFilterWithMetadata<RequiresPowFilter>();
@@ -241,11 +241,11 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "文章写入请求体非法"), aeds);
             }
 
-            bool success = await articles.UpdateAsync(id, request, cancellationToken);
+            Result result = await articles.UpdateAsync(id, request, cancellationToken);
 
-            return success
+            return result.IsSuccess
                 ? BinaryResults.Frame(aeds, AedsFrameType.MutationId, writer => PodBinaryCodec.WriteMutationId(id, writer))
-                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "更新失败：数据库操作异常"), aeds);
+                : BinaryResults.FromError(result.Error, aeds);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
         .AddEndpointFilterWithMetadata<RequiresPowFilter>();
@@ -336,10 +336,10 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(stepUp.Value.Error, aeds, stepUp.Value.StatusCode);
             }
 
-            bool success = await articles.RestoreAsync(id, cancellationToken);
-            return success
+            Result result = await articles.RestoreAsync(id, cancellationToken);
+            return result.IsSuccess
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
-                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "恢复失败：资源不存在"), aeds);
+                : BinaryResults.FromError(result.Error, aeds);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
         .RequireRateLimiting("fixed_ip")

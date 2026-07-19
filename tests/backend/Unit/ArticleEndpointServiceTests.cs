@@ -343,6 +343,42 @@ public sealed class ArticleEndpointServiceTests
         scheduler.DidNotReceiveWithAnyArgs().TrySchedule(default);
     }
 
+    [Fact]
+    public async Task CreateAsync_PreservesLifecycleValidationDetails()
+    {
+        var core = Substitute.For<IArticleCoreService>();
+        ErrorDetail error = ErrorDetail.Create(
+            ErrorCode.Validation,
+            "文章状态未定义",
+            ArticleStatusTransitionErrorCodes.UndefinedStatus);
+        core.CreateAsync(Arg.Any<CreateArticleCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Result<int>.Failure(error));
+        var service = Create(core);
+
+        Result<int> result = await service.CreateAsync(default);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ArticleStatusTransitionErrorCodes.UndefinedStatus, result.Error.Details);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_PreservesLifecycleValidationDetails()
+    {
+        var core = Substitute.For<IArticleCoreService>();
+        ErrorDetail error = ErrorDetail.Create(
+            ErrorCode.Validation,
+            "计划发布时间必须晚于当前时间",
+            ArticleStatusTransitionErrorCodes.ScheduledAtMustBeFuture);
+        core.UpdateAsync(Arg.Any<UpdateArticleCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Result.Failure(error));
+        var service = Create(core);
+
+        Result result = await service.UpdateAsync(42, default);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ArticleStatusTransitionErrorCodes.ScheduledAtMustBeFuture, result.Error.Details);
+    }
+
     private static ArticleEndpointService Create(
         IArticleCoreService core,
         IArticleDetailAedsArtifactStore? artifacts = null,

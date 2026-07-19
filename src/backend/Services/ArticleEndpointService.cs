@@ -209,17 +209,16 @@ public sealed class ArticleEndpointService(
                 new ArticleCategoryView(item.Category.Id, item.Category.Name))).ToArray());
     }
 
-    public async Task<int> CreateAsync(ArticleWriteRequestCoreModel request, CancellationToken cancellationToken = default)
+    public Task<Result<int>> CreateAsync(ArticleWriteRequestCoreModel request, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        Result<int> result = await core.CreateAsync(new CreateArticleCommand(request), cancellationToken);
-        return result.IsSuccess ? result.Value : 0;
+        return core.CreateAsync(new CreateArticleCommand(request), cancellationToken);
     }
 
-    public async Task<bool> UpdateAsync(int id, ArticleWriteRequestCoreModel request, CancellationToken cancellationToken = default)
+    public Task<Result> UpdateAsync(int id, ArticleWriteRequestCoreModel request, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return (await core.UpdateAsync(new UpdateArticleCommand(id, request), cancellationToken)).IsSuccess;
+        return core.UpdateAsync(new UpdateArticleCommand(id, request), cancellationToken);
     }
 
     public async Task<int> ClearTrashAsync(CancellationToken cancellationToken = default)
@@ -235,10 +234,10 @@ public sealed class ArticleEndpointService(
         return (await core.DeleteAsync(new ArticleIdCommand(id), cancellationToken)).IsSuccess;
     }
 
-    public async Task<bool> RestoreAsync(int id, CancellationToken cancellationToken = default)
+    public Task<Result> RestoreAsync(int id, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return (await core.RestoreAsync(new ArticleIdCommand(id), cancellationToken)).IsSuccess;
+        return core.RestoreAsync(new ArticleIdCommand(id), cancellationToken);
     }
 
     public async Task<bool> PermanentlyDeleteArticleAsync(int id, CancellationToken cancellationToken = default)
