@@ -28,13 +28,13 @@ public class RedisPowService : IPowService
     private readonly byte[] _cachedPowKey;
     private readonly ILogger<RedisPowService> _logger;
     private readonly AdaptivePowGovernor _governor;
-    private readonly IUnifiedCache _cache;
+    private readonly ICacheLeaseStore _cache;
 
     public RedisPowService(
         IConfiguration config,
         ILogger<RedisPowService> logger,
         AdaptivePowGovernor governor,
-        IUnifiedCache cache)
+        ICacheLeaseStore cache)
     {
         _logger = logger;
         _governor = governor;

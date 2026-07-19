@@ -293,6 +293,7 @@ public sealed class AuthorizationAccessControlHardeningTests
             Substitute.For<IFido2>(),
             Substitute.For<ISqlSugarClient>(),
             proofCache,
+            proofCache,
             Substitute.For<IJwtHelper>(),
             new ConfigurationBuilder().Build(),
             NullLogger<AdminPrincipalService>.Instance,

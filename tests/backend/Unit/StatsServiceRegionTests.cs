@@ -104,6 +104,7 @@ public sealed class StatsServiceRegionTests(PostgresSchemaMigrationFixture fixtu
         var service = new StatsService(
             Substitute.For<ISqlSugarClient>(),
             Substitute.For<IUnifiedCache>(),
+            Substitute.For<IUnifiedCache>(),
             coordinator,
             Substitute.For<IDbConcurrencyGate>(),
             CreatePrivacyPolicy(),
@@ -120,6 +121,7 @@ public sealed class StatsServiceRegionTests(PostgresSchemaMigrationFixture fixtu
     private static StatsService CreateService(ISqlSugarClient db)
         => new(
             db,
+            Substitute.For<IUnifiedCache>(),
             Substitute.For<IUnifiedCache>(),
             Substitute.For<ICacheMissCoordinator>(),
             Substitute.For<IDbConcurrencyGate>(),

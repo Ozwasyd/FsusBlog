@@ -392,7 +392,7 @@ public sealed class CommentSecurityHardeningTests
                 Arg.Any<CancellationToken>())
             .Returns(1L);
         IHttpCacheInvalidator httpCache = Substitute.For<IHttpCacheInvalidator>();
-        var dispatcher = new CacheInvalidationDispatcher(cache, httpCache);
+        var dispatcher = new CacheInvalidationDispatcher(cache, cache, httpCache);
 
         await dispatcher.InvalidateCommentMutationAsync(new CommentCacheInvalidationScope(
             ArticleId: 42,

@@ -90,7 +90,8 @@ public sealed class ActiveReleaseFenceLostException(string releaseId, string slo
     : InvalidOperationException($"Active release fence was lost by {releaseId}/{slot} generation {generation}.");
 
 public sealed class ActiveReleaseFencedBackgroundWorkerLease(
-    IUnifiedCache cache,
+    ICacheLeaseStore leaseStore,
+    ICacheCompareExchangeStore compareExchange,
     IActiveReleaseFence activeReleaseFence,
     IActiveReleaseExecutionContextAccessor executionContext,
     DeploymentRuntimeState deploymentRuntime,
@@ -171,7 +172,7 @@ public sealed class ActiveReleaseFencedBackgroundWorkerLease(
         string owner,
         CancellationToken cancellationToken)
     {
-        if (await cache.TryAcquireLeaseAsync(
+        if (await leaseStore.TryAcquireLeaseAsync(
                 CachePolicyId.BackgroundWorkerLease,
                 identity,
                 owner,
@@ -181,7 +182,7 @@ public sealed class ActiveReleaseFencedBackgroundWorkerLease(
             return true;
         }
 
-        return await cache.TrySetStringIfValueAsync(
+        return await compareExchange.TrySetStringIfValueAsync(
                 CachePolicyId.BackgroundWorkerLease,
                 identity,
                 owner,
@@ -215,7 +216,7 @@ public sealed class ActiveReleaseFencedBackgroundWorkerLease(
                     return;
                 }
 
-                bool renewed = await cache.TrySetStringIfValueAsync(
+                bool renewed = await compareExchange.TrySetStringIfValueAsync(
                         CachePolicyId.BackgroundWorkerLease,
                         identity,
                         owner,

@@ -147,7 +147,7 @@ public sealed class ArticleEndpointServiceTests
             core,
             cache: cache,
             ownedFrameCache: cache,
-            cacheMissCoordinator: new CacheMissCoordinator(cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance));
+            cacheMissCoordinator: new CacheMissCoordinator(cache, cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance));
         var releaseCore = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var firstCoreLoadStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var page = new CorePageResult<ArticleListCoreModel>([], 0);

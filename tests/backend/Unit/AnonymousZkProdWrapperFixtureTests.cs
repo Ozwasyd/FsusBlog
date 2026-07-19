@@ -203,8 +203,10 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
     {
         var time = new MutableTimeProvider(DateTimeOffset.UtcNow);
         IConfiguration configuration = BuildConfiguration(temp.VerifyingKeySha256);
+        CapturingUnifiedCache ticketCache = cache ?? new CapturingUnifiedCache(time);
         return new AnonymousCommentTicketService(
-            cache ?? new CapturingUnifiedCache(time),
+            ticketCache,
+            ticketCache,
             new FixedRootService(Result<AnonymousCredentialRootSnapshotCoreModel>.Success(CreateRootSnapshot(temp, time))),
             CreateProofService(temp, nativeLibrary),
             nullifiers ?? new RecordingNullifierService(),

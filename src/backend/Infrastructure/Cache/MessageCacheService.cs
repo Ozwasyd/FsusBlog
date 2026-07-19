@@ -2,23 +2,26 @@ using System.Globalization;
 
 namespace FsusBlog.Server.Infrastructure.Cache;
 
-public sealed class MessageCacheService(IUnifiedCache cache)
+public sealed class MessageCacheService(
+    ICacheCounterStore counters,
+    ICacheStringWriter stringWriter,
+    ICacheCompareExchangeStore compareExchange)
 {
     private const int UnreadRefreshMaxAttempts = 3;
 
     public ValueTask IncrementUnreadAsync(long accountId)
-        => new(cache.IncrementAsync(CachePolicyId.MessageUnread, BuildAccountIdentity(accountId)));
+        => new(counters.IncrementAsync(CachePolicyId.MessageUnread, BuildAccountIdentity(accountId)));
 
     public ValueTask SetUnreadAsync(long accountId, int unread)
-        => new(cache.SetStringAsync(CachePolicyId.MessageUnread, BuildAccountIdentity(accountId), Math.Max(0, unread).ToString(CultureInfo.InvariantCulture)));
+        => new(stringWriter.SetStringAsync(CachePolicyId.MessageUnread, BuildAccountIdentity(accountId), Math.Max(0, unread).ToString(CultureInfo.InvariantCulture)));
 
     public async ValueTask<int> RefreshUnreadAsync(long accountId, Func<Task<int>> loadUnreadAsync)
     {
         for (int attempt = 0; attempt < UnreadRefreshMaxAttempts; attempt++)
         {
-            long version = await cache.IncrementAsync(CachePolicyId.MessageUnread, BuildRefreshVersionIdentity(accountId));
+            long version = await counters.IncrementAsync(CachePolicyId.MessageUnread, BuildRefreshVersionIdentity(accountId));
             int unread = Math.Max(0, await loadUnreadAsync());
-            bool updated = await cache.TrySetStringIfValueAsync(
+            bool updated = await compareExchange.TrySetStringIfValueAsync(
                 CachePolicyId.MessageUnread,
                 BuildAccountIdentity(accountId),
                 unread.ToString(CultureInfo.InvariantCulture),

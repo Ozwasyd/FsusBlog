@@ -64,7 +64,8 @@ public interface ICacheMissCoordinator
 }
 
 public sealed class CacheMissCoordinator(
-    IUnifiedCache cache,
+    ICacheSingleFlightCoordinator singleFlightCoordinator,
+    ICacheLeaseStore leaseStore,
     ICachePolicyRegistry policyRegistry,
     ILogger<CacheMissCoordinator> logger) : ICacheMissCoordinator
 {
@@ -138,7 +139,7 @@ public sealed class CacheMissCoordinator(
         CacheRebuildStrategy? strategy)
     {
 
-        await using IAsyncDisposable singleFlight = await cache.AcquireSingleFlightAsync(policyId, identity, cancellationToken).ConfigureAwait(false);
+        await using IAsyncDisposable singleFlight = await singleFlightCoordinator.AcquireAsync(policyId, identity, cancellationToken).ConfigureAwait(false);
 
         CacheReadResult<T> hit = await tryReadAsync(cancellationToken).ConfigureAwait(false);
         if (hit.Hit)
@@ -150,7 +151,7 @@ public sealed class CacheMissCoordinator(
         string leaseIdentity = $"__lease__:{identity}";
         string leaseValue = $"{Environment.ProcessId}:{Guid.NewGuid():N}";
 
-        if (await cache.TryAcquireLeaseAsync(policyId, leaseIdentity, leaseValue, effectiveStrategy.LeaseTtl, cancellationToken).ConfigureAwait(false))
+        if (await leaseStore.TryAcquireLeaseAsync(policyId, leaseIdentity, leaseValue, effectiveStrategy.LeaseTtl, cancellationToken).ConfigureAwait(false))
         {
             logger.LogDebug(
                 "cache-lease-hit {Operation} {PolicyId} {Identity}",
@@ -181,7 +182,7 @@ public sealed class CacheMissCoordinator(
         }
 
         string fallbackLeaseValue = $"{Environment.ProcessId}:{Guid.NewGuid():N}";
-        if (await cache.TryAcquireLeaseAsync(policyId, leaseIdentity, fallbackLeaseValue, effectiveStrategy.LeaseTtl, cancellationToken).ConfigureAwait(false))
+        if (await leaseStore.TryAcquireLeaseAsync(policyId, leaseIdentity, fallbackLeaseValue, effectiveStrategy.LeaseTtl, cancellationToken).ConfigureAwait(false))
         {
             logger.LogDebug(
                 "cache-lease-fallback-hit {Operation} {PolicyId} {Identity}",

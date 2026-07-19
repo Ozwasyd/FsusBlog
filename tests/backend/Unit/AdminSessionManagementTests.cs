@@ -234,6 +234,7 @@ public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture f
             Substitute.For<IFido2>(),
             db,
             Substitute.For<IUnifiedCache>(),
+            Substitute.For<IUnifiedCache>(),
             Substitute.For<IJwtHelper>(),
             new ConfigurationBuilder().Build(),
             NullLogger<AdminPrincipalService>.Instance,

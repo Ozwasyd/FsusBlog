@@ -45,7 +45,7 @@ public static class NotificationStreamDrillEndpoints
     private static async Task<IResult> PublishAsync(
         HttpContext context,
         IConfiguration configuration,
-        IUnifiedCache cache,
+        ICacheLeaseStore cache,
         INotificationStreamPublisher publisher,
         CancellationToken cancellationToken)
     {
@@ -133,7 +133,7 @@ public static class NotificationStreamDrillEndpoints
 
     private static async Task<bool> ValidateSignedDrillRequestAsync(
         HttpContext context,
-        IUnifiedCache cache,
+        ICacheLeaseStore cache,
         string secret,
         string body,
         CancellationToken cancellationToken)

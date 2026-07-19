@@ -61,7 +61,8 @@ public interface IAnonymousCommentTicketService
 }
 
 public sealed class AnonymousCommentTicketService(
-    IUnifiedCache cache,
+    ICacheRawWriter cacheWriter,
+    ICacheOneTimeStore oneTimeStore,
     IAnonymousCredentialRootService rootService,
     IZkAnonymousProofService proofService,
     ICommentAnonymousNullifierService nullifierService,
@@ -191,7 +192,7 @@ public sealed class AnonymousCommentTicketService(
             anonymitySet.EffectiveRateClass,
             request.RequiresModeration,
             expiresAt.ToUnixTimeMilliseconds());
-        await cache.SetRawAsync(
+        await cacheWriter.SetRawAsync(
             CachePolicyId.AnonymousCommentTicket,
             ticketHash,
             AnonymousCommentTicketPayloadCodec.Encode(payload),
@@ -217,7 +218,7 @@ public sealed class AnonymousCommentTicketService(
             return Task.FromResult(new CacheReadResult<AnonymousCommentTicketPayload>(false, default));
         }
 
-        return cache.ConsumeOnceAndGetAsync(
+        return oneTimeStore.ConsumeOnceAndGetAsync(
             CachePolicyId.AnonymousCommentTicket,
             HashTicket(ticket),
             AnonymousCommentTicketPayloadCodec.TryDecode,

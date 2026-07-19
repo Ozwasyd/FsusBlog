@@ -38,6 +38,8 @@ public sealed class SystemServiceTests(PostgresSchemaMigrationFixture fixture)
         var service = new SystemService(
             db,
             Substitute.For<IUnifiedCache>(),
+            Substitute.For<IUnifiedCache>(),
+            Substitute.For<IUnifiedCache>(),
             Substitute.For<ICacheMissCoordinator>(),
             Substitute.For<IDbConcurrencyGate>(),
             NullLogger<SystemService>.Instance,

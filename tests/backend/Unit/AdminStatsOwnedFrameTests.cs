@@ -79,7 +79,7 @@ public sealed class AdminStatsOwnedFrameTests
                 Arg.Any<CancellationToken>())
             .Returns(8L);
         var invalidator = Substitute.For<IHttpCacheInvalidator>();
-        var dispatcher = new CacheInvalidationDispatcher(cache, invalidator);
+        var dispatcher = new CacheInvalidationDispatcher(cache, cache, invalidator);
 
         await dispatcher.InvalidateStatsAsync();
 
@@ -164,7 +164,7 @@ public sealed class AdminStatsOwnedFrameTests
                 Arg.Any<Func<ReadOnlyMemory<byte>, (bool Success, SiteStatsCoreModel? Value)>>(),
                 Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(new CacheReadResult<SiteStatsCoreModel?>(true, Stats(totalArticles: 9))));
-        var coreCache = new StatsCoreQueryCache(cache);
+        var coreCache = new StatsCoreQueryCache(cache, cache, cache);
 
         SiteStatsCoreModel coreResult = await coreCache.GetOrLoadAdminStatsAsync(
             9,
@@ -174,6 +174,7 @@ public sealed class AdminStatsOwnedFrameTests
         var coordinator = new RecordingIdentityCoordinator();
         var service = new StatsService(
             Substitute.For<ISqlSugarClient>(),
+            Substitute.For<IUnifiedCache>(),
             Substitute.For<IUnifiedCache>(),
             coordinator,
             Substitute.For<IDbConcurrencyGate>(),

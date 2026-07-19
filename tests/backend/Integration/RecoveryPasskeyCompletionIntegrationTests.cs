@@ -411,6 +411,10 @@ public sealed class RecoveryPasskeyCompletionIntegrationTests(PostgresSchemaMigr
         var recovery = new RecoveryKeyService(
             db,
             cache,
+            cache,
+            cache,
+            cache,
+            cache,
             new ConfigurationBuilder().Build(),
             passkeys,
             NullLogger<RecoveryKeyService>.Instance,
@@ -525,6 +529,11 @@ public sealed class RecoveryPasskeyCompletionIntegrationTests(PostgresSchemaMigr
         return new PasskeyService(
             fido ?? Substitute.For<IFido2>(),
             db,
+            cache,
+            cache,
+            cache,
+            cache,
+            cache,
             cache,
             Substitute.For<IUserSessionCommandService>(),
             Substitute.For<IMessageNotificationStreamPort>(),

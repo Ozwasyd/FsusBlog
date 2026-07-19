@@ -39,7 +39,7 @@ public sealed partial class SearchIndexService(
     IWebHostEnvironment environment,
     IConfiguration configuration,
     INotificationStreamPublisher notificationStreamPublisher,
-    IUnifiedCache cache,
+    ICacheCounterStore cache,
     ILogger<SearchIndexService> logger) : ISearchIndexService
 {
     private const uint ShardMagic = 0x32534846; // FHS2

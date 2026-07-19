@@ -17,7 +17,9 @@ public interface ITaxonomyCountProjectionService
 
 public sealed class TaxonomyCountProjectionService(
     ISqlSugarClient db,
-    IUnifiedCache cache,
+    ICacheStringReader cacheReader,
+    ICacheCounterStore counters,
+    ICacheInvalidationStore invalidation,
     IHttpCacheInvalidator httpCacheInvalidator) : ITaxonomyCountProjectionService
 {
     public async Task ReconcileArticleAsync(int articleId, CancellationToken cancellationToken = default)
@@ -109,12 +111,12 @@ public sealed class TaxonomyCountProjectionService(
 
     public async Task<long> BumpFrameVersionAsync(string reason, CancellationToken cancellationToken = default)
     {
-        string? rawPreviousVersion = await cache.GetStringAsync(CachePolicyId.TaxonomyFrameVersion, "main", cancellationToken).ConfigureAwait(false);
+        string? rawPreviousVersion = await cacheReader.GetStringAsync(CachePolicyId.TaxonomyFrameVersion, "main", cancellationToken).ConfigureAwait(false);
         long previousVersion = long.TryParse(rawPreviousVersion, out long parsedPreviousVersion) && parsedPreviousVersion > 0
             ? parsedPreviousVersion
             : 0;
-        long version = await cache.IncrementAsync(CachePolicyId.TaxonomyFrameVersion, "main", 1, cancellationToken).ConfigureAwait(false);
-        await cache.RemoveManyAsync(
+        long version = await counters.IncrementAsync(CachePolicyId.TaxonomyFrameVersion, "main", 1, cancellationToken).ConfigureAwait(false);
+        await invalidation.RemoveManyAsync(
             [
                 new(CachePolicyId.CategoryFrame, "all"),
                 new(CachePolicyId.TagFrame, "all"),

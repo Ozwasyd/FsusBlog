@@ -57,7 +57,11 @@ public interface IMfaChallengeService
 }
 
 public sealed class MfaChallengeService(
-    IUnifiedCache cache,
+    ICacheStringReader cacheReader,
+    ICacheStringWriter cacheWriter,
+    ICacheCounterStore counters,
+    ICacheOneTimeStore oneTimeStore,
+    ICacheInvalidationStore invalidation,
     ILogger<MfaChallengeService> logger,
     IConfiguration? configuration = null) : IMfaChallengeService
 {
@@ -81,7 +85,7 @@ public sealed class MfaChallengeService(
             return null;
         }
 
-        string? value = await cache.GetStringAsync(CachePolicyId.SecurityMfaChallenge, ticketId);
+        string? value = await cacheReader.GetStringAsync(CachePolicyId.SecurityMfaChallenge, ticketId);
         if (string.IsNullOrWhiteSpace(value))
         {
             return null;
@@ -91,7 +95,7 @@ public sealed class MfaChallengeService(
     }
 
     public Task ConsumeChallengeAsync(string ticketId)
-        => cache.RemoveAsync(CachePolicyId.SecurityMfaChallenge, ticketId);
+        => invalidation.RemoveAsync(CachePolicyId.SecurityMfaChallenge, ticketId);
 
     public async Task<bool> RecordFailureAsync(MfaChallengeTicket ticket, string clientIp, string? userAgent)
     {
@@ -102,7 +106,7 @@ public sealed class MfaChallengeService(
         string ticketIdentity = string.Concat("fail:ticket:", ticket.TicketId);
         string subjectIdentity = string.Concat("fail:subject:", accountSubjectHash);
         string ipIdentity = string.Concat("fail:ip:", clientIpHash);
-        long[] failures = await cache.IncrementManyWithExpiryAsync(
+        long[] failures = await counters.IncrementManyWithExpiryAsync(
                 CachePolicyId.SecurityMfaChallenge,
                 [ticketIdentity, subjectIdentity, ipIdentity],
                 s_failureWindowTtl)
@@ -158,7 +162,7 @@ public sealed class MfaChallengeService(
         string token = Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
         string subject = ResolveAccountSubjectHash(accountSubjectHash);
         string identity = BuildProofIdentity(accountId, subject, action, token);
-        await cache.SetStringAsync(CachePolicyId.SecurityMfaProof, identity, "1", ttl);
+        await cacheWriter.SetStringAsync(CachePolicyId.SecurityMfaProof, identity, "1", ttl);
         return token;
     }
 
@@ -171,7 +175,7 @@ public sealed class MfaChallengeService(
 
         string subject = ResolveAccountSubjectHash(accountSubjectHash);
         string identity = BuildProofIdentity(accountId, subject, action, token);
-        return cache.ConsumeOnceAsync(CachePolicyId.SecurityMfaProof, identity);
+        return oneTimeStore.ConsumeOnceAsync(CachePolicyId.SecurityMfaProof, identity);
     }
 
     private async Task<MfaChallengeTicket> CreateAsync(
@@ -196,7 +200,7 @@ public sealed class MfaChallengeService(
             CreatedAtUtc = DateTime.UtcNow
         };
 
-        await cache.SetStringAsync(CachePolicyId.SecurityMfaChallenge, ticketId, EncodeTicket(ticket), ttl);
+        await cacheWriter.SetStringAsync(CachePolicyId.SecurityMfaChallenge, ticketId, EncodeTicket(ticket), ttl);
         return ticket;
     }
 

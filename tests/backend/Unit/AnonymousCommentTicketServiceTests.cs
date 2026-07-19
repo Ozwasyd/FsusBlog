@@ -366,6 +366,7 @@ public sealed class AnonymousCommentTicketServiceTests
         policyService ??= new FixedCommentPolicyService(proofService.CurrentCommentPolicy);
         return new AnonymousCommentTicketService(
             cache,
+            cache,
             rootService,
             proofService,
             nullifierService,

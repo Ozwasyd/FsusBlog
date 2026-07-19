@@ -11,7 +11,10 @@ using SqlSugar;
 namespace FsusBlog.Server.Services.Security;
 
 public class BlacklistService(
-    IUnifiedCache cache,
+    ICacheStringReader cacheReader,
+    ICacheCompareExchangeStore compareExchange,
+    ICacheCounterStore counters,
+    ICacheInvalidationStore invalidation,
     ISqlSugarClient db) : IBlacklistService
 {
     private const int MaxBanReasonLength = 256;
@@ -42,7 +45,7 @@ public class BlacklistService(
             await PublishBanStateAsync(row, allowOverwrite: true).ConfigureAwait(false);
         }
 
-        await AccountSnapshotCacheInvalidator.BumpVersionAsync(cache, userId).ConfigureAwait(false);
+        await AccountSnapshotCacheInvalidator.BumpVersionAsync(counters, userId).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -66,7 +69,7 @@ public class BlacklistService(
             await PublishBanStateAsync(row, allowOverwrite: true).ConfigureAwait(false);
         }
 
-        await AccountSnapshotCacheInvalidator.BumpVersionAsync(cache, userId).ConfigureAwait(false);
+        await AccountSnapshotCacheInvalidator.BumpVersionAsync(counters, userId).ConfigureAwait(false);
     }
 
     public async Task<BanStateSnapshot> GetBanStateAsync(int accountId, string accountSubjectHash)
@@ -75,14 +78,14 @@ public class BlacklistService(
             accountSubjectHash,
             "blacklist-read");
         string cacheKey = BuildAccountSubjectCacheKey(requiredAccountSubjectHash);
-        string? cached = await cache.GetStringAsync(CachePolicyId.SecurityBlacklistUser, cacheKey);
+        string? cached = await cacheReader.GetStringAsync(CachePolicyId.SecurityBlacklistUser, cacheKey);
         if (TryDecodeCacheValue(cached, out BanStateSnapshot cachedSnapshot, out _))
         {
             return cachedSnapshot;
         }
         if (!string.IsNullOrWhiteSpace(cached))
         {
-            await cache.RemoveAsync(CachePolicyId.SecurityBlacklistUser, cacheKey).ConfigureAwait(false);
+            await invalidation.RemoveAsync(CachePolicyId.SecurityBlacklistUser, cacheKey).ConfigureAwait(false);
         }
 
         BlacklistCacheRow? row = await LoadBanStateRowAsync(accountId).ConfigureAwait(false);
@@ -99,7 +102,7 @@ public class BlacklistService(
         bool warmed = await PublishBanStateAsync(row, allowOverwrite: false).ConfigureAwait(false);
         if (!warmed)
         {
-            string? current = await cache.GetStringAsync(CachePolicyId.SecurityBlacklistUser, cacheKey).ConfigureAwait(false);
+            string? current = await cacheReader.GetStringAsync(CachePolicyId.SecurityBlacklistUser, cacheKey).ConfigureAwait(false);
             if (TryDecodeCacheValue(current, out BanStateSnapshot currentSnapshot, out _))
             {
                 return currentSnapshot;
@@ -121,7 +124,7 @@ public class BlacklistService(
     private async Task<bool> PublishBanStateAsync(BlacklistCacheRow row, bool allowOverwrite)
     {
         string value = EncodeCacheValue(row.Status, row.BanReason, row.RowVersion);
-        return await cache.TrySetVersionedStringAsync(
+        return await compareExchange.TrySetVersionedStringAsync(
                 CachePolicyId.SecurityBlacklistUser,
                 row.CacheKey,
                 value,

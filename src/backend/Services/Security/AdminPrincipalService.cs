@@ -135,7 +135,8 @@ public enum AdminSessionRevokeResult
 public sealed class AdminPrincipalService(
     IFido2 fido2,
     ISqlSugarClient db,
-    IUnifiedCache cache,
+    ICacheStringWriter cacheWriter,
+    ICacheOneTimeStore oneTimeStore,
     IJwtHelper jwtHelper,
     IConfiguration configuration,
     ILogger<AdminPrincipalService> logger,
@@ -202,7 +203,7 @@ public sealed class AdminPrincipalService(
         string sessionKey = GenerateSecretToken();
         PasskeyRegisterBeginCoreModel coreOptions = ToRegisterBeginCore(sessionKey, options);
         var challenge = new AdminBootstrapChallenge(normalizedHandle, userHandle, coreOptions);
-        await cache.SetStringAsync(
+        await cacheWriter.SetStringAsync(
             CachePolicyId.SecurityPasskeyRegChallenge,
             CacheKey(BootstrapCachePrefix, sessionKey),
             JsonSerializer.Serialize(challenge),
@@ -312,7 +313,7 @@ public sealed class AdminPrincipalService(
 
         string challengeToken = GenerateSecretToken();
         PasskeyLoginBeginCoreModel coreOptions = ToLoginBeginCore(challengeToken, options);
-        await cache.SetStringAsync(
+        await cacheWriter.SetStringAsync(
             CachePolicyId.SecurityPasskeyAuthChallenge,
             CacheKey(LoginCachePrefix, challengeToken),
             JsonSerializer.Serialize(coreOptions),
@@ -441,7 +442,7 @@ public sealed class AdminPrincipalService(
             DateTime.UtcNow.Add(s_challengeTtl),
             coreOptions);
 
-        await cache.SetStringAsync(
+        await cacheWriter.SetStringAsync(
             CachePolicyId.SecurityPasskeyAuthChallenge,
             CacheKey(StepUpCachePrefix, challengeToken),
             JsonSerializer.Serialize(challenge),
@@ -624,7 +625,7 @@ public sealed class AdminPrincipalService(
         cancellationToken.ThrowIfCancellationRequested();
         string token = GenerateSecretToken();
         string identity = AdminStepUpProofIdentity(adminPrincipalId, adminSessionId, action, token);
-        await cache.SetStringAsync(CachePolicyId.SecurityMfaProof, identity, "1", ttl, cancellationToken);
+        await cacheWriter.SetStringAsync(CachePolicyId.SecurityMfaProof, identity, "1", ttl, cancellationToken);
         return token;
     }
 
@@ -644,7 +645,7 @@ public sealed class AdminPrincipalService(
         }
 
         string identity = AdminStepUpProofIdentity(adminPrincipalId, adminSessionId, action, token);
-        return cache.ConsumeOnceAsync(CachePolicyId.SecurityMfaProof, identity, cancellationToken);
+        return oneTimeStore.ConsumeOnceAsync(CachePolicyId.SecurityMfaProof, identity, cancellationToken);
     }
 
     public async Task<IReadOnlyList<AdminSessionSummaryDto>> GetAdminSessionsAsync(
@@ -1279,7 +1280,7 @@ public sealed class AdminPrincipalService(
 
     private async Task<T?> ConsumeChallengeAsync<T>(CachePolicyId policyId, string key, CancellationToken cancellationToken)
     {
-        CacheReadResult<T> read = await cache.ConsumeOnceAndGetAsync<T>(
+        CacheReadResult<T> read = await oneTimeStore.ConsumeOnceAndGetAsync<T>(
             policyId,
             key,
             static bytes =>

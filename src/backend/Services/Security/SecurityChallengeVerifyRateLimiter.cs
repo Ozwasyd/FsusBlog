@@ -16,7 +16,7 @@ public interface ISecurityChallengeVerifyRateLimiter
 }
 
 public sealed class SecurityChallengeVerifyRateLimiter(
-    IUnifiedCache cache,
+    ICacheCounterStore cache,
     IRiskControlContextFactory riskContextFactory,
     TimeProvider timeProvider) : ISecurityChallengeVerifyRateLimiter
 {

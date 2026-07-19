@@ -431,13 +431,13 @@ public partial class ArticleService
 
     private async ValueTask<long> GetListCacheVersionAsync(CancellationToken cancellationToken)
     {
-        string? ver = await _cache.GetStringAsync(CachePolicyId.ArticleListVersion, "main", cancellationToken);
+        string? ver = await _stringReader.GetStringAsync(CachePolicyId.ArticleListVersion, "main", cancellationToken);
         return long.TryParse(ver, out long parsed) ? parsed : 0;
     }
 
     private async ValueTask<long> GetSearchCacheVersionAsync(CancellationToken cancellationToken)
     {
-        string? ver = await _cache.GetStringAsync(CachePolicyId.ArticleSearchVersion, "main", cancellationToken);
+        string? ver = await _stringReader.GetStringAsync(CachePolicyId.ArticleSearchVersion, "main", cancellationToken);
         return long.TryParse(ver, out long parsed) ? parsed : 0;
     }
 

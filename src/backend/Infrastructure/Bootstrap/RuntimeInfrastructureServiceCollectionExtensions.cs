@@ -163,8 +163,24 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
     private static IServiceCollection AddCacheRuntime(this IServiceCollection services)
     {
         services.AddSingleton<ICachePolicyRegistry, CachePolicyRegistry>();
+        services.AddSingleton<CacheLocalStore>();
+        services.AddSingleton<CacheKeyResolver>();
+        services.AddSingleton<ICacheKeyResolver>(sp => sp.GetRequiredService<CacheKeyResolver>());
+        services.AddSingleton<CacheSingleFlightCoordinator>();
+        services.AddSingleton<ICacheSingleFlightCoordinator>(sp => sp.GetRequiredService<CacheSingleFlightCoordinator>());
+        services.AddSingleton<ICacheTelemetry, CacheTelemetry>();
         services.AddSingleton<UnifiedCache>();
-        services.AddSingleton<IUnifiedCache>(sp => sp.GetRequiredService<UnifiedCache>());
+        services.AddSingleton<ICacheTypedReader>(sp => sp.GetRequiredService<UnifiedCache>());
+        services.AddSingleton<ICacheRawReader>(sp => sp.GetRequiredService<UnifiedCache>());
+        services.AddSingleton<ICacheStringReader>(sp => sp.GetRequiredService<UnifiedCache>());
+        services.AddSingleton<ICacheRawWriter>(sp => sp.GetRequiredService<UnifiedCache>());
+        services.AddSingleton<ICacheStringWriter>(sp => sp.GetRequiredService<UnifiedCache>());
+        services.AddSingleton<ICacheCompareExchangeStore>(sp => sp.GetRequiredService<UnifiedCache>());
+        services.AddSingleton<ICacheCounterStore>(sp => sp.GetRequiredService<UnifiedCache>());
+        services.AddSingleton<ICacheOneTimeStore>(sp => sp.GetRequiredService<UnifiedCache>());
+        services.AddSingleton<ICacheInvalidationStore>(sp => sp.GetRequiredService<UnifiedCache>());
+        services.AddSingleton<ICacheLeaseStore>(sp => sp.GetRequiredService<UnifiedCache>());
+        services.AddSingleton<ICacheDiagnostics>(sp => sp.GetRequiredService<UnifiedCache>());
         services.AddSingleton<IOwnedFrameCache>(sp => sp.GetRequiredService<UnifiedCache>());
         services.AddSingleton(new BackgroundWorkerLeaseOptions(
             TimeSpan.FromSeconds(5),

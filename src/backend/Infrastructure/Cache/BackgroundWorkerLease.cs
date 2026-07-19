@@ -17,7 +17,8 @@ public sealed record BackgroundWorkerLeaseOptions(
     string NodeId);
 
 public sealed class BackgroundWorkerLease(
-    IUnifiedCache cache,
+    ICacheLeaseStore leaseStore,
+    ICacheCompareExchangeStore compareExchange,
     ILogger<BackgroundWorkerLease> logger,
     BackgroundWorkerLeaseOptions options,
     TimeProvider timeProvider,
@@ -92,7 +93,7 @@ public sealed class BackgroundWorkerLease(
 
     private async Task<bool> AcquireOrRenewAsync(string identity, CancellationToken cancellationToken)
     {
-        bool acquired = await cache.TryAcquireLeaseAsync(
+        bool acquired = await leaseStore.TryAcquireLeaseAsync(
                 CachePolicyId.BackgroundWorkerLease,
                 identity,
                 _ownerValue,
@@ -104,7 +105,7 @@ public sealed class BackgroundWorkerLease(
             return true;
         }
 
-        return await cache.TrySetStringIfValueAsync(
+        return await compareExchange.TrySetStringIfValueAsync(
                 CachePolicyId.BackgroundWorkerLease,
                 identity,
                 _ownerValue,
@@ -122,7 +123,7 @@ public sealed class BackgroundWorkerLease(
             using PeriodicTimer timer = new(options.RenewInterval, timeProvider);
             while (await timer.WaitForNextTickAsync(leaseCancellation.Token).ConfigureAwait(false))
             {
-                bool renewed = await cache.TrySetStringIfValueAsync(
+                bool renewed = await compareExchange.TrySetStringIfValueAsync(
                         CachePolicyId.BackgroundWorkerLease,
                         identity,
                         _ownerValue,

@@ -35,7 +35,10 @@ public partial class ArticleService(
     ISqlSugarClient _db,
     ISearchIndexService _searchIndex,
     IConnectionMultiplexer _redisConnection,
-    IUnifiedCache _cache,
+    ICacheTypedReader _cacheReader,
+    ICacheRawWriter _cacheWriter,
+    ICacheStringReader _stringReader,
+    ICacheStringWriter _stringWriter,
     ICacheMissCoordinator _cacheMissCoordinator,
     IDbConcurrencyGate _dbConcurrencyGate,
     IRuntimeKeyScope _runtimeKeyScope,
@@ -203,7 +206,7 @@ public partial class ArticleService(
         return await _cacheMissCoordinator.CoordinateAsync(
                 CachePolicyId.ArticleList,
                 cacheIdentity,
-                ct => _cache.TryGetAsync(CachePolicyId.ArticleList, cacheIdentity, ServerCacheBinaryCodec.DecodeArticleListPage, ct),
+                ct => _cacheReader.TryGetAsync(CachePolicyId.ArticleList, cacheIdentity, ServerCacheBinaryCodec.DecodeArticleListPage, ct),
                 async ct => await _dbConcurrencyGate.ExecuteAsync(
                     "article-list",
                     async gateCt =>
@@ -215,13 +218,13 @@ public partial class ArticleService(
                         {
                             byte[] encoded = ServerCacheBinaryCodec.EncodeArticleListPage(result);
                             gateCt.ThrowIfCancellationRequested();
-                            await _cache.SetRawAsync(CachePolicyId.ArticleList, cacheIdentity, encoded, null, gateCt);
+                            await _cacheWriter.SetRawAsync(CachePolicyId.ArticleList, cacheIdentity, encoded, null, gateCt);
                         }
                         return result;
                     },
                     async gateCt =>
                     {
-                        CacheReadResult<ArticleListPageReadModel> retry = await _cache.TryGetAsync(CachePolicyId.ArticleList, cacheIdentity, ServerCacheBinaryCodec.DecodeArticleListPage, gateCt);
+                        CacheReadResult<ArticleListPageReadModel> retry = await _cacheReader.TryGetAsync(CachePolicyId.ArticleList, cacheIdentity, ServerCacheBinaryCodec.DecodeArticleListPage, gateCt);
                         if (retry.Hit)
                         {
                             return retry.Value ?? new ArticleListPageReadModel { Items = [], Total = 0 };
@@ -258,7 +261,7 @@ public partial class ArticleService(
         int id,
         CancellationToken cancellationToken)
     {
-        var detailCache = await _cache.TryGetAsync(CachePolicyId.ArticleDetail, id, ServerCacheBinaryCodec.DecodeArticleDetail, cancellationToken);
+        var detailCache = await _cacheReader.TryGetAsync(CachePolicyId.ArticleDetail, id, ServerCacheBinaryCodec.DecodeArticleDetail, cancellationToken);
         if (!detailCache.Hit)
         {
             return new CacheReadResult<ArticleDetailReadModel>(false, default);
@@ -297,7 +300,7 @@ public partial class ArticleService(
         cancellationToken.ThrowIfCancellationRequested();
         byte[] encodedHealed = ServerCacheBinaryCodec.EncodeArticleDetail(healed);
         cancellationToken.ThrowIfCancellationRequested();
-        await _cache.SetRawAsync(CachePolicyId.ArticleDetail, id, encodedHealed, null, cancellationToken);
+        await _cacheWriter.SetRawAsync(CachePolicyId.ArticleDetail, id, encodedHealed, null, cancellationToken);
         return new CacheReadResult<ArticleDetailReadModel>(true, await OverlayProjectedViewsAsync(healed, cancellationToken));
     }
 
@@ -499,13 +502,13 @@ public partial class ArticleService(
                 cancellationToken.ThrowIfCancellationRequested();
                 byte[] encoded = ServerCacheBinaryCodec.EncodeArticleDetail(article);
                 cancellationToken.ThrowIfCancellationRequested();
-                await _cache.SetRawAsync(CachePolicyId.ArticleDetail, cacheIdentity.Value, encoded, null, cancellationToken);
+                await _cacheWriter.SetRawAsync(CachePolicyId.ArticleDetail, cacheIdentity.Value, encoded, null, cancellationToken);
             }
         }
         else if (!includePrivate && cacheIdentity is not null)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await _cache.SetRawAsync(CachePolicyId.ArticleDetail, cacheIdentity.Value, Array.Empty<byte>(), TimeSpan.FromMinutes(5), cancellationToken);
+            await _cacheWriter.SetRawAsync(CachePolicyId.ArticleDetail, cacheIdentity.Value, Array.Empty<byte>(), TimeSpan.FromMinutes(5), cancellationToken);
         }
 
         return article;

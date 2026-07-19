@@ -55,7 +55,9 @@ public interface IUserSessionValidationCache
 }
 
 public sealed class UserSessionValidationCache(
-    IUnifiedCache cache,
+    ICacheKeyResolver keyResolver,
+    ICacheCompareExchangeStore compareExchange,
+    ICacheInvalidationStore invalidation,
     IConnectionMultiplexer redis,
     IConfiguration configuration) : IUserSessionValidationCache
 {
@@ -75,7 +77,7 @@ public sealed class UserSessionValidationCache(
             return null;
         }
 
-        string key = cache.BuildKey(CachePolicyId.SecurityUserSessionValidation, identity);
+        string key = keyResolver.BuildKey(CachePolicyId.SecurityUserSessionValidation, identity);
         RedisValue value = await _database.StringGetAsync(key).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         if (!value.HasValue)
@@ -101,7 +103,7 @@ public sealed class UserSessionValidationCache(
             return Task.FromResult(true);
         }
 
-        return cache.TrySetVersionedStringAsync(
+        return compareExchange.TrySetVersionedStringAsync(
             CachePolicyId.SecurityUserSessionValidation,
             identity,
             Encode(state),
@@ -155,7 +157,7 @@ public sealed class UserSessionValidationCache(
             }
         }
 
-        return cache.RemoveManyAsync(keys, cancellationToken);
+        return invalidation.RemoveManyAsync(keys, cancellationToken);
     }
 
     internal static string Encode(UserSessionValidationCacheState state)

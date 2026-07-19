@@ -85,6 +85,7 @@ public sealed class StatsPerformanceContractTests(PostgresSchemaMigrationFixture
         var service = new StatsService(
             db,
             Substitute.For<IUnifiedCache>(),
+            Substitute.For<IUnifiedCache>(),
             Substitute.For<ICacheMissCoordinator>(),
             Substitute.For<IDbConcurrencyGate>(),
             new ReadAnalyticsPrivacyPolicy(

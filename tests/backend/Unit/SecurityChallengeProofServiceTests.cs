@@ -52,7 +52,7 @@ public sealed class SecurityChallengeProofServiceTests
         var cache = new MemoryProofCache();
         var persistence = new RecordingChallengePersistence();
         var clock = new MutableTimeProvider(s_baselineNow);
-        var service = new SecurityChallengeProofService(cache, persistence, clock);
+        var service = new SecurityChallengeProofService(cache, cache, persistence, clock);
 
         SecurityChallengeProofMintResult result = await service.MintProofAsync(CreateMintRequest(), CancellationToken.None);
 
@@ -81,7 +81,7 @@ public sealed class SecurityChallengeProofServiceTests
         var cache = new MemoryProofCache();
         var persistence = new RecordingChallengePersistence();
         var clock = new MutableTimeProvider(s_baselineNow);
-        var service = new SecurityChallengeProofService(cache, persistence, clock);
+        var service = new SecurityChallengeProofService(cache, cache, persistence, clock);
         SecurityChallengeProofMintResult minted = await service.MintProofAsync(CreateMintRequest(), CancellationToken.None);
 
         SecurityChallengeProofConsumeResult accepted = await service.ConsumeProofAsync(
@@ -117,7 +117,7 @@ public sealed class SecurityChallengeProofServiceTests
         var cache = new MemoryProofCache();
         var persistence = new RecordingChallengePersistence();
         var clock = new MutableTimeProvider(s_baselineNow);
-        var service = new SecurityChallengeProofService(cache, persistence, clock);
+        var service = new SecurityChallengeProofService(cache, cache, persistence, clock);
         SecurityChallengeProofMintResult minted = await service.MintProofAsync(CreateMintRequest(), CancellationToken.None);
         SecurityChallengeProofConsumeRequest request = Mutate(CreateConsumeRequest(minted.ProofToken), field);
 
@@ -137,7 +137,7 @@ public sealed class SecurityChallengeProofServiceTests
         var cache = new MemoryProofCache();
         var persistence = new RecordingChallengePersistence();
         var clock = new MutableTimeProvider(s_baselineNow);
-        var service = new SecurityChallengeProofService(cache, persistence, clock);
+        var service = new SecurityChallengeProofService(cache, cache, persistence, clock);
         SecurityChallengeProofMintResult minted = await service.MintProofAsync(CreateMintRequest(), CancellationToken.None);
         clock.UtcNow = s_baselineNow.AddMinutes(6);
 
@@ -159,7 +159,7 @@ public sealed class SecurityChallengeProofServiceTests
         var cache = new MemoryProofCache();
         var persistence = new RecordingChallengePersistence();
         var clock = new MutableTimeProvider(s_baselineNow);
-        var service = new SecurityChallengeProofService(cache, persistence, clock);
+        var service = new SecurityChallengeProofService(cache, cache, persistence, clock);
 
         SecurityChallengeProofConsumeResult result = await service.ConsumeProofAsync(
             CreateConsumeRequest("fcp_missing-token"),
@@ -178,7 +178,7 @@ public sealed class SecurityChallengeProofServiceTests
     {
         var cache = new MemoryProofCache();
         var persistence = new RecordingChallengePersistence { Status = SecurityChallengeStatuses.Revoked };
-        var service = new SecurityChallengeProofService(cache, persistence, new MutableTimeProvider(s_baselineNow));
+        var service = new SecurityChallengeProofService(cache, cache, persistence, new MutableTimeProvider(s_baselineNow));
         SecurityChallengeProofMintResult minted = await service.MintProofAsync(CreateMintRequest(), CancellationToken.None);
 
         SecurityChallengeProofConsumeResult result = await service.ConsumeProofAsync(CreateConsumeRequest(minted.ProofToken), CancellationToken.None);

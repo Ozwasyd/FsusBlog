@@ -25,7 +25,9 @@ namespace FsusBlog.Server.Services;
 #pragma warning disable IDE1006
 public partial class SystemService(
         ISqlSugarClient _db,
-        IUnifiedCache _cache,
+        ICacheTypedReader _cacheReader,
+        ICacheRawWriter _cacheWriter,
+        ICacheStringWriter _stringWriter,
         ICacheMissCoordinator _cacheMissCoordinator,
         IDbConcurrencyGate _dbConcurrencyGate,
         ILogger<SystemService> _logger,
@@ -157,7 +159,7 @@ public partial class SystemService(
                 CachePolicyId.SystemSeo,
                 "main",
                 ct => BoundaryExecutor.ExecuteValueAsync(
-                    () => _cache.TryGetAsync(CachePolicyId.SystemSeo, "main", ServerCacheBinaryCodec.DecodeSeo, ct),
+                    () => _cacheReader.TryGetAsync(CachePolicyId.SystemSeo, "main", ServerCacheBinaryCodec.DecodeSeo, ct),
                     _ => new CacheReadResult<SeoConfigReadModel>(false, default),
                     _logger,
                     "seo-cache-read",
@@ -168,7 +170,7 @@ public partial class SystemService(
                     {
                         SeoConfigReadModel dto = await LoadSeoConfigFromDbAsync(gateCt);
                         await BoundaryExecutor.ExecuteAsync(
-                            () => _cache.SetRawAsync(CachePolicyId.SystemSeo, "main", ServerCacheBinaryCodec.EncodeSeo(dto), null, gateCt),
+                            () => _cacheWriter.SetRawAsync(CachePolicyId.SystemSeo, "main", ServerCacheBinaryCodec.EncodeSeo(dto), null, gateCt),
                             _logger,
                             "seo-cache-write",
                             LogLevel.Error);
@@ -176,7 +178,7 @@ public partial class SystemService(
                     },
                     async gateCt =>
                     {
-                        CacheReadResult<SeoConfigReadModel> retry = await _cache.TryGetAsync(CachePolicyId.SystemSeo, "main", ServerCacheBinaryCodec.DecodeSeo, gateCt);
+                        CacheReadResult<SeoConfigReadModel> retry = await _cacheReader.TryGetAsync(CachePolicyId.SystemSeo, "main", ServerCacheBinaryCodec.DecodeSeo, gateCt);
                         if (retry.Hit && retry.Value is not null)
                         {
                             return retry.Value;
@@ -237,7 +239,7 @@ public partial class SystemService(
                 CachePolicyId.SystemCompliance,
                 "main",
                 ct => BoundaryExecutor.ExecuteValueAsync(
-                    () => _cache.TryGetAsync(CachePolicyId.SystemCompliance, "main", ServerCacheBinaryCodec.DecodeCompliance, ct),
+                    () => _cacheReader.TryGetAsync(CachePolicyId.SystemCompliance, "main", ServerCacheBinaryCodec.DecodeCompliance, ct),
                     _ => new CacheReadResult<SiteComplianceConfigReadModel>(false, default),
                     _logger,
                     "compliance-cache-read",
@@ -248,7 +250,7 @@ public partial class SystemService(
                     {
                         SiteComplianceConfigReadModel dto = await LoadComplianceConfigFromDbAsync(gateCt);
                         await BoundaryExecutor.ExecuteAsync(
-                            () => _cache.SetRawAsync(CachePolicyId.SystemCompliance, "main", ServerCacheBinaryCodec.EncodeCompliance(dto), null, gateCt),
+                            () => _cacheWriter.SetRawAsync(CachePolicyId.SystemCompliance, "main", ServerCacheBinaryCodec.EncodeCompliance(dto), null, gateCt),
                             _logger,
                             "compliance-cache-write",
                             LogLevel.Error);
@@ -256,7 +258,7 @@ public partial class SystemService(
                     },
                     async gateCt =>
                     {
-                        CacheReadResult<SiteComplianceConfigReadModel> retry = await _cache.TryGetAsync(CachePolicyId.SystemCompliance, "main", ServerCacheBinaryCodec.DecodeCompliance, gateCt);
+                        CacheReadResult<SiteComplianceConfigReadModel> retry = await _cacheReader.TryGetAsync(CachePolicyId.SystemCompliance, "main", ServerCacheBinaryCodec.DecodeCompliance, gateCt);
                         if (retry.Hit && retry.Value is not null)
                         {
                             return retry.Value;
@@ -328,7 +330,7 @@ public partial class SystemService(
                         if (loaded is null)
                         {
                             await BoundaryExecutor.ExecuteAsync(
-                                () => _cache.SetNegativeAsync(CachePolicyId.SystemPage, slug, gateCt),
+                                () => _cacheWriter.SetNegativeAsync(CachePolicyId.SystemPage, slug, gateCt),
                                 _logger,
                                 $"page-negative-cache-write:{slug}",
                                 LogLevel.Error);
@@ -336,7 +338,7 @@ public partial class SystemService(
                         }
 
                         await BoundaryExecutor.ExecuteAsync(
-                            () => _cache.SetStringAsync(CachePolicyId.SystemPage, slug, loaded, cancellationToken: gateCt),
+                            () => _stringWriter.SetStringAsync(CachePolicyId.SystemPage, slug, loaded, cancellationToken: gateCt),
                             _logger,
                             $"page-cache-write:{slug}",
                             LogLevel.Error);
@@ -841,7 +843,7 @@ public partial class SystemService(
 
     private async Task<CacheReadResult<string>> TryGetPageContentCacheAsync(string slug, CancellationToken cancellationToken)
     {
-        CacheReadResult<string> read = await _cache.TryGetAsync<string>(
+        CacheReadResult<string> read = await _cacheReader.TryGetAsync<string>(
             CachePolicyId.SystemPage,
             slug,
             static bytes => (true, Encoding.UTF8.GetString(bytes.Span)),

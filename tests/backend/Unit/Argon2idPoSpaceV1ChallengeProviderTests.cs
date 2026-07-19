@@ -182,7 +182,7 @@ public sealed class Argon2idPoSpaceV1ChallengeProviderTests
         var cache = new RecordingCache();
         var persistence = new RecordingChallengePersistence();
         var riskSink = new CapturingRiskSink();
-        var provider = new Argon2idPoSpaceV1ChallengeProvider(cache, persistence, riskSink, configuration, TimeProvider.System);
+        var provider = new Argon2idPoSpaceV1ChallengeProvider(cache, cache, persistence, riskSink, configuration, TimeProvider.System);
         return new ProviderFixture(provider, cache, persistence, riskSink);
     }
 

@@ -97,7 +97,8 @@ public sealed record SecurityChallengeProofClaims(
     string PolicyVersion);
 
 public sealed class SecurityChallengeProofService(
-    IUnifiedCache cache,
+    ICacheRawWriter cacheWriter,
+    ICacheOneTimeStore oneTimeStore,
     ISecurityChallengePersistenceService challengePersistence,
     TimeProvider timeProvider) : ISecurityChallengeProofService
 {
@@ -141,7 +142,7 @@ public sealed class SecurityChallengeProofService(
             NormalizeRequired(request.PolicyVersion, nameof(request.PolicyVersion), 64));
 
         byte[] payload = JsonSerializer.SerializeToUtf8Bytes(claims, s_jsonOptions);
-        await cache.SetRawAsync(
+        await cacheWriter.SetRawAsync(
             CachePolicyId.SecurityChallengeProof,
             BuildProofIdentity(proofToken),
             payload,
@@ -156,7 +157,7 @@ public sealed class SecurityChallengeProofService(
         cancellationToken.ThrowIfCancellationRequested();
         string proofToken = NormalizeRequired(request.ProofToken, nameof(request.ProofToken), 256);
         string proofHash = HashProofToken(proofToken);
-        CacheReadResult<SecurityChallengeProofClaims> cached = await cache.ConsumeOnceAndGetAsync(
+        CacheReadResult<SecurityChallengeProofClaims> cached = await oneTimeStore.ConsumeOnceAndGetAsync(
             CachePolicyId.SecurityChallengeProof,
             BuildProofIdentity(proofToken),
             DecodeClaims,

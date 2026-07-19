@@ -261,7 +261,8 @@ public sealed class PerceptionChallengeV2E2eTests
             var verifyService = new PerceptionChallengeV2VerifyService(tokenProtector, gate, riskSink, auditQueue, clock);
             var provider = new PerceptionTextTaskV2Provider(issueService, verifyService);
             var persistence = new RecordingChallengePersistence();
-            var proofService = new SecurityChallengeProofService(new MemoryProofCache(), persistence, clock);
+            var proofCache = new MemoryProofCache();
+            var proofService = new SecurityChallengeProofService(proofCache, proofCache, persistence, clock);
             var orchestrator = new SecurityChallengeOrchestrator([provider], proofService, riskSink);
             return new PerceptionE2eFixture(clock, orchestrator, proofService, persistence, auditQueue);
         }

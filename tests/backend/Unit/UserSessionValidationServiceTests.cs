@@ -138,7 +138,7 @@ public sealed class UserSessionValidationServiceTests
         var database = Substitute.For<IDatabase>();
         var redis = Substitute.For<IConnectionMultiplexer>();
         redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(database);
-        var cache = new UserSessionValidationCache(unified, redis, configuration);
+        var cache = new UserSessionValidationCache(unified, unified, unified, redis, configuration);
         UserSessionValidationCacheState state = CreateState("db-only-session", 42);
 
         configuration[UserSessionValidationCache.DistributedCacheEnabledKey] = "false";
@@ -174,6 +174,8 @@ public sealed class UserSessionValidationServiceTests
         var redis = Substitute.For<IConnectionMultiplexer>();
         redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(database);
         var cache = new UserSessionValidationCache(
+            unified,
+            unified,
             unified,
             redis,
             new ConfigurationBuilder().Build());
@@ -212,6 +214,8 @@ public sealed class UserSessionValidationServiceTests
         redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(Substitute.For<IDatabase>());
         var cache = new UserSessionValidationCache(
             unified,
+            unified,
+            unified,
             redis,
             new ConfigurationBuilder().Build());
 
@@ -244,6 +248,8 @@ public sealed class UserSessionValidationServiceTests
         var redis = Substitute.For<IConnectionMultiplexer>();
         redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(Substitute.For<IDatabase>());
         var cache = new UserSessionValidationCache(
+            unified,
+            unified,
             unified,
             redis,
             new ConfigurationBuilder().Build());

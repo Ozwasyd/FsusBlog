@@ -14,7 +14,7 @@ namespace FsusBlog.Server.Services;
 
 public sealed class ArticleEndpointService(
     IArticleCoreService core,
-    IUnifiedCache cache,
+    ICacheStringReader cache,
     IOwnedFrameCache ownedFrameCache,
     ICacheMissCoordinator cacheMissCoordinator,
     IArticleDetailAedsArtifactStore detailArtifacts,

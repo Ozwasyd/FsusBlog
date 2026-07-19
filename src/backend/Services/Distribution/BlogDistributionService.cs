@@ -21,7 +21,7 @@ namespace FsusBlog.Server.Services.Distribution;
 public sealed class BlogDistributionService(
     ISqlSugarClient db,
     ISystemService systemService,
-    IUnifiedCache cache,
+    ICacheStringReader cache,
     IMemoryCache memoryCache,
     IConfiguration configuration)
 {

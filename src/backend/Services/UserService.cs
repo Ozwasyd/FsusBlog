@@ -37,7 +37,8 @@ public partial class UserService(
     ISqlSugarClient _db,
     ILogger<UserService> _logger,
     IJwtHelper _jwtHelper,
-    IUnifiedCache _cache,
+    ICacheInvalidationStore _cacheInvalidation,
+    ICacheCounterStore _cacheCounters,
     IBlacklistService _blacklistService,
     IMessageCommandService _messageCommandService,
     IMessageRealtimePublisher _messageRealtimePublisher,
@@ -264,7 +265,7 @@ public partial class UserService(
     public async Task<User?> GetByIdAsync(int id) => await _db.Queryable<User>().InSingleAsync(id);
 
     private Task InvalidateAccountSnapshotAsync(int userId, CancellationToken cancellationToken = default)
-        => AccountSnapshotCacheInvalidator.BumpVersionAsync(_cache, userId, cancellationToken);
+        => AccountSnapshotCacheInvalidator.BumpVersionAsync(_cacheCounters, userId, cancellationToken);
 
     internal async Task<UserAccountSnapshot?> GetAccountSnapshotProjectionAsync(int id)
     {
@@ -1441,7 +1442,7 @@ public partial class UserService(
         }
 
         await _blacklistService.UnbanUserAsync(userId);
-        await _cache.RemoveAsync(CachePolicyId.SecurityBlockedUser, userId.ToString());
+        await _cacheInvalidation.RemoveAsync(CachePolicyId.SecurityBlockedUser, userId.ToString());
         await InvalidateAccountSnapshotAsync(userId).ConfigureAwait(false);
         return (true, "账户已注销");
     }

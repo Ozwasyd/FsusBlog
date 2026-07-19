@@ -308,6 +308,10 @@ public sealed class RecoveryPasskeyCompletionStateTests
         => new(
             Substitute.For<ISqlSugarClient>(),
             cache,
+            cache,
+            cache,
+            cache,
+            cache,
             new ConfigurationBuilder().Build(),
             passkeys,
             NullLogger<RecoveryKeyService>.Instance,

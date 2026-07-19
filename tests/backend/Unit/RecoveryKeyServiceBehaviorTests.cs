@@ -337,9 +337,15 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
     private static RecoveryKeyService CreateService(
         SqlSugarClient db,
         IUserSessionValidationCache? validationCache = null)
-        => new(
+    {
+        IUnifiedCache cache = CreateCache();
+        return new(
             db,
-            CreateCache(),
+            cache,
+            cache,
+            cache,
+            cache,
+            cache,
             new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string?>
                 {
@@ -349,6 +355,7 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
             Substitute.For<IPasskeyService>(),
             NullLogger<RecoveryKeyService>.Instance,
             validationCache ?? Substitute.For<IUserSessionValidationCache>());
+    }
 
     private static IUnifiedCache CreateCache()
     {

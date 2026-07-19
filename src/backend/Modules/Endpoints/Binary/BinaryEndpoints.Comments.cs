@@ -228,7 +228,7 @@ public static partial class BinaryEndpoints
             ICommentEndpointService commentService,
             IClientRegionResolver regionResolver,
             ICommentCursorPolicyResolver cursorPolicies,
-            IUnifiedCache cache,
+            ICacheStringReader cache,
             IOwnedFrameCache ownedFrameCache,
             IAedsEncoder aeds) =>
         {
@@ -277,7 +277,7 @@ public static partial class BinaryEndpoints
             ICommentEndpointService commentService,
             IClientRegionResolver regionResolver,
             ICommentCursorPolicyResolver cursorPolicies,
-            IUnifiedCache cache,
+            ICacheStringReader cache,
             IOwnedFrameCache ownedFrameCache,
             IAedsEncoder aeds) =>
         {
@@ -324,7 +324,7 @@ public static partial class BinaryEndpoints
             AccountPrincipalContext account,
             ICommentCoreService core,
             ICommentCursorPolicyResolver cursorPolicies,
-            IUnifiedCache cache,
+            ICacheStringReader cache,
             IOwnedFrameCache ownedFrameCache,
             IAedsEncoder aeds) =>
         {
@@ -711,7 +711,7 @@ public static partial class BinaryEndpoints
         => $"account:{accountId}:v:{version}:comments:{request.Cursor?.ToString() ?? "0"}:{request.Limit}";
 
     private static async Task<string> ReadCommentCursorVersionAsync(
-        IUnifiedCache cache,
+        ICacheStringReader cache,
         int? articleId,
         long? rootId,
         int? accountId,
@@ -741,7 +741,7 @@ public static partial class BinaryEndpoints
     }
 
     private static async Task<long> ReadVersionAsync(
-        IUnifiedCache cache,
+        ICacheStringReader cache,
         CachePolicyId policyId,
         string identity,
         CancellationToken cancellationToken)

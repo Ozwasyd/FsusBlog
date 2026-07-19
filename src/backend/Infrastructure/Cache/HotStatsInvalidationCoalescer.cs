@@ -7,7 +7,8 @@ namespace FsusBlog.Server.Infrastructure.Cache;
 public sealed class HotStatsInvalidationCoalescer(
     IServiceScopeFactory scopeFactory,
     ILogger<HotStatsInvalidationCoalescer> logger,
-    IUnifiedCache? sharedCache = null) : BackgroundService, IHotStatsInvalidationCoalescer, IHotArticlesCacheVersionPublisher
+    ICacheCounterStore? sharedCounters = null,
+    ICacheStringReader? sharedReader = null) : BackgroundService, IHotStatsInvalidationCoalescer, IHotArticlesCacheVersionPublisher
 {
     private static readonly TimeSpan s_pollInterval = TimeSpan.FromMilliseconds(250);
     private static readonly TimeSpan s_hotArticlesDebounce = TimeSpan.FromSeconds(2);
@@ -144,7 +145,7 @@ public sealed class HotStatsInvalidationCoalescer(
     public async Task<HotStatsInvalidationSnapshot> SnapshotAsync(CancellationToken cancellationToken = default)
     {
         HotStatsInvalidationSnapshot current = Snapshot();
-        if (sharedCache is null)
+        if (sharedCounters is null || sharedReader is null)
         {
             return current;
         }
@@ -372,22 +373,22 @@ public sealed class HotStatsInvalidationCoalescer(
 
     private async Task<long?> IncrementSharedCounterAsync(string identity, long value, CancellationToken cancellationToken)
     {
-        if (sharedCache is null)
+        if (sharedCounters is null)
         {
             return null;
         }
 
-        return await sharedCache.IncrementAsync(CachePolicyId.AdminStats, identity, value, cancellationToken).ConfigureAwait(false);
+        return await sharedCounters.IncrementAsync(CachePolicyId.AdminStats, identity, value, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<long> ReadSharedCounterAsync(string identity, CancellationToken cancellationToken)
     {
-        if (sharedCache is null)
+        if (sharedReader is null)
         {
             return 0;
         }
 
-        string? value = await sharedCache.GetStringAsync(CachePolicyId.AdminStats, identity, cancellationToken).ConfigureAwait(false);
+        string? value = await sharedReader.GetStringAsync(CachePolicyId.AdminStats, identity, cancellationToken).ConfigureAwait(false);
         return long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out long parsed) ? parsed : 0;
     }
 

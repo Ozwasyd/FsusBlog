@@ -267,7 +267,7 @@ public sealed class ReadProofBinaryEndpointTests
         public string BuildArticleViewerIdentity(HttpContext context, int articleId)
             => throw new NotSupportedException();
 
-        public ValueTask<long> GetArticleListCacheVersionAsync(IUnifiedCache cache)
+        public ValueTask<long> GetArticleListCacheVersionAsync(ICacheStringReader cache)
             => throw new NotSupportedException();
 
         public string BuildArticleListCacheIdentity(long version, int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status = null, bool includePrivate = false, string keyword = "")

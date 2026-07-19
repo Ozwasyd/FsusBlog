@@ -10,7 +10,7 @@ internal interface IBinaryEndpointRequestContext
     Task<BinaryRequestPayload> ReadFrameAsync(HttpContext httpContext, IAedsEncoder aeds, IReadOnlyCollection<AedsFrameType> expectedFrameTypes, CancellationToken cancellationToken, int? maxFrameBytes = null);
     Task<NameMutationPayload> ReadNameMutationAsync(HttpContext httpContext, IAedsEncoder aeds, AedsFrameType expectedFrameType, CancellationToken cancellationToken);
     string BuildArticleViewerIdentity(HttpContext context, int articleId);
-    ValueTask<long> GetArticleListCacheVersionAsync(IUnifiedCache cache);
+    ValueTask<long> GetArticleListCacheVersionAsync(ICacheStringReader cache);
     string BuildArticleListCacheIdentity(long version, int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status = null, bool includePrivate = false, string keyword = "");
     string BuildArticleHotCacheIdentity(int count);
     string? GetDeviceFingerprint(HttpContext context);
@@ -58,7 +58,7 @@ internal sealed class BinaryEndpointRequestContext(
         return $"article:{articleId}:viewer:ip:{context.GetClientIp()}";
     }
 
-    public async ValueTask<long> GetArticleListCacheVersionAsync(IUnifiedCache cache)
+    public async ValueTask<long> GetArticleListCacheVersionAsync(ICacheStringReader cache)
     {
         string? version = await cache.GetStringAsync(CachePolicyId.ArticleListVersion, "main");
         return long.TryParse(version, out long parsed) ? parsed : 0;

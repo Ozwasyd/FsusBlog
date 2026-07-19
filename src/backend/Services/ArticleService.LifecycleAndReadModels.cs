@@ -289,7 +289,7 @@ public partial class ArticleService
         return await _cacheMissCoordinator.CoordinateAsync(
                 CachePolicyId.ArticleSearch,
                 cacheIdentity,
-                ct => _cache.TryGetAsync(CachePolicyId.ArticleSearch, cacheIdentity, ServerCacheBinaryCodec.DecodeArticleSearch, ct),
+                ct => _cacheReader.TryGetAsync(CachePolicyId.ArticleSearch, cacheIdentity, ServerCacheBinaryCodec.DecodeArticleSearch, ct),
                 async ct => await _dbConcurrencyGate.ExecuteAsync(
                     "article-search",
                     async gateCt =>
@@ -298,13 +298,13 @@ public partial class ArticleService
                         gateCt.ThrowIfCancellationRequested();
                         byte[] encoded = ServerCacheBinaryCodec.EncodeArticleSearch(result);
                         gateCt.ThrowIfCancellationRequested();
-                        await _cache.SetRawAsync(CachePolicyId.ArticleSearch, cacheIdentity, encoded, null, gateCt);
+                        await _cacheWriter.SetRawAsync(CachePolicyId.ArticleSearch, cacheIdentity, encoded, null, gateCt);
                         FsusObservability.RecordCacheOperation("search", CachePolicyId.ArticleSearch.ToString(), "l2", "write_versioned", TimeSpan.Zero);
                         return result;
                     },
                     async gateCt =>
                     {
-                        CacheReadResult<List<ArticleListItemReadModel>> retry = await _cache.TryGetAsync(CachePolicyId.ArticleSearch, cacheIdentity, ServerCacheBinaryCodec.DecodeArticleSearch, gateCt);
+                        CacheReadResult<List<ArticleListItemReadModel>> retry = await _cacheReader.TryGetAsync(CachePolicyId.ArticleSearch, cacheIdentity, ServerCacheBinaryCodec.DecodeArticleSearch, gateCt);
                         if (retry.Hit)
                         {
                             return retry.Value ?? [];
@@ -679,7 +679,7 @@ public partial class ArticleService
         IReadOnlyCollection<SugarParameter> baseParameters,
         CancellationToken cancellationToken)
     {
-        string? cached = await _cache.GetStringAsync(CachePolicyId.ArticleListCount, countIdentity, cancellationToken).ConfigureAwait(false);
+        string? cached = await _stringReader.GetStringAsync(CachePolicyId.ArticleListCount, countIdentity, cancellationToken).ConfigureAwait(false);
         if (int.TryParse(cached, out int parsed) && parsed >= 0)
         {
             return parsed;
@@ -700,7 +700,7 @@ public partial class ArticleService
             }
         }
 
-        await _cache.SetStringAsync(
+        await _stringWriter.SetStringAsync(
             CachePolicyId.ArticleListCount,
             countIdentity,
             totalCount.ToString(System.Globalization.CultureInfo.InvariantCulture),

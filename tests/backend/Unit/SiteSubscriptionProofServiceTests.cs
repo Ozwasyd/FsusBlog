@@ -196,7 +196,7 @@ public sealed class SiteSubscriptionProofServiceTests
         => new(proofToken, "reader@example.com", "email");
 
     private static SiteSubscriptionProofService CreateService(MemoryProofCache cache, MutableTimeProvider clock)
-        => new(cache, clock, CreateConfiguration("unit-test-subscription-email-hash-pepper-with-enough-entropy"));
+        => new(cache, cache, cache, clock, CreateConfiguration("unit-test-subscription-email-hash-pepper-with-enough-entropy"));
 
     private static IConfiguration CreateConfiguration(string pepper)
         => new ConfigurationBuilder()

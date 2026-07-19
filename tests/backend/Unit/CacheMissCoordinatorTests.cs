@@ -11,7 +11,7 @@ public sealed class CacheMissCoordinatorTests
     public async Task CoordinateAsync_IntegerIdentityHit_ReturnsBeforeStringCoordination()
     {
         var cache = new CoordinatingCache();
-        var coordinator = new CacheMissCoordinator(cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance);
+        var coordinator = new CacheMissCoordinator(cache, cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance);
 
         string? value = await coordinator.CoordinateAsync(
             CachePolicyId.ArticleDetail,
@@ -30,7 +30,7 @@ public sealed class CacheMissCoordinatorTests
         {
             TryAcquireLeaseHandler = static (_, _, _, _, _) => Task.FromResult(true)
         };
-        var coordinator = new CacheMissCoordinator(cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance);
+        var coordinator = new CacheMissCoordinator(cache, cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance);
         int rebuildCount = 0;
 
         string? value = await coordinator.CoordinateAsync(
@@ -55,7 +55,7 @@ public sealed class CacheMissCoordinatorTests
         {
             TryAcquireLeaseHandler = static (_, _, _, _, _) => Task.FromResult(false)
         };
-        var coordinator = new CacheMissCoordinator(cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance);
+        var coordinator = new CacheMissCoordinator(cache, cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance);
         int reads = 0;
         int rebuildCount = 0;
 
@@ -91,7 +91,7 @@ public sealed class CacheMissCoordinatorTests
         {
             TryAcquireLeaseHandler = static (_, _, _, _, _) => Task.FromResult(true)
         };
-        var coordinator = new CacheMissCoordinator(cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance);
+        var coordinator = new CacheMissCoordinator(cache, cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance);
         var gate = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var entered = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         string? current = null;
@@ -143,7 +143,7 @@ public sealed class CacheMissCoordinatorTests
         {
             TryAcquireLeaseHandler = static (_, _, _, _, _) => Task.FromResult(true)
         };
-        var coordinator = new CacheMissCoordinator(cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance);
+        var coordinator = new CacheMissCoordinator(cache, cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance);
         var releaseRebuild = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         string? current = null;
         int rebuildCount = 0;
@@ -194,7 +194,7 @@ public sealed class CacheMissCoordinatorTests
                 return Task.FromResult(attempt == CallersCount + 1);
             }
         };
-        var coordinator = new CacheMissCoordinator(cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance);
+        var coordinator = new CacheMissCoordinator(cache, cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance);
         string? current = null;
         int rebuildCount = 0;
         var strategy = new CacheRebuildStrategy(
@@ -235,7 +235,7 @@ public sealed class CacheMissCoordinatorTests
             DisableLocalSingleFlight = true,
             TryAcquireLeaseHandler = static (_, _, _, _, _) => Task.FromResult(true)
         };
-        var coordinator = new CacheMissCoordinator(cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance);
+        var coordinator = new CacheMissCoordinator(cache, cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance);
         string? current = null;
         int activeRebuilds = 0;
         int maxActiveRebuilds = 0;

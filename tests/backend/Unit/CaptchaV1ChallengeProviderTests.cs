@@ -266,7 +266,7 @@ public sealed class CaptchaV1ChallengeProviderTests
         var persistence = new RecordingChallengePersistence();
         var riskSink = new CapturingRiskSink();
         var clock = new MutableTimeProvider(s_baselineNow);
-        var provider = new CaptchaV1ChallengeProvider(cache, persistence, riskSink, CreateConfiguration(), clock);
+        var provider = new CaptchaV1ChallengeProvider(cache, cache, persistence, riskSink, CreateConfiguration(), clock);
         return new ProviderFixture(provider, cache, persistence, riskSink, clock);
     }
 

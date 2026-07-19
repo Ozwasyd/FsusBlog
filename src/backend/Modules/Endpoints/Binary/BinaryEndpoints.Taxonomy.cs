@@ -47,7 +47,7 @@ public static partial class BinaryEndpoints
 
         group.MapGet("/tag", static async Task<IResult> (
             ISqlSugarClient db,
-            IUnifiedCache cache,
+            ICacheStringReader cache,
             IOwnedFrameCache ownedFrameCache,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
@@ -376,7 +376,7 @@ public static partial class BinaryEndpoints
 
     internal static async Task<IResult> ReadCategoryAsync(
         ISqlSugarClient db,
-        IUnifiedCache cache,
+        ICacheStringReader cache,
         IOwnedFrameCache ownedFrameCache,
         IAedsEncoder aeds,
         CancellationToken cancellationToken = default)
@@ -437,7 +437,7 @@ public static partial class BinaryEndpoints
         return response;
     }
 
-    private static async Task<string> ResolveTaxonomyFrameIdentityAsync(IUnifiedCache cache)
+    private static async Task<string> ResolveTaxonomyFrameIdentityAsync(ICacheStringReader cache)
     {
         string? raw = await cache.GetStringAsync(CachePolicyId.TaxonomyFrameVersion, "main");
         return long.TryParse(raw, out long version) && version > 0

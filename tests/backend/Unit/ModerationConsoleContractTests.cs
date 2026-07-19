@@ -401,7 +401,7 @@ public sealed class ModerationConsoleContractTests
         public string BuildArticleViewerIdentity(HttpContext context, int articleId)
             => throw new NotSupportedException();
 
-        public ValueTask<long> GetArticleListCacheVersionAsync(IUnifiedCache cache)
+        public ValueTask<long> GetArticleListCacheVersionAsync(ICacheStringReader cache)
             => throw new NotSupportedException();
 
         public string BuildArticleListCacheIdentity(

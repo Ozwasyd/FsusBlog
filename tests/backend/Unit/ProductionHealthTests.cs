@@ -488,7 +488,7 @@ public sealed class ProductionHealthTests
         {
             var services = new ServiceCollection()
                 .AddSingleton<ISecurityRiskPolicyProvider>(new FixedRiskPolicyProvider(CreateRiskPolicy()))
-                .AddSingleton<IUnifiedCache, ConsumeOnceHealthCache>();
+                .AddReadinessCache<ConsumeOnceHealthCache>();
             services.AddSingleton<ISecurityChallengeProvider>(new HealthChallengeProvider(
                 SecurityChallengeContracts.ToWireName(SecurityChallengeKind.Sha256PowV1)));
 
@@ -532,7 +532,7 @@ public sealed class ProductionHealthTests
         {
             var services = new ServiceCollection()
                 .AddSingleton<ISecurityRiskPolicyProvider>(new FixedRiskPolicyProvider(CreateRiskPolicy()))
-                .AddSingleton<IUnifiedCache, ConsumeOnceHealthCache>()
+                .AddReadinessCache<ConsumeOnceHealthCache>()
                 .AddSingleton<ISecurityChallengeProvider>(new HealthChallengeProvider(
                     SecurityChallengeContracts.ToWireName(SecurityChallengeKind.CaptchaV1)));
             using ServiceProvider provider = services.BuildServiceProvider();
@@ -567,7 +567,7 @@ public sealed class ProductionHealthTests
         try
         {
             var services = new ServiceCollection()
-                .AddSingleton<IUnifiedCache, ConsumeOnceHealthCache>();
+                .AddReadinessCache<ConsumeOnceHealthCache>();
             foreach (SecurityChallengeKind kind in SecurityChallengeContracts.SupportedKinds)
             {
                 services.AddSingleton<ISecurityChallengeProvider>(new HealthChallengeProvider(SecurityChallengeContracts.ToWireName(kind)));
@@ -610,7 +610,7 @@ public sealed class ProductionHealthTests
         {
             var services = new ServiceCollection()
                 .AddSingleton<ISecurityRiskPolicyProvider>(new FixedRiskPolicyProvider(CreateRiskPolicy()))
-                .AddSingleton<IUnifiedCache, ConsumeOnceHealthCache>();
+                .AddReadinessCache<ConsumeOnceHealthCache>();
             foreach (SecurityChallengeKind kind in SecurityChallengeContracts.SupportedKinds)
             {
                 services.AddSingleton<ISecurityChallengeProvider>(new HealthChallengeProvider(SecurityChallengeContracts.ToWireName(kind)));
@@ -653,7 +653,7 @@ public sealed class ProductionHealthTests
         {
             var services = new ServiceCollection()
                 .AddSingleton<ISecurityRiskPolicyProvider>(new FixedRiskPolicyProvider(CreateRiskPolicy()))
-                .AddSingleton<IUnifiedCache, ThrowingConsumeOnceHealthCache>();
+                .AddReadinessCache<ThrowingConsumeOnceHealthCache>();
             foreach (SecurityChallengeKind kind in SecurityChallengeContracts.SupportedKinds)
             {
                 services.AddSingleton<ISecurityChallengeProvider>(new HealthChallengeProvider(SecurityChallengeContracts.ToWireName(kind)));
@@ -941,5 +941,17 @@ public sealed class ProductionHealthTests
             if (called is not null)
                 yield return called;
         }
+    }
+}
+
+internal static class ReadinessCacheTestServiceCollectionExtensions
+{
+    internal static IServiceCollection AddReadinessCache<T>(this IServiceCollection services)
+        where T : class, ICacheStringWriter, ICacheOneTimeStore
+    {
+        services.AddSingleton<T>();
+        services.AddSingleton<ICacheStringWriter>(static provider => provider.GetRequiredService<T>());
+        services.AddSingleton<ICacheOneTimeStore>(static provider => provider.GetRequiredService<T>());
+        return services;
     }
 }

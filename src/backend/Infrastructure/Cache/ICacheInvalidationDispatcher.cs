@@ -56,7 +56,7 @@ internal static class AdminStatsFrameVersioning
         => $"v{Math.Max(0, version).ToString(CultureInfo.InvariantCulture)}:main";
 
     internal static async Task<long> ResolveAsync(
-        IUnifiedCache cache,
+        ICacheCounterStore cache,
         CancellationToken cancellationToken = default)
     {
         // INCRBY 0 is an authoritative Redis counter read. Unlike GetStringAsync it cannot
@@ -107,7 +107,9 @@ public sealed record CacheInvalidationRuntimeSnapshot(
     string? LastKind,
     string? LastDetail);
 
-public sealed class CacheInvalidationRuntimeState(IUnifiedCache? sharedCache = null)
+public sealed class CacheInvalidationRuntimeState(
+    ICacheCounterStore? sharedCounters = null,
+    ICacheStringReader? sharedReader = null)
 {
     private readonly object _gate = new();
     private CacheInvalidationRuntimeSnapshot _snapshot = new(0, 0, 0, 0, 0, 0, 0, 0, 0, null, null, null);
@@ -123,9 +125,9 @@ public sealed class CacheInvalidationRuntimeState(IUnifiedCache? sharedCache = n
     public async Task RecordAsync(string kind, string? detail = null, CancellationToken cancellationToken = default)
     {
         long? sharedCount = null;
-        if (sharedCache is not null && CounterIdentity(kind) is { } identity)
+        if (sharedCounters is not null && CounterIdentity(kind) is { } identity)
         {
-            sharedCount = await sharedCache.IncrementAsync(CachePolicyId.AdminStats, identity, 1, cancellationToken).ConfigureAwait(false);
+            sharedCount = await sharedCounters.IncrementAsync(CachePolicyId.AdminStats, identity, 1, cancellationToken).ConfigureAwait(false);
         }
 
         lock (_gate)
@@ -145,7 +147,7 @@ public sealed class CacheInvalidationRuntimeState(IUnifiedCache? sharedCache = n
     public async Task<CacheInvalidationRuntimeSnapshot> SnapshotAsync(CancellationToken cancellationToken = default)
     {
         CacheInvalidationRuntimeSnapshot current = Snapshot();
-        if (sharedCache is null)
+        if (sharedCounters is null || sharedReader is null)
         {
             return current;
         }
@@ -191,12 +193,12 @@ public sealed class CacheInvalidationRuntimeState(IUnifiedCache? sharedCache = n
     private async Task<long> ReadCounterAsync(string kind, CancellationToken cancellationToken)
     {
         string? identity = CounterIdentity(kind);
-        if (identity is null || sharedCache is null)
+        if (identity is null || sharedReader is null)
         {
             return 0;
         }
 
-        string? value = await sharedCache.GetStringAsync(CachePolicyId.AdminStats, identity, cancellationToken).ConfigureAwait(false);
+        string? value = await sharedReader.GetStringAsync(CachePolicyId.AdminStats, identity, cancellationToken).ConfigureAwait(false);
         return long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out long parsed) ? parsed : 0;
     }
 
@@ -210,7 +212,8 @@ public sealed class CacheInvalidationRuntimeState(IUnifiedCache? sharedCache = n
 }
 
 public sealed class CacheInvalidationDispatcher(
-    IUnifiedCache cache,
+    ICacheCounterStore counters,
+    ICacheInvalidationStore invalidation,
     IHttpCacheInvalidator httpCacheInvalidator,
     CacheInvalidationRuntimeState? runtimeState = null,
     IHotArticlesCacheVersionPublisher? hotArticlesVersionPublisher = null,
@@ -221,7 +224,7 @@ public sealed class CacheInvalidationDispatcher(
     {
         if (articleId is > 0)
         {
-            await cache.RemoveManyAsync(
+            await invalidation.RemoveManyAsync(
                 [
                     new(CachePolicyId.ArticleDetail, articleId.Value.ToString()),
                     new(CachePolicyId.ArticleDetail, $"core:v2:{articleId.Value}"),
@@ -231,9 +234,9 @@ public sealed class CacheInvalidationDispatcher(
                 cancellationToken);
         }
 
-        await cache.IncrementAsync(CachePolicyId.ArticleListVersion, "main", 1, cancellationToken);
-        long searchVersion = await cache.IncrementAsync(CachePolicyId.ArticleSearchVersion, "main", 1, cancellationToken);
-        await cache.RemoveAsync(CachePolicyId.ArticleRss, "main", cancellationToken);
+        await counters.IncrementAsync(CachePolicyId.ArticleListVersion, "main", 1, cancellationToken);
+        long searchVersion = await counters.IncrementAsync(CachePolicyId.ArticleSearchVersion, "main", 1, cancellationToken);
+        await invalidation.RemoveAsync(CachePolicyId.ArticleRss, "main", cancellationToken);
         await InvalidateAdminStatsCachesAsync(cancellationToken);
         long hotVersion = PublishHotArticlesVersion("article-mutation");
         await httpCacheInvalidator.InvalidateAsync(CacheTag.ArticleList, CacheTag.HotArticles, CacheTag.Stats);
@@ -243,7 +246,7 @@ public sealed class CacheInvalidationDispatcher(
     public async Task InvalidateSeoAsync(CancellationToken cancellationToken = default)
     {
         aotSeoConfigSnapshot?.Invalidate();
-        await cache.RemoveAsync(CachePolicyId.SystemSeo, "main", cancellationToken);
+        await invalidation.RemoveAsync(CachePolicyId.SystemSeo, "main", cancellationToken);
         await httpCacheInvalidator.InvalidateAsync(CacheTag.Seo);
         await RecordRuntimeAsync("seo", "system-seo", cancellationToken);
     }
@@ -251,22 +254,22 @@ public sealed class CacheInvalidationDispatcher(
     public async Task InvalidateComplianceAsync(CancellationToken cancellationToken = default)
     {
         aotSeoConfigSnapshot?.Invalidate();
-        await cache.RemoveAsync(CachePolicyId.SystemCompliance, "main", cancellationToken);
+        await invalidation.RemoveAsync(CachePolicyId.SystemCompliance, "main", cancellationToken);
         await httpCacheInvalidator.InvalidateAsync(CacheTag.Seo);
         await RecordRuntimeAsync("compliance", "site-compliance", cancellationToken);
     }
 
     public async Task InvalidateSystemPageAsync(string slug, CancellationToken cancellationToken = default)
     {
-        await cache.RemoveAsync(CachePolicyId.SystemPage, slug, cancellationToken);
+        await invalidation.RemoveAsync(CachePolicyId.SystemPage, slug, cancellationToken);
         await httpCacheInvalidator.InvalidateAsync(CacheTag.SystemPage);
         await RecordRuntimeAsync("system_page", slug, cancellationToken);
     }
 
     public async Task InvalidateCategoryTagAsync(CancellationToken cancellationToken = default)
     {
-        await cache.IncrementAsync(CachePolicyId.TaxonomyFrameVersion, "main", 1, cancellationToken);
-        await cache.RemoveManyAsync(
+        await counters.IncrementAsync(CachePolicyId.TaxonomyFrameVersion, "main", 1, cancellationToken);
+        await invalidation.RemoveManyAsync(
             [
                 new(CachePolicyId.CategoryFrame, "all"),
                 new(CachePolicyId.TagFrame, "all")
@@ -279,7 +282,7 @@ public sealed class CacheInvalidationDispatcher(
     public async Task InvalidateCommentPolicyAsync(CancellationToken cancellationToken = default)
     {
         commentPolicyInvalidationSink?.InvalidateLocalSnapshot();
-        long version = await cache.IncrementAsync(CachePolicyId.AnonymousCommentPolicyVersion, "main", 1, cancellationToken);
+        long version = await counters.IncrementAsync(CachePolicyId.AnonymousCommentPolicyVersion, "main", 1, cancellationToken);
         await RecordRuntimeAsync("comment_policy", $"anonymous-comment-policy:v{version}", cancellationToken);
     }
 
@@ -295,24 +298,24 @@ public sealed class CacheInvalidationDispatcher(
     {
         if (scope is null)
         {
-            await cache.IncrementAsync(CachePolicyId.CommentCursorVersion, "global", 1, cancellationToken);
-            await cache.IncrementAsync(CachePolicyId.UserCommentCursorVersion, "global", 1, cancellationToken);
+            await counters.IncrementAsync(CachePolicyId.CommentCursorVersion, "global", 1, cancellationToken);
+            await counters.IncrementAsync(CachePolicyId.UserCommentCursorVersion, "global", 1, cancellationToken);
             return;
         }
 
         if (scope.PublicArticleChanged && scope.ArticleId is > 0)
         {
-            await cache.IncrementAsync(CachePolicyId.CommentCursorVersion, $"article:{scope.ArticleId.Value}", 1, cancellationToken);
+            await counters.IncrementAsync(CachePolicyId.CommentCursorVersion, $"article:{scope.ArticleId.Value}", 1, cancellationToken);
         }
 
         if (scope.ArticleId is > 0 && scope.RootId is > 0)
         {
-            await cache.IncrementAsync(CachePolicyId.CommentCursorVersion, $"article:{scope.ArticleId.Value}:root:{scope.RootId.Value}", 1, cancellationToken);
+            await counters.IncrementAsync(CachePolicyId.CommentCursorVersion, $"article:{scope.ArticleId.Value}:root:{scope.RootId.Value}", 1, cancellationToken);
         }
 
         if (scope.UserCommentsChanged && scope.AccountId is > 0)
         {
-            await cache.IncrementAsync(CachePolicyId.UserCommentCursorVersion, $"account:{scope.AccountId.Value}", 1, cancellationToken);
+            await counters.IncrementAsync(CachePolicyId.UserCommentCursorVersion, $"account:{scope.AccountId.Value}", 1, cancellationToken);
         }
     }
 
@@ -325,7 +328,7 @@ public sealed class CacheInvalidationDispatcher(
 
     private async Task InvalidateAdminStatsCachesAsync(CancellationToken cancellationToken)
     {
-        long nextFrameVersion = await cache.IncrementAsync(
+        long nextFrameVersion = await counters.IncrementAsync(
             CachePolicyId.AdminStats,
             AdminStatsFrameVersioning.CounterIdentity,
             1,
@@ -333,7 +336,7 @@ public sealed class CacheInvalidationDispatcher(
         string previousFrameIdentity = AdminStatsFrameVersioning.BuildIdentity(nextFrameVersion - 1);
         string previousCoreSourceIdentity = AdminStatsFrameVersioning.BuildCoreSourceIdentity(nextFrameVersion - 1);
         string previousSourceIdentity = AdminStatsFrameVersioning.BuildSourceIdentity(nextFrameVersion - 1);
-        await cache.RemoveManyAsync(
+        await invalidation.RemoveManyAsync(
             [
                 new(CachePolicyId.AdminStats, "main"),
                 new(CachePolicyId.AdminStats, "core:main"),

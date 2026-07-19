@@ -33,7 +33,8 @@ public sealed class MessageCenterServiceTests
     private static MessageCenterService BuildService()
     {
         var db = Substitute.For<ISqlSugarClient>();
-        var cache = new MessageCacheService(Substitute.For<IUnifiedCache>());
+        IUnifiedCache unifiedCache = Substitute.For<IUnifiedCache>();
+        var cache = new MessageCacheService(unifiedCache, unifiedCache, unifiedCache);
         return new MessageCenterService(
             db,
             cache,

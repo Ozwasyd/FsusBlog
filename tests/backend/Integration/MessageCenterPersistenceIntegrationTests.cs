@@ -47,7 +47,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         IMessageNotificationStreamPort notifications = Substitute.For<IMessageNotificationStreamPort>();
         var service = new MessageCenterService(
             db,
-            new MessageCacheService(cache),
+            new MessageCacheService(cache, cache, cache),
             notifications,
             NullLogger<MessageCenterService>.Instance);
 

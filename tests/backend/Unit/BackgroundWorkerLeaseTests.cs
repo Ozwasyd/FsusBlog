@@ -184,6 +184,7 @@ public sealed class BackgroundWorkerLeaseTests
         TimeSpan? renewInterval = null)
         => new(
             cache,
+            cache,
             NullLogger<BackgroundWorkerLease>.Instance,
             new BackgroundWorkerLeaseOptions(
                 leaseTtl ?? TimeSpan.FromSeconds(5),

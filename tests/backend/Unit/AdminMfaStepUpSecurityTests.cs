@@ -232,7 +232,7 @@ public sealed class AdminMfaStepUpSecurityTests
     {
         var cache = new DualProofCache();
         var adminService = CreateAdminService(cache);
-        var challengeProofs = new SecurityChallengeProofService(cache, new RecordingChallengePersistence(), new FixedTimeProvider());
+        var challengeProofs = new SecurityChallengeProofService(cache, cache, new RecordingChallengePersistence(), new FixedTimeProvider());
         SecurityChallengeProofMintResult proof = await challengeProofs.MintProofAsync(CreateChallengeProofMintRequest(), CancellationToken.None);
 
         bool accepted = await adminService.ValidateAndConsumeAdminStepUpProofTokenAsync(
@@ -250,7 +250,7 @@ public sealed class AdminMfaStepUpSecurityTests
     {
         var cache = new DualProofCache();
         var adminService = CreateAdminService(cache);
-        var challengeProofs = new SecurityChallengeProofService(cache, new RecordingChallengePersistence(), new FixedTimeProvider());
+        var challengeProofs = new SecurityChallengeProofService(cache, cache, new RecordingChallengePersistence(), new FixedTimeProvider());
         string adminProof = await adminService.CreateAdminStepUpProofTokenAsync(
             42,
             "sid-1",
@@ -270,6 +270,7 @@ public sealed class AdminMfaStepUpSecurityTests
         => new(
             Substitute.For<IFido2>(),
             Substitute.For<ISqlSugarClient>(),
+            cache,
             cache,
             Substitute.For<IJwtHelper>(),
             new ConfigurationBuilder().Build(),

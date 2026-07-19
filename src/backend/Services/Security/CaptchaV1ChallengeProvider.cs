@@ -13,7 +13,8 @@ using Microsoft.AspNetCore.WebUtilities;
 namespace FsusBlog.Server.Services.Security;
 
 public sealed class CaptchaV1ChallengeProvider(
-    IUnifiedCache cache,
+    ICacheStringWriter cacheWriter,
+    ICacheOneTimeStore oneTimeStore,
     ISecurityChallengePersistenceService persistence,
     ISecurityRiskSignalSink riskSignalSink,
     IConfiguration configuration,
@@ -94,7 +95,7 @@ public sealed class CaptchaV1ChallengeProvider(
                 issuedAt.UtcDateTime,
                 expiresAt.UtcDateTime),
             cancellationToken);
-        await cache.SetStringAsync(
+        await cacheWriter.SetStringAsync(
             CachePolicyId.SecurityCaptchaChallenge,
             challengeId,
             payloadHash,
@@ -142,7 +143,7 @@ public sealed class CaptchaV1ChallengeProvider(
             return SecurityChallengeProviderVerifyResult.Failed("captcha_expired");
         }
 
-        bool consumed = await cache.ConsumeOnceAsync(CachePolicyId.SecurityCaptchaChallenge, request.ChallengeId, cancellationToken);
+        bool consumed = await oneTimeStore.ConsumeOnceAsync(CachePolicyId.SecurityCaptchaChallenge, request.ChallengeId, cancellationToken);
         if (!consumed)
         {
             await RecordRejectedAsync(request, SecurityChallengeAttemptOutcomes.Replayed, "captcha_replayed", "CaptchaReplay", payload.ResponseTokenHex, cancellationToken);

@@ -51,7 +51,7 @@ public sealed class AdminOperationsService(
     IPublicAotInvalidationService publicAotInvalidationService,
     IArticleDetailAedsArtifactMaintenanceService articleDetailAedsMaintenance,
     ICacheInvalidationDispatcher cacheInvalidationDispatcher,
-    IUnifiedCache cache,
+    ICacheDiagnostics cache,
     ILogger<AdminOperationsService> logger)
 {
     private const uint SearchManifestMagic = 0x4D495346;

@@ -35,7 +35,7 @@ public static partial class BinaryEndpoints
     {
         group.MapGet("/stats", static Task<IResult> (
             IStatsCoreService core,
-            IUnifiedCache cache,
+            ICacheCounterStore cache,
             IOwnedFrameCache ownedFrameCache,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) => HandleAdminStatsFrameAsync(
@@ -75,7 +75,7 @@ public static partial class BinaryEndpoints
 
     internal static async Task<IResult> HandleAdminStatsFrameAsync(
         IStatsCoreService core,
-        IUnifiedCache cache,
+        ICacheCounterStore cache,
         IOwnedFrameCache ownedFrameCache,
         IAedsEncoder aeds,
         CancellationToken cancellationToken)

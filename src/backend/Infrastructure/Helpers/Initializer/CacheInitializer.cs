@@ -26,7 +26,7 @@ public interface ICacheInitializer
 /// </summary>
 // Public named-argument source compatibility; exact exception registered in csharp-style-policy.
 #pragma warning disable IDE1006
-public class CacheInitializer(ISqlSugarClient _db, IBlacklistService _blacklist, IUnifiedCache _cache) : ICacheInitializer
+public class CacheInitializer(ISqlSugarClient _db, IBlacklistService _blacklist, ICacheInvalidationStore _cache) : ICacheInitializer
 #pragma warning restore IDE1006
 {
     public async Task<CacheInitializationResult> InitializeAsync()

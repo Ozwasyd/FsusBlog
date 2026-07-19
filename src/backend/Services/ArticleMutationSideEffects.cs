@@ -190,7 +190,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
     ISqlSugarClient db,
     IConnectionMultiplexer redisConnection,
     IRuntimeKeyScope runtimeKeyScope,
-    IUnifiedCache cache,
+    ICacheInvalidationStore cache,
     ArticleSearchProjector searchProjector,
     ITaxonomyCountProjectionService taxonomyProjection,
     IArticleDetailAedsArtifactProjector articleDetailArtifacts,

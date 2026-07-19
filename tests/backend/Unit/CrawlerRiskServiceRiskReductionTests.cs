@@ -30,7 +30,7 @@ public sealed class CrawlerRiskServiceRiskReductionTests
         policy.Current.Returns(CreatePolicySnapshot());
         using var zeroRiskCache = new MemoryCache(new MemoryCacheOptions());
         zeroRiskCache.Set("crawler-risk:zero:198.51.100.16", (byte)1, TimeSpan.FromMinutes(1));
-        var service = new CrawlerRiskService(cache, zeroRiskCache, policy, NullLogger<CrawlerRiskService>.Instance);
+        var service = new CrawlerRiskService(cache, cache, cache, cache, zeroRiskCache, policy, NullLogger<CrawlerRiskService>.Instance);
         var context = new DefaultHttpContext();
         context.Connection.RemoteIpAddress = IPAddress.Parse("198.51.100.16");
         context.Request.Path = "/article/42";
@@ -75,7 +75,7 @@ public sealed class CrawlerRiskServiceRiskReductionTests
         ISecurityAdminPolicyService policy = Substitute.For<ISecurityAdminPolicyService>();
         policy.Current.Returns(CreatePolicySnapshot());
         using var zeroRiskCache = new MemoryCache(new MemoryCacheOptions());
-        var service = new CrawlerRiskService(cache, zeroRiskCache, policy, NullLogger<CrawlerRiskService>.Instance);
+        var service = new CrawlerRiskService(cache, cache, cache, cache, zeroRiskCache, policy, NullLogger<CrawlerRiskService>.Instance);
         var context = new DefaultHttpContext();
         context.Connection.RemoteIpAddress = IPAddress.Parse("198.51.100.15");
         context.Request.Path = "/article/42";
@@ -121,7 +121,7 @@ public sealed class CrawlerRiskServiceRiskReductionTests
         ISecurityAdminPolicyService policy = Substitute.For<ISecurityAdminPolicyService>();
         policy.Current.Returns(CreatePolicySnapshot());
         using var zeroRiskCache = new MemoryCache(new MemoryCacheOptions());
-        var service = new CrawlerRiskService(cache, zeroRiskCache, policy, NullLogger<CrawlerRiskService>.Instance);
+        var service = new CrawlerRiskService(cache, cache, cache, cache, zeroRiskCache, policy, NullLogger<CrawlerRiskService>.Instance);
         var context = new DefaultHttpContext();
         context.Connection.RemoteIpAddress = IPAddress.Parse("198.51.100.17");
         context.Request.Path = "/article/42";

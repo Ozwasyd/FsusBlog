@@ -154,6 +154,10 @@ public sealed class RecoveryKeyAttemptLimiterContractTests(PostgresSchemaMigrati
         => new(
             db,
             cache,
+            cache,
+            cache,
+            cache,
+            cache,
             new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string?>
                 {

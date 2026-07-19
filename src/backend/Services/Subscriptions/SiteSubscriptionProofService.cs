@@ -64,7 +64,9 @@ public sealed record SiteSubscriptionUnsubscribeProofClaims(
     string Nonce);
 
 public sealed class SiteSubscriptionProofService(
-    IUnifiedCache cache,
+    ICacheTypedReader cacheReader,
+    ICacheRawWriter cacheWriter,
+    ICacheOneTimeStore oneTimeStore,
     TimeProvider timeProvider,
     IConfiguration configuration) : ISiteSubscriptionProofService
 {
@@ -104,7 +106,7 @@ public sealed class SiteSubscriptionProofService(
             GenerateNonce());
 
         byte[] payload = JsonSerializer.SerializeToUtf8Bytes(claims, s_jsonOptions);
-        await cache.SetRawAsync(
+        await cacheWriter.SetRawAsync(
             CachePolicyId.SiteSubscriptionUnsubscribeProof,
             BuildProofIdentity(proofToken),
             payload,
@@ -141,7 +143,7 @@ public sealed class SiteSubscriptionProofService(
             return SiteSubscriptionUnsubscribeProofConsumeResult.Rejected("proof_replayed_or_missing");
         }
 
-        CacheReadResult<SiteSubscriptionUnsubscribeProofClaims> cached = await cache.TryGetAsync(
+        CacheReadResult<SiteSubscriptionUnsubscribeProofClaims> cached = await cacheReader.TryGetAsync(
             CachePolicyId.SiteSubscriptionUnsubscribeProof,
             BuildProofIdentity(proofToken),
             DecodeClaims,
@@ -176,7 +178,7 @@ public sealed class SiteSubscriptionProofService(
             return SiteSubscriptionUnsubscribeProofConsumeResult.Rejected("proof_replayed_or_missing");
         }
 
-        CacheReadResult<SiteSubscriptionUnsubscribeProofClaims> cached = await cache.ConsumeOnceAndGetAsync(
+        CacheReadResult<SiteSubscriptionUnsubscribeProofClaims> cached = await oneTimeStore.ConsumeOnceAndGetAsync(
             CachePolicyId.SiteSubscriptionUnsubscribeProof,
             BuildProofIdentity(proofToken),
             DecodeClaims,

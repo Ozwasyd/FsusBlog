@@ -451,8 +451,10 @@ public sealed class RequiresRiskControlFilterTests
         policy ??= CreatePolicy();
         var riskSink = new CapturingRiskSink();
         var persistence = new RecordingChallengePersistence();
+        var proofCache = new MemoryProofCache();
         var proof = new SecurityChallengeProofService(
-            new MemoryProofCache(),
+            proofCache,
+            proofCache,
             persistence,
             new FixedTimeProvider(DateTimeOffset.UtcNow));
         var filter = new RequiresRiskControlFilter(

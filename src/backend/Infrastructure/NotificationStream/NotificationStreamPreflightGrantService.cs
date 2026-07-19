@@ -42,7 +42,8 @@ internal sealed record NotificationStreamPreflightGrantClaims(
     long ExpiresAtUnixMs);
 
 internal sealed class NotificationStreamPreflightGrantService(
-    IUnifiedCache cache,
+    ICacheRawWriter cacheWriter,
+    ICacheOneTimeStore oneTimeStore,
     TimeProvider timeProvider) : INotificationStreamPreflightGrantService
 {
     private static readonly TimeSpan s_maximumGrantTtl = TimeSpan.FromSeconds(30);
@@ -68,7 +69,7 @@ internal sealed class NotificationStreamPreflightGrantService(
             proof.DeviceFpHash,
             proof.PolicyVersion,
             expiresAt.ToUnixTimeMilliseconds());
-        await cache.SetRawAsync(
+        await cacheWriter.SetRawAsync(
             CachePolicyId.SecurityChallengeProof,
             Identity(token),
             JsonSerializer.SerializeToUtf8Bytes(claims, s_jsonOptions),
@@ -87,7 +88,7 @@ internal sealed class NotificationStreamPreflightGrantService(
             return NotificationStreamPreflightGrantConsumeResult.Reject(SecurityChallengeProofOutcomes.ReplayedOrMissing);
         }
 
-        CacheReadResult<NotificationStreamPreflightGrantClaims> cached = await cache.ConsumeOnceAndGetAsync(
+        CacheReadResult<NotificationStreamPreflightGrantClaims> cached = await oneTimeStore.ConsumeOnceAndGetAsync(
             CachePolicyId.SecurityChallengeProof,
             Identity(token),
             Decode,

@@ -52,7 +52,11 @@ public interface IRecoveryKeyService
 
 public sealed class RecoveryKeyService(
     ISqlSugarClient db,
-    IUnifiedCache cache,
+    ICacheStringReader cacheReader,
+    ICacheStringWriter cacheWriter,
+    ICacheCompareExchangeStore compareExchange,
+    ICacheCounterStore counters,
+    ICacheInvalidationStore invalidation,
     IConfiguration configuration,
     IPasskeyService passkeys,
     ILogger<RecoveryKeyService> logger,
@@ -142,7 +146,7 @@ public sealed class RecoveryKeyService(
                 .SetColumns(u => u.RecoveryEnabled == false)
                 .Where(u => u.Id == credential.AccountId)
                 .ExecuteCommandAsync();
-            await AccountSnapshotCacheInvalidator.BumpVersionAsync(cache, credential.AccountId, cancellationToken).ConfigureAwait(false);
+            await AccountSnapshotCacheInvalidator.BumpVersionAsync(counters, credential.AccountId, cancellationToken).ConfigureAwait(false);
 
             if (request.RevokeSessions)
             {
@@ -180,7 +184,7 @@ public sealed class RecoveryKeyService(
             string token = GenerateSecretToken();
             DateTime expiresAt = now.Add(s_recoverySessionTtl);
             var session = new RecoveryKeySession(credential.AccountId, request.RevokePasskeys, now, expiresAt);
-            await cache.SetStringAsync(
+            await cacheWriter.SetStringAsync(
                 CachePolicyId.SecurityRecoveryKeySession,
                 BuildSessionIdentity(token),
                 EncodeSessionEnvelope(ToPendingEnvelope(session)),
@@ -239,7 +243,7 @@ public sealed class RecoveryKeyService(
         string identity = BuildSessionIdentity(token);
         for (int attempt = 0; attempt < 3; attempt++)
         {
-            string? encoded = await cache.GetStringAsync(
+            string? encoded = await cacheReader.GetStringAsync(
                 CachePolicyId.SecurityRecoveryKeySession,
                 identity,
                 cancellationToken).ConfigureAwait(false);
@@ -251,7 +255,7 @@ public sealed class RecoveryKeyService(
             DateTime now = DateTime.UtcNow;
             if (envelope.Session.ExpiresAtUtc <= now)
             {
-                await cache.RemoveAsync(CachePolicyId.SecurityRecoveryKeySession, identity, cancellationToken).ConfigureAwait(false);
+                await invalidation.RemoveAsync(CachePolicyId.SecurityRecoveryKeySession, identity, cancellationToken).ConfigureAwait(false);
                 return Result<RecoveryKeySession>.Failure(ErrorCode.Unauthorized, "RECOVERY_SESSION_EXPIRED");
             }
 
@@ -308,7 +312,7 @@ public sealed class RecoveryKeyService(
         string? claimedEncoded = null;
         for (int attempt = 0; attempt < 4; attempt++)
         {
-            string? encoded = await cache.GetStringAsync(
+            string? encoded = await cacheReader.GetStringAsync(
                 CachePolicyId.SecurityRecoveryKeySession,
                 identity,
                 cancellationToken).ConfigureAwait(false);
@@ -320,7 +324,7 @@ public sealed class RecoveryKeyService(
             DateTime now = DateTime.UtcNow;
             if (envelope.Session.ExpiresAtUtc <= now)
             {
-                await cache.RemoveAsync(CachePolicyId.SecurityRecoveryKeySession, identity, cancellationToken).ConfigureAwait(false);
+                await invalidation.RemoveAsync(CachePolicyId.SecurityRecoveryKeySession, identity, cancellationToken).ConfigureAwait(false);
                 return Result<RecoveryPasskeyBindOutcome>.Failure(ErrorCode.Unauthorized, "RECOVERY_SESSION_EXPIRED");
             }
 
@@ -463,7 +467,7 @@ public sealed class RecoveryKeyService(
             return false;
         }
 
-        return await cache.TrySetStringIfValueAsync(
+        return await compareExchange.TrySetStringIfValueAsync(
             CachePolicyId.SecurityRecoveryKeySession,
             identity,
             EncodeSessionEnvelope(replacement),
@@ -550,7 +554,7 @@ public sealed class RecoveryKeyService(
             .SetColumns(u => u.RecoveryEnabled == true)
             .Where(u => u.Id == accountId)
             .ExecuteCommandAsync();
-        await AccountSnapshotCacheInvalidator.BumpVersionAsync(cache, accountId, cancellationToken).ConfigureAwait(false);
+        await AccountSnapshotCacheInvalidator.BumpVersionAsync(counters, accountId, cancellationToken).ConfigureAwait(false);
 
         return Result<RecoveryKeyCreateResponseCoreModel>.Success(
             new RecoveryKeyCreateResponseCoreModel(generated.RecoveryKey, nextVersion, now));
@@ -558,7 +562,7 @@ public sealed class RecoveryKeyService(
 
     private async Task<bool> IsVerificationLockedAsync(string identity, CancellationToken cancellationToken)
     {
-        string? value = await cache.GetStringAsync(CachePolicyId.SecurityRecoveryKeyAttempt, identity, cancellationToken).ConfigureAwait(false);
+        string? value = await cacheReader.GetStringAsync(CachePolicyId.SecurityRecoveryKeyAttempt, identity, cancellationToken).ConfigureAwait(false);
         return int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out int attempts) && attempts >= MaxFailedAttempts;
     }
 
@@ -606,7 +610,7 @@ public sealed class RecoveryKeyService(
 
     private async Task<Result<RecoveryKeyVerifyResponseCoreModel>> RecordVerificationFailureAsync(string identity, CancellationToken cancellationToken)
     {
-        long attempts = await cache.IncrementWithExpiryAsync(
+        long attempts = await counters.IncrementWithExpiryAsync(
             CachePolicyId.SecurityRecoveryKeyAttempt,
             identity,
             s_failureWindow,

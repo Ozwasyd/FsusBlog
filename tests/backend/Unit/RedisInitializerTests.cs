@@ -67,7 +67,6 @@ public sealed class RedisInitializerTests
         services.AddSingleton<ICachePolicyRegistry, CachePolicyRegistry>();
         services.AddSingleton<IRuntimeKeyScope, DefaultRuntimeKeyScope>();
         services.AddSingleton<UnifiedCache>();
-        services.AddSingleton<IUnifiedCache>(sp => sp.GetRequiredService<UnifiedCache>());
         services.AddSingleton<IHostedService, DirectRedisHostedConsumer>();
 
         ServiceProvider provider = services.BuildServiceProvider();

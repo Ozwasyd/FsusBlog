@@ -36,7 +36,10 @@ public enum CrawlerRiskReason
 /// <param name="securityPolicy">Runtime policy and administrative risk-event projection.</param>
 /// <param name="logger">Logger for privacy-safe risk-score transitions.</param>
 public sealed class CrawlerRiskService(
-    IUnifiedCache cache,
+    ICacheCounterStore counters,
+    ICacheStringReader cacheReader,
+    ICacheStringWriter cacheWriter,
+    ICacheInvalidationStore invalidation,
     IMemoryCache zeroRiskCache,
     ISecurityAdminPolicyService securityPolicy,
     ILogger<CrawlerRiskService> logger) : ICrawlerRiskService, ISecurityRiskSignalSink, ISecurityRiskScoreReader
@@ -112,7 +115,7 @@ public sealed class CrawlerRiskService(
         {
             long startedAt = Stopwatch.GetTimestamp();
             zeroRiskCache.Remove(ZeroRiskCacheKey(ip));
-            long updated = await cache.IncrementClampedWithExpiryAsync(
+            long updated = await counters.IncrementClampedWithExpiryAsync(
                 CachePolicyId.SecurityPowRisk,
                 ip,
                 scoreDelta,
@@ -132,11 +135,11 @@ public sealed class CrawlerRiskService(
             if (next > 0)
             {
                 zeroRiskCache.Remove(ZeroRiskCacheKey(ip));
-                await cache.SetStringAsync(CachePolicyId.SecurityPowRisk, ip, next.ToString(System.Globalization.CultureInfo.InvariantCulture), effectiveTtl, cancellationToken);
+                await cacheWriter.SetStringAsync(CachePolicyId.SecurityPowRisk, ip, next.ToString(System.Globalization.CultureInfo.InvariantCulture), effectiveTtl, cancellationToken);
             }
             else
             {
-                await cache.RemoveAsync(CachePolicyId.SecurityPowRisk, ip, cancellationToken);
+                await invalidation.RemoveAsync(CachePolicyId.SecurityPowRisk, ip, cancellationToken);
                 zeroRiskCache.Set(ZeroRiskCacheKey(ip), (byte)1, TimeSpan.FromSeconds(antiCrawlerOptions.ZeroRiskCacheTtlSeconds));
             }
         }
@@ -250,7 +253,7 @@ public sealed class CrawlerRiskService(
         }
 
         zeroRiskCache.Remove(ZeroRiskCacheKey(subject.Identity));
-        await cache.RemoveAsync(CachePolicyId.SecurityPowRisk, subject.Identity, cancellationToken);
+        await invalidation.RemoveAsync(CachePolicyId.SecurityPowRisk, subject.Identity, cancellationToken);
         securityPolicy.UpsertRiskSnapshot(new SecurityRiskSnapshotResponse(
             subject.Identity,
             0,
@@ -269,7 +272,7 @@ public sealed class CrawlerRiskService(
             return 0;
         }
 
-        string? existing = await cache.GetStringAsync(CachePolicyId.SecurityPowRisk, ip, cancellationToken);
+        string? existing = await cacheReader.GetStringAsync(CachePolicyId.SecurityPowRisk, ip, cancellationToken);
         int current = 0;
         if (!string.IsNullOrWhiteSpace(existing) && int.TryParse(existing, out int value))
         {

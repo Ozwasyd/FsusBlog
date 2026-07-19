@@ -17,7 +17,9 @@ namespace FsusBlog.Server.Services.Distribution;
 
 public sealed class RelatedReadingService(
     ISqlSugarClient db,
-    IUnifiedCache cache,
+    ICacheTypedReader cacheReader,
+    ICacheRawWriter cacheWriter,
+    ICacheStringReader stringReader,
     IMemoryCache memoryCache)
 {
     private const int RelatedLimit = 6;
@@ -47,7 +49,7 @@ public sealed class RelatedReadingService(
             return cached;
         }
 
-        CacheReadResult<RelatedReadingResponse> sharedCached = await cache.TryGetAsync(
+        CacheReadResult<RelatedReadingResponse> sharedCached = await cacheReader.TryGetAsync(
             CachePolicyId.RelatedReading,
             cacheKey,
             DecodeRelatedReading,
@@ -91,7 +93,7 @@ public sealed class RelatedReadingService(
             previous is null ? null : ToItem(previous, "上一篇"),
             next is null ? null : ToItem(next, "下一篇"));
         memoryCache.Set(cacheKey, response, s_cacheTtl);
-        await cache.SetRawAsync(CachePolicyId.RelatedReading, cacheKey, JsonSerializer.SerializeToUtf8Bytes(response, s_jsonOptions), s_cacheTtl, cancellationToken);
+        await cacheWriter.SetRawAsync(CachePolicyId.RelatedReading, cacheKey, JsonSerializer.SerializeToUtf8Bytes(response, s_jsonOptions), s_cacheTtl, cancellationToken);
         FsusObservability.RecordRelatedReadingBuild(cacheHit: false, FsusObservability.GetElapsed(startedAt));
         return response;
     }
@@ -104,7 +106,7 @@ public sealed class RelatedReadingService(
 
     private async ValueTask<long> GetArticleListVersionAsync(CancellationToken cancellationToken)
     {
-        string? version = await cache.GetStringAsync(CachePolicyId.ArticleListVersion, "main", cancellationToken);
+        string? version = await stringReader.GetStringAsync(CachePolicyId.ArticleListVersion, "main", cancellationToken);
         return long.TryParse(version, out long parsed) ? parsed : 0;
     }
 

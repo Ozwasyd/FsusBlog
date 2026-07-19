@@ -157,7 +157,7 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
         ISecurityAdminPolicyService policy = Substitute.For<ISecurityAdminPolicyService>();
         policy.Current.Returns(CreatePolicySnapshot());
         var zeroRiskCache = new MemoryCache(new MemoryCacheOptions());
-        var hotPath = new CrawlerRiskService(cache, zeroRiskCache, policy, new CapturingLogger<CrawlerRiskService>());
+        var hotPath = new CrawlerRiskService(cache, cache, cache, cache, zeroRiskCache, policy, new CapturingLogger<CrawlerRiskService>());
         IServiceProvider services = new ServiceCollection()
             .AddScoped<ISecurityRiskEventStore, ThrowingRiskEventStore>()
             .BuildServiceProvider();
@@ -165,7 +165,7 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
         var queue = new SecurityRiskEventWriteQueue(
             Options.Create(new SecurityRiskEventWriterOptions { Capacity = 4, BatchSize = 2, FlushWindowMs = 10 }),
             new CapturingLogger<SecurityRiskEventWriteQueue>());
-        var sink = new SecurityRiskEventSink(hotPath, cache, policy, CreatePseudonymizer(), queue, services.GetRequiredService<IServiceScopeFactory>(), logger, new MutableTimeProvider(s_baselineNow));
+        var sink = new SecurityRiskEventSink(hotPath, cache, cache, policy, CreatePseudonymizer(), queue, services.GetRequiredService<IServiceScopeFactory>(), logger, new MutableTimeProvider(s_baselineNow));
         var workerLogger = new CapturingLogger<SecurityRiskEventWriterWorker>();
         var worker = new SecurityRiskEventWriterWorker(
             queue,
@@ -209,7 +209,7 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
         ISecurityAdminPolicyService policy = Substitute.For<ISecurityAdminPolicyService>();
         policy.Current.Returns(CreatePolicySnapshot());
         var zeroRiskCache = new MemoryCache(new MemoryCacheOptions());
-        var hotPath = new CrawlerRiskService(cache, zeroRiskCache, policy, new CapturingLogger<CrawlerRiskService>());
+        var hotPath = new CrawlerRiskService(cache, cache, cache, cache, zeroRiskCache, policy, new CapturingLogger<CrawlerRiskService>());
         IServiceProvider services = new ServiceCollection()
             .AddScoped<ISecurityRiskEventStore, NeverCompletingRiskEventStore>()
             .BuildServiceProvider();
@@ -219,6 +219,7 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
             new CapturingLogger<SecurityRiskEventWriteQueue>());
         var sink = new SecurityRiskEventSink(
             hotPath,
+            cache,
             cache,
             policy,
             CreatePseudonymizer(),
@@ -443,7 +444,7 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
         ISecurityAdminPolicyService policy = Substitute.For<ISecurityAdminPolicyService>();
         policy.Current.Returns(CreatePolicySnapshot());
         using var zeroRiskCache = new MemoryCache(new MemoryCacheOptions());
-        var hotPath = new CrawlerRiskService(cache, zeroRiskCache, policy, new CapturingLogger<CrawlerRiskService>());
+        var hotPath = new CrawlerRiskService(cache, cache, cache, cache, zeroRiskCache, policy, new CapturingLogger<CrawlerRiskService>());
         IServiceProvider services = new ServiceCollection()
             .AddScoped<ISecurityRiskEventStore>(_ => new SecurityRiskEventStore(db))
             .AddScoped<IRiskScoreEngine, RiskScoreEngine>()
@@ -451,6 +452,7 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
             .BuildServiceProvider();
         var sink = new SecurityRiskEventSink(
             hotPath,
+            cache,
             cache,
             policy,
             rotatingPseudonymizer,
@@ -530,9 +532,10 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
         ISecurityAdminPolicyService policy = Substitute.For<ISecurityAdminPolicyService>();
         policy.Current.Returns(CreatePolicySnapshot());
         var zeroRiskCache = new MemoryCache(new MemoryCacheOptions());
-        var hotPath = new CrawlerRiskService(cache, zeroRiskCache, policy, new CapturingLogger<CrawlerRiskService>());
+        var hotPath = new CrawlerRiskService(cache, cache, cache, cache, zeroRiskCache, policy, new CapturingLogger<CrawlerRiskService>());
         return new SecurityRiskEventSink(
             hotPath,
+            cache,
             cache,
             policy,
             CreatePseudonymizer(),

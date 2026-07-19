@@ -15,7 +15,7 @@ public sealed class MessageCacheServiceTests
     public async Task IncrementUnreadAsync_UsesAccountIdentityPrefix()
     {
         var cache = Substitute.For<IUnifiedCache>();
-        var sut = new MessageCacheService(cache);
+        var sut = new MessageCacheService(cache, cache, cache);
 
         await sut.IncrementUnreadAsync(42);
 
@@ -26,7 +26,7 @@ public sealed class MessageCacheServiceTests
     public async Task SetUnreadAsync_UsesAccountIdentityPrefix()
     {
         var cache = Substitute.For<IUnifiedCache>();
-        var sut = new MessageCacheService(cache);
+        var sut = new MessageCacheService(cache, cache, cache);
 
         await sut.SetUnreadAsync(42, 9);
 
@@ -44,7 +44,7 @@ public sealed class MessageCacheServiceTests
         cache.TrySetStringIfValueAsync(CachePolicyId.MessageUnread, "account:42", "7", "account:42:refresh-version", "2", null, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(true));
         int loads = 0;
-        var sut = new MessageCacheService(cache);
+        var sut = new MessageCacheService(cache, cache, cache);
 
         int result = await sut.RefreshUnreadAsync(42, () =>
         {
@@ -66,7 +66,7 @@ public sealed class MessageCacheServiceTests
         const string Identity = "account:7:v:UserCommentCursorVersion:0:0:comments:123:20";
         cache.AcquireSingleFlightAsync(CachePolicyId.UserCommentCursor, Identity, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IAsyncDisposable>(NullAsyncDisposable.Instance));
-        var sut = new CommentCoreQueryCache(cache);
+        var sut = new CommentCoreQueryCache(cache, cache, cache, cache);
 
         await sut.GetOrLoadUserCommentsAsync(
             7,

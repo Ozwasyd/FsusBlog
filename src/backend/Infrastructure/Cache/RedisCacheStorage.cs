@@ -13,77 +13,49 @@ using StackExchange.Redis;
 
 namespace FsusBlog.Server.Infrastructure.Cache;
 
-public readonly record struct CacheReadResult<T>(bool Hit, T? Value);
-public readonly record struct CacheKeyIdentity(CachePolicyId PolicyId, string Identity);
-public readonly record struct CachePrefixIdentity(CachePolicyId PolicyId, string IdentityPrefix);
-public sealed record CachePolicyStorageSnapshot(CachePolicyId PolicyId, long KeyCount, long Bytes);
-
-public interface IUnifiedCache
-{
-    Task<CacheReadResult<T>> TryGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default);
-    Task<CacheReadResult<T>> TryGetAsync<T>(CachePolicyId policyId, int identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default)
-        => TryGetAsync(policyId, identity.ToString(System.Globalization.CultureInfo.InvariantCulture), decoder, cancellationToken);
-    /// <summary>
-    /// Returns a caller-owned byte array. Callers may pass it to serializers or streams without retaining cache ownership;
-    /// mutating the returned array must not mutate L1/L2 cache state.
-    /// </summary>
-    Task<CacheReadResult<byte[]>> TryGetRawAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default);
-    Task<CacheReadResult<byte[]>> TryGetRawAsync(CachePolicyId policyId, int identity, CancellationToken cancellationToken = default)
-        => TryGetRawAsync(policyId, identity.ToString(System.Globalization.CultureInfo.InvariantCulture), cancellationToken);
-    /// <summary>
-    /// Returns an immutable cache-owned raw payload for synchronous response write-through.
-    /// Callers must not mutate, retain for cross-request state, or expose the backing buffer as writable.
-    /// </summary>
-    Task<CacheReadResult<ReadOnlyMemory<byte>>> TryGetRawReadonlyAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default);
-    Task<CacheReadResult<ReadOnlyMemory<byte>>> TryGetRawReadonlyAsync(CachePolicyId policyId, int identity, CancellationToken cancellationToken = default)
-        => TryGetRawReadonlyAsync(policyId, identity.ToString(System.Globalization.CultureInfo.InvariantCulture), cancellationToken);
-    /// <summary>
-    /// Stores a defensive copy of <paramref name="value"/> so later caller mutations cannot corrupt cache state.
-    /// </summary>
-    Task SetRawAsync(CachePolicyId policyId, string identity, byte[] value, TimeSpan? l2TtlOverride = null, CancellationToken cancellationToken = default);
-    Task SetRawAsync(CachePolicyId policyId, int identity, byte[] value, TimeSpan? l2TtlOverride = null, CancellationToken cancellationToken = default)
-        => SetRawAsync(policyId, identity.ToString(System.Globalization.CultureInfo.InvariantCulture), value, l2TtlOverride, cancellationToken);
-    Task SetNegativeAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default);
-    Task<string?> GetStringAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default);
-    Task SetStringAsync(CachePolicyId policyId, string identity, string value, TimeSpan? l2TtlOverride = null, CancellationToken cancellationToken = default);
-    Task<bool> TrySetStringIfValueAsync(CachePolicyId policyId, string identity, string value, string compareIdentity, string expectedCompareValue, TimeSpan? l2TtlOverride = null, CancellationToken cancellationToken = default)
-        => throw new NotSupportedException("This cache implementation does not support compare-and-set string writes.");
-    Task<bool> TrySetVersionedStringAsync(CachePolicyId policyId, string identity, string value, string version, bool allowOverwrite = false, TimeSpan? l2TtlOverride = null, CancellationToken cancellationToken = default)
-        => throw new NotSupportedException("This cache implementation does not support version-guarded string writes.");
-    Task<long> IncrementAsync(CachePolicyId policyId, string identity, long value = 1, CancellationToken cancellationToken = default);
-    Task<long[]> IncrementManyAsync(CachePolicyId policyId, IReadOnlyList<string> identities, long value = 1, CancellationToken cancellationToken = default)
-        => throw new NotSupportedException("This cache implementation does not support atomic multi-counter increments.");
-    Task<long> IncrementWithExpiryAsync(CachePolicyId policyId, string identity, TimeSpan ttl, long value = 1, CancellationToken cancellationToken = default)
-        => throw new NotSupportedException("This cache implementation does not support atomic expiring counters.");
-    Task<long[]> IncrementManyWithExpiryAsync(CachePolicyId policyId, IReadOnlyList<string> identities, TimeSpan ttl, long value = 1, CancellationToken cancellationToken = default)
-        => throw new NotSupportedException("This cache implementation does not support atomic multi-counter expiring increments.");
-    Task<long> IncrementClampedWithExpiryAsync(CachePolicyId policyId, string identity, long delta, long maxValue, TimeSpan ttl, CancellationToken cancellationToken = default)
-        => throw new NotSupportedException("This cache implementation does not support atomic clamped expiring counters.");
-    Task<bool> TryAcquireLeaseAsync(CachePolicyId policyId, string identity, string value, TimeSpan ttl, CancellationToken cancellationToken = default);
-    Task<bool> ConsumeOnceAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default);
-    Task<CacheReadResult<T>> ConsumeOnceAndGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default);
-    Task RemoveAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default);
-    Task RemoveAsync(CachePolicyId policyId, int identity, CancellationToken cancellationToken = default)
-        => RemoveAsync(policyId, identity.ToString(System.Globalization.CultureInfo.InvariantCulture), cancellationToken);
-    Task RemoveManyAsync(IReadOnlyList<CacheKeyIdentity> keys, CancellationToken cancellationToken = default);
-    Task RemoveByPrefixAsync(CachePolicyId policyId, string identityPrefix, CancellationToken cancellationToken = default);
-    Task RemoveByPrefixManyAsync(IReadOnlyList<CachePrefixIdentity> prefixes, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<CachePolicyStorageSnapshot>> GetPolicyStorageSnapshotsAsync(IReadOnlyList<CachePolicyId> policyIds, CancellationToken cancellationToken = default)
-        => Task.FromResult<IReadOnlyList<CachePolicyStorageSnapshot>>(
-            policyIds.Select(static policyId => new CachePolicyStorageSnapshot(policyId, 0, 0)).ToArray());
-    Task<IAsyncDisposable> AcquireSingleFlightAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default);
-    string BuildKey(CachePolicyId policyId, string identity, string? version = null);
-    string BuildKey(CachePolicyId policyId, int identity, string? version = null)
-        => BuildKey(policyId, identity.ToString(System.Globalization.CultureInfo.InvariantCulture), version);
-}
-
-public sealed class UnifiedCache(
+internal sealed class UnifiedCache(
     IMemoryCache memoryCache,
+    CacheLocalStore localStore,
     IConnectionMultiplexer redis,
     ICachePolicyRegistry policyRegistry,
     IRuntimeKeyScope keyScope,
-    ILogger<UnifiedCache> logger) : IUnifiedCache, IOwnedFrameCache, IDisposable
+    ICacheKeyResolver keyResolver,
+    CacheSingleFlightCoordinator coordination,
+    ICacheTelemetry telemetry,
+    ILogger<UnifiedCache> logger) : ICacheTypedReader,
+    ICacheRawReader,
+    ICacheStringReader,
+    ICacheRawWriter,
+    ICacheStringWriter,
+    ICacheCompareExchangeStore,
+    ICacheCounterStore,
+    ICacheOneTimeStore,
+    ICacheInvalidationStore,
+    ICacheLeaseStore,
+    ICacheDiagnostics,
+    IOwnedFrameCache,
+    IDisposable
 {
+    public UnifiedCache(
+        IMemoryCache memoryCache,
+        IConnectionMultiplexer redis,
+        ICachePolicyRegistry policyRegistry,
+        IRuntimeKeyScope keyScope,
+        ILogger<UnifiedCache> logger)
+        : this(
+            memoryCache,
+            new CacheLocalStore(memoryCache, TimeProvider.System),
+            redis,
+            policyRegistry,
+            keyScope,
+            new CacheKeyResolver(policyRegistry, keyScope, Microsoft.Extensions.Logging.Abstractions.NullLogger<CacheKeyResolver>.Instance),
+            new CacheSingleFlightCoordinator(
+                new CacheKeyResolver(policyRegistry, keyScope, Microsoft.Extensions.Logging.Abstractions.NullLogger<CacheKeyResolver>.Instance)),
+            new CacheTelemetry(),
+            logger)
+    {
+    }
+
     private static readonly TimeSpan s_missingPolicyL2Ttl = TimeSpan.FromMinutes(5);
     private const string RegistryKeyPrefix = "cache:registry:";
     private const int PrefixInvalidationBatchSize = 256;
@@ -97,9 +69,6 @@ public sealed class UnifiedCache(
 
     private readonly IConnectionMultiplexer _redis = redis;
     private readonly IDatabase _db = redis.GetDatabase();
-    private readonly ConcurrentDictionary<string, SingleFlightEntry> _singleFlightEntries = new(StringComparer.Ordinal);
-    private readonly ConcurrentDictionary<CacheL1Key, L1IndexEntry> _l1Entries = new();
-    private readonly ConcurrentDictionary<string, L1IndexEntry> _l1KeysByRedisKey = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<CacheL1Key, OwnedFrameL1Entry> _ownedFrameEntries = new();
     private readonly ConcurrentDictionary<string, OwnedFrameL1Entry> _ownedFrameKeysByRedisKey = new(StringComparer.Ordinal);
     private readonly object _l1MutationLock = new();
@@ -108,15 +77,11 @@ public sealed class UnifiedCache(
     private int _ownedFrameEntryCount;
     private int _disposed;
 
-    public string BuildKey(CachePolicyId policyId, string identity, string? version = null)
-    {
-        return keyScope.PrefixKey(ResolvePolicy(policyId).BuildKey(identity, version));
-    }
+    private string BuildKey(CachePolicyId policyId, string identity, string? version = null)
+        => keyResolver.BuildKey(policyId, identity, version);
 
-    public string BuildKey(CachePolicyId policyId, int identity, string? version = null)
-    {
-        return keyScope.PrefixKey(ResolvePolicy(policyId).BuildKey(identity, version));
-    }
+    private string BuildKey(CachePolicyId policyId, int identity, string? version = null)
+        => keyResolver.BuildKey(policyId, identity, version);
 
     public Task<CacheReadResult<T>> TryGetAsync<T>(
         CachePolicyId policyId,
@@ -150,14 +115,14 @@ public sealed class UnifiedCache(
         {
             if (l1Bytes.Length == 0)
             {
-                FsusObservability.RecordCacheOperation("get", policyName, "l1", "hit_negative", FsusObservability.GetElapsed(startedAt));
+                telemetry.RecordOperation("get", policyName, "l1", "hit_negative", FsusObservability.GetElapsed(startedAt));
                 return new CacheReadResult<T>(true, default);
             }
 
             var (l1Success, l1Value) = decoder(l1Bytes);
             if (l1Success)
             {
-                FsusObservability.RecordCacheOperation("get", policyName, "l1", "hit", FsusObservability.GetElapsed(startedAt));
+                telemetry.RecordOperation("get", policyName, "l1", "hit", FsusObservability.GetElapsed(startedAt));
                 return new CacheReadResult<T>(true, l1Value);
             }
 
@@ -169,7 +134,7 @@ public sealed class UnifiedCache(
             await UnregisterKeyAsync(policyId, corruptRedisKey).ConfigureAwait(false);
             activity?.SetStatus(ActivityStatusCode.Error, "cache_decode_failed");
             logger.LogWarning("Cache decode failed for policy {PolicyId} at {CacheLayer}", policyName, "l1");
-            FsusObservability.RecordCacheOperation("get", policyName, "l1", "decode_failed", FsusObservability.GetElapsed(startedAt));
+            telemetry.RecordOperation("get", policyName, "l1", "decode_failed", FsusObservability.GetElapsed(startedAt));
             return new CacheReadResult<T>(false, default);
         }
 
@@ -179,7 +144,7 @@ public sealed class UnifiedCache(
         cancellationToken.ThrowIfCancellationRequested();
         if (!l2Value.HasValue)
         {
-            FsusObservability.RecordCacheOperation("get", policyName, "l2", "miss", FsusObservability.GetElapsed(startedAt));
+            telemetry.RecordOperation("get", policyName, "l2", "miss", FsusObservability.GetElapsed(startedAt));
             return new CacheReadResult<T>(false, default);
         }
 
@@ -187,7 +152,7 @@ public sealed class UnifiedCache(
         if (bytes.Length == 0)
         {
             SetL1(policy, l1Key, key, bytes);
-            FsusObservability.RecordCacheOperation("get", policyName, "l2", "hit_negative", FsusObservability.GetElapsed(startedAt));
+            telemetry.RecordOperation("get", policyName, "l2", "hit_negative", FsusObservability.GetElapsed(startedAt));
             return new CacheReadResult<T>(true, default);
         }
 
@@ -199,12 +164,12 @@ public sealed class UnifiedCache(
             await UnregisterKeyAsync(policyId, key).ConfigureAwait(false);
             activity?.SetStatus(ActivityStatusCode.Error, "cache_decode_failed");
             logger.LogWarning("Cache decode failed for policy {PolicyId} at {CacheLayer}", policyName, "l2");
-            FsusObservability.RecordCacheOperation("get", policyName, "l2", "decode_failed", FsusObservability.GetElapsed(startedAt));
+            telemetry.RecordOperation("get", policyName, "l2", "decode_failed", FsusObservability.GetElapsed(startedAt));
             return new CacheReadResult<T>(false, default);
         }
 
         SetL1(policy, l1Key, key, bytes);
-        FsusObservability.RecordCacheOperation("get", policyName, "l2", "hit", FsusObservability.GetElapsed(startedAt));
+        telemetry.RecordOperation("get", policyName, "l2", "hit", FsusObservability.GetElapsed(startedAt));
         return new CacheReadResult<T>(true, value);
     }
 
@@ -235,7 +200,7 @@ public sealed class UnifiedCache(
         cancellationToken.ThrowIfCancellationRequested();
         if (TryGetL1(l1Key, out byte[] l1Bytes))
         {
-            FsusObservability.RecordCacheOperation("get_raw", policyName, "l1", "hit", FsusObservability.GetElapsed(startedAt));
+            telemetry.RecordOperation("get_raw", policyName, "l1", "hit", FsusObservability.GetElapsed(startedAt));
             return new CacheReadResult<byte[]>(true, CopyRawBytes(l1Bytes));
         }
 
@@ -244,13 +209,13 @@ public sealed class UnifiedCache(
         cancellationToken.ThrowIfCancellationRequested();
         if (!l2Value.HasValue)
         {
-            FsusObservability.RecordCacheOperation("get_raw", policyName, "l2", "miss", FsusObservability.GetElapsed(startedAt));
+            telemetry.RecordOperation("get_raw", policyName, "l2", "miss", FsusObservability.GetElapsed(startedAt));
             return new CacheReadResult<byte[]>(false, default);
         }
 
         byte[] bytes = (byte[])l2Value!;
         SetL1(policy, l1Key, key, bytes);
-        FsusObservability.RecordCacheOperation("get_raw", policyName, "l2", "hit", FsusObservability.GetElapsed(startedAt));
+        telemetry.RecordOperation("get_raw", policyName, "l2", "hit", FsusObservability.GetElapsed(startedAt));
         return new CacheReadResult<byte[]>(true, CopyRawBytes(bytes));
     }
 
@@ -281,7 +246,7 @@ public sealed class UnifiedCache(
         cancellationToken.ThrowIfCancellationRequested();
         if (TryGetL1(l1Key, out byte[] l1Bytes))
         {
-            FsusObservability.RecordCacheOperation("get_raw_readonly", policyName, "l1", "hit", FsusObservability.GetElapsed(startedAt));
+            telemetry.RecordOperation("get_raw_readonly", policyName, "l1", "hit", FsusObservability.GetElapsed(startedAt));
             return new CacheReadResult<ReadOnlyMemory<byte>>(true, l1Bytes);
         }
 
@@ -290,13 +255,13 @@ public sealed class UnifiedCache(
         cancellationToken.ThrowIfCancellationRequested();
         if (!l2Value.HasValue)
         {
-            FsusObservability.RecordCacheOperation("get_raw_readonly", policyName, "l2", "miss", FsusObservability.GetElapsed(startedAt));
+            telemetry.RecordOperation("get_raw_readonly", policyName, "l2", "miss", FsusObservability.GetElapsed(startedAt));
             return new CacheReadResult<ReadOnlyMemory<byte>>(false, default);
         }
 
         byte[] bytes = (byte[])l2Value!;
         SetL1(policy, l1Key, key, bytes);
-        FsusObservability.RecordCacheOperation("get_raw_readonly", policyName, "l2", "hit", FsusObservability.GetElapsed(startedAt));
+        telemetry.RecordOperation("get_raw_readonly", policyName, "l2", "hit", FsusObservability.GetElapsed(startedAt));
         return new CacheReadResult<ReadOnlyMemory<byte>>(true, bytes);
     }
 
@@ -339,20 +304,20 @@ public sealed class UnifiedCache(
         cancellationToken.ThrowIfCancellationRequested();
         if (TryGetOwnedL1(l1Key, expectedFrameType, out OwnedAedsFrameReadLease? l1Lease))
         {
-            FsusObservability.RecordCacheOperation("get_owned_frame", policyName, "l1", "hit", FsusObservability.GetElapsed(startedAt));
+            telemetry.RecordOperation("get_owned_frame", policyName, "l1", "hit", FsusObservability.GetElapsed(startedAt));
             return new OwnedFrameCacheReadResult(true, l1Lease);
         }
 
         string key = BuildRedisKey(policy, identity);
-        await using IAsyncDisposable mutationGate = await AcquireKeyedLockAsync(
-                $"owned-frame:{key}",
+        await using IAsyncDisposable mutationGate = await coordination.AcquireMutationAsync(
+                key,
                 cancellationToken)
             .ConfigureAwait(false);
         ThrowIfDisposed();
         cancellationToken.ThrowIfCancellationRequested();
         if (TryGetOwnedL1(l1Key, expectedFrameType, out l1Lease))
         {
-            FsusObservability.RecordCacheOperation("get_owned_frame", policyName, "l1", "hit_after_wait", FsusObservability.GetElapsed(startedAt));
+            telemetry.RecordOperation("get_owned_frame", policyName, "l1", "hit_after_wait", FsusObservability.GetElapsed(startedAt));
             return new OwnedFrameCacheReadResult(true, l1Lease);
         }
 
@@ -367,7 +332,7 @@ public sealed class UnifiedCache(
         if (!l2Value.HasValue)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            FsusObservability.RecordCacheOperation("get_owned_frame", policyName, "l2", "miss", FsusObservability.GetElapsed(startedAt));
+            telemetry.RecordOperation("get_owned_frame", policyName, "l2", "miss", FsusObservability.GetElapsed(startedAt));
             return default;
         }
 
@@ -386,7 +351,7 @@ public sealed class UnifiedCache(
                     "Owned cache frame validation failed for policy {PolicyId}; expected {ExpectedFrameType}",
                     policyName,
                     expectedFrameType);
-                FsusObservability.RecordCacheOperation("get_owned_frame", policyName, "l2", "decode_failed", FsusObservability.GetElapsed(startedAt));
+                telemetry.RecordOperation("get_owned_frame", policyName, "l2", "decode_failed", FsusObservability.GetElapsed(startedAt));
                 return default;
             }
 
@@ -402,7 +367,7 @@ public sealed class UnifiedCache(
                     owner.Retire();
                 }
 
-                FsusObservability.RecordCacheOperation("get_owned_frame", policyName, "l2", "hit", FsusObservability.GetElapsed(startedAt));
+                telemetry.RecordOperation("get_owned_frame", policyName, "l2", "hit", FsusObservability.GetElapsed(startedAt));
                 return new OwnedFrameCacheReadResult(true, responseLease);
             }
             catch
@@ -470,8 +435,8 @@ public sealed class UnifiedCache(
             string key = BuildRedisKey(policy, identity);
             TimeSpan? l2Ttl = ResolveL2Expiry(key, policy, l2TtlOverride);
             cancellationToken.ThrowIfCancellationRequested();
-            await using IAsyncDisposable mutationGate = await AcquireKeyedLockAsync(
-                    $"owned-frame:{key}",
+            await using IAsyncDisposable mutationGate = await coordination.AcquireMutationAsync(
+                    key,
                     cancellationToken)
                 .ConfigureAwait(false);
             ThrowIfDisposed();
@@ -490,7 +455,7 @@ public sealed class UnifiedCache(
                 frame.LogicalLength,
                 frame.Capacity,
                 frame.IsPooled ? "pooled" : "exact");
-            FsusObservability.RecordCacheOperation("set_owned_frame", policyName, "l2", "ok", FsusObservability.GetElapsed(startedAt));
+            telemetry.RecordOperation("set_owned_frame", policyName, "l2", "ok", FsusObservability.GetElapsed(startedAt));
         }
         finally
         {
@@ -552,7 +517,7 @@ public sealed class UnifiedCache(
         await RegisterKeyAsync(policyId, key).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         SetL1(policy, l1Key, key, cachedValue);
-        FsusObservability.RecordCacheOperation("set", policyName, "l2", "ok", FsusObservability.GetElapsed(startedAt));
+        telemetry.RecordOperation("set", policyName, "l2", "ok", FsusObservability.GetElapsed(startedAt));
     }
 
     public Task SetNegativeAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
@@ -600,14 +565,14 @@ public sealed class UnifiedCache(
         cancellationToken.ThrowIfCancellationRequested();
         if (!committed || !await setTask.ConfigureAwait(false))
         {
-            FsusObservability.RecordCacheOperation("set_cas", policyName, "l2", "conflict", FsusObservability.GetElapsed(startedAt));
+            telemetry.RecordOperation("set_cas", policyName, "l2", "conflict", FsusObservability.GetElapsed(startedAt));
             return false;
         }
 
         await RegisterKeyAsync(policyId, key).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         SetL1(policy, l1Key, key, cachedValue);
-        FsusObservability.RecordCacheOperation("set_cas", policyName, "l2", "ok", FsusObservability.GetElapsed(startedAt));
+        telemetry.RecordOperation("set_cas", policyName, "l2", "ok", FsusObservability.GetElapsed(startedAt));
         return true;
     }
 
@@ -674,14 +639,14 @@ return 1
         bool updated = (long)result == 1L;
         if (!updated)
         {
-            FsusObservability.RecordCacheOperation("set_versioned", policyName, "l2", "conflict", FsusObservability.GetElapsed(startedAt));
+            telemetry.RecordOperation("set_versioned", policyName, "l2", "conflict", FsusObservability.GetElapsed(startedAt));
             return false;
         }
 
         await RegisterKeyAsync(policyId, key).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         SetL1(policy, l1Key, key, System.Text.Encoding.UTF8.GetBytes(value));
-        FsusObservability.RecordCacheOperation("set_versioned", policyName, "l2", "ok", FsusObservability.GetElapsed(startedAt));
+        telemetry.RecordOperation("set_versioned", policyName, "l2", "ok", FsusObservability.GetElapsed(startedAt));
         return true;
     }
 
@@ -698,7 +663,7 @@ return 1
         long updated = await _db.StringIncrementAsync(key, value).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         await RegisterKeyAsync(policyId, key).ConfigureAwait(false);
-        FsusObservability.RecordCacheOperation("increment", CachePolicyTelemetry.Name(policyId), "l2", "ok", FsusObservability.GetElapsed(startedAt));
+        telemetry.RecordOperation("increment", CachePolicyTelemetry.Name(policyId), "l2", "ok", FsusObservability.GetElapsed(startedAt));
         return updated;
     }
 
@@ -757,7 +722,7 @@ return result
             cancellationToken.ThrowIfCancellationRequested();
         }
 
-        FsusObservability.RecordCacheOperation("increment_many", CachePolicyTelemetry.Name(policyId), "l2", "ok", FsusObservability.GetElapsed(startedAt));
+        telemetry.RecordOperation("increment_many", CachePolicyTelemetry.Name(policyId), "l2", "ok", FsusObservability.GetElapsed(startedAt));
         return updated;
     }
 
@@ -797,7 +762,7 @@ return current
             .ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         await RegisterKeyAsync(policyId, key).ConfigureAwait(false);
-        FsusObservability.RecordCacheOperation("increment_expiring", CachePolicyTelemetry.Name(policyId), "l2", "ok", FsusObservability.GetElapsed(startedAt));
+        telemetry.RecordOperation("increment_expiring", CachePolicyTelemetry.Name(policyId), "l2", "ok", FsusObservability.GetElapsed(startedAt));
         return (long)result;
     }
 
@@ -851,7 +816,7 @@ return nextValue
             .ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         await RegisterKeyAsync(policyId, key).ConfigureAwait(false);
-        FsusObservability.RecordCacheOperation("increment_clamped_expiring", CachePolicyTelemetry.Name(policyId), "l2", "ok", FsusObservability.GetElapsed(startedAt));
+        telemetry.RecordOperation("increment_clamped_expiring", CachePolicyTelemetry.Name(policyId), "l2", "ok", FsusObservability.GetElapsed(startedAt));
         return (long)result;
     }
 
@@ -926,7 +891,7 @@ return result
 
         TimeSpan elapsed = FsusObservability.GetElapsed(startedAt);
         string policyName = CachePolicyTelemetry.Name(policyId);
-        FsusObservability.RecordCacheOperation("increment_many_expiring", policyName, "l2", "ok", elapsed);
+        telemetry.RecordOperation("increment_many_expiring", policyName, "l2", "ok", elapsed);
         FsusObservability.RecordIncrementManyWithExpiry(policyName, keys.Length, expiryApplied, elapsed);
         if (policyId == CachePolicyId.SecurityMfaChallenge)
         {
@@ -944,7 +909,7 @@ return result
         FsusObservability.SetTag(activity, "fsus.cache.policy", CachePolicyTelemetry.Name(policyId));
         string key = BuildKey(policyId, identity);
         bool acquired = await _db.StringSetAsync(key, value, ttl, When.NotExists).ConfigureAwait(false);
-        FsusObservability.RecordCacheOperation("lease", CachePolicyTelemetry.Name(policyId), "l2", acquired ? "acquired" : "contended", FsusObservability.GetElapsed(startedAt));
+        telemetry.RecordOperation("lease", CachePolicyTelemetry.Name(policyId), "l2", acquired ? "acquired" : "contended", FsusObservability.GetElapsed(startedAt));
         return acquired;
     }
 
@@ -968,7 +933,7 @@ return result
             await UnregisterKeyAsync(policyId, key, cancellationToken).ConfigureAwait(false);
         }
 
-        FsusObservability.RecordCacheOperation("consume_once", CachePolicyTelemetry.Name(policyId), "l2", ok ? "consumed" : "miss", FsusObservability.GetElapsed(startedAt));
+        telemetry.RecordOperation("consume_once", CachePolicyTelemetry.Name(policyId), "l2", ok ? "consumed" : "miss", FsusObservability.GetElapsed(startedAt));
         return ok;
     }
 
@@ -990,7 +955,7 @@ return result
         cancellationToken.ThrowIfCancellationRequested();
         if (!value.HasValue)
         {
-            FsusObservability.RecordCacheOperation("consume_once_get", CachePolicyTelemetry.Name(policyId), "l2", "miss", FsusObservability.GetElapsed(startedAt));
+            telemetry.RecordOperation("consume_once_get", CachePolicyTelemetry.Name(policyId), "l2", "miss", FsusObservability.GetElapsed(startedAt));
             return new CacheReadResult<T>(false, default);
         }
 
@@ -998,7 +963,7 @@ return result
         if (bytes.Length == 0)
         {
             await UnregisterKeyAsync(policyId, key, cancellationToken).ConfigureAwait(false);
-            FsusObservability.RecordCacheOperation("consume_once_get", CachePolicyTelemetry.Name(policyId), "l2", "hit_negative", FsusObservability.GetElapsed(startedAt));
+            telemetry.RecordOperation("consume_once_get", CachePolicyTelemetry.Name(policyId), "l2", "hit_negative", FsusObservability.GetElapsed(startedAt));
             return new CacheReadResult<T>(true, default);
         }
 
@@ -1006,12 +971,12 @@ return result
         if (!success)
         {
             await UnregisterKeyAsync(policyId, key, cancellationToken).ConfigureAwait(false);
-            FsusObservability.RecordCacheOperation("consume_once_get", CachePolicyTelemetry.Name(policyId), "l2", "decode_failed", FsusObservability.GetElapsed(startedAt));
+            telemetry.RecordOperation("consume_once_get", CachePolicyTelemetry.Name(policyId), "l2", "decode_failed", FsusObservability.GetElapsed(startedAt));
             return new CacheReadResult<T>(false, default);
         }
 
         await UnregisterKeyAsync(policyId, key, cancellationToken).ConfigureAwait(false);
-        FsusObservability.RecordCacheOperation("consume_once_get", CachePolicyTelemetry.Name(policyId), "l2", "consumed", FsusObservability.GetElapsed(startedAt));
+        telemetry.RecordOperation("consume_once_get", CachePolicyTelemetry.Name(policyId), "l2", "consumed", FsusObservability.GetElapsed(startedAt));
         return new CacheReadResult<T>(true, decoded);
     }
 
@@ -1030,8 +995,8 @@ return result
         FsusObservability.SetTag(activity, "fsus.cache.policy", policyName);
         CachePolicy policy = ResolvePolicy(policyId);
         string key = BuildRedisKey(policy, identity);
-        await using IAsyncDisposable mutationGate = await AcquireKeyedLockAsync(
-                $"owned-frame:{key}",
+        await using IAsyncDisposable mutationGate = await coordination.AcquireMutationAsync(
+                key,
                 cancellationToken)
             .ConfigureAwait(false);
         RemoveL1(policyId, identity, key);
@@ -1039,7 +1004,7 @@ return result
         await _db.KeyDeleteAsync(key).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         await UnregisterKeyAsync(policyId, key).ConfigureAwait(false);
-        FsusObservability.RecordCacheOperation("remove", policyName, "l2", "ok", FsusObservability.GetElapsed(startedAt));
+        telemetry.RecordOperation("remove", policyName, "l2", "ok", FsusObservability.GetElapsed(startedAt));
     }
 
     public async Task RemoveManyAsync(IReadOnlyList<CacheKeyIdentity> keys, CancellationToken cancellationToken = default)
@@ -1112,7 +1077,7 @@ return result
         }
 
         TimeSpan elapsed = FsusObservability.GetElapsed(startedAt);
-        FsusObservability.RecordCacheOperation("remove_many", "mixed", "l2", "ok", elapsed);
+        telemetry.RecordOperation("remove_many", "mixed", "l2", "ok", elapsed);
         FsusObservability.RecordCacheRemoveMany(seenKeys.Count, redisBatches, elapsed);
     }
 
@@ -1159,7 +1124,7 @@ return result
         if (registryExists)
         {
             await DeleteRegisteredKeysByPrefixAsync(registryKey, prefix, cancellationToken).ConfigureAwait(false);
-            FsusObservability.RecordCacheOperation("remove_prefix", policyName, "l2", "ok", FsusObservability.GetElapsed(startedAt));
+            telemetry.RecordOperation("remove_prefix", policyName, "l2", "ok", FsusObservability.GetElapsed(startedAt));
 
             return;
         }
@@ -1171,7 +1136,7 @@ return result
         try
         {
             int recoveredKeys = await DeleteKeysByPrefixScanAsync(prefix, cancellationToken).ConfigureAwait(false);
-            FsusObservability.RecordCacheOperation(
+            telemetry.RecordOperation(
                 "remove_prefix",
                 policyName,
                 "l2",
@@ -1185,7 +1150,7 @@ return result
                 "cache-prefix-invalidation-scan-failed {PolicyId} {IdentityPrefix}",
                 policyId,
                 identityPrefix);
-            FsusObservability.RecordCacheOperation("remove_prefix", policyName, "l2", "registry_missing_scan_failed", FsusObservability.GetElapsed(startedAt));
+            telemetry.RecordOperation("remove_prefix", policyName, "l2", "registry_missing_scan_failed", FsusObservability.GetElapsed(startedAt));
         }
     }
 
@@ -1240,12 +1205,12 @@ return result
                     "cache-prefix-many-invalidation-scan-failed {PolicyId} {PrefixCount}",
                     group.Key,
                     resolvedPrefixes.Length);
-                FsusObservability.RecordCacheOperation("remove_prefix_many", group.Key.ToString(), "l2", "registry_missing_scan_failed", FsusObservability.GetElapsed(startedAt));
+                telemetry.RecordOperation("remove_prefix_many", group.Key.ToString(), "l2", "registry_missing_scan_failed", FsusObservability.GetElapsed(startedAt));
             }
         }
 
         TimeSpan elapsed = FsusObservability.GetElapsed(startedAt);
-        FsusObservability.RecordCacheOperation("remove_prefix_many", "mixed", "l2", "ok", elapsed);
+        telemetry.RecordOperation("remove_prefix_many", "mixed", "l2", "ok", elapsed);
         FsusObservability.RecordCacheRemovePrefixMany(prefixes.Count, registryScans, deletedKeys, elapsed);
     }
 
@@ -1492,91 +1457,10 @@ return result
         return count;
     }
 
-    public async Task<IAsyncDisposable> AcquireSingleFlightAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
-        => await AcquireKeyedLockAsync(
-                $"singleflight:{BuildKey(policyId, identity)}",
-                cancellationToken)
-            .ConfigureAwait(false);
-
-    private async Task<IAsyncDisposable> AcquireKeyedLockAsync(
-        string lockKey,
-        CancellationToken cancellationToken)
-    {
-        while (true)
-        {
-            var singleFlight = _singleFlightEntries.GetOrAdd(lockKey, static _ => new SingleFlightEntry());
-
-            if (!singleFlight.TryAddReference())
-            {
-                if (singleFlight.TryRetireIfIdle())
-                {
-                    _singleFlightEntries.TryRemove(new KeyValuePair<string, SingleFlightEntry>(lockKey, singleFlight));
-                }
-
-                await Task.Yield();
-                continue;
-            }
-
-            try
-            {
-                await singleFlight.Semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
-                return new AsyncReleaser(this, lockKey, singleFlight);
-            }
-            catch
-            {
-                ReleaseSingleFlightReference(lockKey, singleFlight);
-                throw;
-            }
-        }
-    }
-
-    private async Task<IAsyncDisposable> AcquireOwnedFrameMutationGatesAsync(
+    private Task<IAsyncDisposable> AcquireOwnedFrameMutationGatesAsync(
         IEnumerable<string> redisKeys,
         CancellationToken cancellationToken)
-    {
-        string[] orderedKeys = redisKeys
-            .Distinct(StringComparer.Ordinal)
-            .Order(StringComparer.Ordinal)
-            .ToArray();
-        if (orderedKeys.Length == 0)
-        {
-            return EmptyAsyncDisposable.s_instance;
-        }
-
-        var leases = new List<IAsyncDisposable>(orderedKeys.Length);
-        try
-        {
-            foreach (string redisKey in orderedKeys)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                leases.Add(await AcquireKeyedLockAsync(
-                        $"owned-frame:{redisKey}",
-                        cancellationToken)
-                    .ConfigureAwait(false));
-            }
-
-            return new CompositeAsyncDisposable(leases);
-        }
-        catch
-        {
-            for (int index = leases.Count - 1; index >= 0; index--)
-            {
-                await leases[index].DisposeAsync().ConfigureAwait(false);
-            }
-
-            throw;
-        }
-    }
-
-    private void ReleaseSingleFlightReference(string lockKey, SingleFlightEntry singleFlight)
-    {
-        if (!singleFlight.ReleaseReference(retireWhenIdle: true))
-        {
-            return;
-        }
-
-        _singleFlightEntries.TryRemove(new KeyValuePair<string, SingleFlightEntry>(lockKey, singleFlight));
-    }
+        => coordination.AcquireMutationsAsync(redisKeys, cancellationToken);
 
     private string BuildRedisKey(CachePolicy policy, CacheIdentity identity)
         => keyScope.PrefixKey(identity.BuildRedisKey(policy));
@@ -1607,7 +1491,7 @@ return result
                     ["exception.type"] = exception.GetType().FullName
                 }));
             logger.LogError(exception, "Cache Redis read failed for policy {PolicyId} operation {Operation}", policyName, operation);
-            FsusObservability.RecordCacheOperation(operation, policyName, "l2", "redis_error", FsusObservability.GetElapsed(startedAt));
+            telemetry.RecordOperation(operation, policyName, "l2", "redis_error", FsusObservability.GetElapsed(startedAt));
             throw;
         }
     }
@@ -1690,19 +1574,7 @@ return result
             RemoveSupersededOwnedFrameEntry(previousL1Entry, entry);
             RemoveSupersededOwnedFrameEntry(previousRedisEntry, entry);
 
-            if (_l1Entries.TryRemove(l1Key, out L1IndexEntry? rawEntry))
-            {
-                _l1KeysByRedisKey.TryRemove(
-                    new KeyValuePair<string, L1IndexEntry>(rawEntry.RedisKey, rawEntry));
-                SafeRemoveMemoryCacheEntry(rawEntry);
-            }
-            if (_l1KeysByRedisKey.TryRemove(redisKey, out L1IndexEntry? rawRedisEntry)
-                && !ReferenceEquals(rawRedisEntry, rawEntry))
-            {
-                _l1Entries.TryRemove(
-                    new KeyValuePair<CacheL1Key, L1IndexEntry>(rawRedisEntry.L1Key, rawRedisEntry));
-                SafeRemoveMemoryCacheEntry(rawRedisEntry);
-            }
+            localStore.Remove(l1Key, redisKey);
         }
 
         return true;
@@ -1764,40 +1636,9 @@ return result
 
     private void SetL1(CachePolicy policy, CacheL1Key l1Key, string redisKey, byte[] bytes)
     {
-        if (policy.L1Ttl <= TimeSpan.Zero)
-        {
-            return;
-        }
-
-        var options = new MemoryCacheEntryOptions
-        {
-            AbsoluteExpirationRelativeToNow = policy.L1Ttl
-        };
-        long ttlTimestampDelta = (long)Math.Ceiling(policy.L1Ttl.TotalSeconds * Stopwatch.Frequency);
-        long expiresAtTimestamp = Stopwatch.GetTimestamp() + Math.Max(1L, ttlTimestampDelta);
-        var indexEntry = new L1IndexEntry(l1Key, redisKey, CopyRawBytes(bytes), expiresAtTimestamp);
-        options.RegisterPostEvictionCallback(
-            static (_, _, _, state) =>
-            {
-                if (state is L1EvictionState eviction)
-                {
-                    eviction.Owner._l1Entries.TryRemove(
-                        new KeyValuePair<CacheL1Key, L1IndexEntry>(eviction.IndexEntry.L1Key, eviction.IndexEntry));
-                    eviction.Owner._l1KeysByRedisKey.TryRemove(
-                        new KeyValuePair<string, L1IndexEntry>(eviction.RedisKey, eviction.IndexEntry));
-                }
-            },
-            new L1EvictionState(this, redisKey, indexEntry));
+        localStore.Set(policy, l1Key, redisKey, bytes);
         lock (_l1MutationLock)
         {
-            _l1Entries.TryGetValue(l1Key, out L1IndexEntry? previousL1Entry);
-            _l1KeysByRedisKey.TryGetValue(redisKey, out L1IndexEntry? previousRedisEntry);
-            _l1Entries[l1Key] = indexEntry;
-            _l1KeysByRedisKey[redisKey] = indexEntry;
-            memoryCache.Set(indexEntry, true, options);
-            RemoveSupersededL1Entry(previousL1Entry, indexEntry);
-            RemoveSupersededL1Entry(previousRedisEntry, indexEntry);
-
             if (_ownedFrameEntries.TryRemove(l1Key, out OwnedFrameL1Entry? ownedEntry))
             {
                 _ownedFrameKeysByRedisKey.TryRemove(
@@ -1817,33 +1658,13 @@ return result
     }
 
     private bool TryGetL1(CacheL1Key l1Key, out byte[] bytes)
-    {
-        if (_l1Entries.TryGetValue(l1Key, out L1IndexEntry? entry))
-        {
-            if (Stopwatch.GetTimestamp() < entry.ExpiresAtTimestamp)
-            {
-                bytes = entry.Bytes;
-                return true;
-            }
-
-            _l1Entries.TryRemove(new KeyValuePair<CacheL1Key, L1IndexEntry>(l1Key, entry));
-            _l1KeysByRedisKey.TryRemove(new KeyValuePair<string, L1IndexEntry>(entry.RedisKey, entry));
-            memoryCache.Remove(entry);
-        }
-
-        bytes = null!;
-        return false;
-    }
+        => localStore.TryGet(l1Key, out bytes);
 
     private void RemoveL1(CacheL1Key l1Key, string? redisKey = null)
     {
+        localStore.Remove(l1Key, redisKey);
         lock (_l1MutationLock)
         {
-            if (_l1Entries.TryRemove(l1Key, out L1IndexEntry? directEntry))
-            {
-                memoryCache.Remove(directEntry);
-            }
-
             if (_ownedFrameEntries.TryRemove(l1Key, out OwnedFrameL1Entry? directOwnedEntry))
             {
                 _ownedFrameKeysByRedisKey.TryRemove(
@@ -1854,15 +1675,6 @@ return result
 
             if (redisKey is not null)
             {
-                if (_l1KeysByRedisKey.TryRemove(redisKey, out L1IndexEntry? indexed)
-                    && !ReferenceEquals(indexed, directEntry))
-                {
-                    _l1Entries.TryRemove(new KeyValuePair<CacheL1Key, L1IndexEntry>(indexed.L1Key, indexed));
-                    memoryCache.Remove(indexed);
-                }
-
-                memoryCache.Remove(redisKey); // rolling-upgrade cleanup for legacy string L1 keys
-
                 if (_ownedFrameKeysByRedisKey.TryRemove(redisKey, out OwnedFrameL1Entry? indexedOwned)
                     && !ReferenceEquals(indexedOwned, directOwnedEntry))
                 {
@@ -1880,15 +1692,9 @@ return result
 
     private void RemoveL1ByRedisKey(string redisKey)
     {
+        localStore.RemoveByRedisKey(redisKey);
         lock (_l1MutationLock)
         {
-            if (_l1KeysByRedisKey.TryRemove(redisKey, out L1IndexEntry? indexEntry))
-            {
-                _l1Entries.TryRemove(new KeyValuePair<CacheL1Key, L1IndexEntry>(indexEntry.L1Key, indexEntry));
-                memoryCache.Remove(indexEntry);
-            }
-
-
             if (_ownedFrameKeysByRedisKey.TryRemove(redisKey, out OwnedFrameL1Entry? ownedEntry))
             {
                 _ownedFrameEntries.TryRemove(
@@ -1896,20 +1702,7 @@ return result
                 SafeRemoveMemoryCacheEntry(ownedEntry);
                 RetireOwnedEntry(ownedEntry);
             }
-
-            memoryCache.Remove(redisKey); // rolling-upgrade cleanup for legacy string L1 keys
         }
-    }
-
-    private void RemoveSupersededL1Entry(L1IndexEntry? previous, L1IndexEntry current)
-    {
-        if (previous is null || ReferenceEquals(previous, current))
-        {
-            return;
-        }
-
-        _l1Entries.TryRemove(new KeyValuePair<CacheL1Key, L1IndexEntry>(previous.L1Key, previous));
-        memoryCache.Remove(previous);
     }
 
     private void RemoveSupersededOwnedFrameEntry(OwnedFrameL1Entry? previous, OwnedFrameL1Entry current)
@@ -2227,15 +2020,6 @@ return result
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
     }
 
-    private sealed class L1IndexEntry(CacheL1Key l1Key, string redisKey, byte[] bytes, long expiresAtTimestamp)
-    {
-        public CacheL1Key L1Key { get; } = l1Key;
-        public string RedisKey { get; } = redisKey;
-        public byte[] Bytes { get; } = bytes;
-        public long ExpiresAtTimestamp { get; } = expiresAtTimestamp;
-    }
-    private sealed record L1EvictionState(UnifiedCache Owner, string RedisKey, L1IndexEntry IndexEntry);
-
     private sealed class OwnedFrameL1Entry(
         CacheL1Key l1Key,
         string redisKey,
@@ -2284,136 +2068,4 @@ return result
         string RedisKey,
         OwnedFrameL1Entry Entry);
 
-    internal sealed class SingleFlightEntry : IDisposable
-    {
-        private int _referenceCount;
-        private int _disposed;
-        private int _retired;
-
-        public SemaphoreSlim Semaphore { get; } = new(1, 1);
-
-        public bool TryAddReference()
-        {
-            while (true)
-            {
-                if (Volatile.Read(ref _retired) == 1 || Volatile.Read(ref _disposed) == 1)
-                {
-                    return false;
-                }
-
-                int current = Volatile.Read(ref _referenceCount);
-                if (Interlocked.CompareExchange(ref _referenceCount, current + 1, current) != current)
-                {
-                    continue;
-                }
-
-                if (Volatile.Read(ref _retired) == 0 && Volatile.Read(ref _disposed) == 0)
-                {
-                    return true;
-                }
-
-                ReleaseReference();
-                return false;
-            }
-        }
-
-        public bool ReleaseReference(bool retireWhenIdle = false)
-        {
-            int remaining;
-            while (true)
-            {
-                int current = Volatile.Read(ref _referenceCount);
-                if (current <= 0)
-                {
-                    throw new InvalidOperationException("Single-flight reference count is already zero.");
-                }
-
-                remaining = current - 1;
-                if (Interlocked.CompareExchange(ref _referenceCount, remaining, current) == current)
-                {
-                    break;
-                }
-            }
-
-            if (retireWhenIdle && remaining == 0)
-            {
-                Volatile.Write(ref _retired, 1);
-            }
-
-            if (Volatile.Read(ref _retired) == 1 && remaining == 0)
-            {
-                Dispose();
-                return true;
-            }
-
-            return false;
-        }
-
-        public void MarkRetired()
-            => _ = TryRetireIfIdle(force: true);
-
-        public bool TryRetireIfIdle()
-            => TryRetireIfIdle(force: false);
-
-        private bool TryRetireIfIdle(bool force)
-        {
-            if (!force && Volatile.Read(ref _referenceCount) != 0)
-            {
-                return false;
-            }
-
-            Volatile.Write(ref _retired, 1);
-            if (Volatile.Read(ref _referenceCount) == 0)
-            {
-                Dispose();
-                return true;
-            }
-
-            return false;
-        }
-
-        public void Dispose()
-        {
-            if (Interlocked.Exchange(ref _disposed, 1) == 0)
-            {
-                Semaphore.Dispose();
-            }
-        }
-    }
-
-    private sealed class CompositeAsyncDisposable(List<IAsyncDisposable> leases) : IAsyncDisposable
-    {
-        private List<IAsyncDisposable>? _leases = leases;
-
-        public async ValueTask DisposeAsync()
-        {
-            List<IAsyncDisposable>? current = Interlocked.Exchange(ref _leases, null);
-            if (current is null)
-            {
-                return;
-            }
-
-            for (int index = current.Count - 1; index >= 0; index--)
-            {
-                await current[index].DisposeAsync().ConfigureAwait(false);
-            }
-        }
-    }
-
-    private sealed class EmptyAsyncDisposable : IAsyncDisposable
-    {
-        internal static readonly EmptyAsyncDisposable s_instance = new();
-
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
-    }
-
-    private sealed class AsyncReleaser(UnifiedCache owner, string lockKey, SingleFlightEntry entry) : IAsyncDisposable
-    {
-        public ValueTask DisposeAsync()
-        {
-            entry.Semaphore.Release();
-            owner.ReleaseSingleFlightReference(lockKey, entry);
-            return ValueTask.CompletedTask;
-        }
-    }
 }

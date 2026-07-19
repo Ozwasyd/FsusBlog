@@ -4,7 +4,7 @@ namespace FsusBlog.Server.Infrastructure.Cache;
 
 public static class AccountSnapshotCacheInvalidator
 {
-    public static Task BumpVersionAsync(IUnifiedCache cache, int accountId, CancellationToken cancellationToken = default)
+    public static Task BumpVersionAsync(ICacheCounterStore cache, int accountId, CancellationToken cancellationToken = default)
     {
         if (accountId <= 0)
         {

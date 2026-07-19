@@ -14,7 +14,7 @@ public sealed class CacheInvalidationDispatcherTests
     {
         var cache = Substitute.For<IUnifiedCache>();
         var httpCacheInvalidator = Substitute.For<IHttpCacheInvalidator>();
-        var sut = new CacheInvalidationDispatcher(cache, httpCacheInvalidator);
+        var sut = new CacheInvalidationDispatcher(cache, cache, httpCacheInvalidator);
 
         await sut.InvalidateArticleMutationAsync(42);
 
@@ -52,7 +52,7 @@ public sealed class CacheInvalidationDispatcherTests
     {
         var cache = Substitute.For<IUnifiedCache>();
         var httpCacheInvalidator = Substitute.For<IHttpCacheInvalidator>();
-        var sut = new CacheInvalidationDispatcher(cache, httpCacheInvalidator);
+        var sut = new CacheInvalidationDispatcher(cache, cache, httpCacheInvalidator);
 
         await sut.InvalidateStatsAsync();
 
@@ -76,7 +76,7 @@ public sealed class CacheInvalidationDispatcherTests
         var httpCacheInvalidator = Substitute.For<IHttpCacheInvalidator>();
         var versionPublisher = Substitute.For<IHotArticlesCacheVersionPublisher>();
         versionPublisher.PublishNextHotArticlesVersion("direct-invalidation").Returns(8L);
-        var sut = new CacheInvalidationDispatcher(cache, httpCacheInvalidator, hotArticlesVersionPublisher: versionPublisher);
+        var sut = new CacheInvalidationDispatcher(cache, cache, httpCacheInvalidator, hotArticlesVersionPublisher: versionPublisher);
 
         await sut.InvalidateHotArticlesAsync();
 
@@ -92,7 +92,7 @@ public sealed class CacheInvalidationDispatcherTests
         var cache = Substitute.For<IUnifiedCache>();
         var httpCacheInvalidator = Substitute.For<IHttpCacheInvalidator>();
         var snapshot = Substitute.For<IAotSeoConfigSnapshot>();
-        var sut = new CacheInvalidationDispatcher(cache, httpCacheInvalidator, aotSeoConfigSnapshot: snapshot);
+        var sut = new CacheInvalidationDispatcher(cache, cache, httpCacheInvalidator, aotSeoConfigSnapshot: snapshot);
 
         await sut.InvalidateSeoAsync();
         await sut.InvalidateComplianceAsync();
@@ -105,7 +105,7 @@ public sealed class CacheInvalidationDispatcherTests
     {
         var cache = Substitute.For<IUnifiedCache>();
         var httpCacheInvalidator = Substitute.For<IHttpCacheInvalidator>();
-        var sut = new CacheInvalidationDispatcher(cache, httpCacheInvalidator);
+        var sut = new CacheInvalidationDispatcher(cache, cache, httpCacheInvalidator);
 
         await sut.InvalidateCommentMutationAsync();
 
@@ -126,7 +126,7 @@ public sealed class CacheInvalidationDispatcherTests
     {
         var cache = Substitute.For<IUnifiedCache>();
         var httpCacheInvalidator = Substitute.For<IHttpCacheInvalidator>();
-        var sut = new CacheInvalidationDispatcher(cache, httpCacheInvalidator);
+        var sut = new CacheInvalidationDispatcher(cache, cache, httpCacheInvalidator);
 
         await sut.InvalidateCommentMutationAsync(new CommentCacheInvalidationScope(
             ArticleId: 42,
@@ -157,7 +157,7 @@ public sealed class CacheInvalidationDispatcherTests
         var httpCacheInvalidator = Substitute.For<IHttpCacheInvalidator>();
         var runtimeState = new CacheInvalidationRuntimeState();
         var localInvalidator = Substitute.For<IAnonymousCommentPolicyInvalidationSink>();
-        var sut = new CacheInvalidationDispatcher(cache, httpCacheInvalidator, runtimeState, commentPolicyInvalidationSink: localInvalidator);
+        var sut = new CacheInvalidationDispatcher(cache, cache, httpCacheInvalidator, runtimeState, commentPolicyInvalidationSink: localInvalidator);
 
         await sut.InvalidateCommentPolicyAsync();
 

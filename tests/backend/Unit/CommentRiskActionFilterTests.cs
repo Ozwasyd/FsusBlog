@@ -417,7 +417,7 @@ public sealed class CommentRiskActionFilterTests
 
         public Task<NameMutationPayload> ReadNameMutationAsync(HttpContext httpContext, IAedsEncoder aeds, AedsFrameType expected, CancellationToken cancellationToken) => throw new NotSupportedException();
         public string BuildArticleViewerIdentity(HttpContext context, int articleId) => throw new NotSupportedException();
-        public ValueTask<long> GetArticleListCacheVersionAsync(IUnifiedCache cache) => throw new NotSupportedException();
+        public ValueTask<long> GetArticleListCacheVersionAsync(ICacheStringReader cache) => throw new NotSupportedException();
         public string BuildArticleListCacheIdentity(long version, int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status = null, bool includePrivate = false, string keyword = "") => throw new NotSupportedException();
         public string BuildArticleHotCacheIdentity(int count) => throw new NotSupportedException();
         public string? GetDeviceFingerprint(HttpContext context) => null;

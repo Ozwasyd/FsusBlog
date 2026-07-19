@@ -18,7 +18,7 @@ public sealed class MfaChallengeServiceTests
     public async Task RecordFailureAsync_SameAccountSubjectHashSharesCounterAcrossAccountIds()
     {
         var cache = new RecordingCounterCache();
-        var service = new MfaChallengeService(cache, NullLogger<MfaChallengeService>.Instance);
+        var service = new MfaChallengeService(cache, cache, cache, cache, cache, NullLogger<MfaChallengeService>.Instance);
         const string SubjectHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
         bool locked = false;
@@ -46,7 +46,7 @@ public sealed class MfaChallengeServiceTests
     public async Task RecordFailureAsync_NormalizesSubjectHashBeforeBuildingCounterKey()
     {
         var cache = new RecordingCounterCache();
-        var service = new MfaChallengeService(cache, NullLogger<MfaChallengeService>.Instance);
+        var service = new MfaChallengeService(cache, cache, cache, cache, cache, NullLogger<MfaChallengeService>.Instance);
 
         await service.RecordFailureAsync(
             new MfaChallengeTicket
@@ -68,7 +68,7 @@ public sealed class MfaChallengeServiceTests
     public async Task RecordFailureAsync_UsesSingleAtomicCounterSnapshot()
     {
         var cache = new RecordingCounterCache();
-        var service = new MfaChallengeService(cache, NullLogger<MfaChallengeService>.Instance);
+        var service = new MfaChallengeService(cache, cache, cache, cache, cache, NullLogger<MfaChallengeService>.Instance);
 
         await service.RecordFailureAsync(
             new MfaChallengeTicket
@@ -97,7 +97,7 @@ public sealed class MfaChallengeServiceTests
     {
         var cache = new RecordingCounterCache();
         cache.Counters["fail:subject:" + s_lockedSubjectHash] = 9;
-        var service = new MfaChallengeService(cache, NullLogger<MfaChallengeService>.Instance);
+        var service = new MfaChallengeService(cache, cache, cache, cache, cache, NullLogger<MfaChallengeService>.Instance);
 
         bool locked = await service.RecordFailureAsync(
             new MfaChallengeTicket
@@ -157,8 +157,13 @@ public sealed class MfaChallengeServiceTests
                 ["MfaChallenge:TicketSigningKey"] = "unit-test-ticket-signing-key-with-at-least-32-characters"
             })
             .Build();
+        var cache = new RecordingCounterCache();
         var service = new MfaChallengeService(
-            new RecordingCounterCache(),
+            cache,
+            cache,
+            cache,
+            cache,
+            cache,
             NullLogger<MfaChallengeService>.Instance,
             configuration);
         var ticket = new MfaChallengeTicket
@@ -191,7 +196,7 @@ public sealed class MfaChallengeServiceTests
     public async Task MfaProofTokens_AreBoundToSubjectActionAndCryptographicRandomness()
     {
         var cache = new RecordingCounterCache();
-        var service = new MfaChallengeService(cache, NullLogger<MfaChallengeService>.Instance);
+        var service = new MfaChallengeService(cache, cache, cache, cache, cache, NullLogger<MfaChallengeService>.Instance);
         string first = await service.CreateProofTokenAsync(42, s_atomicSubjectHash, "passkey.delete", TimeSpan.FromMinutes(1));
         string second = await service.CreateProofTokenAsync(42, s_atomicSubjectHash, "passkey.delete", TimeSpan.FromMinutes(1));
         string otherSubject = await service.CreateProofTokenAsync(42, s_lockedSubjectHash, "passkey.delete", TimeSpan.FromMinutes(1));

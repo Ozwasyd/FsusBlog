@@ -438,7 +438,7 @@ public sealed class UnifiedCacheTests
         var cache = Substitute.For<IUnifiedCache>();
         cache.IncrementAsync(Arg.Any<CachePolicyId>(), Arg.Any<string>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(1L));
-        var dispatcher = new CacheInvalidationDispatcher(cache, Substitute.For<IHttpCacheInvalidator>());
+        var dispatcher = new CacheInvalidationDispatcher(cache, cache, Substitute.For<IHttpCacheInvalidator>());
 
         await dispatcher.InvalidateCommentMutationAsync(new CommentCacheInvalidationScope(
             ArticleId: 42,
@@ -464,7 +464,7 @@ public sealed class UnifiedCacheTests
         var cache = Substitute.For<IUnifiedCache>();
         cache.IncrementAsync(Arg.Any<CachePolicyId>(), Arg.Any<string>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(1L));
-        var dispatcher = new CacheInvalidationDispatcher(cache, Substitute.For<IHttpCacheInvalidator>());
+        var dispatcher = new CacheInvalidationDispatcher(cache, cache, Substitute.For<IHttpCacheInvalidator>());
 
         await dispatcher.InvalidateCommentMutationAsync();
 
@@ -1001,132 +1001,58 @@ public sealed class UnifiedCacheTests
     }
 
     [Fact]
-    public async Task SingleFlightEntry_RetireAfterReference_DoesNotDisposeSemaphoreUntilReleased()
-    {
-        var entry = new UnifiedCache.SingleFlightEntry();
-
-        Assert.True(entry.TryAddReference());
-        entry.MarkRetired();
-
-        await entry.Semaphore.WaitAsync();
-        entry.Semaphore.Release();
-
-        entry.ReleaseReference();
-
-        await Assert.ThrowsAsync<ObjectDisposedException>(async () => await entry.Semaphore.WaitAsync());
-    }
-
-    [Fact]
-    public void SingleFlightEntry_RetiredEntryRejectsNewReferences()
-    {
-        var entry = new UnifiedCache.SingleFlightEntry();
-
-        entry.MarkRetired();
-
-        Assert.False(entry.TryAddReference());
-    }
-
-    [Fact]
-    public async Task SingleFlightEntry_TryRetireIfIdle_DoesNotDisposeReferencedSemaphore()
-    {
-        var entry = new UnifiedCache.SingleFlightEntry();
-
-        Assert.True(entry.TryAddReference());
-        Assert.False(entry.TryRetireIfIdle());
-
-        await entry.Semaphore.WaitAsync();
-        entry.Semaphore.Release();
-
-        Assert.True(entry.ReleaseReference(retireWhenIdle: true));
-        await Assert.ThrowsAsync<ObjectDisposedException>(async () => await entry.Semaphore.WaitAsync());
-    }
-
-    [Fact]
     public async Task AcquireSingleFlightAsync_RemovesEntryAfterOperationCompletes()
     {
-        using var memory = new MemoryCache(new MemoryCacheOptions());
-        var db = Substitute.For<IDatabase>();
-        UnifiedCache cache = CreateCache(memory, db);
+        using CacheSingleFlightCoordinator coordinator = CreateSingleFlightCoordinator();
 
-        await using (await cache.AcquireSingleFlightAsync(CachePolicyId.ArticleListFrame, "article:list:1"))
+        await using (await coordinator.AcquireAsync(CachePolicyId.ArticleListFrame, "article:list:1"))
         {
-            Assert.Equal(1, GetSingleFlightEntryCount(cache));
+            Assert.Equal(1, GetSingleFlightEntryCount(coordinator));
         }
 
-        Assert.Equal(0, GetSingleFlightEntryCount(cache));
+        Assert.Equal(0, GetSingleFlightEntryCount(coordinator));
     }
 
     [Fact]
     public async Task AcquireSingleFlightAsync_ManyUniqueKeysKeepsEntryCountBounded()
     {
-        using var memory = new MemoryCache(new MemoryCacheOptions());
-        var db = Substitute.For<IDatabase>();
-        UnifiedCache cache = CreateCache(memory, db);
+        using CacheSingleFlightCoordinator coordinator = CreateSingleFlightCoordinator();
 
         for (int i = 0; i < 100_000; i++)
         {
-            await using IAsyncDisposable lease = await cache.AcquireSingleFlightAsync(CachePolicyId.ArticleListFrame, $"article:list:{i}");
+            await using IAsyncDisposable lease = await coordinator.AcquireAsync(CachePolicyId.ArticleListFrame, $"article:list:{i}");
         }
 
-        Assert.Equal(0, GetSingleFlightEntryCount(cache));
+        Assert.Equal(0, GetSingleFlightEntryCount(coordinator));
     }
 
     [Fact]
-    public async Task AcquireSingleFlightAsync_DoesNotUseMemoryCacheEvictionForSingleFlight()
+    public async Task AcquireSingleFlightAsync_CoordinatorOwnsEntryLifetime()
     {
-        using var memory = new RemoveTrackingMemoryCache();
-        UnifiedCache cache = CreateCache(memory, Substitute.For<IDatabase>());
+        using CacheSingleFlightCoordinator coordinator = CreateSingleFlightCoordinator();
 
-        await using (await cache.AcquireSingleFlightAsync(CachePolicyId.ArticleListFrame, "article:list:memory-owner"))
+        await using (await coordinator.AcquireAsync(CachePolicyId.ArticleListFrame, "article:list:memory-owner"))
         {
-            Assert.Equal(1, GetSingleFlightEntryCount(cache));
-            Assert.Empty(memory.CreatedKeys);
+            Assert.Equal(1, GetSingleFlightEntryCount(coordinator));
         }
 
-        Assert.Equal(0, GetSingleFlightEntryCount(cache));
-        Assert.Empty(memory.CreatedKeys);
+        Assert.Equal(0, GetSingleFlightEntryCount(coordinator));
     }
 
     [Fact]
     public async Task AcquireSingleFlightAsync_SourceBacksOffAndConditionallyRemovesRetiredEntry()
     {
-        using var memory = new MemoryCache(new MemoryCacheOptions());
-        UnifiedCache cache = CreateCache(memory, Substitute.For<IDatabase>());
+        using CacheSingleFlightCoordinator coordinator = CreateSingleFlightCoordinator();
         Task[] contenders = Enumerable.Range(0, 64).Select(async _ =>
         {
-            await using IAsyncDisposable lease = await cache.AcquireSingleFlightAsync(
+            await using IAsyncDisposable lease = await coordinator.AcquireAsync(
                 CachePolicyId.ArticleListFrame,
                 "article:list:contended");
             await Task.Yield();
         }).ToArray();
 
         await Task.WhenAll(contenders).WaitAsync(TimeSpan.FromSeconds(10));
-        Assert.Equal(0, GetSingleFlightEntryCount(cache));
-    }
-
-    [Fact]
-    public async Task SingleFlightEntry_SourceUsesInterlockedReferenceCounting()
-    {
-        var entry = new UnifiedCache.SingleFlightEntry();
-        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        const int Contenders = 64;
-        var acquired = new CountdownEvent(Contenders);
-        Task[] holders = Enumerable.Range(0, Contenders).Select(async _ =>
-        {
-            Assert.True(entry.TryAddReference());
-            acquired.Signal();
-            await release.Task;
-            entry.ReleaseReference();
-        }).ToArray();
-        Assert.True(acquired.Wait(TimeSpan.FromSeconds(5)));
-
-        entry.MarkRetired();
-        Assert.False(entry.TryAddReference());
-        await entry.Semaphore.WaitAsync();
-        entry.Semaphore.Release();
-        release.SetResult();
-        await Task.WhenAll(holders);
-        await Assert.ThrowsAsync<ObjectDisposedException>(async () => await entry.Semaphore.WaitAsync());
+        Assert.Equal(0, GetSingleFlightEntryCount(coordinator));
     }
 
     private static CachePolicy AssertPolicy(CachePolicyRegistry registry, CachePolicyId policyId)
@@ -1177,12 +1103,20 @@ public sealed class UnifiedCacheTests
         public void Reset() => PrefixKeyCalls = 0;
     }
 
-    private static int GetSingleFlightEntryCount(UnifiedCache cache)
+    private static CacheSingleFlightCoordinator CreateSingleFlightCoordinator()
     {
-        var field = typeof(UnifiedCache).GetField("_singleFlightEntries", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        ICacheKeyResolver resolver = Substitute.For<ICacheKeyResolver>();
+        resolver.BuildKey(Arg.Any<CachePolicyId>(), Arg.Any<string>(), Arg.Any<string?>())
+            .Returns(call => $"test:{call.ArgAt<CachePolicyId>(0)}:{call.ArgAt<string>(1)}:{call.ArgAt<string?>(2)}");
+        return new CacheSingleFlightCoordinator(resolver);
+    }
+
+    private static int GetSingleFlightEntryCount(CacheSingleFlightCoordinator coordinator)
+    {
+        var field = typeof(CacheSingleFlightCoordinator).GetField("_entries", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
         Assert.NotNull(field);
-        var entries = Assert.IsType<ConcurrentDictionary<string, UnifiedCache.SingleFlightEntry>>(field.GetValue(cache));
-        return entries.Count;
+        object entries = Assert.IsAssignableFrom<object>(field.GetValue(coordinator));
+        return Assert.IsType<int>(entries.GetType().GetProperty("Count")!.GetValue(entries));
     }
 
     private sealed class RemoveTrackingMemoryCache : IMemoryCache

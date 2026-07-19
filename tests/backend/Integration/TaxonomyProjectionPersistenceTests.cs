@@ -49,7 +49,7 @@ public sealed class TaxonomyProjectionPersistenceTests(PostgresSchemaMigrationFi
         cache.IncrementAsync(CachePolicyId.TaxonomyFrameVersion, "main", 1, Arg.Any<CancellationToken>())
             .Returns(1);
         IHttpCacheInvalidator invalidator = Substitute.For<IHttpCacheInvalidator>();
-        var service = new TaxonomyCountProjectionService(db, cache, invalidator);
+        var service = new TaxonomyCountProjectionService(db, cache, cache, cache, invalidator);
 
         await service.ReconcileArticleAsync(articleId);
 
@@ -124,8 +124,8 @@ public sealed class TaxonomyProjectionPersistenceTests(PostgresSchemaMigrationFi
         IHttpCacheInvalidator invalidator = Substitute.For<IHttpCacheInvalidator>();
         using SqlSugarClient firstDb = PostgresSqlSugarTestClient.Create(connectionString);
         using SqlSugarClient secondDb = PostgresSqlSugarTestClient.Create(connectionString);
-        var firstService = new TaxonomyCountProjectionService(firstDb, cache, invalidator);
-        var secondService = new TaxonomyCountProjectionService(secondDb, cache, invalidator);
+        var firstService = new TaxonomyCountProjectionService(firstDb, cache, cache, cache, invalidator);
+        var secondService = new TaxonomyCountProjectionService(secondDb, cache, cache, cache, invalidator);
 
         await using var lockConnection = new NpgsqlConnection(connectionString);
         await lockConnection.OpenAsync();

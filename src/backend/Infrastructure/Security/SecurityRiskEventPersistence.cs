@@ -418,7 +418,8 @@ public sealed class RiskScoreEngine(ISecurityRiskEventStore store, TimeProvider 
 /// <param name="timeProvider">The clock used for event occurrence and expiry times.</param>
 public sealed class SecurityRiskEventSink(
     CrawlerRiskService hotPath,
-    IUnifiedCache cache,
+    ICacheStringReader cacheReader,
+    ICacheStringWriter cacheWriter,
     ISecurityAdminPolicyService policy,
     ISecurityRiskPseudonymizer pseudonymizer,
     SecurityRiskEventWriteQueue eventQueue,
@@ -595,7 +596,7 @@ public sealed class SecurityRiskEventSink(
             return;
         }
 
-        await cache.SetStringAsync(
+        await cacheWriter.SetStringAsync(
             CachePolicyId.SecurityPowRisk,
             identity,
             fallback.Score.ToString(CultureInfo.InvariantCulture),
@@ -610,7 +611,7 @@ public sealed class SecurityRiskEventSink(
             return 0;
         }
 
-        string? existing = await cache.GetStringAsync(CachePolicyId.SecurityPowRisk, identity, cancellationToken);
+        string? existing = await cacheReader.GetStringAsync(CachePolicyId.SecurityPowRisk, identity, cancellationToken);
         return int.TryParse(existing, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value)
             ? Math.Clamp(value, 0, policy.Current.Options.MaxRiskScore)
             : 0;

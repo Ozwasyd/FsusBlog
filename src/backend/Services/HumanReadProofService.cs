@@ -16,7 +16,7 @@ namespace FsusBlog.Server.Services;
 
 public sealed class HumanReadProofService(
     IConfiguration configuration,
-    IUnifiedCache cache,
+    ICacheLeaseStore cache,
     VisitLogChannel channel,
     TimeProvider timeProvider,
     ILogger<HumanReadProofService> logger,

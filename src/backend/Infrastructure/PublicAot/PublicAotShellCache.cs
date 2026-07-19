@@ -6,7 +6,11 @@ using StackExchange.Redis;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
 
-public sealed class PublicAotShellCache(IUnifiedCache cache, IConnectionMultiplexer redis) : IPublicAotShellCache
+public sealed class PublicAotShellCache(
+    ICacheTypedReader cacheReader,
+    ICacheRawWriter cacheWriter,
+    ICacheInvalidationStore invalidation,
+    IConnectionMultiplexer redis) : IPublicAotShellCache
 {
     private const int InvalidationBatchSize = 256;
     private readonly IDatabase _db = redis.GetDatabase();
@@ -16,7 +20,7 @@ public sealed class PublicAotShellCache(IUnifiedCache cache, IConnectionMultiple
 
     public async Task<PublicAotCacheEntry?> TryGetEntryAsync(string cacheKey, string? frontendAssetVersion, CancellationToken cancellationToken = default)
     {
-        var cached = await cache.TryGetAsync<PublicAotCacheEntry>(
+        var cached = await cacheReader.TryGetAsync<PublicAotCacheEntry>(
             CachePolicyId.PublicAotDocument,
             cacheKey,
             DecodeEntry,
@@ -27,7 +31,7 @@ public sealed class PublicAotShellCache(IUnifiedCache cache, IConnectionMultiple
     public async Task SetAsync(PublicAotCacheEntry entry, CancellationToken cancellationToken = default)
     {
         byte[] payload = SerializeEntryBytes(entry);
-        await cache.SetRawAsync(
+        await cacheWriter.SetRawAsync(
             CachePolicyId.PublicAotDocument,
             entry.CacheKey,
             payload,
@@ -62,7 +66,7 @@ public sealed class PublicAotShellCache(IUnifiedCache cache, IConnectionMultiple
             return;
         }
 
-        await cache.RemoveManyAsync(
+        await invalidation.RemoveManyAsync(
             [.. distinctKeys.Select(static key => new CacheKeyIdentity(CachePolicyId.PublicAotDocument, key))],
             cancellationToken).ConfigureAwait(false);
         if (unregisterKeys)

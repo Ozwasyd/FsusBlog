@@ -85,7 +85,7 @@ public sealed class SubscriptionEndpointsContractTests(PostgresSchemaMigrationFi
         await SeedSubscriptionAsync(db, configuration);
         var cache = new MemoryProofCache();
         var clock = new MutableTimeProvider(s_baselineNow);
-        var proofService = new SiteSubscriptionProofService(cache, clock, configuration);
+        var proofService = new SiteSubscriptionProofService(cache, cache, cache, clock, configuration);
         string proofToken;
 
         switch (scenario)
@@ -137,7 +137,7 @@ public sealed class SubscriptionEndpointsContractTests(PostgresSchemaMigrationFi
         await SeedSubscriptionAsync(db, configuration);
         var cache = new MemoryProofCache();
         var clock = new MutableTimeProvider(s_baselineNow);
-        var proofService = new SiteSubscriptionProofService(cache, clock, configuration);
+        var proofService = new SiteSubscriptionProofService(cache, cache, cache, clock, configuration);
         SiteSubscriptionUnsubscribeProofIssueResult issued = await proofService.IssueUnsubscribeProofAsync(
             new SiteSubscriptionUnsubscribeProofIssueRequest("reader@example.com", "email", TimeSpan.FromMinutes(15)));
         var request = new SiteSubscriptionBinaryRequest("reader@example.com", "email");
@@ -171,6 +171,8 @@ public sealed class SubscriptionEndpointsContractTests(PostgresSchemaMigrationFi
         await SeedSubscriptionAsync(db, configuration);
         var cache = new MemoryProofCache();
         var proofService = new SiteSubscriptionProofService(
+            cache,
+            cache,
             cache,
             new MutableTimeProvider(s_baselineNow),
             configuration);
@@ -290,7 +292,7 @@ public sealed class SubscriptionEndpointsContractTests(PostgresSchemaMigrationFi
         public Task<BinaryRequestPayload> ReadFrameAsync(HttpContext httpContext, IAedsEncoder aeds, IReadOnlyCollection<AedsFrameType> expectedFrameTypes, CancellationToken cancellationToken, int? maxFrameBytes = null) => throw new NotSupportedException();
         public Task<NameMutationPayload> ReadNameMutationAsync(HttpContext httpContext, IAedsEncoder aeds, AedsFrameType expectedFrameType, CancellationToken cancellationToken) => throw new NotSupportedException();
         public string BuildArticleViewerIdentity(HttpContext context, int articleId) => throw new NotSupportedException();
-        public ValueTask<long> GetArticleListCacheVersionAsync(IUnifiedCache cache) => throw new NotSupportedException();
+        public ValueTask<long> GetArticleListCacheVersionAsync(ICacheStringReader cache) => throw new NotSupportedException();
         public string BuildArticleListCacheIdentity(long version, int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status = null, bool includePrivate = false, string keyword = "") => throw new NotSupportedException();
         public string BuildArticleHotCacheIdentity(int count) => throw new NotSupportedException();
         public string? GetDeviceFingerprint(HttpContext context) => null;
@@ -414,8 +416,11 @@ public sealed class SubscriptionEndpointTestServerTests
                 && proof.Channel == "email"),
             Arg.Any<CancellationToken>());
 
+        IUnifiedCache invalidEmailCache = Substitute.For<IUnifiedCache>();
         var invalidEmailProof = new SiteSubscriptionProofService(
-            Substitute.For<IUnifiedCache>(),
+            invalidEmailCache,
+            invalidEmailCache,
+            invalidEmailCache,
             TimeProvider.System,
             CreateConfiguration());
         await using WebApplication invalidEmailServer = await CreateTestServerAsync(
@@ -500,7 +505,7 @@ public sealed class SubscriptionEndpointTestServerTests
         public Task<BinaryRequestPayload> ReadFrameAsync(HttpContext httpContext, IAedsEncoder aeds, IReadOnlyCollection<AedsFrameType> expectedFrameTypes, CancellationToken cancellationToken, int? maxFrameBytes = null) => throw new NotSupportedException();
         public Task<NameMutationPayload> ReadNameMutationAsync(HttpContext httpContext, IAedsEncoder aeds, AedsFrameType expectedFrameType, CancellationToken cancellationToken) => throw new NotSupportedException();
         public string BuildArticleViewerIdentity(HttpContext context, int articleId) => throw new NotSupportedException();
-        public ValueTask<long> GetArticleListCacheVersionAsync(IUnifiedCache cache) => throw new NotSupportedException();
+        public ValueTask<long> GetArticleListCacheVersionAsync(ICacheStringReader cache) => throw new NotSupportedException();
         public string BuildArticleListCacheIdentity(long version, int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status = null, bool includePrivate = false, string keyword = "") => throw new NotSupportedException();
         public string BuildArticleHotCacheIdentity(int count) => throw new NotSupportedException();
         public string? GetDeviceFingerprint(HttpContext context) => null;

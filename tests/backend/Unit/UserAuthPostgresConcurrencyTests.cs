@@ -189,7 +189,7 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
             new SugarParameter("@DeletedAt", deletedAt),
             new SugarParameter("@UserId", userId)));
         var cache = Substitute.For<IUnifiedCache>();
-        var service = new BlacklistService(cache, db);
+        var service = new BlacklistService(cache, cache, cache, cache, db);
 
         await service.BanUserAsync(userId, "must-not-ban");
         await service.UnbanUserAsync(userId);
@@ -259,7 +259,8 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
             _db: db,
             _logger: NullLogger<UserService>.Instance,
             _jwtHelper: jwt,
-            _cache: Substitute.For<IUnifiedCache>(),
+            _cacheInvalidation: Substitute.For<ICacheInvalidationStore>(),
+            _cacheCounters: Substitute.For<ICacheCounterStore>(),
             _blacklistService: Substitute.For<IBlacklistService>(),
             _messageCommandService: Substitute.For<IMessageCommandService>(),
             _messageRealtimePublisher: Substitute.For<IMessageRealtimePublisher>(),

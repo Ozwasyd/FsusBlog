@@ -11,7 +11,7 @@ namespace FsusBlog.Server.Infrastructure.Security;
 /// </summary>
 public sealed class AdaptivePowGovernor
 {
-    private readonly IUnifiedCache _cache;
+    private readonly ICacheStringReader _cache;
 
     // ==========================================
     // 难度配置 (适配前端 SIMD 加速后的新基准)
@@ -63,7 +63,7 @@ public sealed class AdaptivePowGovernor
     }
 
     /// <summary>Loads bounded PoW difficulty thresholds while retaining the shared risk cache as the scoring source.</summary>
-    public AdaptivePowGovernor(IUnifiedCache cache, IConfiguration? configuration = null)
+    public AdaptivePowGovernor(ICacheStringReader cache, IConfiguration? configuration = null)
     {
         _cache = cache;
         _baseDifficulty = Math.Clamp(ReadInt(configuration, "Security:Pow:BaseDifficulty", BaseDifficulty), 1, WarModeDifficulty);

@@ -14,7 +14,12 @@ using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Server.Services;
 
-public sealed class UserAccountReader(UserService users, IUnifiedCache cache) : IUserAccountReader
+public sealed class UserAccountReader(
+    UserService users,
+    ICacheTypedReader cacheReader,
+    ICacheRawWriter cacheWriter,
+    ICacheStringReader stringReader,
+    ICacheInvalidationStore invalidation) : IUserAccountReader
 {
     private static readonly JsonSerializerOptions s_snapshotJsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -22,7 +27,7 @@ public sealed class UserAccountReader(UserService users, IUnifiedCache cache) : 
     {
         long version = await GetSnapshotVersionAsync(id).ConfigureAwait(false);
         string identity = BuildSnapshotIdentity(id, version);
-        CacheReadResult<AccountSnapshotCacheEnvelope> cached = await cache.TryGetAsync(
+        CacheReadResult<AccountSnapshotCacheEnvelope> cached = await cacheReader.TryGetAsync(
                 CachePolicyId.AccountSnapshot,
                 identity,
                 static payload => DecodeSnapshotEnvelope(payload),
@@ -48,11 +53,11 @@ public sealed class UserAccountReader(UserService users, IUnifiedCache cache) : 
             byte[] payload = JsonSerializer.SerializeToUtf8Bytes(
                 new AccountSnapshotCacheEnvelope(version, snapshot.Value),
                 s_snapshotJsonOptions);
-            await cache.SetRawAsync(CachePolicyId.AccountSnapshot, identity, payload).ConfigureAwait(false);
+            await cacheWriter.SetRawAsync(CachePolicyId.AccountSnapshot, identity, payload).ConfigureAwait(false);
         }
         else
         {
-            await cache.RemoveAsync(CachePolicyId.AccountSnapshot, identity).ConfigureAwait(false);
+            await invalidation.RemoveAsync(CachePolicyId.AccountSnapshot, identity).ConfigureAwait(false);
         }
 
         return snapshot;
@@ -60,7 +65,7 @@ public sealed class UserAccountReader(UserService users, IUnifiedCache cache) : 
 
     private async Task<long> GetSnapshotVersionAsync(int id)
     {
-        string? value = await cache.GetStringAsync(
+        string? value = await stringReader.GetStringAsync(
                 CachePolicyId.AccountSnapshotVersion,
                 id.ToString(CultureInfo.InvariantCulture))
             .ConfigureAwait(false);

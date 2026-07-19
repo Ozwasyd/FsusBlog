@@ -21,7 +21,8 @@ namespace FsusBlog.Server.Services;
 #pragma warning disable IDE1006
 public partial class StatsService(
     ISqlSugarClient _db,
-    IUnifiedCache _cache,
+    ICacheTypedReader _cacheReader,
+    ICacheRawWriter _cacheWriter,
     ICacheMissCoordinator _cacheMissCoordinator,
     IDbConcurrencyGate _dbConcurrencyGate,
     IReadAnalyticsPrivacyPolicy _readAnalyticsPrivacy,
@@ -51,7 +52,7 @@ public partial class StatsService(
                 CachePolicyId.AdminStatsOverview,
                 identity,
                 ct => BoundaryExecutor.ExecuteValueAsync(
-                    () => _cache.TryGetAsync(CachePolicyId.AdminStatsOverview, identity, ServerCacheBinaryCodec.DecodeAdminStats, ct),
+                    () => _cacheReader.TryGetAsync(CachePolicyId.AdminStatsOverview, identity, ServerCacheBinaryCodec.DecodeAdminStats, ct),
                     _ => new CacheReadResult<AdminStatsOverviewDto>(false, default),
                     _logger,
                     "stats-cache-read",
@@ -62,7 +63,7 @@ public partial class StatsService(
                     {
                         AdminStatsOverviewDto result = await LoadAdminStatsOverviewFromDbAsync(gateCt);
                         await BoundaryExecutor.ExecuteAsync(
-                            () => _cache.SetRawAsync(CachePolicyId.AdminStatsOverview, identity, ServerCacheBinaryCodec.EncodeAdminStats(result), null, gateCt),
+                            () => _cacheWriter.SetRawAsync(CachePolicyId.AdminStatsOverview, identity, ServerCacheBinaryCodec.EncodeAdminStats(result), null, gateCt),
                             _logger,
                             "stats-cache-write",
                             LogLevel.Error);
@@ -70,7 +71,7 @@ public partial class StatsService(
                     },
                     async gateCt =>
                     {
-                        CacheReadResult<AdminStatsOverviewDto> retry = await _cache.TryGetAsync(CachePolicyId.AdminStatsOverview, identity, ServerCacheBinaryCodec.DecodeAdminStats, gateCt);
+                        CacheReadResult<AdminStatsOverviewDto> retry = await _cacheReader.TryGetAsync(CachePolicyId.AdminStatsOverview, identity, ServerCacheBinaryCodec.DecodeAdminStats, gateCt);
                         if (retry.Hit && retry.Value is not null)
                         {
                             return retry.Value;
@@ -92,11 +93,11 @@ public partial class StatsService(
         return await _cacheMissCoordinator.CoordinateAsync(
                 CachePolicyId.AdminStatsRecentComments,
                 identity,
-                ct => _cache.TryGetAsync(CachePolicyId.AdminStatsRecentComments, identity, ServerCacheBinaryCodec.DecodeRecentCommentStats, ct),
+                ct => _cacheReader.TryGetAsync(CachePolicyId.AdminStatsRecentComments, identity, ServerCacheBinaryCodec.DecodeRecentCommentStats, ct),
                 async ct =>
                 {
                     List<RecentCommentStatItemDto> result = await LoadRecentCommentsAsync(ct);
-                    await _cache.SetRawAsync(CachePolicyId.AdminStatsRecentComments, identity, ServerCacheBinaryCodec.EncodeRecentCommentStats(result), null, ct);
+                    await _cacheWriter.SetRawAsync(CachePolicyId.AdminStatsRecentComments, identity, ServerCacheBinaryCodec.EncodeRecentCommentStats(result), null, ct);
                     return result;
                 },
                 "admin-stats-recent-comments")
@@ -112,11 +113,11 @@ public partial class StatsService(
         return await _cacheMissCoordinator.CoordinateAsync(
                 CachePolicyId.AdminStatsRegions,
                 identity,
-                ct => _cache.TryGetAsync(CachePolicyId.AdminStatsRegions, identity, ServerCacheBinaryCodec.DecodeRegionStats, ct),
+                ct => _cacheReader.TryGetAsync(CachePolicyId.AdminStatsRegions, identity, ServerCacheBinaryCodec.DecodeRegionStats, ct),
                 async ct =>
                 {
                     List<RegionStatItemDto> result = await LoadRegionStatsAsync(ct);
-                    await _cache.SetRawAsync(CachePolicyId.AdminStatsRegions, identity, ServerCacheBinaryCodec.EncodeRegionStats(result), null, ct);
+                    await _cacheWriter.SetRawAsync(CachePolicyId.AdminStatsRegions, identity, ServerCacheBinaryCodec.EncodeRegionStats(result), null, ct);
                     return result;
                 },
                 "admin-stats-regions")

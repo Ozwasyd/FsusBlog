@@ -14,7 +14,8 @@ using Konscious.Security.Cryptography;
 namespace FsusBlog.Server.Services.Security;
 
 public sealed class Argon2idPoSpaceV1ChallengeProvider(
-    IUnifiedCache cache,
+    ICacheStringWriter cacheWriter,
+    ICacheOneTimeStore oneTimeStore,
     ISecurityChallengePersistenceService persistence,
     ISecurityRiskSignalSink riskSignalSink,
     IConfiguration configuration,
@@ -92,7 +93,7 @@ public sealed class Argon2idPoSpaceV1ChallengeProvider(
                 issuedAt.UtcDateTime,
                 expiresAt.UtcDateTime),
             cancellationToken);
-        await cache.SetStringAsync(
+        await cacheWriter.SetStringAsync(
             CachePolicyId.SecurityPoSpaceChallenge,
             challengeId,
             payloadHash,
@@ -126,7 +127,7 @@ public sealed class Argon2idPoSpaceV1ChallengeProvider(
             return SecurityChallengeProviderVerifyResult.Failed("pospace_payload_invalid");
         }
 
-        bool consumed = await cache.ConsumeOnceAsync(CachePolicyId.SecurityPoSpaceChallenge, request.ChallengeId, cancellationToken);
+        bool consumed = await oneTimeStore.ConsumeOnceAsync(CachePolicyId.SecurityPoSpaceChallenge, request.ChallengeId, cancellationToken);
         if (!consumed)
         {
             await RecordRejectedAsync(request, SecurityChallengeAttemptOutcomes.Replayed, "pospace_replayed", "PoSpaceReplay", payload.ProofHex, cancellationToken);

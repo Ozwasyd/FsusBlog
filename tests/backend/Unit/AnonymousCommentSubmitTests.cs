@@ -1076,7 +1076,7 @@ public sealed class AnonymousCommentSubmitTests(
             => throw new NotSupportedException();
 
         public string BuildArticleViewerIdentity(HttpContext context, int articleId) => $"article:{articleId}:viewer:test";
-        public ValueTask<long> GetArticleListCacheVersionAsync(IUnifiedCache cache) => ValueTask.FromResult(0L);
+        public ValueTask<long> GetArticleListCacheVersionAsync(ICacheStringReader cache) => ValueTask.FromResult(0L);
         public string BuildArticleListCacheIdentity(long version, int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status = null, bool includePrivate = false, string keyword = "") => "article-list";
         public string BuildArticleHotCacheIdentity(int count) => $"hot:{count}";
         public string? GetDeviceFingerprint(HttpContext context) => null;

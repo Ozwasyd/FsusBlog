@@ -19,6 +19,8 @@ public sealed class TaxonomyProjectionTests
         var service = new TaxonomyCountProjectionService(
             Substitute.For<ISqlSugarClient>(),
             cache,
+            cache,
+            cache,
             Substitute.For<IHttpCacheInvalidator>());
 
         long version = await service.BumpFrameVersionAsync("test");

@@ -102,7 +102,12 @@ public readonly record struct PasskeyCredentialMutationResult(bool Success, stri
 public sealed class PasskeyService(
     IFido2 fido2,
     ISqlSugarClient db,
-    IUnifiedCache cache,
+    ICacheTypedReader cacheReader,
+    ICacheRawWriter cacheWriter,
+    ICacheStringWriter stringWriter,
+    ICacheCounterStore counters,
+    ICacheOneTimeStore oneTimeStore,
+    ICacheInvalidationStore invalidation,
     IUserSessionCommandService sessions,
     IMessageNotificationStreamPort notificationStream,
     IAuditEventService auditEvents,
@@ -173,7 +178,7 @@ public sealed class PasskeyService(
         string sessionKey = Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(32));
         var coreOptions = ToRegisterBeginCore(sessionKey, options);
 
-        await cache.SetRawAsync(
+        await cacheWriter.SetRawAsync(
             CachePolicyId.SecurityPasskeyRegChallenge,
             sessionKey,
             PodBinaryCodec.EncodePasskeyRegisterBegin(coreOptions),
@@ -199,8 +204,8 @@ public sealed class PasskeyService(
             .Where(u => u.Id == accountId)
             .SetColumns(u => u.PasskeyEnabled == true)
             .ExecuteCommandAsync();
-        await AccountSnapshotCacheInvalidator.BumpVersionAsync(cache, accountId, cancellationToken).ConfigureAwait(false);
-        await cache.RemoveAsync(CachePolicyId.SecurityPasskeyRegChallenge, request.SessionKey, cancellationToken);
+        await AccountSnapshotCacheInvalidator.BumpVersionAsync(counters, accountId, cancellationToken).ConfigureAwait(false);
+        await invalidation.RemoveAsync(CachePolicyId.SecurityPasskeyRegChallenge, request.SessionKey, cancellationToken);
 
         return (true, "通行密钥注册成功");
     }
@@ -399,7 +404,7 @@ public sealed class PasskeyService(
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var cached = await cache.TryGetAsync<PasskeyRegisterBeginCoreModel>(
+        var cached = await cacheReader.TryGetAsync<PasskeyRegisterBeginCoreModel>(
             CachePolicyId.SecurityPasskeyRegChallenge,
             request.SessionKey,
             static bytes => PodBinaryCodec.TryDecodePasskeyRegisterBegin(bytes, out var options)
@@ -488,8 +493,8 @@ public sealed class PasskeyService(
         string registrationSessionKey,
         CancellationToken cancellationToken)
     {
-        await AccountSnapshotCacheInvalidator.BumpVersionAsync(cache, accountId, cancellationToken).ConfigureAwait(false);
-        await cache.RemoveAsync(
+        await AccountSnapshotCacheInvalidator.BumpVersionAsync(counters, accountId, cancellationToken).ConfigureAwait(false);
+        await invalidation.RemoveAsync(
             CachePolicyId.SecurityPasskeyRegChallenge,
             registrationSessionKey,
             cancellationToken).ConfigureAwait(false);
@@ -527,7 +532,7 @@ public sealed class PasskeyService(
 
         string challengeToken = GenerateChallengeToken();
         var coreOptions = ToLoginBeginCore(challengeToken, options);
-        await cache.SetRawAsync(
+        await cacheWriter.SetRawAsync(
             CachePolicyId.SecurityPasskeyAuthChallenge,
             challengeToken,
             PodBinaryCodec.EncodePasskeyLoginBegin(coreOptions),
@@ -541,7 +546,7 @@ public sealed class PasskeyService(
     {
         long started = Stopwatch.GetTimestamp();
         cancellationToken.ThrowIfCancellationRequested();
-        var cached = await cache.TryGetAsync<PasskeyLoginBeginCoreModel>(
+        var cached = await cacheReader.TryGetAsync<PasskeyLoginBeginCoreModel>(
             CachePolicyId.SecurityPasskeyAuthChallenge,
             request.ChallengeToken,
             static bytes => PodBinaryCodec.TryDecodePasskeyLoginBegin(bytes, out var options)
@@ -553,7 +558,7 @@ public sealed class PasskeyService(
             return (false, "认证会话已过期，请重新开始", null);
         }
 
-        await cache.RemoveAsync(CachePolicyId.SecurityPasskeyAuthChallenge, request.ChallengeToken, cancellationToken);
+        await invalidation.RemoveAsync(CachePolicyId.SecurityPasskeyAuthChallenge, request.ChallengeToken, cancellationToken);
 
         var options = ToAssertionOptions(cached.Value);
         if (options.UserVerification != UserVerificationRequirement.Required)
@@ -684,7 +689,7 @@ public sealed class PasskeyService(
 
         string challengeToken = GenerateChallengeToken();
         var coreOptions = ToLoginBeginCore(challengeToken, options);
-        await cache.SetRawAsync(
+        await cacheWriter.SetRawAsync(
             CachePolicyId.SecurityPasskeyAuthChallenge,
             StepUpChallengeIdentity(challengeToken),
             PodBinaryCodec.EncodePasskeyLoginBegin(coreOptions),
@@ -706,7 +711,7 @@ public sealed class PasskeyService(
             return (false, "用户会话无效");
         }
 
-        var cached = await cache.ConsumeOnceAndGetAsync<PasskeyLoginBeginCoreModel>(
+        var cached = await oneTimeStore.ConsumeOnceAndGetAsync<PasskeyLoginBeginCoreModel>(
             CachePolicyId.SecurityPasskeyAuthChallenge,
             StepUpChallengeIdentity(request.ChallengeToken),
             static bytes => PodBinaryCodec.TryDecodePasskeyLoginBegin(bytes, out var options)
@@ -827,7 +832,7 @@ public sealed class PasskeyService(
             return result;
         }
 
-        await cache.SetStringAsync(
+        await stringWriter.SetStringAsync(
             CachePolicyId.SecurityPasskeyAuthChallenge,
             StepUpActionIdentity(result.Data.Options.ChallengeToken),
             normalizedAction,
@@ -848,7 +853,7 @@ public sealed class PasskeyService(
             return (false, result.Message, string.Empty);
         }
 
-        var action = await cache.ConsumeOnceAndGetAsync<string>(
+        var action = await oneTimeStore.ConsumeOnceAndGetAsync<string>(
             CachePolicyId.SecurityPasskeyAuthChallenge,
             StepUpActionIdentity(request.ChallengeToken),
             static bytes => (true, System.Text.Encoding.UTF8.GetString(bytes.Span)),
@@ -1255,7 +1260,7 @@ public sealed class PasskeyService(
                     .Where(u => u.Id == accountId)
                     .SetColumns(u => u.PasskeyEnabled == false)
                     .ExecuteCommandAsync(cancellationToken);
-                await AccountSnapshotCacheInvalidator.BumpVersionAsync(cache, accountId, cancellationToken).ConfigureAwait(false);
+                await AccountSnapshotCacheInvalidator.BumpVersionAsync(counters, accountId, cancellationToken).ConfigureAwait(false);
             }
 
             result = PasskeyCredentialMutationResult.Succeeded("通行密钥已删除");
@@ -1384,7 +1389,7 @@ public sealed class PasskeyService(
 
         try
         {
-            await AccountSnapshotCacheInvalidator.BumpVersionAsync(cache, user.Id, cancellationToken);
+            await AccountSnapshotCacheInvalidator.BumpVersionAsync(counters, user.Id, cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

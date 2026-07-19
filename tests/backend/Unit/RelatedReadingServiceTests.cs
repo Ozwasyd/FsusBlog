@@ -54,7 +54,7 @@ public sealed class RelatedReadingServiceTests(PostgresSchemaMigrationFixture fi
         using var memory = new MemoryCache(new MemoryCacheOptions());
         var commands = new List<string>();
         db.Aop.OnLogExecuting = (sql, _) => commands.Add(sql);
-        var service = new RelatedReadingService(db, cache, memory);
+        var service = new RelatedReadingService(db, cache, cache, cache, memory);
 
         RelatedReadingResponse? cold = await service.BuildAsync(sourceId);
         Assert.NotNull(cold);

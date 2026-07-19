@@ -36,7 +36,7 @@ public class BlacklistServiceTests
             RowVersion = "7"
         }));
         db.Queryable<User>().Returns(queryable);
-        var service = new BlacklistService(cache, db);
+        var service = new BlacklistService(cache, cache, cache, cache, db);
         string accountSubjectKey = ExpectedAccountSubjectKey("SameSubject");
 
         await service.BanUserAsync(42, "  spam  ");
@@ -78,7 +78,7 @@ public class BlacklistServiceTests
             RowVersion = "8"
         }));
         db.Queryable<User>().Returns(queryable);
-        var service = new BlacklistService(cache, db);
+        var service = new BlacklistService(cache, cache, cache, cache, db);
 
         var snapshot = await service.GetBanStateAsync(42, accountSubjectHash);
 
@@ -104,7 +104,7 @@ public class BlacklistServiceTests
         cache.GetStringAsync(CachePolicyId.SecurityBlacklistUser, accountSubjectKey, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<string?>(BlacklistService.EncodeCacheValueForTests(1, "cached ban", "9")));
         var db = Substitute.For<ISqlSugarClient>();
-        var service = new BlacklistService(cache, db);
+        var service = new BlacklistService(cache, cache, cache, cache, db);
 
         var first = await service.GetBanStateAsync(42, accountSubjectHash);
         var rebuilt = await service.GetBanStateAsync(84, accountSubjectHash);
@@ -138,7 +138,7 @@ public class BlacklistServiceTests
             RowVersion = "10"
         }));
         db.Queryable<User>().Returns(queryable);
-        var service = new BlacklistService(cache, db);
+        var service = new BlacklistService(cache, cache, cache, cache, db);
 
         var snapshot = await service.GetBanStateAsync(42, accountSubjectHash);
 
@@ -176,7 +176,7 @@ public class BlacklistServiceTests
             RowVersion = "10"
         }));
         db.Queryable<User>().Returns(queryable);
-        var service = new BlacklistService(cache, db);
+        var service = new BlacklistService(cache, cache, cache, cache, db);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => service.GetBanStateAsync(42, ClaimSubjectHash));
@@ -221,7 +221,7 @@ public class BlacklistServiceTests
             RowVersion = "11"
         }));
         db.Queryable<User>().Returns(queryable);
-        var service = new BlacklistService(cache, db);
+        var service = new BlacklistService(cache, cache, cache, cache, db);
 
         var snapshot = await service.GetBanStateAsync(42, accountSubjectHash);
 
@@ -259,7 +259,7 @@ public class BlacklistServiceTests
             RowVersion = "13"
         }));
         db.Queryable<User>().Returns(queryable);
-        var service = new BlacklistService(cache, db);
+        var service = new BlacklistService(cache, cache, cache, cache, db);
         string accountSubjectKey = ExpectedAccountSubjectKey("SameSubject");
 
         await service.UnbanUserAsync(42);
@@ -304,7 +304,7 @@ public class BlacklistServiceTests
             RowVersion = "14"
         }));
         db.Queryable<User>().Returns(queryable);
-        var service = new BlacklistService(cache, db);
+        var service = new BlacklistService(cache, cache, cache, cache, db);
 
         var snapshot = await service.GetBanStateAsync(42, accountSubjectHash);
 

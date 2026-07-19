@@ -773,21 +773,22 @@ public sealed class ProductionReadinessProbe(
     {
         try
         {
-            IUnifiedCache? cache = serviceProvider.GetService<IUnifiedCache>();
-            if (cache is null)
+            ICacheStringWriter? cacheWriter = serviceProvider.GetService<ICacheStringWriter>();
+            ICacheOneTimeStore? oneTimeStore = serviceProvider.GetService<ICacheOneTimeStore>();
+            if (cacheWriter is null || oneTimeStore is null)
             {
                 return new RedisConsumeOnceReadiness(false);
             }
 
             string identity = "risk-control-readiness:" + Guid.NewGuid().ToString("N");
-            await cache.SetStringAsync(
+            await cacheWriter.SetStringAsync(
                 CachePolicyId.SecurityChallengeProof,
                 identity,
                 "readiness",
                 TimeSpan.FromSeconds(5),
                 cancellationToken);
-            bool firstConsume = await cache.ConsumeOnceAsync(CachePolicyId.SecurityChallengeProof, identity, cancellationToken);
-            bool replayConsume = await cache.ConsumeOnceAsync(CachePolicyId.SecurityChallengeProof, identity, cancellationToken);
+            bool firstConsume = await oneTimeStore.ConsumeOnceAsync(CachePolicyId.SecurityChallengeProof, identity, cancellationToken);
+            bool replayConsume = await oneTimeStore.ConsumeOnceAsync(CachePolicyId.SecurityChallengeProof, identity, cancellationToken);
             return new RedisConsumeOnceReadiness(firstConsume && !replayConsume);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
