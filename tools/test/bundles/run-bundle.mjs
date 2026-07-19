@@ -52,6 +52,7 @@ import {
   publishRunBoundMarker,
   waitForRunBoundMarker
 } from '../../test-matrix/run-bound-marker.mjs'
+import { publishFrontendBuildTerminalMarker } from '../../test-matrix/frontend-build-ready-marker.mjs'
 import {
   consumeResidentLeaseHandoffFile,
   productionResidentServiceIds,
@@ -508,26 +509,13 @@ function publishFrontendBuildReady() {
 }
 
 function publishFrontendBuildTerminal(status, reason) {
-  if (!['failure', 'cancelled'].includes(status)) throw new Error(`invalid frontend build terminal status: ${status}`)
   const runId = schedulerRunId()
-  const markerFile = frontendBuildReadyFile(runId)
-  try {
-    const existing = JSON.parse(fs.readFileSync(markerFile, 'utf8'))
-    if (existing.schema === 'fsusblog.local-production.frontend-build-ready.v1'
-      && existing.status === 'success'
-      && existing.schedulerRunId === runId) return
-  } catch {}
-  const publishedAt = new Date().toISOString()
-  writeJsonAtomic(markerFile, {
-    schema: 'fsusblog.local-production.frontend-build-ready.v1',
-    status,
-    physicalBundleId: 'build-static',
-    producerStepId: 'sync-static-assets',
-    schedulerRunId: runId,
+  publishFrontendBuildTerminalMarker({
+    file: frontendBuildReadyFile(runId),
+    runId,
     buildLayout: buildLayoutBinding(),
-    reason: String(reason ?? status),
-    publishedAt,
-    generatedAt: publishedAt
+    status,
+    reason
   })
 }
 

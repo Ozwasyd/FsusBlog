@@ -47,3 +47,24 @@ test IDs, and logical member projection remain unchanged.
 
 Rollback moves the perf command back after the frontend DAG and restores the old summary wait. No application API,
 runtime service, release artifact, test inventory, or cache identity changes, and no service restart is required.
+
+## Focused verification
+
+The marker state transition is implemented in `tools/test-matrix/frontend-build-ready-marker.mjs` so the production
+bundle and the contract suite execute the same code. A current-run success marker is immutable against later failure
+or cancellation from unrelated `build-static` tail work; a stale success marker cannot hide a current-run terminal
+state, and terminal publication uses an atomic rename.
+
+Run the checkpointable static governance tier plus the focused executable contracts without starting Production:
+
+```bash
+./tools/test.sh static-governance --fresh
+node --test \
+  tests/tools/frontend-build-ready-marker.test.mjs \
+  tests/tools/run-bound-marker.test.mjs \
+  tests/tools/frontend-bundle-dag.test.mjs
+```
+
+These checks prove marker identity, terminal propagation, all-host settlement, and the exact perf admission DAG. They
+do not produce same-SHA wall-clock measurements, so performance timing remains `not measured` unless separate full
+Production runs are supplied.

@@ -869,7 +869,7 @@ test('cold frontend static phases move to frontend-tests while build-static rema
   assert.match(localBundleRunner, /if \(step\.id === 'sync-static-assets'\) publishFrontendBuildReady\(\)/u)
   assert.match(localBundleRunner, /async function waitForFrontendBuildReady[\s\S]*?marker\.schedulerRunId !== expectedRunId[\s\S]*?digestArtifacts/u)
   assert.match(localBundleRunner, /producerStepId: 'sync-static-assets'[\s\S]*?publishedAt/u)
-  assert.match(localBundleRunner, /function publishFrontendBuildTerminal[\s\S]*?status[\s\S]*?writeJsonAtomic/u)
+  assert.match(localBundleRunner, /function publishFrontendBuildTerminal[\s\S]*?publishFrontendBuildTerminalMarker/u)
   assert.match(localBundleRunner, /\['frontend-build', 'sync-static-assets'\]\.includes\(step\.id\)[\s\S]*?publishFrontendBuildTerminal\('failure'/u)
   assert.match(localBundleRunner, /bundleId === 'build-static'\) publishFrontendBuildTerminal\('cancelled', signal\)/u)
   assert.match(localBundleRunner, /function resolveMarkerPollIntervalMs\(\)[\s\S]*?bundleCapacity\(\)\.cpuUnits[\s\S]*?Math\.ceil\(1000 \/ cpuUnits\)/u)
