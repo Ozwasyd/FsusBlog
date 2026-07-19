@@ -316,6 +316,9 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 198 | `AnonymousCommentTicketRequest` | `AnonymousCommentTicketRequestPod` | v5/layout 6 最小资格谓词、root hashes、proof 与 canonical public inputs；不携带精确属性 |
 | 199 | `AnonymousCommentTicketResponse` | `AnonymousCommentTicketResponsePod` | expiry、`common` / `unknown` rate class、审核谓词、opaque ticket 与 moderation subject hash |
 | 200 | `SecurityChallengeCancelRequest` | `SecurityChallengeCancelRequestPod` + shared blob | 撤销 action/route/device/policy 绑定的 aggregate challenge envelope；响应为 `EmptySuccess` |
+| 201 | `ConversationReadRequest` | `ConversationReadRequestPod` | 账号 mark-read 显式 `readThroughMessageId` |
+| 202 | `AccountConversationReplyRequest` | `AccountConversationReplyRequestPod` + shared blob | 账号回复正文与显式读取位置；admin 回复继续使用 frame 60 |
+| 203 | `ConversationDetailV2` | `ConversationDetailV2Pod` + message records/blob | 对话详情与可见 `readSnapshotMessageId` |
 | 182 | `AnonymousCommentCreateRequest` | `AnonymousCommentCreateRequestPod` | `POST /api/binary/comment/anonymous` 请求体；不包含 user id、username、Authorization token 或 public handle |
 | 183 | `AnonymousPrivacyStateSnapshot` | `AnonymousPrivacyStateSnapshotPod` | 前端匿名隐私状态快照 |
 | 184 | `PerceptionSealedChallengeV2` | `PerceptionSealedChallengeV2Pod` | `fsu.challenge/perception-sealed@v2` issue payload；覆盖 Character、Localization、MicroInteraction 三类 perception task |
@@ -431,6 +434,9 @@ replyToAuthorPayload?:CommentAuthorViewPod + blobLength:int32 + blob
 | 类型 | 字节数 |
 | ------ | -------- |
 | `MessagePod` | ~512 |
+| `ConversationDetailV2Pod` | 44 |
+| `ConversationReadRequestPod` | 8 |
+| `AccountConversationReplyRequestPod` | 16 |
 
 ### 用户 / 认证 POD
 

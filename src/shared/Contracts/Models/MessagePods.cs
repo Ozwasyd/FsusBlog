@@ -192,6 +192,43 @@ public readonly struct ConversationDetailPod
 }
 
 /// <summary>
+/// Defines the fixed-layout v2 binary representation used by the
+/// <c>ConversationDetail</c> wire contract with an explicit account read snapshot.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct ConversationDetailV2Pod
+{
+    public readonly long ConversationId;
+    public readonly int Status;
+    public readonly int UnreadCount;
+    public readonly long LastMessageAtUnixMs;
+    public readonly long ReadSnapshotMessageId;
+    public readonly byte IsSystemSource;
+    public readonly byte CanReply;
+    public readonly ushort Reserved0;
+    public readonly Utf8SliceRef Subject;
+}
+
+/// <summary>
+/// Defines an account mark-read request bound to a message returned by detail.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct ConversationReadRequestPod
+{
+    public readonly long ReadThroughMessageId;
+}
+
+/// <summary>
+/// Defines an account reply request with an explicit read-through position.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct AccountConversationReplyRequestPod
+{
+    public readonly long ReadThroughMessageId;
+    public readonly Utf8SliceRef Body;
+}
+
+/// <summary>
 /// Defines the fixed-layout binary representation used by the <c>ConversationCreateRequest</c> wire contract.
 /// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]

@@ -197,6 +197,9 @@ public enum AedsFrameType : ushort
     AnonymousCommentTicketRequest = 198,
     AnonymousCommentTicketResponse = 199,
     SecurityChallengeCancelRequest = 200,
+    ConversationReadRequest = 201,
+    AccountConversationReplyRequest = 202,
+    ConversationDetailV2 = 203,
     EmptySuccess = 240,
     MutationId = 241,
     ApiError = 251

@@ -87,6 +87,7 @@ const message: ConversationMessageResponse = {
 
 const detail: ConversationDetailResponse = {
   conversationId: conversation.conversationId,
+  readSnapshotMessageId: message.messageId,
   subject: conversation.subject,
   status: conversation.status,
   isSystemSource: false,

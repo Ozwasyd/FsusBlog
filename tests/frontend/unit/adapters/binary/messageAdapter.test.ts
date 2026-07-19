@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { mapConversationDetailFromPayload, mapConversationListFromPayload, mapConversationMessageFromPayload } from '@/adapters/binary/messageAdapter'
+import {
+  mapConversationDetailFromPayload,
+  mapConversationDetailV2FromPayload,
+  mapConversationListFromPayload,
+  mapConversationMessageFromPayload
+} from '@/adapters/binary/messageAdapter'
 
 const encoder = new TextEncoder()
 
@@ -101,6 +106,7 @@ describe('binary message adapter', () => {
     const detailPayload = withBlob(detailHeader, parts)
     expect(mapConversationDetailFromPayload(detailPayload)).toEqual({
       conversationId: '7',
+      readSnapshotMessageId: '',
       subject: 'Support',
       status: 0,
       isSystemSource: false,
@@ -125,6 +131,42 @@ describe('binary message adapter', () => {
       senderName: 'Alice',
       body: 'Message body',
       createdAt: '2026-01-02T04:04:05.000Z'
+    })
+  })
+
+  it('maps the explicit read snapshot from conversation detail v2', () => {
+    const parts: Uint8Array[] = []
+    const subject = append(parts, 'Read snapshot')
+    const sender = append(parts, 'Admin')
+    const body = append(parts, 'Visible before the response completed')
+    const detailHeader = new Uint8Array(44 + 4 + 48)
+    const view = new DataView(detailHeader.buffer)
+    view.setBigInt64(0, 7n, true)
+    view.setInt32(8, 0, true)
+    view.setInt32(12, 1, true)
+    view.setBigInt64(16, BigInt(Date.parse('2026-01-02T03:04:05.000Z')), true)
+    view.setBigInt64(24, 11n, true)
+    detailHeader[32] = 0
+    detailHeader[33] = 1
+    slice(view, 36, subject.offset, subject.length)
+    view.setInt32(44, 1, true)
+    view.setBigInt64(48, 11n, true)
+    view.setBigInt64(56, 7n, true)
+    view.setInt32(64, 1, true)
+    view.setBigInt64(68, BigInt(Date.parse('2026-01-02T04:04:05.000Z')), true)
+    detailHeader[76] = 1
+    slice(view, 80, sender.offset, sender.length)
+    slice(view, 88, body.offset, body.length)
+
+    expect(mapConversationDetailV2FromPayload(withBlob(detailHeader, parts))).toMatchObject({
+      conversationId: '7',
+      readSnapshotMessageId: '11',
+      subject: 'Read snapshot',
+      messages: [{
+        messageId: '11',
+        senderName: 'Admin',
+        body: 'Visible before the response completed'
+      }]
     })
   })
 })

@@ -1,4 +1,5 @@
 using FsusBlog.Core.Cache;
+using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.NotificationStream;
@@ -93,4 +94,227 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             notifications.ReceivedCalls().Count(call =>
                 call.GetMethodInfo().Name.StartsWith("Publish", StringComparison.Ordinal)));
     }
+
+    [Fact]
+    [Trait("Category", "Concurrency")]
+    public async Task AccountReadCursor_DoubleConnectionPreservesSnapshotAcrossInsertReplyAndInternalMessages()
+    {
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using SqlSugarClient setup = PostgresSqlSugarTestClient.Create(connectionString);
+        PostgresSqlSugarTestClient.InitTables(
+            setup,
+            typeof(MessageConversation),
+            typeof(ConversationMessage),
+            typeof(ConversationParticipantState));
+
+        const int AccountId = 42;
+        const long ConversationId = 1000;
+        const long AccountMessageId = 1100;
+        const long SnapshotMessageId = 1200;
+        DateTime now = DateTime.UtcNow.AddMinutes(-5);
+        await setup.Insertable(new MessageConversation
+        {
+            Id = ConversationId,
+            Subject = "read cursor fixture",
+            InitiatorAccountId = AccountId,
+            Status = ConversationStatus.Open,
+            CreatedByType = MessageSenderType.Account,
+            CreatedByAccountId = AccountId,
+            CreatedAt = now,
+            UpdatedAt = now,
+            LastMessageAt = now
+        }).ExecuteCommandAsync();
+        await setup.Insertable(new[]
+        {
+            new ConversationMessage
+            {
+                Id = AccountMessageId,
+                ConversationId = ConversationId,
+                SenderType = MessageSenderType.Account,
+                SenderAccountId = AccountId,
+                Body = "account opened the ticket",
+                CreatedAt = now
+            },
+            new ConversationMessage
+            {
+                Id = SnapshotMessageId,
+                ConversationId = ConversationId,
+                SenderType = MessageSenderType.Admin,
+                SenderAdminPrincipalId = 7,
+                SenderAdminSessionId = "admin-fixture",
+                Body = "visible before detail",
+                CreatedAt = now.AddSeconds(1)
+            }
+        }).ExecuteCommandAsync();
+        await setup.Insertable(new ConversationParticipantState
+        {
+            ConversationId = ConversationId,
+            AccountId = AccountId,
+            LastReadMessageId = AccountMessageId,
+            UnreadCount = 1,
+            LastReadAt = now,
+            UpdatedAt = now
+        }).ExecuteCommandAsync();
+
+        IUnifiedCache unifiedCache = Substitute.For<IUnifiedCache>();
+        unifiedCache.IncrementAsync(
+                CachePolicyId.MessageUnread,
+                Arg.Any<string>(),
+                1,
+                Arg.Any<CancellationToken>())
+            .Returns(1);
+        unifiedCache.TrySetStringIfValueAsync(
+                CachePolicyId.MessageUnread,
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                null,
+                Arg.Any<CancellationToken>())
+            .Returns(true);
+        IMessageNotificationStreamPort notifications = Substitute.For<IMessageNotificationStreamPort>();
+        using SqlSugarClient firstDb = PostgresSqlSugarTestClient.Create(connectionString);
+        using SqlSugarClient secondDb = PostgresSqlSugarTestClient.Create(connectionString);
+        MessageCenterService first = CreateService(firstDb, unifiedCache, notifications);
+
+        ConversationDetailResponse detail = Assert.IsType<ConversationDetailResponse>(
+            await first.GetAccountConversationDetailAsync(AccountId, ConversationId));
+        Assert.Equal(SnapshotMessageId.ToString(), detail.ReadSnapshotMessageId);
+
+        await InsertAdminReplyAsync(secondDb, ConversationId, AccountId, "arrived after detail", 7);
+
+        Result markedSnapshot = await first.MarkConversationReadAsync(AccountId, ConversationId, SnapshotMessageId);
+        Assert.True(markedSnapshot.IsSuccess, markedSnapshot.Error.Message);
+        ConversationParticipantState participant = Assert.IsType<ConversationParticipantState>(
+            await setup.Queryable<ConversationParticipantState>()
+                .Where(it => it.ConversationId == ConversationId && it.AccountId == AccountId)
+                .FirstAsync());
+        Assert.Equal(SnapshotMessageId, participant.LastReadMessageId);
+        Assert.Equal(1, participant.UnreadCount);
+        await notifications.Received(1).PublishToUserAsync(
+            NotificationStreamEventType.InboxReadUpdated,
+            AccountId,
+            Arg.Is<InboxReadUpdatedPayload>(payload =>
+                payload.ConversationId == ConversationId.ToString()
+                && payload.LastReadMessageId == SnapshotMessageId.ToString()
+                && payload.ConversationUnreadCount == 1),
+            "inbox-read-updated");
+
+        Result regressed = await first.MarkConversationReadAsync(AccountId, ConversationId, AccountMessageId);
+        Assert.False(regressed.IsSuccess);
+        Assert.Equal(ErrorCode.Conflict, regressed.Error.Code);
+
+        long internalMessageId = SnowFlakeSingle.Instance.NextId();
+        await secondDb.Insertable(new ConversationMessage
+        {
+            Id = internalMessageId,
+            ConversationId = ConversationId,
+            SenderType = MessageSenderType.Admin,
+            SenderAdminPrincipalId = 7,
+            SenderAdminSessionId = "admin-internal",
+            Body = "internal only",
+            IsInternalNote = true,
+            CreatedAt = DateTime.UtcNow
+        }).ExecuteCommandAsync();
+        Result internalRead = await first.MarkConversationReadAsync(AccountId, ConversationId, internalMessageId);
+        Assert.False(internalRead.IsSuccess);
+        Assert.Equal(ErrorCode.NotFound, internalRead.Error.Code);
+
+        Task<Result<ConversationMessageResponse>> accountReplyTask =
+            first.ReplyAsAccountAsync(AccountId, ConversationId, SnapshotMessageId, "account reply");
+        Task adminReplyTask = InsertAdminReplyAsync(
+            secondDb,
+            ConversationId,
+            AccountId,
+            "concurrent admin reply",
+            8);
+        await Task.WhenAll(accountReplyTask, adminReplyTask);
+        Result<ConversationMessageResponse> accountReply = await accountReplyTask;
+        Assert.True(accountReply.IsSuccess, accountReply.Error.Message);
+
+        participant = Assert.IsType<ConversationParticipantState>(
+            await setup.Queryable<ConversationParticipantState>()
+                .Where(it => it.ConversationId == ConversationId && it.AccountId == AccountId)
+                .FirstAsync());
+        Assert.Equal(SnapshotMessageId, participant.LastReadMessageId);
+        Assert.Equal(2, participant.UnreadCount);
+
+        ConversationDetailResponse afterConcurrency = Assert.IsType<ConversationDetailResponse>(
+            await first.GetAccountConversationDetailAsync(AccountId, ConversationId));
+        Assert.Equal(5, afterConcurrency.Messages.Count);
+        Assert.DoesNotContain(afterConcurrency.Messages, message => message.MessageId == internalMessageId.ToString());
+        Assert.NotEqual(internalMessageId.ToString(), afterConcurrency.ReadSnapshotMessageId);
+    }
+
+    private static async Task InsertAdminReplyAsync(
+        SqlSugarClient db,
+        long conversationId,
+        int accountId,
+        string body,
+        int adminPrincipalId)
+    {
+        long messageId = SnowFlakeSingle.Instance.NextId();
+        DateTime now = DateTime.UtcNow;
+        var transaction = await db.Ado.UseTranAsync(async () =>
+        {
+            int conversationUpdated = await db.Ado.ExecuteCommandAsync(
+                """
+                UPDATE msg_conversation
+                SET updatedat = @Now,
+                    lastmessageat = @Now
+                WHERE id = @ConversationId
+                  AND status <> @ClosedStatus;
+                """,
+                new SugarParameter("@ConversationId", conversationId),
+                new SugarParameter("@Now", now),
+                new SugarParameter("@ClosedStatus", (int)ConversationStatus.Closed));
+            Assert.Equal(1, conversationUpdated);
+
+            await db.Insertable(new ConversationMessage
+            {
+                Id = messageId,
+                ConversationId = conversationId,
+                SenderType = MessageSenderType.Admin,
+                SenderAdminPrincipalId = adminPrincipalId,
+                SenderAdminSessionId = $"admin-{adminPrincipalId}",
+                Body = body,
+                CreatedAt = now
+            }).ExecuteCommandAsync();
+
+            int participantUpdated = await db.Ado.ExecuteCommandAsync(
+                """
+                UPDATE msg_participant_state state
+                SET unreadcount = (
+                        SELECT COUNT(*)::integer
+                        FROM msg_message message
+                        WHERE message.conversationid = @ConversationId
+                          AND message.id > COALESCE(state.lastreadmessageid, 0)
+                          AND message.isinternalnote = false
+                          AND NOT (
+                              message.sendertype = @AccountSenderType
+                              AND message.senderaccountid = @AccountId
+                          )
+                    ),
+                    updatedat = @Now
+                WHERE state.conversationid = @ConversationId
+                  AND state.accountid = @AccountId;
+                """,
+                new SugarParameter("@ConversationId", conversationId),
+                new SugarParameter("@AccountId", accountId),
+                new SugarParameter("@AccountSenderType", (int)MessageSenderType.Account),
+                new SugarParameter("@Now", now));
+            Assert.Equal(1, participantUpdated);
+        });
+        Assert.True(transaction.IsSuccess, transaction.ErrorMessage);
+    }
+
+    private static MessageCenterService CreateService(
+        SqlSugarClient db,
+        IUnifiedCache unifiedCache,
+        IMessageNotificationStreamPort notifications)
+        => new(
+            db,
+            new MessageCacheService(unifiedCache, unifiedCache, unifiedCache),
+            notifications,
+            NullLogger<MessageCenterService>.Instance);
 }

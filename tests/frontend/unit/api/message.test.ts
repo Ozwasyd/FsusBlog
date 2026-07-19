@@ -39,11 +39,12 @@ describe('message API binary transport', () => {
 
   it('creates and replies through binary mutation frames', async () => {
     await messageApi.createAccountConversation({ subject: 'Subject', body: 'Body' })
-    await messageApi.replyAccountConversation(7, { body: 'Reply' })
+    await messageApi.replyAccountConversation(7, { body: 'Reply', readThroughMessageId: '11' })
+    await messageApi.markConversationRead(7, '11')
 
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryRoute: { operationId: 'binary_post_messages_conversations' },
-      frameType: FrameType.ConversationDetail,
+      frameType: FrameType.ConversationDetailV2,
       requestOptions: expect.objectContaining({
         method: 'POST',
         requiresPow: true,
@@ -62,6 +63,19 @@ describe('message API binary transport', () => {
         body: expect.any(ArrayBuffer)
       })
     }))
+    const replyCall = mockBinary.mock.calls.find(([request]) =>
+      request.binaryRoute?.operationId === 'binary_post_messages_conversations_id_long_reply'
+    )?.[0]
+    const replyFrame = new DataView(replyCall?.requestOptions?.body as ArrayBuffer)
+    expect(replyFrame.getUint16(8, true)).toBe(FrameType.AccountConversationReplyRequest)
+    expect(replyFrame.getBigInt64(16, true)).toBe(11n)
+
+    const readCall = mockBinary.mock.calls.find(([request]) =>
+      request.binaryRoute?.operationId === 'binary_post_messages_conversations_id_long_read'
+    )?.[0]
+    const readFrame = new DataView(readCall?.requestOptions?.body as ArrayBuffer)
+    expect(readFrame.getUint16(8, true)).toBe(FrameType.ConversationReadRequest)
+    expect(readFrame.getBigInt64(16, true)).toBe(11n)
   })
 
   it('uses binary admin message endpoints', async () => {
@@ -83,7 +97,7 @@ describe('message API binary transport', () => {
         operationId: 'binary_get_admin_messages_conversations_id_long',
         params: { id: 9 }
       },
-      frameType: FrameType.ConversationDetail
+      frameType: FrameType.ConversationDetailV2
     }))
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryRoute: {
@@ -101,7 +115,7 @@ describe('message API binary transport', () => {
     }))
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryRoute: { operationId: 'binary_post_admin_messages_system_send' },
-      frameType: FrameType.ConversationDetail
+      frameType: FrameType.ConversationDetailV2
     }))
     const adminListCall = mockBinary.mock.calls.find(([request]) =>
       request.binaryRoute?.operationId === 'binary_get_admin_messages_conversations'

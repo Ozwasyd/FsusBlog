@@ -844,24 +844,27 @@ async function assertRoleUserAllowedBoundaries(userSession, articleId, marker) {
   }
   assert(/^\d+$/.test(conversationId), 'created role=user conversation id was not discoverable');
 
-  await expectAllowed('role=user own message conversation detail', `/api/binary/messages/conversations/${conversationId}`, {
+  const conversationDetail = await expectAllowed('role=user own message conversation detail', `/api/binary/messages/conversations/${conversationId}`, {
     method: 'GET',
     cookieHeader: userSession.cookieHeader,
     deviceFingerprint: 'permission-user-message-detail'
   });
+  const readSnapshotMessageId = String(unwrap(conversationDetail.payload)?.readSnapshotMessageId ?? '');
+  assert(/^\d+$/.test(readSnapshotMessageId), 'message detail did not return a read snapshot message id');
 
   await expectAllowed('role=user own message reply', `/api/binary/messages/conversations/${conversationId}/reply`, {
     method: 'POST',
     cookieHeader: userSession.cookieHeader,
     deviceFingerprint: 'permission-user-message-reply',
     requiresPow: true,
-    body: { body: `${marker} reply` }
+    body: { body: `${marker} reply`, readThroughMessageId: readSnapshotMessageId }
   });
 
   await expectAllowed('role=user own message mark read', `/api/binary/messages/conversations/${conversationId}/read`, {
     method: 'POST',
     cookieHeader: userSession.cookieHeader,
-    deviceFingerprint: 'permission-user-message-read'
+    deviceFingerprint: 'permission-user-message-read',
+    body: { readThroughMessageId: readSnapshotMessageId }
   });
 
   const missingConversationReply = await authBinary('/api/binary/messages/conversations/9223372036854775807/reply', {
@@ -869,7 +872,7 @@ async function assertRoleUserAllowedBoundaries(userSession, articleId, marker) {
     cookieHeader: userSession.cookieHeader,
     deviceFingerprint: 'permission-user-message-reply-missing',
     requiresPow: true,
-    body: { body: marker }
+    body: { body: marker, readThroughMessageId: readSnapshotMessageId }
   });
   assertDenied('role=user cannot reply missing/foreign conversation', missingConversationReply.response);
 

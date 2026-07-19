@@ -401,6 +401,7 @@ public class PodBinaryCodecTests
         var detail = new ConversationDetailResponse
         {
             ConversationId = "9",
+            ReadSnapshotMessageId = "11",
             Subject = "Support",
             Status = ConversationStatusValue.Pending,
             IsSystemSource = false,
@@ -432,6 +433,27 @@ public class PodBinaryCodecTests
         Assert.Equal("11", decoded.Messages[0].MessageId);
         Assert.Equal("管理员", decoded.Messages[0].SenderName);
         Assert.Equal("已收到", decoded.Messages[0].Body);
+
+        byte[] v2Encoded = PodBinaryCodec.EncodeConversationDetailV2(detail);
+        Assert.True(PodBinaryCodec.TryDecodeConversationDetailV2(v2Encoded, out var v2Decoded));
+        Assert.Equal("11", v2Decoded.ReadSnapshotMessageId);
+    }
+
+    [Fact]
+    public void ConversationReadAndAccountReplyRequests_RoundTripExplicitCursor()
+    {
+        var read = new ConversationReadRequestCoreModel(1234);
+        Assert.True(PodBinaryCodec.TryDecodeConversationReadRequest(
+            PodBinaryCodec.EncodeConversationReadRequest(read),
+            out var decodedRead));
+        Assert.Equal(1234, decodedRead.ReadThroughMessageId);
+
+        var reply = new AccountConversationReplyRequestCoreModel(1234, "reply body");
+        Assert.True(PodBinaryCodec.TryDecodeAccountConversationReplyRequest(
+            PodBinaryCodec.EncodeAccountConversationReplyRequest(reply),
+            out var decodedReply));
+        Assert.Equal(1234, decodedReply.ReadThroughMessageId);
+        Assert.Equal("reply body", decodedReply.Body);
     }
 
     [Fact]

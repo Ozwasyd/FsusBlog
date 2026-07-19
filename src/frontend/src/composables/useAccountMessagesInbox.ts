@@ -211,13 +211,7 @@ export function useAccountMessagesInbox(isEnabled: () => boolean = () => true) {
       const payload = await messageApi.getAccountConversationDetail(conversationId)
       detail.value = payload
       if (markRead && payload.unreadCount > 0) {
-        await messageApi.markConversationRead(conversationId)
-        applyReadPatch({
-          conversationId,
-          conversationUnreadCount: 0,
-          lastReadMessageId: payload.messages[payload.messages.length - 1]?.messageId ?? null,
-          totalUnread: Math.max(0, unreadCount.value - payload.unreadCount)
-        })
+        await messageApi.markConversationRead(conversationId, payload.readSnapshotMessageId)
       }
     } catch (error) {
       if (!silent) {
@@ -277,11 +271,18 @@ export function useAccountMessagesInbox(isEnabled: () => boolean = () => true) {
     if (!selectedConversationId.value || !replyBody.value.trim() || sending.value) return
     sending.value = true
     try {
-      const message = await messageApi.replyAccountConversation(selectedConversationId.value, { body: replyBody.value })
+      const readThroughMessageId = detail.value?.readSnapshotMessageId
+      if (!readThroughMessageId) {
+        throw new Error('conversation_read_snapshot_missing')
+      }
+      const message = await messageApi.replyAccountConversation(selectedConversationId.value, {
+        body: replyBody.value,
+        readThroughMessageId
+      })
       applyMessageAppendPatch({
         conversationId: selectedConversationId.value,
         message,
-        conversationUnreadCount: 0
+        conversationUnreadCount: detail.value?.unreadCount
       })
       delete replyDrafts[selectedConversationId.value]
       replyBody.value = ''

@@ -825,6 +825,18 @@
             "value": 200
         },
         {
+            "name": "ConversationReadRequest",
+            "value": 201
+        },
+        {
+            "name": "AccountConversationReplyRequest",
+            "value": 202
+        },
+        {
+            "name": "ConversationDetailV2",
+            "value": 203
+        },
+        {
             "name": "EmptySuccess",
             "value": 240
         },

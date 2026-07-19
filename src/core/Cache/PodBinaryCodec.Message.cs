@@ -143,6 +143,92 @@ public static partial class PodBinaryCodec
         => EncodeToArray(1024 + detail.Messages.Count * Marshal.SizeOf<ConversationMessagePod>(), writer => WriteConversationDetail(detail, writer));
 
     /// <summary>
+    /// Writes the v2 <c>ConversationDetail</c> contract, including the exact
+    /// visible message snapshot that an account may acknowledge.
+    /// </summary>
+    public static void WriteConversationDetailV2(ConversationDetailResponse detail, IBufferWriter<byte> destination)
+    {
+        var payload = new ArrayBufferWriter<byte>(1024);
+        var writer = new BinaryPodWriter(destination);
+        var mutable = new MutableConversationDetailV2Pod
+        {
+            ConversationId = ParseId(detail.ConversationId),
+            Status = (int)detail.Status,
+            UnreadCount = detail.UnreadCount,
+            LastMessageAtUnixMs = PodTimeCodec.ToUnixMs(detail.LastMessageAt),
+            ReadSnapshotMessageId = ParseId(detail.ReadSnapshotMessageId),
+            IsSystemSource = detail.IsSystemSource ? (byte)1 : (byte)0,
+            CanReply = detail.CanReply ? (byte)1 : (byte)0,
+            Reserved0 = 0,
+            Subject = PodUtf8Codec.AppendSlice(detail.Subject, payload)
+        };
+        writer.WritePod(CastMessagePod<MutableConversationDetailV2Pod, ConversationDetailV2Pod>(mutable));
+        writer.WriteInt32(detail.Messages.Count);
+        foreach (ConversationMessageResponse message in detail.Messages)
+        {
+            writer.WritePod(CreateMessagePod(message, payload));
+        }
+
+        writer.WriteBytes(payload.WrittenSpan);
+    }
+
+    public static byte[] EncodeConversationDetailV2(ConversationDetailResponse detail)
+        => EncodeToArray(1024 + detail.Messages.Count * Marshal.SizeOf<ConversationMessagePod>(), writer => WriteConversationDetailV2(detail, writer));
+
+    public static bool TryDecodeConversationDetailV2(ReadOnlyMemory<byte> source, out ConversationDetailResponse detail)
+    {
+        var reader = new BinaryPodReader(source.Span);
+        if (!reader.TryReadPod(out ConversationDetailV2Pod pod) ||
+            !reader.TryReadInt32(out int count) ||
+            count < 0 ||
+            pod.ReadSnapshotMessageId <= 0 ||
+            pod.IsSystemSource > 1 ||
+            pod.CanReply > 1)
+        {
+            detail = new ConversationDetailResponse();
+            return false;
+        }
+
+        var messagePods = new List<ConversationMessagePod>(count);
+        for (int i = 0; i < count; i++)
+        {
+            if (!reader.TryReadPod(out ConversationMessagePod messagePod) || messagePod.HasSenderName > 1)
+            {
+                detail = new ConversationDetailResponse();
+                return false;
+            }
+
+            messagePods.Add(messagePod);
+        }
+
+        if (!reader.TryReadBytes(out ReadOnlySpan<byte> payload))
+        {
+            detail = new ConversationDetailResponse();
+            return false;
+        }
+
+        var messages = new List<ConversationMessageResponse>(messagePods.Count);
+        foreach (ConversationMessagePod messagePod in messagePods)
+        {
+            messages.Add(DecodeMessage(messagePod, payload));
+        }
+
+        detail = new ConversationDetailResponse
+        {
+            ConversationId = pod.ConversationId.ToString(),
+            ReadSnapshotMessageId = pod.ReadSnapshotMessageId.ToString(),
+            Subject = PodProjector.ReadSlice(pod.Subject, payload),
+            Status = ToConversationStatus(pod.Status),
+            IsSystemSource = pod.IsSystemSource == 1,
+            CanReply = pod.CanReply == 1,
+            UnreadCount = pod.UnreadCount,
+            LastMessageAt = PodTimeCodec.FromUnixMs(pod.LastMessageAtUnixMs),
+            Messages = messages
+        };
+        return reader.IsConsumed;
+    }
+
+    /// <summary>
     /// Attempts to decode the <c>ConversationDetail</c> contract from a binary payload.
     /// </summary>
     public static bool TryDecodeConversationDetail(ReadOnlyMemory<byte> source, out ConversationDetailResponse detail)
@@ -265,6 +351,62 @@ public static partial class PodBinaryCodec
 
         request = new ConversationCreateRequestCoreModel(
             PodProjector.ReadSlice(pod.Subject, payload),
+            PodProjector.ReadSlice(pod.Body, payload));
+        return reader.IsConsumed;
+    }
+
+    public static void WriteConversationReadRequest(ConversationReadRequestCoreModel request, IBufferWriter<byte> destination)
+    {
+        var writer = new BinaryPodWriter(destination);
+        writer.WritePod(CastMessagePod<MutableConversationReadRequestPod, ConversationReadRequestPod>(
+            new MutableConversationReadRequestPod { ReadThroughMessageId = request.ReadThroughMessageId }));
+    }
+
+    public static byte[] EncodeConversationReadRequest(ConversationReadRequestCoreModel request)
+        => EncodeToArray(Marshal.SizeOf<ConversationReadRequestPod>(), writer => WriteConversationReadRequest(request, writer));
+
+    public static bool TryDecodeConversationReadRequest(ReadOnlyMemory<byte> source, out ConversationReadRequestCoreModel request)
+    {
+        var reader = new BinaryPodReader(source.Span);
+        if (!reader.TryReadPod(out ConversationReadRequestPod pod) || !reader.IsConsumed || pod.ReadThroughMessageId <= 0)
+        {
+            request = default;
+            return false;
+        }
+
+        request = new ConversationReadRequestCoreModel(pod.ReadThroughMessageId);
+        return true;
+    }
+
+    public static void WriteAccountConversationReplyRequest(AccountConversationReplyRequestCoreModel request, IBufferWriter<byte> destination)
+    {
+        var payload = new ArrayBufferWriter<byte>(256);
+        var mutable = new MutableAccountConversationReplyRequestPod
+        {
+            ReadThroughMessageId = request.ReadThroughMessageId,
+            Body = PodUtf8Codec.AppendSlice(request.Body, payload)
+        };
+        var writer = new BinaryPodWriter(destination);
+        writer.WritePod(CastMessagePod<MutableAccountConversationReplyRequestPod, AccountConversationReplyRequestPod>(mutable));
+        writer.WriteBytes(payload.WrittenSpan);
+    }
+
+    public static byte[] EncodeAccountConversationReplyRequest(AccountConversationReplyRequestCoreModel request)
+        => EncodeToArray(256, writer => WriteAccountConversationReplyRequest(request, writer));
+
+    public static bool TryDecodeAccountConversationReplyRequest(ReadOnlyMemory<byte> source, out AccountConversationReplyRequestCoreModel request)
+    {
+        var reader = new BinaryPodReader(source.Span);
+        if (!reader.TryReadPod(out AccountConversationReplyRequestPod pod) ||
+            pod.ReadThroughMessageId <= 0 ||
+            !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
+        {
+            request = default;
+            return false;
+        }
+
+        request = new AccountConversationReplyRequestCoreModel(
+            pod.ReadThroughMessageId,
             PodProjector.ReadSlice(pod.Body, payload));
         return reader.IsConsumed;
     }
@@ -482,6 +624,33 @@ public static partial class PodBinaryCodec
         public byte CanReply;
         public ushort Reserved0;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Subject;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableConversationDetailV2Pod
+    {
+        public long ConversationId;
+        public int Status;
+        public int UnreadCount;
+        public long LastMessageAtUnixMs;
+        public long ReadSnapshotMessageId;
+        public byte IsSystemSource;
+        public byte CanReply;
+        public ushort Reserved0;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Subject;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableConversationReadRequestPod
+    {
+        public long ReadThroughMessageId;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableAccountConversationReplyRequestPod
+    {
+        public long ReadThroughMessageId;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Body;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]

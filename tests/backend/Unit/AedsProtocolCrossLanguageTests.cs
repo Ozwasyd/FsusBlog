@@ -394,6 +394,7 @@ public sealed class AedsProtocolCrossLanguageTests
         var dto = new ConversationDetailResponse
         {
             ConversationId = "7",
+            ReadSnapshotMessageId = "11",
             Subject = "Support",
             Status = (ConversationStatusValue)0,
             IsSystemSource = false,

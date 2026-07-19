@@ -1,7 +1,7 @@
 import type { BinaryPageResponse as PageResponse, ConversationDetailResponse, ConversationListItemResponse, ConversationMessagePreviewResponse, ConversationMessageResponse } from '@/contracts/binaryApi';
 import { createAppError, AppErrorCode } from '@/utils/appError';
 import { BinaryReader, readBlobText, readByte, readInt32, readInt64String, readIsoDate64 } from '@/codecs/binary/reader';
-import { CONVERSATION_DETAIL_POD_SIZE, CONVERSATION_LIST_ITEM_POD_SIZE, CONVERSATION_MESSAGE_POD_SIZE, CONVERSATION_MESSAGE_PREVIEW_POD_SIZE } from './types';
+import { CONVERSATION_DETAIL_POD_SIZE, CONVERSATION_DETAIL_V2_POD_SIZE, CONVERSATION_LIST_ITEM_POD_SIZE, CONVERSATION_MESSAGE_POD_SIZE, CONVERSATION_MESSAGE_PREVIEW_POD_SIZE } from './types';
 
 export function mapConversationListFromPayload(payload: Uint8Array): PageResponse<ConversationListItemResponse> {
   const reader = new BinaryReader(payload);
@@ -39,10 +39,43 @@ export function mapConversationDetailFromPayload(payload: Uint8Array): Conversat
 
   return {
     conversationId: readInt64String(pod, 0),
+    readSnapshotMessageId: '',
     subject: readBlobText(pod, blob, 28),
     status: readInt32(pod, 8) as 0 | 1 | 2,
     isSystemSource: readByte(pod, 24) === 1,
     canReply: readByte(pod, 25) === 1,
+    unreadCount: readInt32(pod, 12),
+    lastMessageAt: readIsoDate64(pod, 16),
+    messages: messagePods.map((messagePod) => readConversationMessage(messagePod, blob))
+  };
+}
+
+export function mapConversationDetailV2FromPayload(payload: Uint8Array): ConversationDetailResponse {
+  const reader = new BinaryReader(payload);
+  const pod = reader.readSpan(CONVERSATION_DETAIL_V2_POD_SIZE);
+  const count = reader.readInt32();
+  if (count < 0) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'conversation_message_count_invalid');
+  }
+
+  const readSnapshotMessageId = readInt64String(pod, 24);
+  if (readSnapshotMessageId === '0') {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'conversation_read_snapshot_invalid');
+  }
+
+  const messagePods: Uint8Array[] = [];
+  for (let i = 0; i < count; i += 1) {
+    messagePods.push(reader.readSpan(CONVERSATION_MESSAGE_POD_SIZE));
+  }
+  const blob = reader.readBlob();
+
+  return {
+    conversationId: readInt64String(pod, 0),
+    readSnapshotMessageId,
+    subject: readBlobText(pod, blob, 36),
+    status: readInt32(pod, 8) as 0 | 1 | 2,
+    isSystemSource: readByte(pod, 32) === 1,
+    canReply: readByte(pod, 33) === 1,
     unreadCount: readInt32(pod, 12),
     lastMessageAt: readIsoDate64(pod, 16),
     messages: messagePods.map((messagePod) => readConversationMessage(messagePod, blob))

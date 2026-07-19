@@ -5417,7 +5417,7 @@
         "summary": "/messages/conversations",
         "responses": {
           "200": {
-            "description": "ConversationDetail AEDS frame",
+            "description": "ConversationDetailV2 AEDS frame",
             "content": {
               "application/octet-stream": {
                 "schema": {
@@ -5442,7 +5442,7 @@
         "x-fsus-protocol": "AEDS",
         "x-fsus-aeds-version": 2,
         "x-fsus-request-frame": "ConversationCreateRequest",
-        "x-fsus-response-frame": "ConversationDetail",
+        "x-fsus-response-frame": "ConversationDetailV2",
         "x-fsus-error-frame": "ApiError",
         "x-fsus-auth": "user",
         "x-fsus-pow": true,
@@ -5465,7 +5465,7 @@
         "summary": "/messages/conversations/{id:long}",
         "responses": {
           "200": {
-            "description": "ConversationDetail AEDS frame",
+            "description": "ConversationDetailV2 AEDS frame",
             "content": {
               "application/octet-stream": {
                 "schema": {
@@ -5490,7 +5490,7 @@
         "x-fsus-protocol": "AEDS",
         "x-fsus-aeds-version": 2,
         "x-fsus-request-frame": null,
-        "x-fsus-response-frame": "ConversationDetail",
+        "x-fsus-response-frame": "ConversationDetailV2",
         "x-fsus-error-frame": "ApiError",
         "x-fsus-auth": "user",
         "x-fsus-pow": false,
@@ -5537,7 +5537,7 @@
         },
         "x-fsus-protocol": "AEDS",
         "x-fsus-aeds-version": 2,
-        "x-fsus-request-frame": "ConversationReplyRequest",
+        "x-fsus-request-frame": "AccountConversationReplyRequest",
         "x-fsus-response-frame": "ConversationMessage",
         "x-fsus-error-frame": "ApiError",
         "x-fsus-auth": "user",
@@ -5585,7 +5585,7 @@
         },
         "x-fsus-protocol": "AEDS",
         "x-fsus-aeds-version": 2,
-        "x-fsus-request-frame": null,
+        "x-fsus-request-frame": "ConversationReadRequest",
         "x-fsus-response-frame": "EmptySuccess",
         "x-fsus-error-frame": "ApiError",
         "x-fsus-auth": "user",
@@ -5657,7 +5657,7 @@
         "summary": "/admin/messages/conversations/{id:long}",
         "responses": {
           "200": {
-            "description": "ConversationDetail AEDS frame",
+            "description": "ConversationDetailV2 AEDS frame",
             "content": {
               "application/octet-stream": {
                 "schema": {
@@ -5682,7 +5682,7 @@
         "x-fsus-protocol": "AEDS",
         "x-fsus-aeds-version": 2,
         "x-fsus-request-frame": null,
-        "x-fsus-response-frame": "ConversationDetail",
+        "x-fsus-response-frame": "ConversationDetailV2",
         "x-fsus-error-frame": "ApiError",
         "x-fsus-auth": "admin",
         "x-fsus-pow": false,
@@ -5801,7 +5801,7 @@
         "summary": "/admin/messages/system-send",
         "responses": {
           "200": {
-            "description": "ConversationDetail AEDS frame",
+            "description": "ConversationDetailV2 AEDS frame",
             "content": {
               "application/octet-stream": {
                 "schema": {
@@ -5826,7 +5826,7 @@
         "x-fsus-protocol": "AEDS",
         "x-fsus-aeds-version": 2,
         "x-fsus-request-frame": "SystemMessageRequest",
-        "x-fsus-response-frame": "ConversationDetail",
+        "x-fsus-response-frame": "ConversationDetailV2",
         "x-fsus-error-frame": "ApiError",
         "x-fsus-auth": "admin",
         "x-fsus-pow": true,

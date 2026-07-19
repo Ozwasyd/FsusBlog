@@ -950,6 +950,46 @@ interface AdminTagItemResponse extends AdminCategoryItemResponse {
 
 `senderType` 的数值保持 wire 兼容：`0=Account`、`1=Admin`、`2=System`。响应不暴露 sender account id、用户名、公开昵称或头像；显示名只使用“你 / 管理员 / 系统”这类上下文安全文本。
 
+### `ConversationDetailV2` 与精确已读推进
+
+账号、admin 详情以及创建/系统消息返回统一使用 frame `ConversationDetailV2` (`203`)；
+响应 DTO 在既有字段外新增：
+
+```json
+{
+  "conversationId": "123",
+  "readSnapshotMessageId": "456",
+  "unreadCount": 2,
+  "messages": []
+}
+```
+
+`readSnapshotMessageId` 是该响应中最后一条非 internal、对账号可见的消息 ID。账号读取
+后使用 `ConversationReadRequest` (`201`) 调用
+`POST /api/binary/messages/conversations/{id}/read`：
+
+```json
+{ "readThroughMessageId": "456" }
+```
+
+账号回复不再使用 admin 的 body-only `ConversationReplyRequest` (`60`)，而使用
+`AccountConversationReplyRequest` (`202`)：
+
+```json
+{ "readThroughMessageId": "456", "body": "回复内容" }
+```
+
+服务端在 PostgreSQL 事务内锁定 `msg_participant_state`，验证目标消息属于该会话、
+`isinternalnote=false` 且游标不后退，再把未读数重算为“目标 ID 之后、非 internal、非
+当前账号发送”的消息数。GET 后插入的新消息、账号自己的并发回复和 internal note
+都不能被旧快照误标已读；游标后退返回 `409`，不可见/跨会话/internal 目标返回
+`404`。`InboxReadUpdated.lastReadMessageId` 回显被接受的读取位置，未读数保留快照之后
+尚未读取的新消息。
+
+`Messages:PreciseReadCursorEnabled=false` 可通过配置 reload 在不重启进程的情况下让
+账号 mark-read/reply 返回 `503 message_read_cursor_disabled`，保留详情/list/admin
+读取；不得以旧无游标 request、当前 `MAX(id)` 或 JSON/text fallback 降级。
+
 ---
 
 ## 通知 WebSocket 契约

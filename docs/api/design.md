@@ -97,6 +97,24 @@ Recovery Key verify 的 AEDS request 只携带 Recovery Key 明文本体与撤�
 
 作者工作台 cache action 只暴露可重复执行的运行时维护动作，例如 rebuild、invalidate 和 recompute；一次性历史清理必须进入 `SchemaMigrationRunner` 并由 migration history 记录，不再作为 admin cache action 长期暴露。
 
+### 消息读取快照与已读游标
+
+账号消息详情使用 `ConversationDetailV2` 返回本次可见结果的
+`readSnapshotMessageId`。账号侧 mark-read 必须提交 `ConversationReadRequest` 的
+`readThroughMessageId`；账号回复必须提交 `AccountConversationReplyRequest`，同时携带
+正文与该显式读取位置。服务端不得在 mark-read 或回复事务中用数据库当前
+`MAX(message.id)` 替代客户端看到的快照。
+
+已读推进在参与者行锁内验证目标消息属于当前会话、不是 internal note，并且不小于
+已持久化游标。未读数只统计游标之后、账号可见且不是该账号自己发送的消息；internal
+note 既不能作为读取目标，也不能推进或增加账号未读。旧 `ConversationReplyRequest`
+仅供 admin 回复使用，账号端点不兼容 body-only fallback。
+
+无需重启的安全降级通过 reload-capable
+`Messages:PreciseReadCursorEnabled=false` 暂停账号 mark-read 与回复写入，返回固定
+`503 message_read_cursor_disabled`；详情和列表继续可读。降级不得恢复无 body
+mark-read、事务时点 `MAX(id)` 或“账号回复即读完当前数据库”的旧语义。
+
 ---
 
 ## HTTP 方法语义

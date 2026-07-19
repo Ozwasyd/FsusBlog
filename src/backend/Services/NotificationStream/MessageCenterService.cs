@@ -69,9 +69,14 @@ public sealed class MessageCenterService(
         }
 
         var messages = await LoadConversationMessagesAsync(conversationId);
+        if (messages.Count == 0)
+        {
+            return null;
+        }
         return new ConversationDetailResponse
         {
             ConversationId = conversation.Id.ToString(),
+            ReadSnapshotMessageId = messages[^1].MessageId,
             Subject = conversation.Subject,
             Status = ToStatusValue(conversation.Status),
             IsSystemSource = conversation.IsSystemSource,
@@ -130,9 +135,14 @@ public sealed class MessageCenterService(
             .Where(it => it.ConversationId == conversationId)
             .SumAsync(it => it.UnreadCount);
         var messages = await LoadConversationMessagesAsync(conversationId);
+        if (messages.Count == 0)
+        {
+            return null;
+        }
         return new ConversationDetailResponse
         {
             ConversationId = conversation.Id.ToString(),
+            ReadSnapshotMessageId = messages[^1].MessageId,
             Subject = conversation.Subject,
             Status = ToStatusValue(conversation.Status),
             IsSystemSource = conversation.IsSystemSource,
@@ -216,7 +226,11 @@ public sealed class MessageCenterService(
         return Result<ConversationDetailResponse>.Success(detail);
     }
 
-    public async Task<Result<ConversationMessageResponse>> ReplyAsAccountAsync(int accountId, long conversationId, string body)
+    public async Task<Result<ConversationMessageResponse>> ReplyAsAccountAsync(
+        int accountId,
+        long conversationId,
+        long readThroughMessageId,
+        string body)
     {
         long startedAt = Stopwatch.GetTimestamp();
         string normalizedBody = NormalizeBody(body);
@@ -251,6 +265,15 @@ public sealed class MessageCenterService(
                 return;
             }
 
+            ReadAdvanceResult readAdvance = await AdvanceParticipantReadThroughAsync(participant, readThroughMessageId, now);
+            if (readAdvance.Outcome != ReadAdvanceOutcome.Accepted)
+            {
+                writeOutcome = readAdvance.Outcome == ReadAdvanceOutcome.CursorRegression
+                    ? ReplyAccountWriteOutcome.CursorRegression
+                    : ReplyAccountWriteOutcome.ReadTargetNotVisible;
+                return;
+            }
+
             bool conversationUpdated = await TryUpdateReplyConversationActivityAsync(conversationId, now);
             if (!conversationUpdated)
             {
@@ -268,20 +291,14 @@ public sealed class MessageCenterService(
                 CreatedAt = now
             }).ExecuteCommandAsync();
 
-            bool participantUpdated = await TryMarkReplyParticipantReadAsync(participant, messageId, now);
-            if (!participantUpdated)
-            {
-                throw new ReplyParticipantConcurrencyException(conversationId, accountId);
-            }
-
-            writeOutcome = ReplyAccountWriteOutcome.Accepted;
+            writeOutcome = new ReplyAccountWriteOutcome(ReadAdvanceOutcome.Accepted, readAdvance.UnreadCount);
         });
 
         if (!TransactionSideEffectGuard.CanPublishAfterCommit(tran, logger, "message-center-reply-account"))
         {
             return Result<ConversationMessageResponse>.Failure(ErrorCode.InfraFailure, "回复写入失败");
         }
-        if (writeOutcome != ReplyAccountWriteOutcome.Accepted)
+        if (writeOutcome.Outcome != ReadAdvanceOutcome.Accepted)
         {
             return MapReplyAccountWriteOutcome(writeOutcome);
         }
@@ -294,8 +311,8 @@ public sealed class MessageCenterService(
 
         int totalUnread = await RefreshUnreadCacheAsync(accountId);
         await Task.WhenAll(
-            PublishReadUpdatedAsync(accountId, conversationId, messageId, 0, totalUnread),
-            PublishMessageAppendAsync(conversationId.ToString(), message, 0, totalUnread),
+            PublishReadUpdatedAsync(accountId, conversationId, readThroughMessageId, writeOutcome.UnreadCount, totalUnread),
+            PublishMessageAppendAsync(conversationId.ToString(), message, writeOutcome.UnreadCount, totalUnread),
             PublishConversationUpsertToAdminsAsync(conversationId));
         FsusObservability.RecordMessageCenterReply("account", FsusObservability.GetElapsed(startedAt));
         return Result<ConversationMessageResponse>.Success(message);
@@ -410,61 +427,90 @@ public sealed class MessageCenterService(
         return updated > 0;
     }
 
-    private async Task<bool> TryMarkReplyParticipantReadAsync(ReplyParticipantLock participant, long messageId, DateTime now)
+    private async Task<ReadAdvanceResult> AdvanceParticipantReadThroughAsync(
+        ReplyParticipantLock participant,
+        long readThroughMessageId,
+        DateTime now)
     {
-        if (participant.LastReadMessageId is null)
+        if (participant.LastReadMessageId > readThroughMessageId)
         {
-            int updated = await db.Ado.ExecuteCommandAsync(
-                """
-                UPDATE msg_participant_state
-                SET lastreadmessageid = @MessageId,
-                    lastreadat = @Now,
-                    updatedat = @Now,
-                    unreadcount = 0
-                WHERE conversationid = @ConversationId
-                  AND accountid = @AccountId
-                  AND lastreadmessageid IS NULL;
-                """,
-                new SugarParameter("@ConversationId", participant.ConversationId),
-                new SugarParameter("@AccountId", participant.AccountId),
-                new SugarParameter("@MessageId", messageId),
-                new SugarParameter("@Now", now));
-            return updated > 0;
+            return new ReadAdvanceResult(ReadAdvanceOutcome.CursorRegression, 0);
         }
 
-        int matched = await db.Ado.ExecuteCommandAsync(
+        int visibleTarget = await db.Queryable<ConversationMessage>()
+            .Where(it =>
+                it.ConversationId == participant.ConversationId &&
+                it.Id == readThroughMessageId &&
+                !it.IsInternalNote)
+            .CountAsync();
+        if (visibleTarget != 1)
+        {
+            return new ReadAdvanceResult(ReadAdvanceOutcome.TargetNotVisible, 0);
+        }
+
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             """
-            UPDATE msg_participant_state
-            SET lastreadmessageid = @MessageId,
+            UPDATE msg_participant_state state
+            SET lastreadmessageid = @ReadThroughMessageId,
                 lastreadat = @Now,
                 updatedat = @Now,
-                unreadcount = 0
-            WHERE conversationid = @ConversationId
-              AND accountid = @AccountId
-              AND lastreadmessageid = @PreviousLastReadMessageId;
+                unreadcount = (
+                    SELECT COUNT(*)::integer
+                    FROM msg_message message
+                    WHERE message.conversationid = @ConversationId
+                      AND message.id > @ReadThroughMessageId
+                      AND message.isinternalnote = false
+                      AND NOT (
+                          message.sendertype = @AccountSenderType
+                          AND message.senderaccountid = @AccountId
+                      )
+                )
+            WHERE state.conversationid = @ConversationId
+              AND state.accountid = @AccountId
+            RETURNING state.unreadcount;
             """,
             new SugarParameter("@ConversationId", participant.ConversationId),
             new SugarParameter("@AccountId", participant.AccountId),
-            new SugarParameter("@PreviousLastReadMessageId", participant.LastReadMessageId.Value),
-            new SugarParameter("@MessageId", messageId),
+            new SugarParameter("@ReadThroughMessageId", readThroughMessageId),
+            new SugarParameter("@AccountSenderType", (int)MessageSenderType.Account),
             new SugarParameter("@Now", now));
-        return matched > 0;
+        if (!await reader.ReadAsync())
+        {
+            return new ReadAdvanceResult(ReadAdvanceOutcome.TargetNotVisible, 0);
+        }
+
+        return new ReadAdvanceResult(ReadAdvanceOutcome.Accepted, reader.ReadInt32("unreadcount"));
     }
 
     private static Result<ConversationMessageResponse> MapReplyAccountWriteOutcome(ReplyAccountWriteOutcome outcome)
-        => outcome switch
+        => outcome.Outcome switch
         {
-            ReplyAccountWriteOutcome.Forbidden => Result<ConversationMessageResponse>.Failure(ErrorCode.Forbidden, "无权访问该会话"),
-            ReplyAccountWriteOutcome.Closed => Result<ConversationMessageResponse>.Failure(ErrorCode.Conflict, "会话已关闭"),
+            ReadAdvanceOutcome.Forbidden => Result<ConversationMessageResponse>.Failure(ErrorCode.Forbidden, "无权访问该会话"),
+            ReadAdvanceOutcome.Closed => Result<ConversationMessageResponse>.Failure(ErrorCode.Conflict, "会话已关闭"),
+            ReadAdvanceOutcome.CursorRegression => Result<ConversationMessageResponse>.Failure(ErrorCode.Conflict, "已读位置不能后退"),
+            ReadAdvanceOutcome.TargetNotVisible => Result<ConversationMessageResponse>.Failure(ErrorCode.NotFound, "已读位置不属于可见会话消息"),
             _ => Result<ConversationMessageResponse>.Failure(ErrorCode.NotFound, "会话不存在")
         };
 
-    private enum ReplyAccountWriteOutcome
+    private enum ReadAdvanceOutcome
     {
         NotFound,
         Forbidden,
         Closed,
+        TargetNotVisible,
+        CursorRegression,
         Accepted
+    }
+
+    private readonly record struct ReadAdvanceResult(ReadAdvanceOutcome Outcome, int UnreadCount);
+
+    private readonly record struct ReplyAccountWriteOutcome(ReadAdvanceOutcome Outcome, int UnreadCount)
+    {
+        public static ReplyAccountWriteOutcome NotFound => new(ReadAdvanceOutcome.NotFound, 0);
+        public static ReplyAccountWriteOutcome Forbidden => new(ReadAdvanceOutcome.Forbidden, 0);
+        public static ReplyAccountWriteOutcome Closed => new(ReadAdvanceOutcome.Closed, 0);
+        public static ReplyAccountWriteOutcome ReadTargetNotVisible => new(ReadAdvanceOutcome.TargetNotVisible, 0);
+        public static ReplyAccountWriteOutcome CursorRegression => new(ReadAdvanceOutcome.CursorRegression, 0);
     }
 
     private sealed record ReplyConversationLock(long Id, ConversationStatus Status);
@@ -473,23 +519,19 @@ public sealed class MessageCenterService(
 
     private sealed record ReplyLocks(ReplyConversationLock Conversation, ReplyParticipantLock? Participant);
 
-    private sealed class ReplyParticipantConcurrencyException(long conversationId, int accountId)
-        : InvalidOperationException($"Participant read state changed while replying. ConversationId={conversationId}; AccountId={accountId}.")
-    {
-    }
-
-    public async Task<Result> MarkConversationReadAsync(int accountId, long conversationId)
+    public async Task<Result> MarkConversationReadAsync(int accountId, long conversationId, long readThroughMessageId)
     {
         DateTime now = DateTime.UtcNow;
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
-            bool locked = await LockConversationParticipantReadStateAsync(accountId, conversationId);
-            if (!locked)
+            ReplyParticipantLock? participant = await LoadReplyParticipantForUpdateAsync(conversationId, accountId);
+            if (participant is null)
             {
-                return new MarkConversationReadResult(false, null);
+                return new MarkConversationReadResult(ReadAdvanceOutcome.NotFound, null, 0);
             }
 
-            return await MarkConversationReadAndReturnLastMessageIdAsync(accountId, conversationId, now);
+            ReadAdvanceResult advanced = await AdvanceParticipantReadThroughAsync(participant, readThroughMessageId, now);
+            return new MarkConversationReadResult(advanced.Outcome, readThroughMessageId, advanced.UnreadCount);
         });
 
         if (!TransactionSideEffectGuard.CanPublishAfterCommit(transaction, logger, "message-center-mark-read"))
@@ -498,69 +540,25 @@ public sealed class MessageCenterService(
         }
 
         MarkConversationReadResult readResult = transaction.Data;
-        if (!readResult.Found)
+        if (readResult.Outcome == ReadAdvanceOutcome.NotFound)
         {
             return Result.Failure(ErrorCode.NotFound, "会话不存在");
         }
+        if (readResult.Outcome == ReadAdvanceOutcome.TargetNotVisible)
+        {
+            return Result.Failure(ErrorCode.NotFound, "已读位置不属于可见会话消息");
+        }
+        if (readResult.Outcome == ReadAdvanceOutcome.CursorRegression)
+        {
+            return Result.Failure(ErrorCode.Conflict, "已读位置不能后退");
+        }
 
         int totalUnread = await RefreshUnreadCacheAsync(accountId);
-        await PublishReadUpdatedAsync(accountId, conversationId, readResult.LastMessageId, 0, totalUnread);
+        await PublishReadUpdatedAsync(accountId, conversationId, readResult.LastMessageId, readResult.UnreadCount, totalUnread);
         return Result.Success();
     }
 
-    private sealed record MarkConversationReadResult(bool Found, long? LastMessageId);
-
-    private async Task<bool> LockConversationParticipantReadStateAsync(int accountId, long conversationId)
-    {
-        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
-            """
-            SELECT 1
-            FROM msg_participant_state
-            WHERE accountid = @AccountId
-              AND conversationid = @ConversationId
-            FOR UPDATE;
-            """,
-            new SugarParameter("@AccountId", accountId),
-            new SugarParameter("@ConversationId", conversationId));
-
-        return await reader.ReadAsync();
-    }
-
-    private async Task<MarkConversationReadResult> MarkConversationReadAndReturnLastMessageIdAsync(
-        int accountId,
-        long conversationId,
-        DateTime now)
-    {
-        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
-            """
-            UPDATE msg_participant_state state
-            SET unreadcount = 0,
-                lastreadmessageid = latest.last_message_id,
-                lastreadat = @Now,
-                updatedat = @Now
-            FROM (
-                SELECT MAX(id) AS last_message_id
-                FROM msg_message
-                WHERE conversationid = @ConversationId
-            ) latest
-            WHERE state.accountid = @AccountId
-              AND state.conversationid = @ConversationId
-            RETURNING state.lastreadmessageid;
-            """,
-            new SugarParameter("@AccountId", accountId),
-            new SugarParameter("@ConversationId", conversationId),
-            new SugarParameter("@Now", now));
-
-        if (!await reader.ReadAsync())
-        {
-            return new MarkConversationReadResult(false, null);
-        }
-
-        long? lastMessageId = reader.IsNull("lastreadmessageid")
-            ? null
-            : Convert.ToInt64(reader.ReadValue("lastreadmessageid"), CultureInfo.InvariantCulture);
-        return new MarkConversationReadResult(true, lastMessageId);
-    }
+    private sealed record MarkConversationReadResult(ReadAdvanceOutcome Outcome, long? LastMessageId, int UnreadCount);
 
     public async Task<Result<ConversationMessageResponse>> ReplyAsAdminAsync(long conversationId, string body, AdminMessageActor adminActor)
     {
@@ -596,14 +594,26 @@ public sealed class MessageCenterService(
                 .Where(it => it.Id == conversationId)
                 .ExecuteCommandAsync();
 
-            await db.Updateable<ConversationParticipantState>()
-                .SetColumns(it => new ConversationParticipantState
-                {
-                    UnreadCount = it.UnreadCount + 1,
-                    UpdatedAt = now
-                })
-                .Where(it => it.ConversationId == conversationId)
-                .ExecuteCommandAsync();
+            await db.Ado.ExecuteCommandAsync(
+                """
+                UPDATE msg_participant_state state
+                SET unreadcount = (
+                        SELECT COUNT(*)::integer
+                        FROM msg_message message
+                        WHERE message.conversationid = state.conversationid
+                          AND message.id > COALESCE(state.lastreadmessageid, 0)
+                          AND message.isinternalnote = false
+                          AND NOT (
+                              message.sendertype = @AccountSenderType
+                              AND message.senderaccountid = state.accountid
+                          )
+                    ),
+                    updatedat = @Now
+                WHERE state.conversationid = @ConversationId;
+                """,
+                new SugarParameter("@ConversationId", conversationId),
+                new SugarParameter("@AccountSenderType", (int)MessageSenderType.Account),
+                new SugarParameter("@Now", now));
         });
 
         if (!TransactionSideEffectGuard.CanPublishAfterCommit(tran, logger, "message-center-reply-admin"))

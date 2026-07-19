@@ -29,6 +29,7 @@ export interface CreateConversationRequest {
 
 export interface ReplyConversationRequest {
   body: string
+  readThroughMessageId?: string
 }
 
 export interface UpdateConversationStatusRequest {
@@ -93,7 +94,7 @@ export const messageApi = {
         operationId: 'binary_get_messages_conversations_id_long',
         params: { id: conversationId }
       },
-      frameType: FrameType.ConversationDetail,
+      frameType: FrameType.ConversationDetailV2,
       signal: config?.signal as AbortSignal | undefined
     })
   },
@@ -101,7 +102,7 @@ export const messageApi = {
   createAccountConversation(data: CreateConversationRequest, config?: ApiRequestConfig) {
     return requestBinaryOnly<ConversationDetailResponse>({
       binaryRoute: { operationId: 'binary_post_messages_conversations' },
-      frameType: FrameType.ConversationDetail,
+      frameType: FrameType.ConversationDetailV2,
       signal: config?.signal as AbortSignal | undefined,
       requestOptions: {
         method: 'POST',
@@ -111,7 +112,7 @@ export const messageApi = {
     })
   },
 
-  replyAccountConversation(conversationId: string | number, data: ReplyConversationRequest, config?: ApiRequestConfig) {
+  replyAccountConversation(conversationId: string | number, data: Required<ReplyConversationRequest>, config?: ApiRequestConfig) {
     return requestBinaryOnly<ConversationMessageResponse>({
       binaryRoute: {
         operationId: 'binary_post_messages_conversations_id_long_reply',
@@ -122,12 +123,15 @@ export const messageApi = {
       requestOptions: {
         method: 'POST',
         requiresPow: true,
-        body: encodeAedsFrame(FrameType.ConversationReplyRequest, encodeStringMutationRequest(data.body))
+        body: encodeAedsFrame(
+          FrameType.AccountConversationReplyRequest,
+          encodeAccountConversationReplyRequest(data.readThroughMessageId, data.body)
+        )
       }
     })
   },
 
-  markConversationRead(conversationId: string | number, config?: ApiRequestConfig) {
+  markConversationRead(conversationId: string | number, readThroughMessageId: string, config?: ApiRequestConfig) {
     return requestBinaryOnly<null>({
       binaryRoute: {
         operationId: 'binary_post_messages_conversations_id_long_read',
@@ -135,7 +139,13 @@ export const messageApi = {
       },
       frameType: FrameType.EmptySuccess,
       signal: config?.signal as AbortSignal | undefined,
-      requestOptions: { method: 'POST' }
+      requestOptions: {
+        method: 'POST',
+        body: encodeAedsFrame(
+          FrameType.ConversationReadRequest,
+          encodeConversationReadRequest(readThroughMessageId)
+        )
+      }
     })
   },
 
@@ -157,7 +167,7 @@ export const messageApi = {
         operationId: 'binary_get_admin_messages_conversations_id_long',
         params: { id: conversationId }
       },
-      frameType: FrameType.ConversationDetail,
+      frameType: FrameType.ConversationDetailV2,
       signal: config?.signal as AbortSignal | undefined
     })
   },
@@ -197,7 +207,7 @@ export const messageApi = {
   adminSendSystemMessage(data: SendSystemMessageRequest, config?: ApiRequestConfig) {
     return requestBinaryOnly<ConversationDetailResponse>({
       binaryRoute: { operationId: 'binary_post_admin_messages_system_send' },
-      frameType: FrameType.ConversationDetail,
+      frameType: FrameType.ConversationDetailV2,
       signal: config?.signal as AbortSignal | undefined,
       requestOptions: {
         method: 'POST',
@@ -231,6 +241,24 @@ function encodeConversationCreateRequest(data: CreateConversationRequest): Uint8
   blob.set(body, subject.byteLength)
   view.setInt32(16, blob.byteLength, true)
   bytes.set(blob, 20)
+  return bytes
+}
+
+function encodeConversationReadRequest(readThroughMessageId: string): Uint8Array {
+  const bytes = new Uint8Array(8)
+  new DataView(bytes.buffer).setBigInt64(0, BigInt(readThroughMessageId), true)
+  return bytes
+}
+
+function encodeAccountConversationReplyRequest(readThroughMessageId: string, body: string): Uint8Array {
+  const encoded = new TextEncoder().encode(body)
+  const bytes = new Uint8Array(16 + 4 + encoded.byteLength)
+  const view = new DataView(bytes.buffer)
+  view.setBigInt64(0, BigInt(readThroughMessageId), true)
+  view.setInt32(8, 0, true)
+  view.setInt32(12, encoded.byteLength, true)
+  view.setInt32(16, encoded.byteLength, true)
+  bytes.set(encoded, 20)
   return bytes
 }
 

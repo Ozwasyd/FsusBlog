@@ -1073,6 +1073,7 @@ public sealed record class ConversationMessageResponse
 public sealed record class ConversationDetailResponse
 {
     public string ConversationId { get; init; } = string.Empty;
+    public string ReadSnapshotMessageId { get; init; } = string.Empty;
     public string Subject { get; init; } = string.Empty;
     public ConversationStatusValue Status { get; init; } = ConversationStatusValue.Open;
     public bool IsSystemSource

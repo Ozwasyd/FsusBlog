@@ -1406,7 +1406,7 @@
           "method": "GET",
           "path": "/messages/conversations/{id:long}",
           "auth": "user",
-          "responseFrame": "ConversationDetail"
+          "responseFrame": "ConversationDetailV2"
         },
         {
           "method": "POST",
@@ -1414,20 +1414,21 @@
           "auth": "user",
           "pow": true,
           "requestFrame": "ConversationCreateRequest",
-          "responseFrame": "ConversationDetail"
+          "responseFrame": "ConversationDetailV2"
         },
         {
           "method": "POST",
           "path": "/messages/conversations/{id:long}/reply",
           "auth": "user",
           "pow": true,
-          "requestFrame": "ConversationReplyRequest",
+          "requestFrame": "AccountConversationReplyRequest",
           "responseFrame": "ConversationMessage"
         },
         {
           "method": "POST",
           "path": "/messages/conversations/{id:long}/read",
           "auth": "user",
+          "requestFrame": "ConversationReadRequest",
           "responseFrame": "EmptySuccess"
         },
         {
@@ -1440,7 +1441,7 @@
           "method": "GET",
           "path": "/admin/messages/conversations/{id:long}",
           "auth": "admin",
-          "responseFrame": "ConversationDetail"
+          "responseFrame": "ConversationDetailV2"
         },
         {
           "method": "POST",
@@ -1464,7 +1465,7 @@
           "auth": "admin",
           "pow": true,
           "requestFrame": "SystemMessageRequest",
-          "responseFrame": "ConversationDetail"
+          "responseFrame": "ConversationDetailV2"
         }
       ]
     },

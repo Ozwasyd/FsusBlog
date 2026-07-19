@@ -113,6 +113,9 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `70`: NotificationHeartbeat
 - `71`: PublicAotBootstrap
 - `72`: SiteComplianceConfigUpdateRequest
+- `201`: ConversationReadRequest
+- `202`: AccountConversationReplyRequest
+- `203`: ConversationDetailV2
 - `73`: HumanReadChallengeRequest
 - `74`: HumanReadSubmitRequest
 - `75`: RumMetricBatchRequest
@@ -167,6 +170,8 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `PerceptionSealedResultV2` payload: `PerceptionSealedResultV2Pod` followed by blob payload for response payload base64 and sealed token base64. `PayloadKind` supports character, coordinates and steps response payloads and must match `TaskKind`.
 - `ConversationCreateRequest` payload: `ConversationCreateRequestPod` followed by blob payload for subject/body.
 - `ConversationReplyRequest` payload: `StringMutationRequestPod` followed by blob payload for body.
+- `ConversationReadRequest` payload: `ConversationReadRequestPod` with the exact visible `ReadThroughMessageId` returned by detail.
+- `AccountConversationReplyRequest` payload: `AccountConversationReplyRequestPod` followed by blob payload for body; the account reply cursor is explicit and does not advance to the newly inserted self message.
 - `ConversationStatusRequest` payload: `ConversationStatusRequestPod` (`0=open`, `1=pending`, `2=closed`).
 - `SystemMessageRequest` payload: `SystemMessageRequestPod` followed by blob payload for subject/body.
 - `PasskeyRegisterCompleteRequest` payload: `PasskeyRegisterCompleteRequestPod`, `int32 transports[count]`, followed by blob payload for credential id/raw id/clientDataBytes/attestation object/friendly name/MFA proof token.
@@ -183,6 +188,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `MfaChallengeResult` payload: `MfaChallengeResultPod`；当登录 challenge 完成并包含 `user` 时，只返回 `accountId` 与 `identityKind`，不返回 legacy username/role。
 - `ConversationList` payload: `int32 total`, `int32 count`, `ConversationListItemPod[count]`, followed by shared blob payload for subject/preview slices.
 - `ConversationDetail` payload: `ConversationDetailPod`, `int32 count`, `ConversationMessagePod[count]`, followed by shared blob payload for subject/body slices.
+- `ConversationDetailV2` payload: `ConversationDetailV2Pod` (including `ReadSnapshotMessageId`), `int32 count`, `ConversationMessagePod[count]`, followed by shared blob payload for subject/body slices.
 - `ConversationMessage` payload: `ConversationMessagePod` followed by blob payload for sender/body slices.
 - `PasskeyRegisterBegin` payload: `PasskeyRegisterBeginPod`, `PasskeyPublicKeyCredentialParamPod[count]`, `PasskeyCredentialDescriptorPod[count]` with transport lists, followed by shared blob payload for RP, accountName, accountDisplayName, accountHandle, challenge, and credential-id slices. The account fields are Passkey-safe labels/handle and are mapped to WebAuthn `user.name`, `user.displayName`, and `user.id` only at the browser adapter boundary.
 - `PasskeyLoginBegin` payload: `PasskeyLoginBeginPod`, `PasskeyCredentialDescriptorPod[count]` with transport lists, followed by shared blob payload for RP/challenge/credential-id slices.

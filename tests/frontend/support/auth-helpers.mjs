@@ -10,7 +10,9 @@ import {
   encodeAedsFrame,
   encodeArticleWriteRequest,
   encodeCommentCreateV2Request,
+  encodeAccountConversationReplyRequest,
   encodeConversationCreateRequest,
+  encodeConversationReadRequest,
   encodeConversationStatusRequest,
   encodeMfaChallengeVerifyRequest,
   encodeNameMutationRequest,
@@ -52,6 +54,8 @@ const FRAME_CONVERSATION_CREATE_REQUEST = 59;
 const FRAME_CONVERSATION_REPLY_REQUEST = 60;
 const FRAME_CONVERSATION_STATUS_REQUEST = 61;
 const FRAME_SYSTEM_MESSAGE_REQUEST = 62;
+const FRAME_CONVERSATION_READ_REQUEST = 201;
+const FRAME_ACCOUNT_CONVERSATION_REPLY_REQUEST = 202;
 const powWasmRoot = pathToFileURL(`${resolve(process.env.FSUSBLOG_FRONTEND_WASM_ROOT
   || new URL('../../../src/frontend/public/wasm/', import.meta.url).pathname)}/`);
 const nodePowAssetKinds = ['relaxed', 'simd', 'basic'];
@@ -512,7 +516,14 @@ function encodeOptionalBody(path, body) {
   }
 
   if (/\/messages\/conversations\/\d+\/reply$/u.test(path)) {
+    if (!path.includes('/admin/messages/')) {
+      return encodeAedsFrame(FRAME_ACCOUNT_CONVERSATION_REPLY_REQUEST, encodeAccountConversationReplyRequest(body));
+    }
     return encodeAedsFrame(FRAME_CONVERSATION_REPLY_REQUEST, encodeStringMutationRequest(body.body ?? body));
+  }
+
+  if (/\/messages\/conversations\/\d+\/read$/u.test(path)) {
+    return encodeAedsFrame(FRAME_CONVERSATION_READ_REQUEST, encodeConversationReadRequest(body.readThroughMessageId ?? body));
   }
 
   if (/\/messages\/conversations\/\d+\/status$/u.test(path)) {

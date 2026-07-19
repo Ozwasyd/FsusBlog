@@ -313,6 +313,10 @@ public readonly record struct RecoveryKeyVerifyResponseCoreModel(string Recovery
 
 public readonly record struct ConversationCreateRequestCoreModel(string Subject, string Body);
 
+public readonly record struct ConversationReadRequestCoreModel(long ReadThroughMessageId);
+
+public readonly record struct AccountConversationReplyRequestCoreModel(long ReadThroughMessageId, string Body);
+
 public readonly record struct SystemMessageRequestCoreModel(long? TargetAccountId, string Subject, string Body);
 
 public sealed record class PasskeyRegisterCompleteCoreModel

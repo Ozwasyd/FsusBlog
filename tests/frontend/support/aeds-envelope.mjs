@@ -49,6 +49,7 @@ const FRAME_MFA_CHALLENGE_START_REQUEST = frameType('MfaChallengeStartRequest')
 const FRAME_MFA_CHALLENGE_VERIFY_REQUEST = frameType('MfaChallengeVerifyRequest')
 const FRAME_CONVERSATION_LIST = frameType('ConversationList')
 const FRAME_CONVERSATION_DETAIL = frameType('ConversationDetail')
+const FRAME_CONVERSATION_DETAIL_V2 = frameType('ConversationDetailV2')
 const FRAME_CONVERSATION_MESSAGE = frameType('ConversationMessage')
 const FRAME_CONVERSATION_CREATE_REQUEST = frameType('ConversationCreateRequest')
 const FRAME_CONVERSATION_REPLY_REQUEST = frameType('ConversationReplyRequest')
@@ -77,6 +78,7 @@ const CONVERSATION_MESSAGE_PREVIEW_POD_SIZE = 32
 const CONVERSATION_LIST_ITEM_POD_SIZE = 76
 const CONVERSATION_MESSAGE_POD_SIZE = 48
 const CONVERSATION_DETAIL_POD_SIZE = 36
+const CONVERSATION_DETAIL_V2_POD_SIZE = 44
 const ARTICLE_PAGE_CURSOR_ENVELOPE_MAGIC = 0x41535046
 const ARTICLE_PAGE_CURSOR_ENVELOPE_VERSION = 1
 const ARTICLE_LIST_RECORD_SIZE = 56
@@ -507,6 +509,24 @@ export function encodeConversationCreateRequest(data) {
   return bytes
 }
 
+export function encodeConversationReadRequest(readThroughMessageId) {
+  const bytes = new Uint8Array(8)
+  new DataView(bytes.buffer).setBigInt64(0, BigInt(readThroughMessageId), true)
+  return bytes
+}
+
+export function encodeAccountConversationReplyRequest(data) {
+  const body = UTF8_ENCODER.encode(data.body ?? '')
+  const bytes = new Uint8Array(20 + body.byteLength)
+  const view = new DataView(bytes.buffer)
+  view.setBigInt64(0, BigInt(data.readThroughMessageId), true)
+  view.setInt32(8, 0, true)
+  view.setInt32(12, body.byteLength, true)
+  view.setInt32(16, body.byteLength, true)
+  bytes.set(body, 20)
+  return bytes
+}
+
 export function encodeConversationStatusRequest(status) {
   const bytes = new Uint8Array(4)
   new DataView(bytes.buffer).setInt32(0, status === 'pending' ? 1 : status === 'closed' ? 2 : 0, true)
@@ -880,6 +900,8 @@ export function decodeKnownFrame(buffer) {
       return decodeConversationList(frame.payload)
     case FRAME_CONVERSATION_DETAIL:
       return decodeConversationDetail(frame.payload)
+    case FRAME_CONVERSATION_DETAIL_V2:
+      return decodeConversationDetailV2(frame.payload)
     case FRAME_CONVERSATION_MESSAGE:
       return decodeConversationMessageFrame(frame.payload)
     case FRAME_CATEGORY_LIST:
@@ -1827,6 +1849,32 @@ function decodeConversationDetail(payload) {
     status: readInt32(new DataView(pod.buffer, pod.byteOffset, pod.byteLength), 8),
     isSystemSource: readByte(pod, 24) === 1,
     canReply: readByte(pod, 25) === 1,
+    unreadCount: readInt32(new DataView(pod.buffer, pod.byteOffset, pod.byteLength), 12),
+    lastMessageAt: new Date(readInt64Number(new DataView(pod.buffer, pod.byteOffset, pod.byteLength), 16)).toISOString(),
+    messages: messagePods.map((messagePod) => readConversationMessage(messagePod, blob))
+  }
+}
+
+function decodeConversationDetailV2(payload) {
+  const reader = new BinaryReader(payload)
+  const pod = reader.readSpan(CONVERSATION_DETAIL_V2_POD_SIZE)
+  const count = reader.readInt32()
+  if (count < 0) {
+    throw new Error('conversation_message_count_invalid')
+  }
+
+  const messagePods = []
+  for (let index = 0; index < count; index += 1) {
+    messagePods.push(reader.readSpan(CONVERSATION_MESSAGE_POD_SIZE))
+  }
+  const blob = reader.readBlob()
+  return {
+    conversationId: readInt64String(pod, 0),
+    readSnapshotMessageId: readInt64String(pod, 24),
+    subject: readBlobText(pod, blob, 36),
+    status: readInt32(new DataView(pod.buffer, pod.byteOffset, pod.byteLength), 8),
+    isSystemSource: readByte(pod, 32) === 1,
+    canReply: readByte(pod, 33) === 1,
     unreadCount: readInt32(new DataView(pod.buffer, pod.byteOffset, pod.byteLength), 12),
     lastMessageAt: new Date(readInt64Number(new DataView(pod.buffer, pod.byteOffset, pod.byteLength), 16)).toISOString(),
     messages: messagePods.map((messagePod) => readConversationMessage(messagePod, blob))

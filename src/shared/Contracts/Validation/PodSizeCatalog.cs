@@ -103,6 +103,9 @@ public static class PodSizeCatalog
     public static readonly int ConversationListItemPod = PodContractValidation.SizeOf<ConversationListItemPod>();
     public static readonly int ConversationMessagePod = PodContractValidation.SizeOf<ConversationMessagePod>();
     public static readonly int ConversationDetailPod = PodContractValidation.SizeOf<ConversationDetailPod>();
+    public static readonly int ConversationDetailV2Pod = PodContractValidation.SizeOf<ConversationDetailV2Pod>();
+    public static readonly int ConversationReadRequestPod = PodContractValidation.SizeOf<ConversationReadRequestPod>();
+    public static readonly int AccountConversationReplyRequestPod = PodContractValidation.SizeOf<AccountConversationReplyRequestPod>();
     public static readonly int ConversationCreateRequestPod = PodContractValidation.SizeOf<ConversationCreateRequestPod>();
     public static readonly int ConversationStatusRequestPod = PodContractValidation.SizeOf<ConversationStatusRequestPod>();
     public static readonly int SystemMessageRequestPod = PodContractValidation.SizeOf<SystemMessageRequestPod>();

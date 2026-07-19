@@ -273,6 +273,7 @@ describe('AEDS cross-stack contract fixture', () => {
 
     expect(mapConversationDetailFromPayload(result.payloadView)).toEqual({
       conversationId: '7',
+      readSnapshotMessageId: '',
       subject: 'Support',
       status: 0,
       isSystemSource: false,

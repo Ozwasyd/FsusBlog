@@ -58,7 +58,7 @@ public static partial class BinaryEndpoints
             var detail = await query.GetAccountConversationDetailAsync(account.AccountId, id);
             return detail is null
                 ? BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "会话不存在"), aeds)
-                : BinaryResults.Frame(aeds, AedsFrameType.ConversationDetail, writer => PodBinaryCodec.WriteConversationDetail(detail, writer));
+                : BinaryResults.Frame(aeds, AedsFrameType.ConversationDetailV2, writer => PodBinaryCodec.WriteConversationDetailV2(detail, writer));
         })
         .RequireAnonymousAccountPrincipal();
 
@@ -82,7 +82,7 @@ public static partial class BinaryEndpoints
 
             var result = await command.CreateAccountTicketAsync(account.AccountId, request.Subject, request.Body);
             return result.IsSuccess
-                ? BinaryResults.Frame(aeds, AedsFrameType.ConversationDetail, writer => PodBinaryCodec.WriteConversationDetail(result.Value!, writer))
+                ? BinaryResults.Frame(aeds, AedsFrameType.ConversationDetailV2, writer => PodBinaryCodec.WriteConversationDetailV2(result.Value!, writer))
                 : BinaryResults.FromError(result.Error, aeds);
         })
         .RequireAnonymousAccountPrincipal()
@@ -93,21 +93,30 @@ public static partial class BinaryEndpoints
             HttpContext httpContext,
             IMessageCommandService command,
             AccountPrincipalContext account,
+            IConfiguration configuration,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
-            var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.ConversationReplyRequest, cancellationToken);
+            if (!IsPreciseMessageReadCursorEnabled(configuration))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.InfraFailure, "message_read_cursor_disabled"),
+                    aeds,
+                    StatusCodes.Status503ServiceUnavailable);
+            }
+
+            var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.AccountConversationReplyRequest, cancellationToken);
             if (!payload.IsSuccess)
             {
                 return BinaryResults.FromError(payload.Error, aeds);
             }
 
-            if (!PodBinaryCodec.TryDecodeStringMutationRequest(payload.Payload, out string body))
+            if (!PodBinaryCodec.TryDecodeAccountConversationReplyRequest(payload.Payload, out var request))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "回复请求体非法"), aeds);
             }
 
-            var result = await command.ReplyAsAccountAsync(account.AccountId, id, body);
+            var result = await command.ReplyAsAccountAsync(account.AccountId, id, request.ReadThroughMessageId, request.Body);
             return result.IsSuccess
                 ? BinaryResults.Frame(aeds, AedsFrameType.ConversationMessage, writer => PodBinaryCodec.WriteConversationMessage(result.Value!, writer))
                 : BinaryResults.FromError(result.Error, aeds);
@@ -117,11 +126,33 @@ public static partial class BinaryEndpoints
 
         group.MapPost("/messages/conversations/{id:long}/read", static async Task<BinaryFrameResult> (
             long id,
+            HttpContext httpContext,
             IMessageCommandService command,
             AccountPrincipalContext account,
-            IAedsEncoder aeds) =>
+            IConfiguration configuration,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
         {
-            var result = await command.MarkConversationReadAsync(account.AccountId, id);
+            if (!IsPreciseMessageReadCursorEnabled(configuration))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.InfraFailure, "message_read_cursor_disabled"),
+                    aeds,
+                    StatusCodes.Status503ServiceUnavailable);
+            }
+
+            var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.ConversationReadRequest, cancellationToken);
+            if (!payload.IsSuccess)
+            {
+                return BinaryResults.FromError(payload.Error, aeds);
+            }
+
+            if (!PodBinaryCodec.TryDecodeConversationReadRequest(payload.Payload, out var request))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "已读请求体非法"), aeds);
+            }
+
+            var result = await command.MarkConversationReadAsync(account.AccountId, id, request.ReadThroughMessageId);
             return result.IsSuccess
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
                 : BinaryResults.FromError(result.Error, aeds);
@@ -150,7 +181,7 @@ public static partial class BinaryEndpoints
             var detail = await query.GetAdminConversationDetailAsync(id);
             return detail is null
                 ? BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "会话不存在"), aeds)
-                : BinaryResults.Frame(aeds, AedsFrameType.ConversationDetail, writer => PodBinaryCodec.WriteConversationDetail(detail, writer));
+                : BinaryResults.Frame(aeds, AedsFrameType.ConversationDetailV2, writer => PodBinaryCodec.WriteConversationDetailV2(detail, writer));
         })
         .RequireAdminPermission(AdminPermissions.AdminManage);
 
@@ -245,7 +276,7 @@ public static partial class BinaryEndpoints
 
             var result = await command.SendSystemMessageAsync(request.Subject, request.Body, request.TargetAccountId, adminActor);
             return result.IsSuccess
-                ? BinaryResults.Frame(aeds, AedsFrameType.ConversationDetail, writer => PodBinaryCodec.WriteConversationDetail(result.Value!, writer))
+                ? BinaryResults.Frame(aeds, AedsFrameType.ConversationDetailV2, writer => PodBinaryCodec.WriteConversationDetailV2(result.Value!, writer))
                 : BinaryResults.FromError(result.Error, aeds);
         })
         .RequireAdminPermission(AdminPermissions.AdminManage)
@@ -263,4 +294,7 @@ public static partial class BinaryEndpoints
         adminActor = default;
         return false;
     }
+
+    private static bool IsPreciseMessageReadCursorEnabled(IConfiguration configuration)
+        => configuration.GetValue<bool?>("Messages:PreciseReadCursorEnabled") ?? true;
 }

@@ -256,10 +256,10 @@
 | 方法 | 路径 | 说明 |
 | ------ | ------ | ------ |
 | GET | `/api/binary/messages/conversations` | 当前用户对话列表 |
-| GET | `/api/binary/messages/conversations/{id}` | 对话详情与消息 |
-| POST | `/api/binary/messages/conversations` | 发起新对话 |
-| POST | `/api/binary/messages/conversations/{id}/reply` | 回复对话 |
-| POST | `/api/binary/messages/conversations/{id}/read` | 标记对话已读 |
+| GET | `/api/binary/messages/conversations/{id}` | `ConversationDetailV2(203)`；返回 `readSnapshotMessageId` |
+| POST | `/api/binary/messages/conversations` | 发起新对话；响应 `ConversationDetailV2(203)` |
+| POST | `/api/binary/messages/conversations/{id}/reply` | `AccountConversationReplyRequest(202)`；正文 + 显式 `readThroughMessageId` |
+| POST | `/api/binary/messages/conversations/{id}/read` | `ConversationReadRequest(201)`；精确推进已读游标，不读取当前 `MAX(id)` |
 
 ---
 
@@ -270,10 +270,10 @@
 | 方法 | 路径 | 说明 |
 | ------ | ------ | ------ |
 | GET | `/api/binary/admin/messages/conversations` | 所有对话列表 |
-| GET | `/api/binary/admin/messages/conversations/{id}` | 对话详情 |
+| GET | `/api/binary/admin/messages/conversations/{id}` | `ConversationDetailV2(203)` 对话详情 |
 | POST | `/api/binary/admin/messages/conversations/{id}/reply` | 以管理员身份回复 |
 | POST | `/api/binary/admin/messages/conversations/{id}/status` | 更新对话状态（open/pending/closed）；并发状态冲突返回 409 |
-| POST | `/api/binary/admin/messages/system-send` | 单账号系统消息；`targetAccountId` 必填 |
+| POST | `/api/binary/admin/messages/system-send` | 单账号系统消息；`targetAccountId` 必填；响应 `ConversationDetailV2(203)` |
 
 ## 开放分发与作者工作台
 

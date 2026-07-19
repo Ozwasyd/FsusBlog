@@ -5,7 +5,7 @@ import { mapAuthLoginFlowFromPayload, mapCurrentUserSnapshotFromPayload, mapIden
 import { mapAuthoringJsonFromPayload } from '@/adapters/binary/authoringAdapter';
 import { mapAnonymousCommentTicketResponseFromPayload, mapAnonymousCredentialIssueResponseFromPayload, mapAnonymousCredentialRevocationArtifactFromPayload, mapAnonymousCredentialRootSnapshotFromPayload, mapAnonymousPrivacyStateSnapshotFromPayload, mapBlindCredentialIssuerMetadataFromPayload, mapBlindCredentialIssueResponseFromPayload, mapCommentCursorFromPodPayload, mapCommentPolicySnapshotFromPayload, mapThreadReplyCursorFromPodPayload, mapUserCommentCursorFromPodPayload } from '@/adapters/binary/commentAdapter';
 import { mapEmptySuccessFromPayload, mapMutationIdFromPayload } from '@/adapters/binary/commonAdapter';
-import { mapConversationDetailFromPayload, mapConversationListFromPayload, mapConversationMessageFromPayload } from '@/adapters/binary/messageAdapter';
+import { mapConversationDetailFromPayload, mapConversationDetailV2FromPayload, mapConversationListFromPayload, mapConversationMessageFromPayload } from '@/adapters/binary/messageAdapter';
 import { mapPasskeyCredentialListFromPayload, mapPasskeyLoginBeginFromPayload, mapPasskeyRegisterBeginFromPayload } from '@/adapters/binary/passkeyAdapter';
 import { mapHumanReadChallengeFromPayload, mapHumanReadSubmitFromPayload } from '@/adapters/binary/readProofAdapter';
 import { mapSecurityChallengeIssueResponseFromPayload, mapSecurityChallengeVerifyResponseFromPayload, mapSecurityJsonFromPayload } from '@/adapters/binary/securityAdapter';
@@ -40,6 +40,7 @@ export const binaryFrameDecoderRegistry: Readonly<Record<number, (payload: Uint8
   [FrameType.RecoveryKeyVerifyResponse]: mapRecoveryKeyVerifyResponseFromPayload,
   [FrameType.ConversationList]: mapConversationListFromPayload,
   [FrameType.ConversationDetail]: mapConversationDetailFromPayload,
+  [FrameType.ConversationDetailV2]: mapConversationDetailV2FromPayload,
   [FrameType.ConversationMessage]: mapConversationMessageFromPayload,
   [FrameType.PasskeyRegisterBegin]: mapPasskeyRegisterBeginFromPayload,
   [FrameType.PasskeyLoginBegin]: mapPasskeyLoginBeginFromPayload,
