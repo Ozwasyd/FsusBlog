@@ -194,6 +194,133 @@ public sealed class ArticleAssetReferenceLifecycleTests(PostgresSchemaMigrationF
         Assert.Empty(assertDb.Queryable<ArticleAssetCleanupQueueItem>().ToList());
     }
 
+    [Fact]
+    public async Task PermanentDeletionKernel_DeletesOnlyMutableTargetRowsAndPreservesRevisionHistory()
+    {
+        const string CurrentOnlyUrl = "/uploads/illustration/current-only.png";
+        const string DraftOnlyUrl = "/uploads/illustration/draft-only.png";
+        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        CreateDeletionTables(db);
+
+        int targetId = db.Insertable(ArticleRow(isDeleted: true)).ExecuteReturnIdentity();
+        int unrelatedId = db.Insertable(ArticleRow(isDeleted: true)).ExecuteReturnIdentity();
+        db.Insertable(new[]
+        {
+            new ArticleBody { ArticleId = targetId, MarkdownContent = Image(CurrentOnlyUrl) },
+            new ArticleBody { ArticleId = unrelatedId, MarkdownContent = "unrelated" }
+        }).ExecuteCommand();
+        db.Insertable(new[]
+        {
+            new ArticleDraft
+            {
+                OwnerAdminPrincipalId = 7,
+                DraftKey = "article-41",
+                ArticleId = targetId,
+                MarkdownContent = Image(DraftOnlyUrl)
+            },
+            new ArticleDraft
+            {
+                OwnerAdminPrincipalId = 7,
+                DraftKey = "article-42",
+                ArticleId = unrelatedId,
+                MarkdownContent = "unrelated"
+            }
+        }).ExecuteCommand();
+        long targetRevisionId = db.Insertable(new ArticleRevision
+        {
+            ArticleId = targetId,
+            RevisionNo = 1,
+            MarkdownContent = Image(SharedUrl)
+        }).ExecuteReturnBigIdentity();
+        db.Insertable(new ArticleRevision
+        {
+            ArticleId = unrelatedId,
+            RevisionNo = 1,
+            MarkdownContent = "unrelated"
+        }).ExecuteCommand();
+        db.Insertable(new[]
+        {
+            new ArticleTag { ArticleId = targetId, TagId = 1 },
+            new ArticleTag { ArticleId = unrelatedId, TagId = 1 }
+        }).ExecuteCommand();
+        db.Insertable(new[]
+        {
+            new ArticlePublicTaxonomyProjection { ArticleId = targetId, TagIds = "1" },
+            new ArticlePublicTaxonomyProjection { ArticleId = unrelatedId, TagIds = "1" }
+        }).ExecuteCommand();
+        db.Insertable(new[]
+        {
+            new ArticleViewSeed { ArticleId = targetId, LegacyViews = 1 },
+            new ArticleViewSeed { ArticleId = unrelatedId, LegacyViews = 1 }
+        }).ExecuteCommand();
+        long targetAssetId = db.Insertable(new AssetLibraryItem
+        {
+            Url = CurrentOnlyUrl,
+            SourceArticleId = targetId
+        }).ExecuteReturnBigIdentity();
+        db.Ado.ExecuteCommand(
+            "INSERT INTO asset_library_article_ref(url, article_id, reference_count, updated_at) VALUES (@Url, @ArticleId, 1, now());",
+            new SugarParameter("@Url", CurrentOnlyUrl),
+            new SugarParameter("@ArticleId", targetId));
+        db.Ado.ExecuteCommand(
+            "INSERT INTO public_article_projection(article_id) VALUES (@TargetId), (@UnrelatedId);",
+            new SugarParameter("@TargetId", targetId),
+            new SugarParameter("@UnrelatedId", unrelatedId));
+
+        var store = new ArticleAssetReferenceStore(db);
+        await InTransactionAsync(db, async () =>
+        {
+            await store.ReplaceCurrentArticleAsync(targetId, Image(CurrentOnlyUrl), null);
+            await store.ReplaceDraftAsync(7, "article-41", targetId, Image(DraftOnlyUrl), null);
+            await store.ReplaceRevisionAsync(targetRevisionId, targetId, Image(SharedUrl), null);
+        });
+        Assert.True(db.Queryable<Article>().ClearFilter().InSingle(targetId).IsDeleted);
+
+        List<int> recordedEvents = [];
+        var transaction = await db.Ado.UseTranAsync(() => new ArticleDeletionKernel(db).DeleteLockedAsync(
+            [targetId],
+            articleId =>
+            {
+                recordedEvents.Add(articleId);
+                return Task.CompletedTask;
+            }));
+
+        Assert.True(transaction.IsSuccess, transaction.ErrorMessage);
+        Assert.Equal(1, transaction.Data);
+        Assert.Equal([targetId], recordedEvents);
+        Assert.Null(db.Queryable<Article>().ClearFilter().InSingle(targetId));
+        Assert.NotNull(db.Queryable<Article>().ClearFilter().InSingle(unrelatedId));
+        Assert.Empty(db.Queryable<ArticleBody>().Where(row => row.ArticleId == targetId).ToList());
+        Assert.Empty(db.Queryable<ArticleDraft>().Where(row => row.ArticleId == targetId).ToList());
+        Assert.Empty(db.Queryable<ArticleTag>().Where(row => row.ArticleId == targetId).ToList());
+        Assert.NotEmpty(db.Queryable<ArticleRevision>().Where(row => row.ArticleId == targetId).ToList());
+        Assert.NotEmpty(db.Queryable<ArticleBody>().Where(row => row.ArticleId == unrelatedId).ToList());
+        Assert.NotEmpty(db.Queryable<ArticleDraft>().Where(row => row.ArticleId == unrelatedId).ToList());
+        Assert.NotEmpty(db.Queryable<ArticleTag>().Where(row => row.ArticleId == unrelatedId).ToList());
+        Assert.Null(db.Queryable<AssetLibraryItem>().InSingle(targetAssetId).SourceArticleId);
+        Assert.Equal(0, CountByArticleId(db, "asset_library_article_ref", targetId));
+        Assert.Equal(0, CountByArticleId(db, "public_article_projection", targetId));
+        Assert.Equal(1, CountByArticleId(db, "public_article_projection", unrelatedId));
+        Assert.Equal(0, CountByArticleId(db, "article_public_taxonomy_projection", targetId));
+        Assert.Equal(1, CountByArticleId(db, "article_public_taxonomy_projection", unrelatedId));
+        Assert.Equal(0, CountByArticleId(db, "article_view_seed", targetId));
+        Assert.Equal(1, CountByArticleId(db, "article_view_seed", unrelatedId));
+
+        List<ArticleAssetReference> references = db.Queryable<ArticleAssetReference>()
+            .Where(row => row.ArticleId == targetId)
+            .ToList();
+        ArticleAssetReference revisionReference = Assert.Single(references);
+        Assert.Equal(ArticleAssetSourceKinds.Revision, revisionReference.SourceKind);
+        Assert.Equal(SharedUrl, revisionReference.NormalizedUrl);
+        Assert.Equal(
+            [CurrentOnlyUrl, DraftOnlyUrl],
+            db.Queryable<ArticleAssetCleanupQueueItem>()
+                .ToList()
+                .Select(static item => item.NormalizedUrl)
+                .Order(StringComparer.Ordinal)
+                .ToArray());
+    }
+
     private async Task<SqlSugarClient> CreateDatabaseAsync()
     {
         SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
@@ -210,6 +337,50 @@ public sealed class ArticleAssetReferenceLifecycleTests(PostgresSchemaMigrationF
             typeof(ArticleRevision),
             typeof(ArticleAssetReference),
             typeof(ArticleAssetCleanupQueueItem));
+
+    private static void CreateDeletionTables(SqlSugarClient db)
+    {
+        PostgresSqlSugarTestClient.InitTables(
+            db,
+            typeof(Article),
+            typeof(ArticleBody),
+            typeof(ArticleDraft),
+            typeof(ArticleRevision),
+            typeof(ArticleTag),
+            typeof(ArticleAssetReference),
+            typeof(ArticleAssetCleanupQueueItem),
+            typeof(AssetLibraryItem),
+            typeof(ArticlePublicTaxonomyProjection),
+            typeof(ArticleViewSeed));
+        db.Ado.ExecuteCommand(
+            """
+            CREATE TABLE IF NOT EXISTS asset_library_article_ref (
+                url varchar(512) NOT NULL,
+                article_id integer NOT NULL,
+                reference_count integer NOT NULL DEFAULT 1,
+                updated_at timestamp NOT NULL DEFAULT now(),
+                PRIMARY KEY (url, article_id)
+            );
+            CREATE TABLE IF NOT EXISTS public_article_projection (
+                article_id integer PRIMARY KEY
+            );
+            """);
+    }
+
+    private static Article ArticleRow(bool isDeleted)
+        => new()
+        {
+            Title = "article deletion fixture",
+            CategoryId = 1,
+            Status = ArticleStatus.Deleted,
+            IsDeleted = isDeleted,
+            CreateTime = DateTime.UtcNow
+        };
+
+    private static int CountByArticleId(SqlSugarClient db, string tableName, int articleId)
+        => db.Ado.GetInt(
+            $"SELECT COUNT(1) FROM {tableName} WHERE article_id = @ArticleId;",
+            new SugarParameter("@ArticleId", articleId));
 
     private static async Task InTransactionAsync(SqlSugarClient db, Func<Task> action)
     {

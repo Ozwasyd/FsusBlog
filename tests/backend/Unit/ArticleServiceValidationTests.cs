@@ -388,7 +388,21 @@ public class ArticleServiceValidationTests
         Assert.Contains("LoadTrashArticlesForUpdateAsync", method, StringComparison.Ordinal);
         Assert.Contains("FOR UPDATE", method, StringComparison.Ordinal);
         Assert.Contains("WHERE isdeleted = true", method, StringComparison.Ordinal);
-        Assert.Contains("get_IsDeleted", method, StringComparison.Ordinal);
+        Assert.Contains("ArticleDeletionKernel.DeleteLockedAsync", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PermanentDeleteAndClearTrash_RuntimeReuseOneDeletionKernel()
+    {
+        string method = ArticleRuntime(
+            nameof(ArticleService.PermanentlyDeleteArticleAsync),
+            nameof(ArticleService.ClearTrashAsync));
+
+        Assert.Equal(
+            2,
+            method.Split("ArticleDeletionKernel.DeleteLockedAsync", StringSplitOptions.None).Length - 1);
+        Assert.DoesNotContain("Deleteable<Comment>", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("Deleteable<ArticleBody>", method, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -173,26 +173,10 @@ public partial class ArticleService
                 return 0;
             }
 
-            var assetReferences = new ArticleAssetReferenceStore(_db);
-            await assetReferences.ReconcileUrlsAsync(imageUrls, ct).ConfigureAwait(false);
-            await _db.Deleteable<Comment>().Where(c => c.ArticleId == id).ExecuteCommandAsync();
-            await _db.Deleteable<ArticleTag>().Where(at => at.ArticleId == id).ExecuteCommandAsync();
-            await _db.Deleteable<ArticleBody>().Where(it => it.ArticleId == id).ExecuteCommandAsync();
-            await RecordArticleMutationOutboxAsync(id, "permanently-deleted");
-            int deleted = await _db.Ado.ExecuteCommandAsync(
-                """
-                DELETE FROM article
-                WHERE id = @ArticleId
-                  AND isdeleted = true
-                  AND xmin::text = @RowVersion;
-                """,
-                new SugarParameter("@ArticleId", id),
-                new SugarParameter("@RowVersion", state.RowVersion));
-            if (deleted > 0)
-            {
-                await assetReferences.RemoveCurrentArticlesAndScheduleAsync([id], imageUrls, ct).ConfigureAwait(false);
-            }
-            return deleted;
+            return await new ArticleDeletionKernel(_db).DeleteLockedAsync(
+                [id],
+                articleId => RecordArticleMutationOutboxAsync(articleId, "permanently-deleted"),
+                ct).ConfigureAwait(false);
         });
 
         ct.ThrowIfCancellationRequested();
@@ -234,30 +218,10 @@ public partial class ArticleService
                 .Select(it => new { it.ArticleId, it.MarkdownContent })
                 .ToListAsync(ct))
                 .ToDictionary(static it => it.ArticleId, static it => it.MarkdownContent);
-            string[] candidateUrls = [.. lockedTrashArticles
-                .SelectMany(article => ArticleAssetReferenceStore.BuildReferenceCounts(
-                    trashedBodyMap.GetValueOrDefault(article.Id),
-                    article.CoverImageUrl).Keys)
-                .Distinct(StringComparer.Ordinal)];
-            var assetReferences = new ArticleAssetReferenceStore(_db);
-            await assetReferences.ReconcileUrlsAsync(candidateUrls, ct).ConfigureAwait(false);
-
-            // Bound each IN expression to avoid exceeding the database parser's practical limit.
-            foreach (var chunk in articleIds.Chunk(500))
-            {
-                await _db.Deleteable<Comment>().Where(c => chunk.Contains(c.ArticleId)).ExecuteCommandAsync();
-                await _db.Deleteable<ArticleTag>().Where(at => chunk.Contains(at.ArticleId)).ExecuteCommandAsync();
-                await _db.Deleteable<ArticleBody>().Where(it => chunk.Contains(it.ArticleId)).ExecuteCommandAsync();
-                foreach (int articleId in chunk)
-                {
-                    await RecordArticleMutationOutboxAsync(articleId, "trash-cleared");
-                }
-                await _db.Deleteable<Article>()
-                    .Where(it => chunk.Contains(it.Id) && it.IsDeleted)
-                    .ExecuteCommandAsync();
-            }
-            await assetReferences.RemoveCurrentArticlesAndScheduleAsync(articleIds, candidateUrls, ct).ConfigureAwait(false);
-            return articleIds.Count;
+            return await new ArticleDeletionKernel(_db).DeleteLockedAsync(
+                articleIds,
+                articleId => RecordArticleMutationOutboxAsync(articleId, "trash-cleared"),
+                ct).ConfigureAwait(false);
         });
 
         ct.ThrowIfCancellationRequested();

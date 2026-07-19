@@ -154,6 +154,77 @@ internal sealed class ArticleAssetReferenceStore(ISqlSugarClient db, TimeProvide
         await ScheduleIfUnreferencedAsync(normalizedCandidates, cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<string[]> LoadMutableArticleSourceUrlsAsync(
+        IReadOnlyCollection<int> articleIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (articleIds.Count == 0)
+        {
+            return [];
+        }
+
+        int[] targets = [.. articleIds.Distinct()];
+        List<Article> articles = await db.Queryable<Article>()
+            .ClearFilter()
+            .Where(article => targets.Contains(article.Id))
+            .ToListAsync(cancellationToken);
+        Dictionary<int, string> bodies = (await db.Queryable<ArticleBody>()
+                .Where(body => targets.Contains(body.ArticleId))
+                .ToListAsync(cancellationToken))
+            .ToDictionary(static body => body.ArticleId, static body => body.MarkdownContent);
+        List<ArticleDraft> drafts = await db.Queryable<ArticleDraft>()
+            .Where(draft => draft.ArticleId != null && targets.Contains(draft.ArticleId.Value))
+            .ToListAsync(cancellationToken);
+        List<string> tracked = await db.Queryable<ArticleAssetReference>()
+            .Where(reference => reference.ArticleId != null
+                && targets.Contains(reference.ArticleId.Value)
+                && (reference.SourceKind == ArticleAssetSourceKinds.CurrentArticle
+                    || reference.SourceKind == ArticleAssetSourceKinds.Draft))
+            .Select(reference => reference.NormalizedUrl)
+            .ToListAsync(cancellationToken);
+
+        IEnumerable<string> discovered = articles
+            .SelectMany(article => BuildReferenceCounts(
+                bodies.GetValueOrDefault(article.Id, string.Empty),
+                article.CoverImageUrl).Keys)
+            .Concat(drafts.SelectMany(static draft => BuildReferenceCounts(
+                draft.MarkdownContent,
+                draft.CoverImageUrl).Keys))
+            .Concat(tracked);
+        return NormalizeUrls(discovered);
+    }
+
+    public async Task RemoveMutableArticleSourcesAndScheduleAsync(
+        IReadOnlyCollection<int> articleIds,
+        IEnumerable<string> candidateUrls,
+        CancellationToken cancellationToken = default)
+    {
+        if (articleIds.Count == 0)
+        {
+            return;
+        }
+
+        int[] targets = [.. articleIds.Distinct()];
+        await AcquireLedgerLockAsync(cancellationToken).ConfigureAwait(false);
+        List<string> trackedUrls = await db.Queryable<ArticleAssetReference>()
+            .Where(reference => reference.ArticleId != null
+                && targets.Contains(reference.ArticleId.Value)
+                && (reference.SourceKind == ArticleAssetSourceKinds.CurrentArticle
+                    || reference.SourceKind == ArticleAssetSourceKinds.Draft))
+            .Select(reference => reference.NormalizedUrl)
+            .ToListAsync(cancellationToken);
+        string[] normalizedCandidates = NormalizeUrls(candidateUrls.Concat(trackedUrls));
+        await AcquireUrlLocksAsync(normalizedCandidates, cancellationToken).ConfigureAwait(false);
+
+        await db.Deleteable<ArticleAssetReference>()
+            .Where(reference => reference.ArticleId != null
+                && targets.Contains(reference.ArticleId.Value)
+                && (reference.SourceKind == ArticleAssetSourceKinds.CurrentArticle
+                    || reference.SourceKind == ArticleAssetSourceKinds.Draft))
+            .ExecuteCommandAsync(cancellationToken);
+        await ScheduleIfUnreferencedAsync(normalizedCandidates, cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task ReconcileUrlsAsync(IEnumerable<string> candidateUrls, CancellationToken cancellationToken = default)
     {
         string[] normalizedCandidates = NormalizeUrls(candidateUrls);

@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "issue": 1217,
+  "transactionKernel": "FsusBlog.Server.Services.Articles.ArticleDeletionKernel",
+  "policies": {
+    "delete": "Remove current mutable state in the same PostgreSQL transaction as the article row.",
+    "nullify": "Retain a shared row but remove its current-article attribution in the same transaction.",
+    "preserve": "Retain immutable or audit history under its own lifecycle; the article id is a historical subject identifier, not a live foreign key.",
+    "async_cleanup": "Commit only a durable cleanup request; a retryable local worker performs the physical side effect."
+  },
+  "relations": [
+    { "name": "article", "policy": "delete", "reason": "soft-deleted aggregate root" },
+    { "name": "article_body", "policy": "delete", "reason": "current mutable body" },
+    { "name": "article_draft", "policy": "delete", "reason": "mutable authoring workspace linked to the deleted article" },
+    { "name": "article_tag", "policy": "delete", "reason": "current taxonomy join" },
+    { "name": "asset_library_article_ref", "policy": "delete", "reason": "current asset-library projection" },
+    { "name": "asset_library_item.source_article_id", "policy": "nullify", "reason": "shared library item may outlive its original article" },
+    { "name": "article_asset_reference:article", "policy": "delete", "reason": "current article asset source" },
+    { "name": "article_asset_reference:draft", "policy": "delete", "reason": "deleted draft asset source" },
+    { "name": "article_asset_reference:revision", "policy": "preserve", "reason": "revision and its assets share one retention lifecycle" },
+    { "name": "article_asset_cleanup_queue", "policy": "async_cleanup", "reason": "zero-reference local files receive a delayed retryable cleanup request" },
+    { "name": "public_article_projection", "policy": "delete", "reason": "current public binary projection" },
+    { "name": "article_public_taxonomy_projection", "policy": "delete", "reason": "current public taxonomy projection" },
+    { "name": "article_view_seed", "policy": "delete", "reason": "backfill-only current article seed" },
+    { "name": "article_revision", "policy": "preserve", "reason": "immutable revision history has no expiry policy" },
+    { "name": "article_publication", "policy": "preserve", "reason": "immutable publication history" },
+    { "name": "article_responsibility_snapshot", "policy": "preserve", "reason": "immutable responsibility evidence" },
+    { "name": "article_rights_policy", "policy": "preserve", "reason": "retained rights snapshots reference the policy identity" },
+    { "name": "article_rights_snapshot", "policy": "preserve", "reason": "immutable rights evidence bound to retained revisions" },
+    { "name": "article_rights_proof", "policy": "preserve", "reason": "append-only proof history" },
+    { "name": "article_publish_proof", "policy": "preserve", "reason": "append-only publication proof history" },
+    { "name": "integrity_transparency_log", "policy": "preserve", "reason": "append-only integrity event history" },
+    { "name": "article_mutation_outbox", "policy": "preserve", "reason": "durable mutation event and replay evidence" },
+    { "name": "article_mutation_outbox_edge", "policy": "preserve", "reason": "delivery state for retained mutation events" },
+    { "name": "comment", "policy": "preserve", "reason": "moderation evidence is append-only and remains an independently retained historical record" },
+    { "name": "comment_moderation_event", "policy": "preserve", "reason": "database-enforced append-only moderation history" },
+    { "name": "comment_region_compliance", "policy": "preserve", "reason": "retained comment compliance evidence" },
+    { "name": "comment_blocked_region", "policy": "preserve", "reason": "retained comment visibility evidence" },
+    { "name": "comment_moderation_signal", "policy": "preserve", "reason": "retained comment moderation evidence" },
+    { "name": "article_read_hourly_aggregate", "policy": "preserve", "reason": "bounded non-personal aggregate history" },
+    { "name": "public_article_projection_shadow_mismatch", "policy": "preserve", "reason": "projection audit evidence" },
+    { "name": "local illustration file", "policy": "async_cleanup", "reason": "physical deletion occurs only after the ledger is rechecked at zero references" }
+  ],
+  "entryPoints": [
+    "ArticleService.PermanentlyDeleteArticleAsync",
+    "ArticleService.ClearTrashAsync"
+  ],
+  "idempotency": "Both entry points lock and recheck isdeleted rows; a repeated call observes no targets and performs no deletion."
+}
