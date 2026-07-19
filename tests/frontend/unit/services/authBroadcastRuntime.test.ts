@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia, type Pinia } from 'pinia'
 import { authBroadcastRuntime } from '@/services/authBroadcastRuntime'
+import {
+  disposeAuthBroadcastComposition,
+  installAuthBroadcastComposition
+} from '@/services/authBroadcastComposition'
 import { useAdminStore } from '@/store/admin'
 import { useAppShellStore } from '@/store/appShell'
 import { useNotificationStreamStore } from '@/store/notificationStream'
@@ -91,11 +95,13 @@ function createRuntimePinia(): Pinia {
   const pinia = createPinia()
   setActivePinia(pinia)
   authBroadcastRuntime.init(pinia)
+  installAuthBroadcastComposition(pinia)
   return pinia
 }
 
 describe('authBroadcastRuntime', () => {
   beforeEach(() => {
+    disposeAuthBroadcastComposition()
     authBroadcastRuntime.dispose()
     MockBroadcastChannel.instances = []
     installBroadcastChannel()
@@ -104,6 +110,7 @@ describe('authBroadcastRuntime', () => {
   })
 
   afterEach(() => {
+    disposeAuthBroadcastComposition()
     authBroadcastRuntime.dispose()
     installBroadcastChannel()
   })
@@ -123,7 +130,7 @@ describe('authBroadcastRuntime', () => {
     expect(clearPrivateBrowserState).toHaveBeenCalledWith('account-switch')
   })
 
-  it('login event invalidates guest cache', () => {
+  it('login event invalidates only the account guest cache', () => {
     const pinia = createRuntimePinia()
     const userStore = useUserStore(pinia)
     const adminStore = useAdminStore(pinia)
@@ -134,14 +141,13 @@ describe('authBroadcastRuntime', () => {
 
     expect(userStore.accountState).toBe('unknown')
     expect(userStore.lastVerifiedAt).toBe(0)
-    expect(adminStore.adminState).toBe('unknown')
-    expect(adminStore.adminCheckedAt).toBe(0)
+    expect(adminStore.adminState).toBe('missing')
     expect(clearPrivateBrowserState).toHaveBeenCalledWith('account-switch', {
       broadcastCredentialPurge: false
     })
   })
 
-  it('logout event marks account guest and admin missing', () => {
+  it('logout event marks the account guest without changing the admin session', () => {
     const pinia = createRuntimePinia()
     const userStore = useUserStore(pinia)
     const adminStore = useAdminStore(pinia)
@@ -158,8 +164,8 @@ describe('authBroadcastRuntime', () => {
 
     expect(userStore.accountState).toBe('guest')
     expect(userStore.userInfo).toBeNull()
-    expect(adminStore.adminState).toBe('missing')
-    expect(adminStore.adminPrincipal).toBeNull()
+    expect(adminStore.adminState).toBe('active')
+    expect(adminStore.adminPrincipal?.id).toBe('admin')
     expect(clearPrivateBrowserState).toHaveBeenCalledWith('logout', {
       broadcastCredentialPurge: false
     })
@@ -168,15 +174,37 @@ describe('authBroadcastRuntime', () => {
   it('expired event stops authenticated runtime', () => {
     const pinia = createRuntimePinia()
     const userStore = useUserStore(pinia)
+    const adminStore = useAdminStore(pinia)
     userStore.markAuthenticated(anonymousUser(1) as never)
+    adminStore.setAdminPrincipal({
+      id: 'admin',
+      displayName: 'Admin',
+      source: 'independent',
+      permissions: ['admin.manage'],
+      adminSessionStatus: 'active'
+    })
 
     MockBroadcastChannel.instances[0]?.dispatch({ type: 'expired', at: Date.now() })
 
     expect(userStore.accountState).toBe('guest')
+    expect(adminStore.adminState).toBe('active')
     expect(notificationStreamRuntime.stop).toHaveBeenCalledWith(true)
     expect(clearPrivateBrowserState).toHaveBeenCalledWith('session-expired', {
       broadcastCredentialPurge: false
     })
+  })
+
+  it('admin-changed invalidates only the independent admin cache', () => {
+    const pinia = createRuntimePinia()
+    const userStore = useUserStore(pinia)
+    const adminStore = useAdminStore(pinia)
+    userStore.markGuest()
+    adminStore.markMissing()
+
+    MockBroadcastChannel.instances[0]?.dispatch({ type: 'admin-changed', at: Date.now() })
+
+    expect(adminStore.adminState).toBe('unknown')
+    expect(userStore.accountState).toBe('guest')
   })
 
   it('clears the sending tab before broadcasting session expiry', () => {
@@ -253,6 +281,43 @@ describe('authBroadcastRuntime', () => {
     window.dispatchEvent(storageEvent)
 
     expect(userStore.accountState).toBe('unknown')
-    expect(adminStore.adminState).toBe('unknown')
+    expect(adminStore.adminState).toBe('missing')
+  })
+
+  it('drops sensitive extra fields and applies duplicate events once', () => {
+    const pinia = createRuntimePinia()
+    const userStore = useUserStore(pinia)
+    userStore.markGuest()
+    const event = {
+      type: 'login',
+      at: Date.now(),
+      accountId: 42,
+      token: 'must-not-cross-boundary'
+    }
+
+    MockBroadcastChannel.instances[0]?.dispatch(event)
+    userStore.markGuest()
+    MockBroadcastChannel.instances[0]?.dispatch(event)
+
+    expect(userStore.accountState).toBe('guest')
+    expect(clearPrivateBrowserState).toHaveBeenCalledTimes(1)
+  })
+
+  it('disposes transport and rebuilds composition against a new Pinia root', () => {
+    const firstPinia = createRuntimePinia()
+    useUserStore(firstPinia).markGuest()
+    const firstChannel = MockBroadcastChannel.instances[0]
+
+    disposeAuthBroadcastComposition()
+    authBroadcastRuntime.dispose()
+    const secondPinia = createRuntimePinia()
+    useUserStore(secondPinia).markGuest()
+
+    firstChannel?.dispatch({ type: 'login', at: Date.now() })
+    expect(useUserStore(firstPinia).accountState).toBe('guest')
+
+    MockBroadcastChannel.instances[1]?.dispatch({ type: 'login', at: Date.now() + 1 })
+    expect(useUserStore(secondPinia).accountState).toBe('unknown')
+    expect(useUserStore(firstPinia).accountState).toBe('guest')
   })
 })

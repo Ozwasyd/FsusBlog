@@ -1,8 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { getMe, logout as logoutApi, type CurrentUserSnapshot } from '@/api/auth'
-import { notificationStreamRuntime } from '@/services/notificationStreamRuntime'
-import { useNotificationStreamStore } from '@/store/notificationStream'
 import { isAbortError } from '@/utils/errors'
 import { getKnownErrorInfo, isAuthFailureError } from '@/utils/errorKinds'
 import { clearLocalFixtureSession } from '@/services/localFixtureSession'
@@ -38,14 +36,7 @@ export type AccountSessionState = 'unknown' | 'guest' | 'authenticated'
 
 export const ACCOUNT_GUEST_NEGATIVE_CACHE_MS = 5 * 60 * 1000
 
-async function broadcastLogoutAcrossTabs(): Promise<void> {
-    const { authBroadcastRuntime } = await import('@/services/authBroadcastRuntime')
-    authBroadcastRuntime.broadcastLogout()
-}
-
 export const useUserStore = defineStore('user', () => {
-    const notificationStreamStore = useNotificationStreamStore()
-
     // ================= 1. State =================
     const userInfo = ref<CurrentUserSnapshot | null>(null)
     const accountState = ref<AccountSessionState>('unknown')
@@ -57,6 +48,7 @@ export const useUserStore = defineStore('user', () => {
 
     let fetchPromise: Promise<void> | null = null
     let abortController: AbortController | null = null
+    let logoutBroadcast: (() => void) | null = null
 
     // ================= 2. Getters =================
     const isAuthChecked = computed(() => accountState.value !== 'unknown')
@@ -91,6 +83,10 @@ export const useUserStore = defineStore('user', () => {
             lastVerifiedAt.value = 0
             lastFetchedAt.value = 0
         }
+    }
+
+    const setLogoutBroadcast = (publisher: (() => void) | null): void => {
+        logoutBroadcast = publisher
     }
 
     const fetchUserInfo = async (force = false) => {
@@ -177,12 +173,8 @@ export const useUserStore = defineStore('user', () => {
             clearLocalFixtureSession()
             markGuest()
             await clearPrivateBrowserState('logout')
-            await broadcastLogoutAcrossTabs()
+            logoutBroadcast?.()
             isLoggingOut.value = false;
-            notificationStreamStore.dispose()
-            notificationStreamStore.resetCursor()
-            notificationStreamStore.setStatus('stopped')
-            void notificationStreamRuntime.stop(true)
             if (typeof window !== 'undefined') {
                 window.location.href = '/'
             }
@@ -214,6 +206,7 @@ export const useUserStore = defineStore('user', () => {
         markGuest,
         markAuthenticated,
         invalidateGuestCache,
+        setLogoutBroadcast,
         fetchUserInfo,
         ensureUserInfoFresh,
         logout,

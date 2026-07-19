@@ -2,6 +2,10 @@ import { effectScope, watch, type EffectScope } from 'vue'
 import type { Pinia } from 'pinia'
 import { refreshToken } from '@/api/auth'
 import { authBroadcastRuntime } from '@/services/authBroadcastRuntime'
+import {
+  disposeAuthBroadcastComposition,
+  installAuthBroadcastComposition
+} from '@/services/authBroadcastComposition'
 import { useAppShellStore } from '@/store/appShell'
 import { useUserStore } from '@/store/user'
 import { isAuthFailureError } from '@/utils/errorKinds'
@@ -22,6 +26,7 @@ class AuthSessionRuntime {
     }
 
     this.scope = effectScope()
+    installAuthBroadcastComposition(pinia)
     this.scope.run(() => {
       const userStore = useUserStore(pinia)
       const appShellStore = useAppShellStore(pinia)
@@ -63,6 +68,7 @@ class AuthSessionRuntime {
     window.removeEventListener('focus', this.handleWindowFocus)
     this.scope?.stop()
     this.scope = null
+    disposeAuthBroadcastComposition()
   }
 
   private handleVisibilityChange = (): void => {

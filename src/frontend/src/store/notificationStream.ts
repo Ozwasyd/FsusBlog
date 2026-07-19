@@ -59,6 +59,7 @@ export const useNotificationStreamStore = defineStore('notification-stream', () 
   const userStatusRevision = ref(0)
   const sessionRevocation = shallowRef<SessionRevokedPayload | null>(null)
   const sessionRevocationRevision = ref(0)
+  let sessionRevokedHandler: (() => void) | null = null
 
   const articleBatch = shallowRef<readonly NotificationStreamArticleRenderPatch[]>([])
   const articleRevision = ref(0)
@@ -210,9 +211,7 @@ export const useNotificationStreamStore = defineStore('notification-stream', () 
       case NotificationStreamEventType.SessionRevoked:
         sessionRevocation.value = event.payload as SessionRevokedPayload
         sessionRevocationRevision.value += 1
-        void import('@/services/authBroadcastRuntime').then(({ authBroadcastRuntime }) => {
-          authBroadcastRuntime.expireUserSession()
-        })
+        sessionRevokedHandler?.()
         return
 
       case NotificationStreamEventType.CommentAdded:
@@ -326,6 +325,10 @@ export const useNotificationStreamStore = defineStore('notification-stream', () 
     scheduler.cancel()
   }
 
+  const setSessionRevokedHandler = (handler: (() => void) | null): void => {
+    sessionRevokedHandler = handler
+  }
+
   return {
     runtime,
     unreadCount,
@@ -347,6 +350,7 @@ export const useNotificationStreamStore = defineStore('notification-stream', () 
     recordHandshakeFailure,
     recordReconnect,
     consumeEvent,
+    setSessionRevokedHandler,
     dispose
   }
 })

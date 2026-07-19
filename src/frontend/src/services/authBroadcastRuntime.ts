@@ -1,13 +1,3 @@
-import type { Pinia } from 'pinia'
-import { notificationStreamRuntime } from '@/services/notificationStreamRuntime'
-import { useAdminStore } from '@/store/admin'
-import { useAppShellStore } from '@/store/appShell'
-import { useNotificationStreamStore } from '@/store/notificationStream'
-import { useUserStore } from '@/store/user'
-import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime'
-import { clearLocalFixtureSession } from '@/services/localFixtureSession'
-import { defaultChallengeProofStore } from '@/security/challenge-proof-store'
-
 export type AuthBroadcastEvent =
   | { type: 'login'; at: number }
   | { type: 'logout'; at: number }
@@ -15,26 +5,37 @@ export type AuthBroadcastEvent =
   | { type: 'user-expired'; at: number }
   | { type: 'admin-changed'; at: number }
 
+export type AuthBroadcastEventOrigin = 'local' | 'remote'
+export type AuthBroadcastEventSubscriber = (
+  event: AuthBroadcastEvent,
+  origin: AuthBroadcastEventOrigin
+) => void
+
 const AUTH_BROADCAST_CHANNEL = 'fsus-auth'
 const AUTH_BROADCAST_STORAGE_KEY = 'fsus:auth:broadcast'
+const MAX_RECENT_EVENT_KEYS = 64
 
 type BroadcastChannelConstructor = new (name: string) => BroadcastChannel
 
-function isAuthBroadcastEvent(value: unknown): value is AuthBroadcastEvent {
+function parseAuthBroadcastEvent(value: unknown): AuthBroadcastEvent | null {
   if (typeof value !== 'object' || value === null) {
-    return false
+    return null
   }
 
   const candidate = value as Partial<AuthBroadcastEvent>
-  return (
-    (candidate.type === 'login'
-      || candidate.type === 'logout'
-      || candidate.type === 'expired'
-      || candidate.type === 'user-expired'
-      || candidate.type === 'admin-changed')
-    && typeof candidate.at === 'number'
-    && Number.isFinite(candidate.at)
-  )
+  if ((candidate.type !== 'login'
+    && candidate.type !== 'logout'
+    && candidate.type !== 'expired'
+    && candidate.type !== 'user-expired'
+    && candidate.type !== 'admin-changed')
+    || typeof candidate.at !== 'number'
+    || !Number.isFinite(candidate.at)) {
+    return null
+  }
+
+  // Copy only the public transport contract so untrusted tabs cannot append
+  // identity, token, proof or session fields to the subscriber payload.
+  return { type: candidate.type, at: candidate.at }
 }
 
 function createEvent(type: AuthBroadcastEvent['type']): AuthBroadcastEvent {
@@ -44,17 +45,21 @@ function createEvent(type: AuthBroadcastEvent['type']): AuthBroadcastEvent {
   }
 }
 
-class AuthBroadcastRuntime {
-  private pinia: Pinia | null = null
+export class AuthBroadcastRuntime {
   private channel: BroadcastChannel | null = null
   private storageListenerInstalled = false
+  private initialized = false
+  private readonly subscribers = new Set<AuthBroadcastEventSubscriber>()
+  private readonly recentEventKeys = new Set<string>()
 
-  init(pinia: Pinia): void {
-    if (typeof window === 'undefined' || this.pinia) {
+  // The optional argument keeps bootstrap call sites transport-agnostic. Store
+  // composition is installed separately by authBroadcastComposition.
+  init(_bootstrapContext?: unknown): void {
+    if (typeof window === 'undefined' || this.initialized) {
       return
     }
 
-    this.pinia = pinia
+    this.initialized = true
     const BroadcastChannelImpl = (window as Window & {
       BroadcastChannel?: BroadcastChannelConstructor
     }).BroadcastChannel
@@ -69,6 +74,13 @@ class AuthBroadcastRuntime {
     this.storageListenerInstalled = true
   }
 
+  subscribe(subscriber: AuthBroadcastEventSubscriber): () => void {
+    this.subscribers.add(subscriber)
+    return () => {
+      this.subscribers.delete(subscriber)
+    }
+  }
+
   dispose(): void {
     this.channel?.removeEventListener('message', this.handleChannelMessage)
     this.channel?.close()
@@ -78,78 +90,33 @@ class AuthBroadcastRuntime {
       window.removeEventListener('storage', this.handleStorageEvent)
     }
     this.storageListenerInstalled = false
-    this.pinia = null
+    this.initialized = false
+    this.recentEventKeys.clear()
+    this.subscribers.clear()
   }
 
   broadcastLogin(): void {
-    defaultChallengeProofStore.clear()
-    void clearPrivateBrowserState('account-switch')
-    this.broadcast(createEvent('login'))
+    this.publish(createEvent('login'))
   }
 
   broadcastLogout(): void {
-    defaultChallengeProofStore.clear()
-    this.broadcast(createEvent('logout'))
+    this.publish(createEvent('logout'))
   }
 
   broadcastExpired(): void {
-    defaultChallengeProofStore.clear()
-    void clearPrivateBrowserState('session-expired')
-    this.broadcast(createEvent('expired'))
+    this.publish(createEvent('expired'))
   }
 
   expireUserSession(): void {
-    defaultChallengeProofStore.clear()
-    void clearPrivateBrowserState('session-expired')
-    const event = createEvent('user-expired')
-    this.handleAuthBroadcastEvent(event)
-    this.broadcast(event)
+    this.publish(createEvent('user-expired'))
   }
 
   broadcastAdminChanged(): void {
-    defaultChallengeProofStore.clear()
-    this.broadcast(createEvent('admin-changed'))
+    this.publish(createEvent('admin-changed'))
   }
 
-  handleAuthBroadcastEvent(event: AuthBroadcastEvent): void {
-    defaultChallengeProofStore.clear()
-    if (!this.pinia) {
-      return
-    }
-
-    const userStore = useUserStore(this.pinia)
-    const adminStore = useAdminStore(this.pinia)
-
-    if (event.type === 'login') {
-      void clearPrivateBrowserState('account-switch', { broadcastCredentialPurge: false })
-      userStore.invalidateGuestCache()
-      adminStore.invalidateMissingCache()
-      return
-    }
-
-    if (event.type === 'admin-changed') {
-      adminStore.invalidateMissingCache()
-      return
-    }
-
-    if (event.type === 'user-expired') {
-      clearLocalFixtureSession()
-      userStore.markGuest()
-      void clearPrivateBrowserState('session-expired', { broadcastCredentialPurge: false })
-      useAppShellStore(this.pinia).markSessionExpired()
-      this.stopAuthenticatedRuntime()
-      return
-    }
-
-    userStore.markGuest()
-    adminStore.markMissing()
-    void clearPrivateBrowserState(event.type === 'expired' ? 'session-expired' : 'logout', {
-      broadcastCredentialPurge: false
-    })
-    this.stopAuthenticatedRuntime()
-  }
-
-  private broadcast(event: AuthBroadcastEvent): void {
+  private publish(event: AuthBroadcastEvent): void {
+    this.dispatch(event, 'local')
     if (this.channel) {
       this.channel.postMessage(event)
       return
@@ -166,22 +133,33 @@ class AuthBroadcastRuntime {
     }
   }
 
-  private stopAuthenticatedRuntime(): void {
-    if (!this.pinia) {
+  private dispatch(event: AuthBroadcastEvent, origin: AuthBroadcastEventOrigin): void {
+    const eventKey = `${event.type}:${event.at}`
+    if (this.recentEventKeys.has(eventKey)) {
       return
     }
 
-    const notificationStreamStore = useNotificationStreamStore(this.pinia)
-    notificationStreamStore.dispose()
-    notificationStreamStore.resetCursor()
-    notificationStreamStore.setStatus('stopped')
-    void notificationStreamRuntime.stop(true)
+    this.recentEventKeys.add(eventKey)
+    while (this.recentEventKeys.size > MAX_RECENT_EVENT_KEYS) {
+      const oldest = this.recentEventKeys.values().next().value as string | undefined
+      if (oldest === undefined) break
+      this.recentEventKeys.delete(oldest)
+    }
+
+    for (const subscriber of this.subscribers) {
+      subscriber(event, origin)
+    }
+  }
+
+  private receive(value: unknown): void {
+    const event = parseAuthBroadcastEvent(value)
+    if (event) {
+      this.dispatch(event, 'remote')
+    }
   }
 
   private handleChannelMessage = (message: MessageEvent): void => {
-    if (isAuthBroadcastEvent(message.data)) {
-      this.handleAuthBroadcastEvent(message.data)
-    }
+    this.receive(message.data)
   }
 
   private handleStorageEvent = (event: StorageEvent): void => {
@@ -190,10 +168,7 @@ class AuthBroadcastRuntime {
     }
 
     try {
-      const payload = JSON.parse(event.newValue) as unknown
-      if (isAuthBroadcastEvent(payload)) {
-        this.handleAuthBroadcastEvent(payload)
-      }
+      this.receive(JSON.parse(event.newValue) as unknown)
     } catch {
       // Ignore malformed cross-tab payloads.
     }
