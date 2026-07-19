@@ -65,6 +65,7 @@ public sealed class ObservabilityCorrelationMiddleware
         {
             TimeSpan duration = FsusObservability.GetElapsed(startedAt);
             int statusCode = context.Response.StatusCode;
+            HttpTransportObservability.RecordRequest(context.Request.Protocol, context.Request.Path);
             if (ShouldRecordHttpRequest(statusCode, duration))
             {
                 routeKind ??= FsusObservability.ResolveRouteKind(context);

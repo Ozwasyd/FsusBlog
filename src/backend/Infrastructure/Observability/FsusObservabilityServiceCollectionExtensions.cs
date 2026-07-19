@@ -84,6 +84,7 @@ public static class FsusObservabilityServiceCollectionExtensions
                 metrics
                     .AddMeter(
                         FsusObservability.MeterName,
+                        HttpTransportObservability.MeterName,
                         "FsusBlog.NotificationStream",
                         "FsusBlog.PublicHotRead",
                         "FsusBlog.PublicHotRead.Retiring",

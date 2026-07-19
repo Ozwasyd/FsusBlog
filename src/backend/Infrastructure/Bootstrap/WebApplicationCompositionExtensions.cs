@@ -171,6 +171,7 @@ public static partial class WebApplicationCompositionExtensions
 
     public static void UseFsusApplicationPipeline(this WebApplication app)
     {
+        ReportHttp3TransportStartup(app);
         PublicHotReadCrossCuttingControlCatalog.ValidateOrThrow(
             ApplicationPipelineStageDescriptors,
             EndpointPipelineStageDescriptors);
@@ -178,6 +179,31 @@ public static partial class WebApplicationCompositionExtensions
         {
             stage.Configure(app);
         }
+    }
+
+    private static void ReportHttp3TransportStartup(WebApplication app)
+    {
+        FsusHttp3TransportReport? report = app.Services.GetService<FsusHttp3TransportReport>();
+        if (report is null)
+        {
+            return;
+        }
+
+        string fallbackReason = report.FallbackReasons.Count == 0
+            ? "none"
+            : string.Join(',', report.FallbackReasons);
+        app.Logger.LogInformation(
+            "HTTP/3 transport startup | Status={Status} EnabledRequested={EnabledRequested} EndpointConfigured={EndpointConfigured} QuicProbePerformed={QuicProbePerformed} QuicSupported={QuicSupported} HttpsCertificateReady={HttpsCertificateReady} EndpointConfigurationReady={EndpointConfigurationReady} Port={Port} FallbackReason={FallbackReason}",
+            report.Status,
+            report.EnabledRequested,
+            report.EndpointConfigured,
+            report.QuicProbePerformed,
+            report.QuicSupported,
+            report.HttpsCertificateReady,
+            report.EndpointConfigurationReady,
+            report.Port,
+            fallbackReason);
+        HttpTransportObservability.RecordHttp3Startup(report.Status, report.FallbackReasons);
     }
 
     public static void MapFsusApplicationRoutes(this WebApplication app)
