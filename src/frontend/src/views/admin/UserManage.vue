@@ -1,11 +1,10 @@
 <template>
   <div class="account-page">
-    <header class="account-page-header">
-      <h1 class="account-page-title">匿名账号治理</h1>
-      <p class="account-page-description">
-        管理匿名账号容器、凭据状态与封禁操作。
-      </p>
-    </header>
+    <FsusUiTaskPageHeader
+      title="匿名账号治理"
+      description="管理匿名账号容器、凭据状态与封禁操作。"
+      class="account-task-page-header"
+    />
 
     <UserManageHeader
       :total="total"
@@ -58,6 +57,7 @@
 </template>
 
 <script setup lang="ts">
+import { FsusUiTaskPageHeader } from '@/fsusui'
 import { computed } from 'vue'
 import UserBanDialog from '@/components/admin/users/UserBanDialog.vue'
 import UserManageHeader from '@/components/admin/users/UserManageHeader.vue'

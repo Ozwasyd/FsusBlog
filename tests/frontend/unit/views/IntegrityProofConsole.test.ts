@@ -95,7 +95,7 @@ const mountConsole = () => mount(IntegrityProofConsole, {
       AdminInlineEmptyState: EmptyStateStub,
       FsusUiKeyValueGrid: defineComponent({ setup: (_, { slots }) => () => h('div', slots.default?.()) }),
       FsusUiKeyValueItem: defineComponent({ setup: (_, { slots }) => () => h('span', slots.default?.()) }),
-      FsusUiPageHeader: PageHeaderStub,
+      FsusUiTaskPageHeader: PageHeaderStub,
       FsusUiSettingsSection: SectionStub,
       ElButton: ButtonStub,
       ElInput: true,

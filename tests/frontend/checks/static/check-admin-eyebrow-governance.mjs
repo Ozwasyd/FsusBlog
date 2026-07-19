@@ -64,7 +64,7 @@ for (const file of targetRoots.flatMap((dir) => walk(dir))) {
 
 const accountPageHeaderPath = path.join(repoRoot, 'src/frontend/src/components/account/AccountPageHeader.vue')
 if (fs.existsSync(accountPageHeaderPath)) {
-  fail(accountPageHeaderPath, 1, 'AccountPageHeader.vue is removed in #675; admin pages should use FsusUiPageHeader from @/fsusui')
+  fail(accountPageHeaderPath, 1, 'AccountPageHeader.vue is removed; account task pages must use FsusUiTaskPageHeader from @/fsusui')
 }
 
 const workbenchPanelPath = path.join(repoRoot, 'src/frontend/src/components/account/WorkbenchPanel.vue')

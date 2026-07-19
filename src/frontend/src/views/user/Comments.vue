@@ -1,11 +1,10 @@
 <template>
   <section class="account-page">
-    <header class="account-page-header">
-      <h1 class="account-page-title">公开评论记录</h1>
-      <p class="account-page-description">
-        查看、筛选和删除公开发送的评论。匿名评论不进入账号记录。
-      </p>
-    </header>
+    <FsusUiTaskPageHeader
+      title="公开评论记录"
+      description="查看、筛选和删除公开发送的评论。匿名评论不进入账号记录。"
+      class="account-task-page-header"
+    />
 
     <UserCommentsCollectionToolbar>
       <el-input
@@ -79,6 +78,7 @@
 </template>
 
 <script setup lang="ts">
+import { FsusUiTaskPageHeader } from '@/fsusui'
 import { useUserCommentsPage } from '@/composables/useUserCommentsPage'
 import UserCommentsCollectionToolbar from '@/components/user/UserCommentsCollectionToolbar.vue'
 import UserCommentsErrorState from '@/components/user/UserCommentsErrorState.vue'

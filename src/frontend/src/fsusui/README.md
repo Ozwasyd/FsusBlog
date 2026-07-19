@@ -11,9 +11,9 @@ the behavior it adds beyond its package re-exports.
 
 | Classification | Files | Responsibility |
 | --- | --- | --- |
-| Type-preserving re-export | `dangerZone.ts`, `dataList.ts`, `icons.ts`, `keyValueGrid.ts`, `kpiGroup.ts`, `metricPrimitives.ts`, `sectionHeader.ts`, `sectionNav.ts`, `segmentedControl.ts`, `settingsSection.ts`, `siteHeader.ts`, `theme.ts`, `typedConfirmField.ts` | Rename public package exports without widening component props, slots or emits. |
+| Type-preserving re-export | `dangerZone.ts`, `dataList.ts`, `icons.ts`, `keyValueGrid.ts`, `kpiGroup.ts`, `metricPrimitives.ts`, `sectionHeader.ts`, `sectionNav.ts`, `segmentedControl.ts`, `settingsSection.ts`, `siteHeader.ts`, `taskPageHeader.ts`, `theme.ts`, `typedConfirmField.ts` | Rename public package exports without widening component props, slots or emits. |
 | Runtime adapter | `appContext.ts`, `feedback.ts`, `markdown.ts`, `motion.ts`, `result.ts` | Own package runtime setup or invocation that cannot be represented by a re-export alone. |
-| Semantic policy adapter | `blogMotion.ts`, `dialog.ts`, `pageHeader.ts`, `primitiveAdapters.ts`, `publicShell.ts`, `renderPipeline.ts` | Map an explicit Blog policy to a public FsusUI contract without duplicating package markup or CSS. |
+| Semantic policy adapter | `blogMotion.ts`, `dialog.ts`, `primitiveAdapters.ts`, `publicShell.ts`, `renderPipeline.ts` | Map an explicit Blog policy to a public FsusUI contract without duplicating package markup or CSS. |
 | Barrel | `index.ts` | Publish the stable Blog-side adapter surface; it contains no implementation. |
 
 Type-preserving component adapters must use named re-exports. `as Component`,
@@ -23,10 +23,11 @@ provider, activate a package runtime, invoke a programmatic API or translate a
 real FsusBlog policy. Semantic adapters may choose policy values, but must not
 copy generic FsusUI DOM, styles or internal BEM selectors into Blog code.
 
-`pageHeader.ts` owns the Blog-specific `AccountPageHeader`. Its
-`FsusUiPageHeader` export is a compatibility alias for the page migration tracked
-by #1304; it is not an FsusUI implementation and new call sites must use the
-Blog-owned name.
+`taskPageHeader.ts` is the only account/admin task-heading boundary. It re-exports
+the upstream `FsusTaskPageHeader` as `FsusUiTaskPageHeader`, preserving its
+typed props and slots. FsusBlog owns page copy, actions and the composition
+margin after the header; it must not recreate the component's title,
+description, action layout or mobile stacking CSS.
 
 `publicShell.ts` re-exports the alias-resolved `ElPublicShell` component and
 defines the stable `inline | menu | bottom | none` mobile-navigation policy.

@@ -1,11 +1,10 @@
 <template>
   <div class="account-page identity-center">
-    <header v-if="showIdentityRouteHeader" class="identity-section-header">
-      <div class="identity-section-header__copy">
-        <h1>{{ sectionMeta.title }}</h1>
-        <p v-if="sectionMeta.description">{{ sectionMeta.description }}</p>
-      </div>
-    </header>
+    <FsusUiTaskPageHeader
+      :title="sectionMeta.title"
+      :description="sectionMeta.description"
+      density="compact"
+    />
 
     <template v-if="isSection('UserIdentityOverview')">
       <div class="identity-status-grid">
@@ -386,7 +385,7 @@
 import { startAuthentication } from '@simplewebauthn/browser'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { FsusUiSettingsSection } from '@/fsusui'
+import { FsusUiSettingsSection, FsusUiTaskPageHeader } from '@/fsusui'
 import MfaSetupModal from '@/components/ui/MfaSetupModal.vue'
 import PasskeyRegisterModal from '@/components/ui/PasskeyRegisterModal.vue'
 import SemanticTime from '@/components/ui/SemanticTime.vue'
@@ -617,7 +616,6 @@ const currentRouteName = computed<IdentityRouteName>(() => {
 
 const sectionMeta = computed(() => sectionMetaByRoute[currentRouteName.value])
 const isSection = (name: IdentityRouteName): boolean => currentRouteName.value === name
-const showIdentityRouteHeader = computed(() => isSection('UserIdentityOverview'))
 
 const ensureCommentRecordsLoaded = (): void => {
   if (!isSection('UserIdentityCommentRecords') || commentRecordsLoaded.value || commentRecordsLoading.value) {
@@ -1009,41 +1007,6 @@ watch(currentRouteName, () => {
 .identity-center {
   display: grid;
   gap: var(--fsus-space-8);
-}
-
-.identity-section-header {
-  display: block;
-  border-bottom: 1px solid var(--fsusblog-panel-border);
-  padding-bottom: var(--fsus-space-4);
-}
-
-.identity-section-header__copy {
-  min-width: 0;
-}
-
-.identity-section-header__copy h1 {
-  margin: 0;
-  color: var(--fsusblog-text-primary);
-  font-size: 1.5rem;
-  font-weight: 700;
-  line-height: 1.25;
-  letter-spacing: 0;
-}
-
-.identity-section-header__copy p {
-  max-width: 42rem;
-  margin: var(--fsus-space-4) 0 0;
-  color: var(--fsusblog-text-tertiary);
-  font-size: 14px;
-  font-weight: 400;
-  line-height: 1.6;
-}
-
-@media (min-width: 640px) {
-  .identity-section-header__copy h1 {
-    font-size: 1.875rem;
-    line-height: 1.2;
-  }
 }
 
 .identity-status-grid {

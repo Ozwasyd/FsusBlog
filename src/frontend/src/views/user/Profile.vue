@@ -1,8 +1,9 @@
 <template>
   <div class="account-page profile-page">
-    <FsusUiPageHeader
+    <FsusUiTaskPageHeader
       :title="profileCopy.pageTitle"
-      :content="profileCopy.pageDescription"
+      :description="profileCopy.pageDescription"
+      class="account-task-page-header"
     />
 
     <ProfileInlineEmptyState
@@ -24,7 +25,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { FsusUiPageHeader } from "@/fsusui"
+import { FsusUiTaskPageHeader } from "@/fsusui"
 import { ProfileInlineEmptyState } from '@/components/user/ProfileSettingsPrimitives'
 import { FSUSBLOG_IDENTITY_COPY } from '@/copy'
 

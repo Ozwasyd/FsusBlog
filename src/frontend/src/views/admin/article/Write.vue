@@ -9,19 +9,22 @@
       v-loading="pageLoading"
       element-loading-text="正在载入数据资源..."
     >
-      <header class="write-command-bar border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)] px-4 py-3 mb-6" aria-label="文章编辑操作">
-        <div class="write-command-heading">
+      <FsusUiTaskPageHeader
+        class="account-task-page-header"
+        density="compact"
+      >
+        <template #title>
+          <span id="article-write-title">{{ pageTitle }}</span>
+        </template>
+        <template #description>
+          <span id="article-editor-status" aria-live="polite">
+            {{ editorStatusText }}
+          </span>
+        </template>
+        <template #actions>
           <el-button class="write-command-back" text @click="requestLeave" :disabled="submitting">
             返回
           </el-button>
-          <div class="min-w-0">
-            <h1 id="article-write-title" class="write-command-title">{{ pageTitle }}</h1>
-            <p id="article-editor-status" class="write-command-status" aria-live="polite">
-              {{ editorStatusText }}
-            </p>
-          </div>
-        </div>
-        <div class="write-command-actions shrink-0">
           <div class="write-submit-button">
             <el-button
               type="primary"
@@ -32,8 +35,8 @@
               {{ submitButtonText }}
             </el-button>
           </div>
-        </div>
-      </header>
+        </template>
+      </FsusUiTaskPageHeader>
 
       <el-form
         ref="formRef"
@@ -663,6 +666,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { FsusUiTaskPageHeader } from '@/fsusui'
 import ArticleAssetLibraryPanel from '@/components/admin/article/ArticleAssetLibraryPanel.vue'
 import ArticlePrivatePreviewPanel from '@/components/admin/article/ArticlePrivatePreviewPanel.vue'
 import ArticleRevisionPanel from '@/components/admin/article/ArticleRevisionPanel.vue'
@@ -995,22 +999,6 @@ const submitQuickCreateTag = async (): Promise<void> => {
   flex-direction: column;
 }
 
-.write-command-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.write-command-heading {
-  display: flex;
-  min-width: 0;
-  flex: 1 1 auto;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.5rem;
-}
-
 .write-command-back {
   min-width: 40px;
   min-height: 40px;
@@ -1024,36 +1012,6 @@ const submitQuickCreateTag = async (): Promise<void> => {
 .write-command-back:hover,
 .write-command-back:focus-visible {
   color: var(--fsusblog-text-primary);
-}
-
-.write-command-title {
-  color: var(--fsusblog-text-primary);
-  font-size: 1.5rem;
-  font-weight: 700;
-  line-height: 1.25;
-  letter-spacing: 0;
-}
-
-@media (min-width: 640px) {
-  .write-command-title {
-    font-size: 1.875rem;
-    line-height: 1.2;
-  }
-}
-
-.write-command-status {
-  margin-top: 0.5rem;
-  color: var(--fsusblog-text-tertiary);
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.write-command-actions {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: flex-end;
-  margin-left: auto;
 }
 
 .write-submit-button {
@@ -1306,14 +1264,9 @@ const submitQuickCreateTag = async (): Promise<void> => {
 }
 
 @media (max-width: 1024px) {
-  .write-command-bar,
   .write-grid,
   .write-side-panel {
     position: static;
-  }
-
-  .write-command-heading {
-    align-items: flex-start;
   }
 
   .write-draft-banner {

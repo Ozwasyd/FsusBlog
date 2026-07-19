@@ -1,9 +1,10 @@
 <template>
   <div class="account-page integrity-proof-console account-motion-enter w-full">
-    <FsusUiPageHeader
+    <FsusUiTaskPageHeader
       title="Integrity Proof"
-      content="查看发布证明、签名、透明日志、checkpoint 与 key 状态。"
-      class="account-page-header--compact"
+      description="查看发布证明、签名、透明日志、checkpoint 与 key 状态。"
+      class="account-task-page-header"
+      density="compact"
     />
 
     <FsusUiSettingsSection class="mb-8" title="查询" id="integrity-proof-query-title">
@@ -157,7 +158,7 @@ import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import {
   FsusUiKeyValueGrid,
   FsusUiKeyValueItem,
-  FsusUiPageHeader,
+  FsusUiTaskPageHeader,
   FsusUiSettingsSection
 } from '@/fsusui'
 import { Refresh, Search } from '@/fsusui/icons'

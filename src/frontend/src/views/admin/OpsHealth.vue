@@ -1,9 +1,11 @@
 <template>
   <div class="account-page ops-health-page account-motion-enter w-full">
-    <header class="account-page-header account-page-header--compact">
-      <h1 class="account-page-title">服务与后台状态</h1>
-      <p class="account-page-description">核心依赖、后台任务、备份与队列状态。</p>
-    </header>
+    <FsusUiTaskPageHeader
+      title="服务与后台状态"
+      description="核心依赖、后台任务、备份与队列状态。"
+      class="account-task-page-header"
+      density="compact"
+    />
 
     <FsusUiSettingsSection
       class="mb-8"
@@ -175,7 +177,7 @@ import {
   type RecentOpsErrorResponse
 } from '@/api/authoring'
 import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
-import { FsusUiSettingsSection } from '@/fsusui'
+import { FsusUiSettingsSection, FsusUiTaskPageHeader } from '@/fsusui'
 import { FsusUiKeyValueGrid, FsusUiKeyValueItem } from '@/fsusui'
 import { CopyDocument, Refresh } from '@/fsusui/icons'
 import { toFsusUiTagType } from '@/fsusui/primitiveAdapters'

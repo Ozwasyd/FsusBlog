@@ -1,27 +1,29 @@
 <template>
   <div class="account-page dashboard-wrapper account-motion-enter w-full">
-    <header class="account-page-header account-page-header--compact dashboard-page-header">
-      <div class="dashboard-page-header__copy">
-        <h1 class="account-page-title">站点工作台</h1>
-        <p class="account-page-description">先处理今天的内容、互动与运行待办。</p>
-      </div>
-
-      <details v-if="helpLinks.length > 0" class="dashboard-help-menu">
-        <summary class="dashboard-help-menu__trigger">帮助与反馈</summary>
-        <nav class="dashboard-help-menu__links" aria-label="帮助与反馈入口">
-          <a
-            v-for="link in helpLinks"
-            :key="link.key"
-            class="dashboard-help-menu__link"
-            :href="link.href"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {{ link.label }}
-          </a>
-        </nav>
-      </details>
-    </header>
+    <FsusUiTaskPageHeader
+      title="站点工作台"
+      description="先处理今天的内容、互动与运行待办。"
+      class="account-task-page-header"
+      density="compact"
+    >
+      <template #actions>
+        <details v-if="helpLinks.length > 0" class="dashboard-help-menu">
+          <summary class="dashboard-help-menu__trigger">帮助与反馈</summary>
+          <nav class="dashboard-help-menu__links" aria-label="帮助与反馈入口">
+            <a
+              v-for="link in helpLinks"
+              :key="link.key"
+              class="dashboard-help-menu__link"
+              :href="link.href"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {{ link.label }}
+            </a>
+          </nav>
+        </details>
+      </template>
+    </FsusUiTaskPageHeader>
 
     <section class="dashboard-work-section" aria-labelledby="dashboard-today-actions-title">
       <header class="dashboard-work-section__header">
@@ -95,7 +97,7 @@
 </template>
 
 <script setup lang="ts">
-import { FsusUiSectionHeader } from '@/fsusui'
+import { FsusUiSectionHeader, FsusUiTaskPageHeader } from '@/fsusui'
 import type { ConsoleSupportLink } from '@/config/consoleWelcomeCallout'
 import type {
   AdminDashboardLedgerItem,
@@ -118,17 +120,6 @@ defineEmits<{
 </script>
 
 <style scoped>
-.dashboard-page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--fsus-space-4);
-}
-
-.dashboard-page-header__copy {
-  min-width: 0;
-}
-
 .dashboard-help-menu {
   position: relative;
   flex: 0 0 auto;
@@ -398,12 +389,6 @@ defineEmits<{
 }
 
 @media (max-width: 639px) {
-  .dashboard-page-header {
-    align-items: stretch;
-    flex-direction: column;
-    gap: var(--fsus-space-2);
-  }
-
   .dashboard-help-menu {
     align-self: flex-start;
   }

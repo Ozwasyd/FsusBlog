@@ -1,10 +1,11 @@
 <template>
   <div class="account-page comment-moderation-page account-motion-enter w-full">
-    <FsusUiPageHeader
+    <FsusUiTaskPageHeader
       v-if="!embedded"
       title="评论审核"
-      content="集中处理评论队列、筛选风险命中项，并执行需要管理员二次验证的审核操作。"
-      class="account-page-header--compact"
+      description="集中处理评论队列、筛选风险命中项，并执行需要管理员二次验证的审核操作。"
+      class="account-task-page-header"
+      density="compact"
     />
 
     <CommentModerationToolbar
@@ -72,7 +73,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { FsusUiPageHeader } from "@/fsusui"
+import { FsusUiTaskPageHeader } from "@/fsusui"
 import CommentModerationBulkActions from '@/components/admin/comment-moderation/CommentModerationBulkActions.vue'
 import CommentModerationDetailDrawer from '@/components/admin/comment-moderation/CommentModerationDetailDrawer.vue'
 import CommentModerationQueue from '@/components/admin/comment-moderation/CommentModerationQueue.vue'

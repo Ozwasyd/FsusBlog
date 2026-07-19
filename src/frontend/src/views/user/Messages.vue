@@ -1,11 +1,11 @@
 <template>
   <div class="account-page messages-page">
-    <header class="account-page-header">
-      <h1 class="account-page-title">{{ isAdminView ? '站内信中心' : '我的站内信' }}</h1>
-      <p class="account-page-description">
-        {{ isAdminView ? '处理账号会话、系统通知与待跟进状态。' : '集中处理站内消息、系统通知与申诉工单。' }}
-      </p>
-    </header>
+    <FsusUiTaskPageHeader
+      :title="isAdminView ? '站内信中心' : '我的站内信'"
+      :description="isAdminView ? '处理账号会话、系统通知与待跟进状态。' : '集中处理站内消息、系统通知与申诉工单。'"
+      class="account-task-page-header"
+      density="compact"
+    />
 
     <div class="messages-inbox-layout">
       <MessagesConversationList
@@ -141,6 +141,7 @@ import { useAdminMessageCenter } from '@/composables/useAdminMessageCenter'
 import { useInboxSplitView } from '@/composables/useInboxSplitView'
 import { useRowStateMotion } from '@/composables/useRowStateMotion'
 import { useAccountMessagesInbox } from '@/composables/useAccountMessagesInbox'
+import { FsusUiTaskPageHeader } from '@/fsusui'
 
 type FocusablePane = {
   focusPane: () => void

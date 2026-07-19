@@ -177,7 +177,8 @@ describe('AdminDashboardTaskWorkbench', () => {
       rel: 'noopener noreferrer',
       target: '_blank'
     })
-    expect(wrapper.get('.dashboard-page-header').text()).not.toMatch(/GitHub|Issue|仓库维护/u)
+    expect(wrapper.get('.account-task-page-header').text()).not.toMatch(/GitHub|Issue|仓库维护/u)
+    expect(wrapper.get('.el-task-page-header__actions').find('details').exists()).toBe(true)
   })
 
   it('offers an explicit retry when the summary fails', async () => {

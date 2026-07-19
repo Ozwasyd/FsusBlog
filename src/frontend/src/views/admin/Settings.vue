@@ -1,11 +1,10 @@
 <template>
   <div class="account-page profile-page account-motion-enter w-full">
-    <header class="account-page-header">
-      <h1 class="account-page-title">系统设置</h1>
-      <p class="account-page-description">
-        维护站点信息、预览图与静态页面内容。高权限操作会触发明确确认，并自动同步至 AOT 缓存层。
-      </p>
-    </header>
+    <FsusUiTaskPageHeader
+      title="系统设置"
+      description="维护站点信息、预览图与静态页面内容。高权限操作会触发明确确认，并自动同步至 AOT 缓存层。"
+      class="account-task-page-header"
+    />
 
     <section
       role="status"
@@ -607,6 +606,7 @@
 </template>
 
 <script setup lang="ts">
+import { FsusUiTaskPageHeader } from '@/fsusui'
 import { Delete, Plus, Warning } from '@/fsusui/icons'
 import { confirmWarning, toast } from '@/fsusui/feedback'
 import SettingsPageEditor from '@/components/admin/settings/SettingsPageEditor.vue'

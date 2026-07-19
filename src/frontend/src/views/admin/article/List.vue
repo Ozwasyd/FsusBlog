@@ -1,11 +1,11 @@
 <template>
   <div class="account-page article-list-wrapper account-motion-enter w-full">
-    <header class="account-page-header account-page-header--compact">
-      <h1 class="account-page-title">文章管理</h1>
-      <p class="account-page-description">
-        检索文章、编辑状态与进入写作流程。
-      </p>
-    </header>
+    <FsusUiTaskPageHeader
+      title="文章管理"
+      description="检索文章、编辑状态与进入写作流程。"
+      class="account-task-page-header"
+      density="compact"
+    />
 
     <AdminCollectionToolbar label="文章筛选" class="mb-8">
       <template #filters>
@@ -284,6 +284,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { FsusUiTaskPageHeader } from '@/fsusui'
 import { Search, View, Calendar, Plus, ArrowDown } from '@/fsusui/icons'
 import { type ArticleListItemResponse } from '@/api/article'
 import { useAdminArticleList } from '@/composables/useAdminArticleList'

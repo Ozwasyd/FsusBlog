@@ -1,9 +1,11 @@
 <template>
   <div :class="['account-page account-motion-enter w-full', schema.pageClass]">
-    <header class="account-page-header account-page-header--compact">
-      <h1 class="account-page-title">{{ schema.pageTitle }}</h1>
-      <p class="account-page-description">{{ schema.pageDescription }}</p>
-    </header>
+    <FsusUiTaskPageHeader
+      :title="schema.pageTitle"
+      :description="schema.pageDescription"
+      class="account-task-page-header"
+      density="compact"
+    />
 
     <section class="mb-8 border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]" :aria-label="schema.summaryAriaLabel">
       <AdminCollectionSummary :title="stateText" :description="schema.summaryDescription">
@@ -125,6 +127,7 @@
 <script setup lang="ts" generic="TItem extends AdminTaxonomyItemBase">
 import { computed, ref, useTemplateRef, watch } from 'vue'
 import { type FormInstance } from '@ozwasyd/element-plus'
+import { FsusUiTaskPageHeader } from '@/fsusui'
 import { InfoFilled, Plus, Edit, Lock, Delete, Search, View } from '@/fsusui/icons'
 import { useMediaQuery } from '@/composables/useMediaQuery'
 import AdminCollectionSummary from '@/components/admin/AdminCollectionSummary.vue'

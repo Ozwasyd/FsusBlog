@@ -2,61 +2,49 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const accountShell = readFileSync(
-  resolve(process.cwd(), 'src/assets/account-shell.css'),
-  'utf8'
-)
-const identityCenter = readFileSync(
-  resolve(process.cwd(), 'src/views/user/IdentityCenter.vue'),
-  'utf8'
-)
+const read = (path: string): string => readFileSync(resolve(process.cwd(), path), 'utf8')
 
-function ruleBody(source: string, pattern: RegExp): string {
-  const body = pattern.exec(source)?.groups?.body
-  expect(body).toBeDefined()
-  return body ?? ''
-}
+const representativeTaskPages = {
+  collection: 'src/views/admin/article/List.vue',
+  dashboard: 'src/components/admin/AdminDashboardTaskWorkbench.vue',
+  form: 'src/views/admin/article/Write.vue',
+  identity: 'src/views/user/IdentityCenter.vue',
+  settings: 'src/views/admin/Settings.vue'
+} as const
 
-describe('account page title hierarchy', () => {
-  it('keeps shared account page titles at responsive 24/30px with 700 and responsive leading', () => {
-    const sharedTitle = ruleBody(
-      accountShell,
-      /^\.account-page-title\s*\{(?<body>[^}]*)\}/mu
-    )
-    expect(sharedTitle).toMatch(/font-size:\s*1\.5rem;/u)
-    expect(sharedTitle).toMatch(/font-weight:\s*700;/u)
-    expect(sharedTitle).toMatch(/line-height:\s*1\.25;/u)
-    expect(sharedTitle).not.toMatch(/clamp\(/u)
+describe('account task page heading hierarchy', () => {
+  it('uses the type-preserving canonical FsusUI boundary', () => {
+    const adapter = read('src/fsusui/taskPageHeader.ts')
 
-    const sharedDesktopTitle = ruleBody(
-      accountShell,
-      /@media \(min-width:\s*640px\)\s*\{\s*\.account-page-title\s*\{(?<body>[^}]*)\}/u
-    )
-    expect(sharedDesktopTitle).toMatch(/font-size:\s*1\.875rem;/u)
-    expect(sharedDesktopTitle).toMatch(/line-height:\s*1\.2;/u)
-
-    const identityTitle = ruleBody(
-      identityCenter,
-      /\.identity-section-header__copy h1\s*\{(?<body>[^}]*)\}/u
-    )
-    expect(identityTitle).toMatch(/font-size:\s*1\.5rem;/u)
-    expect(identityTitle).toMatch(/font-weight:\s*700;/u)
-    expect(identityTitle).toMatch(/line-height:\s*1\.25;/u)
-
-    const identityDesktopTitle = ruleBody(
-      identityCenter,
-      /@media \(min-width:\s*640px\)\s*\{\s*\.identity-section-header__copy h1\s*\{(?<body>[^}]*)\}/u
-    )
-    expect(identityDesktopTitle).toMatch(/font-size:\s*1\.875rem;/u)
-    expect(identityDesktopTitle).toMatch(/line-height:\s*1\.2;/u)
+    expect(adapter).toContain('FsusTaskPageHeader as FsusUiTaskPageHeader')
+    expect(adapter).toContain('TaskPageHeaderProps as FsusUiTaskPageHeaderProps')
+    expect(adapter).not.toMatch(/\bas\s+Component\b/u)
   })
 
-  it('keeps mobile title ownership limited to width', () => {
-    const mobileTitle = ruleBody(
-      accountShell,
-      /@media \(max-width:\s*640px\)[\s\S]*?\.account-page-title\s*\{(?<body>[^}]*)\}/u
-    )
-    expect(mobileTitle).toContain('max-width: none;')
-    expect(mobileTitle).not.toMatch(/font-size:|font-weight:|line-height:/u)
+  it.each(Object.entries(representativeTaskPages))(
+    'uses one canonical task header on the %s representative',
+    (_, path) => {
+      const source = read(path)
+
+      expect(source.match(/<FsusUiTaskPageHeader\b/gu)).toHaveLength(1)
+      expect(source).not.toMatch(/account-page-title|identity-section-header__copy|write-command-title/u)
+    }
+  )
+
+  it('keeps heading before actions and preserves live editor status', () => {
+    const dashboard = read(representativeTaskPages.dashboard)
+    const write = read(representativeTaskPages.form)
+
+    expect(dashboard).toMatch(/<FsusUiTaskPageHeader[\s\S]*?<template #actions>[\s\S]*?帮助与反馈/u)
+    expect(write).toMatch(/<template #title>[\s\S]*?article-write-title[\s\S]*?<template #description>/u)
+    expect(write).toMatch(/article-editor-status[\s\S]*?aria-live="polite"[\s\S]*?<template #actions>/u)
+    expect(write).toContain('aria-describedby="article-editor-status"')
+  })
+
+  it('retains only the Blog-owned header-to-content margin handoff', () => {
+    const accountShell = read('src/assets/account-shell.css')
+
+    expect(accountShell).toMatch(/\.account-task-page-header\s*\{[^}]*margin-bottom:\s*var\(--fsus-space-6\);/u)
+    expect(accountShell).not.toMatch(/\.account-page-(?:header|title|description)\b/u)
   })
 })

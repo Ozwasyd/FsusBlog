@@ -11,6 +11,7 @@ const srcRoot = path.join(repoRoot, 'src/frontend/src');
 const fsusuiRoot = path.join(srcRoot, 'fsusui');
 const boundaryDocPath = path.join(fsusuiRoot, 'README.md');
 const themeAdapterPath = path.join(fsusuiRoot, 'theme.ts');
+const taskPageHeaderAdapterPath = path.join(fsusuiRoot, 'taskPageHeader.ts');
 const primitiveAdaptersPath = path.join(fsusuiRoot, 'primitiveAdapters.ts');
 const adminInlineEmptyStatePath = path.join(srcRoot, 'components/admin/AdminInlineEmptyState.vue');
 const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json');
@@ -398,7 +399,8 @@ function checkRequiredAdapters()
         'markdown.ts',
         'renderPipeline.ts',
         'primitiveAdapters.ts',
-        'segmentedControl.ts'
+        'segmentedControl.ts',
+        'taskPageHeader.ts'
     ];
 
     for (const name of required)
@@ -411,6 +413,54 @@ function checkRequiredAdapters()
                 rule: 'missing-adapter',
                 detail: `${name} is missing`
             });
+        }
+    }
+
+    const retiredPageHeader = path.join(fsusuiRoot, 'pageHeader.ts');
+    if (fs.existsSync(retiredPageHeader))
+    {
+        warn(retiredPageHeader, 'retired-page-header', 'remove the local page header implementation');
+    }
+}
+
+function checkTaskPageHeaderContract()
+{
+    if (!fs.existsSync(taskPageHeaderAdapterPath))
+    {
+        return;
+    }
+
+    const content = fs.readFileSync(taskPageHeaderAdapterPath, 'utf8');
+    for (const token of [
+        'FsusTaskPageHeader as FsusUiTaskPageHeader',
+        'TaskPageHeaderProps as FsusUiTaskPageHeaderProps',
+        'TaskPageHeaderSlots as FsusUiTaskPageHeaderSlots'
+    ])
+    {
+        if (!content.includes(token))
+        {
+            warn(taskPageHeaderAdapterPath, 'task-page-header-contract', `missing ${token}`);
+        }
+    }
+
+    if (/\bas\s+Component\b|defineComponent\s*\(/u.test(content))
+    {
+        warn(taskPageHeaderAdapterPath, 'task-page-header-contract', 'task page header must stay a type-preserving named re-export');
+    }
+}
+
+function checkRetiredTaskPageHeaderSurface(file, content)
+{
+    if (isUnder(file, fsusuiRoot) || file === boundaryDocPath)
+    {
+        return;
+    }
+
+    for (const token of ['FsusUiPageHeader', 'account-page-header', 'account-page-title', 'account-page-description'])
+    {
+        if (content.includes(token))
+        {
+            warn(file, 'retired-task-page-header', `uses ${token}`);
         }
     }
 }
@@ -545,6 +595,7 @@ for (const file of walk(srcRoot))
     checkProgrammaticImports(file, content);
     checkRuntimeImports(file, content);
     checkBoundaryImplementation(file, content);
+    checkRetiredTaskPageHeaderSurface(file, content);
     checkInternalSelectors(file, content);
     checkVisualRewriteClasses(file, content);
     checkRawDialogUsage(file, content);
@@ -554,6 +605,7 @@ for (const file of walk(srcRoot))
 
 checkPackageMarkdownDependencies();
 checkRequiredAdapters();
+checkTaskPageHeaderContract();
 checkBoundaryDoc();
 checkThemeAdapterContract();
 checkAdminEmptyStateDelegation();

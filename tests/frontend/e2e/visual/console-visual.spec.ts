@@ -46,7 +46,7 @@ for (const viewport of viewports) {
             path: '/user/identity',
             label: 'user-profile',
             primary: 'main',
-            screenshot: '.identity-center'
+            screenshot: '.el-task-page-header'
           },
           {
             path: '/user/messagebox',
@@ -93,14 +93,14 @@ for (const viewport of viewports) {
         const storageState = await adminStorageStatePromise
 
         for (const route of [
-          { path: '/user/manage', label: 'manage-dashboard', primary: 'main', screenshot: '.dashboard-wrapper' },
-          { path: '/user/manage/article/write', label: 'manage-write', primary: 'main', screenshot: '.write-editor-panel' },
-          { path: '/user/manage/settings', label: 'manage-settings', primary: 'main', screenshot: 'header.account-page-header' },
+          { path: '/user/manage', label: 'manage-dashboard', primary: 'main', screenshot: '.el-task-page-header' },
+          { path: '/user/manage/article/write', label: 'manage-write', primary: 'main', screenshot: '.el-task-page-header' },
+          { path: '/user/manage/settings', label: 'manage-settings', primary: 'main', screenshot: '.el-task-page-header' },
           {
             path: '/user/manage/users',
             label: 'manage-users',
             primary: 'main',
-            screenshot: 'header.account-page-header'
+            screenshot: '.el-task-page-header'
           }
         ] as const) {
           const session = await openThemedAuditedPage(browser, theme, storageState)

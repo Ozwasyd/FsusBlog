@@ -1,8 +1,10 @@
 <template>
   <div class="admin-data-surface anonymous-governance-page">
-    <FsusUiPageHeader
+    <FsusUiTaskPageHeader
       :title="section.title"
-      :content="section.description"
+      :description="section.description"
+      density="compact"
+      title-tag="h2"
     />
 
     <FsusUiSettingsSection
@@ -264,8 +266,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { FsusUiPageHeader } from "@/fsusui"
-import { FsusUiSettingsSection } from '@/fsusui'
+import { FsusUiSettingsSection, FsusUiTaskPageHeader } from '@/fsusui'
 import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import { useAdminStore, type AnonymousCommentPolicySnapshot } from '@/store/admin'
 import {

@@ -1,9 +1,10 @@
 <template>
   <div class="account-page security-system-page account-motion-enter w-full">
-    <FsusUiPageHeader
+    <FsusUiTaskPageHeader
       title="安全系统"
-      content="反爬虫、PoW 验证任务与统一安全风险信号在同一安全系统下并列治理。"
-      class="account-page-header--compact"
+      description="反爬虫、PoW 验证任务与统一安全风险信号在同一安全系统下并列治理。"
+      class="account-task-page-header"
+      density="compact"
     />
 
     <section class="admin-muted-alert admin-muted-alert--info mb-8 px-5 py-4 text-[12px] leading-6">
@@ -22,7 +23,7 @@
 
 <script setup lang="ts">
 import { RouterView } from 'vue-router'
-import { FsusUiPageHeader } from "@/fsusui"
+import { FsusUiTaskPageHeader } from "@/fsusui"
 import AdminSystemTabs, { type AdminSystemTab } from '@/components/admin/AdminSystemTabs.vue'
 
 const securitySystemTabs = [

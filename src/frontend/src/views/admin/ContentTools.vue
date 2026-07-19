@@ -1,8 +1,9 @@
 <template>
   <div class="account-page content-tools-page account-motion-enter w-full">
-    <FsusUiPageHeader
+    <FsusUiTaskPageHeader
       title="备份与迁移"
-      content="执行全站内容备份、单篇文章导出与 Markdown/frontmatter 导入。"
+      description="执行全站内容备份、单篇文章导出与 Markdown/frontmatter 导入。"
+      class="account-task-page-header"
     />
 
     <div class="grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -91,7 +92,7 @@ import {
   type ContentExportResponse,
   type ContentImportResponse
 } from '@/api/authoring'
-import { FsusUiPageHeader } from "@/fsusui"
+import { FsusUiTaskPageHeader } from "@/fsusui"
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
 import { toast } from '@/fsusui/feedback'
 import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'

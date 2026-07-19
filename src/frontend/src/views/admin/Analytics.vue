@@ -1,9 +1,11 @@
 <template>
   <div class="account-page dashboard-wrapper account-motion-enter w-full">
-    <header class="account-page-header account-page-header--compact">
-      <h1 class="account-page-title">数据概览</h1>
-      <p class="account-page-description">阅读、搜索、运行指标与访问来源。</p>
-    </header>
+    <FsusUiTaskPageHeader
+      title="数据概览"
+      description="阅读、搜索、运行指标与访问来源。"
+      class="account-task-page-header"
+      density="compact"
+    />
 
     <DashboardAuthorAnalyticsPanel :view="dashboardView" class="mb-8" />
 
@@ -75,7 +77,8 @@ import { computed } from 'vue'
 import {
   FsusUiDistributionBarRow,
   FsusUiDistributionList,
-  FsusUiEmptyState
+  FsusUiEmptyState,
+  FsusUiTaskPageHeader
 } from '@/fsusui'
 import DashboardAuthorAnalyticsPanel from '@/components/admin/DashboardAuthorAnalyticsPanel.vue'
 import { useAdminDashboard } from '@/composables/useAdminDashboard'

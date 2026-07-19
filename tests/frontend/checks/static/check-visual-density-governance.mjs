@@ -26,6 +26,7 @@ const publicEditorialRoots = [
 
 const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json');
 const accountShellPath = path.join(repoRoot, 'src/frontend/src/assets/account-shell.css');
+const taskPageHeaderAdapterPath = path.join(repoRoot, 'src/frontend/src/fsusui/taskPageHeader.ts');
 const accountLayoutPath = path.join(repoRoot, 'src/frontend/src/layouts/AccountLayout.vue');
 const accountNavigationPanelPath = path.join(repoRoot, 'src/frontend/src/components/account/AccountNavigationPanel.vue');
 const accountHeaderMenuPath = path.join(repoRoot, 'src/frontend/src/components/account/AccountHeaderMenu.vue');
@@ -593,11 +594,11 @@ function checkIssueDensityContracts()
     assertNotContains(accountLayoutPath, /FsusUiSegmentedControl/, 'AccountLayout mobile group navigation must not use segmented-control as a separate visual language');
     assertNotContains(accountLayoutPath, /account-mobile-more-strip|mobileOverflowGroups|mobileMoreOpen/, 'AccountLayout mobile navigation must stay two-level and must not reintroduce an overflow group row');
     assertNotContains(accountLayoutPath, /account-mobile-link-strip/, 'AccountLayout mobile route navigation must not use a separate horizontal tab strip');
-    assertContains(accountShellPath, /\.account-page-title\s*\{[^}]*font-size:\s*1\.5rem;[^}]*font-weight:\s*700;[^}]*line-height:\s*1\.25;/, 'Account shared page titles must keep the mobile 24px/700/1.25 task-surface role');
-    assertContains(accountShellPath, /@media \(min-width:\s*640px\)\s*\{\s*\.account-page-title\s*\{[^}]*font-size:\s*1\.875rem;[^}]*line-height:\s*1\.2;/, 'Account shared page titles must use the desktop 30px/1.2 role');
-    assertNotContains(accountShellPath, /\.account-page-title\s*\{[^}]*font-size:\s*clamp\(/, 'Account page titles must not vary by viewport clamp');
-    assertContains(identityCenterPath, /\.identity-section-header__copy h1\s*\{[^}]*font-size:\s*1\.5rem;[^}]*font-weight:\s*700;[^}]*line-height:\s*1\.25;/, 'IdentityCenter H1 must match the mobile 24px/700/1.25 account title role');
-    assertContains(identityCenterPath, /@media \(min-width:\s*640px\)\s*\{\s*\.identity-section-header__copy h1\s*\{[^}]*font-size:\s*1\.875rem;[^}]*line-height:\s*1\.2;/, 'IdentityCenter H1 must match the desktop 30px/1.2 account title role');
+    assertContains(taskPageHeaderAdapterPath, /FsusTaskPageHeader\s+as\s+FsusUiTaskPageHeader/, 'Account task pages must consume the canonical FsusUI task-page header through the boundary');
+    assertContains(accountShellPath, /\.account-task-page-header\s*\{[^}]*margin-bottom:\s*var\(--fsus-space-6\);/, 'Account shell may retain only the Blog-owned header-to-content composition margin');
+    assertNotContains(accountShellPath, /\.account-page-(?:header|title|description)\b/, 'Account shell must not duplicate canonical task-page header visuals');
+    assertContains(identityCenterPath, /<FsusUiTaskPageHeader[\s\S]*?:title="sectionMeta\.title"[\s\S]*?:description="sectionMeta\.description"/, 'IdentityCenter must expose the route heading through the canonical task-page header');
+    assertNotContains(identityCenterPath, /identity-section-header__copy|font-size:\s*1\.875rem/, 'IdentityCenter must not keep a local task-page title implementation');
     assertContains(accountNavigationPanelPath, /\.account-module-link,[\s\S]*?\.account-local-navigation__link\s*\{[\s\S]*?min-height:\s*2\.75rem;/, 'AccountLayout mobile drawer module and local links must provide 44px hit targets');
     assertContains(accountNavigationPanelPath, /account-global-module-nav[\s\S]*account-local-navigation/, 'Account navigation must separate first-level modules from current-module local links');
     assertContains(accountNavigationPanelPath, /\.account-module-link__label\s*\{[^}]*font-size:\s*14px;[^}]*font-weight:\s*700;/, 'Account first-level modules must keep the 14px/700 hierarchy role');

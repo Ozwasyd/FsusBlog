@@ -1,11 +1,11 @@
 <template>
   <div class="account-page article-trash-wrapper account-motion-enter w-full">
-    <header class="account-page-header account-page-header--compact">
-      <h1 class="account-page-title">回收站</h1>
-      <p class="account-page-description">
-        恢复下线文章或执行永久删除。
-      </p>
-    </header>
+    <FsusUiTaskPageHeader
+      title="回收站"
+      description="恢复下线文章或执行永久删除。"
+      class="account-task-page-header"
+      density="compact"
+    />
 
     <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)] mb-8" aria-label="回收站状态">
       <AdminCollectionSummary :title="trashStateText" description="恢复后重新公开；永久删除不可找回。">
@@ -161,6 +161,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { FsusUiTaskPageHeader } from '@/fsusui'
 import { Calendar, Back } from '@/fsusui/icons'
 import { type ArticleListItemResponse } from '@/api/article'
 import { useAdminArticleTrash } from '@/composables/useAdminArticleTrash'

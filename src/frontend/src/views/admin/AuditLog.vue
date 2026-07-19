@@ -1,9 +1,10 @@
 <template>
   <div class="account-page audit-log-page account-motion-enter w-full">
-    <FsusUiPageHeader
+    <FsusUiTaskPageHeader
       title="审计日志"
-      content="查询结构化安全事件、后台操作和防篡改证据。"
-      class="account-page-header--compact"
+      description="查询结构化安全事件、后台操作和防篡改证据。"
+      class="account-task-page-header"
+      density="compact"
     />
 
     <FsusUiSettingsSection
@@ -329,7 +330,7 @@ import {
   type AuditLogRuntimeResponse,
   type AuditLogSummaryResponse
 } from '@/api/authoring'
-import { FsusUiPageHeader } from "@/fsusui"
+import { FsusUiTaskPageHeader } from "@/fsusui"
 import { FsusUiSettingsSection } from '@/fsusui'
 import AuditActionLabel from '@/components/admin/AuditActionLabel.vue'
 import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'

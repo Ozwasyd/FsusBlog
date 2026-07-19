@@ -1,9 +1,10 @@
 <template>
   <div class="account-page moderation-system-page account-motion-enter w-full">
-    <FsusUiPageHeader
+    <FsusUiTaskPageHeader
       title="审核系统"
-      content="评论队列、词库资产、地区策略、回放预览、模型信号与审计证据集中治理。"
-      class="account-page-header--compact"
+      description="评论队列、词库资产、地区策略、回放预览、模型信号与审计证据集中治理。"
+      class="account-task-page-header"
+      density="compact"
     />
 
     <section class="admin-muted-alert admin-muted-alert--warning mb-8 px-5 py-4 text-[12px] leading-6">
@@ -22,7 +23,7 @@
 
 <script setup lang="ts">
 import { RouterView } from 'vue-router'
-import { FsusUiPageHeader } from "@/fsusui"
+import { FsusUiTaskPageHeader } from "@/fsusui"
 import AdminSystemTabs, { type AdminSystemTab } from '@/components/admin/AdminSystemTabs.vue'
 
 const moderationSystemTabs = [

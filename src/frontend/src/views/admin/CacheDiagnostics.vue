@@ -1,9 +1,10 @@
 <template>
   <div class="account-page cache-diagnostics-page account-motion-enter w-full">
-    <FsusUiPageHeader
+    <FsusUiTaskPageHeader
       title="缓存与索引"
-      content="查看 AOT、PublicHotRead、search、sitemap/feed 与评论缓存状态。"
-      class="account-page-header--compact"
+      description="查看 AOT、PublicHotRead、search、sitemap/feed 与评论缓存状态。"
+      class="account-task-page-header"
+      density="compact"
     />
 
     <FsusUiSettingsSection class="mb-8" title="公开读链路" id="cache-status-title">
@@ -151,7 +152,7 @@ import {
 import {
   FsusUiKeyValueGrid,
   FsusUiKeyValueItem,
-  FsusUiPageHeader,
+  FsusUiTaskPageHeader,
   FsusUiSettingsSection
 } from '@/fsusui'
 import { Delete, Refresh, Search } from '@/fsusui/icons'

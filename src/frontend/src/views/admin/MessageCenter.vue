@@ -1,13 +1,11 @@
 <template>
   <section class="account-page admin-message-center">
-    <header class="account-page-header admin-message-center__header">
-      <div>
-        <h1 class="account-page-title">站内信中心</h1>
-        <p class="account-page-description">
-          面向管理员的会话收件箱，用于处理账号消息、状态流转与系统通知。
-        </p>
-      </div>
-    </header>
+    <FsusUiTaskPageHeader
+      title="站内信中心"
+      description="面向管理员的会话收件箱，用于处理账号消息、状态流转与系统通知。"
+      class="account-task-page-header"
+      density="compact"
+    />
 
     <el-inbox-layout
       class="admin-message-center__layout"
@@ -317,6 +315,7 @@ import { useInboxSplitView } from '@/composables/useInboxSplitView'
 import { useRowStateMotion } from '@/composables/useRowStateMotion'
 import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import FsusDialog from '@/components/ui/FsusDialog.vue'
+import { FsusUiTaskPageHeader } from '@/fsusui'
 
 type MessageBubbleVariant = 'self' | 'other' | 'system' | 'muted'
 

@@ -1,8 +1,9 @@
 <template>
   <div class="account-page asset-library-page account-motion-enter w-full">
-    <FsusUiPageHeader
+    <FsusUiTaskPageHeader
       title="资产库"
-      content="查看上传资产、引用计数与孤儿文件，清理动作需要明确确认。"
+      description="查看上传资产、引用计数与孤儿文件，清理动作需要明确确认。"
+      class="account-task-page-header"
     />
 
     <FsusUiSettingsSection
@@ -218,7 +219,7 @@ import {
   type AssetLibraryItemResponse
 } from '@/api/authoring'
 import { deleteImage } from '@/api/system'
-import { FsusUiPageHeader } from "@/fsusui"
+import { FsusUiTaskPageHeader } from "@/fsusui"
 import { FsusUiSettingsSection } from '@/fsusui'
 import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import { Delete, Refresh, Search } from '@/fsusui/icons'
