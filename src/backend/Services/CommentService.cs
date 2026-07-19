@@ -31,14 +31,11 @@ public partial class CommentService(
     ISqlSugarClient db,
     ILogger<CommentService> logger,
     ICommentNotificationService commentNotifications,
+    ICommentModerationService commentModeration,
     ICacheInvalidationDispatcher cacheInvalidationDispatcher,
-    IRegionLegalModerationService regionLegalModerationService,
-    IAntiSpamModerationService? antiSpamModerationService = null,
     ICommentActorResolver? commentActorResolver = null,
     IAnonymousCommentPolicyService? anonymousCommentPolicyService = null,
     ICommentAnonymousNullifierService? anonymousNullifierService = null,
-    ICommentModerationDispositionPolicy? commentModerationDispositionPolicy = null,
-    AuditLogChannel? auditLogChannel = null,
     ISecurityRiskSignalSink? securityRiskSignalSink = null,
     IHttpContextAccessor? httpContextAccessor = null,
     IAnonymousCommentTicketService? anonymousCommentTicketService = null,
@@ -68,16 +65,11 @@ public partial class CommentService(
             return false;
         }
 
-        RegionModerationDecision regionDecision = dto.RegionDecision ?? regionLegalModerationService.EvaluateOnSubmit(new RegionModerationRequest(
+        RegionModerationDecision regionDecision = commentModeration.ResolveSubmissionRegion(
             normalizedContent,
             dto.ArticleId,
             userId,
-            RegionCodes.Unknown,
-            0d,
-            "fallback",
-            null,
-            null,
-            DateTime.UtcNow));
+            dto.RegionDecision);
         if (!regionDecision.CanPublish)
         {
             return false;
@@ -168,16 +160,11 @@ public partial class CommentService(
             return false;
         }
 
-        RegionModerationDecision effectiveRegionDecision = regionDecision ?? regionLegalModerationService.EvaluateOnSubmit(new RegionModerationRequest(
+        RegionModerationDecision effectiveRegionDecision = commentModeration.ResolveSubmissionRegion(
             normalizedContent,
             request.ArticleId,
             0,
-            RegionCodes.Unknown,
-            0d,
-            "fallback",
-            null,
-            null,
-            DateTime.UtcNow));
+            regionDecision);
         if (!effectiveRegionDecision.CanPublish)
         {
             return false;
@@ -348,8 +335,7 @@ public partial class CommentService(
                 throw new InvalidOperationException("Failed to create comment id.");
             }
 
-            await db.Insertable(BuildRegionCompliance(generatedId, regionDecision)).ExecuteCommandAsync();
-            await ReplaceBlockedRegionsAsync(generatedId, regionDecision.BlockedRegions, cancellationToken);
+            await commentModeration.PersistVisibilityAsync(generatedId, regionDecision, cancellationToken);
 
             if (enforceAnonymousNullifier)
             {
@@ -387,38 +373,19 @@ public partial class CommentService(
         }
 
         comment.Id = generatedId;
-        if (antiSpamModerationService is not null)
-        {
-            AnonymousCommentPolicySnapshot? policySnapshot = anonymousCommentPolicyService is null
-                ? null
-                : await anonymousCommentPolicyService.GetCurrentAsync(cancellationToken);
-            AntiSpamModerationResult? modelResult = await antiSpamModerationService.ScoreCommentAsync(
-                new AntiSpamCommentModerationContext(
-                    comment.Id,
-                    comment.ArticleId,
-                    actor.UserId,
-                    actor.AuthorMode,
-                    actor.DisplayLanguage,
-                    actor.ModerationSubjectHash,
-                    actor.AnonymousNullifierHash,
-                    actor.AnonymousScope,
-                    actor.RateClass,
-                    actor.RequiresModeration,
-                    policySnapshot?.AnonymousCommentsEnabled,
-                    policySnapshot?.ZkAnonymousEnabled,
-                    comment.Content,
-                    comment.ParentId,
-                    regionDecision.SubmitIpHash,
-                    regionDecision.SubmitRegion,
-                    regionDecision.PolicyVersion,
-                    comment.CreateTime),
-                cancellationToken);
-            if (modelResult is not null && commentModerationDispositionPolicy is not null)
-            {
-                CommentModerationDisposition disposition = commentModerationDispositionPolicy.Decide(comment, regionDecision, modelResult);
-                await ApplyAutomaticModerationDispositionAsync(comment, disposition, cancellationToken);
-            }
-        }
+        await commentModeration.ApplyPostInsertAsync(
+            comment,
+            new CommentModerationActorContext(
+                actor.UserId,
+                actor.AuthorMode,
+                actor.DisplayLanguage,
+                actor.ModerationSubjectHash,
+                actor.AnonymousNullifierHash,
+                actor.AnonymousScope,
+                actor.RateClass,
+                actor.RequiresModeration),
+            regionDecision,
+            cancellationToken);
 
         await cacheInvalidationDispatcher.InvalidateCommentMutationAsync(
             new CommentCacheInvalidationScope(
@@ -693,162 +660,6 @@ public partial class CommentService(
     {
     }
 
-    private async Task ApplyAutomaticModerationDispositionAsync(
-        Comment comment,
-        CommentModerationDisposition disposition,
-        CancellationToken cancellationToken)
-    {
-        if (!disposition.AutoApplied ||
-            !CommentModerationTransitions.IsAllowed(comment.ModerationStatus, disposition.NextStatus))
-        {
-            return;
-        }
-
-        CommentModerationStatus previousStatus = comment.ModerationStatus;
-        DateTime moderatedAt = DateTime.UtcNow;
-        string reason = TextHelpers.NormalizeNullable($"model_policy:{disposition.Reason}", 256) ?? disposition.Reason;
-        AutomaticModerationTarget? target = await LoadAutomaticModerationTargetAsync(comment.Id, cancellationToken);
-        if (target is null ||
-            target.ModerationStatus != previousStatus ||
-            !CommentModerationTransitions.IsAllowed(target.ModerationStatus, disposition.NextStatus))
-        {
-            logger.LogInformation(
-                "模型审核自动处置未应用，评论状态已变化 | CommentId: {CommentId} | Previous: {PreviousStatus} | Current: {CurrentStatus} | Next: {NextStatus}",
-                comment.Id,
-                previousStatus,
-                target?.ModerationStatus,
-                disposition.NextStatus);
-            return;
-        }
-
-        bool applied = await TryApplyAutomaticModerationDispositionAsync(target, disposition.NextStatus, reason, moderatedAt);
-        if (!applied)
-        {
-            AutomaticModerationTarget? latest = await LoadAutomaticModerationTargetAsync(comment.Id, cancellationToken);
-            if (latest is null || latest.ModerationStatus != previousStatus)
-            {
-                logger.LogInformation(
-                    "模型审核自动处置未应用，评论状态已变化 | CommentId: {CommentId} | Previous: {PreviousStatus} | Current: {CurrentStatus} | Next: {NextStatus}",
-                    comment.Id,
-                    previousStatus,
-                    latest?.ModerationStatus,
-                    disposition.NextStatus);
-                return;
-            }
-
-            applied = await TryApplyAutomaticModerationDispositionAsync(latest, disposition.NextStatus, reason, moderatedAt);
-            if (!applied)
-            {
-                logger.LogWarning(
-                    "模型审核自动处置重试仍未应用，保留评论在人工审核队列 | CommentId: {CommentId} | Previous: {PreviousStatus} | Next: {NextStatus}",
-                    comment.Id,
-                    previousStatus,
-                    disposition.NextStatus);
-                return;
-            }
-        }
-
-        comment.ModerationStatus = disposition.NextStatus;
-        comment.ModerationReason = reason;
-        comment.ModeratedByAdminPrincipalId = null;
-        comment.ModeratedAt = moderatedAt;
-        WriteAutomaticDispositionAudit(comment, disposition);
-        if (previousStatus == CommentModerationStatus.Approved && disposition.NextStatus == CommentModerationStatus.Hidden)
-        {
-            await cacheInvalidationDispatcher.InvalidateCommentMutationAsync(
-                new CommentCacheInvalidationScope(
-                    ArticleId: comment.ArticleId,
-                    RootId: comment.RootId ?? comment.Id,
-                    AccountId: comment.UserId,
-                    PublicArticleChanged: true,
-                    UserCommentsChanged: comment.UserId is > 0),
-                cancellationToken);
-            await commentNotifications.PublishRemovedAsync(comment.ArticleId, comment.Id, comment.RootId ?? comment.Id, comment.ParentId);
-            _ = commentNotifications.NotifyModelRiskHiddenAsync(comment, disposition);
-        }
-    }
-
-    private async Task<AutomaticModerationTarget?> LoadAutomaticModerationTargetAsync(long commentId, CancellationToken cancellationToken)
-    {
-        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
-            """
-            SELECT id,
-                   moderation_status,
-                   xmin::text AS row_version
-            FROM comment
-            WHERE id = @CommentId
-              AND is_deleted = false;
-            """,
-            new SugarParameter("@CommentId", commentId));
-        if (!await reader.ReadAsync(cancellationToken))
-        {
-            return null;
-        }
-
-        return new AutomaticModerationTarget(
-            reader.ReadInt64("id"),
-            (CommentModerationStatus)reader.ReadInt32("moderation_status"),
-            reader.ReadString("row_version"));
-    }
-
-    private async Task<bool> TryApplyAutomaticModerationDispositionAsync(
-        AutomaticModerationTarget target,
-        CommentModerationStatus nextStatus,
-        string reason,
-        DateTime moderatedAt)
-    {
-        int affected = await db.Ado.ExecuteCommandAsync(
-            """
-            UPDATE comment
-            SET moderation_status = @NextStatus,
-                moderation_reason = @Reason,
-                moderated_by_admin_principal_id = NULL,
-                moderated_at = CAST(@ModeratedAt AS timestamp)
-            WHERE id = @CommentId
-              AND is_deleted = false
-              AND moderation_status = @ExpectedStatus
-              AND xmin::text = @RowVersion;
-            """,
-            new SugarParameter("@CommentId", target.Id),
-            new SugarParameter("@ExpectedStatus", (int)target.ModerationStatus),
-            new SugarParameter("@NextStatus", (int)nextStatus),
-            new SugarParameter("@Reason", reason),
-            new SugarParameter("@ModeratedAt", moderatedAt),
-            new SugarParameter("@RowVersion", target.RowVersion));
-        return affected > 0;
-    }
-
-    private sealed record AutomaticModerationTarget(
-        long Id,
-        CommentModerationStatus ModerationStatus,
-        string RowVersion);
-
-    private void WriteAutomaticDispositionAudit(Comment comment, CommentModerationDisposition disposition)
-    {
-        if (auditLogChannel is null)
-        {
-            return;
-        }
-
-        string context = JsonSerializer.Serialize(disposition.AuditContext);
-        auditLogChannel.TryWrite(new AuditRecord(
-            AuditSourceCatalog.Comment,
-            AuditTypeCatalog.Business,
-            DateTime.UtcNow,
-            "model_moderation_auto_disposition",
-            Encoding.UTF8.GetBytes(context),
-            Action: "model_moderation_auto_disposition",
-            Outcome: AuditOutcomeCatalog.Success,
-            Severity: disposition.NextStatus == CommentModerationStatus.Hidden
-                ? AuditSeverityCatalog.Warning
-                : AuditSeverityCatalog.Info,
-            ActorType: AuditActorTypeCatalog.System,
-            TargetType: "comment",
-            TargetId: comment.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            ReasonCode: disposition.Reason,
-            ContextJson: context));
-    }
-
     public Task<bool> CreateAttributablePublicCommentAsync(
         AccountPrincipalContext account,
         CommentCreateV2RequestCoreModel request,
@@ -1067,53 +878,5 @@ public partial class CommentService(
         => userId is > 0
             && string.Equals(authorMode, CommentAuthorModes.Public, StringComparison.Ordinal);
 
-    private static CommentRegionCompliance BuildRegionCompliance(long commentId, RegionModerationDecision decision)
-    {
-        DateTime now = DateTime.UtcNow;
-        return new CommentRegionCompliance
-        {
-            CommentId = commentId,
-            SubmitRegion = TextHelpers.NormalizeNullable(decision.SubmitRegion, 64) ?? RegionCodes.Unknown,
-            SubmitRegionConfidence = Math.Clamp(decision.SubmitRegionConfidence, 0d, 1d),
-            RegionProvider = TextHelpers.NormalizeNullable(decision.RegionProvider, 64) ?? "unknown",
-            SubmitIpHash = TextHelpers.NormalizeNullable(decision.SubmitIpHash, 64),
-            PolicyVersion = TextHelpers.NormalizeNullable(decision.PolicyVersion, 64) ?? RegionLegalModerationService.CurrentPolicyVersion,
-            CanPublish = decision.CanPublish,
-            RequiresManualReview = decision.RequiresManualReview,
-            HideUntilReviewed = decision.HideUntilReviewed,
-            BlockedRegions = RegionLegalModerationService.SerializeRegions(decision.BlockedRegions),
-            RiskLabels = string.Join(',', decision.RiskLabels
-                .Where(static label => !string.IsNullOrWhiteSpace(label))
-                .Select(static label => label.Trim())
-                .Distinct(StringComparer.Ordinal)
-                .OrderBy(static label => label, StringComparer.Ordinal)),
-            DecisionReason = TextHelpers.NormalizeNullable(decision.DecisionReason, 256),
-            RuleHitsJson = decision.RuleHits.Count == 0 ? null : JsonSerializer.Serialize(decision.RuleHits),
-            CreatedAtUtc = now,
-            UpdatedAtUtc = now
-        };
-    }
-
-    private async Task ReplaceBlockedRegionsAsync(long commentId, IReadOnlyCollection<string> blockedRegions, CancellationToken cancellationToken)
-    {
-        await db.Deleteable<CommentBlockedRegion>()
-            .Where(row => row.CommentId == commentId)
-            .ExecuteCommandAsync(cancellationToken);
-
-        CommentBlockedRegion[] rows = [.. blockedRegions
-            .Where(static region => !string.IsNullOrWhiteSpace(region))
-            .Select(static region => region.Trim().ToUpperInvariant())
-            .Distinct(StringComparer.Ordinal)
-            .OrderBy(static region => region, StringComparer.Ordinal)
-            .Select(region => new CommentBlockedRegion
-            {
-                CommentId = commentId,
-                RegionCode = TextHelpers.NormalizeNullable(region, 64) ?? RegionCodes.Unknown
-            })];
-        if (rows.Length > 0)
-        {
-            await db.Insertable(rows).ExecuteCommandAsync(cancellationToken);
-        }
-    }
 
 }

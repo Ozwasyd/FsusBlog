@@ -111,14 +111,14 @@ public sealed class AnonymousCommentModerationPipelineTests
     }
 
     [Fact]
-    public void CommentService_RuntimePathPassesCommentActorAndPolicySnapshotToAntiSpamContext()
+    public void CommentModerationService_RuntimePathPassesCommentActorAndPolicySnapshotToAntiSpamContext()
     {
-        ParameterInfo[] constructorParameters = Assert.Single(typeof(CommentService).GetConstructors()).GetParameters();
+        ParameterInfo[] constructorParameters = Assert.Single(typeof(CommentModerationService).GetConstructors()).GetParameters();
         Assert.Contains(constructorParameters, static parameter => parameter.ParameterType == typeof(IAnonymousCommentPolicyService));
 
-        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
-            typeof(CommentService),
-            "CreateResolvedCommentAsync");
+        string runtimeShape = string.Concat(
+            RuntimeMetadataInspection.DescribeMethods(typeof(CommentService), "CreateResolvedCommentAsync"),
+            RuntimeMetadataInspection.DescribeMethods(typeof(CommentModerationService), "ApplyPostInsertAsync"));
         foreach (string requiredMember in new[]
         {
             "AnonymousCommentPolicySnapshot",
@@ -139,16 +139,16 @@ public sealed class AnonymousCommentModerationPipelineTests
     }
 
     [Fact]
-    public void CommentService_RuntimePathAppliesModelDispositionPolicyAndAuditsAutomaticActions()
+    public void CommentModerationService_RuntimePathAppliesModelDispositionPolicyAndAuditsAutomaticActions()
     {
-        ParameterInfo[] constructorParameters = Assert.Single(typeof(CommentService).GetConstructors()).GetParameters();
+        ParameterInfo[] constructorParameters = Assert.Single(typeof(CommentModerationService).GetConstructors()).GetParameters();
         Assert.Contains(constructorParameters, static parameter => parameter.ParameterType == typeof(ICommentModerationDispositionPolicy));
         string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
-            typeof(CommentService),
-            "CreateResolvedCommentAsync",
-            "ApplyAutomaticModerationDispositionAsync");
+            typeof(CommentModerationService),
+            "ApplyPostInsertAsync",
+            "ApplyAutomaticDispositionAsync");
         Assert.Contains("ICommentModerationDispositionPolicy.Decide", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("ApplyAutomaticModerationDispositionAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("ApplyAutomaticDispositionAsync", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("model_moderation_auto_disposition", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("get_ModerationStatus", runtimeShape, StringComparison.Ordinal);
 
@@ -163,18 +163,18 @@ public sealed class AnonymousCommentModerationPipelineTests
     }
 
     [Fact]
-    public void CommentService_AutomaticDispositionRuntimeUsesRowVersionGuardAndRetry()
+    public void CommentModerationService_AutomaticDispositionRuntimeUsesRowVersionGuardAndRetry()
     {
         PropertyInfo rowVersion = Assert.IsAssignableFrom<PropertyInfo>(typeof(Comment).GetProperty("RowVersion"));
         Assert.Equal(typeof(string), rowVersion.PropertyType);
 
         string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
-            typeof(CommentService),
-            "ApplyAutomaticModerationDispositionAsync",
-            "LoadAutomaticModerationTargetAsync",
-            "TryApplyAutomaticModerationDispositionAsync");
-        Assert.Contains("LoadAutomaticModerationTargetAsync", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("TryApplyAutomaticModerationDispositionAsync", runtimeShape, StringComparison.Ordinal);
+            typeof(CommentModerationService),
+            "ApplyAutomaticDispositionAsync",
+            "LoadTargetAsync",
+            "TryApplyDispositionAsync");
+        Assert.Contains("LoadTargetAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("TryApplyDispositionAsync", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("get_ModerationStatus", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("xmin::text AS row_version", runtimeShape, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("AND xmin::text = @RowVersion", runtimeShape, StringComparison.OrdinalIgnoreCase);

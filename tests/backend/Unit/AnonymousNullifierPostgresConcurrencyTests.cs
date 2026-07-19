@@ -240,19 +240,27 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
             CredentialRootReady: true,
             UnavailableReason: string.Empty));
 
+        var notifications = new CommentNotificationService(
+            realtime ?? Substitute.For<IMessageRealtimePublisher>(),
+            Substitute.For<IMessageCommandService>(),
+            NullLogger<CommentNotificationService>.Instance);
+        var moderation = new CommentModerationService(
+            db,
+            new RegionLegalModerationService(),
+            invalidations,
+            notifications,
+            NullLogger<CommentModerationService>.Instance,
+            antiSpam,
+            dispositionPolicy,
+            anonymousPolicy: policyService);
         return new CommentService(
             db,
             NullLogger<CommentService>.Instance,
-            new CommentNotificationService(
-                realtime ?? Substitute.For<IMessageRealtimePublisher>(),
-                Substitute.For<IMessageCommandService>(),
-                NullLogger<CommentNotificationService>.Instance),
+            notifications,
+            moderation,
             invalidations,
-            new RegionLegalModerationService(),
-            antiSpamModerationService: antiSpam,
             anonymousCommentPolicyService: policyService,
             anonymousNullifierService: nullifierService,
-            commentModerationDispositionPolicy: dispositionPolicy,
             anonymousCommentTicketService: ticketService,
             anonymousDisplayNameGenerator: new CommentAnonymousDisplayNameGenerator(),
             configuration: BuildConfiguration(limit: 2),

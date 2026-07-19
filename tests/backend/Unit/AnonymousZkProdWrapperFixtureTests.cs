@@ -261,21 +261,32 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
         IAnonymousCommentTicketService ticketService,
         RecordingNullifierService nullifierService,
         RecordingCacheInvalidationDispatcher? dispatcher = null)
-        => new(
+    {
+        dispatcher ??= new RecordingCacheInvalidationDispatcher();
+        var notifications = new CommentNotificationService(
+            Substitute.For<IMessageRealtimePublisher>(),
+            Substitute.For<IMessageCommandService>(),
+            NullLogger<CommentNotificationService>.Instance);
+        var moderation = new CommentModerationService(
+            db,
+            new RegionLegalModerationService(),
+            dispatcher,
+            notifications,
+            NullLogger<CommentModerationService>.Instance,
+            anonymousPolicy: CreatePolicyService());
+        return new CommentService(
             db,
             NullLogger<CommentService>.Instance,
-            new CommentNotificationService(
-                Substitute.For<IMessageRealtimePublisher>(),
-                Substitute.For<IMessageCommandService>(),
-                NullLogger<CommentNotificationService>.Instance),
-            dispatcher ?? new RecordingCacheInvalidationDispatcher(),
-            new RegionLegalModerationService(),
+            notifications,
+            moderation,
+            dispatcher,
             anonymousCommentPolicyService: CreatePolicyService(),
             anonymousNullifierService: nullifierService,
             anonymousCommentTicketService: ticketService,
             anonymousDisplayNameGenerator: new CommentAnonymousDisplayNameGenerator(),
             configuration: BuildConfiguration(temp.VerifyingKeySha256),
             zkAnonymousProofService: CreateProofService(temp, nativeLibrary));
+    }
 
     private static AnonymousCommentTicketRequestCoreModel ValidTicketRequest(
         TempNativeZkFixture temp,

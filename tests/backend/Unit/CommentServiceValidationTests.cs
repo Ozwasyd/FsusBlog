@@ -22,12 +22,20 @@ public class CommentServiceValidationTests
 {
     private static CommentService BuildService()
     {
+        var db = Substitute.For<ISqlSugarClient>();
+        var notifications = Substitute.For<ICommentNotificationService>();
+        var invalidations = Substitute.For<ICacheInvalidationDispatcher>();
         return new CommentService(
-            db: Substitute.For<ISqlSugarClient>(),
+            db: db,
             logger: NullLogger<CommentService>.Instance,
-            commentNotifications: Substitute.For<ICommentNotificationService>(),
-            cacheInvalidationDispatcher: Substitute.For<ICacheInvalidationDispatcher>(),
-            regionLegalModerationService: new RegionLegalModerationService());
+            commentNotifications: notifications,
+            commentModeration: new CommentModerationService(
+                db,
+                new RegionLegalModerationService(),
+                invalidations,
+                notifications,
+                NullLogger<CommentModerationService>.Instance),
+            cacheInvalidationDispatcher: invalidations);
     }
 
     private static CommentQueryService BuildQueryService()

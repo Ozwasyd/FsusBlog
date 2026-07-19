@@ -71,17 +71,17 @@ public sealed class CommentSecurityHardeningTests
     }
 
     [Fact]
-    public void CommentCreateService_PublishesBeforeModelDispositionAndWarnsOnAutomaticHide()
+    public void CommentCreateService_PersistsInitialStatusBeforeModerationAndWarnsOnAutomaticHide()
     {
         IReadOnlyList<IReadOnlyList<string>> creationPaths = RuntimeMetadataInspection
             .DescribeDeclaredMemberReferenceSequencesContaining(
                 typeof(CommentService),
                 "BuildInitialModerationReason",
                 "Comment.set_ModerationStatus",
-                "ApplyAutomaticModerationDispositionAsync");
+                "ICommentModerationService.ApplyPostInsertAsync");
         Assert.All(creationPaths, creation => Assert.True(
             FindReference(creation, "Comment.set_ModerationStatus") <
-            FindReference(creation, "ApplyAutomaticModerationDispositionAsync")));
+            FindReference(creation, "ICommentModerationService.ApplyPostInsertAsync")));
 
         string creationBody = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
             typeof(CommentService),
@@ -91,7 +91,7 @@ public sealed class CommentSecurityHardeningTests
         Assert.Contains("Comment.set_ModerationStatus", creationBody, StringComparison.Ordinal);
 
         string notice = RuntimeMetadataInspection.DescribeMethods(
-            typeof(CommentService),
+            typeof(CommentNotificationService),
             "NotifyModelRiskHiddenAsync");
         Assert.Contains("评论审核提醒", notice, StringComparison.Ordinal);
         Assert.Contains("本提醒不构成账号处罚", notice, StringComparison.Ordinal);
@@ -102,22 +102,22 @@ public sealed class CommentSecurityHardeningTests
     public void CommentCreateService_AutomaticModelHideInvalidatesPublicCommentAndPushesRemoval()
     {
         string automaticBlock = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
-            typeof(CommentService),
-            "PushCommentRemoveAsync",
+            typeof(CommentModerationService),
+            "ICommentNotificationService.PublishRemovedAsync",
             "NotifyModelRiskHiddenAsync");
         Assert.Contains("CommentCacheInvalidationScope..ctor", automaticBlock, StringComparison.Ordinal);
-        Assert.Contains("PushCommentRemoveAsync", automaticBlock, StringComparison.Ordinal);
+        Assert.Contains("ICommentNotificationService.PublishRemovedAsync", automaticBlock, StringComparison.Ordinal);
 
-        MethodInfo apply = typeof(CommentService).GetMethod(
-            "ApplyAutomaticModerationDispositionAsync",
+        MethodInfo apply = typeof(CommentModerationService).GetMethod(
+            "ApplyAutomaticDispositionAsync",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
         Type stateMachine = apply.GetCustomAttribute<System.Runtime.CompilerServices.AsyncStateMachineAttribute>()!.StateMachineType;
         MethodInfo moveNext = stateMachine.GetMethod("MoveNext", BindingFlags.Instance | BindingFlags.NonPublic)!;
         Assert.Contains((int)CommentModerationStatus.Hidden, RuntimeMetadataInspection.DescribeInt32Constants(moveNext));
 
         string conditionalUpdate = RuntimeMetadataInspection.DescribeMethods(
-            typeof(CommentService),
-            "TryApplyAutomaticModerationDispositionAsync");
+            typeof(CommentModerationService),
+            "TryApplyDispositionAsync");
         Assert.Contains("@ExpectedStatus", conditionalUpdate, StringComparison.Ordinal);
         Assert.Contains("moderation_status = @ExpectedStatus", conditionalUpdate, StringComparison.Ordinal);
     }
@@ -188,7 +188,9 @@ public sealed class CommentSecurityHardeningTests
         Assert.Contains("NormalizeCommentFrameRegion", replyFrame, StringComparison.Ordinal);
         Assert.Contains("NormalizeCommentFrameRegion", cacheResult, StringComparison.Ordinal);
 
-        string service = RuntimeMetadataInspection.DescribeType(typeof(CommentService));
+        string command = RuntimeMetadataInspection.DescribeType(typeof(CommentService));
+        string moderation = RuntimeMetadataInspection.DescribeType(typeof(CommentModerationService));
+        string service = string.Concat(command, moderation);
         string queries = RuntimeMetadataInspection.DescribeType(typeof(CommentQueryService));
         Assert.Contains(nameof(CommentRegionCompliance), service, StringComparison.Ordinal);
         Assert.Contains("set_RegionDecision", service, StringComparison.Ordinal);

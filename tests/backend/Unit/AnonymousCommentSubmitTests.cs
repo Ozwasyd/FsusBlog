@@ -665,15 +665,23 @@ public sealed class AnonymousCommentSubmitTests(
         nullifierService ??= new RecordingNullifierService();
         dispatcher ??= new RecordingCacheInvalidationDispatcher();
         IConfiguration configuration = BuildConfiguration();
+        var notifications = new CommentNotificationService(
+            realtime ?? Substitute.For<IMessageRealtimePublisher>(),
+            Substitute.For<IMessageCommandService>(),
+            NullLogger<CommentNotificationService>.Instance);
+        var moderation = new CommentModerationService(
+            db,
+            new RegionLegalModerationService(),
+            dispatcher,
+            notifications,
+            NullLogger<CommentModerationService>.Instance,
+            anonymousPolicy: new AnonymousCommentPolicyService(configuration));
         return new CommentService(
             db,
             NullLogger<CommentService>.Instance,
-            new CommentNotificationService(
-                realtime ?? Substitute.For<IMessageRealtimePublisher>(),
-                Substitute.For<IMessageCommandService>(),
-                NullLogger<CommentNotificationService>.Instance),
+            notifications,
+            moderation,
             dispatcher,
-            new RegionLegalModerationService(),
             anonymousNullifierService: nullifierService,
             anonymousCommentPolicyService: new AnonymousCommentPolicyService(configuration),
             anonymousCommentTicketService: ticketService,

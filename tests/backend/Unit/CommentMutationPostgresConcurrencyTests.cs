@@ -248,16 +248,25 @@ public sealed class CommentMutationPostgresConcurrencyTests(PostgresSchemaMigrat
         SqlSugarClient db,
         ICacheInvalidationDispatcher invalidations,
         IMessageRealtimePublisher realtime)
-        => new(
+    {
+        var notifications = new CommentNotificationService(
+            realtime,
+            Substitute.For<IMessageCommandService>(),
+            NullLogger<CommentNotificationService>.Instance);
+        var moderation = new CommentModerationService(
+            db,
+            new RegionLegalModerationService(),
+            invalidations,
+            notifications,
+            NullLogger<CommentModerationService>.Instance);
+        return new CommentService(
             db,
             NullLogger<CommentService>.Instance,
-            new CommentNotificationService(
-                realtime,
-                Substitute.For<IMessageCommandService>(),
-                NullLogger<CommentNotificationService>.Instance),
+            notifications,
+            moderation,
             invalidations,
-            new RegionLegalModerationService(),
             configuration: new ConfigurationBuilder().Build());
+    }
 
     private static AuthoringModerationWorkflowService CreateAuthoringService(
         SqlSugarClient db,
