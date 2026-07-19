@@ -150,7 +150,6 @@ const scanRoots = [
 const explicitFiles = [
   'src/frontend/src/store/site.ts',
   'src/frontend/src/config/consoleWelcomeCallout.ts',
-  'src/frontend/src/components/admin/ConsoleWelcomeCallout.vue',
   'src/frontend/src/views/admin/article/Write.vue',
   'src/frontend/src/composables/useCommentModerationQueue.ts',
   'src/frontend/src/composables/useAdminUserManage.ts',
@@ -275,12 +274,8 @@ const requiredCopy = [
     tokens: ['站点说明', '持续更新', '隐私说明', '访问边界', '站点规范', '阅读与互动', '版权说明', '内容授权']
   },
   {
-    path: 'src/frontend/src/components/admin/ConsoleWelcomeCallout.vue',
-    tokens: ['控制台维护', '发现后台问题或需要记录改进项，可以从这里进入项目维护入口。']
-  },
-  {
     path: 'src/frontend/src/config/consoleWelcomeCallout.ts',
-    tokens: ['维护说明', '新建 Issue', '讨论区']
+    tokens: ['查看维护说明', '提交问题', '参与讨论']
   },
   {
     path: 'src/frontend/src/views/admin/article/Write.vue',

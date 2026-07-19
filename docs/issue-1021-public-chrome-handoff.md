@@ -10,7 +10,7 @@ This handoff maps the landed source to the issue acceptance contract. It is not 
 - The explicit FsusUI `menu` mode owns the native `details/summary` disclosure through `.el-public-shell__mobile-nav-menu*` classes. Its panel contains the three `.el-public-shell__mobile-nav-link` navigation links plus a consumer-provided utility group for theme and authentication; FsusUI owns the slot but never owns Blog navigation copy. Escape closes the disclosure and restores summary focus.
 - Both desktop and mobile theme controls explicitly use FsusUI's `menu-button` variant. The mobile first row stays limited to the FsusUI menu and search triggers; theme and authentication remain lower-weight utilities inside the disclosed menu.
 - `PublicComplianceFooter.vue` renders brand/copyright plus RSS in the primary colophon row. License, policy, filing and return-to-top links are secondary.
-- The public shell does not select FsusUI's `bottom` mode and renders neither `FsuBottomTabBar` nor the legacy `FsusUiBottomTabBar`; footer-only safe-area padding replaces fixed-dock ghost space, so a page-level reading dock cannot overlap global bottom navigation supplied by this shell.
+- The public shell does not select FsusUI's `bottom` mode or render `FsuBottomTabBar`; footer-only safe-area padding replaces fixed-dock ghost space, so a page-level reading dock cannot overlap global bottom navigation supplied by this shell.
 - `docs/public-layout-rules.md` records the consumer decision and the no-JS, hydration, keyboard, narrow-screen and theme invariants.
 
 ## Direct test owners

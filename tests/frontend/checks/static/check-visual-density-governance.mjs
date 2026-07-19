@@ -33,7 +33,6 @@ const registerPath = path.join(repoRoot, 'src/frontend/src/views/auth/Register.v
 const adminDashboardPath = path.join(repoRoot, 'src/frontend/src/views/admin/Dashboard.vue')
 const adminDashboardWorkbenchPath = path.join(repoRoot, 'src/frontend/src/components/admin/AdminDashboardTaskWorkbench.vue')
 const adminAnalyticsPath = path.join(repoRoot, 'src/frontend/src/views/admin/Analytics.vue')
-const dashboardPopularArticlesPath = path.join(repoRoot, 'src/frontend/src/components/admin/DashboardPopularArticles.vue')
 const homeTextFirstRecommendationsPath = path.join(repoRoot, 'src/frontend/src/components/home/HomeTextFirstRecommendations.vue')
 const themeTokensPath = path.join(repoRoot, 'src/frontend/src/ui-tokens/themeTokens.ts')
 const publicArticleListPath = path.join(repoRoot, 'src/frontend/src/components/public/PublicArticleList.vue')
@@ -66,10 +65,6 @@ const governedMicroLabelFiles = new Set([
   'src/frontend/src/components/admin/AdminDashboardTaskWorkbench.vue',
   'src/frontend/src/views/admin/security/SecurityDashboard.vue',
   'src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue',
-  'src/frontend/src/components/admin/DashboardCommentModerationPanel.vue',
-  'src/frontend/src/components/admin/DashboardQuickActionsPanel.vue',
-  'src/frontend/src/components/admin/DashboardPopularArticles.vue',
-  'src/frontend/src/components/admin/DashboardRecentComments.vue',
   'src/frontend/src/components/admin/users/UserManageTable.vue',
   'src/frontend/src/components/public/ArticleDetailCommentsPlaceholder.vue',
   'src/frontend/src/components/public/pages/PublicArchivePageContent.vue',
@@ -84,11 +79,7 @@ const dashboardDensityFiles = [
   'src/frontend/src/components/admin/AdminDashboardTaskWorkbench.vue',
   'src/frontend/src/views/admin/Analytics.vue',
   'src/frontend/src/components/admin/DashboardAuthorAnalyticsList.vue',
-  'src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue',
-  'src/frontend/src/components/admin/DashboardCommentModerationPanel.vue',
-  'src/frontend/src/components/admin/DashboardQuickActionsPanel.vue',
-  'src/frontend/src/components/admin/DashboardPopularArticles.vue',
-  'src/frontend/src/components/admin/DashboardRecentComments.vue'
+  'src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue'
 ]
 const roleAuditedTypographyFiles = new Set([
   'src/frontend/src/components/admin/article/ArticleAssetLibraryPanel.vue',
@@ -597,7 +588,6 @@ function checkIssueDensityContracts() {
     ['src/frontend/src/components/user/messages/MessagesEmptyState.vue', [/font-size:\s*0\.9375rem;/, /font-size:\s*0\.8125rem;/]],
     ['src/frontend/src/components/user/messages/MessagesConversationList.vue', [/font-size:\s*0\.9375rem;/]],
     ['src/frontend/src/components/user/messages/MessagesThreadPanel.vue', [/font-size:\s*0\.95rem;/, /font-size:\s*0\.6875rem;/]],
-    ['src/frontend/src/components/admin/DashboardCommentModerationPanel.vue', [/font-size:\s*0\.9375rem;/, /font-size:\s*0\.8125rem;/]],
     ['src/frontend/src/layouts/AccountLayout.vue', [/font-size:\s*0\.(?:625|6875|8125)rem;/]],
     ['src/frontend/src/components/article/ArticleImageLightbox.vue', [/font-size:\s*0\.8125rem;/]],
     ['src/frontend/src/components/article/ArticleTocPanel.vue', [/font-size:\s*0\.(?:6875|71875)rem;/]],
@@ -611,31 +601,6 @@ function checkIssueDensityContracts() {
     for (const pattern of patterns) {
       assertNotContains(file, pattern, 'issue #722 governed typography must use 12/14/16px scale values')
     }
-  }
-}
-
-function checkDashboardPopularArticlesFocusContract() {
-  const source = read(dashboardPopularArticlesPath)
-  const focusRingBindings = source.match(/:class="focusRingClass"/g)?.length ?? 0
-
-  if (!source.includes("import { themeTokens } from '@/ui-tokens/themeTokens'")) {
-    fail(dashboardPopularArticlesPath, 1, 'DashboardPopularArticles links must consume the shared themeTokens.focusRing contract')
-  }
-
-  if (!source.includes('const focusRingClass = themeTokens.focusRing')) {
-    fail(dashboardPopularArticlesPath, 1, 'DashboardPopularArticles must route focus styles through themeTokens.focusRing')
-  }
-
-  if (focusRingBindings < 2) {
-    fail(dashboardPopularArticlesPath, 1, 'DashboardPopularArticles title and footer links must both bind focusRingClass')
-  }
-
-  if (/\bblog-focus-ring\b/.test(source)) {
-    fail(dashboardPopularArticlesPath, 1, 'DashboardPopularArticles must not reintroduce local blog-focus-ring helpers')
-  }
-
-  if (/box-shadow:\s*inset 0 0 0 1px var\(--fsusblog-color-focus-ring\)/.test(source)) {
-    fail(dashboardPopularArticlesPath, 1, 'DashboardPopularArticles focus-visible replacement must use the shared 2px inset contract, not local 1px box-shadow')
   }
 }
 
@@ -754,7 +719,6 @@ for (const file of walk(productionSourceRoot)) {
   checkProductionFocusRing(file)
 }
 
-checkDashboardPopularArticlesFocusContract()
 checkTouchTargetFloor()
 checkIssueDensityContracts()
 checkPublicTypographyContract()

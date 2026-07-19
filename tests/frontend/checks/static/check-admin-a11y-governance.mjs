@@ -114,15 +114,6 @@ requireToken(
   'conversation list item must keep aria-current state'
 )
 
-const dashboardModerationPath = path.join(repoRoot, 'src/frontend/src/components/admin/DashboardCommentModerationPanel.vue')
-const dashboardModeration = read(dashboardModerationPath)
-requireToken(
-  dashboardModerationPath,
-  dashboardModeration,
-  'v-loading="loading" :aria-busy="loading"',
-  'DashboardCommentModerationPanel loading container must expose aria-busy'
-)
-
 const userManageTablePath = path.join(repoRoot, 'src/frontend/src/components/admin/users/UserManageTable.vue')
 const userManageTable = read(userManageTablePath)
 forbidToken(userManageTablePath, userManageTable, '<article', 'compact user table rows must not use article card shells')
@@ -169,7 +160,6 @@ for (const file of [
 
 for (const file of [
   'src/frontend/src/components/ui/MfaSetupModal.vue',
-  'src/frontend/src/components/ui/MfaChallengeModal.vue',
   'src/frontend/src/components/ui/PasskeyRegisterModal.vue',
   'src/frontend/src/components/admin/users/UserBanDialog.vue',
   'src/frontend/src/components/admin/comment-moderation/CommentModerationBulkActions.vue',

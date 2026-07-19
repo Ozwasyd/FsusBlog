@@ -12,7 +12,6 @@ const fsusuiRoot = path.join(srcRoot, 'fsusui')
 const boundaryDocPath = path.join(fsusuiRoot, 'README.md')
 const themeAdapterPath = path.join(fsusuiRoot, 'theme.ts')
 const primitiveAdaptersPath = path.join(fsusuiRoot, 'primitiveAdapters.ts')
-const uiIndexPath = path.join(srcRoot, 'components/ui/index.ts')
 const adminInlineEmptyStatePath = path.join(srcRoot, 'components/admin/AdminInlineEmptyState.vue')
 const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json')
 const strict = true
@@ -323,7 +322,6 @@ function checkBoundaryDoc() {
   for (const token of [
     'FsusUI Adapter Boundary',
     'components/ui/',
-    'components/ui/index.ts',
     'Allowed Exceptions',
     'check-fsusui-boundary.mjs'
   ]) {
@@ -416,18 +414,6 @@ function checkAdminEmptyStateDelegation() {
   }
 }
 
-function checkUiIndexSurface() {
-  if (!fs.existsSync(uiIndexPath)) {
-    return
-  }
-
-  const content = fs.readFileSync(uiIndexPath, 'utf8')
-  const exportLines = content.split('\n').filter((line) => /^\s*export\s+/.test(line))
-  if (exportLines.length > 3) {
-    warn(uiIndexPath, 'ui-index-surface', `exports ${exportLines.length} entries`)
-  }
-}
-
 for (const file of walk(srcRoot)) {
   const content = fs.readFileSync(file, 'utf8')
   checkDeepImports(file, content)
@@ -444,7 +430,6 @@ checkRequiredAdapters()
 checkBoundaryDoc()
 checkThemeAdapterContract()
 checkAdminEmptyStateDelegation()
-checkUiIndexSurface()
 
 if (warnings.length === 0) {
   console.log('[fsusui-boundary] ok warnings=0 strict=' + strict)

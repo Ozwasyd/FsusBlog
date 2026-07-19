@@ -20,17 +20,14 @@ The mandatory adapter surface is:
 - `result.ts`: FsusUI result envelope helpers.
 - `publicShell.ts`: exports the alias-resolved `ElPublicShell` component plus the stable `inline | menu | bottom | none` mobile-navigation contract. `PublicBlogLayoutShell` consumes that adapter and selects `menu` explicitly; the workspace alias is source consumption, not an npm publication.
 - `theme.ts`: FsusUI public theme-mode contract re-export. It must import `ThemeMode`, `ResolvedTheme`, `themeModes`, `normalizeThemeMode`, `syncThemeMode` and the test helpers from `@ozwasyd/element-plus/theme` instead of declaring Blog-local equivalents.
-- `FsusUiBottomTabBar.vue`: legacy opt-in adapter for app-like consumers. The public blog shell must not import it or reserve fixed-dock padding; keep it isolated until remaining explicit consumers migrate to the released FsusUI API.
 
 `motion.ts` owns the auditable Blog-side motion boundary: it re-exports the FsusUI runtime (`FsuMotion`, `vMotion`, `useScrollReveal`, `runMotion`, motion types) and keeps Blog-owned surface mappings such as `FsusBlogMotionSurface` and `fsusBlogMotionPresets`. `blogMotion.ts` remains as a compatibility re-export for existing call sites. `FsusPerceptionChallenge` and the perception-challenge types come from `@ozwasyd/element-plus/perception-challenge`. Add new adapters to `index.ts` only when they are intended as general Blog adapter API; otherwise import them explicitly from call sites.
 
 ## Blog Shells
 
-`components/ui/` contains Blog-owned shells and composition primitives, for example dialog wrappers, markdown editor wrappers, MFA/passkey modals, `SemanticTime`, `ThemeModeToggle`, `FsusBlogRouteTransition` and `UiTag`.
+`components/ui/` contains Blog-owned shells and composition primitives, for example dialog wrappers, markdown editor wrappers, MFA/passkey setup modals, `SemanticTime` and `ThemeModeToggle`.
 
 These files should depend on `@/fsusui/*` adapters instead of package internals. `AsyncMarkdownRenderer.ts` and `markdownEditorProvider.ts` stay in `components/ui/` because they describe Blog composition and lazy-loading policy, not FsusUI runtime ownership.
-
-`components/ui/index.ts` is intentionally tiny. Keep it to a small curated public shell surface, capped by `check-fsusui-boundary.mjs`, so it cannot turn into a re-export dumping ground.
 
 ## Allowed Exceptions
 
@@ -50,4 +47,4 @@ New runtime imports should normally be added to a named `fsusui/` adapter first,
 
 ## Enforcement
 
-`tests/frontend/checks/static/check-fsusui-boundary.mjs` enforces this contract by checking deep imports, programmatic API ownership, internal selectors, markdown feature ownership, the theme adapter source, the mandatory adapter files, and the intentionally small `components/ui/index.ts` surface.
+`tests/frontend/checks/static/check-fsusui-boundary.mjs` enforces this contract by checking deep imports, programmatic API ownership, internal selectors, markdown feature ownership, the theme adapter source and the mandatory adapter files.

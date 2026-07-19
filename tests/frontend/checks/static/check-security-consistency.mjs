@@ -20,14 +20,6 @@ const vHtmlWhitelist = new Set([
   'views/ArticleDetail.vue'
 ])
 
-const trustedHtmlImportWhitelist = new Set([
-  'public-renderers/PublicArticleDetailPage.vue',
-  'utils/trustedHtml.ts',
-  'views/ArticleDetail.vue'
-])
-
-// Public renderer HTML sinks must be explicitly audited through trustedHtml
-// before a path can be added here.
 const publicRendererInnerHtmlWhitelist = new Set()
 
 const cspRuntimeStyleBoundary = 'services/cspStyleRuntime.ts'
@@ -61,13 +53,6 @@ function walk(dir) {
 
     if (content.includes('v-html=') && !vHtmlWhitelist.has(relativePath)) {
       violations.push(`${relativePath}: v-html is not in the audited whitelist`)
-    }
-
-    if (
-      /from\s+['"]@\/utils\/trustedHtml['"]|from\s+['"]\.{1,2}\/.*trustedHtml['"]/.test(content)
-      && !trustedHtmlImportWhitelist.has(relativePath)
-    ) {
-      violations.push(`${relativePath}: trustedHtml import is not in the audited whitelist`)
     }
 
     if (

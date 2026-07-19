@@ -41,7 +41,6 @@ function walk(dir, predicate, results = []) {
 requireFile('src/frontend/src/assets/motion.css')
 requireFile('src/frontend/src/composables/useMotionPreference.ts')
 requireFile('src/frontend/src/fsusui/motion.ts')
-requireFile('src/frontend/src/components/ui/FsusBlogRouteTransition.vue')
 requireFile('docs/frontend/motion-guidelines.md')
 
 const mainCss = read('src/frontend/src/assets/main.css')
@@ -141,17 +140,6 @@ for (const token of [
 for (const forbidden of ['isPublicSeoRouteName', 'v-if="isPublicSeoRoute"', '<RouterView v-if="isPublicSeoRoute"']) {
   if (appVue.includes(forbidden)) {
     errors.push(`src/frontend/src/App.vue: public shell route transition must not split on ${forbidden}`)
-  }
-}
-
-const routeTransition = expectIncludes(
-  'src/frontend/src/components/ui/FsusBlogRouteTransition.vue',
-  'useMotionRouteCleanup',
-  'route motion cleanup'
-)
-for (const token of ['runMotion', "mode: 'out-in'", 'routeKey', 'cloneVNode']) {
-  if (!routeTransition.includes(token)) {
-    errors.push(`src/frontend/src/components/ui/FsusBlogRouteTransition.vue: missing ${token}`)
   }
 }
 
@@ -260,7 +248,6 @@ if (!codeEnhancement.includes("data-fsus-motion-surface', 'article-code-block'")
 }
 
 expectIncludes('src/frontend/src/components/article/ArticleTocPanel.vue', ':motion="fsusBlogMotionPresets.mobileDrawer"', 'mobile drawer public motion prop')
-expectIncludes('src/frontend/src/components/ui/UiTag.vue', ':motion="fsusBlogMotionPresets.tagChip"', 'tag chip public motion prop')
 expectIncludes('src/frontend/src/fsusui/feedback.ts', 'fsusBlogMotionPresets.toast', 'toast motion preset boundary')
 
 const motionDocs = read('docs/frontend/motion-guidelines.md')
@@ -300,7 +287,6 @@ for (const file of scanned) {
   }
 
   const allowedIssue728HoverNudge = new Set([
-    'src/frontend/src/components/admin/DashboardPopularArticles.vue',
     'src/frontend/src/components/public/PublicComplianceFooter.vue'
   ])
   if (!rel.endsWith('motion.css') && !allowedIssue728HoverNudge.has(rel) && /\b(?:hover|group-hover):(scale|translate)/.test(source)) {

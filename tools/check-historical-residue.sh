@@ -474,7 +474,7 @@ RunResidueCheck \
     "legacy comment moderation account display fallback residue detected" \
     'Queryable<Comment,\s*Article,\s*User|JoinType[.]Left,\s*c[.]UserId\s*==\s*u[.]Id|JoinType[.]Left,\s*c[.]ReplyToUserId\s*==\s*ru[.]Id|u[.]PublicHandle|ru[.]PublicHandle|u[.]Username|ru[.]Username|row[.]UserName|comment[.]userName|cleanText[(]item[.]userName[)]|accountSearchText' \
     "" \
-    src/backend/Services/Authoring src/frontend/src/components/admin/DashboardCommentModerationPanel.vue src/frontend/src/composables/useCommentModerationQueue.ts
+    src/backend/Services/Authoring src/frontend/src/composables/useCommentModerationQueue.ts
 
 RunResidueCheck \
     "legacy comment moderation user attribution" \
@@ -554,6 +554,6 @@ RunResidueCheck \
     "stats recent comment user identity residue detected" \
     'LeftJoin<User>|u[.]Username|u[.]Id|GetOrdinal[(]["'\'']Username["'\''][)]|RecentCommentStatItemDto[(][^;\n]*(?:UserId|UserName)|RecentCommentCoreModel[(][^;\n]*(?:UserId|UserName)|ProjectRecentComment[(][^;\n]*(?:userId|userName)|UserId = userId|public readonly int UserId;|HasUserId|item[.]UserId|item[.]UserName|reader[.]readSpan[(]32[)]|comment[.]userName|userId:|userName:' \
     '' \
-    src/backend/Services/StatsService.cs src/shared/Contracts/Outputs/ServerResponseContracts.cs src/shared/Contracts/Models/StatsPods.cs src/core/Mapping/Models/ReadModels.cs src/core/Mapping/Projectors/PodProjector.cs src/core/Cache/PodBinaryCodec.Stats.cs src/backend/Infrastructure/CoreBridge/Adapters/StatsServiceCoreAdapter.cs src/backend/Infrastructure/CoreBridge/Gateways/StatsCoreGateway.cs src/frontend/src/api/stats.ts src/frontend/src/adapters/binary/statsAdapter.ts src/frontend/src/view-contracts/adminStats.ts src/frontend/src/components/admin/DashboardRecentComments.vue
+    src/backend/Services/StatsService.cs src/shared/Contracts/Outputs/ServerResponseContracts.cs src/shared/Contracts/Models/StatsPods.cs src/core/Mapping/Models/ReadModels.cs src/core/Mapping/Projectors/PodProjector.cs src/core/Cache/PodBinaryCodec.Stats.cs src/backend/Infrastructure/CoreBridge/Adapters/StatsServiceCoreAdapter.cs src/backend/Infrastructure/CoreBridge/Gateways/StatsCoreGateway.cs src/frontend/src/api/stats.ts src/frontend/src/adapters/binary/statsAdapter.ts src/frontend/src/view-contracts/adminStats.ts
 
 echo "[residue-check] passed"

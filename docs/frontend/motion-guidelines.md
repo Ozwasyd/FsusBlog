@@ -15,7 +15,7 @@ Use FsusUI motion primitives for page and interaction presets:
 - Article title: public article detail titles render statically; do not use `v-motion` on `[data-fsus-surface='reading']`.
 - Article body images and code blocks: `useScrollReveal()` with `fsusBlogScrollRevealOptions`; do not animate ordinary paragraphs.
 - Media overlay and back-to-top: `mediaOverlay` / `backToTop` (`scale-fade`).
-- Route transitions: `FsusBlogRouteTransition` uses FsusUI `runMotion(route-fade)` and `useMotionRouteCleanup()`.
+- Route transitions: active app and account hosts consume FsusUI route presets and clean up through `useMotionRouteCleanup()`.
 
 Do not import `@element-plus/motion`, `motion-dom`, or `gsap` directly from FsusBlog business code. If a new surface needs preset motion, add a named mapping to `fsusBlogMotionPresets` and use the FsusUI adapter.
 

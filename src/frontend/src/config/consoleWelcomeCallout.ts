@@ -1,6 +1,4 @@
 export const CONSOLE_WELCOME_CALLOUT_CONFIG_KEYS = [
-  'ConsoleWelcomeCallout.Enabled',
-  'ConsoleWelcomeCallout.ShowOnFirstRun',
   'ConsoleWelcomeCallout.ContributeUrl',
   'ConsoleWelcomeCallout.IssueUrl',
   'ConsoleWelcomeCallout.CommunityUrl',
@@ -10,20 +8,12 @@ export const CONSOLE_WELCOME_CALLOUT_CONFIG_KEYS = [
 export type ConsoleWelcomeCalloutConfigKey = (typeof CONSOLE_WELCOME_CALLOUT_CONFIG_KEYS)[number]
 
 export interface ConsoleWelcomeCalloutConfig {
-  enabled: boolean
-  showOnFirstRun: boolean
   contributeUrl: string
   issueUrl: string
   communityUrl: string
   hideForPrivateDeployment: boolean
   externalLinksEnabled: boolean
   privateDeployment: boolean
-}
-
-export interface ConsoleWelcomeCalloutLink {
-  key: 'contribute' | 'issue' | 'community'
-  label: string
-  href: string
 }
 
 export interface ConsoleSupportLink {
@@ -35,8 +25,6 @@ export interface ConsoleSupportLink {
 export type ConsoleWelcomeCalloutRuntimeOverride = Partial<ConsoleWelcomeCalloutConfig>
 
 const DEFAULT_CONFIG: ConsoleWelcomeCalloutConfig = {
-  enabled: true,
-  showOnFirstRun: true,
   contributeUrl: '',
   issueUrl: 'https://github.com/Ozwasyd/FsusBlog/issues/new/choose',
   communityUrl: '',
@@ -94,8 +82,6 @@ function readEnvConfig(): Partial<ConsoleWelcomeCalloutConfig> {
   const env = import.meta.env
   const deploymentMode = readString(env.VITE_FSUSBLOG_DEPLOYMENT_MODE).toLowerCase()
   return {
-    enabled: readBoolean(env.VITE_FSUSBLOG_CONSOLE_WELCOME_ENABLED, DEFAULT_CONFIG.enabled),
-    showOnFirstRun: readBoolean(env.VITE_FSUSBLOG_CONSOLE_WELCOME_SHOW_ON_FIRST_RUN, DEFAULT_CONFIG.showOnFirstRun),
     contributeUrl: normalizeUrl(env.VITE_FSUSBLOG_CONSOLE_WELCOME_CONTRIBUTE_URL),
     issueUrl: normalizeUrl(env.VITE_FSUSBLOG_CONSOLE_WELCOME_ISSUE_URL) || DEFAULT_CONFIG.issueUrl,
     communityUrl: normalizeUrl(env.VITE_FSUSBLOG_CONSOLE_WELCOME_COMMUNITY_URL),
@@ -123,8 +109,6 @@ export function resolveConsoleWelcomeCalloutConfig(
   }
 
   return {
-    enabled: readBoolean(merged.enabled, DEFAULT_CONFIG.enabled),
-    showOnFirstRun: readBoolean(merged.showOnFirstRun, DEFAULT_CONFIG.showOnFirstRun),
     contributeUrl: normalizeUrl(merged.contributeUrl),
     issueUrl: normalizeUrl(merged.issueUrl),
     communityUrl: normalizeUrl(merged.communityUrl),
@@ -132,18 +116,6 @@ export function resolveConsoleWelcomeCalloutConfig(
     externalLinksEnabled: readBoolean(merged.externalLinksEnabled, DEFAULT_CONFIG.externalLinksEnabled),
     privateDeployment: readBoolean(merged.privateDeployment, DEFAULT_CONFIG.privateDeployment)
   }
-}
-
-export function shouldShowConsoleWelcomeCallout(config: ConsoleWelcomeCalloutConfig): boolean {
-  if (!config.enabled || !config.showOnFirstRun) {
-    return false
-  }
-
-  if (!config.externalLinksEnabled) {
-    return false
-  }
-
-  return !(config.privateDeployment && config.hideForPrivateDeployment)
 }
 
 export function buildConsoleSupportLinks(
@@ -162,18 +134,4 @@ export function buildConsoleSupportLinks(
     { key: 'issue', label: '提交问题', href: config.issueUrl },
     { key: 'community', label: '参与讨论', href: config.communityUrl }
   ].filter((link): link is ConsoleSupportLink => Boolean(link.href))
-}
-
-export function buildConsoleWelcomeCalloutLinks(
-  config: ConsoleWelcomeCalloutConfig
-): ConsoleWelcomeCalloutLink[] {
-  if (!shouldShowConsoleWelcomeCallout(config)) {
-    return []
-  }
-
-  return [
-    { key: 'contribute', label: '维护说明', href: config.contributeUrl },
-    { key: 'issue', label: '新建 Issue', href: config.issueUrl },
-    { key: 'community', label: '讨论区', href: config.communityUrl }
-  ].filter((link): link is ConsoleWelcomeCalloutLink => Boolean(link.href))
 }

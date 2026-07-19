@@ -32,10 +32,6 @@ vi.mock('@/components/home/FeaturedArticlesSection.vue', () => ({
   default: { name: 'FeaturedArticlesSectionStub', render: () => null }
 }))
 
-vi.mock('@/components/home/HomeHotArticlesAside.vue', () => ({
-  default: { name: 'HomeHotArticlesAsideStub', render: () => null }
-}))
-
 vi.mock('@/components/home/HomeTextFirstRecommendations.vue', () => ({
   default: { name: 'HomeTextFirstRecommendationsStub', render: () => null }
 }))

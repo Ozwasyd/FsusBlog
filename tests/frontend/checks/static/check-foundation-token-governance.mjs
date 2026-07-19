@@ -54,7 +54,6 @@ const accountShellPath = 'src/frontend/src/assets/account-shell.css'
 const moderationAuditPath = 'src/frontend/src/views/admin/moderation/ModerationAudit.vue'
 const messagesPath = 'src/frontend/src/components/user/messages/MessagesConversationList.vue'
 const identityPath = 'src/frontend/src/views/user/IdentityCenter.vue'
-const dashboardPopularPath = 'src/frontend/src/components/admin/DashboardPopularArticles.vue'
 const complianceFooterPath = 'src/frontend/src/components/public/PublicComplianceFooter.vue'
 const packagePath = 'src/frontend/package.json'
 
@@ -67,7 +66,6 @@ const accountShell = read(accountShellPath)
 const moderationAudit = read(moderationAuditPath)
 const messages = read(messagesPath)
 const identity = read(identityPath)
-const dashboardPopular = read(dashboardPopularPath)
 const complianceFooter = read(complianceFooterPath)
 const packageJson = JSON.parse(read(packagePath))
 
@@ -160,7 +158,6 @@ expectIncludes(markdownPath, markdown, 'border-radius: var(--fsus-radius-control
 expectIncludes(markdownPath, markdown, 'border-radius: var(--fsus-radius-control, 6px);')
 expectIncludes(accountShellPath, accountShell, 'border-radius: var(--fsus-radius-control, 6px);')
 
-expectIncludes(dashboardPopularPath, dashboardPopular, 'transition-transform group-hover:translate-x-0.5')
 expectIncludes(complianceFooterPath, complianceFooter, 'transition-transform group-hover:-translate-y-px')
 
 const scripts = packageJson.scripts ?? {}
