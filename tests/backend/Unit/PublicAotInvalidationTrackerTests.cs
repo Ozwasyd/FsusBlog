@@ -2,12 +2,15 @@ using FsusBlog.Core.Cache;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+using FsusBlog.Server.Infrastructure.Spa;
 using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+
+using NSubstitute;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class PublicAotInvalidationTrackerTests
@@ -92,6 +95,7 @@ public sealed class PublicAotInvalidationTrackerTests
             new RecordingRouteManifestProvider(),
             new PublicHotReadStore(),
             new FixedTestSessionKeyScope(null),
+            AssetManifest(),
             new PublicAotSsrRuntimeState(new ConfigurationBuilder().Build()),
             NullLogger<PublicAotInvalidationService>.Instance);
         string cacheKey = CacheKeyBuilder.PublicAotDocument(PublicPageId.Home, "home");
@@ -127,6 +131,7 @@ public sealed class PublicAotInvalidationTrackerTests
             new RecordingRouteManifestProvider(),
             new PublicHotReadStore(),
             new FixedTestSessionKeyScope("pw-0"),
+            AssetManifest(),
             new PublicAotSsrRuntimeState(new ConfigurationBuilder().Build()),
             NullLogger<PublicAotInvalidationService>.Instance);
 
@@ -134,6 +139,7 @@ public sealed class PublicAotInvalidationTrackerTests
 
         Assert.NotEmpty(scheduler.Requests);
         Assert.All(scheduler.Requests, request => Assert.Equal("pw-0", request.TestSessionId));
+        Assert.All(scheduler.Requests, request => Assert.Equal("frontend-test-v1", request.FrontendAssetVersion));
         Assert.Contains(scheduler.Requests, request => request.RouteKey == "category:7");
         Assert.Contains(scheduler.Requests, request => request.RouteKey == "tag:9");
         Assert.Contains(scheduler.Requests, request => request.RouteKey == "article:42");
@@ -153,6 +159,7 @@ public sealed class PublicAotInvalidationTrackerTests
             new RecordingRouteManifestProvider(),
             new PublicHotReadStore(),
             new FixedTestSessionKeyScope(null),
+            AssetManifest(),
             new PublicAotSsrRuntimeState(new ConfigurationBuilder().Build()),
             NullLogger<PublicAotInvalidationService>.Instance);
         string homeKey = CacheKeyBuilder.PublicAotDocument(PublicPageId.Home, "home");
@@ -284,6 +291,13 @@ public sealed class PublicAotInvalidationTrackerTests
             CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<PublicAotRouteDescriptor>>(
                 [PublicAotRouteManifestProvider.CreateStaticRoute(PublicPageKind.Home, 0)]);
+    }
+
+    private static ISpaAssetManifestService AssetManifest()
+    {
+        ISpaAssetManifestService manifest = Substitute.For<ISpaAssetManifestService>();
+        manifest.GetFrontendAssetVersion().Returns("frontend-test-v1");
+        return manifest;
     }
 
     private sealed class FixedTestSessionKeyScope(string? sessionId) : ITestSessionKeyScope

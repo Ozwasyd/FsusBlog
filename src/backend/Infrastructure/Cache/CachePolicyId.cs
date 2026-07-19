@@ -63,5 +63,6 @@ public enum CachePolicyId
     AccountSnapshot = 59,
     AccountSnapshotVersion = 60,
     SecurityUserSessionValidation = 61,
-    SecurityChallengeEnvelope = 62
+    SecurityChallengeEnvelope = 62,
+    PublicAotBackfillLease = 63
 }

@@ -230,10 +230,10 @@ public sealed class PublicAotShellService(
         }
 
         PublicAotBackfillDocument backfillDocument = document.Value!;
-        if (artifactStore.WasInvalidatedAfter(request))
+        if (!artifactStore.IsCurrentBackfill(request))
         {
             logger.LogInformation(
-                "Public AOT backfill skipped stale write after invalidation: {Kind} {RouteKey}",
+                "Public AOT backfill skipped stale write after asset or invalidation change: {Kind} {RouteKey}",
                 request.Kind,
                 request.RouteKey);
             return;
@@ -241,11 +241,19 @@ public sealed class PublicAotShellService(
 
         try
         {
-            await artifactStore.WriteBackfillAsync(
+            bool written = await artifactStore.WriteBackfillAsync(
                 request,
                 backfillDocument,
                 beforeCommit,
                 cancellationToken);
+            if (!written)
+            {
+                logger.LogInformation(
+                    "Public AOT backfill skipped stale write at commit: {Kind} {RouteKey}",
+                    request.Kind,
+                    request.RouteKey);
+                return;
+            }
             runtimeState.RecordBackfillSuccess(request);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

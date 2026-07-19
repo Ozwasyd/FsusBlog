@@ -59,11 +59,13 @@ public sealed class PublicAotSsrRuntimeStateTests
         Assert.Equal(PublicPageKind.ArticleDetail, quarantine.Kind);
         Assert.Equal("article:42", quarantine.RouteKey);
         Assert.Equal("public_aot_worker_invalid_aeds", quarantine.LastFailureReason);
+        Assert.True(state.IsRouteQuarantined(request));
 
         Assert.False(state.TryBeginBackfill(request, out string blockedReason));
         Assert.Equal("route-quarantined", blockedReason);
 
         state.ClearRouteQuarantine(PublicPageKind.ArticleDetail, "article:42");
+        Assert.False(state.IsRouteQuarantined(request));
         Assert.True(state.TryBeginBackfill(request, out _));
         state.RecordBackfillSuccess(request, TimeSpan.FromMilliseconds(5));
 
@@ -71,6 +73,7 @@ public sealed class PublicAotSsrRuntimeStateTests
         state.RecordBackfillFailure(request, PublicAotSsrFailureClass.RendererContract, "public_aot_worker_invalid_aeds", TimeSpan.FromMilliseconds(5));
         clock.Advance(TimeSpan.FromSeconds(61));
 
+        Assert.False(state.IsRouteQuarantined(request));
         Assert.True(state.TryBeginBackfill(request, out _));
     }
 

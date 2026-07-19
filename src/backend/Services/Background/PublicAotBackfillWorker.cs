@@ -11,7 +11,9 @@ public sealed class PublicAotBackfillWorker(
     IConfiguration configuration,
     ILogger<PublicAotBackfillWorker> logger,
     IBackgroundWorkerLease workerLease,
-    IActiveReleaseCommitGuard activeReleaseCommitGuard) : BackgroundService
+    IActiveReleaseCommitGuard activeReleaseCommitGuard,
+    IPublicAotBackfillLease backfillLease,
+    PublicAotSsrRuntimeState runtimeState) : BackgroundService
 {
     private static readonly TimeSpan s_standbyDelay = TimeSpan.FromSeconds(5);
 
@@ -60,15 +62,70 @@ public sealed class PublicAotBackfillWorker(
         using IDisposable testSessionScope = testSessionKeyScope.BeginScope(request.TestSessionId);
         try
         {
-            IPublicAotBackfillGenerator generator = scope.ServiceProvider.GetRequiredService<IPublicAotBackfillGenerator>();
-            await generator.GenerateAndStoreAsync(
-                request,
-                stoppingToken,
-                beforeCommit: commitToken => activeReleaseCommitGuard.EnsureCurrentAsync(commitToken));
+            if (runtimeState.IsRouteQuarantined(request))
+            {
+                runtimeState.RecordBackfillDropped(request, "route-quarantined-before-lease", scheduler.InFlightCount);
+                return;
+            }
+
+            IPublicAotBackfillLeaseHandle? lease;
+            try
+            {
+                lease = await backfillLease.TryAcquireAsync(request, stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                runtimeState.RecordBackfillDropped(request, "lease-unavailable", scheduler.InFlightCount);
+                logger.LogWarning(ex, "Public AOT backfill lease unavailable: {Kind} {RouteKey}", request.Kind, request.RouteKey);
+                return;
+            }
+
+            if (lease is null)
+            {
+                runtimeState.RecordBackfillDropped(request, "lease-contended", scheduler.InFlightCount);
+                logger.LogDebug("Public AOT backfill lease contended: {Kind} {RouteKey}", request.Kind, request.RouteKey);
+                return;
+            }
+
+            await using (lease)
+            {
+                var leaseState = new LeaseRenewalState();
+                using CancellationTokenSource leaseCancellation = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+                Task renewal = RenewLeaseUntilStoppedAsync(request, lease, leaseCancellation, leaseState);
+                IPublicAotBackfillGenerator generator = scope.ServiceProvider.GetRequiredService<IPublicAotBackfillGenerator>();
+                try
+                {
+                    try
+                    {
+                        await generator.GenerateAndStoreAsync(
+                            request,
+                            leaseCancellation.Token,
+                            beforeCommit: commitToken => EnsureCommitAllowedAsync(lease, leaseState, commitToken));
+                    }
+                    catch (OperationCanceledException) when (leaseState.IsLost)
+                    {
+                        throw new PublicAotBackfillLeaseLostException();
+                    }
+                }
+                finally
+                {
+                    await leaseCancellation.CancelAsync().ConfigureAwait(false);
+                    await renewal.ConfigureAwait(false);
+                }
+            }
             logger.LogInformation("Public AOT backfill completed: {Kind} {RouteKey}", request.Kind, request.RouteKey);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
+        }
+        catch (PublicAotBackfillLeaseLostException)
+        {
+            runtimeState.RecordBackfillDropped(request, "lease-lost", scheduler.InFlightCount);
+            logger.LogWarning("Public AOT backfill lease lost before commit: {Kind} {RouteKey}", request.Kind, request.RouteKey);
         }
         catch (Exception ex)
         {
@@ -79,4 +136,63 @@ public sealed class PublicAotBackfillWorker(
             scheduler.Complete(request);
         }
     }
+
+    private async Task RenewLeaseUntilStoppedAsync(
+        PublicAotBackfillRequest request,
+        IPublicAotBackfillLeaseHandle lease,
+        CancellationTokenSource leaseCancellation,
+        LeaseRenewalState leaseState)
+    {
+        try
+        {
+            using PeriodicTimer timer = new(lease.RenewInterval);
+            while (await timer.WaitForNextTickAsync(leaseCancellation.Token).ConfigureAwait(false))
+            {
+                if (await lease.RenewAsync(leaseCancellation.Token).ConfigureAwait(false))
+                {
+                    continue;
+                }
+
+                logger.LogWarning("Public AOT backfill lease renewal rejected: {Kind} {RouteKey}", request.Kind, request.RouteKey);
+                leaseState.MarkLost();
+                await leaseCancellation.CancelAsync().ConfigureAwait(false);
+                return;
+            }
+        }
+        catch (OperationCanceledException) when (leaseCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Public AOT backfill lease renewal failed: {Kind} {RouteKey}", request.Kind, request.RouteKey);
+            leaseState.MarkLost();
+            await leaseCancellation.CancelAsync().ConfigureAwait(false);
+        }
+    }
+
+    private async Task EnsureCommitAllowedAsync(
+        IPublicAotBackfillLeaseHandle lease,
+        LeaseRenewalState leaseState,
+        CancellationToken cancellationToken)
+    {
+        await activeReleaseCommitGuard.EnsureCurrentAsync(cancellationToken).ConfigureAwait(false);
+        if (await lease.RenewAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        leaseState.MarkLost();
+        throw new PublicAotBackfillLeaseLostException();
+    }
+
+    private sealed class LeaseRenewalState
+    {
+        private int _lost;
+
+        public bool IsLost => Volatile.Read(ref _lost) == 1;
+
+        public void MarkLost() => Interlocked.Exchange(ref _lost, 1);
+    }
+
+    private sealed class PublicAotBackfillLeaseLostException : Exception;
 }

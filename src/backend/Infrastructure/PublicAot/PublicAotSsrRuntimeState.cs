@@ -179,7 +179,11 @@ public sealed class PublicAotSsrRuntimeState
             if (_circuitState == PublicAotSsrCircuitState.HalfOpen &&
                 _halfOpenProbeInFlight &&
                 (string.Equals(reason, "queue-full", StringComparison.Ordinal) ||
-                    string.Equals(reason, "duplicate-cache-key", StringComparison.Ordinal)))
+                    string.Equals(reason, "duplicate-cache-key", StringComparison.Ordinal) ||
+                    string.Equals(reason, "route-quarantined-before-lease", StringComparison.Ordinal) ||
+                    string.Equals(reason, "lease-contended", StringComparison.Ordinal) ||
+                    string.Equals(reason, "lease-unavailable", StringComparison.Ordinal) ||
+                    string.Equals(reason, "lease-lost", StringComparison.Ordinal)))
             {
                 _halfOpenProbeInFlight = false;
             }
@@ -300,6 +304,18 @@ public sealed class PublicAotSsrRuntimeState
         lock (_sync)
         {
             _routeFailures.Remove(new RouteKey(kind, routeKey));
+        }
+    }
+
+    public bool IsRouteQuarantined(PublicAotBackfillRequest request)
+    {
+        lock (_sync)
+        {
+            DateTimeOffset now = _clock.GetUtcNow();
+            RemoveExpiredQuarantines(now);
+            return _routeFailures.TryGetValue(RouteKey.FromRequest(request), out RouteFailureState? route)
+                && route.QuarantinedUntilUtc is { } quarantinedUntil
+                && quarantinedUntil > now;
         }
     }
 

@@ -67,7 +67,8 @@ public sealed class CachePolicyRegistry : ICachePolicyRegistry
             [CachePolicyId.TagFrame] = new(CachePolicyId.TagFrame, "blog", "tag-frame", TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(10), null, [CacheTag.Tag], false, 0.10d, false),
             [CachePolicyId.AdminStatsFrame] = new(CachePolicyId.AdminStatsFrame, "admin", "stats-frame", TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(10), null, [CacheTag.Stats], false, 0.10d, false),
             [CachePolicyId.TaxonomyFrameVersion] = new(CachePolicyId.TaxonomyFrameVersion, "blog", "taxonomy-frame-version", TimeSpan.FromMinutes(1), TimeSpan.FromDays(7), null, [CacheTag.Category, CacheTag.Tag], false, 0d, false),
-            [CachePolicyId.BackgroundWorkerLease] = new(CachePolicyId.BackgroundWorkerLease, "runtime", "worker-lease", TimeSpan.Zero, TimeSpan.FromSeconds(30), null, null, false, 0d, false)
+            [CachePolicyId.BackgroundWorkerLease] = new(CachePolicyId.BackgroundWorkerLease, "runtime", "worker-lease", TimeSpan.Zero, TimeSpan.FromSeconds(30), null, null, false, 0d, false),
+            [CachePolicyId.PublicAotBackfillLease] = new(CachePolicyId.PublicAotBackfillLease, "public", "aot-backfill-lease", TimeSpan.Zero, TimeSpan.FromSeconds(30), null, [CacheTag.Aot], false, 0d, false)
         }.ToFrozenDictionary();
 
     public bool TryGet(CachePolicyId id, out CachePolicy policy)

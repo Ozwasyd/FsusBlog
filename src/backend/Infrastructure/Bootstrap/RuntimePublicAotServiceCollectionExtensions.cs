@@ -16,6 +16,8 @@ internal static class RuntimePublicAotServiceCollectionExtensions
         services.AddSingleton<PublicAotBackfillScheduler>();
         services.AddSingleton<IPublicAotBackfillScheduler>(sp => sp.GetRequiredService<PublicAotBackfillScheduler>());
         services.AddSingleton<PublicAotInvalidationTracker>();
+        services.AddSingleton(PublicAotBackfillLeaseOptions.FromEnvironment());
+        services.AddSingleton<IPublicAotBackfillLease, PublicAotBackfillLease>();
         if (!OpenApiExportMode.IsEnabled())
         {
             services.AddHostedService<PublicAotBackfillWorker>();

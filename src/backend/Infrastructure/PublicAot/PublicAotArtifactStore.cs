@@ -23,9 +23,9 @@ public interface IPublicAotArtifactStore
         PublicAotRouteMatch match,
         PublicAotArtifactLookup lookup);
 
-    bool WasInvalidatedAfter(PublicAotBackfillRequest request);
+    bool IsCurrentBackfill(PublicAotBackfillRequest request);
 
-    Task WriteBackfillAsync(
+    Task<bool> WriteBackfillAsync(
         PublicAotBackfillRequest request,
         PublicAotBackfillDocument document,
         Func<CancellationToken, Task>? beforeCommit,
@@ -102,13 +102,19 @@ internal sealed class PublicAotArtifactStore(
             ScheduledInvalidationVersion = invalidationTracker.GetCurrentVersion(
                 lookup.DocumentCacheKey,
                 lookup.PagePrefixKey),
-            TestSessionId = ResolveTestSessionId(context)
+            TestSessionId = ResolveTestSessionId(context),
+            FrontendAssetVersion = lookup.FrontendAssetVersion
         });
 
-    public bool WasInvalidatedAfter(PublicAotBackfillRequest request)
-        => invalidationTracker.WasInvalidatedAfter(request);
+    public bool IsCurrentBackfill(PublicAotBackfillRequest request)
+        => !string.IsNullOrWhiteSpace(request.FrontendAssetVersion)
+            && string.Equals(
+                request.FrontendAssetVersion,
+                assetManifest.GetFrontendAssetVersion(),
+                StringComparison.Ordinal)
+            && !invalidationTracker.WasInvalidatedAfter(request);
 
-    public async Task WriteBackfillAsync(
+    public async Task<bool> WriteBackfillAsync(
         PublicAotBackfillRequest request,
         PublicAotBackfillDocument document,
         Func<CancellationToken, Task>? beforeCommit,
@@ -119,17 +125,23 @@ internal sealed class PublicAotArtifactStore(
             await beforeCommit(cancellationToken).ConfigureAwait(false);
         }
 
+        if (!IsCurrentBackfill(request))
+        {
+            return false;
+        }
+
         await cacheWriter.WriteAsync(
             request.CacheKey,
             document.Match.PageId,
             document.Match.RouteKey,
             document.RendererVersion,
-            assetManifest.GetFrontendAssetVersion(),
+            request.FrontendAssetVersion,
             document.Html,
             PublicAotWriteSource.ServerSsrBackfill,
             DateTimeOffset.UtcNow,
             TimeSpan.FromDays(30),
             cancellationToken);
+        return true;
     }
 
     public Task InvalidateAllAsync(CancellationToken cancellationToken)

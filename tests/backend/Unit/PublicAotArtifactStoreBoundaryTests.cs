@@ -56,6 +56,49 @@ public sealed class PublicAotArtifactStoreBoundaryTests
         Assert.Equal(lookup.DocumentCacheKey, scheduled.CacheKey);
         Assert.Equal(lookup.PagePrefixKey, scheduled.PagePrefixKey);
         Assert.Equal(0, scheduled.ScheduledInvalidationVersion);
+        Assert.Equal("frontend-v1", scheduled.FrontendAssetVersion);
+    }
+
+    [Fact]
+    public async Task WriteBackfill_RechecksAssetVersionAfterCommitGuard_AndRejectsStaleArtifact()
+    {
+        var cache = Substitute.For<IPublicAotShellCache>();
+        var writer = Substitute.For<IPublicAotCacheWriter>();
+        var scheduler = Substitute.For<IPublicAotBackfillScheduler>();
+        string assetVersion = "frontend-v1";
+        var manifest = Substitute.For<ISpaAssetManifestService>();
+        manifest.GetFrontendAssetVersion().Returns(_ => assetVersion);
+        var store = new PublicAotArtifactStore(
+            cache,
+            writer,
+            scheduler,
+            manifest,
+            new PrefixRuntimeKeyScope(string.Empty),
+            new PublicAotInvalidationTracker());
+        var match = new PublicAotRouteMatch(
+            PublicPageKind.Home,
+            PublicPageId.Home,
+            "home",
+            "/",
+            "/",
+            string.Empty);
+        var request = new PublicAotBackfillRequest(match.Kind, match.RouteKey, match.Path, match.QueryString, "cache:home")
+        {
+            FrontendAssetVersion = assetVersion
+        };
+
+        bool written = await store.WriteBackfillAsync(
+            request,
+            new PublicAotBackfillDocument(match, "<html></html>", PublicAotConstants.RendererVersion),
+            _ =>
+            {
+                assetVersion = "frontend-v2";
+                return Task.CompletedTask;
+            },
+            CancellationToken.None);
+
+        Assert.False(written);
+        Assert.Empty(writer.ReceivedCalls());
     }
 
     [Fact]

@@ -132,6 +132,21 @@ public interface ICacheInvalidationStore
 public interface ICacheLeaseStore
 {
     Task<bool> TryAcquireLeaseAsync(CachePolicyId policyId, string identity, string value, TimeSpan ttl, CancellationToken cancellationToken = default);
+
+    Task<bool> TryRenewLeaseAsync(
+        CachePolicyId policyId,
+        string identity,
+        string expectedValue,
+        TimeSpan ttl,
+        CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("Token-owned lease renewal is not supported by this store.");
+
+    Task<bool> TryReleaseLeaseAsync(
+        CachePolicyId policyId,
+        string identity,
+        string expectedValue,
+        CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("Token-owned lease release is not supported by this store.");
 }
 
 public interface ICacheSingleFlightCoordinator

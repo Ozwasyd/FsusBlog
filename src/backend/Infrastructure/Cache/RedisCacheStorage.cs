@@ -914,6 +914,67 @@ return result
         return acquired;
     }
 
+    public async Task<bool> TryRenewLeaseAsync(
+        CachePolicyId policyId,
+        string identity,
+        string expectedValue,
+        TimeSpan ttl,
+        CancellationToken cancellationToken = default)
+    {
+        long startedAt = Stopwatch.GetTimestamp();
+        string policyName = CachePolicyTelemetry.Name(policyId);
+        using Activity? activity = FsusObservability.StartActivity("cache.lease_renew", "cache", ActivityKind.Client);
+        FsusObservability.SetTag(activity, "fsus.cache.operation", "lease_renew");
+        FsusObservability.SetTag(activity, "fsus.cache.policy", policyName);
+        cancellationToken.ThrowIfCancellationRequested();
+        string key = BuildKey(policyId, identity);
+        const string Script = """
+if redis.call('GET', KEYS[1]) == ARGV[1] then
+  return redis.call('PEXPIRE', KEYS[1], ARGV[2])
+end
+return 0
+""";
+        RedisResult result = await _db.ScriptEvaluateAsync(
+                Script,
+                [key],
+                [expectedValue, checked((long)ttl.TotalMilliseconds)],
+                CommandFlags.None)
+            .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        bool renewed = (long)result == 1L;
+        telemetry.RecordOperation("lease_renew", policyName, "l2", renewed ? "renewed" : "lost", FsusObservability.GetElapsed(startedAt));
+        return renewed;
+    }
+
+    public async Task<bool> TryReleaseLeaseAsync(
+        CachePolicyId policyId,
+        string identity,
+        string expectedValue,
+        CancellationToken cancellationToken = default)
+    {
+        long startedAt = Stopwatch.GetTimestamp();
+        string policyName = CachePolicyTelemetry.Name(policyId);
+        using Activity? activity = FsusObservability.StartActivity("cache.lease_release", "cache", ActivityKind.Client);
+        FsusObservability.SetTag(activity, "fsus.cache.operation", "lease_release");
+        FsusObservability.SetTag(activity, "fsus.cache.policy", policyName);
+        string key = BuildKey(policyId, identity);
+        const string Script = """
+if redis.call('GET', KEYS[1]) == ARGV[1] then
+  return redis.call('DEL', KEYS[1])
+end
+return 0
+""";
+        RedisResult result = await _db.ScriptEvaluateAsync(
+                Script,
+                [key],
+                [expectedValue],
+                CommandFlags.None)
+            .ConfigureAwait(false);
+        bool released = (long)result == 1L;
+        telemetry.RecordOperation("lease_release", policyName, "l2", released ? "released" : "lost", FsusObservability.GetElapsed(startedAt));
+        return released;
+    }
+
     public async Task<bool> ConsumeOnceAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
     {
         long startedAt = Stopwatch.GetTimestamp();

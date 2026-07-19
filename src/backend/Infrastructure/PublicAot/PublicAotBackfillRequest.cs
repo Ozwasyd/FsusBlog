@@ -16,4 +16,8 @@ public sealed record class PublicAotBackfillRequest(
     {
         get; init;
     }
+    public string FrontendAssetVersion
+    {
+        get; init;
+    } = string.Empty;
 }

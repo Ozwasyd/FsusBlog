@@ -421,6 +421,19 @@
             "l2JitterRatio": 0
         },
         {
+            "id": "PublicAotBackfillLease",
+            "domain": "public",
+            "resource": "aot-backfill-lease",
+            "l1Ttl": "TimeSpan.Zero",
+            "l2Ttl": "TimeSpan.FromSeconds(30)",
+            "negativeTtl": "null",
+            "invalidationTags": [
+                "Aot"
+            ],
+            "securityCritical": false,
+            "l2JitterRatio": 0
+        },
+        {
             "id": "PublicAotDocument",
             "domain": "public",
             "resource": "aot-doc",
@@ -485,6 +498,17 @@
             "id": "SecurityCaptchaChallenge",
             "domain": "sec",
             "resource": "captcha-challenge",
+            "l1Ttl": "TimeSpan.Zero",
+            "l2Ttl": "TimeSpan.FromMinutes(5)",
+            "negativeTtl": "null",
+            "invalidationTags": [],
+            "securityCritical": true,
+            "l2JitterRatio": 0
+        },
+        {
+            "id": "SecurityChallengeEnvelope",
+            "domain": "sec",
+            "resource": "challenge-envelope",
             "l1Ttl": "TimeSpan.Zero",
             "l2Ttl": "TimeSpan.FromMinutes(5)",
             "negativeTtl": "null",

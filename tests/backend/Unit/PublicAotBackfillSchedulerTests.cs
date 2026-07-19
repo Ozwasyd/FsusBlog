@@ -176,6 +176,24 @@ public sealed class PublicAotBackfillSchedulerTests
     }
 
     [Fact]
+    public void PublicAotBackfillWorker_ChecksRouteQuarantineBeforeDistributedLease()
+    {
+        MethodInfo processMoveNext = StateMachineMoveNext(typeof(PublicAotBackfillWorker), "ProcessRequestAsync");
+        IReadOnlyList<(int Offset, MethodBase Method)> calls = ReadCalledMethods(processMoveNext);
+        int quarantineCheck = FindCallOffset(
+            calls,
+            typeof(PublicAotSsrRuntimeState),
+            nameof(PublicAotSsrRuntimeState.IsRouteQuarantined));
+        int leaseAcquire = FindCallOffset(
+            calls,
+            typeof(IPublicAotBackfillLease),
+            nameof(IPublicAotBackfillLease.TryAcquireAsync));
+
+        Assert.True(quarantineCheck >= 0);
+        Assert.True(leaseAcquire > quarantineCheck);
+    }
+
+    [Fact]
     public void PublicAotFileShellCache_WritesTempThenMovesBeforePublishingMemoryEntry()
     {
         MethodInfo moveNext = StateMachineMoveNext(typeof(PublicAotFileShellCache), nameof(PublicAotFileShellCache.SetAsync));
