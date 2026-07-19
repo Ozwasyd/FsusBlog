@@ -24,9 +24,9 @@ public sealed class SchemaMigrationCatalogTests
             catalog => Assert.Equal("projection-integrity-20260625-20260704", catalog.CatalogId),
             catalog => Assert.Equal("current-20260709-20260716", catalog.CatalogId),
             catalog => Assert.Equal("current-20260719", catalog.CatalogId));
-        Assert.Equal(100, manifest.Descriptors.Count);
+        Assert.Equal(101, manifest.Descriptors.Count);
         Assert.Equal(
-            "5D79D4BDE8137213F7C3E5D085A908DA4C818E44C9AADC20677F089FC4B0C0E2",
+            "F9E770AB59D43F0A0F1BF39EA3694825774670C25BF52334F1D8B633C5E3D2D3",
             ComputePlanFingerprint(manifest.Descriptors));
 
         for (int index = 1; index < manifest.Descriptors.Count; index++)
@@ -199,6 +199,22 @@ public sealed class SchemaMigrationCatalogTests
     }
 
     [Fact]
+    public void MessageUnreadAuthority_ConstrainsAndRepairsProjection()
+    {
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            new SchemaMigrationRegistry().GetDescriptors(),
+            item => item.MigrationId == MessageUnreadAuthorityMigrationDefinitions.MigrationId);
+        string migration = string.Join('\n', descriptor.Steps.Select(step => step.Fingerprint));
+
+        Assert.Contains("ck_msg_participant_unread_nonnegative", migration, StringComparison.Ordinal);
+        Assert.Contains("cannot move backwards", migration, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("same conversation", migration, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("isinternalnote = false", migration, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("fsus.message_unread_repair", migration, StringComparison.Ordinal);
+        Assert.Contains("msg_admin_queue_state", migration, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SourceLayout_PreventsLegacyRegistryDescriptorAggregation()
     {
         string migrationRoot = BackendTestPaths.FromRoot(
@@ -223,7 +239,7 @@ public sealed class SchemaMigrationCatalogTests
         Assert.DoesNotContain("partial class SchemaMigrationRegistry", registrySource, StringComparison.Ordinal);
         Assert.DoesNotContain("new SchemaMigrationDescriptor(", registrySource, StringComparison.Ordinal);
         Assert.DoesNotContain("Build", registrySource, StringComparison.Ordinal);
-        Assert.Equal(100, descriptorDefinitionCount);
+        Assert.Equal(101, descriptorDefinitionCount);
         Assert.All(
             definitionFiles.Select(File.ReadAllText),
             static source => Assert.DoesNotContain("partial class", source, StringComparison.Ordinal));

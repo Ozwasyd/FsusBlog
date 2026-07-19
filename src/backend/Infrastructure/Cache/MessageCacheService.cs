@@ -5,7 +5,8 @@ namespace FsusBlog.Server.Infrastructure.Cache;
 public sealed class MessageCacheService(
     ICacheCounterStore counters,
     ICacheStringWriter stringWriter,
-    ICacheCompareExchangeStore compareExchange)
+    ICacheCompareExchangeStore compareExchange,
+    ICacheStringReader stringReader)
 {
     private const int UnreadRefreshMaxAttempts = 3;
 
@@ -34,6 +35,26 @@ public sealed class MessageCacheService(
         }
 
         return Math.Max(0, await loadUnreadAsync());
+    }
+
+    public async ValueTask<int> GetUnreadOrRecoverAsync(long accountId, Func<Task<int>> loadUnreadAsync)
+    {
+        string? cached = null;
+        try
+        {
+            cached = await stringReader.GetStringAsync(CachePolicyId.MessageUnread, BuildAccountIdentity(accountId));
+        }
+        catch
+        {
+            // Redis is a discardable projection; database recovery below remains authoritative.
+        }
+
+        if (int.TryParse(cached, NumberStyles.None, CultureInfo.InvariantCulture, out int unread) && unread >= 0)
+        {
+            return unread;
+        }
+
+        return await RefreshUnreadAsync(accountId, loadUnreadAsync);
     }
 
     private static string BuildAccountIdentity(long accountId)

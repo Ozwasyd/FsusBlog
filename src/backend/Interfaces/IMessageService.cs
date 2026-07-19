@@ -77,4 +77,7 @@ public interface IMessageAdminQueueMaintenance
 {
     Task<AdminQueueConsistencyReport> CheckAdminQueueConsistencyAsync();
     Task<int> RebuildAdminQueueStateAsync();
+    Task<int> RebuildAdminQueueConversationAsync(long conversationId);
+    Task<int> RebuildConversationUnreadAsync(long conversationId);
+    Task<int> RebuildAccountUnreadAsync(int accountId);
 }

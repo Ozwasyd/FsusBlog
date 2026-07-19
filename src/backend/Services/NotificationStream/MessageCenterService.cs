@@ -345,8 +345,18 @@ public sealed class MessageCenterService(
             reader.ReadInt32("invalid_read_cursor_count"));
     }
 
-    public Task<int> RebuildAdminQueueStateAsync()
-        => db.Ado.ExecuteCommandAsync(
+    public async Task<int> RebuildAdminQueueStateAsync()
+    {
+        if (!IsUnreadRepairEnabled())
+        {
+            return 0;
+        }
+
+        int changed = 0;
+        var transaction = await db.Ado.UseTranAsync(async () =>
+        {
+            await EnableUnreadRepairTransactionAsync();
+            changed = await db.Ado.ExecuteCommandAsync(
             """
             WITH resolved AS (
                 SELECT conversation.id AS conversationid,
@@ -413,8 +423,339 @@ public sealed class MessageCenterService(
                OR msg_admin_queue_state.unreadcount IS DISTINCT FROM EXCLUDED.unreadcount
                OR msg_admin_queue_state.lastreadat IS DISTINCT FROM EXCLUDED.lastreadat;
             """,
+                new SugarParameter("@AccountSenderType", (int)MessageSenderType.Account),
+                new SugarParameter("@Now", DateTime.UtcNow));
+        });
+        if (!transaction.IsSuccess)
+        {
+            logger.LogError(transaction.ErrorException, "Admin message unread projection rebuild failed.");
+            return 0;
+        }
+
+        logger.LogInformation("Message unread projection repaired. Scope: admin-all | ChangedRows: {ChangedRows}", changed);
+        return changed;
+    }
+
+    public async Task<int> RebuildAdminQueueConversationAsync(long conversationId)
+    {
+        if (!IsUnreadRepairEnabled())
+        {
+            return 0;
+        }
+
+        int changed = 0;
+        var transaction = await db.Ado.UseTranAsync(async () =>
+        {
+            await EnableUnreadRepairTransactionAsync();
+            changed = await RebuildAdminQueueConversationCoreAsync(conversationId);
+        });
+        if (!transaction.IsSuccess)
+        {
+            logger.LogError(
+                transaction.ErrorException,
+                "Admin conversation unread projection rebuild failed. ConversationId: {ConversationId}",
+                conversationId);
+            return 0;
+        }
+
+        logger.LogInformation(
+            "Message unread projection repaired. Scope: admin-conversation | ConversationId: {ConversationId} | ChangedRows: {ChangedRows}",
+            conversationId,
+            changed);
+        return changed;
+    }
+
+    public async Task<int> RebuildConversationUnreadAsync(long conversationId)
+    {
+        if (!IsUnreadRepairEnabled())
+        {
+            return 0;
+        }
+
+        int participantChanged = 0;
+        int adminChanged = 0;
+        var transaction = await db.Ado.UseTranAsync(async () =>
+        {
+            await EnableUnreadRepairTransactionAsync();
+            participantChanged = await RebuildConversationParticipantUnreadCoreAsync(conversationId);
+            adminChanged = await RebuildAdminQueueConversationCoreAsync(conversationId);
+        });
+        if (!transaction.IsSuccess)
+        {
+            logger.LogError(
+                transaction.ErrorException,
+                "Conversation unread projection rebuild failed. ConversationId: {ConversationId}",
+                conversationId);
+            return 0;
+        }
+
+        List<int> accountIds = await db.Queryable<ConversationParticipantState>()
+            .Where(state => state.ConversationId == conversationId)
+            .Select(state => state.AccountId)
+            .ToListAsync();
+        foreach (int accountId in accountIds.Distinct())
+        {
+            await RecoverAccountUnreadCacheAsync(accountId);
+        }
+
+        int changed = participantChanged + adminChanged;
+        logger.LogInformation(
+            "Message unread projection repaired. Scope: conversation | ConversationId: {ConversationId} | ParticipantRows: {ParticipantRows} | AdminRows: {AdminRows}",
+            conversationId,
+            participantChanged,
+            adminChanged);
+        return changed;
+    }
+
+    public async Task<int> RebuildAccountUnreadAsync(int accountId)
+    {
+        if (!IsUnreadRepairEnabled())
+        {
+            return 0;
+        }
+
+        int changed = 0;
+        var transaction = await db.Ado.UseTranAsync(async () =>
+        {
+            await EnableUnreadRepairTransactionAsync();
+            changed = await RebuildAccountParticipantUnreadCoreAsync(accountId);
+        });
+        if (!transaction.IsSuccess)
+        {
+            logger.LogError(
+                transaction.ErrorException,
+                "Account unread projection rebuild failed. AccountId: {AccountId}",
+                accountId);
+            return 0;
+        }
+
+        await RecoverAccountUnreadCacheAsync(accountId);
+        logger.LogInformation(
+            "Message unread projection repaired. Scope: account | AccountId: {AccountId} | ChangedRows: {ChangedRows}",
+            accountId,
+            changed);
+        return changed;
+    }
+
+    private bool IsUnreadRepairEnabled()
+        => configuration.GetValue<bool?>("Messages:UnreadRepairEnabled") ?? true;
+
+    private Task EnableUnreadRepairTransactionAsync()
+        => db.Ado.ExecuteCommandAsync("SELECT set_config('fsus.message_unread_repair', 'on', true);");
+
+    private Task<int> RebuildConversationParticipantUnreadCoreAsync(long conversationId)
+        => db.Ado.ExecuteCommandAsync(
+            """
+            WITH resolved AS (
+                SELECT state.conversationid,
+                       state.accountid,
+                       CASE
+                           WHEN state.lastreadmessageid IS NULL THEN NULL
+                           WHEN EXISTS (
+                               SELECT 1
+                               FROM msg_message read_target
+                               WHERE read_target.conversationid = state.conversationid
+                                 AND read_target.id = state.lastreadmessageid
+                                 AND read_target.isinternalnote = false
+                           ) THEN state.lastreadmessageid
+                           ELSE NULL
+                       END AS lastreadmessageid,
+                       CASE
+                           WHEN state.lastreadmessageid IS NULL THEN NULL
+                           WHEN EXISTS (
+                               SELECT 1
+                               FROM msg_message read_target
+                               WHERE read_target.conversationid = state.conversationid
+                                 AND read_target.id = state.lastreadmessageid
+                                 AND read_target.isinternalnote = false
+                           ) THEN state.lastreadat
+                           ELSE NULL
+                       END AS lastreadat
+                FROM msg_participant_state state
+                WHERE state.conversationid = @ConversationId
+            ), rebuilt AS (
+                SELECT resolved.*,
+                       (
+                           SELECT COUNT(*)::integer
+                           FROM msg_message message
+                           WHERE message.conversationid = resolved.conversationid
+                             AND message.id > COALESCE(resolved.lastreadmessageid, 0)
+                             AND message.isinternalnote = false
+                             AND NOT (
+                                 message.sendertype = @AccountSenderType
+                                 AND message.senderaccountid = resolved.accountid
+                             )
+                       ) AS unreadcount
+                FROM resolved
+            )
+            UPDATE msg_participant_state state
+            SET lastreadmessageid = rebuilt.lastreadmessageid,
+                unreadcount = rebuilt.unreadcount,
+                lastreadat = rebuilt.lastreadat,
+                updatedat = @Now
+            FROM rebuilt
+            WHERE state.conversationid = rebuilt.conversationid
+              AND state.accountid = rebuilt.accountid
+              AND (
+                  state.lastreadmessageid IS DISTINCT FROM rebuilt.lastreadmessageid
+                  OR state.unreadcount IS DISTINCT FROM rebuilt.unreadcount
+                  OR state.lastreadat IS DISTINCT FROM rebuilt.lastreadat
+              );
+            """,
+            new SugarParameter("@ConversationId", conversationId),
             new SugarParameter("@AccountSenderType", (int)MessageSenderType.Account),
             new SugarParameter("@Now", DateTime.UtcNow));
+
+    private Task<int> RebuildAccountParticipantUnreadCoreAsync(int accountId)
+        => db.Ado.ExecuteCommandAsync(
+            """
+            WITH resolved AS (
+                SELECT state.conversationid,
+                       state.accountid,
+                       CASE
+                           WHEN state.lastreadmessageid IS NULL THEN NULL
+                           WHEN EXISTS (
+                               SELECT 1
+                               FROM msg_message read_target
+                               WHERE read_target.conversationid = state.conversationid
+                                 AND read_target.id = state.lastreadmessageid
+                                 AND read_target.isinternalnote = false
+                           ) THEN state.lastreadmessageid
+                           ELSE NULL
+                       END AS lastreadmessageid,
+                       CASE
+                           WHEN state.lastreadmessageid IS NULL THEN NULL
+                           WHEN EXISTS (
+                               SELECT 1
+                               FROM msg_message read_target
+                               WHERE read_target.conversationid = state.conversationid
+                                 AND read_target.id = state.lastreadmessageid
+                                 AND read_target.isinternalnote = false
+                           ) THEN state.lastreadat
+                           ELSE NULL
+                       END AS lastreadat
+                FROM msg_participant_state state
+                WHERE state.accountid = @AccountId
+            ), rebuilt AS (
+                SELECT resolved.*,
+                       (
+                           SELECT COUNT(*)::integer
+                           FROM msg_message message
+                           WHERE message.conversationid = resolved.conversationid
+                             AND message.id > COALESCE(resolved.lastreadmessageid, 0)
+                             AND message.isinternalnote = false
+                             AND NOT (
+                                 message.sendertype = @AccountSenderType
+                                 AND message.senderaccountid = resolved.accountid
+                             )
+                       ) AS unreadcount
+                FROM resolved
+            )
+            UPDATE msg_participant_state state
+            SET lastreadmessageid = rebuilt.lastreadmessageid,
+                unreadcount = rebuilt.unreadcount,
+                lastreadat = rebuilt.lastreadat,
+                updatedat = @Now
+            FROM rebuilt
+            WHERE state.conversationid = rebuilt.conversationid
+              AND state.accountid = rebuilt.accountid
+              AND (
+                  state.lastreadmessageid IS DISTINCT FROM rebuilt.lastreadmessageid
+                  OR state.unreadcount IS DISTINCT FROM rebuilt.unreadcount
+                  OR state.lastreadat IS DISTINCT FROM rebuilt.lastreadat
+              );
+            """,
+            new SugarParameter("@AccountId", accountId),
+            new SugarParameter("@AccountSenderType", (int)MessageSenderType.Account),
+            new SugarParameter("@Now", DateTime.UtcNow));
+
+    private Task<int> RebuildAdminQueueConversationCoreAsync(long conversationId)
+        => db.Ado.ExecuteCommandAsync(
+            """
+            WITH resolved AS (
+                SELECT conversation.id AS conversationid,
+                       CASE
+                           WHEN state.lastreadmessageid IS NULL THEN NULL
+                           WHEN EXISTS (
+                               SELECT 1
+                               FROM msg_message read_target
+                               WHERE read_target.conversationid = conversation.id
+                                 AND read_target.id = state.lastreadmessageid
+                                 AND read_target.isinternalnote = false
+                           ) THEN state.lastreadmessageid
+                           ELSE NULL
+                       END AS lastreadmessageid,
+                       CASE
+                           WHEN state.lastreadmessageid IS NULL THEN NULL
+                           WHEN EXISTS (
+                               SELECT 1
+                               FROM msg_message read_target
+                               WHERE read_target.conversationid = conversation.id
+                                 AND read_target.id = state.lastreadmessageid
+                                 AND read_target.isinternalnote = false
+                           ) THEN state.lastreadat
+                           ELSE NULL
+                       END AS lastreadat
+                FROM msg_conversation conversation
+                LEFT JOIN msg_admin_queue_state state
+                  ON state.conversationid = conversation.id
+                WHERE conversation.id = @ConversationId
+            ), rebuilt AS (
+                SELECT resolved.conversationid,
+                       resolved.lastreadmessageid,
+                       (
+                           SELECT COUNT(*)::integer
+                           FROM msg_message message
+                           WHERE message.conversationid = resolved.conversationid
+                             AND message.id > COALESCE(resolved.lastreadmessageid, 0)
+                             AND message.sendertype = @AccountSenderType
+                             AND message.isinternalnote = false
+                       ) AS unreadcount,
+                       resolved.lastreadat
+                FROM resolved
+            )
+            INSERT INTO msg_admin_queue_state(
+                conversationid,
+                lastreadmessageid,
+                unreadcount,
+                lastreadat,
+                version,
+                updatedat)
+            SELECT rebuilt.conversationid,
+                   rebuilt.lastreadmessageid,
+                   rebuilt.unreadcount,
+                   rebuilt.lastreadat,
+                   1,
+                   @Now
+            FROM rebuilt
+            ON CONFLICT (conversationid) DO UPDATE
+            SET lastreadmessageid = EXCLUDED.lastreadmessageid,
+                unreadcount = EXCLUDED.unreadcount,
+                lastreadat = EXCLUDED.lastreadat,
+                version = msg_admin_queue_state.version + 1,
+                updatedat = @Now
+            WHERE msg_admin_queue_state.lastreadmessageid IS DISTINCT FROM EXCLUDED.lastreadmessageid
+               OR msg_admin_queue_state.unreadcount IS DISTINCT FROM EXCLUDED.unreadcount
+               OR msg_admin_queue_state.lastreadat IS DISTINCT FROM EXCLUDED.lastreadat;
+            """,
+            new SugarParameter("@ConversationId", conversationId),
+            new SugarParameter("@AccountSenderType", (int)MessageSenderType.Account),
+            new SugarParameter("@Now", DateTime.UtcNow));
+
+    private async Task RecoverAccountUnreadCacheAsync(int accountId)
+    {
+        try
+        {
+            await RefreshUnreadCacheAsync(accountId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(
+                ex,
+                "Message unread cache recovery failed. AccountId: {AccountId}",
+                accountId);
+        }
+    }
 
     public Task<Result<ConversationDetailResponse>> CreateAccountTicketAsync(int accountId, string subject, string body)
         => CreateAccountTicketAsync(

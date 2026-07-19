@@ -71,7 +71,7 @@ public sealed class MessageCenterServiceTests
     {
         var db = Substitute.For<ISqlSugarClient>();
         IUnifiedCache unifiedCache = Substitute.For<IUnifiedCache>();
-        var cache = new MessageCacheService(unifiedCache, unifiedCache, unifiedCache);
+        var cache = new MessageCacheService(unifiedCache, unifiedCache, unifiedCache, unifiedCache);
         return new MessageCenterService(
             db,
             cache,
@@ -214,6 +214,13 @@ public sealed class MessageCenterServiceTests
         Assert.Contains("PushAccountStatusAsync", ports, StringComparison.Ordinal);
         Assert.Contains("CheckAdminQueueConsistencyAsync", ports, StringComparison.Ordinal);
         Assert.Contains("RebuildAdminQueueStateAsync", ports, StringComparison.Ordinal);
+        Assert.Contains("RebuildAdminQueueConversationAsync", ports, StringComparison.Ordinal);
+        Assert.Contains("RebuildConversationUnreadAsync", ports, StringComparison.Ordinal);
+        Assert.Contains("RebuildAccountUnreadAsync", ports, StringComparison.Ordinal);
+        Assert.Contains("Messages:UnreadRepairEnabled", service, StringComparison.Ordinal);
+        Assert.Contains("message.isinternalnote = false", service, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("message.senderaccountid = resolved.accountid", service, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("fsus.message_unread_repair", service, StringComparison.Ordinal);
         Assert.DoesNotContain("GetUserConversationsAsync", ports, StringComparison.Ordinal);
         Assert.DoesNotContain("CreateUserTicketAsync", ports, StringComparison.Ordinal);
         Assert.DoesNotContain("ReplyAsUserAsync", ports, StringComparison.Ordinal);

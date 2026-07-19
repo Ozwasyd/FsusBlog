@@ -15,7 +15,7 @@ public sealed class MessageCacheServiceTests
     public async Task IncrementUnreadAsync_UsesAccountIdentityPrefix()
     {
         var cache = Substitute.For<IUnifiedCache>();
-        var sut = new MessageCacheService(cache, cache, cache);
+        var sut = new MessageCacheService(cache, cache, cache, cache);
 
         await sut.IncrementUnreadAsync(42);
 
@@ -26,7 +26,7 @@ public sealed class MessageCacheServiceTests
     public async Task SetUnreadAsync_UsesAccountIdentityPrefix()
     {
         var cache = Substitute.For<IUnifiedCache>();
-        var sut = new MessageCacheService(cache, cache, cache);
+        var sut = new MessageCacheService(cache, cache, cache, cache);
 
         await sut.SetUnreadAsync(42, 9);
 
@@ -44,7 +44,7 @@ public sealed class MessageCacheServiceTests
         cache.TrySetStringIfValueAsync(CachePolicyId.MessageUnread, "account:42", "7", "account:42:refresh-version", "2", null, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(true));
         int loads = 0;
-        var sut = new MessageCacheService(cache, cache, cache);
+        var sut = new MessageCacheService(cache, cache, cache, cache);
 
         int result = await sut.RefreshUnreadAsync(42, () =>
         {
@@ -57,6 +57,84 @@ public sealed class MessageCacheServiceTests
         await cache.Received(2).IncrementAsync(CachePolicyId.MessageUnread, "account:42:refresh-version", 1, Arg.Any<CancellationToken>());
         await cache.Received(1).TrySetStringIfValueAsync(CachePolicyId.MessageUnread, "account:42", "5", "account:42:refresh-version", "1", null, Arg.Any<CancellationToken>());
         await cache.Received(1).TrySetStringIfValueAsync(CachePolicyId.MessageUnread, "account:42", "7", "account:42:refresh-version", "2", null, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetUnreadOrRecoverAsync_ValidCacheAvoidsDatabaseLoad()
+    {
+        var cache = Substitute.For<IUnifiedCache>();
+        cache.GetStringAsync(CachePolicyId.MessageUnread, "account:42", Arg.Any<CancellationToken>())
+            .Returns("7");
+        var sut = new MessageCacheService(cache, cache, cache, cache);
+        int loads = 0;
+
+        int result = await sut.GetUnreadOrRecoverAsync(42, () =>
+        {
+            loads += 1;
+            return Task.FromResult(9);
+        });
+
+        Assert.Equal(7, result);
+        Assert.Equal(0, loads);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("corrupt")]
+    [InlineData("-1")]
+    public async Task GetUnreadOrRecoverAsync_MissingOrCorruptCacheUsesDatabaseProjection(string? cached)
+    {
+        var cache = Substitute.For<IUnifiedCache>();
+        cache.GetStringAsync(CachePolicyId.MessageUnread, "account:42", Arg.Any<CancellationToken>())
+            .Returns(cached);
+        cache.IncrementAsync(CachePolicyId.MessageUnread, "account:42:refresh-version", 1, Arg.Any<CancellationToken>())
+            .Returns(1);
+        cache.TrySetStringIfValueAsync(
+                CachePolicyId.MessageUnread,
+                "account:42",
+                "5",
+                "account:42:refresh-version",
+                "1",
+                null,
+                Arg.Any<CancellationToken>())
+            .Returns(true);
+        var sut = new MessageCacheService(cache, cache, cache, cache);
+
+        int result = await sut.GetUnreadOrRecoverAsync(42, static () => Task.FromResult(5));
+
+        Assert.Equal(5, result);
+        await cache.Received(1).TrySetStringIfValueAsync(
+            CachePolicyId.MessageUnread,
+            "account:42",
+            "5",
+            "account:42:refresh-version",
+            "1",
+            null,
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RefreshUnreadAsync_AllCasFailuresReturnsFreshDatabaseProjection()
+    {
+        var cache = Substitute.For<IUnifiedCache>();
+        cache.IncrementAsync(CachePolicyId.MessageUnread, "account:42:refresh-version", 1, Arg.Any<CancellationToken>())
+            .Returns(1, 2, 3);
+        cache.TrySetStringIfValueAsync(
+                CachePolicyId.MessageUnread,
+                "account:42",
+                Arg.Any<string>(),
+                "account:42:refresh-version",
+                Arg.Any<string>(),
+                null,
+                Arg.Any<CancellationToken>())
+            .Returns(false);
+        var sut = new MessageCacheService(cache, cache, cache, cache);
+        int loads = 0;
+
+        int result = await sut.RefreshUnreadAsync(42, () => Task.FromResult(++loads));
+
+        Assert.Equal(4, result);
+        Assert.Equal(4, loads);
     }
 
     [Fact]

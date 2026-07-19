@@ -5,6 +5,8 @@ using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Pagination;
+using FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
 using FsusBlog.Server.Services.NotificationStream;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.NotificationStream;
@@ -58,7 +60,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         IMessageNotificationStreamPort notifications = Substitute.For<IMessageNotificationStreamPort>();
         var service = new MessageCenterService(
             db,
-            new MessageCacheService(cache, cache, cache),
+            new MessageCacheService(cache, cache, cache, cache),
             notifications,
             new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build(),
             NullLogger<MessageCenterService>.Instance);
@@ -902,6 +904,157 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
     }
 
     [Fact]
+    public async Task UnreadAuthority_ConstraintsRepairsAndCacheRecoveryConverge()
+    {
+        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        PostgresSqlSugarTestClient.InitTables(
+            db,
+            typeof(User),
+            typeof(MessageConversation),
+            typeof(ConversationMessage),
+            typeof(ConversationParticipantState),
+            typeof(AdminConversationQueueState),
+            typeof(MessageMutationOutbox));
+        DateTime now = DateTime.UtcNow;
+        await db.Insertable(new[]
+        {
+            new MessageConversation
+            {
+                Id = 9_100,
+                Subject = "unread authority",
+                InitiatorAccountId = 42,
+                Status = ConversationStatus.Open,
+                CreatedByType = MessageSenderType.Account,
+                CreatedByAccountId = 42,
+                CreatedAt = now,
+                UpdatedAt = now,
+                LastMessageAt = now
+            },
+            new MessageConversation
+            {
+                Id = 9_200,
+                Subject = "other conversation",
+                InitiatorAccountId = 84,
+                Status = ConversationStatus.Open,
+                CreatedByType = MessageSenderType.Account,
+                CreatedByAccountId = 84,
+                CreatedAt = now,
+                UpdatedAt = now,
+                LastMessageAt = now
+            }
+        }).ExecuteCommandAsync();
+        await db.Insertable(new[]
+        {
+            new ConversationMessage { Id = 9_101, ConversationId = 9_100, SenderType = MessageSenderType.Account, SenderAccountId = 42, Body = "own", CreatedAt = now },
+            new ConversationMessage { Id = 9_102, ConversationId = 9_100, SenderType = MessageSenderType.Admin, SenderAdminPrincipalId = 7, Body = "visible admin", CreatedAt = now },
+            new ConversationMessage { Id = 9_103, ConversationId = 9_100, SenderType = MessageSenderType.Admin, SenderAdminPrincipalId = 7, Body = "internal", IsInternalNote = true, CreatedAt = now },
+            new ConversationMessage { Id = 9_104, ConversationId = 9_100, SenderType = MessageSenderType.Account, SenderAccountId = 42, Body = "own again", CreatedAt = now },
+            new ConversationMessage { Id = 9_105, ConversationId = 9_100, SenderType = MessageSenderType.Admin, SenderAdminPrincipalId = 8, Body = "visible admin two", CreatedAt = now },
+            new ConversationMessage { Id = 9_201, ConversationId = 9_200, SenderType = MessageSenderType.Admin, SenderAdminPrincipalId = 8, Body = "other", CreatedAt = now }
+        }).ExecuteCommandAsync();
+        await db.Insertable(new ConversationParticipantState
+        {
+            ConversationId = 9_100,
+            AccountId = 42,
+            LastReadMessageId = 9_101,
+            LastReadAt = now,
+            UnreadCount = 99,
+            UpdatedAt = now
+        }).ExecuteCommandAsync();
+        await db.Insertable(new AdminConversationQueueState
+        {
+            ConversationId = 9_100,
+            LastReadMessageId = 9_101,
+            LastReadAt = now,
+            UnreadCount = 99,
+            Version = 1,
+            UpdatedAt = now
+        }).ExecuteCommandAsync();
+        await ApplyMessageUnreadAuthorityMigrationAsync(db);
+
+        ConversationParticipantState participant = Assert.IsType<ConversationParticipantState>(
+            await db.Queryable<ConversationParticipantState>()
+                .Where(state => state.ConversationId == 9_100 && state.AccountId == 42)
+                .FirstAsync());
+        AdminConversationQueueState admin = Assert.IsType<AdminConversationQueueState>(
+            await db.Queryable<AdminConversationQueueState>().InSingleAsync(9_100));
+        Assert.Equal(2, participant.UnreadCount);
+        Assert.Equal(1, admin.UnreadCount);
+
+        await Assert.ThrowsAnyAsync<Exception>(() => db.Ado.ExecuteCommandAsync(
+            "UPDATE msg_participant_state SET unreadcount = -1 WHERE conversationid = 9100 AND accountid = 42;"));
+        await Assert.ThrowsAnyAsync<Exception>(() => db.Ado.ExecuteCommandAsync(
+            "UPDATE msg_admin_queue_state SET unreadcount = -1 WHERE conversationid = 9100;"));
+        await db.Ado.ExecuteCommandAsync(
+            "UPDATE msg_participant_state SET lastreadmessageid = 9102 WHERE conversationid = 9100 AND accountid = 42;");
+        await Assert.ThrowsAnyAsync<Exception>(() => db.Ado.ExecuteCommandAsync(
+            "UPDATE msg_participant_state SET lastreadmessageid = 9101 WHERE conversationid = 9100 AND accountid = 42;"));
+        await Assert.ThrowsAnyAsync<Exception>(() => db.Ado.ExecuteCommandAsync(
+            "UPDATE msg_participant_state SET lastreadmessageid = 9201 WHERE conversationid = 9100 AND accountid = 42;"));
+        await Assert.ThrowsAnyAsync<Exception>(() => db.Ado.ExecuteCommandAsync(
+            "UPDATE msg_participant_state SET lastreadmessageid = 9103 WHERE conversationid = 9100 AND accountid = 42;"));
+
+        await db.Ado.ExecuteCommandAsync(
+            """
+            ALTER TABLE msg_participant_state DISABLE TRIGGER USER;
+            ALTER TABLE msg_admin_queue_state DISABLE TRIGGER USER;
+            UPDATE msg_participant_state
+            SET lastreadmessageid = 9201, lastreadat = now() AT TIME ZONE 'utc', unreadcount = 77
+            WHERE conversationid = 9100 AND accountid = 42;
+            UPDATE msg_admin_queue_state
+            SET lastreadmessageid = 9201, lastreadat = now() AT TIME ZONE 'utc', unreadcount = 88
+            WHERE conversationid = 9100;
+            ALTER TABLE msg_participant_state ENABLE TRIGGER USER;
+            ALTER TABLE msg_admin_queue_state ENABLE TRIGGER USER;
+            """);
+
+        IUnifiedCache cache = CreatePermissiveUnifiedCache();
+        MessageCenterService service = CreateService(
+            db,
+            cache,
+            Substitute.For<IMessageNotificationStreamPort>());
+        Assert.Equal(2, await service.RebuildConversationUnreadAsync(9_100));
+        participant = Assert.IsType<ConversationParticipantState>(
+            await db.Queryable<ConversationParticipantState>()
+                .Where(state => state.ConversationId == 9_100 && state.AccountId == 42)
+                .FirstAsync());
+        admin = Assert.IsType<AdminConversationQueueState>(
+            await db.Queryable<AdminConversationQueueState>().InSingleAsync(9_100));
+        Assert.Null(participant.LastReadMessageId);
+        Assert.Null(admin.LastReadMessageId);
+        Assert.Equal(2, participant.UnreadCount);
+        Assert.Equal(2, admin.UnreadCount);
+
+        await db.Updateable<ConversationParticipantState>()
+            .SetColumns(state => state.UnreadCount == 41)
+            .Where(state => state.ConversationId == 9_100 && state.AccountId == 42)
+            .ExecuteCommandAsync();
+        Assert.Equal(1, await service.RebuildAccountUnreadAsync(42));
+        participant = Assert.IsType<ConversationParticipantState>(
+            await db.Queryable<ConversationParticipantState>()
+                .Where(state => state.ConversationId == 9_100 && state.AccountId == 42)
+                .FirstAsync());
+        Assert.Equal(2, participant.UnreadCount);
+
+        await db.Updateable<AdminConversationQueueState>()
+            .SetColumns(state => state.UnreadCount == 42)
+            .Where(state => state.ConversationId == 9_100)
+            .ExecuteCommandAsync();
+        Assert.Equal(1, await service.RebuildAdminQueueConversationAsync(9_100));
+        admin = Assert.IsType<AdminConversationQueueState>(
+            await db.Queryable<AdminConversationQueueState>().InSingleAsync(9_100));
+        Assert.Equal(2, admin.UnreadCount);
+        await cache.Received().TrySetStringIfValueAsync(
+            CachePolicyId.MessageUnread,
+            "account:42",
+            "2",
+            "account:42:refresh-version",
+            Arg.Any<string>(),
+            null,
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     [Trait("Category", "Concurrency")]
     public async Task AdminReply_WaitsForConcurrentCloseAndRequiresExplicitReopen()
     {
@@ -1579,7 +1732,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         Microsoft.Extensions.Configuration.IConfiguration? configuration = null)
         => new(
             db,
-            new MessageCacheService(unifiedCache, unifiedCache, unifiedCache),
+            new MessageCacheService(unifiedCache, unifiedCache, unifiedCache, unifiedCache),
             notifications,
             configuration ?? new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build(),
             NullLogger<MessageCenterService>.Instance);
@@ -1592,6 +1745,17 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             IdentityKind = "anonymous_account",
             CreateTime = DateTime.UtcNow
         }).ExecuteReturnIdentityAsync();
+
+    private static async Task ApplyMessageUnreadAuthorityMigrationAsync(SqlSugarClient db)
+    {
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            new SchemaMigrationRegistry().GetDescriptors(),
+            item => item.MigrationId == MessageUnreadAuthorityMigrationDefinitions.MigrationId);
+        foreach (SchemaMigrationStep step in descriptor.Steps)
+        {
+            await step.ExecuteAsync(db, CancellationToken.None);
+        }
+    }
 
     private static IUnifiedCache CreatePermissiveUnifiedCache()
     {

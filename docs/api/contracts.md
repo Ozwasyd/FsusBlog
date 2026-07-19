@@ -982,6 +982,19 @@ conversation 保存 `lastReadMessageId/unreadCount/lastReadAt/version`：账号�
 `Messages:AdminQueueProjectionEnabled=false` 通过配置 reload 暂停 admin 列表与详情并返回
 `503 message_admin_queue_projection_disabled`，不允许回退到账号参与者聚合。
 
+消息行与 `lastReadMessageId` 是未读语义的权威事实；participant/admin queue 的
+`unreadCount` 只是不小于 0 的可重建数据库投影，Redis 账号 total 只是可丢弃缓存。数据库
+trigger 拒绝游标后退，并要求非空游标指向同一 conversation 的非 internal message。账号投影
+只统计游标之后、非 internal 且不是该账号本人发送的消息；admin queue 只统计游标之后、
+非 internal 的账号消息。
+
+维护边界分别支持单 conversation、单 account、单 admin conversation 与全量 admin queue
+重算。无效游标在受控 repair transaction 中保守重置为 null，再从消息事实重算；日志只记录
+scope、conversation/account id 和差异行数，不记录 subject/body。Redis total miss、非整数、
+负数或 CAS 连续失败时返回数据库投影，并用 versioned refresh 尝试恢复缓存。
+`Messages:UnreadRepairEnabled=false` 可热暂停维护写入；正常消息读写继续使用现有投影，修复后
+直接重新启用，不允许绕过约束或把 Redis 提升为事实源。
+
 管理端列表与详情分别使用 `AdminConversationList(206)` 和 `AdminConversationDetail(207)`。
 这两个 admin-only frame 在原有 conversation 投影之外只增加
 `counterpartyAccountId` 与 `counterpartyAccountStatus`（`0=active`、`1=restricted`、

@@ -365,6 +365,11 @@ frame 208 的 `no_change`，不属于错误。动态关闭 `Messages:StatusMutat
 `403 system_message_target_restricted`，未知账户状态为
 `403 system_message_target_status_invalid`。目标锁定/校验热关闭时，新 source event 返回
 `503 system_message_target_validation_disabled`；已提交的同摘要 replay 不受影响。
+
+`msg_participant_state.unreadcount` 与 `msg_admin_queue_state.unreadcount` 必须 `>= 0`。两表的
+`lastreadmessageid` 非空时必须引用同一 conversation 的非 internal `msg_message`，普通事务中
+不得从已有值后退或清空。受控 unread repair transaction 可把历史无效游标重置为 null 后重算；
+维护开关关闭时不执行修复，不放宽这些数据库约束。
 | 182 | `AnonymousCommentCreateRequest` | `AnonymousCommentCreateRequestPod` | `POST /api/binary/comment/anonymous` 请求体；不包含 user id、username、Authorization token 或 public handle |
 | 183 | `AnonymousPrivacyStateSnapshot` | `AnonymousPrivacyStateSnapshotPod` | 前端匿名隐私状态快照 |
 | 184 | `PerceptionSealedChallengeV2` | `PerceptionSealedChallengeV2Pod` | `fsu.challenge/perception-sealed@v2` issue payload；覆盖 Character、Localization、MicroInteraction 三类 perception task |

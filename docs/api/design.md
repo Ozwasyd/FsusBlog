@@ -214,6 +214,12 @@ admin/事务通知只接收 active，封禁/恢复治理通知通过强类型 po
 随后注销时重试语义不漂移。`Messages:SystemMessageTargetValidationEnabled=false` 可热暂停新系统
 消息而保留 replay，修复后直接重新启用，禁止回退到无锁检查或只靠外键。
 
+未读状态采用“消息事实 + 单调 read cursor → 可重建 count → 可丢弃 Redis total”的单向
+投影。账号 count 排除本人消息与 internal note；admin count 只包含账号发送的可见消息。
+数据库拒绝负 count、跨 conversation/internal cursor 和游标后退。维护操作可按 conversation、
+account 或 admin queue 重算，并在受控事务内修复历史坏游标；`Messages:UnreadRepairEnabled=false`
+可热暂停维护，不改变正常消息读写，也不得让 Redis 反向覆盖数据库。
+
 详情分页可通过 reload-capable `Messages:ThreadPaginationEnabled=false` 在不重启进程的
 情况下暂停账号与 admin 详情读取，并返回固定 `503 message_thread_pagination_disabled`。
 该降级只阻止详情读取，不恢复全量查询、浏览器本地假分页或文本 API fallback。
