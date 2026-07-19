@@ -116,7 +116,7 @@ onMounted(() => {
   background-color: var(--fsusblog-reading-inline-code-bg) !important;
   color: var(--fsusblog-text-primary) !important;
   font-family: monospace !important;
-  font-size: 13px !important;
+  font-size: 14px !important;
   font-weight: 400 !important;
   white-space: normal !important;
 }
@@ -127,7 +127,7 @@ onMounted(() => {
   border-radius: 4px;
   background: transparent;
   color: var(--fsusblog-text-primary);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.45;
 }
 
@@ -136,7 +136,7 @@ onMounted(() => {
   border: 0 !important;
   background: transparent !important;
   font-family: monospace !important;
-  font-size: 13px !important;
+  font-size: 14px !important;
 }
 
 .fsus-markdown-body :deep(.markdown-body h1),

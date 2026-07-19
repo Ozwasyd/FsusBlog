@@ -157,14 +157,14 @@ defineEmits<{
 
 .revision-row__title {
   color: var(--fsusblog-text-primary);
-  font-size: 0.875rem;
+  font-size: 14px;
   font-weight: 700;
 }
 
 .revision-row__meta,
 .revision-row__actor {
   color: var(--fsusblog-text-tertiary);
-  font-size: 0.75rem;
+  font-size: 12px;
 }
 
 .revision-fields {
@@ -180,7 +180,7 @@ defineEmits<{
 
 .revision-fields dt {
   color: var(--fsusblog-text-muted);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -188,7 +188,7 @@ defineEmits<{
   overflow: hidden;
   margin: 0.25rem 0 0;
   color: var(--fsusblog-text-secondary);
-  font-size: 0.75rem;
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

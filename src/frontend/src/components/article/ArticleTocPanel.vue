@@ -95,7 +95,7 @@ const handleDrawerNavigate = (id: string): void => {
 .article-toc-panel__title {
   margin: 0 0 0.75rem;
   color: var(--fsusblog-text-subtle);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -115,14 +115,14 @@ const handleDrawerNavigate = (id: string): void => {
   color: var(--fsusblog-text-muted);
   padding: 0.35rem 0.25rem 0.35rem 0.625rem;
   text-align: left;
-  font-size: 0.75rem;
+  font-size: 12px;
   line-height: 1.45;
 }
 
 .article-toc-panel__item--h3,
 .article-toc-drawer__item--h3 {
   padding-left: 1.375rem;
-  font-size: 0.75rem;
+  font-size: 12px;
 }
 
 .article-toc-panel__item:hover,

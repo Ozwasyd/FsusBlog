@@ -101,7 +101,7 @@ const authAction = computed(() => {
   border-radius: var(--fsus-radius-control-small);
   padding-inline: 0.75rem;
   color: var(--fsusblog-text-tertiary);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 700;
   text-decoration: none;
   transition:

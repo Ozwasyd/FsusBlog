@@ -229,7 +229,7 @@ const rumAotSourceRows = computed(() => toDistributionRows(analytics.value.rumAo
 .dashboard-analytics-panel__title {
   margin: 0;
   color: var(--fsusblog-text-primary);
-  font-size: 0.9375rem;
+  font-size: 16px;
   font-weight: 700;
   letter-spacing: 0;
   line-height: 1.35;
@@ -238,7 +238,7 @@ const rumAotSourceRows = computed(() => toDistributionRows(analytics.value.rumAo
 .dashboard-analytics-panel__description {
   margin: 4px 0 0;
   color: var(--fsusblog-text-tertiary);
-  font-size: 0.8125rem;
+  font-size: 14px;
   line-height: 1.5;
 }
 
@@ -295,21 +295,21 @@ const rumAotSourceRows = computed(() => toDistributionRows(analytics.value.rumAo
 
 .dashboard-rum-metric__name {
   color: var(--fsusblog-text-primary);
-  font-size: 0.9375rem;
+  font-size: 16px;
   font-weight: 700;
 }
 
 .dashboard-rum-metric__value {
   margin-top: 4px;
   color: var(--fsusblog-text-muted);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 700;
 }
 
 .dashboard-rum-metric__meta {
   margin-top: 2px;
   color: var(--fsusblog-text-tertiary);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 500;
 }
 </style>

@@ -658,7 +658,7 @@ watch(
 }
 
 .moderation-region-name {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1;
   color: var(--fsusblog-text-primary);
@@ -691,7 +691,7 @@ watch(
   align-items: center;
   justify-content: flex-end;
   color: var(--fsusblog-text-muted);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1;
   text-decoration: none;
@@ -858,7 +858,7 @@ watch(
   flex-wrap: wrap;
   gap: 4px 12px;
   margin-top: 4px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.35;
   color: var(--fsusblog-text-primary);
@@ -898,7 +898,7 @@ watch(
 .moderation-regions-rule-category {
   overflow: hidden;
   color: var(--fsusblog-text-primary);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.25;
   text-overflow: ellipsis;
@@ -930,7 +930,7 @@ watch(
 
 .moderation-regions-rule-action dt {
   color: var(--fsusblog-text-muted);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   line-height: 1.2;
 }
@@ -940,7 +940,7 @@ watch(
   margin: 0;
   overflow: visible;
   color: var(--fsusblog-text-primary);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.3;
   white-space: normal;

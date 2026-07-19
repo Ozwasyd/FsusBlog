@@ -112,7 +112,7 @@ expectNotIncludes('src/frontend/src/components/admin/AdminDashboardTaskWorkbench
 expectNotIncludes('src/frontend/src/components/admin/AdminDashboardTaskWorkbench.vue', '<el-icon', 'dashboard summary must not use decorative KPI icons')
 expectIncludes('src/frontend/src/components/admin/AdminDashboardTaskWorkbench.vue', 'grid-template-columns: repeat(3, minmax(0, 1fr));', 'dashboard summary must remain a compact multi-column ledger')
 expectIncludes('src/frontend/src/components/admin/AdminDashboardTaskWorkbench.vue', 'grid-template-columns: repeat(2, minmax(0, 1fr));', 'dashboard summary must fall back to two compact mobile rows')
-expectIncludes('src/frontend/src/components/admin/AdminDashboardTaskWorkbench.vue', 'font-size: 0.875rem;', 'dashboard tasks must keep compact typography')
+expectIncludes('src/frontend/src/components/admin/AdminDashboardTaskWorkbench.vue', 'font-size: 14px;', 'dashboard tasks must keep compact typography')
 expectIncludes('src/frontend/src/components/admin/AdminDashboardTaskWorkbench.vue', 'line-height: 1.35;', 'dashboard task and ledger labels must keep compact line height')
 expectIncludes('src/frontend/src/components/admin/AdminDashboardTaskWorkbench.vue', 'font-variant-numeric: tabular-nums;', 'dashboard numeric values must use stable tabular figures')
 expectIncludes('src/frontend/src/components/admin/AdminDashboardTaskWorkbench.vue', '帮助与反馈', 'dashboard feedback must move behind a help disclosure')

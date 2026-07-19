@@ -732,7 +732,7 @@ onMounted(() => {
   flex-wrap: wrap;
   gap: 6px 12px;
   color: var(--fsusblog-text-secondary);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
 }
 

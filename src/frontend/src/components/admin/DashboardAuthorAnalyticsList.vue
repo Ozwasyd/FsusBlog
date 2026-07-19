@@ -46,7 +46,7 @@ defineProps<{
 .analytics-list__title {
   margin: 0;
   color: var(--fsusblog-text-primary);
-  font-size: 0.9375rem;
+  font-size: 16px;
   font-weight: 700;
   letter-spacing: 0;
   line-height: 1.35;
@@ -57,7 +57,7 @@ defineProps<{
   padding-top: 12px;
   border-top: 1px solid var(--fsusblog-panel-border);
   color: var(--fsusblog-text-tertiary);
-  font-size: 0.8125rem;
+  font-size: 14px;
   line-height: 1.5;
 }
 
@@ -87,7 +87,7 @@ defineProps<{
   min-width: 0;
   overflow: hidden;
   color: var(--fsusblog-text-secondary);
-  font-size: 0.8125rem;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.35;
   text-overflow: ellipsis;
@@ -97,7 +97,7 @@ defineProps<{
 .analytics-list__value {
   flex: 0 0 auto;
   color: var(--fsusblog-text-muted);
-  font-size: 0.8125rem;
+  font-size: 14px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1.35;

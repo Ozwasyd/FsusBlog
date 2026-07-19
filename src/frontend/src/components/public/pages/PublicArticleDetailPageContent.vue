@@ -345,7 +345,7 @@ const appendixCopyrightText = computed(() => {
   background: transparent;
   box-shadow: none;
   color: var(--fsusblog-text-quiet);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 400;
   font-family: 'Google Sans', 'Noto Sans CJK', sans-serif;
 }
@@ -355,7 +355,7 @@ const appendixCopyrightText = computed(() => {
   flex-wrap: wrap;
   gap: 8px 16px;
   color: var(--fsusblog-text-quiet);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 400;
 }
 
@@ -365,7 +365,7 @@ const appendixCopyrightText = computed(() => {
   box-sizing: border-box;
   align-items: center;
   color: var(--fsusblog-text-quiet) !important;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 400;
   letter-spacing: normal;
   text-decoration: none;
@@ -374,7 +374,7 @@ const appendixCopyrightText = computed(() => {
 
 .fsus-appendix__copyright {
   color: var(--fsusblog-text-quiet);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 400;
   line-height: 1.6;
 }

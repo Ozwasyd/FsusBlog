@@ -277,7 +277,7 @@ const onDateRangeChange = (value: unknown): void => {
   color: var(--fsusblog-text-muted);
   cursor: pointer;
   font: inherit;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1;
   padding: 0 18px;

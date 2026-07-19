@@ -140,7 +140,7 @@ defineEmits<{
   min-height: 2.5rem;
   align-items: center;
   color: var(--fsusblog-text-secondary);
-  font-size: 0.8125rem;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -254,20 +254,20 @@ defineEmits<{
 
 .dashboard-task-row__label {
   color: var(--fsusblog-text-primary);
-  font-size: 0.875rem;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.35;
 }
 
 .dashboard-task-row__helper {
   color: var(--fsusblog-text-tertiary);
-  font-size: 0.8125rem;
+  font-size: 14px;
   line-height: 1.4;
 }
 
 .dashboard-task-row__value {
   color: var(--fsusblog-text-primary);
-  font-size: 0.875rem;
+  font-size: 14px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1.35;
@@ -299,7 +299,7 @@ defineEmits<{
 .dashboard-summary__header h2 {
   margin: 0;
   color: var(--fsusblog-text-primary);
-  font-size: 0.875rem;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.35;
 }
@@ -315,7 +315,7 @@ defineEmits<{
   color: var(--fsusblog-text-secondary);
   cursor: pointer;
   font: inherit;
-  font-size: 0.8125rem;
+  font-size: 14px;
   font-weight: 700;
   padding: 0 0.25rem;
 }
@@ -334,7 +334,7 @@ defineEmits<{
   margin: 0;
   border-bottom: 1px solid var(--fsusblog-panel-border);
   color: var(--fsusblog-text-tertiary);
-  font-size: 0.8125rem;
+  font-size: 14px;
   line-height: 1.45;
   padding: 0.75rem 1.25rem;
 }
@@ -379,7 +379,7 @@ defineEmits<{
 .dashboard-stat-ledger dt,
 .dashboard-stat-ledger dd {
   margin: 0;
-  font-size: 0.8125rem;
+  font-size: 14px;
   line-height: 1.35;
 }
 

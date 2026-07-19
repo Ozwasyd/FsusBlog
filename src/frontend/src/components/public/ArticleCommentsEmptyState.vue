@@ -66,7 +66,7 @@ const loginRoute = computed(() => ({
   background-color: transparent;
   box-shadow: none;
   color: var(--fsusblog-text-primary);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   text-decoration: none;
   cursor: pointer;

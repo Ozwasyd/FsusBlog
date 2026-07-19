@@ -295,7 +295,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   color: var(--fsusblog-text-primary);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
 }
 

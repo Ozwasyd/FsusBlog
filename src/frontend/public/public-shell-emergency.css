@@ -84,7 +84,7 @@ html[data-theme-resolved='dark'] {
 
 #fsus-aot-shell .mono-link,
 #fsus-aot-shell .active-link {
-  font-size: .875rem;
+  font-size: 14px;
 }
 
 #fsus-aot-shell .active-link {
@@ -114,7 +114,7 @@ html[data-theme-resolved='dark'] {
 #fsus-aot-shell .ui-article-meta,
 #fsus-aot-shell .ui-article-link,
 #fsus-aot-shell .ui-pagination {
-  font-size: 0.75rem;
+  font-size: 12px;
   line-height: 1rem;
 }
 
@@ -132,7 +132,7 @@ html[data-theme-resolved='dark'] {
   #fsus-aot-shell .ui-article-meta,
   #fsus-aot-shell .ui-article-link,
   #fsus-aot-shell .ui-pagination {
-    font-size: 0.875rem;
+    font-size: 14px;
     line-height: 1.25rem;
   }
 }

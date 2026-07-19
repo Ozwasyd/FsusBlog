@@ -56,7 +56,7 @@ const sectionItems = computed<string[]>(() => {
   display: grid;
   gap: 1rem;
   color: var(--fsusblog-text-secondary);
-  font-size: 0.875rem;
+  font-size: 14px;
   line-height: 1.7;
 }
 

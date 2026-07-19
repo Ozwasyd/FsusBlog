@@ -96,7 +96,7 @@ const handleCommand = (rawCommand: string | number | object): void => {
   color: var(--fsusblog-text-secondary);
   cursor: pointer;
   font: inherit;
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 700;
   padding-inline: 0.5rem;
   transition:

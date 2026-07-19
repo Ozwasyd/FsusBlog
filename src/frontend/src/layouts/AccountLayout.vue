@@ -277,7 +277,7 @@ const handleLogout = async () => {
   padding: 1rem;
   background: var(--fsusblog-text-primary);
   color: var(--fsusblog-page-bg);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 700;
   text-transform: none;
 }
@@ -328,7 +328,7 @@ const handleLogout = async () => {
 
 :deep(.account-mobile-drawer .el-drawer__title) {
   color: var(--fsusblog-text-primary);
-  font-size: 0.875rem;
+  font-size: 14px;
   font-weight: 700;
 }
 

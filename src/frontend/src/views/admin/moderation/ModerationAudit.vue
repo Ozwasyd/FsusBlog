@@ -92,7 +92,7 @@ const readAuditActionText = (value: string): string => {
 .moderation-audit-index__header p {
   margin: 0;
   color: var(--fsusblog-text-muted);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 700;
   line-height: 1.5;
   text-align: right;
@@ -128,7 +128,7 @@ const readAuditActionText = (value: string): string => {
 .moderation-audit-index__row--head {
   color: var(--fsusblog-text-muted);
   background: color-mix(in srgb, var(--fsusblog-panel-bg) 62%, transparent);
-  font-size: 0.6875rem;
+  font-size: 12px;
   font-weight: 700;
   line-height: 1.5;
   letter-spacing: 0;
@@ -152,7 +152,7 @@ const readAuditActionText = (value: string): string => {
   padding: 0;
   color: var(--fsusblog-text-secondary);
   background: transparent;
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 700;
   line-height: 1.5;
   white-space: nowrap;
@@ -169,7 +169,7 @@ const readAuditActionText = (value: string): string => {
   flex: 0 0 auto;
   overflow: hidden;
   color: var(--fsusblog-text-primary);
-  font-size: 0.8125rem;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.45;
   text-overflow: ellipsis;
@@ -180,7 +180,7 @@ const readAuditActionText = (value: string): string => {
   min-width: 0;
   overflow: hidden;
   color: var(--fsusblog-text-muted);
-  font-size: 0.75rem;
+  font-size: 12px;
   line-height: 1.5;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -190,7 +190,7 @@ const readAuditActionText = (value: string): string => {
   overflow: hidden;
   color: var(--fsusblog-text-muted);
   font-family: var(--fsus-font-family-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
-  font-size: 0.75rem;
+  font-size: 12px;
   line-height: 1.5;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -198,7 +198,7 @@ const readAuditActionText = (value: string): string => {
 
 .moderation-audit-index__action {
   color: var(--fsusblog-color-primary, var(--link-hover, #4A453C));
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 700;
   line-height: 1.5;
   white-space: nowrap;

@@ -493,7 +493,7 @@ onMounted(loadAll)
   background: var(--fsusblog-page-bg-soft);
   padding: 0.1rem 0.35rem;
   color: var(--fsusblog-text-primary);
-  font-size: 0.75rem;
+  font-size: 12px;
 }
 
 .integrity-diff-value--empty {
@@ -534,7 +534,7 @@ onMounted(loadAll)
   background: var(--fsusblog-page-bg-soft);
   padding: 0 10px;
   color: var(--fsusblog-text-secondary);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.02em;
   white-space: nowrap;

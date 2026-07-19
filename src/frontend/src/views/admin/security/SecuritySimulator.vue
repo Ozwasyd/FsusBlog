@@ -291,7 +291,7 @@ const runSimulation = async (): Promise<void> => {
 
 .risk-score-scale__label {
   color: var(--fsusblog-text-muted);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 700;
   line-height: 1.25rem;
 }
@@ -306,7 +306,7 @@ const runSimulation = async (): Promise<void> => {
   padding: 0 0.625rem;
   background: var(--fsusblog-page-bg-soft);
   color: var(--fsusblog-text-muted);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 700;
   line-height: 1;
 }

@@ -110,7 +110,7 @@ onMounted(async () => {
 .article-responsibility {
   margin-top: 12px;
   color: var(--fsusblog-text-quiet);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.7;
 }
 .article-responsibility a {

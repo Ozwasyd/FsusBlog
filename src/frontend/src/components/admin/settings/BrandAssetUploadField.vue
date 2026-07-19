@@ -173,7 +173,7 @@ const handlePreviewError = (): void => {
   justify-content: center;
   gap: 0.5rem;
   color: var(--fsusblog-text-muted);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 700;
 }
 

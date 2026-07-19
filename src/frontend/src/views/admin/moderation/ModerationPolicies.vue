@@ -317,14 +317,14 @@ onMounted(() => {
 }
 
 .moderation-policy-region__name {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1;
   color: var(--fsusblog-text-primary);
 }
 
 .moderation-policy-region--muted {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1;
   color: var(--fsusblog-text-muted);

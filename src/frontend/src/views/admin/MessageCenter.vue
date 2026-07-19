@@ -647,7 +647,7 @@ const formatTime = (input: string): string => {
 .admin-message-center__pane-description {
   margin: 0.35rem 0 0;
   color: var(--fsusblog-text-tertiary);
-  font-size: 0.75rem;
+  font-size: 12px;
   line-height: 1.6;
 }
 
@@ -664,7 +664,7 @@ const formatTime = (input: string): string => {
   margin: 0;
   padding: 0.75rem 1rem;
   color: var(--fsusblog-text-secondary);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -691,7 +691,7 @@ const formatTime = (input: string): string => {
 .admin-operator-toolbar__hint {
   align-self: center;
   color: var(--fsusblog-text-muted);
-  font-size: 0.6875rem;
+  font-size: 12px;
   font-weight: 700;
   line-height: 1.5;
 }

@@ -102,13 +102,13 @@ onMounted(() => {
 .dashboard-inline-empty__title {
   margin: 0;
   color: var(--fsusblog-text-secondary);
-  font-size: 0.875rem;
+  font-size: 14px;
   font-weight: 700;
 }
 
 .dashboard-inline-empty__description {
   margin: 0.375rem 0 0;
-  font-size: 0.875rem;
+  font-size: 14px;
   line-height: 1.6;
 }
 
@@ -116,7 +116,7 @@ onMounted(() => {
   display: inline-flex;
   margin-top: 0.75rem;
   color: var(--fsusblog-color-primary);
-  font-size: 0.875rem;
+  font-size: 14px;
   font-weight: 700;
   text-decoration: none;
 }

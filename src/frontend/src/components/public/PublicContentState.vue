@@ -66,7 +66,7 @@ withDefaults(defineProps<{
 .public-content-state__description {
   margin: 0.5rem 0 0;
   color: var(--fsusblog-text-tertiary);
-  font-size: 0.875rem;
+  font-size: 14px;
   line-height: 1.8;
 }
 

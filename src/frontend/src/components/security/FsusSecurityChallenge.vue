@@ -383,7 +383,7 @@ watch([assignment, providerPayload, capability], rebuildPerceptionRuntime)
 
 .fsus-security-challenge__panel p {
   margin: 0;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.5;
 }
 </style>

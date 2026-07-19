@@ -437,7 +437,7 @@ onMounted(() => {
   max-width: 100%;
   overflow-wrap: anywhere;
   color: var(--fsusblog-color-primary);
-  font-size: 0.8125rem;
+  font-size: 14px;
   font-weight: 700;
 }
 

@@ -1021,7 +1021,7 @@ watch(currentRouteName, () => {
   max-width: 42rem;
   margin: 0.25rem 0 0;
   color: var(--fsusblog-text-tertiary);
-  font-size: 0.875rem;
+  font-size: 14px;
   line-height: 1.6;
 }
 
@@ -1043,21 +1043,21 @@ watch(currentRouteName, () => {
   display: block;
   margin-top: 0.35rem;
   color: var(--fsusblog-text-primary);
-  font-size: 0.95rem;
+  font-size: 16px;
 }
 
 .identity-status-card p,
 .identity-copy-block p {
   margin: 0.35rem 0 0;
   color: var(--fsusblog-text-tertiary);
-  font-size: 0.78rem;
+  font-size: 12px;
   line-height: 1.65;
 }
 
 .identity-status-label {
   display: block;
   color: var(--fsusblog-text-muted);
-  font-size: 0.68rem;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -1066,7 +1066,7 @@ watch(currentRouteName, () => {
   display: grid;
   gap: 0.65rem;
   color: var(--fsusblog-text-secondary);
-  font-size: 0.85rem;
+  font-size: 14px;
 }
 
 .identity-summary-list {
@@ -1089,13 +1089,13 @@ watch(currentRouteName, () => {
 
 .identity-summary-list dt {
   color: var(--fsusblog-text-muted);
-  font-size: 0.78rem;
+  font-size: 12px;
   font-weight: 700;
 }
 
 .identity-summary-list dd {
   color: var(--fsusblog-text-secondary);
-  font-size: 0.85rem;
+  font-size: 14px;
 }
 
 .identity-profile-form,
@@ -1113,7 +1113,7 @@ watch(currentRouteName, () => {
 
 .identity-profile-field__label {
   color: var(--fsusblog-text-secondary);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 700;
   line-height: 1.35;
 }
@@ -1154,7 +1154,7 @@ watch(currentRouteName, () => {
   background: var(--fsusblog-page-bg);
   padding: 0.95rem 1.1rem;
   color: var(--fsusblog-text-primary);
-  font-size: 0.82rem;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.35;
 }
@@ -1170,7 +1170,7 @@ watch(currentRouteName, () => {
   gap: 0.4rem;
   flex: 0 0 auto;
   color: var(--fsusblog-text-tertiary);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 700;
   line-height: 1;
   white-space: nowrap;
@@ -1224,7 +1224,7 @@ watch(currentRouteName, () => {
   border-radius: var(--fsus-radius-control);
   padding: 0.9rem 1rem;
   color: var(--fsusblog-text-secondary);
-  font-size: 0.82rem;
+  font-size: 14px;
   line-height: 1.65;
 }
 
@@ -1253,7 +1253,7 @@ watch(currentRouteName, () => {
   overflow-wrap: anywhere;
   color: var(--fsusblog-text-primary);
   font-family: var(--font-mono);
-  font-size: 0.88rem;
+  font-size: 14px;
   line-height: 1.7;
 }
 

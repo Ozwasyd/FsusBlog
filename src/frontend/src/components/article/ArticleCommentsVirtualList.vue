@@ -342,7 +342,7 @@ const toggleCommentExpansion = (key: string): void => {
 .fsus-comment__reply-target,
 .fsus-comment__time {
   color: var(--fsusblog-text-quiet);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.4;
 }
 
@@ -379,7 +379,7 @@ const toggleCommentExpansion = (key: string): void => {
   background: transparent;
   color: var(--fsusblog-text-quiet);
   font-family: inherit;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   line-height: 1.4;
   cursor: pointer;

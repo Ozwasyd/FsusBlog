@@ -1017,7 +1017,7 @@ const submitQuickCreateTag = async (): Promise<void> => {
   align-self: flex-start;
   padding: 0 0.5rem;
   color: var(--fsusblog-text-muted);
-  font-size: 0.8125rem;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -1037,7 +1037,7 @@ const submitQuickCreateTag = async (): Promise<void> => {
 .write-command-status {
   margin-top: 0.5rem;
   color: var(--fsusblog-text-tertiary);
-  font-size: 0.875rem;
+  font-size: 14px;
   line-height: 1.5;
 }
 
@@ -1068,7 +1068,7 @@ const submitQuickCreateTag = async (): Promise<void> => {
 .write-draft-title {
   margin-bottom: 0.375rem;
   color: var(--fsusblog-color-warning-text);
-  font-size: 0.8125rem;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.35;
   letter-spacing: 0;
@@ -1077,7 +1077,7 @@ const submitQuickCreateTag = async (): Promise<void> => {
 .write-draft-description {
   margin: 0;
   color: var(--fsusblog-text-tertiary);
-  font-size: 0.8125rem;
+  font-size: 14px;
   font-weight: 500;
   line-height: 1.55;
 }
@@ -1092,7 +1092,7 @@ const submitQuickCreateTag = async (): Promise<void> => {
   min-width: 7.25rem;
   min-height: 2.75rem;
   padding-inline: 1.25rem;
-  font-size: 0.875rem;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -1101,14 +1101,14 @@ const submitQuickCreateTag = async (): Promise<void> => {
   min-width: 0;
   align-items: flex-start;
   gap: 0.75rem;
-  font-size: 0.75rem;
+  font-size: 12px;
   line-height: 1.5;
 }
 
 .submit-checklist-status {
   flex: 0 0 auto;
   color: var(--fsusblog-text-muted);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -1184,7 +1184,7 @@ const submitQuickCreateTag = async (): Promise<void> => {
   bottom: 0.35rem;
   background: transparent;
   color: var(--fsusblog-text-tertiary);
-  font-size: 0.8125rem;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -1219,7 +1219,7 @@ const submitQuickCreateTag = async (): Promise<void> => {
   padding: 0.75rem 1rem;
   background: transparent;
   color: var(--fsusblog-text-primary);
-  font-size: 0.875rem;
+  font-size: 14px;
   font-weight: 700;
   text-align: left;
   transition:
@@ -1248,7 +1248,7 @@ const submitQuickCreateTag = async (): Promise<void> => {
 
 .write-inspector-summary__copy > span + span {
   color: var(--fsusblog-text-tertiary);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -1260,7 +1260,7 @@ const submitQuickCreateTag = async (): Promise<void> => {
   border: 1px solid var(--fsusblog-panel-border);
   padding: 0.28rem 0.48rem;
   color: var(--fsusblog-text-secondary);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 700;
 }
 

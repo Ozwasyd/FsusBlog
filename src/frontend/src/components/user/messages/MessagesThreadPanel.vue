@@ -283,7 +283,7 @@ defineExpose({
 .messages-action-hint {
   align-self: center;
   color: var(--fsusblog-text-muted);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -301,7 +301,7 @@ defineExpose({
   margin-bottom: 1.5rem;
   padding: 0.85rem 1rem;
   color: var(--fsusblog-text-secondary);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 700;
   line-height: 1.5;
 }
@@ -345,7 +345,7 @@ defineExpose({
   flex-wrap: wrap;
   color: var(--fsusblog-text-muted);
   margin-bottom: 0.75rem;
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0;
   text-transform: none;
@@ -353,7 +353,7 @@ defineExpose({
 
 .messages-bubble-body {
   color: var(--fsusblog-text-secondary);
-  font-size: 0.875rem;
+  font-size: 14px;
   line-height: 1.8;
   overflow-wrap: anywhere;
   white-space: pre-wrap;

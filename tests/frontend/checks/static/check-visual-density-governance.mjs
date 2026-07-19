@@ -378,7 +378,7 @@ function checkPublicTypographyContract() {
     assertContains(file, /@media \(min-width: 640px\)\s*\{[\s\S]*?#fsus-aot-shell \.ui-article-title\s*\{[\s\S]*?font-size:\s*1\.5rem;[\s\S]*?line-height:\s*1\.05;/, 'AOT title must match the 24px display typography breakpoint')
     assertContains(file, /@media \(min-width: 1024px\)\s*\{[\s\S]*?#fsus-aot-shell \.ui-article-title\s*\{[\s\S]*?font-size:\s*1\.875rem;/, 'AOT title must match the 30px display typography breakpoint')
     assertContains(file, /#fsus-aot-shell \.ui-article-summary\s*\{[\s\S]*?font-size:\s*1rem;[\s\S]*?line-height:\s*1\.8;/, 'AOT summary must match the 16px reading typography baseline')
-    assertContains(file, /#fsus-aot-shell \.ui-article-meta[\s\S]*?font-size:\s*0\.75rem;[\s\S]*?line-height:\s*1rem;/, 'AOT metadata must match the 12px readable metadata baseline')
+    assertContains(file, /#fsus-aot-shell \.ui-article-meta[\s\S]*?font-size:\s*12px;[\s\S]*?line-height:\s*1rem;/, 'AOT metadata must match the 12px readable metadata baseline')
     if (source.includes('font-size: 1.35rem;') || source.includes('font-size: .96rem;')) {
       fail(file, 1, 'AOT typography must not retain non-contract 1.35rem or .96rem scales')
     }
@@ -399,7 +399,7 @@ function checkPublicTypographyContract() {
 function checkIssueDensityContracts() {
   assertContains(accountLayoutPath, /\.account-skip-link:focus-visible\s*\{/, 'account skip-link must reveal only on :focus-visible')
   assertNotContains(accountLayoutPath, /\.account-skip-link:focus\s*\{/, 'account skip-link must not use mouse-triggered :focus')
-  assertContains(accountLayoutPath, /\.account-skip-link:focus-visible\s*\{[\s\S]*?font-size:\s*0\.75rem;/, 'account skip-link must use the 12px readable text scale')
+  assertContains(accountLayoutPath, /\.account-skip-link:focus-visible\s*\{[\s\S]*?font-size:\s*12px;/, 'account skip-link must use the 12px readable text scale')
   assertNotContains(accountLayoutPath, /disabled:opacity-40/, 'account header/meta links must not use 40% disabled opacity')
   assertContains(accountLayoutPath, /disabled:opacity-60/, 'account header/meta links must keep disabled opacity at 60% or higher')
   assertContains(accountLayoutPath, /<el-drawer[\s\S]*?id="account-mobile-drawer"[\s\S]*?<\/el-drawer>/, 'AccountLayout mobile navigation must use a drawer that carries the account sidebar visual language')

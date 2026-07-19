@@ -311,7 +311,7 @@ const coverSectionOpen = ref(false)
   padding: 0.75rem 1rem;
   background: transparent;
   color: var(--fsusblog-text-primary);
-  font-size: 0.875rem;
+  font-size: 14px;
   font-weight: 700;
   text-align: left;
   transition:
@@ -340,7 +340,7 @@ const coverSectionOpen = ref(false)
 
 .article-sidebar-summary__copy > span + span {
   color: var(--fsusblog-text-tertiary);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -352,7 +352,7 @@ const coverSectionOpen = ref(false)
   border: 1px solid var(--fsusblog-panel-border);
   padding: 0.28rem 0.48rem;
   color: var(--fsusblog-text-secondary);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -408,7 +408,7 @@ const coverSectionOpen = ref(false)
 
 .article-field-label {
   color: var(--fsusblog-text-secondary);
-  font-size: 0.875rem;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -454,12 +454,12 @@ const coverSectionOpen = ref(false)
 
 .article-cover-placeholder strong {
   color: var(--fsusblog-text-secondary);
-  font-size: 0.875rem;
+  font-size: 14px;
 }
 
 .article-cover-placeholder span {
   color: var(--fsusblog-text-tertiary);
-  font-size: 0.75rem;
+  font-size: 12px;
   line-height: 1.5;
 }
 

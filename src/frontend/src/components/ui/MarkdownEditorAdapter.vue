@@ -290,7 +290,7 @@ defineExpose({
   gap: 0.5rem;
   padding: 1.5rem 0;
   color: var(--fsusblog-text-secondary);
-  font-size: 0.875rem;
+  font-size: 14px;
   line-height: 1.7;
 }
 

@@ -362,7 +362,7 @@ defineExpose({
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--fsusblog-text-primary);
-  font-size: 0.875rem;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -373,14 +373,14 @@ defineExpose({
 
 .messages-conversation-preview {
   margin: 0.5rem 0 0.75rem;
-  font-size: 0.875rem;
+  font-size: 14px;
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
 
 .messages-conversation-meta {
   font-variant-numeric: tabular-nums;
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0;
   text-transform: none;

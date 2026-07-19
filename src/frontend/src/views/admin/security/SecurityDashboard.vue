@@ -168,7 +168,7 @@ onMounted(() => {
 .security-dashboard__overview-copy p {
   margin-top: 4px;
   color: var(--fsusblog-text-muted);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   line-height: 1.45;
 }

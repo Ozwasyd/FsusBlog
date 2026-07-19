@@ -758,7 +758,7 @@ watch(() => route.name, () => {
 .anonymous-governance-signal span,
 .anonymous-governance-zk__row span {
   color: var(--fsusblog-text-muted);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -772,7 +772,7 @@ watch(() => route.name, () => {
 .anonymous-governance-zk__row p {
   margin: 0;
   color: var(--fsusblog-text-secondary);
-  font-size: 0.8125rem;
+  font-size: 14px;
   line-height: 1.6;
 }
 
@@ -800,13 +800,13 @@ watch(() => route.name, () => {
 .anonymous-governance-control strong,
 .anonymous-governance-subject strong {
   color: var(--fsusblog-text-primary);
-  font-size: 0.875rem;
+  font-size: 14px;
 }
 
 .anonymous-governance-control small,
 .anonymous-governance-subject span {
   color: var(--fsusblog-text-muted);
-  font-size: 0.75rem;
+  font-size: 12px;
   line-height: 1.5;
 }
 
@@ -856,7 +856,7 @@ watch(() => route.name, () => {
 .anonymous-governance-record-block__header h3 {
   margin: 0;
   color: var(--fsusblog-text-primary);
-  font-size: 0.9375rem;
+  font-size: 16px;
   font-weight: 700;
   line-height: 1.35;
 }
@@ -864,7 +864,7 @@ watch(() => route.name, () => {
 .anonymous-governance-record-block__header p {
   margin: 0.25rem 0 0;
   color: var(--fsusblog-text-secondary);
-  font-size: 0.8125rem;
+  font-size: 14px;
   line-height: 1.55;
 }
 
@@ -876,7 +876,7 @@ watch(() => route.name, () => {
   padding: 0.125rem 0.5rem;
   color: var(--fsusblog-text-muted);
   background: color-mix(in srgb, var(--fsusblog-page-bg) 82%, var(--fsusblog-panel-bg) 18%);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 700;
   line-height: 1.5;
   text-align: center;

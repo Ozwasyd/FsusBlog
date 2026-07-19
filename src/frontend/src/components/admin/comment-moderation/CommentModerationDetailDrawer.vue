@@ -185,7 +185,7 @@ const emit = defineEmits<{
   background: var(--fsusblog-page-bg-soft);
   padding: 0.75rem 1rem;
   color: var(--fsusblog-text-secondary);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 700;
   line-height: 1.45;
 }

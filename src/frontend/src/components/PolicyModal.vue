@@ -145,7 +145,7 @@ onUnmounted(() => {
 
 .policy-legal-doc {
   color: var(--fsusblog-text-secondary);
-  font-size: 0.95rem;
+  font-size: 16px;
   line-height: 1.7;
   letter-spacing: 0;
   text-align: left;
@@ -241,7 +241,7 @@ onUnmounted(() => {
   padding: 0.8em 1.2em;
   color: var(--fsusblog-text-secondary);
   background-color: var(--fsusblog-page-bg-soft);
-  font-size: 0.9em;
+  font-size: 14px;
   font-weight: 500;
 }
 

@@ -176,14 +176,14 @@ watch(() => props.assets, (assets, previousAssets) => {
 
 .asset-row__url {
   color: var(--fsusblog-text-primary);
-  font-size: 0.8125rem;
+  font-size: 14px;
   font-weight: 500;
 }
 
 .asset-row__sub,
 .asset-empty {
   color: var(--fsusblog-text-tertiary);
-  font-size: 0.75rem;
+  font-size: 12px;
 }
 
 .asset-empty {
@@ -195,7 +195,7 @@ watch(() => props.assets, (assets, previousAssets) => {
   background: var(--fsusblog-page-bg-soft);
   padding: 0.55rem 0.7rem;
   color: var(--fsusblog-text-muted);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 500;
 }
 

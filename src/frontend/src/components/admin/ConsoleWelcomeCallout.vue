@@ -97,7 +97,7 @@ const bodyText = computed(() => (
   max-width: 48rem;
   margin: 0.375rem 0 0;
   color: var(--fsusblog-text-tertiary);
-  font-size: 0.8125rem;
+  font-size: 14px;
   line-height: 1.7;
 }
 
@@ -124,7 +124,7 @@ const bodyText = computed(() => (
   border: 1px solid var(--fsusblog-panel-border);
   border-radius: var(--fsus-radius-control-small);
   color: var(--fsusblog-text-primary);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 700;
   padding: 0 0.875rem;
   transition:

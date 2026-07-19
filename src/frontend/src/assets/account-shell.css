@@ -25,7 +25,7 @@
   max-width: 42rem;
   margin: 2px 0 0;
   color: var(--fsusblog-text-muted);
-  font-size: 0.8125rem;
+  font-size: 14px;
   line-height: 1.45;
 }
 
@@ -78,7 +78,7 @@
 .account-page-eyebrow {
   margin-bottom: 0.9rem;
   color: var(--fsusblog-text-muted);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0;
   text-transform: none;
@@ -97,7 +97,7 @@
   margin-top: 0.75rem;
   max-width: 42rem;
   color: var(--fsusblog-text-tertiary);
-  font-size: 0.875rem;
+  font-size: 14px;
   line-height: 1.7;
 }
 
@@ -118,7 +118,7 @@
 .account-section-title {
   margin-bottom: 1rem;
   color: var(--fsusblog-text-primary);
-  font-size: 0.875rem;
+  font-size: 14px;
   font-weight: 500;
   letter-spacing: 0;
   text-transform: none;
@@ -127,14 +127,14 @@
 .account-section-caption {
   margin-bottom: 1.5rem;
   color: var(--fsusblog-text-tertiary);
-  font-size: 0.875rem;
+  font-size: 14px;
   line-height: 1.75;
 }
 
 .account-section-eyebrow {
   margin-bottom: 1rem;
   color: var(--fsusblog-text-muted);
-  font-size: 0.6875rem;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0;
   text-transform: none;
@@ -151,7 +151,7 @@
 .account-section-description {
   margin-top: 1rem;
   color: var(--fsusblog-text-tertiary);
-  font-size: 0.75rem;
+  font-size: 12px;
   line-height: 1.75;
 }
 

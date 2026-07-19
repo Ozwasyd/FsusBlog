@@ -370,7 +370,7 @@ const modelMetaItems = (item: CommentModerationViewItem): DetailMetaItem[] => [
   background: var(--fsusblog-page-bg-soft);
   padding: 0.75rem 1rem;
   color: var(--fsusblog-text-secondary);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 700;
   line-height: 1.45;
 }
@@ -378,7 +378,7 @@ const modelMetaItems = (item: CommentModerationViewItem): DetailMetaItem[] => [
 .moderation-detail-fold summary {
   cursor: pointer;
   color: var(--fsusblog-text-muted);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 500;
   outline: none;
 }
@@ -395,7 +395,7 @@ const modelMetaItems = (item: CommentModerationViewItem): DetailMetaItem[] => [
   gap: 0.35rem 0.875rem;
   margin-block-end: 0;
   color: var(--fsusblog-text-secondary);
-  font-size: 0.75rem;
+  font-size: 12px;
   line-height: 1.45;
 }
 

@@ -93,7 +93,7 @@ const localNavigationTitleId = computed(() => (
 .account-local-navigation__title {
   margin: 0;
   color: var(--fsusblog-text-muted);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0;
   line-height: 1.4;
@@ -177,7 +177,7 @@ const localNavigationTitleId = computed(() => (
 .account-module-link__label,
 .account-local-navigation__link > span:first-child {
   min-width: 0;
-  font-size: 0.8125rem;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.35;
 }
@@ -185,7 +185,7 @@ const localNavigationTitleId = computed(() => (
 .account-module-link__helper,
 .account-local-navigation__helper {
   color: var(--fsusblog-text-muted);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 500;
   line-height: 1.35;
   white-space: nowrap;

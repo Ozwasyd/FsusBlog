@@ -334,7 +334,7 @@ expectIncludes(commentMarkdown, 'class="comment-markdown-renderer fsus-markdown-
 expectIncludes(commentMarkdown, 'margin: 0 0 12px 0 !important;', 'CommentMarkdownRenderer.vue separates markdown paragraphs')
 expectIncludes(commentMarkdown, 'margin-bottom: 0 !important;', 'CommentMarkdownRenderer.vue removes the last paragraph margin')
 expectIncludes(commentMarkdown, 'background-color: var(--fsusblog-reading-inline-code-bg) !important;', 'CommentMarkdownRenderer.vue keeps inline code on the semantic raised surface')
-expectIncludes(commentMarkdown, 'font-size: 13px !important;', 'CommentMarkdownRenderer.vue demotes inline code sizing')
+expectIncludes(commentMarkdown, 'font-size: 14px !important;', 'CommentMarkdownRenderer.vue uses the canonical compact code size')
 expectNotMatches(commentMarkdown, /linear-gradient/, 'CommentMarkdownRenderer.vue markdown collapse must not use a gradient veil')
 expectIncludes(articleDetail, "import ArticleCommentsEmptyState from '@/components/public/ArticleCommentsEmptyState.vue'", 'ArticleDetail.vue unified comments empty state component')
 expectIncludes(articleDetail, ':redirect-path="commentRedirectPath"', 'ArticleDetail.vue keeps the empty-state login redirect')

@@ -82,7 +82,7 @@ const previewDocument = computed(() => toTrustedSanitizedHtml(`<!doctype html>
     a { color: var(--preview-link); text-decoration: underline; text-underline-offset: 0.16em; }
     img { max-width: 100%; height: auto; border: 1px solid var(--preview-border); }
     blockquote { border-left: 3px solid var(--preview-border); padding-left: 1rem; color: var(--preview-muted); }
-    code { border-radius: 3px; background: var(--preview-code-bg); padding: 0.08rem 0.28rem; font-size: 0.92em; }
+    code { border-radius: 3px; background: var(--preview-code-bg); padding: 0.08rem 0.28rem; font-size: 14px; }
     pre { overflow: auto; border: 1px solid var(--preview-border); background: CanvasText; color: Canvas; padding: 1rem; }
     pre code { background: transparent; padding: 0; color: inherit; }
     .author-preview__summary { color: var(--preview-muted); font-size: 1rem; }
@@ -105,7 +105,7 @@ const previewDocument = computed(() => toTrustedSanitizedHtml(`<!doctype html>
   background: var(--fsusblog-page-bg-soft);
   color: var(--fsusblog-text-secondary);
   padding: 0.3rem 0.45rem;
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -124,6 +124,6 @@ const previewDocument = computed(() => toTrustedSanitizedHtml(`<!doctype html>
 .preview-empty {
   margin: 0;
   color: var(--fsusblog-text-tertiary);
-  font-size: 0.75rem;
+  font-size: 12px;
 }
 </style>

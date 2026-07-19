@@ -112,7 +112,7 @@ const formatIssueSeverity = (severity: string): string => {
 .seo-search-preview__url {
   overflow: hidden;
   color: var(--fsusblog-color-success);
-  font-size: 0.75rem;
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -134,7 +134,7 @@ const formatIssueSeverity = (severity: string): string => {
   overflow: hidden;
   margin: 0.35rem 0 0;
   color: var(--fsusblog-text-secondary);
-  font-size: 0.875rem;
+  font-size: 14px;
   line-height: 1.45;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -166,7 +166,7 @@ const formatIssueSeverity = (severity: string): string => {
 .seo-share-preview__title {
   overflow: hidden;
   color: var(--fsusblog-text-primary);
-  font-size: 0.875rem;
+  font-size: 14px;
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -180,7 +180,7 @@ const formatIssueSeverity = (severity: string): string => {
 
 .seo-meta-grid dt {
   color: var(--fsusblog-text-muted);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -188,7 +188,7 @@ const formatIssueSeverity = (severity: string): string => {
   overflow: hidden;
   margin: 0.25rem 0 0;
   color: var(--fsusblog-text-secondary);
-  font-size: 0.875rem;
+  font-size: 14px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -204,7 +204,7 @@ const formatIssueSeverity = (severity: string): string => {
   background: var(--fsusblog-page-bg-soft);
   color: var(--fsusblog-text-secondary);
   padding: 0.3rem 0.45rem;
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 700;
 }
 

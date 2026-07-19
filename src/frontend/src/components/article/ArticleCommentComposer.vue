@@ -715,7 +715,7 @@ watch(() => contentModel.value, (value) => {
 
 .comment-identity-label {
   color: var(--fsusblog-text-primary);
-  font-size: 0.875rem;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.35;
 }
@@ -727,7 +727,7 @@ watch(() => contentModel.value, (value) => {
   border: 1px solid transparent;
   border-radius: 999px;
   padding: 0 0.5rem;
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 700;
   line-height: 1rem;
 }
@@ -747,7 +747,7 @@ watch(() => contentModel.value, (value) => {
 .comment-identity-hint {
   margin: 0.25rem 0 0;
   color: var(--fsusblog-text-muted);
-  font-size: 0.75rem;
+  font-size: 12px;
   line-height: 1.5;
 }
 
@@ -761,7 +761,7 @@ watch(() => contentModel.value, (value) => {
   margin-right: -0.125rem;
   color: var(--fsusblog-text-tertiary);
   cursor: pointer;
-  font-size: 0.8125rem;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.35;
 }
@@ -848,7 +848,7 @@ watch(() => contentModel.value, (value) => {
   background: color-mix(in srgb, var(--fsusblog-color-primary) 6%, transparent);
   padding: 0.625rem 0.75rem;
   color: var(--fsusblog-text-secondary);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -887,7 +887,7 @@ watch(() => contentModel.value, (value) => {
   background: transparent;
   color: var(--fsusblog-text-muted);
   cursor: pointer;
-  font-size: 0.8125rem;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1;
   padding: 0 0.6875rem;
@@ -908,7 +908,7 @@ watch(() => contentModel.value, (value) => {
   flex: 0 0 auto;
   min-height: 1.875rem;
   align-self: center;
-  font-size: 0.8125rem;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1;
   white-space: nowrap;
@@ -926,14 +926,14 @@ watch(() => contentModel.value, (value) => {
   display: flex;
   align-items: center;
   color: var(--fsusblog-text-muted);
-  font-size: 0.875rem;
+  font-size: 14px;
   font-weight: 700;
 }
 
 .comment-composer-feedback {
   margin: 0;
   color: var(--el-color-danger);
-  font-size: 0.8125rem;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.5;
 }
@@ -944,7 +944,7 @@ watch(() => contentModel.value, (value) => {
   justify-content: flex-end;
   gap: 0.5rem 0.875rem;
   color: var(--fsusblog-text-muted);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 700;
   line-height: 1.4;
 }

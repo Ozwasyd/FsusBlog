@@ -304,7 +304,7 @@ onBeforeUnmount(() => {
   inset: 0;
   display: grid;
   place-items: center;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--fsusblog-text-muted, var(--el-text-color-secondary));
   background: color-mix(in srgb, var(--el-bg-color) 82%, transparent);
 }

@@ -297,7 +297,7 @@ onMounted(loadHealth)
 .ops-error-meta {
   margin: 0.5rem 0 0;
   color: var(--fsusblog-text-muted);
-  font-size: 0.75rem;
+  font-size: 12px;
   line-height: 1.5;
 }
 
@@ -305,7 +305,7 @@ onMounted(loadHealth)
   min-width: min(100%, 16rem);
   max-width: 100%;
   color: var(--fsusblog-text-muted);
-  font-size: 0.75rem;
+  font-size: 12px;
 }
 
 .ops-error-detail summary {

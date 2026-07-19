@@ -124,7 +124,7 @@ onUnmounted(() => {
 
 .article-image-lightbox__figure figcaption {
   color: var(--fsusblog-overlay-button-fg);
-  font-size: 0.875rem;
+  font-size: 14px;
 }
 
 .article-image-lightbox__close,
@@ -135,7 +135,7 @@ onUnmounted(() => {
   background: var(--fsusblog-overlay-button-bg);
   color: var(--fsusblog-overlay-button-fg);
   padding: 0 0.875rem;
-  font-size: 0.75rem;
+  font-size: 12px;
 }
 
 .article-image-lightbox__close {
