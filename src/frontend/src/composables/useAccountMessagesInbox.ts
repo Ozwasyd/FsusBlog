@@ -6,7 +6,6 @@ import {
   type ConversationFilter,
   type ConversationListItemResponse,
   type ConversationMessageResponse,
-  type ConversationMessagePreviewResponse,
   type InboxConversationStatusChangedPayload,
   type InboxConversationUpsertPayload,
   type InboxMessageAppendPayload,
@@ -17,19 +16,23 @@ import type { NotificationStreamInboxRenderPatch } from '@/services/notification
 import { useNotificationStreamStore } from '@/store/notificationStream'
 import { showErrorToast } from '@/utils/errorPresentation'
 import { toast } from '@/fsusui/feedback'
-import { compareConversationByLastMessage, mergeConversationPages } from '@/composables/messageConversationPagination'
+import { mergeConversationPages } from '@/composables/messageConversationPagination'
 import { compareMessageId, mergeConversationMessagePages } from '@/composables/messageThreadPagination'
-import { truncateMessagePreview } from '@/contracts/messageContentPolicy'
+import {
+  isOlderPatchVersion,
+  latestMessageId,
+  newerMessageId,
+  newerTimestamp,
+  reduceConversationUpsert,
+  reduceMessageAppend,
+  reduceReadUpdated,
+  reduceStatusChanged,
+  toMessagePreview,
+  type InboxPatchVersion
+} from '@/composables/messageInboxPatchReducer'
 
 const PAGE_SIZE = 20
 const FILTERS: readonly ConversationFilter[] = ['all', 'unread', 'system', 'open', 'pending', 'closed']
-
-const toMessagePreview = (message: InboxMessageAppendPayload['message']): ConversationMessagePreviewResponse => ({
-  senderType: message.senderType,
-  senderName: message.senderName,
-  bodyPreview: truncateMessagePreview(message.body),
-  createdAt: message.createdAt
-})
 
 const toConversationListItem = (detail: ConversationDetailResponse): ConversationListItemResponse => {
   const lastMessage = detail.messages[detail.messages.length - 1] ?? null
@@ -48,46 +51,8 @@ const toConversationListItem = (detail: ConversationDetailResponse): Conversatio
 
 const normalizeFilter = (value: ConversationFilter): ConversationFilter => value
 
-const latestMessageId = (value: ConversationDetailResponse | null): string | null =>
-  value?.messages[value.messages.length - 1]?.messageId ?? value?.readSnapshotMessageId ?? null
-
-const newerMessageId = (left: string, right: string): string =>
-  compareMessageId(left, right) >= 0 ? left : right
-
-const newerTimestamp = (left: string, right: string): string =>
-  (Date.parse(left) || 0) >= (Date.parse(right) || 0) ? left : right
-
 const isAbortError = (error: unknown): boolean =>
   error instanceof DOMException && error.name === 'AbortError'
-
-type InboxPatchVersion = Readonly<{ eventId?: number, time?: number }>
-
-const isOlderPatchVersion = (incoming: InboxPatchVersion | undefined, current: InboxPatchVersion | null): boolean => {
-  if (!incoming || !current) return false
-  if (incoming.eventId !== undefined && current.eventId !== undefined) return incoming.eventId < current.eventId
-  if (incoming.time !== undefined && current.time !== undefined) return incoming.time < current.time
-  return false
-}
-
-const upsertConversationListItem = (
-  items: readonly ConversationListItemResponse[],
-  item: ConversationListItemResponse
-): ConversationListItemResponse[] => {
-  const next = items.slice()
-  const existingIndex = next.findIndex((it) => it.conversationId === item.conversationId)
-  if (existingIndex >= 0) {
-    next.splice(existingIndex, 1)
-  }
-
-  const insertIndex = next.findIndex((it) => compareConversationByLastMessage(item, it) < 0)
-  if (insertIndex === -1) {
-    next.push(item)
-  } else {
-    next.splice(insertIndex, 0, item)
-  }
-
-  return next
-}
 
 const resetInboxState = (
   detailRef: { value: ConversationDetailResponse | null },
@@ -571,19 +536,8 @@ export function useAccountMessagesInbox(isEnabled: () => boolean = () => true) {
   const applyConversationUpsertPatch = (payload: InboxConversationUpsertPayload, version?: InboxPatchVersion): void => {
     const item = payload.conversation
     if (!item?.conversationId) return
-
-    const list = conversations.value.slice()
-    const index = list.findIndex((it) => it.conversationId === item.conversationId)
-    let nextItem = item
-    if (index >= 0) {
-      if (compareConversationByLastMessage(item, list[index]!) > 0) {
-        applyTotalUnread(payload.totalUnread, version)
-        return
-      }
-      nextItem = { ...list[index]!, ...item }
-    }
-    conversations.value = upsertConversationListItem(list, nextItem)
-
+    const projection = reduceConversationUpsert(conversations.value, detail.value, payload, true)
+    conversations.value = projection.conversations
     applyTotalUnread(payload.totalUnread, version)
   }
 
@@ -597,34 +551,19 @@ export function useAccountMessagesInbox(isEnabled: () => boolean = () => true) {
     const priorMessageId = highestPatchedMessageId.get(payload.conversationId)
     const isNewestPatch = !priorMessageId || compareMessageId(payload.message.messageId, priorMessageId) >= 0
     if (isNewestPatch) highestPatchedMessageId.set(payload.conversationId, payload.message.messageId)
-    const list = conversations.value.slice()
-    const index = list.findIndex((it) => it.conversationId === payload.conversationId)
-    if (index >= 0 && isNewestPatch &&
-      (Date.parse(payload.message.createdAt) || 0) >= (Date.parse(list[index]!.lastMessageAt) || 0)) {
-      const current = list[index]!
-      list[index] = {
-        ...current,
-        lastMessage: toMessagePreview(payload.message),
-        lastMessageAt: payload.message.createdAt,
-        unreadCount: payload.conversationUnreadCount ?? current.unreadCount
-      }
-      const moved = list.splice(index, 1)[0]!
-      list.unshift(moved)
-      conversations.value = list
-    }
-
-    if (detail.value && detail.value.conversationId === payload.conversationId) {
+    const listItem = conversations.value.find((item) => item.conversationId === payload.conversationId)
+    const applyListProjection = isNewestPatch && (!listItem ||
+      (Date.parse(payload.message.createdAt) || 0) >= (Date.parse(listItem.lastMessageAt) || 0))
+    const projection = reduceMessageAppend(
+      conversations.value,
+      detail.value,
+      payload,
+      applyListProjection
+    )
+    conversations.value = projection.conversations
+    if (projection.detail !== detail.value) {
       detailPatchRevision += 1
-      const currentLatestMessageId = latestMessageId(detail.value)
-      const advancesDetail = !currentLatestMessageId || compareMessageId(payload.message.messageId, currentLatestMessageId) >= 0
-      detail.value = {
-        ...detail.value,
-        messages: mergeConversationMessagePages(detail.value.messages, [payload.message]),
-        unreadCount: advancesDetail ? payload.conversationUnreadCount ?? detail.value.unreadCount : detail.value.unreadCount,
-        lastMessageAt: advancesDetail
-          ? newerTimestamp(payload.message.createdAt, detail.value.lastMessageAt)
-          : detail.value.lastMessageAt
-      }
+      detail.value = projection.detail
     }
 
     if (isNewestPatch) applyTotalUnread(payload.totalUnread, version)
@@ -636,25 +575,11 @@ export function useAccountMessagesInbox(isEnabled: () => boolean = () => true) {
     const knownCursor = lastReadCursor.get(payload.conversationId)
     if (incomingCursor && knownCursor && compareMessageId(incomingCursor, knownCursor) < 0) return
     if (incomingCursor) lastReadCursor.set(payload.conversationId, incomingCursor)
-    const list = conversations.value.slice()
-    const index = list.findIndex((it) => it.conversationId === payload.conversationId)
-    if (index >= 0) {
-      list[index] = {
-        ...list[index]!,
-        unreadCount: Math.max(0, payload.conversationUnreadCount)
-      }
-      conversations.value = list
-    }
-
-    if (detail.value && detail.value.conversationId === payload.conversationId) {
+    const projection = reduceReadUpdated(conversations.value, detail.value, payload)
+    conversations.value = projection.conversations
+    if (projection.detail !== detail.value) {
       detailPatchRevision += 1
-      detail.value = {
-        ...detail.value,
-        readSnapshotMessageId: incomingCursor
-          ? newerMessageId(detail.value.readSnapshotMessageId, incomingCursor)
-          : detail.value.readSnapshotMessageId,
-        unreadCount: Math.max(0, payload.conversationUnreadCount)
-      }
+      detail.value = projection.detail
     }
 
     applyTotalUnread(payload.totalUnread, version)
@@ -665,17 +590,14 @@ export function useAccountMessagesInbox(isEnabled: () => boolean = () => true) {
     const timestamp = Date.parse(payload.time) || 0
     const previousTimestamp = lastStatusTime.get(payload.conversationId) ?? Number.NEGATIVE_INFINITY
     if (timestamp < previousTimestamp) return
-    const list = conversations.value.slice()
-    const index = list.findIndex((it) => it.conversationId === payload.conversationId)
-    if (index >= 0 && timestamp > 0 && timestamp < (Date.parse(list[index]!.updatedAt) || 0)) return
+    const listItem = conversations.value.find((item) => item.conversationId === payload.conversationId)
+    if (listItem && timestamp > 0 && timestamp < (Date.parse(listItem.updatedAt) || 0)) return
     lastStatusTime.set(payload.conversationId, timestamp)
-    if (index >= 0) {
-      list[index] = { ...list[index]!, status: payload.status, canReply: payload.status !== 2 }
-      conversations.value = list
-    }
-    if (detail.value && detail.value.conversationId === payload.conversationId) {
+    const projection = reduceStatusChanged(conversations.value, detail.value, payload)
+    conversations.value = projection.conversations
+    if (projection.detail !== detail.value) {
       detailPatchRevision += 1
-      detail.value = { ...detail.value, status: payload.status, canReply: payload.status !== 2 }
+      detail.value = projection.detail
     }
   }
 

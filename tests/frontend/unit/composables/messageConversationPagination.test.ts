@@ -1,7 +1,13 @@
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { defineComponent, h, reactive, ref } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { messageApi, type ConversationListItemResponse, type ConversationMessageResponse } from '@/api/message'
+import {
+  messageApi,
+  type AdminConversationDetailResponse,
+  type AdminConversationListItemResponse,
+  type ConversationListItemResponse,
+  type ConversationMessageResponse
+} from '@/api/message'
 import { useAccountMessagesInbox } from '@/composables/useAccountMessagesInbox'
 import { useAdminMessageCenter } from '@/composables/useAdminMessageCenter'
 import type { NotificationStreamInboxRenderPatch } from '@/services/notificationStreamTypes'
@@ -67,6 +73,34 @@ const conversation = (
   lastMessageAt,
   updatedAt: lastMessageAt,
   lastMessage: null
+})
+
+const adminConversation = (
+  conversationId: string,
+  lastMessageAt: string,
+  subject = `conversation-${conversationId}`
+): AdminConversationListItemResponse => ({
+  ...conversation(conversationId, lastMessageAt, subject),
+  counterpartyAccountId: conversationId,
+  counterpartyAccountStatus: 0
+})
+
+const adminDetail = (
+  conversationId: string,
+  status: 0 | 1 | 2 = 0,
+  messages: ConversationMessageResponse[] = []
+): AdminConversationDetailResponse => ({
+  conversationId,
+  readSnapshotMessageId: messages[messages.length - 1]?.messageId ?? `${conversationId}0`,
+  subject: `conversation-${conversationId}`,
+  status,
+  isSystemSource: false,
+  canReply: status !== 2,
+  unreadCount: 0,
+  lastMessageAt: messages[messages.length - 1]?.createdAt ?? '2026-07-19T12:00:00Z',
+  messages,
+  counterpartyAccountId: conversationId,
+  counterpartyAccountStatus: 0
 })
 
 const threadMessage = (messageId: string, body = messageId): ConversationMessageResponse => ({
@@ -247,6 +281,166 @@ describe('message conversation cursor pagination', () => {
     expect(messageApi.adminGetConversations).toHaveBeenNthCalledWith(2, 30, 'open', 'admin-cursor-1')
     expect(adminCenter.conversations.value.map((item) => item.conversationId)).toEqual(['30', '29'])
     expect(adminCenter.hasMoreConversations.value).toBe(false)
+  })
+
+  it('applies a deduplicated admin patch batch locally without reloading an unrelated detail', async () => {
+    vi.mocked(messageApi.adminGetConversations).mockResolvedValue({
+      items: [
+        adminConversation('30', '2026-07-19T12:00:00Z'),
+        adminConversation('29', '2026-07-19T11:00:00Z')
+      ],
+      total: 2,
+      nextCursor: null,
+      hasMore: false
+    })
+    vi.mocked(messageApi.adminGetConversationDetail).mockResolvedValue(adminDetail('30'))
+
+    const adminCenter = mountAdminCenter()
+    await flushPromises()
+    vi.clearAllMocks()
+
+    const appended = { ...threadMessage('31', 'live reply'), conversationId: '30' }
+    inboxStore.inboxBatch = [
+      {
+        module: 'inbox', kind: 'conversation-upsert', eventId: 10,
+        payload: {
+          conversation: {
+            ...adminConversation('30', '2026-07-19T12:00:31Z', 'patched subject'),
+            lastMessage: { senderType: 1, senderName: '管理员', bodyPreview: 'live reply', createdAt: appended.createdAt }
+          }
+        }
+      },
+      {
+        module: 'inbox', kind: 'conversation-upsert', eventId: 10,
+        payload: { conversation: adminConversation('30', '2026-07-19T12:00:31Z', 'duplicate') }
+      },
+      {
+        module: 'inbox', kind: 'message-append', eventId: 11,
+        payload: { conversationId: '30', message: appended, conversationUnreadCount: 1 }
+      },
+      {
+        module: 'inbox', kind: 'conversation-status-changed', eventId: 12,
+        payload: { conversationId: '29', status: 1, time: '2026-07-19T12:00:32Z' }
+      }
+    ]
+    inboxStore.inboxRevision += 1
+    await flushPromises()
+
+    expect(adminCenter.conversations.value.map((item) => item.conversationId)).toEqual(['30'])
+    expect(adminCenter.conversations.value[0]?.subject).toBe('patched subject')
+    expect(adminCenter.detail.value?.messages.map((message) => message.messageId)).toEqual(['31'])
+    expect(messageApi.adminGetConversations).not.toHaveBeenCalled()
+    expect(messageApi.adminGetConversationDetail).not.toHaveBeenCalled()
+  })
+
+  it('coalesces duplicate body-free admin events into one authoritative list and detail recovery', async () => {
+    vi.mocked(messageApi.adminGetConversations).mockResolvedValue({
+      items: [adminConversation('30', '2026-07-19T12:00:00Z')], total: 1, nextCursor: null, hasMore: false
+    })
+    vi.mocked(messageApi.adminGetConversationDetail).mockResolvedValue(adminDetail('30'))
+    const adminCenter = mountAdminCenter()
+    await flushPromises()
+    vi.clearAllMocks()
+
+    const authoritative = { ...threadMessage('31', 'authoritative body'), conversationId: '30' }
+    vi.mocked(messageApi.adminGetConversations).mockResolvedValue({
+      items: [{
+        ...adminConversation('30', authoritative.createdAt),
+        lastMessage: { senderType: 1, senderName: '管理员', bodyPreview: 'authoritative body', createdAt: authoritative.createdAt }
+      }],
+      total: 1,
+      nextCursor: null,
+      hasMore: false
+    })
+    vi.mocked(messageApi.adminGetConversationDetail).mockResolvedValue(adminDetail('30', 0, [authoritative]))
+    const reference = { ...authoritative, body: '' }
+    inboxStore.inboxBatch = [
+      { module: 'inbox', kind: 'message-append', eventId: 20, payload: { conversationId: '30', message: reference } },
+      { module: 'inbox', kind: 'message-append', eventId: 20, payload: { conversationId: '30', message: reference } }
+    ]
+    inboxStore.inboxRevision += 1
+    await flushPromises()
+
+    expect(messageApi.adminGetConversations).toHaveBeenCalledTimes(1)
+    expect(messageApi.adminGetConversationDetail).toHaveBeenCalledTimes(1)
+    expect(adminCenter.detail.value?.messages.map((message) => message.body)).toEqual(['authoritative body'])
+    expect(adminCenter.detail.value?.messages.some((message) => message.body === '')).toBe(false)
+  })
+
+  it('refreshes only the list when an admin patch targets a conversation outside the loaded page', async () => {
+    vi.mocked(messageApi.adminGetConversations).mockResolvedValue({
+      items: [adminConversation('30', '2026-07-19T12:00:00Z')], total: 2, nextCursor: null, hasMore: false
+    })
+    vi.mocked(messageApi.adminGetConversationDetail).mockResolvedValue(adminDetail('30'))
+    mountAdminCenter()
+    await flushPromises()
+    vi.clearAllMocks()
+    vi.mocked(messageApi.adminGetConversations).mockResolvedValue({
+      items: [
+        adminConversation('99', '2026-07-19T12:00:40Z'),
+        adminConversation('30', '2026-07-19T12:00:00Z')
+      ],
+      total: 2,
+      nextCursor: null,
+      hasMore: false
+    })
+
+    inboxStore.inboxBatch = [{
+      module: 'inbox', kind: 'message-append', eventId: 30,
+      payload: {
+        conversationId: '99',
+        message: { ...threadMessage('99', 'other conversation'), conversationId: '99' }
+      }
+    }]
+    inboxStore.inboxRevision += 1
+    await flushPromises()
+
+    expect(messageApi.adminGetConversations).toHaveBeenCalledTimes(1)
+    expect(messageApi.adminGetConversationDetail).not.toHaveBeenCalled()
+  })
+
+  it('prevents slow admin authority responses from overwriting a newer local patch', async () => {
+    vi.mocked(messageApi.adminGetConversations).mockResolvedValue({
+      items: [adminConversation('30', '2026-07-19T12:00:00Z')], total: 1, nextCursor: null, hasMore: false
+    })
+    vi.mocked(messageApi.adminGetConversationDetail).mockResolvedValue(adminDetail('30'))
+    const adminCenter = mountAdminCenter()
+    await flushPromises()
+    vi.clearAllMocks()
+
+    const slowList = Promise.withResolvers<Awaited<ReturnType<typeof messageApi.adminGetConversations>>>()
+    const slowDetail = Promise.withResolvers<Awaited<ReturnType<typeof messageApi.adminGetConversationDetail>>>()
+    vi.mocked(messageApi.adminGetConversations).mockReturnValue(slowList.promise)
+    vi.mocked(messageApi.adminGetConversationDetail).mockReturnValue(slowDetail.promise)
+    inboxStore.inboxBatch = [{
+      module: 'inbox', kind: 'message-append', eventId: 40,
+      payload: {
+        conversationId: '30',
+        message: { ...threadMessage('31', ''), conversationId: '30' }
+      }
+    }]
+    inboxStore.inboxRevision += 1
+    await flushPromises()
+
+    inboxStore.inboxBatch = [{
+      module: 'inbox', kind: 'conversation-status-changed', eventId: 41,
+      payload: { conversationId: '30', status: 2, time: '2026-07-19T12:00:41Z' }
+    }]
+    inboxStore.inboxRevision += 1
+    await flushPromises()
+    expect(adminCenter.detail.value?.status).toBe(2)
+    expect(adminCenter.conversations.value).toEqual([])
+
+    const recovered = { ...threadMessage('31', 'recovered body'), conversationId: '30' }
+    slowList.resolve({
+      items: [adminConversation('30', '2026-07-19T12:00:00Z')], total: 1, nextCursor: null, hasMore: false
+    })
+    slowDetail.resolve(adminDetail('30', 0, [recovered]))
+    await flushPromises()
+
+    expect(adminCenter.conversations.value).toEqual([])
+    expect(adminCenter.detail.value?.status).toBe(2)
+    expect(adminCenter.detail.value?.messages.map((message) => message.body)).toEqual(['recovered body'])
   })
 
   it('requests a real older page and merges it with a concurrent realtime message', async () => {
