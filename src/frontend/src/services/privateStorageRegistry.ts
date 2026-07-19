@@ -62,6 +62,14 @@ const ADMIN_CLEAR_TRIGGERS = Object.freeze<PrivateStateCleanupTrigger[]>([
   'migration-failure',
   'shared-device'
 ])
+const LEGACY_COMMENT_DRAFT_CLEAR_TRIGGERS = Object.freeze<PrivateStateCleanupTrigger[]>([
+  ...ACCOUNT_CLEAR_TRIGGERS,
+  'credential-revoked',
+  'issuer-key-rotation',
+  'root-retired',
+  'epoch-changed',
+  'feature-disabled'
+])
 const AUTH_TRANSITION_TRIGGERS = Object.freeze<PrivateStateCleanupTrigger[]>([
   ...ACCOUNT_CLEAR_TRIGGERS,
   'admin-logout'
@@ -71,7 +79,9 @@ export const PRIVATE_STORAGE_REGISTRY: readonly PrivateStorageRegistryEntry[] = 
   { id: 'theme-mode', medium: 'local-storage', dataScope: 'public', dataClass: 'public-preference', clearOn: [], matcher: { type: 'exact', value: 'fsus:theme-mode' } },
   { id: 'image-upload-preferences', medium: 'local-storage', dataScope: 'public', dataClass: 'public-preference', clearOn: [], matcher: { type: 'exact', value: 'fsus:image-upload-preferences' } },
   { id: 'legacy-account-cache', medium: 'local-storage', dataScope: 'account', dataClass: 'auth-state', clearOn: ACCOUNT_CLEAR_TRIGGERS, matcher: { type: 'exact', value: 'fsus_user_storage' } },
-  { id: 'comment-drafts', medium: 'local-storage', dataScope: 'account', dataClass: 'private-draft', clearOn: ACCOUNT_CLEAR_TRIGGERS, matcher: { type: 'prefix', value: 'fsus:comment-draft:v1:' } },
+  { id: 'legacy-comment-drafts', medium: 'local-storage', dataScope: 'account', dataClass: 'unsafe-legacy-draft', clearOn: LEGACY_COMMENT_DRAFT_CLEAR_TRIGGERS, matcher: { type: 'prefix', value: 'fsus:comment-draft:v1:' } },
+  { id: 'public-comment-drafts', medium: 'local-storage', dataScope: 'account', dataClass: 'public-draft', clearOn: ACCOUNT_CLEAR_TRIGGERS, matcher: { type: 'prefix', value: 'fsus:comment-public-draft:v2:' } },
+  { id: 'public-comment-draft-scope', medium: 'local-storage', dataScope: 'account', dataClass: 'local-unlinkable-scope', clearOn: ACCOUNT_CLEAR_TRIGGERS, matcher: { type: 'exact', value: 'fsus:comment-public-draft-scope:v2' } },
   { id: 'image-upload-sessions', medium: 'local-storage', dataScope: 'account', dataClass: 'upload-session', clearOn: ACCOUNT_CLEAR_TRIGGERS, matcher: { type: 'prefix', value: 'fsus:image-upload-session:' } },
   { id: 'article-drafts', medium: 'local-storage', dataScope: 'admin', dataClass: 'private-draft', clearOn: ADMIN_CLEAR_TRIGGERS, matcher: { type: 'prefix', value: 'fsus:article-draft:' } },
   { id: 'console-welcome-identity', medium: 'local-storage', dataScope: 'admin', dataClass: 'identity-preference', clearOn: ADMIN_CLEAR_TRIGGERS, matcher: { type: 'prefix', value: 'fsus:console-welcome-callout:dismissed:' } },

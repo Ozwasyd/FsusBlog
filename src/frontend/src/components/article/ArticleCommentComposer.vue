@@ -52,9 +52,19 @@
     </div>
 
     <div v-if="restoredDraftVisible && localDraft" class="comment-composer-draft" aria-live="polite">
-      <span>已恢复本地草稿{{ draftSavedAtText ? ` ${draftSavedAtText}` : '' }}</span>
-      <button type="button" @click="discardCommentDraft">丢弃</button>
+      <span v-if="draftNeedsReview">
+        评论策略已更新。请先审查草稿，发布身份不会自动恢复。
+      </span>
+      <span v-else>已恢复公开草稿{{ draftSavedAtText ? ` ${draftSavedAtText}` : '' }}</span>
+      <span class="comment-composer-draft__actions">
+        <button v-if="draftNeedsReview" type="button" @click="reviewCommentDraft">审查草稿</button>
+        <button type="button" @click="discardCommentDraft">丢弃</button>
+      </span>
     </div>
+
+    <p v-if="draftPrivacyBlocked" class="comment-composer-feedback" aria-live="assertive">
+      无法确认旧草稿已从浏览器存储清除；强匿名发布已暂停。你可以继续公开发布，或先清理站点数据。
+    </p>
 
     <div class="comment-composer-editor">
       <div class="comment-composer-toolbar">
@@ -232,6 +242,19 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { CommentAuthorMode, CommentAuthorView, CommentDisplayLanguage } from '@/api/comment'
 import CommentMarkdownRenderer from '@/components/article/CommentMarkdownRenderer.vue'
 import FsusDialog from '@/components/ui/FsusDialog.vue'
+import {
+  clearAllCommentDraftStorage,
+  createCommentPublicDraftStorageKey,
+  prepareCommentPublicDraftStorage,
+  readCommentPublicDraft,
+  removeCommentPublicDraft,
+  writeCommentPublicDraft,
+  type PersistedPublicCommentDraft
+} from '@/privacy/commentPublicDraftStorage'
+import {
+  registerCommentPrivacyCredentialPurgeHandler,
+  type CommentPrivacyCredentialPurgeReason
+} from '@/privacy/commentPrivacyCredentialLifecycle'
 import type { CommentPrivacyUiState } from '@/privacy/commentPrivacyTypes'
 import {
   getCommentUtf8ByteLength,
@@ -255,13 +278,7 @@ type CommentComposerMode = 'write' | 'preview'
 type ElInputExpose = {
   focus?: () => void
 }
-type CommentDraftSnapshot = {
-  content: string
-  authorMode: CommentAuthorMode
-  publicSendConfirmed: boolean
-  savedAt: number
-  policyHash: string
-}
+type CommentDraftSnapshot = PersistedPublicCommentDraft
 
 const props = withDefaults(defineProps<{
   modelValue: string;
@@ -317,8 +334,15 @@ const commentComposerMode = ref<CommentComposerMode>('write')
 const focusModeVisible = ref(false)
 const localDraft = ref<CommentDraftSnapshot | null>(null)
 const restoredDraftVisible = ref(false)
+const draftNeedsReview = ref(false)
+const draftPrivacyBlocked = ref(false)
+const draftStorageKey = ref('')
 let draftSaveTimer: ReturnType<typeof setTimeout> | null = null
 let privacyObserver: IntersectionObserver | null = null
+let commentDraftStorage: Storage | null = null
+let commentDraftScopeId = ''
+let unregisterDraftPurgeHandler: (() => void) | null = null
+let lastAccountId: number | null = null
 
 const commentComposerModeOptions: ReadonlyArray<{ value: CommentComposerMode; label: string }> = [
   { value: 'write', label: '编写' },
@@ -363,6 +387,10 @@ const publicIdentityModel = computed({
     if (value && !props.publicCommentsEnabled) {
       return
     }
+    if (!value && !clearPersistedCommentDraft()) {
+      draftPrivacyBlocked.value = true
+      return
+    }
     emit('update:authorMode', value ? 'public' : 'zk_anonymous')
     emit('update:publicSendConfirmed', value)
   }
@@ -405,7 +433,12 @@ const composerInputDisabled = computed(() =>
   (authorModeModel.value === 'zk_anonymous' && !props.zkAnonymousEnabled)
 )
 
-const submitDisabled = computed(() => composerUi.value.disabled || !markdownValidation.value.isValid)
+const submitDisabled = computed(() =>
+  composerUi.value.disabled ||
+  !markdownValidation.value.isValid ||
+  draftNeedsReview.value ||
+  (authorModeModel.value === 'zk_anonymous' && draftPrivacyBlocked.value)
+)
 
 const requestSubmit = (): void => {
   if (!markdownValidation.value.isValid) {
@@ -446,7 +479,11 @@ const notifyPrivacyIntent = (): void => {
 }
 
 onMounted(() => {
-  restoreCommentDraft()
+  unregisterDraftPurgeHandler = registerCommentPrivacyCredentialPurgeHandler(handleDraftPrivacyPurge)
+  initializeCommentDraftStorage()
+  if (typeof window !== 'undefined') {
+    window.addEventListener('pagehide', flushPublicCommentDraft)
+  }
   if (typeof IntersectionObserver === 'undefined') {
     queueMicrotask(notifyPrivacyIntent)
     return
@@ -469,7 +506,11 @@ onBeforeUnmount(() => {
     clearTimeout(draftSaveTimer)
     draftSaveTimer = null
   }
-  saveCommentDraft()
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('pagehide', flushPublicCommentDraft)
+  }
+  unregisterDraftPurgeHandler?.()
+  unregisterDraftPurgeHandler = null
   privacyObserver?.disconnect()
   privacyObserver = null
 })
@@ -487,100 +528,119 @@ const placeholderText = computed(() =>
     : composerUi.value.placeholder
 )
 
-const draftStorageKey = computed(() => {
-  if (!props.articleId) {
-    return ''
-  }
-  const accountKey = props.accountId === null ? 'guest' : String(props.accountId)
-  const replyKey = props.replyTarget?.id ?? 'root'
-  return `fsus:comment-draft:v1:${accountKey}:${props.articleId}:${replyKey}`
-})
-
 const draftSavedAtText = computed(() => {
   const savedAt = localDraft.value?.savedAt
   return savedAt ? new Date(savedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : ''
 })
 
-const restoreCommentDraft = (): void => {
-  const key = draftStorageKey.value
-  if (!key || typeof window === 'undefined') {
+const initializeCommentDraftStorage = (): void => {
+  if (typeof window === 'undefined' || props.accountId === null || props.accountId <= 0) {
+    commentDraftStorage = null
+    commentDraftScopeId = ''
+    draftStorageKey.value = ''
     return
   }
 
+  lastAccountId = props.accountId
   try {
-    const raw = window.localStorage.getItem(key)
-    if (!raw) {
-      localDraft.value = null
-      restoredDraftVisible.value = false
-      return
-    }
-
-    const draft = JSON.parse(raw) as CommentDraftSnapshot
-    if (!draft?.content?.trim()) {
-      return
-    }
-
-    const restoredMode: CommentAuthorMode = draft.authorMode === 'public' ? 'public' : 'zk_anonymous'
-    const restoredDraft = {
-      ...draft,
-      authorMode: restoredMode,
-      publicSendConfirmed: restoredMode === 'public' && draft.publicSendConfirmed === true
-    }
-    localDraft.value = restoredDraft
-    if (!contentModel.value.trim()) {
-      emit('update:modelValue', restoredDraft.content)
-      emit('update:authorMode', restoredDraft.authorMode)
-      emit('update:publicSendConfirmed', restoredDraft.publicSendConfirmed)
-      restoredDraftVisible.value = true
-    }
+    commentDraftStorage = window.localStorage
   } catch {
+    commentDraftStorage = null
+    commentDraftScopeId = ''
+    draftStorageKey.value = ''
+    return
+  }
+
+  const preparation = prepareCommentPublicDraftStorage(commentDraftStorage)
+  commentDraftScopeId = preparation.scopeId ?? ''
+  draftPrivacyBlocked.value = preparation.persistenceAvailable && !preparation.cleanupComplete
+  refreshCommentDraftStorageKey()
+}
+
+const refreshCommentDraftStorageKey = (): void => {
+  draftStorageKey.value = createCommentPublicDraftStorageKey({
+    scopeId: commentDraftScopeId,
+    articleId: props.articleId,
+    replyId: props.replyTarget?.id ?? null
+  })
+  restoreCommentDraft()
+}
+
+const restoreCommentDraft = (): void => {
+  const key = draftStorageKey.value
+  if (!key || !commentDraftStorage) {
+    return
+  }
+
+  const result = readCommentPublicDraft(commentDraftStorage, key)
+  if (!result.cleanupComplete) {
+    draftPrivacyBlocked.value = true
+  }
+  if (!result.draft) {
     localDraft.value = null
     restoredDraftVisible.value = false
+    draftNeedsReview.value = false
+    return
+  }
+
+  localDraft.value = result.draft
+  restoredDraftVisible.value = true
+  if (result.draft.policyHash !== props.policySnapshotHash) {
+    draftNeedsReview.value = true
+    return
+  }
+
+  draftNeedsReview.value = false
+  if (!contentModel.value.trim()) {
+    emit('update:modelValue', result.draft.content)
+    emit('update:authorMode', 'public')
+    emit('update:publicSendConfirmed', true)
   }
 }
 
-const removeCommentDraft = (): void => {
+const clearPersistedCommentDraft = (): boolean => {
   const key = draftStorageKey.value
-  if (!key || typeof window === 'undefined') {
+  if (!key || !commentDraftStorage) {
     localDraft.value = null
     restoredDraftVisible.value = false
-    return
+    draftNeedsReview.value = false
+    return true
   }
 
-  try {
-    window.localStorage.removeItem(key)
-  } catch {
-    // Local draft persistence is best-effort.
-  }
+  const removed = removeCommentPublicDraft(commentDraftStorage, key)
   localDraft.value = null
   restoredDraftVisible.value = false
+  draftNeedsReview.value = false
+  return removed
 }
 
 const saveCommentDraft = (): void => {
   const key = draftStorageKey.value
-  if (!key || typeof window === 'undefined') {
+  if (!key || !commentDraftStorage || draftNeedsReview.value) {
     return
   }
 
   const content = contentModel.value
   if (!content.trim()) {
-    removeCommentDraft()
+    clearPersistedCommentDraft()
+    return
+  }
+  if (authorModeModel.value !== 'public' || !publicIdentityModel.value) {
+    if (!clearPersistedCommentDraft()) {
+      draftPrivacyBlocked.value = true
+    }
     return
   }
 
   const draft: CommentDraftSnapshot = {
+    version: 2,
     content,
-    authorMode: authorModeModel.value,
-    publicSendConfirmed: publicIdentityModel.value,
     savedAt: Date.now(),
     policyHash: props.policySnapshotHash
   }
 
-  try {
-    window.localStorage.setItem(key, JSON.stringify(draft))
+  if (writeCommentPublicDraft(commentDraftStorage, key, draft)) {
     localDraft.value = draft
-  } catch {
-    // Local draft persistence is best-effort.
   }
 }
 
@@ -594,33 +654,147 @@ const scheduleSaveCommentDraft = (): void => {
   }, 700)
 }
 
+const flushPublicCommentDraft = (): void => {
+  if (draftSaveTimer) {
+    clearTimeout(draftSaveTimer)
+    draftSaveTimer = null
+  }
+  saveCommentDraft()
+}
+
+const reviewCommentDraft = (): void => {
+  const draft = localDraft.value
+  if (!draft) return
+  if (!clearPersistedCommentDraft()) {
+    draftPrivacyBlocked.value = true
+  }
+  emit('update:modelValue', draft.content)
+  emit('update:authorMode', 'zk_anonymous')
+  emit('update:publicSendConfirmed', false)
+  void focusEditorAfterSubmit()
+}
+
 const discardCommentDraft = (): void => {
   const draftContent = localDraft.value?.content ?? ''
-  removeCommentDraft()
+  if (!clearPersistedCommentDraft()) {
+    draftPrivacyBlocked.value = true
+  }
   if (contentModel.value === draftContent) {
     emit('update:modelValue', '')
   }
   void focusEditorAfterSubmit()
 }
 
+const identityWideDraftPurgeReasons = new Set<CommentPrivacyCredentialPurgeReason>([
+  'logout',
+  'session-expired',
+  'account-switch',
+  'account-deletion',
+  'panic',
+  'migration-failure',
+  'shared-device'
+])
+
+const clearDraftMemory = (): void => {
+  if (draftSaveTimer) {
+    clearTimeout(draftSaveTimer)
+    draftSaveTimer = null
+  }
+  const draftContent = localDraft.value?.content ?? contentModel.value
+  localDraft.value = null
+  restoredDraftVisible.value = false
+  draftNeedsReview.value = false
+  if (draftContent && contentModel.value) {
+    emit('update:modelValue', '')
+  }
+}
+
+const handleDraftPrivacyPurge = (reason: CommentPrivacyCredentialPurgeReason): void => {
+  const identityWide = identityWideDraftPurgeReasons.has(reason)
+  if (identityWide && commentDraftStorage && !clearAllCommentDraftStorage(commentDraftStorage)) {
+    draftPrivacyBlocked.value = true
+  }
+  if (identityWide || authorModeModel.value === 'zk_anonymous') {
+    clearDraftMemory()
+  }
+  if (identityWide) {
+    commentDraftScopeId = ''
+    draftStorageKey.value = ''
+  }
+}
+
 watch(
-  () => draftStorageKey.value,
-  () => restoreCommentDraft()
+  () => [props.articleId, props.replyTarget?.id ?? null] as const,
+  () => {
+    flushPublicCommentDraft()
+    refreshCommentDraftStorageKey()
+  }
 )
+
+watch(() => props.accountId, (accountId) => {
+  if (accountId === lastAccountId) return
+  if (lastAccountId !== null) {
+    if (commentDraftStorage && !clearAllCommentDraftStorage(commentDraftStorage)) {
+      draftPrivacyBlocked.value = true
+    }
+    clearDraftMemory()
+    commentDraftScopeId = ''
+    draftStorageKey.value = ''
+  }
+  lastAccountId = accountId
+  if (accountId !== null) {
+    initializeCommentDraftStorage()
+  }
+})
+
+watch(() => props.policySnapshotHash, (policyHash, previousPolicyHash) => {
+  if (!previousPolicyHash || policyHash === previousPolicyHash || !contentModel.value.trim()) return
+  localDraft.value = {
+    version: 2,
+    content: contentModel.value,
+    savedAt: Date.now(),
+    policyHash: previousPolicyHash
+  }
+  restoredDraftVisible.value = true
+  draftNeedsReview.value = true
+  emit('update:modelValue', '')
+  emit('update:authorMode', 'zk_anonymous')
+  emit('update:publicSendConfirmed', false)
+})
+
+watch(() => effectiveAnonymousCommentsEnabled.value, (enabled, wasEnabled) => {
+  if (wasEnabled && !enabled && authorModeModel.value === 'zk_anonymous') {
+    handleDraftPrivacyPurge('feature-disabled')
+  }
+})
 
 watch(
   () => [
     contentModel.value,
     authorModeModel.value,
-    publicIdentityModel.value,
-    props.policySnapshotHash
+    publicIdentityModel.value
   ],
-  () => scheduleSaveCommentDraft()
+  () => {
+    if (draftNeedsReview.value) return
+    if (authorModeModel.value !== 'public' || !publicIdentityModel.value) {
+      if (draftSaveTimer) {
+        clearTimeout(draftSaveTimer)
+        draftSaveTimer = null
+      }
+      if (!clearPersistedCommentDraft()) {
+        draftPrivacyBlocked.value = true
+      }
+      return
+    }
+    scheduleSaveCommentDraft()
+  }
 )
 
 watch(() => contentModel.value, (value) => {
   if (!value.trim()) {
-    removeCommentDraft()
+    if (!draftNeedsReview.value && !clearPersistedCommentDraft()) {
+      draftPrivacyBlocked.value = true
+    }
   }
 })
 </script>
@@ -859,6 +1033,13 @@ watch(() => contentModel.value, (value) => {
   cursor: pointer;
   font: inherit;
   padding: 0;
+}
+
+.comment-composer-draft__actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .comment-composer-toolbar {

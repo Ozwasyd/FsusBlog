@@ -126,7 +126,7 @@ describe('private storage registry', () => {
     expect(result.complete).toBe(true)
     expect(local.getItem(storedKey(webEntry('article-drafts')))).toBeNull()
     expect(session.getItem(storedKey(webEntry('local-fixture-admin')))).toBeNull()
-    expect(local.getItem(storedKey(webEntry('comment-drafts')))).not.toBeNull()
+    expect(local.getItem(storedKey(webEntry('public-comment-drafts')))).not.toBeNull()
     expect(session.getItem(storedKey(webEntry('local-fixture-account')))).not.toBeNull()
     expect(local.getItem(storedKey(webEntry('theme-mode')))).not.toBeNull()
   })
@@ -142,7 +142,7 @@ describe('private storage registry', () => {
     expect(first.failed).toEqual([])
     expect(first.removed.length).toBeGreaterThan(0)
     expect(second.failed).toEqual([])
-    expect(second.items.find(item => item.id === 'comment-drafts')?.status).toBe('not-present')
+    expect(second.items.find(item => item.id === 'public-comment-drafts')?.status).toBe('not-present')
   })
 
   it('clears registered cache families and sensitive requests but preserves public assets and other apps', async () => {

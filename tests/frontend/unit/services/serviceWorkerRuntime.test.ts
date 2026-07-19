@@ -187,7 +187,7 @@ describe('serviceWorkerRuntime private browser cleanup', () => {
     expect(activeWorker.postMessage).not.toHaveBeenCalled()
     expect(result.credentialStateCleared).toBe(true)
     expect(result.items.find(item => item.id === 'article-drafts')?.status).toBe('removed')
-    expect(result.items.find(item => item.id === 'comment-drafts')?.status).toBe('retained')
+    expect(result.items.find(item => item.id === 'legacy-comment-drafts')?.status).toBe('retained')
   })
 })
 

@@ -83,6 +83,8 @@ RunPrivacyBenchmark() {
 }
 
 RunPrivacyFrontend() {
+    node "$ROOT_DIR/tools/security/check-comment-draft-privacy.mjs"
+    node --test "$ROOT_DIR/tests/security/comment-draft-privacy.test.mjs"
     npm --prefix "$ROOT_DIR/src/frontend" run check:privacy-zk-frontend
 }
 
