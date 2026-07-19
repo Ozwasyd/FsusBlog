@@ -13,6 +13,7 @@ using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Shared.Contracts.Outputs;
 
@@ -837,14 +838,12 @@ public sealed partial class FileService : IFileService
             return Task.FromResult(false);
         }
 
-        string normalizedUrl = imageUrl.Trim().Replace('\\', '/');
-        int suffixStart = normalizedUrl.IndexOfAny(['?', '#']);
-        if (suffixStart >= 0)
+        if (!ArticleAssetUrlNormalizer.TryNormalize(imageUrl, out string normalizedUrl))
         {
-            normalizedUrl = normalizedUrl[..suffixStart];
+            LogSecurityWarning(SanitizeLogPath(imageUrl));
+            return Task.FromResult(false);
         }
 
-        normalizedUrl = "/" + normalizedUrl.TrimStart('/');
         string expectedPrefix = _cleanSubFolderWeb + "/";
         if (!normalizedUrl.StartsWith(expectedPrefix, StringComparison.OrdinalIgnoreCase))
         {

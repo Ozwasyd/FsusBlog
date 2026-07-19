@@ -18,6 +18,7 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Models.Requests;
+using FsusBlog.Server.Services.Articles;
 
 using SqlSugar;
 
@@ -160,7 +161,9 @@ public partial class ArticleService
         ct.ThrowIfCancellationRequested();
         article.Content = await _db.Queryable<ArticleBody>().Where(it => it.ArticleId == id).Select(it => it.MarkdownContent).FirstAsync() ?? string.Empty;
         ct.ThrowIfCancellationRequested();
-        var imageUrls = ImageHelper.ExtractIllustrationUrls(article.Content);
+        string[] imageUrls = [.. ArticleAssetReferenceStore
+            .BuildReferenceCounts(article.Content, article.CoverImageUrl)
+            .Keys];
 
         var result = await _db.Ado.UseTranAsync(async () =>
         {
@@ -170,11 +173,13 @@ public partial class ArticleService
                 return 0;
             }
 
+            var assetReferences = new ArticleAssetReferenceStore(_db);
+            await assetReferences.ReconcileUrlsAsync(imageUrls, ct).ConfigureAwait(false);
             await _db.Deleteable<Comment>().Where(c => c.ArticleId == id).ExecuteCommandAsync();
             await _db.Deleteable<ArticleTag>().Where(at => at.ArticleId == id).ExecuteCommandAsync();
             await _db.Deleteable<ArticleBody>().Where(it => it.ArticleId == id).ExecuteCommandAsync();
             await RecordArticleMutationOutboxAsync(id, "permanently-deleted");
-            return await _db.Ado.ExecuteCommandAsync(
+            int deleted = await _db.Ado.ExecuteCommandAsync(
                 """
                 DELETE FROM article
                 WHERE id = @ArticleId
@@ -183,6 +188,11 @@ public partial class ArticleService
                 """,
                 new SugarParameter("@ArticleId", id),
                 new SugarParameter("@RowVersion", state.RowVersion));
+            if (deleted > 0)
+            {
+                await assetReferences.RemoveCurrentArticlesAndScheduleAsync([id], imageUrls, ct).ConfigureAwait(false);
+            }
+            return deleted;
         });
 
         ct.ThrowIfCancellationRequested();
@@ -224,6 +234,13 @@ public partial class ArticleService
                 .Select(it => new { it.ArticleId, it.MarkdownContent })
                 .ToListAsync(ct))
                 .ToDictionary(static it => it.ArticleId, static it => it.MarkdownContent);
+            string[] candidateUrls = [.. lockedTrashArticles
+                .SelectMany(article => ArticleAssetReferenceStore.BuildReferenceCounts(
+                    trashedBodyMap.GetValueOrDefault(article.Id),
+                    article.CoverImageUrl).Keys)
+                .Distinct(StringComparer.Ordinal)];
+            var assetReferences = new ArticleAssetReferenceStore(_db);
+            await assetReferences.ReconcileUrlsAsync(candidateUrls, ct).ConfigureAwait(false);
 
             // Bound each IN expression to avoid exceeding the database parser's practical limit.
             foreach (var chunk in articleIds.Chunk(500))
@@ -239,6 +256,7 @@ public partial class ArticleService
                     .Where(it => chunk.Contains(it.Id) && it.IsDeleted)
                     .ExecuteCommandAsync();
             }
+            await assetReferences.RemoveCurrentArticlesAndScheduleAsync(articleIds, candidateUrls, ct).ConfigureAwait(false);
             return articleIds.Count;
         });
 
@@ -261,14 +279,17 @@ public partial class ArticleService
         var rows = new List<TrashArticleRow>();
         using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
             """
-            SELECT id, categoryid
+            SELECT id, categoryid, coverimageurl
             FROM article
             WHERE isdeleted = true
             FOR UPDATE;
             """);
         while (await reader.ReadAsync(cancellationToken))
         {
-            rows.Add(new TrashArticleRow(reader.ReadInt32("id"), reader.ReadInt32("categoryid")));
+            rows.Add(new TrashArticleRow(
+                reader.ReadInt32("id"),
+                reader.ReadInt32("categoryid"),
+                reader.IsNull("coverimageurl") ? null : reader.ReadString("coverimageurl")));
         }
 
         return rows;

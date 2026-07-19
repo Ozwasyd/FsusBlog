@@ -1,10 +1,24 @@
 using FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
 
 using Microsoft.Extensions.Configuration;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class OnlineSchemaMigrationPolicyTests
 {
+    [Fact]
+    public void ArticleAssetReferenceLedger_IsExplicitAdditiveExpand()
+    {
+        OnlineSchemaMigrationMetadata metadata = new OnlineSchemaMigrationCatalog()
+            .GetMetadata()[ArticleAssetReferenceMigrationDefinitions.MigrationId];
+
+        Assert.Equal(OnlineSchemaMigrationPhase.Expand, metadata.Phase);
+        Assert.False(metadata.Destructive);
+        Assert.False(metadata.RequiresExclusiveMode);
+        Assert.Equal(OnlineSchemaMigrationRollbackMode.CompatibleCode, metadata.RollbackMode);
+        Assert.Contains("article_asset_reference_recheck", metadata.Validators);
+    }
+
     [Fact]
     public void ExistingRegistry_IsExplicitlyClassifiedWithoutInferringOnlinePhases()
     {
@@ -36,6 +50,8 @@ public sealed class OnlineSchemaMigrationPolicyTests
             metadata[AccountSubjectHashOnlineBackfillHandler.ExpandMigrationId];
         OnlineSchemaMigrationMetadata subjectBackfill =
             metadata[AccountSubjectHashOnlineBackfillHandler.BackfillMigrationId];
+        OnlineSchemaMigrationMetadata articleAssetReferences =
+            metadata[ArticleAssetReferenceMigrationDefinitions.MigrationId];
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, passkeyExpand.Phase);
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, publicArticleProjectionExpand.Phase);
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, articleOutboxClaimLeaseExpand.Phase);
@@ -49,10 +65,11 @@ public sealed class OnlineSchemaMigrationPolicyTests
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, anonymousEligibilityPredicateExpand.Phase);
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, subjectExpand.Phase);
         Assert.Equal(OnlineSchemaMigrationPhase.Backfill, subjectBackfill.Phase);
+        Assert.Equal(OnlineSchemaMigrationPhase.Expand, articleAssetReferences.Phase);
         Assert.Equal(AccountSubjectHashBackfillStep.BatchSize, subjectBackfill.BatchSize);
         Assert.Equal("last_account_id", subjectBackfill.ResumeTokenName);
         Assert.Equal(OnlineSchemaMigrationRollbackMode.ResumeFromCheckpoint, subjectBackfill.RollbackMode);
-        Assert.All(new[] { passkeyExpand, publicArticleProjectionExpand, articleOutboxClaimLeaseExpand, activeReleaseFenceWitnessExpand, activeReleaseFencedCommitExpand, readEventRetirementCompat, anonymousEligibilityPredicateExpand, subjectExpand, subjectBackfill }, classification =>
+        Assert.All(new[] { passkeyExpand, publicArticleProjectionExpand, articleOutboxClaimLeaseExpand, activeReleaseFenceWitnessExpand, activeReleaseFencedCommitExpand, readEventRetirementCompat, anonymousEligibilityPredicateExpand, subjectExpand, subjectBackfill, articleAssetReferences }, classification =>
         {
             Assert.False(classification.LegacyBootstrapOnly);
             Assert.False(classification.Destructive);
@@ -69,7 +86,8 @@ public sealed class OnlineSchemaMigrationPolicyTests
             readEventRetirementContract.MigrationId,
             anonymousEligibilityPredicateExpand.MigrationId,
             subjectExpand.MigrationId,
-            subjectBackfill.MigrationId
+            subjectBackfill.MigrationId,
+            articleAssetReferences.MigrationId
         };
         Assert.All(metadata.Values.Where(classification =>
             !onlineIds.Contains(classification.MigrationId)), classification =>

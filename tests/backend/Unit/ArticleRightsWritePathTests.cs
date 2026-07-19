@@ -358,6 +358,8 @@ public sealed class ArticleRightsWritePathTests(
             typeof(Category),
             typeof(Tag),
             typeof(ArticleRevision),
+            typeof(ArticleAssetReference),
+            typeof(ArticleAssetCleanupQueueItem),
             typeof(ArticleMutationOutboxEvent),
             typeof(ArticleRightsPolicy),
             typeof(ArticleRightsSnapshot),

@@ -22,6 +22,7 @@ internal static class SchemaMigrationCatalog20260719
             Descriptors:
             [
                 ArticlePublicationMigrationDefinitions.BuildArticlePublicationCoordinatesMigration(),
+                ArticleAssetReferenceMigrationDefinitions.BuildMigration(),
                 ArticlePublicationMigrationDefinitions.BuildArticlePublicationConsistencyViewMigration(),
                 CommentModerationEventMigrationDefinitions.BuildCommentModerationEventMigration(),
                 MessageAdminQueueMigrationDefinitions.BuildAdminQueueStateMigration(),

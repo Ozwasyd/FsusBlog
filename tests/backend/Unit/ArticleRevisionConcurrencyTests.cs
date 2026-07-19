@@ -517,6 +517,8 @@ public sealed class ArticleRevisionConcurrencyTests(
             typeof(Category),
             typeof(Tag),
             typeof(ArticleRevision),
+            typeof(ArticleAssetReference),
+            typeof(ArticleAssetCleanupQueueItem),
             typeof(ArticleRightsPolicy),
             typeof(ArticleRightsSnapshot),
             typeof(ArticleMutationOutboxEvent));

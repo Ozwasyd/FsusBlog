@@ -241,6 +241,10 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
             typeof(Category),
             typeof(Tag),
             typeof(Comment),
+            typeof(ArticleDraft),
+            typeof(ArticleRevision),
+            typeof(ArticleAssetReference),
+            typeof(ArticleAssetCleanupQueueItem),
             typeof(ArticleMutationOutboxEvent));
 
     private static void SeedTaxonomy(SqlSugarClient db)

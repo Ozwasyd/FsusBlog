@@ -61,7 +61,23 @@ public sealed class AuthoringDraftLifecycleService(
         };
         draft.ScheduledPublishAt = draft.Status == ArticleStatus.Scheduled ? request.ScheduledPublishAt : null;
 
-        await UpsertDraftAsync(draft, cancellationToken);
+        var transaction = await db.Ado.UseTranAsync(async () =>
+        {
+            await UpsertDraftAsync(draft, cancellationToken).ConfigureAwait(false);
+            await new ArticleAssetReferenceStore(db)
+                .ReplaceDraftAsync(
+                    draft.OwnerAdminPrincipalId,
+                    draft.DraftKey,
+                    draft.ArticleId,
+                    draft.MarkdownContent,
+                    draft.CoverImageUrl,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }).ConfigureAwait(false);
+        if (!transaction.IsSuccess)
+        {
+            throw new InvalidOperationException("Server draft and asset references were not saved atomically.", transaction.ErrorException);
+        }
 
         auditWriter.Write(AuditSourceCatalog.Article, "server-draft-save", ownerAdminPrincipalId, draftKey);
         return ToDraftResponse(draft);

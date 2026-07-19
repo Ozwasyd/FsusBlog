@@ -19,7 +19,11 @@ public sealed class AuthoringDraftConcurrencyTests(PostgresSchemaMigrationFixtur
     {
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
         using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
-        PostgresSqlSugarTestClient.InitTables(setupDb, typeof(ArticleDraft));
+        PostgresSqlSugarTestClient.InitTables(
+            setupDb,
+            typeof(ArticleDraft),
+            typeof(ArticleAssetReference),
+            typeof(ArticleAssetCleanupQueueItem));
         using SqlSugarClient firstDb = PostgresSqlSugarTestClient.Create(connectionString);
         using SqlSugarClient secondDb = PostgresSqlSugarTestClient.Create(connectionString);
         AuthoringDraftLifecycleService firstService = CreateService(firstDb);
@@ -42,7 +46,11 @@ public sealed class AuthoringDraftConcurrencyTests(PostgresSchemaMigrationFixtur
     public async Task SaveDraftAsync_OnConflictMergesLatestDraftFields()
     {
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
-        PostgresSqlSugarTestClient.InitTables(db, typeof(ArticleDraft));
+        PostgresSqlSugarTestClient.InitTables(
+            db,
+            typeof(ArticleDraft),
+            typeof(ArticleAssetReference),
+            typeof(ArticleAssetCleanupQueueItem));
         AuthoringDraftLifecycleService service = CreateService(db);
 
         await service.SaveDraftAsync(7, CreateRequest("rev-a", "first content"), CancellationToken.None);

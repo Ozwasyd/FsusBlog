@@ -7,6 +7,7 @@ using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Server.Services.Background;
 
 using SqlSugar;
 
@@ -128,25 +129,14 @@ public sealed record ArticleMutationReplayResult(
         => new(false, error, completedEdges, failedEdges);
 }
 
-public sealed class ArticleAssetCleanupPolicy(IFileService fileService)
+public sealed class ArticleAssetCleanupPolicy(ArticleAssetCleanupQueue cleanupQueue)
 {
-    private const int MaxDeleteParallelism = 5;
-
-    public async Task DeleteIllustrationsAsync(IEnumerable<string> imageUrls, CancellationToken cancellationToken = default)
+    public Task DeleteIllustrationsAsync(IEnumerable<string> imageUrls, CancellationToken cancellationToken = default)
     {
-        string[] uniqueUrls = imageUrls
-            .Where(static url => !string.IsNullOrWhiteSpace(url))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-        if (uniqueUrls.Length == 0)
-        {
-            return;
-        }
-
-        await Parallel.ForEachAsync(
-            uniqueUrls,
-            new ParallelOptions { MaxDegreeOfParallelism = MaxDeleteParallelism, CancellationToken = cancellationToken },
-            async (url, _) => await fileService.DeleteImageAsync(url));
+        cancellationToken.ThrowIfCancellationRequested();
+        _ = imageUrls;
+        cleanupQueue.TryRequestScan();
+        return Task.CompletedTask;
     }
 }
 

@@ -18,6 +18,7 @@ using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Services.Moderation;
+using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Telemetry;
 using FsusBlog.Shared.Contracts.Outputs;
 
@@ -456,15 +457,15 @@ public sealed class AuthoringAssetLibraryService(ISqlSugarClient db) : IAuthorin
 
     private static void AddAssetReference(Dictionary<string, AssetReferenceAggregate> assets, string url, string? altText, int articleId)
     {
-        if (!IsUploadAssetUrl(url))
+        if (!ArticleAssetUrlNormalizer.TryNormalize(url, out string normalizedUrl))
         {
             return;
         }
 
-        if (!assets.TryGetValue(url, out AssetReferenceAggregate? aggregate))
+        if (!assets.TryGetValue(normalizedUrl, out AssetReferenceAggregate? aggregate))
         {
-            aggregate = new AssetReferenceAggregate(url, articleId);
-            assets[url] = aggregate;
+            aggregate = new AssetReferenceAggregate(normalizedUrl, articleId);
+            assets[normalizedUrl] = aggregate;
         }
 
         aggregate.ReferenceCount++;
@@ -482,10 +483,7 @@ public sealed class AuthoringAssetLibraryService(ISqlSugarClient db) : IAuthorin
             AddAssetReference(assets, reference.Url, reference.AltText, articleId);
         }
 
-        if (IsUploadAssetUrl(coverImageUrl))
-        {
-            AddAssetReference(assets, coverImageUrl!, null, articleId);
-        }
+        AddAssetReference(assets, coverImageUrl ?? string.Empty, null, articleId);
 
         return assets;
     }
@@ -504,16 +502,6 @@ public sealed class AuthoringAssetLibraryService(ISqlSugarClient db) : IAuthorin
             aggregate.AltText = source.AltText;
         }
     }
-
-    private static bool IsUploadAssetUrl(string? url)
-        => !string.IsNullOrWhiteSpace(url)
-            && url.StartsWith("/uploads/illustration/", StringComparison.OrdinalIgnoreCase)
-            && (url.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase)
-                || url.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase)
-                || url.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
-                || url.EndsWith(".gif", StringComparison.OrdinalIgnoreCase)
-                || url.EndsWith(".webp", StringComparison.OrdinalIgnoreCase)
-                || url.EndsWith(".svg", StringComparison.OrdinalIgnoreCase));
 
     private sealed class AssetReferenceAggregate(string url, int sourceArticleId)
     {

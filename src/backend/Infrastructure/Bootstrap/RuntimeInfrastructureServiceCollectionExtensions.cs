@@ -267,6 +267,8 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
     private static IServiceCollection AddBackgroundRuntime(this IServiceCollection services)
     {
         services.AddSingleton<VisitLogChannel>();
+        services.AddSingleton<ArticleAssetCleanupQueue>();
+        services.AddScoped<ArticleAssetCleanupService>();
         services.AddScoped<IArticleViewProjectionService, ArticleViewProjectionService>();
         if (!OpenApiExportMode.IsEnabled())
         {
@@ -277,6 +279,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         {
             services.AddHostedService<LogCleanupService>();
             services.AddHostedService<ArticleMutationOutboxDispatcher>();
+            services.AddHostedService<ArticleAssetCleanupWorker>();
             services.AddHostedService<RumTelemetryFlushWorker>();
         }
         services.AddSingleton<ScheduledPublishRuntimeState>();

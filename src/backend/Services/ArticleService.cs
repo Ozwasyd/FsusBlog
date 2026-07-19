@@ -54,7 +54,7 @@ public partial class ArticleService(
     IArticlePublicationValidator _publicationValidator) : IArticleCoreGateway
 #pragma warning restore IDE1006
 {
-    private readonly record struct TrashArticleRow(int Id, int CategoryId);
+    private readonly record struct TrashArticleRow(int Id, int CategoryId, string? CoverImageUrl);
     private readonly record struct ArticleRevisionCoordinates(long Id, int RevisionNo);
     private sealed record ArticleRightsWriteModel(
         bool Enabled,
@@ -703,6 +703,9 @@ public partial class ArticleService(
                     await _db.Insertable(BuildArticleTags(id, tagIds)).ExecuteCommandAsync();
                 }
                 ArticleRevisionCoordinates revision = await SaveArticleRevisionAsync(id, title, content, safeSummary, coverImageUrl, dto.CategoryId, tagIds, "initial publish");
+                var assetReferences = new ArticleAssetReferenceStore(_db);
+                await assetReferences.ReplaceCurrentArticleAsync(id, content, coverImageUrl, ct).ConfigureAwait(false);
+                await assetReferences.ReplaceRevisionAsync(revision.Id, id, content, coverImageUrl, ct).ConfigureAwait(false);
                 long rightsSnapshotId = await SaveArticleRightsAsync(
                     id,
                     revision,
@@ -1255,6 +1258,9 @@ public partial class ArticleService(
                 await UpsertArticleBodyAsync(id, content, now);
                 await ApplyArticleTagsAsync(id, tagIds);
                 ArticleRevisionCoordinates revision = await SaveArticleRevisionAsync(id, title, content, safeSummary, coverImageUrl, dto.CategoryId, tagIds, "article updated");
+                var assetReferences = new ArticleAssetReferenceStore(_db);
+                await assetReferences.ReplaceCurrentArticleAsync(id, content, coverImageUrl, ct).ConfigureAwait(false);
+                await assetReferences.ReplaceRevisionAsync(revision.Id, id, content, coverImageUrl, ct).ConfigureAwait(false);
                 long rightsSnapshotId = await SaveArticleRightsAsync(
                     id,
                     revision,

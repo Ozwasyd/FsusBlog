@@ -188,6 +188,16 @@
       "replaySource": "article mutation outbox table"
     },
     {
+      "type": "ArticleAssetCleanupWorker",
+      "source": "src/backend/Services/Background/ArticleAssetCleanupWorker.cs",
+      "classification": "multi-consumer-safe",
+      "idempotency": "PostgreSQL SKIP LOCKED queue claims and per-URL advisory locks serialize final reference checks and idempotent local deletes",
+      "drain": "finish-current",
+      "maxDrainSeconds": 15,
+      "fence": "not-required",
+      "replaySource": "article_asset_cleanup_queue and authoritative article_asset_reference ledger"
+    },
+    {
       "type": "CrawlerUpdateWorker",
       "source": "src/backend/Services/Background/CrawlerUpdateWorker.cs",
       "classification": "active-singleton",
