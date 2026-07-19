@@ -30,6 +30,7 @@ internal sealed class UnifiedCache(
     ICacheCompareExchangeStore,
     ICacheCounterStore,
     ICacheOneTimeStore,
+    ICacheOneTimeExchangeStore,
     ICacheInvalidationStore,
     ICacheLeaseStore,
     ICacheDiagnostics,
@@ -977,6 +978,92 @@ return result
 
         await UnregisterKeyAsync(policyId, key, cancellationToken).ConfigureAwait(false);
         telemetry.RecordOperation("consume_once_get", CachePolicyTelemetry.Name(policyId), "l2", "consumed", FsusObservability.GetElapsed(startedAt));
+        return new CacheReadResult<T>(true, decoded);
+    }
+
+    public async Task<CacheReadResult<T>> ExchangeOnceAndGetAsync<T>(
+        CachePolicyId sourcePolicyId,
+        string sourceIdentity,
+        CachePolicyId targetPolicyId,
+        string targetIdentity,
+        byte[] targetValue,
+        TimeSpan targetTtl,
+        Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> sourceDecoder,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(targetValue);
+        ArgumentNullException.ThrowIfNull(sourceDecoder);
+        if (targetTtl <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(targetTtl));
+        }
+
+        long startedAt = Stopwatch.GetTimestamp();
+        using Activity? activity = FsusObservability.StartActivity("cache.exchange_once_get", "cache", ActivityKind.Client);
+        FsusObservability.SetTag(activity, "fsus.cache.operation", "exchange_once_get");
+        FsusObservability.SetTag(activity, "fsus.cache.policy", CachePolicyTelemetry.Name(sourcePolicyId));
+        cancellationToken.ThrowIfCancellationRequested();
+
+        CacheIdentity sourceCacheIdentity = CacheIdentity.FromString(sourceIdentity);
+        CacheIdentity targetCacheIdentity = CacheIdentity.FromString(targetIdentity);
+        CachePolicy sourcePolicy = ResolvePolicy(sourcePolicyId);
+        CachePolicy targetPolicy = ResolvePolicy(targetPolicyId);
+        string sourceKey = BuildRedisKey(sourcePolicy, sourceCacheIdentity);
+        string targetKey = BuildRedisKey(targetPolicy, targetCacheIdentity);
+        if (string.Equals(sourceKey, targetKey, StringComparison.Ordinal))
+        {
+            throw new ArgumentException("Source and target cache identities must differ.", nameof(targetIdentity));
+        }
+
+        RemoveL1(sourcePolicyId, sourceCacheIdentity, sourceKey);
+        RemoveL1(targetPolicyId, targetCacheIdentity, targetKey);
+        long ttlMilliseconds = Math.Max(1L, (long)Math.Ceiling(targetTtl.TotalMilliseconds));
+        const string Script = """
+local source = redis.call('GET', KEYS[1])
+if not source then
+  return {0}
+end
+redis.call('DEL', KEYS[1])
+redis.call('SET', KEYS[2], ARGV[1], 'PX', ARGV[2])
+return {1, source}
+""";
+        RedisResult result = await _db.ScriptEvaluateAsync(
+                Script,
+                [sourceKey, targetKey],
+                [targetValue, ttlMilliseconds],
+                CommandFlags.None)
+            .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        RedisResult[] values = (RedisResult[])result!;
+        if (values.Length == 0 || (long)values[0] != 1L)
+        {
+            telemetry.RecordOperation("exchange_once_get", CachePolicyTelemetry.Name(sourcePolicyId), "l2", "miss", FsusObservability.GetElapsed(startedAt));
+            return new CacheReadResult<T>(false, default);
+        }
+        if (values.Length != 2)
+        {
+            throw new InvalidOperationException("Redis returned an invalid one-time exchange result.");
+        }
+
+        byte[]? sourceValue = (byte[]?)values[1];
+        if (sourceValue is null)
+        {
+            await _db.KeyDeleteAsync(targetKey, CommandFlags.None).ConfigureAwait(false);
+            throw new InvalidOperationException("Redis returned an empty one-time exchange payload.");
+        }
+        var (success, decoded) = sourceDecoder(sourceValue);
+        if (!success)
+        {
+            await _db.KeyDeleteAsync(targetKey, CommandFlags.None).ConfigureAwait(false);
+            await UnregisterKeyAsync(sourcePolicyId, sourceKey, cancellationToken).ConfigureAwait(false);
+            telemetry.RecordOperation("exchange_once_get", CachePolicyTelemetry.Name(sourcePolicyId), "l2", "decode_failed", FsusObservability.GetElapsed(startedAt));
+            return new CacheReadResult<T>(false, default);
+        }
+
+        await UnregisterKeyAsync(sourcePolicyId, sourceKey, cancellationToken).ConfigureAwait(false);
+        await RegisterKeyAsync(targetPolicyId, targetKey).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        telemetry.RecordOperation("exchange_once_get", CachePolicyTelemetry.Name(sourcePolicyId), "l2", "exchanged", FsusObservability.GetElapsed(startedAt));
         return new CacheReadResult<T>(true, decoded);
     }
 

@@ -1001,6 +1001,87 @@ public sealed class UnifiedCacheTests
     }
 
     [Fact]
+    public async Task ExchangeOnceAndGetAsync_AtomicallyMovesSourceToTargetAndReturnsPayload()
+    {
+        using var memory = new RemoveTrackingMemoryCache();
+        var db = Substitute.For<IDatabase>();
+        UnifiedCache cache = CreateCache(memory, db);
+        string sourceKey = cache.BuildKey(CachePolicyId.SecurityChallengeProof, "proof:source");
+        string targetKey = cache.BuildKey(CachePolicyId.SecurityChallengeProof, "grant:target");
+        string? capturedScript = null;
+        RedisKey[]? capturedKeys = null;
+        RedisValue[]? capturedValues = null;
+        db.ScriptEvaluateAsync(
+                Arg.Any<string>(),
+                Arg.Any<RedisKey[]>(),
+                Arg.Any<RedisValue[]>(),
+                Arg.Any<CommandFlags>())
+            .Returns(call =>
+            {
+                capturedScript = call.ArgAt<string>(0);
+                capturedKeys = call.ArgAt<RedisKey[]>(1);
+                capturedValues = call.ArgAt<RedisValue[]>(2);
+                return Task.FromResult(RedisResult.Create(
+                    [
+                        RedisResult.Create((RedisValue)1L),
+                        RedisResult.Create((RedisValue)Encoding.UTF8.GetBytes("proof-payload"))
+                    ]));
+            });
+
+        CacheReadResult<string> exchanged = await cache.ExchangeOnceAndGetAsync(
+            CachePolicyId.SecurityChallengeProof,
+            "proof:source",
+            CachePolicyId.SecurityChallengeProof,
+            "grant:target",
+            Encoding.UTF8.GetBytes("grant-payload"),
+            TimeSpan.FromSeconds(30),
+            static bytes => (true, Encoding.UTF8.GetString(bytes.Span)));
+
+        Assert.True(exchanged.Hit);
+        Assert.Equal("proof-payload", exchanged.Value);
+        Assert.Contains("GET", capturedScript, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("DEL", capturedScript, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("SET", capturedScript, StringComparison.OrdinalIgnoreCase);
+        Assert.NotNull(capturedKeys);
+        Assert.Equal([new RedisKey(sourceKey), new RedisKey(targetKey)], capturedKeys!);
+        Assert.Equal((RedisValue)Encoding.UTF8.GetBytes("grant-payload"), capturedValues![0]);
+        Assert.Equal((RedisValue)30000L, capturedValues[1]);
+        Assert.Contains(sourceKey, memory.RemovedKeys);
+        Assert.Contains(targetKey, memory.RemovedKeys);
+    }
+
+    [Fact]
+    public async Task ExchangeOnceAndGetAsync_SourceMissDoesNotDecodeOrCreateTarget()
+    {
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var db = Substitute.For<IDatabase>();
+        db.ScriptEvaluateAsync(
+                Arg.Any<string>(),
+                Arg.Any<RedisKey[]>(),
+                Arg.Any<RedisValue[]>(),
+                Arg.Any<CommandFlags>())
+            .Returns(Task.FromResult(RedisResult.Create([RedisResult.Create((RedisValue)0L)])));
+        UnifiedCache cache = CreateCache(memory, db);
+        bool decoded = false;
+
+        CacheReadResult<string> exchanged = await cache.ExchangeOnceAndGetAsync<string>(
+            CachePolicyId.SecurityChallengeProof,
+            "proof:missing",
+            CachePolicyId.SecurityChallengeProof,
+            "grant:target",
+            Encoding.UTF8.GetBytes("grant-payload"),
+            TimeSpan.FromSeconds(30),
+            bytes =>
+            {
+                decoded = true;
+                return (true, Encoding.UTF8.GetString(bytes.Span));
+            });
+
+        Assert.False(exchanged.Hit);
+        Assert.False(decoded);
+    }
+
+    [Fact]
     public async Task AcquireSingleFlightAsync_RemovesEntryAfterOperationCompletes()
     {
         using CacheSingleFlightCoordinator coordinator = CreateSingleFlightCoordinator();

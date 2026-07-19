@@ -102,6 +102,19 @@ public interface ICacheOneTimeStore
     Task<CacheReadResult<T>> ConsumeOnceAndGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default);
 }
 
+public interface ICacheOneTimeExchangeStore
+{
+    Task<CacheReadResult<T>> ExchangeOnceAndGetAsync<T>(
+        CachePolicyId sourcePolicyId,
+        string sourceIdentity,
+        CachePolicyId targetPolicyId,
+        string targetIdentity,
+        byte[] targetValue,
+        TimeSpan targetTtl,
+        Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> sourceDecoder,
+        CancellationToken cancellationToken = default);
+}
+
 public interface ICacheInvalidationStore
 {
     Task RemoveAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default);

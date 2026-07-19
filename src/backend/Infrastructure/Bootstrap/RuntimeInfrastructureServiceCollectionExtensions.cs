@@ -181,6 +181,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<ICacheCompareExchangeStore>(sp => sp.GetRequiredService<UnifiedCache>());
         services.AddSingleton<ICacheCounterStore>(sp => sp.GetRequiredService<UnifiedCache>());
         services.AddSingleton<ICacheOneTimeStore>(sp => sp.GetRequiredService<UnifiedCache>());
+        services.AddSingleton<ICacheOneTimeExchangeStore>(sp => sp.GetRequiredService<UnifiedCache>());
         services.AddSingleton<ICacheInvalidationStore>(sp => sp.GetRequiredService<UnifiedCache>());
         services.AddSingleton<ICacheLeaseStore>(sp => sp.GetRequiredService<UnifiedCache>());
         services.AddSingleton<ICacheDiagnostics>(sp => sp.GetRequiredService<UnifiedCache>());
