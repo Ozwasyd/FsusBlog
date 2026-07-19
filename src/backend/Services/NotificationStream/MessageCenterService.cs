@@ -25,6 +25,7 @@ public sealed class MessageCenterService(
 {
     private const int MaxSubjectLength = 160;
     private const int MaxBodyLength = 4000;
+    private const int ConversationDetailPageSize = 50;
 
     public async Task<PageResponse<ConversationListItemResponse>> GetAccountConversationsAsync(
         int accountId,
@@ -62,7 +63,7 @@ public sealed class MessageCenterService(
         };
     }
 
-    public async Task<ConversationDetailResponse?> GetAccountConversationDetailAsync(int accountId, long conversationId)
+    public async Task<ConversationDetailResponse?> GetAccountConversationDetailAsync(int accountId, long conversationId, long? beforeMessageId = null)
     {
         var participant = await db.Queryable<ConversationParticipantState>()
             .Where(it => it.AccountId == accountId && it.ConversationId == conversationId)
@@ -78,22 +79,24 @@ public sealed class MessageCenterService(
             return null;
         }
 
-        var messages = await LoadConversationMessagesAsync(conversationId);
-        if (messages.Count == 0)
+        var page = await LoadConversationMessagePageAsync(conversationId, beforeMessageId);
+        if (page.Messages.Count == 0)
         {
             return null;
         }
         return new ConversationDetailResponse
         {
             ConversationId = conversation.Id.ToString(),
-            ReadSnapshotMessageId = messages[^1].MessageId,
+            ReadSnapshotMessageId = page.Messages[^1].MessageId,
+            PreviousCursor = page.PreviousCursor,
+            HasOlder = page.HasOlder,
             Subject = conversation.Subject,
             Status = ToStatusValue(conversation.Status),
             IsSystemSource = conversation.IsSystemSource,
             CanReply = conversation.Status != ConversationStatus.Closed,
             UnreadCount = participant.UnreadCount,
             LastMessageAt = conversation.LastMessageAt,
-            Messages = messages
+            Messages = page.Messages
         };
     }
 
@@ -141,7 +144,7 @@ public sealed class MessageCenterService(
         };
     }
 
-    public async Task<ConversationDetailResponse?> GetAdminConversationDetailAsync(long conversationId)
+    public async Task<ConversationDetailResponse?> GetAdminConversationDetailAsync(long conversationId, long? beforeMessageId = null)
     {
         var conversation = await db.Queryable<MessageConversation>().InSingleAsync(conversationId);
         if (conversation is null)
@@ -152,22 +155,24 @@ public sealed class MessageCenterService(
         int unreadCount = await db.Queryable<ConversationParticipantState>()
             .Where(it => it.ConversationId == conversationId)
             .SumAsync(it => it.UnreadCount);
-        var messages = await LoadConversationMessagesAsync(conversationId);
-        if (messages.Count == 0)
+        var page = await LoadConversationMessagePageAsync(conversationId, beforeMessageId);
+        if (page.Messages.Count == 0)
         {
             return null;
         }
         return new ConversationDetailResponse
         {
             ConversationId = conversation.Id.ToString(),
-            ReadSnapshotMessageId = messages[^1].MessageId,
+            ReadSnapshotMessageId = page.Messages[^1].MessageId,
+            PreviousCursor = page.PreviousCursor,
+            HasOlder = page.HasOlder,
             Subject = conversation.Subject,
             Status = ToStatusValue(conversation.Status),
             IsSystemSource = conversation.IsSystemSource,
             CanReply = conversation.Status != ConversationStatus.Closed,
             UnreadCount = unreadCount,
             LastMessageAt = conversation.LastMessageAt,
-            Messages = messages
+            Messages = page.Messages
         };
     }
 
@@ -914,13 +919,25 @@ public sealed class MessageCenterService(
         return unreadMap;
     }
 
-    private async Task<List<ConversationMessageResponse>> LoadConversationMessagesAsync(long conversationId)
+    private async Task<ConversationMessagePage> LoadConversationMessagePageAsync(long conversationId, long? beforeMessageId)
     {
-        var rows = await db.Queryable<ConversationMessage>()
+        var query = db.Queryable<ConversationMessage>()
             .Where(it => it.ConversationId == conversationId && !it.IsInternalNote)
-            .OrderBy(it => it.Id)
+            .WhereIF(beforeMessageId.HasValue, it => it.Id < beforeMessageId!.Value)
+            .OrderBy(it => it.Id, OrderByType.Desc)
+            .Take(ConversationDetailPageSize + 1);
+        var rows = await query
             .ToListAsync();
-        return await MapMessagesAsync(rows);
+        bool hasOlder = rows.Count > ConversationDetailPageSize;
+        if (hasOlder)
+        {
+            rows.RemoveAt(rows.Count - 1);
+        }
+
+        rows.Reverse();
+        List<ConversationMessageResponse> messages = await MapMessagesAsync(rows);
+        string? previousCursor = hasOlder && rows.Count > 0 ? rows[0].Id.ToString() : null;
+        return new ConversationMessagePage(messages, previousCursor, hasOlder);
     }
 
     private async Task<Dictionary<long, ConversationMessagePreviewResponse>> LoadLastMessageMapAsync(
@@ -1553,6 +1570,11 @@ public sealed class MessageCenterService(
         ConversationParticipantState Participant,
         ConversationListItemResponse? Item,
         int TotalUnread);
+
+    private sealed record ConversationMessagePage(
+        List<ConversationMessageResponse> Messages,
+        string? PreviousCursor,
+        bool HasOlder);
 
     private sealed class AccountUnreadRow
     {

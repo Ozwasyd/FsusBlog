@@ -62,7 +62,8 @@
           :detail="detail"
           :selection-empty="threadSelectionEmpty"
           :rows="visibleMessageRows"
-          :hidden-count="hiddenMessageCount"
+          :has-older="Boolean(detail?.hasOlder)"
+          :loading-older="loadingOlderMessages"
           :reply-loading="replyLoading"
           :reply-disabled="replyDisabled"
           :context-account-text="contextAccountText"
@@ -73,7 +74,7 @@
           @create-ticket="showMobileTicketCompose = true"
           @reply="handleReply"
           @update-status="updateStatus"
-          @load-more="messageRenderLimit += MESSAGE_RENDER_WINDOW"
+          @load-more="loadOlderMessages"
         />
 
         <MessagesComposePanel
@@ -148,7 +149,6 @@ type FocusablePane = {
 const route = useRoute()
 const isAdminView = computed(() => route.name === 'ManageMessages')
 const CONVERSATION_RENDER_WINDOW = 80
-const MESSAGE_RENDER_WINDOW = 80
 const ROW_MOTION_VISIBLE_LIMIT = 20
 const formatTimeCache = new Map<string, string>()
 
@@ -192,9 +192,11 @@ const loadingMoreConversations = computed(() =>
 )
 const detail = computed(() => (isAdminView.value ? adminCenter.detail.value : accountInbox.detail.value))
 const conversationRenderLimit = ref(CONVERSATION_RENDER_WINDOW)
-const messageRenderLimit = ref(MESSAGE_RENDER_WINDOW)
 const listLoading = computed(() => (isAdminView.value ? adminCenter.loading.value : accountInbox.loading.value))
 const detailLoading = computed(() => (isAdminView.value ? adminCenter.loadingDetail.value : accountInbox.loadingDetail.value))
+const loadingOlderMessages = computed(() => (
+  isAdminView.value ? adminCenter.loadingOlderMessages.value : accountInbox.loadingOlderMessages.value
+))
 const replyLoading = computed(() => (isAdminView.value ? adminCenter.processing.value : accountInbox.sending.value))
 const replyDisabled = computed(() =>
   isAdminView.value
@@ -277,8 +279,7 @@ const loadedHiddenConversationCount = computed(() => Math.max(0, conversations.v
 const hiddenConversationCount = computed(() => Math.max(0, totalConversations.value - visibleConversationRows.value.length))
 const visibleMessageRows = computed(() => {
   const messages = detail.value?.messages ?? []
-  const visible = messages.slice(Math.max(0, messages.length - messageRenderLimit.value))
-  return visible.map((message) => ({
+  return messages.map((message) => ({
     ...message,
     createdAtText: formatTime(message.createdAt),
     senderText: message.senderName || senderLabel(message.senderType),
@@ -286,7 +287,6 @@ const visibleMessageRows = computed(() => {
     motionClass: messageMotion.classFor(message.messageId)
   }))
 })
-const hiddenMessageCount = computed(() => Math.max(0, (detail.value?.messages.length ?? 0) - visibleMessageRows.value.length))
 const conversationSignature = computed(() => conversations.value
   .map((item) => `${item.conversationId}:${item.status}:${item.unreadCount}:${item.lastMessageAt}`)
   .join('|'))
@@ -297,10 +297,6 @@ const contextAccountText = computed(() => {
   const messages = detail.value?.messages ?? []
   const accountMessage = messages.find((message) => message.senderType === 0 && message.senderName)
   return accountMessage?.senderName || '账号'
-})
-
-watch(selectedConversationId, () => {
-  messageRenderLimit.value = MESSAGE_RENDER_WINDOW
 })
 
 watch(conversations, () => {
@@ -382,6 +378,15 @@ const handleLoadMoreConversations = async (): Promise<void> => {
   }
 
   await accountInbox.loadMoreConversations()
+}
+
+const loadOlderMessages = async (): Promise<void> => {
+  if (isAdminView.value) {
+    await adminCenter.loadOlderMessages()
+    return
+  }
+
+  await accountInbox.loadOlderMessages()
 }
 
 const handleCreateTicket = async (): Promise<void> => {

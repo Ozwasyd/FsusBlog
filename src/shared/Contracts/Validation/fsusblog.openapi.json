@@ -5546,7 +5546,29 @@
         "summary": "/messages/conversations/{id:long}",
         "responses": {
           "200": {
-            "description": "ConversationDetailV2 AEDS frame",
+            "description": "ConversationDetailV3 AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ApiError AEDS frame for an invalid beforeMessageId.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "ApiError AEDS frame when thread pagination is disabled.",
             "content": {
               "application/octet-stream": {
                 "schema": {
@@ -5571,7 +5593,7 @@
         "x-fsus-protocol": "AEDS",
         "x-fsus-aeds-version": 2,
         "x-fsus-request-frame": null,
-        "x-fsus-response-frame": "ConversationDetailV2",
+        "x-fsus-response-frame": "ConversationDetailV3",
         "x-fsus-error-frame": "ApiError",
         "x-fsus-auth": "user",
         "x-fsus-pow": false,
@@ -5582,7 +5604,20 @@
         "x-fsus-test-surface": "/messages/conversations/{id:long}",
         "x-fsus-source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Messages.cs",
         "x-fsus-frontend-wrapper": "src/frontend/src/api/message.ts",
-        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/messageAdapter.ts"
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/messageAdapter.ts",
+        "parameters": [
+          {
+            "name": "beforeMessageId",
+            "in": "query",
+            "required": false,
+            "description": "Oldest message id from the previous ConversationDetailV3 page.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          }
+        ]
       }
     },
     "/api/binary/messages/conversations/{id:long}/reply": {
@@ -5797,7 +5832,29 @@
         "summary": "/admin/messages/conversations/{id:long}",
         "responses": {
           "200": {
-            "description": "ConversationDetailV2 AEDS frame",
+            "description": "ConversationDetailV3 AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ApiError AEDS frame for an invalid beforeMessageId.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "ApiError AEDS frame when thread pagination is disabled.",
             "content": {
               "application/octet-stream": {
                 "schema": {
@@ -5822,7 +5879,7 @@
         "x-fsus-protocol": "AEDS",
         "x-fsus-aeds-version": 2,
         "x-fsus-request-frame": null,
-        "x-fsus-response-frame": "ConversationDetailV2",
+        "x-fsus-response-frame": "ConversationDetailV3",
         "x-fsus-error-frame": "ApiError",
         "x-fsus-auth": "admin",
         "x-fsus-pow": false,
@@ -5833,7 +5890,20 @@
         "x-fsus-test-surface": "/admin/messages/conversations/{id:long}",
         "x-fsus-source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Messages.cs",
         "x-fsus-frontend-wrapper": "src/frontend/src/api/message.ts",
-        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/messageAdapter.ts"
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/messageAdapter.ts",
+        "parameters": [
+          {
+            "name": "beforeMessageId",
+            "in": "query",
+            "required": false,
+            "description": "Oldest message id from the previous ConversationDetailV3 page.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          }
+        ]
       }
     },
     "/api/binary/admin/messages/conversations/{id:long}/reply": {

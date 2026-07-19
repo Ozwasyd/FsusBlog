@@ -210,6 +210,26 @@ public readonly struct ConversationDetailV2Pod
 }
 
 /// <summary>
+/// Defines the paged conversation detail header. The previous cursor is the
+/// oldest message id in the current page and is returned only when older rows exist.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct ConversationDetailV3Pod
+{
+    public readonly long ConversationId;
+    public readonly int Status;
+    public readonly int UnreadCount;
+    public readonly long LastMessageAtUnixMs;
+    public readonly long ReadSnapshotMessageId;
+    public readonly long PreviousCursorMessageId;
+    public readonly byte IsSystemSource;
+    public readonly byte CanReply;
+    public readonly byte HasOlder;
+    public readonly byte Reserved0;
+    public readonly Utf8SliceRef Subject;
+}
+
+/// <summary>
 /// Defines an account mark-read request bound to a message returned by detail.
 /// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]

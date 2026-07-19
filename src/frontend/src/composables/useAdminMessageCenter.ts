@@ -12,6 +12,7 @@ import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
 import { toast } from '@/fsusui/feedback'
 import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
 import { mergeConversationPages } from '@/composables/messageConversationPagination'
+import { mergeConversationMessagePages } from '@/composables/messageThreadPagination'
 
 const PAGE_SIZE = 30
 
@@ -49,6 +50,7 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
 
   const loading = ref(false)
   const loadingDetail = ref(false)
+  const loadingOlderMessages = ref(false)
   const processing = ref(false)
   const taskFeedback = useAdminTaskFeedback()
 
@@ -161,6 +163,36 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
     }
 
     return true
+  }
+
+  const loadOlderMessages = async (): Promise<boolean> => {
+    const current = detail.value
+    const conversationId = selectedConversationId.value
+    if (!current || !conversationId || loadingOlderMessages.value || !current.hasOlder || !current.previousCursor) {
+      return false
+    }
+
+    const cursor = current.previousCursor
+    loadingOlderMessages.value = true
+    try {
+      const older = await messageApi.adminGetConversationDetail(conversationId, cursor)
+      const latest = detail.value
+      if (!latest || latest.conversationId !== conversationId || selectedConversationId.value !== conversationId) {
+        return false
+      }
+      detail.value = {
+        ...latest,
+        previousCursor: older.previousCursor ?? null,
+        hasOlder: Boolean(older.hasOlder),
+        messages: mergeConversationMessagePages(latest.messages, older.messages)
+      }
+      return true
+    } catch (error) {
+      showErrorToast(error, '更早消息加载失败')
+      return false
+    } finally {
+      loadingOlderMessages.value = false
+    }
   }
 
   const selectConversation = async (conversationId: string): Promise<void> => {
@@ -338,6 +370,7 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
     taskFeedback,
     loading,
     loadingDetail,
+    loadingOlderMessages,
     processing,
     filter,
     conversations,
@@ -353,6 +386,7 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
     systemBody,
     selectConversation,
     loadMoreConversations,
+    loadOlderMessages,
     reply,
     updateStatus,
     sendSystemMessage

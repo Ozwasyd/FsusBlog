@@ -164,6 +164,10 @@ public sealed class MessageCenterServiceTests
         Assert.Contains("GetAccountConversationsAsync", endpoints, StringComparison.Ordinal);
         Assert.Contains("Messages:CursorPaginationEnabled", endpoints, StringComparison.Ordinal);
         Assert.Contains("message_cursor_pagination_disabled", endpoints, StringComparison.Ordinal);
+        Assert.Contains("Messages:ThreadPaginationEnabled", endpoints, StringComparison.Ordinal);
+        Assert.Contains("message_thread_pagination_disabled", endpoints, StringComparison.Ordinal);
+        Assert.Contains("beforeMessageId", endpoints, StringComparison.Ordinal);
+        Assert.Contains("ConversationDetailV3", endpoints, StringComparison.Ordinal);
         Assert.Contains("CreateAccountTicketAsync", endpoints, StringComparison.Ordinal);
         Assert.Contains("ReplyAsAccountAsync", endpoints, StringComparison.Ordinal);
         Assert.DoesNotContain("GetUserConversationsAsync", endpoints, StringComparison.Ordinal);
@@ -217,6 +221,7 @@ public sealed class MessageCenterServiceTests
         (string Route, string Method)[] adminRoutes =
         [
             ("/api/binary/admin/messages/conversations", HttpMethods.Get),
+            ("/api/binary/admin/messages/conversations/{id:long}", HttpMethods.Get),
             ("/api/binary/admin/messages/conversations/{id:long}/reply", HttpMethods.Post)
         ];
         foreach ((string route, string method) in adminRoutes)

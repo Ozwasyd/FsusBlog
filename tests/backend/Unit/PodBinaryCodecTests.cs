@@ -402,6 +402,8 @@ public class PodBinaryCodecTests
         {
             ConversationId = "9",
             ReadSnapshotMessageId = "11",
+            PreviousCursor = "11",
+            HasOlder = true,
             Subject = "Support",
             Status = ConversationStatusValue.Pending,
             IsSystemSource = false,
@@ -437,6 +439,12 @@ public class PodBinaryCodecTests
         byte[] v2Encoded = PodBinaryCodec.EncodeConversationDetailV2(detail);
         Assert.True(PodBinaryCodec.TryDecodeConversationDetailV2(v2Encoded, out var v2Decoded));
         Assert.Equal("11", v2Decoded.ReadSnapshotMessageId);
+
+        byte[] v3Encoded = PodBinaryCodec.EncodeConversationDetailV3(detail);
+        Assert.True(PodBinaryCodec.TryDecodeConversationDetailV3(v3Encoded, out var v3Decoded));
+        Assert.Equal("11", v3Decoded.ReadSnapshotMessageId);
+        Assert.Equal("11", v3Decoded.PreviousCursor);
+        Assert.True(v3Decoded.HasOlder);
     }
 
     [Fact]

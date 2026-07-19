@@ -41,7 +41,7 @@ export const FSUSBLOG_MESSAGES_COPY = {
     accountContext: '当前会话',
     accountContextAdmin: '账号 {id}',
     statusPrefix: '状态',
-    showOlder: '显示更早消息（{n}）',
+    showOlder: '加载更早消息',
     replyHeader: '回复当前会话',
     replyLabel: '回复',
     replyLabelAccount: '回复管理员',

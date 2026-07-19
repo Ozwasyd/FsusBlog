@@ -987,21 +987,28 @@ version、非法 `HasMore` 或 `hasMore=true` 但 cursor 为空均按 protocol f
 
 `senderType` 的数值保持 wire 兼容：`0=Account`、`1=Admin`、`2=System`。响应不暴露 sender account id、用户名、公开昵称或头像；显示名只使用“你 / 管理员 / 系统”这类上下文安全文本。
 
-### `ConversationDetailV2` 与精确已读推进
+### `ConversationDetailV3`、消息向前分页与精确已读推进
 
-账号、admin 详情以及创建/系统消息返回统一使用 frame `ConversationDetailV2` (`203`)；
-响应 DTO 在既有字段外新增：
+账号与 admin 的 GET 详情返回 `ConversationDetailV3` (`204`)；创建会话和系统消息继续使用
+`ConversationDetailV2` (`203`) 返回单条初始快照。V3 响应 DTO 为：
 
 ```json
 {
   "conversationId": "123",
   "readSnapshotMessageId": "456",
+  "previousCursor": "407",
+  "hasOlder": true,
   "unreadCount": 2,
   "messages": []
 }
 ```
 
-`readSnapshotMessageId` 是该响应中最后一条非 internal、对账号可见的消息 ID。账号读取
+首屏固定返回最新 50 条非 internal 消息。`hasOlder=true` 时，`previousCursor` 是本页
+最旧消息 ID；下一页调用同一路径并传 `beforeMessageId={previousCursor}`。后续页严格读取
+`id < beforeMessageId`，按 ID 升序返回，边界不得重复。分页期间插入的新消息不会进入旧页；
+前端按 message ID 合并实时 patch 与历史页。账号视图在所有页都排除 internal note。
+
+`readSnapshotMessageId` 是该响应页中最后一条非 internal、对账号可见的消息 ID。账号读取
 后使用 `ConversationReadRequest` (`201`) 调用
 `POST /api/binary/messages/conversations/{id}/read`：
 

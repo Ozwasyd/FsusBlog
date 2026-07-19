@@ -249,6 +249,114 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
 
     [Fact]
     [Trait("Category", "Concurrency")]
+    public async Task ConversationMessagePagination_TraversesThousandMessageSnapshotWithoutInternalRowsOrDuplicates()
+    {
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using SqlSugarClient setup = PostgresSqlSugarTestClient.Create(connectionString);
+        PostgresSqlSugarTestClient.InitTables(
+            setup,
+            typeof(MessageConversation),
+            typeof(ConversationMessage),
+            typeof(ConversationParticipantState));
+
+        const int AccountId = 42;
+        const long ConversationId = 9_000;
+        const int MessageCount = 1_005;
+        const long FirstMessageId = 100_000;
+        DateTime baseline = new(2026, 7, 19, 8, 0, 0, DateTimeKind.Utc);
+        await setup.Insertable(new MessageConversation
+        {
+            Id = ConversationId,
+            Subject = "long thread fixture",
+            InitiatorAccountId = AccountId,
+            Status = ConversationStatus.Open,
+            CreatedByType = MessageSenderType.Account,
+            CreatedByAccountId = AccountId,
+            CreatedAt = baseline,
+            UpdatedAt = baseline.AddSeconds(MessageCount),
+            LastMessageAt = baseline.AddSeconds(MessageCount)
+        }).ExecuteCommandAsync();
+
+        var messages = new List<ConversationMessage>(MessageCount + 1);
+        for (int i = 0; i < MessageCount; i++)
+        {
+            messages.Add(new ConversationMessage
+            {
+                Id = FirstMessageId + i,
+                ConversationId = ConversationId,
+                SenderType = i % 2 == 0 ? MessageSenderType.Account : MessageSenderType.Admin,
+                SenderAccountId = i % 2 == 0 ? AccountId : null,
+                SenderAdminPrincipalId = i % 2 == 0 ? null : 7,
+                SenderAdminSessionId = i % 2 == 0 ? null : "long-thread-fixture",
+                Body = $"message-{i:D4}",
+                CreatedAt = baseline.AddSeconds(i)
+            });
+        }
+        messages.Add(new ConversationMessage
+        {
+            Id = 150_000,
+            ConversationId = ConversationId,
+            SenderType = MessageSenderType.Admin,
+            SenderAdminPrincipalId = 7,
+            SenderAdminSessionId = "internal-fixture",
+            Body = "internal-only",
+            IsInternalNote = true,
+            CreatedAt = baseline.AddSeconds(MessageCount + 1)
+        });
+        await setup.Insertable(messages).ExecuteCommandAsync();
+        await setup.Insertable(new ConversationParticipantState
+        {
+            ConversationId = ConversationId,
+            AccountId = AccountId,
+            UnreadCount = MessageCount,
+            UpdatedAt = baseline
+        }).ExecuteCommandAsync();
+
+        IUnifiedCache unifiedCache = Substitute.For<IUnifiedCache>();
+        IMessageNotificationStreamPort notifications = Substitute.For<IMessageNotificationStreamPort>();
+        MessageCenterService service = CreateService(setup, unifiedCache, notifications);
+        ConversationDetailResponse page = Assert.IsType<ConversationDetailResponse>(
+            await service.GetAccountConversationDetailAsync(AccountId, ConversationId));
+
+        Assert.Equal(50, page.Messages.Count);
+        Assert.True(page.HasOlder);
+        Assert.Equal((FirstMessageId + MessageCount - 50).ToString(), page.PreviousCursor);
+        Assert.Equal((FirstMessageId + MessageCount - 1).ToString(), page.ReadSnapshotMessageId);
+        Assert.True(PodBinaryCodec.TryDecodeConversationDetailV3(
+            PodBinaryCodec.EncodeConversationDetailV3(page),
+            out ConversationDetailResponse roundTrip));
+        Assert.Equal(page.PreviousCursor, roundTrip.PreviousCursor);
+        Assert.True(roundTrip.HasOlder);
+
+        await setup.Insertable(new ConversationMessage
+        {
+            Id = 200_000,
+            ConversationId = ConversationId,
+            SenderType = MessageSenderType.Admin,
+            SenderAdminPrincipalId = 8,
+            SenderAdminSessionId = "concurrent-fixture",
+            Body = "arrived-after-first-page",
+            CreatedAt = baseline.AddSeconds(MessageCount + 2)
+        }).ExecuteCommandAsync();
+
+        var loaded = new List<ConversationMessageResponse>(page.Messages);
+        while (page.HasOlder)
+        {
+            long beforeMessageId = long.Parse(Assert.IsType<string>(page.PreviousCursor));
+            page = Assert.IsType<ConversationDetailResponse>(
+                await service.GetAccountConversationDetailAsync(AccountId, ConversationId, beforeMessageId));
+            loaded.InsertRange(0, page.Messages);
+        }
+
+        Assert.Equal(MessageCount, loaded.Count);
+        Assert.Equal(MessageCount, loaded.Select(message => message.MessageId).Distinct().Count());
+        Assert.Equal(FirstMessageId.ToString(), loaded[0].MessageId);
+        Assert.Equal((FirstMessageId + MessageCount - 1).ToString(), loaded[^1].MessageId);
+        Assert.DoesNotContain(loaded, message => message.Body is "internal-only" or "arrived-after-first-page");
+    }
+
+    [Fact]
+    [Trait("Category", "Concurrency")]
     public async Task ConversationCursorPagination_TraversesStableSnapshotWithTiesFiltersAndConcurrentMessage()
     {
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);

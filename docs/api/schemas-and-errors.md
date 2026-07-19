@@ -320,6 +320,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 201 | `ConversationReadRequest` | `ConversationReadRequestPod` | 账号 mark-read 显式 `readThroughMessageId` |
 | 202 | `AccountConversationReplyRequest` | `AccountConversationReplyRequestPod` + shared blob | 账号回复正文与显式读取位置；admin 回复继续使用 frame 60 |
 | 203 | `ConversationDetailV2` | `ConversationDetailV2Pod` + message records/blob | 对话详情与可见 `readSnapshotMessageId` |
+| 204 | `ConversationDetailV3` | `ConversationDetailV3Pod` + message records/blob | 固定消息页、`previousCursor`、`hasOlder` 与读取快照 |
 | 182 | `AnonymousCommentCreateRequest` | `AnonymousCommentCreateRequestPod` | `POST /api/binary/comment/anonymous` 请求体；不包含 user id、username、Authorization token 或 public handle |
 | 183 | `AnonymousPrivacyStateSnapshot` | `AnonymousPrivacyStateSnapshotPod` | 前端匿名隐私状态快照 |
 | 184 | `PerceptionSealedChallengeV2` | `PerceptionSealedChallengeV2Pod` | `fsu.challenge/perception-sealed@v2` issue payload；覆盖 Character、Localization、MicroInteraction 三类 perception task |
@@ -437,6 +438,7 @@ replyToAuthorPayload?:CommentAuthorViewPod + blobLength:int32 + blob
 | `MessagePod` | ~512 |
 | `ConversationListItemPod` | 76 |
 | `ConversationDetailV2Pod` | 44 |
+| `ConversationDetailV3Pod` | 52 |
 | `ConversationReadRequestPod` | 8 |
 | `AccountConversationReplyRequestPod` | 16 |
 

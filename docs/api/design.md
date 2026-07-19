@@ -117,8 +117,13 @@ notification stream 不受影响。不能回退到 `OFFSET`、旧 `page` 参数�
 
 ### 消息读取快照与已读游标
 
-账号消息详情使用 `ConversationDetailV2` 返回本次可见结果的
-`readSnapshotMessageId`。账号侧 mark-read 必须提交 `ConversationReadRequest` 的
+账号与 admin 消息详情使用 `ConversationDetailV3`，默认只返回最新 50 条非 internal
+消息。响应的 `previousCursor` 是本页最旧消息 ID；`hasOlder=true` 时，客户端把该值原样
+作为 `beforeMessageId` 发起下一次向前读取。客户端必须按 message ID 去重并保持升序，
+notification stream 新消息与历史页并发到达时不得互相覆盖。账号端任何页面都不得返回
+internal note。
+
+`ConversationDetailV3` 同时返回本次可见结果的 `readSnapshotMessageId`。账号侧 mark-read 必须提交 `ConversationReadRequest` 的
 `readThroughMessageId`；账号回复必须提交 `AccountConversationReplyRequest`，同时携带
 正文与该显式读取位置。服务端不得在 mark-read 或回复事务中用数据库当前
 `MAX(message.id)` 替代客户端看到的快照。
@@ -132,6 +137,10 @@ note 既不能作为读取目标，也不能推进或增加账号未读。旧 `C
 `Messages:PreciseReadCursorEnabled=false` 暂停账号 mark-read 与回复写入，返回固定
 `503 message_read_cursor_disabled`；详情和列表继续可读。降级不得恢复无 body
 mark-read、事务时点 `MAX(id)` 或“账号回复即读完当前数据库”的旧语义。
+
+详情分页可通过 reload-capable `Messages:ThreadPaginationEnabled=false` 在不重启进程的
+情况下暂停账号与 admin 详情读取，并返回固定 `503 message_thread_pagination_disabled`。
+该降级只阻止详情读取，不恢复全量查询、浏览器本地假分页或文本 API fallback。
 
 ---
 

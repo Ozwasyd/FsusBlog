@@ -1,7 +1,7 @@
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { defineComponent, h, reactive, ref } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { messageApi, type ConversationListItemResponse } from '@/api/message'
+import { messageApi, type ConversationListItemResponse, type ConversationMessageResponse } from '@/api/message'
 import { useAccountMessagesInbox } from '@/composables/useAccountMessagesInbox'
 import { useAdminMessageCenter } from '@/composables/useAdminMessageCenter'
 import type { NotificationStreamInboxRenderPatch } from '@/services/notificationStreamTypes'
@@ -66,6 +66,15 @@ const conversation = (
   lastMessageAt,
   updatedAt: lastMessageAt,
   lastMessage: null
+})
+
+const threadMessage = (messageId: string, body = messageId): ConversationMessageResponse => ({
+  messageId,
+  conversationId: '3',
+  senderType: 1,
+  senderName: '管理员',
+  body,
+  createdAt: `2026-07-19T12:00:${messageId.padStart(2, '0').slice(-2)}Z`
 })
 
 type Inbox = ReturnType<typeof useAccountMessagesInbox>
@@ -225,5 +234,61 @@ describe('message conversation cursor pagination', () => {
     expect(messageApi.adminGetConversations).toHaveBeenNthCalledWith(2, 30, 'open', 'admin-cursor-1')
     expect(adminCenter.conversations.value.map((item) => item.conversationId)).toEqual(['30', '29'])
     expect(adminCenter.hasMoreConversations.value).toBe(false)
+  })
+
+  it('requests a real older page and merges it with a concurrent realtime message', async () => {
+    vi.mocked(messageApi.getAccountConversations).mockResolvedValue({
+      items: [conversation('3', '2026-07-19T12:00:00Z')],
+      total: 1,
+      nextCursor: null,
+      hasMore: false
+    })
+    vi.mocked(messageApi.getAccountConversationDetail)
+      .mockResolvedValueOnce({
+        conversationId: '3',
+        readSnapshotMessageId: '52',
+        previousCursor: '51',
+        hasOlder: true,
+        subject: 'conversation-3',
+        status: 0,
+        isSystemSource: false,
+        canReply: true,
+        unreadCount: 0,
+        lastMessageAt: '2026-07-19T12:00:52Z',
+        messages: [threadMessage('51'), threadMessage('52')]
+      })
+      .mockResolvedValueOnce({
+        conversationId: '3',
+        readSnapshotMessageId: '50',
+        previousCursor: null,
+        hasOlder: false,
+        subject: 'conversation-3',
+        status: 0,
+        isSystemSource: false,
+        canReply: true,
+        unreadCount: 0,
+        lastMessageAt: '2026-07-19T12:00:52Z',
+        messages: [threadMessage('1'), threadMessage('50'), threadMessage('51', 'boundary')]
+      })
+
+    const inbox = mountInbox()
+    await flushPromises()
+    inboxStore.inboxBatch = [{
+      module: 'inbox',
+      kind: 'message-append',
+      payload: {
+        conversationId: '3',
+        message: threadMessage('1001', 'realtime')
+      }
+    }]
+    inboxStore.inboxRevision += 1
+    await flushPromises()
+
+    await expect(inbox.loadOlderMessages()).resolves.toBe(true)
+
+    expect(messageApi.getAccountConversationDetail).toHaveBeenNthCalledWith(2, '3', '51')
+    expect(inbox.detail.value?.messages.map((item) => item.messageId)).toEqual(['1', '50', '51', '52', '1001'])
+    expect(inbox.detail.value?.readSnapshotMessageId).toBe('52')
+    expect(inbox.detail.value?.hasOlder).toBe(false)
   })
 })

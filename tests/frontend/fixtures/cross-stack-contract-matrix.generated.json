@@ -1461,7 +1461,24 @@
           "method": "GET",
           "path": "/messages/conversations/{id:long}",
           "auth": "user",
-          "responseFrame": "ConversationDetailV2"
+          "errorResponses": {
+            "400": "ApiError AEDS frame for an invalid beforeMessageId.",
+            "503": "ApiError AEDS frame when thread pagination is disabled."
+          },
+          "parameters": [
+            {
+              "name": "beforeMessageId",
+              "in": "query",
+              "required": false,
+              "description": "Oldest message id from the previous ConversationDetailV3 page.",
+              "schema": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 1
+              }
+            }
+          ],
+          "responseFrame": "ConversationDetailV3"
         },
         {
           "method": "POST",
@@ -1537,7 +1554,24 @@
           "method": "GET",
           "path": "/admin/messages/conversations/{id:long}",
           "auth": "admin",
-          "responseFrame": "ConversationDetailV2"
+          "errorResponses": {
+            "400": "ApiError AEDS frame for an invalid beforeMessageId.",
+            "503": "ApiError AEDS frame when thread pagination is disabled."
+          },
+          "parameters": [
+            {
+              "name": "beforeMessageId",
+              "in": "query",
+              "required": false,
+              "description": "Oldest message id from the previous ConversationDetailV3 page.",
+              "schema": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 1
+              }
+            }
+          ],
+          "responseFrame": "ConversationDetailV3"
         },
         {
           "method": "POST",

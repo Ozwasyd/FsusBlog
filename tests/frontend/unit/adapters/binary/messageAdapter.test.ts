@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   mapConversationDetailFromPayload,
   mapConversationDetailV2FromPayload,
+  mapConversationDetailV3FromPayload,
   mapConversationListFromPayload,
   mapConversationMessageFromPayload
 } from '@/adapters/binary/messageAdapter'
@@ -191,6 +192,42 @@ describe('binary message adapter', () => {
         senderName: 'Admin',
         body: 'Visible before the response completed'
       }]
+    })
+  })
+
+  it('maps the older-message cursor from conversation detail v3', () => {
+    const parts: Uint8Array[] = []
+    const subject = append(parts, 'Paged thread')
+    const sender = append(parts, 'Admin')
+    const body = append(parts, 'Old page')
+    const detailHeader = new Uint8Array(52 + 4 + 48)
+    const view = new DataView(detailHeader.buffer)
+    view.setBigInt64(0, 7n, true)
+    view.setInt32(8, 0, true)
+    view.setInt32(12, 50, true)
+    view.setBigInt64(16, BigInt(Date.parse('2026-01-02T03:04:05.000Z')), true)
+    view.setBigInt64(24, 99n, true)
+    view.setBigInt64(32, 50n, true)
+    detailHeader[40] = 0
+    detailHeader[41] = 1
+    detailHeader[42] = 1
+    slice(view, 44, subject.offset, subject.length)
+    view.setInt32(52, 1, true)
+    view.setBigInt64(56, 50n, true)
+    view.setBigInt64(64, 7n, true)
+    view.setInt32(72, 1, true)
+    view.setBigInt64(76, BigInt(Date.parse('2026-01-02T02:04:05.000Z')), true)
+    detailHeader[84] = 1
+    slice(view, 88, sender.offset, sender.length)
+    slice(view, 96, body.offset, body.length)
+
+    expect(mapConversationDetailV3FromPayload(withBlob(detailHeader, parts))).toMatchObject({
+      conversationId: '7',
+      readSnapshotMessageId: '99',
+      previousCursor: '50',
+      hasOlder: true,
+      subject: 'Paged thread',
+      messages: [{ messageId: '50', body: 'Old page' }]
     })
   })
 })

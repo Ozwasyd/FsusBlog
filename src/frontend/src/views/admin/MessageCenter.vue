@@ -193,13 +193,14 @@
                 />
 
                 <el-button
-                  v-if="hiddenMessageCount > 0"
+                  v-if="detail?.hasOlder"
                   class="admin-message-center__load-more admin-message-center__load-more--messages"
                   link
                   type="primary"
-                  @click="messageRenderLimit += MESSAGE_RENDER_WINDOW"
+                  :loading="adminCenter.loadingOlderMessages.value"
+                  @click="adminCenter.loadOlderMessages"
                 >
-                  显示更早消息（{{ hiddenMessageCount }}）
+                  加载更早消息
                 </el-button>
               </template>
             </template>
@@ -333,7 +334,6 @@ type MessageRow = ConversationMessageResponse & {
 }
 
 const CONVERSATION_RENDER_WINDOW = 80
-const MESSAGE_RENDER_WINDOW = 80
 const ROW_MOTION_VISIBLE_LIMIT = 20
 
 const adminCenter = useAdminMessageCenter()
@@ -357,7 +357,6 @@ const listPaneRef = ref<HTMLElement | null>(null)
 const detailPaneRef = ref<HTMLElement | null>(null)
 const mobileBackConfirmVisible = ref(false)
 const conversationRenderLimit = ref(CONVERSATION_RENDER_WINDOW)
-const messageRenderLimit = ref(MESSAGE_RENDER_WINDOW)
 
 const listLoading = computed(() => adminCenter.loading.value)
 const detailLoading = computed(() => adminCenter.loadingDetail.value)
@@ -429,8 +428,7 @@ const hiddenConversationCount = computed(() =>
 )
 const visibleMessageRows = computed<MessageRow[]>(() => {
   const messages = detail.value?.messages ?? []
-  const visible = messages.slice(Math.max(0, messages.length - messageRenderLimit.value))
-  return visible.map((message) => ({
+  return messages.map((message) => ({
     ...message,
     createdAtText: formatTime(message.createdAt),
     senderText: message.senderName || senderLabel(message.senderType),
@@ -438,9 +436,6 @@ const visibleMessageRows = computed<MessageRow[]>(() => {
     motionClass: messageMotion.classFor(message.messageId)
   }))
 })
-const hiddenMessageCount = computed(() =>
-  Math.max(0, (detail.value?.messages.length ?? 0) - visibleMessageRows.value.length)
-)
 const conversationSignature = computed(() => visibleConversationRows.value
   .map((item) => `${item.conversationId}:${item.status}:${item.unreadCount}:${item.lastMessageAt}`)
   .join('|'))
@@ -451,10 +446,6 @@ const contextAccountText = computed(() => {
   const messages = detail.value?.messages ?? []
   const accountMessage = messages.find((message) => message.senderType === 0 && message.senderName)
   return accountMessage?.senderName || '账号'
-})
-
-watch(selectedConversationId, () => {
-  messageRenderLimit.value = MESSAGE_RENDER_WINDOW
 })
 
 watch(() => adminCenter.conversations.value, () => {

@@ -15,9 +15,9 @@ public readonly record struct AdminMessageActor(long AdminPrincipalId, string Ad
 public interface IMessageQueryService
 {
     Task<PageResponse<ConversationListItemResponse>> GetAccountConversationsAsync(int accountId, int size, string? filter, MessageConversationCursor? cursor);
-    Task<ConversationDetailResponse?> GetAccountConversationDetailAsync(int accountId, long conversationId);
+    Task<ConversationDetailResponse?> GetAccountConversationDetailAsync(int accountId, long conversationId, long? beforeMessageId = null);
     Task<PageResponse<ConversationListItemResponse>> GetAdminConversationsAsync(int size, string? filter, MessageConversationCursor? cursor);
-    Task<ConversationDetailResponse?> GetAdminConversationDetailAsync(long conversationId);
+    Task<ConversationDetailResponse?> GetAdminConversationDetailAsync(long conversationId, long? beforeMessageId = null);
 }
 
 public interface IMessageCommandService

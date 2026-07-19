@@ -106,6 +106,7 @@ public static class PodContractValidation
             && IsReferenceFree<ConversationMessagePod>()
             && IsReferenceFree<ConversationDetailPod>()
             && IsReferenceFree<ConversationDetailV2Pod>()
+            && IsReferenceFree<ConversationDetailV3Pod>()
             && IsReferenceFree<ConversationReadRequestPod>()
             && IsReferenceFree<AccountConversationReplyRequestPod>()
             && IsReferenceFree<ConversationCreateRequestPod>()

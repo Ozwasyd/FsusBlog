@@ -84,10 +84,11 @@
               <p class="messages-bubble-body" data-visual-dynamic>{{ msg.body }}</p>
             </div>
             <el-button
-              v-if="hiddenCount > 0"
+              v-if="hasOlder"
               link
               type="primary"
               class="messages-window-more"
+              :loading="loadingOlder"
               @click="emit('loadMore')"
             >
               {{ showOlderText }}
@@ -144,7 +145,7 @@ type MessageRow = ConversationMessageResponse & {
 
 const threadCopy = FSUSBLOG_MESSAGES_COPY.threadPanel
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   mode: 'admin' | 'account'
   isMobile: boolean
   loading: boolean
@@ -152,7 +153,8 @@ const props = defineProps<{
   detail: ConversationDetailResponse | null
   selectionEmpty: boolean
   rows: MessageRow[]
-  hiddenCount: number
+  hasOlder?: boolean
+  loadingOlder?: boolean
   replyBody: string
   replyLoading: boolean
   replyDisabled: boolean
@@ -160,7 +162,10 @@ const props = defineProps<{
   motionSummary?: string
   statusLabel: (status: number) => string
   statusType: (status: number) => 'warning' | 'success' | ''
-}>()
+}>(), {
+  hasOlder: false,
+  loadingOlder: false
+})
 
 const emit = defineEmits<{
   'update:replyBody': [value: string]
@@ -176,9 +181,7 @@ const isAdminMode = computed(() => props.mode === 'admin')
 const adminContextText = computed(() =>
   threadCopy.accountContextAdmin.replace('{id}', props.contextAccountText)
 )
-const showOlderText = computed(() =>
-  threadCopy.showOlder.replace('{n}', String(props.hiddenCount))
-)
+const showOlderText = computed(() => threadCopy.showOlder)
 
 const handleReplyBodyUpdate = (value: string): void => {
   emit('update:replyBody', value)

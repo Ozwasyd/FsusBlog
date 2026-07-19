@@ -78,9 +78,23 @@ describe('message API binary transport', () => {
     expect(readFrame.getBigInt64(16, true)).toBe(11n)
   })
 
+  it('loads bounded account thread pages with beforeMessageId', async () => {
+    await messageApi.getAccountConversationDetail(7, '123')
+
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryRoute: expect.objectContaining({
+        operationId: 'binary_get_messages_conversations_id_long',
+        params: { id: 7 },
+        query: expect.any(URLSearchParams)
+      }),
+      frameType: FrameType.ConversationDetailV3
+    }))
+    expect(queryToString(mockBinary.mock.calls[0][0].binaryRoute?.query)).toBe('beforeMessageId=123')
+  })
+
   it('uses binary admin message endpoints', async () => {
     await messageApi.adminGetConversations(50, 'closed', 'admin-cursor')
-    await messageApi.adminGetConversationDetail(9)
+    await messageApi.adminGetConversationDetail(9, '321')
     await messageApi.adminReplyConversation(9, { body: 'Admin reply' })
     await messageApi.adminUpdateConversationStatus(9, { status: 'closed' })
     await messageApi.adminSendSystemMessage({ targetAccountId: 3, subject: 'Notice', body: 'Body' })
@@ -93,11 +107,12 @@ describe('message API binary transport', () => {
       frameType: FrameType.ConversationList
     }))
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryRoute: {
+      binaryRoute: expect.objectContaining({
         operationId: 'binary_get_admin_messages_conversations_id_long',
-        params: { id: 9 }
-      },
-      frameType: FrameType.ConversationDetailV2
+        params: { id: 9 },
+        query: expect.any(URLSearchParams)
+      }),
+      frameType: FrameType.ConversationDetailV3
     }))
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryRoute: {
@@ -121,5 +136,9 @@ describe('message API binary transport', () => {
       request.binaryRoute?.operationId === 'binary_get_admin_messages_conversations'
     )?.[0]
     expect(queryToString(adminListCall?.binaryRoute?.query)).toBe('size=50&filter=closed&cursor=admin-cursor')
+    const adminDetailCall = mockBinary.mock.calls.find(([request]) =>
+      request.binaryRoute?.operationId === 'binary_get_admin_messages_conversations_id_long'
+    )?.[0]
+    expect(queryToString(adminDetailCall?.binaryRoute?.query)).toBe('beforeMessageId=321')
   })
 })

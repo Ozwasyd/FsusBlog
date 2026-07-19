@@ -88,13 +88,16 @@ export const messageApi = {
     })
   },
 
-  getAccountConversationDetail(conversationId: string | number, config?: ApiRequestConfig) {
+  getAccountConversationDetail(conversationId: string | number, beforeMessageId?: string | null, config?: ApiRequestConfig) {
+    const query = new URLSearchParams()
+    if (beforeMessageId) query.set('beforeMessageId', beforeMessageId)
     return requestBinaryOnly<ConversationDetailResponse>({
       binaryRoute: {
         operationId: 'binary_get_messages_conversations_id_long',
-        params: { id: conversationId }
+        params: { id: conversationId },
+        query
       },
-      frameType: FrameType.ConversationDetailV2,
+      frameType: FrameType.ConversationDetailV3,
       signal: config?.signal as AbortSignal | undefined
     })
   },
@@ -161,13 +164,16 @@ export const messageApi = {
     })
   },
 
-  adminGetConversationDetail(conversationId: string | number, config?: ApiRequestConfig) {
+  adminGetConversationDetail(conversationId: string | number, beforeMessageId?: string | null, config?: ApiRequestConfig) {
+    const query = new URLSearchParams()
+    if (beforeMessageId) query.set('beforeMessageId', beforeMessageId)
     return requestBinaryOnly<ConversationDetailResponse>({
       binaryRoute: {
         operationId: 'binary_get_admin_messages_conversations_id_long',
-        params: { id: conversationId }
+        params: { id: conversationId },
+        query
       },
-      frameType: FrameType.ConversationDetailV2,
+      frameType: FrameType.ConversationDetailV3,
       signal: config?.signal as AbortSignal | undefined
     })
   },

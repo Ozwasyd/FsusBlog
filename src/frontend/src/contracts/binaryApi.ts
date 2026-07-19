@@ -533,6 +533,8 @@ export interface ConversationListItemResponse {
 export interface ConversationDetailResponse {
   conversationId: string
   readSnapshotMessageId: string
+  previousCursor?: string | null
+  hasOlder?: boolean
   subject: string
   status: 0 | 1 | 2
   isSystemSource: boolean

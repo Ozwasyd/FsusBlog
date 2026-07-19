@@ -116,6 +116,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `201`: ConversationReadRequest
 - `202`: AccountConversationReplyRequest
 - `203`: ConversationDetailV2
+- `204`: ConversationDetailV3
 - `73`: HumanReadChallengeRequest
 - `74`: HumanReadSubmitRequest
 - `75`: RumMetricBatchRequest
@@ -189,6 +190,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `ConversationList` payload: when `hasMore=true`, a 17-byte cursor envelope (`int32 0x4D534743`, `int32 version=1`, `byte hasMore`, `Utf8SliceRef nextCursor`) precedes `int32 total`, `int32 count`, `ConversationListItemPod[count]`, followed by the shared blob used by the cursor and subject/preview slices. A terminal/legacy payload may omit the envelope and starts at `total`; decoders normalize it to `nextCursor=null, hasMore=false` and reject unknown envelope versions or a missing cursor when `hasMore=true`.
 - `ConversationDetail` payload: `ConversationDetailPod`, `int32 count`, `ConversationMessagePod[count]`, followed by shared blob payload for subject/body slices.
 - `ConversationDetailV2` payload: `ConversationDetailV2Pod` (including `ReadSnapshotMessageId`), `int32 count`, `ConversationMessagePod[count]`, followed by shared blob payload for subject/body slices.
+- `ConversationDetailV3` payload: 52-byte `ConversationDetailV3Pod` (including `ReadSnapshotMessageId`, `PreviousCursorMessageId`, and `HasOlder`), `int32 count`, `ConversationMessagePod[count]`, followed by the shared subject/body blob. `HasOlder=1` requires a positive previous cursor; terminal pages encode cursor `0`.
 - `ConversationMessage` payload: `ConversationMessagePod` followed by blob payload for sender/body slices.
 - `PasskeyRegisterBegin` payload: `PasskeyRegisterBeginPod`, `PasskeyPublicKeyCredentialParamPod[count]`, `PasskeyCredentialDescriptorPod[count]` with transport lists, followed by shared blob payload for RP, accountName, accountDisplayName, accountHandle, challenge, and credential-id slices. The account fields are Passkey-safe labels/handle and are mapped to WebAuthn `user.name`, `user.displayName`, and `user.id` only at the browser adapter boundary.
 - `PasskeyLoginBegin` payload: `PasskeyLoginBeginPod`, `PasskeyCredentialDescriptorPod[count]` with transport lists, followed by shared blob payload for RP/challenge/credential-id slices.

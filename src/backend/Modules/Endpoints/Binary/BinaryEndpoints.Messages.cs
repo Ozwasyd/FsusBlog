@@ -70,14 +70,29 @@ public static partial class BinaryEndpoints
 
         group.MapGet("/messages/conversations/{id:long}", static async Task<BinaryFrameResult> (
             long id,
+            long? beforeMessageId,
             IMessageQueryService query,
             AccountPrincipalContext account,
+            IConfiguration configuration,
             IAedsEncoder aeds) =>
         {
-            var detail = await query.GetAccountConversationDetailAsync(account.AccountId, id);
+            if (!IsMessageThreadPaginationEnabled(configuration))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.InfraFailure, "message_thread_pagination_disabled"),
+                    aeds,
+                    StatusCodes.Status503ServiceUnavailable);
+            }
+
+            if (beforeMessageId <= 0)
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "消息游标非法"), aeds);
+            }
+
+            var detail = await query.GetAccountConversationDetailAsync(account.AccountId, id, beforeMessageId);
             return detail is null
                 ? BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "会话不存在"), aeds)
-                : BinaryResults.Frame(aeds, AedsFrameType.ConversationDetailV2, writer => PodBinaryCodec.WriteConversationDetailV2(detail, writer));
+                : BinaryResults.Frame(aeds, AedsFrameType.ConversationDetailV3, writer => PodBinaryCodec.WriteConversationDetailV3(detail, writer));
         })
         .RequireAnonymousAccountPrincipal();
 
@@ -213,13 +228,28 @@ public static partial class BinaryEndpoints
 
         group.MapGet("/admin/messages/conversations/{id:long}", static async Task<BinaryFrameResult> (
             long id,
+            long? beforeMessageId,
             IMessageQueryService query,
+            IConfiguration configuration,
             IAedsEncoder aeds) =>
         {
-            var detail = await query.GetAdminConversationDetailAsync(id);
+            if (!IsMessageThreadPaginationEnabled(configuration))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.InfraFailure, "message_thread_pagination_disabled"),
+                    aeds,
+                    StatusCodes.Status503ServiceUnavailable);
+            }
+
+            if (beforeMessageId <= 0)
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "消息游标非法"), aeds);
+            }
+
+            var detail = await query.GetAdminConversationDetailAsync(id, beforeMessageId);
             return detail is null
                 ? BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "会话不存在"), aeds)
-                : BinaryResults.Frame(aeds, AedsFrameType.ConversationDetailV2, writer => PodBinaryCodec.WriteConversationDetailV2(detail, writer));
+                : BinaryResults.Frame(aeds, AedsFrameType.ConversationDetailV3, writer => PodBinaryCodec.WriteConversationDetailV3(detail, writer));
         })
         .RequireAdminPermission(AdminPermissions.AdminManage);
 
@@ -338,4 +368,7 @@ public static partial class BinaryEndpoints
 
     private static bool IsMessageCursorPaginationEnabled(IConfiguration configuration)
         => configuration.GetValue<bool?>("Messages:CursorPaginationEnabled") ?? true;
+
+    private static bool IsMessageThreadPaginationEnabled(IConfiguration configuration)
+        => configuration.GetValue<bool?>("Messages:ThreadPaginationEnabled") ?? true;
 }
