@@ -6,6 +6,7 @@ import { useSessionBootstrap } from '@/composables/useSessionBootstrap'
 import { authBroadcastRuntime } from '@/services/authBroadcastRuntime'
 import { useViewTask } from '@/composables/useViewTask'
 import { AppErrorCode, createAppError, toAppError } from '@/utils/appError'
+import { resolveSafeRedirectTarget } from '@/security/privateNavigationPolicy'
 
 const getErrorText = (error: unknown): string => {
   const normalized = toAppError(error, '登录服务暂不可用，请稍后再试')
@@ -52,18 +53,6 @@ const getErrorText = (error: unknown): string => {
       }
       return normalized.message || '登录服务暂不可用，请稍后再试'
   }
-}
-
-const getSafeRedirect = (target: unknown): string => {
-  if (typeof target !== 'string') {
-    return '/'
-  }
-
-  if (target.startsWith('/') && !target.startsWith('//')) {
-    return target
-  }
-
-  return '/'
 }
 
 const wait = (ms: number): Promise<void> => new Promise((resolve) => window.setTimeout(resolve, ms))
@@ -158,7 +147,7 @@ export function useAuthLogin() {
       mfaMode.value = 'totp'
       mfaCode.value = ''
       mfaRecoveryCode.value = ''
-      await router.push(getSafeRedirect(route.query.redirect))
+      await router.push(resolveSafeRedirectTarget(router, route.query.redirect))
       window.setTimeout(() => {
         if (userStore.isLoggedIn) {
           void initNotification(true)

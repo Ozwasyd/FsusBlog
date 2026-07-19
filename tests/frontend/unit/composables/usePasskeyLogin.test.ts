@@ -5,7 +5,8 @@ const mocks = vi.hoisted(() => ({
   passkeyLoginComplete: vi.fn(),
   startAuthentication: vi.fn(),
   ensureBootstrap: vi.fn(),
-  routerPush: vi.fn()
+  routerPush: vi.fn(),
+  invalidateGuestCache: vi.fn()
 }))
 
 vi.mock('@simplewebauthn/browser', () => ({
@@ -14,7 +15,17 @@ vi.mock('@simplewebauthn/browser', () => ({
 
 vi.mock('vue-router', () => ({
   useRoute: () => ({ query: {} }),
-  useRouter: () => ({ push: mocks.routerPush })
+  useRouter: () => ({
+    push: mocks.routerPush,
+    resolve: (target: string) => ({
+      fullPath: target,
+      path: target,
+      name: null,
+      params: {},
+      query: {},
+      meta: {}
+    })
+  })
 }))
 
 vi.mock('@/api/auth', () => ({
@@ -24,7 +35,8 @@ vi.mock('@/api/auth', () => ({
 
 vi.mock('@/composables/useSessionBootstrap', () => ({
   useSessionBootstrap: () => ({
-    ensureBootstrap: mocks.ensureBootstrap
+    ensureBootstrap: mocks.ensureBootstrap,
+    userStore: { invalidateGuestCache: mocks.invalidateGuestCache }
   })
 }))
 
@@ -58,6 +70,7 @@ describe('usePasskeyLogin', () => {
 
     await expect(loginWithPasskey(false)).resolves.toBe(false)
 
+    expect(mocks.invalidateGuestCache).toHaveBeenCalledOnce()
     expect(error.value).toBe('通行密钥登录失败，请重试')
     expect(error.value).not.toContain('raw webauthn internal detail')
     expect(alertSpy).not.toHaveBeenCalled()

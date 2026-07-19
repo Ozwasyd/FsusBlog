@@ -570,6 +570,22 @@ Destructive worker qualification 只能运行在隔离的 `ASPNETCORE_ENVIRONMEN
 
 外部云安全组、防火墙和 Redis/PostgreSQL 私网访问控制仍需在基础设施层执行；仓库内检查只能防止应用配置和部署模板回退。
 
+### 前端私有运行时边界
+
+账户 Cookie 与独立 admin Cookie 是两条会话线。无 Session、仅账户、仅 admin
+和双 Session 的路由结果由本地 Memory History 矩阵锁定；Guest/missing
+负缓存不能授予权限。跨标签身份变化只广播事件类型与时间，不广播账号、权限、
+令牌或 proof。远端账户代际变化会丢弃当前快照和旧请求提交，并卸载已挂载的私有
+页面；组件卸载负责中止请求和取消订阅。
+
+私有 query、redirect 与 history 使用逐路由字段 allowlist；未声明字段、私有 fragment
+和疑似凭据不会写入登录回跳。Binary failure telemetry 只允许类别、状态、frame type
+等枚举信息，不含 URL/query、服务端 details、自由文本、token、trace ID 或业务 ID。
+退出、过期、账户切换和 shared-device wipe 统一清除 Private Storage Registry、隐私
+credential vault 与 Service Worker 私有缓存。Service Worker 对 `/api/**` 和私有页面
+继续 network-only，Public AOT 只保留显式公共 shell。详细本地验收、风险和无需重启的
+回退路径见 [frontend private runtime governance](testing/frontend-private-runtime-governance.md)。
+
 ---
 
 ## 依赖与版本

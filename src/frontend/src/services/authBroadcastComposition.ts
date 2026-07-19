@@ -8,6 +8,7 @@ import { useAdminStore } from '@/store/admin'
 import { useAppShellStore } from '@/store/appShell'
 import { useNotificationStreamStore } from '@/store/notificationStream'
 import { useUserStore } from '@/store/user'
+import { dispatchSessionExpired } from '@/bootstrap/sessionExpiryBridge'
 
 let activePinia: Pinia | null = null
 let unsubscribe: (() => void) | null = null
@@ -42,6 +43,10 @@ export function installAuthBroadcastComposition(pinia: Pinia): void {
 
     if (event.type === 'login') {
       void clearPrivateStateForBroadcast('account-switch', origin)
+      if (origin === 'remote') {
+        userStore.invalidateIdentityCache()
+        dispatchSessionExpired()
+      }
       return
     }
 
@@ -55,12 +60,14 @@ export function installAuthBroadcastComposition(pinia: Pinia): void {
       appShellStore.markSessionExpired()
       void clearPrivateStateForBroadcast('session-expired', origin)
       stopAuthenticatedRuntime()
+      if (origin === 'remote') dispatchSessionExpired()
       return
     }
 
     userStore.markGuest()
     void clearPrivateStateForBroadcast(event.type === 'expired' ? 'session-expired' : 'logout', origin)
     stopAuthenticatedRuntime()
+    if (origin === 'remote') dispatchSessionExpired()
   })
 
   userStore.setLogoutBroadcast(() => authBroadcastRuntime.broadcastLogout())

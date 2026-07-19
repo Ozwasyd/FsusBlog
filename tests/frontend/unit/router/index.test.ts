@@ -278,6 +278,40 @@ describe('account router meta and guards', () => {
     expect(ensureAdminSession).toHaveBeenCalledWith({ reason: 'route' })
   })
 
+  it.each([
+    { session: 'none', account: false, admin: false, target: '/login', expected: '/login' },
+    { session: 'none', account: false, admin: false, target: '/user/identity', expected: '/login' },
+    { session: 'none', account: false, admin: false, target: '/user/manage', expected: '/login' },
+    { session: 'account', account: true, admin: false, target: '/login', expected: '/user/identity' },
+    { session: 'account', account: true, admin: false, target: '/user/identity', expected: '/user/identity' },
+    { session: 'account', account: true, admin: false, target: '/user/manage', expected: '/403' },
+    { session: 'admin', account: false, admin: true, target: '/login', expected: '/login' },
+    { session: 'admin', account: false, admin: true, target: '/user/identity', expected: '/user/identity' },
+    { session: 'admin', account: false, admin: true, target: '/user/manage', expected: '/user/manage' },
+    { session: 'dual', account: true, admin: true, target: '/login', expected: '/user/manage' },
+    { session: 'dual', account: true, admin: true, target: '/user/identity', expected: '/user/identity' },
+    { session: 'dual', account: true, admin: true, target: '/user/manage', expected: '/user/manage' }
+  ])('enforces the $session session route matrix for $target', async ({ account, admin, target, expected }) => {
+    userStore.isLoggedIn = account
+    adminStore.adminState = admin ? 'active' : 'missing'
+    adminStore.canManage = admin
+    adminStore.hasPermission.mockReturnValue(admin)
+    const router = await createTestRouter()
+
+    await router.push(target)
+
+    expect(router.currentRoute.value.path).toBe(expected)
+  })
+
+  it('strips undeclared private history fields before committing the route', async () => {
+    const router = await createTestRouter()
+
+    await router.push('/user/messagebox?filter=unread&token=secret&details=account-42#account-42')
+
+    expect(router.currentRoute.value.fullPath).toBe('/user/messagebox?filter=unread')
+    expect(router.options.history.location).toBe('/user/messagebox?filter=unread')
+  })
+
   it('manage route checks required permissions after admin probe', async () => {
     adminStore.canManage = true
     adminStore.hasPermission.mockReturnValue(false)

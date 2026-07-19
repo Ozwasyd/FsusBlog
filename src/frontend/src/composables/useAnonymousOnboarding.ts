@@ -7,20 +7,9 @@ import { authBroadcastRuntime } from '@/services/authBroadcastRuntime'
 import { toAppError } from '@/utils/appError'
 import { PUBLIC_HANDLE_CONSTRAINT, validatePublicHandle } from '@/utils/contentFilter'
 import { toast } from '@/fsusui/feedback'
+import { resolveSafeRedirectTarget } from '@/security/privateNavigationPolicy'
 
 type AnonymousOnboardingStep = 'account' | 'recovery' | 'passkey' | 'complete'
-
-const getSafeRedirect = (target: unknown): string => {
-  if (typeof target !== 'string') {
-    return '/user/identity'
-  }
-
-  if (target.startsWith('/') && !target.startsWith('//')) {
-    return target
-  }
-
-  return '/user/identity'
-}
 
 const getErrorText = (error: unknown, fallback: string): string => {
   const normalized = toAppError(error, fallback)
@@ -154,7 +143,7 @@ export function useAnonymousOnboarding() {
 
   const finishOnboarding = async (): Promise<void> => {
     recoveryKeyPlaintext.value = ''
-    await router.push(getSafeRedirect(route.query.redirect))
+    await router.push(resolveSafeRedirectTarget(router, route.query.redirect, '/user/identity'))
   }
 
   return {

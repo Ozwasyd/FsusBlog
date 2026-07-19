@@ -325,6 +325,22 @@ function reportTransportEvent(name: string, detail: Record<string, unknown>): vo
   }
 }
 
+function createBinaryFailureTelemetryDetail(
+  failure: TransportFailure,
+  frameType: FrameType
+): Record<string, unknown> {
+  // This browser event is consumed by telemetry. Keep it deliberately
+  // categorical: no URL/query, backend details, tokens, trace/business IDs or
+  // server-provided free-form messages may cross this boundary.
+  return {
+    kind: failure.kind,
+    status: failure.status,
+    backendCategory: failure.backendCategory,
+    riskChallengeFailure: failure.riskChallengeFailure,
+    frameType
+  }
+}
+
 function binaryFailureKindFromStatus(status: number): TransportFailureKind {
   if (status === 401) {
     return 'auth_failed';
@@ -706,19 +722,10 @@ async function requestBinaryOnlyWithDecoder<T>(
 
   const shouldReportFailure = !(options.suppressAuthFailureTelemetry && kind === 'auth_failed');
   if (shouldReportFailure) {
-    reportTransportEvent('fsus:binary:failure', {
-      kind,
-      message,
-      status,
-      traceId,
-      backendCode,
-      backendCategory,
-      details,
-      retryAfter,
-      riskChallengeFailure,
-      url: binaryUrl,
-      frameType: options.frameType
-    });
+    reportTransportEvent('fsus:binary:failure', createBinaryFailureTelemetryDetail(
+      binaryResult.failure,
+      options.frameType
+    ));
   }
   const error = new BinaryTransportError({
     kind,
@@ -732,19 +739,10 @@ async function requestBinaryOnlyWithDecoder<T>(
     riskChallengeFailure
   });
   if (shouldReportFailure) {
-    reportTransportEvent('fsus:binary:error', {
-      kind,
-      message,
-      status,
-      traceId,
-      backendCode,
-      backendCategory,
-      details,
-      retryAfter,
-      riskChallengeFailure,
-      url: binaryUrl,
-      frameType: options.frameType
-    });
+    reportTransportEvent('fsus:binary:error', createBinaryFailureTelemetryDetail(
+      binaryResult.failure,
+      options.frameType
+    ));
   }
   throw error;
 }

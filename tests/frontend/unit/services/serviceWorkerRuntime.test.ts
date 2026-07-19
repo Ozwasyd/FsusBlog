@@ -148,6 +148,7 @@ describe('serviceWorkerRuntime private browser cleanup', () => {
     expect(cacheNames).toEqual(new Set(['other-app-cache']))
     expect(deleteDatabase).toHaveBeenCalledWith('fsusblog-comment-privacy-credentials')
     expect(result).toEqual({
+      registeredStorageCleared: true,
       credentialStateCleared: true,
       legacyCredentialDatabaseCleared: true,
       serviceWorkerAcknowledged: true,

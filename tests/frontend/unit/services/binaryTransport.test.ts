@@ -1128,6 +1128,43 @@ describe('binaryTransport ApiError mapping', () => {
     })
   })
 
+  it('emits only categorical binary failure telemetry', async () => {
+    const buffer = encodeApiErrorFrame({
+      status: 429,
+      code: 7,
+      category: 13,
+      message: 'https://private.example/user/42?token=secret',
+      details: 'accountId=42 token=secret',
+      traceId: 'trace-business-42'
+    })
+    mockBinaryRequest.mockRejectedValue(new BinaryRequestError(429, 'failed', buffer))
+    const dispatched: CustomEvent<Record<string, unknown>>[] = []
+    vi.mocked(window.dispatchEvent).mockImplementation((event) => {
+      dispatched.push(event as CustomEvent<Record<string, unknown>>)
+      return true
+    })
+
+    await expect(requestBinaryOnly({
+      binaryUrl: '/api/binary/comment/42?token=secret',
+      frameType: FrameType.ArticleList
+    })).rejects.toBeInstanceOf(BinaryTransportError)
+
+    const payloads = dispatched
+      .filter((event) => event.type === 'fsus:binary:failure' || event.type === 'fsus:binary:error')
+      .map((event) => event.detail)
+    expect(payloads).toHaveLength(2)
+    for (const payload of payloads) {
+      expect(payload).toEqual({
+        kind: 'rate_limited',
+        status: 429,
+        backendCategory: 13,
+        riskChallengeFailure: undefined,
+        frameType: FrameType.ArticleList
+      })
+      expect(JSON.stringify(payload)).not.toMatch(/url|query|details|token|trace|accountId|\/42/i)
+    }
+  })
+
   it('suppresses telemetry for expected anonymous auth failures', async () => {
     mockBinaryRequest.mockRejectedValue(new BinaryRequestError(401, 'Binary request failed: 401', new ArrayBuffer(0)))
     const dispatchSpy = vi.mocked(window.dispatchEvent)

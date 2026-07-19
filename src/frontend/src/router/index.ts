@@ -40,6 +40,11 @@ import {
   isLocalFixtureSessionActive,
   readFixtureStatus
 } from '@/services/localFixtureSession'
+import {
+  buildPrivateLoginRedirect,
+  privateQueryNeedsSanitizing,
+  sanitizePrivateRouteQuery
+} from '@/security/privateNavigationPolicy'
 
 const PROGRESS_DELAY_MS = 120
 let progressTimer: ReturnType<typeof window.setTimeout> | undefined
@@ -289,6 +294,17 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
       sessionBootstrap.syncAuthPhase()
     }
 
+    if (to.path.startsWith('/user') && privateQueryNeedsSanitizing(to.name, to.query)) {
+      return {
+        name: to.name ?? undefined,
+        path: to.name ? undefined : to.path,
+        params: to.params,
+        query: sanitizePrivateRouteQuery(to.name, to.query),
+        hash: '',
+        replace: true
+      }
+    }
+
     const publicShellRoute = isPublicShellRouteName(to.name)
     const publicSeoRoute = isPublicSeoRouteName(to.name)
     const appRoot = typeof document !== 'undefined' ? document.getElementById('app') : null
@@ -368,7 +384,7 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
 
     if (to.meta.requiresAuth) {
       if (!isLoggedIn && !adminStore.canManage) {
-        return { path: '/login', query: { redirect: to.fullPath } }
+        return { path: '/login', query: { redirect: buildPrivateLoginRedirect(to, router) } }
       }
 
       if (manageRoute) {

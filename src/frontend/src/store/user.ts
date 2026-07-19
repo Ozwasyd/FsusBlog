@@ -39,6 +39,7 @@ export const useUserStore = defineStore('user', () => {
     let fetchPromise: Promise<void> | null = null
     let abortController: AbortController | null = null
     let logoutBroadcast: (() => void) | null = null
+    let identityGeneration = 0
 
     // ================= 2. Getters =================
     const isAuthChecked = computed(() => accountState.value !== 'unknown')
@@ -75,6 +76,18 @@ export const useUserStore = defineStore('user', () => {
         }
     }
 
+    const invalidateIdentityCache = () => {
+        identityGeneration += 1
+        abortController?.abort()
+        abortController = null
+        fetchPromise = null
+        userInfo.value = null
+        accountState.value = 'unknown'
+        lastVerifiedAt.value = 0
+        lastFetchedAt.value = 0
+        isLoading.value = false
+    }
+
     const setLogoutBroadcast = (publisher: (() => void) | null): void => {
         logoutBroadcast = publisher
     }
@@ -99,13 +112,14 @@ export const useUserStore = defineStore('user', () => {
 
         abortController = new AbortController()
         const currentController = abortController;
+        const requestGeneration = identityGeneration
         isLoading.value = true
 
         fetchPromise = (async () => {
             try {
                 const res = await getMe({ signal: currentController.signal })
 
-                if (currentController === abortController) {
+                if (currentController === abortController && requestGeneration === identityGeneration) {
                     markAuthenticated(res)
                 }
             } catch (error: unknown) {
@@ -119,7 +133,7 @@ export const useUserStore = defineStore('user', () => {
                     // 如果是 500 或网络错误，不设置 accountState，允许重试
                 }
             } finally {
-                if (currentController === abortController) {
+                if (currentController === abortController && requestGeneration === identityGeneration) {
                     fetchPromise = null;
                     abortController = null;
                     isLoading.value = false;
@@ -200,6 +214,7 @@ export const useUserStore = defineStore('user', () => {
         markGuest,
         markAuthenticated,
         invalidateGuestCache,
+        invalidateIdentityCache,
         setLogoutBroadcast,
         fetchUserInfo,
         ensureUserInfoFresh,

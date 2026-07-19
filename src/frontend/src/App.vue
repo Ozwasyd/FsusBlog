@@ -6,7 +6,7 @@ import { useHead } from '@unhead/vue'
 import { useSessionBootstrap } from '@/composables/useSessionBootstrap'
 import { useWindowEvents } from '@/composables/useWindowEvents'
 import { handleRootAotClick } from '@/bootstrap/aotActionBridge'
-import { SESSION_EXPIRED_EVENT, type SessionExpiredDetail } from '@/bootstrap/sessionExpiryBridge'
+import { createSessionExpiredNavigationHandler, SESSION_EXPIRED_EVENT } from '@/bootstrap/sessionExpiryBridge'
 import { runtimePhase, runtimeReady } from '@/bootstrap/runtimeGate'
 import { isPublicShellRouteName } from '@/public-renderers/publicPageModel'
 import { useThemeRuntime } from '@/services/themeRuntime'
@@ -50,20 +50,7 @@ const appRouteViewKey = computed(() => {
   return route.fullPath
 })
 
-const handleSessionExpired = (event: Event): void => {
-  const detail = (event as CustomEvent<SessionExpiredDetail>).detail
-  const currentPath = detail?.currentPath || window.location.pathname
-  const currentRoute = router.currentRoute.value
-  const requiresAuth = Boolean(currentRoute.meta.requiresAuth)
-
-  if (currentPath.includes('/login') || currentPath.includes('/register')) {
-    return
-  }
-
-  if (userStore.isLoggedIn || requiresAuth) {
-    void router.push(`/login?redirect=${encodeURIComponent(currentPath)}`)
-  }
-}
+const handleSessionExpired = createSessionExpiredNavigationHandler(router, () => userStore.isLoggedIn)
 
 function shouldHandleSpaAnchor(anchor: HTMLAnchorElement): boolean {
   if (!runtimeReady.value || !isPublicShellRoute.value) {

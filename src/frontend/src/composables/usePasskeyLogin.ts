@@ -7,20 +7,9 @@ import { authBroadcastRuntime } from '@/services/authBroadcastRuntime'
 import { toAppError, AppErrorCode } from '@/utils/appError'
 import { useRiskChallengeCommand } from '@/composables/useRiskChallengeCommand'
 import { fixedRiskChallengeContext, riskChallengeRoutes } from '@/security/risk-challenge-routes'
+import { resolveSafeRedirectTarget } from '@/security/privateNavigationPolicy'
 
 const PASSKEY_LOGIN_ERROR_TEXT = '通行密钥登录失败，请重试'
-
-const getSafeRedirect = (target: unknown): string => {
-  if (typeof target !== 'string') {
-    return '/'
-  }
-
-  if (target.startsWith('/') && !target.startsWith('//')) {
-    return target
-  }
-
-  return '/'
-}
 
 function getPasskeyErrorText(error: unknown): string {
   const normalized = toAppError(error, '登录失败，请重试')
@@ -42,12 +31,15 @@ export function usePasskeyLogin() {
   const error = ref<string | null>(null)
   const router = useRouter()
   const route = useRoute()
-  const { ensureBootstrap } = useSessionBootstrap()
+  const { ensureBootstrap, userStore } = useSessionBootstrap()
   const riskChallenge = useRiskChallengeCommand()
 
   const loginWithPasskey = async (rememberMe = false): Promise<boolean> => {
     loading.value = true
     error.value = null
+    // A passkey ceremony can establish a valid Cookie while this tab still
+    // holds a Guest negative cache from an earlier anonymous probe.
+    userStore.invalidateGuestCache()
 
     try {
       // 1. 从服务器获取认证选项
@@ -97,7 +89,7 @@ export function usePasskeyLogin() {
       // 4. 刷新 session 状态后跳转
       await ensureBootstrap(true)
       authBroadcastRuntime.broadcastLogin()
-      await router.push(getSafeRedirect(route.query.redirect))
+      await router.push(resolveSafeRedirectTarget(router, route.query.redirect))
       return true
     } catch (e: unknown) {
       error.value = getPasskeyErrorText(e)

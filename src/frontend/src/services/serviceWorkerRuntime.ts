@@ -7,6 +7,7 @@ import {
   type CommentPrivacyCredentialPurgeReason
 } from '@/privacy/commentPrivacyCredentialLifecycle'
 import { deleteLegacyCommentPrivacyCredentialDatabases } from '@/privacy/commentPrivacyCredentialVault'
+import { clearRegisteredPrivateStorage } from '@/services/privateStorageRegistry'
 
 export type SwControlMessage =
   | { type: 'shell.invalidate'; scope?: string | null }
@@ -17,6 +18,7 @@ export type SwControlMessage =
 export type PrivateBrowserStateClearReason = CommentPrivacyCredentialPurgeReason
 
 export interface PrivateBrowserStateClearResult {
+  registeredStorageCleared: boolean
   credentialStateCleared: boolean
   legacyCredentialDatabaseCleared: boolean
   serviceWorkerAcknowledged: boolean
@@ -47,6 +49,15 @@ const SERVICE_WORKER_UPDATE_FALLBACK_DELAY_MS = 1_500
 const SERVICE_WORKER_CONTROL_ACK_TIMEOUT_MS = 2_000
 const PRIVATE_BROWSER_CACHE_NAME_PATTERN = /^fsus-(?:shell|search|search-meta)-/i
 const PRIVATE_OR_SENSITIVE_PATH_PATTERN = /^\/(?:api(?:\/|$)|user(?:\/|$)|admin(?:\/|$)|login(?:\/|$)|account(?:\/|$)|manage(?:\/|$)|author(?:\/|$)|private(?:\/|$)|notifications?(?:\/|$))/i
+const FULL_PRIVATE_STORAGE_CLEAR_REASONS = new Set<PrivateBrowserStateClearReason>([
+  'logout',
+  'session-expired',
+  'account-switch',
+  'account-deletion',
+  'panic',
+  'migration-failure',
+  'shared-device'
+])
 
 function bindListener(): void {
   if (listenerBound || typeof window === 'undefined' || !('serviceWorker' in navigator)) {
@@ -214,6 +225,9 @@ export async function clearPrivateBrowserState(
   reason: PrivateBrowserStateClearReason,
   options: { broadcastCredentialPurge?: boolean } = {}
 ): Promise<PrivateBrowserStateClearResult> {
+  const storageCleanup = FULL_PRIVATE_STORAGE_CLEAR_REASONS.has(reason)
+    ? clearRegisteredPrivateStorage()
+    : { removed: [], failed: [] }
   const credentialPurge = purgeCommentPrivacyCredentialState(reason, {
     broadcast: options.broadcastCredentialPurge !== false
   })
@@ -229,7 +243,8 @@ export async function clearPrivateBrowserState(
       credentialPurgeStatus,
       legacyDatabasePurgeStatus,
       serviceWorkerPurge,
-      cacheStorageCleared
+      cacheStorageCleared,
+      storageCleanup.failed.length === 0
     )
   }
 
@@ -238,7 +253,8 @@ export async function clearPrivateBrowserState(
       credentialPurgeStatus,
       legacyDatabasePurgeStatus,
       serviceWorkerPurge,
-      cacheStorageCleared
+      cacheStorageCleared,
+      storageCleanup.failed.length === 0
     )
   }
 
@@ -276,7 +292,8 @@ export async function clearPrivateBrowserState(
     credentialPurgeStatus,
     legacyDatabasePurgeStatus,
     serviceWorkerPurge,
-    cacheStorageCleared
+    cacheStorageCleared,
+    storageCleanup.failed.length === 0
   )
 }
 
@@ -336,7 +353,8 @@ async function buildPrivateBrowserStateClearResult(
   credentialPurgeStatus: Promise<boolean>,
   legacyDatabasePurgeStatus: Promise<boolean>,
   serviceWorkerPurge: Promise<{ targetCount: number; acknowledgedCount: number }>,
-  cacheStorageCleared: boolean
+  cacheStorageCleared: boolean,
+  registeredStorageCleared: boolean
 ): Promise<PrivateBrowserStateClearResult> {
   const [credentialStateCleared, legacyCredentialDatabaseCleared, workerResult] = await Promise.all([
     credentialPurgeStatus,
@@ -344,6 +362,7 @@ async function buildPrivateBrowserStateClearResult(
     serviceWorkerPurge
   ])
   return {
+    registeredStorageCleared,
     credentialStateCleared,
     legacyCredentialDatabaseCleared,
     serviceWorkerAcknowledged: workerResult.acknowledgedCount === workerResult.targetCount,

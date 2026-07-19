@@ -1,0 +1,66 @@
+#!/usr/bin/env node
+
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
+const root = resolve(process.cwd(), '../..')
+const read = (path) => readFileSync(resolve(root, path), 'utf8')
+const assert = (condition, message) => {
+  if (!condition) throw new Error(message)
+}
+
+const registry = read('src/frontend/src/services/privateStorageRegistry.ts')
+const binaryTransport = read('src/frontend/src/services/binaryTransport.ts')
+const router = read('src/frontend/src/router/index.ts')
+const navigation = read('src/frontend/src/security/privateNavigationPolicy.ts')
+const authComposition = read('src/frontend/src/services/authBroadcastComposition.ts')
+const serviceWorker = read('src/frontend/public/sw.js')
+const matrix = read('tests/frontend/unit/router/index.test.ts')
+const lifecycle = read('tests/frontend/unit/bootstrap/sessionExpiryBridge.test.ts')
+
+for (const registeredValue of [
+  'fsus_user_storage',
+  'notification_stream_guest_pow',
+  'fsus:article-draft:',
+  'fsus:comment-draft:v1:',
+  'fsus:image-upload-session:',
+  'fsus:console-welcome-callout:dismissed:',
+  'fsusblog_local_fixture_session',
+  'fsusblog_local_fixture_admin_session'
+]) {
+  assert(registry.includes(registeredValue), `private storage registry is missing ${registeredValue}`)
+}
+
+const telemetryBoundary = binaryTransport.slice(
+  binaryTransport.indexOf('function createBinaryFailureTelemetryDetail'),
+  binaryTransport.indexOf('function binaryFailureKindFromStatus')
+)
+for (const forbiddenField of ['url:', 'message:', 'details:', 'traceId:', 'backendCode:', 'retryAfter:']) {
+  assert(!telemetryBoundary.includes(forbiddenField), `binary failure telemetry includes forbidden field ${forbiddenField}`)
+}
+assert(binaryTransport.match(/createBinaryFailureTelemetryDetail\(/gu)?.length === 3,
+  'both binary failure browser events must use the categorical telemetry builder')
+
+assert(router.includes('privateQueryNeedsSanitizing(to.name, to.query)'),
+  'router must sanitize private query fields before history commit')
+assert(router.includes('buildPrivateLoginRedirect(to, router)'),
+  'private login redirects must use the declared navigation policy')
+assert(navigation.includes('PRIVATE_NAVIGATION_ALLOWED_FIELDS'),
+  'private navigation policy must expose a machine-readable allowlist')
+assert(authComposition.includes('dispatchSessionExpired()'),
+  'cross-tab identity invalidation must unload the active private route')
+
+for (const session of ['none', 'account', 'admin', 'dual']) {
+  assert(matrix.includes(`session: '${session}'`), `route matrix is missing ${session} session coverage`)
+}
+for (const primitive of ['createMemoryHistory', 'data-private-view', 'AbortController', 'unsubscribe', 'vi.useFakeTimers']) {
+  assert(matrix.includes(primitive) || lifecycle.includes(primitive),
+    `local private runtime gate is missing ${primitive}`)
+}
+
+assert(serviceWorker.includes('isPrivateOrSensitiveRequest(request, url)'),
+  'service worker private network-only boundary must remain active')
+assert(serviceWorker.includes('isPublicShellRequest(request, url)'),
+  'service worker Public AOT shell boundary must remain active')
+
+console.log('[check-private-runtime-governance] ok')
