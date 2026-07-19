@@ -718,7 +718,7 @@ public sealed class ProductionReadinessProbe(
             .OrderBy(static kind => kind, StringComparer.Ordinal)
             .ToArray();
 
-    private static bool ChallengeProviderRegistryReady(
+    internal static bool ChallengeProviderRegistryReady(
         IReadOnlyList<string> providers,
         SecurityRiskPolicySnapshotV2? policy)
     {
@@ -738,38 +738,76 @@ public sealed class ProductionReadinessProbe(
         IEnumerable<SecurityRiskActionPolicy> actions = policy.ActionOverrides.Values.Prepend(policy.DefaultAction);
         foreach (SecurityRiskActionPolicy action in actions)
         {
-            IEnumerable<string> requiredKinds = action.HardChallengeKinds
-                .Append(action.ChallengeKind)
-                .Concat(action.DecisionBands
-                    .Where(static band => band.Outcome is SecurityRiskPolicyOutcomes.Challenge or SecurityRiskPolicyOutcomes.HardChallenge)
-                    .SelectMany(static band => band.ChallengeKinds));
-            foreach (string requiredKind in requiredKinds)
+            IReadOnlyList<string> baseChallenge = [action.ChallengeKind];
+            if (!ChallengeSetReady(baseChallenge, action, registered))
             {
-                string normalized = (requiredKind ?? string.Empty).Trim();
-                if (normalized.Length == 0)
+                return false;
+            }
+
+            IReadOnlyList<string> hardChallenge = action.HardChallengeKinds.Count > 0
+                ? action.HardChallengeKinds
+                : baseChallenge;
+            if (!ChallengeSetReady(hardChallenge, action, registered))
+            {
+                return false;
+            }
+
+            foreach (SecurityRiskDecisionBand band in action.DecisionBands)
+            {
+                if (band.Outcome is not (SecurityRiskPolicyOutcomes.Challenge or SecurityRiskPolicyOutcomes.HardChallenge))
                 {
                     continue;
                 }
-                if (!SecurityChallengeContracts.TryParseKind(normalized, out SecurityChallengeKind parsed))
-                {
-                    return false;
-                }
 
-                string wireName = SecurityChallengeContracts.ToWireName(parsed);
-                if (!registered.Contains(wireName))
+                IReadOnlyList<string> bandChallenge = band.ChallengeKinds.Count > 0
+                    ? band.ChallengeKinds
+                    : band.Outcome == SecurityRiskPolicyOutcomes.HardChallenge
+                        ? hardChallenge
+                        : baseChallenge;
+                if (!ChallengeSetReady(bandChallenge, action, registered))
                 {
                     return false;
                 }
+            }
+        }
 
-                SecurityChallengeCapabilityResolution capability = SecurityChallengeCapabilityCatalog.Resolve(
-                    parsed,
-                    action.ActionName,
-                    SecurityChallengeCapabilityCatalog.ResolveMode(action.ActionName),
-                    providerAvailable: true);
-                if (!capability.PolicyEligible)
-                {
-                    return false;
-                }
+        return true;
+    }
+
+    private static bool ChallengeSetReady(
+        IReadOnlyList<string> requiredKinds,
+        SecurityRiskActionPolicy action,
+        IReadOnlySet<string> registered)
+    {
+        if (requiredKinds.Count is <= 0 or > SecurityChallengeContracts.MaxAssignmentsPerEnvelope)
+        {
+            return false;
+        }
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (string requiredKind in requiredKinds)
+        {
+            string normalized = (requiredKind ?? string.Empty).Trim();
+            if (normalized.Length == 0 || !seen.Add(normalized) ||
+                !SecurityChallengeContracts.TryParseKind(normalized, out SecurityChallengeKind parsed))
+            {
+                return false;
+            }
+
+            string wireName = SecurityChallengeContracts.ToWireName(parsed);
+            if (!string.Equals(normalized, wireName, StringComparison.Ordinal) || !registered.Contains(wireName))
+            {
+                return false;
+            }
+
+            SecurityChallengeCapabilityResolution capability = SecurityChallengeCapabilityCatalog.Resolve(
+                parsed,
+                action.ActionName,
+                SecurityChallengeCapabilityCatalog.ResolveMode(action.ActionName),
+                providerAvailable: true);
+            if (!capability.PolicyEligible)
+            {
+                return false;
             }
         }
 

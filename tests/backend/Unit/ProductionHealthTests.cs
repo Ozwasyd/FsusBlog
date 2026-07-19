@@ -683,6 +683,58 @@ public sealed class ProductionHealthTests
         }
     }
 
+    [Fact]
+    public void ChallengeProviderRegistryReady_AcceptsOrderedTwoMemberAndSingleMemberPolicies()
+    {
+        string pow = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.Sha256PowV1);
+        string poSpace = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.Argon2IdPoSpaceV1);
+        string captcha = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.CaptchaV1);
+
+        SecurityRiskPolicySnapshotV2 ordered = CreateRiskPolicyWithChallengeSet(
+            SecurityChallengeCapabilityCatalog.NotificationSubscribeAction,
+            [pow, poSpace]);
+
+        Assert.True(ProductionReadinessProbe.ChallengeProviderRegistryReady([pow, poSpace], ordered));
+        Assert.True(ProductionReadinessProbe.ChallengeProviderRegistryReady([captcha], CreateRiskPolicy()));
+    }
+
+    [Fact]
+    public void ChallengeProviderRegistryReady_FailsWhenAnyOrderedMemberIsUnavailable()
+    {
+        string pow = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.Sha256PowV1);
+        string poSpace = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.Argon2IdPoSpaceV1);
+        string captcha = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.CaptchaV1);
+        SecurityRiskPolicySnapshotV2 missingProvider = CreateRiskPolicyWithChallengeSet(
+            SecurityChallengeCapabilityCatalog.NotificationSubscribeAction,
+            [pow, poSpace]);
+        SecurityRiskPolicySnapshotV2 unavailableCapability = CreateRiskPolicyWithChallengeSet(
+            RiskActionNames.CommentCreate,
+            [captcha, pow]);
+
+        Assert.False(ProductionReadinessProbe.ChallengeProviderRegistryReady([pow], missingProvider));
+        Assert.False(ProductionReadinessProbe.ChallengeProviderRegistryReady([captcha, pow], unavailableCapability));
+    }
+
+    [Fact]
+    public void ChallengeProviderRegistryReady_RejectsDuplicateOverLimitAndNoncanonicalSets()
+    {
+        string captcha = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.CaptchaV1);
+        string pow = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.Sha256PowV1);
+        SecurityRiskPolicySnapshotV2 duplicate = CreateRiskPolicyWithChallengeSet(
+            RiskActionNames.CommentCreate,
+            [captcha, captcha]);
+        SecurityRiskPolicySnapshotV2 overLimit = CreateRiskPolicyWithChallengeSet(
+            RiskActionNames.CommentCreate,
+            Enumerable.Repeat(captcha, SecurityChallengeContracts.MaxAssignmentsPerEnvelope + 1).ToArray());
+        SecurityRiskPolicySnapshotV2 noncanonical = CreateRiskPolicyWithChallengeSet(
+            SecurityChallengeCapabilityCatalog.NotificationSubscribeAction,
+            ["security.pow"]);
+
+        Assert.False(ProductionReadinessProbe.ChallengeProviderRegistryReady([captcha], duplicate));
+        Assert.False(ProductionReadinessProbe.ChallengeProviderRegistryReady([captcha], overLimit));
+        Assert.False(ProductionReadinessProbe.ChallengeProviderRegistryReady([pow], noncanonical));
+    }
+
     private sealed class TestWebHostEnvironment(string root, string environmentName) : IWebHostEnvironment
     {
         public string ApplicationName { get; set; } = "FsusBlog.Server";
@@ -716,6 +768,23 @@ public sealed class ProductionHealthTests
                 [SecurityRiskSources.Pow] = SecuritySystemModes.Enforce,
                 [SecurityRiskSources.PoSpace] = SecuritySystemModes.Disabled
             });
+
+    private static SecurityRiskPolicySnapshotV2 CreateRiskPolicyWithChallengeSet(
+        string actionName,
+        IReadOnlyList<string> challengeKinds)
+    {
+        SecurityRiskPolicySnapshotV2 policy = CreateRiskPolicy();
+        SecurityRiskActionPolicy action = policy.DefaultAction with
+        {
+            ActionName = actionName,
+            ChallengeKind = challengeKinds[0],
+            HardChallengeKinds = challengeKinds
+        };
+        return policy with
+        {
+            DefaultAction = action
+        };
+    }
 
     private static IConfiguration CreatePerceptionReadyConfiguration()
         => new ConfigurationBuilder()

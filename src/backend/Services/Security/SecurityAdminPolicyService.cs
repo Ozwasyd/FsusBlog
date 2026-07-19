@@ -328,6 +328,88 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
         }
     }
 
+    internal static void ValidateChallengePolicy(SecurityRiskPolicySnapshotV2 snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+
+        IEnumerable<SecurityRiskActionPolicy> actions = snapshot.ActionOverrides.Values.Prepend(snapshot.DefaultAction);
+        foreach (SecurityRiskActionPolicy action in actions)
+        {
+            IReadOnlyList<string> baseChallenge = [action.ChallengeKind];
+            ValidateChallengeSet(baseChallenge, action);
+
+            IReadOnlyList<string> hardChallenge = action.HardChallengeKinds.Count > 0
+                ? action.HardChallengeKinds
+                : baseChallenge;
+            ValidateChallengeSet(hardChallenge, action);
+
+            foreach (SecurityRiskDecisionBand band in action.DecisionBands)
+            {
+                if (band.Outcome is not (SecurityRiskPolicyOutcomes.Challenge or SecurityRiskPolicyOutcomes.HardChallenge))
+                {
+                    continue;
+                }
+
+                IReadOnlyList<string> bandChallenge = band.ChallengeKinds.Count > 0
+                    ? band.ChallengeKinds
+                    : band.Outcome == SecurityRiskPolicyOutcomes.HardChallenge
+                        ? hardChallenge
+                        : baseChallenge;
+                ValidateChallengeSet(bandChallenge, action);
+            }
+        }
+    }
+
+    private static void ValidateChallengeSet(
+        IReadOnlyList<string> requiredKinds,
+        SecurityRiskActionPolicy action)
+    {
+        if (requiredKinds.Count is <= 0 or > SecurityChallengeContracts.MaxAssignmentsPerEnvelope)
+        {
+            throw new ArgumentException(
+                $"challenge_set_count_invalid: action '{action.ActionName}' requires between 1 and {SecurityChallengeContracts.MaxAssignmentsPerEnvelope} members.",
+                "snapshot");
+        }
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (string requiredKind in requiredKinds)
+        {
+            string normalized = (requiredKind ?? string.Empty).Trim();
+            if (normalized.Length == 0 || !SecurityChallengeContracts.TryParseKind(normalized, out SecurityChallengeKind parsed))
+            {
+                throw new ArgumentException(
+                    $"challenge_kind_unknown: action '{action.ActionName}' contains an unknown challenge kind.",
+                    "snapshot");
+            }
+
+            string wireName = SecurityChallengeContracts.ToWireName(parsed);
+            if (!string.Equals(normalized, wireName, StringComparison.Ordinal))
+            {
+                throw new ArgumentException(
+                    $"challenge_kind_noncanonical: action '{action.ActionName}' must use canonical kind '{wireName}'.",
+                    "snapshot");
+            }
+
+            if (!seen.Add(wireName))
+            {
+                throw new ArgumentException(
+                    $"challenge_set_duplicate: action '{action.ActionName}' repeats challenge kind '{wireName}'.",
+                    "snapshot");
+            }
+
+            SecurityChallengeCapabilityResolution capability = SecurityChallengeCapabilityCatalog.Resolve(
+                parsed,
+                action.ActionName,
+                SecurityChallengeCapabilityCatalog.ResolveMode(action.ActionName));
+            if (!capability.PolicyEligible)
+            {
+                throw new ArgumentException(
+                    $"challenge_capability_unavailable: action '{action.ActionName}' cannot use '{wireName}': {capability.UnavailableReason}.",
+                    "snapshot");
+            }
+        }
+    }
+
     public PerceptionSealedV2PolicySnapshot RollbackPerceptionSealedV2Policy(string changedBy)
     {
         lock (_gate)
@@ -372,6 +454,7 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
 
     public void ApplyRiskControlPolicySnapshot(SecurityRiskPolicySnapshotV2 snapshot)
     {
+        ValidateChallengePolicy(snapshot);
         lock (_gate)
         {
             _previousRiskPolicy = _currentRiskPolicy;
