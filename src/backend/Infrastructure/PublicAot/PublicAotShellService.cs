@@ -14,10 +14,7 @@ namespace FsusBlog.Server.Infrastructure.PublicAot;
 
 public sealed class PublicAotShellService(
     IDbConcurrencyGate dbConcurrencyGate,
-    IPublicAotRouteIdentity routeIdentity,
-    IEnumerable<IPublicAotBootstrapProvider> bootstrapProviders,
-    IPublicAotEntryRenderer entryRenderer,
-    IPublicAotDocumentService documentService,
+    IPublicAotDocumentComposition documentComposition,
     IPublicAotShellCache cache,
     IPublicAotCacheWriter cacheWriter,
     IPublicAotBackfillScheduler backfillScheduler,
@@ -48,9 +45,6 @@ public sealed class PublicAotShellService(
             LogLevel.Warning,
             new EventId(17003, "PublicAotCacheFailedLog"),
             "Public AOT cache operation failed: {Kind} {RouteKey}");
-    private readonly IReadOnlyDictionary<PublicPageKind, IPublicAotBootstrapProvider> _bootstrapProviders =
-        BuildBootstrapProviderMap(bootstrapProviders);
-
     public async Task<Result<PublicAotNavigationSnapshot>> BuildNavigationSnapshotAsync(
         HttpContext context,
         PublicAotRouteMatch match,
@@ -59,7 +53,7 @@ public sealed class PublicAotShellService(
         DateTimeOffset generatedAtUtc = DateTimeOffset.UtcNow;
         return await dbConcurrencyGate.ExecuteAsync(
             "public-aot-navigation-snapshot",
-            gateCt => BuildNavigationSnapshotCoreAsync(context, match, generatedAtUtc, gateCt),
+            gateCt => documentComposition.BuildNavigationSnapshotAsync(context, match, generatedAtUtc, gateCt),
             _ => Task.FromResult(Result<PublicAotNavigationSnapshot>.Failure(ErrorCode.InfraFailure, "db-gate-timeout")),
             cancellationToken);
     }
@@ -87,7 +81,7 @@ public sealed class PublicAotShellService(
         context.Items[PublicAotAssetModeContextKey] = assetMode;
         if (classifyColdMiss && PublicTagUrlIdentity.IsNameRouteKey(match.RouteKey))
         {
-            PublicAotRenderOutcome canonicalOutcome = await ClassifyRouteAsync(match, cancellationToken);
+            PublicAotRenderOutcome canonicalOutcome = await documentComposition.ClassifyRouteAsync(match, cancellationToken);
             SetClassifiedFailureContext(context, canonicalOutcome.Status, assetMode);
             return canonicalOutcome;
         }
@@ -116,7 +110,7 @@ public sealed class PublicAotShellService(
         {
             if (classifyColdMiss)
             {
-                PublicAotRenderOutcome routeOutcome = await ClassifyRouteAsync(match, cancellationToken);
+                PublicAotRenderOutcome routeOutcome = await documentComposition.ClassifyRouteAsync(match, cancellationToken);
                 if (routeOutcome.Status != PublicAotRenderStatus.Success)
                 {
                     SetClassifiedFailureContext(context, routeOutcome.Status, "dev-source-bypass");
@@ -177,7 +171,7 @@ public sealed class PublicAotShellService(
 
         if (classifyColdMiss)
         {
-            PublicAotRenderOutcome routeOutcome = await ClassifyRouteAsync(match, cancellationToken);
+            PublicAotRenderOutcome routeOutcome = await documentComposition.ClassifyRouteAsync(match, cancellationToken);
             if (routeOutcome.Status != PublicAotRenderStatus.Success)
             {
                 SetClassifiedFailureContext(context, routeOutcome.Status, "none");
@@ -234,57 +228,6 @@ public sealed class PublicAotShellService(
                 && string.Equals(match.QueryString, $"?page={page[0]}", StringComparison.Ordinal);
     }
 
-    private async Task<PublicAotRenderOutcome> ClassifyRouteAsync(
-        PublicAotRouteMatch match,
-        CancellationToken cancellationToken)
-    {
-        if (!_bootstrapProviders.TryGetValue(match.Kind, out IPublicAotBootstrapProvider? provider))
-        {
-            return PublicAotRenderOutcome.TransientFailure(
-                ErrorDetail.Create(ErrorCode.InfraFailure, $"public_aot_provider_missing:{match.Kind}"));
-        }
-
-        Result<PublicPageSnapshot> snapshot;
-        try
-        {
-            snapshot = await dbConcurrencyGate.ExecuteClassifiedAsync(
-                DbWorkloadClass.PublicShortRead,
-                "public-aot-route-status",
-                gateCt => provider.BuildSnapshotAsync(match, gateCt),
-                _ => Task.FromResult(Result<PublicPageSnapshot>.Failure(ErrorCode.InfraFailure, "db-gate-timeout")),
-                cancellationToken);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception)
-        {
-            return PublicAotRenderOutcome.TransientFailure(
-                ErrorDetail.Create(ErrorCode.InfraFailure, "public_aot_route_status_failed"));
-        }
-
-        if (snapshot.IsSuccess && snapshot.Value is not null)
-        {
-            if (PublicTagUrlIdentity.IsNameRouteKey(match.RouteKey)
-                && snapshot.Value is PublicFilterPageSnapshot { FilterId: > 0 } filter)
-            {
-                string canonicalRouteKey = PublicRouteIdentity.BuildPaginatedRouteKey(
-                    PublicRouteIdentity.BuildTagIdRouteKey(filter.FilterId),
-                    match.Page);
-                return PublicAotRenderOutcome.PermanentRedirect(string.Concat(
-                    PublicRouteIdentity.BuildCanonicalPath(PublicPageId.Filter, canonicalRouteKey, null),
-                    PublicRouteIdentity.BuildPaginationQueryString(match.Page)));
-            }
-
-            return PublicAotRenderOutcome.Success(null);
-        }
-
-        return snapshot.Error.Code is ErrorCode.NotFound or ErrorCode.Validation
-            ? PublicAotRenderOutcome.NotFound(snapshot.Error)
-            : PublicAotRenderOutcome.TransientFailure(snapshot.Error);
-    }
-
     private static void SetClassifiedFailureContext(
         HttpContext context,
         PublicAotRenderStatus status,
@@ -303,86 +246,6 @@ public sealed class PublicAotShellService(
             _ => "transient-failure"
         };
         context.Items[PublicAotAssetModeContextKey] = assetMode;
-    }
-
-    private async Task<Result<PublicAotNavigationSnapshot>> BuildNavigationSnapshotCoreAsync(
-        HttpContext context,
-        PublicAotRouteMatch match,
-        DateTimeOffset generatedAtUtc,
-        CancellationToken cancellationToken)
-    {
-        if (!_bootstrapProviders.TryGetValue(match.Kind, out IPublicAotBootstrapProvider? provider))
-        {
-            return Result<PublicAotNavigationSnapshot>.Failure(ErrorCode.Validation, $"public_aot_provider_missing:{match.Kind}");
-        }
-
-        Result<PublicPageSnapshot> snapshot = await provider.BuildSnapshotAsync(match, cancellationToken);
-        if (snapshot.IsFailure || snapshot.Value is null)
-        {
-            return Result<PublicAotNavigationSnapshot>.Failure(snapshot.Error);
-        }
-
-        PublicPageSnapshot snapshotValue = snapshot.Value;
-        if (PublicTagUrlIdentity.IsNameRouteKey(match.RouteKey)
-            && snapshotValue is PublicFilterPageSnapshot { FilterId: > 0 } filter)
-        {
-            string canonicalFilterKey = PublicRouteIdentity.BuildTagIdRouteKey(filter.FilterId);
-            string canonicalRouteKey = PublicRouteIdentity.BuildPaginatedRouteKey(
-                canonicalFilterKey,
-                match.Page);
-            string canonicalPath = PublicRouteIdentity.BuildTagPath(filter.FilterId);
-            match = match with
-            {
-                RouteKey = canonicalRouteKey,
-                Path = canonicalPath,
-                CanonicalPath = canonicalPath
-            };
-            snapshotValue = filter with
-            {
-                RouteKey = canonicalRouteKey,
-                FilterKey = canonicalFilterKey
-            };
-        }
-
-        Result<PublicAotShellEntryContract> entry = await entryRenderer.BuildEntryAsync(
-            new PublicAotRenderRequest(match, snapshotValue),
-            cancellationToken);
-        if (entry.IsFailure || entry.Value is null)
-        {
-            return Result<PublicAotNavigationSnapshot>.Failure(entry.Error);
-        }
-
-        PublicAotShellEntryContract renderedEntry = entry.Value;
-        if (!PublicAotShellContractRules.TryValidateEntry(renderedEntry, out string normalizedRouteKey, out string normalizedHtml, out string error))
-        {
-            return Result<PublicAotNavigationSnapshot>.Failure(ErrorCode.Validation, error);
-        }
-
-        PublicAotShellEntryContract normalizedEntry = renderedEntry with
-        {
-            RouteKey = normalizedRouteKey,
-            Html = normalizedHtml
-        };
-        string frontendAssetVersion = assetManifest.GetFrontendAssetVersion(context);
-        PublicAotRouteMatch navigationMatch = match with
-        {
-            RouteKey = normalizedRouteKey
-        };
-        Result<PublicSeoHeadModel> seoHead = await documentService.BuildSeoHeadModelAsync(
-            normalizedEntry,
-            cancellationToken);
-        if (seoHead.IsFailure || seoHead.Value is null)
-        {
-            return Result<PublicAotNavigationSnapshot>.Failure(seoHead.Error);
-        }
-
-        PublicAotNavigationSnapshot result = PublicAotNavigationSnapshot.Create(
-            navigationMatch,
-            normalizedEntry,
-            seoHead.Value,
-            frontendAssetVersion,
-            generatedAtUtc);
-        return Result<PublicAotNavigationSnapshot>.Success(result);
     }
 
     private bool ScheduleBackfill(
@@ -407,13 +270,13 @@ public sealed class PublicAotShellService(
         CancellationToken cancellationToken = default,
         Func<CancellationToken, Task>? beforeCommit = null)
     {
-        Result<(PublicAotRouteMatch Match, string Html, string RendererVersion)> document = await dbConcurrencyGate.ExecuteAsync(
+        Result<PublicAotBackfillDocument> document = await dbConcurrencyGate.ExecuteAsync(
             "public-aot-backfill",
-            gateCt => BuildBackfillDocumentAsync(request, gateCt),
+            gateCt => documentComposition.BuildBackfillDocumentAsync(request, gateCt),
             _ =>
             {
                 logger.LogWarning("db-gate-timeout public-aot-backfill {Kind} {RouteKey}", request.Kind, request.RouteKey);
-                return Task.FromResult(Result<(PublicAotRouteMatch Match, string Html, string RendererVersion)>.Failure(ErrorCode.InfraFailure, "db-gate-timeout"));
+                return Task.FromResult(Result<PublicAotBackfillDocument>.Failure(ErrorCode.InfraFailure, "db-gate-timeout"));
             },
             cancellationToken);
         if (document.IsFailure)
@@ -429,7 +292,7 @@ public sealed class PublicAotShellService(
             return;
         }
 
-        (PublicAotRouteMatch match, string html, string rendererVersion) = document.Value;
+        PublicAotBackfillDocument backfillDocument = document.Value!;
         if (invalidationTracker.WasInvalidatedAfter(request))
         {
             logger.LogInformation(
@@ -449,11 +312,11 @@ public sealed class PublicAotShellService(
 
             await cacheWriter.WriteAsync(
                 request.CacheKey,
-                match.PageId,
-                match.RouteKey,
-                rendererVersion,
+                backfillDocument.Match.PageId,
+                backfillDocument.Match.RouteKey,
+                backfillDocument.RendererVersion,
                 frontendAssetVersion,
-                html,
+                backfillDocument.Html,
                 PublicAotWriteSource.ServerSsrBackfill,
                 DateTimeOffset.UtcNow,
                 TimeSpan.FromDays(30),
@@ -523,92 +386,6 @@ public sealed class PublicAotShellService(
 
     private static bool UsesListVersion(PublicPageId pageId)
         => pageId is PublicPageId.Home or PublicPageId.Archive or PublicPageId.Filter;
-
-    private async Task<Result<(PublicAotRouteMatch Match, string Html, string RendererVersion)>> BuildBackfillDocumentAsync(
-        PublicAotBackfillRequest request,
-        CancellationToken cancellationToken)
-    {
-        PublicAotRouteMatch match = routeIdentity.ResolveBackfillMatch(request);
-        if (PublicTagUrlIdentity.IsNameRouteKey(match.RouteKey))
-        {
-            return Result<(PublicAotRouteMatch Match, string Html, string RendererVersion)>.Failure(
-                ErrorCode.Validation,
-                "public_aot_tag_name_route_noncanonical");
-        }
-
-        if (!_bootstrapProviders.TryGetValue(match.Kind, out IPublicAotBootstrapProvider? provider))
-        {
-            return Result<(PublicAotRouteMatch Match, string Html, string RendererVersion)>.Failure(ErrorCode.Validation, $"public_aot_provider_missing:{match.Kind}");
-        }
-
-        Result<PublicPageSnapshot> snapshot = await provider.BuildSnapshotAsync(match, cancellationToken);
-        if (snapshot.IsFailure)
-        {
-            return Result<(PublicAotRouteMatch Match, string Html, string RendererVersion)>.Failure(snapshot.Error);
-        }
-
-        var renderRequest = new PublicAotRenderRequest(match, snapshot.Value!);
-        Result<PublicAotShellEntryContract> entry = await entryRenderer.BuildEntryAsync(renderRequest, cancellationToken);
-        if (entry.IsFailure)
-        {
-            return Result<(PublicAotRouteMatch Match, string Html, string RendererVersion)>.Failure(entry.Error);
-        }
-
-        PublicAotShellEntryContract renderedEntry = entry.Value!;
-        if (!PublicAotShellContractRules.TryValidateEntry(renderedEntry, out string normalizedRouteKey, out string normalizedHtml, out string error))
-        {
-            return Result<(PublicAotRouteMatch Match, string Html, string RendererVersion)>.Failure(ErrorCode.Validation, error);
-        }
-
-        PublicAotShellEntryContract normalizedEntry = renderedEntry with
-        {
-            RouteKey = normalizedRouteKey,
-            Html = normalizedHtml
-        };
-        Result<string> document = await documentService.ComposeAsync(normalizedEntry, cancellationToken);
-        if (document.IsFailure)
-        {
-            return Result<(PublicAotRouteMatch Match, string Html, string RendererVersion)>.Failure(document.Error);
-        }
-
-        return Result<(PublicAotRouteMatch Match, string Html, string RendererVersion)>.Success((
-            match with
-            {
-                RouteKey = normalizedRouteKey
-            },
-            document.Value!,
-            normalizedEntry.RendererVersion ?? PublicRendererVersion));
-    }
-
-    private static IReadOnlyDictionary<PublicPageKind, IPublicAotBootstrapProvider> BuildBootstrapProviderMap(
-        IEnumerable<IPublicAotBootstrapProvider> bootstrapProviders)
-    {
-        IPublicAotBootstrapProvider[] providers = bootstrapProviders.ToArray();
-        PublicPageKind[] duplicateKinds = providers
-            .GroupBy(static provider => provider.Kind)
-            .Where(static group => group.Count() > 1)
-            .Select(static group => group.Key)
-            .OrderBy(static kind => kind)
-            .ToArray();
-        if (duplicateKinds.Length > 0)
-        {
-            throw new InvalidOperationException($"public_aot_provider_duplicate:{string.Join(',', duplicateKinds)}");
-        }
-
-        Dictionary<PublicPageKind, IPublicAotBootstrapProvider> providerMap = providers
-            .ToDictionary(static provider => provider.Kind);
-
-        PublicPageKind[] missingKinds = PublicAotPageIdentity.GetSeoEligibleKinds()
-            .Where(kind => !providerMap.ContainsKey(kind))
-            .OrderBy(static kind => kind)
-            .ToArray();
-        if (missingKinds.Length > 0)
-        {
-            throw new InvalidOperationException($"public_aot_provider_missing:{string.Join(',', missingKinds)}");
-        }
-
-        return providerMap;
-    }
 
     private static string? ResolveTestSessionId(HttpContext context)
     {

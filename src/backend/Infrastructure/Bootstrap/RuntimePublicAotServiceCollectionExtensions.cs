@@ -50,6 +50,7 @@ internal static class RuntimePublicAotServiceCollectionExtensions
         services.AddScoped<IPublicAotBootstrapProvider, PublicAotGuidelinesBootstrapProvider>();
         services.AddScoped<IPublicAotBootstrapProvider, PublicAotCopyrightBootstrapProvider>();
         services.AddScoped<IPublicAotDocumentService, PublicAotDocumentService>();
+        services.AddScoped<IPublicAotDocumentComposition, PublicAotDocumentComposition>();
         services.AddSingleton<IPublicAotEntryRenderer, PublicAotNodeSsrRenderer>();
         services.AddScoped<PublicAotSsrHealthService>();
         services.AddScoped<PublicAotShellService>();

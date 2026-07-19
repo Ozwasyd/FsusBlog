@@ -339,22 +339,15 @@ public sealed class PublicAotShellServiceTests
     }
 
     [Fact]
-    public void Constructor_WhenSeoProviderCoverageMissing_Throws()
+    public void DocumentComposition_WhenSeoProviderCoverageMissing_Throws()
     {
-        var ex = Assert.Throws<InvalidOperationException>(() => new PublicAotShellService(
+        var ex = Assert.Throws<InvalidOperationException>(() => new PublicAotDocumentComposition(
             Substitute.For<IDbConcurrencyGate>(),
             new PublicAotRouteIdentity(new FixedRouteRegistry(HomeMatch())),
             [],
             Substitute.For<IPublicAotEntryRenderer>(),
             Substitute.For<IPublicAotDocumentService>(),
-            Substitute.For<IPublicAotShellCache>(),
-            Substitute.For<IPublicAotCacheWriter>(),
-            Substitute.For<IPublicAotBackfillScheduler>(),
-            new FixedAssetManifestService("frontend-v1"),
-            new DefaultRuntimeKeyScope(),
-            new PublicAotInvalidationTracker(),
-            new PublicAotSsrRuntimeState(new ConfigurationBuilder().Build()),
-            NullLogger<PublicAotShellService>.Instance));
+            new FixedAssetManifestService("frontend-v1")));
 
         Assert.Contains("public_aot_provider_missing", ex.Message, StringComparison.Ordinal);
     }
@@ -769,20 +762,28 @@ public sealed class PublicAotShellServiceTests
         IDbConcurrencyGate? dbConcurrencyGate = null,
         PublicAotInvalidationTracker? invalidationTracker = null,
         IEnumerable<IPublicAotBootstrapProvider>? bootstrapProviders = null)
-        => new(
-            dbConcurrencyGate ?? Substitute.For<IDbConcurrencyGate>(),
+    {
+        IDbConcurrencyGate gate = dbConcurrencyGate ?? Substitute.For<IDbConcurrencyGate>();
+        ISpaAssetManifestService manifest = assetManifest ?? new FixedAssetManifestService("frontend-v1");
+        var documentComposition = new PublicAotDocumentComposition(
+            gate,
             new PublicAotRouteIdentity(new FixedRouteRegistry(match)),
             bootstrapProviders ?? CreateBootstrapProviders(),
             entryRenderer ?? Substitute.For<IPublicAotEntryRenderer>(),
             CreateDocumentService(match),
+            manifest);
+        return new PublicAotShellService(
+            gate,
+            documentComposition,
             cache,
             Substitute.For<IPublicAotCacheWriter>(),
             scheduler,
-            assetManifest ?? new FixedAssetManifestService("frontend-v1"),
+            manifest,
             runtimeKeyScope ?? new DefaultRuntimeKeyScope(),
             invalidationTracker ?? new PublicAotInvalidationTracker(),
             runtimeState ?? new PublicAotSsrRuntimeState(new ConfigurationBuilder().Build()),
             NullLogger<PublicAotShellService>.Instance);
+    }
 
     private static IPublicAotDocumentService CreateDocumentService(PublicAotRouteMatch match)
     {

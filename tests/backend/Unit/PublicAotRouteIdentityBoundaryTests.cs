@@ -63,8 +63,14 @@ public sealed class PublicAotRouteIdentityBoundaryTests
         Type[] shellDependencies = shellConstructor.GetParameters()
             .Select(static parameter => parameter.ParameterType)
             .ToArray();
-        Assert.Contains(typeof(IPublicAotRouteIdentity), shellDependencies);
+        Assert.Contains(typeof(IPublicAotDocumentComposition), shellDependencies);
+        Assert.DoesNotContain(typeof(IPublicAotRouteIdentity), shellDependencies);
         Assert.DoesNotContain(typeof(IPublicAotRouteRegistry), shellDependencies);
+        ConstructorInfo compositionConstructor = Assert.Single(typeof(PublicAotDocumentComposition).GetConstructors(
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic));
+        Assert.Contains(
+            compositionConstructor.GetParameters(),
+            static parameter => parameter.ParameterType == typeof(IPublicAotRouteIdentity));
         Assert.DoesNotContain(
             identityConstructor.GetParameters(),
             static parameter => parameter.ParameterType == typeof(IPublicAotShellService)
