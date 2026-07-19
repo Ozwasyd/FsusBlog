@@ -2,16 +2,6 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Entities;
 
-public enum MessageCategory
-{
-    /// <summary>全站公告 (拉模式)</summary>
-    Broadcast = 1,
-    /// <summary>系统通知 (删评、封禁等 - 推模式)</summary>
-    SystemTask = 2,
-    /// <summary>事务性通知 (点对点消息)</summary>
-    Transactional = 3
-}
-
 public enum ConversationStatus
 {
     Open = 0,
@@ -234,12 +224,6 @@ public sealed class ConversationMessage
     [SugarColumn(ColumnDataType = "text")]
     public string Body { get; set; } = string.Empty;
 
-    [SugarColumn(IsNullable = true, ColumnDataType = "text")]
-    public string? AttachmentsMeta
-    {
-        get; set;
-    }
-
     public bool IsInternalNote
     {
         get; set;
@@ -314,11 +298,6 @@ public sealed class ConversationParticipantState
     }
 
     public int UnreadCount
-    {
-        get; set;
-    }
-
-    public bool Muted
     {
         get; set;
     }

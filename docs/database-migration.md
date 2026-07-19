@@ -170,6 +170,7 @@ The upgrade also moves legacy content and messaging structures:
 - `Page_*` and `sys:page:*` entries in `sys_systemconfig` are copied to `page_content`, then removed from `sys_systemconfig`.
 - `sys_message` and `sys_user_message` are copied to `msg_conversation`, `msg_message`, and `msg_participant_state`, then the old tables are dropped.
 - Message identity is finalized onto `initiatoraccountid`, `senderaccountid`, and `accountid`; `msg_conversation.initiatoruserid`, `msg_message.senderid`, `msg_participant_state.userid`, and the `*_identity_sync` trigger functions are dropped.
+- Message schema ownership is recorded in [`message-schema-field-matrix.md`](message-schema-field-matrix.md). New code-first schemas and legacy backfills no longer create or populate the unused `attachmentsmeta` and `muted` fields; the prior messaging-split checksum remains accepted for databases where that historical descriptor already ran. `isinternalnote` remains server-only because it is an account visibility, pagination, and unread-count boundary, while `sourcemessageid` remains the unique system-notification idempotency coordinate.
 - plaintext refresh token columns on `sys_user` are nulled and dropped.
 - Legacy `sys_visit_log` rows are used only during the same migration transaction to seed aggregate counters, then the entire table and its projection watermark are dropped.
 

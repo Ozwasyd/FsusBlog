@@ -4,6 +4,8 @@ namespace FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
 
 internal static class LegacyIdentityMigrationDefinitions
 {
+    private const string LegacyMessagingSplitChecksum = "C5F517F66C0B90F8A9FB5CAFD945CAD357C8861B6D56FCE9F7AE95B0B8BD1602";
+
     internal static ISchemaMigrationDescriptor BuildReadEventRetirementCompatMigration()
         => new SchemaMigrationDescriptor(
             "20260715-pre-read-event-retirement-compat",
@@ -580,7 +582,7 @@ internal static class LegacyIdentityMigrationDefinitions
                             EXECUTE format(
                                 'INSERT INTO msg_message(
                                      id, conversationid, sendertype, senderaccountid, senderadminprincipalid, senderadminsessionid,
-                                     body, attachmentsmeta, isinternalnote, createdat
+                                     body, isinternalnote, createdat
                                  )
                                  SELECT
                                      m.id,
@@ -590,7 +592,6 @@ internal static class LegacyIdentityMigrationDefinitions
                                      NULL,
                                      NULL,
                                      coalesce(m.content, ''''),
-                                     NULL,
                                      false,
                                      coalesce(%1$s, now())
                                  FROM sys_message m
@@ -608,14 +609,13 @@ internal static class LegacyIdentityMigrationDefinitions
                             WHERE table_schema = 'public' AND table_name = 'sys_user_message'
                         ) THEN
                             INSERT INTO msg_participant_state(
-                                conversationid, accountid, lastreadmessageid, unreadcount, muted, lastreadat, updatedat
+                                conversationid, accountid, lastreadmessageid, unreadcount, lastreadat, updatedat
                             )
                             SELECT
                                 rel.messageid,
                                 rel.userid::integer,
                                 CASE WHEN rel.isread THEN rel.messageid ELSE NULL END,
                                 CASE WHEN rel.isread THEN 0 ELSE 1 END,
-                                false,
                                 rel.readtime,
                                 coalesce(rel.readtime, now())
                             FROM sys_user_message rel
@@ -630,7 +630,8 @@ internal static class LegacyIdentityMigrationDefinitions
                     """),
                 new DropTableStep("sys_user_message", DestructiveMigrationProofs.For("20260418-post-messaging-split")),
                 new DropTableStep("sys_message", DestructiveMigrationProofs.For("20260418-post-messaging-split"))
-            ]);
+            ],
+            CompatibleChecksums: [LegacyMessagingSplitChecksum]);
 
     internal static ISchemaMigrationDescriptor BuildMessageAccountPrincipalMigration()
         => new SchemaMigrationDescriptor(

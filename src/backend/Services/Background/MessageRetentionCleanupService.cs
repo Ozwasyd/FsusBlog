@@ -54,7 +54,6 @@ public sealed class MessageRetentionCleanupService(
                 """
                 UPDATE msg_message message
                 SET body = '[account-deleted]',
-                    attachmentsmeta = NULL,
                     senderaccountid = NULL,
                     clientmutationprincipalid = CASE
                         WHEN clientmutationprincipalkind = 'account' THEN NULL
@@ -95,7 +94,6 @@ public sealed class MessageRetentionCleanupService(
                 """
                 UPDATE msg_message message
                 SET body = '[retention-expired]',
-                    attachmentsmeta = NULL,
                     contentredactedat = @Now,
                     contentredactionreason = CASE
                         WHEN conversation.issystemsource THEN 'system_retention'

@@ -31,6 +31,13 @@ public sealed class SchemaModelInspectorTests
         Assert.Contains("absoluteexpiresat", userSession.Columns.Keys);
         Assert.Contains("rememberme", userSession.Columns.Keys);
 
+        SchemaTableModel conversationMessage = snapshot.Tables["msg_message"];
+        Assert.DoesNotContain("attachmentsmeta", conversationMessage.Columns.Keys);
+        Assert.Contains("isinternalnote", conversationMessage.Columns.Keys);
+
+        SchemaTableModel participantState = snapshot.Tables["msg_participant_state"];
+        Assert.DoesNotContain("muted", participantState.Columns.Keys);
+
         SchemaTableModel user = snapshot.Tables["sys_user"];
         Assert.Contains("passkey_user_handle", user.Columns.Keys);
 
