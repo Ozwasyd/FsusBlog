@@ -1,5 +1,5 @@
 <template>
-  <div :class="themeTokens.articleList.container" data-fsus-surface="reading">
+  <div class="ui-article-list" :class="themeTokens.articleList.container" data-fsus-surface="reading">
     <article
       v-for="(item, index) in items"
       :key="item.id"

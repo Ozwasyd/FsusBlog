@@ -15,20 +15,21 @@ const primaryHover = 'hover:text-[var(--fsusblog-color-primary)]';
 const colorTransition = 'transition-colors duration-[var(--fsus-motion-control-fast)] ease-[var(--fsus-motion-standard)]';
 const microRadius = 'rounded-[var(--fsusblog-reading-radius-control)]';
 const metadataText = `text-xs sm:text-sm leading-4 sm:leading-5 font-medium ${textMuted} uppercase tracking-normal`;
+const articleListMetadataText = `text-xs sm:text-sm leading-4 sm:leading-5 font-medium ${textMuted} tracking-normal`;
 const numericText = 'tabular-nums';
 
 export const themeTokens: ThemeTokenContract = {
   focusRing,
   articleList: {
-    container: 'flex flex-col gap-8',
+    container: 'flex flex-col gap-10 sm:gap-12',
     card: 'ui-article-card group flex flex-col items-start gap-4 sm:gap-5',
-    metaRow: `ui-article-meta min-h-5 flex flex-wrap items-center gap-6 ${metadataText}`,
+    metaRow: `ui-article-meta min-h-5 flex flex-wrap items-center gap-6 ${articleListMetadataText}`,
     metaSeparator: `ui-article-meta-separator ${textDecorative}`,
     metaCategory: `ui-article-category inline-flex min-h-9 items-center -mx-1 px-1 ${microRadius} outline-none ${focusRing} ${textMuted} ${primaryHover} ${colorTransition} cursor-pointer`,
-    title: `ui-article-title text-xl sm:text-2xl lg:text-3xl font-bold ${textHeading} group-hover:text-[var(--fsusblog-color-primary)] ${colorTransition} leading-[1.1] sm:leading-[1.05] safe-inline-wrap tracking-normal`,
+    title: `ui-article-title text-lg sm:text-xl lg:text-2xl font-bold ${textHeading} group-hover:text-[var(--fsusblog-color-primary)] ${colorTransition} leading-[1.25] sm:leading-[1.2] safe-inline-wrap tracking-normal`,
     titleLink: `flex min-h-11 items-center ${microRadius} outline-none ${focusRing} safe-inline-wrap`,
-    summary: `ui-article-summary mt-2 text-base sm:text-lg ${textSecondary} leading-[1.8] sm:leading-[1.9] line-clamp-3`,
-    readLink: `ui-article-link mt-4 min-h-11 ${microRadius} text-xs sm:text-sm leading-4 sm:leading-5 font-medium uppercase tracking-normal ${textPrimary} ${primaryHover} ${colorTransition} flex items-center gap-3 px-2 py-2 -ml-0.5 outline-none ${focusRing}`,
+    summary: `ui-article-summary mt-2 text-sm sm:text-base font-normal ${textSecondary} leading-[1.7] line-clamp-3`,
+    readLink: `ui-article-link mt-4 min-h-11 ${microRadius} text-xs sm:text-sm leading-4 sm:leading-5 font-medium tracking-normal ${textMuted} ${primaryHover} ${colorTransition} flex items-center gap-3 px-2 py-2 -ml-0.5 outline-none ${focusRing}`,
     pagination: `ui-pagination mt-24 sm:mt-32 pt-12 border-t ${lineBorder} flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-6`,
     paginationIndicator: `text-xs font-bold ${textSubtle} uppercase tracking-normal ${numericText}`
   },

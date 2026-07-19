@@ -97,6 +97,12 @@ html[data-theme-resolved='dark'] {
   font-weight: 700;
 }
 
+#fsus-aot-shell .ui-article-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
 #fsus-aot-shell .ui-article-card {
   display: flex;
   flex-direction: column;
@@ -104,15 +110,16 @@ html[data-theme-resolved='dark'] {
 }
 
 #fsus-aot-shell .ui-article-title {
-  font-size: 1.25rem;
-  line-height: 1.1;
+  font-size: 1.125rem;
+  line-height: 1.25;
   font-weight: 700;
   color: var(--fsusblog-text-primary, CanvasText);
 }
 
 #fsus-aot-shell .ui-article-summary {
-  font-size: 1rem;
-  line-height: 1.8;
+  font-size: 14px;
+  line-height: 1.7;
+  font-weight: 400;
   color: var(--fsusblog-text-secondary, GrayText);
 }
 
@@ -123,15 +130,32 @@ html[data-theme-resolved='dark'] {
   line-height: 1rem;
 }
 
+#fsus-aot-shell .ui-article-meta,
+#fsus-aot-shell .ui-article-link {
+  text-transform: none;
+}
+
+#fsus-aot-shell .ui-article-link {
+  color: var(--fsusblog-text-muted, GrayText);
+}
+
+#fsus-aot-shell .ui-article-link:hover,
+#fsus-aot-shell .ui-article-link:focus-visible {
+  color: var(--fsusblog-color-primary, LinkText);
+}
+
 @media (min-width: 640px) {
+  #fsus-aot-shell .ui-article-list {
+    gap: 3rem;
+  }
+
   #fsus-aot-shell .ui-article-title {
-    font-size: 1.5rem;
-    line-height: 1.05;
+    font-size: 1.25rem;
+    line-height: 1.2;
   }
 
   #fsus-aot-shell .ui-article-summary {
-    font-size: 1.125rem;
-    line-height: 1.9;
+    font-size: 16px;
   }
 
   #fsus-aot-shell .ui-article-meta,
@@ -144,7 +168,7 @@ html[data-theme-resolved='dark'] {
 
 @media (min-width: 1024px) {
   #fsus-aot-shell .ui-article-title {
-    font-size: 1.875rem;
+    font-size: 1.5rem;
   }
 }
 

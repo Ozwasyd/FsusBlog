@@ -36,6 +36,7 @@ const adminAnalyticsPath = path.join(repoRoot, 'src/frontend/src/views/admin/Ana
 const dashboardPopularArticlesPath = path.join(repoRoot, 'src/frontend/src/components/admin/DashboardPopularArticles.vue')
 const homeTextFirstRecommendationsPath = path.join(repoRoot, 'src/frontend/src/components/home/HomeTextFirstRecommendations.vue')
 const themeTokensPath = path.join(repoRoot, 'src/frontend/src/ui-tokens/themeTokens.ts')
+const publicArticleListPath = path.join(repoRoot, 'src/frontend/src/components/public/PublicArticleList.vue')
 const productionSourceRoot = path.join(repoRoot, 'src/frontend/src')
 const articleDetailPath = path.join(repoRoot, 'src/frontend/src/views/ArticleDetail.vue')
 const publicPageCssPath = path.join(repoRoot, 'src/frontend/src/assets/public-page.css')
@@ -296,8 +297,8 @@ function checkPublicTypographyContract() {
   )
   assertContains(
     themeTokensPath,
-    /title: `ui-article-title text-xl sm:text-2xl lg:text-3xl[\s\S]*?leading-\[1\.1\] sm:leading-\[1\.05\]/,
-    'public display titles must retain the 20/24/30px display role scale'
+    /title: `ui-article-title text-lg sm:text-xl lg:text-2xl[\s\S]*?leading-\[1\.25\] sm:leading-\[1\.2\]/,
+    'public article list titles must use the 18/20/24px scale with readable multiline leading'
   )
   assertContains(
     themeTokensPath,
@@ -306,8 +307,8 @@ function checkPublicTypographyContract() {
   )
   assertContains(
     themeTokensPath,
-    /summary: `ui-article-summary mt-2 text-base sm:text-lg[\s\S]*?leading-\[1\.8\] sm:leading-\[1\.9\]/,
-    'public summaries must retain the 16/18px reading role scale'
+    /summary: `ui-article-summary mt-2 text-sm sm:text-base font-normal[\s\S]*?leading-\[1\.7\]/,
+    'public article list summaries must use the stable 14/16px, 400 weight, 1.7 leading role'
   )
   assertContains(
     themeTokensPath,
@@ -374,11 +375,17 @@ function checkPublicTypographyContract() {
     [publicPageCssPath, publicPageCss],
     [publicShellEmergencyCssPath, publicShellEmergencyCss]
   ]) {
-    assertContains(file, /#fsus-aot-shell \.ui-article-title\s*\{[\s\S]*?font-size:\s*1\.25rem;[\s\S]*?line-height:\s*1\.1;/, 'AOT title must match the 20px display typography baseline')
-    assertContains(file, /@media \(min-width: 640px\)\s*\{[\s\S]*?#fsus-aot-shell \.ui-article-title\s*\{[\s\S]*?font-size:\s*1\.5rem;[\s\S]*?line-height:\s*1\.05;/, 'AOT title must match the 24px display typography breakpoint')
-    assertContains(file, /@media \(min-width: 1024px\)\s*\{[\s\S]*?#fsus-aot-shell \.ui-article-title\s*\{[\s\S]*?font-size:\s*1\.875rem;/, 'AOT title must match the 30px display typography breakpoint')
-    assertContains(file, /#fsus-aot-shell \.ui-article-summary\s*\{[\s\S]*?font-size:\s*1rem;[\s\S]*?line-height:\s*1\.8;/, 'AOT summary must match the 16px reading typography baseline')
+    assertContains(file, /#fsus-aot-shell \.ui-article-list\s*\{[\s\S]*?gap:\s*2\.5rem;/, 'AOT article list feed must use 40px group separation')
+    assertContains(file, /@media \(min-width: 640px\)\s*\{[\s\S]*?#fsus-aot-shell \.ui-article-list\s*\{[\s\S]*?gap:\s*3rem;/, 'AOT article list feed must use 48px group separation at the small breakpoint')
+    assertContains(file, /#fsus-aot-shell \.ui-article-title\s*\{[\s\S]*?font-size:\s*1\.125rem;[\s\S]*?line-height:\s*1\.25;/, 'AOT article list title must match the 18px display baseline')
+    assertContains(file, /@media \(min-width: 640px\)\s*\{[\s\S]*?#fsus-aot-shell \.ui-article-title\s*\{[\s\S]*?font-size:\s*1\.25rem;[\s\S]*?line-height:\s*1\.2;/, 'AOT article list title must match the 20px display breakpoint')
+    assertContains(file, /@media \(min-width: 1024px\)\s*\{[\s\S]*?#fsus-aot-shell \.ui-article-title\s*\{[\s\S]*?font-size:\s*1\.5rem;/, 'AOT article list title must match the 24px display breakpoint')
+    assertContains(file, /#fsus-aot-shell \.ui-article-summary\s*\{[\s\S]*?font-size:\s*14px;[\s\S]*?line-height:\s*1\.7;[\s\S]*?font-weight:\s*400;/, 'AOT article list summary must match the 14px, 400 weight, 1.7 leading baseline')
+    assertContains(file, /@media \(min-width: 640px\)\s*\{[\s\S]*?#fsus-aot-shell \.ui-article-summary\s*\{[\s\S]*?font-size:\s*16px;/, 'AOT article list summary must match the 16px reading breakpoint')
     assertContains(file, /#fsus-aot-shell \.ui-article-meta[\s\S]*?font-size:\s*12px;[\s\S]*?line-height:\s*1rem;/, 'AOT metadata must match the 12px readable metadata baseline')
+    assertContains(file, /#fsus-aot-shell \.ui-article-meta,[\s\S]*?#fsus-aot-shell \.ui-article-link\s*\{[\s\S]*?text-transform:\s*none;/, 'AOT article list metadata and CTA must not use uppercase')
+    assertContains(file, /#fsus-aot-shell \.ui-article-link\s*\{[\s\S]*?color:\s*var\(--fsusblog-text-muted, GrayText\);/, 'AOT article list CTA must use the muted role by default')
+    assertContains(file, /#fsus-aot-shell \.ui-article-link:hover,[\s\S]*?#fsus-aot-shell \.ui-article-link:focus-visible\s*\{[\s\S]*?color:\s*var\(--fsusblog-color-primary, LinkText\);/, 'AOT article list CTA must use Scholarly Blue for interaction feedback')
     if (source.includes('font-size: 1.35rem;') || source.includes('font-size: .96rem;')) {
       fail(file, 1, 'AOT typography must not retain non-contract 1.35rem or .96rem scales')
     }
@@ -433,7 +440,11 @@ function checkIssueDensityContracts() {
   assertContains(homeTextFirstRecommendationsPath, /\bmin-h-16\b/, 'Home text-first recommendation rows must use compact 64px list density')
   assertContains(homeTextFirstRecommendationsPath, /grid gap-3 sm:grid-cols-2 sm:gap-4/, 'Home text-first recommendation row gaps must use 12/16px list spacing')
   assertNotContains(themeTokensPath, /articleList:\s*\{[\s\S]*?container:\s*'[^']*\b(?:gap-20|sm:gap-28|lg:gap-32)\b[^']*'/, 'Public article list feed spacing must not use large editorial gaps')
-  assertContains(themeTokensPath, /articleList:\s*\{[\s\S]*?container:\s*'flex flex-col gap-8'/, 'Public article list feed spacing must stay at the 32px density limit')
+  assertContains(themeTokensPath, /articleList:\s*\{[\s\S]*?container:\s*'flex flex-col gap-10 sm:gap-12'/, 'Public article list feed spacing must use 40/48px group separation')
+  assertContains(publicArticleListPath, /class="ui-article-list"\s+:class="themeTokens\.articleList\.container"/, 'PublicArticleList must expose the AOT/hydration list spacing hook')
+  assertNotContains(themeTokensPath, /articleList:\s*\{[\s\S]*?metaRow:\s*`[^`]*\buppercase\b[^`]*`/, 'Public article list metadata must not use uppercase')
+  assertNotContains(themeTokensPath, /articleList:\s*\{[\s\S]*?readLink:\s*`[^`]*\buppercase\b[^`]*`/, 'Public article list CTA must not use uppercase')
+  assertContains(themeTokensPath, /articleList:\s*\{[\s\S]*?readLink:\s*`[^`]*\$\{textMuted\}[^`]*\$\{primaryHover\}[^`]*`/, 'Public article list CTA must stay muted until the Scholarly Blue hover state')
 
   assertNotContains(adminDashboardPath, /DashboardAuthorAnalyticsPanel|DashboardCommentModerationPanel|DashboardQuickActionsPanel|DashboardPopularArticles|DashboardRecentComments|访客来源|地域访问/, 'ManageDashboard must stay a lightweight overview and link out to dedicated workspaces')
   assertContains(adminDashboardPath, /AdminDashboardTaskWorkbench/, 'ManageDashboard must delegate rendering to the task-first workbench')

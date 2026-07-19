@@ -74,12 +74,13 @@ Markdown 代码块与管理面审计详情统一使用 `'JetBrains Mono', ui-mon
 
 ### 公开排版角色
 
-- `display`：文章列表与详情标题统一使用 20/24/30px 档位；hydration 的 `text-xl sm:text-2xl lg:text-3xl` 必须与首屏 AOT fallback 的 `1.25rem/1.5rem/1.875rem` 保持一致。公共内容页 H1 使用 24/30px（`text-2xl sm:text-3xl`），不扩张到 36/48px。
+- `display`：文章列表标题使用 18/20/24px 档位和 1.25/1.2 行高，详情标题保留 20/24/30px 档位；公共内容页 H1 使用 24/30px（`text-2xl sm:text-3xl`），不扩张到 36/48px。
 - `src/frontend/src/ui-tokens/` 与 `src/frontend/src/components/public/` 禁止使用 `text-4xl`、`text-5xl`，防止详情标题或公共页面 H1 重新越出 display 档位。
-- `reading`：正文、摘要和引用使用 16px 或 18px 档位；Markdown 段落只保留一条权威规则。
+- `reading`：文章列表摘要使用 14/16px、400 字重和 1.7 行高；正文和引用使用 16px 或 18px 档位，Markdown 段落只保留一条权威规则。
 - `metadata`：日期、分类、状态、阅读量和操作文案使用 12px 或 14px 档位，不能以装饰性微缩文字承载信息。
 - `--text-decorative` 与 `--fsusblog-text-decorative` 只用于分隔点、列表 marker 等无语义装饰；日期、分类、状态和操作必须使用达到 AA 的 `muted` 或 `tertiary` token。
-- emergency AOT 与 hydration 后的文章标题、摘要、metadata 必须使用相同的响应式字号和行高契约。
+- article list 的 metadata 与 CTA 不使用 `uppercase`；CTA 静态态使用 `muted`，hover 时才使用 Scholarly Blue。
+- emergency AOT 与 hydration 后的文章列表标题、摘要、metadata 和 CTA 必须使用相同的响应式排版与颜色角色契约。
 - Reading surface 的正文基线为 16px / 1.8 行高；附录链接、标签和空态操作在窄视口与 150% 缩放下仍保持至少 44px 点击高度。
 
 ## 8. 圆角标度规则
