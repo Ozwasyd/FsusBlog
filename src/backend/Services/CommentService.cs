@@ -30,8 +30,7 @@ namespace FsusBlog.Server.Services;
 public partial class CommentService(
     ISqlSugarClient db,
     ILogger<CommentService> logger,
-    IMessageRealtimePublisher messageService,
-    IMessageCommandService messageCommandService,
+    ICommentNotificationService commentNotifications,
     ICacheInvalidationDispatcher cacheInvalidationDispatcher,
     IRegionLegalModerationService regionLegalModerationService,
     IAntiSpamModerationService? antiSpamModerationService = null,
@@ -764,8 +763,8 @@ public partial class CommentService(
                     PublicArticleChanged: true,
                     UserCommentsChanged: comment.UserId is > 0),
                 cancellationToken);
-            await messageService.PushCommentRemoveAsync(comment.ArticleId, comment.Id, comment.RootId ?? comment.Id, comment.ParentId);
-            _ = NotifyModelRiskHiddenAsync(comment, disposition);
+            await commentNotifications.PublishRemovedAsync(comment.ArticleId, comment.Id, comment.RootId ?? comment.Id, comment.ParentId);
+            _ = commentNotifications.NotifyModelRiskHiddenAsync(comment, disposition);
         }
     }
 
@@ -948,12 +947,12 @@ public partial class CommentService(
                 AccountId: isAttributableUserComment ? row.UserId : null,
                 PublicArticleChanged: true,
                 UserCommentsChanged: isAttributableUserComment));
-        await messageService.PushCommentRemoveAsync(row.ArticleId, id, row.RootId ?? id, row.ParentId);
+        await commentNotifications.PublishRemovedAsync(row.ArticleId, id, row.RootId ?? id, row.ParentId);
 
         if (isAdmin && isAttributableUserComment && currentUserId != row.UserId!.Value)
         {
             string commentSnippet = row.Content.Length > 20 ? row.Content[..20] : row.Content;
-            _ = NotifyDeletionAsync(row.UserId.Value, row.ArticleTitle ?? "未知文章", commentSnippet, reason);
+            _ = commentNotifications.NotifyDeletionAsync(row.UserId.Value, row.ArticleTitle ?? "未知文章", commentSnippet, reason);
         }
 
         logger.LogInformation("评论软删除成功 | CommentId: {CommentId} | Article: {ArticleId} | Root: {RootId} | Parent: {ParentId}",
@@ -1115,75 +1114,6 @@ public partial class CommentService(
         {
             await db.Insertable(rows).ExecuteCommandAsync(cancellationToken);
         }
-    }
-
-    private async Task NotifyDeletionAsync(int userId, string articleTitle, string commentSnippet, string reason)
-    {
-        await BoundaryExecutor.ExecuteAsync(
-            async () =>
-            {
-                await messageCommandService.SendCommentDeletedNoticeAsync(userId, articleTitle, commentSnippet, reason);
-            },
-            logger,
-            $"comment-notify-delete:{userId}",
-            LogLevel.Error);
-    }
-
-    private async Task NotifyModelRiskHiddenAsync(Comment comment, CommentModerationDisposition disposition)
-    {
-        if (comment.UserId is not > 0)
-        {
-            logger.LogInformation(
-                "模型审核隐藏匿名评论，跳过站内信提醒 | CommentId: {CommentId} | Reason: {Reason}",
-                comment.Id,
-                disposition.Reason);
-            return;
-        }
-
-        string commentSnippet = BuildCommentNoticeSnippet(comment.Content);
-        string body = string.Concat(
-            "您的评论已由自动审核隐藏，原因是模型命中了内容风险信号。",
-            "评论片段：「",
-            commentSnippet,
-            "」。",
-            "本提醒不构成账号处罚，不会触发封禁、限流、信誉扣分或匿名凭证处理。",
-            disposition.RequiresHumanReview ? "该评论会进入人工复核队列。" : "如有疑问，可通过站内信联系管理员。");
-        await BoundaryExecutor.ExecuteAsync(
-            async () =>
-            {
-                await messageCommandService.SendAccountTransactionalNoticeAsync(
-                    comment.UserId.Value,
-                    "评论审核提醒",
-                    body);
-            },
-            logger,
-            $"comment-model-risk-warning:{comment.UserId.Value}:{comment.Id}",
-            LogLevel.Error);
-    }
-
-    private static string BuildCommentNoticeSnippet(string content)
-    {
-        string normalized = content.ReplaceLineEndings(" ").Trim();
-        if (normalized.Length <= 60)
-        {
-            return normalized;
-        }
-
-        return string.Concat(normalized[..60], "...");
-    }
-
-    private async Task NotifyReplyAsync(int userId, int articleId, string actor, string? targetDisplayName, string content)
-    {
-        await BoundaryExecutor.ExecuteAsync(
-            async () =>
-            {
-                string targetName = string.IsNullOrWhiteSpace(targetDisplayName) ? "您" : targetDisplayName!;
-                string snippet = content.Length > 40 ? content[..40] : content;
-                await messageCommandService.SendAccountTransactionalNoticeAsync(userId, "收到新的评论回复", $"{actor} 回复了 {targetName}：{snippet}");
-            },
-            logger,
-            $"comment-notify-reply:{userId}",
-            LogLevel.Warning);
     }
 
 }

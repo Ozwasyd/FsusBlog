@@ -251,8 +251,10 @@ public sealed class CommentMutationPostgresConcurrencyTests(PostgresSchemaMigrat
         => new(
             db,
             NullLogger<CommentService>.Instance,
-            realtime,
-            Substitute.For<IMessageCommandService>(),
+            new CommentNotificationService(
+                realtime,
+                Substitute.For<IMessageCommandService>(),
+                NullLogger<CommentNotificationService>.Instance),
             invalidations,
             new RegionLegalModerationService(),
             configuration: new ConfigurationBuilder().Build());

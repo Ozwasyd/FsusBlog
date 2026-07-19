@@ -264,8 +264,10 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
         => new(
             db,
             NullLogger<CommentService>.Instance,
-            Substitute.For<IMessageRealtimePublisher>(),
-            Substitute.For<IMessageCommandService>(),
+            new CommentNotificationService(
+                Substitute.For<IMessageRealtimePublisher>(),
+                Substitute.For<IMessageCommandService>(),
+                NullLogger<CommentNotificationService>.Instance),
             dispatcher ?? new RecordingCacheInvalidationDispatcher(),
             new RegionLegalModerationService(),
             anonymousCommentPolicyService: CreatePolicyService(),

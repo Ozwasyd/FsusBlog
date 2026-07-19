@@ -25,8 +25,7 @@ public class CommentServiceValidationTests
         return new CommentService(
             db: Substitute.For<ISqlSugarClient>(),
             logger: NullLogger<CommentService>.Instance,
-            messageService: Substitute.For<IMessageRealtimePublisher>(),
-            messageCommandService: Substitute.For<IMessageCommandService>(),
+            commentNotifications: Substitute.For<ICommentNotificationService>(),
             cacheInvalidationDispatcher: Substitute.For<ICacheInvalidationDispatcher>(),
             regionLegalModerationService: new RegionLegalModerationService());
     }

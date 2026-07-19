@@ -243,8 +243,10 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
         return new CommentService(
             db,
             NullLogger<CommentService>.Instance,
-            realtime ?? Substitute.For<IMessageRealtimePublisher>(),
-            Substitute.For<IMessageCommandService>(),
+            new CommentNotificationService(
+                realtime ?? Substitute.For<IMessageRealtimePublisher>(),
+                Substitute.For<IMessageCommandService>(),
+                NullLogger<CommentNotificationService>.Instance),
             invalidations,
             new RegionLegalModerationService(),
             antiSpamModerationService: antiSpam,

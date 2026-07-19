@@ -668,8 +668,10 @@ public sealed class AnonymousCommentSubmitTests(
         return new CommentService(
             db,
             NullLogger<CommentService>.Instance,
-            realtime ?? Substitute.For<IMessageRealtimePublisher>(),
-            Substitute.For<IMessageCommandService>(),
+            new CommentNotificationService(
+                realtime ?? Substitute.For<IMessageRealtimePublisher>(),
+                Substitute.For<IMessageCommandService>(),
+                NullLogger<CommentNotificationService>.Instance),
             dispatcher,
             new RegionLegalModerationService(),
             anonymousNullifierService: nullifierService,
