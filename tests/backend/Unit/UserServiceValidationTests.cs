@@ -79,6 +79,16 @@ public class UserServiceValidationTests
             Substitute.For<IMessageCommandService>(),
             Substitute.For<ICacheCounterStore>());
 
+    private static UserSessionCommandService BuildSessionService(
+        ISqlSugarClient? db = null,
+        IJwtHelper? jwt = null,
+        IUserSessionValidationCache? sessionValidation = null)
+        => new(
+            db ?? Substitute.For<ISqlSugarClient>(),
+            NullLogger<UserSessionCommandService>.Instance,
+            jwt ?? Substitute.For<IJwtHelper>(),
+            sessionValidation ?? Substitute.For<IUserSessionValidationCache>());
+
     private static (IInsertable<UserSession> SessionInsert, IUpdateable<User> UserUpdate) ConfigureLoginPersistence(ISqlSugarClient db)
     {
         var ado = Substitute.For<IAdo>();
@@ -637,21 +647,21 @@ public class UserServiceValidationTests
     [Fact]
     public async Task RevokeRefreshTokenAsync_EmptyToken_ReturnsFalse()
     {
-        var svc = BuildService();
+        var svc = BuildSessionService();
         Assert.False(await svc.RevokeRefreshTokenAsync("   "));
     }
 
     [Fact]
     public async Task RevokeSessionAsync_EmptySessionId_ReturnsFalse()
     {
-        var svc = BuildService();
+        var svc = BuildSessionService();
         Assert.False(await svc.RevokeSessionAsync(1, "   "));
     }
 
     [Fact]
     public async Task RevokeSessionAsync_NullSessionId_ReturnsFalse()
     {
-        var svc = BuildService();
+        var svc = BuildSessionService();
         Assert.False(await svc.RevokeSessionAsync(1, null!));
     }
 
@@ -699,11 +709,7 @@ public class UserServiceValidationTests
                 sequence.Add("invalidate-partial-snapshot");
                 return Task.CompletedTask;
             });
-        var service = BuildService(
-            db,
-            Substitute.For<IJwtHelper>(),
-            Substitute.For<ITotpService>(),
-            sessionValidationCache: cache);
+        var service = BuildSessionService(db, sessionValidation: cache);
 
         InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
             () => service.RevokeSessionAsync(42, "session-rollback"));
@@ -755,11 +761,7 @@ public class UserServiceValidationTests
                 sequence.Add("publish-revoked-fence");
                 return Task.CompletedTask;
             });
-        var service = BuildService(
-            db,
-            Substitute.For<IJwtHelper>(),
-            Substitute.For<ITotpService>(),
-            sessionValidationCache: cache);
+        var service = BuildSessionService(db, sessionValidation: cache);
 
         int revoked = producer switch
         {
@@ -777,7 +779,7 @@ public class UserServiceValidationTests
     [Fact]
     public async Task RefreshTokenAsync_WithSessionId_EmptyToken_ReturnsFalse()
     {
-        var svc = BuildService();
+        var svc = BuildSessionService();
         var (success, data) = await svc.RefreshTokenAsync("   ", "session123");
         Assert.False(success);
         Assert.Null(data);
@@ -786,7 +788,7 @@ public class UserServiceValidationTests
     [Fact]
     public async Task RefreshTokenAsync_NullToken_ReturnsFalse()
     {
-        var svc = BuildService();
+        var svc = BuildSessionService();
         var (success, data) = await svc.RefreshTokenAsync(null!, null);
         Assert.False(success);
         Assert.Null(data);
@@ -833,7 +835,7 @@ public class UserServiceValidationTests
         jwt.GenerateRefreshToken().Returns("rotated-refresh-token");
         jwt.GenerateAccessToken(Arg.Any<User>(), "session-rotation", true)
             .Returns(new IssuedAccessToken("rotated-access-token", accessTokenExpiresAtUtc));
-        var service = BuildService(db, jwt);
+        var service = BuildSessionService(db, jwt);
 
         var (success, data) = await service.RefreshTokenAsync("old-refresh-token", "session-rotation");
 
@@ -849,8 +851,8 @@ public class UserServiceValidationTests
     [Fact]
     public async Task RefreshTokenAsync_EmptyToken_ReturnsFalse()
     {
-        var svc = BuildService();
-        var (success, data) = await svc.RefreshTokenAsync("");
+        var svc = BuildSessionService();
+        var (success, data) = await svc.RefreshTokenAsync("", null);
         Assert.False(success);
         Assert.Null(data);
     }
@@ -858,14 +860,14 @@ public class UserServiceValidationTests
     [Fact]
     public async Task GetSessionByRefreshTokenAsync_EmptyToken_ReturnsNull()
     {
-        var svc = BuildService();
+        var svc = BuildSessionService();
         Assert.Null(await svc.GetSessionByRefreshTokenAsync("   "));
     }
 
     [Fact]
     public async Task GetSessionByRefreshTokenAsync_NullToken_ReturnsNull()
     {
-        var svc = BuildService();
+        var svc = BuildSessionService();
         Assert.Null(await svc.GetSessionByRefreshTokenAsync(null!));
     }
 
@@ -907,7 +909,7 @@ public class UserServiceValidationTests
             .Returns(new IssuedAccessToken("rotated-access-token", accessExpiry));
         var measurements = new ConcurrentBag<(string Name, double Value)>();
         using MeterListener listener = ListenToFsusMeasurements(measurements);
-        var facade = new UserSessionCommandService(BuildService(db, jwt));
+        var facade = BuildSessionService(db, jwt);
 
         var result = await facade.RefreshTokenWithExpiryAsync(
             "old-refresh-token",
@@ -944,7 +946,7 @@ public class UserServiceValidationTests
         sessionQuery.Where(Arg.Do<Expression<Func<UserSession, bool>>>(value => predicate = value))
             .Returns(sessionQuery);
         sessionQuery.CountAsync().Returns(Task.FromResult(1));
-        var facade = new UserSessionCommandService(BuildService(db, Substitute.For<IJwtHelper>()));
+        var facade = BuildSessionService(db);
 
         bool verified = await facade.VerifyRefreshRotationAsync(
             "rotated-refresh-token",
@@ -958,14 +960,14 @@ public class UserServiceValidationTests
         Assert.True(matches(new UserSession
         {
             SessionId = "rotated-session",
-            RefreshTokenHash = InvokePrivateStatic<string>("HashToken", ["rotated-refresh-token"]),
+            RefreshTokenHash = InvokeSessionPrivateStatic<string>("HashToken", ["rotated-refresh-token"]),
             IdleExpiresAt = now.AddMinutes(5),
             AbsoluteExpiresAt = now.AddDays(1)
         }));
         Assert.False(matches(new UserSession
         {
             SessionId = "rotated-session",
-            RefreshTokenHash = InvokePrivateStatic<string>("HashToken", ["different-refresh-token"]),
+            RefreshTokenHash = InvokeSessionPrivateStatic<string>("HashToken", ["different-refresh-token"]),
             IdleExpiresAt = now.AddMinutes(5),
             AbsoluteExpiresAt = now.AddDays(1)
         }));
@@ -982,7 +984,7 @@ public class UserServiceValidationTests
         db.Queryable<UserSession>().Returns(sessionQuery);
         sessionQuery.Where(Arg.Any<Expression<Func<UserSession, bool>>>()).Returns(sessionQuery);
         sessionQuery.CountAsync().Returns(Task.FromResult(matchCount));
-        var facade = new UserSessionCommandService(BuildService(db, Substitute.For<IJwtHelper>()));
+        var facade = BuildSessionService(db);
 
         bool verified = await facade.VerifyRefreshRotationAsync(
             "rotated-refresh-token",
@@ -1041,7 +1043,7 @@ public class UserServiceValidationTests
             .Returns(new IssuedAccessToken("lost-race-access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
         var measurements = new ConcurrentBag<(string Name, double Value)>();
         using MeterListener listener = ListenToFsusMeasurements(measurements);
-        var service = BuildService(db, jwt);
+        var service = BuildSessionService(db, jwt);
 
         var result = await service.RefreshTokenAsync("old-refresh-token", activeSession.SessionId);
 
@@ -1593,6 +1595,14 @@ public class UserServiceValidationTests
         return (T)method.Invoke(null, args)!;
     }
 
+    private static T InvokeSessionPrivateStatic<T>(string methodName, object?[] args)
+    {
+        var method = typeof(UserSessionCommandService).GetMethod(
+            methodName,
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+        return (T)method.Invoke(null, args)!;
+    }
+
     private static IDisposable SetAnonymousIdentityMode(string? value)
         => new EnvironmentVariableScope(AnonymousIdentityRuntime.ModeEnvironmentVariable, value);
 
@@ -1675,7 +1685,7 @@ public class UserServiceValidationTests
     [InlineData(null, "fp-abc", "fp-abc")]
     public void BuildDeviceLabel_ReturnsExpected(string? userAgent, string? fingerprint, string expected)
     {
-        var result = InvokePrivateStatic<string>("BuildDeviceLabel", [userAgent, fingerprint]);
+        var result = InvokeSessionPrivateStatic<string>("BuildDeviceLabel", [userAgent, fingerprint]);
         Assert.Equal(expected, result);
     }
 
@@ -1683,7 +1693,7 @@ public class UserServiceValidationTests
     public void BuildDeviceLabel_LongUserAgent_Truncates()
     {
         string longAgent = new string('x', 200);
-        var result = InvokePrivateStatic<string>("BuildDeviceLabel", [longAgent, null]);
+        var result = InvokeSessionPrivateStatic<string>("BuildDeviceLabel", [longAgent, null]);
         Assert.EndsWith("...", result);
         Assert.Equal(99, result.Length); // 96 + "..."
     }

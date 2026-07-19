@@ -45,8 +45,8 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
             .Returns(Task.FromResult(true));
         using SqlSugarClient firstDb = PostgresSqlSugarTestClient.Create(connectionString);
         using SqlSugarClient secondDb = PostgresSqlSugarTestClient.Create(connectionString);
-        UserService firstService = CreateService(firstDb, "first-rotated-token", validationCache);
-        UserService secondService = CreateService(secondDb, "second-rotated-token", validationCache);
+        UserSessionCommandService firstService = CreateSessionService(firstDb, "first-rotated-token", validationCache);
+        UserSessionCommandService secondService = CreateSessionService(secondDb, "second-rotated-token", validationCache);
 
         await using var holder = new NpgsqlConnection(connectionString);
         await holder.OpenAsync();
@@ -263,6 +263,22 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
             _totpService: totp ?? Substitute.For<ITotpService>(),
             _authRiskService: Substitute.For<IAuthRiskService>(),
             _userSessionValidationCache: validationCache);
+    }
+
+    private static UserSessionCommandService CreateSessionService(
+        SqlSugarClient db,
+        string nextRefreshToken,
+        IUserSessionValidationCache validationCache)
+    {
+        var jwt = Substitute.For<IJwtHelper>();
+        jwt.GenerateRefreshToken().Returns(nextRefreshToken);
+        jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string?>(), Arg.Any<bool>())
+            .Returns(new IssuedAccessToken("access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
+        return new UserSessionCommandService(
+            db,
+            NullLogger<UserSessionCommandService>.Instance,
+            jwt,
+            validationCache);
     }
 
     private static string HashToken(string token)

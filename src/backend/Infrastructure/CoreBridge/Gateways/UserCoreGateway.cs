@@ -10,6 +10,7 @@ namespace FsusBlog.Server.Infrastructure.CoreBridge.Gateways;
 
 public sealed class UserCoreGateway(
     UserService service,
+    IUserSessionCommandService sessions,
     IUserAdminModerationService admin) : IUserCoreGateway
 {
     public async Task<AccountSnapshotContract?> GetByIdAsync(int id)
@@ -20,13 +21,14 @@ public sealed class UserCoreGateway(
 
     public async Task<(bool Success, TokenPairContract? Data)> RefreshTokenAsync(string refreshToken)
     {
-        var result = await service.RefreshTokenAsync(refreshToken);
+        var result = await sessions.RefreshTokenAsync(refreshToken, null);
         return result.Success && result.Data.HasValue
             ? (true, new TokenPairContract(result.Data.Value.AccessToken, result.Data.Value.RefreshToken))
             : (false, null);
     }
 
-    public Task<bool> RevokeRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default) => service.RevokeRefreshTokenAsync(refreshToken, cancellationToken);
+    public Task<bool> RevokeRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
+        => sessions.RevokeRefreshTokenAsync(refreshToken, cancellationToken);
 
     public async Task<AdminUserPageContract> GetAdminUserListAsync(int page, int pageSize, string? keyword, int? status)
     {

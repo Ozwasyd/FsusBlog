@@ -48,11 +48,11 @@ public sealed class AuthSecurityHardeningTests
     }
 
     [Fact]
-    public void UserService_RefreshRotationRuntimeUsesCasAndReplayRevocation()
+    public void UserSessionCommandService_RefreshRotationRuntimeUsesCasAndReplayRevocation()
     {
         string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
-            typeof(UserService),
-            nameof(UserService.RefreshTokenAsync),
+            typeof(UserSessionCommandService),
+            nameof(UserSessionCommandService.RefreshTokenAsync),
             "RevokeLikelyRefreshReplayAsync");
 
         Assert.Contains("get_RefreshTokenHash", runtimeShape, StringComparison.Ordinal);

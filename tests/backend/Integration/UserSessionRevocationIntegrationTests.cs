@@ -37,7 +37,7 @@ public sealed class UserSessionRevocationIntegrationTests(PostgresSchemaMigratio
 
         Assert.True((await validator.ValidateAsync(principal, CancellationToken.None)).IsValid);
 
-        UserService users = CreateUserService(db, cache);
+        UserSessionCommandService users = CreateSessionService(db, cache);
         Assert.True(await users.RevokeSessionAsync(accountId, session.SessionId));
 
         UserSessionValidationResult rejected = await validator.ValidateAsync(principal, CancellationToken.None);
@@ -65,7 +65,7 @@ public sealed class UserSessionRevocationIntegrationTests(PostgresSchemaMigratio
         Assert.True((await validator.ValidateAsync(otherAPrincipal, CancellationToken.None)).IsValid);
         Assert.True((await validator.ValidateAsync(otherBPrincipal, CancellationToken.None)).IsValid);
 
-        UserService users = CreateUserService(db, cache);
+        UserSessionCommandService users = CreateSessionService(db, cache);
         int revoked = await users.RevokeOtherSessionsAsync(accountId, current.SessionId);
 
         Assert.Equal(2, revoked);
@@ -95,7 +95,7 @@ public sealed class UserSessionRevocationIntegrationTests(PostgresSchemaMigratio
         Assert.True((await validator.ValidateAsync(firstPrincipal, CancellationToken.None)).IsValid);
         Assert.True((await validator.ValidateAsync(secondPrincipal, CancellationToken.None)).IsValid);
 
-        UserService users = CreateUserService(db, cache);
+        UserSessionCommandService users = CreateSessionService(db, cache);
         int revoked = await users.RevokeAllSessionsAsync(
             accountId,
             "passkey_counter_rollback",
@@ -129,7 +129,7 @@ public sealed class UserSessionRevocationIntegrationTests(PostgresSchemaMigratio
         ClaimsPrincipal principal = CreatePrincipal(accountId, session.SessionId);
         Assert.True((await validator.ValidateAsync(principal, CancellationToken.None)).IsValid);
 
-        UserService users = CreateUserService(db, cache);
+        UserSessionCommandService users = CreateSessionService(db, cache);
         var refresh = await users.RefreshTokenAsync("replayed-stale-token", session.SessionId);
 
         Assert.False(refresh.Success);
@@ -171,7 +171,7 @@ public sealed class UserSessionRevocationIntegrationTests(PostgresSchemaMigratio
         Assert.True((await validator.ValidateAsync(siblingPrincipal, CancellationToken.None)).IsValid);
         Assert.True((await validator.ValidateAsync(otherPrincipal, CancellationToken.None)).IsValid);
 
-        UserService users = CreateUserService(db, cache);
+        UserSessionCommandService users = CreateSessionService(db, cache);
         var refresh = await users.RefreshTokenAsync("replayed-stale-family-token", replayTarget.SessionId);
 
         Assert.False(refresh.Success);
@@ -206,7 +206,7 @@ public sealed class UserSessionRevocationIntegrationTests(PostgresSchemaMigratio
         Task<UserSessionValidationResult> concurrentValidation = validator.ValidateAsync(principal, CancellationToken.None);
         await cache.WaitForBlockedActivePublishAsync();
 
-        UserService users = CreateUserService(db, cache);
+        UserSessionCommandService users = CreateSessionService(db, cache);
         Assert.True(await users.RevokeSessionAsync(accountId, session.SessionId));
         cache.ReleaseBlockedActivePublish();
 
@@ -273,7 +273,7 @@ public sealed class UserSessionRevocationIntegrationTests(PostgresSchemaMigratio
         return session;
     }
 
-    private static UserService CreateUserService(
+    private static UserSessionCommandService CreateSessionService(
         ISqlSugarClient db,
         IUserSessionValidationCache validationCache)
     {
@@ -281,14 +281,11 @@ public sealed class UserSessionRevocationIntegrationTests(PostgresSchemaMigratio
         jwt.GenerateRefreshToken().Returns("rotated-refresh-token");
         jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<bool>()).Returns(
             new IssuedAccessToken("rotated-access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
-        return new UserService(
-            _db: db,
-            _logger: NullLogger<UserService>.Instance,
-            _jwtHelper: jwt,
-            _cacheCounters: Substitute.For<ICacheCounterStore>(),
-            _totpService: Substitute.For<ITotpService>(),
-            _authRiskService: Substitute.For<IAuthRiskService>(),
-            _userSessionValidationCache: validationCache);
+        return new UserSessionCommandService(
+            db,
+            NullLogger<UserSessionCommandService>.Instance,
+            jwt,
+            validationCache);
     }
 
     private static ClaimsPrincipal CreatePrincipal(int accountId, string sessionId)
