@@ -178,8 +178,8 @@ public sealed class ArticleRevisionConcurrencyTests(
         await SeedTaxonomyAsync(setupDb);
         int articleId = await SeedArticleAsync(setupDb);
         await SeedBodyAsync(setupDb, articleId, "# before fence");
-        var sideEffects = Substitute.For<IArticleMutationSideEffectCoordinator>();
-        sideEffects
+        var mutationFence = Substitute.For<IArticlePublicMutationFence>();
+        mutationFence
             .BeginPublicMutationFenceAsync(articleId, Arg.Any<CancellationToken>())
             .Returns(async _ =>
             {
@@ -189,7 +189,7 @@ public sealed class ArticleRevisionConcurrencyTests(
                 Assert.Equal("# before fence", bodyBeforeCommit.MarkdownContent);
             });
         using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
-        ArticleService service = CreateService(serviceDb, sideEffects);
+        ArticleService service = CreateService(serviceDb, mutationFence);
 
         bool updated = await service.UpdateAsync(articleId, new UpdateArticleRequest
         {
@@ -203,9 +203,9 @@ public sealed class ArticleRevisionConcurrencyTests(
 
         Assert.True(updated);
         Assert.Equal("After fence", (await setupDb.Queryable<Article>().InSingleAsync(articleId)).Title);
-        await sideEffects.Received(1)
+        await mutationFence.Received(1)
             .BeginPublicMutationFenceAsync(articleId, Arg.Any<CancellationToken>());
-        await sideEffects.DidNotReceive()
+        await mutationFence.DidNotReceive()
             .RecoverAbortedPublicMutationFenceAsync(
                 articleId,
                 Arg.Any<string>(),
@@ -221,12 +221,12 @@ public sealed class ArticleRevisionConcurrencyTests(
         await SeedTaxonomyAsync(setupDb);
         int articleId = await SeedArticleAsync(setupDb);
         await SeedBodyAsync(setupDb, articleId, "# unchanged");
-        var sideEffects = Substitute.For<IArticleMutationSideEffectCoordinator>();
-        sideEffects
+        var mutationFence = Substitute.For<IArticlePublicMutationFence>();
+        mutationFence
             .BeginPublicMutationFenceAsync(articleId, Arg.Any<CancellationToken>())
             .Returns(Task.FromException(new InvalidOperationException("durable tombstone unavailable")));
         using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
-        ArticleService service = CreateService(serviceDb, sideEffects);
+        ArticleService service = CreateService(serviceDb, mutationFence);
 
         InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.UpdateAsync(articleId, new UpdateArticleRequest
@@ -243,7 +243,7 @@ public sealed class ArticleRevisionConcurrencyTests(
         Assert.Equal("Title", (await setupDb.Queryable<Article>().InSingleAsync(articleId)).Title);
         Assert.Equal("# unchanged", (await setupDb.Queryable<ArticleBody>().InSingleAsync(articleId)).MarkdownContent);
         Assert.Empty(await setupDb.Queryable<ArticleMutationOutboxEvent>().ToListAsync());
-        await sideEffects.DidNotReceive()
+        await mutationFence.DidNotReceive()
             .RecoverAbortedPublicMutationFenceAsync(
                 articleId,
                 Arg.Any<string>(),
@@ -259,8 +259,8 @@ public sealed class ArticleRevisionConcurrencyTests(
         await SeedTaxonomyAsync(setupDb);
         int articleId = await SeedArticleAsync(setupDb);
         await SeedBodyAsync(setupDb, articleId, "# unchanged");
-        var sideEffects = Substitute.For<IArticleMutationSideEffectCoordinator>();
-        sideEffects
+        var mutationFence = Substitute.For<IArticlePublicMutationFence>();
+        mutationFence
             .BeginPublicMutationFenceAsync(articleId, Arg.Any<CancellationToken>())
             .Returns(async _ =>
             {
@@ -269,7 +269,7 @@ public sealed class ArticleRevisionConcurrencyTests(
                     new SugarParameter("@ArticleId", articleId));
             });
         using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
-        ArticleService service = CreateService(serviceDb, sideEffects);
+        ArticleService service = CreateService(serviceDb, mutationFence);
 
         bool updated = await service.UpdateAsync(articleId, new UpdateArticleRequest
         {
@@ -284,7 +284,7 @@ public sealed class ArticleRevisionConcurrencyTests(
         Assert.False(updated);
         Assert.Equal("Title", (await setupDb.Queryable<Article>().InSingleAsync(articleId)).Title);
         Assert.Equal("# unchanged", (await setupDb.Queryable<ArticleBody>().InSingleAsync(articleId)).MarkdownContent);
-        await sideEffects.Received(1)
+        await mutationFence.Received(1)
             .RecoverAbortedPublicMutationFenceAsync(
                 articleId,
                 "article-update-fence-aborted",
@@ -523,7 +523,7 @@ public sealed class ArticleRevisionConcurrencyTests(
 
     private static ArticleService CreateService(
         SqlSugarClient db,
-        IArticleMutationSideEffectCoordinator? mutationSideEffects = null)
+        IArticlePublicMutationFence? mutationFence = null)
     {
         var redis = Substitute.For<IConnectionMultiplexer>();
         redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(Substitute.For<IDatabase>());
@@ -543,7 +543,8 @@ public sealed class ArticleRevisionConcurrencyTests(
             _logger: NullLogger<ArticleService>.Instance,
             _publicAotInvalidationService: Substitute.For<IPublicAotInvalidationService>(),
             _cacheInvalidationDispatcher: Substitute.For<ICacheInvalidationDispatcher>(),
-            _mutationSideEffects: mutationSideEffects ?? Substitute.For<IArticleMutationSideEffectCoordinator>(),
+            _mutationFence: mutationFence ?? Substitute.For<IArticlePublicMutationFence>(),
+            _mutationSideEffects: Substitute.For<IArticleMutationSideEffectCoordinator>(),
             _viewWriteBuffer: Substitute.For<IArticleViewWriteBuffer>());
     }
 }

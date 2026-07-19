@@ -103,8 +103,8 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
         CreateTables(setupDb);
         SeedTaxonomy(setupDb);
         int articleId = SeedArticle(setupDb, isDeleted: false, status: ArticleStatus.Published);
-        var sideEffects = Substitute.For<IArticleMutationSideEffectCoordinator>();
-        sideEffects
+        var mutationFence = Substitute.For<IArticlePublicMutationFence>();
+        mutationFence
             .BeginPublicMutationFenceAsync(articleId, Arg.Any<CancellationToken>())
             .Returns(_ =>
             {
@@ -114,7 +114,7 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
                 return Task.FromException(new InvalidOperationException("revocation unavailable"));
             });
         using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
-        ArticleService service = CreateService(serviceDb, sideEffects);
+        ArticleService service = CreateService(serviceDb, mutationFence);
 
         InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
             () => service.DeleteAsync(articleId));
@@ -124,7 +124,7 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
         Assert.False(afterFailure.IsDeleted);
         Assert.Equal(ArticleStatus.Published, afterFailure.Status);
         Assert.Empty(setupDb.Queryable<ArticleMutationOutboxEvent>().ToList());
-        await sideEffects.DidNotReceive()
+        await mutationFence.DidNotReceive()
             .RecoverAbortedPublicMutationFenceAsync(
                 articleId,
                 Arg.Any<string>(),
@@ -306,7 +306,7 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
 
     private static ArticleService CreateService(
         SqlSugarClient db,
-        IArticleMutationSideEffectCoordinator? mutationSideEffects = null)
+        IArticlePublicMutationFence? mutationFence = null)
     {
         var redis = Substitute.For<IConnectionMultiplexer>();
         redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(Substitute.For<IDatabase>());
@@ -328,7 +328,8 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
             _logger: NullLogger<ArticleService>.Instance,
             _publicAotInvalidationService: Substitute.For<IPublicAotInvalidationService>(),
             _cacheInvalidationDispatcher: Substitute.For<ICacheInvalidationDispatcher>(),
-            _mutationSideEffects: mutationSideEffects ?? Substitute.For<IArticleMutationSideEffectCoordinator>(),
+            _mutationFence: mutationFence ?? Substitute.For<IArticlePublicMutationFence>(),
+            _mutationSideEffects: Substitute.For<IArticleMutationSideEffectCoordinator>(),
             _viewWriteBuffer: Substitute.For<IArticleViewWriteBuffer>());
     }
 

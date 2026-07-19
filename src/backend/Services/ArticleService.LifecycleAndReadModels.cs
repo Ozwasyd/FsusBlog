@@ -41,7 +41,7 @@ public partial class ArticleService
         bool mutationCommitted = false;
         try
         {
-            await _mutationSideEffects.BeginPublicMutationFenceAsync(id, ct).ConfigureAwait(false);
+            await _mutationFence.BeginPublicMutationFenceAsync(id, ct).ConfigureAwait(false);
             fenceEstablished = true;
             bool success = false;
             var result = await _db.Ado.UseTranAsync(async () =>

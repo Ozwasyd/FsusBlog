@@ -3,6 +3,7 @@ using System.Reflection;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.PublicAot;
@@ -146,8 +147,11 @@ public sealed class ArticleMutationOutboxClaimLeaseTests
         Assert.NotEqual(first, otherEdge);
 
         IMessageRealtimePublisher publisher = Substitute.For<IMessageRealtimePublisher>();
-        var notifier = new ArticleRealtimeNotifier(publisher);
-        await notifier.PushChangedAsync(1125, "Updated", idempotencyKey: first);
+        var delivery = new ArticleMutationDelivery(
+            Substitute.For<ISearchIndexService>(),
+            publisher,
+            Substitute.For<IIntegrityProofScheduler>());
+        await delivery.NotifyAsync(1125, "Updated", idempotencyKey: first);
         await publisher.Received(1).PushArticleChangedAsync(
             Arg.Is<ArticleNoticeDto>(notice => notice.ArticleId == 1125 && notice.Action == "Updated"),
             first);

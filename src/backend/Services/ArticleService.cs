@@ -46,6 +46,7 @@ public partial class ArticleService(
     ILogger<ArticleService> _logger,
     IPublicAotInvalidationService _publicAotInvalidationService,
     ICacheInvalidationDispatcher _cacheInvalidationDispatcher,
+    IArticlePublicMutationFence _mutationFence,
     IArticleMutationSideEffectCoordinator _mutationSideEffects,
     IArticleViewWriteBuffer _viewWriteBuffer) : IArticleCoreGateway
 #pragma warning restore IDE1006
@@ -86,7 +87,7 @@ public partial class ArticleService(
     {
         try
         {
-            await _mutationSideEffects
+            await _mutationFence
                 .RecoverAbortedPublicMutationFenceAsync(articleId, reason, CancellationToken.None)
                 .ConfigureAwait(false);
         }
@@ -634,7 +635,7 @@ public partial class ArticleService(
         {
             if (requiresPublicFence)
             {
-                await _mutationSideEffects.BeginPublicMutationFenceAsync(null, ct).ConfigureAwait(false);
+                await _mutationFence.BeginPublicMutationFenceAsync(null, ct).ConfigureAwait(false);
                 fenceEstablished = true;
             }
 
@@ -1113,7 +1114,7 @@ public partial class ArticleService(
         {
             if (requiresPublicFence)
             {
-                await _mutationSideEffects.BeginPublicMutationFenceAsync(id, ct).ConfigureAwait(false);
+                await _mutationFence.BeginPublicMutationFenceAsync(id, ct).ConfigureAwait(false);
                 fenceEstablished = true;
             }
 

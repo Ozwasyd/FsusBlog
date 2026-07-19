@@ -84,29 +84,29 @@ public sealed class ScheduledPublishWorkerTests(PostgresSchemaMigrationFixture f
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
         int dueArticleId = InsertScheduledArticle(db, "fenced", DateTime.UtcNow.AddMinutes(-5));
-        var coordinator = Substitute.For<IArticleMutationSideEffectCoordinator>();
-        coordinator
+        var mutationFence = Substitute.For<IArticlePublicMutationFence>();
+        mutationFence
             .BeginPublicMutationFenceAsync(null, Arg.Any<CancellationToken>())
             .Returns(async _ =>
             {
                 Article beforeCommit = await db.Queryable<Article>().InSingleAsync(dueArticleId);
                 Assert.Equal(ArticleStatus.Scheduled, beforeCommit.Status);
             });
-        using ServiceProvider provider = CreateWorkerProvider(db, coordinator);
+        using ServiceProvider provider = CreateWorkerProvider(db, mutationFence);
         var worker = CreateWorker(provider);
 
         int published = await worker.PublishDueArticlesAsync(CancellationToken.None);
 
         Assert.Equal(1, published);
         Assert.Equal(ArticleStatus.Published, (await db.Queryable<Article>().InSingleAsync(dueArticleId)).Status);
-        await coordinator.Received(1)
+        await mutationFence.Received(1)
             .BeginPublicMutationFenceAsync(null, Arg.Any<CancellationToken>());
-        await coordinator.Received(1)
+        await mutationFence.Received(1)
             .CommitPublicMutationFenceAsync(
                 null,
                 "scheduled-published",
                 CancellationToken.None);
-        await coordinator.DidNotReceive()
+        await mutationFence.DidNotReceive()
             .RecoverAbortedPublicMutationFenceAsync(
                 null,
                 Arg.Any<string>(),
@@ -118,11 +118,11 @@ public sealed class ScheduledPublishWorkerTests(PostgresSchemaMigrationFixture f
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
         int dueArticleId = InsertScheduledArticle(db, "fence failure", DateTime.UtcNow.AddMinutes(-5));
-        var coordinator = Substitute.For<IArticleMutationSideEffectCoordinator>();
-        coordinator
+        var mutationFence = Substitute.For<IArticlePublicMutationFence>();
+        mutationFence
             .BeginPublicMutationFenceAsync(null, Arg.Any<CancellationToken>())
             .Returns(Task.FromException(new InvalidOperationException("revocation unavailable")));
-        using ServiceProvider provider = CreateWorkerProvider(db, coordinator);
+        using ServiceProvider provider = CreateWorkerProvider(db, mutationFence);
         var worker = CreateWorker(provider);
 
         int published = await worker.PublishDueArticlesAsync(CancellationToken.None);
@@ -130,7 +130,7 @@ public sealed class ScheduledPublishWorkerTests(PostgresSchemaMigrationFixture f
         Assert.Equal(0, published);
         Assert.Equal(ArticleStatus.Scheduled, (await db.Queryable<Article>().InSingleAsync(dueArticleId)).Status);
         Assert.Empty(await db.Queryable<ArticleMutationOutboxEvent>().ToListAsync());
-        await coordinator.DidNotReceive()
+        await mutationFence.DidNotReceive()
             .RecoverAbortedPublicMutationFenceAsync(
                 null,
                 Arg.Any<string>(),
@@ -181,12 +181,12 @@ public sealed class ScheduledPublishWorkerTests(PostgresSchemaMigrationFixture f
 
     private static ServiceProvider CreateWorkerProvider(
         ISqlSugarClient db,
-        IArticleMutationSideEffectCoordinator? mutationSideEffects = null)
+        IArticlePublicMutationFence? mutationFence = null)
         => new ServiceCollection()
             .AddSingleton(db)
             .AddSingleton<ISqlSugarClient>(db)
             .AddSingleton<IDbConcurrencyGate, ImmediateDbConcurrencyGate>()
-            .AddSingleton(mutationSideEffects ?? Substitute.For<IArticleMutationSideEffectCoordinator>())
+            .AddSingleton(mutationFence ?? Substitute.For<IArticlePublicMutationFence>())
             .BuildServiceProvider();
 
     private static ScheduledPublishWorker CreateWorker(

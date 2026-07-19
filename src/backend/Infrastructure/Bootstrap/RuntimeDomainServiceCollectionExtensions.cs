@@ -46,9 +46,10 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddSingleton<IModerationRegionCatalogService, ModerationRegionCatalogService>();
         services.AddScoped<IRegionLegalModerationService, RegionLegalModerationService>();
         services.AddScoped<IClientRegionResolver, ClientRegionResolver>();
-        services.AddScoped<ArticleSearchProjector>();
-        services.AddScoped<ArticleRealtimeNotifier>();
         services.AddScoped<ArticleAssetCleanupPolicy>();
+        services.AddScoped<ArticleMutationProjectionInvalidator>();
+        services.AddScoped<ArticleMutationDelivery>();
+        services.AddScoped<IArticlePublicMutationFence, ArticlePublicMutationFence>();
         services.AddScoped<IPublishProofTransparencyLog, PublishProofTransparencyLog>();
         services.AddScoped<IIntegrityProofScheduler, IntegrityProofScheduler>();
         services.AddScoped<IIntegrityVerificationManifestService, IntegrityVerificationManifestService>();

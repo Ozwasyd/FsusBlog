@@ -13,7 +13,7 @@ public sealed class IntegrityProofPipelineTests
         Assert.Equal("integrity-proof", ArticleMutationReplayEdges.IntegrityProof);
         Assert.DoesNotContain(ArticleMutationReplayEdges.IntegrityProof, ArticleMutationReplayEdges.Required);
         Assert.Contains(
-            typeof(ArticleMutationSideEffectCoordinator).GetConstructors().Single().GetParameters(),
+            typeof(ArticleMutationDelivery).GetConstructors().Single().GetParameters(),
             static parameter => parameter.ParameterType == typeof(IIntegrityProofScheduler));
 
         string processOne = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
@@ -34,7 +34,13 @@ public sealed class IntegrityProofPipelineTests
         string integritySchedule = RuntimeMetadataInspection.DescribeMethods(
             typeof(ArticleMutationSideEffectCoordinator),
             nameof(ArticleMutationSideEffectCoordinator.ReplayOutboxAsync));
-        Assert.Contains("IIntegrityProofScheduler.ScheduleFromOutboxAsync", integritySchedule, StringComparison.Ordinal);
+        Assert.Contains("ArticleMutationDelivery.ScheduleIntegrityProofAsync", integritySchedule, StringComparison.Ordinal);
+        Assert.Contains(
+            "IIntegrityProofScheduler.ScheduleFromOutboxAsync",
+            RuntimeMetadataInspection.DescribeMethods(
+                typeof(ArticleMutationDelivery),
+                nameof(ArticleMutationDelivery.ScheduleIntegrityProofAsync)),
+            StringComparison.Ordinal);
 
         Assert.Contains(ArticleMutationReplayEdges.PublicHotRead, ArticleMutationReplayEdges.Required);
     }

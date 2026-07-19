@@ -59,8 +59,8 @@ public sealed class ScheduledPublishWorker(
                         "scheduled_publish");
                     ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
                     IDbConcurrencyGate dbGate = scope.ServiceProvider.GetRequiredService<IDbConcurrencyGate>();
-                    IArticleMutationSideEffectCoordinator mutationSideEffects =
-                        scope.ServiceProvider.GetRequiredService<IArticleMutationSideEffectCoordinator>();
+                    IArticlePublicMutationFence mutationFence =
+                        scope.ServiceProvider.GetRequiredService<IArticlePublicMutationFence>();
                     DateTime now = timeProvider.GetUtcNow().UtcDateTime;
                     if (activeReleaseCommitGuard is not null)
                     {
@@ -83,7 +83,7 @@ public sealed class ScheduledPublishWorker(
                     bool fenceEstablished = false;
                     try
                     {
-                        await mutationSideEffects
+                        await mutationFence
                             .BeginPublicMutationFenceAsync(null, cancellationToken)
                             .ConfigureAwait(false);
                         fenceEstablished = true;
@@ -105,7 +105,7 @@ public sealed class ScheduledPublishWorker(
                         if (fenceEstablished && (!commit.Committed || commit.ClaimedArticleIds.Count == 0))
                         {
                             await RecoverAbortedFenceAsync(
-                                    mutationSideEffects,
+                                    mutationFence,
                                     logger)
                                 .ConfigureAwait(false);
                         }
@@ -128,7 +128,7 @@ public sealed class ScheduledPublishWorker(
                         return 0;
                     }
 
-                    await mutationSideEffects
+                    await mutationFence
                         .CommitPublicMutationFenceAsync(
                             null,
                             ArticleMutationEventTypes.ScheduledPublished,
@@ -281,12 +281,12 @@ public sealed class ScheduledPublishWorker(
     }
 
     private static async Task RecoverAbortedFenceAsync(
-        IArticleMutationSideEffectCoordinator mutationSideEffects,
+        IArticlePublicMutationFence mutationFence,
         ILogger<ScheduledPublishWorker> logger)
     {
         try
         {
-            await mutationSideEffects
+            await mutationFence
                 .RecoverAbortedPublicMutationFenceAsync(
                     null,
                     "scheduled-publish-fence-aborted",

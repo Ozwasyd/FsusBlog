@@ -144,15 +144,15 @@ public sealed class PublicContentInvalidationFlowTests
         object channelOptionsRuntime = channel.GetValue(queue)!;
         Assert.Contains("BoundedChannel", channelOptionsRuntime.GetType().Name, StringComparison.Ordinal);
 
-        Type coordinator = typeof(ArticleMutationSideEffectCoordinator);
-        string queueRuntime = RuntimeMetadataInspection.DescribeMethods(coordinator, "QueuePublicHotUpdateAsync");
-        string ensureRuntime = RuntimeMetadataInspection.DescribeMethods(coordinator, "EnsurePublicHotUpdateQueuedAsync");
-        string replayRuntime = RuntimeMetadataInspection.DescribeMethods(coordinator, nameof(ArticleMutationSideEffectCoordinator.ReplayOutboxAsync));
+        Type projections = typeof(ArticleMutationProjectionInvalidator);
+        string queueRuntime = RuntimeMetadataInspection.DescribeMethods(projections, nameof(ArticleMutationProjectionInvalidator.QueuePublicHotUpdateAsync));
+        string ensureRuntime = RuntimeMetadataInspection.DescribeMethods(projections, nameof(ArticleMutationProjectionInvalidator.EnsurePublicHotUpdateQueuedAsync));
+        string replayRuntime = RuntimeMetadataInspection.DescribeMethods(typeof(ArticleMutationSideEffectCoordinator), nameof(ArticleMutationSideEffectCoordinator.ReplayOutboxAsync));
         Assert.Contains("PublicHotArtifactUpdateQueue.Enqueue", queueRuntime, StringComparison.Ordinal);
         Assert.Contains("required", queueRuntime, StringComparison.Ordinal);
         Assert.Contains("best-effort", queueRuntime, StringComparison.Ordinal);
         Assert.Contains("EnsurePublicHotUpdateQueuedAsync", replayRuntime, StringComparison.Ordinal);
-        Assert.Contains("IPublicArtifactRevocationCoordinator.RevokeArticleAsync", replayRuntime, StringComparison.Ordinal);
+        Assert.Contains("ArticleMutationProjectionInvalidator.RevokeArticleAsync", replayRuntime, StringComparison.Ordinal);
         Assert.Contains("InvalidOperationException", ensureRuntime, StringComparison.Ordinal);
     }
 
@@ -187,13 +187,18 @@ public sealed class PublicContentInvalidationFlowTests
         string trashCleared = RuntimeMetadataInspection.DescribeMethods(
             typeof(ArticleMutationSideEffectCoordinator),
             nameof(ArticleMutationSideEffectCoordinator.AfterTrashClearedAsync));
+        string projectionRuntime = RuntimeMetadataInspection.DescribeType(typeof(ArticleMutationProjectionInvalidator));
+        string fenceRuntime = RuntimeMetadataInspection.DescribeMethods(
+            typeof(ArticlePublicMutationFence),
+            nameof(ArticlePublicMutationFence.CommitPublicMutationFenceAsync));
 
-        Assert.Contains("IPublicArtifactRevocationCoordinator.RevokeArticleAsync", deleted, StringComparison.Ordinal);
-        Assert.Contains("IPublicArtifactRevocationCoordinator.RevokeArticleAsync", permanentlyDeleted, StringComparison.Ordinal);
-        Assert.Contains("IPublicArtifactRevocationCoordinator.RevokeAllAsync", trashCleared, StringComparison.Ordinal);
-        Assert.Contains("PublicHotArtifactUpdateQueue.Enqueue", deleted, StringComparison.Ordinal);
-        Assert.Contains("PublicHotArtifactUpdateQueue.Enqueue", permanentlyDeleted, StringComparison.Ordinal);
-        Assert.Contains("PublicHotArtifactUpdateQueue.Enqueue", trashCleared, StringComparison.Ordinal);
+        Assert.Contains("IArticlePublicMutationFence.CompleteArticleMutationFenceAsync", deleted, StringComparison.Ordinal);
+        Assert.Contains("ArticleMutationProjectionInvalidator.RevokeArticleAsync", permanentlyDeleted, StringComparison.Ordinal);
+        Assert.Contains("ArticleMutationProjectionInvalidator.RevokeAllAsync", trashCleared, StringComparison.Ordinal);
+        Assert.Contains("IPublicArtifactRevocationCoordinator.RevokeArticleAsync", projectionRuntime, StringComparison.Ordinal);
+        Assert.Contains("IPublicArtifactRevocationCoordinator.RevokeAllAsync", projectionRuntime, StringComparison.Ordinal);
+        Assert.Contains("PublicHotArtifactUpdateQueue.Enqueue", projectionRuntime, StringComparison.Ordinal);
+        Assert.Contains("PromoteAndReleaseAsync", fenceRuntime, StringComparison.Ordinal);
     }
 
     [Fact]
