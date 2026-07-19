@@ -54,7 +54,7 @@ checkLines(files.accountShell, [
 ])
 
 const publicPageCss = read(files.publicPage)
-const requiredPublicHeaderTokens = [
+const requiredPublicPaletteTokens = [
   '--bg: #F7F7F8;',
   '--surface: #FFFFFF;',
   '--surface-subtle: #FCFCFC;',
@@ -76,16 +76,14 @@ const requiredPublicHeaderTokens = [
   '--fsus-dot-gray: var(--text-decorative);',
   '--fsus-border: var(--border);',
   '--fsus-scholarly-blue: var(--accent);',
-  '--fsusblog-header-bg: var(--surface);',
-  '--fsusblog-header-border: var(--border);',
   '--el-bg-color: var(--surface);',
   '--el-bg-color-page: var(--bg);',
   '--el-border-color-lighter: var(--border);'
 ]
 
-for (const token of requiredPublicHeaderTokens) {
+for (const token of requiredPublicPaletteTokens) {
   if (!publicPageCss.includes(token)) {
-    fail(files.publicPage, 1, `public header material contract is missing ${token}`)
+    fail(files.publicPage, 1, `public palette contract is missing ${token}`)
   }
 }
 

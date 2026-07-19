@@ -54,7 +54,7 @@ const scripts = packageJson.scripts ?? {}
 expectNotMatches(
   publicPagePath,
   publicPage,
-  /\.(?:el-public-shell__|public-chrome-|public-colophon(?:__)?|fsusblog-public-brand|fsusblog-public-mobile-menu-utilities|fsusblog-public-shell-runtime)/u,
+  /\.(?:el-public-shell|el-theme-mode-toggle|public-chrome-|public-colophon(?:__)?|fsusblog-public-brand|fsusblog-public-mobile-menu-utilities|fsusblog-public-shell-runtime)/u,
   'page layer must not own header, search, theme, auth, footer, brand, or runtime-shell selectors',
 )
 expectNotMatches(
@@ -66,54 +66,46 @@ expectNotMatches(
 expectNotMatches(
   foundationPath,
   foundation,
-  /\.public-chrome-search/u,
-  'foundation layer must leave enhanced desktop search panel appearance to its component',
+  /\.(?:el-[a-z0-9_-]+|public-chrome-[a-z0-9_-]+)/u,
+  'foundation layer must not depend on FsusUI internals or retired consumer chrome selectors',
 )
 expectNotMatches(
   componentPath,
   componentStyle,
-  /\.(?:el-public-shell__|public-colophon(?:__)?|fsusblog-public-brand)/u,
+  /\.(?:el-[a-z0-9_-]+|public-colophon(?:__)?|fsusblog-public-brand|public-chrome-[a-z0-9_-]+)/u,
   'component layer must not patch FsusUI chrome, footer, or first-paint brand geometry',
+)
+expectNotMatches(
+  emergencyPath,
+  emergency,
+  /\.(?:el-[a-z0-9_-]+|public-chrome-[a-z0-9_-]+)/u,
+  'emergency fallback must not duplicate FsusUI runtime or critical component CSS',
 )
 
 for (const token of [
-  '--fsusblog-public-control-height: 40px;',
-  '--fsusblog-public-mobile-control-height: 44px;',
-  '--fsusblog-public-control-radius: var(--fsus-radius-control, 6px);',
-  '--fsusblog-public-overlay-padding: 10px;',
-  '--fsusblog-public-overlay-radius: var(--fsus-radius-popover, 10px);',
-  '--fsusblog-public-overlay-shadow: var(--fsus-shadow-panel-light, none);',
+  '--fsusblog-public-header-height: 4rem;',
   '--fsusblog-public-header-height-current: var(--fsusblog-public-header-height, 4rem);',
   '--fsusblog-public-sticky-top: var(--fsusblog-public-header-height-current);',
   '--fsusblog-public-anchor-offset: calc(var(--fsusblog-public-sticky-top) + 0.75rem);',
+  '#fsus-aot-shell [data-public-shell-header]',
+  '#fsus-aot-shell .fsusblog-public-brand-mark',
+  '#fsus-aot-shell .public-colophon',
 ]) {
-  expectIncludes(foundationPath, foundation, token, `missing shared public-shell token ${token}`)
+  expectIncludes(foundationPath, foundation, token, `missing product-owned public-shell foundation contract ${token}`)
 }
-expectMatches(
-  foundationPath,
-  foundation,
-  /\.public-chrome-action\s*\{[\s\S]*?min-height:\s*var\(--fsusblog-public-control-height-current\);[\s\S]*?border-radius:\s*var\(--fsusblog-public-control-radius\);/u,
-  'foundation must own the first-paint desktop search trigger geometry',
-)
 
-expectMatches(
-  foundationPath,
-  foundation,
-  /@media \(max-width: 767px\)\s*\{[\s\S]*?#fsus-aot-shell\s*\{\s*--fsusblog-public-control-height-current:\s*var\(--fsusblog-public-mobile-control-height, 44px\);[\s\S]*?\.el-public-shell__mobile-search-trigger,[\s\S]*?\.el-public-shell__mobile-nav-menu-trigger,[\s\S]*?\.el-theme-mode-toggle__menu-button,[\s\S]*?\.el-public-shell__auth-link--mobile\s*\{[\s\S]*?min-height:\s*var\(--fsusblog-public-control-height-current\);/u,
-  'mobile header controls must consume the shared 44px geometry tier',
-)
-expectMatches(
-  foundationPath,
-  foundation,
-  /:where\(\s*\.el-theme-mode-toggle__menu,\s*\.el-public-shell__mobile-nav-menu-panel\s*\)\s*\{[\s\S]*?padding:\s*var\(--fsusblog-public-overlay-padding\);[\s\S]*?border-radius:\s*var\(--fsusblog-public-overlay-radius\);[\s\S]*?box-shadow:\s*var\(--fsusblog-public-overlay-shadow\);/u,
-  'FsusUI public overlays must consume the shared overlay geometry tokens',
-)
-expectMatches(
-  foundationPath,
-  foundation,
-  /html:has\(#fsus-aot-shell\)\s*\{[\s\S]*?--el-dialog-padding-primary:\s*var\(--fsusblog-public-overlay-padding\);[\s\S]*?--el-dialog-border-radius:\s*var\(--fsusblog-public-overlay-radius\);[\s\S]*?--el-dialog-box-shadow:\s*var\(--fsusblog-public-overlay-shadow\);/u,
-  'public Dialog must consume the shared overlay geometry tokens',
-)
+for (const pattern of [
+  /--fsusblog-public-(?:control|mobile-control|overlay)[a-z0-9-]*\s*:/u,
+  /--el-public-shell-[a-z0-9-]*\s*:/u,
+  /--el-dialog-(?:padding-primary|border-radius|box-shadow)\s*:/u,
+]) {
+  expectNotMatches(
+    foundationPath,
+    foundation,
+    pattern,
+    `generic component geometry must remain owned by FsusUI: ${pattern}`,
+  )
+}
 
 for (const token of [
   'desktop-search-mode="trigger"',
@@ -155,11 +147,11 @@ expectIncludes(emergencyPath, emergency, 'Source: src/assets/public-shell-founda
 
 for (const token of [
   'Foundation 层',
-  'Component/Runtime 层',
+  'FsusUI critical/runtime CSS',
+  'Component 层',
   'Public page 层',
-  'desktop public header 控件最小命中区为 `40px`',
-  'mobile header 控件最小命中区为 `44px`',
-  '`--fsusblog-public-overlay-padding`',
+  'public-shell-foundation.css` 与 `public-page.css` 对 FsusUI 内部选择器均为零豁免',
+  '`[data-public-shell-header]`',
   '`--fsusblog-public-header-height-current`',
 ]) {
   expectIncludes(docsPath, docs, token, `public layout ownership documentation is missing ${token}`)

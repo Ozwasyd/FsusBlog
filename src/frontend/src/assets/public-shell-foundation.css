@@ -30,8 +30,6 @@
   --fsus-dot-gray: var(--text-decorative);
   --fsus-border: var(--border);
   --fsus-scholarly-blue: var(--accent);
-  --fsusblog-header-bg: var(--surface);
-  --fsusblog-header-border: var(--border);
   --fsusblog-color-primary: var(--fsus-color-action-primary, var(--accent, LinkText));
   --fsusblog-page-bg: var(--bg);
   --fsusblog-text-primary: var(--fsus-color-text-primary, var(--text));
@@ -206,10 +204,6 @@ html[data-theme-resolved='dark'] {
   --fsus-dot-gray: var(--text-decorative);
   --fsus-border: var(--border);
   --fsus-scholarly-blue: var(--accent);
-  --fsusblog-backdrop-blur-soft: 0px;
-  --fsusblog-backdrop-saturate: 100%;
-  --fsusblog-header-bg: var(--surface);
-  --fsusblog-header-border: var(--border);
   --fsusblog-color-primary: var(--fsus-color-action-primary, var(--accent, LinkText));
   --fsusblog-page-bg: var(--bg);
   --fsusblog-panel-bg: var(--surface);
@@ -226,12 +220,6 @@ html[data-theme-resolved='dark'] {
   --fsusblog-text-decorative: var(--fsus-color-text-decorative, var(--text-decorative));
   --fsusblog-color-focus-ring: var(--fsus-color-focus-ring, var(--accent, Highlight));
   --fsusblog-reading-inline-code-bg: var(--fsus-color-surface-raised, var(--surface-subtle));
-  --fsusblog-public-control-height: 40px;
-  --fsusblog-public-mobile-control-height: 44px;
-  --fsusblog-public-control-radius: var(--fsus-radius-control, 6px);
-  --fsusblog-public-overlay-padding: 10px;
-  --fsusblog-public-overlay-radius: var(--fsus-radius-popover, 10px);
-  --fsusblog-public-overlay-shadow: var(--fsus-shadow-panel-light, none);
   --fsusblog-public-header-height: 4rem;
   --el-color-primary: var(--accent);
   --el-bg-color: var(--surface);
@@ -249,13 +237,6 @@ html[data-theme-resolved='dark'] {
   --el-text-color-placeholder: var(--text-muted);
   --el-disabled-bg-color: var(--surface-subtle);
   --el-disabled-text-color: var(--text-muted);
-}
-
-html:has(#fsus-aot-shell) {
-  --el-border-radius-small: var(--fsusblog-public-control-radius);
-  --el-dialog-padding-primary: var(--fsusblog-public-overlay-padding);
-  --el-dialog-border-radius: var(--fsusblog-public-overlay-radius);
-  --el-dialog-box-shadow: var(--fsusblog-public-overlay-shadow);
 }
 
 html.dark,
@@ -283,10 +264,6 @@ html[data-theme-resolved='dark'] {
   --fsus-dot-gray: var(--text-decorative);
   --fsus-border: var(--border);
   --fsus-scholarly-blue: var(--accent);
-  --fsusblog-backdrop-blur-soft: 0px;
-  --fsusblog-backdrop-saturate: 100%;
-  --fsusblog-header-bg: var(--surface);
-  --fsusblog-header-border: var(--border);
   --fsusblog-color-primary: var(--fsus-color-action-primary, var(--accent, LinkText));
   --fsusblog-page-bg: var(--bg);
   --fsusblog-panel-bg: var(--surface);
@@ -335,15 +312,9 @@ html[data-theme-resolved='dark'] body {
 
 /* 公开页首访共用的布局基线（首屏关键路径） */
 #fsus-aot-shell {
-  --fsusblog-public-control-height-current: var(--fsusblog-public-control-height, 40px);
   --fsusblog-public-header-height-current: var(--fsusblog-public-header-height, 4rem);
   --fsusblog-public-sticky-top: var(--fsusblog-public-header-height-current);
   --fsusblog-public-anchor-offset: calc(var(--fsusblog-public-sticky-top) + 0.75rem);
-  --el-public-shell-control-height: var(--fsusblog-public-control-height-current);
-  --el-public-shell-mobile-nav-gap: 1.5rem;
-  --el-public-shell-mobile-search-width: 7rem;
-  --el-public-shell-max-width: 64rem;
-  --el-public-shell-nav-gap: 2rem;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -373,154 +344,6 @@ html[data-theme-resolved='dark'] body {
 
 #fsus-aot-shell .public-article-shell {
   overflow-anchor: none;
-}
-
-#fsus-aot-shell .el-public-shell {
-  background: var(--el-bg-color-page);
-  color: var(--fsusblog-text-primary);
-}
-
-#fsus-aot-shell .el-public-shell__header {
-  border-bottom: 1px solid var(--fsusblog-header-border);
-  background: var(--fsusblog-header-bg);
-  box-shadow: none;
-  backdrop-filter: blur(var(--fsusblog-backdrop-blur-soft)) saturate(var(--fsusblog-backdrop-saturate));
-  -webkit-backdrop-filter: blur(var(--fsusblog-backdrop-blur-soft)) saturate(var(--fsusblog-backdrop-saturate));
-}
-
-/*
- * FsusUI local-source compatibility:
- * FsusBlog can render the newer public-shell DOM from the sibling FsusUI
- * workspace while falling back to the packaged CSS dist. Keep the mobile
- * header controls aligned when that dist does not yet include these rules.
- */
-#fsus-aot-shell .el-public-shell__primary-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 24px;
-  min-width: 0;
-}
-
-#fsus-aot-shell .el-public-shell__actions {
-  gap: 12px;
-}
-
-#fsus-aot-shell .el-public-shell__brand-nav,
-#fsus-aot-shell .el-public-shell__desktop-nav {
-  align-items: center;
-}
-
-#fsus-aot-shell .el-public-shell__brand {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--fsusblog-public-control-height-current);
-  box-sizing: border-box;
-  white-space: nowrap;
-}
-
-#fsus-aot-shell .el-public-shell__nav-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: var(--fsusblog-public-control-height-current);
-  min-height: var(--fsusblog-public-control-height-current);
-  box-sizing: border-box;
-}
-
-#fsus-aot-shell .el-public-shell__mobile-primary-actions {
-  display: none;
-  min-width: 0;
-}
-
-#fsus-aot-shell .el-public-shell__mobile-search-row {
-  display: none;
-  min-width: 0;
-  margin-top: 12px;
-  margin-bottom: 12px;
-}
-
-#fsus-aot-shell .el-public-shell__search {
-  --el-input-height: var(--fsusblog-public-control-height-current);
-}
-
-#fsus-aot-shell .el-public-shell__search .el-input {
-  --el-input-height: var(--fsusblog-public-control-height-current);
-}
-
-#fsus-aot-shell .el-public-shell__search .el-input__wrapper {
-  height: var(--fsusblog-public-control-height-current);
-  min-height: var(--fsusblog-public-control-height-current);
-}
-
-#fsus-aot-shell .el-public-shell__mobile-search-row.is-expanded {
-  display: block;
-}
-
-#fsus-aot-shell .el-public-shell__search--trigger {
-  width: 100%;
-}
-
-#fsus-aot-shell .public-chrome-action {
-  display: inline-flex;
-  min-width: var(--fsusblog-public-control-height-current);
-  min-height: var(--fsusblog-public-control-height-current);
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: var(--fsusblog-public-control-radius);
-  padding: 0 8px;
-  background: transparent;
-  color: var(--fsusblog-text-muted);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1;
-  text-decoration: none;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-#fsus-aot-shell .el-public-shell__mobile-search-trigger,
-#fsus-aot-shell .el-public-shell__header .el-theme-mode-toggle__menu-button {
-  box-sizing: border-box;
-  min-width: var(--fsusblog-public-control-height-current);
-  min-height: var(--fsusblog-public-control-height-current);
-}
-
-#fsus-aot-shell .el-public-shell__search--desktop-trigger {
-  width: 100%;
-}
-
-#fsus-aot-shell .el-theme-mode-toggle {
-  position: relative;
-}
-
-#fsus-aot-shell .el-theme-mode-toggle--desktop {
-  height: var(--fsusblog-public-control-height-current);
-}
-
-#fsus-aot-shell :where(
-  .el-theme-mode-toggle__menu,
-  .el-public-shell__mobile-nav-menu-panel
-) {
-  padding: var(--fsusblog-public-overlay-padding);
-  border-radius: var(--fsusblog-public-overlay-radius);
-  box-shadow: var(--fsusblog-public-overlay-shadow);
-}
-
-#fsus-aot-shell .el-theme-mode-toggle__menu-item {
-  min-height: var(--fsusblog-public-control-height-current);
-}
-
-#fsus-aot-shell .el-public-shell__auth-link--desktop {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: var(--fsusblog-public-control-height-current);
-  padding-inline: 4px;
-  box-sizing: border-box;
-  line-height: 1;
 }
 
 #fsus-aot-shell .public-colophon {
@@ -632,64 +455,6 @@ html[data-theme-resolved='dark'] #fsus-aot-shell .fsusblog-public-brand-image--d
 }
 
 @media (max-width: 767px) {
-  #fsus-aot-shell {
-    --fsusblog-public-control-height-current: var(--fsusblog-public-mobile-control-height, 44px);
-  }
-
-  #fsus-aot-shell .el-public-shell__inner {
-    padding-block: 20px;
-  }
-
-  #fsus-aot-shell .el-public-shell__primary-row {
-    align-items: center;
-  }
-
-  #fsus-aot-shell .el-public-shell__mobile-primary-actions {
-    display: inline-flex;
-    align-items: center;
-    justify-content: flex-end;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  #fsus-aot-shell .el-public-shell__mobile-nav-link {
-    display: inline-flex;
-    min-width: 44px;
-    min-height: 44px;
-    align-items: center;
-    justify-content: center;
-    box-sizing: border-box;
-    padding-inline: 8px;
-  }
-
-  #fsus-aot-shell .el-public-shell__brand,
-  #fsus-aot-shell .el-public-shell__mobile-search-trigger,
-  #fsus-aot-shell .el-public-shell__mobile-nav-menu-trigger,
-  #fsus-aot-shell .el-theme-mode-toggle__menu-button,
-  #fsus-aot-shell .el-public-shell__auth-link--mobile {
-    min-width: var(--fsusblog-public-control-height-current);
-    min-height: var(--fsusblog-public-control-height-current);
-  }
-
-  #fsus-aot-shell .el-public-shell__mobile-toolbar {
-    display: block;
-    margin-top: 18px;
-  }
-
-  #fsus-aot-shell .el-public-shell__mobile-toolbar.is-collapsed {
-    display: none;
-    margin-top: 0;
-  }
-
-  #fsus-aot-shell .el-public-shell__mobile-actions {
-    justify-content: flex-start;
-    min-width: 0;
-  }
-
-  #fsus-aot-shell .el-public-shell__footer {
-    padding-bottom: max(2.5rem, calc(1.5rem + env(safe-area-inset-bottom)));
-  }
-
   #fsus-aot-shell .public-colophon__primary {
     align-items: flex-start;
   }
@@ -701,46 +466,21 @@ html[data-theme-resolved='dark'] #fsus-aot-shell .fsusblog-public-brand-image--d
   }
 }
 
-@media (max-height: 520px) and (orientation: landscape) {
-  #fsus-aot-shell .el-public-shell__inner {
-    padding-block: 8px;
-  }
-
-  #fsus-aot-shell .el-public-shell__primary-row {
-    gap: 12px;
-  }
-
-  #fsus-aot-shell .el-public-shell__brand-nav,
-  #fsus-aot-shell .el-public-shell__desktop-nav,
-  #fsus-aot-shell .el-public-shell__actions {
-    gap: 10px;
-  }
-
-  #fsus-aot-shell .el-public-shell__brand,
-  #fsus-aot-shell .el-public-shell__nav-link,
-  #fsus-aot-shell .el-public-shell__mobile-search-trigger,
-  #fsus-aot-shell .el-public-shell__mobile-nav-menu-trigger,
-  #fsus-aot-shell .el-theme-mode-toggle__menu-button,
-  #fsus-aot-shell .el-public-shell__auth-link--desktop {
-    min-height: var(--fsusblog-public-control-height-current);
-  }
-}
-
 /* 首屏接管稳定层：约束 header/main/footer 的最小尺寸，避免整页下推造成 CLS。 */
 #fsus-aot-shell > header,
-#fsus-aot-shell .el-public-shell__header {
+#fsus-aot-shell [data-public-shell-header] {
   min-height: 3.25rem;
 }
 
 #top > main,
 #fsus-aot-shell > main,
-#fsus-aot-shell .el-public-shell__main {
+#fsus-aot-shell .fsusblog-public-main-target {
   min-height: 55vh;
 }
 
 #top > footer,
 #fsus-aot-shell > footer,
-#fsus-aot-shell .el-public-shell__footer {
+#fsus-aot-shell .public-colophon {
   min-height: 6.5rem;
 }
 
@@ -749,9 +489,6 @@ html[data-theme-resolved='dark'] #fsus-aot-shell .fsusblog-public-brand-image--d
   #fsus-aot-shell > header,
   #fsus-aot-shell > main,
   #fsus-aot-shell > footer,
-  #fsus-aot-shell .el-public-shell__header,
-  #fsus-aot-shell .el-public-shell__main,
-  #fsus-aot-shell .el-public-shell__footer,
   #fsus-aot-shell .public-page-shell,
   #fsus-aot-shell .public-article-shell,
   #fsus-aot-shell .ui-article-card,

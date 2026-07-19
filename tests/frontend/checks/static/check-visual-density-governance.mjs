@@ -273,15 +273,15 @@ function checkTouchTargetFloor()
         }
     }
 
-    assertContains(
+    assertNotContains(
         publicShellCriticalCssPath,
-        /--fsusblog-public-control-height:\s*40px;[\s\S]*?--fsusblog-public-mobile-control-height:\s*44px;[\s\S]*?\.el-theme-mode-toggle__menu-item\s*\{[\s\S]*?min-height:\s*var\(--fsusblog-public-control-height-current\);/,
-        'public theme menu items must consume the desktop 40px and mobile 44px control-height chain'
+        /\.(?:el-public-shell|el-theme-mode-toggle)(?:__|--|\b)/,
+        'public component touch-target geometry belongs to FsusUI, not the consumer foundation'
     );
-    assertContains(
+    assertNotContains(
         publicShellCriticalCssPath,
-        /@media \(max-height: 520px\) and \(orientation: landscape\)\s*\{[\s\S]*?\.el-public-shell__brand,[\s\S]*?\.el-public-shell__auth-link--desktop\s*\{\s*min-height:\s*var\(--fsusblog-public-control-height-current\);/,
-        'public landscape header controls must preserve the responsive control-height chain'
+        /--fsusblog-public-(?:control|mobile-control)[a-z0-9-]*\s*:/,
+        'consumer CSS must not duplicate FsusUI public control-height tokens'
     );
     assertContains(
         identityCenterPath,

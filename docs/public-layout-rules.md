@@ -112,23 +112,29 @@ Markdown 代码块与管理面审计详情统一使用 `'JetBrains Mono', ui-mon
 
 ### 触控目标档位
 
-触控目标档位按表面语义收口：desktop public header 控件最小命中区为 `40px`，mobile header 控件最小命中区为 `44px`；identity 用户操作使用 44px 档；admin 紧凑操作不得低于 40px。移动横屏与窄高视口只能减少外部间距，不能把命中区域降回 36px / `2.25rem`。`check:visual-density-governance` 必须扫描 `src/frontend/src` 并阻止这两个旧 `min-height` 孤值回流。
+触控目标档位按表面语义收口：FsusUI 的 public header 契约保证 desktop 控件最小命中区为 `40px`、mobile 控件最小命中区为 `44px`；FsusBlog 不再通过内部选择器复制这条高度链。identity 用户操作使用 44px 档；admin 紧凑操作不得低于 40px。移动横屏与窄高视口只能减少外部间距，不能把命中区域降回 36px / `2.25rem`。`check:visual-density-governance` 必须扫描 `src/frontend/src` 并阻止这两个旧 `min-height` 孤值回流，同时拒绝 public foundation 重新出现 FsusUI 内部选择器。
 
 `AccountLayout` 顶栏的主站、主题、账号菜单和当前 route frame 提供的移动导航动作使用同一密度链：desktop 消费 `--fsus-control-height-compact`（40px），mobile 与窄高布局消费 `--fsus-control-height`（44px）。持久主题入口使用 FsusUI `ThemeModeToggle` 的 `menu-button` 变体；所有动作保留常驻 1px 边界以避免 open/closed 状态切换引发布局位移，并通过 `aria-expanded`、2px inset focus ring 与 forced-colors outline 区分键盘焦点和打开态。
 
 ### 公共壳层 CSS 所有权
 
-公共壳层的三层职责固定如下，AOT、hydration 和 SPA takeover 不得通过后加载覆盖切换视觉真值：
+公共壳层的职责固定如下，AOT、hydration 和 SPA takeover 不得通过后加载覆盖切换视觉真值：
 
-- Foundation 层（`public-shell-foundation.css`）拥有首帧 palette、页面背景、壳层最小高度、Header/Footer 基础布局、品牌几何、40/44px 控件高度链，以及 emergency fallback 源块。它只对 FsusUI Search/Theme/Menu 应用共享几何 token，不复制组件的完整交互外观。
-- Component/Runtime 层（`PublicBlogLayoutShell.vue` 与 FsusUI）拥有 Search open/closed、menu open/closed、`aria-expanded`、`focus-visible`、Escape 与焦点归还。Blog 自有 Search panel 的外观只在该组件定义一次；Theme Menu 与 mobile details menu 的完整外观由 FsusUI 提供。
-- Public page 层（`public-page.css`）只拥有 reading surface、article/list/filter 页面结构与溢出边界；不得定义 `.el-public-shell__*`、`.public-chrome-*`、`.public-colophon*`，也不得重新定义 Markdown heading/paragraph 的完整排版。
+| 层 / 文件 | 保留的声明与职责 | 明确禁止 |
+| --- | --- | --- |
+| FsusUI critical/runtime CSS | `PublicShell` 的 header/main/footer DOM 布局、40/44px 控件几何、Search/Auth/Theme/Menu 的 open/closed、focus、motion、reduced-motion 与 safe-area | Consumer 通过 `.el-public-shell__*` 或 `.el-theme-mode-toggle__*` 修补组件内部实现 |
+| Foundation 层（`public-shell-foundation.css`） | 已注册的 palette 与 Consumer token、`#fsus-aot-shell` 首帧背景/字体/最小高度、`[data-public-shell-header]` 稳定测量占位、Blog 品牌、`public-colophon`、reading fallback 和 emergency 源块 | FsusUI 内部 class、通用控件/overlay/Dialog 几何、组件状态或交互外观 |
+| Emergency 层（`public-shell-emergency.css`） | 由 foundation 的 `emergency:keep` 块生成；仅保留无脚本/资源失败时的 palette、根壳与 reading fallback | 复制 FsusUI runtime/critical 组件 CSS，或成为 hydration 后的第二视觉来源 |
+| Component 层（`PublicBlogLayoutShell.vue` scoped style） | `.fsusblog-public-main-target` 的内容溢出边界，以及 `.fsusblog-public-mobile-menu-utilities` 的 Blog slot 编排 | FsusUI BEM、品牌/页脚基础外观、Search/Theme/Menu 内部状态样式 |
+| Public page 层（`public-page.css`） | reading surface、article/list/filter 页面结构、编辑内容与溢出边界 | `.el-public-shell__*`、`.el-theme-mode-toggle__*`、`.public-chrome-*`、`.public-colophon*` 与 Markdown heading/paragraph 完整重定义 |
 
-Search panel、Theme Menu、mobile details panel 和公共 Dialog 统一消费 `--fsusblog-public-overlay-padding`、`--fsusblog-public-overlay-radius`、`--fsusblog-public-overlay-shadow`。公开控件从 `--fsusblog-public-control-height-current` 读取当前 40/44px 档位；任何 viewport 适配只能切换该 token，不在选择器中复制高度字面值。
+所有权与 DOM 转移必须保持等价：移除 Consumer 的通用 chrome 重复声明后，由已接入的 FsusUI critical/runtime CSS 继续提供相同组件状态和响应式规则；间距、对齐等视觉差异必须明确分类为 FsusUI canonical harmonization，Blog 的品牌、footer/editorial 编排及 emergency fallback 保持产品所有。任何未来的 canonical harmonization 或产品例外都必须使用公开 token、slot 或稳定 `data-*` hook，并单独记录视觉差异；不得把内部 BEM 重新加入 boundary allowlist。
+
+边界清单以 `check-fsusui-boundary.mjs` 为机器真值：`public-shell-foundation.css` 与 `public-page.css` 对 FsusUI 内部选择器均为零豁免。`PublicBlogLayoutShell.vue` 只允许上述两个 `.fsusblog-*` scoped selector；emergency 文件只能来自生成器，不接受手改。
 
 ### Header 与 sticky 几何契约
 
-公开壳层以应用自有的 `[data-public-shell-header]` 为唯一测量锚点。`usePublicStickyGeometry` 将实际 header 高度发布为 `--fsusblog-public-header-height-current`，并由此派生 sticky top 与 anchor scroll margin；viewport resize、横屏断点或控件触控高度变化必须重新测量，组件卸载必须断开 observer 与 listener。Archive 年份标题和 hash target 只能消费这些 token，不得复制固定像素偏移，也不得依赖 FsusUI 内部 class selector。Footer 只在自身自然文档流内吸收 safe area，根 shell 不为不存在的 bottom navigation 预留空间。
+公开壳层以应用自有的 `[data-public-shell-header]` 为唯一测量锚点。`usePublicStickyGeometry` 将实际 header 高度发布为 `--fsusblog-public-header-height-current`，并由此派生 sticky top 与 anchor scroll margin；viewport resize、横屏断点或控件触控高度变化必须重新测量，组件卸载必须断开 observer 与 listener。Archive 年份标题和 hash target 只能消费这些 token，不得复制固定像素偏移，也不得依赖 FsusUI 内部 class selector。Footer safe area 由 FsusUI 壳层在自身自然文档流内吸收，根 shell 不为不存在的 bottom navigation 预留空间。
 
 SSR/AOT 无 JavaScript 首帧保留静态 token fallback，hydration 后再以实际测量值覆盖。排版或触控面积调整不能改变这一所有权：标题、摘要和 metadata 可按公开排版角色变化，但 header selector、sticky token 和锚点间距仍由同一几何链路管理。实现与验收映射见 `docs/issue-1016-public-shell-sticky-geometry-handoff.md`、`docs/issue-1017-archive-sticky-offset-handoff.md` 和 `docs/issue-1285-touch-target-floor.md`。
 

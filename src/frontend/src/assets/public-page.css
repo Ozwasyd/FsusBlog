@@ -27,9 +27,6 @@
   --fsus-dot-gray: var(--text-decorative);
   --fsus-border: var(--border);
   --fsus-scholarly-blue: var(--accent);
-  --fsusblog-backdrop-saturate: 100%;
-  --fsusblog-header-bg: var(--surface);
-  --fsusblog-header-border: var(--border);
   --el-color-primary: var(--accent);
   --el-color-primary-dark-2: var(--accent-hover);
   --el-color-primary-light-3: color-mix(in srgb, var(--accent) 72%, var(--surface));
@@ -161,9 +158,6 @@ html[data-theme-resolved='dark'] {
   --fsus-dot-gray: var(--text-decorative);
   --fsus-border: var(--border);
   --fsus-scholarly-blue: var(--accent);
-  --fsusblog-backdrop-saturate: 100%;
-  --fsusblog-header-bg: var(--surface);
-  --fsusblog-header-border: var(--border);
   --el-color-primary: var(--accent);
   --el-color-primary-dark-2: var(--accent-hover);
   --el-color-primary-light-3: color-mix(in srgb, var(--accent) 72%, var(--surface));

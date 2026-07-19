@@ -115,10 +115,15 @@ for (const [path, source] of [
   expectNotIncludes(path, source, legacyFsusBackdropBlurSoft, `unregistered ${legacyFsusBackdropBlurSoft} alias`)
 }
 
-expectIncludes(publicPagePath, publicPage, '--fsusblog-backdrop-saturate: 100%;')
-expectIncludes(publicShellPath, publicShell, '--fsusblog-backdrop-saturate: 100%;')
-expectIncludes(publicShellPath, publicShell, '--fsusblog-backdrop-blur-soft: 0px;')
-expectIncludes(publicShellPath, publicShell, 'blur(var(--fsusblog-backdrop-blur-soft)) saturate(var(--fsusblog-backdrop-saturate))')
+for (const retiredPublicChromeToken of [
+  '--fsusblog-backdrop-saturate:',
+  '--fsusblog-backdrop-blur-soft:',
+  '--fsusblog-header-bg:',
+  '--fsusblog-header-border:'
+]) {
+  expectNotIncludes(publicPagePath, publicPage, retiredPublicChromeToken)
+  expectNotIncludes(publicShellPath, publicShell, retiredPublicChromeToken)
+}
 
 for (const token of [
   '--blog-motion-fast: var(--fsus-motion-control-fast, 140ms);',
@@ -152,7 +157,8 @@ expectIncludes(messagesPath, messages, 'font-variant-numeric: tabular-nums;')
 expectNotIncludes(identityPath, identity, legacyFsusFontMonoVar)
 expectIncludes(identityPath, identity, 'font-family: var(--font-mono);')
 
-expectIncludes(publicShellPath, publicShell, '--fsusblog-public-overlay-radius: var(--fsus-radius-popover, 10px);')
+expectIncludes(publicShellPath, publicShell, '--fsusblog-public-header-height: 4rem;')
+expectNotIncludes(publicShellPath, publicShell, '--fsusblog-public-overlay-radius:')
 expectIncludes(markdownPath, markdown, 'border-radius: var(--fsus-radius-panel, 12px);')
 expectIncludes(markdownPath, markdown, 'border-radius: var(--fsus-radius-control-small, 4px)')
 expectIncludes(markdownPath, markdown, 'border-radius: var(--fsus-radius-control, 6px);')

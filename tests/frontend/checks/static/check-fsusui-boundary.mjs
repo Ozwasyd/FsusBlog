@@ -35,30 +35,12 @@ const allowedRuntimeImports = new Map([
     ['src/frontend/src/services/securityPerceptionChallengeFlow.ts', new Set(['@ozwasyd/element-plus/perception-challenge'])]
 ]);
 const allowedInternalSelectors = new Map([
-    ['src/frontend/src/assets/public-page.css', new Set([
-        '.el-public-shell__mobile-search-trigger',
-        '.el-public-shell__search--desktop-trigger',
-        '.el-public-shell__search--trigger',
-        '.el-theme-mode-toggle__menu-button'
-    ])],
     ['src/frontend/src/assets/account-shell.css', new Set([
         '.el-date-editor',
         '.el-input',
         '.el-input-number',
         '.el-select',
         '.el-table'
-    ])],
-    ['src/frontend/src/assets/public-shell-foundation.css', new Set([
-        '.el-input',
-        '.el-input__wrapper',
-        '.el-radio-button',
-        '.el-radio-button__inner',
-        '.el-radio-group',
-        '.el-theme-mode-toggle',
-        '.el-theme-mode-toggle--desktop',
-        '.el-theme-mode-toggle__menu',
-        '.el-theme-mode-toggle__menu-button',
-        '.el-theme-mode-toggle__menu-item'
     ])],
     ['src/frontend/src/components/admin/AdminTaxonomyManageView.vue', new Set([
         '.el-table-fixed-column--right'
@@ -294,16 +276,11 @@ function checkBoundaryImplementation(file, content)
 function checkInternalSelectors(file, content)
 {
     const fileRel = rel(file);
-    const allowPublicShell = fileRel === 'src/frontend/src/assets/public-shell-foundation.css';
     const allowedSelectors = allowedInternalSelectors.get(fileRel);
     const selectorPattern = /(?::deep\()?\.el-[a-z0-9_-]+/gi;
     for (const match of content.matchAll(selectorPattern))
     {
         const selector = match[0].replace(':deep(', '');
-        if (allowPublicShell && selector.startsWith('.el-public-shell'))
-        {
-            continue;
-        }
         if (allowedSelectors?.has(selector))
         {
             continue;
