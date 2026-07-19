@@ -95,6 +95,9 @@ static void WriteCommandError(string message, string fallbackCode)
     Console.WriteLine(JsonSerializer.Serialize(new
     {
         status = "failed",
-        code = code.StartsWith("schema_", StringComparison.Ordinal) ? code : fallbackCode
+        code = code.StartsWith("schema_", StringComparison.Ordinal)
+            || code.StartsWith("passkey_projection_", StringComparison.Ordinal)
+            ? code
+            : fallbackCode
     }));
 }

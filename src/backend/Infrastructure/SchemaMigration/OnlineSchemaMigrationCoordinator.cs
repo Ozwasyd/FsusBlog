@@ -1,6 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+using FsusBlog.Server.Services.Security;
+
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 using SqlSugar;
@@ -527,7 +529,9 @@ public enum OnlineSchemaMigrationCommandKind
 {
     Serve = 0,
     Migrate = 1,
-    Check = 2
+    Check = 2,
+    PasskeyProjectionCheck = 3,
+    PasskeyProjectionRepair = 4
 }
 
 public sealed record OnlineSchemaMigrationCommand(
@@ -554,6 +558,11 @@ public static class OnlineSchemaMigrationCommandLine
         if (string.Equals(args[0], "serve", StringComparison.OrdinalIgnoreCase))
         {
             return Serve(args.Skip(1).ToArray());
+        }
+
+        if (string.Equals(args[0], "passkey-projection", StringComparison.OrdinalIgnoreCase))
+        {
+            return ParsePasskeyProjection(args);
         }
 
         if (!string.Equals(args[0], "migrate", StringComparison.OrdinalIgnoreCase))
@@ -681,6 +690,64 @@ public static class OnlineSchemaMigrationCommandLine
             false,
             hostArguments);
 
+    private static OnlineSchemaMigrationCommand ParsePasskeyProjection(IReadOnlyList<string> args)
+    {
+        bool check = false;
+        bool repair = false;
+        bool confirmRepair = false;
+        string? environmentFilePath = null;
+        for (int index = 1; index < args.Count; index++)
+        {
+            string argument = args[index];
+            switch (argument)
+            {
+                case "--check":
+                    check = true;
+                    break;
+                case "--repair":
+                    repair = true;
+                    break;
+                case "--confirm-repair":
+                    confirmRepair = true;
+                    break;
+                case "--env-file":
+                    environmentFilePath = ReadValue(args, ref index, argument);
+                    break;
+                default:
+                    throw new InvalidOperationException($"passkey_projection_argument_unknown:{argument}");
+            }
+        }
+
+        if (check == repair)
+        {
+            throw new InvalidOperationException("passkey_projection_mode_required");
+        }
+
+        if (check && confirmRepair)
+        {
+            throw new InvalidOperationException("passkey_projection_check_confirmation_conflict");
+        }
+
+        if (repair && !confirmRepair)
+        {
+            throw new InvalidOperationException("passkey_projection_repair_confirmation_required");
+        }
+
+        return new OnlineSchemaMigrationCommand(
+            repair
+                ? OnlineSchemaMigrationCommandKind.PasskeyProjectionRepair
+                : OnlineSchemaMigrationCommandKind.PasskeyProjectionCheck,
+            null,
+            null,
+            null,
+            null,
+            environmentFilePath,
+            null,
+            confirmRepair,
+            false,
+            []);
+    }
+
     private static string ReadValue(IReadOnlyList<string> args, ref int index, string argument)
     {
         if (++index >= args.Count || args[index].StartsWith("--", StringComparison.Ordinal))
@@ -694,6 +761,7 @@ public static class OnlineSchemaMigrationCommandLine
 
 public sealed class OnlineSchemaMigrationCommandHost(
     IOnlineSchemaMigrationCoordinator coordinator,
+    IPasskeyProjectionConsistencyService passkeyProjection,
     IConfiguration configuration,
     ILogger<OnlineSchemaMigrationCommandHost> logger)
 {
@@ -705,6 +773,30 @@ public sealed class OnlineSchemaMigrationCommandHost(
     {
         try
         {
+            if (command.Kind is OnlineSchemaMigrationCommandKind.PasskeyProjectionCheck
+                or OnlineSchemaMigrationCommandKind.PasskeyProjectionRepair)
+            {
+                bool repair = command.Kind == OnlineSchemaMigrationCommandKind.PasskeyProjectionRepair;
+                PasskeyProjectionConsistencyReport projection = repair
+                    ? await passkeyProjection.RepairAsync(cancellationToken).ConfigureAwait(false)
+                    : await passkeyProjection.CheckAsync(cancellationToken).ConfigureAwait(false);
+                logger.LogInformation(
+                    "Passkey projection {Mode} completed. DriftedAccountCount={DriftedAccountCount} RepairedAccountCount={RepairedAccountCount} RemainingDriftedAccountCount={RemainingDriftedAccountCount}",
+                    repair ? "repair" : "check",
+                    projection.DriftedAccounts,
+                    projection.RepairedAccounts,
+                    projection.RemainingDriftedAccounts);
+                await WriteJsonAsync(new
+                {
+                    status = projection.IsConsistent ? "ok" : "drift",
+                    mode = repair ? "repair" : "check",
+                    driftedAccounts = projection.DriftedAccounts,
+                    repairedAccounts = projection.RepairedAccounts,
+                    remainingDriftedAccounts = projection.RemainingDriftedAccounts
+                }, cancellationToken).ConfigureAwait(false);
+                return projection.IsConsistent ? 0 : 1;
+            }
+
             string releaseId = command.ReleaseId
                 ?? (configuration["FSUSBLOG_RELEASE_ID"] ?? configuration["Release:Id"] ?? string.Empty).Trim();
             if (releaseId.Length == 0)
@@ -770,7 +862,7 @@ public sealed class OnlineSchemaMigrationCommandHost(
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            logger.LogError(exception, "Schema command failed closed.");
+            logger.LogError(exception, "Maintenance command failed closed.");
             await WriteJsonAsync(
                 new
                 {
@@ -826,6 +918,7 @@ public sealed class OnlineSchemaMigrationCommandHost(
     {
         string code = message.Split(':', 2, StringSplitOptions.TrimEntries)[0];
         return code.StartsWith("schema_", StringComparison.Ordinal)
+            || code.StartsWith("passkey_projection_", StringComparison.Ordinal)
             ? code
             : "schema_command_failed";
     }

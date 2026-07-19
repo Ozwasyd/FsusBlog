@@ -8,6 +8,7 @@ using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Services.Security;
 
 using Microsoft.Extensions.Options;
 
@@ -24,6 +25,7 @@ public sealed class LifecycleHostedBootstrapService(
 {
     private const string SchemaMigrationTask = "schemaMigration";
     private const string AccountSubjectHashInvariantTask = "accountSubjectHashInvariant";
+    private const string PasskeyProjectionInvariantTask = "passkeyProjectionInvariant";
     private const string PublicOriginTask = "publicOrigin";
     private const string SearchIndexTask = "searchIndex";
     private const string CacheInitializerTask = "cacheInitializer";
@@ -94,6 +96,15 @@ public sealed class LifecycleHostedBootstrapService(
                 var gate = scopedServices.GetRequiredService<IAccountSubjectHashInvariantGate>();
                 await gate.EnsureAsync(cancellationToken);
                 return StartupTaskOutcome.Ok("physical_projection_complete");
+            });
+
+        yield return new StartupTaskStep(
+            PasskeyProjectionInvariantTask,
+            async cancellationToken =>
+            {
+                var gate = scopedServices.GetRequiredService<IPasskeyProjectionConsistencyService>();
+                await gate.EnsureAsync(cancellationToken);
+                return StartupTaskOutcome.Ok("credential_fact_projection_consistent");
             });
 
         yield return new StartupTaskStep(

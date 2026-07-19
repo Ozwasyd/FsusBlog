@@ -4,6 +4,7 @@ using FsusBlog.Server.Infrastructure.Helpers.Initializer;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Services.Security;
 
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -45,6 +46,8 @@ public sealed class LifecycleHostedBootstrapServiceTests
             Assert.Equal("compatibility_check", runtimeState.GetStartupTasks()["schemaMigration"].Detail);
             Assert.Equal("ok", runtimeState.GetStartupTasks()["accountSubjectHashInvariant"].Status);
             Assert.Equal("physical_projection_complete", runtimeState.GetStartupTasks()["accountSubjectHashInvariant"].Detail);
+            Assert.Equal("ok", runtimeState.GetStartupTasks()["passkeyProjectionInvariant"].Status);
+            Assert.Equal("credential_fact_projection_consistent", runtimeState.GetStartupTasks()["passkeyProjectionInvariant"].Detail);
             Assert.Equal("skipped", runtimeState.GetStartupTasks()["bootstrapRollback"].Status);
             Assert.Equal("ok", runtimeState.GetStartupTasks()["searchIndex"].Status);
             Assert.Equal("ok", runtimeState.GetStartupTasks()["cacheInitializer"].Status);
@@ -114,6 +117,7 @@ public sealed class LifecycleHostedBootstrapServiceTests
                 out ISearchIndexService searchIndexService,
                 out ICacheInitializer cacheInitializer);
             var invariantGate = services.GetRequiredService<IAccountSubjectHashInvariantGate>();
+            var passkeyProjection = services.GetRequiredService<IPasskeyProjectionConsistencyService>();
             var order = new List<string>();
             migrationRunner.RunAsync(Arg.Any<CancellationToken>()).Returns(_ =>
             {
@@ -123,6 +127,11 @@ public sealed class LifecycleHostedBootstrapServiceTests
             invariantGate.EnsureAsync(Arg.Any<CancellationToken>()).Returns(_ =>
             {
                 order.Add("invariant");
+                return Task.CompletedTask;
+            });
+            passkeyProjection.EnsureAsync(Arg.Any<CancellationToken>()).Returns(_ =>
+            {
+                order.Add("passkey-projection");
                 return Task.CompletedTask;
             });
 
@@ -138,10 +147,11 @@ public sealed class LifecycleHostedBootstrapServiceTests
             Assert.Equal("ok", runtimeState.GetStartupTasks()["schemaMigration"].Status);
             Assert.Equal("ok", runtimeState.GetStartupTasks()["accountSubjectHashInvariant"].Status);
             Assert.Equal("physical_projection_complete", runtimeState.GetStartupTasks()["accountSubjectHashInvariant"].Detail);
-            Assert.Equal(["migration", "invariant"], order);
+            Assert.Equal(["migration", "invariant", "passkey-projection"], order);
             Assert.Equal("ok", runtimeState.GetStartupTasks()["searchIndex"].Status);
             await migrationRunner.Received(1).RunAsync(Arg.Any<CancellationToken>());
             await invariantGate.Received(1).EnsureAsync(Arg.Any<CancellationToken>());
+            await passkeyProjection.Received(1).EnsureAsync(Arg.Any<CancellationToken>());
             await searchIndexService.Received(1).BuildIndexAsync(Arg.Is<List<FsusBlog.Server.Entities.Article>>(items => items.Count == 0));
             await cacheInitializer.Received(1).InitializeAsync();
         }
@@ -451,6 +461,8 @@ public sealed class LifecycleHostedBootstrapServiceTests
 
         var invariantGate = Substitute.For<IAccountSubjectHashInvariantGate>();
         invariantGate.EnsureAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
+        var passkeyProjection = Substitute.For<IPasskeyProjectionConsistencyService>();
+        passkeyProjection.EnsureAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
         var systemService = Substitute.For<ISystemService>();
         systemService.GetSeoConfigAsync().Returns(Task.FromResult(new FsusBlog.Server.Models.ReadModels.SeoConfigReadModel
         {
@@ -460,6 +472,7 @@ public sealed class LifecycleHostedBootstrapServiceTests
         var services = new ServiceCollection();
         services.AddSingleton(migrationRunner);
         services.AddSingleton(invariantGate);
+        services.AddSingleton(passkeyProjection);
         services.AddSingleton(searchIndexService);
         services.AddSingleton(cacheInitializer);
         services.AddSingleton(systemService);

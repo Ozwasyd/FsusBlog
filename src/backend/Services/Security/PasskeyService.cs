@@ -97,6 +97,10 @@ internal readonly record struct PasskeyCounterDecision(
     PasskeyCounterOutcome Outcome,
     bool IsAccepted,
     string ResponseAction);
+internal readonly record struct PasskeyAssertionMetadata(
+    bool BackupEligible,
+    bool BackupState,
+    int AuthenticatorFlagsVersion);
 internal readonly record struct PasskeyCounterSnapshot(long SignCount, string RowVersion);
 internal readonly record struct PasskeyDeleteState(bool UserFound, bool CredentialFound, bool Deleted, int Remaining);
 internal sealed record PasskeyRegistrationValidationResult(bool Success, string Message, PasskeyCredential? Credential)
@@ -136,6 +140,9 @@ public sealed class PasskeyService(
     private const string CounterRiskResponseConfigurationKey = "PasskeyCounterRisk:ResponseAction";
     private const string RejectCredentialResponseAction = "reject_credential";
     private const string RevokeAccountSessionsResponseAction = "revoke_account_sessions";
+    private const int AuthenticatorFlagsSnapshotVersion = 1;
+    private const string AssertionMetadataUpdateModeConfigurationKey = "PasskeyMetadata:AssertionUpdateMode";
+    private const string CounterOnlyMetadataUpdateMode = "counter_only";
 
     // ─────────────────────────────────────────────────────────────────────
     // Registration
@@ -216,11 +223,23 @@ public sealed class PasskeyService(
             return (false, validation.Message);
         }
 
-        await db.Insertable(validation.Credential).ExecuteCommandAsync();
-        await db.Updateable<User>()
-            .Where(u => u.Id == accountId)
-            .SetColumns(u => u.PasskeyEnabled == true)
-            .ExecuteCommandAsync();
+        var transaction = await db.Ado.UseTranAsync(async () =>
+        {
+            await db.Insertable(validation.Credential).ExecuteCommandAsync();
+            int projected = await db.Updateable<User>()
+                .Where(u => u.Id == accountId && u.Status != 2 && u.DeletedAt == null)
+                .SetColumns(u => u.PasskeyEnabled == true)
+                .ExecuteCommandAsync();
+            if (projected != 1)
+            {
+                throw new InvalidOperationException("passkey_registration_projection_failed");
+            }
+        });
+        if (!transaction.IsSuccess)
+        {
+            throw new InvalidOperationException("passkey_registration_transaction_failed", transaction.ErrorException);
+        }
+
         await AccountSnapshotCacheInvalidator.BumpVersionAsync(counters, accountId, cancellationToken).ConfigureAwait(false);
         await invalidation.RemoveAsync(CachePolicyId.SecurityPasskeyRegChallenge, request.SessionKey, cancellationToken);
 
@@ -623,11 +642,18 @@ public sealed class PasskeyService(
         catch (Fido2VerificationException ex) when (ex.Code == Fido2ErrorCode.InvalidSignCount)
         {
             long actualSignCount = ReadAuthenticatorSignCount(request.AuthenticatorData);
+            if (!TryReadAssertionMetadata(request.AuthenticatorData, out PasskeyAssertionMetadata assertionMetadata))
+            {
+                FsusObservability.RecordPasskeyAssertion("login", 1, Stopwatch.GetElapsedTime(started), "authenticator_metadata_invalid");
+                return (false, "通行密钥验证失败，请重试", null);
+            }
+
             PasskeyCounterDecision invalidCounterDecision =
                 ClassifyPasskeyCounter(expectedSignCount, actualSignCount) == PasskeyCounterOutcome.Unsupported
                     ? await ApplyPasskeyCounterAsync(
                         assertionState,
                         actualSignCount,
+                        assertionMetadata,
                         "login",
                         cancellationToken)
                     : await RejectPasskeyCounterRiskAsync(
@@ -661,9 +687,16 @@ public sealed class PasskeyService(
             return (false, "通行密钥验证失败，请重试", null);
         }
 
+        if (!TryReadAssertionMetadata(request.AuthenticatorData, out PasskeyAssertionMetadata verifiedMetadata))
+        {
+            FsusObservability.RecordPasskeyAssertion("login", 1, Stopwatch.GetElapsedTime(started), "authenticator_metadata_invalid");
+            return (false, "通行密钥验证失败，请重试", null);
+        }
+
         PasskeyCounterDecision counterDecision = await ApplyPasskeyCounterAsync(
             assertionState,
             verifyResult.SignCount,
+            verifiedMetadata,
             "login",
             cancellationToken);
         if (!counterDecision.IsAccepted)
@@ -789,11 +822,18 @@ public sealed class PasskeyService(
         catch (Fido2VerificationException ex) when (ex.Code == Fido2ErrorCode.InvalidSignCount)
         {
             long actualSignCount = ReadAuthenticatorSignCount(request.AuthenticatorData);
+            if (!TryReadAssertionMetadata(request.AuthenticatorData, out PasskeyAssertionMetadata assertionMetadata))
+            {
+                FsusObservability.RecordPasskeyAssertion("step_up", 1, Stopwatch.GetElapsedTime(started), "authenticator_metadata_invalid");
+                return (false, "通行密钥 step-up 验证失败，请重试");
+            }
+
             PasskeyCounterDecision invalidCounterDecision =
                 ClassifyPasskeyCounter(expectedSignCount, actualSignCount) == PasskeyCounterOutcome.Unsupported
                     ? await ApplyPasskeyCounterAsync(
                         assertionState,
                         actualSignCount,
+                        assertionMetadata,
                         "step_up",
                         cancellationToken)
                     : await RejectPasskeyCounterRiskAsync(
@@ -827,9 +867,16 @@ public sealed class PasskeyService(
             return (false, "通行密钥 step-up 验证失败，请重试");
         }
 
+        if (!TryReadAssertionMetadata(request.AuthenticatorData, out PasskeyAssertionMetadata verifiedMetadata))
+        {
+            FsusObservability.RecordPasskeyAssertion("step_up", 1, Stopwatch.GetElapsedTime(started), "authenticator_metadata_invalid");
+            return (false, "通行密钥 step-up 验证失败，请重试");
+        }
+
         PasskeyCounterDecision counterDecision = await ApplyPasskeyCounterAsync(
             assertionState,
             verifyResult.SignCount,
+            verifiedMetadata,
             "step_up",
             cancellationToken);
         if (!counterDecision.IsAccepted)
@@ -1055,7 +1102,7 @@ public sealed class PasskeyService(
     private static string CounterDecisionResult(PasskeyCounterDecision decision)
         => decision.Outcome == PasskeyCounterOutcome.Risk
             ? CounterRiskReason
-            : "sign_count_conflict";
+            : "credential_metadata_conflict";
 
     private static string CounterFailureMessage(PasskeyCounterDecision decision, bool stepUp)
         => decision.Outcome == PasskeyCounterOutcome.Risk
@@ -1294,6 +1341,7 @@ public sealed class PasskeyService(
     {
         cancellationToken.ThrowIfCancellationRequested();
         PasskeyCredentialMutationResult result = PasskeyCredentialMutationResult.Missing("通行密钥不存在");
+        bool invalidateAccountSnapshot = false;
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
             PasskeyDeleteState deleteState = await TryDeletePasskeyCredentialAsync(accountId, credId, cancellationToken);
@@ -1315,20 +1363,29 @@ public sealed class PasskeyService(
                 return;
             }
 
-            if (deleteState.Remaining == 0)
+            int projected = await db.Updateable<User>()
+                .Where(u => u.Id == accountId)
+                .SetColumns(u => u.PasskeyEnabled == (deleteState.Remaining > 0))
+                .ExecuteCommandAsync(cancellationToken);
+            if (projected != 1)
             {
-                await db.Updateable<User>()
-                    .Where(u => u.Id == accountId)
-                    .SetColumns(u => u.PasskeyEnabled == false)
-                    .ExecuteCommandAsync(cancellationToken);
-                await AccountSnapshotCacheInvalidator.BumpVersionAsync(counters, accountId, cancellationToken).ConfigureAwait(false);
+                throw new InvalidOperationException("passkey_remove_projection_failed");
             }
 
+            invalidateAccountSnapshot = true;
             result = PasskeyCredentialMutationResult.Succeeded("通行密钥已删除");
         });
         if (!transaction.IsSuccess)
         {
             throw new InvalidOperationException("passkey_credential_remove_failed", transaction.ErrorException);
+        }
+
+        if (invalidateAccountSnapshot)
+        {
+            await AccountSnapshotCacheInvalidator.BumpVersionAsync(
+                counters,
+                accountId,
+                cancellationToken).ConfigureAwait(false);
         }
 
         return result;
@@ -1420,6 +1477,7 @@ public sealed class PasskeyService(
     private async Task<PasskeyCounterDecision> ApplyPasskeyCounterAsync(
         PasskeyAssertionState assertionState,
         long actualSignCount,
+        PasskeyAssertionMetadata assertionMetadata,
         string flow,
         CancellationToken cancellationToken)
     {
@@ -1434,12 +1492,13 @@ public sealed class PasskeyService(
                 cancellationToken);
         }
 
-        if (await TryUpdatePasskeySignCountAsync(
+        if (await TryUpdatePasskeyAssertionMetadataAsync(
             assertionState.Credential.Id,
             storedSignCount,
             assertionState.RowVersion,
             actualSignCount,
             DateTime.UtcNow,
+            assertionMetadata,
             cancellationToken))
         {
             string responseAction = outcome == PasskeyCounterOutcome.Unsupported
@@ -1472,12 +1531,13 @@ public sealed class PasskeyService(
                 "accepted_after_reload");
         }
 
-        bool retryUpdated = await TryUpdatePasskeySignCountAsync(
+        bool retryUpdated = await TryUpdatePasskeyAssertionMetadataAsync(
             assertionState.Credential.Id,
             current.Value.SignCount,
             current.Value.RowVersion,
             actualSignCount,
             DateTime.UtcNow,
+            assertionMetadata,
             cancellationToken);
         string retryAction = retryUpdated ? "counter_retry_updated" : "assertion_rejected";
         RecordPasskeyCounterOutcome(PasskeyCounterOutcome.ConcurrentConflict, retryAction);
@@ -1682,19 +1742,52 @@ public sealed class PasskeyService(
             ? BinaryPrimitives.ReadUInt32BigEndian(authenticatorData.Slice(33, sizeof(uint)))
             : -1;
 
-    private async Task<bool> TryUpdatePasskeySignCountAsync(
+    private static bool TryReadAssertionMetadata(
+        ReadOnlySpan<byte> authenticatorData,
+        out PasskeyAssertionMetadata metadata)
+    {
+        try
+        {
+            AuthenticatorData parsed = AuthenticatorData.Parse(authenticatorData.ToArray());
+            metadata = new PasskeyAssertionMetadata(
+                parsed.IsBackupEligible,
+                parsed.IsBackedUp,
+                AuthenticatorFlagsSnapshotVersion);
+            return true;
+        }
+        catch (Fido2VerificationException)
+        {
+            metadata = default;
+            return false;
+        }
+    }
+
+    private async Task<bool> TryUpdatePasskeyAssertionMetadataAsync(
         int id,
         long expectedSignCount,
         string rowVersion,
         long newSignCount,
         DateTime lastUsedAt,
+        PasskeyAssertionMetadata metadata,
         CancellationToken cancellationToken)
     {
+        bool updateAuthenticatorFlags = !string.Equals(
+            configuration?[AssertionMetadataUpdateModeConfigurationKey],
+            CounterOnlyMetadataUpdateMode,
+            StringComparison.OrdinalIgnoreCase);
         int updated = await db.Ado.ExecuteCommandAsync(
             """
             UPDATE passkey_credential
             SET signcount = @newSignCount,
-                lastusedat = @lastUsedAt
+                lastusedat = @lastUsedAt,
+                backupeligible = CASE
+                    WHEN @updateAuthenticatorFlags THEN @backupEligible
+                    ELSE backupeligible
+                END,
+                backupstate = CASE
+                    WHEN @updateAuthenticatorFlags THEN @backupState
+                    ELSE backupstate
+                END
             WHERE id = @id
               AND signcount = @expectedSignCount
               AND xmin::text = @rowVersion;
@@ -1705,7 +1798,10 @@ public sealed class PasskeyService(
                 new("@expectedSignCount", expectedSignCount),
                 new("@rowVersion", rowVersion),
                 new("@newSignCount", newSignCount),
-                new("@lastUsedAt", lastUsedAt)
+                new("@lastUsedAt", lastUsedAt),
+                new("@updateAuthenticatorFlags", updateAuthenticatorFlags),
+                new("@backupEligible", metadata.BackupEligible),
+                new("@backupState", metadata.BackupState)
             });
         cancellationToken.ThrowIfCancellationRequested();
         if (updated != 1)

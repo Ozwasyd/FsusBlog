@@ -28,9 +28,9 @@ namespace FsusBlog.Server.Tests.Unit;
 [Collection(nameof(SchemaMigrationPostgresCollectionA))]
 public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixture fixture)
 {
-    private static readonly MethodInfo s_tryUpdatePasskeySignCount = typeof(PasskeyService)
-        .GetMethod("TryUpdatePasskeySignCountAsync", BindingFlags.Instance | BindingFlags.NonPublic)
-        ?? throw new InvalidOperationException("TryUpdatePasskeySignCountAsync should exist.");
+    private static readonly MethodInfo s_tryUpdatePasskeyAssertionMetadata = typeof(PasskeyService)
+        .GetMethod("TryUpdatePasskeyAssertionMetadataAsync", BindingFlags.Instance | BindingFlags.NonPublic)
+        ?? throw new InvalidOperationException("TryUpdatePasskeyAssertionMetadataAsync should exist.");
 
     private static readonly MethodInfo s_loadAdminPasskeyRowVersion = typeof(AdminPrincipalService)
         .GetMethod("LoadAdminPasskeyRowVersionAsync", BindingFlags.Instance | BindingFlags.NonPublic)
@@ -185,10 +185,10 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
 
         var results = await Task.WhenAll(
                 firstService.CompleteAssertionAsync(
-                    CreateAssertionRequest(credentialId, actualSignCount: 11),
+                    CreateAssertionRequest(credentialId, actualSignCount: 11, backupEligible: false, backupState: false),
                     CancellationToken.None),
                 secondService.CompleteAssertionAsync(
-                    CreateAssertionRequest(credentialId, actualSignCount: 12),
+                    CreateAssertionRequest(credentialId, actualSignCount: 12, backupEligible: true, backupState: true),
                     CancellationToken.None))
             .WaitAsync(TimeSpan.FromSeconds(30));
 
@@ -196,6 +196,8 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
         PasskeyCredential stored = await setupDb.Queryable<PasskeyCredential>()
             .SingleAsync(item => item.CredentialId == credentialId);
         Assert.Equal(12, stored.SignCount);
+        Assert.True(stored.BackupEligible);
+        Assert.True(stored.BackupState);
         await sessions.DidNotReceiveWithAnyArgs().RevokeAllSessionsAsync(default, default!, default);
     }
 
@@ -314,9 +316,13 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
 
     private static PasskeyLoginCompleteCoreModel CreateAssertionRequest(
         string credentialId,
-        uint actualSignCount)
+        uint actualSignCount,
+        bool backupEligible = false,
+        bool backupState = false)
     {
         byte[] authenticatorData = new byte[37];
+        authenticatorData[32] = (byte)((backupEligible ? (byte)AuthenticatorFlags.BE : 0)
+            | (backupState ? (byte)AuthenticatorFlags.BS : 0));
         BinaryPrimitives.WriteUInt32BigEndian(
             authenticatorData.AsSpan(33, sizeof(uint)),
             actualSignCount);
@@ -373,9 +379,17 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
         long expectedSignCount,
         string rowVersion,
         long newSignCount)
-        => await (Task<bool>)s_tryUpdatePasskeySignCount.Invoke(
+        => await (Task<bool>)s_tryUpdatePasskeyAssertionMetadata.Invoke(
             service,
-            [id, expectedSignCount, rowVersion, newSignCount, DateTime.UtcNow, CancellationToken.None])!;
+            [
+                id,
+                expectedSignCount,
+                rowVersion,
+                newSignCount,
+                DateTime.UtcNow,
+                new PasskeyAssertionMetadata(false, false, 1),
+                CancellationToken.None
+            ])!;
 
     private static async Task<string?> InvokeLoadAdminPasskeyRowVersionAsync(AdminPrincipalService service, long id)
         => await (Task<string?>)s_loadAdminPasskeyRowVersion.Invoke(service, [id, CancellationToken.None])!;

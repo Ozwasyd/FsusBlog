@@ -151,7 +151,11 @@ public sealed class PasskeyCounterRollbackIntegrationTests(PostgresSchemaMigrati
             backupEligible: true);
 
         var result = await harness.Service.CompleteAssertionAsync(
-            CreateRequest(harness.CredentialId, actualSignCount: 0),
+            CreateRequest(
+                harness.CredentialId,
+                actualSignCount: 0,
+                backupEligible: true,
+                backupState: true),
             CancellationToken.None);
 
         Assert.True(result.Success);
@@ -164,6 +168,38 @@ public sealed class PasskeyCounterRollbackIntegrationTests(PostgresSchemaMigrati
         Assert.True(stored.BackupState);
         await harness.Sessions.DidNotReceiveWithAnyArgs().RevokeAllSessionsAsync(default, default!, default);
         await harness.AuditEvents.DidNotReceiveWithAnyArgs().RecordHighValueAsync(default!, default);
+    }
+
+    [Fact]
+    public async Task SuccessfulAssertion_AtomicallyRefreshesBackupFlagsAndLastUsedAt()
+    {
+        IFido2 fido = SuccessfulFido(actualSignCount: 11);
+        await using TestHarness harness = await CreateHarnessAsync(
+            fido,
+            "backup-refresh",
+            storedSignCount: 10,
+            backupEligible: true);
+        await harness.Database.Updateable<PasskeyCredential>()
+            .SetColumns(credential => credential.BackupState == false)
+            .Where(credential => credential.CredentialId == harness.CredentialId)
+            .ExecuteCommandAsync();
+
+        var result = await harness.Service.CompleteAssertionAsync(
+            CreateRequest(
+                harness.CredentialId,
+                actualSignCount: 11,
+                backupEligible: true,
+                backupState: true),
+            CancellationToken.None);
+
+        Assert.True(result.Success);
+        PasskeyCredential stored = await harness.Database.Queryable<PasskeyCredential>()
+            .SingleAsync(item => item.CredentialId == harness.CredentialId);
+        Assert.Equal(11, stored.SignCount);
+        Assert.NotNull(stored.LastUsedAt);
+        Assert.True(stored.BackupEligible);
+        Assert.True(stored.BackupState);
+        await harness.Sessions.DidNotReceiveWithAnyArgs().RevokeAllSessionsAsync(default, default!, default);
     }
 
     [Theory]
@@ -201,10 +237,18 @@ public sealed class PasskeyCounterRollbackIntegrationTests(PostgresSchemaMigrati
 
         var result = await harness.Service.CompleteStepUpAssertionAsync(
             harness.AccountId,
-            CreateRequest(harness.CredentialId, actualSignCount: 0),
+            CreateRequest(
+                harness.CredentialId,
+                actualSignCount: 0,
+                backupEligible: true,
+                backupState: true),
             CancellationToken.None);
 
         Assert.True(result.Success);
+        PasskeyCredential stored = await harness.Database.Queryable<PasskeyCredential>()
+            .SingleAsync(item => item.CredentialId == harness.CredentialId);
+        Assert.NotNull(stored.LastUsedAt);
+        Assert.True(stored.BackupState);
         await harness.Sessions.DidNotReceiveWithAnyArgs().RevokeAllSessionsAsync(default, default!, default);
         await harness.AuditEvents.DidNotReceiveWithAnyArgs().RecordHighValueAsync(default!, default);
     }
@@ -359,9 +403,15 @@ public sealed class PasskeyCounterRollbackIntegrationTests(PostgresSchemaMigrati
             auditEvents);
     }
 
-    private static PasskeyLoginCompleteCoreModel CreateRequest(string credentialId, uint actualSignCount)
+    private static PasskeyLoginCompleteCoreModel CreateRequest(
+        string credentialId,
+        uint actualSignCount,
+        bool backupEligible = false,
+        bool backupState = false)
     {
         byte[] authenticatorData = new byte[37];
+        authenticatorData[32] = (byte)((backupEligible ? (byte)AuthenticatorFlags.BE : 0)
+            | (backupState ? (byte)AuthenticatorFlags.BS : 0));
         BinaryPrimitives.WriteUInt32BigEndian(authenticatorData.AsSpan(33, sizeof(uint)), actualSignCount);
         return new PasskeyLoginCompleteCoreModel
         {
