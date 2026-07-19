@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.Filters;
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
@@ -178,30 +179,81 @@ internal sealed class NotificationStreamRiskProofPolicy(
             return NotificationStreamRiskProofResult.Rejected(StatusCodes.Status428PreconditionRequired, "risk_challenge_kind_mismatch");
         }
 
-        SecurityChallengeProofConsumeResult proof = await challengeProofService.ConsumeProofAsync(
-            new SecurityChallengeProofConsumeRequest(
-                proofToken,
-                challengeId,
-                canonicalChallengeKind,
-                decision.ActionName,
-                decision.RouteKey,
-                binding.SubjectHash,
-                binding.ClientIpHash,
-                binding.DeviceFpHash,
-                decision.PolicyVersion,
-                decision.RequiredChallenges.Select(CanonicalChallengeKind).ToArray()),
-            cancellationToken);
-        if (proof.Accepted)
+        if (preflightGrantService is null)
         {
-            if (preflightGrantService is null || proof.Claims is null)
-            {
-                return NotificationStreamRiskProofResult.Rejected(
-                    StatusCodes.Status503ServiceUnavailable,
-                    "risk_challenge_grant_unavailable");
-            }
+            return NotificationStreamRiskProofResult.Rejected(
+                StatusCodes.Status503ServiceUnavailable,
+                "risk_challenge_grant_unavailable");
+        }
 
-            string token = await preflightGrantService.MintAsync(proof.Claims, cancellationToken);
-            return NotificationStreamRiskProofResult.Allowed(token);
+        var grantBinding = new NotificationStreamPreflightGrantBinding(
+            decision.ActionName,
+            decision.RouteKey,
+            binding.SubjectHash,
+            binding.ClientIpHash,
+            binding.DeviceFpHash,
+            decision.PolicyVersion);
+        string? resumedGrant = await preflightGrantService.TryResumeExchangeAsync(
+            proofToken,
+            grantBinding,
+            cancellationToken);
+        if (resumedGrant is not null)
+        {
+            return NotificationStreamRiskProofResult.Allowed(resumedGrant);
+        }
+
+        var consumeRequest = new SecurityChallengeProofConsumeRequest(
+            proofToken,
+            challengeId,
+            canonicalChallengeKind,
+            decision.ActionName,
+            decision.RouteKey,
+            binding.SubjectHash,
+            binding.ClientIpHash,
+            binding.DeviceFpHash,
+            decision.PolicyVersion,
+            decision.RequiredChallenges.Select(CanonicalChallengeKind).ToArray());
+        SecurityChallengeProofExchangeResult proof;
+        try
+        {
+            proof = await challengeProofService.ExchangeProofAsync(
+                consumeRequest,
+                claims =>
+                {
+                    NotificationStreamPreflightGrantExchange target = preflightGrantService.CreateExchangeTarget(
+                        proofToken,
+                        claims);
+                    return new SecurityChallengeProofExchangeTarget(
+                        target.Token,
+                        CachePolicyId.SecurityChallengeProof,
+                        target.CacheIdentity,
+                        target.Payload,
+                        target.Ttl);
+                },
+                cancellationToken);
+        }
+        catch (InvalidOperationException)
+        {
+            return NotificationStreamRiskProofResult.Rejected(
+                StatusCodes.Status503ServiceUnavailable,
+                "risk_challenge_grant_unavailable");
+        }
+
+        if (proof.Accepted && proof.Target is not null)
+        {
+            return NotificationStreamRiskProofResult.Allowed(proof.Target.Token);
+        }
+
+        // The first preflight may have completed the atomic Redis exchange but
+        // lost its HTTP response. Resolve that race to the same deterministic
+        // grant instead of treating the one-time proof as a replay.
+        resumedGrant = await preflightGrantService.TryResumeExchangeAsync(
+            proofToken,
+            grantBinding,
+            cancellationToken);
+        if (resumedGrant is not null)
+        {
+            return NotificationStreamRiskProofResult.Allowed(resumedGrant);
         }
 
         await RecordRiskAsync(context, $"challenge_proof_rejected:{proof.Reason}", decision.ActionName, cancellationToken);

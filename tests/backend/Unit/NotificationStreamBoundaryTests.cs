@@ -439,6 +439,71 @@ public class NotificationStreamBoundaryTests
     }
 
     [Fact]
+    public async Task Handshake_PreflightResumesGrantWhenAtomicExchangeResponseWasLost()
+    {
+        var proof = new CapturingProofService { AcceptExchange = false };
+        var grants = new CapturingPreflightGrantService { ResumeOnCall = 2 };
+        NotificationStreamHandshakeService service = CreateHandshakeService(
+            new TestWebHostEnvironment { EnvironmentName = Environments.Production },
+            ["Seo:BaseUrl=https://example.com", "CORS_ALLOWED_HOSTS=https://example.com", "Fido2:Origins:0=https://example.com"],
+            riskScore: 50,
+            proof,
+            preflightGrantService: grants);
+        DefaultHttpContext context = CreateAnonymousHandshakeContext("https://example.com", "example.com");
+        AddRiskControlHeaders(context);
+
+        NotificationStreamHandshakeResult result = await service.ValidateAsync(context, CancellationToken.None, requireWebSocket: false);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("grant-token", result.PreflightGrantToken);
+        Assert.Single(proof.ConsumeRequests);
+        Assert.Equal(2, grants.ResumeCalls);
+    }
+
+    [Fact]
+    public async Task Handshake_PreflightDoesNotCreateGrantForRejectedProof()
+    {
+        var proof = new CapturingProofService { AcceptExchange = false };
+        var grants = new CapturingPreflightGrantService();
+        NotificationStreamHandshakeService service = CreateHandshakeService(
+            new TestWebHostEnvironment { EnvironmentName = Environments.Production },
+            ["Seo:BaseUrl=https://example.com", "CORS_ALLOWED_HOSTS=https://example.com", "Fido2:Origins:0=https://example.com"],
+            riskScore: 50,
+            proof,
+            preflightGrantService: grants);
+        DefaultHttpContext context = CreateAnonymousHandshakeContext("https://example.com", "example.com");
+        AddRiskControlHeaders(context);
+
+        NotificationStreamHandshakeResult result = await service.ValidateAsync(context, CancellationToken.None, requireWebSocket: false);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(StatusCodes.Status428PreconditionRequired, result.StatusCode);
+        Assert.Equal("risk_challenge_replayed", result.ErrorCode);
+        Assert.Equal(0, grants.CreatedTargets);
+    }
+
+    [Fact]
+    public async Task Handshake_PreflightGrantPreparationFailureReturnsServiceUnavailable()
+    {
+        var grants = new CapturingPreflightGrantService { ThrowWhenCreatingTarget = true };
+        NotificationStreamHandshakeService service = CreateHandshakeService(
+            new TestWebHostEnvironment { EnvironmentName = Environments.Production },
+            ["Seo:BaseUrl=https://example.com", "CORS_ALLOWED_HOSTS=https://example.com", "Fido2:Origins:0=https://example.com"],
+            riskScore: 50,
+            proof: new CapturingProofService(),
+            preflightGrantService: grants);
+        DefaultHttpContext context = CreateAnonymousHandshakeContext("https://example.com", "example.com");
+        AddRiskControlHeaders(context);
+
+        NotificationStreamHandshakeResult result = await service.ValidateAsync(context, CancellationToken.None, requireWebSocket: false);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, result.StatusCode);
+        Assert.Equal("risk_challenge_grant_unavailable", result.ErrorCode);
+        Assert.Equal(1, grants.CreatedTargets);
+    }
+
+    [Fact]
     public async Task Handshake_MultiChallengePolicyConsumesOneAggregateProofWithOrderedMembers()
     {
         var proof = new CapturingProofService();
@@ -1109,13 +1174,45 @@ public class NotificationStreamBoundaryTests
     {
         public List<SecurityChallengeProofConsumeRequest> ConsumeRequests { get; } = [];
 
+        public bool AcceptExchange { get; init; } = true;
+
         public Task<SecurityChallengeProofMintResult> MintProofAsync(SecurityChallengeProofMintRequest request, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
         public Task<SecurityChallengeProofConsumeResult> ConsumeProofAsync(SecurityChallengeProofConsumeRequest request, CancellationToken cancellationToken = default)
         {
             ConsumeRequests.Add(request);
-            return Task.FromResult(SecurityChallengeProofConsumeResult.Success(new SecurityChallengeProofClaims(
+            return Task.FromResult(SecurityChallengeProofConsumeResult.Success(CreateClaims(request)));
+        }
+
+        public Task<SecurityChallengeProofExchangeResult> ExchangeProofAsync(
+            SecurityChallengeProofConsumeRequest request,
+            Func<SecurityChallengeProofClaims, SecurityChallengeProofExchangeTarget> targetFactory,
+            CancellationToken cancellationToken = default)
+        {
+            ConsumeRequests.Add(request);
+            if (!AcceptExchange)
+            {
+                return Task.FromResult(new SecurityChallengeProofExchangeResult(
+                    false,
+                    SecurityChallengeProofOutcomes.ReplayedOrMissing,
+                    "proof_replayed_or_missing",
+                    null,
+                    null));
+            }
+
+            SecurityChallengeProofClaims claims = CreateClaims(request);
+            SecurityChallengeProofExchangeTarget target = targetFactory(claims);
+            return Task.FromResult(new SecurityChallengeProofExchangeResult(
+                true,
+                SecurityChallengeProofOutcomes.Accepted,
+                "ok",
+                claims,
+                target));
+        }
+
+        private static SecurityChallengeProofClaims CreateClaims(SecurityChallengeProofConsumeRequest request)
+            => new(
                 request.ChallengeId,
                 request.Kind,
                 request.Action,
@@ -1128,25 +1225,43 @@ public class NotificationStreamBoundaryTests
                 "nonce",
                 request.PolicyVersion,
                 EnvelopeId: null,
-                RequiredKinds: request.RequiredKinds)));
-        }
+                RequiredKinds: request.RequiredKinds);
     }
 
     private sealed class CapturingPreflightGrantService : INotificationStreamPreflightGrantService
     {
+        public int ResumeOnCall { get; init; } = int.MaxValue;
+
+        public bool ThrowWhenCreatingTarget { get; init; }
+
+        public int ResumeCalls { get; private set; }
+
+        public int CreatedTargets { get; private set; }
+
         public Task<string> MintAsync(SecurityChallengeProofClaims proof, CancellationToken cancellationToken)
             => Task.FromResult("grant-token");
 
         public NotificationStreamPreflightGrantExchange CreateExchangeTarget(
             string proofToken,
             SecurityChallengeProofClaims proof)
-            => new("grant-token", "grant:token", [1], TimeSpan.FromSeconds(30));
+        {
+            CreatedTargets++;
+            if (ThrowWhenCreatingTarget)
+            {
+                throw new InvalidOperationException("grant unavailable");
+            }
+
+            return new("grant-token", "grant:token", [1], TimeSpan.FromSeconds(30));
+        }
 
         public Task<string?> TryResumeExchangeAsync(
             string proofToken,
             NotificationStreamPreflightGrantBinding binding,
             CancellationToken cancellationToken)
-            => Task.FromResult<string?>(null);
+        {
+            ResumeCalls++;
+            return Task.FromResult<string?>(ResumeCalls >= ResumeOnCall ? "grant-token" : null);
+        }
 
         public Task<NotificationStreamPreflightGrantConsumeResult> ConsumeAsync(
             string token,
