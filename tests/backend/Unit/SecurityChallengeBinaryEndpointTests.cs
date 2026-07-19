@@ -163,7 +163,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
     {
         var aeds = new AedsEncoder();
         string challengeId = SecurityChallengeContracts.CreateChallengeId();
-        var request = new SecurityChallengeVerifyBinaryRequest(
+        var request = CreateVerifyRequest(
             challengeId,
             SecurityChallengeKind.Sha256PowV1,
             "public.read",
@@ -174,7 +174,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
             BinaryRequestPayload.Success(PodBinaryCodec.EncodeSecurityChallengeVerifyRequest(request)));
         var orchestrator = new FakeChallengeOrchestrator
         {
-            VerifyResult = new SecurityChallengeOrchestrationVerifyResult(true, "ok", "fcp_token", DateTimeOffset.FromUnixTimeMilliseconds(1_770_000_300_000))
+            VerifyResult = CreateCompletedVerifyResult(request, "fcp_token")
         };
 
         BinaryFrameResult result = await BinaryEndpoints.HandleSecurityChallengeVerifyAsync(
@@ -200,12 +200,61 @@ public sealed class SecurityChallengeBinaryEndpointTests
     }
 
     [Fact]
+    public async Task VerifyAsync_AcceptedNonFinalMember_ReturnsProgressWithoutProof()
+    {
+        var aeds = new AedsEncoder();
+        string challengeId = SecurityChallengeContracts.CreateChallengeId();
+        var request = CreateVerifyRequest(
+            challengeId,
+            SecurityChallengeKind.Sha256PowV1,
+            "public.read",
+            "article:42",
+            """{"proof":"fpow"}""");
+        var context = CreateContext(
+            AedsFrameType.SecurityChallengeVerifyRequest,
+            BinaryRequestPayload.Success(PodBinaryCodec.EncodeSecurityChallengeVerifyRequest(request)));
+        var orchestrator = new FakeChallengeOrchestrator
+        {
+            VerifyResult = new SecurityChallengeOrchestrationVerifyResult(
+                true,
+                "ok",
+                request.EnvelopeId,
+                request.ChallengeId,
+                Sha256PowChallengeProvider.WireKind,
+                1,
+                2,
+                false,
+                null,
+                null)
+        };
+
+        BinaryFrameResult result = await BinaryEndpoints.HandleSecurityChallengeVerifyAsync(
+            context,
+            aeds,
+            new FixedRiskPolicyProvider(CreatePolicy(Sha256PowChallengeProvider.WireKind)),
+            new RiskControlContextFactory(),
+            orchestrator,
+            new AllowingSecurityChallengeVerifyRateLimiter(),
+            new NullRiskSink(),
+            CancellationToken.None);
+
+        AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
+        Assert.True(PodBinaryCodec.TryDecodeSecurityChallengeVerifyResponse(decoded.Payload, out SecurityChallengeVerifyBinaryResponse response));
+        Assert.True(response.Verified);
+        Assert.False(response.EnvelopeCompleted);
+        Assert.Equal(1, response.CompletedCount);
+        Assert.Equal(2, response.MemberCount);
+        Assert.Equal(string.Empty, response.ProofToken);
+        Assert.Equal(0, response.ExpiresAtUnixMs);
+    }
+
+    [Fact]
     public async Task VerifyAsync_ProviderPayloadWithOversizedValue_ReturnsApiErrorWithoutCallingOrchestrator()
     {
         var aeds = new AedsEncoder();
         string challengeId = SecurityChallengeContracts.CreateChallengeId();
         string providerPayloadJson = $$"""{"proof":"{{new string('x', 20 * 1024)}}"}""";
-        var request = new SecurityChallengeVerifyBinaryRequest(
+        var request = CreateVerifyRequest(
             challengeId,
             SecurityChallengeKind.Sha256PowV1,
             "public.read",
@@ -216,7 +265,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
             BinaryRequestPayload.Success(PodBinaryCodec.EncodeSecurityChallengeVerifyRequest(request)));
         var orchestrator = new FakeChallengeOrchestrator
         {
-            VerifyResult = new SecurityChallengeOrchestrationVerifyResult(true, "ok", "fcp_token", DateTimeOffset.FromUnixTimeMilliseconds(1_770_000_300_000))
+            VerifyResult = CreateCompletedVerifyResult(request, "fcp_token")
         };
 
         BinaryFrameResult result = await BinaryEndpoints.HandleSecurityChallengeVerifyAsync(
@@ -284,7 +333,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
     {
         var aeds = new AedsEncoder();
         string challengeId = SecurityChallengeContracts.CreateChallengeId();
-        var request = new SecurityChallengeVerifyBinaryRequest(
+        var request = CreateVerifyRequest(
             challengeId,
             SecurityChallengeKind.PerceptionCharacterV2,
             "auth.login",
@@ -324,7 +373,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
     {
         var aeds = new AedsEncoder();
         string challengeId = SecurityChallengeContracts.CreateChallengeId();
-        var request = new SecurityChallengeVerifyBinaryRequest(
+        var request = CreateVerifyRequest(
             challengeId,
             SecurityChallengeKind.PerceptionCharacterV2,
             "auth.login",
@@ -373,7 +422,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
     {
         var aeds = new AedsEncoder();
         string challengeId = SecurityChallengeContracts.CreateChallengeId();
-        var request = new SecurityChallengeVerifyBinaryRequest(
+        var request = CreateVerifyRequest(
             challengeId,
             SecurityChallengeKind.PerceptionCharacterV2,
             "auth.login",
@@ -384,7 +433,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
             BinaryRequestPayload.Success(PodBinaryCodec.EncodeSecurityChallengeVerifyRequest(request)));
         var orchestrator = new FakeChallengeOrchestrator
         {
-            VerifyResult = new SecurityChallengeOrchestrationVerifyResult(true, "ok", "should_not_run", DateTimeOffset.FromUnixTimeMilliseconds(1_770_000_300_000))
+            VerifyResult = CreateCompletedVerifyResult(request, "should_not_run")
         };
         var riskSink = new CapturingRiskSink();
 
@@ -509,15 +558,17 @@ public sealed class SecurityChallengeBinaryEndpointTests
     public async Task VerifyAsync_UnsupportedKind_ReturnsApiError()
     {
         var aeds = new AedsEncoder();
-        var request = new SecurityChallengeVerifyBinaryRequest(
+        var request = CreateVerifyRequest(
             SecurityChallengeContracts.CreateChallengeId(),
-            SecurityChallengeKind.Unknown,
+            SecurityChallengeKind.Sha256PowV1,
             "public.read",
             "article:42",
             """{"proof":"fpow"}""");
+        byte[] encodedRequest = PodBinaryCodec.EncodeSecurityChallengeVerifyRequest(request);
+        encodedRequest[0] = (byte)SecurityChallengeKind.Unknown;
         var context = CreateContext(
             AedsFrameType.SecurityChallengeVerifyRequest,
-            BinaryRequestPayload.Success(PodBinaryCodec.EncodeSecurityChallengeVerifyRequest(request)));
+            BinaryRequestPayload.Success(encodedRequest));
 
         BinaryFrameResult result = await BinaryEndpoints.HandleSecurityChallengeVerifyAsync(
             context,
@@ -532,8 +583,37 @@ public sealed class SecurityChallengeBinaryEndpointTests
         AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
         Assert.Equal(AedsFrameType.ApiError, decoded.FrameType);
         Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Payload, out var errorPod));
-        Assert.Equal("security_challenge_kind_unsupported", PodBinaryCodec.ToErrorDetail(errorPod).Message);
+        Assert.Equal("security_challenge_verify_request_invalid", PodBinaryCodec.ToErrorDetail(errorPod).Message);
     }
+
+    private static SecurityChallengeVerifyBinaryRequest CreateVerifyRequest(
+        string challengeId,
+        SecurityChallengeKind kind,
+        string action,
+        string routeKey,
+        string providerPayloadJson)
+        => new(
+            SecurityChallengeContracts.CreateChallengeId(),
+            challengeId,
+            kind,
+            action,
+            routeKey,
+            providerPayloadJson);
+
+    private static SecurityChallengeOrchestrationVerifyResult CreateCompletedVerifyResult(
+        SecurityChallengeVerifyBinaryRequest request,
+        string proofToken)
+        => new(
+            true,
+            "ok",
+            request.EnvelopeId,
+            request.ChallengeId,
+            SecurityChallengeContracts.ToWireName(request.Kind),
+            1,
+            1,
+            true,
+            proofToken,
+            DateTimeOffset.FromUnixTimeMilliseconds(1_770_000_300_000));
 
     private static DefaultHttpContext CreateContext(AedsFrameType expectedFrameType, BinaryRequestPayload payload)
     {

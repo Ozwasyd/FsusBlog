@@ -143,10 +143,10 @@ public sealed class PerceptionChallengeV2E2eTests
             Assert.Single(fixture.CreatedComments);
         }
 
-        foreach ((string? actionOverride, string? routeOverride, string expectedReason) in new (string?, string?, string)[]
+        foreach ((string? actionOverride, string? routeOverride) in new (string?, string?)[]
         {
-            ("comment.update", null, "perception_action_mismatch"),
-            (null, "/api/binary/comment/article/99", "perception_route_key_mismatch")
+            ("comment.update", null),
+            (null, "/api/binary/comment/article/99")
         })
         {
             using PerceptionE2eFixture fixture = PerceptionE2eFixture.Create();
@@ -160,9 +160,8 @@ public sealed class PerceptionChallengeV2E2eTests
                 routeOverride);
 
             Assert.False(result.Succeeded);
-            Assert.Equal("perception_challenge_failed", result.Reason);
-            Assert.Contains(fixture.DrainAuditEvents(), item =>
-                string.Equals(item.Attempt.Reason, expectedReason, StringComparison.Ordinal));
+            Assert.Equal("challenge_envelope_binding_mismatch", result.Reason);
+            Assert.Empty(fixture.DrainAuditEvents());
         }
     }
 
@@ -263,7 +262,11 @@ public sealed class PerceptionChallengeV2E2eTests
             var persistence = new RecordingChallengePersistence();
             var proofCache = new MemoryProofCache();
             var proofService = new SecurityChallengeProofService(proofCache, proofCache, persistence, clock);
-            var orchestrator = new SecurityChallengeOrchestrator([provider], proofService, riskSink);
+            var orchestrator = new SecurityChallengeOrchestrator(
+                [provider],
+                proofService,
+                riskSink,
+                new TestSecurityChallengeEnvelopeStateService());
             return new PerceptionE2eFixture(clock, orchestrator, proofService, persistence, auditQueue);
         }
 
@@ -314,7 +317,7 @@ public sealed class PerceptionChallengeV2E2eTests
             SecurityChallengeAssignment assignment = Assert.Single(result.Envelope.Assignments);
             Assert.Equal(PerceptionTextTaskV2Provider.WireKind, SecurityChallengeContracts.ToWireName(assignment.Kind));
             Assert.True(result.ProviderPayloads.TryGetValue(assignment.ChallengeId, out var providerPayload));
-            return new PerceptionIssuedChallenge(assignment, providerPayload);
+            return new PerceptionIssuedChallenge(result.Envelope.EnvelopeId, assignment, providerPayload);
         }
 
         public Dictionary<string, string> RenderAndSolve(PerceptionIssuedChallenge challenge)
@@ -343,6 +346,7 @@ public sealed class PerceptionChallengeV2E2eTests
             => _orchestrator.VerifyAsync(
                 new SecurityChallengeOrchestrationVerifyRequest(
                     new DefaultHttpContext(),
+                    challenge.EnvelopeId,
                     PerceptionTextTaskV2Provider.WireKind,
                     challenge.Assignment.ChallengeId,
                     actionOverride ?? BusinessFlow,
@@ -370,7 +374,8 @@ public sealed class PerceptionChallengeV2E2eTests
                     challenge.Assignment.SubjectHash,
                     challenge.Assignment.ClientIpHash,
                     challenge.Assignment.DeviceFpHash,
-                    PolicyVersion),
+                    PolicyVersion,
+                    [PerceptionTextTaskV2Provider.WireKind]),
                 cancellationToken);
             if (!consumed.Accepted)
             {
@@ -412,6 +417,7 @@ public sealed class PerceptionChallengeV2E2eTests
     }
 
     private sealed record PerceptionIssuedChallenge(
+        string EnvelopeId,
         SecurityChallengeAssignment Assignment,
         IReadOnlyDictionary<string, string> ProviderPayload);
 

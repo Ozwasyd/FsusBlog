@@ -26,7 +26,9 @@ public sealed record SecurityChallengeProofMintRequest(
     string DeviceFpHash,
     string PolicyVersion,
     DateTimeOffset IssuedAt,
-    DateTimeOffset ExpiresAt);
+    DateTimeOffset ExpiresAt,
+    string? EnvelopeId = null,
+    IReadOnlyList<string>? RequiredKinds = null);
 
 public sealed record SecurityChallengeProofConsumeRequest(
     string ProofToken,
@@ -37,7 +39,8 @@ public sealed record SecurityChallengeProofConsumeRequest(
     string SubjectHash,
     string ClientIpHash,
     string DeviceFpHash,
-    string PolicyVersion);
+    string PolicyVersion,
+    IReadOnlyList<string>? RequiredKinds = null);
 
 public sealed record SecurityChallengeProofMintResult(
     string ProofToken,
@@ -78,7 +81,8 @@ public static class SecurityChallengeProofOutcomes
             "subject_hash_mismatch" or
             "client_ip_hash_mismatch" or
             "device_fp_hash_mismatch" or
-            "policy_version_mismatch" => BindingMismatch,
+            "policy_version_mismatch" or
+            "required_kinds_mismatch" => BindingMismatch,
             _ => Rejected
         };
 }
@@ -94,7 +98,9 @@ public sealed record SecurityChallengeProofClaims(
     DateTimeOffset IssuedAt,
     DateTimeOffset ExpiresAt,
     string Nonce,
-    string PolicyVersion);
+    string PolicyVersion,
+    string? EnvelopeId = null,
+    IReadOnlyList<string>? RequiredKinds = null);
 
 public sealed class SecurityChallengeProofService(
     ICacheRawWriter cacheWriter,
@@ -139,7 +145,9 @@ public sealed class SecurityChallengeProofService(
             issuedAt,
             expiresAt,
             GenerateNonce(),
-            NormalizeRequired(request.PolicyVersion, nameof(request.PolicyVersion), 64));
+            NormalizeRequired(request.PolicyVersion, nameof(request.PolicyVersion), 64),
+            NormalizeOptional(request.EnvelopeId, 64),
+            NormalizeRequiredKinds(request.RequiredKinds, request.Kind));
 
         byte[] payload = JsonSerializer.SerializeToUtf8Bytes(claims, s_jsonOptions);
         await cacheWriter.SetRawAsync(
@@ -254,7 +262,28 @@ public sealed class SecurityChallengeProofService(
             return "policy_version_mismatch";
         }
 
+        IReadOnlyList<string> expectedKinds = NormalizeRequiredKinds(request.RequiredKinds, request.Kind);
+        IReadOnlyList<string> actualKinds = NormalizeRequiredKinds(claims.RequiredKinds, claims.Kind);
+        if (actualKinds.Count != expectedKinds.Count
+            || !actualKinds.Zip(expectedKinds).All(static pair => FixedEquals(pair.First, pair.Second)))
+        {
+            return "required_kinds_mismatch";
+        }
+
         return null;
+    }
+
+    private static IReadOnlyList<string> NormalizeRequiredKinds(IReadOnlyList<string>? source, string fallbackKind)
+    {
+        IReadOnlyList<string> input = source is { Count: > 0 } ? source : [fallbackKind];
+        if (input.Count is <= 0 or > FsusBlog.Shared.Contracts.Security.SecurityChallengeContracts.MaxAssignmentsPerEnvelope)
+        {
+            throw new ArgumentException("Required challenge kinds are invalid.", nameof(source));
+        }
+
+        return input
+            .Select(static kind => NormalizeRequired(kind, nameof(source), 64))
+            .ToArray();
     }
 
     private async Task RecordAttemptAsync(
@@ -302,6 +331,22 @@ public sealed class SecurityChallengeProofService(
         if (normalized.Length > maxLength)
         {
             throw new ArgumentException($"{name} exceeds {maxLength} characters", name);
+        }
+
+        return normalized;
+    }
+
+    private static string? NormalizeOptional(string? value, int maxLength)
+    {
+        string normalized = (value ?? string.Empty).Trim();
+        if (normalized.Length == 0)
+        {
+            return null;
+        }
+
+        if (normalized.Length > maxLength)
+        {
+            throw new ArgumentException($"value exceeds {maxLength} characters", nameof(value));
         }
 
         return normalized;

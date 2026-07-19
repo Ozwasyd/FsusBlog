@@ -104,6 +104,7 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<IPoSpaceUnsupportedAssignmentStore, SqlPoSpaceUnsupportedAssignmentStore>();
         services.AddScoped<IPoSpaceUnsupportedReissueService, PoSpaceUnsupportedReissueService>();
         services.AddScoped<ISecurityChallengeProofService, SecurityChallengeProofService>();
+        services.AddScoped<ISecurityChallengeEnvelopeStateService, SecurityChallengeEnvelopeStateService>();
         services.AddScoped<ISecurityChallengeVerifyRateLimiter, SecurityChallengeVerifyRateLimiter>();
         services.Configure<ChallengeV2EventWriterOptions>(configuration.GetSection(ChallengeV2EventWriterOptions.SectionName));
         services.AddSingleton<ChallengeV2AuditEventQueue>();

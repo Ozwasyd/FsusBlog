@@ -100,7 +100,7 @@ public sealed class RequiresRiskControlFilterTests
     }
 
     [Fact]
-    public async Task InvokeAsync_MultiChallengeDecisionRejectsSingleProofBeforeBusinessLogic()
+    public async Task InvokeAsync_MultiChallengeDecisionConsumesOneAggregateProofBeforeBusinessLogic()
     {
         SecurityRiskPolicySnapshotV2 policy = CreateMultiChallengePolicy();
         FilterFixture fixture = CreateFixture(riskScore: 65, policy);
@@ -117,12 +117,11 @@ public sealed class RequiresRiskControlFilterTests
                 return ValueTask.FromResult<object?>("ok");
             });
 
-        Assert.False(nextCalled);
-        Assert.Equal(StatusCodes.Status428PreconditionRequired, await ExecuteStatusAsync(result, context));
-        AssertChallengeHandoff(context, RiskActionNames.PublicRead, "article:42", "challenge");
-        Assert.Empty(fixture.ProofService.ConsumeRequests);
-        SecurityRiskSignal signal = Assert.Single(fixture.RiskSink.Signals);
-        Assert.Equal("challenge_set_incomplete:2", signal.Detail);
+        Assert.True(nextCalled);
+        Assert.Equal("ok", result);
+        SecurityChallengeProofConsumeRequest request = Assert.Single(fixture.ProofService.ConsumeRequests);
+        Assert.Equal([PerceptionLocalizationV2Provider.WireKind, Sha256PowChallengeProvider.WireKind], request.RequiredKinds);
+        Assert.Empty(fixture.RiskSink.Signals);
     }
 
     [Theory]

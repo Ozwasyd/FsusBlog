@@ -243,10 +243,11 @@ public static partial class BinaryEndpoints
             return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "security_challenge_verify_request_invalid"), aeds);
         }
 
+        string envelopeId = NormalizeRequired(request.EnvelopeId, 64);
         string challengeId = NormalizeRequired(request.ChallengeId, 64);
         string action = NormalizeRequired(request.Action, 96);
         string routeKey = NormalizeRequired(request.RouteKey, 256);
-        if (challengeId.Length == 0 || action.Length == 0 || routeKey.Length == 0)
+        if (envelopeId.Length == 0 || challengeId.Length == 0 || action.Length == 0 || routeKey.Length == 0)
         {
             return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "security_challenge_verify_fields_required"), aeds);
         }
@@ -287,6 +288,7 @@ public static partial class BinaryEndpoints
         SecurityChallengeOrchestrationVerifyResult verified = await challengeOrchestrator.VerifyAsync(
             new SecurityChallengeOrchestrationVerifyRequest(
                 httpContext,
+                envelopeId,
                 kind,
                 challengeId,
                 action,
@@ -297,18 +299,22 @@ public static partial class BinaryEndpoints
                 policyVersion,
                 providerPayload),
             cancellationToken);
-        if (!verified.Succeeded || string.IsNullOrWhiteSpace(verified.ProofToken))
+        if (!verified.Succeeded)
         {
             return CreateSecurityChallengeVerifyGenericFailure(aeds);
         }
 
         var response = new SecurityChallengeVerifyBinaryResponse(
             true,
-            challengeId,
+            verified.EnvelopeId,
+            verified.ChallengeId,
             request.Kind,
             policyVersion,
-            verified.ProofToken,
-            verified.ProofExpiresAt!.Value.ToUnixTimeMilliseconds(),
+            verified.CompletedCount,
+            verified.MemberCount,
+            verified.EnvelopeCompleted,
+            verified.ProofToken ?? string.Empty,
+            verified.ProofExpiresAt?.ToUnixTimeMilliseconds() ?? 0,
             "ok",
             RetryAfterMs: 0);
         return BinaryResults.Frame(aeds, AedsFrameType.SecurityChallengeVerifyResponse, writer => PodBinaryCodec.WriteSecurityChallengeVerifyResponse(response, writer));

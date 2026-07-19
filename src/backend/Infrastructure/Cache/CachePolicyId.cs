@@ -62,5 +62,6 @@ public enum CachePolicyId
     TaxonomyFrameVersion = 58,
     AccountSnapshot = 59,
     AccountSnapshotVersion = 60,
-    SecurityUserSessionValidation = 61
+    SecurityUserSessionValidation = 61,
+    SecurityChallengeEnvelope = 62
 }

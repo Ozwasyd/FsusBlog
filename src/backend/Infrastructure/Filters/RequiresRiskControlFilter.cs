@@ -72,17 +72,6 @@ public sealed partial class RequiresRiskControlFilter(
             return Error(httpContext, StatusCodes.Status428PreconditionRequired, ErrorCode.Forbidden, "MFA_PROOF_REQUIRED");
         }
 
-        if (decision.RequiredChallenges.Count > 1)
-        {
-            await RecordRiskAsync(
-                httpContext,
-                $"challenge_set_incomplete:{decision.RequiredChallenges.Count}",
-                decision.ActionName,
-                httpContext.RequestAborted);
-            WriteChallengeHandoffHeaders(httpContext, decision);
-            return Error(httpContext, StatusCodes.Status428PreconditionRequired, ErrorCode.Forbidden, "RISK_CHALLENGE_SET_INCOMPLETE");
-        }
-
         if (!TryReadSingleHeader(httpContext, ChallengeProofHeaderName, out string proofToken)
             || !TryReadSingleHeader(httpContext, ChallengeIdHeaderName, out string challengeId)
             || !TryReadSingleHeader(httpContext, ChallengeKindHeaderName, out string challengeKind))
@@ -114,7 +103,8 @@ public sealed partial class RequiresRiskControlFilter(
                 binding.SubjectHash,
                 binding.ClientIpHash,
                 binding.DeviceFpHash,
-                decision.PolicyVersion),
+                decision.PolicyVersion,
+                decision.RequiredChallenges.Select(CanonicalChallengeKind).ToArray()),
             httpContext.RequestAborted);
 
         if (proof.Accepted)

@@ -103,6 +103,55 @@ public sealed class SecurityChallengeProofServiceTests
         Assert.Equal("proof_replayed_or_missing", persistence.Attempts[1].Reason);
     }
 
+    [Fact]
+    public async Task ConsumeProofAsync_AggregateProofRequiresExactOrderedMemberSet()
+    {
+        var cache = new MemoryProofCache();
+        var persistence = new RecordingChallengePersistence();
+        var service = new SecurityChallengeProofService(cache, cache, persistence, new MutableTimeProvider(s_baselineNow));
+        string envelopeId = Guid.CreateVersion7().ToString("D");
+        SecurityChallengeProofMintResult minted = await service.MintProofAsync(
+            CreateMintRequest() with
+            {
+                Kind = "sha256PowV1",
+                EnvelopeId = envelopeId,
+                RequiredKinds = ["captchaV1", "sha256PowV1"]
+            },
+            CancellationToken.None);
+
+        SecurityChallengeProofConsumeResult result = await service.ConsumeProofAsync(
+            CreateConsumeRequest(minted.ProofToken) with
+            {
+                RequiredKinds = ["captchaV1", "sha256PowV1"]
+            },
+            CancellationToken.None);
+
+        Assert.True(result.Accepted, result.Reason);
+        Assert.Equal(envelopeId, result.Claims?.EnvelopeId);
+        Assert.Equal(["captchaV1", "sha256PowV1"], result.Claims?.RequiredKinds);
+        Assert.Equal(SecurityChallengeAttemptOutcomes.Verified, Assert.Single(persistence.Attempts).Outcome);
+    }
+
+    [Fact]
+    public async Task ConsumeProofAsync_SingleMemberProofCannotSatisfyAggregateDecision()
+    {
+        var cache = new MemoryProofCache();
+        var persistence = new RecordingChallengePersistence();
+        var service = new SecurityChallengeProofService(cache, cache, persistence, new MutableTimeProvider(s_baselineNow));
+        SecurityChallengeProofMintResult minted = await service.MintProofAsync(CreateMintRequest(), CancellationToken.None);
+
+        SecurityChallengeProofConsumeResult result = await service.ConsumeProofAsync(
+            CreateConsumeRequest(minted.ProofToken) with
+            {
+                RequiredKinds = ["captchaV1", "sha256PowV1"]
+            },
+            CancellationToken.None);
+
+        Assert.False(result.Accepted);
+        Assert.Equal(SecurityChallengeProofOutcomes.BindingMismatch, result.Outcome);
+        Assert.Equal("required_kinds_mismatch", result.Reason);
+    }
+
     [Theory]
     [InlineData("challengeId", "challenge_id_mismatch")]
     [InlineData("kind", "kind_mismatch")]

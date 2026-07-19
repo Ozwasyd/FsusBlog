@@ -33,7 +33,7 @@ public sealed class SecurityChallengeOrchestratorTests
     public async Task IssueAsync_MissingProvider_FailsClosedAndWritesRisk()
     {
         var riskSink = new CapturingRiskSink();
-        var orchestrator = new SecurityChallengeOrchestrator([], new MintingProofService(), riskSink);
+        var orchestrator = new SecurityChallengeOrchestrator([], new MintingProofService(), riskSink, new TestSecurityChallengeEnvelopeStateService());
         SecurityChallengeOrchestrationIssueRequest request = CreateIssueRequest(["sha256PowV1"]);
 
         SecurityChallengeOrchestrationIssueResult result = await orchestrator.IssueAsync(request, CancellationToken.None);
@@ -55,7 +55,7 @@ public sealed class SecurityChallengeOrchestratorTests
             IssueResult = SecurityChallengeProviderIssueResult.Failed("provider_unavailable")
         };
         var riskSink = new CapturingRiskSink();
-        var orchestrator = new SecurityChallengeOrchestrator([provider], new MintingProofService(), riskSink);
+        var orchestrator = new SecurityChallengeOrchestrator([provider], new MintingProofService(), riskSink, new TestSecurityChallengeEnvelopeStateService());
         SecurityChallengeOrchestrationIssueRequest request = CreateIssueRequest(["captchaV1"]);
 
         SecurityChallengeOrchestrationIssueResult result = await orchestrator.IssueAsync(request, CancellationToken.None);
@@ -72,7 +72,7 @@ public sealed class SecurityChallengeOrchestratorTests
     {
         var perception = new FakeChallengeProvider("perceptionLocalizationV2");
         var captcha = new FakeChallengeProvider("captchaV1");
-        var orchestrator = new SecurityChallengeOrchestrator([perception, captcha], new MintingProofService(), new CapturingRiskSink());
+        var orchestrator = new SecurityChallengeOrchestrator([perception, captcha], new MintingProofService(), new CapturingRiskSink(), new TestSecurityChallengeEnvelopeStateService());
         SecurityChallengeOrchestrationIssueRequest request = CreateIssueRequest(["perceptionLocalizationV2", "captchaV1"]);
 
         SecurityChallengeOrchestrationIssueResult result = await orchestrator.IssueAsync(request, CancellationToken.None);
@@ -95,11 +95,138 @@ public sealed class SecurityChallengeOrchestratorTests
     }
 
     [Fact]
+    public async Task VerifyAsync_MultipleChallenges_ReturnsProgressThenOneAggregateProof()
+    {
+        var perception = new FakeChallengeProvider("perceptionLocalizationV2");
+        var captcha = new FakeChallengeProvider("captchaV1");
+        var proof = new MintingProofService();
+        var state = new TestSecurityChallengeEnvelopeStateService(autoCreateSingleMember: false);
+        var orchestrator = new SecurityChallengeOrchestrator([perception, captcha], proof, new CapturingRiskSink(), state);
+        SecurityChallengeOrchestrationIssueResult issued = await orchestrator.IssueAsync(
+            CreateIssueRequest(["perceptionLocalizationV2", "captchaV1"]),
+            CancellationToken.None);
+        Assert.True(issued.Succeeded, issued.Reason);
+        SecurityChallengeEnvelope envelope = Assert.IsType<SecurityChallengeEnvelope>(issued.Envelope);
+
+        SecurityChallengeOrchestrationVerifyResult first = await orchestrator.VerifyAsync(
+            CreateVerifyRequest(envelope, 0),
+            CancellationToken.None);
+        SecurityChallengeOrchestrationVerifyResult second = await orchestrator.VerifyAsync(
+            CreateVerifyRequest(envelope, 1),
+            CancellationToken.None);
+
+        Assert.True(first.Succeeded, first.Reason);
+        Assert.False(first.EnvelopeCompleted);
+        Assert.Equal(1, first.CompletedCount);
+        Assert.Equal(2, first.MemberCount);
+        Assert.Null(first.ProofToken);
+        Assert.True(second.Succeeded, second.Reason);
+        Assert.True(second.EnvelopeCompleted);
+        Assert.Equal(2, second.CompletedCount);
+        Assert.Equal("challenge-proof-token", second.ProofToken);
+        Assert.Equal(envelope.EnvelopeId, proof.LastMintRequest?.EnvelopeId);
+        Assert.Equal(["perceptionLocalizationV2", "captchaV1"], proof.LastMintRequest?.RequiredKinds);
+        Assert.Equal(envelope.Assignments[1].ChallengeId, proof.LastMintRequest?.ChallengeId);
+    }
+
+    [Fact]
+    public async Task VerifyAsync_ReplayedMemberTerminatesEnvelopeAndPreventsCompletion()
+    {
+        var state = new TestSecurityChallengeEnvelopeStateService(autoCreateSingleMember: false);
+        var orchestrator = new SecurityChallengeOrchestrator(
+            [new FakeChallengeProvider("perceptionLocalizationV2"), new FakeChallengeProvider("captchaV1")],
+            new MintingProofService(),
+            new CapturingRiskSink(),
+            state);
+        SecurityChallengeOrchestrationIssueResult issued = await orchestrator.IssueAsync(
+            CreateIssueRequest(["perceptionLocalizationV2", "captchaV1"]),
+            CancellationToken.None);
+        Assert.True(issued.Succeeded, issued.Reason);
+        SecurityChallengeEnvelope envelope = Assert.IsType<SecurityChallengeEnvelope>(issued.Envelope);
+
+        Assert.True((await orchestrator.VerifyAsync(CreateVerifyRequest(envelope, 0), CancellationToken.None)).Succeeded);
+        SecurityChallengeOrchestrationVerifyResult replay = await orchestrator.VerifyAsync(
+            CreateVerifyRequest(envelope, 0),
+            CancellationToken.None);
+        SecurityChallengeOrchestrationVerifyResult final = await orchestrator.VerifyAsync(
+            CreateVerifyRequest(envelope, 1),
+            CancellationToken.None);
+
+        Assert.False(replay.Succeeded);
+        Assert.Equal("challenge_member_replayed", replay.Reason);
+        Assert.Equal(SecurityChallengeEnvelopeStatuses.Failed, state.Get(envelope.EnvelopeId)?.Status);
+        Assert.False(final.Succeeded);
+        Assert.Equal("challenge_envelope_failed", final.Reason);
+        Assert.Null(final.ProofToken);
+    }
+
+    [Fact]
+    public async Task VerifyAsync_LaterProviderFailureTerminatesEnvelopeWithoutAggregateProof()
+    {
+        var captcha = new FakeChallengeProvider("captchaV1")
+        {
+            VerifyResult = SecurityChallengeProviderVerifyResult.Failed("captcha_invalid")
+        };
+        var proof = new MintingProofService();
+        var state = new TestSecurityChallengeEnvelopeStateService(autoCreateSingleMember: false);
+        var orchestrator = new SecurityChallengeOrchestrator(
+            [new FakeChallengeProvider("perceptionLocalizationV2"), captcha],
+            proof,
+            new CapturingRiskSink(),
+            state);
+        SecurityChallengeOrchestrationIssueResult issued = await orchestrator.IssueAsync(
+            CreateIssueRequest(["perceptionLocalizationV2", "captchaV1"]),
+            CancellationToken.None);
+        Assert.True(issued.Succeeded, issued.Reason);
+        SecurityChallengeEnvelope envelope = Assert.IsType<SecurityChallengeEnvelope>(issued.Envelope);
+
+        Assert.True((await orchestrator.VerifyAsync(CreateVerifyRequest(envelope, 0), CancellationToken.None)).Succeeded);
+        SecurityChallengeOrchestrationVerifyResult failed = await orchestrator.VerifyAsync(
+            CreateVerifyRequest(envelope, 1),
+            CancellationToken.None);
+        SecurityChallengeOrchestrationVerifyResult retry = await orchestrator.VerifyAsync(
+            CreateVerifyRequest(envelope, 1),
+            CancellationToken.None);
+
+        Assert.False(failed.Succeeded);
+        Assert.Equal("captcha_invalid", failed.Reason);
+        Assert.Equal(SecurityChallengeEnvelopeStatuses.Failed, state.Get(envelope.EnvelopeId)?.Status);
+        Assert.False(retry.Succeeded);
+        Assert.Equal("challenge_envelope_failed", retry.Reason);
+        Assert.Null(proof.LastMintRequest);
+    }
+
+    [Fact]
+    public async Task VerifyAsync_OutOfOrderMemberRejectsBeforeProviderExecution()
+    {
+        var perception = new FakeChallengeProvider("perceptionLocalizationV2");
+        var captcha = new FakeChallengeProvider("captchaV1");
+        var orchestrator = new SecurityChallengeOrchestrator(
+            [perception, captcha],
+            new MintingProofService(),
+            new CapturingRiskSink(),
+            new TestSecurityChallengeEnvelopeStateService(autoCreateSingleMember: false));
+        SecurityChallengeOrchestrationIssueResult issued = await orchestrator.IssueAsync(
+            CreateIssueRequest(["perceptionLocalizationV2", "captchaV1"]),
+            CancellationToken.None);
+        Assert.True(issued.Succeeded, issued.Reason);
+        SecurityChallengeEnvelope envelope = Assert.IsType<SecurityChallengeEnvelope>(issued.Envelope);
+
+        SecurityChallengeOrchestrationVerifyResult result = await orchestrator.VerifyAsync(
+            CreateVerifyRequest(envelope, 1),
+            CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("challenge_member_out_of_order", result.Reason);
+        Assert.Equal(0, captcha.VerifyCalls);
+    }
+
+    [Fact]
     public async Task IssueAsync_ProviderOnlyPoSpace_ReachesRegisteredProvider()
     {
         var provider = new FakeChallengeProvider("argon2idPoSpaceV1");
         var riskSink = new CapturingRiskSink();
-        var orchestrator = new SecurityChallengeOrchestrator([provider], new MintingProofService(), riskSink);
+        var orchestrator = new SecurityChallengeOrchestrator([provider], new MintingProofService(), riskSink, new TestSecurityChallengeEnvelopeStateService());
 
         SecurityChallengeOrchestrationIssueResult result = await orchestrator.IssueAsync(
             CreateIssueRequest(["argon2idPoSpaceV1"]),
@@ -119,7 +246,7 @@ public sealed class SecurityChallengeOrchestratorTests
             VerifyResult = SecurityChallengeProviderVerifyResult.Success(DateTimeOffset.UtcNow.AddMinutes(5))
         };
         var proof = new MintingProofService();
-        var orchestrator = new SecurityChallengeOrchestrator([provider], proof, new CapturingRiskSink());
+        var orchestrator = new SecurityChallengeOrchestrator([provider], proof, new CapturingRiskSink(), new TestSecurityChallengeEnvelopeStateService());
         SecurityChallengeOrchestrationVerifyRequest request = CreateVerifyRequest("sha256PowV1");
 
         SecurityChallengeOrchestrationVerifyResult result = await orchestrator.VerifyAsync(request, CancellationToken.None);
@@ -129,6 +256,7 @@ public sealed class SecurityChallengeOrchestratorTests
         Assert.Equal(proof.LastMintRequest?.ExpiresAt, result.ProofExpiresAt);
         Assert.NotNull(proof.LastMintRequest);
         Assert.Equal(request.ChallengeId, proof.LastMintRequest.ChallengeId);
+        Assert.Equal(request.EnvelopeId, proof.LastMintRequest.EnvelopeId);
         Assert.Equal(request.Kind, proof.LastMintRequest.Kind);
         Assert.Equal(request.Action, proof.LastMintRequest.Action);
         Assert.Equal(request.RouteKey, proof.LastMintRequest.RouteKey);
@@ -136,6 +264,32 @@ public sealed class SecurityChallengeOrchestratorTests
         Assert.Equal(request.ClientIpHash, proof.LastMintRequest.ClientIpHash);
         Assert.Equal(request.DeviceFpHash, proof.LastMintRequest.DeviceFpHash);
         Assert.Equal(request.PolicyVersion, proof.LastMintRequest.PolicyVersion);
+    }
+
+    [Fact]
+    public async Task IssueThenVerifyAsync_SingleMemberUsesSameEnvelopeStateMachine()
+    {
+        var provider = new FakeChallengeProvider("captchaV1");
+        var proof = new MintingProofService();
+        var state = new TestSecurityChallengeEnvelopeStateService(autoCreateSingleMember: false);
+        var orchestrator = new SecurityChallengeOrchestrator([provider], proof, new CapturingRiskSink(), state);
+        SecurityChallengeOrchestrationIssueResult issued = await orchestrator.IssueAsync(
+            CreateIssueRequest(["captchaV1"]),
+            CancellationToken.None);
+        Assert.True(issued.Succeeded, issued.Reason);
+        SecurityChallengeEnvelope envelope = Assert.IsType<SecurityChallengeEnvelope>(issued.Envelope);
+
+        SecurityChallengeOrchestrationVerifyResult verified = await orchestrator.VerifyAsync(
+            CreateVerifyRequest(envelope, 0),
+            CancellationToken.None);
+
+        Assert.True(verified.Succeeded, verified.Reason);
+        Assert.True(verified.EnvelopeCompleted);
+        Assert.Equal(1, verified.CompletedCount);
+        Assert.Equal(1, verified.MemberCount);
+        Assert.Equal("challenge-proof-token", verified.ProofToken);
+        Assert.Equal(envelope.EnvelopeId, proof.LastMintRequest?.EnvelopeId);
+        Assert.Equal(["captchaV1"], proof.LastMintRequest?.RequiredKinds);
     }
 
     [Fact]
@@ -147,7 +301,7 @@ public sealed class SecurityChallengeOrchestratorTests
         };
         var proof = new MintingProofService { ThrowOnMint = true };
         var riskSink = new CapturingRiskSink();
-        var orchestrator = new SecurityChallengeOrchestrator([provider], proof, riskSink);
+        var orchestrator = new SecurityChallengeOrchestrator([provider], proof, riskSink, new TestSecurityChallengeEnvelopeStateService());
 
         SecurityChallengeOrchestrationVerifyResult result = await orchestrator.VerifyAsync(
             CreateVerifyRequest("sha256PowV1"),
@@ -173,6 +327,7 @@ public sealed class SecurityChallengeOrchestratorTests
             [provider],
             proof,
             new CapturingRiskSink(),
+            new TestSecurityChallengeEnvelopeStateService(),
             timeProvider: new FixedTimeProvider(now));
 
         SecurityChallengeOrchestrationVerifyResult result = await orchestrator.VerifyAsync(
@@ -206,6 +361,7 @@ public sealed class SecurityChallengeOrchestratorTests
     private static SecurityChallengeOrchestrationVerifyRequest CreateVerifyRequest(string kind)
         => new(
             new DefaultHttpContext(),
+            SecurityChallengeContracts.CreateChallengeId(),
             kind,
             SecurityChallengeContracts.CreateChallengeId(),
             "public.read",
@@ -219,11 +375,33 @@ public sealed class SecurityChallengeOrchestratorTests
                 ["solution"] = "ok"
             });
 
+    private static SecurityChallengeOrchestrationVerifyRequest CreateVerifyRequest(SecurityChallengeEnvelope envelope, int memberIndex)
+    {
+        SecurityChallengeAssignment assignment = envelope.Assignments[memberIndex];
+        return new SecurityChallengeOrchestrationVerifyRequest(
+            new DefaultHttpContext(),
+            envelope.EnvelopeId,
+            SecurityChallengeContracts.ToWireName(assignment.Kind),
+            assignment.ChallengeId,
+            assignment.Action,
+            assignment.RouteKey,
+            assignment.SubjectHash,
+            assignment.ClientIpHash,
+            assignment.DeviceFpHash,
+            envelope.PolicyVersion,
+            new Dictionary<string, string>(StringComparer.Ordinal) { ["solution"] = "ok" });
+    }
+
     private sealed class FakeChallengeProvider(string kind) : ISecurityChallengeProvider
     {
         public string Kind { get; } = kind;
 
         public int IssueCalls
+        {
+            get; private set;
+        }
+
+        public int VerifyCalls
         {
             get; private set;
         }
@@ -262,7 +440,10 @@ public sealed class SecurityChallengeOrchestratorTests
         }
 
         public Task<SecurityChallengeProviderVerifyResult> VerifyAsync(SecurityChallengeProviderVerifyRequest request, CancellationToken cancellationToken = default)
-            => Task.FromResult(VerifyResult);
+        {
+            VerifyCalls++;
+            return Task.FromResult(VerifyResult);
+        }
     }
 
     private sealed class MintingProofService : ISecurityChallengeProofService
@@ -296,7 +477,9 @@ public sealed class SecurityChallengeOrchestratorTests
                 request.IssuedAt,
                 request.ExpiresAt,
                 "nonce",
-                request.PolicyVersion);
+                request.PolicyVersion,
+                request.EnvelopeId,
+                request.RequiredKinds);
             return Task.FromResult(new SecurityChallengeProofMintResult("challenge-proof-token", claims));
         }
 

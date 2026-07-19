@@ -129,12 +129,6 @@ internal sealed class NotificationStreamRiskProofPolicy(
         bool consumeProof,
         CancellationToken cancellationToken)
     {
-        if (decision.RequiredChallenges.Count > 1)
-        {
-            await RecordRiskAsync(context, $"challenge_set_incomplete:{decision.RequiredChallenges.Count}", decision.ActionName, cancellationToken);
-            return NotificationStreamRiskProofResult.Rejected(StatusCodes.Status428PreconditionRequired, "risk_challenge_set_incomplete");
-        }
-
         RiskControlProofBinding binding = RiskControlProofBindingFactory.Create(riskContext);
         if (consumeProof)
         {
@@ -194,7 +188,8 @@ internal sealed class NotificationStreamRiskProofPolicy(
                 binding.SubjectHash,
                 binding.ClientIpHash,
                 binding.DeviceFpHash,
-                decision.PolicyVersion),
+                decision.PolicyVersion,
+                decision.RequiredChallenges.Select(CanonicalChallengeKind).ToArray()),
             cancellationToken);
         if (proof.Accepted)
         {

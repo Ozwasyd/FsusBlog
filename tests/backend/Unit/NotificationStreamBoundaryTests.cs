@@ -439,6 +439,39 @@ public class NotificationStreamBoundaryTests
     }
 
     [Fact]
+    public async Task Handshake_MultiChallengePolicyConsumesOneAggregateProofWithOrderedMembers()
+    {
+        var proof = new CapturingProofService();
+        SecurityRiskPolicySnapshotV2 policy = CreateNotificationRiskPolicy();
+        SecurityRiskActionPolicy notification = policy.ActionOverrides[RiskActionNames.NotificationSubscribe] with
+        {
+            Thresholds = new SecurityRiskActionThresholds(0, 0, 0, 100, 100),
+            HardChallengeKinds = ["perceptionLocalizationV2", "sha256PowV1"]
+        };
+        policy = policy with
+        {
+            ActionOverrides = new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal)
+            {
+                [RiskActionNames.NotificationSubscribe] = notification
+            }
+        };
+        NotificationStreamHandshakeService service = CreateHandshakeService(
+            new TestWebHostEnvironment { EnvironmentName = Environments.Production },
+            ["Seo:BaseUrl=https://example.com", "CORS_ALLOWED_HOSTS=https://example.com", "Fido2:Origins:0=https://example.com"],
+            riskScore: 50,
+            proof,
+            riskPolicy: policy);
+        DefaultHttpContext context = CreateAnonymousHandshakeContext("https://example.com", "example.com");
+        AddRiskControlHeaders(context);
+
+        NotificationStreamHandshakeResult result = await service.ValidateAsync(context, CancellationToken.None, requireWebSocket: false);
+
+        Assert.True(result.IsSuccess);
+        SecurityChallengeProofConsumeRequest consumed = Assert.Single(proof.ConsumeRequests);
+        Assert.Equal(["perceptionLocalizationV2", "sha256PowV1"], consumed.RequiredKinds);
+    }
+
+    [Fact]
     public async Task Handshake_WebSocketConsumesPreflightGrantWithoutReusingProof()
     {
         var proof = new CapturingProofService();
@@ -885,7 +918,8 @@ public class NotificationStreamBoundaryTests
         INotificationStreamAdmissionService? admissionService = null,
         CapturingRiskSink? riskSink = null,
         DeploymentRuntimeState? deploymentRuntime = null,
-        INotificationStreamPreflightGrantService? preflightGrantService = null)
+        INotificationStreamPreflightGrantService? preflightGrantService = null,
+        SecurityRiskPolicySnapshotV2? riskPolicy = null)
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(settings.Select(static item =>
@@ -904,7 +938,7 @@ public class NotificationStreamBoundaryTests
             powService ?? Substitute.For<IPowService>(),
             new AdaptivePowGovernor(Substitute.For<IUnifiedCache>()),
             new FixedRiskScoreReader(riskScore),
-            new FixedRiskPolicyProvider(CreateNotificationRiskPolicy()),
+            new FixedRiskPolicyProvider(riskPolicy ?? CreateNotificationRiskPolicy()),
             new RiskControlContextFactory(),
             new RiskDecisionService(),
             proof ?? new CapturingProofService(),
@@ -1092,7 +1126,9 @@ public class NotificationStreamBoundaryTests
                 DateTimeOffset.UtcNow.AddMinutes(-1),
                 DateTimeOffset.UtcNow.AddMinutes(5),
                 "nonce",
-                request.PolicyVersion)));
+                request.PolicyVersion,
+                EnvelopeId: null,
+                RequiredKinds: request.RequiredKinds)));
         }
     }
 
