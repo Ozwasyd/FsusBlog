@@ -214,6 +214,7 @@ public sealed class ArticleMutationOutboxDispatcher(
             await UpsertReplayEdgesAsync(db, dbGate, item, replay, cancellationToken)
                 .ConfigureAwait(false);
             completedAfterReplay.UnionWith(replay.CompletedEdges);
+            completedAfterReplay.UnionWith(replay.SkippedEdges);
             bool requiredEdgesComplete = ArticleMutationReplayEdges.Required.All(completedAfterReplay.Contains);
             if (!replay.IsSuccess)
             {
@@ -686,18 +687,19 @@ public sealed class ArticleMutationOutboxDispatcher(
             return [];
         }
 
-        List<ArticleMutationOutboxEdge> completedEdges = await dbGate.ExecuteAsync(
+        List<ArticleMutationOutboxEdge> terminalEdges = await dbGate.ExecuteAsync(
                 "article-outbox-edge-batch-read",
                 gateCt => db.Queryable<ArticleMutationOutboxEdge>()
                     .Where(edge => outboxEventIds.Contains(edge.OutboxEventId)
-                        && edge.Status == ArticleMutationOutboxEdgeStatus.Completed)
+                        && (edge.Status == ArticleMutationOutboxEdgeStatus.Completed
+                            || edge.Status == ArticleMutationOutboxEdgeStatus.Skipped))
                     .ToListAsync(gateCt),
                 _ => Task.FromResult(new List<ArticleMutationOutboxEdge>()),
                 cancellationToken)
             .ConfigureAwait(false);
 
         var result = new Dictionary<long, HashSet<string>>();
-        foreach (ArticleMutationOutboxEdge edge in completedEdges)
+        foreach (ArticleMutationOutboxEdge edge in terminalEdges)
         {
             if (string.IsNullOrWhiteSpace(edge.EdgeName))
             {
@@ -723,7 +725,8 @@ public sealed class ArticleMutationOutboxDispatcher(
         ArticleMutationReplayResult replay,
         CancellationToken cancellationToken)
     {
-        var rows = new List<ArticleMutationOutboxEdgeWrite>(replay.CompletedEdges.Count + replay.FailedEdges.Count);
+        var rows = new List<ArticleMutationOutboxEdgeWrite>(
+            replay.CompletedEdges.Count + replay.SkippedEdges.Count + replay.FailedEdges.Count);
         foreach (string edgeName in replay.CompletedEdges)
         {
             if (!string.IsNullOrWhiteSpace(edgeName))
@@ -732,6 +735,19 @@ public sealed class ArticleMutationOutboxDispatcher(
                     item.Id,
                     edgeName,
                     ArticleMutationOutboxEdgeStatus.Completed,
+                    null,
+                    ArticleMutationDeliveryKey.Build(item.EventId, edgeName)));
+            }
+        }
+
+        foreach (string edgeName in replay.SkippedEdges)
+        {
+            if (!string.IsNullOrWhiteSpace(edgeName))
+            {
+                rows.Add(new ArticleMutationOutboxEdgeWrite(
+                    item.Id,
+                    edgeName,
+                    ArticleMutationOutboxEdgeStatus.Skipped,
                     null,
                     ArticleMutationDeliveryKey.Build(item.EventId, edgeName)));
             }

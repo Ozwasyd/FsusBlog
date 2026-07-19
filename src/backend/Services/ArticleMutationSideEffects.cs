@@ -112,21 +112,55 @@ public sealed record ArticleMutationReplayResult(
     bool IsSuccess,
     string? Error,
     IReadOnlySet<string> CompletedEdges,
+    IReadOnlySet<string> SkippedEdges,
     IReadOnlyDictionary<string, string> FailedEdges)
 {
     public static ArticleMutationReplayResult Success(IReadOnlySet<string> completedEdges)
-        => new(true, null, completedEdges, new Dictionary<string, string>(StringComparer.Ordinal));
+        => new(
+            true,
+            null,
+            completedEdges,
+            new HashSet<string>(StringComparer.Ordinal),
+            new Dictionary<string, string>(StringComparer.Ordinal));
 
     public static ArticleMutationReplayResult Success(
         IReadOnlySet<string> completedEdges,
         IReadOnlyDictionary<string, string> failedEdges)
-        => new(true, null, completedEdges, failedEdges);
+        => new(true, null, completedEdges, new HashSet<string>(StringComparer.Ordinal), failedEdges);
+
+    public static ArticleMutationReplayResult Skipped(IReadOnlySet<string> skippedEdges)
+        => new(
+            true,
+            null,
+            new HashSet<string>(StringComparer.Ordinal),
+            skippedEdges,
+            new Dictionary<string, string>(StringComparer.Ordinal));
+
+    internal static ArticleMutationReplayResult ForSupersededPublication(IReadOnlySet<string> terminalEdges)
+    {
+        var skippedEdges = ArticleMutationReplayEdges.Required
+            .Where(edge => !terminalEdges.Contains(edge))
+            .ToHashSet(StringComparer.Ordinal);
+        foreach (string optionalEdge in new[]
+        {
+            ArticleMutationReplayEdges.IntegrityProof,
+            ArticleMutationReplayEdges.Notification
+        })
+        {
+            if (!terminalEdges.Contains(optionalEdge))
+            {
+                skippedEdges.Add(optionalEdge);
+            }
+        }
+
+        return Skipped(skippedEdges);
+    }
 
     public static ArticleMutationReplayResult Failed(
         string error,
         IReadOnlySet<string> completedEdges,
         IReadOnlyDictionary<string, string> failedEdges)
-        => new(false, error, completedEdges, failedEdges);
+        => new(false, error, completedEdges, new HashSet<string>(StringComparer.Ordinal), failedEdges);
 }
 
 public sealed class ArticleAssetCleanupPolicy(ArticleAssetCleanupQueue cleanupQueue)
@@ -382,9 +416,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
             if (version.PublicationId.HasValue
                 && await IsSupersededPublicationAsync(articleId, version.PublicationId.Value).ConfigureAwait(false))
             {
-                completedDuringReplay.UnionWith(ArticleMutationReplayEdges.Required);
-                completedDuringReplay.Add(ArticleMutationReplayEdges.Notification);
-                return ArticleMutationReplayResult.Success(completedDuringReplay, failed);
+                return ArticleMutationReplayResult.ForSupersededPublication(completed);
             }
 
             if (normalized is ArticleMutationEventTypes.Deleted

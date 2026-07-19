@@ -91,8 +91,9 @@ public sealed class PublicContentInvalidationFlowTests
         Assert.Equal("public-hot-read", ArticleMutationReplayEdges.PublicHotRead);
         Assert.Contains(ArticleMutationReplayEdges.PublicArtifactRevocation, ArticleMutationReplayEdges.Required);
         Assert.Equal(typeof(IReadOnlySet<string>), typeof(IArticleMutationSideEffectCoordinator)
-            .GetMethod(nameof(IArticleMutationSideEffectCoordinator.ReplayOutboxAsync))!.GetParameters()[3].ParameterType);
+            .GetMethod(nameof(IArticleMutationSideEffectCoordinator.ReplayOutboxAsync))!.GetParameters()[4].ParameterType);
         Assert.NotNull(typeof(ArticleMutationReplayResult).GetProperty(nameof(ArticleMutationReplayResult.CompletedEdges)));
+        Assert.NotNull(typeof(ArticleMutationReplayResult).GetProperty(nameof(ArticleMutationReplayResult.SkippedEdges)));
         Assert.NotNull(typeof(ArticleMutationReplayResult).GetProperty(nameof(ArticleMutationReplayResult.FailedEdges)));
         string pendingRuntime = RuntimeMetadataInspection.DescribeMethods(typeof(ArticleMutationOutboxDispatcher), "ProcessPendingAsync");
         string processRuntime = RuntimeMetadataInspection.DescribeMethods(typeof(ArticleMutationOutboxDispatcher), "ProcessOneAsync");
