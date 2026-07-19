@@ -11,6 +11,7 @@ const assert = (condition, message) => {
 
 const registry = read('src/frontend/src/services/privateStorageRegistry.ts')
 const binaryTransport = read('src/frontend/src/services/binaryTransport.ts')
+const telemetryPrivacy = read('src/frontend/src/services/telemetryPrivacy.ts')
 const router = read('src/frontend/src/router/index.ts')
 const navigation = read('src/frontend/src/security/privateNavigationPolicy.ts')
 const authComposition = read('src/frontend/src/services/authBroadcastComposition.ts')
@@ -31,15 +32,20 @@ for (const registeredValue of [
   assert(registry.includes(registeredValue), `private storage registry is missing ${registeredValue}`)
 }
 
-const telemetryBoundary = binaryTransport.slice(
-  binaryTransport.indexOf('function createBinaryFailureTelemetryDetail'),
-  binaryTransport.indexOf('function binaryFailureKindFromStatus')
-)
-for (const forbiddenField of ['url:', 'message:', 'details:', 'traceId:', 'backendCode:', 'retryAfter:']) {
-  assert(!telemetryBoundary.includes(forbiddenField), `binary failure telemetry includes forbidden field ${forbiddenField}`)
+assert(!binaryTransport.includes('fsus:binary:failure'), 'binary failure must not use a global CustomEvent')
+assert(!binaryTransport.includes('fsus:binary:error'), 'unused global binary error event must stay removed')
+assert(binaryTransport.includes('recordBinaryFailureTelemetry({'),
+  'binary failures must enter the private telemetry module boundary')
+for (const allowedField of ['operationId', 'routeClass', 'status', 'errorCode', 'category', 'frameType']) {
+  assert(telemetryPrivacy.includes(`'${allowedField}'`), `binary failure allowlist is missing ${allowedField}`)
 }
-assert(binaryTransport.match(/createBinaryFailureTelemetryDetail\(/gu)?.length === 3,
-  'both binary failure browser events must use the categorical telemetry builder')
+const binaryAllowlist = telemetryPrivacy.slice(
+  telemetryPrivacy.indexOf('export const BINARY_FAILURE_TELEMETRY_FIELDS'),
+  telemetryPrivacy.indexOf('] as const')
+)
+for (const forbiddenField of ['url', 'query', 'details', 'message', 'traceId', 'accountId', 'sessionId']) {
+  assert(!binaryAllowlist.includes(`'${forbiddenField}'`), `binary failure allowlist includes forbidden field ${forbiddenField}`)
+}
 
 assert(router.includes('privateQueryNeedsSanitizing(to.name, to.query)'),
   'router must sanitize private query fields before history commit')

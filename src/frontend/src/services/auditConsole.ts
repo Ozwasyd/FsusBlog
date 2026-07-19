@@ -1,4 +1,5 @@
 import { safeConsoleError, safeConsoleInfo, safeConsoleWarn } from '@/services/safeConsole'
+import { redactAuditContext } from '@/services/telemetryPrivacy'
 
 type FrontendAuditLevel = 'info' | 'warn' | 'error'
 export type FrontendAuditType =
@@ -47,6 +48,6 @@ export function emitFrontendAudit(record: FrontendAuditRecord): void {
 
   write(
     `[${record.source}] [${record.type}] [${record.occurredAtUtc}] ${record.eventInfo}`,
-    record.context ?? {}
+    redactAuditContext(record.context)
   )
 }

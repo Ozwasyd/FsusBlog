@@ -1,3 +1,5 @@
+import { redactConsoleArguments } from '@/services/telemetryPrivacy'
+
 export type SafeConsoleLevel = 'log' | 'info' | 'warn' | 'error'
 
 type SafeConsoleWriter = (...data: unknown[]) => void
@@ -20,7 +22,7 @@ export function safeConsole(level: SafeConsoleLevel, ...data: unknown[]): void {
   }
 
   try {
-    writer(...data)
+    writer(...redactConsoleArguments(data))
   } catch {
     // Dev console proxies can throw while their transport is disconnected.
   }
@@ -46,7 +48,7 @@ export function installSafeConsoleGuard(): void {
 
     console[level] = ((...data: unknown[]) => {
       try {
-        original.apply(console, data)
+        original.apply(console, redactConsoleArguments(data))
       } catch {
         // Keep logging best-effort when a console proxy loses its connection.
       }

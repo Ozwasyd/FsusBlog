@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AEDS_HEADER_LENGTH, FrameType } from '@wasm/protocol/frame'
-import { emitRumMetric, initTelemetryService } from '@/services/telemetryService'
+import { emitRumMetric, initTelemetryService, recordBinaryFailureTelemetry } from '@/services/telemetryService'
 import { emitRumMetric as emitRumMetricFromBus } from '@/services/telemetryBus'
 
 describe('emitRumMetric', () => {
@@ -70,19 +70,53 @@ describe('emitRumMetric', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
+  it('publishes only the allowlisted binary failure payload', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const events: CustomEvent[] = []
+    const listener = (event: Event) => events.push(event as CustomEvent)
+    window.addEventListener('fsus:telemetry', listener)
+
+    recordBinaryFailureTelemetry({
+      operationId: 'binary_get_auth_me',
+      routeClass: 'account',
+      status: 401,
+      backendCode: 8,
+      backendCategory: 2,
+      kind: 'auth_failed',
+      frameType: FrameType.IdentityAccountSnapshot,
+      url: '/api/binary/auth/me?token=secret-token',
+      details: 'private message body',
+      traceId: 'trace-account-42'
+    })
+    window.removeEventListener('fsus:telemetry', listener)
+
+    const payload = events.find((event) => event.detail?.name === 'binary_failure')?.detail
+    expect(payload?.detail).toEqual({
+      operationId: 'binary_get_auth_me',
+      routeClass: 'account',
+      status: 401,
+      errorCode: 8,
+      category: 2,
+      frameType: FrameType.IdentityAccountSnapshot,
+      count: expect.any(Number)
+    })
+    expect(JSON.stringify(payload)).not.toMatch(/secret-token|private message body|trace-account-42|\/api\//)
+    expect(JSON.stringify(warn.mock.calls)).not.toMatch(/secret-token|private message body|trace-account-42|\/api\//)
+  })
+
   it('throttles binary failure audit output during backend outage storms', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     vi.setSystemTime(new Date('2026-06-11T12:24:42.000Z'))
     initTelemetryService()
 
     for (let i = 0; i < 10; i += 1) {
-      window.dispatchEvent(new window.CustomEvent('fsus:binary:failure', {
-        detail: {
-          kind: 'network',
-          message: 'Failed to fetch',
-          url: '/api/binary/auth/pow-challenge'
-        }
-      }))
+      recordBinaryFailureTelemetry({
+        operationId: 'binary_get_auth_pow_challenge',
+        routeClass: 'public',
+        kind: 'network',
+        message: 'Bearer secret-token',
+        url: '/api/binary/auth/pow-challenge?token=secret'
+      })
     }
 
     expect(warn).toHaveBeenCalledTimes(3)
@@ -117,13 +151,26 @@ describe('emitRumMetric', () => {
     vi.setSystemTime(new Date('2026-06-11T12:25:12.000Z'))
     initTelemetryService()
 
-    expect(() => window.dispatchEvent(new window.CustomEvent('fsus:binary:failure', {
-      detail: {
-        kind: 'network',
-        message: 'Failed to fetch',
-        url: '/api/binary/auth/pow-challenge'
-      }
-    }))).not.toThrow()
+    expect(() => recordBinaryFailureTelemetry({
+      operationId: 'binary_get_auth_pow_challenge',
+      routeClass: 'public',
+      kind: 'network',
+      message: 'Failed to fetch',
+      url: '/api/binary/auth/pow-challenge'
+    })).not.toThrow()
+  })
+
+  it('ignores removed global binary failure events', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const before = localStorage.getItem('fsus.telemetry.binaryFailureCount')
+    initTelemetryService()
+
+    window.dispatchEvent(new window.CustomEvent('fsus:binary:failure', {
+      detail: { url: '/api/private?token=secret', message: 'private body' }
+    }))
+
+    expect(localStorage.getItem('fsus.telemetry.binaryFailureCount')).toBe(before)
+    expect(warn).not.toHaveBeenCalled()
   })
 })
 

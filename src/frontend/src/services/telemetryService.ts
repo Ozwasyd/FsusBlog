@@ -14,11 +14,14 @@ import {
   type TelemetryPayload
 } from '@/services/telemetryBus'
 import { FrameType } from '@wasm/protocol/frame'
+import {
+  createBinaryFailureTelemetryDetail,
+  type BinaryFailureTelemetryDetail
+} from '@/services/telemetryPrivacy'
 
 export { emitRumMetric, emitTelemetry } from '@/services/telemetryBus'
 export type { TelemetryLevel, TelemetryPayload } from '@/services/telemetryBus'
 
-const BIN_FAILURE_EVENT = 'fsus:binary:failure';
 const AOT_EVENT = 'fsus:aot:event';
 const BIN_FAILURE_COUNT_KEY = 'fsus.telemetry.binaryFailureCount';
 const AOT_ACTION_COUNT_KEY = 'fsus.telemetry.aotActionCount';
@@ -102,23 +105,25 @@ function writeAotBuckets(value: Record<string, number>): void {
   localStorage.setItem(AOT_ACTION_BUCKET_KEY, encodePublicAotPayload(value));
 }
 
-function onBinaryFailure(event: Event): void {
-  const custom = event as CustomEvent<Record<string, unknown>>;
+export function recordBinaryFailureTelemetry(input: Record<string, unknown>): BinaryFailureTelemetryDetail {
+  const detail = createBinaryFailureTelemetryDetail(input)
   const next = readCounter() + 1;
   writeCounter(next);
 
   if (!shouldEmitBinaryFailureTelemetry()) {
-    return;
+    return detail;
   }
 
   emitTelemetry('binary_failure', {
-    ...custom.detail,
+    ...detail,
     count: next
   }, 'warn');
+  return detail
 }
 
 function shouldEmitBinaryFailureTelemetry(now = Date.now()): boolean {
-  if (now - binaryFailureTelemetryWindowStartedAt > BINARY_FAILURE_TELEMETRY_WINDOW_MS) {
+  if (now < binaryFailureTelemetryWindowStartedAt
+    || now - binaryFailureTelemetryWindowStartedAt > BINARY_FAILURE_TELEMETRY_WINDOW_MS) {
     binaryFailureTelemetryWindowStartedAt = now;
     binaryFailureTelemetryWindowCount = 0;
   }
@@ -200,7 +205,6 @@ export function initTelemetryService(): void {
     return;
   }
 
-  window.addEventListener(BIN_FAILURE_EVENT, onBinaryFailure as EventListener);
   window.addEventListener(AOT_EVENT, onAotEvent as EventListener);
   window.addEventListener(TELEMETRY_EVENT, onTelemetry as EventListener);
   window.addEventListener(RUM_METRIC_EVENT, onRumMetric as EventListener);

@@ -22,7 +22,8 @@ import type {
 import { FSUS_HEADERS } from '@/api/contracts';
 import { AppError, AppErrorCode, createAppError, isAppError, toAppError } from '@/utils/appError';
 import { isAbortError } from '@/utils/errors';
-import { emitRumMetric, emitTelemetry } from '@/services/telemetryService';
+import { emitRumMetric, emitTelemetry, recordBinaryFailureTelemetry } from '@/services/telemetryService';
+import type { BinaryFailureRouteClass } from '@/services/telemetryPrivacy';
 import { toTrustedApplicationWorkerScriptUrl } from '@/security/trustedTypesRuntime';
 import wasmDecodeWorkerUrl from '@/workers/wasmDecode.worker.ts?worker&url';
 import { FrameType } from '@wasm/protocol/frame';
@@ -319,34 +320,6 @@ function pumpDecodeQueue(): void {
 
 function isBinaryEnabled(): boolean {
   return true;
-}
-
-function reportTransportEvent(name: string, detail: Record<string, unknown>): void {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  try {
-    window.dispatchEvent(new window.CustomEvent(name, { detail }));
-  } catch {
-    // Binary transport failures must never fail the original request path.
-  }
-}
-
-function createBinaryFailureTelemetryDetail(
-  failure: TransportFailure,
-  frameType: FrameType
-): Record<string, unknown> {
-  // This browser event is consumed by telemetry. Keep it deliberately
-  // categorical: no URL/query, backend details, tokens, trace/business IDs or
-  // server-provided free-form messages may cross this boundary.
-  return {
-    kind: failure.kind,
-    status: failure.status,
-    backendCategory: failure.backendCategory,
-    riskChallengeFailure: failure.riskChallengeFailure,
-    frameType
-  }
 }
 
 function binaryFailureKindFromStatus(status: number): TransportFailureKind {
@@ -742,10 +715,15 @@ async function requestBinaryOnlyWithDecoder<T>(
 
   const shouldReportFailure = !(options.suppressAuthFailureTelemetry && kind === 'auth_failed');
   if (shouldReportFailure) {
-    reportTransportEvent('fsus:binary:failure', createBinaryFailureTelemetryDetail(
-      binaryResult.failure,
-      options.frameType
-    ));
+    recordBinaryFailureTelemetry({
+      operationId: resolved.operationId,
+      routeClass: resolved.routeClass,
+      status,
+      backendCode,
+      kind,
+      backendCategory,
+      frameType: options.frameType
+    });
   }
   const error = new BinaryTransportError({
     kind,
@@ -760,12 +738,6 @@ async function requestBinaryOnlyWithDecoder<T>(
     riskChallengeHandoff,
     riskControlDecision
   });
-  if (shouldReportFailure) {
-    reportTransportEvent('fsus:binary:error', createBinaryFailureTelemetryDetail(
-      binaryResult.failure,
-      options.frameType
-    ));
-  }
   throw error;
 }
 
@@ -860,7 +832,13 @@ function resolveBinaryRequest(options: {
     query?: URLSearchParams | Record<string, string | number | boolean | null | undefined>;
   };
   requestOptions?: BinaryRequestOptions;
-}): { binaryUrl: string; requestOptions?: BinaryRequestOptions; retryPublicReadWithPow: boolean } {
+}): {
+  binaryUrl: string;
+  requestOptions?: BinaryRequestOptions;
+  retryPublicReadWithPow: boolean;
+  operationId: FsusBinaryOperationId | 'binary_legacy_request';
+  routeClass: BinaryFailureRouteClass;
+} {
   if (options.binaryRoute) {
     const descriptor = fsusBinaryRouteDescriptors[options.binaryRoute.operationId];
     if (!descriptor) {
@@ -872,7 +850,13 @@ function resolveBinaryRequest(options: {
       && descriptor.method === 'GET'
       && !descriptor.requiresPow;
     if (options.requestOptions?.credentials !== undefined || descriptor.credentialPolicy === 'include') {
-      return { binaryUrl, requestOptions: options.requestOptions, retryPublicReadWithPow };
+      return {
+        binaryUrl,
+        requestOptions: options.requestOptions,
+        retryPublicReadWithPow,
+        operationId: options.binaryRoute.operationId,
+        routeClass: binaryRouteClass(descriptor.auth)
+      };
     }
     return {
       binaryUrl,
@@ -880,13 +864,27 @@ function resolveBinaryRequest(options: {
       requestOptions: {
         ...options.requestOptions,
         credentials: descriptor.credentialPolicy
-      }
+      },
+      operationId: options.binaryRoute.operationId,
+      routeClass: binaryRouteClass(descriptor.auth)
     };
   }
   if (options.binaryUrl) {
-    return { binaryUrl: options.binaryUrl, requestOptions: options.requestOptions, retryPublicReadWithPow: false };
+    return {
+      binaryUrl: options.binaryUrl,
+      requestOptions: options.requestOptions,
+      retryPublicReadWithPow: false,
+      operationId: 'binary_legacy_request',
+      routeClass: 'legacy'
+    };
   }
   throw createAppError(AppErrorCode.ProtocolFailure, 'binary_route_missing');
+}
+
+function binaryRouteClass(auth: string): BinaryFailureRouteClass {
+  if (auth === 'admin') return 'admin'
+  if (auth === 'user' || auth === 'optional') return 'account'
+  return 'public'
 }
 
 function shouldRetryPublicReadWithPow<T>(

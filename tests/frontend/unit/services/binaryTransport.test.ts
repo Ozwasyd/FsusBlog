@@ -15,9 +15,18 @@ vi.mock('@/api/binaryApiClient', async () => {
   }
 })
 
+vi.mock('@/services/telemetryService', async () => {
+  const actual = await vi.importActual<typeof import('@/services/telemetryService')>('@/services/telemetryService')
+  return {
+    ...actual,
+    recordBinaryFailureTelemetry: vi.fn(actual.recordBinaryFailureTelemetry)
+  }
+})
+
 import { BinaryRequestError, binaryRequest } from '@/api/binaryApiClient'
 import { decodeBinaryFramePayload } from '@/composition/binaryDecoderRegistry'
 import { BinaryTransportError, createBinaryTransport } from '@/services/binaryTransport'
+import { recordBinaryFailureTelemetry } from '@/services/telemetryService'
 
 const { requestBinaryOnly } = createBinaryTransport(decodeBinaryFramePayload)
 
@@ -51,6 +60,7 @@ function encodeApiErrorFrame(options: {
 describe('binaryTransport ApiError mapping', () => {
   beforeEach(() => {
     mockBinaryRequest.mockReset()
+    vi.mocked(recordBinaryFailureTelemetry).mockClear()
     vi.spyOn(window, 'dispatchEvent').mockReturnValue(true)
   })
 
@@ -1205,25 +1215,25 @@ describe('binaryTransport ApiError mapping', () => {
       frameType: FrameType.ArticleList
     })).rejects.toBeInstanceOf(BinaryTransportError)
 
-    const payloads = dispatched
-      .filter((event) => event.type === 'fsus:binary:failure' || event.type === 'fsus:binary:error')
-      .map((event) => event.detail)
-    expect(payloads).toHaveLength(2)
+    const payloads = vi.mocked(recordBinaryFailureTelemetry).mock.results.map((result) => result.value)
+    expect(payloads).toHaveLength(1)
     for (const payload of payloads) {
       expect(payload).toEqual({
-        kind: 'rate_limited',
+        operationId: 'binary_legacy_request',
+        routeClass: 'legacy',
         status: 429,
-        backendCategory: 13,
-        riskChallengeFailure: undefined,
+        errorCode: 7,
+        category: 13,
         frameType: FrameType.ArticleList
       })
       expect(JSON.stringify(payload)).not.toMatch(/url|query|details|token|trace|accountId|\/42/i)
     }
+    expect(dispatched.some((event) => event.type.startsWith('fsus:binary:'))).toBe(false)
   })
 
   it('suppresses telemetry for expected anonymous auth failures', async () => {
     mockBinaryRequest.mockRejectedValue(new BinaryRequestError(401, 'Binary request failed: 401', new ArrayBuffer(0)))
-    const dispatchSpy = vi.mocked(window.dispatchEvent)
+    const recordSpy = vi.mocked(recordBinaryFailureTelemetry)
 
     await expect(requestBinaryOnly({
       binaryUrl: '/api/binary/auth/me',
@@ -1235,14 +1245,14 @@ describe('binaryTransport ApiError mapping', () => {
       code: AppErrorCode.Unauthorized
     })
 
-    expect(dispatchSpy).not.toHaveBeenCalled()
+    expect(recordSpy).not.toHaveBeenCalled()
   })
 
   it('treats fetch failures after signal abort as canceled without telemetry', async () => {
     const controller = new AbortController()
     controller.abort()
     mockBinaryRequest.mockRejectedValue(new TypeError('Failed to fetch'))
-    const dispatchSpy = vi.mocked(window.dispatchEvent)
+    const recordSpy = vi.mocked(recordBinaryFailureTelemetry)
 
     await expect(requestBinaryOnly({
       binaryUrl: '/api/binary/article/list/home/1/10.aeds',
@@ -1253,14 +1263,14 @@ describe('binaryTransport ApiError mapping', () => {
       message: 'Failed to fetch'
     })
 
-    expect(dispatchSpy).not.toHaveBeenCalled()
+    expect(recordSpy).not.toHaveBeenCalled()
   })
 
   it('treats fetch failures after RequestInit signal abort as canceled without telemetry', async () => {
     const controller = new AbortController()
     controller.abort()
     mockBinaryRequest.mockRejectedValue(new TypeError('Failed to fetch'))
-    const dispatchSpy = vi.mocked(window.dispatchEvent)
+    const recordSpy = vi.mocked(recordBinaryFailureTelemetry)
 
     await expect(requestBinaryOnly({
       binaryUrl: '/api/binary/system/seo',
@@ -1273,12 +1283,12 @@ describe('binaryTransport ApiError mapping', () => {
       message: 'Failed to fetch'
     })
 
-    expect(dispatchSpy).not.toHaveBeenCalled()
+    expect(recordSpy).not.toHaveBeenCalled()
   })
 
   it('keeps the original transport error when failure telemetry dispatch is unavailable', async () => {
     mockBinaryRequest.mockRejectedValue(new TypeError('Failed to fetch'))
-    const dispatchSpy = vi.spyOn(window, 'dispatchEvent').mockImplementation(() => {
+    vi.spyOn(window, 'dispatchEvent').mockImplementation(() => {
       throw new Error('send was called before connect')
     })
 
@@ -1291,7 +1301,7 @@ describe('binaryTransport ApiError mapping', () => {
       code: AppErrorCode.InfraFailure
     })
 
-    expect(dispatchSpy).toHaveBeenCalledTimes(2)
+    expect(recordBinaryFailureTelemetry).toHaveBeenCalledTimes(1)
   })
 })
 

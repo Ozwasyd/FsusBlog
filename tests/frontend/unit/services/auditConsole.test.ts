@@ -66,4 +66,30 @@ describe('emitFrontendAudit', () => {
     expect(() => emitFrontendAudit(baseRecord({ level: 'warn' }))).not.toThrow()
     expect(warn).toHaveBeenCalledTimes(1)
   })
+
+  it('redacts sensitive audit context in development and production paths', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
+    emitFrontendAudit(baseRecord({
+      level: 'warn',
+      context: {
+        operationId: 'binary_get_auth_me',
+        routeClass: 'account',
+        status: 401,
+        url: '/api/binary/auth/me?token=secret-token',
+        details: 'private article body',
+        traceId: 'trace-account-42',
+        nested: {
+          session_id: 'session-secret',
+          recovery_key: 'recovery-secret',
+          article_id: 'article-secret',
+          message: 'private reply'
+        }
+      }
+    }))
+
+    const serialized = JSON.stringify(warn.mock.calls)
+    expect(serialized).toContain('binary_get_auth_me')
+    expect(serialized).not.toMatch(/secret-token|private article body|trace-account-42|session-secret|recovery-secret|article-secret|private reply/)
+  })
 })
