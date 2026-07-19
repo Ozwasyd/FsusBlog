@@ -130,6 +130,10 @@ export const NotificationStreamFailureCodes = {
   WebSocketRequired: 'websocket_required',
   RiskChallengeRequired: 'risk_challenge_required',
   RiskChallengeRejected: 'risk_challenge_rejected',
+  RiskChallengeExpired: 'risk_challenge_expired',
+  RiskChallengeReplayed: 'risk_challenge_replayed',
+  RiskChallengeBindingMismatch: 'risk_challenge_binding_mismatch',
+  RiskChallengeRevoked: 'risk_challenge_revoked',
   RiskChallengeKindMismatch: 'risk_challenge_kind_mismatch',
   RiskControlBlocked: 'risk_control_blocked',
   RiskControlThrottled: 'risk_control_throttled'

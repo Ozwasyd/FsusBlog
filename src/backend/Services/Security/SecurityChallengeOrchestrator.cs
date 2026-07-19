@@ -142,23 +142,26 @@ public sealed record SecurityChallengeOrchestrationIssueResult(
 public sealed record SecurityChallengeOrchestrationVerifyResult(
     bool Succeeded,
     string Reason,
-    string? ProofToken)
+    string? ProofToken,
+    DateTimeOffset? ProofExpiresAt)
 {
-    public static SecurityChallengeOrchestrationVerifyResult Success(string proofToken)
-        => new(true, "ok", proofToken);
+    public static SecurityChallengeOrchestrationVerifyResult Success(SecurityChallengeProofMintResult proof)
+        => new(true, "ok", proof.ProofToken, proof.Claims.ExpiresAt);
 
     public static SecurityChallengeOrchestrationVerifyResult Failed(string reason)
-        => new(false, string.IsNullOrWhiteSpace(reason) ? "challenge_verify_failed" : reason.Trim(), null);
+        => new(false, string.IsNullOrWhiteSpace(reason) ? "challenge_verify_failed" : reason.Trim(), null, null);
 }
 
 public sealed partial class SecurityChallengeOrchestrator(
     IEnumerable<ISecurityChallengeProvider> providers,
     ISecurityChallengeProofService proofService,
     ISecurityRiskSignalSink riskSignalSink,
-    ILogger<SecurityChallengeOrchestrator>? logger = null) : ISecurityChallengeOrchestrator
+    ILogger<SecurityChallengeOrchestrator>? logger = null,
+    TimeProvider? timeProvider = null) : ISecurityChallengeOrchestrator
 {
     private static readonly TimeSpan s_riskSignalTtl = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan s_defaultProofTtl = TimeSpan.FromMinutes(5);
+    private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
     private readonly IReadOnlyDictionary<string, ISecurityChallengeProvider> _providers = providers
         .Where(static provider => !string.IsNullOrWhiteSpace(provider.Kind))
         .GroupBy(static provider => NormalizeKind(provider.Kind), StringComparer.Ordinal)
@@ -302,7 +305,7 @@ public sealed partial class SecurityChallengeOrchestrator(
             return SecurityChallengeOrchestrationVerifyResult.Failed(providerResult.Reason);
         }
 
-        DateTimeOffset issuedAt = DateTimeOffset.UtcNow;
+        DateTimeOffset issuedAt = _timeProvider.GetUtcNow();
         DateTimeOffset expiresAt = providerResult.ProofExpiresAt is { } proofExpiresAt && proofExpiresAt > issuedAt
             ? proofExpiresAt
             : issuedAt.Add(s_defaultProofTtl);
@@ -326,7 +329,7 @@ public sealed partial class SecurityChallengeOrchestrator(
                 LogChallengeVerifySucceeded(logger, request.Action, kind, request.PolicyVersion);
             }
 
-            return SecurityChallengeOrchestrationVerifyResult.Success(proof.ProofToken);
+            return SecurityChallengeOrchestrationVerifyResult.Success(proof);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

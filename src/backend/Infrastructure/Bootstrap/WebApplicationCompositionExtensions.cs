@@ -472,6 +472,20 @@ public static partial class WebApplicationCompositionExtensions
         NotificationStreamHandshakeResult result = await handshakeService.ValidateAsync(ctx, ct, requireWebSocket: false);
         if (result.IsSuccess)
         {
+            if (!string.IsNullOrWhiteSpace(result.PreflightGrantToken))
+            {
+                ctx.Response.Cookies.Append(
+                    NotificationStreamHandshakeService.PreflightGrantCookieName,
+                    result.PreflightGrantToken,
+                    new CookieOptions
+                    {
+                        HttpOnly = true,
+                        Secure = ctx.Request.IsHttps,
+                        SameSite = SameSiteMode.Strict,
+                        Path = "/api/notifications/stream",
+                        IsEssential = true
+                    });
+            }
             return TypedResults.NoContent();
         }
 

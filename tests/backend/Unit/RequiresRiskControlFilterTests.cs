@@ -230,9 +230,11 @@ public sealed class RequiresRiskControlFilterTests
     }
 
     [Theory]
-    [InlineData("proof_replayed_or_missing")]
-    [InlineData("action_mismatch")]
-    public async Task InvokeAsync_RejectedProof_Returns428AndDoesNotEnterBusinessLogic(string reason)
+    [InlineData("proof_replayed_or_missing", SecurityChallengeProofOutcomes.ReplayedOrMissing)]
+    [InlineData("proof_expired", SecurityChallengeProofOutcomes.Expired)]
+    [InlineData("action_mismatch", SecurityChallengeProofOutcomes.BindingMismatch)]
+    [InlineData("proof_revoked", SecurityChallengeProofOutcomes.Revoked)]
+    public async Task InvokeAsync_RejectedProof_Returns428AndDoesNotEnterBusinessLogic(string reason, string outcome)
     {
         FilterFixture fixture = CreateFixture(riskScore: 50);
         fixture.ProofService.NextConsumeResult = SecurityChallengeProofConsumeResult.Rejected(reason);
@@ -250,6 +252,7 @@ public sealed class RequiresRiskControlFilterTests
 
         Assert.False(nextCalled);
         Assert.Equal(StatusCodes.Status428PreconditionRequired, await ExecuteStatusAsync(result, context));
+        Assert.Equal(outcome, context.Response.Headers[RequiresRiskControlFilter.ChallengeProofOutcomeHeaderName]);
         Assert.Single(fixture.ProofService.ConsumeRequests);
         SecurityRiskSignal signal = Assert.Single(fixture.RiskSink.Signals);
         Assert.Equal($"challenge_proof_rejected:{reason}", signal.Detail);

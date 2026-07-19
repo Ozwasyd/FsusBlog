@@ -272,6 +272,7 @@ public static partial class BinaryEndpoints
             request.Kind,
             policyVersion,
             verified.ProofToken,
+            verified.ProofExpiresAt!.Value.ToUnixTimeMilliseconds(),
             "ok",
             RetryAfterMs: 0);
         return BinaryResults.Frame(aeds, AedsFrameType.SecurityChallengeVerifyResponse, writer => PodBinaryCodec.WriteSecurityChallengeVerifyResponse(response, writer));

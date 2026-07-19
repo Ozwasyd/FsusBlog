@@ -19,9 +19,9 @@ import { encodeBinaryPowProofHeader } from '@/services/powProofCodec'
 import { safeConsoleError, safeConsoleWarn } from '@/services/safeConsole'
 import {
     createSecurityChallengeClient,
-    type SecurityChallengeContext
+    type SecurityChallengeContext,
+    type SecurityChallengeProofLease
 } from '@/security/challenge-client'
-import type { SecurityChallengeProof } from '@/security/challenge-proof-store'
 
 const currentMode = ref<'auth' | 'guest' | ''>('')
 const isInitializing = ref(false)
@@ -46,9 +46,13 @@ const GUEST_RECOVERY_POW_FAILURES: ReadonlySet<NotificationStreamFailureCode> = 
 const RISK_CHALLENGE_RECOVERY_FAILURES: ReadonlySet<NotificationStreamFailureCode> = new Set([
     NotificationStreamFailureCodes.RiskChallengeRequired,
     NotificationStreamFailureCodes.RiskChallengeRejected,
+    NotificationStreamFailureCodes.RiskChallengeExpired,
+    NotificationStreamFailureCodes.RiskChallengeReplayed,
+    NotificationStreamFailureCodes.RiskChallengeBindingMismatch,
+    NotificationStreamFailureCodes.RiskChallengeRevoked,
     NotificationStreamFailureCodes.RiskChallengeKindMismatch
 ])
-type NotificationSubscribeChallengeProofResult = SecurityChallengeProof | 'allow' | 'unavailable'
+type NotificationSubscribeChallengeProofResult = SecurityChallengeProofLease | 'allow' | 'unavailable'
 
 function clearReauthRetryTimer(): void {
     if (!reauthRetryTimer) {
@@ -153,9 +157,9 @@ export function useNotification() {
     const ensureNotificationSubscribeChallengeProof = async (forceRefresh = false): Promise<NotificationSubscribeChallengeProofResult> => {
         const context = notificationChallengeContext()
         if (!forceRefresh) {
-            const cached = notificationChallengeClient.getCachedProof(context)
-            if (cached) {
-                return cached
+            const reserved = notificationChallengeClient.reserveProof(context)
+            if (reserved) {
+                return reserved
             }
         } else {
             notificationChallengeClient.clearProof(context)
@@ -166,7 +170,7 @@ export function useNotification() {
             : await notificationChallengeClient.issue(context)
 
         if (issue.status === 'verified' && issue.proof) {
-            return issue.proof
+            return notificationChallengeClient.reserveProof(context) ?? 'unavailable'
         }
 
         if (issue.status === 'allow') {
@@ -209,7 +213,9 @@ export function useNotification() {
             providerPayload: { proof }
         })
 
-        return verified.status === 'verified' && verified.proof ? verified.proof : 'unavailable'
+        return verified.status === 'verified' && verified.proof
+            ? notificationChallengeClient.reserveProof(context) ?? 'unavailable'
+            : 'unavailable'
     }
 
     const handleAccountStatusChange = (data: AccountStatusPayload): void => {

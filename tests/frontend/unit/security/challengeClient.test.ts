@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
 import {
   SecurityChallengeKind,
   type SecurityChallengeIssueResponse,
@@ -32,9 +33,10 @@ describe('security challenge client and proof store', () => {
       expiresAtUnixMs: now + 5000
     })
 
-    expect(store.get(context.action, context.routeKey)?.proofToken).toBe('proof-1')
+    expect(store.peek(context.action, context.routeKey)?.proofToken).toBe('proof-1')
     now += 6000
-    expect(store.get(context.action, context.routeKey)).toBeNull()
+    expect(store.peek(context.action, context.routeKey)).toBeNull()
+    expect(store.inspect(context.action, context.routeKey)?.state).toBe('expired')
   })
 
   it('uses a cached proof without issuing a new challenge', async () => {
@@ -59,6 +61,14 @@ describe('security challenge client and proof store', () => {
     expect(issueChallenge).not.toHaveBeenCalled()
   })
 
+  it('treats a server proof inside the conservative clock-skew window as expired', () => {
+    const store = createChallengeProofStore({ now: () => 1_000, expirySkewMs: 1_000 })
+    store.set({ ...proof('proof-near-expiry'), expiresAtUnixMs: 1_999 })
+
+    expect(store.reserve(context.action, context.routeKey)).toBeNull()
+    expect(store.inspect(context.action, context.routeKey)?.state).toBe('expired')
+  })
+
   it('refresh clears expired proof and requests a new challenge', async () => {
     let now = 1000
     const store = createChallengeProofStore({ now: () => now })
@@ -79,6 +89,7 @@ describe('security challenge client and proof store', () => {
       kind: SecurityChallengeKind.CaptchaV1,
       policyVersion: 'risk-v1',
       proofToken: 'proof-verified',
+      expiresAtUnixMs: 8_000,
       reason: '',
       retryAfterMs: 0
     } satisfies SecurityChallengeVerifyResponse)
@@ -89,7 +100,7 @@ describe('security challenge client and proof store', () => {
     expect(result.status).toBe('challenge')
     expect(result.assignment?.kind).toBe(SecurityChallengeKind.CaptchaV1)
     expect(issueChallenge).toHaveBeenCalledTimes(1)
-    expect(store.get(context.action, context.routeKey)).toBeNull()
+    expect(store.peek(context.action, context.routeKey)).toBeNull()
 
     now = 2000
     await client.verify(context, {
@@ -99,7 +110,7 @@ describe('security challenge client and proof store', () => {
       routeKey: context.routeKey,
       providerPayload: { answerText: 'AEF2' }
     })
-    expect(store.get(context.action, context.routeKey)?.proofToken).toBe('proof-verified')
+    expect(store.peek(context.action, context.routeKey)?.proofToken).toBe('proof-verified')
   })
 
   it('returns standard unsupported status for unknown challenge kind', async () => {
@@ -122,6 +133,7 @@ describe('security challenge client and proof store', () => {
       kind: SecurityChallengeKind.CaptchaV1,
       policyVersion: 'risk-v1',
       proofToken: '',
+      expiresAtUnixMs: 0,
       reason: 'captcha_invalid',
       retryAfterMs: 2000
     } satisfies SecurityChallengeVerifyResponse)
@@ -137,9 +149,69 @@ describe('security challenge client and proof store', () => {
 
     expect(result.status).toBe('failed')
     expect(result.reason).toBe('captcha_invalid')
-    expect(store.get(context.action, context.routeKey)).toBeNull()
+    expect(store.peek(context.action, context.routeKey)).toBeNull()
+  })
+
+  it('allows only one concurrent reservation and restores only before send', () => {
+    const store = createChallengeProofStore({ now: () => 1000, expirySkewMs: 100 })
+    store.set(proof('proof-race'))
+
+    const first = store.reserve(context.action, context.routeKey)
+    const second = store.reserve(context.action, context.routeKey)
+
+    expect(first?.proof.proofToken).toBe('proof-race')
+    expect(second).toBeNull()
+    expect(store.settle(first!.reservationId, 'before_send_cancelled')).toBe(true)
+    const restored = store.reserve(context.action, context.routeKey)
+    expect(restored).not.toBeNull()
+    expect(store.markInFlight(restored!.reservationId)).toBe(true)
+    expect(store.settle(restored!.reservationId, 'before_send_cancelled')).toBe(true)
+    expect(store.inspect(context.action, context.routeKey)?.state).toBe('consumed')
+    expect(store.reserve(context.action, context.routeKey)).toBeNull()
+  })
+
+  it.each([
+    ['accepted', 'consumed'],
+    ['business_rejected', 'consumed'],
+    ['unknown_network', 'consumed'],
+    ['replayed', 'replayed'],
+    ['expired', 'expired'],
+    ['binding_mismatch', 'rejected'],
+    ['revoked', 'rejected']
+  ] as const)('terminates an in-flight proof after %s', (outcome, expectedState) => {
+    const store = createChallengeProofStore({ now: () => 1000 })
+    store.set(proof(`proof-${outcome}`))
+    const reservation = store.reserve(context.action, context.routeKey)!
+    store.markInFlight(reservation.reservationId)
+
+    store.settle(reservation.reservationId, outcome)
+
+    expect(store.inspect(context.action, context.routeKey)?.state).toBe(expectedState)
+    expect(store.peek(context.action, context.routeKey)).toBeNull()
+  })
+
+  it('keeps proof storage free of persistence, URL, broadcast, and logging APIs', () => {
+    const source = readFileSync(
+      new URL('../../../../src/frontend/src/security/challenge-proof-store.ts', import.meta.url),
+      'utf8'
+    )
+
+    expect(source).not.toMatch(/localStorage|sessionStorage|BroadcastChannel|URLSearchParams|console\./)
   })
 })
+
+function proof(proofToken: string) {
+  return {
+    action: context.action,
+    routeKey: context.routeKey,
+    challengeId: 'captcha-race',
+    kind: SecurityChallengeKind.CaptchaV1,
+    proofToken,
+    policyVersion: 'risk-v1',
+    verifiedAtUnixMs: 1000,
+    expiresAtUnixMs: 10_000
+  }
+}
 
 function captchaIssueResponse(kind: SecurityChallengeKind = SecurityChallengeKind.CaptchaV1): SecurityChallengeIssueResponse {
   return {

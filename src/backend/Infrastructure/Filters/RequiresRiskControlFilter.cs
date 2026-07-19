@@ -21,6 +21,7 @@ public sealed partial class RequiresRiskControlFilter(
     public const string ChallengeProofHeaderName = SecurityChallengeProofService.HeaderName;
     public const string ChallengeIdHeaderName = "X-Fsus-Challenge-Id";
     public const string ChallengeKindHeaderName = "X-Fsus-Challenge-Kind";
+    public const string ChallengeProofOutcomeHeaderName = "X-Fsus-Challenge-Proof-Outcome";
 
     private static readonly TimeSpan s_riskSignalTtl = TimeSpan.FromMinutes(10);
 
@@ -116,7 +117,12 @@ public sealed partial class RequiresRiskControlFilter(
         string rejectionReason = proof.Reason;
         LogChallengeRejected(logger, httpContext.TraceIdentifier, decision.ActionName, rejectionReason);
         await RecordRiskAsync(httpContext, $"challenge_proof_rejected:{rejectionReason}", decision.ActionName, httpContext.RequestAborted);
-        return Error(httpContext, StatusCodes.Status428PreconditionRequired, ErrorCode.Forbidden, "RISK_CHALLENGE_PROOF_REJECTED");
+        httpContext.Response.Headers[ChallengeProofOutcomeHeaderName] = proof.Outcome;
+        return Error(
+            httpContext,
+            StatusCodes.Status428PreconditionRequired,
+            ErrorCode.Forbidden,
+            PublicProofError(proof.Outcome));
     }
 
     private async ValueTask<object?> QueueForModerationAsync(
@@ -176,6 +182,16 @@ public sealed partial class RequiresRiskControlFilter(
     private static bool IsAdminSensitiveRiskAction(string action)
         => string.Equals(action, RiskActionNames.AdminSecurityWrite, StringComparison.Ordinal)
             || string.Equals(action, RiskActionNames.AdminCommentBatch, StringComparison.Ordinal);
+
+    private static string PublicProofError(string outcome)
+        => outcome switch
+        {
+            SecurityChallengeProofOutcomes.Expired => "RISK_CHALLENGE_PROOF_EXPIRED",
+            SecurityChallengeProofOutcomes.ReplayedOrMissing => "RISK_CHALLENGE_PROOF_REPLAYED",
+            SecurityChallengeProofOutcomes.BindingMismatch => "RISK_CHALLENGE_PROOF_BINDING_MISMATCH",
+            SecurityChallengeProofOutcomes.Revoked => "RISK_CHALLENGE_PROOF_REVOKED",
+            _ => "RISK_CHALLENGE_PROOF_REJECTED"
+        };
 
     private static IResult Error(HttpContext context, int statusCode, ErrorCode code, string message)
         => EndpointFilterResults.FromActionResult(

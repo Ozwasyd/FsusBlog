@@ -385,7 +385,8 @@ public static partial class PodBinaryCodec
             ChallengeId = PodUtf8Codec.ToFixed64(response.ChallengeId),
             PolicyVersion = PodUtf8Codec.ToFixed64(response.PolicyVersion),
             ProofToken = PodUtf8Codec.AppendSlice(response.ProofToken, blob),
-            Reason = PodUtf8Codec.AppendSlice(response.Reason, blob)
+            Reason = PodUtf8Codec.AppendSlice(response.Reason, blob),
+            ExpiresAtUnixMs = response.ExpiresAtUnixMs
         };
 
         var writer = new BinaryPodWriter(destination);
@@ -411,7 +412,7 @@ public static partial class PodBinaryCodec
             pod.Verified > 1 ||
             !reader.TryReadBytes(out ReadOnlySpan<byte> blob))
         {
-            response = new SecurityChallengeVerifyBinaryResponse(false, string.Empty, SecurityChallengeKind.Unknown, string.Empty, string.Empty, string.Empty, 0);
+            response = new SecurityChallengeVerifyBinaryResponse(false, string.Empty, SecurityChallengeKind.Unknown, string.Empty, string.Empty, 0, string.Empty, 0);
             return false;
         }
 
@@ -421,6 +422,7 @@ public static partial class PodBinaryCodec
             ToSecurityChallengeKind(pod.Kind),
             PodUtf8Codec.FromFixed64(pod.PolicyVersion),
             PodUtf8Codec.ReadSlice(pod.ProofToken, blob),
+            pod.ExpiresAtUnixMs,
             PodUtf8Codec.ReadSlice(pod.Reason, blob),
             pod.RetryAfterMs);
         return reader.IsConsumed;
@@ -562,5 +564,6 @@ public static partial class PodBinaryCodec
         public Utf8Fixed64 PolicyVersion;
         public Utf8SliceRef ProofToken;
         public Utf8SliceRef Reason;
+        public long ExpiresAtUnixMs;
     }
 }

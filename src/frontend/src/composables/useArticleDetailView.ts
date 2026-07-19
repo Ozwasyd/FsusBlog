@@ -31,9 +31,9 @@ import {
   securityBusinessChallengeGates,
   type SecurityChallengeClient,
   type SecurityChallengeContext,
-  type SecurityChallengeIssueResult
+  type SecurityChallengeIssueResult,
+  type SecurityChallengeProofLease
 } from '@/security/challenge-client'
-import type { SecurityChallengeProof } from '@/security/challenge-proof-store'
 import type { NotificationStreamArticleRenderPatch, NotificationStreamCommentRenderPatch } from '@/services/notificationStreamTypes'
 import { isPublicReadHydrationSuppressed } from '@/services/publicReadHydrationGuard'
 import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime'
@@ -593,7 +593,7 @@ export function useArticleDetailView() {
   const ensureCommentCreateChallengeProof = async (
     selectedAuthorMode: CommentAuthorMode,
     signal: AbortSignal
-  ): Promise<SecurityChallengeProof | null | 'pending'> => {
+  ): Promise<SecurityChallengeProofLease | null | 'pending'> => {
     if (
       selectedAuthorMode !== 'public' ||
       securityBusinessChallengeGates[COMMENT_CREATE_CHALLENGE_ACTION] !== 'perception-v2'
@@ -607,10 +607,10 @@ export function useArticleDetailView() {
     }
 
     const context = commentChallengeContext()
-    const cached = baseCommentChallengeClient.getCachedProof(context)
-    if (cached) {
+    const reserved = baseCommentChallengeClient.reserveProof(context)
+    if (reserved) {
       clearCommentChallenge()
-      return cached
+      return reserved
     }
 
     const result = await issueCommentChallenge(context)
@@ -620,7 +620,7 @@ export function useArticleDetailView() {
 
     if (result.status === 'verified' && result.proof) {
       clearCommentChallenge()
-      return result.proof
+      return baseCommentChallengeClient.reserveProof(context) ?? 'pending'
     }
 
     if (result.status === 'allow') {
@@ -747,24 +747,39 @@ export function useArticleDetailView() {
             return
           }
 
-          const challengeProof = await ensureCommentCreateChallengeProof(selectedAuthorMode, signal)
-          if (challengeProof === 'pending') {
+          const challengeLease = await ensureCommentCreateChallengeProof(selectedAuthorMode, signal)
+          if (challengeLease === 'pending') {
             return
           }
 
-          await createPublicComment(
-            {
-              articleId: article.value!.id,
-              content: commentContent.value,
-              parentId: replyTarget.value?.id ?? null,
-              rootId: replyTarget.value?.rootId ?? null,
-              replyToCommentId: replyTarget.value?.id ?? null,
-              authorMode: 'public',
-              publicSendExplicitlySelected: true,
-              displayLanguage: commentDisplayLanguage.value
-            },
-            { signal }
-          )
+          if (signal.aborted) {
+            challengeLease?.settle('before_send_cancelled')
+            return
+          }
+
+          if (challengeLease && !challengeLease.markInFlight()) {
+            return
+          }
+
+          try {
+            await createPublicComment(
+              {
+                articleId: article.value!.id,
+                content: commentContent.value,
+                parentId: replyTarget.value?.id ?? null,
+                rootId: replyTarget.value?.rootId ?? null,
+                replyToCommentId: replyTarget.value?.id ?? null,
+                authorMode: 'public',
+                publicSendExplicitlySelected: true,
+                displayLanguage: commentDisplayLanguage.value
+              },
+              { signal }
+            )
+            challengeLease?.settle('accepted')
+          } catch (error) {
+            challengeLease?.settle(isAbortError(error) ? 'unknown_network' : 'business_rejected')
+            throw error
+          }
           commentMutationSubmitted = true
         }
       )

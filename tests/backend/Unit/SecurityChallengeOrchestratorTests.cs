@@ -109,6 +109,7 @@ public sealed class SecurityChallengeOrchestratorTests
 
         Assert.True(result.Succeeded, result.Reason);
         Assert.Equal("challenge-proof-token", result.ProofToken);
+        Assert.Equal(proof.LastMintRequest?.ExpiresAt, result.ProofExpiresAt);
         Assert.NotNull(proof.LastMintRequest);
         Assert.Equal(request.ChallengeId, proof.LastMintRequest.ChallengeId);
         Assert.Equal(request.Kind, proof.LastMintRequest.Kind);
@@ -140,6 +141,30 @@ public sealed class SecurityChallengeOrchestratorTests
         Assert.Null(result.ProofToken);
         SecurityRiskSignal signal = Assert.Single(riskSink.Signals);
         Assert.Equal("proof_mint_failed:sha256PowV1", signal.Detail);
+    }
+
+    [Fact]
+    public async Task VerifyAsync_WithoutProviderExpiry_UsesInjectedClockAndReturnsMintedExpiry()
+    {
+        var provider = new FakeChallengeProvider("sha256PowV1")
+        {
+            VerifyResult = SecurityChallengeProviderVerifyResult.Success()
+        };
+        var proof = new MintingProofService();
+        var now = new DateTimeOffset(2026, 7, 19, 2, 0, 0, TimeSpan.Zero);
+        var orchestrator = new SecurityChallengeOrchestrator(
+            [provider],
+            proof,
+            new CapturingRiskSink(),
+            timeProvider: new FixedTimeProvider(now));
+
+        SecurityChallengeOrchestrationVerifyResult result = await orchestrator.VerifyAsync(
+            CreateVerifyRequest("sha256PowV1"),
+            CancellationToken.None);
+
+        Assert.True(result.Succeeded, result.Reason);
+        Assert.Equal(now, proof.LastMintRequest?.IssuedAt);
+        Assert.Equal(now.AddMinutes(5), result.ProofExpiresAt);
     }
 
     private static SecurityChallengeOrchestrationIssueRequest CreateIssueRequest(IReadOnlyList<string> challenges)
@@ -254,6 +279,11 @@ public sealed class SecurityChallengeOrchestratorTests
 
         public Task<SecurityChallengeProofConsumeResult> ConsumeProofAsync(SecurityChallengeProofConsumeRequest request, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
+    }
+
+    private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => utcNow;
     }
 
     private sealed class CapturingRiskSink : ISecurityRiskSignalSink

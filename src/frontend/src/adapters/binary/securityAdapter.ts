@@ -14,7 +14,7 @@ const decoder = new TextDecoder('utf-8', { fatal: true });
 const SECURITY_CHALLENGE_ISSUE_RESPONSE_POD_SIZE = 148;
 const SECURITY_CHALLENGE_ASSIGNMENT_POD_SIZE = 664;
 const SECURITY_CHALLENGE_PROVIDER_PAYLOAD_POD_SIZE = 72;
-const SECURITY_CHALLENGE_VERIFY_RESPONSE_POD_SIZE = 152;
+const SECURITY_CHALLENGE_VERIFY_RESPONSE_POD_SIZE = 160;
 
 export function mapSecurityJsonFromPayload<T = unknown>(payload: Uint8Array): T {
   try {
@@ -88,7 +88,8 @@ export function mapSecurityChallengeVerifyResponseFromPayload(payload: Uint8Arra
     challengeId: readFixedUtf8(payload, 8, 64),
     policyVersion: readFixedUtf8(payload, 72, 64),
     proofToken: readSliceText(blob, readSliceRef(payload, 136)),
-    reason: readSliceText(blob, readSliceRef(payload, 144))
+    reason: readSliceText(blob, readSliceRef(payload, 144)),
+    expiresAtUnixMs: readInt64Number(payload, 152)
   };
 }
 

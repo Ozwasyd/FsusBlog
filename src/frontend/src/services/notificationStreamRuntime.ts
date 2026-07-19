@@ -2,7 +2,7 @@ import type { PowParams, NotificationStreamCursor, NotificationStreamEventV2, No
 import { NotificationStreamEventType, NotificationStreamFailureCodes } from '@/services/notificationStreamTypes'
 import { decodeNotificationApiErrorFrame, decodeNotificationFrame } from '@/adapters/binary/notificationAdapter'
 import { encodeNotificationStreamPowProof } from '@/services/powProofCodec'
-import type { SecurityChallengeProof } from '@/security/challenge-proof-store'
+import type { SecurityChallengeProofLease } from '@/security/challenge-client'
 import { resolveNotificationStreamCloseRecovery } from '@/services/notificationStreamRestartPolicy'
 
 const RECENT_EVENT_WINDOW = 512
@@ -74,7 +74,8 @@ export class NotificationStreamRuntime {
   private socket: WebSocket | null = null
   private currentMode: NotificationStreamMode = 'guest'
   private currentPow: PowParams | undefined
-  private currentChallengeProof: SecurityChallengeProof | undefined
+  private currentChallengeLease: SecurityChallengeProofLease | undefined
+  private challengeRequiredForConnection = false
   private cursor: NotificationStreamCursor = { lastEventId: 0, recentEventIds: [] }
   private recentEventIds = new Set<number>()
   private readonly recentEventRing = new Array<number>(RECENT_EVENT_WINDOW)
@@ -108,11 +109,13 @@ export class NotificationStreamRuntime {
     powParams?: PowParams,
     cursor?: NotificationStreamCursor,
     mode: NotificationStreamMode = powParams ? 'guest' : 'auth',
-    challengeProof?: SecurityChallengeProof | null
+    challengeProof?: SecurityChallengeProofLease | null
   ): Promise<void> {
+    this.releaseCurrentChallengeLease()
     this.currentMode = mode
     this.currentPow = powParams
-    this.currentChallengeProof = challengeProof ?? undefined
+    this.currentChallengeLease = challengeProof ?? undefined
+    this.challengeRequiredForConnection = Boolean(challengeProof)
     this.connectGeneration += 1
     this.retryCount = 0
     this.isReconnecting = false
@@ -127,6 +130,8 @@ export class NotificationStreamRuntime {
   }
 
   public async stop(clearCursor = false): Promise<void> {
+    this.releaseCurrentChallengeLease()
+    this.challengeRequiredForConnection = false
     this.clearReconnectTimer()
     this.isReconnecting = false
     this.isConnectedFlag = false
@@ -180,12 +185,6 @@ export class NotificationStreamRuntime {
     if (this.currentPow) {
       requestUrl.searchParams.set('pow', encodeNotificationStreamPowProof(this.currentPow))
     }
-    if (this.currentChallengeProof) {
-      requestUrl.searchParams.set('challengeProof', this.currentChallengeProof.proofToken)
-      requestUrl.searchParams.set('challengeId', this.currentChallengeProof.challengeId)
-      requestUrl.searchParams.set('challengeKind', notificationChallengeKindWireName(this.currentChallengeProof.kind))
-    }
-
     if (this.shouldRunHandshakePreflight(isReconnect)) {
       const preflightFailure = await this.runHandshakePreflight(requestUrl)
       if (generation !== this.connectGeneration) {
@@ -219,6 +218,10 @@ export class NotificationStreamRuntime {
       return true
     }
 
+    if (this.challengeRequiredForConnection) {
+      return true
+    }
+
     return !(isReconnect && this.hasSuccessfulConnection)
   }
 
@@ -234,10 +237,15 @@ export class NotificationStreamRuntime {
         'Accept': 'application/octet-stream',
         'X-Fsus-Notification-Stream-Protocol': 'fsus-aeds.v2'
       }
-      if (this.currentChallengeProof) {
-        headers['X-Fsus-Challenge-Proof'] = this.currentChallengeProof.proofToken
-        headers['X-Fsus-Challenge-Id'] = this.currentChallengeProof.challengeId
-        headers['X-Fsus-Challenge-Kind'] = notificationChallengeKindWireName(this.currentChallengeProof.kind)
+      const challengeLease = this.currentChallengeLease
+      if (challengeLease) {
+        headers['X-Fsus-Challenge-Proof'] = challengeLease.proof.proofToken
+        headers['X-Fsus-Challenge-Id'] = challengeLease.proof.challengeId
+        headers['X-Fsus-Challenge-Kind'] = notificationChallengeKindWireName(challengeLease.proof.kind)
+        if (!challengeLease.markInFlight()) {
+          this.currentChallengeLease = undefined
+          return NotificationStreamFailureCodes.RiskChallengeRequired
+        }
       }
 
       const response = await fetch(preflightUrl, {
@@ -245,16 +253,19 @@ export class NotificationStreamRuntime {
         headers
       })
       if (response.ok) {
+        this.settleCurrentChallengeLease('accepted')
         return null
       }
 
       const errorCode = response.headers.get('X-Fsus-Notification-Stream-Error-Code')
+      this.settleCurrentChallengeLease(proofSettlementForFailure(errorCode))
       const buffer = await response.arrayBuffer().catch(() => null)
       if (buffer) {
         decodeNotificationApiErrorFrame(buffer)
       }
       return normalizeNotificationStreamHandshakeFailure(errorCode ?? undefined, response.status, this.currentMode)
     } catch {
+      this.settleCurrentChallengeLease('unknown_network')
       return NotificationStreamFailureCodes.NetworkError
     }
   }
@@ -515,9 +526,19 @@ export class NotificationStreamRuntime {
     }
   }
 
+  private releaseCurrentChallengeLease(): void {
+    this.currentChallengeLease?.settle('before_send_cancelled')
+    this.currentChallengeLease = undefined
+  }
+
+  private settleCurrentChallengeLease(outcome: Parameters<SecurityChallengeProofLease['settle']>[0]): void {
+    this.currentChallengeLease?.settle(outcome)
+    this.currentChallengeLease = undefined
+  }
+
 }
 
-function notificationChallengeKindWireName(kind: SecurityChallengeProof['kind']): string {
+function notificationChallengeKindWireName(kind: SecurityChallengeProofLease['proof']['kind']): string {
   switch (kind) {
     case 1:
       return 'sha256PowV1'
@@ -550,6 +571,21 @@ function notificationChallengeKindWireName(kind: SecurityChallengeProof['kind'])
   }
 }
 
+function proofSettlementForFailure(errorCode: string | null): Parameters<SecurityChallengeProofLease['settle']>[0] {
+  switch (errorCode) {
+    case 'risk_challenge_expired':
+      return 'expired'
+    case 'risk_challenge_replayed':
+      return 'replayed'
+    case 'risk_challenge_binding_mismatch':
+      return 'binding_mismatch'
+    case 'risk_challenge_revoked':
+      return 'revoked'
+    default:
+      return 'rejected'
+  }
+}
+
 export const notificationStreamRuntime = new NotificationStreamRuntime()
 
 export function normalizeNotificationStreamHandshakeFailure(
@@ -566,6 +602,10 @@ export function normalizeNotificationStreamHandshakeFailure(
     case NotificationStreamFailureCodes.WebSocketRequired:
     case NotificationStreamFailureCodes.RiskChallengeRequired:
     case NotificationStreamFailureCodes.RiskChallengeRejected:
+    case NotificationStreamFailureCodes.RiskChallengeExpired:
+    case NotificationStreamFailureCodes.RiskChallengeReplayed:
+    case NotificationStreamFailureCodes.RiskChallengeBindingMismatch:
+    case NotificationStreamFailureCodes.RiskChallengeRevoked:
     case NotificationStreamFailureCodes.RiskChallengeKindMismatch:
     case NotificationStreamFailureCodes.RiskControlBlocked:
     case NotificationStreamFailureCodes.RiskControlThrottled:

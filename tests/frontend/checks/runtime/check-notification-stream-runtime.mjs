@@ -9,7 +9,7 @@ const clientSrcRoot = join(clientRoot, 'src')
 const serverRoot = join(repoRoot, 'src', 'backend')
 const notificationRuntimePath = join(clientSrcRoot, 'services', 'notificationStreamRuntime.ts')
 const notificationComposablePath = join(clientSrcRoot, 'composables', 'useNotification.ts')
-const securityAdapterPath = join(clientSrcRoot, 'adapters', 'binary', 'securityAdapter.ts')
+const securityRequestEncoderPath = join(clientSrcRoot, 'codecs', 'binary', 'securityRequestEncoder.ts')
 
 const violations = []
 
@@ -66,18 +66,24 @@ for (const filePath of walkFiles(serverRoot)) {
 
 const notificationRuntimeSource = readFileSync(notificationRuntimePath, 'utf8')
 const notificationComposableSource = readFileSync(notificationComposablePath, 'utf8')
-const securityAdapterSource = readFileSync(securityAdapterPath, 'utf8')
+const securityRequestEncoderSource = readFileSync(securityRequestEncoderPath, 'utf8')
 
 for (const required of [
   "'X-Fsus-Challenge-Proof'",
   "'X-Fsus-Challenge-Id'",
   "'X-Fsus-Challenge-Kind'",
-  "'challengeProof'",
-  "'challengeId'",
-  "'challengeKind'"
+  'SecurityChallengeProofLease',
+  'markInFlight()',
+  'settleCurrentChallengeLease'
 ]) {
   if (!notificationRuntimeSource.includes(required)) {
     report(notificationRuntimePath, `notification stream runtime must propagate RiskControl proof field ${required}`)
+  }
+}
+
+for (const forbidden of ["searchParams.set('challengeProof'", "searchParams.set('challengeId'", "searchParams.set('challengeKind'"]) {
+  if (notificationRuntimeSource.includes(forbidden)) {
+    report(notificationRuntimePath, `notification stream runtime must not place RiskControl proof material in URL: ${forbidden}`)
   }
 }
 
@@ -93,8 +99,8 @@ if (!/const\s+pow\s*=\s*await\s+getOrRefreshPow\(\)\s*[\s\S]{0,180}notificationS
   report(notificationComposablePath, 'guest notification stream initialization must send legacy PoW on the first preflight')
 }
 
-if (!securityAdapterSource.includes('view.setInt32(headerBytes, blobBytes, true)')) {
-  report(securityAdapterPath, 'security challenge request encoder must include BinaryPodWriter.WriteBytes length prefix')
+if (!securityRequestEncoderSource.includes('view.setInt32(headerBytes, blobBytes, true)')) {
+  report(securityRequestEncoderPath, 'security challenge request encoder must include BinaryPodWriter.WriteBytes length prefix')
 }
 
 for (const line of violations) {

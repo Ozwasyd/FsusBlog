@@ -45,14 +45,42 @@ public sealed record SecurityChallengeProofMintResult(
 
 public sealed record SecurityChallengeProofConsumeResult(
     bool Accepted,
+    string Outcome,
     string Reason,
     SecurityChallengeProofClaims? Claims)
 {
     public static SecurityChallengeProofConsumeResult Success(SecurityChallengeProofClaims claims)
-        => new(true, "ok", claims);
+        => new(true, SecurityChallengeProofOutcomes.Accepted, "ok", claims);
 
     public static SecurityChallengeProofConsumeResult Rejected(string reason, SecurityChallengeProofClaims? claims = null)
-        => new(false, reason, claims);
+        => new(false, SecurityChallengeProofOutcomes.FromInternalReason(reason), reason, claims);
+}
+
+public static class SecurityChallengeProofOutcomes
+{
+    public const string Accepted = "accepted";
+    public const string Expired = "expired";
+    public const string ReplayedOrMissing = "replayed_or_missing";
+    public const string BindingMismatch = "binding_mismatch";
+    public const string Revoked = "revoked";
+    public const string Rejected = "rejected";
+
+    public static string FromInternalReason(string reason)
+        => reason switch
+        {
+            "proof_expired" => Expired,
+            "proof_replayed_or_missing" => ReplayedOrMissing,
+            "proof_revoked" => Revoked,
+            "challenge_id_mismatch" or
+            "kind_mismatch" or
+            "action_mismatch" or
+            "route_key_mismatch" or
+            "subject_hash_mismatch" or
+            "client_ip_hash_mismatch" or
+            "device_fp_hash_mismatch" or
+            "policy_version_mismatch" => BindingMismatch,
+            _ => Rejected
+        };
 }
 
 public sealed record SecurityChallengeProofClaims(
@@ -149,6 +177,13 @@ public sealed class SecurityChallengeProofService(
                 : SecurityChallengeAttemptOutcomes.Failed;
             await RecordAttemptAsync(claims.ChallengeId, outcome, rejection, proofHash, request, cancellationToken);
             return SecurityChallengeProofConsumeResult.Rejected(rejection, claims);
+        }
+
+        string? challengeStatus = await challengePersistence.GetStatusAsync(claims.ChallengeId, cancellationToken);
+        if (string.Equals(challengeStatus, SecurityChallengeStatuses.Revoked, StringComparison.Ordinal))
+        {
+            await RecordAttemptAsync(claims.ChallengeId, SecurityChallengeAttemptOutcomes.Revoked, "proof_revoked", proofHash, request, cancellationToken);
+            return SecurityChallengeProofConsumeResult.Rejected("proof_revoked", claims);
         }
 
         await RecordAttemptAsync(claims.ChallengeId, SecurityChallengeAttemptOutcomes.Verified, "ok", proofHash, request, cancellationToken);

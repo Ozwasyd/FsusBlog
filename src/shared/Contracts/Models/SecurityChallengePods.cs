@@ -105,6 +105,7 @@ public readonly struct SecurityChallengeVerifyResponsePod
     public readonly Utf8Fixed64 PolicyVersion;
     public readonly Utf8SliceRef ProofToken;
     public readonly Utf8SliceRef Reason;
+    public readonly long ExpiresAtUnixMs;
 }
 
 /// <summary>

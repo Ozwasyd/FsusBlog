@@ -409,7 +409,7 @@ public class NotificationStreamBoundaryTests
     }
 
     [Fact]
-    public async Task Handshake_PreflightAcceptsRiskControlHeaderProofWithoutConsumingIt()
+    public async Task Handshake_PreflightConsumesRiskControlHeaderProofAndMintsOneTimeGrant()
     {
         var proof = new CapturingProofService();
         NotificationStreamHandshakeService service = CreateHandshakeService(
@@ -423,11 +423,12 @@ public class NotificationStreamBoundaryTests
         NotificationStreamHandshakeResult result = await service.ValidateAsync(context, CancellationToken.None, requireWebSocket: false);
 
         Assert.True(result.IsSuccess);
-        Assert.Empty(proof.ConsumeRequests);
+        Assert.Single(proof.ConsumeRequests);
+        Assert.Equal("grant-token", result.PreflightGrantToken);
     }
 
     [Fact]
-    public async Task Handshake_WebSocketConsumesRiskControlQueryProofForAnonymousSubscribe()
+    public async Task Handshake_WebSocketConsumesPreflightGrantWithoutReusingProof()
     {
         var proof = new CapturingProofService();
         NotificationStreamHandshakeService service = CreateHandshakeService(
@@ -436,17 +437,12 @@ public class NotificationStreamBoundaryTests
             riskScore: 50,
             proof);
         DefaultHttpContext context = CreateAnonymousHandshakeContext("https://example.com", "example.com");
-        AddRiskControlQuery(context);
+        context.Request.Headers.Cookie = $"{NotificationStreamHandshakeService.PreflightGrantCookieName}=grant-token";
 
         NotificationStreamHandshakeResult result = await service.ValidateAsync(context, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        SecurityChallengeProofConsumeRequest request = Assert.Single(proof.ConsumeRequests);
-        Assert.Equal("proof-ok", request.ProofToken);
-        Assert.Equal("notification-challenge", request.ChallengeId);
-        Assert.Equal("sha256PowV1", request.Kind);
-        Assert.Equal(RiskActionNames.NotificationSubscribe, request.Action);
-        Assert.Equal("notification.subscribe", request.RouteKey);
+        Assert.Empty(proof.ConsumeRequests);
     }
 
     [Fact]
@@ -513,9 +509,7 @@ public class NotificationStreamBoundaryTests
         Assert.Equal("X-Fsus-Challenge-Proof", typeof(NotificationStreamHandshakeService)
             .GetField("ChallengeProofHeaderName", BindingFlags.NonPublic | BindingFlags.Static)!
             .GetRawConstantValue());
-        Assert.Equal("challengeProof", typeof(NotificationStreamHandshakeService)
-            .GetField("ChallengeProofQueryName", BindingFlags.NonPublic | BindingFlags.Static)!
-            .GetRawConstantValue());
+        Assert.Equal("Fsus-Notification-Grant", NotificationStreamHandshakeService.PreflightGrantCookieName);
     }
 
     [Fact]
@@ -879,7 +873,8 @@ public class NotificationStreamBoundaryTests
         IPowService? powService = null,
         INotificationStreamAdmissionService? admissionService = null,
         CapturingRiskSink? riskSink = null,
-        DeploymentRuntimeState? deploymentRuntime = null)
+        DeploymentRuntimeState? deploymentRuntime = null,
+        INotificationStreamPreflightGrantService? preflightGrantService = null)
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(settings.Select(static item =>
@@ -904,7 +899,8 @@ public class NotificationStreamBoundaryTests
             new NotificationStreamOriginSnapshotProvider(configuration),
             environment,
             NullLoggerFactory.Instance,
-            deploymentRuntime);
+            deploymentRuntime,
+            preflightGrantService ?? new CapturingPreflightGrantService());
     }
 
     private static DefaultHttpContext CreateHandshakeContext(string origin, string host)
@@ -937,11 +933,6 @@ public class NotificationStreamBoundaryTests
         context.Request.Headers["X-Fsus-Challenge-Proof"] = "proof-ok";
         context.Request.Headers["X-Fsus-Challenge-Id"] = "notification-challenge";
         context.Request.Headers["X-Fsus-Challenge-Kind"] = "sha256PowV1";
-    }
-
-    private static void AddRiskControlQuery(DefaultHttpContext context)
-    {
-        context.Request.QueryString = new QueryString("?challengeProof=proof-ok&challengeId=notification-challenge&challengeKind=sha256PowV1");
     }
 
     private static void AddLegacyPowQuery(DefaultHttpContext context)
@@ -1089,6 +1080,20 @@ public class NotificationStreamBoundaryTests
                 "nonce",
                 request.PolicyVersion)));
         }
+    }
+
+    private sealed class CapturingPreflightGrantService : INotificationStreamPreflightGrantService
+    {
+        public Task<string> MintAsync(SecurityChallengeProofClaims proof, CancellationToken cancellationToken)
+            => Task.FromResult("grant-token");
+
+        public Task<NotificationStreamPreflightGrantConsumeResult> ConsumeAsync(
+            string token,
+            NotificationStreamPreflightGrantBinding binding,
+            CancellationToken cancellationToken)
+            => Task.FromResult(string.Equals(token, "grant-token", StringComparison.Ordinal)
+                ? NotificationStreamPreflightGrantConsumeResult.Success
+                : NotificationStreamPreflightGrantConsumeResult.Reject(SecurityChallengeProofOutcomes.ReplayedOrMissing));
     }
 
     private static NotificationStreamSessionService CreateSessionService(IWebHostEnvironment environment)

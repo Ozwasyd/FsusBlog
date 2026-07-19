@@ -10,6 +10,7 @@ import {
   type NotificationStreamEventV2
 } from '@/services/notificationStreamTypes'
 import { decodeNotificationFrame } from '@/adapters/binary/notificationAdapter'
+import { SecurityChallengeKind } from '@/api/security'
 
 vi.mock('@/adapters/binary/notificationAdapter', () => ({
   decodeNotificationApiErrorFrame: vi.fn(),
@@ -115,6 +116,14 @@ describe('resolveNotificationStreamEndpointUrl', () => {
       .toBe(NotificationStreamFailureCodes.RiskChallengeRequired)
     expect(normalizeNotificationStreamHandshakeFailure('risk_challenge_rejected', 428, 'guest'))
       .toBe(NotificationStreamFailureCodes.RiskChallengeRejected)
+    expect(normalizeNotificationStreamHandshakeFailure('risk_challenge_expired', 428, 'guest'))
+      .toBe(NotificationStreamFailureCodes.RiskChallengeExpired)
+    expect(normalizeNotificationStreamHandshakeFailure('risk_challenge_replayed', 428, 'guest'))
+      .toBe(NotificationStreamFailureCodes.RiskChallengeReplayed)
+    expect(normalizeNotificationStreamHandshakeFailure('risk_challenge_binding_mismatch', 428, 'guest'))
+      .toBe(NotificationStreamFailureCodes.RiskChallengeBindingMismatch)
+    expect(normalizeNotificationStreamHandshakeFailure('risk_challenge_revoked', 428, 'guest'))
+      .toBe(NotificationStreamFailureCodes.RiskChallengeRevoked)
     expect(normalizeNotificationStreamHandshakeFailure('risk_challenge_kind_mismatch', 428, 'guest'))
       .toBe(NotificationStreamFailureCodes.RiskChallengeKindMismatch)
     expect(normalizeNotificationStreamHandshakeFailure('risk_control_blocked', 429, 'guest'))
@@ -166,6 +175,57 @@ describe('resolveNotificationStreamEndpointUrl', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain('/api/notifications/stream/preflight')
+  })
+
+  it('consumes a challenge lease in preflight, keeps proof out of URL, and reissues on reconnect', async () => {
+    const fetchMock = vi.mocked(fetch)
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers(),
+        arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0))
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 428,
+        headers: new Headers({ 'X-Fsus-Notification-Stream-Error-Code': 'risk_challenge_required' }),
+        arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0))
+      } as Response)
+    const settle = vi.fn().mockReturnValue(true)
+    const runtime = new NotificationStreamRuntime()
+    const handshakeFailure = vi.fn()
+    runtime.onHandshakeFailure = handshakeFailure
+
+    const started = runtime.start(undefined, undefined, 'auth', {
+      proof: {
+        action: 'notification.subscribe',
+        routeKey: 'notification.subscribe',
+        challengeId: 'challenge-1',
+        kind: SecurityChallengeKind.Sha256PowV1,
+        proofToken: 'secret-proof-token',
+        policyVersion: 'risk-v2',
+        verifiedAtUnixMs: 1000,
+        expiresAtUnixMs: 10_000
+      },
+      markInFlight: vi.fn().mockReturnValue(true),
+      settle
+    })
+    const socket = await waitForSocket(0)
+    socket.open()
+    await started
+
+    expect(socket.url.searchParams.has('challengeProof')).toBe(false)
+    expect(socket.url.toString()).not.toContain('secret-proof-token')
+    expect((fetchMock.mock.calls[0]?.[1]?.headers as Record<string, string>)['X-Fsus-Challenge-Proof']).toBe('secret-proof-token')
+    expect(settle).toHaveBeenCalledWith('accepted')
+
+    socket.close(1006)
+    await vi.advanceTimersByTimeAsync(1000)
+    await Promise.resolve()
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(ManualWebSocket.instances).toHaveLength(1)
+    expect(handshakeFailure).toHaveBeenCalledWith(NotificationStreamFailureCodes.RiskChallengeRequired)
   })
 
   it('batches cursor snapshots while keeping duplicate and out-of-order detection', async () => {

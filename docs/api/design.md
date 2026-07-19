@@ -198,6 +198,7 @@ TOTP 在匿名身份模式下只作为敏感操作 step-up。TOTP issuer account
 | 安全强制 | `X-Fsus-Challenge-Proof` | 请求 | RiskControl challenge verify 成功后签发的一次性 opaque proof；业务 endpoint 只能由 `RequiresRiskControlFilter` 消费。 |
 | 安全强制 | `X-Fsus-Challenge-Id` | 请求 | 与 `X-Fsus-Challenge-Proof` 绑定的 challenge id；缺失、重放或 action / route / IP / device mismatch 返回 428。 |
 | 安全强制 | `X-Fsus-Challenge-Kind` | 请求 | 与 `X-Fsus-Challenge-Proof` 绑定的 provider kind，例如 `sha256PowV1`；legacy alias `security.pow` 只作为兼容输入规范化。 |
+| 安全强制 | `X-Fsus-Challenge-Proof-Outcome` | 响应 | proof 被拒绝时的安全分类：`expired`、`replayed_or_missing`、`binding_mismatch`、`revoked` 或 `rejected`；不得暴露 cache key、身份值或内部原因。 |
 | 安全强制 | `X-Fsus-Subscription-Proof` | 请求 | 公开站点订阅退订的一次性 opaque proof；必须由服务端 proof API 签发并绑定 `SHA256(normalizedEmail)` 与归一化 channel，`DELETE /api/binary/subscriptions` 消费，缺失、重放、过期或绑定不匹配返回 428。 |
 | 安全强制 | `X-Fsus-Device-Fp` | 请求 | 认证、HumanReadProof、审计和风险信号使用的设备指纹；不得包含可逆身份信息。 |
 | 安全强制 | `X-Fsus-Csrf-Token` | 请求 | ASP.NET antiforgery header 名；cookie 凭据的状态变更请求同时受同源 `Origin` / `Referer` guard 保护。 |
@@ -224,7 +225,9 @@ FPOW 信封字段顺序为：`magic[4] = "FPOW"`（字节 `46 50 4f 57`）、`ve
 
 RiskControl 新 challenge provider 不得自定义平行 assignment 结构。PoW、Captcha、PoSpace、HumanReadProof、Passkey step-up、匿名凭证和 ZK 匿名评论 proof 都必须使用 `SecurityChallengeAssignment` / `SecurityChallengeEnvelope` AEDS frame，统一携带 challengeId、traceparent、tenantId、kind、action、routeKey、subject/client IP/device fingerprint hash、issued/expires 和 escalationLevel；provider 只扩展自己的 proof 验证载荷。
 
-受 RiskControl 保护的业务请求不得把 provider proof 直接发给业务 endpoint；客户端必须先调用 `/api/binary/security/challenge/verify` 换取一次性 `X-Fsus-Challenge-Proof`，再与 `X-Fsus-Challenge-Id`、`X-Fsus-Challenge-Kind` 一起提交到业务 endpoint。当前业务 endpoint 与 notification stream 只接受单个 challenge proof；若 V2 policy 裁决返回多个 `RequiredChallenges`，请求路径必须返回 428 fail closed，直到引入显式 aggregate proof contract。notification stream 匿名订阅的 `notification.subscribe` action 同样走该 proof 绑定：preflight 可使用 `X-Fsus-Challenge-*` header，正式 WebSocket 因浏览器无法自定义握手 header，可使用 `challengeProof`、`challengeId`、`challengeKind` query 参数；preflight 不消费一次性 proof，只校验存在性和 kind，正式 WebSocket 握手才消费。Passkey assertion 失败只能写风险信号，不改变登录响应 frame；Passkey assertion 成功可写负分风险信号，并继续以 Passkey 作为 MFA 已满足的登录凭据。
+受 RiskControl 保护的业务请求不得把 provider proof 直接发给业务 endpoint；客户端必须先调用 `/api/binary/security/challenge/verify` 换取一次性 `X-Fsus-Challenge-Proof`，再与 `X-Fsus-Challenge-Id`、`X-Fsus-Challenge-Kind` 一起提交到业务 endpoint。verify 成功响应同时返回 provider/mint claims 的服务端权威 `expiresAtUnixMs`，客户端不得固定推算五分钟。Proof Store 只允许内存态 `available -> reserved/in_flight -> consumed|expired|replayed|rejected`；只有确定请求尚未发送时才能恢复 reservation，一旦请求可能到达服务端，超时、连接重置与业务拒绝都必须终结 token 并重新 issue。当前业务 endpoint 与 notification stream 只接受单个 challenge proof；若 V2 policy 裁决返回多个 `RequiredChallenges`，请求路径必须返回 428 fail closed，直到引入显式 aggregate proof contract。
+
+notification stream 匿名订阅的 `notification.subscribe` action 使用同一生命周期，但原始 proof 只进入 preflight 的 `X-Fsus-Challenge-*` headers。preflight 原子消费 proof 后设置 path-bound、HttpOnly、SameSite=Strict 的短效 opaque grant session cookie；正式 WebSocket 只消费该 grant，URL、日志和 reconnect 都不携带原 proof。grant 也是一次性的：断线重连必须重新 preflight；服务端返回 challenge required 时客户端显式 issue 新 proof，同一 token 不得被并发连接保留。legacy FPOW 的 `pow` query 兼容路径不改变。Passkey assertion 失败只能写风险信号，不改变登录响应 frame；Passkey assertion 成功可写负分风险信号，并继续以 Passkey 作为 MFA 已满足的登录凭据。
 
 `/api/binary/security/challenge/verify` 的尝试次数限制是服务端 hot-path 安全控制，不改变 AEDS request / response contract。端点只依赖 `ISecurityChallengeVerifyRateLimiter`；限流状态必须落在统一缓存 `SecurityChallengeVerifyRateLimit` policy 下，按 1 分钟窗口、客户端 IP hash、device fingerprint hash、规范化 action 和 challengeId hash 计数，超过 3 次时仍返回通用 `challenge_failed`，并写 `SecurityChallengeRejected` 风险信号。
 
@@ -289,7 +292,7 @@ AEDS wire protocol 是传输层版本，不等同于 URL 版本。当前运行�
 
 ### 握手预检
 
-`GET /api/notifications/stream/preflight` 复用认证、匿名 RiskControl / legacy PoW、cursor 和协议校验，但不要求 WebSocket upgrade；成功返回 `204`，失败返回 AEDS `ApiError` frame，并写入 `X-Fsus-Notification-Stream-Error-Code` / `X-Fsus-Notification-Stream-Status-Code`。匿名 preflight 可通过 `X-Fsus-Challenge-*` header 提交 `notification.subscribe` RiskControl proof，也继续兼容 `pow` query 参数；正式 WebSocket 可用 `challengeProof` / `challengeId` / `challengeKind` query 参数提交 RiskControl proof，或继续使用 legacy `pow` query 参数。公开事件不绕过匿名订阅准入。
+`GET /api/notifications/stream/preflight` 复用认证、匿名 RiskControl / legacy PoW、cursor 和协议校验，但不要求 WebSocket upgrade；成功返回 `204`，失败返回 AEDS `ApiError` frame，并写入 `X-Fsus-Notification-Stream-Error-Code` / `X-Fsus-Notification-Stream-Status-Code`。preflight 只通过 `X-Fsus-Challenge-*` header 接收并原子消费 `notification.subscribe` RiskControl proof，成功后设置短效一次性 HttpOnly grant；正式 WebSocket 只消费 grant，原 proof 不进入 URL。legacy `pow` query 参数继续兼容。公开事件不绕过匿名订阅准入。
 
 ### 匿名 vs 认证
 

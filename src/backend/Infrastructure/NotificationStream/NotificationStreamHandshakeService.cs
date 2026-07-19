@@ -30,11 +30,12 @@ internal sealed record NotificationStreamHandshake(string Protocol, string? User
 
 internal sealed record NotificationStreamHandshakeResult
 {
-    private NotificationStreamHandshakeResult(NotificationStreamHandshake? handshake, int statusCode, string? errorCode)
+    private NotificationStreamHandshakeResult(NotificationStreamHandshake? handshake, int statusCode, string? errorCode, string? preflightGrantToken)
     {
         Handshake = handshake;
         StatusCode = statusCode;
         ErrorCode = errorCode;
+        PreflightGrantToken = preflightGrantToken;
     }
 
     public NotificationStreamHandshake? Handshake
@@ -52,11 +53,17 @@ internal sealed record NotificationStreamHandshakeResult
         get;
     }
 
+    public string? PreflightGrantToken
+    {
+        get;
+    }
+
     public bool IsSuccess => Handshake is not null;
 
-    public static NotificationStreamHandshakeResult Success(NotificationStreamHandshake handshake) => new(handshake, StatusCodes.Status200OK, null);
+    public static NotificationStreamHandshakeResult Success(NotificationStreamHandshake handshake, string? preflightGrantToken = null)
+        => new(handshake, StatusCodes.Status200OK, null, preflightGrantToken);
 
-    public static NotificationStreamHandshakeResult Failure(int statusCode, string errorCode) => new(null, statusCode, errorCode);
+    public static NotificationStreamHandshakeResult Failure(int statusCode, string errorCode) => new(null, statusCode, errorCode, null);
 }
 
 // Design reference: docs/api/design.md "通知通道设计约定".
@@ -74,15 +81,15 @@ internal sealed class NotificationStreamHandshakeService(
     NotificationStreamOriginSnapshotProvider originSnapshotProvider,
     IWebHostEnvironment environment,
     ILoggerFactory loggerFactory,
-    DeploymentRuntimeState? deploymentRuntime = null) : INotificationStreamHandshakeService
+    DeploymentRuntimeState? deploymentRuntime = null,
+    INotificationStreamPreflightGrantService? preflightGrantService = null) : INotificationStreamHandshakeService
 {
     private const string Protocol = "fsus-aeds.v2";
+    internal const string PreflightGrantCookieName = "Fsus-Notification-Grant";
     private const string ChallengeProofHeaderName = "X-Fsus-Challenge-Proof";
     private const string ChallengeIdHeaderName = "X-Fsus-Challenge-Id";
     private const string ChallengeKindHeaderName = "X-Fsus-Challenge-Kind";
-    private const string ChallengeProofQueryName = "challengeProof";
-    private const string ChallengeIdQueryName = "challengeId";
-    private const string ChallengeKindQueryName = "challengeKind";
+    private static readonly object s_preflightGrantItemKey = new();
     private static readonly TimeSpan s_riskSignalTtl = TimeSpan.FromMinutes(10);
 
     public async Task<NotificationStreamHandshakeResult> ValidateAsync(
@@ -126,7 +133,9 @@ internal sealed class NotificationStreamHandshakeService(
             return NotificationStreamHandshakeResult.Failure(StatusCodes.Status401Unauthorized, "auth_failed");
         }
 
-        if (!isAuthenticated)
+        bool carriesRiskControlMaterial = context.Request.Headers.ContainsKey(ChallengeProofHeaderName)
+            || context.Request.Cookies.ContainsKey(PreflightGrantCookieName);
+        if (!isAuthenticated || carriesRiskControlMaterial)
         {
             NotificationStreamHandshakeResult? riskFailure = await ValidateAnonymousSubscribeGateAsync(
                 context,
@@ -152,7 +161,10 @@ internal sealed class NotificationStreamHandshakeService(
         }
 
         IReadOnlySet<string> groups = audienceResolver.ResolveGroups(context.User, userId);
-        return NotificationStreamHandshakeResult.Success(new NotificationStreamHandshake(Protocol, userId, groups));
+        string? preflightGrantToken = context.Items.TryGetValue(s_preflightGrantItemKey, out object? grant)
+            ? grant as string
+            : null;
+        return NotificationStreamHandshakeResult.Success(new NotificationStreamHandshake(Protocol, userId, groups), preflightGrantToken);
     }
 
     private async Task<NotificationStreamHandshakeResult?> ValidateAnonymousSubscribeGateAsync(
@@ -239,7 +251,38 @@ internal sealed class NotificationStreamHandshakeService(
             return NotificationStreamHandshakeResult.Failure(StatusCodes.Status428PreconditionRequired, "risk_challenge_set_incomplete");
         }
 
-        if (!TryReadChallengeProof(context, out string proofToken, out string challengeId, out string challengeKind))
+        RiskControlProofBinding binding = RiskControlProofBindingFactory.Create(riskContext);
+        if (consumeProof)
+        {
+            string grantToken = context.Request.Cookies[PreflightGrantCookieName]?.Trim() ?? string.Empty;
+            if (preflightGrantService is null || grantToken.Length == 0)
+            {
+                await RecordRiskAsync(context, "challenge_grant_missing", decision.ActionName, cancellationToken, score: 0);
+                return NotificationStreamHandshakeResult.Failure(StatusCodes.Status428PreconditionRequired, "risk_challenge_required");
+            }
+
+            NotificationStreamPreflightGrantConsumeResult grant = await preflightGrantService.ConsumeAsync(
+                grantToken,
+                new NotificationStreamPreflightGrantBinding(
+                    decision.ActionName,
+                    decision.RouteKey,
+                    binding.SubjectHash,
+                    binding.ClientIpHash,
+                    binding.DeviceFpHash,
+                    decision.PolicyVersion),
+                cancellationToken);
+            if (grant.Accepted)
+            {
+                return null;
+            }
+
+            await RecordRiskAsync(context, $"challenge_grant_rejected:{grant.Outcome}", decision.ActionName, cancellationToken);
+            return NotificationStreamHandshakeResult.Failure(
+                StatusCodes.Status428PreconditionRequired,
+                PublicChallengeFailure(grant.Outcome));
+        }
+
+        if (!TryReadChallengeProofHeaders(context, out string proofToken, out string challengeId, out string challengeKind))
         {
             // Missing proof is the normal first leg of a challenge handshake.
             // Rejected or replayed proof is the risky signal, not requesting the challenge.
@@ -255,12 +298,6 @@ internal sealed class NotificationStreamHandshakeService(
             return NotificationStreamHandshakeResult.Failure(StatusCodes.Status428PreconditionRequired, "risk_challenge_kind_mismatch");
         }
 
-        if (!consumeProof)
-        {
-            return null;
-        }
-
-        RiskControlProofBinding binding = RiskControlProofBindingFactory.Create(riskContext);
         SecurityChallengeProofConsumeResult proof = await challengeProofService.ConsumeProofAsync(
             new SecurityChallengeProofConsumeRequest(
                 proofToken,
@@ -275,11 +312,17 @@ internal sealed class NotificationStreamHandshakeService(
             cancellationToken);
         if (proof.Accepted)
         {
+            if (preflightGrantService is null || proof.Claims is null)
+            {
+                return NotificationStreamHandshakeResult.Failure(StatusCodes.Status503ServiceUnavailable, "risk_challenge_grant_unavailable");
+            }
+
+            context.Items[s_preflightGrantItemKey] = await preflightGrantService.MintAsync(proof.Claims, cancellationToken);
             return null;
         }
 
         await RecordRiskAsync(context, $"challenge_proof_rejected:{proof.Reason}", decision.ActionName, cancellationToken);
-        return NotificationStreamHandshakeResult.Failure(StatusCodes.Status428PreconditionRequired, "risk_challenge_rejected");
+        return NotificationStreamHandshakeResult.Failure(StatusCodes.Status428PreconditionRequired, PublicChallengeFailure(proof.Outcome));
     }
 
     private async Task<NotificationStreamHandshakeResult> RejectRiskAsync(
@@ -348,20 +391,6 @@ internal sealed class NotificationStreamHandshakeService(
         };
     }
 
-    private static bool TryReadChallengeProof(
-        HttpContext context,
-        out string proofToken,
-        out string challengeId,
-        out string challengeKind)
-    {
-        if (TryReadChallengeProofHeaders(context, out proofToken, out challengeId, out challengeKind))
-        {
-            return true;
-        }
-
-        return TryReadChallengeProofQuery(context, out proofToken, out challengeId, out challengeKind);
-    }
-
     private static bool TryReadChallengeProofHeaders(
         HttpContext context,
         out string proofToken,
@@ -376,19 +405,15 @@ internal sealed class NotificationStreamHandshakeService(
             && TryReadSingleHeader(context, ChallengeKindHeaderName, out challengeKind);
     }
 
-    private static bool TryReadChallengeProofQuery(
-        HttpContext context,
-        out string proofToken,
-        out string challengeId,
-        out string challengeKind)
-    {
-        proofToken = string.Empty;
-        challengeId = string.Empty;
-        challengeKind = string.Empty;
-        return TryReadSingleQuery(context, ChallengeProofQueryName, out proofToken)
-            && TryReadSingleQuery(context, ChallengeIdQueryName, out challengeId)
-            && TryReadSingleQuery(context, ChallengeKindQueryName, out challengeKind);
-    }
+    private static string PublicChallengeFailure(string outcome)
+        => outcome switch
+        {
+            SecurityChallengeProofOutcomes.Expired => "risk_challenge_expired",
+            SecurityChallengeProofOutcomes.ReplayedOrMissing => "risk_challenge_replayed",
+            SecurityChallengeProofOutcomes.BindingMismatch => "risk_challenge_binding_mismatch",
+            SecurityChallengeProofOutcomes.Revoked => "risk_challenge_revoked",
+            _ => "risk_challenge_rejected"
+        };
 
     private static bool TryReadSingleHeader(HttpContext context, string headerName, out string value)
     {

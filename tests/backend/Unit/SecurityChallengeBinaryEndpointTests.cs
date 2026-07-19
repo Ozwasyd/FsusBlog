@@ -128,7 +128,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
             BinaryRequestPayload.Success(PodBinaryCodec.EncodeSecurityChallengeVerifyRequest(request)));
         var orchestrator = new FakeChallengeOrchestrator
         {
-            VerifyResult = SecurityChallengeOrchestrationVerifyResult.Success("fcp_token")
+            VerifyResult = new SecurityChallengeOrchestrationVerifyResult(true, "ok", "fcp_token", DateTimeOffset.FromUnixTimeMilliseconds(1_770_000_300_000))
         };
 
         BinaryFrameResult result = await BinaryEndpoints.HandleSecurityChallengeVerifyAsync(
@@ -146,6 +146,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
         Assert.True(PodBinaryCodec.TryDecodeSecurityChallengeVerifyResponse(decoded.Payload, out SecurityChallengeVerifyBinaryResponse response));
         Assert.True(response.Verified);
         Assert.Equal("fcp_token", response.ProofToken);
+        Assert.Equal(1_770_000_300_000, response.ExpiresAtUnixMs);
         Assert.NotNull(orchestrator.LastVerifyRequest);
         Assert.Equal(challengeId, orchestrator.LastVerifyRequest.ChallengeId);
         Assert.Equal(Sha256PowChallengeProvider.WireKind, orchestrator.LastVerifyRequest.Kind);
@@ -169,7 +170,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
             BinaryRequestPayload.Success(PodBinaryCodec.EncodeSecurityChallengeVerifyRequest(request)));
         var orchestrator = new FakeChallengeOrchestrator
         {
-            VerifyResult = SecurityChallengeOrchestrationVerifyResult.Success("fcp_token")
+            VerifyResult = new SecurityChallengeOrchestrationVerifyResult(true, "ok", "fcp_token", DateTimeOffset.FromUnixTimeMilliseconds(1_770_000_300_000))
         };
 
         BinaryFrameResult result = await BinaryEndpoints.HandleSecurityChallengeVerifyAsync(
@@ -337,7 +338,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
             BinaryRequestPayload.Success(PodBinaryCodec.EncodeSecurityChallengeVerifyRequest(request)));
         var orchestrator = new FakeChallengeOrchestrator
         {
-            VerifyResult = SecurityChallengeOrchestrationVerifyResult.Success("should_not_run")
+            VerifyResult = new SecurityChallengeOrchestrationVerifyResult(true, "ok", "should_not_run", DateTimeOffset.FromUnixTimeMilliseconds(1_770_000_300_000))
         };
         var riskSink = new CapturingRiskSink();
 

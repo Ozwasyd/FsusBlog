@@ -180,12 +180,14 @@ public sealed class AuthRiskControlEndpointContractTests(
     }
 
     [Theory]
-    [InlineData("risk-proof-invalid", "proof_replayed_or_missing")]
-    [InlineData("risk-proof-expired", "proof_expired")]
-    [InlineData("risk-proof-scope", "route_key_mismatch")]
-    public async Task TestServer_InvalidExpiredAndWrongScopeRiskProofsReturnOneStableError(
+    [InlineData("risk-proof-invalid", "proof_replayed_or_missing", "RISK_CHALLENGE_PROOF_REPLAYED", SecurityChallengeProofOutcomes.ReplayedOrMissing)]
+    [InlineData("risk-proof-expired", "proof_expired", "RISK_CHALLENGE_PROOF_EXPIRED", SecurityChallengeProofOutcomes.Expired)]
+    [InlineData("risk-proof-scope", "route_key_mismatch", "RISK_CHALLENGE_PROOF_BINDING_MISMATCH", SecurityChallengeProofOutcomes.BindingMismatch)]
+    public async Task TestServer_InvalidExpiredAndWrongScopeRiskProofsReturnSafeOutcome(
         string proof,
-        string expectedReason)
+        string expectedReason,
+        string expectedPublicError,
+        string expectedOutcome)
     {
         EndpointSecurityTestServer server = DefaultServer();
         using HttpClient client = CreateIsolatedClient(server);
@@ -199,7 +201,8 @@ public sealed class AuthRiskControlEndpointContractTests(
         Assert.Equal((HttpStatusCode)StatusCodes.Status428PreconditionRequired, response.StatusCode);
         ErrorDetail error = await EndpointSecurityTestServer.ReadErrorAsync(response);
         Assert.Equal(ErrorCode.Forbidden, error.Code);
-        Assert.Equal("RISK_CHALLENGE_PROOF_REJECTED", error.Message);
+        Assert.Equal(expectedPublicError, error.Message);
+        Assert.Equal(expectedOutcome, response.Headers.GetValues(RequiresRiskControlFilter.ChallengeProofOutcomeHeaderName).Single());
         Assert.Contains(
             server.RiskSink.Signals,
             signal => string.Equals(

@@ -6,6 +6,7 @@ import { useNotificationStreamStore } from '@/store/notificationStream'
 import { useUserStore } from '@/store/user'
 import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime'
 import { clearLocalFixtureSession } from '@/services/localFixtureSession'
+import { defaultChallengeProofStore } from '@/security/challenge-proof-store'
 
 export type AuthBroadcastEvent =
   | { type: 'login'; at: number }
@@ -81,20 +82,24 @@ class AuthBroadcastRuntime {
   }
 
   broadcastLogin(): void {
+    defaultChallengeProofStore.clear()
     void clearPrivateBrowserState('account-switch')
     this.broadcast(createEvent('login'))
   }
 
   broadcastLogout(): void {
+    defaultChallengeProofStore.clear()
     this.broadcast(createEvent('logout'))
   }
 
   broadcastExpired(): void {
+    defaultChallengeProofStore.clear()
     void clearPrivateBrowserState('session-expired')
     this.broadcast(createEvent('expired'))
   }
 
   expireUserSession(): void {
+    defaultChallengeProofStore.clear()
     void clearPrivateBrowserState('session-expired')
     const event = createEvent('user-expired')
     this.handleAuthBroadcastEvent(event)
@@ -102,10 +107,12 @@ class AuthBroadcastRuntime {
   }
 
   broadcastAdminChanged(): void {
+    defaultChallengeProofStore.clear()
     this.broadcast(createEvent('admin-changed'))
   }
 
   handleAuthBroadcastEvent(event: AuthBroadcastEvent): void {
+    defaultChallengeProofStore.clear()
     if (!this.pinia) {
       return
     }

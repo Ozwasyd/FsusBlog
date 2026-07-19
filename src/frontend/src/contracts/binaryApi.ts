@@ -793,6 +793,7 @@ export interface SecurityChallengeVerifyResponse {
   kind: SecurityChallengeKind
   policyVersion: string
   proofToken: string
+  expiresAtUnixMs: number
   reason: string
   retryAfterMs: number
 }

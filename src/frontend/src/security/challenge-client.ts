@@ -12,6 +12,7 @@ import {
 import { getErrorMessage } from '@/utils/errors'
 import {
   defaultChallengeProofStore,
+  type ChallengeProofSettlement,
   type ChallengeProofStore,
   type SecurityChallengeProof
 } from './challenge-proof-store'
@@ -46,11 +47,17 @@ export interface SecurityChallengeVerifyResult {
   retryAfterMs: number
 }
 
+export interface SecurityChallengeProofLease {
+  readonly proof: SecurityChallengeProof
+  markInFlight(): boolean
+  settle(outcome: ChallengeProofSettlement): boolean
+}
+
 export interface SecurityChallengeClient {
   issue(context: SecurityChallengeContext, options?: { forceRefresh?: boolean }): Promise<SecurityChallengeIssueResult>
   refresh(context: SecurityChallengeContext): Promise<SecurityChallengeIssueResult>
   verify(context: SecurityChallengeContext, request: VerifySecurityChallengeRequest): Promise<SecurityChallengeVerifyResult>
-  getCachedProof(context: SecurityChallengeContext): SecurityChallengeProof | null
+  reserveProof(context: SecurityChallengeContext): SecurityChallengeProofLease | null
   clearProof(context: SecurityChallengeContext): void
 }
 
@@ -59,10 +66,7 @@ export interface SecurityChallengeClientOptions {
   verifyChallenge?: (request: VerifySecurityChallengeRequest) => Promise<SecurityChallengeVerifyResponse>
   proofStore?: ChallengeProofStore
   now?: () => number
-  proofTtlMs?: number
 }
-
-const DEFAULT_PROOF_TTL_MS = 5 * 60 * 1000
 
 export const securityBusinessChallengeGates = {
   'comment.create': 'perception-v2',
@@ -75,10 +79,18 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
   const verifyChallenge = options.verifyChallenge ?? verifySecurityChallenge
   const proofStore = options.proofStore ?? defaultChallengeProofStore
   const now = options.now ?? (() => Date.now())
-  const proofTtlMs = Math.max(1000, options.proofTtlMs ?? DEFAULT_PROOF_TTL_MS)
 
-  const getCachedProof = (context: SecurityChallengeContext): SecurityChallengeProof | null =>
-    proofStore.get(context.action, context.routeKey)
+  const reserveProof = (context: SecurityChallengeContext): SecurityChallengeProofLease | null => {
+    const reservation = proofStore.reserve(context.action, context.routeKey)
+    if (!reservation) {
+      return null
+    }
+    return {
+      proof: reservation.proof,
+      markInFlight: () => proofStore.markInFlight(reservation.reservationId),
+      settle: (outcome) => proofStore.settle(reservation.reservationId, outcome)
+    }
+  }
 
   const clearProof = (context: SecurityChallengeContext): void => {
     proofStore.delete(context.action, context.routeKey)
@@ -86,7 +98,7 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
 
   async function issue(context: SecurityChallengeContext, issueOptions: { forceRefresh?: boolean } = {}): Promise<SecurityChallengeIssueResult> {
     if (!issueOptions.forceRefresh) {
-      const proof = getCachedProof(context)
+      const proof = proofStore.peek(context.action, context.routeKey)
       if (proof) {
         return {
           status: 'verified',
@@ -169,6 +181,15 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
       }
 
       const verifiedAtUnixMs = now()
+      if (!Number.isFinite(response.expiresAtUnixMs) || response.expiresAtUnixMs <= verifiedAtUnixMs) {
+        return {
+          status: 'failed',
+          response,
+          proof: null,
+          reason: 'security_challenge_proof_expired',
+          retryAfterMs: response.retryAfterMs
+        }
+      }
       const proof: SecurityChallengeProof = {
         action: context.action,
         routeKey: context.routeKey,
@@ -177,7 +198,7 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
         proofToken: response.proofToken,
         policyVersion: response.policyVersion,
         verifiedAtUnixMs,
-        expiresAtUnixMs: verifiedAtUnixMs + proofTtlMs
+        expiresAtUnixMs: response.expiresAtUnixMs
       }
       proofStore.set(proof)
       return {
@@ -204,7 +225,7 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
       return issue(context, { forceRefresh: true })
     },
     verify,
-    getCachedProof,
+    reserveProof,
     clearProof
   }
 }

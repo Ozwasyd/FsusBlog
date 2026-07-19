@@ -254,6 +254,7 @@ async function verifyPerceptionChallenge(request: VerifySecurityChallengeRequest
     kind: request.kind,
     policyVersion: '',
     proofToken: '',
+    expiresAtUnixMs: 0,
     reason: result.reason ?? 'security_challenge_verify_failed',
     retryAfterMs: result.retryAfterMs
   }
@@ -291,6 +292,7 @@ async function verifyCaptchaChallenge(request: VerifySecurityChallengeRequest): 
     kind: request.kind,
     policyVersion: '',
     proofToken: '',
+    expiresAtUnixMs: 0,
     reason: result.reason ?? 'security_challenge_verify_failed',
     retryAfterMs: result.retryAfterMs
   }

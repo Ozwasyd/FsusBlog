@@ -308,6 +308,7 @@ public sealed class SecurityChallengeContractTests
             SecurityChallengeKind.Sha256PowV1,
             "risk-policy-v2",
             "fcp_token",
+            1_770_000_300_000,
             "ok",
             0);
         byte[] verifyEncoded = PodBinaryCodec.EncodeSecurityChallengeVerifyResponse(verifyResponse);

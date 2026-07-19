@@ -92,8 +92,10 @@ public sealed class SecurityChallengeProofServiceTests
             CancellationToken.None);
 
         Assert.True(accepted.Accepted);
+        Assert.Equal(SecurityChallengeProofOutcomes.Accepted, accepted.Outcome);
         Assert.Equal("ok", accepted.Reason);
         Assert.False(replay.Accepted);
+        Assert.Equal(SecurityChallengeProofOutcomes.ReplayedOrMissing, replay.Outcome);
         Assert.Equal("proof_replayed_or_missing", replay.Reason);
         Assert.Equal(2, persistence.Attempts.Count);
         Assert.Equal(SecurityChallengeAttemptOutcomes.Verified, persistence.Attempts[0].Outcome);
@@ -122,6 +124,7 @@ public sealed class SecurityChallengeProofServiceTests
         SecurityChallengeProofConsumeResult result = await service.ConsumeProofAsync(request, CancellationToken.None);
 
         Assert.False(result.Accepted);
+        Assert.Equal(SecurityChallengeProofOutcomes.BindingMismatch, result.Outcome);
         Assert.Equal(expectedReason, result.Reason);
         SecurityChallengeAttemptRequest attempt = Assert.Single(persistence.Attempts);
         Assert.Equal(SecurityChallengeAttemptOutcomes.Failed, attempt.Outcome);
@@ -143,6 +146,7 @@ public sealed class SecurityChallengeProofServiceTests
             CancellationToken.None);
 
         Assert.False(result.Accepted);
+        Assert.Equal(SecurityChallengeProofOutcomes.Expired, result.Outcome);
         Assert.Equal("proof_expired", result.Reason);
         SecurityChallengeAttemptRequest attempt = Assert.Single(persistence.Attempts);
         Assert.Equal(SecurityChallengeAttemptOutcomes.Expired, attempt.Outcome);
@@ -167,6 +171,22 @@ public sealed class SecurityChallengeProofServiceTests
         Assert.Equal(SecurityChallengeAttemptOutcomes.Replayed, attempt.Outcome);
         Assert.Equal("proof_replayed_or_missing", attempt.Reason);
         Assert.DoesNotContain(persistence.Attempts, static item => item.Outcome == SecurityChallengeAttemptOutcomes.Verified);
+    }
+
+    [Fact]
+    public async Task ConsumeProofAsync_RejectsRevokedChallengeWithPublicOutcome()
+    {
+        var cache = new MemoryProofCache();
+        var persistence = new RecordingChallengePersistence { Status = SecurityChallengeStatuses.Revoked };
+        var service = new SecurityChallengeProofService(cache, persistence, new MutableTimeProvider(s_baselineNow));
+        SecurityChallengeProofMintResult minted = await service.MintProofAsync(CreateMintRequest(), CancellationToken.None);
+
+        SecurityChallengeProofConsumeResult result = await service.ConsumeProofAsync(CreateConsumeRequest(minted.ProofToken), CancellationToken.None);
+
+        Assert.False(result.Accepted);
+        Assert.Equal(SecurityChallengeProofOutcomes.Revoked, result.Outcome);
+        Assert.Equal("proof_revoked", result.Reason);
+        Assert.Equal(SecurityChallengeAttemptOutcomes.Revoked, Assert.Single(persistence.Attempts).Outcome);
     }
 
     private static SecurityChallengeProofMintRequest CreateMintRequest()
@@ -270,6 +290,11 @@ public sealed class SecurityChallengeProofServiceTests
 
     private sealed class RecordingChallengePersistence : ISecurityChallengePersistenceService
     {
+        public string? Status
+        {
+            get; init;
+        }
+
         public List<SecurityChallengeAttemptRequest> Attempts { get; } = [];
 
         public Task<SecurityChallenge> IssueAsync(SecurityChallengeIssueRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
@@ -294,6 +319,9 @@ public sealed class SecurityChallengeProofServiceTests
         public Task<bool> ExpireAsync(string challengeId, string? reason = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
         public Task<bool> RevokeAsync(string challengeId, string? reason = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<string?> GetStatusAsync(string challengeId, CancellationToken cancellationToken = default)
+            => Task.FromResult(Status);
     }
 
     private sealed class MutableTimeProvider(DateTimeOffset utcNow) : TimeProvider

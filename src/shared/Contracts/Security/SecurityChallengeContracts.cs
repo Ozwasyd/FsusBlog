@@ -108,6 +108,7 @@ public sealed record class SecurityChallengeVerifyBinaryResponse(
     SecurityChallengeKind Kind,
     string PolicyVersion,
     string ProofToken,
+    long ExpiresAtUnixMs,
     string Reason,
     int RetryAfterMs);
 

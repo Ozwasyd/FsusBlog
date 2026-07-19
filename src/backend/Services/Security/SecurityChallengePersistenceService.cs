@@ -17,6 +17,9 @@ public interface ISecurityChallengePersistenceService
     Task<bool> ExpireAsync(string challengeId, string? reason = null, CancellationToken cancellationToken = default);
 
     Task<bool> RevokeAsync(string challengeId, string? reason = null, CancellationToken cancellationToken = default);
+
+    Task<string?> GetStatusAsync(string challengeId, CancellationToken cancellationToken = default)
+        => Task.FromResult<string?>(null);
 }
 
 public sealed record SecurityChallengeIssueRequest(
@@ -207,6 +210,16 @@ public sealed class SecurityChallengePersistenceService(ISqlSugarClient db) : IS
         {
             return false;
         }
+    }
+
+    public async Task<string?> GetStatusAsync(string challengeId, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        string normalizedChallengeId = NormalizeRequired(challengeId, nameof(challengeId), 64);
+        return await db.Queryable<SecurityChallenge>()
+            .Where(item => item.ChallengeId == normalizedChallengeId)
+            .Select(item => item.Status)
+            .SingleAsync();
     }
 
     private async Task<SecurityChallengeMetricContext?> ReadChallengeMetricContextAsync(
