@@ -219,8 +219,8 @@ public class ArticleServiceValidationTests
         Assert.Contains("TryReadArticleDetailCacheAsync", method, StringComparison.Ordinal);
         Assert.Contains("LoadArticleDetailFromDbAsync", method, StringComparison.Ordinal);
         Assert.Contains("article-detail", method, StringComparison.Ordinal);
-        Assert.Contains("IUnifiedCache.TryGetAsync", method, StringComparison.Ordinal);
-        Assert.Contains("IUnifiedCache.SetRawAsync", method, StringComparison.Ordinal);
+        Assert.Contains("ICacheTypedReader.TryGetAsync", method, StringComparison.Ordinal);
+        Assert.Contains("ICacheRawWriter.SetRawAsync", method, StringComparison.Ordinal);
         Assert.DoesNotContain("System.Int32.ToString", method, StringComparison.Ordinal);
     }
 
@@ -599,8 +599,8 @@ public class ArticleServiceValidationTests
         Assert.Equal("article-list-count", policy.Resource);
 
         string runtimeShape = ArticleRuntime("GetCachedArticleListTotalCountAsync");
-        Assert.Contains("IUnifiedCache.GetStringAsync", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("IUnifiedCache.SetStringAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("ICacheStringReader.GetStringAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("ICacheStringWriter.SetStringAsync", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]
