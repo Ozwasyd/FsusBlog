@@ -13,7 +13,11 @@ const PRIVATE_ROUTE_QUERY_FIELDS = Object.freeze<Record<string, readonly string[
 export const PRIVATE_NAVIGATION_ALLOWED_FIELDS = PRIVATE_ROUTE_QUERY_FIELDS
 
 function isPrivateRoute(route: Pick<RouteLocationNormalizedLoaded, 'path' | 'meta'>): boolean {
-  return route.path.startsWith('/user') || route.meta.requiresAuth === true
+  return route.path.startsWith('/user')
+    || route.meta.requiresAuth === true
+    || route.meta.requiresAccountSession === true
+    || route.meta.requiresAdminSession === true
+    || route.meta.requiresConfirmedIdentity === true
 }
 
 function normalizeDeclaredValue(value: unknown): string | string[] | undefined {

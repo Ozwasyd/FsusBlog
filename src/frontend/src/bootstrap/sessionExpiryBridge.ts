@@ -29,7 +29,13 @@ export function createSessionExpiredNavigationHandler(
     const currentRoute = router.currentRoute.value
     if (currentPath.includes('/login') || currentPath.includes('/register')) return
 
-    if (isLoggedIn() || currentRoute.meta.requiresAuth === true) {
+    if (
+      isLoggedIn()
+      || currentRoute.meta.requiresAuth === true
+      || currentRoute.meta.requiresAccountSession === true
+      || currentRoute.meta.requiresAdminSession === true
+      || currentRoute.meta.requiresConfirmedIdentity === true
+    ) {
       void router.push({ path: '/login', query: { redirect: currentPath } })
     }
   }

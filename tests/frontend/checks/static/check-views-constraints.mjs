@@ -313,8 +313,8 @@ if (fixtureGateIndex >= 0 && bootstrapIndex >= 0 && fixtureGateIndex > bootstrap
 if (fixtureGateIndex >= 0 && accountSessionIndex >= 0 && fixtureGateIndex > accountSessionIndex) {
   hardViolations.push('src/router/index.ts: local fixture cookie gate must run before account session checks to avoid negative auth cache pollution');
 }
-if (!routerSource.includes('const fixtureRouteNeedsCookies = forceLocalFixtureSession && Boolean(to.meta.requiresAuth)')) {
-  hardViolations.push('src/router/index.ts: local fixture cookie gate must cover every requiresAuth route, not only manage pages');
+if (!routerSource.includes('const fixtureRouteNeedsCookies = forceLocalFixtureSession && (accountRoute || manageRoute || identityRootRoute)')) {
+  hardViolations.push('src/router/index.ts: local fixture cookie gate must cover account, admin, and confirmed-identity root routes');
 }
 if (routerSource.includes('if (manageRoute && forceLocalFixtureSession)')) {
   hardViolations.push('src/router/index.ts: local fixture cookie gate must not be scoped only to manageRoute');

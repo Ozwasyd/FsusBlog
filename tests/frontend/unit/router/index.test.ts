@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createPinia, defineStore, setActivePinia } from 'pinia'
 import { createMemoryHistory } from 'vue-router'
 import type { RouteRecordNormalized, Router } from 'vue-router'
 import { APP_ROUTE_RECORDS, createAppRouter } from '@/router'
@@ -11,18 +12,28 @@ const syncDocumentTitle = vi.fn()
 let hasServerAotShellResult = false
 let publicRuntimeOwner: 'aot' | 'spa' = 'aot'
 
-const userStore = {
-  isLoggedIn: true
-}
+const useRouterUserStoreMock = defineStore('router-user-session-mock', {
+  state: () => ({ isLoggedIn: true })
+})
+
+const adminPermissionCheck = vi.fn<(permission: string) => boolean>()
+const useRouterAdminStoreMock = defineStore('router-admin-session-mock', {
+  state: () => ({
+    adminState: 'unknown' as 'unknown' | 'missing' | 'active' | 'expired',
+    canManage: false
+  }),
+  actions: {
+    hasPermission(permission: string): boolean {
+      return adminPermissionCheck(permission)
+    }
+  }
+})
+
+let userStore: ReturnType<typeof useRouterUserStoreMock>
+let adminStore: ReturnType<typeof useRouterAdminStoreMock>
 
 const siteStore = {
   isLoaded: true
-}
-
-const adminStore = {
-  adminState: 'unknown',
-  canManage: false,
-  hasPermission: vi.fn((permission: string) => permission === 'admin.manage')
 }
 
 vi.mock('@/composables/useSessionBootstrap', () => ({
@@ -105,6 +116,9 @@ function deepLinkParams(route: RouteRecordNormalized): Record<string, string | s
 
 describe('account router meta and guards', () => {
   beforeEach(() => {
+    setActivePinia(createPinia())
+    userStore = useRouterUserStoreMock()
+    adminStore = useRouterAdminStoreMock()
     ensureBootstrap.mockClear()
     ensurePublicShell.mockClear()
     ensureAccountSession.mockClear()
@@ -115,8 +129,8 @@ describe('account router meta and guards', () => {
     document.body.innerHTML = ''
     adminStore.adminState = 'unknown'
     adminStore.canManage = false
-    adminStore.hasPermission.mockClear()
-    adminStore.hasPermission.mockImplementation((permission: string) => permission === 'admin.manage')
+    adminPermissionCheck.mockReset()
+    adminPermissionCheck.mockImplementation((permission: string) => permission === 'admin.manage')
     userStore.isLoggedIn = true
     siteStore.isLoaded = true
   })
@@ -148,32 +162,46 @@ describe('account router meta and guards', () => {
     }
   })
 
-  it('classifies every account deep link and every manage permission in route meta', async () => {
+  it('classifies every account deep link by an explicit, non-substitutable session requirement', async () => {
     const router = await createTestRouter()
     const accountRoutes = router.getRoutes().filter((route) => route.path.startsWith('/user'))
 
     for (const route of accountRoutes) {
       const resolved = router.resolve(concretePath(route))
-      expect(resolved.meta.requiresAuth, `${route.path} must inherit account authentication`).toBe(true)
-
-      if (route.path.startsWith('/user/manage')) {
+      if (route.path === '/user') {
+        expect(resolved.meta.requiresConfirmedIdentity).toBe(true)
+        expect(resolved.meta.requiresAccountSession).not.toBe(true)
+        expect(resolved.meta.requiresAdminSession).not.toBe(true)
+      } else if (route.path.startsWith('/user/manage')) {
         expect(resolved.meta.accountArea, `${route.path} must stay in the manage surface`).toBe('manage')
-        expect(resolved.meta.permissions, `${route.path} must declare a permission`).toEqual(
+        expect(resolved.meta.requiresConfirmedIdentity, `${route.path} must not inherit the root redirect rule`).toBe(false)
+        expect(resolved.meta.requiresAdminSession, `${route.path} must require the admin session`).toBe(true)
+        expect(resolved.meta.requiresAccountSession, `${route.path} must not inherit the account session`).not.toBe(true)
+        expect(resolved.meta.requiresAuth, `${route.path} must not use the legacy auth union`).not.toBe(true)
+        expect(resolved.meta.requiredAdminPermissions, `${route.path} must declare an admin permission`).toEqual(
           expect.arrayContaining([expect.any(String)])
         )
+      } else {
+        expect(resolved.meta.accountArea, `${route.path} must stay in the self surface`).toBe('self')
+        expect(resolved.meta.requiresConfirmedIdentity, `${route.path} must not inherit the root redirect rule`).toBe(false)
+        expect(resolved.meta.requiresAccountSession, `${route.path} must require the account session`).toBe(true)
+        expect(resolved.meta.requiresAdminSession, `${route.path} must not accept the admin session`).not.toBe(true)
+        expect(resolved.meta.requiresAuth, `${route.path} must not use the legacy auth union`).not.toBe(true)
+        expect(resolved.meta.requiredAdminPermissions).toBeUndefined()
       }
     }
   })
 
-  it('keeps /user authenticated without legacy role meta', async () => {
+  it('keeps /user as a confirmed-identity redirect without a substitutable auth union', async () => {
     const userRoute = APP_ROUTE_RECORDS.find((route) => route.path === '/user')
 
     expect(userRoute?.meta).toMatchObject({
-      requiresAuth: true,
+      requiresConfirmedIdentity: true,
       accountArea: 'self',
       accountContentMode: 'standard'
     })
     expect(userRoute?.meta).not.toHaveProperty('roles')
+    expect(userRoute?.meta).not.toHaveProperty('requiresAuth')
   })
 
   it('public route does not probe account or admin session', async () => {
@@ -240,7 +268,7 @@ describe('account router meta and guards', () => {
 
     adminStore.adminState = 'active'
     adminStore.canManage = true
-    adminStore.hasPermission.mockReturnValue(true)
+    adminPermissionCheck.mockReturnValue(true)
     const adminRouter = await createTestRouter()
     await adminRouter.push('/register')
     expect(adminRouter.currentRoute.value.path).toBe('/user/manage')
@@ -267,7 +295,9 @@ describe('account router meta and guards', () => {
   }, 15_000)
 
   it('manage route probes account and admin', async () => {
+    adminStore.adminState = 'active'
     adminStore.canManage = true
+    adminPermissionCheck.mockReturnValue(true)
     const router = await createTestRouter()
 
     await router.push('/user/manage')
@@ -279,28 +309,71 @@ describe('account router meta and guards', () => {
   })
 
   it.each([
-    { session: 'none', account: false, admin: false, target: '/login', expected: '/login' },
-    { session: 'none', account: false, admin: false, target: '/user/identity', expected: '/login' },
-    { session: 'none', account: false, admin: false, target: '/user/manage', expected: '/login' },
-    { session: 'account', account: true, admin: false, target: '/login', expected: '/user/identity' },
-    { session: 'account', account: true, admin: false, target: '/user/identity', expected: '/user/identity' },
-    { session: 'account', account: true, admin: false, target: '/user/manage', expected: '/403' },
-    { session: 'admin', account: false, admin: true, target: '/login', expected: '/login' },
-    { session: 'admin', account: false, admin: true, target: '/user/identity', expected: '/user/identity' },
-    { session: 'admin', account: false, admin: true, target: '/user/manage', expected: '/user/manage' },
-    { session: 'dual', account: true, admin: true, target: '/login', expected: '/user/manage' },
-    { session: 'dual', account: true, admin: true, target: '/user/identity', expected: '/user/identity' },
-    { session: 'dual', account: true, admin: true, target: '/user/manage', expected: '/user/manage' }
-  ])('enforces the $session session route matrix for $target', async ({ account, admin, target, expected }) => {
+    { session: 'none', account: false, admin: 'missing' as const, permission: false, target: '/user', expected: '/login' },
+    { session: 'none', account: false, admin: 'missing' as const, permission: false, target: '/user/identity', expected: '/login' },
+    { session: 'none', account: false, admin: 'missing' as const, permission: false, target: '/user/manage', expected: '/login' },
+    { session: 'account', account: true, admin: 'missing' as const, permission: false, target: '/user', expected: '/user/identity' },
+    { session: 'account', account: true, admin: 'missing' as const, permission: false, target: '/user/identity', expected: '/user/identity' },
+    { session: 'account', account: true, admin: 'missing' as const, permission: false, target: '/user/manage', expected: '/403' },
+    { session: 'admin', account: false, admin: 'active' as const, permission: true, target: '/user', expected: '/user/manage' },
+    { session: 'admin', account: false, admin: 'active' as const, permission: true, target: '/user/identity', expected: '/login' },
+    { session: 'admin', account: false, admin: 'active' as const, permission: true, target: '/user/manage', expected: '/user/manage' },
+    { session: 'dual', account: true, admin: 'active' as const, permission: true, target: '/user', expected: '/user/manage' },
+    { session: 'dual', account: true, admin: 'active' as const, permission: true, target: '/user/identity', expected: '/user/identity' },
+    { session: 'dual', account: true, admin: 'active' as const, permission: true, target: '/user/manage', expected: '/user/manage' },
+    { session: 'account-expired', account: false, admin: 'missing' as const, permission: false, target: '/user', expected: '/login' },
+    { session: 'account-expired', account: false, admin: 'missing' as const, permission: false, target: '/user/identity', expected: '/login' },
+    { session: 'account-expired', account: false, admin: 'missing' as const, permission: false, target: '/user/manage', expected: '/login' },
+    { session: 'admin-expired', account: true, admin: 'expired' as const, permission: false, target: '/user', expected: '/user/identity' },
+    { session: 'admin-expired', account: true, admin: 'expired' as const, permission: false, target: '/user/identity', expected: '/user/identity' },
+    { session: 'admin-expired', account: true, admin: 'expired' as const, permission: false, target: '/user/manage', expected: '/403' },
+    { session: 'permission-insufficient', account: false, admin: 'active' as const, permission: false, target: '/user', expected: '/403' },
+    { session: 'permission-insufficient', account: false, admin: 'active' as const, permission: false, target: '/user/identity', expected: '/login' },
+    { session: 'permission-insufficient', account: false, admin: 'active' as const, permission: false, target: '/user/manage', expected: '/403' }
+  ])('enforces the $session session route matrix for $target', async ({ account, admin, permission, target, expected }) => {
     userStore.isLoggedIn = account
-    adminStore.adminState = admin ? 'active' : 'missing'
-    adminStore.canManage = admin
-    adminStore.hasPermission.mockReturnValue(admin)
+    adminStore.adminState = admin
+    adminStore.canManage = admin === 'active'
+    adminPermissionCheck.mockReturnValue(permission)
     const router = await createTestRouter()
 
     await router.push(target)
 
     expect(router.currentRoute.value.path).toBe(expected)
+  })
+
+  it('confirms both identity domains before resolving the /user root', async () => {
+    const router = await createTestRouter()
+
+    await router.push('/user')
+
+    // The root probes both identities. Its redirect may then hit the account
+    // guard again, where the real store serves the already-confirmed snapshot.
+    expect(ensureAccountSession).toHaveBeenCalled()
+    expect(ensureAdminSession).toHaveBeenCalledTimes(1)
+    expect(router.currentRoute.value.path).toBe('/user/identity')
+  })
+
+  it('rejects admin-only self navigation before the protected target can resolve or enter history', async () => {
+    userStore.isLoggedIn = false
+    adminStore.adminState = 'active'
+    adminStore.canManage = true
+    adminPermissionCheck.mockReturnValue(true)
+    const router = await createTestRouter()
+    const resolvedPaths: string[] = []
+    router.beforeResolve((to) => {
+      resolvedPaths.push(to.path)
+      return true
+    })
+
+    await router.push('/user/identity?token=private#account-record')
+
+    expect(resolvedPaths).not.toContain('/user/identity')
+    expect(router.currentRoute.value.path).toBe('/login')
+    expect(router.currentRoute.value.query.redirect).toBe('/user/identity')
+    expect(router.options.history.location).toBe('/login?redirect=/user/identity')
+    expect(userStore.isLoggedIn).toBe(false)
+    expect(adminStore.adminState).toBe('active')
   })
 
   it('strips undeclared private history fields before committing the route', async () => {
@@ -313,28 +386,41 @@ describe('account router meta and guards', () => {
   })
 
   it('manage route checks required permissions after admin probe', async () => {
+    adminStore.adminState = 'active'
     adminStore.canManage = true
-    adminStore.hasPermission.mockReturnValue(false)
+    adminPermissionCheck.mockReturnValue(false)
     const router = await createTestRouter()
 
     await router.push('/user/manage/article/write')
 
     expect(ensureAdminSession).toHaveBeenCalledTimes(1)
-    expect(adminStore.hasPermission).toHaveBeenCalledWith('article.write')
+    expect(adminPermissionCheck).toHaveBeenCalledWith('article.write')
     expect(router.currentRoute.value.path).toBe('/403')
+  })
+
+  it('does not copy manage query or fragment details onto a 403 route', async () => {
+    adminStore.adminState = 'active'
+    adminStore.canManage = true
+    adminPermissionCheck.mockReturnValue(false)
+    const router = await createTestRouter()
+
+    await router.push('/user/manage/article/write?preview=1&token=private#draft-42')
+
+    expect(router.currentRoute.value.fullPath).toBe('/403')
+    expect(router.options.history.location).toBe('/403')
   })
 
   it('allows an authorized admin dynamic deep link', async () => {
     adminStore.adminState = 'active'
     adminStore.canManage = true
-    adminStore.hasPermission.mockReturnValue(true)
+    adminPermissionCheck.mockReturnValue(true)
     const router = await createTestRouter()
 
     await router.push('/user/manage/article/edit/42')
 
     expect(router.currentRoute.value.name).toBe('ManageEditArticle')
     expect(router.currentRoute.value.params.id).toBe('42')
-    expect(adminStore.hasPermission).toHaveBeenCalledWith('article.write')
+    expect(adminPermissionCheck).toHaveBeenCalledWith('article.write')
   })
 
   it('resolves account redirects, forbidden, and not-found routes in memory', async () => {
@@ -351,14 +437,15 @@ describe('account router meta and guards', () => {
   })
 
   it('integrity proof console is denied unless the admin has system.config', async () => {
+    adminStore.adminState = 'active'
     adminStore.canManage = true
-    adminStore.hasPermission.mockImplementation((permission: string) => permission !== 'system.config')
+    adminPermissionCheck.mockImplementation((permission: string) => permission !== 'system.config')
     const router = await createTestRouter()
 
     await router.push('/user/manage/integrity-proof')
 
     expect(ensureAdminSession).toHaveBeenCalledTimes(1)
-    expect(adminStore.hasPermission).toHaveBeenCalledWith('system.config')
+    expect(adminPermissionCheck).toHaveBeenCalledWith('system.config')
     expect(router.currentRoute.value.path).toBe('/403')
   })
 

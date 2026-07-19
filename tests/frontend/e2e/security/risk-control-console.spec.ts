@@ -87,7 +87,7 @@ test.describe('RiskControl security console contract', () => {
         if (current.name === 'ManageSecurityRiskControl') {
           return {
             path: current.path,
-            permissions: current.meta?.permissions ?? []
+            permissions: current.meta?.requiredAdminPermissions ?? []
           }
         }
         if (Array.isArray(current.children)) {

@@ -83,6 +83,17 @@ function finishProgressNavigation(): void {
   }
 }
 
+const selfMeta = (
+  title: string,
+  accountContentMode: 'standard' | 'takeover' = 'standard'
+) => ({
+  title,
+  accountArea: 'self' as const,
+  accountContentMode,
+  requiresConfirmedIdentity: false,
+  requiresAccountSession: true
+})
+
 const manageMeta = (
   title: string,
   permissions: readonly string[],
@@ -91,7 +102,9 @@ const manageMeta = (
   title,
   accountArea: 'manage' as const,
   accountContentMode,
-  permissions
+  requiresConfirmedIdentity: false,
+  requiresAdminSession: true,
+  requiredAdminPermissions: permissions
 })
 
 export const APP_ROUTE_RECORDS: RouteRecordRaw[] = [
@@ -130,19 +143,19 @@ export const APP_ROUTE_RECORDS: RouteRecordRaw[] = [
   {
     path: '/user',
     component: () => import('@/layouts/AccountLayout.vue'),
-    meta: { requiresAuth: true, accountArea: 'self', accountContentMode: 'standard' },
+    meta: { requiresConfirmedIdentity: true, accountArea: 'self', accountContentMode: 'standard' },
     children: [
-      { path: ACCOUNT_ROUTE_PATHS.profileChild, name: 'UserProfile', redirect: { name: 'UserIdentityOverview' }, component: () => import('@/views/user/Profile.vue'), meta: { title: '身份中心', accountArea: 'self', accountContentMode: 'standard' } },
-      { path: 'comments', name: 'UserComments', component: () => import('@/views/user/Comments.vue'), meta: { title: '公开评论记录', accountArea: 'self', accountContentMode: 'standard' } },
-      { path: 'messagebox', name: 'UserMessage', component: () => import('@/views/user/Messages.vue'), meta: { title: '我的消息', accountArea: 'self', accountContentMode: 'takeover' } },
-      { path: 'identity', name: 'UserIdentityOverview', component: () => import('@/views/user/IdentityCenter.vue'), meta: { title: '身份总览', accountArea: 'self', accountContentMode: 'standard' } },
-      { path: 'identity/passkeys', name: 'UserIdentityPasskeys', component: () => import('@/views/user/IdentityCenter.vue'), meta: { title: '通行密钥', accountArea: 'self', accountContentMode: 'standard' } },
-      { path: 'identity/recovery-key', name: 'UserIdentityRecoveryKey', component: () => import('@/views/user/IdentityCenter.vue'), meta: { title: 'Recovery Key', accountArea: 'self', accountContentMode: 'standard' } },
-      { path: 'identity/anonymous', name: 'UserIdentityAnonymous', component: () => import('@/views/user/IdentityCenter.vue'), meta: { title: '匿名身份', accountArea: 'self', accountContentMode: 'standard' } },
-      { path: 'identity/public-profile', name: 'UserIdentityPublicProfile', component: () => import('@/views/user/IdentityCenter.vue'), meta: { title: '公开资料', accountArea: 'self', accountContentMode: 'standard' } },
-      { path: 'identity/sessions', name: 'UserIdentitySessions', component: () => import('@/views/user/IdentityCenter.vue'), meta: { title: '设备会话', accountArea: 'self', accountContentMode: 'standard' } },
-      { path: 'identity/mfa', name: 'UserIdentityMfa', component: () => import('@/views/user/IdentityCenter.vue'), meta: { title: '二次验证', accountArea: 'self', accountContentMode: 'standard' } },
-      { path: 'identity/comment-records', name: 'UserIdentityCommentRecords', component: () => import('@/views/user/IdentityCenter.vue'), meta: { title: '公开评论记录', accountArea: 'self', accountContentMode: 'standard' } },
+      { path: ACCOUNT_ROUTE_PATHS.profileChild, name: 'UserProfile', redirect: { name: 'UserIdentityOverview' }, component: () => import('@/views/user/Profile.vue'), meta: selfMeta('身份中心') },
+      { path: 'comments', name: 'UserComments', component: () => import('@/views/user/Comments.vue'), meta: selfMeta('公开评论记录') },
+      { path: 'messagebox', name: 'UserMessage', component: () => import('@/views/user/Messages.vue'), meta: selfMeta('我的消息', 'takeover') },
+      { path: 'identity', name: 'UserIdentityOverview', component: () => import('@/views/user/IdentityCenter.vue'), meta: selfMeta('身份总览') },
+      { path: 'identity/passkeys', name: 'UserIdentityPasskeys', component: () => import('@/views/user/IdentityCenter.vue'), meta: selfMeta('通行密钥') },
+      { path: 'identity/recovery-key', name: 'UserIdentityRecoveryKey', component: () => import('@/views/user/IdentityCenter.vue'), meta: selfMeta('Recovery Key') },
+      { path: 'identity/anonymous', name: 'UserIdentityAnonymous', component: () => import('@/views/user/IdentityCenter.vue'), meta: selfMeta('匿名身份') },
+      { path: 'identity/public-profile', name: 'UserIdentityPublicProfile', component: () => import('@/views/user/IdentityCenter.vue'), meta: selfMeta('公开资料') },
+      { path: 'identity/sessions', name: 'UserIdentitySessions', component: () => import('@/views/user/IdentityCenter.vue'), meta: selfMeta('设备会话') },
+      { path: 'identity/mfa', name: 'UserIdentityMfa', component: () => import('@/views/user/IdentityCenter.vue'), meta: selfMeta('二次验证') },
+      { path: 'identity/comment-records', name: 'UserIdentityCommentRecords', component: () => import('@/views/user/IdentityCenter.vue'), meta: selfMeta('公开评论记录') },
       { path: 'manage', name: 'ManageDashboard', component: () => import('@/views/admin/Dashboard.vue'), meta: manageMeta('仪表盘', ['admin.manage']) },
       { path: 'manage/analytics', name: 'ManageAnalytics', component: () => import('@/views/admin/Analytics.vue'), meta: manageMeta('数据概览', ['admin.manage']) },
       { path: 'manage/article/write', name: 'ManageWriteArticle', component: () => import('@/views/admin/article/Write.vue'), meta: manageMeta('写文章', ['article.write']) },
@@ -215,13 +228,8 @@ export type RouterFactoryOptions = Readonly<{
   prewarmPublicRoute?: PublicRoutePrewarmPort
 }>
 
-function isManageAccountRoute(route: RouteLocationNormalized): boolean {
-  return route.path.startsWith('/user/manage')
-    || route.matched.some((record) => record.meta.accountArea === 'manage')
-}
-
 function readRouteRequiredPermissions(route: RouteLocationNormalized): string[] {
-  const value = route.meta.permissions
+  const value = route.meta.requiredAdminPermissions
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === 'string' && item.length > 0)
     : []
@@ -267,13 +275,15 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
     const sessionBootstrap = useSessionBootstrap()
     const { userStore, siteStore } = sessionBootstrap
     const adminStore = useAdminStore()
-    const manageRoute = isManageAccountRoute(to)
+    const accountRoute = to.meta.requiresAccountSession === true || to.meta.requiresAuth === true
+    const manageRoute = to.meta.requiresAdminSession === true
+    const identityRootRoute = to.path === '/user' && to.meta.requiresConfirmedIdentity === true
     const fixtureQueryEnabled = isLocalFixtureQueryEnabled(to.query.fsusLocalFixtureLogin)
     if (!options.ssr && fixtureQueryEnabled) {
       activateLocalFixtureSession()
     }
     const forceLocalFixtureSession = !options.ssr && isLocalFixtureSessionActive()
-    const fixtureRouteNeedsCookies = forceLocalFixtureSession && Boolean(to.meta.requiresAuth)
+    const fixtureRouteNeedsCookies = forceLocalFixtureSession && (accountRoute || manageRoute || identityRootRoute)
     const fixtureCredentialRouteNeedsCookies = forceLocalFixtureSession && Boolean(to.meta.localFixtureCredentialBootstrap)
 
     if (fixtureRouteNeedsCookies || fixtureCredentialRouteNeedsCookies) {
@@ -357,7 +367,7 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
 
     if (to.meta.guestOnly) {
       await sessionBootstrap.ensureAccountSession({ reason: 'route' })
-    } else if (manageRoute) {
+    } else if (manageRoute || identityRootRoute) {
       if (forceLocalFixtureSession) {
         userStore.markAuthenticated(createLocalFixtureAccountSnapshot())
         if (isLocalFixtureAdminSessionActive()) {
@@ -372,33 +382,42 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
           sessionBootstrap.ensureAdminSession({ reason: 'route' })
         ])
       }
-    } else if (to.meta.requiresAuth) {
+    } else if (accountRoute) {
       await sessionBootstrap.ensureAccountSession({ reason: 'route' })
     }
 
     const { isLoggedIn } = userStore
 
     if (to.meta.guestOnly && isLoggedIn) {
-      return adminStore.adminState === 'active' && adminStore.canManage ? '/user/manage' : '/user/identity'
+      return adminStore.adminState === 'active' ? '/user/manage' : '/user/identity'
     }
 
-    if (to.meta.requiresAuth) {
-      if (!isLoggedIn && !adminStore.canManage) {
-        return { path: '/login', query: { redirect: buildPrivateLoginRedirect(to, router) } }
+    if (accountRoute && !isLoggedIn) {
+      return { path: '/login', query: { redirect: buildPrivateLoginRedirect(to, router) } }
+    }
+
+    if (manageRoute) {
+      if (adminStore.adminState !== 'active') {
+        return isLoggedIn
+          ? '/403'
+          : { path: '/login', query: { redirect: buildPrivateLoginRedirect(to, router) } }
       }
 
-      if (manageRoute) {
-        const requiredPermissions = readRouteRequiredPermissions(to)
-        const canAccessManageRoute = adminStore.canManage
-          && requiredPermissions.every((permission) => adminStore.hasPermission(permission))
-        if (!canAccessManageRoute) {
-          return '/403'
-        }
+      const requiredPermissions = readRouteRequiredPermissions(to)
+      if (requiredPermissions.length === 0
+        || !requiredPermissions.every((permission) => adminStore.hasPermission(permission))) {
+        return '/403'
       }
     }
 
-    if (to.path === '/user') {
-      return adminStore.adminState === 'active' && adminStore.canManage ? '/user/manage' : '/user/identity'
+    if (identityRootRoute) {
+      if (adminStore.adminState === 'active') {
+        return '/user/manage'
+      }
+      if (isLoggedIn) {
+        return '/user/identity'
+      }
+      return { path: '/login', query: { redirect: buildPrivateLoginRedirect(to, router) } }
     }
 
     return true
