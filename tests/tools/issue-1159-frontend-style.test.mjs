@@ -358,7 +358,7 @@ test('issue 1159 full mode accepts only unchanged baseline debt and strict-full 
     });
 });
 
-test('issue 1159 AST fixes are idempotent and diagnostics are environment stable', () =>
+test('issue 1159 AST fixes are idempotent and diagnostics are locale and CI stable', () =>
 {
     withFixture((fixtureRoot) =>
     {
@@ -378,8 +378,16 @@ test('issue 1159 AST fixes are idempotent and diagnostics are environment stable
         assert.doesNotMatch(firstContent, /\r/u);
 
         writeFixture(fixtureRoot, relativePath, 'export function bad_name(value) {\r\n  return value\r\n}\r\n');
-        const local = runChecker(fixtureRoot, ['--mode', 'changed', '--file', relativePath], { CI: '' });
-        const ci = runChecker(fixtureRoot, ['--mode', 'changed', '--file', relativePath], { CI: 'true' });
+        const local = runChecker(fixtureRoot, ['--mode', 'changed', '--file', relativePath], {
+            CI: '',
+            LANG: 'C',
+            LC_ALL: 'C'
+        });
+        const ci = runChecker(fixtureRoot, ['--mode', 'changed', '--file', relativePath], {
+            CI: 'true',
+            LANG: 'zh_CN.UTF-8',
+            LC_ALL: 'zh_CN.UTF-8'
+        });
         assert.notEqual(local.status, 0);
         assert.notEqual(ci.status, 0);
         const diagnostics = (result) => output(result)

@@ -72,6 +72,11 @@ function sha256(value)
     return crypto.createHash('sha256').update(value).digest('hex');
 }
 
+function compareOrdinal(left, right)
+{
+    return left === right ? 0 : left < right ? -1 : 1;
+}
+
 function readJson(file, label)
 {
     if (!fs.existsSync(file))
@@ -444,8 +449,8 @@ function writeBaseline(violations)
         sourceSha256: sha256(fs.readFileSync(path.join(root, file))),
         violationCount: entry.ids.length,
         violationDigest: sha256(entry.ids.sort().join('\n')),
-        rules: Object.fromEntries(Object.entries(entry.rules).sort(([left], [right]) => left.localeCompare(right)))
-    })).sort((left, right) => left.path.localeCompare(right.path));
+        rules: Object.fromEntries(Object.entries(entry.rules).sort(([left], [right]) => compareOrdinal(left, right)))
+    })).sort((left, right) => compareOrdinal(left.path, right.path));
     const commit = command(['git', 'rev-parse', 'HEAD'], { allowFailure: true }).stdout.trim() || 'uncommitted';
     const document = {
         schema: baselineSchema,
@@ -470,7 +475,7 @@ function validateSpecializedGovernance()
     }
     const entries = Object.entries(packageDocument.scripts ?? {})
         .filter(([id]) => id.startsWith(contract.scriptPrefix))
-        .sort(([left], [right]) => left.localeCompare(right));
+        .sort(([left], [right]) => compareOrdinal(left, right));
     const idsDigest = sha256(entries.map(([id]) => id).join('\n'));
     const definitionsDigest = sha256(entries.map(([id, value]) => `${id}=${value}`).join('\n'));
     if (entries.length !== contract.count)
@@ -639,12 +644,12 @@ function main()
     const violations = [
         ...runEslint(eslintFiles, Boolean(args.fix)),
         ...runStylelint(stylelintFiles, Boolean(args.fix))
-    ].sort((left, right) => left.file.localeCompare(right.file)
+    ].sort((left, right) => compareOrdinal(left.file, right.file)
         || left.line - right.line
         || left.column - right.column
-        || left.tool.localeCompare(right.tool)
-        || left.rule.localeCompare(right.rule)
-        || left.message.localeCompare(right.message));
+        || compareOrdinal(left.tool, right.tool)
+        || compareOrdinal(left.rule, right.rule)
+        || compareOrdinal(left.message, right.message));
 
     if (args.updateBaseline)
     {

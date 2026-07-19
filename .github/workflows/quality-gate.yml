@@ -375,6 +375,7 @@ jobs:
                   name: frontend-build
                   path: .
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+            - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix tools/frontend/style-toolchain ci --ignore-scripts --no-audit --progress=false
             - run: ./tools/test.sh ci-tier frontend-static-governance --no-deps
             - name: Run browserless frontend structure budgets
               run: ./tools/test.sh ci-tier frontend-render-structure --no-deps
