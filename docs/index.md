@@ -12,6 +12,7 @@
 - [Public Layout Rules](public-layout-rules.md) - FsusBlog public-site consumer layout, material, motion, reading surface, and commit review rules.
 - [Touch Target Floor](issue-1285-touch-target-floor.md) - Public, identity, and admin touch-target tiers plus sticky-geometry ownership.
 - [Account Integer Typography](issue-1293-account-integer-typography.md) - IdentityCenter and account-shell 12/14/16px acceptance contract.
+- [Account Navigation Hierarchy](issue-1292-account-navigation-hierarchy.md) - First-level and local account navigation typography, indentation, and touch tiers.
 - [Configuration Layout](configuration-layout.md) - canonical configuration roots and project ownership.
 - [Appsettings Authority](configuration/appsettings-authority.md) - runtime base/overlay, minimal development example, production operator input, and override order.
 - [Operations Infrastructure Layout](operations-layout.md) - single `ops/` hierarchy, deployment policy boundary, and executable workflow ownership.

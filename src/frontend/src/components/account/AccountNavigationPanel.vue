@@ -174,11 +174,17 @@ const localNavigationTitleId = computed(() => (
   opacity: 1;
 }
 
-.account-module-link__label,
-.account-local-navigation__link > span:first-child {
+.account-module-link__label {
   min-width: 0;
   font-size: 14px;
   font-weight: 700;
+  line-height: 1.35;
+}
+
+.account-local-navigation__link > span:first-child {
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 500;
   line-height: 1.35;
 }
 
@@ -204,7 +210,11 @@ const localNavigationTitleId = computed(() => (
 .account-local-navigation__link {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.5rem;
-  padding: 0.375rem 0.5rem 0.375rem 1rem;
+  padding: 0.375rem 0.5rem 0.375rem 2rem;
+}
+
+.account-navigation-panel[data-variant="desktop"] .account-local-navigation__link {
+  min-height: 2.5rem;
 }
 
 .account-navigation-panel[data-variant="mobile"] .account-global-module-list,
