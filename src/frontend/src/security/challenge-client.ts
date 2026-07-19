@@ -20,6 +20,7 @@ import type { RiskChallengeProofContext } from '@/contracts/riskChallenge'
 import {
   getChallengeCapabilityRegistration,
   resolveChallengeCapability,
+  SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION,
   type ChallengeCapabilityResolution,
   type ChallengeExecutionMode,
   type ChallengeKindGroup
@@ -39,6 +40,7 @@ export interface SecurityChallengeContext {
   deviceFingerprint?: string
   executionMode?: ChallengeExecutionMode
   capabilityManifestVersion?: string
+  identity?: string
 }
 
 export interface SecurityChallengeIssueResult {
@@ -77,8 +79,8 @@ export interface SecurityChallengeClient {
 }
 
 export interface SecurityChallengeClientOptions {
-  issueChallenge?: (request: IssueSecurityChallengeRequest) => Promise<SecurityChallengeIssueResponse>
-  verifyChallenge?: (request: VerifySecurityChallengeRequest) => Promise<SecurityChallengeVerifyResponse>
+  issueChallenge?: (request: IssueSecurityChallengeRequest, config?: { signal?: AbortSignal }) => Promise<SecurityChallengeIssueResponse>
+  verifyChallenge?: (request: VerifySecurityChallengeRequest, config?: { signal?: AbortSignal }) => Promise<SecurityChallengeVerifyResponse>
   proofStore?: ChallengeProofStore
   now?: () => number
 }
@@ -89,6 +91,8 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
   const proofStore = options.proofStore ?? defaultChallengeProofStore
   const now = options.now ?? (() => Date.now())
   const envelopeRuns = new Map<string, ActiveEnvelopeRun>()
+  const contextGenerations = new Map<string, number>()
+  const activeRequests = new Map<string, AbortController>()
 
   const reserveProof = (context: SecurityChallengeContext): SecurityChallengeProofLease | null => {
     const reservation = proofStore.reserve(context.action, context.routeKey)
@@ -104,17 +108,19 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
 
   const clearProof = (context: SecurityChallengeContext): void => {
     proofStore.delete(context.action, context.routeKey)
-    envelopeRuns.delete(contextKey(context))
+    invalidateContext(context)
   }
 
   const cancelEnvelope = (context: SecurityChallengeContext): void => {
-    envelopeRuns.delete(contextKey(context))
+    invalidateContext(context)
   }
 
   async function issue(context: SecurityChallengeContext, issueOptions: { forceRefresh?: boolean } = {}): Promise<SecurityChallengeIssueResult> {
+    const operation = beginContextGeneration(context)
     if (!issueOptions.forceRefresh) {
       const proof = proofStore.peek(context.action, context.routeKey)
       if (proof) {
+        finishRequest(operation)
         return {
           status: 'verified',
           response: null,
@@ -128,7 +134,7 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
         }
       }
     } else {
-      clearProof(context)
+      proofStore.delete(context.action, context.routeKey)
     }
 
     try {
@@ -136,22 +142,31 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
         action: context.action,
         routeKey: context.routeKey,
         attributes: context.attributes,
-        deviceFingerprint: context.deviceFingerprint
-      })
+        deviceFingerprint: context.deviceFingerprint,
+        capabilityManifestVersion: effectiveCapabilityManifestVersion(context)
+      }, { signal: operation.controller.signal })
+      if (!isCurrentOperation(operation)) {
+        return cancelledIssueResult()
+      }
       if (response.decision === 'allow') {
         return allowResult(response)
       }
       if (response.decision !== 'challenge' && response.decision !== 'stepUp') {
         return failedIssueResult(response, `security_challenge_${response.decision || 'failed'}`)
       }
-      const run = createEnvelopeRun(context, response)
+      const run = createEnvelopeRun(context, response, operation.generation)
       if (!run) {
         return failedIssueResult(response, 'security_challenge_envelope_invalid')
       }
-      envelopeRuns.set(contextKey(context), run)
+      envelopeRuns.set(operation.key, run)
       return selectEnvelopeMember(context, run, 0, now())
     } catch (error) {
+      if (!isCurrentOperation(operation) || operation.controller.signal.aborted) {
+        return cancelledIssueResult()
+      }
       return failedIssueResult(null, getErrorMessage(error, 'security_challenge_issue_failed'))
+    } finally {
+      finishRequest(operation)
     }
   }
 
@@ -168,8 +183,14 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
       return failedVerifyResult('security_challenge_member_mismatch')
     }
 
+    const operation = beginRequest(key, run.generation)
     try {
-      const response = await verifyChallenge({ ...request, envelopeId: run.envelopeId })
+      const response = await verifyChallenge(
+        { ...request, envelopeId: run.envelopeId },
+        { signal: operation.controller.signal })
+      if (!isCurrentOperation(operation) || envelopeRuns.get(key) !== run) {
+        return failedVerifyResult('security_challenge_request_cancelled')
+      }
       if (!isExpectedProgressResponse(run, assignment, response)) {
         return failedVerifyResult('security_challenge_progress_invalid', response)
       }
@@ -222,6 +243,9 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
         retryAfterMs: response.retryAfterMs
       }
     } catch (error) {
+      if (!isCurrentOperation(operation) || operation.controller.signal.aborted) {
+        return failedVerifyResult('security_challenge_request_cancelled')
+      }
       return {
         status: 'failed',
         response: null,
@@ -230,6 +254,44 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
         reason: getErrorMessage(error, 'security_challenge_verify_failed'),
         retryAfterMs: 0
       }
+    } finally {
+      finishRequest(operation)
+    }
+  }
+
+  function invalidateContext(context: SecurityChallengeContext): void {
+    const key = contextKey(context)
+    activeRequests.get(key)?.abort()
+    activeRequests.delete(key)
+    contextGenerations.set(key, (contextGenerations.get(key) ?? 0) + 1)
+    envelopeRuns.delete(key)
+  }
+
+  function beginContextGeneration(context: SecurityChallengeContext): ChallengeClientOperation {
+    const key = contextKey(context)
+    activeRequests.get(key)?.abort()
+    const generation = (contextGenerations.get(key) ?? 0) + 1
+    contextGenerations.set(key, generation)
+    envelopeRuns.delete(key)
+    return beginRequest(key, generation)
+  }
+
+  function beginRequest(key: string, generation: number): ChallengeClientOperation {
+    activeRequests.get(key)?.abort()
+    const controller = new AbortController()
+    activeRequests.set(key, controller)
+    return { key, generation, controller }
+  }
+
+  function isCurrentOperation(operation: ChallengeClientOperation): boolean {
+    return !operation.controller.signal.aborted &&
+      contextGenerations.get(operation.key) === operation.generation &&
+      activeRequests.get(operation.key) === operation.controller
+  }
+
+  function finishRequest(operation: ChallengeClientOperation): void {
+    if (activeRequests.get(operation.key) === operation.controller) {
+      activeRequests.delete(operation.key)
     }
   }
 
@@ -248,10 +310,21 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
 interface ActiveEnvelopeRun {
   readonly envelopeId: string
   readonly response: SecurityChallengeIssueResponse
+  readonly generation: number
   completedCount: number
 }
 
-function createEnvelopeRun(context: SecurityChallengeContext, response: SecurityChallengeIssueResponse): ActiveEnvelopeRun | null {
+interface ChallengeClientOperation {
+  readonly key: string
+  readonly generation: number
+  readonly controller: AbortController
+}
+
+function createEnvelopeRun(
+  context: SecurityChallengeContext,
+  response: SecurityChallengeIssueResponse,
+  generation: number
+): ActiveEnvelopeRun | null {
   const envelope = response.envelope
   if (!envelope || !isUuidV7(envelope.envelopeId) || envelope.policyVersion !== response.policyVersion ||
       envelope.assignments.length < 1 || envelope.assignments.length > 8) {
@@ -269,7 +342,7 @@ function createEnvelopeRun(context: SecurityChallengeContext, response: Security
   if (response.providerPayloads.some((payload) => !assignmentIds.has(payload.challengeId))) {
     return null
   }
-  return { envelopeId: envelope.envelopeId, response, completedCount: 0 }
+  return { envelopeId: envelope.envelopeId, response, generation, completedCount: 0 }
 }
 
 function selectEnvelopeMember(
@@ -321,7 +394,7 @@ function failedVerifyResult(reason: string, response: SecurityChallengeVerifyRes
 }
 
 function contextKey(context: SecurityChallengeContext): string {
-  return `${context.action}\u0000${context.routeKey}`
+  return `${context.action}\u0000${context.routeKey}\u0000${context.identity?.trim() ?? ''}`
 }
 
 function isUuidV7(value: string): boolean {
@@ -336,8 +409,16 @@ function capabilityOptions(context: SecurityChallengeContext) {
   return {
     action: context.action,
     mode: context.executionMode ?? 'ui',
-    manifestVersion: context.capabilityManifestVersion
+    manifestVersion: effectiveCapabilityManifestVersion(context)
   } as const
+}
+
+function effectiveCapabilityManifestVersion(context: SecurityChallengeContext): string {
+  return context.capabilityManifestVersion?.trim() || SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION
+}
+
+function cancelledIssueResult(): SecurityChallengeIssueResult {
+  return failedIssueResult(null, 'security_challenge_request_cancelled')
 }
 
 function allowResult(response: SecurityChallengeIssueResponse): SecurityChallengeIssueResult {

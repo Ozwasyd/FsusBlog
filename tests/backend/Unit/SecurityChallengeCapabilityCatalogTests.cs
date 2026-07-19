@@ -51,13 +51,13 @@ public sealed class SecurityChallengeCapabilityCatalogTests
     }
 
     [Fact]
-    public void Resolve_RejectsMissingHostAndVersionButAllowsNotificationPow()
+    public void Resolve_AllowsShaPowAcrossUiAndHeadlessButRejectsOldManifest()
     {
-        SecurityChallengeCapabilityResolution missingHost = SecurityChallengeCapabilityCatalog.Resolve(
+        SecurityChallengeCapabilityResolution ui = SecurityChallengeCapabilityCatalog.Resolve(
             SecurityChallengeKind.Sha256PowV1,
             RiskActionNames.CommentCreate,
-            SecurityChallengeExecutionMode.Headless);
-        Assert.Equal("host_unavailable", missingHost.UnavailableReason);
+            SecurityChallengeExecutionMode.Ui);
+        Assert.True(ui.PolicyEligible);
 
         SecurityChallengeCapabilityResolution incompatible = SecurityChallengeCapabilityCatalog.Resolve(
             SecurityChallengeKind.CaptchaV1,
@@ -112,10 +112,10 @@ public sealed class SecurityChallengeCapabilityCatalogTests
     {
         var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
         string captcha = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.CaptchaV1);
-        string pow = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.Sha256PowV1);
+        string unavailable = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.AdminPasskeyStepUpV1);
 
         ArgumentException error = Assert.Throws<ArgumentException>(() =>
-            service.ApplyRiskControlPolicySnapshot(CreateRiskPolicy([captcha, pow])));
+            service.ApplyRiskControlPolicySnapshot(CreateRiskPolicy([captcha, unavailable])));
 
         Assert.Contains("challenge_capability_unavailable", error.Message, StringComparison.Ordinal);
     }

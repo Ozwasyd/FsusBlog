@@ -133,13 +133,15 @@ public static partial class PodBinaryCodec
             (request.Action?.Length ?? 0) +
             (request.RouteKey?.Length ?? 0) +
             (request.DeviceFingerprint?.Length ?? 0) +
-            (request.AttributesJson?.Length ?? 0)));
+            (request.AttributesJson?.Length ?? 0) +
+            (request.CapabilityManifestVersion?.Length ?? 0)));
         var mutable = new MutableSecurityChallengeIssueRequestPod
         {
             Action = PodUtf8Codec.AppendSlice(request.Action, blob),
             RouteKey = PodUtf8Codec.AppendSlice(request.RouteKey, blob),
             DeviceFingerprint = PodUtf8Codec.AppendSlice(request.DeviceFingerprint, blob),
-            AttributesJson = PodUtf8Codec.AppendSlice(request.AttributesJson, blob)
+            AttributesJson = PodUtf8Codec.AppendSlice(request.AttributesJson, blob),
+            CapabilityManifestVersion = PodUtf8Codec.AppendSlice(request.CapabilityManifestVersion, blob)
         };
 
         var writer = new BinaryPodWriter(destination);
@@ -152,7 +154,8 @@ public static partial class PodBinaryCodec
     /// </summary>
     public static byte[] EncodeSecurityChallengeIssueRequest(SecurityChallengeIssueBinaryRequest request)
         => EncodeToArray(
-            128 + (request.Action?.Length ?? 0) + (request.RouteKey?.Length ?? 0) + (request.DeviceFingerprint?.Length ?? 0) + (request.AttributesJson?.Length ?? 0),
+            128 + (request.Action?.Length ?? 0) + (request.RouteKey?.Length ?? 0) + (request.DeviceFingerprint?.Length ?? 0) +
+            (request.AttributesJson?.Length ?? 0) + (request.CapabilityManifestVersion?.Length ?? 0),
             writer => WriteSecurityChallengeIssueRequest(request, writer));
 
     /// <summary>
@@ -160,11 +163,60 @@ public static partial class PodBinaryCodec
     /// </summary>
     public static bool TryDecodeSecurityChallengeIssueRequest(ReadOnlyMemory<byte> source, out SecurityChallengeIssueBinaryRequest request)
     {
-        var reader = new BinaryPodReader(source.Span);
-        if (!reader.TryReadPod(out SecurityChallengeIssueRequestPod pod) ||
-            !reader.TryReadBytes(out ReadOnlySpan<byte> blob))
+        if (TryDecodeCurrentSecurityChallengeIssueRequest(source.Span, out request))
         {
-            request = new SecurityChallengeIssueBinaryRequest(string.Empty, string.Empty, string.Empty, string.Empty);
+            return true;
+        }
+
+        return TryDecodeLegacySecurityChallengeIssueRequest(source.Span, out request);
+    }
+
+    private static bool TryDecodeCurrentSecurityChallengeIssueRequest(
+        ReadOnlySpan<byte> source,
+        out SecurityChallengeIssueBinaryRequest request)
+    {
+        var reader = new BinaryPodReader(source);
+        if (!reader.TryReadPod(out SecurityChallengeIssueRequestPod pod) ||
+            !reader.TryReadBytes(out ReadOnlySpan<byte> blob) ||
+            !reader.IsConsumed ||
+            !AreSecurityChallengeIssueSlicesValid(
+                pod.Action,
+                pod.RouteKey,
+                pod.DeviceFingerprint,
+                pod.AttributesJson,
+                pod.CapabilityManifestVersion,
+                blob.Length))
+        {
+            request = EmptySecurityChallengeIssueRequest();
+            return false;
+        }
+
+        request = new SecurityChallengeIssueBinaryRequest(
+            PodUtf8Codec.ReadSlice(pod.Action, blob),
+            PodUtf8Codec.ReadSlice(pod.RouteKey, blob),
+            PodUtf8Codec.ReadSlice(pod.DeviceFingerprint, blob),
+            PodUtf8Codec.ReadSlice(pod.AttributesJson, blob),
+            PodUtf8Codec.ReadSlice(pod.CapabilityManifestVersion, blob));
+        return true;
+    }
+
+    private static bool TryDecodeLegacySecurityChallengeIssueRequest(
+        ReadOnlySpan<byte> source,
+        out SecurityChallengeIssueBinaryRequest request)
+    {
+        var reader = new BinaryPodReader(source);
+        if (!reader.TryReadPod(out LegacySecurityChallengeIssueRequestPod pod) ||
+            !reader.TryReadBytes(out ReadOnlySpan<byte> blob) ||
+            !reader.IsConsumed ||
+            !AreSecurityChallengeIssueSlicesValid(
+                pod.Action,
+                pod.RouteKey,
+                pod.DeviceFingerprint,
+                pod.AttributesJson,
+                default,
+                blob.Length))
+        {
+            request = EmptySecurityChallengeIssueRequest();
             return false;
         }
 
@@ -173,8 +225,27 @@ public static partial class PodBinaryCodec
             PodUtf8Codec.ReadSlice(pod.RouteKey, blob),
             PodUtf8Codec.ReadSlice(pod.DeviceFingerprint, blob),
             PodUtf8Codec.ReadSlice(pod.AttributesJson, blob));
-        return reader.IsConsumed;
+        return true;
     }
+
+    private static bool AreSecurityChallengeIssueSlicesValid(
+        Utf8SliceRef action,
+        Utf8SliceRef routeKey,
+        Utf8SliceRef deviceFingerprint,
+        Utf8SliceRef attributesJson,
+        Utf8SliceRef capabilityManifestVersion,
+        int blobLength)
+        => IsSecurityChallengeIssueSliceValid(action, blobLength)
+            && IsSecurityChallengeIssueSliceValid(routeKey, blobLength)
+            && IsSecurityChallengeIssueSliceValid(deviceFingerprint, blobLength)
+            && IsSecurityChallengeIssueSliceValid(attributesJson, blobLength)
+            && IsSecurityChallengeIssueSliceValid(capabilityManifestVersion, blobLength);
+
+    private static bool IsSecurityChallengeIssueSliceValid(Utf8SliceRef slice, int blobLength)
+        => slice.Offset >= 0 && slice.Length >= 0 && slice.Offset <= blobLength - slice.Length;
+
+    private static SecurityChallengeIssueBinaryRequest EmptySecurityChallengeIssueRequest()
+        => new(string.Empty, string.Empty, string.Empty, string.Empty);
 
     /// <summary>
     /// Writes the <c>SecurityChallengeVerifyRequest</c> contract to the supplied binary destination.
@@ -564,6 +635,16 @@ public static partial class PodBinaryCodec
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct MutableSecurityChallengeIssueRequestPod
+    {
+        public Utf8SliceRef Action;
+        public Utf8SliceRef RouteKey;
+        public Utf8SliceRef DeviceFingerprint;
+        public Utf8SliceRef AttributesJson;
+        public Utf8SliceRef CapabilityManifestVersion;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct LegacySecurityChallengeIssueRequestPod
     {
         public Utf8SliceRef Action;
         public Utf8SliceRef RouteKey;

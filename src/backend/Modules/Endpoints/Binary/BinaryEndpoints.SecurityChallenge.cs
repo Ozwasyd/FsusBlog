@@ -163,6 +163,15 @@ public static partial class BinaryEndpoints
             decision = reissued.Decision;
         }
 
+        if (decision.Kind is RiskDecisionKind.Challenge or RiskDecisionKind.StepUp &&
+            !ClientSupportsRequiredChallengeSet(request, decision))
+        {
+            return BinaryResults.FromError(
+                ErrorDetail.Create(ErrorCode.Conflict, "security_challenge_client_capability_incompatible"),
+                aeds,
+                StatusCodes.Status409Conflict);
+        }
+
         if (DecisionRequiresCaptcha(decision))
         {
             await RecordCaptchaRequiredAsync(httpContext, riskSignalSink, decision, cancellationToken);
@@ -210,6 +219,45 @@ public static partial class BinaryEndpoints
             issued.Envelope,
             providerPayloads);
         return BinaryResults.Frame(aeds, AedsFrameType.SecurityChallengeIssueResponse, writer => PodBinaryCodec.WriteSecurityChallengeIssueResponse(challengeResponse, writer));
+    }
+
+    private static bool ClientSupportsRequiredChallengeSet(
+        SecurityChallengeIssueBinaryRequest request,
+        RiskDecision decision)
+    {
+        if (decision.RequiredChallenges.Count <= 1)
+        {
+            return true;
+        }
+
+        string manifestVersion = (request.CapabilityManifestVersion ?? string.Empty).Trim();
+        if (!string.Equals(manifestVersion, SecurityChallengeCapabilityCatalog.ManifestVersion, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        SecurityChallengeExecutionMode mode = SecurityChallengeCapabilityCatalog.ResolveMode(decision.ActionName);
+        foreach (string requiredKind in decision.RequiredChallenges)
+        {
+            string normalized = (requiredKind ?? string.Empty).Trim();
+            if (!SecurityChallengeContracts.TryParseKind(normalized, out SecurityChallengeKind kind) ||
+                !string.Equals(normalized, SecurityChallengeContracts.ToWireName(kind), StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            SecurityChallengeCapabilityResolution capability = SecurityChallengeCapabilityCatalog.Resolve(
+                kind,
+                decision.ActionName,
+                mode,
+                manifestVersion);
+            if (!capability.PolicyEligible)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     internal static async Task<BinaryFrameResult> HandleSecurityChallengeVerifyAsync(

@@ -93,22 +93,25 @@ export function useRiskChallengeCommand(
       }
 
       const serverContext = contextFromHandoff(context, error.riskChallengeHandoff)
+      const requestContext = retryPolicy.kind === 'mutation_with_identity'
+        ? { ...serverContext, identity: retryPolicy.mutationIdentity }
+        : serverContext
 
       if (pending) {
         throw createAppError(AppErrorCode.Conflict, 'risk_challenge_command_already_pending')
       }
 
       if (error.riskChallengeFailure !== 'required') {
-        baseClient.clearProof(serverContext)
+        baseClient.clearProof(requestContext)
       }
-      const issued = await baseClient.issue(serverContext, {
+      const issued = await baseClient.issue(requestContext, {
         forceRefresh: error.riskChallengeFailure !== 'required'
       })
       if (issued.status === 'allow') {
         return await command(null)
       }
       if (issued.status === 'verified') {
-        const lease = baseClient.reserveProof(serverContext)
+        const lease = baseClient.reserveProof(requestContext)
         if (!lease) {
           throw createAppError(AppErrorCode.Conflict, 'risk_challenge_proof_reservation_failed')
         }
@@ -119,11 +122,11 @@ export function useRiskChallengeCommand(
       }
 
       preloaded = issued
-      challengeContext.value = { ...serverContext }
+      challengeContext.value = { ...requestContext }
       challengeVisible.value = true
       return await new Promise<T>((resolve, reject) => {
         pending = {
-          context: { ...serverContext },
+          context: { ...requestContext },
           mutationIdentity: retryPolicy.kind === 'mutation_with_identity'
             ? retryPolicy.mutationIdentity
             : null,

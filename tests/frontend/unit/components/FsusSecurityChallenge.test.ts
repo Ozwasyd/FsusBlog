@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 import FsusSecurityChallenge from '@/components/security/FsusSecurityChallenge.vue'
 import { SecurityChallengeKind, type SecurityChallengeAssignment } from '@/api/security'
 import {
+  SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION,
   resolveChallengeCapability,
   type ChallengeCapabilityResolution
 } from '@/security/challenge-capability-registry'
@@ -123,7 +124,12 @@ describe('FsusSecurityChallenge capability dispatch', () => {
 
     const host = wrapper.findComponent({ name: 'FsusPoSpaceChallenge' })
     expect(host.exists()).toBe(true)
-    expect(host.props('context')).toEqual({ action: 'comment.create', routeKey: 'article:42' })
+    expect(host.props('context')).toEqual({
+      action: 'comment.create',
+      routeKey: 'article:42',
+      capabilityManifestVersion: SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION,
+      identity: undefined
+    })
     expect(host.props('policyVersion')).toBe('policy-v1')
     expect(host.props('executorFactory')).toBe(executorFactory)
 
@@ -157,6 +163,98 @@ describe('FsusSecurityChallenge capability dispatch', () => {
     expect(wrapper.emitted('cancel')).toHaveLength(1)
     expect(client.clearProof).toHaveBeenCalledTimes(2)
   })
+
+  it('dispatches sha256PowV1 to the registered UI host and continues the ordered envelope', async () => {
+    const kind = SecurityChallengeKind.Sha256PowV1
+    const capability = resolveChallengeCapability(kind, { action: 'comment.create', mode: 'ui' })
+    const issueResult: SecurityChallengeIssueResult = {
+      status: 'challenge',
+      response: {
+        decision: 'challenge',
+        riskScore: 50,
+        effectiveRiskScore: 50,
+        escalationLevel: 2,
+        policyVersion: 'policy-v1',
+        retryAfterMs: 0,
+        envelope: null,
+        providerPayloads: []
+      },
+      assignment: assignment(kind),
+      providerPayload: {
+        challengeId: 'challenge-1',
+        payload: { salt: 'salt', difficulty: '4', timestamp: '1', signature: 'signature' }
+      },
+      proof: null,
+      kindGroup: capability.group,
+      capability,
+      reason: null,
+      retryAfterMs: 0
+    }
+    const client = fakeClient(issueResult)
+    const wrapper = mount(FsusSecurityChallenge, {
+      props: { action: 'comment.create', routeKey: 'article:42', client },
+      global: { stubs: componentStubs }
+    })
+    await flushPromises()
+
+    const host = wrapper.findComponent({ name: 'FsusPowChallenge' })
+    expect(host.exists()).toBe(true)
+    expect(host.props('client')).toMatchObject({ verify: client.verify, cancelEnvelope: client.cancelEnvelope })
+    expect(host.props('context')).toMatchObject({
+      action: 'comment.create',
+      routeKey: 'article:42',
+      capabilityManifestVersion: SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION
+    })
+
+    const next = {
+      ...issueResult,
+      assignment: { ...assignment(SecurityChallengeKind.CaptchaV1), challengeId: 'challenge-2' },
+      capability: resolveChallengeCapability(SecurityChallengeKind.CaptchaV1, { action: 'comment.create', mode: 'ui' })
+    }
+    host.vm.$emit('continued', next)
+    await flushPromises()
+    expect(wrapper.find('[data-test="captcha-host"]').exists()).toBe(true)
+  })
+
+  it('invalidates late issue responses after identity or route changes and unmount', async () => {
+    const late = deferred<SecurityChallengeIssueResult>()
+    const current = unsupportedIssueResult('current')
+    const client = fakeClient(current)
+    vi.mocked(client.issue)
+      .mockImplementationOnce(() => late.promise)
+      .mockResolvedValueOnce(current)
+      .mockResolvedValueOnce(current)
+    const wrapper = mount(FsusSecurityChallenge, {
+      props: { action: 'comment.create', routeKey: 'article:42', identity: 'mutation-a', client },
+      global: { stubs: componentStubs }
+    })
+
+    await wrapper.setProps({ identity: 'mutation-b' })
+    await flushPromises()
+    expect(client.cancelEnvelope).toHaveBeenCalledWith({
+      action: 'comment.create',
+      routeKey: 'article:42',
+      identity: 'mutation-a'
+    })
+
+    await wrapper.setProps({ routeKey: 'article:43' })
+    await flushPromises()
+    expect(client.cancelEnvelope).toHaveBeenCalledWith({
+      action: 'comment.create',
+      routeKey: 'article:42',
+      identity: 'mutation-b'
+    })
+
+    late.resolve(unsupportedIssueResult('stale'))
+    await flushPromises()
+    expect(wrapper.emitted('error')).toEqual([['current'], ['current']])
+
+    wrapper.unmount()
+    expect(client.cancelEnvelope).toHaveBeenCalledWith(expect.objectContaining({
+      routeKey: 'article:43',
+      identity: 'mutation-b'
+    }))
+  })
 })
 
 const componentStubs = {
@@ -175,6 +273,12 @@ const componentStubs = {
     props: ['assignment', 'providerPayload', 'context', 'policyVersion', 'refresh', 'disabled', 'executorFactory'],
     emits: ['verified', 'continued', 'error', 'unsupported', 'expired', 'cancel'],
     template: '<div data-test="pospace-host" />'
+  },
+  FsusPowChallenge: {
+    name: 'FsusPowChallenge',
+    props: ['assignment', 'providerPayload', 'context', 'client', 'refresh', 'disabled'],
+    emits: ['verified', 'continued', 'error', 'expired', 'cancel'],
+    template: '<div data-test="pow-host" />'
   }
 }
 
@@ -187,4 +291,28 @@ function fakeClient(issueResult: SecurityChallengeIssueResult): SecurityChalleng
     cancelEnvelope: vi.fn(),
     clearProof: vi.fn()
   }
+}
+
+function unsupportedIssueResult(reason: string): SecurityChallengeIssueResult {
+  const kind = SecurityChallengeKind.PasskeyStepUpV1
+  const capability = resolveChallengeCapability(kind, { action: 'comment.create', mode: 'ui' })
+  return {
+    status: 'unsupported',
+    response: null,
+    assignment: assignment(kind),
+    providerPayload: null,
+    proof: null,
+    kindGroup: capability.group,
+    capability,
+    reason,
+    retryAfterMs: 0
+  }
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise
+  })
+  return { promise, resolve }
 }

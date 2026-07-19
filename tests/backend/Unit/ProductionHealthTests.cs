@@ -704,15 +704,16 @@ public sealed class ProductionHealthTests
         string pow = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.Sha256PowV1);
         string poSpace = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.Argon2IdPoSpaceV1);
         string captcha = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.CaptchaV1);
+        string unavailable = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.AdminPasskeyStepUpV1);
         SecurityRiskPolicySnapshotV2 missingProvider = CreateRiskPolicyWithChallengeSet(
             SecurityChallengeCapabilityCatalog.NotificationSubscribeAction,
             [pow, poSpace]);
         SecurityRiskPolicySnapshotV2 unavailableCapability = CreateRiskPolicyWithChallengeSet(
             RiskActionNames.CommentCreate,
-            [captcha, pow]);
+            [captcha, unavailable]);
 
         Assert.False(ProductionReadinessProbe.ChallengeProviderRegistryReady([pow], missingProvider));
-        Assert.False(ProductionReadinessProbe.ChallengeProviderRegistryReady([captcha, pow], unavailableCapability));
+        Assert.False(ProductionReadinessProbe.ChallengeProviderRegistryReady([captcha, unavailable], unavailableCapability));
     }
 
     [Fact]

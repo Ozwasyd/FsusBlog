@@ -37,6 +37,7 @@ describe('useRiskChallengeCommand', () => {
     )
     await vi.waitFor(() => expect(runtime.challengeVisible.value).toBe(true))
     expect(command).toHaveBeenNthCalledWith(1, null)
+    expect(runtime.challengeContext.value?.identity).toBe('mutation-1')
 
     await runtime.handleVerified()
 

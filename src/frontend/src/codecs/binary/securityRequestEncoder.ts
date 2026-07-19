@@ -10,8 +10,9 @@ export function encodeSecurityChallengeIssueRequest(request: SecurityChallengeIs
     request.action,
     request.routeKey,
     request.deviceFingerprint,
-    request.attributesJson
-  ], 32)
+    request.attributesJson,
+    request.capabilityManifestVersion
+  ], 40)
 }
 
 export function encodeSecurityChallengeVerifyRequest(request: SecurityChallengeVerifyPodRequest): Uint8Array {

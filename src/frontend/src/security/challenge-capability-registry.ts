@@ -4,10 +4,10 @@ import {
 } from '@/contracts/binaryApi'
 import { securityChallengeKindWireName } from './challenge-kind-wire'
 
-export const SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION = '2026.07.19.2'
+export const SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION = '2026.07.19.3'
 
 export type ChallengeExecutionMode = 'ui' | 'headless'
-export type ChallengeUiHost = 'captcha' | 'perception' | 'pospace'
+export type ChallengeUiHost = 'captcha' | 'perception' | 'pospace' | 'sha256-pow'
 export type ChallengeHeadlessHost = 'notification-sha256-pow' | 'notification-pospace'
 export type ChallengeExecutorMode = ChallengeExecutionMode | 'universal'
 export type ChallengeKindGroup = 'captcha' | 'pow' | 'pospace' | 'passkey' | 'perception' | 'unsupported'
@@ -51,7 +51,7 @@ const executor = (id: string, mode: ChallengeExecutorMode, loadExecutor: () => P
 
 const registrations = [
   registration(SecurityChallengeKind.Unknown, 'unsupported', false, false, null, null, null, false, []),
-  registration(SecurityChallengeKind.Sha256PowV1, 'pow', true, true, executor('notification-sha256-pow-v1', 'headless', () => import('@/composables/usePow')), null, 'notification-sha256-pow', false, ['notification.subscribe']),
+  registration(SecurityChallengeKind.Sha256PowV1, 'pow', true, true, executor('sha256-pow-v1', 'universal', () => import('@/composables/usePow')), 'sha256-pow', 'notification-sha256-pow', true, ['*']),
   registration(SecurityChallengeKind.Argon2IdPoSpaceV1, 'pospace', true, true, executor('pospace-v1', 'universal', () => import('@/services/securityPoSpaceChallengeExecutor')), 'pospace', 'notification-pospace', true, ['*']),
   registration(SecurityChallengeKind.CaptchaV1, 'captcha', true, true, executor('captcha-v1', 'ui', () => import('@/components/security/FsusCaptchaChallenge.vue')), 'captcha', null, false, ['*']),
   registration(SecurityChallengeKind.HumanReadProofV1, 'pow', true, true, null, null, null, false, []),

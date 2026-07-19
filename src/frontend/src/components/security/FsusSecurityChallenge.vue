@@ -76,6 +76,22 @@
       @cancel="handlePoSpaceCancel"
     />
 
+    <FsusPowChallenge
+      v-else-if="capability?.uiHost === 'sha256-pow' && assignment && providerPayload"
+      ref="powHost"
+      :assignment="assignment"
+      :provider-payload="providerPayload"
+      :context="challengeContext"
+      :client="client()"
+      :refresh="refreshChallenge"
+      :disabled="disabled"
+      @verified="emit('verified', $event)"
+      @continued="applyIssueResult"
+      @error="handlePowError"
+      @expired="handlePowExpired"
+      @cancel="handlePowCancel"
+    />
+
     <div v-else-if="capability && !capability.policyEligible" class="fsus-security-challenge__panel">
       <slot name="unsupported" :assignment="assignment" :provider-payload="providerPayload" :refresh="refreshChallenge">
         <p data-test="security-challenge-unsupported">{{ copy.unsupported }}</p>
@@ -105,6 +121,7 @@ import FsusPoSpaceChallenge, {
   type PoSpaceChallengeExecutorFactory,
   type PoSpaceUnsupportedResult
 } from './FsusPoSpaceChallenge.vue'
+import FsusPowChallenge from './FsusPowChallenge.vue'
 import {
   createSecurityChallengeClient,
   type SecurityChallengeClient,
@@ -113,6 +130,7 @@ import {
 } from '@/security/challenge-client'
 import {
   resolveChallengeCapability,
+  SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION,
   type ChallengeCapabilityResolution
 } from '@/security/challenge-capability-registry'
 import type { SecurityChallengeProof } from '@/security/challenge-proof-store'
@@ -134,6 +152,7 @@ const props = withDefaults(defineProps<{
   title?: string
   client?: SecurityChallengeClient
   executorFactory?: PoSpaceChallengeExecutorFactory
+  identity?: string
 }>(), {
   autoLoad: true,
   disabled: false,
@@ -162,6 +181,7 @@ const issuePolicyVersion = ref('')
 const captchaKey = ref(0)
 const perceptionRuntime = ref<PerceptionChallengeRuntime | null>(null)
 const poSpaceHost = ref<{ dispose?: () => void } | null>(null)
+const powHost = ref<{ dispose?: () => void } | null>(null)
 const lastVerifyResponse = ref<SecurityChallengeVerifyResponse | null>(null)
 let hostGeneration = 0
 
@@ -171,7 +191,9 @@ const executorFactory = computed(() => props.executorFactory)
 const challengeContext = computed<SecurityChallengeContext>(() => ({
   action: props.action,
   routeKey: props.routeKey,
-  attributes: props.attributes
+  attributes: props.attributes,
+  capabilityManifestVersion: SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION,
+  identity: props.identity
 }))
 
 function context(): SecurityChallengeContext {
@@ -210,6 +232,7 @@ async function refreshChallenge(): Promise<void> {
   const generation = ++hostGeneration
   emit('refresh')
   poSpaceHost.value?.dispose?.()
+  powHost.value?.dispose?.()
   busy.value = true
   errorMessage.value = ''
   try {
@@ -230,7 +253,11 @@ function applyIssueResult(result: SecurityChallengeIssueResult): void {
   assignment.value = result.assignment
   providerPayload.value = result.providerPayload
   capability.value = result.capability ?? (result.assignment
-    ? resolveChallengeCapability(result.assignment.kind, { action: props.action, mode: 'ui' })
+    ? resolveChallengeCapability(result.assignment.kind, {
+        action: props.action,
+        mode: 'ui',
+        manifestVersion: SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION
+      })
     : null)
   preloadedIssueResponse.value = memberIssueResponse(result)
   issuePolicyVersion.value = result.response?.policyVersion ?? ''
@@ -295,6 +322,7 @@ async function issueCaptchaChallenge(request: IssueSecurityChallengeRequest): Pr
   }
 
   const result = await client().refresh({
+    ...context(),
     action: request.action,
     routeKey: request.routeKey,
     attributes: request.attributes,
@@ -362,6 +390,21 @@ function handlePoSpaceCancel(): void {
   emit('cancel')
 }
 
+function handlePowExpired(): void {
+  client().clearProof(context())
+  emit('expired')
+}
+
+function handlePowError(message: string): void {
+  errorMessage.value = '验证未通过。'
+  emit('error', message)
+}
+
+function handlePowCancel(): void {
+  client().clearProof(context())
+  emit('cancel')
+}
+
 function setError(message: string): void {
   errorMessage.value = message
   emit('error', message)
@@ -412,20 +455,23 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   hostGeneration += 1
+  poSpaceHost.value?.dispose?.()
+  powHost.value?.dispose?.()
   client().cancelEnvelope(context())
   resetPerceptionRuntime()
 })
 
 watch([assignment, providerPayload, capability], rebuildPerceptionRuntime)
 watch(
-  () => [props.action, props.routeKey] as const,
+  () => [props.action, props.routeKey, props.identity ?? ''] as const,
   (_current, previous) => {
     if (!previous) {
       return
     }
-    client().cancelEnvelope({ action: previous[0], routeKey: previous[1] })
+    client().cancelEnvelope({ action: previous[0], routeKey: previous[1], identity: previous[2] })
     hostGeneration += 1
     poSpaceHost.value?.dispose?.()
+    powHost.value?.dispose?.()
     resetPerceptionRuntime()
     assignment.value = null
     providerPayload.value = null

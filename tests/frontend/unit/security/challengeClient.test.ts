@@ -134,7 +134,7 @@ describe('security challenge client and proof store', () => {
     expect(getChallengeKindGroup(SecurityChallengeKind.PasskeyStepUpV1)).toBe('passkey')
   })
 
-  it('routes PoSpace through its shared executor while failing closed for missing host and incompatible manifests', async () => {
+  it('routes PoSpace and sha256PowV1 through UI executors while failing closed for incompatible manifests', async () => {
     const poSpace = await createSecurityChallengeClient({
       issueChallenge: vi.fn().mockResolvedValue(captchaIssueResponse(SecurityChallengeKind.Argon2IdPoSpaceV1)),
       now: () => 1000
@@ -143,12 +143,13 @@ describe('security challenge client and proof store', () => {
     expect(poSpace.capability?.executorFactory?.().mode).toBe('universal')
     expect(poSpace.capability?.uiHost).toBe('pospace')
 
-    const hostMissing = await createSecurityChallengeClient({
+    const sha256Pow = await createSecurityChallengeClient({
       issueChallenge: vi.fn().mockResolvedValue(captchaIssueResponse(SecurityChallengeKind.Sha256PowV1)),
       now: () => 1000
-    }).issue({ ...context, executionMode: 'headless' })
-    expect(hostMissing.status).toBe('unsupported')
-    expect(hostMissing.reason).toBe('security_challenge_host_unavailable')
+    }).issue(context)
+    expect(sha256Pow.status).toBe('challenge')
+    expect(sha256Pow.capability?.executorFactory?.().mode).toBe('universal')
+    expect(sha256Pow.capability?.uiHost).toBe('sha256-pow')
 
     const incompatible = await createSecurityChallengeClient({
       issueChallenge: vi.fn().mockResolvedValue(captchaIssueResponse()),
@@ -168,7 +169,7 @@ describe('security challenge client and proof store', () => {
   it('covers known, provider, executor, host and policy state for every enum member', () => {
     const expected = [
       [SecurityChallengeKind.Unknown, false, false, false, false, false],
-      [SecurityChallengeKind.Sha256PowV1, true, true, false, false, false],
+      [SecurityChallengeKind.Sha256PowV1, true, true, true, true, true],
       [SecurityChallengeKind.Argon2IdPoSpaceV1, true, true, true, true, true],
       [SecurityChallengeKind.CaptchaV1, true, true, true, true, true],
       [SecurityChallengeKind.HumanReadProofV1, true, true, false, false, false],
@@ -334,6 +335,89 @@ describe('security challenge client and proof store', () => {
     expect(verifyChallenge).not.toHaveBeenCalled()
   })
 
+  it('aborts and tombstones an out-of-order issue response after refresh', async () => {
+    const first = deferred<SecurityChallengeIssueResponse>()
+    const second = deferred<SecurityChallengeIssueResponse>()
+    let firstSignal: AbortSignal | undefined
+    const replacement = captchaIssueResponse()
+    replacement.envelope = {
+      ...replacement.envelope!,
+      envelopeId: '01900000-0000-7000-8000-000000000002',
+      assignments: [{ ...replacement.envelope!.assignments[0]!, challengeId: 'captcha-new' }]
+    }
+    replacement.providerPayloads = [{ challengeId: 'captcha-new', payload: { algorithm: 'replacement' } }]
+    const issueChallenge = vi.fn()
+      .mockImplementationOnce((_request, config) => {
+        firstSignal = config?.signal
+        return first.promise
+      })
+      .mockImplementationOnce(() => second.promise)
+    const client = createSecurityChallengeClient({ issueChallenge, now: () => 1000 })
+
+    const staleRun = client.issue(context)
+    const currentRun = client.refresh(context)
+    expect(firstSignal?.aborted).toBe(true)
+
+    second.resolve(replacement)
+    await expect(currentRun).resolves.toMatchObject({ status: 'challenge', assignment: { challengeId: 'captcha-new' } })
+    first.resolve(captchaIssueResponse())
+    await expect(staleRun).resolves.toMatchObject({ status: 'failed', reason: 'security_challenge_request_cancelled' })
+
+    const staleVerify = await client.verify(context, memberRequest('captcha-1'))
+    expect(staleVerify.reason).toBe('security_challenge_member_mismatch')
+  })
+
+  it('does not store a late verify response after cancel or route generation change', async () => {
+    const store = createChallengeProofStore({ now: () => 1000 })
+    const verification = deferred<SecurityChallengeVerifyResponse>()
+    let verifySignal: AbortSignal | undefined
+    const client = createSecurityChallengeClient({
+      proofStore: store,
+      issueChallenge: vi.fn().mockResolvedValue(captchaIssueResponse()),
+      verifyChallenge: vi.fn().mockImplementation((_request, config) => {
+        verifySignal = config?.signal
+        return verification.promise
+      }),
+      now: () => 1000
+    })
+    await client.issue(context)
+
+    const pending = client.verify(context, memberRequest('captcha-1'))
+    client.cancelEnvelope(context)
+    expect(verifySignal?.aborted).toBe(true)
+    verification.resolve({
+      verified: true,
+      envelopeId: ENVELOPE_ID,
+      challengeId: 'captcha-1',
+      kind: SecurityChallengeKind.CaptchaV1,
+      policyVersion: 'risk-v1',
+      completedCount: 1,
+      memberCount: 1,
+      envelopeCompleted: true,
+      proofToken: 'late-proof',
+      expiresAtUnixMs: 8_000,
+      reason: 'ok',
+      retryAfterMs: 0
+    })
+
+    await expect(pending).resolves.toMatchObject({ status: 'failed', reason: 'security_challenge_request_cancelled' })
+    expect(store.peek(context.action, context.routeKey)).toBeNull()
+  })
+
+  it('sends the current capability manifest with every generic issue request', async () => {
+    const issueChallenge = vi.fn().mockResolvedValue(captchaIssueResponse())
+    const client = createSecurityChallengeClient({ issueChallenge, now: () => 1000 })
+
+    await client.issue(context)
+
+    expect(issueChallenge).toHaveBeenCalledWith(
+      expect.objectContaining({
+        capabilityManifestVersion: SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION
+      }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    )
+  })
+
   it('allows only one concurrent reservation and restores only before send', () => {
     const store = createChallengeProofStore({ now: () => 1000, expirySkewMs: 100 })
     store.set(proof('proof-race'))
@@ -438,4 +522,14 @@ function memberRequest(challengeId: string) {
     routeKey: context.routeKey,
     providerPayload: { answerText: 'AEF2' }
   }
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+  return { promise, resolve, reject }
 }

@@ -67,7 +67,8 @@ public sealed record class SecurityChallengeIssueBinaryRequest(
     string Action,
     string RouteKey,
     string DeviceFingerprint,
-    string AttributesJson);
+    string AttributesJson,
+    string CapabilityManifestVersion = "");
 
 /// <summary>
 /// Defines the security transport contract represented by <c>SecurityChallengeVerifyBinaryRequest</c>.

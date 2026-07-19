@@ -6,6 +6,7 @@ import {
   SecurityChallengeKind,
   verifySecurityChallenge
 } from '@/api/security'
+import { SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION } from '@/security/challenge-capability-registry'
 import { FSUS_HEADERS } from '@/api/contracts'
 
 vi.mock('@/composition/binaryTransport', () => ({
@@ -30,7 +31,8 @@ describe('security challenge binary API', () => {
     await issueSecurityChallenge({
       action: 'comment.create',
       routeKey: 'article:42',
-      attributes: { surface: 'comment' }
+      attributes: { surface: 'comment' },
+      capabilityManifestVersion: SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION
     })
 
     const call = binaryMock.mock.calls[0]?.[0]
@@ -39,11 +41,12 @@ describe('security challenge binary API', () => {
     expect(call?.requestOptions?.method).toBe('POST')
     expect((call?.requestOptions?.headers as Headers).get(FSUS_HEADERS.deviceFingerprint)).toBe('fp-captcha-test')
     expectAedsPodBody(call?.requestOptions?.body, FrameType.SecurityChallengeIssueRequest, (payload) => {
-      const blob = readPodBlob(payload, 32)
+      const blob = readPodBlob(payload, 40)
       expect(readSlice(payload, blob, 0)).toBe('comment.create')
       expect(readSlice(payload, blob, 8)).toBe('article:42')
       expect(readSlice(payload, blob, 16)).toBe('fp-captcha-test')
       expect(JSON.parse(readSlice(payload, blob, 24))).toEqual({ surface: 'comment' })
+      expect(readSlice(payload, blob, 32)).toBe(SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION)
     })
   })
 

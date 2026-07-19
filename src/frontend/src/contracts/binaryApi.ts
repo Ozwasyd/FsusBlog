@@ -807,6 +807,7 @@ export interface SecurityChallengeIssuePodRequest {
   routeKey: string
   deviceFingerprint: string
   attributesJson: string
+  capabilityManifestVersion: string
 }
 
 export interface SecurityChallengeVerifyPodRequest {

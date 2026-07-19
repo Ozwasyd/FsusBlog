@@ -483,6 +483,7 @@ export interface IssueSecurityChallengeRequest {
   routeKey: string
   attributes?: Record<string, unknown>
   deviceFingerprint?: string
+  capabilityManifestVersion?: string
 }
 
 export interface VerifySecurityChallengeRequest {
@@ -599,7 +600,8 @@ export const issueSecurityChallenge = (request: IssueSecurityChallengeRequest, c
           action: request.action,
           routeKey: request.routeKey,
           deviceFingerprint: request.deviceFingerprint?.trim() || getBrowserFp(),
-          attributesJson: JSON.stringify(request.attributes ?? {})
+          attributesJson: JSON.stringify(request.attributes ?? {}),
+          capabilityManifestVersion: request.capabilityManifestVersion ?? ''
         })
       )
     },

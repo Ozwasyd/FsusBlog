@@ -256,11 +256,24 @@ public sealed class SecurityChallengeContractTests
     [Fact]
     public void SecurityChallengeIssueAndVerifyContracts_RoundTrip()
     {
-        var issue = new SecurityChallengeIssueBinaryRequest("public.read", "article:42", "device-123456", """{"locale":"zh-CN"}""");
+        var issue = new SecurityChallengeIssueBinaryRequest(
+            "public.read",
+            "article:42",
+            "device-123456",
+            """{"locale":"zh-CN"}""",
+            SecurityChallengeCapabilityCatalog.ManifestVersion);
         byte[] issueEncoded = PodBinaryCodec.EncodeSecurityChallengeIssueRequest(issue);
 
         Assert.True(PodBinaryCodec.TryDecodeSecurityChallengeIssueRequest(issueEncoded, out SecurityChallengeIssueBinaryRequest issueDecoded));
         Assert.Equal(issue, issueDecoded);
+        Assert.Equal(40, PodSizeCatalog.SecurityChallengeIssueRequestPod);
+
+        var legacyIssue = new SecurityChallengeIssueBinaryRequest("public.read", "article:42", "device-123456", """{"locale":"zh-CN"}""");
+        byte[] currentWithoutManifest = PodBinaryCodec.EncodeSecurityChallengeIssueRequest(legacyIssue);
+        byte[] legacyEncoded = [.. currentWithoutManifest.AsSpan(0, 32), .. currentWithoutManifest.AsSpan(40)];
+
+        Assert.True(PodBinaryCodec.TryDecodeSecurityChallengeIssueRequest(legacyEncoded, out SecurityChallengeIssueBinaryRequest legacyDecoded));
+        Assert.Equal(legacyIssue, legacyDecoded);
 
         var verify = new SecurityChallengeVerifyBinaryRequest(
             SecurityChallengeContracts.CreateChallengeId(),

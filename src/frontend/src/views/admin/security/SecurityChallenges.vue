@@ -10,22 +10,20 @@
           <thead class="text-[11px] uppercase text-[var(--fsusblog-text-muted)]">
             <tr class="border-b border-[var(--fsusblog-panel-border)]">
               <th class="px-5 py-3">类型</th>
+              <th class="px-5 py-3">契约可表达</th>
+              <th class="px-5 py-3">当前客户端可执行</th>
+              <th class="px-5 py-3">策略可启用 / 模式</th>
               <th class="px-5 py-3">Provider</th>
-              <th class="px-5 py-3">Executor</th>
-              <th class="px-5 py-3">UI Host</th>
-              <th class="px-5 py-3">Headless Host</th>
-              <th class="px-5 py-3">Policy</th>
               <th class="px-5 py-3">业务表面</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="row in capabilityRows" :key="row.wireName" class="border-b border-[var(--fsusblog-panel-border)]">
               <td class="px-5 py-3 font-bold text-[var(--fsusblog-text-primary)]">{{ row.wireName }}</td>
+              <td class="px-5 py-3" :data-test="`capability-contract-${row.wireName}`">{{ row.contractLabel }}</td>
+              <td class="px-5 py-3" :data-test="`capability-client-${row.wireName}`">{{ row.clientExecutionLabel }}</td>
+              <td class="px-5 py-3" :data-test="`capability-policy-${row.wireName}`">{{ row.policyLabel }}</td>
               <td class="px-5 py-3">{{ statusLabel(row.providerAvailable) }}</td>
-              <td class="px-5 py-3">{{ statusLabel(row.executorAvailable) }}</td>
-              <td class="px-5 py-3">{{ statusLabel(row.uiHostAvailable) }}</td>
-              <td class="px-5 py-3">{{ statusLabel(row.headlessHostAvailable) }}</td>
-              <td class="px-5 py-3">{{ row.policyLabel }}</td>
               <td class="px-5 py-3">{{ row.surfaces }}</td>
             </tr>
           </tbody>
@@ -113,6 +111,7 @@ import { Refresh } from '@/fsusui/icons'
 import { showErrorToast } from '@/utils/errorPresentation'
 import {
   SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION,
+  resolveChallengeCapability,
   securityChallengeCapabilityManifest
 } from '@/security/challenge-capability-registry'
 
@@ -125,28 +124,35 @@ const failureRate = computed(() => metricsState.value?.failureRate ?? 0)
 const kindBreakdown = computed(() => metricsState.value?.kindBreakdown ?? [])
 const recentAttempts = computed(() => metricsState.value?.recentAttempts ?? [])
 const capabilityManifestVersion = SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION
-const capabilityRows = computed(() => securityChallengeCapabilityManifest
-  .filter((item) => item.kindKnown)
-  .map((item) => {
-    const executorAvailable = item.executorFactory !== null
-    const uiHostAvailable = item.uiHost !== null
-    const headlessHostAvailable = item.headlessHost !== null
-    const eligibleSurfaces = item.providerAvailable && executorAvailable && (uiHostAvailable || headlessHostAvailable)
-      ? item.surfaces.join(', ')
-      : ''
+const capabilityRows = computed(() => securityChallengeCapabilityManifest.map((item) => {
+    const action = item.surfaces.includes('*') ? '*' : item.surfaces[0] ?? ''
+    const executor = item.executorFactory?.() ?? null
+    const manifestCompatible = capabilityManifestVersion === SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION
+    const surfaceAvailable = item.surfaces.includes('*') || item.surfaces.includes(action)
+    const uiClientExecutable = manifestCompatible && surfaceAvailable && item.uiHost !== null
+      && (executor?.mode === 'ui' || executor?.mode === 'universal')
+    const headlessClientExecutable = manifestCompatible && surfaceAvailable && item.headlessHost !== null
+      && (executor?.mode === 'headless' || executor?.mode === 'universal')
+    const uiPolicy = resolveChallengeCapability(item.kind, {
+      action,
+      mode: 'ui',
+      manifestVersion: capabilityManifestVersion
+    })
+    const headlessPolicy = resolveChallengeCapability(item.kind, {
+      action,
+      mode: 'headless',
+      manifestVersion: capabilityManifestVersion
+    })
     const subsystem = challengeSubsystemByWireName[item.wireName]
     const policyMode = subsystem ? policyState.value?.subsystemModes[subsystem] : undefined
     return {
       wireName: item.wireName,
+      contractLabel: item.kindKnown ? '可表达' : '不可表达',
       providerAvailable: item.providerAvailable,
-      executorAvailable,
-      uiHostAvailable,
-      headlessHostAvailable,
-      policyLabel: !eligibleSurfaces
-        ? '不可启用'
-        : policyMode
-          ? policyMode
-          : '按动作策略',
+      clientExecutionLabel: executionModeLabel(uiClientExecutable, headlessClientExecutable, '不可执行'),
+      policyLabel: uiPolicy.policyEligible || headlessPolicy.policyEligible
+        ? `可启用（${executionModeLabel(uiPolicy.policyEligible, headlessPolicy.policyEligible, '-')}）；模式：${policyMode ?? '按动作策略'}`
+        : '不可启用',
       surfaces: item.surfaces.length > 0 ? item.surfaces.join(', ') : '-'
     }
   }))
@@ -162,6 +168,13 @@ const challengeSubsystemByWireName: Readonly<Record<string, string>> = Object.fr
 })
 
 const statusLabel = (available: boolean): string => available ? '可用' : '不可用'
+
+const executionModeLabel = (ui: boolean, headless: boolean, fallback: string): string => {
+  if (ui && headless) return 'UI + Headless'
+  if (ui) return 'UI'
+  if (headless) return 'Headless'
+  return fallback
+}
 
 const formatPercent = (value: number | null | undefined): string =>
   `${Math.round((value ?? 0) * 1000) / 10}%`

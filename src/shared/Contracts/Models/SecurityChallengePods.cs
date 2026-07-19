@@ -47,6 +47,7 @@ public readonly struct SecurityChallengeIssueRequestPod
     public readonly Utf8SliceRef RouteKey;
     public readonly Utf8SliceRef DeviceFingerprint;
     public readonly Utf8SliceRef AttributesJson;
+    public readonly Utf8SliceRef CapabilityManifestVersion;
 }
 
 /// <summary>

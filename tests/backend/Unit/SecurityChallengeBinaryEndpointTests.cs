@@ -112,6 +112,111 @@ public sealed class SecurityChallengeBinaryEndpointTests
         Assert.Equal(["captchaV1"], orchestrator.LastIssueRequest.Decision.RequiredChallenges);
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("older-build")]
+    public async Task IssueAsync_MultiMemberWithMissingOrIncompatibleManifest_FailsBeforeProviderIssue(string manifestVersion)
+    {
+        var aeds = new AedsEncoder();
+        var request = new SecurityChallengeIssueBinaryRequest(
+            RiskActionNames.PublicRead,
+            "article:42",
+            "device-123456",
+            "{}",
+            manifestVersion);
+        var context = CreateContext(
+            AedsFrameType.SecurityChallengeIssueRequest,
+            BinaryRequestPayload.Success(PodBinaryCodec.EncodeSecurityChallengeIssueRequest(request)));
+        var orchestrator = new FakeChallengeOrchestrator();
+
+        BinaryFrameResult result = await BinaryEndpoints.HandleSecurityChallengeIssueAsync(
+            context,
+            aeds,
+            new FixedRiskScoreReader(50),
+            new FixedRiskPolicyProvider(CreatePolicy(
+                "perceptionLocalizationV2",
+                ["perceptionLocalizationV2", Sha256PowChallengeProvider.WireKind])),
+            new RiskControlContextFactory(),
+            new RiskDecisionService(),
+            orchestrator,
+            new NullRiskSink(),
+            CancellationToken.None);
+
+        AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
+        Assert.Equal(StatusCodes.Status409Conflict, context.Response.StatusCode);
+        Assert.Equal(AedsFrameType.ApiError, decoded.FrameType);
+        Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Payload, out var errorPod));
+        Assert.Equal("security_challenge_client_capability_incompatible", PodBinaryCodec.ToErrorDetail(errorPod).Message);
+        Assert.Null(orchestrator.LastIssueRequest);
+    }
+
+    [Fact]
+    public async Task IssueAsync_MultiMemberWithCurrentExecutableManifest_ReachesProviderIssue()
+    {
+        var aeds = new AedsEncoder();
+        var request = new SecurityChallengeIssueBinaryRequest(
+            RiskActionNames.PublicRead,
+            "article:42",
+            "device-123456",
+            "{}",
+            SecurityChallengeCapabilityCatalog.ManifestVersion);
+        var context = CreateContext(
+            AedsFrameType.SecurityChallengeIssueRequest,
+            BinaryRequestPayload.Success(PodBinaryCodec.EncodeSecurityChallengeIssueRequest(request)));
+        var orchestrator = new FakeChallengeOrchestrator();
+
+        _ = await BinaryEndpoints.HandleSecurityChallengeIssueAsync(
+            context,
+            aeds,
+            new FixedRiskScoreReader(50),
+            new FixedRiskPolicyProvider(CreatePolicy(
+                "perceptionLocalizationV2",
+                ["perceptionLocalizationV2", Sha256PowChallengeProvider.WireKind])),
+            new RiskControlContextFactory(),
+            new RiskDecisionService(),
+            orchestrator,
+            new NullRiskSink(),
+            CancellationToken.None);
+
+        Assert.NotNull(orchestrator.LastIssueRequest);
+        Assert.Equal(
+            ["perceptionLocalizationV2", Sha256PowChallengeProvider.WireKind],
+            orchestrator.LastIssueRequest.Decision.RequiredChallenges);
+    }
+
+    [Fact]
+    public async Task IssueAsync_MultiMemberWithUnavailableUiMember_FailsBeforeProviderIssue()
+    {
+        var aeds = new AedsEncoder();
+        var request = new SecurityChallengeIssueBinaryRequest(
+            RiskActionNames.PublicRead,
+            "article:42",
+            "device-123456",
+            "{}",
+            SecurityChallengeCapabilityCatalog.ManifestVersion);
+        var context = CreateContext(
+            AedsFrameType.SecurityChallengeIssueRequest,
+            BinaryRequestPayload.Success(PodBinaryCodec.EncodeSecurityChallengeIssueRequest(request)));
+        var orchestrator = new FakeChallengeOrchestrator();
+
+        BinaryFrameResult result = await BinaryEndpoints.HandleSecurityChallengeIssueAsync(
+            context,
+            aeds,
+            new FixedRiskScoreReader(50),
+            new FixedRiskPolicyProvider(CreatePolicy(
+                "captchaV1",
+                ["captchaV1", "adminPasskeyStepUpV1"])),
+            new RiskControlContextFactory(),
+            new RiskDecisionService(),
+            orchestrator,
+            new NullRiskSink(),
+            CancellationToken.None);
+
+        AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
+        Assert.Equal(AedsFrameType.ApiError, decoded.FrameType);
+        Assert.Null(orchestrator.LastIssueRequest);
+    }
+
     [Fact]
     public async Task IssueAsync_PoSpaceUnsupportedAttributes_UsesServerReissueDecisionOverBinaryContract()
     {
@@ -695,15 +800,21 @@ public sealed class SecurityChallengeBinaryEndpointTests
         return Assert.IsAssignableFrom<IReadOnlyDictionary<string, string>>(arguments[1]);
     }
 
-    private static SecurityRiskPolicySnapshotV2 CreatePolicy(string challengeKind)
+    private static SecurityRiskPolicySnapshotV2 CreatePolicy(
+        string challengeKind,
+        IReadOnlyList<string>? requiredChallenges = null)
     {
+        bool aggregate = requiredChallenges is { Count: > 1 };
         var defaultPolicy = new SecurityRiskActionPolicy(
             "*",
-            new SecurityRiskActionThresholds(49, 50, 100, 100, 100),
+            new SecurityRiskActionThresholds(49, 50, aggregate ? 50 : 100, 100, 100),
             challengeKind,
             1,
             null,
-            AnonymousWriteAllowed: false);
+            AnonymousWriteAllowed: false)
+        {
+            HardChallengeKinds = requiredChallenges ?? []
+        };
         return new SecurityRiskPolicySnapshotV2(
             "risk:test",
             SecurityRiskPolicySnapshotV2Adapter.DefaultPolicyVersion,
