@@ -152,7 +152,7 @@ expectIncludes(messagesPath, messages, 'font-variant-numeric: tabular-nums;')
 expectNotIncludes(identityPath, identity, legacyFsusFontMonoVar)
 expectIncludes(identityPath, identity, 'font-family: var(--font-mono);')
 
-expectIncludes(publicShellPath, publicShell, 'border-radius: var(--fsus-radius-popover, 10px);')
+expectIncludes(publicShellPath, publicShell, '--fsusblog-public-overlay-radius: var(--fsus-radius-popover, 10px);')
 expectIncludes(markdownPath, markdown, 'border-radius: var(--fsus-radius-panel, 12px);')
 expectIncludes(markdownPath, markdown, 'border-radius: var(--fsus-radius-control-small, 4px)')
 expectIncludes(markdownPath, markdown, 'border-radius: var(--fsus-radius-control, 6px);')

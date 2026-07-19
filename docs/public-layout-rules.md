@@ -112,11 +112,21 @@ Markdown 代码块与管理面审计详情统一使用 `'JetBrains Mono', ui-mon
 
 ### 触控目标档位
 
-触控目标档位按表面语义收口：public header、主题菜单与公开壳层紧凑操作不得低于 40px；identity 用户操作使用 44px 档；admin 紧凑操作不得低于 40px。移动横屏与窄高视口只能减少外部间距，不能把命中区域降回 36px / `2.25rem`。`check:visual-density-governance` 必须扫描 `src/frontend/src` 并阻止这两个旧 `min-height` 孤值回流。
+触控目标档位按表面语义收口：desktop public header 控件最小命中区为 `40px`，mobile header 控件最小命中区为 `44px`；identity 用户操作使用 44px 档；admin 紧凑操作不得低于 40px。移动横屏与窄高视口只能减少外部间距，不能把命中区域降回 36px / `2.25rem`。`check:visual-density-governance` 必须扫描 `src/frontend/src` 并阻止这两个旧 `min-height` 孤值回流。
+
+### 公共壳层 CSS 所有权
+
+公共壳层的三层职责固定如下，AOT、hydration 和 SPA takeover 不得通过后加载覆盖切换视觉真值：
+
+- Foundation 层（`public-shell-foundation.css`）拥有首帧 palette、页面背景、壳层最小高度、Header/Footer 基础布局、品牌几何、40/44px 控件高度链，以及 emergency fallback 源块。它只对 FsusUI Search/Theme/Menu 应用共享几何 token，不复制组件的完整交互外观。
+- Component/Runtime 层（`PublicBlogLayoutShell.vue` 与 FsusUI）拥有 Search open/closed、menu open/closed、`aria-expanded`、`focus-visible`、Escape 与焦点归还。Blog 自有 Search panel 的外观只在该组件定义一次；Theme Menu 与 mobile details menu 的完整外观由 FsusUI 提供。
+- Public page 层（`public-page.css`）只拥有 reading surface、article/list/filter 页面结构与溢出边界；不得定义 `.el-public-shell__*`、`.public-chrome-*`、`.public-colophon*`，也不得重新定义 Markdown heading/paragraph 的完整排版。
+
+Search panel、Theme Menu、mobile details panel 和公共 Dialog 统一消费 `--fsusblog-public-overlay-padding`、`--fsusblog-public-overlay-radius`、`--fsusblog-public-overlay-shadow`。公开控件从 `--fsusblog-public-control-height-current` 读取当前 40/44px 档位；任何 viewport 适配只能切换该 token，不在选择器中复制高度字面值。
 
 ### Header 与 sticky 几何契约
 
-公开壳层以应用自有的 `[data-public-shell-header]` 为唯一测量锚点。`usePublicStickyGeometry` 将实际 header 高度发布为 `--fsusblog-public-header-height-current`，并由此派生 sticky top 与 anchor scroll margin；viewport resize、横屏断点或控件触控高度变化必须重新测量，组件卸载必须断开 observer 与 listener。Archive 年份标题和 hash target 只能消费这些 token，不得复制固定像素偏移，也不得依赖 FsusUI 内部 class selector。
+公开壳层以应用自有的 `[data-public-shell-header]` 为唯一测量锚点。`usePublicStickyGeometry` 将实际 header 高度发布为 `--fsusblog-public-header-height-current`，并由此派生 sticky top 与 anchor scroll margin；viewport resize、横屏断点或控件触控高度变化必须重新测量，组件卸载必须断开 observer 与 listener。Archive 年份标题和 hash target 只能消费这些 token，不得复制固定像素偏移，也不得依赖 FsusUI 内部 class selector。Footer 只在自身自然文档流内吸收 safe area，根 shell 不为不存在的 bottom navigation 预留空间。
 
 SSR/AOT 无 JavaScript 首帧保留静态 token fallback，hydration 后再以实际测量值覆盖。排版或触控面积调整不能改变这一所有权：标题、摘要和 metadata 可按公开排版角色变化，但 header selector、sticky token 和锚点间距仍由同一几何链路管理。实现与验收映射见 `docs/issue-1016-public-shell-sticky-geometry-handoff.md`、`docs/issue-1017-archive-sticky-offset-handoff.md` 和 `docs/issue-1285-touch-target-floor.md`。
 

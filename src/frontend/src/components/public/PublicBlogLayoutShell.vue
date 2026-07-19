@@ -509,36 +509,46 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.fsusblog-public-brand-mark {
-  display: inline-flex;
-  min-width: 0;
-  max-width: min(14rem, 42vw);
-  align-items: center;
-}
-
-.fsusblog-public-brand-image {
-  display: block;
-  max-height: 1.75rem;
-  max-width: 100%;
-  object-fit: contain;
-}
-
-.fsusblog-public-brand-image--dark {
-  display: none;
-}
-
-:global(html.dark) .fsusblog-public-brand-image--light,
-:global(html[data-theme-resolved='dark']) .fsusblog-public-brand-image--light {
-  display: none;
-}
-
-:global(html.dark) .fsusblog-public-brand-image--dark,
-:global(html[data-theme-resolved='dark']) .fsusblog-public-brand-image--dark {
-  display: block;
-}
-
 .fsusblog-public-main-target {
   min-width: 0;
+}
+
+.public-chrome-action:hover,
+.public-chrome-action:focus-visible {
+  color: var(--fsusblog-text-primary);
+}
+
+.public-chrome-action:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
+  outline: none;
+}
+
+.public-chrome-search {
+  position: relative;
+}
+
+.public-chrome-search__panel {
+  position: absolute;
+  inset-block-start: calc(100% + 8px);
+  inset-inline-end: 0;
+  z-index: 60;
+  width: min(22rem, calc(100vw - 32px));
+  padding: var(--fsusblog-public-overlay-padding);
+  border: 1px solid var(--fsusblog-panel-border);
+  border-radius: var(--fsusblog-public-overlay-radius);
+  background: var(--fsusblog-panel-bg);
+  box-shadow: var(--fsusblog-public-overlay-shadow);
+  box-sizing: border-box;
+}
+
+.public-chrome-search-panel-enter-active,
+.public-chrome-search-panel-leave-active {
+  transition: opacity var(--fsus-motion-control-fast) var(--fsus-motion-standard);
+}
+
+.public-chrome-search-panel-enter-from,
+.public-chrome-search-panel-leave-to {
+  opacity: 0;
 }
 
 .fsusblog-public-mobile-menu-utilities {
@@ -547,8 +557,12 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  margin-top: 0.375rem;
-  padding: 0.375rem 0.125rem 0;
-  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .public-chrome-search-panel-enter-active,
+  .public-chrome-search-panel-leave-active {
+    transition-duration: 1ms;
+  }
 }
 </style>

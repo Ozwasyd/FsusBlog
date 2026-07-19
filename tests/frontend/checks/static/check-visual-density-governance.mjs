@@ -236,13 +236,13 @@ function checkTouchTargetFloor() {
 
   assertContains(
     publicShellCriticalCssPath,
-    /\.el-theme-mode-toggle__menu-item\s*\{[\s\S]*?min-height:\s*40px;/,
-    'public theme menu items must keep the 40px touch-target floor'
+    /--fsusblog-public-control-height:\s*40px;[\s\S]*?--fsusblog-public-mobile-control-height:\s*44px;[\s\S]*?\.el-theme-mode-toggle__menu-item\s*\{[\s\S]*?min-height:\s*var\(--fsusblog-public-control-height-current\);/,
+    'public theme menu items must consume the desktop 40px and mobile 44px control-height chain'
   )
   assertContains(
     publicShellCriticalCssPath,
-    /@media \(max-height: 520px\) and \(orientation: landscape\)\s*\{[\s\S]*?\.el-public-shell__brand,[\s\S]*?\.el-public-shell__auth-link--desktop\s*\{\s*min-height:\s*40px;/,
-    'public landscape header controls must keep the 40px touch-target floor'
+    /@media \(max-height: 520px\) and \(orientation: landscape\)\s*\{[\s\S]*?\.el-public-shell__brand,[\s\S]*?\.el-public-shell__auth-link--desktop\s*\{\s*min-height:\s*var\(--fsusblog-public-control-height-current\);/,
+    'public landscape header controls must preserve the responsive control-height chain'
   )
   assertContains(
     identityCenterPath,
@@ -482,7 +482,7 @@ function checkPublicTypographyContract() {
   }
 
   for (const [file, source] of [
-    [publicPageCssPath, publicPageCss],
+    [publicShellCriticalCssPath, publicShellCriticalCss],
     [publicShellEmergencyCssPath, publicShellEmergencyCss]
   ]) {
     assertContains(file, /#fsus-aot-shell \.ui-article-list\s*\{[\s\S]*?gap:\s*2\.5rem;/, 'AOT article list feed must use 40px group separation')

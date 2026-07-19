@@ -283,7 +283,7 @@ async function inspectHeader(page, width, route, theme, authMode) {
       ['mobile search', state.mobileSearchBox],
       ['mobile menu', state.mobileMenuBox],
     ]) {
-      assertBoxMetric(box, 'height', 40, `${label}: ${boxLabel}`)
+      assertBoxMetric(box, 'height', 44, `${label}: ${boxLabel}`)
       assertBoxMetric(
         { centerY: Math.abs(box.centerY - state.primaryBox.centerY) },
         'centerY',
@@ -342,8 +342,8 @@ async function inspectHeader(page, width, route, theme, authMode) {
     assert(mobileMenuState.panelInPrimaryActions, `${label}: FsusUI menu panel is outside primary actions`)
     assert(mobileMenuState.themeInPanel, `${label}: mobile theme utility is missing from menu panel`)
     assert(mobileMenuState.authInPanel, `${label}: mobile auth utility is missing from menu panel`)
-    assertNear(mobileMenuState.themeHeight, 40, 1, `${label}: mobile theme menu height`)
-    assertNear(mobileMenuState.authHeight, 40, 1, `${label}: mobile auth menu height`)
+    assertNear(mobileMenuState.themeHeight, 44, 1, `${label}: mobile theme menu height`)
+    assertNear(mobileMenuState.authHeight, 44, 1, `${label}: mobile auth menu height`)
     if (!route.startsWith('/search')) {
       assert(Boolean(mobileMenuState.current), `${label}: menu current item missing`)
     }
