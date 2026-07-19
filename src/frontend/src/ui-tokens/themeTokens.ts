@@ -24,7 +24,7 @@ export const themeTokens: ThemeTokenContract = {
     container: 'flex flex-col gap-10 sm:gap-12',
     card: 'ui-article-card group flex flex-col items-start gap-4 sm:gap-5',
     metaRow: `ui-article-meta min-h-5 flex flex-wrap items-center gap-6 ${articleListMetadataText}`,
-    metaSeparator: `ui-article-meta-separator ${textDecorative}`,
+    metaSeparator: `ui-article-meta-separator font-normal ${textDecorative}`,
     metaCategory: `ui-article-category inline-flex min-h-9 items-center -mx-1 px-1 ${microRadius} outline-none ${focusRing} ${textMuted} ${primaryHover} ${colorTransition} cursor-pointer`,
     title: `ui-article-title text-lg sm:text-xl lg:text-2xl font-bold ${textHeading} group-hover:text-[var(--fsusblog-color-primary)] ${colorTransition} leading-[1.25] sm:leading-[1.2] safe-inline-wrap tracking-normal`,
     titleLink: `flex min-h-11 items-center ${microRadius} outline-none ${focusRing} safe-inline-wrap`,
@@ -37,7 +37,7 @@ export const themeTokens: ThemeTokenContract = {
     header: `mb-3 sm:mb-4 pb-3 sm:pb-4 border-b ${lineBorder}`,
     title: `text-xl sm:text-2xl lg:text-3xl font-bold ${textHeading} leading-[1.05] tracking-normal mb-8 sm:mb-10`,
     metaRow: `flex flex-wrap items-center gap-6 ${metadataText}`,
-    metaSeparator: `${textSubtle}`,
+    metaSeparator: `font-normal ${textDecorative}`,
     categoryLink: `inline-flex min-h-9 items-center px-1 ${textMuted} ${primaryHover} ${colorTransition} outline-none ${focusRing}`,
     categoryText: textMuted,
     footer: `mt-12 sm:mt-16 pt-6 sm:pt-8 border-t ${lineBorder}`,
@@ -46,7 +46,7 @@ export const themeTokens: ThemeTokenContract = {
     commentsRoot: 'mt-6 sm:mt-8 pb-20',
     commentsHeading: `text-xs font-medium ${textMuted} uppercase tracking-normal mb-6`,
     commentsPlaceholderRoot: `flex items-center justify-center gap-2 rounded-[var(--fsusblog-reading-radius-panel)] py-3 text-xs ${textTertiary} font-medium normal-case tracking-normal shadow-none`,
-    commentsPlaceholderDot: `inline-block h-1 w-1 shrink-0 rounded-full bg-[var(--fsusblog-text-decorative)] align-middle`,
+    commentsPlaceholderDot: 'fsusblog-dot-loader',
     commentsPlaceholderText: `${textTertiary}`
   },
   userComments: {

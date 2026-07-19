@@ -852,6 +852,15 @@ body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-fade-in {
   --el-skeleton-to-color: var(--fsusblog-skeleton-bg);
 }
 
+:where(#app, #fsus-aot-shell) .fsusblog-dot-loader {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  flex: 0 0 auto;
+  border-radius: var(--fsus-radius-pill, 999px);
+  background: var(--fsusblog-text-decorative);
+}
+
 .fsusblog-public-shell-runtime {
   --fsusblog-public-header-height-current: var(--fsusblog-public-header-height, 4rem);
   --fsusblog-public-sticky-top: var(--fsusblog-public-header-height-current);

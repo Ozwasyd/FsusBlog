@@ -1,7 +1,10 @@
 <template>
   <section class="public-content-state" :class="[`public-content-state--${size}`, `public-content-state--${tone}`]" :role="role || undefined" :aria-live="ariaLive || undefined">
     <div class="public-content-state__rule" aria-hidden="true"></div>
-    <p class="public-content-state__title">{{ title }}</p>
+    <div class="public-content-state__title-row">
+      <span v-if="tone === 'neutral'" class="fsusblog-dot-loader" aria-hidden="true"></span>
+      <p class="public-content-state__title">{{ title }}</p>
+    </div>
     <p v-if="description" class="public-content-state__description">{{ description }}</p>
     <div v-if="$slots.default" class="public-content-state__actions">
       <slot />
@@ -49,6 +52,12 @@ withDefaults(defineProps<{
 
 .public-content-state--error .public-content-state__rule {
   background: var(--fsusblog-color-error, var(--fsusblog-panel-border-strong, var(--fsusblog-panel-border)));
+}
+
+.public-content-state__title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
 }
 
 .public-content-state__title {

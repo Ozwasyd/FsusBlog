@@ -54,7 +54,7 @@
           class="archive-year-section relative"
         >
           <div class="archive-year-heading sticky z-10 bg-[var(--fsusblog-page-bg)] pt-2 pb-3 mb-8 sm:mb-10 flex items-baseline gap-3">
-            <span class="text-[var(--fsusblog-text-subtle)] leading-none" aria-hidden="true">·</span>
+            <span class="text-[var(--fsusblog-text-decorative)] leading-none" aria-hidden="true">.</span>
             <h2 class="text-2xl font-bold text-[var(--fsusblog-text-heading)] tabular-nums tracking-normal sm:text-3xl">
               {{ yearGroup.year }}
             </h2>

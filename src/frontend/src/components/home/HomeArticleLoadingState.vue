@@ -1,4 +1,7 @@
 <template>
+  <div class="mb-4 flex justify-end" aria-hidden="true">
+    <span class="fsusblog-dot-loader"></span>
+  </div>
   <el-skeleton
     v-for="i in 3"
     :key="i"

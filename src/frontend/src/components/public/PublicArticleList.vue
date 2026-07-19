@@ -13,7 +13,7 @@
         <time :datetime="item.meta.isoTime" :title="item.meta.fullTime" class="tabular-nums">
           {{ item.meta.displayTime }}
         </time>
-        <span :class="themeTokens.articleList.metaSeparator" aria-hidden="true">/</span>
+        <span :class="themeTokens.articleList.metaSeparator" aria-hidden="true">·</span>
         <a
           v-if="item.meta.categoryHref"
           :href="item.meta.categoryHref"
@@ -28,7 +28,7 @@
           v-if="item.tags.length"
           :class="`${themeTokens.articleList.metaSeparator} hidden sm:inline`"
           aria-hidden="true"
-        >/</span>
+        >·</span>
         <span
           v-for="tag in item.tags"
           :key="tag.label"
