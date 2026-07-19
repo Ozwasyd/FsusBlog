@@ -2,6 +2,24 @@
     "schema": "fsusblog.coverage-registry.v1",
     "entries": [
         {
+            "id": "backend-distributed-contract-fast",
+            "description": "Single-process distributed contracts fail fast across runtime mode selection, lease identity and TTL, projection checkpoints, Outbox critical failures and invalidation event wire schema.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "tests/backend/Unit/DistributedContractFastTests.cs",
+                "tests/backend/Unit/PublicAotBackfillLeaseTests.cs",
+                "tests/backend/Unit/ArticleMutationProjectionCheckpointTests.cs",
+                "tests/backend/Unit/ArticleMutationOutboxFailurePropagationTests.cs"
+            ],
+            "assertionType": "unit",
+            "failClosedRule": "The fast gate must fail when single mode enables cluster components, static-role or adaptive binding drifts, lease identity or TTL changes, replay checkpoints lose state, critical Outbox failures report success, or invalidation events lose their stable schema and replay identity.",
+            "minimumRequirement": "Deterministic tests must use a fake clock and fake lease store without runtime, network or two-node fixtures, and evidence must resolve to the concrete C# test files.",
+            "tierIds": [
+                "distributed-contract-fast"
+            ]
+        },
+        {
             "id": "blue-green-slot-orchestration",
             "description": "Single-host blue/green slots keep independent containers, projects, loopback ports, release digests and derived volumes while sharing only controlled state and protecting the active slot.",
             "owner": "ServerContractAgent",

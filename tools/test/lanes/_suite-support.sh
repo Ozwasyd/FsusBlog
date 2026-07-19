@@ -1023,6 +1023,13 @@ RunBackendUnitLane() {
     WriteBackendSplitSummary backend-unit "${FSUSBLOG_TEST_SELECTION:-full}"
 }
 
+RunDistributedContractFastOnly() {
+    local filter='FullyQualifiedName~DistributedContractFastTests|FullyQualifiedName~PublicAotBackfillLeaseTests|FullyQualifiedName~ArticleMutationProjectionCheckpointTests|FullyQualifiedName~ArticleMutationOutboxFailurePropagationTests'
+    FSUSBLOG_BACKEND_TEST_CONFIGURATION=Release \
+        RunBackendDotnetFilterOnly "$filter" distributed-contract-fast
+    WriteBackendSplitSummary distributed-contract-fast runtime-mode-lease-checkpoint-outbox-invalidation
+}
+
 RunBackendFastSummaryLane() {
     Log "backend-fast | artifact-only summary; build/governance and unit ran in dependency tiers"
     WriteBackendSplitSummary backend-fast dependency-summary

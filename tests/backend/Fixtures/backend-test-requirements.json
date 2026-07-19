@@ -303,6 +303,20 @@
       ]
     },
     {
+      "id": "distributed-contract-fast",
+      "command": "tools/test/lanes/distributed-contract-fast.sh",
+      "risk": "high",
+      "requirements": [
+        "BACKEND-DISTRIBUTED-CONTRACT-FAST"
+      ],
+      "evidencePaths": [
+        "tests/backend/Unit/DistributedContractFastTests.cs",
+        "tests/backend/Unit/PublicAotBackfillLeaseTests.cs",
+        "tests/backend/Unit/ArticleMutationProjectionCheckpointTests.cs",
+        "tests/backend/Unit/ArticleMutationOutboxFailurePropagationTests.cs"
+      ]
+    },
+    {
       "id": "backend-nightly",
       "command": "tools/test/lanes/backend-nightly.sh",
       "risk": "critical",
@@ -320,6 +334,17 @@
     }
   ],
   "requirements": [
+    {
+      "id": "BACKEND-DISTRIBUTED-CONTRACT-FAST",
+      "risk": "high",
+      "coverage": "RuntimeMode single/static-role/adaptive binding, cluster component gate, lease identity and TTL, checkpoint serialization and replay, Outbox critical failure propagation, distributed invalidation event schema",
+      "evidencePaths": [
+        "tests/backend/Unit/DistributedContractFastTests.cs",
+        "tests/backend/Unit/PublicAotBackfillLeaseTests.cs",
+        "tests/backend/Unit/ArticleMutationProjectionCheckpointTests.cs",
+        "tests/backend/Unit/ArticleMutationOutboxFailurePropagationTests.cs"
+      ]
+    },
     {
       "id": "BACKEND-ENDPOINT-HTTP-PIPELINE",
       "risk": "critical",

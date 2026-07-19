@@ -136,6 +136,7 @@ localProfiles:
                       integrity-proof-verification,
                       perception-v2-test-matrix,
                       backend-unit,
+                      distributed-contract-fast,
                       backend-api-integration,
                       backend-auth-state-machine,
                       backend-concurrency,
@@ -155,6 +156,7 @@ localProfiles:
                   [
                       backend-build-governance::.tmp/backend-build-governance=>.tmp/local-production/backend-tests/member-summaries/backend-build-governance/summary.json,
                       backend-unit::.tmp/backend-unit=>.tmp/local-production/backend-tests/member-summaries/backend-unit/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json,
+                      distributed-contract-fast::.tmp/distributed-contract-fast=>.tmp/local-production/backend-tests/member-summaries/distributed-contract-fast/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json,
                       backend-fast::.tmp/backend-fast=>.tmp/local-production/backend-tests/member-summaries/backend-fast/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json,
                       backend-api-integration::.tmp/backend-api-integration=>.tmp/local-production/backend-tests/member-summaries/backend-api-integration/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json,
                       backend-api-integration::.tmp/coverage/backend/special-api-integration/**/coverage.cobertura.xml=>.tmp/local-production/backend-tests/member-summaries/backend-api-integration/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json,
@@ -1120,6 +1122,67 @@ tiers:
       localOnly: false
       nightlyOnly: false
 
+    - id: distributed-contract-fast
+      owner: ServerContractAgent
+      command: tools/test/lanes/distributed-contract-fast.sh
+      dependsOn: [backend-build-governance]
+      services: []
+      parallelizable: true
+      exclusiveResources: [backend-coverlet-instrumentation]
+      phase: 1
+      cost: medium
+      resourceClass: cpu
+      cpuWeight: 1
+      memoryWeight: 1
+      minCpuUnits: 1
+      executionKey: distributed-contract-fast-tests
+      executionVariant: ordinary
+      cacheInputs:
+          [
+              FsusBlog.slnx,
+              Directory.Build.props,
+              global.json,
+              src/backend/Infrastructure/Distributed,
+              src/backend/Infrastructure/PublicAot/PublicAotBackfillLease.cs,
+              src/backend/Services/ArticleMutationSideEffects.cs,
+              src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs,
+              tests/backend/Unit/DistributedContractFastTests.cs,
+              tests/backend/Unit/PublicAotBackfillLeaseTests.cs,
+              tests/backend/Unit/ArticleMutationProjectionCheckpointTests.cs,
+              tests/backend/Unit/ArticleMutationOutboxFailurePropagationTests.cs,
+              tools/test/lanes/distributed-contract-fast.sh,
+              tools/test/lanes/_suite-support.sh,
+          ]
+      runtimeMode: single
+      nodeCount: 1
+      artifactStorage: local
+      coordinationStore: none
+      clusterScenario: none
+      clusterBootstrap: none
+      clusterFixtures: []
+      requiresBootstrap: none
+      requiresNode: false
+      requiresDotnet: true
+      requiresPlaywright: none
+      cacheProfile: backend
+      timeoutMinutes: 10
+      shardable: false
+      defaultShards: 1
+      risk: high
+      cadence: pr
+      requiredFor: fast
+      coverage: [backend-distributed-contract-fast]
+      artifacts: [.tmp/distributed-contract-fast]
+      evidence:
+          - .tmp/distributed-contract-fast/summary.json
+          - tests/backend/Unit/DistributedContractFastTests.cs
+          - tests/backend/Unit/PublicAotBackfillLeaseTests.cs
+          - tests/backend/Unit/ArticleMutationProjectionCheckpointTests.cs
+          - tests/backend/Unit/ArticleMutationOutboxFailurePropagationTests.cs
+      ciJob: fast-backend
+      localOnly: false
+      nightlyOnly: false
+
     - id: backend-fast
       owner: ServerContractAgent
       command: tools/test/lanes/backend-fast.sh
@@ -1127,6 +1190,7 @@ tiers:
           [
               backend-build-governance,
               backend-unit,
+              distributed-contract-fast,
               backend-api-integration,
               backend-auth-state-machine,
               backend-concurrency,

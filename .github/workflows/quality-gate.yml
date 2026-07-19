@@ -256,6 +256,7 @@ jobs:
                   path: |
                       .tmp/backend-build-governance/**
                       .tmp/backend-unit/**
+                      .tmp/distributed-contract-fast/**
                       .tmp/backend-fast/**
                       .tmp/backend-api-integration/**
                       .tmp/backend-auth-state-machine/**
