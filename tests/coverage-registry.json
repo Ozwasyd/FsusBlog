@@ -2390,6 +2390,21 @@
             ]
         },
         {
+            "id": "homogeneous-two-node-fixture",
+            "description": "Homogeneous two-node runtime fixture proves one artifact can boot two healthy nodes with shared infrastructure and isolated node evidence.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                ".tmp/fixtures/*/homogeneous-two-node/cluster-summary.json"
+            ],
+            "assertionType": "runtime",
+            "failClosedRule": "matrix-validate requires the two-node cluster summary to be declared by the homogeneous fixture tier and absent summaries cannot count as runtime evidence.",
+            "minimumRequirement": "The summary must identify two live nodes, one backend artifact digest, one frontend asset identity, one runtime mode, shared PostgreSQL/Redis identity, and distinct node logs/base URLs.",
+            "tierIds": [
+                "homogeneous-two-node-fixture"
+            ]
+        },
+        {
             "id": "runtime-contract-smoke",
             "description": "Runtime Contract Smoke is covered by runtime artifacts that exercise the named behavior.",
             "owner": "ServerContractAgent",

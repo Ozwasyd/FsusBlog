@@ -121,8 +121,8 @@ else
       import fs from "node:fs";
       import os from "node:os";
       const policy = fs.readFileSync("tests/performance/perf-policy.yml", "utf8");
-      const burst = policy.match(/(?:^|\n)    burst:\n([\s\S]*?)(?=\n    \S|$)/u)?.[1] ?? "";
-      const concurrency = Number(burst.match(/^        concurrency:\s*(\d+)\s*$/mu)?.[1]);
+      const burst = policy.match(/(?:^|\n)([ \t]+)burst:\n([\s\S]*?)(?=\n\1\S|$)/u)?.[2] ?? "";
+      const concurrency = Number(burst.match(/^[ \t]+concurrency:\s*(\d+)\s*$/mu)?.[1]);
       if (!Number.isInteger(concurrency) || concurrency < 1) throw new Error("burst concurrency is unavailable");
       const cpu = os.availableParallelism?.() ?? os.cpus().length;
       process.stdout.write(String(Math.max(1, Math.ceil(concurrency / cpu))));
@@ -160,6 +160,13 @@ FSUSBLOG_RUNTIME_NO_BUILD=${FSUSBLOG_RUNTIME_NO_BUILD:-0}
 FSUSBLOG_TEST_RUN_ID=${FSUSBLOG_TEST_RUN_ID:-}
 FSUSBLOG_PHYSICAL_BUNDLE_ID=${FSUSBLOG_PHYSICAL_BUNDLE_ID:-}
 FSUSBLOG_STEP_ID=${FSUSBLOG_STEP_ID:-}
+FSUSBLOG_TEST_RUNTIME_MODE=${FSUSBLOG_TEST_RUNTIME_MODE:-single}
+FSUSBLOG_TEST_NODE_COUNT=${FSUSBLOG_TEST_NODE_COUNT:-1}
+FSUSBLOG_TEST_ARTIFACT_STORAGE=${FSUSBLOG_TEST_ARTIFACT_STORAGE:-local}
+FSUSBLOG_TEST_COORDINATION_STORE=${FSUSBLOG_TEST_COORDINATION_STORE:-none}
+FSUSBLOG_TEST_CLUSTER_SCENARIO=${FSUSBLOG_TEST_CLUSTER_SCENARIO:-none}
+FSUSBLOG_TEST_CLUSTER_BOOTSTRAP=${FSUSBLOG_TEST_CLUSTER_BOOTSTRAP:-none}
+FSUSBLOG_TEST_CLUSTER_FIXTURES=${FSUSBLOG_TEST_CLUSTER_FIXTURES:-}
 FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME=${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}
 FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID=${FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID:-}
 ConnectionStrings__DefaultConnection=$POSTGRES_CONNECTION

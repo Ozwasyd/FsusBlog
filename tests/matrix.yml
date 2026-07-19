@@ -1983,6 +1983,50 @@ tiers:
       localOnly: false
       nightlyOnly: false
 
+    - id: homogeneous-two-node-fixture
+      owner: ServerContractAgent
+      command: tools/test/lanes/homogeneous-two-node-fixture.sh
+      dependsOn: []
+      services: [postgres, redis, backend]
+      runtimeMode: static-role
+      nodeCount: 2
+      artifactStorage: shared-volume
+      coordinationStore: redis
+      clusterScenario: convergence
+      clusterBootstrap: homogeneous
+      clusterFixtures: [shared-postgres, shared-redis, shared-artifact-storage]
+      parallelizable: false
+      exclusiveResources: [docker-compose, local-ports, redis-test-state, backend-build-output]
+      phase: 2
+      cost: high
+      resourceClass: database
+      cpuWeight: 2
+      memoryWeight: 3
+      minCpuUnits: 1
+      maxParallel: 1
+      requiresBootstrap: full
+      selfBootstraps: true
+      requiresNode: true
+      requiresDotnet: true
+      requiresPlaywright: none
+      cacheProfile: full
+      timeoutMinutes: 20
+      shardable: false
+      defaultShards: 1
+      risk: high
+      cadence: pr
+      requiredFor: none
+      coverage: [homogeneous-two-node-fixture]
+      artifacts: [.tmp/fixtures/*/homogeneous-two-node]
+      evidence: [.tmp/fixtures/*/homogeneous-two-node/cluster-summary.json]
+      ciJob: integration-runtime
+      localOnly: true
+      nightlyOnly: false
+      triggerPaths: [src/backend, tools/test, tools/bootstrap-acceptance-env.sh]
+      triggerFiles: [tests/matrix.yml, tests/matrix.schema.json]
+      triggerCoverage: [homogeneous-two-node-fixture]
+      triggerReason: homogeneous multi-node fixture or topology contract changed
+
     - id: integration
       owner: ServerContractAgent
       command: tools/test/lanes/runtime-integration.sh
