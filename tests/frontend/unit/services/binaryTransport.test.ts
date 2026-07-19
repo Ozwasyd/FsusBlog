@@ -27,6 +27,11 @@ import { BinaryRequestError, binaryRequest } from '@/api/binaryApiClient'
 import { decodeBinaryFramePayload } from '@/composition/binaryDecoderRegistry'
 import { BinaryTransportError, createBinaryTransport } from '@/services/binaryTransport'
 import { recordBinaryFailureTelemetry } from '@/services/telemetryService'
+import {
+  privateRequestRuntime,
+  runPrivateRequest,
+  StalePrivateResponseError
+} from '@/services/privateRequestRuntime'
 
 const { requestBinaryOnly } = createBinaryTransport(decodeBinaryFramePayload)
 
@@ -59,6 +64,7 @@ function encodeApiErrorFrame(options: {
 
 describe('binaryTransport ApiError mapping', () => {
   beforeEach(() => {
+    privateRequestRuntime.resetForTests()
     mockBinaryRequest.mockReset()
     vi.mocked(recordBinaryFailureTelemetry).mockClear()
     vi.spyOn(window, 'dispatchEvent').mockReturnValue(true)
@@ -83,6 +89,27 @@ describe('binaryTransport ApiError mapping', () => {
     })).resolves.toBe(injectedValue)
     expect(decodeFramePayload).toHaveBeenCalledOnce()
     expect(decodeFramePayload).toHaveBeenCalledWith(FrameType.EmptySuccess, expect.any(Uint8Array))
+  })
+
+  it('rejects a decoded legacy admin response from an older generation', async () => {
+    let resolveResponse!: (value: ArrayBuffer) => void
+    const response = new Promise<ArrayBuffer>(resolve => { resolveResponse = resolve })
+    let requestSignal: AbortSignal | undefined
+    mockBinaryRequest.mockImplementation(async (_url, options) => {
+      requestSignal = options?.signal
+      return await response
+    })
+
+    const pending = requestBinaryOnly({
+      binaryUrl: '/api/binary/admin/deferred',
+      privateScope: 'admin',
+      frameType: FrameType.EmptySuccess
+    })
+    privateRequestRuntime.advance('admin')
+
+    expect(requestSignal?.aborted).toBe(true)
+    resolveResponse(encodeAedsFrame(FrameType.EmptySuccess, new Uint8Array()))
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError' })
   })
 
   it('maps a PowChallenge frame into the expected view model', async () => {
@@ -1302,6 +1329,65 @@ describe('binaryTransport ApiError mapping', () => {
     })
 
     expect(recordBinaryFailureTelemetry).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('private request generation leases', () => {
+  beforeEach(() => privateRequestRuntime.resetForTests())
+
+  it('drops an account A response after switching to account B', async () => {
+    let resolveAccountA!: (value: string) => void
+    const accountA = new Promise<string>(resolve => { resolveAccountA = resolve })
+    let accountASignal: AbortSignal | undefined
+    const staleRequest = runPrivateRequest('account', undefined, async (signal) => {
+      accountASignal = signal
+      return await accountA
+    })
+
+    expect(privateRequestRuntime.advance('account')).toBe(1)
+    expect(accountASignal?.aborted).toBe(true)
+    resolveAccountA('account-a-private-data')
+    await expect(staleRequest).rejects.toBeInstanceOf(StalePrivateResponseError)
+    await expect(runPrivateRequest('account', undefined, async () => 'account-b-private-data'))
+      .resolves.toBe('account-b-private-data')
+  })
+
+  it('keeps account and administrator generations independent', async () => {
+    let resolveAdmin!: (value: string) => void
+    const adminResponse = new Promise<string>(resolve => { resolveAdmin = resolve })
+    let adminSignal: AbortSignal | undefined
+    const request = runPrivateRequest('admin', undefined, async (signal) => {
+      adminSignal = signal
+      return await adminResponse
+    })
+
+    privateRequestRuntime.advance('account')
+    expect(adminSignal?.aborted).toBe(false)
+    resolveAdmin('current-admin')
+    await expect(request).resolves.toBe('current-admin')
+  })
+
+  it('validates optional account projections without canceling the public transfer', () => {
+    const lease = privateRequestRuntime.open('account', undefined, { abortOnGenerationChange: false })
+    privateRequestRuntime.advance('account')
+
+    expect(lease.signal?.aborted).toBe(false)
+    expect(() => lease.assertCurrent()).toThrow(StalePrivateResponseError)
+    lease.release()
+  })
+
+  it('does not register public requests and honors component abort signals', () => {
+    const publicCaller = new AbortController()
+    const publicLease = privateRequestRuntime.open('public', publicCaller.signal)
+    privateRequestRuntime.advance('account')
+    expect(publicLease.signal?.aborted).toBe(false)
+    expect(publicLease.generation).toBeNull()
+
+    const component = new AbortController()
+    const privateLease = privateRequestRuntime.open('admin', component.signal)
+    component.abort()
+    expect(privateLease.signal?.aborted).toBe(true)
+    privateLease.release()
   })
 })
 

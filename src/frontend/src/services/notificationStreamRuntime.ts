@@ -5,6 +5,7 @@ import { encodeNotificationStreamPowProof } from '@/services/powProofCodec'
 import type { SecurityChallengeProofLease } from '@/security/challenge-client'
 import { securityChallengeKindWireName } from '@/security/challenge-kind-wire'
 import { resolveNotificationStreamCloseRecovery } from '@/services/notificationStreamRestartPolicy'
+import { runPrivateRequest } from '@/services/privateRequestRuntime'
 
 const RECENT_EVENT_WINDOW = 512
 const RETRY_BASE_DELAY_MS = 1000
@@ -131,6 +132,7 @@ export class NotificationStreamRuntime {
   }
 
   public async stop(clearCursor = false): Promise<void> {
+    this.connectGeneration += 1
     this.releaseCurrentChallengeLease()
     this.challengeRequiredForConnection = false
     this.clearReconnectTimer()
@@ -249,10 +251,14 @@ export class NotificationStreamRuntime {
         }
       }
 
-      const response = await fetch(preflightUrl, {
+      const fetchPreflight = (signal?: AbortSignal) => fetch(preflightUrl, {
         credentials: 'include',
-        headers
+        headers,
+        signal
       })
+      const response = this.currentMode === 'auth'
+        ? await runPrivateRequest('account', undefined, fetchPreflight)
+        : await fetchPreflight()
       if (response.ok) {
         this.settleCurrentChallengeLease('accepted')
         return null

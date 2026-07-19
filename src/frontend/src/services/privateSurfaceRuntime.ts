@@ -1,6 +1,7 @@
 import { readonly, ref, shallowRef, type Ref } from 'vue'
 
 import type { PrivateStateCleanupTrigger } from '@/services/privateStorageRegistry'
+import { privateRequestRuntime } from '@/services/privateRequestRuntime'
 
 export type PrivateSurfaceTransition = Extract<
   PrivateStateCleanupTrigger,
@@ -43,30 +44,28 @@ class PrivateSurfaceRuntime {
     reason: PrivateSurfaceTransition,
     clearPrivateState: () => void | Promise<void>
   ): Promise<void> {
-    if (this.transition) {
-      return this.transition
-    }
-
     // These writes are deliberately synchronous: Vue removes the old private
     // route tree on the next render tick before storage cleanup can yield.
     this.clearingState.value = true
     this.generationState.value = createOpaqueGeneration()
+    privateRequestRuntime.advanceForAuthTransition(reason)
+    const previousTransition = this.transition
+    const currentTransition = (async () => {
+      if (previousTransition) await previousTransition.catch(() => {})
 
-    const terminationOutcomes = [...this.terminationHandlers].map(handler => {
+      const terminationOutcomes = [...this.terminationHandlers].map(handler => {
+        try {
+          return Promise.resolve(handler(reason))
+        } catch (error) {
+          return Promise.reject(error)
+        }
+      })
+      let clearOutcome: Promise<void>
       try {
-        return Promise.resolve(handler(reason))
+        clearOutcome = Promise.resolve(clearPrivateState())
       } catch (error) {
-        return Promise.reject(error)
+        clearOutcome = Promise.reject(error)
       }
-    })
-    let clearOutcome: Promise<void>
-    try {
-      clearOutcome = Promise.resolve(clearPrivateState())
-    } catch (error) {
-      clearOutcome = Promise.reject(error)
-    }
-
-    this.transition = (async () => {
       let navigationComplete = this.navigationHandler === null
       try {
         const outcomes = await Promise.allSettled([...terminationOutcomes, clearOutcome])
@@ -77,12 +76,15 @@ class PrivateSurfaceRuntime {
       } finally {
         // A failed redirect must remain fail-closed instead of remounting the
         // old private tree. A later successful transition can recover it.
-        if (navigationComplete) this.clearingState.value = false
-        this.transition = null
+        if (this.transition === currentTransition) {
+          if (navigationComplete) this.clearingState.value = false
+          this.transition = null
+        }
       }
     })()
+    this.transition = currentTransition
 
-    return this.transition
+    return currentTransition
   }
 
   resetForTests(): void {

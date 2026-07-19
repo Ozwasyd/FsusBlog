@@ -66,6 +66,7 @@ export const getAdminUserList = async (
 
   return requestBinaryOnly<PageResult<AdminAccountListItem>>({
     binaryUrl: `/api/binary/admin/users?${search.toString()}`,
+    privateScope: 'admin',
     frameType: FrameType.AdminUserList,
     signal: config?.signal as AbortSignal | undefined
   })
@@ -81,6 +82,7 @@ export const adminChangeStatus = async (
 ) => {
   return requestBinaryOnly<null>({
     binaryUrl: '/api/binary/admin/users/status',
+    privateScope: 'admin',
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {

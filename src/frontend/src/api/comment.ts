@@ -160,6 +160,7 @@ export const getAnonymousCredentialRevocationArtifact = (
 ) =>
   requestBinaryOnly<AnonymousCredentialRevocationArtifact>({
     binaryUrl: path,
+    privateScope: 'public',
     frameType: kind === 1
       ? FrameType.AnonymousCredentialRevocationSnapshot
       : FrameType.AnonymousCredentialRevocationDelta,

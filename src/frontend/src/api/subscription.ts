@@ -30,6 +30,7 @@ async function sendSiteSubscriptionRequest(
 ): Promise<SiteSubscriptionResponse> {
   return await requestBinaryOnly<SiteSubscriptionResponse>({
     binaryUrl: '/api/binary/subscriptions',
+    privateScope: 'public',
     frameType: FrameType.SiteSubscriptionResponse,
     signal: config.signal,
     requestOptions: {

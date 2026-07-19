@@ -149,6 +149,7 @@ function requestAnonymousGovernanceBinary<T>(
 
   return requestBinaryOnly<T>({
     binaryUrl,
+    privateScope: 'admin',
     frameType: FrameType.AnonymousGovernanceActionResponse,
     requestOptions,
     signal: config?.signal as AbortSignal | undefined

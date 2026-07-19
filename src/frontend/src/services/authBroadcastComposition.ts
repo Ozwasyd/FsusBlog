@@ -16,6 +16,7 @@ import {
 } from '@/services/privateStorageRegistry'
 import type { PrivateBrowserStateClearReason } from '@/services/serviceWorkerRuntime'
 import { privateSurfaceRuntime } from '@/services/privateSurfaceRuntime'
+import { privateRequestRuntime } from '@/services/privateRequestRuntime'
 
 let activePinia: Pinia | null = null
 let unsubscribe: (() => void) | null = null
@@ -91,6 +92,7 @@ export function installAuthBroadcastComposition(pinia: Pinia): void {
     }
 
     if (event.type === 'admin-changed') {
+      privateRequestRuntime.advance('admin')
       userStore.invalidateGuestCache()
       adminStore.invalidateMissingCache()
       return

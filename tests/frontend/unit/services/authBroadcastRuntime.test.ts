@@ -15,6 +15,7 @@ import { notificationStreamRuntime } from '@/services/notificationStreamRuntime'
 import { NotificationStreamEventType } from '@/services/notificationStreamTypes'
 import { clearRegisteredPrivateState } from '@/services/privateStorageRegistry'
 import { privateSurfaceRuntime } from '@/services/privateSurfaceRuntime'
+import { privateRequestRuntime } from '@/services/privateRequestRuntime'
 
 vi.mock('@/api/auth', () => ({
   getMe: vi.fn(),
@@ -111,6 +112,7 @@ describe('authBroadcastRuntime', () => {
     disposeAuthBroadcastComposition()
     authBroadcastRuntime.dispose()
     privateSurfaceRuntime.resetForTests()
+    privateRequestRuntime.resetForTests()
     MockBroadcastChannel.instances = []
     installBroadcastChannel()
     localStorage.clear()
@@ -121,6 +123,7 @@ describe('authBroadcastRuntime', () => {
     disposeAuthBroadcastComposition()
     authBroadcastRuntime.dispose()
     privateSurfaceRuntime.resetForTests()
+    privateRequestRuntime.resetForTests()
     installBroadcastChannel()
   })
 
@@ -145,12 +148,14 @@ describe('authBroadcastRuntime', () => {
     const adminStore = useAdminStore(pinia)
     userStore.markGuest()
     adminStore.markMissing()
+    const generationBefore = privateRequestRuntime.currentGeneration('account')
 
     MockBroadcastChannel.instances[0]?.dispatch({ type: 'login', at: Date.now() })
 
     expect(userStore.accountState).toBe('unknown')
     expect(userStore.lastVerifiedAt).toBe(0)
     expect(adminStore.adminState).toBe('unknown')
+    expect(privateRequestRuntime.currentGeneration('account')).toBe(generationBefore + 1)
     expect(clearPrivateBrowserState).toHaveBeenCalledWith('account-switch', {
       broadcastCredentialPurge: false
     })
@@ -341,11 +346,15 @@ describe('authBroadcastRuntime', () => {
     const adminStore = useAdminStore(pinia)
     userStore.markGuest()
     adminStore.markMissing()
+    const accountGeneration = privateRequestRuntime.currentGeneration('account')
+    const adminGeneration = privateRequestRuntime.currentGeneration('admin')
 
     MockBroadcastChannel.instances[0]?.dispatch({ type: 'admin-changed', at: Date.now() })
 
     expect(adminStore.adminState).toBe('unknown')
     expect(userStore.accountState).toBe('unknown')
+    expect(privateRequestRuntime.currentGeneration('account')).toBe(accountGeneration)
+    expect(privateRequestRuntime.currentGeneration('admin')).toBe(adminGeneration + 1)
   })
 
   it('clears the sending tab before broadcasting session expiry', async () => {

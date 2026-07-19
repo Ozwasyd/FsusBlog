@@ -11,6 +11,7 @@ import type {
   CancelWorkerRequest,
   DecodeWorkerRequest,
   DecodeWorkerResponse,
+  PrivateRequestScope,
   TransportFailure,
   TransportFailureKind
 } from '@/contracts/binaryTransport';
@@ -25,6 +26,7 @@ import { isAbortError } from '@/utils/errors';
 import { emitRumMetric, emitTelemetry, recordBinaryFailureTelemetry } from '@/services/telemetryService';
 import type { BinaryFailureRouteClass } from '@/services/telemetryPrivacy';
 import { toTrustedApplicationWorkerScriptUrl } from '@/security/trustedTypesRuntime';
+import { privateRequestRuntime } from '@/services/privateRequestRuntime';
 import wasmDecodeWorkerUrl from '@/workers/wasmDecode.worker.ts?worker&url';
 import { FrameType } from '@wasm/protocol/frame';
 import {
@@ -669,8 +671,27 @@ async function requestBinaryOnlyWithDecoder<T>(
   options: BinaryTransportRequest
 ): Promise<T> {
   const resolved = resolveBinaryRequest(options);
-  const { binaryUrl, requestOptions } = resolved;
+  const { requestOptions } = resolved;
   const requestSignal = options.signal ?? requestOptions?.signal ?? undefined;
+  const lease = privateRequestRuntime.open(resolved.privateScope, requestSignal, {
+    abortOnGenerationChange: resolved.abortOnGenerationChange
+  });
+  try {
+    const value = await executeBinaryRequest<T>(decodeFramePayload, options, resolved, lease.signal);
+    lease.assertCurrent();
+    return value;
+  } finally {
+    lease.release();
+  }
+}
+
+async function executeBinaryRequest<T>(
+  decodeFramePayload: BinaryFramePayloadDecoder,
+  options: BinaryTransportRequest,
+  resolved: ReturnType<typeof resolveBinaryRequest>,
+  requestSignal?: AbortSignal
+): Promise<T> {
+  const { binaryUrl, requestOptions } = resolved;
   let binaryResult = await loadBinaryAndDecodeSafe<T>(
     decodeFramePayload,
     binaryUrl,
@@ -832,12 +853,15 @@ function resolveBinaryRequest(options: {
     query?: URLSearchParams | Record<string, string | number | boolean | null | undefined>;
   };
   requestOptions?: BinaryRequestOptions;
+  privateScope?: PrivateRequestScope;
 }): {
   binaryUrl: string;
   requestOptions?: BinaryRequestOptions;
   retryPublicReadWithPow: boolean;
   operationId: FsusBinaryOperationId | 'binary_legacy_request';
   routeClass: BinaryFailureRouteClass;
+  privateScope: PrivateRequestScope;
+  abortOnGenerationChange: boolean;
 } {
   if (options.binaryRoute) {
     const descriptor = fsusBinaryRouteDescriptors[options.binaryRoute.operationId];
@@ -849,13 +873,21 @@ function resolveBinaryRequest(options: {
       && descriptor.rateLimitPolicy === 'public_read'
       && descriptor.method === 'GET'
       && !descriptor.requiresPow;
+    const privateScope: PrivateRequestScope = descriptor.auth === 'admin'
+      ? 'admin'
+      : descriptor.auth === 'user' || descriptor.auth === 'optional'
+        ? 'account'
+        : 'public';
+    const abortOnGenerationChange = descriptor.auth !== 'optional';
     if (options.requestOptions?.credentials !== undefined || descriptor.credentialPolicy === 'include') {
       return {
         binaryUrl,
         requestOptions: options.requestOptions,
         retryPublicReadWithPow,
         operationId: options.binaryRoute.operationId,
-        routeClass: binaryRouteClass(descriptor.auth)
+        routeClass: binaryRouteClass(descriptor.auth),
+        privateScope,
+        abortOnGenerationChange
       };
     }
     return {
@@ -866,7 +898,9 @@ function resolveBinaryRequest(options: {
         credentials: descriptor.credentialPolicy
       },
       operationId: options.binaryRoute.operationId,
-      routeClass: binaryRouteClass(descriptor.auth)
+      routeClass: binaryRouteClass(descriptor.auth),
+      privateScope,
+      abortOnGenerationChange
     };
   }
   if (options.binaryUrl) {
@@ -875,7 +909,9 @@ function resolveBinaryRequest(options: {
       requestOptions: options.requestOptions,
       retryPublicReadWithPow: false,
       operationId: 'binary_legacy_request',
-      routeClass: 'legacy'
+      routeClass: 'legacy',
+      privateScope: options.privateScope ?? 'public',
+      abortOnGenerationChange: options.privateScope !== 'public'
     };
   }
   throw createAppError(AppErrorCode.ProtocolFailure, 'binary_route_missing');

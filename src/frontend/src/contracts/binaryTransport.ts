@@ -9,6 +9,8 @@ import type {
 
 export const binaryDecodeWorkerProtocolVersion = 1 as const
 
+export type PrivateRequestScope = 'public' | 'account' | 'admin'
+
 export type SliceRef = { offset: number; length: number }
 
 export interface BinaryRequestOptions extends RequestInit {
@@ -42,6 +44,8 @@ export interface BinaryTransportRequest {
   requestOptions?: BinaryRequestOptions
   signal?: AbortSignal
   suppressAuthFailureTelemetry?: boolean
+  /** Required by the static gate for legacy binaryUrl calls. Generated routes infer it from auth metadata. */
+  privateScope?: PrivateRequestScope
 }
 
 export type TransportFailureKind =

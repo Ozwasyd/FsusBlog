@@ -1,5 +1,6 @@
 import type { ApiRequestConfig } from './requestConfig'
 import { appErrorFromStatus } from '@/utils/appError'
+import { runPrivateRequest } from '@/services/privateRequestRuntime'
 
 const ADMIN_SENSITIVE_MFA_HEADER = 'X-Fsus-Mfa-Proof'
 const ENDPOINT = '/api/admin/integrity/console'
@@ -118,15 +119,18 @@ export async function retryIntegrityProof(
 }
 
 async function requestJson<T>(url: string, init: RequestInit): Promise<T> {
-  const response = await fetch(url, {
-    credentials: 'include',
-    ...init,
-    headers: init.headers ?? new Headers()
-  })
-  if (!response.ok) {
-    const text = await response.text()
-    throw appErrorFromStatus(response.status, text || `HTTP ${response.status}`)
-  }
+  return await runPrivateRequest('admin', init.signal ?? undefined, async (signal) => {
+    const response = await fetch(url, {
+      credentials: 'include',
+      ...init,
+      signal,
+      headers: init.headers ?? new Headers()
+    })
+    if (!response.ok) {
+      const text = await response.text()
+      throw appErrorFromStatus(response.status, text || `HTTP ${response.status}`)
+    }
 
-  return await response.json() as T
+    return await response.json() as T
+  })
 }

@@ -309,6 +309,7 @@ export async function issueAnonymousCredential(
   const payload = encodeBlindCredentialIssueRequest(request)
   return await requestBinaryOnly<CommentPrivacyCredentialIssueResponse>({
     binaryUrl: '/api/binary/anonymous-credential/blind-issue',
+    privateScope: 'account',
     frameType: FrameType.BlindCredentialIssueResponse,
     signal: config.signal,
     requestOptions: {

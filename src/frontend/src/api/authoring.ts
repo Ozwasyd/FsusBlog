@@ -9,6 +9,7 @@ import { FSUS_HEADERS } from './contracts'
 import { getBrowserFp } from '@/utils/fingerprint'
 import type { ArticleRightsRequest } from './article'
 import { AppErrorCode, createAppError } from '@/utils/appError'
+import { runPrivateRequest } from '@/services/privateRequestRuntime'
 
 export interface ServerDraftSaveRequest {
   draftKey: string
@@ -1019,6 +1020,7 @@ function requestAuthoringBinary<T>(
 
   return requestBinaryOnly<T>({
     binaryUrl: `${BINARY_API_PREFIX}/author${path}`,
+    privateScope: 'admin',
     frameType,
     requestOptions,
     signal: config?.signal as AbortSignal | undefined
@@ -1043,12 +1045,17 @@ async function requestAuthoringJson<T>(
     requestOptions.body = authoringBody(options.requestFrame, options.request)
   }
 
-  const frame = decode(await binaryRequest(`${BINARY_API_PREFIX}/author${path}`, requestOptions))
-  if (!frame.ok || frame.frameType !== frameType) {
-    throw createAppError(AppErrorCode.ProtocolFailure, frame.ok ? 'AUTHORING_FRAME_UNEXPECTED' : 'AUTHORING_FRAME_DECODE_FAILED')
-  }
+  return await runPrivateRequest('admin', config?.signal, async (signal) => {
+    const frame = decode(await binaryRequest(`${BINARY_API_PREFIX}/author${path}`, {
+      ...requestOptions,
+      signal
+    }))
+    if (!frame.ok || frame.frameType !== frameType) {
+      throw createAppError(AppErrorCode.ProtocolFailure, frame.ok ? 'AUTHORING_FRAME_UNEXPECTED' : 'AUTHORING_FRAME_DECODE_FAILED')
+    }
 
-  return JSON.parse(authoringJsonDecoder.decode(frame.payloadView)) as T
+    return JSON.parse(authoringJsonDecoder.decode(frame.payloadView)) as T
+  })
 }
 
 export async function saveServerDraft(

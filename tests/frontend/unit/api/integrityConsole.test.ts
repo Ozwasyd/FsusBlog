@@ -5,6 +5,7 @@ import {
   type IntegrityAdminConsoleResponse
 } from '@/api/integrityConsole'
 import { AppErrorCode } from '@/utils/appError'
+import { privateRequestRuntime } from '@/services/privateRequestRuntime'
 
 const fetchMock = vi.fn<typeof fetch>()
 
@@ -43,6 +44,7 @@ const emptyConsole = (): IntegrityAdminConsoleResponse => ({
 })
 
 beforeEach(() => {
+  privateRequestRuntime.resetForTests()
   fetchMock.mockReset()
   vi.stubGlobal('fetch', fetchMock)
 })
@@ -52,6 +54,20 @@ afterEach(() => {
 })
 
 describe('integrity admin console API', () => {
+  it('rejects a deferred JSON result after the administrator generation changes', async () => {
+    let resolveResponse!: (response: Response) => void
+    fetchMock.mockReturnValue(new Promise(resolve => { resolveResponse = resolve }))
+
+    const pending = getIntegrityAdminConsole()
+    privateRequestRuntime.advance('admin')
+    resolveResponse(new Response(JSON.stringify(emptyConsole()), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    }))
+
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError', scope: 'admin' })
+  })
+
   it('binds positive filters and preserves the empty console response', async () => {
     fetchMock.mockResolvedValue(new Response(JSON.stringify(emptyConsole()), {
       status: 200,

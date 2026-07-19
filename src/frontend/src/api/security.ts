@@ -542,6 +542,7 @@ function requestSecurityBinary<T>(
 
   return requestBinaryOnly<T>({
     binaryUrl: `${BINARY_API_PREFIX}/admin/security${path}`,
+    privateScope: 'admin',
     frameType,
     requestOptions,
     signal: config?.signal as AbortSignal | undefined
@@ -598,6 +599,7 @@ export const rollbackPerceptionSealedV2Options = (config?: ApiRequestConfig) =>
 export const issueSecurityChallenge = (request: IssueSecurityChallengeRequest, config?: ApiRequestConfig) =>
   requestBinaryOnly<SecurityChallengeIssueResponse>({
     binaryUrl: `${BINARY_API_PREFIX}/security/challenge`,
+    privateScope: 'public',
     frameType: FrameType.SecurityChallengeIssueResponse,
     requestOptions: {
       method: 'POST',
@@ -620,6 +622,7 @@ export const issueSecurityChallenge = (request: IssueSecurityChallengeRequest, c
 export const verifySecurityChallenge = (request: VerifySecurityChallengeRequest, config?: ApiRequestConfig) =>
   requestBinaryOnly<SecurityChallengeVerifyResponse>({
     binaryUrl: `${BINARY_API_PREFIX}/security/challenge/verify`,
+    privateScope: 'public',
     frameType: FrameType.SecurityChallengeVerifyResponse,
     requestOptions: {
       method: 'POST',
@@ -643,6 +646,7 @@ export const verifySecurityChallenge = (request: VerifySecurityChallengeRequest,
 export const cancelSecurityChallenge = (request: CancelSecurityChallengeRequest, config?: ApiRequestConfig) =>
   requestBinaryOnly<null>({
     binaryUrl: `${BINARY_API_PREFIX}/security/challenge/cancel`,
+    privateScope: 'public',
     frameType: FrameType.EmptySuccess,
     requestOptions: {
       method: 'POST',

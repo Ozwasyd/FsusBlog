@@ -17,6 +17,7 @@ export async function requestHumanReadChallenge(input: {
 }): Promise<HumanReadChallenge> {
   return await requestBinaryOnly<HumanReadChallenge>({
     binaryUrl: '/api/binary/read-proof/challenge.aeds',
+    privateScope: 'public',
     frameType: FrameType.HumanReadChallengeResponse,
     signal: input.signal,
     requestOptions: {
@@ -37,6 +38,7 @@ export async function submitHumanReadProof(input: {
 }): Promise<HumanReadSubmitResult> {
   return await requestBinaryOnly<HumanReadSubmitResult>({
     binaryUrl: '/api/binary/read-proof/submit.aeds',
+    privateScope: 'public',
     frameType: FrameType.HumanReadSubmitResponse,
     signal: input.signal,
     requestOptions: {
