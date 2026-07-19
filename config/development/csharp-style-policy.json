@@ -200,7 +200,8 @@
                             "_cacheInvalidationDispatcher",
                             "_mutationFence",
                             "_mutationSideEffects",
-                            "_viewWriteBuffer"
+                            "_viewWriteBuffer",
+                            "_publicationValidator"
                         ]
                     }
                 ],

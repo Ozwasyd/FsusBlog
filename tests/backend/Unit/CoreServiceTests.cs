@@ -137,6 +137,51 @@ public class ArticleCoreServiceTests
     }
 
     [Theory]
+    [InlineData(ArticleStatusValues.Draft)]
+    [InlineData(ArticleStatusValues.Archived)]
+    public async Task Create_NonPublicStateAllowsIncompleteContent(int status)
+    {
+        _gw.CreateAsync(Arg.Any<CreateArticleCommand>(), Arg.Any<CancellationToken>())
+            .Returns(42);
+        var command = new CreateArticleCommand(new ArticleWriteRequestCoreModel(
+            string.Empty,
+            string.Empty,
+            null,
+            null,
+            0,
+            [],
+            status));
+
+        Result<int> result = await Svc().CreateAsync(command);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(42, result.Value);
+    }
+
+    [Fact]
+    public async Task Create_GatewayPublicationFailurePreservesStableDetailsCode()
+    {
+        _gw.CreateAsync(Arg.Any<CreateArticleCommand>(), Arg.Any<CancellationToken>())
+            .Returns<Task<int>>(_ => throw new ArticleWriteValidationException(
+                "tag_not_found",
+                "标签不存在"));
+        var command = new CreateArticleCommand(new ArticleWriteRequestCoreModel(
+            "title",
+            "content",
+            null,
+            null,
+            1,
+            [999],
+            ArticleStatusValues.Published));
+
+        Result<int> result = await Svc().CreateAsync(command);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCode.Validation, result.Error.Code);
+        Assert.Equal("tag_not_found", result.Error.Details);
+    }
+
+    [Theory]
     [InlineData(-1, ArticleStatusTransitionErrorCodes.UndefinedStatus)]
     [InlineData(4, ArticleStatusTransitionErrorCodes.DeletedRequiresDeleteFlow)]
     public async Task Create_InvalidLifecycleTarget_ReturnsDistinguishableValidationCode(

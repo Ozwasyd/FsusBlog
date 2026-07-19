@@ -47,9 +47,10 @@ public sealed class ArticleCoreService(
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArticleWriteRequestCoreModel article = command.Article;
-        if (string.IsNullOrWhiteSpace(article.Title) || string.IsNullOrWhiteSpace(article.Content) || article.CategoryId <= 0)
+        ErrorDetail? publicationValidation = ValidatePublicationRequiredFields(article);
+        if (publicationValidation.HasValue)
         {
-            return Result<int>.Failure(ErrorCode.Validation, "发布参数非法");
+            return Result<int>.Failure(publicationValidation.Value);
         }
 
         ArticleStatusTransitionValidation? statusValidation = ArticleStatusTransitionPolicy.ValidateTarget(
@@ -70,6 +71,10 @@ public sealed class ArticleCoreService(
         {
             return Result<int>.Failure(ToError(ex.Validation));
         }
+        catch (ArticleWriteValidationException ex)
+        {
+            return Result<int>.Failure(ToError(ex));
+        }
         return id > 0
             ? Result<int>.Success(id)
             : Result<int>.Failure(ErrorCode.InfraFailure, "文章创建失败");
@@ -79,9 +84,15 @@ public sealed class ArticleCoreService(
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArticleWriteRequestCoreModel article = command.Article;
-        if (command.Id <= 0 || string.IsNullOrWhiteSpace(article.Title) || string.IsNullOrWhiteSpace(article.Content) || article.CategoryId <= 0)
+        if (command.Id <= 0)
         {
-            return Result.Failure(ErrorCode.Validation, "更新参数非法");
+            return Result.Failure(ErrorCode.Validation, "文章ID非法");
+        }
+
+        ErrorDetail? publicationValidation = ValidatePublicationRequiredFields(article);
+        if (publicationValidation.HasValue)
+        {
+            return Result.Failure(publicationValidation.Value);
         }
 
         ArticleStatusTransitionValidation? statusValidation = ArticleStatusTransitionPolicy.ValidateTarget(
@@ -102,6 +113,10 @@ public sealed class ArticleCoreService(
         catch (ArticleStatusTransitionValidationException ex)
         {
             return Result.Failure(ToError(ex.Validation));
+        }
+        catch (ArticleWriteValidationException ex)
+        {
+            return Result.Failure(ToError(ex));
         }
     }
 
@@ -163,6 +178,31 @@ public sealed class ArticleCoreService(
             ErrorCode.Validation,
             validation.Message,
             details: validation.Code);
+
+    private static ErrorDetail ToError(ArticleWriteValidationException exception)
+        => ErrorDetail.Create(
+            ErrorCode.Validation,
+            exception.Message,
+            details: exception.Code);
+
+    private static ErrorDetail? ValidatePublicationRequiredFields(ArticleWriteRequestCoreModel article)
+    {
+        if (article.Status is not (ArticleStatusValues.Scheduled or ArticleStatusValues.Published))
+        {
+            return null;
+        }
+        if (string.IsNullOrWhiteSpace(article.Title))
+        {
+            return ErrorDetail.Create(ErrorCode.Validation, "标题不能为空", details: "title_invalid");
+        }
+        if (string.IsNullOrWhiteSpace(article.Content))
+        {
+            return ErrorDetail.Create(ErrorCode.Validation, "正文不能为空", details: "content_invalid");
+        }
+        return article.CategoryId <= 0
+            ? ErrorDetail.Create(ErrorCode.Validation, "发布文章必须选择有效分类", details: "category_not_found")
+            : null;
+    }
 
     public async Task<Result<IReadOnlyList<ArticleListCoreModel>>> SearchArticlesAsync(ArticleSearchQuery query, CancellationToken cancellationToken = default)
     {

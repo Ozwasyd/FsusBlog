@@ -545,6 +545,7 @@ public sealed class ArticleRevisionConcurrencyTests(
             _cacheInvalidationDispatcher: Substitute.For<ICacheInvalidationDispatcher>(),
             _mutationFence: mutationFence ?? Substitute.For<IArticlePublicMutationFence>(),
             _mutationSideEffects: Substitute.For<IArticleMutationSideEffectCoordinator>(),
-            _viewWriteBuffer: Substitute.For<IArticleViewWriteBuffer>());
+            _viewWriteBuffer: Substitute.For<IArticleViewWriteBuffer>(),
+            _publicationValidator: ArticlePublicationValidatorTestFactory.CreateAllowing());
     }
 }

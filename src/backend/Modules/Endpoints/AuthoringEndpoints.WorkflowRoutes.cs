@@ -114,15 +114,10 @@ public static partial class AuthoringEndpoints
             return Ok(
                 context,
                 aeds,
-                service.RunPrepublishCheck(
-                    request.Title,
-                    request.Content,
-                    request.Summary,
-                    request.CoverImageUrl,
+                await service.RunPrepublishCheckAsync(
+                    request,
                     context.GetUserId(),
-                    request.DraftKey,
-                    request.ArticleId,
-                    request.WarningOverrideReason));
+                    cancellationToken));
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
 

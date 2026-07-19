@@ -49,6 +49,11 @@ public interface IAuthoringPrepublishPolicy
         string? draftKey = null,
         int? articleId = null,
         string? warningOverrideReason = null);
+
+    Task<PrepublishCheckResponse> RunPrepublishCheckAsync(
+        ServerDraftSaveRequest request,
+        int? actorUserId = null,
+        CancellationToken cancellationToken = default);
 }
 
 public interface IAuthoringContentExport

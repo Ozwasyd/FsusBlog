@@ -11,6 +11,7 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Modules.Endpoints;
+using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Telemetry;
 using FsusBlog.Server.Tests.Unit;
@@ -733,7 +734,7 @@ const value = "<script>alert(1)</script>";
         return new AuthoringDraftLifecycleService(
             Substitute.For<ISqlSugarClient>(),
             Substitute.For<FsusBlog.Core.Services.Abstractions.IArticleCoreService>(),
-            contentFilter,
+            new ArticlePublicationValidator(Substitute.For<ISqlSugarClient>(), contentFilter),
             new AuthoringAuditWriter(auditLogChannel));
     }
 

@@ -1,6 +1,7 @@
 using FsusBlog.Core.Services.Abstractions;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
@@ -72,7 +73,7 @@ public sealed class AuthoringDraftConcurrencyTests(PostgresSchemaMigrationFixtur
         => new(
             db,
             Substitute.For<IArticleCoreService>(),
-            Substitute.For<FsusBlog.Server.Interfaces.IContentFilterService>(),
+            Substitute.For<IArticlePublicationValidator>(),
             Substitute.For<IAuthoringAuditWriter>());
 
     private static Task<T> StartBarrierTaskAsync<T>(Barrier barrier, Func<Task<T>> action)

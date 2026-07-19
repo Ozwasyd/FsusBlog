@@ -7,6 +7,7 @@ using FsusBlog.Server.Infrastructure.Privacy;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Distribution;
 using FsusBlog.Server.Services.Moderation;
@@ -34,6 +35,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IArticleViewFlushSink, ArticleServiceViewFlushSink>();
         services.AddHostedService<ArticleViewFlushWorker>();
         services.AddScoped<ArticleService>();
+        services.AddScoped<IArticlePublicationValidator, ArticlePublicationValidator>();
         services.AddScoped<CommentCommandService>();
         services.AddScoped<ICommentNotificationService, CommentNotificationService>();
         services.AddScoped<ICommentModerationService, CommentModerationService>();

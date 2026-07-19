@@ -559,6 +559,8 @@ SPA 接管失败时采用 fail-closed：snapshot head 缺失、旧版本、diges
 
 状态转换采用严格矩阵：四个可编辑状态 `Draft`、`Scheduled`、`Published`、`Archived` 可经普通更新互转；`Deleted` 只能由专用删除流程进入，且只能由专用 restore 转为 `Published`。rollback 只能落到 `Published`，scheduled worker 只接受 `Scheduled → Published` 或带 pending publication 的 `Published → Published`。`Scheduled` 必须提供严格晚于服务端 UTC 时钟的时间，非 `Scheduled` 不得夹带计划时间。所有入口共用 Core 纯策略，writer 在事务行锁内再次复核，禁止把未知枚举或无效计划静默归一为 `Published`。
 
+文章发布校验由 scoped `IArticlePublicationValidator` 单一拥有。`/api/binary/author/prepublish-check` 与 create/update、revision rollback、内容导入最终进入的真实文章写链必须提交同一份原始字段，不能在保存前截断后再校验。`Scheduled` / `Published` 要求完整标题、正文和有效分类；`Draft` / `Archived` 可保存未完成内容，但超长字段、危险 Markdown/HTML、内容安全拒绝、已提供但不存在的分类或标签仍阻断写入。分类存在、标签 ID 全为正数且全部存在、去重前标签数量不超过 32 的检查必须使用文章事务内同一个 scoped `ISqlSugarClient`；关系数据库约束仍是最终兜底。调用方可稳定区分 `title_invalid`、`summary_invalid`、`content_invalid`、`cover_url_invalid`、`category_not_found`、`tag_not_found` 和 `tag_limit_exceeded`。
+
 ### 预览
 
 代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringUseCasePorts.cs`](../../src/backend/Services/Authoring/AuthoringUseCasePorts.cs)。
@@ -592,6 +594,8 @@ DI lifetime graph 不属于公开读取面。组合根在 `builder.Build()` 前 
 代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringUseCasePorts.cs`](../../src/backend/Services/Authoring/AuthoringUseCasePorts.cs)。
 
 SEO 预览是作者工作台内的发布前质量门，不是新路由模型：当前公开 canonical 仍由 `SeoConfigContract.baseUrl + /article/{id}` 生成，新文章落库前使用 draft-preview 占位。编辑器必须展示搜索结果和分享卡片预览，并在发布/定时发布前调用 `/api/binary/author/prepublish-check`；错误项阻断，摘要/封面/标题长度、图片 alt、超大 Markdown 或未知站内链接等 warning 只能在作者填写跳过理由后继续提交，理由由服务端写入审计。
+
+发布前检查返回的 `canPublish/issues` 是真实写入 validator 的预演结果，而不是独立提示器；即使客户端跳过该端点，真实文章事务仍执行相同 hard-error 与 taxonomy 校验。warning override 只允许覆盖 warning，不能覆盖任何 error。紧急降级无需重启：可先让作者保存 `Draft` / `Archived` 的不完整内容，或切回前一 active slot；不得关闭真实写入校验、恢复静默截断，或绕过数据库约束。
 
 ### Taxonomy
 

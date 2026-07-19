@@ -53,7 +53,8 @@ public class ArticleServiceValidationTests
             _cacheInvalidationDispatcher: Substitute.For<ICacheInvalidationDispatcher>(),
             _mutationFence: Substitute.For<IArticlePublicMutationFence>(),
             _mutationSideEffects: Substitute.For<IArticleMutationSideEffectCoordinator>(),
-            _viewWriteBuffer: Substitute.For<IArticleViewWriteBuffer>());
+            _viewWriteBuffer: Substitute.For<IArticleViewWriteBuffer>(),
+            _publicationValidator: ArticlePublicationValidatorTestFactory.CreateAllowing());
     }
 
     // ─── SearchArticlesAsync guard ────────────────────────────────────────────

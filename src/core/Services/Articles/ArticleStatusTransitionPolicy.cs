@@ -37,6 +37,13 @@ public sealed class ArticleStatusTransitionValidationException(
     public ArticleStatusTransitionValidation Validation { get; } = validation;
 }
 
+public sealed class ArticleWriteValidationException(
+    string code,
+    string message) : ArgumentException(message)
+{
+    public string Code { get; } = code;
+}
+
 public static class ArticleStatusTransitionPolicy
 {
     public static ArticleStatusTransitionValidation? ValidateTarget(

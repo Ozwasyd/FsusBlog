@@ -1,4 +1,5 @@
 using FsusBlog.Core.Integrity;
+using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
@@ -6,6 +7,7 @@ using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
 using Microsoft.AspNetCore.Http;
@@ -134,6 +136,35 @@ public sealed class ArticleRightsWritePathTests(
                 null,
                 Arg.Any<string>(),
                 Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CreateAsync_WhenPublicationTaxonomyIsInvalid_WritesNothing()
+    {
+        using SqlSugarClient db = classDatabase.CreateClient();
+        CreateTables(db);
+        var contentFilter = Substitute.For<IContentFilterService>();
+        contentFilter.ValidateContent(Arg.Any<string>())
+            .Returns(new ContentValidationResult(true, "ok", string.Empty));
+        ArticleService service = CreateService(
+            db,
+            publicationValidator: new ArticlePublicationValidator(db, contentFilter));
+
+        ArticleWriteValidationException error = await Assert.ThrowsAsync<ArticleWriteValidationException>(() =>
+            service.CreateAsync(new CreateArticleRequest
+            {
+                Title = "Invalid taxonomy",
+                Content = "# body",
+                Summary = "summary",
+                CategoryId = 404,
+                TagIds = [999],
+                Status = ArticleStatus.Published
+            }));
+
+        Assert.Equal("category_not_found", error.Code);
+        Assert.Equal(0, await db.Queryable<Article>().CountAsync());
+        Assert.Equal(0, await db.Queryable<ArticleRevision>().CountAsync());
+        Assert.Equal(0, await db.Queryable<ArticleMutationOutboxEvent>().CountAsync());
     }
 
     [Fact]
@@ -334,7 +365,8 @@ public sealed class ArticleRightsWritePathTests(
 
     private static ArticleService CreateService(
         SqlSugarClient db,
-        IArticlePublicMutationFence? mutationFence = null)
+        IArticlePublicMutationFence? mutationFence = null,
+        IArticlePublicationValidator? publicationValidator = null)
     {
         var redis = Substitute.For<IConnectionMultiplexer>();
         redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(Substitute.For<IDatabase>());
@@ -356,6 +388,7 @@ public sealed class ArticleRightsWritePathTests(
             _cacheInvalidationDispatcher: Substitute.For<ICacheInvalidationDispatcher>(),
             _mutationFence: mutationFence ?? Substitute.For<IArticlePublicMutationFence>(),
             _mutationSideEffects: Substitute.For<IArticleMutationSideEffectCoordinator>(),
-            _viewWriteBuffer: Substitute.For<IArticleViewWriteBuffer>());
+            _viewWriteBuffer: Substitute.For<IArticleViewWriteBuffer>(),
+            _publicationValidator: publicationValidator ?? ArticlePublicationValidatorTestFactory.CreateAllowing());
     }
 }

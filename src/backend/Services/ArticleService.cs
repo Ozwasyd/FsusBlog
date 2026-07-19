@@ -19,6 +19,7 @@ using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.ReadModels;
+using FsusBlog.Server.Services.Articles;
 
 using SqlSugar;
 
@@ -49,7 +50,8 @@ public partial class ArticleService(
     ICacheInvalidationDispatcher _cacheInvalidationDispatcher,
     IArticlePublicMutationFence _mutationFence,
     IArticleMutationSideEffectCoordinator _mutationSideEffects,
-    IArticleViewWriteBuffer _viewWriteBuffer) : IArticleCoreGateway
+    IArticleViewWriteBuffer _viewWriteBuffer,
+    IArticlePublicationValidator _publicationValidator) : IArticleCoreGateway
 #pragma warning restore IDE1006
 {
     private readonly record struct TrashArticleRow(int Id, int CategoryId);
@@ -680,6 +682,20 @@ public partial class ArticleService(
 
             var result = await _db.Ado.UseTranAsync(async () =>
             {
+                ArticlePublicationValidationResult validation = await _publicationValidator.ValidateAsync(
+                    new ArticlePublicationValidationInput(
+                        dto.Title,
+                        dto.Content,
+                        dto.Summary,
+                        dto.CoverImageUrl,
+                        dto.CategoryId,
+                        dto.TagIds,
+                        status,
+                        dto.ScheduledPublishAt),
+                    now,
+                    ct).ConfigureAwait(false);
+                validation.ThrowIfWriteBlocked();
+
                 int id = await _db.Insertable(article).ExecuteReturnIdentityAsync();
                 await _db.Insertable(new ArticleBody { ArticleId = id, MarkdownContent = content, UpdatedAt = DateTime.UtcNow }).ExecuteCommandAsync();
                 if (tagIds.Count > 0)
@@ -734,6 +750,10 @@ public partial class ArticleService(
                 await _mutationSideEffects.AfterCreatedAsync(article, result.Data, realtimePreview);
 
                 return result.Data;
+            }
+            if (result.ErrorException is ArticleWriteValidationException validationException)
+            {
+                throw validationException;
             }
             _logger.LogError("创建文章失败 | DbError: {Error}", result.ErrorMessage);
             return 0;
@@ -1205,6 +1225,20 @@ public partial class ArticleService(
             bool articleUpdated = false;
             var result = await _db.Ado.UseTranAsync(async () =>
             {
+                ArticlePublicationValidationResult validation = await _publicationValidator.ValidateAsync(
+                    new ArticlePublicationValidationInput(
+                        dto.Title,
+                        dto.Content,
+                        dto.Summary,
+                        dto.CoverImageUrl,
+                        dto.CategoryId,
+                        dto.TagIds,
+                        status,
+                        dto.ScheduledPublishAt),
+                    now,
+                    ct).ConfigureAwait(false);
+                validation.ThrowIfWriteBlocked();
+
                 bool updated = await TryUpdateArticleRowAsync(
                     state,
                     id,
@@ -1266,6 +1300,10 @@ public partial class ArticleService(
                 ct.ThrowIfCancellationRequested();
                 await _mutationSideEffects.AfterUpdatedAsync(id, realtimePreview);
                 return true;
+            }
+            if (result.ErrorException is ArticleWriteValidationException validationException)
+            {
+                throw validationException;
             }
             return false;
         }

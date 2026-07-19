@@ -8,13 +8,13 @@ public sealed record class ServerDraftSaveRequest(
     [property: System.ComponentModel.DataAnnotations.MaxLength(96)]
     string DraftKey,
     int? ArticleId,
-    [property: System.ComponentModel.DataAnnotations.MaxLength(200)]
+    [property: System.ComponentModel.DataAnnotations.MaxLength(256)]
     string Title,
-    [property: System.ComponentModel.DataAnnotations.MaxLength(262144)]
+    [property: System.ComponentModel.DataAnnotations.MaxLength(200000)]
     string Content,
-    [property: System.ComponentModel.DataAnnotations.MaxLength(500)]
+    [property: System.ComponentModel.DataAnnotations.MaxLength(512)]
     string? Summary,
-    [property: System.ComponentModel.DataAnnotations.MaxLength(2048)]
+    [property: System.ComponentModel.DataAnnotations.MaxLength(512)]
     string? CoverImageUrl,
     int CategoryId,
     IReadOnlyList<int> TagIds,
