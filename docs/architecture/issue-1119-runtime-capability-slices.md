@@ -12,7 +12,8 @@ Issue #1119 将后端 7 个高耦合服务、端点和组合根按 capability �
 | Authoring API | `AuthoringEndpoints` static route boundary | route orchestration, workflow routes, moderation routes, operations routes, codec/helpers |
 | Articles | `ArticleService` scoped | detail/write orchestration, lifecycle/read models, cache/invalidation |
 | Public hot read | `PublicHotReadStore` and `PublicHotReadCounters` singletons | snapshot/store, serving, route classification, metrics/artifact factories |
-| Application composition | `WebApplicationCompositionExtensions` static composition root | pipeline/routes and HTML/CSP response materialization |
+| Application composition | `WebApplicationCompositionExtensions` pure composition root | pipeline/route module ordering only |
+| Public web runtime | `PublicWebRuntime` runtime module | CSP/static assets, Public AOT/SPA ownership, route decisions and HTML materialization |
 
 Partial declarations are an implementation boundary only. The primary constructor remains on exactly one root file, so constructor injection, service identity and lifetime do not change. Extracted pure codec/policy helpers remain private members of the same runtime type; they are not registered as stateful services and cannot accidentally acquire a broader lifetime. Schema migration is the later #1266 exception: its stable singleton is now a non-partial adapter over an explicit versioned manifest, while descriptor implementations are non-service definition types.
 

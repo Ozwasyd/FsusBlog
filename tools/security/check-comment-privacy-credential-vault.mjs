@@ -26,7 +26,7 @@ const REQUIRED_FILES = [
   'src/frontend/src/security/trustedTypesRuntime.ts',
   'src/frontend/src/utils/safeHtml.ts',
   'src/frontend/src/privacy/commentPrivacyWasmProver.ts',
-  'src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs',
+  'src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs',
   'ops/gateway/production-openresty.conf',
   'src/frontend/src/components/ui/MarkdownRenderer.vue',
   'src/frontend/vite.config.ts'
@@ -183,7 +183,7 @@ export function validateCommentPrivacyCredentialVaultSources(sources) {
   expectSource('src/frontend/src/services/serviceWorkerRuntime.ts', /serviceWorker\.register\(toTrustedServiceWorkerScriptUrl\([\s\S]*scriptUrl/, 'service worker registration enters the audited TrustedScriptURL boundary')
   expectSource('src/frontend/vite.config.ts', /build:\s*\{[\s\S]*?modulePreload:\s*false/, 'Vite runtime modulepreload injection stays disabled under production Trusted Types')
   for (const cspFile of [
-    'src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs',
+    'src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs',
     'ops/gateway/production-openresty.conf'
   ]) {
     expectSource(cspFile, /require-trusted-types-for 'script'; trusted-types vue fsusblog fsusblog-spa-entry;/, 'production CSP enforces exact Vue, app, and fixed SPA entry Trusted Types policies')

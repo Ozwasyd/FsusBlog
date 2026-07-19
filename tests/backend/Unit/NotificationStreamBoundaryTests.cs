@@ -95,7 +95,7 @@ public class NotificationStreamBoundaryTests
     public void NotificationStreamRoutes_DoNotRegisterSignalROrLegacyHubPipeline()
     {
         string compositionRuntime = RuntimeMetadataInspection.DescribeMethods(
-            typeof(WebApplicationCompositionExtensions),
+            typeof(PublicWebRuntime),
             "MapFsusApiRoutes");
         Assert.Contains("/api/notifications/stream/preflight", compositionRuntime, StringComparison.Ordinal);
         Assert.Contains("/api/notifications/stream", compositionRuntime, StringComparison.Ordinal);

@@ -15,7 +15,7 @@ public sealed class CultureInvariantStringComparisonTests
     {
         Type[] types =
         [
-            typeof(WebApplicationCompositionExtensions),
+            typeof(PublicWebRuntime),
             typeof(FileService),
             typeof(SearchIndexService),
             typeof(SystemService),
@@ -39,7 +39,7 @@ public sealed class CultureInvariantStringComparisonTests
             Assert.True(violations.Count == 0, $"{type.FullName} uses culture-sensitive prefix/suffix calls: {string.Join(", ", violations)}");
         }
 
-        string composition = RuntimeMetadataInspection.DescribeType(typeof(WebApplicationCompositionExtensions));
+        string composition = RuntimeMetadataInspection.DescribeType(typeof(PublicWebRuntime));
         foreach (string extension in new[] { ".js", ".css", ".wasm", ".woff", ".woff2", ".ttf", ".otf" })
         {
             Assert.Contains(extension, composition, StringComparison.Ordinal);

@@ -32,7 +32,10 @@ const index = read('src/frontend/index.html')
 const searchRequestPolicy = read('src/backend/Infrastructure/Spa/PublicSearchRequestPolicy.cs')
 const searchRoutePolicy = read('src/frontend/src/public-renderers/publicSearchRoutePolicy.ts')
 const generatedPageManifest = read('src/frontend/src/public-renderers/generated/publicPageManifest.ts')
-const applicationComposition = read('src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs')
+const applicationComposition = [
+  read('src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs'),
+  read('src/backend/Infrastructure/Bootstrap/PublicWebRuntime.HtmlMaterialization.cs')
+].join('\n')
 const publicOriginPolicy = read('src/backend/Infrastructure/PublicAot/PublicOriginPolicy.cs')
 const lifecycleBootstrap = read('src/backend/Infrastructure/Bootstrap/LifecycleHostedBootstrapService.cs')
 const sqlSugarVisibilitySources = [

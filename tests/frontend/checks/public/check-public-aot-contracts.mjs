@@ -57,7 +57,10 @@ function assertStaticContracts() {
   const navigationSnapshot = read('src/backend/Infrastructure/PublicAot/PublicAotNavigationSnapshot.cs')
   const publicRoutePreload = read('src/frontend/src/router/publicRoutePreload.ts')
   const publicSeoHead = read('src/frontend/src/router/publicSeoHead.ts')
-  const webApplicationComposition = read('src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs')
+  const webApplicationComposition = [
+    read('src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs'),
+    read('src/backend/Infrastructure/Bootstrap/PublicWebRuntime.HtmlMaterialization.cs')
+  ].join('\n')
   const apiContracts = read('src/frontend/src/api/contracts.ts')
   const publicShell = read('src/frontend/src/bootstrap/publicShell.ts')
   const hydrationBootstrap = read('src/frontend/src/bootstrap/publicHydrationBootstrap.ts')

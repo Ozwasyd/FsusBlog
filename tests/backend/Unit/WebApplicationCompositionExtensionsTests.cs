@@ -56,7 +56,7 @@ public sealed class WebApplicationCompositionExtensionsTests
         for (int i = 0; i < 16; i++)
         {
             var context = new DefaultHttpContext();
-            string nonce = WebApplicationCompositionExtensions.EnsureCspNonce(context);
+            string nonce = PublicWebRuntime.EnsureCspNonce(context);
 
             Assert.DoesNotContain("+", nonce, StringComparison.Ordinal);
             Assert.DoesNotContain("/", nonce, StringComparison.Ordinal);
@@ -69,8 +69,8 @@ public sealed class WebApplicationCompositionExtensionsTests
     public void GeneratedCspNonce_MatchesHeaderAndInlineScript()
     {
         var context = new DefaultHttpContext();
-        string nonce = WebApplicationCompositionExtensions.EnsureCspNonce(context);
-        string csp = WebApplicationCompositionExtensions.BuildHtmlCsp(isDevelopment: false, nonce);
+        string nonce = PublicWebRuntime.EnsureCspNonce(context);
+        string csp = PublicWebRuntime.BuildHtmlCsp(isDevelopment: false, nonce);
         string html = "<html><head></head><body><script type=\"module\"></script></body></html>";
 
         CspNonceUtf8Template template = Assert.IsType<CspNonceUtf8Template>(
@@ -93,7 +93,7 @@ public sealed class WebApplicationCompositionExtensionsTests
     public void DevelopmentHtmlCsp_PreservesNonceAndHmrWithoutTrustedTypesEnforcement()
     {
         const string Nonce = "development-nonce";
-        string csp = WebApplicationCompositionExtensions.BuildHtmlCsp(isDevelopment: true, Nonce);
+        string csp = PublicWebRuntime.BuildHtmlCsp(isDevelopment: true, Nonce);
 
         Assert.Contains($"'nonce-{Nonce}'", csp, StringComparison.Ordinal);
         Assert.Contains("http://127.0.0.1:3000", csp, StringComparison.Ordinal);
@@ -124,7 +124,7 @@ public sealed class WebApplicationCompositionExtensionsTests
 
         Assert.Equal(
             expected,
-            WebApplicationCompositionExtensions.ShouldUseDevelopmentCspPolicy(environment, configuration));
+            PublicWebRuntime.ShouldUseDevelopmentCspPolicy(environment, configuration));
     }
 
     [Theory]
@@ -132,7 +132,7 @@ public sealed class WebApplicationCompositionExtensionsTests
     [InlineData(true)]
     public void StaticCsp_DeniesStyleAttributesAndWasmCompilationAndEnforcesTrustedTypesOnlyInProduction(bool isDevelopment)
     {
-        string csp = WebApplicationCompositionExtensions.BuildStaticCsp(isDevelopment);
+        string csp = PublicWebRuntime.BuildStaticCsp(isDevelopment);
 
         Assert.Contains("script-src 'self';", csp, StringComparison.Ordinal);
         Assert.DoesNotContain("wasm-unsafe-eval", csp, StringComparison.Ordinal);
@@ -163,7 +163,7 @@ public sealed class WebApplicationCompositionExtensionsTests
     [InlineData("/search/index.core.0123456789abcdef.json", false)]
     public void IsImmutableSearchIndexAssetPath_MatchesFixedHashedShape(string path, bool expected)
     {
-        Assert.Equal(expected, WebApplicationCompositionExtensions.IsImmutableSearchIndexAssetPath(path));
+        Assert.Equal(expected, PublicWebRuntime.IsImmutableSearchIndexAssetPath(path));
     }
 
     [Theory]
@@ -173,13 +173,13 @@ public sealed class WebApplicationCompositionExtensionsTests
     [InlineData("/search/index.manifest.aeds", false)]
     public void IsPublicAotHydrationSidecarPath_MatchesPayloadSidecarsOnly(string path, bool expected)
     {
-        Assert.Equal(expected, WebApplicationCompositionExtensions.IsPublicAotHydrationSidecarPath(path));
+        Assert.Equal(expected, PublicWebRuntime.IsPublicAotHydrationSidecarPath(path));
     }
 
     [Fact]
     public async Task HotPathCompositionSource_AvoidsRegexAndFullPageReplaceForStaticAndFallback()
     {
-        Type template = Assert.IsAssignableFrom<Type>(typeof(WebApplicationCompositionExtensions).GetNestedType(
+        Type template = Assert.IsAssignableFrom<Type>(typeof(PublicWebRuntime).GetNestedType(
             "SpaHtmlByteTemplate",
             BindingFlags.NonPublic));
         Assert.NotNull(template.GetMethod("GetLength", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic));
@@ -296,18 +296,18 @@ public sealed class WebApplicationCompositionExtensionsTests
         context.Request.Path = "/article/42/";
         context.Request.QueryString = new QueryString("?ref=canonical");
 
-        Assert.True(WebApplicationCompositionExtensions.TryBuildTrailingSlashRedirect(
+        Assert.True(PublicWebRuntime.TryBuildTrailingSlashRedirect(
             context.Request,
             out string location));
         Assert.Equal("/blog/article/42?ref=canonical", location);
 
         context.Request.Path = "/";
-        Assert.False(WebApplicationCompositionExtensions.TryBuildTrailingSlashRedirect(
+        Assert.False(PublicWebRuntime.TryBuildTrailingSlashRedirect(
             context.Request,
             out _));
 
         context.Request.Path = "/tag/Legacy//";
-        Assert.False(WebApplicationCompositionExtensions.TryBuildTrailingSlashRedirect(
+        Assert.False(PublicWebRuntime.TryBuildTrailingSlashRedirect(
             context.Request,
             out _));
     }
@@ -321,14 +321,14 @@ public sealed class WebApplicationCompositionExtensionsTests
     [InlineData("/article/42/extra", false)]
     public void PublicHtmlRoutes_OnlyKnownSpaFallbacksRemainSuccessful(string path, bool expected)
     {
-        Assert.Equal(expected, WebApplicationCompositionExtensions.IsKnownSpaRoute(new PathString(path)));
+        Assert.Equal(expected, PublicWebRuntime.IsKnownSpaRoute(new PathString(path)));
     }
 
     [Fact]
     public void SearchSpaHead_IsNoIndexWithoutCanonicalOrStructuredData()
     {
         string head = Encoding.UTF8.GetString(
-            WebApplicationCompositionExtensions.GetSearchNoIndexHeadInjectionForTests().Span);
+            PublicWebRuntime.GetSearchNoIndexHeadInjectionForTests().Span);
 
         Assert.Contains("<meta name=\"robots\" content=\"noindex,follow\"", head, StringComparison.Ordinal);
         Assert.Contains("data-fsus-search-head", head, StringComparison.Ordinal);
@@ -345,7 +345,7 @@ public sealed class WebApplicationCompositionExtensionsTests
         context.Request.Method = method;
         context.Response.Body = new MemoryStream();
 
-        await WebApplicationCompositionExtensions.WritePublicStatusHtmlAsync(
+        await PublicWebRuntime.WritePublicStatusHtmlAsync(
             context,
             CreateTestEnv(),
             StatusCodes.Status404NotFound);
@@ -382,7 +382,7 @@ public sealed class WebApplicationCompositionExtensionsTests
         context.Request.Method = HttpMethods.Get;
         context.Response.Body = new MemoryStream();
 
-        await WebApplicationCompositionExtensions.WritePublicStatusHtmlAsync(
+        await PublicWebRuntime.WritePublicStatusHtmlAsync(
             context,
             CreateTestEnv(),
             StatusCodes.Status503ServiceUnavailable);
@@ -414,18 +414,18 @@ public sealed class WebApplicationCompositionExtensionsTests
     [Fact]
     public void SpaFallbackHeadInjectionCache_ReusesRouteBytesForSameVersionAndRoute()
     {
-        WebApplicationCompositionExtensions.ResetSpaHeadInjectionCacheForTests();
+        PublicWebRuntime.ResetSpaHeadInjectionCacheForTests();
         string[] preloads =
         [
             "/assets/route-admin.abc.js",
             "/assets/route-admin.abc.css"
         ];
 
-        ReadOnlyMemory<byte> first = WebApplicationCompositionExtensions.GetRoutePreloadHeadInjectionForTests(
+        ReadOnlyMemory<byte> first = PublicWebRuntime.GetRoutePreloadHeadInjectionForTests(
             "asset-v1",
             "/admin/articles",
             preloads);
-        ReadOnlyMemory<byte> second = WebApplicationCompositionExtensions.GetRoutePreloadHeadInjectionForTests(
+        ReadOnlyMemory<byte> second = PublicWebRuntime.GetRoutePreloadHeadInjectionForTests(
             "asset-v1",
             "/admin/articles",
             ["/assets/should-not-rebuild.js"]);
@@ -434,7 +434,7 @@ public sealed class WebApplicationCompositionExtensionsTests
         Assert.Equal(Encoding.UTF8.GetString(first.Span), html);
         Assert.Contains("<link rel=\"modulepreload\" href=\"/assets/route-admin.abc.js\">", html, StringComparison.Ordinal);
         Assert.Contains("<link rel=\"stylesheet\" href=\"/assets/route-admin.abc.css\">", html, StringComparison.Ordinal);
-        var stats = WebApplicationCompositionExtensions.GetSpaHeadInjectionCacheStatsForTests();
+        var stats = PublicWebRuntime.GetSpaHeadInjectionCacheStatsForTests();
         Assert.Equal(1, stats.EntryCount);
         Assert.Equal(1, stats.BuildCount);
         Assert.Equal(1, stats.HitCount);
@@ -443,20 +443,20 @@ public sealed class WebApplicationCompositionExtensionsTests
     [Fact]
     public void SpaFallbackHeadInjectionCache_MissesWhenAssetVersionChanges()
     {
-        WebApplicationCompositionExtensions.ResetSpaHeadInjectionCacheForTests();
+        PublicWebRuntime.ResetSpaHeadInjectionCacheForTests();
 
-        ReadOnlyMemory<byte> first = WebApplicationCompositionExtensions.GetRoutePreloadHeadInjectionForTests(
+        ReadOnlyMemory<byte> first = PublicWebRuntime.GetRoutePreloadHeadInjectionForTests(
             "asset-v1",
             "/login",
             ["/assets/auth.v1.js"]);
-        ReadOnlyMemory<byte> second = WebApplicationCompositionExtensions.GetRoutePreloadHeadInjectionForTests(
+        ReadOnlyMemory<byte> second = PublicWebRuntime.GetRoutePreloadHeadInjectionForTests(
             "asset-v2",
             "/login",
             ["/assets/auth.v2.js"]);
 
         Assert.Contains("auth.v1.js", Encoding.UTF8.GetString(first.Span), StringComparison.Ordinal);
         Assert.Contains("auth.v2.js", Encoding.UTF8.GetString(second.Span), StringComparison.Ordinal);
-        var stats = WebApplicationCompositionExtensions.GetSpaHeadInjectionCacheStatsForTests();
+        var stats = PublicWebRuntime.GetSpaHeadInjectionCacheStatsForTests();
         Assert.Equal(2, stats.EntryCount);
         Assert.Equal(2, stats.BuildCount);
         Assert.Equal(0, stats.HitCount);
@@ -465,7 +465,7 @@ public sealed class WebApplicationCompositionExtensionsTests
     [Fact]
     public void SpaFallbackHeadInjectionCache_ReusesPublicAssetSetBytes()
     {
-        WebApplicationCompositionExtensions.ResetSpaHeadInjectionCacheForTests();
+        PublicWebRuntime.ResetSpaHeadInjectionCacheForTests();
         var assets = new SpaAssetSet(
             "/assets/fsus-spa-entry.js",
             ["/assets/public-page.abc.css"],
@@ -473,14 +473,14 @@ public sealed class WebApplicationCompositionExtensionsTests
             "asset-v1",
             UsesSourceAssets: false);
 
-        ReadOnlyMemory<byte> first = WebApplicationCompositionExtensions.GetPublicAssetHeadInjectionForTests("home", assets);
-        ReadOnlyMemory<byte> second = WebApplicationCompositionExtensions.GetPublicAssetHeadInjectionForTests("home", assets);
+        ReadOnlyMemory<byte> first = PublicWebRuntime.GetPublicAssetHeadInjectionForTests("home", assets);
+        ReadOnlyMemory<byte> second = PublicWebRuntime.GetPublicAssetHeadInjectionForTests("home", assets);
 
         string html = Encoding.UTF8.GetString(second.Span);
         Assert.Equal(Encoding.UTF8.GetString(first.Span), html);
         Assert.Contains("<link rel=\"modulepreload\" crossorigin href=\"/assets/entry-runtime.abc.js\">", html, StringComparison.Ordinal);
         Assert.Contains("<link rel=\"stylesheet\" href=\"/assets/public-page.abc.css\">", html, StringComparison.Ordinal);
-        var stats = WebApplicationCompositionExtensions.GetSpaHeadInjectionCacheStatsForTests();
+        var stats = PublicWebRuntime.GetSpaHeadInjectionCacheStatsForTests();
         Assert.Equal(1, stats.EntryCount);
         Assert.Equal(1, stats.BuildCount);
         Assert.Equal(1, stats.HitCount);
@@ -489,15 +489,15 @@ public sealed class WebApplicationCompositionExtensionsTests
     [Fact]
     public void SpaFallbackHeadInjectionCache_DoesNotCacheEmptyPreloadSet()
     {
-        WebApplicationCompositionExtensions.ResetSpaHeadInjectionCacheForTests();
+        PublicWebRuntime.ResetSpaHeadInjectionCacheForTests();
 
-        ReadOnlyMemory<byte> headInjection = WebApplicationCompositionExtensions.GetRoutePreloadHeadInjectionForTests(
+        ReadOnlyMemory<byte> headInjection = PublicWebRuntime.GetRoutePreloadHeadInjectionForTests(
             "asset-v1",
             "/plain",
             []);
 
         Assert.True(headInjection.IsEmpty);
-        var stats = WebApplicationCompositionExtensions.GetSpaHeadInjectionCacheStatsForTests();
+        var stats = PublicWebRuntime.GetSpaHeadInjectionCacheStatsForTests();
         Assert.Equal(0, stats.EntryCount);
         Assert.Equal(0, stats.BuildCount);
         Assert.Equal(0, stats.HitCount);
@@ -506,17 +506,17 @@ public sealed class WebApplicationCompositionExtensionsTests
     [Fact]
     public async Task SpaFallbackHeadInjectionCache_DoesNotCacheCspNonce()
     {
-        WebApplicationCompositionExtensions.ResetSpaHeadInjectionCacheForTests();
-        ReadOnlyMemory<byte> headInjection = WebApplicationCompositionExtensions.GetRoutePreloadHeadInjectionForTests(
+        PublicWebRuntime.ResetSpaHeadInjectionCacheForTests();
+        ReadOnlyMemory<byte> headInjection = PublicWebRuntime.GetRoutePreloadHeadInjectionForTests(
             "asset-v1",
             "/admin",
             ["/assets/route-admin.abc.js"]);
 
-        string first = await WebApplicationCompositionExtensions.RenderSpaHtmlForTestsAsync(
+        string first = await PublicWebRuntime.RenderSpaHtmlForTestsAsync(
             "<html><head><script type=\"module\"></script></head><body></body></html>",
             headInjection,
             "nonce-a");
-        string second = await WebApplicationCompositionExtensions.RenderSpaHtmlForTestsAsync(
+        string second = await PublicWebRuntime.RenderSpaHtmlForTestsAsync(
             "<html><head><script type=\"module\"></script></head><body></body></html>",
             headInjection,
             "nonce-b");
@@ -536,7 +536,7 @@ public sealed class WebApplicationCompositionExtensionsTests
         context.Items["__fsusblog_csp_nonce"] = "spa-nonce";
         ReadOnlyMemory<byte> headInjection = Encoding.UTF8.GetBytes("<link rel=\"modulepreload\" href=\"/assets/route-admin.js\">\n");
 
-        await WebApplicationCompositionExtensions.WriteSpaHtmlResponseForTestsAsync(
+        await PublicWebRuntime.WriteSpaHtmlResponseForTestsAsync(
             context,
             CreateTestEnv(),
             CreateLargeSpaTemplate("brotli"),
@@ -558,7 +558,7 @@ public sealed class WebApplicationCompositionExtensionsTests
     {
         DefaultHttpContext context = CreateSpaFallbackContext(HttpMethods.Get, "gzip;q=1, br;q=0, identity;q=0");
 
-        await WebApplicationCompositionExtensions.WriteSpaHtmlResponseForTestsAsync(
+        await PublicWebRuntime.WriteSpaHtmlResponseForTestsAsync(
             context,
             CreateTestEnv(),
             CreateLargeSpaTemplate("gzip"),
@@ -576,7 +576,7 @@ public sealed class WebApplicationCompositionExtensionsTests
     {
         DefaultHttpContext context = CreateSpaFallbackContext(HttpMethods.Head, "br, gzip");
 
-        await WebApplicationCompositionExtensions.WriteSpaHtmlResponseForTestsAsync(
+        await PublicWebRuntime.WriteSpaHtmlResponseForTestsAsync(
             context,
             CreateTestEnv(),
             CreateLargeSpaTemplate("head"),
@@ -594,7 +594,7 @@ public sealed class WebApplicationCompositionExtensionsTests
     {
         DefaultHttpContext context = CreateSpaFallbackContext(HttpMethods.Get, "br, gzip");
 
-        await WebApplicationCompositionExtensions.WriteSpaHtmlResponseForTestsAsync(
+        await PublicWebRuntime.WriteSpaHtmlResponseForTestsAsync(
             context,
             CreateTestEnv(),
             "<html><head><script type=\"module\"></script></head><body>tiny</body></html>",
@@ -619,7 +619,7 @@ public sealed class WebApplicationCompositionExtensionsTests
         var entry = CreateAotEntry(html, artifact);
         DefaultHttpContext context = CreateAotContext("br, gzip");
 
-        await WebApplicationCompositionExtensions.WritePublicAotHtmlEntryForTestsAsync(context, CreateTestEnv(), entry);
+        await PublicWebRuntime.WritePublicAotHtmlEntryForTestsAsync(context, CreateTestEnv(), entry);
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
         Assert.Equal("br", context.Response.Headers["Content-Encoding"].ToString());
@@ -644,7 +644,7 @@ public sealed class WebApplicationCompositionExtensionsTests
         DefaultHttpContext context = CreateAotContext("gzip;q=1, identity;q=0");
         context.Request.Headers.IfNoneMatch = artifact.GzipETag;
 
-        await WebApplicationCompositionExtensions.WritePublicAotHtmlEntryForTestsAsync(context, CreateTestEnv(), entry);
+        await PublicWebRuntime.WritePublicAotHtmlEntryForTestsAsync(context, CreateTestEnv(), entry);
 
         Assert.Equal(StatusCodes.Status304NotModified, context.Response.StatusCode);
         Assert.Equal("gzip", context.Response.Headers["Content-Encoding"].ToString());
@@ -665,7 +665,7 @@ public sealed class WebApplicationCompositionExtensionsTests
         var entry = CreateAotEntry(Html, artifact);
         DefaultHttpContext context = CreateAotContext("br, gzip");
 
-        await WebApplicationCompositionExtensions.WritePublicAotHtmlEntryForTestsAsync(context, CreateTestEnv(), entry);
+        await PublicWebRuntime.WritePublicAotHtmlEntryForTestsAsync(context, CreateTestEnv(), entry);
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
         Assert.True(string.IsNullOrEmpty(context.Response.Headers["Content-Encoding"].ToString()));
@@ -686,7 +686,7 @@ public sealed class WebApplicationCompositionExtensionsTests
         DefaultHttpContext context = CreateAotContext("br, gzip");
         context.Request.Headers.IfNoneMatch = artifact.ETag;
 
-        await WebApplicationCompositionExtensions.WritePublicAotHtmlEntryForTestsAsync(context, CreateTestEnv(), entry);
+        await PublicWebRuntime.WritePublicAotHtmlEntryForTestsAsync(context, CreateTestEnv(), entry);
 
         string rendered = Encoding.UTF8.GetString(((MemoryStream)context.Response.Body).ToArray());
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
@@ -709,7 +709,7 @@ public sealed class WebApplicationCompositionExtensionsTests
         DefaultHttpContext context = CreateAotContext("br, gzip");
         context.Request.Method = HttpMethods.Head;
 
-        await WebApplicationCompositionExtensions.WritePublicAotHtmlEntryForTestsAsync(
+        await PublicWebRuntime.WritePublicAotHtmlEntryForTestsAsync(
             context,
             CreateTestEnv(),
             CreateAotEntry(Html, artifact));
@@ -728,7 +728,7 @@ public sealed class WebApplicationCompositionExtensionsTests
         PublicAotHtmlArtifact artifact = PublicAotHtmlArtifactFactory.FromHtml(Html, "renderer-identity", "frontend-identity");
         DefaultHttpContext context = CreateAotContext("br;q=1, gzip;q=1, identity;q=0");
 
-        await WebApplicationCompositionExtensions.WritePublicAotHtmlEntryForTestsAsync(
+        await PublicWebRuntime.WritePublicAotHtmlEntryForTestsAsync(
             context,
             CreateTestEnv(),
             CreateAotEntry(Html, artifact));
@@ -757,11 +757,11 @@ public sealed class WebApplicationCompositionExtensionsTests
         var entry = CreateAotEntry(html, artifact);
 
         DefaultHttpContext identity = CreateAotContext("identity");
-        await WebApplicationCompositionExtensions.WritePublicAotHtmlEntryForTestsAsync(identity, CreateTestEnv(), entry);
+        await PublicWebRuntime.WritePublicAotHtmlEntryForTestsAsync(identity, CreateTestEnv(), entry);
         DefaultHttpContext brotli = CreateAotContext("br, gzip");
-        await WebApplicationCompositionExtensions.WritePublicAotHtmlEntryForTestsAsync(brotli, CreateTestEnv(), entry);
+        await PublicWebRuntime.WritePublicAotHtmlEntryForTestsAsync(brotli, CreateTestEnv(), entry);
         DefaultHttpContext gzip = CreateAotContext("gzip;q=1, identity;q=0");
-        await WebApplicationCompositionExtensions.WritePublicAotHtmlEntryForTestsAsync(gzip, CreateTestEnv(), entry);
+        await PublicWebRuntime.WritePublicAotHtmlEntryForTestsAsync(gzip, CreateTestEnv(), entry);
 
         long identityBytes = identity.Response.Body.Length;
         long brotliBytes = brotli.Response.Body.Length;
@@ -780,7 +780,7 @@ public sealed class WebApplicationCompositionExtensionsTests
         {
             DefaultHttpContext context = CreateAotContext("br, gzip");
             long started = Stopwatch.GetTimestamp();
-            await WebApplicationCompositionExtensions.WritePublicAotHtmlEntryForTestsAsync(context, CreateTestEnv(), entry);
+            await PublicWebRuntime.WritePublicAotHtmlEntryForTestsAsync(context, CreateTestEnv(), entry);
             elapsedTicks[i] = Stopwatch.GetTimestamp() - started;
             totalBytes += context.Response.Body.Length;
         }
@@ -827,7 +827,7 @@ public sealed class WebApplicationCompositionExtensionsTests
                 File.ReadAllText(environment.WebRootFileProvider.GetFileInfo("search/index.bin").PhysicalPath!));
 
             using PhysicalFileProvider authoritative =
-                WebApplicationCompositionExtensions.CreateAuthoritativeWebRootFileProvider(environment);
+                PublicWebRuntime.CreateAuthoritativeWebRootFileProvider(environment);
             Assert.Equal(
                 "current-runtime-alias",
                 File.ReadAllText(authoritative.GetFileInfo("search/index.bin").PhysicalPath!));
@@ -858,7 +858,7 @@ public sealed class WebApplicationCompositionExtensionsTests
         };
         DefaultHttpContext first = CreateManifestContext();
 
-        await WebApplicationCompositionExtensions.WriteDynamicManifestForTestsAsync(first, seo);
+        await PublicWebRuntime.WriteDynamicManifestForTestsAsync(first, seo);
 
         Assert.Equal(StatusCodes.Status200OK, first.Response.StatusCode);
         Assert.Equal("no-cache", first.Response.Headers["Cache-Control"].ToString());
@@ -868,7 +868,7 @@ public sealed class WebApplicationCompositionExtensionsTests
 
         DefaultHttpContext second = CreateManifestContext(firstEtag);
 
-        await WebApplicationCompositionExtensions.WriteDynamicManifestForTestsAsync(second, seo);
+        await PublicWebRuntime.WriteDynamicManifestForTestsAsync(second, seo);
 
         Assert.Equal(StatusCodes.Status304NotModified, second.Response.StatusCode);
         Assert.Equal(firstEtag, second.Response.Headers["ETag"].ToString());
@@ -877,7 +877,7 @@ public sealed class WebApplicationCompositionExtensionsTests
 
         DefaultHttpContext changed = CreateManifestContext(firstEtag);
 
-        await WebApplicationCompositionExtensions.WriteDynamicManifestForTestsAsync(
+        await PublicWebRuntime.WriteDynamicManifestForTestsAsync(
             changed,
             seo with
             {
@@ -1111,13 +1111,13 @@ public sealed class WebApplicationCompositionExtensionsTests
 
         private static Action<StaticFileResponseContext> CreateStaticAssetResponseCallback()
         {
-            MethodInfo? method = typeof(WebApplicationCompositionExtensions).GetMethod(
+            MethodInfo? method = typeof(PublicWebRuntime).GetMethod(
                 "PrepareStaticAssetResponse",
                 BindingFlags.NonPublic | BindingFlags.Static);
             if (method is null)
             {
                 throw new MissingMethodException(
-                    typeof(WebApplicationCompositionExtensions).FullName,
+                    typeof(PublicWebRuntime).FullName,
                     "PrepareStaticAssetResponse");
             }
 

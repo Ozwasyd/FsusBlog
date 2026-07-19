@@ -61,7 +61,7 @@ app.MapFsusApplicationRoutes();
 app.Run();
 ```
 
-Host runtime tuning、Serilog、OpenTelemetry、ForwardedHeaders、rate limiting 与核心服务注册由 `Infrastructure/Bootstrap/WebApplicationBuilderCompositionExtensions.cs` 收口；具体 HTTP 管线由 `Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs` 收口：
+Host runtime tuning、Serilog、OpenTelemetry、ForwardedHeaders、rate limiting 与核心服务注册由 `Infrastructure/Bootstrap/WebApplicationBuilderCompositionExtensions.cs` 收口；`Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs` 是纯组装层，只保留 middleware/endpoint 顺序和模块装配。CSP、静态资源、Public AOT/SPA ownership、路由判定、HTML materialization 与逐请求状态处理由 `PublicWebRuntime.cs` / `PublicWebRuntime.HtmlMaterialization.cs` 承担，并由各自 focused tests 直接覆盖：
 
 | 阶段 | 方法 | 职责 |
 | ------ | ------ | ------ |
@@ -91,7 +91,7 @@ PublicHotRead 容量以 `independent-readonly-arrays-upper-bound-v1` 物理模�
 
 PublicHotRead sanity gate 与容量 gate 共用同一个 publication lock：候选先检查 publication evidence 与 visibility age/future cutoff，再做 raw/compressed/HTML/overlap budget 拒绝，最后检查 AEDS schema/CRC/frame type、br/gzip 可逆性与完整 snapshot HMAC，任一失败都保留当前 snapshot。每个 immutable binary variant 的封签绑定 route/list key、frame/version、ETag/cache/encoding；HTML body 与真实 CSP nonce template bytes 分别封签并绑定 renderer/template metadata。命中路径只重算将被写出的一个 binary HMAC，HTML 同时校验 body/template；tamper 或超过 `MaxSnapshotAge` 时记录 `fsus.hotread.sanity.fallback` 并恢复到 canonical endpoint，不做 PostgreSQL/Redis sanity query。`PublicHotReadStartupWarmupService` 在 age 上限一半处排队 full refresh，projector scope 在首次 build 后立即释放。DB mutation consistency 不由 HMAC 冒充：写路径在 commit 前持有 scope-bound PostgreSQL owner lock并建立 Redis `TransitionPending` tombstone，durable article mutation outbox 在 commit 后推进同一 generation，pipeline 固定 `public-artifact-revocation -> public-hot-read-fast-path`，transition 期间返回 410；新 snapshot 成功发布并确认 generation 后才 compare-delete tombstone。主要风险是连续刷新失败导致 L0 降级到常规端点而增加延迟，不会继续返回过龄或被改写 bytes。无需重启的回退仍是热更新 `PublicHotRead:Enabled=false`，revocation stage 保持启用。Redis Pub/Sub 当前没有 subscriber ACK，所以该段不声明多节点线性化；跨节点 invalidation 与 snapshot convergence 仍由 #399/#400 定义。
 
-上述应用级与端点级顺序由 `WebApplicationCompositionExtensions` 内的 `s_applicationPipelineStages` / `s_endpointPipelineStages` 直接驱动运行时注册。顺序必须保持 `trace correlation -> classifier -> early request audit context -> dedicated rate limiter -> security gate -> writer -> fallback restore -> endpoint pipeline`；runtime catalog 在 stage 注册前 fail closed，middleware sentinel 会证明 L0 hit 不触达不适用的 endpoint-only 阶段，source checker 负责两端防漂移。
+上述应用级与端点级顺序仍由纯组装类型 `WebApplicationCompositionExtensions` 内的 `s_applicationPipelineStages` / `s_endpointPipelineStages` 直接驱动运行时注册；stage 只委托给显式 runtime module，不实现 route decision、HTML 输出或业务状态机。顺序必须保持 `trace correlation -> classifier -> early request audit context -> dedicated rate limiter -> security gate -> writer -> fallback restore -> endpoint pipeline`；runtime catalog 在 stage 注册前 fail closed，middleware sentinel 会证明 L0 hit 不触达不适用的 endpoint-only 阶段，source checker 负责两端防漂移。边界和回归门禁见 [Composition root boundary](architecture/composition-root-boundary.md)。
 
 JWT bearer cookie 入口在 `UseAuthentication()` 内完成。`OnMessageReceived` 对同一请求只解析一次 admin cookie preference，并通过 `HttpContext.Items` 复用 admin raw access token 给 `OnTokenValidated`；endpoint metadata/path 决策不得在同一请求内重复扫描，admin session 校验和 host-prefixed cookie 选择保持不变。legacy plain cookie fallback 已移除：生产只读取 `__Host-*` Cookie，开发环境只有显式启用 `AuthCookies:AllowInsecureTransportCookies` 时才读取当前非 host-prefixed cookie 名称。
 

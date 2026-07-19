@@ -165,26 +165,26 @@ if (viteConfig.includes("require-trusted-types-for 'script'") || viteConfig.incl
   violations.push('src/frontend/vite.config.ts: development and preview CSP must preserve HMR by leaving Trusted Types enforcement disabled')
 }
 
-const composition = readRepoFile('src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs')
+const composition = readRepoFile('src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs')
 const staticCspSource = composition.slice(
   composition.indexOf('internal static string BuildStaticCsp'),
   composition.indexOf('internal static string BuildHtmlCsp')
 )
 for (const token of ["style-src-attr 'none'", 'report-uri /api/security/csp-report']) {
   if (!staticCspSource.includes(token)) {
-    violations.push(`src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs: static CSP must include ${token}`)
+    violations.push(`src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs: static CSP must include ${token}`)
   }
 }
 if (staticCspSource.includes('wasm-unsafe-eval') || staticCspSource.includes("style-src-attr 'unsafe-inline'")) {
-  violations.push('src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs: non-HTML CSP must deny Wasm compilation and inline style attributes')
+  violations.push('src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs: non-HTML CSP must deny Wasm compilation and inline style attributes')
 }
 for (const token of ["require-trusted-types-for 'script'", 'trusted-types vue fsusblog fsusblog-spa-entry;']) {
   if (!composition.includes(token)) {
-    violations.push(`src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs: production CSP must include ${token}`)
+    violations.push(`src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs: production CSP must include ${token}`)
   }
 }
 if (/trusted-types\s+(?:\*|default)|allow-duplicates/.test(composition)) {
-  violations.push('src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs: Trusted Types CSP must not allow wildcard, default, or duplicate policies')
+  violations.push('src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs: Trusted Types CSP must not allow wildcard, default, or duplicate policies')
 }
 
 const trustedTypesRuntime = readRepoFile('src/frontend/src/security/trustedTypesRuntime.ts')

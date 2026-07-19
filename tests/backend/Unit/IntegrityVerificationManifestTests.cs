@@ -141,7 +141,7 @@ public sealed class IntegrityVerificationManifestTests
 
         string endpointRuntime = RuntimeMetadataInspection.DescribeType(typeof(IntegrityVerificationEndpoints));
         Assert.Contains("Results.Json", endpointRuntime, StringComparison.Ordinal);
-        string composition = RuntimeMetadataInspection.DescribeType(typeof(WebApplicationCompositionExtensions));
+        string composition = RuntimeMetadataInspection.DescribeType(typeof(PublicWebRuntime));
         Assert.Contains("MapIntegrityVerificationEndpoints", composition, StringComparison.Ordinal);
 
         var services = new ServiceCollection();

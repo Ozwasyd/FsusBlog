@@ -16,7 +16,10 @@ const files = {
     read('src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Routing.cs'),
     read('src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Serving.cs')
   ].join('\n'),
-  composition: read('src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs'),
+  composition: [
+    read('src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs'),
+    read('src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs')
+  ].join('\n'),
   tests: read('tests/backend/Unit/PublicHotReadCrossCuttingControlTests.cs')
 }
 

@@ -56,7 +56,11 @@ const components = [
   },
   {
     id: 'web-application-composition',
-    roots: ['src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs'],
+    roots: [
+      'src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs',
+      'src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs',
+      'src/backend/Infrastructure/Bootstrap/PublicWebRuntime.HtmlMaterialization.cs',
+    ],
     minimumFiles: 2
   }
 ]

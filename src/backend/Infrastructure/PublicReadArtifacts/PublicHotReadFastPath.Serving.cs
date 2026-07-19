@@ -35,7 +35,7 @@ public static class PublicHotReadFastPathExtensions
 
         return app.Use((ctx, next) =>
         {
-            bool isDevelopment = WebApplicationCompositionExtensions
+            bool isDevelopment = PublicWebRuntime
                 .ShouldUseDevelopmentCspPolicy(env, configuration);
             PublicHotReadRequestFeature? feature = ctx.Features.Get<PublicHotReadRequestFeature>();
             return feature is null
@@ -243,7 +243,7 @@ public static partial class PublicHotReadFastPath
         // classifier intentionally recognizes a trailing-slash request. Do
         // not let that shortcut bypass the application-wide canonical 301.
         if (isPublicHtmlRoute
-            && WebApplicationCompositionExtensions.TryBuildTrailingSlashRedirect(
+            && PublicWebRuntime.TryBuildTrailingSlashRedirect(
                 ctx.Request,
                 out string redirectLocation))
         {
@@ -609,7 +609,7 @@ public static partial class PublicHotReadFastPath
         CspNonceUtf8Template template = html.CspNonceTemplate
             ?? throw new InvalidOperationException("nonce HTML artifact is missing its compiled template");
         HttpResponse response = ctx.Response;
-        string nonce = WebApplicationCompositionExtensions.EnsureCspNonce(ctx);
+        string nonce = PublicWebRuntime.EnsureCspNonce(ctx);
         response.ContentType = string.IsNullOrWhiteSpace(html.ContentType) ? HtmlContentType : html.ContentType;
         ApplyStaticPublicSecurityHeaders(response, isDevelopment, nonce);
         response.Headers["Cache-Control"] = "private,no-store";
@@ -646,8 +646,8 @@ public static partial class PublicHotReadFastPath
         response.Headers["Cross-Origin-Opener-Policy"] = "same-origin";
         response.Headers["Cross-Origin-Resource-Policy"] = "same-origin";
         response.Headers["Content-Security-Policy"] = string.IsNullOrWhiteSpace(nonce)
-            ? WebApplicationCompositionExtensions.BuildStaticCsp(isDevelopment)
-            : WebApplicationCompositionExtensions.BuildHtmlCsp(isDevelopment, nonce);
+            ? PublicWebRuntime.BuildStaticCsp(isDevelopment)
+            : PublicWebRuntime.BuildHtmlCsp(isDevelopment, nonce);
     }
 
     private static Task ServePublicHtml(

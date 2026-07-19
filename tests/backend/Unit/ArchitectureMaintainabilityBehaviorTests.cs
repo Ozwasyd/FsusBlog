@@ -23,6 +23,70 @@ public sealed partial class ArchitectureMaintainabilityBehaviorTests
     private const string AuthoringPrefix = "/api/binary/author";
 
     [Fact]
+    public void WebApplicationCompositionRoot_ContainsAssemblyOnly()
+    {
+        string composition = BackendTestPaths.ReadAllTextFromRoot(
+            "src", "backend", "Infrastructure", "Bootstrap", "WebApplicationCompositionExtensions.cs");
+        string runtime = BackendTestPaths.ReadAllTextFromRoot(
+            "src", "backend", "Infrastructure", "Bootstrap", "PublicWebRuntime.cs");
+        string materialization = BackendTestPaths.ReadAllTextFromRoot(
+            "src", "backend", "Infrastructure", "Bootstrap", "PublicWebRuntime.HtmlMaterialization.cs");
+
+        Assert.Contains("UseFsusApplicationPipeline", composition, StringComparison.Ordinal);
+        Assert.Contains("MapFsusApplicationRoutes", composition, StringComparison.Ordinal);
+        Assert.Contains("PipelineStage", composition, StringComparison.Ordinal);
+        Assert.Contains("PublicWebRuntime.ReportHttp3TransportStartup", composition, StringComparison.Ordinal);
+
+        foreach (string forbidden in new[]
+        {
+            "HttpContext",
+            "Results.",
+            "TypedResults.",
+            "Encoding.",
+            "BodyWriter",
+            "BuildHtmlCsp",
+            "IsKnownSpaRoute",
+            "TryBuildTrailingSlashRedirect",
+            "RenderClassifiedAsync",
+            "GetRequiredService<",
+            "IServiceProvider"
+        })
+        {
+            Assert.DoesNotContain(forbidden, composition, StringComparison.Ordinal);
+        }
+
+        Assert.Contains("ServePublicShellOrIndexAsync", runtime, StringComparison.Ordinal);
+        Assert.Contains("WritePublicStatusHtmlAsync", runtime, StringComparison.Ordinal);
+        Assert.Contains("WriteSpaHtmlResponseAsync", materialization, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RuntimeServiceRegistrationRoots_DoNotExecuteUseCasesOrMaterializeResponses()
+    {
+        string infrastructure = BackendTestPaths.ReadAllTextFromRoot(
+            "src", "backend", "Infrastructure", "Bootstrap", "RuntimeInfrastructureServiceCollectionExtensions.cs");
+        string domain = BackendTestPaths.ReadAllTextFromRoot(
+            "src", "backend", "Infrastructure", "Bootstrap", "RuntimeDomainServiceCollectionExtensions.cs");
+        string registrations = string.Concat(infrastructure, "\n", domain);
+
+        foreach (string forbidden in new[]
+        {
+            "BuildServiceProvider(",
+            "HttpContext",
+            "Results.",
+            "TypedResults.",
+            "MapGet(",
+            "MapPost(",
+            "BodyWriter",
+            "RenderClassifiedAsync(",
+            "ExecuteAsync("
+        })
+        {
+            Assert.DoesNotContain(forbidden, registrations, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
     public void SplitRuntimeServices_PreserveServiceContractsAndDependencyInjectionLifetimes()
     {
         WebApplicationBuilder builder = WebApplication.CreateBuilder();

@@ -41,7 +41,7 @@ using Microsoft.Extensions.Primitives;
 
 namespace FsusBlog.Server.Infrastructure.Bootstrap;
 
-public static partial class WebApplicationCompositionExtensions
+internal static partial class PublicWebRuntime
 {
     private static async Task WriteSpaHtmlResponseAsync(
         HttpContext ctx,

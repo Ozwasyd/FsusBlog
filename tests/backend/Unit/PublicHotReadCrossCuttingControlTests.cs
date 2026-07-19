@@ -129,7 +129,7 @@ public sealed class PublicHotReadCrossCuttingControlTests
         state.MarkRateLimitEvaluated();
         context.Features.Set(state);
 
-        Assert.False(WebApplicationCompositionExtensions.ShouldRunEndpointRateLimiter(context));
+        Assert.False(PublicWebRuntime.ShouldRunEndpointRateLimiter(context));
         Assert.Equal(1, state.EndpointRateLimiterSkipCount);
     }
 

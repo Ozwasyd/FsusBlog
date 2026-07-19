@@ -119,6 +119,7 @@ function scanFiles() {
     ...listFiles('src/backend/Modules/Endpoints', '.cs'),
     'src/backend/Infrastructure/Operations/ProductionHealth.cs',
     'src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs',
+    'src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs',
     ...listFiles('src/frontend/src/api', '.ts'),
     'src/frontend/src/services/telemetryService.ts',
     'src/frontend/src/services/notificationStreamRuntime.ts'
