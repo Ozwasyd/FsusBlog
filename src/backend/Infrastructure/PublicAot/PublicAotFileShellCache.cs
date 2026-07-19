@@ -8,7 +8,6 @@ using System.Text;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Observability;
-using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.Storage;
 
 using StackExchange.Redis;
@@ -20,13 +19,13 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
     private const int InvalidationBatchSize = 256;
     private readonly IConnectionMultiplexer _redis;
     private readonly IDatabase _db;
-    private readonly string _webRoot;
     private readonly string _cacheRoot;
     private readonly ReleaseDerivedArtifactPublisher? _derivedPublisher;
     private readonly ILogger<PublicAotFileShellCache> _logger;
     private readonly PublicAotBoundedMemoryCache _memoryCache;
     private readonly ConcurrentDictionary<string, FileMetadataCacheEntry> _fileMetadataCache = new(StringComparer.Ordinal);
     private readonly TimeProvider _timeProvider;
+    private readonly IPublicArtifactStorage _publicArtifactStorage;
     private long _memoryGeneration;
     private PublicAotRecordedInvalidation? _lastInvalidation;
 
@@ -36,14 +35,15 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
         ILogger<PublicAotFileShellCache> logger,
         ReleaseDerivedArtifactPublisher? derivedPublisher = null,
         IConfiguration? configuration = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        IPublicArtifactStorage? publicArtifactStorage = null)
     {
         _redis = redis;
         _db = redis.GetDatabase();
-        _webRoot = ResolveWebRoot(env);
         _derivedPublisher = derivedPublisher ?? ResolveReleaseDerivedPublisher();
         _cacheRoot = _derivedPublisher?.GetKindRoot("public-aot") ?? ResolveCacheRoot(env);
         _timeProvider = timeProvider ?? TimeProvider.System;
+        _publicArtifactStorage = publicArtifactStorage ?? new LocalPublicArtifactStorage(env);
         var cacheOptions = new PublicAotFileShellCacheOptions();
         configuration?.GetSection("PublicAot").Bind(cacheOptions);
         _memoryCache = new PublicAotBoundedMemoryCache(
@@ -388,27 +388,11 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
             return true;
         }
 
-        if (!TryResolveHydrationSidecarPath(sidecar, out string sidecarPath))
-        {
-            _logger.LogWarning(
-                "public_aot_cache_sidecar_path_invalid {CacheKey} {RouteKey} {SidecarUrl}",
-                entry.CacheKey,
-                entry.RouteKey,
-                sidecar.Url);
-            return false;
-        }
-
-        if (!File.Exists(sidecarPath))
-        {
-            _logger.LogWarning(
-                "public_aot_cache_sidecar_missing {CacheKey} {RouteKey} {SidecarUrl}",
-                entry.CacheKey,
-                entry.RouteKey,
-                sidecar.Url);
-            return false;
-        }
-
-        if (!IsHydrationSidecarHashValid(sidecarPath, sidecar))
+        PublicArtifactKey key = PublicArtifactKey.HydrationSidecar(
+            entry.RouteKey,
+            sidecar.Sha256Hex,
+            entry.FrontendAssetVersion);
+        if (!_publicArtifactStorage.IsValid(key, LocalPublicArtifactStorage.AedsMediaType, sidecar.Sha256Hex))
         {
             _logger.LogWarning(
                 "public_aot_cache_sidecar_hash_mismatch {CacheKey} {RouteKey} {SidecarUrl}",
@@ -421,27 +405,6 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
         return true;
     }
 
-    private static bool IsHydrationSidecarHashValid(
-        string sidecarPath,
-        PublicAotHydrationSidecarReference sidecar)
-    {
-        try
-        {
-            byte[] bytes = File.ReadAllBytes(sidecarPath);
-            return MatchesHash(bytes, sidecar.Sha256Hex);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return false;
-        }
-    }
-
-    private static bool MatchesHash(ReadOnlySpan<byte> bytes, string expectedHash)
-        => string.Equals(
-            Convert.ToHexStringLower(SHA256.HashData(bytes)),
-            expectedHash,
-            StringComparison.Ordinal);
-
     private static bool TryResolveHydrationSidecar(
         PublicAotCacheEntry entry,
         out PublicAotHydrationSidecarReference sidecar)
@@ -453,11 +416,6 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
         }
 
         return PublicAotHydrationSidecarReference.TryFromHtml(entry.GetHtml(), out sidecar);
-    }
-
-    private bool TryResolveHydrationSidecarPath(PublicAotHydrationSidecarReference sidecar, out string path)
-    {
-        return CanonicalPathBoundary.TryResolveRelative(_webRoot, sidecar.RelativePath, out path);
     }
 
     private PublicAotMemoryCacheEntry CreateMemoryCacheEntry(PublicAotCacheEntry entry)

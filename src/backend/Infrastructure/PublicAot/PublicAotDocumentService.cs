@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -8,6 +9,7 @@ using FsusBlog.Core.Common;
 using FsusBlog.Server.Helpers;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.Spa;
+using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -21,7 +23,8 @@ public sealed class PublicAotDocumentService(
     IConfiguration configuration,
     ISystemService systemService,
     ISpaAssetManifestService assetManifest,
-    ILogger<PublicAotDocumentService> logger) : IPublicAotDocumentService
+    ILogger<PublicAotDocumentService> logger,
+    IPublicArtifactStorage? publicArtifactStorage = null) : IPublicAotDocumentService
 {
     private const int MaxDescriptionLength = 160;
     private static readonly string s_emptyPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>(StringComparer.Ordinal));
@@ -29,6 +32,7 @@ public sealed class PublicAotDocumentService(
     private static readonly ConcurrentDictionary<string, string> s_headLinksCache = new(StringComparer.Ordinal);
     private static readonly ConcurrentDictionary<string, byte> s_hydrationSidecarExistsCache = new(StringComparer.Ordinal);
     private readonly string? _configuredBaseUrl = configuration["Seo:BaseUrl"];
+    private readonly IPublicArtifactStorage _publicArtifactStorage = publicArtifactStorage ?? new LocalPublicArtifactStorage(env);
 
     public async Task<Result<PublicSeoHeadModel>> BuildSeoHeadModelAsync(
         PublicAotShellEntryContract entry,
@@ -79,7 +83,7 @@ public sealed class PublicAotDocumentService(
             string headLinks = GetHeadLinks(template, assetSet, seo);
             string bootstrapPayload = NormalizeOptionalText(entry.BootstrapPayload ?? s_emptyPayload, entry.ArticleId);
             string hydrationPayload = NormalizeOptionalText(entry.HydrationPropsPayload ?? string.Empty, entry.ArticleId);
-            await WriteHydrationPayloadSidecarAsync(hydrationPayload, cancellationToken).ConfigureAwait(false);
+            await WriteHydrationPayloadSidecarAsync(entry.RouteKey, assetSet.FrontendAssetVersion, hydrationPayload, cancellationToken).ConfigureAwait(false);
 
             return Result<string>.Success(PublicAotDocumentComposer.ComposeDocument(new PublicAotDocumentModel(
                 seoContext.Kind,
@@ -174,46 +178,40 @@ public sealed class PublicAotDocumentService(
         return s_headLinksCache.GetOrAdd(cacheKey, _ => BuildHeadLinks(template.RawTemplate, assetSet, seo));
     }
 
-    private async Task WriteHydrationPayloadSidecarAsync(string hydrationPayload, CancellationToken cancellationToken)
+    private async Task WriteHydrationPayloadSidecarAsync(
+        string routeKey,
+        string frontendAssetVersion,
+        string hydrationPayload,
+        CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(hydrationPayload))
         {
             return;
         }
 
-        string webRoot = string.IsNullOrWhiteSpace(env.WebRootPath)
-            ? Path.Combine(env.ContentRootPath, "wwwroot")
-            : env.WebRootPath;
-        string relativePath = PublicAotDocumentComposer.BuildPayloadSidecarUrl(hydrationPayload)
-            .TrimStart('/')
-            .Replace('/', Path.DirectorySeparatorChar);
-        if (!TryResolveHydrationSidecarPath(webRoot, relativePath, out string targetPath))
-        {
-            logger.LogWarning("public_aot_hydration_sidecar_path_invalid");
-            return;
-        }
-
-        Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
-
-        if (s_hydrationSidecarExistsCache.ContainsKey(targetPath))
+        byte[] bytes = PublicAotDocumentComposer.DecodePayloadFrameBytes(hydrationPayload);
+        string sha256Hex = Convert.ToHexStringLower(SHA256.HashData(bytes));
+        PublicArtifactKey key = PublicArtifactKey.HydrationSidecar(routeKey, sha256Hex, frontendAssetVersion);
+        string cacheKey = string.Join(
+            '|',
+            RuntimeHelpers.GetHashCode(_publicArtifactStorage),
+            key.Kind,
+            key.RouteKey,
+            key.PathKey,
+            key.FrontendAssetVersion,
+            key.ContentVersion);
+        if (s_hydrationSidecarExistsCache.ContainsKey(cacheKey))
         {
             return;
         }
 
-        if (File.Exists(targetPath))
-        {
-            s_hydrationSidecarExistsCache.TryAdd(targetPath, 0);
-            return;
-        }
-
-        string tempPath = Path.Combine(Path.GetDirectoryName(targetPath)!, $"{Path.GetFileName(targetPath)}.{Guid.NewGuid():N}.tmp");
-        await File.WriteAllBytesAsync(tempPath, PublicAotDocumentComposer.DecodePayloadFrameBytes(hydrationPayload), cancellationToken).ConfigureAwait(false);
-        File.Move(tempPath, targetPath, overwrite: true);
-        s_hydrationSidecarExistsCache.TryAdd(targetPath, 0);
+        await _publicArtifactStorage.WriteAsync(
+            key,
+            LocalPublicArtifactStorage.AedsMediaType,
+            bytes,
+            cancellationToken).ConfigureAwait(false);
+        s_hydrationSidecarExistsCache.TryAdd(cacheKey, 0);
     }
-
-    private static bool TryResolveHydrationSidecarPath(string webRoot, string relativePath, out string targetPath)
-        => CanonicalPathBoundary.TryResolveRelative(webRoot, relativePath, out targetPath);
 
     private static string BuildHeadLinks(string rawTemplate, SpaAssetSet assetSet, SeoConfigReadModel seo)
     {

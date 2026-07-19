@@ -13,6 +13,7 @@ using FsusBlog.Server.Infrastructure.Content;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Projections;
+using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Models.ReadModels;
 
 using SqlSugar;
@@ -136,7 +137,8 @@ public interface IArticleDetailAedsArtifactMaintenanceService
 public sealed class ArticleDetailAedsFileArtifactStore(
     IWebHostEnvironment env,
     ILogger<ArticleDetailAedsFileArtifactStore> logger,
-    TimeProvider? timeProvider = null) : IArticleDetailAedsArtifactStore
+    TimeProvider? timeProvider = null,
+    IPublicArtifactStorage? publicArtifactStorage = null) : IArticleDetailAedsArtifactStore
 {
     private const uint ArticleDetailV3PayloadMagic = 0x41524433; // ARD3
     private const int ArticleDetailV3PayloadVersion = 3;
@@ -146,9 +148,9 @@ public sealed class ArticleDetailAedsFileArtifactStore(
     private const int ArticleDetailV5PayloadVersion = 5;
     private const int ArticleDetailV3HeaderSize = sizeof(uint) + sizeof(int);
     private static readonly TimeSpan s_memoryTtl = TimeSpan.FromSeconds(30);
-    private readonly string _root = Path.Combine(env.ContentRootPath, "runtime-cache", "public", "articles");
     private readonly ConcurrentDictionary<int, CachedFrame> _memory = new();
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
+    private readonly IPublicArtifactStorage _publicArtifactStorage = publicArtifactStorage ?? new LocalPublicArtifactStorage(env);
 
     public async Task<ArticleDetailAedsArtifact> TryReadAsync(int articleId, CancellationToken cancellationToken = default)
     {
@@ -158,23 +160,26 @@ public sealed class ArticleDetailAedsFileArtifactStore(
             return default;
         }
 
-        string path = GetPath(articleId);
         if (TryReadMemory(articleId, out byte[]? frame))
         {
             FsusObservability.RecordOperation("public_read_artifact", "article_detail_aeds", "hit_memory", FsusObservability.GetElapsed(startedAt));
             return new ArticleDetailAedsArtifact(frame);
         }
 
-        if (!File.Exists(path))
+        PublicArtifactReadResult? stored = await _publicArtifactStorage.TryReadAsync(
+            PublicArtifactKey.ArticleDetail(articleId),
+            LocalPublicArtifactStorage.AedsMediaType,
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (stored is null)
         {
             FsusObservability.RecordOperation("public_read_artifact", "article_detail_aeds", "miss", FsusObservability.GetElapsed(startedAt));
             return default;
         }
 
-        byte[] bytes = await File.ReadAllBytesAsync(path, cancellationToken).ConfigureAwait(false);
+        byte[] bytes = stored.Content.ToArray();
         if (!LooksLikeAedsArticleDetailFrame(bytes))
         {
-            logger.LogWarning("article-detail-aeds-artifact-invalid {ArticleId} {Path}", articleId, path);
+            logger.LogWarning("article-detail-aeds-artifact-invalid {ArticleId}", articleId);
             _memory.TryRemove(articleId, out _);
             FsusObservability.RecordOperation("public_read_artifact", "article_detail_aeds", "invalid", FsusObservability.GetElapsed(startedAt));
             return default;
@@ -198,11 +203,11 @@ public sealed class ArticleDetailAedsFileArtifactStore(
             throw new InvalidDataException($"article_detail_aeds_artifact_invalid:{articleId}");
         }
 
-        Directory.CreateDirectory(_root);
-        string path = GetPath(articleId);
-        string tempPath = string.Concat(path, ".", Guid.NewGuid().ToString("N"), ".tmp");
-        await File.WriteAllBytesAsync(tempPath, bytes, cancellationToken).ConfigureAwait(false);
-        File.Move(tempPath, path, overwrite: true);
+        await _publicArtifactStorage.WriteAsync(
+            PublicArtifactKey.ArticleDetail(articleId),
+            LocalPublicArtifactStorage.AedsMediaType,
+            bytes,
+            cancellationToken).ConfigureAwait(false);
         _memory[articleId] = new CachedFrame(bytes, _timeProvider.GetUtcNow().Add(s_memoryTtl));
         FsusObservability.RecordOperation("public_read_artifact", "article_detail_aeds", "write", TimeSpan.Zero);
     }
@@ -211,14 +216,8 @@ public sealed class ArticleDetailAedsFileArtifactStore(
     {
         cancellationToken.ThrowIfCancellationRequested();
         _memory.TryRemove(articleId, out _);
-        string path = GetPath(articleId);
-        if (File.Exists(path))
-        {
-            File.Delete(path);
-        }
-
         FsusObservability.RecordOperation("public_read_artifact", "article_detail_aeds", "remove", TimeSpan.Zero);
-        return Task.CompletedTask;
+        return _publicArtifactStorage.RemoveAsync(PublicArtifactKey.ArticleDetail(articleId), cancellationToken);
     }
 
     private bool TryReadMemory(int articleId, out byte[]? frame)
@@ -238,9 +237,6 @@ public sealed class ArticleDetailAedsFileArtifactStore(
         frame = cached.Frame;
         return true;
     }
-
-    private string GetPath(int articleId)
-        => Path.Combine(_root, string.Concat(Math.Max(0, articleId).ToString(), ".aeds"));
 
     internal static bool LooksLikeAedsArticleDetailFrame(ReadOnlySpan<byte> frame)
     {

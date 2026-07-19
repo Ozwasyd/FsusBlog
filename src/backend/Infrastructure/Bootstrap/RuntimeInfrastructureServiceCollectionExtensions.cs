@@ -10,6 +10,7 @@ using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.Spa;
+using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Background;
@@ -229,6 +230,8 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<PublicHotReadStore>();
         services.AddSingleton<PublicHotReadCounters>();
         services.AddSingleton<PublicArtifactRevocationRegistry>();
+        services.AddSingleton<LocalPublicArtifactStorage>();
+        services.AddSingleton<IPublicArtifactStorage>(sp => sp.GetRequiredService<LocalPublicArtifactStorage>());
         services.AddSingleton<IPublicArtifactRevocationStateStore, RedisPublicArtifactRevocationStateStore>();
         services.AddSingleton<IPublicArtifactCdnPurger, HttpPublicArtifactCdnPurger>();
         services.AddSingleton<IPublicArtifactRevocationCoordinator, PublicArtifactRevocationCoordinator>();
