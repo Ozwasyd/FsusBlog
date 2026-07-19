@@ -1944,6 +1944,13 @@ tiers:
       command: tools/test/lanes/bootstrap-acceptance-env.sh
       dependsOn: []
       services: [postgres, redis, backend, frontend, preview]
+      runtimeMode: single
+      nodeCount: 1
+      artifactStorage: local
+      coordinationStore: none
+      clusterScenario: none
+      clusterBootstrap: none
+      clusterFixtures: []
       parallelizable: false
       exclusiveResources: [docker-compose, local-ports, redis-test-state]
       phase: 2

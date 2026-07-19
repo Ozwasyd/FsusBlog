@@ -47,7 +47,7 @@ function createRunnerFixture(temp) {
   fs.mkdirSync(yamlDirectory, { recursive: true })
   fs.mkdirSync(workflowDirectory, { recursive: true })
   fs.copyFileSync(path.join(root, 'tools/run-test-matrix.mjs'), path.join(toolsDirectory, 'run-test-matrix.mjs'))
-  for (const file of ['scheduler.mjs', 'async-log-pipeline.mjs', 'local-profile.mjs', 'parse-matrix.mjs', 'fresh-production.mjs', 'local-runtime-cleanup.mjs', 'dotnet-build-server-cleanup.mjs', 'production-build-layout.mjs', 'production-build-gc.mjs', 'artifact-digest-table.mjs', 'resource-utilization.mjs', 'production-resource-enforcement.mjs', 'resident-resource-leases.mjs']) {
+  for (const file of ['scheduler.mjs', 'async-log-pipeline.mjs', 'local-profile.mjs', 'parse-matrix.mjs', 'topology.mjs', 'fresh-production.mjs', 'local-runtime-cleanup.mjs', 'dotnet-build-server-cleanup.mjs', 'production-build-layout.mjs', 'production-build-gc.mjs', 'artifact-digest-table.mjs', 'resource-utilization.mjs', 'production-resource-enforcement.mjs', 'resident-resource-leases.mjs']) {
     fs.copyFileSync(path.join(root, 'tools/test-matrix', file), path.join(schedulerDirectory, file))
   }
   fs.copyFileSync(path.join(root, 'tools/yaml/parse-document.mjs'), path.join(yamlDirectory, 'parse-document.mjs'))

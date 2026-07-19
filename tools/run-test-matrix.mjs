@@ -47,6 +47,7 @@ import {
   measureResourceCollectorOverhead,
   writeResourceUtilizationEvidence
 } from './test-matrix/resource-utilization.mjs'
+import { topologyEnvironmentForTier, validateTierTopology } from './test-matrix/topology.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
 const matrixFile = process.env.FSUSBLOG_MATRIX_FILE
@@ -558,6 +559,7 @@ function validateMatrix(matrix) {
     for (const field of ['dependsOn', 'services', 'exclusiveResources', 'coverage', 'artifacts', 'evidence']) {
       if (!Array.isArray(tier[field])) errors.push(`${tier.id}.${field} must be an array`)
     }
+    errors.push(...validateTierTopology(tier))
     for (const field of ['supersedes', 'cacheInputs']) {
       if (field in tier && !Array.isArray(tier[field])) errors.push(`${tier.id}.${field} must be an array`)
     }
@@ -932,6 +934,7 @@ function resourceEnvironmentForTier(tier, baseEnv = {}) {
     return Number.isFinite(requested) && requested > 0 ? Math.min(workerBudget, requested) : workerBudget
   }
   const env = {
+    ...topologyEnvironmentForTier(tier),
     FSUSBLOG_TIER_CPU_UNITS: String(cpuUnits),
     FSUSBLOG_TIER_MEMORY_GIB: String(memoryGiB),
     FSUSBLOG_VITEST_MAX_WORKERS: String(cappedWorkerBudget('FSUSBLOG_VITEST_MAX_WORKERS')),

@@ -273,6 +273,46 @@
                             "type": "string"
                         }
                     },
+                    "runtimeMode": {
+                        "type": "string",
+                        "enum": ["single", "static-role", "adaptive"],
+                        "default": "single"
+                    },
+                    "nodeCount": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 3,
+                        "default": 1
+                    },
+                    "artifactStorage": {
+                        "type": "string",
+                        "enum": ["local", "shared-volume"],
+                        "default": "local"
+                    },
+                    "coordinationStore": {
+                        "type": "string",
+                        "enum": ["none", "redis"],
+                        "default": "none"
+                    },
+                    "clusterScenario": {
+                        "type": "string",
+                        "enum": ["none", "convergence", "handoff", "notification", "lease"],
+                        "default": "none"
+                    },
+                    "clusterBootstrap": {
+                        "type": "string",
+                        "enum": ["none", "homogeneous"],
+                        "default": "none"
+                    },
+                    "clusterFixtures": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": ["shared-postgres", "shared-redis", "shared-artifact-storage"]
+                        },
+                        "uniqueItems": true,
+                        "default": []
+                    },
                     "parallelizable": {
                         "type": "boolean"
                     },
