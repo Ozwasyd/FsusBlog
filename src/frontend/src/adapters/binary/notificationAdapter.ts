@@ -1,7 +1,7 @@
 import { AEDS_HEADER_LENGTH, AEDS_MAGIC, AEDS_VERSION, FrameType } from '@wasm/protocol/frame'
 import type { NotificationStreamEventV2 } from '@/services/notificationStreamTypes'
 import { AppErrorCode, createAppError } from '@/utils/appError'
-import { readFixedUtf8, readInt32 } from './reader'
+import { readFixedUtf8, readInt32 } from '@/codecs/binary/reader'
 
 const decoder = new TextDecoder()
 

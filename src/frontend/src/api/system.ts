@@ -1,65 +1,17 @@
 import type { ApiRequestConfig } from './requestConfig'
 import { FrameType } from '@wasm/protocol/frame'
-import { requestBinaryOnly } from '@/services/binaryTransport'
+import { requestBinaryOnly } from '@/composition/binaryTransport'
+import type {
+  PageContentAdmin,
+  PageContentPublic,
+  SeoConfigAdmin,
+  SeoConfigPublic,
+  SiteComplianceConfigAdmin,
+  SiteComplianceConfigPublic
+} from '@/contracts/binaryApi'
 import { encodeAedsFrame, encodeStringMutationRequest, writeFixedUtf8 } from './binaryFrame'
 
-export interface SeoConfigPublic {
-  title: string       // 网站标题 (例如: "Fsu's Blog")
-  description: string // 网站描述 (Meta Description)
-  keywords: string    // 关键词
-  author: string      // 作者名
-  ogImage: string     // 社交分享封面图 URL
-  baseUrl : string    // URL
-  faviconSvgUrl: string
-  faviconIcoUrl: string
-  faviconPngUrl: string
-  appleTouchIconUrl: string
-  manifestName: string
-  manifestShortName: string
-  pwaIcon192Url: string
-  pwaIcon512Url: string
-  pwaMaskableIconUrl: string
-  themeColor: string
-  backgroundColor: string
-  siteLogoUrl: string
-  siteLogoDarkUrl: string
-  siteWordmarkUrl: string
-  adminLogoUrl: string
-  adminCollapsedIconUrl: string
-  loginLogoUrl: string
-  loginIconUrl: string
-}
-
-export type SeoConfigAdmin = SeoConfigPublic
-
-export interface SiteComplianceConfigPublic {
-  enabled: boolean
-  regionMode: 'global' | 'mainland-cn'
-  copyrightOwner: string
-  copyrightStartYear: number | null
-  copyrightText: string
-  contentLicenseName: string
-  contentLicenseUrl: string
-  icpRecordNumber: string
-  icpRecordUrl: string
-  policeRecordNumber: string
-  policeRecordUrl: string
-  policeBadgeIconUrl: string
-  operatorName: string
-  contactEmail: string
-}
-
-export type SiteComplianceConfigAdmin = SiteComplianceConfigPublic
-
-export interface PageContentPublic {
-  slug: string        // 页面唯一标识 (例如: 'about' 或 'privacy')
-  content: string     // Markdown 格式的内容文本
-}
-
-export interface PageContentAdmin {
-  slug: string
-  content: string
-}
+export type { PageContentAdmin, PageContentPublic, SeoConfigAdmin, SeoConfigPublic, SiteComplianceConfigAdmin, SiteComplianceConfigPublic } from '@/contracts/binaryApi'
 
 /**
  * 所有 API 方法接受可选的 config.signal，以支持 AbortController 中断请求。

@@ -1,7 +1,7 @@
-import type { ArticleListItemResponse, FeaturedArticleItem } from '@/api/article';
-import { resolveCommentAuthorView, type CommentAuthorView, type CommentReplyItem, type CommentReplyPreviewItem, type CommentThreadItem } from '@/api/comment';
+import type { ArticleListItemResponse, CommentAuthorView, CommentReplyItem, CommentReplyPreviewItem, CommentThreadItem, FeaturedArticleItem } from '@/contracts/binaryApi';
+import { resolveCommentAuthorView } from '@/utils/commentAuthorView';
 import { AppErrorCode, createAppError } from '@/utils/appError';
-import { BinaryReader, readBlobText, readFixedUtf8, readInt32, readInt64Number, readNullableId64, readIsoDate64, readSliceRef, readSliceText } from './reader';
+import { BinaryReader, readBlobText, readFixedUtf8, readInt32, readInt64Number, readNullableId64, readIsoDate64, readSliceRef, readSliceText } from '@/codecs/binary/reader';
 import { COMMENT_AUTHOR_VIEW_POD_SIZE, COMMENT_REPLY_PREVIEW_ITEM_POD_SIZE, COMMENT_THREAD_ITEM_POD_SIZE, FEATURED_ARTICLE_POD_SIZE, TAG_POD_SIZE } from './types';
 
 type TagViewModel = ArticleListItemResponse['tags'][number];

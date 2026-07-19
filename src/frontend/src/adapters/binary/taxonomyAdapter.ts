@@ -1,7 +1,6 @@
-import type { CategoryItem } from '@/api/category';
-import type { TagItem } from '@/api/tag';
+import type { CategoryItem, TagItem } from '@/contracts/binaryApi';
 import { AppErrorCode, createAppError } from '@/utils/appError';
-import { readInt32, readSliceRef, readSliceText } from './reader';
+import { readInt32, readSliceRef, readSliceText } from '@/codecs/binary/reader';
 
 export function mapCategoryListFromPayload(payload: Uint8Array): CategoryItem[] {
   return readCompactTaxonomyList(payload);

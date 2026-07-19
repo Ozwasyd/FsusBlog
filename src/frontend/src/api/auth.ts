@@ -1,7 +1,38 @@
 import type { ApiRequestConfig } from './requestConfig';
 import { FrameType } from '@wasm/protocol/frame'
-import { requestBinaryOnly } from '@/services/binaryTransport'
+import { requestBinaryOnly } from '@/composition/binaryTransport'
+import type {
+  AuthLoginFlow,
+  CurrentUserSnapshot,
+  MfaChallengeResult,
+  MfaProfile,
+  MfaSetupStart,
+  MfaSetupVerify,
+  PasskeyCredentialSummary,
+  PasskeyLoginBeginResponse,
+  PasskeyRegisterBeginResponse,
+  RecoveryKeyCreateResponse,
+  RecoveryKeyVerifyRequest,
+  RecoveryKeyVerifyResponse,
+  UserSessionSummary
+} from '@/contracts/binaryApi'
 import { encodeAedsFrame, encodePasskeyCredentialFriendlyNameUpdateRequest, encodeStringMutationRequest, writeFixedUtf8 } from './binaryFrame'
+
+export type {
+  AuthLoginFlow,
+  CurrentUserSnapshot,
+  MfaChallengeResult,
+  MfaProfile,
+  MfaSetupStart,
+  MfaSetupVerify,
+  PasskeyCredentialSummary,
+  PasskeyLoginBeginResponse,
+  PasskeyRegisterBeginResponse,
+  RecoveryKeyCreateResponse,
+  RecoveryKeyVerifyRequest,
+  RecoveryKeyVerifyResponse,
+  UserSessionSummary
+} from '@/contracts/binaryApi'
 
 // ================= DTO 类型定义 (对应后端业务载荷) =================
 
@@ -25,85 +56,6 @@ const isNetworkTransportFailure = (error: unknown): boolean =>
   && (error as { kind?: unknown }).kind === 'network'
 
 // ================= 响应模型定义 =================
-
-interface AuthAccountIdentitySnapshot {
-  accountId: number
-  identityKind: string
-}
-
-/** 当前登录账号容器快照 */
-export interface CurrentUserSnapshot {
-  accountId: number
-  identityKind: string
-  publicHandle: string | null
-  passkeyEnabled: boolean
-  recoveryEnabled: boolean
-  totpStepUpEnabled: boolean | null
-  anonymousCredentialStatus: string | null
-  anonymousCredentialLevel: string | null
-  status: number
-  banReason: string | null
-  deletedAt: string | null
-}
-
-export interface AuthLoginFlow {
-  accountId: number
-  identityKind: string
-  authPhase: 'authenticated' | 'mfa_required'
-  mfaMode: 'risk' | 'standard' | null
-  challengeToken: string | null
-}
-
-export interface MfaSetupStart {
-  enabled: boolean
-  secret: string
-  otpAuthUrl: string
-  issuer: string
-  account: string
-}
-
-export interface MfaSetupVerify {
-  enabled: boolean
-  recoveryCodes: string[]
-}
-
-export interface MfaProfile {
-  enabled: boolean
-  verifiedAt: string | null
-}
-
-export interface MfaChallengeResult {
-  verified: boolean
-  action: string
-  proofToken: string | null
-  user: AuthAccountIdentitySnapshot | null
-}
-
-export interface RecoveryKeyCreateResponse {
-  keyVersion: number
-  createdAt: string
-  recoveryKey: string
-}
-
-export interface RecoveryKeyVerifyRequest {
-  recoveryKey: string
-  revokeSessions?: boolean
-  revokePasskeys?: boolean
-}
-
-export interface RecoveryKeyVerifyResponse {
-  expiresAt: string
-  recoverySessionToken: string
-}
-
-export interface UserSessionSummary {
-  sessionId: string
-  deviceFingerprint: string
-  deviceLabel: string
-  lastSeenAt: string | null
-  isCurrent: boolean
-  mfaVerified: boolean
-}
 
 export type AdminSessionStatus = 'missing' | 'active' | 'expired' | 'step_up_required'
 export type AdminPrincipalSource = 'independent'
@@ -365,25 +317,7 @@ export const getPowChallenge = (config?: ApiRequestConfig) => {
 
 // ================= 通行密钥 (Passkey / WebAuthn) =================
 
-export interface PasskeyCredentialSummary {
-  id: number
-  deviceFriendlyName: string | null
-  createdAt: string
-  lastUsedAt: string | null
-  aaGuid: string
-  backupEligible: boolean
-  backupState: boolean
-}
-
-export interface PasskeyRegisterBeginResponse {
-  sessionKey: string
-  options: Record<string, unknown>
-}
-
-export interface PasskeyLoginBeginResponse {
-  challengeToken: string
-  options: Record<string, unknown>
-}
+// Passkey response contracts are defined in contracts/binaryApi.ts.
 
 export interface PasskeyRegisterCompleteRequest {
   sessionKey: string

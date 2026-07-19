@@ -1,6 +1,6 @@
-import type { AdminStatsOverview, AdminStatsQuery, RecentCommentStatItem, RegionStatItem } from '@/api/stats';
+import type { AdminStatsOverview, AdminStatsQuery, RecentCommentStatItem, RegionStatItem } from '@/contracts/binaryApi';
 import { AppErrorCode, createAppError } from '@/utils/appError';
-import { BinaryReader, readInt32, readIsoDate64, readSliceRef, readSliceText } from './reader';
+import { BinaryReader, readInt32, readIsoDate64, readSliceRef, readSliceText } from '@/codecs/binary/reader';
 import { SITE_STATS_POD_SIZE } from './types';
 
 const RECENT_COMMENT_RECORD_SIZE = 56;

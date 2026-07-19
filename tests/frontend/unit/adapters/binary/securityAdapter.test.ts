@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { encodeSecurityJsonRequest, mapSecurityJsonFromPayload } from '@/adapters/binary/securityAdapter'
+import { encodeJsonRequest } from '@/codecs/binary/jsonRequestEncoder'
+import { mapSecurityJsonFromPayload } from '@/adapters/binary/securityAdapter'
 
 describe('security binary JSON adapter', () => {
   it('round-trips request and response JSON payloads', () => {
-    const payload = encodeSecurityJsonRequest({ mode: 'observe', reason: 'test' })
+    const payload = encodeJsonRequest({ mode: 'observe', reason: 'test' })
 
     expect(mapSecurityJsonFromPayload(payload)).toEqual({ mode: 'observe', reason: 'test' })
   })

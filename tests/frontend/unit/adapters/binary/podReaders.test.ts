@@ -4,7 +4,7 @@ import {
   readTagList,
   readFeaturedArticleItem
 } from '@/adapters/binary/podReaders'
-import { BinaryReader } from '@/adapters/binary/reader'
+import { BinaryReader } from '@/codecs/binary/reader'
 import {
   TAG_POD_SIZE,
   FEATURED_ARTICLE_POD_SIZE,

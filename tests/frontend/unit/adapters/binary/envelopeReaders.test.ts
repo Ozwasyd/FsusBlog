@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { BinaryReader } from '@/adapters/binary/reader'
+import { BinaryReader } from '@/codecs/binary/reader'
 import {
   readPageEnvelope,
   readCursorEnvelope,

@@ -130,6 +130,30 @@
             }
         },
         {
+            "id": "binary-import-boundaries",
+            "script": "check:binary-import-boundaries",
+            "access": "read",
+            "stage": "concurrent",
+            "reason": "Builds the frontend import graph and validates the binary contracts, adapter, transport, worker, and composition boundaries without writing shared output.",
+            "consumedInputs": [
+                "src/frontend/src/contracts",
+                "src/frontend/src/codecs",
+                "src/frontend/src/api",
+                "src/frontend/src/adapters/binary",
+                "src/frontend/src/services/binaryTransport.ts",
+                "src/frontend/src/composition",
+                "src/frontend/src/workers/wasmDecode.worker.ts"
+            ],
+            "ownedOutputs": [],
+            "dependsOn": [],
+            "resources": {
+                "cpuWeight": 1,
+                "memoryWeight": 0.25,
+                "minCpuUnits": 1,
+                "exclusiveResources": []
+            }
+        },
+        {
             "id": "frame-schema",
             "script": "check:contract:frame-schema",
             "access": "read",

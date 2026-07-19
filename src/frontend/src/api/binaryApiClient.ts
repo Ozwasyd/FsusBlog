@@ -3,15 +3,13 @@ import { getBrowserFp } from '@/utils/fingerprint'
 import { AppError, AppErrorCode, appErrorFromStatus, createAppError, err, ok, type AppResult, unwrapResult } from '@/utils/appError'
 import { decode } from '@wasm/aeds'
 import { FrameType } from '@wasm/protocol/frame'
-import { readFixedUtf8, readInt32, readInt64Number } from '@/adapters/binary/reader'
+import { readFixedUtf8, readInt32, readInt64Number } from '@/codecs/binary/reader'
+import type { BinaryRequestOptions } from '@/contracts/binaryTransport'
 import { applyBinaryRequestHeaders, FSUS_HEADERS, withBinaryAccept } from './contracts'
 import { encodeBinaryPowProofHeader } from '@/services/powProofCodec'
 import { emitRumMetric } from '@/services/telemetryBus'
 
-export interface BinaryRequestOptions extends RequestInit {
-  requiresPow?: boolean
-  powScope?: string
-}
+export type { BinaryRequestOptions } from '@/contracts/binaryTransport'
 
 export class BinaryRequestError extends AppError {
   readonly status: number;

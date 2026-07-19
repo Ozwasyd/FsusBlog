@@ -1,21 +1,13 @@
 import { FrameType } from '@wasm/protocol/frame'
-import { requestBinaryOnly } from '@/services/binaryTransport'
+import { requestBinaryOnly } from '@/composition/binaryTransport'
+import type {
+  SiteSubscriptionRequest,
+  SiteSubscriptionRequestConfig,
+  SiteSubscriptionResponse
+} from '@/contracts/binaryApi'
 import { encodeAedsFrame, writeFixedUtf8 } from './binaryFrame'
 
-export type SiteSubscriptionRequest = {
-  email: string
-  channel?: string | null
-}
-
-export type SiteSubscriptionResponse = {
-  subscribed: boolean
-  unsubscribed: boolean
-  channel: string
-}
-
-export type SiteSubscriptionRequestConfig = {
-  signal?: AbortSignal
-}
+export type { SiteSubscriptionRequest, SiteSubscriptionRequestConfig, SiteSubscriptionResponse } from '@/contracts/binaryApi'
 
 export async function subscribeToSiteUpdates(
   request: SiteSubscriptionRequest,

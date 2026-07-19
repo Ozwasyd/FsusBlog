@@ -1,5 +1,5 @@
 import { AppErrorCode, createAppError } from '@/utils/appError';
-import type { SliceRef } from './types';
+import type { SliceRef } from '@/contracts/binaryTransport';
 
 const decoder = new TextDecoder();
 

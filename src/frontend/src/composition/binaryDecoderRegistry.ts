@@ -1,22 +1,22 @@
 import { FrameType } from '@wasm/protocol/frame';
 import { AppErrorCode, createAppError } from '@/utils/appError';
-import { mapEmptySuccessFromPayload, mapMutationIdFromPayload } from './commonAdapter';
-import { mapArticleDetailFromPodPayload, mapArticleFeaturedFromPodPayload, mapArticleHotFromPodPayload, mapArticlePageFromPodPayload, mapArticleSearchFromPodPayload, mapRelatedReadingFromPodPayload, mapTrashClearResponseFromPodPayload } from './articleAdapter';
-import { mapAnonymousCommentTicketResponseFromPayload, mapAnonymousCredentialIssueResponseFromPayload, mapAnonymousCredentialRevocationArtifactFromPayload, mapAnonymousCredentialRootSnapshotFromPayload, mapAnonymousPrivacyStateSnapshotFromPayload, mapBlindCredentialIssuerMetadataFromPayload, mapBlindCredentialIssueResponseFromPayload, mapCommentCursorFromPodPayload, mapCommentPolicySnapshotFromPayload, mapThreadReplyCursorFromPodPayload, mapUserCommentCursorFromPodPayload } from './commentAdapter';
-import { mapRecentCommentsFromPodPayload, mapRegionsFromPodPayload, mapSiteStatsFromPodPayload } from './statsAdapter';
-import { mapPageContentFromPayload, mapSeoConfigFromPayload, mapSiteComplianceConfigFromPayload } from './systemAdapter';
-import { mapCategoryListFromPayload, mapTagListFromPayload } from './taxonomyAdapter';
-import { mapUploadCompleteFromPayload, mapUploadInitFromPayload, mapUploadPartAckFromPayload, mapUploadPartMapFromPayload, mapUploadStatusFromPayload } from './uploadAdapter';
-import { mapAdminUserPageFromPayload } from './userAdapter';
-import { mapAuthLoginFlowFromPayload, mapCurrentUserSnapshotFromPayload, mapIdentityAccountSnapshotFromPayload, mapMfaChallengeResultFromPayload, mapMfaProfileFromPayload, mapMfaSetupStartFromPayload, mapMfaSetupVerifyFromPayload, mapPowChallengeFromPayload, mapRecoveryKeyCreateResponseFromPayload, mapRecoveryKeyVerifyResponseFromPayload, mapUserSessionsFromPayload } from './authAdapter';
-import { mapConversationDetailFromPayload, mapConversationListFromPayload, mapConversationMessageFromPayload } from './messageAdapter';
-import { mapPasskeyCredentialListFromPayload, mapPasskeyLoginBeginFromPayload, mapPasskeyRegisterBeginFromPayload } from './passkeyAdapter';
-import { mapHumanReadChallengeFromPayload, mapHumanReadSubmitFromPayload } from './readProofAdapter';
-import { mapAuthoringJsonFromPayload } from './authoringAdapter';
-import { mapSecurityChallengeIssueResponseFromPayload, mapSecurityChallengeVerifyResponseFromPayload, mapSecurityJsonFromPayload } from './securityAdapter';
-import { mapSiteSubscriptionResponseFromPayload } from './subscriptionAdapter';
+import { mapArticleDetailFromPodPayload, mapArticleFeaturedFromPodPayload, mapArticleHotFromPodPayload, mapArticlePageFromPodPayload, mapArticleSearchFromPodPayload, mapRelatedReadingFromPodPayload, mapTrashClearResponseFromPodPayload } from '@/adapters/binary/articleAdapter';
+import { mapAuthLoginFlowFromPayload, mapCurrentUserSnapshotFromPayload, mapIdentityAccountSnapshotFromPayload, mapMfaChallengeResultFromPayload, mapMfaProfileFromPayload, mapMfaSetupStartFromPayload, mapMfaSetupVerifyFromPayload, mapPowChallengeFromPayload, mapRecoveryKeyCreateResponseFromPayload, mapRecoveryKeyVerifyResponseFromPayload, mapUserSessionsFromPayload } from '@/adapters/binary/authAdapter';
+import { mapAuthoringJsonFromPayload } from '@/adapters/binary/authoringAdapter';
+import { mapAnonymousCommentTicketResponseFromPayload, mapAnonymousCredentialIssueResponseFromPayload, mapAnonymousCredentialRevocationArtifactFromPayload, mapAnonymousCredentialRootSnapshotFromPayload, mapAnonymousPrivacyStateSnapshotFromPayload, mapBlindCredentialIssuerMetadataFromPayload, mapBlindCredentialIssueResponseFromPayload, mapCommentCursorFromPodPayload, mapCommentPolicySnapshotFromPayload, mapThreadReplyCursorFromPodPayload, mapUserCommentCursorFromPodPayload } from '@/adapters/binary/commentAdapter';
+import { mapEmptySuccessFromPayload, mapMutationIdFromPayload } from '@/adapters/binary/commonAdapter';
+import { mapConversationDetailFromPayload, mapConversationListFromPayload, mapConversationMessageFromPayload } from '@/adapters/binary/messageAdapter';
+import { mapPasskeyCredentialListFromPayload, mapPasskeyLoginBeginFromPayload, mapPasskeyRegisterBeginFromPayload } from '@/adapters/binary/passkeyAdapter';
+import { mapHumanReadChallengeFromPayload, mapHumanReadSubmitFromPayload } from '@/adapters/binary/readProofAdapter';
+import { mapSecurityChallengeIssueResponseFromPayload, mapSecurityChallengeVerifyResponseFromPayload, mapSecurityJsonFromPayload } from '@/adapters/binary/securityAdapter';
+import { mapRecentCommentsFromPodPayload, mapRegionsFromPodPayload, mapSiteStatsFromPodPayload } from '@/adapters/binary/statsAdapter';
+import { mapSiteSubscriptionResponseFromPayload } from '@/adapters/binary/subscriptionAdapter';
+import { mapPageContentFromPayload, mapSeoConfigFromPayload, mapSiteComplianceConfigFromPayload } from '@/adapters/binary/systemAdapter';
+import { mapCategoryListFromPayload, mapTagListFromPayload } from '@/adapters/binary/taxonomyAdapter';
+import { mapUploadCompleteFromPayload, mapUploadInitFromPayload, mapUploadPartAckFromPayload, mapUploadPartMapFromPayload, mapUploadStatusFromPayload } from '@/adapters/binary/uploadAdapter';
+import { mapAdminUserPageFromPayload } from '@/adapters/binary/userAdapter';
 
-const framePayloadMappers: Record<number, (payload: Uint8Array) => unknown> = {
+export const binaryFrameDecoderRegistry: Readonly<Record<number, (payload: Uint8Array) => unknown>> = Object.freeze({
   [FrameType.ArticleList]: mapArticlePageFromPodPayload,
   [FrameType.ArticleDetail]: mapArticleDetailFromPodPayload,
   [FrameType.ArticleHot]: mapArticleHotFromPodPayload,
@@ -135,10 +135,10 @@ const framePayloadMappers: Record<number, (payload: Uint8Array) => unknown> = {
   [FrameType.AdminPrincipalSnapshot]: mapAuthoringJsonFromPayload,
   [FrameType.EmptySuccess]: mapEmptySuccessFromPayload,
   [FrameType.MutationId]: mapMutationIdFromPayload
-};
+});
 
-export function mapFramePayloadToViewModel(frameType: FrameType, payload: Uint8Array): unknown {
-  const mapper = framePayloadMappers[frameType];
+export function decodeBinaryFramePayload(frameType: FrameType, payload: Uint8Array): unknown {
+  const mapper = binaryFrameDecoderRegistry[frameType];
   if (!mapper) {
     throw createAppError(AppErrorCode.ProtocolFailure, `frame_type_unsupported:${frameType}`);
   }

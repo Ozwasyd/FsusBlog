@@ -6,14 +6,16 @@ import type {
   BlindCredentialIssuerMetadata,
   BlindCredentialIssueResponse,
   AnonymousPrivacyStateSnapshot,
+  CommentAuthorMode,
+  CommentPolicySnapshot,
   CommentReplyItem,
   CommentThreadItem,
   CursorResponse,
   UserCommentResponse
-} from '@/api/comment';
-import { resolveCommentAuthorView } from '@/api/comment';
+} from '@/contracts/binaryApi';
+import { resolveCommentAuthorView } from '@/utils/commentAuthorView';
 import { AppErrorCode, createAppError } from '@/utils/appError';
-import { BinaryReader, readByte, readCountChecked, readFixedUtf8, readInt32, readInt64Number, readNullableId64, readIsoDate64, readBlobText, readSliceRef, readSliceText } from './reader';
+import { BinaryReader, readByte, readCountChecked, readFixedUtf8, readInt32, readInt64Number, readNullableId64, readIsoDate64, readBlobText, readSliceRef, readSliceText } from '@/codecs/binary/reader';
 import { readCursorEnvelope } from './envelopeReaders';
 import { readReplyItem, readThreadItemFromReader } from './podReaders';
 import {
@@ -29,27 +31,9 @@ import {
   USER_COMMENT_POD_SIZE
 } from './types';
 
-export type CommentAuthorMode = 'public' | 'zk_anonymous';
 const ANONYMOUS_PRIVACY_MAX_PAYLOAD_BYTES = 16 * 1024;
 const REVOCATION_ARTIFACT_MAX_PAYLOAD_BYTES = 4 * 1024 * 1024;
 const decoder = new TextDecoder();
-
-export type CommentPolicySnapshot = {
-  anonymousCommentsEnabled: boolean;
-  publicCommentsEnabled: boolean;
-  zkAnonymousEnabled: boolean;
-  defaultAuthorMode: CommentAuthorMode;
-  supportedDisplayLanguages: string[];
-  snapshotHash: string;
-  commentMaxChars: number;
-  commentMaxUtf8Bytes: number;
-  zkProdEnabled: boolean;
-  zkProdNativeVerifierConfigured: boolean;
-  zkProdTrustedSetupVerified: boolean;
-  zkProdCredentialRequired: boolean;
-  zkProdCredentialRootReady: boolean;
-  zkProdUnavailableReason: string;
-};
 
 type CommentPolicySnapshotLayout = {
   podSize: number;

@@ -1,5 +1,5 @@
 import { FrameType } from '@wasm/protocol/frame'
-import { requestBinaryOnly } from '@/services/binaryTransport'
+import { requestBinaryOnly } from '@/composition/binaryTransport'
 import { encodeAedsFrame, writeFixedUtf8 } from './binaryFrame'
 import type {
   UploadCompleteViewModel,
@@ -7,7 +7,15 @@ import type {
   UploadPartMapViewModel,
   UploadPartAckViewModel,
   UploadStatusViewModel
-} from '@/adapters/binary/uploadAdapter'
+} from '@/contracts/binaryApi'
+
+export type {
+  UploadCompleteViewModel,
+  UploadInitViewModel,
+  UploadPartMapViewModel,
+  UploadPartAckViewModel,
+  UploadStatusViewModel
+} from '@/contracts/binaryApi'
 
 export interface UploadSessionInitRequest {
   fileName: string

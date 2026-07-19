@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AEDS_HEADER_LENGTH, AEDS_MAGIC, AEDS_VERSION, FrameType } from '@wasm/protocol/frame'
 
-vi.mock('@/services/binaryTransport', () => ({
+vi.mock('@/composition/binaryTransport', () => ({
   requestBinaryOnly: vi.fn()
 }))
 
-import { requestBinaryOnly } from '@/services/binaryTransport'
+import { requestBinaryOnly } from '@/composition/binaryTransport'
 import { completeUpload, initUploadSession, uploadPart } from '@/api/upload'
 
 const mockBinary = vi.mocked(requestBinaryOnly)

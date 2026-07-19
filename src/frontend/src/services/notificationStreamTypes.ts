@@ -1,11 +1,14 @@
 import type { AppErrorCode } from '@/utils/appError'
-import type { ArticleListItemResponse } from '@/api/article'
 import type {
+  ArticleListItemResponse,
   InboxConversationClosedPayload,
   InboxConversationUpsertPayload,
   InboxMessageAppendPayload,
   InboxReadUpdatedPayload
-} from '@/api/message'
+} from '@/contracts/binaryApi'
+import type { PowParams } from '@/contracts/binaryTransport'
+
+export type { PowParams } from '@/contracts/binaryTransport'
 
 export interface NoticePayload {
   title: string
@@ -93,15 +96,6 @@ export interface SearchIndexUpdatePayload {
   version: string
   manifestUrl: string
   generatedAt: string
-}
-
-export interface PowParams {
-  nonce: string
-  salt: string
-  fp: string
-  signature: string
-  difficulty: number
-  timestamp: number
 }
 
 export const NotificationStreamEventType = {

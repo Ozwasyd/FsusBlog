@@ -12,7 +12,7 @@ import {
   readBlobText,
   readFixedTextNullable,
   BinaryReader
-} from '@/adapters/binary/reader'
+} from '@/codecs/binary/reader'
 
 // ---------------------------------------------------------------------------
 // helpers

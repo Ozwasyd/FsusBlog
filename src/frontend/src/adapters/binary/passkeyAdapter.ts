@@ -1,5 +1,5 @@
-import type { PasskeyCredentialSummary, PasskeyLoginBeginResponse, PasskeyRegisterBeginResponse } from '@/api/auth';
-import { BinaryReader, readByte, readFixedUtf8, readInt32, readIsoDate64, readSliceRef, readSliceText } from './reader';
+import type { PasskeyCredentialSummary, PasskeyLoginBeginResponse, PasskeyRegisterBeginResponse } from '@/contracts/binaryApi';
+import { BinaryReader, readByte, readFixedUtf8, readInt32, readIsoDate64, readSliceRef, readSliceText } from '@/codecs/binary/reader';
 import { PASSKEY_CREDENTIAL_DESCRIPTOR_POD_SIZE, PASSKEY_CREDENTIAL_SUMMARY_POD_SIZE, PASSKEY_LOGIN_BEGIN_POD_SIZE, PASSKEY_PUBLIC_KEY_CREDENTIAL_PARAM_POD_SIZE, PASSKEY_REGISTER_BEGIN_POD_SIZE } from './types';
 import { AppErrorCode, createAppError } from '@/utils/appError';
 

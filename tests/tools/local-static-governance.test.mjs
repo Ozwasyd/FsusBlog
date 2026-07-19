@@ -109,22 +109,22 @@ test('local static plan derives every stage from manifest metadata', () => {
   assert.deepEqual(plan.final.map((entry) => entry.id), ['views-constraints:public-performance-batch'])
 })
 
-test('five explicit phases form an exact 70-command partition with timing evidence', () => {
+test('five explicit phases form an exact 71-command partition with timing evidence', () => {
   const manifest = buildLocalStaticManifest(staticManifest, frontendPackage.scripts)
   const plan = planLocalStaticCommands(manifest)
   const summary = summarizeLocalStaticPlan(plan)
   const plannedIds = Object.values(plan).flat().map((entry) => entry.id)
 
-  assert.equal(manifest.commands.length, 70)
+  assert.equal(manifest.commands.length, 71)
   assert.deepEqual(summary, {
     'blocking-prebuild': 5,
-    concurrent: 60,
+    concurrent: 61,
     postbuild: 3,
     isolated: 1,
     final: 1,
-    total: 70
+    total: 71
   })
-  assert.equal(new Set(plannedIds).size, 70)
+  assert.equal(new Set(plannedIds).size, 71)
   assert.deepEqual(new Set(plannedIds), new Set(manifest.commands.map((entry) => entry.id)))
   assert.match(localStaticSource, /staticStages\.map\(\(stage\) => manifest\.execution\[stage\]\)\.join\('\+'\)/u)
   assert.match(localStaticSource, /total=\$\{manifest\.execution\.total\}/u)

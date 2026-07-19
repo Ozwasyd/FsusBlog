@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
 
-vi.mock('@/services/binaryTransport', () => ({
+vi.mock('@/composition/binaryTransport', () => ({
   requestBinaryOnly: vi.fn()
 }))
 
-import { requestBinaryOnly } from '@/services/binaryTransport'
+import { requestBinaryOnly } from '@/composition/binaryTransport'
 import {
   getArticles,
   getAdminArticles,

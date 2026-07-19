@@ -1,4 +1,4 @@
-import type { PowParams } from '@/services/notificationStreamTypes'
+import type { PowParams } from '@/contracts/binaryTransport'
 import { AppErrorCode, createAppError } from '@/utils/appError'
 
 type PowProofLayout = readonly string[]

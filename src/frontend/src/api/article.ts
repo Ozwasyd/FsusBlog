@@ -1,159 +1,37 @@
 import type { ApiRequestConfig } from './requestConfig';
 import { FrameType } from '@wasm/protocol/frame';
-import { requestBinaryOnly } from '@/services/binaryTransport';
+import { requestBinaryOnly } from '@/composition/binaryTransport';
 import { encodeAedsFrame } from './binaryFrame';
 
-// ================= 基础类型 =================
+import {
+  ArticlePublishStatus,
+  type ArticleDetailResponse,
+  type ArticleListItemResponse,
+  type ArticleRightsRequest,
+  type ArticleRightsResponse,
+  type ArticleTag,
+  type ArticleWriteRequest,
+  type BinaryPageResponse,
+  type FeaturedArticleItem,
+  type PopularArticleSummaryResponse,
+  type RelatedReadingItemResponse,
+  type RelatedReadingResponse
+} from '@/contracts/binaryApi';
 
-/** 标签响应 */
-export interface Tag {
-  id: number
-  name: string
-}
-
-export interface PopularArticleSummaryResponse {
-  id: number
-  title: string
-  views: number
-}
-
-export interface FeaturedArticleItem {
-  id: number;
-  title: string;
-  coverImageUrl: string;
-  views: number;
-  createTime: string;
-  category: {
-    id: number;
-    name: string;
-  };
-}
-
-/**
- * 文章列表项响应
- */
-export interface ArticleListItemResponse {
-  id: number;
-  title: string;
-  summary: string;
-  coverImageUrl?: string;
-  views: number;
-  createTime: string; // 后端 UTC 字符串
-  category: {
-    id: number;
-    name: string;
-  };
-  tags: Tag[];
-  isDeleted?: boolean;
-  status?: ArticlePublishStatus;
-  scheduledPublishAt?: string | null;
-  publishedAt?: string | null;
-}
-
-/**
- * 文章详情响应
- */
-export interface ArticleRightsResponse {
-  snapshotId: string;
-  articleRevisionId: string;
-  revisionNo: number;
-  enabled: boolean;
-  licenseType: string;
-  copyrightHolder: string | null;
-  copyrightYear: number | null;
-  rightsStatement: string | null;
-  attributionTemplate: string | null;
-  copyPolicy: string;
-  maxExcerptChars: number;
-  allowCodeCopy: boolean;
-  showPublicBadge: boolean;
-  proofBindingEnabled: boolean;
-  canonicalUrl: string | null;
-  policyHash: string;
-  contentCanonicalHash: string;
-  proofUrl: string | null;
-  proofStatus: string | null;
-}
-
-export interface ArticleDetailResponse {
-  id: number;
-  title: string;
-  content: string;
-  summary: string;
-  coverImageUrl?: string;
-  views: number;
-  createTime: string; // 后端 UTC 字符串
-  category: {
-    id: number;
-    name: string;
-  };
-  tags: Tag[];
-  isDeleted?: boolean;
-  status?: ArticlePublishStatus;
-  scheduledPublishAt?: string | null;
-  publishedAt?: string | null;
-  updatedAt?: string | null;
-  rights: ArticleRightsResponse;
-}
-
-export interface RelatedReadingItemResponse {
-  id: number
-  title: string
-  summary?: string | null
-  createTime: string
-  reason: string
-}
-
-export interface RelatedReadingResponse {
-  related: RelatedReadingItemResponse[]
-  previous?: RelatedReadingItemResponse | null
-  next?: RelatedReadingItemResponse | null
-}
-
-export const ArticlePublishStatus = {
-  Draft: 0,
-  Scheduled: 1,
-  Published: 2,
-  Archived: 3,
-  Deleted: 4
-} as const
-
-export type ArticlePublishStatus = typeof ArticlePublishStatus[keyof typeof ArticlePublishStatus]
-
-/** 分页响应 */
-export interface PageResponse<T> {
-  items: T[]
-  total: number
-  nextCursor?: string | null
-  hasMore?: boolean
-}
-
-export interface ArticleRightsRequest {
-  mode?: 'site' | 'custom'
-  enabled?: boolean
-  licenseType?: string | null
-  copyrightHolder?: string | null
-  copyrightYear?: number | null
-  rightsStatement?: string | null
-  attributionTemplate?: string | null
-  copyPolicy?: string | null
-  maxExcerptChars?: number
-  allowCodeCopy?: boolean
-  showPublicBadge?: boolean
-  proofBindingEnabled?: boolean
-}
-
-export interface ArticleWriteRequest {
-  title: string
-  content: string
-  summary: string
-  coverImageUrl?: string;
-  categoryId: number | undefined
-  tagIds: number[]
-  status?: ArticlePublishStatus
-  scheduledPublishAt?: string | null
-  rights?: ArticleRightsRequest | null
-}
+export { ArticlePublishStatus };
+export type {
+  ArticleDetailResponse,
+  ArticleListItemResponse,
+  ArticleRightsRequest,
+  ArticleRightsResponse,
+  ArticleWriteRequest,
+  FeaturedArticleItem,
+  PopularArticleSummaryResponse,
+  RelatedReadingItemResponse,
+  RelatedReadingResponse
+} from '@/contracts/binaryApi';
+export type Tag = ArticleTag;
+export type PageResponse<T> = BinaryPageResponse<T>;
 
 // ================= API 方法 =================
 

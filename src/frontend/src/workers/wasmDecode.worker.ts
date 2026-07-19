@@ -1,47 +1,14 @@
-import { decode, getAedsRuntimeDiagnostics, initWasm, type AedsRuntimeDiagnostics } from '@wasm/aeds';
-import { mapFramePayloadToViewModel } from '@/adapters/binary';
+import { decode, getAedsRuntimeDiagnostics, initWasm } from '@wasm/aeds';
+import { decodeBinaryFramePayload } from '@/composition/binaryDecoderRegistry';
+import {
+  binaryDecodeWorkerProtocolVersion,
+  type BinaryWorkerRequest,
+  type DecodeErrorCode,
+  type DecodeWorkerResponse
+} from '@/contracts/binaryTransport';
 import { AppErrorCode, isAppError } from '@/utils/appError';
 
-export const DECODE_WORKER_PROTOCOL_VERSION = 1;
-
-export type DecodeErrorCode =
-  | 'none'
-  | 'wasm_init_failed'
-  | 'decode_failed'
-  | 'frame_type_unexpected'
-  | 'crc_failed'
-  | 'payload_out_of_range'
-  | 'schema_mismatch'
-  | 'pod_parse_failed';
-
-type DecodeRequestV1 = {
-  v: 1;
-  type?: 'decode';
-  requestId: number;
-  buffer: ArrayBuffer;
-  expectedFrameType?: number;
-  sentAtUnixMs?: number;
-};
-
-type CancelRequestV1 = {
-  v: 1;
-  type: 'cancel';
-  requestId: number;
-};
-
-type WorkerRequestV1 = DecodeRequestV1 | CancelRequestV1;
-
-type DecodeResponseV1 = {
-  v: 1;
-  requestId: number;
-  ok: boolean;
-  frameType?: number;
-  data?: unknown;
-  errorCode: DecodeErrorCode;
-  error?: string;
-  workerTransferMs?: number;
-  diagnostics?: AedsRuntimeDiagnostics;
-};
+export const DECODE_WORKER_PROTOCOL_VERSION = binaryDecodeWorkerProtocolVersion;
 
 const canceledRequests = new Set<number>();
 let wasmReadyPromise: Promise<boolean> | null = null;
@@ -118,18 +85,18 @@ function isRequestCanceled(requestId: number): boolean {
   return canceledRequests.has(requestId);
 }
 
-function postDecodeResponse(response: DecodeResponseV1): void {
+function postDecodeResponse(response: DecodeWorkerResponse): void {
   if (!isRequestCanceled(response.requestId)) {
     self.postMessage(response);
   }
   canceledRequests.delete(response.requestId);
 }
 
-self.onmessage = async (event: MessageEvent<WorkerRequestV1>) => {
+self.onmessage = async (event: MessageEvent<BinaryWorkerRequest>) => {
   const { v, requestId } = event.data;
   try {
     if (v !== DECODE_WORKER_PROTOCOL_VERSION) {
-      const response: DecodeResponseV1 = {
+      const response: DecodeWorkerResponse = {
         v: DECODE_WORKER_PROTOCOL_VERSION,
         requestId,
         ok: false,
@@ -161,8 +128,8 @@ self.onmessage = async (event: MessageEvent<WorkerRequestV1>) => {
     }
 
     if (!ready) {
-      const response: DecodeResponseV1 = {
-        v: 1,
+      const response: DecodeWorkerResponse = {
+        v: binaryDecodeWorkerProtocolVersion,
         requestId,
         ok: false,
         errorCode: 'wasm_init_failed',
@@ -181,8 +148,8 @@ self.onmessage = async (event: MessageEvent<WorkerRequestV1>) => {
     }
 
     if (!frame.ok) {
-      const response: DecodeResponseV1 = {
-        v: 1,
+      const response: DecodeWorkerResponse = {
+        v: binaryDecodeWorkerProtocolVersion,
         requestId,
         ok: false,
         frameType: frame.frameType,
@@ -196,8 +163,8 @@ self.onmessage = async (event: MessageEvent<WorkerRequestV1>) => {
     }
 
     if (expectedFrameType !== undefined && frame.frameType !== expectedFrameType) {
-      const response: DecodeResponseV1 = {
-        v: 1,
+      const response: DecodeWorkerResponse = {
+        v: binaryDecodeWorkerProtocolVersion,
         requestId,
         ok: false,
         frameType: frame.frameType,
@@ -210,14 +177,14 @@ self.onmessage = async (event: MessageEvent<WorkerRequestV1>) => {
       return;
     }
 
-    const data = mapFramePayloadToViewModel(frame.frameType, frame.payloadView);
+    const data = decodeBinaryFramePayload(frame.frameType, frame.payloadView);
     if (isRequestCanceled(requestId)) {
       canceledRequests.delete(requestId);
       return;
     }
 
-    const response: DecodeResponseV1 = {
-      v: 1,
+    const response: DecodeWorkerResponse = {
+      v: binaryDecodeWorkerProtocolVersion,
       requestId,
       ok: true,
       frameType: frame.frameType,
@@ -229,8 +196,8 @@ self.onmessage = async (event: MessageEvent<WorkerRequestV1>) => {
     postDecodeResponse(response);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'pod_parse_failed';
-    const response: DecodeResponseV1 = {
-      v: 1,
+    const response: DecodeWorkerResponse = {
+      v: binaryDecodeWorkerProtocolVersion,
       requestId,
       ok: false,
       errorCode: message === 'wasm_init_failed' ? 'wasm_init_failed' : classifyError(error),

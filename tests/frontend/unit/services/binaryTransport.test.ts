@@ -16,7 +16,10 @@ vi.mock('@/api/binaryApiClient', async () => {
 })
 
 import { BinaryRequestError, binaryRequest } from '@/api/binaryApiClient'
-import { BinaryTransportError, requestBinaryOnly } from '@/services/binaryTransport'
+import { decodeBinaryFramePayload } from '@/composition/binaryDecoderRegistry'
+import { BinaryTransportError, createBinaryTransport } from '@/services/binaryTransport'
+
+const { requestBinaryOnly } = createBinaryTransport(decodeBinaryFramePayload)
 
 const mockBinaryRequest = vi.mocked(binaryRequest)
 const API_ERROR_POD_SIZE = 584
@@ -53,6 +56,23 @@ describe('binaryTransport ApiError mapping', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+  })
+
+  it('delegates payload decoding to the injected decoder', async () => {
+    const injectedValue = { source: 'injected-decoder' }
+    const decodeFramePayload = vi.fn(() => injectedValue)
+    const transport = createBinaryTransport(decodeFramePayload)
+    mockBinaryRequest.mockResolvedValue(encodeAedsFrame(
+      FrameType.EmptySuccess,
+      new Uint8Array([1, 0, 0, 0])
+    ))
+
+    await expect(transport.requestBinaryOnly({
+      binaryUrl: '/api/binary/injected-decoder',
+      frameType: FrameType.EmptySuccess
+    })).resolves.toBe(injectedValue)
+    expect(decodeFramePayload).toHaveBeenCalledOnce()
+    expect(decodeFramePayload).toHaveBeenCalledWith(FrameType.EmptySuccess, expect.any(Uint8Array))
   })
 
   it('maps a PowChallenge frame into the expected view model', async () => {

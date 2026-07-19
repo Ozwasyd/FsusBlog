@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
-import { requestBinaryOnly } from '@/services/binaryTransport'
+import { requestBinaryOnly } from '@/composition/binaryTransport'
 import {
   blockAnonymousGovernanceNullifier,
   getAnonymousGovernanceStatus,
@@ -9,7 +9,7 @@ import {
 } from '@/api/anonymousGovernance'
 import { FSUS_HEADERS } from '@/api/contracts'
 
-vi.mock('@/services/binaryTransport', () => ({
+vi.mock('@/composition/binaryTransport', () => ({
   requestBinaryOnly: vi.fn()
 }))
 

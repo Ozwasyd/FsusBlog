@@ -1,302 +1,67 @@
 import type { ApiRequestConfig } from './requestConfig';
 import { FrameType } from '@wasm/protocol/frame';
-import { requestBinaryOnly } from '@/services/binaryTransport';
+import { requestBinaryOnly } from '@/composition/binaryTransport';
+import type {
+  AnonymousCommentCreateRequestDto,
+  AnonymousCommentSubmitDto,
+  AnonymousCommentSubmitTicket,
+  AnonymousCommentTicketRequestDto,
+  AnonymousCommentTicketResponse,
+  AnonymousCredentialIssueRequestDto,
+  AnonymousCredentialIssueResponse,
+  AnonymousCredentialRevocationArtifact,
+  AnonymousCredentialRootSnapshot,
+  AnonymousPrivacyStateSnapshot,
+  BlindCredentialIssueRequestDto,
+  BlindCredentialIssueResponse,
+  BlindCredentialIssuerMetadata,
+  CommentAuthorMode,
+  CommentAuthorView,
+  CommentAuthorViewMode,
+  CommentCreateV2Dto,
+  CommentDisplayLanguage,
+  CommentPolicySnapshot,
+  CommentReplyItem,
+  CommentReplyPreviewItem,
+  CommentThreadItem,
+  CursorResponse,
+  PublicCommentCreateInput,
+  UserCommentResponse
+} from '@/contracts/binaryApi';
 import { encodeAedsFrame } from './binaryFrame';
 import { validateCommentContent } from '@/utils/contentFilter';
-import { AppErrorCode, createAppError } from '@/utils/appError';
+
+export { resolveCommentAuthorView } from '@/utils/commentAuthorView'
+export type {
+  AnonymousCommentCreateRequestDto,
+  AnonymousCommentSubmitDto,
+  AnonymousCommentSubmitTicket,
+  AnonymousCommentTicketRequestDto,
+  AnonymousCommentTicketResponse,
+  AnonymousCredentialIssueRequestDto,
+  AnonymousCredentialIssueResponse,
+  AnonymousCredentialRevocationArtifact,
+  AnonymousCredentialRootSnapshot,
+  AnonymousPrivacyStateSnapshot,
+  BlindCredentialIssueRequestDto,
+  BlindCredentialIssueResponse,
+  BlindCredentialIssuerMetadata,
+  CommentAuthorMode,
+  CommentAuthorView,
+  CommentAuthorViewMode,
+  CommentCreateV2Dto,
+  CommentDisplayLanguage,
+  CommentPolicySnapshot,
+  CommentReplyItem,
+  CommentReplyPreviewItem,
+  CommentThreadItem,
+  CursorResponse,
+  PublicCommentCreateInput,
+  UserCommentResponse
+} from '@/contracts/binaryApi'
 
 // =================================================================================
-// 1. 类型定义 (DTOs)
-// =================================================================================
-
-export type CommentAuthorMode = 'public' | 'zk_anonymous'
-export type CommentAuthorViewMode = CommentAuthorMode | 'legacy_server_visible_pseudonymous'
-export type CommentDisplayLanguage = 'zh-CN' | 'en'
-
-export interface CommentAuthorView {
-  mode: CommentAuthorViewMode
-  displayName: string
-  displayLanguage: 'zh-CN' | 'en'
-  badge?: string | null
-  scopeLabel?: string | null
-}
-
-export interface CommentCreateV2Dto {
-  articleId: number
-  content: string
-  parentId?: string | null
-  rootId?: string | null
-  replyToCommentId?: string | null
-  /** @deprecated 匿名模式不应设置 replyToUserId；CommentCreateV2Request POD 会固定写入 0/0 兼容占位。 */
-  replyToUserId?: number | null
-  authorMode: 'public'
-  publicSendExplicitlySelected: boolean
-  displayLanguage: CommentDisplayLanguage
-  powSalt?: string
-  powSignature?: string
-  powTimestamp?: number
-  difficulty?: number
-  powNonce?: string
-  browserFp?: string
-}
-
-export interface AnonymousCommentSubmitDto {
-  articleId: number
-  content: string
-  parentId?: string | null
-  rootId?: string | null
-  replyToCommentId?: string | null
-  anonymousScope: string
-  displayLanguage: CommentDisplayLanguage | string
-}
-
-export interface AnonymousCommentSubmitTicket {
-  ticket: Uint8Array | number[]
-}
-
-export type PublicCommentCreateInput = Omit<CommentCreateV2Dto, 'authorMode' | 'publicSendExplicitlySelected'> & {
-  authorMode?: CommentAuthorMode | null
-  publicSendExplicitlySelected?: boolean | null
-}
-
-export interface CommentPolicySnapshot {
-  anonymousCommentsEnabled: boolean
-  publicCommentsEnabled: boolean
-  zkAnonymousEnabled: boolean
-  defaultAuthorMode: CommentAuthorMode
-  supportedDisplayLanguages: string[]
-  snapshotHash: string
-  commentMaxChars: number
-  commentMaxUtf8Bytes: number
-}
-
-export interface AnonymousCredentialIssueRequestDto {
-  credentialEpoch: number
-  circuitNumericId: number
-  publicInputLayoutVersion: number
-  circuitId: string
-  credentialLevel: string
-  credentialRequest: Uint8Array | number[]
-  clientNonce: Uint8Array | number[]
-}
-
-export interface AnonymousCredentialIssueResponse {
-  credentialEpoch: number
-  rootExpiresAtUnixMs: number
-  circuitNumericId: number
-  publicInputLayoutVersion: number
-  circuitId: string
-  credentialLevel: string
-  issuerPublicKeyId: string
-  issuerSignature: Uint8Array
-}
-
-export interface BlindCredentialIssuerMetadata {
-  credentialEpoch: number
-  expiresAtUnixMs: number
-  circuitNumericId: number
-  publicInputLayoutVersion: number
-  circuitId: string
-  credentialLevel: string
-  schemeId: string
-  issuerPublicKeyId: string
-  issuerPublicKeyHash: string
-  modulusBytes: number
-  subjectPublicKeyInfo: Uint8Array
-}
-
-export interface BlindCredentialIssueRequestDto {
-  credentialEpoch: number
-  circuitNumericId: number
-  publicInputLayoutVersion: number
-  circuitId: string
-  credentialLevel: string
-  schemeId: string
-  issuerPublicKeyId: string
-  blindedMessage: Uint8Array
-}
-
-export interface BlindCredentialIssueResponse {
-  credentialEpoch: number
-  expiresAtUnixMs: number
-  circuitNumericId: number
-  publicInputLayoutVersion: number
-  circuitId: string
-  credentialLevel: string
-  schemeId: string
-  issuerPublicKeyId: string
-  blindSignature: Uint8Array
-}
-
-export interface AnonymousCredentialRootSnapshot {
-  credentialEpoch: number
-  rootExpiresAtUnixMs: number
-  rootGraceExpiresAtUnixMs: number
-  circuitNumericId: number
-  publicInputLayoutVersion: number
-  zkAnonymousEnabled: boolean
-  verifierConfigured: boolean
-  circuitId: string
-  verifyingKeyHash: string
-  issuerPublicKeyHash: string
-  credentialRoot: Uint8Array
-  revocationRoot: Uint8Array
-  circuitMetadata: Uint8Array
-}
-
-export interface AnonymousCredentialRevocationArtifact {
-  credentialEpoch: number
-  version: number
-  baseVersion: number
-  expiresAtUnixMs: number
-  kind: 1 | 2
-  algorithmId: string
-  pathDepth: number
-  issuerPublicKeyHash: string
-  revocationRoot: Uint8Array
-  contentHash: Uint8Array
-  signature: Uint8Array
-  entryHashes: Uint8Array
-}
-
-export interface AnonymousCommentTicketRequestDto {
-  articleId: number
-  parentId?: string | null
-  rootId?: string | null
-  replyToCommentId?: string | null
-  credentialEpoch: number
-  circuitNumericId: number
-  publicInputLayoutVersion: number
-  actionContext: string
-  anonymousScope: string
-  circuitId: string
-  verifyingKeyHash: string
-  nullifierHash: Uint8Array | number[]
-  credentialRoot: Uint8Array | number[]
-  revocationRoot: Uint8Array | number[]
-  isEligible: boolean
-  mayComment: boolean
-  rateClass: 'common' | 'unknown'
-  requiresModeration: boolean
-  zkProof: Uint8Array | number[]
-  publicInputs: Uint8Array | number[]
-}
-
-export interface AnonymousCommentTicketResponse {
-  ticketExpiresAtUnixMs: number
-  rateClass: 'common' | 'unknown'
-  requiresModeration: boolean
-  ticket: Uint8Array
-  moderationSubjectHash: Uint8Array
-}
-
-export interface AnonymousCommentCreateRequestDto {
-  articleId: number
-  content: string
-  parentId?: string | null
-  rootId?: string | null
-  replyToCommentId?: string | null
-  anonymousScope: string
-  displayLanguage: string
-  ticket: Uint8Array | number[]
-}
-
-export interface AnonymousPrivacyStateSnapshot {
-  credentialEpoch: number
-  rootExpiresAtUnixMs: number
-  ticketExpiresAtUnixMs: number
-  circuitNumericId: number
-  publicInputLayoutVersion: number
-  hasActiveCredential: boolean
-  canIssueCredential: boolean
-  canSubmitAnonymousComment: boolean
-  circuitId: string
-  verifyingKeyHash: string
-  credentialStatus: string
-  credentialLevel: string
-}
-
-/** 游标响应包装 */
-export interface CursorResponse<T> {
-  data: T[]
-  nextCursor: string | null // 修改：游标改为 string 以适配 Snowflake
-  hasMore: boolean
-}
-
-/** 文章详情页显示的评论项 */
-export interface CommentReplyItem {
-  id: string // Snowflake ID 必须使用 string
-  content: string
-  createTime: string
-  author: CommentAuthorView
-  authorAccountId?: number | null
-  replyToAuthor?: CommentAuthorView | null
-  parentId?: string | null
-  rootId: string
-  replyToCommentId?: string | null
-  depth: number
-  isDeleted: boolean
-}
-
-export interface CommentThreadItem {
-  id: string
-  content: string
-  createTime: string
-  author: CommentAuthorView
-  authorAccountId?: number | null
-  rootId: string
-  isDeleted: boolean
-  replyCount: number
-  hasMoreReplies: boolean
-  repliesPreview: CommentReplyPreviewItem[]
-}
-
-export interface CommentReplyPreviewItem {
-  id: string
-  content: string
-  createTime: string
-  author: CommentAuthorView
-  authorAccountId?: number | null
-  replyToAuthor?: CommentAuthorView | null
-  isDeleted: boolean
-}
-
-/** 个人中心显示的评论项 (包含文章信息) */
-export interface UserCommentResponse {
-  id: string // Snowflake ID 必须使用 string
-  content: string
-  createTime: string
-  articleId: number
-  articleTitle: string
-  rootId?: string | null
-  author: CommentAuthorView
-  replyToAuthor?: CommentAuthorView | null
-  moderationStatus: number
-  moderationStatusLabel: string
-  visibilityState: string
-  visibilityReasonCode: string
-  isPubliclyVisible: boolean
-}
-
-export function resolveCommentAuthorView(input: {
-  author?: CommentAuthorView | null
-}): CommentAuthorView {
-  const author = input.author
-  if (author?.displayName?.trim()) {
-    return {
-      mode: normalizeCommentAuthorMode(author.mode),
-      displayName: author.displayName.trim(),
-      displayLanguage: normalizeCommentDisplayLanguage(author.displayLanguage),
-      badge: normalizeNullableAuthorField(author.badge),
-      scopeLabel: normalizeNullableAuthorField(author.scopeLabel)
-    }
-  }
-
-  throw createAppError(AppErrorCode.ProtocolFailure, 'comment_author_contract_missing')
-}
-
-// =================================================================================
-// 2. 接口方法
+// API methods
 // =================================================================================
 
 /**
@@ -727,21 +492,6 @@ function encodeCommentAuthorMode(mode: CommentCreateV2Dto['authorMode']): number
     default:
       throw new TypeError('comment_author_mode_invalid')
   }
-}
-
-function normalizeCommentAuthorMode(mode: CommentAuthorView['mode'] | string | null | undefined): CommentAuthorViewMode {
-  const normalized = String(mode ?? '').trim().toLowerCase().replace('-', '_')
-  if (normalized === 'public' || normalized === 'zk_anonymous') return normalized
-  return 'legacy_server_visible_pseudonymous'
-}
-
-function normalizeCommentDisplayLanguage(language: CommentDisplayLanguage | string | null | undefined): CommentDisplayLanguage {
-  return language === 'en' ? 'en' : 'zh-CN'
-}
-
-function normalizeNullableAuthorField(value: string | null | undefined): string | null {
-  const trimmed = value?.trim()
-  return trimmed ? trimmed : null
 }
 
 function parseOptionalId(value?: string | null): bigint | null {

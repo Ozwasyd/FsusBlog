@@ -1,8 +1,8 @@
 import type { ApiRequestConfig } from './requestConfig'
 import { FrameType } from '@wasm/protocol/frame'
-import { requestBinaryOnly } from '@/services/binaryTransport'
+import { requestBinaryOnly } from '@/composition/binaryTransport'
 import { encodeAedsFrame } from './binaryFrame'
-import { encodeAuthoringJsonRequest } from '@/adapters/binary/authoringAdapter'
+import { encodeJsonRequest } from '@/codecs/binary/jsonRequestEncoder'
 import { FSUS_HEADERS } from './contracts'
 import { getBrowserFp } from '@/utils/fingerprint'
 import { fsusBinaryRoutes } from '@/generated/fsusBinaryRoutes'
@@ -128,7 +128,7 @@ const governanceHeaders = (mfaProofToken?: string | null): Headers => {
 }
 
 function governanceBody(frameType: FrameType, request: unknown): ArrayBuffer {
-  return encodeAedsFrame(frameType, encodeAuthoringJsonRequest(request))
+  return encodeAedsFrame(frameType, encodeJsonRequest(request))
 }
 
 function requestAnonymousGovernanceBinary<T>(

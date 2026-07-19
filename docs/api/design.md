@@ -31,6 +31,8 @@
 
 前端的文章读取与登录后私有 API 固定消费当前 AEDS binary contract，不提供用户可切换的 transport 状态，也不把 transport 选择写入 `localStorage` 或 `sessionStorage`。排障能力只能作为 `import.meta.env.DEV` 明确守卫的开发构建内存态观测，不得改变 API 路径、请求 frame、凭据策略或生产 bundle 行为。
 
+前端 binary request/response、worker frame metadata 与 decode result 的共享类型只定义在 `src/frontend/src/contracts/`；这些 contract 不导入运行时模块。业务 API、request codec 与 response adapter 都只能朝 contract 方向依赖，response adapter 不得反向导入 API 实现。`services/binaryTransport.ts` 只消费注入的 `BinaryFramePayloadDecoder`，具体 frame mapper 由 `composition/binaryDecoderRegistry.ts` 显式登记，并在 `composition/binaryTransport.ts` 或 decode worker 入口完成组合。该依赖方向不得改变 AEDS frame 编号、POD 字段顺序、`ApiError` 映射或 binary-only 语义，也不得引入 JSON fallback、第二 transport 或兼容 adapter。
+
 Integrity verification sidecars under `/integrity/**` are public JSON manifests, not runtime business APIs and not `/api/binary/**` fallback. Publish proof and Rights V3 proof routes only read persisted proof rows, signing metadata, and transparency log pointers; they do not generate proofs on request and must not expose admin principal id, IP address, user agent, session id, device id, private drafts, comments, private messages, tokens, private keys, or failure details.
 
 HTTP shell 契约由 `src/shared/Contracts/Validation/fsusblog.openapi.json` 提供，包含 method/path/status/content-type/security 与 `x-fsus-*` 扩展；AEDS payload、frame 编号、POD schema 和 golden fixture 仍由 `aeds-protocol.json`、POD 契约和 fixture 负责。

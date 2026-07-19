@@ -1,6 +1,6 @@
-import type { AuthLoginFlow, CurrentUserSnapshot, MfaChallengeResult, MfaProfile, MfaSetupStart, MfaSetupVerify, RecoveryKeyCreateResponse, RecoveryKeyVerifyResponse, UserSessionSummary } from '@/api/auth';
+import type { AuthLoginFlow, CurrentUserSnapshot, MfaChallengeResult, MfaProfile, MfaSetupStart, MfaSetupVerify, RecoveryKeyCreateResponse, RecoveryKeyVerifyResponse, UserSessionSummary } from '@/contracts/binaryApi';
 import { createAppError, AppErrorCode } from '@/utils/appError';
-import { BinaryReader, readByte, readFixedUtf8, readInt32, readIsoDate64, readSliceRef, readSliceText } from './reader';
+import { BinaryReader, readByte, readFixedUtf8, readInt32, readIsoDate64, readSliceRef, readSliceText } from '@/codecs/binary/reader';
 import { readArrayEnvelope } from './envelopeReaders';
 import { AUTH_LOGIN_FLOW_POD_SIZE, CURRENT_USER_SNAPSHOT_POD_SIZE, IDENTITY_ACCOUNT_SNAPSHOT_POD_SIZE, MFA_CHALLENGE_RESULT_POD_SIZE, MFA_PROFILE_POD_SIZE, MFA_RECOVERY_CODE_POD_SIZE, MFA_SETUP_START_POD_SIZE, MFA_SETUP_VERIFY_POD_SIZE, RECOVERY_KEY_CREATE_RESPONSE_POD_SIZE, RECOVERY_KEY_VERIFY_RESPONSE_POD_SIZE, USER_SESSION_SUMMARY_POD_SIZE } from './types';
 

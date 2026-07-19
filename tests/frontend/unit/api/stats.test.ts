@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
 
-vi.mock('@/services/binaryTransport', () => ({
+vi.mock('@/composition/binaryTransport', () => ({
   requestBinaryOnly: vi.fn()
 }))
 
-import { requestBinaryOnly } from '@/services/binaryTransport'
+import { requestBinaryOnly } from '@/composition/binaryTransport'
 import { getAdminStatsQuery, getRecentCommentStats, getRegionStats, getSiteStatsOverview } from '@/api/stats'
 
 const mockBinary = vi.mocked(requestBinaryOnly)

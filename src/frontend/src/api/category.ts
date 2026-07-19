@@ -1,12 +1,9 @@
 import { FrameType } from '@wasm/protocol/frame'
-import { requestBinaryOnly } from '@/services/binaryTransport'
+import { requestBinaryOnly } from '@/composition/binaryTransport'
+import type { CategoryItem } from '@/contracts/binaryApi'
 import { encodeAedsFrame, encodeNameMutationRequest } from './binaryFrame'
 
-export interface CategoryItem {
-  id: number
-  name: string
-  articleCount: number
-}
+export type { CategoryItem } from '@/contracts/binaryApi'
 
 // ================= API 方法定义 =================
 

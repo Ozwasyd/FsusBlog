@@ -1,6 +1,6 @@
 import { HttpApiError } from '@/api'
+import type { TransportFailureKind } from '@/contracts/binaryTransport'
 import { BinaryTransportError } from '@/services/binaryTransport'
-import type { TransportFailureKind } from '@/services/binaryTransport'
 import { isAppError } from '@/utils/appError'
 
 type KnownErrorKind = 'app_error' | 'binary_transport' | 'http_api' | 'error' | 'unknown'

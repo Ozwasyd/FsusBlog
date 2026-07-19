@@ -56,6 +56,7 @@
         "check:modern-standards": "node ../../tests/frontend/checks/static/check-modern-standards.mjs",
         "check:result-boundaries": "node ../../tests/frontend/checks/static/check-result-boundaries.mjs",
         "check:error-code-alignment": "node ../../tests/frontend/checks/static/check-error-code-alignment.mjs",
+        "check:binary-import-boundaries": "node ../../tests/frontend/checks/static/check-binary-import-boundaries.mjs",
         "check:no-runtime-message-branching": "node ../../tests/frontend/checks/static/check-no-runtime-message-branching.mjs",
         "check:security-consistency": "node ../../tests/frontend/checks/static/check-security-consistency.mjs",
         "check:infra-security-governance": "node ../../tests/frontend/checks/static/check-infra-security-governance.mjs",

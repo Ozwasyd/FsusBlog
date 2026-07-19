@@ -1,6 +1,6 @@
-import type { PageContentPublic, SeoConfigPublic, SiteComplianceConfigPublic } from '@/api/system';
+import type { PageContentPublic, SeoConfigPublic, SiteComplianceConfigPublic } from '@/contracts/binaryApi';
 import { AppErrorCode, createAppError } from '@/utils/appError';
-import { BinaryReader, readBlobText, readFixedUtf8, readInt32 } from './reader';
+import { BinaryReader, readBlobText, readFixedUtf8, readInt32 } from '@/codecs/binary/reader';
 
 const SEO_CONFIG_POD_SIZE = 5000;
 const PAGE_CONTENT_POD_SIZE = 136;

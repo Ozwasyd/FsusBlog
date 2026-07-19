@@ -10,7 +10,7 @@ import {
   type AnonymousCredentialRevocationArtifact,
   type AnonymousCredentialRootSnapshot
 } from '@/api/comment'
-import { requestBinaryOnly } from '@/services/binaryTransport'
+import { requestBinaryOnly } from '@/composition/binaryTransport'
 import { FrameType } from '@wasm/protocol/frame'
 import type { CommentPrivacyCredentialMaterial } from './commentPrivacyTypes'
 import { createBlindRsaCredentialSuite } from './commentPrivacyBlindRsaSuite'

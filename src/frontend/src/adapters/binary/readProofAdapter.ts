@@ -1,6 +1,6 @@
-import type { HumanReadChallenge, HumanReadSubmitResult } from '@/api/readProof';
+import type { HumanReadChallenge, HumanReadSubmitResult } from '@/contracts/binaryApi';
 import { AppErrorCode, createAppError } from '@/utils/appError';
-import { BinaryReader, readInt32, readInt64Number, readSliceRef, readSliceText } from './reader';
+import { BinaryReader, readInt32, readInt64Number, readSliceRef, readSliceText } from '@/codecs/binary/reader';
 import { HUMAN_READ_CHALLENGE_RESPONSE_POD_SIZE, HUMAN_READ_SUBMIT_RESPONSE_POD_SIZE } from './types';
 
 export function mapHumanReadChallengeFromPayload(payload: Uint8Array): HumanReadChallenge {

@@ -1,54 +1,26 @@
 import type { ApiRequestConfig } from './requestConfig'
 import { FrameType } from '@wasm/protocol/frame'
-import { requestBinaryOnly } from '@/services/binaryTransport'
+import { requestBinaryOnly } from '@/composition/binaryTransport'
+import type {
+  BinaryPageResponse,
+  ConversationDetailResponse,
+  ConversationListItemResponse,
+  ConversationMessagePreviewResponse,
+  ConversationMessageResponse
+} from '@/contracts/binaryApi'
 import { encodeAedsFrame, encodeStringMutationRequest } from './binaryFrame'
 
 export type ConversationStatus = 'open' | 'pending' | 'closed'
 export type ConversationFilter = 'all' | 'unread' | 'system' | 'open' | 'pending' | 'closed'
 
-export interface ConversationMessagePreviewResponse {
-  senderType: 0 | 1 | 2
-  senderName?: string | null
-  bodyPreview: string
-  createdAt: string
-}
+export type {
+  ConversationDetailResponse,
+  ConversationListItemResponse,
+  ConversationMessagePreviewResponse,
+  ConversationMessageResponse
+} from '@/contracts/binaryApi'
 
-export interface ConversationMessageResponse {
-  messageId: string
-  conversationId: string
-  senderType: 0 | 1 | 2
-  senderName?: string | null
-  body: string
-  createdAt: string
-}
-
-export interface ConversationListItemResponse {
-  conversationId: string
-  subject: string
-  status: 0 | 1 | 2
-  isSystemSource: boolean
-  canReply: boolean
-  unreadCount: number
-  lastMessageAt: string
-  updatedAt: string
-  lastMessage?: ConversationMessagePreviewResponse | null
-}
-
-export interface ConversationDetailResponse {
-  conversationId: string
-  subject: string
-  status: 0 | 1 | 2
-  isSystemSource: boolean
-  canReply: boolean
-  unreadCount: number
-  lastMessageAt: string
-  messages: ConversationMessageResponse[]
-}
-
-export interface PageResponse<T> {
-  items: T[]
-  total: number
-}
+export type PageResponse<T> = BinaryPageResponse<T>
 
 export interface CreateConversationRequest {
   subject: string

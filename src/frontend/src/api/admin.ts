@@ -1,38 +1,14 @@
 import type { ApiRequestConfig } from './requestConfig'
 import { FrameType } from '@wasm/protocol/frame'
-import { requestBinaryOnly } from '@/services/binaryTransport'
+import { requestBinaryOnly } from '@/composition/binaryTransport'
+import type { AdminAccountListItem, PageResult } from '@/contracts/binaryApi'
 import { encodeAedsFrame } from './binaryFrame'
+
+export type { AdminAccountListItem, PageResult } from '@/contracts/binaryApi'
 
 const ADMIN_SENSITIVE_MFA_HEADER = 'X-Fsus-Mfa-Proof'
 
 // ================= 类型定义 =================
-
-/**
- * 分页响应包装器
- * 对应后端: PageResult<T>
- */
-export interface PageResult<T> {
-  total: number
-  items: T[]
-}
-
-/**
- * 匿名账号治理列表项
- * 对应后端: AdminAccountListItemDto
- */
-export interface AdminAccountListItem {
-  accountId: number
-  identityKind: string
-  publicHandle?: string | null
-  passkeyInitialized: boolean
-  recoveryInitialized: boolean
-  privacyInitializedAt?: string | null
-  anonymousCredentialStatus: string
-  riskFlags: number
-  status: number // 0:正常, 1:封禁, 2:已注销
-  createTime: string
-  deletedAt?: string | null
-}
 
 /**
  * 查询参数

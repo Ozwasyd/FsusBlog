@@ -1,52 +1,16 @@
 import type { ApiRequestConfig } from './requestConfig';
 import { FrameType } from '@wasm/protocol/frame';
-import { requestBinaryOnly } from '@/services/binaryTransport';
+import { requestBinaryOnly } from '@/composition/binaryTransport';
+import type {
+  AdminStatsOverview,
+  AdminStatsQuery,
+  RecentCommentStatItem,
+  RegionStatItem,
+  StatsSummary,
+  TrashClearResponse
+} from '@/contracts/binaryApi';
 
-interface PopularArticleStatItem {
-  id: number
-  title: string
-  views: number
-}
-
-export interface RecentCommentStatItem {
-  authorDisplayName: string
-  authorMode: string
-  authorBadge: string | null
-  authorScopeLabel: string | null
-  content: string
-  createTime: string
-}
-
-export interface RegionStatItem {
-  region: string
-  count: number
-}
-
-export interface StatsSummary {
-  totalArticles: number
-  totalComments: number
-  trashCount: number
-  totalReads: number
-  humanVerifiedReads: number
-  uniqueViewerKeyEstimate: number
-  articleReads: number
-  siteReads: number
-}
-
-export interface AdminStatsOverview {
-  summary: StatsSummary
-  popularArticles: PopularArticleStatItem[]
-}
-
-export interface AdminStatsQuery {
-  overview: AdminStatsOverview
-  recentComments: RecentCommentStatItem[]
-  regions: RegionStatItem[]
-}
-
-export interface TrashClearResponse {
-  count: number
-}
+export type { AdminStatsOverview, AdminStatsQuery, RecentCommentStatItem, RegionStatItem, StatsSummary, TrashClearResponse } from '@/contracts/binaryApi'
 
 export const getAdminStatsQuery = (config?: ApiRequestConfig) =>
   requestBinaryOnly<AdminStatsQuery>({

@@ -1,6 +1,6 @@
 import { AppErrorCode, createAppError } from '@/utils/appError'
-import type { SiteSubscriptionResponse } from '@/api/subscription'
-import { readFixedUtf8 } from './reader'
+import type { SiteSubscriptionResponse } from '@/contracts/binaryApi'
+import { readFixedUtf8 } from '@/codecs/binary/reader'
 
 const SITE_SUBSCRIPTION_RESPONSE_POD_SIZE = 36
 

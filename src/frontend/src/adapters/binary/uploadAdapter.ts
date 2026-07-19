@@ -1,56 +1,13 @@
 import { createAppError, AppErrorCode } from '@/utils/appError';
-import { readFixedUtf8, readInt32, readInt64Number } from './reader';
-
-export interface UploadInitViewModel {
-  uploadId: string
-  fileName: string
-  mimeType: string
-  targetFormat: string
-  totalBytes: number
-  chunkSize: number
-  totalParts: number
-  expiresAt: string
-  uploadToken: string
-}
-
-export interface UploadStatusViewModel {
-  uploadId: string
-  status: string
-  totalBytes: number
-  uploadedBytes: number
-  chunkSize: number
-  totalParts: number
-  uploadedPartCount: number
-  nextPartHint: number
-  expiresAt: string
-}
-
-interface UploadPartRangeViewModel {
-  start: number
-  end: number
-}
-
-export interface UploadPartMapViewModel {
-  uploadId: string
-  uploadedRanges: UploadPartRangeViewModel[]
-}
-
-export interface UploadPartAckViewModel {
-  uploadId: string
-  partNumber: number
-  offset: number
-  size: number
-  uploadedBytes: number
-  uploadedPartCount: number
-}
-
-export interface UploadCompleteViewModel {
-  uploadId: string
-  url: string
-  relativeUrl: string
-  mimeType: string
-  totalBytes: number
-}
+import type {
+  UploadCompleteViewModel,
+  UploadInitViewModel,
+  UploadPartAckViewModel,
+  UploadPartMapViewModel,
+  UploadPartRangeViewModel,
+  UploadStatusViewModel
+} from '@/contracts/binaryApi';
+import { readFixedUtf8, readInt32, readInt64Number } from '@/codecs/binary/reader';
 
 export function mapUploadInitFromPayload(payload: Uint8Array): UploadInitViewModel {
   assertLength(payload, 568, 'upload_init_payload_invalid')

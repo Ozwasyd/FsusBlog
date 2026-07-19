@@ -1,23 +1,9 @@
 import { FrameType } from '@wasm/protocol/frame'
-import { requestBinaryOnly } from '@/services/binaryTransport'
+import { requestBinaryOnly } from '@/composition/binaryTransport'
+import type { HumanReadChallenge, HumanReadScope, HumanReadSubmitResult } from '@/contracts/binaryApi'
 import { encodeAedsFrame } from './binaryFrame'
 
-export type HumanReadScope = 'site' | 'article'
-
-export type HumanReadChallenge = {
-  token: string
-  scope: HumanReadScope
-  routeKey: string
-  articleId: number | null
-  minDwellMs: number
-  issuedAt: string
-  expiresAt: string
-}
-
-export type HumanReadSubmitResult = {
-  counted: boolean
-  status: string
-}
+export type { HumanReadChallenge, HumanReadScope, HumanReadSubmitResult } from '@/contracts/binaryApi'
 
 const textEncoder = new TextEncoder()
 

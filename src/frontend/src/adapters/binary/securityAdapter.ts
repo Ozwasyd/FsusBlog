@@ -1,102 +1,20 @@
 import { AppErrorCode, createAppError } from '@/utils/appError';
-import { readByte, readFixedUtf8, readInt32, readInt64Number, readSliceRef, readSliceText } from './reader';
+import {
+  SecurityChallengeKind,
+  type SecurityChallengeAssignment,
+  type SecurityChallengeDecision,
+  type SecurityChallengeIssueResponse,
+  type SecurityChallengeProviderPayload,
+  type SecurityChallengeVerifyResponse
+} from '@/contracts/binaryApi';
+import { readByte, readFixedUtf8, readInt32, readInt64Number, readSliceRef, readSliceText } from '@/codecs/binary/reader';
 
-const textEncoder = new TextEncoder();
-
-const encoder = new TextEncoder();
 const decoder = new TextDecoder('utf-8', { fatal: true });
-
-export const SecurityChallengeKind = {
-  Unknown: 0,
-  Sha256PowV1: 1,
-  Argon2IdPoSpaceV1: 2,
-  CaptchaV1: 3,
-  HumanReadProofV1: 4,
-  PasskeyStepUpV1: 5,
-  AdminPasskeyStepUpV1: 6,
-  RecoveryKeyProofV1: 7,
-  AnonymousCredentialProofV1: 8,
-  ZkAnonymousCommentProofV1: 9,
-  PerceptionCharacterV2: 10,
-  PerceptionLocalizationV2: 11,
-  PerceptionMicroInteractionV2: 12,
-  PerceptionTextTaskV2: 13
-} as const;
-
-export type SecurityChallengeKind = typeof SecurityChallengeKind[keyof typeof SecurityChallengeKind];
-
-export type SecurityChallengeDecision = 'unknown' | 'allow' | 'challenge' | 'stepUp' | 'queueForModeration' | 'throttle' | 'block';
-
-export interface SecurityChallengeAssignment {
-  challengeId: string;
-  traceparent: string;
-  tenantId: string;
-  kind: SecurityChallengeKind;
-  escalationLevel: number;
-  action: string;
-  routeKey: string;
-  subjectHash: string;
-  clientIpHash: string;
-  deviceFpHash: string;
-  issuedAtUnixMs: number;
-  expiresAtUnixMs: number;
-}
-
-export interface SecurityChallengeEnvelope {
-  envelopeId: string;
-  policyVersion: string;
-  assignments: SecurityChallengeAssignment[];
-}
-
-export interface SecurityChallengeProviderPayload {
-  challengeId: string;
-  payload: Record<string, string>;
-}
-
-export interface SecurityChallengeIssueResponse {
-  decision: SecurityChallengeDecision;
-  riskScore: number;
-  effectiveRiskScore: number;
-  escalationLevel: number;
-  policyVersion: string;
-  retryAfterMs: number;
-  envelope: SecurityChallengeEnvelope | null;
-  providerPayloads: SecurityChallengeProviderPayload[];
-}
-
-export interface SecurityChallengeVerifyResponse {
-  verified: boolean;
-  challengeId: string;
-  kind: SecurityChallengeKind;
-  policyVersion: string;
-  proofToken: string;
-  reason: string;
-  retryAfterMs: number;
-}
-
-export interface SecurityChallengeIssuePodRequest {
-  action: string;
-  routeKey: string;
-  deviceFingerprint: string;
-  attributesJson: string;
-}
-
-export interface SecurityChallengeVerifyPodRequest {
-  challengeId: string;
-  kind: SecurityChallengeKind;
-  action: string;
-  routeKey: string;
-  providerPayloadJson: string;
-}
 
 const SECURITY_CHALLENGE_ISSUE_RESPONSE_POD_SIZE = 148;
 const SECURITY_CHALLENGE_ASSIGNMENT_POD_SIZE = 664;
 const SECURITY_CHALLENGE_PROVIDER_PAYLOAD_POD_SIZE = 72;
 const SECURITY_CHALLENGE_VERIFY_RESPONSE_POD_SIZE = 152;
-
-export function encodeSecurityJsonRequest(value: unknown): Uint8Array {
-  return encoder.encode(JSON.stringify(value ?? {}));
-}
 
 export function mapSecurityJsonFromPayload<T = unknown>(payload: Uint8Array): T {
   try {
@@ -104,26 +22,6 @@ export function mapSecurityJsonFromPayload<T = unknown>(payload: Uint8Array): T 
   } catch {
     throw createAppError(AppErrorCode.ProtocolFailure, 'security_json_payload_invalid');
   }
-}
-
-export function encodeSecurityChallengeIssueRequest(request: SecurityChallengeIssuePodRequest): Uint8Array {
-  return encodeSlicePod([
-    request.action,
-    request.routeKey,
-    request.deviceFingerprint,
-    request.attributesJson
-  ], 32);
-}
-
-export function encodeSecurityChallengeVerifyRequest(request: SecurityChallengeVerifyPodRequest): Uint8Array {
-  const bytes = encodeSlicePod([
-    request.challengeId,
-    request.action,
-    request.routeKey,
-    request.providerPayloadJson
-  ], 36, 4);
-  bytes[0] = request.kind;
-  return bytes;
 }
 
 export function mapSecurityChallengeIssueResponseFromPayload(payload: Uint8Array): SecurityChallengeIssueResponse {
@@ -207,23 +105,6 @@ function readBinaryPodBlob(payload: Uint8Array, offset: number, errorCode: strin
   }
 
   return payload.subarray(blobStart, blobEnd);
-}
-
-function encodeSlicePod(values: string[], headerBytes: number, firstSliceOffset = 0): Uint8Array {
-  const encodedValues = values.map((value) => textEncoder.encode(value ?? ''));
-  const blobBytes = encodedValues.reduce((total, value) => total + value.byteLength, 0);
-  const bytes = new Uint8Array(headerBytes + 4 + blobBytes);
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  let blobOffset = 0;
-  for (let index = 0; index < encodedValues.length; index += 1) {
-    const sliceOffset = firstSliceOffset + index * 8;
-    view.setInt32(sliceOffset, blobOffset, true);
-    view.setInt32(sliceOffset + 4, encodedValues[index].byteLength, true);
-    bytes.set(encodedValues[index], headerBytes + 4 + blobOffset);
-    blobOffset += encodedValues[index].byteLength;
-  }
-  view.setInt32(headerBytes, blobBytes, true);
-  return bytes;
 }
 
 function readUint16(bytes: Uint8Array, offset: number): number {

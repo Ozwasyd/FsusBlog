@@ -1,13 +1,9 @@
 import { FrameType } from '@wasm/protocol/frame'
-import { requestBinaryOnly } from '@/services/binaryTransport'
+import { requestBinaryOnly } from '@/composition/binaryTransport'
+import type { TagItem } from '@/contracts/binaryApi'
 import { encodeAedsFrame, encodeNameMutationRequest } from './binaryFrame'
 
-// 定义标签数据结构
-export interface TagItem {
-  id: number
-  name: string
-  articleCount: number // 对应后端统计的文章数量
-}
+export type { TagItem } from '@/contracts/binaryApi'
 
 // ================= API 方法定义 =================
 

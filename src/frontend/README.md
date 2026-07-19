@@ -15,7 +15,10 @@ Vue 3 SPA 前端，集成 WebAssembly 解码引擎、Service Worker 离线搜索
 src/frontend/
 ├── src/
 │   ├── api/                # AEDS binary client + 各域 API 函数
-│   ├── adapters/           # Binary → ViewModel 数据映射（binaryToViewModel.ts）
+│   ├── adapters/           # Binary payload → contract 数据映射
+│   ├── codecs/             # 无业务归属的 binary reader 与 request encoder
+│   ├── composition/        # decoder registry 与 transport 组合根
+│   ├── contracts/          # API/adapter/worker 共享的无运行时依赖类型
 │   ├── composables/        # 业务组合函数（usePasskeyLogin, usePasskeyManagement 等）
 │   ├── store/              # Pinia 状态机（article, comment, auth 等）
 │   ├── views/              # 页面组件（auth/, user/, public/ 等）
@@ -78,6 +81,7 @@ npm run check:modern-standards        # 现代 API 约束
 npm run check:result-boundaries       # Result<T> 边界规范
 npm run check:security-consistency    # 安全配置一致性
 npm run check:error-code-alignment    # 错误码对齐
+npm run check:binary-import-boundaries # Binary API/transport/adapter 无环依赖
 npm run check:views-constraints       # 视图层约束
 npm run check:server-try-catch        # try-catch 规范
 ```

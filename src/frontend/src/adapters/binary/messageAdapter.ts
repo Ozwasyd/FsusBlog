@@ -1,6 +1,6 @@
-import type { ConversationDetailResponse, ConversationListItemResponse, ConversationMessagePreviewResponse, ConversationMessageResponse, PageResponse } from '@/api/message';
+import type { BinaryPageResponse as PageResponse, ConversationDetailResponse, ConversationListItemResponse, ConversationMessagePreviewResponse, ConversationMessageResponse } from '@/contracts/binaryApi';
 import { createAppError, AppErrorCode } from '@/utils/appError';
-import { BinaryReader, readBlobText, readByte, readInt32, readInt64String, readIsoDate64 } from './reader';
+import { BinaryReader, readBlobText, readByte, readInt32, readInt64String, readIsoDate64 } from '@/codecs/binary/reader';
 import { CONVERSATION_DETAIL_POD_SIZE, CONVERSATION_LIST_ITEM_POD_SIZE, CONVERSATION_MESSAGE_POD_SIZE, CONVERSATION_MESSAGE_PREVIEW_POD_SIZE } from './types';
 
 export function mapConversationListFromPayload(payload: Uint8Array): PageResponse<ConversationListItemResponse> {

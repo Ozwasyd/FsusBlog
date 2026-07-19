@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('@/services/binaryTransport', () => ({
+vi.mock('@/composition/binaryTransport', () => ({
   requestBinaryOnly: vi.fn()
 }))
 
-import { requestBinaryOnly } from '@/services/binaryTransport'
+import { requestBinaryOnly } from '@/composition/binaryTransport'
 import { getTags, createTag, updateTag, deleteTag } from '@/api/tag'
 import { getCategories, createCategory, updateCategory, deleteCategory } from '@/api/category'
 import { FrameType } from '@wasm/protocol/frame'

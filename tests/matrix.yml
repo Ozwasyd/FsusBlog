@@ -731,6 +731,7 @@ tiers:
               src/frontend/public/public-shell-emergency.css,
               src/frontend/src/assets/markdown.css,
               tests/frontend/checks/static/check-visual-density-governance.mjs,
+              tests/frontend/checks/static/check-binary-import-boundaries.mjs,
               tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs,
               tests/frontend/issue-1017-archive-sticky-evidence.json,
               tests/issue-1018-public-typography-evidence.json,

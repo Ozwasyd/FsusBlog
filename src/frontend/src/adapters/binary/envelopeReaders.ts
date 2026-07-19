@@ -1,7 +1,6 @@
-import type { CursorResponse } from '@/api/comment';
-import type { PageResponse } from '@/api/article';
+import type { BinaryPageResponse as PageResponse, CursorResponse } from '@/contracts/binaryApi';
 import { AppErrorCode, createAppError } from '@/utils/appError';
-import { BinaryReader, readCountChecked } from './reader';
+import { BinaryReader, readCountChecked } from '@/codecs/binary/reader';
 
 function ensureConsumed(reader: BinaryReader, trailingErrorCode: string): void {
   if (reader.remaining() !== 0) {

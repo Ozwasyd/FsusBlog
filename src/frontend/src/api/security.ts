@@ -1,15 +1,17 @@
 import type { ApiRequestConfig } from './requestConfig'
 import { FrameType } from '@wasm/protocol/frame'
-import { requestBinaryOnly } from '@/services/binaryTransport'
+import { requestBinaryOnly } from '@/composition/binaryTransport'
 import { encodeAedsFrame } from './binaryFrame'
 import {
   encodeSecurityChallengeIssueRequest,
-  encodeSecurityChallengeVerifyRequest,
-  encodeSecurityJsonRequest,
+  encodeSecurityChallengeVerifyRequest
+} from '@/codecs/binary/securityRequestEncoder'
+import { encodeJsonRequest } from '@/codecs/binary/jsonRequestEncoder'
+import {
   SecurityChallengeKind,
   type SecurityChallengeIssueResponse,
   type SecurityChallengeVerifyResponse
-} from '@/adapters/binary/securityAdapter'
+} from '@/contracts/binaryApi'
 import { FSUS_HEADERS } from './contracts'
 import { getBrowserFp } from '@/utils/fingerprint'
 
@@ -20,7 +22,7 @@ export type {
   SecurityChallengeIssueResponse,
   SecurityChallengeProviderPayload,
   SecurityChallengeVerifyResponse
-} from '@/adapters/binary/securityAdapter'
+} from '@/contracts/binaryApi'
 
 export type SecurityMode = 'disabled' | 'observe' | 'enforce' | 'strict' | 'lockdown'
 
@@ -501,7 +503,7 @@ const securityHeaders = (mfaProofToken?: string | null): Headers => {
 }
 
 function securityBody(frameType: FrameType, request: unknown): ArrayBuffer {
-  return encodeAedsFrame(frameType, encodeSecurityJsonRequest(request))
+  return encodeAedsFrame(frameType, encodeJsonRequest(request))
 }
 
 function securityChallengeHeaders(deviceFingerprint?: string): Headers {

@@ -1,5 +1,5 @@
 import { AppErrorCode, createAppError } from '@/utils/appError'
-import { readInt64Number } from './reader'
+import { readInt64Number } from '@/codecs/binary/reader'
 
 export function mapEmptySuccessFromPayload(payload: Uint8Array): null {
   if (payload.byteLength !== 4 || payload[0] !== 1) {

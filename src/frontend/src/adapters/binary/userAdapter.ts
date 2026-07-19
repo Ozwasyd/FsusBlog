@@ -1,7 +1,7 @@
-import type { AdminAccountListItem, PageResult } from '@/api/admin';
+import type { AdminAccountListItem, PageResult } from '@/contracts/binaryApi';
 import { AppErrorCode, createAppError } from '@/utils/appError';
 import { readPageEnvelope } from './envelopeReaders';
-import { BinaryReader, readByte, readFixedUtf8, readInt32, readIsoDate64 } from './reader';
+import { BinaryReader, readByte, readFixedUtf8, readInt32, readIsoDate64 } from '@/codecs/binary/reader';
 import { USER_LIST_ITEM_POD_SIZE } from './types';
 
 export function mapAdminUserPageFromPayload(payload: Uint8Array): PageResult<AdminAccountListItem> {

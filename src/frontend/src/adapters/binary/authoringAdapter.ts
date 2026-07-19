@@ -1,11 +1,6 @@
 import { AppErrorCode, createAppError } from '@/utils/appError';
 
-const encoder = new TextEncoder();
 const decoder = new TextDecoder('utf-8', { fatal: true });
-
-export function encodeAuthoringJsonRequest(value: unknown): Uint8Array {
-  return encoder.encode(JSON.stringify(value ?? {}));
-}
 
 export function mapAuthoringJsonFromPayload<T = unknown>(payload: Uint8Array): T {
   try {

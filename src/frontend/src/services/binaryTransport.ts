@@ -1,7 +1,19 @@
 import { BinaryRequestError, binaryRequest, type BinaryRequestOptions } from '@/api/binaryApiClient';
-import { decode, resolveAedsWorkerRuntimeModel, type AedsRuntimeDiagnostics } from '@wasm/aeds';
-import { mapFramePayloadToViewModel } from '@/adapters/binary';
-import { readFixedUtf8, readInt32 } from '@/adapters/binary/reader';
+import { decode, resolveAedsWorkerRuntimeModel } from '@wasm/aeds';
+import { readFixedUtf8, readInt32 } from '@/codecs/binary/reader';
+import { binaryDecodeWorkerProtocolVersion } from '@/contracts/binaryTransport';
+import type {
+  BinaryDecodeFailure,
+  BinaryDecodeResult,
+  BinaryDecodeSuccess,
+  BinaryFramePayloadDecoder,
+  BinaryTransportRequest,
+  CancelWorkerRequest,
+  DecodeWorkerRequest,
+  DecodeWorkerResponse,
+  TransportFailure,
+  TransportFailureKind
+} from '@/contracts/binaryTransport';
 import { AppError, AppErrorCode, createAppError, isAppError, toAppError } from '@/utils/appError';
 import { isAbortError } from '@/utils/errors';
 import { emitRumMetric, emitTelemetry } from '@/services/telemetryService';
@@ -15,59 +27,7 @@ import {
 } from '@/generated/fsusBinaryRoutes';
 
 
-type DecodeWorkerResponse = {
-  v: 1;
-  requestId: number;
-  ok: boolean;
-  frameType?: number;
-  data?: unknown;
-  errorCode?: string;
-  error?: string;
-  workerTransferMs?: number;
-  diagnostics?: AedsRuntimeDiagnostics;
-};
-
-type BinaryDecodeRequest = {
-  v: 1;
-  type: 'decode';
-  requestId: number;
-  buffer: ArrayBuffer;
-  expectedFrameType: FrameType;
-  sentAtUnixMs: number;
-};
-
-type BinaryCancelRequest = {
-  v: 1;
-  type: 'cancel';
-  requestId: number;
-};
-
-export type TransportFailureKind =
-  | 'binary_disabled'
-  | 'auth_failed'
-  | 'forbidden'
-  | 'not_found'
-  | 'conflict'
-  | 'validation'
-  | 'precondition_required'
-  | 'rate_limited'
-  | 'public_artifact_not_ready'
-  | 'client_route_contract'
-  | 'accept_contract'
-  | 'network'
-  | 'decode_failed';
-
-export type TransportFailure = {
-  kind: TransportFailureKind;
-  message: string;
-  status?: number;
-  traceId?: string;
-  backendCode?: number;
-  backendCategory?: number;
-  details?: string;
-  retryAfter?: string | null;
-  canceled?: boolean;
-};
+export type { TransportFailure, TransportFailureKind } from '@/contracts/binaryTransport';
 
 function transportFailureToCode(kind: TransportFailureKind): AppErrorCode {
   switch (kind) {
@@ -136,18 +96,6 @@ export class BinaryTransportError extends AppError {
     this.retryAfter = failure.retryAfter;
   }
 }
-
-type BinaryDecodeSuccess<T> = {
-  ok: true;
-  value: T;
-};
-
-type BinaryDecodeFailure = {
-  ok: false;
-  failure: TransportFailure;
-};
-
-type BinaryDecodeResult<T> = BinaryDecodeSuccess<T> | BinaryDecodeFailure;
 
 let workerSingleton: Worker | null = null;
 let requestSeq = 0;
@@ -253,8 +201,8 @@ function postWorkerCancel(requestId: number): void {
     return;
   }
 
-  const request: BinaryCancelRequest = {
-    v: 1,
+  const request: CancelWorkerRequest = {
+    v: binaryDecodeWorkerProtocolVersion,
     type: 'cancel',
     requestId
   };
@@ -463,8 +411,8 @@ function startWorkerDecode<T>(queued: QueuedDecodeRequest): void {
   });
 
   try {
-    const request: BinaryDecodeRequest = {
-      v: 1,
+    const request: DecodeWorkerRequest = {
+      v: binaryDecodeWorkerProtocolVersion,
       type: 'decode',
       requestId,
       buffer: queued.buffer,
@@ -528,6 +476,7 @@ function canUseDecodeWorker(): boolean {
 }
 
 async function loadBinaryAndDecode<T>(
+  decodeFramePayload: BinaryFramePayloadDecoder,
   url: string,
   frameType: FrameType,
   requestOptions?: BinaryRequestOptions,
@@ -572,7 +521,7 @@ async function loadBinaryAndDecode<T>(
       throw createAppError(AppErrorCode.ProtocolFailure, 'frame_type_unexpected');
     }
 
-    return mapFramePayloadToViewModel(frame.frameType, frame.payloadView) as T;
+    return decodeFramePayload(frame.frameType, frame.payloadView) as T;
   }
 
   const workerDecodeStartedAt = typeof performance !== 'undefined' ? performance.now() : 0;
@@ -589,12 +538,13 @@ async function loadBinaryAndDecode<T>(
 }
 
 async function loadBinaryAndDecodeSafe<T>(
+  decodeFramePayload: BinaryFramePayloadDecoder,
   url: string,
   frameType: FrameType,
   requestOptions?: BinaryRequestOptions,
   signal?: AbortSignal
 ): Promise<BinaryDecodeResult<T>> {
-  return loadBinaryAndDecode<T>(url, frameType, requestOptions, signal)
+  return loadBinaryAndDecode<T>(decodeFramePayload, url, frameType, requestOptions, signal)
     .then((value): BinaryDecodeSuccess<T> => ({ ok: true, value }))
     .catch(async (error: unknown) => {
       if (!signal?.aborted && error instanceof TypeError && error.message === 'Failed to fetch') {
@@ -694,22 +644,15 @@ function decodeApiErrorPayload(payloadView: Uint8Array): {
   };
 }
 
-export async function requestBinaryOnly<T>(options: {
-  binaryUrl?: string;
-  binaryRoute?: {
-    operationId: FsusBinaryOperationId;
-    params?: Record<string, string | number | bigint>;
-    query?: URLSearchParams | Record<string, string | number | boolean | null | undefined>;
-  };
-  frameType: FrameType;
-  requestOptions?: BinaryRequestOptions;
-  signal?: AbortSignal;
-  suppressAuthFailureTelemetry?: boolean;
-}): Promise<T> {
+async function requestBinaryOnlyWithDecoder<T>(
+  decodeFramePayload: BinaryFramePayloadDecoder,
+  options: BinaryTransportRequest
+): Promise<T> {
   const resolved = resolveBinaryRequest(options);
   const { binaryUrl, requestOptions } = resolved;
   const requestSignal = options.signal ?? requestOptions?.signal ?? undefined;
   let binaryResult = await loadBinaryAndDecodeSafe<T>(
+    decodeFramePayload,
     binaryUrl,
     options.frameType,
     requestOptions,
@@ -717,6 +660,7 @@ export async function requestBinaryOnly<T>(options: {
   );
   if (shouldRetryPublicReadWithPow(binaryResult, resolved)) {
     binaryResult = await loadBinaryAndDecodeSafe<T>(
+      decodeFramePayload,
       binaryUrl,
       options.frameType,
       {
@@ -786,6 +730,15 @@ export async function requestBinaryOnly<T>(options: {
     });
   }
   throw error;
+}
+
+export function createBinaryTransport(decodeFramePayload: BinaryFramePayloadDecoder): {
+  requestBinaryOnly<T>(options: BinaryTransportRequest): Promise<T>
+} {
+  return {
+    requestBinaryOnly: async <T>(options: BinaryTransportRequest): Promise<T> =>
+      await requestBinaryOnlyWithDecoder<T>(decodeFramePayload, options)
+  };
 }
 
 function resolveBinaryRequest(options: {
