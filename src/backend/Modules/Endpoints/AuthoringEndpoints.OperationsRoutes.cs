@@ -331,11 +331,11 @@ public static partial class AuthoringEndpoints
             HttpContext context,
             IAedsEncoder aeds,
             int? articleId,
-            AdminOperationsService operations,
+            [Microsoft.AspNetCore.Mvc.FromServices] IAdminCacheDiagnosticsReader diagnosticsReader,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            CacheDiagnosticsResponse response = await operations.GetCacheDiagnosticsAsync(articleId, cancellationToken);
+            CacheDiagnosticsResponse response = await diagnosticsReader.GetAsync(articleId, cancellationToken);
             await auditEvents.RecordAsync(new AuditEvent(
                 AuditSourceCatalog.Admin,
                 AuditTypeCatalog.Infra,

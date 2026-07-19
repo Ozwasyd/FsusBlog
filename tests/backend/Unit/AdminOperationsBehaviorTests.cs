@@ -2,7 +2,6 @@ using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Models.Dtos;
 
-using Microsoft.Extensions.Logging.Abstractions;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class AdminOperationsBehaviorTests
@@ -46,16 +45,10 @@ public sealed class AdminOperationsBehaviorTests
             backupStatusReader: null!,
             readinessProbe: null!,
             publicHotReadStore: null!,
-            publicHotReadCounters: null!,
-            publicAotInvalidationTracker: null!,
-            cacheInvalidationRuntime: null!,
-            hotStatsInvalidation: null!,
             auditLogRuntime: null!,
             dependencyGraphRuntime: new DependencyGraphRuntimeState(),
             startupRuntime: null!,
             scheduledPublishRuntime: null!,
             crawlerDetector: null!,
-            distributionService: null!,
-            cache: null!,
-            logger: NullLogger<AdminOperationsService>.Instance);
+            cacheDiagnosticsReader: null!);
 }
