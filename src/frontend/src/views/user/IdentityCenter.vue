@@ -1011,9 +1011,9 @@ watch(currentRouteName, () => {
 .identity-section-header__copy h1 {
   margin: 0;
   color: var(--fsusblog-text-primary);
-  font-size: 1rem;
+  font-size: 1.5rem;
   font-weight: 700;
-  line-height: 1.45;
+  line-height: 1.2;
   letter-spacing: 0;
 }
 
