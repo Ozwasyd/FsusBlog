@@ -18,6 +18,7 @@ public static class TestSecrets
     public const string RegionIpHashKey = "TEST_ONLY_DO_NOT_DEPLOY_REGION_IP_HASH_SECRET_0001";
     public const string ModerationPepper = "TEST_ONLY_DO_NOT_DEPLOY_MODERATION_PEPPER_0001";
     public const string SubscriptionEmailHashPepper = "TEST_ONLY_DO_NOT_DEPLOY_SUBSCRIPTION_HASH_PEPPER_0001";
+    public const string MessageAdminSessionAuditReferenceKey = "TEST_ONLY_DO_NOT_DEPLOY_MESSAGE_SESSION_AUDIT_KEY_0001";
     public const string AnonymousNullifierPepper = "TEST_ONLY_DO_NOT_DEPLOY_NULLIFIER_PEPPER_0001";
     public const string AnonymousRootAttestationKey = "TEST_ONLY_DO_NOT_DEPLOY_ROOT_ATTESTATION_SECRET_0001";
 }

@@ -998,6 +998,19 @@ scope、conversation/account id 和差异行数，不记录 subject/body。Redis
 `Messages:UnreadRepairEnabled=false` 可热暂停维护写入；正常消息读写继续使用现有投影，修复后
 直接重新启用，不允许绕过约束或把 Redis 提升为事实源。
 
+notification stream 的消息 payload 是正文最小化引用：`InboxMessageAppend.message.body`
+固定为空字符串，`InboxConversationUpsert.conversation.lastMessage` 固定为 `null`。事件仍保留
+conversation/message ID、sender type/name、createdAt 与 unread count；正文和预览只能通过
+已授权的 binary 列表/详情/delta 端点读取。账号客户端收到空正文 append 后执行
+`afterMessageId` 权威增量恢复，admin 客户端刷新当前列表/详情，不得把空正文显示为消息。
+
+消息保留以 UTC 活动时间执行：open/pending 365 天、closed 180 天、system governance 90 天。
+到期后保留 conversation/message ID、时间、状态、必要的 `AdminPrincipalId` 与不可逆 session
+audit reference，只把 subject/body 替换为固定 redaction marker 并删除附件 metadata。账号注销
+tombstone 会在下一次 cleanup 清除该账号写入的正文、会话主题、附件、参与者状态和 account mutation 关联；
+admin/system 写入按正常期限保留。清理可重复执行且日志、指标只记录计数，不包含正文。
+`Messages:RetentionCleanupEnabled=false` 可热暂停后续清理，但不恢复已清除内容。
+
 管理端列表与详情分别使用 `AdminConversationList(206)` 和 `AdminConversationDetail(207)`。
 这两个 admin-only frame 在原有 conversation 投影之外只增加
 `counterpartyAccountId` 与 `counterpartyAccountStatus`（`0=active`、`1=restricted`、

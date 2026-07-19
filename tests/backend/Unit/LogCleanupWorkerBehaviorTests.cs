@@ -4,6 +4,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Services.Background;
 
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -41,6 +42,14 @@ public sealed class LogCleanupWorkerBehaviorTests
 
         await using ServiceProvider services = new ServiceCollection()
             .AddScoped(_ => db)
+            .AddScoped(_ => new MessageRetentionCleanupService(
+                db,
+                new FixedTimeProvider(s_baselineNow),
+                new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    [MessageRetentionCleanupService.RuntimeGate] = "false"
+                }).Build(),
+                NullLogger<MessageRetentionCleanupService>.Instance))
             .BuildServiceProvider();
         var lease = new RecordingLease(allowRun: true);
         var worker = new LogCleanupService(

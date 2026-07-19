@@ -400,4 +400,44 @@ describe('message conversation cursor pagination', () => {
     expect(inbox.conversations.value[0]?.lastMessage?.bodyPreview).toBe('15')
     expect(inbox.conversations.value[0]?.unreadCount).toBe(1)
   })
+
+  it('treats body-free realtime append as a reference and reloads content from authority', async () => {
+    vi.mocked(messageApi.getAccountConversations).mockResolvedValue({
+      items: [conversation('3', '2026-07-19T12:00:11Z')],
+      total: 1,
+      nextCursor: null,
+      hasMore: false
+    })
+    vi.mocked(messageApi.getAccountConversationDetail).mockResolvedValue({
+      conversationId: '3', readSnapshotMessageId: '10', subject: 'three', status: 0,
+      isSystemSource: false, canReply: true, unreadCount: 0,
+      lastMessageAt: '2026-07-19T12:00:10Z', messages: [threadMessage('10')]
+    })
+    vi.mocked(messageApi.getAccountConversationDelta).mockResolvedValue({
+      conversationId: '3', readSnapshotMessageId: '11', subject: 'three', status: 0,
+      isSystemSource: false, canReply: true, unreadCount: 1,
+      lastMessageAt: '2026-07-19T12:00:11Z', messages: [threadMessage('11', 'authoritative body')],
+      previousCursor: null, hasOlder: false
+    })
+
+    const inbox = mountInbox()
+    await flushPromises()
+    inboxStore.inboxBatch = [{
+      module: 'inbox', kind: 'message-append', eventId: 20,
+      payload: {
+        conversationId: '3',
+        message: threadMessage('11', ''),
+        conversationUnreadCount: 1,
+        totalUnread: 1
+      }
+    }]
+    inboxStore.inboxRevision += 1
+    await flushPromises()
+
+    expect(messageApi.getAccountConversationDelta).toHaveBeenCalledWith('3', '10', expect.objectContaining({
+      signal: expect.any(AbortSignal)
+    }))
+    expect(inbox.detail.value?.messages.map((message) => message.body)).toEqual(['10', 'authoritative body'])
+    expect(inbox.detail.value?.messages.some((message) => message.body === '')).toBe(false)
+  })
 })

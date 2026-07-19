@@ -11,6 +11,7 @@ using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Pagination;
+using FsusBlog.Server.Infrastructure.Privacy;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Shared.Contracts.NotificationStream;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -1077,7 +1078,7 @@ public sealed class MessageCenterService(
                 SenderType = command.SenderType,
                 SenderAccountId = command.SenderAccountId,
                 SenderAdminPrincipalId = command.SenderAdminPrincipalId,
-                SenderAdminSessionId = command.SenderAdminSessionId,
+                SenderAdminSessionAuditReference = command.SenderAdminSessionAuditReference,
                 Body = command.Body,
                 ClientMutationPrincipalKind = command.MutationPrincipalKind,
                 ClientMutationPrincipalId = command.MutationPrincipalId,
@@ -1304,7 +1305,7 @@ public sealed class MessageCenterService(
         MessageSenderType SenderType,
         int? SenderAccountId,
         long? SenderAdminPrincipalId,
-        string? SenderAdminSessionId,
+        string? SenderAdminSessionAuditReference,
         long? ReadThroughMessageId,
         string MutationPrincipalKind,
         long MutationPrincipalId,
@@ -1427,7 +1428,7 @@ public sealed class MessageCenterService(
             MessageSenderType.Admin,
             null,
             adminActor.AdminPrincipalId,
-            adminActor.AdminSessionId,
+            ComputeAdminSessionAuditReference(adminActor.AdminSessionId),
             null,
             MessageMutationPrincipalKinds.Admin,
             adminActor.AdminPrincipalId,
@@ -1516,7 +1517,7 @@ public sealed class MessageCenterService(
                 PreviousStatus = previousStatus,
                 CurrentStatus = currentStatus,
                 AdminPrincipalId = adminActor.AdminPrincipalId,
-                AdminSessionAuditReference = adminActor.AdminSessionId,
+                AdminSessionAuditReference = ComputeAdminSessionAuditReference(adminActor.AdminSessionId),
                 Reason = normalizedReason,
                 CreatedAt = now
             }).ExecuteCommandAsync();
@@ -1742,7 +1743,9 @@ public sealed class MessageCenterService(
                 MutationRequestHash = requestHash,
                 CreatedByType = hasAdminPrincipal ? MessageSenderType.Admin : MessageSenderType.System,
                 CreatedByAdminPrincipalId = hasAdminPrincipal ? adminActor.AdminPrincipalId : null,
-                CreatedByAdminSessionId = hasAdminPrincipal ? adminActor.AdminSessionId : null,
+                CreatedByAdminSessionAuditReference = hasAdminPrincipal
+                    ? ComputeAdminSessionAuditReference(adminActor.AdminSessionId)
+                    : null,
                 CreatedAt = now,
                 UpdatedAt = now,
                 LastMessageAt = now
@@ -2115,7 +2118,7 @@ public sealed class MessageCenterService(
                    sendertype,
                    senderaccountid,
                    senderadminprincipalid,
-                   senderadminsessionid,
+                   senderadminsessionauditreference,
                    body,
                    isinternalnote,
                    createdat
@@ -2538,7 +2541,7 @@ public sealed class MessageCenterService(
         => notificationStreamPort.PublishToUserAsync(
             NotificationStreamEventType.InboxConversationUpsert,
             accountId,
-            new InboxConversationUpsertPayload(summary, totalUnread, DateTime.UtcNow),
+            new InboxConversationUpsertPayload(ToRealtimeConversationReference(summary), totalUnread, DateTime.UtcNow),
             "inbox-conversation-upsert",
             idempotencyKey);
 
@@ -2562,7 +2565,7 @@ public sealed class MessageCenterService(
 
         await notificationStreamPort.PublishToAdminUsersAsync(
             NotificationStreamEventType.InboxConversationUpsert,
-            new InboxConversationUpsertPayload(summary, null, DateTime.UtcNow),
+            new InboxConversationUpsertPayload(ToRealtimeConversationReference(summary), null, DateTime.UtcNow),
             "admin-conversation-upsert",
             idempotencyKey);
     }
@@ -2575,7 +2578,15 @@ public sealed class MessageCenterService(
         int? targetAccountId = null,
         string? idempotencyKey = null)
     {
-        var payload = new InboxMessageAppendPayload(conversationId, message, conversationUnreadCount, totalUnread, DateTime.UtcNow);
+        var payload = new InboxMessageAppendPayload(
+            conversationId,
+            message with
+            {
+                Body = string.Empty
+            },
+            conversationUnreadCount,
+            totalUnread,
+            DateTime.UtcNow);
         if (targetAccountId.HasValue)
         {
             return notificationStreamPort.PublishToUserAsync(NotificationStreamEventType.InboxMessageAppend, targetAccountId.Value, payload, "inbox-message-append-user", idempotencyKey);
@@ -2777,6 +2788,16 @@ public sealed class MessageCenterService(
             MessageContentViolation.GraphemeLimit => $"message_{field}_grapheme_limit_exceeded",
             MessageContentViolation.Utf8ByteLimit => $"message_{field}_utf8_limit_exceeded",
             _ => $"message_{field}_invalid"
+        };
+
+    private string ComputeAdminSessionAuditReference(string adminSessionId)
+        => MessageAdminSessionAuditReference.Create(configuration, adminSessionId);
+
+    private static ConversationListItemResponse ToRealtimeConversationReference(ConversationListItemResponse summary)
+        => summary switch
+        {
+            AdminConversationListItemResponse admin => admin with { LastMessage = null },
+            _ => summary with { LastMessage = null }
         };
 
     private Task AcquireMutationLockAsync(string principalKind, long principalId, string mutationId)

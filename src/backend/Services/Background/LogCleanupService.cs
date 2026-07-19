@@ -168,12 +168,14 @@ public class LogCleanupService(
                 fencedCommitExpireDate,
                 scopedToken),
             token);
+        Task<MessageRetentionCleanupResult> messageRetentionTask = CleanupMessageRetentionAsync(token);
         await Task.WhenAll(
             rumTask,
             auditTask,
             anonymousCredentialAuditTask,
             legacySecurityRiskTask,
-            fencedCommitTask);
+            fencedCommitTask,
+            messageRetentionTask);
         int fallbackFilesDeleted = fallbackRetentionPurger is null
             ? 0
             : await fallbackRetentionPurger.PurgeExpiredAsync(new DateTimeOffset(now, TimeSpan.Zero), token)
@@ -184,12 +186,14 @@ public class LogCleanupService(
         int anonymousCredentialAuditDeleted = await anonymousCredentialAuditTask;
         int legacySecurityRiskDeleted = await legacySecurityRiskTask;
         int fencedCommitDeleted = await fencedCommitTask;
+        MessageRetentionCleanupResult messageRetention = await messageRetentionTask;
 
         if (rumDeleted > 0
             || auditDeleted > 0
             || anonymousCredentialAuditDeleted > 0
             || legacySecurityRiskDeleted > 0
             || fencedCommitDeleted > 0
+            || messageRetention.ChangedRows > 0
             || fallbackFilesDeleted > 0)
         {
             _logger.LogInformation(
@@ -201,6 +205,15 @@ public class LogCleanupService(
                 fencedCommitDeleted,
                 fallbackFilesDeleted);
         }
+    }
+
+    private async Task<MessageRetentionCleanupResult> CleanupMessageRetentionAsync(CancellationToken token)
+    {
+        await using ObservedAsyncServiceScope scope = DependencyInjectionScopeTelemetry.CreateAsyncScope(
+            _serviceProvider,
+            "message_retention_cleanup");
+        var cleanup = scope.ServiceProvider.GetRequiredService<MessageRetentionCleanupService>();
+        return await cleanup.CleanupAsync(token).ConfigureAwait(false);
     }
 
     private async Task<int> CleanupWithScopedDbAsync(

@@ -72,12 +72,12 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
 
         Assert.True(result.IsSuccess, result.Error.Message);
         var detail = Assert.IsType<FsusBlog.Shared.Contracts.Outputs.ConversationDetailResponse>(result.Value);
-        Assert.Equal("无法读取文章", detail.Subject);
+        Assert.Equal("  无法读取文章  ", detail.Subject);
         Assert.Equal(ConversationStatusValue.Open, detail.Status);
         Assert.True(detail.CanReply);
         Assert.Equal(0, detail.UnreadCount);
         ConversationMessageResponse message = Assert.Single(detail.Messages);
-        Assert.Equal("文章详情返回空状态。", message.Body);
+        Assert.Equal("  文章详情返回空状态。  ", message.Body);
         Assert.Equal(ConversationSenderValue.Account, message.SenderType);
 
         MessageConversation conversation = Assert.Single(await db.Queryable<MessageConversation>().ToListAsync());
@@ -487,7 +487,8 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         Assert.All(audit, item =>
         {
             Assert.Equal(7, item.AdminPrincipalId);
-            Assert.Equal("admin-session-audit-7", item.AdminSessionAuditReference);
+            Assert.Equal(64, item.AdminSessionAuditReference.Length);
+            Assert.NotEqual("admin-session-audit-7", item.AdminSessionAuditReference);
             Assert.False(string.IsNullOrWhiteSpace(item.Reason));
         });
 
@@ -615,6 +616,11 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             new AdminMessageActor(7, "admin-session-7"));
         Assert.True(adminReply.IsSuccess, adminReply.Error.Message);
         long adminReplyMessageId = long.Parse(adminReply.Value!.MessageId);
+        ConversationMessage storedAdminReply = Assert.IsType<ConversationMessage>(
+            await db.Queryable<ConversationMessage>().InSingleAsync(adminReplyMessageId));
+        Assert.Equal(7, storedAdminReply.SenderAdminPrincipalId);
+        Assert.Equal(64, storedAdminReply.SenderAdminSessionAuditReference?.Length);
+        Assert.NotEqual("admin-session-7", storedAdminReply.SenderAdminSessionAuditReference);
         queue = Assert.IsType<AdminConversationQueueState>(
             await db.Queryable<AdminConversationQueueState>().InSingleAsync(conversationId));
         Assert.Equal(0, queue.UnreadCount);
@@ -760,9 +766,22 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         AdminConversationListItemResponse realtimeProjection = Assert.IsType<AdminConversationListItemResponse>(realtime.Conversation);
         Assert.Equal(adminItem.CounterpartyAccountId, realtimeProjection.CounterpartyAccountId);
         Assert.Equal(adminItem.CounterpartyAccountStatus, realtimeProjection.CounterpartyAccountStatus);
+        Assert.Null(realtimeProjection.LastMessage);
         Assert.DoesNotContain(
             realtimeProjection.GetType().GetProperties(),
             property => property.Name.Contains("Session", StringComparison.OrdinalIgnoreCase));
+
+        MessageMutationOutbox adminAppend = Assert.IsType<MessageMutationOutbox>(
+            await db.Queryable<MessageMutationOutbox>()
+                .Where(item => item.AudienceKind == MessageMutationOutboxAudiences.Admins && item.EventKind == MessageMutationOutboxEventKinds.MessageAppend)
+                .FirstAsync());
+        await service.DeliverAsync(adminAppend, CancellationToken.None);
+        var appendCall = notifications.ReceivedCalls().Last(call =>
+            call.GetMethodInfo().Name == nameof(IMessageNotificationStreamPort.PublishToAdminUsersAsync) &&
+            Equals(call.GetArguments()[0], NotificationStreamEventType.InboxMessageAppend));
+        InboxMessageAppendPayload appendPayload = Assert.IsType<InboxMessageAppendPayload>(appendCall.GetArguments()[1]);
+        Assert.Empty(appendPayload.Message.Body);
+        Assert.Equal(adminAppend.MessageId?.ToString(CultureInfo.InvariantCulture), appendPayload.Message.MessageId);
     }
 
     [Fact]
@@ -1275,7 +1294,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
                 ConversationId = ConversationId,
                 SenderType = MessageSenderType.Admin,
                 SenderAdminPrincipalId = 7,
-                SenderAdminSessionId = "admin-fixture",
+                SenderAdminSessionAuditReference = "admin-fixture",
                 Body = "visible before detail",
                 CreatedAt = now.AddSeconds(1)
             }
@@ -1351,7 +1370,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             ConversationId = ConversationId,
             SenderType = MessageSenderType.Admin,
             SenderAdminPrincipalId = 7,
-            SenderAdminSessionId = "admin-internal",
+            SenderAdminSessionAuditReference = "admin-internal",
             Body = "internal only",
             IsInternalNote = true,
             CreatedAt = DateTime.UtcNow
@@ -1429,7 +1448,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
                 SenderType = i % 2 == 0 ? MessageSenderType.Account : MessageSenderType.Admin,
                 SenderAccountId = i % 2 == 0 ? AccountId : null,
                 SenderAdminPrincipalId = i % 2 == 0 ? null : 7,
-                SenderAdminSessionId = i % 2 == 0 ? null : "long-thread-fixture",
+                SenderAdminSessionAuditReference = i % 2 == 0 ? null : "long-thread-fixture",
                 Body = $"message-{i:D4}",
                 CreatedAt = baseline.AddSeconds(i)
             });
@@ -1440,7 +1459,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             ConversationId = ConversationId,
             SenderType = MessageSenderType.Admin,
             SenderAdminPrincipalId = 7,
-            SenderAdminSessionId = "internal-fixture",
+            SenderAdminSessionAuditReference = "internal-fixture",
             Body = "internal-only",
             IsInternalNote = true,
             CreatedAt = baseline.AddSeconds(MessageCount + 1)
@@ -1476,7 +1495,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             ConversationId = ConversationId,
             SenderType = MessageSenderType.Admin,
             SenderAdminPrincipalId = 8,
-            SenderAdminSessionId = "concurrent-fixture",
+            SenderAdminSessionAuditReference = "concurrent-fixture",
             Body = "arrived-after-first-page",
             CreatedAt = baseline.AddSeconds(MessageCount + 2)
         }).ExecuteCommandAsync();
@@ -1564,7 +1583,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
                 ConversationId = conversationId,
                 SenderType = MessageSenderType.Admin,
                 SenderAdminPrincipalId = 7,
-                SenderAdminSessionId = "pagination-fixture",
+                SenderAdminSessionAuditReference = "pagination-fixture",
                 Body = $"message-{i:D3}",
                 CreatedAt = lastMessageAt
             });
@@ -1715,7 +1734,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
                 ConversationId = conversationId,
                 SenderType = MessageSenderType.Admin,
                 SenderAdminPrincipalId = adminPrincipalId,
-                SenderAdminSessionId = $"admin-{adminPrincipalId}",
+                SenderAdminSessionAuditReference = $"admin-{adminPrincipalId}",
                 Body = body,
                 CreatedAt = now
             }).ExecuteCommandAsync();

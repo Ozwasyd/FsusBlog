@@ -63,7 +63,7 @@ public sealed class ProductionStartupValidationReport(
 
 public static class ProductionStartupValidator
 {
-    private const int SchemaVersion = 20;
+    private const int SchemaVersion = 21;
     private const int PerceptionSealedTokenKeyByteCount = 32;
     private static readonly TimeSpan s_coreValidationCacheTtl = TimeSpan.FromSeconds(15);
     private static readonly object s_coreValidationCacheLock = new();
@@ -185,6 +185,7 @@ public static class ProductionStartupValidator
         Value("Moderation:RegionPolicy:IpHashKey"),
         Value("Moderation:Pepper"),
         Value("Subscription:EmailHashPepper"),
+        Value(MessageAdminSessionAuditReference.KeyName),
         Value("AnonymousIdentity:NullifierPepper"),
         Value("AnonymousCredentialRoot:AttestationKey"),
         Value(DataProtectionKeyProtection.ModeKey),
@@ -302,6 +303,7 @@ public static class ProductionStartupValidator
         string? regionIpHashKey = values["Moderation:RegionPolicy:IpHashKey"];
         string? moderationPepper = values["Moderation:Pepper"];
         string? subscriptionEmailHashPepper = values["Subscription:EmailHashPepper"];
+        string? messageAdminSessionAuditReferenceKey = values[MessageAdminSessionAuditReference.KeyName];
         string? anonymousNullifierPepper = values["AnonymousIdentity:NullifierPepper"];
         string? anonymousRootAttestationKey = values["AnonymousCredentialRoot:AttestationKey"];
         string? anonymousIdentityMode = values[AnonymousIdentityRuntime.ModeEnvironmentVariable];
@@ -374,6 +376,7 @@ public static class ProductionStartupValidator
         ValidateIndependentSecuritySecret("Moderation:RegionPolicy:IpHashKey", regionIpHashKey, jwtSecret, [], errors);
         ValidateIndependentSecuritySecret("Moderation:Pepper", moderationPepper, jwtSecret, s_defaultModerationPeppers, errors);
         ValidateIndependentSecuritySecret("Subscription:EmailHashPepper", subscriptionEmailHashPepper, jwtSecret, s_defaultSubscriptionEmailHashPeppers, errors);
+        ValidateIndependentSecuritySecret(MessageAdminSessionAuditReference.KeyName, messageAdminSessionAuditReferenceKey, jwtSecret, [], errors);
         ValidateIndependentSecuritySecret("AnonymousIdentity:NullifierPepper", anonymousNullifierPepper, jwtSecret, s_defaultAnonymousNullifierPeppers, errors);
         ValidateIndependentSecuritySecret("AnonymousCredentialRoot:AttestationKey", anonymousRootAttestationKey, jwtSecret, s_defaultAnonymousRootAttestationKeys, errors);
 

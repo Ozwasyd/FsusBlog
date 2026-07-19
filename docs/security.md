@@ -286,6 +286,15 @@ JWT 签发结果必须同时携带 access token 字符串与其绝对 `ExpiresAt
 
 普通消息 `/api/binary/messages/**` 端点属于匿名账号自服务平面，也必须挂 `RequireAnonymousAccountPrincipal()`，并通过 `AccountPrincipalContext.AccountId` 读取账号身份；不得使用 legacy `CurrentUser` binder 或裸 `.RequireAuthorization()`。管理消息 `/api/binary/admin/messages/**` 保持 independent admin principal 平面，写入操作只通过 `AdminMessageActor(adminPrincipalId, adminSessionId)` 归因。
 
+消息域永久保留必要的 admin principal，但不得长期保存 raw admin session ID。
+`Messages:AdminSessionAuditReferenceKey` 必须是至少 32 字符、与 JWT 独立的部署 secret；新写入只保存
+其 HMAC-SHA256 audit reference，已有 raw session 替换为独立随机 legacy audit ID 后清空，并由
+数据库约束阻止重新写入。notification stream append/upsert 不携带正文或预览，结构化日志、
+metrics 和 outbox delivery identity 也不得记录 subject/body。保留清理按 open/pending 365 天、
+closed 180 天、system governance 90 天清除内容；下一次 cleanup 检测到账号注销 tombstone 后清除账号 authored content、主题、
+附件和账号关联，但保留调查所需的 admin principal 与不可逆 audit reference。
+`Messages:RetentionCleanupEnabled=false` 可无需重启暂停未来清理；已 redacted 的正文不可逆恢复。
+
 普通可归因评论 `POST /api/binary/comment` 与 `GET /api/binary/comment/me` 同属匿名账号自服务平面，必须挂 `RequireAnonymousAccountPrincipal()` 并通过 `AccountPrincipalContext.AccountId` 读取账号身份；不得在 handler 内调用 `GetUserId()` 或接受 AdminPrincipal。`DELETE /api/binary/comment/{id}` 同时承载账号自删和管理删除，但服务边界必须拆成账号 actor 与 `AdminPrincipalActor(adminPrincipalId, adminSessionId)` 两条路径，不得用 `int userId + bool isAdmin` 混合表达身份平面。
 
 **Independent admin principal plane**：后台控制面身份保存在 `admin_principal`、`admin_session`、`admin_passkey_credential` 和 `admin_audit_log`，不复用 `sys_user` / `sys_user_session`。首次 root admin 只能通过 `/api/binary/auth/admin/bootstrap/passkey/begin|complete` 创建，必须提供 `X-Fsus-Admin-Bootstrap-Token`，其值来自 `FSUSBLOG_ADMIN_BOOTSTRAP_TOKEN` 或 `Admin:BootstrapToken`；一旦存在 active root admin，bootstrap 永久拒绝再次执行。root bootstrap complete 必须在数据库事务内获取 PostgreSQL transaction-scoped advisory lock，重新检查 active root，插入 `admin_principal`、`admin_passkey_credential`、`admin_session` 并写 `admin_audit_log`；`admin_principal` 还必须有 active root partial unique index，唯一冲突统一返回 `Root admin already exists`，不得留下 orphan credential/session。admin 登录只走 `/api/binary/auth/admin/login/passkey/begin|complete` 的 Passkey/Security Key assertion，不接受 username/password。成功后只写独立 `AdminAccessToken` / `AdminSessionId` 或 `__Host-AdminAccessToken` / `__Host-AdminSessionId` Cookie，JWT claims 包含 `identity_kind=admin_principal`、`admin_id`、`admin_sid` 和多值 `admin_permission`，不携带 `ClaimTypes.Role` / `role=admin`。当前权限集合包括 `article.write`、`article.publish`、`comment.moderate`、`anonymous.comment.configure`、`anonymous.nullifier.block`、`anonymous.credential.revoke`、`audit.read`、`system.config`、`admin.manage`。后台控制面 endpoint 必须通过 `RequireAdminPermission(...)` 或等效 policy 同时校验 `identity_kind=admin_principal` 与具体 `admin_permission`，不得接受 legacy `sys_user.role=admin` 或 `[Authorize(Roles=\"admin\")]` / `RequireRole(\"admin\")`。每次 admin access token 通过 JWT 签名、issuer、audience 和 exp 校验后，还必须请求期回查 `admin_session`：`admin_id/admin_sid` 必须存在，principal 必须 active，session 必须未撤销、未 idle/absolute 到期，`AccessTokenHash` 必须匹配当前 token，且 session 的 principal id 必须与 token 一致；失败时拒绝认证并清理 admin cookies，成功时更新 `LastSeenAtUtc`。bootstrap、login、admin passkey step-up 和后续 recovery/session 治理操作必须写入 `admin_audit_log`；普通用户 MFA/TOTP 不参与 admin-sensitive 授权。
@@ -577,6 +586,7 @@ production 不允许以 stale in-memory fence 维持授权。强制 startup prob
 Destructive worker qualification 只能运行在隔离的 `ASPNETCORE_ENVIRONMENT=Test` topology，使用受限 process-group/PID identity 和显式 file handshake。它必须与 production normal rollout 使用不同 rollout ID，且不能强杀 production source、复用真实 admin secret 或把 nine-kind qualification ledger 写成 normal evidence。最终 evidence bundle 只收集 hash-bound allowlist，不复制 env、header、storage state、完整请求或任意未引用文件。
 
 - [ ] JWT 密钥来自部署 secret，不在共享配置中保存默认值，且不为默认/占位/短密钥
+- [ ] `Messages:AdminSessionAuditReferenceKey` 来自独立部署 secret，长度至少 32 字符且不复用 JWT 密钥
 - [ ] Redis 密码不为空
 - [ ] `FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1`，生产不允许 legacy `sys_user.role=admin` 授予后台权限
 - [ ] `SITE_BASEURL` 以 `https://` 开头

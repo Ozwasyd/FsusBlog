@@ -101,7 +101,27 @@ public sealed class MessageConversation
     }
 
     [SugarColumn(IsNullable = true, Length = 64)]
-    public string? CreatedByAdminSessionId
+    public string? CreatedByAdminSessionAuditReference
+    {
+        get; set;
+    }
+
+    [Obsolete("Migration-only compatibility column; raw admin sessions must remain null.", true)]
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+    [SugarColumn(ColumnName = "createdbyadminsessionid", IsNullable = true, Length = 64)]
+    public string? LegacyRawAdminSessionStorageMustRemainNull
+    {
+        get; set;
+    }
+
+    [SugarColumn(IsNullable = true)]
+    public DateTime? ContentRedactedAt
+    {
+        get; set;
+    }
+
+    [SugarColumn(IsNullable = true, Length = 32)]
+    public string? ContentRedactionReason
     {
         get; set;
     }
@@ -198,7 +218,15 @@ public sealed class ConversationMessage
     }
 
     [SugarColumn(IsNullable = true, Length = 64)]
-    public string? SenderAdminSessionId
+    public string? SenderAdminSessionAuditReference
+    {
+        get; set;
+    }
+
+    [Obsolete("Migration-only compatibility column; raw admin sessions must remain null.", true)]
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+    [SugarColumn(ColumnName = "senderadminsessionid", IsNullable = true, Length = 64)]
+    public string? LegacyRawAdminSessionStorageMustRemainNull
     {
         get; set;
     }
@@ -213,6 +241,18 @@ public sealed class ConversationMessage
     }
 
     public bool IsInternalNote
+    {
+        get; set;
+    }
+
+    [SugarColumn(IsNullable = true)]
+    public DateTime? ContentRedactedAt
+    {
+        get; set;
+    }
+
+    [SugarColumn(IsNullable = true, Length = 32)]
+    public string? ContentRedactionReason
     {
         get; set;
     }

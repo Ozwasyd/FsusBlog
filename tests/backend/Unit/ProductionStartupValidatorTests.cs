@@ -80,6 +80,7 @@ public sealed class ProductionStartupValidatorTests
             ["Moderation:RegionPolicy:IpHashKey"] = TestSecrets.RegionIpHashKey,
             ["Moderation:Pepper"] = TestSecrets.ModerationPepper,
             ["Subscription:EmailHashPepper"] = TestSecrets.SubscriptionEmailHashPepper,
+            [MessageAdminSessionAuditReference.KeyName] = TestSecrets.MessageAdminSessionAuditReferenceKey,
             ["AnonymousIdentity:NullifierPepper"] = TestSecrets.AnonymousNullifierPepper,
             ["AnonymousCredentialRoot:AttestationKey"] = TestSecrets.AnonymousRootAttestationKey,
             ["DataProtection:ApplicationName"] = "FsusBlog",
@@ -155,6 +156,33 @@ public sealed class ProductionStartupValidatorTests
         Assert.Contains(missing, static error => error.Contains(SecurityRiskPseudonymizer.CurrentKeyKey, StringComparison.Ordinal));
         Assert.Contains(weak, static error => error.Contains("strong base64", StringComparison.Ordinal));
         Assert.Contains(reused, static error => error.Contains("must not reuse Jwt:SecretKey", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ValidateCore_RejectsMissingWeakOrJwtReusedMessageAdminSessionAuditReferenceKey()
+    {
+        IReadOnlyList<string> missing = ProductionStartupValidator.ValidateCore(
+            CreateValidProductionConfiguration(new Dictionary<string, string?>
+            {
+                [MessageAdminSessionAuditReference.KeyName] = null
+            }),
+            enforceProductionRules: true);
+        IReadOnlyList<string> weak = ProductionStartupValidator.ValidateCore(
+            CreateValidProductionConfiguration(new Dictionary<string, string?>
+            {
+                [MessageAdminSessionAuditReference.KeyName] = "weak"
+            }),
+            enforceProductionRules: true);
+        IReadOnlyList<string> reused = ProductionStartupValidator.ValidateCore(
+            CreateValidProductionConfiguration(new Dictionary<string, string?>
+            {
+                [MessageAdminSessionAuditReference.KeyName] = TestSecrets.JwtSigningKey
+            }),
+            enforceProductionRules: true);
+
+        Assert.Contains(missing, static error => error.Contains(MessageAdminSessionAuditReference.KeyName, StringComparison.Ordinal));
+        Assert.Contains(weak, static error => error.Contains("at least 32 characters", StringComparison.Ordinal));
+        Assert.Contains(reused, static error => error.Contains("must not equal Jwt:SecretKey", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -667,7 +695,7 @@ public sealed class ProductionStartupValidatorTests
             configuration,
             enforceProductionRules: true);
 
-        Assert.Equal(20, report.SchemaVersion);
+        Assert.Equal(21, report.SchemaVersion);
         Assert.Equal(ProductionStartupValidator.CurrentSchema.Version, report.SchemaVersion);
         Assert.Equal(
             ProductionStartupValidator.CurrentSchema.RequiredSettings.Order(StringComparer.Ordinal),
@@ -697,6 +725,7 @@ public sealed class ProductionStartupValidatorTests
         Assert.Contains("Moderation:RegionPolicy:IpHashKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Moderation:Pepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Subscription:EmailHashPepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
+        Assert.Contains(MessageAdminSessionAuditReference.KeyName, ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("AnonymousIdentity:NullifierPepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("AnonymousCredentialRoot:AttestationKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("DataProtection:KeyProtection:Mode", ProductionStartupValidator.CurrentSchema.RequiredSettings);
@@ -1039,6 +1068,7 @@ public sealed class ProductionStartupValidatorTests
             ["Moderation:RegionPolicy:IpHashKey"] = TestSecrets.RegionIpHashKey,
             ["Moderation:Pepper"] = TestSecrets.ModerationPepper,
             ["Subscription:EmailHashPepper"] = TestSecrets.SubscriptionEmailHashPepper,
+            [MessageAdminSessionAuditReference.KeyName] = TestSecrets.MessageAdminSessionAuditReferenceKey,
             ["AnonymousIdentity:NullifierPepper"] = TestSecrets.AnonymousNullifierPepper,
             ["AnonymousCredentialRoot:AttestationKey"] = TestSecrets.AnonymousRootAttestationKey,
             ["DataProtection:ApplicationName"] = "FsusBlog",

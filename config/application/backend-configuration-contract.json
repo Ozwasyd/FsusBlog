@@ -5311,6 +5311,66 @@
             "deprecation": null
         },
         {
+            "key": "Messages:AdminSessionAuditReferenceKey",
+            "owner": "privacy",
+            "purpose": "Keyed audit references replace raw administrator session identifiers in message storage.",
+            "valueType": "secret-string",
+            "environments": [
+                "Development",
+                "Production"
+            ],
+            "allowedSources": [
+                "environment",
+                "repository-base",
+                "repository-production-overlay",
+                "secret-store"
+            ],
+            "environmentVariables": [
+                "Messages__AdminSessionAuditReferenceKey"
+            ],
+            "secret": true,
+            "requiredStatus": "required",
+            "requiredWhen": "Production",
+            "repositoryValuePolicy": "empty-only",
+            "allowEmptyBaseValue": true,
+            "validation": {
+                "kind": "startup",
+                "owner": "ProductionStartupValidator"
+            },
+            "documentation": "docs/security.md",
+            "consumer": "src/backend/Infrastructure/Privacy/MessageAdminSessionAuditReference.cs",
+            "runtimeOnly": false,
+            "deprecation": null
+        },
+        {
+            "key": "Messages:RetentionCleanupEnabled",
+            "owner": "privacy",
+            "purpose": "Hot-reloadable gate for idempotent message content retention and account-erasure cleanup.",
+            "valueType": "boolean",
+            "environments": [
+                "Development",
+                "Production"
+            ],
+            "allowedSources": [
+                "repository-base",
+                "repository-production-overlay"
+            ],
+            "environmentVariables": [],
+            "secret": false,
+            "requiredStatus": "optional",
+            "requiredWhen": "optional",
+            "repositoryValuePolicy": "safe-non-secret-default",
+            "allowEmptyBaseValue": false,
+            "validation": {
+                "kind": "consumer",
+                "owner": "message retention cleanup"
+            },
+            "documentation": "docs/security.md",
+            "consumer": "src/backend/Services/Background/MessageRetentionCleanupService.cs",
+            "runtimeOnly": false,
+            "deprecation": null
+        },
+        {
             "key": "VisitLog:IpPseudonymization:CurrentEpoch",
             "owner": "privacy",
             "purpose": "Privacy-preserving read and visit controls setting: CurrentEpoch",

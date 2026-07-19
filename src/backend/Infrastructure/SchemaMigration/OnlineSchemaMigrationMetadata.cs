@@ -588,6 +588,51 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
+            MessagePrivacyRetentionMigrationDefinitions.MigrationId,
+            new OnlineSchemaMigrationMetadata(
+                MessagePrivacyRetentionMigrationDefinitions.MigrationId,
+                OnlineSchemaMigrationPhase.Contract,
+                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                RequiresExclusiveMode: true,
+                Destructive: true,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.BackupRestore,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Medium,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtRelease: "20260719-message-privacy-retention",
+                ContractAfterRelease: "20260719-message-privacy-retention-expand",
+                MinimumRetentionWindow: TimeSpan.FromDays(DestructiveMigrationProofs.MinimumRollbackWindowDays),
+                Validators:
+                [
+                    "destructive_rollback_window_proof",
+                    "n_minus_one_read_write",
+                    "fresh_backup_restore",
+                    "message_admin_session_reference_integrity"
+                ]));
+
+        result.Add(
+            PasskeySignalMigrationDefinitions.MigrationId,
+            new OnlineSchemaMigrationMetadata(
+                PasskeySignalMigrationDefinitions.MigrationId,
+                OnlineSchemaMigrationPhase.Expand,
+                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtRelease: "20260720-passkey-signal-version",
+                ContractAfterRelease: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write",
+                    "passkey_signal_snapshot_version"
+                ]));
+
+        result.Add(
             UserSessionMultiDeviceMigrationDefinitions.MigrationId,
             new OnlineSchemaMigrationMetadata(
                 UserSessionMultiDeviceMigrationDefinitions.MigrationId,

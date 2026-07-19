@@ -668,7 +668,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         Assert.True(await fixture.IndexExistsAsync(connectionString, "ux_article_rights_snapshot_article_revision"));
         Assert.True(await fixture.IndexExistsAsync(connectionString, "ux_article_rights_proof_idempotency"));
         Assert.Equal(2, policyCountAfterFirstRun);
-        Assert.Equal(1, snapshotCountAfterFirstRun);
+        Assert.Equal(2, snapshotCountAfterFirstRun);
         Assert.Equal(policyCountAfterFirstRun, await fixture.QueryScalarAsync<int>(
             connectionString,
             "SELECT COUNT(1) FROM article_rights_policy;"));
@@ -1451,12 +1451,31 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
                 PRIMARY KEY (conversationid, accountid)
             );
 
-            INSERT INTO msg_conversation(id, initiatoruserid, initiatoraccountid, createdbyid, createdbyaccountid)
-            VALUES (2001, 7, 7, 7, 7);
-            INSERT INTO msg_message(id, conversationid, senderid, senderaccountid, body)
-            VALUES (3001, 2001, 7, 7, 'legacy body');
+            INSERT INTO msg_conversation(
+                id, initiatoruserid, initiatoraccountid, createdbyid, createdbyaccountid,
+                createdbyadminprincipalid, createdbyadminsessionid)
+            VALUES (2001, 7, 7, 7, 7, 44, 'raw-admin-session-conversation');
+            INSERT INTO msg_message(
+                id, conversationid, senderid, senderaccountid, senderadminprincipalid,
+                senderadminsessionid, body)
+            VALUES (3001, 2001, 7, 7, 44, 'raw-admin-session-message', 'legacy body');
             INSERT INTO msg_participant_state(conversationid, userid, accountid)
             VALUES (2001, 7, 7);
+
+            CREATE TABLE msg_conversation_status_event (
+                id bigint PRIMARY KEY,
+                conversationid bigint NOT NULL,
+                previousstatus integer NOT NULL,
+                currentstatus integer NOT NULL,
+                adminprincipalid bigint NOT NULL,
+                adminsessionauditreference varchar(64) NOT NULL,
+                reason varchar(256) NOT NULL,
+                createdat timestamp NOT NULL
+            );
+            INSERT INTO msg_conversation_status_event(
+                id, conversationid, previousstatus, currentstatus, adminprincipalid,
+                adminsessionauditreference, reason, createdat)
+            VALUES (4001, 2001, 0, 1, 44, 'raw-admin-session-status', 'legacy', now());
             """);
 
         await RunMigrationsAsync(connectionString);
@@ -1464,6 +1483,10 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
 
         Assert.False(await fixture.ColumnExistsAsync(connectionString, "msg_conversation", "initiatoruserid"));
         Assert.False(await fixture.ColumnExistsAsync(connectionString, "msg_message", "senderid"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "msg_conversation", "createdbyadminsessionid"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "msg_message", "senderadminsessionid"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "msg_conversation", "createdbyadminsessionauditreference"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "msg_message", "senderadminsessionauditreference"));
         Assert.False(await fixture.ColumnExistsAsync(connectionString, "msg_participant_state", "userid"));
         Assert.False(await TriggerExistsAsync(connectionString, "msg_conversation", "trg_msg_conversation_identity_sync"));
         Assert.False(await TriggerExistsAsync(connectionString, "msg_message", "trg_msg_message_identity_sync"));
@@ -1481,6 +1504,21 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         Assert.Equal(1, await fixture.QueryScalarAsync<int>(
             connectionString,
             "SELECT COUNT(1) FROM msg_participant_state WHERE conversationid = 2001 AND accountid = 7;"));
+        Assert.Equal(1, await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(1) FROM msg_conversation WHERE id = 2001 AND createdbyadminprincipalid = 44 AND createdbyadminsessionauditreference LIKE 'legacy-conversation-%';"));
+        Assert.Equal(1, await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(1) FROM msg_conversation WHERE id = 2001 AND createdbyadminsessionid IS NULL;"));
+        Assert.Equal(1, await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(1) FROM msg_message WHERE id = 3001 AND senderadminprincipalid = 44 AND senderadminsessionauditreference LIKE 'legacy-message-%';"));
+        Assert.Equal(1, await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(1) FROM msg_message WHERE id = 3001 AND senderadminsessionid IS NULL;"));
+        Assert.Equal(1, await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(1) FROM msg_conversation_status_event WHERE id = 4001 AND adminprincipalid = 44 AND adminsessionauditreference LIKE 'legacy-status-%';"));
     }
 
     [Fact]

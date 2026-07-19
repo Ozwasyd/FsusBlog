@@ -161,10 +161,10 @@ public sealed class MessageCenterServiceTests
         Assert.Contains(nameof(MessageConversation.InitiatorAccountId), conversation);
         Assert.Contains(nameof(MessageConversation.CreatedByAccountId), conversation);
         Assert.Contains(nameof(MessageConversation.CreatedByAdminPrincipalId), conversation);
-        Assert.Contains(nameof(MessageConversation.CreatedByAdminSessionId), conversation);
+        Assert.Contains(nameof(MessageConversation.CreatedByAdminSessionAuditReference), conversation);
         Assert.Contains(nameof(ConversationMessage.SenderAccountId), message);
         Assert.Contains(nameof(ConversationMessage.SenderAdminPrincipalId), message);
-        Assert.Contains(nameof(ConversationMessage.SenderAdminSessionId), message);
+        Assert.Contains(nameof(ConversationMessage.SenderAdminSessionAuditReference), message);
         Assert.Contains(nameof(ConversationParticipantState.AccountId), participant);
         Assert.Contains(nameof(AdminConversationQueueState.ConversationId), adminQueue);
         Assert.Contains(nameof(AdminConversationQueueState.LastReadMessageId), adminQueue);
@@ -183,7 +183,8 @@ public sealed class MessageCenterServiceTests
         Assert.DoesNotContain("adminUserId", service, StringComparison.Ordinal);
         Assert.Contains("AdminMessageActor", service, StringComparison.Ordinal);
         Assert.Contains("SenderAdminPrincipalId", service, StringComparison.Ordinal);
-        Assert.Contains("SenderAdminSessionId", service, StringComparison.Ordinal);
+        Assert.Contains("SenderAdminSessionAuditReference", service, StringComparison.Ordinal);
+        Assert.DoesNotContain("SenderAdminSessionId", service, StringComparison.Ordinal);
         Assert.Contains(nameof(MessageSenderType.Account), Enum.GetNames<MessageSenderType>());
         Assert.Contains("GetAccountConversationsAsync", service, StringComparison.Ordinal);
         Assert.Contains("CreateAccountTicketAsync", service, StringComparison.Ordinal);

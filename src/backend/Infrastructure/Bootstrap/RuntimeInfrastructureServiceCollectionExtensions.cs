@@ -270,6 +270,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<VisitLogChannel>();
         services.AddSingleton<ArticleAssetCleanupQueue>();
         services.AddScoped<ArticleAssetCleanupService>();
+        services.AddScoped<MessageRetentionCleanupService>();
         services.AddScoped<IArticleViewProjectionService, ArticleViewProjectionService>();
         if (!OpenApiExportMode.IsEnabled())
         {

@@ -589,6 +589,11 @@ export function useAccountMessagesInbox(isEnabled: () => boolean = () => true) {
 
   const applyMessageAppendPatch = (payload: InboxMessageAppendPayload, version?: InboxPatchVersion): void => {
     if (!payload?.conversationId || !payload.message) return
+    if (!payload.message.body) {
+      applyTotalUnread(payload.totalUnread, version)
+      void reconcileAfterReplayMiss()
+      return
+    }
     const priorMessageId = highestPatchedMessageId.get(payload.conversationId)
     const isNewestPatch = !priorMessageId || compareMessageId(payload.message.messageId, priorMessageId) >= 0
     if (isNewestPatch) highestPatchedMessageId.set(payload.conversationId, payload.message.messageId)

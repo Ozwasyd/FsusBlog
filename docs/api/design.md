@@ -207,6 +207,13 @@ admin 状态写入采用显式状态机：`open -> pending/closed`、`pending ->
 
 ### 消息写入幂等身份
 
+消息实时事件只承担“有新事实可读取”的引用通知，不承担正文复制。`InboxMessageAppend`
+保留 conversation/message ID、发送方类型、时间和未读计数，但 `body` 固定为空；
+`InboxConversationUpsert.lastMessage` 固定为 `null`，不得携带正文预览。账号客户端收到引用事件后，
+必须从当前最后已知 message ID 调用权威 delta 读取并合并；admin 客户端重新读取列表/详情。
+这样 backlog、日志转储或指标采集不会形成第二份消息正文。暂停 notification outbox consumer
+只延迟提示，HTTP binary 列表与详情仍是事实读取路径。
+
 账号创建工单、账号回复和 admin 回复都必须携带 `X-Fsus-Client-Mutation-Id`。该值由客户端
 在一次用户意图开始时生成，在双击合并、请求超时和响应丢失后的重试中保持不变；服务端按
 `主体类型 + 主体 ID + ClientMutationId` 建立全局写入身份，而不是按端点或 conversation

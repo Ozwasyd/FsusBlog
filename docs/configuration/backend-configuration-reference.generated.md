@@ -5,7 +5,7 @@
 
 ASP.NET Core precedence remains: base appsettings < Production overlay < environment/Compose < explicit command line.
 
-- Application settings: 183
+- Application settings: 185
 - Tracked environment variables: 229
 - Mounted file classes: 5
 
@@ -123,6 +123,8 @@ ASP.NET Core precedence remains: base appsettings < Production overlay < environ
 | `Logging:LogLevel:Default` | None | Logging and observability setting: Default | `string` | Development, Production | optional: optional | no | repository-base, repository-production-overlay; safe-non-secret-default | consumer: observability bootstrap | `<value matching the declared type>` |
 | `Logging:LogLevel:FsusBlog` | None | Logging and observability setting: FsusBlog | `string` | Production | optional: optional | no | repository-production-overlay; safe-non-secret-default | consumer: observability bootstrap | `<value matching the declared type>` |
 | `Logging:LogLevel:Microsoft.AspNetCore` | None | Logging and observability setting: Microsoft.AspNetCore | `string` | Development, Production | optional: optional | no | repository-base, repository-production-overlay; safe-non-secret-default | consumer: observability bootstrap | `<value matching the declared type>` |
+| `Messages:AdminSessionAuditReferenceKey` | `Messages__AdminSessionAuditReferenceKey` | Keyed audit references replace raw administrator session identifiers in message storage. | `secret-string` | Development, Production | required: Production | yes | environment, repository-base, repository-production-overlay, secret-store; empty-only | startup: ProductionStartupValidator | `<external secret; never a usable tracked value>` |
+| `Messages:RetentionCleanupEnabled` | None | Hot-reloadable gate for idempotent message content retention and account-erasure cleanup. | `boolean` | Development, Production | optional: optional | no | repository-base, repository-production-overlay; safe-non-secret-default | consumer: message retention cleanup | `true or false` |
 | `MfaChallenge:TicketSigningKey` | `MfaChallenge__TicketSigningKey` | Authentication and session security setting: TicketSigningKey | `secret-string` | Development, Production | required: Production | yes | environment, repository-base, repository-production-overlay, secret-store; empty-only | startup: ProductionStartupValidator | `<external secret; never a usable tracked value>` |
 | `Moderation:AntiSpamModel:Enabled` | None | Moderation runtime setting: Enabled | `boolean` | Production | optional: optional | no | repository-production-overlay; safe-non-secret-default | consumer: moderation runtime validator | `true or false` |
 | `Moderation:AntiSpamModel:RequireSignature` | None | Moderation runtime setting: RequireSignature | `boolean` | Production | optional: optional | no | repository-production-overlay; safe-non-secret-default | consumer: moderation runtime validator | `true or false` |

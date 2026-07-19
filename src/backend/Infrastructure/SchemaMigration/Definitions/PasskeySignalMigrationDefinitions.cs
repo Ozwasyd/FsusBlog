@@ -4,9 +4,11 @@ namespace FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
 
 internal static class PasskeySignalMigrationDefinitions
 {
+    internal const string MigrationId = "20260720-pre-passkey-signal-version";
+
     internal static ISchemaMigrationDescriptor BuildMigration()
         => new SchemaMigrationDescriptor(
-            "20260720-pre-passkey-signal-version",
+            MigrationId,
             "Add the account-scoped revision used to reject stale WebAuthn Signal API snapshots.",
             SchemaMigrationPhase.PreCodeFirst,
             Transactional: true,
