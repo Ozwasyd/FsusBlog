@@ -26,7 +26,7 @@ const punctuationGuard = read('tests/frontend/checks/static/check-period-motif-c
 
 expectMatch(
   themeTokens,
-  /articleDetail:\s*\{[\s\S]*?title: `text-xl sm:text-2xl lg:text-3xl font-bold[^`]*leading-\[1\.15\]/u,
+  /articleDetail:\s*\{[\s\S]*?title: `text-2xl sm:text-3xl font-bold[^`]*leading-\[1\.25\] sm:leading-\[1\.2\]/u,
   'page title authority'
 )
 expectMatch(

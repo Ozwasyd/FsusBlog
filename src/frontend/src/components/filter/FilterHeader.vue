@@ -1,5 +1,5 @@
 <template>
-  <header class="mb-8 sm:mb-12">
+  <header class="mb-6">
     <p class="mb-3 text-xs font-medium normal-case text-[var(--fsusblog-text-muted)]">
       {{ view.labelText }}
     </p>
@@ -13,7 +13,7 @@
         </div>
       </template>
     </el-skeleton>
-    <h1 v-else class="text-3xl font-bold text-[var(--fsusblog-text-primary)] sm:text-4xl">
+    <h1 v-else class="text-2xl font-bold leading-tight tracking-normal text-[var(--fsusblog-text-primary)] sm:text-3xl">
       {{ view.currentName }}
     </h1>
   </header>

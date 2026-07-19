@@ -40,9 +40,9 @@ describe('article title authority', () => {
   })
 
   it('keeps the page title dominant and the article H1 subordinate', () => {
-    expect(themeTokens.articleDetail.title).toContain('text-xl sm:text-2xl lg:text-3xl')
+    expect(themeTokens.articleDetail.title).toContain('text-2xl sm:text-3xl')
     expect(themeTokens.articleDetail.title).toContain('font-bold')
-    expect(themeTokens.articleDetail.title).toContain('leading-[1.15]')
+    expect(themeTokens.articleDetail.title).toContain('leading-[1.25] sm:leading-[1.2]')
     expect(markdownCss).toMatch(/\.markdown-body--article h1\s*\{[^}]*font-size:\s*1\.4em;[^}]*font-weight:\s*700;[^}]*margin-top:\s*3em;[^}]*margin-bottom:\s*1em;[^}]*text-align:\s*left;/u)
   })
 

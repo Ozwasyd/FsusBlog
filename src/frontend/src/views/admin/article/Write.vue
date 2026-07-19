@@ -1028,10 +1028,17 @@ const submitQuickCreateTag = async (): Promise<void> => {
 
 .write-command-title {
   color: var(--fsusblog-text-primary);
-  font-size: 1.25rem;
+  font-size: 1.5rem;
   font-weight: 700;
   line-height: 1.25;
   letter-spacing: 0;
+}
+
+@media (min-width: 640px) {
+  .write-command-title {
+    font-size: 1.875rem;
+    line-height: 1.2;
+  }
 }
 
 .write-command-status {

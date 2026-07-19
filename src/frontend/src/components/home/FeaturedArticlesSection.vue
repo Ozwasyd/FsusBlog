@@ -86,7 +86,7 @@
             </div>
             <h1
               id="home-editorial-lead-title"
-              class="text-2xl font-bold leading-tight text-[var(--fsusblog-text-primary)] transition-colors duration-[var(--fsus-motion-control-fast)] group-hover:text-[var(--fsusblog-color-primary)] sm:text-3xl"
+              class="text-2xl font-bold leading-tight tracking-normal text-[var(--fsusblog-text-primary)] transition-colors duration-[var(--fsus-motion-control-fast)] group-hover:text-[var(--fsusblog-color-primary)] sm:text-3xl"
             >
               {{ article.title }}
             </h1>

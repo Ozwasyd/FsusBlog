@@ -17,12 +17,13 @@ describe('public display typography contract', () => {
     expect(themeTokens.articleList.title).toContain('sm:leading-[1.2]')
   })
 
-  it('keeps hydrated article detail titles on the 20/24/30px scale', () => {
+  it('keeps hydrated article detail titles on the 24/30px page scale', () => {
     expect(responsiveTextScale(themeTokens.articleDetail.title)).toEqual([
-      'text-xl',
-      'sm:text-2xl',
-      'lg:text-3xl'
+      'text-2xl',
+      'sm:text-3xl'
     ])
+    expect(themeTokens.articleDetail.title).toContain('leading-[1.25]')
+    expect(themeTokens.articleDetail.title).toContain('sm:leading-[1.2]')
   })
 
   it('retains the loaded 700 title weight from the shared font contract', () => {

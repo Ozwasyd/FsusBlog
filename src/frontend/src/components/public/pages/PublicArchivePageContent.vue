@@ -23,7 +23,7 @@
 
     <div v-else class="relative">
       <header class="mb-10 border-b border-[var(--fsusblog-panel-border)] pb-6 sm:mb-12 sm:pb-8">
-        <h1 class="mb-6 text-2xl font-bold tracking-normal text-[var(--fsusblog-text-heading)] sm:text-3xl">
+        <h1 class="mb-6 text-2xl font-bold leading-tight tracking-normal text-[var(--fsusblog-text-heading)] sm:text-3xl">
           归档
         </h1>
         <div class="flex items-center gap-6 text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">

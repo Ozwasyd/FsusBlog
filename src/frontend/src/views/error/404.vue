@@ -1,27 +1,25 @@
 <template>
   <main
-    class="blog-page-shell error-page-shell min-h-[75vh] px-5 py-16 sm:px-8 sm:py-20"
+    class="blog-page-shell error-page-shell min-h-[75vh] px-5 py-10 sm:px-8 sm:py-16"
     aria-labelledby="not-found-page-title"
   >
-    <section class="mx-auto flex w-full max-w-5xl flex-col gap-8 animate-in fade-in duration-[var(--fsus-motion-control-fast)] sm:gap-12">
-      <h1 class="text-6xl font-bold leading-none text-[var(--fsusblog-text-primary)] sm:text-9xl">
+    <section class="mx-auto w-full max-w-xl animate-in fade-in duration-[var(--fsus-motion-control-fast)]">
+      <p class="mb-4 text-sm font-bold leading-6 text-[var(--fsusblog-text-muted)]" aria-hidden="true">
         {{ copy.codePrefix }}<span class="text-[var(--fsusblog-text-muted)]">.</span>
-      </h1>
+      </p>
 
-      <div class="h-px w-full max-w-2xl bg-[var(--fsusblog-panel-bg-soft)]"></div>
-
-      <div class="safe-inline-wrap max-w-xl">
-        <h2
+      <div class="safe-inline-wrap">
+        <h1
           id="not-found-page-title"
-          class="text-2xl font-bold leading-tight text-[var(--fsusblog-text-primary)] sm:text-4xl"
+          class="text-2xl font-bold leading-tight tracking-normal text-[var(--fsusblog-text-primary)] sm:text-3xl"
         >
           {{ copy.title }}
-        </h2>
-        <p class="mt-4 text-sm leading-7 text-[var(--fsusblog-text-secondary)]">
+        </h1>
+        <p class="mt-4 text-sm font-normal leading-7 text-[var(--fsusblog-text-secondary)]">
           {{ copy.description }}
         </p>
 
-        <div class="mt-10 flex flex-col gap-3 sm:flex-row">
+        <div class="mt-6 flex flex-col gap-3 sm:flex-row">
           <el-button
             :tag="RouterLink"
             to="/"

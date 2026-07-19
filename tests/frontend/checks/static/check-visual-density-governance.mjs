@@ -412,8 +412,8 @@ function checkPublicTypographyContract() {
   )
   assertContains(
     themeTokensPath,
-    /articleDetail:\s*\{[\s\S]*?title: `text-xl sm:text-2xl lg:text-3xl font-bold[^`]*leading-\[1\.15\]/,
-    'hydrated article detail titles must keep the 20/24/30px display scale, loaded 700 weight, and readable multiline leading'
+    /articleDetail:\s*\{[\s\S]*?title: `text-2xl sm:text-3xl font-bold[^`]*leading-\[1\.25\] sm:leading-\[1\.2\]/,
+    'hydrated article detail titles must use the 24/30px page scale, loaded 700 weight, and responsive multiline leading'
   )
   assertContains(
     themeTokensPath,
@@ -508,7 +508,7 @@ function checkPublicTypographyContract() {
   )
   assertContains(
     publicLayoutRulesPath,
-    /公共内容页 H1 使用 24\/30px[\s\S]*?禁止使用 `text-4xl`、`text-5xl`/,
+    /页面级 H1 统一使用 24\/30px[\s\S]*?禁止使用 `text-4xl`、`text-5xl`/,
     'public layout rules must document the bounded H1 scale and oversized utility ban'
   )
 }
@@ -526,10 +526,11 @@ function checkIssueDensityContracts() {
   assertNotContains(accountLayoutPath, /FsusUiSegmentedControl/, 'AccountLayout mobile group navigation must not use segmented-control as a separate visual language')
   assertNotContains(accountLayoutPath, /account-mobile-more-strip|mobileOverflowGroups|mobileMoreOpen/, 'AccountLayout mobile navigation must stay two-level and must not reintroduce an overflow group row')
   assertNotContains(accountLayoutPath, /account-mobile-link-strip/, 'AccountLayout mobile route navigation must not use a separate horizontal tab strip')
-  assertContains(accountShellPath, /\.account-page-title\s*\{[^}]*font-size:\s*1\.5rem;[^}]*font-weight:\s*700;[^}]*line-height:\s*1\.2;/, 'Account shared page titles must keep the fixed 24px/700/1.2 task-surface role')
+  assertContains(accountShellPath, /\.account-page-title\s*\{[^}]*font-size:\s*1\.5rem;[^}]*font-weight:\s*700;[^}]*line-height:\s*1\.25;/, 'Account shared page titles must keep the mobile 24px/700/1.25 task-surface role')
+  assertContains(accountShellPath, /@media \(min-width:\s*640px\)\s*\{\s*\.account-page-title\s*\{[^}]*font-size:\s*1\.875rem;[^}]*line-height:\s*1\.2;/, 'Account shared page titles must use the desktop 30px/1.2 role')
   assertNotContains(accountShellPath, /\.account-page-title\s*\{[^}]*font-size:\s*clamp\(/, 'Account page titles must not vary by viewport clamp')
-  assertNotContains(accountShellPath, /@media \(max-width:\s*640px\)[\s\S]*?\.account-page-title\s*\{[^}]*font-size:/, 'Account mobile page titles must inherit the shared 24px role')
-  assertContains(identityCenterPath, /\.identity-section-header__copy h1\s*\{[^}]*font-size:\s*1\.5rem;[^}]*font-weight:\s*700;[^}]*line-height:\s*1\.2;/, 'IdentityCenter H1 must match the shared 24px/700/1.2 account title role')
+  assertContains(identityCenterPath, /\.identity-section-header__copy h1\s*\{[^}]*font-size:\s*1\.5rem;[^}]*font-weight:\s*700;[^}]*line-height:\s*1\.25;/, 'IdentityCenter H1 must match the mobile 24px/700/1.25 account title role')
+  assertContains(identityCenterPath, /@media \(min-width:\s*640px\)\s*\{\s*\.identity-section-header__copy h1\s*\{[^}]*font-size:\s*1\.875rem;[^}]*line-height:\s*1\.2;/, 'IdentityCenter H1 must match the desktop 30px/1.2 account title role')
   assertContains(accountNavigationPanelPath, /\.account-module-link,[\s\S]*?\.account-local-navigation__link\s*\{[\s\S]*?min-height:\s*2\.75rem;/, 'AccountLayout mobile drawer module and local links must provide 44px hit targets')
   assertContains(accountNavigationPanelPath, /account-global-module-nav[\s\S]*account-local-navigation/, 'Account navigation must separate first-level modules from current-module local links')
   assertContains(accountNavigationPanelPath, /\.account-module-link__label\s*\{[^}]*font-size:\s*14px;[^}]*font-weight:\s*700;/, 'Account first-level modules must keep the 14px/700 hierarchy role')

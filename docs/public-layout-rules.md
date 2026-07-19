@@ -74,7 +74,7 @@ Markdown 代码块与管理面审计详情统一使用 `'JetBrains Mono', ui-mon
 
 ### 公开排版角色
 
-- `display`：文章列表标题使用 18/20/24px 档位和 1.25/1.2 行高，详情标题保留 20/24/30px 档位；公共内容页 H1 使用 24/30px（`text-2xl sm:text-3xl`），不扩张到 36/48px。
+- `display`：文章列表卡片标题使用 18/20/24px 档位和 1.25/1.2 行高；public、account、auth、error 页面级 H1 统一使用 24/30px（`text-2xl sm:text-3xl`），包括文章详情且不扩张到 36/48px。H1 为 700 字重、正常字距，移动端/桌面行高分别不低于 1.25/1.2，说明文字在其下方保持 16px 间距，首个控件再保持 24px 间距。
 - `src/frontend/src/ui-tokens/` 与 `src/frontend/src/components/public/` 禁止使用 `text-4xl`、`text-5xl`，防止详情标题或公共页面 H1 重新越出 display 档位。
 - `reading`：文章列表摘要使用 14/16px、400 字重和 1.7 行高；正文和引用使用 16px 或 18px 档位，Markdown 段落只保留一条权威规则。
 - `metadata`：日期、分类、状态、阅读量和操作文案使用 12px 或 14px 档位，不能以装饰性微缩文字承载信息。

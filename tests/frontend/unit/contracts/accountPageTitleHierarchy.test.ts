@@ -18,15 +18,22 @@ function ruleBody(source: string, pattern: RegExp): string {
 }
 
 describe('account page title hierarchy', () => {
-  it('keeps shared account page titles fixed at 24px/700/1.2', () => {
+  it('keeps shared account page titles at responsive 24/30px with 700 and responsive leading', () => {
     const sharedTitle = ruleBody(
       accountShell,
       /^\.account-page-title\s*\{(?<body>[^}]*)\}/mu
     )
     expect(sharedTitle).toMatch(/font-size:\s*1\.5rem;/u)
     expect(sharedTitle).toMatch(/font-weight:\s*700;/u)
-    expect(sharedTitle).toMatch(/line-height:\s*1\.2;/u)
+    expect(sharedTitle).toMatch(/line-height:\s*1\.25;/u)
     expect(sharedTitle).not.toMatch(/clamp\(/u)
+
+    const sharedDesktopTitle = ruleBody(
+      accountShell,
+      /@media \(min-width:\s*640px\)\s*\{\s*\.account-page-title\s*\{(?<body>[^}]*)\}/u
+    )
+    expect(sharedDesktopTitle).toMatch(/font-size:\s*1\.875rem;/u)
+    expect(sharedDesktopTitle).toMatch(/line-height:\s*1\.2;/u)
 
     const identityTitle = ruleBody(
       identityCenter,
@@ -34,7 +41,14 @@ describe('account page title hierarchy', () => {
     )
     expect(identityTitle).toMatch(/font-size:\s*1\.5rem;/u)
     expect(identityTitle).toMatch(/font-weight:\s*700;/u)
-    expect(identityTitle).toMatch(/line-height:\s*1\.2;/u)
+    expect(identityTitle).toMatch(/line-height:\s*1\.25;/u)
+
+    const identityDesktopTitle = ruleBody(
+      identityCenter,
+      /@media \(min-width:\s*640px\)\s*\{\s*\.identity-section-header__copy h1\s*\{(?<body>[^}]*)\}/u
+    )
+    expect(identityDesktopTitle).toMatch(/font-size:\s*1\.875rem;/u)
+    expect(identityDesktopTitle).toMatch(/line-height:\s*1\.2;/u)
   })
 
   it('keeps mobile title ownership limited to width', () => {

@@ -68,11 +68,11 @@
 }
 
 .account-page-header {
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 }
 
 .account-page-header--compact {
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
 }
 
 .account-page-eyebrow {
@@ -89,15 +89,16 @@
   color: var(--fsusblog-text-primary);
   font-size: 1.5rem;
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.25;
   letter-spacing: 0;
 }
 
 .account-page-description {
-  margin-top: 0.75rem;
+  margin-top: 1rem;
   max-width: 42rem;
   color: var(--fsusblog-text-tertiary);
   font-size: 14px;
+  font-weight: 400;
   line-height: 1.7;
 }
 
@@ -307,11 +308,18 @@
   }
 
   .account-page-header {
-    margin-bottom: 1.25rem;
+    margin-bottom: 1.5rem;
   }
 
   .account-page-title {
     max-width: none;
   }
 
+}
+
+@media (min-width: 640px) {
+  .account-page-title {
+    font-size: 1.875rem;
+    line-height: 1.2;
+  }
 }

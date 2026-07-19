@@ -1013,16 +1013,24 @@ watch(currentRouteName, () => {
   color: var(--fsusblog-text-primary);
   font-size: 1.5rem;
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.25;
   letter-spacing: 0;
 }
 
 .identity-section-header__copy p {
   max-width: 42rem;
-  margin: 0.25rem 0 0;
+  margin: 1rem 0 0;
   color: var(--fsusblog-text-tertiary);
   font-size: 14px;
+  font-weight: 400;
   line-height: 1.6;
+}
+
+@media (min-width: 640px) {
+  .identity-section-header__copy h1 {
+    font-size: 1.875rem;
+    line-height: 1.2;
+  }
 }
 
 .identity-status-grid {

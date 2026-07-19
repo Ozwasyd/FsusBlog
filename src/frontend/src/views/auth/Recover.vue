@@ -1,15 +1,15 @@
 <template>
   <div class="auth-page-content w-full max-w-md">
     <section class="w-full max-w-md" aria-labelledby="recover-title">
-      <header class="mb-8 sm:mb-10">
+      <header class="mb-6">
         <h1
           id="recover-title"
-          class="text-3xl font-bold leading-tight text-[var(--fsusblog-text-primary)] sm:text-4xl"
+          class="text-2xl font-bold leading-tight tracking-normal text-[var(--fsusblog-text-primary)] sm:text-3xl"
         >
           {{ copy.title }}
         </h1>
         <p
-          class="mt-3 max-w-sm text-sm leading-7 text-[var(--fsusblog-text-secondary)]"
+          class="mt-4 max-w-sm text-sm font-normal leading-7 text-[var(--fsusblog-text-secondary)]"
         >
           {{ copy.description }}
         </p>
