@@ -49,9 +49,9 @@ public sealed class PublicAotShellServiceTests
         Assert.NotNull(rendered);
         Assert.Same(cache.Entry, rendered);
         Assert.Equal(cache.Entry.Value, rendered.GetHtml());
-        Assert.Equal("server-ssr", context.Items[PublicAotShellService.PublicAotSourceContextKey]);
-        Assert.Equal("none", context.Items[PublicAotShellService.PublicAotBackfillContextKey]);
-        Assert.Equal("fresh", context.Items[PublicAotShellService.PublicAotStateContextKey]);
+        Assert.Equal("server-ssr", context.Items[PublicAotRuntimeState.PublicAotSourceContextKey]);
+        Assert.Equal("none", context.Items[PublicAotRuntimeState.PublicAotBackfillContextKey]);
+        Assert.Equal("fresh", context.Items[PublicAotRuntimeState.PublicAotStateContextKey]);
         Assert.Empty(scheduler.Requests);
         Assert.Empty(cache.RemovedKeys);
     }
@@ -68,9 +68,9 @@ public sealed class PublicAotShellServiceTests
         PublicAotCacheEntry? rendered = await sut.RenderAsync(context, match);
 
         Assert.Null(rendered);
-        Assert.Equal("spa-fallback", context.Items[PublicAotShellService.PublicAotSourceContextKey]);
-        Assert.Equal("queued", context.Items[PublicAotShellService.PublicAotBackfillContextKey]);
-        Assert.Equal("fallback", context.Items[PublicAotShellService.PublicAotStateContextKey]);
+        Assert.Equal("spa-fallback", context.Items[PublicAotRuntimeState.PublicAotSourceContextKey]);
+        Assert.Equal("queued", context.Items[PublicAotRuntimeState.PublicAotBackfillContextKey]);
+        Assert.Equal("fallback", context.Items[PublicAotRuntimeState.PublicAotStateContextKey]);
         PublicAotBackfillRequest request = Assert.Single(scheduler.Requests);
         Assert.Equal(match.Kind, request.Kind);
         Assert.Equal(match.RouteKey, request.RouteKey);
@@ -104,9 +104,9 @@ public sealed class PublicAotShellServiceTests
         PublicAotCacheEntry? rendered = await sut.RenderAsync(context, match);
 
         Assert.Null(rendered);
-        Assert.Equal("spa-fallback", context.Items[PublicAotShellService.PublicAotSourceContextKey]);
-        Assert.Equal("dropped", context.Items[PublicAotShellService.PublicAotBackfillContextKey]);
-        Assert.Equal("fallback", context.Items[PublicAotShellService.PublicAotStateContextKey]);
+        Assert.Equal("spa-fallback", context.Items[PublicAotRuntimeState.PublicAotSourceContextKey]);
+        Assert.Equal("dropped", context.Items[PublicAotRuntimeState.PublicAotBackfillContextKey]);
+        Assert.Equal("fallback", context.Items[PublicAotRuntimeState.PublicAotStateContextKey]);
         PublicAotSsrRuntimeSnapshot snapshot = runtimeState.CreateSnapshot(scheduler.InFlightCount, scheduler.QueueCapacity);
         Assert.Equal("circuit-open", snapshot.LastDropReason);
     }
@@ -187,8 +187,8 @@ public sealed class PublicAotShellServiceTests
         PublicAotCacheEntry? rendered = await sut.RenderAsync(context, match);
 
         Assert.Null(rendered);
-        Assert.Equal("spa-fallback", context.Items[PublicAotShellService.PublicAotSourceContextKey]);
-        Assert.Equal("queued", context.Items[PublicAotShellService.PublicAotBackfillContextKey]);
+        Assert.Equal("spa-fallback", context.Items[PublicAotRuntimeState.PublicAotSourceContextKey]);
+        Assert.Equal("queued", context.Items[PublicAotRuntimeState.PublicAotBackfillContextKey]);
         Assert.Collection(cache.RemovedKeys, removed => Assert.Equal(VersionedListKey(cacheKey), removed));
         Assert.Single(scheduler.Requests);
     }
@@ -225,9 +225,9 @@ public sealed class PublicAotShellServiceTests
         PublicAotCacheEntry? rendered = await sut.RenderAsync(context, match);
 
         Assert.Null(rendered);
-        Assert.Equal("spa-fallback", context.Items[PublicAotShellService.PublicAotSourceContextKey]);
-        Assert.Equal("dev-source-assets", context.Items[PublicAotShellService.PublicAotAssetModeContextKey]);
-        Assert.Equal("dev-source-bypass", context.Items[PublicAotShellService.PublicAotBackfillContextKey]);
+        Assert.Equal("spa-fallback", context.Items[PublicAotRuntimeState.PublicAotSourceContextKey]);
+        Assert.Equal("dev-source-assets", context.Items[PublicAotRuntimeState.PublicAotAssetModeContextKey]);
+        Assert.Equal("dev-source-bypass", context.Items[PublicAotRuntimeState.PublicAotBackfillContextKey]);
         Assert.Empty(cache.RemovedKeys);
         Assert.Empty(scheduler.Requests);
     }
@@ -258,9 +258,9 @@ public sealed class PublicAotShellServiceTests
         PublicAotCacheEntry? rendered = await sut.RenderAsync(context, match);
 
         Assert.Null(rendered);
-        Assert.Equal("spa-fallback", context.Items[PublicAotShellService.PublicAotSourceContextKey]);
-        Assert.Equal("queued", context.Items[PublicAotShellService.PublicAotBackfillContextKey]);
-        Assert.Equal("fallback", context.Items[PublicAotShellService.PublicAotStateContextKey]);
+        Assert.Equal("spa-fallback", context.Items[PublicAotRuntimeState.PublicAotSourceContextKey]);
+        Assert.Equal("queued", context.Items[PublicAotRuntimeState.PublicAotBackfillContextKey]);
+        Assert.Equal("fallback", context.Items[PublicAotRuntimeState.PublicAotStateContextKey]);
         Assert.Collection(cache.RemovedKeys, removed => Assert.Equal(VersionedListKey(cacheKey), removed));
         Assert.Single(scheduler.Requests);
     }
@@ -373,8 +373,8 @@ public sealed class PublicAotShellServiceTests
         Assert.Equal(PublicAotRenderStatus.NotFound, result.Status);
         Assert.Null(result.Entry);
         Assert.Empty(scheduler.Requests);
-        Assert.Equal("none", context.Items[PublicAotShellService.PublicAotBackfillContextKey]);
-        Assert.Equal("not-found", context.Items[PublicAotShellService.PublicAotStateContextKey]);
+        Assert.Equal("none", context.Items[PublicAotRuntimeState.PublicAotBackfillContextKey]);
+        Assert.Equal("not-found", context.Items[PublicAotRuntimeState.PublicAotStateContextKey]);
     }
 
     [Fact]
@@ -397,7 +397,7 @@ public sealed class PublicAotShellServiceTests
 
         Assert.Equal(PublicAotRenderStatus.TransientFailure, result.Status);
         Assert.Empty(scheduler.Requests);
-        Assert.Equal("transient-failure", context.Items[PublicAotShellService.PublicAotStateContextKey]);
+        Assert.Equal("transient-failure", context.Items[PublicAotRuntimeState.PublicAotStateContextKey]);
     }
 
     [Fact]
@@ -417,8 +417,8 @@ public sealed class PublicAotShellServiceTests
 
         Assert.Equal(PublicAotRenderStatus.TransientFailure, result.Status);
         Assert.Empty(scheduler.Requests);
-        Assert.Equal("server-status", context.Items[PublicAotShellService.PublicAotSourceContextKey]);
-        Assert.Equal("transient-failure", context.Items[PublicAotShellService.PublicAotStateContextKey]);
+        Assert.Equal("server-status", context.Items[PublicAotRuntimeState.PublicAotSourceContextKey]);
+        Assert.Equal("transient-failure", context.Items[PublicAotRuntimeState.PublicAotStateContextKey]);
     }
 
     [Fact]
@@ -438,8 +438,8 @@ public sealed class PublicAotShellServiceTests
         Assert.Equal(PublicAotRenderStatus.TransientFailure, result.Status);
         Assert.Equal("public_aot_cache_read_failed", result.Error.Message);
         Assert.Empty(scheduler.Requests);
-        Assert.Equal("server-status", context.Items[PublicAotShellService.PublicAotSourceContextKey]);
-        Assert.Equal("transient-failure", context.Items[PublicAotShellService.PublicAotStateContextKey]);
+        Assert.Equal("server-status", context.Items[PublicAotRuntimeState.PublicAotSourceContextKey]);
+        Assert.Equal("transient-failure", context.Items[PublicAotRuntimeState.PublicAotStateContextKey]);
     }
 
     [Fact]
@@ -459,9 +459,9 @@ public sealed class PublicAotShellServiceTests
         Assert.Equal(PublicAotRenderStatus.TransientFailure, result.Status);
         Assert.Null(result.Entry);
         Assert.Single(scheduler.Requests);
-        Assert.Equal("server-status", context.Items[PublicAotShellService.PublicAotSourceContextKey]);
-        Assert.Equal("queued", context.Items[PublicAotShellService.PublicAotBackfillContextKey]);
-        Assert.Equal("cold-miss", context.Items[PublicAotShellService.PublicAotStateContextKey]);
+        Assert.Equal("server-status", context.Items[PublicAotRuntimeState.PublicAotSourceContextKey]);
+        Assert.Equal("queued", context.Items[PublicAotRuntimeState.PublicAotBackfillContextKey]);
+        Assert.Equal("cold-miss", context.Items[PublicAotRuntimeState.PublicAotStateContextKey]);
     }
 
     [Fact]
@@ -481,7 +481,7 @@ public sealed class PublicAotShellServiceTests
         Assert.Equal(PublicAotRenderStatus.TransientFailure, result.Status);
         Assert.Equal("public_aot_cold_miss_backfill_dropped", result.Error.Message);
         Assert.Single(scheduler.Requests);
-        Assert.Equal("dropped", context.Items[PublicAotShellService.PublicAotBackfillContextKey]);
+        Assert.Equal("dropped", context.Items[PublicAotRuntimeState.PublicAotBackfillContextKey]);
     }
 
     [Fact]
@@ -515,8 +515,8 @@ public sealed class PublicAotShellServiceTests
         Assert.Equal("/tag/17?page=2", result.RedirectPath);
         Assert.Empty(cache.RequestedKeys);
         Assert.Empty(scheduler.Requests);
-        Assert.Equal("none", context.Items[PublicAotShellService.PublicAotBackfillContextKey]);
-        Assert.Equal("permanent-redirect", context.Items[PublicAotShellService.PublicAotStateContextKey]);
+        Assert.Equal("none", context.Items[PublicAotRuntimeState.PublicAotBackfillContextKey]);
+        Assert.Equal("permanent-redirect", context.Items[PublicAotRuntimeState.PublicAotStateContextKey]);
     }
 
     [Fact]
@@ -785,7 +785,8 @@ public sealed class PublicAotShellServiceTests
             gate,
             documentComposition,
             artifactStore,
-            runtimeState ?? new PublicAotSsrRuntimeState(new ConfigurationBuilder().Build()),
+            new PublicAotRuntimeState(
+                runtimeState ?? new PublicAotSsrRuntimeState(new ConfigurationBuilder().Build())),
             NullLogger<PublicAotShellService>.Instance);
     }
 

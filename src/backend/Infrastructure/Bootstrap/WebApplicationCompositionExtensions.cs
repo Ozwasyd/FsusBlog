@@ -735,19 +735,19 @@ public static partial class WebApplicationCompositionExtensions
             long aotStartedAt = System.Diagnostics.Stopwatch.GetTimestamp();
             PublicAotRenderOutcome outcome = await shellService.RenderClassifiedAsync(ctx, aotMatch, ct);
             PublicAotCacheEntry? aotEntry = outcome.Entry;
-            string source = ctx.Items.TryGetValue(PublicAotShellService.PublicAotSourceContextKey, out object? sourceObj)
+            string source = ctx.Items.TryGetValue(PublicAotRuntimeState.PublicAotSourceContextKey, out object? sourceObj)
                 ? sourceObj?.ToString() ?? "unknown"
                 : "unknown";
-            string version = ctx.Items.TryGetValue(PublicAotShellService.PublicAotVersionContextKey, out object? versionObj)
+            string version = ctx.Items.TryGetValue(PublicAotRuntimeState.PublicAotVersionContextKey, out object? versionObj)
                 ? versionObj?.ToString() ?? "unknown"
                 : "unknown";
-            string backfill = ctx.Items.TryGetValue(PublicAotShellService.PublicAotBackfillContextKey, out object? backfillObj)
+            string backfill = ctx.Items.TryGetValue(PublicAotRuntimeState.PublicAotBackfillContextKey, out object? backfillObj)
                 ? backfillObj?.ToString() ?? "none"
                 : "none";
-            string state = ctx.Items.TryGetValue(PublicAotShellService.PublicAotStateContextKey, out object? stateObj)
+            string state = ctx.Items.TryGetValue(PublicAotRuntimeState.PublicAotStateContextKey, out object? stateObj)
                 ? stateObj?.ToString() ?? "unknown"
                 : "unknown";
-            string assetMode = ctx.Items.TryGetValue(PublicAotShellService.PublicAotAssetModeContextKey, out object? assetModeObj)
+            string assetMode = ctx.Items.TryGetValue(PublicAotRuntimeState.PublicAotAssetModeContextKey, out object? assetModeObj)
                 ? assetModeObj?.ToString() ?? "unknown"
                 : "unknown";
             FsusObservability.RecordAotRender(
@@ -787,19 +787,19 @@ public static partial class WebApplicationCompositionExtensions
 
         SpaAssetSet? publicAssetSet = isPublicAotRoute ? assetService.GetPublicAssetSet(ctx, aotMatch.PageId) : null;
         bool preferSourceTemplate = publicAssetSet?.UsesSourceAssets == true || IsDevelopmentViteProxyRequest(env, ctx);
-        string spaSource = ctx.Items.TryGetValue(PublicAotShellService.PublicAotSourceContextKey, out object? spaSourceObj)
+        string spaSource = ctx.Items.TryGetValue(PublicAotRuntimeState.PublicAotSourceContextKey, out object? spaSourceObj)
             ? spaSourceObj?.ToString() ?? "spa-index"
             : "spa-index";
-        string spaVersion = ctx.Items.TryGetValue(PublicAotShellService.PublicAotVersionContextKey, out object? spaVersionObj)
+        string spaVersion = ctx.Items.TryGetValue(PublicAotRuntimeState.PublicAotVersionContextKey, out object? spaVersionObj)
             ? spaVersionObj?.ToString() ?? "unknown"
             : "unknown";
-        string spaBackfill = ctx.Items.TryGetValue(PublicAotShellService.PublicAotBackfillContextKey, out object? spaBackfillObj)
+        string spaBackfill = ctx.Items.TryGetValue(PublicAotRuntimeState.PublicAotBackfillContextKey, out object? spaBackfillObj)
             ? spaBackfillObj?.ToString() ?? "none"
             : "none";
-        string spaState = ctx.Items.TryGetValue(PublicAotShellService.PublicAotStateContextKey, out object? spaStateObj)
+        string spaState = ctx.Items.TryGetValue(PublicAotRuntimeState.PublicAotStateContextKey, out object? spaStateObj)
             ? spaStateObj?.ToString() ?? "fallback"
             : "fallback";
-        string spaAssetMode = ctx.Items.TryGetValue(PublicAotShellService.PublicAotAssetModeContextKey, out object? spaAssetModeObj)
+        string spaAssetMode = ctx.Items.TryGetValue(PublicAotRuntimeState.PublicAotAssetModeContextKey, out object? spaAssetModeObj)
             ? spaAssetModeObj?.ToString() ?? "unknown"
             : publicAssetSet?.UsesSourceAssets == true ? "dev-source-assets" : "unknown";
         ctx.Response.Headers["X-Fsus-Public-Aot-Source"] = spaSource;

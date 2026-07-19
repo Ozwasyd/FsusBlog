@@ -11,6 +11,7 @@ internal static class RuntimePublicAotServiceCollectionExtensions
     public static IServiceCollection AddFsusRuntimePublicAotServices(this IServiceCollection services)
     {
         services.AddSingleton<PublicAotSsrRuntimeState>();
+        services.AddSingleton<IPublicAotRuntimeState, PublicAotRuntimeState>();
         services.AddSingleton<IAotSeoConfigSnapshot, AotSeoConfigSnapshot>();
         services.AddSingleton<PublicAotBackfillScheduler>();
         services.AddSingleton<IPublicAotBackfillScheduler>(sp => sp.GetRequiredService<PublicAotBackfillScheduler>());

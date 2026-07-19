@@ -12,15 +12,10 @@ public sealed class PublicAotShellService(
     IDbConcurrencyGate dbConcurrencyGate,
     IPublicAotDocumentComposition documentComposition,
     IPublicAotArtifactStore artifactStore,
-    PublicAotSsrRuntimeState ssrRuntimeState,
+    IPublicAotRuntimeState runtimeState,
     ILogger<PublicAotShellService> logger) : IPublicAotShellService, IPublicAotBackfillGenerator
 {
     public const string PublicRendererVersion = PublicAotConstants.RendererVersion;
-    public const string PublicAotSourceContextKey = "__fsus_public_aot_source";
-    public const string PublicAotVersionContextKey = "__fsus_public_aot_version";
-    public const string PublicAotBackfillContextKey = "__fsus_public_aot_backfill";
-    public const string PublicAotStateContextKey = "__fsus_public_aot_state";
-    public const string PublicAotAssetModeContextKey = "__fsus_public_aot_asset_mode";
     private static readonly Action<ILogger, PublicPageKind, string, Exception?> s_publicAotBackfillQueuedLog =
         LoggerMessage.Define<PublicPageKind, string>(
             LogLevel.Information,
@@ -65,11 +60,11 @@ public sealed class PublicAotShellService(
         CancellationToken cancellationToken)
     {
         PublicAotArtifactLookup lookup = artifactStore.CreateLookup(context, match);
-        context.Items[PublicAotAssetModeContextKey] = lookup.AssetMode;
+        runtimeState.SetAssetMode(context, lookup.AssetMode);
         if (classifyColdMiss && PublicTagUrlIdentity.IsNameRouteKey(match.RouteKey))
         {
             PublicAotRenderOutcome canonicalOutcome = await documentComposition.ClassifyRouteAsync(match, cancellationToken);
-            SetClassifiedFailureContext(context, canonicalOutcome.Status, lookup.AssetMode);
+            runtimeState.SetClassifiedFailure(context, canonicalOutcome.Status, lookup.AssetMode);
             return canonicalOutcome;
         }
 
@@ -78,7 +73,7 @@ public sealed class PublicAotShellService(
             && !ShouldPreserveLocalFixtureQuery(context, match))
         {
             PublicAotRenderOutcome canonicalOutcome = PublicAotRenderOutcome.PermanentRedirect(match.CanonicalPathAndQuery);
-            SetClassifiedFailureContext(context, canonicalOutcome.Status, lookup.AssetMode);
+            runtimeState.SetClassifiedFailure(context, canonicalOutcome.Status, lookup.AssetMode);
             return canonicalOutcome;
         }
 
@@ -89,7 +84,7 @@ public sealed class PublicAotShellService(
             && !string.Equals(match.Path, match.CanonicalPath, StringComparison.Ordinal))
         {
             PublicAotRenderOutcome canonicalOutcome = PublicAotRenderOutcome.PermanentRedirect(match.CanonicalPathAndQuery);
-            SetClassifiedFailureContext(context, canonicalOutcome.Status, lookup.AssetMode);
+            runtimeState.SetClassifiedFailure(context, canonicalOutcome.Status, lookup.AssetMode);
             return canonicalOutcome;
         }
 
@@ -100,15 +95,12 @@ public sealed class PublicAotShellService(
                 PublicAotRenderOutcome routeOutcome = await documentComposition.ClassifyRouteAsync(match, cancellationToken);
                 if (routeOutcome.Status != PublicAotRenderStatus.Success)
                 {
-                    SetClassifiedFailureContext(context, routeOutcome.Status, "dev-source-bypass");
+                    runtimeState.SetClassifiedFailure(context, routeOutcome.Status, "dev-source-bypass");
                     return routeOutcome;
                 }
             }
 
-            context.Items[PublicAotSourceContextKey] = "spa-fallback";
-            context.Items[PublicAotVersionContextKey] = PublicRendererVersion;
-            context.Items[PublicAotBackfillContextKey] = "dev-source-bypass";
-            context.Items[PublicAotStateContextKey] = "fallback";
+            runtimeState.SetDevelopmentFallback(context);
             return PublicAotRenderOutcome.Success(null);
         }
 
@@ -124,16 +116,13 @@ public sealed class PublicAotShellService(
         catch (Exception ex) when (classifyColdMiss)
         {
             s_publicAotCacheFailedLog(logger, match.Kind, match.RouteKey, ex);
-            SetClassifiedFailureContext(context, PublicAotRenderStatus.TransientFailure, lookup.AssetMode);
+            runtimeState.SetClassifiedFailure(context, PublicAotRenderStatus.TransientFailure, lookup.AssetMode);
             return PublicAotRenderOutcome.TransientFailure(
                 ErrorDetail.Create(ErrorCode.InfraFailure, "public_aot_cache_read_failed"));
         }
         if (artifactStore.IsRenderable(entry, lookup.FrontendAssetVersion))
         {
-            context.Items[PublicAotSourceContextKey] = entry!.Source.ToHeaderValue();
-            context.Items[PublicAotVersionContextKey] = entry.RendererVersion;
-            context.Items[PublicAotBackfillContextKey] = "none";
-            context.Items[PublicAotStateContextKey] = "fresh";
+            runtimeState.SetFresh(context, entry!);
             return PublicAotRenderOutcome.Success(entry);
         }
 
@@ -150,7 +139,7 @@ public sealed class PublicAotShellService(
             catch (Exception ex) when (classifyColdMiss)
             {
                 s_publicAotCacheFailedLog(logger, match.Kind, match.RouteKey, ex);
-                SetClassifiedFailureContext(context, PublicAotRenderStatus.TransientFailure, lookup.AssetMode);
+                runtimeState.SetClassifiedFailure(context, PublicAotRenderStatus.TransientFailure, lookup.AssetMode);
                 return PublicAotRenderOutcome.TransientFailure(
                     ErrorDetail.Create(ErrorCode.InfraFailure, "public_aot_cache_remove_failed"));
             }
@@ -161,16 +150,13 @@ public sealed class PublicAotShellService(
             PublicAotRenderOutcome routeOutcome = await documentComposition.ClassifyRouteAsync(match, cancellationToken);
             if (routeOutcome.Status != PublicAotRenderStatus.Success)
             {
-                SetClassifiedFailureContext(context, routeOutcome.Status, "none");
+                runtimeState.SetClassifiedFailure(context, routeOutcome.Status, "none");
                 return routeOutcome;
             }
         }
 
         bool queued = artifactStore.TryScheduleBackfill(context, match, lookup);
-        context.Items[PublicAotSourceContextKey] = classifyColdMiss ? "server-status" : "spa-fallback";
-        context.Items[PublicAotVersionContextKey] = PublicRendererVersion;
-        context.Items[PublicAotBackfillContextKey] = queued ? "queued" : "dropped";
-        context.Items[PublicAotStateContextKey] = classifyColdMiss ? "cold-miss" : "fallback";
+        runtimeState.SetCacheMiss(context, classifyColdMiss, queued);
         if (queued)
         {
             s_publicAotBackfillQueuedLog(logger, match.Kind, match.RouteKey, null);
@@ -215,26 +201,6 @@ public sealed class PublicAotShellService(
                 && string.Equals(match.QueryString, $"?page={page[0]}", StringComparison.Ordinal);
     }
 
-    private static void SetClassifiedFailureContext(
-        HttpContext context,
-        PublicAotRenderStatus status,
-        string assetMode)
-    {
-        context.Items[PublicAotSourceContextKey] = status == PublicAotRenderStatus.PermanentRedirect
-            ? "server-redirect"
-            : "server-status";
-        context.Items[PublicAotVersionContextKey] = PublicRendererVersion;
-        context.Items[PublicAotBackfillContextKey] = "none";
-        context.Items[PublicAotStateContextKey] = status switch
-        {
-            PublicAotRenderStatus.PermanentRedirect => "permanent-redirect",
-            PublicAotRenderStatus.NotFound => "not-found",
-            PublicAotRenderStatus.Gone => "gone",
-            _ => "transient-failure"
-        };
-        context.Items[PublicAotAssetModeContextKey] = assetMode;
-    }
-
     public async Task GenerateAndStoreAsync(
         PublicAotBackfillRequest request,
         CancellationToken cancellationToken = default,
@@ -251,8 +217,9 @@ public sealed class PublicAotShellService(
             cancellationToken);
         if (document.IsFailure)
         {
-            PublicAotSsrFailureClass failureClass = PublicAotSsrRuntimeState.ClassifyFailure(document.Error.Message);
-            ssrRuntimeState.RecordBackfillFailure(request, failureClass, document.Error.Message, TimeSpan.Zero);
+            PublicAotSsrFailureClass failureClass = runtimeState.RecordBackfillFailure(
+                request,
+                document.Error.Message);
             logger.LogInformation(
                 "Public AOT SSR backfill skipped due to recoverable render failure: {Kind} {RouteKey} {FailureClass} {Message}",
                 request.Kind,
@@ -279,15 +246,14 @@ public sealed class PublicAotShellService(
                 backfillDocument,
                 beforeCommit,
                 cancellationToken);
-            ssrRuntimeState.RecordBackfillSuccess(request, TimeSpan.Zero);
+            runtimeState.RecordBackfillSuccess(request);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            ssrRuntimeState.RecordBackfillFailure(
+            runtimeState.RecordBackfillFailure(
                 request,
                 PublicAotSsrFailureClass.CacheWriteFailure,
-                ex.Message,
-                TimeSpan.Zero);
+                ex.Message);
             logger.LogWarning(
                 ex,
                 "public_aot_cache_write_failed {Kind} {RouteKey} {FailureClass}",
@@ -300,7 +266,7 @@ public sealed class PublicAotShellService(
 
     public async Task<Result> InvalidateAllAsync(CancellationToken cancellationToken = default)
     {
-        ssrRuntimeState.ClearAllRouteQuarantines();
+        runtimeState.ClearAllRouteQuarantines();
         await artifactStore.InvalidateAllAsync(cancellationToken);
         return Result.Success();
     }

@@ -41,7 +41,7 @@ public sealed class PublicAotDocumentCompositionBoundaryTests
             new ImmediateDbConcurrencyGate(),
             composition,
             Substitute.For<IPublicAotArtifactStore>(),
-            new PublicAotSsrRuntimeState(new ConfigurationBuilder().Build()),
+            Substitute.For<IPublicAotRuntimeState>(),
             NullLogger<PublicAotShellService>.Instance);
 
         Result<PublicAotNavigationSnapshot> actual = await service.BuildNavigationSnapshotAsync(

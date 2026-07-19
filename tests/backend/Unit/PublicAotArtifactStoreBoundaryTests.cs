@@ -67,6 +67,8 @@ public sealed class PublicAotArtifactStoreBoundaryTests
             .Select(static parameter => parameter.ParameterType)
             .ToArray();
         Assert.Contains(typeof(IPublicAotArtifactStore), shellDependencies);
+        Assert.Contains(typeof(IPublicAotRuntimeState), shellDependencies);
+        Assert.DoesNotContain(typeof(PublicAotSsrRuntimeState), shellDependencies);
         Assert.DoesNotContain(typeof(IPublicAotShellCache), shellDependencies);
         Assert.DoesNotContain(typeof(IPublicAotCacheWriter), shellDependencies);
         Assert.DoesNotContain(typeof(IPublicAotBackfillScheduler), shellDependencies);
