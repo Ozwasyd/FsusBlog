@@ -36,11 +36,11 @@ public sealed class AuthSecurityHardeningTests
     }
 
     [Fact]
-    public void UserService_AccountDeletionRuntimeRevokesAllSessionsInTransaction()
+    public void UserProfileCommandService_AccountDeletionRuntimeRevokesAllSessionsInTransaction()
     {
         string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
-            typeof(UserService),
-            nameof(UserService.DeleteAccountAsync));
+            typeof(UserProfileCommandService),
+            nameof(UserProfileCommandService.DeleteAccountAsync));
 
         Assert.Contains("UseTranAsync", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("account_deleted", runtimeShape, StringComparison.Ordinal);

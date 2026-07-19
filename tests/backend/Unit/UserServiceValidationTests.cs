@@ -51,7 +51,6 @@ public class UserServiceValidationTests
             _db: db,
             _logger: NullLogger<UserService>.Instance,
             _jwtHelper: jwtHelper,
-            _cacheInvalidation: Substitute.For<ICacheInvalidationStore>(),
             _cacheCounters: Substitute.For<ICacheCounterStore>(),
             _blacklistService: blacklistService ?? Substitute.For<IBlacklistService>(),
             _messageCommandService: Substitute.For<IMessageCommandService>(),
@@ -60,6 +59,18 @@ public class UserServiceValidationTests
             _authRiskService: Substitute.For<IAuthRiskService>(),
             _userSessionValidationCache: sessionValidationCache ?? Substitute.For<IUserSessionValidationCache>());
     }
+
+    private static UserProfileCommandService BuildProfileService(
+        ISqlSugarClient? db = null,
+        IBlacklistService? blacklist = null,
+        IUserSessionValidationCache? sessionValidation = null)
+        => new(
+            db ?? Substitute.For<ISqlSugarClient>(),
+            NullLogger<UserProfileCommandService>.Instance,
+            blacklist ?? Substitute.For<IBlacklistService>(),
+            Substitute.For<ICacheInvalidationStore>(),
+            Substitute.For<ICacheCounterStore>(),
+            sessionValidation ?? Substitute.For<IUserSessionValidationCache>());
 
     private static (IInsertable<UserSession> SessionInsert, IUpdateable<User> UserUpdate) ConfigureLoginPersistence(ISqlSugarClient db)
     {
@@ -158,7 +169,7 @@ public class UserServiceValidationTests
     {
         var db = Substitute.For<ISqlSugarClient>();
         db.Ado.ExecuteCommandAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>()).Returns(Task.FromResult(1));
-        var svc = BuildService(db, Substitute.For<IJwtHelper>());
+        var svc = BuildProfileService(db);
 
         var (success, message) = await svc.UpdatePublicHandleAsync(7, "QuietReader#123");
 
@@ -175,7 +186,7 @@ public class UserServiceValidationTests
         var db = Substitute.For<ISqlSugarClient>();
         db.Ado.ExecuteCommandAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>()).Returns(Task.FromResult(0));
         db.Ado.GetIntAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>()).Returns(Task.FromResult(1));
-        var svc = BuildService(db, Substitute.For<IJwtHelper>());
+        var svc = BuildProfileService(db);
 
         var (success, message) = await svc.UpdatePublicHandleAsync(7, "QuietReader");
 
@@ -190,7 +201,7 @@ public class UserServiceValidationTests
         var db = Substitute.For<ISqlSugarClient>();
         db.Ado.ExecuteCommandAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>())
             .Returns<Task<int>>(_ => throw new Exception("23505 duplicate key value violates unique constraint"));
-        var svc = BuildService(db, Substitute.For<IJwtHelper>());
+        var svc = BuildProfileService(db);
 
         var (success, message) = await svc.UpdatePublicHandleAsync(7, "QuietReader");
 
@@ -201,7 +212,7 @@ public class UserServiceValidationTests
     [Fact]
     public async Task UpdatePublicHandleAsync_InvalidHandle_ReturnsValidationError()
     {
-        var svc = BuildService();
+        var svc = BuildProfileService();
 
         var (success, message) = await svc.UpdatePublicHandleAsync(7, "reader_123");
 
@@ -214,7 +225,7 @@ public class UserServiceValidationTests
     {
         var db = Substitute.For<ISqlSugarClient>();
         db.Ado.ExecuteCommandAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>()).Returns(Task.FromResult(1));
-        var svc = BuildService(db, Substitute.For<IJwtHelper>());
+        var svc = BuildProfileService(db);
 
         var (success, message) = await svc.UpdatePublicHandleAsync(7, "   ");
 
@@ -238,7 +249,7 @@ public class UserServiceValidationTests
                 executedParameters = call.ArgAt<SugarParameter[]>(1);
                 return Task.FromResult(1);
             });
-        var service = BuildService(db, Substitute.For<IJwtHelper>());
+        var service = BuildProfileService(db);
 
         var (success, message) = await service.UpdatePublicHandleAsync(7, " QuietReader#123 ");
 
@@ -370,12 +381,7 @@ public class UserServiceValidationTests
                 return Task.CompletedTask;
             });
         var blacklist = Substitute.For<IBlacklistService>();
-        var service = BuildService(
-            db,
-            Substitute.For<IJwtHelper>(),
-            Substitute.For<ITotpService>(),
-            blacklist,
-            sessionCache);
+        var service = BuildProfileService(db, blacklist, sessionCache);
 
         var (success, message) = await service.DeleteAccountAsync(42, new DeleteAccountRequestDto { ConfirmText = " DELETE " });
 

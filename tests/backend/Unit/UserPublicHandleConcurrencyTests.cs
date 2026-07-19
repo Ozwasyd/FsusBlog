@@ -28,8 +28,8 @@ public sealed class UserPublicHandleConcurrencyTests(PostgresSchemaMigrationFixt
         int secondUserId = await InsertUserAsync(setupDb);
         using SqlSugarClient firstDb = PostgresSqlSugarTestClient.Create(connectionString);
         using SqlSugarClient secondDb = PostgresSqlSugarTestClient.Create(connectionString);
-        UserService firstService = CreateService(firstDb);
-        UserService secondService = CreateService(secondDb);
+        UserProfileCommandService firstService = CreateService(firstDb);
+        UserProfileCommandService secondService = CreateService(secondDb);
         using var barrier = new Barrier(2);
 
         (bool Success, string Message)[] results = await Task.WhenAll(
@@ -53,7 +53,7 @@ public sealed class UserPublicHandleConcurrencyTests(PostgresSchemaMigrationFixt
         int firstUserId = await InsertUserAsync(db, "quietreader");
         int secondUserId = await InsertUserAsync(db);
         Assert.NotEqual(firstUserId, secondUserId);
-        UserService service = CreateService(db);
+        UserProfileCommandService service = CreateService(db);
 
         (bool success, string message) = await service.UpdatePublicHandleAsync(secondUserId, "QuietReader");
 
@@ -69,19 +69,14 @@ public sealed class UserPublicHandleConcurrencyTests(PostgresSchemaMigrationFixt
             IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind
         }).ExecuteReturnIdentityAsync();
 
-    private static UserService CreateService(SqlSugarClient db)
+    private static UserProfileCommandService CreateService(SqlSugarClient db)
         => new(
-            _db: db,
-            _logger: NullLogger<UserService>.Instance,
-            _jwtHelper: Substitute.For<IJwtHelper>(),
-            _cacheInvalidation: Substitute.For<ICacheInvalidationStore>(),
-            _cacheCounters: Substitute.For<ICacheCounterStore>(),
-            _blacklistService: Substitute.For<IBlacklistService>(),
-            _messageCommandService: Substitute.For<IMessageCommandService>(),
-            _messageRealtimePublisher: Substitute.For<IMessageRealtimePublisher>(),
-            _totpService: Substitute.For<ITotpService>(),
-            _authRiskService: Substitute.For<IAuthRiskService>(),
-            _userSessionValidationCache: Substitute.For<IUserSessionValidationCache>());
+            db,
+            NullLogger<UserProfileCommandService>.Instance,
+            Substitute.For<IBlacklistService>(),
+            Substitute.For<ICacheInvalidationStore>(),
+            Substitute.For<ICacheCounterStore>(),
+            Substitute.For<IUserSessionValidationCache>());
 
     private static Task<T> StartBarrierTaskAsync<T>(Barrier barrier, Func<Task<T>> action)
         => Task.Factory.StartNew(

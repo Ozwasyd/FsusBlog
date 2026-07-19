@@ -259,7 +259,6 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
             _db: db,
             _logger: NullLogger<UserService>.Instance,
             _jwtHelper: jwt,
-            _cacheInvalidation: Substitute.For<ICacheInvalidationStore>(),
             _cacheCounters: Substitute.For<ICacheCounterStore>(),
             _blacklistService: Substitute.For<IBlacklistService>(),
             _messageCommandService: Substitute.For<IMessageCommandService>(),

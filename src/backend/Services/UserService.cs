@@ -37,7 +37,6 @@ public partial class UserService(
     ISqlSugarClient _db,
     ILogger<UserService> _logger,
     IJwtHelper _jwtHelper,
-    ICacheInvalidationStore _cacheInvalidation,
     ICacheCounterStore _cacheCounters,
     IBlacklistService _blacklistService,
     IMessageCommandService _messageCommandService,
@@ -268,81 +267,6 @@ public partial class UserService(
         => AccountSnapshotCacheInvalidator.BumpVersionAsync(_cacheCounters, userId, cancellationToken);
 
 
-    public async Task<(bool Success, string Message)> UpdatePublicHandleAsync(int userId, string? publicHandle)
-    {
-        var handle = NormalizePublicHandle(publicHandle);
-        if (!handle.Success)
-        {
-            return (false, handle.Message);
-        }
-
-        try
-        {
-            int updated = handle.PublicHandle is null
-                ? await _db.Ado.ExecuteCommandAsync(
-                    """
-                    UPDATE sys_user
-                    SET public_handle = NULL
-                    WHERE id = @userId;
-                    """,
-                    new SugarParameter[] { new("@userId", userId) })
-                : await _db.Ado.ExecuteCommandAsync(
-                    """
-                    UPDATE sys_user
-                    SET public_handle = @publicHandle
-                    WHERE id = @userId
-                      AND NOT EXISTS (
-                          SELECT 1
-                          FROM sys_user
-                          WHERE public_handle = @publicHandle
-                            AND id <> @userId
-                      );
-                    """,
-                    new SugarParameter[]
-                    {
-                        new("@userId", userId),
-                        new("@publicHandle", handle.PublicHandle)
-                    });
-
-            if (updated > 0)
-            {
-                await InvalidateAccountSnapshotAsync(userId).ConfigureAwait(false);
-                return handle.PublicHandle is null
-                    ? (true, "公开称呼已清空")
-                    : (true, "公开称呼已保存");
-            }
-        }
-        catch (Exception ex) when (IsUniqueViolation(ex))
-        {
-            return (false, "公开称呼已被占用");
-        }
-
-        if (!await UserExistsAsync(userId))
-        {
-            return (false, "用户不存在");
-        }
-
-        return (false, "公开称呼已被占用");
-    }
-
-    private async Task<bool> UserExistsAsync(int userId)
-    {
-        int exists = await _db.Ado.GetIntAsync(
-            """
-            SELECT COUNT(1)
-            FROM sys_user
-            WHERE id = @userId;
-            """,
-            new SugarParameter[] { new("@userId", userId) });
-        return exists > 0;
-    }
-
-    private static bool IsUniqueViolation(Exception exception)
-        => exception is PostgresException postgres &&
-            string.Equals(postgres.SqlState, PostgresErrorCodes.UniqueViolation, StringComparison.Ordinal)
-            || exception.Message.Contains("23505", StringComparison.OrdinalIgnoreCase)
-            || exception.Message.Contains("Duplicate", StringComparison.OrdinalIgnoreCase)
-            || exception.Message.Contains("Unique", StringComparison.OrdinalIgnoreCase);
 
     public async Task<(bool Success, TokenResponseDto? Data)> RefreshTokenAsync(string refreshToken)
     {
@@ -1274,114 +1198,6 @@ public partial class UserService(
             new KeyValuePair<string, object?>("Rebind", user.MfaEnabled));
 
         return (true, new MfaSetupStartDto(user.MfaEnabled, secret, otpAuthUrl, issuer, account), "MFA_SETUP_STARTED");
-    }
-
-    public async Task<(bool Success, string Message)> DeleteAccountAsync(int userId, DeleteAccountRequestDto dto)
-    {
-        if (!string.Equals(dto.ConfirmText?.Trim(), "DELETE", StringComparison.Ordinal))
-        {
-            return (false, "确认文本不匹配");
-        }
-
-        var user = await _db.Queryable<User>().InSingleAsync(userId);
-        if (user == null)
-        {
-            return (false, "用户不存在");
-        }
-
-        if (user.Status == UserStatusDeleted || user.DeletedAt.HasValue)
-        {
-            return (false, "账户已注销");
-        }
-
-        DateTime deletedAt = DateTime.UtcNow;
-        List<UserSessionValidationCacheState> revokedSessions = [];
-        bool publicationAttempted = false;
-
-        var tran = await _db.Ado.UseTranAsync(async () =>
-        {
-            using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
-                """
-                UPDATE sys_user_session
-                SET revokedat = @RevokedAt,
-                    revokereason = 'account_deleted'
-                WHERE userid = @UserId
-                  AND revokedat IS NULL
-                RETURNING sessionid,
-                          userid,
-                          revokedat,
-                          idleexpiresat,
-                          absoluteexpiresat,
-                          xmin::text AS row_version;
-                """,
-                new SugarParameter("@RevokedAt", deletedAt),
-                new SugarParameter("@UserId", userId)))
-            {
-                while (await reader.ReadAsync())
-                {
-                    revokedSessions.Add(ReadRevokedSessionValidationState(reader));
-                }
-            }
-
-            await _db.Deleteable<PasskeyCredential>()
-                .Where(p => p.AccountId == userId)
-                .ExecuteCommandAsync();
-
-            await _db.Updateable<RecoveryKeyCredential>()
-                .SetColumns(k => k.RevokedAt == deletedAt)
-                .Where(k => k.AccountId == userId && k.RevokedAt == null)
-                .ExecuteCommandAsync();
-
-            await _db.Updateable<AnonymousCredential>()
-                .SetColumns(c => c.Status == AnonymousCredentialStatuses.Revoked)
-                .SetColumns(c => c.RevokedAtUtc == deletedAt)
-                .Where(c => c.AccountId == userId && c.RevokedAtUtc == null)
-                .ExecuteCommandAsync();
-
-            await _db.Updateable<User>()
-                .SetColumns(u => u.Status == UserStatusDeleted)
-                .SetColumns(u => u.PublicHandle == null)
-                .SetColumns(u => u.IdentityKind == AnonymousIdentityRuntime.AnonymousAccountKind)
-                .SetColumns(u => u.PasskeyEnabled == false)
-                .SetColumns(u => u.RecoveryEnabled == false)
-                .SetColumns(u => u.AnonymousCredentialStatus == AnonymousCredentialStatuses.Revoked)
-                .SetColumns(u => u.MfaEnabled == false)
-                .SetColumns(u => u.RiskFlags == 0)
-                .SetColumns(u => u.BanReason == null)
-                .SetColumns(u => u.DeletedAt == deletedAt)
-                .SetColumns(u => u.DeletedReason == "self-service")
-                .Where(u => u.Id == userId)
-                .ExecuteCommandAsync();
-
-            await _db.Updateable<UserMfaProfile>()
-                .SetColumns(p => p.MfaSecretEncrypted == null)
-                .SetColumns(p => p.MfaPendingSecretEncrypted == null)
-                .SetColumns(p => p.MfaPendingCreatedAt == null)
-                .SetColumns(p => p.MfaRecoveryCodesHash == null)
-                .SetColumns(p => p.MfaVerifiedAt == null)
-                .SetColumns(p => p.UpdatedAtUtc == deletedAt)
-                .Where(p => p.UserId == userId)
-                .ExecuteCommandAsync();
-
-            publicationAttempted = revokedSessions.Count > 0;
-            await _userSessionValidationCache.PublishManyAsync(revokedSessions, allowOverwrite: true);
-        });
-
-        if (!tran.IsSuccess)
-        {
-            if (publicationAttempted)
-            {
-                await BestEffortInvalidateRevocationSnapshotsAsync(revokedSessions);
-            }
-
-            _logger.LogError(tran.ErrorException, "Delete account transaction failed for user {UserId}", userId);
-            return (false, "账户注销失败，请稍后重试");
-        }
-
-        await _blacklistService.UnbanUserAsync(userId);
-        await _cacheInvalidation.RemoveAsync(CachePolicyId.SecurityBlockedUser, userId.ToString());
-        await InvalidateAccountSnapshotAsync(userId).ConfigureAwait(false);
-        return (true, "账户已注销");
     }
 
     private async Task BestEffortInvalidateRevocationSnapshotsAsync(

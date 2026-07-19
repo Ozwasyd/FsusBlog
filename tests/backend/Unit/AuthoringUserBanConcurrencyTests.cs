@@ -236,7 +236,6 @@ public sealed class AuthoringUserBanConcurrencyTests(PostgresSchemaMigrationFixt
             _db: db,
             _logger: NullLogger<UserService>.Instance,
             _jwtHelper: Substitute.For<IJwtHelper>(),
-            _cacheInvalidation: Substitute.For<ICacheInvalidationStore>(),
             _cacheCounters: Substitute.For<ICacheCounterStore>(),
             _blacklistService: blacklist,
             _messageCommandService: messages,
