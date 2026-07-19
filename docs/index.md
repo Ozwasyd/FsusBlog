@@ -10,6 +10,7 @@
 - [Article Rights Canonical Hash](integrity/article-rights-canonical-hash.md) - Rights V3 canonical policy hash contract.
 - [Article Rights Proof](integrity/article-rights-proof.md) - public proof binding for rights snapshots, publish proofs, and transparency log entries.
 - [Public Layout Rules](public-layout-rules.md) - FsusBlog public-site consumer layout, material, motion, reading surface, and commit review rules.
+- [Loaded Font-weight Acceptance](issue-1289-loaded-font-weight-acceptance.md) - Selector-level 400/700 evidence for the composer, TOC, Markdown, and theme-token audit.
 - [Touch Target Floor](issue-1285-touch-target-floor.md) - Public, identity, and admin touch-target tiers plus sticky-geometry ownership.
 - [Account Integer Typography](issue-1293-account-integer-typography.md) - IdentityCenter and account-shell 12/14/16px acceptance contract.
 - [Account Navigation Hierarchy](issue-1292-account-navigation-hierarchy.md) - First-level and local account navigation typography, indentation, and touch tiers.
