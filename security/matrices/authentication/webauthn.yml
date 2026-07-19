@@ -85,6 +85,7 @@ scenarios:
       code:
           - src/backend/Services/Security/PasskeyService.cs
           - src/backend/Services/Security/PasskeyProjectionConsistencyService.cs
+          - src/frontend/src/composables/passkeyRecoveryCapability.ts
           - docs/security/passkey-metadata-projection.md
       tests:
           - tests/backend/Integration/PasskeyCounterRollbackIntegrationTests.cs
@@ -92,6 +93,7 @@ scenarios:
           - tests/backend/Integration/PasskeyRegistrationProjectionIntegrationTests.cs
           - tests/backend/Integration/PasskeyProjectionConsistencyIntegrationTests.cs
           - tests/backend/Unit/PasskeyProjectionCommandTests.cs
+          - tests/frontend/unit/composables/passkeyRecoveryCapability.test.ts
       evidence:
           - .tmp/security/attack-matrix.json
 

@@ -76,8 +76,15 @@
     >
       <div v-if="passkeyLoading" class="identity-loading-state">{{ passkeysCopy.loading }}</div>
       <div v-else-if="passkeyError" class="identity-error-state" role="alert">{{ passkeyError }}</div>
+      <div
+        v-if="!passkeyLoading && !passkeyError && showPasskeyRecoverySuggestion"
+        class="identity-copy-block mt-4"
+        role="status"
+      >
+        <p>{{ passkeysCopy.recoverySuggestion }}</p>
+      </div>
 
-      <ProfileResourceList v-else-if="passkeyCredentials.length">
+      <ProfileResourceList v-if="!passkeyLoading && !passkeyError && passkeyCredentials.length">
         <ProfileResourceListItem
           v-for="credential in passkeyCredentials"
           :key="credential.id"
@@ -117,7 +124,7 @@
       </ProfileResourceList>
 
       <ProfileInlineEmptyState
-        v-else
+        v-else-if="!passkeyLoading && !passkeyError"
         class="identity-empty-state"
         :title="passkeysCopy.emptyTitle"
         :content="passkeysCopy.emptyContent"
@@ -415,6 +422,7 @@ import {
   type UserSessionSummary
 } from '@/api/auth'
 import { usePasskeyManagement } from '@/composables/usePasskeyManagement'
+import { shouldSuggestPasskeyRecovery } from '@/composables/passkeyRecoveryCapability'
 import { useUserCommentsPage } from '@/composables/useUserCommentsPage'
 import { useAccountWorkspaceContext } from '@/layouts/accountWorkspaceContext'
 import { useUserStore } from '@/store/user'
@@ -692,7 +700,7 @@ const identityAccountSnapshot = computed(() => {
     accountId: user?.accountId ?? 0,
     publicHandle: user?.publicHandle || '',
     passkeyEnabled: passkeyCredentials.value.length > 0,
-    recoveryEnabled: recoveryKeyKnown.value || recoveryKeyPlaintext.value.length > 0,
+    recoveryEnabled: user?.recoveryEnabled === true || recoveryKeyKnown.value || recoveryKeyPlaintext.value.length > 0,
     totpStepUpEnabled: mfaProfile.value?.enabled === true,
     anonymousPolicyEnabled: features.anonymousCommentsEnabled && policies.anonymousCommentGovernanceAvailable,
     anonymousCardStatus: features.anonymousCommentsEnabled ? copy.anonymousCardAvailable : copy.anonymousCardClosed,
@@ -700,6 +708,11 @@ const identityAccountSnapshot = computed(() => {
     publicSendOptionEnabled: features.publicSendOptionEnabled
   }
 })
+
+const showPasskeyRecoverySuggestion = computed(() => shouldSuggestPasskeyRecovery(
+  passkeyCredentials.value,
+  identityAccountSnapshot.value.recoveryEnabled
+))
 
 const refreshPasskeys = async (): Promise<void> => {
   await fetchPasskeys()

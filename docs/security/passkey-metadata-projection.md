@@ -54,7 +54,7 @@ repair 只从 credential `EXISTS` 重建布尔值。受影响账号的 `AccountS
 
 现有 Passkey credential list 只返回内部管理 row ID、友好名称、创建/最近使用时间、AAGUID 类别和 BE/BS；不返回 WebAuthn credential ID、public key、user handle 或原始 authenticator flags。内部 row ID 仅用于已认证的重命名/删除路由，不是 WebAuthn 标识。
 
-客户端可用 credential 数、`BackupEligible` 和账号 recovery 状态提示恢复能力：只有一枚不可备份 credential 且无 Recovery Key 时建议增加第二枚 Passkey或创建 Recovery Key；已有多枚 credential、可备份 credential 或 Recovery Key 时不重复提示。当前 Session 的创建 credential 必须等 Session provenance 契约提供可信关联后再标记，不能用 AAGUID、User-Agent、IP 或猜测的设备指纹代替。
+IdentityCenter 只用 credential 数、`BackupEligible` 和账号 `recoveryEnabled` 状态派生恢复建议：只有一枚不可备份 credential 且无 Recovery Key 时建议增加第二枚 Passkey 或创建 Recovery Key；已有多枚 credential、可备份 credential 或 Recovery Key 时不重复提示。提示只是本地派生展示，不阻止登录，也不上传新数据。当前 Session 的创建 credential 必须等 Session provenance 契约提供可信关联后再标记，不能用 AAGUID、User-Agent、IP 或猜测的设备指纹代替。
 
 ## 风险与回退
 

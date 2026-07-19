@@ -13,6 +13,7 @@
 | drift check/repair/cache | `PasskeyProjectionConsistencyIntegrationTests` | 双向 drift 被发现，只按 credential facts 修复；snapshot bump 失败会回滚数据库修复 |
 | 离线命令 | `PasskeyProjectionCommandTests` | check 无需 release identity；repair 必须 `--confirm-repair`；冲突参数 fail closed |
 | startup gate | `LifecycleHostedBootstrapServiceTests` | schema/account invariant 后执行 Passkey projection gate |
+| 恢复能力提示 | `passkeyRecoveryCapability.test.ts` | 仅一枚不可备份 credential 且无 Recovery Key 时提示；其余状态不骚扰 |
 
 ## 聚焦验证
 
@@ -23,6 +24,9 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore \
 node tools/run-test-matrix.mjs validate
 node tools/security/check-security-matrices.mjs
 node tools/dotnet/check-csharp-style.mjs --mode changed
+
+cd src/frontend && corepack pnpm exec vitest run --config vitest.config.ts \
+  ../../tests/frontend/unit/composables/passkeyRecoveryCapability.test.ts
 ```
 
 ## 手工审阅清单

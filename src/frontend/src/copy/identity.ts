@@ -94,7 +94,8 @@ export const FSUSBLOG_IDENTITY_COPY = {
     activeAtLabel: '活跃',
     activeNeverRecorded: '未记录',
     backupEligible: '支持同步备份',
-    backupIneligible: '仅本设备'
+    backupIneligible: '仅本设备',
+    recoverySuggestion: '当前仅有一枚无法备份的通行密钥。建议再添加一枚通行密钥，或创建 Recovery Key。'
   },
   recoveryKey: {
     sectionTitle: 'Recovery Key',
