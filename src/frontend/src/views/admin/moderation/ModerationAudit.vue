@@ -142,7 +142,7 @@ const readAuditActionText = (value: string): string => {
 
 .moderation-audit-index__row:focus-visible {
   outline: none;
-  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring, var(--link-hover, #4A453C));
+  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring, var(--link-hover, #2A599C));
 }
 
 .moderation-audit-index__kind {
@@ -197,7 +197,7 @@ const readAuditActionText = (value: string): string => {
 }
 
 .moderation-audit-index__action {
-  color: var(--fsusblog-color-primary, var(--link-hover, #4A453C));
+  color: var(--fsusblog-color-primary, var(--link-hover, #2A599C));
   font-size: 12px;
   font-weight: 700;
   line-height: 1.5;

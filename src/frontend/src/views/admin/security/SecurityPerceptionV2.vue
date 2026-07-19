@@ -446,6 +446,6 @@ onMounted(() => {
 }
 
 .perception-v2-sync-state__dot--saving {
-  background: var(--fsusblog-color-primary, var(--link-hover, #4A453C));
+  background: var(--fsusblog-color-primary, var(--link-hover, #2A599C));
 }
 </style>

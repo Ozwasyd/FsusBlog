@@ -81,7 +81,7 @@ for (const token of [
 
 expectIncludes(
   navigationProgressCss,
-  'background: var(--fsusblog-color-primary, var(--fsus-scholarly-blue, #2a599c));',
+  'background: var(--fsusblog-color-primary, var(--fsus-scholarly-blue, #2A599C));',
   'navigation-progress.css scholarly fallback'
 )
 expectNotMatches(

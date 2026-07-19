@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const repoRoot = resolve(process.cwd(), '../..')
@@ -17,9 +17,18 @@ const legacyFsusBackdropSaturate = `--fsus-${'backdrop-saturate'}`
 const legacyFsusBackdropBlurSoft = `--fsus-${'backdrop-blur-soft'}`
 const legacyTabularNumsVar = `var(--${'tabular-nums'})`
 const legacyFsusFontMonoVar = `var(--fsus-${'font-mono'})`
+const legacyElementPrimaryBlue = `#${'409eff'}`
+const legacyWarmBrownFallback = `#${'4A453C'}`
 
 function read(path) {
   return readFileSync(resolve(repoRoot, path), 'utf8')
+}
+
+function walk(path) {
+  return readdirSync(resolve(repoRoot, path), { withFileTypes: true }).flatMap((entry) => {
+    const child = `${path}/${entry.name}`
+    return entry.isDirectory() ? walk(child) : [child]
+  })
 }
 
 function expectIncludes(path, source, needle, label = needle) {
@@ -57,6 +66,12 @@ const identity = read(identityPath)
 const dashboardPopular = read(dashboardPopularPath)
 const complianceFooter = read(complianceFooterPath)
 const packageJson = JSON.parse(read(packagePath))
+
+for (const path of walk('src/frontend/src')) {
+  const source = read(path)
+  expectNotIncludes(path, source.toLowerCase(), legacyElementPrimaryBlue, 'Element Plus primary-blue fallback')
+  expectNotIncludes(path, source, legacyWarmBrownFallback, 'warm-brown interaction fallback')
+}
 
 for (const [path, source] of [
   [publicPagePath, publicPage],

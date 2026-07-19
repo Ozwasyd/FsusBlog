@@ -54,6 +54,8 @@ Glass material 只允许用于以下 surface：
 
 暗色 Scholarly Blue 锁定为 `#4B79CC`。本仓不得把公开阅读面的 focus、active、link 反馈漂移到高饱和蓝或其他装饰色。
 
+导航进度与管理面交互反馈使用同一条 Scholarly Blue 降级链：优先消费已注册 token，最终静态 fallback 为 `#2A599C`。`src/frontend/src` 不得重新引入 Element Plus `#409EFF` 或暖棕 `#4A453C` 作为交互反馈兜底；`check:foundation-token-governance` 会扫描整个前端源码目录守住该契约。
+
 ## 7. 字号标度规则
 
 公开布局字号使用 12/14/16/18/20px 步进。`src/frontend/src` 的 public、account 与 admin surface 中，CSS `font-size` 小字号只写 `12px`、`14px` 或 `16px`；禁止 `11px`、`13px`，也禁止 `0.6` 到 `0.9` 区间的任意 `rem`/`em` 小数字号。需要紧凑信息时优先使用 12px、14px 与清晰行高；20/24/30px display 标题仍按下方响应式契约表达。
