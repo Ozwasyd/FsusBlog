@@ -28,6 +28,13 @@ evidence contract 分别位于 `security/matrices/`、`security/policies/`、
 完整分类、运行时路径和回退约束见
 [`docs/security/security-domain-layout.md`](../security/security-domain-layout.md)。
 
+## Shared contract ownership
+
+`src/shared/Contracts/` 是跨栈契约的唯一 product-source root。手写的安全协议 JSON 位于
+`src/shared/Contracts/Validation/Security/`，跨语言生成器位于 `tools/contracts/`；生成的
+C# 与 TypeScript consumer 可以分别位于 Shared 和 frontend，但不得反向成为事实源。
+根目录 `contracts/security/` 与 `tools/frontend/` 不承载跨栈安全协议 source/generator。
+
 ## Configuration ownership
 
 通用运行时、测试和观测配置统一放在 `config/`；只有 .NET framework tool

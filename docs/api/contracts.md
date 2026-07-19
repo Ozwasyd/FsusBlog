@@ -1,7 +1,7 @@
 # API 契约文档
 
 本文件是 FsusBlog 所有请求/响应 DTO、通知 WebSocket 信封与 AOT 契约的**完整参考**。
-所有定义的权威源码位于 `src/shared/Contracts/` 目录。
+所有定义的权威源码位于 `src/shared/Contracts/` 目录；跨语言安全协议的 JSON source 位于其 `Validation/Security/` 子目录，并由 `tools/contracts/` 同时生成后端 Shared 与前端 consumer。
 
 > 最近更新：2026-07-19 — RiskControl verify 增加 UUIDv7 envelope identity、member progress，并仅在全部 member 完成后返回 aggregate proof。
 
@@ -194,7 +194,7 @@ perception-sealed@v2 的验证矩阵：
 
 上线顺序固定为 `observe -> text-task enforce -> localization enforce -> micro-interaction optional -> strict/lockdown`。回滚时优先把 `globalMode` 调回 `observe`，或关闭对应 action 的 `publicReadChallengeEnabled`、`commentRiskControlEnabled`、`authRiskControlEnabled`；PoSpace 只能通过 `poSpaceV1Enabled` 与 `Security:PoSpaceV1:Mode` 进入 notification / high-risk 分支；AdminPasskeyStepUp 与 `X-Fsus-Mfa-Proof` 始终保留独立授权边界。
 
-`argon2idPoSpaceV1` provider 使用 `fsu.pospace/argon2id@v1` wire algorithm，默认 `Security:PoSpaceV1:Mode=disabled`，只有策略显式 enable 且 RiskDecision 选择该 kind 时才可签发。`contracts/security/pospace-v1-contract.json` 是前后端唯一参数源并生成 C#/TypeScript 常量：`memoryKib=19456..65536`、`iterations=2..6`、`lanes=1..4`、`targetDurationMs=100..5000`。配置、issue、verify 和 derive 都只接受无符号规范十进制；空白、正负号、前导零、小数、NaN、溢出或越界值直接拒绝，禁止 clamp。issue payload 包含 `algorithm`、`saltHex`、`memoryKib`、`iterations`、`lanes` 和 `targetDurationMs`；verify payload 必须按同一规范回传并追加 `nonceHex` 和 `proofHex`。服务端通过 `SecurityPoSpaceChallenge` cache 一次性消费 challenge，按生成契约规定的 material 字段顺序重新派生 proof；共享固定向量同时约束 C# 与 TypeScript 实现。
+`argon2idPoSpaceV1` provider 使用 `fsu.pospace/argon2id@v1` wire algorithm，默认 `Security:PoSpaceV1:Mode=disabled`，只有策略显式 enable 且 RiskDecision 选择该 kind 时才可签发。`src/shared/Contracts/Validation/Security/pospace-v1-contract.json` 是前后端唯一参数源，`tools/contracts/generate-pospace-v1-contract.mjs` 从中生成 C#/TypeScript 常量：`memoryKib=19456..65536`、`iterations=2..6`、`lanes=1..4`、`targetDurationMs=100..5000`。配置、issue、verify 和 derive 都只接受无符号规范十进制；空白、正负号、前导零、小数、NaN、溢出或越界值直接拒绝，禁止 clamp。issue payload 包含 `algorithm`、`saltHex`、`memoryKib`、`iterations`、`lanes` 和 `targetDurationMs`；verify payload 必须按同一规范回传并追加 `nonceHex` 和 `proofHex`。服务端通过 `SecurityPoSpaceChallenge` cache 一次性消费 challenge，按生成契约规定的 material 字段顺序重新派生 proof；共享固定向量同时约束 C# 与 TypeScript 实现。
 
 移动端或低内存客户端不得执行 PoSpace。客户端只上报低基数原因 `worker_unavailable | slow_device | mobile_memory_cap | memory_tier_cap`，通过现有 `SecurityChallengeIssueRequest.attributesJson.unsupportedAssignment` 绑定原 `challengeId/kind/action/routeKey` 和从 1 开始的有限重签计数；该扩展仍只走 AEDS binary endpoint，不增加 JSON fallback。服务端核验原 assignment 存在、未过期、仍为 issued 且 subject/IP/device/action/route 全绑定后，先撤销原 assignment 与一次性 cache，再依据当前策略删除 PoSpace、改发已启用的 `captchaV1` 或 fail closed；最多两次，不接受客户端指定 fallback，也不回传内部判定细节。
 

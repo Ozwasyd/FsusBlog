@@ -1,12 +1,15 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
 const read = (relative) => readFileSync(path.join(root, relative), 'utf8')
 
-const source = JSON.parse(read('contracts/security/pospace-v1-contract.json'))
+const canonicalSourcePath = 'src/shared/Contracts/Validation/Security/pospace-v1-contract.json'
+const canonicalGeneratorPath = 'tools/contracts/generate-pospace-v1-contract.mjs'
+const source = JSON.parse(read(canonicalSourcePath))
+const generator = read(canonicalGeneratorPath)
 const vector = JSON.parse(read('tests/fixtures/security/pospace-v1-vector.json'))
 const provider = read('src/backend/Services/Security/Argon2idPoSpaceV1ChallengeProvider.cs')
 const runtime = read('src/frontend/src/services/securityPoSpaceRuntime.ts')
@@ -17,6 +20,12 @@ const frontendCapabilities = read('src/frontend/src/security/challenge-capabilit
 const backendTests = read('tests/backend/Unit/Argon2idPoSpaceV1ChallengeProviderTests.cs')
 const frontendTests = read('tests/frontend/unit/wasm/securityPoSpace.test.ts')
 const workerTests = read('tests/frontend/e2e/security/pospace-worker.spec.ts')
+
+assert.equal(existsSync(path.join(root, 'contracts/security/pospace-v1-contract.json')), false)
+assert.equal(existsSync(path.join(root, 'tools/frontend/generate-pospace-v1-contract.mjs')), false)
+assert.match(generator, /src\/shared\/Contracts\/Validation\/Security\/pospace-v1-contract\.json/)
+assert.match(generator, /src\/shared\/Contracts\/Security\/PoSpaceV1Contract\.Generated\.cs/)
+assert.match(generator, /src\/frontend\/src\/generated\/poSpaceV1Contract\.ts/)
 
 assert.equal(source.algorithm, 'fsu.pospace/argon2id@v1')
 assert.deepEqual(source.memoryKib, { min: 19456, max: 65536, default: 19456 })
