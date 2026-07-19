@@ -15,7 +15,7 @@ public sealed class CommentAttributionPrivacyBoundaryTests
     [Fact]
     public void DependencyGraph_MovesIdentityAndPrivacyPortsOutOfCommentCommand()
     {
-        Type[] commandDependencies = Assert.Single(typeof(CommentService).GetConstructors())
+        Type[] commandDependencies = Assert.Single(typeof(CommentCommandService).GetConstructors())
             .GetParameters()
             .Select(static parameter => parameter.ParameterType)
             .ToArray();
@@ -31,7 +31,7 @@ public sealed class CommentAttributionPrivacyBoundaryTests
             .GetParameters();
         Assert.DoesNotContain(
             attributionDependencies,
-            static parameter => parameter.ParameterType == typeof(CommentService));
+            static parameter => parameter.ParameterType == typeof(CommentCommandService));
     }
 
     [Fact]

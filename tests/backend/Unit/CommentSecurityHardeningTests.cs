@@ -75,7 +75,7 @@ public sealed class CommentSecurityHardeningTests
     {
         IReadOnlyList<IReadOnlyList<string>> creationPaths = RuntimeMetadataInspection
             .DescribeDeclaredMemberReferenceSequencesContaining(
-                typeof(CommentService),
+                typeof(CommentCommandService),
                 "BuildInitialModerationReason",
                 "Comment.set_ModerationStatus",
                 "ICommentModerationService.ApplyPostInsertAsync");
@@ -84,7 +84,7 @@ public sealed class CommentSecurityHardeningTests
             FindReference(creation, "ICommentModerationService.ApplyPostInsertAsync")));
 
         string creationBody = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
-            typeof(CommentService),
+            typeof(CommentCommandService),
             "BuildInitialModerationReason",
             "set_ModerationStatus");
         Assert.Contains("BuildInitialModerationReason", creationBody, StringComparison.Ordinal);
@@ -139,7 +139,7 @@ public sealed class CommentSecurityHardeningTests
     public void CommentCreateService_RequiresPublicArticleAndVisibleReplyAncestors()
     {
         string create = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
-            typeof(CommentService),
+            typeof(CommentCommandService),
             "a.status = @PublishedStatus",
             "FROM article a, comment pc, comment rc");
 
@@ -152,7 +152,7 @@ public sealed class CommentSecurityHardeningTests
         Assert.Contains("COALESCE(pc.root_id, pc.id) = @RootId", create);
 
         string invalidation = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
-            typeof(CommentService),
+            typeof(CommentCommandService),
             "CommentCacheInvalidationScope..ctor",
             "InvalidateCommentMutationAsync");
         Assert.Contains("Comment.get_RootId", invalidation, StringComparison.Ordinal);
@@ -188,7 +188,7 @@ public sealed class CommentSecurityHardeningTests
         Assert.Contains("NormalizeCommentFrameRegion", replyFrame, StringComparison.Ordinal);
         Assert.Contains("NormalizeCommentFrameRegion", cacheResult, StringComparison.Ordinal);
 
-        string command = RuntimeMetadataInspection.DescribeType(typeof(CommentService));
+        string command = RuntimeMetadataInspection.DescribeType(typeof(CommentCommandService));
         string moderation = RuntimeMetadataInspection.DescribeType(typeof(CommentModerationService));
         string service = string.Concat(command, moderation);
         string queries = RuntimeMetadataInspection.DescribeType(typeof(CommentQueryService));

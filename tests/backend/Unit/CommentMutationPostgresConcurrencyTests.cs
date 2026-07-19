@@ -94,7 +94,7 @@ public sealed class CommentMutationPostgresConcurrencyTests(PostgresSchemaMigrat
             """);
         var invalidations = new RecordingCacheInvalidationDispatcher();
         IMessageRealtimePublisher realtime = Substitute.For<IMessageRealtimePublisher>();
-        CommentService service = CreateCommentService(db, invalidations, realtime);
+        CommentCommandService service = CreateCommentService(db, invalidations, realtime);
 
         bool deleted = await service.DeleteCommentAsync(101, currentUserId: 7, isAdmin: false, reason: "must-rollback");
 
@@ -244,7 +244,7 @@ public sealed class CommentMutationPostgresConcurrencyTests(PostgresSchemaMigrat
         return connectionString;
     }
 
-    private static CommentService CreateCommentService(
+    private static CommentCommandService CreateCommentService(
         SqlSugarClient db,
         ICacheInvalidationDispatcher invalidations,
         IMessageRealtimePublisher realtime)
@@ -259,9 +259,9 @@ public sealed class CommentMutationPostgresConcurrencyTests(PostgresSchemaMigrat
             invalidations,
             notifications,
             NullLogger<CommentModerationService>.Instance);
-        return new CommentService(
+        return new CommentCommandService(
             db,
-            NullLogger<CommentService>.Instance,
+            NullLogger<CommentCommandService>.Instance,
             notifications,
             moderation,
             new CommentAttributionPrivacyService(

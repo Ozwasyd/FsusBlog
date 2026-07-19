@@ -63,7 +63,7 @@ public sealed class AnonymousCommentSubmitTests(
         tickets.Add(s_ticket, TicketPayload(articleId: 42));
         var nullifiers = new RecordingNullifierService();
         var dispatcher = new RecordingCacheInvalidationDispatcher();
-        CommentService service = CreateService(db, tickets, nullifiers, dispatcher);
+        CommentCommandService service = CreateService(db, tickets, nullifiers, dispatcher);
 
         bool created = await service.CreateStrongAnonymousCommentAsync(CreateRequest(), RegionDecision(), CancellationToken.None);
 
@@ -109,7 +109,7 @@ public sealed class AnonymousCommentSubmitTests(
     public void CreateStrongAnonymousCommentAsync_RuntimeUsesAtomicNullifierConsume()
     {
         string create = RuntimeMetadataInspection.DescribeMethods(
-            typeof(CommentService),
+            typeof(CommentCommandService),
             "CreateResolvedCommentAsync");
         string attribution = RuntimeMetadataInspection.DescribeMethods(
             typeof(CommentAttributionPrivacyService),
@@ -172,7 +172,7 @@ public sealed class AnonymousCommentSubmitTests(
         SeedArticle(db, articleId: 42);
         var tickets = new RecordingTicketService();
         tickets.Add(s_ticket, TicketPayload(articleId: 42));
-        CommentService service = CreateService(db, tickets);
+        CommentCommandService service = CreateService(db, tickets);
 
         Assert.True(await service.CreateStrongAnonymousCommentAsync(CreateRequest(), RegionDecision(), CancellationToken.None));
         Assert.False(await service.CreateStrongAnonymousCommentAsync(CreateRequest(), RegionDecision(), CancellationToken.None));
@@ -190,7 +190,7 @@ public sealed class AnonymousCommentSubmitTests(
         var tickets = new RecordingTicketService();
         tickets.Add(s_ticket, TicketPayload(articleId: 42, expiresAtUnixMs: DateTimeOffset.UtcNow.AddSeconds(-1).ToUnixTimeMilliseconds()));
         var nullifiers = new RecordingNullifierService();
-        CommentService service = CreateService(db, tickets, nullifiers);
+        CommentCommandService service = CreateService(db, tickets, nullifiers);
 
         bool created = await service.CreateStrongAnonymousCommentAsync(CreateRequest(), RegionDecision(), CancellationToken.None);
 
@@ -208,7 +208,7 @@ public sealed class AnonymousCommentSubmitTests(
         SeedApprovedComment(db, commentId: 100, articleId: 42, userId: 7);
         var tickets = new RecordingTicketService();
         tickets.Add(s_ticket, TicketPayload(articleId: 42, parentId: 100, rootId: 100, replyToCommentId: 100));
-        CommentService service = CreateService(db, tickets);
+        CommentCommandService service = CreateService(db, tickets);
         AnonymousCommentCreateRequestCoreModel request = CreateRequest(parentId: "101", rootId: "100", replyToCommentId: "100");
 
         bool created = await service.CreateStrongAnonymousCommentAsync(request, RegionDecision(), CancellationToken.None);
@@ -226,7 +226,7 @@ public sealed class AnonymousCommentSubmitTests(
         SeedApprovedComment(db, commentId: 100, articleId: 42, userId: 7);
         var tickets = new RecordingTicketService();
         tickets.Add(s_ticket, TicketPayload(articleId: 42, parentId: 100, rootId: 100, replyToCommentId: 100));
-        CommentService service = CreateService(db, tickets);
+        CommentCommandService service = CreateService(db, tickets);
         AnonymousCommentCreateRequestCoreModel request = CreateRequest(parentId: "100", rootId: "100", replyToCommentId: "100");
 
         bool created = await service.CreateStrongAnonymousCommentAsync(request, RegionDecision(), CancellationToken.None);
@@ -270,7 +270,7 @@ public sealed class AnonymousCommentSubmitTests(
             new SugarParameter("@ArticleId", 42)));
         tickets.Add(s_ticket, TicketPayload(articleId: 42));
         var nullifiers = new RecordingNullifierService();
-        CommentService service = CreateService(db, tickets, nullifiers);
+        CommentCommandService service = CreateService(db, tickets, nullifiers);
 
         bool created = await service.CreateStrongAnonymousCommentAsync(CreateRequest(), RegionDecision(), CancellationToken.None);
 
@@ -298,7 +298,7 @@ public sealed class AnonymousCommentSubmitTests(
             new SugarParameter("@ParentId", 100L)));
         tickets.Add(s_ticket, TicketPayload(articleId: 42, parentId: 100, rootId: 100, replyToCommentId: 100));
         var nullifiers = new RecordingNullifierService();
-        CommentService service = CreateService(db, tickets, nullifiers);
+        CommentCommandService service = CreateService(db, tickets, nullifiers);
         AnonymousCommentCreateRequestCoreModel request = CreateRequest(parentId: "100", rootId: "100", replyToCommentId: "100");
 
         bool created = await service.CreateStrongAnonymousCommentAsync(request, RegionDecision(), CancellationToken.None);
@@ -329,7 +329,7 @@ public sealed class AnonymousCommentSubmitTests(
             anonymousDisplayLanguage: "zh-CN",
             anonymousScope: "article:42",
             credentialLevel: AnonymousCredentialLevels.StrongAnonymous);
-        CommentService service = CreateService(db, new RecordingTicketService());
+        CommentCommandService service = CreateService(db, new RecordingTicketService());
 
         var queries = new CommentQueryService(db, new RegionLegalModerationService());
         CursorResponse<CommentThreadItemDto> result = await queries.GetThreadsAsync(
@@ -377,7 +377,7 @@ public sealed class AnonymousCommentSubmitTests(
             rootId: 100,
             replyToCommentId: 100,
             depth: 1);
-        CommentService service = CreateService(db, new RecordingTicketService());
+        CommentCommandService service = CreateService(db, new RecordingTicketService());
 
         var queries = new CommentQueryService(db, new RegionLegalModerationService());
         CursorResponse<CommentReplyItemDto> result = await queries.GetRepliesAsync(
@@ -399,7 +399,7 @@ public sealed class AnonymousCommentSubmitTests(
         SeedArticle(db, articleId: 42);
         SeedApprovedComment(db, commentId: 100, articleId: 42, userId: 7);
         SeedStrongAnonymousComment(db, commentId: 101, articleId: 42, legacyUserId: 7);
-        CommentService service = CreateService(db, new RecordingTicketService());
+        CommentCommandService service = CreateService(db, new RecordingTicketService());
 
         var queries = new CommentQueryService(db, new RegionLegalModerationService());
         CursorResponse<UserCommentResponse> result = await queries.GetAttributableAsync(
@@ -419,7 +419,7 @@ public sealed class AnonymousCommentSubmitTests(
         SeedArticle(db, articleId: 42);
         SeedStrongAnonymousComment(db, commentId: 101, articleId: 42, legacyUserId: 7);
         var dispatcher = new RecordingCacheInvalidationDispatcher();
-        CommentService service = CreateService(db, new RecordingTicketService(), dispatcher: dispatcher);
+        CommentCommandService service = CreateService(db, new RecordingTicketService(), dispatcher: dispatcher);
 
         bool deleted = await service.DeleteCommentAsync(101, currentUserId: 7, isAdmin: false);
 
@@ -437,7 +437,7 @@ public sealed class AnonymousCommentSubmitTests(
         SeedArticle(db, articleId: 42);
         SeedStrongAnonymousComment(db, commentId: 101, articleId: 42, legacyUserId: 7);
         var dispatcher = new RecordingCacheInvalidationDispatcher();
-        CommentService service = CreateService(db, new RecordingTicketService(), dispatcher: dispatcher);
+        CommentCommandService service = CreateService(db, new RecordingTicketService(), dispatcher: dispatcher);
 
         bool deleted = await service.DeleteCommentAsync(101, currentUserId: 1, isAdmin: true);
 
@@ -458,7 +458,7 @@ public sealed class AnonymousCommentSubmitTests(
         SeedApprovedComment(db, commentId: 101, articleId: 42, userId: 7);
         var dispatcher = new RecordingCacheInvalidationDispatcher();
         IMessageRealtimePublisher realtime = Substitute.For<IMessageRealtimePublisher>();
-        CommentService service = CreateService(db, new RecordingTicketService(), dispatcher: dispatcher, realtime: realtime);
+        CommentCommandService service = CreateService(db, new RecordingTicketService(), dispatcher: dispatcher, realtime: realtime);
 
         bool first = await service.DeleteCommentAsync(101, currentUserId: 7, isAdmin: false, reason: "first-delete");
         bool second = await service.DeleteCommentAsync(101, currentUserId: 7, isAdmin: false, reason: "second-delete");
@@ -478,7 +478,7 @@ public sealed class AnonymousCommentSubmitTests(
     {
         Assert.Equal(typeof(string), typeof(Comment).GetProperty("RowVersion")!.PropertyType);
         string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
-            typeof(CommentService),
+            typeof(CommentCommandService),
             "DeleteCommentInternalAsync",
             "LoadDeleteCommentRowAsync",
             "TrySoftDeleteCommentAsync");
@@ -659,7 +659,7 @@ public sealed class AnonymousCommentSubmitTests(
         Assert.Contains(adminDelete.GetParameters(), static parameter => parameter.Name == "actor" && parameter.ParameterType == typeof(AdminPrincipalActor));
     }
 
-    private static CommentService CreateService(
+    private static CommentCommandService CreateService(
         SqlSugarClient db,
         RecordingTicketService ticketService,
         ICommentAnonymousNullifierService? nullifierService = null,
@@ -690,9 +690,9 @@ public sealed class AnonymousCommentSubmitTests(
             displayNames: new CommentAnonymousDisplayNameGenerator(),
             configuration: configuration,
             zkProofs: proofs);
-        return new CommentService(
+        return new CommentCommandService(
             db,
-            NullLogger<CommentService>.Instance,
+            NullLogger<CommentCommandService>.Instance,
             notifications,
             moderation,
             attribution,

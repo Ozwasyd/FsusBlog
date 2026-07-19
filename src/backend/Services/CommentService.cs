@@ -27,9 +27,9 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Services;
 
-public partial class CommentService(
+public partial class CommentCommandService(
     ISqlSugarClient db,
-    ILogger<CommentService> logger,
+    ILogger<CommentCommandService> logger,
     ICommentNotificationService commentNotifications,
     ICommentModerationService commentModeration,
     ICommentAttributionPrivacyService commentAttribution,

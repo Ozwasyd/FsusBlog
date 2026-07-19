@@ -12,7 +12,7 @@ binary comment GET routes / CommentCoreGateway
 
 The query service applies keyset pagination, moderation visibility, conservative
 unknown-region filtering, and author snapshot projection without calling the
-comment command service. `CommentService` no longer owns query methods or query
+comment command service. `CommentCommandService` no longer owns query methods or query
 row models. `CommentCoreGateway` depends on separate query and command ports
 instead of the aggregate implementation.
 

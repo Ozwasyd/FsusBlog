@@ -34,7 +34,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IArticleViewFlushSink, ArticleServiceViewFlushSink>();
         services.AddHostedService<ArticleViewFlushWorker>();
         services.AddScoped<ArticleService>();
-        services.AddScoped<CommentService>();
+        services.AddScoped<CommentCommandService>();
         services.AddScoped<ICommentNotificationService, CommentNotificationService>();
         services.AddScoped<ICommentModerationService, CommentModerationService>();
         services.AddScoped<ICommentAttributionPrivacyService, CommentAttributionPrivacyService>();
@@ -59,8 +59,8 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IArticleMutationSideEffectCoordinator, ArticleMutationSideEffectCoordinator>();
         services.AddScoped<IArticleEndpointService, ArticleEndpointService>();
         services.AddScoped<ICommentQueryService, CommentQueryService>();
-        services.AddScoped<ICommentEndpointService>(sp => sp.GetRequiredService<CommentService>());
-        services.AddScoped<ICommentCommandService>(sp => sp.GetRequiredService<CommentService>());
+        services.AddScoped<ICommentEndpointService>(sp => sp.GetRequiredService<CommentCommandService>());
+        services.AddScoped<ICommentCommandService>(sp => sp.GetRequiredService<CommentCommandService>());
         return services;
     }
 

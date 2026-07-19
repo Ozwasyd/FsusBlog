@@ -117,7 +117,7 @@ public sealed class AnonymousCommentModerationPipelineTests
         Assert.Contains(constructorParameters, static parameter => parameter.ParameterType == typeof(IAnonymousCommentPolicyService));
 
         string runtimeShape = string.Concat(
-            RuntimeMetadataInspection.DescribeMethods(typeof(CommentService), "CreateResolvedCommentAsync"),
+            RuntimeMetadataInspection.DescribeMethods(typeof(CommentCommandService), "CreateResolvedCommentAsync"),
             RuntimeMetadataInspection.DescribeMethods(typeof(CommentModerationService), "ApplyPostInsertAsync"));
         foreach (string requiredMember in new[]
         {
@@ -185,11 +185,11 @@ public sealed class AnonymousCommentModerationPipelineTests
     [Fact]
     public void CommentAttributionBoundary_EnforcesAnonymousNullifierWithAtomicConsumeBeforeCommit()
     {
-        ParameterInfo[] constructorParameters = Assert.Single(typeof(CommentService).GetConstructors()).GetParameters();
+        ParameterInfo[] constructorParameters = Assert.Single(typeof(CommentCommandService).GetConstructors()).GetParameters();
         Assert.Contains(constructorParameters, static parameter => parameter.ParameterType == typeof(ICommentAttributionPrivacyService));
         Assert.DoesNotContain(constructorParameters, static parameter => parameter.ParameterType == typeof(ICommentAnonymousNullifierService));
 
-        string command = RuntimeMetadataInspection.DescribeMethods(typeof(CommentService), "CreateResolvedCommentAsync");
+        string command = RuntimeMetadataInspection.DescribeMethods(typeof(CommentCommandService), "CreateResolvedCommentAsync");
         string attribution = RuntimeMetadataInspection.DescribeMethods(
             typeof(CommentAttributionPrivacyService),
             "RequiresAnonymousNullifierEnforcement",
@@ -233,7 +233,7 @@ public sealed class AnonymousCommentModerationPipelineTests
     public void CommentService_AnonymousFailureRuntimeLogsDoNotWriteRawAnonymousScope()
     {
         string runtimeShape = string.Concat(
-            RuntimeMetadataInspection.DescribeMethods(typeof(CommentService), "CreateResolvedCommentAsync"),
+            RuntimeMetadataInspection.DescribeMethods(typeof(CommentCommandService), "CreateResolvedCommentAsync"),
             RuntimeMetadataInspection.DescribeMethods(
                 typeof(CommentAttributionPrivacyService),
                 "ConsumeStrongAnonymousTicketAsync",

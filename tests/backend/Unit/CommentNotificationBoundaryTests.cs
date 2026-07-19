@@ -31,7 +31,7 @@ public sealed class CommentNotificationBoundaryTests
     [Fact]
     public void DependencyGraph_MovesMessagePortsOutOfCommentServiceWithoutCallback()
     {
-        Type[] commandDependencies = Assert.Single(typeof(CommentService).GetConstructors())
+        Type[] commandDependencies = Assert.Single(typeof(CommentCommandService).GetConstructors())
             .GetParameters()
             .Select(static parameter => parameter.ParameterType)
             .ToArray();
@@ -50,7 +50,7 @@ public sealed class CommentNotificationBoundaryTests
             notificationDependencies.Select(static parameter => parameter.ParameterType));
         Assert.DoesNotContain(
             notificationDependencies,
-            static parameter => parameter.ParameterType == typeof(CommentService));
+            static parameter => parameter.ParameterType == typeof(CommentCommandService));
     }
 
     [Fact]

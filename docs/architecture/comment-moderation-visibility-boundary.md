@@ -12,7 +12,7 @@ comment command
        -> cache invalidation and removal notification on automatic hide
 ```
 
-`CommentService` retains transaction ownership for creating a comment and
+`CommentCommandService` retains transaction ownership for creating a comment and
 consuming its anonymous nullifier. Visibility rows are written through the
 moderation boundary using the same scoped `ISqlSugarClient`, so they remain in
 that transaction. The moderation service never calls back into comment command

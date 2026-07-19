@@ -68,7 +68,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
         CreateTables(db);
         SeedArticle(db, ArticleId);
         var dispatcher = new RecordingCacheInvalidationDispatcher();
-        CommentService commentService = CreateCommentService(temp, nativeLibrary, db, ticketService, nullifiers, dispatcher);
+        CommentCommandService commentService = CreateCommentService(temp, nativeLibrary, db, ticketService, nullifiers, dispatcher);
 
         bool created = await commentService.CreateStrongAnonymousCommentAsync(
             CreateSubmitRequest(ticket.Response.Ticket),
@@ -148,7 +148,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
         using SqlSugarClient db = await CreateDbAsync();
         CreateTables(db);
         SeedArticle(db, ArticleId);
-        CommentService commentService = CreateCommentService(temp, nativeLibrary, db, ticketService, nullifiers);
+        CommentCommandService commentService = CreateCommentService(temp, nativeLibrary, db, ticketService, nullifiers);
         AnonymousCommentCreateRequestCoreModel request = CreateSubmitRequest(ticket.Response.Ticket);
 
         bool firstCreated = await commentService.CreateStrongAnonymousCommentAsync(request, RegionDecision(), CancellationToken.None);
@@ -254,7 +254,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             new ConfiguredCredentialIssuer());
     }
 
-    private static CommentService CreateCommentService(
+    private static CommentCommandService CreateCommentService(
         TempNativeZkFixture temp,
         HashingNativeGroth16FixtureLibrary nativeLibrary,
         SqlSugarClient db,
@@ -284,9 +284,9 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             displayNames: new CommentAnonymousDisplayNameGenerator(),
             configuration: configuration,
             zkProofs: CreateProofService(temp, nativeLibrary));
-        return new CommentService(
+        return new CommentCommandService(
             db,
-            NullLogger<CommentService>.Instance,
+            NullLogger<CommentCommandService>.Instance,
             notifications,
             moderation,
             attribution,

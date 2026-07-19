@@ -22,7 +22,7 @@ public sealed class CommentQueryBoundaryTests
             .ToArray();
         Assert.Equal([typeof(ISqlSugarClient), typeof(IRegionLegalModerationService)], dependencies);
 
-        string[] aggregateMethods = typeof(CommentService).GetMethods()
+        string[] aggregateMethods = typeof(CommentCommandService).GetMethods()
             .Select(static method => method.Name)
             .ToArray();
         Assert.DoesNotContain("GetCommentThreadsByCursorAsync", aggregateMethods);
@@ -36,7 +36,7 @@ public sealed class CommentQueryBoundaryTests
             .ToArray();
         Assert.Contains(typeof(ICommentQueryService), gatewayDependencies);
         Assert.Contains(typeof(ICommentCommandService), gatewayDependencies);
-        Assert.DoesNotContain(typeof(CommentService), gatewayDependencies);
+        Assert.DoesNotContain(typeof(CommentCommandService), gatewayDependencies);
     }
 
     [Fact]

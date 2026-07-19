@@ -16,18 +16,18 @@ using SqlSugar;
 namespace FsusBlog.Server.Tests.Unit;
 
 /// <summary>
-/// Tests CommentService validation paths that return early before any DB query.
+/// Tests CommentCommandService validation paths that return early before any DB query.
 /// </summary>
 public class CommentServiceValidationTests
 {
-    private static CommentService BuildService()
+    private static CommentCommandService BuildService()
     {
         var db = Substitute.For<ISqlSugarClient>();
         var notifications = Substitute.For<ICommentNotificationService>();
         var invalidations = Substitute.For<ICacheInvalidationDispatcher>();
-        return new CommentService(
+        return new CommentCommandService(
             db: db,
-            logger: NullLogger<CommentService>.Instance,
+            logger: NullLogger<CommentCommandService>.Instance,
             commentNotifications: notifications,
             commentModeration: new CommentModerationService(
                 db,
@@ -307,7 +307,7 @@ public class CommentServiceValidationTests
 
     private static T InvokePrivateStatic<T>(string methodName, object?[] args)
     {
-        var method = typeof(CommentService).GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static)!;
+        var method = typeof(CommentCommandService).GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static)!;
         return (T)method.Invoke(null, args)!;
     }
 
@@ -386,7 +386,7 @@ public class CommentServiceValidationTests
     [InlineData("9999999", true)]
     public void TryParsePositiveCommentId_ReturnsExpected(string? raw, bool expectedSuccess)
     {
-        var method = typeof(CommentService).GetMethod("TryParsePositiveCommentId", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var method = typeof(CommentCommandService).GetMethod("TryParsePositiveCommentId", BindingFlags.NonPublic | BindingFlags.Static)!;
         var args = new object?[] { raw, (long)0 };
         var result = (bool)method.Invoke(null, args)!;
         Assert.Equal(expectedSuccess, result);

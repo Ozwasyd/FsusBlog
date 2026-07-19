@@ -156,7 +156,7 @@ public class AuditLogEventMapperTests
     public void Map_CommentServiceSource_ClassifiedAsComment()
     {
         var mapper = new AuditLogEventMapper();
-        var ev = MakeWithSourceContext("FsusBlog.Server.Services.CommentService");
+        var ev = MakeWithSourceContext("FsusBlog.Server.Services.CommentCommandService");
         var record = mapper.Map(ev);
 
         Assert.Equal(AuditSourceCatalog.Comment, record!.Source);

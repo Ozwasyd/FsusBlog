@@ -94,7 +94,7 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
                 byte[] ticket = CreateTicket(index);
                 var ticketService = new FixedTicketService(CreateTicketPayload());
                 var nullifierService = new CommentAnonymousNullifierService(db, BuildConfiguration(Limit));
-                CommentService service = CreateCommentService(db, ticketService, nullifierService, invalidations);
+                CommentCommandService service = CreateCommentService(db, ticketService, nullifierService, invalidations);
                 return await service.CreateStrongAnonymousCommentAsync(
                     CreateCommentRequest(ticket, $"anonymous race {index}"),
                     RegionDecision(),
@@ -132,7 +132,7 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
         var invalidations = new RecordingCacheInvalidationDispatcher();
         var inner = new CommentAnonymousNullifierService(db, BuildConfiguration(limit: 1));
         var consumeThenFail = new ConsumeThenFailNullifierService(inner);
-        CommentService service = CreateCommentService(
+        CommentCommandService service = CreateCommentService(
             db,
             new FixedTicketService(CreateTicketPayload()),
             consumeThenFail,
@@ -175,7 +175,7 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
                 RequiresHumanReview: true,
                 CommentModerationDispositionModes.AutoHideHighRisk,
                 new Dictionary<string, string> { ["reason"] = "high-risk" }));
-        CommentService service = CreateCommentService(
+        CommentCommandService service = CreateCommentService(
             db,
             new FixedTicketService(CreateTicketPayload()),
             new CommentAnonymousNullifierService(db, BuildConfiguration(limit: 1)),
@@ -215,7 +215,7 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
             })
             .Build();
 
-    private static CommentService CreateCommentService(
+    private static CommentCommandService CreateCommentService(
         SqlSugarClient db,
         IAnonymousCommentTicketService ticketService,
         ICommentAnonymousNullifierService nullifierService,
@@ -262,9 +262,9 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
             displayNames: new CommentAnonymousDisplayNameGenerator(),
             configuration: configuration,
             zkProofs: proofService);
-        return new CommentService(
+        return new CommentCommandService(
             db,
-            NullLogger<CommentService>.Instance,
+            NullLogger<CommentCommandService>.Instance,
             notifications,
             moderation,
             attribution,
