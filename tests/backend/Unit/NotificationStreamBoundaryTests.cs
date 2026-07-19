@@ -1137,6 +1137,17 @@ public class NotificationStreamBoundaryTests
         public Task<string> MintAsync(SecurityChallengeProofClaims proof, CancellationToken cancellationToken)
             => Task.FromResult("grant-token");
 
+        public NotificationStreamPreflightGrantExchange CreateExchangeTarget(
+            string proofToken,
+            SecurityChallengeProofClaims proof)
+            => new("grant-token", "grant:token", [1], TimeSpan.FromSeconds(30));
+
+        public Task<string?> TryResumeExchangeAsync(
+            string proofToken,
+            NotificationStreamPreflightGrantBinding binding,
+            CancellationToken cancellationToken)
+            => Task.FromResult<string?>(null);
+
         public Task<NotificationStreamPreflightGrantConsumeResult> ConsumeAsync(
             string token,
             NotificationStreamPreflightGrantBinding binding,
