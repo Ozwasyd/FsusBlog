@@ -8,6 +8,17 @@
         class="account-mobile-drawer"
         :motion="fsusBlogMotionPresets.mobileDrawer"
     >
+        <template #header="{ titleId, titleClass }">
+            <span
+                :id="titleId"
+                role="heading"
+                aria-level="2"
+                :class="[titleClass, 'account-mobile-drawer__title']"
+            >
+                {{ mobileDrawerTitle }}
+            </span>
+        </template>
+
         <AccountNavigationPanel
             class="account-mobile-drawer-nav"
             :area-label="areaLabel"

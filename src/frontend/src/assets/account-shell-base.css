@@ -133,12 +133,22 @@
 }
 
 .account-mobile-drawer {
+  --el-drawer-padding-primary: var(--fsus-space-5);
+
   display: flex;
   height: 100vh;
   height: 100dvh;
   max-height: 100dvh;
   flex-direction: column;
   overflow: hidden;
+}
+
+.account-mobile-drawer__title {
+  margin: 0;
+  color: var(--fsusblog-text-primary);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.4;
 }
 
 .account-mobile-drawer-nav {

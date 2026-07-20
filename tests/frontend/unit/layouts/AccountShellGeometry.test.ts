@@ -8,6 +8,10 @@ const shellCss = readFileSync(
   resolve(process.cwd(), 'src/assets/account-shell-base.css'),
   'utf8'
 )
+const routeFrameSource = readFileSync(
+  resolve(process.cwd(), 'src/layouts/AccountRouteFrame.vue'),
+  'utf8'
+)
 
 describe('account shell geometry', () => {
   it('uses the compact desktop gutter contract at the sidebar boundary', () => {
@@ -19,5 +23,17 @@ describe('account shell geometry', () => {
       /\.account-route-frame\s*\{[\s\S]*?gap:\s*var\(--fsus-space-8\);[\s\S]*?padding-inline:\s*var\(--fsus-space-6\);/
     )
     expect(desktopRules).not.toContain('calc(var(--fsus-space-5) * 2)')
+  })
+
+  it('owns mobile drawer title typography without reaching into FsusUI internals', () => {
+    expect(routeFrameSource).toContain('<template #header="{ titleId, titleClass }">')
+    expect(routeFrameSource).toContain("[titleClass, 'account-mobile-drawer__title']")
+    expect(shellCss).toMatch(
+      /\.account-mobile-drawer__title\s*\{[\s\S]*?font-size:\s*16px;[\s\S]*?font-weight:\s*700;/
+    )
+    expect(shellCss).toMatch(
+      /\.account-mobile-drawer\s*\{[\s\S]*?--el-drawer-padding-primary:\s*var\(--fsus-space-5\);/
+    )
+    expect(shellCss).not.toMatch(/\.el-drawer__(?:header|title)/)
   })
 })
