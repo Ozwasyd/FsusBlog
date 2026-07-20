@@ -340,7 +340,9 @@ internal sealed class ArticleAssetReferenceStore(ISqlSugarClient db, TimeProvide
                 draft.CoverImageUrl));
         }
 
-        foreach (ArticleRevision revision in await db.Queryable<ArticleRevision>().ToListAsync(cancellationToken))
+        List<ArticleRevision> revisions = await db.Queryable<ArticleRevision>().ToListAsync(cancellationToken);
+        await ArticleRevisionContentBlockStore.HydrateAsync(db, revisions, cancellationToken).ConfigureAwait(false);
+        foreach (ArticleRevision revision in revisions)
         {
             sources.Add(new SourceSnapshot(
                 ArticleAssetSourceKinds.Revision,

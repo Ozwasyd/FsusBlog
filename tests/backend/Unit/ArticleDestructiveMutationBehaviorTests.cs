@@ -244,6 +244,7 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
             typeof(Comment),
             typeof(ArticleDraft),
             typeof(ArticleRevision),
+            typeof(ArticleRevisionContentBlock),
             typeof(ArticleAssetReference),
             typeof(ArticleAssetCleanupQueueItem),
             typeof(ArticleMutationOutboxEvent));

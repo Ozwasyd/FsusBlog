@@ -126,7 +126,18 @@ public class PodBinaryCodecTests
     [Fact]
     public void ArticleMutationResult_RoundTrip_ReportsVersionAndReplayCoordinates()
     {
-        var response = new ArticleMutationResult(42, 8123, 8, 7201, 4, 1, 9007199254740, 7, true, 0);
+        var response = new ArticleMutationResult(
+            42,
+            8123,
+            8,
+            7201,
+            4,
+            1,
+            9007199254740,
+            7,
+            true,
+            0,
+            ArticleMutationOutcome.NoChange);
         var buffer = new ArrayBufferWriter<byte>();
 
         PodBinaryCodec.WriteArticleMutationResult(response, buffer);
@@ -144,6 +155,19 @@ public class PodBinaryCodecTests
         Assert.Equal(7, decoded.RightsRevisionNo);
         Assert.True(decoded.IdempotencyReplay);
         Assert.Equal(0, decoded.ErrorCode);
+        Assert.Equal(ArticleMutationOutcome.NoChange, decoded.Outcome);
+    }
+
+    [Fact]
+    public void ArticleMutationResult_RejectsUnknownOutcome()
+    {
+        var response = new ArticleMutationResult(42, 8123, 8, 7201, 4, 1, 9001, 7, false, 0);
+        var buffer = new ArrayBufferWriter<byte>();
+        PodBinaryCodec.WriteArticleMutationResult(response, buffer);
+        byte[] payload = buffer.WrittenMemory.ToArray();
+        payload[46] = 9;
+
+        Assert.False(PodBinaryCodec.TryDecodeArticleMutationResult(payload, out _));
     }
 
     [Fact]

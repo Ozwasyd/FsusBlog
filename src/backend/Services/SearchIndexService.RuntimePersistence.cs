@@ -163,19 +163,20 @@ public sealed partial class SearchIndexService
         return await db.Queryable<Article>()
             .InnerJoin<ArticlePublicationRecord>((a, publication) => a.CurrentPublicationId == publication.Id)
             .InnerJoin<ArticleRevision>((a, publication, revision) => publication.ArticleRevisionId == revision.Id)
-            .LeftJoin<Category>((a, publication, revision, category) => revision.CategoryId == category.Id)
-            .LeftJoin<ArticleBody>((a, publication, revision, category, body) => a.Id == body.ArticleId)
-            .Where((a, publication, revision, category) => !a.IsDeleted
+            .LeftJoin<ArticleRevisionContentBlock>((a, publication, revision, block) => revision.ContentBlockId == block.Id)
+            .LeftJoin<Category>((a, publication, revision, block, category) => revision.CategoryId == category.Id)
+            .LeftJoin<ArticleBody>((a, publication, revision, block, category, body) => a.Id == body.ArticleId)
+            .Where((a, publication, revision, block, category) => !a.IsDeleted
                 && a.Status == ArticleStatus.Published
                 && (a.PublishedAt == null || a.PublishedAt <= now)
                 && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= now))
             .WhereIF(
                 expectedArticleId.HasValue && expectedReleaseId.HasValue,
-                (a, publication, revision, category) => a.Id != expectedArticleId.GetValueOrDefault()
+                (a, publication, revision, block, category) => a.Id != expectedArticleId.GetValueOrDefault()
                     || (a.CurrentPublicationId == expectedReleaseId.GetValueOrDefault()
                         && publication.Id == expectedReleaseId.GetValueOrDefault()))
-            .OrderByDescending((a, publication, revision, category) => publication.PublishedAt)
-            .Select((a, publication, revision, category, body) => new SearchArticleRow
+            .OrderByDescending((a, publication, revision, block, category) => publication.PublishedAt)
+            .Select((a, publication, revision, block, category, body) => new SearchArticleRow
             {
                 Id = a.Id,
                 Title = revision.Title,
@@ -184,7 +185,7 @@ public sealed partial class SearchIndexService
                 CategoryName = category.Name,
                 Views = a.Views,
                 CreateTime = a.CreateTime,
-                MarkdownContent = revision.MarkdownContent,
+                MarkdownContent = SqlFunc.IsNull(block.MarkdownContent, revision.MarkdownContent),
                 ArticleBodyContent = body.MarkdownContent,
                 TagIds = revision.TagIds,
                 RevisionId = revision.Id,

@@ -318,18 +318,19 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
         ArticleDetailAotProjection? projection = await db.Queryable<Article>()
             .InnerJoin<ArticlePublicationRecord>((a, publication) => a.CurrentPublicationId == publication.Id)
             .InnerJoin<ArticleRevision>((a, publication, revision) => publication.ArticleRevisionId == revision.Id)
-            .LeftJoin<Category>((a, publication, revision, category) => revision.CategoryId == category.Id)
-            .LeftJoin<ArticleBody>((a, publication, revision, category, body) => a.Id == body.ArticleId)
+            .LeftJoin<ArticleRevisionContentBlock>((a, publication, revision, block) => revision.ContentBlockId == block.Id)
+            .LeftJoin<Category>((a, publication, revision, block, category) => revision.CategoryId == category.Id)
+            .LeftJoin<ArticleBody>((a, publication, revision, block, category, body) => a.Id == body.ArticleId)
             .Where(a => a.Id == articleId
                 && a.IsDeleted == false
                 && a.Status == ArticleStatus.Published
                 && (a.PublishedAt == null || a.PublishedAt <= utcNow)
                 && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= utcNow))
-            .Select((a, publication, revision, category, body) => new ArticleDetailAotProjection
+            .Select((a, publication, revision, block, category, body) => new ArticleDetailAotProjection
             {
                 Id = a.Id,
                 Title = revision.Title,
-                Content = revision.MarkdownContent,
+                Content = SqlFunc.IsNull(block.MarkdownContent, revision.MarkdownContent),
                 ArticleBodyContent = body.MarkdownContent,
                 Summary = revision.Summary,
                 CoverImageUrl = revision.CoverImageUrl,

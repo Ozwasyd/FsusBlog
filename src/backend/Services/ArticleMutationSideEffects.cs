@@ -8,6 +8,7 @@ using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services.Background;
+using FsusBlog.Server.Services.Articles;
 
 using SqlSugar;
 
@@ -702,6 +703,14 @@ public sealed class ArticleMutationSideEffectCoordinator(
             if (revision is null || revision.RevisionNo != publication.RevisionNo)
             {
                 throw new InvalidOperationException($"Article publication {publication.Id} has an invalid revision coordinate.");
+            }
+
+            if (revision.ContentBlockId > 0)
+            {
+                revision.MarkdownContent = await ArticleRevisionContentBlockStore.LoadAsync(
+                    db,
+                    revision.ContentBlockId,
+                    CancellationToken.None).ConfigureAwait(false);
             }
 
             article.Title = revision.Title;

@@ -352,6 +352,7 @@ public sealed class ArticleAssetReferenceLifecycleTests(PostgresSchemaMigrationF
             typeof(ArticleBody),
             typeof(ArticleDraft),
             typeof(ArticleRevision),
+            typeof(ArticleRevisionContentBlock),
             typeof(ArticleAssetReference),
             typeof(ArticleAssetCleanupQueueItem));
 
@@ -363,6 +364,7 @@ public sealed class ArticleAssetReferenceLifecycleTests(PostgresSchemaMigrationF
             typeof(ArticleBody),
             typeof(ArticleDraft),
             typeof(ArticleRevision),
+            typeof(ArticleRevisionContentBlock),
             typeof(ArticleTag),
             typeof(ArticleAssetReference),
             typeof(ArticleAssetCleanupQueueItem),

@@ -99,7 +99,8 @@ public sealed class AuthoringRevisionRestoreTests(PostgresSchemaMigrationFixture
         => PostgresSqlSugarTestClient.InitTables(
             db,
             typeof(Article),
-            typeof(ArticleRevision));
+            typeof(ArticleRevision),
+            typeof(ArticleRevisionContentBlock));
 
     private static void SeedArticle(SqlSugarClient db, int articleId)
         => db.Ado.ExecuteCommand(

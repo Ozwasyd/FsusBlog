@@ -176,6 +176,7 @@ public sealed class ArticleMutationVersionedOutboxIntegrationTests(PostgresSchem
             typeof(Article),
             typeof(ArticleBody),
             typeof(ArticleRevision),
+            typeof(ArticleRevisionContentBlock),
             typeof(ArticlePublicationRecord),
             typeof(Category));
 
@@ -354,6 +355,7 @@ public sealed class ArticleMutationVersionedOutboxIntegrationTests(PostgresSchem
             typeof(Article),
             typeof(ArticleTag),
             typeof(ArticleRevision),
+            typeof(ArticleRevisionContentBlock),
             typeof(ArticleRightsSnapshot),
             typeof(ArticlePublicationRecord),
             typeof(ArticleMutationOutboxEvent),

@@ -13,6 +13,7 @@ using FsusBlog.Server.Infrastructure.Spa;
 using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.NotificationStream;
 using FsusBlog.Server.Services.Security;
@@ -44,6 +45,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddFsusDistributedInvalidation(configuration);
         services.AddIdentityRuntime();
         services.AddBackgroundRuntime();
+        services.AddScoped<IArticleRevisionContentBlockMaintenance, ArticleRevisionContentBlockMaintenance>();
         services.AddSpaRuntime();
         services.AddObjectPools(configuration);
 

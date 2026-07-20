@@ -170,6 +170,7 @@ public sealed class ArticleResponsibilityVersioningTests(PostgresSchemaMigration
             db,
             typeof(Article),
             typeof(ArticleRevision),
+            typeof(ArticleRevisionContentBlock),
             typeof(ArticleRightsSnapshot),
             typeof(ArticleResponsibilitySnapshot),
             typeof(ArticlePublicationRecord),

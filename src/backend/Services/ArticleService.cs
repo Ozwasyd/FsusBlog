@@ -63,7 +63,10 @@ public partial class ArticleService(
 #pragma warning restore IDE1006
 {
     private readonly record struct TrashArticleRow(int Id, int CategoryId, string? CoverImageUrl);
-    private readonly record struct ArticleRevisionCoordinates(long Id, int RevisionNo);
+    private readonly record struct ArticleRevisionCoordinates(long Id, int RevisionNo, long ContentBlockId);
+    private readonly record struct ArticleUpdateExecution(
+        ArticleVersionCoordinates Version,
+        ArticleMutationOutcome Outcome);
     private readonly record struct ArticleMutationIdentity(
         long AdminPrincipalId,
         string ClientMutationId,
@@ -659,8 +662,9 @@ public partial class ArticleService(
         string content = await _db.Queryable<Article>()
             .InnerJoin<ArticlePublicationRecord>((article, publication) => article.CurrentPublicationId == publication.Id)
             .InnerJoin<ArticleRevision>((article, publication, revision) => publication.ArticleRevisionId == revision.Id)
+            .LeftJoin<ArticleRevisionContentBlock>((article, publication, revision, block) => revision.ContentBlockId == block.Id)
             .Where(article => article.Id == articleId && !article.IsDeleted)
-            .Select((article, publication, revision) => revision.MarkdownContent)
+            .Select((article, publication, revision, block) => SqlFunc.IsNull(block.MarkdownContent, revision.MarkdownContent))
             .FirstAsync(cancellationToken) ?? string.Empty;
 
         return content;
@@ -1003,25 +1007,25 @@ public partial class ArticleService(
 
         try
         {
-            ArticleVersionCoordinates? committedVersion = null;
+            ArticleUpdateExecution? execution = null;
             bool updated = await UpdateAsync(
                 articleId,
                 request,
                 transitionKind: null,
                 force: false,
                 rollback: null,
-                captureVersion: version => committedVersion = version,
+                captureExecution: value => execution = value,
                 cancellationToken).ConfigureAwait(false);
             if (!updated)
             {
                 return Result<ArticleMutationResult>.Failure(ErrorCode.NotFound, "article_not_found");
             }
 
-            if (!committedVersion.HasValue)
+            if (!execution.HasValue)
             {
                 return Result<ArticleMutationResult>.Failure(ErrorCode.InfraFailure, "article_mutation_coordinates_unavailable");
             }
-            ArticleVersionCoordinates version = committedVersion.Value;
+            ArticleVersionCoordinates version = execution.Value.Version;
 
             return Result<ArticleMutationResult>.Success(new ArticleMutationResult(
                 articleId,
@@ -1033,7 +1037,8 @@ public partial class ArticleService(
                 version.RightsSnapshotId,
                 version.RevisionNo,
                 IdempotencyReplay: false,
-                (byte)ErrorCode.None));
+                (byte)ErrorCode.None,
+                execution.Value.Outcome));
         }
         catch (ArticleRevisionConflictException ex)
         {
@@ -1072,6 +1077,11 @@ public partial class ArticleService(
             new SugarParameter[] { new("@articleId", articleId) });
         long actorAdminPrincipalId = rollback?.ActorAdminPrincipalId ?? ResolveRevisionAdminPrincipalId();
         string orderedTagIds = string.Join(',', tagIds.OrderBy(static id => id));
+        long contentBlockId = await ArticleRevisionContentBlockStore.GetOrCreateAsync(
+            _db,
+            content,
+            createdAt,
+            Ct).ConfigureAwait(false);
         for (int attempt = 1; attempt <= MaxArticleRevisionInsertAttempts; attempt++)
         {
             Ct.ThrowIfCancellationRequested();
@@ -1102,6 +1112,7 @@ public partial class ArticleService(
                     cover_image_url,
                     categoryid,
                     tag_ids,
+                    content_block_id,
                     markdown_content,
                     diff_summary,
                     created_by_admin_principal_id,
@@ -1117,7 +1128,8 @@ public partial class ArticleService(
                     @coverImageUrl,
                     @categoryId,
                     @tagIds,
-                    @content,
+                    @contentBlockId,
+                    '',
                     @diffSummary,
                     @createdByAdminPrincipalId,
                     CAST(@rollbackSourceRevisionId AS bigint),
@@ -1135,7 +1147,7 @@ public partial class ArticleService(
                     new("@coverImageUrl", coverImageUrl),
                     new("@categoryId", categoryId),
                     new("@tagIds", orderedTagIds),
-                    new("@content", content),
+                    new("@contentBlockId", contentBlockId),
                     new("@diffSummary", diffSummary),
                     new("@createdByAdminPrincipalId", actorAdminPrincipalId),
                     new("@rollbackSourceRevisionId", (object?)rollback?.SourceRevisionId ?? DBNull.Value),
@@ -1144,7 +1156,10 @@ public partial class ArticleService(
                 });
             if (await reader.ReadAsync(Ct).ConfigureAwait(false))
             {
-                return new ArticleRevisionCoordinates(reader.ReadInt64("id"), reader.ReadInt32("revision_no"));
+                return new ArticleRevisionCoordinates(
+                    reader.ReadInt64("id"),
+                    reader.ReadInt32("revision_no"),
+                    contentBlockId);
             }
             await reader.DisposeAsync().ConfigureAwait(false);
 
@@ -1674,7 +1689,7 @@ public partial class ArticleService(
     }
 
     public Task<bool> UpdateAsync(int id, ArticleWriteRequestCoreModel dto, CancellationToken cancellationToken = default)
-        => UpdateAsync(id, dto, transitionKind: null, force: false, rollback: null, captureVersion: null, cancellationToken);
+        => UpdateAsync(id, dto, transitionKind: null, force: false, rollback: null, captureExecution: null, cancellationToken);
 
     private async Task<bool> UpdateAsync(
         int id,
@@ -1682,7 +1697,7 @@ public partial class ArticleService(
         string? transitionKind,
         bool force,
         ArticleRollbackMetadata? rollback,
-        Action<ArticleVersionCoordinates>? captureVersion,
+        Action<ArticleUpdateExecution>? captureExecution,
         CancellationToken cancellationToken)
     {
         CancellationToken ct = ResolveCancellationToken(cancellationToken);
@@ -1720,7 +1735,20 @@ public partial class ArticleService(
             tagIds,
             status,
             scheduledPublishAt);
-        bool requiresPublicFence = ArticlePublication.IsPubliclyVisible(
+        ArticleRightsWriteModel rights = await ResolveUpdateArticleRightsAsync(id, dto, rollback).ConfigureAwait(false);
+        ArticleRightsPolicy? currentRightsPolicy = await _db.Queryable<ArticleRightsPolicy>()
+            .Where(item => item.ArticleId == id)
+            .FirstAsync(ct)
+            .ConfigureAwait(false);
+        ArticleRightsWriteModel currentRights = currentRightsPolicy is null
+            ? NormalizeArticleRights(null)
+            : ToRightsWriteModel(currentRightsPolicy);
+        bool candidateNoChange = !force
+            && !rollback.HasValue
+            && !metadataChanged
+            && string.Equals(state.MarkdownContent, content, StringComparison.Ordinal)
+            && currentRights == rights;
+        bool requiresPublicFence = !candidateNoChange && (ArticlePublication.IsPubliclyVisible(
                 state.Status,
                 isDeleted: false,
                 publishedAt: state.PublishedAt,
@@ -1731,7 +1759,7 @@ public partial class ArticleService(
                 isDeleted: false,
                 publishedAt: publishedAt,
                 scheduledPublishAt: scheduledPublishAt,
-                utcNow: now);
+                utcNow: now));
         bool fenceEstablished = false;
         bool mutationCommitted = false;
         try
@@ -1743,6 +1771,7 @@ public partial class ArticleService(
             }
 
             bool articleUpdated = false;
+            ArticleVersionCoordinates? noChangeVersion = null;
             var result = await _db.Ado.UseTranAsync(async () =>
             {
                 ArticlePublicationValidationResult validation = await _publicationValidator.ValidateAsync(
@@ -1758,6 +1787,24 @@ public partial class ArticleService(
                     now,
                     ct).ConfigureAwait(false);
                 validation.ThrowIfWriteBlocked();
+
+                if (candidateNoChange)
+                {
+                    long lockedRevisionId = await LockCurrentRevisionAsync(id, ct).ConfigureAwait(false);
+                    if (lockedRevisionId != state.CurrentRevisionId)
+                    {
+                        ArticleUpdateState? current = await LoadArticleUpdateStateAsync(id).ConfigureAwait(false);
+                        if (current is null)
+                        {
+                            throw new InvalidOperationException($"Article {id} disappeared while confirming no_change.");
+                        }
+
+                        throw current.ToConflictException();
+                    }
+
+                    noChangeVersion = await LoadCurrentVersionCoordinatesAsync(id).ConfigureAwait(false);
+                    return;
+                }
 
                 bool updated = await TryUpdateArticleRowAsync(
                     state,
@@ -1797,7 +1844,6 @@ public partial class ArticleService(
                 var assetReferences = new ArticleAssetReferenceStore(_db);
                 await assetReferences.ReplaceCurrentArticleAsync(id, content, coverImageUrl, ct).ConfigureAwait(false);
                 await assetReferences.ReplaceRevisionAsync(revision.Id, id, content, coverImageUrl, ct).ConfigureAwait(false);
-                ArticleRightsWriteModel rights = await ResolveUpdateArticleRightsAsync(id, dto, rollback).ConfigureAwait(false);
                 long rightsSnapshotId = await SaveArticleRightsAsync(
                     id,
                     revision,
@@ -1835,7 +1881,7 @@ public partial class ArticleService(
                         transitionKind == ArticlePublicationTransitionKinds.Rollback
                             ? ArticleStatusTransitionOperation.Rollback
                             : ArticleStatusTransitionOperation.Update));
-                captureVersion?.Invoke(version);
+                captureExecution?.Invoke(new ArticleUpdateExecution(version, ArticleMutationOutcome.Applied));
                 await RecordArticleMutationOutboxAsync(
                     id,
                     ArticleMutationEventTypes.Updated,
@@ -1853,6 +1899,14 @@ public partial class ArticleService(
 
             mutationCommitted = result.IsSuccess && articleUpdated;
             ct.ThrowIfCancellationRequested();
+            if (result.IsSuccess && noChangeVersion.HasValue)
+            {
+                ArticleVersionCoordinates currentVersion = noChangeVersion.GetValueOrDefault();
+                captureExecution?.Invoke(new ArticleUpdateExecution(
+                    currentVersion,
+                    ArticleMutationOutcome.NoChange));
+                return true;
+            }
             if (mutationCommitted)
             {
                 await InvalidateCache(id);
@@ -1906,6 +1960,7 @@ public partial class ArticleService(
                    a.current_revision_id,
                    revision.revision_no,
                    revision.created_at AS revision_updated_at,
+                   COALESCE(content_block.markdown_content, revision.markdown_content) AS markdown_content,
                    COALESCE(
                        array_agg(at.tagid ORDER BY at.tagid)
                            FILTER (WHERE at.tagid IS NOT NULL),
@@ -1913,12 +1968,14 @@ public partial class ArticleService(
                    ) AS tag_ids
             FROM article a
             JOIN article_revision revision ON revision.id = a.current_revision_id
+            LEFT JOIN article_revision_content_block content_block ON content_block.id = revision.content_block_id
             LEFT JOIN article_tag at ON at.articleid = a.id
             WHERE a.id = @ArticleId
               AND a.isdeleted = false
             GROUP BY a.id, a.title, a.summary, a.coverimageurl, a.categoryid, a.xmin,
                      a.status, a.scheduled_publish_at, a.published_at,
-                     a.current_revision_id, revision.revision_no, revision.created_at;
+                     a.current_revision_id, revision.revision_no, revision.created_at,
+                     content_block.markdown_content, revision.markdown_content;
             """,
             new SugarParameter("@ArticleId", articleId));
         if (!await reader.ReadAsync(Ct))
@@ -1945,6 +2002,7 @@ public partial class ArticleService(
                 ? null
                 : NormalizeArticleListTimestampUtc(reader.ReadDateTime("scheduled_publish_at")),
             publishedAt,
+            reader.ReadString("markdown_content"),
             reader.ReadInt64("current_revision_id"),
             reader.ReadInt32("revision_no"),
             NormalizeArticleListTimestampUtc(reader.ReadDateTime("revision_updated_at")));
@@ -1964,6 +2022,25 @@ public partial class ArticleService(
             new SugarParameter("@ArticleId", articleId),
             new SugarParameter("@MarkdownContent", markdownContent),
             new SugarParameter("@UpdatedAt", updatedAt));
+
+    private async Task<long> LockCurrentRevisionAsync(int articleId, CancellationToken cancellationToken)
+    {
+        using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
+            """
+            SELECT current_revision_id
+            FROM article
+            WHERE id = @ArticleId
+              AND isdeleted = false
+            FOR UPDATE;
+            """,
+            new SugarParameter("@ArticleId", articleId));
+        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return 0;
+        }
+
+        return reader.ReadInt64("current_revision_id");
+    }
 
     private async Task<bool> TryUpdateArticleRowAsync(
         ArticleUpdateState state,
@@ -2062,6 +2139,7 @@ public partial class ArticleService(
         ArticleStatus Status,
         DateTime? ScheduledPublishAt,
         DateTime? PublishedAt,
+        string MarkdownContent,
         long CurrentRevisionId,
         int RevisionNo,
         DateTime UpdatedAtUtc)

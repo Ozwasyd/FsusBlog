@@ -186,6 +186,7 @@ export interface ArticleMutationResponse {
     rightsSnapshotId: number;
     rightsRevisionNo: number;
     idempotencyReplay: boolean;
+    outcome?: 'applied' | 'no_change';
     errorCode: number;
 }
 

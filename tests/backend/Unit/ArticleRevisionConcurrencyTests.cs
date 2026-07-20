@@ -11,6 +11,7 @@ using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -106,6 +107,154 @@ public sealed class ArticleRevisionConcurrencyTests(
         Assert.Equal(1, await setupDb.Queryable<Article>().CountAsync());
         Assert.Equal(1, await setupDb.Queryable<ArticleMutationCommand>().CountAsync());
         Assert.Equal(1, await setupDb.Queryable<ArticleMutationOutboxEvent>().CountAsync());
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ExactRequestReturnsNoChangeWithoutRevisionPublicationOrEvent()
+    {
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(classDatabase.ConnectionString);
+        CreateTables(db);
+        await SeedTaxonomyAsync(db);
+        IArticleMutationCommandService commands = CreateService(db);
+        ArticleWriteRequestCoreModel initial = CreateDraftRequest("fixed");
+        Result<ArticleMutationResult> created = await commands.CreateAsync(
+            31,
+            Guid.NewGuid().ToString("D"),
+            new string('D', 64),
+            initial);
+        Assert.True(created.IsSuccess, created.Error.Message);
+        int revisionCount = await db.Queryable<ArticleRevision>().CountAsync();
+        int publicationCount = await db.Queryable<ArticlePublicationRecord>().CountAsync();
+        int outboxCount = await db.Queryable<ArticleMutationOutboxEvent>().CountAsync();
+
+        Result<ArticleMutationResult> repeated = await commands.UpdateAsync(
+            created.Value.ArticleId,
+            initial with
+            {
+                BaseRevisionId = created.Value.RevisionId
+            });
+
+        Assert.True(repeated.IsSuccess, repeated.Error.Message);
+        Assert.Equal(ArticleMutationOutcome.NoChange, repeated.Value.Outcome);
+        Assert.Equal(created.Value.RevisionId, repeated.Value.RevisionId);
+        Assert.Equal(created.Value.ReleaseId, repeated.Value.ReleaseId);
+        Assert.Equal(revisionCount, await db.Queryable<ArticleRevision>().CountAsync());
+        Assert.Equal(publicationCount, await db.Queryable<ArticlePublicationRecord>().CountAsync());
+        Assert.Equal(outboxCount, await db.Queryable<ArticleMutationOutboxEvent>().CountAsync());
+    }
+
+    [Fact]
+    public async Task UpdateAsync_MetadataAndCopyrightOnlyReuseBodyBlockWhileBodyChangeAllocatesOne()
+    {
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(classDatabase.ConnectionString);
+        CreateTables(db);
+        await SeedTaxonomyAsync(db);
+        IArticleMutationCommandService commands = CreateService(db);
+        ArticleWriteRequestCoreModel initial = CreateDraftRequest("storage");
+        Result<ArticleMutationResult> created = await commands.CreateAsync(
+            37,
+            Guid.NewGuid().ToString("D"),
+            new string('E', 64),
+            initial);
+        Assert.True(created.IsSuccess, created.Error.Message);
+        long initialBlockId = (await db.Queryable<ArticleRevision>().InSingleAsync(created.Value.RevisionId)).ContentBlockId;
+
+        Result<ArticleMutationResult> metadataOnly = await commands.UpdateAsync(
+            created.Value.ArticleId,
+            initial with
+            {
+                Title = "Metadata only",
+                BaseRevisionId = created.Value.RevisionId
+            });
+        Assert.True(metadataOnly.IsSuccess, metadataOnly.Error.Message);
+        Assert.Equal(ArticleMutationOutcome.Applied, metadataOnly.Value.Outcome);
+        Assert.Equal(
+            initialBlockId,
+            (await db.Queryable<ArticleRevision>().InSingleAsync(metadataOnly.Value.RevisionId)).ContentBlockId);
+        Assert.Equal(1, await db.Queryable<ArticleRevisionContentBlock>().CountAsync());
+
+        var copyright = new ArticleRightsRequestCoreModel(
+            true,
+            "all-rights-reserved",
+            "Fixed Owner",
+            2026,
+            null,
+            null,
+            "append-attribution",
+            300,
+            true,
+            true,
+            true);
+        Result<ArticleMutationResult> copyrightOnly = await commands.UpdateAsync(
+            created.Value.ArticleId,
+            initial with
+            {
+                Title = "Metadata only",
+                Rights = copyright,
+                RightsMutation = ArticleRightsMutationMode.Replace,
+                BaseRevisionId = metadataOnly.Value.RevisionId
+            });
+        Assert.True(copyrightOnly.IsSuccess, copyrightOnly.Error.Message);
+        Assert.Equal(
+            initialBlockId,
+            (await db.Queryable<ArticleRevision>().InSingleAsync(copyrightOnly.Value.RevisionId)).ContentBlockId);
+        Assert.Equal(1, await db.Queryable<ArticleRevisionContentBlock>().CountAsync());
+
+        Result<ArticleMutationResult> bodyChanged = await commands.UpdateAsync(
+            created.Value.ArticleId,
+            initial with
+            {
+                Title = "Metadata only",
+                Content = "# A different fixed body",
+                Rights = copyright,
+                RightsMutation = ArticleRightsMutationMode.Replace,
+                BaseRevisionId = copyrightOnly.Value.RevisionId
+            });
+        Assert.True(bodyChanged.IsSuccess, bodyChanged.Error.Message);
+        Assert.NotEqual(
+            initialBlockId,
+            (await db.Queryable<ArticleRevision>().InSingleAsync(bodyChanged.Value.RevisionId)).ContentBlockId);
+        Assert.Equal(2, await db.Queryable<ArticleRevisionContentBlock>().CountAsync());
+        Assert.Equal(4, await db.Queryable<ArticleRevision>().CountAsync());
+    }
+
+    [Fact]
+    public async Task ContentBlockReachabilityAndCleanupDeleteOnlyUnreferencedBlocks()
+    {
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(classDatabase.ConnectionString);
+        CreateTables(db);
+        long reachable = await ArticleRevisionContentBlockStore.GetOrCreateAsync(
+            db,
+            "# reachable",
+            DateTime.UtcNow.AddHours(-2),
+            CancellationToken.None);
+        _ = await db.Insertable(new ArticleRevision
+        {
+            ArticleId = 91,
+            RevisionNo = 1,
+            Title = "Reachable",
+            CategoryId = 1,
+            ContentBlockId = reachable,
+            DiffSummary = "seed",
+            CreatedByAdminPrincipalId = 1
+        }).ExecuteReturnBigIdentityAsync();
+        _ = await ArticleRevisionContentBlockStore.GetOrCreateAsync(
+            db,
+            "# orphan",
+            DateTime.UtcNow.AddHours(-2),
+            CancellationToken.None);
+
+        ArticleRevisionContentReachability before = await ArticleRevisionContentBlockStore.CheckReachabilityAsync(db);
+        int deleted = await ArticleRevisionContentBlockStore.DeleteUnreferencedAsync(db, DateTime.UtcNow.AddHours(-1));
+        ArticleRevisionContentReachability after = await ArticleRevisionContentBlockStore.CheckReachabilityAsync(db);
+
+        Assert.Equal(1, before.RevisionCount);
+        Assert.Equal(2, before.ContentBlockCount);
+        Assert.Equal(1, before.OrphanContentBlockCount);
+        Assert.Equal(0, before.MissingReferenceCount);
+        Assert.Equal(1, deleted);
+        Assert.Equal(1, after.ContentBlockCount);
+        Assert.Equal(0, after.OrphanContentBlockCount);
     }
 
     [Fact]
@@ -823,6 +972,7 @@ public sealed class ArticleRevisionConcurrencyTests(
             typeof(Category),
             typeof(Tag),
             typeof(ArticleRevision),
+            typeof(ArticleRevisionContentBlock),
             typeof(ArticleAssetReference),
             typeof(ArticleAssetCleanupQueueItem),
             typeof(ArticleRightsPolicy),

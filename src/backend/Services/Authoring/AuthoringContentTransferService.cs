@@ -18,6 +18,7 @@ using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Services.Moderation;
+using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Telemetry;
 using FsusBlog.Shared.Contracts.Outputs;
 
@@ -47,6 +48,7 @@ public sealed class AuthoringContentTransferService(
             .Where(it => it.ArticleId == articleId)
             .OrderBy(it => it.RevisionNo)
             .ToListAsync(cancellationToken);
+        await ArticleRevisionContentBlockStore.HydrateAsync(db, revisions, cancellationToken).ConfigureAwait(false);
         ContentExportMetadataResponse metadata = BuildExportMetadata(article, tagIds, revisions);
         return new ContentExportResponse($"article-{articleId}.md", BuildArticleExportMarkdown(article, content, metadata), metadata);
     }
@@ -94,6 +96,10 @@ public sealed class AuthoringContentTransferService(
             .ToListAsync(cancellationToken))
             .GroupBy(static revision => revision.ArticleId)
             .ToDictionary(static group => group.Key, static group => group.ToList());
+        await ArticleRevisionContentBlockStore.HydrateAsync(
+            db,
+            revisionsByArticleId.Values.SelectMany(static revisions => revisions).ToArray(),
+            cancellationToken).ConfigureAwait(false);
 
         var exports = new List<ContentExportResponse>(articles.Count);
         int revisionCount = 0;
@@ -435,6 +441,15 @@ fsusMetadataJson: {encodedMetadata}
             }
 
             await db.Deleteable<ArticleRevision>().Where(it => it.ArticleId == articleId).ExecuteCommandAsync(cancellationToken);
+            foreach (ArticleRevision revision in revisions)
+            {
+                revision.ContentBlockId = await ArticleRevisionContentBlockStore.GetOrCreateAsync(
+                    db,
+                    revision.MarkdownContent,
+                    revision.CreatedAt,
+                    cancellationToken).ConfigureAwait(false);
+                revision.MarkdownContent = string.Empty;
+            }
             await db.Insertable(revisions).ExecuteCommandAsync(cancellationToken);
         });
         if (!transaction.IsSuccess)

@@ -347,6 +347,14 @@ public class ArticleRevision
     [SugarColumn(ColumnName = "tag_ids", ColumnDataType = "text")]
     public string TagIds { get; set; } = string.Empty;
 
+    [SugarColumn(ColumnName = "content_block_id")]
+    public long ContentBlockId
+    {
+        get; set;
+    }
+
+    // Expand/contract compatibility only. New writes leave this empty; migration clears
+    // historical values after content_block_id has been verified reachable.
     [SugarColumn(ColumnName = "markdown_content", ColumnDataType = "text")]
     public string MarkdownContent { get; set; } = string.Empty;
 
@@ -367,6 +375,32 @@ public class ArticleRevision
 
     [SugarColumn(ColumnName = "rollback_reason", Length = 500, IsNullable = true)]
     public string? RollbackReason
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "created_at")]
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+[SugarTable("article_revision_content_block")]
+[SugarIndex("ux_article_revision_content_block_hash", nameof(ContentHash), OrderByType.Asc, true)]
+public class ArticleRevisionContentBlock
+{
+    [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
+    public long Id
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "content_hash", Length = 64)]
+    public string ContentHash { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "markdown_content", ColumnDataType = "text")]
+    public string MarkdownContent { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "byte_length")]
+    public int ByteLength
     {
         get; set;
     }

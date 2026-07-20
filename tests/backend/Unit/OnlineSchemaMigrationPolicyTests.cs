@@ -291,6 +291,7 @@ public sealed class OnlineSchemaMigrationPolicyTests
             CommentGovernanceMigrationDefinitions.MigrationId,
             CommentModerationQueueMigrationDefinitions.MigrationId,
             ArticleResponsibilityVersionMigrationDefinitions.MigrationId,
+            ArticleRevisionContentBlockMigrationDefinitions.MigrationId,
             ArticleRevisionRollbackMigrationDefinitions.MigrationId,
             accountEnrollment.MigrationId,
             refreshTokenLineage.MigrationId,

@@ -348,6 +348,7 @@ describe('decodeBinaryFramePayload', () => {
     writeInt64(payload, 32, 9007199254740n)
     writeInt32(payload, 40, 7)
     payload[44] = 1
+    payload[46] = 1
 
     expect(decodeBinaryFramePayload(FrameType.MutationId, payload)).toEqual({
       id: 42,
@@ -360,7 +361,17 @@ describe('decodeBinaryFramePayload', () => {
       rightsSnapshotId: 9007199254740,
       rightsRevisionNo: 7,
       idempotencyReplay: true,
-      errorCode: 0
+      errorCode: 0,
+      outcome: 'no_change'
     })
+  })
+
+  it('rejects an unknown strong article mutation outcome', () => {
+    const payload = new Uint8Array(48)
+    payload[46] = 9
+
+    expect(() => decodeBinaryFramePayload(FrameType.MutationId, payload)).toThrow(
+      'article_mutation_outcome_invalid'
+    )
   })
 })

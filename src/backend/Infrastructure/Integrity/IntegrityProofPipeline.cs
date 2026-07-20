@@ -5,6 +5,7 @@ using FsusBlog.Core.Integrity;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Articles;
 
 using Microsoft.Extensions.Configuration;
 
@@ -338,11 +339,20 @@ public sealed class IntegrityProofScheduler(
 
     private async Task<ArticleRevision?> LoadLatestRevisionAsync(int articleId, CancellationToken cancellationToken)
     {
-        return await db.Queryable<ArticleRevision>()
+        ArticleRevision? revision = await db.Queryable<ArticleRevision>()
             .Where(revision => revision.ArticleId == articleId)
             .OrderByDescending(revision => revision.RevisionNo)
             .FirstAsync(cancellationToken)
             .ConfigureAwait(false);
+        if (revision?.ContentBlockId > 0)
+        {
+            revision.MarkdownContent = await ArticleRevisionContentBlockStore.LoadAsync(
+                db,
+                revision.ContentBlockId,
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        return revision;
     }
 
     private async Task<ArtifactDigestEntry[]> BuildArtifactEntriesAsync(

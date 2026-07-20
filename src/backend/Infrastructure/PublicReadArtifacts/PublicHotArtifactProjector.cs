@@ -1076,12 +1076,13 @@ public sealed class PublicHotArtifactProjector(
         var rows = await db.Queryable<Article>()
             .InnerJoin<ArticlePublicationRecord>((article, publication) => article.CurrentPublicationId == publication.Id)
             .InnerJoin<ArticleRevision>((article, publication, revision) => publication.ArticleRevisionId == revision.Id)
-            .LeftJoin<ArticleBody>((article, publication, revision, body) => article.Id == body.ArticleId)
+            .LeftJoin<ArticleRevisionContentBlock>((article, publication, revision, block) => revision.ContentBlockId == block.Id)
+            .LeftJoin<ArticleBody>((article, publication, revision, block, body) => article.Id == body.ArticleId)
             .Where(article => ids.Contains(article.Id))
-            .Select((article, publication, revision, body) => new
+            .Select((article, publication, revision, block, body) => new
             {
                 ArticleId = article.Id,
-                revision.MarkdownContent,
+                MarkdownContent = SqlFunc.IsNull(block.MarkdownContent, revision.MarkdownContent),
                 ArticleBodyContent = body.MarkdownContent
             })
             .ToListAsync(ct)

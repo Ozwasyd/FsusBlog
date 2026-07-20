@@ -230,6 +230,7 @@ public sealed class IntegrityVerificationManifestServiceTests(PostgresSchemaMigr
             db,
             typeof(Article),
             typeof(ArticleRevision),
+            typeof(ArticleRevisionContentBlock),
             typeof(ArticleResponsibilitySnapshot),
             typeof(ArticleRightsPolicy),
             typeof(ArticleRightsSnapshot),

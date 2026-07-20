@@ -42,7 +42,7 @@ HTTP shell 契约由 `src/shared/Contracts/Validation/fsusblog.openapi.json` 提
 
 ### 3. 统一响应包装
 
-所有运行时主业务响应体均为 AEDS v2 frame。成功写操作使用 `EmptySuccess` 或 `MutationId`；会被前端立即选中、关联或跳转到新资源的创建操作必须返回 `MutationId`，例如分类、标签和文章创建，不能让前端只靠刷新列表后按名称猜测。分类、标签等通用 mutation 仍返回 8B `MutationIdPod`；文章 create/update/rollback 在同一 frame type 下返回 48B `ArticleMutationResultPod`，同时给出 article、revision、release、status、rights snapshot、幂等重放标记和显式错误码，调用方不得从随后读取的“最新状态”猜测本次绑定结果。失败、鉴权拒绝、限流和异常兜底统一使用 `ApiError` frame。AEDS v1 frame 不再兼容，也不保留旧 frame fallback。
+所有运行时主业务响应体均为 AEDS v2 frame。成功写操作使用 `EmptySuccess` 或 `MutationId`；会被前端立即选中、关联或跳转到新资源的创建操作必须返回 `MutationId`，例如分类、标签和文章创建，不能让前端只靠刷新列表后按名称猜测。分类、标签等通用 mutation 仍返回 8B `MutationIdPod`；文章 create/update/rollback 在同一 frame type 下返回 48B `ArticleMutationResultPod`，同时给出 article、revision、release、status、rights snapshot、幂等重放标记、`applied/no_change` outcome 和显式错误码，调用方不得从随后读取的“最新状态”猜测本次绑定结果。失败、鉴权拒绝、限流和异常兜底统一使用 `ApiError` frame。AEDS v1 frame 不再兼容，也不保留旧 frame fallback。
 
 ### 4. 原生 AEDS 内部 API 原则
 
@@ -693,6 +693,8 @@ SPA 接管失败时采用 fail-closed：snapshot head 缺失、旧版本、diges
 代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringUseCasePorts.cs`](../../src/backend/Services/Authoring/AuthoringUseCasePorts.cs)、[`useAdminArticleWrite.ts`](../../src/frontend/src/composables/useAdminArticleWrite.ts)。
 
 文章修订历史必须通过 admin-only API 读取摘要和单条完整版本包：`GET /api/binary/author/articles/{articleId}/revisions` 与 `GET /api/binary/author/articles/{articleId}/revisions/{revisionId}`。详情同时返回正文 revision、rights snapshot、可选 responsibility snapshot、关联 release 与 `packageComplete`，并只暴露 `createdByAdminPrincipalId`，不暴露旧 `createdByUserId`。回滚使用 `POST /api/binary/author/articles/{articleId}/revisions/{revisionId}/rollback`，请求体是 `ArticleRevisionRollbackRequest(213)`，显式提交 base revision、目标状态与审计原因。服务层复用正式文章更新/失效链路，在同一事务复制源 revision 的正文、分类标签、rights 与 responsibility 到全新绑定，创建新 revision/release，记录源 revision、actor 和 reason，并让 outbox 只引用新坐标。历史行不得重新启用；历史包缺少必要 rights 时 fail closed，不能用当前策略或默认策略补齐。编辑器只在作者工作台内比较当前表单与历史版本，回滚不得直接写表。
+
+修订正文采用不可变内容块而不是在每行 revision 重复保存 Markdown。`article_revision` 保存内容块引用与完整 metadata；内容块由规范化 Markdown 的 SHA-256 寻址，metadata-only 与 copyright-only 修订复用原块，正文改变才创建块。每个 revision 都通过自身引用直接重建，不引入差异链。完全相同的 update 在锁定并确认 base revision 后返回当前坐标和 `no_change`，不得生成 revision、publication、outbox 或 notification。旧 revision 迁移必须先回填并验证可达性，再清空内联副本；孤块清理必须带时间 cutoff 并再次以 `NOT EXISTS` 检查引用。
 
 作者侧文章详情把 `currentRevisionId/revisionNo` 作为稳定编辑坐标。普通 update 的 `ArticleWriteRequest V5` 与 rollback 的 AEDS JSON request 都必须提交读取时取得的 `baseRevisionId`；rollback 不提供 force 绕过。服务端在同一事务的 article 行 CAS 中核对基线，失配统一返回 `409 article_revision_conflict`，其 `ApiError.details` 只含当前 `currentRevisionId/revisionNo/status/updatedAt`，且不得写正文、标签、rights、publication 或 outbox。PostgreSQL `xmin` 只保留为内部竞争检测，不进入业务请求或响应。冲突后前端保留未提交表单并要求重新载入比较，不自动重放；这同时覆盖双标签页、延迟提交和重试。内容导入固定为 create-new，不按导出 metadata 的 source article ID 覆盖现有文章，因此无需伪造 base revision。
 

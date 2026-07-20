@@ -19,6 +19,12 @@ public readonly record struct TagWithCountDto(int Id, string Name, int ArticleCo
 /// <summary>
 /// Defines the successful result shared by article create, update, and rollback commands.
 /// </summary>
+public enum ArticleMutationOutcome : byte
+{
+    Applied = 0,
+    NoChange = 1
+}
+
 public readonly record struct ArticleMutationResult(
     int ArticleId,
     long RevisionId,
@@ -29,7 +35,8 @@ public readonly record struct ArticleMutationResult(
     long RightsSnapshotId,
     int RightsRevisionNo,
     bool IdempotencyReplay,
-    byte ErrorCode);
+    byte ErrorCode,
+    ArticleMutationOutcome Outcome = ArticleMutationOutcome.Applied);
 /// <summary>
 /// Defines the API output contract represented by <c>TrashClearResponseDto</c>.
 /// </summary>

@@ -267,7 +267,7 @@
 | GET | `/api/binary/admin/article` | 👑 📦 | `ArticleList`(1) | 管理端文章列表，可带 `status` / `isDeleted`；`page>=1`、`size=1..100`，非法值返回 400 |
 | GET | `/api/binary/admin/article/{id}` | 👑 📦 | `ArticleDetail`(2) | 管理端文章详情 |
 | POST | `/api/binary/admin/article` | 👑 📦 🚦 PoW | `ArticleWriteRequest` → `MutationId`(241) | 创建文章；必须携带 admin-scoped `X-Fsus-Client-Mutation-Id`；同键同内容安全重放，同键异内容 409；返回 48B 强类型 article/revision/release/result |
-| PUT | `/api/binary/admin/article/{id}` | 👑 📦 🚦 PoW | `ArticleWriteRequest` → `MutationId`(241) | 更新文章；必须提交详情中的 `baseRevisionId`，失配返回 409 且不写入；返回同一 48B 强类型结果 |
+| PUT | `/api/binary/admin/article/{id}` | 👑 📦 🚦 PoW | `ArticleWriteRequest` → `MutationId`(241) | 更新文章；必须提交详情中的 `baseRevisionId`，失配返回 409 且不写入；完全相同请求返回原坐标与 `outcome=no_change`，不新增修订/事件；返回同一 48B 强类型结果 |
 | POST | `/api/binary/upload/init` | 👑 | `UploadInit`(20) | 初始化分片上传 |
 | GET | `/api/binary/upload/{id}` | 👑 📦 | `UploadStatus`(21) | 查询上传状态 |
 | PUT | `/api/binary/upload/{id}/part/{n}` | 👑 📦 | `UploadPartAck`(22) | 上传分片 |

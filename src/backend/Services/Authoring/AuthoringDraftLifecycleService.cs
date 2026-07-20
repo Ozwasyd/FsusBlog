@@ -281,6 +281,7 @@ public sealed class AuthoringDraftLifecycleService(
             .OrderByDescending(it => it.RevisionNo)
             .Take(50)
             .ToListAsync(cancellationToken);
+        await ArticleRevisionContentBlockStore.HydrateAsync(db, revisions, cancellationToken).ConfigureAwait(false);
 
         return revisions.Select(static revision => new ArticleRevisionSummaryResponse(
             revision.Id.ToString(CultureInfo.InvariantCulture),
@@ -302,6 +303,13 @@ public sealed class AuthoringDraftLifecycleService(
         if (revision is null)
         {
             return null;
+        }
+        if (revision.ContentBlockId > 0)
+        {
+            revision.MarkdownContent = await ArticleRevisionContentBlockStore.LoadAsync(
+                db,
+                revision.ContentBlockId,
+                cancellationToken).ConfigureAwait(false);
         }
 
         ArticleRightsSnapshot? rights = await db.Queryable<ArticleRightsSnapshot>()
@@ -348,6 +356,13 @@ public sealed class AuthoringDraftLifecycleService(
         if (revision is null)
         {
             return Result<ArticleMutationResult>.Failure(ErrorCode.NotFound, "revision_not_found");
+        }
+        if (revision.ContentBlockId > 0)
+        {
+            revision.MarkdownContent = await ArticleRevisionContentBlockStore.LoadAsync(
+                db,
+                revision.ContentBlockId,
+                cancellationToken).ConfigureAwait(false);
         }
 
         string? summary = ArticleSummaryProjection.WasAutomaticallyGenerated(revision.DiffSummary)

@@ -298,7 +298,8 @@ public readonly struct ArticleMutationResultPod
     public readonly int RightsRevisionNo;
     public readonly byte IdempotencyReplay;
     public readonly byte ErrorCode;
-    public readonly ushort Reserved;
+    public readonly byte Outcome;
+    public readonly byte Reserved;
 }
 
 /// <summary>

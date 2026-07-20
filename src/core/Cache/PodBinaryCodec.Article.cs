@@ -37,6 +37,7 @@ public static partial class PodBinaryCodec
             RightsRevisionNo = response.RightsRevisionNo,
             IdempotencyReplay = response.IdempotencyReplay ? (byte)1 : (byte)0,
             ErrorCode = response.ErrorCode,
+            Outcome = (byte)response.Outcome,
             Reserved = 0
         }));
     }
@@ -55,6 +56,13 @@ public static partial class PodBinaryCodec
             return false;
         }
 
+        var outcome = (ArticleMutationOutcome)pod.Outcome;
+        if (!Enum.IsDefined(outcome) || pod.Reserved != 0)
+        {
+            response = default;
+            return false;
+        }
+
         response = new ArticleMutationResult(
             pod.ArticleId,
             pod.RevisionId,
@@ -65,7 +73,8 @@ public static partial class PodBinaryCodec
             pod.RightsSnapshotId,
             pod.RightsRevisionNo,
             pod.IdempotencyReplay != 0,
-            pod.ErrorCode);
+            pod.ErrorCode,
+            outcome);
         return true;
     }
 
@@ -405,7 +414,8 @@ public static partial class PodBinaryCodec
         public int RightsRevisionNo;
         public byte IdempotencyReplay;
         public byte ErrorCode;
-        public ushort Reserved;
+        public byte Outcome;
+        public byte Reserved;
     }
 
     private static Utf8SliceRef PlanUtf8Slice(string? value, ref int nextOffset)
