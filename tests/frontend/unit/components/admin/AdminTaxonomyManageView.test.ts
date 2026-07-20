@@ -33,4 +33,14 @@ describe('AdminTaxonomyManageView visual and accessibility contracts', () => {
     expect(source).toMatch(/\.admin-table-action--compact\s*\{[\s\S]*?display:\s*inline-flex;[\s\S]*?align-items:\s*center;[\s\S]*?justify-content:\s*center;[\s\S]*?min-width:\s*32px;[\s\S]*?min-height:\s*32px;/u)
     expect(source).toContain(':width="actionColumnWidth"')
   })
+
+  it('keeps dialog guidance tertiary with a 13/20 text rhythm and 16px icon', () => {
+    const noteBlock = source.match(/<div :class="\['taxonomy-dialog-note[\s\S]*?<\/div>/u)?.[0] ?? ''
+
+    expect(noteBlock).toContain('taxonomy-dialog-note__icon')
+    expect(noteBlock).toContain('aria-hidden="true" :size="16"')
+    expect(noteBlock).toContain('taxonomy-dialog-note__text')
+    expect(source).toMatch(/\.taxonomy-dialog-note__text\s*\{[\s\S]*?color:\s*var\(--fsusblog-text-tertiary\);[\s\S]*?font-size:\s*13px;[\s\S]*?line-height:\s*20px;/u)
+    expect(source).not.toContain("text-[12px] text-[var(--fsusblog-text-muted)] leading-relaxed")
+  })
 })

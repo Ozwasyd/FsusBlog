@@ -118,9 +118,9 @@
           </el-form-item>
         </el-form>
       </div>
-      <div :class="['mt-4 border-t border-[var(--fsusblog-panel-border)] pt-6 flex select-none', schema.dialogNoteGapClass]">
-        <span class="text-[var(--fsusblog-text-muted)] mt-1"><el-icon aria-hidden="true"><InfoFilled /></el-icon></span>
-        <p :class="['text-[12px] text-[var(--fsusblog-text-muted)] leading-relaxed', schema.dialogNoteClass]">{{ schema.dialogDescription }}</p>
+      <div :class="['taxonomy-dialog-note mt-4 border-t border-[var(--fsusblog-panel-border)] pt-6 flex select-none', schema.dialogNoteGapClass]">
+        <span class="taxonomy-dialog-note__icon"><el-icon aria-hidden="true" :size="16"><InfoFilled /></el-icon></span>
+        <p :class="['taxonomy-dialog-note__text', schema.dialogNoteClass]">{{ schema.dialogDescription }}</p>
       </div>
       <template #footer>
         <div class="taxonomy-dialog-actions">
@@ -239,6 +239,24 @@ const submitForm = (): void => {
   box-sizing: border-box;
   min-width: 32px;
   min-height: 32px;
+}
+
+.taxonomy-dialog-note {
+  color: var(--fsusblog-text-tertiary);
+}
+
+.taxonomy-dialog-note__icon {
+  display: inline-flex;
+  flex: 0 0 16px;
+  align-items: center;
+  min-height: 20px;
+}
+
+.taxonomy-dialog-note__text {
+  margin: 0;
+  color: var(--fsusblog-text-tertiary);
+  font-size: 13px;
+  line-height: 20px;
 }
 
 @media (max-width: 639px) {
