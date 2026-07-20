@@ -20,4 +20,12 @@ describe('SiteChromeHeaderAdapter', () => {
     )
     expect(source).not.toMatch(/\.site-chrome-header__brand-mark--public\s*\{/)
   })
+
+  it('keeps account chrome on the FsusUI paper-first header default', () => {
+    const headerTag = source.match(/<FsusUiSiteHeader([\s\S]*?)>/)?.[1] ?? ''
+
+    expect(headerTag).not.toContain('is-glass')
+    expect(headerTag).not.toContain('data-site-header-material')
+    expect(source).not.toMatch(/backdrop-filter\s*:/)
+  })
 })
