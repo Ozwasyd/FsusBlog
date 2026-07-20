@@ -86,10 +86,10 @@
                       <button
                         v-else
                         type="button"
-                        class="h-full min-h-10 w-full flex flex-col items-center justify-center text-[var(--fsusblog-text-muted)]"
+                        class="h-full min-h-12 w-full flex flex-col items-center justify-center text-[var(--fsusblog-text-muted)]"
                         aria-label="上传预览图"
                       >
-                        <el-icon :size="20" aria-hidden="true"><Plus /></el-icon>
+                        <el-icon :size="24" aria-hidden="true"><Plus /></el-icon>
                         <span class="text-[11px] mt-2 font-medium normal-case tracking-normal">上传预览图</span>
                       </button>
                       <div class="image-replace-overlay absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">

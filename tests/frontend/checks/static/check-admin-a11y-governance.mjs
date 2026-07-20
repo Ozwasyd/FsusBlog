@@ -193,8 +193,9 @@ requireToken(adminWorkspacePath, adminWorkspace, 'background: color-mix(in srgb,
 requireToken(settingsPath, settings, '<button', 'settings dropzone empty state must be a real button')
 requireToken(settingsPath, settings, 'type="button"', 'settings dropzone empty state button must not submit forms')
 requireToken(settingsPath, settings, 'aria-label="上传预览图"', 'settings dropzone button must expose an accessible name')
-requireToken(settingsPath, settings, '<el-icon :size="20" aria-hidden="true"><Plus /></el-icon>', 'settings dropzone icon must be decorative and 20px')
-  forbidToken(settingsPath, settings, '<el-icon size="24"><Plus /></el-icon>', 'settings dropzone must not use a decorative 24px placeholder icon')
+requireToken(settingsPath, settings, 'class="h-full min-h-12 w-full flex flex-col items-center justify-center', 'settings dropzone button must provide the spacious 48px touch target')
+requireToken(settingsPath, settings, '<el-icon :size="24" aria-hidden="true"><Plus /></el-icon>', 'settings dropzone icon must be decorative and 24px')
+forbidToken(settingsPath, settings, '<el-icon :size="20" aria-hidden="true"><Plus /></el-icon>', 'settings dropzone must not regress to the retired 20px placeholder icon')
 
 for (const file of adminAccountRoots.flatMap((dir) => walk(dir))) {
   assertSwitchesDoNotUseVisibleStateText(file)
