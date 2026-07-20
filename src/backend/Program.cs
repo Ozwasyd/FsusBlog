@@ -1,6 +1,7 @@
 using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.RuntimeModes;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 
 OnlineSchemaMigrationCommand command;
@@ -42,6 +43,7 @@ if (command.Kind != OnlineSchemaMigrationCommandKind.Serve)
 
 builder.ConfigureFsusKestrelSingleProcessRuntime();
 builder.ConfigureFsusApplication();
+builder.Services.ApplyFsusRuntimeModeGates(builder.Configuration);
 builder.Services.AddOnlineSchemaMigrationControlPlane(builder.Configuration);
 if (command.Kind == OnlineSchemaMigrationCommandKind.Serve && builder.Environment.IsProduction())
 {
