@@ -33,6 +33,18 @@ requirePattern(
   /<aside[\s\S]*?<a[\s\S]*?class="[^"]*\bmin-h-8\b[^"]*\bfocus-visible:ring-2\b[^"]*\bfocus-visible:ring-inset\b[^"]*\bfocus-visible:ring-\[var\(--fsusblog-color-focus-ring\)\]/,
   'desktop aside home link must keep its 32px hit area and visible keyboard focus ring'
 )
+requirePattern(
+  /<PublicContentState[\s\S]*?<a[\s\S]*?class="[^"]*\bmin-h-11\b[^"]*\brounded-\[var\(--fsusblog-radius-control\)\][^"]*\bborder\b[^"]*\bborder-\[var\(--fsusblog-panel-border\)\][^"]*\bpx-4\b/,
+  'page empty-state action must keep the 44px bordered control geometry'
+)
+requirePattern(
+  /<PublicContentState[\s\S]*?<a[\s\S]*?class="[^"]*\bfocus-visible:ring-2\b[^"]*\bfocus-visible:ring-inset\b[^"]*\bfocus-visible:ring-\[var\(--fsusblog-color-focus-ring\)\]/,
+  'page empty-state action must expose the inset Scholarly Blue keyboard focus ring'
+)
+forbidPattern(
+  /<PublicContentState[\s\S]*?<a[\s\S]*?class="[^"]*\bmin-h-9\b/,
+  'page empty-state action must not regress to the retired 36px height'
+)
 
 if (failures.length > 0) {
   console.error(failures.map((failure) => `[public-filter-controls] ${failure}`).join('\n'))

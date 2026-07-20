@@ -63,9 +63,10 @@
       >
         <a
           :href="PUBLIC_FIXED_PATHS.home"
-          class="inline-flex min-h-9 items-center gap-2 px-1 text-sm font-bold text-[var(--fsusblog-text-primary)] hover:text-[var(--fsusblog-color-primary)]"
+          class="inline-flex min-h-11 items-center gap-2 rounded-[var(--fsusblog-radius-control)] border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg)] px-4 text-sm font-bold text-[var(--fsusblog-text-primary)] outline-none transition-colors hover:border-[var(--fsusblog-color-primary)] hover:text-[var(--fsusblog-color-primary)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)]"
           @click="handleEmptyAction"
         >
+          <el-icon aria-hidden="true"><Back /></el-icon>
           {{ view.empty.actionText }}
         </a>
       </PublicContentState>
