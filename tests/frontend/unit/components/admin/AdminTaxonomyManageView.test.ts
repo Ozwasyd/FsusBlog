@@ -27,4 +27,10 @@ describe('AdminTaxonomyManageView visual and accessibility contracts', () => {
   it('keeps the deletable state as a danger action', () => {
     expect(source).toMatch(/<el-button v-else link type="danger"[^>]*@click="state\.handleDelete\(row\)"/u)
   })
+
+  it('gives every compact action an explicit centered 32px touch target', () => {
+    expect(source.match(/'admin-table-action--compact': isCompact/gu)).toHaveLength(3)
+    expect(source).toMatch(/\.admin-table-action--compact\s*\{[\s\S]*?display:\s*inline-flex;[\s\S]*?align-items:\s*center;[\s\S]*?justify-content:\s*center;[\s\S]*?min-width:\s*32px;[\s\S]*?min-height:\s*32px;/u)
+    expect(source).toContain(':width="actionColumnWidth"')
+  })
 })

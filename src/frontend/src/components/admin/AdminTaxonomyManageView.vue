@@ -61,12 +61,12 @@
         <el-table-column label="管理" :width="actionColumnWidth" align="right" :fixed="!isCompact && schema.fixActionColumn ? 'right' : false">
           <template #default="{ row }">
             <div class="flex justify-end items-center gap-2 pr-2" :class="{ 'gap-1 pr-0': isCompact }">
-              <el-button link type="primary" @click="state.openDialog(row)">
+              <el-button link type="primary" :class="{ 'admin-table-action--compact': isCompact }" @click="state.openDialog(row)">
                 <el-icon aria-hidden="true" v-if="schema.compactEditIcon && isCompact"><Edit /></el-icon>
                 <span v-else>{{ isCompact ? schema.compactEditLabel : schema.editLabel }}</span>
               </el-button>
               <el-divider direction="vertical" />
-              <el-button link type="primary" :disabled="row.totalBlockingArticleCount <= 0" @click="state.viewAssociatedArticles(row)">
+              <el-button link type="primary" :class="{ 'admin-table-action--compact': isCompact }" :disabled="row.totalBlockingArticleCount <= 0" @click="state.viewAssociatedArticles(row)">
                 <span v-if="!isCompact">查看文章</span><el-icon aria-hidden="true" v-else><View /></el-icon>
               </el-button>
               <el-divider direction="vertical" />
@@ -81,7 +81,7 @@
                   <span v-if="!isCompact">锁定</span>
                 </div>
               </el-tooltip>
-              <el-button v-else link type="danger" @click="state.handleDelete(row)">
+              <el-button v-else link type="danger" :class="{ 'admin-table-action--compact': isCompact }" @click="state.handleDelete(row)">
                 <el-icon aria-hidden="true" v-if="schema.compactDeleteIcon && isCompact"><Delete /></el-icon>
                 <span v-else>删除</span>
               </el-button>
@@ -230,6 +230,15 @@ const submitForm = (): void => {
   font-size: 12px;
   font-weight: 500;
   cursor: help;
+}
+
+.admin-table-action--compact {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 32px;
+  min-height: 32px;
 }
 
 @media (max-width: 639px) {
