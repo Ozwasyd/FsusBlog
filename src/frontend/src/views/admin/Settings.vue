@@ -829,7 +829,8 @@ const confirmPageRefresh = async (): Promise<void> => {
 }
 
 .settings-tabs {
-  max-width: 100%;
+  max-width: var(--fsusblog-container-settings);
+  margin-inline: auto;
   overflow-x: hidden;
 }
 

@@ -178,6 +178,8 @@ const adminWorkspacePath = path.join(repoRoot, 'src/frontend/src/assets/admin-wo
 const adminWorkspace = read(adminWorkspacePath)
 forbidToken(settingsPath, settings, '--fsusblog-admin-status-warning', 'settings warning icon must use the Element Plus warning semantic')
 requireToken(settingsPath, settings, 'text-[var(--el-color-warning)]', 'settings warning icon must use --el-color-warning')
+requireToken(settingsPath, settings, 'max-width: var(--fsusblog-container-settings);', 'settings tabs must share the canonical settings content width')
+requireToken(settingsPath, settings, 'margin-inline: auto;', 'settings tabs must remain centered at wide viewports')
 forbidToken(adminWorkspacePath, adminWorkspace, '--fsusblog-admin-status-warning', 'admin warning alerts must not create a custom mixed warning semantic')
 requireToken(adminWorkspacePath, adminWorkspace, '--fsusblog-admin-alert-accent: var(--el-color-warning);', 'admin warning alerts must use --el-color-warning for the accent')
 requireToken(adminWorkspacePath, adminWorkspace, 'background: color-mix(in srgb, var(--el-color-warning) 8%, var(--fsusblog-page-bg));', 'admin warning alerts must use the restrained warning tint')
