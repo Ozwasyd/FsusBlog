@@ -72,10 +72,10 @@
     </div>
 
     <aside class="hidden lg:block lg:w-64 shrink-0">
-      <div class="sticky top-52">
+      <div class="sticky top-[calc(var(--fsusblog-public-header-height-current,4rem)+1.5rem)]">
         <a
           :href="PUBLIC_FIXED_PATHS.home"
-          class="inline-flex items-center gap-6 text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)] hover:text-[var(--fsusblog-color-primary)] transition-colors group outline-none"
+          class="group inline-flex min-h-8 items-center gap-6 rounded-[var(--fsusblog-radius-control)] px-1 text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)] outline-none transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)]"
         >
           <el-icon class="transition-fsus transition-fsus-fast group-hover:opacity-70" aria-hidden="true"><Back /></el-icon> 回到主页
         </a>

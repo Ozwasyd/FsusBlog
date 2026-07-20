@@ -24,6 +24,15 @@ forbidPattern(
   /:deep\([^)]*\.el-radio-button|\.el-radio-button__(?:inner|original-radio)/,
   'consumer code must not style private FsusUI RadioButton DOM'
 )
+requirePattern(
+  /class="sticky top-\[calc\(var\(--fsusblog-public-header-height-current,4rem\)\+1\.5rem\)\]"/,
+  'desktop aside must derive its sticky offset from the current public header height'
+)
+forbidPattern(/\btop-52\b/, 'desktop aside must not restore the arbitrary 208px sticky offset')
+requirePattern(
+  /<aside[\s\S]*?<a[\s\S]*?class="[^"]*\bmin-h-8\b[^"]*\bfocus-visible:ring-2\b[^"]*\bfocus-visible:ring-inset\b[^"]*\bfocus-visible:ring-\[var\(--fsusblog-color-focus-ring\)\]/,
+  'desktop aside home link must keep its 32px hit area and visible keyboard focus ring'
+)
 
 if (failures.length > 0) {
   console.error(failures.map((failure) => `[public-filter-controls] ${failure}`).join('\n'))
