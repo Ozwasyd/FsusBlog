@@ -348,6 +348,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 209 | `CommentChildCursor` | `CommentChildCursorPod` + `CommentTreeNodePod` records | 指定父节点的直接子节点 keyset 页 |
 | 210 | `CommentPermalinkContext` | `CommentPermalinkContextPod` + node records | 永久链接祖先、目标与兄弟窗口；不可见目标统一 `unavailable` |
 | 211 | `ConversationStatusMutationResult` | `ConversationStatusMutationResultPod` | 状态 CAS 结果；previous/current status + `changed`/`no_change` outcome |
+| 213 | `ArticleRevisionRollbackRequest` | AEDS JSON `{baseRevisionId,targetStatus,reason}` | admin revision rollback 请求；目标仅 Draft/Published/Archived，创建新 revision/release，不复用历史行 |
 
 `ConversationList(56)` 与 `ConversationDetailV3(204)` 的 wire layout 不因 admin queue state
 新增字段。相同 `unreadCount` 字段按 viewer 使用不同事实源：账号读取 participant state，

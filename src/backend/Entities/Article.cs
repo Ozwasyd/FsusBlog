@@ -331,6 +331,18 @@ public class ArticleRevision
         get; set;
     }
 
+    [SugarColumn(ColumnName = "rollback_source_revision_id", IsNullable = true)]
+    public long? RollbackSourceRevisionId
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "rollback_reason", Length = 500, IsNullable = true)]
+    public string? RollbackReason
+    {
+        get; set;
+    }
+
     [SugarColumn(ColumnName = "created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

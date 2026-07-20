@@ -1,3 +1,5 @@
+using System.Globalization;
+
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Integrity;
 using FsusBlog.Core.Services.Articles;
@@ -8,6 +10,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Articles;
@@ -23,6 +26,7 @@ using NSubstitute;
 using SqlSugar;
 
 using StackExchange.Redis;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]
@@ -371,8 +375,11 @@ public sealed class ArticleRightsWritePathTests(
         Assert.Equal(2, latest.RevisionNo);
     }
 
-    [Fact]
-    public async Task RollbackRevisionAsync_OmittedRightsPreservesCurrentPolicy()
+    [Theory]
+    [InlineData(ArticleStatus.Draft)]
+    [InlineData(ArticleStatus.Published)]
+    [InlineData(ArticleStatus.Archived)]
+    public async Task RollbackRevisionAsync_CopiesHistoricalVersionPackageIntoNewCoordinates(ArticleStatus targetStatus)
     {
         using SqlSugarClient db = classDatabase.CreateClient();
         CreateTables(db);
@@ -380,6 +387,117 @@ public sealed class ArticleRightsWritePathTests(
         int articleId = await articleService.CreateAsync(new CreateArticleRequest
         {
             Title = "Original",
+            Content = "# original",
+            Summary = "summary",
+            CategoryId = 1,
+            TagIds = [1],
+            Status = ArticleStatus.Published,
+            Rights = CustomRights("CC-BY-4.0", "Original Holder", showBadge: true)
+        });
+        ArticleRevision originalRevision = await db.Queryable<ArticleRevision>()
+            .Where(item => item.ArticleId == articleId)
+            .FirstAsync();
+        long originalResponsibilityId = await db.Insertable(new ArticleResponsibilitySnapshot
+        {
+            ArticleId = articleId,
+            ArticleRevisionId = originalRevision.Id,
+            RevisionNo = originalRevision.RevisionNo,
+            InheritSiteAuthor = false,
+            AuthorsJson = "[{\"name\":\"Original Author\",\"profileUrl\":null}]",
+            SourcesJson = "[]",
+            UpdateSummary = "Original responsibility",
+            ResponsiblePersonConfirmed = true,
+            CreatedAt = DateTime.UtcNow.AddMinutes(-2)
+        }).ExecuteReturnBigIdentityAsync();
+        Assert.True(await articleService.UpdateAsync(articleId, new UpdateArticleRequest
+        {
+            Title = "Current",
+            Content = "# current",
+            Summary = "summary",
+            CategoryId = 1,
+            TagIds = [1],
+            Status = ArticleStatus.Published,
+            Rights = CustomRights("CC-BY-SA-4.0", "Current Holder", showBadge: false)
+        }));
+        var lifecycle = new AuthoringDraftLifecycleService(
+            db,
+            new ArticleCoreService(articleService),
+            ArticlePublicationValidatorTestFactory.CreateAllowing(),
+            Substitute.For<IAuthoringAuditWriter>());
+
+        ArticleRevisionDetailResponse? historicalPackage = await lifecycle.GetRevisionAsync(
+            articleId,
+            originalRevision.Id);
+        Assert.NotNull(historicalPackage);
+        Assert.True(historicalPackage.PackageComplete);
+        Assert.Equal("CC-BY-4.0", historicalPackage.Rights?.LicenseType);
+        Assert.Equal("Original responsibility", historicalPackage.Responsibility?.UpdateSummary);
+        Assert.NotNull(historicalPackage.Release);
+
+        Article current = await db.Queryable<Article>().InSingleAsync(articleId);
+        const string Reason = "Restore the reviewed historical package";
+        Result<ArticleRevisionRollbackResponse?> rollback = await lifecycle.RollbackRevisionAsync(
+            17,
+            articleId,
+            originalRevision.Id,
+            new ArticleRevisionRollbackRequest(
+                current.CurrentRevisionId!.Value,
+                (int)targetStatus,
+                Reason));
+
+        ArticleRightsPolicy policy = await db.Queryable<ArticleRightsPolicy>()
+            .Where(item => item.ArticleId == articleId)
+            .FirstAsync();
+        ArticleRightsSnapshot latest = await db.Queryable<ArticleRightsSnapshot>()
+            .Where(item => item.ArticleId == articleId)
+            .OrderByDescending(item => item.RevisionNo)
+            .FirstAsync();
+        ArticleRevision createdRevision = await db.Queryable<ArticleRevision>()
+            .Where(item => item.ArticleId == articleId)
+            .OrderByDescending(item => item.RevisionNo)
+            .FirstAsync();
+        ArticleResponsibilitySnapshot clonedResponsibility = await db.Queryable<ArticleResponsibilitySnapshot>()
+            .Where(item => item.ArticleRevisionId == createdRevision.Id)
+            .FirstAsync();
+        ArticlePublicationRecord createdRelease = await db.Queryable<ArticlePublicationRecord>()
+            .Where(item => item.ArticleRevisionId == createdRevision.Id)
+            .FirstAsync();
+        ArticleMutationOutboxEvent outbox = await db.Queryable<ArticleMutationOutboxEvent>()
+            .Where(item => item.ArticleRevisionId == createdRevision.Id)
+            .FirstAsync();
+        Article rolledBackArticle = await db.Queryable<Article>().InSingleAsync(articleId);
+
+        Assert.True(rollback.IsSuccess);
+        Assert.NotNull(rollback.Value);
+        Assert.Equal("CC-BY-4.0", policy.LicenseType);
+        Assert.Equal("Original Holder", policy.CopyrightHolder);
+        Assert.Equal("CC-BY-4.0", latest.LicenseType);
+        Assert.Equal("Original Holder", latest.CopyrightHolder);
+        Assert.Equal(3, latest.RevisionNo);
+        Assert.Equal(originalRevision.Id, createdRevision.RollbackSourceRevisionId);
+        Assert.Equal(Reason, createdRevision.RollbackReason);
+        Assert.Equal(17, createdRevision.CreatedByAdminPrincipalId);
+        Assert.NotEqual(originalResponsibilityId, clonedResponsibility.Id);
+        Assert.Equal("Original responsibility", clonedResponsibility.UpdateSummary);
+        Assert.Equal(createdRevision.Id, createdRelease.ArticleRevisionId);
+        Assert.Equal(latest.Id, createdRelease.RightsSnapshotId);
+        Assert.Equal(clonedResponsibility.Id, createdRelease.ResponsibilitySnapshotId);
+        Assert.Equal(createdRevision.Id, outbox.ArticleRevisionId);
+        Assert.Equal(createdRelease.Id, outbox.ArticlePublicationId);
+        Assert.Equal(targetStatus, rolledBackArticle.Status);
+        Assert.Equal((int)targetStatus, rollback.Value.Status);
+        Assert.Equal(createdRelease.Id.ToString(CultureInfo.InvariantCulture), rollback.Value.ReleaseId);
+    }
+
+    [Fact]
+    public async Task RollbackRevisionAsync_IncompleteHistoricalPackageRollsBackAtomically()
+    {
+        using SqlSugarClient db = classDatabase.CreateClient();
+        CreateTables(db);
+        ArticleService articleService = CreateService(db);
+        int articleId = await articleService.CreateAsync(new CreateArticleRequest
+        {
+            Title = "Original without responsibility",
             Content = "# original",
             Summary = "summary",
             CategoryId = 1,
@@ -405,29 +523,30 @@ public sealed class ArticleRightsWritePathTests(
             new ArticleCoreService(articleService),
             ArticlePublicationValidatorTestFactory.CreateAllowing(),
             Substitute.For<IAuthoringAuditWriter>());
-
         Article current = await db.Queryable<Article>().InSingleAsync(articleId);
-        Result<bool> rollback = await lifecycle.RollbackRevisionAsync(
+        int revisionsBefore = await db.Queryable<ArticleRevision>().Where(item => item.ArticleId == articleId).CountAsync();
+        int releasesBefore = await db.Queryable<ArticlePublicationRecord>().Where(item => item.ArticleId == articleId).CountAsync();
+        int outboxBefore = await db.Queryable<ArticleMutationOutboxEvent>().Where(item => item.AggregateId == articleId).CountAsync();
+
+        ArticleRevisionDetailResponse? historicalPackage = await lifecycle.GetRevisionAsync(articleId, originalRevision.Id);
+        Result<ArticleRevisionRollbackResponse?> rollback = await lifecycle.RollbackRevisionAsync(
             17,
             articleId,
             originalRevision.Id,
-            current.CurrentRevisionId,
-            force: false);
-        bool rolledBack = rollback.IsSuccess && rollback.Value;
+            new ArticleRevisionRollbackRequest(
+                current.CurrentRevisionId!.Value,
+                (int)ArticleStatus.Published,
+                "This package is deliberately incomplete"));
 
-        ArticleRightsPolicy policy = await db.Queryable<ArticleRightsPolicy>()
-            .Where(item => item.ArticleId == articleId)
-            .FirstAsync();
-        ArticleRightsSnapshot latest = await db.Queryable<ArticleRightsSnapshot>()
-            .Where(item => item.ArticleId == articleId)
-            .OrderByDescending(item => item.RevisionNo)
-            .FirstAsync();
-        Assert.True(rolledBack);
-        Assert.Equal("CC-BY-SA-4.0", policy.LicenseType);
-        Assert.Equal("Current Holder", policy.CopyrightHolder);
-        Assert.Equal("CC-BY-SA-4.0", latest.LicenseType);
-        Assert.Equal("Current Holder", latest.CopyrightHolder);
-        Assert.Equal(3, latest.RevisionNo);
+        Article after = await db.Queryable<Article>().InSingleAsync(articleId);
+        Assert.NotNull(historicalPackage);
+        Assert.False(historicalPackage.PackageComplete);
+        Assert.False(rollback.IsSuccess);
+        Assert.Equal("article_revision_package_incomplete", rollback.Error.Details);
+        Assert.Equal(current.CurrentRevisionId, after.CurrentRevisionId);
+        Assert.Equal(revisionsBefore, await db.Queryable<ArticleRevision>().Where(item => item.ArticleId == articleId).CountAsync());
+        Assert.Equal(releasesBefore, await db.Queryable<ArticlePublicationRecord>().Where(item => item.ArticleId == articleId).CountAsync());
+        Assert.Equal(outboxBefore, await db.Queryable<ArticleMutationOutboxEvent>().Where(item => item.AggregateId == articleId).CountAsync());
     }
 
     [Fact]

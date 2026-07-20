@@ -873,6 +873,10 @@
             "value": 212
         },
         {
+            "name": "ArticleRevisionRollbackRequest",
+            "value": 213
+        },
+        {
             "name": "EmptySuccess",
             "value": 240
         },

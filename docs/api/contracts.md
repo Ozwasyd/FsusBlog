@@ -1989,7 +1989,7 @@ urlset 每页上限为 45,000，超过后根 `/sitemap.xml` 改为 sitemap index
 | `Archived` | 归档隐藏，不进入公开分发 |
 | `Deleted` | 逻辑删除，保留原有回收站语义 |
 
-`CreateArticleRequest` 与 `UpdateArticleRequest` 支持 `status`、`scheduledPublishAt`、`rights` 和独立 `resetRights`。rights 省略表示 `preserve`，完整 payload 表示 `replace`，`resetRights=true` 且 rights 省略表示 `reset`；reset 与 replacement payload 同时出现返回 `Validation/details=article_rights_reset_payload_conflict`，replace 缺少完整 payload 返回 `article_rights_payload_required`，未知 mutation 返回 `article_rights_mutation_invalid`。create 的 preserve/reset 使用仓库默认值；update 与 revision rollback 的 preserve 保留当前有效策略；内容 import 没有 rights 时按 create preserve 绑定默认值。公开读路径必须检查 `IsDeleted=false`、`Status=Published` 和有效 `current_publication_id`，并沿 publication 绑定的 revision/rights/responsibility 读取。首次定时发布仍检查 `ScheduledPublishAt<=now`；已发布文章的未来更新记录在 `pending_publication_at`，不会提前替换当前 publication，worker 直接使用目标 revision 已绑定的 rights snapshot。
+`CreateArticleRequest` 与 `UpdateArticleRequest` 支持 `status`、`scheduledPublishAt`、`rights` 和独立 `resetRights`。rights 省略表示 `preserve`，完整 payload 表示 `replace`，`resetRights=true` 且 rights 省略表示 `reset`；reset 与 replacement payload 同时出现返回 `Validation/details=article_rights_reset_payload_conflict`，replace 缺少完整 payload 返回 `article_rights_payload_required`，未知 mutation 返回 `article_rights_mutation_invalid`。create 的 preserve/reset 使用仓库默认值；普通 update 的 preserve 保留当前有效策略；revision rollback 不接受 rights mutation，而是复制源 revision 的不可变 rights snapshot，缺失时返回 `Validation/details=article_revision_package_incomplete`；内容 import 没有 rights 时按 create preserve 绑定默认值。公开读路径必须检查 `IsDeleted=false`、`Status=Published` 和有效 `current_publication_id`，并沿 publication 绑定的 revision/rights/responsibility 读取。首次定时发布仍检查 `ScheduledPublishAt<=now`；已发布文章的未来更新记录在 `pending_publication_at`，不会提前替换当前 publication，worker 直接使用目标 revision 已绑定的 rights snapshot。
 
 写入状态不得做 fallback：未知枚举返回 `Validation/details=article_status_undefined`；`Scheduled` 缺少时间返回 `article_scheduled_at_required`，时间不晚于服务端当前 UTC 返回 `article_scheduled_at_must_be_future`；非 `Scheduled` 附带时间返回 `article_scheduled_at_not_allowed`；普通写入目标为 `Deleted` 返回 `article_deleted_requires_delete_flow`；其它不在矩阵内的边返回 `article_status_transition_invalid`。完整矩阵与 restore/rollback/worker 限制见 [`article-publication-revisions.md`](article-publication-revisions.md)。
 
@@ -2028,6 +2028,12 @@ Authoring binary 写入请求 body 最大 1 MiB。`ServerDraftSaveRequest` 字�
 
 Admin Rights V3 editor panel 是文章编辑器内的 `rights` 写入面板，字段与 `ArticleWriteRequest.rights` 一一对应：`enabled`、`licenseType`、`copyrightHolder`、`copyrightYear`、`rightsStatement`、`attributionTemplate`、`copyPolicy`、`maxExcerptChars`、`allowCodeCopy`、`showPublicBadge`、`proofBindingEnabled`。新文章默认选择“继承站点设置”，管理端会读取站点合规版权配置生成当前生效的文章版权值，并在提交时写入完整 `ArticleWriteRequest.rights` replacement；这不是发布后继续动态跟随站点配置。用户切换为“自定义本文版权”后才允许修改单篇文章字段；编辑既有文章时从冻结 `ArticleDetail.rights` 载入当前策略并进入自定义模式。metadata-only 或旧客户端请求可以省略 rights，以 V5 preserve 语义保持当前策略；显式恢复仓库默认策略只能发送独立 reset flag，不得伪造一份默认 replacement。浏览器 localStorage 只保存不可恢复正文的草稿 metadata，不保存 `rights`、标题、摘要、正文或其他未发布内容；完整 `rights` 和原始 `baseRevisionId` 只写入 `ServerDraftSaveRequest`，私有预览、发布前检查和最终提交共享同一份当前表单构造。客户端会提前校验 enum values、`copyrightYear`、`maxExcerptChars` 和必填文本字段，但 server-side validation remains authoritative，服务端仍按 Article write path 拒绝非法 mutation 或不完整 replacement。
 
+Revision detail 的 JSON DTO 固定把内容修订与历史绑定放在同一响应：基础 metadata 包含 `id/articleId/revisionNo/title/content/summary/coverImageUrl/categoryId/tagIds/diffSummary/createdByAdminPrincipalId/createdAt/rollbackSourceRevisionId/rollbackReason`；`rights` 是该 revision 的完整不可变 Rights V3 snapshot；`responsibility` 是该 revision 的责任作者、reviewer、sources、更新说明与方法/适用范围/局限 snapshot；`release` 是关联的最新 `id/publicationNo/transitionKind/publishedAt`。`packageComplete` 仅在 rights 与 responsibility 都存在且可复制时为 true。历史包缺失时读取仍返回现有部分供排障和比较，但回滚必须 fail closed，不能从当前文章策略、站点默认值或空责任人构造替代 snapshot。
+
+Rollback request frame `ArticleRevisionRollbackRequest(213)` 的 payload 是 AEDS JSON：`{baseRevisionId:int64,targetStatus:int32,reason:string}`。`baseRevisionId` 必须是正数；`targetStatus` 只能显式为 `0 Draft`、`2 Published` 或 `3 Archived`，不能省略、默认成 Published 或使用 Scheduled；trim 后的 `reason` 长度为 8..500。响应继续使用既有 `ArticleRevisionRollbackResponse(122)`，payload 为 `{rolledBack:true,revisionId:string,revisionNo:int32,status:int32,releaseId:string,releaseNo:int32}`。请求不再接受 `X-Fsus-Base-Revision-Id` 或 `X-Fsus-Article-Revision-Force` 绕过；MFA proof header 与 admin `article.write` 授权保持不变。
+
+服务端在同一 PostgreSQL 事务中执行 base revision CAS、复制源 revision 的正文/分类/标签、复制源 rights 与 responsibility 到新 snapshot 绑定、创建新 revision/release，并写只引用新坐标的 mutation outbox。新 revision 持久化 `rollback_source_revision_id`、执行 admin principal 与 `rollback_reason`；源 revision/publication 永不更新或重新启用。base 冲突返回 `409 article_revision_conflict`，缺少完整历史绑定返回 `Validation/details=article_revision_package_incomplete`，非法目标与原因分别返回 `article_rollback_status_invalid`、`article_rollback_reason_invalid`；所有失败分支均不得留下 revision、snapshot、release、公开 artifact 或 outbox。Draft/Archived release 是不可变非公开坐标，只有 Published rollback 进入公开读取；AOT/search/feed/binary cache 与 notification stream 只消费新 outbox 坐标。
+
 | 方法 | 路径 | 说明 |
 | ------ | ------ | ------ |
 | POST | `/api/binary/author/drafts` | 保存服务端草稿，按 `ownerAdminPrincipalId + draftKey` 幂等覆盖；payload 包含 `baseRevisionId`、`status`、`scheduledPublishAt` 与完整 `rights` |
@@ -2035,9 +2041,9 @@ Admin Rights V3 editor panel 是文章编辑器内的 `rights` 写入面板，�
 | DELETE | `/api/binary/author/drafts/{draftKey}` | 丢弃服务端草稿；编辑器同步清除浏览器中的草稿 metadata |
 | POST | `/api/binary/author/preview` | admin-only 私有预览，输出经过转义的 Markdown/AOT-like HTML，根节点带 `data-preview-only=true`、`data-markdown-renderer=server-preview`，不写 PublicAOT cache |
 | POST | `/api/binary/author/prepublish-check` | 发布前检查标题、SEO 描述、封面 URL、Markdown 结构、链接、图片 alt 与危险 HTML |
-| GET | `/api/binary/author/articles/{articleId}/revisions` | 最近 50 条修订摘要；actor 字段为 `createdByAdminPrincipalId` |
-| GET | `/api/binary/author/articles/{articleId}/revisions/{revisionId}` | 单个修订详情，包含标题、摘要、正文、分类、标签、`createdByAdminPrincipalId` 和审计时间，用于编辑器内比较 |
-| POST | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/rollback` | 回滚到指定修订并触发文章更新链；未提供 rights replacement 时 preserve 当前策略；必须携带 `X-Fsus-Mfa-Proof` |
+| GET | `/api/binary/author/articles/{articleId}/revisions` | 最近 50 条修订摘要；actor 字段为 `createdByAdminPrincipalId`，rollback revision 额外返回源 revision 与原因 |
+| GET | `/api/binary/author/articles/{articleId}/revisions/{revisionId}` | 可读历史版本包：正文/分类/标签 metadata、rights snapshot、responsibility snapshot、关联 release、rollback provenance 与 `packageComplete` |
+| POST | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/rollback` | request frame `ArticleRevisionRollbackRequest(213)`；基于完整历史包创建新 revision/release；必须携带 `X-Fsus-Mfa-Proof` |
 | PUT | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/responsibility` | 写入该 revision 的作者/审阅者、结构化来源、更新说明和可选方法/适用范围/局限；返回全部 blocking/warning，不产生评分门禁 |
 | POST | `/api/binary/author/articles/{articleId}/assets/reindex` | 从正文和封面重建资产引用 |
 | GET | `/api/binary/author/assets` | 资产库列表 |

@@ -205,6 +205,7 @@ export const FrameType = {
   CommentPermalinkContext: 210,
   ConversationStatusMutationResult: 211,
   PasskeySignalState: 212,
+  ArticleRevisionRollbackRequest: 213,
   EmptySuccess: 240,
   MutationId: 241,
   ApiError: 251,

@@ -175,7 +175,9 @@ public sealed class ArticlePublicationTransitionTests
 
     [Theory]
     [InlineData(ArticleStatusTransitionOperation.Rollback, ArticleStatus.Draft, ArticleStatus.Published, true)]
-    [InlineData(ArticleStatusTransitionOperation.Rollback, ArticleStatus.Draft, ArticleStatus.Draft, false)]
+    [InlineData(ArticleStatusTransitionOperation.Rollback, ArticleStatus.Draft, ArticleStatus.Draft, true)]
+    [InlineData(ArticleStatusTransitionOperation.Rollback, ArticleStatus.Published, ArticleStatus.Archived, true)]
+    [InlineData(ArticleStatusTransitionOperation.Rollback, ArticleStatus.Archived, ArticleStatus.Scheduled, false)]
     [InlineData(ArticleStatusTransitionOperation.Restore, ArticleStatus.Deleted, ArticleStatus.Published, true)]
     [InlineData(ArticleStatusTransitionOperation.Restore, ArticleStatus.Archived, ArticleStatus.Published, false)]
     [InlineData(ArticleStatusTransitionOperation.ScheduledPublish, ArticleStatus.Scheduled, ArticleStatus.Published, true)]

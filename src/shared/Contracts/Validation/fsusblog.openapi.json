@@ -7089,7 +7089,7 @@
         },
         "x-fsus-protocol": "AEDS",
         "x-fsus-aeds-version": 2,
-        "x-fsus-request-frame": null,
+        "x-fsus-request-frame": "ArticleRevisionRollbackRequest",
         "x-fsus-response-frame": "ArticleRevisionRollbackResponse",
         "x-fsus-error-frame": "ApiError",
         "x-fsus-auth": "admin",

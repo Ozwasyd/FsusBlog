@@ -1058,7 +1058,7 @@ export function useAdminArticleWrite() {
     }
   }
 
-  const rollbackSelectedRevision = async (): Promise<void> => {
+  const rollbackSelectedRevision = async (selection: { targetStatus: 0 | 2 | 3; reason: string }): Promise<void> => {
     if (!selectedRevision.value || articleId.value === null) {
       return
     }
@@ -1071,12 +1071,16 @@ export function useAdminArticleWrite() {
       if (!currentRevisionId.value) {
         throw new Error('article_base_revision_required')
       }
-      const rolledBack = await rollbackArticleRevision(
+      const rollback = await rollbackArticleRevision(
         articleId.value,
         selectedRevision.value.id,
-        currentRevisionId.value,
+        {
+          baseRevisionId: currentRevisionId.value,
+          targetStatus: selection.targetStatus,
+          reason: selection.reason.trim()
+        },
         { mfaProofToken })
-      if (!rolledBack) {
+      if (!rollback.rolledBack) {
         showWarningToast('历史版本不存在或已被清理', '历史版本不存在或已被清理')
         taskFeedback.partial('历史版本回滚未执行', '目标版本不存在或已被清理', 'article-revision')
         return
@@ -1093,9 +1097,9 @@ export function useAdminArticleWrite() {
       await loadArticleDetailIntoForm(new AbortController().signal)
       await refreshArticleRevisions()
       selectedRevision.value = null
-      revisionStatusText.value = `已回滚到版本 ${revisionNo}`
-      taskFeedback.succeed('历史版本回滚完成', `已回滚到版本 ${revisionNo}`, 'article-revision')
-      toast.success(`已回滚到版本 ${revisionNo}`)
+      revisionStatusText.value = `已从版本 ${revisionNo} 创建新版本 ${rollback.revisionNo}`
+      taskFeedback.succeed('历史版本回滚完成', `已创建新版本 ${rollback.revisionNo}`, 'article-revision')
+      toast.success(`已从版本 ${revisionNo} 创建新版本 ${rollback.revisionNo}`)
     } catch (error: unknown) {
       taskFeedback.fail('历史版本回滚失败', error, '历史版本回滚失败，请稍后重试', 'article-revision')
       showErrorToast(error, '历史版本回滚失败，请稍后重试')

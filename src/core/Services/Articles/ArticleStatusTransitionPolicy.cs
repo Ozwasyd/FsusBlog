@@ -119,7 +119,9 @@ public static class ArticleStatusTransitionPolicy
             ArticleStatusTransitionOperation.Create => sourceStatus == targetStatus,
             ArticleStatusTransitionOperation.Update => IsEditable(sourceStatus) && IsEditable(targetStatus),
             ArticleStatusTransitionOperation.Rollback => IsEditable(sourceStatus)
-                && targetStatus == ArticleStatusValues.Published,
+                && targetStatus is ArticleStatusValues.Draft
+                    or ArticleStatusValues.Published
+                    or ArticleStatusValues.Archived,
             ArticleStatusTransitionOperation.Restore => sourceStatus == ArticleStatusValues.Deleted
                 && targetStatus == ArticleStatusValues.Published,
             ArticleStatusTransitionOperation.ScheduledPublish => sourceStatus is ArticleStatusValues.Scheduled

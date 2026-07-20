@@ -104,6 +104,14 @@ public static class ArticlePublicationTransitionWriter
             request.ScheduledPublishAt,
             request.TransitionedAt);
 
+        if (request.Operation == ArticleStatusTransitionOperation.Rollback && !plan.CreatePublication)
+        {
+            plan = plan with
+            {
+                CreatePublication = true,
+            };
+        }
+
         if (plan.CreatePublication)
         {
             ArticleVersionCoordinates published = await InsertPublicationAsync(db, request, cancellationToken).ConfigureAwait(false);

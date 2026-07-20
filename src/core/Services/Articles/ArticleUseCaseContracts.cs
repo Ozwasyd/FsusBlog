@@ -25,7 +25,13 @@ public readonly record struct UpdateArticleCommand(
     int Id,
     ArticleWriteRequestCoreModel Article,
     ArticleUpdateIntent Intent = ArticleUpdateIntent.Standard,
-    bool Force = false);
+    bool Force = false,
+    ArticleRollbackMetadata? Rollback = null);
+
+public readonly record struct ArticleRollbackMetadata(
+    long SourceRevisionId,
+    long ActorAdminPrincipalId,
+    string Reason);
 
 public sealed class ArticleRevisionConflictException(
     long currentRevisionId,

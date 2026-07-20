@@ -801,12 +801,13 @@ public partial class ArticleService(
         string? coverImageUrl,
         int categoryId,
         IReadOnlyList<int> tagIds,
-        string diffSummary)
+        string diffSummary,
+        ArticleRollbackMetadata? rollback = null)
     {
         await _db.Ado.ExecuteCommandAsync(
             "SELECT pg_advisory_xact_lock(hashtext('article_revision'), @articleId);",
             new SugarParameter[] { new("@articleId", articleId) });
-        long actorAdminPrincipalId = ResolveRevisionAdminPrincipalId();
+        long actorAdminPrincipalId = rollback?.ActorAdminPrincipalId ?? ResolveRevisionAdminPrincipalId();
         string orderedTagIds = string.Join(',', tagIds.OrderBy(static id => id));
         for (int attempt = 1; attempt <= MaxArticleRevisionInsertAttempts; attempt++)
         {
@@ -841,6 +842,8 @@ public partial class ArticleService(
                     markdown_content,
                     diff_summary,
                     created_by_admin_principal_id,
+                    rollback_source_revision_id,
+                    rollback_reason,
                     created_at
                 )
                 SELECT
@@ -854,6 +857,8 @@ public partial class ArticleService(
                     @content,
                     @diffSummary,
                     @createdByAdminPrincipalId,
+                    CAST(@rollbackSourceRevisionId AS bigint),
+                    @rollbackReason,
                     @createdAt
                 FROM next_revision
                 ON CONFLICT (article_id, revision_no) DO NOTHING
@@ -870,6 +875,8 @@ public partial class ArticleService(
                     new("@content", content),
                     new("@diffSummary", diffSummary),
                     new("@createdByAdminPrincipalId", actorAdminPrincipalId),
+                    new("@rollbackSourceRevisionId", (object?)rollback?.SourceRevisionId ?? DBNull.Value),
+                    new("@rollbackReason", (object?)rollback?.Reason ?? DBNull.Value),
                     new("@createdAt", DateTime.UtcNow)
                 });
             if (await reader.ReadAsync(Ct).ConfigureAwait(false))
@@ -1165,8 +1172,23 @@ public partial class ArticleService(
 
     private async Task<ArticleRightsWriteModel> ResolveUpdateArticleRightsAsync(
         int articleId,
-        ArticleWriteRequestCoreModel request)
+        ArticleWriteRequestCoreModel request,
+        ArticleRollbackMetadata? rollback)
     {
+        if (rollback.HasValue)
+        {
+            ArticleRightsSnapshot? historical = await _db.Queryable<ArticleRightsSnapshot>()
+                .Where(item => item.ArticleId == articleId
+                    && item.ArticleRevisionId == rollback.Value.SourceRevisionId)
+                .FirstAsync(Ct)
+                .ConfigureAwait(false);
+            return historical is not null
+                ? ToRightsWriteModel(historical)
+                : throw new ArticleWriteValidationException(
+                    "article_revision_package_incomplete",
+                    "The historical revision has no rights snapshot.");
+        }
+
         ArticleRightsMutationMode mutation = ResolveRightsMutation(request);
         if (mutation == ArticleRightsMutationMode.Replace)
         {
@@ -1221,6 +1243,20 @@ public partial class ArticleService(
             policy.AllowCodeCopy,
             policy.ShowPublicBadge,
             policy.ProofBindingEnabled);
+
+    private static ArticleRightsWriteModel ToRightsWriteModel(ArticleRightsSnapshot snapshot)
+        => new(
+            snapshot.Enabled,
+            snapshot.LicenseType,
+            snapshot.CopyrightHolder,
+            snapshot.CopyrightYear,
+            snapshot.RightsStatement,
+            snapshot.AttributionTemplate,
+            snapshot.CopyPolicy,
+            snapshot.MaxExcerptChars,
+            snapshot.AllowCodeCopy,
+            snapshot.ShowPublicBadge,
+            snapshot.ProofBindingEnabled);
 
     private static string? NormalizeOptionalRightsText(string? value, int maxLength)
     {
@@ -1301,13 +1337,14 @@ public partial class ArticleService(
     }
 
     public Task<bool> UpdateAsync(int id, ArticleWriteRequestCoreModel dto, CancellationToken cancellationToken = default)
-        => UpdateAsync(id, dto, transitionKind: null, force: false, cancellationToken);
+        => UpdateAsync(id, dto, transitionKind: null, force: false, rollback: null, cancellationToken);
 
     private async Task<bool> UpdateAsync(
         int id,
         ArticleWriteRequestCoreModel dto,
         string? transitionKind,
         bool force,
+        ArticleRollbackMetadata? rollback,
         CancellationToken cancellationToken)
     {
         CancellationToken ct = ResolveCancellationToken(cancellationToken);
@@ -1406,11 +1443,12 @@ public partial class ArticleService(
                     coverImageUrl,
                     dto.CategoryId,
                     tagIds,
-                    ArticleSummaryProjection.AttachGenerationVersion("article updated", summaryProjection));
+                    ArticleSummaryProjection.AttachGenerationVersion("article updated", summaryProjection),
+                    rollback);
                 var assetReferences = new ArticleAssetReferenceStore(_db);
                 await assetReferences.ReplaceCurrentArticleAsync(id, content, coverImageUrl, ct).ConfigureAwait(false);
                 await assetReferences.ReplaceRevisionAsync(revision.Id, id, content, coverImageUrl, ct).ConfigureAwait(false);
-                ArticleRightsWriteModel rights = await ResolveUpdateArticleRightsAsync(id, dto).ConfigureAwait(false);
+                ArticleRightsWriteModel rights = await ResolveUpdateArticleRightsAsync(id, dto, rollback).ConfigureAwait(false);
                 long rightsSnapshotId = await SaveArticleRightsAsync(
                     id,
                     revision,
@@ -1424,7 +1462,9 @@ public partial class ArticleService(
                     publishedAt,
                     scheduledPublishAt,
                     rights);
-                long? responsibilitySnapshotId = await LoadResponsibilitySnapshotIdAsync(revision.Id);
+                long? responsibilitySnapshotId = rollback.HasValue
+                    ? await CloneResponsibilitySnapshotAsync(id, revision, rollback.Value.SourceRevisionId).ConfigureAwait(false)
+                    : await LoadResponsibilitySnapshotIdAsync(revision.Id);
                 ArticleVersionCoordinates version = await ArticlePublicationTransitionWriter.ApplyAsync(
                     _db,
                     new ArticlePublicationTransitionRequest(
@@ -1667,6 +1707,67 @@ public partial class ArticleService(
             .Select(snapshot => snapshot.Id)
             .FirstAsync(Ct);
         return value > 0 ? value : null;
+    }
+
+    private async Task<long> CloneResponsibilitySnapshotAsync(
+        int articleId,
+        ArticleRevisionCoordinates targetRevision,
+        long sourceRevisionId)
+    {
+        using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
+            """
+            INSERT INTO article_responsibility_snapshot (
+                article_id,
+                article_revision_id,
+                revision_no,
+                inherit_site_author,
+                authors_json,
+                reviewer_json,
+                sources_json,
+                update_summary,
+                update_reason,
+                effective_at,
+                conclusion_impact,
+                methodology,
+                applicability,
+                limitations,
+                responsible_person_confirmed,
+                created_at)
+            SELECT
+                @ArticleId,
+                @TargetRevisionId,
+                @TargetRevisionNo,
+                inherit_site_author,
+                authors_json,
+                reviewer_json,
+                sources_json,
+                update_summary,
+                update_reason,
+                effective_at,
+                conclusion_impact,
+                methodology,
+                applicability,
+                limitations,
+                responsible_person_confirmed,
+                @CreatedAt
+            FROM article_responsibility_snapshot
+            WHERE article_id = @ArticleId
+              AND article_revision_id = @SourceRevisionId
+            RETURNING id;
+            """,
+            new SugarParameter("@ArticleId", articleId),
+            new SugarParameter("@TargetRevisionId", targetRevision.Id),
+            new SugarParameter("@TargetRevisionNo", targetRevision.RevisionNo),
+            new SugarParameter("@SourceRevisionId", sourceRevisionId),
+            new SugarParameter("@CreatedAt", DateTime.UtcNow));
+        if (await reader.ReadAsync(Ct).ConfigureAwait(false))
+        {
+            return reader.ReadInt64("id");
+        }
+
+        throw new ArticleWriteValidationException(
+            "article_revision_package_incomplete",
+            "The historical revision has no responsibility snapshot.");
     }
 
     private sealed record ArticleMutationState(List<int> CategoryIds, List<int> TagIds, string RowVersion);

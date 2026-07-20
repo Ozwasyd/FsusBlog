@@ -53,6 +53,50 @@ export interface ArticleRevisionSummaryResponse {
   diffSummary: string
   createdByAdminPrincipalId: string
   createdAt: string
+  rollbackSourceRevisionId: string | null
+  rollbackReason: string | null
+}
+
+export interface ArticleRevisionRightsSnapshotResponse {
+  id: string
+  enabled: boolean
+  licenseType: string
+  copyrightHolder: string | null
+  copyrightYear: number | null
+  rightsStatement: string | null
+  attributionTemplate: string | null
+  copyPolicy: string
+  maxExcerptChars: number
+  allowCodeCopy: boolean
+  showPublicBadge: boolean
+  proofBindingEnabled: boolean
+  policyHash: string
+  contentCanonicalHash: string
+  createdAt: string
+}
+
+export interface ArticleRevisionResponsibilitySnapshotResponse {
+  id: string
+  inheritSiteAuthor: boolean
+  authors: ArticleResponsiblePerson[]
+  reviewer: ArticleResponsiblePerson | null
+  sources: ArticleEvidenceSource[]
+  updateSummary: string | null
+  updateReason: string | null
+  effectiveAt: string | null
+  conclusionImpact: string | null
+  methodology: string | null
+  applicability: string | null
+  limitations: string | null
+  responsiblePersonConfirmed: boolean
+  createdAt: string
+}
+
+export interface ArticleRevisionReleaseResponse {
+  id: string
+  publicationNo: number
+  transitionKind: string
+  publishedAt: string
 }
 
 export interface ArticleRevisionDetailResponse extends ArticleRevisionSummaryResponse {
@@ -61,6 +105,25 @@ export interface ArticleRevisionDetailResponse extends ArticleRevisionSummaryRes
   coverImageUrl: string | null
   categoryId: number
   tagIds: number[]
+  packageComplete: boolean
+  rights: ArticleRevisionRightsSnapshotResponse | null
+  responsibility: ArticleRevisionResponsibilitySnapshotResponse | null
+  release: ArticleRevisionReleaseResponse | null
+}
+
+export interface ArticleRevisionRollbackRequest {
+  baseRevisionId: string
+  targetStatus: 0 | 2 | 3
+  reason: string
+}
+
+export interface ArticleRevisionRollbackResponse {
+  rolledBack: boolean
+  revisionId: string
+  revisionNo: number
+  status: number
+  releaseId: string
+  releaseNo: number
 }
 
 export interface ArticleResponsiblePerson {
@@ -1498,14 +1561,14 @@ export async function getArticleRevision(
 export async function rollbackArticleRevision(
   articleId: number,
   revisionId: string,
-  baseRevisionId: string,
+  request: ArticleRevisionRollbackRequest,
   config?: ApiRequestConfig
-): Promise<boolean> {
-  const result = await requestAuthoringBinary<{ rolledBack?: boolean }>(`/articles/${articleId}/revisions/${revisionId}/rollback`, FrameType.ArticleRevisionRollbackResponse, config, {
+): Promise<ArticleRevisionRollbackResponse> {
+  return requestAuthoringBinary<ArticleRevisionRollbackResponse>(`/articles/${articleId}/revisions/${revisionId}/rollback`, FrameType.ArticleRevisionRollbackResponse, config, {
     method: 'POST',
-    headers: { 'X-Fsus-Base-Revision-Id': baseRevisionId }
+    requestFrame: FrameType.ArticleRevisionRollbackRequest,
+    request
   })
-  return result.rolledBack === true
 }
 
 export async function saveArticleResponsibility(

@@ -14,6 +14,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Content;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.CommentIdentity;
@@ -197,7 +198,9 @@ public sealed class AuthoringDraftLifecycleService(
             revision.Title,
             revision.DiffSummary,
             revision.CreatedByAdminPrincipalId.ToString(CultureInfo.InvariantCulture),
-            revision.CreatedAt)).ToArray();
+            revision.CreatedAt,
+            revision.RollbackSourceRevisionId?.ToString(CultureInfo.InvariantCulture),
+            revision.RollbackReason)).ToArray();
     }
 
     public async Task<ArticleRevisionDetailResponse?> GetRevisionAsync(int articleId, long revisionId, CancellationToken cancellationToken = default)
@@ -205,28 +208,53 @@ public sealed class AuthoringDraftLifecycleService(
         ArticleRevision? revision = await db.Queryable<ArticleRevision>()
             .Where(it => it.ArticleId == articleId && it.Id == revisionId)
             .FirstAsync(cancellationToken);
-        return revision is null ? null : ToRevisionDetailResponse(revision);
+        if (revision is null)
+        {
+            return null;
+        }
+
+        ArticleRightsSnapshot? rights = await db.Queryable<ArticleRightsSnapshot>()
+            .Where(it => it.ArticleId == articleId && it.ArticleRevisionId == revisionId)
+            .FirstAsync(cancellationToken);
+        ArticleResponsibilitySnapshot? responsibility = await db.Queryable<ArticleResponsibilitySnapshot>()
+            .Where(it => it.ArticleId == articleId && it.ArticleRevisionId == revisionId)
+            .FirstAsync(cancellationToken);
+        ArticlePublicationRecord? release = await db.Queryable<ArticlePublicationRecord>()
+            .Where(it => it.ArticleId == articleId && it.ArticleRevisionId == revisionId)
+            .OrderByDescending(it => it.PublicationNo)
+            .FirstAsync(cancellationToken);
+        return ToRevisionDetailResponse(revision, rights, responsibility, release);
     }
 
-    public async Task<Result<bool>> RollbackRevisionAsync(
+    public async Task<Result<ArticleRevisionRollbackResponse?>> RollbackRevisionAsync(
         long actorAdminPrincipalId,
         int articleId,
         long revisionId,
-        long? baseRevisionId,
-        bool force,
+        ArticleRevisionRollbackRequest request,
         CancellationToken cancellationToken = default)
     {
+        string reason = request.Reason?.Trim() ?? string.Empty;
+        if (request.BaseRevisionId <= 0)
+        {
+            return Result<ArticleRevisionRollbackResponse?>.Failure(ErrorCode.Validation, "article_base_revision_required");
+        }
+        if (reason.Length is < 8 or > 500)
+        {
+            return Result<ArticleRevisionRollbackResponse?>.Failure(ErrorCode.Validation, "article_rollback_reason_invalid");
+        }
+        if (request.TargetStatus is not ((int)ArticleStatus.Draft)
+            and not ((int)ArticleStatus.Published)
+            and not ((int)ArticleStatus.Archived))
+        {
+            return Result<ArticleRevisionRollbackResponse?>.Failure(ErrorCode.Validation, "article_rollback_status_invalid");
+        }
+
         ArticleRevision? revision = await db.Queryable<ArticleRevision>()
             .Where(it => it.ArticleId == articleId && it.Id == revisionId)
             .FirstAsync(cancellationToken);
         if (revision is null)
         {
-            return Result<bool>.Success(false);
-        }
-
-        if (!force && !baseRevisionId.HasValue)
-        {
-            return Result<bool>.Failure(ErrorCode.Validation, "article_base_revision_required");
+            return Result<ArticleRevisionRollbackResponse?>.Success(null);
         }
 
         string? summary = ArticleSummaryProjection.WasAutomaticallyGenerated(revision.DiffSummary)
@@ -241,21 +269,53 @@ public sealed class AuthoringDraftLifecycleService(
                 revision.CoverImageUrl,
                 revision.CategoryId,
                 AuthoringNormalization.ParseTagIds(revision.TagIds),
-                (int)ArticleStatus.Published,
+                request.TargetStatus,
                 Rights: null,
                 RightsMutation: FsusBlog.Core.Mapping.Models.ArticleRightsMutationMode.Preserve,
-                BaseRevisionId: baseRevisionId),
+                BaseRevisionId: request.BaseRevisionId),
             FsusBlog.Core.Services.Articles.ArticleUpdateIntent.Rollback,
-            Force: force));
+            Force: false,
+            Rollback: new FsusBlog.Core.Services.Articles.ArticleRollbackMetadata(
+                revisionId,
+                actorAdminPrincipalId,
+                reason)));
         bool updated = updateResult.IsSuccess;
-        if (updated)
+        if (!updated)
         {
-            auditWriter.Write(AuditSourceCatalog.Article, "article-revision-rollback", actorAdminPrincipalId, $"{articleId}:{revisionId}");
+            return Result<ArticleRevisionRollbackResponse?>.Failure(updateResult.Error);
         }
 
-        return updated
-            ? Result<bool>.Success(true)
-            : Result<bool>.Failure(updateResult.Error);
+        Article? article = await db.Queryable<Article>()
+            .Where(it => it.Id == articleId && !it.IsDeleted)
+            .FirstAsync(cancellationToken);
+        ArticleRevision? createdRevision = article?.CurrentRevisionId is > 0
+            ? await db.Queryable<ArticleRevision>()
+                .Where(it => it.ArticleId == articleId && it.Id == article.CurrentRevisionId.Value)
+                .FirstAsync(cancellationToken)
+            : null;
+        ArticlePublicationRecord? createdRelease = createdRevision is not null
+            ? await db.Queryable<ArticlePublicationRecord>()
+                .Where(it => it.ArticleId == articleId && it.ArticleRevisionId == createdRevision.Id)
+                .OrderByDescending(it => it.PublicationNo)
+                .FirstAsync(cancellationToken)
+            : null;
+        if (createdRevision is null || createdRelease is null)
+        {
+            return Result<ArticleRevisionRollbackResponse?>.Failure(ErrorCode.InfraFailure, "article_rollback_coordinates_missing");
+        }
+
+        auditWriter.Write(
+            AuditSourceCatalog.Article,
+            "article-revision-rollback",
+            actorAdminPrincipalId,
+            $"{articleId}:{revisionId}->{createdRevision.Id};status={request.TargetStatus}");
+        return Result<ArticleRevisionRollbackResponse?>.Success(new ArticleRevisionRollbackResponse(
+            true,
+            createdRevision.Id.ToString(CultureInfo.InvariantCulture),
+            createdRevision.RevisionNo,
+            request.TargetStatus,
+            createdRelease.Id.ToString(CultureInfo.InvariantCulture),
+            createdRelease.PublicationNo));
     }
 
     public Task<ArticlePreviewResponse> PreviewAsync(ServerDraftSaveRequest request)
@@ -357,7 +417,11 @@ public sealed class AuthoringDraftLifecycleService(
             DeserializeDraftRights(draft.RightsJson),
             draft.BaseRevisionId);
 
-    private static ArticleRevisionDetailResponse ToRevisionDetailResponse(ArticleRevision revision)
+    private static ArticleRevisionDetailResponse ToRevisionDetailResponse(
+        ArticleRevision revision,
+        ArticleRightsSnapshot? rights,
+        ArticleResponsibilitySnapshot? responsibility,
+        ArticlePublicationRecord? release)
         => new(
             revision.Id.ToString(CultureInfo.InvariantCulture),
             revision.ArticleId,
@@ -370,7 +434,75 @@ public sealed class AuthoringDraftLifecycleService(
             AuthoringNormalization.ParseTagIds(revision.TagIds),
             revision.DiffSummary,
             revision.CreatedByAdminPrincipalId.ToString(CultureInfo.InvariantCulture),
-            revision.CreatedAt);
+            revision.CreatedAt,
+            revision.RollbackSourceRevisionId?.ToString(CultureInfo.InvariantCulture),
+            revision.RollbackReason,
+            rights is not null && responsibility is not null,
+            rights is null ? null : new ArticleRevisionRightsSnapshotResponse(
+                rights.Id.ToString(CultureInfo.InvariantCulture),
+                rights.Enabled,
+                rights.LicenseType,
+                rights.CopyrightHolder,
+                rights.CopyrightYear,
+                rights.RightsStatement,
+                rights.AttributionTemplate,
+                rights.CopyPolicy,
+                rights.MaxExcerptChars,
+                rights.AllowCodeCopy,
+                rights.ShowPublicBadge,
+                rights.ProofBindingEnabled,
+                rights.PolicyHash,
+                rights.ContentCanonicalHash,
+                rights.CreatedAt),
+            responsibility is null ? null : new ArticleRevisionResponsibilitySnapshotResponse(
+                responsibility.Id.ToString(CultureInfo.InvariantCulture),
+                responsibility.InheritSiteAuthor,
+                DeserializeJsonList<ArticleResponsiblePerson>(responsibility.AuthorsJson),
+                DeserializeJsonValue<ArticleResponsiblePerson>(responsibility.ReviewerJson),
+                DeserializeJsonList<ArticleEvidenceSource>(responsibility.SourcesJson),
+                responsibility.UpdateSummary,
+                responsibility.UpdateReason,
+                responsibility.EffectiveAt,
+                responsibility.ConclusionImpact,
+                responsibility.Methodology,
+                responsibility.Applicability,
+                responsibility.Limitations,
+                responsibility.ResponsiblePersonConfirmed,
+                responsibility.CreatedAt),
+            release is null ? null : new ArticleRevisionReleaseResponse(
+                release.Id.ToString(CultureInfo.InvariantCulture),
+                release.PublicationNo,
+                release.TransitionKind,
+                release.PublishedAt));
+
+    private static IReadOnlyList<T> DeserializeJsonList<T>(string json)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<T[]>(json, s_draftRightsJsonOptions) ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
+
+    private static T? DeserializeJsonValue<T>(string? json) where T : class
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<T>(json, s_draftRightsJsonOptions);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
 
 
     private void RecordPrepublishWarningOverride(

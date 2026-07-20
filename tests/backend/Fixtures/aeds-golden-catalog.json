@@ -201,6 +201,7 @@
     { "name": "CommentPermalinkContext", "value": 210, "family": "comment-response" },
     { "name": "ConversationStatusMutationResult", "value": 211, "family": "message-response" },
     { "name": "PasskeySignalState", "value": 212, "family": "passkey-response" },
+    { "name": "ArticleRevisionRollbackRequest", "value": 213, "family": "authoring-request" },
     { "name": "AnonymousCommentCreateRequest", "value": 182, "family": "anonymous-comment-request" },
     { "name": "AnonymousPrivacyStateSnapshot", "value": 183, "family": "anonymous-privacy-response" },
     { "name": "PerceptionSealedChallengeV2", "value": 184, "family": "security-challenge-response" },

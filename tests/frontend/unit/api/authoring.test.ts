@@ -130,16 +130,32 @@ describe('authoring API binary transport', () => {
     expect(call?.requestOptions?.method).toBe('PUT')
   })
 
-  it('rollbackArticleRevision sends the current base revision coordinate', async () => {
-    binaryMock.mockResolvedValue({ rolledBack: true })
+  it('rollbackArticleRevision sends explicit version-package rollback intent', async () => {
+    const response = {
+      rolledBack: true,
+      revisionId: '9011',
+      revisionNo: 4,
+      status: 3,
+      releaseId: '7004',
+      releaseNo: 4
+    }
+    binaryMock.mockResolvedValue(response)
 
-    await expect(rollbackArticleRevision(42, '9001', '9010', { mfaProofToken: 'proof' })).resolves.toBe(true)
+    await expect(rollbackArticleRevision(42, '9001', {
+      baseRevisionId: '9010',
+      targetStatus: 3,
+      reason: 'Archive after restoring the reviewed package'
+    }, { mfaProofToken: 'proof' })).resolves.toEqual(response)
 
     const call = binaryMock.mock.calls[0]?.[0]
     expect(call?.binaryUrl).toBe('/api/binary/author/articles/42/revisions/9001/rollback')
     expect(call?.requestOptions?.method).toBe('POST')
-    expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Base-Revision-Id')).toBe('9010')
     expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof')
+    expectAedsJsonBody(call?.requestOptions?.body, FrameType.ArticleRevisionRollbackRequest, {
+      baseRevisionId: '9010',
+      targetStatus: 3,
+      reason: 'Archive after restoring the reviewed package'
+    })
   })
 
   it('getServerDraft reads nullable draft responses through AEDS', async () => {

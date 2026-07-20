@@ -53,24 +53,16 @@
             <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ selectedLabel }}</div>
             <p class="mt-1 text-xs text-[var(--fsusblog-text-secondary)]">{{ compareText }}</p>
           </div>
-          <el-popconfirm
-            title="确认回滚到此历史版本？"
-            confirm-button-text="确认回滚"
-            cancel-button-text="取消"
-            @confirm="$emit('rollback')"
+          <el-button
+            type="primary"
+            :icon="RefreshLeft"
+            :loading="rollbacking"
+            :disabled="loading || rollbacking || !selectedRevision.packageComplete || rollbackReason.trim().length < 8"
+            aria-label="从此版本创建新版本"
+            @click="$emit('rollback', { targetStatus: rollbackStatus, reason: rollbackReason.trim() })"
           >
-            <template #reference>
-              <el-button
-                type="primary"
-                :icon="RefreshLeft"
-                :loading="rollbacking"
-                :disabled="loading || rollbacking"
-                aria-label="回滚到此版本"
-              >
-                回滚
-              </el-button>
-            </template>
-          </el-popconfirm>
+            创建回滚版本
+          </el-button>
         </div>
         <dl class="revision-fields">
           <div>
@@ -85,7 +77,39 @@
             <dt>标签</dt>
             <dd>{{ selectedRevision.tagIds.length }} 个</dd>
           </div>
+          <div>
+            <dt>版权快照</dt>
+            <dd>{{ selectedRevision.rights?.licenseType ?? '缺失（不可回滚）' }}</dd>
+          </div>
+          <div>
+            <dt>责任快照</dt>
+            <dd>{{ selectedRevision.responsibility ? `${selectedRevision.responsibility.authors.length} 位作者` : '缺失（不可回滚）' }}</dd>
+          </div>
+          <div>
+            <dt>历史发布</dt>
+            <dd>{{ selectedRevision.release ? `发布 #${selectedRevision.release.publicationNo}` : '未公开版本' }}</dd>
+          </div>
         </dl>
+        <div class="revision-rollback-form" aria-label="回滚设置">
+          <label for="revision-rollback-status">新版本状态</label>
+          <el-select id="revision-rollback-status" v-model="rollbackStatus" :disabled="loading || rollbacking">
+            <el-option label="草稿" :value="0" />
+            <el-option label="已发布" :value="2" />
+            <el-option label="已归档" :value="3" />
+          </el-select>
+          <label for="revision-rollback-reason">回滚原因</label>
+          <el-input
+            id="revision-rollback-reason"
+            v-model="rollbackReason"
+            type="textarea"
+            :rows="2"
+            maxlength="500"
+            show-word-limit
+            placeholder="说明为何需要从此历史版本创建新版本（至少 8 个字符）"
+            :disabled="loading || rollbacking"
+          />
+          <p class="revision-rollback-hint">回滚会复制所选版本的内容、版权与责任快照，并创建新的修订和发布记录；历史记录不会被修改。</p>
+        </div>
       </div>
     </div>
   </section>
@@ -93,10 +117,11 @@
 
 <script setup lang="ts">
 import { Refresh, RefreshLeft } from '@/fsusui/icons'
+import { ref, watch } from 'vue'
 import SemanticTime from '@/components/ui/SemanticTime.vue'
 import type { ArticleRevisionDetailResponse, ArticleRevisionSummaryResponse } from '@/api/authoring'
 
-defineProps<{
+const props = defineProps<{
   isEdit: boolean
   revisions: ArticleRevisionSummaryResponse[]
   selectedRevision: ArticleRevisionDetailResponse | null
@@ -110,8 +135,16 @@ defineProps<{
 defineEmits<{
   (e: 'refresh'): void
   (e: 'select-revision', revision: ArticleRevisionSummaryResponse): void
-  (e: 'rollback'): void
+  (e: 'rollback', selection: { targetStatus: 0 | 2 | 3; reason: string }): void
 }>()
+
+const rollbackStatus = ref<0 | 2 | 3>(2)
+const rollbackReason = ref('')
+
+watch(() => props.selectedRevision?.id, () => {
+  rollbackStatus.value = 2
+  rollbackReason.value = ''
+})
 
 </script>
 
@@ -172,6 +205,24 @@ defineEmits<{
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.75rem;
   margin-top: 1rem;
+}
+
+.revision-rollback-form {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.revision-rollback-form label {
+  color: var(--fsusblog-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.revision-rollback-hint {
+  color: var(--fsusblog-text-tertiary);
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .revision-fields div {

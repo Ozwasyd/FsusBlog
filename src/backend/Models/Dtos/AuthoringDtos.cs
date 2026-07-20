@@ -1,4 +1,5 @@
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Models.Moderation;
 using FsusBlog.Server.Models.Requests;
 
@@ -50,7 +51,48 @@ public sealed record class ArticleRevisionSummaryResponse(
     string Title,
     string DiffSummary,
     string CreatedByAdminPrincipalId,
+    DateTime CreatedAt,
+    string? RollbackSourceRevisionId,
+    string? RollbackReason);
+
+public sealed record class ArticleRevisionRightsSnapshotResponse(
+    string Id,
+    bool Enabled,
+    string LicenseType,
+    string? CopyrightHolder,
+    int? CopyrightYear,
+    string? RightsStatement,
+    string? AttributionTemplate,
+    string CopyPolicy,
+    int MaxExcerptChars,
+    bool AllowCodeCopy,
+    bool ShowPublicBadge,
+    bool ProofBindingEnabled,
+    string PolicyHash,
+    string ContentCanonicalHash,
     DateTime CreatedAt);
+
+public sealed record class ArticleRevisionResponsibilitySnapshotResponse(
+    string Id,
+    bool InheritSiteAuthor,
+    IReadOnlyList<ArticleResponsiblePerson> Authors,
+    ArticleResponsiblePerson? Reviewer,
+    IReadOnlyList<ArticleEvidenceSource> Sources,
+    string? UpdateSummary,
+    string? UpdateReason,
+    DateTime? EffectiveAt,
+    string? ConclusionImpact,
+    string? Methodology,
+    string? Applicability,
+    string? Limitations,
+    bool ResponsiblePersonConfirmed,
+    DateTime CreatedAt);
+
+public sealed record class ArticleRevisionReleaseResponse(
+    string Id,
+    int PublicationNo,
+    string TransitionKind,
+    DateTime PublishedAt);
 
 public sealed record class ArticleRevisionDetailResponse(
     string Id,
@@ -64,7 +106,27 @@ public sealed record class ArticleRevisionDetailResponse(
     IReadOnlyList<int> TagIds,
     string DiffSummary,
     string CreatedByAdminPrincipalId,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    string? RollbackSourceRevisionId,
+    string? RollbackReason,
+    bool PackageComplete,
+    ArticleRevisionRightsSnapshotResponse? Rights,
+    ArticleRevisionResponsibilitySnapshotResponse? Responsibility,
+    ArticleRevisionReleaseResponse? Release);
+
+public sealed record class ArticleRevisionRollbackRequest(
+    long BaseRevisionId,
+    int TargetStatus,
+    [property: System.ComponentModel.DataAnnotations.MaxLength(500)]
+    string Reason);
+
+public sealed record class ArticleRevisionRollbackResponse(
+    bool RolledBack,
+    string RevisionId,
+    int RevisionNo,
+    int Status,
+    string ReleaseId,
+    int ReleaseNo);
 
 public sealed record class ArticlePreviewResponse(string Html, string PlainText, IReadOnlyList<PrepublishIssue> Issues);
 

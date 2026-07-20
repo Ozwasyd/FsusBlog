@@ -131,6 +131,27 @@ public sealed class ArticleCoreService(
             return Result.Failure(ErrorCode.Validation, "article_base_revision_required");
         }
 
+        if (command.Intent == ArticleUpdateIntent.Rollback)
+        {
+            if (command.Force || !command.Rollback.HasValue)
+            {
+                return Result.Failure(ErrorCode.Validation, "article_rollback_metadata_required");
+            }
+
+            ArticleRollbackMetadata rollback = command.Rollback.Value;
+            if (rollback.SourceRevisionId <= 0
+                || rollback.ActorAdminPrincipalId <= 0
+                || string.IsNullOrWhiteSpace(rollback.Reason)
+                || rollback.Reason.Length is < 8 or > 500)
+            {
+                return Result.Failure(ErrorCode.Validation, "article_rollback_metadata_invalid");
+            }
+        }
+        else if (command.Rollback.HasValue)
+        {
+            return Result.Failure(ErrorCode.Validation, "article_rollback_metadata_unexpected");
+        }
+
         try
         {
             return await gateway.UpdateAsync(command, cancellationToken)

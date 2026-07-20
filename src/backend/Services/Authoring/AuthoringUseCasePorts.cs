@@ -34,12 +34,11 @@ public interface IAuthoringDraftLifecycle
 
     Task<ArticleRevisionDetailResponse?> GetRevisionAsync(int articleId, long revisionId, CancellationToken cancellationToken = default);
 
-    Task<Result<bool>> RollbackRevisionAsync(
+    Task<Result<ArticleRevisionRollbackResponse?>> RollbackRevisionAsync(
         long actorAdminPrincipalId,
         int articleId,
         long revisionId,
-        long? baseRevisionId,
-        bool force,
+        ArticleRevisionRollbackRequest request,
         CancellationToken cancellationToken = default);
 
     Task<ArticlePreviewResponse> PreviewAsync(ServerDraftSaveRequest request);

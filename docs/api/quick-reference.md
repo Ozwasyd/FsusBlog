@@ -329,8 +329,8 @@
 | POST | `/api/binary/author/preview` | 👑 | admin-only 私有 Markdown/AOT-like 预览 |
 | POST | `/api/binary/author/prepublish-check` | 👑 | 发布前 SEO/内容质量检查 |
 | GET | `/api/binary/author/articles/{articleId}/revisions` | 👑 | 文章修订列表 |
-| GET | `/api/binary/author/articles/{articleId}/revisions/{revisionId}` | 👑 | 文章修订详情 |
-| POST | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/rollback` | 👑 | 回滚修订；提交 `X-Fsus-Base-Revision-Id`，或经 step-up 显式 force；冲突不写入，rights 默认 preserve |
+| GET | `/api/binary/author/articles/{articleId}/revisions/{revisionId}` | 👑 | 完整历史版本包：正文、rights、responsibility 与 release 坐标；缺项通过 `packageComplete` 明示 |
+| POST | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/rollback` | 👑 | `ArticleRevisionRollbackRequest(213)`；提交 base revision、Draft/Published/Archived 目标和审计原因，复制完整历史包到新 revision/release；冲突或不完整包不写入 |
 | POST | `/api/binary/author/articles/{articleId}/assets/reindex` | 👑 | 重建资产引用 |
 | GET | `/api/binary/author/assets` | 👑 | 资产库列表 |
 | DELETE | `/api/binary/author/assets/orphans` | 👑 | 删除孤儿资产库记录 |

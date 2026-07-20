@@ -110,6 +110,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `67`: PasskeyLoginCompleteRequest
 - `68`: PasskeyCredentialFriendlyNameUpdateRequest
 - `212`: PasskeySignalState
+- `213`: ArticleRevisionRollbackRequest
 - `69`: NotificationEvent
 - `70`: NotificationHeartbeat
 - `71`: PublicAotBootstrap
@@ -212,6 +213,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `PasskeyLoginBegin` payload: `PasskeyLoginBeginPod`, `PasskeyCredentialDescriptorPod[count]` with transport lists, followed by shared blob payload for RP/challenge/credential-id slices.
 - `PasskeyCredentialList` payload: `int32 count`, `PasskeyCredentialSummaryPod[count]`, followed by blob payload for optional device names.
 - `PasskeySignalState` payload: 48-byte `PasskeySignalStatePod` (`Revision`, credential count and RP/user/name/display-name slice refs), `PasskeySignalCredentialPod[count]`, followed by the shared UTF-8 blob. The complete credential-id list is server authoritative and revision ordered; callers must not derive it from a locally filtered credential summary list.
+- `ArticleRevisionRollbackRequest` payload: AEDS JSON payload containing required `baseRevisionId`, explicit `targetStatus` (`Draft`, `Published`, or `Archived`) and a bounded audit `reason`. The server creates a new immutable revision/release package and never reactivates the source row.
 - `NotificationEvent` payload: `int64 EventId`, `int64 TimestampUnixMs`, `int32 NotificationStreamEventType`, `int32 Reserved`, followed by one binary value payload.
 - `NotificationHeartbeat` payload: `int64 TimestampUnixMs`.
 - `PublicAotBootstrap` payload: one binary value payload encoded with the same tagged value layout used by notifications; HTML embeds the full AEDS frame as base64url text in `application/octet-stream` script nodes.

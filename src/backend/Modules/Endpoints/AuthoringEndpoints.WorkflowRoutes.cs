@@ -163,31 +163,29 @@ public static partial class AuthoringEndpoints
                 return stepUp;
             }
 
-            bool force = string.Equals(context.Request.Headers["X-Fsus-Article-Revision-Force"], "true", StringComparison.OrdinalIgnoreCase);
-            long? baseRevisionId = long.TryParse(
-                context.Request.Headers["X-Fsus-Base-Revision-Id"],
-                System.Globalization.NumberStyles.None,
-                System.Globalization.CultureInfo.InvariantCulture,
-                out long parsedBaseRevisionId) && parsedBaseRevisionId > 0
-                    ? parsedBaseRevisionId
-                    : null;
-            Result<bool> rollback = await service.RollbackRevisionAsync(
+            var parsed = await ReadRequestAsync<ArticleRevisionRollbackRequest>(
+                context,
+                aeds,
+                "article_revision_rollback_request_invalid",
+                cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+
+            Result<ArticleRevisionRollbackResponse?> rollback = await service.RollbackRevisionAsync(
                 ResolveRequiredAdminPrincipalId(context),
                 articleId,
                 revisionId,
-                baseRevisionId,
-                force,
+                parsed.Value!,
                 cancellationToken);
             if (!rollback.IsSuccess)
             {
                 return BinaryResults.FromError(rollback.Error, aeds);
             }
 
-            return rollback.Value
-                ? Ok(context, aeds, new
-                {
-                    rolledBack = true
-                })
+            return rollback.Value is not null
+                ? Ok(context, aeds, rollback.Value)
                 : AedsJsonResults.NotFound(aeds, "revision_not_found");
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite);

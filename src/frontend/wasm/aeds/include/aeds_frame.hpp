@@ -244,6 +244,7 @@ enum class FrameType : std::uint16_t
     CommentPermalinkContext = 210,
     ConversationStatusMutationResult = 211,
     PasskeySignalState = 212,
+    ArticleRevisionRollbackRequest = 213,
     EmptySuccess = 240,
     MutationId = 241,
     ApiError = 251,
@@ -457,6 +458,7 @@ enum class FrameType : std::uint16_t
         case FrameType::CommentPermalinkContext:
         case FrameType::ConversationStatusMutationResult:
         case FrameType::PasskeySignalState:
+        case FrameType::ArticleRevisionRollbackRequest:
         case FrameType::EmptySuccess:
         case FrameType::MutationId:
         case FrameType::ApiError:
