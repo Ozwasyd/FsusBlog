@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import type { FeaturedArticleItem, PopularArticleSummaryResponse } from '@/api/article'
 import FeaturedArticlesSection from '@/components/home/FeaturedArticlesSection.vue'
 import HomeTextFirstRecommendations from '@/components/home/HomeTextFirstRecommendations.vue'
+import HomeFeedSurface from '@/components/public/HomeFeedSurface.vue'
 import PublicArticleList from '@/components/public/PublicArticleList.vue'
 import PublicHomePageContent from '@/components/public/pages/PublicHomePageContent.vue'
 import type { ArticleListCardViewContract, ArticleListViewContract } from '@/view-contracts/articleList'
@@ -81,6 +82,34 @@ afterEach(() => {
 })
 
 describe('home editorial components', () => {
+  it('renders the aside column only when real slot content is provided', () => {
+    const withoutAside = mount(HomeFeedSurface, {
+      props: { showAside: true },
+      slots: { main: '<p>feed</p>' }
+    })
+    expect(withoutAside.find('aside').exists()).toBe(false)
+    expect(withoutAside.find('#fsus-home-hot-articles-slot').exists()).toBe(false)
+    expect(withoutAside.find('.public-aside-placeholder').exists()).toBe(false)
+    expect(withoutAside.get('#fsus-home-main-column').classes()).toEqual(
+      expect.arrayContaining(['mx-auto', 'max-w-[760px]'])
+    )
+    withoutAside.unmount()
+
+    const withAside = mount(HomeFeedSurface, {
+      props: { showAside: true },
+      slots: {
+        main: '<p>feed</p>',
+        aside: '<div data-test="real-aside">real</div>'
+      }
+    })
+    expect(withAside.get('aside').attributes('id')).toBe('fsus-home-hot-articles-slot')
+    expect(withAside.get('[data-test="real-aside"]').text()).toBe('real')
+    expect(withAside.get('#fsus-home-main-column').classes()).toEqual(
+      expect.arrayContaining(['grow', 'lg:w-2/3'])
+    )
+    withAside.unmount()
+  })
+
   it('aligns recommendation indices and titles on a shared baseline', () => {
     const wrapper = mount(HomeTextFirstRecommendations, {
       props: { articles: [recommendation(1)] },

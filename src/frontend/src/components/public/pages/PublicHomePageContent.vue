@@ -1,5 +1,5 @@
 <template>
-  <HomeFeedSurface :show-aside="showAside">
+  <HomeFeedSurface :show-aside="showAside && Boolean($slots.aside)">
     <template #main>
       <div data-fsus-motion-surface="home-hero">
         <HomeArticleLoadingState v-if="loading" />
