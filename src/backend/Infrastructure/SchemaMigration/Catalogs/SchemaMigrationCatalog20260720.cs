@@ -22,6 +22,7 @@ internal static class SchemaMigrationCatalog20260720
             Descriptors:
             [
                 ArticleDraftBaseRevisionMigrationDefinitions.BuildMigration(),
+                ArticleDraftServerRevisionMigrationDefinitions.BuildMigration(),
                 ArticleResponsibilityVersionMigrationDefinitions.BuildMigration(),
                 ArticleRevisionRollbackMigrationDefinitions.BuildMigration(),
                 AccountEnrollmentMigrationDefinitions.BuildMigration(),

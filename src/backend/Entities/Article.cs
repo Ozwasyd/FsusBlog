@@ -291,6 +291,9 @@ public class ArticleDraft
         get; set;
     }
 
+    [SugarColumn(ColumnName = "server_revision")]
+    public long ServerRevision { get; set; } = 1;
+
     [SugarColumn(ColumnName = "updated_at")]
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

@@ -15,7 +15,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class AuthoringDraftConcurrencyTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
-    public async Task SaveDraftAsync_ConcurrentSameOwnerAndKeyKeepsSingleDraft()
+    public async Task SaveDraftAsync_ConcurrentCreateAllowsExactlyOneWriter()
     {
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
         using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
@@ -30,20 +30,84 @@ public sealed class AuthoringDraftConcurrencyTests(PostgresSchemaMigrationFixtur
         AuthoringDraftLifecycleService secondService = CreateService(secondDb);
         using var barrier = new Barrier(2);
 
-        ServerDraftResponse[] responses = await Task.WhenAll(
-                StartBarrierTaskAsync(barrier, () => firstService.SaveDraftAsync(7, CreateRequest("rev-a", "first content"), CancellationToken.None)),
-                StartBarrierTaskAsync(barrier, () => secondService.SaveDraftAsync(7, CreateRequest("rev-b", "second content"), CancellationToken.None)))
+        object[] outcomes = await Task.WhenAll(
+                StartBarrierTaskAsync(barrier, () => CaptureSaveAsync(firstService, CreateRequest("rev-a", "first content"))),
+                StartBarrierTaskAsync(barrier, () => CaptureSaveAsync(secondService, CreateRequest("rev-b", "second content"))))
             .WaitAsync(TimeSpan.FromSeconds(30));
 
-        Assert.Equal(2, responses.Length);
+        ServerDraftResponse response = Assert.Single(outcomes.OfType<ServerDraftResponse>());
+        ServerDraftConflictException conflict = Assert.Single(outcomes.OfType<ServerDraftConflictException>());
+        Assert.Equal(1, response.ServerRevision);
+        Assert.Equal(1, conflict.Conflict.CurrentServerRevision);
         ArticleDraft draft = Assert.Single(setupDb.Queryable<ArticleDraft>().ToList());
         Assert.Equal(7, draft.OwnerAdminPrincipalId);
         Assert.Equal("race-draft", draft.DraftKey);
         Assert.Contains(draft.ClientRevision, new[] { "rev-a", "rev-b" });
+        Assert.Equal(1, draft.ServerRevision);
     }
 
     [Fact]
-    public async Task SaveDraftAsync_OnConflictMergesLatestDraftFields()
+    public async Task SaveDraftAsync_StaleAndOutOfOrderWritesDoNotOverwriteLatestDraft()
+    {
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
+        PostgresSqlSugarTestClient.InitTables(
+            db,
+            typeof(ArticleDraft),
+            typeof(ArticleAssetReference),
+            typeof(ArticleAssetCleanupQueueItem));
+        using SqlSugarClient staleTabDb = PostgresSqlSugarTestClient.Create(connectionString);
+        AuthoringDraftLifecycleService service = CreateService(db);
+        AuthoringDraftLifecycleService staleTabService = CreateService(staleTabDb);
+
+        ServerDraftResponse first = await service.SaveDraftAsync(7, CreateRequest("rev-a", "first content"), CancellationToken.None);
+        ServerDraftResponse second = await service.SaveDraftAsync(
+            7,
+            CreateRequest("rev-b", "second content", first.ServerRevision),
+            CancellationToken.None);
+        ServerDraftConflictException conflict = await Assert.ThrowsAsync<ServerDraftConflictException>(() =>
+            staleTabService.SaveDraftAsync(
+                7,
+                CreateRequest("rev-c", "stale content", first.ServerRevision),
+                CancellationToken.None));
+
+        ArticleDraft draft = Assert.Single(db.Queryable<ArticleDraft>().ToList());
+        Assert.Equal("rev-b", draft.ClientRevision);
+        Assert.Equal("second content", draft.MarkdownContent);
+        Assert.Equal(2, second.ServerRevision);
+        Assert.Equal(2, conflict.Conflict.CurrentServerRevision);
+        Assert.Equal(2, draft.ServerRevision);
+        Assert.Equal(1, db.Queryable<ArticleDraft>().Count());
+    }
+
+    [Fact]
+    public async Task SaveDraftAsync_IdenticalRetryReturnsCurrentVersionWithoutIncrementing()
+    {
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
+        PostgresSqlSugarTestClient.InitTables(
+            db,
+            typeof(ArticleDraft),
+            typeof(ArticleAssetReference),
+            typeof(ArticleAssetCleanupQueueItem));
+        using SqlSugarClient retryDb = PostgresSqlSugarTestClient.Create(connectionString);
+        AuthoringDraftLifecycleService service = CreateService(db);
+        AuthoringDraftLifecycleService retryService = CreateService(retryDb);
+
+        ServerDraftResponse first = await service.SaveDraftAsync(7, CreateRequest("rev-a", "first content"), CancellationToken.None);
+        ServerDraftSaveRequest update = CreateRequest("rev-b", "second content", first.ServerRevision);
+        ServerDraftResponse saved = await service.SaveDraftAsync(7, update, CancellationToken.None);
+        ServerDraftResponse retried = await retryService.SaveDraftAsync(7, update, CancellationToken.None);
+
+        Assert.Equal(2, saved.ServerRevision);
+        Assert.Equal(saved.ServerRevision, retried.ServerRevision);
+        Assert.Equal(2, Assert.Single(db.Queryable<ArticleDraft>().ToList()).ServerRevision);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(42)]
+    public async Task SaveDraftAsync_NewAndExistingArticleDraftsUseTheSameCasRule(int? articleId)
     {
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
         PostgresSqlSugarTestClient.InitTables(
@@ -53,20 +117,138 @@ public sealed class AuthoringDraftConcurrencyTests(PostgresSchemaMigrationFixtur
             typeof(ArticleAssetCleanupQueueItem));
         AuthoringDraftLifecycleService service = CreateService(db);
 
-        await service.SaveDraftAsync(7, CreateRequest("rev-a", "first content"), CancellationToken.None);
-        ServerDraftResponse response = await service.SaveDraftAsync(7, CreateRequest("rev-b", "second content"), CancellationToken.None);
+        ServerDraftResponse created = await service.SaveDraftAsync(
+            7,
+            CreateRequest("rev-a", "first content", articleId: articleId),
+            CancellationToken.None);
+        ServerDraftResponse updated = await service.SaveDraftAsync(
+            7,
+            CreateRequest("rev-b", "second content", created.ServerRevision, articleId),
+            CancellationToken.None);
 
-        ArticleDraft draft = Assert.Single(db.Queryable<ArticleDraft>().ToList());
-        Assert.Equal("rev-b", draft.ClientRevision);
-        Assert.Equal("second content", draft.MarkdownContent);
-        Assert.Equal("rev-b", response.ClientRevision);
-        Assert.Equal(1, db.Queryable<ArticleDraft>().Count());
+        Assert.Equal(articleId, created.ArticleId);
+        Assert.Equal(articleId, updated.ArticleId);
+        Assert.Equal(1, created.ServerRevision);
+        Assert.Equal(2, updated.ServerRevision);
     }
 
-    private static ServerDraftSaveRequest CreateRequest(string revision, string content)
+    [Fact]
+    public async Task SaveDraftAsync_ConcurrentUpdatesAcrossConnectionsAllowExactlyOneWriter()
+    {
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
+        PostgresSqlSugarTestClient.InitTables(
+            setupDb,
+            typeof(ArticleDraft),
+            typeof(ArticleAssetReference),
+            typeof(ArticleAssetCleanupQueueItem));
+        ServerDraftResponse created = await CreateService(setupDb).SaveDraftAsync(
+            7,
+            CreateRequest("rev-initial", "initial content"),
+            CancellationToken.None);
+        using SqlSugarClient firstDb = PostgresSqlSugarTestClient.Create(connectionString);
+        using SqlSugarClient secondDb = PostgresSqlSugarTestClient.Create(connectionString);
+        AuthoringDraftLifecycleService firstService = CreateService(firstDb);
+        AuthoringDraftLifecycleService secondService = CreateService(secondDb);
+        using var barrier = new Barrier(2);
+
+        object[] outcomes = await Task.WhenAll(
+                StartBarrierTaskAsync(barrier, () => CaptureSaveAsync(
+                    firstService,
+                    CreateRequest("rev-a", "first content", created.ServerRevision))),
+                StartBarrierTaskAsync(barrier, () => CaptureSaveAsync(
+                    secondService,
+                    CreateRequest("rev-b", "second content", created.ServerRevision))))
+            .WaitAsync(TimeSpan.FromSeconds(30));
+
+        ServerDraftResponse winner = Assert.Single(outcomes.OfType<ServerDraftResponse>());
+        ServerDraftConflictException loser = Assert.Single(outcomes.OfType<ServerDraftConflictException>());
+        ArticleDraft current = Assert.Single(setupDb.Queryable<ArticleDraft>().ToList());
+        Assert.Equal(2, winner.ServerRevision);
+        Assert.Equal(2, loser.Conflict.CurrentServerRevision);
+        Assert.Equal(2, current.ServerRevision);
+        Assert.Equal(winner.ClientRevision, current.ClientRevision);
+    }
+
+    [Fact]
+    public async Task DiscardDraftAsync_RequiresCurrentServerRevision()
+    {
+        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        PostgresSqlSugarTestClient.InitTables(
+            db,
+            typeof(ArticleDraft),
+            typeof(ArticleAssetReference),
+            typeof(ArticleAssetCleanupQueueItem));
+        AuthoringDraftLifecycleService service = CreateService(db);
+
+        ServerDraftResponse first = await service.SaveDraftAsync(7, CreateRequest("rev-a", "first content"), CancellationToken.None);
+        ServerDraftResponse second = await service.SaveDraftAsync(
+            7,
+            CreateRequest("rev-b", "second content", first.ServerRevision),
+            CancellationToken.None);
+
+        ServerDraftConflictException conflict = await Assert.ThrowsAsync<ServerDraftConflictException>(() =>
+            service.DiscardDraftAsync(7, "race-draft", first.ServerRevision, CancellationToken.None));
+        Assert.Equal(second.ServerRevision, conflict.Conflict.CurrentServerRevision);
+        Assert.Equal(1, db.Queryable<ArticleDraft>().Count());
+
+        Assert.True(await service.DiscardDraftAsync(7, "race-draft", second.ServerRevision, CancellationToken.None));
+        Assert.Equal(0, db.Queryable<ArticleDraft>().Count());
+    }
+
+    [Fact]
+    public async Task SaveAndDiscard_ConcurrentAcrossConnectionsHaveOneCasWinner()
+    {
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
+        PostgresSqlSugarTestClient.InitTables(
+            setupDb,
+            typeof(ArticleDraft),
+            typeof(ArticleAssetReference),
+            typeof(ArticleAssetCleanupQueueItem));
+        ServerDraftResponse created = await CreateService(setupDb).SaveDraftAsync(
+            7,
+            CreateRequest("rev-initial", "initial content"),
+            CancellationToken.None);
+        using SqlSugarClient saveDb = PostgresSqlSugarTestClient.Create(connectionString);
+        using SqlSugarClient discardDb = PostgresSqlSugarTestClient.Create(connectionString);
+        AuthoringDraftLifecycleService saveService = CreateService(saveDb);
+        AuthoringDraftLifecycleService discardService = CreateService(discardDb);
+        using var barrier = new Barrier(2);
+
+        object[] outcomes = await Task.WhenAll(
+                StartBarrierTaskAsync(barrier, () => CaptureSaveAsync(
+                    saveService,
+                    CreateRequest("rev-update", "updated content", created.ServerRevision))),
+                StartBarrierTaskAsync(barrier, () => CaptureDiscardAsync(
+                    discardService,
+                    created.ServerRevision)))
+            .WaitAsync(TimeSpan.FromSeconds(30));
+
+        Assert.Single(outcomes.OfType<ServerDraftConflictException>());
+        ServerDraftResponse? saved = outcomes.OfType<ServerDraftResponse>().SingleOrDefault();
+        bool discarded = outcomes.OfType<bool>().SingleOrDefault();
+        Assert.NotEqual(saved is not null, discarded);
+        if (saved is not null)
+        {
+            ArticleDraft current = Assert.Single(setupDb.Queryable<ArticleDraft>().ToList());
+            Assert.Equal(2, saved.ServerRevision);
+            Assert.Equal(2, current.ServerRevision);
+        }
+        else
+        {
+            Assert.Empty(setupDb.Queryable<ArticleDraft>().ToList());
+        }
+    }
+
+    private static ServerDraftSaveRequest CreateRequest(
+        string revision,
+        string content,
+        long? expectedServerRevision = null,
+        int? articleId = null)
         => new(
             "race-draft",
-            null,
+            articleId,
             $"Title {revision}",
             content,
             $"Summary {revision}",
@@ -75,7 +257,40 @@ public sealed class AuthoringDraftConcurrencyTests(PostgresSchemaMigrationFixtur
             [4, 5],
             revision,
             (int)ArticleStatus.Draft,
-            null);
+            null,
+            ExpectedServerRevision: expectedServerRevision);
+
+    private static async Task<object> CaptureSaveAsync(
+        AuthoringDraftLifecycleService service,
+        ServerDraftSaveRequest request)
+    {
+        try
+        {
+            return await service.SaveDraftAsync(7, request, CancellationToken.None);
+        }
+        catch (ServerDraftConflictException exception)
+        {
+            return exception;
+        }
+    }
+
+    private static async Task<object> CaptureDiscardAsync(
+        AuthoringDraftLifecycleService service,
+        long expectedServerRevision)
+    {
+        try
+        {
+            return await service.DiscardDraftAsync(
+                7,
+                "race-draft",
+                expectedServerRevision,
+                CancellationToken.None);
+        }
+        catch (ServerDraftConflictException exception)
+        {
+            return exception;
+        }
+    }
 
     private static AuthoringDraftLifecycleService CreateService(SqlSugarClient db)
         => new(

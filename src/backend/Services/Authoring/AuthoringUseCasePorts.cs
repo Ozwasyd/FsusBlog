@@ -28,7 +28,11 @@ public interface IAuthoringDraftLifecycle
 
     Task<ServerDraftResponse?> GetDraftAsync(long ownerAdminPrincipalId, string draftKey, CancellationToken cancellationToken = default);
 
-    Task<bool> DiscardDraftAsync(long ownerAdminPrincipalId, string draftKey, CancellationToken cancellationToken = default);
+    Task<bool> DiscardDraftAsync(
+        long ownerAdminPrincipalId,
+        string draftKey,
+        long expectedServerRevision,
+        CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<ArticleRevisionSummaryResponse>> GetRevisionsAsync(int articleId, CancellationToken cancellationToken = default);
 

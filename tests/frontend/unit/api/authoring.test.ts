@@ -4,6 +4,7 @@ import { requestBinaryOnly } from '@/composition/binaryTransport'
 import {
   applyIntegrityFix,
   blockAnonymousNullifier,
+  discardServerDraft,
   getServerDraft,
   moderateComment,
   previewModerationEffectivePolicy,
@@ -64,7 +65,8 @@ describe('authoring API binary transport', () => {
       status: 0,
       scheduledPublishAt: null,
       rights,
-      updatedAt: '2026-05-18T16:00:00Z'
+      updatedAt: '2026-05-18T16:00:00Z',
+      serverRevision: 1
     })
 
     const saved = await saveServerDraft({
@@ -80,7 +82,8 @@ describe('authoring API binary transport', () => {
       clientRevision: 'rev-1',
       status: 0,
       scheduledPublishAt: null,
-      rights
+      rights,
+      expectedServerRevision: null
     })
 
     expect(saved.rights).toMatchObject(rights)
@@ -93,6 +96,7 @@ describe('authoring API binary transport', () => {
     expectAedsJsonBody(call?.requestOptions?.body, FrameType.AuthorDraftSaveRequest, {
       title: 'Draft',
       status: 0,
+      expectedServerRevision: null,
       rights: {
         licenseType: 'CC-BY-4.0',
         copyrightHolder: 'Fsus',
@@ -102,6 +106,18 @@ describe('authoring API binary transport', () => {
         proofBindingEnabled: false
       }
     })
+  })
+
+  it('discards a draft with an explicit server revision precondition', async () => {
+    binaryMock.mockResolvedValue({ discarded: true })
+
+    await expect(discardServerDraft('fsus:article-draft:create', 7)).resolves.toBe(true)
+
+    const call = binaryMock.mock.calls[0]?.[0]
+    expect(call?.binaryUrl).toBe('/api/binary/author/drafts/fsus%3Aarticle-draft%3Acreate?expectedServerRevision=7')
+    expect(call?.frameType).toBe(FrameType.AuthorDraftDiscardResponse)
+    expect(call?.requestOptions?.method).toBe('DELETE')
+    expect(call?.requestOptions?.body).toBeUndefined()
   })
 
   it('saves revision responsibility through its route-specific AEDS frames', async () => {
@@ -140,7 +156,8 @@ describe('authoring API binary transport', () => {
     const call = binaryMock.mock.calls.at(-1)?.[0]
     expect(call?.binaryUrl).toBe('/api/binary/author/articles/42/revisions/9001/responsibility')
     expect(call?.frameType).toBe(FrameType.ArticleResponsibilityHistory)
-    expect(call?.requestOptions).toBeUndefined()
+    expect(call?.requestOptions?.credentials).toBe('include')
+    expect((call?.requestOptions?.headers as Headers).get(FSUS_HEADERS.deviceFingerprint)).toBe('fp-test')
   })
 
   it('rollbackArticleRevision sends explicit version-package rollback intent', async () => {

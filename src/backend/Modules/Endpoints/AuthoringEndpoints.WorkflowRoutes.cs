@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
@@ -26,6 +27,8 @@ namespace FsusBlog.Server.Modules.Endpoints;
 
 public static partial class AuthoringEndpoints
 {
+    private static readonly JsonSerializerOptions s_draftConflictJsonOptions = new(JsonSerializerDefaults.Web);
+
     private static void MapAuthoringWorkflowRoutes(IEndpointRouteBuilder group)
     {
         group.MapPost("/drafts", async (
@@ -44,9 +47,16 @@ public static partial class AuthoringEndpoints
                 return parsed.ToErrorResult(aeds);
             }
 
-            ServerDraftSaveRequest request = parsed.Value!;
-            ServerDraftResponse saved = await service.SaveDraftAsync(ResolveRequiredAdminPrincipalId(context), request, cancellationToken);
-            return Ok(context, aeds, saved);
+            try
+            {
+                ServerDraftSaveRequest request = parsed.Value!;
+                ServerDraftResponse saved = await service.SaveDraftAsync(ResolveRequiredAdminPrincipalId(context), request, cancellationToken);
+                return Ok(context, aeds, saved);
+            }
+            catch (ServerDraftConflictException conflict)
+            {
+                return DraftConflict(aeds, conflict);
+            }
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
@@ -64,16 +74,36 @@ public static partial class AuthoringEndpoints
 
         group.MapDelete("/drafts/{draftKey}", async (
             string draftKey,
+            long expectedServerRevision,
             HttpContext context,
             IAedsEncoder aeds,
             IAuthoringDraftLifecycle service,
             CancellationToken cancellationToken) =>
         {
-            bool discarded = await service.DiscardDraftAsync(ResolveRequiredAdminPrincipalId(context), draftKey, cancellationToken);
-            return Ok(context, aeds, new
+            if (expectedServerRevision <= 0)
             {
-                discarded
-            });
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.Validation, "expected_server_revision_required"),
+                    aeds,
+                    StatusCodes.Status400BadRequest);
+            }
+
+            try
+            {
+                bool discarded = await service.DiscardDraftAsync(
+                    ResolveRequiredAdminPrincipalId(context),
+                    draftKey,
+                    expectedServerRevision,
+                    cancellationToken);
+                return Ok(context, aeds, new
+                {
+                    discarded
+                });
+            }
+            catch (ServerDraftConflictException conflict)
+            {
+                return DraftConflict(aeds, conflict);
+            }
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
@@ -296,4 +326,13 @@ public static partial class AuthoringEndpoints
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
     }
+
+    private static BinaryFrameResult DraftConflict(IAedsEncoder aeds, ServerDraftConflictException conflict)
+        => BinaryResults.FromError(
+            ErrorDetail.Create(
+                ErrorCode.Conflict,
+                "draft_conflict",
+                JsonSerializer.Serialize(conflict.Conflict, s_draftConflictJsonOptions)),
+            aeds,
+            StatusCodes.Status409Conflict);
 }

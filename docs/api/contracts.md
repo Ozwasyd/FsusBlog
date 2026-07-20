@@ -2040,9 +2040,9 @@ Rollback request frame `ArticleRevisionRollbackRequest(213)` 的 payload 是 AED
 
 | 方法 | 路径 | 说明 |
 | ------ | ------ | ------ |
-| POST | `/api/binary/author/drafts` | 保存服务端草稿，按 `ownerAdminPrincipalId + draftKey` 幂等覆盖；payload 包含 `baseRevisionId`、`status`、`scheduledPublishAt` 与完整 `rights` |
-| GET | `/api/binary/author/drafts/{draftKey}` | 读取服务端草稿；不存在时返回 `success=true,data=null`，存在时原样返回 `baseRevisionId`、`updatedAt`、`clientRevision`、发布状态与 `rights` |
-| DELETE | `/api/binary/author/drafts/{draftKey}` | 丢弃服务端草稿；编辑器同步清除浏览器中的草稿 metadata |
+| POST | `/api/binary/author/drafts` | 保存服务端草稿；payload 包含 `expectedServerRevision`、`baseRevisionId`、`status`、`scheduledPublishAt` 与完整 `rights`。新建用 `null`，已有草稿必须精确匹配；成功原子递增 `serverRevision`，相同 client/content 重试不重复递增 |
+| GET | `/api/binary/author/drafts/{draftKey}` | 读取服务端草稿；不存在时返回 `success=true,data=null`，存在时原样返回 `serverRevision`、`baseRevisionId`、`updatedAt`、`clientRevision`、发布状态与 `rights` |
+| DELETE | `/api/binary/author/drafts/{draftKey}?expectedServerRevision={revision}` | 按服务端版本条件丢弃草稿；stale 版本返回 `409 draft_conflict` 且不删除，成功后编辑器同步清除浏览器中的草稿 metadata |
 | POST | `/api/binary/author/preview` | admin-only 私有预览，输出经过转义的 Markdown/AOT-like HTML，根节点带 `data-preview-only=true`、`data-markdown-renderer=server-preview`，不写 PublicAOT cache |
 | POST | `/api/binary/author/prepublish-check` | 发布前检查标题、SEO 描述、封面 URL、Markdown 结构、链接、图片 alt 与危险 HTML |
 | GET | `/api/binary/author/articles/{articleId}/revisions` | 最近 50 条修订摘要；actor 字段为 `createdByAdminPrincipalId`，rollback revision 额外返回源 revision 与原因 |
@@ -2050,6 +2050,8 @@ Rollback request frame `ArticleRevisionRollbackRequest(213)` 的 payload 是 AED
 | GET | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/responsibility` | `ArticleResponsibilityHistory(228)`；按版本倒序返回该 revision 的 append-only 责任快照历史与 previous 指针 |
 | POST | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/rollback` | request frame `ArticleRevisionRollbackRequest(213)`；基于完整历史包创建新 revision/release；必须携带 `X-Fsus-Mfa-Proof` |
 | PUT | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/responsibility` | 携带 `expectedVersion` CAS 并只追加快照；成功返回 snapshot/version/previous/publication 坐标，冲突返回 `409 article_responsibility_version_conflict` |
+
+草稿 `draft_conflict` 使用 HTTP 409 `ApiError(251)`；`details` 是有界 JSON `{currentServerRevision,currentUpdatedAt,titleSummary}`，不包含正文、摘要、封面、分类标签、rights、article revision 或任何身份材料。双标签页、乱序自动保存和 stale discard 都走同一失败面；客户端不得自动重放冲突 mutation。普通网络失败可用原 `clientRevision + expectedServerRevision` 重试，服务端用内容一致性识别已成功但响应丢失的幂等重试。
 | POST | `/api/binary/author/articles/{articleId}/assets/reindex` | 从正文和封面重建资产引用 |
 | GET | `/api/binary/author/assets` | 资产库列表 |
 | DELETE | `/api/binary/author/assets/orphans` | 删除引用计数为 0 的孤儿资产库记录 |

@@ -70,7 +70,7 @@ GET 与 HEAD 返回相同状态和关键头；HEAD 保留与 GET 相同的 `Cont
 | 错误码 | HTTP 状态 | 含义 |
 | -------- | ----------- | ------ |
 | `InvalidRequest` | 400 | 请求参数格式无效 |
-| `Conflict` | 409 | 当前请求与已提交状态冲突；`article_responsibility_version_conflict` 表示 stale `expectedVersion`，客户端须重读 `ArticleResponsibilityHistory(228)` 后人工合并；refresh 短竞争窗口内表示其他标签页已完成轮换，不撤销 session family |
+| `Conflict` | 409 | 当前请求与已提交状态冲突；`draft_conflict` 表示草稿 `expectedServerRevision` stale，details 仅含当前版本、更新时间和截断标题摘要，客户端停止自动保存并重读比较；`article_responsibility_version_conflict` 表示 stale `expectedVersion`，客户端须重读 `ArticleResponsibilityHistory(228)` 后人工合并；refresh 短竞争窗口内表示其他标签页已完成轮换，不撤销 session family |
 | `NotFound` | 404 | 资源不存在 |
 | `Unauthorized` | 401 | 未认证或令牌失效 |
 | `Forbidden` | 403 | 权限不足 |
@@ -477,7 +477,7 @@ frame 208 的 `no_change`，不属于错误。动态关闭 `Messages:StatusMutat
 `version=5` 与 `rightsMutation:int32`：`0=preserve`、`1=replace`、`2=reset`。`replace` 必须携带完整 rights
 payload；`reset` 不得同时携带 replacement payload。V3 rights payload 只读兼容为 `replace`；rights 功能加入前、
 仅含文章主体和 lifecycle tail 的旧 payload 只读兼容为 `preserve`。文章 create/update 的 frame type 仍为
-`MutationId(241)`，但 payload 使用 `ArticleMutationResponsePod`：`id:int32`、`revisionId:int64`、`revisionNo:int32`、`rightsSnapshotId:int64`、`rightsRevisionNo:int32`；其他通用 mutation 继续使用 8B `MutationIdPod`。`article_revision_conflict` 使用 HTTP 409 `ApiError`，details 为当前 revision 坐标、status 和 updatedAt；不暴露 `xmin`。
+`MutationId(241)`，但 payload 使用 `ArticleMutationResponsePod`：`id:int32`、`revisionId:int64`、`revisionNo:int32`、`rightsSnapshotId:int64`、`rightsRevisionNo:int32`；其他通用 mutation 继续使用 8B `MutationIdPod`。`article_revision_conflict` 使用 HTTP 409 `ApiError`，details 为当前 revision 坐标、status 和 updatedAt；不暴露 `xmin`。草稿保存与丢弃的 `draft_conflict` 同样使用 HTTP 409 `ApiError`，details 固定为 `{currentServerRevision:int64|null,currentUpdatedAt:datetime|null,titleSummary:string|null}`；不得放入 content、summary、rights、tagIds 或其它未发布内容。
 
 ### 评论 POD
 

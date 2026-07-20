@@ -1773,7 +1773,23 @@
           "auth": "admin",
           "method": "DELETE",
           "path": "/author/drafts/{draftKey}",
-          "responseFrame": "AuthorDraftDiscardResponse"
+          "responseFrame": "AuthorDraftDiscardResponse",
+          "errorResponses": {
+            "409": "ApiError draft_conflict with the current bounded draft coordinate."
+          },
+          "parameters": [
+            {
+              "name": "expectedServerRevision",
+              "in": "query",
+              "required": true,
+              "description": "Current server-owned draft revision required for conditional discard.",
+              "schema": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 1
+              }
+            }
+          ]
         },
         {
           "auth": "admin",

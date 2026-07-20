@@ -278,6 +278,7 @@ public sealed class OnlineSchemaMigrationPolicyTests
             ArticleCommentPolicyMigrationDefinitions.MigrationId,
             scheduledPublishDueIndex.MigrationId,
             articleDraftBaseRevision.MigrationId,
+            ArticleDraftServerRevisionMigrationDefinitions.MigrationId,
             CommentRevisionManagementMigrationDefinitions.MigrationId,
             CommentGovernanceMigrationDefinitions.MigrationId,
             ArticleResponsibilityVersionMigrationDefinitions.MigrationId,

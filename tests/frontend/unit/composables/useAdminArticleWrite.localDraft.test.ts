@@ -4,10 +4,13 @@ import {
   encodeLocalDraftMetadata,
   normalizeLocalDraftMetadata,
   parseArticleRevisionConflictDetails,
+  parseServerDraftConflictDetails,
   resolveLocalDraftRecovery,
+  shouldRetryServerDraftSave,
   toLocalDraftMetadata
 } from '@/composables/useAdminArticleWrite'
 import { decodePublicAotPayload, encodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload'
+import { BinaryTransportError } from '@/services/binaryTransport'
 
 const snapshot = {
   title: 'private title',
@@ -37,7 +40,8 @@ const snapshot = {
   baseRevisionId: '8123',
   isEdit: true,
   source: 'local' as const,
-  clientRevision: 'revision-1'
+  clientRevision: 'revision-1',
+  serverRevision: null
 }
 
 describe('admin article local draft metadata', () => {
@@ -124,5 +128,36 @@ describe('admin article local draft metadata', () => {
     })
     expect(parseArticleRevisionConflictDetails('{"revisionNo":8}')).toBeNull()
     expect(parseArticleRevisionConflictDetails('not-json')).toBeNull()
+  })
+
+  it('parses bounded draft conflict metadata without unpublished content', () => {
+    const details = JSON.stringify({
+      currentServerRevision: 9,
+      currentUpdatedAt: '2026-07-20T08:00:00.0000000Z',
+      titleSummary: 'Current title'
+    })
+
+    expect(parseServerDraftConflictDetails(details)).toEqual({
+      currentServerRevision: 9,
+      currentUpdatedAt: '2026-07-20T08:00:00.0000000Z',
+      titleSummary: 'Current title'
+    })
+    expect(parseServerDraftConflictDetails('{"currentServerRevision":0}')).toBeNull()
+    expect(parseServerDraftConflictDetails('not-json')).toBeNull()
+    expect(details).not.toContain('content')
+    expect(details).not.toContain('rights')
+  })
+
+  it('stops automatic retries for draft conflicts but retries transient failures', () => {
+    expect(shouldRetryServerDraftSave(new BinaryTransportError({
+      kind: 'conflict',
+      message: 'draft_conflict',
+      status: 409,
+      details: '{"currentServerRevision":2,"currentUpdatedAt":null,"titleSummary":null}'
+    }))).toBe(false)
+    expect(shouldRetryServerDraftSave(new BinaryTransportError({
+      kind: 'network',
+      message: 'network_unavailable'
+    }))).toBe(true)
   })
 })

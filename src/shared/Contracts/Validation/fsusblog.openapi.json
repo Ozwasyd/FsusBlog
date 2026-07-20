@@ -7027,6 +7027,17 @@
               }
             }
           },
+          "409": {
+            "description": "ApiError draft_conflict with the current bounded draft coordinate.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
           "default": {
             "description": "ApiError AEDS frame",
             "content": {
@@ -7053,7 +7064,20 @@
         "x-fsus-test-surface": "authoring-console",
         "x-fsus-source": "src/backend/Modules/Endpoints/AuthoringEndpoints.cs",
         "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
-        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts",
+        "parameters": [
+          {
+            "name": "expectedServerRevision",
+            "in": "query",
+            "required": true,
+            "description": "Current server-owned draft revision required for conditional discard.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          }
+        ]
       }
     },
     "/api/binary/author/preview": {

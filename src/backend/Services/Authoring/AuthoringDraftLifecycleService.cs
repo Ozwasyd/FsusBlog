@@ -60,37 +60,80 @@ public sealed class AuthoringDraftLifecycleService(
             Status = NormalizeArticleStatus(request.Status),
             RightsJson = SerializeDraftRights(rights),
             ClientRevision = TextHelpers.NormalizeNullable(request.ClientRevision, 64),
+            ServerRevision = request.ExpectedServerRevision.GetValueOrDefault() + 1,
             CreatedAt = now,
             UpdatedAt = now
         };
         draft.ScheduledPublishAt = draft.Status == ArticleStatus.Scheduled ? request.ScheduledPublishAt : null;
 
+        bool mutated = false;
+        ArticleDraft? savedDraft = null;
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
-            await UpsertDraftAsync(draft, cancellationToken).ConfigureAwait(false);
-            await new ArticleAssetReferenceStore(db)
-                .ReplaceDraftAsync(
-                    draft.OwnerAdminPrincipalId,
-                    draft.DraftKey,
-                    draft.ArticleId,
-                    draft.MarkdownContent,
-                    draft.CoverImageUrl,
+            (savedDraft, mutated) = await SaveDraftWithCasAsync(
+                    draft,
+                    request.ExpectedServerRevision,
                     cancellationToken)
                 .ConfigureAwait(false);
+            if (mutated)
+            {
+                await new ArticleAssetReferenceStore(db)
+                    .ReplaceDraftAsync(
+                        draft.OwnerAdminPrincipalId,
+                        draft.DraftKey,
+                        draft.ArticleId,
+                        draft.MarkdownContent,
+                        draft.CoverImageUrl,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
         }).ConfigureAwait(false);
         if (!transaction.IsSuccess)
         {
+            if (transaction.ErrorException is ServerDraftConflictException conflict)
+            {
+                throw conflict;
+            }
+
             throw new InvalidOperationException("Server draft and asset references were not saved atomically.", transaction.ErrorException);
         }
 
-        auditWriter.Write(AuditSourceCatalog.Article, "server-draft-save", ownerAdminPrincipalId, draftKey);
-        return ToDraftResponse(draft);
+        if (mutated)
+        {
+            auditWriter.Write(AuditSourceCatalog.Article, "server-draft-save", ownerAdminPrincipalId, draftKey);
+        }
+
+        return ToDraftResponse(savedDraft!);
     }
 
-    private async Task UpsertDraftAsync(ArticleDraft draft, CancellationToken cancellationToken)
+    private async Task<(ArticleDraft Draft, bool Mutated)> SaveDraftWithCasAsync(
+        ArticleDraft draft,
+        long? expectedServerRevision,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        await db.Ado.ExecuteCommandAsync(
+        int affected = expectedServerRevision.HasValue
+            ? await UpdateDraftWithCasAsync(draft, expectedServerRevision.Value).ConfigureAwait(false)
+            : await InsertDraftAsync(draft).ConfigureAwait(false);
+        if (affected == 1)
+        {
+            return (draft, true);
+        }
+
+        ArticleDraft? current = await db.Queryable<ArticleDraft>()
+            .Where(it => it.OwnerAdminPrincipalId == draft.OwnerAdminPrincipalId && it.DraftKey == draft.DraftKey)
+            .FirstAsync(cancellationToken)
+            .ConfigureAwait(false);
+        if (current is not null && IsIdempotentRetry(current, draft))
+        {
+            return (current, false);
+        }
+
+        throw new ServerDraftConflictException(ToDraftConflict(current));
+    }
+
+    private Task<int> InsertDraftAsync(ArticleDraft draft)
+        => db.Ado.ExecuteCommandAsync(
             """
             INSERT INTO article_draft (
                 owner_admin_principal_id,
@@ -107,6 +150,7 @@ public sealed class AuthoringDraftLifecycleService(
                 status,
                 scheduled_publish_at,
                 rights_json,
+                server_revision,
                 created_at,
                 updated_at
             ) VALUES (
@@ -124,23 +168,11 @@ public sealed class AuthoringDraftLifecycleService(
                 @Status,
                 CAST(@ScheduledPublishAt AS timestamp),
                 @RightsJson,
+                @ServerRevision,
                 @CreatedAt,
                 @UpdatedAt
             )
-            ON CONFLICT (owner_admin_principal_id, draft_key) DO UPDATE SET
-                article_id = EXCLUDED.article_id,
-                base_revision_id = EXCLUDED.base_revision_id,
-                title = EXCLUDED.title,
-                summary = EXCLUDED.summary,
-                cover_image_url = EXCLUDED.cover_image_url,
-                categoryid = EXCLUDED.categoryid,
-                tag_ids = EXCLUDED.tag_ids,
-                markdown_content = EXCLUDED.markdown_content,
-                client_revision = EXCLUDED.client_revision,
-                status = EXCLUDED.status,
-                scheduled_publish_at = EXCLUDED.scheduled_publish_at,
-                rights_json = EXCLUDED.rights_json,
-                updated_at = EXCLUDED.updated_at;
+            ON CONFLICT (owner_admin_principal_id, draft_key) DO NOTHING;
             """,
             new SugarParameter("@OwnerAdminPrincipalId", draft.OwnerAdminPrincipalId),
             new SugarParameter("@ArticleId", AuthoringNormalization.DbValue(draft.ArticleId)),
@@ -156,9 +188,48 @@ public sealed class AuthoringDraftLifecycleService(
             new SugarParameter("@Status", (int)draft.Status),
             new SugarParameter("@ScheduledPublishAt", AuthoringNormalization.DbValue(draft.ScheduledPublishAt)),
             new SugarParameter("@RightsJson", AuthoringNormalization.DbValue(draft.RightsJson)),
+            new SugarParameter("@ServerRevision", draft.ServerRevision),
             new SugarParameter("@CreatedAt", draft.CreatedAt),
             new SugarParameter("@UpdatedAt", draft.UpdatedAt));
-    }
+
+    private Task<int> UpdateDraftWithCasAsync(ArticleDraft draft, long expectedServerRevision)
+        => db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE article_draft
+            SET article_id = CAST(@ArticleId AS integer),
+                base_revision_id = CAST(@BaseRevisionId AS bigint),
+                title = @Title,
+                summary = @Summary,
+                cover_image_url = @CoverImageUrl,
+                categoryid = @CategoryId,
+                tag_ids = @TagIds,
+                markdown_content = @MarkdownContent,
+                client_revision = @ClientRevision,
+                status = @Status,
+                scheduled_publish_at = CAST(@ScheduledPublishAt AS timestamp),
+                rights_json = @RightsJson,
+                server_revision = server_revision + 1,
+                updated_at = @UpdatedAt
+            WHERE owner_admin_principal_id = @OwnerAdminPrincipalId
+              AND draft_key = @DraftKey
+              AND server_revision = @ExpectedServerRevision;
+            """,
+            new SugarParameter("@OwnerAdminPrincipalId", draft.OwnerAdminPrincipalId),
+            new SugarParameter("@ArticleId", AuthoringNormalization.DbValue(draft.ArticleId)),
+            new SugarParameter("@BaseRevisionId", (object?)draft.BaseRevisionId ?? DBNull.Value),
+            new SugarParameter("@DraftKey", draft.DraftKey),
+            new SugarParameter("@Title", draft.Title),
+            new SugarParameter("@Summary", AuthoringNormalization.DbValue(draft.Summary)),
+            new SugarParameter("@CoverImageUrl", AuthoringNormalization.DbValue(draft.CoverImageUrl)),
+            new SugarParameter("@CategoryId", draft.CategoryId),
+            new SugarParameter("@TagIds", draft.TagIds),
+            new SugarParameter("@MarkdownContent", draft.MarkdownContent),
+            new SugarParameter("@ClientRevision", AuthoringNormalization.DbValue(draft.ClientRevision)),
+            new SugarParameter("@Status", (int)draft.Status),
+            new SugarParameter("@ScheduledPublishAt", AuthoringNormalization.DbValue(draft.ScheduledPublishAt)),
+            new SugarParameter("@RightsJson", AuthoringNormalization.DbValue(draft.RightsJson)),
+            new SugarParameter("@UpdatedAt", draft.UpdatedAt),
+            new SugarParameter("@ExpectedServerRevision", expectedServerRevision));
 
     public async Task<ServerDraftResponse?> GetDraftAsync(long ownerAdminPrincipalId, string draftKey, CancellationToken cancellationToken = default)
     {
@@ -169,18 +240,38 @@ public sealed class AuthoringDraftLifecycleService(
         return draft is null ? null : ToDraftResponse(draft);
     }
 
-    public async Task<bool> DiscardDraftAsync(long ownerAdminPrincipalId, string draftKey, CancellationToken cancellationToken = default)
+    public async Task<bool> DiscardDraftAsync(
+        long ownerAdminPrincipalId,
+        string draftKey,
+        long expectedServerRevision,
+        CancellationToken cancellationToken = default)
     {
         string normalized = NormalizeDraftKey(draftKey, null);
-        int count = await db.Deleteable<ArticleDraft>()
-            .Where(it => it.OwnerAdminPrincipalId == ownerAdminPrincipalId && it.DraftKey == normalized)
-            .ExecuteCommandAsync(cancellationToken);
+        int count = await db.Ado.ExecuteCommandAsync(
+            """
+            DELETE FROM article_draft
+            WHERE owner_admin_principal_id = @OwnerAdminPrincipalId
+              AND draft_key = @DraftKey
+              AND server_revision = @ExpectedServerRevision;
+            """,
+            new SugarParameter("@OwnerAdminPrincipalId", ownerAdminPrincipalId),
+            new SugarParameter("@DraftKey", normalized),
+            new SugarParameter("@ExpectedServerRevision", expectedServerRevision));
         if (count > 0)
         {
             auditWriter.Write(AuditSourceCatalog.Article, "server-draft-discard", ownerAdminPrincipalId, normalized);
+            return true;
         }
 
-        return count > 0;
+        ArticleDraft? current = await db.Queryable<ArticleDraft>()
+            .Where(it => it.OwnerAdminPrincipalId == ownerAdminPrincipalId && it.DraftKey == normalized)
+            .FirstAsync(cancellationToken);
+        if (current is not null)
+        {
+            throw new ServerDraftConflictException(ToDraftConflict(current));
+        }
+
+        return false;
     }
 
     public async Task<IReadOnlyList<ArticleRevisionSummaryResponse>> GetRevisionsAsync(int articleId, CancellationToken cancellationToken = default)
@@ -417,7 +508,31 @@ public sealed class AuthoringDraftLifecycleService(
             draft.ScheduledPublishAt,
             draft.UpdatedAt,
             DeserializeDraftRights(draft.RightsJson),
-            draft.BaseRevisionId);
+            draft.BaseRevisionId,
+            draft.ServerRevision);
+
+    private static bool IsIdempotentRetry(ArticleDraft current, ArticleDraft candidate)
+        => !string.IsNullOrWhiteSpace(candidate.ClientRevision)
+            && string.Equals(current.ClientRevision, candidate.ClientRevision, StringComparison.Ordinal)
+            && current.ArticleId == candidate.ArticleId
+            && current.BaseRevisionId == candidate.BaseRevisionId
+            && string.Equals(current.Title, candidate.Title, StringComparison.Ordinal)
+            && string.Equals(current.Summary, candidate.Summary, StringComparison.Ordinal)
+            && string.Equals(current.CoverImageUrl, candidate.CoverImageUrl, StringComparison.Ordinal)
+            && current.CategoryId == candidate.CategoryId
+            && string.Equals(current.TagIds, candidate.TagIds, StringComparison.Ordinal)
+            && string.Equals(current.MarkdownContent, candidate.MarkdownContent, StringComparison.Ordinal)
+            && current.Status == candidate.Status
+            && current.ScheduledPublishAt == candidate.ScheduledPublishAt
+            && string.Equals(current.RightsJson, candidate.RightsJson, StringComparison.Ordinal);
+
+    private static ServerDraftConflictResponse ToDraftConflict(ArticleDraft? current)
+        => current is null
+            ? new ServerDraftConflictResponse(null, null, null)
+            : new ServerDraftConflictResponse(
+                current.ServerRevision,
+                current.UpdatedAt,
+                current.Title.Length <= 12 ? current.Title : current.Title[..12]);
 
     private static ArticleRevisionDetailResponse ToRevisionDetailResponse(
         ArticleRevision revision,

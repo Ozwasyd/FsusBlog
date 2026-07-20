@@ -70,6 +70,7 @@ interface ArticleDraftSnapshot extends ArticleParams {
   isEdit: boolean
   source: 'local' | 'server'
   clientRevision: string
+  serverRevision: number | null
 }
 
 export interface LocalDraftMetadataSource {
@@ -110,6 +111,42 @@ export const parseArticleRevisionConflictDetails = (details?: string | null): Ar
     return null
   }
 }
+
+export interface ServerDraftConflictMetadata {
+  currentServerRevision: number | null
+  currentUpdatedAt: string | null
+  titleSummary: string | null
+}
+
+export const parseServerDraftConflictDetails = (details?: string | null): ServerDraftConflictMetadata | null => {
+  if (!details) {
+    return null
+  }
+
+  try {
+    const value = JSON.parse(details) as Partial<ServerDraftConflictMetadata>
+    if (value.currentServerRevision !== null
+      && (!Number.isSafeInteger(value.currentServerRevision) || Number(value.currentServerRevision) < 1)) {
+      return null
+    }
+    if (value.currentUpdatedAt !== null && typeof value.currentUpdatedAt !== 'string') {
+      return null
+    }
+    if (value.titleSummary !== null && typeof value.titleSummary !== 'string') {
+      return null
+    }
+    return {
+      currentServerRevision: value.currentServerRevision ?? null,
+      currentUpdatedAt: value.currentUpdatedAt ?? null,
+      titleSummary: value.titleSummary ?? null
+    }
+  } catch {
+    return null
+  }
+}
+
+export const shouldRetryServerDraftSave = (error: unknown): boolean =>
+  !(error instanceof BinaryTransportError && error.message === 'draft_conflict')
 
 export interface LocalDraftRecovery<TDraft> {
   draft: TDraft | null
@@ -475,6 +512,7 @@ export function useAdminArticleWrite() {
   const draftConflictText = ref('')
   const currentRevisionId = ref<string | null>(null)
   const currentRevisionNo = ref<number | null>(null)
+  const serverDraftRevision = ref<number | null>(null)
   const serverDraftSyncPaused = ref(false)
   const articleRevisions = shallowRef<ArticleRevisionSummaryResponse[]>([])
   const selectedRevision = ref<ArticleRevisionDetailResponse | null>(null)
@@ -716,7 +754,8 @@ export function useAdminArticleWrite() {
     baseRevisionId: isEdit.value ? currentRevisionId.value : null,
     isEdit: isEdit.value,
     source,
-    clientRevision: nextClientRevision()
+    clientRevision: nextClientRevision(),
+    serverRevision: serverDraftRevision.value
   })
 
   const buildServerDraftRequest = (snapshot: ArticleDraftSnapshot): ServerDraftSaveRequest => ({
@@ -734,7 +773,8 @@ export function useAdminArticleWrite() {
     scheduledPublishAt: snapshot.status === ArticlePublishStatus.Scheduled && snapshot.scheduledPublishAt
       ? snapshot.scheduledPublishAt
       : null,
-    rights: { ...snapshot.rights }
+    rights: { ...snapshot.rights },
+    expectedServerRevision: snapshot.serverRevision
   })
 
   const snapshotFromServerDraft = (draft: ServerDraftResponse): ArticleDraftSnapshot => {
@@ -754,7 +794,8 @@ export function useAdminArticleWrite() {
       baseRevisionId: draft.baseRevisionId,
       isEdit: draft.articleId !== null,
       source: 'server',
-      clientRevision: draft.clientRevision ?? ''
+      clientRevision: draft.clientRevision ?? '',
+      serverRevision: draft.serverRevision
     }
   }
 
@@ -772,10 +813,28 @@ export function useAdminArticleWrite() {
       }
 
       const savedAt = Date.parse(saved.updatedAt)
+      serverDraftRevision.value = saved.serverRevision
       draftSavedAt.value = Number.isFinite(savedAt) ? savedAt : snapshot.savedAt
       draftStatusText.value = `服务端草稿已保存 ${new Date(draftSavedAt.value).toLocaleTimeString()}`
-    } catch {
+    } catch (error: unknown) {
       if (token === serverDraftSaveToken) {
+        if (!shouldRetryServerDraftSave(error)) {
+          clearDraftSaveTimer()
+          const details = parseServerDraftConflictDetails(error.details)
+          serverDraftSyncPaused.value = true
+          draftConflictText.value = details?.currentUpdatedAt
+            ? `服务端已有版本 ${details.currentServerRevision ?? '未知'}（${new Date(details.currentUpdatedAt).toLocaleString()}），当前页面更改未覆盖它。请比较后选择恢复或丢弃。`
+            : '服务端草稿已变化，当前页面更改未覆盖它。请重新载入并比较。'
+          draftStatusText.value = '自动保存已暂停'
+          try {
+            const current = await getServerDraft(draftKey.value)
+            pendingDraft.value = current ? snapshotFromServerDraft(current) : null
+          } catch {
+            pendingDraft.value = null
+          }
+          return
+        }
+
         draftStatusText.value = '服务端草稿暂不可用；当前页面仍保留更改，请勿关闭'
         if (!serverDraftSyncPaused.value && typeof window !== 'undefined') {
           if (serverDraftRetryTimer !== null) {
@@ -838,6 +897,7 @@ export function useAdminArticleWrite() {
     if (signal.aborted) {
       return
     }
+    serverDraftRevision.value = serverDraft?.serverRevision ?? null
 
     const recovery = resolveLocalDraftRecovery(
       localMetadata,
@@ -857,6 +917,7 @@ export function useAdminArticleWrite() {
     }
 
     pendingDraft.value = draft
+    serverDraftRevision.value = draft.serverRevision
     draftSavedAt.value = draft.savedAt
     draftConflictText.value = ''
     serverDraftSyncPaused.value = draft.source === 'server'
@@ -874,6 +935,7 @@ export function useAdminArticleWrite() {
     articleForm.status = draft.status
     articleForm.scheduledPublishAt = draft.scheduledPublishAt
     articleForm.rights = { ...draft.rights }
+    serverDraftRevision.value = draft.serverRevision
     if (draft.isEdit) {
       currentRevisionId.value = draft.baseRevisionId
     }
@@ -900,7 +962,11 @@ export function useAdminArticleWrite() {
     removeLocalDraftMetadata(draftKey.value)
     if (shouldDiscardServerDraft) {
       try {
-        await discardServerDraft(draftKey.value)
+        const expectedServerRevision = pendingDraft.value?.serverRevision
+        if (expectedServerRevision === null || expectedServerRevision === undefined) {
+          throw new Error('expected_server_revision_required')
+        }
+        await discardServerDraft(draftKey.value, expectedServerRevision)
       } catch {
         showWarningToast('服务端草稿删除失败，请稍后重试', '服务端草稿删除失败，请稍后重试')
         return
@@ -910,6 +976,7 @@ export function useAdminArticleWrite() {
     pendingDraft.value = null
     draftConflictText.value = ''
     serverDraftSyncPaused.value = false
+    serverDraftRevision.value = null
     draftSavedAt.value = null
     draftStatusText.value = ''
     toast.success('服务端草稿已丢弃')
@@ -921,16 +988,20 @@ export function useAdminArticleWrite() {
     pendingDraft.value = null
     draftConflictText.value = ''
     serverDraftSyncPaused.value = false
+    serverDraftRevision.value = null
     draftSavedAt.value = null
     draftStatusText.value = ''
   }
 
   const clearDraftAfterSubmit = async (): Promise<void> => {
+    const expectedServerRevision = serverDraftRevision.value
     clearLocalDraft()
-    try {
-      await discardServerDraft(draftKey.value)
-    } catch {
-      // The article mutation already succeeded; stale draft cleanup can be retried by explicit discard.
+    if (expectedServerRevision !== null) {
+      try {
+        await discardServerDraft(draftKey.value, expectedServerRevision)
+      } catch {
+        // The article mutation already succeeded; a newer draft must not be removed by stale cleanup.
+      }
     }
   }
 
@@ -1087,11 +1158,14 @@ export function useAdminArticleWrite() {
       }
 
       suppressDraftSave = true
+      const expectedServerRevision = serverDraftRevision.value
       clearLocalDraft()
-      try {
-        await discardServerDraft(draftKey.value)
-      } catch {
-        // Rollback already persisted the article; stale draft cleanup is best-effort.
+      if (expectedServerRevision !== null) {
+        try {
+          await discardServerDraft(draftKey.value, expectedServerRevision)
+        } catch {
+          // Rollback already persisted the article; a newer draft must not be removed.
+        }
       }
 
       await loadArticleDetailIntoForm(new AbortController().signal)

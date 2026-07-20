@@ -55,14 +55,21 @@ public sealed class AuthoringWorkflowServiceTests
     }
 
     [Fact]
-    public void SaveDraftAsync_RuntimeUsesAtomicUpsert()
+    public void SaveDraftAsync_RuntimeUsesAtomicServerRevisionCas()
     {
         string method = RuntimeMetadataInspection.DescribeMethods(
             typeof(AuthoringDraftLifecycleService),
             nameof(AuthoringDraftLifecycleService.SaveDraftAsync));
 
-        Assert.Contains("ON CONFLICT (owner_admin_principal_id, draft_key) DO UPDATE", method, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Queryable<ArticleDraft>()", method, StringComparison.Ordinal);
+        Assert.Contains("SaveDraftWithCasAsync", method, StringComparison.Ordinal);
+        string cas = RuntimeMetadataInspection.DescribeMethods(
+            typeof(AuthoringDraftLifecycleService),
+            "SaveDraftWithCasAsync",
+            "InsertDraftAsync",
+            "UpdateDraftWithCasAsync");
+        Assert.Contains("ON CONFLICT (owner_admin_principal_id, draft_key) DO NOTHING", cas, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("server_revision = server_revision + 1", cas, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("server_revision = @ExpectedServerRevision", cas, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Insertable(existing)", method, StringComparison.Ordinal);
         Assert.DoesNotContain("Updateable(existing)", method, StringComparison.Ordinal);
     }
@@ -86,6 +93,27 @@ public sealed class AuthoringWorkflowServiceTests
         Assert.Contains("append-attribution", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("SerializeDraftRights", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("DeserializeDraftRights", runtimeShape, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ServerDraftEndpoints_ExposeCasConflictAndConditionalDiscard()
+    {
+        string routes = RuntimeMetadataInspection.DescribeMethods(
+            typeof(AuthoringEndpoints),
+            "MapAuthoringWorkflowRoutes",
+            "DraftConflict");
+
+        Assert.Contains("expectedServerRevision", routes, StringComparison.Ordinal);
+        Assert.Contains("draft_conflict", routes, StringComparison.Ordinal);
+        MethodInfo conflictResult = typeof(AuthoringEndpoints).GetMethod(
+            "DraftConflict",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+        Assert.Contains(StatusCodes.Status409Conflict, RuntimeMetadataInspection.DescribeInt32Constants(conflictResult));
+        Assert.Equal(typeof(long?), typeof(ServerDraftSaveRequest).GetProperty("ExpectedServerRevision")!.PropertyType);
+        Assert.Equal(typeof(long), typeof(ServerDraftResponse).GetProperty("ServerRevision")!.PropertyType);
+        Assert.Equal(
+            ["CurrentServerRevision", "CurrentUpdatedAt", "TitleSummary"],
+            typeof(ServerDraftConflictResponse).GetProperties().Select(static property => property.Name));
     }
 
     [Fact]

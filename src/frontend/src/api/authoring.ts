@@ -25,6 +25,7 @@ export interface ServerDraftSaveRequest {
   status: number
   scheduledPublishAt: string | null
   rights: ArticleRightsRequest
+  expectedServerRevision: number | null
   warningOverrideReason?: string | null
 }
 
@@ -43,6 +44,7 @@ export interface ServerDraftResponse {
   scheduledPublishAt: string | null
   rights: ArticleRightsRequest
   updatedAt: string
+  serverRevision: number
 }
 
 export interface ArticleRevisionSummaryResponse {
@@ -1188,8 +1190,13 @@ export async function getServerDraft(draftKey: string, config?: ApiRequestConfig
   return requestAuthoringBinary<ServerDraftResponse | null>(`/drafts/${encodeURIComponent(draftKey)}`, FrameType.AuthorDraftResponse, config)
 }
 
-export async function discardServerDraft(draftKey: string, config?: ApiRequestConfig): Promise<boolean> {
-  const result = await requestAuthoringBinary<{ discarded?: boolean }>(`/drafts/${encodeURIComponent(draftKey)}`, FrameType.AuthorDraftDiscardResponse, config, {
+export async function discardServerDraft(
+  draftKey: string,
+  expectedServerRevision: number,
+  config?: ApiRequestConfig
+): Promise<boolean> {
+  const query = new URLSearchParams({ expectedServerRevision: expectedServerRevision.toString() })
+  const result = await requestAuthoringBinary<{ discarded?: boolean }>(`/drafts/${encodeURIComponent(draftKey)}?${query.toString()}`, FrameType.AuthorDraftDiscardResponse, config, {
     method: 'DELETE'
   })
   return result.discarded === true
