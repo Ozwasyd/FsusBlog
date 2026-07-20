@@ -1,4 +1,5 @@
 <template>
+  <!-- 760px 将中文正文行长控制在舒适阅读范围，避免宽屏下单行文字过长。 -->
   <article
     class="public-article-detail mx-auto min-h-screen max-w-[760px] px-4 pt-6 pb-10 sm:px-12 sm:pt-10 sm:pb-12"
     data-readable-region
