@@ -46,8 +46,22 @@ export function buildLocalStaticManifest(staticManifest, scripts) {
   if (JSON.stringify(core.command) !== JSON.stringify(viewsCoreCommand(source))) {
     throw new Error('views-constraints core command differs from the explicit local manifest')
   }
-  if (JSON.stringify(declaredScripts.map((entry) => entry.script)) !== JSON.stringify(chainedScripts)) {
-    throw new Error('check:views-constraints chain differs from the explicit local manifest')
+
+  const explicitEntries = staticManifest.commands.flatMap((entry) => entry.id === 'views-constraints'
+    ? declaredScripts
+    : [entry])
+  for (const script of chainedScripts) {
+    const matches = explicitEntries.filter((entry) => entry.script === script)
+    if (matches.length !== 1) {
+      throw new Error(`check:views-constraints script ${script} must have exactly one explicit manifest owner`)
+    }
+  }
+  const chainedScriptSet = new Set(chainedScripts)
+  const staleLocalScripts = declaredScripts
+    .map((entry) => entry.script)
+    .filter((script) => !chainedScriptSet.has(script))
+  if (staleLocalScripts.length > 0) {
+    throw new Error(`views-constraints local manifest contains stale scripts: ${staleLocalScripts.join(', ')}`)
   }
 
   return {

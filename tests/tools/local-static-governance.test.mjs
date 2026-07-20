@@ -56,8 +56,14 @@ test('local static manifest expands only the explicit production views plan with
   const declared = staticManifest.commands.find((entry) => entry.id === 'views-constraints').localCommands
 
   assert.deepEqual(expanded[0].command, ['node', '../../tests/frontend/checks/static/check-views-constraints.mjs'])
-  assert.deepEqual(expanded.slice(1).map((entry) => entry.script), chainedScripts)
   assert.deepEqual(expanded, declared)
+  for (const script of chainedScripts) {
+    assert.equal(
+      manifest.commands.filter((entry) => entry.script === script).length,
+      1,
+      `${script} must have exactly one explicit manifest owner`
+    )
+  }
   assert.deepEqual(
     manifest.commands.filter((entry) => !entry.id.startsWith('views-constraints:')).map((entry) => entry.id),
     staticManifest.commands.filter((entry) => entry.id !== 'views-constraints').map((entry) => entry.id)
@@ -67,6 +73,25 @@ test('local static manifest expands only the explicit production views plan with
     'check:dom-depth-static',
     'check:route-asset-budget'
   ])
+
+  const missingOwner = structuredClone(staticManifest)
+  missingOwner.commands = missingOwner.commands.filter((entry) => entry.id !== 'radius-scale-contract')
+  assert.throws(
+    () => buildLocalStaticManifest(missingOwner, frontendPackage.scripts),
+    /check:views-constraints script check:radius-scale-contract must have exactly one explicit manifest owner/u
+  )
+
+  const duplicateOwner = structuredClone(staticManifest)
+  const layoutOwner = duplicateOwner.commands.find((entry) => entry.id === 'layout-archetype-governance')
+  duplicateOwner.commands.find((entry) => entry.id === 'views-constraints').localCommands.push({
+    ...layoutOwner,
+    id: 'views-constraints:layout-archetype-governance'
+  })
+  assert.throws(
+    () => buildLocalStaticManifest(duplicateOwner, frontendPackage.scripts),
+    /check:views-constraints script check:layout-archetype-governance must have exactly one explicit manifest owner/u
+  )
+
   for (const entry of manifest.commands) {
     assert.ok(entry.reason)
     assert.ok(entry.stage)
@@ -96,6 +121,7 @@ test('local static plan derives every stage from manifest metadata', () => {
   const plan = planLocalStaticCommands(manifest)
 
   assert.deepEqual(plan['blocking-prebuild'].map((entry) => entry.id), [
+    'frontend-style-full',
     'frontend-test-governance',
     'frontend-test-layout',
     'csharp-entrypoint-ownership',
@@ -111,22 +137,22 @@ test('local static plan derives every stage from manifest metadata', () => {
   assert.deepEqual(plan.final.map((entry) => entry.id), ['views-constraints:public-performance-batch'])
 })
 
-test('five explicit phases form an exact 71-command partition with timing evidence', () => {
+test('five explicit phases form an exact 79-command partition with timing evidence', () => {
   const manifest = buildLocalStaticManifest(staticManifest, frontendPackage.scripts)
   const plan = planLocalStaticCommands(manifest)
   const summary = summarizeLocalStaticPlan(plan)
   const plannedIds = Object.values(plan).flat().map((entry) => entry.id)
 
-  assert.equal(manifest.commands.length, 71)
+  assert.equal(manifest.commands.length, 79)
   assert.deepEqual(summary, {
-    'blocking-prebuild': 5,
-    concurrent: 61,
+    'blocking-prebuild': 6,
+    concurrent: 68,
     postbuild: 3,
     isolated: 1,
     final: 1,
-    total: 71
+    total: 79
   })
-  assert.equal(new Set(plannedIds).size, 71)
+  assert.equal(new Set(plannedIds).size, 79)
   assert.deepEqual(new Set(plannedIds), new Set(manifest.commands.map((entry) => entry.id)))
   assert.match(localStaticSource, /staticStages\.map\(\(stage\) => manifest\.execution\[stage\]\)\.join\('\+'\)/u)
   assert.match(localStaticSource, /total=\$\{manifest\.execution\.total\}/u)
