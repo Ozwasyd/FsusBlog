@@ -11,7 +11,7 @@
       class="min-h-10 rounded-[var(--fsus-radius-control-small)] px-2 text-[12px] font-bold transition-colors"
       :class="[
         item.value === props.modelValue
-          ? 'bg-[var(--fsusblog-page-bg-soft)] text-[var(--fsusblog-text-primary)] shadow-sm'
+          ? 'bg-[var(--fsusblog-text-primary)] text-[var(--fsusblog-page-bg)]'
           : 'text-[var(--fsusblog-text-muted)] hover:bg-[var(--fsusblog-page-bg-soft)] hover:text-[var(--fsusblog-text-secondary)]',
         props.disabled ? 'cursor-not-allowed opacity-55' : ''
       ]"
