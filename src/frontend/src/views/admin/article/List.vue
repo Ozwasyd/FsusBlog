@@ -223,9 +223,8 @@
 
             <el-table-column label="管理" width="160" fixed="right" align="right">
               <template #default="{ row }: { row: ArticleListViewItem }">
-                <div class="flex justify-end items-center gap-1 pr-2">
+                <div class="flex justify-end items-center gap-x-1 pr-2">
                   <el-button link type="primary" @click="handleEdit(row.id)">{{ row.primaryActionLabel }}</el-button>
-                  <el-divider direction="vertical" />
                   <el-dropdown>
                     <el-button link type="primary">
                       更多 <span class="ml-1 inline-flex"><el-icon aria-hidden="true"><ArrowDown /></el-icon></span>

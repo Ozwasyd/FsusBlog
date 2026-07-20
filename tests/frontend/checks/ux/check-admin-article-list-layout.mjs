@@ -26,5 +26,16 @@ assert.match(
   /\.article-cover-thumb img\s*\{[^}]*object-fit:\s*cover;/s,
   'article cover images must crop without distortion'
 )
+assert.match(
+  articleList,
+  /<el-table-column label="管理" width="160" fixed="right" align="right">/,
+  'article management actions must retain the measured 160px column'
+)
+assert.match(
+  articleList,
+  /class="flex justify-end items-center gap-x-1 pr-2"/,
+  'article management actions must use a compact 4px horizontal gap'
+)
+assert.doesNotMatch(articleList, /<el-divider\b/, 'article management actions must not spend width on dividers')
 
 console.log('admin article list layout checks passed')
