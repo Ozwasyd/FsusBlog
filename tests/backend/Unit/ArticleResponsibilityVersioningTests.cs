@@ -17,10 +17,12 @@ public sealed class ArticleResponsibilityVersioningTests(PostgresSchemaMigration
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
         (int articleId, long revisionId, long initialPublicationId) = SeedPublishedArticle(db);
-        var service = new ArticleResponsibilityAuthoringService(db);
+        var clock = new MutableTimeProvider(new DateTimeOffset(2026, 7, 20, 8, 0, 0, TimeSpan.Zero));
+        var service = new ArticleResponsibilityAuthoringService(db, clock);
 
         ArticleResponsibilitySaveResponse first = Assert.IsType<ArticleResponsibilitySaveResponse>(
             await service.SaveAsync(articleId, revisionId, Draft(expectedVersion: 0, "first")));
+        clock.Advance(TimeSpan.FromMinutes(5));
         ArticleResponsibilitySaveResponse second = Assert.IsType<ArticleResponsibilitySaveResponse>(
             await service.SaveAsync(articleId, revisionId, Draft(expectedVersion: 1, "second")));
 
@@ -53,6 +55,8 @@ public sealed class ArticleResponsibilityVersioningTests(PostgresSchemaMigration
 
         Article current = Assert.IsType<Article>(await db.Queryable<Article>().InSingleAsync(articleId));
         Assert.NotEqual(initialPublicationId, current.CurrentPublicationId);
+        Assert.Equal(clock.GetUtcNow().UtcDateTime, current.PublicUpdatedAt);
+        Assert.Equal(current.PublishedAt, current.LastPublishedAt);
         ArticlePublicationRecord currentPublication = Assert.IsType<ArticlePublicationRecord>(
             await db.Queryable<ArticlePublicationRecord>().InSingleAsync(current.CurrentPublicationId!.Value));
         Assert.Equal(revisionId, currentPublication.ArticleRevisionId);
@@ -157,6 +161,9 @@ public sealed class ArticleResponsibilityVersioningTests(PostgresSchemaMigration
             CategoryId = 1,
             Status = ArticleStatus.Published,
             PublishedAt = publishedAt,
+            LastPublishedAt = publishedAt,
+            PublicUpdatedAt = publishedAt,
+            MetadataUpdatedAt = publishedAt,
             CreateTime = publishedAt,
             IsDeleted = false
         }).ExecuteReturnIdentity();
@@ -196,6 +203,15 @@ public sealed class ArticleResponsibilityVersioningTests(PostgresSchemaMigration
             .Where(item => item.Id == articleId)
             .ExecuteCommand();
         return (articleId, revisionId, publicationId);
+    }
+
+    private sealed class MutableTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        private DateTimeOffset _utcNow = utcNow;
+
+        public override DateTimeOffset GetUtcNow() => _utcNow;
+
+        public void Advance(TimeSpan duration) => _utcNow = _utcNow.Add(duration);
     }
 
     private static ArticleResponsibilityDraft Draft(int expectedVersion, string summary)

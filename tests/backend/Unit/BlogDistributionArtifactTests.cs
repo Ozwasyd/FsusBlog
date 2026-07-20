@@ -91,7 +91,7 @@ public sealed class BlogDistributionArtifactTests(PostgresSchemaMigrationFixture
     }
 
     [Fact]
-    public async Task ArticleLastmodTracksBodyUpdateAndEmptySiteNeverInventsCurrentTime()
+    public async Task ArticleLastmodTracksCurrentPublicRevisionAndEmptySiteNeverInventsCurrentTime()
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
         int categoryId = db.Insertable(new Category { Name = "Updates" }).ExecuteReturnIdentity();
@@ -101,7 +101,10 @@ public sealed class BlogDistributionArtifactTests(PostgresSchemaMigrationFixture
             Title = "Updated body",
             CategoryId = categoryId,
             CreateTime = publishedAt,
+            MetadataUpdatedAt = publishedAt,
             PublishedAt = publishedAt,
+            LastPublishedAt = publishedAt,
+            PublicUpdatedAt = new DateTime(2026, 3, 4, 9, 0, 0, DateTimeKind.Utc),
             Status = ArticleStatus.Published,
             IsDeleted = false
         }).ExecuteReturnIdentity();
@@ -123,6 +126,8 @@ public sealed class BlogDistributionArtifactTests(PostgresSchemaMigrationFixture
         db.Updateable<Article>()
             .SetColumns(article => article.Summary == "Non-body metadata changed")
             .SetColumns(article => article.Views == article.Views + 1)
+            .SetColumns(article => article.MetadataUpdatedAt == new DateTime(2026, 3, 7, 11, 0, 0, DateTimeKind.Utc))
+            .SetColumns(article => article.PublicUpdatedAt == new DateTime(2026, 3, 7, 11, 0, 0, DateTimeKind.Utc))
             .Where(article => article.Id == articleId)
             .ExecuteCommand();
         db.Insertable(new Comment
@@ -139,13 +144,17 @@ public sealed class BlogDistributionArtifactTests(PostgresSchemaMigrationFixture
             .Returns(Task.FromResult<string?>("2"));
         string metadataOnly = await service.BuildSitemapAsync();
         JsonFeedDocument metadataOnlyFeed = await service.BuildJsonFeedAsync();
-        Assert.Equal("2026-03-04", ReadLastmod(metadataOnly, $"https://public.example/article/{articleId}"));
-        Assert.Equal("2026-03-04", ReadFeedModifiedDate(metadataOnlyFeed, articleId));
+        Assert.Equal("2026-03-07", ReadLastmod(metadataOnly, $"https://public.example/article/{articleId}"));
+        Assert.Equal("2026-03-07", ReadFeedModifiedDate(metadataOnlyFeed, articleId));
 
         db.Updateable<ArticleBody>()
             .SetColumns(body => body.MarkdownContent == "v2")
             .SetColumns(body => body.UpdatedAt == new DateTime(2026, 3, 8, 10, 0, 0, DateTimeKind.Utc))
             .Where(body => body.ArticleId == articleId)
+            .ExecuteCommand();
+        db.Updateable<Article>()
+            .SetColumns(article => article.PublicUpdatedAt == new DateTime(2026, 3, 8, 10, 0, 0, DateTimeKind.Utc))
+            .Where(article => article.Id == articleId)
             .ExecuteCommand();
         cache.GetStringAsync(CachePolicyId.ArticleListVersion, "main", Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<string?>("3"));

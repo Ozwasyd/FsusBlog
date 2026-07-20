@@ -47,7 +47,7 @@ public sealed class BlogDistributionServiceTests
         Assert.Contains("LoadSitemapArticlesAsync", sitemap, StringComparison.Ordinal);
         Assert.Contains("LoadSitemapCategoriesAsync", sitemap, StringComparison.Ordinal);
         Assert.Contains("LoadSitemapTagsAsync", sitemap, StringComparison.Ordinal);
-        Assert.Contains("article_body", sitemapArticleQuery, StringComparison.Ordinal);
+        Assert.Contains("public_updated_at", sitemapArticleQuery, StringComparison.Ordinal);
         Assert.DoesNotContain("MarkdownContent", sitemapArticleQuery, StringComparison.Ordinal);
         Assert.DoesNotContain("Take", sitemapArticleQuery, StringComparison.Ordinal);
         Assert.DoesNotContain("LIMIT @Limit", sitemapArticleQuery, StringComparison.Ordinal);

@@ -82,6 +82,13 @@ public class Article
 
     public DateTime CreateTime { get; set; } = DateTime.UtcNow;
 
+    /// <summary>
+    /// Last substantive change to article metadata (title, summary, cover, taxonomy, or lifecycle state).
+    /// Body changes continue to use <see cref="ArticleBody.UpdatedAt"/>.
+    /// </summary>
+    [SugarColumn(ColumnName = "metadata_updated_at")]
+    public DateTime MetadataUpdatedAt { get; set; } = DateTime.UtcNow;
+
     [SugarColumn(ColumnName = "status")]
     public ArticleStatus Status { get; set; } = ArticleStatus.Published;
 
@@ -93,6 +100,24 @@ public class Article
 
     [SugarColumn(ColumnName = "published_at", IsNullable = true)]
     public DateTime? PublishedAt
+    {
+        get; set;
+    }
+
+    /// <summary>
+    /// Most recent real publication or republication. Unlike <see cref="PublishedAt"/>, this value advances.
+    /// </summary>
+    [SugarColumn(ColumnName = "last_published_at", IsNullable = true)]
+    public DateTime? LastPublishedAt
+    {
+        get; set;
+    }
+
+    /// <summary>
+    /// Last substantive change visible through the current public revision/publication.
+    /// </summary>
+    [SugarColumn(ColumnName = "public_updated_at", IsNullable = true)]
+    public DateTime? PublicUpdatedAt
     {
         get; set;
     }

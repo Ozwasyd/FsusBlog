@@ -213,9 +213,8 @@ public sealed class BlogDistributionService(
                 a.summary AS "Summary",
                 a.coverimageurl AS "CoverImageUrl",
                 COALESCE(a.published_at, a.createtime) AS "PublishedAt",
-                COALESCE(body.updated_at, a.published_at, a.createtime) AS "ModifiedAt"
+                COALESCE(a.public_updated_at, a.published_at, a.createtime) AS "ModifiedAt"
             FROM article a
-            LEFT JOIN article_body body ON body.article_id = a.id
             WHERE a.isdeleted = false
               AND a.status = @Status
               AND (a.published_at IS NULL OR a.published_at <= @Now)
@@ -298,9 +297,8 @@ public sealed class BlogDistributionService(
         const string Sql = """
             SELECT
                 a.id AS "Id",
-                COALESCE(body.updated_at, a.published_at, a.createtime) AS "ModifiedAt"
+                COALESCE(a.public_updated_at, a.published_at, a.createtime) AS "ModifiedAt"
             FROM article a
-            LEFT JOIN article_body body ON body.article_id = a.id
             WHERE a.isdeleted = false
               AND a.status = @Status
               AND (a.published_at IS NULL OR a.published_at <= @Now)
@@ -323,10 +321,9 @@ public sealed class BlogDistributionService(
         const string Sql = """
             SELECT
                 category.id AS "Id",
-                MAX(COALESCE(body.updated_at, a.published_at, a.createtime)) AS "ModifiedAt"
+                MAX(COALESCE(a.public_updated_at, a.published_at, a.createtime)) AS "ModifiedAt"
             FROM category
             INNER JOIN article a ON a.categoryid = category.id
-            LEFT JOIN article_body body ON body.article_id = a.id
             WHERE a.isdeleted = false
               AND a.status = @Status
               AND (a.published_at IS NULL OR a.published_at <= @Now)
@@ -342,11 +339,10 @@ public sealed class BlogDistributionService(
         const string Sql = """
             SELECT
                 tag.id AS "Id",
-                MAX(COALESCE(body.updated_at, a.published_at, a.createtime)) AS "ModifiedAt"
+                MAX(COALESCE(a.public_updated_at, a.published_at, a.createtime)) AS "ModifiedAt"
             FROM tag
             INNER JOIN article_tag article_tag ON article_tag.tagid = tag.id
             INNER JOIN article a ON a.id = article_tag.articleid
-            LEFT JOIN article_body body ON body.article_id = a.id
             WHERE a.isdeleted = false
               AND a.status = @Status
               AND (a.published_at IS NULL OR a.published_at <= @Now)

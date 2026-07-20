@@ -1083,6 +1083,7 @@ public sealed class ArticleDetailAedsArtifactProjector(
                 a.status AS "Status",
                 a.scheduled_publish_at AS "ScheduledPublishAt",
                 a.published_at AS "PublishedAt",
+                a.public_updated_at AS "UpdatedAt",
                 c.name AS "CategoryName",
                 COALESCE(ab.markdown_content, '') AS "Content",
                 rights.id AS "RightsSnapshotId",
@@ -1153,6 +1154,7 @@ public sealed class ArticleDetailAedsArtifactProjector(
                 a.status,
                 a.scheduled_publish_at,
                 a.published_at,
+                a.public_updated_at,
                 c.name,
                 rights.id,
                 rights.article_revision_id,
@@ -1195,6 +1197,7 @@ public sealed class ArticleDetailAedsArtifactProjector(
                 int fStatus = reader.GetOrdinal("Status");
                 int fScheduled = reader.GetOrdinal("ScheduledPublishAt");
                 int fPublished = reader.GetOrdinal("PublishedAt");
+                int fUpdated = reader.GetOrdinal("UpdatedAt");
                 int fCatName = reader.GetOrdinal("CategoryName");
                 int fContent = reader.GetOrdinal("Content");
                 int fTagIds = reader.GetOrdinal("TagIds");
@@ -1216,6 +1219,7 @@ public sealed class ArticleDetailAedsArtifactProjector(
                     Status = (ArticleStatus)reader.GetInt32(fStatus),
                     ScheduledPublishAt = reader.IsDBNull(fScheduled) ? null : reader.GetDateTime(fScheduled),
                     PublishedAt = reader.IsDBNull(fPublished) ? null : reader.GetDateTime(fPublished),
+                    UpdatedAt = reader.IsDBNull(fUpdated) ? null : reader.GetDateTime(fUpdated),
                     CategoryName = reader.IsDBNull(fCatName) ? "默认分类" : reader.GetString(fCatName),
                     Content = content,
                     WordCount = reading.EffectiveChars,

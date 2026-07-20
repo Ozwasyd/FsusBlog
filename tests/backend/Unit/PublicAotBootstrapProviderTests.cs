@@ -132,6 +132,7 @@ public sealed class PublicAotBootstrapProviderTests
         Assert.Contains("Article.get_IsDeleted", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("Article.get_Status", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("Article.get_PublishedAt", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("Article.get_PublicUpdatedAt", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("Article.get_ScheduledPublishAt", runtimeShape, StringComparison.Ordinal);
         Assert.Equal(typeof(string), projection.GetProperty("Content")!.PropertyType);
         Assert.DoesNotContain("includePrivate", runtimeShape, StringComparison.OrdinalIgnoreCase);

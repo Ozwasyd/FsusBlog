@@ -623,7 +623,9 @@ public sealed class ArticleRevisionConcurrencyTests(
                 null,
                 1,
                 Array.Empty<int>(),
-                diffSummary
+                diffSummary,
+                new DateTime(2026, 7, 20, 8, 0, 0, DateTimeKind.Utc),
+                null
             ]);
 
         Assert.NotNull(task);

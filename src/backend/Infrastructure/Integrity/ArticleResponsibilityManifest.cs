@@ -422,11 +422,13 @@ public interface IArticleResponsibilityAuthoringService
 }
 
 public sealed class ArticleResponsibilityAuthoringService(
-    ISqlSugarClient db) : IArticleResponsibilityAuthoringService
+    ISqlSugarClient db,
+    TimeProvider? timeProvider = null) : IArticleResponsibilityAuthoringService
 {
     private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
     private const string ResponsibilityUpdatedEventType = "responsibility-updated";
     private const string ResponsibilityUpdatedTransitionKind = "responsibility-updated";
+    private DateTime UtcNow => (timeProvider ?? TimeProvider.System).GetUtcNow().UtcDateTime;
 
     public async Task<ArticleResponsibilitySaveResponse?> SaveAsync(
         int articleId,
@@ -491,7 +493,7 @@ public sealed class ArticleResponsibilityAuthoringService(
             }
 
             int nextVersion = checked(currentVersion + 1);
-            DateTime createdAt = DateTime.UtcNow;
+            DateTime createdAt = UtcNow;
             long snapshotId = await InsertSnapshotAsync(
                 articleId,
                 articleRevisionId,
@@ -708,8 +710,15 @@ public sealed class ArticleResponsibilityAuthoringService(
         }
 
         int updated = await db.Ado.ExecuteCommandAsync(
-            "UPDATE article SET current_publication_id = @PublicationId WHERE id = @ArticleId AND current_publication_id = @ExpectedPublicationId;",
+            """
+            UPDATE article
+            SET current_publication_id = @PublicationId,
+                public_updated_at = @PublicUpdatedAt
+            WHERE id = @ArticleId
+              AND current_publication_id = @ExpectedPublicationId;
+            """,
             new SugarParameter("@PublicationId", publicationId),
+            new SugarParameter("@PublicUpdatedAt", createdAt),
             new SugarParameter("@ArticleId", coordinates.ArticleId),
             new SugarParameter("@ExpectedPublicationId", coordinates.CurrentPublicationId.Value));
         if (updated != 1)

@@ -735,7 +735,7 @@ public sealed class PublicHotArtifactProjector(
                 a.isdeleted AS "IsDeleted",
                 a.status AS "Status",
                 a.scheduled_publish_at AS "ScheduledPublishAt",
-                publication.published_at AS "PublishedAt",
+                a.published_at AS "PublishedAt",
                 revision.id AS "CurrentRevisionId",
                 revision.revision_no AS "RevisionNo",
                 publication.id AS "CurrentPublicationId",

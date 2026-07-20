@@ -28,6 +28,8 @@ public sealed class ArticleStatusTransitionIntegrationTests(PostgresSchemaMigrat
                 scheduled_publish_at timestamp NULL,
                 pending_publication_at timestamp NULL,
                 published_at timestamp NULL,
+                last_published_at timestamp NULL,
+                public_updated_at timestamp NULL,
                 archived_at timestamp NULL,
                 deleted_at timestamp NULL,
                 isdeleted boolean NOT NULL DEFAULT false
@@ -112,8 +114,48 @@ public sealed class ArticleStatusTransitionIntegrationTests(PostgresSchemaMigrat
         long publicationCount = await fixture.QueryScalarAsync<long>(
             connectionString,
             "SELECT COUNT(*) FROM article_publication WHERE article_id = 42;");
+        DateTime firstPublishedAt = await fixture.QueryScalarAsync<DateTime>(
+            connectionString,
+            "SELECT published_at FROM article WHERE id = 42;");
+        DateTime lastPublishedAt = await fixture.QueryScalarAsync<DateTime>(
+            connectionString,
+            "SELECT last_published_at FROM article WHERE id = 42;");
+        DateTime publicUpdatedAt = await fixture.QueryScalarAsync<DateTime>(
+            connectionString,
+            "SELECT public_updated_at FROM article WHERE id = 42;");
         Assert.Equal((int)ArticleStatus.Published, restoredStatus);
         Assert.Equal(1, publicationCount);
+        Assert.Equal(s_now.AddMinutes(2), DateTime.SpecifyKind(firstPublishedAt, DateTimeKind.Utc));
+        Assert.Equal(s_now.AddMinutes(2), DateTime.SpecifyKind(lastPublishedAt, DateTimeKind.Utc));
+        Assert.Equal(s_now.AddMinutes(2), DateTime.SpecifyKind(publicUpdatedAt, DateTimeKind.Utc));
+
+        await ArticlePublicationTransitionWriter.ApplyAsync(
+            db,
+            new ArticlePublicationTransitionRequest(
+                42,
+                revision,
+                ArticleStatus.Published,
+                null,
+                s_now.AddMinutes(3),
+                ArticlePublicationTransitionKinds.ImmediatePublish,
+                ArticleStatusTransitionOperation.Update));
+
+        firstPublishedAt = await fixture.QueryScalarAsync<DateTime>(
+            connectionString,
+            "SELECT published_at FROM article WHERE id = 42;");
+        lastPublishedAt = await fixture.QueryScalarAsync<DateTime>(
+            connectionString,
+            "SELECT last_published_at FROM article WHERE id = 42;");
+        publicUpdatedAt = await fixture.QueryScalarAsync<DateTime>(
+            connectionString,
+            "SELECT public_updated_at FROM article WHERE id = 42;");
+        publicationCount = await fixture.QueryScalarAsync<long>(
+            connectionString,
+            "SELECT COUNT(*) FROM article_publication WHERE article_id = 42;");
+        Assert.Equal(s_now.AddMinutes(2), DateTime.SpecifyKind(firstPublishedAt, DateTimeKind.Utc));
+        Assert.Equal(s_now.AddMinutes(3), DateTime.SpecifyKind(lastPublishedAt, DateTimeKind.Utc));
+        Assert.Equal(s_now.AddMinutes(3), DateTime.SpecifyKind(publicUpdatedAt, DateTimeKind.Utc));
+        Assert.Equal(2, publicationCount);
     }
 
     [Fact]

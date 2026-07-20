@@ -124,6 +124,7 @@ public static class ArticlePublicationTransitionWriter
                     plan.PublishedAt,
                     plan.ArchivedAt,
                     published.PublicationId,
+                    plan.CreatePublication,
                     cancellationToken)
                 .ConfigureAwait(false);
             return published;
@@ -135,10 +136,11 @@ public static class ArticlePublicationTransitionWriter
                 plan.StoredStatus,
                 plan.ScheduledPublishAt,
                 plan.PendingPublicationAt,
-                plan.PublishedAt,
-                plan.ArchivedAt,
-                currentPublicationId,
-                cancellationToken)
+            plan.PublishedAt,
+            plan.ArchivedAt,
+            currentPublicationId,
+            plan.CreatePublication,
+            cancellationToken)
             .ConfigureAwait(false);
         return request.Version with
         {
@@ -270,6 +272,7 @@ public static class ArticlePublicationTransitionWriter
         DateTime? publishedAt,
         DateTime? archivedAt,
         long? publicationId,
+        bool createPublication,
         CancellationToken cancellationToken)
         => db.Ado.ExecuteCommandAsync(
             """
@@ -279,7 +282,15 @@ public static class ArticlePublicationTransitionWriter
                 status = @Status,
                 scheduled_publish_at = CAST(@ScheduledPublishAt AS timestamp),
                 pending_publication_at = CAST(@PendingPublicationAt AS timestamp),
-                published_at = COALESCE(CAST(@PublishedAt AS timestamp), published_at),
+                published_at = COALESCE(published_at, CAST(@PublishedAt AS timestamp)),
+                last_published_at = CASE
+                    WHEN @CreatePublication THEN CAST(@PublishedAt AS timestamp)
+                    ELSE last_published_at
+                END,
+                public_updated_at = CASE
+                    WHEN @CreatePublication THEN @TransitionedAt
+                    ELSE public_updated_at
+                END,
                 archived_at = CAST(@ArchivedAt AS timestamp)
             WHERE id = @ArticleId
               AND isdeleted = false;
@@ -291,6 +302,8 @@ public static class ArticlePublicationTransitionWriter
             new SugarParameter("@ScheduledPublishAt", (object?)scheduledPublishAt ?? DBNull.Value),
             new SugarParameter("@PendingPublicationAt", (object?)pendingPublicationAt ?? DBNull.Value),
             new SugarParameter("@PublishedAt", (object?)publishedAt ?? DBNull.Value),
+            new SugarParameter("@CreatePublication", createPublication),
+            new SugarParameter("@TransitionedAt", request.TransitionedAt),
             new SugarParameter("@ArchivedAt", (object?)archivedAt ?? DBNull.Value));
 
     private static void Validate(ArticlePublicationTransitionRequest request)

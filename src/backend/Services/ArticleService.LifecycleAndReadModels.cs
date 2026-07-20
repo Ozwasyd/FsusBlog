@@ -101,7 +101,7 @@ public partial class ArticleService
         }
 
         ArticleVersionCoordinates version = await LoadCurrentVersionCoordinatesAsync(id).ConfigureAwait(false);
-        DateTime restoredAt = DateTime.UtcNow;
+        DateTime restoredAt = UtcNow;
 
         bool success = false;
         var result = await _db.Ado.UseTranAsync(async () =>
@@ -131,7 +131,7 @@ public partial class ArticleService
                         ArticlePublicationTransitionKinds.Restore,
                         ArticleStatusTransitionOperation.Restore),
                     ct).ConfigureAwait(false);
-                await RecordArticleMutationOutboxAsync(id, "restored", published);
+                await RecordArticleMutationOutboxAsync(id, "restored", published, restoredAt);
             }
         });
         ct.ThrowIfCancellationRequested();
@@ -792,7 +792,7 @@ public partial class ArticleService
                 a.isdeleted AS "IsDeleted",
                 a.status AS "Status",
                 a.scheduled_publish_at AS "ScheduledPublishAt",
-                publication.published_at AS "PublishedAt",
+                a.published_at AS "PublishedAt",
                 revision.id AS "CurrentRevisionId",
                 revision.revision_no AS "RevisionNo",
                 publication.id AS "CurrentPublicationId",
@@ -1002,7 +1002,7 @@ public partial class ArticleService
                 revision.RevisionNo,
                 PublicationId = publication.Id,
                 publication.PublicationNo,
-                publication.PublishedAt
+                article.PublishedAt
             })
             .ToSql();
 

@@ -54,7 +54,8 @@ public partial class ArticleService(
     IArticleMutationSideEffectCoordinator _mutationSideEffects,
     IArticleViewWriteBuffer _viewWriteBuffer,
     IArticlePublicationValidator _publicationValidator,
-    ArticleBodyRepairQueue _articleBodyRepairQueue) : IArticleCoreGateway
+    ArticleBodyRepairQueue _articleBodyRepairQueue,
+    TimeProvider? _timeProvider = null) : IArticleCoreGateway
 #pragma warning restore IDE1006
 {
     private readonly record struct TrashArticleRow(int Id, int CategoryId, string? CoverImageUrl);
@@ -86,6 +87,7 @@ public partial class ArticleService(
     private const int MaxArticleRevisionInsertAttempts = 3;
     private readonly IDatabase _redis = _redisConnection.GetDatabase();
     private CancellationToken Ct => _httpContextAccessor.HttpContext?.RequestAborted ?? CancellationToken.None;
+    private DateTime UtcNow => (_timeProvider ?? TimeProvider.System).GetUtcNow().UtcDateTime;
 
     private CancellationToken ResolveCancellationToken(CancellationToken cancellationToken)
         => cancellationToken.CanBeCanceled ? cancellationToken : Ct;
@@ -365,8 +367,15 @@ public partial class ArticleService(
                 a.isdeleted AS "IsDeleted",
                 a.status AS "Status",
                 a.scheduled_publish_at AS "ScheduledPublishAt",
-                CASE WHEN @IncludePrivate THEN a.published_at ELSE publication.published_at END AS "PublishedAt",
-                CASE WHEN @IncludePrivate THEN ab.updated_at ELSE published_revision.created_at END AS "UpdatedAt",
+                a.published_at AS "PublishedAt",
+                CASE
+                    WHEN @IncludePrivate THEN GREATEST(
+                        current_revision.created_at,
+                        a.metadata_updated_at,
+                        ab.updated_at,
+                        a.public_updated_at)
+                    ELSE a.public_updated_at
+                END AS "UpdatedAt",
                 (ab.article_id IS NOT NULL AND btrim(COALESCE(ab.markdown_content, '')) <> '') AS "BodyAvailable",
                 CASE WHEN @IncludePrivate THEN current_revision.id ELSE published_revision.id END AS "CurrentRevisionId",
                 CASE WHEN @IncludePrivate THEN current_revision.revision_no ELSE published_revision.revision_no END AS "RevisionNo",
@@ -455,6 +464,8 @@ public partial class ArticleService(
                 a.status,
                 a.scheduled_publish_at,
                 a.published_at,
+                a.metadata_updated_at,
+                a.public_updated_at,
                 publication.id,
                 publication.publication_no,
                 publication.published_at,
@@ -666,7 +677,7 @@ public partial class ArticleService(
         ArticleSummaryProjectionResult summaryProjection = ArticleSummaryProjection.Resolve(summary, content);
         string safeSummary = summaryProjection.Text;
         ArticleRightsWriteModel rights = ResolveCreateArticleRights(dto);
-        DateTime now = DateTime.UtcNow;
+        DateTime now = UtcNow;
         ArticleStatus status = (ArticleStatus)dto.Status;
         ValidateWriteTarget(status, dto.ScheduledPublishAt, now);
         var article = new Article
@@ -676,9 +687,12 @@ public partial class ArticleService(
             CoverImageUrl = coverImageUrl,
             CategoryId = dto.CategoryId,
             CreateTime = now,
+            MetadataUpdatedAt = now,
             Status = status,
             ScheduledPublishAt = status == ArticleStatus.Scheduled ? dto.ScheduledPublishAt : null,
             PublishedAt = status == ArticleStatus.Published ? now : null,
+            LastPublishedAt = status == ArticleStatus.Published ? now : null,
+            PublicUpdatedAt = status == ArticleStatus.Published ? now : null,
             ArchivedAt = status == ArticleStatus.Archived ? now : null,
             IsDeleted = false,
             Content = content
@@ -712,7 +726,7 @@ public partial class ArticleService(
                 validation.ThrowIfWriteBlocked();
 
                 int id = await _db.Insertable(article).ExecuteReturnIdentityAsync();
-                await _db.Insertable(new ArticleBody { ArticleId = id, MarkdownContent = content, UpdatedAt = DateTime.UtcNow }).ExecuteCommandAsync();
+                await _db.Insertable(new ArticleBody { ArticleId = id, MarkdownContent = content, UpdatedAt = now }).ExecuteCommandAsync();
                 if (tagIds.Count > 0)
                 {
                     await _db.Insertable(BuildArticleTags(id, tagIds)).ExecuteCommandAsync();
@@ -725,7 +739,8 @@ public partial class ArticleService(
                     coverImageUrl,
                     dto.CategoryId,
                     tagIds,
-                    ArticleSummaryProjection.AttachGenerationVersion("initial publish", summaryProjection));
+                    ArticleSummaryProjection.AttachGenerationVersion("initial publish", summaryProjection),
+                    now);
                 var assetReferences = new ArticleAssetReferenceStore(_db);
                 await assetReferences.ReplaceCurrentArticleAsync(id, content, coverImageUrl, ct).ConfigureAwait(false);
                 await assetReferences.ReplaceRevisionAsync(revision.Id, id, content, coverImageUrl, ct).ConfigureAwait(false);
@@ -741,7 +756,8 @@ public partial class ArticleService(
                     status,
                     article.PublishedAt,
                     article.ScheduledPublishAt,
-                    rights);
+                    rights,
+                    now);
                 long? responsibilitySnapshotId = await LoadResponsibilitySnapshotIdAsync(revision.Id);
                 ArticleVersionCoordinates version = await ArticlePublicationTransitionWriter.ApplyAsync(
                     _db,
@@ -753,7 +769,7 @@ public partial class ArticleService(
                         now,
                         TransitionKindFor(status),
                         ArticleStatusTransitionOperation.Create));
-                await RecordArticleMutationOutboxAsync(id, ArticleMutationEventTypes.Created, version);
+                await RecordArticleMutationOutboxAsync(id, ArticleMutationEventTypes.Created, version, now);
                 return id;
             });
 
@@ -802,6 +818,7 @@ public partial class ArticleService(
         int categoryId,
         IReadOnlyList<int> tagIds,
         string diffSummary,
+        DateTime createdAt,
         ArticleRollbackMetadata? rollback = null)
     {
         await _db.Ado.ExecuteCommandAsync(
@@ -877,7 +894,7 @@ public partial class ArticleService(
                     new("@createdByAdminPrincipalId", actorAdminPrincipalId),
                     new("@rollbackSourceRevisionId", (object?)rollback?.SourceRevisionId ?? DBNull.Value),
                     new("@rollbackReason", (object?)rollback?.Reason ?? DBNull.Value),
-                    new("@createdAt", DateTime.UtcNow)
+                    new("@createdAt", createdAt)
                 });
             if (await reader.ReadAsync(Ct).ConfigureAwait(false))
             {
@@ -924,7 +941,8 @@ public partial class ArticleService(
         ArticleStatus status,
         DateTime? publishedAt,
         DateTime? scheduledPublishAt,
-        ArticleRightsWriteModel rights)
+        ArticleRightsWriteModel rights,
+        DateTime createdAt)
     {
         long policyId = await EnsureArticleRightsPolicyAsync(articleId, rights).ConfigureAwait(false);
         string contentCanonicalHash = "sha256:" + ArticleCanonicalHashV1.ComputeHashHex(new ArticleCanonicalInput(
@@ -1021,7 +1039,7 @@ public partial class ArticleService(
             NullableStringParameter("@CanonicalUrl", null),
             new SugarParameter("@PolicyHash", policyHash),
             new SugarParameter("@ContentCanonicalHash", contentCanonicalHash),
-            new SugarParameter("@CreatedAt", DateTime.UtcNow));
+            new SugarParameter("@CreatedAt", createdAt));
         if (!await reader.ReadAsync(Ct).ConfigureAwait(false))
         {
             throw new InvalidOperationException($"Article rights snapshot was not created for article {articleId} revision {revision.Id}.");
@@ -1276,7 +1294,11 @@ public partial class ArticleService(
         return string.IsNullOrWhiteSpace(normalized) ? fallback : normalized;
     }
 
-    private Task RecordArticleMutationOutboxAsync(int articleId, string eventType, ArticleVersionCoordinates version)
+    private Task RecordArticleMutationOutboxAsync(
+        int articleId,
+        string eventType,
+        ArticleVersionCoordinates version,
+        DateTime createdAt)
         => _db.Insertable(new ArticleMutationOutboxEvent
         {
             EventId = Guid.NewGuid().ToString("N"),
@@ -1289,14 +1311,14 @@ public partial class ArticleService(
             PayloadJson = ArticlePublicationTransitionWriter.BuildOutboxPayload(articleId, eventType, version),
             Status = "pending",
             RetryCount = 0,
-            NextRetryAt = DateTime.UtcNow,
-            CreatedAt = DateTime.UtcNow
+            NextRetryAt = createdAt,
+            CreatedAt = createdAt
         }).ExecuteCommandAsync();
 
     private async Task RecordArticleMutationOutboxAsync(int articleId, string eventType)
     {
         ArticleVersionCoordinates version = await LoadCurrentVersionCoordinatesAsync(articleId).ConfigureAwait(false);
-        await RecordArticleMutationOutboxAsync(articleId, eventType, version).ConfigureAwait(false);
+        await RecordArticleMutationOutboxAsync(articleId, eventType, version, UtcNow).ConfigureAwait(false);
     }
 
     private async Task<ArticleVersionCoordinates> LoadCurrentVersionCoordinatesAsync(int articleId)
@@ -1367,13 +1389,21 @@ public partial class ArticleService(
         var tagIds = NormalizeTagIds(dto.TagIds);
         ArticleSummaryProjectionResult summaryProjection = ArticleSummaryProjection.Resolve(summary, content);
         string safeSummary = summaryProjection.Text;
-        DateTime now = DateTime.UtcNow;
+        DateTime now = UtcNow;
         ArticleStatus requestedStatus = (ArticleStatus)dto.Status;
         ValidateWriteTarget(requestedStatus, dto.ScheduledPublishAt, now);
 
         ArticleStatus status = requestedStatus;
         DateTime? scheduledPublishAt = status == ArticleStatus.Scheduled ? dto.ScheduledPublishAt : null;
         DateTime? publishedAt = state.PublishedAt ?? (status == ArticleStatus.Published ? now : null);
+        bool metadataChanged = state.IsMetadataChanged(
+            title,
+            safeSummary,
+            coverImageUrl,
+            dto.CategoryId,
+            tagIds,
+            status,
+            scheduledPublishAt);
         bool requiresPublicFence = ArticlePublication.IsPubliclyVisible(
                 state.Status,
                 isDeleted: false,
@@ -1420,7 +1450,9 @@ public partial class ArticleService(
                     safeSummary,
                     coverImageUrl,
                     dto.CategoryId,
-                    force ? null : dto.BaseRevisionId);
+                    force ? null : dto.BaseRevisionId,
+                    metadataChanged,
+                    now);
                 if (!updated)
                 {
                     ArticleUpdateState? current = await LoadArticleUpdateStateAsync(id);
@@ -1444,6 +1476,7 @@ public partial class ArticleService(
                     dto.CategoryId,
                     tagIds,
                     ArticleSummaryProjection.AttachGenerationVersion("article updated", summaryProjection),
+                    now,
                     rollback);
                 var assetReferences = new ArticleAssetReferenceStore(_db);
                 await assetReferences.ReplaceCurrentArticleAsync(id, content, coverImageUrl, ct).ConfigureAwait(false);
@@ -1461,7 +1494,8 @@ public partial class ArticleService(
                     status,
                     publishedAt,
                     scheduledPublishAt,
-                    rights);
+                    rights,
+                    now);
                 long? responsibilitySnapshotId = rollback.HasValue
                     ? await CloneResponsibilitySnapshotAsync(id, revision, rollback.Value.SourceRevisionId).ConfigureAwait(false)
                     : await LoadResponsibilitySnapshotIdAsync(revision.Id);
@@ -1477,7 +1511,7 @@ public partial class ArticleService(
                         transitionKind == ArticlePublicationTransitionKinds.Rollback
                             ? ArticleStatusTransitionOperation.Rollback
                             : ArticleStatusTransitionOperation.Update));
-                await RecordArticleMutationOutboxAsync(id, ArticleMutationEventTypes.Updated, version);
+                await RecordArticleMutationOutboxAsync(id, ArticleMutationEventTypes.Updated, version, now);
             });
 
             mutationCommitted = result.IsSuccess && articleUpdated;
@@ -1524,9 +1558,13 @@ public partial class ArticleService(
     {
         using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
             """
-            SELECT a.categoryid,
+            SELECT a.title,
+                   a.summary,
+                   a.coverimageurl,
+                   a.categoryid,
                    a.xmin::text AS row_version,
                    a.status,
+                   a.scheduled_publish_at,
                    a.published_at,
                    a.current_revision_id,
                    revision.revision_no,
@@ -1541,7 +1579,8 @@ public partial class ArticleService(
             LEFT JOIN article_tag at ON at.articleid = a.id
             WHERE a.id = @ArticleId
               AND a.isdeleted = false
-            GROUP BY a.id, a.categoryid, a.xmin, a.status, a.published_at,
+            GROUP BY a.id, a.title, a.summary, a.coverimageurl, a.categoryid, a.xmin,
+                     a.status, a.scheduled_publish_at, a.published_at,
                      a.current_revision_id, revision.revision_no, revision.created_at;
             """,
             new SugarParameter("@ArticleId", articleId));
@@ -1558,10 +1597,16 @@ public partial class ArticleService(
             : NormalizeArticleListTimestampUtc(reader.ReadDateTime("published_at"));
         int[] tags = reader.ReadFieldValue<int[]>("tag_ids");
         return new ArticleUpdateState(
+            reader.ReadString("title"),
+            reader.IsNull("summary") ? null : reader.ReadString("summary"),
+            reader.IsNull("coverimageurl") ? null : reader.ReadString("coverimageurl"),
             categoryId,
             tags.ToList(),
             rowVersion,
             status,
+            reader.IsNull("scheduled_publish_at")
+                ? null
+                : NormalizeArticleListTimestampUtc(reader.ReadDateTime("scheduled_publish_at")),
             publishedAt,
             reader.ReadInt64("current_revision_id"),
             reader.ReadInt32("revision_no"),
@@ -1590,7 +1635,9 @@ public partial class ArticleService(
         string summary,
         string? coverImageUrl,
         int categoryId,
-        long? baseRevisionId)
+        long? baseRevisionId,
+        bool metadataChanged,
+        DateTime updatedAt)
     {
         int affectedRows = await _db.Ado.ExecuteCommandAsync(
             """
@@ -1598,7 +1645,11 @@ public partial class ArticleService(
             SET title = @Title,
                 summary = @Summary,
                 coverimageurl = @CoverImageUrl,
-                categoryid = @CategoryId
+                categoryid = @CategoryId,
+                metadata_updated_at = CASE
+                    WHEN @MetadataChanged THEN @UpdatedAt
+                    ELSE metadata_updated_at
+                END
             WHERE id = @ArticleId
               AND isdeleted = false
               AND (@BaseRevisionId = 0 OR current_revision_id = @BaseRevisionId)
@@ -1610,7 +1661,9 @@ public partial class ArticleService(
             new SugarParameter("@Title", title),
             new SugarParameter("@Summary", summary),
             new SugarParameter("@CoverImageUrl", (object?)coverImageUrl ?? DBNull.Value),
-            new SugarParameter("@CategoryId", categoryId));
+            new SugarParameter("@CategoryId", categoryId),
+            new SugarParameter("@MetadataChanged", metadataChanged),
+            new SugarParameter("@UpdatedAt", updatedAt));
         return affectedRows > 0;
     }
 
@@ -1663,15 +1716,35 @@ public partial class ArticleService(
     }
 
     private sealed record ArticleUpdateState(
+        string Title,
+        string? Summary,
+        string? CoverImageUrl,
         int CategoryId,
         List<int> TagIds,
         string RowVersion,
         ArticleStatus Status,
+        DateTime? ScheduledPublishAt,
         DateTime? PublishedAt,
         long CurrentRevisionId,
         int RevisionNo,
         DateTime UpdatedAtUtc)
     {
+        public bool IsMetadataChanged(
+            string title,
+            string? summary,
+            string? coverImageUrl,
+            int categoryId,
+            IReadOnlyList<int> tagIds,
+            ArticleStatus status,
+            DateTime? scheduledPublishAt)
+            => !string.Equals(Title, title, StringComparison.Ordinal)
+                || !string.Equals(Summary, summary, StringComparison.Ordinal)
+                || !string.Equals(CoverImageUrl, coverImageUrl, StringComparison.Ordinal)
+                || CategoryId != categoryId
+                || !TagIds.SequenceEqual(tagIds)
+                || Status != status
+                || ScheduledPublishAt != scheduledPublishAt;
+
         public ArticleRevisionConflictException ToConflictException()
             => new(CurrentRevisionId, RevisionNo, (int)Status, UpdatedAtUtc);
     }
