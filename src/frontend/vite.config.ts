@@ -9,6 +9,7 @@ import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
 import { createFsusUiAliases, resolveFsusUiWasmDist, resolveLocalFsusUiRoot } from './scripts/fsusui-local'
 import { generatedArtifactWatchIgnorePatterns } from './scripts/vite-watch-policy.mjs'
+import { assertProductionFrontendBuildId } from './src/config/releaseStorage'
 
 const FRONTEND_ROOT = fileURLToPath(new URL('./', import.meta.url))
 const REPO_ROOT = path.resolve(FRONTEND_ROOT, '../..')
@@ -458,6 +459,10 @@ function injectPublicSourceCssInDev() {
 // https://vite.dev/config/
 export default defineConfig(({ command, mode }) => {
     const env = loadEnv(mode, process.cwd())
+    const frontendBuildId = env.VITE_FSUSBLOG_BUILD_ID?.trim() || ''
+    if (command === 'build' && mode === 'production') {
+        assertProductionFrontendBuildId(frontendBuildId)
+    }
     const apiBaseUrl = env.VITE_API_BASE_URL?.trim() || 'http://127.0.0.1:7568'
     const enableVueHydrationMismatchDetails = process.env.FSUSBLOG_VUE_HYDRATION_DETAILS === '1'
         || process.env.FSUSBLOG_VUE_HYDRATION_DETAILS?.toLowerCase() === 'true'

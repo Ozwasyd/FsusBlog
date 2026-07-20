@@ -1,6 +1,7 @@
 using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
 using Microsoft.AspNetCore.Hosting;
@@ -151,6 +152,7 @@ public sealed class ReleaseIdentityTests
         var logger = new CapturingLogger<ReleaseIdentityStartupLogger>();
         var service = new ReleaseIdentityStartupLogger(
             new ReleaseIdentityProvider(new ConfigurationBuilder().Build()),
+            new StubAssemblyReleaseIdentityProvider("local-unversioned"),
             new TestWebHostEnvironment(Environments.Production),
             logger);
 
@@ -167,6 +169,7 @@ public sealed class ReleaseIdentityTests
         var logger = new CapturingLogger<ReleaseIdentityStartupLogger>();
         var service = new ReleaseIdentityStartupLogger(
             new ReleaseIdentityProvider(CreateConfiguration()),
+            new StubAssemblyReleaseIdentityProvider(ReleaseId),
             new TestWebHostEnvironment(Environments.Production),
             logger);
 
@@ -179,6 +182,89 @@ public sealed class ReleaseIdentityTests
         Assert.Contains($"ghcr.io/fsusblog/app@{s_digest}", message, StringComparison.Ordinal);
         Assert.DoesNotContain("token", message, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("secret", message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("", "release_assembly_identity_missing")]
+    [InlineData("local-unversioned", "release_assembly_identity_missing")]
+    [InlineData("20260711010102-0123456789ab", "release_assembly_identity_mismatch")]
+    [InlineData("v1.2.0", "release_assembly_identity_mismatch")]
+    public void StartupLogger_ProductionRejectsMissingOrMismatchedAssemblyIdentity(
+        string informationalVersion,
+        string expectedError)
+    {
+        ReleaseIdentitySnapshot snapshot = new ReleaseIdentityProvider(CreateConfiguration()).Current;
+
+        string? error = ReleaseIdentityStartupLogger.ValidateAssemblyInformationalVersion(
+            snapshot,
+            informationalVersion,
+            requireCanonicalIdentity: true);
+
+        Assert.Equal(expectedError, error);
+    }
+
+    [Fact]
+    public void StartupLogger_DevelopmentAllowsExplicitNonReleaseAssemblyIdentity()
+    {
+        ReleaseIdentitySnapshot snapshot = new ReleaseIdentityProvider(new ConfigurationBuilder().Build()).Current;
+
+        Assert.Null(ReleaseIdentityStartupLogger.ValidateAssemblyInformationalVersion(
+            snapshot,
+            "local-unversioned",
+            requireCanonicalIdentity: false));
+    }
+
+    [Fact]
+    public async Task StartupLogger_ProductionFailsClosedForMismatchedAssemblyIdentity()
+    {
+        var service = new ReleaseIdentityStartupLogger(
+            new ReleaseIdentityProvider(CreateConfiguration()),
+            new StubAssemblyReleaseIdentityProvider("20260711010102-0123456789ab"),
+            new TestWebHostEnvironment(Environments.Production),
+            new CapturingLogger<ReleaseIdentityStartupLogger>());
+
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => service.StartAsync(CancellationToken.None));
+
+        Assert.Equal(
+            "Production assembly release identity is invalid: release_assembly_identity_mismatch.",
+            error.Message);
+    }
+
+    [Fact]
+    public void Provider_IgnoresRetiredCommitEnvironmentAliases()
+    {
+        IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(
+            new Dictionary<string, string?>
+            {
+                ["GITHUB_SHA"] = CommitSha,
+                ["FSUSBLOG_COMMIT"] = CommitSha
+            }).Build();
+
+        var provider = new ReleaseIdentityProvider(configuration);
+
+        Assert.Equal(new string('0', 40), provider.Current.CommitSha);
+        Assert.False(provider.Current.Configured);
+    }
+
+    [Fact]
+    public void SchemaMigrationHistory_UsesCanonicalProviderReleaseIdWithoutAssemblyFallback()
+    {
+        var provider = new ReleaseIdentityProvider(CreateConfiguration());
+
+        Assert.Equal(ReleaseId, SchemaMigrationRunner.ResolveAppVersion(provider));
+    }
+
+    [Fact]
+    public void SchemaMigrationHistory_RejectsInvalidConfiguredProviderIdentity()
+    {
+        var provider = new ReleaseIdentityProvider(CreateConfiguration(
+            new Dictionary<string, string?> { ["FSUSBLOG_RELEASE_ID"] = "v1.2.0" }));
+
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(
+            () => SchemaMigrationRunner.ResolveAppVersion(provider));
+
+        Assert.Equal("Schema migration history requires a valid runtime release identity.", error.Message);
     }
 
     [Fact]
@@ -222,6 +308,12 @@ public sealed class ReleaseIdentityTests
         public string EnvironmentName { get; set; } = environmentName;
         public string ContentRootPath { get; set; } = Path.GetTempPath();
         public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
+    }
+
+    private sealed class StubAssemblyReleaseIdentityProvider(string informationalVersion)
+        : IAssemblyReleaseIdentityProvider
+    {
+        public string InformationalVersion => informationalVersion;
     }
 
     private sealed class CapturingLogger<T> : ILogger<T>

@@ -1,3 +1,5 @@
+using System.Reflection;
+
 namespace FsusBlog.Server.Infrastructure.Operations;
 
 public sealed record ReleaseIdentitySnapshot(
@@ -27,6 +29,24 @@ public interface IReleaseIdentityProvider
     }
 
     ProductionReleaseIdentityHealthCheck CreateHealthCheck(bool requireConfigured);
+}
+
+public interface IAssemblyReleaseIdentityProvider
+{
+    string InformationalVersion
+    {
+        get;
+    }
+}
+
+public sealed class EntryAssemblyReleaseIdentityProvider : IAssemblyReleaseIdentityProvider
+{
+    public string InformationalVersion
+        => Assembly.GetEntryAssembly()?
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+            .InformationalVersion
+            ?.Trim()
+            ?? string.Empty;
 }
 
 public sealed class ReleaseIdentityProvider(IConfiguration configuration) : IReleaseIdentityProvider
@@ -140,6 +160,7 @@ public sealed class ReleaseIdentityProvider(IConfiguration configuration) : IRel
 
 public sealed class ReleaseIdentityStartupLogger(
     IReleaseIdentityProvider releaseIdentity,
+    IAssemblyReleaseIdentityProvider assemblyReleaseIdentity,
     IWebHostEnvironment environment,
     ILogger<ReleaseIdentityStartupLogger> logger) : IHostedService
 {
@@ -151,6 +172,15 @@ public sealed class ReleaseIdentityStartupLogger(
             throw new InvalidOperationException("Production release identity is missing or invalid.");
         }
         ReleaseIdentitySnapshot current = releaseIdentity.Current;
+        string? assemblyIdentityError = ValidateAssemblyInformationalVersion(
+            current,
+            assemblyReleaseIdentity.InformationalVersion,
+            environment.IsProduction());
+        if (assemblyIdentityError is not null)
+        {
+            throw new InvalidOperationException(
+                $"Production assembly release identity is invalid: {assemblyIdentityError}.");
+        }
         logger.LogInformation(
             "FsusBlog release starting. ReleaseId={ReleaseId} Slot={ReleaseSlot} Commit={CommitSha} ImageRef={ImageRef} ImageDigest={ImageDigest}",
             current.ReleaseId,
@@ -162,4 +192,25 @@ public sealed class ReleaseIdentityStartupLogger(
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+    internal static string? ValidateAssemblyInformationalVersion(
+        ReleaseIdentitySnapshot releaseIdentity,
+        string assemblyInformationalVersion,
+        bool requireCanonicalIdentity)
+    {
+        if (!requireCanonicalIdentity)
+        {
+            return null;
+        }
+
+        string candidate = assemblyInformationalVersion.Trim();
+        if (candidate.Length == 0 || candidate == ReleaseIdContract.LocalSentinel)
+        {
+            return "release_assembly_identity_missing";
+        }
+
+        return string.Equals(candidate, releaseIdentity.ReleaseId, StringComparison.Ordinal)
+            ? null
+            : "release_assembly_identity_mismatch";
+    }
 }

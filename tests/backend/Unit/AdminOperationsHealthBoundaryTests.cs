@@ -2,6 +2,7 @@ using System.Reflection;
 
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Models.Dtos;
 
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -35,9 +36,29 @@ public sealed class AdminOperationsHealthBoundaryTests
         Assert.Contains(
             healthDependencies,
             static parameter => parameter.ParameterType == typeof(IAdminCacheDiagnosticsReader));
+        Assert.Contains(
+            healthDependencies,
+            static parameter => parameter.ParameterType == typeof(IReleaseIdentityProvider));
         Assert.DoesNotContain(
             healthDependencies,
             static parameter => parameter.ParameterType == typeof(AdminIntegrityOperations));
+    }
+
+    [Fact]
+    public void Contract_UsesExplicitCanonicalReleaseIdentityFields()
+    {
+        PropertyInfo[] properties = typeof(OpsHealthResponse).GetProperties();
+        Assert.Contains(properties, static property =>
+            property.Name == nameof(OpsHealthResponse.ReleaseIdentity)
+            && property.PropertyType == typeof(OpsReleaseIdentityResponse));
+        Assert.DoesNotContain(properties, static property => property.Name is "Version" or "Commit");
+
+        Assert.Equal(
+            ["ReleaseId", "CommitSha", "ReleaseSlot"],
+            typeof(OpsReleaseIdentityResponse).GetProperties().Select(static property => property.Name));
+        Assert.DoesNotContain(
+            typeof(AdminOperationsHealthReader).GetMethods(BindingFlags.NonPublic | BindingFlags.Static),
+            static method => method.Name is "ResolveVersion" or "ResolveCommit");
     }
 
     [Fact]

@@ -28,7 +28,14 @@ Uploads use a shared final directory. Direct uploads and chunk completion write 
 
 An existing destination is accepted only when its SHA-256 is identical. Mutable entry documents receive `no-store,max-age=0,must-revalidate`; all other files receive `public,max-age=31536000,immutable`. `ReleaseAssetStaticFileExtensions.UseFsusReleaseAssets` exposes the retained release directories and emits `X-Fsus-Frontend-Build` without falling back to a different release.
 
-The frontend uses `VITE_FSUSBLOG_BUILD_ID` to resolve Wasm under its own release URL. Development and builds without that variable retain `/wasm`; production image construction must set it to the immutable release ID.
+The frontend uses the generated canonical ReleaseId contract to normalize
+`VITE_FSUSBLOG_BUILD_ID` once for bootstrap import recovery, Service Worker
+query/cache identity, release-derived search paths, and Wasm release assets.
+Production Vite builds fail closed when the value is missing, a mutable alias,
+SemVer, or otherwise non-canonical; runtime production consumers also reject an
+invalid identity instead of falling back to `unversioned`. Local Vite serve uses
+the explicit `local-unversioned` sentinel, keeps release-derived search/Wasm on
+their development paths, and does not register a production Service Worker.
 
 ## Compatibility metadata
 

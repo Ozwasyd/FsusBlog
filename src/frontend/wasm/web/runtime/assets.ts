@@ -1,7 +1,10 @@
 import { isCanonicalReleaseId } from '../../../src/generated/releaseIdContract';
+import { resolveFrontendBuildIdentity } from '../../../src/config/releaseStorage';
 
 const baseUrl = (import.meta.env?.BASE_URL || '/').replace(/\/?$/, '/');
-const frontendBuildId = import.meta.env?.VITE_FSUSBLOG_BUILD_ID?.trim() || '';
+const frontendBuildId = resolveFrontendBuildIdentity(
+  import.meta.env?.VITE_FSUSBLOG_BUILD_ID,
+  import.meta.env?.PROD === true);
 const releaseAssetBase = isCanonicalReleaseId(frontendBuildId)
   ? `${baseUrl}release-assets/${frontendBuildId}/`
   : baseUrl;

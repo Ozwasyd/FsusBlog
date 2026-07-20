@@ -626,6 +626,10 @@ tiers:
           - docs/issue-1023-admin-ia-handoff.md
           - tests/frontend/unit/wasmReleaseAssets.test.ts
           - tests/frontend/unit/releaseStorage.test.ts
+          - tests/frontend/unit/bootstrap/bootstrapImportRecovery.test.ts
+          - tests/frontend/unit/services/serviceWorkerRuntime.test.ts
+          - src/frontend/src/view-contracts/opsReleaseIdentity.ts
+          - tests/frontend/unit/view-contracts/opsReleaseIdentity.test.ts
           - tests/frontend/unit/services/notificationStreamRestartPolicy.test.ts
           - tests/frontend/unit/api/admin.test.ts
           - tests/frontend/unit/api/authoring.test.ts
@@ -1590,6 +1594,12 @@ tiers:
           - tools/operations/test-backup-envelope-fixture.sh
           - tests/tools/backup-envelope-contract.test.mjs
           - tests/backend/Unit/ReleaseIdentityTests.cs
+          - src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs
+          - tests/backend/Unit/AdminOperationsHealthBoundaryTests.cs
+          - tests/frontend/unit/releaseStorage.test.ts
+          - tests/frontend/unit/bootstrap/bootstrapImportRecovery.test.ts
+          - tests/frontend/unit/services/serviceWorkerRuntime.test.ts
+          - tests/frontend/unit/view-contracts/opsReleaseIdentity.test.ts
           - tools/operations/test-release-evidence-fixture.sh
           - docs/issue-1025-blue-green-slots-handoff.md
           - docs/issue-1026-gateway-switch-handoff.md

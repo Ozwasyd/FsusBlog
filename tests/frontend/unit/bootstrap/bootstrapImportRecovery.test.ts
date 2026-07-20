@@ -28,7 +28,7 @@ describe('bootstrap import recovery', () => {
     const recovery = createBootstrapImportRecovery({
       storage: sessionStorage,
       reload,
-      buildId: 'build-20260719',
+      buildId: '20260719030000-0123456789ab',
       now: Date.now
     })
 
@@ -49,7 +49,7 @@ describe('bootstrap import recovery', () => {
     const recovery = createBootstrapImportRecovery({
       storage: sessionStorage,
       reload,
-      buildId: 'build-20260719',
+      buildId: '20260719030000-0123456789ab',
       now: Date.now
     })
     const load = vi.fn().mockRejectedValue(importFailure())
@@ -62,13 +62,13 @@ describe('bootstrap import recovery', () => {
 
   it('clears retry state after a successful dynamic import and bootstrap', async () => {
     sessionStorage.setItem(BOOTSTRAP_IMPORT_RETRY_KEY, JSON.stringify({
-      buildId: 'build-20260719',
+      buildId: '20260719030000-0123456789ab',
       attemptedAtMs: Date.now()
     }))
     const recovery = createBootstrapImportRecovery({
       storage: sessionStorage,
       reload: vi.fn(),
-      buildId: 'build-20260719',
+      buildId: '20260719030000-0123456789ab',
       now: Date.now
     })
     const bootstrap = vi.fn().mockResolvedValue(undefined)
@@ -81,14 +81,14 @@ describe('bootstrap import recovery', () => {
 
   it('removes markers from an older build before the next import attempt', () => {
     sessionStorage.setItem(BOOTSTRAP_IMPORT_RETRY_KEY, JSON.stringify({
-      buildId: 'build-old',
+      buildId: '20260718030000-aaaaaaaaaaaa',
       attemptedAtMs: Date.now()
     }))
 
     createBootstrapImportRecovery({
       storage: sessionStorage,
       reload: vi.fn(),
-      buildId: 'build-new',
+      buildId: '20260719030000-bbbbbbbbbbbb',
       now: Date.now
     })
 
@@ -97,7 +97,7 @@ describe('bootstrap import recovery', () => {
 
   it('expires an abandoned marker after the bounded retry window', () => {
     sessionStorage.setItem(BOOTSTRAP_IMPORT_RETRY_KEY, JSON.stringify({
-      buildId: 'build-20260719',
+      buildId: '20260719030000-0123456789ab',
       attemptedAtMs: Date.now()
     }))
     vi.advanceTimersByTime(BOOTSTRAP_IMPORT_RETRY_TTL_MS + 1)
@@ -105,7 +105,7 @@ describe('bootstrap import recovery', () => {
     const recovery = createBootstrapImportRecovery({
       storage: sessionStorage,
       reload,
-      buildId: 'build-20260719',
+      buildId: '20260719030000-0123456789ab',
       now: Date.now
     })
 
@@ -119,7 +119,7 @@ describe('bootstrap import recovery', () => {
     const recovery = createBootstrapImportRecovery({
       storage: sessionStorage,
       reload,
-      buildId: 'build-20260719',
+      buildId: '20260719030000-0123456789ab',
       now: Date.now
     })
 
@@ -130,5 +130,13 @@ describe('bootstrap import recovery', () => {
     )).rejects.toThrow('application bootstrap failed')
     expect(reload).not.toHaveBeenCalled()
     expect(sessionStorage.length).toBe(0)
+  })
+
+  it('rejects mutable or ambiguous retry namespaces', () => {
+    expect(() => createBootstrapImportRecovery({
+      storage: sessionStorage,
+      reload: vi.fn(),
+      buildId: 'v1.2.0'
+    })).toThrow('Bootstrap import recovery requires a canonical frontend build identity.')
   })
 })

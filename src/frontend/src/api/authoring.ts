@@ -311,13 +311,18 @@ export interface OpsHealthResponse {
   status: string
   checkedAt: string
   environment: string
-  version: string
-  commit: string
+  releaseIdentity: OpsReleaseIdentityResponse
   services: AdminServiceStatusResponse[]
   workers: AdminServiceStatusResponse[]
   queueBacklog: QueueBacklogResponse
   backup: BackupStatusResponse
   recentErrors: RecentOpsErrorResponse[]
+}
+
+export interface OpsReleaseIdentityResponse {
+  releaseId: string
+  commitSha: string
+  releaseSlot: string
 }
 
 export interface AotDiagnosticsResponse {

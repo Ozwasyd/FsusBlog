@@ -17,7 +17,7 @@
         <el-button :icon="Refresh" :loading="loading" @click="loadHealth">刷新</el-button>
       </template>
 
-      <FsusUiKeyValueGrid v-if="health" class="grid gap-4 md:grid-cols-4">
+      <FsusUiKeyValueGrid v-if="health" class="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
         <FsusUiKeyValueItem label="状态" :tone="kvTone(health.status)">
           <el-tag :type="toFsusUiTagType(adminStatusTone[toAdminSystemStatus(health.status)])">
             {{ adminStatusLabel[toAdminSystemStatus(health.status)] }}
@@ -26,8 +26,18 @@
         <FsusUiKeyValueItem label="环境">
           {{ health.environment }}
         </FsusUiKeyValueItem>
+        <FsusUiKeyValueItem label="发布">
+          <span class="truncate" :title="releaseIdentityView.releaseLabel">
+            {{ releaseIdentityView.releaseLabel }}
+          </span>
+        </FsusUiKeyValueItem>
         <FsusUiKeyValueItem label="提交">
-          <span class="truncate">{{ health.commit }}</span>
+          <span class="truncate" :title="releaseIdentityView.fullCommitSha ?? undefined">
+            {{ releaseIdentityView.commitLabel }}
+          </span>
+        </FsusUiKeyValueItem>
+        <FsusUiKeyValueItem label="槽位">
+          {{ releaseIdentityView.releaseSlotLabel }}
         </FsusUiKeyValueItem>
         <FsusUiKeyValueItem label="队列">
           {{ health.queueBacklog.articleMutationPending }} / {{ health.queueBacklog.auditQueued }}
@@ -189,10 +199,20 @@ import {
   type AdminStatusTone,
   type AdminSystemStatus
 } from '@/view-contracts/adminStatus'
+import { toOpsReleaseIdentityView } from '@/view-contracts/opsReleaseIdentity'
 
 const loading = shallowRef(false)
 const health = shallowRef<OpsHealthResponse | null>(null)
 const opsRecentErrors = computed(() => health.value?.recentErrors ?? [])
+const releaseIdentityView = computed(() => health.value
+  ? toOpsReleaseIdentityView(health.value.releaseIdentity)
+  : {
+      releaseLabel: '-',
+      commitLabel: '-',
+      releaseSlotLabel: '-',
+      fullCommitSha: null,
+      published: false
+    })
 
 const loadHealth = async (): Promise<void> => {
   loading.value = true

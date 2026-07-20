@@ -100,13 +100,19 @@
                 "tests/tools/release-id.test.mjs",
                 "tests/tools/release-id-validator-consumers.test.mjs",
                 "tests/tools/release-manifest.test.mjs",
+                "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs",
                 "tests/backend/Unit/ReleaseIdentityTests.cs",
+                "tests/backend/Unit/AdminOperationsHealthBoundaryTests.cs",
+                "tests/frontend/unit/releaseStorage.test.ts",
+                "tests/frontend/unit/bootstrap/bootstrapImportRecovery.test.ts",
+                "tests/frontend/unit/services/serviceWorkerRuntime.test.ts",
+                "tests/frontend/unit/view-contracts/opsReleaseIdentity.test.ts",
                 "tools/operations/test-release-evidence-fixture.sh",
                 "docs/issue-1024-release-identity-handoff.md"
             ],
             "assertionType": "integration",
-            "failClosedRule": "The static-governance lane must reject malformed calendar timestamps, SemVer or mutable ReleaseIds, generated cross-language contract drift, inconsistent commit/time identity, mutable or inconsistent manifests, pulled image digests or labels, missing production runtime identity, and release evidence that does not match its commit and image digest.",
-            "minimumRequirement": "Evidence must cover the shared ReleaseId fixture and stable shell CLI, C#/TypeScript generation, manifest creation and immutability, digest/OCI label verification, no-build deploy dry-run, production startup/readiness identity, and release evidence coherence.",
+            "failClosedRule": "The static-governance lane must reject malformed calendar timestamps, SemVer or mutable ReleaseIds, generated cross-language contract drift, inconsistent commit/time/assembly identity, ambiguous admin operations version fields, missing or invalid production frontend BuildIds, mutable or inconsistent manifests, pulled image digests or labels, missing production runtime identity, and release evidence that does not match its commit and image digest.",
+            "minimumRequirement": "Evidence must cover the shared ReleaseId fixture and stable shell CLI, C#/TypeScript generation, manifest creation and immutability, digest/OCI label verification, no-build deploy dry-run, production startup/readiness and assembly identity, explicit admin DTO/UI identity, frontend bootstrap/Service Worker/release path binding, and release evidence coherence.",
             "tierIds": [
                 "static-governance"
             ]
@@ -3056,6 +3062,7 @@
                 "tests/tools/release-storage-lifecycle.test.mjs",
                 "tests/frontend/unit/wasmReleaseAssets.test.ts",
                 "tests/frontend/unit/releaseStorage.test.ts",
+                "tests/frontend/unit/bootstrap/bootstrapImportRecovery.test.ts",
                 "tests/backend/issue-1029-storage-lifecycle-evidence.json",
                 "docs/issue-1029-storage-lifecycle-handoff.md"
             ],

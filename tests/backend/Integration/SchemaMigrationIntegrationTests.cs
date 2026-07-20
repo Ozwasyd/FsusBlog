@@ -2462,12 +2462,13 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         var services = new ServiceCollection();
         services.AddLogging(builder => builder.ClearProviders());
         services.AddSingleton<TimeProvider>(CreatePostRollbackWindowTimeProvider());
-        services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
+        IConfiguration configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(
             [
                 KeyValuePair.Create<string, string?>("ConnectionStrings:DefaultConnection", connectionString)
             ])
-            .Build());
+            .Build();
+        services.AddSingleton(configuration);
         services.AddSqlSugar();
         if (registry is null)
         {
@@ -2479,6 +2480,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         }
         services.AddSingleton<ISchemaModelInspector, SchemaModelInspector>();
         services.AddSingleton<ISchemaMigrationLock, SchemaMigrationLock>();
+        services.AddSingleton<IReleaseIdentityProvider>(new ReleaseIdentityProvider(configuration));
         services.AddSingleton<IArticleDetailAedsArtifactMaintenanceService, NoopArticleDetailAedsArtifactMaintenanceService>();
         services.AddScoped<ISchemaMigrationRunner, SchemaMigrationRunner>();
         services.AddScoped<IAuditLogStore, AuditLogStore>();

@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Text;
 
 using FsusBlog.Server.Entities;
@@ -31,7 +30,8 @@ internal sealed class AdminOperationsHealthReader(
     StartupRuntimeState startupRuntime,
     ScheduledPublishRuntimeState scheduledPublishRuntime,
     CrawlerDetectorService crawlerDetector,
-    IAdminCacheDiagnosticsReader cacheDiagnosticsReader) : IAdminOperationsHealthReader
+    IAdminCacheDiagnosticsReader cacheDiagnosticsReader,
+    IReleaseIdentityProvider releaseIdentityProvider) : IAdminOperationsHealthReader
 {
     private const int RecentErrorQueryLimit = 50;
     private const int RecentErrorDisplayLimit = 5;
@@ -140,8 +140,10 @@ internal sealed class AdminOperationsHealthReader(
             status,
             DateTimeOffset.UtcNow,
             environment.EnvironmentName,
-            ResolveVersion(),
-            ResolveCommit(),
+            new OpsReleaseIdentityResponse(
+                releaseIdentityProvider.Current.ReleaseId,
+                releaseIdentityProvider.Current.CommitSha,
+                releaseIdentityProvider.Current.ReleaseSlot),
             services,
             workers,
             backlog,
@@ -369,15 +371,6 @@ internal sealed class AdminOperationsHealthReader(
     private static DateTimeOffset? ToOffset(DateTime? value)
         => value is null ? null : new DateTimeOffset(DateTime.SpecifyKind(value.Value, DateTimeKind.Utc));
 
-    private static string ResolveVersion()
-        => Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-            ?? Assembly.GetEntryAssembly()?.GetName().Version?.ToString()
-            ?? "unknown";
-
-    private static string ResolveCommit()
-        => Environment.GetEnvironmentVariable("GITHUB_SHA")
-            ?? Environment.GetEnvironmentVariable("FSUSBLOG_COMMIT")
-            ?? "unknown";
 }
 
 internal sealed class RecentOpsErrorAuditRow

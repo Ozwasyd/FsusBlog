@@ -43,12 +43,16 @@ public sealed record RecentOpsErrorResponse(
     string? Detail,
     int Count);
 
+public sealed record OpsReleaseIdentityResponse(
+    string ReleaseId,
+    string CommitSha,
+    string ReleaseSlot);
+
 public sealed record OpsHealthResponse(
     string Status,
     DateTimeOffset CheckedAt,
     string Environment,
-    string Version,
-    string Commit,
+    OpsReleaseIdentityResponse ReleaseIdentity,
     IReadOnlyList<AdminServiceStatusResponse> Services,
     IReadOnlyList<AdminServiceStatusResponse> Workers,
     QueueBacklogResponse QueueBacklog,

@@ -34,7 +34,8 @@ type SearchManifest = {
 export function resolveSearchManifestUrl(): string {
   return resolveReleaseSearchManifestUrl(
     import.meta.env.BASE_URL || '/',
-    import.meta.env.VITE_FSUSBLOG_BUILD_ID)
+    import.meta.env.VITE_FSUSBLOG_BUILD_ID,
+    import.meta.env.PROD)
 }
 
 const SEARCH_MANIFEST_URL = resolveSearchManifestUrl()

@@ -25,6 +25,7 @@ internal static class RuntimePublicAotServiceCollectionExtensions
 
         services.AddSingleton<IContentFilterService, ContentFilterService>();
         services.AddSingleton<IReleaseIdentityProvider, ReleaseIdentityProvider>();
+        services.AddSingleton<IAssemblyReleaseIdentityProvider, EntryAssemblyReleaseIdentityProvider>();
         services.AddHostedService<ReleaseIdentityStartupLogger>();
         services.AddScoped<ProductionReadinessProbe>();
         services.AddSingleton<ConfigurationHealthSnapshot>();

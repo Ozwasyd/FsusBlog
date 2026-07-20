@@ -11,13 +11,14 @@ import {
   createBootstrapImportRecovery,
   runBootstrapImport
 } from '@/bootstrap/bootstrapImportRecovery'
+import { resolveFrontendBuildIdentity } from '@/config/releaseStorage'
 
 const root = document.getElementById('app')
 const pathname = window.location.pathname
 const bootstrapImportRecovery = createBootstrapImportRecovery({
   storage: sessionStorage,
   reload: () => window.location.reload(),
-  buildId: import.meta.env.VITE_FSUSBLOG_BUILD_ID ?? 'unversioned'
+  buildId: resolveFrontendBuildIdentity(import.meta.env.VITE_FSUSBLOG_BUILD_ID, import.meta.env.PROD)
 })
 
 installSafeConsoleGuard()

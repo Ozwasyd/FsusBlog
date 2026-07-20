@@ -83,7 +83,10 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
   bindListener()
   if (!registrationPromise) {
     const base = (import.meta.env.BASE_URL || '/').replace(/\/?$/, '/')
-    const scriptUrl = resolveServiceWorkerScriptUrl(base, import.meta.env.VITE_FSUSBLOG_BUILD_ID)
+    const scriptUrl = resolveServiceWorkerScriptUrl(
+      base,
+      import.meta.env.VITE_FSUSBLOG_BUILD_ID,
+      true)
     registrationPromise = navigator.serviceWorker.register(toTrustedServiceWorkerScriptUrl(
       scriptUrl
     ) as string, {

@@ -1,6 +1,6 @@
 using System.Data;
-using System.Reflection;
 
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 
 using SqlSugar;
@@ -60,6 +60,7 @@ public sealed class SchemaMigrationRunner(
     ISchemaMigrationLock migrationLock,
     TimeProvider timeProvider,
     ILogger<SchemaMigrationRunner> logger,
+    IReleaseIdentityProvider releaseIdentityProvider,
     IArticleDetailAedsArtifactMaintenanceService? articleDetailAedsMaintenance = null) : ISchemaMigrationRunner
 {
     internal const string HistoryTableName = "__fsus_schema_migration_history";
@@ -70,6 +71,7 @@ public sealed class SchemaMigrationRunner(
     private readonly ISchemaMigrationLock _migrationLock = migrationLock;
     private readonly TimeProvider _timeProvider = timeProvider;
     private readonly ILogger<SchemaMigrationRunner> _logger = logger;
+    private readonly IReleaseIdentityProvider _releaseIdentityProvider = releaseIdentityProvider;
     private readonly IArticleDetailAedsArtifactMaintenanceService? _articleDetailAedsMaintenance = articleDetailAedsMaintenance;
 
     public async Task RunAsync(CancellationToken cancellationToken)
@@ -261,7 +263,7 @@ public sealed class SchemaMigrationRunner(
 
     private async Task PersistHistoryAsync(IReadOnlyList<ISchemaMigrationDescriptor> executedDescriptors, CancellationToken cancellationToken)
     {
-        string appVersion = ResolveAppVersion();
+        string appVersion = ResolveAppVersion(_releaseIdentityProvider);
         DateTime appliedAtUtc = DateTime.UtcNow;
 
         var result = await _db.Ado.UseTranAsync(async () =>
@@ -295,6 +297,14 @@ public sealed class SchemaMigrationRunner(
         }
     }
 
-    private static string ResolveAppVersion()
-        => Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown";
+    internal static string ResolveAppVersion(IReleaseIdentityProvider releaseIdentityProvider)
+    {
+        ProductionReleaseIdentityHealthCheck health = releaseIdentityProvider.CreateHealthCheck(requireConfigured: false);
+        if (!string.Equals(health.Status, "ok", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Schema migration history requires a valid runtime release identity.");
+        }
+
+        return releaseIdentityProvider.Current.ReleaseId;
+    }
 }

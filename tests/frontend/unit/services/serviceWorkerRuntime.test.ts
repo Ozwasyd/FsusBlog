@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime'
+import { clearPrivateBrowserState, registerServiceWorker } from '@/services/serviceWorkerRuntime'
 
 class MemoryCache {
   readonly requests = new Map<string, Request>()
@@ -49,6 +49,30 @@ describe('serviceWorkerRuntime private browser cleanup', () => {
     })
     localStorage.clear()
     sessionStorage.clear()
+  })
+
+  it('does not register a production service worker during local development', async () => {
+    const unregister = vi.fn().mockResolvedValue(true)
+    const register = vi.fn()
+    Object.defineProperty(navigator, 'serviceWorker', {
+      value: {
+        getRegistrations: vi.fn().mockResolvedValue([{ unregister }]),
+        register
+      },
+      configurable: true
+    })
+    Object.defineProperty(globalThis, 'caches', {
+      value: {
+        keys: vi.fn().mockResolvedValue([]),
+        delete: vi.fn()
+      },
+      configurable: true
+    })
+
+    await expect(registerServiceWorker()).resolves.toBeNull()
+
+    expect(register).not.toHaveBeenCalled()
+    expect(unregister).toHaveBeenCalledTimes(1)
   })
 
   it('notifies active and waiting workers and removes offline history plus legacy sensitive entries', async () => {
