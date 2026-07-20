@@ -88,10 +88,8 @@ internal sealed class PoSpaceUnsupportedReissueService(
     ISecurityChallengePersistenceService persistence,
     ICacheInvalidationStore cacheInvalidation,
     ISecurityRiskSignalSink riskSignalSink,
-    IConfiguration configuration,
     TimeProvider timeProvider) : IPoSpaceUnsupportedReissueService
 {
-    private const string CaptchaV1Kind = "captchaV1";
     private static readonly TimeSpan s_riskSignalTtl = TimeSpan.FromMinutes(10);
 
     public async Task<PoSpaceUnsupportedReissueResult> ReissueAsync(
@@ -142,9 +140,7 @@ internal sealed class PoSpaceUnsupportedReissueService(
         RiskDecision replacement = SelectReplacement(currentDecision, currentPolicy);
         string disposition = replacement.Kind == RiskDecisionKind.Block
             ? "pospace_unsupported_rejected"
-            : replacement.RequiredChallenges.Contains(CaptchaV1Kind, StringComparer.Ordinal)
-                ? "pospace_unsupported_fallback_captcha"
-                : "pospace_unsupported_policy_changed";
+            : "pospace_unsupported_policy_changed";
         await RecordRiskAsync(request, $"{disposition}:{request.Reason}", cancellationToken);
         return replacement.Kind == RiskDecisionKind.Block
             ? PoSpaceUnsupportedReissueResult.Rejected(replacement, disposition)
@@ -215,19 +211,6 @@ internal sealed class PoSpaceUnsupportedReissueService(
             {
                 RequiredChallenges = remaining,
                 Reasons = [.. current.Reasons, "pospace_unsupported_removed"]
-            };
-        }
-
-        string fallback = (configuration["Security:PoSpaceV1:UnsupportedFallbackKind"] ?? CaptchaV1Kind).Trim();
-        bool captchaEnabled = !policy.SubsystemModes.TryGetValue(SecurityRiskSources.Captcha, out string? mode)
-            || SecuritySystemModes.IsEnforcing(mode);
-        if (string.Equals(fallback, CaptchaV1Kind, StringComparison.Ordinal) && captchaEnabled)
-        {
-            return current with
-            {
-                Kind = RiskDecisionKind.Challenge,
-                RequiredChallenges = [CaptchaV1Kind],
-                Reasons = [.. current.Reasons, "pospace_unsupported_fallback_captcha"]
             };
         }
 

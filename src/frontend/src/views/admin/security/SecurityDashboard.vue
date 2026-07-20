@@ -51,7 +51,7 @@ const overview = shallowRef<SecurityOverviewResponse | null>(null)
 const links = [
   { label: '风险控制', helper: '当前策略、风险聚合、验证任务通过/失败率。', name: 'ManageSecurityRiskControl' },
   { label: '风险模拟器', helper: '用生产决策链预演放行、验证、排队和拦截。', name: 'ManageSecuritySimulator' },
-  { label: '验证任务', helper: 'Captcha、PoSpace 与通用验证任务的发起、提交和通过结果。', name: 'ManageSecurityChallenges' },
+  { label: '验证任务', helper: 'Character V3、PoSpace 与通用验证任务的发起、提交和通过结果。', name: 'ManageSecurityChallenges' },
   { label: '策略版本', helper: '反爬虫、工作量证明与风险控制的当前策略和持久化版本。', name: 'ManageSecurityPolicies' },
   { label: '风险事件', helper: '统一风险总线的来源、原因和最近事件明细。', name: 'ManageSecurityEvents' },
   { label: '反爬虫系统', helper: '爬虫识别、CIDR 更新、风险事件与策略模拟。', name: 'ManageSecurityCrawler' },

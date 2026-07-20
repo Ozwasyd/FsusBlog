@@ -391,10 +391,10 @@
 | GET | `/api/binary/admin/security/overview` | 👑 | 安全系统总览：AntiCrawler、PoW、SecurityRisk |
 | GET | `/api/binary/admin/security/risk-control/overview` | 👑 | RiskControl active policy、风险事件聚合、challenge 成功/失败率 |
 | GET | `/api/binary/admin/security/risk-control/options` | 👑 | RiskControl active runtime policy snapshot |
-| PUT | `/api/binary/admin/security/risk-control/options` | 👑🚦 MFA | 更新 RiskControl mode、CaptchaV1/PoSpaceV1/PublicRead/Comment/Auth 开关和 strict multiplier |
+| PUT | `/api/binary/admin/security/risk-control/options` | 👑🚦 MFA | 更新 RiskControl mode、PoSpace/PublicRead/Comment/Auth 开关和 strict multiplier |
 | POST | `/api/binary/admin/security/risk-control/options/rollback` | 👑🚦 MFA | 回滚上一份 RiskControl last-known-good policy |
 | POST | `/api/binary/admin/security/risk-control/simulate` | 👑🚦 | RiskControl dry-run：调用生产决策链返回 riskScore、decision、reasons、requiredChallenges、policyVersion，不签发 challenge、不改风险分 |
-| GET | `/api/binary/admin/security/challenges/overview?kind={kind}` | 👑 | challenge 签发、尝试、成功/失败率；`kind` 可筛选 `captchaV1` / `argon2idPoSpaceV1` |
+| GET | `/api/binary/admin/security/challenges/overview?kind={kind}` | 👑 | challenge 签发、尝试、成功/失败率；`kind` 只接受当前 provider wire kind |
 | GET | `/api/binary/admin/security/policies/overview` | 👑 | active RiskControl、AntiCrawler、PoW 与持久化策略版本 |
 | GET | `/api/binary/admin/security/anti-crawler/overview` | 👑 | 反爬虫总览、CIDR、风险事件、规则与 list |
 | GET | `/api/binary/admin/security/anti-crawler/options` | 👑 | 反爬虫运行策略快照 |
@@ -458,6 +458,8 @@
 | GET | `/api/ops/deployment/fence/status` | 👑🚦 loopback | 对账 PostgreSQL durable witness + Redis mirror，并校验本地 release/slot/generation 所有权；要求 `system.config` |
 | POST | `/api/ops/deployment/fence/acquire` | 👑🚦 loopback | CAS 获取或单调推进 active-release fence；旧 generation/token 不得复用 |
 | POST | `/api/ops/deployment/fence/revoke` | 👑🚦 loopback | 精确撤销当前 fence 所有者；身份不匹配返回 409 |
+| POST | `/api/ops/deployment/fence/challenge-kind-cutover` | 👑🚦 loopback | 在精确 release/slot/generation fence 下清理完整数值集合 3/10/13 并返回幂等审计 receipt；operator target map 必须命中权威不可逆 fingerprint，验收再从独立 target JSON 复算 |
+| POST | `/api/ops/deployment/fence/challenge-protocol-activate` | 👑🚦 loopback | 只读并验证 durable cutover receipt 后开放本 release/slot/generation 的 V3 issue/verify；每次使用重验 fence，marker/cache/fence 异常均 fail closed |
 | GET | `/api/ops/deployment/notification-stream/restart/status` | 👑🚦 loopback | 读取当前 1012 restart epoch、原因与连接排空快照 |
 | POST | `/api/ops/deployment/notification-stream/restart` | 👑🚦 loopback | 按精确 release/slot/generation 触发一次有序 1012 重连 |
 | POST | `/api/ops/deployment/notification-stream/drill/publish` | 👑🚦 loopback | 仅显式启用的发布演练事件；校验 active fence 后发布 1..32 个可对账 event ID，生产默认 404 |

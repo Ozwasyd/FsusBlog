@@ -9,7 +9,6 @@ public readonly record struct PerceptionChallengeV2GeneratorSelection(string Fam
 
 public static class PerceptionChallengeV2GeneratorFamilyRegistry
 {
-    public const string TextStroke = "text-stroke";
     public const string SplineField = "spline-field";
     public const string FourierField = "fourier-field";
     public const string PiecewiseWarp = "piecewise-warp";
@@ -21,7 +20,6 @@ public static class PerceptionChallengeV2GeneratorFamilyRegistry
         get;
     } = new HashSet<string>(StringComparer.Ordinal)
     {
-        TextStroke,
         SplineField,
         FourierField,
         PiecewiseWarp,
@@ -32,11 +30,6 @@ public static class PerceptionChallengeV2GeneratorFamilyRegistry
     public static IReadOnlyList<PerceptionChallengeGeneratorVariantPolicy> DefaultVariants(string family)
         => NormalizeFamily(family) switch
         {
-            TextStroke =>
-            [
-                new PerceptionChallengeGeneratorVariantPolicy("ink-quiet", 70, true),
-                new PerceptionChallengeGeneratorVariantPolicy("ink-dense", 30, true)
-            ],
             SplineField =>
             [
                 new PerceptionChallengeGeneratorVariantPolicy("curve-soft", 60, true),
@@ -62,13 +55,13 @@ public static class PerceptionChallengeV2GeneratorFamilyRegistry
                 new PerceptionChallengeGeneratorVariantPolicy("anchor-grid", 60, true),
                 new PerceptionChallengeGeneratorVariantPolicy("anchor-region", 40, true)
             ],
-            _ => [new PerceptionChallengeGeneratorVariantPolicy("ink-quiet", 100, true)]
+            _ => [new PerceptionChallengeGeneratorVariantPolicy("anchor-grid", 100, true)]
         };
 
     public static string NormalizeFamily(string? family)
     {
         string normalized = (family ?? string.Empty).Trim();
-        return SupportedFamilies.Contains(normalized) ? normalized : TextStroke;
+        return SupportedFamilies.Contains(normalized) ? normalized : LocalizationField;
     }
 
     public static string DefaultVariant(string family)
@@ -99,7 +92,7 @@ public static class PerceptionChallengeV2GeneratorSelector
 
         if (families.Count == 0)
         {
-            string fallbackFamily = PerceptionChallengeV2GeneratorFamilyRegistry.TextStroke;
+            string fallbackFamily = PerceptionChallengeV2GeneratorFamilyRegistry.LocalizationField;
             return new PerceptionChallengeV2GeneratorSelection(
                 fallbackFamily,
                 PerceptionChallengeV2GeneratorFamilyRegistry.DefaultVariant(fallbackFamily));

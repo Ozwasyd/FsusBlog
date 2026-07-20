@@ -16,7 +16,6 @@ public enum SecurityRiskReason
     ReadProofAccepted = 8,
     ReadProofRejected = 9,
     PublicReadChallengeRequired = 10,
-    CaptchaChallengeRequired = 11,
     PublicReadBlocked = 12,
     SecurityChallengeRejected = 13,
     AuthLoginFailed = 14,
@@ -25,9 +24,6 @@ public enum SecurityRiskReason
     CommentRegionCompliance = 17,
     CommentSpamPattern = 18,
     CommentNullifierAbuse = 19,
-    CaptchaInvalid = 20,
-    CaptchaReplay = 21,
-    CaptchaSolveTooFast = 22,
     DeviceFingerprintMissing = 23,
     DeviceFingerprintChanged = 24,
     RegionPolicyHit = 25,
@@ -54,12 +50,10 @@ public static class SecurityRiskSources
     public const string PublicRead = "public-read";
     public const string PoSpace = "pospace";
     public const string RiskControl = "risk-control";
-    public const string Captcha = "captcha";
     public const string DeviceFingerprint = "device-fingerprint";
     public const string RegionPolicy = "region-policy";
     public const string CommentGovernance = "comment-governance";
     public const string AdminStepUp = "admin-step-up";
-    public const string PerceptionTextTask = "perception-text-task";
     public const string PerceptionLocalization = "perception-localization";
     public const string PerceptionMicroInteraction = "perception-micro-interaction";
 }

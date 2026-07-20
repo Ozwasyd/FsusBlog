@@ -87,14 +87,6 @@ public sealed record PerceptionChallengeGeneratorDistributionPolicy(
         "perception-generator-default",
         [
             new PerceptionChallengeGeneratorFamilyPolicy(
-                "text-stroke",
-                40,
-                true,
-                [
-                    new PerceptionChallengeGeneratorVariantPolicy("ink-quiet", 70, true),
-                    new PerceptionChallengeGeneratorVariantPolicy("ink-dense", 30, true)
-                ]),
-            new PerceptionChallengeGeneratorFamilyPolicy(
                 "spline-field",
                 20,
                 true,

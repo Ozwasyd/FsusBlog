@@ -119,7 +119,7 @@ public sealed class SecurityChallengeProofServiceTests
             {
                 Kind = "sha256PowV1",
                 EnvelopeId = envelopeId,
-                RequiredKinds = ["captchaV1", "sha256PowV1"],
+                RequiredKinds = ["perceptionCharacterV3", "sha256PowV1"],
                 OrderedMemberChallengeIds = ["challenge-0", "challenge-1"]
             },
             CancellationToken.None);
@@ -128,13 +128,13 @@ public sealed class SecurityChallengeProofServiceTests
         SecurityChallengeProofConsumeResult result = await service.ConsumeProofAsync(
             CreateConsumeRequest(minted.ProofToken) with
             {
-                RequiredKinds = ["captchaV1", "sha256PowV1"]
+                RequiredKinds = ["perceptionCharacterV3", "sha256PowV1"]
             },
             CancellationToken.None);
 
         Assert.True(result.Accepted, result.Reason);
         Assert.Equal(envelopeId, result.Claims?.EnvelopeId);
-        Assert.Equal(["captchaV1", "sha256PowV1"], result.Claims?.RequiredKinds);
+        Assert.Equal(["perceptionCharacterV3", "sha256PowV1"], result.Claims?.RequiredKinds);
         Assert.Equal(["challenge-0", "challenge-1"], result.Claims?.OrderedMemberChallengeIds);
         Assert.Equal(SecurityChallengeAttemptOutcomes.Verified, Assert.Single(persistence.Attempts).Outcome);
     }
@@ -153,7 +153,7 @@ public sealed class SecurityChallengeProofServiceTests
             CreateMintRequest() with
             {
                 EnvelopeId = envelopeId,
-                RequiredKinds = ["captchaV1", "sha256PowV1"],
+                RequiredKinds = ["perceptionCharacterV3", "sha256PowV1"],
                 OrderedMemberChallengeIds = ["challenge-0", "challenge-1"]
             });
         envelopeStates.State = CreateCompletedEnvelopeState(envelopeId, minted.ProofToken);
@@ -161,7 +161,7 @@ public sealed class SecurityChallengeProofServiceTests
         SecurityChallengeProofConsumeResult result = await service.ConsumeProofAsync(
             CreateConsumeRequest(minted.ProofToken) with
             {
-                RequiredKinds = ["captchaV1", "sha256PowV1"]
+                RequiredKinds = ["perceptionCharacterV3", "sha256PowV1"]
             });
 
         Assert.False(result.Accepted);
@@ -301,7 +301,7 @@ public sealed class SecurityChallengeProofServiceTests
             CreateMintRequest() with
             {
                 EnvelopeId = envelopeId,
-                RequiredKinds = ["captchaV1", "sha256PowV1"],
+                RequiredKinds = ["perceptionCharacterV3", "sha256PowV1"],
                 OrderedMemberChallengeIds = ["challenge-0", "challenge-1"]
             });
         envelopeStates.State = CreateCompletedEnvelopeState(envelopeId, minted.ProofToken);
@@ -310,7 +310,7 @@ public sealed class SecurityChallengeProofServiceTests
         SecurityChallengeProofExchangeResult result = await service.ExchangeProofAsync(
             CreateConsumeRequest(minted.ProofToken) with
             {
-                RequiredKinds = ["captchaV1", "sha256PowV1"]
+                RequiredKinds = ["perceptionCharacterV3", "sha256PowV1"]
             },
             _ =>
             {
@@ -340,7 +340,7 @@ public sealed class SecurityChallengeProofServiceTests
         SecurityChallengeProofConsumeResult result = await service.ConsumeProofAsync(
             CreateConsumeRequest(minted.ProofToken) with
             {
-                RequiredKinds = ["captchaV1", "sha256PowV1"]
+                RequiredKinds = ["perceptionCharacterV3", "sha256PowV1"]
             },
             CancellationToken.None);
 
@@ -464,7 +464,7 @@ public sealed class SecurityChallengeProofServiceTests
         => field switch
         {
             "challengeId" => request with { ChallengeId = "challenge-2" },
-            "kind" => request with { Kind = "captchaV1" },
+            "kind" => request with { Kind = "perceptionCharacterV3" },
             "action" => request with { Action = "comment.create" },
             "routeKey" => request with { RouteKey = "/article/99" },
             "subjectHash" => request with { SubjectHash = HashB },
@@ -484,7 +484,7 @@ public sealed class SecurityChallengeProofServiceTests
             HashC,
             "risk-policy-v2",
             ["challenge-0", "challenge-1"],
-            ["captchaV1", "sha256PowV1"],
+            ["perceptionCharacterV3", "sha256PowV1"],
             [SecurityChallengeEnvelopeMemberStatuses.Verified, SecurityChallengeEnvelopeMemberStatuses.Verified],
             s_baselineNow.ToUnixTimeMilliseconds(),
             s_baselineNow.AddMinutes(5).ToUnixTimeMilliseconds(),

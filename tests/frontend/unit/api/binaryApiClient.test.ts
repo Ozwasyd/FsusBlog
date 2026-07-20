@@ -409,7 +409,7 @@ describe('binaryApiClient risk challenge proof transport', () => {
     const headers = vi.mocked(fetch).mock.calls[0]?.[1]?.headers as Headers
     expect(headers.get('X-Fsus-Challenge-Proof')).toBe('proof-token')
     expect(headers.get('X-Fsus-Challenge-Id')).toBe('challenge-1')
-    expect(headers.get('X-Fsus-Challenge-Kind')).toBe('captchaV1')
+    expect(headers.get('X-Fsus-Challenge-Kind')).toBe('perceptionLocalizationV2')
     expect(lease.markInFlight).toHaveBeenCalledOnce()
     expect(lease.settle).toHaveBeenCalledWith('accepted')
   })
@@ -479,7 +479,7 @@ function createRiskChallengeLease(): RiskChallengeProofContext & {
       action: 'comment.create',
       routeKey: 'article:42',
       challengeId: 'challenge-1',
-      kind: SecurityChallengeKind.CaptchaV1,
+      kind: SecurityChallengeKind.PerceptionLocalizationV2,
       proofToken: 'proof-token',
       policyVersion: 'policy-v1',
       verifiedAtUnixMs: 1_000,

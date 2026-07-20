@@ -160,7 +160,7 @@ const markdownCommand: MarkdownEditorCommand = {
 }
 const motionPreset: MotionPresetName = 'surface-settle'
 const themeMode: ThemeMode = themeModes[0]
-const perceptionKind: PerceptionChallengeKind = 'text-task'
+const perceptionKind: PerceptionChallengeKind = 'localization'
 const perceptionState: PerceptionChallengeState = 'ready'
 const perceptionRenderPayload: PerceptionChallengeRenderPayload = {
   alt: 'Contract challenge',
@@ -172,13 +172,14 @@ const perceptionRenderPayload: PerceptionChallengeRenderPayload = {
 const perceptionAssignment = {
   challengeId: 'contract',
   kind: perceptionKind,
-  prompt: 'Type contract',
+  prompt: 'Select contract target',
   renderPayload: perceptionRenderPayload,
 } satisfies PerceptionChallengeAssignment
 const perceptionSubmitPayload: PerceptionChallengeSubmitPayload = {
   challengeId: 'contract',
-  kind: 'text-task',
-  value: 'ok',
+  kind: 'localization',
+  x: 1,
+  y: 1,
 }
 const perceptionVerifyResult: PerceptionChallengeVerifyResult = {
   proofToken: 'contract-proof',

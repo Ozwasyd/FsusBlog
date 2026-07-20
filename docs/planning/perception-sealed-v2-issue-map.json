@@ -152,13 +152,6 @@
             "acceptanceBoundary": "Replay, expiry and attempt limits fail closed without adding DB writes to the issue hot path."
         },
         {
-            "order": 7,
-            "issue": 511,
-            "title": "security(challenge-v2): implement text-task perception provider",
-            "surface": "Character challenge provider",
-            "acceptanceBoundary": "Medium-risk Character challenge works through the provider interface and generic result envelopes."
-        },
-        {
             "order": 8,
             "issue": 512,
             "title": "security(challenge-v2): implement localization perception provider",

@@ -60,7 +60,7 @@ scenarios:
       tests:
           - tests/backend/Unit/PerceptionSealedTokenServiceTests.cs
           - tests/backend/Unit/PerceptionChallengeV2ServiceTests.cs
-          - tests/backend/Unit/PerceptionChallengeProviderTests.cs
+          - tests/backend/Unit/PerceptionChallengeV2ServiceTests.cs
       evidence:
           - .tmp/security/perception-v2-test-matrix.json
 
@@ -82,7 +82,7 @@ scenarios:
           - src/backend/Services/Security/ChallengeV2EventWriter.cs
       tests:
           - tests/backend/Unit/PerceptionChallengeV2ServiceTests.cs
-          - tests/backend/Unit/PerceptionChallengeProviderTests.cs
+          - tests/backend/Unit/PerceptionChallengeV2E2eTests.cs
           - tests/backend/Unit/ChallengeV2EventWriterTests.cs
           - tests/backend/Unit/SecurityChallengeBinaryEndpointTests.cs
       evidence:
@@ -109,13 +109,12 @@ scenarios:
           - .tmp/security/perception-v2-test-matrix.json
 
     - id: PERCEPTION-V2-E2E-FRONTEND
-      scenario: text-task, localization, micro-interaction disabled/enabled, worker-failure and mobile-fallback are covered
+      scenario: localization, micro-interaction disabled/enabled, worker-failure and mobile-fallback are covered
       owner: InteropGlueAgent
       status: automated
       validationClass: e2e-runtime
       requiredCases:
           [
-              text-task,
               localization,
               micro-interaction-disabled,
               micro-interaction-enabled,
@@ -130,7 +129,7 @@ scenarios:
       tests:
           - tests/frontend/unit/workers/security/perceptionV2Renderer.test.ts
           - tests/frontend/e2e/security/perception-v2-worker.spec.ts
-          - tests/backend/Unit/PerceptionChallengeProviderTests.cs
+          - tests/backend/Unit/PerceptionChallengeV2E2eTests.cs
       evidence:
           - src/frontend/test-results/playwright/security
           - .tmp/security/perception-v2-test-matrix.json
@@ -216,7 +215,7 @@ scenarios:
           - src/backend/Infrastructure/Operations/ProductionHealth.cs
       tests:
           - tests/backend/Unit/PerceptionChallengeV2ServiceTests.cs
-          - tests/backend/Unit/PerceptionChallengeProviderTests.cs
+          - tests/backend/Unit/PerceptionChallengeV2ServiceTests.cs
           - tests/backend/Unit/SecurityChallengeOrchestratorTests.cs
           - tests/backend/Unit/SecurityPolicySnapshotPersistenceTests.cs
           - tests/backend/Unit/ProductionHealthTests.cs

@@ -51,20 +51,6 @@
 
           <div class="flex items-center justify-between gap-4 p-5">
             <div>
-              <div class="text-sm font-bold text-[var(--fsusblog-text-primary)]">文字识别题</div>
-              <p class="mt-1 text-[12px] leading-6 text-[var(--fsusblog-text-muted)]">让用户输入画面中的短文本，适合低到中风险拦截。</p>
-            </div>
-            <el-switch
-              v-model="draft.textTaskEnabled"
-              aria-label="启用文字识别题"
-              :disabled="saving || !isPolicyLoaded"
-              :loading="pendingOptionKey === 'textTaskEnabled'"
-              @change="(value) => submitSwitchOption('textTaskEnabled', value)"
-            />
-          </div>
-
-          <div class="flex items-center justify-between gap-4 p-5">
-            <div>
               <div class="text-sm font-bold text-[var(--fsusblog-text-primary)]">点选定位题</div>
               <p class="mt-1 text-[12px] leading-6 text-[var(--fsusblog-text-muted)]">让用户点击画面中的目标位置，比纯文字题更难被批量脚本绕过。</p>
             </div>
@@ -216,7 +202,7 @@ const loading = shallowRef(false)
 const saving = shallowRef(false)
 const consoleState = shallowRef<PerceptionSealedV2ConsoleResponse | null>(null)
 const lastSavedOptions = shallowRef<PerceptionSealedV2PolicyOptions | null>(null)
-type PerceptionSwitchOptionKey = 'enabled' | 'textTaskEnabled' | 'localizationEnabled' | 'microInteractionEnabled' | 'poSpaceFallbackEnabled'
+type PerceptionSwitchOptionKey = 'enabled' | 'localizationEnabled' | 'microInteractionEnabled' | 'poSpaceFallbackEnabled'
 const pendingOptionKey = shallowRef<PerceptionSwitchOptionKey | null>(null)
 const taskFeedback = useAdminTaskFeedback()
 const {
@@ -225,7 +211,6 @@ const {
 
 const draft = reactive<PerceptionSealedV2PolicyOptions>({
   enabled: true,
-  textTaskEnabled: true,
   localizationEnabled: true,
   microInteractionEnabled: false,
   poSpaceFallbackEnabled: false,
@@ -263,7 +248,6 @@ const metrics = computed<AdminStatusMatrixItem[]>(() => [
 
 const cloneOptions = (options: PerceptionSealedV2PolicyOptions): PerceptionSealedV2PolicyOptions => ({
   enabled: options.enabled,
-  textTaskEnabled: options.textTaskEnabled,
   localizationEnabled: options.localizationEnabled,
   microInteractionEnabled: options.microInteractionEnabled,
   poSpaceFallbackEnabled: options.poSpaceFallbackEnabled,
@@ -282,7 +266,6 @@ const hasDraftChanges = computed(() =>
 
 const switchOptionLabels: Record<PerceptionSwitchOptionKey, string> = {
   enabled: '启用人机感知验证',
-  textTaskEnabled: '文字识别题',
   localizationEnabled: '点选定位题',
   microInteractionEnabled: '微交互题',
   poSpaceFallbackEnabled: 'PoSpace 兜底'

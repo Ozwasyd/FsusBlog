@@ -15,7 +15,6 @@ namespace FsusBlog.Server.Services.Security;
 
 public static class PerceptionChallengeV2Constants
 {
-    public const string WireKind = "perceptionCharacterV2";
     public const string WireAlgorithm = PerceptionSealedChallengeV2Contracts.Algorithm;
     public static readonly TimeSpan ClockSkew = TimeSpan.FromSeconds(30);
     public const int DefaultMaxAttempts = 3;
@@ -28,7 +27,6 @@ public static class PerceptionChallengeV2Contracts
     public static string ToWireTaskKind(RenderRecipeV2TaskKind taskKind)
         => taskKind switch
         {
-            RenderRecipeV2TaskKind.Character => "character",
             RenderRecipeV2TaskKind.Localization => "localization",
             RenderRecipeV2TaskKind.MicroInteraction => "microInteraction",
             _ => "unknown"
@@ -38,14 +36,6 @@ public static class PerceptionChallengeV2Contracts
     {
         taskKind = RenderRecipeV2TaskKind.Unknown;
         string normalized = (value ?? string.Empty).Trim();
-        if (string.Equals(normalized, "character", StringComparison.Ordinal) ||
-            string.Equals(normalized, "text-task", StringComparison.Ordinal) ||
-            string.Equals(normalized, "textTask", StringComparison.Ordinal))
-        {
-            taskKind = RenderRecipeV2TaskKind.Character;
-            return true;
-        }
-
         if (string.Equals(normalized, "localization", StringComparison.Ordinal))
         {
             taskKind = RenderRecipeV2TaskKind.Localization;
@@ -65,7 +55,6 @@ public static class PerceptionChallengeV2Contracts
     public static SecurityChallengeKind ToChallengeKind(RenderRecipeV2TaskKind taskKind)
         => taskKind switch
         {
-            RenderRecipeV2TaskKind.Character => SecurityChallengeKind.PerceptionCharacterV2,
             RenderRecipeV2TaskKind.Localization => SecurityChallengeKind.PerceptionLocalizationV2,
             RenderRecipeV2TaskKind.MicroInteraction => SecurityChallengeKind.PerceptionMicroInteractionV2,
             _ => SecurityChallengeKind.Unknown
@@ -74,29 +63,11 @@ public static class PerceptionChallengeV2Contracts
 
 public static class PerceptionChallengeV2Hashing
 {
-    public static string HashAnswerHex(string answer)
-        => HashUtf8Hex(NormalizeAnswer(answer));
-
     public static string HashStepHex(string step)
         => HashUtf8Hex(NormalizeStep(step));
 
     public static string HashPointHex(double x, double y)
         => HashUtf8Hex(string.Create(CultureInfo.InvariantCulture, $"{NormalizeCoordinate(x):0.######},{NormalizeCoordinate(y):0.######}"));
-
-    public static string NormalizeAnswer(string answer)
-    {
-        string value = answer ?? string.Empty;
-        var builder = new StringBuilder(value.Length);
-        foreach (char ch in value)
-        {
-            if (!char.IsWhiteSpace(ch))
-            {
-                builder.Append(char.ToUpperInvariant(ch));
-            }
-        }
-
-        return builder.ToString();
-    }
 
     public static string NormalizeStep(string step)
         => TextHelpers.LowerTrimmed(step) ?? string.Empty;
@@ -167,19 +138,18 @@ public sealed record PerceptionChallengeV2TaskSourceRequest(
     string RouteKey,
     string PolicyVersion)
 {
-    public string Family { get; init; } = PerceptionChallengeV2GeneratorFamilyRegistry.TextStroke;
+    public string Family { get; init; } = PerceptionChallengeV2GeneratorFamilyRegistry.LocalizationField;
 
     public string Variant
     {
         get; init;
     } =
-        PerceptionChallengeV2GeneratorFamilyRegistry.DefaultVariant(PerceptionChallengeV2GeneratorFamilyRegistry.TextStroke);
+        PerceptionChallengeV2GeneratorFamilyRegistry.DefaultVariant(PerceptionChallengeV2GeneratorFamilyRegistry.LocalizationField);
 }
 
 public sealed record PerceptionChallengeV2TaskMaterial(
     RenderRecipeV2TaskKind TaskKind,
     RenderRecipeV2 Recipe,
-    string? ExpectedAnswer,
     double? ExpectedX,
     double? ExpectedY,
     double? CoordinateTolerance,
@@ -201,19 +171,18 @@ public sealed record PerceptionChallengeV2TokenClaims(
     DateTimeOffset IssuedAt,
     DateTimeOffset ExpiresAt,
     int MaxAttempts,
-    string? ExpectedAnswerHashHex,
     string? ExpectedStepHashHex,
     double? ExpectedX,
     double? ExpectedY,
     double? CoordinateTolerance)
 {
-    public string Family { get; init; } = PerceptionChallengeV2GeneratorFamilyRegistry.TextStroke;
+    public string Family { get; init; } = PerceptionChallengeV2GeneratorFamilyRegistry.LocalizationField;
 
     public string Variant
     {
         get; init;
     } =
-        PerceptionChallengeV2GeneratorFamilyRegistry.DefaultVariant(PerceptionChallengeV2GeneratorFamilyRegistry.TextStroke);
+        PerceptionChallengeV2GeneratorFamilyRegistry.DefaultVariant(PerceptionChallengeV2GeneratorFamilyRegistry.LocalizationField);
 }
 
 public sealed record PerceptionChallengeV2IssuePayload(
@@ -227,13 +196,13 @@ public sealed record PerceptionChallengeV2IssuePayload(
     long IssuedAtUnixMs,
     long ExpiresAtUnixMs)
 {
-    public string Family { get; init; } = PerceptionChallengeV2GeneratorFamilyRegistry.TextStroke;
+    public string Family { get; init; } = PerceptionChallengeV2GeneratorFamilyRegistry.LocalizationField;
 
     public string Variant
     {
         get; init;
     } =
-        PerceptionChallengeV2GeneratorFamilyRegistry.DefaultVariant(PerceptionChallengeV2GeneratorFamilyRegistry.TextStroke);
+        PerceptionChallengeV2GeneratorFamilyRegistry.DefaultVariant(PerceptionChallengeV2GeneratorFamilyRegistry.LocalizationField);
 }
 
 public sealed record PerceptionChallengeV2IssueResult(
@@ -412,7 +381,6 @@ public sealed class PerceptionChallengeV2IssueService(
             issuedAt,
             expiresAt,
             PerceptionChallengeV2Constants.DefaultMaxAttempts,
-            string.IsNullOrWhiteSpace(material.ExpectedAnswer) ? null : PerceptionChallengeV2Hashing.HashAnswerHex(material.ExpectedAnswer),
             string.IsNullOrWhiteSpace(material.ExpectedStep) ? null : PerceptionChallengeV2Hashing.HashStepHex(material.ExpectedStep),
             material.ExpectedX,
             material.ExpectedY,
@@ -695,32 +663,10 @@ public sealed class PerceptionChallengeV2VerifyService(
         reason = null;
         return claims.TaskKind switch
         {
-            RenderRecipeV2TaskKind.Character => ValidateCharacter(providerPayload, claims, out reason),
             RenderRecipeV2TaskKind.Localization => ValidateCoordinates(providerPayload, claims, requireStep: false, out reason),
             RenderRecipeV2TaskKind.MicroInteraction => ValidateCoordinates(providerPayload, claims, requireStep: true, out reason),
             _ => Fail("perception_task_kind_invalid", out reason)
         };
-    }
-
-    private static bool ValidateCharacter(IReadOnlyDictionary<string, string> providerPayload, PerceptionChallengeV2TokenClaims claims, out string? reason)
-    {
-        reason = null;
-        if (!TryGet(providerPayload, "answerText", out string answer) ||
-            string.IsNullOrWhiteSpace(claims.ExpectedAnswerHashHex))
-        {
-            reason = "perception_text_answer_invalid";
-            return false;
-        }
-
-        if (!PerceptionChallengeV2Hashing.FixedTimeEqualsHex(
-                PerceptionChallengeV2Hashing.HashAnswerHex(answer),
-                claims.ExpectedAnswerHashHex))
-        {
-            reason = "perception_text_answer_invalid";
-            return false;
-        }
-
-        return true;
     }
 
     private static bool ValidateCoordinates(

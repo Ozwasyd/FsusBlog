@@ -1,6 +1,6 @@
 using System.Diagnostics;
-using System.Security.Cryptography;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
@@ -46,11 +46,11 @@ public sealed class PerceptionCharacterV3Tests
     {
         Assert.Equal(SecurityChallengeKind.PerceptionCharacterV3, Parse(PerceptionCharacterV3Contracts.WireName));
         Assert.Equal(PerceptionCharacterV3Contracts.Algorithm, PerceptionCharacterV3CanonicalContract.Value.Algorithm);
-        foreach (string alias in new[] { "captchaV1", "perceptionCharacterV2", "perceptionTextTaskV2", "text-task" })
+        foreach (string alias in new[] { "perceptionLocalizationV2", "perceptionMicroInteractionV2" })
             Assert.NotEqual(SecurityChallengeKind.PerceptionCharacterV3, Parse(alias));
         SecurityChallengeCapability capability = SecurityChallengeCapabilityCatalog.Get(SecurityChallengeKind.PerceptionCharacterV3);
         Assert.True(capability.ProviderAvailable);
-        Assert.False(capability.UiExecutorAvailable);
+        Assert.True(capability.UiExecutorAvailable);
         Assert.False(SecurityChallengeCapabilityCatalog.Resolve(SecurityChallengeKind.PerceptionCharacterV3, "notification.subscribe", SecurityChallengeExecutionMode.Headless).PolicyEligible);
     }
 
@@ -784,7 +784,14 @@ public sealed class PerceptionCharacterV3Tests
         yield return x => x with { Representation = "audio" };
         yield return x => x with { TokenHash = new string('e', 64) };
     }
-    private static Dictionary<string, string?> Config(string tokenCurrent, string answerCurrent, string token, string answer) => new() { ["Security:PerceptionCharacterV3:TokenKeyCurrent"] = tokenCurrent, ["Security:PerceptionCharacterV3:AnswerKeyCurrent"] = answerCurrent, ["Security:PerceptionCharacterV3:TokenKeys:tk"] = token, ["Security:PerceptionCharacterV3:AnswerKeys:ak"] = answer };
+    private static Dictionary<string, string?> Config(string tokenCurrent, string answerCurrent, string token, string answer)
+        => new()
+        {
+            ["Security:PerceptionCharacterV3:TokenKeyCurrent"] = tokenCurrent,
+            ["Security:PerceptionCharacterV3:AnswerKeyCurrent"] = answerCurrent,
+            ["Security:PerceptionCharacterV3:TokenKeys:tk"] = token,
+            ["Security:PerceptionCharacterV3:AnswerKeys:ak"] = answer
+        };
     private static PerceptionCharacterV3KeyRing CreateKeys(Dictionary<string, string?> values) => new(new ConfigurationBuilder().AddInMemoryCollection(values).Build(), new FakeEnvironment());
     private static string FindRoot()
     {
@@ -803,7 +810,9 @@ public sealed class PerceptionCharacterV3Tests
     }
     private sealed class Keys(byte[] token, byte[] answer) : IPerceptionCharacterV3KeyRing
     {
-        public string CurrentTokenVersion => "tk"; public string CurrentAnswerVersion => "ak"; public bool TryGetTokenKey(string version, out byte[] key)
+        public string CurrentTokenVersion => "tk";
+        public string CurrentAnswerVersion => "ak";
+        public bool TryGetTokenKey(string version, out byte[] key)
         {
             key = token;
             return version == "tk";
@@ -871,7 +880,10 @@ public sealed class PerceptionCharacterV3Tests
     }
     private sealed class FixedRenderer : IPerceptionCharacterV3Renderer
     {
-        public byte[] RenderVisual(string answer, ReadOnlySpan<byte> seed, CancellationToken cancellationToken = default) => new byte[98_304]; public byte[] RenderAudio(string answer, ReadOnlySpan<byte> seed, CancellationToken cancellationToken = default) => Encoding.ASCII.GetBytes("RIFF-final-audio");
+        public byte[] RenderVisual(string answer, ReadOnlySpan<byte> seed, CancellationToken cancellationToken = default)
+            => new byte[98_304];
+        public byte[] RenderAudio(string answer, ReadOnlySpan<byte> seed, CancellationToken cancellationToken = default)
+            => Encoding.ASCII.GetBytes("RIFF-final-audio");
     }
     private sealed class CountingRenderer : IPerceptionCharacterV3Renderer
     {
@@ -913,7 +925,10 @@ public sealed class PerceptionCharacterV3Tests
                 }
                 return audio ? Encoding.ASCII.GetBytes("RIFF-final-audio") : new byte[98_304];
             }
-            finally { ActiveCalls--; }
+            finally
+            {
+                ActiveCalls--;
+            }
         }
     }
     private sealed class AllowGate : IPerceptionCharacterV3ResourceGate
@@ -940,7 +955,8 @@ public sealed class PerceptionCharacterV3Tests
     }
     private sealed class AuditSink : IPerceptionCharacterV3AuditSink
     {
-        public List<(string Operation, string Outcome, string Reason)> Events { get; } = []; public ValueTask WriteAsync(string operation, string challengeId, string action, string outcome, string internalReason, CancellationToken cancellationToken)
+        public List<(string Operation, string Outcome, string Reason)> Events { get; } = [];
+        public ValueTask WriteAsync(string operation, string challengeId, string action, string outcome, string internalReason, CancellationToken cancellationToken)
         {
             Events.Add((operation, outcome, internalReason));
             return ValueTask.CompletedTask;
@@ -961,7 +977,9 @@ public sealed class PerceptionCharacterV3Tests
     }
     private sealed class MemoryStore : IPerceptionCharacterV3StateStore
     {
-        private readonly object _sync = new(); public Dictionary<string, PerceptionCharacterV3StateRecord> Records { get; } = []; public PerceptionCharacterV3Transition? LastRevocation
+        private readonly object _sync = new();
+        public Dictionary<string, PerceptionCharacterV3StateRecord> Records { get; } = [];
+        public PerceptionCharacterV3Transition? LastRevocation
         {
             get; private set;
         }
@@ -1020,5 +1038,9 @@ public sealed class PerceptionCharacterV3Tests
             }
         }
     }
-    private static SecurityChallengeProviderIssueRequest ProviderIssueRequest() => new(new DefaultHttpContext(), PerceptionCharacterV3Contracts.WireName, "comment.create", "/api/binary/comment", "tenant-main", new string('1', 64), new string('3', 64), new string('9', 64), "issued-policy", 1, "trace") { EnvelopeId = Guid.CreateVersion7().ToString("D") };
+    private static SecurityChallengeProviderIssueRequest ProviderIssueRequest()
+        => new(new DefaultHttpContext(), PerceptionCharacterV3Contracts.WireName, "comment.create", "/api/binary/comment", "tenant-main", new string('1', 64), new string('3', 64), new string('9', 64), "issued-policy", 1, "trace")
+        {
+            EnvelopeId = Guid.CreateVersion7().ToString("D")
+        };
 }

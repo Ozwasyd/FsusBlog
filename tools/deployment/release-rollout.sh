@@ -21,6 +21,7 @@ WORKER_RECONCILIATION_EVIDENCE="${FSUSBLOG_ROLLOUT_WORKER_RECONCILIATION_EVIDENC
 WORKER_EVENT_LEDGER="${FSUSBLOG_ROLLOUT_WORKER_EVENT_LEDGER:-${FSUSBLOG_ROLLOUT_NORMAL_WORKER_LEDGER:-}}"
 RESOURCE_BUDGET_EVIDENCE="${FSUSBLOG_ROLLOUT_RESOURCE_BUDGET_EVIDENCE:-}"
 FAULT_INJECTION_EVIDENCE="${FSUSBLOG_ROLLOUT_FAULT_INJECTION_EVIDENCE:-}"
+CHALLENGE_KIND_TARGET_MAP="${FSUSBLOG_CHALLENGE_KIND_CUTOVER_TARGET_MAP:-}"
 OPERATOR_NOTE_FILE="${FSUSBLOG_ROLLOUT_OPERATOR_NOTE:-}"
 OPERATOR_NOTE_EXPLICIT=0
 [[ -z "$OPERATOR_NOTE_FILE" ]] || OPERATOR_NOTE_EXPLICIT=1
@@ -82,7 +83,7 @@ Usage: tools/deployment/release-rollout.sh --release-manifest <file> [options]
 
 This is the only supported production rollout entry. It serializes and persists:
   immutable manifest -> capacity/backup/Expand -> isolated candidate -> assets/smoke/compatibility
-  -> atomic gateway switch -> active fence CAS -> public verification -> source drain/stop -> evidence seal
+  -> provisional gateway switch -> source drain + legacy cutover -> active fence activation -> public verification -> source stop -> evidence seal
 
 Required evidence/configuration:
   --release-manifest <file>           Immutable CI release manifest.
@@ -99,6 +100,7 @@ Required evidence/configuration:
   --worker-ledger <file>               Live eight-kind normal-rollout worker ledger input.
   --resource-budget-evidence <file>   Dual-slot resource budget evidence.
   --fault-injection-evidence <file>   Automated rollout fault matrix evidence.
+  --challenge-kind-target-map <file> Independent numeric-to-wire JSON target map for the mandatory cutover.
 
 Modes:
   --dry-run       Validate immutable inputs/state and print the exact ordered plan without mutation.
@@ -226,6 +228,11 @@ while [[ $# -gt 0 ]]; do
         --fault-injection-evidence)
             [[ $# -ge 2 ]] || RolloutFail "--fault-injection-evidence requires a path"
             FAULT_INJECTION_EVIDENCE="$2"
+            shift 2
+            ;;
+        --challenge-kind-target-map)
+            [[ $# -ge 2 ]] || RolloutFail "--challenge-kind-target-map requires a path"
+            CHALLENGE_KIND_TARGET_MAP="$2"
             shift 2
             ;;
         --public-url)
@@ -570,7 +577,7 @@ PrintDryRun() {
         --argjson sourceGeneration "$SOURCE_GENERATION" \
         --argjson targetGeneration "$plannedGeneration" \
         --argjson noSwitch "$([[ "$NO_SWITCH" == "1" ]] && printf true || printf false)" \
-        --argjson stages "$(printf '%s\n' manifest-validate capacity-preflight backup-restore-gate expand-migration candidate-start candidate-readiness asset-materialize candidate-smoke compatibility-smoke gateway-switch active-fence public-verify source-drain source-stop release-evidence | jq -R . | jq -s .)" '
+        --argjson stages "$(printf '%s\n' manifest-validate capacity-preflight backup-restore-gate expand-migration candidate-start candidate-readiness asset-materialize candidate-smoke compatibility-smoke gateway-switch source-drain active-fence public-verify source-stop release-evidence | jq -R . | jq -s .)" '
     {
       schema: "fsusblog.release-rollout-plan.v1",
       status: "dry-run",
@@ -599,6 +606,29 @@ RequireRuntimeInputs() {
     done
     [[ -f "$PRODUCTION_ENV_FILE" ]] || RolloutFail "production env file is missing: $PRODUCTION_ENV_FILE"
     [[ -f "$ADMIN_HEADER_FILE" ]] || RolloutFail "deployment admin header file is missing"
+    if [[ "$NO_SWITCH" == "0" ]]; then
+        [[ -f "$CHALLENGE_KIND_TARGET_MAP" ]] ||
+            RolloutFail "challenge kind cutover target map is required and must exist: ${CHALLENGE_KIND_TARGET_MAP:-<empty>}"
+        jq -e '
+          type == "array" and length == 3
+          and ([.[].numericKind] | (sort == [3,10,13]) and ((unique | length) == 3))
+          and ([.[].wireName] | all(.[]; type == "string" and length > 0) and ((unique | length) == 3))
+        ' "$CHALLENGE_KIND_TARGET_MAP" >/dev/null ||
+            RolloutFail "challenge kind cutover target map must contain unique numeric kinds 3/10/13 and unique wire names"
+        local challengeKindTargetFingerprint
+        challengeKindTargetFingerprint="$(node --input-type=module - "$CHALLENGE_KIND_TARGET_MAP" <<'NODE'
+import { createHash } from 'node:crypto'
+import { readFileSync } from 'node:fs'
+
+const targets = JSON.parse(readFileSync(process.argv[2], 'utf8'))
+  .toSorted((left, right) => left.numericKind - right.numericKind || left.wireName.localeCompare(right.wireName, 'en'))
+const canonical = targets.map((target) => `${target.numericKind}\0${target.wireName}\n`).join('')
+process.stdout.write(createHash('sha256').update(canonical, 'utf8').digest('hex'))
+NODE
+)"
+        [[ "$challengeKindTargetFingerprint" == "48e9440c0b09fcd494d11f3773d7190f703bcb1295c171c3242ea9d3ea484c19" ]] ||
+            RolloutFail "challenge kind cutover target map is not the authoritative retired mapping"
+    fi
     local mode
     mode="$(stat -c '%a' "$ADMIN_HEADER_FILE")"
     [[ "$mode" == "400" || "$mode" == "600" ]] || RolloutFail "deployment admin header file must have mode 0400 or 0600"
@@ -1142,7 +1172,7 @@ RunStage() {
 
 StageIndex() {
     local wanted="$1" index=0 stage
-    for stage in manifest-validate capacity-preflight backup-restore-gate expand-migration candidate-start candidate-readiness asset-materialize candidate-smoke compatibility-smoke gateway-switch active-fence public-verify source-drain source-stop release-evidence; do
+    for stage in manifest-validate capacity-preflight backup-restore-gate expand-migration candidate-start candidate-readiness asset-materialize candidate-smoke compatibility-smoke gateway-switch source-drain active-fence public-verify source-stop release-evidence; do
         [[ "$stage" == "$wanted" ]] && {
             printf '%s\n' "$index"
             return
@@ -1192,7 +1222,7 @@ RecoverPendingState() {
                 return 0
             fi
             ;;
-        resume-source-drain | resume-release-evidence)
+        resume-release-activation-same-cutover | resume-release-evidence)
             jq -cn --arg action "$action" --arg failedStage "$failedStage" \
                 '{schema:"fsusblog.release-rollout-recovery.v1",status:"ok",action:$action,failedStage:$failedStage,idempotentRetryRequired:true}' >"$recoveryFile"
             status=0
@@ -1348,12 +1378,6 @@ MarkGatewaySwitch() {
 }
 
 StageActiveFence() {
-    node "$ROOT_DIR/tools/deployment/active-release-fence.mjs" acquire \
-        --port "$TARGET_PORT" --release "$TARGET_RELEASE" --slot "$TARGET_SLOT" \
-        --generation "$TARGET_GENERATION" --digest "$TARGET_DIGEST" \
-        --expected-release "$SOURCE_RELEASE" --expected-slot "$SOURCE_SLOT" --expected-generation "$SOURCE_GENERATION" \
-        --admin-header-file "$ADMIN_HEADER_FILE" --origin "$CONTROL_ORIGIN" \
-        --out "$EVIDENCE_DIR/active-release-fence.json"
     node "$ROOT_DIR/tools/deployment/active-release-fence.mjs" revoke \
         --port "$SOURCE_PORT" --release "$SOURCE_RELEASE" --slot "$SOURCE_SLOT" \
         --generation "$SOURCE_GENERATION" \
@@ -1364,6 +1388,8 @@ StageActiveFence() {
         --generation "$TARGET_GENERATION" \
         --admin-header-file "$ADMIN_HEADER_FILE" --origin "$CONTROL_ORIGIN" \
         --out "$EVIDENCE_DIR/active-release-fence-verified.json"
+    node "$ROOT_DIR/tools/deployment/rollout-state.mjs" mark-activation \
+        --state "$ROLLOUT_STATE_FILE" >/dev/null
 }
 
 StagePublicVerify() {
@@ -1372,21 +1398,6 @@ StagePublicVerify() {
         --input "$TRAFFIC_SNAPSHOT" --target-release "$TARGET_RELEASE" \
         --min-requests "${FSUSBLOG_ROLLOUT_MIN_PUBLIC_REQUESTS:-100}" \
         --out "$EVIDENCE_DIR/public-traffic-checkpoint.json"
-}
-
-StageSourceDrain() {
-    node "$ROOT_DIR/tools/deployment/notification-stream-restart.mjs" restart \
-        --port "$SOURCE_PORT" --release "$SOURCE_RELEASE" --slot "$SOURCE_SLOT" --generation "$SOURCE_GENERATION" \
-        --reason deployment_drain --admin-header-file "$ADMIN_HEADER_FILE" --origin "$CONTROL_ORIGIN" \
-        --out "$EVIDENCE_DIR/notification-stream-restart.json" >/dev/null
-    "$ROOT_DIR/tools/deployment/deployment-control.sh" drain \
-        --slot "$SOURCE_SLOT" --release "$SOURCE_RELEASE" --generation "$SOURCE_GENERATION" --port "$SOURCE_PORT" \
-        --timeout-seconds "${FSUSBLOG_DRAIN_TIMEOUT_SECONDS:-45}" --admin-header-file "$ADMIN_HEADER_FILE" \
-        --origin "$CONTROL_ORIGIN" --wait >"$EVIDENCE_DIR/source-drain.snapshot.json"
-    node "$ROOT_DIR/tools/deployment/release-rollout-gate.mjs" source-drain \
-        --input "$EVIDENCE_DIR/source-drain.snapshot.json" \
-        --notification "$EVIDENCE_DIR/notification-stream-restart.json" \
-        --out "$EVIDENCE_DIR/source-drain-gate.json"
     "$ROOT_DIR/tools/deployment/slot-status.sh" --slot "$TARGET_SLOT" --state-file "$SLOT_STATE_FILE" \
         >"$EVIDENCE_DIR/target-status-active.json"
     node "$ROOT_DIR/tools/deployment/release-rollout-gate.mjs" target-health \
@@ -1412,6 +1423,60 @@ StageSourceDrain() {
         --rollout-state "$ROLLOUT_STATE_FILE" --slot-state "$SLOT_STATE_FILE" \
         --store "$ASSET_STORE" --state "$RETENTION_STATE" \
         --out "$EVIDENCE_DIR/asset-retention-drain-complete.json"
+}
+
+StageSourceDrain() {
+    node "$ROOT_DIR/tools/deployment/notification-stream-restart.mjs" restart \
+        --port "$SOURCE_PORT" --release "$SOURCE_RELEASE" --slot "$SOURCE_SLOT" --generation "$SOURCE_GENERATION" \
+        --reason deployment_drain --admin-header-file "$ADMIN_HEADER_FILE" --origin "$CONTROL_ORIGIN" \
+        --out "$EVIDENCE_DIR/notification-stream-restart.json" >/dev/null
+    "$ROOT_DIR/tools/deployment/deployment-control.sh" drain \
+        --slot "$SOURCE_SLOT" --release "$SOURCE_RELEASE" --generation "$SOURCE_GENERATION" --port "$SOURCE_PORT" \
+        --timeout-seconds "${FSUSBLOG_DRAIN_TIMEOUT_SECONDS:-45}" --admin-header-file "$ADMIN_HEADER_FILE" \
+        --origin "$CONTROL_ORIGIN" --wait >"$EVIDENCE_DIR/source-drain.snapshot.json"
+    node "$ROOT_DIR/tools/deployment/release-rollout-gate.mjs" source-drain \
+        --input "$EVIDENCE_DIR/source-drain.snapshot.json" \
+        --notification "$EVIDENCE_DIR/notification-stream-restart.json" \
+        --out "$EVIDENCE_DIR/source-drain-gate.json"
+    # The backend cutover endpoint requires an exact target authorization fence. Acquiring it
+    # here does not commit rollout activation: activationCommitted remains false until the later
+    # active-fence stage verifies cutover evidence, revokes source ownership and marks activation.
+    node "$ROOT_DIR/tools/deployment/active-release-fence.mjs" acquire \
+        --port "$TARGET_PORT" --release "$TARGET_RELEASE" --slot "$TARGET_SLOT" \
+        --generation "$TARGET_GENERATION" --digest "$TARGET_DIGEST" \
+        --expected-release "$SOURCE_RELEASE" --expected-slot "$SOURCE_SLOT" --expected-generation "$SOURCE_GENERATION" \
+        --admin-header-file "$ADMIN_HEADER_FILE" --origin "$CONTROL_ORIGIN" \
+        --out "$EVIDENCE_DIR/active-release-fence.json"
+    node "$ROOT_DIR/tools/deployment/rollout-state.mjs" mark-destructive-cutover \
+        --state "$ROLLOUT_STATE_FILE" >/dev/null
+    # Irreversible boundary: source issuance is revoked and all source in-flight work is drained.
+    # Resume uses this same operation id, so a crash after the mutation reads the durable receipt.
+    node "$ROOT_DIR/tools/deployment/invoke-security-challenge-kind-cutover.mjs" \
+        --port "$TARGET_PORT" --release-id "$TARGET_RELEASE" --slot "$TARGET_SLOT" \
+        --generation "$TARGET_GENERATION" --operation-id "$ROLLOUT_ID:challenge-kind-cutover" \
+        --targets "$CHALLENGE_KIND_TARGET_MAP" \
+        --admin-header-file "$ADMIN_HEADER_FILE" --origin "$CONTROL_ORIGIN" \
+        --receipt "$EVIDENCE_DIR/challenge-kind-cutover-receipt.json" >/dev/null
+    node "$ROOT_DIR/tools/security/verify-security-challenge-kind-cutover.mjs" \
+        --receipt "$EVIDENCE_DIR/challenge-kind-cutover-receipt.json" \
+        --targets "$CHALLENGE_KIND_TARGET_MAP" \
+        --release-id "$TARGET_RELEASE" --slot "$TARGET_SLOT" --generation "$TARGET_GENERATION" \
+        >"$EVIDENCE_DIR/challenge-kind-cutover-acceptance.json"
+    node "$ROOT_DIR/tools/deployment/activate-security-challenge-protocol.mjs" \
+        --port "$TARGET_PORT" --release-id "$TARGET_RELEASE" --slot "$TARGET_SLOT" \
+        --generation "$TARGET_GENERATION" --operation-id "$ROLLOUT_ID:challenge-kind-cutover" \
+        --request-fingerprint "$(jq -r '.requestFingerprint' "$EVIDENCE_DIR/challenge-kind-cutover-acceptance.json")" \
+        --target-fingerprint "$(jq -r '.targetFingerprint' "$EVIDENCE_DIR/challenge-kind-cutover-acceptance.json")" \
+        --admin-header-file "$ADMIN_HEADER_FILE" --origin "$CONTROL_ORIGIN" \
+        --receipt "$EVIDENCE_DIR/challenge-protocol-activation.json" >/dev/null
+    node "$ROOT_DIR/tools/deployment/verify-release-challenge-kind-cutover.mjs" \
+        --rollout-state "$ROLLOUT_STATE_FILE" \
+        --active-fence "$EVIDENCE_DIR/active-release-fence.json" \
+        --cutover-acceptance "$EVIDENCE_DIR/challenge-kind-cutover-acceptance.json" \
+        --protocol-activation "$EVIDENCE_DIR/challenge-protocol-activation.json" \
+        --asset-materialization "$EVIDENCE_DIR/asset-materialization.json" \
+        --public-aot-warm "$EVIDENCE_DIR/public-aot-warm.json" \
+        --out "$EVIDENCE_DIR/challenge-kind-cutover-gate.json" >/dev/null
 }
 
 StageSourceStop() {
@@ -1476,6 +1541,10 @@ AuxiliaryArgs() {
         --auxiliary "activeFenceAcquire=$EVIDENCE_DIR/active-release-fence.json" \
         --auxiliary "activeFenceSourceRevoke=$EVIDENCE_DIR/active-release-fence-source-revoke.json" \
         --auxiliary "activeFenceVerify=$EVIDENCE_DIR/active-release-fence-verified.json" \
+        --auxiliary "challengeKindCutoverReceipt=$EVIDENCE_DIR/challenge-kind-cutover-receipt.json" \
+        --auxiliary "challengeKindCutoverAcceptance=$EVIDENCE_DIR/challenge-kind-cutover-acceptance.json" \
+        --auxiliary "challengeKindCutoverGate=$EVIDENCE_DIR/challenge-kind-cutover-gate.json" \
+        --auxiliary "challengeProtocolActivation=$EVIDENCE_DIR/challenge-protocol-activation.json" \
         --auxiliary "publicTrafficCheckpoint=$EVIDENCE_DIR/public-traffic-checkpoint.json" \
         --auxiliary "sourceDrainSnapshot=$EVIDENCE_DIR/source-drain.snapshot.json" \
         --auxiliary "sourceDrainGate=$EVIDENCE_DIR/source-drain-gate.json" \
@@ -1563,9 +1632,9 @@ done
 
 RunStage gateway-switch atomic-gateway-switch StageGatewaySwitch
 MarkGatewaySwitch
+RunStage source-drain graceful-source-drain-and-cutover StageSourceDrain
 RunStage active-fence active-release-cas StageActiveFence
 RunStage public-verify continuous-public-traffic StagePublicVerify
-RunStage source-drain graceful-source-drain StageSourceDrain
 RunStage source-stop retained-source-stop StageSourceStop
 RunStage release-evidence immutable-release-evidence StageReleaseEvidence
 FinalizeRollout

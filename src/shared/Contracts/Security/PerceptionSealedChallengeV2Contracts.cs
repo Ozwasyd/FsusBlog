@@ -6,7 +6,6 @@ namespace FsusBlog.Shared.Contracts.Security;
 public enum PerceptionSealedTaskKind : byte
 {
     Unknown = 0,
-    Character = 1,
     Localization = 2,
     MicroInteraction = 3
 }
@@ -17,7 +16,6 @@ public enum PerceptionSealedTaskKind : byte
 public enum PerceptionSealedResultPayloadKind : byte
 {
     Unknown = 0,
-    Character = 1,
     Coordinates = 2,
     Steps = 3
 }
@@ -74,8 +72,6 @@ public static class PerceptionSealedChallengeV2Contracts
     public static PerceptionSealedTaskKind ToTaskKind(SecurityChallengeKind kind)
         => kind switch
         {
-            SecurityChallengeKind.PerceptionCharacterV2 => PerceptionSealedTaskKind.Character,
-            SecurityChallengeKind.PerceptionTextTaskV2 => PerceptionSealedTaskKind.Character,
             SecurityChallengeKind.PerceptionLocalizationV2 => PerceptionSealedTaskKind.Localization,
             SecurityChallengeKind.PerceptionMicroInteractionV2 => PerceptionSealedTaskKind.MicroInteraction,
             _ => PerceptionSealedTaskKind.Unknown
@@ -84,7 +80,6 @@ public static class PerceptionSealedChallengeV2Contracts
     public static SecurityChallengeKind ToChallengeKind(PerceptionSealedTaskKind taskKind)
         => taskKind switch
         {
-            PerceptionSealedTaskKind.Character => SecurityChallengeKind.PerceptionCharacterV2,
             PerceptionSealedTaskKind.Localization => SecurityChallengeKind.PerceptionLocalizationV2,
             PerceptionSealedTaskKind.MicroInteraction => SecurityChallengeKind.PerceptionMicroInteractionV2,
             _ => SecurityChallengeKind.Unknown
@@ -193,7 +188,6 @@ public static class PerceptionSealedChallengeV2Contracts
     private static bool IsExpectedPayloadKind(PerceptionSealedTaskKind taskKind, PerceptionSealedResultPayloadKind payloadKind)
         => (taskKind, payloadKind) switch
         {
-            (PerceptionSealedTaskKind.Character, PerceptionSealedResultPayloadKind.Character) => true,
             (PerceptionSealedTaskKind.Localization, PerceptionSealedResultPayloadKind.Coordinates) => true,
             (PerceptionSealedTaskKind.MicroInteraction, PerceptionSealedResultPayloadKind.Steps) => true,
             _ => false

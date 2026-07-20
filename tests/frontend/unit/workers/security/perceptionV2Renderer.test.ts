@@ -39,7 +39,7 @@ const completeRecipe: RenderRecipeV2 = {
     { kind: 'rect', x: 38, y: 24, width: 18, height: 7, color: '#05070a', alpha: 0.7 }
   ],
   presentationHints: {
-    taskKind: 'text-task'
+    taskKind: 'localization'
   }
 }
 
@@ -71,8 +71,8 @@ describe('PerceptionV2 worker renderer core', () => {
     expect(result.transfer).toEqual([result.payload.pixels.buffer])
   })
 
-  it('renders shared text-task, localization, and micro-interaction recipes without semantic ids', async () => {
-    for (const taskKind of ['text-task', 'localization', 'micro-interaction'] as const) {
+  it('renders shared localization and micro-interaction recipes without semantic ids', async () => {
+    for (const taskKind of ['localization', 'micro-interaction'] as const) {
       const recipe = {
         ...completeRecipe,
         presentationHints: { taskKind }
@@ -146,7 +146,7 @@ describe('PerceptionV2 worker renderer core', () => {
       requestId: 9,
       recipe: {
         ...completeRecipe,
-        answer: 'left'
+        expectedPoint: { x: 0.25, y: 0.75 }
       }
     })
 

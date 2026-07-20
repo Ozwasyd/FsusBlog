@@ -24,7 +24,7 @@ public sealed class PerceptionChallengeV2E2eTests
     private const string RouteKey = "/api/binary/comment/article/42";
     private const string PolicyVersion = "risk-policy-perception-v2-e2e";
     private const string Traceparent = "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01";
-    private const string FixedAnswer = "A7K2M";
+    private const string FixedStep = "drag:0.68,0.36";
 
     [Fact]
     public async Task CommentCreateFlow_IssueRenderVerifyProofResume_WritesReleaseEvidence()
@@ -69,13 +69,13 @@ public sealed class PerceptionChallengeV2E2eTests
             "security/matrices/perception-v2.yml",
             new PerceptionE2eWorkflow(
                 BusinessFlow,
-                "perceptionTextTaskV2",
+                "perceptionMicroInteractionV2",
                 ["issue", "render", "verify", "proof", "business-action-resume"],
-                ["text-task"],
+                ["micro-interaction"],
                 ["comment.create"]),
             new PerceptionE2eCoverage(
                 ["comment.create:issue-render-verify-proof-resume"],
-                ["wrong-answer", "expired", "duplicate-submit", "action-mismatch", "route-mismatch"],
+                ["wrong-step", "expired", "duplicate-submit", "action-mismatch", "route-mismatch"],
                 ["issue-p99", "verify-gate-latency", "async-audit-queue-nonblocking"]),
             new PerceptionE2eMetrics(
                 Percentile(issueDurations, 0.99),
@@ -96,7 +96,7 @@ public sealed class PerceptionChallengeV2E2eTests
         {
             PerceptionIssuedChallenge challenge = await fixture.IssueAsync(CancellationToken.None);
             Dictionary<string, string> wrongAnswer = fixture.RenderAndSolve(challenge);
-            wrongAnswer["answerText"] = "WRONG";
+            wrongAnswer["step"] = "drag:wrong";
 
             SecurityChallengeOrchestrationVerifyResult result = await fixture.VerifyAsync(
                 challenge,
@@ -106,7 +106,7 @@ public sealed class PerceptionChallengeV2E2eTests
             Assert.False(result.Succeeded);
             Assert.Equal("perception_challenge_failed", result.Reason);
             Assert.Contains(fixture.DrainAuditEvents(), static item =>
-                string.Equals(item.Attempt.Reason, "perception_text_answer_invalid", StringComparison.Ordinal));
+                string.Equals(item.Attempt.Reason, "perception_steps_invalid", StringComparison.Ordinal));
         }
 
         using (PerceptionE2eFixture fixture = PerceptionE2eFixture.Create())
@@ -234,7 +234,8 @@ public sealed class PerceptionChallengeV2E2eTests
             IConfiguration configuration = new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string?>
                 {
-                    ["Security:PerceptionV2:TextTask:FixedText"] = FixedAnswer,
+                    ["Security:PerceptionV2:MicroInteraction:Mode"] = "enforce",
+                    ["Security:PerceptionV2:MicroInteraction:FixedSteps"] = FixedStep,
                     ["Security:PerceptionV2:SigningKey"] = "perception-v2-e2e-signing-key"
                 })
                 .Build();
@@ -258,15 +259,16 @@ public sealed class PerceptionChallengeV2E2eTests
                 Options.Create(new ChallengeV2EventWriterOptions { Capacity = 1024, HighValueCapacity = 128 }),
                 NullLogger<ChallengeV2AuditEventQueue>.Instance);
             var verifyService = new PerceptionChallengeV2VerifyService(tokenProtector, gate, riskSink, auditQueue, clock);
-            var provider = new PerceptionTextTaskV2Provider(issueService, verifyService);
+            var provider = new PerceptionMicroInteractionV2Provider(issueService, verifyService, configuration);
             var persistence = new RecordingChallengePersistence();
             var proofCache = new MemoryProofCache();
-            var proofService = new SecurityChallengeProofService(proofCache, proofCache, persistence, clock);
+            var envelopeStates = new TestSecurityChallengeEnvelopeStateService();
+            var proofService = new SecurityChallengeProofService(proofCache, proofCache, persistence, clock, envelopeStates);
             var orchestrator = new SecurityChallengeOrchestrator(
                 [provider],
                 proofService,
                 riskSink,
-                new TestSecurityChallengeEnvelopeStateService());
+                envelopeStates);
             return new PerceptionE2eFixture(clock, orchestrator, proofService, persistence, auditQueue);
         }
 
@@ -315,7 +317,7 @@ public sealed class PerceptionChallengeV2E2eTests
             Assert.True(result.Succeeded, result.Reason);
             Assert.NotNull(result.Envelope);
             SecurityChallengeAssignment assignment = Assert.Single(result.Envelope.Assignments);
-            Assert.Equal(PerceptionTextTaskV2Provider.WireKind, SecurityChallengeContracts.ToWireName(assignment.Kind));
+            Assert.Equal(PerceptionMicroInteractionV2Provider.WireKind, SecurityChallengeContracts.ToWireName(assignment.Kind));
             Assert.True(result.ProviderPayloads.TryGetValue(assignment.ChallengeId, out var providerPayload));
             return new PerceptionIssuedChallenge(result.Envelope.EnvelopeId, assignment, providerPayload);
         }
@@ -325,12 +327,14 @@ public sealed class PerceptionChallengeV2E2eTests
             Assert.True(challenge.ProviderPayload.TryGetValue("recipeJson", out string? recipeJson));
             RenderRecipeV2? recipe = JsonSerializer.Deserialize<RenderRecipeV2>(recipeJson, s_renderRecipeJsonOptions);
             Assert.NotNull(recipe);
-            Assert.Equal(RenderRecipeV2TaskKind.Character, recipe.TaskKind);
-            Assert.Equal("text", recipe.PresentationHints["inputMode"]);
+            Assert.Equal(RenderRecipeV2TaskKind.MicroInteraction, recipe.TaskKind);
+            Assert.Equal("pointer", recipe.PresentationHints["inputMode"]);
 
             var payload = new Dictionary<string, string>(challenge.ProviderPayload, StringComparer.Ordinal)
             {
-                ["answerText"] = FixedAnswer.ToLowerInvariant(),
+                ["step"] = FixedStep,
+                ["x"] = "0.68",
+                ["y"] = "0.36",
                 ["solveDurationMs"] = "1250",
                 ["clientRenderMode"] = "test-fixture:recipe-json"
             };
@@ -347,7 +351,7 @@ public sealed class PerceptionChallengeV2E2eTests
                 new SecurityChallengeOrchestrationVerifyRequest(
                     new DefaultHttpContext(),
                     challenge.EnvelopeId,
-                    PerceptionTextTaskV2Provider.WireKind,
+                    PerceptionMicroInteractionV2Provider.WireKind,
                     challenge.Assignment.ChallengeId,
                     actionOverride ?? BusinessFlow,
                     routeOverride ?? RouteKey,
@@ -368,14 +372,14 @@ public sealed class PerceptionChallengeV2E2eTests
                 new SecurityChallengeProofConsumeRequest(
                     proofToken,
                     challenge.Assignment.ChallengeId,
-                    PerceptionTextTaskV2Provider.WireKind,
+                    PerceptionMicroInteractionV2Provider.WireKind,
                     BusinessFlow,
                     routeOverride ?? RouteKey,
                     challenge.Assignment.SubjectHash,
                     challenge.Assignment.ClientIpHash,
                     challenge.Assignment.DeviceFpHash,
                     PolicyVersion,
-                    [PerceptionTextTaskV2Provider.WireKind]),
+                    [PerceptionMicroInteractionV2Provider.WireKind]),
                 cancellationToken);
             if (!consumed.Accepted)
             {
@@ -410,8 +414,8 @@ public sealed class PerceptionChallengeV2E2eTests
                 RouteKey,
                 60,
                 60,
-                1,
-                [PerceptionTextTaskV2Provider.WireKind],
+                2,
+                [PerceptionMicroInteractionV2Provider.WireKind],
                 PolicyVersion,
                 ["perception-v2-e2e"]);
     }
@@ -660,6 +664,9 @@ public sealed class PerceptionChallengeV2E2eTests
 
         public Task<bool> RevokeAsync(string challengeId, string? reason = null, CancellationToken cancellationToken = default)
             => Task.FromResult(false);
+
+        public Task<string?> GetStatusAsync(string challengeId, CancellationToken cancellationToken = default)
+            => Task.FromResult<string?>(SecurityChallengeStatuses.Verified);
 
         public void Dispose()
         {

@@ -490,7 +490,7 @@ public sealed class ProductionHealthTests
                 .AddSingleton<ISecurityRiskPolicyProvider>(new FixedRiskPolicyProvider(CreateRiskPolicy()))
                 .AddReadinessCache<ConsumeOnceHealthCache>();
             services.AddSingleton<ISecurityChallengeProvider>(new HealthChallengeProvider(
-                SecurityChallengeContracts.ToWireName(SecurityChallengeKind.CaptchaV1)));
+                SecurityChallengeContracts.ToWireName(SecurityChallengeKind.PerceptionCharacterV3)));
 
             using ServiceProvider provider = services.BuildServiceProvider();
             IConfiguration configuration = CreatePerceptionReadyConfiguration();
@@ -688,14 +688,14 @@ public sealed class ProductionHealthTests
     {
         string pow = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.Sha256PowV1);
         string poSpace = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.Argon2IdPoSpaceV1);
-        string captcha = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.CaptchaV1);
+        string characterChallenge = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.PerceptionCharacterV3);
 
         SecurityRiskPolicySnapshotV2 ordered = CreateRiskPolicyWithChallengeSet(
             SecurityChallengeCapabilityCatalog.NotificationSubscribeAction,
             [pow, poSpace]);
 
         Assert.True(ProductionReadinessProbe.ChallengeProviderRegistryReady([pow, poSpace], ordered));
-        Assert.True(ProductionReadinessProbe.ChallengeProviderRegistryReady([captcha], CreateRiskPolicy()));
+        Assert.True(ProductionReadinessProbe.ChallengeProviderRegistryReady([characterChallenge], CreateRiskPolicy()));
     }
 
     [Fact]
@@ -703,36 +703,36 @@ public sealed class ProductionHealthTests
     {
         string pow = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.Sha256PowV1);
         string poSpace = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.Argon2IdPoSpaceV1);
-        string captcha = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.CaptchaV1);
+        string characterChallenge = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.PerceptionCharacterV3);
         string unavailable = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.AdminPasskeyStepUpV1);
         SecurityRiskPolicySnapshotV2 missingProvider = CreateRiskPolicyWithChallengeSet(
             SecurityChallengeCapabilityCatalog.NotificationSubscribeAction,
             [pow, poSpace]);
         SecurityRiskPolicySnapshotV2 unavailableCapability = CreateRiskPolicyWithChallengeSet(
             RiskActionNames.CommentCreate,
-            [captcha, unavailable]);
+            [characterChallenge, unavailable]);
 
         Assert.False(ProductionReadinessProbe.ChallengeProviderRegistryReady([pow], missingProvider));
-        Assert.False(ProductionReadinessProbe.ChallengeProviderRegistryReady([captcha, unavailable], unavailableCapability));
+        Assert.False(ProductionReadinessProbe.ChallengeProviderRegistryReady([characterChallenge, unavailable], unavailableCapability));
     }
 
     [Fact]
     public void ChallengeProviderRegistryReady_RejectsDuplicateOverLimitAndNoncanonicalSets()
     {
-        string captcha = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.CaptchaV1);
+        string characterChallenge = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.PerceptionCharacterV3);
         string pow = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.Sha256PowV1);
         SecurityRiskPolicySnapshotV2 duplicate = CreateRiskPolicyWithChallengeSet(
             RiskActionNames.CommentCreate,
-            [captcha, captcha]);
+            [characterChallenge, characterChallenge]);
         SecurityRiskPolicySnapshotV2 overLimit = CreateRiskPolicyWithChallengeSet(
             RiskActionNames.CommentCreate,
-            Enumerable.Repeat(captcha, SecurityChallengeContracts.MaxAssignmentsPerEnvelope + 1).ToArray());
+            Enumerable.Repeat(characterChallenge, SecurityChallengeContracts.MaxAssignmentsPerEnvelope + 1).ToArray());
         SecurityRiskPolicySnapshotV2 noncanonical = CreateRiskPolicyWithChallengeSet(
             SecurityChallengeCapabilityCatalog.NotificationSubscribeAction,
             ["security.pow"]);
 
-        Assert.False(ProductionReadinessProbe.ChallengeProviderRegistryReady([captcha], duplicate));
-        Assert.False(ProductionReadinessProbe.ChallengeProviderRegistryReady([captcha], overLimit));
+        Assert.False(ProductionReadinessProbe.ChallengeProviderRegistryReady([characterChallenge], duplicate));
+        Assert.False(ProductionReadinessProbe.ChallengeProviderRegistryReady([characterChallenge], overLimit));
         Assert.False(ProductionReadinessProbe.ChallengeProviderRegistryReady([pow], noncanonical));
     }
 
@@ -758,7 +758,7 @@ public sealed class ProductionHealthTests
             new SecurityRiskActionPolicy(
                 "*",
                 new SecurityRiskActionThresholds(10, 25, 50, 75, 90),
-                SecurityChallengeContracts.ToWireName(SecurityChallengeKind.CaptchaV1),
+                SecurityChallengeContracts.ToWireName(SecurityChallengeKind.PerceptionCharacterV3),
                 1,
                 null,
                 AnonymousWriteAllowed: true),

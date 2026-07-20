@@ -18,8 +18,8 @@ const requiredDiskArtifactFaultCases = ['disk-artifact-storage-write-failure']
 const requiredRolloutStages = [
   'manifest-validate', 'capacity-preflight', 'backup-restore-gate', 'expand-migration',
   'candidate-start', 'candidate-readiness', 'asset-materialize', 'candidate-smoke',
-  'compatibility-smoke', 'gateway-switch', 'active-fence', 'public-verify',
-  'source-drain', 'source-stop', 'release-evidence'
+  'compatibility-smoke', 'gateway-switch', 'source-drain', 'active-fence',
+  'public-verify', 'source-stop', 'release-evidence'
 ]
 const requiredRolloutArtifacts = [
   'publicTraffic', 'notificationStream', 'assetCompatibility',

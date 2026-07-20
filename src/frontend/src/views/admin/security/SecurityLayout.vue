@@ -33,7 +33,6 @@ const securitySystemTabs = [
   { label: '验证任务', name: 'ManageSecurityChallenges' },
   { label: '策略版本', name: 'ManageSecurityPolicies' },
   { label: '风险事件', name: 'ManageSecurityEvents' },
-  { label: 'Captcha', name: 'ManageSecurityCaptcha' },
   { label: 'PoSpace', name: 'ManageSecurityPoSpace' },
   { label: '人机感知验证', name: 'ManageSecurityPerceptionV2' },
   { label: '反爬虫系统', name: 'ManageSecurityCrawler' },

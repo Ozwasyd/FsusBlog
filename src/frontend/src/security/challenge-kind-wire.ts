@@ -6,8 +6,6 @@ export function securityChallengeKindWireName(kind: SecurityChallengeKindValue):
       return 'sha256PowV1'
     case SecurityChallengeKind.Argon2IdPoSpaceV1:
       return 'argon2idPoSpaceV1'
-    case SecurityChallengeKind.CaptchaV1:
-      return 'captchaV1'
     case SecurityChallengeKind.HumanReadProofV1:
       return 'humanReadProofV1'
     case SecurityChallengeKind.PasskeyStepUpV1:
@@ -20,14 +18,10 @@ export function securityChallengeKindWireName(kind: SecurityChallengeKindValue):
       return 'anonymousCredentialProofV1'
     case SecurityChallengeKind.ZkAnonymousCommentProofV1:
       return 'zkAnonymousCommentProofV1'
-    case SecurityChallengeKind.PerceptionCharacterV2:
-      return 'perceptionCharacterV2'
     case SecurityChallengeKind.PerceptionLocalizationV2:
       return 'perceptionLocalizationV2'
     case SecurityChallengeKind.PerceptionMicroInteractionV2:
       return 'perceptionMicroInteractionV2'
-    case SecurityChallengeKind.PerceptionTextTaskV2:
-      return 'perceptionTextTaskV2'
     case SecurityChallengeKind.PerceptionCharacterV3:
       return 'perceptionCharacterV3'
     default:

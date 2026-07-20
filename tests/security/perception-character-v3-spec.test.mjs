@@ -47,21 +47,12 @@ test('spoken atlas check is repository-contained and regeneration reports a miss
     assert.doesNotMatch(regeneration.stderr, /TypeError/);
 });
 
-test('V3 identity is exact and forbidden predecessor names are not aliases', () =>
+test('V3 identity is exact and exposes no alias contract', () =>
 {
     assert.equal(contract.enum, 'PerceptionCharacterV3');
     assert.equal(contract.wireName, 'perceptionCharacterV3');
     assert.equal(contract.algorithm, 'fsu.challenge/perception-character-raster@v3');
-    assert.deepEqual(contract.forbiddenAliases, [
-        'captchaV1',
-        'perceptionCharacterV2',
-        'perceptionTextTaskV2',
-        'text-task'
-    ]);
-    for (const alias of contract.forbiddenAliases)
-    {
-        assert.notEqual(alias, contract.wireName);
-    }
+    assert.equal(Object.hasOwn(contract, 'forbiddenAliases'), false);
     assert.deepEqual(contract.wire.verifyFields, [
         'algorithm',
         'challengeId',

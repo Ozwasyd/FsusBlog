@@ -50,7 +50,6 @@ public sealed class ProductionStartupValidatorTests
             ["Fido2:ServerDomain"] = "example.com",
             ["Fido2:Origins:0"] = "https://example.com",
             ["Security:Pow:SigningKey"] = TestSecrets.PowSigningKey,
-            ["Security:CaptchaV1:SigningKey"] = TestSecrets.CaptchaSigningKey,
             [UserSessionPolicy.MaxActiveSessionsConfigurationKey] = "10",
             [MfaChallengeService.ProofFreshnessMinutesConfigurationKey] = "5",
             ["AuthEnrollment:ProvisionalTtlMinutes"] = "20",
@@ -374,7 +373,6 @@ public sealed class ProductionStartupValidatorTests
         Assert.Contains(errors, static error => error.Contains("Fido2:ServerDomain", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("Fido2:Origins", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("Security:Pow:SigningKey", StringComparison.Ordinal));
-        Assert.Contains(errors, static error => error.Contains("Security:CaptchaV1:SigningKey", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("Security:RecoveryKeyPepper", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("PublicAot:ManifestToken", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("AnonymousCredentialIssuer:SubjectHashPepper", StringComparison.Ordinal));
@@ -385,7 +383,6 @@ public sealed class ProductionStartupValidatorTests
 
     [Theory]
     [InlineData("Security:Pow:SigningKey")]
-    [InlineData("Security:CaptchaV1:SigningKey")]
     [InlineData("Security:RecoveryKeyPepper")]
     [InlineData("PublicAot:ManifestToken")]
     [InlineData("Audit:TamperEvidenceKey")]
@@ -406,7 +403,6 @@ public sealed class ProductionStartupValidatorTests
 
     [Theory]
     [InlineData("Security:Pow:SigningKey")]
-    [InlineData("Security:CaptchaV1:SigningKey")]
     [InlineData("Security:RecoveryKeyPepper")]
     [InlineData("PublicAot:ManifestToken")]
     [InlineData("Audit:TamperEvidenceKey")]
@@ -468,7 +464,6 @@ public sealed class ProductionStartupValidatorTests
         [
             (typeof(AuditTamperEvidence), "Audit:TamperEvidenceKey"),
             (typeof(RedisPowService), "Security:Pow:SigningKey"),
-            (typeof(CaptchaV1ChallengeProvider), "Security:CaptchaV1:SigningKey"),
             (typeof(RecoveryKeyService), "Security:RecoveryKeyPepper"),
             (typeof(AnonymousCredentialIssuerService), "AnonymousCredentialIssuer:SubjectHashPepper"),
             (typeof(VisitLogIpPseudonymizer), "VisitLog:IpPseudonymization:CurrentKey"),
@@ -741,7 +736,6 @@ public sealed class ProductionStartupValidatorTests
         Assert.Contains("Fido2:ServerDomain", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Fido2:Origins", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Security:Pow:SigningKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
-        Assert.Contains("Security:CaptchaV1:SigningKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Security:PerceptionSealedToken:CurrentKeyVersion", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Security:RecoveryKeyPepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("PublicAot:ManifestToken", ProductionStartupValidator.CurrentSchema.RequiredSettings);
@@ -1070,7 +1064,6 @@ public sealed class ProductionStartupValidatorTests
             ["Fido2:ServerDomain"] = "example.com",
             ["Fido2:Origins:0"] = "https://example.com",
             ["Security:Pow:SigningKey"] = TestSecrets.PowSigningKey,
-            ["Security:CaptchaV1:SigningKey"] = TestSecrets.CaptchaSigningKey,
             ["Security:PerceptionSealedToken:CurrentKeyVersion"] = "k1",
             ["Security:PerceptionSealedToken:Keys:k1"] = new string('a', 64),
             [SecurityRiskPseudonymizer.CurrentEpochKey] = "1",

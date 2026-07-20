@@ -15,7 +15,7 @@ vi.mock('@/composition/binaryTransport', () => ({
 }))
 
 vi.mock('@/utils/fingerprint', () => ({
-  getBrowserFp: () => 'fp-captcha-test'
+  getBrowserFp: () => 'fp-challenge-test'
 }))
 
 const binaryMock = vi.mocked(requestBinaryOnly)
@@ -26,7 +26,7 @@ describe('security challenge binary API', () => {
     vi.clearAllMocks()
   })
 
-  it('issues CaptchaV1 challenges through the public binary challenge endpoint', async () => {
+  it('issues active challenges through the public binary challenge endpoint', async () => {
     binaryMock.mockResolvedValue({ decision: 'challenge', providerPayloads: [] })
 
     await issueSecurityChallenge({
@@ -40,29 +40,29 @@ describe('security challenge binary API', () => {
     expect(call?.binaryUrl).toBe('/api/binary/security/challenge')
     expect(call?.frameType).toBe(FrameType.SecurityChallengeIssueResponse)
     expect(call?.requestOptions?.method).toBe('POST')
-    expect((call?.requestOptions?.headers as Headers).get(FSUS_HEADERS.deviceFingerprint)).toBe('fp-captcha-test')
+    expect((call?.requestOptions?.headers as Headers).get(FSUS_HEADERS.deviceFingerprint)).toBe('fp-challenge-test')
     expectAedsPodBody(call?.requestOptions?.body, FrameType.SecurityChallengeIssueRequest, (payload) => {
       const blob = readPodBlob(payload, 40)
       expect(readSlice(payload, blob, 0)).toBe('comment.create')
       expect(readSlice(payload, blob, 8)).toBe('article:42')
-      expect(readSlice(payload, blob, 16)).toBe('fp-captcha-test')
+      expect(readSlice(payload, blob, 16)).toBe('fp-challenge-test')
       expect(JSON.parse(readSlice(payload, blob, 24))).toEqual({ surface: 'comment' })
       expect(readSlice(payload, blob, 32)).toBe(SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION)
     })
   })
 
-  it('verifies CaptchaV1 challenges with provider payload JSON and POD kind', async () => {
+  it('verifies localization challenges with provider payload JSON and POD kind', async () => {
     binaryMock.mockResolvedValue({ verified: true, proofToken: 'proof-1' })
 
     await verifySecurityChallenge({
       envelopeId: '01900000-0000-7000-8000-000000000001',
       challengeId: '01900000-0000-7000-8000-000000000000',
-      kind: SecurityChallengeKind.CaptchaV1,
+      kind: SecurityChallengeKind.PerceptionLocalizationV2,
       action: 'comment.create',
       routeKey: 'article:42',
       providerPayload: {
-        answerText: 'AEF2',
-        nonceHex: '01000000'
+        x: '192',
+        y: '99'
       }
     })
 
@@ -72,12 +72,12 @@ describe('security challenge binary API', () => {
     expect(call?.requestOptions?.method).toBe('POST')
     expectAedsPodBody(call?.requestOptions?.body, FrameType.SecurityChallengeVerifyRequest, (payload) => {
       const blob = readPodBlob(payload, 44)
-      expect(payload[0]).toBe(SecurityChallengeKind.CaptchaV1)
+      expect(payload[0]).toBe(SecurityChallengeKind.PerceptionLocalizationV2)
       expect(readSlice(payload, blob, 4)).toBe('01900000-0000-7000-8000-000000000001')
       expect(readSlice(payload, blob, 12)).toBe('01900000-0000-7000-8000-000000000000')
       expect(readSlice(payload, blob, 20)).toBe('comment.create')
       expect(readSlice(payload, blob, 28)).toBe('article:42')
-      expect(JSON.parse(readSlice(payload, blob, 36))).toMatchObject({ answerText: 'AEF2', nonceHex: '01000000' })
+      expect(JSON.parse(readSlice(payload, blob, 36))).toMatchObject({ x: '192', y: '99' })
     })
   })
 
@@ -100,7 +100,7 @@ describe('security challenge binary API', () => {
       expect(readSlice(payload, blob, 0)).toBe('01900000-0000-7000-8000-000000000001')
       expect(readSlice(payload, blob, 8)).toBe('comment.create')
       expect(readSlice(payload, blob, 16)).toBe('article:42')
-      expect(readSlice(payload, blob, 24)).toBe('fp-captcha-test')
+      expect(readSlice(payload, blob, 24)).toBe('fp-challenge-test')
       expect(readSlice(payload, blob, 32)).toBe('risk-v1')
     })
   })
@@ -109,10 +109,10 @@ describe('security challenge binary API', () => {
     expect(() => verifySecurityChallenge({
       envelopeId: '8e7147d7-80a6-4cd2-bf67-57858b2edb85',
       challengeId: '01900000-0000-7000-8000-000000000000',
-      kind: SecurityChallengeKind.CaptchaV1,
+      kind: SecurityChallengeKind.PerceptionLocalizationV2,
       action: 'comment.create',
       routeKey: 'article:42',
-      providerPayload: { answerText: 'AEF2' }
+      providerPayload: { x: '192', y: '99' }
     })).toThrow('security_challenge_envelope_id_invalid')
     expect(binaryMock).not.toHaveBeenCalled()
   })

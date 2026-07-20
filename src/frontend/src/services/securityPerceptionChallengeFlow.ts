@@ -42,11 +42,7 @@ export interface PerceptionChallengeRuntime {
 const GENERIC_PERCEPTION_FAILURE = '验证未通过，请重试。'
 const GENERIC_PERCEPTION_UNAVAILABLE = '安全验证暂不可用，请稍后重试。'
 const MIN_SOLVE_DURATION_MS = 750
-const FLOW_PROMPTS: Record<PerceptionChallengeKind, { prompt: string; description: string }> = {
-  'text-task': {
-    prompt: '输入图中字符',
-    description: '完成后继续提交当前操作。'
-  },
+const FLOW_PROMPTS: Record<ActivePerceptionKind, { prompt: string; description: string }> = {
   localization: {
     prompt: '点选图中目标位置',
     description: '完成后继续提交当前操作。'
@@ -57,10 +53,10 @@ const FLOW_PROMPTS: Record<PerceptionChallengeKind, { prompt: string; descriptio
   }
 }
 
+type ActivePerceptionKind = Extract<PerceptionChallengeKind, 'localization' | 'micro-interaction'>
+
 export function isPerceptionChallengeKind(kind: SecurityChallengeKind): boolean {
-  return kind === SecurityChallengeKind.PerceptionCharacterV2
-    || kind === SecurityChallengeKind.PerceptionTextTaskV2
-    || kind === SecurityChallengeKind.PerceptionLocalizationV2
+  return kind === SecurityChallengeKind.PerceptionLocalizationV2
     || kind === SecurityChallengeKind.PerceptionMicroInteractionV2
 }
 
@@ -155,15 +151,14 @@ export function buildPerceptionVerifyProviderPayload(
     solveDurationMs: String(Math.max(MIN_SOLVE_DURATION_MS, Math.trunc(solveDurationMs)))
   }
 
-  if (submitPayload.kind === 'text-task') {
-    payload.answerText = submitPayload.value
-    return payload
-  }
-
   if (submitPayload.kind === 'localization') {
     payload.x = String(submitPayload.x)
     payload.y = String(submitPayload.y)
     return payload
+  }
+
+  if (submitPayload.kind !== 'micro-interaction') {
+    throw createAppError(AppErrorCode.ContractViolation, GENERIC_PERCEPTION_FAILURE)
   }
 
   payload.stepSummary = submitPayload.steps.join(',')
@@ -189,7 +184,7 @@ export function mapPerceptionVerifyResult(response: SecurityChallengeVerifyRespo
       }
 }
 
-function resolvePerceptionKind(kind: SecurityChallengeKind, taskKind?: string): PerceptionChallengeKind {
+function resolvePerceptionKind(kind: SecurityChallengeKind, taskKind?: string): ActivePerceptionKind {
   const normalizedTask = normalizeToken(taskKind)
   if (kind === SecurityChallengeKind.PerceptionLocalizationV2 || normalizedTask === 'localization') {
     return 'localization'
@@ -197,7 +192,7 @@ function resolvePerceptionKind(kind: SecurityChallengeKind, taskKind?: string): 
   if (kind === SecurityChallengeKind.PerceptionMicroInteractionV2 || normalizedTask === 'microinteraction') {
     return 'micro-interaction'
   }
-  return 'text-task'
+  throw createAppError(AppErrorCode.ContractViolation, GENERIC_PERCEPTION_UNAVAILABLE)
 }
 
 function parseRecipe(value: string | undefined): RenderRecipeV2 | null {

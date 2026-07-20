@@ -113,7 +113,7 @@ describe('trustedTypesRuntime', () => {
 
   it('only trusts named same-origin application worker artifacts', () => {
     for (const workerName of [
-      'captcha.worker-Abc_123.js',
+      'wasmDecode.worker-Abc_123.js',
       'commentPrivacy.worker-Abc_123.js',
       'perception-v2.worker-Abc_123.js',
       'pospace.worker-Abc_123.js',

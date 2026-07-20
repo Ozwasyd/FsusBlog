@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v1",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:f6f7d83aebc0a346a5905aca8cee69edb3086880e67def182e6d60bc81e2ad5a",
+    "policyDigest": "sha256:655c2b381a2a6e53b28cacf483c9dc98d736e873f4c412688a87643ade7d5ec3",
     "documents": [
         {
             "path": "docs/active-release-fenced-commits.md",
@@ -1870,6 +1870,19 @@
             "producer": null
         },
         {
+            "path": "docs/history/retired-character-challenges.md",
+            "title": "Retired character challenge migration note",
+            "kind": "markdown",
+            "status": "historical",
+            "owner": "governance",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
+        {
             "path": "docs/i18n.md",
             "title": "Internationalization",
             "kind": "markdown",
@@ -3191,7 +3204,7 @@
         },
         {
             "path": "docs/release-evidence/perception-v2.md",
-            "title": "Perception V2 Release Evidence",
+            "title": "Perception V2 release evidence",
             "kind": "markdown",
             "status": "current",
             "owner": "governance",

@@ -212,7 +212,7 @@
 - [Open Source Readiness](open-source-readiness.md)
 - [Runtime mode gates](operations/runtime-modes.md)
 - [公共 AOT 冷首屏与切流门禁](public-aot-cold-first-response.md)
-- [Perception V2 Release Evidence](release-evidence/perception-v2.md)
+- [Perception V2 release evidence](release-evidence/perception-v2.md)
 - [Repository Governance](repository-governance.md)
 - [Repository Labels](repository-labels.md)
 - [Rights V3 Cutover Runbook](rights-v3-cutover-runbook.md)
@@ -278,6 +278,7 @@
 - [Before Admin Transient](assets/screenshots/issue-1312/before-admin-transient.png) - owner `frontend`; issues #1312
 - [Before Identity Settled](assets/screenshots/issue-1312/before-identity-settled.png) - owner `frontend`; issues #1312
 - [Before Identity Transient](assets/screenshots/issue-1312/before-identity-transient.png) - owner `frontend`; issues #1312
+- [Retired character challenge migration note](history/retired-character-challenges.md) - owner `governance`
 - [IntegrityProof Developer Implementation Notes](integrity/implementation-notes.md) - owner `backend`
 - [Issue #1013 runtime fallback retirement handoff](issue-1013-runtime-fallback-retirement-handoff.md) - owner `governance`; issues #1013
 - [Issue #1014 identity retirement handoff](issue-1014-identity-retirement-handoff.md) - owner `governance`; issues #1014

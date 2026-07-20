@@ -124,7 +124,7 @@ public sealed class ChallengeV2EventWriterTests
                 Traceparent,
                 DateTime.UtcNow),
             ChallengeV2EventKind.FromAttempt(outcome, reason, "auth.login"),
-            SecurityChallengeContracts.ToWireName(SecurityChallengeKind.PerceptionTextTaskV2),
+            SecurityChallengeContracts.ToWireName(SecurityChallengeKind.PerceptionMicroInteractionV2),
             "auth.login");
 
     private sealed class RecordingChallengePersistence : ISecurityChallengePersistenceService

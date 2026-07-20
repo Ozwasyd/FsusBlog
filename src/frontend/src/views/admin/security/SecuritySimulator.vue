@@ -234,7 +234,6 @@ const derivedIdentityKindLabel = computed(() => formatIdentityKind(derivedIdenti
 
 const formatChallengeKind = (value: string | null | undefined): string => {
   const labels: Record<string, string> = {
-    captchaV1: 'Captcha 验证',
     argon2idPoSpaceV1: 'PoSpace 验证',
     perceptionSealedV2: 'Perception V2'
   }

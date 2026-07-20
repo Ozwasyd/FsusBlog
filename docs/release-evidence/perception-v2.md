@@ -1,55 +1,17 @@
-# Perception V2 Release Evidence
+# Perception V2 release evidence
 
-This page records the release-evidence contract for perception-sealed@v2 runtime validation.
+`perception-sealed@v2` 当前只验证 `perceptionLocalizationV2` 与 `perceptionMicroInteractionV2`。字符感知由 V3 独立承担；V2 不解析字符或文本任务。
 
 ## Gate
-
-Run:
 
 ```bash
 ./tools/test.sh perception-v2-test-matrix --no-deps
 ```
 
-The lane validates the static security matrix, runs the backend E2E fixture, then checks the generated runtime evidence:
+证据必须证明两种当前 task 的 `issue -> render -> verify -> proof -> business-action-resume`，并覆盖 AEAD sealed token、坐标或步骤响应、render recipe、`RecipeHash`、assignment binding、attempt gate 与 consume-once。错误坐标/步骤、过期、重复提交、action/route/identity mismatch、recipe tamper 与未知 task 均 fail closed。
 
-- `.tmp/security/perception-v2-e2e-runtime.json`
-- `.tmp/security/perception-v2-test-matrix.json`
-- `.tmp/release-evidence/perception-v2-release-evidence.json`
+发布证据同时记录匿名、登录、admin、notification stream 和 AEDS binary 五类路径。admin policy 写仍需 admin MFA proof；notification 只允许 proof preflight 后的短效 path-bound grant；没有 JSON fallback。
 
-## Verified Runtime Surface
+运行时证据继续写入 `.tmp/security/perception-v2-e2e-runtime.json`、`.tmp/security/perception-v2-test-matrix.json` 与 `.tmp/release-evidence/perception-v2-release-evidence.json`。指标至少包含 issue/verify latency、render latency、replay/revoke、audit queue 和 provider failure。
 
-Current E2E runtime coverage is intentionally narrow and production-like:
-
-- Task kind: `text-task`
-- Challenge kind: `perceptionTextTaskV2`
-- Business flow: `comment.create`
-- Flow path: `issue -> render -> verify -> proof -> business-action-resume`
-
-The fixture issues a real sealed perception assignment through the backend provider/orchestrator, parses the render recipe, verifies the submitted answer, mints a challenge proof, and resumes a simulated `comment.create` write only after proof consume succeeds.
-
-## Failure Cases
-
-The gate covers these fail-closed paths:
-
-- `wrong-answer`
-- `expired`
-- `duplicate-submit`
-- `action-mismatch`
-- `route-mismatch`
-
-## Performance Evidence
-
-The runtime evidence records:
-
-- `issueP99Ms`
-- `verifyGateP99Ms`
-- `clientRenderP95Ms`
-- `asyncAuditQueueObservedCount`
-
-The red-team benchmark remains the budget gate for the broader synthetic family/variant surface. The runtime E2E gate proves that the comment-create path emits concrete performance evidence and queues audit events without requiring synchronous PostgreSQL persistence in the request path.
-
-## Known Gaps
-
-- `localization` and `microInteraction` remain covered by provider/frontend matrix lanes, not by this first backend business-flow E2E.
-- This issue does not add new generator families.
-- This issue does not add FsusUI components.
+无需重启的回退是把受影响 action 热更新为 `observe` 或恢复 last-known-good policy；不得恢复退休 task、旧 sealed-token schema、alias parser 或客户端自选 fallback。

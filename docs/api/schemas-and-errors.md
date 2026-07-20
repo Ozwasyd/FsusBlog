@@ -399,8 +399,8 @@ frame 208 的 `no_change`，不属于错误。动态关闭 `Messages:StatusMutat
 维护开关关闭时不执行修复，不放宽这些数据库约束。
 | 182 | `AnonymousCommentCreateRequest` | `AnonymousCommentCreateRequestPod` | `POST /api/binary/comment/anonymous` 请求体；不包含 user id、username、Authorization token 或 public handle |
 | 183 | `AnonymousPrivacyStateSnapshot` | `AnonymousPrivacyStateSnapshotPod` | 前端匿名隐私状态快照 |
-| 184 | `PerceptionSealedChallengeV2` | `PerceptionSealedChallengeV2Pod` | `fsu.challenge/perception-sealed@v2` issue payload；覆盖 Character、Localization、MicroInteraction 三类 perception task |
-| 185 | `PerceptionSealedResultV2` | `PerceptionSealedResultV2Pod` | `fsu.challenge/perception-sealed@v2` verify payload；支持 character、coordinates、steps response payload |
+| 184 | `PerceptionSealedChallengeV2` | `PerceptionSealedChallengeV2Pod` | `fsu.challenge/perception-sealed@v2` issue payload；只覆盖 Localization 与 MicroInteraction |
+| 185 | `PerceptionSealedResultV2` | `PerceptionSealedResultV2Pod` | `fsu.challenge/perception-sealed@v2` verify payload；只支持 coordinates 与 steps response payload |
 | nested | `PerceptionCharacterV3Issue` | `PerceptionCharacterV3IssuePod` | frame 175 内按 assignment `kind=14` 判别的 typed union；final Gray8/WAV bytes + opaque state |
 | nested | `PerceptionCharacterV3Verify` | `PerceptionCharacterV3VerifyPod` | frame 174 内按 `kind=14` 判别的 typed union；只含 answer + opaque state |
 | 186 | `RetiredCredentialSpecificRevocationRequest` | 无 | 永久 retired；不得复用或解析 body |

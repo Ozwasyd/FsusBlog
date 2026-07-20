@@ -4701,38 +4701,6 @@
             "deprecation": null
         },
         {
-            "key": "Security:CaptchaV1:SigningKey",
-            "owner": "security",
-            "purpose": "Security and risk control setting: SigningKey",
-            "valueType": "secret-string",
-            "environments": [
-                "Development",
-                "Production"
-            ],
-            "allowedSources": [
-                "environment",
-                "repository-base",
-                "repository-production-overlay",
-                "secret-store"
-            ],
-            "environmentVariables": [
-                "Security__CaptchaV1__SigningKey"
-            ],
-            "secret": true,
-            "requiredStatus": "required",
-            "requiredWhen": "Production",
-            "repositoryValuePolicy": "empty-only",
-            "allowEmptyBaseValue": true,
-            "validation": {
-                "kind": "startup",
-                "owner": "ProductionStartupValidator"
-            },
-            "documentation": "docs/security.md",
-            "consumer": "src/backend/Infrastructure/Security",
-            "runtimeOnly": false,
-            "deprecation": null
-        },
-        {
             "key": "Security:PerceptionSealedToken:CurrentKeyVersion",
             "owner": "security",
             "purpose": "Security and risk control setting: CurrentKeyVersion",

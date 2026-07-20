@@ -17,7 +17,7 @@ const assignment: SecurityChallengeAssignment = {
   challengeId: 'perception-1',
   traceparent: '00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01',
   tenantId: 'tenant-main',
-  kind: SecurityChallengeKind.PerceptionTextTaskV2,
+  kind: SecurityChallengeKind.PerceptionLocalizationV2,
   escalationLevel: 2,
   action: 'comment.create',
   routeKey: 'article:42',
@@ -30,7 +30,7 @@ const assignment: SecurityChallengeAssignment = {
 
 const recipeJson = JSON.stringify({
   schema: 'fsus.challenge.render-recipe@v2',
-  taskKind: 'character',
+  taskKind: 'localization',
   layers: [{
     opacity: 0.9,
     strokeSegments: [{
@@ -53,7 +53,7 @@ const providerPayload: SecurityChallengeProviderPayload = {
   payload: {
     algorithm: 'fsu.challenge/perception-sealed@v2',
     keyVersion: 'v1',
-    taskKind: 'character',
+    taskKind: 'localization',
     recipeJson,
     recipeHashHex: 'd'.repeat(64),
     sealedToken: 'sealed-token',
@@ -69,7 +69,7 @@ describe('perception v2 business challenge flow', () => {
 
     expect(challenge).toMatchObject({
       challengeId: 'perception-1',
-      kind: 'text-task',
+      kind: 'localization',
       gridWidth: 320,
       gridHeight: 180,
       expiresAtUnixMs: assignment.expiresAtUnixMs
@@ -125,8 +125,9 @@ describe('perception v2 business challenge flow', () => {
 
     now += 2_400
     await expect(runtime.client.verify?.({
-      kind: 'text-task',
-      value: 'K7M2',
+      kind: 'localization',
+      x: 192,
+      y: 99,
       challengeId: assignment.challengeId
     })).resolves.toMatchObject({
       verified: true,
@@ -136,7 +137,7 @@ describe('perception v2 business challenge flow', () => {
     expect(verifyRequests).toHaveLength(1)
     expect(verifyRequests[0]).toMatchObject({
       challengeId: assignment.challengeId,
-      kind: SecurityChallengeKind.PerceptionTextTaskV2,
+      kind: SecurityChallengeKind.PerceptionLocalizationV2,
       action: 'comment.create',
       routeKey: 'article:42',
       providerPayload: expect.objectContaining({
@@ -145,7 +146,8 @@ describe('perception v2 business challenge flow', () => {
         recipeHashHex: 'd'.repeat(64),
         sealedToken: 'sealed-token',
         signatureHex: 'e'.repeat(64),
-        answerText: 'K7M2'
+        x: '192',
+        y: '99'
       })
     })
     expect(Number(verifyRequests[0].providerPayload.solveDurationMs)).toBeGreaterThanOrEqual(750)
@@ -158,7 +160,7 @@ describe('perception v2 business challenge flow', () => {
       kind: assignment.kind,
       policyVersion: 'risk-v1',
       proofToken: '',
-      reason: 'perception_text_answer_invalid',
+      reason: 'perception_localization_invalid',
       retryAfterMs: 1500
     })).toEqual({
       verified: false,

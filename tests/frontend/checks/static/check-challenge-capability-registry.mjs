@@ -15,6 +15,7 @@ const adminReadiness = read('src/frontend/src/views/admin/security/SecurityChall
 const capabilityTests = read('tests/frontend/unit/security/challengeClient.test.ts')
 const providerRegistration = read('src/backend/Infrastructure/Bootstrap/RuntimeSecurityAndLifecycleServiceCollectionExtensions.cs')
 const challengeClient = read('src/frontend/src/security/challenge-client.ts')
+const capabilityReload = read('src/frontend/src/security/challenge-capability-reload.ts')
 const issueEncoder = read('src/frontend/src/codecs/binary/securityRequestEncoder.ts')
 const issueEndpoint = read('src/backend/Modules/Endpoints/Binary/BinaryEndpoints.SecurityChallenge.cs')
 
@@ -37,10 +38,15 @@ assert.match(challengeClient, /contextGenerations/, 'challenge client must tombs
 assert.match(challengeClient, /AbortController/, 'challenge client must abort replaced issue and verify requests')
 assert.match(issueEncoder, /request\.capabilityManifestVersion[\s\S]*\],\s*40\)/, 'issue POD must encode the capability manifest in the current 40-byte header')
 assert.match(issueEndpoint, /security_challenge_client_capability_incompatible/, 'server issue gate must return a stable incompatible result')
-assert.match(issueEndpoint, /decision\.RequiredChallenges\.Count <= 1/, 'server issue gate must preserve legacy single-member clients')
+assert.match(issueEndpoint, /string\.Equals\(manifestVersion, SecurityChallengeCapabilityCatalog\.ManifestVersion/, 'server issue gate must require the exact active capability manifest')
+assert.match(challengeClient, /isCapabilityManifestIncompatibleError\(error\)/, 'client must turn the stable incompatible response into an explicit action')
+assert.match(challengeClient, /requestCapabilityReload\(effectiveCapabilityManifestVersion\(context\)\)/, 'client must request a full reload for its exact stale build manifest')
+assert.match(capabilityReload, /window\.location\.reload\(\)/, 'capability cutover must use a normal full document reload')
+assert.match(capabilityReload, /window\.sessionStorage/, 'capability reload must persist a session-scoped loop guard')
+assert.match(capabilityReload, /storage\.setItem\(key, 'requested'\)[\s\S]*reload\(\)/, 'loop guard must be written before reload')
+assert.doesNotMatch(capabilityReload, /location\.replace|location\.assign|fetch\(|XMLHttpRequest/, 'capability reload must not implement navigation or protocol fallback')
 
 assert.doesNotMatch(frontendRegistry, /deviceFingerprint|proofToken|subjectHash|clientIpHash|userId|adminId/, 'capability manifest must stay low information')
-assert.match(challengeHost, /capability\?\.uiHost === 'captcha'/, 'captcha UI must dispatch from registry capability')
 assert.match(challengeHost, /capability\?\.uiHost === 'perception'/, 'perception UI must dispatch from registry capability')
 assert.match(challengeHost, /capability\?\.uiHost === 'pospace'/, 'PoSpace UI must dispatch from registry capability')
 assert.match(challengeHost, /capability\?\.uiHost === 'sha256-pow'/, 'sha256 PoW UI must dispatch from registry capability')
@@ -50,8 +56,8 @@ assert.match(notificationHost, /executionMode:\s*'headless'/, 'notification exec
 assert.match(notificationHost, /notification-sha256-pow/, 'notification PoW executor must dispatch from registry capability')
 assert.match(notificationHost, /notification-pospace/, 'notification PoSpace executor must dispatch from registry capability')
 assert.doesNotMatch(notificationHost, /SecurityChallengeKind\./, 'notification business flow must not shadow the server kind policy')
-assert.match(frontendRegistry, /import\('@\/components\/security\/FsusCaptchaChallenge\.vue'\)/, 'captcha executor factory must load a production implementation')
 assert.match(frontendRegistry, /import\('@\/services\/securityPerceptionChallengeFlow'\)/, 'perception executor factory must load a production implementation')
+assert.match(frontendRegistry, /import\('@\/services\/securityPerceptionCharacterV3Flow'\)/, 'character v3 executor factory must load a production implementation')
 assert.match(frontendRegistry, /import\('@\/composables\/usePow'\)/, 'headless PoW executor factory must load a production implementation')
 assert.match(frontendRegistry, /import\('@\/services\/securityPoSpaceChallengeExecutor'\)/, 'PoSpace executor factory must load the shared production implementation')
 for (const column of ['契约可表达', '当前客户端可执行', '策略可启用 \/ 模式', 'Provider']) {
@@ -65,14 +71,13 @@ assert.match(capabilityTests, /covers known, provider, executor, host and policy
 
 for (const provider of [
   'Sha256PowChallengeProvider',
-  'CaptchaV1ChallengeProvider',
   'Argon2idPoSpaceV1ChallengeProvider',
   'HumanReadProofV1ChallengeProvider',
   'PasskeyStepUpV1ChallengeProvider',
   'AdminPasskeyStepUpV1ChallengeProvider',
-  'PerceptionTextTaskV2Provider',
   'PerceptionLocalizationV2Provider',
-  'PerceptionMicroInteractionV2Provider'
+  'PerceptionMicroInteractionV2Provider',
+  'PerceptionCharacterV3Provider'
 ]) {
   assert.match(providerRegistration, new RegExp(`ISecurityChallengeProvider, ${provider}`), `provider ${provider} must remain explicitly registered`)
 }

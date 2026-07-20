@@ -26,6 +26,10 @@ import {
   type ChallengeExecutionMode,
   type ChallengeKindGroup
 } from './challenge-capability-registry'
+import {
+  requestChallengeCapabilityReload,
+  type ChallengeCapabilityReloadResult
+} from './challenge-capability-reload'
 
 export type { ChallengeKindGroup } from './challenge-capability-registry'
 export type ChallengeIssueStatus = 'verified' | 'allow' | 'challenge' | 'unsupported' | 'failed'
@@ -86,6 +90,7 @@ export interface SecurityChallengeClientOptions {
   verifyChallenge?: (request: VerifySecurityChallengeRequest, config?: { signal?: AbortSignal }) => Promise<SecurityChallengeVerifyResponse>
   proofStore?: ChallengeProofStore
   now?: () => number
+  requestCapabilityReload?: (manifestVersion: string) => ChallengeCapabilityReloadResult
 }
 
 export function createSecurityChallengeClient(options: SecurityChallengeClientOptions = {}): SecurityChallengeClient {
@@ -94,6 +99,7 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
   const verifyChallenge = options.verifyChallenge ?? verifySecurityChallenge
   const proofStore = options.proofStore ?? defaultChallengeProofStore
   const now = options.now ?? (() => Date.now())
+  const requestCapabilityReload = options.requestCapabilityReload ?? requestChallengeCapabilityReload
   const envelopeRuns = new Map<string, ActiveEnvelopeRun>()
   const contextGenerations = new Map<string, number>()
   const activeRequests = new Map<string, AbortController>()
@@ -190,12 +196,18 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
         return failedIssueResult(response, 'security_challenge_envelope_invalid')
       }
       envelopeRuns.set(operation.key, run)
-      return selectEnvelopeMember(context, run, 0, now())
+      const selected = selectEnvelopeMember(context, run, 0, now())
+      return selected.capability?.unavailableReason === 'version_incompatible'
+        ? capabilityReloadResult(selected.response, requestCapabilityReload(effectiveCapabilityManifestVersion(context)))
+        : selected
     } catch (error) {
       if (!isCurrentOperation(operation) || operation.controller.signal.aborted) {
         return cancelledIssueResult()
       }
       abandonReplacement(context, replacementRun)
+      if (isCapabilityManifestIncompatibleError(error)) {
+        return capabilityReloadResult(null, requestCapabilityReload(effectiveCapabilityManifestVersion(context)))
+      }
       return failedIssueResult(null, 'security_challenge_issue_failed')
     } finally {
       finishRequest(operation)
@@ -540,6 +552,22 @@ function failedIssueResult(response: SecurityChallengeIssueResponse | null, reas
     reason,
     retryAfterMs: response?.retryAfterMs ?? 0
   }
+}
+
+function capabilityReloadResult(
+  response: SecurityChallengeIssueResponse | null,
+  outcome: ChallengeCapabilityReloadResult
+): SecurityChallengeIssueResult {
+  return failedIssueResult(
+    response,
+    outcome === 'reload_requested'
+      ? 'security_challenge_capability_reload_requested'
+      : 'security_challenge_capability_reload_suppressed'
+  )
+}
+
+function isCapabilityManifestIncompatibleError(error: unknown): boolean {
+  return error instanceof Error && error.message === 'security_challenge_client_capability_incompatible'
 }
 
 function sanitizeVerifyResponse(response: SecurityChallengeVerifyResponse): SecurityChallengeVerifyResponse {

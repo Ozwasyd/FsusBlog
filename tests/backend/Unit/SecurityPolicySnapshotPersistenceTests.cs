@@ -481,7 +481,6 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
             null,
             new PerceptionSealedV2PolicyOptions(
                 Enabled: true,
-                TextTaskEnabled: true,
                 LocalizationEnabled: true,
                 MicroInteractionEnabled: false,
                 PoSpaceFallbackEnabled: false,

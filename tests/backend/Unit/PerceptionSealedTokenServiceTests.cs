@@ -69,10 +69,10 @@ public sealed class PerceptionSealedTokenServiceTests
         string token = service.Seal(payload);
         string decodedEnvelopeJson = DecodeEnvelopeJson(token);
 
-        Assert.DoesNotContain(payload.ExpectedAnswerHashHex, token, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(payload.ExpectedStepHashHex, token, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain(payload.ExpectedPointHashHex, token, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain(payload.ExpectedStepHashHex, token, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain(payload.ExpectedAnswerHashHex, decodedEnvelopeJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(payload.ExpectedStepHashHex, decodedEnvelopeJson, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain(payload.ExpectedPointHashHex, decodedEnvelopeJson, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain(payload.ExpectedStepHashHex, decodedEnvelopeJson, StringComparison.OrdinalIgnoreCase);
         Assert.Contains(payload.RecipeHashHex, decodedEnvelopeJson, StringComparison.OrdinalIgnoreCase);
@@ -219,18 +219,17 @@ public sealed class PerceptionSealedTokenServiceTests
         long? expiresAtUnixMs = null)
         => new(
             ChallengeId: "challenge-1",
-            TaskKind: "character",
+            TaskKind: "microInteraction",
             Action: "comment.create",
             RouteKey: "article:42",
             SubjectHash: HashA,
             ClientIpHash: HashB,
             DeviceFpHash: HashC,
             UaHash: HashD,
-            Algorithm: "fsus.perception/character@v2",
-            Family: "perception",
-            Variant: "glyph-rotation",
+            Algorithm: PerceptionChallengeV2Constants.WireAlgorithm,
+            Family: PerceptionChallengeV2GeneratorFamilyRegistry.LocalizationField,
+            Variant: "anchor-grid",
             RecipeHashHex: HashE,
-            ExpectedAnswerHashHex: HashF,
             ExpectedPointHashHex: HashG,
             ToleranceRadiusPx: 8,
             ExpectedStepHashHex: HashH,

@@ -33,7 +33,6 @@ const allowedRuntimeEnvironmentKeys = new Set([
   'Security__Pow__SigningKey',
   'Security__Pow__BaseDifficulty',
   'Security__Pow__MaxDifficulty',
-  'Security__CaptchaV1__SigningKey',
   'Security__PerceptionSealedToken__CurrentKeyVersion',
   'Security__PerceptionSealedToken__Keys__dev',
   'Security__RecoveryKeyPepper',

@@ -1276,9 +1276,7 @@ public static class SecurityEndpoints
         DateTime windowStartedUtc = windowStartedAt.UtcDateTime;
         List<SecurityChallenge> challenges = await db.Queryable<SecurityChallenge>()
             .Where(item => item.CreatedAtUtc >= windowStartedUtc)
-            .Where(item => item.Kind == "perceptionTextTaskV2"
-                || item.Kind == "perceptionCharacterV2"
-                || item.Kind == "perceptionLocalizationV2"
+            .Where(item => item.Kind == "perceptionLocalizationV2"
                 || item.Kind == "perceptionMicroInteractionV2")
             .OrderBy(item => item.CreatedAtUtc, OrderByType.Desc)
             .Take(2000)
@@ -1436,7 +1434,6 @@ public static class SecurityEndpoints
     private static string ToPerceptionTaskKind(string kind)
         => kind switch
         {
-            "perceptionTextTaskV2" or "perceptionCharacterV2" => "character",
             "perceptionLocalizationV2" => "localization",
             "perceptionMicroInteractionV2" => "microInteraction",
             _ => "unknown"

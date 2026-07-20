@@ -22,9 +22,9 @@ export const ROLLOUT_STAGES = Object.freeze([
   'candidate-smoke',
   'compatibility-smoke',
   'gateway-switch',
+  'source-drain',
   'active-fence',
   'public-verify',
-  'source-drain',
   'source-stop',
   'release-evidence'
 ])

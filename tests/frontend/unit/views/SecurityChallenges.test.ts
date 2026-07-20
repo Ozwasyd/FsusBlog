@@ -34,7 +34,7 @@ describe('SecurityChallenges capability readiness', () => {
     apiMocks.getRiskControlOptions.mockResolvedValue({
       subsystemModes: {
         pow: 'enforce',
-        'perception-text-task': 'observe'
+        'perception-localization': 'observe'
       }
     })
   })
@@ -67,9 +67,9 @@ describe('SecurityChallenges capability readiness', () => {
     expect(wrapper.find('[data-test="capability-client-sha256PowV1"]').text()).toBe('UI + Headless')
     expect(wrapper.find('[data-test="capability-policy-sha256PowV1"]').text()).toBe('可启用（UI + Headless）；模式：enforce')
 
-    expect(wrapper.find('[data-test="capability-contract-perceptionCharacterV2"]').text()).toBe('可表达')
-    expect(wrapper.find('[data-test="capability-client-perceptionCharacterV2"]').text()).toBe('UI')
-    expect(wrapper.find('[data-test="capability-policy-perceptionCharacterV2"]').text()).toBe('不可启用')
+    expect(wrapper.find('[data-test="capability-contract-perceptionLocalizationV2"]').text()).toBe('可表达')
+    expect(wrapper.find('[data-test="capability-client-perceptionLocalizationV2"]').text()).toBe('UI')
+    expect(wrapper.find('[data-test="capability-policy-perceptionLocalizationV2"]').text()).toBe('可启用（UI）；模式：observe')
     expect(wrapper.find('[data-test="capability-contract-unknown"]').text()).toBe('不可表达')
   })
 })

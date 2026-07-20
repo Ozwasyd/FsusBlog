@@ -15,7 +15,7 @@ The only V3 identity is:
 | algorithm | `fsu.challenge/perception-character-raster@v3` |
 | protocol version | unsigned byte `3` |
 
-There is no alias, parser branch, fallback, or migration path from `captchaV1`, `perceptionCharacterV2`, `perceptionTextTaskV2`, or `text-task`. A request carrying any other identity is not this protocol. Numeric frame allocation and the typed AEDS union belong to the implementing issue; a V2 frame or dictionary payload must not be reinterpreted as V3.
+There is no alias, parser branch, fallback, or migration path from any retired identity. A request carrying any other identity is not this protocol. Numeric frame allocation and the typed AEDS union belong to the implementing issue; a V2 frame or dictionary payload must not be reinterpreted as V3.
 
 The public issue payload may contain only the exact identity, challenge and envelope IDs, representation (`visual` or `audio`), final bounded media bytes and media type, physical/display dimensions, attempt budget `2`, issue/expiry times, coarse policy version, and an opaque state token. It must not contain the answer, answer tag, glyph or atlas index, raster seed, render recipe, affine parameters, displacement lattice, curve/occluder/noise parameters, audio phonemes/order, key material, exact risk score, or an unkeyed token digest/signature.
 

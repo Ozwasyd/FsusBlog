@@ -160,9 +160,6 @@ const capabilityRows = computed(() => securityChallengeCapabilityManifest.map((i
 const challengeSubsystemByWireName: Readonly<Record<string, string>> = Object.freeze({
   sha256PowV1: 'pow',
   argon2idPoSpaceV1: 'pospace',
-  captchaV1: 'captcha',
-  perceptionTextTaskV2: 'perception-text-task',
-  perceptionCharacterV2: 'perception-text-task',
   perceptionLocalizationV2: 'perception-localization',
   perceptionMicroInteractionV2: 'perception-micro-interaction'
 })

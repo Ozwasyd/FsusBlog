@@ -30,7 +30,7 @@ describe('FsusPowChallenge', () => {
   it('solves with the shared bounded worker and continues to the next envelope member', async () => {
     const calculation = deferred<{ nonce: string, duration: number }>()
     powMocks.calculate.mockReturnValue(calculation.promise)
-    const next = issueResult(SecurityChallengeKind.CaptchaV1, 'captcha-next')
+    const next = issueResult(SecurityChallengeKind.PerceptionLocalizationV2, 'localization-next')
     const client = fakeClient()
     vi.mocked(client.verify).mockResolvedValue({
       status: 'continue',

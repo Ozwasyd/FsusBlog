@@ -111,7 +111,7 @@ Dry-run 必须显示 exact source/target release、digest、slot、generation、
 
 完整顺序固定为：
 
-`manifest-validate -> capacity-preflight -> backup-restore-gate -> expand-migration -> candidate-start -> candidate-readiness -> asset-materialize -> candidate-smoke -> compatibility-smoke -> gateway-switch -> active-fence -> public-verify -> source-drain -> source-stop -> release-evidence`
+`manifest-validate -> capacity-preflight -> backup-restore-gate -> expand-migration -> candidate-start -> candidate-readiness -> asset-materialize -> candidate-smoke -> compatibility-smoke -> gateway-switch -> source-drain -> active-fence -> public-verify -> source-stop -> release-evidence`
 
 每次 attempt 的 command stdout/stderr、开始/结束时间、exit code、SHA-256 和 bytes 都写入 mode-0600 stage evidence。已成功阶段不可重复；失败阶段先进入 `recovery_required` 并执行 stage-specific compensation。安全关键 gate 没有 skip 参数。
 
@@ -538,7 +538,7 @@ When rotating `Moderation:RegionPolicy:IpHashKey`, old `comment_region_complianc
 
 1. 热更新 RiskControl policy，移除 `perceptionCharacterV3`，先停止所有匿名、登录、admin 和 notification subscribe action 的新 V3 assignment；无需重启。
 2. 对 active envelope 调用 binary cancel/revocation；确认 audit 中 terminal state 为 `revoked`，不要删除 Redis key 或重置 attempts。
-3. renderer/Redis/crypto 故障时保持公开 `unavailable`，不得切到 CaptchaV1、Perception V2、JSON 或本地进程内 attempt state。
+3. renderer/Redis/crypto 故障时保持公开 `unavailable`，不得切到退休 challenge、JSON 或本地进程内 attempt state。
 4. key ring 故障使用独立 V3 token/answer ring 的上一有效 version 修正 secret 后滚动重启。两个 ring 的任何 key material 都不得相等；未知旧 version 的 active token保持 fail closed。
 
 匿名 device authority 的 Redis keys 与 challenge state 同属 fail-closed 基础设施；不要只清理 device lease 或 IP→device 映射中的一侧。cookie 丢失时同一 pseudonymous IP 复用权威租约，伪造 UUID 不会自动创建新 bucket。spoken atlas 由 embedded JSON 提供，startup 完整性失败时不得回退到 runtime TTS、Morse、索引音调或 V2 audio。

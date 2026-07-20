@@ -388,7 +388,7 @@ HTTP 动态公开 API 使用 `X-Fsus-Pow-Proof`，notification stream 匿名连�
 
 FPOW 信封字段顺序为：`magic[4] = "FPOW"`（字节 `46 50 4f 57`）、`version:uint8 = 1`、`difficulty:int32LE`、`timestamp:int64LE`，随后是若干 `uint16LE length + utf8 bytes` 字段。HTTP header proof 字段为 `salt, nonce, signature, browserFp`；notification stream proof 字段为 `salt, nonce, signature, fp`。legacy PoW 服务端按 proof 绑定的时间戳、nonce、签名、设备指纹和 `ForwardedHeadersMiddleware` 规范化后的客户端 IP 校验；RiskControl `sha256PowV1` provider 的 HMAC 还额外绑定 challengeId、action、routeKey、subjectHash、clientIpHash、deviceFpHash 和 policyVersion 的上下文 hash。不接受旧文本 PoW answer/challenge 头，也不在 PoW 验证层回退到 raw remote IP、localhost 或 Docker bridge IP。
 
-RiskControl 新 challenge provider 不得自定义平行 assignment 结构。PoW、Captcha、PoSpace、HumanReadProof、Passkey step-up、匿名凭证和 ZK 匿名评论 proof 都必须使用 `SecurityChallengeAssignment` / `SecurityChallengeEnvelope` AEDS frame，统一携带 challengeId、traceparent、tenantId、kind、action、routeKey、subject/client IP/device fingerprint hash、issued/expires 和 escalationLevel；provider 只扩展自己的 proof 验证载荷。
+RiskControl 新 challenge provider 不得自定义平行 assignment 结构。PoW、Perception、PoSpace、HumanReadProof、Passkey step-up、匿名凭证和 ZK 匿名评论 proof 都必须使用 `SecurityChallengeAssignment` / `SecurityChallengeEnvelope` AEDS frame，统一携带 challengeId、traceparent、tenantId、kind、action、routeKey、subject/client IP/device fingerprint hash、issued/expires 和 escalationLevel；provider 只扩展自己的 proof 验证载荷。
 
 PoSpace capability 不属于客户端授权输入。客户端不能执行已签发 PoSpace 时，只能在下一次 binary challenge issue 的 bounded attributes 中引用原 assignment 并给出枚举原因；服务端必须重新核验原 assignment 绑定和当前 policy，撤销旧 proof 后决定剩余 challenge、服务端允许的 fallback 或拒绝。客户端不得提交目标 kind、参数降档或 allow 意图，且重签必须有严格次数上限，避免能力协商形成降级或循环 oracle。
 
@@ -811,7 +811,7 @@ article mutation envelope v2 还必须携带 rights snapshot ID、responsibility
 
 Admin security dry-run 端点只能复用生产决策服务，不得直接复制阈值逻辑或绕过审计。`/api/binary/admin/security/risk-control/simulate` 是控制面预演入口：它可读取当前风险分或使用请求给定 riskScore，输出 `riskScore/decision/reasons/requiredChallenges/policyVersion`，但不得签发 `security_challenge`、不得修改 `SecurityRisk`、不得变更 active policy。该类 dry-run 仍要求 admin principal + `system.config`，并写入 admin security audit；若未来扩展为其他安全模拟器，也必须保持“真实决策链 + 无业务状态写入”的边界。
 
-RiskControl 运行态写入只能使用 `/api/binary/admin/security/risk-control/options` 和 `/api/binary/admin/security/risk-control/options/rollback`。写入必须要求 admin principal、`system.config` 和一次性 `X-Fsus-Mfa-Proof`，并持久化 `security_policy_snapshot(policy_id=risk-control)`；active 损坏时启动加载只能回退 last-known-good，不得从请求路径临时拼装未审计策略。该写入只更新 RiskControl global mode、CaptchaV1 / PoSpaceV1 / PublicReadChallenge / CommentRiskControl / AuthRiskControl 开关和 strict multiplier，不改变 AntiCrawler mode 的语义。
+RiskControl 运行态写入只能使用 `/api/binary/admin/security/risk-control/options` 和 `/api/binary/admin/security/risk-control/options/rollback`。写入必须要求 admin principal、`system.config` 和一次性 `X-Fsus-Mfa-Proof`，并持久化 `security_policy_snapshot(policy_id=risk-control)`；active 损坏时启动加载只能回退 last-known-good，不得从请求路径临时拼装未审计策略。该写入只更新 RiskControl global mode、PoSpace / PublicReadChallenge / CommentRiskControl / AuthRiskControl 开关、strict multiplier 与当前 challenge policy，不改变 AntiCrawler mode 的语义。
 
 ### Authoring route capability slices
 

@@ -55,7 +55,9 @@ function verifyRiskControlMatrix(text) {
     'throttle',
     'block',
     'sha256PowV1',
-    'captchaV1',
+    'perceptionLocalizationV2',
+    'perceptionMicroInteractionV2',
+    'perceptionCharacterV3',
     'argon2idPoSpaceV1',
     'humanReadProofV1',
     'passkeyStepUpV1',
@@ -84,7 +86,7 @@ function verifyRiskControlMatrix(text) {
   const budgetLimits = {
     decisionP99Ms: 10,
     powVerifyP99Ms: 100,
-    captchaVerifyP99Ms: 100,
+    perceptionVerifyP99Ms: 100,
     proofConsumeP99Ms: 25
   }
 
@@ -154,7 +156,6 @@ function verifyPerceptionV2Matrix(text) {
     'variant-structural-delta',
     'localization-target-visual-binding',
     'recipeHash-structural-tamper',
-    'text-task',
     'localization',
     'micro-interaction-disabled',
     'micro-interaction-enabled',

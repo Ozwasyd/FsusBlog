@@ -19,14 +19,12 @@ public sealed class SecurityChallengeContractTests
         [
             "sha256PowV1",
             "argon2idPoSpaceV1",
-            "captchaV1",
             "humanReadProofV1",
             "passkeyStepUpV1",
             "adminPasskeyStepUpV1",
             "recoveryKeyProofV1",
             "anonymousCredentialProofV1",
             "zkAnonymousCommentProofV1",
-            "perceptionCharacterV2",
             "perceptionLocalizationV2",
             "perceptionMicroInteractionV2",
             "perceptionCharacterV3"
@@ -77,7 +75,7 @@ public sealed class SecurityChallengeContractTests
         };
 
         SecurityChallengeValidationResult result = expectedError == "kind_mismatch"
-            ? SecurityChallengeContracts.ValidateAssignment(assignment, SecurityChallengeKind.CaptchaV1)
+            ? SecurityChallengeContracts.ValidateAssignment(assignment, SecurityChallengeKind.PerceptionCharacterV3)
             : SecurityChallengeContracts.ValidateAssignment(assignment);
 
         Assert.False(result.IsValid);
@@ -85,10 +83,10 @@ public sealed class SecurityChallengeContractTests
     }
 
     [Fact]
-    public void ValidateAssignment_CaptchaAcceptsUuidV4OrV7_NonCaptchaRequiresUuidV7()
+    public void ValidateAssignment_AllKindsRequireUuidV7()
     {
         string uuidV4 = Guid.NewGuid().ToString("D");
-        SecurityChallengeAssignment captcha = CreateAssignment(SecurityChallengeKind.CaptchaV1) with
+        SecurityChallengeAssignment character = CreateAssignment(SecurityChallengeKind.PerceptionCharacterV3) with
         {
             ChallengeId = uuidV4
         };
@@ -97,7 +95,7 @@ public sealed class SecurityChallengeContractTests
             ChallengeId = uuidV4
         };
 
-        Assert.True(SecurityChallengeContracts.ValidateAssignment(captcha).IsValid);
+        Assert.Equal("challenge_id_invalid", SecurityChallengeContracts.ValidateAssignment(character).ErrorCode);
         SecurityChallengeValidationResult powResult = SecurityChallengeContracts.ValidateAssignment(pow);
         Assert.False(powResult.IsValid);
         Assert.Equal("challenge_id_invalid", powResult.ErrorCode);
@@ -112,7 +110,7 @@ public sealed class SecurityChallengeContractTests
 
         Assert.True(PodBinaryCodec.TryDecodeSecurityChallengeAssignment(encoded, out SecurityChallengeAssignment decoded, SecurityChallengeKind.Sha256PowV1));
         Assert.Equal(assignment, decoded);
-        Assert.False(PodBinaryCodec.TryDecodeSecurityChallengeAssignment(encoded, out _, SecurityChallengeKind.CaptchaV1));
+        Assert.False(PodBinaryCodec.TryDecodeSecurityChallengeAssignment(encoded, out _, SecurityChallengeKind.PerceptionCharacterV3));
         Assert.Equal(PodSizeCatalog.SecurityChallengeAssignmentPod, encoded.Length);
     }
 
@@ -159,7 +157,6 @@ public sealed class SecurityChallengeContractTests
     }
 
     [Theory]
-    [InlineData(SecurityChallengeKind.PerceptionCharacterV2, "perceptionCharacterV2", PerceptionSealedTaskKind.Character)]
     [InlineData(SecurityChallengeKind.PerceptionLocalizationV2, "perceptionLocalizationV2", PerceptionSealedTaskKind.Localization)]
     [InlineData(SecurityChallengeKind.PerceptionMicroInteractionV2, "perceptionMicroInteractionV2", PerceptionSealedTaskKind.MicroInteraction)]
     public void PerceptionSealedKinds_HaveStableWireNamesAndTaskMapping(
@@ -186,10 +183,9 @@ public sealed class SecurityChallengeContractTests
     }
 
     [Theory]
-    [InlineData(SecurityChallengeKind.PerceptionCharacterV2, PerceptionSealedTaskKind.Character)]
     [InlineData(SecurityChallengeKind.PerceptionLocalizationV2, PerceptionSealedTaskKind.Localization)]
     [InlineData(SecurityChallengeKind.PerceptionMicroInteractionV2, PerceptionSealedTaskKind.MicroInteraction)]
-    public void PerceptionSealedChallengeV2_ValidatesThreeTaskKinds(SecurityChallengeKind kind, PerceptionSealedTaskKind taskKind)
+    public void PerceptionSealedChallengeV2_ValidatesIndependentTaskKinds(SecurityChallengeKind kind, PerceptionSealedTaskKind taskKind)
     {
         var challenge = new PerceptionSealedChallengeV2(
             CreateAssignment(kind),
@@ -212,10 +208,9 @@ public sealed class SecurityChallengeContractTests
     }
 
     [Theory]
-    [InlineData(SecurityChallengeKind.PerceptionCharacterV2, PerceptionSealedTaskKind.Character, PerceptionSealedResultPayloadKind.Character)]
     [InlineData(SecurityChallengeKind.PerceptionLocalizationV2, PerceptionSealedTaskKind.Localization, PerceptionSealedResultPayloadKind.Coordinates)]
     [InlineData(SecurityChallengeKind.PerceptionMicroInteractionV2, PerceptionSealedTaskKind.MicroInteraction, PerceptionSealedResultPayloadKind.Steps)]
-    public void PerceptionSealedResultV2_ValidatesThreePayloadKinds(
+    public void PerceptionSealedResultV2_ValidatesIndependentPayloadKinds(
         SecurityChallengeKind kind,
         PerceptionSealedTaskKind taskKind,
         PerceptionSealedResultPayloadKind payloadKind)

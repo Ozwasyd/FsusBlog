@@ -121,12 +121,10 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<IPerceptionChallengeV2IssueService, PerceptionChallengeV2IssueService>();
         services.AddScoped<IPerceptionChallengeV2VerifyService, PerceptionChallengeV2VerifyService>();
         services.AddScoped<ISecurityChallengeProvider, Sha256PowChallengeProvider>();
-        services.AddScoped<ISecurityChallengeProvider, CaptchaV1ChallengeProvider>();
         services.AddScoped<ISecurityChallengeProvider, Argon2idPoSpaceV1ChallengeProvider>();
         services.AddScoped<ISecurityChallengeProvider, HumanReadProofV1ChallengeProvider>();
         services.AddScoped<ISecurityChallengeProvider, PasskeyStepUpV1ChallengeProvider>();
         services.AddScoped<ISecurityChallengeProvider, AdminPasskeyStepUpV1ChallengeProvider>();
-        services.AddScoped<ISecurityChallengeProvider, PerceptionTextTaskV2Provider>();
         services.AddScoped<ISecurityChallengeProvider, PerceptionLocalizationV2Provider>();
         services.AddScoped<ISecurityChallengeProvider, PerceptionMicroInteractionV2Provider>();
         bool perceptionV3Enabled = SecuritySystemModes.IsEnforcing(

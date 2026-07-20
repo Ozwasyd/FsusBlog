@@ -45,7 +45,7 @@ public sealed class RiskControlSimulatorContractTests
         Assert.Equal("comment.create", response.RouteKey);
         if (expectedKind == RiskDecisionKind.Challenge)
         {
-            Assert.Equal(["captchaV1"], response.RequiredChallenges);
+            Assert.Equal(["perceptionCharacterV3"], response.RequiredChallenges);
         }
         else
         {
@@ -97,7 +97,7 @@ public sealed class RiskControlSimulatorContractTests
         var defaultPolicy = new SecurityRiskActionPolicy(
             "*",
             new SecurityRiskActionThresholds(49, 50, 70, 90, 120),
-            "captchaV1",
+            "perceptionCharacterV3",
             1,
             null,
             AnonymousWriteAllowed: true);

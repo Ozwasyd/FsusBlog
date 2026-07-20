@@ -2,10 +2,6 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 const TASK_MATRIX = [
-  ['text-task', 'semantic-decoy', 'homoglyph-noise'],
-  ['text-task', 'semantic-decoy', 'instruction-split'],
-  ['text-task', 'reading-order', 'bidi-fragment'],
-  ['text-task', 'reading-order', 'context-window'],
   ['localization', 'spatial-grid', 'moving-hotspot'],
   ['localization', 'spatial-grid', 'occluded-anchor'],
   ['localization', 'relative-position', 'rotated-frame'],
@@ -114,10 +110,6 @@ export function generateSyntheticDataset({ seed = 521, samples = PROFILE_DEFAULT
 
 export function createDefaultSolvers() {
   return [
-    makeSolver('ocr-token-scraper', 'ocr', (sample, attempt) => {
-      if (sample.taskKind !== 'text-task') return 0.035 + attempt * 0.01;
-      return 0.18 - sample.features.textEntropy * 0.1 - sample.features.decoyDensity * 0.055 + attempt * 0.025;
-    }),
     makeSolver('cnn-grid-hotspot', 'cnn', (sample, attempt) => {
       if (sample.taskKind !== 'localization') return 0.04 + attempt * 0.008;
       return 0.2 - sample.features.spatialEntropy * 0.11 - sample.features.pointerPrecision * 0.05 + attempt * 0.03;
@@ -127,7 +119,7 @@ export function createDefaultSolvers() {
       return 0.13 + kindBonus - sample.features.spatialEntropy * 0.09 - sample.features.decoyDensity * 0.03 + attempt * 0.022;
     }),
     makeSolver('vlm-instruction-follower', 'vlm', (sample, attempt) => {
-      const kindBonus = sample.taskKind === 'text-task' ? 0.08 : sample.taskKind === 'micro-interaction' ? 0.025 : 0.04;
+      const kindBonus = sample.taskKind === 'micro-interaction' ? 0.025 : 0.04;
       return 0.12 + kindBonus - sample.features.textEntropy * 0.065 - sample.features.temporalEntropy * 0.035 + attempt * 0.018;
     }),
     makeSolver('gui-agent-replay', 'gui-agent', (sample, attempt) => {
@@ -440,14 +432,14 @@ function buildExpectedAnswer(seed, index, taskKind, variant) {
   return `phrase-${token}`;
 }
 
-function buildPrompt(taskKind, family, variant, expectedAnswer) {
+export function buildPrompt(taskKind, family, variant, expectedAnswer) {
   if (taskKind === 'localization') {
     return `Select ${expectedAnswer} after resolving ${family}/${variant} spatial decoys.`;
   }
   if (taskKind === 'micro-interaction') {
     return `Complete ${expectedAnswer} through the ${family}/${variant} interaction path.`;
   }
-  return `Recover ${expectedAnswer} from the ${family}/${variant} text task.`;
+  throw new Error(`Unsupported perception task kind: ${taskKind}`);
 }
 
 function buildDecoys(expectedAnswer, seed, index) {

@@ -60,7 +60,7 @@ internal static class NotificationStreamTargets
     files: {
       'src/frontend/src/store/retiredExports.ts': `
 export const setUserInfo = () => undefined
-export interface RiskControlPolicyUpdateRequest { captchaV1Enabled: boolean }
+export interface RiskControlPolicyUpdateRequest { poSpaceV1Enabled: boolean }
 export const createComment = () => undefined
 export const retiredPage = 'About.vue'
 `

@@ -13,7 +13,6 @@ namespace FsusBlog.Shared.Contracts.Security;
 public enum RenderRecipeV2TaskKind : byte
 {
     Unknown = 0,
-    Character = 1,
     Localization = 2,
     MicroInteraction = 3
 }

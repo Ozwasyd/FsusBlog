@@ -222,7 +222,7 @@ function createLease(): SecurityChallengeProofLease {
       action: context.action,
       routeKey: context.routeKey,
       challengeId: 'challenge-1',
-      kind: SecurityChallengeKind.CaptchaV1,
+      kind: SecurityChallengeKind.PerceptionLocalizationV2,
       proofToken: 'proof-token',
       policyVersion: 'policy-v1',
       verifiedAtUnixMs: 1,
@@ -236,7 +236,7 @@ function createLease(): SecurityChallengeProofLease {
 function createClient(
   lease: SecurityChallengeProofLease,
   status: 'challenge' | 'allow' = 'challenge',
-  kind = SecurityChallengeKind.CaptchaV1
+  kind = SecurityChallengeKind.PerceptionLocalizationV2
 ): SecurityChallengeClient {
   return {
     issue: vi.fn(async () => status === 'allow' ? {
@@ -271,7 +271,7 @@ function createClient(
       providerPayload: null,
       proof: null,
       capability: resolveChallengeCapability(kind, { action: context.action }),
-      kindGroup: kind === SecurityChallengeKind.CaptchaV1 ? 'captcha' as const : 'perception' as const,
+      kindGroup: 'perception' as const,
       reason: null,
       retryAfterMs: 0
     })),

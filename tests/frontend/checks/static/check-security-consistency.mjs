@@ -252,7 +252,6 @@ for (const workerRuntime of [
   'src/frontend/src/composables/usePow.ts',
   'src/frontend/src/services/securityPoSpaceClient.ts',
   'src/frontend/src/services/securityPerceptionV2Client.ts',
-  'src/frontend/src/services/securityCaptchaClient.ts',
   'src/frontend/src/privacy/commentPrivacyWorkerClient.ts'
 ]) {
   requireContains(

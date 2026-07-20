@@ -279,7 +279,6 @@ export interface SecurityRiskPolicySnapshotV2 {
 
 export interface PerceptionSealedV2PolicyOptions {
   enabled: boolean
-  textTaskEnabled: boolean
   localizationEnabled: boolean
   microInteractionEnabled: boolean
   poSpaceFallbackEnabled: boolean

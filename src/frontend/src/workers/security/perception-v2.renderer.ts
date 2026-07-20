@@ -1,7 +1,7 @@
 type Rgba = readonly [number, number, number, number]
 type PixelBuffer = Uint8ClampedArray<ArrayBuffer>
 
-export type PerceptionV2TaskKind = 'text-task' | 'localization' | 'micro-interaction'
+export type PerceptionV2TaskKind = 'localization' | 'micro-interaction'
 
 export type PerceptionV2Point = {
   x: number
@@ -76,7 +76,7 @@ export type PerceptionV2Occluder = {
 
 export type RenderRecipeV2 = {
   schema?: string
-  taskKind?: PerceptionV2TaskKind | 'character' | 'microInteraction'
+  taskKind?: PerceptionV2TaskKind | 'microInteraction'
   v?: 2
   width?: number
   height?: number
@@ -176,10 +176,6 @@ type NormalizedRecipe = {
 const MAX_DIMENSION = 1024
 const MAX_PIXELS = 1024 * 1024
 const SEMANTIC_RECIPE_FIELDS = new Set([
-  'answer',
-  'glyphs',
-  'glyphIds',
-  'charIds',
   'expectedPoint',
   'expectedStep'
 ])

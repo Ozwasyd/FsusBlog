@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Shared.Contracts.Security;
@@ -214,7 +215,8 @@ public sealed partial class SecurityChallengeOrchestrator(
     ISecurityRiskSignalSink riskSignalSink,
     ISecurityChallengeEnvelopeStateService envelopeStateService,
     ILogger<SecurityChallengeOrchestrator>? logger = null,
-    TimeProvider? timeProvider = null) : ISecurityChallengeOrchestrator
+    TimeProvider? timeProvider = null,
+    ISecurityChallengeProtocolActivationGuard? protocolActivationGuard = null) : ISecurityChallengeOrchestrator
 {
     private static readonly TimeSpan s_riskSignalTtl = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan s_defaultProofTtl = TimeSpan.FromMinutes(5);
@@ -228,6 +230,15 @@ public sealed partial class SecurityChallengeOrchestrator(
     {
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
+
+        if (protocolActivationGuard is not null
+            && request.Decision.RequiredChallenges.Any(static kind =>
+                SecurityChallengeContracts.TryParseKind(kind, out SecurityChallengeKind parsed)
+                && parsed == SecurityChallengeKind.PerceptionCharacterV3)
+            && !await protocolActivationGuard.IsOpenAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return SecurityChallengeOrchestrationIssueResult.Failed("challenge_protocol_unavailable");
+        }
 
         if (request.Decision.RequiredChallenges.Count is <= 0 or > SecurityChallengeContracts.MaxAssignmentsPerEnvelope)
         {
@@ -374,6 +385,13 @@ public sealed partial class SecurityChallengeOrchestrator(
         cancellationToken.ThrowIfCancellationRequested();
 
         string kind = NormalizeKind(request.Kind);
+        if (protocolActivationGuard is not null
+            && SecurityChallengeContracts.TryParseKind(kind, out SecurityChallengeKind parsedKind)
+            && parsedKind == SecurityChallengeKind.PerceptionCharacterV3
+            && !await protocolActivationGuard.IsOpenAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return SecurityChallengeOrchestrationVerifyResult.Failed("challenge_protocol_unavailable");
+        }
         string issuedPolicyVersion = NormalizeRequired(request.PolicyVersion, nameof(request.PolicyVersion), 64);
         string issuedDeviceBinding = NormalizeHash(request.DeviceFpHash, nameof(request.DeviceFpHash));
         if (request.PerceptionCharacterV3 is not null)

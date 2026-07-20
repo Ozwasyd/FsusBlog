@@ -1,11 +1,17 @@
 namespace FsusBlog.Shared.Contracts.Security;
 
+/// <summary>
+/// Identifies whether a challenge is executed by an interactive UI or a headless client.
+/// </summary>
 public enum SecurityChallengeExecutionMode : byte
 {
     Ui = 0,
     Headless = 1
 }
 
+/// <summary>
+/// Describes the runtime provider, executor, host, cancellation, and surface support for one challenge kind.
+/// </summary>
 public sealed record SecurityChallengeCapability(
     SecurityChallengeKind Kind,
     string WireName,
@@ -18,6 +24,9 @@ public sealed record SecurityChallengeCapability(
     bool Cancellable,
     IReadOnlySet<string> Surfaces);
 
+/// <summary>
+/// Reports the capability checks used to decide whether a challenge is eligible for the requested surface.
+/// </summary>
 public sealed record SecurityChallengeCapabilityResolution(
     SecurityChallengeCapability Capability,
     bool ManifestCompatible,
@@ -33,7 +42,7 @@ public sealed record SecurityChallengeCapabilityResolution(
 /// </summary>
 public static class SecurityChallengeCapabilityCatalog
 {
-    public const string ManifestVersion = "2026.07.20.4";
+    public const string ManifestVersion = "2026.07.21.1";
     public const string NotificationSubscribeAction = "notification.subscribe";
 
     public static readonly IReadOnlyList<SecurityChallengeCapability> All =
@@ -41,19 +50,15 @@ public static class SecurityChallengeCapabilityCatalog
         Entry(SecurityChallengeKind.Unknown, false, false, false, false, false, false, false),
         Entry(SecurityChallengeKind.Sha256PowV1, true, true, true, true, true, true, true, "*"),
         Entry(SecurityChallengeKind.Argon2IdPoSpaceV1, true, true, true, true, true, true, true, "*"),
-        Entry(SecurityChallengeKind.CaptchaV1, true, true, true, false, true, false, false, "*"),
         Entry(SecurityChallengeKind.HumanReadProofV1, true, true, false, false, false, false, false),
         Entry(SecurityChallengeKind.PasskeyStepUpV1, true, true, false, false, false, false, false),
         Entry(SecurityChallengeKind.AdminPasskeyStepUpV1, true, true, false, false, false, false, false),
         Entry(SecurityChallengeKind.RecoveryKeyProofV1, true, false, false, false, false, false, false),
         Entry(SecurityChallengeKind.AnonymousCredentialProofV1, true, false, false, false, false, false, false),
         Entry(SecurityChallengeKind.ZkAnonymousCommentProofV1, true, false, false, false, false, false, false),
-        Entry(SecurityChallengeKind.PerceptionCharacterV2, true, false, true, false, true, false, true, "*"),
         Entry(SecurityChallengeKind.PerceptionLocalizationV2, true, true, true, false, true, false, true, "*"),
         Entry(SecurityChallengeKind.PerceptionMicroInteractionV2, true, true, true, false, true, false, true, "*"),
-        Entry(SecurityChallengeKind.PerceptionTextTaskV2, true, true, true, false, true, false, true, "*"),
-        // #1366 registers the backend provider; #1367 owns client executor/host activation.
-        Entry(SecurityChallengeKind.PerceptionCharacterV3, true, true, false, false, false, false, true, "*")
+        Entry(SecurityChallengeKind.PerceptionCharacterV3, true, true, true, false, true, false, true, "*")
     ];
 
     private static readonly IReadOnlyDictionary<SecurityChallengeKind, SecurityChallengeCapability> s_byKind =

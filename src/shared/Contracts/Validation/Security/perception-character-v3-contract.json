@@ -248,11 +248,5 @@
             "solveDurationMs",
             "warpLattice"
         ]
-    },
-    "forbiddenAliases": [
-        "captchaV1",
-        "perceptionCharacterV2",
-        "perceptionTextTaskV2",
-        "text-task"
-    ]
+    }
 }

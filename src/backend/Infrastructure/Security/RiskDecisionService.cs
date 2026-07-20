@@ -69,11 +69,9 @@ public interface IRiskDecisionService
 /// </summary>
 public sealed class RiskDecisionService : IRiskDecisionService
 {
-    private const string CaptchaV1ChallengeKind = "captchaV1";
     private const string Argon2idPoSpaceV1ChallengeKind = "argon2idPoSpaceV1";
     private const string Sha256PowV1ChallengeKind = "sha256PowV1";
     private const string LegacyPowChallengeKind = "security.pow";
-    private const string TextTaskV2ChallengeKind = "perceptionTextTaskV2";
     private const string LocalizationV2ChallengeKind = "perceptionLocalizationV2";
     private const string MicroInteractionV2ChallengeKind = "perceptionMicroInteractionV2";
 
@@ -212,23 +210,6 @@ public sealed class RiskDecisionService : IRiskDecisionService
                 continue;
             }
 
-            if (string.Equals(challengeKind, Argon2idPoSpaceV1ChallengeKind, StringComparison.Ordinal))
-            {
-                if (!IsChallengeSubsystemEnforcing(policy, challengeKind))
-                {
-                    AddChallengeKindIfEnabled(required, CaptchaV1ChallengeKind, policy, reasons);
-                    reasons.Add("pospace_disabled_downgraded");
-                    continue;
-                }
-
-                if (IsMobileUserAgent(context.UserAgent))
-                {
-                    AddChallengeKindIfEnabled(required, CaptchaV1ChallengeKind, policy, reasons);
-                    reasons.Add("pospace_mobile_downgraded");
-                    continue;
-                }
-            }
-
             AddChallengeKindIfEnabled(required, challengeKind, policy, reasons);
         }
 
@@ -304,10 +285,8 @@ public sealed class RiskDecisionService : IRiskDecisionService
     {
         string? subsystem = challengeKind switch
         {
-            CaptchaV1ChallengeKind => SecurityRiskSources.Captcha,
             Argon2idPoSpaceV1ChallengeKind => SecurityRiskSources.PoSpace,
             Sha256PowV1ChallengeKind or LegacyPowChallengeKind => SecurityRiskSources.Pow,
-            TextTaskV2ChallengeKind => SecurityRiskSources.PerceptionTextTask,
             LocalizationV2ChallengeKind => SecurityRiskSources.PerceptionLocalization,
             MicroInteractionV2ChallengeKind => SecurityRiskSources.PerceptionMicroInteraction,
             _ => null
@@ -324,10 +303,8 @@ public sealed class RiskDecisionService : IRiskDecisionService
     private static string NormalizeChallengeKindReason(string challengeKind)
         => challengeKind switch
         {
-            CaptchaV1ChallengeKind => "captcha",
             Argon2idPoSpaceV1ChallengeKind => "pospace",
             Sha256PowV1ChallengeKind or LegacyPowChallengeKind => "pow",
-            TextTaskV2ChallengeKind => "perception_text_task",
             LocalizationV2ChallengeKind => "perception_localization",
             MicroInteractionV2ChallengeKind => "perception_micro_interaction",
             _ => "challenge"

@@ -494,7 +494,6 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
     {
         var request = new RiskControlPolicyUpdateRequest(
             ReadConfigurationValue(configuration, "Security:RiskControl:GlobalMode", "RiskControl:GlobalMode"),
-            ReadConfigurationBoolean(configuration, "Security:RiskControl:CaptchaV1:Enabled", "Security:RiskControl:CaptchaV1Enabled", "RiskControl:CaptchaV1Enabled"),
             ReadConfigurationBoolean(configuration, "Security:RiskControl:PoSpaceV1:Enabled", "Security:RiskControl:PoSpaceV1Enabled", "RiskControl:PoSpaceV1Enabled"),
             ReadConfigurationBoolean(configuration, "Security:RiskControl:PublicReadChallenge:Enabled", "Security:RiskControl:PublicReadChallengeEnabled", "RiskControl:PublicReadChallengeEnabled"),
             ReadConfigurationBoolean(configuration, "Security:RiskControl:CommentRiskControl:Enabled", "Security:RiskControl:CommentRiskControlEnabled", "RiskControl:CommentRiskControlEnabled"),
@@ -525,7 +524,6 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
         var subsystemModes = new Dictionary<string, string>(current.SubsystemModes, StringComparer.Ordinal);
         var actionOverrides = new Dictionary<string, SecurityRiskActionPolicy>(current.ActionOverrides, StringComparer.Ordinal);
 
-        ApplySubsystemSwitch(subsystemModes, SecurityRiskSources.Captcha, request.CaptchaV1Enabled);
         ApplySubsystemSwitch(subsystemModes, SecurityRiskSources.PoSpace, request.PoSpaceV1Enabled);
         ApplySubsystemSwitch(subsystemModes, SecurityRiskSources.PublicRead, request.PublicReadChallengeEnabled);
         ApplySubsystemSwitch(subsystemModes, SecurityRiskSources.CommentGovernance, request.CommentRiskControlEnabled);
@@ -562,7 +560,6 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
     {
         PerceptionSealedV2PolicyOptions options = perception.Options;
         var subsystemModes = new Dictionary<string, string>(current.SubsystemModes, StringComparer.Ordinal);
-        subsystemModes[SecurityRiskSources.PerceptionTextTask] = ToSubsystemMode(options.Enabled && options.TextTaskEnabled);
         subsystemModes[SecurityRiskSources.PerceptionLocalization] = ToSubsystemMode(options.Enabled && options.LocalizationEnabled);
         subsystemModes[SecurityRiskSources.PerceptionMicroInteraction] = ToSubsystemMode(options.Enabled && options.MicroInteractionEnabled);
         if (options.Enabled && options.PoSpaceFallbackEnabled)
@@ -1216,7 +1213,6 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
     private static PerceptionSealedV2PolicyOptions BuildDefaultPerceptionV2Options(IConfiguration configuration)
         => new(
             ReadBool(configuration, "Security:PerceptionV2:Enabled", true),
-            ReadBool(configuration, "Security:PerceptionV2:TextTask:Enabled", true),
             ReadBool(configuration, "Security:PerceptionV2:Localization:Enabled", true),
             ReadBool(configuration, "Security:PerceptionV2:MicroInteraction:Enabled", false),
             ReadBool(configuration, "Security:PerceptionV2:PoSpaceFallback:Enabled", false),
@@ -1284,7 +1280,6 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
         return current with
         {
             Enabled = request.Enabled ?? current.Enabled,
-            TextTaskEnabled = request.TextTaskEnabled ?? current.TextTaskEnabled,
             LocalizationEnabled = request.LocalizationEnabled ?? current.LocalizationEnabled,
             MicroInteractionEnabled = request.MicroInteractionEnabled ?? current.MicroInteractionEnabled,
             PoSpaceFallbackEnabled = request.PoSpaceFallbackEnabled ?? current.PoSpaceFallbackEnabled,

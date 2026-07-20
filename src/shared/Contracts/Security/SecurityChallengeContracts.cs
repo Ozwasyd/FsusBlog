@@ -8,17 +8,14 @@ public enum SecurityChallengeKind : byte
     Unknown = 0,
     Sha256PowV1 = 1,
     Argon2IdPoSpaceV1 = 2,
-    CaptchaV1 = 3,
     HumanReadProofV1 = 4,
     PasskeyStepUpV1 = 5,
     AdminPasskeyStepUpV1 = 6,
     RecoveryKeyProofV1 = 7,
     AnonymousCredentialProofV1 = 8,
     ZkAnonymousCommentProofV1 = 9,
-    PerceptionCharacterV2 = 10,
     PerceptionLocalizationV2 = 11,
     PerceptionMicroInteractionV2 = 12,
-    PerceptionTextTaskV2 = 13,
     PerceptionCharacterV3 = 14
 }
 
@@ -150,14 +147,12 @@ public static class SecurityChallengeContracts
     {
         SecurityChallengeKind.Sha256PowV1,
         SecurityChallengeKind.Argon2IdPoSpaceV1,
-        SecurityChallengeKind.CaptchaV1,
         SecurityChallengeKind.HumanReadProofV1,
         SecurityChallengeKind.PasskeyStepUpV1,
         SecurityChallengeKind.AdminPasskeyStepUpV1,
         SecurityChallengeKind.RecoveryKeyProofV1,
         SecurityChallengeKind.AnonymousCredentialProofV1,
         SecurityChallengeKind.ZkAnonymousCommentProofV1,
-        SecurityChallengeKind.PerceptionCharacterV2,
         SecurityChallengeKind.PerceptionLocalizationV2,
         SecurityChallengeKind.PerceptionMicroInteractionV2,
         SecurityChallengeKind.PerceptionCharacterV3
@@ -181,12 +176,6 @@ public static class SecurityChallengeContracts
             return true;
         }
 
-        if (string.Equals(normalized, "perceptionTextTaskV2", StringComparison.Ordinal))
-        {
-            kind = SecurityChallengeKind.PerceptionTextTaskV2;
-            return true;
-        }
-
         foreach (SecurityChallengeKind candidate in SupportedKinds)
         {
             if (string.Equals(ToWireName(candidate), normalized, StringComparison.Ordinal))
@@ -204,15 +193,12 @@ public static class SecurityChallengeContracts
         {
             SecurityChallengeKind.Sha256PowV1 => "sha256PowV1",
             SecurityChallengeKind.Argon2IdPoSpaceV1 => "argon2idPoSpaceV1",
-            SecurityChallengeKind.CaptchaV1 => "captchaV1",
             SecurityChallengeKind.HumanReadProofV1 => "humanReadProofV1",
             SecurityChallengeKind.PasskeyStepUpV1 => "passkeyStepUpV1",
             SecurityChallengeKind.AdminPasskeyStepUpV1 => "adminPasskeyStepUpV1",
             SecurityChallengeKind.RecoveryKeyProofV1 => "recoveryKeyProofV1",
             SecurityChallengeKind.AnonymousCredentialProofV1 => "anonymousCredentialProofV1",
             SecurityChallengeKind.ZkAnonymousCommentProofV1 => "zkAnonymousCommentProofV1",
-            SecurityChallengeKind.PerceptionTextTaskV2 => "perceptionTextTaskV2",
-            SecurityChallengeKind.PerceptionCharacterV2 => "perceptionCharacterV2",
             SecurityChallengeKind.PerceptionLocalizationV2 => "perceptionLocalizationV2",
             SecurityChallengeKind.PerceptionMicroInteractionV2 => "perceptionMicroInteractionV2",
             SecurityChallengeKind.PerceptionCharacterV3 => "perceptionCharacterV3",
@@ -355,17 +341,14 @@ public static class SecurityChallengeContracts
             return false;
         }
 
-        char version = challengeId[14];
-        return kind == SecurityChallengeKind.CaptchaV1
-            ? version is '4' or '7'
-            : version == '7';
+        return challengeId[14] == '7';
     }
 
     private static bool IsUuidV7(string value)
         => Guid.TryParseExact(value, "D", out _) && value[14] == '7';
 
     private static bool IsSupportedKind(SecurityChallengeKind kind)
-        => SupportedKinds.Contains(kind) || kind == SecurityChallengeKind.PerceptionTextTaskV2;
+        => SupportedKinds.Contains(kind);
 
     private static bool IsSha256Hex(string? value)
     {

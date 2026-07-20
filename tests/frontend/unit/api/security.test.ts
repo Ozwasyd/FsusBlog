@@ -73,12 +73,12 @@ describe('security API binary transport', () => {
   })
 
   it('adds challenge kind filters as query parameters without changing the frame contract', async () => {
-    binaryMock.mockResolvedValue({ kind: 'captchaV1', totalIssued: 3 })
+    binaryMock.mockResolvedValue({ kind: 'perceptionLocalizationV2', totalIssued: 3 })
 
-    await getSecurityChallengeMetrics({ kind: 'captchaV1' })
+    await getSecurityChallengeMetrics({ kind: 'perceptionLocalizationV2' })
 
     const call = binaryMock.mock.calls[0]?.[0]
-    expect(call?.binaryUrl).toBe('/api/binary/admin/security/challenges/overview?kind=captchaV1')
+    expect(call?.binaryUrl).toBe('/api/binary/admin/security/challenges/overview?kind=perceptionLocalizationV2')
     expect(call?.frameType).toBe(FrameType.SecurityOverview)
   })
 
@@ -103,7 +103,6 @@ describe('security API binary transport', () => {
     await getPerceptionSealedV2Options()
     await updatePerceptionSealedV2Options({
       enabled: false,
-      textTaskEnabled: true,
       localizationEnabled: true,
       microInteractionEnabled: false,
       poSpaceFallbackEnabled: true,
@@ -178,7 +177,7 @@ describe('security API binary transport', () => {
       riskScore: 50,
       decision: 'challenge',
       reasons: ['challenge'],
-      requiredChallenges: ['captchaV1'],
+      requiredChallenges: ['perceptionLocalizationV2'],
       policyVersion: 'risk-v2'
     })
 

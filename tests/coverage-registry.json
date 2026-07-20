@@ -1495,7 +1495,7 @@
             ],
             "assertionType": "perf",
             "failClosedRule": "matrix-validate requires the PR red-team lane to emit JSON and Markdown reports, and the runner exits non-zero when configured solver, render, verify, payload, human-success or solve-time thresholds fail.",
-            "minimumRequirement": "The PR profile must cover text-task, localization and micro-interaction samples across family/variant groups without production database input, and must fail closed on significant bot single-try or three-attempt success regressions.",
+            "minimumRequirement": "The PR profile must cover localization and micro-interaction samples across family/variant groups without production database input, and must fail closed on significant bot single-try or three-attempt success regressions.",
             "tierIds": [
                 "perception-v2-redteam-pr"
             ]
@@ -2411,7 +2411,7 @@
             ],
             "assertionType": "static",
             "failClosedRule": "matrix-validate and risk-control-test-matrix require every required RiskControl scenario and p99 budget to be declared before CI can pass.",
-            "minimumRequirement": "The matrix must include allow/challenge/step-up/queue/throttle/block, PoW/Captcha/PoSpace/HumanReadProof/Passkey/AdminStepUp, replay/expired/mismatch failures, integration surfaces, browser failure modes, p99 budgets and fault modes.",
+            "minimumRequirement": "The matrix must include allow/challenge/step-up/queue/throttle/block, PoW/Perception/PoSpace/HumanReadProof/Passkey/AdminStepUp, replay/expired/mismatch failures, integration surfaces, browser failure modes, p99 budgets and fault modes.",
             "tierIds": [
                 "risk-control-test-matrix"
             ]

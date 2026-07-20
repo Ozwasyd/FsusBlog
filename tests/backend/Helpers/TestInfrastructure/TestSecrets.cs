@@ -6,7 +6,6 @@ public static class TestSecrets
     public const string SecondaryJwtSigningKey = "TEST_ONLY_DO_NOT_DEPLOY_JWT_SECRET_0002";
     public const string IntegrationJwtSigningKey = "TEST_ONLY_DO_NOT_DEPLOY_JWT_SECRET_0003";
     public const string PowSigningKey = "TEST_ONLY_DO_NOT_DEPLOY_POW_SECRET_0001";
-    public const string CaptchaSigningKey = "TEST_ONLY_DO_NOT_DEPLOY_CAPTCHA_SECRET_0001";
     public const string RecoveryKeyPepper = "TEST_ONLY_DO_NOT_DEPLOY_RECOVERY_PEPPER_0001";
     public const string MfaTicketSigningKey = "TEST_ONLY_DO_NOT_DEPLOY_MFA_TICKET_SECRET_0001";
     public const string AuditTamperEvidenceKey = "TEST_ONLY_DO_NOT_DEPLOY_AUDIT_TAMPER_SECRET_0001";

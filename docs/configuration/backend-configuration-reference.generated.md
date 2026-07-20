@@ -5,7 +5,7 @@
 
 ASP.NET Core precedence remains: base appsettings < Production overlay < environment/Compose < explicit command line.
 
-- Application settings: 185
+- Application settings: 184
 - Tracked environment variables: 228
 - Mounted file classes: 5
 
@@ -172,7 +172,6 @@ ASP.NET Core precedence remains: base appsettings < Production overlay < environ
 | `ReverseProxy:KnownNetworks` | `ReverseProxy__KnownNetworks` | HTTP hosting boundary setting: KnownNetworks | `string-array` | Production | optional: optional | no | environment; safe-non-secret-default | consumer: hosting bootstrap | `[...]` |
 | `ReverseProxy:KnownProxies` | `ReverseProxy__KnownProxies` | HTTP hosting boundary setting: KnownProxies | `string-array` | Production | optional: optional | no | environment; safe-non-secret-default | consumer: hosting bootstrap | `[...]` |
 | `SchemaMigration:QualificationEnabled` | `FSUSBLOG_SCHEMA_QUALIFICATION_ENABLED`, `SchemaMigration__QualificationEnabled` | Release and deployment lifecycle setting: QualificationEnabled | `boolean` | Production | optional: optional | no | environment; safe-non-secret-default | consumer: release identity and lifecycle validator | `true or false` |
-| `Security:CaptchaV1:SigningKey` | `Security__CaptchaV1__SigningKey` | Security and risk control setting: SigningKey | `secret-string` | Development, Production | required: Production | yes | environment, repository-base, repository-production-overlay, secret-store; empty-only | startup: ProductionStartupValidator | `<external secret; never a usable tracked value>` |
 | `Security:PerceptionSealedToken:CurrentKeyVersion` | `Security__PerceptionSealedToken__CurrentKeyVersion` | Security and risk control setting: CurrentKeyVersion | `string` | Development, Production | required: Production | no | environment, repository-base, repository-production-overlay; safe-non-secret-default | startup: ProductionStartupValidator | `<value matching the declared type>` |
 | `Security:PerceptionSealedToken:Keys:dev` | `Security__PerceptionSealedToken__Keys__dev` | Security and risk control setting: dev | `secret-string` | Development, Production | conditional: when the owning feature is enabled | yes | environment, repository-base, secret-store; empty-only | feature-gate: security feature validator | `<external secret; never a usable tracked value>` |
 | `Security:PerceptionSealedToken:Keys:k1` | `Security__PerceptionSealedToken__Keys__k1` | Security and risk control setting: k1 | `secret-string` | Production | conditional: when the owning feature is enabled | yes | environment, repository-production-overlay, secret-store; empty-only | feature-gate: security feature validator | `<external secret; never a usable tracked value>` |

@@ -59,12 +59,12 @@ if (evidence.issue !== 532) {
 if (evidence.workflow?.businessFlow !== 'comment.create') {
   fail('runtime evidence must cover comment.create')
 }
-if (evidence.workflow?.challengeKind !== 'perceptionTextTaskV2') {
-  fail('runtime evidence must cover perceptionTextTaskV2')
+if (!['perceptionLocalizationV2', 'perceptionMicroInteractionV2'].includes(evidence.workflow?.challengeKind)) {
+  fail('runtime evidence must cover an active perception v2 challenge')
 }
 
 assertIncludesAll(evidence.workflow?.path, requiredWorkflowPath, 'workflow.path')
-assertIncludesAll(evidence.workflow?.taskKinds, ['text-task'], 'workflow.taskKinds')
+assertIncludesAll(evidence.workflow?.taskKinds, ['localization', 'micro-interaction'], 'workflow.taskKinds')
 assertIncludesAll(evidence.workflow?.businessFlows, ['comment.create'], 'workflow.businessFlows')
 assertIncludesAll(evidence.coverage?.failureCases, requiredFailureCases, 'coverage.failureCases')
 assertIncludesAll(evidence.coverage?.performanceCases, requiredPerformanceCases, 'coverage.performanceCases')

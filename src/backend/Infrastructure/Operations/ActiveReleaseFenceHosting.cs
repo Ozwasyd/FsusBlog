@@ -62,6 +62,9 @@ public static class ActiveReleaseFenceServiceCollectionExtensions
         services.TryAddSingleton<IActiveReleaseExecutionContextAccessor, ActiveReleaseExecutionContextAccessor>();
         services.TryAddSingleton<IActiveReleaseCommitGuard, ActiveReleaseCommitGuard>();
         services.TryAddSingleton<IActiveReleaseTransactionalCommitGuard, ActiveReleaseTransactionalCommitGuard>();
+        services.TryAddSingleton<ISecurityChallengeKindCutoverStore, RedisSecurityChallengeKindCutoverStore>();
+        services.TryAddSingleton<SecurityChallengeKindCutover>();
+        services.TryAddSingleton<ISecurityChallengeProtocolActivationGuard, SecurityChallengeProtocolActivationGuard>();
         services.TryAddSingleton<ActiveReleaseFenceReadiness>();
         services.TryAddSingleton<NotificationStreamRestartCoordinator>();
         services.TryAddSingleton<ReleaseDrainParticipantRegistry>();
@@ -94,6 +97,8 @@ public static class ActiveReleaseFenceEndpoints
     public const string AcquirePath = "/api/ops/deployment/fence/acquire";
     public const string RevokePath = "/api/ops/deployment/fence/revoke";
     public const string StatusPath = "/api/ops/deployment/fence/status";
+    public const string ChallengeKindCutoverPath = "/api/ops/deployment/fence/challenge-kind-cutover";
+    public const string ChallengeProtocolActivatePath = "/api/ops/deployment/fence/challenge-protocol-activate";
 
     public static IEndpointRouteBuilder MapActiveReleaseFenceEndpoints(this IEndpointRouteBuilder endpoints)
     {
@@ -160,6 +165,46 @@ public static class ActiveReleaseFenceEndpoints
                     generation,
                     requireActive ?? true),
                 cancellationToken).ConfigureAwait(false);
+            return HttpResults.Json(result, statusCode: result.Accepted
+                ? StatusCodes.Status200OK
+                : StatusCodes.Status409Conflict);
+        })
+        .RequireAdminPermission(AdminPermissions.SystemConfig)
+        .RequireRateLimiting("fixed_ip");
+
+        endpoints.MapPost(ChallengeKindCutoverPath, async Task<IResult> (
+            HttpContext context,
+            SecurityChallengeKindCutoverRequest request,
+            [FromServices] SecurityChallengeKindCutover cutover,
+            CancellationToken cancellationToken) =>
+        {
+            if (!DeploymentControlEndpoints.IsTrustedHostControl(context))
+            {
+                return TrustedHostRequired();
+            }
+
+            SecurityChallengeKindCutoverReceipt receipt = await cutover
+                .ExecuteAsync(request, cancellationToken)
+                .ConfigureAwait(false);
+            return HttpResults.Json(receipt, statusCode: receipt.Accepted
+                ? StatusCodes.Status200OK
+                : StatusCodes.Status409Conflict);
+        })
+        .RequireAdminPermission(AdminPermissions.SystemConfig)
+        .RequireRateLimiting("fixed_ip");
+
+        endpoints.MapPost(ChallengeProtocolActivatePath, async Task<IResult> (
+            HttpContext context,
+            SecurityChallengeProtocolActivationRequest request,
+            [FromServices] ISecurityChallengeProtocolActivationGuard guard,
+            CancellationToken cancellationToken) =>
+        {
+            if (!DeploymentControlEndpoints.IsTrustedHostControl(context))
+            {
+                return TrustedHostRequired();
+            }
+            SecurityChallengeProtocolActivationResult result = await guard
+                .ActivateAsync(request, cancellationToken).ConfigureAwait(false);
             return HttpResults.Json(result, statusCode: result.Accepted
                 ? StatusCodes.Status200OK
                 : StatusCodes.Status409Conflict);

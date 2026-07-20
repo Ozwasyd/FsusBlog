@@ -145,7 +145,6 @@ public sealed record RiskControlConsoleResponse(
 
 public sealed record PerceptionSealedV2PolicyOptions(
     bool Enabled,
-    bool TextTaskEnabled,
     bool LocalizationEnabled,
     bool MicroInteractionEnabled,
     bool PoSpaceFallbackEnabled,
@@ -156,7 +155,6 @@ public sealed record PerceptionSealedV2PolicyOptions(
 
 public sealed record PerceptionSealedV2PolicyUpdateRequest(
     bool? Enabled,
-    bool? TextTaskEnabled,
     bool? LocalizationEnabled,
     bool? MicroInteractionEnabled,
     bool? PoSpaceFallbackEnabled,
@@ -209,7 +207,6 @@ public sealed record PerceptionSealedV2TaskKindMetricResponse(
 
 public sealed record RiskControlPolicyUpdateRequest(
     string? GlobalMode,
-    bool? CaptchaV1Enabled,
     bool? PoSpaceV1Enabled,
     bool? PublicReadChallengeEnabled,
     bool? CommentRiskControlEnabled,

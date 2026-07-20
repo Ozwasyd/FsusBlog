@@ -74,20 +74,6 @@
       />
     </div>
 
-    <FsusCaptchaChallenge
-      v-else-if="capability?.uiHost === 'captcha'"
-      :key="captchaKey"
-      :action="action"
-      :route-key="routeKey"
-      :attributes="attributes"
-      :disabled="disabled"
-      :issue-challenge="issueCaptchaChallenge"
-      :verify-challenge="verifyCaptchaChallenge"
-      @verified="handleVerified"
-      @error="setError"
-      @refresh="emit('refresh')"
-    />
-
     <FsusPerceptionChallenge
       v-else-if="capability?.uiHost === 'perception' && perceptionRuntime"
       :challenge="perceptionRuntime.challenge"
@@ -159,14 +145,12 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import {
   SecurityChallengeKind,
-  type IssueSecurityChallengeRequest,
   type SecurityChallengeAssignment,
   type SecurityChallengeIssueResponse,
   type SecurityChallengeProviderPayload,
   type SecurityChallengeVerifyResponse,
   type VerifySecurityChallengeRequest
 } from '@/api/security'
-import FsusCaptchaChallenge from './FsusCaptchaChallenge.vue'
 import FsusPoSpaceChallenge, {
   type PoSpaceChallengeExecutorFactory,
   type PoSpaceUnsupportedResult
@@ -240,7 +224,6 @@ const assignment = ref<SecurityChallengeAssignment | null>(null)
 const providerPayload = ref<SecurityChallengeProviderPayload | null>(null)
 const preloadedIssueResponse = ref<SecurityChallengeIssueResponse | null>(null)
 const issuePolicyVersion = ref('')
-const captchaKey = ref(0)
 const perceptionRuntime = ref<PerceptionChallengeRuntime | null>(null)
 const poSpaceHost = ref<{ dispose?: () => void } | null>(null)
 const powHost = ref<{ dispose?: () => void } | null>(null)
@@ -349,11 +332,19 @@ function applyIssueResult(result: SecurityChallengeIssueResult): void {
     return
   }
   if (result.status === 'failed') {
+    if (result.reason === 'security_challenge_capability_reload_requested'
+        || result.reason === 'security_challenge_capability_reload_suppressed') {
+      capability.value = null
+      assignment.value = null
+      providerPayload.value = null
+      errorMessage.value = result.reason === 'security_challenge_capability_reload_requested'
+        ? localizedCopy.value.capabilityUpdate
+        : localizedCopy.value.capabilityUpdateFailed
+      emit('error', result.reason)
+      return
+    }
     setError('security_challenge_unavailable')
     return
-  }
-  if (capability.value?.uiHost === 'captcha') {
-    captchaKey.value += 1
   }
   if (assignment.value?.kind === SecurityChallengeKind.PerceptionCharacterV3) {
     rebuildV3Runtime()
@@ -481,40 +472,6 @@ function failedVerifyResponse(
     reason: reason ?? 'security_challenge_verify_failed',
     retryAfterMs
   }
-}
-
-async function issueCaptchaChallenge(request: IssueSecurityChallengeRequest): Promise<SecurityChallengeIssueResponse> {
-  const preloaded = preloadedIssueResponse.value
-  if (preloaded) {
-    preloadedIssueResponse.value = null
-    return preloaded
-  }
-
-  const result = await client().refresh({
-    ...context(),
-    action: request.action,
-    routeKey: request.routeKey,
-    attributes: request.attributes,
-    deviceFingerprint: request.deviceFingerprint
-  })
-  applyIssueResult(result)
-  if (!result.response || result.assignment?.kind !== SecurityChallengeKind.CaptchaV1) {
-    throw new Error(result.reason ?? 'captcha_assignment_missing')
-  }
-  preloadedIssueResponse.value = null
-  return result.response
-}
-
-async function verifyCaptchaChallenge(request: VerifySecurityChallengeRequest): Promise<SecurityChallengeVerifyResponse> {
-  const result = await client().verify(context(), request)
-  lastVerifyResponse.value = result.response
-  if (result.next) {
-    applyIssueResult(result.next)
-  }
-  if (result.status === 'verified' && result.response) {
-    return result.response
-  }
-  return result.response ?? failedVerifyResponse(request, result.reason, result.retryAfterMs)
 }
 
 function handleVerified(value: SecurityChallengeVerifyResponse): void {

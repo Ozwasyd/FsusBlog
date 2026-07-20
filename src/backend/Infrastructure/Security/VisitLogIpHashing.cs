@@ -59,7 +59,6 @@ public sealed class VisitLogIpPseudonymizer : IVisitLogIpPseudonymizer
     [
         "Jwt:SecretKey",
         "Security:Pow:SigningKey",
-        "Security:CaptchaV1:SigningKey",
         "Security:RecoveryKeyPepper",
         "PublicAot:ManifestToken",
         "MfaChallenge:TicketSigningKey",

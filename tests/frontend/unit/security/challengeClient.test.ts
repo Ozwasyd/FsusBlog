@@ -31,8 +31,8 @@ describe('security challenge client and proof store', () => {
     store.set({
       action: context.action,
       routeKey: context.routeKey,
-      challengeId: 'captcha-1',
-      kind: SecurityChallengeKind.CaptchaV1,
+      challengeId: 'localization-1',
+      kind: SecurityChallengeKind.PerceptionLocalizationV2,
       proofToken: 'proof-1',
       policyVersion: 'risk-v1',
       verifiedAtUnixMs: now,
@@ -51,7 +51,7 @@ describe('security challenge client and proof store', () => {
       action: context.action,
       routeKey: context.routeKey,
       challengeId: 'cached-1',
-      kind: SecurityChallengeKind.CaptchaV1,
+      kind: SecurityChallengeKind.PerceptionLocalizationV2,
       proofToken: 'proof-cached',
       policyVersion: 'risk-v1',
       verifiedAtUnixMs: 900,
@@ -82,18 +82,18 @@ describe('security challenge client and proof store', () => {
       action: context.action,
       routeKey: context.routeKey,
       challengeId: 'expired-1',
-      kind: SecurityChallengeKind.CaptchaV1,
+      kind: SecurityChallengeKind.PerceptionLocalizationV2,
       proofToken: 'proof-expired',
       policyVersion: 'risk-v1',
       verifiedAtUnixMs: 500,
       expiresAtUnixMs: 900
     })
-    const issueChallenge = vi.fn().mockResolvedValue(captchaIssueResponse())
+    const issueChallenge = vi.fn().mockResolvedValue(localizationIssueResponse())
     const verifyChallenge = vi.fn().mockResolvedValue({
       verified: true,
       envelopeId: ENVELOPE_ID,
-      challengeId: 'captcha-1',
-      kind: SecurityChallengeKind.CaptchaV1,
+      challengeId: 'localization-1',
+      kind: SecurityChallengeKind.PerceptionLocalizationV2,
       policyVersion: 'risk-v1',
       completedCount: 1,
       memberCount: 1,
@@ -108,23 +108,23 @@ describe('security challenge client and proof store', () => {
     const result = await client.issue(context)
 
     expect(result.status).toBe('challenge')
-    expect(result.assignment?.kind).toBe(SecurityChallengeKind.CaptchaV1)
+    expect(result.assignment?.kind).toBe(SecurityChallengeKind.PerceptionLocalizationV2)
     expect(issueChallenge).toHaveBeenCalledTimes(1)
     expect(store.peek(context.action, context.routeKey)).toBeNull()
 
     now = 2000
     await client.verify(context, {
-      challengeId: 'captcha-1',
-      kind: SecurityChallengeKind.CaptchaV1,
+      challengeId: 'localization-1',
+      kind: SecurityChallengeKind.PerceptionLocalizationV2,
       action: context.action,
       routeKey: context.routeKey,
-      providerPayload: { answerText: 'AEF2' }
+      providerPayload: { x: '192', y: '99' }
     })
     expect(store.peek(context.action, context.routeKey)?.proofToken).toBe('proof-verified')
   })
 
   it('rejects unknown and executor-free challenge kinds without entering pending UI', async () => {
-    const issueChallenge = vi.fn().mockResolvedValue(captchaIssueResponse(SecurityChallengeKind.Unknown))
+    const issueChallenge = vi.fn().mockResolvedValue(localizationIssueResponse(SecurityChallengeKind.Unknown))
     const client = createSecurityChallengeClient({ issueChallenge, now: () => 1000 })
 
     const result = await client.issue(context)
@@ -137,7 +137,7 @@ describe('security challenge client and proof store', () => {
 
   it('routes PoSpace and sha256PowV1 through UI executors while failing closed for incompatible manifests', async () => {
     const poSpace = await createSecurityChallengeClient({
-      issueChallenge: vi.fn().mockResolvedValue(captchaIssueResponse(SecurityChallengeKind.Argon2IdPoSpaceV1)),
+      issueChallenge: vi.fn().mockResolvedValue(localizationIssueResponse(SecurityChallengeKind.Argon2IdPoSpaceV1)),
       now: () => 1000
     }).issue(context)
     expect(poSpace.status).toBe('challenge')
@@ -145,26 +145,58 @@ describe('security challenge client and proof store', () => {
     expect(poSpace.capability?.uiHost).toBe('pospace')
 
     const sha256Pow = await createSecurityChallengeClient({
-      issueChallenge: vi.fn().mockResolvedValue(captchaIssueResponse(SecurityChallengeKind.Sha256PowV1)),
+      issueChallenge: vi.fn().mockResolvedValue(localizationIssueResponse(SecurityChallengeKind.Sha256PowV1)),
       now: () => 1000
     }).issue(context)
     expect(sha256Pow.status).toBe('challenge')
     expect(sha256Pow.capability?.executorFactory?.().mode).toBe('universal')
     expect(sha256Pow.capability?.uiHost).toBe('sha256-pow')
 
+    const requestCapabilityReload = vi.fn(() => 'reload_requested' as const)
     const incompatible = await createSecurityChallengeClient({
-      issueChallenge: vi.fn().mockResolvedValue(captchaIssueResponse()),
+      issueChallenge: vi.fn().mockResolvedValue(localizationIssueResponse()),
+      requestCapabilityReload,
       now: () => 1000
     }).issue({ ...context, capabilityManifestVersion: 'older-build' })
-    expect(incompatible.status).toBe('unsupported')
-    expect(incompatible.reason).toBe('security_challenge_version_incompatible')
+    expect(incompatible.status).toBe('failed')
+    expect(incompatible.reason).toBe('security_challenge_capability_reload_requested')
+    expect(requestCapabilityReload).toHaveBeenCalledWith('older-build')
 
     const executable = await createSecurityChallengeClient({
-      issueChallenge: vi.fn().mockResolvedValue(captchaIssueResponse()),
+      issueChallenge: vi.fn().mockResolvedValue(localizationIssueResponse()),
       now: () => 1000
     }).issue(context)
     expect(executable.status).toBe('challenge')
     expect(executable.capability?.policyEligible).toBe(true)
+  })
+
+  it('turns the capability-manifest 409 into one explicit full reload action without retrying or fallback', async () => {
+    const issueChallenge = vi.fn().mockRejectedValue(
+      new Error('security_challenge_client_capability_incompatible')
+    )
+    const requestCapabilityReload = vi.fn(() => 'reload_requested' as const)
+    const client = createSecurityChallengeClient({ issueChallenge, requestCapabilityReload })
+
+    const result = await client.issue(context)
+
+    expect(result.status).toBe('failed')
+    expect(result.reason).toBe('security_challenge_capability_reload_requested')
+    expect(requestCapabilityReload).toHaveBeenCalledTimes(1)
+    expect(requestCapabilityReload).toHaveBeenCalledWith(SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION)
+    expect(issueChallenge).toHaveBeenCalledTimes(1)
+  })
+
+  it('fails closed after an old build already requested its reload', async () => {
+    const issueChallenge = vi.fn().mockRejectedValue(
+      new Error('security_challenge_client_capability_incompatible')
+    )
+    const requestCapabilityReload = vi.fn(() => 'already_requested' as const)
+
+    const result = await createSecurityChallengeClient({ issueChallenge, requestCapabilityReload }).issue(context)
+
+    expect(result.status).toBe('failed')
+    expect(result.reason).toBe('security_challenge_capability_reload_suppressed')
+    expect(issueChallenge).toHaveBeenCalledTimes(1)
   })
 
   it('covers known, provider, executor, host and policy state for every enum member', () => {
@@ -172,17 +204,16 @@ describe('security challenge client and proof store', () => {
       [SecurityChallengeKind.Unknown, false, false, false, false, false],
       [SecurityChallengeKind.Sha256PowV1, true, true, true, true, true],
       [SecurityChallengeKind.Argon2IdPoSpaceV1, true, true, true, true, true],
-      [SecurityChallengeKind.CaptchaV1, true, true, true, true, true],
+      [SecurityChallengeKind.PerceptionLocalizationV2, true, true, true, true, true],
       [SecurityChallengeKind.HumanReadProofV1, true, true, false, false, false],
       [SecurityChallengeKind.PasskeyStepUpV1, true, true, false, false, false],
       [SecurityChallengeKind.AdminPasskeyStepUpV1, true, true, false, false, false],
       [SecurityChallengeKind.RecoveryKeyProofV1, true, false, false, false, false],
       [SecurityChallengeKind.AnonymousCredentialProofV1, true, false, false, false, false],
       [SecurityChallengeKind.ZkAnonymousCommentProofV1, true, false, false, false, false],
-      [SecurityChallengeKind.PerceptionCharacterV2, true, false, true, true, false],
       [SecurityChallengeKind.PerceptionLocalizationV2, true, true, true, true, true],
       [SecurityChallengeKind.PerceptionMicroInteractionV2, true, true, true, true, true],
-      [SecurityChallengeKind.PerceptionTextTaskV2, true, true, true, true, true]
+      [SecurityChallengeKind.PerceptionCharacterV3, true, true, true, true, true]
     ] as const
 
     expect(securityChallengeCapabilityManifest).toHaveLength(Object.keys(SecurityChallengeKind).length)
@@ -202,25 +233,38 @@ describe('security challenge client and proof store', () => {
     }
   })
 
+  it.each([3, 10, 13])('fails closed for retired numeric challenge kind %i', (retiredKind) => {
+    const state = resolveChallengeCapability(retiredKind as SecurityChallengeKind, {
+      action: context.action,
+      mode: 'ui',
+      manifestVersion: SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION
+    })
+
+    expect(state.kind).toBe(SecurityChallengeKind.Unknown)
+    expect(state.kindKnown).toBe(false)
+    expect(state.policyEligible).toBe(false)
+    expect(getChallengeKindGroup(retiredKind as SecurityChallengeKind)).toBe('unsupported')
+  })
+
   it('normalizes failed verification without caching proof', async () => {
     const store = createChallengeProofStore({ now: () => 1000 })
     const verifyChallenge = vi.fn().mockResolvedValue({
       verified: false,
       envelopeId: ENVELOPE_ID,
-      challengeId: 'captcha-1',
-      kind: SecurityChallengeKind.CaptchaV1,
+      challengeId: 'localization-1',
+      kind: SecurityChallengeKind.PerceptionLocalizationV2,
       policyVersion: 'risk-v1',
       completedCount: 1,
       memberCount: 1,
       envelopeCompleted: false,
       proofToken: '',
       expiresAtUnixMs: 0,
-      reason: 'captcha_invalid',
+      reason: 'perception_invalid',
       retryAfterMs: 2000
     } satisfies SecurityChallengeVerifyResponse)
     const client = createSecurityChallengeClient({
       proofStore: store,
-      issueChallenge: vi.fn().mockResolvedValue(captchaIssueResponse()),
+      issueChallenge: vi.fn().mockResolvedValue(localizationIssueResponse()),
       verifyChallenge,
       now: () => 1000
     })
@@ -228,11 +272,11 @@ describe('security challenge client and proof store', () => {
     await client.issue(context)
 
     const result = await client.verify(context, {
-      challengeId: 'captcha-1',
-      kind: SecurityChallengeKind.CaptchaV1,
+      challengeId: 'localization-1',
+      kind: SecurityChallengeKind.PerceptionLocalizationV2,
       action: context.action,
       routeKey: context.routeKey,
-      providerPayload: { answerText: 'BAD' }
+      providerPayload: { x: '-1', y: '-1' }
     })
 
     expect(result.status).toBe('failed')
@@ -242,19 +286,19 @@ describe('security challenge client and proof store', () => {
 
   it('runs envelope members in order and stores only the final aggregate proof', async () => {
     const store = createChallengeProofStore({ now: () => 1000 })
-    const response = captchaIssueResponse()
+    const response = localizationIssueResponse()
     const second = {
       ...response.envelope!.assignments[0]!,
-      challengeId: 'captcha-2'
+      challengeId: 'localization-2'
     }
     response.envelope!.assignments.push(second)
-    response.providerPayloads.push({ challengeId: 'captcha-2', payload: { algorithm: 'second' } })
+    response.providerPayloads.push({ challengeId: 'localization-2', payload: { algorithm: 'second' } })
     const verifyChallenge = vi.fn()
       .mockResolvedValueOnce({
         verified: true,
         envelopeId: ENVELOPE_ID,
-        challengeId: 'captcha-1',
-        kind: SecurityChallengeKind.CaptchaV1,
+        challengeId: 'localization-1',
+        kind: SecurityChallengeKind.PerceptionLocalizationV2,
         policyVersion: 'risk-v1',
         completedCount: 1,
         memberCount: 2,
@@ -267,8 +311,8 @@ describe('security challenge client and proof store', () => {
       .mockResolvedValueOnce({
         verified: true,
         envelopeId: ENVELOPE_ID,
-        challengeId: 'captcha-2',
-        kind: SecurityChallengeKind.CaptchaV1,
+        challengeId: 'localization-2',
+        kind: SecurityChallengeKind.PerceptionLocalizationV2,
         policyVersion: 'risk-v1',
         completedCount: 2,
         memberCount: 2,
@@ -286,34 +330,34 @@ describe('security challenge client and proof store', () => {
     })
 
     const issued = await client.issue(context)
-    const first = await client.verify(context, memberRequest('captcha-1'))
+    const first = await client.verify(context, memberRequest('localization-1'))
 
-    expect(issued.assignment?.challengeId).toBe('captcha-1')
+    expect(issued.assignment?.challengeId).toBe('localization-1')
     expect(first.status).toBe('continue')
-    expect(first.next?.assignment?.challengeId).toBe('captcha-2')
+    expect(first.next?.assignment?.challengeId).toBe('localization-2')
     expect(first.proof).toBeNull()
     expect(store.peek(context.action, context.routeKey)).toBeNull()
 
-    const final = await client.verify(context, memberRequest('captcha-2'))
+    const final = await client.verify(context, memberRequest('localization-2'))
     expect(final.status).toBe('verified')
     expect(final.proof?.proofToken).toBe('aggregate-proof')
-    expect(store.peek(context.action, context.routeKey)?.challengeId).toBe('captcha-2')
+    expect(store.peek(context.action, context.routeKey)?.challengeId).toBe('localization-2')
     expect(verifyChallenge.mock.calls.map(([request]) => request.envelopeId)).toEqual([ENVELOPE_ID, ENVELOPE_ID])
   })
 
   it('rejects out-of-order members and cancels a replaced envelope before transport', async () => {
-    const firstIssue = captchaIssueResponse()
+    const firstIssue = localizationIssueResponse()
     firstIssue.envelope!.assignments.push({
       ...firstIssue.envelope!.assignments[0]!,
-      challengeId: 'captcha-2'
+      challengeId: 'localization-2'
     })
-    const replacement = captchaIssueResponse()
+    const replacement = localizationIssueResponse()
     replacement.envelope = {
       ...replacement.envelope!,
       envelopeId: '01900000-0000-7000-8000-000000000002',
-      assignments: [{ ...replacement.envelope!.assignments[0]!, challengeId: 'captcha-new' }]
+      assignments: [{ ...replacement.envelope!.assignments[0]!, challengeId: 'localization-new' }]
     }
-    replacement.providerPayloads = [{ challengeId: 'captcha-new', payload: { algorithm: 'replacement' } }]
+    replacement.providerPayloads = [{ challengeId: 'localization-new', payload: { algorithm: 'replacement' } }]
     const issueChallenge = vi.fn()
       .mockResolvedValueOnce(firstIssue)
       .mockResolvedValueOnce(replacement)
@@ -322,17 +366,17 @@ describe('security challenge client and proof store', () => {
     const client = createSecurityChallengeClient({ cancelChallenge, issueChallenge, verifyChallenge, now: () => 1000 })
 
     await client.issue(context)
-    const outOfOrder = await client.verify(context, memberRequest('captcha-2'))
+    const outOfOrder = await client.verify(context, memberRequest('localization-2'))
     expect(outOfOrder.reason).toBe('security_challenge_member_mismatch')
     expect(verifyChallenge).not.toHaveBeenCalled()
 
     await client.refresh(context)
-    const stale = await client.verify(context, memberRequest('captcha-1'))
+    const stale = await client.verify(context, memberRequest('localization-1'))
     expect(stale.reason).toBe('security_challenge_member_mismatch')
     expect(verifyChallenge).not.toHaveBeenCalled()
 
     client.cancelEnvelope(context)
-    const cancelled = await client.verify(context, memberRequest('captcha-new'))
+    const cancelled = await client.verify(context, memberRequest('localization-new'))
     expect(cancelled.reason).toBe('security_challenge_envelope_missing')
     expect(verifyChallenge).not.toHaveBeenCalled()
     expect(cancelChallenge).toHaveBeenNthCalledWith(1, expect.objectContaining({
@@ -443,12 +487,12 @@ describe('security challenge client and proof store', () => {
     })
 
     const responseClient = createSecurityChallengeClient({
-      issueChallenge: vi.fn().mockResolvedValue(captchaIssueResponse()),
+      issueChallenge: vi.fn().mockResolvedValue(localizationIssueResponse()),
       verifyChallenge: vi.fn().mockResolvedValue({
         verified: false,
         envelopeId: ENVELOPE_ID,
-        challengeId: 'captcha-1',
-        kind: SecurityChallengeKind.CaptchaV1,
+        challengeId: 'localization-1',
+        kind: SecurityChallengeKind.PerceptionLocalizationV2,
         policyVersion: 'risk-v1',
         completedCount: 1,
         memberCount: 1,
@@ -460,7 +504,7 @@ describe('security challenge client and proof store', () => {
       } satisfies SecurityChallengeVerifyResponse)
     })
     await responseClient.issue(context)
-    await expect(responseClient.verify(context, memberRequest('captcha-1'))).resolves.toMatchObject({
+    await expect(responseClient.verify(context, memberRequest('localization-1'))).resolves.toMatchObject({
       status: 'failed', reason: 'rejected', response: { reason: 'rejected' }
     })
   })
@@ -486,13 +530,13 @@ describe('security challenge client and proof store', () => {
     const first = deferred<SecurityChallengeIssueResponse>()
     const second = deferred<SecurityChallengeIssueResponse>()
     let firstSignal: AbortSignal | undefined
-    const replacement = captchaIssueResponse()
+    const replacement = localizationIssueResponse()
     replacement.envelope = {
       ...replacement.envelope!,
       envelopeId: '01900000-0000-7000-8000-000000000002',
-      assignments: [{ ...replacement.envelope!.assignments[0]!, challengeId: 'captcha-new' }]
+      assignments: [{ ...replacement.envelope!.assignments[0]!, challengeId: 'localization-new' }]
     }
-    replacement.providerPayloads = [{ challengeId: 'captcha-new', payload: { algorithm: 'replacement' } }]
+    replacement.providerPayloads = [{ challengeId: 'localization-new', payload: { algorithm: 'replacement' } }]
     const issueChallenge = vi.fn()
       .mockImplementationOnce((_request, config) => {
         firstSignal = config?.signal
@@ -506,11 +550,11 @@ describe('security challenge client and proof store', () => {
     expect(firstSignal?.aborted).toBe(true)
 
     second.resolve(replacement)
-    await expect(currentRun).resolves.toMatchObject({ status: 'challenge', assignment: { challengeId: 'captcha-new' } })
-    first.resolve(captchaIssueResponse())
+    await expect(currentRun).resolves.toMatchObject({ status: 'challenge', assignment: { challengeId: 'localization-new' } })
+    first.resolve(localizationIssueResponse())
     await expect(staleRun).resolves.toMatchObject({ status: 'failed', reason: 'security_challenge_request_cancelled' })
 
-    const staleVerify = await client.verify(context, memberRequest('captcha-1'))
+    const staleVerify = await client.verify(context, memberRequest('localization-1'))
     expect(staleVerify.reason).toBe('security_challenge_member_mismatch')
   })
 
@@ -522,7 +566,7 @@ describe('security challenge client and proof store', () => {
     const client = createSecurityChallengeClient({
       cancelChallenge,
       proofStore: store,
-      issueChallenge: vi.fn().mockResolvedValue(captchaIssueResponse()),
+      issueChallenge: vi.fn().mockResolvedValue(localizationIssueResponse()),
       verifyChallenge: vi.fn().mockImplementation((_request, config) => {
         verifySignal = config?.signal
         return verification.promise
@@ -531,14 +575,14 @@ describe('security challenge client and proof store', () => {
     })
     await client.issue(context)
 
-    const pending = client.verify(context, memberRequest('captcha-1'))
+    const pending = client.verify(context, memberRequest('localization-1'))
     client.cancelEnvelope(context)
     expect(verifySignal?.aborted).toBe(true)
     verification.resolve({
       verified: true,
       envelopeId: ENVELOPE_ID,
-      challengeId: 'captcha-1',
-      kind: SecurityChallengeKind.CaptchaV1,
+      challengeId: 'localization-1',
+      kind: SecurityChallengeKind.PerceptionLocalizationV2,
       policyVersion: 'risk-v1',
       completedCount: 1,
       memberCount: 1,
@@ -555,7 +599,7 @@ describe('security challenge client and proof store', () => {
   })
 
   it('sends the current capability manifest with every generic issue request', async () => {
-    const issueChallenge = vi.fn().mockResolvedValue(captchaIssueResponse())
+    const issueChallenge = vi.fn().mockResolvedValue(localizationIssueResponse())
     const client = createSecurityChallengeClient({ issueChallenge, now: () => 1000 })
 
     await client.issue(context)
@@ -620,8 +664,8 @@ function proof(proofToken: string) {
   return {
     action: context.action,
     routeKey: context.routeKey,
-    challengeId: 'captcha-race',
-    kind: SecurityChallengeKind.CaptchaV1,
+    challengeId: 'localization-race',
+    kind: SecurityChallengeKind.PerceptionLocalizationV2,
     proofToken,
     policyVersion: 'risk-v1',
     verifiedAtUnixMs: 1000,
@@ -629,7 +673,7 @@ function proof(proofToken: string) {
   }
 }
 
-function captchaIssueResponse(kind: SecurityChallengeKind = SecurityChallengeKind.CaptchaV1): SecurityChallengeIssueResponse {
+function localizationIssueResponse(kind: SecurityChallengeKind = SecurityChallengeKind.PerceptionLocalizationV2): SecurityChallengeIssueResponse {
   return {
     decision: 'challenge',
     riskScore: 30,
@@ -641,7 +685,7 @@ function captchaIssueResponse(kind: SecurityChallengeKind = SecurityChallengeKin
       envelopeId: ENVELOPE_ID,
       policyVersion: 'risk-v1',
       assignments: [{
-        challengeId: 'captcha-1',
+        challengeId: 'localization-1',
         traceparent: '00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01',
         tenantId: 'tenant-main',
         kind,
@@ -656,8 +700,8 @@ function captchaIssueResponse(kind: SecurityChallengeKind = SecurityChallengeKin
       }]
     },
     providerPayloads: [{
-      challengeId: 'captcha-1',
-      payload: { algorithm: 'fsus.captcha/chebyshev-noise@v1' }
+      challengeId: 'localization-1',
+      payload: { algorithm: 'fsu.challenge/perception-sealed@v2', taskKind: 'localization', recipeJson: '{}', recipeHashHex: 'd'.repeat(64), sealedToken: 'sealed-token', signatureHex: 'e'.repeat(64) }
     }]
   }
 }
@@ -727,10 +771,10 @@ const ENVELOPE_ID = '01900000-0000-7000-8000-000000000001'
 function memberRequest(challengeId: string) {
   return {
     challengeId,
-    kind: SecurityChallengeKind.CaptchaV1,
+    kind: SecurityChallengeKind.PerceptionLocalizationV2,
     action: context.action,
     routeKey: context.routeKey,
-    providerPayload: { answerText: 'AEF2' }
+    providerPayload: { x: '192', y: '99' }
   }
 }
 

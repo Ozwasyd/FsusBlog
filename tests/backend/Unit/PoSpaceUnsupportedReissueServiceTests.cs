@@ -1,11 +1,11 @@
+using System.Text.Json;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Security;
-
-using System.Text.Json;
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
@@ -23,25 +23,25 @@ public sealed class PoSpaceUnsupportedReissueServiceTests
     private static readonly DateTimeOffset s_now = DateTimeOffset.Parse("2026-07-19T00:00:00Z");
 
     [Fact]
-    public async Task ReissueAsync_ValidAssignment_ReplacesPoSpaceWithCaptchaAndRevokesOldProof()
+    public async Task ReissueAsync_ValidAssignmentWithoutPolicyReplacement_RevokesAndFailsClosed()
     {
         Fixture fixture = CreateFixture();
 
         PoSpaceUnsupportedReissueResult result = await fixture.Service.ReissueAsync(
             CreateRequest(),
             CreateDecision(Argon2idPoSpaceV1ChallengeProvider.WireKind),
-            CreatePolicy(captchaMode: SecuritySystemModes.Enforce));
+            CreatePolicy(characterChallengeMode: SecuritySystemModes.Enforce));
 
-        Assert.True(result.Accepted);
-        Assert.Equal(RiskDecisionKind.Challenge, result.Decision.Kind);
-        Assert.Equal(["captchaV1"], result.Decision.RequiredChallenges);
+        Assert.False(result.Accepted);
+        Assert.Equal(RiskDecisionKind.Block, result.Decision.Kind);
+        Assert.Empty(result.Decision.RequiredChallenges);
         await fixture.Cache.Received(1).RemoveAsync(CachePolicyId.SecurityPoSpaceChallenge, ChallengeId, Arg.Any<CancellationToken>());
         await fixture.Store.Received(1).TryRevokeIssuedAsync(ChallengeId, s_now.UtcDateTime, Arg.Any<CancellationToken>());
         await fixture.Persistence.Received(1).RecordAttemptAsync(
             Arg.Is<SecurityChallengeAttemptRequest>(item => item.Reason == "pospace_unsupported:memory_tier_cap:1"),
             Arg.Any<CancellationToken>());
         await fixture.RiskSink.Received(1).AddRiskAsync(
-            Arg.Is<SecurityRiskSignal>(item => item.Detail == "pospace_unsupported_fallback_captcha:memory_tier_cap"),
+            Arg.Is<SecurityRiskSignal>(item => item.Detail == "pospace_unsupported_rejected:memory_tier_cap"),
             Arg.Any<CancellationToken>());
     }
 
@@ -53,7 +53,7 @@ public sealed class PoSpaceUnsupportedReissueServiceTests
         PoSpaceUnsupportedReissueResult result = await fixture.Service.ReissueAsync(
             CreateRequest(),
             CreateDecision(Argon2idPoSpaceV1ChallengeProvider.WireKind),
-            CreatePolicy(captchaMode: SecuritySystemModes.Disabled));
+            CreatePolicy(characterChallengeMode: SecuritySystemModes.Disabled));
 
         Assert.False(result.Accepted);
         Assert.Equal(RiskDecisionKind.Block, result.Decision.Kind);
@@ -109,7 +109,7 @@ public sealed class PoSpaceUnsupportedReissueServiceTests
     public async Task ReissueAsync_CurrentPolicyNoLongerRequiresPoSpace_PreservesServerDecision()
     {
         Fixture fixture = CreateFixture();
-        RiskDecision current = CreateDecision("captchaV1");
+        RiskDecision current = CreateDecision("perceptionCharacterV3");
 
         PoSpaceUnsupportedReissueResult result = await fixture.Service.ReissueAsync(
             CreateRequest(),
@@ -117,7 +117,7 @@ public sealed class PoSpaceUnsupportedReissueServiceTests
             CreatePolicy(SecuritySystemModes.Enforce));
 
         Assert.True(result.Accepted);
-        Assert.Equal(["captchaV1"], result.Decision.RequiredChallenges);
+        Assert.Equal(["perceptionCharacterV3"], result.Decision.RequiredChallenges);
         Assert.Contains("pospace_unsupported_current_policy", result.Decision.Reasons);
     }
 
@@ -217,18 +217,11 @@ public sealed class PoSpaceUnsupportedReissueServiceTests
         persistence.RevokeAsync(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(true);
         ICacheInvalidationStore cache = Substitute.For<ICacheInvalidationStore>();
         ISecurityRiskSignalSink riskSink = Substitute.For<ISecurityRiskSignalSink>();
-        IConfiguration configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["Security:PoSpaceV1:UnsupportedFallbackKind"] = fallback
-            })
-            .Build();
         var service = new PoSpaceUnsupportedReissueService(
             store,
             persistence,
             cache,
             riskSink,
-            configuration,
             new FixedTimeProvider(s_now));
         return new Fixture(service, store, persistence, cache, riskSink);
     }
@@ -270,7 +263,7 @@ public sealed class PoSpaceUnsupportedReissueServiceTests
             "risk-policy-v2",
             ["risk_threshold"]);
 
-    private static SecurityRiskPolicySnapshotV2 CreatePolicy(string captchaMode)
+    private static SecurityRiskPolicySnapshotV2 CreatePolicy(string characterChallengeMode)
     {
         var action = new SecurityRiskActionPolicy(
             "*",
@@ -291,7 +284,7 @@ public sealed class PoSpaceUnsupportedReissueServiceTests
             new Dictionary<string, SecurityRiskActionPolicy>(),
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
-                [SecurityRiskSources.Captcha] = captchaMode
+                [SecurityRiskSources.PerceptionMicroInteraction] = characterChallengeMode
             });
     }
 

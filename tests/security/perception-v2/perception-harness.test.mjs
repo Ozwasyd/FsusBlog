@@ -3,10 +3,26 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import {
+  buildPrompt,
   createDefaultThresholds,
   generateSyntheticDataset,
   runPerceptionBenchmark
 } from '../../../benchmarks/security/perception-v2/perception-harness.mjs';
+
+test('prompt builder preserves supported-kind goldens and rejects unknown kinds', () => {
+  assert.equal(
+    buildPrompt('localization', 'spatial-grid', 'moving-hotspot', 'cell-5-4'),
+    'Select cell-5-4 after resolving spatial-grid/moving-hotspot spatial decoys.'
+  );
+  assert.equal(
+    buildPrompt('micro-interaction', 'gesture-chain', 'press-drag-release', 'gesture-dr14l'),
+    'Complete gesture-dr14l through the gesture-chain/press-drag-release interaction path.'
+  );
+  assert.throws(
+    () => buildPrompt('unknown', 'unsupported-family', 'unsupported-variant', 'unexpected-answer'),
+    /Unsupported perception task kind: unknown/
+  );
+});
 
 test('synthetic dataset is deterministic and covers perception-sealed v2 task surfaces', () => {
   const first = generateSyntheticDataset({ seed: 521, samples: 72 });
@@ -15,7 +31,6 @@ test('synthetic dataset is deterministic and covers perception-sealed v2 task su
   assert.deepEqual(first, second);
   assert.equal(first.length, 72);
   assert.deepEqual(new Set(first.map((sample) => sample.taskKind)), new Set([
-    'text-task',
     'localization',
     'micro-interaction'
   ]));
@@ -47,7 +62,7 @@ test('benchmark report aggregates by task kind, family, and variant without prod
   assert.ok(report.metrics.clientRenderP95Ms > 0);
   assert.ok(report.metrics.serverVerifyP99Ms > 0);
   assert.ok(report.metrics.payloadP95Bytes > 0);
-  assert.ok(report.groups.length >= 12);
+  assert.ok(report.groups.length >= 8);
 
   for (const group of report.groups) {
     assert.ok(group.taskKind);

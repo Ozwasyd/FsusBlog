@@ -19,7 +19,7 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
         Fixture fixture = CreateFixture();
         Assert.True(await fixture.Service.CreateAsync(CreateState()));
 
-        SecurityChallengeEnvelopeMemberResult first = await fixture.Service.CompleteMemberAsync(CreateRequest(s_challengeA, "captchaV1"));
+        SecurityChallengeEnvelopeMemberResult first = await fixture.Service.CompleteMemberAsync(CreateRequest(s_challengeA, "perceptionCharacterV3"));
 
         Assert.True(first.Accepted, first.Reason);
         Assert.Equal(1, first.CompletedCount);
@@ -50,7 +50,7 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
         await fixture.Service.CreateAsync(CreateState());
 
         SecurityChallengeEnvelopeMemberResult outOfOrder = await fixture.Service.ValidateMemberAsync(CreateRequest(s_challengeB, "sha256PowV1"));
-        SecurityChallengeEnvelopeMemberResult first = await fixture.Service.CompleteMemberAsync(CreateRequest(s_challengeA, "captchaV1"));
+        SecurityChallengeEnvelopeMemberResult first = await fixture.Service.CompleteMemberAsync(CreateRequest(s_challengeA, "perceptionCharacterV3"));
 
         Assert.False(outOfOrder.Accepted);
         Assert.Equal("challenge_member_out_of_order", outOfOrder.Reason);
@@ -63,9 +63,9 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
     {
         Fixture fixture = CreateFixture();
         await fixture.Service.CreateAsync(CreateState());
-        await fixture.Service.CompleteMemberAsync(CreateRequest(s_challengeA, "captchaV1"));
+        await fixture.Service.CompleteMemberAsync(CreateRequest(s_challengeA, "perceptionCharacterV3"));
 
-        SecurityChallengeEnvelopeMemberResult duplicate = await fixture.Service.CompleteMemberAsync(CreateRequest(s_challengeA, "captchaV1"));
+        SecurityChallengeEnvelopeMemberResult duplicate = await fixture.Service.CompleteMemberAsync(CreateRequest(s_challengeA, "perceptionCharacterV3"));
         SecurityChallengeEnvelopeMemberRequest finalRequest = CreateRequest(s_challengeB, "sha256PowV1");
         SecurityChallengeEnvelopeMemberResult prepared = await fixture.Service.CompleteMemberAsync(finalRequest, CreateProofPreparation());
         SecurityChallengeEnvelopeMemberResult retry = await fixture.Service.CompleteMemberAsync(finalRequest, CreateProofPreparation());
@@ -87,12 +87,12 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
         await fixture.Service.CreateAsync(CreateState());
 
         SecurityChallengeEnvelopeMemberResult binding = await fixture.Service.ValidateMemberAsync(
-            CreateRequest(s_challengeA, "captchaV1") with
+            CreateRequest(s_challengeA, "perceptionCharacterV3") with
             {
                 RouteKey = "article:43"
             });
         SecurityChallengeEnvelopeMemberResult unknown = await fixture.Service.ValidateMemberAsync(
-            CreateRequest(Guid.CreateVersion7().ToString("D"), "captchaV1"));
+            CreateRequest(Guid.CreateVersion7().ToString("D"), "perceptionCharacterV3"));
 
         Assert.Equal("challenge_envelope_binding_mismatch", binding.Reason);
         Assert.Equal("challenge_envelope_member_mismatch", unknown.Reason);
@@ -104,8 +104,8 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
         Fixture fixture = CreateFixture();
         await fixture.Service.CreateAsync(CreateState());
 
-        Assert.True(await fixture.Service.FailAsync(CreateRequest(s_challengeA, "captchaV1"), "captcha_invalid"));
-        SecurityChallengeEnvelopeMemberResult next = await fixture.Service.ValidateMemberAsync(CreateRequest(s_challengeA, "captchaV1"));
+        Assert.True(await fixture.Service.FailAsync(CreateRequest(s_challengeA, "perceptionCharacterV3"), "characterChallenge_invalid"));
+        SecurityChallengeEnvelopeMemberResult next = await fixture.Service.ValidateMemberAsync(CreateRequest(s_challengeA, "perceptionCharacterV3"));
 
         Assert.False(next.Accepted);
         Assert.Equal("challenge_envelope_failed", next.Reason);
@@ -118,10 +118,10 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
     {
         Fixture fixture = CreateFixture();
         await fixture.Service.CreateAsync(CreateState());
-        await fixture.Service.CompleteMemberAsync(CreateRequest(s_challengeA, "captchaV1"));
+        await fixture.Service.CompleteMemberAsync(CreateRequest(s_challengeA, "perceptionCharacterV3"));
 
         bool failed = await fixture.Service.FailAsync(
-            CreateRequest(s_challengeA, "captchaV1"),
+            CreateRequest(s_challengeA, "perceptionCharacterV3"),
             "challenge_member_replayed");
         SecurityChallengeEnvelopeMemberResult next = await fixture.Service.ValidateMemberAsync(
             CreateRequest(s_challengeB, "sha256PowV1"));
@@ -141,7 +141,7 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
         await service.CreateAsync(CreateState());
         clock.UtcNow = s_now.AddMinutes(6);
 
-        SecurityChallengeEnvelopeMemberResult result = await service.ValidateMemberAsync(CreateRequest(s_challengeA, "captchaV1"));
+        SecurityChallengeEnvelopeMemberResult result = await service.ValidateMemberAsync(CreateRequest(s_challengeA, "perceptionCharacterV3"));
 
         Assert.False(result.Accepted);
         Assert.Equal("challenge_envelope_expired", result.Reason);
@@ -154,7 +154,7 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
     {
         Fixture fixture = CreateFixture();
         await fixture.Service.CreateAsync(CreateState());
-        await fixture.Service.CompleteMemberAsync(CreateRequest(s_challengeA, "captchaV1"));
+        await fixture.Service.CompleteMemberAsync(CreateRequest(s_challengeA, "perceptionCharacterV3"));
 
         bool revoked = await fixture.Service.RevokeAsync(CreateBindingRequest(), "client_cancelled");
         SecurityChallengeEnvelopeMemberResult final = await fixture.Service.ValidateMemberAsync(
@@ -174,7 +174,7 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
     {
         Fixture fixture = CreateFixture();
         await fixture.Service.CreateAsync(CreateState());
-        await fixture.Service.CompleteMemberAsync(CreateRequest(s_challengeA, "captchaV1"));
+        await fixture.Service.CompleteMemberAsync(CreateRequest(s_challengeA, "perceptionCharacterV3"));
         SecurityChallengeEnvelopeMemberRequest finalRequest = CreateRequest(s_challengeB, "sha256PowV1");
         SecurityChallengeEnvelopeMemberResult prepared = await fixture.Service.CompleteMemberAsync(finalRequest, CreateProofPreparation());
         await fixture.Service.CompleteProofAsync(finalRequest, prepared.State!.ProofToken!);
@@ -191,7 +191,7 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
     {
         Fixture fixture = CreateFixture();
         await fixture.Service.CreateAsync(CreateState());
-        SecurityChallengeEnvelopeMemberRequest firstRequest = CreateRequest(s_challengeA, "captchaV1");
+        SecurityChallengeEnvelopeMemberRequest firstRequest = CreateRequest(s_challengeA, "perceptionCharacterV3");
         SecurityChallengeEnvelopeMemberRequest finalRequest = CreateRequest(s_challengeB, "sha256PowV1");
         await fixture.Service.CompleteMemberAsync(firstRequest);
         SecurityChallengeEnvelopeMemberResult prepared = await fixture.Service.CompleteMemberAsync(
@@ -226,7 +226,7 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
             HashC,
             "risk-v2",
             [s_challengeA, s_challengeB],
-            ["captchaV1", "sha256PowV1"],
+            ["perceptionCharacterV3", "sha256PowV1"],
             [SecurityChallengeEnvelopeMemberStatuses.Issued, SecurityChallengeEnvelopeMemberStatuses.Issued],
             s_now.ToUnixTimeMilliseconds(),
             s_now.AddMinutes(5).ToUnixTimeMilliseconds(),

@@ -135,7 +135,7 @@ test.describe('RiskControl security console contract', () => {
         decision,
         decisionKind: decision,
         reasons: [decision],
-        requiredChallenges: decision === 'challenge' ? ['captchaV1'] : [],
+        requiredChallenges: decision === 'challenge' ? ['perceptionCharacterV3'] : [],
         policyVersion: 'risk-v2',
         action: decoded.payload.action,
         routeKey: decoded.payload.routeKey,
@@ -229,7 +229,7 @@ function riskControlPayload() {
           queueScore: 85,
           blockScore: 100
         },
-        challengeKind: 'captchaV1',
+        challengeKind: 'perceptionCharacterV3',
         escalationLevel: 1,
         modeOverride: null,
         anonymousWriteAllowed: false,
@@ -246,7 +246,7 @@ function riskControlPayload() {
             queueScore: 80,
             blockScore: 100
           },
-          challengeKind: 'captchaV1',
+          challengeKind: 'perceptionCharacterV3',
           escalationLevel: 1,
           modeOverride: null,
           anonymousWriteAllowed: true,

@@ -169,7 +169,7 @@ RunResidueCheck \
 RunResidueCheck \
     "frontend retired identifiers" \
     "frontend retired identifier residue detected" \
-    '\b(?:setUserInfo|isMobileSearchOpen|setMobileSearchVisible|updateRiskControlOptions|rollbackRiskControlOptions|RiskControlPolicyUpdateRequest|captchaV1Enabled|poSpaceV1Enabled|createComment|CommentDto|PowRequest|useAboutPage)\b|About[.]vue' \
+    '\b(?:setUserInfo|isMobileSearchOpen|setMobileSearchVisible|updateRiskControlOptions|rollbackRiskControlOptions|RiskControlPolicyUpdateRequest|poSpaceV1Enabled|createComment|CommentDto|PowRequest|useAboutPage)\b|About[.]vue' \
     "" \
     src/frontend/src
 

@@ -12,9 +12,11 @@ const REQUIRED_ARTIFACTS = Object.freeze([
 ])
 const REQUIRED_AUXILIARY = Object.freeze([
   'releaseManifest', 'backupRestoreGate', 'migrationExpand', 'candidateReadiness',
-  'assetMaterialization', 'retentionPrepared', 'retainedAssets', 'candidateSmoke',
+  'assetMaterialization', 'retentionPrepared', 'retainedAssets', 'publicAotWarm', 'candidateSmoke',
   'compatibilityMatrix', 'gatewayTransition', 'activeFenceAcquire',
-  'activeFenceSourceRevoke', 'activeFenceVerify', 'publicTrafficCheckpoint',
+  'activeFenceSourceRevoke', 'activeFenceVerify', 'challengeKindCutoverReceipt',
+  'challengeKindCutoverAcceptance', 'challengeKindCutoverGate', 'challengeProtocolActivation',
+  'publicTrafficCheckpoint',
   'sourceDrainSnapshot', 'sourceDrainGate', 'targetHealth',
   'retentionDrainComplete', 'operatorNote'
 ])

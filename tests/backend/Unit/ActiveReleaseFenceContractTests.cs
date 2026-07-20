@@ -133,6 +133,8 @@ public sealed class ActiveReleaseFenceContractTests
             (ActiveReleaseFenceEndpoints.AcquirePath, HttpMethods.Post),
             (ActiveReleaseFenceEndpoints.RevokePath, HttpMethods.Post),
             (ActiveReleaseFenceEndpoints.StatusPath, HttpMethods.Get),
+            (ActiveReleaseFenceEndpoints.ChallengeKindCutoverPath, HttpMethods.Post),
+            (ActiveReleaseFenceEndpoints.ChallengeProtocolActivatePath, HttpMethods.Post),
             (NotificationStreamRestartEndpoints.RestartPath, HttpMethods.Post),
             (NotificationStreamRestartEndpoints.StatusPath, HttpMethods.Get)
         })

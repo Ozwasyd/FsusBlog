@@ -30,7 +30,6 @@ public sealed class SecurityRiskTaxonomyTests
             ("ReadProofAccepted", 8),
             ("ReadProofRejected", 9),
             ("PublicReadChallengeRequired", 10),
-            ("CaptchaChallengeRequired", 11),
             ("PublicReadBlocked", 12),
             ("SecurityChallengeRejected", 13),
             ("AuthLoginFailed", 14),
@@ -42,9 +41,6 @@ public sealed class SecurityRiskTaxonomyTests
         };
         var productionReasons = new[]
         {
-            "CaptchaInvalid",
-            "CaptchaReplay",
-            "CaptchaSolveTooFast",
             "DeviceFingerprintMissing",
             "DeviceFingerprintChanged",
             "RegionPolicyHit",
@@ -65,7 +61,7 @@ public sealed class SecurityRiskTaxonomyTests
             Assert.Equal(value, (int)parsed);
         }
 
-        int expectedValue = 20;
+        int expectedValue = 23;
         foreach (string name in productionReasons)
         {
             Assert.True(Enum.TryParse(name, out SecurityRiskReason parsed), $"{name} should be a stable reason name");
@@ -88,11 +84,12 @@ public sealed class SecurityRiskTaxonomyTests
             ["PublicRead"] = "public-read",
             ["PoSpace"] = "pospace",
             ["RiskControl"] = "risk-control",
-            ["Captcha"] = "captcha",
             ["DeviceFingerprint"] = "device-fingerprint",
             ["RegionPolicy"] = "region-policy",
             ["CommentGovernance"] = "comment-governance",
-            ["AdminStepUp"] = "admin-step-up"
+            ["AdminStepUp"] = "admin-step-up",
+            ["PerceptionLocalization"] = "perception-localization",
+            ["PerceptionMicroInteraction"] = "perception-micro-interaction"
         };
 
         foreach ((string name, string wireValue) in expected)
@@ -110,7 +107,7 @@ public sealed class SecurityRiskTaxonomyTests
     [Fact]
     public async Task RiskSink_AcceptsNewReasonsAndWritesStableEventAndLogNames()
     {
-        SecurityRiskReason reason = ParseReason("CaptchaInvalid");
+        SecurityRiskReason reason = ParseReason("SecurityChallengeRejected");
         IUnifiedCache cache = Substitute.For<IUnifiedCache>();
         cache.IncrementClampedWithExpiryAsync(CachePolicyId.SecurityPowRisk, "198.51.100.18", 12, 200, Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
             .Returns(12L);
@@ -127,20 +124,20 @@ public sealed class SecurityRiskTaxonomyTests
                 reason,
                 12,
                 TimeSpan.FromMinutes(5),
-                "captcha",
+                SecurityRiskSources.RiskControl,
                 RiskActionNames.AuthLogin,
-                "captcha_signature_invalid"),
+                "challenge_rejected"),
             CancellationToken.None);
 
         policy.Received(1).RecordRiskEvent(Arg.Is<AntiCrawlerRiskEventResponse>(item =>
-            item.Source == "captcha" &&
-            item.Reason == "CaptchaInvalid" &&
+            item.Source == SecurityRiskSources.RiskControl &&
+            item.Reason == "SecurityChallengeRejected" &&
             item.Action == RiskActionNames.AuthLogin &&
             item.ScoreDelta == 12 &&
-            item.Detail == "captcha_signature_invalid"));
+            item.Detail == "challenge_rejected"));
         Assert.Contains(logger.Messages, message =>
-            message.Contains("captcha", StringComparison.Ordinal) &&
-            message.Contains("CaptchaInvalid", StringComparison.Ordinal));
+            message.Contains(SecurityRiskSources.RiskControl, StringComparison.Ordinal) &&
+            message.Contains("SecurityChallengeRejected", StringComparison.Ordinal));
     }
 
     [Fact]

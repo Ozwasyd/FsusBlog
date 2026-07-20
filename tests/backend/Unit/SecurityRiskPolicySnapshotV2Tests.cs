@@ -19,7 +19,7 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
         Assert.True(challenge.Enforced);
         Assert.Equal("sha256PowV1", challenge.ChallengeKind);
         Assert.Equal(["sha256PowV1"], challenge.RequiredChallengeKinds);
-        Assert.Equal(["perceptionTextTaskV2"], snapshot.Evaluate(RiskActionNames.PublicRead, 40).RequiredChallengeKinds);
+        Assert.Equal(["perceptionCharacterV3"], snapshot.Evaluate(RiskActionNames.PublicRead, 40).RequiredChallengeKinds);
         Assert.Equal(["perceptionLocalizationV2", "sha256PowV1"], snapshot.Evaluate(RiskActionNames.PublicRead, 60).RequiredChallengeKinds);
         Assert.Equal(SecurityRiskPolicyOutcomes.Throttle, snapshot.Evaluate(RiskActionNames.PublicRead, 80).Outcome);
         Assert.Equal(SecurityRiskPolicyOutcomes.Block, snapshot.Evaluate(RiskActionNames.PublicRead, 90).Outcome);
@@ -135,10 +135,10 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
         Assert.Equal(["sha256PowV1"], powLogin.RequiredChallengeKinds);
         Assert.Equal(1, powLogin.EscalationLevel);
 
-        SecurityRiskPolicyDecision textLogin = snapshot.Evaluate(RiskActionNames.AuthLogin, 40);
-        Assert.Equal(SecurityRiskPolicyOutcomes.Challenge, textLogin.Outcome);
-        Assert.Equal(["perceptionTextTaskV2"], textLogin.RequiredChallengeKinds);
-        Assert.Equal(2, textLogin.EscalationLevel);
+        SecurityRiskPolicyDecision characterLogin = snapshot.Evaluate(RiskActionNames.AuthLogin, 40);
+        Assert.Equal(SecurityRiskPolicyOutcomes.Challenge, characterLogin.Outcome);
+        Assert.Equal(["perceptionCharacterV3"], characterLogin.RequiredChallengeKinds);
+        Assert.Equal(2, characterLogin.EscalationLevel);
 
         SecurityRiskPolicyDecision highLogin = snapshot.Evaluate(RiskActionNames.AuthLogin, 60);
         Assert.Equal(SecurityRiskPolicyOutcomes.HardChallenge, highLogin.Outcome);
@@ -166,9 +166,9 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
         Assert.Equal(SecurityRiskPolicyOutcomes.Challenge, pow.Outcome);
         Assert.Equal(["sha256PowV1"], pow.RequiredChallengeKinds);
 
-        SecurityRiskPolicyDecision textTask = snapshot.Evaluate(RiskActionNames.CommentCreate, 40);
-        Assert.Equal(SecurityRiskPolicyOutcomes.Challenge, textTask.Outcome);
-        Assert.Equal(["perceptionTextTaskV2"], textTask.RequiredChallengeKinds);
+        SecurityRiskPolicyDecision character = snapshot.Evaluate(RiskActionNames.CommentCreate, 40);
+        Assert.Equal(SecurityRiskPolicyOutcomes.Challenge, character.Outcome);
+        Assert.Equal(["perceptionCharacterV3"], character.RequiredChallengeKinds);
 
         SecurityRiskPolicyDecision localization = snapshot.Evaluate(RiskActionNames.CommentCreate, 60);
         Assert.Equal(SecurityRiskPolicyOutcomes.HardChallenge, localization.Outcome);
@@ -219,7 +219,7 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
     }
 
     [Fact]
-    public void LegacyAdapter_ForcesRecoveryKeyVerifyCaptchaChallengeAtZeroRisk()
+    public void LegacyAdapter_ForcesRecoveryKeyVerifyCharacterChallengeChallengeAtZeroRisk()
     {
         SecurityRiskPolicySnapshotV2 snapshot = SecurityRiskPolicySnapshotV2Adapter.FromLegacy(CreateLegacySnapshot());
 
@@ -227,8 +227,8 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
 
         Assert.Equal(SecurityRiskPolicyOutcomes.Challenge, decision.Outcome);
         Assert.True(decision.Enforced);
-        Assert.Equal("captchaV1", decision.ChallengeKind);
-        Assert.Equal(["captchaV1"], decision.RequiredChallengeKinds);
+        Assert.Equal("perceptionCharacterV3", decision.ChallengeKind);
+        Assert.Equal(["perceptionCharacterV3"], decision.RequiredChallengeKinds);
         Assert.Equal(1, decision.EscalationLevel);
     }
 
@@ -251,7 +251,7 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
     {
         SecurityRiskPolicySnapshotV2 snapshot = SecurityRiskPolicySnapshotV2Adapter.FromLegacy(CreateLegacySnapshot());
 
-        Assert.Equal(SecuritySystemModes.Enforce, snapshot.SubsystemModes[SecurityRiskSources.Captcha]);
+        Assert.Equal(SecuritySystemModes.Disabled, snapshot.SubsystemModes[SecurityRiskSources.PerceptionMicroInteraction]);
         Assert.Equal(SecuritySystemModes.Enforce, snapshot.SubsystemModes[SecurityRiskSources.Auth]);
         Assert.Equal(SecuritySystemModes.Enforce, snapshot.SubsystemModes[SecurityRiskSources.CommentGovernance]);
         Assert.Equal(SecuritySystemModes.Enforce, snapshot.SubsystemModes[SecurityRiskSources.PublicRead]);
@@ -264,7 +264,7 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
         SecurityAdminPolicyService service = new(CreateConfiguration(new Dictionary<string, string?>
         {
             ["Security:RiskControl:GlobalMode"] = SecuritySystemModes.Observe,
-            ["Security:RiskControl:CaptchaV1:Enabled"] = "false",
+            ["Security:RiskControl:PerceptionCharacterV3:Enabled"] = "false",
             ["Security:RiskControl:PoSpaceV1:Enabled"] = "true",
             ["Security:RiskControl:PublicReadChallenge:Enabled"] = "false",
             ["Security:RiskControl:CommentRiskControl:Enabled"] = "false",
@@ -276,7 +276,7 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
 
         Assert.Equal(SecuritySystemModes.Observe, snapshot.GlobalMode);
         Assert.Equal(175, snapshot.StrictRiskMultiplierPercent);
-        Assert.Equal(SecuritySystemModes.Disabled, snapshot.SubsystemModes[SecurityRiskSources.Captcha]);
+        Assert.Equal(SecuritySystemModes.Disabled, snapshot.SubsystemModes[SecurityRiskSources.PerceptionMicroInteraction]);
         Assert.Equal(SecuritySystemModes.Enforce, snapshot.SubsystemModes[SecurityRiskSources.PoSpace]);
         Assert.Equal(SecuritySystemModes.Disabled, snapshot.ResolveActionPolicy(RiskActionNames.PublicRead).ModeOverride);
         Assert.Equal(SecuritySystemModes.Disabled, snapshot.ResolveActionPolicy(RiskActionNames.CommentCreate).ModeOverride);
@@ -292,7 +292,6 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
         SecurityRiskPolicySnapshotV2 updated = service.UpdateRiskControlPolicy(
             new RiskControlPolicyUpdateRequest(
                 SecuritySystemModes.Lockdown,
-                CaptchaV1Enabled: false,
                 PoSpaceV1Enabled: false,
                 PublicReadChallengeEnabled: false,
                 CommentRiskControlEnabled: false,
@@ -304,7 +303,7 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
         Assert.Equal(SecuritySystemModes.Lockdown, updated.GlobalMode);
         Assert.Equal(150, updated.StrictRiskMultiplierPercent);
         Assert.Equal(before.SnapshotId, updated.LastKnownGoodSnapshotId);
-        Assert.Equal(SecuritySystemModes.Disabled, updated.SubsystemModes[SecurityRiskSources.Captcha]);
+        Assert.Equal(SecuritySystemModes.Disabled, updated.SubsystemModes[SecurityRiskSources.PerceptionMicroInteraction]);
         Assert.Equal(SecuritySystemModes.Disabled, updated.SubsystemModes[SecurityRiskSources.PoSpace]);
         Assert.Equal(SecuritySystemModes.Disabled, updated.ResolveActionPolicy(RiskActionNames.PublicRead).ModeOverride);
         Assert.Equal(SecuritySystemModes.Disabled, updated.ResolveActionPolicy(RiskActionNames.CommentReply).ModeOverride);
@@ -317,7 +316,6 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
         SecurityAdminPolicyService service = new(CreateConfiguration(new Dictionary<string, string?>
         {
             ["Security:PerceptionV2:Enabled"] = "false",
-            ["Security:PerceptionV2:TextTask:Enabled"] = "false",
             ["Security:PerceptionV2:Localization:Enabled"] = "true",
             ["Security:PerceptionV2:MicroInteraction:Enabled"] = "true",
             ["Security:PerceptionV2:PoSpaceFallback:Enabled"] = "true",
@@ -330,7 +328,6 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
         PerceptionSealedV2PolicySnapshot snapshot = service.CurrentPerceptionSealedV2;
 
         Assert.False(snapshot.Options.Enabled);
-        Assert.False(snapshot.Options.TextTaskEnabled);
         Assert.True(snapshot.Options.LocalizationEnabled);
         Assert.True(snapshot.Options.MicroInteractionEnabled);
         Assert.True(snapshot.Options.PoSpaceFallbackEnabled);
@@ -349,7 +346,6 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
         PerceptionSealedV2PolicySnapshot updated = service.UpdatePerceptionSealedV2Policy(
             new PerceptionSealedV2PolicyUpdateRequest(
                 Enabled: true,
-                TextTaskEnabled: false,
                 LocalizationEnabled: true,
                 MicroInteractionEnabled: true,
                 PoSpaceFallbackEnabled: true,
@@ -364,7 +360,6 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
         Assert.Equal("admin:7", updated.UpdatedBy);
         Assert.Equal("rollout", updated.Reason);
         Assert.True(updated.Options.Enabled);
-        Assert.False(updated.Options.TextTaskEnabled);
         Assert.True(updated.Options.LocalizationEnabled);
         Assert.True(updated.Options.MicroInteractionEnabled);
         Assert.True(updated.Options.PoSpaceFallbackEnabled);
@@ -374,7 +369,6 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
         Assert.Equal(45000, updated.Options.MaxSolveDurationMs);
 
         SecurityRiskPolicySnapshotV2 riskPolicy = service.CurrentRiskPolicyV2;
-        Assert.Equal(SecuritySystemModes.Disabled, riskPolicy.SubsystemModes[SecurityRiskSources.PerceptionTextTask]);
         Assert.Equal(SecuritySystemModes.Enforce, riskPolicy.SubsystemModes[SecurityRiskSources.PerceptionLocalization]);
         Assert.Equal(SecuritySystemModes.Enforce, riskPolicy.SubsystemModes[SecurityRiskSources.PerceptionMicroInteraction]);
         Assert.Equal(SecuritySystemModes.Enforce, riskPolicy.SubsystemModes[SecurityRiskSources.PoSpace]);

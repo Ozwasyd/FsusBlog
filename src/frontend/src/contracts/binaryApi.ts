@@ -862,17 +862,14 @@ export const SecurityChallengeKind = {
     Unknown: 0,
     Sha256PowV1: 1,
     Argon2IdPoSpaceV1: 2,
-    CaptchaV1: 3,
     HumanReadProofV1: 4,
     PasskeyStepUpV1: 5,
     AdminPasskeyStepUpV1: 6,
     RecoveryKeyProofV1: 7,
     AnonymousCredentialProofV1: 8,
     ZkAnonymousCommentProofV1: 9,
-    PerceptionCharacterV2: 10,
     PerceptionLocalizationV2: 11,
     PerceptionMicroInteractionV2: 12,
-    PerceptionTextTaskV2: 13,
     PerceptionCharacterV3: 14
 } as const;
 

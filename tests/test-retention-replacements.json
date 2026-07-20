@@ -999,7 +999,6 @@
             "replacementTestIds": [
                 "xunit:tests/backend/Unit/SecurityHardening/CryptographyBoundaryTests.cs#CryptographyBoundaryTests.CryptographicRandomSource_ProducesRequestedLengthAndUniqueOutputs",
                 "xunit:tests/backend/Unit/SecurityHardening/CryptographyBoundaryTests.cs#CryptographyBoundaryTests.SecurityAdminPolicy_UsesInjectedSecurityRandomSourceForSnapshotIdentifiers",
-                "xunit:tests/backend/Unit/CaptchaV1ChallengeProviderTests.cs#CaptchaV1ChallengeProviderTests.VerifyAsync_RejectsTamperedSeedSignatureOrToken",
                 "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548"
             ],
             "reason": "CSPRNG output/injection and signed challenge behavior are observable; FSUSBLOGSEC001/002 forbid non-cryptographic random APIs in security scope."
@@ -7383,18 +7382,9 @@
             "id": "vitest:tests/frontend/unit/components/FsusSecurityChallenge.test.ts#dispatches-challenge-kinds-through-the-generic-host-with-d014c79cd7",
             "path": "tests/frontend/unit/components/FsusSecurityChallenge.test.ts",
             "replacementTestIds": [
-                "vitest:tests/frontend/unit/components/FsusCaptchaChallenge.test.ts#selects-the-captchav1-assignment-and-builds-the-provider-97629ab95d",
                 "vitest:tests/frontend/unit/security/challengeClient.test.ts#keeps-proof-tokens-in-memory-and-evicts-them-after-expir-db5c706a5a"
             ],
             "reason": "Mounted challenge behavior and in-memory proof lifecycle replace generic-host source fragments."
-        },
-        {
-            "id": "vitest:tests/frontend/unit/components/FsusSecurityChallenge.test.ts#keeps-non-captcha-branches-in-child-challenge-components-eaa17c52f9",
-            "path": "tests/frontend/unit/components/FsusSecurityChallenge.test.ts",
-            "replacementTestIds": [
-                "vitest:tests/frontend/e2e/security/captcha-challenge.spec.ts#renders-locally-accepts-mobile-safe-input-and-solves-pow-9f665456f5"
-            ],
-            "reason": "The browser security scenario executes challenge dispatch and completion without inspecting child component source."
         },
         {
             "id": "vitest:tests/frontend/unit/components/PublicAuthLayout.test.ts#routes-login-and-register-through-the-public-auth-layout-128f73ebbe",
@@ -7668,16 +7658,6 @@
                 "vitest:tests/frontend/unit/api/security.test.ts#uses-rule-and-pow-request-frames-for-security-mutations-2dd490ae6b"
             ],
             "reason": "API parity and real AEDS security reads/mutations replace private source tokens."
-        },
-        {
-            "id": "vitest:tests/frontend/unit/components/FsusCaptchaChallenge.test.ts#keeps-the-sfc-wired-to-fsusui-controls-canvas-fallback-s-f540400312",
-            "path": "tests/frontend/unit/components/FsusCaptchaChallenge.test.ts",
-            "replacementTestIds": [
-                "vitest:tests/frontend/unit/components/FsusCaptchaChallenge.test.ts#selects-the-captchav1-assignment-and-builds-the-provider-97629ab95d",
-                "vitest:tests/frontend/unit/components/FsusCaptchaChallenge.test.ts#shows-a-recoverable-error-when-captcha-runtime-loading-f-205025a84d",
-                "vitest:tests/frontend/e2e/security/captcha-challenge.spec.ts#renders-locally-accepts-mobile-safe-input-and-solves-pow-9f665456f5"
-            ],
-            "reason": "Mounted assignment/error behavior and the browser challenge flow replace SFC source-shape assertions."
         },
         {
             "id": "xunit:tests/backend/Unit/UnifiedCacheAtomicCounterTests.cs#UnifiedCacheAtomicCounterTests.IUnifiedCache_ExposesIncrementWithExpiryPrimitive",

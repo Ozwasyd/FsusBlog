@@ -32,6 +32,10 @@ const REQUIRED_AUXILIARY_EVIDENCE = Object.freeze([
   'activeFenceAcquire',
   'activeFenceSourceRevoke',
   'activeFenceVerify',
+  'challengeKindCutoverReceipt',
+  'challengeKindCutoverAcceptance',
+  'challengeKindCutoverGate',
+  'challengeProtocolActivation',
   'publicTrafficCheckpoint',
   'sourceDrainSnapshot',
   'sourceDrainGate',
@@ -346,6 +350,48 @@ function validateAuxiliaryEvidence(name, value, state, errors) {
       maxAgeSeconds: Number.MAX_SAFE_INTEGER
     })
     errors.push(...publicAotErrors.map((error) => `${name}: ${error}`))
+    return
+  }
+  const targetGeneration = Number(state.target.runtimeGeneration ?? state.target.generation)
+  if (name === 'challengeKindCutoverReceipt') {
+    if (value.schemaVersion !== 'fsus.security-challenge-kind-cutover-receipt.v1'
+      || value.accepted !== true || value.status !== 'applied' || value.dryRun !== false
+      || value.releaseId !== state.target.releaseId || value.slot !== state.target.slot
+      || value.generation !== targetGeneration) {
+      errors.push(`${name}: applied receipt is not bound to the target release fence`)
+    }
+    return
+  }
+  if (name === 'challengeKindCutoverAcceptance') {
+    if (value.schemaVersion !== 'fsus.security-challenge-kind-cutover-acceptance.v1'
+      || value.accepted !== true || value.releaseId !== state.target.releaseId
+      || value.slot !== state.target.slot || value.generation !== targetGeneration) {
+      errors.push(`${name}: verifier acceptance is not bound to the target release fence`)
+    }
+    return
+  }
+  if (name === 'challengeKindCutoverGate') {
+    if (value.schema !== 'fsusblog.release-challenge-kind-cutover-gate.v1'
+      || value.status !== 'pass' || value.rolloutId !== state.rolloutId
+      || value.releaseId !== state.target.releaseId || value.slot !== state.target.slot
+      || value.generation !== targetGeneration
+      || value.lifecycle?.destructiveCutoverStarted !== true
+      || value.lifecycle?.activationCommitted !== false
+      || value.lifecycle?.stage !== 'source-drain'
+      || value.bindings?.backendFence !== true || value.bindings?.frontend !== true
+      || value.bindings?.staticAssets !== true || value.bindings?.cutover !== true
+      || value.bindings?.protocolActivation !== true) {
+      errors.push(`${name}: cross-layer target binding gate is invalid`)
+    }
+    return
+  }
+  if (name === 'challengeProtocolActivation') {
+    if (value.schemaVersion !== 'fsus.security-challenge-protocol-activation.v1'
+      || value.accepted !== true || value.status !== 'open'
+      || value.releaseId !== state.target.releaseId || value.slot !== state.target.slot
+      || value.generation !== targetGeneration) {
+      errors.push(`${name}: protocol activation is not bound to the target release fence`)
+    }
     return
   }
   if (value.status !== undefined && !['pass', 'ok', 'healthy', 'completed', 'dry-run'].includes(value.status)) {

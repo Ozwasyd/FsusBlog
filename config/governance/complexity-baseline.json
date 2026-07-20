@@ -1389,12 +1389,6 @@
                 "typeCount": 13
             }
         },
-        "src/backend/Services/Security/CaptchaV1ChallengeProvider.cs": {
-            "category": "ServiceDomainLogic",
-            "excess": {
-                "functionMethodCount": 63
-            }
-        },
         "src/backend/Services/Security/ContentFilterService.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
@@ -2551,12 +2545,6 @@
             "category": "HandwrittenModule",
             "excess": {
                 "dependencyImportCount": 26
-            }
-        },
-        "tests/backend/Unit/CaptchaV1ChallengeProviderTests.cs": {
-            "category": "HandwrittenModule",
-            "excess": {
-                "publicSurfaceCount": 42
             }
         },
         "tests/backend/Unit/CommentMutationPostgresConcurrencyTests.cs": {

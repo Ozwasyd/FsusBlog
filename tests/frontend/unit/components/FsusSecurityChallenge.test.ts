@@ -48,6 +48,24 @@ const assignment = (kind: SecurityChallengeKind): SecurityChallengeAssignment =>
 })
 
 describe('FsusSecurityChallenge capability dispatch', () => {
+  it('shows the capability-update action instead of offering a legacy fallback', async () => {
+    const client = fakeClient({
+      ...unsupportedIssueResult('security_challenge_capability_reload_requested'),
+      status: 'failed'
+    })
+    const wrapper = mount(FsusSecurityChallenge, {
+      props: { action: 'comment.create', routeKey: 'article:42', client },
+      global: { stubs: componentStubs }
+    })
+
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="alert"]').text()).toBe('验证能力已更新，正在重新载入当前页面。')
+    expect(wrapper.find('[data-test="security-challenge-unsupported"]').exists()).toBe(false)
+    expect(wrapper.emitted('error')).toEqual([['security_challenge_capability_reload_requested']])
+    expect(client.refresh).not.toHaveBeenCalled()
+  })
+
   it('renders all shared challenge copy from the active English locale', async () => {
     setLocale('en-US')
     const wrapper = mount(FsusSecurityChallenge, {
@@ -94,14 +112,29 @@ describe('FsusSecurityChallenge capability dispatch', () => {
     expect(wrapper.find('[data-fsus-passkey-step-up-challenge]').exists()).toBe(false)
   })
 
-  it('reaches the registered captcha production host', async () => {
-    const kind = SecurityChallengeKind.CaptchaV1
+  it('reaches the registered localization production host', async () => {
+    const kind = SecurityChallengeKind.PerceptionLocalizationV2
     const capability = resolveChallengeCapability(kind, { action: 'comment.create', mode: 'ui' })
     const client = fakeClient({
       status: 'challenge',
-      response: null,
+      response: {
+        decision: 'challenge', riskScore: 0, effectiveRiskScore: 0, escalationLevel: 1,
+        policyVersion: 'policy-v2', retryAfterMs: 0,
+        envelope: { envelopeId: '01900000-0000-7000-8000-000000000001', policyVersion: 'policy-v2', assignments: [assignment(kind)] },
+        providerPayloads: []
+      },
       assignment: assignment(kind),
-      providerPayload: null,
+      providerPayload: {
+        challengeId: 'challenge-1',
+        payload: {
+          algorithm: 'fsu.challenge/perception-sealed@v2',
+          taskKind: 'localization',
+          recipeJson: JSON.stringify({ schema: 'fsus.challenge.render-recipe@v2', taskKind: 'localization', layers: [] }),
+          recipeHashHex: 'd'.repeat(64),
+          sealedToken: 'sealed-token',
+          signatureHex: 'e'.repeat(64)
+        }
+      },
       proof: null,
       kindGroup: capability.group,
       capability,
@@ -115,7 +148,7 @@ describe('FsusSecurityChallenge capability dispatch', () => {
     })
     await flushPromises()
 
-    expect(wrapper.find('[data-test="captcha-host"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="perception-host"]').exists()).toBe(true)
   })
 
   it('renders the PoSpace host and forwards all terminal events', async () => {
@@ -247,12 +280,16 @@ describe('FsusSecurityChallenge capability dispatch', () => {
 
     const next = {
       ...issueResult,
-      assignment: { ...assignment(SecurityChallengeKind.CaptchaV1), challengeId: 'challenge-2' },
-      capability: resolveChallengeCapability(SecurityChallengeKind.CaptchaV1, { action: 'comment.create', mode: 'ui' })
+      assignment: { ...assignment(SecurityChallengeKind.PerceptionLocalizationV2), challengeId: 'challenge-2' },
+      providerPayload: {
+        challengeId: 'challenge-2',
+        payload: { algorithm: 'fsu.challenge/perception-sealed@v2', taskKind: 'localization', recipeJson: '{}' }
+      },
+      capability: resolveChallengeCapability(SecurityChallengeKind.PerceptionLocalizationV2, { action: 'comment.create', mode: 'ui' })
     }
     host.vm.$emit('continued', next)
     await flushPromises()
-    expect(wrapper.find('[data-test="captcha-host"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="perception-host"]').exists()).toBe(true)
   })
 
   it('invalidates late issue responses after identity or route changes and unmount', async () => {
@@ -369,11 +406,7 @@ describe('FsusSecurityChallenge capability dispatch', () => {
 
 const componentStubs = {
   ElButton: { template: '<button><slot /></button>' },
-  ElAlert: { template: '<div data-test="alert" />' },
-  FsusCaptchaChallenge: {
-    props: ['action', 'routeKey', 'attributes', 'disabled', 'issueChallenge', 'verifyChallenge'],
-    template: '<div data-test="captcha-host" />'
-  },
+  ElAlert: { props: ['title'], template: '<div data-test="alert">{{ title }}</div>' },
   FsusPerceptionChallenge: {
     props: ['challenge', 'renderer', 'client', 'title', 'eyebrow', 'refreshLabel', 'retryLabel', 'cancelLabel', 'loadingText', 'failedText', 'expiredText'],
     template: '<div data-test="perception-host" />'

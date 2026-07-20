@@ -47,7 +47,6 @@ public sealed class CachePolicyRegistry : ICachePolicyRegistry
             [CachePolicyId.SecurityRecoveryKeySession] = new(CachePolicyId.SecurityRecoveryKeySession, "sec", "rk-session", TimeSpan.Zero, TimeSpan.FromMinutes(10), null, null, true, 0d, false),
             [CachePolicyId.SecurityChallengeProof] = new(CachePolicyId.SecurityChallengeProof, "sec", "challenge-proof", TimeSpan.Zero, TimeSpan.FromMinutes(5), null, null, true, 0d, false),
             [CachePolicyId.SecurityChallengeEnvelope] = new(CachePolicyId.SecurityChallengeEnvelope, "sec", "challenge-envelope", TimeSpan.Zero, TimeSpan.FromMinutes(5), null, null, true, 0d, false),
-            [CachePolicyId.SecurityCaptchaChallenge] = new(CachePolicyId.SecurityCaptchaChallenge, "sec", "captcha-challenge", TimeSpan.Zero, TimeSpan.FromMinutes(5), null, null, true, 0d, false),
             [CachePolicyId.SecurityPoSpaceChallenge] = new(CachePolicyId.SecurityPoSpaceChallenge, "sec", "pospace-challenge", TimeSpan.Zero, TimeSpan.FromMinutes(5), null, null, true, 0d, false),
             [CachePolicyId.AnonymousCommentTicket] = new(CachePolicyId.AnonymousCommentTicket, "sec", "anonymous-comment-ticket", TimeSpan.Zero, TimeSpan.FromMinutes(2), null, null, true, 0d, false),
             [CachePolicyId.AnonymousCommentPolicyVersion] = new(CachePolicyId.AnonymousCommentPolicyVersion, "sec", "anonymous-comment-policy-version", TimeSpan.FromMinutes(1), TimeSpan.FromDays(7), null, null, true, 0d, false),

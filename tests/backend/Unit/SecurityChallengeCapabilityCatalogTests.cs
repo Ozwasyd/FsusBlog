@@ -22,15 +22,15 @@ public sealed class SecurityChallengeCapabilityCatalogTests
             Assert.Equal(SecurityChallengeContracts.ToWireName(kind), item.WireName);
         }
 
-        SecurityChallengeCapabilityResolution captcha = SecurityChallengeCapabilityCatalog.Resolve(
-            SecurityChallengeKind.CaptchaV1,
+        SecurityChallengeCapabilityResolution characterChallenge = SecurityChallengeCapabilityCatalog.Resolve(
+            SecurityChallengeKind.PerceptionCharacterV3,
             RiskActionNames.CommentCreate,
             SecurityChallengeExecutionMode.Ui);
-        Assert.True(captcha.Capability.KindKnown);
-        Assert.True(captcha.ProviderAvailable);
-        Assert.True(captcha.ExecutorAvailable);
-        Assert.True(captcha.HostAvailable);
-        Assert.True(captcha.PolicyEligible);
+        Assert.True(characterChallenge.Capability.KindKnown);
+        Assert.True(characterChallenge.ProviderAvailable);
+        Assert.True(characterChallenge.ExecutorAvailable);
+        Assert.True(characterChallenge.HostAvailable);
+        Assert.True(characterChallenge.PolicyEligible);
 
         SecurityChallengeCapabilityResolution poSpace = SecurityChallengeCapabilityCatalog.Resolve(
             SecurityChallengeKind.Argon2IdPoSpaceV1,
@@ -60,7 +60,7 @@ public sealed class SecurityChallengeCapabilityCatalogTests
         Assert.True(ui.PolicyEligible);
 
         SecurityChallengeCapabilityResolution incompatible = SecurityChallengeCapabilityCatalog.Resolve(
-            SecurityChallengeKind.CaptchaV1,
+            SecurityChallengeKind.PerceptionCharacterV3,
             RiskActionNames.CommentCreate,
             SecurityChallengeExecutionMode.Ui,
             "older-build");
@@ -79,7 +79,6 @@ public sealed class SecurityChallengeCapabilityCatalogTests
         var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
         var request = new RiskControlPolicyUpdateRequest(
             null,
-            CaptchaV1Enabled: null,
             PoSpaceV1Enabled: true,
             PublicReadChallengeEnabled: null,
             CommentRiskControlEnabled: null,
@@ -95,27 +94,27 @@ public sealed class SecurityChallengeCapabilityCatalogTests
     public void PolicyService_AcceptsOrderedTwoMemberAndSingleMemberSnapshots()
     {
         var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
-        string captcha = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.CaptchaV1);
+        string characterChallenge = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.PerceptionCharacterV3);
         string poSpace = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.Argon2IdPoSpaceV1);
 
-        service.ApplyRiskControlPolicySnapshot(CreateRiskPolicy([captcha, poSpace]));
+        service.ApplyRiskControlPolicySnapshot(CreateRiskPolicy([characterChallenge, poSpace]));
 
-        Assert.Equal([captcha, poSpace], service.CurrentRiskPolicyV2.DefaultAction.HardChallengeKinds);
+        Assert.Equal([characterChallenge, poSpace], service.CurrentRiskPolicyV2.DefaultAction.HardChallengeKinds);
 
-        service.ApplyRiskControlPolicySnapshot(CreateRiskPolicy([captcha]));
+        service.ApplyRiskControlPolicySnapshot(CreateRiskPolicy([characterChallenge]));
 
-        Assert.Equal([captcha], service.CurrentRiskPolicyV2.DefaultAction.HardChallengeKinds);
+        Assert.Equal([characterChallenge], service.CurrentRiskPolicyV2.DefaultAction.HardChallengeKinds);
     }
 
     [Fact]
     public void PolicyService_RejectsSnapshotWhenAnyOrderedMemberIsUnavailable()
     {
         var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
-        string captcha = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.CaptchaV1);
+        string characterChallenge = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.PerceptionCharacterV3);
         string unavailable = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.AdminPasskeyStepUpV1);
 
         ArgumentException error = Assert.Throws<ArgumentException>(() =>
-            service.ApplyRiskControlPolicySnapshot(CreateRiskPolicy([captcha, unavailable])));
+            service.ApplyRiskControlPolicySnapshot(CreateRiskPolicy([characterChallenge, unavailable])));
 
         Assert.Contains("challenge_capability_unavailable", error.Message, StringComparison.Ordinal);
     }
@@ -124,13 +123,13 @@ public sealed class SecurityChallengeCapabilityCatalogTests
     public void PolicyService_RejectsDuplicateOverLimitAndNoncanonicalSets()
     {
         var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
-        string captcha = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.CaptchaV1);
+        string characterChallenge = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.PerceptionCharacterV3);
 
         ArgumentException duplicate = Assert.Throws<ArgumentException>(() =>
-            service.ApplyRiskControlPolicySnapshot(CreateRiskPolicy([captcha, captcha])));
+            service.ApplyRiskControlPolicySnapshot(CreateRiskPolicy([characterChallenge, characterChallenge])));
         ArgumentException overLimit = Assert.Throws<ArgumentException>(() =>
             service.ApplyRiskControlPolicySnapshot(CreateRiskPolicy(
-                Enumerable.Repeat(captcha, SecurityChallengeContracts.MaxAssignmentsPerEnvelope + 1).ToArray())));
+                Enumerable.Repeat(characterChallenge, SecurityChallengeContracts.MaxAssignmentsPerEnvelope + 1).ToArray())));
         ArgumentException noncanonical = Assert.Throws<ArgumentException>(() =>
             service.ApplyRiskControlPolicySnapshot(CreateRiskPolicy(["security.pow"], SecurityChallengeCapabilityCatalog.NotificationSubscribeAction)));
 

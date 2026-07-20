@@ -31,6 +31,8 @@ export const security = {
     perceptionExpired: '验证已过期。',
     perceptionCancelled: '验证已取消。',
     unsupported: '暂不支持该验证方式。',
+    capabilityUpdate: '验证能力已更新，正在重新载入当前页面。',
+    capabilityUpdateFailed: '验证能力已更新，但当前页面无法自动重新载入。',
     preparing: '正在准备安全验证。'
   }
 } as const

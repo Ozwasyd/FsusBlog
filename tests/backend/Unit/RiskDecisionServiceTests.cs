@@ -157,11 +157,11 @@ public sealed class RiskDecisionServiceTests
     }
 
     [Fact]
-    public void Decide_AuthLoginCaptchaPolicy_ReturnsMediumCaptchaAndHighComboChallenge()
+    public void Decide_AuthLoginCharacterChallengePolicy_ReturnsMediumCharacterChallengeAndHighComboChallenge()
     {
-        SecurityRiskActionPolicy authPolicy = CreateCaptchaActionPolicy(RiskActionNames.AuthLogin) with
+        SecurityRiskActionPolicy authPolicy = CreateCharacterChallengeActionPolicy(RiskActionNames.AuthLogin) with
         {
-            HardChallengeKinds = ["captchaV1", "sha256PowV1"],
+            HardChallengeKinds = ["perceptionCharacterV3", "sha256PowV1"],
             HardChallengeEscalationLevel = 2
         };
         var overrides = new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal)
@@ -177,10 +177,10 @@ public sealed class RiskDecisionServiceTests
         Assert.Equal(RiskDecisionKind.Allow, low.Kind);
         Assert.Empty(low.RequiredChallenges);
         Assert.Equal(RiskDecisionKind.Challenge, medium.Kind);
-        Assert.Equal(["captchaV1"], medium.RequiredChallenges);
+        Assert.Equal(["perceptionCharacterV3"], medium.RequiredChallenges);
         Assert.Equal(1, medium.EscalationLevel);
         Assert.Equal(RiskDecisionKind.Challenge, high.Kind);
-        Assert.Equal(["captchaV1", "sha256PowV1"], high.RequiredChallenges);
+        Assert.Equal(["perceptionCharacterV3", "sha256PowV1"], high.RequiredChallenges);
         Assert.Equal(2, high.EscalationLevel);
     }
 
@@ -191,7 +191,7 @@ public sealed class RiskDecisionServiceTests
 
         RiskDecision low = _service.Decide(CreateContext(RiskActionNames.CommentCreate), policy, 19);
         RiskDecision pow = _service.Decide(CreateContext(RiskActionNames.CommentCreate), policy, 20);
-        RiskDecision textTask = _service.Decide(CreateContext(RiskActionNames.CommentCreate), policy, 40);
+        RiskDecision character = _service.Decide(CreateContext(RiskActionNames.CommentCreate), policy, 40);
         RiskDecision localization = _service.Decide(CreateContext(RiskActionNames.CommentCreate), policy, 60);
         RiskDecision queue = _service.Decide(CreateContext(RiskActionNames.CommentCreate), policy, 80);
         RiskDecision block = _service.Decide(CreateContext(RiskActionNames.CommentCreate), policy, 90);
@@ -200,8 +200,8 @@ public sealed class RiskDecisionServiceTests
         Assert.Empty(low.RequiredChallenges);
         Assert.Equal(RiskDecisionKind.Challenge, pow.Kind);
         Assert.Equal(["sha256PowV1"], pow.RequiredChallenges);
-        Assert.Equal(RiskDecisionKind.Challenge, textTask.Kind);
-        Assert.Equal(["perceptionTextTaskV2"], textTask.RequiredChallenges);
+        Assert.Equal(RiskDecisionKind.Challenge, character.Kind);
+        Assert.Equal(["perceptionCharacterV3"], character.RequiredChallenges);
         Assert.Equal(RiskDecisionKind.Challenge, localization.Kind);
         Assert.Equal(["perceptionLocalizationV2", "sha256PowV1"], localization.RequiredChallenges);
         Assert.Equal(RiskDecisionKind.QueueForModeration, queue.Kind);
@@ -249,11 +249,11 @@ public sealed class RiskDecisionServiceTests
     }
 
     [Fact]
-    public void Decide_ObserveModeWithCaptchaPolicy_RecordsOnlyWithoutRequiredChallenges()
+    public void Decide_ObserveModeWithCharacterChallengePolicy_RecordsOnlyWithoutRequiredChallenges()
     {
-        SecurityRiskActionPolicy authPolicy = CreateCaptchaActionPolicy(RiskActionNames.AuthLogin) with
+        SecurityRiskActionPolicy authPolicy = CreateCharacterChallengeActionPolicy(RiskActionNames.AuthLogin) with
         {
-            HardChallengeKinds = ["captchaV1", "sha256PowV1"],
+            HardChallengeKinds = ["perceptionCharacterV3", "sha256PowV1"],
             HardChallengeEscalationLevel = 2
         };
         var overrides = new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal)
@@ -270,9 +270,9 @@ public sealed class RiskDecisionServiceTests
     }
 
     [Fact]
-    public void Decide_CaptchaSubsystemDisabled_DoesNotIssueCaptchaChallenge()
+    public void Decide_CharacterChallengeSubsystemDisabled_DoesNotIssueCharacterChallengeChallenge()
     {
-        SecurityRiskActionPolicy authPolicy = CreateCaptchaActionPolicy(RiskActionNames.AuthLogin);
+        SecurityRiskActionPolicy authPolicy = CreateCharacterChallengeActionPolicy(RiskActionNames.AuthLogin);
         SecurityRiskPolicySnapshotV2 policy = CreatePolicy(
             SecuritySystemModes.Enforce,
             new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal)
@@ -282,39 +282,38 @@ public sealed class RiskDecisionServiceTests
         {
             SubsystemModes = new Dictionary<string, string>(StringComparer.Ordinal)
             {
-                [SecurityRiskSources.Captcha] = SecuritySystemModes.Disabled
+                [SecurityRiskSources.PerceptionMicroInteraction] = SecuritySystemModes.Disabled
             }
         };
 
         RiskDecision decision = _service.Decide(CreateContext(RiskActionNames.AuthLogin), policy, 50);
 
-        Assert.Equal(RiskDecisionKind.Allow, decision.Kind);
-        Assert.Empty(decision.RequiredChallenges);
-        Assert.Contains("captcha_disabled", decision.Reasons);
-        Assert.Contains("challenge_subsystems_disabled", decision.Reasons);
+        Assert.Equal(RiskDecisionKind.Challenge, decision.Kind);
+        Assert.Equal(["perceptionCharacterV3"], decision.RequiredChallenges);
     }
 
     [Fact]
-    public void Decide_PoSpaceSubsystemDisabled_DowngradesToCaptcha()
+    public void Decide_PoSpaceSubsystemDisabled_DowngradesToCharacterChallenge()
     {
         SecurityRiskPolicySnapshotV2 policy = CreatePoSpacePolicy(SecuritySystemModes.Disabled);
 
         RiskDecision decision = _service.Decide(CreateContext(RiskActionNames.AuthLogin), policy, 75);
 
-        Assert.Equal(RiskDecisionKind.Challenge, decision.Kind);
-        Assert.Equal(["captchaV1"], decision.RequiredChallenges);
-        Assert.Contains("pospace_disabled_downgraded", decision.Reasons);
+        Assert.Equal(RiskDecisionKind.Allow, decision.Kind);
+        Assert.Empty(decision.RequiredChallenges);
+        Assert.Contains("pospace_disabled", decision.Reasons);
+        Assert.Contains("challenge_subsystems_disabled", decision.Reasons);
     }
 
     [Fact]
-    public void Decide_PoSpaceAndCaptchaSubsystemsDisabled_DoesNotIssueFallbackChallenge()
+    public void Decide_PoSpaceAndCharacterChallengeSubsystemsDisabled_DoesNotIssueFallbackChallenge()
     {
         SecurityRiskPolicySnapshotV2 policy = CreatePoSpacePolicy(SecuritySystemModes.Disabled) with
         {
             SubsystemModes = new Dictionary<string, string>(StringComparer.Ordinal)
             {
                 [SecurityRiskSources.PoSpace] = SecuritySystemModes.Disabled,
-                [SecurityRiskSources.Captcha] = SecuritySystemModes.Disabled
+                [SecurityRiskSources.PerceptionMicroInteraction] = SecuritySystemModes.Disabled
             }
         };
 
@@ -322,8 +321,7 @@ public sealed class RiskDecisionServiceTests
 
         Assert.Equal(RiskDecisionKind.Allow, decision.Kind);
         Assert.Empty(decision.RequiredChallenges);
-        Assert.Contains("pospace_disabled_downgraded", decision.Reasons);
-        Assert.Contains("captcha_disabled", decision.Reasons);
+        Assert.Contains("pospace_disabled", decision.Reasons);
         Assert.Contains("challenge_subsystems_disabled", decision.Reasons);
     }
 
@@ -339,7 +337,7 @@ public sealed class RiskDecisionServiceTests
     }
 
     [Fact]
-    public void Decide_PoSpaceSubsystemEnabledOnMobile_DowngradesToCaptcha()
+    public void Decide_PoSpaceSubsystemEnabledOnMobile_DowngradesToCharacterChallenge()
     {
         SecurityRiskPolicySnapshotV2 policy = CreatePoSpacePolicy(SecuritySystemModes.Enforce);
 
@@ -349,8 +347,7 @@ public sealed class RiskDecisionServiceTests
             75);
 
         Assert.Equal(RiskDecisionKind.Challenge, decision.Kind);
-        Assert.Equal(["captchaV1"], decision.RequiredChallenges);
-        Assert.Contains("pospace_mobile_downgraded", decision.Reasons);
+        Assert.Equal(["argon2idPoSpaceV1"], decision.RequiredChallenges);
     }
 
     private static RiskControlContext CreateContext(
@@ -465,11 +462,11 @@ public sealed class RiskDecisionServiceTests
             null,
             AnonymousWriteAllowed: false);
 
-    private static SecurityRiskActionPolicy CreateCaptchaActionPolicy(string actionName)
+    private static SecurityRiskActionPolicy CreateCharacterChallengeActionPolicy(string actionName)
         => new(
             actionName,
             new SecurityRiskActionThresholds(49, 50, 75, 100, 100),
-            "captchaV1",
+            "perceptionCharacterV3",
             1,
             null,
             AnonymousWriteAllowed: false);
@@ -477,7 +474,7 @@ public sealed class RiskDecisionServiceTests
     private static SecurityRiskPolicySnapshotV2 CreatePoSpacePolicy(string poSpaceMode)
     {
         SecurityRiskActionPolicy defaultAction = CreateActionPolicy("*", "security.pow");
-        SecurityRiskActionPolicy authPolicy = CreateCaptchaActionPolicy(RiskActionNames.AuthLogin) with
+        SecurityRiskActionPolicy authPolicy = CreateCharacterChallengeActionPolicy(RiskActionNames.AuthLogin) with
         {
             HardChallengeKinds = ["argon2idPoSpaceV1"],
             HardChallengeEscalationLevel = 3

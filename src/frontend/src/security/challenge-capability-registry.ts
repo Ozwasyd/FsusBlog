@@ -4,13 +4,13 @@ import {
 } from '@/contracts/binaryApi'
 import { securityChallengeKindWireName } from './challenge-kind-wire'
 
-export const SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION = '2026.07.20.4'
+export const SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION = '2026.07.21.1'
 
 export type ChallengeExecutionMode = 'ui' | 'headless'
-export type ChallengeUiHost = 'captcha' | 'perception' | 'pospace' | 'sha256-pow'
+export type ChallengeUiHost = 'perception' | 'pospace' | 'sha256-pow'
 export type ChallengeHeadlessHost = 'notification-sha256-pow' | 'notification-pospace'
 export type ChallengeExecutorMode = ChallengeExecutionMode | 'universal'
-export type ChallengeKindGroup = 'captcha' | 'pow' | 'pospace' | 'passkey' | 'perception' | 'unsupported'
+export type ChallengeKindGroup = 'pow' | 'pospace' | 'passkey' | 'perception' | 'unsupported'
 
 export interface ChallengeExecutorRegistration {
   readonly id: string
@@ -53,17 +53,14 @@ const registrations = [
   registration(SecurityChallengeKind.Unknown, 'unsupported', false, false, null, null, null, false, []),
   registration(SecurityChallengeKind.Sha256PowV1, 'pow', true, true, executor('sha256-pow-v1', 'universal', () => import('@/composables/usePow')), 'sha256-pow', 'notification-sha256-pow', true, ['*']),
   registration(SecurityChallengeKind.Argon2IdPoSpaceV1, 'pospace', true, true, executor('pospace-v1', 'universal', () => import('@/services/securityPoSpaceChallengeExecutor')), 'pospace', 'notification-pospace', true, ['*']),
-  registration(SecurityChallengeKind.CaptchaV1, 'captcha', true, true, executor('captcha-v1', 'ui', () => import('@/components/security/FsusCaptchaChallenge.vue')), 'captcha', null, false, ['*']),
   registration(SecurityChallengeKind.HumanReadProofV1, 'pow', true, true, null, null, null, false, []),
   registration(SecurityChallengeKind.PasskeyStepUpV1, 'passkey', true, true, null, null, null, false, []),
   registration(SecurityChallengeKind.AdminPasskeyStepUpV1, 'passkey', true, true, null, null, null, false, []),
   registration(SecurityChallengeKind.RecoveryKeyProofV1, 'passkey', true, false, null, null, null, false, []),
   registration(SecurityChallengeKind.AnonymousCredentialProofV1, 'passkey', true, false, null, null, null, false, []),
   registration(SecurityChallengeKind.ZkAnonymousCommentProofV1, 'passkey', true, false, null, null, null, false, []),
-  registration(SecurityChallengeKind.PerceptionCharacterV2, 'perception', true, false, executor('perception-v2', 'ui', () => import('@/services/securityPerceptionChallengeFlow')), 'perception', null, true, ['*']),
   registration(SecurityChallengeKind.PerceptionLocalizationV2, 'perception', true, true, executor('perception-v2', 'ui', () => import('@/services/securityPerceptionChallengeFlow')), 'perception', null, true, ['*']),
   registration(SecurityChallengeKind.PerceptionMicroInteractionV2, 'perception', true, true, executor('perception-v2', 'ui', () => import('@/services/securityPerceptionChallengeFlow')), 'perception', null, true, ['*']),
-  registration(SecurityChallengeKind.PerceptionTextTaskV2, 'perception', true, true, executor('perception-v2', 'ui', () => import('@/services/securityPerceptionChallengeFlow')), 'perception', null, true, ['*']),
   registration(SecurityChallengeKind.PerceptionCharacterV3, 'perception', true, true, executor('perception-character-v3', 'ui', () => import('@/services/securityPerceptionCharacterV3Flow')), 'perception', null, true, ['*'])
 ] as const satisfies readonly ChallengeCapabilityRegistration[]
 

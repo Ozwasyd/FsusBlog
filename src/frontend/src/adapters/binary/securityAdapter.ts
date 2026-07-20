@@ -246,10 +246,7 @@ function isValidSecurityChallengeVerifyResponse(response: SecurityChallengeVerif
     (response.envelopeCompleted ? response.proofToken.trim().length > 0 : response.proofToken.length === 0);
 }
 
-function isCompatibleChallengeId(kind: SecurityChallengeKind, value: string): boolean {
-  if (kind === SecurityChallengeKind.CaptchaV1) {
-    return isUuidVersion(value, '4') || isUuidVersion(value, '7');
-  }
+function isCompatibleChallengeId(_kind: SecurityChallengeKind, value: string): boolean {
   return isUuidVersion(value, '7');
 }
 
@@ -257,7 +254,7 @@ function isUuidV7(value: string): boolean {
   return isUuidVersion(value, '7');
 }
 
-function isUuidVersion(value: string, version: '4' | '7'): boolean {
+function isUuidVersion(value: string, version: '7'): boolean {
   return new RegExp(`^[0-9a-f]{8}-[0-9a-f]{4}-${version}[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`, 'iu').test(value);
 }
 

@@ -12,7 +12,9 @@ import {
   failRolloutStage,
   failRolloutRecovery,
   markCandidateOnly,
+  markActivationCommitted,
   markContractMigrationApplied,
+  markDestructiveCutoverStarted,
   markGatewaySwitchCommitted,
   planRolloutRecovery,
   readRolloutState,
@@ -40,6 +42,8 @@ function completeThrough(state, exclusiveStage) {
   for (let index = 0; index < end; index++) {
     const stage = ROLLOUT_STAGES[index]
     startRolloutStage(state, stage, `2026-07-11T00:${String(index).padStart(2, '0')}:00.000Z`)
+    if (stage === 'source-drain') markDestructiveCutoverStarted(state, `2026-07-11T00:${String(index).padStart(2, '0')}:00.500Z`)
+    if (stage === 'active-fence') markActivationCommitted(state, `2026-07-11T00:${String(index).padStart(2, '0')}:00.500Z`)
     completeRolloutStage(state, stage, { completedAtUtc: `2026-07-11T00:${String(index).padStart(2, '0')}:01.000Z` })
     if (stage === 'gateway-switch') markGatewaySwitchCommitted(state, 9, '2026-07-11T00:09:02.000Z')
   }
@@ -50,6 +54,8 @@ test('rollout state completes the only ordered production stage sequence with im
   for (let index = 0; index < ROLLOUT_STAGES.length; index++) {
     const stage = ROLLOUT_STAGES[index]
     startRolloutStage(state, stage, `2026-07-11T00:${String(index).padStart(2, '0')}:00.000Z`)
+    if (stage === 'source-drain') markDestructiveCutoverStarted(state, `2026-07-11T00:${String(index).padStart(2, '0')}:00.500Z`)
+    if (stage === 'active-fence') markActivationCommitted(state, `2026-07-11T00:${String(index).padStart(2, '0')}:00.500Z`)
     completeRolloutStage(state, stage, {
       completedAtUtc: `2026-07-11T00:${String(index).padStart(2, '0')}:01.000Z`,
       evidencePath: `/var/lib/fsusblog/evidence/${stage}.json`
@@ -93,9 +99,9 @@ test('every injected stage failure produces the phase-correct recovery action', 
     ['candidate-smoke', 'preserve-source-stop-candidate'],
     ['compatibility-smoke', 'preserve-source-stop-candidate'],
     ['gateway-switch', 'gateway-recover'],
-    ['active-fence', 'rollback-gateway-to-source'],
-    ['public-verify', 'rollback-gateway-to-source'],
-    ['source-drain', 'resume-source-drain'],
+    ['source-drain', 'rollback-gateway-to-source'],
+    ['active-fence', 'resume-release-activation-same-cutover'],
+    ['public-verify', 'resume-release-activation-same-cutover'],
     ['source-stop', 'retain-source-report-cleanup-blocker'],
     ['release-evidence', 'resume-release-evidence']
   ])
@@ -113,6 +119,13 @@ test('every injected stage failure produces the phase-correct recovery action', 
     const recovery = planRolloutRecovery(state)
     assert.equal(recovery.action, expected.get(stage), stage)
     assert.equal(recovery.failedStage, stage)
+    if (stage === 'source-drain') {
+      assert.equal(recovery.reason, 'post_switch_gate_failed_before_source_drain')
+    }
+    if (stage === 'active-fence' || stage === 'public-verify') {
+      assert.equal(recovery.reason, 'destructive_cutover_started_old_source_rollback_forbidden')
+      assert.notEqual(recovery.action, 'rollback-gateway-to-source')
+    }
     assert.equal(state.status, 'recovery_required')
   }
 })
@@ -149,12 +162,12 @@ test('failed stages cannot resume until their exact recovery action has durable 
   assert.equal(state.currentStage, 'candidate-start')
 })
 
-test('post-switch rollback recovery terminates the failed rollout instead of reusing stale generations', () => {
+test('pre-cutover source drain failure may rollback, while a started cutover can only resume target activation', () => {
   const state = createState()
-  completeThrough(state, 'active-fence')
-  startRolloutStage(state, 'active-fence', '2026-07-11T02:40:00.000Z')
-  failRolloutStage(state, 'active-fence', {
-    errorCode: 'active_fence_compare_failed',
+  completeThrough(state, 'source-drain')
+  startRolloutStage(state, 'source-drain', '2026-07-11T02:40:00.000Z')
+  failRolloutStage(state, 'source-drain', {
+    errorCode: 'source_drain_failed_before_cutover',
     failedAtUtc: '2026-07-11T02:40:01.000Z'
   })
   completeRolloutRecovery(state, {
@@ -166,7 +179,14 @@ test('post-switch rollback recovery terminates the failed rollout instead of reu
 
   assert.equal(state.status, 'rolled_back')
   assert.equal(state.outcome, 'rolled_back')
-  assert.throws(() => startRolloutStage(state, 'active-fence'), /terminal/u)
+  assert.throws(() => startRolloutStage(state, 'source-drain'), /terminal/u)
+
+  const irreversible = createState()
+  completeThrough(irreversible, 'source-drain')
+  startRolloutStage(irreversible, 'source-drain', '2026-07-11T02:41:00.000Z')
+  markDestructiveCutoverStarted(irreversible, '2026-07-11T02:41:00.500Z')
+  failRolloutStage(irreversible, 'source-drain', { errorCode: 'receipt_lost', failedAtUtc: '2026-07-11T02:41:01.000Z' })
+  assert.equal(planRolloutRecovery(irreversible).action, 'resume-release-activation-same-cutover')
 })
 
 test('Contract migration disables automatic rollback and survives a later failure as manual recovery', () => {

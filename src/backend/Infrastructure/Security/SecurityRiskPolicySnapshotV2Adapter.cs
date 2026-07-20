@@ -8,10 +8,9 @@ public static class SecurityRiskPolicySnapshotV2Adapter
     public const string DefaultPolicyVersion = "risk-policy-v2";
     public const string PerceptionSealedV2Matrix = "perception-sealed@v2";
     private const string DefaultActionName = "*";
-    private const string CaptchaV1ChallengeKind = "captchaV1";
     private const string Sha256PowV1ChallengeKind = "sha256PowV1";
     private const string Argon2idPoSpaceV1ChallengeKind = "argon2idPoSpaceV1";
-    private const string TextTaskV2ChallengeKind = "perceptionTextTaskV2";
+    private const string CharacterV3ChallengeKind = "perceptionCharacterV3";
     private const string LocalizationV2ChallengeKind = "perceptionLocalizationV2";
     private const string MicroInteractionV2ChallengeKind = "perceptionMicroInteractionV2";
     private const string AdminPasskeyStepUpV1ChallengeKind = "adminPasskeyStepUpV1";
@@ -64,9 +63,9 @@ public static class SecurityRiskPolicySnapshotV2Adapter
                 SecurityRiskPolicyOutcomes.Challenge,
                 0,
                 19,
-                [CaptchaV1ChallengeKind],
+                [CharacterV3ChallengeKind],
                 1,
-                "recovery_key_mandatory_captcha"));
+                "recovery_key_mandatory_character"));
         var notificationSubscribePolicy = CreatePerceptionSealedV2Policy(
             RiskActionNames.NotificationSubscribe,
             SecurityRiskPolicyOutcomes.HardChallenge,
@@ -113,12 +112,10 @@ public static class SecurityRiskPolicySnapshotV2Adapter
         {
             [SecurityRiskSources.AntiCrawler] = SecuritySystemModes.Normalize(options.Mode),
             [SecurityRiskSources.Auth] = SecuritySystemModes.Enforce,
-            [SecurityRiskSources.Captcha] = SecuritySystemModes.Enforce,
             [SecurityRiskSources.CommentGovernance] = SecuritySystemModes.Enforce,
             [SecurityRiskSources.Pow] = SecuritySystemModes.Normalize(pow?.Options.Mode ?? SecuritySystemModes.Enforce),
             [SecurityRiskSources.PublicRead] = options.PublicReadChallengeEnabled ? SecuritySystemModes.Enforce : SecuritySystemModes.Disabled,
             [SecurityRiskSources.PoSpace] = SecuritySystemModes.Disabled,
-            [SecurityRiskSources.PerceptionTextTask] = SecuritySystemModes.Enforce,
             [SecurityRiskSources.PerceptionLocalization] = SecuritySystemModes.Enforce,
             [SecurityRiskSources.PerceptionMicroInteraction] = SecuritySystemModes.Disabled
         };
@@ -179,7 +176,7 @@ public static class SecurityRiskPolicySnapshotV2Adapter
             [
                 lowBand ?? new SecurityRiskDecisionBand(SecurityRiskPolicyOutcomes.Allow, 0, 19, [], 0, "perception_sealed_v2_allow"),
                 new SecurityRiskDecisionBand(SecurityRiskPolicyOutcomes.Challenge, 20, 39, [Sha256PowV1ChallengeKind], 1, "perception_sealed_v2_pow"),
-                new SecurityRiskDecisionBand(SecurityRiskPolicyOutcomes.Challenge, 40, 59, [TextTaskV2ChallengeKind], 2, "perception_sealed_v2_text_task"),
+                new SecurityRiskDecisionBand(SecurityRiskPolicyOutcomes.Challenge, 40, 59, [CharacterV3ChallengeKind], 2, "perception_character_v3"),
                 new SecurityRiskDecisionBand(SecurityRiskPolicyOutcomes.HardChallenge, 60, 79, [LocalizationV2ChallengeKind, Sha256PowV1ChallengeKind], 3, "perception_sealed_v2_localization_pow"),
                 new SecurityRiskDecisionBand(band80Outcome, 80, 89, band80ChallengeKinds, band80EscalationLevel, band80Reason),
                 new SecurityRiskDecisionBand(SecurityRiskPolicyOutcomes.Block, 90, 1000, [], 0, "perception_sealed_v2_block")

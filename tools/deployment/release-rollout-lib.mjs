@@ -14,9 +14,9 @@ export const ROLLOUT_STAGES = Object.freeze([
   'candidate-smoke',
   'compatibility-smoke',
   'gateway-switch',
+  'source-drain',
   'active-fence',
   'public-verify',
-  'source-drain',
   'source-stop',
   'release-evidence'
 ])
@@ -43,6 +43,8 @@ export function createRolloutState(input) {
     switchCommitted: false,
     gatewayGeneration: null,
     contractMigrationApplied: false,
+    destructiveCutoverStarted: false,
+    activationCommitted: false,
     rollbackAllowed: true,
     candidateOnly: false,
     outcome: null,
@@ -77,6 +79,12 @@ export function startRolloutStage(state, stageValue, at = new Date().toISOString
 export function completeRolloutStage(state, stageValue, input = {}) {
   validateRolloutState(state)
   const stage = rolloutStage(stageValue)
+  if (stage === 'source-drain' && state.destructiveCutoverStarted !== true) {
+    throw new Error('source-drain cannot complete before the destructive cutover boundary is durable')
+  }
+  if (stage === 'active-fence' && state.activationCommitted !== true) {
+    throw new Error('active-fence cannot complete before activation is durably committed')
+  }
   if (state.currentStage !== stage) throw new Error(`cannot complete ${stage}; current stage is ${state.currentStage ?? 'none'}`)
   const completedAtUtc = timestamp(input.completedAtUtc ?? new Date().toISOString(), 'stage.completedAtUtc')
   const record = state.stages.at(-1)
@@ -134,6 +142,29 @@ export function markContractMigrationApplied(state, at = new Date().toISOString(
   state.contractMigrationApplied = true
   state.rollbackAllowed = false
   state.updatedAtUtc = timestamp(at, 'contractMigrationAppliedAtUtc')
+  validateRolloutState(state)
+  return state
+}
+
+export function markDestructiveCutoverStarted(state, at = new Date().toISOString()) {
+  validateRolloutState(state)
+  if (!state.switchCommitted || state.currentStage !== 'source-drain') {
+    throw new Error('destructive cutover boundary requires the committed gateway and running source-drain stage')
+  }
+  state.destructiveCutoverStarted = true
+  state.updatedAtUtc = timestamp(at, 'destructiveCutoverStartedAtUtc')
+  validateRolloutState(state)
+  return state
+}
+
+export function markActivationCommitted(state, at = new Date().toISOString()) {
+  validateRolloutState(state)
+  if (!state.destructiveCutoverStarted || state.currentStage !== 'active-fence'
+      || !state.completedStages.includes('source-drain')) {
+    throw new Error('activation requires completed destructive cutover and running active-fence stage')
+  }
+  state.activationCommitted = true
+  state.updatedAtUtc = timestamp(at, 'activationCommittedAtUtc')
   validateRolloutState(state)
   return state
 }
@@ -284,6 +315,10 @@ export function validateRolloutState(state) {
   if (state.gatewayGeneration !== null && (!Number.isSafeInteger(state.gatewayGeneration) || state.gatewayGeneration < 1)) throw new Error('gatewayGeneration is invalid')
   if (state.switchCommitted !== (state.gatewayGeneration !== null)) throw new Error('switchCommitted and gatewayGeneration disagree')
   if (typeof state.contractMigrationApplied !== 'boolean' || typeof state.rollbackAllowed !== 'boolean') throw new Error('migration rollback flags are invalid')
+  if (typeof state.destructiveCutoverStarted !== 'boolean') throw new Error('destructiveCutoverStarted must be boolean')
+  if (state.destructiveCutoverStarted && !state.switchCommitted) throw new Error('destructive cutover requires a committed gateway switch')
+  if (typeof state.activationCommitted !== 'boolean') throw new Error('activationCommitted must be boolean')
+  if (state.activationCommitted && !state.destructiveCutoverStarted) throw new Error('activation cannot precede destructive cutover')
   if (state.contractMigrationApplied && state.rollbackAllowed) throw new Error('Contract migration must disable rollback')
   if (typeof state.candidateOnly !== 'boolean') throw new Error('candidateOnly must be boolean')
   if (state.status === 'candidate_ready' && !state.candidateOnly) throw new Error('candidate_ready status requires candidateOnly')
@@ -314,11 +349,16 @@ function recoveryPlan(state, failedStage) {
   if (!state.switchCommitted) {
     return { action: 'gateway-recover', automatic: true, reason: 'gateway_ownership_uncommitted', failedStage }
   }
-  if (failedStage === 'active-fence' || failedStage === 'public-verify') {
+  if (failedStage === 'source-drain' && !state.destructiveCutoverStarted) {
     return { action: 'rollback-gateway-to-source', automatic: true, reason: 'post_switch_gate_failed_before_source_drain', failedStage }
   }
-  if (index <= drainIndex) {
-    return { action: 'resume-source-drain', automatic: true, reason: 'target_committed_source_not_drained', failedStage }
+  if (state.destructiveCutoverStarted && index >= drainIndex && index <= ROLLOUT_STAGES.indexOf('public-verify')) {
+    return {
+      action: 'resume-release-activation-same-cutover',
+      automatic: true,
+      reason: 'destructive_cutover_started_old_source_rollback_forbidden',
+      failedStage
+    }
   }
   if (failedStage === 'source-stop') {
     return { action: 'retain-source-report-cleanup-blocker', automatic: false, reason: 'source_stop_failed_after_commit', failedStage }
@@ -368,7 +408,7 @@ function recoveryAction(value) {
     'preserve-source-stop-candidate',
     'gateway-recover',
     'rollback-gateway-to-source',
-    'resume-source-drain',
+    'resume-release-activation-same-cutover',
     'retain-source-report-cleanup-blocker',
     'resume-release-evidence',
     'manual-contract-recovery'

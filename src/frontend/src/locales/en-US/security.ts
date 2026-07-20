@@ -31,6 +31,8 @@ export const security = {
     perceptionExpired: 'Verification has expired.',
     perceptionCancelled: 'Verification was cancelled.',
     unsupported: 'This verification method is not supported.',
+    capabilityUpdate: 'Verification capabilities changed. Reloading this page.',
+    capabilityUpdateFailed: 'Verification capabilities changed, but this page could not reload automatically.',
     preparing: 'Preparing security verification.'
   }
 } as const

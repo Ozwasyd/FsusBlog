@@ -1,6 +1,6 @@
 # RiskControl production tracking plan
 
-本文档是 RiskControl Control Plane 的生产跟踪计划。它只固定架构、顺序和验收边界；具体实现仍由后续子 issue 独立交付、独立测试、独立验收。
+RiskControl 收敛所有风险信号、裁决、challenge、proof、enforcement、审计和管理策略。当前感知挑战面只包含 `perceptionCharacterV3`、`perceptionLocalizationV2` 与 `perceptionMicroInteractionV2`；V2 只承担 Localization 和 Micro-interaction，不承担字符或文本任务。所有 provider 共享 `SecurityChallengeEnvelope`、`SecurityChallengeAssignment` 与一次性 proof 契约。
 
 ## Production architecture
 
@@ -8,92 +8,28 @@
 Risk Signal -> Risk Score -> Risk Decision -> Challenge Orchestration -> Proof Verification -> Enforcement -> Audit / Metrics / Admin Policy
 ```
 
-最终目标是把 PoW、RateLimiter、AntiCrawler、HumanReadProof、Passkey step-up、匿名评论和 notification stream 的风险信号收敛到同一个决策面：
+- endpoint 通过 `WithRiskAction(...)` 声明 action 与 route key；业务 handler 不自行选择 challenge。
+- `SecurityChallengeOrchestrator` 只从已注册 provider 中按服务端策略顺序签发 assignment；缺 provider、非法 kind、持久化失败或 proof mint 失败都 fail closed。
+- `SecurityChallengeEnvelope` 是 required member 的权威有序集合。客户端不得重排、删除、替换或自行降级成员。
+- provider verify 成功后只 mint 统一 `X-Fsus-Challenge-Proof`；业务 filter 一次性消费并验证 action、route、subject、IP、device、kind、policy version 与 expiry 绑定。
+- 浏览器 proof 只存进程内，不进入 URL、Web Storage、BroadcastChannel、日志或重连状态。
 
-- Risk Signal：按 action、source、reason、device fingerprint、viewer identity 和 route 汇总输入。
-- Risk Score：把事件窗口、历史失败、速率、设备可信度和 proof 结果转换为可解释风险分。
-- Risk Decision：输出 allow、challenge、step-up、block、shadow-audit 等裁决，不在端点里散落条件分支。
-- Challenge Orchestration：按策略选择 Sha256Pow、CaptchaV1、PoSpace、Passkey step-up 或后续 provider。
-- Proof Verification：所有 proof 一次性消费，绑定 action、subject、device、IP/UA hash、challenge id 和过期时间。
-- Enforcement：Minimal API filter / middleware 执行裁决；业务 handler 只处理已通过的请求。
-- Audit / Metrics / Admin Policy：策略版本、模拟器、事件、readiness、rollback 和审计全部进入后台安全控制面。
+## Current challenge policy
 
-## Contract rules
+V3 是字符感知挑战的唯一当前实现。LocalizationV2 与 MicroInteractionV2 继续使用 `fsu.challenge/perception-sealed@v2`、AEAD sealed token、坐标/步骤响应、render recipe 与 `RecipeHash`。公开 payload 不包含期望答案、期望坐标、期望步骤或语义标签；服务端解封后校验 assignment、recipe、action、route、subject、IP、device 与 policy binding，再通过 Redis attempt gate 和 consume-once。
 
-- AEDS / binary contract first：新公开安全交互优先通过 `/api/binary/**` frame 暴露。
-- no public JSON fallback：不得为了 RiskControl 新增公开 JSON fallback；内部 bridge 仍必须保持 admin-only、binary-bridge internal-only。
-- 所有策略必须有 observe / enforce / strict 或等价降级路径；生产 readiness 必须能区分配置缺失、disabled 和 fail-closed。
-- 每个子 issue 只交付自己的最小实现单元，不抢跑后续 provider、UI 或策略持久化。
-- 子 issue 的测试必须覆盖匿名请求、登录请求、admin 请求、notification stream 和 binary 边界中与该 issue 有关的路径。
+策略只引用当前 manifest 中存在且 provider-ready 的 kind。客户端上报能力不足时只能回送低基数原因和原 assignment binding；服务端重新读取当前策略，撤销旧 assignment，并改发仍被策略允许的成员或拒绝。客户端不能指定替代 kind。
 
-## Action registry baseline
+## Rollout and rollback
 
-RiskControl action 名称集中由 `RiskActionNames` 定义。首批生产 action 为 `public.read`、`comment.create`、`comment.reply`、`auth.passkey.begin`、`auth.passkey.complete`、`recovery-key.verify`、`notification.subscribe`、`admin.security.write` 和 `admin.comment.batch`。`auth.login` 仅保留为 legacy migration/test action 名，不对应生产用户侧 password endpoint。Endpoint 必须通过 `WithRiskAction(...)` 或等价 metadata 声明 action / routeKey；测试和开发环境可以用 `RiskActionRegistry.FindMissingActionMetadata(...)` 扫描受保护 endpoint 的缺失声明。
+生产按 `observe -> enforce -> strict` 渐进，并保留 `disabled` 与事故期 `lockdown`。无需重启的回退通过 admin binary policy API 把受影响 action 切换到 `observe`，或恢复 last-known-good snapshot；不得通过恢复已退休 provider、别名 parser、JSON fallback 或弱绑定 proof 回退。
 
-## Context factory baseline
+每个阶段必须覆盖：
 
-`RiskControlContextFactory` 是后续 Risk Score / Decision 的唯一请求上下文抽取入口。它只读取 `HttpContext` 中已经归一或显式标记的字段：客户端 IP 使用 `GetClientIp()`，因此不会直接信任 raw `X-Forwarded-For` / `X-Real-IP`；UA 使用 `GetUserAgent()` 并保留 missing/present 状态；action / routeKey 来自 endpoint `RiskActionEndpointMetadata`；actor 从 `ClaimTypes.NameIdentifier`、`identity_kind`、`sid`、`admin_id` 和 `admin_sid` claim 解析；`VerifiedCrawler` / `SocialPreviewBot` 只读取 `HttpContext.Items` 中由反爬虫中间件设置的布尔标记。`X-Fsus-Device-Fp` 会先做长度和字符集校验，只输出状态、长度和 SHA-256 hash，不保留 raw 值；region 只作为请求 hint 归一为短字符串并带来源，不参与法律地区裁决。
+- 匿名请求：公开读、匿名评论与 notification preflight 的 challenge/proof binding。
+- 登录请求：Passkey、恢复流程及登录态评论不能绕过当前策略。
+- admin 请求：策略写入仍要求 admin principal、`system.config` 与 `X-Fsus-Mfa-Proof`。
+- notification stream：只使用 path-bound 短效 grant，重连不复用 proof。
+- binary：issue、verify、envelope、proof 与业务恢复全程只走 AEDS；未知或退休数值 kind fail closed。
 
-## Policy snapshot v2 baseline
-
-`SecurityRiskPolicySnapshotV2` 固定生产 RiskControl 的策略外形：全局模式为 `disabled`、`observe`、`enforce`、`strict` 或 `lockdown`；每个 action 可覆盖 allow / challenge / hardChallenge / queue / block 阈值、challenge kind、hard challenge 组合、escalation level 和匿名写入锁定语义；snapshot 带 `PolicyVersion`、`LastKnownGoodSnapshotId`、子系统模式和 max risk score。迁移期 `SecurityRiskPolicySnapshotV2Adapter` 从现有 AntiCrawler / PoW runtime snapshot 生成 V2，并把 V2 投影回旧 `SecurityRiskPolicySnapshot`，保持 `RiskAwarePublicReadFilter` 的旧读取路径不变。默认 public-read 行为与旧逻辑等价：低于 `RequireChallengeScore` 放行，达到后要求 `security.pow`，达到 `BlockScore` 后 block。默认 auth/comment 行为是低风险放行，中风险 `captchaV1`，高风险 `captchaV1 + sha256PowV1`，达到 block 阈值后 block；observe 只记录不执行挑战或拦截；strict 使用风险权重提前触发阈值；lockdown 在后续 filter 接入时用于关闭匿名写入。
-
-## Decision service baseline
-
-`RiskDecisionService` 把 `RiskControlContext`、`SecurityRiskPolicySnapshotV2` 和当前风险分转换为 `RiskDecision`。业务 filter / middleware 不再内联阈值判断，只根据 `RiskDecisionKind` 执行已有 proof 校验、排队、限流或拦截。`RiskAwarePublicReadFilter` 是迁移期第一个接入点：verified crawler 与 social preview bot 继续直接 allow；public-read 低于 challenge 阈值 allow，达到阈值返回 challenge，达到 block 阈值返回 block；PoW proof 的签发与校验仍由旧 PoW 服务负责，后续 challenge orchestrator 再替换。
-
-## Challenge persistence baseline
-
-RiskControl challenge 的热路径一次性消费仍可使用 Redis，但生产审计真源必须落在 PostgreSQL。`security_challenge` 保存签发记录和当前状态，状态只允许 `issued`、`verified`、`expired`、`replayed`、`failed`、`revoked`；`security_challenge_attempt` 保存每次验证、失败、重放、过期或撤销 attempt。两张表只保存 kind、algorithm、action、routeKey、subjectHash、clientIpHash、deviceFpHash、policyVersion、payloadHash、traceId、traceparent 和时间戳等 metadata，不保存 challenge payload 原文、proof 原文、IP 原文或 device fingerprint 原文。`SecurityChallengePersistenceService` 是 provider / orchestrator 后续接入的持久化边界：`IssueAsync` 写入 `issued`，`RecordAttemptAsync` 在同一事务内写 attempt 并更新 challenge 状态，`ExpireAsync` / `RevokeAsync` 也写终态 attempt。
-
-## Proof token baseline
-
-RiskControl proof token 使用 `X-Fsus-Challenge-Proof` 传递，独立于 admin-sensitive `X-Fsus-Mfa-Proof` 和 legacy `X-Fsus-Pow-Proof`。`SecurityChallengeProofService` 只签发 opaque token；Redis `SecurityChallengeProof` cache 保存绑定 claims 并通过 `ConsumeOnceAndGetAsync` 一次性消费。claims 必须绑定 challengeId、kind、action、routeKey、subjectHash、clientIpHash、deviceFpHash、issuedAt、expiresAt、nonce 和 policyVersion。消费后先删除 Redis 热路径状态，再校验所有绑定字段和过期时间；replay / Redis miss、字段 mismatch、过期和成功都通过 `SecurityChallengePersistenceService.RecordAttemptAsync` 写入 attempt。业务写入只能在 `ConsumeProofAsync.Accepted == true` 后继续。
-
-## Challenge orchestration baseline
-
-`ISecurityChallengeProvider` 是具体 challenge provider 的唯一接口，provider 必须声明稳定 `Kind` 并实现 `IssueAsync` / `VerifyAsync`。`SecurityChallengeOrchestrator` 通过 DI 注入全部 provider，按 kind 建立查找表，并根据 `RiskDecision.RequiredChallenges` 顺序签发 assignment；单次裁决可返回多个 challenge，例如 `captchaV1 + sha256PowV1`。provider 未注册、provider 返回失败、assignment 校验失败或 proof mint 失败都必须 fail closed，返回可观测 reason，并写 `risk-control` 来源的 `SecurityChallengeRejected` 风险事件。验证成功后 orchestrator 只负责调用 `ISecurityChallengeProofService.MintProofAsync` 签发统一 proof token，不直接放行业务写入。
-
-`Sha256PowChallengeProvider` 是第一个实际 provider，边界是复用旧 PoW 能力而不迁移 wire format：issue 生成 `sha256PowV1` assignment 和 `salt/difficulty/timestamp/signature` provider payload；verify 接受 legacy Base64 FPOW proof、复用 `IPowService` 与 `AdaptivePowGovernor`，并将成功、失败、重放类拒绝写入 challenge attempt。旧 `RequiresPowFilter` 和 `X-Fsus-Pow-Proof` header 仍作为兼容入口存在；统一 binary challenge endpoint 通过 `/api/binary/security/challenge` 与 `/api/binary/security/challenge/verify` 暴露。
-
-`CaptchaV1ChallengeProvider` 是第二个实际 provider，边界是服务端可验证但不直接接入业务 endpoint：issue 生成 `captchaV1` assignment、Chebyshev noise seed/参数、HMAC signature 和 `SecurityCaptchaChallenge` 一次性 cache state；verify 校验签名、绑定字段、过期、一次性消费、答案、nonce、response token 与 solve duration。provider 不生成 PNG，不保存 seed/proof 原文，失败写 challenge attempt，并通过 `CaptchaInvalid`、`CaptchaReplay`、`CaptchaSolveTooFast` / `CaptchaSolveTooSlow` detail 写入 `risk-control` 风险事件。`SecurityRiskPolicySnapshotV2Adapter` 对 legacy `auth.login` 仅保留 migration/test policy；生产用户登录使用 Passkey begin/complete 与 Recovery Key verify。
-
-`Argon2idPoSpaceV1ChallengeProvider` 是第三个 provider，默认只注册能力、不进入默认策略：`Security:PoSpaceV1:Mode` 默认为 `disabled`，`SecurityRiskPolicySnapshotV2Adapter` 也把 `pospace` 子系统设为 disabled。启用时 provider 只签发带 `saltHex`、`memoryKib`、`iterations`、`lanes` 和 `targetDurationMs` 的 assignment payload，验证阶段重新派生 Argon2id proof 并一次性消费 `SecurityPoSpaceChallenge` cache。参数越界、移动 UA 超过内存上限、provider disabled、payload 错误、proof mismatch 和 replay 都 fail closed；RiskDecision 在 PoSpace disabled 或移动 UA 时降级到 `captchaV1`，避免 PoSpace 成为默认移动端成本。
-
-RiskControl enforcement filter 是统一执行业务风险裁决的 baseline：读取 endpoint action / routeKey metadata，调用 `RiskDecisionService` 处理 allow / challenge / step-up / block / queue / throttle。challenge proof 使用 `X-Fsus-Challenge-Proof` 加 `X-Fsus-Challenge-Id`、`X-Fsus-Challenge-Kind` 定位并消费绑定 claims；缺失或消费失败返回 428，block / throttle 返回 429，只有 proof consume 成功才进入业务 handler。旧 `RequiresPowFilter` 保持 legacy wrapper，避免一次性迁移现有 PoW endpoint。
-
-## Ordered implementation units
-
-| Order | Unit | Issue | Acceptance boundary |
-| ---: | --- | --- | --- |
-| 1 | Risk action registry | #459 | Protected flows have stable action ids, owner, subject type, default policy and binary/admin labels. |
-| 2 | Risk control context factory | #460 | Request, viewer, device, route and admin context are normalized before scoring. |
-| 3 | Risk policy snapshot v2 | #461 | Versioned modes, thresholds, provider toggles and rollout metadata are represented without changing old public APIs. |
-| 4 | Risk decision service | #462 | Score inputs produce allow/challenge/block decisions with reason codes and no endpoint-specific scoring. |
-| 5 | Security challenge contract | #463 | Challenge assignment and proof envelopes have AEDS frame contracts and validation constants. |
-| 6 | Challenge persistence schema | #464 | Durable challenge state supports expiry, attempt limits, consumed state and audit-friendly metadata. |
-| 7 | Challenge proof token service | #465 | Proof token is one-time, action-bound and replay-resistant. |
-| 8 | Challenge orchestrator | #466 | Provider selection, assignment creation and verification flow through one service interface. |
-| 9 | PoW provider migration | #467 | Legacy PoW becomes Sha256Pow provider without changing existing proof semantics. |
-| 10 | RequiresRiskControlFilter | #468 | New filter executes RiskControl decisions; legacy RequiresPowFilter remains as compatibility wrapper. |
-| 11 | Binary challenge endpoints | #469 | Runtime issue/verify APIs use AEDS frames, fail closed on unsupported kind, and mint one-time proof tokens. |
-| 12 | CaptchaV1 backend | #470 | Captcha provider is server-verifiable and disabled-by-default until policy enables it. |
-| 13 | CaptchaV1 frontend | #471 | FsusUI challenge component and worker can solve/display assignment without endpoint-specific glue. |
-| 14 | CaptchaV1 integration policy | #472 | Auth/comment escalation rules choose CaptchaV1 only through RiskControl policy. |
-| 15 | PoSpace contract/provider | #473 | Argon2idPoSpaceV1 provider is behind disabled-by-default policy and explicit resource limits. |
-| 16 | PoSpace frontend worker | #474 | Device capability gate and worker execution are isolated from business forms. |
-| 17 | HumanReadProof risk integration | #476 | Read proof lowers risk or adds negative signals only; it does not become identity proof. |
-| 18 | Auth/recovery risk integration | #478 | Login, passkey and recovery flows route through action ids and challenge decisions. |
-| 19 | Anonymous comment risk integration | #480 | Anonymous create/reply uses RiskControl before comment persistence. |
-| 20 | Notification stream risk integration | #481 | Anonymous stream gating uses RiskControl challenge policy while preserving AEDS/WebSocket semantics. |
-| 21 | Admin risk console | #490 | `/user/manage/security` exposes policy, events and challenges without bypassing admin principal checks. |
-| 22 | Risk simulator | #492 | Admin can simulate action/context inputs and see decision reasons without mutating state. |
-| 23 | Metrics/audit/readiness | #494 | RiskControl emits structured logs, metrics, audit events and readiness checks. |
-| 24 | Full test matrix | #495 | Unit, integration, E2E and performance gates cover the control plane and provider fallbacks. |
-| 25 | Production rollout gates | #498 | `docs/risk-control-rollout.md` defines observe-first, emergency disable, fail-closed and rollback criteria. |
-
-## Dependency notes
-
-- #469 challenge issue/verify endpoints land after the core filter/orchestrator shape is clear and before Captcha/PoSpace providers depend on runtime assignment APIs.
-- Privacy/ZK anonymous comment work (#475, #477, #479, #482, #483-#503) depends on the RiskControl action/context/challenge foundation but keeps its own credential, ticket and proof acceptance criteria.
-- Later security changes must update this table if they insert a new prerequisite before an existing unit.
+切换后记录 active policy version、readiness、issue/verify/replay/revoke 指标、428/429、Redis/PostgreSQL 错误率和回滚演练结果。具体操作见 [RiskControl production rollout gates](risk-control-rollout.md)。

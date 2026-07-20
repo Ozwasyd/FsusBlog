@@ -20,13 +20,15 @@ scenarios:
           - .tmp/security/risk-control-test-matrix.json
 
     - id: RISKCONTROL-PROVIDER-SURFACES
-      scenario: PoW, Captcha, PoSpace, HumanReadProof, Passkey and AdminStepUp challenge providers stay represented
+      scenario: PoW, sealed perception, PoSpace, HumanReadProof, Passkey and AdminStepUp challenge providers stay represented
       owner: ServerContractAgent
       status: automated
       requiredProviders:
           [
               sha256PowV1,
-              captchaV1,
+              perceptionLocalizationV2,
+              perceptionMicroInteractionV2,
+              perceptionCharacterV3,
               argon2idPoSpaceV1,
               humanReadProofV1,
               passkeyStepUpV1,
@@ -36,7 +38,8 @@ scenarios:
           - src/shared/Contracts/Security/SecurityChallengeContracts.cs
           - src/backend/Services/Security/SecurityChallengeOrchestrator.cs
           - src/backend/Services/Security/Sha256PowChallengeProvider.cs
-          - src/backend/Services/Security/CaptchaV1ChallengeProvider.cs
+          - src/backend/Services/Security/PerceptionChallengeV2Providers.cs
+          - src/backend/Services/Security/PerceptionCharacterV3Provider.cs
           - src/backend/Services/Security/Argon2idPoSpaceV1ChallengeProvider.cs
           - src/backend/Services/Security/HumanReadProofV1ChallengeProvider.cs
           - src/backend/Services/Security/PasskeyService.cs
@@ -44,7 +47,8 @@ scenarios:
       tests:
           - tests/backend/Unit/SecurityChallengeContractTests.cs
           - tests/backend/Unit/Sha256PowChallengeProviderTests.cs
-          - tests/backend/Unit/CaptchaV1ChallengeProviderTests.cs
+          - tests/backend/Unit/PerceptionChallengeV2E2eTests.cs
+          - tests/backend/Unit/PerceptionCharacterV3Tests.cs
           - tests/backend/Unit/Argon2idPoSpaceV1ChallengeProviderTests.cs
           - tests/backend/Unit/HumanReadProofV1ChallengeProviderTests.cs
           - tests/backend/Unit/PasskeyServiceTests.cs
@@ -108,30 +112,30 @@ scenarios:
           - src/frontend/src/workers/security
       tests:
           - tests/frontend/e2e/security/risk-control-console.spec.ts
-          - tests/frontend/e2e/security/captcha-challenge.spec.ts
+          - tests/frontend/e2e/security/perception-character-v3-dialog.spec.ts
           - tests/frontend/e2e/security/pospace-worker.spec.ts
       evidence:
           - src/frontend/test-results/playwright/security
 
     - id: RISKCONTROL-PERFORMANCE-BUDGETS
-      scenario: decision, PoW verify, Captcha verify and proof consume p99 budgets are declared and fail closed
+      scenario: decision, PoW verify, perception verify and proof consume p99 budgets are declared and fail closed
       owner: ServerContractAgent
       status: automated
       performanceBudgetP99Ms:
           decisionP99Ms: 5
           powVerifyP99Ms: 50
-          captchaVerifyP99Ms: 75
+          perceptionVerifyP99Ms: 75
           proofConsumeP99Ms: 15
       code:
           - src/backend/Infrastructure/Security/RiskDecisionService.cs
           - src/backend/Services/Security/Sha256PowChallengeProvider.cs
-          - src/backend/Services/Security/CaptchaV1ChallengeProvider.cs
+          - src/backend/Services/Security/PerceptionChallengeV2Providers.cs
           - src/backend/Services/Security/SecurityChallengeProofService.cs
           - tools/test/lanes/backend-qps.sh
       tests:
           - tests/backend/Unit/RiskDecisionServiceTests.cs
           - tests/backend/Unit/Sha256PowChallengeProviderTests.cs
-          - tests/backend/Unit/CaptchaV1ChallengeProviderTests.cs
+          - tests/backend/Unit/PerceptionChallengeV2E2eTests.cs
           - tests/backend/Unit/SecurityChallengeProofServiceTests.cs
       evidence:
           - .tmp/perf/risk-control/summary.json

@@ -11,7 +11,7 @@ detached checkpoint 在这个边界之外增加一套本地、可导出的证明
 - Merkle root 与范围末尾 audit record head hash；
 - UTC 创建时间、独立 trust domain 和签名 key identity。
 
-checkpoint 使用独立 `AuditCheckpointKeyRecord` 的 `ECDSA_P256_SHA256` 私钥签名，domain 为 `fsusblog.audit.detached-checkpoint.v1`。该 key 不得复用 Audit HMAC、JWT、PoW、Captcha、Site Integrity publish-proof 或 Data Protection key。独立 verifier 只需要 checkpoint 公钥、导入的 checkpoint packages、数据库只读 record source 和可选 expected detached head；它不需要 Audit HMAC 或 checkpoint 私钥。
+checkpoint 使用独立 `AuditCheckpointKeyRecord` 的 `ECDSA_P256_SHA256` 私钥签名，domain 为 `fsusblog.audit.detached-checkpoint.v1`。该 key 不得复用 Audit HMAC、JWT、PoW、Perception、Site Integrity publish-proof 或 Data Protection key。独立 verifier 只需要 checkpoint 公钥、导入的 checkpoint packages、数据库只读 record source 和可选 expected detached head；它不需要 Audit HMAC 或 checkpoint 私钥。
 
 ## What verification detects
 

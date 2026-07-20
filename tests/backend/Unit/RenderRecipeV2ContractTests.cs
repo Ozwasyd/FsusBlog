@@ -159,7 +159,6 @@ public sealed class RenderRecipeV2ContractTests
     }
 
     [Theory]
-    [InlineData(RenderRecipeV2TaskKind.Character)]
     [InlineData(RenderRecipeV2TaskKind.Localization)]
     [InlineData(RenderRecipeV2TaskKind.MicroInteraction)]
     public void ValidateRecipe_AcceptsSharedMultiLayerDrawingPrimitives(RenderRecipeV2TaskKind taskKind)

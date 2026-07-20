@@ -185,14 +185,6 @@
       "sourceTestId": "vitest:tests/frontend/e2e/resilience/markdown-extreme.spec.ts#500k-markdown-latex-mermaid-draft-preview-and-restore-st-96b1ffa3fe"
     },
     {
-      "sourceFile": "tests/frontend/e2e/security/captcha-challenge.spec.ts",
-      "sourceTestId": "vitest:tests/frontend/e2e/security/captcha-challenge.spec.ts#captchav1-worker-exposes-canvas-fallback-and-fails-close-fc1cb79d63"
-    },
-    {
-      "sourceFile": "tests/frontend/e2e/security/captcha-challenge.spec.ts",
-      "sourceTestId": "vitest:tests/frontend/e2e/security/captcha-challenge.spec.ts#renders-locally-accepts-mobile-safe-input-and-solves-pow-9f665456f5"
-    },
-    {
       "sourceFile": "tests/frontend/e2e/security/perception-v2-worker.spec.ts",
       "sourceTestId": "vitest:tests/frontend/e2e/security/perception-v2-worker.spec.ts#renders-through-a-module-worker-and-uses-offscreencanvas-756a5114a3"
     },

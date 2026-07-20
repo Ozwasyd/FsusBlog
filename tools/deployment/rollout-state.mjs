@@ -9,7 +9,9 @@ import {
   failRolloutStage,
   failRolloutRecovery,
   markCandidateOnly,
+  markActivationCommitted,
   markContractMigrationApplied,
+  markDestructiveCutoverStarted,
   markGatewaySwitchCommitted,
   planRolloutRecovery,
   readRolloutState,
@@ -104,6 +106,12 @@ try {
     case 'mark-contract':
       markContractMigrationApplied(state, options.at)
       break
+    case 'mark-destructive-cutover':
+      markDestructiveCutoverStarted(state, options.at)
+      break
+    case 'mark-activation':
+      markActivationCommitted(state, options.at)
+      break
     case 'candidate-only':
       markCandidateOnly(state, options.at)
       break
@@ -130,7 +138,7 @@ try {
       })
       break
     default:
-      throw new Error('usage: rollout-state.mjs <create|read|start-stage|complete-stage|fail-stage|mark-switch|mark-contract|candidate-only|complete|recovery-plan|complete-recovery|fail-recovery> --state <file> [options]')
+      throw new Error('usage: rollout-state.mjs <create|read|start-stage|complete-stage|fail-stage|mark-switch|mark-contract|mark-destructive-cutover|mark-activation|candidate-only|complete|recovery-plan|complete-recovery|fail-recovery> --state <file> [options]')
   }
   if (command !== 'read') writeRolloutStateAtomic(file, state)
   console.log(JSON.stringify(state))

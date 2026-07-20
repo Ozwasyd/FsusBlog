@@ -19,6 +19,7 @@
                 "docs/**/issues-*",
                 "docs/**/*handoff*",
                 "docs/**/*implementation-notes*",
+                "docs/history/**",
                 "docs/reports/**"
             ],
             "status": "historical"

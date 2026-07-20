@@ -10,6 +10,8 @@ import {
   ROLLOUT_STAGES,
   completeRolloutStage,
   createRolloutState,
+  markActivationCommitted,
+  markDestructiveCutoverStarted,
   markGatewaySwitchCommitted,
   startRolloutStage,
   writeRolloutStateAtomic
@@ -43,7 +45,9 @@ const requiredAuxiliaryNames = [
   'releaseManifest', 'backupRestoreGate', 'migrationExpand', 'candidateReadiness',
   'assetMaterialization', 'retentionPrepared', 'retainedAssets', 'publicAotWarm',
   'candidateSmoke', 'compatibilityMatrix', 'gatewayTransition', 'activeFenceAcquire',
-  'activeFenceSourceRevoke', 'activeFenceVerify', 'publicTrafficCheckpoint',
+  'activeFenceSourceRevoke', 'activeFenceVerify', 'challengeKindCutoverReceipt',
+  'challengeKindCutoverAcceptance', 'challengeKindCutoverGate', 'challengeProtocolActivation',
+  'publicTrafficCheckpoint',
   'sourceDrainSnapshot', 'sourceDrainGate', 'targetHealth',
   'retentionDrainComplete', 'operatorNote'
 ]
@@ -114,6 +118,8 @@ function advanceState(fixture, { includeFinalStage = false, runFinalStage = fals
     const stage = ROLLOUT_STAGES[index]
     const minute = String(index).padStart(2, '0')
     startRolloutStage(state, stage, `2026-07-11T00:${minute}:00.000Z`)
+    if (stage === 'source-drain') markDestructiveCutoverStarted(state, `2026-07-11T00:${minute}:00.500Z`)
+    if (stage === 'active-fence') markActivationCommitted(state, `2026-07-11T00:${minute}:00.500Z`)
     completeRolloutStage(state, stage, {
       completedAtUtc: `2026-07-11T00:${minute}:01.000Z`,
       evidencePath: stageEvidenceFile(fixture, stage)
@@ -424,6 +430,14 @@ function writeAuxiliary(fixture) {
         }
       : name === 'publicAotWarm'
         ? validPublicAotWarmEvidence()
+        : name === 'challengeKindCutoverReceipt'
+          ? { schemaVersion: 'fsus.security-challenge-kind-cutover-receipt.v1', accepted: true, status: 'applied', dryRun: false, releaseId: target.releaseId, slot: target.slot, generation: target.runtimeGeneration }
+        : name === 'challengeKindCutoverAcceptance'
+          ? { schemaVersion: 'fsus.security-challenge-kind-cutover-acceptance.v1', accepted: true, releaseId: target.releaseId, slot: target.slot, generation: target.runtimeGeneration }
+        : name === 'challengeKindCutoverGate'
+          ? { schema: 'fsusblog.release-challenge-kind-cutover-gate.v1', status: 'pass', rolloutId, releaseId: target.releaseId, slot: target.slot, generation: target.runtimeGeneration, lifecycle: { destructiveCutoverStarted: true, activationCommitted: false, stage: 'source-drain' }, bindings: { backendFence: true, frontend: true, staticAssets: true, cutover: true, protocolActivation: true }, errors: [] }
+        : name === 'challengeProtocolActivation'
+          ? { schemaVersion: 'fsus.security-challenge-protocol-activation.v1', accepted: true, status: 'open', operationId: 'op', releaseId: target.releaseId, slot: target.slot, generation: target.runtimeGeneration }
         : name === 'operatorNote'
         ? {
             schema: 'fsusblog.release-rollout-operator-note.v1',

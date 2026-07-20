@@ -305,14 +305,14 @@ public sealed class ObservabilityTests
         listener.Start();
 
         FsusObservability.RecordSecurityChallengeV2Issued(
-            "perceptionTextTaskV2",
+            "perceptionMicroInteractionV2",
             "comment.create",
             "risk-policy-v2",
             "character",
             payloadBytes: 9_200,
             issueDuration: TimeSpan.FromMilliseconds(140));
         FsusObservability.RecordSecurityChallengeV2Verified(
-            "perceptionTextTaskV2",
+            "perceptionMicroInteractionV2",
             "comment.create",
             "risk-policy-v2",
             "character",
@@ -320,7 +320,7 @@ public sealed class ObservabilityTests
             verifyDuration: TimeSpan.FromMilliseconds(80),
             solveDuration: TimeSpan.FromMilliseconds(2_400));
         FsusObservability.RecordSecurityChallengeV2Failed(
-            "perceptionTextTaskV2",
+            "perceptionMicroInteractionV2",
             "comment.create",
             "perception_payload_invalid",
             "risk-policy-v2",
@@ -329,7 +329,7 @@ public sealed class ObservabilityTests
             verifyDuration: TimeSpan.FromMilliseconds(85),
             solveDuration: TimeSpan.FromMilliseconds(2_400));
         FsusObservability.RecordSecurityChallengeV2Replayed(
-            "perceptionTextTaskV2",
+            "perceptionMicroInteractionV2",
             "comment.create",
             "perception_replayed",
             "risk-policy-v2",
@@ -373,7 +373,7 @@ public sealed class ObservabilityTests
 
         Exception? exception = Record.Exception(() =>
             FsusObservability.RecordSecurityChallengeV2Verified(
-                "perceptionTextTaskV2",
+                "perceptionMicroInteractionV2",
                 "comment.create",
                 "risk-policy-v2",
                 "character",

@@ -495,17 +495,6 @@
             "l2JitterRatio": 0
         },
         {
-            "id": "SecurityCaptchaChallenge",
-            "domain": "sec",
-            "resource": "captcha-challenge",
-            "l1Ttl": "TimeSpan.Zero",
-            "l2Ttl": "TimeSpan.FromMinutes(5)",
-            "negativeTtl": "null",
-            "invalidationTags": [],
-            "securityCritical": true,
-            "l2JitterRatio": 0
-        },
-        {
             "id": "SecurityChallengeEnvelope",
             "domain": "sec",
             "resource": "challenge-envelope",

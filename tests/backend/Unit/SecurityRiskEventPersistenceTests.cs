@@ -177,17 +177,17 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
         await sink.AddRiskAsync(
             new SecurityRiskSignal(
                 context,
-                SecurityRiskReason.CaptchaInvalid,
+                SecurityRiskReason.SecurityChallengeRejected,
                 5,
                 TimeSpan.FromMinutes(5),
-                SecurityRiskSources.Captcha,
+                SecurityRiskSources.PerceptionMicroInteraction,
                 RiskActionNames.AuthLogin,
-                "captcha_invalid"),
+                "characterChallenge_invalid"),
             CancellationToken.None);
 
         policy.Received(1).RecordRiskEvent(Arg.Is<AntiCrawlerRiskEventResponse>(item =>
-            item.Source == SecurityRiskSources.Captcha &&
-            item.Reason == nameof(SecurityRiskReason.CaptchaInvalid) &&
+            item.Source == SecurityRiskSources.PerceptionMicroInteraction &&
+            item.Reason == nameof(SecurityRiskReason.SecurityChallengeRejected) &&
             item.ScoreDelta == 5 &&
             item.TotalScore == 8));
         Assert.Equal(1, queue.Snapshot().QueuedCount);
@@ -197,7 +197,7 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
         Assert.Equal(1, flushed);
         Assert.Contains(workerLogger.Messages, static message =>
             message.Contains("security-risk-persist-failed", StringComparison.Ordinal) &&
-            message.Contains(nameof(SecurityRiskReason.CaptchaInvalid), StringComparison.Ordinal));
+            message.Contains(nameof(SecurityRiskReason.SecurityChallengeRejected), StringComparison.Ordinal));
     }
 
     [Fact]

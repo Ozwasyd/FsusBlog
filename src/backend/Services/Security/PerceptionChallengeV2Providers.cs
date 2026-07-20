@@ -40,7 +40,6 @@ public sealed class PerceptionChallengeV2TokenProtector(IPerceptionSealedTokenSe
             claims.Family,
             claims.Variant,
             claims.RecipeHashHex,
-            claims.ExpectedAnswerHashHex ?? string.Empty,
             claims.ExpectedX.HasValue && claims.ExpectedY.HasValue
                 ? PerceptionChallengeV2Hashing.HashPointHex(claims.ExpectedX.Value, claims.ExpectedY.Value)
                 : string.Empty,
@@ -107,7 +106,6 @@ public sealed class PerceptionChallengeV2TokenProtector(IPerceptionSealedTokenSe
             DateTimeOffset.FromUnixTimeMilliseconds(payload.IssuedAtUnixMs),
             DateTimeOffset.FromUnixTimeMilliseconds(payload.ExpiresAtUnixMs),
             payload.MaxAttempts,
-            string.IsNullOrWhiteSpace(payload.ExpectedAnswerHashHex) ? null : payload.ExpectedAnswerHashHex,
             string.IsNullOrWhiteSpace(payload.ExpectedStepHashHex) ? null : payload.ExpectedStepHashHex,
             payload.ExpectedX,
             payload.ExpectedY,
@@ -149,35 +147,12 @@ public sealed class DefaultPerceptionChallengeV2TaskSource(IConfiguration config
         string variant = NormalizeVariant(family, request.Variant);
         PerceptionChallengeV2TaskMaterial material = request.TaskKind switch
         {
-            RenderRecipeV2TaskKind.Character => CreateCharacterMaterial(request, family, variant),
             RenderRecipeV2TaskKind.Localization => CreateLocalizationMaterial(request, family, variant),
             RenderRecipeV2TaskKind.MicroInteraction => CreateMicroInteractionMaterial(request, family, variant),
-            _ => CreateCharacterMaterial(request, family, variant)
+            _ => throw new ArgumentOutOfRangeException(nameof(request), request.TaskKind, "Unsupported perception task kind.")
         };
 
         return Task.FromResult(material);
-    }
-
-    private PerceptionChallengeV2TaskMaterial CreateCharacterMaterial(
-        PerceptionChallengeV2TaskSourceRequest request,
-        string family,
-        string variant)
-    {
-        string? answer = configuration["Security:PerceptionV2:TextTask:FixedText"];
-        if (string.IsNullOrWhiteSpace(answer))
-        {
-            answer = GenerateTextTaskAnswer();
-        }
-
-        string seed = ResolveRecipeSeed(request, family, variant, answer);
-        return new PerceptionChallengeV2TaskMaterial(
-            RenderRecipeV2TaskKind.Character,
-            CreateRecipe(RenderRecipeV2TaskKind.Character, family, variant, seed),
-            answer,
-            null,
-            null,
-            null,
-            null);
     }
 
     private PerceptionChallengeV2TaskMaterial CreateLocalizationMaterial(
@@ -191,7 +166,6 @@ public sealed class DefaultPerceptionChallengeV2TaskSource(IConfiguration config
         return new PerceptionChallengeV2TaskMaterial(
             RenderRecipeV2TaskKind.Localization,
             CreateRecipe(RenderRecipeV2TaskKind.Localization, family, variant, seed, x, y),
-            null,
             x,
             y,
             ResolveCoordinateTolerance(family, variant, 10d / CanvasWidth),
@@ -214,7 +188,6 @@ public sealed class DefaultPerceptionChallengeV2TaskSource(IConfiguration config
         return new PerceptionChallengeV2TaskMaterial(
             RenderRecipeV2TaskKind.MicroInteraction,
             CreateRecipe(RenderRecipeV2TaskKind.MicroInteraction, family, variant, seed, x, y),
-            null,
             x,
             y,
             ResolveCoordinateTolerance(family, variant, 8d / CanvasWidth),
@@ -257,7 +230,7 @@ public sealed class DefaultPerceptionChallengeV2TaskSource(IConfiguration config
             PerceptionChallengeV2GeneratorFamilyRegistry.PiecewiseWarp => BuildPiecewiseWarp(context),
             PerceptionChallengeV2GeneratorFamilyRegistry.TopologyCut => BuildTopologyCut(context),
             PerceptionChallengeV2GeneratorFamilyRegistry.LocalizationField => BuildLocalizationField(context),
-            _ => BuildTextStroke(context)
+            _ => BuildLocalizationField(context)
         };
         return new RenderRecipeV2(
             RenderRecipeV2Contracts.Schema,
@@ -267,50 +240,11 @@ public sealed class DefaultPerceptionChallengeV2TaskSource(IConfiguration config
             {
                 ["canvasWidth"] = CanvasWidth.ToString(CultureInfo.InvariantCulture),
                 ["canvasHeight"] = CanvasHeight.ToString(CultureInfo.InvariantCulture),
-                ["inputMode"] = taskKind == RenderRecipeV2TaskKind.Character ? "text" : "pointer",
+                ["inputMode"] = "pointer",
                 ["motionProfile"] = ResolveMotionProfile(family, variant),
                 ["palette"] = ResolvePalette(family),
                 ["contrast"] = IsDenseVariant(variant) ? "high" : "normal"
             });
-    }
-
-    private static IReadOnlyList<RenderRecipeV2Layer> BuildTextStroke(RecipeBuildContext context)
-    {
-        double density = IsDenseVariant(context.Variant) ? 1.35 : 1d;
-        return
-        [
-            new RenderRecipeV2Layer(
-                "ink-main",
-                0.92,
-                [
-                    Stroke(
-                        "stroke-a",
-                        "round",
-                        "#172033ff",
-                        0.030 * density,
-                        context.Points((0.14, 0.24), (0.34, 0.46), (0.62, 0.34))),
-                    Stroke(
-                        "stroke-b",
-                        IsDenseVariant(context.Variant) ? "texture" : "calligraphic",
-                        "#31415eff",
-                        0.024 * density,
-                        context.Points((0.18, 0.70), (0.48, 0.58), (0.78, 0.74)))
-                ],
-                [
-                    new RenderNoiseFieldV2("grain-a", context.SeedHex("grain-a"), 0.18 + context.ByteUnit(4) * 0.10 * density, 0.28 + context.ByteUnit(5) * 0.16)
-                ],
-                [
-                    new RenderWarpFieldV2("warp-a", context.SeedHex("warp-a"), 0.055 + context.ByteUnit(6) * 0.050 * density, 6.0 + context.ByteUnit(7) * 5.0)
-                ],
-                IsDenseVariant(context.Variant)
-                    ? [
-                        Mask("mask-a", "rect", 0.36, 0.42, 0.18, 0.08, 8, "#f8fafccc"),
-                        Mask("mask-b", "ellipse", 0.58, 0.36, 0.12, 0.07, -12, "#e2e8f0bb")
-                    ]
-                    : [
-                        Mask("mask-a", "rect", 0.36, 0.42, 0.16, 0.07, 8, "#f8fafccc")
-                    ])
-        ];
     }
 
     private static IReadOnlyList<RenderRecipeV2Layer> BuildSplineField(RecipeBuildContext context)
@@ -672,18 +606,6 @@ public sealed class DefaultPerceptionChallengeV2TaskSource(IConfiguration config
         }
     }
 
-    private static string GenerateTextTaskAnswer()
-    {
-        const string Alphabet = "AEFHKMRTY2347";
-        Span<char> result = stackalloc char[5];
-        for (int i = 0; i < result.Length; i++)
-        {
-            result[i] = Alphabet[RandomNumberGenerator.GetInt32(Alphabet.Length)];
-        }
-
-        return new string(result);
-    }
-
     private double ReadCoordinate(string key, double fallback, int pixelScale)
     {
         string? raw = configuration[key];
@@ -956,20 +878,6 @@ internal static class PerceptionChallengeV2StandaloneFactory
 
     private static string NormalizeToken(string? value, string fallback)
         => string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
-}
-
-public sealed class PerceptionTextTaskV2Provider(
-    IPerceptionChallengeV2IssueService issueService,
-    IPerceptionChallengeV2VerifyService verifyService)
-    : PerceptionChallengeV2ProviderBase(
-        issueService,
-        verifyService,
-        RenderRecipeV2TaskKind.Character,
-        SecurityChallengeKind.PerceptionTextTaskV2,
-        false)
-{
-    public const string WireKind = "perceptionTextTaskV2";
-    public const string Algorithm = PerceptionChallengeV2Constants.WireAlgorithm;
 }
 
 public sealed class PerceptionLocalizationV2Provider(

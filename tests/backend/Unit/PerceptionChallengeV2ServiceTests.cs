@@ -31,7 +31,7 @@ public sealed class PerceptionChallengeV2ServiceTests
     [Fact]
     public async Task IssueAsync_ReturnsSealedStatelessPayloadWithoutSemanticRecipeLeak()
     {
-        var taskSource = new FakeTaskSource(CreateTaskMaterial(RenderRecipeV2TaskKind.Character, answer: "K7M2"));
+        var taskSource = new FakeTaskSource(CreateTaskMaterial(RenderRecipeV2TaskKind.MicroInteraction, step: "drag:confirm"));
         var protector = new FakeTokenProtector();
         var clock = new MutableTimeProvider(s_baselineNow);
         var service = new PerceptionChallengeV2IssueService(taskSource, protector, clock);
@@ -41,7 +41,7 @@ public sealed class PerceptionChallengeV2ServiceTests
         Assert.True(result.Succeeded, result.Reason);
         Assert.NotNull(result.Assignment);
         Assert.Equal(PerceptionChallengeV2Constants.WireAlgorithm, result.Payload.Algorithm);
-        Assert.Equal(RenderRecipeV2TaskKind.Character, result.Payload.TaskKind);
+        Assert.Equal(RenderRecipeV2TaskKind.MicroInteraction, result.Payload.TaskKind);
         Assert.False(string.IsNullOrWhiteSpace(result.Payload.Family));
         Assert.False(string.IsNullOrWhiteSpace(result.Payload.Variant));
         Assert.Equal("sealed-token", result.Payload.SealedToken);
@@ -56,26 +56,25 @@ public sealed class PerceptionChallengeV2ServiceTests
 
         Assert.NotNull(protector.LastSealClaims);
         Assert.Equal(result.Assignment.ChallengeId, protector.LastSealClaims.ChallengeId);
-        Assert.Equal(RenderRecipeV2TaskKind.Character, protector.LastSealClaims.TaskKind);
+        Assert.Equal(RenderRecipeV2TaskKind.MicroInteraction, protector.LastSealClaims.TaskKind);
         Assert.Equal(result.Payload.RecipeHashHex, protector.LastSealClaims.RecipeHashHex);
         Assert.Equal(result.Payload.Family, protector.LastSealClaims.Family);
         Assert.Equal(result.Payload.Variant, protector.LastSealClaims.Variant);
-        Assert.Matches("^[0-9a-f]{64}$", protector.LastSealClaims.ExpectedAnswerHashHex);
-        Assert.Null(protector.LastSealClaims.ExpectedStepHashHex);
-        Assert.Null(protector.LastSealClaims.ExpectedX);
+        Assert.Matches("^[0-9a-f]{64}$", protector.LastSealClaims.ExpectedStepHashHex);
+        Assert.Equal(0.5, protector.LastSealClaims.ExpectedX);
         Assert.Single(taskSource.Requests);
     }
 
     [Fact]
     public async Task IssueAsync_UsesGeneratorPolicyForFamilyVariantAndPassesSelectionToRecipeAndToken()
     {
-        var taskSource = new FakeTaskSource(CreateTaskMaterial(RenderRecipeV2TaskKind.Character, answer: "K7M2"));
+        var taskSource = new FakeTaskSource(CreateTaskMaterial(RenderRecipeV2TaskKind.MicroInteraction, step: "drag:confirm"));
         var protector = new FakeTokenProtector();
         var clock = new MutableTimeProvider(s_baselineNow);
         var service = new PerceptionChallengeV2IssueService(taskSource, protector, clock);
         PerceptionChallengeGeneratorDistributionPolicy policy = CreateGeneratorPolicy(
             new PerceptionChallengeGeneratorFamilyPolicy(
-                "text-stroke",
+                "localization-field",
                 Weight: 0,
                 Enabled: true,
                 [new PerceptionChallengeGeneratorVariantPolicy("quiet", 100, true)]),
@@ -115,7 +114,7 @@ public sealed class PerceptionChallengeV2ServiceTests
     {
         PerceptionChallengeGeneratorDistributionPolicy policy = CreateGeneratorPolicy(
             new PerceptionChallengeGeneratorFamilyPolicy(
-                "text-stroke",
+                "localization-field",
                 Weight: 100,
                 Enabled: true,
                 [new PerceptionChallengeGeneratorVariantPolicy("plain", 100, true)]),
@@ -150,7 +149,7 @@ public sealed class PerceptionChallengeV2ServiceTests
                 ["auth.login"] = new(
                     new Dictionary<string, int>(StringComparer.Ordinal)
                     {
-                        ["text-stroke"] = 0,
+                        ["localization-field"] = 0,
                         ["spline-field"] = 100
                     },
                     new Dictionary<string, IReadOnlyDictionary<string, int>>(StringComparer.Ordinal))
@@ -233,7 +232,7 @@ public sealed class PerceptionChallengeV2ServiceTests
             string variant = PerceptionChallengeV2GeneratorFamilyRegistry.DefaultVariant(family);
             RenderRecipeV2TaskKind taskKind = family == PerceptionChallengeV2GeneratorFamilyRegistry.LocalizationField
                 ? RenderRecipeV2TaskKind.Localization
-                : RenderRecipeV2TaskKind.Character;
+                : RenderRecipeV2TaskKind.MicroInteraction;
 
             PerceptionChallengeV2TaskMaterial material = await source.CreateAsync(
                 CreateTaskSourceRequest(taskKind, family, variant),
@@ -262,7 +261,7 @@ public sealed class PerceptionChallengeV2ServiceTests
             Assert.True(variants.Length >= 2, $"{family} must expose at least two variants");
             RenderRecipeV2TaskKind taskKind = family == PerceptionChallengeV2GeneratorFamilyRegistry.LocalizationField
                 ? RenderRecipeV2TaskKind.Localization
-                : RenderRecipeV2TaskKind.Character;
+                : RenderRecipeV2TaskKind.MicroInteraction;
 
             PerceptionChallengeV2TaskMaterial first = await source.CreateAsync(
                 CreateTaskSourceRequest(taskKind, family, variants[0]),
@@ -307,7 +306,7 @@ public sealed class PerceptionChallengeV2ServiceTests
         var source = new DefaultPerceptionChallengeV2TaskSource(CreatePerceptionGeneratorConfiguration());
         PerceptionChallengeV2TaskMaterial material = await source.CreateAsync(
             CreateTaskSourceRequest(
-                RenderRecipeV2TaskKind.Character,
+                RenderRecipeV2TaskKind.MicroInteraction,
                 PerceptionChallengeV2GeneratorFamilyRegistry.PiecewiseWarp,
                 "warp-tiled"),
             CancellationToken.None);
@@ -338,13 +337,15 @@ public sealed class PerceptionChallengeV2ServiceTests
     [Fact]
     public async Task VerifyAsync_AcceptsCharacterAnswerThroughAttemptGateAndReturnsProofExpiry()
     {
-        PerceptionChallengeV2TokenClaims claims = CreateClaims(RenderRecipeV2TaskKind.Character) with
+        PerceptionChallengeV2TokenClaims claims = CreateClaims(RenderRecipeV2TaskKind.MicroInteraction) with
         {
-            ExpectedAnswerHashHex = PerceptionChallengeV2Hashing.HashAnswerHex("K7M2")
+            ExpectedStepHashHex = PerceptionChallengeV2Hashing.HashStepHex("K7M2")
         };
         var fixture = CreateVerifyFixture(claims);
         Dictionary<string, string> payload = CreateProviderPayload(claims);
-        payload["answerText"] = " k7m2 ";
+        payload["stepSummary"] = " k7m2 ";
+        payload["x"] = "0.5";
+        payload["y"] = "0.5";
         payload["solveDurationMs"] = "2400";
 
         PerceptionChallengeV2VerifyResult result = await fixture.Service.VerifyAsync(
@@ -372,13 +373,15 @@ public sealed class PerceptionChallengeV2ServiceTests
     [InlineData("recipeHash", "perception_recipe_hash_mismatch")]
     public async Task VerifyAsync_RejectsSealedTokenBindingMismatches(string field, string expectedReason)
     {
-        PerceptionChallengeV2TokenClaims claims = CreateClaims(RenderRecipeV2TaskKind.Character) with
+        PerceptionChallengeV2TokenClaims claims = CreateClaims(RenderRecipeV2TaskKind.MicroInteraction) with
         {
-            ExpectedAnswerHashHex = PerceptionChallengeV2Hashing.HashAnswerHex("K7M2")
+            ExpectedStepHashHex = PerceptionChallengeV2Hashing.HashStepHex("K7M2")
         };
         var fixture = CreateVerifyFixture(MutateClaims(claims, field));
         Dictionary<string, string> payload = CreateProviderPayload(claims);
-        payload["answerText"] = "K7M2";
+        payload["stepSummary"] = "K7M2";
+        payload["x"] = "0.5";
+        payload["y"] = "0.5";
         payload["solveDurationMs"] = "2400";
 
         PerceptionChallengeV2VerifyResult result = await fixture.Service.VerifyAsync(
@@ -444,9 +447,9 @@ public sealed class PerceptionChallengeV2ServiceTests
         string expectedReason,
         string riskDetail)
     {
-        PerceptionChallengeV2TokenClaims claims = CreateClaims(RenderRecipeV2TaskKind.Character) with
+        PerceptionChallengeV2TokenClaims claims = CreateClaims(RenderRecipeV2TaskKind.MicroInteraction) with
         {
-            ExpectedAnswerHashHex = PerceptionChallengeV2Hashing.HashAnswerHex("K7M2")
+            ExpectedStepHashHex = PerceptionChallengeV2Hashing.HashStepHex("K7M2")
         };
         var fixture = CreateVerifyFixture(claims);
         if (gateReason == "challenge_replayed")
@@ -459,7 +462,9 @@ public sealed class PerceptionChallengeV2ServiceTests
         }
 
         Dictionary<string, string> payload = CreateProviderPayload(claims);
-        payload["answerText"] = "K7M2";
+        payload["stepSummary"] = "K7M2";
+        payload["x"] = "0.5";
+        payload["y"] = "0.5";
         payload["solveDurationMs"] = "2400";
 
         PerceptionChallengeV2VerifyResult result = await fixture.Service.VerifyAsync(
@@ -590,12 +595,12 @@ public sealed class PerceptionChallengeV2ServiceTests
             "risk-policy-v2",
             2,
             Traceparent,
-            RenderRecipeV2TaskKind.Character);
+            RenderRecipeV2TaskKind.MicroInteraction);
 
     private static PerceptionChallengeV2VerifyRequest CreateVerifyRequest(IReadOnlyDictionary<string, string> payload)
         => new(
             CreateContext(),
-            PerceptionChallengeV2Constants.WireKind,
+            PerceptionMicroInteractionV2Provider.WireKind,
             "challenge-1",
             "comment.create",
             "article:42",
@@ -624,7 +629,7 @@ public sealed class PerceptionChallengeV2ServiceTests
         => new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>(StringComparer.Ordinal)
             {
-                ["Security:PerceptionV2:TextTask:FixedText"] = "K7M2",
+                ["Security:PerceptionV2:MicroInteraction:FixedSteps"] = "drag:0.68,0.36",
                 ["Security:PerceptionV2:Localization:FixedX"] = "0.62",
                 ["Security:PerceptionV2:Localization:FixedY"] = "0.45",
                 ["Security:PerceptionV2:MicroInteraction:FixedSteps"] = "drag:0.68,0.36",
@@ -659,11 +664,6 @@ public sealed class PerceptionChallengeV2ServiceTests
         RenderRecipeV2 recipe = material.Recipe;
         switch (family)
         {
-            case PerceptionChallengeV2GeneratorFamilyRegistry.TextStroke:
-                Assert.Single(recipe.Layers);
-                Assert.Equal("ink-main", recipe.Layers[0].LayerId);
-                Assert.True(recipe.Layers[0].StrokeSegments.Count >= 2);
-                break;
             case PerceptionChallengeV2GeneratorFamilyRegistry.SplineField:
                 Assert.Equal(2, recipe.Layers.Count);
                 Assert.Contains(recipe.Layers, static layer => layer.LayerId == "spline-guide");
@@ -706,15 +706,14 @@ public sealed class PerceptionChallengeV2ServiceTests
 
     private static PerceptionChallengeV2TaskMaterial CreateTaskMaterial(
         RenderRecipeV2TaskKind taskKind,
-        string? answer = null)
+        string? step = null)
         => new(
             taskKind,
             CreateRecipe(taskKind),
-            answer,
-            ExpectedX: taskKind == RenderRecipeV2TaskKind.Character ? null : 0.5,
-            ExpectedY: taskKind == RenderRecipeV2TaskKind.Character ? null : 0.5,
-            CoordinateTolerance: taskKind == RenderRecipeV2TaskKind.Character ? null : 0.05,
-            ExpectedStep: taskKind == RenderRecipeV2TaskKind.MicroInteraction ? "drag:confirm" : null);
+            ExpectedX: 0.5,
+            ExpectedY: 0.5,
+            CoordinateTolerance: 0.05,
+            ExpectedStep: taskKind == RenderRecipeV2TaskKind.MicroInteraction ? step ?? "drag:confirm" : null);
 
     private static RenderRecipeV2 CreateRecipe(RenderRecipeV2TaskKind taskKind)
         => new(
@@ -738,7 +737,7 @@ public sealed class PerceptionChallengeV2ServiceTests
             ],
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
-                ["inputMode"] = taskKind == RenderRecipeV2TaskKind.Character ? "text" : "pointer"
+                ["inputMode"] = "pointer"
             });
 
     private static PerceptionChallengeV2TokenClaims CreateClaims(RenderRecipeV2TaskKind taskKind)
@@ -759,10 +758,9 @@ public sealed class PerceptionChallengeV2ServiceTests
             s_baselineNow.AddMinutes(5),
             3,
             null,
-            null,
-            null,
-            null,
-            null);
+            0.5,
+            0.5,
+            0.05);
 
     private static PerceptionChallengeV2TokenClaims MutateClaims(PerceptionChallengeV2TokenClaims claims, string field)
         => field switch

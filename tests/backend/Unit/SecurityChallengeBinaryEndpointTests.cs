@@ -7,6 +7,7 @@ using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.Security;
@@ -32,7 +33,8 @@ public sealed class SecurityChallengeBinaryEndpointTests
     public async Task IssueAsync_ChallengeDecision_ReturnsChallengeResponseFrame()
     {
         var aeds = new AedsEncoder();
-        var request = new SecurityChallengeIssueBinaryRequest("public.read", "article:42", "device-123456", "{}");
+        var request = new SecurityChallengeIssueBinaryRequest(
+            "public.read", "article:42", "device-123456", "{}", SecurityChallengeCapabilityCatalog.ManifestVersion);
         var context = CreateContext(
             AedsFrameType.SecurityChallengeIssueRequest,
             BinaryRequestPayload.Success(PodBinaryCodec.EncodeSecurityChallengeIssueRequest(request)));
@@ -54,7 +56,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
             context,
             aeds,
             new FixedRiskScoreReader(50),
-            new FixedRiskPolicyProvider(CreatePolicy("security.pow")),
+            new FixedRiskPolicyProvider(CreatePolicy(Sha256PowChallengeProvider.WireKind)),
             new RiskControlContextFactory(),
             new RiskDecisionService(),
             orchestrator,
@@ -71,7 +73,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
         Assert.Equal(assignment.ChallengeId, Assert.Single(response.ProviderPayloads).ChallengeId);
         Assert.Contains("\"salt\":\"salt-1\"", response.ProviderPayloads[0].PayloadJson, StringComparison.Ordinal);
         Assert.NotNull(orchestrator.LastIssueRequest);
-        Assert.Equal("security.pow", orchestrator.LastIssueRequest.Decision.RequiredChallenges[0]);
+        Assert.Equal(Sha256PowChallengeProvider.WireKind, orchestrator.LastIssueRequest.Decision.RequiredChallenges[0]);
         Assert.Matches("^[0-9a-f]{64}$", orchestrator.LastIssueRequest.SubjectHash);
         Assert.Equal(
             Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes("request-context-device"))),
@@ -82,15 +84,16 @@ public sealed class SecurityChallengeBinaryEndpointTests
     }
 
     [Fact]
-    public async Task IssueAsync_CaptchaChallengeDecision_WritesCaptchaRequiredRiskSignal()
+    public async Task IssueAsync_CharacterV3Decision_WritesGenericChallengeRiskSignal()
     {
         var aeds = new AedsEncoder();
-        var request = new SecurityChallengeIssueBinaryRequest("auth.login", "auth.login", "device-123456", "{}");
+        var request = new SecurityChallengeIssueBinaryRequest(
+            "auth.login", "auth.login", "device-123456", "{}", SecurityChallengeCapabilityCatalog.ManifestVersion);
         var context = CreateContext(
             AedsFrameType.SecurityChallengeIssueRequest,
             BinaryRequestPayload.Success(PodBinaryCodec.EncodeSecurityChallengeIssueRequest(request)));
         var orchestrator = new FakeChallengeOrchestrator();
-        SecurityChallengeAssignment assignment = CreateAssignment(SecurityChallengeKind.CaptchaV1) with
+        SecurityChallengeAssignment assignment = CreateAssignment(SecurityChallengeKind.PerceptionCharacterV3) with
         {
             Action = RiskActionNames.AuthLogin,
             RouteKey = "auth.login"
@@ -103,7 +106,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
             context,
             aeds,
             new FixedRiskScoreReader(50),
-            new FixedRiskPolicyProvider(CreatePolicy("captchaV1")),
+            new FixedRiskPolicyProvider(CreatePolicy("perceptionCharacterV3")),
             new RiskControlContextFactory(),
             new RiskDecisionService(),
             orchestrator,
@@ -112,13 +115,116 @@ public sealed class SecurityChallengeBinaryEndpointTests
 
         AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
         Assert.Equal(AedsFrameType.SecurityChallengeIssueResponse, decoded.FrameType);
-        SecurityRiskSignal signal = Assert.Single(riskSink.Signals);
-        Assert.Equal(SecurityRiskReason.CaptchaChallengeRequired, signal.Reason);
-        Assert.Equal(SecurityRiskSources.RiskControl, signal.Source);
-        Assert.Equal(RiskActionNames.AuthLogin, signal.Action);
-        Assert.Equal("captchaV1", signal.Detail);
+        Assert.Empty(riskSink.Signals);
         Assert.NotNull(orchestrator.LastIssueRequest);
-        Assert.Equal(["captchaV1"], orchestrator.LastIssueRequest.Decision.RequiredChallenges);
+        Assert.Equal(["perceptionCharacterV3"], orchestrator.LastIssueRequest.Decision.RequiredChallenges);
+    }
+
+    [Fact]
+    public async Task BinaryIssueAndVerify_V3StayClosedUntilProtocolActivation_WithoutCallingProvider()
+    {
+        var aeds = new AedsEncoder();
+        ISecurityChallengeProvider provider = Substitute.For<ISecurityChallengeProvider>();
+        provider.Kind.Returns(PerceptionCharacterV3Contracts.WireName);
+        provider.IssueAsync(Arg.Any<SecurityChallengeProviderIssueRequest>(), Arg.Any<CancellationToken>())
+            .Returns(SecurityChallengeProviderIssueResult.Failed("expected-test-stop"));
+        provider.VerifyAsync(Arg.Any<SecurityChallengeProviderVerifyRequest>(), Arg.Any<CancellationToken>())
+            .Returns(SecurityChallengeProviderVerifyResult.Failed("expected-test-stop"));
+        ISecurityChallengeProtocolActivationGuard guard = Substitute.For<ISecurityChallengeProtocolActivationGuard>();
+        guard.IsOpenAsync(Arg.Any<CancellationToken>()).Returns(false);
+        ISecurityChallengeEnvelopeStateService stateService = Substitute.For<ISecurityChallengeEnvelopeStateService>();
+        stateService.ValidateMemberAsync(Arg.Any<SecurityChallengeEnvelopeMemberRequest>(), Arg.Any<CancellationToken>())
+            .Returns(new SecurityChallengeEnvelopeMemberResult(true, "ok", null, 0, 0, 1, false));
+        var orchestrator = new SecurityChallengeOrchestrator(
+            [provider],
+            Substitute.For<ISecurityChallengeProofService>(),
+            Substitute.For<ISecurityRiskSignalSink>(),
+            stateService,
+            protocolActivationGuard: guard);
+        var issueRequest = new SecurityChallengeIssueBinaryRequest(
+            "auth.login", "auth.login", "device-123456", "{}", SecurityChallengeCapabilityCatalog.ManifestVersion);
+        var issueContext = CreateContext(AedsFrameType.SecurityChallengeIssueRequest,
+            BinaryRequestPayload.Success(PodBinaryCodec.EncodeSecurityChallengeIssueRequest(issueRequest)));
+
+        _ = await BinaryEndpoints.HandleSecurityChallengeIssueAsync(
+            issueContext, aeds, new FixedRiskScoreReader(50),
+            new FixedRiskPolicyProvider(CreatePolicy(PerceptionCharacterV3Contracts.WireName)),
+            new RiskControlContextFactory(), new RiskDecisionService(), orchestrator,
+            new NullRiskSink(), CancellationToken.None);
+
+        string challengeId = SecurityChallengeContracts.CreateChallengeId();
+        string envelopeId = SecurityChallengeContracts.CreateChallengeId();
+        var typed = new PerceptionCharacterV3VerifyPayload(
+            PerceptionCharacterV3Contracts.Algorithm, challengeId, envelopeId,
+            PerceptionCharacterV3Representation.Visual, "A7C9Q", "opaque-state");
+        var verifyRequest = new SecurityChallengeVerifyBinaryRequest(
+            envelopeId, challengeId, SecurityChallengeKind.PerceptionCharacterV3,
+            "public.read", "article:42", string.Empty)
+        {
+            PerceptionCharacterV3 = typed
+        };
+        var verifyContext = CreateContext(AedsFrameType.SecurityChallengeVerifyRequest,
+            BinaryRequestPayload.Success(PodBinaryCodec.EncodeSecurityChallengeVerifyRequest(verifyRequest)));
+        _ = await BinaryEndpoints.HandleSecurityChallengeVerifyAsync(
+            verifyContext, aeds,
+            new FixedRiskPolicyProvider(CreatePolicy(PerceptionCharacterV3Contracts.WireName)),
+            new RiskControlContextFactory(), orchestrator,
+            new AllowingSecurityChallengeVerifyRateLimiter(), new NullRiskSink(), CancellationToken.None);
+
+        await provider.DidNotReceive().IssueAsync(Arg.Any<SecurityChallengeProviderIssueRequest>(), Arg.Any<CancellationToken>());
+        await provider.DidNotReceive().VerifyAsync(Arg.Any<SecurityChallengeProviderVerifyRequest>(), Arg.Any<CancellationToken>());
+        await guard.Received(2).IsOpenAsync(Arg.Any<CancellationToken>());
+
+        guard.IsOpenAsync(Arg.Any<CancellationToken>()).Returns(true);
+        _ = await BinaryEndpoints.HandleSecurityChallengeIssueAsync(
+            issueContext, aeds, new FixedRiskScoreReader(50),
+            new FixedRiskPolicyProvider(CreatePolicy(PerceptionCharacterV3Contracts.WireName)),
+            new RiskControlContextFactory(), new RiskDecisionService(), orchestrator,
+            new NullRiskSink(), CancellationToken.None);
+        _ = await BinaryEndpoints.HandleSecurityChallengeVerifyAsync(
+            verifyContext, aeds,
+            new FixedRiskPolicyProvider(CreatePolicy(PerceptionCharacterV3Contracts.WireName)),
+            new RiskControlContextFactory(), orchestrator,
+            new AllowingSecurityChallengeVerifyRateLimiter(), new NullRiskSink(), CancellationToken.None);
+
+        await provider.Received(1).IssueAsync(Arg.Any<SecurityChallengeProviderIssueRequest>(), Arg.Any<CancellationToken>());
+        await provider.Received(1).VerifyAsync(Arg.Any<SecurityChallengeProviderVerifyRequest>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(3)]
+    [InlineData(10)]
+    [InlineData(13)]
+    public async Task VerifyAsync_UnsupportedOrRetiredRawKind_ReturnsSameGenericApiError(int rawKind)
+    {
+        var aeds = new AedsEncoder();
+        var request = CreateVerifyRequest(
+            SecurityChallengeContracts.CreateChallengeId(),
+            SecurityChallengeKind.Sha256PowV1,
+            "public.read",
+            "article:42",
+            """{"proof":"fpow"}""");
+        byte[] encodedRequest = PodBinaryCodec.EncodeSecurityChallengeVerifyRequest(request);
+        encodedRequest[0] = (byte)rawKind;
+        var context = CreateContext(
+            AedsFrameType.SecurityChallengeVerifyRequest,
+            BinaryRequestPayload.Success(encodedRequest));
+
+        BinaryFrameResult result = await BinaryEndpoints.HandleSecurityChallengeVerifyAsync(
+            context,
+            aeds,
+            new FixedRiskPolicyProvider(CreatePolicy("security.pow")),
+            new RiskControlContextFactory(),
+            new FakeChallengeOrchestrator(),
+            new AllowingSecurityChallengeVerifyRateLimiter(),
+            new NullRiskSink(),
+            CancellationToken.None);
+
+        AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
+        Assert.Equal(AedsFrameType.ApiError, decoded.FrameType);
+        Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Payload, out var errorPod));
+        Assert.Equal("security_challenge_verify_request_invalid", PodBinaryCodec.ToErrorDetail(errorPod).Message);
     }
 
     [Theory]
@@ -131,7 +237,8 @@ public sealed class SecurityChallengeBinaryEndpointTests
     public async Task IssueAsync_PerceptionCharacterV3InternalFailureReturnsOnlyCoarseError(string internalReason, string expectedPublicReason, int expectedStatus)
     {
         var aeds = new AedsEncoder();
-        var request = new SecurityChallengeIssueBinaryRequest("public.read", "article:42", "client-controlled-device", "{}");
+        var request = new SecurityChallengeIssueBinaryRequest(
+            "public.read", "article:42", "client-controlled-device", "{}", SecurityChallengeCapabilityCatalog.ManifestVersion);
         var context = CreateContext(AedsFrameType.SecurityChallengeIssueRequest, BinaryRequestPayload.Success(PodBinaryCodec.EncodeSecurityChallengeIssueRequest(request)));
         var orchestrator = new FakeChallengeOrchestrator
         {
@@ -250,8 +357,8 @@ public sealed class SecurityChallengeBinaryEndpointTests
             aeds,
             new FixedRiskScoreReader(50),
             new FixedRiskPolicyProvider(CreatePolicy(
-                "captchaV1",
-                ["captchaV1", "adminPasskeyStepUpV1"])),
+                "perceptionCharacterV3",
+                ["perceptionCharacterV3", "adminPasskeyStepUpV1"])),
             new RiskControlContextFactory(),
             new RiskDecisionService(),
             orchestrator,
@@ -486,10 +593,10 @@ public sealed class SecurityChallengeBinaryEndpointTests
         string challengeId = SecurityChallengeContracts.CreateChallengeId();
         var request = CreateVerifyRequest(
             challengeId,
-            SecurityChallengeKind.PerceptionCharacterV2,
+            SecurityChallengeKind.PerceptionLocalizationV2,
             "auth.login",
             "auth.login",
-            """{"answerText":"wrong","solveDurationMs":"2400"}""");
+            """{"step":"wrong","solveDurationMs":"2400"}""");
         var context = CreateContext(
             AedsFrameType.SecurityChallengeVerifyRequest,
             BinaryRequestPayload.Success(PodBinaryCodec.EncodeSecurityChallengeVerifyRequest(request)));
@@ -501,7 +608,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
         BinaryFrameResult result = await BinaryEndpoints.HandleSecurityChallengeVerifyAsync(
             context,
             aeds,
-            new FixedRiskPolicyProvider(CreatePolicy("perceptionCharacterV2")),
+            new FixedRiskPolicyProvider(CreatePolicy("perceptionLocalizationV2")),
             new RiskControlContextFactory(),
             orchestrator,
             new AllowingSecurityChallengeVerifyRateLimiter(),
@@ -566,10 +673,10 @@ public sealed class SecurityChallengeBinaryEndpointTests
         string challengeId = SecurityChallengeContracts.CreateChallengeId();
         var request = CreateVerifyRequest(
             challengeId,
-            SecurityChallengeKind.PerceptionCharacterV2,
+            SecurityChallengeKind.PerceptionLocalizationV2,
             "auth.login",
             "auth.login",
-            """{"answerText":"wrong","solveDurationMs":"2400"}""");
+            """{"step":"wrong","solveDurationMs":"2400"}""");
         var orchestrator = new FakeChallengeOrchestrator
         {
             VerifyResult = SecurityChallengeOrchestrationVerifyResult.Failed("perception_text_answer_invalid")
@@ -586,7 +693,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
             BinaryFrameResult result = await BinaryEndpoints.HandleSecurityChallengeVerifyAsync(
                 context,
                 aeds,
-                new FixedRiskPolicyProvider(CreatePolicy("perceptionCharacterV2")),
+                new FixedRiskPolicyProvider(CreatePolicy("perceptionLocalizationV2")),
                 new RiskControlContextFactory(),
                 orchestrator,
                 verifyRateLimiter,
@@ -615,10 +722,10 @@ public sealed class SecurityChallengeBinaryEndpointTests
         string challengeId = SecurityChallengeContracts.CreateChallengeId();
         var request = CreateVerifyRequest(
             challengeId,
-            SecurityChallengeKind.PerceptionCharacterV2,
+            SecurityChallengeKind.PerceptionLocalizationV2,
             "auth.login",
             "auth.login",
-            """{"answerText":""");
+            """{"step":""");
         var context = CreateContext(
             AedsFrameType.SecurityChallengeVerifyRequest,
             BinaryRequestPayload.Success(PodBinaryCodec.EncodeSecurityChallengeVerifyRequest(request)));
@@ -631,7 +738,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
         BinaryFrameResult result = await BinaryEndpoints.HandleSecurityChallengeVerifyAsync(
             context,
             aeds,
-            new FixedRiskPolicyProvider(CreatePolicy("perceptionCharacterV2")),
+            new FixedRiskPolicyProvider(CreatePolicy("perceptionLocalizationV2")),
             new RiskControlContextFactory(),
             orchestrator,
             new CountingSecurityChallengeVerifyRateLimiter(maxAttempts: 0),
@@ -676,7 +783,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
             HashC,
             request.PolicyVersion,
             [firstId, secondId],
-            ["captchaV1", "sha256PowV1"],
+            ["perceptionLocalizationV2", "sha256PowV1"],
             [SecurityChallengeEnvelopeMemberStatuses.Issued, SecurityChallengeEnvelopeMemberStatuses.Verified],
             DateTimeOffset.UtcNow.AddMinutes(-1).ToUnixTimeMilliseconds(),
             DateTimeOffset.UtcNow.AddMinutes(5).ToUnixTimeMilliseconds(),
@@ -948,8 +1055,12 @@ public sealed class SecurityChallengeBinaryEndpointTests
         Assert.Equal("security_challenge_action_route_required", PodBinaryCodec.ToErrorDetail(errorPod).Message);
     }
 
-    [Fact]
-    public async Task VerifyAsync_UnsupportedKind_ReturnsApiError()
+    [Theory]
+    [InlineData((byte)3)]
+    [InlineData((byte)10)]
+    [InlineData((byte)13)]
+    public async Task VerifyAsync_RetiredRawKindByteThroughAedsFrame_ReturnsGenericInvalidRequestWithoutCallingOrchestrator(
+        byte retiredRawKind)
     {
         var aeds = new AedsEncoder();
         var request = CreateVerifyRequest(
@@ -959,17 +1070,17 @@ public sealed class SecurityChallengeBinaryEndpointTests
             "article:42",
             """{"proof":"fpow"}""");
         byte[] encodedRequest = PodBinaryCodec.EncodeSecurityChallengeVerifyRequest(request);
-        encodedRequest[0] = (byte)SecurityChallengeKind.Unknown;
-        var context = CreateContext(
-            AedsFrameType.SecurityChallengeVerifyRequest,
-            BinaryRequestPayload.Success(encodedRequest));
+        encodedRequest[0] = retiredRawKind;
+        byte[] requestFrame = aeds.Encode(AedsFrameType.SecurityChallengeVerifyRequest, encodedRequest);
+        var context = CreateContextWithRealBinder("application/octet-stream", requestFrame);
+        var orchestrator = new FakeChallengeOrchestrator();
 
         BinaryFrameResult result = await BinaryEndpoints.HandleSecurityChallengeVerifyAsync(
             context,
             aeds,
             new FixedRiskPolicyProvider(CreatePolicy("security.pow")),
             new RiskControlContextFactory(),
-            new FakeChallengeOrchestrator(),
+            orchestrator,
             new AllowingSecurityChallengeVerifyRateLimiter(),
             new NullRiskSink(),
             CancellationToken.None);
@@ -978,6 +1089,8 @@ public sealed class SecurityChallengeBinaryEndpointTests
         Assert.Equal(AedsFrameType.ApiError, decoded.FrameType);
         Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Payload, out var errorPod));
         Assert.Equal("security_challenge_verify_request_invalid", PodBinaryCodec.ToErrorDetail(errorPod).Message);
+        Assert.Equal(0, orchestrator.VerifyCallCount);
+        BinaryRequestBufferLeaseScope.Release(context, "unit-test");
     }
 
     private static SecurityChallengeVerifyBinaryRequest CreateVerifyRequest(
@@ -1027,13 +1140,20 @@ public sealed class SecurityChallengeBinaryEndpointTests
         return context;
     }
 
-    private static DefaultHttpContext CreateContextWithRealBinder(string contentType)
+    private static DefaultHttpContext CreateContextWithRealBinder(string contentType, byte[]? requestFrame = null)
     {
         var context = new DefaultHttpContext();
         context.Response.Body = new MemoryStream();
-        context.Request.Body = new MemoryStream();
+        context.Request.Body = new MemoryStream(requestFrame ?? []);
         context.Request.ContentType = contentType;
+        if (requestFrame is not null)
+        {
+            context.Request.ContentLength = requestFrame.Length;
+        }
         context.Request.Headers.Accept = "application/octet-stream";
+        context.Request.Headers.UserAgent = "Mozilla/5.0";
+        context.Request.Headers["X-Fsus-Device-Fp"] = "device-123456";
+        context.Request.Headers["traceparent"] = Traceparent;
         context.Connection.RemoteIpAddress = IPAddress.Parse("198.51.100.17");
         context.TraceIdentifier = "trace-unit";
 

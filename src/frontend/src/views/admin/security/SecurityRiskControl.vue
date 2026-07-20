@@ -150,10 +150,8 @@ const formatTime = (value: string | null | undefined): string =>
 const formatChallengeKind = (value: string | null | undefined): string => {
   const labels: Record<string, string> = {
     sha256PowV1: '工作量证明',
-    captchaV1: '图形验证码',
     argon2idPoSpaceV1: '设备内存验证',
     perceptionSealedV2: '人机感知验证',
-    textTaskV2: '文字识别题',
     localizationV2: '点选定位题',
     microInteractionV2: '微交互题'
   }
@@ -187,7 +185,6 @@ const formatSubsystemName = (value: string): string => {
     riskControl: '风险控制',
     risk_control: '风险控制',
     'risk-control': '风险控制',
-    captcha: '图形验证码',
     'comment-governance': '评论治理',
     publicRead: '公开读取',
     public_read: '公开读取',
@@ -196,7 +193,6 @@ const formatSubsystemName = (value: string): string => {
     poSpace: '设备内存验证',
     perceptionSealedV2: '人机感知验证',
     perception: '人机感知验证',
-    'perception-text-task': '文字识别题',
     'perception-localization': '点选定位题',
     'perception-micro-interaction': '微交互题'
   }
@@ -206,7 +202,6 @@ const formatSubsystemName = (value: string): string => {
 const riskSourceLabels: Record<string, string> = {
   'anti-crawler': '反爬虫',
   auth: '认证',
-  captcha: '图形验证码',
   'comment-governance': '评论治理',
   'device-fingerprint': '设备指纹',
   'human-read-proof': '阅读证明',
@@ -214,7 +209,6 @@ const riskSourceLabels: Record<string, string> = {
   perception: '人机感知验证',
   'perception-localization': '点选定位题',
   'perception-micro-interaction': '微交互题',
-  'perception-text-task': '文字识别题',
   pospace: '设备内存验证',
   pow: '工作量证明',
   'public-read': '公开读取',
@@ -231,10 +225,6 @@ const riskReasonLabels: Record<string, string> = {
   AuthFailureBurst: '登录失败过多',
   AuthLoginFailed: '登录失败',
   BlockedUserAgent: 'User-Agent 被拦截',
-  CaptchaChallengeRequired: '需要图形验证码',
-  CaptchaInvalid: '图形验证码无效',
-  CaptchaReplay: '图形验证码重放',
-  CaptchaSolveTooFast: '图形验证码完成过快',
   ChallengeExpired: '验证任务过期',
   ChallengeKindMismatch: '验证任务类型不匹配',
   ChallengeSignatureInvalid: '验证任务签名无效',

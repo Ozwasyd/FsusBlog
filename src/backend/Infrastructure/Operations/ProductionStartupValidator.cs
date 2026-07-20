@@ -161,7 +161,6 @@ public static class ProductionStartupValidator
         Value("Fido2:ServerDomain"),
         new("Fido2:Origins", ReadOriginList),
         Value("Security:Pow:SigningKey"),
-        Value("Security:CaptchaV1:SigningKey"),
         Value(UserSessionPolicy.MaxActiveSessionsConfigurationKey),
         Value($"{PerceptionSealedTokenOptions.SectionName}:CurrentKeyVersion"),
         Value(SecurityRiskPseudonymizer.CurrentEpochKey),
@@ -289,7 +288,6 @@ public static class ProductionStartupValidator
         string? fido2ServerDomain = values["Fido2:ServerDomain"];
         string? fido2Origins = values["Fido2:Origins"];
         string? powSigningKey = values["Security:Pow:SigningKey"];
-        string? captchaSigningKey = values["Security:CaptchaV1:SigningKey"];
         string? recoveryKeyPepper = values["Security:RecoveryKeyPepper"];
         string? publicAotManifestToken = values["PublicAot:ManifestToken"];
         string? mfaChallengeTicketSigningKey = values["MfaChallenge:TicketSigningKey"];
@@ -336,7 +334,6 @@ public static class ProductionStartupValidator
         }
 
         ValidateIndependentSecuritySecret("Security:Pow:SigningKey", powSigningKey, jwtSecret, [], errors);
-        ValidateIndependentSecuritySecret("Security:CaptchaV1:SigningKey", captchaSigningKey, jwtSecret, [], errors);
         ValidateIndependentSecuritySecret("Security:RecoveryKeyPepper", recoveryKeyPepper, jwtSecret, [], errors);
         ValidateIndependentSecuritySecret("PublicAot:ManifestToken", publicAotManifestToken, jwtSecret, [], errors);
         ValidateIndependentSecuritySecret("MfaChallenge:TicketSigningKey", mfaChallengeTicketSigningKey, jwtSecret, s_defaultMfaChallengeTicketSigningKeys, errors);
@@ -1189,7 +1186,6 @@ public static class ProductionStartupValidator
     private static bool IsSecurityCriticalStartupError(string error)
         => error.Contains("Jwt:", StringComparison.Ordinal)
             || error.Contains("Security:Pow:SigningKey", StringComparison.Ordinal)
-            || error.Contains("Security:CaptchaV1:SigningKey", StringComparison.Ordinal)
             || error.Contains("Security:RecoveryKeyPepper", StringComparison.Ordinal)
             || error.Contains("MfaChallenge:TicketSigningKey", StringComparison.Ordinal)
             || error.Contains("AnonymousCredentialIssuer:SubjectHashPepper", StringComparison.Ordinal)

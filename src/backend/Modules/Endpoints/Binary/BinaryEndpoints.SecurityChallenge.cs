@@ -194,11 +194,6 @@ public static partial class BinaryEndpoints
                 StatusCodes.Status409Conflict);
         }
 
-        if (DecisionRequiresCaptcha(decision))
-        {
-            await RecordCaptchaRequiredAsync(httpContext, riskSignalSink, decision, cancellationToken);
-        }
-
         if (decision.Kind is not (RiskDecisionKind.Challenge or RiskDecisionKind.StepUp))
         {
             var response = new SecurityChallengeIssueBinaryResponse(
@@ -252,11 +247,6 @@ public static partial class BinaryEndpoints
         SecurityChallengeIssueBinaryRequest request,
         RiskDecision decision)
     {
-        if (decision.RequiredChallenges.Count <= 1)
-        {
-            return true;
-        }
-
         string manifestVersion = (request.CapabilityManifestVersion ?? string.Empty).Trim();
         if (!string.Equals(manifestVersion, SecurityChallengeCapabilityCatalog.ManifestVersion, StringComparison.Ordinal))
         {
@@ -599,31 +589,11 @@ public static partial class BinaryEndpoints
             _ => SecurityChallengeDecisionKind.Unknown
         };
 
-    private static bool DecisionRequiresCaptcha(RiskDecision decision)
-        => decision.Kind is RiskDecisionKind.Challenge or RiskDecisionKind.StepUp
-            && decision.RequiredChallenges.Any(static challengeKind =>
-                SecurityChallengeContracts.TryParseKind(challengeKind, out SecurityChallengeKind parsed)
-                && parsed == SecurityChallengeKind.CaptchaV1);
-
     private static bool DecisionRequiresPerceptionCharacterV3(RiskDecision decision)
         => decision.Kind is RiskDecisionKind.Challenge or RiskDecisionKind.StepUp
             && decision.RequiredChallenges.Any(static challengeKind =>
                 SecurityChallengeContracts.TryParseKind(challengeKind, out SecurityChallengeKind parsed)
                 && parsed == SecurityChallengeKind.PerceptionCharacterV3);
-
-    private static ValueTask RecordCaptchaRequiredAsync(
-        HttpContext httpContext,
-        ISecurityRiskSignalSink riskSignalSink,
-        RiskDecision decision,
-        CancellationToken cancellationToken)
-        => riskSignalSink.AddRiskAsync(new SecurityRiskSignal(
-            httpContext,
-            SecurityRiskReason.CaptchaChallengeRequired,
-            5,
-            TimeSpan.FromMinutes(10),
-            SecurityRiskSources.RiskControl,
-            string.IsNullOrWhiteSpace(decision.ActionName) ? "risk_control" : decision.ActionName,
-            string.Join("+", decision.RequiredChallenges)), cancellationToken);
 
     private static ValueTask RecordSecurityChallengeVerifyRejectedAsync(
         HttpContext httpContext,
