@@ -7,6 +7,10 @@ import { constants as fsConstants } from 'node:fs';
 import os from 'node:os';
 import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  commentPrivacyBuildContract,
+  productionZkRequested
+} from '../security/comment-privacy-build-contract.mjs';
 
 const clientRoot = process.cwd();
 const wasmRoot = join(clientRoot, 'wasm');
@@ -24,6 +28,40 @@ export const wasmToolchainContract = Object.freeze({
   vcpkgCommit: 'eae1680538b86f962455c27abca2aad0dc304a4d',
   emsdkImage: 'emscripten/emsdk:4.0.13@sha256:520088b81877b610389dfd4cf7fb8c69f3ae41a611b0f80e222f57dafd930973'
 });
+const alwaysRequiredOutputFiles = Object.freeze([
+  'aeds_decoder_basic.js',
+  'aeds_decoder_basic.wasm',
+  'aeds_decoder_speed.js',
+  'aeds_decoder_speed.wasm',
+  'aeds-runtime-manifest.json',
+  'fsus_pow_basic.js',
+  'fsus_pow_basic.wasm',
+  'fsus_pow_simd.js',
+  'fsus_pow_simd.wasm',
+  'fsus_pow_relaxed.js',
+  'fsus_pow_relaxed.wasm',
+  'fsus_pow_threads.js',
+  'fsus_pow_threads.wasm',
+  'image_codec_basic.js',
+  'image_codec_basic.wasm',
+  'image_codec_simd.js',
+  'image_codec_simd.wasm',
+  'search_basic.js',
+  'search_basic.wasm',
+  'search_simd.js',
+  'search_simd.wasm',
+  'comment-privacy-prover.js',
+  'comment_privacy_runtime.js',
+  'comment_privacy_runtime.wasm'
+]);
+
+export function resolveWasmRequiredOutputFiles(env = process.env) {
+  return Object.freeze([
+    ...alwaysRequiredOutputFiles,
+    ...(productionZkRequested(env) ? commentPrivacyBuildContract.productionOutputs : [])
+  ]);
+}
+
 export const wasmArtifactContract = Object.freeze({
   schemaVersion: 3,
   aedsAbi: 'fsusblog.aeds.v4',
@@ -64,34 +102,8 @@ export const wasmArtifactContract = Object.freeze({
       memoryGrowth: 'disabled'
     })
   }),
-  requiredOutputFiles: Object.freeze([
-    'aeds_decoder_basic.js',
-    'aeds_decoder_basic.wasm',
-    'aeds_decoder_speed.js',
-    'aeds_decoder_speed.wasm',
-    'aeds-runtime-manifest.json',
-    'fsus_pow_basic.js',
-    'fsus_pow_basic.wasm',
-    'fsus_pow_simd.js',
-    'fsus_pow_simd.wasm',
-    'fsus_pow_relaxed.js',
-    'fsus_pow_relaxed.wasm',
-    'fsus_pow_threads.js',
-    'fsus_pow_threads.wasm',
-    'image_codec_basic.js',
-    'image_codec_basic.wasm',
-    'image_codec_simd.js',
-    'image_codec_simd.wasm',
-    'search_basic.js',
-    'search_basic.wasm',
-    'search_simd.js',
-    'search_simd.wasm',
-    'comment-privacy-prover.js',
-    'comment-privacy-prover.zkey',
-    'comment-privacy-prover.manifest.json',
-    'comment_privacy_runtime.js',
-    'comment_privacy_runtime.wasm'
-  ])
+  productionZkEnabled: productionZkRequested(),
+  requiredOutputFiles: resolveWasmRequiredOutputFiles()
 });
 const {
   schemaVersion,

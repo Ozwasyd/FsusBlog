@@ -157,13 +157,16 @@ assert.match(buildSource, /VersionLessThan "\$\{version\}" "4\.3\.3"/u,
 assert.match(buildSource, /command -v cmake/u,
   'the build must reuse a supported host CMake before bootstrapping the pinned fallback');
 assert.match(buildSource, /COMMENT_PRIVACY_PROVER_KEY/u,
-  'the wasm build must validate its proving-key input before starting expensive compilation');
+  'the wasm build must resolve the current proving-key input only behind the production gate');
 assert.match(serverDockerfileSource,
-  /ARG COMMENT_PRIVACY_PROVER_KEY_PATH=artifacts\/zk\/comment-v3-layout4\/keys\/comment_v3_final\.fsg16pk/u,
-  'the isolated wasm builder must require an identity-correct proving-key input');
+  /ARG FSUSBLOG_ZK_PRODUCTION_ENABLED=0/u,
+  'the isolated wasm builder must default production ZK packaging to disabled');
 assert.match(serverDockerfileSource,
-  /COPY \$\{COMMENT_PRIVACY_PROVER_KEY_PATH\} \/artifacts\/zk\/comment-v3-layout4\/keys\/comment_v3_final\.fsg16pk/u,
-  'the isolated wasm builder must never copy a retired proving key');
+  /comment-privacy-build-contract\.mjs/u,
+  'the isolated wasm builder must validate the current v5 setup before optional prover packaging');
+assert.doesNotMatch(serverDockerfileSource,
+  new RegExp(`comment-v3-${'layout4'}/keys|COMMENT_PRIVACY_${'PROVER_KEY_PATH'}`, 'u'),
+  'the isolated wasm builder must not retain a retired proving-key path or restore argument');
 assert.match(serverDockerfileSource,
   /ENV FSUSBLOG_FRONTEND_WASM_ROOT=\/work\/FsusBlog\.Client\/public\/wasm/u,
   'manifest tools in the isolated wasm builder must receive the explicit frontend output root');
@@ -171,10 +174,8 @@ for (const cacheTarget of ['/.tmp/dependency-cache', '/.cache/emscripten']) {
   assert.match(serverDockerfileSource, new RegExp(`type=cache[^\\n]+target=${cacheTarget.replaceAll('/', '\\/')}`, 'u'),
     `the isolated wasm builder must persist ${cacheTarget} across failed source rebuilds`);
 }
-for (const proverArtifact of ['comment-privacy-prover.manifest.json', 'comment-privacy-prover.zkey']) {
-  assert.match(buildWasmArtifactSource, new RegExp(proverArtifact.replaceAll('.', '\\.')),
-    `the wasm artifact boundary must admit the manifest-bound ${proverArtifact}`);
-}
+assert.match(buildWasmArtifactSource, /FSUSBLOG_ZK_PRODUCTION_ENABLED/u,
+  'the Wasm artifact producer must forward the explicit production-ZK build gate');
 assert.ok(
   serverDockerfileSource.indexOf('bash /work/tools/frontend/install-wasm-codec-deps.sh')
     < serverDockerfileSource.indexOf('COPY src/frontend/ /work/FsusBlog.Client/'),

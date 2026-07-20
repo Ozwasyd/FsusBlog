@@ -25,10 +25,10 @@ v2/layout3 phase transcripts and proving/verifying keys had no supported
 consumer and were deleted; their hashes and deletion disposition remain in
 `security/zk/provenance/artifact-ownership.manifest.json`.
 
-Future v3/layout4 ceremony, key and browser delivery artifacts use the
-identity-correct `artifacts/zk/comment-v3-layout4/{ceremony,keys,delivery}`
-namespaces. They are deliberately absent from Git and must arrive through an
-immutable release or OCI artifact bound by SHA-256 and same-release evidence.
+The retired v3/layout4 proving/verifying-key and browser-delivery paths no
+longer have a build, restore, runtime, or release consumer. New production
+materials are accepted only for the current v5/layout6 contract and remain
+external to ordinary Git.
 
 The manifest checker enforces that boundary:
 
@@ -62,9 +62,6 @@ The manifest checker enforces that boundary:
 | Circuit source | `src/zk/circuits/anonymous-comment-v2/comment_v2.circuit.json` |
 | R1CS IR artifact | `artifacts/zk/comment-v3-layout4/generated/comment_v3.r1cs` |
 | Groth16 R1CS ceremony input | `artifacts/zk/comment-v3-layout4/generated/comment_v3_groth16.r1cs` |
-| Final proving key, external until ceremony | `artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk` |
-| Canonical verifying key, external until ceremony | `artifacts/zk/comment-v3-layout4/keys/comment_v3_verifying_key.bin` |
-| Browser prover bundle, external until release | `artifacts/zk/comment-v3-layout4/delivery/comment_v3_prover_wasm.tar.gz` |
 | Public browser prover manifest | `src/frontend/public/wasm/comment-privacy-prover.manifest.json` |
 | R1CS IR builder | `tools/crypto/build-zk-comment-v2-r1cs.mjs` |
 | Static checker | `tools/crypto/check-zk-comment-v2-manifests.mjs` |

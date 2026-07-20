@@ -173,36 +173,6 @@
             "hash_authority": "security/zk/provenance/comment-v2-trusted-setup.manifest.json"
         },
         {
-            "path": "artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk",
-            "circuit_id": "fsus.anonymous.comment.v3",
-            "public_input_layout_version": 4,
-            "artifact_class": "ceremony-derived-proving-key",
-            "lifecycle": "required-before-production",
-            "production_usable": false,
-            "storage_authority": "immutable-release-or-oci",
-            "hash_authority": "security/zk/provenance/comment-v2-trusted-setup.manifest.json"
-        },
-        {
-            "path": "artifacts/zk/comment-v3-layout4/keys/comment_v3_verifying_key.bin",
-            "circuit_id": "fsus.anonymous.comment.v3",
-            "public_input_layout_version": 4,
-            "artifact_class": "ceremony-derived-verifying-key",
-            "lifecycle": "required-before-production",
-            "production_usable": false,
-            "storage_authority": "immutable-release-or-oci",
-            "hash_authority": "security/zk/provenance/comment-v2-trusted-setup.manifest.json"
-        },
-        {
-            "path": "artifacts/zk/comment-v3-layout4/keys/comment_v3_verifying_key.json",
-            "circuit_id": "fsus.anonymous.comment.v3",
-            "public_input_layout_version": 4,
-            "artifact_class": "ceremony-derived-verifying-key-metadata",
-            "lifecycle": "required-before-production",
-            "production_usable": false,
-            "storage_authority": "immutable-release-or-oci",
-            "hash_authority": "security/zk/provenance/comment-v2-trusted-setup.manifest.json"
-        },
-        {
             "path": "artifacts/zk/comment-v3-layout4/delivery/comment_v3_source.tar.gz",
             "circuit_id": "fsus.anonymous.comment.v3",
             "public_input_layout_version": 4,
@@ -211,16 +181,6 @@
             "production_usable": false,
             "storage_authority": "immutable-release-or-oci",
             "hash_authority": "release evidence manifest"
-        },
-        {
-            "path": "artifacts/zk/comment-v3-layout4/delivery/comment_v3_prover_wasm.tar.gz",
-            "circuit_id": "fsus.anonymous.comment.v3",
-            "public_input_layout_version": 4,
-            "artifact_class": "release-delivery-bundle",
-            "lifecycle": "required-before-production",
-            "production_usable": false,
-            "storage_authority": "immutable-release-or-oci",
-            "hash_authority": "security/zk/provenance/comment-v2-trusted-setup.manifest.json"
         }
     ],
     "retired_artifacts": [
@@ -301,26 +261,6 @@
             "required_artifacts": [
                 "artifacts/zk/comment-v3-layout4/generated/comment_v3.r1cs",
                 "artifacts/zk/comment-v3-layout4/generated/comment_v3_groth16.r1cs"
-            ]
-        },
-        {
-            "path": "tools/security/ZkCommentV2MclFixture/Program.cs",
-            "required_artifacts": [
-                "artifacts/zk/comment-v3-layout4/generated/comment_v3_groth16.r1cs",
-                "artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk"
-            ]
-        },
-        {
-            "path": "src/frontend/wasm/build.sh",
-            "required_artifacts": [
-                "artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk",
-                "artifacts/zk/comment-v3-layout4/delivery/comment_v3_prover_wasm.tar.gz"
-            ]
-        },
-        {
-            "path": "ops/docker/FsusBlog.Server.Dockerfile",
-            "required_artifacts": [
-                "artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk"
             ]
         }
     ]

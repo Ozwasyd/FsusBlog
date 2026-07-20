@@ -43,7 +43,7 @@ test('checker rejects unowned and Git-tracked ceremony binaries in one run', () 
   const trackedFiles = [
     ...canonicalTrackedFiles,
     'artifacts/zk/unowned/rogue.bin',
-    'artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk'
+    'artifacts/zk/comment-v3-layout4/ceremony/phase1/powers_of_tau_final.fsptau'
   ]
   const errors = validateZkArtifactOwnership({
     root,

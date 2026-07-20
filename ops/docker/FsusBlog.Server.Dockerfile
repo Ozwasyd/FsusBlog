@@ -122,11 +122,16 @@ RUN bash -lc 'set -euo pipefail; \
   export VCPKG_ROOT="/opt/vcpkg"; \
   bash /work/tools/frontend/install-wasm-codec-deps.sh'
 
-ARG COMMENT_PRIVACY_PROVER_KEY_PATH=artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk
-COPY ${COMMENT_PRIVACY_PROVER_KEY_PATH} /artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk
+ARG FSUSBLOG_ZK_PRODUCTION_ENABLED=0
+COPY artifacts/zk/comment-v5/ /work/artifacts/zk/comment-v5/
+COPY security/zk/contracts/comment-v5-circuit.manifest.json /work/security/zk/contracts/comment-v5-circuit.manifest.json
+COPY security/zk/provenance/comment-v5-trusted-setup.manifest.json /work/security/zk/provenance/comment-v5-trusted-setup.manifest.json
+COPY config/zk/anonymous-comment-v5-verifying-key.manifest.json /work/config/zk/anonymous-comment-v5-verifying-key.manifest.json
+COPY tools/security/comment-privacy-build-contract.mjs /work/tools/security/comment-privacy-build-contract.mjs
 COPY src/frontend/ /work/FsusBlog.Client/
 ENV FSUSBLOG_FRONTEND_WASM_ROOT=/work/FsusBlog.Client/public/wasm
-ENV FSUSBLOG_COMMENT_PROVER_KEY=/artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk
+ENV FSUSBLOG_REPOSITORY_ROOT=/work
+ENV FSUSBLOG_ZK_PRODUCTION_ENABLED=${FSUSBLOG_ZK_PRODUCTION_ENABLED}
 
 RUN --mount=type=cache,id=fsusblog-wasm-dependency,target=/.tmp/dependency-cache,sharing=locked \
     --mount=type=cache,id=fsusblog-emscripten,target=/.cache/emscripten,sharing=locked \

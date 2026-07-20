@@ -192,7 +192,7 @@ export function productionBuildEnvironment(layout, env = process.env) {
     ASPNETCORE_WEBROOT: layout.backendWebRoot,
     FSUSBLOG_GENERATED_OUTPUT_ROOT: layout.generatedRoot,
     FSUSBLOG_ARTIFACT_DIGEST_TABLE: path.join(layout.generatedRoot, 'artifact-digest-table.json'),
-    FSUSBLOG_COMMENT_PROVER_BUNDLE: path.join(layout.generatedRoot, 'comment_v3_layout4_prover_wasm.tar.gz'),
+    FSUSBLOG_ZK_PRODUCTION_ENABLED: env.FSUSBLOG_ZK_PRODUCTION_ENABLED ?? '0',
     FSUSBLOG_BACKEND_SERVER_DLL: artifacts.serverDll,
     FSUSBLOG_BACKEND_TEST_DLL: artifacts.testDll,
     FSUSBLOG_BACKEND_TEST_BIN_DIR: artifacts.tests.outputDirectory,

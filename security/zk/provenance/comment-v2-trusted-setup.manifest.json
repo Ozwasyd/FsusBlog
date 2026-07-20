@@ -39,7 +39,7 @@
         "minimum_contributions": 3,
         "transcript_path": "artifacts/zk/comment-v3-layout4/ceremony/phase2/comment_v3_ceremony_transcript.json",
         "transcript_sha256": "",
-        "verification_command": "dotnet run --project tools/security/ZkCommentV2MclFixture/FsusBlog.ZkCommentV2MclFixture.csproj -- --verify-setup artifacts/zk/comment-v3-layout4/generated/comment_v3_groth16.r1cs artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk"
+        "verification_command": ""
     },
     "artifacts": {
         "r1cs": {
@@ -57,24 +57,24 @@
             "ceremony_input": true
         },
         "proving_key": {
-            "path": "artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk",
+            "path": "",
             "sha256": "",
-            "status": "required"
+            "status": "retired"
         },
         "verifying_key": {
-            "path": "artifacts/zk/comment-v3-layout4/keys/comment_v3_verifying_key.bin",
+            "path": "",
             "sha256": "",
-            "status": "required"
+            "status": "retired"
         },
         "verifying_key_json": {
-            "path": "artifacts/zk/comment-v3-layout4/keys/comment_v3_verifying_key.json",
+            "path": "",
             "sha256": "",
-            "status": "required"
+            "status": "retired"
         },
         "wasm_prover_bundle": {
-            "path": "artifacts/zk/comment-v3-layout4/delivery/comment_v3_prover_wasm.tar.gz",
+            "path": "",
             "sha256": "",
-            "status": "required"
+            "status": "retired"
         }
     },
     "verifying_key_hash": "",
@@ -89,10 +89,7 @@
     "transcript_consistency_checks": [
         "phase1 transcript SHA-256 matches phase1.transcript_sha256",
         "phase2 transcript SHA-256 matches phase2.transcript_sha256",
-        "phase2 transcript references circuit_manifest_sha256",
-        "final proving key SHA-256 matches artifacts.proving_key.sha256",
-        "canonical verifying key bytes SHA-256 equals verifying_key_hash",
-        "verifying key hash matches config/zk/anonymous-comment-v2-verifying-key.manifest.json"
+        "phase2 transcript references circuit_manifest_sha256"
     ],
     "handoff_consumers": [
         "#552 trusted setup ceremony artifacts",

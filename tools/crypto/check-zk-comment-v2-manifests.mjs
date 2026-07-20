@@ -589,7 +589,7 @@ function checkSetup(setup, circuitHash) {
     } else if (!isBlank(setup[phase]?.transcript_sha256) && !isSha256Hex(setup[phase]?.transcript_sha256)) {
       fail(`setup.${phase}.transcript_sha256 must be a 64-character SHA-256 hex digest`)
     }
-    if (String(setup[phase]?.verification_command ?? '').trim().length === 0) {
+    if (setupProductionUsable && String(setup[phase]?.verification_command ?? '').trim().length === 0) {
       fail(`setup.${phase}.verification_command is required`)
     }
   }
@@ -597,15 +597,13 @@ function checkSetup(setup, circuitHash) {
   const artifacts = setup.artifacts ?? {}
   for (const key of ['r1cs', 'groth16_r1cs', 'proving_key', 'verifying_key', 'verifying_key_json', 'wasm_prover_bundle']) {
     const artifact = artifacts[key] ?? {}
-    const expectedStatus = setupProductionUsable
-      ? 'required'
-      : setup.ceremony_status === 'placeholder_not_trusted_setup'
-        ? 'placeholder'
-        : 'required'
+    const historicalKeyArtifact = ['proving_key', 'verifying_key', 'verifying_key_json', 'wasm_prover_bundle'].includes(key)
+    const expectedStatus = setupProductionUsable ? 'required' : historicalKeyArtifact ? 'retired' :
+      setup.ceremony_status === 'placeholder_not_trusted_setup' ? 'placeholder' : 'required'
     if (artifact.status !== expectedStatus) {
       fail(`setup.artifacts.${key}.status must be ${expectedStatus}`)
     }
-    if (String(artifact.path ?? '').trim().length === 0) {
+    if ((setupProductionUsable || !historicalKeyArtifact) && String(artifact.path ?? '').trim().length === 0) {
       fail(`setup.artifacts.${key}.path is required`)
     }
     assertNoPlaceholder(`setup.artifacts.${key}.sha256`, artifact.sha256)
@@ -640,7 +638,11 @@ function checkSetup(setup, circuitHash) {
   }
 
   const transcriptChecks = asArray(setup.transcript_consistency_checks).join('\n')
-  for (const token of ['phase1 transcript SHA-256', 'phase2 transcript SHA-256', 'final proving key SHA-256', 'canonical verifying key bytes SHA-256', 'verifying key hash matches']) {
+  const requiredTranscriptChecks = ['phase1 transcript SHA-256', 'phase2 transcript SHA-256']
+  if (setupProductionUsable) {
+    requiredTranscriptChecks.push('final proving key SHA-256', 'canonical verifying key bytes SHA-256', 'verifying key hash matches')
+  }
+  for (const token of requiredTranscriptChecks) {
     if (!transcriptChecks.includes(token)) {
       fail(`setup.transcript_consistency_checks missing ${token}`)
     }
@@ -672,7 +674,7 @@ function checkGroth16R1csBoundary(setup) {
   if (deterministicIrPath.length > 0 && phase2Command.includes(deterministicIrPath)) {
     fail('setup.phase2.verification_command must not use deterministic R1CS IR as Groth16 ceremony input')
   }
-  if (groth16R1csPath.length > 0 && !phase2Command.includes(groth16R1csPath)) {
+  if (setup.production_usable === true && groth16R1csPath.length > 0 && !phase2Command.includes(groth16R1csPath)) {
     fail('setup.phase2.verification_command must reference setup.artifacts.groth16_r1cs.path')
   }
 }
@@ -687,7 +689,7 @@ function checkConfig(config, setup) {
     'config.local_cryptographic_review_manifest',
     config.local_cryptographic_review_manifest,
     'security/zk/provenance/comment-v2-local-review.manifest.json')
-  equals('config.verifying_key_path', config.verifying_key_path, setup.artifacts?.verifying_key?.path)
+  equals('config.verifying_key_path', String(config.verifying_key_path ?? ''), String(setup.artifacts?.verifying_key?.path ?? ''))
 
   const setupProductionUsable = setup.production_usable === true
   if (config.production_usable !== setupProductionUsable) {

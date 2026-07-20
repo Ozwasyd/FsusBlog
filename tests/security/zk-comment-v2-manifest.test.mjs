@@ -231,8 +231,7 @@ test('comment v2 circuit source and generated R1CS artifact are hash-bound', () 
   assert.match(groth16R1cs.sha256, /^[a-f0-9]{64}$/u)
   assert.ok(existsSync(groth16R1cs.path), `${groth16R1cs.path} must exist`)
   assert.equal(sha256File(groth16R1cs.path), groth16R1cs.sha256)
-  assert.match(setup.phase2.verification_command, /comment_v3_groth16\.r1cs/)
-  assert.doesNotMatch(setup.phase2.verification_command, /comment_v3\.r1cs/)
+  assert.equal(setup.phase2.verification_command, '')
 
   assert.ok(existsSync(source.path), `${source.path} must exist`)
   assert.ok(existsSync(r1cs.path), `${r1cs.path} must exist`)
@@ -380,7 +379,7 @@ test('checker accepts self-written verified setup when all artifacts are hash-bo
       documents.setup.phase2.status = 'verified'
       documents.setup.phase2.transcript_path = artifacts.phase2.relative
       documents.setup.phase2.transcript_sha256 = artifacts.phase2.sha256
-      documents.setup.phase2.verification_command = 'dotnet run --project tools/security/ZkCommentV2MclFixture/FsusBlog.ZkCommentV2MclFixture.csproj -- --verify-setup artifacts/zk/comment-v3-layout4/generated/comment_v3_groth16.r1cs artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk'
+      documents.setup.phase2.verification_command = `dotnet run --project tools/security/ZkCommentV2MclFixture/FsusBlog.ZkCommentV2MclFixture.csproj -- --verify-setup ${documents.setup.artifacts.groth16_r1cs.path} ${artifacts.provingKey.relative}`
 
       for (const artifact of Object.values(documents.setup.artifacts)) {
         artifact.status = 'required'
@@ -394,6 +393,11 @@ test('checker accepts self-written verified setup when all artifacts are hash-bo
       documents.setup.artifacts.wasm_prover_bundle.path = artifacts.wasmBundle.relative
       documents.setup.artifacts.wasm_prover_bundle.sha256 = artifacts.wasmBundle.sha256
       documents.setup.verifying_key_hash = artifacts.verifyingKey.sha256
+      documents.setup.transcript_consistency_checks.push(
+        'final proving key SHA-256 matches artifacts.proving_key.sha256',
+        'canonical verifying key bytes SHA-256 equals verifying_key_hash',
+        'verifying key hash matches config manifest'
+      )
 
       documents.config.artifact_status = 'verified-production-artifacts'
       documents.config.production_usable = true
@@ -410,7 +414,7 @@ test('checker accepts self-written verified setup when all artifacts are hash-bo
 test('checker fails if phase2 ceremony uses the deterministic R1CS IR artifact', () => {
   const result = withTempManifests((documents) => {
     documents.setup.phase2.verification_command =
-      'dotnet run --project tools/security/ZkCommentV2MclFixture/FsusBlog.ZkCommentV2MclFixture.csproj -- --verify-setup artifacts/zk/comment-v3-layout4/generated/comment_v3.r1cs artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk'
+      `dotnet run --project tools/security/ZkCommentV2MclFixture/FsusBlog.ZkCommentV2MclFixture.csproj -- --verify-setup ${documents.setup.artifacts.r1cs.path} /tmp/retired-proving-key`
   })
 
   assert.notEqual(result.status, 0)

@@ -52,6 +52,8 @@ bundle 内同一 wave 的独立步骤不会在首个失败后停止调度，而�
 
 `privacy-zk-comment-matrix` 拆成跨物理束的 run-bound 阶段：`frontend-tests` 先完成 contract，并从本轮 backend production TRX 与主 Vitest JSON fail closed 投影 functional receipt；MCL P99 不在 frontend 的普通并发负载中重跑，而由后置 `performance-evidence` 消费同 run 的 contract/functional receipts，在独占 `benchmark-window` 中只执行唯一 benchmark case，最后由 finalize 同时校验 contract、functional、benchmark 三份 receipt 并生成 canonical matrix artifact。Wasm prover bundle 使用固定 entry order、epoch mtime、numeric owner 与无 gzip 时间戳的可重复归档，manifest 校验的是该确定性 SHA-256。cross-stack 导出的 AEDS OpenAPI 由矩阵生成器写入 canonical 输出，.NET 原生 OpenAPI 只写入独立 runtime 目录作构建验证，不得覆盖 AEDS 快照。
 
+`production-build-artifacts` receipt 绑定当前 v5 circuit/setup/config 与 `comment-privacy-build-contract.mjs`。默认 fail-closed build 不包含 `comment-privacy-prover.zkey` 或其 public manifest；这表示 ZK 功能关闭，不表示用占位 key 通过 gate。只有显式 production ZK build 才把这两个文件加入 Wasm artifact contract，并在编译前校验完整 ceremony/transcript/artifact SHA。正向测试使用临时 hash-bound v5 fixture，负向测试必须覆盖 setup 未就绪、旧 circuit/layout 与 artifact digest 漂移；测试不得生成或下载真实 ceremony key。
+
 lane-local collect executor 会等待全部独立子任务结束后聚合失败，不因首错 kill peer。security 的 matrix、ZAP policy、SBOM、supply-chain 与 network baseline 静态检查并行；共享安全 fixture/runtime state 的 API、认证、权限、攻击矩阵、notification stream、a11y 与 DAST 保持有序执行，但每个失败只记入汇总，后续检查和必要 reset 继续执行，最后一次性报告全部失败。跨 lane 的依赖、取消和资源 admission 仍只属于 matrix scheduler。
 
 本轮删测证据按以下顺序生成和核验（`<run-id>` 与 checkpoint 路径必须来自同一次权威 fresh run）：

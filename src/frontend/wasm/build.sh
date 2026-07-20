@@ -17,7 +17,8 @@ STAGE_BASIC_DIR="${STAGE_DIR}/wasm-basic"
 STAGE_RELAXED_POW_DIR="${STAGE_DIR}/wasm-pow-relaxed"
 STAGE_THREADS_POW_DIR="${STAGE_DIR}/wasm-pow-threads"
 BUILD_IMAGE_CODEC="${FSUSBLOG_WASM_IMAGE_CODEC_ENABLE:-ON}"
-COMMENT_PRIVACY_PROVER_KEY="${FSUSBLOG_COMMENT_PROVER_KEY:-${ROOT_DIR}/../../artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk}"
+REPOSITORY_ROOT="${FSUSBLOG_REPOSITORY_ROOT:-$(cd "${ROOT_DIR}/../.." && pwd)}"
+COMMENT_PRIVACY_BUILD_CONTRACT="${REPOSITORY_ROOT}/tools/security/comment-privacy-build-contract.mjs"
 ACTIVE_WASM_CHILD_PIDS=()
 
 CleanupWasmChildren() {
@@ -161,10 +162,15 @@ if [[ "${1:-}" == "--print-resource-plan" ]]; then
     exit 0
 fi
 
-if [[ ! -f "${COMMENT_PRIVACY_PROVER_KEY}" ]]; then
-    echo "[build:wasm] comment privacy proving key is missing: ${COMMENT_PRIVACY_PROVER_KEY}" >&2
-    exit 1
+COMMENT_PRIVACY_BUILD_MODE="$(FSUSBLOG_REPOSITORY_ROOT="${REPOSITORY_ROOT}" \
+    "${FSUSBLOG_NODE:-node}" "${COMMENT_PRIVACY_BUILD_CONTRACT}" --print-mode)"
+COMMENT_PRIVACY_PROVER_KEY=""
+if [[ "${COMMENT_PRIVACY_BUILD_MODE}" == "enabled" ]]; then
+    COMMENT_PRIVACY_PROVER_KEY="$(FSUSBLOG_REPOSITORY_ROOT="${REPOSITORY_ROOT}" \
+        "${FSUSBLOG_NODE:-node}" "${COMMENT_PRIVACY_BUILD_CONTRACT}" --print-proving-key)"
 fi
+printf '[build:wasm] comment_privacy=%s circuit=fsus.anonymous.comment.v5 layout=6\n' \
+    "${COMMENT_PRIVACY_BUILD_MODE}"
 
 mkdir -p \
     "${OUT_DIR}" \
@@ -523,7 +529,9 @@ cp -f "${STAGE_BASIC_DIR}/search_basic.wasm" "${OUT_DIR}/search_basic.wasm"
 cp -f "${STAGE_SIMD_DIR}/comment_privacy_runtime.js" "${OUT_DIR}/comment_privacy_runtime.js"
 cp -f "${STAGE_SIMD_DIR}/comment_privacy_runtime.wasm" "${OUT_DIR}/comment_privacy_runtime.wasm"
 cp -f "${WASM_ROOT}/comment_privacy/comment-privacy-prover.js" "${OUT_DIR}/comment-privacy-prover.js"
-cp -f "${COMMENT_PRIVACY_PROVER_KEY}" "${OUT_DIR}/comment-privacy-prover.zkey"
+if [[ "${COMMENT_PRIVACY_BUILD_MODE}" == "enabled" ]]; then
+    cp -f "${COMMENT_PRIVACY_PROVER_KEY}" "${OUT_DIR}/comment-privacy-prover.zkey"
+fi
 if [[ "${BUILD_IMAGE_CODEC}" == "ON" || "${BUILD_IMAGE_CODEC}" == "1" || "${BUILD_IMAGE_CODEC}" == "TRUE" ]]; then
     cp -f "${STAGE_SIMD_DIR}/image_codec_simd.js" "${OUT_DIR}/image_codec_simd.js"
     cp -f "${STAGE_SIMD_DIR}/image_codec_simd.wasm" "${OUT_DIR}/image_codec_simd.wasm"
@@ -531,19 +539,10 @@ if [[ "${BUILD_IMAGE_CODEC}" == "ON" || "${BUILD_IMAGE_CODEC}" == "1" || "${BUIL
     cp -f "${STAGE_BASIC_DIR}/image_codec_basic.wasm" "${OUT_DIR}/image_codec_basic.wasm"
 fi
 
-node "${ROOT_DIR}/../../tools/frontend/write-comment-privacy-prover-manifest.mjs"
-PROVER_BUNDLE="${FSUSBLOG_COMMENT_PROVER_BUNDLE:-${ROOT_DIR}/../../artifacts/zk/comment-v3-layout4/delivery/comment_v3_prover_wasm.tar.gz}"
-mkdir -p "$(dirname "${PROVER_BUNDLE}")"
-PROVER_BUNDLE_TAR="${PROVER_BUNDLE}.tmp-$$.tar"
-tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner --mode=0644 \
-    -C "${OUT_DIR}" -cf "${PROVER_BUNDLE_TAR}" \
-    comment-privacy-prover.js \
-    comment_privacy_runtime.js \
-    comment_privacy_runtime.wasm \
-    comment-privacy-prover.zkey \
-    comment-privacy-prover.manifest.json
-gzip -n -9 -f "${PROVER_BUNDLE_TAR}"
-mv -f "${PROVER_BUNDLE_TAR}.gz" "${PROVER_BUNDLE}"
+if [[ "${COMMENT_PRIVACY_BUILD_MODE}" == "enabled" ]]; then
+    FSUSBLOG_REPOSITORY_ROOT="${REPOSITORY_ROOT}" \
+        node "${REPOSITORY_ROOT}/tools/frontend/write-comment-privacy-prover-manifest.mjs"
+fi
 node "${ROOT_DIR}/../../tools/frontend/ensure-wasm.mjs" write-manifest
 
 echo "Wasm artifacts emitted to ${OUT_DIR}"

@@ -53,6 +53,7 @@ import {
   waitForRunBoundMarker
 } from '../../test-matrix/run-bound-marker.mjs'
 import { publishFrontendBuildTerminalMarker } from '../../test-matrix/frontend-build-ready-marker.mjs'
+import { productionZkRequested } from '../../security/comment-privacy-build-contract.mjs'
 import {
   consumeResidentLeaseHandoffFile,
   productionResidentServiceIds,
@@ -441,12 +442,10 @@ function publishFrontendBuildReady() {
   const artifactPath = relative(path.join(frontendDistRoot, 'index.html'))
   const privacyWasmPaths = [
     'comment-privacy-prover.js',
-    'comment-privacy-prover.zkey',
-    'comment-privacy-prover.manifest.json'
+    ...(productionZkRequested() ? ['comment-privacy-prover.zkey', 'comment-privacy-prover.manifest.json'] : [])
   ].map((file) => relative(path.join(frontendWasmRoot, file)))
   const summaryPath = '.tmp/frontend/frontend-build.json'
-  const generatedProverBundlePath = relative(process.env.FSUSBLOG_COMMENT_PROVER_BUNDLE)
-  const requiredArtifacts = [artifactPath, ...privacyWasmPaths, generatedProverBundlePath]
+  const requiredArtifacts = [artifactPath, ...privacyWasmPaths]
   const missingArtifacts = requiredArtifacts.filter((requiredPath) => !fs.existsSync(path.join(root, requiredPath)))
   if (missingArtifacts.length > 0) {
     throw new Error(`frontend build completed without required artifact(s): ${missingArtifacts.join(', ')}`)
@@ -486,11 +485,6 @@ function publishFrontendBuildReady() {
       digest: artifactDigests[requiredPath],
       artifactRef: artifacts.refs[requiredPath]
     }])),
-    generatedProverBundle: {
-      path: generatedProverBundlePath,
-      digest: artifactDigests[generatedProverBundlePath],
-      artifactRef: artifacts.refs[generatedProverBundlePath]
-    },
     generatedContract: {
       path: generatedContractPath,
       digest: generatedContractDigest,
@@ -1466,11 +1460,9 @@ async function waitForFrontendBuildReady(timeoutMs = resolveExecutionWaitTimeout
   const artifactPath = relative(path.join(frontendDistRoot, 'index.html'))
   const privacyWasmPaths = [
     'comment-privacy-prover.js',
-    'comment-privacy-prover.zkey',
-    'comment-privacy-prover.manifest.json'
+    ...(productionZkRequested() ? ['comment-privacy-prover.zkey', 'comment-privacy-prover.manifest.json'] : [])
   ].map((file) => relative(path.join(frontendWasmRoot, file)))
   const generatedContractPath = relative(path.join(productionBuildLayout.generatedRoot, 'frontend-build-contract.json'))
-  const generatedProverBundlePath = relative(process.env.FSUSBLOG_COMMENT_PROVER_BUNDLE)
   const startedAtMs = Date.now()
   const readiness = await waitForRunBoundMarker({
     file: markerFile,
@@ -1502,11 +1494,10 @@ async function waitForFrontendBuildReady(timeoutMs = resolveExecutionWaitTimeout
             || !markerHasCurrentBuildLayout(marker)
             || marker.distEntry?.path !== artifactPath
             || marker.generatedContract?.path !== generatedContractPath
-            || marker.generatedProverBundle?.path !== generatedProverBundlePath
             || privacyWasmPaths.some((requiredPath) => marker.privacyWasmArtifacts?.[requiredPath]?.path !== requiredPath)) {
           throw new Error(`frontend build readiness marker is not bound to scheduler run ${expectedRunId}`)
         }
-        const requiredArtifacts = [artifactPath, ...privacyWasmPaths, generatedProverBundlePath, generatedContractPath]
+        const requiredArtifacts = [artifactPath, ...privacyWasmPaths, generatedContractPath]
         const missingArtifacts = requiredArtifacts.filter((requiredPath) => !fs.existsSync(path.join(root, requiredPath)))
         if (missingArtifacts.length > 0) {
           throw new Error(`frontend build readiness artifact(s) missing: ${missingArtifacts.join(', ')}`)
@@ -1518,16 +1509,12 @@ async function waitForFrontendBuildReady(timeoutMs = resolveExecutionWaitTimeout
             ? marker.distEntry.digest
             : requiredPath === generatedContractPath
               ? marker.generatedContract.digest
-              : requiredPath === generatedProverBundlePath
-                ? marker.generatedProverBundle.digest
               : marker.privacyWasmArtifacts[requiredPath].digest
           const expectedRef = requiredPath === artifactPath
             ? marker.distEntry.artifactRef
             : requiredPath === generatedContractPath
               ? marker.generatedContract.artifactRef
-              : requiredPath === generatedProverBundlePath
-                ? marker.generatedProverBundle.artifactRef
-                : marker.privacyWasmArtifacts[requiredPath].artifactRef
+              : marker.privacyWasmArtifacts[requiredPath].artifactRef
           return !expectedDigest || actualDigests[requiredPath] !== expectedDigest
             || !expectedRef || actual.refs[requiredPath] !== expectedRef
         })

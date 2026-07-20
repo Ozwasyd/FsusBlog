@@ -13,6 +13,7 @@ import {
   validateGeneratedWasmPackage
 } from '../../tools/check-wasm-artifact-ownership.mjs';
 import {
+  resolveWasmRequiredOutputFiles,
   wasmArtifactContract,
   wasmToolchainContract
 } from '../../tools/frontend/ensure-wasm.mjs';
@@ -175,7 +176,9 @@ test('ensure-wasm exposes the current schema v3, ABI v4 and complete output cont
   assert.ok(wasmArtifactContract.requiredOutputFiles.includes('aeds_decoder_basic.wasm'));
   assert.ok(wasmArtifactContract.requiredOutputFiles.includes('aeds_decoder_speed.wasm'));
   assert.ok(wasmArtifactContract.requiredOutputFiles.includes('aeds-runtime-manifest.json'));
-  assert.ok(wasmArtifactContract.requiredOutputFiles.includes('comment-privacy-prover.zkey'));
+  assert.equal(wasmArtifactContract.requiredOutputFiles.includes('comment-privacy-prover.zkey'), false);
+  assert.ok(resolveWasmRequiredOutputFiles({ FSUSBLOG_ZK_PRODUCTION_ENABLED: '1' })
+    .includes('comment-privacy-prover.zkey'));
   assert.equal(new Set(wasmArtifactContract.requiredOutputFiles).size,
     wasmArtifactContract.requiredOutputFiles.length);
 });
@@ -204,7 +207,8 @@ test('fresh-source write-manifest output passes the release ownership gate end t
     encoding: 'utf8'
   });
   assert.equal(checked.status, 0, checked.stderr || checked.stdout);
-  assert.match(checked.stdout, /schema=3 abi=fsusblog\.aeds\.v4 outputs=26/u);
+  assert.match(checked.stdout,
+    new RegExp(`schema=3 abi=fsusblog\\.aeds\\.v4 outputs=${wasmArtifactContract.requiredOutputFiles.length}`, 'u'));
 });
 
 test('generated package validator rejects stale schema and missing output files', async (t) => {

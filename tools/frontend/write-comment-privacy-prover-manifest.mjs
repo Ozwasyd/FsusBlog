@@ -3,11 +3,19 @@ import { createHash } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import {
+  commentPrivacyBuildContract,
+  validateCommentPrivacyBuild
+} from '../security/comment-privacy-build-contract.mjs'
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const publicWasmRoot = resolve(process.env.FSUSBLOG_FRONTEND_WASM_ROOT
   || join(repoRoot, 'src', 'frontend', 'public', 'wasm'))
 const manifestPath = join(publicWasmRoot, 'comment-privacy-prover.manifest.json')
+const buildContract = validateCommentPrivacyBuild({ root: process.env.FSUSBLOG_REPOSITORY_ROOT || repoRoot })
+if (buildContract.mode !== 'enabled') {
+  throw new Error('comment privacy prover manifest cannot be written while production ZK is disabled')
+}
 
 const files = {
   module: 'comment-privacy-prover.js',
@@ -36,8 +44,8 @@ const manifest = {
   wasmUrl: `/wasm/${files.wasm}`,
   provingKeyUrl: `/wasm/${files.provingKey}`,
   integrity: `sha256-${base64(moduleDigest)}`,
-  circuitId: 'fsus.anonymous.comment.v3',
-  publicInputLayoutVersion: 4,
+  circuitId: commentPrivacyBuildContract.circuitId,
+  publicInputLayoutVersion: commentPrivacyBuildContract.publicInputLayoutVersion,
   provingKeySha256: hex(provingKeyDigest),
   wasmSha256: hex(wasmDigest)
 }

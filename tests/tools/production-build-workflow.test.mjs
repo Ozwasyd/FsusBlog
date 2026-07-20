@@ -85,6 +85,11 @@ test('producer receipts existing lock, project and build configuration inputs', 
     'src/frontend/vite.config.ts',
     'tools/frontend/build.mjs',
     'tools/frontend/ensure-wasm.mjs',
+    'tools/frontend/write-comment-privacy-prover-manifest.mjs',
+    'tools/security/comment-privacy-build-contract.mjs',
+    'security/zk/contracts/comment-v5-circuit.manifest.json',
+    'security/zk/provenance/comment-v5-trusted-setup.manifest.json',
+    'config/zk/anonymous-comment-v5-verifying-key.manifest.json',
     'src/frontend/wasm/CMakeLists.txt'
   ]) assert.match(source, new RegExp(`--input ${input.replaceAll('.', '\\.')}`, 'u'), input)
   assert.doesNotMatch(source, /--input global\.json/u)
