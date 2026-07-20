@@ -77,8 +77,8 @@ public interface IMessageCommandService
 public interface IMessageRealtimePublisher
 {
     Task PushAccountStatusAsync(long accountId, int status, string? reason);
-    Task PushCommentRemoveAsync(int articleId, long commentId, long? rootId, long? parentId);
-    Task PushCommentAddAsync(CommentAddedNotifyDto payload);
+    Task PushCommentRemoveAsync(int articleId, long commentId, long? rootId, long? parentId, string? idempotencyKey = null);
+    Task PushCommentAddAsync(CommentAddedNotifyDto payload, string? idempotencyKey = null);
     Task PushCacheControlAsync(CacheControlPayload payload);
     Task PushArticleChangedAsync(ArticleNoticeDto payload, string? idempotencyKey = null);
 }

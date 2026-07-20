@@ -196,6 +196,70 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
     }
 
     [Fact]
+    public async Task RunAsync_CommentMutationOutbox_EnforcesMinimalPayloadAndConsumerIdentity()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            new SchemaMigrationRegistry().GetDescriptors(),
+            static item => item.MigrationId == "20260720-post-comment-mutation-outbox");
+        ISchemaMigrationRegistry focusedRegistry = Substitute.For<ISchemaMigrationRegistry>();
+        focusedRegistry.GetDescriptors().Returns([descriptor]);
+        await RunMigrationsAsync(connectionString, focusedRegistry);
+        await RunMigrationsAsync(connectionString, focusedRegistry);
+
+        Assert.True(await fixture.TableExistsAsync(connectionString, "comment_mutation_outbox"));
+        Assert.True(await fixture.TableExistsAsync(connectionString, "comment_mutation_outbox_delivery"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "ux_comment_mutation_outbox_event_id"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "ux_comment_outbox_delivery_consumer"));
+        await fixture.ExecuteAsync(connectionString, """
+            INSERT INTO comment(id, article_id, content, create_time, author_mode, depth, is_deleted,
+                                moderation_status, moderation_reason)
+            VALUES (702, 1, 'authoritative only', now() AT TIME ZONE 'utc', 'public', 0, false,
+                    1, 'approved_deterministic_low_risk');
+
+            INSERT INTO comment_mutation_outbox(
+                event_id, event_type, comment_id, article_id, root_id, payload_json, status,
+                attempt_count, next_attempt_at, occurred_at_utc)
+            VALUES (
+                '018ff010-1234-7abc-8def-0123456789ab', 'CommentCreated', 702, 1, 702, '{}', 'pending',
+                0, now() AT TIME ZONE 'utc', now() AT TIME ZONE 'utc');
+            """);
+
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync();
+        await using (var sensitivePayload = new NpgsqlCommand(
+            """
+            INSERT INTO comment_mutation_outbox(
+                event_id, event_type, comment_id, article_id, root_id, payload_json, status,
+                attempt_count, next_attempt_at, occurred_at_utc)
+            VALUES (
+                '018ff011-1234-7abc-8def-0123456789ab', 'CommentCreated', 702, 1, 702,
+                '{"content":"must-not-copy"}', 'pending', 0, now() AT TIME ZONE 'utc', now() AT TIME ZONE 'utc');
+            """,
+            connection))
+        {
+            PostgresException rejected = await Assert.ThrowsAsync<PostgresException>(() => sensitivePayload.ExecuteNonQueryAsync());
+            Assert.Equal(PostgresErrorCodes.CheckViolation, rejected.SqlState);
+        }
+
+        await using (var duplicateDelivery = new NpgsqlCommand(
+            """
+            INSERT INTO comment_mutation_outbox_delivery(outbox_event_id, consumer_name, status, attempt_count, updated_at_utc)
+            SELECT id, 'site-notification', 'completed', 1, now() AT TIME ZONE 'utc'
+            FROM comment_mutation_outbox WHERE comment_id = 702;
+            INSERT INTO comment_mutation_outbox_delivery(outbox_event_id, consumer_name, status, attempt_count, updated_at_utc)
+            SELECT id, 'site-notification', 'completed', 1, now() AT TIME ZONE 'utc'
+            FROM comment_mutation_outbox WHERE comment_id = 702;
+            """,
+            connection))
+        {
+            PostgresException rejected = await Assert.ThrowsAsync<PostgresException>(() => duplicateDelivery.ExecuteNonQueryAsync());
+            Assert.Equal(PostgresErrorCodes.UniqueViolation, rejected.SqlState);
+        }
+    }
+
+    [Fact]
     public async Task RunAsync_PublicArticleProjection_HasPreparedSequentialPrimaryKeyPlanAndVisibilityBoundary()
     {
         string databaseName = await fixture.CreateDatabaseAsync();

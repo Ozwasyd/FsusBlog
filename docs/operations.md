@@ -141,6 +141,8 @@ Public verification 同时运行持续 12-class traffic、notification reconnect
 
 这里的运行时接线不能手工拆开：manifest 校验生成 `FSUSBLOG_RELEASE_ID`，主机侧 manifest 路径只暂存在 `FSUSBLOG_RELEASE_MANIFEST_HOST_PATH` 供 Compose 只读挂载；容器内固定读取 `FSUSBLOG_RELEASE_MANIFEST_PATH=/app/release-manifest.json`，并以 `FSUSBLOG_RELEASE_DERIVED_ROOT=/app/release-derived` 访问 shared derived volume。三者必须指向同一 release identity；不要把它们写死在 `.env.production`，也不要让容器读取另一个 manifest 或 derived root。
 
+Comment mutation outbox 在 `/api/ops/health/ready-detail` 的 `runtime.commentMutationOutbox` 暴露 backlog、failed、poison、oldest age、累计 processed 与最近错误；`fsus.comment_outbox.*` 指标覆盖吞吐、失败、积压、最老延迟和死信。poison 非零会把 runtime readiness 标为 degraded。处置时可通过 reloadable 配置把 `CommentMutationOutbox:Enabled=false` 暂停新 claim（评论权威事务继续写 pending，不丢事件），修复依赖或 poison 根因后恢复为 `true`；不得删除 checkpoint 或把未知副作用手工标成 completed。完整步骤见 [`architecture/comment-mutation-outbox.md`](architecture/comment-mutation-outbox.md)。
+
 ### 强流量、资产 HMAC 与 migration qualification
 
 唯一 rollout 入口必须同时取得两个独立私钥文件：

@@ -69,6 +69,26 @@ public sealed class SchemaMigrationRegistryTests
         Assert.Contains("20260715-pre-visit-log-ip-pseudonym-epoch", migrationIds);
         Assert.Contains("20260719-post-comment-moderation-event", migrationIds);
         Assert.Contains("20260719-post-message-admin-queue-state", migrationIds);
+        Assert.Contains("20260720-post-comment-mutation-outbox", migrationIds);
+    }
+
+    [Fact]
+    public void GetDescriptors_CommentMutationOutbox_IsMinimalRetryableAndConsumerIdempotent()
+    {
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            new SchemaMigrationRegistry().GetDescriptors(),
+            static item => item.MigrationId == "20260720-post-comment-mutation-outbox");
+        string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
+
+        Assert.True(descriptor.Transactional);
+        Assert.Contains("comment_mutation_outbox", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("comment_mutation_outbox_delivery", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("CommentReplyNotificationRequested", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("payload_json = '{}'", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("ux_comment_outbox_delivery_consumer", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("'pending','processing','processed','failed','poison'", fingerprint, StringComparison.Ordinal);
+        Assert.DoesNotContain("content text", fingerprint, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("anonymous_nullifier", fingerprint, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

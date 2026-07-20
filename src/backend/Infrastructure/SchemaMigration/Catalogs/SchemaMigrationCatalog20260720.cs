@@ -25,6 +25,7 @@ internal static class SchemaMigrationCatalog20260720
                 PasskeySignalMigrationDefinitions.BuildMigration(),
                 UserSessionAuthenticationContextMigrationDefinitions.BuildMigration(),
                 CommentMutationIdempotencyMigrationDefinitions.BuildMigration(),
+                CommentMutationOutboxMigrationDefinitions.BuildMigration(),
                 ScheduledPublishIndexMigrationDefinitions.BuildMigration()
             ]);
 }

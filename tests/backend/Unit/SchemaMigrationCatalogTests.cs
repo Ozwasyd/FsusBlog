@@ -25,8 +25,8 @@ public sealed class SchemaMigrationCatalogTests
             catalog => Assert.Equal("current-20260709-20260716", catalog.CatalogId),
             catalog => Assert.Equal("current-20260719", catalog.CatalogId),
             catalog => Assert.Equal("current-20260720", catalog.CatalogId));
-        Assert.Equal(107, manifest.Descriptors.Count);
-        const string ExpectedPlanFingerprint = "4072DC7FFFECF99EC13B23374BBB909E737F9203ED9B135381CB460406336919";
+        Assert.Equal(108, manifest.Descriptors.Count);
+        const string ExpectedPlanFingerprint = "F02F69899950F14D00C46248A932FF8A199F5E68AB965400B27612FE9A7F4277";
         string actualPlanFingerprint = ComputePlanFingerprint(manifest.Descriptors);
         Assert.True(
             string.Equals(ExpectedPlanFingerprint, actualPlanFingerprint, StringComparison.Ordinal),

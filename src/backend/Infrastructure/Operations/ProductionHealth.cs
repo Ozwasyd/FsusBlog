@@ -297,6 +297,10 @@ public sealed record RuntimeHealthSnapshot(
     {
         get; init;
     }
+    public CommentMutationOutboxRuntimeSnapshot? CommentMutationOutbox
+    {
+        get; init;
+    }
 }
 
 public static class ProductionLivenessProbe
@@ -515,6 +519,9 @@ public sealed class ProductionReadinessProbe(
         int? notificationStreamConnections = serviceProvider.GetService<NotificationStreamConnectionManager>()?.ConnectionCount;
         StartupRuntimeState? startupRuntime = serviceProvider.GetService<StartupRuntimeState>();
         ScheduledPublishRuntimeState? scheduledPublish = serviceProvider.GetService<ScheduledPublishRuntimeState>();
+        CommentMutationOutboxRuntimeSnapshot? commentMutationOutbox = serviceProvider
+            .GetService<CommentMutationOutboxRuntimeState>()
+            ?.CreateSnapshot();
         PublicHotReadStore? publicHotReadStore = serviceProvider.GetService<PublicHotReadStore>();
         AuditLogRuntimeState? auditLogRuntime = serviceProvider.GetService<AuditLogRuntimeState>();
         Task<PublicHotReadRuntimeSnapshot?> publicHotReadTask = Task.Run(
@@ -530,10 +537,11 @@ public sealed class ProductionReadinessProbe(
         PublicHotReadRuntimeSnapshot? publicHotRead = await publicHotReadTask;
         AuditLogRuntimeSnapshot? auditLog = await auditLogTask;
         RuntimePressureSnapshot pressure = await pressureTask;
-        string status = publicHotRead is null
-            || (string.Equals(publicHotRead.State, nameof(PublicHotReadState.Ready), StringComparison.Ordinal)
-                && !publicHotRead.ArticleFrameLimitExceeded
-                && !publicHotRead.ResidentByteBudgetExceeded)
+        string status = (publicHotRead is null
+                || (string.Equals(publicHotRead.State, nameof(PublicHotReadState.Ready), StringComparison.Ordinal)
+                    && !publicHotRead.ArticleFrameLimitExceeded
+                    && !publicHotRead.ResidentByteBudgetExceeded))
+            && (commentMutationOutbox?.PoisonCount ?? 0) == 0
             ? "ok"
             : "degraded";
 
@@ -548,7 +556,8 @@ public sealed class ProductionReadinessProbe(
             auditLog)
         {
             DbGateClasses = dbGateClasses,
-            PublicArticleProjection = publicArticleProjection
+            PublicArticleProjection = publicArticleProjection,
+            CommentMutationOutbox = commentMutationOutbox
         };
     }
 

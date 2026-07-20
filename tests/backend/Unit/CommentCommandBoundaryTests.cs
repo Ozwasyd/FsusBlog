@@ -4,6 +4,7 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 using SqlSugar;
@@ -27,7 +28,9 @@ public sealed class CommentCommandBoundaryTests
                 typeof(ICommentNotificationService),
                 typeof(ICommentModerationService),
                 typeof(ICommentAttributionPrivacyService),
-                typeof(ICacheInvalidationDispatcher)
+                typeof(ICacheInvalidationDispatcher),
+                typeof(IConfiguration),
+                typeof(ICommentMutationOutbox)
             ],
             dependencies);
         Assert.DoesNotContain(typeof(ICommentQueryService), dependencies);
@@ -46,6 +49,7 @@ public sealed class CommentCommandBoundaryTests
         Assert.Equal(ServiceLifetime.Scoped, implementation.Lifetime);
         Assert.Single(services, static descriptor => descriptor.ServiceType == typeof(ICommentEndpointService));
         Assert.Single(services, static descriptor => descriptor.ServiceType == typeof(ICommentCommandService));
+        Assert.Single(services, static descriptor => descriptor.ServiceType == typeof(ICommentMutationOutbox));
     }
 
     [Fact]

@@ -35,7 +35,8 @@ public partial class CommentCommandService(
     ICommentModerationService commentModeration,
     ICommentAttributionPrivacyService commentAttribution,
     ICacheInvalidationDispatcher cacheInvalidationDispatcher,
-    IConfiguration? configuration = null) : ICommentEndpointService, ICommentCommandService
+    IConfiguration? configuration = null,
+    ICommentMutationOutbox? mutationOutbox = null) : ICommentEndpointService, ICommentCommandService
 {
     private const int DefaultMaxThreadDepth = 32;
     private const int DefaultMaxChildrenPerNode = 500;
@@ -401,6 +402,35 @@ public partial class CommentCommandService(
 
             await commentModeration.PersistVisibilityAsync(generatedId, regionDecision, cancellationToken);
 
+            if (mutationOutbox is not null)
+            {
+                DateTime occurredAt = DateTime.UtcNow;
+                await mutationOutbox.EnqueueAsync(BuildOutboxEvent(
+                    CommentMutationEventTypes.Created,
+                    comment,
+                    generatedId,
+                    occurredAt,
+                    previousStatus: null,
+                    nextStatus: comment.ModerationStatus), cancellationToken);
+                await mutationOutbox.EnqueueAsync(BuildOutboxEvent(
+                    CommentMutationEventTypes.VisibilityChanged,
+                    comment,
+                    generatedId,
+                    occurredAt,
+                    previousStatus: null,
+                    nextStatus: comment.ModerationStatus), cancellationToken);
+                if (comment.ReplyToUserId is > 0 && comment.ModerationStatus == CommentModerationStatus.Approved)
+                {
+                    await mutationOutbox.EnqueueAsync(BuildOutboxEvent(
+                        CommentMutationEventTypes.ReplyNotificationRequested,
+                        comment,
+                        generatedId,
+                        occurredAt,
+                        previousStatus: null,
+                        nextStatus: comment.ModerationStatus), cancellationToken);
+                }
+            }
+
             if (enforceAnonymousNullifier)
             {
                 NullifierReservationResult consume = await commentAttribution.ConsumeAnonymousNullifierAsync(
@@ -456,6 +486,17 @@ public partial class CommentCommandService(
         }
 
         comment.Id = generatedId;
+        if (mutationOutbox is not null)
+        {
+            logger.LogInformation(
+                "评论权威状态与 Outbox 已提交 | Article: {ArticleId} | CommentId: {CommentId} | Root: {RootId} | Parent: {ParentId}",
+                articleId,
+                comment.Id,
+                comment.RootId ?? comment.Id,
+                comment.ParentId);
+            return BuildCreateResult(comment);
+        }
+
         await commentModeration.ApplyPostInsertAsync(
             comment,
             new CommentModerationActorContext(
@@ -919,13 +960,18 @@ public partial class CommentCommandService(
             return Task.FromResult(false);
         }
 
-        return DeleteCommentAsync(id, currentUserId: 0, isAdmin: true, reason);
+        return DeleteCommentInternalAsync(id, currentUserId: 0, isAdmin: true, reason, actor.AdminPrincipalId);
     }
 
     public Task<bool> DeleteCommentAsync(long id, int currentUserId, bool isAdmin, string reason = "违反社区管理条例")
-        => DeleteCommentInternalAsync(id, currentUserId, isAdmin, reason);
+        => DeleteCommentInternalAsync(id, currentUserId, isAdmin, reason, actorAdminPrincipalId: null);
 
-    private async Task<bool> DeleteCommentInternalAsync(long id, int currentUserId, bool isAdmin, string reason)
+    private async Task<bool> DeleteCommentInternalAsync(
+        long id,
+        int currentUserId,
+        bool isAdmin,
+        string reason,
+        long? actorAdminPrincipalId)
     {
         DateTime deletedAt = DateTime.UtcNow;
         string? normalizedReason = TextHelpers.NormalizeNullable(reason, 256);
@@ -952,6 +998,22 @@ public partial class CommentCommandService(
             }
 
             deleted = await TrySoftDeleteCommentAsync(row.Id, row.RowVersion, reason, normalizedReason, deletedAt);
+            if (deleted && mutationOutbox is not null)
+            {
+                await mutationOutbox.EnqueueAsync(new CommentMutationOutboxEvent
+                {
+                    EventType = CommentMutationEventTypes.Deleted,
+                    CommentId = row.Id,
+                    ArticleId = row.ArticleId,
+                    RootId = row.RootId ?? row.Id,
+                    ParentId = row.ParentId,
+                    AccountId = isAttributableUserComment ? row.UserId : null,
+                    ActorAdminPrincipalId = actorAdminPrincipalId,
+                    PreviousStatus = row.ModerationStatus,
+                    NextStatus = CommentModerationStatus.Hidden,
+                    OccurredAtUtc = deletedAt
+                });
+            }
         });
         if (!result.IsSuccess || row is null)
         {
@@ -961,6 +1023,12 @@ public partial class CommentCommandService(
         if (!deleted)
         {
             return false;
+        }
+
+        if (mutationOutbox is not null)
+        {
+            logger.LogInformation("评论软删除与 Outbox 已提交 | CommentId: {CommentId} | Article: {ArticleId}", id, row.ArticleId);
+            return true;
         }
 
         await cacheInvalidationDispatcher.InvalidateCommentMutationAsync(
@@ -999,6 +1067,7 @@ public partial class CommentCommandService(
                    c.content,
                    c.is_deleted,
                    c.author_mode,
+                   c.moderation_status,
                    a.title,
                    c.xmin::text AS row_version
             FROM comment c
@@ -1022,6 +1091,7 @@ public partial class CommentCommandService(
             reader.ReadString("content"),
             reader.ReadBoolean("is_deleted"),
             reader.ReadString("author_mode"),
+            (CommentModerationStatus)reader.ReadInt32("moderation_status"),
             reader.IsNull("title") ? null : reader.ReadString("title"),
             reader.ReadString("row_version"));
     }
@@ -1063,8 +1133,30 @@ public partial class CommentCommandService(
         string Content,
         bool IsDeleted,
         string AuthorMode,
+        CommentModerationStatus ModerationStatus,
         string? ArticleTitle,
         string RowVersion);
+
+    private static CommentMutationOutboxEvent BuildOutboxEvent(
+        string eventType,
+        Comment comment,
+        long commentId,
+        DateTime occurredAt,
+        CommentModerationStatus? previousStatus,
+        CommentModerationStatus? nextStatus)
+        => new()
+        {
+            EventType = eventType,
+            CommentId = commentId,
+            ArticleId = comment.ArticleId,
+            RootId = comment.RootId ?? commentId,
+            ParentId = comment.ParentId,
+            AccountId = comment.UserId,
+            ReplyToAccountId = comment.ReplyToUserId,
+            PreviousStatus = previousStatus,
+            NextStatus = nextStatus,
+            OccurredAtUtc = occurredAt
+        };
 
     private static string NormalizeCommentContent(string? content)
     {

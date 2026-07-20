@@ -88,7 +88,8 @@ public static class FsusObservabilityServiceCollectionExtensions
                         "FsusBlog.NotificationStream",
                         "FsusBlog.PublicHotRead",
                         "FsusBlog.PublicHotRead.Retiring",
-                        "FsusBlog.PublicAot.MemoryCache")
+                        "FsusBlog.PublicAot.MemoryCache",
+                        "FsusBlog.Server.CommentOutbox")
                     .AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
                     .AddRuntimeInstrumentation()

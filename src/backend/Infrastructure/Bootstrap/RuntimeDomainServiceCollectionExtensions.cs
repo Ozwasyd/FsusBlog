@@ -39,6 +39,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<ArticleService>();
         services.AddScoped<IArticlePublicationValidator, ArticlePublicationValidator>();
         services.AddScoped<CommentCommandService>();
+        services.AddScoped<ICommentMutationOutbox, CommentMutationOutboxWriter>();
         services.AddScoped<ICommentNotificationService, CommentNotificationService>();
         services.AddScoped<ICommentModerationService, CommentModerationService>();
         services.AddScoped<ICommentAttributionPrivacyService, CommentAttributionPrivacyService>();
@@ -66,6 +67,11 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<ICommentQueryService, CommentQueryService>();
         services.AddScoped<ICommentEndpointService>(sp => sp.GetRequiredService<CommentCommandService>());
         services.AddScoped<ICommentCommandService>(sp => sp.GetRequiredService<CommentCommandService>());
+        services.AddSingleton<CommentMutationOutboxRuntimeState>();
+        if (!OpenApiExportMode.IsEnabled())
+        {
+            services.AddHostedService<CommentMutationOutboxWorker>();
+        }
         return services;
     }
 

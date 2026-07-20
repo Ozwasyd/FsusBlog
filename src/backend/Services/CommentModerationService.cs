@@ -64,7 +64,8 @@ public sealed class CommentModerationService(
     ICommentModerationDispositionPolicy? dispositionPolicy = null,
     AuditLogChannel? audit = null,
     IAnonymousCommentPolicyService? anonymousPolicy = null,
-    IConfiguration? configuration = null) : ICommentModerationService
+    IConfiguration? configuration = null,
+    ICommentMutationOutbox? mutationOutbox = null) : ICommentModerationService
 {
     public RegionModerationDecision ResolveSubmissionRegion(
         string content,
@@ -195,7 +196,7 @@ public sealed class CommentModerationService(
             return;
         }
 
-        bool applied = await TryApplyDispositionAsync(target, disposition.NextStatus, reason, moderatedAt);
+        bool applied = await TryApplyDispositionAsync(comment, target, disposition.NextStatus, reason, moderatedAt, cancellationToken);
         if (!applied)
         {
             AutomaticModerationTarget? latest = await LoadTargetAsync(comment.Id, cancellationToken);
@@ -210,7 +211,7 @@ public sealed class CommentModerationService(
                 return;
             }
 
-            applied = await TryApplyDispositionAsync(latest, disposition.NextStatus, reason, moderatedAt);
+            applied = await TryApplyDispositionAsync(comment, latest, disposition.NextStatus, reason, moderatedAt, cancellationToken);
             if (!applied)
             {
                 logger.LogWarning(
@@ -226,6 +227,11 @@ public sealed class CommentModerationService(
         comment.ModerationReason = reason;
         comment.ModeratedByAdminPrincipalId = null;
         comment.ModeratedAt = moderatedAt;
+        if (mutationOutbox is not null)
+        {
+            return;
+        }
+
         WriteAudit(comment, disposition);
         if (previousStatus != CommentModerationStatus.Approved
             && disposition.NextStatus == CommentModerationStatus.Approved)
@@ -286,30 +292,70 @@ public sealed class CommentModerationService(
     }
 
     private async Task<bool> TryApplyDispositionAsync(
+        Comment comment,
         AutomaticModerationTarget target,
         CommentModerationStatus nextStatus,
         string reason,
-        DateTime moderatedAt)
+        DateTime moderatedAt,
+        CancellationToken cancellationToken)
     {
-        int affected = await db.Ado.ExecuteCommandAsync(
-            """
-            UPDATE comment
-            SET moderation_status = @NextStatus,
-                moderation_reason = @Reason,
-                moderated_by_admin_principal_id = NULL,
-                moderated_at = CAST(@ModeratedAt AS timestamp)
-            WHERE id = @CommentId
-              AND is_deleted = false
-              AND moderation_status = @ExpectedStatus
-              AND xmin::text = @RowVersion;
-            """,
-            new SugarParameter("@CommentId", target.Id),
-            new SugarParameter("@ExpectedStatus", (int)target.ModerationStatus),
-            new SugarParameter("@NextStatus", (int)nextStatus),
-            new SugarParameter("@Reason", reason),
-            new SugarParameter("@ModeratedAt", moderatedAt),
-            new SugarParameter("@RowVersion", target.RowVersion));
-        return affected > 0;
+        int affected = 0;
+        var transaction = await db.Ado.UseTranAsync(async () =>
+        {
+            affected = await db.Ado.ExecuteCommandAsync(
+                """
+                UPDATE comment
+                SET moderation_status = @NextStatus,
+                    moderation_reason = @Reason,
+                    moderated_by_admin_principal_id = NULL,
+                    moderated_at = CAST(@ModeratedAt AS timestamp)
+                WHERE id = @CommentId
+                  AND is_deleted = false
+                  AND moderation_status = @ExpectedStatus
+                  AND xmin::text = @RowVersion;
+                """,
+                new SugarParameter("@CommentId", target.Id),
+                new SugarParameter("@ExpectedStatus", (int)target.ModerationStatus),
+                new SugarParameter("@NextStatus", (int)nextStatus),
+                new SugarParameter("@Reason", reason),
+                new SugarParameter("@ModeratedAt", moderatedAt),
+                new SugarParameter("@RowVersion", target.RowVersion));
+            if (affected <= 0 || mutationOutbox is null)
+            {
+                return;
+            }
+
+            await mutationOutbox.EnqueueAsync(new CommentMutationOutboxEvent
+            {
+                EventType = CommentMutationEventTypes.ModerationChanged,
+                CommentId = comment.Id,
+                ArticleId = comment.ArticleId,
+                RootId = comment.RootId ?? comment.Id,
+                ParentId = comment.ParentId,
+                AccountId = comment.UserId,
+                ReplyToAccountId = comment.ReplyToUserId,
+                PreviousStatus = target.ModerationStatus,
+                NextStatus = nextStatus,
+                OccurredAtUtc = moderatedAt
+            }, cancellationToken);
+            if (nextStatus == CommentModerationStatus.Approved && comment.ReplyToUserId is > 0)
+            {
+                await mutationOutbox.EnqueueAsync(new CommentMutationOutboxEvent
+                {
+                    EventType = CommentMutationEventTypes.ReplyNotificationRequested,
+                    CommentId = comment.Id,
+                    ArticleId = comment.ArticleId,
+                    RootId = comment.RootId ?? comment.Id,
+                    ParentId = comment.ParentId,
+                    AccountId = comment.UserId,
+                    ReplyToAccountId = comment.ReplyToUserId,
+                    PreviousStatus = target.ModerationStatus,
+                    NextStatus = nextStatus,
+                    OccurredAtUtc = moderatedAt
+                }, cancellationToken);
+            }
+        });
+        return transaction.IsSuccess && affected > 0;
     }
 
     private static CommentRegionCompliance BuildRegionCompliance(

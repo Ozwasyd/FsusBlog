@@ -33,7 +33,8 @@ public sealed class AuthoringModerationWorkflowService(
     IMessageRealtimePublisher messageRealtimePublisher,
     IMessageCommandService messageCommandService,
     IAuthoringAuditWriter auditWriter,
-    ILogger<AuthoringModerationWorkflowService> logger) : IAuthoringModerationQueue, IAuthoringModerationCommands
+    ILogger<AuthoringModerationWorkflowService> logger,
+    ICommentMutationOutbox? mutationOutbox = null) : IAuthoringModerationQueue, IAuthoringModerationCommands
 {
     private const string ModelRiskBorderlineReviewReason = "model_policy:model_risk_borderline_review";
     public async Task<CommentModerationQueueResponse> ListCommentModerationQueueAsync(
@@ -164,20 +165,35 @@ public sealed class AuthoringModerationWorkflowService(
 
         DateTime moderatedAt = DateTime.UtcNow;
         string? normalizedReason = TextHelpers.NormalizeNullable(request.Reason, 256);
-        int count = await db.Updateable<Comment>()
-            .SetColumns(it => it.ModerationStatus == request.Status)
-            .SetColumns(it => it.ModerationReason == normalizedReason)
-            .SetColumns(it => it.ModeratedByAdminPrincipalId == actorAdminPrincipalId)
-            .SetColumns(it => it.ModeratedAt == moderatedAt)
-            .Where(it => it.Id == commentId && !it.IsDeleted && it.ModerationStatus == current.Status)
-            .ExecuteCommandAsync(cancellationToken);
+        int count = 0;
+        var transaction = await db.Ado.UseTranAsync(async () =>
+        {
+            count = await db.Updateable<Comment>()
+                .SetColumns(it => it.ModerationStatus == request.Status)
+                .SetColumns(it => it.ModerationReason == normalizedReason)
+                .SetColumns(it => it.ModeratedByAdminPrincipalId == actorAdminPrincipalId)
+                .SetColumns(it => it.ModeratedAt == moderatedAt)
+                .Where(it => it.Id == commentId && !it.IsDeleted && it.ModerationStatus == current.Status)
+                .ExecuteCommandAsync(cancellationToken);
+            if (count > 0 && mutationOutbox is not null)
+            {
+                await EnqueueModerationEventsAsync(current, request.Status, actorAdminPrincipalId, moderatedAt, cancellationToken);
+            }
+        });
+        if (!transaction.IsSuccess)
+        {
+            throw new InvalidOperationException("Comment moderation update failed.", transaction.ErrorException);
+        }
         if (count > 0)
         {
             int banned = request.BanUser && ShouldLinkBan(request.Status)
                 ? await BanModerationUsersAsync([commentId], request.Reason, cancellationToken)
                 : 0;
-            await InvalidateModeratedCommentAsync(current, request.Status, cancellationToken);
-            await PublishModerationRealtimeAsync(current, request.Status, moderatedAt);
+            if (mutationOutbox is null)
+            {
+                await InvalidateModeratedCommentAsync(current, request.Status, cancellationToken);
+                await PublishModerationRealtimeAsync(current, request.Status, moderatedAt);
+            }
             auditWriter.Write(
                 AuditSourceCatalog.Comment,
                 "comment-moderation",
@@ -250,6 +266,10 @@ public sealed class AuthoringModerationWorkflowService(
                     throw new InvalidOperationException("Comment moderation bulk update conflicted.");
                 }
 
+                if (mutationOutbox is not null)
+                {
+                    await EnqueueModerationEventsAsync(row, request.Status, actorAdminPrincipalId, moderatedAt, cancellationToken);
+                }
                 updatedRows.Add(row);
             }
         });
@@ -260,8 +280,11 @@ public sealed class AuthoringModerationWorkflowService(
 
         foreach (CommentModerationStateRow row in updatedRows)
         {
-            await InvalidateModeratedCommentAsync(row, request.Status, cancellationToken);
-            await PublishModerationRealtimeAsync(row, request.Status, moderatedAt);
+            if (mutationOutbox is null)
+            {
+                await InvalidateModeratedCommentAsync(row, request.Status, cancellationToken);
+                await PublishModerationRealtimeAsync(row, request.Status, moderatedAt);
+            }
         }
 
         int updated = updatedRows.Count;
@@ -817,6 +840,39 @@ public sealed class AuthoringModerationWorkflowService(
                 PublicArticleChanged: publicArticleChanged,
                 UserCommentsChanged: true),
             cancellationToken);
+    }
+
+    private async Task EnqueueModerationEventsAsync(
+        CommentModerationStateRow row,
+        CommentModerationStatus nextStatus,
+        long actorAdminPrincipalId,
+        DateTime occurredAt,
+        CancellationToken cancellationToken)
+    {
+        if (mutationOutbox is null)
+        {
+            return;
+        }
+
+        CommentMutationOutboxEvent Build(string eventType) => new()
+        {
+            EventType = eventType,
+            CommentId = row.Id,
+            ArticleId = row.ArticleId,
+            RootId = row.RootId ?? row.Id,
+            ParentId = row.ParentId,
+            AccountId = row.UserId,
+            ReplyToAccountId = row.ReplyToUserId,
+            ActorAdminPrincipalId = actorAdminPrincipalId,
+            PreviousStatus = row.Status,
+            NextStatus = nextStatus,
+            OccurredAtUtc = occurredAt
+        };
+        await mutationOutbox.EnqueueAsync(Build(CommentMutationEventTypes.ModerationChanged), cancellationToken);
+        if (nextStatus == CommentModerationStatus.Approved && row.ReplyToUserId is > 0)
+        {
+            await mutationOutbox.EnqueueAsync(Build(CommentMutationEventTypes.ReplyNotificationRequested), cancellationToken);
+        }
     }
 
     private async Task PublishModerationRealtimeAsync(CommentModerationStateRow row, CommentModerationStatus nextStatus, DateTime eventTime)

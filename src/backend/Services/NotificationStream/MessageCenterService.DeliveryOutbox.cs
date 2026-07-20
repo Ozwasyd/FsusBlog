@@ -30,14 +30,15 @@ public sealed partial class MessageCenterService
             new AccountStatusPayload(status, reason, DateTime.UtcNow),
             "push-account-status");
 
-    public Task PushCommentRemoveAsync(int articleId, long commentId, long? rootId, long? parentId)
+    public Task PushCommentRemoveAsync(int articleId, long commentId, long? rootId, long? parentId, string? idempotencyKey = null)
         => notificationStreamPort.PublishToContentFeedAsync(
             NotificationStreamEventType.CommentRemoved,
             new CommentRemovedPayload(articleId, commentId.ToString(), rootId?.ToString(), parentId?.ToString(), DateTime.UtcNow),
-            "push-comment-removed");
+            "push-comment-removed",
+            idempotencyKey);
 
-    public Task PushCommentAddAsync(CommentAddedNotifyDto payload)
-        => notificationStreamPort.PublishToContentFeedAsync(NotificationStreamEventType.CommentAdded, payload, "push-comment-added");
+    public Task PushCommentAddAsync(CommentAddedNotifyDto payload, string? idempotencyKey = null)
+        => notificationStreamPort.PublishToContentFeedAsync(NotificationStreamEventType.CommentAdded, payload, "push-comment-added", idempotencyKey);
 
     public Task PushCacheControlAsync(CacheControlPayload payload)
         => notificationStreamPort.PublishToContentFeedAsync(NotificationStreamEventType.CacheControl, payload, "push-cache-control");

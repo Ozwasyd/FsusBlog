@@ -7,9 +7,9 @@ namespace FsusBlog.Server.Services;
 
 public interface ICommentNotificationService
 {
-    Task PublishAddedAsync(Comment comment, DateTime eventTime);
+    Task PublishAddedAsync(Comment comment, DateTime eventTime, string? idempotencyKey = null);
 
-    Task PublishRemovedAsync(int articleId, long commentId, long rootId, long? parentId);
+    Task PublishRemovedAsync(int articleId, long commentId, long rootId, long? parentId, string? idempotencyKey = null);
 
     Task NotifyDeletionAsync(int userId, string articleTitle, string commentSnippet, string reason);
 
@@ -21,7 +21,7 @@ public sealed class CommentNotificationService(
     IMessageCommandService commands,
     ILogger<CommentNotificationService> logger) : ICommentNotificationService
 {
-    public Task PublishAddedAsync(Comment comment, DateTime eventTime)
+    public Task PublishAddedAsync(Comment comment, DateTime eventTime, string? idempotencyKey = null)
         => realtime.PushCommentAddAsync(new FsusBlog.Shared.Contracts.Outputs.CommentAddedNotifyDto
         {
             ArticleId = comment.ArticleId,
@@ -44,10 +44,10 @@ public sealed class CommentNotificationService(
                 Depth = Math.Max(0, comment.Depth),
                 IsDeleted = false
             }
-        });
+        }, idempotencyKey);
 
-    public Task PublishRemovedAsync(int articleId, long commentId, long rootId, long? parentId)
-        => realtime.PushCommentRemoveAsync(articleId, commentId, rootId, parentId);
+    public Task PublishRemovedAsync(int articleId, long commentId, long rootId, long? parentId, string? idempotencyKey = null)
+        => realtime.PushCommentRemoveAsync(articleId, commentId, rootId, parentId, idempotencyKey);
 
     public Task NotifyDeletionAsync(int userId, string articleTitle, string commentSnippet, string reason)
         => BoundaryExecutor.ExecuteAsync(
