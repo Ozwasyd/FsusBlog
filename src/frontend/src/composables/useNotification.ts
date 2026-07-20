@@ -21,7 +21,7 @@ import {
     type SecurityChallengeContext,
     type SecurityChallengeProofLease
 } from '@/security/challenge-client'
-import { createPoSpaceChallengeExecutor } from '@/services/securityPoSpaceChallengeExecutor'
+import type { PoSpaceChallengeExecutor } from '@/services/securityPoSpaceChallengeExecutor'
 import { createPoSpaceUnsupportedReissueAttributes } from '@/services/securityPoSpaceRuntime'
 import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'
 
@@ -38,7 +38,7 @@ let initNotificationPromise: Promise<void> | null = null
 let pendingInitMode: 'auth' | 'guest' | '' = ''
 let articleCreatedToastTimer: ReturnType<typeof setTimeout> | null = null
 let pendingArticleCreatedIds: number[] = []
-let notificationPoSpaceExecutor: ReturnType<typeof createPoSpaceChallengeExecutor> | null = null
+let notificationPoSpaceExecutor: PoSpaceChallengeExecutor | null = null
 let notificationPoSpaceUnsupportedReissues = 0
 
 const POW_STORAGE_KEY = 'notification_stream_guest_pow'
@@ -242,9 +242,14 @@ export function useNotification() {
                 return 'unavailable'
             }
 
-            notificationPoSpaceExecutor ??= createPoSpaceChallengeExecutor({
-                client: notificationChallengeClient
-            })
+            if (!notificationPoSpaceExecutor) {
+                const { createPoSpaceChallengeExecutor } = await import(
+                    '@/services/securityPoSpaceChallengeExecutor'
+                )
+                notificationPoSpaceExecutor = createPoSpaceChallengeExecutor({
+                    client: notificationChallengeClient
+                })
+            }
             const result = await notificationPoSpaceExecutor.execute({
                 context,
                 assignment: issue.assignment,

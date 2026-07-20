@@ -84,7 +84,6 @@ import type {
 } from '@/api/security'
 import type { SecurityChallengeContext } from '@/security/challenge-client'
 import type { SecurityChallengeProof } from '@/security/challenge-proof-store'
-import { createPoSpaceChallengeExecutor } from '@/services/securityPoSpaceChallengeExecutor'
 
 const props = withDefaults(defineProps<{
   assignment: SecurityChallengeAssignment | null
@@ -189,9 +188,10 @@ async function startChallenge(): Promise<void> {
   }
 
   const run = generation
-  const factory = props.executorFactory ?? createPoSpaceChallengeExecutor
   let executor: PoSpaceChallengeExecutorLike
   try {
+    const factory = props.executorFactory
+      ?? (await import('@/services/securityPoSpaceChallengeExecutor')).createPoSpaceChallengeExecutor
     executor = factory()
   } catch {
     state.value = 'failed'
