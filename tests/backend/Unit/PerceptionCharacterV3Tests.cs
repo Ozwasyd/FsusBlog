@@ -22,7 +22,7 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class PerceptionCharacterV3Tests
 {
-    private static readonly string s_root = FindRoot();
+    private static readonly string s_root = BackendTestPaths.RepositoryRoot;
     private static JsonElement Vectors => JsonDocument.Parse(File.ReadAllBytes(Path.Combine(s_root, "tests/fixtures/security/perception-character-v3-vectors.json"))).RootElement.Clone();
 
     [Fact]
@@ -344,8 +344,10 @@ public sealed class PerceptionCharacterV3Tests
         }
     }
 
-    [Fact]
-    public async Task Provider_IssuesOnlyTypedFinalMediaAndSupportsRevokingReplacement()
+    [Theory]
+    [InlineData("visual")]
+    [InlineData("audio")]
+    public async Task Provider_IssuesOnlyTypedFinalMediaAndSupportsAtomicSameOrCrossRepresentationReplacement(string requestedRepresentation)
     {
         var store = new MemoryStore();
         var audit = new AuditSink();
@@ -363,7 +365,7 @@ public sealed class PerceptionCharacterV3Tests
         Assert.Equal(request.DeviceFpHash, result.Assignment!.DeviceFpHash);
         Assert.NotEqual(first.DeviceBindingHash, result.Assignment.DeviceFpHash);
         var audioContext = new DefaultHttpContext();
-        audioContext.Request.Headers["X-Fsus-Challenge-Representation"] = "audio";
+        audioContext.Request.Headers["X-Fsus-Challenge-Representation"] = requestedRepresentation;
         audioContext.Request.Headers["X-Fsus-Replaces-Challenge"] = first.ChallengeId;
         audioContext.Request.Headers["X-Fsus-Replaces-Envelope"] = first.EnvelopeId;
         audioContext.Request.Headers["X-Fsus-Replaces-State-Token"] = result.PerceptionCharacterV3.StateToken;
@@ -373,8 +375,10 @@ public sealed class PerceptionCharacterV3Tests
             EnvelopeId = Guid.CreateVersion7().ToString("D")
         }, CancellationToken.None);
         Assert.True(replacement.Succeeded);
-        Assert.Equal(PerceptionCharacterV3Representation.Audio, replacement.PerceptionCharacterV3!.Representation);
-        Assert.Equal(PerceptionCharacterV3TransitionKind.ReissueRequired, store.LastRevocation!.Kind);
+        Assert.Equal(
+            requestedRepresentation == "audio" ? PerceptionCharacterV3Representation.Audio : PerceptionCharacterV3Representation.Visual,
+            replacement.PerceptionCharacterV3!.Representation);
+        Assert.Equal((PerceptionCharacterV3TransitionKind.Success, "replaced"), (store.LastRevocation!.Kind, store.LastRevocation.InternalReason));
         Assert.NotEqual(first.ChallengeId, replacement.Assignment!.ChallengeId);
         Assert.NotEqual(first.EnvelopeId, replacement.PerceptionCharacterV3.EnvelopeId);
     }
@@ -460,6 +464,41 @@ public sealed class PerceptionCharacterV3Tests
     }
 
     [Fact]
+    public async Task ReplacementAndActiveIdentityRemainStableAcrossAnswerKeyRotation()
+    {
+        var store = new MemoryStore();
+        var keys = new RotatingKeys(
+            Enumerable.Repeat((byte)0x41, 32).ToArray(),
+            Enumerable.Repeat((byte)0x42, 32).ToArray(),
+            Enumerable.Repeat((byte)0x43, 32).ToArray());
+        var provider = new PerceptionCharacterV3Provider(
+            keys, new FixedRenderer(), store, new AllowGate(), new TestDeviceAuthority(),
+            new PerceptionCharacterV3RandomNonceSource(), new AuditSink(), TimeProvider.System);
+        SecurityChallengeProviderIssueRequest request = ProviderIssueRequest();
+        SecurityChallengeProviderIssueResult issued = await provider.IssueAsync(request);
+        PerceptionCharacterV3StateRecord old = Assert.Single(store.Records.Values);
+        Assert.Equal("ak1", old.AnswerKeyVersion);
+        keys.CurrentAnswerVersionValue = "ak2";
+        var replacementContext = new DefaultHttpContext();
+        replacementContext.Request.Headers["X-Fsus-Replaces-Challenge"] = old.ChallengeId;
+        replacementContext.Request.Headers["X-Fsus-Replaces-Envelope"] = old.EnvelopeId;
+        replacementContext.Request.Headers["X-Fsus-Replaces-State-Token"] = issued.PerceptionCharacterV3!.StateToken;
+
+        SecurityChallengeProviderIssueResult replacement = await provider.IssueAsync(request with
+        {
+            Context = replacementContext,
+            EnvelopeId = Guid.CreateVersion7().ToString("D")
+        });
+
+        Assert.True(replacement.Succeeded);
+        PerceptionCharacterV3StateRecord current = store.Records[replacement.Assignment!.ChallengeId];
+        Assert.Equal("ak2", current.AnswerKeyVersion);
+        Assert.NotEqual(old.DeviceBindingHash, current.DeviceBindingHash);
+        Assert.Equal(old.DeviceAuthorityHash, current.DeviceAuthorityHash);
+        Assert.Equal((PerceptionCharacterV3TransitionKind.Success, "replaced"), (store.LastRevocation!.Kind, store.LastRevocation.InternalReason));
+    }
+
+    [Fact]
     public async Task ReplacementInvalidFieldsKeepSpecificAuditBehindCoarseRejection()
     {
         var store = new MemoryStore();
@@ -499,7 +538,7 @@ public sealed class PerceptionCharacterV3Tests
         string deviceBinding = PerceptionCharacterV3Crypto.DeriveDeviceBinding(answerKey, "session:server-issued-test");
         var record = new PerceptionCharacterV3StateRecord(
             oldChallengeId, oldEnvelopeId, request.Action, request.RouteKey, request.SubjectHash, deviceBinding,
-            request.ClientIpHash, request.PolicyVersion, new string('4', 64), "visual", 1, 2, "tk", "ak",
+            new string('9', 64), request.ClientIpHash, request.PolicyVersion, new string('4', 64), "visual", 1, 2, "tk", "ak",
             Convert.ToHexStringLower(SHA256.HashData(Encoding.ASCII.GetBytes(token))));
         var audit = new AuditSink();
         var provider = new PerceptionCharacterV3Provider(
@@ -521,6 +560,38 @@ public sealed class PerceptionCharacterV3Tests
         Assert.False(result.Succeeded);
         Assert.Equal("unavailable", result.Reason);
         Assert.Contains(audit.Events, entry => entry == ("issue", "unavailable", expectedInternalReason));
+    }
+
+    [Fact]
+    public async Task ReplacementPreparationFailureLeavesOnlyTheOldIdentityActive()
+    {
+        var store = new MemoryStore();
+        var gate = new ToggleGate();
+        var provider = new PerceptionCharacterV3Provider(
+            new Keys(Enumerable.Repeat((byte)0x35, 32).ToArray(), Enumerable.Repeat((byte)0x36, 32).ToArray()),
+            new FixedRenderer(), store, gate, new TestDeviceAuthority(), new FixedNonce(new byte[12]),
+            new AuditSink(), TimeProvider.System);
+        SecurityChallengeProviderIssueRequest request = ProviderIssueRequest();
+        SecurityChallengeProviderIssueResult issued = await provider.IssueAsync(request);
+        PerceptionCharacterV3StateRecord old = Assert.Single(store.Records.Values);
+        var replacementContext = new DefaultHttpContext();
+        replacementContext.Request.Headers["X-Fsus-Replaces-Challenge"] = old.ChallengeId;
+        replacementContext.Request.Headers["X-Fsus-Replaces-Envelope"] = old.EnvelopeId;
+        replacementContext.Request.Headers["X-Fsus-Replaces-State-Token"] = issued.PerceptionCharacterV3!.StateToken;
+        gate.AllowRender = false;
+
+        SecurityChallengeProviderIssueResult failed = await provider.IssueAsync(request with
+        {
+            Context = replacementContext,
+            EnvelopeId = Guid.CreateVersion7().ToString("D")
+        });
+
+        Assert.False(failed.Succeeded);
+        Assert.Equal("unavailable", failed.Reason);
+        Assert.Single(store.Records);
+        Assert.Equal(
+            "revoked_now",
+            (await store.RevokeAsync(old, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), CancellationToken.None)).InternalReason);
     }
 
     [Theory]
@@ -604,10 +675,13 @@ public sealed class PerceptionCharacterV3Tests
         if (string.IsNullOrWhiteSpace(connectionString))
             return;
         await using ConnectionMultiplexer redis = await ConnectionMultiplexer.ConnectAsync(connectionString);
-        var store = new RedisPerceptionCharacterV3StateStore(redis, new DefaultRuntimeKeyScope());
+        string redisPrefix = "test:perception-v3:" + Guid.CreateVersion7().ToString("N") + ":";
+        var keyScope = new TestRuntimeKeyScope(redisPrefix);
+        await using var redisCleanup = new RedisPrefixCleanup(redis, redisPrefix);
+        var store = new RedisPerceptionCharacterV3StateStore(redis, keyScope);
         long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
-        var deviceAuthority = new RedisPerceptionCharacterV3DeviceAuthority(redis, new DefaultRuntimeKeyScope());
+        var deviceAuthority = new RedisPerceptionCharacterV3DeviceAuthority(redis, keyScope);
         var firstAnonymous = new DefaultHttpContext();
         PerceptionCharacterV3DeviceAuthorityResult firstDevice = await deviceAuthority.ResolveAsync(firstAnonymous, new string('8', 64), CancellationToken.None);
         Assert.True(firstDevice.Succeeded);
@@ -668,6 +742,7 @@ public sealed class PerceptionCharacterV3Tests
             PerceptionCharacterV3Transition rejected = await store.VerifyAsync(mutate(original), true, now, CancellationToken.None);
             Assert.Equal(PerceptionCharacterV3TransitionKind.Rejected, rejected.Kind);
             Assert.Equal(0, rejected.Attempts);
+            Assert.Equal(PerceptionCharacterV3TransitionKind.ReissueRequired, (await store.RevokeAsync(original, now, CancellationToken.None)).Kind);
         }
 
         PerceptionCharacterV3StateRecord expired = Record(now) with
@@ -685,10 +760,107 @@ public sealed class PerceptionCharacterV3Tests
         foreach (Func<PerceptionCharacterV3StateRecord, PerceptionCharacterV3StateRecord> mutate in Mutations())
             Assert.Equal(PerceptionCharacterV3TransitionKind.Rejected, (await store.RevokeAsync(mutate(revoked), now, CancellationToken.None)).Kind);
 
+        PerceptionCharacterV3StateRecord atomicCreate = Record(now);
+        var createFaults = new HashSet<PerceptionCharacterV3RedisFaultPoint> { PerceptionCharacterV3RedisFaultPoint.CreateReply };
+        var createReplyLoss = new RedisPerceptionCharacterV3StateStore(redis, keyScope, createFaults.Remove);
+        Assert.True(await createReplyLoss.CreateAsync(atomicCreate, CancellationToken.None));
+        TimeSpan? stateTtl = await redis.GetDatabase().KeyTimeToLiveAsync(keyScope.PrefixKey("security:perception-v3:" + atomicCreate.ChallengeId), CommandFlags.DemandMaster);
+        Assert.True(stateTtl > TimeSpan.Zero);
+        Assert.False(await store.CreateAsync(atomicCreate with
+        {
+            TokenHash = new string('6', 64)
+        }, CancellationToken.None));
+
+        PerceptionCharacterV3StateRecord competingIdentity = atomicCreate with
+        {
+            ChallengeId = Guid.CreateVersion7().ToString("D"),
+            EnvelopeId = Guid.CreateVersion7().ToString("D"),
+            DeviceBindingHash = new string('f', 64),
+            TokenHash = new string('7', 64)
+        };
+        Assert.False(await store.CreateAsync(competingIdentity, CancellationToken.None));
+        Assert.Null(await store.ReadAsync(competingIdentity.ChallengeId, CancellationToken.None));
+        Assert.Equal(PerceptionCharacterV3TransitionKind.ReissueRequired, (await store.RevokeAsync(atomicCreate, now, CancellationToken.None)).Kind);
+
+        PerceptionCharacterV3StateRecord transitionReplyLossRecord = Record(now);
+        Assert.True(await store.CreateAsync(transitionReplyLossRecord, CancellationToken.None));
+        var transitionFaults = new HashSet<PerceptionCharacterV3RedisFaultPoint> { PerceptionCharacterV3RedisFaultPoint.TransitionReply };
+        var transitionReplyLoss = new RedisPerceptionCharacterV3StateStore(redis, keyScope, transitionFaults.Remove);
+        PerceptionCharacterV3Transition recoveredTransition = await transitionReplyLoss.VerifyAsync(transitionReplyLossRecord, false, now, CancellationToken.None);
+        Assert.Equal((PerceptionCharacterV3TransitionKind.Retryable, 1), (recoveredTransition.Kind, recoveredTransition.Attempts));
+        PerceptionCharacterV3Transition secondWrong = await store.VerifyAsync(transitionReplyLossRecord, false, now, CancellationToken.None);
+        Assert.Equal((PerceptionCharacterV3TransitionKind.Rejected, 2), (secondWrong.Kind, secondWrong.Attempts));
+
+        PerceptionCharacterV3StateRecord settlementReplyLossRecord = Record(now);
+        Assert.True(await store.CreateAsync(settlementReplyLossRecord, CancellationToken.None));
+        var settlementFaults = new HashSet<PerceptionCharacterV3RedisFaultPoint> { PerceptionCharacterV3RedisFaultPoint.OperationSettlement };
+        var settlementReplyLoss = new RedisPerceptionCharacterV3StateStore(redis, keyScope, settlementFaults.Remove);
+        Assert.Equal(PerceptionCharacterV3TransitionKind.Retryable,
+            (await settlementReplyLoss.VerifyAsync(settlementReplyLossRecord, false, now, CancellationToken.None)).Kind);
+        Assert.Equal(PerceptionCharacterV3TransitionKind.Rejected,
+            (await store.VerifyAsync(settlementReplyLossRecord, false, now, CancellationToken.None)).Kind);
+
+        PerceptionCharacterV3StateRecord unresolvedReplyLossRecord = Record(now) with
+        {
+            SubjectHash = new string('a', 64)
+        };
+        Assert.True(await store.CreateAsync(unresolvedReplyLossRecord, CancellationToken.None));
+        var unresolvedFaults = new HashSet<PerceptionCharacterV3RedisFaultPoint>
+        {
+            PerceptionCharacterV3RedisFaultPoint.TransitionReply,
+            PerceptionCharacterV3RedisFaultPoint.OperationReadback
+        };
+        var unresolvedReplyLoss = new RedisPerceptionCharacterV3StateStore(redis, keyScope, unresolvedFaults.Remove);
+        Assert.Equal("redis_result_ambiguous", (await unresolvedReplyLoss.VerifyAsync(unresolvedReplyLossRecord, false, now, CancellationToken.None)).InternalReason);
+        PerceptionCharacterV3Transition prohibitedRetry = await store.VerifyAsync(unresolvedReplyLossRecord, true, now, CancellationToken.None);
+        Assert.Equal((PerceptionCharacterV3TransitionKind.Unavailable, "ambiguous_operation_pending", 1),
+            (prohibitedRetry.Kind, prohibitedRetry.InternalReason, prohibitedRetry.Attempts));
+
+        PerceptionCharacterV3StateRecord staleIndexRecord = Record(now) with
+        {
+            SubjectHash = new string('b', 64)
+        };
+        Assert.True(await store.CreateAsync(staleIndexRecord, CancellationToken.None));
+        Assert.True(await redis.GetDatabase().KeyDeleteAsync(keyScope.PrefixKey(ActiveIdentityKeySuffix(staleIndexRecord)), CommandFlags.DemandMaster));
+        PerceptionCharacterV3Transition staleIndex = await store.VerifyAsync(staleIndexRecord, true, now, CancellationToken.None);
+        Assert.Equal(
+            (PerceptionCharacterV3TransitionKind.Rejected, "replacement_conflict", 0),
+            (staleIndex.Kind, staleIndex.InternalReason, staleIndex.Attempts));
+        Assert.True(await redis.GetDatabase().KeyDeleteAsync(keyScope.PrefixKey("security:perception-v3:" + staleIndexRecord.ChallengeId), CommandFlags.DemandMaster));
+
+        PerceptionCharacterV3StateRecord replaceOld = Record(now);
+        Assert.True(await store.CreateAsync(replaceOld, CancellationToken.None));
+        PerceptionCharacterV3StateRecord replaceNew = replaceOld with
+        {
+            ChallengeId = Guid.CreateVersion7().ToString("D"),
+            EnvelopeId = Guid.CreateVersion7().ToString("D"),
+            TokenHash = new string('8', 64)
+        };
+        var replaceFaults = new HashSet<PerceptionCharacterV3RedisFaultPoint> { PerceptionCharacterV3RedisFaultPoint.ReplaceReply };
+        var replaceReplyLoss = new RedisPerceptionCharacterV3StateStore(redis, keyScope, replaceFaults.Remove);
+        PerceptionCharacterV3Transition replaced = await replaceReplyLoss.ReplaceAsync(replaceOld, replaceNew, now, CancellationToken.None);
+        Assert.Equal((PerceptionCharacterV3TransitionKind.Success, "replaced"), (replaced.Kind, replaced.InternalReason));
+        Assert.NotNull(await store.ReadAsync(replaceNew.ChallengeId, CancellationToken.None));
+        Assert.Equal(PerceptionCharacterV3TransitionKind.ReissueRequired, (await store.VerifyAsync(replaceOld, true, now, CancellationToken.None)).Kind);
+        Assert.Equal(PerceptionCharacterV3TransitionKind.Success, (await store.VerifyAsync(replaceNew, true, now, CancellationToken.None)).Kind);
+
+        PerceptionCharacterV3StateRecord staleOld = Record(now) with
+        {
+            ExpiresAtUnixMs = now + 1
+        };
+        Assert.True(await store.CreateAsync(staleOld, CancellationToken.None));
+        PerceptionCharacterV3StateRecord staleNew = staleOld with
+        {
+            ChallengeId = Guid.CreateVersion7().ToString("D"),
+            EnvelopeId = Guid.CreateVersion7().ToString("D")
+        };
+        Assert.Equal(PerceptionCharacterV3TransitionKind.ReissueRequired, (await store.ReplaceAsync(staleOld, staleNew, now + 1, CancellationToken.None)).Kind);
+        Assert.Null(await store.ReadAsync(staleNew.ChallengeId, CancellationToken.None));
+
         await using ConnectionMultiplexer unavailable = await ConnectionMultiplexer.ConnectAsync("127.0.0.1:1,abortConnect=false,connectTimeout=50,syncTimeout=50,asyncTimeout=50");
-        var unavailableStore = new RedisPerceptionCharacterV3StateStore(unavailable, new DefaultRuntimeKeyScope());
+        var unavailableStore = new RedisPerceptionCharacterV3StateStore(unavailable, keyScope);
         Assert.Equal(PerceptionCharacterV3TransitionKind.Unavailable, (await unavailableStore.VerifyAsync(Record(now), true, now, CancellationToken.None)).Kind);
-        var unavailableAuthority = new RedisPerceptionCharacterV3DeviceAuthority(unavailable, new DefaultRuntimeKeyScope());
+        var unavailableAuthority = new RedisPerceptionCharacterV3DeviceAuthority(unavailable, keyScope);
         Assert.False((await unavailableAuthority.ResolveAsync(new DefaultHttpContext(), new string('6', 64), CancellationToken.None)).Succeeded);
         Assert.True((await unavailableAuthority.ResolveAsync(ContextWithSession("server-session-offline"), new string('6', 64), CancellationToken.None)).Succeeded);
     }
@@ -724,6 +896,25 @@ public sealed class PerceptionCharacterV3Tests
         var context = new DefaultHttpContext();
         context.User = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sid", sessionId)], "test"));
         return context;
+    }
+    private sealed class TestRuntimeKeyScope(string prefix) : IRuntimeKeyScope
+    {
+        public string PrefixKey(string key) => prefix + key;
+    }
+    private sealed class RedisPrefixCleanup(ConnectionMultiplexer redis, string prefix) : IAsyncDisposable
+    {
+        public async ValueTask DisposeAsync()
+        {
+            var keys = new HashSet<RedisKey>();
+            foreach (System.Net.EndPoint endpoint in redis.GetEndPoints())
+            {
+                IServer server = redis.GetServer(endpoint);
+                if (!server.IsReplica)
+                    keys.UnionWith(server.Keys(pattern: prefix + "*"));
+            }
+            if (keys.Count > 0)
+                await redis.GetDatabase().KeyDeleteAsync([.. keys], CommandFlags.DemandMaster);
+        }
     }
     private static void AssertSpokenAudioFixture(byte[] wav, string expected)
     {
@@ -769,7 +960,24 @@ public sealed class PerceptionCharacterV3Tests
         JsonElement c = root.GetProperty("state").GetProperty("context");
         return new(c.GetProperty("challengeId").GetString()!, c.GetProperty("envelopeId").GetString()!, c.GetProperty("action").GetString()!, c.GetProperty("routeKey").GetString()!, c.GetProperty("subjectHash").GetString()!, c.GetProperty("deviceBindingHash").GetString()!, c.GetProperty("clientIpBindingHash").GetString()!, c.GetProperty("policyVersion").GetString()!, c.GetProperty("mediaHash").GetString()!, c.GetProperty("issuedAtUnixMs").GetInt64(), c.GetProperty("expiresAtUnixMs").GetInt64(), c.GetProperty("tokenKeyVersion").GetString()!);
     }
-    private static PerceptionCharacterV3StateRecord Record(long now) => new(Guid.CreateVersion7().ToString("D"), Guid.CreateVersion7().ToString("D"), "comment.create", "/api/binary/comment", new string('1', 64), new string('2', 64), new string('3', 64), "issued-policy", new string('4', 64), "visual", now, now + 120_000, "tk", "ak", new string('5', 64));
+    private static PerceptionCharacterV3StateRecord Record(long now) => new(Guid.CreateVersion7().ToString("D"), Guid.CreateVersion7().ToString("D"), "comment.create", "/api/binary/comment", new string('1', 64), new string('2', 64), new string('9', 64), new string('3', 64), "issued-policy", new string('4', 64), "visual", now, now + 120_000, "tk", "ak", new string('5', 64));
+    private static string ActiveIdentityKeySuffix(PerceptionCharacterV3StateRecord record)
+    {
+        byte[] material = PerceptionCharacterV3Crypto.EncodeLp(
+            Encoding.UTF8.GetBytes(record.SubjectHash),
+            Encoding.UTF8.GetBytes(record.DeviceAuthorityHash),
+            Encoding.UTF8.GetBytes(record.ClientIpBindingHash),
+            Encoding.UTF8.GetBytes(record.Action),
+            Encoding.UTF8.GetBytes(record.RouteKey));
+        try
+        {
+            return "security:perception-v3-active:" + Convert.ToHexStringLower(SHA256.HashData(material));
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(material);
+        }
+    }
     private static IEnumerable<Func<PerceptionCharacterV3StateRecord, PerceptionCharacterV3StateRecord>> Mutations()
     {
         yield return x => x with { ChallengeId = Guid.CreateVersion7().ToString("D") };
@@ -778,6 +986,7 @@ public sealed class PerceptionCharacterV3Tests
         yield return x => x with { RouteKey = "/other" };
         yield return x => x with { SubjectHash = new string('a', 64) };
         yield return x => x with { DeviceBindingHash = new string('b', 64) };
+        yield return x => x with { DeviceAuthorityHash = new string('f', 64) };
         yield return x => x with { ClientIpBindingHash = new string('c', 64) };
         yield return x => x with { PolicyVersion = "new-policy" };
         yield return x => x with { MediaHash = new string('d', 64) };
@@ -793,13 +1002,6 @@ public sealed class PerceptionCharacterV3Tests
             ["Security:PerceptionCharacterV3:AnswerKeys:ak"] = answer
         };
     private static PerceptionCharacterV3KeyRing CreateKeys(Dictionary<string, string?> values) => new(new ConfigurationBuilder().AddInMemoryCollection(values).Build(), new FakeEnvironment());
-    private static string FindRoot()
-    {
-        DirectoryInfo? current = new(AppContext.BaseDirectory);
-        while (current is not null && !File.Exists(Path.Combine(current.FullName, "FsusBlog.slnx")))
-            current = current.Parent;
-        return current?.FullName ?? throw new DirectoryNotFoundException();
-    }
     private sealed class FixedNonce(byte[] value) : IPerceptionCharacterV3NonceSource
     {
         public void Fill(Span<byte> destination) => value.CopyTo(destination);
@@ -856,6 +1058,22 @@ public sealed class PerceptionCharacterV3Tests
             Accesses++;
             key = Enumerable.Repeat((byte)0x22, 32).ToArray();
             return true;
+        }
+    }
+    private sealed class RotatingKeys(byte[] tokenKey, byte[] answerKey1, byte[] answerKey2) : IPerceptionCharacterV3KeyRing
+    {
+        public string CurrentTokenVersion => "tk";
+        public string CurrentAnswerVersionValue { get; set; } = "ak1";
+        public string CurrentAnswerVersion => CurrentAnswerVersionValue;
+        public bool TryGetTokenKey(string version, out byte[] key)
+        {
+            key = tokenKey;
+            return version == "tk";
+        }
+        public bool TryGetAnswerKey(string version, out byte[] key)
+        {
+            key = version == "ak2" ? answerKey2 : answerKey1;
+            return version is "ak1" or "ak2";
         }
     }
     private sealed class CountingNonce : IPerceptionCharacterV3NonceSource
@@ -949,6 +1167,17 @@ public sealed class PerceptionCharacterV3Tests
         }
         public ValueTask<IAsyncDisposable?> EnterRenderAsync(CancellationToken cancellationToken) => throw new InvalidOperationException("Render queue must not be reached.");
     }
+    private sealed class ToggleGate : IPerceptionCharacterV3ResourceGate
+    {
+        public bool AllowRender { get; set; } = true;
+        public bool TryAcquireIssue(string ip, string device, string subject, string action, string identity, long nowUnixMs, out string dimension)
+        {
+            dimension = string.Empty;
+            return true;
+        }
+        public ValueTask<IAsyncDisposable?> EnterRenderAsync(CancellationToken cancellationToken)
+            => ValueTask.FromResult<IAsyncDisposable?>(AllowRender ? new AsyncLease() : null);
+    }
     private sealed class AsyncLease : IAsyncDisposable
     {
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
@@ -966,6 +1195,8 @@ public sealed class PerceptionCharacterV3Tests
     {
         public Task<bool> CreateAsync(PerceptionCharacterV3StateRecord created, CancellationToken cancellationToken)
             => Task.FromResult(false);
+        public Task<PerceptionCharacterV3Transition> ReplaceAsync(PerceptionCharacterV3StateRecord expected, PerceptionCharacterV3StateRecord replacement, long nowUnixMs, CancellationToken cancellationToken)
+            => Task.FromResult(new PerceptionCharacterV3Transition(PerceptionCharacterV3TransitionKind.Unavailable, "redis_unavailable", 0));
         public Task<PerceptionCharacterV3StateRecord?> ReadAsync(string challengeId, CancellationToken cancellationToken)
             => failRead
                 ? Task.FromException<PerceptionCharacterV3StateRecord?>(new PerceptionCharacterV3StoreUnavailableException(new InvalidOperationException("redis unavailable")))
@@ -1001,6 +1232,24 @@ public sealed class PerceptionCharacterV3Tests
         {
             lock (_sync)
                 return Task.FromResult(Records.GetValueOrDefault(challengeId));
+        }
+        public Task<PerceptionCharacterV3Transition> ReplaceAsync(PerceptionCharacterV3StateRecord expected, PerceptionCharacterV3StateRecord replacement, long nowUnixMs, CancellationToken cancellationToken)
+        {
+            lock (_sync)
+            {
+                if (!Records.TryGetValue(expected.ChallengeId, out PerceptionCharacterV3StateRecord? stored) || stored != expected)
+                    return Task.FromResult(new PerceptionCharacterV3Transition(PerceptionCharacterV3TransitionKind.Rejected, "binding_mismatch", 0));
+                (string status, int attempts) = _states[expected.ChallengeId];
+                if (status is "expired" or "revoked")
+                    return Task.FromResult(new PerceptionCharacterV3Transition(PerceptionCharacterV3TransitionKind.ReissueRequired, "expired_or_revoked", attempts));
+                if (status != "active" || Records.ContainsKey(replacement.ChallengeId))
+                    return Task.FromResult(new PerceptionCharacterV3Transition(PerceptionCharacterV3TransitionKind.Rejected, "replacement_conflict", attempts));
+                _states[expected.ChallengeId] = ("revoked", attempts);
+                Records[replacement.ChallengeId] = replacement;
+                _states[replacement.ChallengeId] = ("active", 0);
+                LastRevocation = new(PerceptionCharacterV3TransitionKind.Success, "replaced", attempts);
+                return Task.FromResult(LastRevocation);
+            }
         }
         public Task<PerceptionCharacterV3Transition> VerifyAsync(PerceptionCharacterV3StateRecord expected, bool answerMatches, long nowUnixMs, CancellationToken cancellationToken)
         {

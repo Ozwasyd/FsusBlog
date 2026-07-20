@@ -227,7 +227,7 @@ shared coordinator 提交并复用唯一 App-level dialog host，不得增加局
 
 V3 issue response 将公开 `riskScore/effectiveRiskScore` 归零，失败只公开 `retryable`、`reissueRequired`、`unavailable` 或 `rejected`；crypto、Redis、binding、rate-limit dimension 和 parser 原因只进入内部 audit。token/AAD/answer MAC 的字段顺序、编码和测试向量以 `docs/security/perception-character-v3-protocol.md` 与 canonical JSON 为唯一权威源。
 
-visual/audio representation replacement 在 issue 请求同时携带 `X-Fsus-Replaces-Challenge`、`X-Fsus-Replaces-Envelope` 与 `X-Fsus-Replaces-State-Token`；三者和当前 server-authoritative binding 由 Redis 原子校验，任一缺失或替换均返回 coarse `rejected`。这些 header 只携带 opaque identity/state，不得进入 access log、telemetry 或 cache key。
+同表示 refresh 与 visual/audio representation replacement 都在 issue 请求同时携带 `X-Fsus-Replaces-Challenge`、`X-Fsus-Replaces-Envelope` 与 `X-Fsus-Replaces-State-Token`；V3 客户端不得使用 fire-and-forget cancel 加普通 issue 模拟 refresh。服务端先完整准备并校验 replacement candidate，再由一个 Redis 原子操作校验三项旧 identity、全部 server-authoritative binding 与 active-index，执行旧 `active -> revoked`、新 state NX+TTL 和 active-index swap。active-index 的 server-device 摘要跨 answer/token key rotation 稳定；旧 challenge binding 必须按它记录的旧 answer-key version 校验，新 challenge 才绑定 current version。任一 header 缺失、替换或并发 loser 均返回 coarse `rejected`；Redis 结果不确定返回 `unavailable` 且禁止重放 mutation。commit 前的 renderer/crypto/payload 失败不改变旧 identity，commit 后旧 identity 不恢复。这些 header 只携带 opaque identity/state，不得进入 access log、telemetry 或 cache key。
 
 `SecurityChallengeIssueRequest` 字段：
 

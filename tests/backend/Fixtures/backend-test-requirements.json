@@ -636,9 +636,9 @@
         "tools/test/lanes/perception-v2-test-matrix.sh",
         "tests/backend/Unit/PerceptionChallengeV2E2eTests.cs",
         "tests/backend/Unit/PerceptionChallengeV2ServiceTests.cs",
-        "tests/backend/Unit/PerceptionChallengeProviderTests.cs",
-        ".tmp/security/perception-v2-e2e-runtime.json",
-        ".tmp/release-evidence/perception-v2-release-evidence.json",
+        "tests/backend/Unit/PerceptionCharacterV3Tests.cs",
+        "tests/security/retired-character-challenge-residue.test.mjs",
+        "docs/history/retired-character-challenges.md",
         "tests/security/perception-v2/perception-harness.test.mjs"
       ]
     },

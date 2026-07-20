@@ -509,7 +509,7 @@ describe('security challenge client and proof store', () => {
     })
   })
 
-  it('refreshes V3 in the same representation after revoking the old envelope', async () => {
+  it('refreshes V3 in the same representation through the backend replacement contract', async () => {
     const issueChallenge = vi.fn()
       .mockResolvedValueOnce(perceptionCharacterV3IssueResponse('visual', 1))
       .mockResolvedValueOnce(perceptionCharacterV3IssueResponse('visual', 2))
@@ -519,11 +519,15 @@ describe('security challenge client and proof store', () => {
     await client.issue(context)
     await client.refresh(context, 'visual')
 
-    expect(cancelChallenge).toHaveBeenCalledWith(expect.objectContaining({ envelopeId: ENVELOPE_ID }))
+    expect(cancelChallenge).not.toHaveBeenCalled()
     expect(issueChallenge).toHaveBeenNthCalledWith(2, expect.objectContaining({
-      representation: 'visual'
+      representation: 'visual',
+      replacement: {
+        challengeId: 'character-v3-1',
+        envelopeId: ENVELOPE_ID,
+        stateToken: 'opaque-state-1'
+      }
     }), expect.any(Object))
-    expect(issueChallenge.mock.calls[1]?.[0]).not.toHaveProperty('replacement')
   })
 
   it('aborts and tombstones an out-of-order issue response after refresh', async () => {

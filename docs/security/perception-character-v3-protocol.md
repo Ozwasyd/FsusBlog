@@ -213,7 +213,7 @@ The exact generation order, PRF consumption order, atlas digest, raster seed, ra
 
 Audio is separately issued server-final media. The client receives no phoneme, character ordering, voice-unit, timing, synthesis seed, or mixing recipe. Duration, sample rate, channel count, codec, byte count, synthesis concurrency, and timeout are fixed bounded server policy owned by the implementation issue.
 
-Visual-to-audio or audio-to-visual switching is not a mutation of one challenge. The server first atomically revokes the active identity and then issues a new challenge ID, envelope ID, token, nonce, media hash, answer, state row, and attempt counter for the other representation. The old challenge remains revoked if replacement issuance fails. It cannot donate attempts or a state token to the replacement.
+Same-representation refresh and visual-to-audio or audio-to-visual switching are not mutations of one challenge. The server prepares a complete bounded candidate first, then one linearizable Redis operation validates the old active identity and bindings, revokes it, creates the new state with its TTL, and swaps the active-identity index. Before that commit, renderer, crypto, payload-validation, or definite Redis failure leaves the old identity active and creates no new identity. After commit, the old challenge remains revoked even if response delivery fails. The replacement has a new challenge ID, envelope ID, token, nonce, media hash, answer, state row, and attempt counter; it cannot inherit attempts or a state token. A client must use the server replacement contract and must not race a fire-and-forget cancel against an ordinary issue request.
 
 ## Atomic state machine
 

@@ -137,7 +137,10 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
       replacementRepresentation?: 'visual' | 'audio'
     } = {}
   ): Promise<SecurityChallengeIssueResult> {
-    const replacement = issueOptions.replacementRepresentation ? currentV3Replacement(context) : null
+    const activeV3 = issueOptions.replacementRepresentation ? currentV3Replacement(context) : null
+    const replacement = activeV3
+      ? { challengeId: activeV3.challengeId, envelopeId: activeV3.envelopeId, stateToken: activeV3.stateToken }
+      : null
     if (issueOptions.replacementRepresentation && !replacement) {
       return failedIssueResult(null, 'perception_character_v3_replacement_missing')
     }
@@ -328,6 +331,7 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
     challengeId: string
     envelopeId: string
     stateToken: string
+    representation: 'visual' | 'audio'
   } | null {
     const run = envelopeRuns.get(contextKey(context))
     const assignment = run?.response.envelope?.assignments[run.completedCount]
@@ -336,7 +340,12 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
       : null
     const typed = payload?.perceptionCharacterV3
     return run && assignment?.kind === SecurityChallengeKind.PerceptionCharacterV3 && typed
-      ? { challengeId: assignment.challengeId, envelopeId: run.envelopeId, stateToken: typed.stateToken }
+      ? {
+          challengeId: assignment.challengeId,
+          envelopeId: run.envelopeId,
+          stateToken: typed.stateToken,
+          representation: typed.representation === 1 ? 'visual' : 'audio'
+        }
       : null
   }
 
@@ -400,6 +409,13 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
   return {
     issue,
     refresh(context, representation) {
+      const activeV3 = currentV3Replacement(context)
+      if (activeV3) {
+        return issueInternal(context, {
+          forceRefresh: true,
+          replacementRepresentation: representation ?? activeV3.representation
+        })
+      }
       return issueInternal(context, { forceRefresh: true, requestedRepresentation: representation })
     },
     replace(context, representation) {

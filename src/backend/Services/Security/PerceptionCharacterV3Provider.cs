@@ -63,7 +63,9 @@ public sealed class PerceptionCharacterV3Provider(
             return SecurityChallengeProviderIssueResult.Failed("unavailable");
         }
         string deviceBinding = PerceptionCharacterV3Crypto.DeriveDeviceBinding(answerKey, trustedDeviceMaterial);
+        string deviceAuthorityHash = DeriveStableDeviceAuthorityHash(trustedDeviceMaterial);
         string replacedChallengeId = request.Context.Request.Headers["X-Fsus-Replaces-Challenge"].ToString().Trim();
+        PerceptionCharacterV3StateRecord? replacementAuthority = null;
         if (replacedChallengeId.Length > 0)
         {
             PerceptionCharacterV3StateRecord? replaced;
@@ -76,44 +78,30 @@ public sealed class PerceptionCharacterV3Provider(
                 await audit.WriteAsync("issue", replacedChallengeId, request.Action, "unavailable", "replacement_state_unavailable", CancellationToken.None);
                 return SecurityChallengeProviderIssueResult.Failed("unavailable");
             }
-            string requested = ResolveRepresentation(request.Context) == PerceptionCharacterV3Representation.Audio ? "audio" : "visual";
             string replacedEnvelopeId = request.Context.Request.Headers["X-Fsus-Replaces-Envelope"].ToString().Trim();
             string replacedStateToken = request.Context.Request.Headers["X-Fsus-Replaces-State-Token"].ToString().Trim();
-            if (replaced is null || replaced.EnvelopeId == envelopeId || replaced.Representation == requested || replacedStateToken.Length == 0)
+            if (replaced is null || replaced.EnvelopeId == envelopeId || replacedStateToken.Length == 0)
             {
                 await audit.WriteAsync("issue", replacedChallengeId, request.Action, "rejected", "replacement_fields_invalid", cancellationToken);
                 return SecurityChallengeProviderIssueResult.Failed("rejected");
             }
             string replacementTokenHash = Convert.ToHexStringLower(SHA256.HashData(Encoding.ASCII.GetBytes(replacedStateToken)));
-            PerceptionCharacterV3StateRecord replacementAuthority = replaced with
+            if (!keys.TryGetAnswerKey(replaced.AnswerKeyVersion, out byte[] replacedAnswerKey))
+            {
+                await audit.WriteAsync("issue", replacedChallengeId, request.Action, "unavailable", "replacement_answer_key_unavailable", cancellationToken);
+                return SecurityChallengeProviderIssueResult.Failed("unavailable");
+            }
+            replacementAuthority = replaced with
             {
                 EnvelopeId = replacedEnvelopeId,
                 Action = request.Action,
                 RouteKey = request.RouteKey,
                 SubjectHash = request.SubjectHash,
-                DeviceBindingHash = deviceBinding,
+                DeviceBindingHash = PerceptionCharacterV3Crypto.DeriveDeviceBinding(replacedAnswerKey, trustedDeviceMaterial),
+                DeviceAuthorityHash = deviceAuthorityHash,
                 ClientIpBindingHash = request.ClientIpHash,
                 TokenHash = replacementTokenHash
             };
-            PerceptionCharacterV3Transition revoked;
-            try
-            {
-                revoked = await stateStore.RevokeAsync(replacementAuthority, timeProvider.GetUtcNow().ToUnixTimeMilliseconds(), cancellationToken);
-            }
-            catch (PerceptionCharacterV3StoreUnavailableException)
-            {
-                await audit.WriteAsync("issue", replacedChallengeId, request.Action, "unavailable", "replacement_revoke_store_failure", CancellationToken.None);
-                return SecurityChallengeProviderIssueResult.Failed("unavailable");
-            }
-            if (revoked.Kind != PerceptionCharacterV3TransitionKind.ReissueRequired || revoked.InternalReason != "revoked_now")
-            {
-                string publicReason = revoked.Kind == PerceptionCharacterV3TransitionKind.Unavailable ? "unavailable" : "rejected";
-                string internalReason = revoked.Kind == PerceptionCharacterV3TransitionKind.Unavailable
-                    ? "replacement_revoke_store_failure"
-                    : revoked.InternalReason;
-                await audit.WriteAsync("issue", replacedChallengeId, request.Action, publicReason, internalReason, cancellationToken);
-                return SecurityChallengeProviderIssueResult.Failed(publicReason);
-            }
         }
         PerceptionCharacterV3Representation representation = ResolveRepresentation(request.Context);
         await using IAsyncDisposable? lease = await resourceGate.EnterRenderAsync(cancellationToken);
@@ -153,12 +141,7 @@ public sealed class PerceptionCharacterV3Provider(
         }
         finally { CryptographicOperations.ZeroMemory(answerTag); }
         string tokenHash = Convert.ToHexStringLower(SHA256.HashData(Encoding.ASCII.GetBytes(token)));
-        var record = new PerceptionCharacterV3StateRecord(challengeId, envelopeId, request.Action, request.RouteKey, request.SubjectHash, deviceBinding, request.ClientIpHash, request.PolicyVersion, mediaHash, state.Representation, context.IssuedAtUnixMs, context.ExpiresAtUnixMs, keys.CurrentTokenVersion, keys.CurrentAnswerVersion, tokenHash);
-        if (!await stateStore.CreateAsync(record, cancellationToken))
-        {
-            await audit.WriteAsync("issue", challengeId, request.Action, "unavailable", "redis_create_failed", cancellationToken);
-            return SecurityChallengeProviderIssueResult.Failed("unavailable");
-        }
+        var record = new PerceptionCharacterV3StateRecord(challengeId, envelopeId, request.Action, request.RouteKey, request.SubjectHash, deviceBinding, deviceAuthorityHash, request.ClientIpHash, request.PolicyVersion, mediaHash, state.Representation, context.IssuedAtUnixMs, context.ExpiresAtUnixMs, keys.CurrentTokenVersion, keys.CurrentAnswerVersion, tokenHash);
         var assignment = new SecurityChallengeAssignment(challengeId, request.Traceparent, request.TenantId, SecurityChallengeKind.PerceptionCharacterV3, request.EscalationLevel, request.Action, request.RouteKey, request.SubjectHash, request.ClientIpHash, request.DeviceFpHash, context.IssuedAtUnixMs, context.ExpiresAtUnixMs);
         var payload = new PerceptionCharacterV3IssuePayload(PerceptionCharacterV3Contracts.Algorithm, challengeId, envelopeId, representation,
             representation == PerceptionCharacterV3Representation.Visual ? "application/x-fsus-gray8" : "audio/wav", media,
@@ -169,6 +152,37 @@ public sealed class PerceptionCharacterV3Provider(
         {
             await audit.WriteAsync("issue", challengeId, request.Action, "unavailable", "payload_contract_invalid", cancellationToken);
             return SecurityChallengeProviderIssueResult.Failed("unavailable");
+        }
+        if (replacementAuthority is null && !await stateStore.CreateAsync(record, cancellationToken))
+        {
+            await audit.WriteAsync("issue", challengeId, request.Action, "unavailable", "redis_create_failed", cancellationToken);
+            return SecurityChallengeProviderIssueResult.Failed("unavailable");
+        }
+        if (replacementAuthority is not null)
+        {
+            PerceptionCharacterV3Transition replaced;
+            try
+            {
+                replaced = await stateStore.ReplaceAsync(
+                    replacementAuthority,
+                    record,
+                    timeProvider.GetUtcNow().ToUnixTimeMilliseconds(),
+                    cancellationToken);
+            }
+            catch (PerceptionCharacterV3StoreUnavailableException)
+            {
+                await audit.WriteAsync("issue", replacedChallengeId, request.Action, "unavailable", "replacement_revoke_store_failure", CancellationToken.None);
+                return SecurityChallengeProviderIssueResult.Failed("unavailable");
+            }
+            if (replaced.Kind != PerceptionCharacterV3TransitionKind.Success || replaced.InternalReason != "replaced")
+            {
+                string publicReason = replaced.Kind == PerceptionCharacterV3TransitionKind.Unavailable ? "unavailable" : "rejected";
+                string internalReason = replaced.Kind == PerceptionCharacterV3TransitionKind.Unavailable
+                    ? "replacement_revoke_store_failure"
+                    : replaced.InternalReason;
+                await audit.WriteAsync("issue", replacedChallengeId, request.Action, publicReason, internalReason, cancellationToken);
+                return SecurityChallengeProviderIssueResult.Failed(publicReason);
+            }
         }
         await audit.WriteAsync("issue", challengeId, request.Action, "issued", "ok", cancellationToken);
         FsusObservability.RecordSecurityChallengeIssued(Kind, request.Action, request.PolicyVersion);
@@ -245,6 +259,20 @@ public sealed class PerceptionCharacterV3Provider(
     }
     private static string ActiveIdentity(string subjectHash, string trustedDeviceMaterial, string clientIpHash, string action, string routeKey)
         => subjectHash + ":" + trustedDeviceMaterial + ":" + clientIpHash + ":" + action + ":" + routeKey;
+    private static string DeriveStableDeviceAuthorityHash(string trustedDeviceMaterial)
+    {
+        byte[] material = PerceptionCharacterV3Crypto.EncodeLp(
+            Encoding.ASCII.GetBytes("fsus.perception-character.active-device"),
+            Encoding.UTF8.GetBytes(trustedDeviceMaterial));
+        try
+        {
+            return Convert.ToHexStringLower(SHA256.HashData(material));
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(material);
+        }
+    }
     private static PerceptionCharacterV3Representation ResolveRepresentation(HttpContext context) => string.Equals(context.Request.Headers["X-Fsus-Challenge-Representation"].ToString(), "audio", StringComparison.Ordinal) ? PerceptionCharacterV3Representation.Audio : PerceptionCharacterV3Representation.Visual;
     private static bool StateMatchesRecord(PerceptionCharacterV3State state, PerceptionCharacterV3StateRecord record)
         => state.AttemptBudget == 2 && state.MediaHash == record.MediaHash && state.ChallengeId == record.ChallengeId && state.EnvelopeId == record.EnvelopeId

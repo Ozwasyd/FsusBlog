@@ -695,6 +695,8 @@ audio 使用 build-time 固化、hash 校验的 26-symbol en-US spoken-character
 
 V3 typed union 复用现有 AEDS 174/175 外层 frame，但 V3 payload slice 由 Core 的 `PodBinaryCodec.PerceptionCharacterV3` 读写，不走 UTF-8 JSON dictionary。Shared 只持 closed public records/POD，Backend 持 canonical loader、renderer/crypto/provider/Redis，Client/UI composition 留给 #1367；没有 V1/V2 parser、alias 或 fallback。notification stream 仍只消费 aggregate proof，不承载 V3 media/state，因此 provider 故障不会改变 stream 协议或连接生命周期。
 
+初次 Create 由单个 Redis Lua 同时执行 challenge key NX、完整 hash、绝对 TTL 与 active-identity index NX；index 的 device 维度来自 server-authoritative material 的 domain-separated stable digest，不依赖可轮换 answer/token key。具体 challenge 的 `DeviceBindingHash` 仍使用其 answer key；replacement 按旧 state 的 answer-key version 复算旧 binding，再用当前 key 签发新 binding。verify/revoke 同一脚本维护 terminal state 和 index。refresh/switch 先在内存准备 bounded candidate，再由 `ReplaceAsync` 的单个 Lua 把旧 active state、全 binding 和 index 作为 CAS 条件，原子写入带 TTL 的新 state、撤销旧 state并交换 index。Redis reply-loss 通过脚本内 operation result readback 判定；未决 operation 会阻止后续 mutation，不能由另一个应用实例猜测成功或重放。无需重启的降级仍是从热 RiskControl policy 移除 V3、停止新 issue/refresh 并让既有 verify/cancel 在短 TTL 内 drain；禁止回退到 async cancel+issue 或任何 V1/V2 character path。
+
 ### 浏览器单宿主与受保护命令
 
 浏览器只挂载一个 application-level `SecurityChallengeDialogHost`，并通过共享 coordinator

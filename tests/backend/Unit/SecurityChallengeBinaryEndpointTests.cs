@@ -903,7 +903,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
         persistence.RevokeAsync(challengeId, Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(true);
         var v3Store = Substitute.For<IPerceptionCharacterV3StateStore>();
         v3Store.ReadAsync(challengeId, Arg.Any<CancellationToken>()).Returns(new PerceptionCharacterV3StateRecord(
-            challengeId, envelopeId, request.Action, request.RouteKey, HashA, storedDeviceBinding, HashB, "issued-policy", HashC, "visual", 1, 2, "tk", "ak", HashA));
+            challengeId, envelopeId, request.Action, request.RouteKey, HashA, storedDeviceBinding, HashA, HashB, "issued-policy", HashC, "visual", 1, 2, "tk", "ak", HashA));
         v3Store.RevokeAsync(Arg.Any<PerceptionCharacterV3StateRecord>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
             .Returns(new PerceptionCharacterV3Transition(transitionKind, internalReason, 0));
         var deviceAuthority = Substitute.For<IPerceptionCharacterV3DeviceAuthority>();
