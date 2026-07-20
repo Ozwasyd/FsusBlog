@@ -338,6 +338,10 @@ html[data-theme-resolved='dark'] body {
   font-family: var(--font-sans, "Google Sans", "Noto Sans SC", "Noto Sans TC", "Noto Sans JP", "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif);
 }
 
+#fsus-aot-shell .fsusblog-public-skip-link:focus {
+  top: calc(var(--fsusblog-public-header-height-current) + 8px);
+}
+
 #fsus-aot-shell,
 #fsus-aot-shell > header,
 #fsus-aot-shell > main,
