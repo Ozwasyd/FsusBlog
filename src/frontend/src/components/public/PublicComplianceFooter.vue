@@ -54,16 +54,17 @@
           rel="noopener noreferrer"
           :aria-label="record.ariaLabel"
         >
-          <img
-            v-if="record.icon"
-            :src="record.icon"
-            :alt="copy.policeBadgeAlt"
-            class="h-4 w-4 shrink-0 object-contain transition-transform group-hover:-translate-y-px motion-reduce:transform-none"
-            width="16"
-            height="16"
-            loading="lazy"
-            decoding="async"
-          />
+          <span v-if="record.icon" class="public-colophon__record-icon">
+            <img
+              :src="record.icon"
+              :alt="copy.policeBadgeAlt"
+              class="h-4 w-4 object-contain transition-transform group-hover:-translate-y-px motion-reduce:transform-none"
+              width="16"
+              height="16"
+              loading="lazy"
+              decoding="async"
+            />
+          </span>
           <span>{{ record.label }}</span>
         </a>
       </div>
