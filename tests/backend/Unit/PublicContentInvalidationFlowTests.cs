@@ -285,13 +285,24 @@ public sealed class PublicContentInvalidationFlowTests
     {
         string createRuntime = RuntimeMetadataInspection.DescribeMethods(typeof(ArticleService), nameof(ArticleService.CreateAsync));
         string updateRuntime = RuntimeMetadataInspection.DescribeMethods(typeof(ArticleService), nameof(ArticleService.UpdateAsync));
-        MethodInfo outbox = typeof(ArticleService).GetMethod("RecordArticleMutationOutboxAsync", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        MethodInfo outbox = typeof(ArticleService).GetMethod(
+            "RecordArticleMutationOutboxAsync",
+            BindingFlags.NonPublic | BindingFlags.Instance,
+            binder: null,
+            [typeof(int), typeof(string), typeof(ArticleVersionCoordinates)],
+            modifiers: null)!;
 
         Assert.Contains("RecordArticleMutationOutboxAsync", createRuntime, StringComparison.Ordinal);
         Assert.Contains("created", createRuntime, StringComparison.Ordinal);
         Assert.Contains("RecordArticleMutationOutboxAsync", updateRuntime, StringComparison.Ordinal);
         Assert.Contains("updated", updateRuntime, StringComparison.Ordinal);
-        Assert.Contains(outbox.GetParameters(), static parameter => parameter.Name == "rightsSnapshotId");
+        Assert.Contains(outbox.GetParameters(), static parameter =>
+            parameter.Name == "version" && parameter.ParameterType == typeof(ArticleVersionCoordinates));
+        string payload = ArticlePublicationTransitionWriter.BuildOutboxPayload(
+            42,
+            ArticleMutationEventTypes.Updated,
+            new ArticleVersionCoordinates(7, 2, 11, null, 13, 3));
+        Assert.Contains("\"rightsSnapshotId\":11", payload, StringComparison.Ordinal);
         Assert.Contains(ArticleMutationReplayEdges.ArticleDetailAeds, ArticleMutationReplayEdges.Required);
     }
 
