@@ -56,6 +56,39 @@ public sealed class OnlineSchemaMigrationPolicyTests
     }
 
     [Fact]
+    public void CommentGovernanceMigrations_AreExplicitlyClassified()
+    {
+        ISchemaMigrationDescriptor revisionDescriptor = CommentRevisionManagementMigrationDefinitions.BuildMigration();
+        ISchemaMigrationDescriptor governanceDescriptor = CommentGovernanceMigrationDefinitions.BuildMigration();
+        IReadOnlyDictionary<string, OnlineSchemaMigrationMetadata> metadata =
+            new OnlineSchemaMigrationCatalog().GetMetadata();
+
+        OnlineSchemaMigrationPolicyReport report = OnlineSchemaMigrationPolicy.Validate(
+            [revisionDescriptor, governanceDescriptor],
+            new Dictionary<string, OnlineSchemaMigrationMetadata>
+            {
+                [revisionDescriptor.MigrationId] = metadata[revisionDescriptor.MigrationId],
+                [governanceDescriptor.MigrationId] = metadata[governanceDescriptor.MigrationId]
+            });
+
+        Assert.True(report.Valid, string.Join(Environment.NewLine, report.Violations));
+
+        OnlineSchemaMigrationMetadata revision = metadata[revisionDescriptor.MigrationId];
+        Assert.Equal(OnlineSchemaMigrationPhase.Expand, revision.Phase);
+        Assert.False(revision.Destructive);
+        Assert.False(revision.RequiresExclusiveMode);
+        Assert.Equal(OnlineSchemaMigrationRollbackMode.CompatibleCode, revision.RollbackMode);
+
+        OnlineSchemaMigrationMetadata governance = metadata[governanceDescriptor.MigrationId];
+        Assert.Equal(OnlineSchemaMigrationPhase.Contract, governance.Phase);
+        Assert.True(governance.Destructive);
+        Assert.True(governance.RequiresExclusiveMode);
+        Assert.Equal(OnlineSchemaMigrationRollbackMode.BackupRestore, governance.RollbackMode);
+        Assert.NotNull(governance.ContractAfterCoordinate);
+        Assert.True(governance.MinimumRetentionWindow > TimeSpan.Zero);
+    }
+
+    [Fact]
     public void ArticleAssetReferenceLedger_IsExplicitAdditiveExpand()
     {
         OnlineSchemaMigrationMetadata metadata = new OnlineSchemaMigrationCatalog()
@@ -220,6 +253,10 @@ public sealed class OnlineSchemaMigrationPolicyTests
             commentMutationIdempotency.MigrationId,
             scheduledPublishDueIndex.MigrationId,
             articleDraftBaseRevision.MigrationId,
+            CommentRevisionManagementMigrationDefinitions.MigrationId,
+            CommentGovernanceMigrationDefinitions.MigrationId,
+            ArticleResponsibilityVersionMigrationDefinitions.MigrationId,
+            ArticleRevisionRollbackMigrationDefinitions.MigrationId,
             accountEnrollment.MigrationId,
             refreshTokenLineage.MigrationId,
             userSessionModeAuthority.MigrationId,

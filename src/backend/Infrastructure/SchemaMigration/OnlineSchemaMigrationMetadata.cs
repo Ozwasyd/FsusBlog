@@ -664,6 +664,53 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
+            CommentRevisionManagementMigrationDefinitions.MigrationId,
+            new OnlineSchemaMigrationMetadata(
+                CommentRevisionManagementMigrationDefinitions.MigrationId,
+                OnlineSchemaMigrationPhase.Expand,
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Medium,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260720-comment-revision-management"),
+                ContractAfterCoordinate: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write",
+                    "comment_revision_initial_backfill",
+                    "anonymous_management_capability"
+                ]));
+
+        result.Add(
+            CommentGovernanceMigrationDefinitions.MigrationId,
+            new OnlineSchemaMigrationMetadata(
+                CommentGovernanceMigrationDefinitions.MigrationId,
+                OnlineSchemaMigrationPhase.Contract,
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
+                RequiresExclusiveMode: true,
+                Destructive: true,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.BackupRestore,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Medium,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260720-comment-report-appeal-timeline"),
+                ContractAfterCoordinate: LegacyCoordinate("20260720-comment-report-appeal-timeline-expand"),
+                MinimumRetentionWindow: TimeSpan.FromDays(DestructiveMigrationProofs.MinimumRollbackWindowDays),
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write",
+                    "destructive_rollback_window_proof",
+                    "fresh_backup_restore",
+                    "comment_governance_timeline_backfill"
+                ]));
+
+        result.Add(
             ScheduledPublishIndexMigrationDefinitions.MigrationId,
             new OnlineSchemaMigrationMetadata(
                 ScheduledPublishIndexMigrationDefinitions.MigrationId,
