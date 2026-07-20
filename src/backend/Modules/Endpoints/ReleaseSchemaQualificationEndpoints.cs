@@ -113,7 +113,7 @@ public static class ReleaseSchemaQualificationEndpoints
             {
                 status = report.Status,
                 code = report.PublicErrorCode ?? "ok",
-                schemaRelease = report.SchemaRelease,
+                schemaCompatibilityCoordinate = report.SchemaCompatibilityCoordinate,
                 issues = report.Issues.Select(static issue => new
                 {
                     code = issue.Code,

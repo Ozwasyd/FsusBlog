@@ -335,7 +335,7 @@ async function runSelfTest() {
       frontendManifestHash: `sha256:${'b'.repeat(64)}`,
       wasmArtifactHash: `sha256:${'c'.repeat(64)}`,
       zkLocalReviewHash: `sha256:${'e'.repeat(64)}`,
-      schemaCompatibility: { minRelease: releaseId, maxRelease: releaseId },
+      schemaCompatibility: { minimumCoordinate: releaseId, maximumCoordinate: releaseId },
       toolchain: {
         dotnetVersion: '10.0.100',
         nodeVersion: 'v24.16.0',

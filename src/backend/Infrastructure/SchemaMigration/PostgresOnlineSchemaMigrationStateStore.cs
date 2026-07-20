@@ -1,5 +1,7 @@
 using System.Data;
 
+using FsusBlog.Server.Infrastructure.Operations;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.SchemaMigration;
@@ -14,10 +16,12 @@ public interface IOnlineSchemaMigrationStateStore
 
     Task MarkMigrationAppliedAsync(
         ISchemaMigrationDescriptor descriptor,
-        string releaseId,
+        ReleaseId releaseId,
         CancellationToken cancellationToken);
 
-    Task MarkSchemaReleaseAsync(string releaseId, CancellationToken cancellationToken);
+    Task MarkSchemaCompatibilityCoordinateAsync(
+        SchemaCompatibilityCoordinate coordinate,
+        CancellationToken cancellationToken);
 }
 
 public sealed class PostgresOnlineSchemaMigrationStateStore(ISqlSugarClient db)
@@ -34,11 +38,14 @@ public sealed class PostgresOnlineSchemaMigrationStateStore(ISqlSugarClient db)
         IReadOnlyList<OnlineSchemaMigrationHistorySnapshot> history = historyAvailable
             ? await ReadHistoryAsync(cancellationToken).ConfigureAwait(false)
             : [];
-        string? schemaRelease = await ReadSchemaReleaseAsync(cancellationToken).ConfigureAwait(false);
+        string? persistedCoordinate = await ReadSchemaCompatibilityCoordinateAsync(cancellationToken).ConfigureAwait(false);
+        SchemaCompatibilityCoordinate? schemaCoordinate = persistedCoordinate is null
+            ? null
+            : SchemaCompatibilityCoordinate.ParsePersisted(persistedCoordinate);
         IReadOnlyDictionary<string, OnlineSchemaBackfillSnapshot> backfills =
             await ReadBackfillsAsync(cancellationToken).ConfigureAwait(false);
 
-        return new OnlineSchemaDatabaseSnapshot(historyAvailable, schemaRelease, history, backfills);
+        return new OnlineSchemaDatabaseSnapshot(historyAvailable, schemaCoordinate, history, backfills);
     }
 
     public async Task EnsureControlTablesAsync(CancellationToken cancellationToken)
@@ -130,7 +137,7 @@ public sealed class PostgresOnlineSchemaMigrationStateStore(ISqlSugarClient db)
 
     public async Task MarkMigrationAppliedAsync(
         ISchemaMigrationDescriptor descriptor,
-        string releaseId,
+        ReleaseId releaseId,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -153,10 +160,12 @@ public sealed class PostgresOnlineSchemaMigrationStateStore(ISqlSugarClient db)
             new SugarParameter("@migration_id", descriptor.MigrationId),
             new SugarParameter("@checksum", descriptor.Checksum),
             new SugarParameter("@applied_at_utc", DateTime.UtcNow),
-            new SugarParameter("@app_version", releaseId)).ConfigureAwait(false);
+            new SugarParameter("@app_version", releaseId.Value)).ConfigureAwait(false);
     }
 
-    public async Task MarkSchemaReleaseAsync(string releaseId, CancellationToken cancellationToken)
+    public async Task MarkSchemaCompatibilityCoordinateAsync(
+        SchemaCompatibilityCoordinate coordinate,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         await db.Ado.ExecuteCommandAsync(
@@ -171,7 +180,7 @@ public sealed class PostgresOnlineSchemaMigrationStateStore(ISqlSugarClient db)
             SET schema_release = EXCLUDED.schema_release,
                 updated_at_utc = EXCLUDED.updated_at_utc;
             """,
-            new SugarParameter("@schema_release", releaseId),
+            new SugarParameter("@schema_release", coordinate.Value),
             new SugarParameter("@updated_at_utc", DateTime.UtcNow)).ConfigureAwait(false);
     }
 
@@ -208,7 +217,7 @@ public sealed class PostgresOnlineSchemaMigrationStateStore(ISqlSugarClient db)
         return history;
     }
 
-    private async Task<string?> ReadSchemaReleaseAsync(CancellationToken cancellationToken)
+    private async Task<string?> ReadSchemaCompatibilityCoordinateAsync(CancellationToken cancellationToken)
     {
         if (!await TableExistsAsync(StateTableName, cancellationToken).ConfigureAwait(false))
         {

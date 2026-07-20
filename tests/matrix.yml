@@ -1019,6 +1019,7 @@ tiers:
           - tests/backend/Unit/OnlineSchemaMigrationPolicyTests.cs
           - tests/backend/Unit/OnlineSchemaMigrationCompatibilityTests.cs
           - tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs
+          - tests/backend/Unit/SchemaCompatibilityCoordinateTests.cs
           - tests/backend/Unit/DestructiveMigrationProofTests.cs
           - src/backend/Infrastructure/SchemaMigration/DestructiveMigrationProofs.cs
           - docs/schema-migrations/destructive-rollback-window-proofs.json
@@ -1417,12 +1418,17 @@ tiers:
           - src/shared/Contracts/Validation/release-id-contract.json
           - tools/release/release-id.mjs
           - src/backend/Infrastructure/Operations/ReleaseIdContract.Generated.cs
+          - src/backend/Infrastructure/Operations/ReleaseId.cs
+          - src/backend/Infrastructure/SchemaMigration/SchemaCompatibilityCoordinate.cs
+          - src/shared/Contracts/Validation/schema-compatibility-coordinate.json
           - src/frontend/src/generated/releaseIdContract.ts
           - src/frontend/public/generated/release-id-contract.js
           - tests/fixtures/release/release-id-cases.json
           - tests/tools/release-id.test.mjs
           - tests/tools/release-id-validator-consumers.test.mjs
           - tests/tools/release-manifest.test.mjs
+          - tests/tools/schema-compatibility-coordinate.test.mjs
+          - tools/release/schema-compatibility-coordinate.mjs
           - tests/tools/issue-1315-dotnet-release-metadata.test.mjs
           - tests/tools/runtime-publish-profile.test.mjs
           - tests/tools/final-image-toolchain-pin.test.mjs

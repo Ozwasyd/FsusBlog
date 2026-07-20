@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Services.Security;
 
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -67,7 +68,10 @@ public sealed class PostgresOnlineSchemaMigrationDescriptorExecutor(
                 await step.ExecuteAsync(db, cancellationToken).ConfigureAwait(false);
             }
 
-            await stateStore.MarkMigrationAppliedAsync(descriptor, releaseId, cancellationToken).ConfigureAwait(false);
+            await stateStore.MarkMigrationAppliedAsync(
+                descriptor,
+                ReleaseId.Parse(releaseId),
+                cancellationToken).ConfigureAwait(false);
         }
 
         if (!descriptor.Transactional)
@@ -233,7 +237,7 @@ public sealed class OnlineSchemaMigrationCoordinator(
                         classification,
                         contractEvidence,
                         manifest.ReleaseId,
-                        manifest.PreviousRollbackRelease,
+                        manifest.PreviousRollbackReleaseId,
                         timeProvider.GetUtcNow(),
                         maximumBackupAge)
                     .Select(static issue => issue.Code));
@@ -292,7 +296,9 @@ public sealed class OnlineSchemaMigrationCoordinator(
             await descriptorExecutor.ExecuteAsync(descriptor, releaseId, cancellationToken).ConfigureAwait(false);
         }
 
-        await stateStore.MarkSchemaReleaseAsync(releaseId, cancellationToken).ConfigureAwait(false);
+        await stateStore.MarkSchemaCompatibilityCoordinateAsync(
+            SchemaCompatibilityCoordinate.FromReleaseId(ReleaseId.Parse(releaseId)),
+            cancellationToken).ConfigureAwait(false);
         return new OnlineSchemaMigrationExecutionResult(
             "ok",
             releaseId,
@@ -419,9 +425,11 @@ public sealed class OnlineSchemaMigrationCoordinator(
                     cancellationToken).ConfigureAwait(false);
                 await stateStore.MarkMigrationAppliedAsync(
                     descriptorById[classification.MigrationId],
-                    releaseId,
+                    ReleaseId.Parse(releaseId),
                     cancellationToken).ConfigureAwait(false);
-                await stateStore.MarkSchemaReleaseAsync(releaseId, cancellationToken).ConfigureAwait(false);
+                await stateStore.MarkSchemaCompatibilityCoordinateAsync(
+                    SchemaCompatibilityCoordinate.FromReleaseId(ReleaseId.Parse(releaseId)),
+                    cancellationToken).ConfigureAwait(false);
                 return new OnlineSchemaMigrationExecutionResult(
                     "ok",
                     releaseId,

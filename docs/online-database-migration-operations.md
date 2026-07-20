@@ -89,7 +89,7 @@ Double underscores map to .NET configuration separators; for example:
 
 ```dotenv
 ConnectionStrings__DefaultConnection=Host=db;Database=fsusblog;Username=fsus;Password=...
-FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE=20260719-previous
+FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE=20260719083000-0123456789ab
 ```
 
 Keep the file readable only by the deployment principal. The command logs release,
@@ -98,24 +98,37 @@ values, connection strings, resume-token contents, or evidence bodies.
 
 ## Release manifest
 
-The file must use `fsusblog.release-manifest.v1`; its `releaseId` must match the
+The file must use `fsusblog.release-manifest.v2`; its `releaseId` must match the
 requested/current release, and it must contain:
 
 ```json
 {
-  "schema": "fsusblog.release-manifest.v1",
-  "releaseId": "20260720-current",
+  "schema": "fsusblog.release-manifest.v2",
+  "releaseId": "20260720103000-abcdef012345",
   "schemaCompatibility": {
-    "minRelease": "20260701-schema",
-    "maxRelease": "20260731-schema"
+    "minimumCoordinate": "20260719083000-0123456789ab",
+    "maximumCoordinate": "99999999999999-ffffffffffff"
   }
 }
 ```
 
 The full immutable manifest still carries commit and image digests. The online
 migration reader consumes only the fields above; the release-manifest validator owns
-the remaining immutability checks. The previous rollback release is supplied by
+the remaining immutability checks. `minimumCoordinate` and `maximumCoordinate` are
+schema fences, not application versions. They accept canonical `ReleaseId`-shaped
+coordinates plus the documented all-zero/all-maximum sentinels; they never accept
+legacy free-form metadata. The previous rollback release is supplied by
 `FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE` and is mandatory for N/N-1 checks.
+
+The database state table retains the physical `schema_release` column name only as
+a persisted v1 compatibility detail. Its reader treats the value as a
+`SchemaCompatibilityCoordinate`: canonical values are parsed directly, while the
+explicit legacy adapter accepts only dated historical metadata and maps the two old
+sentinels deterministically. Dated legacy values remain byte-for-byte identifiable;
+old sentinels map only to the canonical min/max fence and never forge an
+`AppliedByRelease`. Retire the adapter only after an audited migration proves that
+no retained database or rollback snapshot contains legacy coordinates; rollback
+before retirement keeps the old reader and column unchanged.
 
 ## Contract evidence
 
@@ -150,7 +163,7 @@ Mutation and dry-run results use:
 ```json
 {
   "status": "ok | paused | dry_run | failed",
-  "releaseId": "20260720-current",
+  "releaseId": "20260720103000-abcdef012345",
   "phase": "expand | backfill | contract",
   "migrationIds": ["20260712-post-example"],
   "codes": []
@@ -162,8 +175,9 @@ Mutation and dry-run results use:
 contain several independent gate codes so one run exposes all actionable Contract
 or policy failures.
 
-Check results include `status`, `publicErrorCode`, release/schema ids, and all
-protected issues. Public readiness must map any non-ready report to HTTP 503 with
+Check results include `status`, `publicErrorCode`, `releaseId`,
+`schemaCompatibilityCoordinate`, and all protected issues. The coordinate must not
+be presented as the deployed application version. Public readiness must map any non-ready report to HTTP 503 with
 only `schema_incompatible`; protected admin diagnostics may serialize the issue
 codes and migration ids from `OnlineSchemaCompatibilityRuntimeState`.
 

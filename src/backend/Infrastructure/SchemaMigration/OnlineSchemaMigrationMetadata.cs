@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Text.RegularExpressions;
 
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
 
 namespace FsusBlog.Server.Infrastructure.SchemaMigration;
@@ -27,28 +28,30 @@ public enum OnlineSchemaMigrationLockRisk
     FullTableRewrite = 3
 }
 
-public sealed record OnlineSchemaReleaseRange(
-    string MinimumRelease,
-    string MaximumRelease)
+public sealed record OnlineSchemaCompatibilityWindow(
+    SchemaCompatibilityCoordinate MinimumCoordinate,
+    SchemaCompatibilityCoordinate MaximumCoordinate)
 {
-    public bool Contains(string releaseId)
-        => !string.IsNullOrWhiteSpace(releaseId)
-            && string.CompareOrdinal(releaseId, MinimumRelease) >= 0
-            && string.CompareOrdinal(releaseId, MaximumRelease) <= 0;
+    public bool Contains(SchemaCompatibilityCoordinate coordinate)
+        => coordinate.CompareTo(MinimumCoordinate) >= 0
+            && coordinate.CompareTo(MaximumCoordinate) <= 0;
+
+    public bool ContainsReleaseId(ReleaseId releaseId)
+        => Contains(SchemaCompatibilityCoordinate.FromReleaseId(releaseId));
 }
 
 public sealed record OnlineSchemaMigrationMetadata(
     string MigrationId,
     OnlineSchemaMigrationPhase Phase,
-    OnlineSchemaReleaseRange Compatibility,
+    OnlineSchemaCompatibilityWindow Compatibility,
     bool RequiresExclusiveMode,
     bool Destructive,
     OnlineSchemaMigrationRollbackMode RollbackMode,
     OnlineSchemaMigrationLockRisk EstimatedLockRisk,
     int? BatchSize,
     string? ResumeTokenName,
-    string IntroducedAtRelease,
-    string? ContractAfterRelease,
+    SchemaCompatibilityCoordinate IntroducedAtCoordinate,
+    SchemaCompatibilityCoordinate? ContractAfterCoordinate,
     TimeSpan MinimumRetentionWindow,
     IReadOnlyList<string> Validators,
     bool LegacyBootstrapOnly = false);
@@ -65,14 +68,20 @@ public interface IOnlineSchemaMigrationCatalog
 /// </summary>
 public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
 {
-    private const string LegacyMinimumRelease = "00000000-legacy-bootstrap";
-    private const string ProtocolMaximumRelease = "99999999-online-schema-v1";
-    private const string OnlineProtocolRelease = "20260711-online-migration-gate";
+    private static readonly SchemaCompatibilityCoordinate s_legacyMinimumCoordinate =
+        SchemaCompatibilityCoordinate.Minimum;
+    private static readonly SchemaCompatibilityCoordinate s_protocolMaximumCoordinate =
+        SchemaCompatibilityCoordinate.Maximum;
+    private static readonly SchemaCompatibilityCoordinate s_onlineProtocolCoordinate =
+        LegacyCoordinate("20260711-online-migration-gate");
 
     private static readonly IReadOnlyDictionary<string, OnlineSchemaMigrationMetadata> s_metadata =
         BuildMetadata();
 
     public IReadOnlyDictionary<string, OnlineSchemaMigrationMetadata> GetMetadata() => s_metadata;
+
+    private static SchemaCompatibilityCoordinate LegacyCoordinate(string value)
+        => SchemaCompatibilityCoordinate.FromLegacyMetadata(value);
 
     private static IReadOnlyDictionary<string, OnlineSchemaMigrationMetadata> BuildMetadata()
     {
@@ -177,15 +186,15 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
             new OnlineSchemaMigrationMetadata(
                 "20260716-pre-anonymous-eligibility-predicate",
                 OnlineSchemaMigrationPhase.Expand,
-                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
                 Destructive: false,
                 RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
                 EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
                 BatchSize: null,
                 ResumeTokenName: null,
-                IntroducedAtRelease: "20260716-anonymous-eligibility-predicate",
-                ContractAfterRelease: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260716-anonymous-eligibility-predicate"),
+                ContractAfterCoordinate: null,
                 MinimumRetentionWindow: TimeSpan.Zero,
                 Validators:
                 [
@@ -199,15 +208,15 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
             new OnlineSchemaMigrationMetadata(
                 "20260714-post-public-article-projection",
                 OnlineSchemaMigrationPhase.Expand,
-                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
                 Destructive: false,
                 RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
                 EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
                 BatchSize: null,
                 ResumeTokenName: null,
-                IntroducedAtRelease: "20260714-public-article-projection",
-                ContractAfterRelease: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260714-public-article-projection"),
+                ContractAfterCoordinate: null,
                 MinimumRetentionWindow: TimeSpan.Zero,
                 Validators:
                 [
@@ -221,15 +230,15 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
             new OnlineSchemaMigrationMetadata(
                 "20260719-pre-article-publication-coordinates",
                 OnlineSchemaMigrationPhase.Expand,
-                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
                 Destructive: false,
                 RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
                 EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
                 BatchSize: null,
                 ResumeTokenName: null,
-                IntroducedAtRelease: "20260719-article-publication-coordinates",
-                ContractAfterRelease: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260719-article-publication-coordinates"),
+                ContractAfterCoordinate: null,
                 MinimumRetentionWindow: TimeSpan.Zero,
                 Validators:
                 [
@@ -243,15 +252,15 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
             new OnlineSchemaMigrationMetadata(
                 "20260719-post-article-publication-consistency",
                 OnlineSchemaMigrationPhase.Expand,
-                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
                 Destructive: false,
                 RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
                 EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
                 BatchSize: null,
                 ResumeTokenName: null,
-                IntroducedAtRelease: "20260719-article-publication-coordinates",
-                ContractAfterRelease: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260719-article-publication-coordinates"),
+                ContractAfterCoordinate: null,
                 MinimumRetentionWindow: TimeSpan.Zero,
                 Validators:
                 [
@@ -264,15 +273,15 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
             new OnlineSchemaMigrationMetadata(
                 "20260715-post-article-mutation-outbox-claim-lease",
                 OnlineSchemaMigrationPhase.Expand,
-                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
                 Destructive: false,
                 RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
                 EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
                 BatchSize: null,
                 ResumeTokenName: null,
-                IntroducedAtRelease: "20260715-article-outbox-claim-lease",
-                ContractAfterRelease: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260715-article-outbox-claim-lease"),
+                ContractAfterCoordinate: null,
                 MinimumRetentionWindow: TimeSpan.Zero,
                 Validators:
                 [
@@ -286,15 +295,15 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
             new OnlineSchemaMigrationMetadata(
                 "20260715-post-active-release-fence-durable-witness",
                 OnlineSchemaMigrationPhase.Expand,
-                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
                 Destructive: false,
                 RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
                 EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
                 BatchSize: null,
                 ResumeTokenName: null,
-                IntroducedAtRelease: "20260715-active-release-fence-durable-witness",
-                ContractAfterRelease: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260715-active-release-fence-durable-witness"),
+                ContractAfterCoordinate: null,
                 MinimumRetentionWindow: TimeSpan.Zero,
                 Validators:
                 [
@@ -308,15 +317,15 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
             new OnlineSchemaMigrationMetadata(
                 "20260715-post-active-release-fenced-commit-ledger",
                 OnlineSchemaMigrationPhase.Expand,
-                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
                 Destructive: false,
                 RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
                 EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
                 BatchSize: null,
                 ResumeTokenName: null,
-                IntroducedAtRelease: "20260715-active-release-fenced-commit",
-                ContractAfterRelease: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260715-active-release-fenced-commit"),
+                ContractAfterCoordinate: null,
                 MinimumRetentionWindow: TimeSpan.Zero,
                 Validators:
                 [
@@ -330,15 +339,15 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
             new OnlineSchemaMigrationMetadata(
                 "20260715-pre-read-event-retirement-compat",
                 OnlineSchemaMigrationPhase.Expand,
-                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
                 Destructive: false,
                 RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
                 EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
                 BatchSize: null,
                 ResumeTokenName: null,
-                IntroducedAtRelease: "20260715-read-event-retirement",
-                ContractAfterRelease: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260715-read-event-retirement"),
+                ContractAfterCoordinate: null,
                 MinimumRetentionWindow: TimeSpan.Zero,
                 Validators:
                 [
@@ -352,15 +361,15 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
             new OnlineSchemaMigrationMetadata(
                 "20260715-post-read-event-retirement",
                 OnlineSchemaMigrationPhase.Contract,
-                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: true,
                 Destructive: true,
                 RollbackMode: OnlineSchemaMigrationRollbackMode.BackupRestore,
                 EstimatedLockRisk: OnlineSchemaMigrationLockRisk.High,
                 BatchSize: null,
                 ResumeTokenName: null,
-                IntroducedAtRelease: "20260715-read-event-retirement",
-                ContractAfterRelease: "20260715-read-event-retirement-expand",
+                IntroducedAtCoordinate: LegacyCoordinate("20260715-read-event-retirement"),
+                ContractAfterCoordinate: LegacyCoordinate("20260715-read-event-retirement-expand"),
                 MinimumRetentionWindow: TimeSpan.FromDays(DestructiveMigrationProofs.MinimumRollbackWindowDays),
                 Validators:
                 [
@@ -375,15 +384,15 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
             new OnlineSchemaMigrationMetadata(
                 AccountSubjectHashOnlineBackfillHandler.ExpandMigrationId,
                 OnlineSchemaMigrationPhase.Expand,
-                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
                 Destructive: false,
                 RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
                 EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
                 BatchSize: null,
                 ResumeTokenName: null,
-                IntroducedAtRelease: OnlineProtocolRelease,
-                ContractAfterRelease: null,
+                IntroducedAtCoordinate: s_onlineProtocolCoordinate,
+                ContractAfterCoordinate: null,
                 MinimumRetentionWindow: TimeSpan.Zero,
                 Validators:
                 [
@@ -397,15 +406,15 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
             new OnlineSchemaMigrationMetadata(
                 AccountSubjectHashOnlineBackfillHandler.BackfillMigrationId,
                 OnlineSchemaMigrationPhase.Backfill,
-                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
                 Destructive: false,
                 RollbackMode: OnlineSchemaMigrationRollbackMode.ResumeFromCheckpoint,
                 EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
                 BatchSize: AccountSubjectHashBackfillStep.BatchSize,
                 ResumeTokenName: "last_account_id",
-                IntroducedAtRelease: OnlineProtocolRelease,
-                ContractAfterRelease: null,
+                IntroducedAtCoordinate: s_onlineProtocolCoordinate,
+                ContractAfterCoordinate: null,
                 MinimumRetentionWindow: TimeSpan.Zero,
                 Validators:
                 [
@@ -419,15 +428,15 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
             new OnlineSchemaMigrationMetadata(
                 "20260711-post-recovery-passkey-completion-idempotency",
                 OnlineSchemaMigrationPhase.Expand,
-                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
                 Destructive: false,
                 RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
                 EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Medium,
                 BatchSize: null,
                 ResumeTokenName: null,
-                IntroducedAtRelease: OnlineProtocolRelease,
-                ContractAfterRelease: null,
+                IntroducedAtCoordinate: s_onlineProtocolCoordinate,
+                ContractAfterCoordinate: null,
                 MinimumRetentionWindow: TimeSpan.Zero,
                 Validators:
                 [
@@ -440,15 +449,15 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
             new OnlineSchemaMigrationMetadata(
                 ArticleAssetReferenceMigrationDefinitions.MigrationId,
                 OnlineSchemaMigrationPhase.Expand,
-                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
                 Destructive: false,
                 RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
                 EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
                 BatchSize: null,
                 ResumeTokenName: null,
-                IntroducedAtRelease: "20260719-article-asset-reference-ledger",
-                ContractAfterRelease: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260719-article-asset-reference-ledger"),
+                ContractAfterCoordinate: null,
                 MinimumRetentionWindow: TimeSpan.Zero,
                 Validators:
                 [
@@ -462,15 +471,15 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
             new OnlineSchemaMigrationMetadata(
                 "20260719-post-comment-moderation-event",
                 OnlineSchemaMigrationPhase.Expand,
-                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
                 Destructive: false,
                 RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
                 EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
                 BatchSize: null,
                 ResumeTokenName: null,
-                IntroducedAtRelease: "20260719-comment-moderation-event",
-                ContractAfterRelease: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260719-comment-moderation-event"),
+                ContractAfterCoordinate: null,
                 MinimumRetentionWindow: TimeSpan.Zero,
                 Validators:
                 [
@@ -483,15 +492,15 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
             new OnlineSchemaMigrationMetadata(
                 "20260719-post-message-admin-queue-state",
                 OnlineSchemaMigrationPhase.Expand,
-                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
                 Destructive: false,
                 RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
                 EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
                 BatchSize: null,
                 ResumeTokenName: null,
-                IntroducedAtRelease: "20260719-message-admin-queue-state",
-                ContractAfterRelease: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260719-message-admin-queue-state"),
+                ContractAfterCoordinate: null,
                 MinimumRetentionWindow: TimeSpan.Zero,
                 Validators:
                 [
@@ -504,15 +513,15 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
             new OnlineSchemaMigrationMetadata(
                 MessageMutationOutboxMigrationDefinitions.MigrationId,
                 OnlineSchemaMigrationPhase.Expand,
-                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
                 Destructive: false,
                 RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
                 EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
                 BatchSize: null,
                 ResumeTokenName: null,
-                IntroducedAtRelease: "20260719-message-mutation-outbox",
-                ContractAfterRelease: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260719-message-mutation-outbox"),
+                ContractAfterCoordinate: null,
                 MinimumRetentionWindow: TimeSpan.Zero,
                 Validators:
                 [
@@ -526,15 +535,15 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
             new OnlineSchemaMigrationMetadata(
                 MessageMutationIdempotencyMigrationDefinitions.MigrationId,
                 OnlineSchemaMigrationPhase.Expand,
-                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
                 Destructive: false,
                 RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
                 EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
                 BatchSize: null,
                 ResumeTokenName: null,
-                IntroducedAtRelease: "20260719-message-mutation-idempotency",
-                ContractAfterRelease: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260719-message-mutation-idempotency"),
+                ContractAfterCoordinate: null,
                 MinimumRetentionWindow: TimeSpan.Zero,
                 Validators:
                 [
@@ -548,15 +557,15 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
             new OnlineSchemaMigrationMetadata(
                 ConversationStatusAuditMigrationDefinitions.MigrationId,
                 OnlineSchemaMigrationPhase.Expand,
-                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
                 Destructive: false,
                 RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
                 EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
                 BatchSize: null,
                 ResumeTokenName: null,
-                IntroducedAtRelease: "20260719-conversation-status-audit",
-                ContractAfterRelease: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260719-conversation-status-audit"),
+                ContractAfterCoordinate: null,
                 MinimumRetentionWindow: TimeSpan.Zero,
                 Validators:
                 [
@@ -570,15 +579,15 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
             new OnlineSchemaMigrationMetadata(
                 MessageUnreadAuthorityMigrationDefinitions.MigrationId,
                 OnlineSchemaMigrationPhase.Expand,
-                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
                 Destructive: false,
                 RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
                 EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
                 BatchSize: null,
                 ResumeTokenName: null,
-                IntroducedAtRelease: "20260719-message-unread-authority",
-                ContractAfterRelease: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260719-message-unread-authority"),
+                ContractAfterCoordinate: null,
                 MinimumRetentionWindow: TimeSpan.Zero,
                 Validators:
                 [
@@ -592,15 +601,15 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
             new OnlineSchemaMigrationMetadata(
                 MessagePrivacyRetentionMigrationDefinitions.MigrationId,
                 OnlineSchemaMigrationPhase.Contract,
-                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: true,
                 Destructive: true,
                 RollbackMode: OnlineSchemaMigrationRollbackMode.BackupRestore,
                 EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Medium,
                 BatchSize: null,
                 ResumeTokenName: null,
-                IntroducedAtRelease: "20260719-message-privacy-retention",
-                ContractAfterRelease: "20260719-message-privacy-retention-expand",
+                IntroducedAtCoordinate: LegacyCoordinate("20260719-message-privacy-retention"),
+                ContractAfterCoordinate: LegacyCoordinate("20260719-message-privacy-retention-expand"),
                 MinimumRetentionWindow: TimeSpan.FromDays(DestructiveMigrationProofs.MinimumRollbackWindowDays),
                 Validators:
                 [
@@ -615,15 +624,15 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
             new OnlineSchemaMigrationMetadata(
                 PasskeySignalMigrationDefinitions.MigrationId,
                 OnlineSchemaMigrationPhase.Expand,
-                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
                 Destructive: false,
                 RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
                 EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
                 BatchSize: null,
                 ResumeTokenName: null,
-                IntroducedAtRelease: "20260720-passkey-signal-version",
-                ContractAfterRelease: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260720-passkey-signal-version"),
+                ContractAfterCoordinate: null,
                 MinimumRetentionWindow: TimeSpan.Zero,
                 Validators:
                 [
@@ -637,15 +646,15 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
             new OnlineSchemaMigrationMetadata(
                 CommentMutationIdempotencyMigrationDefinitions.MigrationId,
                 OnlineSchemaMigrationPhase.Expand,
-                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
                 Destructive: false,
                 RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
                 EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
                 BatchSize: null,
                 ResumeTokenName: null,
-                IntroducedAtRelease: "20260720-comment-mutation-idempotency",
-                ContractAfterRelease: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260720-comment-mutation-idempotency"),
+                ContractAfterCoordinate: null,
                 MinimumRetentionWindow: TimeSpan.Zero,
                 Validators:
                 [
@@ -659,15 +668,15 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
             new OnlineSchemaMigrationMetadata(
                 ScheduledPublishIndexMigrationDefinitions.MigrationId,
                 OnlineSchemaMigrationPhase.Expand,
-                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
                 Destructive: false,
                 RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
                 EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
                 BatchSize: null,
                 ResumeTokenName: null,
-                IntroducedAtRelease: "20260720-scheduled-publish-due-index",
-                ContractAfterRelease: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260720-scheduled-publish-due-index"),
+                ContractAfterCoordinate: null,
                 MinimumRetentionWindow: TimeSpan.Zero,
                 Validators:
                 [
@@ -681,15 +690,15 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
             new OnlineSchemaMigrationMetadata(
                 AccountEnrollmentMigrationDefinitions.MigrationId,
                 OnlineSchemaMigrationPhase.Expand,
-                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
                 Destructive: false,
                 RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
                 EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
                 BatchSize: null,
                 ResumeTokenName: null,
-                IntroducedAtRelease: "20260720-atomic-account-enrollment",
-                ContractAfterRelease: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260720-atomic-account-enrollment"),
+                ContractAfterCoordinate: null,
                 MinimumRetentionWindow: TimeSpan.Zero,
                 Validators:
                 [
@@ -702,22 +711,45 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
             UserSessionAuthenticationContextMigrationDefinitions.MigrationId,
             new OnlineSchemaMigrationMetadata(
                 UserSessionAuthenticationContextMigrationDefinitions.MigrationId,
+                OnlineSchemaMigrationPhase.Contract,
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
+                RequiresExclusiveMode: true,
+                Destructive: true,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.BackupRestore,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.High,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260720-user-session-authentication-context"),
+                ContractAfterCoordinate: LegacyCoordinate("20260720-user-session-authentication-context-expand"),
+                MinimumRetentionWindow: TimeSpan.FromDays(DestructiveMigrationProofs.MinimumRollbackWindowDays),
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write",
+                    "user_session_authentication_context_backfill",
+                    "fresh_backup_restore"
+                ]));
+
+        result.Add(
+            CommentMutationOutboxMigrationDefinitions.MigrationId,
+            new OnlineSchemaMigrationMetadata(
+                CommentMutationOutboxMigrationDefinitions.MigrationId,
                 OnlineSchemaMigrationPhase.Expand,
-                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
                 Destructive: false,
                 RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
                 EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
                 BatchSize: null,
                 ResumeTokenName: null,
-                IntroducedAtRelease: "20260720-user-session-authentication-context",
-                ContractAfterRelease: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260720-comment-mutation-outbox"),
+                ContractAfterCoordinate: null,
                 MinimumRetentionWindow: TimeSpan.Zero,
                 Validators:
                 [
                     "descriptor_policy",
                     "n_minus_one_read_write",
-                    "user_session_authentication_context_backfill"
+                    "comment_outbox_delivery_checkpoint"
                 ]));
 
         result.Add(
@@ -725,15 +757,15 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
             new OnlineSchemaMigrationMetadata(
                 RefreshTokenLineageMigrationDefinitions.MigrationId,
                 OnlineSchemaMigrationPhase.Expand,
-                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
                 Destructive: false,
                 RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
                 EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
                 BatchSize: null,
                 ResumeTokenName: null,
-                IntroducedAtRelease: "20260720-user-session-refresh-lineage",
-                ContractAfterRelease: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260720-user-session-refresh-lineage"),
+                ContractAfterCoordinate: null,
                 MinimumRetentionWindow: TimeSpan.Zero,
                 Validators:
                 [
@@ -748,15 +780,15 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
             new OnlineSchemaMigrationMetadata(
                 UserSessionMultiDeviceMigrationDefinitions.MigrationId,
                 OnlineSchemaMigrationPhase.Contract,
-                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
                 Destructive: true,
                 RollbackMode: OnlineSchemaMigrationRollbackMode.BackupRestore,
                 EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Medium,
                 BatchSize: null,
                 ResumeTokenName: null,
-                IntroducedAtRelease: "20260719-user-session-multi-device",
-                ContractAfterRelease: "20260719-user-session-multi-device-expand",
+                IntroducedAtCoordinate: LegacyCoordinate("20260719-user-session-multi-device"),
+                ContractAfterCoordinate: LegacyCoordinate("20260719-user-session-multi-device-expand"),
                 MinimumRetentionWindow: TimeSpan.FromDays(DestructiveMigrationProofs.MinimumRollbackWindowDays),
                 Validators:
                 [
@@ -773,15 +805,15 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
         => new(
             migrationId,
             OnlineSchemaMigrationPhase.Contract,
-            new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+            new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
             RequiresExclusiveMode: true,
             Destructive: true,
             RollbackMode: OnlineSchemaMigrationRollbackMode.BackupRestore,
             EstimatedLockRisk: OnlineSchemaMigrationLockRisk.High,
             BatchSize: null,
             ResumeTokenName: null,
-            IntroducedAtRelease: LegacyMinimumRelease,
-            ContractAfterRelease: OnlineProtocolRelease,
+            IntroducedAtCoordinate: s_legacyMinimumCoordinate,
+            ContractAfterCoordinate: s_onlineProtocolCoordinate,
             MinimumRetentionWindow: TimeSpan.FromDays(30),
             Validators:
             [
@@ -877,9 +909,7 @@ public static partial class OnlineSchemaMigrationPolicy
                 "Descriptor and metadata ids differ."));
         }
 
-        if (string.IsNullOrWhiteSpace(metadata.Compatibility.MinimumRelease)
-            || string.IsNullOrWhiteSpace(metadata.Compatibility.MaximumRelease)
-            || string.CompareOrdinal(metadata.Compatibility.MinimumRelease, metadata.Compatibility.MaximumRelease) > 0)
+        if (metadata.Compatibility.MinimumCoordinate.CompareTo(metadata.Compatibility.MaximumCoordinate) > 0)
         {
             violations.Add(new(
                 "schema_compatibility_range_invalid",
@@ -921,7 +951,7 @@ public static partial class OnlineSchemaMigrationPolicy
         }
 
         if (metadata.Phase == OnlineSchemaMigrationPhase.Contract
-            && (string.IsNullOrWhiteSpace(metadata.ContractAfterRelease)
+            && (metadata.ContractAfterCoordinate is null
                 || metadata.MinimumRetentionWindow <= TimeSpan.Zero
                 || (metadata.Destructive && metadata.RollbackMode != OnlineSchemaMigrationRollbackMode.BackupRestore)))
         {

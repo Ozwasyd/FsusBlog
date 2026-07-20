@@ -1,3 +1,4 @@
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 
 using Microsoft.Extensions.Configuration;
@@ -7,6 +8,12 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class OnlineSchemaMigrationCoordinatorTests
 {
+    private static SchemaCompatibilityCoordinate Coordinate(string value)
+        => SchemaCompatibilityCoordinate.ParsePersisted(value);
+
+    private static ReleaseId Release(string value)
+        => ReleaseId.Parse(value);
+
     [Fact]
     public async Task Backfill_ResumesFromDurableTokenAndVerifiesBeforeCompletion()
     {
@@ -23,7 +30,7 @@ public sealed class OnlineSchemaMigrationCoordinatorTests
         };
         var stateStore = new RecordingStateStore(new OnlineSchemaDatabaseSnapshot(
             true,
-            "20260712-schema",
+            Coordinate("20260712-schema"),
             [],
             new Dictionary<string, OnlineSchemaBackfillSnapshot>(StringComparer.Ordinal)
             {
@@ -47,7 +54,7 @@ public sealed class OnlineSchemaMigrationCoordinatorTests
         OnlineSchemaMigrationExecutionResult result = await coordinator.ExecuteAsync(
             phase: OnlineSchemaMigrationPhase.Backfill,
             migrationId: descriptor.MigrationId,
-            releaseId: "20260720-current",
+            releaseId: "20260720000000-aaaaaaaaaaaa",
             contractEvidence: null,
             dryRun: false,
             cancellationToken: CancellationToken.None);
@@ -74,7 +81,7 @@ public sealed class OnlineSchemaMigrationCoordinatorTests
             Destructive = true,
             RequiresExclusiveMode = true,
             RollbackMode = OnlineSchemaMigrationRollbackMode.BackupRestore,
-            ContractAfterRelease = "20260710-contract-fence",
+            ContractAfterCoordinate = Coordinate("20260710-contract-fence"),
             MinimumRetentionWindow = TimeSpan.FromDays(7)
         };
         var executor = new RecordingDescriptorExecutor();
@@ -102,7 +109,7 @@ public sealed class OnlineSchemaMigrationCoordinatorTests
         OnlineSchemaMigrationExecutionResult result = await coordinator.ExecuteAsync(
             phase: OnlineSchemaMigrationPhase.Contract,
             migrationId: null,
-            releaseId: "20260720-current",
+            releaseId: "20260720000000-aaaaaaaaaaaa",
             contractEvidence: incomplete,
             dryRun: false,
             cancellationToken: CancellationToken.None);
@@ -127,7 +134,7 @@ public sealed class OnlineSchemaMigrationCoordinatorTests
             Destructive = true,
             RequiresExclusiveMode = true,
             RollbackMode = OnlineSchemaMigrationRollbackMode.BackupRestore,
-            ContractAfterRelease = "20260710-contract-fence",
+            ContractAfterCoordinate = Coordinate("20260710-contract-fence"),
             MinimumRetentionWindow = TimeSpan.FromDays(7)
         };
         var executor = new RecordingDescriptorExecutor();
@@ -154,7 +161,7 @@ public sealed class OnlineSchemaMigrationCoordinatorTests
         OnlineSchemaMigrationExecutionResult result = await coordinator.ExecuteAsync(
             phase: OnlineSchemaMigrationPhase.Contract,
             migrationId: null,
-            releaseId: "20260720-current",
+            releaseId: "20260720000000-aaaaaaaaaaaa",
             contractEvidence: evidence,
             dryRun: false,
             cancellationToken: CancellationToken.None);
@@ -185,7 +192,7 @@ public sealed class OnlineSchemaMigrationCoordinatorTests
         OnlineSchemaMigrationExecutionResult result = await coordinator.ExecuteAsync(
             phase: OnlineSchemaMigrationPhase.Expand,
             migrationId: null,
-            releaseId: "20260720-current",
+            releaseId: "20260720000000-aaaaaaaaaaaa",
             contractEvidence: null,
             dryRun: true,
             cancellationToken: CancellationToken.None);
@@ -205,14 +212,14 @@ public sealed class OnlineSchemaMigrationCoordinatorTests
             CheckReport = new OnlineSchemaCompatibilityReport(
                 "ready",
                 null,
-                "20260720-current",
+                "20260720000000-aaaaaaaaaaaa",
                 "20260712-schema",
                 [])
         };
         IConfiguration configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["FSUSBLOG_RELEASE_ID"] = "20260720-current"
+                ["FSUSBLOG_RELEASE_ID"] = "20260720000000-aaaaaaaaaaaa"
             })
             .Build();
         var runner = new ServeSchemaCompatibilityRunner(
@@ -232,16 +239,16 @@ public sealed class OnlineSchemaMigrationCoordinatorTests
         var incompatible = new OnlineSchemaCompatibilityReport(
             "not_ready",
             "schema_incompatible",
-            "20260720-current",
+            "20260720000000-aaaaaaaaaaaa",
             "20260801-schema",
             [new OnlineSchemaCompatibilityIssue(
-                "schema_release_outside_manifest",
+                "schema_coordinate_outside_manifest",
                 OnlineSchemaCompatibilitySeverity.Error)]);
         var coordinator = new RecordingCoordinator { CheckReport = incompatible };
         IConfiguration configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["FSUSBLOG_RELEASE_ID"] = "20260720-current"
+                ["FSUSBLOG_RELEASE_ID"] = "20260720000000-aaaaaaaaaaaa"
             })
             .Build();
         var runtimeState = new OnlineSchemaCompatibilityRuntimeState();
@@ -298,22 +305,22 @@ public sealed class OnlineSchemaMigrationCoordinatorTests
         => new(
             migrationId,
             phase,
-            new OnlineSchemaReleaseRange("20260701-release", "20260731-release"),
+            new OnlineSchemaCompatibilityWindow(Coordinate("20260701-release"), Coordinate("20260731-release")),
             RequiresExclusiveMode: false,
             Destructive: false,
             RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
             EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
             BatchSize: null,
             ResumeTokenName: null,
-            IntroducedAtRelease: "20260701-release",
-            ContractAfterRelease: phase == OnlineSchemaMigrationPhase.Contract ? "20260710-contract-fence" : null,
+            IntroducedAtCoordinate: Coordinate("20260701-release"),
+            ContractAfterCoordinate: phase == OnlineSchemaMigrationPhase.Contract ? Coordinate("20260710-contract-fence") : null,
             MinimumRetentionWindow: phase == OnlineSchemaMigrationPhase.Contract ? TimeSpan.FromDays(7) : TimeSpan.Zero,
             Validators: ["test-validator"]);
 
     private static OnlineSchemaDatabaseSnapshot EmptyDatabase()
         => new(
             true,
-            "20260712-schema",
+            Coordinate("20260712-schema"),
             [],
             new Dictionary<string, OnlineSchemaBackfillSnapshot>(StringComparer.Ordinal));
 
@@ -337,9 +344,9 @@ public sealed class OnlineSchemaMigrationCoordinatorTests
     {
         public OnlineSchemaReleaseManifest Load(string expectedReleaseId)
             => new(
-                expectedReleaseId,
-                "20260719-previous",
-                new OnlineSchemaReleaseRange("20260701-schema", "20260731-schema"));
+                Release(expectedReleaseId),
+                Release("20260719000000-bbbbbbbbbbbb"),
+                new OnlineSchemaCompatibilityWindow(Coordinate("20260701-schema"), Coordinate("20260731-schema")));
     }
 
     private sealed class RecordingStateStore(OnlineSchemaDatabaseSnapshot snapshot)
@@ -373,14 +380,16 @@ public sealed class OnlineSchemaMigrationCoordinatorTests
 
         public Task MarkMigrationAppliedAsync(
             ISchemaMigrationDescriptor descriptor,
-            string releaseId,
+            ReleaseId releaseId,
             CancellationToken cancellationToken)
         {
             AppliedMigrationIds.Add(descriptor.MigrationId);
             return Task.CompletedTask;
         }
 
-        public Task MarkSchemaReleaseAsync(string releaseId, CancellationToken cancellationToken)
+        public Task MarkSchemaCompatibilityCoordinateAsync(
+            SchemaCompatibilityCoordinate coordinate,
+            CancellationToken cancellationToken)
             => Task.CompletedTask;
     }
 

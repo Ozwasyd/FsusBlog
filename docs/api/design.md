@@ -513,6 +513,10 @@ AEDS wire protocol 是传输层版本，不等同于 URL 版本。当前运行�
 `X-Fsus-Release-Id` / `X-Fsus-Release-Slot` 和 `Cache-Control: no-store`。生产环境不会
 注册，配置开关不能把 Development 或 Production 变成 Test。请求/响应为窄 JSON
 tooling contract，不进入 AEDS runtime API，也不能被公开客户端或正常发布脚本使用。
+受保护的诊断对象必须把部署身份输出为 `releaseId`，把数据库 marker 输出为
+`schemaCompatibilityCoordinate`；后者可以是 fence 或显式兼容的历史坐标，绝不能
+被 UI、日志或运维调用方标注为当前应用版本。公开 readiness 仍只返回稳定的
+`schema_incompatible`，不会暴露任一内部值。
 
 ### 审计与缓存清理
 

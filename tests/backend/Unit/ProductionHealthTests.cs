@@ -76,7 +76,7 @@ public sealed class ProductionHealthTests
                     "20260720-current",
                     "20260801-schema",
                     [new OnlineSchemaCompatibilityIssue(
-                        "schema_release_outside_manifest",
+                        "schema_coordinate_outside_manifest",
                         OnlineSchemaCompatibilitySeverity.Error,
                         Detail: "protected detail")],
                     "schema_incompatible")
@@ -87,7 +87,7 @@ public sealed class ProductionHealthTests
 
         Assert.Equal(["checkedAt", "code", "status"], report.Keys.OrderBy(static key => key, StringComparer.Ordinal).ToArray());
         Assert.Equal("schema_incompatible", report["code"]);
-        Assert.DoesNotContain("schema_release_outside_manifest", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("schema_coordinate_outside_manifest", json, StringComparison.Ordinal);
         Assert.DoesNotContain("20260801-schema", json, StringComparison.Ordinal);
     }
 

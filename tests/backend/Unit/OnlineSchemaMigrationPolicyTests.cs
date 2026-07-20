@@ -1,3 +1,4 @@
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
 
@@ -6,6 +7,12 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class OnlineSchemaMigrationPolicyTests
 {
+    private static SchemaCompatibilityCoordinate Coordinate(string value)
+        => SchemaCompatibilityCoordinate.ParsePersisted(value);
+
+    private static ReleaseId Release(string value)
+        => ReleaseId.Parse(value);
+
     [Fact]
     public void RefreshTokenLineage_IsExplicitAdditiveExpand()
     {
@@ -99,6 +106,10 @@ public sealed class OnlineSchemaMigrationPolicyTests
             metadata[AccountEnrollmentMigrationDefinitions.MigrationId];
         OnlineSchemaMigrationMetadata refreshTokenLineage =
             metadata[RefreshTokenLineageMigrationDefinitions.MigrationId];
+        OnlineSchemaMigrationMetadata userSessionAuthenticationContext =
+            metadata[UserSessionAuthenticationContextMigrationDefinitions.MigrationId];
+        OnlineSchemaMigrationMetadata commentMutationOutbox =
+            metadata[CommentMutationOutboxMigrationDefinitions.MigrationId];
         OnlineSchemaMigrationMetadata userSessionMultiDevice =
             metadata[UserSessionMultiDeviceMigrationDefinitions.MigrationId];
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, passkeyExpand.Phase);
@@ -132,6 +143,11 @@ public sealed class OnlineSchemaMigrationPolicyTests
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, refreshTokenLineage.Phase);
         Assert.Equal(OnlineSchemaMigrationRollbackMode.CompatibleCode, refreshTokenLineage.RollbackMode);
         Assert.Contains("refresh_tombstone_retention", refreshTokenLineage.Validators);
+        Assert.Equal(OnlineSchemaMigrationPhase.Contract, userSessionAuthenticationContext.Phase);
+        Assert.True(userSessionAuthenticationContext.Destructive);
+        Assert.Equal(OnlineSchemaMigrationRollbackMode.BackupRestore, userSessionAuthenticationContext.RollbackMode);
+        Assert.Equal(OnlineSchemaMigrationPhase.Expand, commentMutationOutbox.Phase);
+        Assert.False(commentMutationOutbox.Destructive);
         Assert.Equal(OnlineSchemaMigrationPhase.Contract, userSessionMultiDevice.Phase);
         Assert.True(userSessionMultiDevice.Destructive);
         Assert.False(userSessionMultiDevice.LegacyBootstrapOnly);
@@ -170,6 +186,8 @@ public sealed class OnlineSchemaMigrationPolicyTests
             scheduledPublishDueIndex.MigrationId,
             accountEnrollment.MigrationId,
             refreshTokenLineage.MigrationId,
+            userSessionAuthenticationContext.MigrationId,
+            commentMutationOutbox.MigrationId,
             MessagePrivacyRetentionMigrationDefinitions.MigrationId,
             userSessionMultiDevice.MigrationId
         };
@@ -181,7 +199,7 @@ public sealed class OnlineSchemaMigrationPolicyTests
             Assert.True(classification.Destructive);
             Assert.True(classification.RequiresExclusiveMode);
             Assert.Equal(OnlineSchemaMigrationRollbackMode.BackupRestore, classification.RollbackMode);
-            Assert.NotNull(classification.ContractAfterRelease);
+            Assert.NotNull(classification.ContractAfterCoordinate);
             Assert.True(classification.MinimumRetentionWindow > TimeSpan.Zero);
         });
     }
@@ -305,7 +323,7 @@ public sealed class OnlineSchemaMigrationPolicyTests
             OnlineSchemaMigrationPhase.Contract,
             destructive: true) with
         {
-            ContractAfterRelease = "20260710-contract-fence",
+            ContractAfterCoordinate = Coordinate("20260710-contract-fence"),
             MinimumRetentionWindow = TimeSpan.FromDays(7),
             RequiresExclusiveMode = true,
             RollbackMode = OnlineSchemaMigrationRollbackMode.BackupRestore
@@ -327,8 +345,8 @@ public sealed class OnlineSchemaMigrationPolicyTests
         IReadOnlyList<OnlineSchemaCompatibilityIssue> issues = OnlineSchemaContractGate.Evaluate(
             metadata,
             incompleteEvidence,
-            "20260709-current",
-            "20260708-previous",
+            Release("20260709000000-111111111111"),
+            Release("20260708000000-222222222222"),
             now,
             TimeSpan.FromHours(24));
 
@@ -348,7 +366,7 @@ public sealed class OnlineSchemaMigrationPolicyTests
             File.WriteAllText(
                 path,
                 "export ConnectionStrings__DefaultConnection='Host=db;Password=$(not-executed)'\n"
-                + "FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE=20260719-previous\n");
+                + "FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE=20260719000000-bbbbbbbbbbbb\n");
 
             IReadOnlyDictionary<string, string?> values = OnlineSchemaMigrationEnvironmentFile.Read(path);
 
@@ -356,7 +374,7 @@ public sealed class OnlineSchemaMigrationPolicyTests
                 "Host=db;Password=$(not-executed)",
                 values["ConnectionStrings:DefaultConnection"]);
             Assert.Equal(
-                "20260719-previous",
+                "20260719000000-bbbbbbbbbbbb",
                 values["FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE"]);
         }
         finally
@@ -375,11 +393,11 @@ public sealed class OnlineSchemaMigrationPolicyTests
                 path,
                 """
                 {
-                  "schema": "fsusblog.release-manifest.v1",
-                  "releaseId": "20260720-current",
+                  "schema": "fsusblog.release-manifest.v2",
+                  "releaseId": "20260720000000-aaaaaaaaaaaa",
                   "schemaCompatibility": {
-                    "minRelease": "20260701-schema",
-                    "maxRelease": "20260731-schema"
+                    "minimumCoordinate": "20260719000000-bbbbbbbbbbbb",
+                    "maximumCoordinate": "20260720000000-aaaaaaaaaaaa"
                   }
                 }
                 """);
@@ -387,15 +405,15 @@ public sealed class OnlineSchemaMigrationPolicyTests
                 .AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["FSUSBLOG_RELEASE_MANIFEST_PATH"] = path,
-                    ["FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE"] = "20260719-previous"
+                    ["FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE"] = "20260719000000-bbbbbbbbbbbb"
                 })
                 .Build();
             var provider = new OnlineSchemaReleaseManifestProvider(configuration);
 
-            OnlineSchemaReleaseManifest manifest = provider.Load("20260720-current");
+            OnlineSchemaReleaseManifest manifest = provider.Load("20260720000000-aaaaaaaaaaaa");
 
-            Assert.Equal("20260719-previous", manifest.PreviousRollbackRelease);
-            Assert.Throws<InvalidOperationException>(() => provider.Load("20260721-other"));
+            Assert.Equal("20260719000000-bbbbbbbbbbbb", manifest.PreviousRollbackReleaseId.Value);
+            Assert.Throws<InvalidOperationException>(() => provider.Load("20260721000000-cccccccccccc"));
         }
         finally
         {
@@ -410,7 +428,7 @@ public sealed class OnlineSchemaMigrationPolicyTests
         => new(
             migrationId,
             phase,
-            new OnlineSchemaReleaseRange("20260701-release", "20260731-release"),
+            new OnlineSchemaCompatibilityWindow(Coordinate("20260701-release"), Coordinate("20260731-release")),
             RequiresExclusiveMode: false,
             Destructive: destructive,
             RollbackMode: destructive
@@ -421,8 +439,8 @@ public sealed class OnlineSchemaMigrationPolicyTests
             EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
             BatchSize: phase == OnlineSchemaMigrationPhase.Backfill ? 100 : null,
             ResumeTokenName: phase == OnlineSchemaMigrationPhase.Backfill ? "last_id" : null,
-            IntroducedAtRelease: "20260701-release",
-            ContractAfterRelease: phase == OnlineSchemaMigrationPhase.Contract ? "20260710-contract-fence" : null,
+            IntroducedAtCoordinate: Coordinate("20260701-release"),
+            ContractAfterCoordinate: phase == OnlineSchemaMigrationPhase.Contract ? Coordinate("20260710-contract-fence") : null,
             MinimumRetentionWindow: phase == OnlineSchemaMigrationPhase.Contract ? TimeSpan.FromDays(7) : TimeSpan.Zero,
             Validators: ["test-validator"]);
 }

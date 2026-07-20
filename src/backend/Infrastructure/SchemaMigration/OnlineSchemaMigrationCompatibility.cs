@@ -1,5 +1,7 @@
 using System.Text.Json;
 
+using FsusBlog.Server.Infrastructure.Operations;
+
 namespace FsusBlog.Server.Infrastructure.SchemaMigration;
 
 public sealed record OnlineSchemaMigrationHistorySnapshot(
@@ -22,14 +24,14 @@ public sealed record OnlineSchemaBackfillSnapshot(
 
 public sealed record OnlineSchemaDatabaseSnapshot(
     bool HistoryAvailable,
-    string? SchemaRelease,
+    SchemaCompatibilityCoordinate? SchemaCompatibilityCoordinate,
     IReadOnlyList<OnlineSchemaMigrationHistorySnapshot> History,
     IReadOnlyDictionary<string, OnlineSchemaBackfillSnapshot> Backfills);
 
 public sealed record OnlineSchemaReleaseManifest(
-    string ReleaseId,
-    string PreviousRollbackRelease,
-    OnlineSchemaReleaseRange SchemaCompatibility);
+    ReleaseId ReleaseId,
+    ReleaseId PreviousRollbackReleaseId,
+    OnlineSchemaCompatibilityWindow SchemaCompatibility);
 
 public enum OnlineSchemaCompatibilitySeverity
 {
@@ -47,7 +49,7 @@ public sealed record OnlineSchemaCompatibilityReport(
     string Status,
     string? PublicErrorCode,
     string ReleaseId,
-    string? SchemaRelease,
+    string? SchemaCompatibilityCoordinate,
     IReadOnlyList<OnlineSchemaCompatibilityIssue> Issues)
 {
     public bool Ready => string.Equals(Status, "ready", StringComparison.Ordinal);
@@ -116,6 +118,14 @@ public static class OnlineSchemaCompatibilityEvaluator
 
             OnlineSchemaMigrationHistorySnapshot applied = group.Single();
             appliedIds.Add(applied.MigrationId);
+            if (!ReleaseId.TryParse(applied.AppliedByRelease, out _))
+            {
+                issues.Add(new(
+                    "schema_history_release_id_invalid",
+                    OnlineSchemaCompatibilitySeverity.Error,
+                    applied.MigrationId,
+                    "AppliedByRelease must contain a canonical deployable ReleaseId."));
+            }
             if (!descriptorById.TryGetValue(applied.MigrationId, out ISchemaMigrationDescriptor? descriptor))
             {
                 issues.Add(new(
@@ -145,19 +155,19 @@ public static class OnlineSchemaCompatibilityEvaluator
             }
         }
 
-        if (string.IsNullOrWhiteSpace(database.SchemaRelease))
+        if (database.SchemaCompatibilityCoordinate is null)
         {
             issues.Add(new(
-                "schema_release_unknown",
+                "schema_coordinate_unknown",
                 OnlineSchemaCompatibilitySeverity.Error,
-                Detail: "The database schema release marker is missing."));
+                Detail: "The database schema compatibility coordinate is missing."));
         }
-        else if (!release.SchemaCompatibility.Contains(database.SchemaRelease))
+        else if (!release.SchemaCompatibility.Contains(database.SchemaCompatibilityCoordinate.Value))
         {
             issues.Add(new(
-                "schema_release_outside_manifest",
+                "schema_coordinate_outside_manifest",
                 OnlineSchemaCompatibilitySeverity.Error,
-                Detail: $"Schema release {database.SchemaRelease} is outside the immutable release manifest range."));
+                Detail: $"Schema compatibility coordinate {database.SchemaCompatibilityCoordinate} is outside the manifest window."));
         }
 
         foreach (OnlineSchemaMigrationMetadata classification in metadata.Values)
@@ -185,7 +195,7 @@ public static class OnlineSchemaCompatibilityEvaluator
 
             if (!applied && classification.Phase == OnlineSchemaMigrationPhase.Backfill)
             {
-                if (!classification.Compatibility.Contains(release.ReleaseId))
+                if (!classification.Compatibility.ContainsReleaseId(release.ReleaseId))
                 {
                     issues.Add(new(
                         "schema_backfill_incompatible",
@@ -211,8 +221,8 @@ public static class OnlineSchemaCompatibilityEvaluator
 
             if (applied
                 && classification.Phase == OnlineSchemaMigrationPhase.Contract
-                && (!classification.Compatibility.Contains(release.ReleaseId)
-                    || !classification.Compatibility.Contains(release.PreviousRollbackRelease)))
+                && (!classification.Compatibility.ContainsReleaseId(release.ReleaseId)
+                    || !classification.Compatibility.ContainsReleaseId(release.PreviousRollbackReleaseId)))
             {
                 issues.Add(new(
                     "schema_contract_incompatible",
@@ -226,8 +236,8 @@ public static class OnlineSchemaCompatibilityEvaluator
         return new OnlineSchemaCompatibilityReport(
             ready ? "ready" : "not_ready",
             ready ? null : "schema_incompatible",
-            release.ReleaseId,
-            database.SchemaRelease,
+            release.ReleaseId.Value,
+            database.SchemaCompatibilityCoordinate?.ToString(),
             issues);
     }
 }
@@ -250,8 +260,8 @@ public static class OnlineSchemaContractGate
     public static IReadOnlyList<OnlineSchemaCompatibilityIssue> Evaluate(
         OnlineSchemaMigrationMetadata metadata,
         OnlineSchemaContractEvidence evidence,
-        string currentRelease,
-        string previousRollbackRelease,
+        ReleaseId currentRelease,
+        ReleaseId previousRollbackRelease,
         DateTimeOffset now,
         TimeSpan maximumBackupEvidenceAge)
     {
@@ -264,9 +274,9 @@ public static class OnlineSchemaContractGate
         AddIf(!evidence.OldWritesDisabled, "schema_contract_old_writes_enabled", "Old-shape writes are still enabled.");
         AddIf(!evidence.RollbackManifestSealed, "schema_contract_rollback_manifest_open", "Release manifest still permits rollback to an old-structure release.");
 
-        if (metadata.ContractAfterRelease is string contractAfterRelease
-            && (string.CompareOrdinal(currentRelease, contractAfterRelease) <= 0
-                || string.CompareOrdinal(previousRollbackRelease, contractAfterRelease) <= 0))
+        if (metadata.ContractAfterCoordinate is SchemaCompatibilityCoordinate contractAfterCoordinate
+            && (SchemaCompatibilityCoordinate.FromReleaseId(currentRelease).CompareTo(contractAfterCoordinate) <= 0
+                || SchemaCompatibilityCoordinate.FromReleaseId(previousRollbackRelease).CompareTo(contractAfterCoordinate) <= 0))
         {
             Add("schema_contract_release_window_open", "Current and previous rollback releases must both be newer than the Contract fence.");
         }
@@ -331,13 +341,17 @@ public sealed class OnlineSchemaReleaseManifestProvider(IConfiguration configura
         using JsonDocument document = JsonDocument.Parse(stream);
         JsonElement root = document.RootElement;
         string schema = ReadRequiredString(root, "schema");
-        if (!string.Equals(schema, "fsusblog.release-manifest.v1", StringComparison.Ordinal))
+        if (!string.Equals(schema, "fsusblog.release-manifest.v2", StringComparison.Ordinal))
         {
             throw new InvalidOperationException("schema_release_manifest_invalid");
         }
 
-        string releaseId = ReadRequiredString(root, "releaseId");
-        if (!string.Equals(releaseId, expectedReleaseId, StringComparison.Ordinal))
+        string releaseIdValue = ReadRequiredString(root, "releaseId");
+        if (!ReleaseId.TryParse(releaseIdValue, out ReleaseId releaseId))
+        {
+            throw new InvalidOperationException("schema_release_manifest_release_id_invalid");
+        }
+        if (!string.Equals(releaseId.Value, expectedReleaseId, StringComparison.Ordinal))
         {
             throw new InvalidOperationException("schema_release_manifest_identity_mismatch");
         }
@@ -356,23 +370,28 @@ public sealed class OnlineSchemaReleaseManifestProvider(IConfiguration configura
             throw new InvalidOperationException("schema_previous_rollback_release_missing");
         }
 
-        if (string.Equals(previousRollbackRelease, releaseId, StringComparison.Ordinal))
+        if (string.Equals(previousRollbackRelease, releaseId.Value, StringComparison.Ordinal))
         {
             throw new InvalidOperationException("schema_previous_rollback_release_not_distinct");
         }
 
-        var releaseRange = new OnlineSchemaReleaseRange(
-            ReadRequiredString(compatibility, "minRelease"),
-            ReadRequiredString(compatibility, "maxRelease"));
-        if (string.CompareOrdinal(releaseRange.MinimumRelease, releaseRange.MaximumRelease) > 0)
+        if (!ReleaseId.TryParse(previousRollbackRelease, out ReleaseId previousRollbackReleaseId))
+        {
+            throw new InvalidOperationException("schema_previous_rollback_release_invalid");
+        }
+
+        var compatibilityWindow = new OnlineSchemaCompatibilityWindow(
+            SchemaCompatibilityCoordinate.ParseManifest(ReadRequiredString(compatibility, "minimumCoordinate")),
+            SchemaCompatibilityCoordinate.ParseManifest(ReadRequiredString(compatibility, "maximumCoordinate")));
+        if (compatibilityWindow.MinimumCoordinate.CompareTo(compatibilityWindow.MaximumCoordinate) > 0)
         {
             throw new InvalidOperationException("schema_release_manifest_compatibility_invalid");
         }
 
         return new OnlineSchemaReleaseManifest(
             releaseId,
-            previousRollbackRelease,
-            releaseRange);
+            previousRollbackReleaseId,
+            compatibilityWindow);
     }
 
     private static string ReadRequiredString(JsonElement value, string propertyName)

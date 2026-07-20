@@ -481,7 +481,7 @@ function resultIssueCodes(value) { return unique((value?.issues ?? []).map(item 
 function sanitizeParsed(value) {
   if (!isObject(value)) return value
   const result = {}
-  for (const key of ['status', 'code', 'runId', 'rolloutId', 'releaseId', 'databaseIsolationId', 'schemaRelease', 'phase', 'migrationIds', 'codes', 'publicErrorCode', 'rollbackCompatible', 'contractApplied', 'historyHash']) {
+  for (const key of ['status', 'code', 'runId', 'rolloutId', 'releaseId', 'databaseIsolationId', 'schemaCompatibilityCoordinate', 'phase', 'migrationIds', 'codes', 'publicErrorCode', 'rollbackCompatible', 'contractApplied', 'historyHash']) {
     if (value[key] !== undefined) result[key] = value[key]
   }
   if (Array.isArray(value.issues)) result.issues = value.issues.map(item => ({ code: item?.code, severity: item?.severity, migrationId: item?.migrationId }))

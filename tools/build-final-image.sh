@@ -376,8 +376,8 @@ zk_local_review_hash="sha256:$(sha256sum "$ROOT_DIR/security/zk/provenance/comme
 dotnet_version="$(dotnet --version)"
 node_version="$(node --version)"
 docker_version="$(docker version --format '{{.Client.Version}}')"
-schema_min_release="${FSUSBLOG_SCHEMA_MIN_RELEASE:-$RELEASE_ID}"
-schema_max_release="${FSUSBLOG_SCHEMA_MAX_RELEASE:-$RELEASE_ID}"
+schema_minimum_coordinate="${FSUSBLOG_SCHEMA_MINIMUM_COORDINATE:-$RELEASE_ID}"
+schema_maximum_coordinate="${FSUSBLOG_SCHEMA_MAXIMUM_COORDINATE:-$RELEASE_ID}"
 manifest_dir="${FSUSBLOG_RELEASE_MANIFEST_DIR:-$ROOT_DIR/build/releases/$RELEASE_ID}"
 manifest_file="$manifest_dir/release-manifest.json"
 
@@ -392,8 +392,8 @@ node "$ROOT_DIR/tools/release/create-release-manifest.mjs" \
     --frontend-manifest-hash "$frontend_manifest_hash" \
     --wasm-artifact-hash "$wasm_artifact_hash" \
     --zk-local-review-hash "$zk_local_review_hash" \
-    --schema-min-release "$schema_min_release" \
-    --schema-max-release "$schema_max_release" \
+    --schema-minimum-coordinate "$schema_minimum_coordinate" \
+    --schema-maximum-coordinate "$schema_maximum_coordinate" \
     --dotnet-version "$dotnet_version" \
     --node-version "$node_version" \
     --docker-version "$docker_version" \

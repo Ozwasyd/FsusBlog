@@ -1347,6 +1347,11 @@ int64 timestampUnixMs
 - isolated missing Expand：HTTP 503，
   `{"status":"not_ready","code":"schema_incompatible"}`。
 
+受保护的 qualification 诊断字段中，`releaseId` 是严格
+`YYYYMMDDHHmmss-sha12` 部署身份，`schemaCompatibilityCoordinate` 是独立的数据库
+兼容坐标。坐标允许规范 min/max fence，但 fence 不得出现在 `releaseId` 字段；历史
+记录的 `appliedByRelease` 也必须始终是规范部署身份。
+
 两条响应都携带 `X-Fsus-Release-Id`、`X-Fsus-Release-Slot` 与
 `Cache-Control: no-store`。这些 header 用于 source/target identity 对账，不是认证
 凭据。route 只供 #1031 隔离 migration qualification；真实生产 migration 仍只能由

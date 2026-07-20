@@ -73,7 +73,7 @@ public sealed record ProductionOnlineSchemaCompatibilityHealthCheck(
     string Status,
     string? PublicErrorCode,
     string? ReleaseId,
-    string? SchemaRelease,
+    string? SchemaCompatibilityCoordinate,
     IReadOnlyList<OnlineSchemaCompatibilityIssue> Issues,
     string? Error = null) : IProductionHealthCheck;
 
@@ -439,7 +439,7 @@ public sealed class ProductionReadinessProbe(
             report.Ready ? "ok" : "failed",
             report.PublicErrorCode,
             report.ReleaseId,
-            report.SchemaRelease,
+            report.SchemaCompatibilityCoordinate,
             report.Issues,
             report.Ready ? null : "schema_incompatible");
     }

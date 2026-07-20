@@ -2,6 +2,7 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { assertReleaseIdentity, isValidReleaseId } from './release-id.mjs'
+import { assertSchemaCompatibilityWindow } from './schema-compatibility-coordinate.mjs'
 
 export const RELEASE_MANIFEST_SCHEMA = 'fsusblog.release-manifest.v2'
 export const LEGACY_RELEASE_MANIFEST_SCHEMA = 'fsusblog.release-manifest.v1'
@@ -10,7 +11,6 @@ export const LEGACY_RELEASE_MANIFEST_RETIREMENT =
 const SHA256 = /^sha256:[0-9a-f]{64}$/u
 const ZERO_SHA256 = `sha256:${'0'.repeat(64)}`
 const COMMIT_SHA = /^[0-9a-f]{40}$/u
-const SCHEMA_COMPATIBILITY_COORDINATE = /^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$/u
 const IMAGE_REPOSITORY = /^[a-z0-9]+(?:[._/-][a-z0-9]+)*(?::[0-9]+(?:\/[a-z0-9]+(?:[._/-][a-z0-9]+)*)?)?$/u
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u
 const TOP_LEVEL_FIELDS = new Set([
@@ -31,7 +31,7 @@ const TOP_LEVEL_FIELDS = new Set([
   'runtimeProfile',
   'build'
 ])
-const SCHEMA_COMPATIBILITY_FIELDS = new Set(['minRelease', 'maxRelease'])
+const SCHEMA_COMPATIBILITY_FIELDS = new Set(['minimumCoordinate', 'maximumCoordinate'])
 const TOOLCHAIN_FIELDS = new Set(['dotnetVersion', 'nodeVersion', 'dockerVersion', 'dockerfileDigest'])
 const BUILD_FIELDS = new Set(['dockerfile', 'target'])
 const RUNTIME_PROFILE_FIELDS = new Set([
@@ -73,10 +73,10 @@ export function createReleaseManifest(input) {
     frontendManifestHash: input.frontendManifestHash,
     wasmArtifactHash: input.wasmArtifactHash,
     zkLocalReviewHash: input.zkLocalReviewHash,
-    schemaCompatibility: {
-      minRelease: input.schemaMinRelease,
-      maxRelease: input.schemaMaxRelease
-    },
+    schemaCompatibility: assertSchemaCompatibilityWindow(
+      input.schemaMinimumCoordinate,
+      input.schemaMaximumCoordinate
+    ),
     toolchain: {
       dotnetVersion: input.dotnetVersion,
       nodeVersion: input.nodeVersion,
@@ -137,8 +137,13 @@ function validateManifest(manifest, options, contract) {
     errors.push('schemaCompatibility is required')
   } else {
     rejectUnknownFields(manifest.schemaCompatibility, SCHEMA_COMPATIBILITY_FIELDS, 'schemaCompatibility', errors)
-    for (const field of ['minRelease', 'maxRelease']) {
-      if (!SCHEMA_COMPATIBILITY_COORDINATE.test(String(manifest.schemaCompatibility[field] ?? ''))) errors.push(`schemaCompatibility.${field} is invalid`)
+    try {
+      assertSchemaCompatibilityWindow(
+        manifest.schemaCompatibility.minimumCoordinate,
+        manifest.schemaCompatibility.maximumCoordinate
+      )
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : String(error))
     }
   }
   if (!manifest.toolchain || typeof manifest.toolchain !== 'object') {

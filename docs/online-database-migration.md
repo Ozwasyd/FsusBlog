@@ -24,14 +24,15 @@ Every `ISchemaMigrationDescriptor` must have one explicit
 migration id, SQL name, or `pre`/`post` wording. Required fields are:
 
 - `Phase`: `Expand`, `Backfill`, or `Contract`.
-- `Compatibility`: minimum and maximum release ids that can use the resulting
-  schema. Release ids in these ranges use the immutable, ordinally sortable
-  timestamp-plus-commit format from the release manifest contract.
+- `Compatibility`: a typed `SchemaCompatibilityWindow` whose endpoints are
+  canonical compatibility coordinates. A deployable `ReleaseId` maps explicitly
+  to the same fixed-width coordinate; min/max fences are coordinates only and can
+  never enter deployment identity APIs.
 - `RequiresExclusiveMode` and `Destructive`.
 - `RollbackMode`: compatible code, resume from checkpoint, or backup/restore.
 - `EstimatedLockRisk`.
 - bounded `BatchSize` and durable `ResumeTokenName` for Backfill.
-- `IntroducedAtRelease`, `ContractAfterRelease`, and a minimum observation window.
+- `IntroducedAtCoordinate`, `ContractAfterCoordinate`, and a minimum observation window.
 - named validators/evidence producers.
 
 `OnlineSchemaMigrationPolicy` rejects duplicate/orphaned metadata, missing
@@ -39,6 +40,22 @@ classification, invalid compatibility ranges, unsafe Expand work, non-resumable
 Backfill work, and Contract work without its release/retention/rollback gates. Drop,
 rename, type/tightening, truncate, delete, and other rewrite-shaped SQL is accepted
 only as an explicitly destructive Contract.
+
+### Identity and ordering boundary
+
+`ReleaseId`, `SchemaCompatibilityCoordinate`, migration id, and schema protocol
+version are distinct values. A canonical deployable release and its coordinate use
+`YYYYMMDDHHmmss-sha12` in UTC. The only open-ended coordinate sentinels are
+`00000000000000-000000000000` and `99999999999999-ffffffffffff`; `ReleaseId.Parse`
+rejects both. All window and Contract comparisons go through the coordinate
+comparer, which uses ordinal comparison over fixed-width fields and is independent
+of locale and host timezone. SHA breaks ties deterministically for releases created
+in the same second; that tie-break must not be interpreted as business publication
+chronology.
+
+Migration descriptor ids remain opaque identities such as
+`20260720-post-comment-mutation-outbox`. Schema protocol versions remain manifest
+schema names. Neither is parsed or persisted as a deployed release identity.
 
 ## Existing migration baseline
 
@@ -111,8 +128,9 @@ disk plus passing overlap/resource evidence; a 2C/2G host remains single-slot.
 Contract is never selected by startup and never auto-selected by a candidate. Before
 any pending Contract descriptor executes, all of these gates must pass together:
 
-- current and previous rollback releases are both newer than
-  `ContractAfterRelease` and neither depends on the old structure;
+- current and previous rollback `ReleaseId` values are both newer than
+  `ContractAfterCoordinate` after explicit coordinate mapping, and neither depends
+  on the old structure;
 - Backfill is complete and consistency-verified;
 - the metadata observation/retention window has elapsed;
 - backup and restore-drill evidence is within the configured freshness window;
@@ -137,13 +155,13 @@ The Contract evidence schema is documented in
 Mutating commands share the existing PostgreSQL advisory lock. This serializes
 schema writers across candidate releases. The online control plane uses:
 
-- `__fsus_schema_migration_history` for id/checksum/release/success history;
-- `__fsus_schema_online_state` for the current schema release marker;
+- `__fsus_schema_migration_history` for id/checksum/canonical `AppliedByRelease`/success history;
+- `__fsus_schema_online_state` for the current schema compatibility coordinate;
 - `__fsus_schema_backfill_progress` for resumable progress and verification time.
 
 Production serve reads these tables without creating or altering them. It fails
 closed for a missing history/marker, duplicate or unknown ids, failed entries,
-checksum mismatch, schema release outside the immutable release manifest range,
+checksum mismatch, schema coordinate outside the immutable manifest window,
 required pending Expand, failed/incompatible Backfill, pending legacy bootstrap, or
 an applied Contract incompatible with N/N-1.
 
@@ -155,7 +173,7 @@ stable codes below through `OnlineSchemaCompatibilityRuntimeState`:
 | history absent | `schema_history_missing` |
 | duplicate/unknown history | `schema_history_duplicate`, `schema_history_unknown` |
 | checksum mismatch | `schema_history_checksum_mismatch` |
-| release range mismatch | `schema_release_outside_manifest` |
+| coordinate window mismatch | `schema_coordinate_outside_manifest` |
 | required Expand pending | `schema_expand_pending` |
 | allowed Backfill pending | `schema_backfill_pending` warning |
 | failed/incompatible Backfill | `schema_backfill_failed`, `schema_backfill_incompatible` |
@@ -179,7 +197,7 @@ stable codes below through `OnlineSchemaCompatibilityRuntimeState`:
 
 - [ ] Dedicated Contract descriptor; no mixed Expand/Backfill steps.
 - [ ] `Destructive = true`, `RollbackMode = BackupRestore`.
-- [ ] `IntroducedAtRelease`, `ContractAfterRelease`, and retention window recorded.
+- [ ] `IntroducedAtCoordinate`, `ContractAfterCoordinate`, and retention window recorded.
 - [ ] N and N-1 no longer read or write the old shape.
 - [ ] Backfill progress is complete and validator evidence is green.
 - [ ] Observation window elapsed with no bridge inconsistencies.
