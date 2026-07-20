@@ -15,7 +15,7 @@
         >
             <span :class="{ 'sr-only': compact }">账号</span>
             <ElIcon
-                :size="14"
+                :size="18"
                 aria-hidden="true"
             ><ArrowDown /></ElIcon>
         </button>

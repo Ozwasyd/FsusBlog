@@ -139,5 +139,6 @@ describe('AccountHeaderMenu', () => {
     expect(trigger.classes()).toContain('account-header-menu__trigger--touch')
     expect(trigger.text()).toContain('账号')
     expect(trigger.get('span').classes()).toContain('sr-only')
+    expect(wrapper.get('el-icon-stub').attributes('size')).toBe('18')
   })
 })
