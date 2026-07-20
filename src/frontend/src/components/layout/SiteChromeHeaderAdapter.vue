@@ -16,7 +16,11 @@
   >
     <template #brand>
       <a :href="brandHref" :class="brandLinkClass" v-bind="brandDataAttributes">
-        <span v-if="hasBrandImage" class="site-chrome-header__brand-mark">
+        <span
+          v-if="hasBrandImage"
+          class="site-chrome-header__brand-mark"
+          :class="`site-chrome-header__brand-mark--${brandContext}`"
+        >
           <img
             v-if="brandImageLight"
             :src="brandImageLight"
@@ -258,6 +262,10 @@ function resolveBrandImage(theme: 'light' | 'dark'): string {
   min-width: 0;
   max-width: min(14rem, 42vw);
   align-items: center;
+}
+
+.site-chrome-header__brand-mark--account {
+  max-width: min(10rem, 32vw);
 }
 
 .site-chrome-header__brand-image {
