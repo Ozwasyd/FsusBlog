@@ -893,10 +893,9 @@ function createCommentMutationId(): string {
 }
 
 .fsus-comment-login__btn:focus-visible {
-  outline: 2px solid var(--fsusblog-color-focus-ring);
-  outline-offset: 2px;
   background: transparent;
-  box-shadow: none;
+  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
+  outline: none;
 }
 
 .comment-identity-panel {
@@ -1037,7 +1036,7 @@ function createCommentMutationId(): string {
 }
 
 .comment-identity-toggle__input:focus-visible + .comment-identity-toggle__box {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--fsusblog-color-focus-ring) 38%, transparent);
+  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
 }
 
 .comment-identity-toggle__input:disabled + .comment-identity-toggle__box {
@@ -1120,8 +1119,8 @@ function createCommentMutationId(): string {
 }
 
 .comment-composer-mode__item:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--fsusblog-color-primary) 62%, transparent);
-  outline-offset: 2px;
+  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
+  outline: none;
 }
 
 .comment-composer-focus {

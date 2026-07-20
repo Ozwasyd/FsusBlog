@@ -35,7 +35,7 @@
   --fsusblog-text-quiet: var(--fsus-color-text-quiet, #A1A1AA);
   --fsusblog-text-decorative: var(--fsus-color-text-decorative, var(--text-decorative));
   --fsusblog-panel-border: var(--fsus-color-border-subtle, var(--border));
-  --fsusblog-color-focus-ring: var(--fsus-color-focus-ring, var(--accent, Highlight));
+  --fsusblog-color-focus-ring: var(--fsus-color-primary, #2A599C);
   --fsusblog-radius-control: var(--fsus-radius-control, 6px);
   --fsusblog-radius-panel: var(--fsus-radius-panel, 12px);
   --fsusblog-radius-reading-media: var(--fsus-radius-panel, 12px);
@@ -138,6 +138,18 @@ html[data-theme-resolved='dark'] {
 #fsus-aot-shell .ui-article-link:hover,
 #fsus-aot-shell .ui-article-link:focus-visible {
   color: var(--fsusblog-color-primary, LinkText);
+}
+
+#fsus-aot-shell :where(.mono-link, .nav-link, .blog-link-state, .ui-article-link, [data-public-link]):focus-visible {
+  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
+  outline: none;
+}
+
+@media (forced-colors: active) {
+  #fsus-aot-shell :where(.mono-link, .nav-link, .blog-link-state, .ui-article-link, [data-public-link]):focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
 }
 
 @media (min-width: 640px) {

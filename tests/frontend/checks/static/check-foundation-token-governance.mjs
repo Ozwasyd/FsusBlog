@@ -98,7 +98,7 @@ for (const [path, source] of [
   expectIncludes(path, source, '--fsus-border: var(--border);', '--fsus-border palette alias')
   expectIncludes(path, source, '--fsus-scholarly-blue: var(--accent);', '--fsus Scholarly Blue accent alias')
   expectIncludes(path, source, '--fsusblog-color-primary: var(--fsus-color-action-primary, var(--accent, LinkText));', '--fsusblog primary FsusUI alias')
-  expectIncludes(path, source, '--fsusblog-color-focus-ring: var(--fsus-color-focus-ring, var(--accent, Highlight));', '--fsusblog focus ring FsusUI alias')
+  expectIncludes(path, source, '--fsusblog-color-focus-ring: var(--fsus-color-primary, #2A599C);', '--fsusblog Scholarly Blue focus ring alias')
   expectIncludes(path, source, '--fsusblog-text-primary: var(--fsus-color-text-primary, var(--text));', '--fsusblog primary text FsusUI alias')
   expectIncludes(path, source, '--fsusblog-text-quiet: var(--fsus-color-text-quiet, #A1A1AA);', '--fsusblog quiet text FsusUI alias')
   expectIncludes(path, source, '--fsusblog-text-decorative: var(--fsus-color-text-decorative, var(--text-decorative));', '--fsusblog decorative text FsusUI alias')

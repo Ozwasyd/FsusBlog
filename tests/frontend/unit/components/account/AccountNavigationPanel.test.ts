@@ -1,6 +1,8 @@
 // @vitest-environment happy-dom
 
 import { mount } from '@vue/test-utils'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { h, nextTick } from 'vue'
 import {
   createMemoryHistory,
@@ -64,6 +66,16 @@ const mountPanel = async (path: string, variant: 'desktop' | 'mobile' = 'desktop
 }
 
 describe('AccountNavigationPanel', () => {
+  it('keeps a system focus outline when forced colors suppress shadows', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/components/account/AccountNavigationPanel.vue'), 'utf8')
+
+    expect(source).toMatch(/@media \(forced-colors: active\)/)
+    expect(source).toMatch(/\.account-module-link:focus-visible,[\s\S]*?\.account-local-navigation__link:focus-visible/)
+    expect(source).toContain('outline: 2px solid Highlight;')
+    expect(source).toContain('outline-offset: -2px;')
+    expect(source).not.toMatch(/outline-offset:\s*(?:2|4)px/)
+  })
+
   it('renders no more than six global links and only the current module leaves', async () => {
     const { wrapper } = await mountPanel('/user/manage/article/edit/42')
 

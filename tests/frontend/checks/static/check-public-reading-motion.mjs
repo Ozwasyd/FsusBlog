@@ -131,7 +131,7 @@ expectIncludes(
 
 expectIncludes(
   themeTokens,
-  'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)]',
+  'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)] focus-visible:outline-none',
   'themeTokens.ts'
 )
 expectNotMatches(
@@ -340,7 +340,7 @@ expectIncludes(commentsVirtualList, 'class="fsus-comment__footer"', 'ArticleComm
 expectIncludes(commentsVirtualList, 'formatCommentRelativeTime(iso)', 'ArticleCommentsVirtualList.vue renders comment times in Chinese')
 expectIncludes(commentsVirtualList, 'padding-block: 20px;', 'ArticleCommentsVirtualList.vue comment item uses the editorial vertical rhythm')
 expectIncludes(commentsVirtualList, 'border-bottom: 1px solid var(--fsusblog-panel-border);', 'ArticleCommentsVirtualList.vue comment item uses the restrained semantic divider')
-expectIncludes(commentsVirtualList, 'outline-offset: 4px;', 'ArticleCommentsVirtualList.vue actions keep the specified focus offset')
+expectIncludes(commentsVirtualList, 'box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);', 'ArticleCommentsVirtualList.vue actions keep the shared inset focus ring')
 expectMatches(commentsVirtualList, /\.fsus-comment__author\.is-authenticated\s*\{[^}]*font-weight:\s*700;/s, 'ArticleCommentsVirtualList.vue authenticated authors keep the strong identity weight')
 expectMatches(commentsVirtualList, /\.fsus-comment__badge\s*\{[^}]*border:\s*1px solid var\(--fsusblog-panel-border-strong\);[^}]*color:\s*var\(--fsusblog-text-muted\);/s, 'ArticleCommentsVirtualList.vue anonymous badge keeps readable text and boundary roles')
 expectMatches(commentsVirtualList, /\.fsus-comment__action\s*\{[^}]*color:\s*var\(--fsusblog-text-muted\);/s, 'ArticleCommentsVirtualList.vue actions remain readable at rest')
@@ -423,8 +423,8 @@ expectIncludes(imageLightboxComposable, 'useScrollReveal', 'useArticleImageLight
 expectIncludes(imageLightboxComposable, "'article-body-image'", 'useArticleImageLightbox.ts')
 expectIncludes(markdownCss, '.fsus-code-copy-button--copied', 'markdown.css')
 expectIncludes(markdownCss, 'var(--blog-motion-fast) var(--blog-motion-ease)', 'markdown.css')
-expectIncludes(markdownCss, 'outline: 2px solid var(--fsusblog-color-focus-ring);', 'markdown.css image preview focus')
-expectIncludes(markdownCss, 'outline-offset: 2px;', 'markdown.css image preview focus offset')
+expectIncludes(markdownCss, 'box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);', 'markdown.css image preview inset focus')
+expectMatches(markdownCss, /\.fsus-article-preview-image:focus-visible\s*\{[^}]*outline:\s*none;/s, 'markdown.css image preview removes the exterior outline')
 expectIncludes(markdownCss, 'font-size: 1rem;', 'markdown.css canonical 16px editorial reading size')
 expectIncludes(markdownCss, 'line-height: 1.8;', 'markdown.css canonical editorial line height')
 expectIncludes(markdownCss, 'letter-spacing: normal;', 'markdown.css natural reading letter spacing')
@@ -440,7 +440,7 @@ expectMatches(markdownCss, /\.markdown-body h2\s*\{[^}]*text-align:\s*left;/s, '
 expectIncludes(markdownCss, "font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;", 'markdown.css fenced code canonical mono stack')
 expectIncludes(markdownCss, "font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace !important;", 'markdown.css inline code canonical mono stack')
 expectNotMatches(markdownCss, /font-family:[^;]*(?:Monaco|Consolas|var\(--font-sans\))/, 'markdown.css must not fork the canonical mono stack')
-expectNotMatches(markdownCss, /\.fsus-article-preview-image:focus-visible\s*\{[\s\S]*?outline-offset:\s*4px/, 'markdown.css image preview focus offset must be <= 2px')
+expectNotMatches(markdownCss, /\.fsus-article-preview-image:focus-visible\s*\{[^}]*outline-offset:/, 'markdown.css image preview must not use an exterior focus offset')
 
 if (!exists('docs/public-layout-rules.md')) {
   errors.push('docs/public-layout-rules.md missing')

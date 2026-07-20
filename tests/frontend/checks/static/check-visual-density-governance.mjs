@@ -492,6 +492,46 @@ function checkPublicTypographyContract()
 
     const publicShellCriticalCss = read(publicShellCriticalCssPath);
     const publicShellEmergencyCss = read(publicShellEmergencyCssPath);
+    const themeTokens = read(themeTokensPath);
+    for (const [file, source] of [
+        [publicPageCssPath, read(publicPageCssPath)],
+        [publicShellCriticalCssPath, publicShellCriticalCss],
+        [publicShellEmergencyCssPath, publicShellEmergencyCss]
+    ])
+    {
+        assertContains(file, /--fsusblog-color-focus-ring:\s*var\(--fsus-color-primary, #2A599C\);/, 'focus ring must map to Scholarly Blue');
+    }
+    assertContains(
+        themeTokensPath,
+        /focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-\[var\(--fsusblog-color-focus-ring\)\] focus-visible:outline-none/,
+        'shared focus utility must use a 2px inset Scholarly Blue ring'
+    );
+    for (const file of [publicPageCssPath, publicShellCriticalCssPath, publicShellEmergencyCssPath])
+    {
+        assertContains(
+            file,
+            /@media \(forced-colors: active\)[\s\S]*?outline:\s*2px solid Highlight;[\s\S]*?outline-offset:\s*-2px;/,
+            'public custom focus must retain a system outline in forced-colors mode'
+        );
+    }
+    assertContains(
+        accountNavigationPanelPath,
+        /@media \(forced-colors: active\)[\s\S]*?\.account-module-link:focus-visible,[\s\S]*?\.account-local-navigation__link:focus-visible[\s\S]*?outline:\s*2px solid Highlight;[\s\S]*?outline-offset:\s*-2px;/,
+        'account navigation focus must retain a system outline in forced-colors mode'
+    );
+
+    for (const file of walkTouchTargetSources(productionSourceRoot))
+    {
+        const source = read(file);
+        for (const match of source.matchAll(/:focus-visible[^{}]*\{[^}]*outline-offset:\s*(?:2|4)px/gs))
+        {
+            fail(file, lineNumberFromSource(source, match.index ?? 0), 'custom focus must use the shared inset ring without a positive outline offset');
+        }
+        for (const match of source.matchAll(/:focus-visible[^{}]*\{[^}]*box-shadow:\s*0 0 0 2px var\(--fsusblog-color-focus-ring\)/gs))
+        {
+            fail(file, lineNumberFromSource(source, match.index ?? 0), 'custom focus ring must be inset');
+        }
+    }
     const requiredTokenAssignments = [
         '--text-tertiary: #71717A;',
         '--text-muted: #62626A;',

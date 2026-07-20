@@ -157,12 +157,15 @@ defineEmits<{
 }
 
 .dashboard-help-menu__trigger:hover,
+.dashboard-help-menu__link:hover {
+  color: var(--fsusblog-color-primary);
+}
+
 .dashboard-help-menu__trigger:focus-visible,
-.dashboard-help-menu__link:hover,
 .dashboard-help-menu__link:focus-visible {
   color: var(--fsusblog-color-primary);
-  outline: 2px solid var(--fsusblog-color-focus-ring);
-  outline-offset: 2px;
+  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
+  outline: none;
 }
 
 .dashboard-help-menu__links {
@@ -233,8 +236,11 @@ defineEmits<{
 .dashboard-task-row:focus-visible {
   background: var(--fsusblog-panel-bg);
   color: var(--fsusblog-color-primary);
-  outline: 2px solid var(--fsusblog-color-focus-ring);
-  outline-offset: -2px;
+}
+
+.dashboard-task-row:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
+  outline: none;
 }
 
 .dashboard-task-row__copy {
@@ -312,12 +318,15 @@ defineEmits<{
 }
 
 .dashboard-summary__details:hover,
+.dashboard-inline-action:hover {
+  color: var(--fsusblog-color-primary);
+}
+
 .dashboard-summary__details:focus-visible,
-.dashboard-inline-action:hover,
 .dashboard-inline-action:focus-visible {
   color: var(--fsusblog-color-primary);
-  outline: 2px solid var(--fsusblog-color-focus-ring);
-  outline-offset: 2px;
+  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
+  outline: none;
 }
 
 .dashboard-summary__empty,

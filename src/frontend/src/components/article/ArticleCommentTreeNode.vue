@@ -223,7 +223,7 @@ const toggleBranch = (): void => branchExpanded.value ? collapseBranch() : expan
 
 .fsus-comment-tree-node:focus-visible {
   border-radius: var(--fsusblog-radius-control, 6px);
-  box-shadow: 0 0 0 2px var(--fsusblog-color-focus-ring);
+  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
 }
 
 .fsus-comment-tree-node__header,
@@ -247,7 +247,7 @@ const toggleBranch = (): void => branchExpanded.value ? collapseBranch() : expan
 .fsus-comment-tree-node__footer { gap: 12px; }
 .fsus-comment-tree-node__action { padding: 0; border: 0; background: transparent; color: var(--fsusblog-text-muted); font: inherit; cursor: pointer; }
 .fsus-comment-tree-node__action:hover { color: var(--fsusblog-color-primary); }
-.fsus-comment-tree-node__action:focus-visible { outline: 2px solid var(--fsusblog-color-focus-ring); outline-offset: 4px; }
+.fsus-comment-tree-node__action:focus-visible { box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring); outline: none; }
 .fsus-comment-tree-node__action.is-danger:hover { color: var(--el-color-danger); }
 .fsus-comment-tree-node__children {
   margin-top: 8px;

@@ -442,8 +442,8 @@ const appendixCopyrightText = computed(() => {
 
 .fsus-appendix__link:focus-visible,
 .fsus-appendix__tag:focus-visible {
-  outline: 2px solid var(--fsusblog-color-focus-ring);
-  outline-offset: 2px;
+  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
+  outline: none;
 }
 
 @media (max-width: 639px) {

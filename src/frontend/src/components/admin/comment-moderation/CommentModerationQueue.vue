@@ -385,7 +385,7 @@ const modelMetaItems = (item: CommentModerationViewItem): DetailMetaItem[] => [
 
 .moderation-detail-fold summary:focus-visible {
   border-radius: var(--fsus-radius-control-small);
-  box-shadow: 0 0 0 2px var(--fsusblog-color-focus-ring);
+  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
 }
 
 .moderation-card-meta,

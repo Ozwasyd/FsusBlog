@@ -324,8 +324,8 @@ const coverSectionOpen = ref(false)
 }
 
 .article-sidebar-summary:focus-visible {
-  outline: 2px solid var(--fsusblog-color-focus-ring);
-  outline-offset: -2px;
+  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
+  outline: none;
 }
 
 .article-sidebar-summary::-webkit-details-marker {

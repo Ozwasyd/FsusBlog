@@ -89,9 +89,8 @@ const loginRoute = computed(() => ({
 }
 
 .fsus-comments-empty__btn:focus-visible {
-  outline: 2px solid var(--fsusblog-color-focus-ring) !important;
-  outline-offset: 2px !important;
   background-color: transparent;
-  box-shadow: none;
+  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring) !important;
+  outline: none !important;
 }
 </style>

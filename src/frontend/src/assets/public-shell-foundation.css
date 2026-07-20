@@ -40,7 +40,7 @@
   --fsusblog-text-quiet: var(--fsus-color-text-quiet, #A1A1AA);
   --fsusblog-text-decorative: var(--fsus-color-text-decorative, var(--text-decorative));
   --fsusblog-panel-border: var(--fsus-color-border-subtle, var(--border));
-  --fsusblog-color-focus-ring: var(--fsus-color-focus-ring, var(--accent, Highlight));
+  --fsusblog-color-focus-ring: var(--fsus-color-primary, #2A599C);
   --fsusblog-radius-control: var(--fsus-radius-control, 6px);
   --fsusblog-radius-panel: var(--fsus-radius-panel, 12px);
   --fsusblog-radius-reading-media: var(--fsus-radius-panel, 12px);
@@ -145,6 +145,18 @@ html[data-theme-resolved='dark'] {
   color: var(--fsusblog-color-primary, LinkText);
 }
 
+#fsus-aot-shell :where(.mono-link, .nav-link, .blog-link-state, .ui-article-link, [data-public-link]):focus-visible {
+  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
+  outline: none;
+}
+
+@media (forced-colors: active) {
+  #fsus-aot-shell :where(.mono-link, .nav-link, .blog-link-state, .ui-article-link, [data-public-link]):focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+}
+
 @media (min-width: 640px) {
   #fsus-aot-shell .ui-article-list {
     gap: 3rem;
@@ -221,7 +233,7 @@ html[data-theme-resolved='dark'] {
   --fsusblog-text-subtle: var(--fsus-color-text-decorative-dark, var(--text-decorative, #71717A));
   --fsusblog-text-quiet: var(--fsus-color-text-quiet, #A1A1AA);
   --fsusblog-text-decorative: var(--fsus-color-text-decorative, var(--text-decorative));
-  --fsusblog-color-focus-ring: var(--fsus-color-focus-ring, var(--accent, Highlight));
+  --fsusblog-color-focus-ring: var(--fsus-color-primary, #2A599C);
   --fsusblog-reading-inline-code-bg: var(--fsus-color-surface-raised, var(--surface-subtle));
   --fsusblog-public-header-height: 4rem;
   --el-color-primary: var(--accent);
@@ -281,7 +293,7 @@ html[data-theme-resolved='dark'] {
   --fsusblog-text-subtle: var(--fsus-color-text-decorative-dark, var(--text-decorative, #71717A));
   --fsusblog-text-quiet: var(--fsus-color-text-quiet, #A1A1AA);
   --fsusblog-text-decorative: var(--fsus-color-text-decorative, var(--text-decorative));
-  --fsusblog-color-focus-ring: var(--fsus-color-focus-ring, var(--accent, Highlight));
+  --fsusblog-color-focus-ring: var(--fsus-color-primary, #2A599C);
   --fsusblog-reading-inline-code-bg: var(--fsus-color-surface-raised, var(--surface-subtle));
   --el-color-primary: var(--accent);
   --el-bg-color: var(--surface);

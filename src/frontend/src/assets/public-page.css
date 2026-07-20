@@ -69,7 +69,7 @@
   --fsusblog-color-warning-bg: var(--el-color-warning-light-9, color-mix(in srgb, var(--fsusblog-color-warning) 10%, var(--fsusblog-page-bg)));
   --fsusblog-color-warning-border: var(--el-color-warning-light-5, color-mix(in srgb, var(--fsusblog-color-warning) 36%, transparent));
   --fsusblog-color-warning-text: var(--el-color-warning-dark-2, var(--fsusblog-color-warning));
-  --fsusblog-color-focus-ring: var(--fsus-color-focus-ring, var(--accent, Highlight));
+  --fsusblog-color-focus-ring: var(--fsus-color-primary, #2A599C);
   --fsusblog-page-bg: var(--bg);
   --fsusblog-page-bg-soft: var(--surface);
   --fsusblog-page-bg-muted: color-mix(in srgb, var(--fsusblog-page-bg) 72%, transparent);
@@ -200,7 +200,7 @@ html[data-theme-resolved='dark'] {
   --fsusblog-color-warning-bg: color-mix(in srgb, var(--fsusblog-color-warning) 12%, var(--fsusblog-page-bg));
   --fsusblog-color-warning-border: color-mix(in srgb, var(--fsusblog-color-warning) 48%, transparent);
   --fsusblog-color-warning-text: var(--fsusblog-color-warning);
-  --fsusblog-color-focus-ring: var(--fsus-color-focus-ring, var(--accent, Highlight));
+  --fsusblog-color-focus-ring: var(--fsus-color-primary, #2A599C);
   --fsusblog-page-bg: var(--bg);
   --fsusblog-page-bg-soft: var(--surface);
   --fsusblog-page-bg-muted: color-mix(in srgb, var(--fsusblog-page-bg) 72%, transparent);
@@ -375,6 +375,16 @@ body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-fade-in {
 #fsus-aot-shell .mono-link:focus-visible,
 #fsus-aot-shell .blog-link-state:focus-visible {
   box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
+}
+
+@media (forced-colors: active) {
+  #fsus-aot-shell .blog-focus-ring:focus-visible,
+  #fsus-aot-shell .nav-link:focus-visible,
+  #fsus-aot-shell .mono-link:focus-visible,
+  #fsus-aot-shell .blog-link-state:focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
 }
 
 #fsus-aot-shell .active-link {

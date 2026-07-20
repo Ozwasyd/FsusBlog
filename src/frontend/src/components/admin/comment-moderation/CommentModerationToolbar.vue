@@ -302,8 +302,8 @@ const onDateRangeChange = (value: unknown): void => {
 }
 
 .comment-moderation-status-tabs__item:focus-visible {
-  outline: 2px solid var(--fsusblog-color-primary);
-  outline-offset: -2px;
+  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
+  outline: none;
 }
 
 .comment-moderation-status-tabs__item:disabled {

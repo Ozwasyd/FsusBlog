@@ -743,10 +743,9 @@ watch(
 }
 
 .moderation-regions-mobile-list :deep(.el-data-list__row:focus-visible) {
-  outline: 2px solid
-    color-mix(in srgb, var(--fsusblog-color-focus-ring) 42%, transparent);
-  outline-offset: -2px;
   background: color-mix(in srgb, var(--fsusblog-color-primary) 5%, transparent);
+  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
+  outline: none;
 }
 
 .moderation-regions-mobile-list :deep(.el-data-list__row.is-active) {

@@ -170,6 +170,14 @@ const localNavigationTitleId = computed(() => (
   box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
 }
 
+@media (forced-colors: active) {
+  .account-module-link:focus-visible,
+  .account-local-navigation__link:focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+}
+
 .account-module-link:hover::before,
 .account-module-link:focus-visible::before,
 .account-module-link-active::before,
