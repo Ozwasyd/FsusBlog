@@ -132,7 +132,7 @@
                 <el-input v-model="siteForm.description" name="siteDescription" :csp-safe="true" type="textarea" :rows="4" maxlength="200" show-word-limit :disabled="siteFormDisabled" />
               </el-form-item>
 
-              <section class="mt-12 border-t border-[var(--fsusblog-panel-border)] pt-10" aria-label="浏览器与 PWA 资产">
+              <section class="mt-10 border-t border-[var(--fsusblog-panel-border)] pt-8" aria-label="浏览器与 PWA 资产">
                 <header class="mb-8 flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <h4 class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-primary)]">浏览器与 PWA</h4>
@@ -259,7 +259,7 @@
                 </div>
               </section>
 
-              <section class="mt-12 border-t border-[var(--fsusblog-panel-border)] pt-10" aria-label="品牌资产">
+              <section class="mt-10 border-t border-[var(--fsusblog-panel-border)] pt-8" aria-label="品牌资产">
                 <header class="mb-8">
                   <h4 class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-primary)]">品牌资产</h4>
                   <p class="mt-3 text-[12px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">公开页、管理后台与登录页会优先使用这些图片；留空时回退为文字站名。</p>
@@ -356,7 +356,7 @@
                 </div>
               </section>
 
-              <section class="mt-12 border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] p-5" aria-label="SEO 与社交分享预览">
+              <section class="mt-10 border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] p-5" aria-label="SEO 与社交分享预览">
                 <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)] mb-4">搜索结果预览</div>
                 <div class="space-y-2">
                   <p class="text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ siteSearchPreview.title }}</p>
