@@ -3,6 +3,7 @@ import {
   decodeLocalDraftMetadata,
   encodeLocalDraftMetadata,
   normalizeLocalDraftMetadata,
+  parseArticleRevisionConflictDetails,
   resolveLocalDraftRecovery,
   toLocalDraftMetadata
 } from '@/composables/useAdminArticleWrite'
@@ -33,6 +34,7 @@ const snapshot = {
   },
   savedAt: 1234,
   sourceArticleId: 42,
+  baseRevisionId: '8123',
   isEdit: true,
   source: 'local' as const,
   clientRevision: 'revision-1'
@@ -104,5 +106,23 @@ describe('admin article local draft metadata', () => {
       savedAt: 2345,
       hasLocalMetadataWithoutRestorableDraft: true
     })
+  })
+
+  it('parses authoritative coordinates for stale two-tab, delayed autosave, and retry conflicts', () => {
+    const details = JSON.stringify({
+      currentRevisionId: '9010',
+      revisionNo: 8,
+      status: 0,
+      updatedAt: '2026-07-20T08:00:00.0000000Z'
+    })
+
+    expect(parseArticleRevisionConflictDetails(details)).toEqual({
+      currentRevisionId: '9010',
+      revisionNo: 8,
+      status: 0,
+      updatedAt: '2026-07-20T08:00:00.0000000Z'
+    })
+    expect(parseArticleRevisionConflictDetails('{"revisionNo":8}')).toBeNull()
+    expect(parseArticleRevisionConflictDetails('not-json')).toBeNull()
   })
 })

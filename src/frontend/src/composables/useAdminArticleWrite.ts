@@ -49,6 +49,7 @@ import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
 import { ensureAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
 import { usePow } from '@/composables/usePow'
 import { decodePublicAotPayload, encodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload'
+import { BinaryTransportError } from '@/composition/binaryTransport'
 
 interface ArticleParams {
   title: string
@@ -65,6 +66,7 @@ interface ArticleParams {
 interface ArticleDraftSnapshot extends ArticleParams {
   savedAt: number
   sourceArticleId: number | null
+  baseRevisionId: string | null
   isEdit: boolean
   source: 'local' | 'server'
   clientRevision: string
@@ -80,6 +82,33 @@ export interface LocalDraftMetadataSource {
 export interface LocalDraftMetadata extends LocalDraftMetadataSource {
   schema: 'fsusblog.article-draft-metadata.v1'
   source: 'local'
+}
+
+export interface ArticleRevisionConflictMetadata {
+  currentRevisionId: string
+  revisionNo: number
+  status: number
+  updatedAt: string
+}
+
+export const parseArticleRevisionConflictDetails = (details?: string | null): ArticleRevisionConflictMetadata | null => {
+  if (!details) {
+    return null
+  }
+
+  try {
+    const value = JSON.parse(details) as Partial<ArticleRevisionConflictMetadata>
+    if (typeof value.currentRevisionId !== 'string'
+      || !/^\d+$/.test(value.currentRevisionId)
+      || !Number.isInteger(value.revisionNo)
+      || !Number.isInteger(value.status)
+      || typeof value.updatedAt !== 'string') {
+      return null
+    }
+    return value as ArticleRevisionConflictMetadata
+  } catch {
+    return null
+  }
 }
 
 export interface LocalDraftRecovery<TDraft> {
@@ -444,6 +473,8 @@ export function useAdminArticleWrite() {
   const pendingDraft = ref<ArticleDraftSnapshot | null>(null)
   const draftSavedAt = ref<number | null>(null)
   const draftConflictText = ref('')
+  const currentRevisionId = ref<string | null>(null)
+  const currentRevisionNo = ref<number | null>(null)
   const serverDraftSyncPaused = ref(false)
   const articleRevisions = shallowRef<ArticleRevisionSummaryResponse[]>([])
   const selectedRevision = ref<ArticleRevisionDetailResponse | null>(null)
@@ -682,6 +713,7 @@ export function useAdminArticleWrite() {
     rights: { ...articleForm.rights },
     savedAt: Date.now(),
     sourceArticleId: articleId.value,
+    baseRevisionId: isEdit.value ? currentRevisionId.value : null,
     isEdit: isEdit.value,
     source,
     clientRevision: nextClientRevision()
@@ -690,6 +722,7 @@ export function useAdminArticleWrite() {
   const buildServerDraftRequest = (snapshot: ArticleDraftSnapshot): ServerDraftSaveRequest => ({
     draftKey: draftKey.value,
     articleId: snapshot.sourceArticleId,
+    baseRevisionId: snapshot.baseRevisionId,
     title: snapshot.title,
     content: snapshot.content,
     summary: snapshot.summary || null,
@@ -718,6 +751,7 @@ export function useAdminArticleWrite() {
       rights: normalizeArticleRightsForm(draft.rights),
       savedAt: Number.isFinite(savedAt) ? savedAt : 0,
       sourceArticleId: draft.articleId,
+      baseRevisionId: draft.baseRevisionId,
       isEdit: draft.articleId !== null,
       source: 'server',
       clientRevision: draft.clientRevision ?? ''
@@ -840,6 +874,9 @@ export function useAdminArticleWrite() {
     articleForm.status = draft.status
     articleForm.scheduledPublishAt = draft.scheduledPublishAt
     articleForm.rights = { ...draft.rights }
+    if (draft.isEdit) {
+      currentRevisionId.value = draft.baseRevisionId
+    }
     serverDraftSyncPaused.value = false
     suppressDraftSave = false
   }
@@ -959,6 +996,9 @@ export function useAdminArticleWrite() {
     articleForm.status = normalizeArticlePublishStatus(data.status)
     articleForm.scheduledPublishAt = normalizeDateTimeInput(data.scheduledPublishAt)
     articleForm.rights = { ...normalizeArticleRightsForm(data.rights), mode: 'custom' }
+    currentRevisionId.value = data.currentRevisionId ?? null
+    currentRevisionNo.value = data.revisionNo ?? null
+    draftConflictText.value = ''
   }
 
   const loadArticleDetailIntoForm = async (signal: AbortSignal): Promise<void> => {
@@ -1028,7 +1068,14 @@ export function useAdminArticleWrite() {
     try {
       const revisionNo = selectedRevision.value.revisionNo
       const mfaProofToken = await ensureAdminSensitiveProof()
-      const rolledBack = await rollbackArticleRevision(articleId.value, selectedRevision.value.id, { mfaProofToken })
+      if (!currentRevisionId.value) {
+        throw new Error('article_base_revision_required')
+      }
+      const rolledBack = await rollbackArticleRevision(
+        articleId.value,
+        selectedRevision.value.id,
+        currentRevisionId.value,
+        { mfaProofToken })
       if (!rolledBack) {
         showWarningToast('历史版本不存在或已被清理', '历史版本不存在或已被清理')
         taskFeedback.partial('历史版本回滚未执行', '目标版本不存在或已被清理', 'article-revision')
@@ -1500,7 +1547,8 @@ export function useAdminArticleWrite() {
           tagIds: [...articleForm.tagIds],
           status: articleForm.status,
           scheduledPublishAt: articleForm.status === ArticlePublishStatus.Scheduled ? articleForm.scheduledPublishAt : null,
-          rights: buildArticleRightsRequest()
+          rights: buildArticleRightsRequest(),
+          baseRevisionId: isEdit.value ? currentRevisionId.value : null
         }
 
         let targetArticleId: number | null = null
@@ -1511,7 +1559,12 @@ export function useAdminArticleWrite() {
             return
           }
 
-          await updateArticle(articleId.value, articlePayload, config)
+          if (!currentRevisionId.value) {
+            throw new Error('article_base_revision_required')
+          }
+          const result = await updateArticle(articleId.value, articlePayload, config)
+          currentRevisionId.value = String(result.revisionId)
+          currentRevisionNo.value = result.revisionNo
           targetArticleId = articleId.value
         } else {
           const result = await createArticle(articlePayload, config)
@@ -1535,6 +1588,14 @@ export function useAdminArticleWrite() {
       })
     } catch (error: unknown) {
       if (!isAbortError(error)) {
+        if (error instanceof BinaryTransportError && error.message === 'article_revision_conflict') {
+          let latestRevision = '较新的版本'
+          const details = parseArticleRevisionConflictDetails(error.details)
+          if (details) {
+            latestRevision = `版本 ${details.revisionNo}`
+          }
+          draftConflictText.value = `检测到${latestRevision}，当前编辑内容未提交。请先重新载入并比较后再保存。`
+        }
         taskFeedback.fail(isEdit.value ? '博文更新失败' : '博文发布失败', error, isEdit.value ? '博文更新失败，请稍后重试' : '博文发布失败，请稍后重试', 'article-submit')
         showErrorToast(error, isEdit.value ? '博文更新失败，请稍后重试' : '博文发布失败，请稍后重试')
         console.error('[Article Submit] Critical Error:', error)

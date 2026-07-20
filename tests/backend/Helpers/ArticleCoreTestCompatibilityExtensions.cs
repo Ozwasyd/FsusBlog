@@ -31,7 +31,7 @@ internal static class ArticleCoreTestCompatibilityExtensions
         => service.CreateAsync(new CreateArticleCommand(new ArticleWriteRequestCoreModel(title, content, summary, coverImageUrl, categoryId, tagIds, status, scheduledPublishAt)), cancellationToken);
 
     public static Task<Result> UpdateAsync(this IArticleCoreService service, int id, string title, string content, string? summary, string? coverImageUrl, int categoryId, IReadOnlyList<int> tagIds, int status = 2, DateTime? scheduledPublishAt = null, CancellationToken cancellationToken = default)
-        => service.UpdateAsync(new UpdateArticleCommand(id, new ArticleWriteRequestCoreModel(title, content, summary, coverImageUrl, categoryId, tagIds, status, scheduledPublishAt)), cancellationToken);
+        => service.UpdateAsync(new UpdateArticleCommand(id, new ArticleWriteRequestCoreModel(title, content, summary, coverImageUrl, categoryId, tagIds, status, scheduledPublishAt), Force: true), cancellationToken);
 
     public static Task<Result> DeleteAsync(this IArticleCoreService service, int id, CancellationToken cancellationToken = default)
         => service.DeleteAsync(new ArticleIdCommand(id), cancellationToken);
@@ -67,7 +67,7 @@ internal static class ArticleCoreTestCompatibilityExtensions
         => gateway.CreateAsync(new CreateArticleCommand(new ArticleWriteRequestCoreModel(title, content, summary, coverImageUrl, categoryId, tagIds, status, scheduledPublishAt)), cancellationToken);
 
     public static Task<bool> UpdateAsync(this IArticleCoreGateway gateway, int id, string title, string content, string? summary, string? coverImageUrl, int categoryId, IReadOnlyList<int> tagIds, int status = 2, DateTime? scheduledPublishAt = null, CancellationToken cancellationToken = default)
-        => gateway.UpdateAsync(new UpdateArticleCommand(id, new ArticleWriteRequestCoreModel(title, content, summary, coverImageUrl, categoryId, tagIds, status, scheduledPublishAt)), cancellationToken);
+        => gateway.UpdateAsync(new UpdateArticleCommand(id, new ArticleWriteRequestCoreModel(title, content, summary, coverImageUrl, categoryId, tagIds, status, scheduledPublishAt), Force: true), cancellationToken);
 
     public static Task<bool> DeleteAsync(this IArticleCoreGateway gateway, int id, CancellationToken cancellationToken = default)
         => gateway.DeleteAsync(new ArticleIdCommand(id), cancellationToken);
@@ -97,7 +97,7 @@ internal static class ArticleCoreTestCompatibilityExtensions
         => service.CreateAsync(ToCore(request), cancellationToken);
 
     public static Task<bool> UpdateAsync(this ArticleService service, int id, UpdateArticleRequest request, CancellationToken cancellationToken = default)
-        => service.UpdateAsync(id, ToCore(request), cancellationToken);
+        => ((IArticleCoreGateway)service).UpdateAsync(new UpdateArticleCommand(id, ToCore(request), Force: true), cancellationToken);
 
     private static ArticleWriteRequestCoreModel ToCore(CreateArticleRequest request)
         => new(request.Title, request.Content, request.Summary, request.CoverImageUrl, request.CategoryId, request.TagIds ?? [], (int)request.Status, request.ScheduledPublishAt, ToCore(request.Rights), ResolveRightsMutation(request.Rights, request.ResetRights));

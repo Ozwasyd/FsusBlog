@@ -177,13 +177,14 @@ describe('article API (admin)', () => {
     })
   })
 
-  it('createArticle encodes ArticleWriteRequest V4 preserve mode when rights are omitted', async () => {
+  it('createArticle encodes ArticleWriteRequest V5 preserve mode without a base revision', async () => {
     const data = { title: 'T', content: 'C', summary: 'S', categoryId: 1, tagIds: [] }
     await createArticle(data)
 
     const parsed = parseArticleWriteRequestPayload(getMutationPayload())
 
-    expect(parsed.version).toBe(4)
+    expect(parsed.version).toBe(5)
+    expect(parsed.baseRevisionId).toBe(0n)
     expect(parsed.rightsMutation).toBe(0)
     expect(parsed.flags).toBe(15)
     expect(parsed.copyrightYear).toBe(0)
@@ -195,7 +196,7 @@ describe('article API (admin)', () => {
     expect(parsed.rights.attributionTemplate).toBe('')
   })
 
-  it('createArticle encodes ArticleWriteRequest V4 explicit rights replacement', async () => {
+  it('createArticle encodes ArticleWriteRequest V5 explicit rights replacement', async () => {
     await createArticle({
       title: 'T',
       content: 'C',
@@ -220,7 +221,7 @@ describe('article API (admin)', () => {
     const parsed = parseArticleWriteRequestPayload(getMutationPayload())
 
     expect(parsed.tagIds).toEqual([5, 3])
-    expect(parsed.version).toBe(4)
+    expect(parsed.version).toBe(5)
     expect(parsed.rightsMutation).toBe(1)
     expect(parsed.flags).toBe(27)
     expect(parsed.copyrightYear).toBe(2026)
@@ -233,7 +234,7 @@ describe('article API (admin)', () => {
   })
 
   it('updateArticle calls PUT /Article/:id', async () => {
-    const data = { title: 'T', content: 'C', summary: 'S', categoryId: 1, tagIds: [] }
+    const data = { title: 'T', content: 'C', summary: 'S', categoryId: 1, tagIds: [], baseRevisionId: '8123' }
     await updateArticle(10, data)
     expectBinaryRoute('binary_put_admin_article_id_int', FrameType.MutationId, {
       params: { id: 10 },
@@ -243,6 +244,7 @@ describe('article API (admin)', () => {
         body: expect.any(ArrayBuffer)
       })
     })
+    expect(parseArticleWriteRequestPayload(getMutationPayload()).baseRevisionId).toBe(8123n)
   })
 
   it('updateArticle encodes explicit rights reset independently from a replacement payload', async () => {
@@ -333,6 +335,7 @@ function parseArticleWriteRequestPayload(payload: Uint8Array): {
   tagIds: number[]
   version: number
   rightsMutation: number
+  baseRevisionId: bigint
   flags: number
   copyrightYear: number
   maxExcerptChars: number
@@ -372,6 +375,8 @@ function parseArticleWriteRequestPayload(payload: Uint8Array): {
   const rightsBlobLength = view.getInt32(cursor, true)
   cursor += 4
   const rightsBlob = payload.subarray(cursor, cursor + rightsBlobLength)
+  cursor += rightsBlobLength
+  const baseRevisionId = view.getBigInt64(cursor, true)
   const readSlice = (index: number) => {
     const slice = sliceRefs[index]!
     expect(slice).toBeDefined()
@@ -382,6 +387,7 @@ function parseArticleWriteRequestPayload(payload: Uint8Array): {
     tagIds,
     version,
     rightsMutation,
+    baseRevisionId,
     flags,
     copyrightYear,
     maxExcerptChars,

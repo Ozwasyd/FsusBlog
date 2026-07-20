@@ -89,7 +89,7 @@ Ready and superseded publish proof manifests contain `articleId`, `articleRevisi
 | FrameType | POD | 说明 |
 | ----------- | ----- | ------ |
 | `EmptySuccess` (`240`) | `EmptySuccessPod` | 无数据成功响应，`Ok = 1` |
-| `MutationId` (`241`) | `MutationIdPod` / `ArticleMutationResponsePod` | 通用写操作返回 8B `int64 Id`；文章 create/update 返回 16B article ID + rights snapshot ID + rights revision no |
+| `MutationId` (`241`) | `MutationIdPod` / `ArticleMutationResponsePod` | 通用写操作返回 8B `int64 Id`；文章 create/update 返回 28B article/revision 与 rights snapshot 坐标 |
 | `ApiError` (`251`) | `ApiErrorPod` | Binary 错误响应，包含 `Code`、`Category`、`HttpStatus`、`Message`、`Details`、`TraceId`；非业务错误不得回显内部 exception/message |
 
 ### AEDS v2 payload layout
@@ -1997,9 +1997,9 @@ urlset 每页上限为 45,000，超过后根 `/sitemap.xml` 改为 sitemap index
 
 文章写校验失败统一返回 `Validation`，`details` 至少稳定区分 `title_invalid`、`summary_invalid`、`content_invalid`、`cover_url_invalid`、`category_not_found`、`tag_not_found`、`tag_limit_exceeded` 及上述状态码。`/api/binary/author/prepublish-check` 在相同条件下把这些分类放入 `issues[].code`，`canPublish=false`；warning override 不得令 error 可写。
 
-Binary 写入帧 **ArticleWriteRequest V4**（`ArticleWriteRequest` 当前版本）使用旧 `ArticleWriteRequestPod` + `tagIds:int32[]` + article blob 作为主体，随后按顺序追加 `status:int32`、`scheduledPublishAtUnixMs:int64`、`version:int32=4`、`rightsMutation:int32`、`rightsFlags:int32`、`copyrightYear:int32`、`maxExcerptChars:int32`、`ArticleRightsWriteRequestPod`、rights blob。`rightsMutation` 固定为 `0 preserve`、`1 replace`、`2 reset`；`rightsFlags` bit 定义为：`1 enabled`、`2 allowCodeCopy`、`4 showPublicBadge`、`8 proofBindingEnabled`、`16 hasCopyrightYear`。`ArticleRightsWriteRequestPod` 只包含 UTF-8 slice：`licenseType`、`copyrightHolder`、`rightsStatement`、`attributionTemplate`、`copyPolicy`。V3 总是携带完整 rights 段，按 `replace` 只读兼容；rights 功能加入前、只含主体以及可选 `status/scheduledPublishAt` tail 的旧客户端 payload 按 `preserve` 只读兼容，不能再规范化为默认策略并覆盖现有文章。
+Binary 写入帧 **ArticleWriteRequest V5**（`ArticleWriteRequest` 当前版本）使用旧 `ArticleWriteRequestPod` + `tagIds:int32[]` + article blob 作为主体，随后按顺序追加 `status:int32`、`scheduledPublishAtUnixMs:int64`、`version:int32=5`、`rightsMutation:int32`、`rightsFlags:int32`、`copyrightYear:int32`、`maxExcerptChars:int32`、`ArticleRightsWriteRequestPod`、rights blob、`baseRevisionId:int64`。create 使用 `0`；update 必须使用作者详情返回的正数 revision ID。`rightsMutation` 固定为 `0 preserve`、`1 replace`、`2 reset`；`rightsFlags` bit 定义为：`1 enabled`、`2 allowCodeCopy`、`4 showPublicBadge`、`8 proofBindingEnabled`、`16 hasCopyrightYear`。V4/V3 与更早 payload 仅保留 create 读取兼容，不能绕过 update 的 base revision 门禁。
 
-`POST /api/binary/admin/article` 与 `PUT /api/binary/admin/article/{id}` 成功时仍使用 frame `MutationId(241)`，但 payload 为 16B `ArticleMutationResponsePod`：`id:int32`、`rightsSnapshotId:int64`、`rightsRevisionNo:int32`。分类、标签等其它 mutation 继续返回 8B `MutationIdPod`。服务端必须在文章事务提交后从 author-side detail 回读精确绑定坐标；坐标不可得时返回 `InfraFailure/details=article_mutation_version_unavailable`，不得返回只有 article ID 的伪成功。
+`POST /api/binary/admin/article` 与 `PUT /api/binary/admin/article/{id}` 成功时仍使用 frame `MutationId(241)`，但 payload 为 28B `ArticleMutationResponsePod`：`id:int32`、`revisionId:int64`、`revisionNo:int32`、`rightsSnapshotId:int64`、`rightsRevisionNo:int32`。分类、标签等其它 mutation 继续返回 8B `MutationIdPod`，旧 16B article response 仅保留前端读取兼容。服务端必须在事务提交后回读精确绑定坐标；坐标不可得时返回 `InfraFailure/details=article_mutation_version_unavailable`。update 的 `baseRevisionId` 失配返回 HTTP 409 `ApiError(message=article_revision_conflict)`，details 为 `currentRevisionId/revisionNo/status/updatedAt`；该事务不得产生正文、标签、rights、publication 或 outbox 写入。
 
 Binary 读取帧 **ArticleDetail AEDS V5** 使用 `magic=ARD5`、`version=5` + 116B `ArticleDetailV5RecordPod` + `ArticleDetailTagV3RecordPod[]` + 必备 `ArticleRightsV3RecordPod` + 共享 blob；V4 `ARD4`/92B 与 V3 `ARD3`/84B record 仅保留只读兼容。后端 public artifact、admin detail 和 server cache 都必须从 publication 固定的 revision 与 `article_rights_snapshot` 投影字段；retired ArticleDetail tail 必须拒绝，不得新增独立 `/rights.aeds` fallback。
 
@@ -2024,14 +2024,14 @@ delete、restore、permanent-delete 必须先读取 article `xmin`，写入时�
 
 生产前端使用 `/api/binary/author/**`，外层为 AEDS v2 frame。写入请求使用 route-specific request frame（如 `AuthorDraftSaveRequest`、`ModerationRuntimeGlobalStateRequest`、`ContentImportRequest`），响应使用 route-specific response frame（如 `AuthorDraftResponse`、`ModerationRuntimeStatus`、`AuditLogList`）；payload 当前承载类型化 JSON DTO bytes，浏览器不可访问 `JsonApiResponse<T>` envelope，错误统一为 `ApiError` frame。授权、MFA、fixed_ip rate limit、审计和缓存失效边界均由原生 authoring binary endpoint 直接执行；外部 `/api/author/**` JSON endpoint 已移除，且不保留 internal bridge 兼容层：
 
-Authoring binary 写入请求 body 最大 1 MiB。`ServerDraftSaveRequest` 字段上限为：`DraftKey` 96、`Title` 256、`Content` 200000、`Summary` 512、`CoverImageUrl` 512、`ClientRevision` 128、`WarningOverrideReason` 500；超限请求在 Markdown、内容过滤、快照构建或持久化前按 validation fail closed，并与正式文章写入字段上限保持一致。
+Authoring binary 写入请求 body 最大 1 MiB。`ServerDraftSaveRequest` 字段上限为：`DraftKey` 96、`Title` 256、`Content` 200000、`Summary` 512、`CoverImageUrl` 512、`ClientRevision` 128、`WarningOverrideReason` 500；编辑草稿同时保存 nullable `baseRevisionId`，恢复时原样返回。超限请求在 Markdown、内容过滤、快照构建或持久化前按 validation fail closed，并与正式文章写入字段上限保持一致。
 
-Admin Rights V3 editor panel 是文章编辑器内的 `rights` 写入面板，字段与 `ArticleWriteRequest.rights` 一一对应：`enabled`、`licenseType`、`copyrightHolder`、`copyrightYear`、`rightsStatement`、`attributionTemplate`、`copyPolicy`、`maxExcerptChars`、`allowCodeCopy`、`showPublicBadge`、`proofBindingEnabled`。新文章默认选择“继承站点设置”，管理端会读取站点合规版权配置生成当前生效的文章版权值，并在提交时写入完整 `ArticleWriteRequest.rights` replacement；这不是发布后继续动态跟随站点配置。用户切换为“自定义本文版权”后才允许修改单篇文章字段；编辑既有文章时从冻结 `ArticleDetail.rights` 载入当前策略并进入自定义模式。metadata-only 或旧客户端请求可以省略 rights，以 V4 preserve 语义保持当前策略；显式恢复仓库默认策略只能发送独立 reset flag，不得伪造一份默认 replacement。浏览器 localStorage 只保存不可恢复正文的草稿 metadata，不保存 `rights`、标题、摘要、正文或其他未发布内容；完整 `rights` 只写入 `ServerDraftSaveRequest`，私有预览、发布前检查和最终提交共享同一份当前表单构造。客户端会提前校验 enum values、`copyrightYear`、`maxExcerptChars` 和必填文本字段，但 server-side validation remains authoritative，服务端仍按 Article write path 拒绝非法 mutation 或不完整 replacement。
+Admin Rights V3 editor panel 是文章编辑器内的 `rights` 写入面板，字段与 `ArticleWriteRequest.rights` 一一对应：`enabled`、`licenseType`、`copyrightHolder`、`copyrightYear`、`rightsStatement`、`attributionTemplate`、`copyPolicy`、`maxExcerptChars`、`allowCodeCopy`、`showPublicBadge`、`proofBindingEnabled`。新文章默认选择“继承站点设置”，管理端会读取站点合规版权配置生成当前生效的文章版权值，并在提交时写入完整 `ArticleWriteRequest.rights` replacement；这不是发布后继续动态跟随站点配置。用户切换为“自定义本文版权”后才允许修改单篇文章字段；编辑既有文章时从冻结 `ArticleDetail.rights` 载入当前策略并进入自定义模式。metadata-only 或旧客户端请求可以省略 rights，以 V5 preserve 语义保持当前策略；显式恢复仓库默认策略只能发送独立 reset flag，不得伪造一份默认 replacement。浏览器 localStorage 只保存不可恢复正文的草稿 metadata，不保存 `rights`、标题、摘要、正文或其他未发布内容；完整 `rights` 和原始 `baseRevisionId` 只写入 `ServerDraftSaveRequest`，私有预览、发布前检查和最终提交共享同一份当前表单构造。客户端会提前校验 enum values、`copyrightYear`、`maxExcerptChars` 和必填文本字段，但 server-side validation remains authoritative，服务端仍按 Article write path 拒绝非法 mutation 或不完整 replacement。
 
 | 方法 | 路径 | 说明 |
 | ------ | ------ | ------ |
-| POST | `/api/binary/author/drafts` | 保存服务端草稿，按 `ownerAdminPrincipalId + draftKey` 幂等覆盖；owner 来自 admin principal `admin_id`，payload 包含 `status`、`scheduledPublishAt` 与完整 `rights` |
-| GET | `/api/binary/author/drafts/{draftKey}` | 读取服务端草稿；不存在时返回 `success=true,data=null`，存在时返回 `updatedAt`、`clientRevision`、发布状态、定时发布时间与 `rights` |
+| POST | `/api/binary/author/drafts` | 保存服务端草稿，按 `ownerAdminPrincipalId + draftKey` 幂等覆盖；payload 包含 `baseRevisionId`、`status`、`scheduledPublishAt` 与完整 `rights` |
+| GET | `/api/binary/author/drafts/{draftKey}` | 读取服务端草稿；不存在时返回 `success=true,data=null`，存在时原样返回 `baseRevisionId`、`updatedAt`、`clientRevision`、发布状态与 `rights` |
 | DELETE | `/api/binary/author/drafts/{draftKey}` | 丢弃服务端草稿；编辑器同步清除浏览器中的草稿 metadata |
 | POST | `/api/binary/author/preview` | admin-only 私有预览，输出经过转义的 Markdown/AOT-like HTML，根节点带 `data-preview-only=true`、`data-markdown-renderer=server-preview`，不写 PublicAOT cache |
 | POST | `/api/binary/author/prepublish-check` | 发布前检查标题、SEO 描述、封面 URL、Markdown 结构、链接、图片 alt 与危险 HTML |

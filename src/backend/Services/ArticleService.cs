@@ -1301,12 +1301,13 @@ public partial class ArticleService(
     }
 
     public Task<bool> UpdateAsync(int id, ArticleWriteRequestCoreModel dto, CancellationToken cancellationToken = default)
-        => UpdateAsync(id, dto, transitionKind: null, cancellationToken);
+        => UpdateAsync(id, dto, transitionKind: null, force: false, cancellationToken);
 
     private async Task<bool> UpdateAsync(
         int id,
         ArticleWriteRequestCoreModel dto,
         string? transitionKind,
+        bool force,
         CancellationToken cancellationToken)
     {
         CancellationToken ct = ResolveCancellationToken(cancellationToken);
@@ -1315,6 +1316,11 @@ public partial class ArticleService(
         if (state is null)
         {
             return false;
+        }
+
+        if (!force && dto.BaseRevisionId != state.CurrentRevisionId)
+        {
+            throw state.ToConflictException();
         }
 
         var title = NormalizeText(dto.Title, MaxTitleLength);
@@ -1376,9 +1382,16 @@ public partial class ArticleService(
                     title,
                     safeSummary,
                     coverImageUrl,
-                    dto.CategoryId);
+                    dto.CategoryId,
+                    force ? null : dto.BaseRevisionId);
                 if (!updated)
                 {
+                    ArticleUpdateState? current = await LoadArticleUpdateStateAsync(id);
+                    if (current is not null)
+                    {
+                        throw current.ToConflictException();
+                    }
+
                     return;
                 }
 
@@ -1448,6 +1461,14 @@ public partial class ArticleService(
             {
                 throw validationException;
             }
+            if (result.ErrorException is ArticleRevisionConflictException revisionConflictException)
+            {
+                throw revisionConflictException;
+            }
+            if (result.ErrorException is not null)
+            {
+                throw result.ErrorException;
+            }
             return false;
         }
         finally
@@ -1467,16 +1488,21 @@ public partial class ArticleService(
                    a.xmin::text AS row_version,
                    a.status,
                    a.published_at,
+                   a.current_revision_id,
+                   revision.revision_no,
+                   revision.created_at AS revision_updated_at,
                    COALESCE(
                        array_agg(at.tagid ORDER BY at.tagid)
                            FILTER (WHERE at.tagid IS NOT NULL),
                        ARRAY[]::integer[]
                    ) AS tag_ids
             FROM article a
+            JOIN article_revision revision ON revision.id = a.current_revision_id
             LEFT JOIN article_tag at ON at.articleid = a.id
             WHERE a.id = @ArticleId
               AND a.isdeleted = false
-            GROUP BY a.id, a.categoryid, a.xmin, a.status, a.published_at;
+            GROUP BY a.id, a.categoryid, a.xmin, a.status, a.published_at,
+                     a.current_revision_id, revision.revision_no, revision.created_at;
             """,
             new SugarParameter("@ArticleId", articleId));
         if (!await reader.ReadAsync(Ct))
@@ -1491,7 +1517,15 @@ public partial class ArticleService(
             ? null
             : NormalizeArticleListTimestampUtc(reader.ReadDateTime("published_at"));
         int[] tags = reader.ReadFieldValue<int[]>("tag_ids");
-        return new ArticleUpdateState(categoryId, tags.ToList(), rowVersion, status, publishedAt);
+        return new ArticleUpdateState(
+            categoryId,
+            tags.ToList(),
+            rowVersion,
+            status,
+            publishedAt,
+            reader.ReadInt64("current_revision_id"),
+            reader.ReadInt32("revision_no"),
+            NormalizeArticleListTimestampUtc(reader.ReadDateTime("revision_updated_at")));
     }
 
     private Task UpsertArticleBodyAsync(int articleId, string markdownContent, DateTime updatedAt)
@@ -1515,7 +1549,8 @@ public partial class ArticleService(
         string title,
         string summary,
         string? coverImageUrl,
-        int categoryId)
+        int categoryId,
+        long? baseRevisionId)
     {
         int affectedRows = await _db.Ado.ExecuteCommandAsync(
             """
@@ -1526,10 +1561,12 @@ public partial class ArticleService(
                 categoryid = @CategoryId
             WHERE id = @ArticleId
               AND isdeleted = false
+              AND (@BaseRevisionId = 0 OR current_revision_id = @BaseRevisionId)
               AND xmin::text = @RowVersion;
             """,
             new SugarParameter("@ArticleId", articleId),
             new SugarParameter("@RowVersion", state.RowVersion),
+            new SugarParameter("@BaseRevisionId", baseRevisionId.GetValueOrDefault()),
             new SugarParameter("@Title", title),
             new SugarParameter("@Summary", summary),
             new SugarParameter("@CoverImageUrl", (object?)coverImageUrl ?? DBNull.Value),
@@ -1590,7 +1627,14 @@ public partial class ArticleService(
         List<int> TagIds,
         string RowVersion,
         ArticleStatus Status,
-        DateTime? PublishedAt);
+        DateTime? PublishedAt,
+        long CurrentRevisionId,
+        int RevisionNo,
+        DateTime UpdatedAtUtc)
+    {
+        public ArticleRevisionConflictException ToConflictException()
+            => new(CurrentRevisionId, RevisionNo, (int)Status, UpdatedAtUtc);
+    }
 
     private static string TransitionKindFor(ArticleStatus status)
         => status switch

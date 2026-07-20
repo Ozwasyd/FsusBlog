@@ -1,3 +1,4 @@
+using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Requests;
@@ -33,7 +34,13 @@ public interface IAuthoringDraftLifecycle
 
     Task<ArticleRevisionDetailResponse?> GetRevisionAsync(int articleId, long revisionId, CancellationToken cancellationToken = default);
 
-    Task<bool> RollbackRevisionAsync(long actorAdminPrincipalId, int articleId, long revisionId, CancellationToken cancellationToken = default);
+    Task<Result<bool>> RollbackRevisionAsync(
+        long actorAdminPrincipalId,
+        int articleId,
+        long revisionId,
+        long? baseRevisionId,
+        bool force,
+        CancellationToken cancellationToken = default);
 
     Task<ArticlePreviewResponse> PreviewAsync(ServerDraftSaveRequest request);
 }

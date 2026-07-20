@@ -175,8 +175,16 @@ export const getAdminArticleById = (id: number, config?: ApiRequestConfig) =>
  * 创建文章
  * 创建请求必须携带 PoW 证明，以限制自动化滥用。
  */
+export interface ArticleMutationResponse {
+    id: number;
+    revisionId: number;
+    revisionNo: number;
+    rightsSnapshotId: number;
+    rightsRevisionNo: number;
+}
+
 export const createArticle = (data: ArticleWriteRequest, config?: ApiRequestConfig) =>
-    requestBinaryOnly<{ id: number; rightsSnapshotId: number; rightsRevisionNo: number; }>({
+    requestBinaryOnly<ArticleMutationResponse>({
         binaryRoute: { operationId: 'binary_post_admin_article' },
         frameType: FrameType.MutationId,
         signal: config?.signal,
@@ -191,7 +199,7 @@ export const createArticle = (data: ArticleWriteRequest, config?: ApiRequestConf
  * 更新文章
  */
 export const updateArticle = (id: number, data: ArticleWriteRequest, config?: ApiRequestConfig) =>
-    requestBinaryOnly<{ id: number; rightsSnapshotId: number; rightsRevisionNo: number; }>({
+    requestBinaryOnly<ArticleMutationResponse>({
         binaryRoute: {
             operationId: 'binary_put_admin_article_id_int',
             params: { id }
@@ -301,7 +309,7 @@ function normalizeSize(value: number, fallback: number): number
     return Math.min(Math.max(normalized, 1), 100);
 }
 
-const ArticleWriteRequestVersion = 4;
+const ArticleWriteRequestVersion = 5;
 const ArticleRightsMutationPreserve = 0;
 const ArticleRightsMutationReplace = 1;
 const ArticleRightsMutationReset = 2;
@@ -333,7 +341,7 @@ function encodeArticleWriteRequest(data: ArticleWriteRequest): Uint8Array
     const rightsBlobLength = rightsTextParts.reduce((sum, part) => sum + part.byteLength, 0);
     const tagIds = Array.isArray(data.tagIds) ? data.tagIds : [];
     const tagBytesLength = tagIds.length * 4;
-    const bytes = new Uint8Array(40 + tagBytesLength + 4 + blobLength + 76 + rightsBlobLength);
+    const bytes = new Uint8Array(40 + tagBytesLength + 4 + blobLength + 76 + rightsBlobLength + 8);
     const view = new DataView(bytes.buffer);
 
     view.setInt32(0, data.categoryId ?? 0, true);
@@ -395,6 +403,12 @@ function encodeArticleWriteRequest(data: ArticleWriteRequest): Uint8Array
         bytes.set(part, cursor);
         cursor += part.byteLength;
     }
+
+    const baseRevisionId = data.baseRevisionId == null ? 0n : BigInt(data.baseRevisionId);
+    if (baseRevisionId < 0n) {
+        throw new Error('article_base_revision_invalid');
+    }
+    view.setBigInt64(cursor, baseRevisionId, true);
 
     return bytes;
 }

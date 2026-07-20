@@ -686,6 +686,28 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
+            ArticleDraftBaseRevisionMigrationDefinitions.MigrationId,
+            new OnlineSchemaMigrationMetadata(
+                ArticleDraftBaseRevisionMigrationDefinitions.MigrationId,
+                OnlineSchemaMigrationPhase.Expand,
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260720-article-revision-concurrency"),
+                ContractAfterCoordinate: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write",
+                    "article_draft_base_revision"
+                ]));
+
+        result.Add(
             AccountEnrollmentMigrationDefinitions.MigrationId,
             new OnlineSchemaMigrationMetadata(
                 AccountEnrollmentMigrationDefinitions.MigrationId,

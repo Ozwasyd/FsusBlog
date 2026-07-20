@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
+using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Helpers;
 using FsusBlog.Server.Infrastructure.Audit;
@@ -48,6 +49,7 @@ public sealed class AuthoringDraftLifecycleService(
             OwnerAdminPrincipalId = ownerAdminPrincipalId,
             DraftKey = draftKey,
             ArticleId = request.ArticleId,
+            BaseRevisionId = request.BaseRevisionId,
             Title = AuthoringNormalization.Normalize(request.Title, 256),
             Summary = TextHelpers.NormalizeNullable(request.Summary, 512),
             CoverImageUrl = TextHelpers.NormalizeNullable(request.CoverImageUrl, 512),
@@ -92,6 +94,7 @@ public sealed class AuthoringDraftLifecycleService(
             INSERT INTO article_draft (
                 owner_admin_principal_id,
                 article_id,
+                base_revision_id,
                 draft_key,
                 title,
                 summary,
@@ -108,6 +111,7 @@ public sealed class AuthoringDraftLifecycleService(
             ) VALUES (
                 @OwnerAdminPrincipalId,
                 CAST(@ArticleId AS integer),
+                CAST(@BaseRevisionId AS bigint),
                 @DraftKey,
                 @Title,
                 @Summary,
@@ -124,6 +128,7 @@ public sealed class AuthoringDraftLifecycleService(
             )
             ON CONFLICT (owner_admin_principal_id, draft_key) DO UPDATE SET
                 article_id = EXCLUDED.article_id,
+                base_revision_id = EXCLUDED.base_revision_id,
                 title = EXCLUDED.title,
                 summary = EXCLUDED.summary,
                 cover_image_url = EXCLUDED.cover_image_url,
@@ -138,6 +143,7 @@ public sealed class AuthoringDraftLifecycleService(
             """,
             new SugarParameter("@OwnerAdminPrincipalId", draft.OwnerAdminPrincipalId),
             new SugarParameter("@ArticleId", AuthoringNormalization.DbValue(draft.ArticleId)),
+            new SugarParameter("@BaseRevisionId", (object?)draft.BaseRevisionId ?? DBNull.Value),
             new SugarParameter("@DraftKey", draft.DraftKey),
             new SugarParameter("@Title", draft.Title),
             new SugarParameter("@Summary", AuthoringNormalization.DbValue(draft.Summary)),
@@ -202,14 +208,25 @@ public sealed class AuthoringDraftLifecycleService(
         return revision is null ? null : ToRevisionDetailResponse(revision);
     }
 
-    public async Task<bool> RollbackRevisionAsync(long actorAdminPrincipalId, int articleId, long revisionId, CancellationToken cancellationToken = default)
+    public async Task<Result<bool>> RollbackRevisionAsync(
+        long actorAdminPrincipalId,
+        int articleId,
+        long revisionId,
+        long? baseRevisionId,
+        bool force,
+        CancellationToken cancellationToken = default)
     {
         ArticleRevision? revision = await db.Queryable<ArticleRevision>()
             .Where(it => it.ArticleId == articleId && it.Id == revisionId)
             .FirstAsync(cancellationToken);
         if (revision is null)
         {
-            return false;
+            return Result<bool>.Success(false);
+        }
+
+        if (!force && !baseRevisionId.HasValue)
+        {
+            return Result<bool>.Failure(ErrorCode.Validation, "article_base_revision_required");
         }
 
         string? summary = ArticleSummaryProjection.WasAutomaticallyGenerated(revision.DiffSummary)
@@ -226,15 +243,19 @@ public sealed class AuthoringDraftLifecycleService(
                 AuthoringNormalization.ParseTagIds(revision.TagIds),
                 (int)ArticleStatus.Published,
                 Rights: null,
-                RightsMutation: FsusBlog.Core.Mapping.Models.ArticleRightsMutationMode.Preserve),
-            FsusBlog.Core.Services.Articles.ArticleUpdateIntent.Rollback));
+                RightsMutation: FsusBlog.Core.Mapping.Models.ArticleRightsMutationMode.Preserve,
+                BaseRevisionId: baseRevisionId),
+            FsusBlog.Core.Services.Articles.ArticleUpdateIntent.Rollback,
+            Force: force));
         bool updated = updateResult.IsSuccess;
         if (updated)
         {
             auditWriter.Write(AuditSourceCatalog.Article, "article-revision-rollback", actorAdminPrincipalId, $"{articleId}:{revisionId}");
         }
 
-        return updated;
+        return updated
+            ? Result<bool>.Success(true)
+            : Result<bool>.Failure(updateResult.Error);
     }
 
     public Task<ArticlePreviewResponse> PreviewAsync(ServerDraftSaveRequest request)
@@ -333,7 +354,8 @@ public sealed class AuthoringDraftLifecycleService(
             (int)draft.Status,
             draft.ScheduledPublishAt,
             draft.UpdatedAt,
-            DeserializeDraftRights(draft.RightsJson));
+            DeserializeDraftRights(draft.RightsJson),
+            draft.BaseRevisionId);
 
     private static ArticleRevisionDetailResponse ToRevisionDetailResponse(ArticleRevision revision)
         => new(

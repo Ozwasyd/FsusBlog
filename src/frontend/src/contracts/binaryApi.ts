@@ -147,6 +147,7 @@ export interface ArticleWriteRequest {
     scheduledPublishAt?: string | null;
     rights?: ArticleRightsRequest | null;
     resetRights?: boolean;
+    baseRevisionId?: string | number | null;
 }
 
 export interface AuthAccountIdentitySnapshot {

@@ -28,6 +28,8 @@ public static partial class PodBinaryCodec
         writer.WritePod(Cast<MutableArticleMutationResponsePod, ArticleMutationResponsePod>(new MutableArticleMutationResponsePod
         {
             Id = response.Id,
+            RevisionId = response.RevisionId,
+            RevisionNo = response.RevisionNo,
             RightsSnapshotId = response.RightsSnapshotId,
             RightsRevisionNo = response.RightsRevisionNo
         }));
@@ -47,7 +49,12 @@ public static partial class PodBinaryCodec
             return false;
         }
 
-        response = new ArticleMutationResponseDto(pod.Id, pod.RightsSnapshotId, pod.RightsRevisionNo);
+        response = new ArticleMutationResponseDto(
+            pod.Id,
+            pod.RevisionId,
+            pod.RevisionNo,
+            pod.RightsSnapshotId,
+            pod.RightsRevisionNo);
         return true;
     }
 
@@ -68,7 +75,8 @@ public static partial class PodBinaryCodec
     private const int ArticleSearchV4PayloadMagic = 0x34534146;
     private const int ArticleSearchV4PayloadVersion = 4;
     private const int LegacyArticleWriteRequestVersion = 3;
-    private const int ArticleWriteRequestVersion = 4;
+    private const int LegacyArticleWriteRequestVersion4 = 4;
+    private const int ArticleWriteRequestVersion = 5;
     private const int RightsFlagEnabled = 1 << 0;
     private const int RightsFlagAllowCodeCopy = 1 << 1;
     private const int RightsFlagShowPublicBadge = 1 << 2;
@@ -135,6 +143,7 @@ public static partial class PodBinaryCodec
         writer.WriteInt32(rights.MaxExcerptChars);
         writer.WritePod(Cast<MutableArticleRightsWriteRequestPod, ArticleRightsWriteRequestPod>(mutableRights));
         writer.WriteBytes(rightsPayload.WrittenSpan);
+        writer.WriteInt64(request.BaseRevisionId.GetValueOrDefault());
     }
 
     /// <summary>
@@ -210,7 +219,7 @@ public static partial class PodBinaryCodec
         }
 
         if (!reader.TryReadInt32(out int version) ||
-            version is not (LegacyArticleWriteRequestVersion or ArticleWriteRequestVersion))
+            version is not (LegacyArticleWriteRequestVersion or LegacyArticleWriteRequestVersion4 or ArticleWriteRequestVersion))
         {
             request = default;
             return false;
@@ -218,14 +227,14 @@ public static partial class PodBinaryCodec
 
         ArticleRightsMutationMode rightsMutation = ArticleRightsMutationMode.Replace;
         int rawRightsMutation = (int)rightsMutation;
-        if (version == ArticleWriteRequestVersion &&
+        if (version is LegacyArticleWriteRequestVersion4 or ArticleWriteRequestVersion &&
             (!reader.TryReadInt32(out rawRightsMutation) ||
              !Enum.IsDefined(typeof(ArticleRightsMutationMode), rawRightsMutation)))
         {
             request = default;
             return false;
         }
-        else if (version == ArticleWriteRequestVersion)
+        else if (version is LegacyArticleWriteRequestVersion4 or ArticleWriteRequestVersion)
         {
             rightsMutation = (ArticleRightsMutationMode)rawRightsMutation;
         }
@@ -254,6 +263,18 @@ public static partial class PodBinaryCodec
             ShowPublicBadge: (rightsFlags & RightsFlagShowPublicBadge) != 0,
             ProofBindingEnabled: (rightsFlags & RightsFlagProofBindingEnabled) != 0);
 
+        long? baseRevisionId = null;
+        if (version == ArticleWriteRequestVersion)
+        {
+            if (!reader.TryReadInt64(out long rawBaseRevisionId) || rawBaseRevisionId < 0)
+            {
+                request = default;
+                return false;
+            }
+
+            baseRevisionId = rawBaseRevisionId == 0 ? null : rawBaseRevisionId;
+        }
+
         request = BuildArticleWriteRequest(
             pod,
             tagIds,
@@ -261,7 +282,8 @@ public static partial class PodBinaryCodec
             status,
             scheduledPublishAt,
             rightsMutation == ArticleRightsMutationMode.Replace ? rights : null,
-            rightsMutation);
+            rightsMutation,
+            baseRevisionId);
         return reader.IsConsumed;
     }
 
@@ -272,7 +294,8 @@ public static partial class PodBinaryCodec
         int status,
         DateTime? scheduledPublishAt,
         ArticleRightsRequestCoreModel? rights,
-        ArticleRightsMutationMode rightsMutation)
+        ArticleRightsMutationMode rightsMutation,
+        long? baseRevisionId = null)
         => new(
             PodProjector.ReadSlice(pod.Title, payloadSpan),
             PodProjector.ReadSlice(pod.Content, payloadSpan),
@@ -283,7 +306,8 @@ public static partial class PodBinaryCodec
             status,
             scheduledPublishAt,
             rights,
-            rightsMutation);
+            rightsMutation,
+            baseRevisionId);
 
     private static ArticleRightsMutationMode ResolveArticleRightsMutation(ArticleWriteRequestCoreModel request)
         => request.RightsMutation == ArticleRightsMutationMode.Preserve && request.Rights.HasValue
@@ -361,6 +385,8 @@ public static partial class PodBinaryCodec
     private struct MutableArticleMutationResponsePod
     {
         public int Id;
+        public long RevisionId;
+        public int RevisionNo;
         public long RightsSnapshotId;
         public int RightsRevisionNo;
     }

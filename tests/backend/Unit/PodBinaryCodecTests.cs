@@ -92,7 +92,8 @@ public class PodBinaryCodecTests
             [1, 2, 5],
             1,
             scheduledAt,
-            rights);
+            rights,
+            BaseRevisionId: 8123);
 
         byte[] encoded = PodBinaryCodec.EncodeArticleWriteRequest(request);
         bool ok = PodBinaryCodec.TryDecodeArticleWriteRequest(encoded, out var decoded);
@@ -119,12 +120,13 @@ public class PodBinaryCodecTests
         Assert.False(decoded.Rights.Value.ShowPublicBadge);
         Assert.True(decoded.Rights.Value.ProofBindingEnabled);
         Assert.Equal(ArticleRightsMutationMode.Replace, decoded.RightsMutation);
+        Assert.Equal(8123, decoded.BaseRevisionId);
     }
 
     [Fact]
     public void ArticleMutationResponse_RoundTrip_ReportsBoundRightsSnapshot()
     {
-        var response = new ArticleMutationResponseDto(42, 9007199254740, 7);
+        var response = new ArticleMutationResponseDto(42, 8123, 8, 9007199254740, 7);
         var buffer = new ArrayBufferWriter<byte>();
 
         PodBinaryCodec.WriteArticleMutationResponse(response, buffer);
@@ -132,6 +134,8 @@ public class PodBinaryCodecTests
 
         Assert.True(ok);
         Assert.Equal(42, decoded.Id);
+        Assert.Equal(8123, decoded.RevisionId);
+        Assert.Equal(8, decoded.RevisionNo);
         Assert.Equal(9007199254740, decoded.RightsSnapshotId);
         Assert.Equal(7, decoded.RightsRevisionNo);
     }

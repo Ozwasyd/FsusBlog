@@ -456,7 +456,8 @@ public readonly record struct ArticleWriteRequestCoreModel(
     int Status = 2,
     DateTime? ScheduledPublishAt = null,
     ArticleRightsRequestCoreModel? Rights = null,
-    ArticleRightsMutationMode RightsMutation = ArticleRightsMutationMode.Preserve);
+    ArticleRightsMutationMode RightsMutation = ArticleRightsMutationMode.Preserve,
+    long? BaseRevisionId = null);
 
 public readonly record struct RecentCommentCoreModel(
     RecentCommentPod Pod,

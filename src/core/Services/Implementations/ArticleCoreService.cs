@@ -65,6 +65,10 @@ public sealed class ArticleCoreService(
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArticleWriteRequestCoreModel article = command.Article;
+        if (article.BaseRevisionId.HasValue)
+        {
+            return Result<int>.Failure(ErrorCode.Validation, "article_base_revision_not_allowed_on_create");
+        }
         ErrorDetail? publicationValidation = ValidatePublicationRequiredFields(article);
         if (publicationValidation.HasValue)
         {
@@ -122,6 +126,11 @@ public sealed class ArticleCoreService(
             return Result.Failure(ToError(statusValidation.Value));
         }
 
+        if (!command.Force && !article.BaseRevisionId.HasValue)
+        {
+            return Result.Failure(ErrorCode.Validation, "article_base_revision_required");
+        }
+
         try
         {
             return await gateway.UpdateAsync(command, cancellationToken)
@@ -135,6 +144,10 @@ public sealed class ArticleCoreService(
         catch (ArticleWriteValidationException ex)
         {
             return Result.Failure(ToError(ex));
+        }
+        catch (ArticleRevisionConflictException ex)
+        {
+            return Result.Failure(ErrorDetail.Create(ErrorCode.Conflict, "article_revision_conflict", ex.ToApiDetails()));
         }
     }
 

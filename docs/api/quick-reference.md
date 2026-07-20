@@ -252,8 +252,8 @@
 | GET | `/api/binary/stats` | 👑 📦 | `AdminStats`(7) | Binary 聚合统计（overview + recent comments + regions） |
 | GET | `/api/binary/admin/article` | 👑 📦 | `ArticleList`(1) | 管理端文章列表，可带 `status` / `isDeleted`；`page>=1`、`size=1..100`，非法值返回 400 |
 | GET | `/api/binary/admin/article/{id}` | 👑 📦 | `ArticleDetail`(2) | 管理端文章详情 |
-| POST | `/api/binary/admin/article` | 👑 📦 🚦 PoW | `ArticleWriteRequest` → `MutationId`(241) | 创建文章；V4 rights mutation 为 preserve/replace/reset，响应携带 article ID、绑定的 rights snapshot ID 与 revision no |
-| PUT | `/api/binary/admin/article/{id}` | 👑 📦 🚦 PoW | `ArticleWriteRequest` → `MutationId`(241) | 更新文章；省略 rights 保留当前策略，完整 payload 替换，显式 reset 恢复默认策略 |
+| POST | `/api/binary/admin/article` | 👑 📦 🚦 PoW | `ArticleWriteRequest` → `MutationId`(241) | 创建文章；V5 的 `baseRevisionId=0`，响应携带 article/revision 与 rights snapshot 坐标 |
+| PUT | `/api/binary/admin/article/{id}` | 👑 📦 🚦 PoW | `ArticleWriteRequest` → `MutationId`(241) | 更新文章；必须提交详情中的 `baseRevisionId`，失配返回 409 且不写入；rights 支持 preserve/replace/reset |
 | POST | `/api/binary/upload/init` | 👑 | `UploadInit`(20) | 初始化分片上传 |
 | GET | `/api/binary/upload/{id}` | 👑 📦 | `UploadStatus`(21) | 查询上传状态 |
 | PUT | `/api/binary/upload/{id}/part/{n}` | 👑 📦 | `UploadPartAck`(22) | 上传分片 |
@@ -323,14 +323,14 @@
 | POST | `/api/binary/subscriptions` | 🔓 | AEDS 更新订阅，保存 email hash |
 | DELETE | `/api/binary/subscriptions` | 🔓 | AEDS 退订 |
 
-| POST | `/api/binary/author/drafts` | 👑 | 保存服务端草稿 |
-| GET | `/api/binary/author/drafts/{draftKey}` | 👑 | 读取服务端草稿 |
+| POST | `/api/binary/author/drafts` | 👑 | 保存服务端草稿及编辑开始时的 `baseRevisionId` |
+| GET | `/api/binary/author/drafts/{draftKey}` | 👑 | 读取服务端草稿并恢复原始 `baseRevisionId` |
 | DELETE | `/api/binary/author/drafts/{draftKey}` | 👑 | 丢弃服务端草稿 |
 | POST | `/api/binary/author/preview` | 👑 | admin-only 私有 Markdown/AOT-like 预览 |
 | POST | `/api/binary/author/prepublish-check` | 👑 | 发布前 SEO/内容质量检查 |
 | GET | `/api/binary/author/articles/{articleId}/revisions` | 👑 | 文章修订列表 |
 | GET | `/api/binary/author/articles/{articleId}/revisions/{revisionId}` | 👑 | 文章修订详情 |
-| POST | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/rollback` | 👑 | 回滚修订；未附带 rights mutation 时保留当前版权策略，新 revision 绑定新 snapshot |
+| POST | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/rollback` | 👑 | 回滚修订；提交 `X-Fsus-Base-Revision-Id`，或经 step-up 显式 force；冲突不写入，rights 默认 preserve |
 | POST | `/api/binary/author/articles/{articleId}/assets/reindex` | 👑 | 重建资产引用 |
 | GET | `/api/binary/author/assets` | 👑 | 资产库列表 |
 | DELETE | `/api/binary/author/assets/orphans` | 👑 | 删除孤儿资产库记录 |
@@ -404,7 +404,7 @@
 | POST | `/api/binary/admin/security/risk/ip/reset` | 👑🚦 MFA | 重置指定 IP 风险分 |
 | GET | `/api/binary/author/content/export` | 👑 | 全站内容备份包 |
 | GET | `/api/binary/author/articles/{articleId}/export` | 👑 | 导出 Markdown + frontmatter |
-| POST | `/api/binary/author/articles/import` | 👑 | 导入 Markdown + frontmatter；未提供 rights 时按 create 语义绑定默认策略 snapshot |
+| POST | `/api/binary/author/articles/import` | 👑 | create-new 导入 Markdown + frontmatter，不按 source article ID 覆盖现有文章；未提供 rights 时绑定默认策略 snapshot |
 | GET | `/api/binary/author/audit` | 👑🚦 | 审计日志 cursor 列表，支持 actor/action/target/outcome/time 过滤 |
 | GET | `/api/binary/author/audit/summary` | 👑🚦 | 审计 facet 汇总与写入 runtime |
 | GET | `/api/binary/author/audit/{id}` | 👑🚦 | 审计详情与 context |

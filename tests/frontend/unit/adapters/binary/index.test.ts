@@ -321,13 +321,17 @@ describe('decodeBinaryFramePayload', () => {
   })
 
   it('maps article mutation coordinates from the extended MutationId payload', () => {
-    const payload = new Uint8Array(16)
+    const payload = new Uint8Array(28)
     writeInt32(payload, 0, 42)
-    writeInt64(payload, 4, 9007199254740n)
-    writeInt32(payload, 12, 7)
+    writeInt64(payload, 4, 8123n)
+    writeInt32(payload, 12, 8)
+    writeInt64(payload, 16, 9007199254740n)
+    writeInt32(payload, 24, 7)
 
     expect(decodeBinaryFramePayload(FrameType.MutationId, payload)).toEqual({
       id: 42,
+      revisionId: 8123,
+      revisionNo: 8,
       rightsSnapshotId: 9007199254740,
       rightsRevisionNo: 7
     })

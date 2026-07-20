@@ -396,7 +396,7 @@ frame 208 的 `no_change`，不属于错误。动态关闭 `Messages:StatusMutat
 | 189 | `AuthAnonymousBootstrapRequest` | `AuthAnonymousBootstrapRequestPod` | `POST /api/binary/auth/anonymous/bootstrap` 请求体；只含规范确认和可选 public handle，不含旧注册密码字段 |
 | 190 | `AuthUpdatePublicHandleRequest` | `StringMutationRequestPod` | `PUT /api/binary/auth/public-handle` 请求体；保存或清空当前账号 public handle |
 | 240 | `EmptySuccess` | `EmptySuccessPod` | 通用空成功响应 |
-| 241 | `MutationId` | `MutationIdPod` / `ArticleMutationResponsePod` | 通用变更 ID 响应；文章 create/update 使用 16B 扩展，追加 rights snapshot ID 与 revision no |
+| 241 | `MutationId` | `MutationIdPod` / `ArticleMutationResponsePod` | 通用变更 ID 响应；文章 create/update 使用 28B 扩展，携带 article/revision 与 rights snapshot 坐标 |
 | 251 | `ApiError` | `ApiErrorPod` | 二进制错误响应 |
 
 ---
@@ -454,16 +454,15 @@ frame 208 的 `no_change`，不属于错误。动态关闭 `Messages:StatusMutat
 | `ArticleDetailV5RecordPod` | 116 |
 | `ArticleDetailTagV3RecordPod` | 12 |
 | `ArticleRightsV3RecordPod` | 112 |
-| `ArticleMutationResponsePod` | 16 |
+| `ArticleMutationResponsePod` | 28 |
 | `ArticleWriteRequestPod` | 40（固定前缀；后接 tags/blob/lifecycle/rights 段） |
 | `ArticleRightsWriteRequestPod` | 40 |
 
-`ArticleWriteRequest` 当前写入版本为 V4。在既有 `status:int32`、`scheduledPublishAtUnixMs:int64` 后写入
-`version=4` 与 `rightsMutation:int32`：`0=preserve`、`1=replace`、`2=reset`。`replace` 必须携带完整 rights
+`ArticleWriteRequest` 当前写入版本为 V5。在 V4 rights 段和 rights blob 后追加 `baseRevisionId:int64`；create 写 `0`，update 必须写正数。既有 `status:int32`、`scheduledPublishAtUnixMs:int64` 后写入
+`version=5` 与 `rightsMutation:int32`：`0=preserve`、`1=replace`、`2=reset`。`replace` 必须携带完整 rights
 payload；`reset` 不得同时携带 replacement payload。V3 rights payload 只读兼容为 `replace`；rights 功能加入前、
 仅含文章主体和 lifecycle tail 的旧 payload 只读兼容为 `preserve`。文章 create/update 的 frame type 仍为
-`MutationId(241)`，但 payload 使用 `ArticleMutationResponsePod`：`id:int32`、`rightsSnapshotId:int64`、
-`rightsRevisionNo:int32`；其他通用 mutation 继续使用 8B `MutationIdPod`。
+`MutationId(241)`，但 payload 使用 `ArticleMutationResponsePod`：`id:int32`、`revisionId:int64`、`revisionNo:int32`、`rightsSnapshotId:int64`、`rightsRevisionNo:int32`；其他通用 mutation 继续使用 8B `MutationIdPod`。`article_revision_conflict` 使用 HTTP 409 `ApiError`，details 为当前 revision 坐标、status 和 updatedAt；不暴露 `xmin`。
 
 ### 评论 POD
 

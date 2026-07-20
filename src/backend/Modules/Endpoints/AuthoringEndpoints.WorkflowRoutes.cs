@@ -163,11 +163,30 @@ public static partial class AuthoringEndpoints
                 return stepUp;
             }
 
-            bool rolledBack = await service.RollbackRevisionAsync(ResolveRequiredAdminPrincipalId(context), articleId, revisionId, cancellationToken);
-            return rolledBack
+            bool force = string.Equals(context.Request.Headers["X-Fsus-Article-Revision-Force"], "true", StringComparison.OrdinalIgnoreCase);
+            long? baseRevisionId = long.TryParse(
+                context.Request.Headers["X-Fsus-Base-Revision-Id"],
+                System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out long parsedBaseRevisionId) && parsedBaseRevisionId > 0
+                    ? parsedBaseRevisionId
+                    : null;
+            Result<bool> rollback = await service.RollbackRevisionAsync(
+                ResolveRequiredAdminPrincipalId(context),
+                articleId,
+                revisionId,
+                baseRevisionId,
+                force,
+                cancellationToken);
+            if (!rollback.IsSuccess)
+            {
+                return BinaryResults.FromError(rollback.Error, aeds);
+            }
+
+            return rollback.Value
                 ? Ok(context, aeds, new
                 {
-                    rolledBack
+                    rolledBack = true
                 })
                 : AedsJsonResults.NotFound(aeds, "revision_not_found");
         })

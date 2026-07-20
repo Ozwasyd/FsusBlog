@@ -24,7 +24,8 @@ public sealed record class ServerDraftSaveRequest(
     DateTime? ScheduledPublishAt,
     ArticleRightsRequest? Rights = null,
     [property: System.ComponentModel.DataAnnotations.MaxLength(500)]
-    string? WarningOverrideReason = null);
+    string? WarningOverrideReason = null,
+    long? BaseRevisionId = null);
 
 public sealed record class ServerDraftResponse(
     string DraftKey,
@@ -39,7 +40,8 @@ public sealed record class ServerDraftResponse(
     int Status,
     DateTime? ScheduledPublishAt,
     DateTime UpdatedAt,
-    ArticleRightsRequest Rights);
+    ArticleRightsRequest Rights,
+    long? BaseRevisionId);
 
 public sealed record class ArticleRevisionSummaryResponse(
     string Id,

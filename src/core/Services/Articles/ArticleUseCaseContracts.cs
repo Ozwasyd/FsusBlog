@@ -24,7 +24,24 @@ public readonly record struct CreateArticleCommand(ArticleWriteRequestCoreModel 
 public readonly record struct UpdateArticleCommand(
     int Id,
     ArticleWriteRequestCoreModel Article,
-    ArticleUpdateIntent Intent = ArticleUpdateIntent.Standard);
+    ArticleUpdateIntent Intent = ArticleUpdateIntent.Standard,
+    bool Force = false);
+
+public sealed class ArticleRevisionConflictException(
+    long currentRevisionId,
+    int revisionNo,
+    int status,
+    DateTime updatedAtUtc) : Exception("article_revision_conflict")
+{
+    public long CurrentRevisionId { get; } = currentRevisionId;
+    public int RevisionNo { get; } = revisionNo;
+    public int Status { get; } = status;
+    public DateTime UpdatedAtUtc { get; } = updatedAtUtc;
+
+    public string ToApiDetails()
+        => FormattableString.Invariant(
+            $"{{\"currentRevisionId\":\"{CurrentRevisionId}\",\"revisionNo\":{RevisionNo},\"status\":{Status},\"updatedAt\":\"{UpdatedAtUtc:O}\"}}");
+}
 
 public enum ArticleUpdateIntent
 {

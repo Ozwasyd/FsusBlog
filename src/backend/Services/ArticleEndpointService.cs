@@ -258,6 +258,8 @@ public sealed class ArticleEndpointService(
         ArticleDetailCoreModel article = detail.Value.Value;
         return Result<ArticleMutationResponseDto>.Success(new ArticleMutationResponseDto(
             articleId,
+            article.CurrentRevisionId,
+            article.RevisionNo,
             article.Rights.SnapshotId,
             article.Rights.RevisionNo));
     }

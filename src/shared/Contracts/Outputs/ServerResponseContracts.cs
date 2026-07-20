@@ -21,6 +21,8 @@ public readonly record struct TagWithCountDto(int Id, string Name, int ArticleCo
 /// </summary>
 public readonly record struct ArticleMutationResponseDto(
     int Id,
+    long RevisionId,
+    int RevisionNo,
     long RightsSnapshotId,
     int RightsRevisionNo);
 /// <summary>

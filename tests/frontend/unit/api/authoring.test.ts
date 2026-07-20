@@ -9,6 +9,7 @@ import {
   previewModerationEffectivePolicy,
   reloadModerationDictionaries,
   revokeAnonymousCredential,
+  rollbackArticleRevision,
   rollbackModerationDictionaries,
   saveArticleResponsibility,
   saveServerDraft,
@@ -51,6 +52,7 @@ describe('authoring API binary transport', () => {
     binaryMock.mockResolvedValue({
       draftKey: 'fsus:article-draft:create',
       articleId: null,
+      baseRevisionId: null,
       title: 'Draft',
       content: 'Body',
       summary: null,
@@ -67,6 +69,7 @@ describe('authoring API binary transport', () => {
     const saved = await saveServerDraft({
       draftKey: 'fsus:article-draft:create',
       articleId: null,
+      baseRevisionId: null,
       title: 'Draft',
       content: 'Body',
       summary: null,
@@ -125,6 +128,18 @@ describe('authoring API binary transport', () => {
     expect(call?.binaryUrl).toBe('/api/binary/author/articles/42/revisions/9001/responsibility')
     expect(call?.frameType).toBe(FrameType.ArticleResponsibilityResponse)
     expect(call?.requestOptions?.method).toBe('PUT')
+  })
+
+  it('rollbackArticleRevision sends the current base revision coordinate', async () => {
+    binaryMock.mockResolvedValue({ rolledBack: true })
+
+    await expect(rollbackArticleRevision(42, '9001', '9010', { mfaProofToken: 'proof' })).resolves.toBe(true)
+
+    const call = binaryMock.mock.calls[0]?.[0]
+    expect(call?.binaryUrl).toBe('/api/binary/author/articles/42/revisions/9001/rollback')
+    expect(call?.requestOptions?.method).toBe('POST')
+    expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Base-Revision-Id')).toBe('9010')
+    expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof')
   })
 
   it('getServerDraft reads nullable draft responses through AEDS', async () => {

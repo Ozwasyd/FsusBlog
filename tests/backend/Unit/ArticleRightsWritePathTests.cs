@@ -1,3 +1,4 @@
+using FsusBlog.Core.Common;
 using FsusBlog.Core.Integrity;
 using FsusBlog.Core.Services.Articles;
 using FsusBlog.Core.Services.Implementations;
@@ -405,7 +406,14 @@ public sealed class ArticleRightsWritePathTests(
             ArticlePublicationValidatorTestFactory.CreateAllowing(),
             Substitute.For<IAuthoringAuditWriter>());
 
-        bool rolledBack = await lifecycle.RollbackRevisionAsync(17, articleId, originalRevision.Id);
+        Article current = await db.Queryable<Article>().InSingleAsync(articleId);
+        Result<bool> rollback = await lifecycle.RollbackRevisionAsync(
+            17,
+            articleId,
+            originalRevision.Id,
+            current.CurrentRevisionId,
+            force: false);
+        bool rolledBack = rollback.IsSuccess && rollback.Value;
 
         ArticleRightsPolicy policy = await db.Queryable<ArticleRightsPolicy>()
             .Where(item => item.ArticleId == articleId)

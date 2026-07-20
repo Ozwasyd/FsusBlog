@@ -1,5 +1,9 @@
 using System.Reflection;
 
+using FsusBlog.Core.Common;
+using FsusBlog.Core.Mapping.Models;
+using FsusBlog.Core.Services.Articles;
+using FsusBlog.Core.Services.Implementations;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
@@ -30,6 +34,84 @@ public sealed class ArticleRevisionConcurrencyTests(
     private static readonly MethodInfo s_saveRevisionMethod = typeof(ArticleService)
         .GetMethod("SaveArticleRevisionAsync", BindingFlags.Instance | BindingFlags.NonPublic)
         ?? throw new InvalidOperationException("SaveArticleRevisionAsync should exist.");
+
+    [Fact]
+    public async Task UpdateAsync_TwoConnectionsWithSameBaseRevision_OnlyFirstWriterCommits()
+    {
+        string connectionString = classDatabase.ConnectionString;
+        using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
+        CreateTables(setupDb);
+        await SeedTaxonomyAsync(setupDb);
+        int articleId = await SeedArticleAsync(setupDb);
+        await SeedBodyAsync(setupDb, articleId, "# original");
+        await SeedTagsAsync(setupDb, articleId, [1]);
+        await SeedRevisionAsync(setupDb, articleId, revisionNo: 1);
+        ArticleRevision seededRevision = await setupDb.Queryable<ArticleRevision>()
+            .Where(revision => revision.ArticleId == articleId)
+            .FirstAsync();
+        await setupDb.Updateable<Article>()
+            .SetColumns(article => article.CurrentRevisionId == seededRevision.Id)
+            .Where(article => article.Id == articleId)
+            .ExecuteCommandAsync();
+        Article original = await setupDb.Queryable<Article>().InSingleAsync(articleId);
+        Assert.NotNull(original.CurrentRevisionId);
+
+        using SqlSugarClient firstDb = PostgresSqlSugarTestClient.Create(connectionString);
+        using SqlSugarClient secondDb = PostgresSqlSugarTestClient.Create(connectionString);
+        var first = new ArticleCoreService(CreateService(firstDb));
+        var second = new ArticleCoreService(CreateService(secondDb));
+        ArticleWriteRequestCoreModel Write(string title, string content, int categoryId, int[] tags) => new(
+            title,
+            content,
+            "edited",
+            null,
+            categoryId,
+            tags,
+            (int)ArticleStatus.Draft,
+            Rights: new ArticleRightsRequestCoreModel(
+                true,
+                "all-rights-reserved",
+                null,
+                null,
+                null,
+                null,
+                "append-attribution",
+                300,
+                true,
+                true,
+                true),
+            BaseRevisionId: original.CurrentRevisionId);
+
+        Result firstResult = await first.UpdateAsync(new UpdateArticleCommand(
+            articleId,
+            Write("First tab", "# first", 2, [2])));
+        Assert.True(firstResult.IsSuccess, $"{firstResult.Error.Code}:{firstResult.Error.Message}:{firstResult.Error.Details}");
+        int revisionCountAfterFirst = await setupDb.Queryable<ArticleRevision>().CountAsync(item => item.ArticleId == articleId);
+        int rightsCountAfterFirst = await setupDb.Queryable<ArticleRightsSnapshot>().CountAsync(item => item.ArticleId == articleId);
+        int outboxCountAfterFirst = await setupDb.Queryable<ArticleMutationOutboxEvent>().CountAsync(item => item.AggregateId == articleId);
+        Result staleRetry = await second.UpdateAsync(new UpdateArticleCommand(
+            articleId,
+            Write("Delayed autosave retry", "# stale", 1, [1])));
+
+        Assert.False(staleRetry.IsSuccess);
+        Assert.Equal(ErrorCode.Conflict, staleRetry.Error.Code);
+        Assert.Equal("article_revision_conflict", staleRetry.Error.Message);
+        Assert.Contains("\"currentRevisionId\"", staleRetry.Error.Details, StringComparison.Ordinal);
+
+        Article persisted = await setupDb.Queryable<Article>().InSingleAsync(articleId);
+        ArticleBody body = await setupDb.Queryable<ArticleBody>().InSingleAsync(articleId);
+        List<int> tags = await setupDb.Queryable<ArticleTag>()
+            .Where(tag => tag.ArticleId == articleId)
+            .Select(tag => tag.TagId)
+            .ToListAsync();
+        Assert.Equal("First tab", persisted.Title);
+        Assert.Equal(2, persisted.CategoryId);
+        Assert.Equal("# first", body.MarkdownContent);
+        Assert.Equal([2], tags);
+        Assert.Equal(revisionCountAfterFirst, await setupDb.Queryable<ArticleRevision>().CountAsync(item => item.ArticleId == articleId));
+        Assert.Equal(rightsCountAfterFirst, await setupDb.Queryable<ArticleRightsSnapshot>().CountAsync(item => item.ArticleId == articleId));
+        Assert.Equal(outboxCountAfterFirst, await setupDb.Queryable<ArticleMutationOutboxEvent>().CountAsync(item => item.AggregateId == articleId));
+    }
 
     [Fact]
     public async Task SaveArticleRevisionAsync_ConcurrentWritersProduceOnlyOneNextRevisionNumber()
@@ -647,6 +729,8 @@ public sealed class ArticleRevisionConcurrencyTests(
             typeof(ArticleAssetCleanupQueueItem),
             typeof(ArticleRightsPolicy),
             typeof(ArticleRightsSnapshot),
+            typeof(ArticleResponsibilitySnapshot),
+            typeof(ArticlePublicationRecord),
             typeof(ArticleMutationOutboxEvent));
 
     private static ArticleService CreateService(

@@ -210,6 +210,12 @@ public class ArticleDraft
         get; set;
     }
 
+    [SugarColumn(ColumnName = "base_revision_id", IsNullable = true)]
+    public long? BaseRevisionId
+    {
+        get; set;
+    }
+
     [SugarColumn(ColumnName = "draft_key", Length = 96)]
     public string DraftKey { get; set; } = string.Empty;
 

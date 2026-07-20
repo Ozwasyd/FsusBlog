@@ -11,9 +11,9 @@ export function mapEmptySuccessFromPayload(payload: Uint8Array): null
     return null;
 }
 
-export function mapMutationIdFromPayload(payload: Uint8Array): { id: number; rightsSnapshotId?: number; rightsRevisionNo?: number; }
+export function mapMutationIdFromPayload(payload: Uint8Array): { id: number; revisionId?: number; revisionNo?: number; rightsSnapshotId?: number; rightsRevisionNo?: number; }
 {
-    if (payload.byteLength !== 8 && payload.byteLength !== 16)
+    if (payload.byteLength !== 8 && payload.byteLength !== 16 && payload.byteLength !== 28)
     {
         throw createAppError(AppErrorCode.ProtocolFailure, 'mutation_id_payload_invalid');
     }
@@ -24,6 +24,17 @@ export function mapMutationIdFromPayload(payload: Uint8Array): { id: number; rig
     }
 
     const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength);
+    if (payload.byteLength === 28)
+    {
+        return {
+            id: view.getInt32(0, true),
+            revisionId: readInt64Number(payload, 4),
+            revisionNo: view.getInt32(12, true),
+            rightsSnapshotId: readInt64Number(payload, 16),
+            rightsRevisionNo: view.getInt32(24, true)
+        };
+    }
+
     return {
         id: view.getInt32(0, true),
         rightsSnapshotId: readInt64Number(payload, 4),

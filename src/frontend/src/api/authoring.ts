@@ -14,6 +14,7 @@ import { runPrivateRequest } from '@/services/privateRequestRuntime'
 export interface ServerDraftSaveRequest {
   draftKey: string
   articleId: number | null
+  baseRevisionId: string | null
   title: string
   content: string
   summary: string | null
@@ -30,6 +31,7 @@ export interface ServerDraftSaveRequest {
 export interface ServerDraftResponse {
   draftKey: string
   articleId: number | null
+  baseRevisionId: string | null
   title: string
   content: string
   summary: string | null
@@ -984,6 +986,7 @@ type AuthoringBinaryRequestOptions = {
   method?: string
   requestFrame?: FrameType
   request?: unknown
+  headers?: Record<string, string>
 }
 
 const authoringHeaders = (mfaProofToken?: string | null): Headers => {
@@ -1010,6 +1013,9 @@ function requestAuthoringBinary<T>(
   const requestOptions: RequestInit = {
     credentials: 'include',
     headers: authoringHeaders(config?.mfaProofToken)
+  }
+  for (const [name, value] of Object.entries(options.headers ?? {})) {
+    ;(requestOptions.headers as Headers).set(name, value)
   }
   if (options.method) {
     requestOptions.method = options.method
@@ -1487,10 +1493,12 @@ export async function getArticleRevision(
 export async function rollbackArticleRevision(
   articleId: number,
   revisionId: string,
+  baseRevisionId: string,
   config?: ApiRequestConfig
 ): Promise<boolean> {
   const result = await requestAuthoringBinary<{ rolledBack?: boolean }>(`/articles/${articleId}/revisions/${revisionId}/rollback`, FrameType.ArticleRevisionRollbackResponse, config, {
-    method: 'POST'
+    method: 'POST',
+    headers: { 'X-Fsus-Base-Revision-Id': baseRevisionId }
   })
   return result.rolledBack === true
 }
