@@ -36,7 +36,8 @@ public partial class CommentCommandService(
     ICommentAttributionPrivacyService commentAttribution,
     ICacheInvalidationDispatcher cacheInvalidationDispatcher,
     IConfiguration? configuration = null,
-    ICommentMutationOutbox? mutationOutbox = null) : ICommentEndpointService, ICommentCommandService
+    ICommentMutationOutbox? mutationOutbox = null,
+    IArticleCommentPolicyService? articleCommentPolicy = null) : ICommentEndpointService, ICommentCommandService
 {
     private const int DefaultMaxThreadDepth = 32;
     private const int DefaultMaxChildrenPerNode = 500;
@@ -391,6 +392,25 @@ public partial class CommentCommandService(
                 throw new CommentTargetNotVisibleException();
             }
 
+            CommentPolicyWriteDecision? policyDecision = articleCommentPolicy is null
+                ? null
+                : await articleCommentPolicy.ValidateWriteAsync(
+                    articleId,
+                    rootId,
+                    actor.AuthorMode,
+                    actor.ModerationSubjectHash,
+                    consumeSlowMode: true,
+                    cancellationToken);
+            if (policyDecision is { Allowed: false })
+            {
+                throw new CommentPolicyRejectedException(policyDecision.Status);
+            }
+            if (policyDecision is not null && string.Equals(policyDecision.Policy.ModerationMode, ArticleCommentModerationModes.Premoderated, StringComparison.Ordinal))
+            {
+                comment.ModerationStatus = CommentModerationStatus.Pending;
+                comment.ModerationReason = "article_policy_premoderated";
+            }
+
             if (parentId.HasValue && !await ReserveChildSlotAsync(parentId.Value, cancellationToken))
             {
                 throw new CommentChildLimitExceededException();
@@ -491,6 +511,11 @@ public partial class CommentCommandService(
             if (insertResult.ErrorException is CommentTargetNotVisibleException)
             {
                 return CommentCreateResult.Failed;
+            }
+
+            if (insertResult.ErrorException is CommentPolicyRejectedException policyRejected)
+            {
+                return CommentCreateResult.Failure(policyRejected.Status);
             }
 
             if (insertResult.ErrorException is CommentChildLimitExceededException)
@@ -711,6 +736,11 @@ public partial class CommentCommandService(
 
     private sealed class CommentChildLimitExceededException : Exception
     {
+    }
+
+    private sealed class CommentPolicyRejectedException(string status) : Exception(status)
+    {
+        public string Status { get; } = status;
     }
 
     public Task<CommentCreateResult> CreateAttributablePublicCommentResultAsync(

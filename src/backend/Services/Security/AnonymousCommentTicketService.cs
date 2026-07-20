@@ -74,7 +74,8 @@ public sealed class AnonymousCommentTicketService(
     IAnonymousCommentPolicyService policyService,
     IConfiguration configuration,
     TimeProvider timeProvider,
-    ICacheRawReader cacheReader) : IAnonymousCommentTicketService
+    ICacheRawReader cacheReader,
+    IArticleCommentPolicyService? articlePolicyService = null) : IAnonymousCommentTicketService
 {
     private const int TicketBytes = 32;
     private const int MinHashBytes = 16;
@@ -106,6 +107,23 @@ public sealed class AnonymousCommentTicketService(
         if (!policy.AnonymousCommentsEnabled || !policy.ZkAnonymousEnabled)
         {
             return AnonymousCommentTicketIssueResult.Failure(AnonymousCommentTicketStatuses.PolicyDisabled);
+        }
+
+        long? rootCommentId = TryParseOptionalCommentId(request.RootId, out long? parsedRootId)
+            ? parsedRootId
+            : null;
+        CommentPolicyWriteDecision? articlePolicy = articlePolicyService is null
+            ? null
+            : await articlePolicyService.ValidateWriteAsync(
+                request.ArticleId,
+                rootCommentId,
+                CommentAuthorModes.ZkAnonymous,
+                privacySafeSubjectHash: null,
+                consumeSlowMode: false,
+                cancellationToken);
+        if (articlePolicy is { Allowed: false })
+        {
+            return AnonymousCommentTicketIssueResult.Failure(articlePolicy.Status);
         }
 
         Result<AnonymousCredentialRootSnapshotCoreModel> rootResult = await rootService.GetCurrentSnapshotAsync(cancellationToken);

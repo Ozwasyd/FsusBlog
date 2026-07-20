@@ -45,6 +45,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<ICommentManagementCapabilityService, CommentManagementCapabilityService>();
         services.AddScoped<ICommentAuthorManagementService, CommentAuthorManagementService>();
         services.AddScoped<ICommentGovernanceService, CommentGovernanceService>();
+        services.AddScoped<IArticleCommentPolicyService, ArticleCommentPolicyService>();
         services.AddScoped<ICommentAttributionPrivacyService, CommentAttributionPrivacyService>();
         services.AddSingleton<ICommentCursorPolicyResolver, ConfigurationCommentCursorPolicyResolver>();
         services.AddSingleton<IModerationRuntimeStateService, ModerationRuntimeStateService>();

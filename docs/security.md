@@ -659,3 +659,5 @@ credential vault 与 Service Worker 私有缓存。Service Worker 对 `/api/**` 
 评论举报的匿名凭据与作者 capability 分域：举报凭据经 `Moderation:ReportPepper`（未单配时使用 `Moderation:Pepper`）和 comment id 做 HMAC，只能在同一评论内去重，不能跨评论、账号、nullifier 或 credential root 关联。原始凭据、IP、匿名证明不进入 report/event 表、审计 payload 或 telemetry；请求期 `fixed_ip` 限流仅在同步边界使用。运行时可通过动态限流策略收紧/关闭匿名举报而无需重启，账号举报与既有审核读取继续可用。
 
 申诉 capability 只证明当前评论作者控制权；申诉绑定最新 Hidden/Rejected event，并由数据库唯一索引限制每个决定一次。`Moderation:Appeals:RequireDifferentReviewer=true` 为默认安全值，原审核 admin principal 不能复核自己的决定。紧急降级可在配置 reload 后拒绝新的 appeal decision 写入，同时保留 timeline/report 读取；不得删除或改写既有事件。
+
+文章级评论 override 只能收紧全站 author-mode 开关；ticket 签发与最终提交都重新读取 `site -> article -> thread` 有效快照。线程锁只阻止目标根树的新回复，既有评论和其他线程继续可读写。慢速模式以评论 actor 的 privacy-safe moderation subject hash 为作用域，在评论事务内 CAS 更新；不得使用 IP 原文、设备指纹、credential commitment、nullifier 原文或账号可逆标识。策略管理要求 admin permission、step-up、乐观版本，并把原因与版本写入 append-only `comment_policy_audit_event`。

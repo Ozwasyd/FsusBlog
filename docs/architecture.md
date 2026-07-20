@@ -678,3 +678,7 @@ Schema migration 不再使用 runtime service partial。`SchemaMigrationRegistry
 评论治理写模型由三条 append-only 事实链组成：`comment_report` 保存去重后的风险队列输入，`comment_author_appeal` 绑定被申诉的 moderation event 并保存独立复核结果，`comment_moderation_event` 保存所有状态/删除/恢复/申诉事件。`comment.moderation_status` 仅是热路径当前投影；admin timeline 从 event 顺序重建并与投影比较。举报入口不写投影，申诉批准只通过既有 CAS/trigger 路径恢复可见性。
 
 运行时可通过收紧 `Comments:AuthorEditWindowMinutes` 在不重启的情况下停止新的编辑。该降级不回滚 additive schema，也不影响匿名请求、登录请求、admin 修订读取、notification stream 或 binary 公共读取；旧客户端将 POD 保留位视为零/忽略。
+
+## 评论策略分层与失效
+
+`ArticleCommentPolicyService` 在请求时组合全站匿名评论策略、`article_comment_policy` override 与 `comment_thread_policy` 锁定状态。最终写入校验和 privacy-safe slow-mode CAS 位于同一数据库事务，避免 ticket 签发后的策略变化或并发锁定穿透。文章/线程更新使用 PostgreSQL advisory lock + `policy_version` 乐观并发，并追加 `comment_policy_audit_event`；提交后复用 `InvalidateCommentPolicyAsync` 广播，多节点不持有不可失效的文章策略副本。无需重启即可将文章 `enabled=false` 或设置 `closedAtUtc`，读取链路保持不变。

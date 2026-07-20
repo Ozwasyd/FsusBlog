@@ -729,6 +729,32 @@ export interface AnonymousCommentPolicyUpdateRequest {
   reason?: string | null
 }
 
+export interface EffectiveArticleCommentPolicyResponse {
+  articleId: number
+  enabled: boolean
+  publicCommentsEnabled: boolean
+  anonymousCommentsEnabled: boolean
+  moderationMode: 'direct' | 'premoderated' | 'risk_based'
+  slowModeSeconds: number
+  closedAtUtc: string | null
+  articlePolicyVersion: number
+  rootCommentId: number | null
+  threadLocked: boolean
+  threadPolicyVersion: number
+  snapshotHash: string
+}
+
+export interface ArticleCommentPolicyUpdateRequest {
+  enabled: boolean | null
+  publicCommentsEnabled: boolean | null
+  anonymousCommentsEnabled: boolean | null
+  moderationMode: 'direct' | 'premoderated' | 'risk_based' | null
+  slowModeSeconds: number | null
+  closedAtUtc: string | null
+  expectedPolicyVersion: number
+  reason: string | null
+}
+
 export interface ModerationOverviewResponse {
   pendingCount: number
   rejectedCount: number
@@ -1349,6 +1375,39 @@ export async function updateAnonymousCommentPolicy(
     requestFrame: FrameType.CommentPolicyUpdateRequest,
     request
   })
+}
+
+export async function getArticleCommentPolicy(
+  articleId: number,
+  rootId?: number,
+  config?: ApiRequestConfig
+): Promise<EffectiveArticleCommentPolicyResponse> {
+  const query = rootId ? `?rootId=${encodeURIComponent(String(rootId))}` : ''
+  return requestAuthoringJson<EffectiveArticleCommentPolicyResponse>(
+    `/moderation/articles/${articleId}/comment-policy${query}`, FrameType.CommentPolicySnapshot, config)
+}
+
+export async function updateArticleCommentPolicy(
+  articleId: number,
+  request: ArticleCommentPolicyUpdateRequest,
+  config?: ApiRequestConfig
+): Promise<EffectiveArticleCommentPolicyResponse> {
+  return requestAuthoringJson<EffectiveArticleCommentPolicyResponse>(
+    `/moderation/articles/${articleId}/comment-policy`, FrameType.CommentPolicySnapshot, config, {
+      method: 'PUT', requestFrame: FrameType.CommentPolicyUpdateRequest, request
+    })
+}
+
+export async function updateCommentThreadPolicy(
+  articleId: number,
+  rootId: number,
+  request: { locked: boolean; expectedPolicyVersion: number; reason: string | null },
+  config?: ApiRequestConfig
+): Promise<EffectiveArticleCommentPolicyResponse> {
+  return requestAuthoringJson<EffectiveArticleCommentPolicyResponse>(
+    `/moderation/articles/${articleId}/comment-threads/${rootId}`, FrameType.CommentPolicySnapshot, config, {
+      method: 'PUT', requestFrame: FrameType.CommentPolicyUpdateRequest, request
+    })
 }
 
 export async function getModerationDictionarySnapshot(config?: ApiRequestConfig): Promise<ModerationDictionaryRuntimeSnapshot> {

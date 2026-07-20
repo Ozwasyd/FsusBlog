@@ -370,7 +370,11 @@ export function useArticleDetailView() {
   const loadCommentPolicySnapshot = async (): Promise<void> => {
     try {
       const policy = await commentPolicyTask.run(
-        async (signal) => await getCommentPolicySnapshot({ signal })
+        async (signal) => await getCommentPolicySnapshot(
+          { signal },
+          article.value?.id,
+          replyTarget.value?.rootId ?? null
+        )
       )
       if (lifecycle.isActive()) {
         applyCommentPolicySnapshot(policy)
@@ -1028,6 +1032,25 @@ export function useArticleDetailView() {
       }
 
       handleCommentBatch(notificationStreamStore.commentBatch)
+      void loadCommentPolicySnapshot()
+    }
+  )
+
+  watch(
+    () => notificationStreamStore.commentPolicyRevision,
+    () => {
+      if (lifecycle.isActive() && article.value?.id) {
+        void loadCommentPolicySnapshot()
+      }
+    }
+  )
+
+  watch(
+    () => replyTarget.value?.rootId ?? null,
+    () => {
+      if (lifecycle.isActive() && article.value?.id) {
+        void loadCommentPolicySnapshot()
+      }
     }
   )
 

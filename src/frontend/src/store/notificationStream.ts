@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { reactive, ref, shallowRef } from 'vue'
 import { createNotificationStreamRenderScheduler } from '@/services/notificationStreamRenderScheduler'
-import { NotificationStreamEventType, NotificationStreamFailureCodes, type NotificationStreamArticleRenderPatch, type NotificationStreamCommentRenderPatch, type NotificationStreamCursor, type NotificationStreamEventV2, type NotificationStreamFailureCode, type NotificationStreamInboxRenderPatch, type NotificationStreamRenderPatch, type NotificationStreamRuntimeState, type AccountStatusPayload, type SessionRevokedPayload } from '@/services/notificationStreamTypes'
+import { NotificationStreamEventType, NotificationStreamFailureCodes, type NotificationStreamArticleRenderPatch, type NotificationStreamCommentRenderPatch, type NotificationStreamCursor, type NotificationStreamEventV2, type NotificationStreamFailureCode, type NotificationStreamInboxRenderPatch, type NotificationStreamRenderPatch, type NotificationStreamRuntimeState, type AccountStatusPayload, type CacheControlPayload, type SessionRevokedPayload } from '@/services/notificationStreamTypes'
 import { AppErrorCode } from '@/utils/appError'
 
 function createInitialState(): NotificationStreamRuntimeState {
@@ -66,6 +66,7 @@ export const useNotificationStreamStore = defineStore('notification-stream', () 
 
   const commentBatch = shallowRef<readonly NotificationStreamCommentRenderPatch[]>([])
   const commentRevision = ref(0)
+  const commentPolicyRevision = ref(0)
 
   const inboxBatch = shallowRef<readonly NotificationStreamInboxRenderPatch[]>([])
   const inboxRevision = ref(0)
@@ -230,6 +231,14 @@ export const useNotificationStreamStore = defineStore('notification-stream', () 
         })
         return
 
+      case NotificationStreamEventType.CacheControl: {
+        const payload = event.payload as CacheControlPayload
+        if (payload.type === 'comment-policy.updated') {
+          commentPolicyRevision.value += 1
+        }
+        return
+      }
+
       case NotificationStreamEventType.MessageReceived:
         schedulePatch({
           module: 'inbox',
@@ -340,6 +349,7 @@ export const useNotificationStreamStore = defineStore('notification-stream', () 
     articleRevision,
     commentBatch,
     commentRevision,
+    commentPolicyRevision,
     inboxBatch,
     inboxRevision,
     syncCursor,

@@ -1,8 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
 
-using Microsoft.AspNetCore.Mvc;
-
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
@@ -22,6 +20,8 @@ using FsusBlog.Server.Models.Moderation;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Security;
+
+using Microsoft.AspNetCore.Mvc;
 
 using SqlSugar;
 
@@ -67,6 +67,90 @@ public static partial class AuthoringEndpoints
             CancellationToken cancellationToken) =>
             Ok(context, aeds, await policyService.GetCurrentAsync(cancellationToken)))
         .RequireAdminPermission(AdminPermissions.AnonymousCommentConfigure)
+        .RequireRateLimiting("fixed_ip");
+
+        group.MapGet("/moderation/articles/{articleId:int}/comment-policy", async Task<IResult> (
+            int articleId,
+            long? rootId,
+            HttpContext context,
+            IAedsEncoder aeds,
+            IArticleCommentPolicyService policyService,
+            CancellationToken cancellationToken) =>
+            Ok(context, aeds, await policyService.ResolveAsync(articleId, rootId, cancellationToken)))
+        .RequireAdminPermission(AdminPermissions.CommentModerate)
+        .RequireRateLimiting("fixed_ip");
+
+        group.MapPut("/moderation/articles/{articleId:int}/comment-policy", async Task<IResult> (
+            int articleId,
+            HttpContext context,
+            IAedsEncoder aeds,
+            IAdminPrincipalService adminPrincipals,
+            IArticleCommentPolicyService policyService,
+            CancellationToken cancellationToken) =>
+        {
+            var parsed = await ReadRequestAsync<ArticleCommentPolicyUpdateRequest>(
+                context, aeds, "article_comment_policy_request_invalid", cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
+            if (stepUp is not null)
+            {
+                return stepUp;
+            }
+            try
+            {
+                return Ok(context, aeds, await policyService.UpdateArticleAsync(
+                    articleId, parsed.Value!, context.GetUserId(), cancellationToken));
+            }
+            catch (InvalidOperationException ex) when (ex.Message == "comment_policy_version_conflict")
+            {
+                return AedsJsonResults.Error(aeds, ErrorCode.Conflict, "comment_policy_version_conflict", StatusCodes.Status409Conflict);
+            }
+            catch (ArgumentException)
+            {
+                return AedsJsonResults.BadRequest(aeds, "article_comment_policy_invalid");
+            }
+        })
+        .RequireAdminPermission(AdminPermissions.CommentModerate)
+        .RequireRateLimiting("fixed_ip");
+
+        group.MapPut("/moderation/articles/{articleId:int}/comment-threads/{rootId:long}", async Task<IResult> (
+            int articleId,
+            long rootId,
+            HttpContext context,
+            IAedsEncoder aeds,
+            IAdminPrincipalService adminPrincipals,
+            IArticleCommentPolicyService policyService,
+            CancellationToken cancellationToken) =>
+        {
+            var parsed = await ReadRequestAsync<ThreadCommentPolicyUpdateRequest>(
+                context, aeds, "comment_thread_policy_request_invalid", cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
+            if (stepUp is not null)
+            {
+                return stepUp;
+            }
+            try
+            {
+                return Ok(context, aeds, await policyService.UpdateThreadAsync(
+                    articleId, rootId, parsed.Value!, context.GetUserId(), cancellationToken));
+            }
+            catch (InvalidOperationException ex) when (ex.Message == "comment_policy_version_conflict")
+            {
+                return AedsJsonResults.Error(aeds, ErrorCode.Conflict, "comment_policy_version_conflict", StatusCodes.Status409Conflict);
+            }
+            catch (InvalidOperationException ex) when (ex.Message == "comment_thread_not_found")
+            {
+                return AedsJsonResults.NotFound(aeds, "comment_thread_not_found");
+            }
+        })
+        .RequireAdminPermission(AdminPermissions.CommentModerate)
         .RequireRateLimiting("fixed_ip");
 
         group.MapPut("/moderation/anonymous-comment-policy", async (

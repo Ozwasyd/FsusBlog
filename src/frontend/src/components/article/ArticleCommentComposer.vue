@@ -10,6 +10,14 @@
       </el-button>
     </div>
 
+    <p
+      v-if="!publicCommentsEnabled && !anonymousCommentsEnabled"
+      class="comment-composer-feedback"
+      aria-live="polite"
+    >
+      当前文章或讨论串已暂停新评论，已有评论仍可阅读。
+    </p>
+
     <div class="comment-identity-panel">
       <div class="comment-identity-summary">
         <div class="comment-identity-copy">

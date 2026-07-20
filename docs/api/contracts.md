@@ -2252,3 +2252,10 @@ Notification deployment drill 请求固定为 `{releaseId,slot,generation,drillI
 `GET /api/binary/article/{id}.aeds` 及其公共投影发现 Published 文章缺少非空 `article_body.markdown_content` 时，返回 `InfraFailure`，稳定错误 detail 为 `article_body_missing`。该状态不是 `NotFound`，客户端应显示正文暂不可用并允许稍后重试；不得把列表 `summary` 渲染为详情正文。
 
 错误路径不生成新的 ArticleDetail AEDS frame、缓存、Public AOT、public-hot 正文或搜索正文投影。admin/private Draft 读取允许空正文并返回空字符串。此变更不修改 `AedsFrameType`、ArticleDetail V5 POD、路由或 notification stream 信封；修复完成后沿既有文章缓存、AOT、搜索和热读失效链恢复，无需新增客户端 fallback。
+
+## Article/thread comment policy
+
+- `GET /api/binary/comment/policy` 接受可选 `articleId`、`rootId`；响应仍为 AEDS `CommentPolicySnapshot`。给定文章时，开关与 `snapshotHash` 表示全站默认、文章 override 和线程状态合成结果。
+- `GET|PUT /api/authoring/moderation/articles/{articleId}/comment-policy` 读取/更新文章策略；更新请求包含 nullable override、`moderationMode=direct|premoderated|risk_based`、`slowModeSeconds`、`closedAtUtc` 与 `expectedPolicyVersion`。
+- `PUT /api/authoring/moderation/articles/{articleId}/comment-threads/{rootId}` 原子锁定/解锁单一根线程；请求包含 `locked`、`expectedPolicyVersion`、`reason`。
+- 稳定写入拒绝码：`comment_policy_closed`、`comment_thread_locked`、`comment_slow_mode_active`、`comment_policy_version_conflict`。所有评论读取在关闭后保持可用。

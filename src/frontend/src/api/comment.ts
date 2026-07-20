@@ -147,12 +147,21 @@ export const createPublicComment = (data: PublicCommentCreateInput, config?: Api
   )
 }
 
-export const getCommentPolicySnapshot = (config?: ApiRequestConfig) =>
-  requestBinaryOnly<CommentPolicySnapshot>({
-    binaryRoute: { operationId: 'binary_get_comment_policy' },
+export const getCommentPolicySnapshot = (
+  config?: ApiRequestConfig,
+  articleId?: number,
+  rootId?: string | null
+) => {
+  const query = new URLSearchParams()
+  if (articleId && articleId > 0) query.set('articleId', String(articleId))
+  if (rootId) query.set('rootId', rootId)
+  return requestBinaryOnly<CommentPolicySnapshot>({
+    binaryRoute: { operationId: 'binary_get_comment_policy', query },
     frameType: FrameType.CommentPolicySnapshot,
-    signal: config?.signal as AbortSignal | undefined
+    signal: config?.signal as AbortSignal | undefined,
+    requestOptions: { credentials: 'omit' }
   })
+}
 
 export const getAnonymousCredentialRootSnapshot = (config?: ApiRequestConfig) =>
   requestBinaryOnly<AnonymousCredentialRootSnapshot>({

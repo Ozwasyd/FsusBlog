@@ -85,7 +85,7 @@ export interface ArticleUpdatePayload {
 }
 
 export interface CacheControlPayload {
-  type: 'shell.invalidate' | 'search-index.updated' | 'asset.clear'
+  type: 'shell.invalidate' | 'search-index.updated' | 'asset.clear' | 'comment-policy.updated'
   scope?: string | null
   cache?: string | null
   keys?: string[] | null

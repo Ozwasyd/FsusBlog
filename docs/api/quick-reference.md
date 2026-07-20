@@ -481,3 +481,11 @@
 - [contracts.md](contracts.md) — 请求/响应 DTO 完整定义
 - [schemas-and-errors.md](schemas-and-errors.md) — 错误码与 Binary 帧格式
 - [../api.md](../api.md) — API 总览（含 AEDS 帧格式附录）
+
+## 文章/线程评论策略
+
+| 端点 | 认证 | 响应 | 用途 |
+|---|---|---|---|
+| GET `/api/binary/comment/policy?articleId=&rootId=` | 🔓 📦 | `CommentPolicySnapshot`(164) | 全站→文章→线程有效 composer 策略 |
+| GET/PUT `/api/authoring/moderation/articles/{articleId}/comment-policy` | 🔐 📦 | `CommentPolicySnapshot`(164) envelope | admin 文章 override、审核/慢速模式与乐观版本 |
+| PUT `/api/authoring/moderation/articles/{articleId}/comment-threads/{rootId}` | 🔐 📦 | `CommentPolicySnapshot`(164) envelope | admin 单线程锁定/解锁与审计 |

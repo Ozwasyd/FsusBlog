@@ -650,3 +650,7 @@ replyToAuthorPayload?:CommentAuthorViewPod + blobLength:int32 + blob
 - `src/shared/Contracts/Validation/aeds-protocol.json` — 帧类型与 AEDS header 的生成输入
 - `tools/frontend/generate-aeds-protocol.mjs` — 生成并校验三端协议常量
 - `src/shared/Contracts/Validation/PodSizeCatalog.cs` — POD 大小权威源码
+
+## 文章/线程评论策略错误
+
+admin authoring JSON 使用既有 AEDS frame envelope，不新增公开文本 fallback。并发更新要求 `expectedPolicyVersion`；版本不符返回 `409 comment_policy_version_conflict`。评论写入可返回 `comment_policy_closed`、`comment_thread_locked`、`comment_slow_mode_active`；这些状态不改变公共读取结果。

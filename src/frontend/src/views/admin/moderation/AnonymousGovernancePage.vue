@@ -100,6 +100,40 @@
           />
         </label>
       </div>
+      <div class="anonymous-governance-controls">
+        <label class="anonymous-governance-control">
+          <span><strong>文章评论策略</strong><small>输入文章 ID 后配置文章 override；版本冲突会要求重新加载。</small></span>
+          <el-input-number v-model="articlePolicyId" :min="1" controls-position="right" aria-label="文章 ID" />
+          <el-button :loading="loadingArticlePolicy" @click="void loadArticlePolicy()">加载</el-button>
+        </label>
+        <template v-if="articlePolicy">
+          <label class="anonymous-governance-control">
+            <span><strong>允许新评论</strong><small>关闭后保留所有公共读取。</small></span>
+            <el-switch v-model="articlePolicy.enabled" />
+          </label>
+          <label class="anonymous-governance-control">
+            <span><strong>文章公开/匿名入口</strong><small>分别继承并收紧全站策略。</small></span>
+            <el-switch v-model="articlePolicy.publicCommentsEnabled" aria-label="文章公开评论" />
+            <el-switch v-model="articlePolicy.anonymousCommentsEnabled" aria-label="文章匿名评论" />
+          </label>
+          <label class="anonymous-governance-control">
+            <span><strong>审核与慢速模式</strong><small>慢速模式使用隐私安全主体摘要。</small></span>
+            <el-select v-model="articlePolicy.moderationMode" aria-label="文章评论审核模式">
+              <el-option label="风险判定" value="risk_based" />
+              <el-option label="先审后发" value="premoderated" />
+              <el-option label="直接发布" value="direct" />
+            </el-select>
+            <el-input-number v-model="articlePolicy.slowModeSeconds" :min="0" :max="86400" aria-label="慢速模式秒数" />
+          </label>
+          <label class="anonymous-governance-control">
+            <span><strong>线程锁定</strong><small>只阻止目标根线程的新回复。</small></span>
+            <el-input-number v-model="threadRootId" :min="1" controls-position="right" aria-label="根评论 ID" />
+            <el-button @click="void setThreadLocked(true)">锁定</el-button>
+            <el-button @click="void setThreadLocked(false)">解锁</el-button>
+          </label>
+          <el-button type="primary" :loading="loadingArticlePolicy" @click="void saveArticlePolicy()">保存文章策略</el-button>
+        </template>
+      </div>
     </FsusUiSettingsSection>
 
     <FsusUiSettingsSection
@@ -271,7 +305,11 @@ import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import { useAdminStore, type AnonymousCommentPolicySnapshot } from '@/store/admin'
 import {
   getAnonymousCommentPolicy,
+  getArticleCommentPolicy,
+  updateArticleCommentPolicy,
+  updateCommentThreadPolicy,
   updateAnonymousCommentPolicy,
+  type EffectiveArticleCommentPolicyResponse,
   type AnonymousCommentPolicyResponse,
   type AnonymousCommentPolicyUpdateRequest
 } from '@/api/authoring'
@@ -290,6 +328,10 @@ import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime'
 
 const route = useRoute()
 const adminStore = useAdminStore()
+const articlePolicyId = ref<number>()
+const threadRootId = ref<number>()
+const articlePolicy = ref<EffectiveArticleCommentPolicyResponse | null>(null)
+const loadingArticlePolicy = ref(false)
 
 const sections = {
   ManageAnonymousCommentPolicy: {
@@ -543,6 +585,57 @@ const updatePolicy = async (key: PolicyKey, value: string | number | boolean): P
     showErrorToast(governanceErrorMessage(error, '匿名评论策略更新失败'), '匿名评论策略')
   } finally {
     loadingPolicy.value = false
+  }
+}
+
+const loadArticlePolicy = async (): Promise<void> => {
+  if (!articlePolicyId.value) return
+  loadingArticlePolicy.value = true
+  try {
+    articlePolicy.value = await getArticleCommentPolicy(articlePolicyId.value, undefined)
+  } catch (error) {
+    showErrorToast(governanceErrorMessage(error, '文章评论策略加载失败'), '评论策略')
+  } finally {
+    loadingArticlePolicy.value = false
+  }
+}
+
+const saveArticlePolicy = async (): Promise<void> => {
+  if (!articlePolicyId.value || !articlePolicy.value) return
+  loadingArticlePolicy.value = true
+  try {
+    const mfaProofToken = await ensureAdminSensitiveProof()
+    articlePolicy.value = await updateArticleCommentPolicy(articlePolicyId.value, {
+      enabled: articlePolicy.value.enabled,
+      publicCommentsEnabled: articlePolicy.value.publicCommentsEnabled,
+      anonymousCommentsEnabled: articlePolicy.value.anonymousCommentsEnabled,
+      moderationMode: articlePolicy.value.moderationMode,
+      slowModeSeconds: articlePolicy.value.slowModeSeconds,
+      closedAtUtc: articlePolicy.value.closedAtUtc,
+      expectedPolicyVersion: articlePolicy.value.articlePolicyVersion,
+      reason: 'admin_article_comment_policy_update'
+    }, { mfaProofToken })
+    toast.success('文章评论策略已更新')
+  } catch (error) {
+    showErrorToast(governanceErrorMessage(error, '文章评论策略更新失败'), '评论策略')
+  } finally {
+    loadingArticlePolicy.value = false
+  }
+}
+
+const setThreadLocked = async (locked: boolean): Promise<void> => {
+  if (!articlePolicyId.value || !articlePolicy.value || !threadRootId.value) return
+  try {
+    const mfaProofToken = await ensureAdminSensitiveProof()
+    const currentThreadPolicy = await getArticleCommentPolicy(articlePolicyId.value, threadRootId.value)
+    articlePolicy.value = await updateCommentThreadPolicy(articlePolicyId.value, threadRootId.value, {
+      locked,
+      expectedPolicyVersion: currentThreadPolicy.threadPolicyVersion,
+      reason: locked ? 'admin_thread_lock' : 'admin_thread_unlock'
+    }, { mfaProofToken })
+    toast.success(locked ? '讨论串已锁定' : '讨论串已解锁')
+  } catch (error) {
+    showErrorToast(governanceErrorMessage(error, '线程策略更新失败'), '评论策略')
   }
 }
 

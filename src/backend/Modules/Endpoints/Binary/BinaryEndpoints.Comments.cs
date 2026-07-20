@@ -44,12 +44,27 @@ public static partial class BinaryEndpoints
     private static void MapBinaryCommentEndpoints(IEndpointRouteBuilder group)
     {
         group.MapGet("/comment/policy", static async Task<BinaryFrameResult> (
+            int? articleId,
+            long? rootId,
             IAnonymousCommentPolicyService policyService,
+            IArticleCommentPolicyService articlePolicyService,
             IZkAnonymousProofService zkProofService,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
             AnonymousCommentPolicySnapshot policy = await policyService.GetCurrentAsync(cancellationToken);
+            if (articleId is > 0)
+            {
+                EffectiveArticleCommentPolicy effective = await articlePolicyService.ResolveAsync(articleId.Value, rootId, cancellationToken);
+                bool writable = effective.IsOpen(DateTime.UtcNow) && !effective.ThreadLocked;
+                policy = policy with
+                {
+                    AnonymousCommentsEnabled = policy.AnonymousCommentsEnabled && writable && effective.AnonymousCommentsEnabled,
+                    PublicCommentsEnabled = policy.PublicCommentsEnabled && writable && effective.PublicCommentsEnabled,
+                    SnapshotHash = effective.SnapshotHash,
+                    Reason = effective.ThreadLocked ? "comment_thread_locked" : writable ? policy.Reason : "comment_policy_closed"
+                };
+            }
             CommentPolicySnapshotCoreModel snapshot = ToCommentPolicyCore(
                 policy,
                 zkProofService.CurrentZkProdPolicy);
@@ -1119,6 +1134,9 @@ public static partial class BinaryEndpoints
             ErrorDetail.Create(
                 string.Equals(result.FailureCode, "comment_child_limit", StringComparison.Ordinal)
                     || string.Equals(result.FailureCode, "comment_mutation_content_conflict", StringComparison.Ordinal)
+                    || string.Equals(result.FailureCode, "comment_policy_closed", StringComparison.Ordinal)
+                    || string.Equals(result.FailureCode, "comment_thread_locked", StringComparison.Ordinal)
+                    || string.Equals(result.FailureCode, "comment_slow_mode_active", StringComparison.Ordinal)
                     ? ErrorCode.Conflict
                     : ErrorCode.Validation,
                 result.FailureCode ?? fallbackMessage),

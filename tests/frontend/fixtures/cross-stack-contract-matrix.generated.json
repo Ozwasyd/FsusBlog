@@ -1874,6 +1874,29 @@
         {
           "auth": "admin",
           "method": "GET",
+          "path": "/author/moderation/articles/{articleId:int}/comment-policy",
+          "responseFrame": "CommentPolicySnapshot",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "PUT",
+          "path": "/author/moderation/articles/{articleId:int}/comment-policy",
+          "requestFrame": "CommentPolicyUpdateRequest",
+          "responseFrame": "CommentPolicySnapshot",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "PUT",
+          "path": "/author/moderation/articles/{articleId:int}/comment-threads/{rootId:long}",
+          "requestFrame": "CommentPolicyUpdateRequest",
+          "responseFrame": "CommentPolicySnapshot",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
           "path": "/author/moderation/dictionaries",
           "responseFrame": "ModerationDictionarySnapshot"
         },
@@ -2544,5 +2567,5 @@
     "openapi": "src/shared/Contracts/Validation/fsusblog.openapi.json",
     "protocol": "src/shared/Contracts/Validation/aeds-protocol.json"
   },
-  "openapiOperationCount": 236
+  "openapiOperationCount": 239
 }

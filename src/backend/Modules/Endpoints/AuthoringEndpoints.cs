@@ -161,6 +161,12 @@ public static partial class AuthoringEndpoints
             return Found(null, AedsFrameType.CommentPolicySnapshot, out route);
         if (HttpMethods.IsPut(method) && segments is ["moderation", "anonymous-comment-policy"])
             return Found(AedsFrameType.CommentPolicyUpdateRequest, AedsFrameType.CommentPolicySnapshot, out route);
+        if (HttpMethods.IsGet(method) && segments is ["moderation", "articles", _, "comment-policy"])
+            return Found(null, AedsFrameType.CommentPolicySnapshot, out route);
+        if (HttpMethods.IsPut(method) && segments is ["moderation", "articles", _, "comment-policy"])
+            return Found(AedsFrameType.CommentPolicyUpdateRequest, AedsFrameType.CommentPolicySnapshot, out route);
+        if (HttpMethods.IsPut(method) && segments is ["moderation", "articles", _, "comment-threads", _])
+            return Found(AedsFrameType.CommentPolicyUpdateRequest, AedsFrameType.CommentPolicySnapshot, out route);
         if (HttpMethods.IsGet(method) && segments is ["moderation", "dictionaries"])
             return Found(null, AedsFrameType.ModerationDictionarySnapshot, out route);
         if (HttpMethods.IsPost(method) && segments is ["moderation", "dictionaries", "reload"])

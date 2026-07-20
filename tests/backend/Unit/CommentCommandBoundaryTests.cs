@@ -30,7 +30,8 @@ public sealed class CommentCommandBoundaryTests
                 typeof(ICommentAttributionPrivacyService),
                 typeof(ICacheInvalidationDispatcher),
                 typeof(IConfiguration),
-                typeof(ICommentMutationOutbox)
+                typeof(ICommentMutationOutbox),
+                typeof(IArticleCommentPolicyService)
             ],
             dependencies);
         Assert.DoesNotContain(typeof(ICommentQueryService), dependencies);

@@ -842,3 +842,9 @@ RiskControl 运行态写入只能使用 `/api/binary/admin/security/risk-control
 公开文章详情只把非空 `article_body.markdown_content` 视为可发布正文。已发布文章缺少正文行或正文为空白时，读取链返回稳定的 `article_body_missing`，不得使用 `summary` 补正文，也不得把该结果写入 ArticleDetail cache、AEDS、Public AOT、public-hot 或搜索正文投影。草稿的空正文仍是合法的未完成内容，不复用公开损坏语义。
 
 检测到损坏后，读取链只提交文章 ID 与低基数来源到本机有界修复队列。修复必须从 `current_publication_id` 对应且归属同一文章的 revision 恢复，并要求 `current_revision_id` 没有指向未发布草稿；成功后统一失效缓存与公开制品再重建。无法证明 revision/publication 坐标一致时保持 fail closed，不猜测正文。详细运行边界见 [`issue-1208-article-body-missing.md`](issue-1208-article-body-missing.md) 与 [`issue-1208-article-body-repair.md`](../architecture/issue-1208-article-body-repair.md)。
+
+## 文章与线程评论策略
+
+评论写入策略按 `site default -> article override -> thread state` 组合。公开 AEDS 端点 `GET /api/binary/comment/policy?articleId=&rootId=` 仍返回既有 `CommentPolicySnapshot` frame，但 author-mode 开关和 `snapshotHash` 是当前文章/线程的有效快照；关闭写入不影响评论读取。`POST /comment/anonymous-ticket` 与最终 public/strong-anonymous submit 必须分别重读有效策略，旧 ticket 不得绕过期间发生的关闭或线程锁定。
+
+管理写入仅位于 authoring API：文章策略使用乐观 `expectedPolicyVersion`，线程锁只影响目标根树。慢速模式以现有 privacy-safe moderation subject hash 为键，在评论事务内原子推进；禁止使用稳定设备指纹。策略变更写 append-only audit event，并通过既有 comment-policy cache invalidation 广播使各节点及 composer 重新取快照。
