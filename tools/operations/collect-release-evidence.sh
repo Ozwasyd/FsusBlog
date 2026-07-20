@@ -16,17 +16,24 @@ if [[ $# -eq 1 ]]; then
 fi
 STAMP="${FSUSBLOG_RELEASE_STAMP:-$(date -u +%Y%m%dT%H%M%SZ)}"
 RELEASE_NAMESPACE="$STAMP"
-if [[ -n "${FSUSBLOG_RELEASE_ID:-}" ]]; then
-    if ! node "$ROOT_DIR/tools/release/release-id.mjs" validate "$FSUSBLOG_RELEASE_ID" >/dev/null; then
-        echo "FSUSBLOG_RELEASE_ID cannot form a safe release-evidence namespace" >&2
-        exit 2
-    fi
-    RELEASE_NAMESPACE="$FSUSBLOG_RELEASE_ID"
-    if [[ "${FSUSBLOG_COMMIT_SHA:-}" =~ ^[0-9a-f]{40}$ &&
-        "${FSUSBLOG_IMAGE_DIGEST:-}" =~ ^sha256:([0-9a-f]{64})$ ]]; then
-        IMAGE_NAMESPACE_DIGEST="${FSUSBLOG_IMAGE_DIGEST#sha256:}"
-        RELEASE_NAMESPACE="${FSUSBLOG_RELEASE_ID}--${FSUSBLOG_COMMIT_SHA:0:12}--${IMAGE_NAMESPACE_DIGEST:0:12}"
-    fi
+if [[ -n "${FSUSBLOG_RELEASE_MANIFEST:-}" ]]; then
+    [[ -f "$FSUSBLOG_RELEASE_MANIFEST" ]] || { echo "FSUSBLOG_RELEASE_MANIFEST is missing" >&2; exit 2; }
+    identity_args=(--manifest "$FSUSBLOG_RELEASE_MANIFEST")
+    [[ -n "${FSUSBLOG_RELEASE_ID:-}" ]] && identity_args+=(--release-id "$FSUSBLOG_RELEASE_ID")
+    [[ -n "${FSUSBLOG_COMMIT_SHA:-}" ]] && identity_args+=(--commit-sha "$FSUSBLOG_COMMIT_SHA")
+    [[ -n "${FSUSBLOG_IMAGE_REF:-}" ]] && identity_args+=(--image-ref "$FSUSBLOG_IMAGE_REF")
+    [[ -n "${FSUSBLOG_IMAGE_DIGEST:-}" ]] && identity_args+=(--image-digest "$FSUSBLOG_IMAGE_DIGEST")
+    RELEASE_IDENTITY_INPUT="$(node "$ROOT_DIR/tools/release/check-release-manifest.mjs" "${identity_args[@]}")" || exit 2
+    export FSUSBLOG_RELEASE_ID="$(jq -r '.releaseId' <<<"$RELEASE_IDENTITY_INPUT")"
+    export FSUSBLOG_RELEASE_CREATED_AT_UTC="$(jq -r '.createdAtUtc' <<<"$RELEASE_IDENTITY_INPUT")"
+    export FSUSBLOG_COMMIT_SHA="$(jq -r '.commitSha' <<<"$RELEASE_IDENTITY_INPUT")"
+    export FSUSBLOG_IMAGE_REF="$(jq -r '.imageRef' <<<"$RELEASE_IDENTITY_INPUT")"
+    export FSUSBLOG_IMAGE_DIGEST="$(jq -r '.imageDigest' <<<"$RELEASE_IDENTITY_INPUT")"
+    IMAGE_NAMESPACE_DIGEST="${FSUSBLOG_IMAGE_DIGEST#sha256:}"
+    RELEASE_NAMESPACE="${FSUSBLOG_RELEASE_ID}--${IMAGE_NAMESPACE_DIGEST:0:12}"
+elif [[ -n "${FSUSBLOG_RELEASE_ID:-}${FSUSBLOG_COMMIT_SHA:-}${FSUSBLOG_IMAGE_REF:-}${FSUSBLOG_IMAGE_DIGEST:-}" ]]; then
+    echo "release-bound evidence identity requires FSUSBLOG_RELEASE_MANIFEST" >&2
+    exit 2
 fi
 export FSUSBLOG_RELEASE_NAMESPACE="$RELEASE_NAMESPACE"
 OUT_DIR="${FSUSBLOG_RELEASE_EVIDENCE_DIR:-$ROOT_DIR/.tmp/release-evidence/$RELEASE_NAMESPACE}"
@@ -934,7 +941,7 @@ cat >"$OUT_DIR/manifest.json" <<JSON
   "releaseStamp": "$STAMP",
   "generatedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "gitRevision": "$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)",
-  "commitSha": "$(git -C "$ROOT_DIR" rev-parse HEAD 2>/dev/null || echo unknown)",
+  "commitSha": "${FSUSBLOG_COMMIT_SHA:-$(git -C "$ROOT_DIR" rev-parse HEAD 2>/dev/null || echo unknown)}",
   "workflowRun": {
     "id": "${GITHUB_RUN_ID:-unknown}",
     "attempt": "${GITHUB_RUN_ATTEMPT:-unknown}",

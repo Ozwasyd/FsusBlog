@@ -158,7 +158,7 @@ LoadEnvFile() {
         key="${key%"${key##*[![:space:]]}"}"
         [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || Fail "invalid env key in $ENV_FILE: $key"
         case "$key" in
-            FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE | FSUSBLOG_RELEASE_MANIFEST_HOST_PATH)
+            FSUSBLOG_RELEASE_ID | FSUSBLOG_RELEASE_CREATED_AT_UTC | FSUSBLOG_COMMIT_SHA | FSUSBLOG_IMAGE_REF | FSUSBLOG_IMAGE_TAG | FSUSBLOG_IMAGE_DIGEST | FSUSBLOG_RELEASE_SLOT | FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE | FSUSBLOG_RELEASE_MANIFEST_HOST_PATH)
                 continue
                 ;;
         esac
@@ -519,12 +519,6 @@ Main() {
 
     LoadEnvFile
     ConfigureSlotCompose
-    if [[ -z "$REQUESTED_RELEASE_ID" && -n "${FSUSBLOG_RELEASE_ID:-}" ]]; then
-        REQUESTED_RELEASE_ID="$FSUSBLOG_RELEASE_ID"
-    fi
-    if [[ -z "$REQUESTED_IMAGE_REF" && -n "${FSUSBLOG_IMAGE_REF:-}" ]]; then
-        REQUESTED_IMAGE_REF="$FSUSBLOG_IMAGE_REF"
-    fi
     LoadReleaseManifest
     ValidateEnv
     ValidateZkFiles

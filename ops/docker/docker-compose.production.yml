@@ -9,6 +9,7 @@ services:
         labels:
             io.fsusblog.release.slot: ${FSUSBLOG_RELEASE_SLOT:?Set blue or green release slot}
             io.fsusblog.release.id: ${FSUSBLOG_RELEASE_ID:?Set releaseId from release-manifest.json}
+            io.fsusblog.release.created-at-utc: ${FSUSBLOG_RELEASE_CREATED_AT_UTC:?Set createdAtUtc from release-manifest.json}
             io.fsusblog.release.commit: ${FSUSBLOG_COMMIT_SHA:?Set commitSha from release-manifest.json}
             io.fsusblog.release.image-ref: ${FSUSBLOG_IMAGE_REF:?Set immutable repository@sha256 digest}
             io.fsusblog.release.image-digest: ${FSUSBLOG_IMAGE_DIGEST:?Set image digest from release-manifest.json}
@@ -32,6 +33,7 @@ services:
             - COMPlus_DbgEnableMiniDump=0
             - DOTNET_EnableDiagnostics=0
             - FSUSBLOG_RELEASE_ID=${FSUSBLOG_RELEASE_ID:?Set releaseId from release-manifest.json}
+            - FSUSBLOG_RELEASE_CREATED_AT_UTC=${FSUSBLOG_RELEASE_CREATED_AT_UTC:?Set createdAtUtc from release-manifest.json}
             - FSUSBLOG_RELEASE_SLOT=${FSUSBLOG_RELEASE_SLOT:?Set the candidate or active release slot}
             - FSUSBLOG_IMAGE_REF=${FSUSBLOG_IMAGE_REF:?Set immutable repository@sha256 digest}
             - FSUSBLOG_IMAGE_DIGEST=${FSUSBLOG_IMAGE_DIGEST:?Set image digest from release-manifest.json}

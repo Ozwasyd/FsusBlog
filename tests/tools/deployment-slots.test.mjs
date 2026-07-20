@@ -134,6 +134,70 @@ test('slot state uses atomic durable files and preserves independent release ide
   assert.throws(() => resolveSlotConfig('blue', { FSUSBLOG_BLUE_PORT: '18081', FSUSBLOG_GREEN_PORT: '18081' }), /must be different/u)
 })
 
+test('manifest v2 is the sole identity source for slot and rollout state writers', (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-release-propagation-'))
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }))
+  const stateFile = path.join(directory, 'slots.json')
+  const rolloutFile = path.join(directory, 'rollout.json')
+  const blueManifest = path.join(directory, 'blue-release-manifest.json')
+  const greenManifest = path.join(directory, 'green-release-manifest.json')
+  writeReleaseManifestAtomic(blueManifest, createReleaseManifest(releaseInput(blueRelease, blueDigest)))
+  writeReleaseManifestAtomic(greenManifest, createReleaseManifest(releaseInput(greenRelease, greenDigest)))
+
+  let result = spawnSync(process.execPath, [
+    'tools/deployment/slot-state.mjs', 'record-start', '--state', stateFile, '--slot', 'blue',
+    '--release-manifest', blueManifest, '--release-id', blueRelease,
+    '--image-ref', `ghcr.io/fsusblog/app@${blueDigest}`, '--image-digest', blueDigest,
+    '--at', '2026-07-11T01:00:00.000Z'
+  ], { cwd: root, encoding: 'utf8' })
+  assert.equal(result.status, 0, result.stderr)
+  result = spawnSync(process.execPath, [
+    'tools/deployment/slot-state.mjs', 'set-active', '--state', stateFile,
+    '--slot', 'blue', '--kind', 'bootstrap', '--at', '2026-07-11T01:01:00.000Z'
+  ], { cwd: root, encoding: 'utf8' })
+  assert.equal(result.status, 0, result.stderr)
+  result = spawnSync(process.execPath, [
+    'tools/deployment/slot-state.mjs', 'reserve-generation', '--state', stateFile,
+    '--slot', 'green', '--at', '2026-07-11T02:00:00.000Z'
+  ], { cwd: root, encoding: 'utf8' })
+  assert.equal(result.status, 0, result.stderr)
+  const targetGeneration = JSON.parse(result.stdout).generation
+
+  result = spawnSync(process.execPath, [
+    'tools/deployment/rollout-state.mjs', 'create', '--state', rolloutFile,
+    '--rollout-id', 'rollout-20260711', '--kind', 'deploy', '--manifest', greenManifest,
+    '--slot-state', stateFile,
+    '--source-slot', 'blue', '--source-release', blueRelease, '--source-digest', blueDigest, '--source-generation', '1',
+    '--target-slot', 'green', '--target-release', greenRelease, '--target-digest', greenDigest,
+    '--target-generation', String(targetGeneration), '--at', '2026-07-11T02:01:00.000Z'
+  ], { cwd: root, encoding: 'utf8' })
+  assert.equal(result.status, 0, result.stderr)
+  const rollout = JSON.parse(result.stdout)
+  assert.equal(rollout.source.releaseId, blueRelease)
+  assert.equal(rollout.target.releaseId, greenRelease)
+  assert.equal(rollout.target.imageDigest, greenDigest)
+  assert.equal(rollout.manifestPath, greenManifest)
+
+  result = spawnSync(process.execPath, [
+    'tools/deployment/slot-state.mjs', 'record-start', '--state', stateFile, '--slot', 'green',
+    '--release-manifest', greenManifest, '--release-id', blueRelease,
+    '--image-ref', `ghcr.io/fsusblog/app@${greenDigest}`, '--image-digest', greenDigest
+  ], { cwd: root, encoding: 'utf8' })
+  assert.notEqual(result.status, 0)
+  assert.match(result.stderr, /releaseId does not match/u)
+
+  result = spawnSync(process.execPath, [
+    'tools/deployment/rollout-state.mjs', 'create', '--state', path.join(directory, 'forged-rollout.json'),
+    '--rollout-id', 'rollout-forged', '--kind', 'deploy', '--manifest', greenManifest,
+    '--slot-state', stateFile,
+    '--source-slot', 'blue', '--source-release', greenRelease, '--source-digest', blueDigest, '--source-generation', '1',
+    '--target-slot', 'green', '--target-release', greenRelease, '--target-digest', greenDigest,
+    '--target-generation', String(targetGeneration)
+  ], { cwd: root, encoding: 'utf8' })
+  assert.notEqual(result.status, 0)
+  assert.match(result.stderr, /source identity does not match persisted slot state/u)
+})
+
 test('slot scripts coexist, remain idempotent, preserve active slot on candidate failures and recover status', (t) => {
   const fixture = createScriptFixture(t)
   const blueManifest = writeManifest(fixture.directory, 'blue.json', blueRelease, blueDigest)

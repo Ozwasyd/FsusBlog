@@ -45,7 +45,7 @@ Running the collector without `--require-ok` never creates `release-index.json`.
 
 ## Storage and retention
 
-`security/evidence-contracts/release-bundle-storage.json` defines GitHub Actions artifacts as the storage authority. `.github/workflows/release-evidence-storage.yml` is reusable only; defining it does not publish anything by itself. A calling release workflow must supply a workflow-local candidate bundle and its target environment. The storage workflow validates release, commit, image and environment identity, reruns `--require-ok`, seals the bundle, and uploads with `overwrite: false` and 90-day retention.
+`security/evidence-contracts/release-bundle-storage.json` defines GitHub Actions artifacts as the storage authority. `.github/workflows/release-evidence-storage.yml` is reusable only; defining it does not publish anything by itself. A calling release workflow must supply a workflow-local candidate bundle, its target environment, and the manifest-derived `release_id` / `created_at_utc` / `commit_sha` / `image_digest` tuple. The storage workflow cross-validates the canonical release identity, reruns `--require-ok`, seals the bundle, and uploads `fsusblog-release-evidence-{releaseId}` with `overwrite: false` and 90-day retention.
 
 The contract records normal expiry, legal/audit holds and rollback-reference retention. An active or supported rollback target remains referenced until its support window ends. A hold suspends ordinary expiry and must be recorded by the repository owner. Deletion does not make a tracked index authoritative: any consumer must fetch the referenced bundle and recompute the manifest and artifact-set digests.
 

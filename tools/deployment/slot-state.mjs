@@ -7,6 +7,7 @@ import {
   beginGatewayTransition,
   commitGatewayTransition,
   markGatewayRollbackRequired,
+  readLegacySlotState,
   readSlotState,
   recordSlotFailure,
   recordSlotStart,
@@ -16,6 +17,7 @@ import {
   setActiveSlot,
   writeSlotStateAtomic
 } from './slot-lib.mjs'
+import { readDeploymentReleaseIdentity } from '../release/deployment-release-identity.mjs'
 
 function parseArgs(argv) {
   const command = argv[0]
@@ -36,6 +38,10 @@ function statePath(options) {
 try {
   const { command, options } = parseArgs(process.argv.slice(2))
   const file = statePath(options)
+  if (command === 'read-legacy') {
+    console.log(JSON.stringify(readLegacySlotState(file)))
+    process.exit(0)
+  }
   const state = readSlotState(file)
   let output = state
   switch (command) {
@@ -49,12 +55,20 @@ try {
         output = { activeSlot: state.activeSlot, slot: config.slot, config, record: state.slots[config.slot], lastTransition: state.lastTransition }
       }
       break
-    case 'record-start':
+    case 'record-start': {
+      if (!options['release-manifest']) throw new Error('record-start requires --release-manifest')
+      const releaseIdentity = readDeploymentReleaseIdentity(options['release-manifest'], {
+        releaseId: options['release-id'],
+        createdAtUtc: options['created-at-utc'],
+        commitSha: options['commit-sha'],
+        imageRef: options['image-ref'],
+        imageDigest: options['image-digest']
+      })
       recordSlotStart(state, {
         slot: options.slot,
-        releaseId: options['release-id'],
-        imageRef: options['image-ref'],
-        imageDigest: options['image-digest'],
+        releaseId: releaseIdentity.releaseId,
+        imageRef: releaseIdentity.imageRef,
+        imageDigest: releaseIdentity.imageDigest,
         deploymentGeneration: options['deployment-generation'] === undefined
           ? undefined
           : Number(options['deployment-generation']),
@@ -64,6 +78,7 @@ try {
       writeSlotStateAtomic(file, state)
       output = state
       break
+    }
     case 'reserve-generation': {
       const generation = reserveRuntimeGeneration(state, { slot: options.slot, reservedAt: options.at })
       writeSlotStateAtomic(file, state)
@@ -118,7 +133,7 @@ try {
       output = state
       break
     default:
-      throw new Error('usage: slot-state.mjs <ensure|read|reserve-generation|record-start|record-stop|record-failure|set-active|begin-transition|commit-transition|abort-transition|rollback-required> [--state file] [options]')
+      throw new Error('usage: slot-state.mjs <ensure|read|read-legacy|reserve-generation|record-start|record-stop|record-failure|set-active|begin-transition|commit-transition|abort-transition|rollback-required> [--state file] [options]')
   }
   console.log(JSON.stringify(output))
 } catch (error) {

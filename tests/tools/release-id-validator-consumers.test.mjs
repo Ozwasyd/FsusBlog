@@ -36,17 +36,14 @@ test('release ID validator consumers use the authority adapters for their runtim
     'tools/operations/check-release-evidence-layout.mjs'
   ]) {
     const source = fs.readFileSync(path.join(root, relative), 'utf8')
-    assert.match(source, /import \{ isValidReleaseId \} from '\.\.\/release\/release-id\.mjs'/u)
+    assert.match(source, /import \{ (?:isValidReleaseId|assertReleaseIdentity) \} from '\.\.\/release\/release-id\.mjs'/u)
     assert.doesNotMatch(source, /\^\[0-9A-Za-z\]\[0-9A-Za-z\._-\]\{5,127\}\$/u)
   }
 
-  for (const relative of [
-    'tools/operations/collect-release-evidence.sh',
-    '.github/workflows/release-evidence-storage.yml'
-  ]) {
-    const source = fs.readFileSync(path.join(root, relative), 'utf8')
-    assert.match(source, /tools\/release\/release-id\.mjs"? validate/u)
-  }
+  const collector = fs.readFileSync(path.join(root, 'tools/operations/collect-release-evidence.sh'), 'utf8')
+  assert.match(collector, /tools\/release\/check-release-manifest\.mjs/u)
+  const storageWorkflow = fs.readFileSync(path.join(root, '.github/workflows/release-evidence-storage.yml'), 'utf8')
+  assert.match(storageWorkflow, /tools\/release\/release-id\.mjs assert/u)
 
   for (const relative of [
     'src/backend/Services/SearchIndexService.cs',

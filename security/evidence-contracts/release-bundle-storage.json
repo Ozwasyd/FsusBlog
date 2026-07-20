@@ -11,7 +11,7 @@
     "authority": {
         "type": "github-actions-artifact",
         "workflow": ".github/workflows/release-evidence-storage.yml",
-        "artifactNameTemplate": "fsusblog-release-evidence-{releaseId}-{commitSha12}",
+        "artifactNameTemplate": "fsusblog-release-evidence-{releaseId}",
         "immutableWithinWorkflowRun": true,
         "overwriteAllowed": false
     },

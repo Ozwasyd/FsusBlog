@@ -16,6 +16,8 @@ import {
   startRolloutStage,
   writeRolloutStateAtomic
 } from './release-rollout-lib.mjs'
+import { readSlotState } from './slot-lib.mjs'
+import { readDeploymentReleaseIdentity } from '../release/deployment-release-identity.mjs'
 
 function parse(argv) {
   const command = argv[0]
@@ -43,12 +45,35 @@ try {
   const file = path.resolve(options.state ?? process.env.FSUSBLOG_ROLLOUT_STATE_FILE ?? '/var/lib/fsusblog/deployment/rollout.json')
   let state
   if (command === 'create') {
+    if (!options.manifest) throw new Error('create requires --manifest')
+    if (!options['slot-state']) throw new Error('create requires --slot-state')
+    const targetRelease = readDeploymentReleaseIdentity(options.manifest, {
+      releaseId: options['target-release'],
+      imageDigest: options['target-digest']
+    })
+    const slotState = readSlotState(path.resolve(options['slot-state']), { allowMissing: false })
+    const sourceSlot = options['source-slot']
+    const sourceRecord = slotState.slots?.[sourceSlot]
+    if (slotState.activeSlot !== sourceSlot || !sourceRecord || sourceRecord.status !== 'running') {
+      throw new Error('source slot must be the persisted active running slot')
+    }
+    const source = identity(options, 'source')
+    if (source.releaseId !== sourceRecord.releaseId
+      || source.imageDigest !== sourceRecord.imageDigest
+      || source.runtimeGeneration !== sourceRecord.deploymentGeneration) {
+      throw new Error('source identity does not match persisted slot state')
+    }
     state = createRolloutState({
       rolloutId: options['rollout-id'],
       kind: options.kind,
       manifestPath: path.resolve(options.manifest),
-      source: identity(options, 'source'),
-      target: identity(options, 'target'),
+      source,
+      target: {
+        slot: options['target-slot'],
+        releaseId: targetRelease.releaseId,
+        imageDigest: targetRelease.imageDigest,
+        runtimeGeneration: Number(options['target-generation'])
+      },
       createdAtUtc: options.at
     })
   } else {

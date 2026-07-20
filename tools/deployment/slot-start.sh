@@ -174,7 +174,10 @@ fi
 if ! node "$ROOT_DIR/tools/deployment/slot-state.mjs" record-start \
     --state "$SLOT_STATE_FILE" \
     --slot "$SLOT" \
+    --release-manifest "$(realpath "$RELEASE_MANIFEST")" \
     --release-id "$FSUSBLOG_RELEASE_ID" \
+    --created-at-utc "$FSUSBLOG_RELEASE_CREATED_AT_UTC" \
+    --commit-sha "$FSUSBLOG_COMMIT_SHA" \
     --image-ref "$FSUSBLOG_IMAGE_REF" \
     --image-digest "$FSUSBLOG_IMAGE_DIGEST" \
     --deployment-generation "$FSUSBLOG_DEPLOYMENT_GENERATION" \

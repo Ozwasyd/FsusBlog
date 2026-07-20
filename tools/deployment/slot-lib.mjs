@@ -3,6 +3,8 @@ import path from 'node:path'
 import { isValidReleaseId } from '../release/release-id.mjs'
 
 export const SLOT_STATE_SCHEMA = 'fsusblog.deployment-slots.v1'
+export const LEGACY_SLOT_STATE_RETIREMENT =
+  'Remove the legacy slot-state reader after every pre-canonical N-1 rollback target has expired.'
 export const RELEASE_SLOTS = Object.freeze(['blue', 'green'])
 const IMAGE_DIGEST = /^sha256:[0-9a-f]{64}$/u
 const IMAGE_REF = /^[a-z0-9]+(?:[._/-][a-z0-9]+)*(?::[0-9]+(?:\/[a-z0-9]+(?:[._/-][a-z0-9]+)*)?)?@sha256:[0-9a-f]{64}$/u
@@ -65,10 +67,40 @@ export function readSlotState(file, options = {}) {
   } catch (error) {
     throw new Error(`unable to read slot state: ${error instanceof Error ? error.message : String(error)}`)
   }
+  if (requiresLegacyUpgrade(state)) {
+    throw new Error('legacy slot state requires the explicit readLegacySlotState compatibility entrypoint')
+  }
+  validateSlotState(state)
+  return state
+}
+
+export function readLegacySlotState(file) {
+  let state
+  try {
+    state = JSON.parse(fs.readFileSync(file, 'utf8'))
+  } catch (error) {
+    throw new Error(`unable to read legacy slot state: ${error instanceof Error ? error.message : String(error)}`)
+  }
+  if (!requiresLegacyUpgrade(state)) throw new Error('slot state is not a supported legacy shape')
   upgradeLegacyGatewayState(state)
   upgradeRuntimeGenerationState(state)
   validateSlotState(state)
-  return state
+  return Object.freeze({
+    legacy: true,
+    rollbackOnly: true,
+    retirementCondition: LEGACY_SLOT_STATE_RETIREMENT,
+    state
+  })
+}
+
+function requiresLegacyUpgrade(state) {
+  if (!state || typeof state !== 'object' || Array.isArray(state) || state.schema !== SLOT_STATE_SCHEMA) return false
+  const gatewayFields = [
+    'activeReleaseId', 'activeImageDigest', 'previousSlot', 'previousReleaseId',
+    'previousImageDigest', 'switchedAtUtc', 'switchGeneration', 'status',
+    'pendingTransition', 'lastTrafficTransition'
+  ]
+  return !Object.hasOwn(state, 'runtimeGeneration') || gatewayFields.some(field => !Object.hasOwn(state, field))
 }
 
 function upgradeRuntimeGenerationState(state) {

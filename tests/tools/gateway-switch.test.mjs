@@ -10,6 +10,7 @@ import {
   beginGatewayTransition,
   commitGatewayTransition,
   createEmptySlotState,
+  readLegacySlotState,
   readSlotState,
   recordSlotStart,
   setActiveSlot,
@@ -107,7 +108,11 @@ test('legacy slot state upgrades only from a complete persisted active identity 
   ]) delete legacy[key]
   delete legacy.runtimeGeneration
   fs.writeFileSync(file, `${JSON.stringify(legacy, null, 2)}\n`)
-  const upgraded = readSlotState(file, { allowMissing: false })
+  assert.throws(() => readSlotState(file, { allowMissing: false }), /explicit readLegacySlotState/u)
+  const legacyResult = readLegacySlotState(file)
+  assert.equal(legacyResult.legacy, true)
+  assert.equal(legacyResult.rollbackOnly, true)
+  const upgraded = legacyResult.state
   assert.equal(upgraded.status, 'stable')
   assert.equal(upgraded.activeSlot, 'blue')
   assert.equal(upgraded.activeReleaseId, blueRelease)
@@ -118,7 +123,8 @@ test('legacy slot state upgrades only from a complete persisted active identity 
   delete legacy.activeSlot
   legacy.status = 'stable'
   fs.writeFileSync(file, `${JSON.stringify(legacy, null, 2)}\n`)
-  assert.throws(() => readSlotState(file, { allowMissing: false }), /partial gateway-state extension/u)
+  assert.throws(() => readSlotState(file, { allowMissing: false }), /explicit readLegacySlotState/u)
+  assert.throws(() => readLegacySlotState(file), /partial gateway-state extension/u)
 })
 
 test('gateway switches blue to green and rolls back while sustained public requests avoid failures', async (t) => {

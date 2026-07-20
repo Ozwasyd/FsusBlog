@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
-import { isValidReleaseId } from '../release/release-id.mjs'
+import { assertReleaseIdentity } from '../release/release-id.mjs'
 import { validateReleaseManifest } from '../release/release-manifest.mjs'
 import { validateReleaseRuntimeMatrix } from '../runtime-profiles/release-runtime-matrix.mjs'
 import { evidenceClassificationErrors } from './evidence-classification.mjs'
@@ -773,8 +773,16 @@ function releaseEvidenceModelErrors(manifest, options, context) {
   if (manifest.releaseId !== (manifest.releaseIdentity?.releaseId ?? null)) {
     errors.push('releaseId must match releaseIdentity.releaseId')
   }
-  const identityMatches = isValidReleaseId(manifest.releaseId, { forPublication: true })
-    && /^[0-9a-f]{40}$/u.test(String(manifest.commitSha ?? ''))
+  let canonicalIdentity = false
+  try {
+    assertReleaseIdentity({
+      releaseId: manifest.releaseId,
+      createdAtUtc: manifest.releaseIdentity?.createdAtUtc,
+      commitSha: manifest.commitSha
+    })
+    canonicalIdentity = true
+  } catch {}
+  const identityMatches = canonicalIdentity
     && /^sha256:[0-9a-f]{64}$/u.test(String(manifest.imageDigest ?? ''))
     && manifest.releaseIdentity?.commitSha === manifest.commitSha
     && manifest.releaseIdentity?.imageDigest === manifest.imageDigest
@@ -790,10 +798,10 @@ function releaseEvidenceModelErrors(manifest, options, context) {
     errors.push('releaseNamespace must be a safe immutable identity namespace')
   }
   const expectedNamespace = identityMatches
-    ? `${manifest.releaseId}--${manifest.commitSha.slice(0, 12)}--${manifest.imageDigest.slice('sha256:'.length, 'sha256:'.length + 12)}`
+    ? `${manifest.releaseId}--${manifest.imageDigest.slice('sha256:'.length, 'sha256:'.length + 12)}`
     : null
   if (expectedNamespace && manifest.releaseNamespace !== expectedNamespace) {
-    errors.push('releaseNamespace must bind release ID, commit SHA, and image digest')
+    errors.push('releaseNamespace must bind canonical release ID and image digest without duplicating commitSha12')
   }
 
   const storage = manifest.storage
@@ -814,9 +822,9 @@ function releaseEvidenceModelErrors(manifest, options, context) {
     errors.push('storage binding must include the complete retention and hold contract')
   }
   if (identityMatches) {
-    const expectedArtifactName = `fsusblog-release-evidence-${manifest.releaseId}-${manifest.commitSha.slice(0, 12)}`
+    const expectedArtifactName = `fsusblog-release-evidence-${manifest.releaseId}`
     if (storage?.artifactName !== expectedArtifactName) {
-      errors.push('storage artifact name must bind release ID and commit SHA')
+      errors.push('storage artifact name must bind the canonical release ID without duplicating commitSha12')
     }
   }
   if (options.requireOk || manifest.evidenceClass === 'release-closeout-evidence') {
@@ -832,7 +840,7 @@ function releaseEvidenceModelErrors(manifest, options, context) {
     if (!/^\d+$/u.test(String(storage?.workflowRunId ?? ''))) {
       errors.push('release closeout storage requires a numeric workflow run id')
     }
-    if (!/^fsusblog-release-evidence-[0-9A-Za-z._-]+-[0-9a-f]{12}$/u.test(String(storage?.artifactName ?? ''))) {
+    if (!/^fsusblog-release-evidence-\d{14}-[0-9a-f]{12}$/u.test(String(storage?.artifactName ?? ''))) {
       errors.push('release closeout storage requires an identity-bound artifact name')
     }
     if (!/^github-actions:\/\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/actions\/runs\/\d+\/artifacts\/[A-Za-z0-9_.-]+$/u.test(String(storage?.storageReference ?? ''))) {

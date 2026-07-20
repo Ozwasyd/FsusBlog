@@ -5,7 +5,7 @@ import path from 'node:path'
 import process from 'node:process'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import { isValidReleaseId } from '../release/release-id.mjs'
+import { assertReleaseIdentity } from '../release/release-id.mjs'
 
 const scriptPath = fileURLToPath(import.meta.url)
 const repositoryRoot = path.resolve(path.dirname(scriptPath), '..', '..')
@@ -42,16 +42,14 @@ function listBundleFiles(bundleDirectory) {
   return files.sort((left, right) => left.relative.localeCompare(right.relative))
 }
 
-function artifactName(contract, releaseId, commitSha) {
+function artifactName(contract, releaseId) {
   return contract.authority.artifactNameTemplate
     .replace('{releaseId}', releaseId)
-    .replace('{commitSha12}', commitSha.slice(0, 12))
 }
 
 function buildStorage(contract, manifest, environment) {
   const releaseId = String(manifest.releaseIdentity?.releaseId ?? environment.FSUSBLOG_RELEASE_ID ?? '')
-  const commitSha = String(manifest.commitSha ?? environment.FSUSBLOG_COMMIT_SHA ?? '')
-  const name = artifactName(contract, releaseId || 'unbound', commitSha.padEnd(12, '0'))
+  const name = artifactName(contract, releaseId || 'unbound')
   const workflowRunId = String(environment.GITHUB_RUN_ID ?? manifest.workflowRun?.id ?? 'unknown')
   const repository = String(environment.GITHUB_REPOSITORY ?? 'Ozwasyd/FsusBlog')
   const derivedReference = /^\d+$/u.test(workflowRunId)
@@ -104,8 +102,16 @@ export function sealReleaseEvidenceBundle(bundleDirectory, options = {}) {
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
   const contract = JSON.parse(fs.readFileSync(path.join(repositoryRoot, storageContractPath), 'utf8'))
   const releaseId = manifest.releaseIdentity?.releaseId ?? null
-  const identityOk = isValidReleaseId(releaseId, { forPublication: true })
-    && /^[0-9a-f]{40}$/u.test(String(manifest.commitSha ?? ''))
+  let canonicalIdentity = false
+  try {
+    assertReleaseIdentity({
+      releaseId,
+      createdAtUtc: manifest.releaseIdentity?.createdAtUtc,
+      commitSha: manifest.commitSha
+    })
+    canonicalIdentity = true
+  } catch {}
+  const identityOk = canonicalIdentity
     && /^sha256:[0-9a-f]{64}$/u.test(String(manifest.imageDigest ?? ''))
     && manifest.releaseIdentity?.commitSha === manifest.commitSha
     && manifest.releaseIdentity?.imageDigest === manifest.imageDigest

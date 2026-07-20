@@ -729,6 +729,7 @@ CreateOrResumeState() {
         --rollout-id "$ROLLOUT_ID" \
         --kind "$([[ "$ROLLBACK" == "1" ]] && printf rollback || printf deploy)" \
         --manifest "$(realpath "$RELEASE_MANIFEST")" \
+        --slot-state "$SLOT_STATE_FILE" \
         --source-slot "$SOURCE_SLOT" --source-release "$SOURCE_RELEASE" --source-digest "$SOURCE_DIGEST" --source-generation "$SOURCE_GENERATION" \
         --target-slot "$TARGET_SLOT" --target-release "$TARGET_RELEASE" --target-digest "$TARGET_DIGEST" --target-generation "$TARGET_GENERATION" \
         >/dev/null
