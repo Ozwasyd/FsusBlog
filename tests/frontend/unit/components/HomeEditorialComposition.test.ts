@@ -135,6 +135,12 @@ describe('home editorial components', () => {
     expect(wrapper.get('h1').text()).toBe('内容先于站点口号')
     expect(wrapper.text()).toContain('工程')
     expect(wrapper.text()).toContain('2026-07-11')
+    expect(wrapper.get('a').classes()).toEqual(expect.arrayContaining([
+      'rounded-[var(--fsusblog-radius-panel)]',
+      'pt-8',
+      'pb-10'
+    ]))
+    expect(wrapper.get('a').classes()).not.toEqual(expect.arrayContaining(['border-y', 'py-8', 'sm:py-10']))
 
     wrapper.unmount()
   })

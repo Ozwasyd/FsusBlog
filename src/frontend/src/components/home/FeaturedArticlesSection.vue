@@ -46,7 +46,7 @@
             focusRingClass,
             hasCover
               ? 'gap-8 md:grid-cols-2 md:items-center'
-              : 'border-y border-[var(--fsusblog-panel-border)] py-8 sm:py-10'
+              : 'pt-8 pb-10'
           ]"
           :aria-label="readFullLabel(article.title)"
           @click="navigate"
