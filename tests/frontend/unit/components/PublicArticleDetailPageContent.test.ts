@@ -14,4 +14,10 @@ describe('PublicArticleDetailPageContent visual contracts', () => {
     expect(source).toContain('<!-- 760px 将中文正文行长控制在舒适阅读范围，避免宽屏下单行文字过长。 -->')
     expect(source).toContain('max-w-[760px]')
   })
+
+  it('promotes the comments heading with the recommended option A hierarchy', () => {
+    expect(source).toMatch(
+      /id="comments"\s+class="mb-6 border-b border-\[var\(--fsusblog-panel-border\)\] pb-4 text-sm font-bold normal-case text-\[var\(--fsusblog-text-primary\)\]"/u
+    )
+  })
 })

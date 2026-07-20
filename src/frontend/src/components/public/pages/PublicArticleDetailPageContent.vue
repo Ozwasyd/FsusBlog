@@ -210,7 +210,7 @@
     >
       <h2
         id="comments"
-        class="mb-5 border-b border-[var(--fsusblog-panel-border)] pb-3 text-xs font-medium leading-5 normal-case text-[var(--fsusblog-text-muted)]"
+        class="mb-6 border-b border-[var(--fsusblog-panel-border)] pb-4 text-sm font-bold normal-case text-[var(--fsusblog-text-primary)]"
       >
         {{ messages.article.comments.heading }}
       </h2>
