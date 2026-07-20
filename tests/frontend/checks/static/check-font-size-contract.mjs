@@ -16,6 +16,9 @@ const accountShellBasePath = resolve(sourceRoot, 'assets/account-shell-base.css'
 const sourceExtensions = new Set(['.css', '.scss', '.vue', '.ts', '.tsx', '.js', '.jsx'])
 const excludedDirectories = new Set(['generated'])
 const forbiddenDeclarationPattern = /font-size\s*:\s*(0?\.[6-9][0-9]*(?:rem|em)|(?:11|13)px)(?:\s*!important)?\s*;/gu
+const scopedScaleExceptions = new Map([
+  ['src/frontend/src/components/account/AccountNavigationPanel.vue', new Set(['11px', '13px'])]
+])
 const errors = []
 let scannedFileCount = 0
 
@@ -55,6 +58,8 @@ for (const path of [...collectSourceFiles(sourceRoot), emergencyShellPath]) {
 
   forbiddenDeclarationPattern.lastIndex = 0
   for (const match of source.matchAll(forbiddenDeclarationPattern)) {
+    if (scopedScaleExceptions.get(relativePath(path))?.has(match[1])) continue
+
     errors.push(
       `${relativePath(path)}:${lineNumberAt(source, match.index)} font-size ${match[1]} must use the canonical 12/14/16px small-text scale`
     )
@@ -99,7 +104,7 @@ expectRuleFontSize(
 const layoutRules = readFileSync(layoutRulesPath, 'utf8')
 for (const requiredText of [
   'CSS `font-size` 小字号只写 `12px`、`14px` 或 `16px`',
-  '禁止 `11px`、`13px`',
+  '`AccountNavigationPanel.vue` 的导航层级是唯一例外',
   'Markdown blockquote 继承 16px'
 ]) {
   if (!layoutRules.includes(requiredText)) {

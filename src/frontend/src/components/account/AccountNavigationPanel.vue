@@ -99,16 +99,17 @@ const localNavigationTitleId = computed(() => (
 .account-local-navigation__title {
   margin: 0;
   color: var(--fsusblog-text-muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0;
+  letter-spacing: 0.08em;
   line-height: 1.4;
-  text-transform: none;
+  text-transform: uppercase;
 }
 
 .account-global-module-list,
 .account-local-navigation__list {
   display: grid;
+  gap: var(--fsus-space-1);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -126,7 +127,7 @@ const localNavigationTitleId = computed(() => (
   min-width: 0;
   align-content: center;
   border-radius: var(--fsus-radius-control-small);
-  color: var(--fsusblog-text-tertiary);
+  color: var(--fsusblog-text-secondary);
   outline: none;
   transition:
     background var(--fsus-motion-control-fast) var(--fsus-motion-standard),
@@ -190,16 +191,21 @@ const localNavigationTitleId = computed(() => (
 
 .account-module-link__label {
   min-width: 0;
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 500;
   line-height: 1.35;
 }
 
 .account-local-navigation__link > span:first-child {
   min-width: 0;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   line-height: 1.35;
+}
+
+.account-module-link-active .account-module-link__label,
+.account-local-navigation__link--active > span:first-child {
+  font-weight: 700;
 }
 
 .account-module-link__helper,
@@ -212,7 +218,7 @@ const localNavigationTitleId = computed(() => (
 }
 
 .account-local-navigation {
-  margin-top: var(--fsus-space-5);
+  margin-top: var(--fsus-space-6);
   border-top: 1px solid var(--fsusblog-panel-border);
   padding-top: var(--fsus-space-4);
 }
@@ -231,8 +237,4 @@ const localNavigationTitleId = computed(() => (
   min-height: 2.5rem;
 }
 
-.account-navigation-panel[data-variant="mobile"] .account-global-module-list,
-.account-navigation-panel[data-variant="mobile"] .account-local-navigation__list {
-  gap: var(--fsus-space-1);
-}
 </style>

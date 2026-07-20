@@ -58,9 +58,9 @@ Glass material 只允许用于以下 surface：
 
 ## 7. 字号标度规则
 
-公开布局字号使用 12/14/16/18/20px 步进。`src/frontend/src` 的 public、account 与 admin surface 中，CSS `font-size` 小字号只写 `12px`、`14px` 或 `16px`；禁止 `11px`、`13px`，也禁止 `0.6` 到 `0.9` 区间的任意 `rem`/`em` 小数字号。需要紧凑信息时优先使用 12px、14px 与清晰行高；20/24/30px display 标题仍按下方响应式契约表达。
+公开布局字号使用 12/14/16/18/20px 步进。`src/frontend/src` 的 public、account 与 admin surface 中，CSS `font-size` 小字号只写 `12px`、`14px` 或 `16px`；也禁止 `0.6` 到 `0.9` 区间的任意 `rem`/`em` 小数字号。`AccountNavigationPanel.vue` 的导航层级是唯一例外：分组标签使用 11px，导航项使用 13px，以维持账户工作台的层级合同；该例外不得扩散到其他组件。需要紧凑信息时优先使用 12px、14px 与清晰行高；20/24/30px display 标题仍按下方响应式契约表达。
 
-旧值统一归档到相邻标度：11px 与 `0.6875rem` 归入 12px，13px 与 `0.8125rem` 归入 14px。Markdown blockquote 继承 16px / 1.8 的正文基线，不单独缩小字号；AOT emergency、首屏 CSS 与 hydration 后样式使用相同的 12/14px metadata 数值。
+除上述账户导航例外外，旧值统一归档到相邻标度：11px 与 `0.6875rem` 归入 12px，13px 与 `0.8125rem` 归入 14px。Markdown blockquote 继承 16px / 1.8 的正文基线，不单独缩小字号；AOT emergency、首屏 CSS 与 hydration 后样式使用相同的 12/14px metadata 数值。
 
 ### 字重白名单
 

@@ -76,6 +76,17 @@ describe('AccountNavigationPanel', () => {
     expect(source).not.toMatch(/outline-offset:\s*(?:2|4)px/)
   })
 
+  it('keeps section labels and navigation states on distinct type levels', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/components/account/AccountNavigationPanel.vue'), 'utf8')
+
+    expect(source).toMatch(/\.account-sidebar-index-label,[\s\S]*?font-size:\s*11px;[\s\S]*?font-weight:\s*700;[\s\S]*?text-transform:\s*uppercase;/)
+    expect(source).toMatch(/\.account-module-link__label\s*\{[\s\S]*?font-size:\s*13px;[\s\S]*?font-weight:\s*500;/)
+    expect(source).toMatch(/\.account-local-navigation__link > span:first-child\s*\{[\s\S]*?font-size:\s*13px;[\s\S]*?font-weight:\s*500;/)
+    expect(source).toMatch(/\.account-module-link-active \.account-module-link__label,[\s\S]*?font-weight:\s*700;/)
+    expect(source).toMatch(/\.account-global-module-list,[\s\S]*?gap:\s*var\(--fsus-space-1\);/)
+    expect(source).toMatch(/\.account-local-navigation\s*\{[\s\S]*?margin-top:\s*var\(--fsus-space-6\);/)
+  })
+
   it('renders no more than six global links and only the current module leaves', async () => {
     const { wrapper } = await mountPanel('/user/manage/article/edit/42')
 
