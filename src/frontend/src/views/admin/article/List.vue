@@ -430,7 +430,7 @@ const handleMoveToTrash = (row: ArticleListViewItem): void => handleMoreCommand(
 .article-cover-thumb {
   display: grid;
   width: 4rem;
-  height: 3rem;
+  height: 2.25rem;
   flex: 0 0 auto;
   place-items: center;
   overflow: hidden;
