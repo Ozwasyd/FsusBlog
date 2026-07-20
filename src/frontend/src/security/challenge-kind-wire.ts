@@ -28,8 +28,9 @@ export function securityChallengeKindWireName(kind: SecurityChallengeKindValue):
       return 'perceptionMicroInteractionV2'
     case SecurityChallengeKind.PerceptionTextTaskV2:
       return 'perceptionTextTaskV2'
+    case SecurityChallengeKind.PerceptionCharacterV3:
+      return 'perceptionCharacterV3'
     default:
       return 'unknown'
   }
 }
-

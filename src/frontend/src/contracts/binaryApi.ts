@@ -872,7 +872,8 @@ export const SecurityChallengeKind = {
     PerceptionCharacterV2: 10,
     PerceptionLocalizationV2: 11,
     PerceptionMicroInteractionV2: 12,
-    PerceptionTextTaskV2: 13
+    PerceptionTextTaskV2: 13,
+    PerceptionCharacterV3: 14
 } as const;
 
 export type SecurityChallengeKind = typeof SecurityChallengeKind[keyof typeof SecurityChallengeKind];
@@ -902,6 +903,42 @@ export interface SecurityChallengeEnvelope {
 export interface SecurityChallengeProviderPayload {
     challengeId: string;
     payload: Record<string, string>;
+    perceptionCharacterV3?: PerceptionCharacterV3IssuePayload;
+}
+
+export const PerceptionCharacterV3Representation = {
+    Visual: 1,
+    Audio: 2
+} as const;
+
+export type PerceptionCharacterV3Representation =
+    typeof PerceptionCharacterV3Representation[keyof typeof PerceptionCharacterV3Representation];
+
+export interface PerceptionCharacterV3IssuePayload {
+    algorithm: 'fsu.challenge/perception-character-raster@v3';
+    challengeId: string;
+    envelopeId: string;
+    representation: PerceptionCharacterV3Representation;
+    mediaType: 'application/x-fsus-gray8' | 'audio/wav';
+    mediaBytes: Uint8Array;
+    physicalWidth: number;
+    physicalHeight: number;
+    displayWidth: number;
+    displayHeight: number;
+    attemptBudget: 2;
+    policyVersion: string;
+    issuedAtUnixMs: number;
+    expiresAtUnixMs: number;
+    stateToken: string;
+}
+
+export interface PerceptionCharacterV3VerifyPayload {
+    algorithm: 'fsu.challenge/perception-character-raster@v3';
+    challengeId: string;
+    envelopeId: string;
+    representation: PerceptionCharacterV3Representation;
+    answer: string;
+    stateToken: string;
 }
 
 export interface SecurityChallengeIssueResponse {
@@ -945,6 +982,7 @@ export interface SecurityChallengeVerifyPodRequest {
     action: string;
     routeKey: string;
     providerPayloadJson: string;
+    perceptionCharacterV3?: PerceptionCharacterV3VerifyPayload;
 }
 
 export interface SecurityChallengeCancelPodRequest {

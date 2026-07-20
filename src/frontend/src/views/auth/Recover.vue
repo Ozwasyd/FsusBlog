@@ -15,19 +15,6 @@
         </p>
       </header>
 
-      <FsusSecurityChallenge
-        v-if="recoveryChallengeVisible && recoveryChallengeContext"
-        class="mb-6"
-        :action="recoveryChallengeContext.action"
-        :route-key="recoveryChallengeContext.routeKey"
-        :attributes="recoveryChallengeContext.attributes"
-        :client="recoveryChallengeClient"
-        @verified="handleRecoveryChallengeVerified"
-        @error="handleRecoveryChallengeError"
-        @expired="handleRecoveryChallengeExpired"
-        @cancel="handleRecoveryChallengeCancel"
-      />
-
       <form class="space-y-6" novalidate @submit.prevent>
         <section
           aria-labelledby="recovery-key-title"
@@ -156,7 +143,6 @@ import PasskeyRegisterModal from '@/components/ui/PasskeyRegisterModal.vue'
 import { themeTokens } from '@/ui-tokens/themeTokens'
 import { toAppError } from '@/utils/appError'
 import { useI18nText } from '@/composables/useI18nText'
-import FsusSecurityChallenge from '@/components/security/FsusSecurityChallenge.vue'
 import { useRiskChallengeCommand } from '@/composables/useRiskChallengeCommand'
 import { fixedRiskChallengeContext, riskChallengeRoutes } from '@/security/risk-challenge-routes'
 
@@ -171,15 +157,6 @@ const recoverySessionToken = ref('')
 const recoverySessionExpiresAt = ref('')
 const recoveryPasskeyVisible = ref(false)
 const recoveryRiskChallenge = useRiskChallengeCommand()
-const {
-  challengeVisible: recoveryChallengeVisible,
-  challengeContext: recoveryChallengeContext,
-  challengeClient: recoveryChallengeClient,
-  handleVerified: handleRecoveryChallengeVerified,
-  handleError: handleRecoveryChallengeError,
-  handleExpired: handleRecoveryChallengeExpired,
-  handleCancel: handleRecoveryChallengeCancel
-} = recoveryRiskChallenge
 
 const sessionReadyText = computed(() =>
   copy.sessionReadyHint.replace('{expiresAt}', recoverySessionExpiresAt.value)

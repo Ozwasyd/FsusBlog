@@ -118,6 +118,7 @@ function fakeClient(
   return {
     issue: vi.fn(),
     refresh: vi.fn(),
+    replace: vi.fn(),
     verify: vi.fn(verifyImplementation),
     reserveProof: vi.fn(),
     cancelEnvelope: vi.fn(),

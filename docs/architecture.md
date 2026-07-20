@@ -693,6 +693,24 @@ audio 使用 build-time 固化、hash 校验的 26-symbol en-US spoken-character
 
 V3 typed union 复用现有 AEDS 174/175 外层 frame，但 V3 payload slice 由 Core 的 `PodBinaryCodec.PerceptionCharacterV3` 读写，不走 UTF-8 JSON dictionary。Shared 只持 closed public records/POD，Backend 持 canonical loader、renderer/crypto/provider/Redis，Client/UI composition 留给 #1367；没有 V1/V2 parser、alias 或 fallback。notification stream 仍只消费 aggregate proof，不承载 V3 media/state，因此 provider 故障不会改变 stream 协议或连接生命周期。
 
+### 浏览器单宿主与受保护命令
+
+浏览器只挂载一个 application-level `SecurityChallengeDialogHost`，并通过共享 coordinator
+串行化受保护命令。当前 production shared-flow inventory 严格只有 Passkey login begin/complete、
+Recovery Key verify 与 comment/reply；account 与 admin 业务命令目前没有接入 shared RiskControl
+proof endpoint/flow。尤其不得把 admin 的独立 `X-Fsus-Mfa-Proof` step-up 当成已接入 shared
+RiskControl dialog 的证据。未来 account/admin endpoint 一旦接入 shared RiskControl proof transport，
+其调用方必须使用同一个 coordinator，因此自动由现有 App host 承载，不得新增页面级 host 或把
+admin MFA 伪装为 generic challenge。页面不再插入 challenge panel；业务调用方只提交 action、route、稳定
+mutation identity 与可恢复命令。coordinator 最多持有一个 pending command，并以 generation 与
+terminal latch 保证 verified/late response/route change/unmount 竞争中只恢复一次。
+
+Dialog 通过 FsusBlog `FsusDialog` adapter 使用 FsusUI Dialog，字符媒体、输入和单一 live/error
+owner 只来自 FsusUI 的公开 `FsusPerceptionCharacterChallenge` adapter。FsusBlog 只拥有 typed
+AEDS、coarse state、replacement/revocation、Blob URL/RGBA 资源和业务命令；不复制 generic DOM、
+内部 selector 或字符生成逻辑。refresh、representation switch、close、Escape、route change 与
+unmount 都撤销当前 envelope；replacement 保留 pending command，但必须获得新的 challenge identity。
+
 ## 评论策略分层与失效
 
 `ArticleCommentPolicyService` 在请求时组合全站匿名评论策略、`article_comment_policy` override 与 `comment_thread_policy` 锁定状态。最终写入校验和 privacy-safe slow-mode CAS 位于同一数据库事务，避免 ticket 签发后的策略变化或并发锁定穿透。文章/线程更新使用 PostgreSQL advisory lock + `policy_version` 乐观并发，并追加 `comment_policy_audit_event`；提交后复用 `InvalidateCommentPolicyAsync` 广播，多节点不持有不可失效的文章策略副本。无需重启即可将文章 `enabled=false` 或设置 `closedAtUtc`，读取链路保持不变。

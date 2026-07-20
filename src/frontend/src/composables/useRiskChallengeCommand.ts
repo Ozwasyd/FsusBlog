@@ -17,11 +17,14 @@ export type RiskChallengeRetryPolicy =
 type ChallengeAwareCommand<T> = (proof: SecurityChallengeProofLease | null) => Promise<T>
 
 interface PendingCommand {
+  id: number
   context: SecurityChallengeContext
   mutationIdentity: string | null
   execute: ChallengeAwareCommand<unknown>
   resolve(value: unknown): void
   reject(reason: unknown): void
+  initiator: HTMLElement | null
+  settled: boolean
 }
 
 export interface RiskChallengeCommandRuntime {
@@ -37,15 +40,34 @@ export interface RiskChallengeCommandRuntime {
   handleError(reason?: string): void
   handleExpired(): void
   handleCancel(): void
+  restoreFocus(): void
+  hasPendingCommand(): boolean
 }
 
-export function useRiskChallengeCommand(
-  baseClient: SecurityChallengeClient = createSecurityChallengeClient()
+let sharedRuntime: RiskChallengeCommandRuntime | null = null
+
+export function useRiskChallengeCommand(baseClient?: SecurityChallengeClient): RiskChallengeCommandRuntime {
+  if (!baseClient) {
+    sharedRuntime ??= createRiskChallengeCommandRuntime(createSecurityChallengeClient())
+    return sharedRuntime
+  }
+  return createRiskChallengeCommandRuntime(baseClient)
+}
+
+export function getRiskChallengeCoordinator(): RiskChallengeCommandRuntime {
+  return useRiskChallengeCommand()
+}
+
+export function createRiskChallengeCommandRuntime(
+  baseClient: SecurityChallengeClient
 ): RiskChallengeCommandRuntime {
   const challengeVisible = ref(false)
   const challengeContext = shallowRef<SecurityChallengeContext | null>(null)
   let preloaded: SecurityChallengeIssueResult | null = null
   let pending: PendingCommand | null = null
+  let acquiring = false
+  let sequence = 0
+  let focusToRestore: HTMLElement | null = null
 
   const challengeClient: SecurityChallengeClient = {
     ...baseClient,
@@ -57,9 +79,9 @@ export function useRiskChallengeCommand(
       }
       return await baseClient.issue(context, options)
     },
-    refresh: async (context) => {
+    refresh: async (context, representation) => {
       preloaded = null
-      return await baseClient.refresh(context)
+      return await baseClient.refresh(context, representation)
     }
   }
 
@@ -72,11 +94,15 @@ export function useRiskChallengeCommand(
   const rejectPending = (reason: string): void => {
     const current = pending
     pending = null
-    if (current) {
-      baseClient.cancelEnvelope(current.context)
+    if (current && !current.settled) {
+      current.settled = true
+      challengeClient.cancelEnvelope(current.context)
     }
     closeChallenge()
-    current?.reject(createAppError(AppErrorCode.PreconditionRequired, reason))
+    if (current) {
+      focusToRestore = current.initiator
+      current.reject(createAppError(AppErrorCode.PreconditionRequired, reason))
+    }
   }
 
   const run = async <T>(
@@ -85,56 +111,66 @@ export function useRiskChallengeCommand(
     command: ChallengeAwareCommand<T>
   ): Promise<T> => {
     assertRetryPolicy(retryPolicy)
+    if (pending || acquiring) {
+      throw createAppError(AppErrorCode.Conflict, 'risk_challenge_command_already_pending')
+    }
+    acquiring = true
     try {
-      return await command(null)
-    } catch (error) {
-      if (!(error instanceof BinaryTransportError) || !error.riskChallengeFailure) {
-        throw error
-      }
-
-      const serverContext = contextFromHandoff(context, error.riskChallengeHandoff)
-      const requestContext = retryPolicy.kind === 'mutation_with_identity'
-        ? { ...serverContext, identity: retryPolicy.mutationIdentity }
-        : serverContext
-
-      if (pending) {
-        throw createAppError(AppErrorCode.Conflict, 'risk_challenge_command_already_pending')
-      }
-
-      if (error.riskChallengeFailure !== 'required') {
-        baseClient.clearProof(requestContext)
-      }
-      const issued = await baseClient.issue(requestContext, {
-        forceRefresh: error.riskChallengeFailure !== 'required'
-      })
-      if (issued.status === 'allow') {
+      try {
         return await command(null)
-      }
-      if (issued.status === 'verified') {
-        const lease = baseClient.reserveProof(requestContext)
-        if (!lease) {
-          throw createAppError(AppErrorCode.Conflict, 'risk_challenge_proof_reservation_failed')
+      } catch (error) {
+        if (!(error instanceof BinaryTransportError) || !error.riskChallengeFailure) {
+          throw error
         }
-        return await command(lease)
-      }
-      if (issued.status !== 'challenge') {
-        throw createAppError(AppErrorCode.PreconditionRequired, issued.reason ?? 'risk_challenge_unavailable')
-      }
 
-      preloaded = issued
-      challengeContext.value = { ...requestContext }
-      challengeVisible.value = true
-      return await new Promise<T>((resolve, reject) => {
-        pending = {
-          context: { ...requestContext },
-          mutationIdentity: retryPolicy.kind === 'mutation_with_identity'
-            ? retryPolicy.mutationIdentity
-            : null,
-          execute: command as ChallengeAwareCommand<unknown>,
-          resolve: resolve as (value: unknown) => void,
-          reject
+        const serverContext = contextFromHandoff(context, error.riskChallengeHandoff)
+        const requestContext = retryPolicy.kind === 'mutation_with_identity'
+          ? { ...serverContext, identity: retryPolicy.mutationIdentity }
+          : serverContext
+
+        if (error.riskChallengeFailure !== 'required') {
+          challengeClient.clearProof(requestContext)
         }
-      })
+        const issued = await challengeClient.issue(requestContext, {
+          forceRefresh: error.riskChallengeFailure !== 'required'
+        })
+        if (issued.status === 'allow') {
+          return await command(null)
+        }
+        if (issued.status === 'verified') {
+          const lease = challengeClient.reserveProof(requestContext)
+          if (!lease) {
+            throw createAppError(AppErrorCode.Conflict, 'risk_challenge_proof_reservation_failed')
+          }
+          return await command(lease)
+        }
+        if (issued.status !== 'challenge') {
+          throw createAppError(AppErrorCode.PreconditionRequired, 'risk_challenge_unavailable')
+        }
+
+        const initiator = typeof document !== 'undefined' && document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null
+        preloaded = issued
+        challengeContext.value = { ...requestContext }
+        challengeVisible.value = true
+        return await new Promise<T>((resolve, reject) => {
+          pending = {
+            id: ++sequence,
+            context: { ...requestContext },
+            mutationIdentity: retryPolicy.kind === 'mutation_with_identity'
+              ? retryPolicy.mutationIdentity
+              : null,
+            execute: command as ChallengeAwareCommand<unknown>,
+            resolve: resolve as (value: unknown) => void,
+            reject,
+            initiator,
+            settled: false
+          }
+        })
+      }
+    } finally {
+      acquiring = false
     }
   }
 
@@ -145,13 +181,19 @@ export function useRiskChallengeCommand(
       return
     }
 
-    const lease = baseClient.reserveProof(current.context)
+    if (current.settled) {
+      return
+    }
+    current.settled = true
+
+    const lease = challengeClient.reserveProof(current.context)
     if (!lease) {
       rejectPending('risk_challenge_proof_reservation_failed')
       return
     }
 
     pending = null
+    focusToRestore = current.initiator
     closeChallenge()
     try {
       current.resolve(await current.execute(lease))
@@ -166,20 +208,30 @@ export function useRiskChallengeCommand(
     challengeClient,
     run,
     handleVerified,
-    handleError(reason = 'risk_challenge_failed') {
-      rejectPending(reason)
+    handleError() {
+      rejectPending('risk_challenge_failed')
     },
     handleExpired() {
       if (pending) {
-        baseClient.clearProof(pending.context)
+        challengeClient.clearProof(pending.context)
       }
       rejectPending('risk_challenge_expired')
     },
     handleCancel() {
       if (pending) {
-        baseClient.clearProof(pending.context)
+        challengeClient.clearProof(pending.context)
       }
       rejectPending('risk_challenge_cancelled')
+    },
+    restoreFocus() {
+      const target = focusToRestore
+      focusToRestore = null
+      if (target?.isConnected) {
+        target.focus({ preventScroll: true })
+      }
+    },
+    hasPendingCommand() {
+      return pending !== null || acquiring
     }
   }
 }

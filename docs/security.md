@@ -667,6 +667,25 @@ V3 runtime 只从 embedded canonical `perception-character-v3-contract.json` 读
 服务端用 answer key 对 server-issued device authority 做 domain-separated HMAC，并与 pseudonymous IP、subject、action、route、envelope/challenge、issued policy、representation、media hash 同时写入 AES-GCM state 与 Redis authoritative state。authenticated/admin authority 来自服务端会话 claim；anonymous authority 来自 Redis 租约和 `__Host-` cookie，client fingerprint 不能创建或轮换 device bucket。Redis Lua 在一个原子操作内检查全部 binding、处理 expiry/revoke、递增两次尝试并写入 consumed/exhausted；timeout、连接失败或 ambiguous result fail closed。replacement 的旧 token hash/envelope/full binding 也在该原子 transition 内校验，避免 challenge-ID 撤销 oracle。日志只保留 operation/outcome/internal reason 等低基数审计字段，严禁 token、answer、key、seed、media 或原始 IP/device material。
 
 无需重启的紧急回退：从热 RiskControl policy 移除 `perceptionCharacterV3`，立即停止新签发；随后通过 cancel/revocation 批量撤销 active identity。已签发 challenge 使用 envelope 记录的 policy version，普通策略发布不会误杀它；显式 revoke 始终生效。`Enabled` 与 key-ring 变更是启动边界，恢复时应使用独立安全域上一版有效 key 并滚动部署，禁止借用 JWT、Captcha 或 V2 key。
+
+浏览器 V3 adapter 在读取媒体 slice 前先验证 algorithm、UUIDv7 identity、representation、时间窗、
+attempt budget、所有 slice 边界以及固定 Gray8/有界 WAV 尺寸。visual 只允许一次固定上限的
+Gray8-to-RGBA 转换；audio 只创建有界 Blob URL。replacement、close、路由变化与组件卸载释放
+旧 RGBA、object URL、audio 和由 FsusUI primitive 接管的 bitmap。前端 verify 只回传 typed
+`algorithm/challengeId/envelopeId/representation/answer/stateToken`；不得产生或记录 solve duration、
+recipe、seed、glyph id、risk score、answer verifier 或内部失败原因。
+
+运行时回退不需要重新部署前端：热策略停止新 V3 签发后，共享 Dialog 对现有 pending command
+展示统一 unavailable 状态或允许用户取消；撤销 endpoint 保持幂等，其他 challenge kind 与
+notification stream 不受影响。恢复策略前必须确认 backend provider 与当前 FsusUI public primitive
+均可用，客户端没有 V1/V2 alias fallback。
+
+前端 production shared RiskControl flow 的可审计清单当前只有 Passkey login begin/complete、
+Recovery Key verify 与 comment/reply。account self-service 和 admin command 目前都没有 shared
+RiskControl proof endpoint/flow；admin-sensitive 操作继续使用独立的 `X-Fsus-Mfa-Proof`，不得把
+该 MFA step-up 记作 shared challenge dialog 覆盖。未来 account/admin flow 只有在服务端 endpoint
+接入 shared RiskControl proof 且客户端通过 shared coordinator 提交命令后才算纳入；该接入会复用
+唯一的 application-level `SecurityChallengeDialogHost`，禁止创建 account/admin 私有 challenge host。
 ## 评论作者管理 capability
 
 强匿名评论的后续管理使用与创建 ticket 分离的 256-bit capability。服务端仅保存 SHA-256 commitment；capability 和一次性 challenge 禁止写入 URL、日志、缓存键、localStorage、telemetry 或任何 account/credential/nullifier 映射。challenge 绑定 comment id 与 edit/delete/status/appeal purpose，五分钟过期且通过数据库 CAS 只消费一次；所有入口执行 `fixed_ip` 限流。伪造、重放和跨评论 challenge 统一失败，不泄漏评论是否存在。capability 丢失不可恢复，客户端必须在提交后明确告知。管理员可读取完整修订历史；匿名与公开读取只获得当前可见正文和 edited bit。

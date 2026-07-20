@@ -116,6 +116,7 @@ function fakeClient(): SecurityChallengeClient {
   return {
     issue: vi.fn(),
     refresh: vi.fn(),
+    replace: vi.fn(),
     verify: vi.fn(),
     reserveProof: vi.fn().mockReturnValue(null),
     cancelEnvelope: vi.fn(),

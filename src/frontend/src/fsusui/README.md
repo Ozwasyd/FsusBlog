@@ -44,7 +44,7 @@ source consumption, not an npm publication.
 and test helpers from `@ozwasyd/element-plus/theme` instead of declaring local
 equivalents.
 
-`motion.ts` owns the auditable Blog-side motion boundary: it re-exports the FsusUI runtime (`FsuMotion`, `vMotion`, `useScrollReveal`, `runMotion`, motion types) and keeps Blog-owned surface mappings such as `FsusBlogMotionSurface` and `fsusBlogMotionPresets`. `blogMotion.ts` remains as a compatibility re-export for existing call sites. `FsusPerceptionChallenge` and the perception-challenge types come from `@ozwasyd/element-plus/perception-challenge`. Add new adapters to `index.ts` only when they are intended as general Blog adapter API; otherwise import them explicitly from call sites.
+`motion.ts` owns the auditable Blog-side motion boundary: it re-exports the FsusUI runtime (`FsuMotion`, `vMotion`, `useScrollReveal`, `runMotion`, motion types) and keeps Blog-owned surface mappings such as `FsusBlogMotionSurface` and `fsusBlogMotionPresets`. `blogMotion.ts` remains as a compatibility re-export for existing call sites. `perceptionCharacterChallenge.ts` exposes the public character primitive and protocol-neutral media types; V3 transport and workflow code consume only this adapter. Add new adapters to `index.ts` only when they are intended as general Blog adapter API; otherwise import them explicitly from call sites.
 
 ## Blog Shells
 
@@ -58,7 +58,7 @@ Direct `@ozwasyd/element-plus` imports outside `fsusui/` need a narrow reason:
 
 - type-only form/upload contracts in composables, such as `FormInstance` and `UploadRequestOptions`;
 - the existing app-shell and article motion integration in `App.vue`, `bootstrap/fullApp.ts`, `ArticleImageLightbox.vue`, `useArticleImageLightbox.ts` and `useCodeBlockCopy.ts`;
-- the existing perception-challenge integration in `FsusSecurityChallenge.vue` and `securityPerceptionChallengeFlow.ts`;
+- the legacy V2 perception runtime in `securityPerceptionChallengeFlow.ts` while it remains in the repository; V3 and component code use `fsusui/perceptionCharacterChallenge.ts`;
 - the existing markdown editor package component in `MarkdownTextEditor.vue`;
 - tests and fixtures that intentionally assert or violate the boundary.
 

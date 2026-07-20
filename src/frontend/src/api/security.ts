@@ -10,6 +10,7 @@ import {
 import { encodeJsonRequest } from '@/codecs/binary/jsonRequestEncoder'
 import {
   SecurityChallengeKind,
+  type PerceptionCharacterV3VerifyPayload,
   type SecurityChallengeIssueResponse,
   type SecurityChallengeVerifyResponse
 } from '@/contracts/binaryApi'
@@ -18,6 +19,9 @@ import { getBrowserFp } from '@/utils/fingerprint'
 
 export { SecurityChallengeKind }
 export type {
+  PerceptionCharacterV3IssuePayload,
+  PerceptionCharacterV3Representation,
+  PerceptionCharacterV3VerifyPayload,
   SecurityChallengeAssignment,
   SecurityChallengeEnvelope,
   SecurityChallengeIssueResponse,
@@ -485,6 +489,12 @@ export interface IssueSecurityChallengeRequest {
   attributes?: Record<string, unknown>
   deviceFingerprint?: string
   capabilityManifestVersion?: string
+  representation?: 'visual' | 'audio'
+  replacement?: {
+    challengeId: string
+    envelopeId: string
+    stateToken: string
+  }
 }
 
 export interface VerifySecurityChallengeRequest {
@@ -493,7 +503,8 @@ export interface VerifySecurityChallengeRequest {
   kind: SecurityChallengeKind
   action: string
   routeKey: string
-  providerPayload: Record<string, string>
+  providerPayload?: Record<string, string>
+  perceptionCharacterV3?: PerceptionCharacterV3VerifyPayload
 }
 
 export interface CancelSecurityChallengeRequest {
@@ -517,9 +528,19 @@ function securityBody(frameType: FrameType, request: unknown): ArrayBuffer {
   return encodeAedsFrame(frameType, encodeJsonRequest(request))
 }
 
-function securityChallengeHeaders(deviceFingerprint?: string): Headers {
+function securityChallengeHeaders(
+  deviceFingerprint?: string,
+  replacement?: IssueSecurityChallengeRequest['replacement'],
+  representation?: IssueSecurityChallengeRequest['representation']
+): Headers {
   const headers = new Headers()
   headers.set(FSUS_HEADERS.deviceFingerprint, deviceFingerprint?.trim() || getBrowserFp())
+  if (representation) headers.set('X-Fsus-Challenge-Representation', representation)
+  if (replacement) {
+    headers.set('X-Fsus-Replaces-Challenge', replacement.challengeId)
+    headers.set('X-Fsus-Replaces-Envelope', replacement.envelopeId)
+    headers.set('X-Fsus-Replaces-State-Token', replacement.stateToken)
+  }
   return headers
 }
 
@@ -604,7 +625,7 @@ export const issueSecurityChallenge = (request: IssueSecurityChallengeRequest, c
     requestOptions: {
       method: 'POST',
       credentials: 'include',
-      headers: securityChallengeHeaders(request.deviceFingerprint),
+      headers: securityChallengeHeaders(request.deviceFingerprint, request.replacement, request.representation),
       body: encodeAedsFrame(
         FrameType.SecurityChallengeIssueRequest,
         encodeSecurityChallengeIssueRequest({
@@ -636,7 +657,8 @@ export const verifySecurityChallenge = (request: VerifySecurityChallengeRequest,
           kind: request.kind,
           action: request.action,
           routeKey: request.routeKey,
-          providerPayloadJson: JSON.stringify(request.providerPayload)
+          providerPayloadJson: request.perceptionCharacterV3 ? '' : JSON.stringify(request.providerPayload ?? {}),
+          perceptionCharacterV3: request.perceptionCharacterV3
         })
       )
     },

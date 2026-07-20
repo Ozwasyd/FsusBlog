@@ -1,15 +1,36 @@
 // @vitest-environment happy-dom
 
 import { flushPromises, mount } from '@vue/test-utils'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import FsusSecurityChallenge from '@/components/security/FsusSecurityChallenge.vue'
 import { SecurityChallengeKind, type SecurityChallengeAssignment } from '@/api/security'
+import { PerceptionCharacterV3Representation } from '@/contracts/binaryApi'
 import {
   SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION,
   resolveChallengeCapability,
   type ChallengeCapabilityResolution
 } from '@/security/challenge-capability-registry'
 import type { SecurityChallengeClient, SecurityChallengeIssueResult } from '@/security/challenge-client'
+import { setLocale } from '@/locales'
+
+vi.mock('@/fsusui/perceptionCharacterChallenge', async () => {
+  const { defineComponent, h } = await import('vue')
+  const character = defineComponent({
+    name: 'FsusPerceptionCharacterChallenge',
+    props: ['challengeId', 'state', 'media', 'modelValue'],
+    emits: ['update:modelValue', 'submit', 'refresh', 'retry', 'reissue'],
+    setup: () => () => h('div', { 'data-test': 'perception-character-host', role: 'status' })
+  })
+  return {
+    FsusUiPerceptionCharacterChallenge: character,
+    FsusPerceptionChallenge: defineComponent({
+      name: 'FsusPerceptionChallenge',
+      setup: () => () => h('div', { 'data-test': 'perception-host' })
+    })
+  }
+})
+
+afterEach(() => setLocale('zh-CN'))
 
 const assignment = (kind: SecurityChallengeKind): SecurityChallengeAssignment => ({
   challengeId: 'challenge-1',
@@ -27,6 +48,24 @@ const assignment = (kind: SecurityChallengeKind): SecurityChallengeAssignment =>
 })
 
 describe('FsusSecurityChallenge capability dispatch', () => {
+  it('renders all shared challenge copy from the active English locale', async () => {
+    setLocale('en-US')
+    const wrapper = mount(FsusSecurityChallenge, {
+      props: {
+        action: 'comment.create',
+        routeKey: 'article:42',
+        client: fakeClient(unsupportedIssueResult('raw_backend_detail'))
+      },
+      global: { stubs: componentStubs }
+    })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Complete security verification')
+    expect(wrapper.text()).toContain('This verification method is not supported.')
+    expect(wrapper.text()).not.toContain('raw_backend_detail')
+    expect(wrapper.emitted('error')).toEqual([['security_challenge_unsupported']])
+  })
+
   it('renders a controlled unavailable state instead of placeholder or permanent pending UI', async () => {
     const kind = SecurityChallengeKind.PasskeyStepUpV1
     const capability = resolveChallengeCapability(kind, { action: 'comment.create', mode: 'ui' })
@@ -157,7 +196,7 @@ describe('FsusSecurityChallenge capability dispatch', () => {
     await flushPromises()
 
     expect(wrapper.emitted('verified')).toEqual([[verified]])
-    expect(wrapper.emitted('error')).toEqual([['verification_failed']])
+    expect(wrapper.emitted('error')).toEqual([['security_challenge_verify_failed']])
     expect(wrapper.emitted('unsupported')).toEqual([[unsupported]])
     expect(wrapper.emitted('expired')).toHaveLength(1)
     expect(wrapper.emitted('cancel')).toHaveLength(1)
@@ -247,13 +286,84 @@ describe('FsusSecurityChallenge capability dispatch', () => {
 
     late.resolve(unsupportedIssueResult('stale'))
     await flushPromises()
-    expect(wrapper.emitted('error')).toEqual([['current'], ['current']])
+    expect(wrapper.emitted('error')).toEqual([
+      ['security_challenge_unsupported'],
+      ['security_challenge_unsupported']
+    ])
 
     wrapper.unmount()
     expect(client.cancelEnvelope).toHaveBeenCalledWith(expect.objectContaining({
       routeKey: 'article:43',
       identity: 'mutation-b'
     }))
+  })
+
+  it('renders typed V3 media through the FsusUI character adapter and keeps retryable state local', async () => {
+    const kind = SecurityChallengeKind.PerceptionCharacterV3
+    const currentAssignment = {
+      ...assignment(kind),
+      issuedAtUnixMs: Date.now() - 1_000,
+      expiresAtUnixMs: Date.now() + 60_000
+    }
+    const payload = {
+      algorithm: 'fsu.challenge/perception-character-raster@v3' as const,
+      challengeId: currentAssignment.challengeId,
+      envelopeId: '01900000-0000-7000-8000-000000000001',
+      representation: PerceptionCharacterV3Representation.Visual,
+      mediaType: 'application/x-fsus-gray8' as const,
+      mediaBytes: new Uint8Array(512 * 192).fill(127),
+      physicalWidth: 512,
+      physicalHeight: 192,
+      displayWidth: 320,
+      displayHeight: 120,
+      attemptBudget: 2 as const,
+      policyVersion: 'policy-v3',
+      issuedAtUnixMs: currentAssignment.issuedAtUnixMs,
+      expiresAtUnixMs: currentAssignment.expiresAtUnixMs,
+      stateToken: 'opaque-state'
+    }
+    const capability = resolveChallengeCapability(kind, { action: 'comment.create', mode: 'ui' })
+    const issueResult: SecurityChallengeIssueResult = {
+      status: 'challenge',
+      response: {
+        decision: 'challenge', riskScore: 0, effectiveRiskScore: 0, escalationLevel: 1,
+        policyVersion: 'policy-v3', retryAfterMs: 0,
+        envelope: { envelopeId: payload.envelopeId, policyVersion: 'policy-v3', assignments: [currentAssignment] },
+        providerPayloads: []
+      },
+      assignment: currentAssignment,
+      providerPayload: { challengeId: currentAssignment.challengeId, payload: {}, perceptionCharacterV3: payload },
+      proof: null,
+      kindGroup: 'perception',
+      capability,
+      reason: null,
+      retryAfterMs: 0
+    }
+    const client = fakeClient(issueResult)
+    vi.mocked(client.verify).mockResolvedValue({
+      status: 'failed', proof: null, next: null, reason: 'retryable', retryAfterMs: 0,
+      response: {
+        verified: false, envelopeId: payload.envelopeId, challengeId: currentAssignment.challengeId,
+        kind, policyVersion: 'policy-v3', completedCount: 0, memberCount: 1,
+        envelopeCompleted: false, proofToken: '', expiresAtUnixMs: 0, reason: 'retryable', retryAfterMs: 0
+      }
+    })
+
+    const wrapper = mount(FsusSecurityChallenge, {
+      props: { action: 'comment.create', routeKey: 'article:42', client, dialogComposition: true },
+      global: { stubs: componentStubs }
+    })
+    await flushPromises()
+
+    const host = wrapper.findComponent({ name: 'FsusPerceptionCharacterChallenge' })
+    expect(host.exists()).toBe(true)
+    expect(host.props('state')).toBe('ready')
+    expect(host.props('media').raster).toMatchObject({ kind: 'rgba-raster', width: 512, height: 192 })
+    host.vm.$emit('submit', { kind: 'character', value: 'AB12', challengeId: currentAssignment.challengeId })
+    await flushPromises()
+    expect(host.props('state')).toBe('retryable')
+    expect(wrapper.findAll('[role="alert"]')).toHaveLength(0)
+    expect(wrapper.find('.fsus-security-challenge__header').exists()).toBe(false)
   })
 })
 
@@ -267,6 +377,12 @@ const componentStubs = {
   FsusPerceptionChallenge: {
     props: ['challenge', 'renderer', 'client', 'title', 'eyebrow', 'refreshLabel', 'retryLabel', 'cancelLabel', 'loadingText', 'failedText', 'expiredText'],
     template: '<div data-test="perception-host" />'
+  },
+  FsusPerceptionCharacterChallenge: {
+    name: 'FsusPerceptionCharacterChallenge',
+    props: ['challengeId', 'state', 'media', 'modelValue'],
+    emits: ['update:modelValue', 'submit', 'refresh', 'retry', 'reissue'],
+    template: '<div data-test="perception-character-host" role="status" />'
   },
   FsusPoSpaceChallenge: {
     name: 'FsusPoSpaceChallenge',
@@ -286,6 +402,7 @@ function fakeClient(issueResult: SecurityChallengeIssueResult): SecurityChalleng
   return {
     issue: vi.fn().mockResolvedValue(issueResult),
     refresh: vi.fn().mockResolvedValue(issueResult),
+    replace: vi.fn().mockResolvedValue(issueResult),
     verify: vi.fn(),
     reserveProof: vi.fn().mockReturnValue(null),
     cancelEnvelope: vi.fn(),

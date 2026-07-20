@@ -148,6 +148,52 @@ describe('useRiskChallengeCommand', () => {
     runtime.handleCancel()
     await expect(result).rejects.toMatchObject({ message: 'risk_challenge_cancelled' })
   })
+
+  it('deduplicates concurrent source activation before challenge issue completes', async () => {
+    const client = createClient(createLease())
+    const runtime = useRiskChallengeCommand(client)
+    const firstCommand = vi.fn().mockRejectedValue(challengeRequiredError())
+    const secondCommand = vi.fn().mockRejectedValue(challengeRequiredError())
+    const first = runtime.run(context, { kind: 'idempotent' }, firstCommand)
+    const second = runtime.run(context, { kind: 'idempotent' }, secondCommand)
+
+    await expect(second).rejects.toMatchObject({ message: 'risk_challenge_command_already_pending' })
+    expect(firstCommand).toHaveBeenCalledTimes(1)
+    expect(secondCommand).not.toHaveBeenCalled()
+    await vi.waitFor(() => expect(runtime.challengeVisible.value).toBe(true))
+    runtime.handleCancel()
+    await expect(first).rejects.toMatchObject({ message: 'risk_challenge_cancelled' })
+    expect(client.issue).toHaveBeenCalledTimes(1)
+  })
+
+  it('latches duplicate verified events and resumes the pending command exactly once', async () => {
+    const runtime = useRiskChallengeCommand(createClient(createLease()))
+    const command = vi.fn()
+      .mockRejectedValueOnce(challengeRequiredError())
+      .mockResolvedValueOnce('done')
+    const result = runtime.run(context, { kind: 'idempotent' }, command)
+    await vi.waitFor(() => expect(runtime.challengeVisible.value).toBe(true))
+
+    await Promise.all([runtime.handleVerified(), runtime.handleVerified()])
+
+    await expect(result).resolves.toBe('done')
+    expect(command).toHaveBeenCalledTimes(2)
+  })
+
+  it('revokes and rejects once when route/unmount cancellation races a late verified event', async () => {
+    const client = createClient(createLease())
+    const runtime = useRiskChallengeCommand(client)
+    const command = vi.fn().mockRejectedValueOnce(challengeRequiredError())
+    const result = runtime.run(context, { kind: 'idempotent' }, command)
+    await vi.waitFor(() => expect(runtime.challengeVisible.value).toBe(true))
+
+    runtime.handleCancel()
+    await runtime.handleVerified()
+
+    await expect(result).rejects.toMatchObject({ message: 'risk_challenge_cancelled' })
+    expect(client.cancelEnvelope).toHaveBeenCalledTimes(1)
+    expect(command).toHaveBeenCalledTimes(1)
+  })
 })
 
 function handoff() {
@@ -230,6 +276,7 @@ function createClient(
       retryAfterMs: 0
     })),
     refresh: vi.fn(),
+    replace: vi.fn(),
     verify: vi.fn(),
     reserveProof: vi.fn(() => lease),
     cancelEnvelope: vi.fn(),

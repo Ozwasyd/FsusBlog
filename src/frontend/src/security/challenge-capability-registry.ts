@@ -4,7 +4,7 @@ import {
 } from '@/contracts/binaryApi'
 import { securityChallengeKindWireName } from './challenge-kind-wire'
 
-export const SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION = '2026.07.19.3'
+export const SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION = '2026.07.20.4'
 
 export type ChallengeExecutionMode = 'ui' | 'headless'
 export type ChallengeUiHost = 'captcha' | 'perception' | 'pospace' | 'sha256-pow'
@@ -63,7 +63,8 @@ const registrations = [
   registration(SecurityChallengeKind.PerceptionCharacterV2, 'perception', true, false, executor('perception-v2', 'ui', () => import('@/services/securityPerceptionChallengeFlow')), 'perception', null, true, ['*']),
   registration(SecurityChallengeKind.PerceptionLocalizationV2, 'perception', true, true, executor('perception-v2', 'ui', () => import('@/services/securityPerceptionChallengeFlow')), 'perception', null, true, ['*']),
   registration(SecurityChallengeKind.PerceptionMicroInteractionV2, 'perception', true, true, executor('perception-v2', 'ui', () => import('@/services/securityPerceptionChallengeFlow')), 'perception', null, true, ['*']),
-  registration(SecurityChallengeKind.PerceptionTextTaskV2, 'perception', true, true, executor('perception-v2', 'ui', () => import('@/services/securityPerceptionChallengeFlow')), 'perception', null, true, ['*'])
+  registration(SecurityChallengeKind.PerceptionTextTaskV2, 'perception', true, true, executor('perception-v2', 'ui', () => import('@/services/securityPerceptionChallengeFlow')), 'perception', null, true, ['*']),
+  registration(SecurityChallengeKind.PerceptionCharacterV3, 'perception', true, true, executor('perception-character-v3', 'ui', () => import('@/services/securityPerceptionCharacterV3Flow')), 'perception', null, true, ['*'])
 ] as const satisfies readonly ChallengeCapabilityRegistration[]
 
 const byKind = new Map<SecurityChallengeKindValue, ChallengeCapabilityRegistration>(

@@ -15,6 +15,8 @@ import { useThemeRuntime } from '@/services/themeRuntime'
 import { privateSurfaceRuntime, type PrivateSurfaceTransition } from '@/services/privateSurfaceRuntime'
 import { FSUSBLOG_RENDER_PIPELINE_CONFIG } from '@/fsusui/renderPipeline'
 import { fsusBlogMotionPresets } from '@/fsusui/blogMotion'
+import SecurityChallengeDialogHost from '@/components/security/SecurityChallengeDialogHost.vue'
+import { getRiskChallengeCoordinator } from '@/composables/useRiskChallengeCommand'
 import {
   FsuTransition,
   runMotion,
@@ -29,6 +31,7 @@ const { initializeLocaleRuntime, locale } = useI18nText()
 const FullAppRuntime = defineAsyncComponent(() => import('@/components/runtime/AppRuntime.vue'))
 const { mode } = useThemeRuntime()
 const routeCleanup = useMotionRouteCleanup()
+const securityChallengeCoordinator = getRiskChallengeCoordinator()
 const cleanupByElement = new WeakMap<HTMLElement, () => boolean>()
 const headConfig = computed(() => ({
   titleTemplate: isPublicShellRouteName(route.name) ? undefined : (titleChunk: string | undefined) => {
@@ -205,7 +208,10 @@ watch(
 
 watch(
   () => route.fullPath,
-  () => routeCleanup.cleanup(),
+  () => {
+    routeCleanup.cleanup()
+    securityChallengeCoordinator.handleCancel()
+  },
   { flush: 'pre' }
 )
 
@@ -269,6 +275,7 @@ onUnmounted(() => {
       </router-view>
     </div>
     <FullAppRuntime v-if="runtimeReady" />
+    <SecurityChallengeDialogHost />
   </el-config-provider>
 </template>
 

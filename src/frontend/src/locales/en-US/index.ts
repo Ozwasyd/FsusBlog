@@ -4,6 +4,7 @@ import { auth } from './auth';
 import { common } from './common';
 import { errors } from './errors';
 import { publicMessages } from './public';
+import { security } from './security';
 
 export const enUS = {
     common,
@@ -11,5 +12,6 @@ export const enUS = {
     article,
     auth,
     errors,
-    admin
+    admin,
+    security
 } as const;

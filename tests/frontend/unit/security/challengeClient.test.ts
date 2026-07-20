@@ -11,6 +11,7 @@ import {
   type SecurityChallengeContext
 } from '@/security/challenge-client'
 import { createChallengeProofStore } from '@/security/challenge-proof-store'
+import { PerceptionCharacterV3Representation } from '@/contracts/binaryApi'
 import {
   SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION,
   resolveChallengeCapability,
@@ -235,7 +236,7 @@ describe('security challenge client and proof store', () => {
     })
 
     expect(result.status).toBe('failed')
-    expect(result.reason).toBe('captcha_invalid')
+    expect(result.reason).toBe('rejected')
     expect(store.peek(context.action, context.routeKey)).toBeNull()
   })
 
@@ -343,6 +344,142 @@ describe('security challenge client and proof store', () => {
     expect(cancelChallenge).toHaveBeenNthCalledWith(2, expect.objectContaining({
       envelopeId: '01900000-0000-7000-8000-000000000002'
     }))
+  })
+
+  it('atomically switches V3 representation with the old opaque identity and no pre-cancel', async () => {
+    const first = perceptionCharacterV3IssueResponse('visual', 1)
+    const replacement = perceptionCharacterV3IssueResponse('audio', 2)
+    const issueChallenge = vi.fn()
+      .mockResolvedValueOnce(first)
+      .mockResolvedValueOnce(replacement)
+    const cancelChallenge = vi.fn().mockResolvedValue(null)
+    const client = createSecurityChallengeClient({ issueChallenge, cancelChallenge, now: () => 2_000 })
+
+    await expect(client.issue(context)).resolves.toMatchObject({
+      status: 'challenge', assignment: { challengeId: 'character-v3-1' }
+    })
+    await expect(client.replace(context, 'audio')).resolves.toMatchObject({
+      status: 'challenge', assignment: { challengeId: 'character-v3-2' }
+    })
+
+    expect(cancelChallenge).not.toHaveBeenCalled()
+    expect(issueChallenge).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      representation: 'audio',
+      replacement: {
+        challengeId: 'character-v3-1',
+        envelopeId: ENVELOPE_ID,
+        stateToken: 'opaque-state-1'
+      }
+    }), expect.objectContaining({ signal: expect.any(AbortSignal) }))
+  })
+
+  it('revokes the old V3 envelope when atomic replacement fails', async () => {
+    const issueChallenge = vi.fn()
+      .mockResolvedValueOnce(perceptionCharacterV3IssueResponse('visual', 1))
+      .mockRejectedValueOnce(new Error('raw upstream secret'))
+    const cancelChallenge = vi.fn().mockResolvedValue(null)
+    const client = createSecurityChallengeClient({ issueChallenge, cancelChallenge, now: () => 2_000 })
+
+    await client.issue(context)
+    await expect(client.replace(context, 'audio')).resolves.toMatchObject({
+      status: 'failed', reason: 'security_challenge_issue_failed'
+    })
+
+    expect(cancelChallenge).toHaveBeenCalledOnce()
+    expect(cancelChallenge).toHaveBeenCalledWith(expect.objectContaining({ envelopeId: ENVELOPE_ID }))
+    client.cancelEnvelope(context)
+    expect(cancelChallenge).toHaveBeenCalledOnce()
+  })
+
+  it('fails closed and revokes the old V3 envelope when replacement unexpectedly allows', async () => {
+    const allow = { ...perceptionCharacterV3IssueResponse('visual', 2), decision: 'allow' as const }
+    const issueChallenge = vi.fn()
+      .mockResolvedValueOnce(perceptionCharacterV3IssueResponse('visual', 1))
+      .mockResolvedValueOnce(allow)
+    const cancelChallenge = vi.fn().mockResolvedValue(null)
+    const client = createSecurityChallengeClient({ issueChallenge, cancelChallenge, now: () => 2_000 })
+
+    await client.issue(context)
+    await expect(client.replace(context, 'audio')).resolves.toMatchObject({
+      status: 'failed', reason: 'security_challenge_issue_failed'
+    })
+    expect(cancelChallenge).toHaveBeenCalledWith(expect.objectContaining({ envelopeId: ENVELOPE_ID }))
+  })
+
+  it('keeps the old V3 run addressable until an aborted replacement revokes it', async () => {
+    const replacement = deferred<SecurityChallengeIssueResponse>()
+    let replacementSignal: AbortSignal | undefined
+    const issueChallenge = vi.fn()
+      .mockResolvedValueOnce(perceptionCharacterV3IssueResponse('visual', 1))
+      .mockImplementationOnce((_request, config) => {
+        replacementSignal = config?.signal
+        return replacement.promise
+      })
+    const cancelChallenge = vi.fn().mockResolvedValue(null)
+    const client = createSecurityChallengeClient({ issueChallenge, cancelChallenge, now: () => 2_000 })
+
+    await client.issue(context)
+    const pendingReplacement = client.replace(context, 'audio')
+    client.cancelEnvelope(context)
+    expect(replacementSignal?.aborted).toBe(true)
+    expect(cancelChallenge).toHaveBeenCalledWith(expect.objectContaining({ envelopeId: ENVELOPE_ID }))
+
+    replacement.resolve(perceptionCharacterV3IssueResponse('audio', 2))
+    await expect(pendingReplacement).resolves.toMatchObject({
+      status: 'failed', reason: 'security_challenge_request_cancelled'
+    })
+    expect(cancelChallenge).toHaveBeenCalledTimes(2)
+    expect(cancelChallenge).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      envelopeId: '01900000-0000-7000-8000-000000000002'
+    }))
+  })
+
+  it('maps transport and backend verification reasons to stable local codes', async () => {
+    const issueFailureClient = createSecurityChallengeClient({
+      issueChallenge: vi.fn().mockRejectedValue(new Error('database host and token'))
+    })
+    await expect(issueFailureClient.issue(context)).resolves.toMatchObject({
+      status: 'failed', reason: 'security_challenge_issue_failed'
+    })
+
+    const responseClient = createSecurityChallengeClient({
+      issueChallenge: vi.fn().mockResolvedValue(captchaIssueResponse()),
+      verifyChallenge: vi.fn().mockResolvedValue({
+        verified: false,
+        envelopeId: ENVELOPE_ID,
+        challengeId: 'captcha-1',
+        kind: SecurityChallengeKind.CaptchaV1,
+        policyVersion: 'risk-v1',
+        completedCount: 1,
+        memberCount: 1,
+        envelopeCompleted: false,
+        proofToken: '',
+        expiresAtUnixMs: 0,
+        reason: 'postgres_internal_reason',
+        retryAfterMs: 0
+      } satisfies SecurityChallengeVerifyResponse)
+    })
+    await responseClient.issue(context)
+    await expect(responseClient.verify(context, memberRequest('captcha-1'))).resolves.toMatchObject({
+      status: 'failed', reason: 'rejected', response: { reason: 'rejected' }
+    })
+  })
+
+  it('refreshes V3 in the same representation after revoking the old envelope', async () => {
+    const issueChallenge = vi.fn()
+      .mockResolvedValueOnce(perceptionCharacterV3IssueResponse('visual', 1))
+      .mockResolvedValueOnce(perceptionCharacterV3IssueResponse('visual', 2))
+    const cancelChallenge = vi.fn().mockResolvedValue(null)
+    const client = createSecurityChallengeClient({ issueChallenge, cancelChallenge, now: () => 2_000 })
+
+    await client.issue(context)
+    await client.refresh(context, 'visual')
+
+    expect(cancelChallenge).toHaveBeenCalledWith(expect.objectContaining({ envelopeId: ENVELOPE_ID }))
+    expect(issueChallenge).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      representation: 'visual'
+    }), expect.any(Object))
+    expect(issueChallenge.mock.calls[1]?.[0]).not.toHaveProperty('replacement')
   })
 
   it('aborts and tombstones an out-of-order issue response after refresh', async () => {
@@ -521,6 +658,66 @@ function captchaIssueResponse(kind: SecurityChallengeKind = SecurityChallengeKin
     providerPayloads: [{
       challengeId: 'captcha-1',
       payload: { algorithm: 'fsus.captcha/chebyshev-noise@v1' }
+    }]
+  }
+}
+
+function perceptionCharacterV3IssueResponse(
+  representation: 'visual' | 'audio',
+  identity: number
+): SecurityChallengeIssueResponse {
+  const challengeId = `character-v3-${identity}`
+  const envelopeId = identity === 1
+    ? ENVELOPE_ID
+    : `01900000-0000-7000-8000-${String(identity).padStart(12, '0')}`
+  const visual = representation === 'visual'
+  return {
+    decision: 'challenge',
+    riskScore: 30,
+    effectiveRiskScore: 30,
+    escalationLevel: 2,
+    policyVersion: 'risk-v1',
+    retryAfterMs: 0,
+    envelope: {
+      envelopeId,
+      policyVersion: 'risk-v1',
+      assignments: [{
+        challengeId,
+        traceparent: '00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01',
+        tenantId: 'tenant-main',
+        kind: SecurityChallengeKind.PerceptionCharacterV3,
+        escalationLevel: 2,
+        action: context.action,
+        routeKey: context.routeKey,
+        subjectHash: 'a'.repeat(64),
+        clientIpHash: 'b'.repeat(64),
+        deviceFpHash: 'c'.repeat(64),
+        issuedAtUnixMs: 1_000,
+        expiresAtUnixMs: 300_000
+      }]
+    },
+    providerPayloads: [{
+      challengeId,
+      payload: {},
+      perceptionCharacterV3: {
+        algorithm: 'fsu.challenge/perception-character-raster@v3',
+        challengeId,
+        envelopeId,
+        representation: visual
+          ? PerceptionCharacterV3Representation.Visual
+          : PerceptionCharacterV3Representation.Audio,
+        mediaType: visual ? 'application/x-fsus-gray8' : 'audio/wav',
+        mediaBytes: visual ? new Uint8Array(512 * 192) : new Uint8Array([1, 2, 3]),
+        physicalWidth: visual ? 512 : 0,
+        physicalHeight: visual ? 192 : 0,
+        displayWidth: visual ? 320 : 0,
+        displayHeight: visual ? 120 : 0,
+        attemptBudget: 2,
+        policyVersion: 'risk-v1',
+        issuedAtUnixMs: 1_000,
+        expiresAtUnixMs: 300_000,
+        stateToken: `opaque-state-${identity}`
+      }
     }]
   }
 }

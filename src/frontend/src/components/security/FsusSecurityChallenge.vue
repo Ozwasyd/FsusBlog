@@ -1,8 +1,13 @@
 <template>
-  <section class="fsus-security-challenge" data-fsus-security-challenge="true" :aria-busy="busy">
-    <header class="fsus-security-challenge__header">
+  <section
+    class="fsus-security-challenge"
+    :class="{ 'is-dialog-composition': dialogComposition }"
+    data-fsus-security-challenge="true"
+    :aria-busy="busy"
+  >
+    <header v-if="!dialogComposition" class="fsus-security-challenge__header">
       <div>
-        <p class="fsus-security-challenge__eyebrow">{{ copy.eyebrow }}</p>
+        <p class="fsus-security-challenge__eyebrow">{{ localizedCopy.eyebrow }}</p>
         <h3 class="fsus-security-challenge__title">{{ title }}</h3>
       </div>
       <el-button
@@ -10,12 +15,12 @@
         :disabled="busy || disabled"
         @click="refreshChallenge"
       >
-        {{ copy.refreshCta }}
+        {{ localizedCopy.refresh }}
       </el-button>
     </header>
 
     <el-alert
-      v-if="errorMessage"
+      v-if="errorMessage && !isPerceptionCharacterV3"
       class="fsus-security-challenge__alert"
       :title="errorMessage"
       type="error"
@@ -23,8 +28,54 @@
       :closable="false"
     />
 
+    <div v-if="isPerceptionCharacterV3" class="fsus-security-challenge__v3">
+      <el-alert
+        v-if="v3State === 'unavailable'"
+        data-test="perception-character-blocking-error"
+        :title="localizedCopy.unavailable"
+        type="error"
+        show-icon
+        :closable="false"
+      />
+      <el-button
+        v-if="v3Flow && (v3State === 'ready' || v3State === 'retryable')"
+        data-test="perception-character-representation"
+        :disabled="busy || disabled"
+        @click="switchV3Representation"
+      >
+        {{ v3Flow.representation === 'visual' ? localizedCopy.useAudio : localizedCopy.useImage }}
+      </el-button>
+      <FsusUiPerceptionCharacterChallenge
+        ref="v3Primitive"
+        v-model="v3Answer"
+        :challenge-id="v3Flow?.challengeId ?? ''"
+        :state="v3State"
+        :media="v3Media"
+        :prompt="localizedCopy.prompt"
+        :description="localizedCopy.description"
+        :input-label="localizedCopy.inputLabel"
+        :placeholder="localizedCopy.placeholder"
+        :media-alt="localizedCopy.mediaAlt"
+        :submit-label="localizedCopy.submit"
+        :refresh-label="localizedCopy.refresh"
+        :retry-label="localizedCopy.retry"
+        :reissue-label="localizedCopy.reissue"
+        :loading-text="localizedCopy.loading"
+        :verifying-text="localizedCopy.verifying"
+        :retryable-text="localizedCopy.retryable"
+        :reissue-text="localizedCopy.reissueRequired"
+        unavailable-text=""
+        :expired-text="localizedCopy.expired"
+        :disabled-text="localizedCopy.disabled"
+        @submit="submitV3Answer"
+        @refresh="refreshV3Challenge"
+        @retry="retryV3Answer"
+        @reissue="refreshV3Challenge"
+      />
+    </div>
+
     <FsusCaptchaChallenge
-      v-if="capability?.uiHost === 'captcha'"
+      v-else-if="capability?.uiHost === 'captcha'"
       :key="captchaKey"
       :action="action"
       :route-key="routeKey"
@@ -42,14 +93,14 @@
       :challenge="perceptionRuntime.challenge"
       :renderer="perceptionRuntime.renderer"
       :client="perceptionRuntime.client"
-      :title="copy.perceptionTitle"
-      :eyebrow="copy.perceptionEyebrow"
-      :refresh-label="copy.perceptionRefresh"
-      :retry-label="copy.perceptionRetry"
-      :cancel-label="copy.perceptionCancel"
-      :loading-text="copy.perceptionLoading"
-      :failed-text="copy.perceptionFailed"
-      :expired-text="copy.perceptionExpired"
+      :title="localizedCopy.perceptionTitle"
+      :eyebrow="localizedCopy.perceptionEyebrow"
+      :refresh-label="localizedCopy.perceptionRefresh"
+      :retry-label="localizedCopy.perceptionRetry"
+      :cancel-label="localizedCopy.perceptionCancel"
+      :loading-text="localizedCopy.perceptionLoading"
+      :failed-text="localizedCopy.perceptionFailed"
+      :expired-text="localizedCopy.perceptionExpired"
       @verified="handlePerceptionVerified"
       @error="setError"
       @refresh="refreshChallenge"
@@ -94,18 +145,18 @@
 
     <div v-else-if="capability && !capability.policyEligible" class="fsus-security-challenge__panel">
       <slot name="unsupported" :assignment="assignment" :provider-payload="providerPayload" :refresh="refreshChallenge">
-        <p data-test="security-challenge-unsupported">{{ copy.unsupported }}</p>
+        <p data-test="security-challenge-unsupported">{{ localizedCopy.unsupported }}</p>
       </slot>
     </div>
 
     <div v-else class="fsus-security-challenge__panel" role="status">
-      <p>{{ copy.preparing }}</p>
+      <p>{{ localizedCopy.preparing }}</p>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import {
   SecurityChallengeKind,
   type IssueSecurityChallengeRequest,
@@ -115,7 +166,6 @@ import {
   type SecurityChallengeVerifyResponse,
   type VerifySecurityChallengeRequest
 } from '@/api/security'
-import { FsusPerceptionChallenge, type PerceptionChallengeVerifyResult } from '@ozwasyd/element-plus/perception-challenge'
 import FsusCaptchaChallenge from './FsusCaptchaChallenge.vue'
 import FsusPoSpaceChallenge, {
   type PoSpaceChallengeExecutorFactory,
@@ -139,9 +189,19 @@ import {
   isPerceptionChallengeKind,
   type PerceptionChallengeRuntime
 } from '@/services/securityPerceptionChallengeFlow'
-import { FSUSBLOG_SECURITY_COPY } from '@/copy'
-
-const copy = FSUSBLOG_SECURITY_COPY.challenge
+import { useI18nText } from '@/composables/useI18nText'
+import {
+  FsusUiPerceptionCharacterChallenge,
+  FsusPerceptionChallenge,
+  type PerceptionChallengeVerifyResult,
+  type FsusUiPerceptionCharacterMedia,
+  type FsusUiPerceptionCharacterSubmitPayload
+} from '@/fsusui/perceptionCharacterChallenge'
+import {
+  createPerceptionCharacterV3Flow,
+  type PerceptionCharacterV3Flow,
+  type PerceptionCharacterV3MediaResource
+} from '@/services/securityPerceptionCharacterV3Flow'
 
 const props = withDefaults(defineProps<{
   action: string
@@ -153,10 +213,11 @@ const props = withDefaults(defineProps<{
   client?: SecurityChallengeClient
   executorFactory?: PoSpaceChallengeExecutorFactory
   identity?: string
+  dialogComposition?: boolean
 }>(), {
   autoLoad: true,
   disabled: false,
-  title: FSUSBLOG_SECURITY_COPY.challenge.defaultTitle
+  title: ''
 })
 
 const emit = defineEmits<{
@@ -168,6 +229,7 @@ const emit = defineEmits<{
   refresh: []
   expired: []
   cancel: []
+  ready: []
 }>()
 
 const defaultClient = createSecurityChallengeClient()
@@ -183,11 +245,21 @@ const perceptionRuntime = ref<PerceptionChallengeRuntime | null>(null)
 const poSpaceHost = ref<{ dispose?: () => void } | null>(null)
 const powHost = ref<{ dispose?: () => void } | null>(null)
 const lastVerifyResponse = ref<SecurityChallengeVerifyResponse | null>(null)
+const v3Flow = shallowRef<PerceptionCharacterV3Flow | null>(null)
+const v3MediaResource = shallowRef<PerceptionCharacterV3MediaResource | null>(null)
+const v3Media = shallowRef<FsusUiPerceptionCharacterMedia | null>(null)
+const v3Answer = ref('')
+const v3Primitive = ref<{ focus?: () => void; reset?: () => void } | null>(null)
+const v3State = ref<'loading' | 'ready' | 'verifying' | 'retryable' | 'reissue' | 'unavailable' | 'expired' | 'disabled'>('loading')
+const { messages } = useI18nText()
+const localizedCopy = computed(() => messages.value.security.challenge)
 let hostGeneration = 0
+let v3ExpiryTimer: ReturnType<typeof setTimeout> | null = null
 
-const title = computed(() => props.title)
+const title = computed(() => props.title || localizedCopy.value.title)
 const disabled = computed(() => props.disabled === true)
 const executorFactory = computed(() => props.executorFactory)
+const isPerceptionCharacterV3 = computed(() => assignment.value?.kind === SecurityChallengeKind.PerceptionCharacterV3)
 const challengeContext = computed<SecurityChallengeContext>(() => ({
   action: props.action,
   routeKey: props.routeKey,
@@ -249,6 +321,7 @@ async function refreshChallenge(): Promise<void> {
 
 function applyIssueResult(result: SecurityChallengeIssueResult): void {
   resetPerceptionRuntime()
+  resetV3Runtime()
   emit('issued', result)
   assignment.value = result.assignment
   providerPayload.value = result.providerPayload
@@ -272,16 +345,112 @@ function applyIssueResult(result: SecurityChallengeIssueResult): void {
   }
   if (result.status === 'unsupported') {
     emit('unsupported', result)
-    setError(result.reason ?? 'security_challenge_kind_unsupported')
+    setError('security_challenge_unsupported')
     return
   }
   if (result.status === 'failed') {
-    setError(result.reason ?? 'security_challenge_issue_failed')
+    setError('security_challenge_unavailable')
     return
   }
   if (capability.value?.uiHost === 'captcha') {
     captchaKey.value += 1
   }
+  if (assignment.value?.kind === SecurityChallengeKind.PerceptionCharacterV3) {
+    rebuildV3Runtime()
+  }
+}
+
+async function submitV3Answer(payload: FsusUiPerceptionCharacterSubmitPayload): Promise<void> {
+  const flow = v3Flow.value
+  if (!flow || payload.challengeId !== flow.challengeId || v3State.value === 'verifying') {
+    return
+  }
+  const generation = hostGeneration
+  v3State.value = 'verifying'
+  try {
+    const result = await flow.verify(payload.value)
+    if (generation !== hostGeneration || flow !== v3Flow.value) {
+      return
+    }
+    if (result.verified) {
+      const response = lastVerifyResponse.value
+      v3State.value = 'ready'
+      if (response) {
+        handleVerified(response)
+      }
+      return
+    }
+    v3State.value = result.retryable
+      ? 'retryable'
+      : result.reissueRequired || result.rejected
+        ? 'reissue'
+        : 'unavailable'
+  } catch (error) {
+    if (generation !== hostGeneration || flow !== v3Flow.value) {
+      return
+    }
+    v3State.value = coarseV3State(error)
+  }
+}
+
+function retryV3Answer(): void {
+  if (v3State.value !== 'retryable') {
+    return
+  }
+  v3State.value = 'ready'
+  void nextTick(() => v3Primitive.value?.focus?.())
+}
+
+async function refreshV3Challenge(): Promise<void> {
+  const representation = v3Flow.value?.representation
+  if (!representation || busy.value || disabled.value) {
+    return
+  }
+  await replaceV3Challenge(() => client().refresh(context(), representation))
+}
+
+async function switchV3Representation(): Promise<void> {
+  const representation = v3Flow.value?.representation
+  if (!representation || busy.value || disabled.value || !client().replace) {
+    return
+  }
+  const next = representation === 'visual' ? 'audio' : 'visual'
+  await replaceV3Challenge(() => client().replace(context(), next))
+}
+
+async function replaceV3Challenge(load: () => Promise<SecurityChallengeIssueResult>): Promise<void> {
+  const generation = ++hostGeneration
+  busy.value = true
+  v3State.value = 'loading'
+  v3Answer.value = ''
+  try {
+    const result = await load()
+    if (generation !== hostGeneration) {
+      return
+    }
+    if (result.status === 'challenge' && result.assignment?.kind === SecurityChallengeKind.PerceptionCharacterV3) {
+      applyIssueResult(result)
+      return
+    }
+    resetV3Runtime()
+    v3State.value = 'unavailable'
+  } catch (error) {
+    if (generation === hostGeneration) {
+      resetV3Runtime()
+      v3State.value = coarseV3State(error)
+    }
+  } finally {
+    if (generation === hostGeneration) {
+      busy.value = false
+    }
+  }
+}
+
+function coarseV3State(error: unknown): 'retryable' | 'reissue' | 'unavailable' {
+  const reason = error instanceof Error ? error.message : ''
+  if (reason.includes('retryable')) return 'retryable'
+  if (reason.includes('reissue') || reason.includes('rejected')) return 'reissue'
+  return 'unavailable'
 }
 
 async function verifyPerceptionChallenge(request: VerifySecurityChallengeRequest): Promise<SecurityChallengeVerifyResponse> {
@@ -357,7 +526,7 @@ function handleVerified(value: SecurityChallengeVerifyResponse): void {
 function handlePerceptionVerified(value: PerceptionChallengeVerifyResult): void {
   const response = lastVerifyResponse.value
   if (!value.verified || !response) {
-    setError(copy.perceptionFailed)
+    setError('security_challenge_verify_failed')
     return
   }
   handleVerified(response)
@@ -365,13 +534,13 @@ function handlePerceptionVerified(value: PerceptionChallengeVerifyResult): void 
 
 function handlePerceptionExpired(): void {
   client().clearProof(context())
-  setError(copy.perceptionExpired)
+  setError('security_challenge_expired')
   emit('expired')
 }
 
 function handlePerceptionCancel(): void {
   client().clearProof(context())
-  setError(copy.perceptionCancelled)
+  setError('security_challenge_cancelled')
   emit('cancel')
 }
 
@@ -380,9 +549,9 @@ function handlePoSpaceExpired(): void {
   emit('expired')
 }
 
-function handlePoSpaceError(message: string): void {
-  errorMessage.value = '验证未通过。'
-  emit('error', message)
+function handlePoSpaceError(): void {
+  errorMessage.value = localizedCopy.value.perceptionFailed
+  emit('error', 'security_challenge_verify_failed')
 }
 
 function handlePoSpaceCancel(): void {
@@ -395,9 +564,9 @@ function handlePowExpired(): void {
   emit('expired')
 }
 
-function handlePowError(message: string): void {
-  errorMessage.value = '验证未通过。'
-  emit('error', message)
+function handlePowError(): void {
+  errorMessage.value = localizedCopy.value.perceptionFailed
+  emit('error', 'security_challenge_verify_failed')
 }
 
 function handlePowCancel(): void {
@@ -406,13 +575,63 @@ function handlePowCancel(): void {
 }
 
 function setError(message: string): void {
-  errorMessage.value = message
-  emit('error', message)
+  const stableCode = message.includes('unsupported')
+    ? 'security_challenge_unsupported'
+    : 'security_challenge_unavailable'
+  errorMessage.value = stableCode === 'security_challenge_unsupported'
+    ? localizedCopy.value.unsupported
+    : localizedCopy.value.unavailable
+  emit('error', stableCode)
 }
 
 function resetPerceptionRuntime(): void {
   perceptionRuntime.value?.dispose()
   perceptionRuntime.value = null
+}
+
+function resetV3Runtime(): void {
+  if (v3ExpiryTimer !== null) {
+    clearTimeout(v3ExpiryTimer)
+    v3ExpiryTimer = null
+  }
+  v3Flow.value?.dispose()
+  v3Flow.value = null
+  v3MediaResource.value = null
+  v3Media.value = null
+  v3Answer.value = ''
+}
+
+function rebuildV3Runtime(): void {
+  const currentAssignment = assignment.value
+  const typed = providerPayload.value?.perceptionCharacterV3
+  if (!currentAssignment || currentAssignment.kind !== SecurityChallengeKind.PerceptionCharacterV3 || !typed) {
+    return
+  }
+  try {
+    const flow = createPerceptionCharacterV3Flow({
+      assignment: currentAssignment,
+      payload: typed,
+      verifyChallenge: verifyPerceptionChallenge
+    })
+    const resource = flow.createMedia()
+    v3Flow.value = flow
+    v3MediaResource.value = resource
+    v3Media.value = resource.media
+    const remainingMs = flow.expiresAtUnixMs - Date.now()
+    v3State.value = disabled.value ? 'disabled' : remainingMs <= 0 ? 'expired' : 'ready'
+    if (!disabled.value && remainingMs > 0) {
+      v3ExpiryTimer = setTimeout(() => {
+        if (v3Flow.value === flow && v3State.value !== 'verifying') {
+          v3State.value = 'expired'
+          v3Answer.value = ''
+        }
+      }, remainingMs)
+    }
+    emit('ready')
+  } catch {
+    resetV3Runtime()
+    v3State.value = 'unavailable'
+  }
 }
 
 function rebuildPerceptionRuntime(): void {
@@ -459,6 +678,7 @@ onBeforeUnmount(() => {
   powHost.value?.dispose?.()
   client().cancelEnvelope(context())
   resetPerceptionRuntime()
+  resetV3Runtime()
 })
 
 watch([assignment, providerPayload, capability], rebuildPerceptionRuntime)
@@ -473,12 +693,19 @@ watch(
     poSpaceHost.value?.dispose?.()
     powHost.value?.dispose?.()
     resetPerceptionRuntime()
+    resetV3Runtime()
     assignment.value = null
     providerPayload.value = null
     capability.value = null
     void ensureChallenge()
   }
 )
+
+defineExpose({
+  focus() {
+    v3Primitive.value?.focus?.()
+  }
+})
 </script>
 
 <style scoped>
@@ -490,6 +717,22 @@ watch(
   border-radius: var(--fsus-radius-panel, 12px);
   background: var(--fsusblog-panel-bg, var(--el-bg-color));
   color: var(--fsusblog-text-primary, var(--el-text-color-primary));
+}
+
+.fsus-security-challenge.is-dialog-composition {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.fsus-security-challenge__v3 {
+  display: grid;
+  gap: var(--fsus-space-3, 12px);
+}
+
+.fsus-security-challenge__v3 > :first-child:not(:last-child) {
+  justify-self: start;
 }
 
 .fsus-security-challenge__header {

@@ -212,6 +212,19 @@ PoSpace UI 与 notification headless 路径都必须调用共享 executor 完成
 
 `PerceptionCharacterV3` 是上述 frame 内由 `kind=14` 封闭判别的 typed AEDS union member；它不经过 `ProviderPayloadJson`。issue member 只编码 `algorithm/challengeId/envelopeId/representation/mediaType/mediaBytes/physicalWidth/physicalHeight/displayWidth/displayHeight/attemptBudget/policyVersion/issuedAtUnixMs/expiresAtUnixMs/stateToken`。visual 的 `mediaBytes` 必须恰为 `512×192=98,304` 字节 Gray8，显示尺寸固定 `320×120`；audio 是服务端从完整性校验的 spoken-character atlas 拼接完成、带明确字符间隔且不超过 256 KiB 的 12 kHz PCM16 WAV。verify member 只编码 `algorithm/challengeId/envelopeId/representation/answer/stateToken`，不接受 issue raster、seed、recipe、signature、key 或 client solve duration。unknown union kind、truncated slice、越界/超限 media 均在 provider 调用前拒绝。
 
+前端 response adapter 必须先用 assignment `kind=14` 判别 provider slice，再执行 typed POD 解码；
+不得尝试 JSON parse。通过校验的 final Gray8/WAV 只映射为 FsusUI public character media union。
+representation switch 与 refresh 都重新调用 issue：普通 refresh 先调用 cancel 撤销旧 envelope，
+switch 则由 replacement headers 触发服务端原子撤销并替换；新的
+identity 进入 `ready` 前不得复用旧 answer、state token、attempt state 或媒体资源。公开 UI 只映射
+`retryable | reissueRequired | unavailable | rejected` 为本地化任务状态，不渲染 backend reason code。
+
+当前 production 客户端接入 shared RiskControl proof 的业务清单仅为 Passkey login begin/complete、
+Recovery Key verify 与 comment/reply。account self-service 与 admin command 尚无 shared RiskControl
+proof endpoint/flow；admin-sensitive endpoint 的 `X-Fsus-Mfa-Proof` 是独立 MFA 契约，不能视为或转换成
+`X-Fsus-Challenge-Proof`。未来 account/admin endpoint 接入本节的 shared proof 契约时，客户端必须经
+shared coordinator 提交并复用唯一 App-level dialog host，不得增加局部 challenge transport/host。
+
 V3 issue response 将公开 `riskScore/effectiveRiskScore` 归零，失败只公开 `retryable`、`reissueRequired`、`unavailable` 或 `rejected`；crypto、Redis、binding、rate-limit dimension 和 parser 原因只进入内部 audit。token/AAD/answer MAC 的字段顺序、编码和测试向量以 `docs/security/perception-character-v3-protocol.md` 与 canonical JSON 为唯一权威源。
 
 visual/audio representation replacement 在 issue 请求同时携带 `X-Fsus-Replaces-Challenge`、`X-Fsus-Replaces-Envelope` 与 `X-Fsus-Replaces-State-Token`；三者和当前 server-authoritative binding 由 Redis 原子校验，任一缺失或替换均返回 coarse `rejected`。这些 header 只携带 opaque identity/state，不得进入 access log、telemetry 或 cache key。

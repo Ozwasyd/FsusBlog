@@ -11,7 +11,6 @@ import {
   type SecurityChallengeVerifyResponse,
   type VerifySecurityChallengeRequest
 } from '@/api/security'
-import { getErrorMessage } from '@/utils/errors'
 import {
   defaultChallengeProofStore,
   type ChallengeProofSettlement,
@@ -73,7 +72,8 @@ export interface SecurityChallengeProofLease extends RiskChallengeProofContext {
 
 export interface SecurityChallengeClient {
   issue(context: SecurityChallengeContext, options?: { forceRefresh?: boolean }): Promise<SecurityChallengeIssueResult>
-  refresh(context: SecurityChallengeContext): Promise<SecurityChallengeIssueResult>
+  refresh(context: SecurityChallengeContext, representation?: 'visual' | 'audio'): Promise<SecurityChallengeIssueResult>
+  replace(context: SecurityChallengeContext, representation: 'visual' | 'audio'): Promise<SecurityChallengeIssueResult>
   verify(context: SecurityChallengeContext, request: SecurityChallengeMemberVerifyRequest): Promise<SecurityChallengeVerifyResult>
   reserveProof(context: SecurityChallengeContext): SecurityChallengeProofLease | null
   cancelEnvelope(context: SecurityChallengeContext): void
@@ -120,7 +120,23 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
   }
 
   async function issue(context: SecurityChallengeContext, issueOptions: { forceRefresh?: boolean } = {}): Promise<SecurityChallengeIssueResult> {
-    const operation = beginContextGeneration(context)
+    return issueInternal(context, issueOptions)
+  }
+
+  async function issueInternal(
+    context: SecurityChallengeContext,
+    issueOptions: {
+      forceRefresh?: boolean
+      requestedRepresentation?: 'visual' | 'audio'
+      replacementRepresentation?: 'visual' | 'audio'
+    } = {}
+  ): Promise<SecurityChallengeIssueResult> {
+    const replacement = issueOptions.replacementRepresentation ? currentV3Replacement(context) : null
+    if (issueOptions.replacementRepresentation && !replacement) {
+      return failedIssueResult(null, 'perception_character_v3_replacement_missing')
+    }
+    const replacementRun = replacement ? envelopeRuns.get(contextKey(context)) : undefined
+    const operation = beginContextGeneration(context, replacement === null)
     if (!issueOptions.forceRefresh) {
       const proof = proofStore.peek(context.action, context.routeKey)
       if (proof) {
@@ -147,19 +163,30 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
         routeKey: context.routeKey,
         attributes: context.attributes,
         deviceFingerprint: context.deviceFingerprint,
-        capabilityManifestVersion: effectiveCapabilityManifestVersion(context)
+        capabilityManifestVersion: effectiveCapabilityManifestVersion(context),
+        ...(issueOptions.replacementRepresentation || issueOptions.requestedRepresentation
+          ? { representation: issueOptions.replacementRepresentation ?? issueOptions.requestedRepresentation }
+          : {}),
+        ...(replacement ? { replacement } : {})
       }, { signal: operation.controller.signal })
       if (!isCurrentOperation(operation)) {
+        revokeLateReplacementResponse(context, response, operation, replacementRun)
         return cancelledIssueResult()
+      }
+      if (response.decision === 'allow' && replacementRun) {
+        abandonReplacement(context, replacementRun)
+        return failedIssueResult(response, 'security_challenge_issue_failed')
       }
       if (response.decision === 'allow') {
         return allowResult(response)
       }
       if (response.decision !== 'challenge' && response.decision !== 'stepUp') {
-        return failedIssueResult(response, `security_challenge_${response.decision || 'failed'}`)
+        abandonReplacement(context, replacementRun)
+        return failedIssueResult(response, 'security_challenge_issue_failed')
       }
       const run = createEnvelopeRun(context, response, operation.generation)
       if (!run) {
+        abandonReplacement(context, replacementRun)
         return failedIssueResult(response, 'security_challenge_envelope_invalid')
       }
       envelopeRuns.set(operation.key, run)
@@ -168,7 +195,8 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
       if (!isCurrentOperation(operation) || operation.controller.signal.aborted) {
         return cancelledIssueResult()
       }
-      return failedIssueResult(null, getErrorMessage(error, 'security_challenge_issue_failed'))
+      abandonReplacement(context, replacementRun)
+      return failedIssueResult(null, 'security_challenge_issue_failed')
     } finally {
       finishRequest(operation)
     }
@@ -189,9 +217,9 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
 
     const operation = beginRequest(key, run.generation)
     try {
-      const response = await verifyChallenge(
+      const response = sanitizeVerifyResponse(await verifyChallenge(
         { ...request, envelopeId: run.envelopeId },
-        { signal: operation.controller.signal })
+        { signal: operation.controller.signal }))
       if (!isCurrentOperation(operation) || envelopeRuns.get(key) !== run) {
         return failedVerifyResult('security_challenge_request_cancelled')
       }
@@ -255,7 +283,7 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
         response: null,
         proof: null,
         next: null,
-        reason: getErrorMessage(error, 'security_challenge_verify_failed'),
+        reason: 'security_challenge_verify_failed',
         retryAfterMs: 0
       }
     } finally {
@@ -272,14 +300,32 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
     envelopeRuns.delete(key)
   }
 
-  function beginContextGeneration(context: SecurityChallengeContext): ChallengeClientOperation {
+  function beginContextGeneration(context: SecurityChallengeContext, revokePrevious = true): ChallengeClientOperation {
     const key = contextKey(context)
-    revokeRun(context, envelopeRuns.get(key))
+    if (revokePrevious) {
+      revokeRun(context, envelopeRuns.get(key))
+      envelopeRuns.delete(key)
+    }
     activeRequests.get(key)?.abort()
     const generation = (contextGenerations.get(key) ?? 0) + 1
     contextGenerations.set(key, generation)
-    envelopeRuns.delete(key)
     return beginRequest(key, generation)
+  }
+
+  function currentV3Replacement(context: SecurityChallengeContext): {
+    challengeId: string
+    envelopeId: string
+    stateToken: string
+  } | null {
+    const run = envelopeRuns.get(contextKey(context))
+    const assignment = run?.response.envelope?.assignments[run.completedCount]
+    const payload = assignment
+      ? run?.response.providerPayloads.find((item) => item.challengeId === assignment.challengeId)
+      : null
+    const typed = payload?.perceptionCharacterV3
+    return run && assignment?.kind === SecurityChallengeKind.PerceptionCharacterV3 && typed
+      ? { challengeId: assignment.challengeId, envelopeId: run.envelopeId, stateToken: typed.stateToken }
+      : null
   }
 
   function revokeRun(context: SecurityChallengeContext, run: ActiveEnvelopeRun | undefined): void {
@@ -295,6 +341,29 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
       policyVersion: run.response.policyVersion
     }
     void cancelChallenge(request).catch(() => cancelChallenge(request).catch(() => undefined))
+  }
+
+  function abandonReplacement(context: SecurityChallengeContext, run: ActiveEnvelopeRun | undefined): void {
+    if (!run || envelopeRuns.get(contextKey(context)) !== run) {
+      return
+    }
+    revokeRun(context, run)
+    envelopeRuns.delete(contextKey(context))
+  }
+
+  function revokeLateReplacementResponse(
+    context: SecurityChallengeContext,
+    response: SecurityChallengeIssueResponse,
+    operation: ChallengeClientOperation,
+    replacementRun: ActiveEnvelopeRun | undefined
+  ): void {
+    if (!replacementRun || (response.decision !== 'challenge' && response.decision !== 'stepUp')) {
+      return
+    }
+    const lateRun = createEnvelopeRun(context, response, operation.generation)
+    if (lateRun) {
+      revokeRun(context, lateRun)
+    }
   }
 
   function beginRequest(key: string, generation: number): ChallengeClientOperation {
@@ -318,8 +387,11 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
 
   return {
     issue,
-    refresh(context) {
-      return issue(context, { forceRefresh: true })
+    refresh(context, representation) {
+      return issueInternal(context, { forceRefresh: true, requestedRepresentation: representation })
+    },
+    replace(context, representation) {
+      return issueInternal(context, { forceRefresh: true, replacementRepresentation: representation })
     },
     verify,
     reserveProof,
@@ -468,4 +540,11 @@ function failedIssueResult(response: SecurityChallengeIssueResponse | null, reas
     reason,
     retryAfterMs: response?.retryAfterMs ?? 0
   }
+}
+
+function sanitizeVerifyResponse(response: SecurityChallengeVerifyResponse): SecurityChallengeVerifyResponse {
+  if (response.verified || response.reason === 'retryable' || response.reason === 'reissueRequired' || response.reason === 'unavailable') {
+    return response
+  }
+  return { ...response, reason: 'rejected' }
 }

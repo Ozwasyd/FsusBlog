@@ -183,7 +183,6 @@ export function useArticleDetailView() {
   const commentPrivacyUiState = ref<CommentPrivacyUiState>(commentPrivacyRuntime.getUiState())
   const submittingComment = ref(false)
   const replyTarget = ref<ReplyTarget>(null)
-  const commentChallengeVisible = commentRiskChallenge.challengeVisible
 
   let bootstrapApplied = Boolean(initialBootstrapArticle)
   let routeInitVersion = 0
@@ -646,22 +645,6 @@ export function useArticleDetailView() {
     return commentAuthorMode.value
   }
 
-  const handleCommentChallengeVerified = (): void => {
-    void commentRiskChallenge.handleVerified()
-  }
-
-  const handleCommentChallengeError = (): void => {
-    commentRiskChallenge.handleError()
-  }
-
-  const handleCommentChallengeExpired = (): void => {
-    commentRiskChallenge.handleExpired()
-  }
-
-  const handleCommentChallengeCancel = (): void => {
-    commentRiskChallenge.handleCancel()
-  }
-
   const canAttemptStrongAnonymousSubmit = (): boolean =>
     zkAnonymousEnabled.value && commentPrivacyUiState.value !== 'unavailable'
 
@@ -1070,14 +1053,6 @@ export function useArticleDetailView() {
     publicSendConfirmed,
     commentDisplayLanguage,
     commentAnonymousScope,
-    commentChallengeVisible,
-    commentChallengeRouteKey,
-    commentChallengeAttributes,
-    commentChallengeClient: commentRiskChallenge.challengeClient,
-    handleCommentChallengeVerified,
-    handleCommentChallengeError,
-    handleCommentChallengeExpired,
-    handleCommentChallengeCancel,
     anonymousCommentsEnabled,
     publicCommentsEnabled,
     zkAnonymousEnabled,
