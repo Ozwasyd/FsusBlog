@@ -74,6 +74,8 @@ public sealed record class ArticleRevisionRightsSnapshotResponse(
 
 public sealed record class ArticleRevisionResponsibilitySnapshotResponse(
     string Id,
+    int ResponsibilityVersion,
+    string? PreviousSnapshotId,
     bool InheritSiteAuthor,
     IReadOnlyList<ArticleResponsiblePerson> Authors,
     ArticleResponsiblePerson? Reviewer,

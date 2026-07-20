@@ -43,7 +43,8 @@ public readonly record struct ArticleMutationVersionReference(
     long? RevisionId,
     int? RevisionNo,
     long? PublicationId,
-    int? PublicationNo);
+    int? PublicationNo,
+    long? ResponsibilitySnapshotId = null);
 
 public static class ArticleMutationReplayEdges
 {
@@ -81,6 +82,7 @@ internal static class ArticleMutationEventTypes
     internal const string CategoryUpdated = "category-updated";
     internal const string TagUpdated = "tag-updated";
     internal const string RightsProofUpdated = "rights-proof-updated";
+    internal const string ResponsibilityUpdated = "responsibility-updated";
 
     internal static readonly IReadOnlySet<string> s_supported = new HashSet<string>(StringComparer.Ordinal)
     {
@@ -93,7 +95,8 @@ internal static class ArticleMutationEventTypes
         ScheduledPublished,
         CategoryUpdated,
         TagUpdated,
-        RightsProofUpdated
+        RightsProofUpdated,
+        ResponsibilityUpdated
     };
 }
 
@@ -413,6 +416,14 @@ public sealed class ArticleMutationSideEffectCoordinator(
         try
         {
             string normalized = TextHelpers.LowerTrimmed(eventType) ?? string.Empty;
+            bool responsibilityMutation = string.Equals(
+                normalized,
+                ArticleMutationEventTypes.ResponsibilityUpdated,
+                StringComparison.Ordinal);
+            if (responsibilityMutation)
+            {
+                await ValidateResponsibilityCoordinatesAsync(articleId, version).ConfigureAwait(false);
+            }
             if (version.PublicationId.HasValue
                 && await IsSupersededPublicationAsync(articleId, version.PublicationId.Value).ConfigureAwait(false))
             {
@@ -426,7 +437,9 @@ public sealed class ArticleMutationSideEffectCoordinator(
                 return await ReplayDeletedArticleEdgesAsync(normalized).ConfigureAwait(false);
             }
 
-            Article? article = await LoadArticleWithContentAsync(articleId, version).ConfigureAwait(false);
+            Article? article = responsibilityMutation && !version.PublicationId.HasValue
+                ? await LoadArticleWithContentAsync(articleId).ConfigureAwait(false)
+                : await LoadArticleWithContentAsync(articleId, version).ConfigureAwait(false);
             if (article is null)
             {
                 return await ReplayMissingArticleEdgesAsync(normalized).ConfigureAwait(false);
@@ -633,6 +646,29 @@ public sealed class ArticleMutationSideEffectCoordinator(
                 .FirstAsync()
             ?? string.Empty;
         return article;
+    }
+
+    private async Task ValidateResponsibilityCoordinatesAsync(
+        int articleId,
+        ArticleMutationVersionReference version)
+    {
+        if (!version.RevisionId.HasValue
+            || !version.RevisionNo.HasValue
+            || !version.ResponsibilitySnapshotId.HasValue)
+        {
+            throw new InvalidOperationException($"Responsibility mutation coordinates are incomplete for article {articleId}.");
+        }
+
+        bool resolves = await db.Queryable<ArticleResponsibilitySnapshot>()
+            .Where(snapshot => snapshot.Id == version.ResponsibilitySnapshotId.Value
+                && snapshot.ArticleId == articleId
+                && snapshot.ArticleRevisionId == version.RevisionId.Value
+                && snapshot.RevisionNo == version.RevisionNo.Value)
+            .AnyAsync();
+        if (!resolves)
+        {
+            throw new InvalidOperationException($"Responsibility mutation coordinates do not resolve for article {articleId}.");
+        }
     }
 
     private async Task<bool> IsSupersededPublicationAsync(int articleId, long eventPublicationId)

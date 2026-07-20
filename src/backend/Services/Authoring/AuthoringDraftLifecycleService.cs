@@ -216,12 +216,14 @@ public sealed class AuthoringDraftLifecycleService(
         ArticleRightsSnapshot? rights = await db.Queryable<ArticleRightsSnapshot>()
             .Where(it => it.ArticleId == articleId && it.ArticleRevisionId == revisionId)
             .FirstAsync(cancellationToken);
-        ArticleResponsibilitySnapshot? responsibility = await db.Queryable<ArticleResponsibilitySnapshot>()
-            .Where(it => it.ArticleId == articleId && it.ArticleRevisionId == revisionId)
-            .FirstAsync(cancellationToken);
         ArticlePublicationRecord? release = await db.Queryable<ArticlePublicationRecord>()
             .Where(it => it.ArticleId == articleId && it.ArticleRevisionId == revisionId)
             .OrderByDescending(it => it.PublicationNo)
+            .FirstAsync(cancellationToken);
+        ArticleResponsibilitySnapshot? responsibility = await db.Queryable<ArticleResponsibilitySnapshot>()
+            .Where(it => it.ArticleId == articleId && it.ArticleRevisionId == revisionId)
+            .WhereIF(release?.ResponsibilitySnapshotId is not null, it => it.Id == release!.ResponsibilitySnapshotId!.Value)
+            .OrderByDescending(it => it.ResponsibilityVersion)
             .FirstAsync(cancellationToken);
         return ToRevisionDetailResponse(revision, rights, responsibility, release);
     }
@@ -456,6 +458,8 @@ public sealed class AuthoringDraftLifecycleService(
                 rights.CreatedAt),
             responsibility is null ? null : new ArticleRevisionResponsibilitySnapshotResponse(
                 responsibility.Id.ToString(CultureInfo.InvariantCulture),
+                responsibility.ResponsibilityVersion,
+                responsibility.PreviousSnapshotId?.ToString(CultureInfo.InvariantCulture),
                 responsibility.InheritSiteAuthor,
                 DeserializeJsonList<ArticleResponsiblePerson>(responsibility.AuthorsJson),
                 DeserializeJsonValue<ArticleResponsiblePerson>(responsibility.ReviewerJson),

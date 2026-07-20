@@ -190,6 +190,24 @@ public static partial class AuthoringEndpoints
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
+        group.MapGet("/articles/{articleId:int}/revisions/{revisionId:long}/responsibility", async (
+            int articleId,
+            long revisionId,
+            HttpContext context,
+            IAedsEncoder aeds,
+            IArticleResponsibilityAuthoringService service,
+            CancellationToken cancellationToken) =>
+        {
+            IReadOnlyList<ArticleResponsibilityVersionResponse>? response = await service.GetHistoryAsync(
+                articleId,
+                revisionId,
+                cancellationToken);
+            return response is null
+                ? AedsJsonResults.NotFound(aeds, "revision_not_found")
+                : Ok(context, aeds, response);
+        })
+        .RequireAdminPermission(AdminPermissions.ArticleWrite);
+
         group.MapPut("/articles/{articleId:int}/revisions/{revisionId:long}/responsibility", async (
             int articleId,
             long revisionId,
@@ -215,6 +233,12 @@ public static partial class AuthoringEndpoints
                 cancellationToken);
             return response is null
                 ? AedsJsonResults.NotFound(aeds, "revision_not_found")
+                : response.VersionConflict
+                    ? AedsJsonResults.Error(
+                        aeds,
+                        ErrorCode.Conflict,
+                        "article_responsibility_version_conflict",
+                        StatusCodes.Status409Conflict)
                 : Ok(context, aeds, response);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite);

@@ -77,6 +77,8 @@ export interface ArticleRevisionRightsSnapshotResponse {
 
 export interface ArticleRevisionResponsibilitySnapshotResponse {
   id: string
+  responsibilityVersion: number
+  previousSnapshotId: string | null
   inheritSiteAuthor: boolean
   authors: ArticleResponsiblePerson[]
   reviewer: ArticleResponsiblePerson | null
@@ -157,14 +159,27 @@ export interface ArticleResponsibilityDraft {
   containsStrongClaims: boolean
   isSubstantiveUpdate: boolean
   requiresMethodsDisclosure: boolean
+  expectedVersion: number
 }
 
 export interface ArticleResponsibilitySaveResponse {
   saved: boolean
+  versionConflict: boolean
   articleId: number
   articleRevisionId: string
   revisionNo: number
+  responsibilitySnapshotId: string | null
+  responsibilityVersion: number
+  previousSnapshotId: string | null
+  articlePublicationId: string | null
+  publicationNo: number | null
   issues: PrepublishIssue[]
+}
+
+export interface ArticleResponsibilityVersionResponse extends ArticleRevisionResponsibilitySnapshotResponse {
+  articleId: number
+  articleRevisionId: string
+  revisionNo: number
 }
 
 export interface PrepublishIssue {
@@ -1586,6 +1601,18 @@ export async function saveArticleResponsibility(
       requestFrame: FrameType.ArticleResponsibilityRequest,
       request
     }
+  )
+}
+
+export async function getArticleResponsibilityHistory(
+  articleId: number,
+  revisionId: string,
+  config?: ApiRequestConfig
+): Promise<ArticleResponsibilityVersionResponse[]> {
+  return requestAuthoringBinary<ArticleResponsibilityVersionResponse[]>(
+    `/articles/${articleId}/revisions/${revisionId}/responsibility`,
+    FrameType.ArticleResponsibilityHistory,
+    config
   )
 }
 

@@ -1,6 +1,6 @@
 # 文章责任、来源与修订公开说明
 
-文章发布时可以为每个 revision 保存一份 `article_responsibility_snapshot`。它是责任与证据披露，不是搜索排名评分，也不计算关键词密度、字数、E-E-A-T 或 GEO 分数。
+文章的每个 revision 可以保存 append-only 的 `article_responsibility_snapshot` 版本链。每次保存以 `expectedVersion` CAS 追加新版本并记录 `previousSnapshotId`，不会覆盖旧快照。它是责任与证据披露，不是搜索排名评分，也不计算关键词密度、字数、E-E-A-T 或 GEO 分数。
 
 ## 作者继承与多人作者
 
@@ -23,6 +23,8 @@
 
 `verification.proofStatus` 只输出 `ready`、`failed` 或 `unavailable`，不泄漏失败详情、后台 principal、草稿、审计上下文或密钥。旧文章没有责任快照时，输出确定性的站点作者继承结果并标记 `legacyFallback=true`，不会根据请求时间生成随机或临时内容。早于 revision 表的公开旧文章在 current 端点中使用 `revisionNo=0`、`proofStatus=unavailable` 和当前文章 proof URL；指定不存在的历史 revision 仍返回 404。
 
+公开 current sidecar 读取 `current_publication_id` 显式引用的责任快照；历史 sidecar 读取该 revision 对应 publication 的显式快照。因此后续责任修订不会改写旧 publication 的证据。已发布当前 revision 的责任保存会新建 publication，并通过同事务 `responsibility-updated` outbox 更新 AOT、AEDS、cache 与 notification。管理端可用 `GET /api/binary/author/articles/{articleId}/revisions/{revisionId}/responsibility` 读取全部版本；PUT 的 stale `expectedVersion` 返回 409。
+
 ## 迁移
 
-新表由 schema CodeFirst 管理。历史文章无需阻塞迁移；它们先使用 legacy fallback。下一次实质修订时写入完整 snapshot。若需要批量补录，应以已有 revision id 为键创建快照，不得改写历史 revision 或伪造 reviewer/source。
+迁移为已有快照回填 `responsibilityVersion=1`，并回填 publication/outbox 的显式快照指针；重复执行保持幂等。历史文章没有快照时继续使用 legacy fallback。若需要批量补录，应以已有 revision id 为键追加快照，不得改写历史 revision 或伪造 reviewer/source。迁移验收边界为本地 PostgreSQL 单进程，schema 与代码必须原子切换。

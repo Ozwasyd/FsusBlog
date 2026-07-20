@@ -206,7 +206,8 @@ public sealed class ArticleMutationOutboxDispatcher(
                         item.ArticleRevisionId,
                         item.RevisionNo,
                         item.ArticlePublicationId,
-                        item.PublicationNo),
+                        item.PublicationNo,
+                        item.ResponsibilitySnapshotId),
                     completedAfterReplay,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -617,6 +618,7 @@ public sealed class ArticleMutationOutboxDispatcher(
                       outbox.aggregate_id,
                       outbox.article_revision_id,
                       outbox.revision_no,
+                      outbox.responsibility_snapshot_id,
                       outbox.article_publication_id,
                       outbox.publication_no,
                       outbox.event_type,
@@ -652,6 +654,7 @@ public sealed class ArticleMutationOutboxDispatcher(
                 AggregateId = reader.ReadInt32("aggregate_id"),
                 ArticleRevisionId = reader.IsNull("article_revision_id") ? null : reader.ReadInt64("article_revision_id"),
                 RevisionNo = reader.IsNull("revision_no") ? null : reader.ReadInt32("revision_no"),
+                ResponsibilitySnapshotId = reader.IsNull("responsibility_snapshot_id") ? null : reader.ReadInt64("responsibility_snapshot_id"),
                 ArticlePublicationId = reader.IsNull("article_publication_id") ? null : reader.ReadInt64("article_publication_id"),
                 PublicationNo = reader.IsNull("publication_no") ? null : reader.ReadInt32("publication_no"),
                 EventType = reader.ReadString("event_type"),

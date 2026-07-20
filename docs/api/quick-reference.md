@@ -344,6 +344,8 @@
 | POST | `/api/binary/author/prepublish-check` | 👑 | 发布前 SEO/内容质量检查 |
 | GET | `/api/binary/author/articles/{articleId}/revisions` | 👑 | 文章修订列表 |
 | GET | `/api/binary/author/articles/{articleId}/revisions/{revisionId}` | 👑 | 完整历史版本包：正文、rights、responsibility 与 release 坐标；缺项通过 `packageComplete` 明示 |
+| GET | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/responsibility` | 👑 | `ArticleResponsibilityHistory(228)`；按版本倒序读取 append-only 责任历史 |
+| PUT | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/responsibility` | 👑 | 以 `expectedVersion` CAS 追加责任版本；冲突返回 HTTP 409 |
 | POST | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/rollback` | 👑 | `ArticleRevisionRollbackRequest(213)`；提交 base revision、Draft/Published/Archived 目标和审计原因，复制完整历史包到新 revision/release；冲突或不完整包不写入 |
 | POST | `/api/binary/author/articles/{articleId}/assets/reindex` | 👑 | 重建资产引用 |
 | GET | `/api/binary/author/assets` | 👑 | 资产库列表 |

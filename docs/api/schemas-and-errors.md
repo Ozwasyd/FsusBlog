@@ -70,7 +70,7 @@ GET 与 HEAD 返回相同状态和关键头；HEAD 保留与 GET 相同的 `Cont
 | 错误码 | HTTP 状态 | 含义 |
 | -------- | ----------- | ------ |
 | `InvalidRequest` | 400 | 请求参数格式无效 |
-| `Conflict` | 409 | 当前请求与已提交状态冲突；refresh 短竞争窗口内表示其他标签页已完成轮换，不撤销 session family |
+| `Conflict` | 409 | 当前请求与已提交状态冲突；`article_responsibility_version_conflict` 表示 stale `expectedVersion`，客户端须重读 `ArticleResponsibilityHistory(228)` 后人工合并；refresh 短竞争窗口内表示其他标签页已完成轮换，不撤销 session family |
 | `NotFound` | 404 | 资源不存在 |
 | `Unauthorized` | 401 | 未认证或令牌失效 |
 | `Forbidden` | 403 | 权限不足 |

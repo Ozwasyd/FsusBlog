@@ -694,7 +694,7 @@ SPA 接管失败时采用 fail-closed：snapshot head 缺失、旧版本、diges
 
 作者侧文章详情把 `currentRevisionId/revisionNo` 作为稳定编辑坐标。普通 update 的 `ArticleWriteRequest V5` 与 rollback 的 AEDS JSON request 都必须提交读取时取得的 `baseRevisionId`；rollback 不提供 force 绕过。服务端在同一事务的 article 行 CAS 中核对基线，失配统一返回 `409 article_revision_conflict`，其 `ApiError.details` 只含当前 `currentRevisionId/revisionNo/status/updatedAt`，且不得写正文、标签、rights、publication 或 outbox。PostgreSQL `xmin` 只保留为内部竞争检测，不进入业务请求或响应。冲突后前端保留未提交表单并要求重新载入比较，不自动重放；这同时覆盖双标签页、延迟提交和重试。内容导入固定为 create-new，不按导出 metadata 的 source article ID 覆盖现有文章，因此无需伪造 base revision。
 
-每个 revision 可绑定不可变的 `article_responsibility_snapshot`，保存文章责任作者（或显式站点作者继承）、可选 reviewer、结构化公开来源、实质更新说明及按内容类型启用的方法/适用范围/局限。公开页先同步渲染站点作者回退，再从 `/integrity/article/{id}/responsibility` 渐进增强多人作者、来源和核验信息；sidecar 不进入内部 AEDS runtime contract，也不泄漏后台 actor。早于 revision 表的公开旧文章在 current sidecar 中返回确定性的站点作者继承，使用 `revisionNo=0`、`proofStatus=unavailable`，不得用 404 触发浏览器错误；指定不存在的历史 revision 仍返回 404。预发布治理只对作者资料不匹配和责任人未确认执行阻断；强结论无来源、链接不可公开、实质修改无更新说明、研究内容缺方法/局限均为人工复核 warning，不得转化为关键词密度或 SEO/GEO/E-E-A-T 分数门禁。
+每个 revision 可绑定 append-only 的 `article_responsibility_snapshot` 版本链。管理端以 `expectedVersion` 执行 CAS；保存只追加 `responsibilityVersion` 并保留 `previousSnapshotId`，冲突返回 `409 article_responsibility_version_conflict`，历史快照不得覆盖。已发布的当前 revision 更新责任信息时，事务内创建新的不可变 publication 并显式引用该 snapshot，同时写入携带 revision/responsibility/publication 精确坐标的 `responsibility-updated` outbox；AOT、AEDS、公开 sidecar 与 notification 只由 outbox 重放更新。管理端 `GET .../responsibility` 返回该 revision 的完整版本历史。公开 current/historical sidecar 必须沿对应 publication 的显式责任快照读取，不泄漏后台 actor。早于 revision 表的公开旧文章在 current sidecar 中返回确定性的站点作者继承，使用 `revisionNo=0`、`proofStatus=unavailable`；指定不存在或未发布的历史 revision 返回 404。预发布治理规则不变，不得转化为关键词密度或 SEO/GEO/E-E-A-T 分数门禁。
 
 ### 运维与危险操作
 

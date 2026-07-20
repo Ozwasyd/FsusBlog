@@ -12,6 +12,7 @@ import {
   rollbackArticleRevision,
   rollbackModerationDictionaries,
   saveArticleResponsibility,
+  getArticleResponsibilityHistory,
   saveServerDraft,
   setModerationGlobalState,
   setModerationRegionState
@@ -121,13 +122,25 @@ describe('authoring API binary transport', () => {
       responsiblePersonConfirmed: true,
       containsStrongClaims: false,
       isSubstantiveUpdate: false,
-      requiresMethodsDisclosure: false
+      requiresMethodsDisclosure: false,
+      expectedVersion: 0
     })
 
     const call = binaryMock.mock.calls.at(-1)?.[0]
     expect(call?.binaryUrl).toBe('/api/binary/author/articles/42/revisions/9001/responsibility')
     expect(call?.frameType).toBe(FrameType.ArticleResponsibilityResponse)
     expect(call?.requestOptions?.method).toBe('PUT')
+  })
+
+  it('reads append-only responsibility history for the exact article revision', async () => {
+    binaryMock.mockResolvedValue([])
+
+    await getArticleResponsibilityHistory(42, '9001')
+
+    const call = binaryMock.mock.calls.at(-1)?.[0]
+    expect(call?.binaryUrl).toBe('/api/binary/author/articles/42/revisions/9001/responsibility')
+    expect(call?.frameType).toBe(FrameType.ArticleResponsibilityHistory)
+    expect(call?.requestOptions).toBeUndefined()
   })
 
   it('rollbackArticleRevision sends explicit version-package rollback intent', async () => {

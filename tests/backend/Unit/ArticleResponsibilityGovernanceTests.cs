@@ -135,5 +135,6 @@ public sealed class ArticleResponsibilityGovernanceTests
         ResponsiblePersonConfirmed: true,
         ContainsStrongClaims: false,
         IsSubstantiveUpdate: false,
-        RequiresMethodsDisclosure: false);
+        RequiresMethodsDisclosure: false,
+        ExpectedVersion: 0);
 }

@@ -413,8 +413,8 @@ public class ArticlePublicationRecord
 /// 不携带后台 actor、草稿正文或审核内部字段。
 /// </summary>
 [SugarTable("article_responsibility_snapshot")]
-[SugarIndex("ux_article_responsibility_revision", nameof(ArticleRevisionId), OrderByType.Asc, true)]
-[SugarIndex("idx_article_responsibility_article_revision", nameof(ArticleId), OrderByType.Asc, nameof(RevisionNo), OrderByType.Desc)]
+[SugarIndex("ux_article_responsibility_revision_version", nameof(ArticleRevisionId), OrderByType.Asc, nameof(ResponsibilityVersion), OrderByType.Asc, true)]
+[SugarIndex("idx_article_responsibility_article_revision", nameof(ArticleId), OrderByType.Asc, nameof(ArticleRevisionId), OrderByType.Asc, nameof(ResponsibilityVersion), OrderByType.Desc)]
 public class ArticleResponsibilitySnapshot
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
@@ -437,6 +437,15 @@ public class ArticleResponsibilitySnapshot
 
     [SugarColumn(ColumnName = "revision_no")]
     public int RevisionNo
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "responsibility_version")]
+    public int ResponsibilityVersion { get; set; } = 1;
+
+    [SugarColumn(ColumnName = "previous_snapshot_id", IsNullable = true)]
+    public long? PreviousSnapshotId
     {
         get; set;
     }
@@ -1088,6 +1097,12 @@ public class ArticleMutationOutboxEvent
 
     [SugarColumn(ColumnName = "revision_no", IsNullable = true)]
     public int? RevisionNo
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "responsibility_snapshot_id", IsNullable = true)]
+    public long? ResponsibilitySnapshotId
     {
         get; set;
     }

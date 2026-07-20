@@ -64,7 +64,7 @@ HTML L0 只暴露 `/api/binary/article/html/{pathKey}.html` 诊断/预览路径�
 
 Integrity verification endpoints are public JSON sidecars, not `/api/binary/**` runtime endpoints. They exist so external verifiers can read public keys, publish proofs, local transparency log heads, and Merkle checkpoints without depending on internal AEDS frames.
 
-Article responsibility sidecars extend this public verification boundary with revision-scoped authors, optional reviewer, structured public sources, substantial-update disclosure and optional methodology/applicability/limitations. `GET /integrity/article/{articleId}/responsibility` resolves the current revision; `GET /integrity/article/{articleId}/revisions/{revisionNo}/responsibility` resolves an immutable historical revision. Missing historical snapshots use an explicit deterministic site-author inheritance fallback. A public article that predates persisted revisions returns the same current fallback with `revisionNo=0`, `legacyFallback=true`, and `verification.proofStatus=unavailable`; only a requested missing historical revision remains `404`. Responses expose only safe public HTTP(S) links plus `ready|failed|unavailable` proof state; they never include admin actor ids, draft content, private sources, failure details or audit payloads. See [Article responsibility and sources](../integrity/article-responsibility.md).
+Article responsibility sidecars extend this public verification boundary with revision-scoped authors, optional reviewer, structured public sources, substantial-update disclosure and optional methodology/applicability/limitations. The current and historical endpoints resolve the snapshot explicitly referenced by the corresponding immutable publication. A public article that predates persisted revisions returns a deterministic site-author fallback with `revisionNo=0`, `legacyFallback=true`, and `verification.proofStatus=unavailable`; a missing or unpublished requested historical revision remains `404`. Responses expose responsibility snapshot/version coordinates and only safe public HTTP(S) links plus `ready|failed|unavailable` proof state; they never include admin actor ids, draft content, private sources, failure details or audit payloads. See [Article responsibility and sources](../integrity/article-responsibility.md).
 
 | Method | Path | Content-Type | Cache | 说明 |
 | -------- | ------ | -------------- | ------- | ------ |
@@ -2047,8 +2047,9 @@ Rollback request frame `ArticleRevisionRollbackRequest(213)` 的 payload 是 AED
 | POST | `/api/binary/author/prepublish-check` | 发布前检查标题、SEO 描述、封面 URL、Markdown 结构、链接、图片 alt 与危险 HTML |
 | GET | `/api/binary/author/articles/{articleId}/revisions` | 最近 50 条修订摘要；actor 字段为 `createdByAdminPrincipalId`，rollback revision 额外返回源 revision 与原因 |
 | GET | `/api/binary/author/articles/{articleId}/revisions/{revisionId}` | 可读历史版本包：正文/分类/标签 metadata、rights snapshot、responsibility snapshot、关联 release、rollback provenance 与 `packageComplete` |
+| GET | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/responsibility` | `ArticleResponsibilityHistory(228)`；按版本倒序返回该 revision 的 append-only 责任快照历史与 previous 指针 |
 | POST | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/rollback` | request frame `ArticleRevisionRollbackRequest(213)`；基于完整历史包创建新 revision/release；必须携带 `X-Fsus-Mfa-Proof` |
-| PUT | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/responsibility` | 写入该 revision 的作者/审阅者、结构化来源、更新说明和可选方法/适用范围/局限；返回全部 blocking/warning，不产生评分门禁 |
+| PUT | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/responsibility` | 携带 `expectedVersion` CAS 并只追加快照；成功返回 snapshot/version/previous/publication 坐标，冲突返回 `409 article_responsibility_version_conflict` |
 | POST | `/api/binary/author/articles/{articleId}/assets/reindex` | 从正文和封面重建资产引用 |
 | GET | `/api/binary/author/assets` | 资产库列表 |
 | DELETE | `/api/binary/author/assets/orphans` | 删除引用计数为 0 的孤儿资产库记录 |

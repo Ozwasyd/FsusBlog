@@ -1853,6 +1853,12 @@
         },
         {
           "auth": "admin",
+          "method": "GET",
+          "path": "/author/articles/{articleId:int}/revisions/{revisionId:long}/responsibility",
+          "responseFrame": "ArticleResponsibilityHistory"
+        },
+        {
+          "auth": "admin",
           "method": "PUT",
           "path": "/author/articles/{articleId:int}/revisions/{revisionId:long}/responsibility",
           "requestFrame": "ArticleResponsibilityRequest",

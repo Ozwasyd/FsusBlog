@@ -1704,6 +1704,7 @@ public partial class ArticleService(
     {
         long value = await _db.Queryable<ArticleResponsibilitySnapshot>()
             .Where(snapshot => snapshot.ArticleRevisionId == revisionId)
+            .OrderBy(snapshot => snapshot.ResponsibilityVersion, OrderByType.Desc)
             .Select(snapshot => snapshot.Id)
             .FirstAsync(Ct);
         return value > 0 ? value : null;
@@ -1720,6 +1721,8 @@ public partial class ArticleService(
                 article_id,
                 article_revision_id,
                 revision_no,
+                responsibility_version,
+                previous_snapshot_id,
                 inherit_site_author,
                 authors_json,
                 reviewer_json,
@@ -1737,6 +1740,8 @@ public partial class ArticleService(
                 @ArticleId,
                 @TargetRevisionId,
                 @TargetRevisionNo,
+                1,
+                NULL,
                 inherit_site_author,
                 authors_json,
                 reviewer_json,
@@ -1753,6 +1758,8 @@ public partial class ArticleService(
             FROM article_responsibility_snapshot
             WHERE article_id = @ArticleId
               AND article_revision_id = @SourceRevisionId
+            ORDER BY responsibility_version DESC
+            LIMIT 1
             RETURNING id;
             """,
             new SugarParameter("@ArticleId", articleId),

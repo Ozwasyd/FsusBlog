@@ -220,6 +220,7 @@ export const FrameType = {
   CommentModerationTimeline: 225,
   CommentAppealDecisionRequest: 226,
   CommentAppealDecisionResult: 227,
+  ArticleResponsibilityHistory: 228,
   EmptySuccess: 240,
   MutationId: 241,
   ApiError: 251,

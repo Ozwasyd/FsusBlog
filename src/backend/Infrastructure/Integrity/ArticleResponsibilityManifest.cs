@@ -1,3 +1,4 @@
+using System.Data.Common;
 using System.Net;
 using System.Text.Json;
 
@@ -35,6 +36,8 @@ public sealed record ArticleResponsibilityManifestResponse(
     int SchemaVersion,
     int ArticleId,
     int RevisionNo,
+    string? ResponsibilitySnapshotId,
+    int ResponsibilityVersion,
     bool InheritsSiteAuthor,
     bool LegacyFallback,
     IReadOnlyList<ArticleResponsiblePerson> Authors,
@@ -77,13 +80,28 @@ public sealed class ArticleResponsibilityManifestService(
             .Where(it => it.Id == articleId
                 && !it.IsDeleted
                 && it.Status == ArticleStatus.Published
-                && it.CurrentPublicationId != null
+                && (it.CurrentPublicationId != null || it.CurrentRevisionId == null)
                 && (it.PublishedAt == null || it.PublishedAt <= utcNow)
                 && (it.ScheduledPublishAt == null || it.ScheduledPublishAt <= utcNow))
             .AnyAsync(cancellationToken);
         if (!publiclyVisible)
         {
             return NotFound();
+        }
+
+        long? currentRevisionId = requestedRevisionNo.HasValue
+            ? null
+            : await db.Queryable<Article>()
+                .Where(article => article.Id == articleId)
+                .Select(article => article.CurrentRevisionId)
+                .FirstAsync(cancellationToken);
+        if (!requestedRevisionNo.HasValue && !currentRevisionId.HasValue)
+        {
+            PublicAotSeoSnapshot legacySite = await seoConfigSnapshot.GetAsync(cancellationToken);
+            return new IntegrityManifestResult(
+                StatusCodes.Status200OK,
+                IntegrityVerificationCacheHeaders.PublicManifest,
+                BuildPreRevisionLegacyFallback(articleId, legacySite.SiteAuthor));
         }
 
         ArticlePublicationRecord? currentPublication = requestedRevisionNo.HasValue
@@ -104,23 +122,32 @@ public sealed class ArticleResponsibilityManifestService(
                 .FirstAsync(cancellationToken);
         if (revision is null)
         {
-            if (!requestedRevisionNo.HasValue)
-            {
-                PublicAotSeoSnapshot legacySite = await seoConfigSnapshot.GetAsync(cancellationToken);
-                return new IntegrityManifestResult(
-                    StatusCodes.Status200OK,
-                    IntegrityVerificationCacheHeaders.PublicManifest,
-                    BuildPreRevisionLegacyFallback(articleId, legacySite.SiteAuthor));
-            }
-
             return NotFound();
         }
 
-        long? currentResponsibilitySnapshotId = currentPublication?.ResponsibilitySnapshotId;
+        ArticlePublicationRecord? resolvedPublication = currentPublication;
+        if (requestedRevisionNo.HasValue)
+        {
+            resolvedPublication = await db.Queryable<ArticlePublicationRecord>()
+                .Where(it => it.ArticleId == articleId && it.ArticleRevisionId == revision.Id)
+                .OrderBy(it => it.PublicationNo, OrderByType.Desc)
+                .FirstAsync(cancellationToken);
+            if (resolvedPublication is null)
+            {
+                return NotFound();
+            }
+        }
+
+        long? currentResponsibilitySnapshotId = resolvedPublication?.ResponsibilitySnapshotId;
         ArticleResponsibilitySnapshot? snapshot = await db.Queryable<ArticleResponsibilitySnapshot>()
             .Where(it => it.ArticleId == articleId && it.ArticleRevisionId == revision.Id)
             .WhereIF(currentResponsibilitySnapshotId.HasValue, it => it.Id == currentResponsibilitySnapshotId!.Value)
+            .OrderBy(it => it.ResponsibilityVersion, OrderByType.Desc)
             .FirstAsync(cancellationToken);
+        if (currentResponsibilitySnapshotId.HasValue && snapshot is null)
+        {
+            return NotFound();
+        }
         PublicAotSeoSnapshot site = await seoConfigSnapshot.GetAsync(cancellationToken);
 
         bool legacyFallback = snapshot is null;
@@ -143,6 +170,8 @@ public sealed class ArticleResponsibilityManifestService(
             1,
             articleId,
             revision.RevisionNo,
+            snapshot?.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            snapshot?.ResponsibilityVersion ?? 0,
             inheritsSiteAuthor,
             legacyFallback,
             authors,
@@ -198,6 +227,8 @@ public sealed class ArticleResponsibilityManifestService(
         => new(
             1,
             articleId,
+            0,
+            null,
             0,
             true,
             true,
@@ -339,14 +370,42 @@ public sealed record ArticleResponsibilityDraft(
     bool ResponsiblePersonConfirmed,
     bool ContainsStrongClaims,
     bool IsSubstantiveUpdate,
-    bool RequiresMethodsDisclosure);
+    bool RequiresMethodsDisclosure,
+    int ExpectedVersion);
 
 public sealed record ArticleResponsibilitySaveResponse(
     bool Saved,
+    bool VersionConflict,
     int ArticleId,
     string ArticleRevisionId,
     int RevisionNo,
+    string? ResponsibilitySnapshotId,
+    int ResponsibilityVersion,
+    string? PreviousSnapshotId,
+    string? ArticlePublicationId,
+    int? PublicationNo,
     IReadOnlyList<Models.Dtos.PrepublishIssue> Issues);
+
+public sealed record ArticleResponsibilityVersionResponse(
+    string Id,
+    int ArticleId,
+    string ArticleRevisionId,
+    int RevisionNo,
+    int ResponsibilityVersion,
+    string? PreviousSnapshotId,
+    bool InheritSiteAuthor,
+    IReadOnlyList<ArticleResponsiblePerson> Authors,
+    ArticleResponsiblePerson? Reviewer,
+    IReadOnlyList<ArticleEvidenceSource> Sources,
+    string? UpdateSummary,
+    string? UpdateReason,
+    DateTime? EffectiveAt,
+    string? ConclusionImpact,
+    string? Methodology,
+    string? Applicability,
+    string? Limitations,
+    bool ResponsiblePersonConfirmed,
+    DateTime CreatedAt);
 
 public interface IArticleResponsibilityAuthoringService
 {
@@ -355,13 +414,19 @@ public interface IArticleResponsibilityAuthoringService
         long articleRevisionId,
         ArticleResponsibilityDraft draft,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<ArticleResponsibilityVersionResponse>?> GetHistoryAsync(
+        int articleId,
+        long articleRevisionId,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed class ArticleResponsibilityAuthoringService(
-    ISqlSugarClient db,
-    IPublicAotInvalidationService publicAotInvalidation) : IArticleResponsibilityAuthoringService
+    ISqlSugarClient db) : IArticleResponsibilityAuthoringService
 {
     private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
+    private const string ResponsibilityUpdatedEventType = "responsibility-updated";
+    private const string ResponsibilityUpdatedTransitionKind = "responsibility-updated";
 
     public async Task<ArticleResponsibilitySaveResponse?> SaveAsync(
         int articleId,
@@ -369,50 +434,211 @@ public sealed class ArticleResponsibilityAuthoringService(
         ArticleResponsibilityDraft draft,
         CancellationToken cancellationToken = default)
     {
-        ArticleRevision? revision = await db.Queryable<ArticleRevision>()
-            .Where(it => it.ArticleId == articleId && it.Id == articleRevisionId)
-            .FirstAsync(cancellationToken);
-        if (revision is null)
-            return null;
-
         IReadOnlyList<Models.Dtos.PrepublishIssue> issues = ArticleResponsibilityGovernance.Evaluate(draft);
         if (issues.Any(static issue => string.Equals(issue.Severity, "error", StringComparison.OrdinalIgnoreCase)))
         {
-            return new ArticleResponsibilitySaveResponse(false, articleId, articleRevisionId.ToString(System.Globalization.CultureInfo.InvariantCulture), revision.RevisionNo, issues);
+            ArticleRevision? rejectedRevision = await db.Queryable<ArticleRevision>()
+                .Where(it => it.ArticleId == articleId && it.Id == articleRevisionId)
+                .FirstAsync(cancellationToken);
+            return rejectedRevision is null
+                ? null
+                : new ArticleResponsibilitySaveResponse(
+                    false,
+                    false,
+                    articleId,
+                    articleRevisionId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    rejectedRevision.RevisionNo,
+                    null,
+                    draft.ExpectedVersion,
+                    null,
+                    null,
+                    null,
+                    issues);
         }
 
         string authorsJson = JsonSerializer.Serialize(draft.Authors, s_jsonOptions);
         string? reviewerJson = draft.Reviewer is null ? null : JsonSerializer.Serialize(draft.Reviewer, s_jsonOptions);
         string sourcesJson = JsonSerializer.Serialize(draft.Sources, s_jsonOptions);
-        await db.Ado.ExecuteCommandAsync(
+        ArticleResponsibilitySaveResponse? response = null;
+        var transaction = await db.Ado.UseTranAsync(async () =>
+        {
+            ResponsibilityWriteCoordinates? coordinates = await LockCoordinatesAsync(articleId, articleRevisionId, cancellationToken);
+            if (coordinates is null)
+            {
+                return;
+            }
+
+            ArticleResponsibilitySnapshot? previous = await db.Queryable<ArticleResponsibilitySnapshot>()
+                .Where(it => it.ArticleId == articleId && it.ArticleRevisionId == articleRevisionId)
+                .OrderBy(it => it.ResponsibilityVersion, OrderByType.Desc)
+                .FirstAsync(cancellationToken);
+            int currentVersion = previous?.ResponsibilityVersion ?? 0;
+            if (draft.ExpectedVersion != currentVersion)
+            {
+                response = new ArticleResponsibilitySaveResponse(
+                    false,
+                    true,
+                    articleId,
+                    articleRevisionId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    coordinates.RevisionNo,
+                    previous?.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    currentVersion,
+                    previous?.PreviousSnapshotId?.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    coordinates.CurrentPublicationId?.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    coordinates.CurrentPublicationNo,
+                    issues);
+                return;
+            }
+
+            int nextVersion = checked(currentVersion + 1);
+            DateTime createdAt = DateTime.UtcNow;
+            long snapshotId = await InsertSnapshotAsync(
+                articleId,
+                articleRevisionId,
+                coordinates.RevisionNo,
+                nextVersion,
+                previous?.Id,
+                draft,
+                authorsJson,
+                reviewerJson,
+                sourcesJson,
+                createdAt,
+                cancellationToken);
+
+            (long? publicationId, int? publicationNo) = await CreatePublicationReferenceIfCurrentAsync(
+                coordinates,
+                snapshotId,
+                createdAt,
+                cancellationToken);
+            await InsertOutboxAsync(
+                articleId,
+                articleRevisionId,
+                coordinates.RevisionNo,
+                snapshotId,
+                nextVersion,
+                previous?.Id,
+                publicationId,
+                publicationNo,
+                coordinates.RightsSnapshotId,
+                createdAt,
+                cancellationToken);
+
+            response = new ArticleResponsibilitySaveResponse(
+                true,
+                false,
+                articleId,
+                articleRevisionId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                coordinates.RevisionNo,
+                snapshotId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                nextVersion,
+                previous?.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                publicationId?.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                publicationNo,
+                issues);
+        }).ConfigureAwait(false);
+        if (!transaction.IsSuccess)
+        {
+            throw new InvalidOperationException("Responsibility snapshot and mutation outbox were not saved atomically.", transaction.ErrorException);
+        }
+
+        return response;
+    }
+
+    public async Task<IReadOnlyList<ArticleResponsibilityVersionResponse>?> GetHistoryAsync(
+        int articleId,
+        long articleRevisionId,
+        CancellationToken cancellationToken = default)
+    {
+        bool revisionExists = await db.Queryable<ArticleRevision>()
+            .Where(it => it.ArticleId == articleId && it.Id == articleRevisionId)
+            .AnyAsync(cancellationToken);
+        if (!revisionExists)
+        {
+            return null;
+        }
+
+        List<ArticleResponsibilitySnapshot> snapshots = await db.Queryable<ArticleResponsibilitySnapshot>()
+            .Where(it => it.ArticleId == articleId && it.ArticleRevisionId == articleRevisionId)
+            .OrderBy(it => it.ResponsibilityVersion, OrderByType.Desc)
+            .ToListAsync(cancellationToken);
+        return snapshots.Select(ToVersionResponse).ToArray();
+    }
+
+    private async Task<ResponsibilityWriteCoordinates?> LockCoordinatesAsync(
+        int articleId,
+        long articleRevisionId,
+        CancellationToken cancellationToken)
+    {
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT
+                revision.revision_no,
+                article.status,
+                publication.id,
+                publication.publication_no,
+                publication.article_revision_id,
+                publication.rights_snapshot_id,
+                publication.published_at
+            FROM article_revision revision
+            JOIN article article ON article.id = revision.article_id AND article.isdeleted = false
+            LEFT JOIN article_publication publication ON publication.id = article.current_publication_id
+            WHERE revision.article_id = @ArticleId
+              AND revision.id = @ArticleRevisionId
+            FOR UPDATE OF article, revision;
+            """,
+            new SugarParameter("@ArticleId", articleId),
+            new SugarParameter("@ArticleRevisionId", articleRevisionId));
+        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return null;
+        }
+
+        return new ResponsibilityWriteCoordinates(
+            articleId,
+            articleRevisionId,
+            reader.GetInt32(0),
+            (ArticleStatus)reader.GetInt32(1),
+            reader.IsDBNull(2) ? null : reader.GetInt64(2),
+            reader.IsDBNull(3) ? null : reader.GetInt32(3),
+            reader.IsDBNull(4) ? null : reader.GetInt64(4),
+            reader.IsDBNull(5) ? null : reader.GetInt64(5),
+            reader.IsDBNull(6)
+                ? null
+                : DateTime.SpecifyKind(reader.GetDateTime(6), DateTimeKind.Utc));
+    }
+
+    private async Task<long> InsertSnapshotAsync(
+        int articleId,
+        long articleRevisionId,
+        int revisionNo,
+        int responsibilityVersion,
+        long? previousSnapshotId,
+        ArticleResponsibilityDraft draft,
+        string authorsJson,
+        string? reviewerJson,
+        string sourcesJson,
+        DateTime createdAt,
+        CancellationToken cancellationToken)
+    {
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             """
             INSERT INTO article_responsibility_snapshot (
-                article_id, article_revision_id, revision_no, inherit_site_author,
-                authors_json, reviewer_json, sources_json, update_summary, update_reason,
+                article_id, article_revision_id, revision_no, responsibility_version, previous_snapshot_id,
+                inherit_site_author, authors_json, reviewer_json, sources_json, update_summary, update_reason,
                 effective_at, conclusion_impact, methodology, applicability, limitations,
                 responsible_person_confirmed, created_at)
             VALUES (
-                @ArticleId, @ArticleRevisionId, @RevisionNo, @InheritSiteAuthor,
-                @AuthorsJson, @ReviewerJson, @SourcesJson, @UpdateSummary, @UpdateReason,
+                @ArticleId, @ArticleRevisionId, @RevisionNo, @ResponsibilityVersion, CAST(@PreviousSnapshotId AS bigint),
+                @InheritSiteAuthor, @AuthorsJson, @ReviewerJson, @SourcesJson, @UpdateSummary, @UpdateReason,
                 CAST(@EffectiveAt AS timestamp), @ConclusionImpact, @Methodology, @Applicability, @Limitations,
                 @ResponsiblePersonConfirmed, @CreatedAt)
-            ON CONFLICT (article_revision_id) DO UPDATE SET
-                inherit_site_author = EXCLUDED.inherit_site_author,
-                authors_json = EXCLUDED.authors_json,
-                reviewer_json = EXCLUDED.reviewer_json,
-                sources_json = EXCLUDED.sources_json,
-                update_summary = EXCLUDED.update_summary,
-                update_reason = EXCLUDED.update_reason,
-                effective_at = EXCLUDED.effective_at,
-                conclusion_impact = EXCLUDED.conclusion_impact,
-                methodology = EXCLUDED.methodology,
-                applicability = EXCLUDED.applicability,
-                limitations = EXCLUDED.limitations,
-                responsible_person_confirmed = EXCLUDED.responsible_person_confirmed;
+            RETURNING id;
             """,
             new SugarParameter("@ArticleId", articleId),
             new SugarParameter("@ArticleRevisionId", articleRevisionId),
-            new SugarParameter("@RevisionNo", revision.RevisionNo),
+            new SugarParameter("@RevisionNo", revisionNo),
+            new SugarParameter("@ResponsibilityVersion", responsibilityVersion),
+            new SugarParameter("@PreviousSnapshotId", (object?)previousSnapshotId ?? DBNull.Value),
             new SugarParameter("@InheritSiteAuthor", draft.InheritSiteAuthor),
             new SugarParameter("@AuthorsJson", authorsJson),
             new SugarParameter("@ReviewerJson", (object?)reviewerJson ?? DBNull.Value),
@@ -425,12 +651,168 @@ public sealed class ArticleResponsibilityAuthoringService(
             new SugarParameter("@Applicability", (object?)draft.Applicability?.Trim() ?? DBNull.Value),
             new SugarParameter("@Limitations", (object?)draft.Limitations?.Trim() ?? DBNull.Value),
             new SugarParameter("@ResponsiblePersonConfirmed", draft.ResponsiblePersonConfirmed),
-            new SugarParameter("@CreatedAt", DateTime.UtcNow));
+            new SugarParameter("@CreatedAt", createdAt));
+        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            throw new InvalidOperationException("Responsibility snapshot insert returned no identity.");
+        }
 
-        await publicAotInvalidation.InvalidateArticleMutationAsync(articleId, null, null, cancellationToken);
-
-        return new ArticleResponsibilitySaveResponse(true, articleId, articleRevisionId.ToString(System.Globalization.CultureInfo.InvariantCulture), revision.RevisionNo, issues);
+        return reader.GetInt64(0);
     }
+
+    private async Task<(long? PublicationId, int? PublicationNo)> CreatePublicationReferenceIfCurrentAsync(
+        ResponsibilityWriteCoordinates coordinates,
+        long responsibilitySnapshotId,
+        DateTime createdAt,
+        CancellationToken cancellationToken)
+    {
+        if (coordinates.Status != ArticleStatus.Published
+            || coordinates.CurrentPublicationId is null
+            || coordinates.CurrentPublicationRevisionId != coordinates.ArticleRevisionId
+            || coordinates.RightsSnapshotId is null
+            || coordinates.CurrentPublishedAt is null)
+        {
+            return (null, null);
+        }
+
+        long publicationId;
+        int publicationNo;
+        using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+                   """
+                   INSERT INTO article_publication (
+                       article_id, publication_no, article_revision_id, revision_no, rights_snapshot_id,
+                       responsibility_snapshot_id, transition_kind, published_at, created_at)
+                   SELECT
+                       @ArticleId, COALESCE(MAX(publication_no), 0) + 1, @ArticleRevisionId, @RevisionNo,
+                       @RightsSnapshotId, @ResponsibilitySnapshotId, @TransitionKind, @PublishedAt, @CreatedAt
+                   FROM article_publication
+                   WHERE article_id = @ArticleId
+                   RETURNING id, publication_no;
+                   """,
+                   new SugarParameter("@ArticleId", coordinates.ArticleId),
+                   new SugarParameter("@ArticleRevisionId", coordinates.ArticleRevisionId),
+                   new SugarParameter("@RevisionNo", coordinates.RevisionNo),
+                   new SugarParameter("@RightsSnapshotId", coordinates.RightsSnapshotId.Value),
+                   new SugarParameter("@ResponsibilitySnapshotId", responsibilitySnapshotId),
+                   new SugarParameter("@TransitionKind", ResponsibilityUpdatedTransitionKind),
+                   new SugarParameter("@PublishedAt", coordinates.CurrentPublishedAt.Value),
+                   new SugarParameter("@CreatedAt", createdAt)))
+        {
+            if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                throw new InvalidOperationException("Responsibility publication reference was not created.");
+            }
+
+            publicationId = reader.GetInt64(0);
+            publicationNo = reader.GetInt32(1);
+        }
+
+        int updated = await db.Ado.ExecuteCommandAsync(
+            "UPDATE article SET current_publication_id = @PublicationId WHERE id = @ArticleId AND current_publication_id = @ExpectedPublicationId;",
+            new SugarParameter("@PublicationId", publicationId),
+            new SugarParameter("@ArticleId", coordinates.ArticleId),
+            new SugarParameter("@ExpectedPublicationId", coordinates.CurrentPublicationId.Value));
+        if (updated != 1)
+        {
+            throw new InvalidOperationException("Responsibility publication pointer compare-and-set failed.");
+        }
+
+        return (publicationId, publicationNo);
+    }
+
+    private Task<int> InsertOutboxAsync(
+        int articleId,
+        long articleRevisionId,
+        int revisionNo,
+        long responsibilitySnapshotId,
+        int responsibilityVersion,
+        long? previousSnapshotId,
+        long? publicationId,
+        int? publicationNo,
+        long? rightsSnapshotId,
+        DateTime createdAt,
+        CancellationToken cancellationToken)
+        => db.Insertable(new ArticleMutationOutboxEvent
+        {
+            EventId = Guid.NewGuid().ToString("N"),
+            AggregateId = articleId,
+            ArticleRevisionId = articleRevisionId,
+            RevisionNo = revisionNo,
+            ResponsibilitySnapshotId = responsibilitySnapshotId,
+            ArticlePublicationId = publicationId,
+            PublicationNo = publicationNo,
+            EventType = ResponsibilityUpdatedEventType,
+            PayloadJson = JsonSerializer.Serialize(new
+            {
+                articleId,
+                eventType = ResponsibilityUpdatedEventType,
+                articleRevisionId,
+                revisionNo,
+                rightsSnapshotId,
+                responsibilitySnapshotId,
+                responsibilityVersion,
+                previousSnapshotId,
+                articlePublicationId = publicationId,
+                publicationNo
+            }, s_jsonOptions),
+            Status = "pending",
+            RetryCount = 0,
+            NextRetryAt = createdAt,
+            CreatedAt = createdAt
+        }).ExecuteCommandAsync(cancellationToken);
+
+    private static ArticleResponsibilityVersionResponse ToVersionResponse(ArticleResponsibilitySnapshot snapshot)
+        => new(
+            snapshot.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            snapshot.ArticleId,
+            snapshot.ArticleRevisionId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            snapshot.RevisionNo,
+            snapshot.ResponsibilityVersion,
+            snapshot.PreviousSnapshotId?.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            snapshot.InheritSiteAuthor,
+            DeserializeList<ArticleResponsiblePerson>(snapshot.AuthorsJson),
+            Deserialize<ArticleResponsiblePerson>(snapshot.ReviewerJson),
+            DeserializeList<ArticleEvidenceSource>(snapshot.SourcesJson),
+            snapshot.UpdateSummary,
+            snapshot.UpdateReason,
+            snapshot.EffectiveAt,
+            snapshot.ConclusionImpact,
+            snapshot.Methodology,
+            snapshot.Applicability,
+            snapshot.Limitations,
+            snapshot.ResponsiblePersonConfirmed,
+            snapshot.CreatedAt);
+
+    private static T? Deserialize<T>(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return default;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<T>(json, s_jsonOptions);
+        }
+        catch (JsonException)
+        {
+            return default;
+        }
+    }
+
+    private static IReadOnlyList<T> DeserializeList<T>(string? json)
+        => Deserialize<T[]>(json) ?? [];
+
+    private sealed record ResponsibilityWriteCoordinates(
+        int ArticleId,
+        long ArticleRevisionId,
+        int RevisionNo,
+        ArticleStatus Status,
+        long? CurrentPublicationId,
+        int? CurrentPublicationNo,
+        long? CurrentPublicationRevisionId,
+        long? RightsSnapshotId,
+        DateTime? CurrentPublishedAt);
 }
 
 public static class ArticleResponsibilityGovernance
