@@ -40,11 +40,4 @@ export type ThemeTokenContract = Readonly<{
     footer: string;
     endHint: string;
   }>;
-  dashboard: Readonly<{
-    statGrid: string;
-    statCard: string;
-    statIconWrap: string;
-    statLabel: string;
-    statValue: string;
-  }>;
 }>;

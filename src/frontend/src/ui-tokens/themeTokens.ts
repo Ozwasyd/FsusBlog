@@ -5,11 +5,9 @@ const textHeading = 'text-[var(--fsusblog-text-heading)]';
 const textSecondary = 'text-[var(--fsusblog-text-secondary)]';
 const textTertiary = 'text-[var(--fsusblog-text-tertiary)]';
 const textMuted = 'text-[var(--fsusblog-text-muted)]';
-const textSubtle = 'text-[var(--fsusblog-text-subtle)]';
 const textDecorative = 'text-[var(--fsusblog-text-decorative)]';
 const lineBorder = 'border-[var(--fsusblog-panel-border)]';
 const lineBorderStrong = 'border-[var(--fsusblog-panel-border-strong)]';
-const surface = 'bg-[var(--fsusblog-panel-bg)]';
 const focusRing = 'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)] focus-visible:outline-none';
 const primaryHover = 'hover:text-[var(--fsusblog-color-primary)]';
 const colorTransition = 'transition-fsus transition-fsus-fast';
@@ -59,12 +57,5 @@ export const themeTokens: ThemeTokenContract = {
     content: `${textTertiary} text-sm leading-relaxed whitespace-pre-wrap mb-6 wrap-break-word overflow-hidden`,
     footer: `pt-12 border-t ${lineBorderStrong} flex justify-center`,
     endHint: `text-xs font-medium tracking-normal ${textMuted} uppercase`
-  },
-  dashboard: {
-    statGrid: 'mb-8 gap-3',
-    statCard: `${surface} p-6`,
-    statIconWrap: `shrink-0 ${textSubtle}`,
-    statLabel: `${textMuted} text-xs font-medium mb-2 uppercase tracking-normal`,
-    statValue: `text-2xl font-bold ${textPrimary} tracking-normal ${numericText}`
   }
 } as const;
