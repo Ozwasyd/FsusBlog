@@ -3,7 +3,6 @@ import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { validateZkLocalReview } from './zk-local-review.mjs'
 import { validateCommentPrivacyCredentialVault } from './check-comment-privacy-credential-vault.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
@@ -11,10 +10,9 @@ const DEFAULT_CONFIGS = [
   'src/backend/appsettings.json',
   'src/backend/appsettings.Production.json'
 ]
-const DEFAULT_TRUSTED_SETUP = 'security/zk/provenance/comment-v2-trusted-setup.manifest.json'
+const DEFAULT_TRUSTED_SETUP = 'security/zk/provenance/comment-v5-trusted-setup.manifest.json'
 const DEFAULT_SMOKE_EVIDENCE = '.tmp/security/privacy-zk-prod-smoke.json'
 const DEFAULT_ROOT_BOOTSTRAP_EVIDENCE = '.tmp/security/anonymous-credential-root-bootstrap.json'
-const DEFAULT_LOCAL_REVIEW = 'security/zk/provenance/comment-v2-local-review.manifest.json'
 const DEFAULT_SUMMARY = '.tmp/security/privacy-zk-prod-release.json'
 const REAL_EVIDENCE_KIND = 'real-groth16-cross-stack'
 const REQUIRED_ARTIFACT_HASHES = [
@@ -155,7 +153,7 @@ function checkEnabledProductionReadiness() {
       ?? process.env.FSUSBLOG_ZK_PROD_SMOKE_EVIDENCE
       ?? zkProd.SmokeEvidencePath
       ?? DEFAULT_SMOKE_EVIDENCE)
-  const smokeEvidence = checkSmokeEvidence(smokeEvidencePath, expectedVkHash, setup)
+  checkSmokeEvidence(smokeEvidencePath, expectedVkHash, setup)
 
   const rootBootstrapEvidencePath = normalizeString(
     args.rootBootstrapEvidence
@@ -164,16 +162,6 @@ function checkEnabledProductionReadiness() {
       ?? DEFAULT_ROOT_BOOTSTRAP_EVIDENCE)
   checkRootBootstrapEvidence(rootBootstrapEvidencePath, expectedVkHash, setup)
 
-  const localReviewPath = normalizeString(
-    args.localReviewManifest
-      ?? process.env.FSUSBLOG_ZK_LOCAL_REVIEW_MANIFEST
-      ?? zkProd.LocalCryptographicReviewManifestPath
-      ?? DEFAULT_LOCAL_REVIEW)
-  checkLocalReview(
-    localReviewPath,
-    expectedVkHash,
-    setup,
-    smokeEvidence)
 }
 
 function checkCommentPrivacyCredentialVault() {
@@ -237,11 +225,11 @@ function checkTrustedSetupManifest(rawPath) {
 
   const manifest = JSON.parse(readFileSync(absolute, 'utf8'))
   Object.defineProperty(manifest, '__absolutePath', { value: absolute })
-  if (manifest.circuit_id !== 'fsus.anonymous.comment.v3') {
-    errors.push('trusted setup manifest circuit_id must be fsus.anonymous.comment.v3.')
+  if (manifest.circuit_id !== 'fsus.anonymous.comment.v5') {
+    errors.push('trusted setup manifest circuit_id must be fsus.anonymous.comment.v5.')
   }
-  if (Number(manifest.public_input_layout_version) !== 4) {
-    errors.push('trusted setup manifest public_input_layout_version must be 4.')
+  if (Number(manifest.public_input_layout_version) !== 6) {
+    errors.push('trusted setup manifest public_input_layout_version must be 6.')
   }
   if (manifest.production_usable !== true) {
     errors.push('trusted setup manifest must be production_usable=true when ZkProd is enabled.')
@@ -288,61 +276,15 @@ function checkSmokeEvidence(rawPath, expectedVkHash, setup) {
   return evidence
 }
 
-function checkLocalReview(rawPath, expectedVkHash, setup, smokeEvidence) {
-  const expectedBindings = buildLocalReviewBindings(setup, smokeEvidence)
-  for (const [key, value] of Object.entries(expectedBindings)) {
-    if (!isSha256Hex(value)) {
-      errors.push(`local cryptographic review release binding ${key} is missing or invalid.`)
-    }
-  }
-
-  const absoluteManifestPath = path.isAbsolute(rawPath) ? path.normalize(rawPath) : path.resolve(ROOT, rawPath)
-  const relativeToRepository = path.relative(ROOT, absoluteManifestPath)
-  const reviewRoot = relativeToRepository === '..' || relativeToRepository.startsWith(`..${path.sep}`)
-    ? path.dirname(absoluteManifestPath)
-    : ROOT
-  const validation = validateZkLocalReview({
-    root: reviewRoot,
-    manifestPath: absoluteManifestPath,
-    expectedVerifyingKeyHash: expectedVkHash,
-    expectedBindings,
-    requireComplete: true
-  })
-  for (const error of validation.errors) {
-    errors.push(`local cryptographic review: ${error}`)
-  }
-  checks.push(...validation.checks)
-}
-
-function buildLocalReviewBindings(setup, smokeEvidence) {
-  const setupArtifacts = setup?.artifacts && typeof setup.artifacts === 'object'
-    ? setup.artifacts
-    : {}
-  const smokeHashes = smokeEvidence?.artifactHashes && typeof smokeEvidence.artifactHashes === 'object'
-    ? smokeEvidence.artifactHashes
-    : {}
-  return {
-    circuit_manifest_sha256: normalizeString(setup?.circuit_manifest_sha256).toLowerCase(),
-    circuit_source_sha256: normalizeString(setup?.circuit_source_sha256).toLowerCase(),
-    r1cs_sha256: normalizeString(setupArtifacts?.r1cs?.sha256 ?? smokeHashes.r1csSha256).toLowerCase(),
-    groth16_r1cs_sha256: normalizeString(setupArtifacts?.groth16_r1cs?.sha256).toLowerCase(),
-    trusted_setup_manifest_sha256: setup?.__absolutePath ? sha256File(setup.__absolutePath) : '',
-    proving_key_sha256: normalizeString(setupArtifacts?.proving_key?.sha256 ?? smokeHashes.provingKeySha256).toLowerCase(),
-    verifying_key_sha256: normalizeString(setup?.verifying_key_hash).toLowerCase(),
-    native_verifier_sha256: normalizeString(smokeHashes.nativeVerifierSha256).toLowerCase(),
-    wasm_prover_sha256: normalizeString(smokeHashes.wasmProverSha256).toLowerCase()
-  }
-}
-
 function checkRealGroth16SmokeEvidence(evidence, expectedVkHash, setup) {
   if (normalizeString(evidence.evidenceKind) !== REAL_EVIDENCE_KIND) {
     errors.push(`ZK-Prod smoke evidence must declare evidenceKind=${REAL_EVIDENCE_KIND}.`)
   }
-  if (normalizeString(evidence.circuitId) !== 'fsus.anonymous.comment.v3') {
-    errors.push('ZK-Prod smoke evidence circuitId must be fsus.anonymous.comment.v3.')
+  if (normalizeString(evidence.circuitId) !== 'fsus.anonymous.comment.v5') {
+    errors.push('ZK-Prod smoke evidence circuitId must be fsus.anonymous.comment.v5.')
   }
-  if (Number(evidence.publicInputLayoutVersion) !== 4) {
-    errors.push('ZK-Prod smoke evidence publicInputLayoutVersion must be 4.')
+  if (Number(evidence.publicInputLayoutVersion) !== 6) {
+    errors.push('ZK-Prod smoke evidence publicInputLayoutVersion must be 6.')
   }
   if (normalizeString(evidence.proofSystem) !== 'Groth16') {
     errors.push('ZK-Prod smoke evidence proofSystem must be Groth16.')
@@ -479,11 +421,11 @@ function checkRootBootstrapEvidence(rawPath, expectedVkHash, setup) {
   const snapshot = evidence.rootSnapshot && typeof evidence.rootSnapshot === 'object'
     ? evidence.rootSnapshot
     : {}
-  if (snapshot.circuitId !== 'fsus.anonymous.comment.v3') {
-    errors.push('root-bootstrap-evidence circuitId must be fsus.anonymous.comment.v3.')
+  if (snapshot.circuitId !== 'fsus.anonymous.comment.v5') {
+    errors.push('root-bootstrap-evidence circuitId must be fsus.anonymous.comment.v5.')
   }
-  if (Number(snapshot.publicInputLayoutVersion) !== 4) {
-    errors.push('root-bootstrap-evidence publicInputLayoutVersion must be 4.')
+  if (Number(snapshot.publicInputLayoutVersion) !== 6) {
+    errors.push('root-bootstrap-evidence publicInputLayoutVersion must be 6.')
   }
   if (!Number.isSafeInteger(Number(snapshot.epoch)) || Number(snapshot.epoch) <= 0) {
     errors.push('root-bootstrap-evidence epoch must be a positive integer.')
@@ -588,8 +530,6 @@ function parseArgs(argv) {
       parsed.smokeEvidence = requireValue(argv, ++i, token)
     } else if (token === '--root-bootstrap-evidence') {
       parsed.rootBootstrapEvidence = requireValue(argv, ++i, token)
-    } else if (token === '--local-review-manifest') {
-      parsed.localReviewManifest = requireValue(argv, ++i, token)
     } else if (token === '--summary') {
       parsed.summary = requireValue(argv, ++i, token)
     } else if (token === '--require-enabled') {

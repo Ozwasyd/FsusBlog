@@ -760,7 +760,7 @@ public sealed class NativeGroth16ZkProofBackendTests
         {
             DirectoryPath = directoryPath;
             VerifyingKeyBytes = verifyingKeyBytes;
-            VerifyingKeyPath = Path.Combine(directoryPath, "comment.v2.vk");
+            VerifyingKeyPath = Path.Combine(directoryPath, "comment.v5.vk");
             NativeLibraryPath = Path.Combine(directoryPath, "libfsus_zk_groth16.so");
             VerifyingKeySha256 = Convert.ToHexString(SHA256.HashData(verifyingKeyBytes)).ToLowerInvariant();
             Directory.CreateDirectory(directoryPath);

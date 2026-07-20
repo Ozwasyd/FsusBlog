@@ -122,18 +122,17 @@ The `comment.v2` Groth16 circuit must constrain:
 
 The repository asset contract for this decision is:
 
-- `src/zk/circuits/anonymous-comment-v2/comment_v2.circuit.json`
-- `docs/zk/anonymous-comment-v2-circuit.md`
+- `src/zk/circuits/anonymous-comment-v5/comment_v5.circuit.json`
 - `docs/zk/trusted-setup-ceremony.md`
-- `security/zk/contracts/comment-v2-circuit.manifest.json`
+- `security/zk/contracts/comment-v5-circuit.manifest.json`
 - `security/zk/contracts/comment-v2-tamper-cases.manifest.json`
 - `security/zk/contracts/comment-v2-feasibility.manifest.json`
-- `security/zk/provenance/comment-v2-trusted-setup.manifest.json`
-- `config/zk/anonymous-comment-v2-verifying-key.manifest.json`
+- `security/zk/provenance/comment-v5-trusted-setup.manifest.json`
+- `config/zk/anonymous-comment-v5-verifying-key.manifest.json`
 
 The handwritten circuit is product source and therefore lives below `src/zk/circuits/`.
-Deterministic R1CS and ceremony/key outputs remain generated artifacts below
-`artifacts/zk/`; integrity and setup state remain in `security/zk/`; runtime key
+Ceremony/key outputs remain external artifacts below the active v5 ownership
+root; integrity and setup state remain in `security/zk/`; runtime key
 selection remains in `config/zk/`; witnesses and tamper vectors remain in
 `tests/fixtures/zk/`. See `docs/architecture/repository-layout.md` for the
 machine-enforced ownership boundary.

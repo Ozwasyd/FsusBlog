@@ -25,7 +25,6 @@ const TOP_LEVEL_FIELDS = new Set([
   'createdAtUtc',
   'frontendManifestHash',
   'wasmArtifactHash',
-  'zkLocalReviewHash',
   'schemaCompatibility',
   'toolchain',
   'runtimeProfile',
@@ -72,7 +71,6 @@ export function createReleaseManifest(input) {
     createdAtUtc: input.createdAtUtc,
     frontendManifestHash: input.frontendManifestHash,
     wasmArtifactHash: input.wasmArtifactHash,
-    zkLocalReviewHash: input.zkLocalReviewHash,
     schemaCompatibility: assertSchemaCompatibilityWindow(
       input.schemaMinimumCoordinate,
       input.schemaMaximumCoordinate
@@ -130,7 +128,7 @@ function validateManifest(manifest, options, contract) {
   if (options.requireRegistryDigest !== false && manifest.registryDigestVerified !== true) errors.push('registryDigestVerified must be true')
   const createdAtUtc = String(manifest.createdAtUtc ?? '')
   if (!isIsoUtcTimestamp(createdAtUtc)) errors.push('createdAtUtc must be an ISO UTC timestamp')
-  for (const field of ['frontendManifestHash', 'wasmArtifactHash', 'zkLocalReviewHash']) {
+  for (const field of ['frontendManifestHash', 'wasmArtifactHash']) {
     if (!SHA256.test(String(manifest[field] ?? ''))) errors.push(`${field} must be sha256:<64 lowercase hex>`)
   }
   if (!manifest.schemaCompatibility || typeof manifest.schemaCompatibility !== 'object') {

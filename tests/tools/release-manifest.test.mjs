@@ -31,7 +31,6 @@ function createInput(overrides = {}) {
     createdAtUtc: '2026-07-11T01:01:01.000Z',
     frontendManifestHash: `sha256:${'b'.repeat(64)}`,
     wasmArtifactHash: `sha256:${'c'.repeat(64)}`,
-    zkLocalReviewHash: `sha256:${'e'.repeat(64)}`,
     schemaMinimumCoordinate: releaseId,
     schemaMaximumCoordinate: releaseId,
     dotnetVersion: '10.0.100',
@@ -67,14 +66,12 @@ function createDeploymentFixture(t) {
   fs.mkdirSync(secretDir, { recursive: true })
   fs.writeFileSync(path.join(configDir, 'trusted.json'), '{}\n')
   fs.writeFileSync(path.join(configDir, 'verifying.json'), '{}\n')
-  fs.writeFileSync(path.join(configDir, 'local-review.json'), '{}\n')
-  fs.writeFileSync(path.join(configDir, 'comment.v2.vk'), 'verifying key\n')
+  fs.writeFileSync(path.join(configDir, 'comment.v5.vk'), 'verifying key\n')
   fs.writeFileSync(path.join(configDir, 'issuer-public.key'), 'issuer public\n')
   fs.writeFileSync(path.join(secretDir, 'issuer-private.key'), 'issuer private\n')
   const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')
-  const verifyingHash = hash(path.join(configDir, 'comment.v2.vk'))
+  const verifyingHash = hash(path.join(configDir, 'comment.v5.vk'))
   const issuerHash = hash(path.join(configDir, 'issuer-public.key'))
-  const localReviewHash = `sha256:${hash(path.join(configDir, 'local-review.json'))}`
   const envFile = path.join(directory, '.env.production')
   fs.writeFileSync(envFile, [
     'EXTERNAL_DB_HOST=db',
@@ -109,15 +106,14 @@ function createDeploymentFixture(t) {
     `FSUSBLOG_ZK_VERIFYING_KEY_HASH=${verifyingHash}`,
     'FSUSBLOG_ZK_TRUSTED_SETUP_MANIFEST=/app/config/zk/trusted.json',
     'FSUSBLOG_ZK_VERIFYING_KEY_MANIFEST=/app/config/zk/verifying.json',
-    'FSUSBLOG_ZK_LOCAL_REVIEW_MANIFEST=/app/config/zk/local-review.json',
-    'FSUSBLOG_ZK_GROTH16_VERIFYING_KEY=/app/config/zk/comment.v2.vk',
+    'FSUSBLOG_ZK_GROTH16_VERIFYING_KEY=/app/config/zk/comment.v5.vk',
     'FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_ID=issuer-v1',
     'FSUSBLOG_ZK_ISSUER_PUBLIC_KEY=/app/config/zk/issuer-public.key',
     'FSUSBLOG_ZK_ISSUER_PRIVATE_KEY=/app/secrets/zk/issuer-private.key',
     `FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_HASH=${issuerHash}`
   ].join('\n') + '\n')
   const manifestFile = path.join(directory, 'release-manifest.json')
-  writeReleaseManifestAtomic(manifestFile, createReleaseManifest(createInput({ zkLocalReviewHash: localReviewHash })))
+  writeReleaseManifestAtomic(manifestFile, createReleaseManifest(createInput()))
   return { directory, envFile, manifestFile }
 }
 
@@ -141,7 +137,7 @@ function deploymentEnvironment(overrides = {}) {
   }
 }
 
-test('manifest atomically binds commit image digest frontend wasm local review and toolchain', (t) => {
+test('manifest atomically binds commit image digest frontend wasm and toolchain', (t) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-release-manifest-'))
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }))
   const file = path.join(directory, releaseId, 'release-manifest.json')
@@ -156,7 +152,6 @@ test('manifest atomically binds commit image digest frontend wasm local review a
   assert.equal(actual.imageTag, `ghcr.io/fsusblog/app:${releaseId}`)
   assert.equal(actual.frontendManifestHash, `sha256:${'b'.repeat(64)}`)
   assert.equal(actual.wasmArtifactHash, `sha256:${'c'.repeat(64)}`)
-  assert.equal(actual.zkLocalReviewHash, `sha256:${'e'.repeat(64)}`)
   assert.equal(actual.toolchain.dockerfileDigest, `sha256:${'d'.repeat(64)}`)
   assert.equal(actual.runtimeProfile.id, 'throughput-musl')
   assert.equal(actual.runtimeProfile.profileDigest, `sha256:${'f'.repeat(64)}`)
@@ -186,7 +181,6 @@ test('manifest rejects mutable tags digest mismatches corruption and sensitive f
     { ...valid, imageTag: 'ghcr.io/fsusblog/app:final-current' },
     { ...valid, imageDigest: `sha256:${'e'.repeat(64)}` },
     { ...valid, imageRef: 'ghcr.io/fsusblog/app:latest' },
-    { ...valid, zkLocalReviewHash: 'sha256:abc' },
     { ...valid, deploymentToken: 'must-never-be-present' },
     { ...valid, runtimeConfiguration: { AllowedHosts: '*' } },
     { ...valid, createdAtUtc: 'July 11 2026' },
@@ -274,7 +268,6 @@ test('manifest creator CLI writes the same digest-bound schema consumed by deplo
     '--image-digest', input.imageDigest,
     '--frontend-manifest-hash', input.frontendManifestHash,
     '--wasm-artifact-hash', input.wasmArtifactHash,
-    '--zk-local-review-hash', input.zkLocalReviewHash,
     '--schema-minimum-coordinate', input.schemaMinimumCoordinate,
     '--schema-maximum-coordinate', input.schemaMaximumCoordinate,
     '--dotnet-version', input.dotnetVersion,
@@ -464,22 +457,6 @@ test('production dry-run reports immutable release slot digest and rollback befo
   assert.match(result.stdout, /verify pulled image digest and OCI release labels/u)
   assert.match(result.stdout, /up -d --no-build --pull always/u)
   assert.doesNotMatch(result.stdout, /build-final-image\.sh/u)
-})
-
-test('production deploy rejects a host local review that drifts from the immutable release', (t) => {
-  const { directory, envFile, manifestFile } = createDeploymentFixture(t)
-  fs.appendFileSync(path.join(directory, 'zk-config', 'local-review.json'), '{"tampered":true}\n')
-
-  const result = spawnSync('bash', [
-    path.join(root, 'tools/deploy-production.sh'),
-    '--env-file', envFile,
-    '--release-manifest', manifestFile,
-    '--slot', 'green',
-    '--dry-run'
-  ], { cwd: root, encoding: 'utf8', timeout: 10_000, env: deploymentEnvironment() })
-
-  assert.notEqual(result.status, 0)
-  assert.match(result.stderr, /local cryptographic review does not match immutable release manifest/u)
 })
 
 test('production deploy rejects a pulled digest or OCI release label that disagrees with manifest', (t) => {

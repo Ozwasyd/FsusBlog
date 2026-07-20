@@ -204,7 +204,6 @@ artifacts/zk/**/*.bak
 artifacts/zk/**/*.tar.gz
 artifacts/zk/**/tmp/
 artifacts/zk/**/.tmp/
-artifacts/zk/comment-v3-layout4/ceremony/
 artifacts/zk/comment-v5/*
 !artifacts/zk/comment-v5/README.md
 

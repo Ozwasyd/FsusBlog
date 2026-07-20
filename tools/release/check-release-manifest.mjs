@@ -48,11 +48,10 @@ try {
     imageTag: manifest.imageTag,
     imageDigest: manifest.imageDigest,
     runtimeProfile: manifest.runtimeProfile ?? null,
-    zkLocalReviewHash: manifest.zkLocalReviewHash,
     rollbackTarget: manifest.releaseId
   }
   if (options.format === 'lines') {
-    for (const field of ['releaseId', 'createdAtUtc', 'commitSha', 'slot', 'imageRef', 'imageTag', 'imageDigest', 'rollbackTarget', 'zkLocalReviewHash']) {
+    for (const field of ['releaseId', 'createdAtUtc', 'commitSha', 'slot', 'imageRef', 'imageTag', 'imageDigest', 'rollbackTarget']) {
       console.log(output[field])
     }
   } else {

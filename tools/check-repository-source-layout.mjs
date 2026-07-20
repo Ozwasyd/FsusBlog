@@ -171,13 +171,13 @@ export function validatePolicy(policy) {
 
   const sources = array(zk.circuitSources)
   const sourceIds = sources.map((entry) => text(entry?.id))
-  const expectedSourceIds = ['anonymous-comment-v2', 'anonymous-comment-v5']
+  const expectedSourceIds = ['anonymous-comment-v5']
   if (
     sources.length !== expectedSourceIds.length ||
     new Set(sourceIds).size !== sources.length ||
     expectedSourceIds.some((id) => !sourceIds.includes(id))
   ) {
-    errors.push('ZK circuitSources must declare the exact v2 and v5 source identities')
+    errors.push('ZK circuitSources must declare only the active v5 source identity')
   }
   for (const source of sources) {
     if (!text(source.path).startsWith(`${zk.circuitSourceRoot}/`)) {
@@ -188,18 +188,14 @@ export function validatePolicy(policy) {
     }
   }
   const bindings = array(zk.jsonSourceBindings)
-  const expectedBindingPaths = [
-    'security/zk/contracts/comment-v2-circuit.manifest.json',
-    'artifacts/zk/comment-v3-layout4/generated/comment_v3.r1cs',
-    'security/zk/contracts/comment-v5-circuit.manifest.json'
-  ]
+  const expectedBindingPaths = ['security/zk/contracts/comment-v5-circuit.manifest.json']
   const bindingPaths = bindings.map((entry) => text(entry?.path))
   if (
     bindings.length !== expectedBindingPaths.length ||
     new Set(bindingPaths).size !== bindings.length ||
     expectedBindingPaths.some((bindingPath) => !bindingPaths.includes(bindingPath))
   ) {
-    errors.push('ZK jsonSourceBindings must cover the canonical v3/layout4 manifest and R1CS plus the v5 manifest')
+    errors.push('ZK jsonSourceBindings must cover only the active v5 circuit manifest')
   }
   for (const binding of bindings) {
     if (!sourceIds.includes(text(binding?.sourceId))) errors.push(`source binding ${binding?.path || '<missing>'} references an unknown sourceId`)

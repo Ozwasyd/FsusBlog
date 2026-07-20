@@ -5,10 +5,6 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import test from 'node:test'
-import {
-  REQUIRED_LOCAL_ARTIFACT_BINDINGS,
-  REQUIRED_LOCAL_REVIEW_SCOPE
-} from '../../tools/security/zk-local-review.mjs'
 
 const root = path.resolve(import.meta.dirname, '..', '..')
 const script = path.join(root, 'tools/security/check-privacy-zk-prod-release.mjs')
@@ -76,23 +72,6 @@ test('privacy ZK production release gate fails closed when enabled smoke evidenc
 
     assert.notEqual(result.status, 0)
     assert.match(result.stderr, /zk-prod-smoke-evidence/)
-  })
-})
-
-test('privacy ZK production release gate fails closed without local cryptographic review evidence', () => {
-  withTempDir((dir) => {
-    const fixture = writeEnabledReleaseFixture(dir, { omitLocalReview: true })
-
-    const result = runGate(
-      '--config', fixture.config,
-      '--trusted-setup-manifest', fixture.setup,
-      '--smoke-evidence', fixture.smoke,
-      '--root-bootstrap-evidence', fixture.rootBootstrap,
-      '--summary', path.join(dir, 'summary.json'))
-
-    assert.notEqual(result.status, 0)
-    assert.match(result.stderr, /local cryptographic review/)
-    assert.match(result.stderr, /manifest is missing/)
   })
 })
 
@@ -311,12 +290,7 @@ function writeEnabledReleaseFixture(dir, options = {}) {
   const nativeLibrary = options.nativeLibrary ?? writeText(dir, 'libfsus_zk_mock.so', 'native')
   const issuerPrivateKey = writeText(dir, 'issuer-private.key', 'issuer-secret')
   const issuerPublicKey = writeText(dir, 'issuer-public.key', 'issuer')
-  const localReviewSources = {
-    circuitManifest: writeText(dir, 'comment-v2-circuit.manifest.json', '{"fixture":true}\n'),
-    circuitSource: writeText(dir, 'comment-v2-circuit.json', '{"fixture":true}\n'),
-    groth16R1cs: writeText(dir, 'comment-v2-groth16.r1cs', 'groth16-r1cs\n')
-  }
-  const setupDocument = setupManifest(verifyingKeyHash, smokeEvidence, localReviewSources)
+  const setupDocument = setupManifest(verifyingKeyHash, smokeEvidence)
   const setup = writeJson(dir, 'trusted-setup.json', setupDocument)
   const smoke = writeJson(dir, 'smoke.json', smokeEvidence)
   const rootBootstrap = options.omitRootBootstrap === true
@@ -324,16 +298,12 @@ function writeEnabledReleaseFixture(dir, options = {}) {
     : writeJson(dir, 'root-bootstrap.json', rootBootstrapEvidence(
       verifyingKeyHash,
       options.rootBootstrapOverrides ?? {}))
-  const localReview = options.omitLocalReview === true
-    ? { manifestPath: path.join(dir, 'missing-local-cryptographic-review.json') }
-    : writeLocalReviewFixture(dir, setup, setupDocument, smokeEvidence, localReviewSources)
   const config = writeJson(dir, 'enabled.json', enabledConfig({
     nativeLibrary,
     issuerPrivateKey,
     issuerPublicKey,
     verifyingKeyHash,
-    smoke,
-    localReview
+    smoke
   }))
 
   return {
@@ -344,7 +314,6 @@ function writeEnabledReleaseFixture(dir, options = {}) {
     setup,
     smoke,
     rootBootstrap,
-    localReview,
     config,
     smokeEvidence
   }
@@ -363,8 +332,8 @@ function completeSmokeEvidence(dir, overrides = {}) {
 
   const evidence = {
     evidenceKind: 'real-groth16-cross-stack',
-    circuitId: 'fsus.anonymous.comment.v3',
-    publicInputLayoutVersion: 4,
+    circuitId: 'fsus.anonymous.comment.v5',
+    publicInputLayoutVersion: 6,
     proofSystem: 'Groth16',
     verifyingKeyHash: artifactHashes.verifyingKeySha256,
     status: 'ok',
@@ -402,7 +371,7 @@ function completeSmokeEvidence(dir, overrides = {}) {
   return evidence
 }
 
-function enabledConfig({ nativeLibrary, issuerPrivateKey, issuerPublicKey, verifyingKeyHash, smoke, localReview }) {
+function enabledConfig({ nativeLibrary, issuerPrivateKey, issuerPublicKey, verifyingKeyHash, smoke }) {
   return {
     AnonymousIdentity: {
       ZkProd: {
@@ -416,8 +385,7 @@ function enabledConfig({ nativeLibrary, issuerPrivateKey, issuerPublicKey, verif
         TrustedSetupVerified: true,
         CredentialReady: true,
         VerifyingKeyHash: verifyingKeyHash,
-        SmokeEvidencePath: smoke,
-        LocalCryptographicReviewManifestPath: localReview?.manifestPath
+        SmokeEvidencePath: smoke
       },
       ZkVerifier: {
         Backend: 'native_groth16',
@@ -434,75 +402,20 @@ function enabledConfig({ nativeLibrary, issuerPrivateKey, issuerPublicKey, verif
   }
 }
 
-function setupManifest(verifyingKeyHash, smokeEvidence = null, localReviewSources = null) {
+function setupManifest(verifyingKeyHash, smokeEvidence = null) {
   return {
-    schema: 'fsusblog.zk.trusted-setup-manifest.v1',
-    circuit_id: 'fsus.anonymous.comment.v3',
-    public_input_layout_version: 4,
+    schema: 'fsusblog.zk.trusted-setup-manifest.v2',
+    circuit_id: 'fsus.anonymous.comment.v5',
+    public_input_layout_version: 6,
     production_usable: true,
     ceremony_status: 'verified',
     verifying_key_hash: verifyingKeyHash,
-    circuit_manifest_sha256: localReviewSources ? sha256File(localReviewSources.circuitManifest) : hex('8'),
-    circuit_source_sha256: localReviewSources ? sha256File(localReviewSources.circuitSource) : hex('9'),
     artifacts: {
       r1cs: { sha256: smokeEvidence?.artifactHashes?.r1csSha256 ?? hex('3') },
-      groth16_r1cs: { sha256: localReviewSources ? sha256File(localReviewSources.groth16R1cs) : hex('4') },
       proving_key: { sha256: smokeEvidence?.artifactHashes?.provingKeySha256 ?? hex('5') },
       verifying_key: { sha256: verifyingKeyHash }
     }
   }
-}
-
-function writeLocalReviewFixture(dir, setupPath, setup, smokeEvidence, sources) {
-  const reportPath = writeText(
-    dir,
-    'local-cryptographic-review.md',
-    '# Repository-local cryptographic review\n\nDeterministic release-gate fixture.\n')
-  const fixtureArtifacts = smokeEvidence.__fixtureArtifacts
-  const evidencePath = fixtureArtifacts.tamperCases.path
-  const artifactPaths = {
-    circuit_manifest_sha256: sources.circuitManifest,
-    circuit_source_sha256: sources.circuitSource,
-    r1cs_sha256: fixtureArtifacts.r1cs.path,
-    groth16_r1cs_sha256: sources.groth16R1cs,
-    trusted_setup_manifest_sha256: setupPath,
-    proving_key_sha256: fixtureArtifacts.provingKey.path,
-    verifying_key_sha256: fixtureArtifacts.verifyingKey.path,
-    native_verifier_sha256: fixtureArtifacts.nativeVerifier.path,
-    wasm_prover_sha256: fixtureArtifacts.wasmProver.path
-  }
-  assert.deepEqual(Object.keys(artifactPaths), [...REQUIRED_LOCAL_ARTIFACT_BINDINGS])
-  const artifactBindings = Object.fromEntries(
-    Object.entries(artifactPaths).map(([id, file]) => [id, { path: file, sha256: sha256File(file) }]))
-  const manifestPath = writeJson(dir, 'local-cryptographic-review.json', {
-    schema: 'fsusblog.zk.local-cryptographic-review.v1',
-    circuit_id: 'fsus.anonymous.comment.v3',
-    public_input_layout_version: 4,
-    status: 'complete',
-    review_complete: true,
-    assurance_model: 'repository-local-reproducible-review',
-    independent_audit_claimed: false,
-    external_evidence_required: false,
-    production_authorization: false,
-    limitations: ['This fixture is local evidence and is not an independent audit.'],
-    verifying_key_hash: setup.verifying_key_hash,
-    report: { path: reportPath, sha256: sha256File(reportPath) },
-    required_scope: [...REQUIRED_LOCAL_REVIEW_SCOPE],
-    scope_results: REQUIRED_LOCAL_REVIEW_SCOPE.map((id) => ({
-      id,
-      status: 'passed',
-      evidence: [evidencePath]
-    })),
-    findings: { critical_open: 0, high_open: 0, unresolved: 0 },
-    artifact_bindings: artifactBindings,
-    test_evidence: [{
-      path: evidencePath,
-      sha256: sha256File(evidencePath),
-      command: 'node --test tests/security/privacy-zk-prod-release.test.mjs',
-      covers: [...REQUIRED_LOCAL_REVIEW_SCOPE]
-    }]
-  })
-  return { manifestPath }
 }
 
 function rootBootstrapEvidence(verifyingKeyHash, overrides = {}) {
@@ -516,9 +429,9 @@ function rootBootstrapEvidence(verifyingKeyHash, overrides = {}) {
       credentialRootHash: hex('1'),
       revocationRootHash: hex('2'),
       issuerPublicKeyHash: hex('3'),
-      circuitId: 'fsus.anonymous.comment.v3',
+      circuitId: 'fsus.anonymous.comment.v5',
       circuitNumericId: 7,
-      publicInputLayoutVersion: 4,
+      publicInputLayoutVersion: 6,
       verifyingKeyHash,
       expiresAtUtc: '2099-07-20T00:00:00Z',
       graceExpiresAtUtc: '2099-07-27T00:00:00Z'

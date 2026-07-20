@@ -727,7 +727,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
         {
             DirectoryPath = directoryPath;
             VerifyingKeyBytes = verifyingKeyBytes;
-            VerifyingKeyPath = Path.Combine(directoryPath, "comment.v2.vk");
+            VerifyingKeyPath = Path.Combine(directoryPath, "comment.v5.vk");
             NativeLibraryPath = Path.Combine(directoryPath, "libfsus_zk_groth16.so");
             VerifyingKeySha256 = Hex(SHA256.HashData(verifyingKeyBytes));
             Directory.CreateDirectory(directoryPath);

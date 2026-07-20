@@ -57,7 +57,7 @@ test('comment v3 browser wasm prover bundle requires a fresh setup before cross-
   const dir = mkdtempSync(path.join(tmpdir(), 'fsus-zk-comment-v2-wasm-proof-'))
   const previousFetch = globalThis.fetch
   try {
-    const vkConfig = JSON.parse(readFileSync(path.join(repoRoot, 'config/zk/anonymous-comment-v2-verifying-key.manifest.json'), 'utf8'))
+    const vkConfig = JSON.parse(readFileSync(path.join(repoRoot, 'config/zk/anonymous-comment-v5-verifying-key.manifest.json'), 'utf8'))
     assert.equal(vkConfig.circuit_id, 'fsus.anonymous.comment.v3')
     assert.equal(vkConfig.public_input_layout_version, 4)
     if (vkConfig.production_usable !== true) {

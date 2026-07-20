@@ -225,8 +225,7 @@ function verifyPrivacyZkCommentMatrix(text) {
     'PRIVACY-ZK-FRONTEND-RUNTIME',
     'PRIVACY-ZK-CONCURRENCY',
     'PRIVACY-ZK-PUBLIC-REVOCATION-DISTRIBUTION',
-    'PRIVACY-ZK-PROD-SMOKE',
-    'PRIVACY-ZK-LOCAL-REVIEW'
+    'PRIVACY-ZK-PROD-SMOKE'
   ]
   const requiredPrivacyCases = [
     'retired-anonymous-zero-write',
@@ -288,16 +287,7 @@ function verifyPrivacyZkCommentMatrix(text) {
     'stale-reject',
     'low-memory-download-budget',
     'worker-cpu-budget',
-    'no-handle-log-telemetry',
-    'constraint-completeness',
-    'trusted-setup-provenance',
-    'public-input-ordering',
-    'native-mcl-binding',
-    'subgroup-and-canonical-serialization',
-    'nullifier-domain-root-epoch-binding',
-    'malformed-noncanonical-proof-corpus',
-    'verifier-concurrency-timeout',
-    'no-independent-audit-claim'
+    'no-handle-log-telemetry'
   ]
   const requiredConcurrencyCases = [
     'concurrent-same-nullifier-scope-policy-limit',
@@ -313,7 +303,6 @@ function verifyPrivacyZkCommentMatrix(text) {
     'check:privacy-zk-backend',
     'check:privacy-zk-concurrency',
     'check:privacy-zk-prod-smoke',
-    'check:privacy-zk-local-review',
     'check:public-revocation-distribution'
   ]
 

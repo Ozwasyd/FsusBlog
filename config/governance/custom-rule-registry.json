@@ -3,7 +3,7 @@
     "generatedBy": "tools/governance/check-rule-platform.mjs --write-registry",
     "inventory": {
         "packageScriptCount": 190,
-        "implementationCount": 327
+        "implementationCount": 336
     },
     "rules": [
         {
@@ -2436,6 +2436,35 @@
             }
         },
         {
+            "id": "Command.CheckLayoutArchetypeGovernance",
+            "externalId": "check:layout-archetype-governance",
+            "symbol": "CheckLayoutArchetypeGovernance",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": false,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/issue-1162-rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-command",
+                "command": "node ../../tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "implementation": "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "executionKey": "governance:check:layout-archetype-governance",
+                "receiptCompatible": true
+            }
+        },
+        {
             "id": "Command.CheckLoad",
             "externalId": "check:load",
             "symbol": "CheckLoad",
@@ -3280,7 +3309,7 @@
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
                 "mode": "delegated-command",
-                "command": "node ../../tools/security/check-comment-privacy-contract-boundaries.mjs && node ../../tools/security/check-comment-author-mode-retirement.mjs && node ../../tools/security/check-public-revocation-distribution.mjs && node ../../tools/crypto/build-zk-comment-v2-r1cs.mjs --check && node ../../tools/crypto/check-zk-artifact-ownership.mjs && node ../../tools/crypto/check-zk-comment-v2-manifests.mjs && node ../../tools/security/check-zk-comment-v2-unlinkability.mjs && node --test ../../tests/security/zk-comment-v2-unlinkability.test.mjs && node ../../tools/security/check-mcl-platform-assets.mjs && node ../../tools/crypto/build-zk-comment-v2-circuit-fixture.mjs --check && node ../../tests/security/zk-comment-v2-circuit-fixture.test.mjs && node --test --test-name-pattern=\"MCL pairing fixture|MCL tool writes\" ../../tests/security/zk-comment-v2-cross-stack-fixture.test.mjs && npm run check:security:matrices && npm run check:openapi-sync && npm run check:contract:frame-schema && node ../../tools/run-test-matrix.mjs validate && node ../../tools/run-test-matrix.mjs ci-plan --format github-actions --out .tmp/privacy-zk-ci-plan.json && node ../../tools/check-workflow-matrix-sync.mjs .tmp/privacy-zk-ci-plan.json .github/workflows/quality-gate.yml",
+                "command": "node ../../tools/security/check-comment-privacy-contract-boundaries.mjs && node ../../tools/security/check-comment-author-mode-retirement.mjs && node ../../tools/security/check-public-revocation-distribution.mjs && node ../../tools/security/comment-privacy-build-contract.mjs && node ../../tools/crypto/check-zk-artifact-ownership.mjs && node --test ../../tests/security/comment-privacy-build-contract.test.mjs && node ../../tools/security/check-zk-comment-v2-unlinkability.mjs && node --test ../../tests/security/zk-comment-v2-unlinkability.test.mjs && node ../../tools/security/check-mcl-platform-assets.mjs && node --test --test-name-pattern=\"MCL pairing fixture\" ../../tests/security/zk-comment-v2-cross-stack-fixture.test.mjs && npm run check:security:matrices && npm run check:openapi-sync && npm run check:contract:frame-schema && node ../../tools/run-test-matrix.mjs validate && node ../../tools/run-test-matrix.mjs ci-plan --format github-actions --out .tmp/privacy-zk-ci-plan.json && node ../../tools/check-workflow-matrix-sync.mjs .tmp/privacy-zk-ci-plan.json .github/workflows/quality-gate.yml",
                 "implementation": "tools/security/check-comment-privacy-contract-boundaries.mjs",
                 "executionKey": "governance:check:privacy-zk-contract:prebuild",
                 "receiptCompatible": true
@@ -3313,36 +3342,6 @@
                 "command": "FSUSBLOG_VITEST_LANE=privacy-zk vitest run --config vitest.config.ts ../../tests/frontend/unit/api/comment.test.ts ../../tests/frontend/unit/privacy/commentPrivacyAdapter.test.ts ../../tests/frontend/unit/privacy/commentPrivacyCredentialLifecycle.test.ts ../../tests/frontend/unit/privacy/commentPrivacyCredentialPublicBoundary.test.ts ../../tests/frontend/unit/privacy/commentPrivacyCredentialVault.test.ts ../../tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts ../../tests/frontend/unit/privacy/commentPrivacyCredentialProvider.test.ts ../../tests/frontend/unit/privacy/commentPrivacyRevocationLocal.test.ts ../../tests/frontend/unit/privacy/commentPrivacyWorkerClient.test.ts ../../tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts ../../tests/frontend/unit/security/trustedTypesRuntime.test.ts ../../tests/frontend/unit/components/ArticleCommentComposer.test.ts",
                 "implementation": "src/frontend/package.json",
                 "executionKey": "governance:check:privacy-zk-frontend",
-                "receiptCompatible": true
-            }
-        },
-        {
-            "id": "Command.CheckPrivacyZkLocalReview",
-            "externalId": "check:privacy-zk-local-review",
-            "symbol": "CheckPrivacyZkLocalReview",
-            "owner": "SecurityGovernanceOwner",
-            "category": "security-privacy",
-            "engine": "runtime",
-            "sourceScopes": [
-                "tools/security/check-zk-local-review.mjs",
-                "security/**",
-                "src/backend/**",
-                "src/frontend/src/privacy/**",
-                "tests/security/**"
-            ],
-            "severity": "error",
-            "fixable": false,
-            "changedFileSafe": false,
-            "dependencies": [],
-            "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
-            ],
-            "documentation": "docs/development/custom-rule-platform.md",
-            "execution": {
-                "mode": "delegated-command",
-                "command": "node ../../tools/security/check-zk-local-review.mjs",
-                "implementation": "tools/security/check-zk-local-review.mjs",
-                "executionKey": "governance:check:privacy-zk-local-review",
                 "receiptCompatible": true
             }
         },
@@ -5361,7 +5360,7 @@
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
                 "mode": "delegated-command",
-                "command": "node ../../tests/frontend/checks/static/check-views-constraints.mjs && npm run check:admin-tokens && npm run check:foundation-token-governance && npm run check:motion-governance && npm run check:admin-task-feedback && npm run check:admin-eyebrow-governance && npm run check:admin-empty-state-governance && npm run check:admin-dashboard-panel-identity && npm run check:admin-system-tabs-governance && npm run check:audit-facet-summary && npm run check:admin-a11y-governance && npm run check:integrity-page-governance && npm run check:profile-page-governance && npm run check:admin-user-manage-governance && npm run check:comment-thread-view-contract-identity && npm run check:user-comments-page-governance && npm run check:article-editor-workspace-governance && npm run check:public-empty-state-governance && npm run check:markdown-editor-state-governance && npm run check:visual-density-governance && npm run check:page-title-scale && npm run check:shell-material-governance && npm run check:public-shell-css-ownership && npm run check:messages-inbox-governance && npm run check:public-reading-motion && npm run check:public-anti-ai-visual && npm run check:radius-scale-contract && npm run check:public-brand-hardcoding && npm run check:default-brand-assets && npm run check:public-editorial-governance && npm run check:public-copy-governance && npm run check:copy-centralization && npm run check:json-long-id-governance && npm run check:row-state-motion && npm run check:runtime-entry-reachability && npm run check:dom-depth-static && npm run check:performance-governance && npm run check:route-asset-budget && npm run check:public-performance-batch && npm run check:public-atomic-takeover-governance && npm run check:public-dev-mode-governance && npm run check:fsusui-typecheck-modes && npm run check:fsusui-boundary && npm run check:fsusui-boundary-fixture",
+                "command": "node ../../tests/frontend/checks/static/check-views-constraints.mjs && npm run check:admin-tokens && npm run check:foundation-token-governance && npm run check:motion-governance && npm run check:admin-task-feedback && npm run check:admin-eyebrow-governance && npm run check:admin-empty-state-governance && npm run check:admin-dashboard-panel-identity && npm run check:admin-system-tabs-governance && npm run check:audit-facet-summary && npm run check:admin-a11y-governance && npm run check:integrity-page-governance && npm run check:profile-page-governance && npm run check:admin-user-manage-governance && npm run check:comment-thread-view-contract-identity && npm run check:user-comments-page-governance && npm run check:article-editor-workspace-governance && npm run check:public-empty-state-governance && npm run check:markdown-editor-state-governance && npm run check:visual-density-governance && npm run check:layout-archetype-governance && npm run check:page-title-scale && npm run check:shell-material-governance && npm run check:public-shell-css-ownership && npm run check:messages-inbox-governance && npm run check:public-reading-motion && npm run check:public-anti-ai-visual && npm run check:radius-scale-contract && npm run check:public-brand-hardcoding && npm run check:default-brand-assets && npm run check:public-editorial-governance && npm run check:public-copy-governance && npm run check:copy-centralization && npm run check:json-long-id-governance && npm run check:row-state-motion && npm run check:runtime-entry-reachability && npm run check:dom-depth-static && npm run check:performance-governance && npm run check:route-asset-budget && npm run check:public-performance-batch && npm run check:public-atomic-takeover-governance && npm run check:public-dev-mode-governance && npm run check:fsusui-typecheck-modes && npm run check:fsusui-boundary && npm run check:fsusui-boundary-fixture",
                 "implementation": "tests/frontend/checks/static/check-views-constraints.mjs",
                 "executionKey": "governance:check:views-constraints",
                 "receiptCompatible": true
@@ -6777,6 +6776,35 @@
             "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
         },
         {
+            "id": "Implementation.TestsFrontendChecksStaticCheckAccountCssOwnershipMjs",
+            "externalId": "tests/frontend/checks/static/check-account-css-ownership.mjs",
+            "symbol": "CheckTestsFrontendChecksStaticCheckAccountCssOwnership",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "text",
+            "sourceScopes": [
+                "tests/frontend/checks/static/check-account-css-ownership.mjs",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/frontend/checks/static/check-account-css-ownership.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tests/frontend/checks/static/check-account-css-ownership.mjs",
+                "executionKey": "governance:file:tests/frontend/checks/static/check-account-css-ownership.mjs",
+                "receiptCompatible": true
+            },
+            "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
+        },
+        {
             "id": "Implementation.TestsFrontendChecksStaticCheckAdminA11yGovernanceMjs",
             "externalId": "tests/frontend/checks/static/check-admin-a11y-governance.mjs",
             "symbol": "CheckTestsFrontendChecksStaticCheckAdminA11yGovernance",
@@ -6829,6 +6857,35 @@
                 "mode": "delegated-implementation",
                 "implementation": "tests/frontend/checks/static/check-admin-dashboard-panel-identity.mjs",
                 "executionKey": "governance:file:tests/frontend/checks/static/check-admin-dashboard-panel-identity.mjs",
+                "receiptCompatible": true
+            },
+            "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
+        },
+        {
+            "id": "Implementation.TestsFrontendChecksStaticCheckAdminDashboardTokenRetirementMjs",
+            "externalId": "tests/frontend/checks/static/check-admin-dashboard-token-retirement.mjs",
+            "symbol": "CheckTestsFrontendChecksStaticCheckAdminDashboardTokenRetirement",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "text",
+            "sourceScopes": [
+                "tests/frontend/checks/static/check-admin-dashboard-token-retirement.mjs",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/frontend/checks/static/check-admin-dashboard-token-retirement.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tests/frontend/checks/static/check-admin-dashboard-token-retirement.mjs",
+                "executionKey": "governance:file:tests/frontend/checks/static/check-admin-dashboard-token-retirement.mjs",
                 "receiptCompatible": true
             },
             "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
@@ -6888,6 +6945,35 @@
                 "executionKey": "governance:file:tests/frontend/checks/static/check-admin-eyebrow-governance.mjs",
                 "receiptCompatible": true
             }
+        },
+        {
+            "id": "Implementation.TestsFrontendChecksStaticCheckAdminGlobalVisualContractsMjs",
+            "externalId": "tests/frontend/checks/static/check-admin-global-visual-contracts.mjs",
+            "symbol": "CheckTestsFrontendChecksStaticCheckAdminGlobalVisualContracts",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "text",
+            "sourceScopes": [
+                "tests/frontend/checks/static/check-admin-global-visual-contracts.mjs",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/frontend/checks/static/check-admin-global-visual-contracts.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tests/frontend/checks/static/check-admin-global-visual-contracts.mjs",
+                "executionKey": "governance:file:tests/frontend/checks/static/check-admin-global-visual-contracts.mjs",
+                "receiptCompatible": true
+            },
+            "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
         },
         {
             "id": "Implementation.TestsFrontendChecksStaticCheckAdminSystemTabsGovernanceMjs",
@@ -7892,6 +7978,34 @@
             "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
         },
         {
+            "id": "Implementation.TestsFrontendChecksStaticCheckLayoutArchetypeGovernanceMjs",
+            "externalId": "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+            "symbol": "CheckTestsFrontendChecksStaticCheckLayoutArchetypeGovernance",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "parser",
+            "sourceScopes": [
+                "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/frontend/checks/static/check-layout-archetype-governance.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "executionKey": "governance:file:tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "receiptCompatible": true
+            }
+        },
+        {
             "id": "Implementation.TestsFrontendChecksStaticCheckLocalFixtureUrlHygieneMjs",
             "externalId": "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
             "symbol": "CheckTestsFrontendChecksStaticCheckLocalFixtureUrlHygiene",
@@ -8545,6 +8659,35 @@
                 "executionKey": "governance:file:tests/frontend/checks/static/check-public-empty-state-governance.mjs",
                 "receiptCompatible": true
             }
+        },
+        {
+            "id": "Implementation.TestsFrontendChecksStaticCheckPublicFilterControlsMjs",
+            "externalId": "tests/frontend/checks/static/check-public-filter-controls.mjs",
+            "symbol": "CheckTestsFrontendChecksStaticCheckPublicFilterControls",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "text",
+            "sourceScopes": [
+                "tests/frontend/checks/static/check-public-filter-controls.mjs",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/frontend/checks/static/check-public-filter-controls.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tests/frontend/checks/static/check-public-filter-controls.mjs",
+                "executionKey": "governance:file:tests/frontend/checks/static/check-public-filter-controls.mjs",
+                "receiptCompatible": true
+            },
+            "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
         },
         {
             "id": "Implementation.TestsFrontendChecksStaticCheckPublicPerformanceBatchMjs",
@@ -9233,6 +9376,35 @@
             }
         },
         {
+            "id": "Implementation.TestsFrontendChecksUxCheckAdminArticleListLayoutMjs",
+            "externalId": "tests/frontend/checks/ux/check-admin-article-list-layout.mjs",
+            "symbol": "CheckTestsFrontendChecksUxCheckAdminArticleListLayout",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "text",
+            "sourceScopes": [
+                "tests/frontend/checks/ux/check-admin-article-list-layout.mjs",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/frontend/checks/ux/check-admin-article-list-layout.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tests/frontend/checks/ux/check-admin-article-list-layout.mjs",
+                "executionKey": "governance:file:tests/frontend/checks/ux/check-admin-article-list-layout.mjs",
+                "receiptCompatible": true
+            },
+            "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
+        },
+        {
             "id": "Implementation.TestsFrontendChecksUxCheckUxSemanticsMjs",
             "externalId": "tests/frontend/checks/ux/check-ux-semantics.mjs",
             "symbol": "CheckTestsFrontendChecksUxCheckUxSemantics",
@@ -9464,6 +9636,35 @@
                 "mode": "delegated-implementation",
                 "implementation": "tools/check-aeds-only-policy.sh",
                 "executionKey": "governance:file:tools/check-aeds-only-policy.sh",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Implementation.ToolsCheckArticleDeletionCatalogMjs",
+            "externalId": "tools/check-article-deletion-catalog.mjs",
+            "symbol": "CheckToolsCheckArticleDeletionCatalog",
+            "owner": "RepositoryGovernanceOwner",
+            "category": "repository-governance",
+            "engine": "parser",
+            "sourceScopes": [
+                "tools/check-article-deletion-catalog.mjs",
+                "config/**",
+                "docs/**",
+                "tools/**",
+                "tests/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/issue-1162-rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/check-article-deletion-catalog.mjs",
+                "executionKey": "governance:file:tools/check-article-deletion-catalog.mjs",
                 "receiptCompatible": true
             }
         },
@@ -10443,35 +10644,6 @@
             }
         },
         {
-            "id": "Implementation.ToolsCryptoCheckZkCommentV2ManifestsMjs",
-            "externalId": "tools/crypto/check-zk-comment-v2-manifests.mjs",
-            "symbol": "CheckToolsCryptoCheckZkCommentV2Manifests",
-            "owner": "RepositoryGovernanceOwner",
-            "category": "repository-governance",
-            "engine": "parser",
-            "sourceScopes": [
-                "tools/crypto/check-zk-comment-v2-manifests.mjs",
-                "config/**",
-                "docs/**",
-                "tools/**",
-                "tests/**"
-            ],
-            "severity": "error",
-            "fixable": false,
-            "changedFileSafe": true,
-            "dependencies": [],
-            "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
-            ],
-            "documentation": "docs/development/custom-rule-platform.md",
-            "execution": {
-                "mode": "delegated-implementation",
-                "implementation": "tools/crypto/check-zk-comment-v2-manifests.mjs",
-                "executionKey": "governance:file:tools/crypto/check-zk-comment-v2-manifests.mjs",
-                "receiptCompatible": true
-            }
-        },
-        {
             "id": "Implementation.ToolsDocsCheckAuthoritativeDevelopmentDocsMjs",
             "externalId": "tools/docs/check-authoritative-development-docs.mjs",
             "symbol": "CheckToolsDocsCheckAuthoritativeDevelopmentDocs",
@@ -10934,6 +11106,34 @@
             }
         },
         {
+            "id": "Implementation.ToolsFrontendCheckI18nLiteralsMjs",
+            "externalId": "tools/frontend/check-i18n-literals.mjs",
+            "symbol": "CheckToolsFrontendCheckI18nLiterals",
+            "owner": "FrontendProductGovernanceOwner",
+            "category": "product-governance",
+            "engine": "text",
+            "sourceScopes": [
+                "tools/frontend/check-i18n-literals.mjs",
+                "src/frontend/src/**",
+                "tests/frontend/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/issue-1162-rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/frontend/check-i18n-literals.mjs",
+                "executionKey": "governance:file:tools/frontend/check-i18n-literals.mjs",
+                "receiptCompatible": true
+            },
+            "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
+        },
+        {
             "id": "Implementation.ToolsFrontendCheckRouteAssetBudgetMjs",
             "externalId": "tools/frontend/check-route-asset-budget.mjs",
             "symbol": "CheckToolsFrontendCheckRouteAssetBudget",
@@ -11044,6 +11244,35 @@
                 "mode": "delegated-implementation",
                 "implementation": "tools/governance/check-dead-code-audit-index.mjs",
                 "executionKey": "governance:file:tools/governance/check-dead-code-audit-index.mjs",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Implementation.ToolsGovernanceCheckMonolithicDistributedArchitectureMjs",
+            "externalId": "tools/governance/check-monolithic-distributed-architecture.mjs",
+            "symbol": "CheckToolsGovernanceCheckMonolithicDistributedArchitecture",
+            "owner": "RepositoryGovernanceOwner",
+            "category": "repository-governance",
+            "engine": "parser",
+            "sourceScopes": [
+                "tools/governance/check-monolithic-distributed-architecture.mjs",
+                "config/**",
+                "docs/**",
+                "tools/**",
+                "tests/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/issue-1162-rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/governance/check-monolithic-distributed-architecture.mjs",
+                "executionKey": "governance:file:tools/governance/check-monolithic-distributed-architecture.mjs",
                 "receiptCompatible": true
             }
         },
@@ -12273,35 +12502,6 @@
             }
         },
         {
-            "id": "Implementation.ToolsSecurityCheckZkLocalReviewMjs",
-            "externalId": "tools/security/check-zk-local-review.mjs",
-            "symbol": "CheckToolsSecurityCheckZkLocalReview",
-            "owner": "SecurityGovernanceOwner",
-            "category": "security-privacy",
-            "engine": "parser",
-            "sourceScopes": [
-                "tools/security/check-zk-local-review.mjs",
-                "security/**",
-                "src/backend/**",
-                "src/frontend/src/privacy/**",
-                "tests/security/**"
-            ],
-            "severity": "error",
-            "fixable": false,
-            "changedFileSafe": true,
-            "dependencies": [],
-            "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
-            ],
-            "documentation": "docs/development/custom-rule-platform.md",
-            "execution": {
-                "mode": "delegated-implementation",
-                "implementation": "tools/security/check-zk-local-review.mjs",
-                "executionKey": "governance:file:tools/security/check-zk-local-review.mjs",
-                "receiptCompatible": true
-            }
-        },
-        {
             "id": "Implementation.ToolsSeoCheckReleaseEvidenceMjs",
             "externalId": "tools/seo/check-release-evidence.mjs",
             "symbol": "CheckToolsSeoCheckReleaseEvidence",
@@ -13485,6 +13685,34 @@
             }
         },
         {
+            "id": "Implementation.ToolsTestLanesDistributedContractFastSh",
+            "externalId": "tools/test/lanes/distributed-contract-fast.sh",
+            "symbol": "CheckToolsTestLanesDistributedContractFast",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tools/test/lanes/distributed-contract-fast.sh",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/issue-1162-rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/test/lanes/distributed-contract-fast.sh",
+                "executionKey": "governance:file:tools/test/lanes/distributed-contract-fast.sh",
+                "receiptCompatible": true
+            }
+        },
+        {
             "id": "Implementation.ToolsTestLanesEndpointDepthSh",
             "externalId": "tools/test/lanes/endpoint-depth.sh",
             "symbol": "CheckToolsTestLanesEndpointDepth",
@@ -13733,6 +13961,34 @@
                 "mode": "delegated-implementation",
                 "implementation": "tools/test/lanes/frontend-unit-shard.sh",
                 "executionKey": "governance:file:tools/test/lanes/frontend-unit-shard.sh",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Implementation.ToolsTestLanesHomogeneousTwoNodeFixtureSh",
+            "externalId": "tools/test/lanes/homogeneous-two-node-fixture.sh",
+            "symbol": "CheckToolsTestLanesHomogeneousTwoNodeFixture",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tools/test/lanes/homogeneous-two-node-fixture.sh",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/issue-1162-rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/test/lanes/homogeneous-two-node-fixture.sh",
+                "executionKey": "governance:file:tools/test/lanes/homogeneous-two-node-fixture.sh",
                 "receiptCompatible": true
             }
         },

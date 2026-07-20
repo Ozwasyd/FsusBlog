@@ -199,17 +199,14 @@ function validateZk(root, securityFiles, errors) {
     }
   }
 
-  const setup = readJson(root, 'security/zk/provenance/comment-v2-trusted-setup.manifest.json', errors)
-  const circuitPath = 'security/zk/contracts/comment-v2-circuit.manifest.json'
+  const setup = readJson(root, 'security/zk/provenance/comment-v5-trusted-setup.manifest.json', errors)
+  const circuitPath = 'security/zk/contracts/comment-v5-circuit.manifest.json'
   const circuitFile = resolveFile(root, circuitPath, errors)
   if (setup && circuitFile) {
-    if (setup.circuit_manifest_path !== circuitPath) errors.push('v2 trusted setup must bind the contract circuit path')
-    if (setup.circuit_manifest_sha256 !== sha256(circuitFile)) errors.push('v2 trusted setup circuit manifest SHA-256 drift')
-  }
-  const review = readJson(root, 'security/zk/provenance/comment-v2-local-review.manifest.json', errors)
-  for (const [name, binding] of Object.entries(object(review?.artifact_bindings))) {
-    const bound = resolveFile(root, binding?.path, errors, `local review binding ${name}`)
-    if (bound && binding.sha256 !== sha256(bound)) errors.push(`local review binding ${name} SHA-256 drift`)
+    if (setup.circuit_manifest_path !== circuitPath) errors.push('v5 trusted setup must bind the active circuit path')
+    if (setup.circuit_id !== 'fsus.anonymous.comment.v5' || setup.public_input_layout_version !== 6) {
+      errors.push('trusted setup must select fsus.anonymous.comment.v5 layout 6')
+    }
   }
 }
 

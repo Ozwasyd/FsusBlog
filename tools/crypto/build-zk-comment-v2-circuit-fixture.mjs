@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..'))
 const outputDir = resolvePath(process.env.FSUSBLOG_ZK_COMMENT_V2_CIRCUIT_FIXTURE_OUT, 'tests/fixtures/zk/comment-v2/circuit-ir')
-const circuitPath = resolvePath(process.env.FSUSBLOG_ZK_CIRCUIT_MANIFEST, 'security/zk/contracts/comment-v2-circuit.manifest.json')
+const circuitPath = resolvePath(process.env.FSUSBLOG_ZK_CIRCUIT_MANIFEST, 'security/zk/contracts/comment-v5-circuit.manifest.json')
 const tamperPath = resolvePath(process.env.FSUSBLOG_ZK_TAMPER_MANIFEST, 'security/zk/contracts/comment-v2-tamper-cases.manifest.json')
 const sourcePath = resolvePath(process.env.FSUSBLOG_ZK_COMMENT_V2_CIRCUIT_SOURCE, 'src/zk/circuits/anonymous-comment-v2/comment_v2.circuit.json')
 const args = new Set(process.argv.slice(2))

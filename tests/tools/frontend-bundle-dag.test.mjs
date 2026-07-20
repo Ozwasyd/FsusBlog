@@ -348,8 +348,8 @@ test('concurrent privacy and static work cannot write Vitest reports, coverage, 
 
   const privacyPrebuild = frontendPackage.scripts['check:privacy-zk-contract:prebuild']
   const privacyPostbuild = frontendPackage.scripts['check:privacy-zk-contract:postbuild']
-  assert.match(privacyPrebuild, /build-zk-comment-v2-r1cs\.mjs --check/u)
-  assert.match(privacyPrebuild, /build-zk-comment-v2-circuit-fixture\.mjs --check/u)
+  assert.match(privacyPrebuild, /comment-privacy-build-contract\.mjs/u)
+  assert.match(privacyPrebuild, /check-zk-artifact-ownership\.mjs/u)
   assert.doesNotMatch(privacyPrebuild, /\bvitest\b/u)
   assert.doesNotMatch(privacyPostbuild, /\bvitest\b/u)
   assert.match(privacyLaneSource, /STAGE_DIR="\$ROOT_DIR\/\.tmp\/security\/privacy-zk-comment-matrix-stages"/u)
@@ -357,7 +357,7 @@ test('concurrent privacy and static work cannot write Vitest reports, coverage, 
   const concurrentSources = [
     staticLaneSource,
     privacyLaneSource,
-    fs.readFileSync(new URL('../../tools/crypto/check-zk-comment-v2-manifests.mjs', import.meta.url), 'utf8'),
+    fs.readFileSync(new URL('../../tools/security/comment-privacy-build-contract.mjs', import.meta.url), 'utf8'),
     fs.readFileSync(new URL('../../tools/ci/check-flaky-registry.mjs', import.meta.url), 'utf8'),
     fs.readFileSync(new URL('../../tools/docs/check-integrity-proof-docs.mjs', import.meta.url), 'utf8'),
     fs.readFileSync(new URL('../../tools/check-doc-implementation-drift.mjs', import.meta.url), 'utf8')

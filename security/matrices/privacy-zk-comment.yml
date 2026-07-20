@@ -59,7 +59,7 @@ scenarios:
           - security/evidence-contracts/comment-author-mode-retirement.json
 
     - id: PRIVACY-ZK-CIRCUIT-CONTRACT
-      scenario: comment.v2 Groth16 circuit contract fixes public inputs, private witness, soundness cases and identity non-disclosure
+      scenario: active v5 Groth16 circuit contract fixes public inputs, private witness, soundness cases and identity non-disclosure
       owner: ServerContractAgent
       status: automated
       requiredCases:
@@ -77,22 +77,20 @@ scenarios:
           ]
       localCommands: [check:privacy-zk-contract]
       code:
-          - docs/zk/anonymous-comment-v2-circuit.md
-          - security/zk/contracts/comment-v2-circuit.manifest.json
-          - security/zk/contracts/comment-v2-tamper-cases.manifest.json
-          - security/zk/contracts/comment-v2-feasibility.manifest.json
-          - tools/crypto/check-zk-comment-v2-manifests.mjs
+          - security/zk/contracts/comment-v5-circuit.manifest.json
+          - security/zk/contracts/comment-v5-tamper-cases.manifest.json
+          - tools/security/comment-privacy-build-contract.mjs
           - tools/security/check-zk-comment-v2-unlinkability.mjs
       tests:
-          - tests/security/zk-comment-v2-manifest.test.mjs
+          - tests/security/comment-privacy-build-contract.test.mjs
           - tests/security/zk-comment-v2-unlinkability.test.mjs
-          - tools/crypto/check-zk-comment-v2-manifests.mjs
+          - tools/security/comment-privacy-build-contract.mjs
       evidence:
-          - .tmp/security/zk-comment-v2-manifest.json
+          - .tmp/security/comment-privacy-build-contract.json
           - .tmp/security/comment-v5-unlinkability.json
 
     - id: PRIVACY-ZK-TRUSTED-SETUP
-      scenario: comment.v2 trusted setup and verifying key manifests are fail-closed until real pk/vk/transcripts are supplied
+      scenario: v5 layout-6 trusted setup and verifying key manifests are fail-closed until real pk/vk/transcripts are supplied
       owner: ServerContractAgent
       status: automated
       requiredCases:
@@ -107,14 +105,14 @@ scenarios:
       localCommands: [check:privacy-zk-contract]
       code:
           - docs/zk/trusted-setup-ceremony.md
-          - security/zk/provenance/comment-v2-trusted-setup.manifest.json
-          - config/zk/anonymous-comment-v2-verifying-key.manifest.json
-          - tools/crypto/check-zk-comment-v2-manifests.mjs
+          - security/zk/provenance/comment-v5-trusted-setup.manifest.json
+          - config/zk/anonymous-comment-v5-verifying-key.manifest.json
+          - tools/security/comment-privacy-build-contract.mjs
       tests:
-          - tests/security/zk-comment-v2-manifest.test.mjs
-          - tools/crypto/check-zk-comment-v2-manifests.mjs
+          - tests/security/comment-privacy-build-contract.test.mjs
+          - tools/security/comment-privacy-build-contract.mjs
       evidence:
-          - .tmp/security/zk-comment-v2-manifest.json
+          - .tmp/security/comment-privacy-build-contract.json
 
     - id: PRIVACY-ZK-TRANSPORT
       scenario: anonymous submit keeps browser credentials out and rejects credential-bearing requests
@@ -340,36 +338,3 @@ scenarios:
           - tests/security/privacy-zk-prod-release.test.mjs
       evidence:
           - .tmp/security/privacy-zk-prod-smoke.json
-
-    - id: PRIVACY-ZK-LOCAL-REVIEW
-      scenario: repository-local cryptographic review hash-binds circuit setup key prover verifier report and focused evidence without claiming external assurance
-      owner: ServerContractAgent
-      status: automated
-      requiredCases:
-          [
-              constraint-completeness,
-              trusted-setup-provenance,
-              public-input-ordering,
-              native-mcl-binding,
-              subgroup-and-canonical-serialization,
-              nullifier-domain-root-epoch-binding,
-              malformed-noncanonical-proof-corpus,
-              verifier-concurrency-timeout,
-              no-independent-audit-claim,
-          ]
-      localCommands:
-          [check:privacy-zk-local-review, check:privacy-zk-prod-release]
-      code:
-          - security/zk/provenance/comment-v2-local-review.manifest.json
-          - docs/zk/comment-v2-local-cryptographic-review.md
-          - tools/security/zk-local-review.mjs
-          - tools/security/check-zk-local-review.mjs
-          - tools/security/check-privacy-zk-prod-release.mjs
-      tests:
-          - tests/security/zk-local-review.test.mjs
-          - tests/security/privacy-zk-prod-release.test.mjs
-          - tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs
-          - tests/backend/Unit/ZkProofVerifierTests.cs
-          - tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs
-      evidence:
-          - .tmp/security/zk-local-review-check.json

@@ -88,7 +88,6 @@ node "$ROOT_DIR/tools/release/create-release-manifest.mjs" \
     --image-digest "$IMAGE_DIGEST" \
     --frontend-manifest-hash "sha256:$(printf 'b%.0s' {1..64})" \
     --wasm-artifact-hash "sha256:$(printf 'c%.0s' {1..64})" \
-    --zk-local-review-hash "sha256:$(printf 'e%.0s' {1..64})" \
     --schema-minimum-coordinate "$RELEASE_ID" \
     --schema-maximum-coordinate "$RELEASE_ID" \
     --dotnet-version "10.0.100-fixture" \

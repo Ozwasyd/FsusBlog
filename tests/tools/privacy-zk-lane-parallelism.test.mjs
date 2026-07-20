@@ -49,8 +49,8 @@ test('privacy contract package scripts keep build-independent MCL work before th
   const postbuild = scripts['check:privacy-zk-contract:postbuild']
 
   assert.equal(contract, 'npm run check:privacy-zk-contract:prebuild && npm run check:privacy-zk-contract:postbuild')
-  assert.match(prebuild, /build-zk-comment-v2-r1cs\.mjs --check/u)
-  assert.match(prebuild, /MCL pairing fixture\|MCL tool writes/u)
+  assert.match(prebuild, /comment-privacy-build-contract\.mjs/u)
+  assert.match(prebuild, /MCL pairing fixture/u)
   assert.doesNotMatch(prebuild, /browser wasm prover bundle/u)
   assert.match(postbuild, /check-zk-comment-v5-manifests\.mjs/u)
   assert.match(postbuild, /browser wasm prover bundle/u)

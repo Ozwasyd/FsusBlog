@@ -305,6 +305,19 @@
             "producer": null
         },
         {
+            "path": "docs/architecture/article-mutation-outbox-versioning.md",
+            "title": "Versioned article mutation outbox",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "backend",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
+        {
             "path": "docs/architecture/article-mutation-side-effect-boundaries.md",
             "title": "Article mutation side-effect boundaries",
             "kind": "markdown",
@@ -523,6 +536,19 @@
         {
             "path": "docs/architecture/message-center-responsibilities.md",
             "title": "MessageCenter 内部职责边界",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "backend",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/architecture/monolithic-distributed-boundary.md",
+            "title": "单体分布式架构边界",
             "kind": "markdown",
             "status": "current",
             "owner": "backend",
@@ -2878,6 +2904,19 @@
             "producer": null
         },
         {
+            "path": "docs/operations/runtime-modes.md",
+            "title": "Runtime mode gates",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "governance",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
+        {
             "path": "docs/passkey-test-governance.md",
             "title": "Passkey 测试治理与保留映射",
             "kind": "markdown",
@@ -2893,6 +2932,19 @@
         {
             "path": "docs/performance-aeds-cache-miss-owned-frame.md",
             "title": "AEDS cache-miss owned-frame 构建与生命周期",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "release",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/performance-comment-moderation-queue.md",
+            "title": "评论审核队列查询计划与基准证据",
             "kind": "markdown",
             "status": "current",
             "owner": "release",
@@ -4390,6 +4442,21 @@
             "producer": null
         },
         {
+            "path": "docs/testing/issue-1068-vitest-transform-cache-evidence.md",
+            "title": "#1068 Vitest transform cache evidence",
+            "kind": "markdown",
+            "status": "historical",
+            "owner": "release",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1068
+            ],
+            "producer": null
+        },
+        {
             "path": "docs/testing/issue-1069-run-bound-production-builds.md",
             "title": "Issue #1069：Production run-bound 构建输出",
             "kind": "markdown",
@@ -5230,34 +5297,8 @@
             "producer": null
         },
         {
-            "path": "docs/zk/anonymous-comment-v2-circuit.md",
-            "title": "Historical fsus.anonymous.comment.v3 circuit contract",
-            "kind": "markdown",
-            "status": "current",
-            "owner": "security",
-            "sourceOfTruth": true,
-            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [],
-            "producer": null
-        },
-        {
             "path": "docs/zk/anonymous-credential-root-bootstrap.md",
             "title": "Anonymous credential root bootstrap runbook",
-            "kind": "markdown",
-            "status": "current",
-            "owner": "security",
-            "sourceOfTruth": true,
-            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [],
-            "producer": null
-        },
-        {
-            "path": "docs/zk/comment-v2-local-cryptographic-review.md",
-            "title": "comment.v2 Repository-local cryptographic review",
             "kind": "markdown",
             "status": "current",
             "owner": "security",
@@ -5283,7 +5324,7 @@
         },
         {
             "path": "docs/zk/trusted-setup-ceremony.md",
-            "title": "comment.v3 trusted setup ceremony contract",
+            "title": "Anonymous comment v5 trusted setup",
             "kind": "markdown",
             "status": "current",
             "owner": "security",

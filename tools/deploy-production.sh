@@ -14,7 +14,6 @@ PROJECT_NAME="${FSUSBLOG_COMPOSE_PROJECT_NAME:-}"
 
 HOST_TRUSTED_SETUP_MANIFEST=""
 HOST_VERIFYING_KEY_MANIFEST=""
-HOST_LOCAL_REVIEW_MANIFEST=""
 HOST_GROTH16_VERIFYING_KEY=""
 HOST_ISSUER_PUBLIC_KEY=""
 HOST_ISSUER_PRIVATE_KEY=""
@@ -258,10 +257,9 @@ GuideZkMaterials() {
      FSUSBLOG_ZK_CONFIG_DIR=/srv/fsusblog/zk/config
      FSUSBLOG_ZK_SECRET_DIR=/srv/fsusblog/zk/secrets
   2. Put public config material in FSUSBLOG_ZK_CONFIG_DIR:
-     comment-v2-trusted-setup.manifest.json
-     anonymous-comment-v2-verifying-key.manifest.json
-     comment-v2-local-review.manifest.json and every hash-bound local review artifact
-     comment.v2.vk
+     comment-v5-trusted-setup.manifest.json
+     anonymous-comment-v5-verifying-key.manifest.json
+     comment.v5.vk
      issuer-public.key
   3. Put private material in FSUSBLOG_ZK_SECRET_DIR:
      issuer-private.key
@@ -296,7 +294,6 @@ ValidateEnv() {
         FSUSBLOG_ZK_VERIFYING_KEY_HASH
         FSUSBLOG_ZK_TRUSTED_SETUP_MANIFEST
         FSUSBLOG_ZK_VERIFYING_KEY_MANIFEST
-        FSUSBLOG_ZK_LOCAL_REVIEW_MANIFEST
         FSUSBLOG_ZK_GROTH16_VERIFYING_KEY
         FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_ID
         FSUSBLOG_ZK_ISSUER_PUBLIC_KEY
@@ -338,7 +335,6 @@ ValidateEnv() {
 ValidateZkFiles() {
     HOST_TRUSTED_SETUP_MANIFEST="$(ResolveHostPath "$FSUSBLOG_ZK_TRUSTED_SETUP_MANIFEST" "/app/config/zk/" "$FSUSBLOG_ZK_CONFIG_DIR" "FSUSBLOG_ZK_TRUSTED_SETUP_MANIFEST")"
     HOST_VERIFYING_KEY_MANIFEST="$(ResolveHostPath "$FSUSBLOG_ZK_VERIFYING_KEY_MANIFEST" "/app/config/zk/" "$FSUSBLOG_ZK_CONFIG_DIR" "FSUSBLOG_ZK_VERIFYING_KEY_MANIFEST")"
-    HOST_LOCAL_REVIEW_MANIFEST="$(ResolveHostPath "$FSUSBLOG_ZK_LOCAL_REVIEW_MANIFEST" "/app/config/zk/" "$FSUSBLOG_ZK_CONFIG_DIR" "FSUSBLOG_ZK_LOCAL_REVIEW_MANIFEST")"
     HOST_GROTH16_VERIFYING_KEY="$(ResolveHostPath "$FSUSBLOG_ZK_GROTH16_VERIFYING_KEY" "/app/config/zk/" "$FSUSBLOG_ZK_CONFIG_DIR" "FSUSBLOG_ZK_GROTH16_VERIFYING_KEY")"
     HOST_ISSUER_PUBLIC_KEY="$(ResolveHostPath "$FSUSBLOG_ZK_ISSUER_PUBLIC_KEY" "/app/config/zk/" "$FSUSBLOG_ZK_CONFIG_DIR" "FSUSBLOG_ZK_ISSUER_PUBLIC_KEY")"
     HOST_ISSUER_PRIVATE_KEY="$(ResolveHostPath "$FSUSBLOG_ZK_ISSUER_PRIVATE_KEY" "/app/secrets/zk/" "$FSUSBLOG_ZK_SECRET_DIR" "FSUSBLOG_ZK_ISSUER_PRIVATE_KEY")"
@@ -346,7 +342,6 @@ ValidateZkFiles() {
     local failed=0
     RequireFile "trusted setup manifest" "$HOST_TRUSTED_SETUP_MANIFEST" || failed=1
     RequireFile "verifying key manifest" "$HOST_VERIFYING_KEY_MANIFEST" || failed=1
-    RequireFile "repository-local cryptographic review manifest" "$HOST_LOCAL_REVIEW_MANIFEST" || failed=1
     RequireFile "Groth16 verifying key" "$HOST_GROTH16_VERIFYING_KEY" || failed=1
     RequireFile "issuer public key" "$HOST_ISSUER_PUBLIC_KEY" || failed=1
     RequireFile "issuer private key" "$HOST_ISSUER_PRIVATE_KEY" || failed=1
@@ -356,10 +351,9 @@ ValidateZkFiles() {
         exit 1
     fi
 
-    local vkSha issuerSha localReviewSha expectedVkSha expectedIssuerSha
+    local vkSha issuerSha expectedVkSha expectedIssuerSha
     vkSha="$(Sha256File "$HOST_GROTH16_VERIFYING_KEY")"
     issuerSha="$(Sha256File "$HOST_ISSUER_PUBLIC_KEY")"
-    localReviewSha="$(Sha256File "$HOST_LOCAL_REVIEW_MANIFEST")"
     expectedVkSha="$(printf '%s' "$FSUSBLOG_ZK_VERIFYING_KEY_HASH" | tr '[:upper:]' '[:lower:]')"
     expectedIssuerSha="$(printf '%s' "$FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_HASH" | tr '[:upper:]' '[:lower:]')"
     if [[ "$vkSha" != "$expectedVkSha" ]]; then
@@ -367,9 +361,6 @@ ValidateZkFiles() {
     fi
     if [[ "$issuerSha" != "$expectedIssuerSha" ]]; then
         Fail "FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_HASH does not match $HOST_ISSUER_PUBLIC_KEY"
-    fi
-    if [[ "sha256:$localReviewSha" != "$FSUSBLOG_ZK_LOCAL_REVIEW_SHA256" ]]; then
-        Fail "repository-local cryptographic review does not match immutable release manifest"
     fi
 }
 
@@ -383,13 +374,11 @@ RunZkReleaseGate() {
             FSUSBLOG_ZK_NATIVE_VERIFIER_LIB="${FSUSBLOG_ZK_NATIVE_VERIFIER_LIB:-managed:mcl}" \
             FSUSBLOG_ZK_VERIFYING_KEY_HASH="$FSUSBLOG_ZK_VERIFYING_KEY_HASH" \
             FSUSBLOG_ZK_TRUSTED_SETUP_MANIFEST="$HOST_TRUSTED_SETUP_MANIFEST" \
-            FSUSBLOG_ZK_LOCAL_REVIEW_MANIFEST="$HOST_LOCAL_REVIEW_MANIFEST" \
             FSUSBLOG_ZK_ISSUER_PUBLIC_KEY="$HOST_ISSUER_PUBLIC_KEY" \
             FSUSBLOG_ZK_ISSUER_PRIVATE_KEY="$HOST_ISSUER_PRIVATE_KEY" \
             npm --prefix src/frontend run check:privacy-zk-prod-release -- \
             --require-enabled \
             --trusted-setup-manifest "$HOST_TRUSTED_SETUP_MANIFEST" \
-            --local-review-manifest "$HOST_LOCAL_REVIEW_MANIFEST" \
             --smoke-evidence "$smokeEvidence" \
             --root-bootstrap-evidence "$rootEvidence"
         return 0
@@ -399,13 +388,11 @@ RunZkReleaseGate() {
         FSUSBLOG_ZK_NATIVE_VERIFIER_LIB="${FSUSBLOG_ZK_NATIVE_VERIFIER_LIB:-managed:mcl}" \
         FSUSBLOG_ZK_VERIFYING_KEY_HASH="$FSUSBLOG_ZK_VERIFYING_KEY_HASH" \
         FSUSBLOG_ZK_TRUSTED_SETUP_MANIFEST="$HOST_TRUSTED_SETUP_MANIFEST" \
-        FSUSBLOG_ZK_LOCAL_REVIEW_MANIFEST="$HOST_LOCAL_REVIEW_MANIFEST" \
         FSUSBLOG_ZK_ISSUER_PUBLIC_KEY="$HOST_ISSUER_PUBLIC_KEY" \
         FSUSBLOG_ZK_ISSUER_PRIVATE_KEY="$HOST_ISSUER_PRIVATE_KEY" \
         npm --prefix src/frontend run check:privacy-zk-prod-release -- \
         --require-enabled \
         --trusted-setup-manifest "$HOST_TRUSTED_SETUP_MANIFEST" \
-        --local-review-manifest "$HOST_LOCAL_REVIEW_MANIFEST" \
         --smoke-evidence "$smokeEvidence" \
         --root-bootstrap-evidence "$rootEvidence"
 }
@@ -433,7 +420,7 @@ LoadReleaseManifest() {
     fi
     local -a fields=()
     mapfile -t fields <<<"$output"
-    [[ "${#fields[@]}" -eq 9 ]] || Fail "release manifest validator returned incomplete deployment fields"
+    [[ "${#fields[@]}" -eq 8 ]] || Fail "release manifest validator returned incomplete deployment fields"
     export FSUSBLOG_RELEASE_ID="${fields[0]}"
     export FSUSBLOG_RELEASE_CREATED_AT_UTC="${fields[1]}"
     export FSUSBLOG_COMMIT_SHA="${fields[2]}"
@@ -442,7 +429,6 @@ LoadReleaseManifest() {
     export FSUSBLOG_IMAGE_TAG="${fields[5]}"
     export FSUSBLOG_IMAGE_DIGEST="${fields[6]}"
     export FSUSBLOG_ROLLBACK_TARGET="${fields[7]}"
-    export FSUSBLOG_ZK_LOCAL_REVIEW_SHA256="${fields[8]}"
     export FSUSBLOG_RELEASE_MANIFEST_HOST_PATH="$RELEASE_MANIFEST"
     [[ -n "${FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE:-}" ]] ||
         Fail "FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE must be derived from the durable active slot before deploy"

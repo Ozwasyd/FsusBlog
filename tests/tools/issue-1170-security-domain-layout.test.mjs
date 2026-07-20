@@ -61,14 +61,14 @@ test('governance aggregates flat files, weak policies, ZK drift, false evidence 
   policy.rules[0].include = ['../outside/**/*.cs']
   writeJson('security/policies/backend-source-policy.json', policy, directory)
 
-  const circuitPath = 'security/zk/contracts/comment-v2-circuit.manifest.json'
+  const circuitPath = 'security/zk/contracts/comment-v5-circuit.manifest.json'
   const circuit = readJson(circuitPath, directory)
   circuit.artifact_class = 'provenance-in-contracts'
   writeJson(circuitPath, circuit, directory)
 
-  const setupPath = 'security/zk/provenance/comment-v2-trusted-setup.manifest.json'
+  const setupPath = 'security/zk/provenance/comment-v5-trusted-setup.manifest.json'
   const setup = readJson(setupPath, directory)
-  setup.circuit_manifest_sha256 = '0'.repeat(64)
+  setup.circuit_id = 'fsus.anonymous.comment.retired'
   writeJson(setupPath, setup, directory)
 
   const evidencePath = 'security/evidence-contracts/comment-privacy-credential-vault.release-plan.json'
@@ -78,8 +78,8 @@ test('governance aggregates flat files, weak policies, ZK drift, false evidence 
 
   const settingsPath = path.join(directory, 'src/backend/appsettings.json')
   writeFileSync(settingsPath, readFileSync(settingsPath, 'utf8').replace(
-    'security/zk/contracts/comment-v2-circuit.manifest.json',
-    'security/zk/comment-v2-circuit.manifest.json'
+    'security/zk/contracts/comment-v5-circuit.manifest.json',
+    'security/zk/comment-v5-circuit.manifest.json'
   ))
 
   const errors = checkSecurityDomainLayout({ root: directory })
@@ -87,7 +87,7 @@ test('governance aggregates flat files, weak policies, ZK drift, false evidence 
   assert.ok(errors.some(error => error.includes('security root files are forbidden')))
   assert.ok(errors.some(error => error.includes('lacks severity, rationale, or safe path scope')))
   assert.ok(errors.some(error => error.includes('artifact_class must identify a contract')))
-  assert.ok(errors.some(error => error.includes('trusted setup circuit manifest SHA-256 drift')))
+  assert.ok(errors.some(error => error.includes('trusted setup must select fsus.anonymous.comment.v5 layout 6')))
   assert.ok(errors.some(error => error.includes('cannot claim freshExecution')))
   assert.ok(errors.some(error => error.includes('must select a ZK contract manifest')))
   assert.ok(errors.some(error => error.includes('legacy flat security path remains')))

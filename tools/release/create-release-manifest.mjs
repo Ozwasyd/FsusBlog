@@ -18,7 +18,7 @@ try {
   const options = parseArgs(process.argv.slice(2))
   const required = [
     'output', 'release-id', 'created-at-utc', 'commit-sha', 'image-repository', 'image-tag', 'image-digest',
-    'frontend-manifest-hash', 'wasm-artifact-hash', 'zk-local-review-hash',
+    'frontend-manifest-hash', 'wasm-artifact-hash',
     'schema-minimum-coordinate', 'schema-maximum-coordinate',
     'dotnet-version', 'node-version', 'docker-version', 'dockerfile-digest'
   ]
@@ -35,7 +35,6 @@ try {
     createdAtUtc: options['created-at-utc'],
     frontendManifestHash: options['frontend-manifest-hash'],
     wasmArtifactHash: options['wasm-artifact-hash'],
-    zkLocalReviewHash: options['zk-local-review-hash'],
     schemaMinimumCoordinate: options['schema-minimum-coordinate'],
     schemaMaximumCoordinate: options['schema-maximum-coordinate'],
     dotnetVersion: options['dotnet-version'],

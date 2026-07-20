@@ -36,13 +36,12 @@
             "root": "security/zk/contracts",
             "owner": "ServerContractAgent",
             "documents": [
-                "security/zk/contracts/comment-v2-circuit.manifest.json",
                 "security/zk/contracts/comment-v2-feasibility.manifest.json",
                 "security/zk/contracts/comment-v2-tamper-cases.manifest.json",
                 "security/zk/contracts/comment-v5-circuit.manifest.json",
                 "security/zk/contracts/comment-v5-tamper-cases.manifest.json"
             ],
-            "checker": "tools/crypto/check-zk-comment-v2-manifests.mjs"
+            "checker": "tools/security/comment-privacy-build-contract.mjs"
         },
         {
             "id": "zk-provenance",
@@ -50,8 +49,6 @@
             "owner": "ServerContractAgent",
             "documents": [
                 "security/zk/provenance/artifact-ownership.manifest.json",
-                "security/zk/provenance/comment-v2-local-review.manifest.json",
-                "security/zk/provenance/comment-v2-trusted-setup.manifest.json",
                 "security/zk/provenance/comment-v5-trusted-setup.manifest.json"
             ],
             "checker": "tools/crypto/check-zk-artifact-ownership.mjs"
@@ -73,13 +70,13 @@
     "runtimeSelections": [
         {
             "path": "src/backend/appsettings.json",
-            "circuitManifest": "security/zk/contracts/comment-v2-circuit.manifest.json",
-            "trustedSetupManifest": "security/zk/provenance/comment-v2-trusted-setup.manifest.json"
+            "circuitManifest": "security/zk/contracts/comment-v5-circuit.manifest.json",
+            "trustedSetupManifest": "security/zk/provenance/comment-v5-trusted-setup.manifest.json"
         },
         {
             "path": "src/backend/appsettings.Production.json",
-            "circuitManifest": "security/zk/contracts/comment-v2-circuit.manifest.json",
-            "trustedSetupManifest": "security/zk/provenance/comment-v2-trusted-setup.manifest.json"
+            "circuitManifest": "security/zk/contracts/comment-v5-circuit.manifest.json",
+            "trustedSetupManifest": "security/zk/provenance/comment-v5-trusted-setup.manifest.json"
         }
     ],
     "runtimePackaging": {

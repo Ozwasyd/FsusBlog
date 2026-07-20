@@ -6,7 +6,7 @@
 ASP.NET Core precedence remains: base appsettings < Production overlay < environment/Compose < explicit command line.
 
 - Application settings: 185
-- Tracked environment variables: 229
+- Tracked environment variables: 228
 - Mounted file classes: 5
 
 ## Application settings
@@ -388,7 +388,6 @@ ASP.NET Core precedence remains: base appsettings < Production overlay < environ
 | `FSUSBLOG_ZK_ISSUER_PUBLIC_KEY` | secret-file-path | anonymous-identity | `AnonymousCredentialIssuer:CircuitNative:IssuerPublicKeyPath` | no | `.env.production.example`, `ops/docker/docker-compose.production.yml` |
 | `FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_HASH` | deployment-control | anonymous-identity | `AnonymousCredentialIssuer:CircuitNative:IssuerPublicKeyHash` | no | `.env.production.example`, `ops/docker/docker-compose.production.yml` |
 | `FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_ID` | deployment-control | anonymous-identity | `AnonymousCredentialIssuer:IssuerPublicKeyId` | no | `.env.production.example`, `ops/docker/docker-compose.production.yml` |
-| `FSUSBLOG_ZK_LOCAL_REVIEW_MANIFEST` | secret-file-path | anonymous-identity | None | no | `.env.production.example` |
 | `FSUSBLOG_ZK_NATIVE_VERIFIER_LIB` | deployment-control | anonymous-identity | `AnonymousIdentity:ZkVerifier:NativeGroth16:LibraryPath` | no | `.env.production.example`, `ops/docker/docker-compose.production.yml`, `tools/deploy-production.sh` |
 | `FSUSBLOG_ZK_PROD_ENABLED` | deployment-control | anonymous-identity | `AnonymousIdentity:ZkProd:Enabled` | no | `.env.production.example`, `ops/docker/docker-compose.production.yml` |
 | `FSUSBLOG_ZK_PROD_SMOKE_EVIDENCE` | deployment-control | anonymous-identity | None | no | `tools/deploy-production.sh` |

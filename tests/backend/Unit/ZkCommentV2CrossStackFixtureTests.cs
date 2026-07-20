@@ -105,8 +105,8 @@ public sealed class ZkCommentV2CrossStackFixtureTests
     [Fact]
     public void RepositoryCommentV2PlaceholderArtifacts_AreMarkedFailClosedForProduction()
     {
-        JsonObject trustedSetup = BackendTestPaths.ReadJsonFromRoot("security", "zk", "provenance", "comment-v2-trusted-setup.manifest.json");
-        JsonObject verifyingKey = BackendTestPaths.ReadJsonFromRoot("config", "zk", "anonymous-comment-v2-verifying-key.manifest.json");
+        JsonObject trustedSetup = BackendTestPaths.ReadJsonFromRoot("security", "zk", "provenance", "comment-v5-trusted-setup.manifest.json");
+        JsonObject verifyingKey = BackendTestPaths.ReadJsonFromRoot("config", "zk", "anonymous-comment-v5-verifying-key.manifest.json");
 
         Assert.False(trustedSetup["production_usable"]!.GetValue<bool>());
         Assert.NotEqual("verified", trustedSetup["ceremony_status"]!.GetValue<string>());

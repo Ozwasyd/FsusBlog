@@ -94,8 +94,8 @@ documentation、security 或 automation ownership；新增 source-like root 必�
 node tools/check-repository-source-layout.mjs
 node tools/check-csharp-entrypoint-ownership.mjs
 node tools/security/check-security-domain-layout.mjs
-node tools/crypto/build-zk-comment-v2-r1cs.mjs --check
-node tools/crypto/check-zk-comment-v2-manifests.mjs
+node tools/security/comment-privacy-build-contract.mjs
+node tools/crypto/check-zk-artifact-ownership.mjs
 node tools/security/check-zk-comment-v5-manifests.mjs
 node --test tests/tools/issue-1166-zk-source-layout.test.mjs
 ```

@@ -165,7 +165,7 @@ assert.match(serverDockerfileSource,
   /comment-privacy-build-contract\.mjs/u,
   'the isolated wasm builder must validate the current v5 setup before optional prover packaging');
 assert.doesNotMatch(serverDockerfileSource,
-  new RegExp(`comment-v3-${'layout4'}/keys|COMMENT_PRIVACY_${'PROVER_KEY_PATH'}`, 'u'),
+  new RegExp(`COMMENT_PRIVACY_${'PROVER_KEY_PATH'}`, 'u'),
   'the isolated wasm builder must not retain a retired proving-key path or restore argument');
 assert.match(serverDockerfileSource,
   /ENV FSUSBLOG_FRONTEND_WASM_ROOT=\/work\/FsusBlog\.Client\/public\/wasm/u,

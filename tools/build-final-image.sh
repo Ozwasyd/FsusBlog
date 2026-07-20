@@ -372,7 +372,6 @@ fi
 [[ "$wasm_artifact_hash" =~ ^sha256:[0-9a-f]{64}$ ]] || Fail "wasm artifact hash is invalid"
 
 dockerfile_digest="sha256:$(sha256sum "$ROOT_DIR/ops/docker/FsusBlog.Server.Dockerfile" | awk '{print $1}')"
-zk_local_review_hash="sha256:$(sha256sum "$ROOT_DIR/security/zk/provenance/comment-v2-local-review.manifest.json" | awk '{print $1}')"
 dotnet_version="$(dotnet --version)"
 node_version="$(node --version)"
 docker_version="$(docker version --format '{{.Client.Version}}')"
@@ -391,7 +390,6 @@ node "$ROOT_DIR/tools/release/create-release-manifest.mjs" \
     --image-digest "$image_digest" \
     --frontend-manifest-hash "$frontend_manifest_hash" \
     --wasm-artifact-hash "$wasm_artifact_hash" \
-    --zk-local-review-hash "$zk_local_review_hash" \
     --schema-minimum-coordinate "$schema_minimum_coordinate" \
     --schema-maximum-coordinate "$schema_maximum_coordinate" \
     --dotnet-version "$dotnet_version" \

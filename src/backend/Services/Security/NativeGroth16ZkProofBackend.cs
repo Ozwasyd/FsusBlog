@@ -176,7 +176,7 @@ internal sealed record NativeGroth16ZkProofBackendOptions(
     }
 
     private static string DefaultVerifyingKeyPath()
-        => Path.Combine(AppContext.BaseDirectory, "native", "zk", "comment.v2.vk");
+        => Path.Combine(AppContext.BaseDirectory, "native", "zk", "comment.v5.vk");
 
     private static string NormalizePath(string? configured, string? environment, string fallback)
     {

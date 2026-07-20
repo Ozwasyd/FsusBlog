@@ -1,9 +1,9 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
     "generatedFrom": "cc82e0ed0c7158d1a7f4e1035ec26c4fc59ed078",
-    "configurationSha256": "b9f87061097251ae141c240e37a7c797320215a8107fa352c4a17a68d1c27e8d",
-    "violationCount": 360632,
-    "fileCount": 1102,
+    "configurationSha256": "c191bfaeba3947d7da8b65460faefad28efcbc8b5ca10ad00b2cdb7f836f5ec8",
+    "violationCount": 358152,
+    "fileCount": 1096,
     "files": [
         {
             "path": "src/frontend/public/sw.js",
@@ -10368,19 +10368,6 @@
             }
         },
         {
-            "path": "tests/security/zk-local-review.test.mjs",
-            "sourceSha256": "9f1c984654c838882ff9b143b2feffc3cc2a1910e77ea563b1d138aebf917c13",
-            "violationCount": 254,
-            "violationDigest": "61baf7aedefbefef8996dd70fbd13db1e9b552f610872f8f393941fb8f82ae61",
-            "rules": {
-                "eslint/@stylistic/brace-style": 25,
-                "eslint/@stylistic/indent": 142,
-                "eslint/@stylistic/semi": 85,
-                "eslint/import-x/no-relative-parent-imports": 1,
-                "eslint/import-x/order": 1
-            }
-        },
-        {
             "path": "tests/tools/acceptance-layer-migration.test.mjs",
             "sourceSha256": "3ffe1b42346b0f11a0d070810def8a157fac208b120ded4346d23c25873e2a97",
             "violationCount": 139,
@@ -12914,17 +12901,6 @@
             }
         },
         {
-            "path": "tools/crypto/build-zk-comment-v2-r1cs.mjs",
-            "sourceSha256": "5f4198df35818d71a0da0efbc9317b0428c4aeb809185e89f01c80776e609828",
-            "violationCount": 303,
-            "violationDigest": "a41b4c97c64f43143ab86085541c9792b8bf0aca0730a1de26a780f98abc8617",
-            "rules": {
-                "eslint/@stylistic/brace-style": 27,
-                "eslint/@stylistic/indent": 181,
-                "eslint/@stylistic/semi": 95
-            }
-        },
-        {
             "path": "tools/crypto/check-zk-artifact-ownership.mjs",
             "sourceSha256": "efa3f3093184030e8858ff9d0d7e0fc3f1a447e303cae200cf281f92c8e56ba5",
             "violationCount": 440,
@@ -12935,20 +12911,6 @@
                 "eslint/@stylistic/semi": 142,
                 "eslint/curly": 28,
                 "eslint/import-x/order": 1
-            }
-        },
-        {
-            "path": "tools/crypto/check-zk-comment-v2-manifests.mjs",
-            "sourceSha256": "debe8b197efdbbfb6f033e89886ce75a79871e357e2200486094500f39c587bf",
-            "violationCount": 1183,
-            "violationDigest": "d11b2632203d4b2f0623dcc0412f57d7c437455b045857ef0bbc107170e2f39f",
-            "rules": {
-                "eslint/@stylistic/brace-style": 157,
-                "eslint/@stylistic/indent": 721,
-                "eslint/@stylistic/semi": 301,
-                "eslint/curly": 1,
-                "eslint/import-x/no-relative-parent-imports": 1,
-                "eslint/import-x/order": 2
             }
         },
         {
@@ -14544,19 +14506,6 @@
             }
         },
         {
-            "path": "tools/security/check-zk-local-review.mjs",
-            "sourceSha256": "3e34cc1e3b2cb2dd41c3e74e551c04e24b1dcb6f5ff953651285dbf5d99b3b70",
-            "violationCount": 68,
-            "violationDigest": "ccfc934ac5c54873a9539816bed6fd1dbd3d7bd6f1146333ed216837318da4e7",
-            "rules": {
-                "eslint/@stylistic/brace-style": 7,
-                "eslint/@stylistic/indent": 26,
-                "eslint/@stylistic/semi": 28,
-                "eslint/curly": 6,
-                "eslint/import-x/order": 1
-            }
-        },
-        {
             "path": "tools/security/open-source-license-audit.mjs",
             "sourceSha256": "1034ba26e2624291debeef44ab1866448bd950dd8d9ea6563363fe85dd199338",
             "violationCount": 260,
@@ -14620,18 +14569,6 @@
                 "eslint/@stylistic/semi": 114,
                 "eslint/curly": 5,
                 "eslint/import-x/order": 1
-            }
-        },
-        {
-            "path": "tools/security/zk-local-review.mjs",
-            "sourceSha256": "6ae9c212b99840d335c6c0e39dba1a5c0a0ba70af48b58c757d70928c4e04392",
-            "violationCount": 428,
-            "violationDigest": "f47c0b2e0bb2fecb46452a9719fa9090f085a80f37c57cf475c126ed29c1840f",
-            "rules": {
-                "eslint/@stylistic/brace-style": 55,
-                "eslint/@stylistic/indent": 252,
-                "eslint/@stylistic/semi": 111,
-                "eslint/curly": 10
             }
         },
         {

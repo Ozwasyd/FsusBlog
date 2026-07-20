@@ -25,6 +25,11 @@
             "classification": "build-output"
         },
         {
+            "path": "cmake",
+            "classification": "source-exception",
+            "architecturalException": "Shared CMake policy source remains a top-level build-system domain and is never shipped as product runtime source."
+        },
+        {
             "path": "config",
             "classification": "runtime-configuration"
         },
@@ -80,29 +85,12 @@
         "testFixturesRoot": "tests/fixtures/zk",
         "circuitSources": [
             {
-                "id": "anonymous-comment-v2",
-                "path": "src/zk/circuits/anonymous-comment-v2/comment_v2.circuit.json",
-                "sha256": "5b4ef7c9f7e21290ea5e7a9095a9e80be6f9e6b7ef082900eba34b82dae103f6"
-            },
-            {
                 "id": "anonymous-comment-v5",
                 "path": "src/zk/circuits/anonymous-comment-v5/comment_v5.circuit.json",
-                "sha256": "cdf5510a8df3feddf1ad1c5e760085d38bf7829ce0de813bff196e45acf69278"
+                "sha256": "8a7ff2f645ce611434fe82118921f277cb1eca5c2533f0cc8e11d2836f560d9d"
             }
         ],
         "jsonSourceBindings": [
-            {
-                "path": "security/zk/contracts/comment-v2-circuit.manifest.json",
-                "pathField": "r1cs_source.path",
-                "hashField": "r1cs_source.sha256",
-                "sourceId": "anonymous-comment-v2"
-            },
-            {
-                "path": "artifacts/zk/comment-v3-layout4/generated/comment_v3.r1cs",
-                "pathField": "source_path",
-                "hashField": "source_sha256",
-                "sourceId": "anonymous-comment-v2"
-            },
             {
                 "path": "security/zk/contracts/comment-v5-circuit.manifest.json",
                 "pathField": "source",

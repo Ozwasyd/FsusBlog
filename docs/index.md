@@ -29,6 +29,7 @@
 - [Article Deletion Data Catalog](architecture/article-deletion-data-catalog.json)
 - [Article permanent-deletion lifecycle](architecture/article-deletion-lifecycle.md)
 - [Article mutation outbox claim lease](architecture/article-mutation-outbox-claim-lease.md)
+- [Versioned article mutation outbox](architecture/article-mutation-outbox-versioning.md)
 - [Article mutation side-effect boundaries](architecture/article-mutation-side-effect-boundaries.md)
 - [Article revision concurrency](architecture/article-revision-concurrency.md)
 - [Comment attribution and privacy boundary](architecture/comment-attribution-privacy-boundary.md)
@@ -42,6 +43,7 @@
 - [ADR: ZK anonymous comments use circuit-native credentials and Groth16 proofs](architecture/decisions/ADR-ZK-CircuitNative-Groth16.md)
 - [DI lifetime validation](architecture/dependency-injection-lifetime-validation.md)
 - [MessageCenter 内部职责边界](architecture/message-center-responsibilities.md)
+- [单体分布式架构边界](architecture/monolithic-distributed-boundary.md)
 - [Notification stream handshake use-case boundaries](architecture/notification-stream-handshake-use-case-boundaries.md)
 - [FsusBlog Architecture Overview](architecture/overview.md)
 - [Public AOT artifact storage boundary](architecture/public-aot-artifact-storage-boundary.md)
@@ -145,11 +147,9 @@
 - [User session metadata privacy](security/user-session-metadata-privacy.md)
 - [Security-log IP pseudonyms](security/visit-log-ip-pseudonyms.md)
 - [普通账号会话撤销一致性](user-session-revocation.md)
-- [Historical fsus.anonymous.comment.v3 circuit contract](zk/anonymous-comment-v2-circuit.md)
 - [Anonymous credential root bootstrap runbook](zk/anonymous-credential-root-bootstrap.md)
-- [comment.v2 Repository-local cryptographic review](zk/comment-v2-local-cryptographic-review.md)
 - [Revocation Accumulator Contract](zk/revocation-accumulator.md)
-- [comment.v3 trusted setup ceremony contract](zk/trusted-setup-ceremony.md)
+- [Anonymous comment v5 trusted setup](zk/trusted-setup-ceremony.md)
 
 ### Release
 
@@ -158,6 +158,7 @@
 - [Operations Infrastructure Layout](operations-layout.md)
 - [FsusBlog Operations Runbook](operations.md)
 - [AEDS cache-miss owned-frame 构建与生命周期](performance-aeds-cache-miss-owned-frame.md)
+- [评论审核队列查询计划与基准证据](performance-comment-moderation-queue.md)
 - [评论树查询计划与基准证据](performance-comment-tree.md)
 - [CSP nonce UTF-8 segment templates](performance-csp-nonce-template.md)
 - [Performance Governance](performance-governance.md)
@@ -208,6 +209,7 @@
 - [Online Migration Operations](online-database-migration-operations.md)
 - [Online Database Migration Protocol](online-database-migration.md)
 - [Open Source Readiness](open-source-readiness.md)
+- [Runtime mode gates](operations/runtime-modes.md)
 - [公共 AOT 冷首屏与切流门禁](public-aot-cold-first-response.md)
 - [Perception V2 Release Evidence](release-evidence/perception-v2.md)
 - [Repository Governance](repository-governance.md)
@@ -350,6 +352,7 @@
 - [Issue #1046：反爬虫与评论风险控制行为交接](testing/issue-1046-risk-control-behavior-handoff.md) - owner `release`; issues #1046
 - [Issue #1047：统计隐私、Taxonomy、ReadModel 与序列化交接](testing/issue-1047-projection-serialization-handoff.md) - owner `release`; issues #1047
 - [Issue #1063 AEDS Wasm throughput handoff](testing/issue-1063-aeds-wasm-throughput-handoff.md) - owner `release`; issues #1063
+- [#1068 Vitest transform cache evidence](testing/issue-1068-vitest-transform-cache-evidence.md) - owner `release`; issues #1068
 - [Issue #1069：Production run-bound 构建输出](testing/issue-1069-run-bound-production-builds.md) - owner `release`; issues #1069
 - [Issue #1070：Production 物理 Artifact 摘要表](testing/issue-1070-production-artifact-digest-table.md) - owner `release`; issues #1070
 - [Production resource utilization evidence](testing/issue-1071-production-resource-utilization.md) - owner `release`; issues #1071

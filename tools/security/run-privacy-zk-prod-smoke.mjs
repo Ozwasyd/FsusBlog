@@ -13,7 +13,7 @@ const DEFAULT_SUMMARY = '.tmp/security/privacy-zk-prod-smoke.json'
 const DEFAULT_PROVER_MANIFEST = process.env.FSUSBLOG_FRONTEND_WASM_ROOT
   ? path.join(process.env.FSUSBLOG_FRONTEND_WASM_ROOT, 'comment-privacy-prover.manifest.json')
   : 'src/frontend/public/wasm/comment-privacy-prover.manifest.json'
-const DEFAULT_TRUSTED_SETUP = 'security/zk/provenance/comment-v2-trusted-setup.manifest.json'
+const DEFAULT_TRUSTED_SETUP = 'security/zk/provenance/comment-v5-trusted-setup.manifest.json'
 const REAL_EVIDENCE_KIND = 'real-groth16-cross-stack'
 const REQUIRED_ARTIFACT_HASHES = [
   'r1csSha256',
@@ -208,11 +208,11 @@ function validateRealGroth16Evidence(evidence) {
   if (normalizeString(evidence.evidenceKind) !== REAL_EVIDENCE_KIND) {
     errors.push(`real smoke evidence must declare evidenceKind=${REAL_EVIDENCE_KIND}.`)
   }
-  if (normalizeString(evidence.circuitId) !== 'fsus.anonymous.comment.v3') {
-    errors.push('real smoke evidence circuitId must be fsus.anonymous.comment.v3.')
+  if (normalizeString(evidence.circuitId) !== 'fsus.anonymous.comment.v5') {
+    errors.push('real smoke evidence circuitId must be fsus.anonymous.comment.v5.')
   }
-  if (Number(evidence.publicInputLayoutVersion) !== 4) {
-    errors.push('real smoke evidence publicInputLayoutVersion must be 4.')
+  if (Number(evidence.publicInputLayoutVersion) !== 6) {
+    errors.push('real smoke evidence publicInputLayoutVersion must be 6.')
   }
   if (normalizeString(evidence.proofSystem) !== 'Groth16') {
     errors.push('real smoke evidence proofSystem must be Groth16.')

@@ -86,10 +86,7 @@ test('build contracts contain no retired proving-key restore path', () => {
     'tools/build-wasm-artifact.sh'
   ]) {
     const source = readFileSync(path.join(root, relativePath), 'utf8')
-    const retiredCircuit = `v${3}`
     const retiredKeyPattern = new RegExp([
-      `comment-${retiredCircuit}-${'layout4'}/keys`,
-      `comment_${retiredCircuit}_${'final\\.fsg16pk'}`,
       `COMMENT_PRIVACY_${'PROVER_KEY_PATH'}`
     ].join('|'), 'u')
     assert.doesNotMatch(source, retiredKeyPattern,

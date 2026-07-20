@@ -7826,17 +7826,6 @@
             "deprecation": null
         },
         {
-            "name": "FSUSBLOG_ZK_LOCAL_REVIEW_MANIFEST",
-            "category": "secret-file-path",
-            "owner": "anonymous-identity",
-            "secret": false,
-            "mapsTo": [],
-            "sources": [
-                ".env.production.example"
-            ],
-            "deprecation": null
-        },
-        {
             "name": "FSUSBLOG_ZK_NATIVE_VERIFIER_LIB",
             "category": "deployment-control",
             "owner": "anonymous-identity",

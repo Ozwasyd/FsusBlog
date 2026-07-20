@@ -100,8 +100,8 @@ test('privacy ZK production smoke accepts sanitized real full-chain evidence', (
     assert.equal(parsed.identityHeadersOmitted, true)
     assert.equal(parsed.sensitivePayloadRedacted, true)
     assert.equal(parsed.realEvidenceKind, 'real-groth16-cross-stack')
-    assert.equal(parsed.circuitId, 'fsus.anonymous.comment.v3')
-    assert.equal(parsed.publicInputLayoutVersion, 4)
+    assert.equal(parsed.circuitId, 'fsus.anonymous.comment.v5')
+    assert.equal(parsed.publicInputLayoutVersion, 6)
     assert.equal(parsed.proofSystem, 'Groth16')
     assert.equal(parsed.artifactHashes.wasmProverSha256, evidence.artifactHashes.wasmProverSha256)
     assert.equal(parsed.evidenceArtifacts.wasmProver.sha256, evidence.artifacts.wasmProver.sha256)
@@ -246,8 +246,8 @@ function completeRealEvidence(dir, overrides = {}) {
   return {
     status: 'ok',
     evidenceKind: 'real-groth16-cross-stack',
-    circuitId: 'fsus.anonymous.comment.v3',
-    publicInputLayoutVersion: 4,
+    circuitId: 'fsus.anonymous.comment.v5',
+    publicInputLayoutVersion: 6,
     proofSystem: 'Groth16',
     verifyingKeyHash: artifactHashes.verifyingKeySha256,
     nativeVerifier: true,

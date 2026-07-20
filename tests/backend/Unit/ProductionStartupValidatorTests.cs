@@ -967,8 +967,8 @@ public sealed class ProductionStartupValidatorTests
         IConfiguration configuration = CreateZkProdProductionConfiguration(new Dictionary<string, string?>
         {
             ["AnonymousIdentity:ZkProd:VerifyingKeyHash"] = "27ea8a04e27eb66a5b61aab2251762a372bb3f39217c896bc5ad850fd859143c",
-            ["AnonymousIdentity:ZkProd:TrustedSetupManifestPath"] = "security/zk/provenance/comment-v2-trusted-setup.manifest.json",
-            ["AnonymousIdentity:ZkProd:VerifyingKeyManifestPath"] = "config/zk/anonymous-comment-v2-verifying-key.manifest.json"
+            ["AnonymousIdentity:ZkProd:TrustedSetupManifestPath"] = "security/zk/provenance/comment-v5-trusted-setup.manifest.json",
+            ["AnonymousIdentity:ZkProd:VerifyingKeyManifestPath"] = "config/zk/anonymous-comment-v5-verifying-key.manifest.json"
         });
 
         IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(

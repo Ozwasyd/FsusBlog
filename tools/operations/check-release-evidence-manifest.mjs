@@ -1623,7 +1623,6 @@ async function runSelfTest() {
       createdAtUtc: '2026-07-11T01:01:01.000Z',
       frontendManifestHash: `sha256:${'b'.repeat(64)}`,
       wasmArtifactHash: `sha256:${'c'.repeat(64)}`,
-      zkLocalReviewHash: `sha256:${'e'.repeat(64)}`,
       schemaCompatibility: { minimumCoordinate: releaseId, maximumCoordinate: releaseId },
       toolchain: {
         dotnetVersion: '10.0.100',
