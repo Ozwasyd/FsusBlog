@@ -17,7 +17,7 @@
       <slot name="aside">
         <div
           id="fsus-home-hot-articles-slot-content"
-          class="public-aside-placeholder min-h-[18rem] rounded-[var(--fsusblog-reading-radius-panel)] border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg)]"
+          class="public-aside-placeholder min-h-[18rem] rounded-[var(--fsusblog-radius-panel)] border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg)]"
           aria-hidden="true"
         />
       </slot>

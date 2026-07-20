@@ -49,9 +49,9 @@ const homeViewComposable = read('src/frontend/src/composables/useHomeView.ts')
 const packageJson = JSON.parse(read('src/frontend/package.json'))
 
 for (const token of [
-  '--fsusblog-reading-radius-control: 6px;',
-  '--fsusblog-reading-radius-panel: 10px;',
-  '--fsusblog-reading-radius-media: 12px;',
+  '--fsusblog-radius-control: var(--fsus-radius-control, 6px);',
+  '--fsusblog-radius-panel: var(--fsus-radius-panel, 12px);',
+  '--fsusblog-radius-reading-media: var(--fsus-radius-panel, 12px);',
   '--fsusblog-reading-shadow-panel: none;',
   '--fsusblog-reading-backdrop-blur: 0px;',
   '--fsusblog-reading-motion-trail: transparent;',
@@ -60,7 +60,7 @@ for (const token of [
   expectIncludes(publicCss, token, 'public-page.css')
 }
 
-expectIncludes(publicCss, 'border-radius: var(--fsusblog-reading-radius-panel);', 'public-page.css .aot-panel')
+expectIncludes(publicCss, 'border-radius: var(--fsusblog-radius-panel);', 'public-page.css .aot-panel')
 expectIncludes(publicCss, 'box-shadow: var(--fsusblog-reading-shadow-panel);', 'public-page.css .aot-panel')
 expectNotIncludes(publicCss, '--stagger-delay', 'public-page.css')
 expectNotMatches(publicCss, /animation-delay:\s*calc\(min\(var\(--index/s, 'public-page.css must not stagger AOT fade-in by content index')
@@ -79,12 +79,16 @@ const publicReadingSources = new Map([
 
 for (const [label, source] of publicReadingSources) {
   for (const token of [
-    '--fsus-radius-panel',
     '--fsus-shadow-panel',
     'list-stagger'
   ]) {
     expectNotIncludes(source, token, label)
   }
+}
+
+for (const [label, source] of publicReadingSources) {
+  expectNotMatches(source, /(?:rounded-\[var\(|border-radius:\s*var\()--fsus-radius-panel/u, `${label} must consume the FsusBlog panel alias`)
+  expectNotIncludes(source, '--fsusblog-reading-radius-', `${label} retired radius namespace`)
 }
 
 for (const [label, source] of [
@@ -98,7 +102,7 @@ for (const [label, source] of [
 }
 
 expectIncludes(themeTokens, 'commentsPlaceholderRoot', 'themeTokens.ts')
-expectIncludes(themeTokens, 'rounded-[var(--fsusblog-reading-radius-panel)]', 'themeTokens.ts comments placeholder')
+expectIncludes(themeTokens, 'rounded-[var(--fsusblog-radius-panel)]', 'themeTokens.ts comments placeholder')
 expectIncludes(themeTokens, 'shadow-none', 'themeTokens.ts comments placeholder')
 expectNotIncludes(themeTokens, 'backdrop-blur', 'themeTokens.ts comments placeholder')
 expectNotIncludes(themeTokens, 'pageSurfaceTranslucent', 'themeTokens.ts comments placeholder')
@@ -119,13 +123,13 @@ expectNotIncludes(homePage, 'fsusBlogMotionPresets.homeHero', 'PublicHomePageCon
 expectNotMatches(homePage, /<header[\s\S]*?\bv-motion=/, 'PublicHomePageContent.vue home hero must not use v-motion by default')
 
 expectIncludes(featured, 'data-fsus-motion-surface="home-featured-article"', 'FeaturedArticlesSection.vue')
-expectIncludes(featured, 'rounded-[var(--fsusblog-reading-radius-media)]', 'FeaturedArticlesSection.vue')
+expectIncludes(featured, 'rounded-[var(--fsusblog-radius-reading-media)]', 'FeaturedArticlesSection.vue')
 expectNotIncludes(featured, 'v-motion=', 'FeaturedArticlesSection.vue')
 expectNotIncludes(featured, 'fsusBlogMotionPresets.articleCards', 'FeaturedArticlesSection.vue')
 
-expectIncludes(articleDetail, 'rounded-[var(--fsusblog-reading-radius-media)]', 'PublicArticleDetailPageContent.vue')
-expectIncludes(homeFeedSurface, 'rounded-[var(--fsusblog-reading-radius-panel)]', 'HomeFeedSurface.vue')
-expectIncludes(hotArticlesIsland, 'rounded-[var(--fsusblog-reading-radius-control)]', 'homeHotArticlesIsland.ts')
+expectIncludes(articleDetail, 'rounded-[var(--fsusblog-radius-reading-media)]', 'PublicArticleDetailPageContent.vue')
+expectIncludes(homeFeedSurface, 'rounded-[var(--fsusblog-radius-panel)]', 'HomeFeedSurface.vue')
+expectIncludes(hotArticlesIsland, 'rounded-[var(--fsusblog-radius-control)]', 'homeHotArticlesIsland.ts')
 expectIncludes(siteStore, 'FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackKeywords', 'site.ts default keywords source')
 expectIncludes(siteStore, 'normalizePublicSiteDescription(payload?.siteDescription)', 'site.ts default description source')
 expectIncludes(siteIdentityDefaults, '工程记录、性能实验、UI 系统与 FsusBlog 构建过程。', 'publicSiteIdentityDefaults.ts default description')

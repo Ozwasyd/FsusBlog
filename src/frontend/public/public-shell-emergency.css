@@ -36,6 +36,9 @@
   --fsusblog-text-decorative: var(--fsus-color-text-decorative, var(--text-decorative));
   --fsusblog-panel-border: var(--fsus-color-border-subtle, var(--border));
   --fsusblog-color-focus-ring: var(--fsus-color-focus-ring, var(--accent, Highlight));
+  --fsusblog-radius-control: var(--fsus-radius-control, 6px);
+  --fsusblog-radius-panel: var(--fsus-radius-panel, 12px);
+  --fsusblog-radius-reading-media: var(--fsus-radius-panel, 12px);
   --fsusblog-reading-inline-code-bg: var(--fsus-color-surface-raised, var(--surface-subtle));
   --el-bg-color: var(--surface);
   --el-bg-color-page: var(--bg);

@@ -232,7 +232,7 @@ onUnmounted(() => {
   color: var(--fsusblog-text-primary);
   background-color: var(--fsusblog-panel-bg-soft);
   padding: 0 0.2em;
-  border-radius: var(--fsusblog-reading-radius-control, 6px);
+  border-radius: var(--fsusblog-radius-control, 6px);
 }
 
 /* 5. 引用块 (Blockquotes - 常用于定义或免责声明) */

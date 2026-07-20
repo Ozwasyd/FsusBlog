@@ -40,7 +40,7 @@
 
     <div
       v-if="detailCover"
-      class="mb-12 overflow-hidden rounded-[var(--fsusblog-reading-radius-media)] border border-[var(--fsusblog-panel-border)] shadow-none sm:mb-16"
+      class="mb-12 overflow-hidden rounded-[var(--fsusblog-radius-reading-media)] border border-[var(--fsusblog-panel-border)] shadow-none sm:mb-16"
       data-fsus-motion-surface="article-cover"
       data-content-cover="article-detail"
       :data-cover-safe-area="detailCover.safeArea"

@@ -124,7 +124,7 @@ const emit = defineEmits<{
 }>();
 
 const paginationButtonClass = [
-  'inline-flex min-h-10 items-center justify-center rounded-[var(--fsusblog-reading-radius-control)] px-0 text-sm font-bold tracking-normal text-[var(--fsusblog-color-primary)] outline-none transition-colors duration-[var(--fsus-motion-control-fast)] hover:text-[var(--fsusblog-text-primary)] aria-disabled:cursor-not-allowed aria-disabled:text-[var(--fsusblog-text-muted)]',
+  'inline-flex min-h-10 items-center justify-center rounded-[var(--fsusblog-radius-control)] px-0 text-sm font-bold tracking-normal text-[var(--fsusblog-color-primary)] outline-none transition-colors duration-[var(--fsus-motion-control-fast)] hover:text-[var(--fsusblog-text-primary)] aria-disabled:cursor-not-allowed aria-disabled:text-[var(--fsusblog-text-muted)]',
   themeTokens.focusRing
 ].join(' ');
 

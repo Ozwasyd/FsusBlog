@@ -13,7 +13,7 @@ const surface = 'bg-[var(--fsusblog-panel-bg)]';
 const focusRing = 'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)]';
 const primaryHover = 'hover:text-[var(--fsusblog-color-primary)]';
 const colorTransition = 'transition-colors duration-[var(--fsus-motion-control-fast)] ease-[var(--fsus-motion-standard)]';
-const microRadius = 'rounded-[var(--fsusblog-reading-radius-control)]';
+const microRadius = 'rounded-[var(--fsusblog-radius-control)]';
 const metadataText = `text-xs sm:text-sm leading-4 sm:leading-5 font-medium ${textMuted} uppercase tracking-normal`;
 const articleListMetadataText = `text-xs sm:text-sm leading-4 sm:leading-5 font-medium ${textMuted} tracking-normal`;
 const numericText = 'tabular-nums';
@@ -45,7 +45,7 @@ export const themeTokens: ThemeTokenContract = {
     tagLink: `inline-flex min-h-9 items-center px-1 text-xs sm:text-sm leading-4 sm:leading-5 font-medium uppercase tracking-normal ${textMuted} hover:text-[var(--fsusblog-text-primary)] ${colorTransition} outline-none ${focusRing}`,
     commentsRoot: 'mt-6 sm:mt-8 pb-20',
     commentsHeading: `text-xs font-medium ${textMuted} uppercase tracking-normal mb-6`,
-    commentsPlaceholderRoot: `flex items-center justify-center gap-2 rounded-[var(--fsusblog-reading-radius-panel)] py-3 text-xs ${textTertiary} font-medium normal-case tracking-normal shadow-none`,
+    commentsPlaceholderRoot: `flex items-center justify-center gap-2 rounded-[var(--fsusblog-radius-panel)] py-3 text-xs ${textTertiary} font-medium normal-case tracking-normal shadow-none`,
     commentsPlaceholderDot: 'fsusblog-dot-loader',
     commentsPlaceholderText: `${textTertiary}`
   },

@@ -113,7 +113,7 @@ const handleDrawerNavigate = (id: string): void => {
   min-height: 2.5rem;
   border: 0;
   border-left: 2px solid transparent;
-  border-radius: var(--fsusblog-reading-radius-control);
+  border-radius: var(--fsusblog-radius-control);
   background: transparent;
   color: var(--fsusblog-text-muted);
   padding: 0.35rem 0.25rem 0.35rem 0.625rem;

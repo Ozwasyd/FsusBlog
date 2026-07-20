@@ -107,9 +107,9 @@
   --fsusblog-reading-error-text: var(--el-color-danger, CanvasText);
   --fsusblog-reading-marker: var(--text-decorative);
   --fsusblog-reading-rule: var(--border);
-  --fsusblog-reading-radius-control: 6px;
-  --fsusblog-reading-radius-panel: 10px;
-  --fsusblog-reading-radius-media: 12px;
+  --fsusblog-radius-control: var(--fsus-radius-control, 6px);
+  --fsusblog-radius-panel: var(--fsus-radius-panel, 12px);
+  --fsusblog-radius-reading-media: var(--fsus-radius-panel, 12px);
   --fsusblog-reading-shadow-panel: none;
   --fsusblog-reading-shadow-floating: 0 8px 24px rgba(15, 23, 42, 0.06);
   --fsusblog-reading-backdrop-blur: 0px;
@@ -234,9 +234,9 @@ html[data-theme-resolved='dark'] {
   --fsusblog-reading-error-text: var(--el-color-danger, CanvasText);
   --fsusblog-reading-marker: var(--text-decorative);
   --fsusblog-reading-rule: var(--border);
-  --fsusblog-reading-radius-control: 6px;
-  --fsusblog-reading-radius-panel: 10px;
-  --fsusblog-reading-radius-media: 12px;
+  --fsusblog-radius-control: var(--fsus-radius-control, 6px);
+  --fsusblog-radius-panel: var(--fsus-radius-panel, 12px);
+  --fsusblog-radius-reading-media: var(--fsus-radius-panel, 12px);
   --fsusblog-reading-shadow-panel: none;
   --fsusblog-reading-shadow-floating: 0 8px 24px rgba(15, 23, 42, 0.32);
   --fsusblog-reading-backdrop-blur: 0px;
@@ -334,7 +334,7 @@ body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-fade-in {
 #fsus-aot-shell .nav-link,
 #fsus-aot-shell .blog-link-state {
   border-bottom: 2px solid transparent;
-  border-radius: var(--fsusblog-reading-radius-control);
+  border-radius: var(--fsusblog-radius-control);
   color: var(--fsusblog-text-muted);
   outline: none;
   transition:
@@ -424,7 +424,7 @@ body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-fade-in {
 .aot-panel {
   border: 1px solid var(--fsusblog-panel-border);
   background: var(--fsusblog-panel-bg);
-  border-radius: var(--fsusblog-reading-radius-panel);
+  border-radius: var(--fsusblog-radius-panel);
   box-shadow: var(--fsusblog-reading-shadow-panel);
 }
 
@@ -452,7 +452,7 @@ body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-fade-in {
   border: 1px solid var(--fsusblog-text-primary);
   background: var(--fsusblog-text-primary);
   color: var(--fsusblog-page-bg);
-  border-radius: var(--fsusblog-reading-radius-control);
+  border-radius: var(--fsusblog-radius-control);
   padding: 0 1rem;
   font-size: 14px;
   font-weight: 700;

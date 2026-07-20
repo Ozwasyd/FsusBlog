@@ -222,7 +222,7 @@ const toggleBranch = (): void => branchExpanded.value ? collapseBranch() : expan
 }
 
 .fsus-comment-tree-node:focus-visible {
-  border-radius: var(--fsusblog-reading-radius-control, 6px);
+  border-radius: var(--fsusblog-radius-control, 6px);
   box-shadow: 0 0 0 2px var(--fsusblog-color-focus-ring);
 }
 

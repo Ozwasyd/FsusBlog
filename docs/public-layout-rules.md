@@ -89,13 +89,13 @@ Markdown 代码块与管理面审计详情统一使用 `'JetBrains Mono', ui-mon
 
 ### 评论阅读层级
 
-评论区用稳定的语义角色区分“身份、内容、元信息、操作”：实名作者使用 `700` 与 primary text，匿名作者保持 `400` 与 quiet text；匿名徽章使用 muted text 和 strong border。时间继续使用 quiet text 与 `400`，可操作文字使用 muted text 与 `500`，删除只在 hover 时切换到 `--el-color-danger`，不得复用链接主色。回复区以 2px strong border 表达嵌套边界；评论操作及 focus ring 继续消费 `--fsusblog-reading-radius-control`，不得为层级调整引入新的圆角字面值。
+评论区用稳定的语义角色区分“身份、内容、元信息、操作”：实名作者使用 `700` 与 primary text，匿名作者保持 `400` 与 quiet text；匿名徽章使用 muted text 和 strong border。时间继续使用 quiet text 与 `400`，可操作文字使用 muted text 与 `500`，删除只在 hover 时切换到 `--el-color-danger`，不得复用链接主色。回复区以 2px strong border 表达嵌套边界；评论操作及 focus ring 继续消费 `--fsusblog-radius-control`，不得为层级调整引入新的圆角字面值。
 
 ## 8. 圆角标度规则
 
 公开布局圆角使用 4/6/10/12/24/999px 步进。普通阅读卡片、面板和控件默认不超过 12px；24px 只用于明确的 opt-in expressive surface。
 
-行内高亮与紧凑标记使用 `--fsus-radius-control-small`（4px）；按钮、输入框及其 focus ring 使用 `--fsusblog-reading-radius-control`（6px），保证 2px outline 与 offset 外沿曲率连续。横向滚动条 thumb 是真实胶囊几何，只使用 `--fsus-radius-pill`（999px）。`border-radius` 禁止重新引入 2/3/8px 字面值；评论 composer 的控件圆角必须消费 token，不以 `rem` 重复换算标度。
+行内高亮与紧凑标记使用 `--fsus-radius-control-small`（4px）；按钮、输入框及其 focus ring 使用 `--fsusblog-radius-control`（映射 `--fsus-radius-control`，默认 6px），panel 使用 `--fsusblog-radius-panel`（映射 `--fsus-radius-panel`，默认 12px）。横向滚动条 thumb 是真实胶囊几何，只使用 `--fsus-radius-pill`（999px）。`border-radius` 禁止重新引入 2/3/8px 字面值；评论 composer 的控件圆角必须消费 token，不以 `rem` 重复换算标度。
 
 ## 9. 动效标度规则
 

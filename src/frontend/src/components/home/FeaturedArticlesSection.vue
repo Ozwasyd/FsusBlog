@@ -19,7 +19,7 @@
     >
       <template #template>
         <div class="grid gap-8 md:grid-cols-2 md:items-center">
-          <div class="aspect-video w-full overflow-hidden rounded-[var(--fsusblog-reading-radius-media)] md:aspect-[4/3]">
+          <div class="aspect-video w-full overflow-hidden rounded-[var(--fsusblog-radius-reading-media)] md:aspect-[4/3]">
             <el-skeleton-item variant="image" />
           </div>
           <div class="space-y-4">
@@ -41,7 +41,7 @@
       <RouterLink v-slot="{ href, navigate }" custom :to="articleHref(article.id)">
         <a
           :href="href"
-          class="group grid rounded-[var(--fsusblog-reading-radius-panel)] outline-none"
+          class="group grid rounded-[var(--fsusblog-radius-panel)] outline-none"
           :class="[
             focusRingClass,
             hasCover
@@ -54,7 +54,7 @@
         >
           <div
             v-if="hasCover"
-            class="aspect-video w-full overflow-hidden rounded-[var(--fsusblog-reading-radius-media)] border border-[var(--fsusblog-panel-border)] shadow-none md:aspect-[4/3]"
+            class="aspect-video w-full overflow-hidden rounded-[var(--fsusblog-radius-reading-media)] border border-[var(--fsusblog-panel-border)] shadow-none md:aspect-[4/3]"
             data-content-cover="editorial-lead"
             :data-cover-safe-area="coverPresentation?.safeArea"
           >

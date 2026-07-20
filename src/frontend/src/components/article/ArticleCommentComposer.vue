@@ -1057,7 +1057,7 @@ function createCommentMutationId(): string {
   gap: 0.75rem;
   margin-bottom: 0.75rem;
   border: 1px solid color-mix(in srgb, var(--fsusblog-color-primary) 18%, transparent);
-  border-radius: var(--fsusblog-reading-radius-control, 6px);
+  border-radius: var(--fsusblog-radius-control, 6px);
   background: color-mix(in srgb, var(--fsusblog-color-primary) 6%, transparent);
   padding: 0.625rem 0.75rem;
   color: var(--fsusblog-text-secondary);
@@ -1095,7 +1095,7 @@ function createCommentMutationId(): string {
   max-width: 100%;
   align-items: center;
   border: 1px solid var(--fsusblog-panel-border);
-  border-radius: var(--fsusblog-reading-radius-control, 6px);
+  border-radius: var(--fsusblog-radius-control, 6px);
   background: color-mix(in srgb, var(--fsusblog-panel-bg) 92%, transparent);
   padding: 0.1875rem;
 }
@@ -1103,7 +1103,7 @@ function createCommentMutationId(): string {
 .comment-composer-mode__item {
   min-height: 1.875rem;
   border: 0;
-  border-radius: var(--fsusblog-reading-radius-control, 6px);
+  border-radius: var(--fsusblog-radius-control, 6px);
   background: transparent;
   color: var(--fsusblog-text-muted);
   cursor: pointer;
@@ -1137,7 +1137,7 @@ function createCommentMutationId(): string {
 .comment-composer-preview {
   min-height: 4.75rem;
   border: 1px solid var(--fsusblog-panel-border);
-  border-radius: var(--fsusblog-reading-radius-control, 6px);
+  border-radius: var(--fsusblog-radius-control, 6px);
   background: var(--fsusblog-panel-bg);
   padding: 0.75rem 0.875rem;
 }
@@ -1184,7 +1184,7 @@ function createCommentMutationId(): string {
   box-sizing: border-box;
   resize: none;
   border: 1px solid var(--fsusblog-panel-border);
-  border-radius: var(--fsusblog-reading-radius-control, 6px);
+  border-radius: var(--fsusblog-radius-control, 6px);
   background: var(--fsusblog-panel-bg);
   color: var(--fsusblog-text-primary);
   font: inherit;
