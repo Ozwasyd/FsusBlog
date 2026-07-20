@@ -71,7 +71,15 @@
               </el-button>
               <el-divider direction="vertical" />
               <el-tooltip v-if="!row.canDelete" :content="state.relationLockReason(row)" placement="top">
-                <el-button link type="info" disabled><span v-if="!isCompact">锁定</span><el-icon aria-hidden="true" v-else><Lock /></el-icon></el-button>
+                <div
+                  class="taxonomy-action-locked"
+                  :aria-label="`锁定：${state.relationLockReason(row)}`"
+                  :title="state.relationLockReason(row)"
+                  tabindex="0"
+                >
+                  <el-icon aria-hidden="true" :size="14"><Lock /></el-icon>
+                  <span v-if="!isCompact">锁定</span>
+                </div>
               </el-tooltip>
               <el-button v-else link type="danger" @click="state.handleDelete(row)">
                 <el-icon aria-hidden="true" v-if="schema.compactDeleteIcon && isCompact"><Delete /></el-icon>
@@ -212,6 +220,18 @@ const submitForm = (): void => {
   box-shadow: none;
 }
 
+.taxonomy-action-locked {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-height: 32px;
+  gap: 4px;
+  color: var(--fsusblog-text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: help;
+}
+
 @media (max-width: 639px) {
   .taxonomy-empty-state {
     padding-inline: var(--fsus-space-5);
@@ -219,6 +239,11 @@ const submitForm = (): void => {
 
   .taxonomy-empty-action {
     min-width: 6rem;
+  }
+
+  .taxonomy-action-locked {
+    min-width: 32px;
+    justify-content: center;
   }
 }
 </style>
