@@ -27,6 +27,153 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
+    public async Task RotateRefreshTokenAsync_ConcurrentCasHasOneWinnerThenTombstoneReplayCompromisesOnlyFamily()
+    {
+        const string RawRefreshToken = "issue-1185-original-refresh-token";
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
+        CreateTables(setupDb);
+        int userId = SeedUser(setupDb, mfaEnabled: true);
+        int otherUserId = SeedUser(setupDb, mfaEnabled: true);
+        string sessionId = $"issue-1185-session-{Guid.NewGuid():N}";
+        string otherSessionId = $"issue-1185-other-{Guid.NewGuid():N}";
+        SeedSession(setupDb, userId, sessionId, RawRefreshToken);
+        SeedSession(setupDb, otherUserId, otherSessionId, "issue-1185-other-refresh");
+
+        var validationCache = Substitute.For<IUserSessionValidationCache>();
+        using SqlSugarClient firstDb = PostgresSqlSugarTestClient.Create(connectionString);
+        using SqlSugarClient secondDb = PostgresSqlSugarTestClient.Create(connectionString);
+        UserSessionCommandService firstService = CreateSessionService(firstDb, "issue-1185-first-rotated", validationCache);
+        UserSessionCommandService secondService = CreateSessionService(secondDb, "issue-1185-second-rotated", validationCache);
+
+        await using var holder = new NpgsqlConnection(connectionString);
+        await holder.OpenAsync();
+        await using NpgsqlTransaction transaction = await holder.BeginTransactionAsync();
+        await using (var lockCommand = new NpgsqlCommand(
+            "UPDATE sys_user_session SET lastseenat = lastseenat WHERE sessionid = @session_id;",
+            holder,
+            transaction))
+        {
+            lockCommand.Parameters.AddWithValue("session_id", sessionId);
+            Assert.Equal(1, await lockCommand.ExecuteNonQueryAsync());
+        }
+
+        using var barrier = new Barrier(2);
+        Task<RefreshTokenRotationResult> first = StartTogetherAsync(
+            barrier,
+            () => firstService.RotateRefreshTokenAsync(RawRefreshToken, sessionId));
+        Task<RefreshTokenRotationResult> second = StartTogetherAsync(
+            barrier,
+            () => secondService.RotateRefreshTokenAsync(RawRefreshToken, sessionId));
+        await Task.Delay(TimeSpan.FromMilliseconds(300));
+        Assert.False(first.IsCompleted);
+        Assert.False(second.IsCompleted);
+
+        await transaction.CommitAsync();
+        RefreshTokenRotationResult[] results = await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(30));
+
+        Assert.Single(results, result => result.Outcome == RefreshTokenRotationOutcome.Success);
+        Assert.Single(results, result => result.Outcome == RefreshTokenRotationOutcome.ConcurrentConflict);
+        UserSession rotated = await setupDb.Queryable<UserSession>().SingleAsync(row => row.SessionId == sessionId);
+        Assert.Equal(1, rotated.RefreshGeneration);
+        Assert.Null(rotated.RevokedAt);
+        UserRefreshTokenTombstone tombstone = await setupDb.Queryable<UserRefreshTokenTombstone>().SingleAsync();
+        Assert.Equal(HashToken(RawRefreshToken), tombstone.TokenHash);
+        Assert.Equal(rotated.RefreshFamilyId, tombstone.RefreshFamilyId);
+        Assert.Equal(0, tombstone.Generation);
+
+        RefreshTokenRotationResult replay = await firstService.RotateRefreshTokenAsync(
+            RawRefreshToken,
+            sessionId: null);
+
+        Assert.Equal(RefreshTokenRotationOutcome.ReplayCompromised, replay.Outcome);
+        UserSession compromised = await setupDb.Queryable<UserSession>().SingleAsync(row => row.SessionId == sessionId);
+        Assert.Equal("refresh_token_replay", compromised.RefreshCompromiseReason);
+        Assert.NotNull(compromised.RefreshCompromisedAtUtc);
+        Assert.NotNull(compromised.RevokedAt);
+        Assert.Null((await setupDb.Queryable<UserSession>().SingleAsync(row => row.SessionId == otherSessionId)).RevokedAt);
+        Assert.Equal(0, await setupDb.Queryable<UserRefreshTokenTombstone>().CountAsync());
+    }
+
+    [Fact]
+    public async Task RotateRefreshTokenAsync_ContinuousGenerationsPersistBoundedHashOnlyLineage()
+    {
+        const string GenerationZeroToken = "issue-1185-generation-zero";
+        const string GenerationOneToken = "issue-1185-generation-one";
+        const string GenerationTwoToken = "issue-1185-generation-two";
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
+        CreateTables(db);
+        int userId = SeedUser(db, mfaEnabled: true);
+        string sessionId = $"issue-1185-generations-{Guid.NewGuid():N}";
+        SeedSession(db, userId, sessionId, GenerationZeroToken);
+
+        var jwt = Substitute.For<IJwtHelper>();
+        jwt.GenerateRefreshToken().Returns(GenerationOneToken, GenerationTwoToken);
+        jwt.GenerateAccessToken(Arg.Any<User>(), sessionId, Arg.Any<UserSessionAuthenticationContext>())
+            .Returns(new IssuedAccessToken("access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
+        var service = new UserSessionCommandService(
+            db,
+            NullLogger<UserSessionCommandService>.Instance,
+            jwt,
+            Substitute.For<IUserSessionValidationCache>());
+        await db.Insertable(new UserRefreshTokenTombstone
+        {
+            TokenHash = HashToken("expired-generation"),
+            RefreshFamilyId = (await db.Queryable<UserSession>().SingleAsync(row => row.SessionId == sessionId)).RefreshFamilyId,
+            SessionId = sessionId,
+            Generation = 99,
+            UsedAtUtc = DateTime.UtcNow.AddDays(-31),
+            ExpiresAtUtc = DateTime.UtcNow.AddDays(-1)
+        }).ExecuteCommandAsync();
+
+        RefreshTokenRotationResult first = await service.RotateRefreshTokenAsync(GenerationZeroToken, sessionId);
+        RefreshTokenRotationResult second = await service.RotateRefreshTokenAsync(GenerationOneToken, sessionId);
+
+        Assert.Equal(RefreshTokenRotationOutcome.Success, first.Outcome);
+        Assert.Equal(RefreshTokenRotationOutcome.Success, second.Outcome);
+        UserSession current = await db.Queryable<UserSession>().SingleAsync(row => row.SessionId == sessionId);
+        Assert.Equal(2, current.RefreshGeneration);
+        Assert.Equal(HashToken(GenerationTwoToken), current.RefreshTokenHash);
+        List<UserRefreshTokenTombstone> tombstones = await db.Queryable<UserRefreshTokenTombstone>()
+            .OrderBy(row => row.Generation)
+            .ToListAsync();
+        Assert.Equal([0L, 1L], tombstones.Select(row => row.Generation));
+        Assert.Equal([HashToken(GenerationZeroToken), HashToken(GenerationOneToken)], tombstones.Select(row => row.TokenHash));
+        Assert.DoesNotContain(tombstones, row => row.TokenHash.Contains("issue-1185", StringComparison.Ordinal));
+        Assert.All(tombstones, row => Assert.InRange(
+            row.ExpiresAtUtc - row.UsedAtUtc,
+            TimeSpan.FromDays(29),
+            TimeSpan.FromDays(31)));
+    }
+
+    [Fact]
+    public async Task RotateRefreshTokenAsync_WrongSessionIdCompromisesTokenFamilyOnly()
+    {
+        const string TargetToken = "issue-1185-mismatch-target";
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
+        CreateTables(db);
+        int userId = SeedUser(db, mfaEnabled: true);
+        string targetSessionId = $"issue-1185-target-{Guid.NewGuid():N}";
+        string retainedSessionId = $"issue-1185-retained-{Guid.NewGuid():N}";
+        SeedSession(db, userId, targetSessionId, TargetToken);
+        SeedSession(db, userId, retainedSessionId, "issue-1185-retained-token");
+        UserSessionCommandService service = CreateSessionService(
+            db,
+            "must-not-be-issued",
+            Substitute.For<IUserSessionValidationCache>());
+
+        RefreshTokenRotationResult result = await service.RotateRefreshTokenAsync(
+            TargetToken,
+            retainedSessionId);
+
+        Assert.Equal(RefreshTokenRotationOutcome.SessionMismatchCompromised, result.Outcome);
+        Assert.NotNull((await db.Queryable<UserSession>().SingleAsync(row => row.SessionId == targetSessionId)).RevokedAt);
+        Assert.Null((await db.Queryable<UserSession>().SingleAsync(row => row.SessionId == retainedSessionId)).RevokedAt);
+    }
+
+    [Fact]
     public async Task RefreshTokenAsync_ConcurrentTabsAllowOneRotationWithoutRevokingSessionFamily()
     {
         const string RawRefreshToken = "issue-1040-original-refresh-token";
@@ -227,6 +374,7 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
             db,
             typeof(User),
             typeof(UserSession),
+            typeof(UserRefreshTokenTombstone),
             typeof(UserMfaProfile));
 
     private static int SeedUser(SqlSugarClient db, bool mfaEnabled)
@@ -250,6 +398,8 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
             SessionId = sessionId,
             UserId = userId,
             RefreshTokenHash = HashToken(rawRefreshToken),
+            RefreshFamilyId = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)),
+            RefreshGeneration = 0,
             CreatedAt = DateTime.UtcNow.AddMinutes(-5),
             LastSeenAt = DateTime.UtcNow.AddMinutes(-1),
             IdleExpiresAt = DateTime.UtcNow.AddDays(7),
@@ -267,6 +417,8 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
         var jwt = Substitute.For<IJwtHelper>();
         jwt.GenerateRefreshToken().Returns(nextRefreshToken);
         jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string?>(), Arg.Any<bool>())
+            .Returns(new IssuedAccessToken("access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
+        jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string?>(), Arg.Any<UserSessionAuthenticationContext>())
             .Returns(new IssuedAccessToken("access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
         return new UserService(
             _db: db,

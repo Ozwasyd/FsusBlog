@@ -32,6 +32,7 @@ public sealed partial class UserSessionCommandService(
     private static readonly TimeSpan s_standardSessionIdleTtl = TimeSpan.FromDays(7);
     private static readonly TimeSpan s_rememberMeSessionIdleTtl = TimeSpan.FromDays(30);
     private static readonly TimeSpan s_refreshConcurrencyGrace = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan s_refreshTombstoneRetention = TimeSpan.FromDays(30);
 
     private static TimeSpan ResolveIdleSessionTtl(string durationPolicy)
         => UserSessionDurationPolicies.IsPersistent(durationPolicy)
@@ -55,6 +56,300 @@ public sealed partial class UserSessionCommandService(
                 "Failed to clean up {SessionCount} pre-commit user-session revocation snapshots",
                 revokedSessions.Count);
         }
+    }
+
+    public async Task<RefreshTokenRotationResult> RotateRefreshTokenAsync(
+        string refreshToken,
+        string? sessionId,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        long startedAt = Stopwatch.GetTimestamp();
+        if (string.IsNullOrWhiteSpace(refreshToken))
+        {
+            return RefreshFailure(RefreshTokenRotationOutcome.MissingToken, "missing-token");
+        }
+
+        string currentHash = HashToken(refreshToken);
+        DateTime now = DateTime.UtcNow;
+        await DeleteExpiredRefreshTombstonesAsync(now).ConfigureAwait(false);
+
+        UserSession? session = await db.Queryable<UserSession>()
+            .Where(candidate => candidate.RefreshTokenHash == currentHash)
+            .FirstAsync();
+        if (session is null)
+        {
+            UserRefreshTokenTombstone? tombstone = await db.Queryable<UserRefreshTokenTombstone>()
+                .Where(candidate => candidate.TokenHash == currentHash && candidate.ExpiresAtUtc > now)
+                .FirstAsync();
+            if (tombstone is null)
+            {
+                return RefreshFailure(RefreshTokenRotationOutcome.ExpiredOrUnknown, "expired-or-unknown");
+            }
+
+            int revoked = await CompromiseRefreshFamilyAsync(
+                tombstone.RefreshFamilyId,
+                "refresh_token_replay",
+                now,
+                cancellationToken).ConfigureAwait(false);
+            FsusObservability.RecordAuthRefreshReplayDetected();
+            FsusObservability.RecordAuthRefreshFamilyRevoke(revoked);
+            return RefreshFailure(RefreshTokenRotationOutcome.ReplayCompromised, "refresh-token-replay");
+        }
+
+        string familyId = ResolveRefreshFamilyId(session);
+        if (session.RevokedAt.HasValue
+            || session.RefreshCompromisedAtUtc.HasValue
+            || session.IdleExpiresAt <= now
+            || session.AbsoluteExpiresAt <= now)
+        {
+            return RefreshFailure(RefreshTokenRotationOutcome.ExpiredOrUnknown, "expired-or-revoked");
+        }
+
+        if (!string.IsNullOrWhiteSpace(sessionId)
+            && !string.Equals(session.SessionId, sessionId, StringComparison.Ordinal))
+        {
+            int revoked = await CompromiseRefreshFamilyAsync(
+                familyId,
+                "refresh_session_mismatch",
+                now,
+                cancellationToken).ConfigureAwait(false);
+            FsusObservability.RecordAuthRefreshReplayDetected();
+            FsusObservability.RecordAuthRefreshFamilyRevoke(revoked);
+            return RefreshFailure(RefreshTokenRotationOutcome.SessionMismatchCompromised, "session-mismatch");
+        }
+
+        User? user = await db.Queryable<User>().InSingleAsync(session.UserId);
+        if (user is null || user.Status == UserStatusDeleted || user.DeletedAt.HasValue)
+        {
+            return RefreshFailure(RefreshTokenRotationOutcome.AccountUnavailable, "account-unavailable");
+        }
+
+        if (!UserSessionAuthenticationContext.TryFromSession(session, out UserSessionAuthenticationContext authenticationContext))
+        {
+            return RefreshFailure(RefreshTokenRotationOutcome.InvalidSessionContext, "invalid-session-context");
+        }
+
+        if (user.Status == UserStatusBanned)
+        {
+            string accountSubject = AccountSubjectHashRequirement.Require(user.AccountSubjectHash, "token-refresh-restriction-audit");
+            LogBannedAccountTokenRefresh(accountSubject);
+        }
+
+        string nextToken = jwt.GenerateRefreshToken();
+        string nextHash = HashToken(nextToken);
+        DateTime idleExpiresAt = now.Add(ResolveIdleSessionTtl(authenticationContext.DurationPolicy));
+        if (idleExpiresAt > session.AbsoluteExpiresAt)
+        {
+            idleExpiresAt = session.AbsoluteExpiresAt;
+        }
+
+        IssuedAccessToken accessToken = jwt.GenerateAccessToken(user, session.SessionId, authenticationContext);
+        bool rotated = false;
+        long nextGeneration = session.RefreshGeneration + 1;
+        DateTime tombstoneExpiresAt = now.Add(s_refreshTombstoneRetention);
+        var transaction = await db.Ado.UseTranAsync(async () =>
+        {
+            using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+                """
+                WITH rotated AS (
+                    UPDATE sys_user_session
+                    SET refreshtokenhash = @NextHash,
+                        refresh_family_id = @FamilyId,
+                        refresh_generation = refresh_generation + 1,
+                        refresh_rotated_at_utc = @RotatedAtUtc,
+                        lastseenat = @RotatedAtUtc,
+                        idleexpiresat = @IdleExpiresAt
+                    WHERE sessionid = @SessionId
+                      AND refreshtokenhash = @CurrentHash
+                      AND refresh_family_id = @FamilyId
+                      AND refresh_generation = @Generation
+                      AND revokedat IS NULL
+                      AND refresh_compromised_at_utc IS NULL
+                      AND idleexpiresat > @RotatedAtUtc
+                      AND absoluteexpiresat > @RotatedAtUtc
+                    RETURNING sessionid, refresh_generation
+                ), tombstone AS (
+                    INSERT INTO user_refresh_token_tombstone
+                        (token_hash, refresh_family_id, session_id, generation, used_at_utc, expires_at_utc)
+                    SELECT @CurrentHash, @FamilyId, sessionid, @Generation, @RotatedAtUtc, @TombstoneExpiresAt
+                    FROM rotated
+                    ON CONFLICT (token_hash) DO NOTHING
+                    RETURNING token_hash
+                )
+                SELECT sessionid, refresh_generation
+                FROM rotated;
+                """,
+                new SugarParameter("@NextHash", nextHash),
+                new SugarParameter("@FamilyId", familyId),
+                new SugarParameter("@Generation", session.RefreshGeneration),
+                new SugarParameter("@RotatedAtUtc", now),
+                new SugarParameter("@IdleExpiresAt", idleExpiresAt),
+                new SugarParameter("@SessionId", session.SessionId),
+                new SugarParameter("@CurrentHash", currentHash),
+                new SugarParameter("@TombstoneExpiresAt", tombstoneExpiresAt));
+            if (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                rotated = string.Equals(reader.GetString(0), session.SessionId, StringComparison.Ordinal)
+                    && reader.GetInt64(1) == nextGeneration;
+            }
+        }).ConfigureAwait(false);
+
+        if (!transaction.IsSuccess)
+        {
+            FsusObservability.RecordAuthRefreshDatabaseFailure("lineage-rotation");
+            throw transaction.ErrorException
+                ?? new InvalidOperationException("refresh-token lineage rotation transaction failed");
+        }
+
+        if (!rotated)
+        {
+            FsusObservability.RecordAuthRefreshRotationConflict();
+            return RefreshFailure(RefreshTokenRotationOutcome.ConcurrentConflict, "cas-conflict");
+        }
+
+        FsusObservability.RecordAuthRefreshSuccess(4, FsusObservability.GetElapsed(startedAt));
+        var tokens = new TokenResponseDto(
+            accessToken.Token,
+            nextToken,
+            idleExpiresAt,
+            session.SessionId,
+            accessToken.ExpiresAtUtc);
+        return new RefreshTokenRotationResult(
+            RefreshTokenRotationOutcome.Success,
+            tokens,
+            idleExpiresAt,
+            authenticationContext.DurationPolicy);
+    }
+
+    public async Task<bool> RevokeRefreshDeliveryAsync(
+        string refreshToken,
+        string sessionId,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(refreshToken) || string.IsNullOrWhiteSpace(sessionId))
+        {
+            return false;
+        }
+
+        string hash = HashToken(refreshToken);
+        UserSession? session = await db.Queryable<UserSession>()
+            .Where(candidate => candidate.RefreshTokenHash == hash && candidate.SessionId == sessionId)
+            .FirstAsync();
+        if (session is null)
+        {
+            return false;
+        }
+
+        int revoked = await CompromiseRefreshFamilyAsync(
+            ResolveRefreshFamilyId(session),
+            "refresh_token_delivery_failure",
+            DateTime.UtcNow,
+            cancellationToken).ConfigureAwait(false);
+        FsusObservability.RecordAuthRefreshDeliveryFailure(revoked > 0 ? "family-revoked" : "family-already-inactive");
+        return revoked > 0;
+    }
+
+    private RefreshTokenRotationResult RefreshFailure(RefreshTokenRotationOutcome outcome, string reason)
+    {
+        using var _ = AuditLogScope.Push(
+            AuditSourceCatalog.Auth,
+            AuditTypeCatalog.Security,
+            new KeyValuePair<string, object?>("AuditAction", "refresh.failed"),
+            new KeyValuePair<string, object?>("Reason", reason));
+        LogTokenRefreshFailure();
+        return new RefreshTokenRotationResult(outcome, null, DateTime.UtcNow, null);
+    }
+
+    private async Task DeleteExpiredRefreshTombstonesAsync(DateTime now)
+    {
+        await db.Ado.ExecuteCommandAsync(
+            """
+            DELETE FROM user_refresh_token_tombstone AS tombstone
+            WHERE tombstone.expires_at_utc <= @Now
+               OR EXISTS (
+                    SELECT 1
+                    FROM sys_user_session AS session
+                    WHERE session.refresh_family_id = tombstone.refresh_family_id
+                      AND session.revokedat IS NOT NULL
+               );
+            """,
+            new SugarParameter("@Now", now)).ConfigureAwait(false);
+    }
+
+    private static string ResolveRefreshFamilyId(UserSession session)
+        => string.IsNullOrWhiteSpace(session.RefreshFamilyId)
+            ? session.SessionId
+            : session.RefreshFamilyId;
+
+    private async Task<int> CompromiseRefreshFamilyAsync(
+        string familyId,
+        string reason,
+        DateTime compromisedAt,
+        CancellationToken cancellationToken)
+    {
+        List<UserSessionValidationCacheState> revokedSessions = [];
+        bool publicationAttempted = false;
+        var transaction = await db.Ado.UseTranAsync(async () =>
+        {
+            using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+                """
+                UPDATE sys_user_session
+                SET revokedat = @CompromisedAt,
+                    revokereason = @Reason,
+                    refresh_compromised_at_utc = @CompromisedAt,
+                    refresh_compromise_reason = @Reason
+                WHERE refresh_family_id = @FamilyId
+                  AND revokedat IS NULL
+                RETURNING sessionid,
+                          userid,
+                          revokedat,
+                          idleexpiresat,
+                          absoluteexpiresat,
+                          xmin::text AS row_version;
+                """,
+                new SugarParameter("@CompromisedAt", compromisedAt),
+                new SugarParameter("@Reason", reason),
+                new SugarParameter("@FamilyId", familyId)))
+            {
+                while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    revokedSessions.Add(ReadRevokedSessionValidationState(reader));
+                }
+            }
+
+            await db.Deleteable<UserRefreshTokenTombstone>()
+                .Where(tombstone => tombstone.RefreshFamilyId == familyId)
+                .ExecuteCommandAsync()
+                .ConfigureAwait(false);
+            publicationAttempted = revokedSessions.Count > 0;
+            await sessionValidation.PublishManyAsync(
+                revokedSessions,
+                allowOverwrite: true,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+        }).ConfigureAwait(false);
+
+        if (!transaction.IsSuccess)
+        {
+            FsusObservability.RecordAuthRefreshDatabaseFailure("family-compromise");
+            if (publicationAttempted)
+            {
+                await BestEffortInvalidateRevocationSnapshotsAsync(revokedSessions).ConfigureAwait(false);
+            }
+
+            throw transaction.ErrorException
+                ?? new InvalidOperationException("refresh-token family compromise transaction failed");
+        }
+
+        if (revokedSessions.Count > 0)
+        {
+            await PublishSessionRevocationAsync(
+                revokedSessions[0].AccountId,
+                reason,
+                revokedSessions.Count).ConfigureAwait(false);
+        }
+        return revokedSessions.Count;
     }
 
     public async Task<(bool Success, TokenResponseDto? Data, DateTime ExpiresAt)> RefreshTokenWithExpiryAsync(

@@ -32,7 +32,31 @@ public sealed class AuthSecurityHardeningTests
         Assert.Contains("MfaPendingCreatedAt", mfaProperties);
 
         Assert.NotNull(typeof(UserSession).GetProperty("RefreshTokenHash"));
+        Assert.NotNull(typeof(UserSession).GetProperty("RefreshFamilyId"));
+        Assert.NotNull(typeof(UserSession).GetProperty("RefreshGeneration"));
+        Assert.NotNull(typeof(UserSession).GetProperty("RefreshCompromisedAtUtc"));
         Assert.Null(typeof(UserSession).GetProperty("RefreshToken"));
+        Assert.NotNull(typeof(UserRefreshTokenTombstone).GetProperty("TokenHash"));
+        Assert.Null(typeof(UserRefreshTokenTombstone).GetProperty("Token"));
+    }
+
+    [Fact]
+    public void UserSessionCommandService_ProductionRefreshUsesAtomicFamilyLineageAndHashOnlyTombstone()
+    {
+        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
+            typeof(UserSessionCommandService),
+            nameof(UserSessionCommandService.RotateRefreshTokenAsync),
+            "CompromiseRefreshFamilyAsync",
+            "DeleteExpiredRefreshTombstonesAsync");
+
+        Assert.Contains("user_refresh_token_tombstone", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("refresh_generation = refresh_generation + 1", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("ON CONFLICT (token_hash) DO NOTHING", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("refresh_family_id = @FamilyId", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("refresh_token_replay", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("refresh_session_mismatch", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("RefreshTokenRotationOutcome", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("DeviceFingerprint", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]

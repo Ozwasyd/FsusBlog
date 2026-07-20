@@ -259,10 +259,12 @@ AntiCrawler 支持 `disabled | observe | enforce | strict`。`disabled` 只关�
 | ------ | ----- |
 | Access Token 有效期 | `Jwt:AccessTokenExpiresMinutes`（默认 15 分钟） |
 | Refresh Token 形式 | HttpOnly Cookie（SameSite=Strict，Secure） |
-| 续签方式 | `POST /api/binary/auth/refresh-token`，基于 `UserSession.RefreshTokenHash` 的原子 CAS 轮换（旧 Token 立即失效） |
+| 续签方式 | `POST /api/binary/auth/refresh-token`，基于 `RefreshFamilyId + RefreshGeneration + RefreshTokenHash` 的原子 CAS 轮换（旧 Token 进入有限期 hash tombstone） |
 | 签名算法 | HS256（密钥来自环境变量，生产启动时强制校验非占位值） |
 
-Refresh Token 只以哈希形式保存在 `sys_user_session`；`sys_user` 不再保存明文 Refresh Token 或全局刷新过期时间。普通登录在同一事务内获取账号级 PostgreSQL advisory lock，先清理 idle/absolute 已过期会话，再按最近使用顺序将 active 会话收敛到 `Security:UserSessions:MaxActiveSessions - 1`，最后插入新 session；正常登录不再使用 `login_replaced` 撤销其他合法设备。默认上限为 10，可配置范围为 1-50；上限淘汰原因固定为 `active_session_limit`。刷新请求必须同时匹配当前 session id、旧 refresh hash、未撤销状态、idle/absolute 过期窗口；成功轮换时直接返回本次计算出的 `IdleExpiresAt` 作为 Cookie expiry。HTTP 交付边界会用新 refresh hash + session id 在 Cookie 追加前和追加后各回查一次 active session；任一回查缺失、重复或异常时只清普通账号 Cookie、返回 401，并递增 `fsus.auth.refresh.cookie_write_failed_count`，不会把未确认的 token 交给客户端。CAS 失败或旧 Token 重用仍会撤销对应同设备会话族并清理客户端 Cookie。
+Refresh Token 只以哈希形式保存在 `sys_user_session`；`sys_user` 不再保存明文 Refresh Token 或全局刷新过期时间。普通登录在同一事务内获取账号级 PostgreSQL advisory lock，先清理 idle/absolute 已过期会话，再按最近使用顺序将 active 会话收敛到 `Security:UserSessions:MaxActiveSessions - 1`，最后插入新 session；正常登录不再使用 `login_replaced` 撤销其他合法设备。默认上限为 10，可配置范围为 1-50；上限淘汰原因固定为 `active_session_limit`。
+
+每条 session 在创建时生成独立 `RefreshFamilyId`，从 generation 0 开始。刷新以 token hash 定位当前 generation，并在单一事务中 CAS 当前 hash/generation、写入旧 hash tombstone、递增 generation、更新 `LastSeenAt` 和 idle expiry；`SessionId` Cookie 只做一致性检查。CAS loser 返回固定冲突而不取得新 token；已提交 tombstone 的旧 token replay（包括缺失 `SessionId`）会精确标记并撤销该 family，不按设备指纹或账号扩大处置。HTTP 交付边界继续在 Cookie 追加前后验证新 hash；任一验证/追加失败会把已轮换 family 标记为 delivery failure、清普通账号 Cookie并要求重新登录，不恢复旧 token。指标分别覆盖 rotation conflict、replay/family revoke、Cookie write 和 delivery failure。数据结构、30 天最大 tombstone 保留与无需重启的流量回退见 [Refresh Token lineage](security/refresh-token-lineage.md)。
 
 PostgreSQL commit 与 HTTP `Set-Cookie` 无法组成分布式原子事务。双读能阻止已经失配的 rotation 被发送，但不能宣称消除“最终回查通过后、响应头到达浏览器前进程退出”的物理窗口；进程直接退出时本实例也可能来不及记录 cookie-write-failed 指标。客户端只对明确的 network transport failure 重试一次，401/协议错误不重试；若旧 token 已被 CAS 替换，服务端 replay-family guard 仍 fail closed，用户可能需要重新认证。不得为提高连续性重新接受旧 refresh hash 或禁用 family revoke。
 

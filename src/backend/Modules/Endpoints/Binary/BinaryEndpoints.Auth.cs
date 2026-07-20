@@ -1241,35 +1241,38 @@ public static partial class BinaryEndpoints
             }
 
             string? sessionId = authCookieService.ReadSessionId(httpContext);
-            UserSession? existingSession = await sessions.GetSessionByRefreshTokenAsync(oldRefreshToken, cancellationToken);
-            if (existingSession is null ||
-                !string.Equals(existingSession.SessionId, sessionId, StringComparison.Ordinal) ||
-                !UserSessionDurationPolicies.IsValid(existingSession.DurationPolicy))
+            RefreshTokenRotationResult rotation = await sessions.RotateRefreshTokenAsync(
+                oldRefreshToken,
+                sessionId,
+                cancellationToken);
+            if (!rotation.Success
+                || rotation.Tokens is not { } newTokens
+                || newTokens.AccessTokenExpiresAtUtc is not { } accessTokenExpiresAtUtc
+                || string.IsNullOrWhiteSpace(newTokens.SessionId))
             {
-                authCookieService.ClearUserSessionCookies(httpContext);
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "会话认证上下文无效，请重新登录"), aeds);
-            }
-            bool persistent = UserSessionDurationPolicies.IsPersistent(existingSession.DurationPolicy);
-            var (success, newTokens, expiresAt) = await sessions.RefreshTokenWithExpiryAsync(oldRefreshToken, sessionId, cancellationToken);
-            if (!success
-                || newTokens == null
-                || newTokens.Value.AccessTokenExpiresAtUtc is not { } accessTokenExpiresAtUtc
-                || string.IsNullOrWhiteSpace(newTokens.Value.SessionId))
-            {
-                if (!string.IsNullOrWhiteSpace(sessionId)
-                    && await sessions.IsRecentConcurrentRefreshRotationAsync(oldRefreshToken, sessionId, cancellationToken))
+                if (rotation.Outcome == RefreshTokenRotationOutcome.ConcurrentConflict)
                 {
                     return BinaryResults.FromError(
-                        ErrorDetail.Create(ErrorCode.Conflict, "刷新凭证已由其他标签页轮换"),
+                        ErrorDetail.Create(ErrorCode.Conflict, "REFRESH_ROTATION_CONFLICT"),
                         aeds,
                         StatusCodes.Status409Conflict);
                 }
                 authCookieService.ClearUserSessionCookies(httpContext);
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "刷新凭证已失效"), aeds);
+                string failureCode = rotation.Outcome switch
+                {
+                    RefreshTokenRotationOutcome.ReplayCompromised => "REFRESH_FAMILY_COMPROMISED",
+                    RefreshTokenRotationOutcome.SessionMismatchCompromised => "REFRESH_SESSION_MISMATCH_COMPROMISED",
+                    RefreshTokenRotationOutcome.ExpiredOrUnknown => "REFRESH_EXPIRED_OR_UNKNOWN",
+                    RefreshTokenRotationOutcome.InvalidSessionContext => "REFRESH_SESSION_CONTEXT_INVALID",
+                    RefreshTokenRotationOutcome.AccountUnavailable => "REFRESH_ACCOUNT_UNAVAILABLE",
+                    _ => "REFRESH_TOKEN_MISSING"
+                };
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, failureCode), aeds);
             }
 
-            TokenResponseDto rotatedTokens = newTokens.Value;
+            TokenResponseDto rotatedTokens = newTokens;
             string rotatedSessionId = rotatedTokens.SessionId!;
+            bool persistent = UserSessionDurationPolicies.IsPersistent(rotation.DurationPolicy);
             if (!await VerifyRefreshCookieDeliveryAsync(
                     sessions,
                     authCookieService,
@@ -1279,7 +1282,11 @@ public static partial class BinaryEndpoints
                     "before_cookie",
                     cancellationToken))
             {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "刷新凭证交付校验失败，请重新登录"), aeds);
+                _ = await sessions.RevokeRefreshDeliveryAsync(
+                    rotatedTokens.RefreshToken,
+                    rotatedSessionId,
+                    CancellationToken.None);
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "REFRESH_DELIVERY_FAILED"), aeds);
             }
 
             try
@@ -1291,14 +1298,18 @@ public static partial class BinaryEndpoints
                     accessTokenExpiresAtUtc,
                     rotatedTokens.RefreshToken,
                     rotatedSessionId,
-                    expiresAt,
+                    rotation.RefreshTokenExpiresAt,
                     persistent);
             }
             catch
             {
                 FsusObservability.RecordAuthRefreshCookieWriteFailed("cookie_append_exception");
+                _ = await sessions.RevokeRefreshDeliveryAsync(
+                    rotatedTokens.RefreshToken,
+                    rotatedSessionId,
+                    CancellationToken.None);
                 authCookieService.ClearUserSessionCookies(httpContext);
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "刷新凭证交付失败，请重新登录"), aeds);
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "REFRESH_DELIVERY_FAILED"), aeds);
             }
 
             if (!await VerifyRefreshCookieDeliveryAsync(
@@ -1310,7 +1321,11 @@ public static partial class BinaryEndpoints
                     "after_cookie",
                     cancellationToken))
             {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "刷新凭证交付校验失败，请重新登录"), aeds);
+                _ = await sessions.RevokeRefreshDeliveryAsync(
+                    rotatedTokens.RefreshToken,
+                    rotatedSessionId,
+                    CancellationToken.None);
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "REFRESH_DELIVERY_FAILED"), aeds);
             }
 
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);

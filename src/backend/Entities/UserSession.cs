@@ -6,6 +6,7 @@ namespace FsusBlog.Server.Entities;
 [SugarIndex("idx_user_session_user", nameof(UserId), OrderByType.Asc)]
 [SugarIndex("idx_user_session_idle_expires", nameof(IdleExpiresAt), OrderByType.Desc)]
 [SugarIndex("idx_user_session_refresh_hash", nameof(RefreshTokenHash), OrderByType.Desc, true)]
+[SugarIndex("idx_user_session_refresh_family", nameof(RefreshFamilyId), OrderByType.Asc, true)]
 public class UserSession
 {
     [SugarColumn(IsPrimaryKey = true, Length = 64)]
@@ -18,6 +19,33 @@ public class UserSession
 
     [SugarColumn(Length = 128)]
     public string RefreshTokenHash { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "refresh_family_id", Length = 64)]
+    public string RefreshFamilyId { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "refresh_generation", DefaultValue = "0")]
+    public long RefreshGeneration
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "refresh_rotated_at_utc", IsNullable = true)]
+    public DateTime? RefreshRotatedAtUtc
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "refresh_compromised_at_utc", IsNullable = true)]
+    public DateTime? RefreshCompromisedAtUtc
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "refresh_compromise_reason", IsNullable = true, Length = 64)]
+    public string? RefreshCompromiseReason
+    {
+        get; set;
+    }
 
     [SugarColumn(IsNullable = true, Length = 128)]
     public string? DeviceFingerprint
@@ -113,6 +141,46 @@ public class UserSession
 
     [SugarColumn(IsIgnore = true)]
     public string? RowVersion
+    {
+        get; set;
+    }
+}
+
+[SugarTable("user_refresh_token_tombstone")]
+[SugarIndex("ux_user_refresh_tombstone_hash", nameof(TokenHash), OrderByType.Asc, true)]
+[SugarIndex("idx_user_refresh_tombstone_expiry", nameof(ExpiresAtUtc), OrderByType.Asc)]
+[SugarIndex("idx_user_refresh_tombstone_family", nameof(RefreshFamilyId), OrderByType.Asc)]
+public sealed class UserRefreshTokenTombstone
+{
+    [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
+    public long Id
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "token_hash", Length = 64)]
+    public string TokenHash { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "refresh_family_id", Length = 64)]
+    public string RefreshFamilyId { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "session_id", Length = 64)]
+    public string SessionId { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "generation")]
+    public long Generation
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "used_at_utc")]
+    public DateTime UsedAtUtc
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "expires_at_utc")]
+    public DateTime ExpiresAtUtc
     {
         get; set;
     }

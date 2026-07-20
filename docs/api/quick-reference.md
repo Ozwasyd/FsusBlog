@@ -27,7 +27,7 @@
 | POST | `/api/binary/auth/enrollment/passkey/register/complete` | 🔓 🚦 📦 | 原子提交首枚 Passkey、active 状态和正式 session；响应 `AuthLoginFlow` |
 | GET | `/api/binary/auth/enrollment/status` | 🔓 🚦 📦 | 查询短期 enrollment 状态，不签发正式凭据 |
 | POST | `/api/binary/auth/enrollment/cancel` | 🔓 🚦 📦 | 取消并清理仍为 provisional 的账号和 challenge |
-| POST | `/api/binary/auth/refresh-token` | 🔓 🚦 📦 | 用 HttpOnly Cookie 续签 Access Token；成功返回 `EmptySuccess`，短竞争窗口内旧 token 返回 409 且不撤销 family，网络未知结果不得自动重放 POST |
+| POST | `/api/binary/auth/refresh-token` | 🔓 🚦 📦 | 用 HttpOnly Cookie 原子轮换 refresh family generation；成功返回 `EmptySuccess`，同一 CAS 的 loser 返回 `409 REFRESH_ROTATION_CONFLICT`，已使用 token replay 会撤销其 family；网络未知结果不得自动重放 POST |
 
 ### 当前用户
 

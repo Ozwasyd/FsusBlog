@@ -132,6 +132,7 @@ public sealed partial class UserLoginWorkflowService(
         string refreshToken = jwt.GenerateRefreshToken();
         string refreshTokenHash = HashToken(refreshToken);
         string sessionId = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+        string refreshFamilyId = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
         IssuedAccessToken accessToken = jwt.GenerateAccessToken(user, sessionId, sessionAuthentication);
         DateTime idleExpiresAt = DateTime.MinValue;
         DateTime absoluteExpiresAt = DateTime.MinValue;
@@ -141,6 +142,8 @@ public sealed partial class UserLoginWorkflowService(
             SessionId = sessionId,
             UserId = user.Id,
             RefreshTokenHash = refreshTokenHash,
+            RefreshFamilyId = refreshFamilyId,
+            RefreshGeneration = 0,
             DeviceFingerprint = string.IsNullOrWhiteSpace(deviceFingerprint) ? null : deviceFingerprint,
             LastIp = clientIp,
             UserAgent = Truncate(userAgent, 512),

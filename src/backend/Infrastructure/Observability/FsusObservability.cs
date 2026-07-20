@@ -257,6 +257,9 @@ public static class FsusObservability
     private static readonly Counter<long> s_authRefreshFamilyRevokeCount = s_meter.CreateCounter<long>("fsus.auth.refresh.family_revoke_count");
     private static readonly Counter<long> s_authRefreshFamilyRevokeWindowCount = s_meter.CreateCounter<long>("fsus.auth.refresh.family_revoke_window_count");
     private static readonly Counter<long> s_authRefreshCookieWriteFailedCount = s_meter.CreateCounter<long>("fsus.auth.refresh.cookie_write_failed_count");
+    private static readonly Counter<long> s_authRefreshRotationConflictCount = s_meter.CreateCounter<long>("fsus.auth.refresh.rotation_conflict_count");
+    private static readonly Counter<long> s_authRefreshDeliveryFailureCount = s_meter.CreateCounter<long>("fsus.auth.refresh.delivery_failure_count");
+    private static readonly Counter<long> s_authRefreshDatabaseFailureCount = s_meter.CreateCounter<long>("fsus.auth.refresh.database_failure_count");
     private static readonly Counter<long> s_accountSnapshotCacheHit = s_meter.CreateCounter<long>("fsus.account_snapshot.cache_hit");
     private static readonly Counter<long> s_accountSnapshotDbReadCount = s_meter.CreateCounter<long>("fsus.account_snapshot.db_read_count");
     private static long s_commentActorResolverPublicHandleHits;
@@ -1339,6 +1342,33 @@ public static class FsusObservability
         {
             TagList tags = CreateBaseTags("auth-refresh", reason, "cookie_write_failed");
             s_authRefreshCookieWriteFailedCount.Add(1, tags);
+        });
+    }
+
+    public static void RecordAuthRefreshRotationConflict()
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("auth-refresh", "cas", "rotation_conflict");
+            s_authRefreshRotationConflictCount.Add(1, tags);
+        });
+    }
+
+    public static void RecordAuthRefreshDeliveryFailure(string reason)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("auth-refresh", NormalizeTelemetryValue(reason, "unknown"), "delivery_failure");
+            s_authRefreshDeliveryFailureCount.Add(1, tags);
+        });
+    }
+
+    public static void RecordAuthRefreshDatabaseFailure(string operation)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("auth-refresh", NormalizeTelemetryValue(operation, "unknown"), "database_failure");
+            s_authRefreshDatabaseFailureCount.Add(1, tags);
         });
     }
 

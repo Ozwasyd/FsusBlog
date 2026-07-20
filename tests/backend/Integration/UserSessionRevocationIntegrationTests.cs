@@ -277,7 +277,7 @@ public sealed class UserSessionRevocationIntegrationTests(PostgresSchemaMigratio
 
     private static async Task<int> SeedAccountAsync(SqlSugarClient db)
     {
-        PostgresSqlSugarTestClient.InitTables(db, typeof(User), typeof(UserSession));
+        PostgresSqlSugarTestClient.InitTables(db, typeof(User), typeof(UserSession), typeof(UserRefreshTokenTombstone));
         return await db.Insertable(new User
         {
             PublicHandle = $"session-{Guid.NewGuid():N}"[..20],
@@ -301,6 +301,8 @@ public sealed class UserSessionRevocationIntegrationTests(PostgresSchemaMigratio
             SessionId = sessionId,
             UserId = accountId,
             RefreshTokenHash = refreshTokenHash ?? HashToken($"refresh-{sessionId}"),
+            RefreshFamilyId = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)),
+            RefreshGeneration = 0,
             DeviceFingerprint = deviceFingerprint,
             CreatedAt = DateTime.UtcNow.AddMinutes(-5),
             LastSeenAt = DateTime.UtcNow.AddMinutes(-1),

@@ -58,6 +58,8 @@ HTTP shell 契约由 `src/shared/Contracts/Validation/fsusblog.openapi.json` 提
 
 普通账号 bearer token 的签名有效不等于会话仍有效。所有需要普通账号 principal 的 binary 端点在 JWT `OnTokenValidated` 阶段统一校验 `sid`：默认读跨实例共享的短 TTL Redis L2 版本快照，miss 时只按 session 主键做一次 PostgreSQL 精确回源。单会话撤销、撤销其他会话和 refresh replay 的 DB 更新必须与 revoked snapshot 发布成对出现，使旧 access token 无需等待 JWT `exp` 即失效；公开 hot-read 没有认证 principal，不进入 session cache/DB 链路。admin principal 保持独立的 admin session validator，不复用普通 `sys_user_session`。实现与回退约束见 [user-session-revocation.md](../user-session-revocation.md)。
 
+Refresh Token 是服务端有状态的 opaque credential，不是 JWT，也不能由客户端 `SessionId` 决定其归属。每条 user session 固定一个 `RefreshFamilyId`，正常轮换只递增 generation；当前 hash 与已使用 hash tombstone 共同构成定位证据。原子 CAS 的 loser 与已提交后再次提交的 replay 是不同状态：前者只返回冲突，后者精确 compromise token 所属 family。任何兼容或降级路径都不得恢复旧 generation、按 device fingerprint 扩大撤销，或把 token/hash 全值写入日志。详见 [Refresh Token lineage](../security/refresh-token-lineage.md)。
+
 普通账号的安全 subject 是 `sys_user.account_subject_hash` 物理投影。迁移用与应用相同的 C# canonical hasher 分批回填，新账号在返回 bootstrap 响应前写入该字段；JWT、MFA、binary auth、notification stream、blacklist 和 account-state cache 只能读取投影值。缺失或格式错误时必须 fail closed，不能从 account id、public handle、Passkey handle 或旧 cache payload 重新派生。滚动发布通过 nullable Expand 列兼容旧二进制，但候选接流量前必须通过永久启动不变量门禁。
 
 高价值认证动作可以在既有 binary 路径上叠加 RiskControl proof，而不是新增平行登录 API。生产用户登录入口只保留 Passkey、Recovery Key 与必要 step-up；`auth.passkey.begin`、`auth.passkey.complete`、`recovery-key.verify` 必须通过 endpoint metadata 声明 action，并统一用 `RequiresRiskControlFilter` 返回 AEDS `ApiError`；缺 challenge proof 返回 428，block/throttle 返回 429。叠加 RiskControl 不删除 legacy PoW、admin step-up 或 MFA proof 边界；需要两个 proof 的端点必须明确登记到 [contracts.md](contracts.md#安全挑战契约) 与本文件头部表。`auth.login` 只作为 legacy 风控 action 名保留，不对应生产用户侧 password endpoint。

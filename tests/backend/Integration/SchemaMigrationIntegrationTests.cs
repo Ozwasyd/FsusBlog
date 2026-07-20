@@ -15,6 +15,7 @@ using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
 using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services;
@@ -257,6 +258,79 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             PostgresException rejected = await Assert.ThrowsAsync<PostgresException>(() => duplicateDelivery.ExecuteNonQueryAsync());
             Assert.Equal(PostgresErrorCodes.UniqueViolation, rejected.SqlState);
         }
+    }
+
+    [Fact]
+    public async Task RunAsync_RefreshTokenLineage_BackfillsFamiliesAndEnforcesHashOnlyTombstones()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+        await fixture.ExecuteAsync(connectionString, """
+            CREATE TABLE sys_user_session (
+                sessionid varchar(64) PRIMARY KEY,
+                userid integer NOT NULL,
+                refreshtokenhash varchar(128) NOT NULL,
+                createdat timestamp NOT NULL,
+                lastseenat timestamp NULL,
+                idleexpiresat timestamp NOT NULL,
+                absoluteexpiresat timestamp NOT NULL,
+                rememberme boolean NOT NULL DEFAULT false,
+                authentication_method varchar(24) NOT NULL DEFAULT 'other',
+                authentication_strength varchar(24) NOT NULL DEFAULT 'legacy_unverified',
+                authenticated_at_utc timestamp NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+                duration_policy varchar(24) NOT NULL DEFAULT 'browser_session'
+            );
+            INSERT INTO sys_user_session(
+                sessionid, userid, refreshtokenhash, createdat, lastseenat,
+                idleexpiresat, absoluteexpiresat, rememberme)
+            VALUES (
+                'legacy-session', 42, repeat('A', 64), now() AT TIME ZONE 'utc', now() AT TIME ZONE 'utc',
+                (now() AT TIME ZONE 'utc') + interval '7 days',
+                (now() AT TIME ZONE 'utc') + interval '30 days', false);
+            """);
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            new SchemaMigrationRegistry().GetDescriptors(),
+            static item => item.MigrationId == RefreshTokenLineageMigrationDefinitions.MigrationId);
+        ISchemaMigrationRegistry focusedRegistry = Substitute.For<ISchemaMigrationRegistry>();
+        focusedRegistry.GetDescriptors().Returns([descriptor]);
+
+        await RunMigrationsAsync(connectionString, focusedRegistry);
+        await RunMigrationsAsync(connectionString, focusedRegistry);
+
+        Assert.True(await fixture.TableExistsAsync(connectionString, "user_refresh_token_tombstone"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "ux_user_session_refresh_family"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "ux_user_refresh_tombstone_hash"));
+        Assert.Equal(
+            "legacy-session",
+            await fixture.QueryScalarAsync<string>(
+                connectionString,
+                "SELECT refresh_family_id FROM sys_user_session WHERE sessionid = 'legacy-session';"));
+        Assert.Equal(
+            0L,
+            await fixture.QueryScalarAsync<long>(
+                connectionString,
+                "SELECT refresh_generation FROM sys_user_session WHERE sessionid = 'legacy-session';"));
+
+        await fixture.ExecuteAsync(connectionString, """
+            INSERT INTO user_refresh_token_tombstone(
+                token_hash, refresh_family_id, session_id, generation, used_at_utc, expires_at_utc)
+            VALUES (
+                repeat('B', 64), 'legacy-session', 'legacy-session', 0,
+                now() AT TIME ZONE 'utc', (now() AT TIME ZONE 'utc') + interval '30 days');
+            """);
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync();
+        await using var duplicate = new NpgsqlCommand(
+            """
+            INSERT INTO user_refresh_token_tombstone(
+                token_hash, refresh_family_id, session_id, generation, used_at_utc, expires_at_utc)
+            VALUES (
+                repeat('B', 64), 'legacy-session', 'legacy-session', 1,
+                now() AT TIME ZONE 'utc', (now() AT TIME ZONE 'utc') + interval '30 days');
+            """,
+            connection);
+        PostgresException rejected = await Assert.ThrowsAsync<PostgresException>(() => duplicate.ExecuteNonQueryAsync());
+        Assert.Equal(PostgresErrorCodes.UniqueViolation, rejected.SqlState);
     }
 
     [Fact]

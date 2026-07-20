@@ -81,6 +81,10 @@ public interface IUserProfileCommandService
 
 public interface IUserSessionCommandService
 {
+    Task<RefreshTokenRotationResult> RotateRefreshTokenAsync(string refreshToken, string? sessionId, CancellationToken cancellationToken = default);
+
+    Task<bool> RevokeRefreshDeliveryAsync(string refreshToken, string sessionId, CancellationToken cancellationToken = default);
+
     Task<(bool Success, TokenResponseDto? Data, DateTime ExpiresAt)> RefreshTokenWithExpiryAsync(string refreshToken, string? sessionId, CancellationToken cancellationToken = default);
 
     Task<bool> VerifyRefreshRotationAsync(string refreshToken, string sessionId, CancellationToken cancellationToken = default);
@@ -102,6 +106,27 @@ public interface IUserSessionCommandService
     Task<int> RevokeAllSessionsAsync(int userId, string reason, CancellationToken cancellationToken = default);
 
     Task<bool> RevokeRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default);
+}
+
+public enum RefreshTokenRotationOutcome
+{
+    Success,
+    MissingToken,
+    ExpiredOrUnknown,
+    ConcurrentConflict,
+    ReplayCompromised,
+    SessionMismatchCompromised,
+    InvalidSessionContext,
+    AccountUnavailable
+}
+
+public readonly record struct RefreshTokenRotationResult(
+    RefreshTokenRotationOutcome Outcome,
+    TokenResponseDto? Tokens,
+    DateTime RefreshTokenExpiresAt,
+    string? DurationPolicy)
+{
+    public bool Success => Outcome == RefreshTokenRotationOutcome.Success && Tokens.HasValue;
 }
 
 public interface IUserMfaCommandService

@@ -236,6 +236,8 @@ public sealed class AccountEnrollmentService(
                 SessionId = sessionId,
                 UserId = activatedUser.Id,
                 RefreshTokenHash = HashOpaqueToken(refreshToken),
+                RefreshFamilyId = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)),
+                RefreshGeneration = 0,
                 DeviceFingerprint = Normalize(client.DeviceFingerprint, 128),
                 LastIp = Normalize(client.ClientIp, 64),
                 UserAgent = Normalize(client.UserAgent, 512),

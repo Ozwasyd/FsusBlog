@@ -129,7 +129,7 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
         var measurements = new ConcurrentBag<(string Name, double Value)>();
         using MeterListener listener = ListenToFsusMeasurements(measurements);
 
-        (HttpResponseMessage response, int verificationCalls) =
+        (HttpResponseMessage response, int verificationCalls, int deliveryRevocations) =
             await fixture.SendPostCommitVerificationFaultAsync();
         using (response)
         {
@@ -143,6 +143,7 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
                 value.StartsWith("AdminAccessToken=", StringComparison.Ordinal)
                 || value.StartsWith("AdminSessionId=", StringComparison.Ordinal));
         }
+        Assert.Equal(1, deliveryRevocations);
 
         Assert.Contains(measurements, measurement =>
             measurement.Name == "fsus.auth.refresh.cookie_write_failed_count"
@@ -207,7 +208,7 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
             }
         }
 
-        internal async Task<(HttpResponseMessage Response, int VerificationCalls)> SendPostCommitVerificationFaultAsync()
+        internal async Task<(HttpResponseMessage Response, int VerificationCalls, int DeliveryRevocations)> SendPostCommitVerificationFaultAsync()
         {
             await _requestGate.WaitAsync();
             try
@@ -216,7 +217,7 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
                 harness.PrepareForTest();
                 harness.ConfigurePostCookieVerificationFault();
                 HttpResponseMessage response = await harness.SendAsync(AuthExpiryFlow.Refresh);
-                return (response, harness.RefreshVerificationCallCount);
+                return (response, harness.RefreshVerificationCallCount, harness.RefreshDeliveryRevocationCallCount);
             }
             finally
             {
@@ -321,6 +322,9 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
 
         public int RefreshVerificationCallCount => _sessions.ReceivedCalls().Count(call =>
             call.GetMethodInfo().Name == nameof(IUserSessionCommandService.VerifyRefreshRotationAsync));
+
+        public int RefreshDeliveryRevocationCallCount => _sessions.ReceivedCalls().Count(call =>
+            call.GetMethodInfo().Name == nameof(IUserSessionCommandService.RevokeRefreshDeliveryAsync));
 
         public void PrepareForTest() => _prepareForTest();
 
@@ -489,18 +493,15 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
                     s_userAccessTokenExpiresAtUtc.UtcDateTime.AddDays(7),
                     $"rotated-user-session-{testId}",
                     s_userAccessTokenExpiresAtUtc);
-                sessions.GetSessionByRefreshTokenAsync("old-refresh", Arg.Any<CancellationToken>())
-                    .Returns(Task.FromResult<UserSession?>(new UserSession
-                    {
-                        SessionId = "old-session",
-                        DurationPolicy = UserSessionDurationPolicies.Persistent30Days
-                    }));
-                sessions.RefreshTokenWithExpiryAsync(
+                sessions.RotateRefreshTokenAsync(
                         "old-refresh",
                         "old-session",
                         Arg.Any<CancellationToken>())
-                    .Returns(Task.FromResult<(bool Success, TokenResponseDto? Data, DateTime ExpiresAt)>(
-                        (true, refreshTokens, s_userAccessTokenExpiresAtUtc.UtcDateTime.AddDays(7))));
+                    .Returns(Task.FromResult(new RefreshTokenRotationResult(
+                        RefreshTokenRotationOutcome.Success,
+                        refreshTokens,
+                        s_userAccessTokenExpiresAtUtc.UtcDateTime.AddDays(7),
+                        UserSessionDurationPolicies.Persistent30Days)));
                 sessions.VerifyRefreshRotationAsync(
                         Arg.Any<string>(),
                         Arg.Any<string>(),
