@@ -36,7 +36,10 @@
                     class="account-header-theme-action"
                     variant="menu-button"
                 />
-                <LocaleToggle />
+                <LocaleToggle
+                    class="account-header-locale-action"
+                    bordered
+                />
                 <AccountHeaderMenu
                     :can-manage="workspaceContext.canManage"
                     :current-area="currentArea"

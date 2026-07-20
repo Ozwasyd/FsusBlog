@@ -2,6 +2,7 @@
     <button
         type="button"
         class="fsusblog-locale-toggle"
+        :class="{ 'fsusblog-locale-toggle--bordered': bordered }"
         :aria-label="t('common.locale.toggleLabel')"
         :title="t('common.locale.toggleLabel')"
         @click="toggleLocale"
@@ -14,6 +15,12 @@
 
 <script setup lang="ts">
 import { useI18nText } from '@/composables/useI18nText';
+
+withDefaults(defineProps<{
+    bordered?: boolean;
+}>(), {
+    bordered: false
+});
 
 const { locale, t, toggleLocale } = useI18nText();
 </script>
@@ -41,6 +48,19 @@ const { locale, t, toggleLocale } = useI18nText();
 .fsusblog-locale-toggle:hover,
 .fsusblog-locale-toggle:focus-visible {
     color: var(--fsusblog-text-primary);
+}
+
+.fsusblog-locale-toggle--bordered {
+    border: 1px solid var(--fsusblog-panel-border);
+    border-radius: var(--fsus-radius-control);
+    background: var(--fsusblog-page-bg);
+    color: var(--fsusblog-text-secondary);
+}
+
+.fsusblog-locale-toggle--bordered:hover {
+    border-color: var(--fsusblog-color-primary);
+    background: var(--fsusblog-page-bg-soft);
+    color: var(--fsusblog-color-primary);
 }
 
 .fsusblog-locale-toggle:focus-visible {
