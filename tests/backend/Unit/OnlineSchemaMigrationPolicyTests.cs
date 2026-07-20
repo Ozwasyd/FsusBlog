@@ -89,6 +89,30 @@ public sealed class OnlineSchemaMigrationPolicyTests
     }
 
     [Fact]
+    public void ArticleCommentPolicy_IsExplicitAdditiveExpand()
+    {
+        ISchemaMigrationDescriptor descriptor = ArticleCommentPolicyMigrationDefinitions.BuildMigration();
+        OnlineSchemaMigrationMetadata metadata = new OnlineSchemaMigrationCatalog()
+            .GetMetadata()[descriptor.MigrationId];
+
+        OnlineSchemaMigrationPolicyReport report = OnlineSchemaMigrationPolicy.Validate(
+            [descriptor],
+            new Dictionary<string, OnlineSchemaMigrationMetadata>
+            {
+                [descriptor.MigrationId] = metadata
+            });
+
+        Assert.True(report.Valid, string.Join(Environment.NewLine, report.Violations));
+        Assert.Equal(OnlineSchemaMigrationPhase.Expand, metadata.Phase);
+        Assert.False(metadata.Destructive);
+        Assert.False(metadata.RequiresExclusiveMode);
+        Assert.Equal(OnlineSchemaMigrationRollbackMode.CompatibleCode, metadata.RollbackMode);
+        Assert.Contains("article_comment_policy_inheritance", metadata.Validators);
+        Assert.Contains("thread_policy_scope", metadata.Validators);
+        Assert.Contains("privacy_safe_slow_mode", metadata.Validators);
+    }
+
+    [Fact]
     public void ArticleAssetReferenceLedger_IsExplicitAdditiveExpand()
     {
         OnlineSchemaMigrationMetadata metadata = new OnlineSchemaMigrationCatalog()
@@ -251,6 +275,7 @@ public sealed class OnlineSchemaMigrationPolicyTests
             messageUnreadAuthority.MigrationId,
             passkeySignalVersion.MigrationId,
             commentMutationIdempotency.MigrationId,
+            ArticleCommentPolicyMigrationDefinitions.MigrationId,
             scheduledPublishDueIndex.MigrationId,
             articleDraftBaseRevision.MigrationId,
             CommentRevisionManagementMigrationDefinitions.MigrationId,
