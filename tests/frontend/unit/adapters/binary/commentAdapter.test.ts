@@ -138,6 +138,7 @@ function commentTreeNodeRecord(input: {
   rootId: bigint
   depth: number
   childCount?: number
+  isEdited?: boolean
   content?: string
 }): Uint8Array {
   const pod = new Uint8Array(COMMENT_TREE_NODE_POD_SIZE)
@@ -149,11 +150,26 @@ function commentTreeNodeRecord(input: {
   writeInt32(pod, 32, input.depth)
   writeInt32(pod, 36, input.childCount ?? 0)
   writeByte(pod, 41, (input.childCount ?? 0) > 0 ? 1 : 0)
+  writeUint16(pod, 42, input.isEdited ? 1 : 0)
   writeSliceRef(pod, 52, 0, textBytes(content).length)
   return buildPayload(pod, commentItemBlob(content))
 }
 
 describe('recursive comment tree binary adapters', () => {
+  it('decodes the edited marker from the comment tree POD flags', () => {
+    const payload = buildPayload(
+      int64Buf(0n), byteBuf(0), int32Buf(1),
+      commentTreeNodeRecord({ id: 101n, rootId: 101n, depth: 0, isEdited: true, content: 'edited comment' }),
+      byteBuf(0), new Uint8Array(3)
+    )
+
+    expect(mapCommentTreeRootCursorFromPayload(payload).data[0]?.node).toMatchObject({
+      id: '101',
+      content: 'edited comment',
+      isEdited: true
+    })
+  })
+
   it('decodes a root with only direct children and preserves 64-bit ids as strings', () => {
     const rootId = 9007199254740993n
     const payload = buildPayload(

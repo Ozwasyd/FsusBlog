@@ -20,7 +20,8 @@ public readonly record struct CommentCreateResult(
     string VisibilityState,
     bool IsPubliclyVisible,
     bool IdempotencyReplay,
-    string? FailureCode = null)
+    string? FailureCode = null,
+    string? ManagementSecret = null)
 {
     public static CommentCreateResult Failed => new(false, 0, 0, null, default, CommentModerationStatus.Pending, "pending", false, false);
 

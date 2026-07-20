@@ -5,9 +5,13 @@ import { toBootstrapArticleDetail } from '@/bootstrap/publicAotBootstrap'
 import {
   createAnonymousComment,
   createPublicComment,
+  deleteAnonymousComment,
   deleteComment,
+  deleteCommentAsAuthor,
+  editCommentAsAuthor,
   getCommentPolicySnapshot,
   getMyArticleComments,
+  issueCommentManagementChallenge,
   type CommentAuthorMode,
   type CommentAuthorView,
   type CommentDisplayLanguage,
@@ -25,7 +29,7 @@ import { consumePublicPageSeed } from '@/public-renderers/pageSeed'
 import { normalizeCommentContentPolicy, validateCommentContent } from '@/utils/contentFilter'
 import { isAbortError } from '@/utils/errors'
 import { showErrorToast } from '@/utils/errorPresentation'
-import { alertInfo } from '@/fsusui/feedback'
+import { alertInfo, promptText } from '@/fsusui/feedback'
 import { requestGlobalConfirm } from '@/composables/useGlobalConfirm'
 import { useRiskChallengeCommand } from '@/composables/useRiskChallengeCommand'
 import { fixedRiskChallengeContext, riskChallengeRoutes } from '@/security/risk-challenge-routes'
@@ -49,6 +53,10 @@ import {
   emptyArticleDetailHeaderView,
   emptyArticleDetailPageView
 } from '@/view-contracts/articleDetail'
+import {
+  COMMENT_MANAGEMENT_CAPABILITY_LOSS_NOTICE,
+  getCommentManagementCapabilityVault
+} from '@/privacy/commentManagementCapabilityVault'
 
 type ArticleSignalPayload = { articleId: string | number }
 
@@ -734,7 +742,7 @@ export function useArticleDetailView() {
               throw new Error('strong_anonymous_ticket_unavailable')
             }
 
-            await createAnonymousComment(
+            const result = await createAnonymousComment(
               {
                 articleId: article.value!.id,
                 content: commentContent.value,
@@ -747,6 +755,10 @@ export function useArticleDetailView() {
               privacyTicket,
               { signal }
             )
+            if (result.managementSecret) {
+              getCommentManagementCapabilityVault().put(result.commentId, result.managementSecret)
+            }
+            toast.warning(COMMENT_MANAGEMENT_CAPABILITY_LOSS_NOTICE, 9000)
             commentMutationSubmitted = true
             return
           }
@@ -880,7 +892,17 @@ export function useArticleDetailView() {
       }
 
       try {
-        await deleteComment(targetId)
+        const capabilitySecret = getCommentManagementCapabilityVault().get(targetId)
+        if (capabilitySecret) {
+          const challenge = await issueCommentManagementChallenge(targetId, 'delete', capabilitySecret)
+          await deleteAnonymousComment(targetId, capabilitySecret, challenge.challenge)
+          getCommentManagementCapabilityVault().remove(targetId)
+        } else if (!isAdmin && ownedCommentIds.value.has(targetId)) {
+          const challenge = await issueCommentManagementChallenge(targetId, 'delete', null)
+          await deleteCommentAsAuthor(targetId, challenge.challenge)
+        } else {
+          await deleteComment(targetId)
+        }
         toast.success('已移除')
         removeCommentById(targetId, payload.rootId, payload.parentId)
         removeOwnedComment(targetId)
@@ -891,6 +913,40 @@ export function useArticleDetailView() {
     }
 
     void deleteSelectedComment()
+  }
+
+  const handleCommentEdit = (payload: { id: string; content: string }): void => {
+    const editSelectedComment = async (): Promise<void> => {
+      const nextContent = await promptText(
+        '编辑后会重新经过内容、地区与模型审核，公开状态可能变为待审核或隐藏。',
+        '编辑评论',
+        { inputValue: payload.content, inputType: 'textarea' }
+      )
+      if (nextContent === null || nextContent === payload.content) return
+
+      const validation = validateCommentContent(nextContent)
+      if (!validation.isValid) {
+        showErrorToast(new Error(validation.message), '评论内容不符合要求')
+        return
+      }
+
+      try {
+        const capabilitySecret = getCommentManagementCapabilityVault().get(payload.id)
+        const challenge = await issueCommentManagementChallenge(payload.id, 'edit', capabilitySecret)
+        await editCommentAsAuthor(payload.id, {
+          expectedVersion: challenge.currentVersion,
+          content: nextContent,
+          challenge: challenge.challenge,
+          ...(capabilitySecret ? { capabilitySecret } : {})
+        })
+        toast.success('评论已更新并重新提交审核')
+        await reconcileCommentsAfterMutation()
+      } catch (error: unknown) {
+        showErrorToast(error, '编辑失败')
+      }
+    }
+
+    void editSelectedComment()
   }
 
   const handleArticleBatch = (patches: readonly NotificationStreamArticleRenderPatch[]): void => {
@@ -1022,6 +1078,7 @@ export function useArticleDetailView() {
     handleRenderComplete,
     submitComment,
     prepareCommentPrivacyTicket,
+    handleCommentEdit,
     handleCommentDelete,
     spaReady
   }

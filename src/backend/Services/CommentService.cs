@@ -172,6 +172,9 @@ public partial class CommentCommandService(
             return CommentCreateResult.Failed;
         }
 
+        CommentManagementCapability managementCapability =
+            CommentManagementCapabilityService.CreateCapability();
+
         CommentCreateResult result = await CreateResolvedCommentAsync(
             request.ArticleId,
             normalizedContent,
@@ -181,7 +184,8 @@ public partial class CommentCommandService(
             actor,
             effectiveRegionDecision,
             cancellationToken,
-            mutation);
+            mutation,
+            managementCapability);
         if (result.Created)
         {
             try
@@ -206,7 +210,8 @@ public partial class CommentCommandService(
         CommentActor actor,
         RegionModerationDecision regionDecision,
         CancellationToken cancellationToken,
-        CommentMutationCommand? mutation = null)
+        CommentMutationCommand? mutation = null,
+        CommentManagementCapability? managementCapability = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         DateTime now = DateTime.UtcNow;
@@ -347,7 +352,10 @@ public partial class CommentCommandService(
             ClientMutationId = mutation?.ClientMutationId,
             AnonymousTicketHash = mutation?.AnonymousTicketHash,
             MutationRequestHash = mutation?.RequestHash,
-            MutationExpiresAtUtc = mutation?.ExpiresAtUtc
+            MutationExpiresAtUtc = mutation?.ExpiresAtUtc,
+            CurrentVersion = 1,
+            EditedAtUtc = null,
+            ManagementCapabilityHash = managementCapability?.Commitment
         };
 
         long generatedId = 0;
@@ -399,6 +407,19 @@ public partial class CommentCommandService(
             {
                 throw new InvalidOperationException("Failed to create comment id.");
             }
+
+            await db.Insertable(new CommentRevision
+            {
+                CommentId = generatedId,
+                Version = 1,
+                Content = normalizedContent,
+                ContentSha256 = ComputeContentSha256(normalizedContent),
+                Operation = CommentRevisionOperations.Created,
+                CreatedAtUtc = comment.CreateTime,
+                ActorAccountId = actor.UserId,
+                ActorAdminPrincipalId = null,
+                ActorMode = actor.AuthorMode
+            }).ExecuteCommandAsync(cancellationToken);
 
             await commentModeration.PersistVisibilityAsync(generatedId, regionDecision, cancellationToken);
 
@@ -494,7 +515,7 @@ public partial class CommentCommandService(
                 comment.Id,
                 comment.RootId ?? comment.Id,
                 comment.ParentId);
-            return BuildCreateResult(comment);
+            return BuildCreateResult(comment, managementSecret: managementCapability?.Secret);
         }
 
         await commentModeration.ApplyPostInsertAsync(
@@ -526,7 +547,7 @@ public partial class CommentCommandService(
             comment.RootId ?? comment.Id,
             comment.ParentId);
 
-        return BuildCreateResult(comment);
+        return BuildCreateResult(comment, managementSecret: managementCapability?.Secret);
     }
 
     private async Task<ReplyTargetRow?> LoadVisibleReplyTargetAsync(long parentId, int articleId, CancellationToken cancellationToken)
@@ -925,7 +946,10 @@ public partial class CommentCommandService(
             """,
             new SugarParameter("@CommentId", commentId));
 
-    private static CommentCreateResult BuildCreateResult(Comment comment, bool idempotencyReplay = false)
+    private static CommentCreateResult BuildCreateResult(
+        Comment comment,
+        bool idempotencyReplay = false,
+        string? managementSecret = null)
         => new(
             true,
             comment.Id,
@@ -941,7 +965,12 @@ public partial class CommentCommandService(
                 _ => "pending"
             },
             comment.ModerationStatus == CommentModerationStatus.Approved,
-            idempotencyReplay);
+            idempotencyReplay,
+            FailureCode: null,
+            ManagementSecret: managementSecret);
+
+    private static string ComputeContentSha256(string content)
+        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content))).ToLowerInvariant();
 
     public Task<bool> DeleteCommentAsAccountAsync(long id, int accountId, string reason = "违反社区管理条例")
     {

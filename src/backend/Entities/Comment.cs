@@ -32,6 +32,21 @@ public class Comment
         get; set;
     }
 
+    [SugarColumn(ColumnName = "current_version")]
+    public int CurrentVersion { get; set; } = 1;
+
+    [SugarColumn(ColumnName = "edited_at_utc", IsNullable = true)]
+    public DateTime? EditedAtUtc
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "management_capability_hash", Length = 64, IsNullable = true)]
+    public string? ManagementCapabilityHash
+    {
+        get; set;
+    }
+
     [SugarColumn(ColumnName = "client_mutation_account_id", IsNullable = true)]
     public int? ClientMutationAccountId
     {

@@ -16,6 +16,12 @@ import {
   getThreadReplies,
   getMyComments,
   issueAnonymousCommentTicket,
+  issueCommentManagementChallenge,
+  editCommentAsAuthor,
+  deleteAnonymousComment,
+  deleteCommentAsAuthor,
+  getAnonymousCommentStatus,
+  appealAnonymousComment,
   deleteComment,
   encodeAnonymousCommentCreateRequest,
   encodeAnonymousCommentTicketRequest,
@@ -189,7 +195,7 @@ describe('comment API', () => {
     const body = call.requestOptions?.body as ArrayBuffer
     expect(call).toEqual(expect.objectContaining({
       binaryRoute: { operationId: 'binary_post_comment_anonymous' },
-      frameType: FrameType.CommentCreateResult,
+      frameType: FrameType.AnonymousCommentCreateResult,
       signal,
       requestOptions: expect.objectContaining({
         method: 'POST',
@@ -550,6 +556,105 @@ describe('comment API', () => {
         requiresPow: true
       })
     }))
+  })
+
+  it.each([
+    {
+      name: 'anonymous challenge',
+      invoke: () => issueCommentManagementChallenge('123', 'edit', 'secret-123'),
+      operationId: 'binary_post_comment_id_long_management_challenge',
+      requestFrame: FrameType.CommentManagementChallengeRequest,
+      responseFrame: FrameType.CommentManagementChallengeResponse,
+      privateScope: 'public',
+      credentials: 'omit',
+      payload: { purpose: 'edit', capabilitySecret: 'secret-123' }
+    },
+    {
+      name: 'account challenge',
+      invoke: () => issueCommentManagementChallenge('123', 'delete', null),
+      operationId: 'binary_post_comment_id_long_author_challenge',
+      requestFrame: FrameType.CommentManagementChallengeRequest,
+      responseFrame: FrameType.CommentManagementChallengeResponse,
+      privateScope: 'account',
+      credentials: 'include',
+      payload: { purpose: 'delete', capabilitySecret: null }
+    },
+    {
+      name: 'anonymous edit',
+      invoke: () => editCommentAsAuthor('123', { expectedVersion: 2, content: 'edited', challenge: 'challenge', capabilitySecret: 'secret-123' }),
+      operationId: 'binary_post_comment_id_long_management_edit',
+      requestFrame: FrameType.CommentAuthorEditRequest,
+      responseFrame: FrameType.CommentAuthorMutationResult,
+      privateScope: 'public',
+      credentials: 'omit',
+      payload: { expectedVersion: 2, content: 'edited', challenge: 'challenge', capabilitySecret: 'secret-123' }
+    },
+    {
+      name: 'anonymous delete',
+      invoke: () => deleteAnonymousComment('123', 'secret-123', 'challenge'),
+      operationId: 'binary_post_comment_id_long_management_delete',
+      requestFrame: FrameType.CommentAuthorStatusRequest,
+      responseFrame: FrameType.CommentAuthorMutationResult,
+      privateScope: 'public',
+      credentials: 'omit',
+      payload: { capabilitySecret: 'secret-123', challenge: 'challenge' }
+    },
+    {
+      name: 'account delete',
+      invoke: () => deleteCommentAsAuthor('123', 'challenge'),
+      operationId: 'binary_post_comment_id_long_author_delete',
+      requestFrame: FrameType.CommentAuthorStatusRequest,
+      responseFrame: FrameType.CommentAuthorMutationResult,
+      privateScope: 'account',
+      credentials: 'include',
+      payload: { challenge: 'challenge', capabilitySecret: '' }
+    },
+    {
+      name: 'anonymous status',
+      invoke: () => getAnonymousCommentStatus('123', 'secret-123', 'challenge'),
+      operationId: 'binary_post_comment_id_long_management_status',
+      requestFrame: FrameType.CommentAuthorStatusRequest,
+      responseFrame: FrameType.CommentAuthorStatusResult,
+      privateScope: 'public',
+      credentials: 'omit',
+      payload: { capabilitySecret: 'secret-123', challenge: 'challenge' }
+    },
+    {
+      name: 'anonymous appeal',
+      invoke: () => appealAnonymousComment('123', 'secret-123', 'challenge', 'please review'),
+      operationId: 'binary_post_comment_id_long_management_appeal',
+      requestFrame: FrameType.CommentAuthorAppealRequest,
+      responseFrame: FrameType.CommentAuthorMutationResult,
+      privateScope: 'public',
+      credentials: 'omit',
+      payload: { capabilitySecret: 'secret-123', challenge: 'challenge', reason: 'please review' }
+    }
+  ])('sends $name as a no-store JSON AEDS request', async ({
+    invoke,
+    operationId,
+    requestFrame,
+    responseFrame,
+    privateScope,
+    credentials,
+    payload
+  }) => {
+    await invoke()
+
+    const call = mockBinary.mock.calls[0][0]
+    const body = call.requestOptions?.body as ArrayBuffer
+    expect(call).toEqual(expect.objectContaining({
+      binaryRoute: { operationId, params: { id: '123' } },
+      privateScope,
+      frameType: responseFrame,
+      requestOptions: expect.objectContaining({
+        method: 'POST',
+        cache: 'no-store',
+        credentials,
+        body: expect.any(ArrayBuffer)
+      })
+    }))
+    expect(readAedsFrameType(body)).toBe(requestFrame)
+    expect(JSON.parse(new TextDecoder().decode(readAedsPayload(body)))).toEqual(payload)
   })
 })
 

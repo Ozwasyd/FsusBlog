@@ -877,6 +877,42 @@
             "value": 213
         },
         {
+            "name": "AnonymousCommentCreateResult",
+            "value": 214
+        },
+        {
+            "name": "CommentManagementChallengeRequest",
+            "value": 215
+        },
+        {
+            "name": "CommentManagementChallengeResponse",
+            "value": 216
+        },
+        {
+            "name": "CommentAuthorEditRequest",
+            "value": 217
+        },
+        {
+            "name": "CommentAuthorMutationResult",
+            "value": 218
+        },
+        {
+            "name": "CommentAuthorStatusRequest",
+            "value": 219
+        },
+        {
+            "name": "CommentAuthorStatusResult",
+            "value": 220
+        },
+        {
+            "name": "CommentAuthorAppealRequest",
+            "value": 221
+        },
+        {
+            "name": "CommentRevisionList",
+            "value": 222
+        },
+        {
             "name": "EmptySuccess",
             "value": 240
         },

@@ -1447,6 +1447,7 @@ public static partial class PodBinaryCodec
                 item.ReplyCount,
                 item.HasMoreReplies,
                 item.RepliesPreview.Count,
+                item.IsEdited,
                 out ReadOnlyMemory<byte> payload));
             writer.WriteBytes(BuildCommentItemPayload(payload, item.Author, null).Span);
 
@@ -1460,7 +1461,8 @@ public static partial class PodBinaryCodec
                     reply.Author.DisplayName,
                     reply.ReplyToAuthor?.DisplayName,
                     reply.Content,
-                out ReadOnlyMemory<byte> replyPayload));
+                    reply.IsEdited,
+                    out ReadOnlyMemory<byte> replyPayload));
                 writer.WriteBytes(BuildCommentItemPayload(replyPayload, reply.Author, reply.ReplyToAuthor).Span);
             }
         }
@@ -1498,6 +1500,7 @@ public static partial class PodBinaryCodec
                 reply.Author.DisplayName,
                 reply.ReplyToAuthor?.DisplayName,
                 reply.Content,
+                reply.IsEdited,
                 out ReadOnlyMemory<byte> payload));
             writer.WriteBytes(BuildCommentItemPayload(payload, reply.Author, reply.ReplyToAuthor).Span);
         }
@@ -1598,6 +1601,7 @@ public static partial class PodBinaryCodec
             node.IsDeleted,
             node.CreateTime,
             node.Content,
+            node.IsEdited,
             out ReadOnlyMemory<byte> payload));
         writer.WriteBytes(BuildCommentItemPayload(payload, node.Author, node.ReplyToAuthor).Span);
     }

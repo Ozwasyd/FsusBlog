@@ -24,6 +24,7 @@ internal static class SchemaMigrationCatalog20260720
                 ArticleDraftBaseRevisionMigrationDefinitions.BuildMigration(),
                 ArticleRevisionRollbackMigrationDefinitions.BuildMigration(),
                 AccountEnrollmentMigrationDefinitions.BuildMigration(),
+                CommentRevisionManagementMigrationDefinitions.BuildMigration(),
                 PasskeySignalMigrationDefinitions.BuildMigration(),
                 UserSessionAuthenticationContextMigrationDefinitions.BuildMigration(),
                 UserSessionMetadataMinimizationMigrationDefinitions.BuildMigration(),

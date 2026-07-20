@@ -875,7 +875,8 @@ public readonly record struct CommentReplyItemDto(
     string RootId,
     string? ReplyToCommentId,
     int Depth,
-    bool IsDeleted);
+    bool IsDeleted,
+    bool IsEdited = false);
 
 /// <summary>
 /// Defines the API output contract represented by <c>CommentReplyPreviewItemDto</c>.
@@ -886,7 +887,8 @@ public readonly record struct CommentReplyPreviewItemDto(
     DateTime CreateTime,
     CommentAuthorViewDto Author,
     CommentAuthorViewDto? ReplyToAuthor,
-    bool IsDeleted);
+    bool IsDeleted,
+    bool IsEdited = false);
 
 /// <summary>
 /// Defines the API output contract represented by <c>CommentThreadItemDto</c>.
@@ -900,7 +902,8 @@ public readonly record struct CommentThreadItemDto(
     bool IsDeleted,
     int ReplyCount,
     bool HasMoreReplies,
-    List<CommentReplyPreviewItemDto> RepliesPreview);
+    List<CommentReplyPreviewItemDto> RepliesPreview,
+    bool IsEdited = false);
 
 /// <summary>
 /// Defines one server-authoritative node in an arbitrarily deep comment tree.
@@ -917,7 +920,8 @@ public readonly record struct CommentTreeNodeDto(
     int Depth,
     bool IsDeleted,
     int ChildCount,
-    bool HasMoreChildren);
+    bool HasMoreChildren,
+    bool IsEdited = false);
 
 /// <summary>
 /// Defines a root comment and its first independently pageable child window.

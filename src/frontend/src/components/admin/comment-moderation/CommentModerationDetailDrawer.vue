@@ -40,6 +40,26 @@
 
       <section class="border-y border-[var(--fsusblog-panel-border)]">
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
+          <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">内容修订</div>
+        </div>
+        <div v-if="revisionsLoading" class="p-5 text-[12px] text-[var(--fsusblog-text-muted)]">正在读取修订历史…</div>
+        <div v-else-if="revisionsError" class="p-5 text-[12px] text-[var(--el-color-danger)]">{{ revisionsError }}</div>
+        <div v-else class="divide-y divide-[var(--fsusblog-panel-border)]">
+          <article v-for="(revision, index) in revisions" :key="revision.version" class="p-5">
+            <div class="flex flex-wrap items-center gap-2 text-[12px] text-[var(--fsusblog-text-muted)]">
+              <strong class="text-[var(--fsusblog-text-primary)]">v{{ revision.version }}</strong>
+              <span>{{ revision.operation }}</span>
+              <SemanticTime :value="revision.createdAtUtc" :text="revision.createdAtUtc" />
+              <span>{{ revisionDiffSummary(index) }}</span>
+            </div>
+            <pre class="mt-3 whitespace-pre-wrap break-words font-sans text-[12px] leading-relaxed text-[var(--fsusblog-text-secondary)]">{{ revision.content }}</pre>
+          </article>
+          <div v-if="revisions.length === 0" class="p-5 text-[12px] text-[var(--fsusblog-text-muted)]">暂无修订记录</div>
+        </div>
+      </section>
+
+      <section class="border-y border-[var(--fsusblog-panel-border)]">
+        <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
           <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">匿名治理摘要</div>
         </div>
         <div class="grid grid-cols-1 gap-3">
@@ -156,12 +176,15 @@
 </template>
 
 <script setup lang="ts">
+import { ref, watch } from 'vue'
 import { Check, Close, Hide } from '@/fsusui/icons'
 import { CommentModerationStatus, type CommentModerationStatus as CommentModerationStatusValue } from '@/api/authoring'
+import { getCommentRevisions } from '@/api/commentRevision'
+import type { CommentRevisionResult } from '@/contracts/binaryApi'
 import SemanticTime from '@/components/ui/SemanticTime.vue'
 import type { CommentModerationViewItem } from '@/composables/useCommentModerationQueue'
 
-defineProps<{
+const props = defineProps<{
   visible: boolean
   item: CommentModerationViewItem | null
   processing: boolean
@@ -171,6 +194,45 @@ const emit = defineEmits<{
   'update:visible': [value: boolean]
   apply: [item: CommentModerationViewItem, status: CommentModerationStatusValue]
 }>()
+
+const revisions = ref<CommentRevisionResult[]>([])
+const revisionsLoading = ref(false)
+const revisionsError = ref('')
+let revisionRequest: AbortController | null = null
+
+watch(
+  () => [props.visible, props.item?.id] as const,
+  ([visible, commentId]) => {
+    revisionRequest?.abort()
+    revisions.value = []
+    revisionsError.value = ''
+    revisionsLoading.value = false
+    if (!visible || !commentId) return
+
+    const controller = new AbortController()
+    revisionRequest = controller
+    revisionsLoading.value = true
+    void getCommentRevisions(commentId, { signal: controller.signal })
+      .then((result) => { if (!controller.signal.aborted) revisions.value = result })
+      .catch(() => { if (!controller.signal.aborted) revisionsError.value = '修订历史读取失败' })
+      .finally(() => { if (!controller.signal.aborted) revisionsLoading.value = false })
+  },
+  { immediate: true }
+)
+
+function revisionDiffSummary(index: number): string {
+  const current = revisions.value[index]?.content ?? ''
+  const previous = revisions.value[index + 1]?.content ?? ''
+  if (!previous) return '初始版本'
+  let prefix = 0
+  while (prefix < current.length && prefix < previous.length && current[prefix] === previous[prefix]) prefix += 1
+  let suffix = 0
+  while (suffix < current.length - prefix && suffix < previous.length - prefix
+    && current[current.length - 1 - suffix] === previous[previous.length - 1 - suffix]) suffix += 1
+  const added = Math.max(0, current.length - prefix - suffix)
+  const removed = Math.max(0, previous.length - prefix - suffix)
+  return `+${added} / -${removed} 字符`
+}
 </script>
 
 <style scoped>

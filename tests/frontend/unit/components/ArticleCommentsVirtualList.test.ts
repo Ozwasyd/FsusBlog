@@ -28,6 +28,7 @@ const makeNode = (
   replyToCommentId: depth === 0 ? null : String(BigInt(id) - 1n),
   depth,
   isDeleted: false,
+  isEdited: false,
   childCount: children.length,
   hasMoreChildren: false,
   children,
@@ -48,6 +49,19 @@ const mountList = (
 afterEach(() => { document.body.innerHTML = '' })
 
 describe('ArticleCommentsVirtualList recursive comment tree', () => {
+  it('renders the POD-derived edited marker without changing unedited comments', () => {
+    const edited = makeNode('1', 0, [], { isEdited: true })
+    const wrapper = mountList(edited, false)
+
+    expect(wrapper.get('.fsus-comment-tree-node__edited').text()).toBe('已编辑')
+    expect(wrapper.get('.fsus-comment-tree-node__edited').attributes('aria-label')).toBe('此评论已编辑')
+    wrapper.unmount()
+
+    const uneditedWrapper = mountList(makeNode('2'), false)
+    expect(uneditedWrapper.find('.fsus-comment-tree-node__edited').exists()).toBe(false)
+    uneditedWrapper.unmount()
+  })
+
   it('renders public and anonymous identity states without account identifiers', () => {
     const publicWrapper = mountList(makeNode('1'), true)
     expect(publicWrapper.get('.fsus-comment-tree-node__author').classes()).toContain('is-authenticated')

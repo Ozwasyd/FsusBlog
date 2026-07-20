@@ -27,6 +27,7 @@
       >
         <time :datetime="time.isoTime">{{ time.relativeTimeText }}</time>
       </a>
+      <span v-if="node.isEdited" class="fsus-comment-tree-node__edited" aria-label="此评论已编辑">已编辑</span>
     </header>
 
     <CommentMarkdownRenderer
@@ -61,6 +62,14 @@
         {{ branchExpanded ? '收起回复' : `展开 ${node.childCount} 条直接回复` }}
       </button>
       <button
+        v-if="canEdit"
+        type="button"
+        class="fsus-comment-tree-node__action"
+        @click="$emit('edit', { id: node.id, content: node.content })"
+      >
+        编辑
+      </button>
+      <button
         v-if="canDelete"
         type="button"
         class="fsus-comment-tree-node__action is-danger"
@@ -89,6 +98,7 @@
         :loading-replies="loadingReplies"
         @reply="$emit('reply', $event)"
         @load-more="$emit('load-more', $event)"
+        @edit="$emit('edit', $event)"
         @delete="$emit('delete', $event)"
       />
       <button
@@ -114,11 +124,13 @@ import type { CommentTreeViewNode } from '@/composables/useArticleCommentStream'
 import CommentMarkdownRenderer from '@/components/article/CommentMarkdownRenderer.vue'
 import { COMMENT_CONTENT_CONSTRAINT } from '@/utils/contentFilter'
 import { TimeUtils } from '@/utils/time'
+import { getCommentManagementCapabilityVault } from '@/privacy/commentManagementCapabilityVault'
 
 defineOptions({ name: 'ArticleCommentTreeNode' })
 
 type ReplyTargetPayload = { id: string; rootId: string; author: CommentAuthorView; depth: number }
 type DeletePayload = { id: string; rootId: string; parentId: string | null; content: string }
+type EditPayload = { id: string; content: string }
 
 const props = defineProps<{
   node: CommentTreeViewNode
@@ -132,6 +144,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   reply: [payload: ReplyTargetPayload]
   loadMore: [parentId: string]
+  edit: [payload: EditPayload]
   delete: [payload: DeletePayload]
 }>()
 
@@ -140,7 +153,9 @@ const branchExpanded = ref(props.node.childrenExpanded || props.node.children.le
 const contentExpanded = ref(false)
 const contentOverflow = ref(false)
 const isAnonymous = computed(() => props.node.author.mode !== 'public')
-const canDelete = computed(() => props.isAdmin || props.ownedCommentIds.has(props.node.id))
+const hasAnonymousCapability = computed(() => getCommentManagementCapabilityVault().get(props.node.id) !== null)
+const canEdit = computed(() => !props.node.isDeleted && (props.ownedCommentIds.has(props.node.id) || hasAnonymousCapability.value))
+const canDelete = computed(() => props.isAdmin || props.ownedCommentIds.has(props.node.id) || hasAnonymousCapability.value)
 const contentFoldable = computed(() => contentOverflow.value
   || props.node.content.length > 360
   || props.node.content.split(/\r\n|\r|\n/u).length > COMMENT_CONTENT_CONSTRAINT.collapsedMarkdownMaxLines)
@@ -227,6 +242,7 @@ const toggleBranch = (): void => branchExpanded.value ? collapseBranch() : expan
 .fsus-comment-tree-node__time { color: var(--fsusblog-text-quiet); }
 .fsus-comment-tree-node__badge { padding: 2px 6px; border: 1px solid var(--fsusblog-panel-border-strong); border-radius: 999px; font-size: 12px; }
 .fsus-comment-tree-node__time { font-size: 14px; text-decoration: none; }
+.fsus-comment-tree-node__edited { color: var(--fsusblog-text-quiet); font-size: 12px; }
 .fsus-comment-tree-node__content { margin-block: 8px; overflow-wrap: anywhere; }
 .fsus-comment-tree-node__footer { gap: 12px; }
 .fsus-comment-tree-node__action { padding: 0; border: 0; background: transparent; color: var(--fsusblog-text-muted); font: inherit; cursor: pointer; }

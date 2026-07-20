@@ -261,7 +261,8 @@ visible_chain AS (
                 root.IsDeleted,
                 replyCount,
                 hasMoreReplies,
-                previewReplies);
+                previewReplies,
+                root.IsEdited);
         }, s_cursorCodec);
     }
 
@@ -389,6 +390,7 @@ SELECT
     c.article_id AS "ArticleId",
     c.content AS "Content",
     c.create_time AS "CreateTime",
+    (c.edited_at_utc IS NOT NULL) AS "IsEdited",
     CASE
         WHEN c.author_mode = 'public' THEN COALESCE(NULLIF(c.public_handle, ''), '未署名用户')
         WHEN lower(COALESCE(c.anonymous_display_language, '')) = 'en' THEN COALESCE(NULLIF(c.anonymous_display_name, ''), 'Anonymous User')
@@ -423,6 +425,7 @@ WHERE c.article_id = @ArticleId
             int fArticleId = reader.GetOrdinal("ArticleId");
             int fContent = reader.GetOrdinal("Content");
             int fCreateTime = reader.GetOrdinal("CreateTime");
+            int fIsEdited = reader.GetOrdinal("IsEdited");
             int fAuthorDisplayName = reader.GetOrdinal("AuthorDisplayName");
             int fAuthorMode = reader.GetOrdinal("AuthorMode");
             int fAnonymousDisplayLanguage = reader.GetOrdinal("AnonymousDisplayLanguage");
@@ -438,6 +441,7 @@ WHERE c.article_id = @ArticleId
                     ArticleId = reader.GetInt32(fArticleId),
                     Content = reader.IsDBNull(fContent) ? string.Empty : reader.GetString(fContent),
                     CreateTime = reader.GetDateTime(fCreateTime),
+                    IsEdited = reader.GetBoolean(fIsEdited),
                     AuthorDisplayName = reader.IsDBNull(fAuthorDisplayName) ? string.Empty : reader.GetString(fAuthorDisplayName),
                     AuthorMode = reader.IsDBNull(fAuthorMode) ? null : reader.GetString(fAuthorMode),
                     AnonymousDisplayLanguage = reader.IsDBNull(fAnonymousDisplayLanguage) ? null : reader.GetString(fAnonymousDisplayLanguage),
@@ -487,6 +491,7 @@ SELECT
     c.reply_to_comment_id AS "ReplyToCommentId",
     c.content AS "Content",
     c.create_time AS "CreateTime",
+    (c.edited_at_utc IS NOT NULL) AS "IsEdited",
     CASE
         WHEN c.author_mode = 'public' THEN COALESCE(NULLIF(c.public_handle, ''), '未署名用户')
         WHEN lower(COALESCE(c.anonymous_display_language, '')) = 'en' THEN COALESCE(NULLIF(c.anonymous_display_name, ''), 'Anonymous User')
@@ -537,6 +542,7 @@ WHERE c.article_id = @ArticleId
             int fReplyToCommentId = reader.GetOrdinal("ReplyToCommentId");
             int fContent = reader.GetOrdinal("Content");
             int fCreateTime = reader.GetOrdinal("CreateTime");
+            int fIsEdited = reader.GetOrdinal("IsEdited");
             int fAuthorDisplayName = reader.GetOrdinal("AuthorDisplayName");
             int fAuthorMode = reader.GetOrdinal("AuthorMode");
             int fAnonymousDisplayLanguage = reader.GetOrdinal("AnonymousDisplayLanguage");
@@ -559,6 +565,7 @@ WHERE c.article_id = @ArticleId
                     ReplyToCommentId = reader.IsDBNull(fReplyToCommentId) ? null : reader.GetInt64(fReplyToCommentId),
                     Content = reader.IsDBNull(fContent) ? string.Empty : reader.GetString(fContent),
                     CreateTime = reader.GetDateTime(fCreateTime),
+                    IsEdited = reader.GetBoolean(fIsEdited),
                     AuthorDisplayName = reader.IsDBNull(fAuthorDisplayName) ? string.Empty : reader.GetString(fAuthorDisplayName),
                     AuthorMode = reader.IsDBNull(fAuthorMode) ? null : reader.GetString(fAuthorMode),
                     AnonymousDisplayLanguage = reader.IsDBNull(fAnonymousDisplayLanguage) ? null : reader.GetString(fAnonymousDisplayLanguage),
@@ -737,6 +744,7 @@ SELECT
     c.reply_to_comment_id AS "ReplyToCommentId",
     c.content AS "Content",
     c.create_time AS "CreateTime",
+    (c.edited_at_utc IS NOT NULL) AS "IsEdited",
     CASE
         WHEN c.author_mode = 'public' THEN COALESCE(NULLIF(c.public_handle, ''), '未署名用户')
         WHEN lower(COALESCE(c.anonymous_display_language, '')) = 'en' THEN COALESCE(NULLIF(c.anonymous_display_name, ''), 'Anonymous User')
@@ -786,6 +794,7 @@ WHERE c.article_id = @ArticleId
                 ReplyToCommentId = reader.IsDBNull(reader.GetOrdinal("ReplyToCommentId")) ? null : reader.GetInt64(reader.GetOrdinal("ReplyToCommentId")),
                 Content = reader.IsDBNull(reader.GetOrdinal("Content")) ? string.Empty : reader.GetString(reader.GetOrdinal("Content")),
                 CreateTime = reader.GetDateTime(reader.GetOrdinal("CreateTime")),
+                IsEdited = reader.GetBoolean(reader.GetOrdinal("IsEdited")),
                 AuthorDisplayName = reader.IsDBNull(reader.GetOrdinal("AuthorDisplayName")) ? string.Empty : reader.GetString(reader.GetOrdinal("AuthorDisplayName")),
                 AuthorMode = reader.IsDBNull(reader.GetOrdinal("AuthorMode")) ? null : reader.GetString(reader.GetOrdinal("AuthorMode")),
                 AnonymousDisplayLanguage = reader.IsDBNull(reader.GetOrdinal("AnonymousDisplayLanguage")) ? null : reader.GetString(reader.GetOrdinal("AnonymousDisplayLanguage")),
@@ -881,6 +890,7 @@ SELECT
     x.reply_to_comment_id AS "ReplyToCommentId",
     x.content AS "Content",
     x.create_time AS "CreateTime",
+    x.is_edited AS "IsEdited",
     x.author_display_name AS "AuthorDisplayName",
     x.author_mode AS "AuthorMode",
     x.anonymous_display_language AS "AnonymousDisplayLanguage",
@@ -901,6 +911,7 @@ FROM (
         c.reply_to_comment_id,
         c.content,
         c.create_time,
+        (c.edited_at_utc IS NOT NULL) AS is_edited,
         CASE
             WHEN c.author_mode = 'public' THEN COALESCE(NULLIF(c.public_handle, ''), '未署名用户')
             WHEN lower(COALESCE(c.anonymous_display_language, '')) = 'en' THEN COALESCE(NULLIF(c.anonymous_display_name, ''), 'Anonymous User')
@@ -972,6 +983,7 @@ ORDER BY x.root_id, x.id;
             int fReplyToCommentId = reader.GetOrdinal("ReplyToCommentId");
             int fContent = reader.GetOrdinal("Content");
             int fCreateTime = reader.GetOrdinal("CreateTime");
+            int fIsEdited = reader.GetOrdinal("IsEdited");
             int fAuthorDisplayName = reader.GetOrdinal("AuthorDisplayName");
             int fAuthorMode = reader.GetOrdinal("AuthorMode");
             int fAnonymousDisplayLanguage = reader.GetOrdinal("AnonymousDisplayLanguage");
@@ -997,6 +1009,7 @@ ORDER BY x.root_id, x.id;
                     ReplyToCommentId = reader.IsDBNull(fReplyToCommentId) ? null : reader.GetInt64(fReplyToCommentId),
                     Content = reader.IsDBNull(fContent) ? string.Empty : reader.GetString(fContent),
                     CreateTime = reader.GetDateTime(fCreateTime),
+                    IsEdited = reader.GetBoolean(fIsEdited),
                     AuthorDisplayName = reader.IsDBNull(fAuthorDisplayName) ? string.Empty : reader.GetString(fAuthorDisplayName),
                     AuthorMode = reader.IsDBNull(fAuthorMode) ? null : reader.GetString(fAuthorMode),
                     AnonymousDisplayLanguage = reader.IsDBNull(fAnonymousDisplayLanguage) ? null : reader.GetString(fAnonymousDisplayLanguage),
@@ -1048,7 +1061,8 @@ ORDER BY x.root_id, x.id;
             resolvedRootId.ToString(),
             row.ReplyToCommentId?.ToString(),
             viewDepth,
-            row.IsDeleted);
+            row.IsDeleted,
+            row.IsEdited);
     }
 
     private static CommentTreeNodeDto MapTreeRoot(ThreadRootRow row, int childCount, bool hasMoreChildren)
@@ -1066,7 +1080,8 @@ ORDER BY x.root_id, x.id;
             0,
             row.IsDeleted,
             childCount,
-            hasMoreChildren);
+            hasMoreChildren,
+            row.IsEdited);
 
     private static CommentTreeNodeDto MapTreeNode(ReplyRow row)
     {
@@ -1085,7 +1100,8 @@ ORDER BY x.root_id, x.id;
             Math.Max(0, row.Depth),
             row.IsDeleted,
             row.ChildCount,
-            row.ChildCount > 0);
+            row.ChildCount > 0,
+            row.IsEdited);
     }
 
     private static CommentPermalinkContextDto UnavailablePermalink()
@@ -1128,7 +1144,8 @@ ORDER BY x.root_id, x.id;
                 ? BuildDeletedAuthorView()
                 : BuildAuthorView(row.AuthorMode, row.AuthorDisplayName, row.AnonymousDisplayLanguage, row.AnonymousScope),
             BuildReplyToAuthorView(row),
-            row.IsDeleted);
+            row.IsDeleted,
+            row.IsEdited);
 
     private static CommentAuthorViewDto? BuildReplyToAuthorView(ReplyRow row)
     {
@@ -1231,6 +1248,10 @@ ORDER BY x.root_id, x.id;
         {
             get; init;
         }
+        public bool IsEdited
+        {
+            get; init;
+        }
         public string AuthorDisplayName { get; init; } = string.Empty;
         public string? AuthorMode
         {
@@ -1274,6 +1295,10 @@ ORDER BY x.root_id, x.id;
         }
         public string Content { get; init; } = string.Empty;
         public DateTime CreateTime
+        {
+            get; init;
+        }
+        public bool IsEdited
         {
             get; init;
         }

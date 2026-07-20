@@ -311,6 +311,44 @@ export interface CommentCreateResult {
     idempotencyReplay: boolean;
 }
 
+export interface AnonymousCommentCreateResult extends CommentCreateResult {
+    managementSecret: string;
+}
+
+export interface CommentManagementChallengeResult {
+    issued: boolean;
+    challenge: string;
+    expiresAtUtc: string;
+    failureCode?: string | null;
+    currentVersion: number;
+}
+
+export interface CommentAuthorMutationResult {
+    success: boolean;
+    code: string;
+    currentVersion: number;
+    moderationStatus: number;
+    editedAtUtc?: string | null;
+}
+
+export interface CommentAuthorStatusResult {
+    found: boolean;
+    currentVersion: number;
+    moderationStatus: number;
+    moderationReason?: string | null;
+    isDeleted: boolean;
+    editedAtUtc?: string | null;
+}
+
+export interface CommentRevisionResult {
+    version: number;
+    content: string;
+    contentSha256: string;
+    operation: 'created' | 'edited' | 'deleted';
+    createdAtUtc: string;
+    actorMode: string;
+}
+
 export interface AnonymousCommentSubmitDto {
     articleId: number;
     content: string;
@@ -494,6 +532,7 @@ export interface CommentReplyItem {
     replyToCommentId?: string | null;
     depth: number;
     isDeleted: boolean;
+    isEdited: boolean;
 }
 
 export interface CommentThreadItem {
@@ -503,6 +542,7 @@ export interface CommentThreadItem {
     author: CommentAuthorView;
     rootId: string;
     isDeleted: boolean;
+    isEdited: boolean;
     replyCount: number;
     hasMoreReplies: boolean;
     repliesPreview: CommentReplyPreviewItem[];
@@ -515,6 +555,7 @@ export interface CommentReplyPreviewItem {
     author: CommentAuthorView;
     replyToAuthor?: CommentAuthorView | null;
     isDeleted: boolean;
+    isEdited: boolean;
 }
 
 export interface CommentTreeNode {
@@ -528,6 +569,7 @@ export interface CommentTreeNode {
     replyToCommentId?: string | null;
     depth: number;
     isDeleted: boolean;
+    isEdited: boolean;
     childCount: number;
     hasMoreChildren: boolean;
 }

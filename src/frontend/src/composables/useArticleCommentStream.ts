@@ -261,6 +261,7 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
       replyToCommentId: incoming.replyToCommentId ?? incoming.parentId ?? null,
       depth: Math.max(0, incoming.depth ?? 0),
       isDeleted: incoming.isDeleted === true,
+      isEdited: false,
       childCount: 0,
       hasMoreChildren: false
     })

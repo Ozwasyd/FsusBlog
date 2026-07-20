@@ -316,6 +316,15 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 67 | `PasskeyLoginCompleteRequest` | `PasskeyLoginCompleteRequestPod` | `POST /api/binary/auth/passkey/login/complete`；admin login complete 请求体 |
 | 68 | `PasskeyCredentialFriendlyNameUpdateRequest` | `PasskeyCredentialFriendlyNameUpdateRequestPod` | `PUT /api/binary/auth/passkey/credentials/{id}/name` 请求体 |
 | 212 | `PasskeySignalState` | `PasskeySignalStatePod` + `PasskeySignalCredentialPod[]` | Passkey 注册/删除响应与 `GET /api/binary/auth/passkey/signal-state`；含单调 revision 和服务端权威完整凭证集 |
+| 214 | `AnonymousCommentCreateResult` | JSON-in-AEDS | 强匿名创建结果；首次成功附带 `managementSecret`，幂等 replay 为空；响应 `no-store` |
+| 215 | `CommentManagementChallengeRequest` | JSON-in-AEDS | challenge purpose 与可选匿名 capability；敏感值只允许 request body |
+| 216 | `CommentManagementChallengeResponse` | JSON-in-AEDS | 5 分钟一次性 challenge、过期时间与当前评论版本 |
+| 217 | `CommentAuthorEditRequest` | JSON-in-AEDS | expectedVersion、正文、challenge；匿名请求额外携带 capability |
+| 218 | `CommentAuthorMutationResult` | JSON-in-AEDS | edit/delete/appeal 的稳定结果码、当前版本与重新审核状态 |
+| 219 | `CommentAuthorStatusRequest` | JSON-in-AEDS | delete/status challenge；匿名请求额外携带 capability |
+| 220 | `CommentAuthorStatusResult` | JSON-in-AEDS | capability-scoped 当前审核/删除/编辑状态，不包含历史正文 |
+| 221 | `CommentAuthorAppealRequest` | JSON-in-AEDS | 匿名申诉原因、challenge 与 capability |
+| 222 | `CommentRevisionList` | JSON-in-AEDS | admin-only 修订内容、SHA-256、操作、时间与 actor mode |
 | 69 | `NotificationEvent` | binary notification value | `/api/notifications/stream` WebSocket 事件；`CommentAdded` payload 的 `comment` 字段使用 `author` / `replyToAuthor` 作者快照，不允许恢复 legacy identity fields |
 | 70 | `NotificationHeartbeat` | `int64 timestampUnixMs` | `/api/notifications/stream` WebSocket 心跳 |
 | 71 | `PublicAotBootstrap` | binary tagged value | Public AOT HTML bootstrap / hydration；`GET /api/public/navigation-snapshot.aeds?path=...` 的 `public-navigation-snapshot` envelope（含 schema/version/SHA-256 digest 的 `PublicSeoHeadModel`） |

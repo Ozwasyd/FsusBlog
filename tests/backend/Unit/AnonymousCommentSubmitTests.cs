@@ -812,7 +812,10 @@ public sealed class AnonymousCommentSubmitTests(
             CancellationToken.None);
 
         AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
-        Assert.Equal(AedsFrameType.CommentCreateResult, decoded.FrameType);
+        Assert.Equal(AedsFrameType.AnonymousCommentCreateResult, decoded.FrameType);
+        using JsonDocument response = JsonDocument.Parse(decoded.Payload);
+        Assert.Equal("anonymous-management-secret", response.RootElement.GetProperty("managementSecret").GetString());
+        Assert.Equal(123, response.RootElement.GetProperty("commentId").GetInt64());
         Assert.Equal("hello anonymous", commentService.Request.Content);
         Assert.Equal(RegionCodes.Singapore, commentService.RegionDecision!.SubmitRegion);
         Assert.Equal(1, commentService.AnonymousCreateCalls);
@@ -845,7 +848,9 @@ public sealed class AnonymousCommentSubmitTests(
             }));
 
         AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
-        Assert.Equal(AedsFrameType.CommentCreateResult, decoded.FrameType);
+        Assert.Equal(AedsFrameType.AnonymousCommentCreateResult, decoded.FrameType);
+        using JsonDocument response = JsonDocument.Parse(decoded.Payload);
+        Assert.Equal("anonymous-management-secret", response.RootElement.GetProperty("managementSecret").GetString());
         Assert.Equal(longContent, commentService.Request.Content);
     }
 
@@ -907,6 +912,22 @@ public sealed class AnonymousCommentSubmitTests(
         Assert.Contains("CreateAttributablePublicCommentResultAsync", signedHandler, StringComparison.Ordinal);
         Assert.DoesNotContain("CreateCommentV2Async", signedHandler, StringComparison.Ordinal);
         Assert.DoesNotContain("CreateCommentAsync", signedHandler, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("/api/binary/comment/{id:long}/management/challenge")]
+    [InlineData("/api/binary/comment/{id:long}/management/edit")]
+    [InlineData("/api/binary/comment/{id:long}/management/delete")]
+    [InlineData("/api/binary/comment/{id:long}/management/status")]
+    [InlineData("/api/binary/comment/{id:long}/management/appeal")]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
+    public async Task AnonymousCommentManagementEndpoints_RejectIdentifiedPrincipalContamination(string path)
+    {
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
+        RouteEndpoint endpoint = EndpointContractApplication.Find(app, path, HttpMethods.Post);
+
+        Assert.NotNull(endpoint.Metadata.GetMetadata<IAllowAnonymous>());
+        Assert.NotNull(endpoint.Metadata.GetMetadata<StrongAnonymousRequestMetadata>());
     }
 
     [Fact]
@@ -1387,6 +1408,27 @@ public sealed class AnonymousCommentSubmitTests(
             Request = request;
             RegionDecision = regionDecision;
             return Task.FromResult(true);
+        }
+
+        public Task<CommentCreateResult> CreateStrongAnonymousCommentResultAsync(
+            AnonymousCommentCreateRequestCoreModel request,
+            RegionModerationDecision? regionDecision = null,
+            CancellationToken cancellationToken = default)
+        {
+            AnonymousCreateCalls++;
+            Request = request;
+            RegionDecision = regionDecision;
+            return Task.FromResult(new CommentCreateResult(
+                true,
+                123,
+                123,
+                null,
+                new DateTime(2026, 7, 20, 1, 20, 0, DateTimeKind.Utc),
+                CommentModerationStatus.Pending,
+                "pending",
+                false,
+                false,
+                ManagementSecret: "anonymous-management-secret"));
         }
 
         public Task<bool> CreateCommentAsync(int userId, CommentDto dto) => throw new NotSupportedException();

@@ -12,6 +12,10 @@ export function readInt32(bytes: Uint8Array, offset: number): number {
   );
 }
 
+export function readUint16(bytes: Uint8Array, offset: number): number {
+  return (bytes[offset] ?? 0) | ((bytes[offset + 1] ?? 0) << 8)
+}
+
 export function readInt64Number(bytes: Uint8Array, offset: number): number {
   const low = BigInt(
     ((bytes[offset] ?? 0))

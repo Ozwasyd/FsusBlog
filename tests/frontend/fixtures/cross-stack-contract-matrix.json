@@ -1354,7 +1354,79 @@
           "cache": "no-store",
           "rateLimit": "public_read",
           "requestFrame": "AnonymousCommentCreateRequest",
-          "responseFrame": "CommentCreateResult"
+          "responseFrame": "AnonymousCommentCreateResult"
+        },
+        {
+          "method": "POST",
+          "path": "/comment/{id:long}/author/challenge",
+          "auth": "user",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip",
+          "requestFrame": "CommentManagementChallengeRequest",
+          "responseFrame": "CommentManagementChallengeResponse"
+        },
+        {
+          "method": "POST",
+          "path": "/comment/{id:long}/author/edit",
+          "auth": "user",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip",
+          "requestFrame": "CommentAuthorEditRequest",
+          "responseFrame": "CommentAuthorMutationResult"
+        },
+        {
+          "method": "POST",
+          "path": "/comment/{id:long}/author/delete",
+          "auth": "user",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip",
+          "requestFrame": "CommentAuthorStatusRequest",
+          "responseFrame": "CommentAuthorMutationResult"
+        },
+        {
+          "method": "POST",
+          "path": "/comment/{id:long}/management/challenge",
+          "auth": "anonymous",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip",
+          "requestFrame": "CommentManagementChallengeRequest",
+          "responseFrame": "CommentManagementChallengeResponse"
+        },
+        {
+          "method": "POST",
+          "path": "/comment/{id:long}/management/edit",
+          "auth": "anonymous",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip",
+          "requestFrame": "CommentAuthorEditRequest",
+          "responseFrame": "CommentAuthorMutationResult"
+        },
+        {
+          "method": "POST",
+          "path": "/comment/{id:long}/management/delete",
+          "auth": "anonymous",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip",
+          "requestFrame": "CommentAuthorStatusRequest",
+          "responseFrame": "CommentAuthorMutationResult"
+        },
+        {
+          "method": "POST",
+          "path": "/comment/{id:long}/management/status",
+          "auth": "anonymous",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip",
+          "requestFrame": "CommentAuthorStatusRequest",
+          "responseFrame": "CommentAuthorStatusResult"
+        },
+        {
+          "method": "POST",
+          "path": "/comment/{id:long}/management/appeal",
+          "auth": "anonymous",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip",
+          "requestFrame": "CommentAuthorAppealRequest",
+          "responseFrame": "CommentAuthorMutationResult"
         },
         {
           "method": "POST",
@@ -1920,6 +1992,13 @@
           "path": "/author/comments/{commentId:long}/moderation",
           "requestFrame": "CommentModerationRequest",
           "responseFrame": "CommentModerationResult",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/comments/{commentId:long}/revisions",
+          "responseFrame": "CommentRevisionList",
           "rateLimit": "fixed_ip"
         },
         {

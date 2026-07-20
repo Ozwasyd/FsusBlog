@@ -669,3 +669,8 @@ Schema migration 不再使用 runtime service partial。`SchemaMigrationRegistry
 降级状态会写入运行时状态任务 `productionStartupValidation`。回退路径是修复环境变量或依赖服务后重启应用；密钥类错误只能恢复对应安全域的上一个密钥，不能临时复用 JWT 密钥，也无需修改路由、中间件或健康探针代码。
 
 详细部署流程见 [production.md](production.md)。
+## 评论修订与作者管理
+
+评论修订链由 `comment.current_version` 指向当前内容，`comment_revision(comment_id, version)` 保存 append-only 正文快照、操作与摘要。创建、编辑、删除的主表更新、revision 与 mutation outbox 位于同一数据库事务；编辑以 expectedVersion CAS 防止覆盖。public 作者管理通过 account authorization，强匿名作者管理通过不可逆 capability commitment，二者不共享身份映射。公开投影只编码当前正文与 `isEdited` 保留位；admin authoring 边界才读取完整 revision 序列。客户端 capability vault 为 memory-only，刷新即丢失，不进入 storage registry、service worker cache 或 notification stream。
+
+运行时可通过收紧 `Comments:AuthorEditWindowMinutes` 在不重启的情况下停止新的编辑。该降级不回滚 additive schema，也不影响匿名请求、登录请求、admin 修订读取、notification stream 或 binary 公共读取；旧客户端将 POD 保留位视为零/忽略。

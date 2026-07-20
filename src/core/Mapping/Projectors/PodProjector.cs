@@ -175,6 +175,33 @@ public static class PodProjector
         bool hasMoreReplies,
         int previewReplyCount,
         out ReadOnlyMemory<byte> payload)
+        => ProjectCommentThreadItem(
+            id,
+            rootId,
+            isDeleted,
+            createTime,
+            authorMode,
+            displayName,
+            content,
+            replyCount,
+            hasMoreReplies,
+            previewReplyCount,
+            false,
+            out payload);
+
+    public static CommentThreadItemPod ProjectCommentThreadItem(
+        long id,
+        long rootId,
+        bool isDeleted,
+        DateTime createTime,
+        string authorMode,
+        string displayName,
+        string content,
+        int replyCount,
+        bool hasMoreReplies,
+        int previewReplyCount,
+        bool isEdited,
+        out ReadOnlyMemory<byte> payload)
     {
         var bytes = new ArrayBufferWriter<byte>(256);
         Utf8SliceRef contentSlice = PodUtf8Codec.AppendSlice(content, bytes);
@@ -189,7 +216,7 @@ public static class PodProjector
             Depth = 0,
             IsDeleted = isDeleted ? (byte)1 : (byte)0,
             HasReplyToUserId = 0,
-            Reserved = 0,
+            Reserved = isEdited ? (ushort)1 : (ushort)0,
             CreateTimeUnixMs = PodTimeCodec.ToUnixMs(createTime),
             Content = contentSlice,
             ReplyCount = replyCount,
@@ -216,6 +243,37 @@ public static class PodProjector
         string? replyToDisplayName,
         string content,
         out ReadOnlyMemory<byte> payload)
+        => ProjectCommentReplyItem(
+            id,
+            parentId,
+            rootId,
+            replyToUserId,
+            replyToCommentId,
+            depth,
+            isDeleted,
+            createTime,
+            authorMode,
+            displayName,
+            replyToDisplayName,
+            content,
+            false,
+            out payload);
+
+    public static CommentReplyItemPod ProjectCommentReplyItem(
+        long id,
+        long? parentId,
+        long rootId,
+        int? replyToUserId,
+        long? replyToCommentId,
+        int depth,
+        bool isDeleted,
+        DateTime createTime,
+        string authorMode,
+        string displayName,
+        string? replyToDisplayName,
+        string content,
+        bool isEdited,
+        out ReadOnlyMemory<byte> payload)
     {
         var bytes = new ArrayBufferWriter<byte>(256);
         Utf8SliceRef contentSlice = PodUtf8Codec.AppendSlice(content, bytes);
@@ -230,7 +288,7 @@ public static class PodProjector
             Depth = depth,
             IsDeleted = isDeleted ? (byte)1 : (byte)0,
             HasReplyToUserId = replyToUserId.HasValue ? (byte)1 : (byte)0,
-            Reserved = 0,
+            Reserved = isEdited ? (ushort)1 : (ushort)0,
             CreateTimeUnixMs = PodTimeCodec.ToUnixMs(createTime),
             Content = contentSlice
         };
@@ -251,6 +309,33 @@ public static class PodProjector
         DateTime createTime,
         string content,
         out ReadOnlyMemory<byte> payload)
+        => ProjectCommentTreeNode(
+            id,
+            parentId,
+            rootId,
+            replyToCommentId,
+            depth,
+            childCount,
+            hasMoreChildren,
+            isDeleted,
+            createTime,
+            content,
+            false,
+            out payload);
+
+    public static CommentTreeNodePod ProjectCommentTreeNode(
+        long id,
+        long? parentId,
+        long rootId,
+        long? replyToCommentId,
+        int depth,
+        int childCount,
+        bool hasMoreChildren,
+        bool isDeleted,
+        DateTime createTime,
+        string content,
+        bool isEdited,
+        out ReadOnlyMemory<byte> payload)
     {
         var bytes = new ArrayBufferWriter<byte>(256);
         Utf8SliceRef contentSlice = PodUtf8Codec.AppendSlice(content, bytes);
@@ -264,7 +349,7 @@ public static class PodProjector
             ChildCount = Math.Max(0, childCount),
             IsDeleted = isDeleted ? (byte)1 : (byte)0,
             HasMoreChildren = hasMoreChildren ? (byte)1 : (byte)0,
-            Reserved = 0,
+            Reserved = isEdited ? (ushort)1 : (ushort)0,
             CreateTimeUnixMs = PodTimeCodec.ToUnixMs(createTime),
             Content = contentSlice
         };
@@ -282,6 +367,27 @@ public static class PodProjector
         string? replyToDisplayName,
         string content,
         out ReadOnlyMemory<byte> payload)
+        => ProjectCommentReplyPreviewItem(
+            id,
+            isDeleted,
+            createTime,
+            authorMode,
+            displayName,
+            replyToDisplayName,
+            content,
+            false,
+            out payload);
+
+    public static CommentReplyPreviewItemPod ProjectCommentReplyPreviewItem(
+        long id,
+        bool isDeleted,
+        DateTime createTime,
+        string authorMode,
+        string displayName,
+        string? replyToDisplayName,
+        string content,
+        bool isEdited,
+        out ReadOnlyMemory<byte> payload)
     {
         var bytes = new ArrayBufferWriter<byte>(192);
         Utf8SliceRef contentSlice = PodUtf8Codec.AppendSlice(content, bytes);
@@ -290,7 +396,7 @@ public static class PodProjector
         {
             Id = id,
             IsDeleted = isDeleted ? (byte)1 : (byte)0,
-            Reserved0 = 0,
+            Reserved0 = isEdited ? (byte)1 : (byte)0,
             Reserved1 = 0,
             CreateTimeUnixMs = PodTimeCodec.ToUnixMs(createTime),
             Content = contentSlice

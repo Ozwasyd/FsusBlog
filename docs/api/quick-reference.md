@@ -224,7 +224,16 @@
 | GET `/api/binary/comment/policy` | 🔓 📦 | `CommentPolicySnapshot`(164) | 公开评论 composer 策略与 ZK-Prod readiness |
 | POST `/api/binary/comment` | 🔑 🚦 📦 | `CommentCreateV2Request`(166) → `CommentCreateResult`(205) | 仅显式 opt-in 的 public 评论；必需规范小写 UUID `X-Fsus-Client-Mutation-Id`；响应返回 ID、树坐标、创建时间、最终可见状态与 replay 标记 |
 | POST `/api/binary/comment/anonymous-ticket` | 🔓 🚦 📦 | `AnonymousCommentTicketRequest`(198) → `AnonymousCommentTicketResponse`(199) | v5/layout 6 最小资格谓词；必须 `credentials: omit`；scope v1 按 article top（1 条/凭据周期）或 article+thread（3 条/凭据周期）绑定，ticket 短 TTL 且一次性消费 |
-| POST `/api/binary/comment/anonymous` | 🔓 🚦 📦 | `AnonymousCommentCreateRequest`(182) → `CommentCreateResult`(205) | 强匿名评论提交；ticket 承诺同时是幂等身份，同内容合法重放返回原结果，变更内容返回 409；拒绝登录态污染 |
+| POST `/api/binary/comment/anonymous` | 🔓 🚦 📦 | `AnonymousCommentCreateRequest`(182) → `AnonymousCommentCreateResult`(214) | 强匿名评论提交；首次成功响应附带一次性返回的管理 secret，服务端只保存 SHA-256 commitment；幂等 replay 不恢复 secret；拒绝登录态污染 |
+| POST `/api/binary/comment/{id}/author/challenge` | 🔑 🚦 📦 | `CommentManagementChallengeRequest`(215) → `CommentManagementChallengeResponse`(216) | public 作者按账号所有权签发一次性 edit/delete challenge，并返回当前版本 |
+| POST `/api/binary/comment/{id}/author/edit` | 🔑 🚦 📦 | `CommentAuthorEditRequest`(217) → `CommentAuthorMutationResult`(218) | public 作者按 expectedVersion CAS 编辑并重新审核 |
+| POST `/api/binary/comment/{id}/author/delete` | 🔑 🚦 📦 | `CommentAuthorStatusRequest`(219) → `CommentAuthorMutationResult`(218) | public 作者以一次性 challenge 软删除自己的评论 |
+| POST `/api/binary/comment/{id}/management/challenge` | 🔓 🚦 📦 | `CommentManagementChallengeRequest`(215) → `CommentManagementChallengeResponse`(216) | 强匿名作者在 body 中提交 capability；不接受 URL 或账号恢复路径 |
+| POST `/api/binary/comment/{id}/management/edit` | 🔓 🚦 📦 | `CommentAuthorEditRequest`(217) → `CommentAuthorMutationResult`(218) | 强匿名作者按 capability、challenge 与 expectedVersion 编辑 |
+| POST `/api/binary/comment/{id}/management/delete` | 🔓 🚦 📦 | `CommentAuthorStatusRequest`(219) → `CommentAuthorMutationResult`(218) | 强匿名作者以一次性 challenge 删除自己的评论 |
+| POST `/api/binary/comment/{id}/management/status` | 🔓 🚦 📦 | `CommentAuthorStatusRequest`(219) → `CommentAuthorStatusResult`(220) | capability-scoped 单评论审核状态读取；不支持枚举 |
+| POST `/api/binary/comment/{id}/management/appeal` | 🔓 🚦 📦 | `CommentAuthorAppealRequest`(221) → `CommentAuthorMutationResult`(218) | capability-scoped 申诉；secret/challenge 仅在 no-store body 中传输 |
+| GET `/api/binary/author/comments/{id}/revisions` | 🛡️ 🚦 📦 | `CommentRevisionList`(222) | admin 查看完整修订序列；公共读取永不返回历史正文 |
 
 评论创建的幂等窗口默认 24 小时（`Comments:MutationIdempotencyTtlHours` 限制为 1..168）。public 相同账号/相同 mutation ID、anonymous 相同 ticket 承诺在窗口内最多写入一次；完整结果固定为 `commentId/rootId/parentId/createdAtUtc/moderationStatus/visibilityState/isPubliclyVisible/idempotencyReplay`。`Comments:MutationIdempotencyEnabled=false` 可热重载 fail closed 两类创建并返回 `503 comment_mutation_idempotency_disabled`，读取与 notification stream 不受影响。
 | GET `/api/binary/system/seo` | 🔓 📦 | `SeoConfig`(13) | 公开 SEO/品牌/PWA 配置 |

@@ -17,6 +17,7 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Moderation;
+using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Security;
 
@@ -954,6 +955,23 @@ public static partial class AuthoringEndpoints
         })
         .RequireAdminPermission(AdminPermissions.CommentModerate)
         .WithAdminSensitiveStepUp()
+        .RequireRateLimiting("fixed_ip");
+
+        group.MapGet("/comments/{commentId:long}/revisions", async (
+            long commentId,
+            HttpContext context,
+            IAedsEncoder aeds,
+            ICommentAuthorManagementService management,
+            CancellationToken cancellationToken) =>
+        {
+            IReadOnlyList<CommentRevisionResult> revisions = await management.ReadRevisionsAsAdminAsync(
+                commentId,
+                cancellationToken);
+            return revisions.Count > 0
+                ? Ok(context, aeds, revisions)
+                : AedsJsonResults.NotFound(aeds, "comment_revision_not_found");
+        })
+        .RequireAdminPermission(AdminPermissions.CommentModerate)
         .RequireRateLimiting("fixed_ip");
 
     }

@@ -208,6 +208,8 @@ public static partial class AuthoringEndpoints
             return Found(AedsFrameType.AnonymousGovernanceActionRequest, AedsFrameType.AnonymousGovernanceActionResponse, out route);
         if (HttpMethods.IsPost(method) && segments is ["comments", _, "moderation"])
             return Found(AedsFrameType.CommentModerationRequest, AedsFrameType.CommentModerationResult, out route);
+        if (HttpMethods.IsGet(method) && segments is ["comments", _, "revisions"])
+            return Found(null, AedsFrameType.CommentRevisionList, out route);
 
         if (HttpMethods.IsGet(method) && segments is ["content", "export"])
             return Found(null, AedsFrameType.ContentBackupExport, out route);

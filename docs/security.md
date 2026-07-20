@@ -651,3 +651,8 @@ credential vault 与 Service Worker 私有缓存。Service Worker 对 `/api/**` 
 | System.Buffers.Text.Base64Url | .NET 10 BCL | WebAuthn ID 编解码（替代旧版 FIDO2 helper 的 `Base64Url` 类） |
 | ASP.NET Core Data Protection | 10 | Cookie 保护 |
 | ASP.NET Core RateLimiting | 10 | IP 速率限制 |
+## 评论作者管理 capability
+
+强匿名评论的后续管理使用与创建 ticket 分离的 256-bit capability。服务端仅保存 SHA-256 commitment；capability 和一次性 challenge 禁止写入 URL、日志、缓存键、localStorage、telemetry 或任何 account/credential/nullifier 映射。challenge 绑定 comment id 与 edit/delete/status/appeal purpose，五分钟过期且通过数据库 CAS 只消费一次；所有入口执行 `fixed_ip` 限流。伪造、重放和跨评论 challenge 统一失败，不泄漏评论是否存在。capability 丢失不可恢复，客户端必须在提交后明确告知。管理员可读取完整修订历史；匿名与公开读取只获得当前可见正文和 edited bit。
+
+无需重启的降级路径是将 `Comments:AuthorEditWindowMinutes` 收紧到最小窗口，阻止新的历史编辑；删除、状态查询、申诉、公共读取、notification stream 与 admin 审核边界不改变。迁移仅增加 nullable/defaulted 列和新表，旧客户端可继续读取既有 comment POD。

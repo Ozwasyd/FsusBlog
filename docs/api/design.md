@@ -98,6 +98,8 @@ Recovery Key verify 的 AEDS request 只携带 Recovery Key 明文本体与撤�
 
 评论创建是可安全重试的命令。登录态 public 请求必须携带规范小写 UUID `D` 格式（固定 36 字符）的 `X-Fsus-Client-Mutation-Id`，并以 `accountId + clientMutationId` 作为身份；强匿名提交以 opaque ticket 的 SHA-256 承诺作为身份。两条链路都在评论事务中保存规范请求摘要与幂等身份：同身份同摘要返回原 `CommentCreateResult` 且 `idempotencyReplay=true`，同身份不同摘要返回 `409 comment_mutation_content_conflict`，不得重复写地区记录、nullifier 消费、通知或缓存副作用。幂等窗口默认 24 小时，`Comments:MutationIdempotencyTtlHours` 仅允许 1..168 小时；窗口内响应丢失、双击、并发和页面恢复必须复用同一身份。
 
+评论编辑与删除使用独立作者管理边界，不能复用创建 ticket、nullifier 或公开展示字段。public 作者以账号所有权授权；强匿名作者在首次创建成功响应中获得独立随机 capability，服务端只保存不可逆 commitment。每次 edit/delete/status/appeal 先签发绑定 comment + purpose 的短期一次性 challenge，再在事务内消费；编辑同时使用当前版本 CAS，冲突时回滚 challenge 消费。强匿名 capability 只在 no-store AEDS body 和页面内存中存在，既不能枚举评论，也不能通过账号恢复。运行时回退无需重启：将 `Comments:AuthorEditWindowMinutes` 收紧到最小窗口可停止新的历史编辑，公共读取、notification stream 与 admin 审核仍保持可用；数据库变更为 additive，旧客户端继续忽略 `isEdited` 保留位。
+
 ## URL 命名约定
 
 | 规则 | 示例 |

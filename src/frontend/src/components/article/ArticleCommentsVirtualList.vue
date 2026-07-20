@@ -11,6 +11,7 @@
       :loading-replies="loadingReplies"
       @reply="$emit('reply', $event)"
       @load-more="$emit('loadMoreReplies', $event)"
+      @edit="$emit('edit', $event)"
       @delete="$emit('delete', $event)"
     />
 
@@ -31,6 +32,7 @@ import { COMMENT_CONTENT_CONSTRAINT } from '@/utils/contentFilter'
 
 type ReplyTargetPayload = { id: string; rootId: string; author: CommentAuthorView; depth: number }
 type DeletePayload = { id: string; rootId: string; parentId: string | null; content: string }
+type EditPayload = { id: string; content: string }
 
 const props = defineProps<{
   threads: CommentTreeViewNode[]
@@ -43,6 +45,7 @@ const props = defineProps<{
 
 defineEmits<{
   delete: [payload: DeletePayload]
+  edit: [payload: EditPayload]
   reply: [payload: ReplyTargetPayload]
   loadMoreReplies: [parentId: string]
 }>()

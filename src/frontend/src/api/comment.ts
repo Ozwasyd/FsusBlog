@@ -1,8 +1,10 @@
 import type { ApiRequestConfig } from './requestConfig';
 import { FrameType } from '@wasm/protocol/frame';
 import { requestBinaryOnly } from '@/composition/binaryTransport';
+import type { FsusBinaryOperationId } from '@/generated/fsusBinaryRoutes';
 import type {
   AnonymousCommentCreateRequestDto,
+  AnonymousCommentCreateResult,
   AnonymousCommentSubmitDto,
   AnonymousCommentSubmitTicket,
   AnonymousCommentTicketRequestDto,
@@ -16,6 +18,8 @@ import type {
   BlindCredentialIssueResponse,
   BlindCredentialIssuerMetadata,
   CommentAuthorMode,
+  CommentAuthorMutationResult,
+  CommentAuthorStatusResult,
   CommentAuthorView,
   CommentAuthorViewMode,
   CommentCreateV2Dto as CommentCreateV2ContractDto,
@@ -24,6 +28,7 @@ import type {
   CommentPermalinkContext,
   CommentPermalinkStatus,
   CommentPolicySnapshot,
+  CommentManagementChallengeResult,
   CommentReplyItem,
   CommentReplyPreviewItem,
   CommentThreadItem,
@@ -39,6 +44,7 @@ import { validateCommentContent } from '@/utils/contentFilter';
 export { resolveCommentAuthorView } from '@/utils/commentAuthorView'
 export type {
   AnonymousCommentCreateRequestDto,
+  AnonymousCommentCreateResult,
   AnonymousCommentSubmitDto,
   AnonymousCommentSubmitTicket,
   AnonymousCommentTicketRequestDto,
@@ -52,6 +58,8 @@ export type {
   BlindCredentialIssueResponse,
   BlindCredentialIssuerMetadata,
   CommentAuthorMode,
+  CommentAuthorMutationResult,
+  CommentAuthorStatusResult,
   CommentAuthorView,
   CommentAuthorViewMode,
   CommentCreateResult,
@@ -59,6 +67,7 @@ export type {
   CommentPermalinkContext,
   CommentPermalinkStatus,
   CommentPolicySnapshot,
+  CommentManagementChallengeResult,
   CommentReplyItem,
   CommentReplyPreviewItem,
   CommentThreadItem,
@@ -107,9 +116,9 @@ export const createAnonymousComment = (
     ticket: ticket.ticket
   })
 
-  const request = () => requestBinaryOnly<CommentCreateResult>({
+  const request = () => requestBinaryOnly<AnonymousCommentCreateResult>({
     binaryRoute: { operationId: 'binary_post_comment_anonymous' },
-    frameType: FrameType.CommentCreateResult,
+    frameType: FrameType.AnonymousCommentCreateResult,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
       method: 'POST',
@@ -406,6 +415,123 @@ export const deleteComment = (id: string, config?: ApiRequestConfig) =>
       requiresPow: true
     }
   })
+
+export const issueCommentManagementChallenge = (
+  id: string,
+  purpose: 'edit' | 'delete' | 'status' | 'appeal',
+  capabilitySecret: string | null,
+  config?: ApiRequestConfig
+) => requestCommentManagementJson<CommentManagementChallengeResult>(
+  capabilitySecret
+    ? 'binary_post_comment_id_long_management_challenge'
+    : 'binary_post_comment_id_long_author_challenge',
+  id,
+  FrameType.CommentManagementChallengeRequest,
+  FrameType.CommentManagementChallengeResponse,
+  { purpose, capabilitySecret },
+  capabilitySecret ? 'public' : 'account',
+  config
+)
+
+export const editCommentAsAuthor = (
+  id: string,
+  request: { expectedVersion: number; content: string; challenge: string; capabilitySecret?: string },
+  config?: ApiRequestConfig
+) => requestCommentManagementJson<CommentAuthorMutationResult>(
+  request.capabilitySecret
+    ? 'binary_post_comment_id_long_management_edit'
+    : 'binary_post_comment_id_long_author_edit',
+  id,
+  FrameType.CommentAuthorEditRequest,
+  FrameType.CommentAuthorMutationResult,
+  request,
+  request.capabilitySecret ? 'public' : 'account',
+  config
+)
+
+export const deleteAnonymousComment = (
+  id: string,
+  capabilitySecret: string,
+  challenge: string,
+  config?: ApiRequestConfig
+) => requestCommentManagementJson<CommentAuthorMutationResult>(
+  'binary_post_comment_id_long_management_delete',
+  id,
+  FrameType.CommentAuthorStatusRequest,
+  FrameType.CommentAuthorMutationResult,
+  { capabilitySecret, challenge },
+  'public',
+  config
+)
+
+export const deleteCommentAsAuthor = (
+  id: string,
+  challenge: string,
+  config?: ApiRequestConfig
+) => requestCommentManagementJson<CommentAuthorMutationResult>(
+  'binary_post_comment_id_long_author_delete',
+  id,
+  FrameType.CommentAuthorStatusRequest,
+  FrameType.CommentAuthorMutationResult,
+  { challenge, capabilitySecret: '' },
+  'account',
+  config
+)
+
+export const getAnonymousCommentStatus = (
+  id: string,
+  capabilitySecret: string,
+  challenge: string,
+  config?: ApiRequestConfig
+) => requestCommentManagementJson<CommentAuthorStatusResult>(
+  'binary_post_comment_id_long_management_status',
+  id,
+  FrameType.CommentAuthorStatusRequest,
+  FrameType.CommentAuthorStatusResult,
+  { capabilitySecret, challenge },
+  'public',
+  config
+)
+
+export const appealAnonymousComment = (
+  id: string,
+  capabilitySecret: string,
+  challenge: string,
+  reason: string,
+  config?: ApiRequestConfig
+) => requestCommentManagementJson<CommentAuthorMutationResult>(
+  'binary_post_comment_id_long_management_appeal',
+  id,
+  FrameType.CommentAuthorAppealRequest,
+  FrameType.CommentAuthorMutationResult,
+  { capabilitySecret, challenge, reason },
+  'public',
+  config
+)
+
+function requestCommentManagementJson<T>(
+  operationId: FsusBinaryOperationId,
+  id: string,
+  requestFrame: FrameType,
+  responseFrame: FrameType,
+  value: unknown,
+  privateScope: 'public' | 'account',
+  config?: ApiRequestConfig
+): Promise<T> {
+  const payload = new TextEncoder().encode(JSON.stringify(value))
+  return requestBinaryOnly<T>({
+    binaryRoute: { operationId, params: { id } },
+    privateScope,
+    frameType: responseFrame,
+    signal: config?.signal as AbortSignal | undefined,
+    requestOptions: {
+      method: 'POST',
+      cache: 'no-store',
+      credentials: privateScope === 'account' ? 'include' : 'omit',
+      body: encodeAedsFrame(requestFrame, payload)
+    }
+  })
+}
 
 export function encodeCommentCreateV2Request(data: CommentCreateV2Dto): Uint8Array {
   const anonymousScope = new Uint8Array()

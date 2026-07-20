@@ -86,6 +86,7 @@
           :is-logged-in="userStore.isLoggedIn"
           :owned-comment-ids="ownedCommentIds"
           :loading-replies="loadingReplies"
+          @edit="handleCommentEdit"
           @delete="handleCommentDelete"
           @reply="setReplyTarget"
           @load-more-replies="loadMoreReplies"
@@ -233,6 +234,7 @@ const {
   handleRenderComplete,
   submitComment,
   prepareCommentPrivacyTicket,
+  handleCommentEdit,
   handleCommentDelete,
 
   detailView,

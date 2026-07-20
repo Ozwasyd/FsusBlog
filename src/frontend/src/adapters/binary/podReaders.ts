@@ -1,7 +1,7 @@
 import type { ArticleListItemResponse, CommentAuthorView, CommentReplyItem, CommentReplyPreviewItem, CommentThreadItem, CommentTreeNode, FeaturedArticleItem } from '@/contracts/binaryApi';
 import { resolveCommentAuthorView } from '@/utils/commentAuthorView';
 import { AppErrorCode, createAppError } from '@/utils/appError';
-import { BinaryReader, readBlobText, readFixedUtf8, readInt32, readInt64Number, readInt64String, readNullableId64, readIsoDate64, readSliceRef, readSliceText } from '@/codecs/binary/reader';
+import { BinaryReader, readBlobText, readFixedUtf8, readInt32, readInt64Number, readInt64String, readNullableId64, readIsoDate64, readSliceRef, readSliceText, readUint16 } from '@/codecs/binary/reader';
 import { COMMENT_AUTHOR_VIEW_POD_SIZE, COMMENT_REPLY_PREVIEW_ITEM_POD_SIZE, COMMENT_THREAD_ITEM_POD_SIZE, COMMENT_TREE_NODE_POD_SIZE, FEATURED_ARTICLE_POD_SIZE, TAG_POD_SIZE } from './types';
 
 type TagViewModel = ArticleListItemResponse['tags'][number];
@@ -9,7 +9,7 @@ type CategoryViewModel = ArticleListItemResponse['category'];
 
 type CommentCore = Pick<
   CommentReplyItem,
-  'id' | 'parentId' | 'rootId' | 'replyToCommentId' | 'depth' | 'isDeleted' | 'createTime' | 'author' | 'replyToAuthor' | 'content'
+  'id' | 'parentId' | 'rootId' | 'replyToCommentId' | 'depth' | 'isDeleted' | 'isEdited' | 'createTime' | 'author' | 'replyToAuthor' | 'content'
 >;
 
 type EmbeddedAuthorRead = {
@@ -165,6 +165,7 @@ function readCommentCore(pod: Uint8Array, blob: Uint8Array): CommentCore {
     replyToCommentId: readNullableId64(pod, 28),
     depth: readInt32(pod, 36),
     isDeleted: (pod[40] ?? 0) === 1,
+    isEdited: (readUint16(pod, 42) & 1) === 1,
     createTime: readIsoDate64(pod, 44),
     author: author.author!,
     replyToAuthor: replyToAuthor.author,
@@ -189,7 +190,7 @@ export function readCommentTreeNodeFromReader(reader: BinaryReader): CommentTree
   const childCount = readInt32(pod, 36);
   if (isDeleted > 1 || hasMoreChildren > 1 || depth < 0 || childCount < 0
     || (hasMoreChildren === 1 && childCount === 0)
-    || (pod[42] ?? 0) !== 0 || (pod[43] ?? 0) !== 0) {
+    || readUint16(pod, 42) > 1) {
     throw createAppError(AppErrorCode.ProtocolFailure, 'comment_tree_node_value_invalid');
   }
 
@@ -201,6 +202,7 @@ export function readCommentTreeNodeFromReader(reader: BinaryReader): CommentTree
     depth,
     childCount,
     isDeleted: isDeleted === 1,
+    isEdited: (readUint16(pod, 42) & 1) === 1,
     hasMoreChildren: hasMoreChildren === 1,
     createTime: readIsoDate64(pod, 44),
     author: author.author!,
@@ -220,6 +222,7 @@ function readReplyPreviewItemFromReader(reader: BinaryReader): CommentReplyPrevi
   return {
     id: String(readInt64Number(pod, 0)),
     isDeleted: (pod[8] ?? 0) === 1,
+    isEdited: (pod[9] ?? 0) === 1,
     createTime: readIsoDate64(pod, 12),
     author: author.author!,
     replyToAuthor: replyToAuthor.author,
@@ -248,6 +251,7 @@ export function readThreadItemFromReader(reader: BinaryReader): CommentThreadIte
     author: author.author!,
     rootId: String(readInt64Number(pod, 16)),
     isDeleted: (pod[40] ?? 0) === 1,
+    isEdited: (readUint16(pod, 42) & 1) === 1,
     replyCount: readInt32(pod, 60),
     hasMoreReplies: (pod[64] ?? 0) === 1,
     repliesPreview
