@@ -408,7 +408,7 @@ const appendixCopyrightText = computed(() => {
   min-width: 0;
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
+  gap: 6px;
 }
 
 .fsus-appendix__meta {
@@ -452,8 +452,8 @@ const appendixCopyrightText = computed(() => {
 
 .fsus-appendix__link:focus-visible,
 .fsus-appendix__tag:focus-visible {
-  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
-  outline: none;
+  outline: 2px solid var(--fsusblog-color-focus-ring);
+  outline-offset: -2px;
 }
 
 @media (max-width: 639px) {

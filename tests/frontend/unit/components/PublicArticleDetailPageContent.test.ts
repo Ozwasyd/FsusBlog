@@ -33,4 +33,12 @@ describe('PublicArticleDetailPageContent visual contracts', () => {
       /\.fsus-appendix__tag:hover,\s*\.fsus-appendix__tag:focus-visible\s*\{[^}]*color:\s*var\(--fsusblog-text-primary\) !important;/su
     )
   })
+
+  it('keeps related-reading focus inside its hit area with a 6px content gap', () => {
+    expect(source).toMatch(/\.fsus-appendix__nav-item\s*\{[^}]*gap:\s*6px;/su)
+    expect(source).toMatch(
+      /\.fsus-appendix__link:focus-visible,\s*\.fsus-appendix__tag:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--fsusblog-color-focus-ring\);[^}]*outline-offset:\s*-2px;/su
+    )
+    expect(source).not.toContain('box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring)')
+  })
 })
