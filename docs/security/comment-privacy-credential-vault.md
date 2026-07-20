@@ -14,6 +14,8 @@ The generation is not derived from a user id, account subject, session id, Cooki
 
 Cross-tab lifecycle events contain only a fixed reason, a local random event id, and a timestamp. `BroadcastChannel` is preferred; restricted browsers fall back to an immediately removed `localStorage` event. A received event purges locally without rebroadcasting, preventing loops.
 
+Login/account-switch publication waits for the sending tab's unified private-state purge to complete before any `login` event is emitted. Panic wipe independently rechecks Cache Storage and removes every `fsus-` cache after registry cleanup. Service-worker registration accepts only same-origin `/sw.js` with no query or one canonical immutable release id; mutable aliases are rejected before the Trusted Types sink.
+
 ## Material lifetime and cleanup
 
 Credential secret, commitment, issuer signature, revocation witness, and revocation-handle hash are cloned only at explicit ownership boundaries. Overwrite, expiry, rotation, lifecycle purge, or failure fills reachable `Uint8Array` buffers with zero before releasing them. JavaScript best-effort zeroization cannot prove removal of engine, OS, swap, crash-dump, or forensic copies.

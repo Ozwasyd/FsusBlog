@@ -31,7 +31,14 @@ vi.mock('@/services/notificationStreamRuntime', () => ({
 }))
 
 vi.mock('@/services/serviceWorkerRuntime', () => ({
-  clearPrivateBrowserState: vi.fn().mockResolvedValue(undefined)
+  clearPrivateBrowserState: vi.fn().mockResolvedValue({
+    registeredStorageCleared: true,
+    credentialStateCleared: true,
+    legacyCredentialDatabaseCleared: true,
+    serviceWorkerAcknowledged: true,
+    cacheStorageCleared: true,
+    items: []
+  })
 }))
 
 import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime'
@@ -127,12 +134,29 @@ describe('authBroadcastRuntime', () => {
     installBroadcastChannel()
   })
 
-  it('broadcasts login without sensitive payload', () => {
+  it('purges account-private state before broadcasting login without sensitive payload', async () => {
     createRuntimePinia()
+    const order: string[] = []
+    vi.mocked(clearPrivateBrowserState).mockImplementationOnce(async () => {
+      order.push('purge')
+      return {
+        registeredStorageCleared: true,
+        credentialStateCleared: true,
+        legacyCredentialDatabaseCleared: true,
+        serviceWorkerAcknowledged: true,
+        cacheStorageCleared: true,
+        items: []
+      }
+    })
+    const channel = MockBroadcastChannel.instances[0]
+    const postMessage = vi.spyOn(channel!, 'postMessage').mockImplementation((message) => {
+      order.push('broadcast')
+      channel!.messages.push(message)
+    })
 
-    authBroadcastRuntime.broadcastLogin()
+    await authBroadcastRuntime.broadcastLogin()
 
-    const [message] = MockBroadcastChannel.instances[0]?.messages ?? []
+    const [message] = channel?.messages ?? []
     expect(message).toMatchObject({
       type: 'login',
       at: expect.any(Number)
@@ -140,6 +164,24 @@ describe('authBroadcastRuntime', () => {
     const payloadText = JSON.stringify(message)
     expect(payloadText).not.toMatch(/accountId|permission|token|session/i)
     expect(clearPrivateBrowserState).toHaveBeenCalledWith('account-switch')
+    expect(postMessage).toHaveBeenCalledOnce()
+    expect(order).toEqual(['purge', 'broadcast'])
+  })
+
+  it('fails closed without publishing login when private-state cleanup is incomplete', async () => {
+    createRuntimePinia()
+    vi.mocked(clearPrivateBrowserState).mockResolvedValueOnce({
+      registeredStorageCleared: false,
+      credentialStateCleared: true,
+      legacyCredentialDatabaseCleared: true,
+      serviceWorkerAcknowledged: true,
+      cacheStorageCleared: true,
+      items: []
+    })
+
+    await expect(authBroadcastRuntime.broadcastLogin())
+      .rejects.toThrow('auth_login_private_state_cleanup_failed')
+    expect(MockBroadcastChannel.instances[0]?.messages).toEqual([])
   })
 
   it('login event invalidates account and admin negative caches', () => {
@@ -321,7 +363,8 @@ describe('authBroadcastRuntime', () => {
       expect(userStore.accountState).toBe('guest')
       expect(userStore.userInfo).toBeNull()
       expect(privateSurfaceRuntime.authGeneration.value).not.toBe(generationBefore)
-      expect(privateSurfaceRuntime.authGeneration.value).not.toContain('73')
+      expect(privateSurfaceRuntime.authGeneration.value)
+        .toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u)
       await nextTick()
       expect(wrapper.find('[data-private-surface]').exists()).toBe(false)
       expect(workerTerminate).toHaveBeenCalledTimes(1)
@@ -444,7 +487,7 @@ describe('authBroadcastRuntime', () => {
     expect(notificationStreamRuntime.stop).not.toHaveBeenCalled()
   })
 
-  it('localStorage fallback dispatches and receives events', () => {
+  it('localStorage fallback dispatches and receives events', async () => {
     removeBroadcastChannel()
     const pinia = createRuntimePinia()
     const userStore = useUserStore(pinia)
@@ -452,7 +495,7 @@ describe('authBroadcastRuntime', () => {
     userStore.markGuest()
     adminStore.markMissing()
 
-    authBroadcastRuntime.broadcastLogin()
+    await authBroadcastRuntime.broadcastLogin()
     const rawPayload = localStorage.getItem('fsus:auth:broadcast')
     expect(rawPayload).toContain('"type":"login"')
 

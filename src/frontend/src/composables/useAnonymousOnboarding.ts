@@ -134,7 +134,7 @@ export function useAnonymousOnboarding() {
       if (!await commitPostAuthSession()) {
         throw new Error('正式会话同步失败，请安全重试注册完成请求。')
       }
-      authBroadcastRuntime.broadcastLogin()
+      await authBroadcastRuntime.broadcastLogin()
       const response = await createRecoveryKey()
       recoveryKeyPlaintext.value = response.recoveryKey
       recoveryKeyVersion.value = response.keyVersion

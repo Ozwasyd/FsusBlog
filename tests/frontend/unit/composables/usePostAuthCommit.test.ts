@@ -34,6 +34,7 @@ describe('PostAuthCommitCoordinator', () => {
 
     expect(source).toContain("import { usePostAuthCommit } from '@/composables/usePostAuthCommit'")
     expect(source).toContain('if (!await commitPostAuthSession())')
+    expect(source).toContain('await authBroadcastRuntime.broadcastLogin()')
     expect(source.indexOf('if (!await commitPostAuthSession())'))
       .toBeLessThan(source.indexOf('authBroadcastRuntime.broadcastLogin()'))
     expect(source).not.toContain('ensureBootstrap(true)')

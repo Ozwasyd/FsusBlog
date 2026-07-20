@@ -1,3 +1,5 @@
+import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime'
+
 export type AuthBroadcastEvent =
   | { type: 'login'; at: number }
   | { type: 'logout'; at: number }
@@ -97,31 +99,39 @@ export class AuthBroadcastRuntime {
     this.subscribers.clear()
   }
 
-  broadcastLogin(): void {
-    this.publish(createEvent('login'))
+  async broadcastLogin(): Promise<void> {
+    const cleanup = await clearPrivateBrowserState('account-switch')
+    if (!cleanup.registeredStorageCleared
+      || !cleanup.credentialStateCleared
+      || !cleanup.legacyCredentialDatabaseCleared
+      || !cleanup.serviceWorkerAcknowledged
+      || !cleanup.cacheStorageCleared) {
+      throw new Error('auth_login_private_state_cleanup_failed')
+    }
+    this.broadcast(createEvent('login'))
   }
 
   broadcastLogout(): void {
-    this.publish(createEvent('logout'))
+    this.broadcast(createEvent('logout'))
   }
 
   broadcastExpired(): void {
-    this.publish(createEvent('expired'))
+    this.broadcast(createEvent('expired'))
   }
 
   expireUserSession(): void {
-    this.publish(createEvent('user-expired'))
+    this.broadcast(createEvent('user-expired'))
   }
 
   broadcastAdminChanged(): void {
-    this.publish(createEvent('admin-changed'))
+    this.broadcast(createEvent('admin-changed'))
   }
 
   broadcastAdminLogout(): void {
-    this.publish(createEvent('admin-logout'))
+    this.broadcast(createEvent('admin-logout'))
   }
 
-  private publish(event: AuthBroadcastEvent): void {
+  private broadcast(event: AuthBroadcastEvent): void {
     this.dispatch(event, 'local')
     if (this.channel) {
       this.channel.postMessage(event)

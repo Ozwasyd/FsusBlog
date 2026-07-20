@@ -225,6 +225,9 @@ export async function clearPrivateBrowserState(
   const storageCleanup = clearRegisteredPrivateState({
     trigger: reason as PrivateStateCleanupTrigger
   })
+  const panicCachePurge = reason === 'panic'
+    ? storageCleanup.then(() => clearEveryFsusBlogCache())
+    : Promise.resolve(true)
   const credentialPurge = reason === 'admin-logout'
     ? Promise.resolve()
     : purgeCommentPrivacyCredentialState(reason, {
@@ -242,7 +245,8 @@ export async function clearPrivateBrowserState(
     credentialPurgeStatus,
     legacyDatabasePurgeStatus,
     serviceWorkerPurge,
-    storageCleanup
+    storageCleanup,
+    panicCachePurge
   )
 }
 
@@ -298,21 +302,35 @@ async function cleanupStatus(promise: Promise<unknown>): Promise<boolean> {
   }
 }
 
+async function clearEveryFsusBlogCache(): Promise<boolean> {
+  if (typeof caches === 'undefined') return true
+  try {
+    const cacheNames = await caches.keys()
+    const results = await Promise.all(cacheNames.map(async cacheName =>
+      !cacheName.startsWith('fsus-') || await caches.delete(cacheName)))
+    return results.every(Boolean)
+  } catch {
+    return false
+  }
+}
+
 async function buildPrivateBrowserStateClearResult(
   credentialPurgeStatus: Promise<boolean>,
   legacyDatabasePurgeStatus: Promise<boolean>,
   serviceWorkerPurge: Promise<{ targetCount: number; acknowledgedCount: number }>,
-  storageCleanup: Promise<PrivateStorageCleanupResult>
+  storageCleanup: Promise<PrivateStorageCleanupResult>,
+  panicCachePurge: Promise<boolean>
 ): Promise<PrivateBrowserStateClearResult> {
-  const [credentialStateCleared, legacyCredentialDatabaseCleared, workerResult, registryResult] = await Promise.all([
+  const [credentialStateCleared, legacyCredentialDatabaseCleared, workerResult, registryResult, panicCachesCleared] = await Promise.all([
     credentialPurgeStatus,
     legacyDatabasePurgeStatus,
     serviceWorkerPurge,
-    storageCleanup
+    storageCleanup,
+    panicCachePurge
   ])
   const cacheStorageCleared = registryResult.items
     .filter(item => item.medium === 'cache-storage')
-    .every(item => item.status !== 'failed')
+    .every(item => item.status !== 'failed') && panicCachesCleared
   return {
     registeredStorageCleared: registryResult.complete,
     credentialStateCleared,

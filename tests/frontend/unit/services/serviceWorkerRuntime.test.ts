@@ -186,6 +186,26 @@ describe('serviceWorkerRuntime private browser cleanup', () => {
     expect(result.items.find(item => item.id === 'panic-all-caches')).toMatchObject({ status: 'removed' })
   })
 
+  it('reports panic cleanup incomplete when an FsusBlog cache cannot be deleted', async () => {
+    Object.defineProperty(navigator, 'serviceWorker', {
+      value: { controller: null, getRegistrations: vi.fn().mockResolvedValue([]) },
+      configurable: true
+    })
+    Object.defineProperty(globalThis, 'caches', {
+      value: {
+        keys: vi.fn().mockResolvedValue(['fsus-static-v5:test']),
+        delete: vi.fn().mockResolvedValue(false),
+        open: vi.fn()
+      },
+      configurable: true
+    })
+
+    const result = await clearPrivateBrowserState('panic')
+
+    expect(result.cacheStorageCleared).toBe(false)
+    expect(result.registeredStorageCleared).toBe(false)
+  })
+
   it('admin logout clears admin storage without erasing account state or notifying credential workers', async () => {
     const activeWorker = createAcknowledgingWorker()
     Object.defineProperty(navigator, 'serviceWorker', {

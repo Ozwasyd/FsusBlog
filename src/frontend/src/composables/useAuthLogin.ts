@@ -126,7 +126,7 @@ export function useAuthLogin() {
       }
 
       setRiskPhase('normal')
-      authBroadcastRuntime.broadcastLogin()
+      await authBroadcastRuntime.broadcastLogin()
       requiresMfa.value = false
       mfaChallengeToken.value = ''
       mfaMode.value = 'totp'

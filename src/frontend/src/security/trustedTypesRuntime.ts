@@ -22,6 +22,8 @@ const MARKDOWN_RENDERER_WORKER_PATH = /^\/assets\/markdown-renderer\.worker-[A-Z
 const APPLICATION_WORKER_PATH = /^\/assets\/(?:captcha|commentPrivacy|perception-v2|pospace|pow|wasmDecode)\.worker-[A-Za-z0-9_-]+\.js$/u
 const APPLICATION_WORKER_DEV_SOURCE_PATH = /^\/src\/workers\/(?:(?:pow|wasmDecode)\.worker|security\/(?:captcha|perception-v2|pospace)\.worker|privacy\/commentPrivacy\.worker)\.ts$/u
 const SERVICE_WORKER_MODULE_PATH = '/sw.js'
+const IMMUTABLE_BUILD_ID = /^\d{14}-[0-9a-f]{12}$/u
+const MUTABLE_BUILD_IDS = new Set(['latest', 'current', 'development'])
 const NON_EXECUTABLE_SCRIPT_TYPES = new Set([
   'application/json',
   'application/ld+json',
@@ -100,9 +102,12 @@ export function toTrustedServiceWorkerScriptUrl(moduleUrl: string): unknown {
     'service_worker_artifact_invalid'
   )
   const buildIds = resolved.searchParams.getAll('build')
+  const buildId = buildIds[0] ?? ''
   const hasValidBuildId = buildIds.length === 0
     || buildIds.length === 1
-      && isCanonicalReleaseId(buildIds[0] ?? '')
+      && IMMUTABLE_BUILD_ID.test(buildId)
+      && isCanonicalReleaseId(buildId)
+      && !MUTABLE_BUILD_IDS.has(buildId)
   if (resolved.pathname !== SERVICE_WORKER_MODULE_PATH
     || resolved.hash
     || [...resolved.searchParams.keys()].some(key => key !== 'build')

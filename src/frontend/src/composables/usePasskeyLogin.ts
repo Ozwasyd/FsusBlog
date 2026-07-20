@@ -95,7 +95,7 @@ export function usePasskeyLogin(authenticate: typeof startAuthentication = start
         return false
       }
 
-      authBroadcastRuntime.broadcastLogin()
+      await authBroadcastRuntime.broadcastLogin()
       void webauthnSignalService.reconcileAfterLogin(getPasskeySignalState)
       await router.push(resolveSafeRedirectTarget(router, route.query.redirect))
       return true
