@@ -31,7 +31,7 @@ enum class ErrorCode : std::uint8_t
 
 constexpr const char* KCodecVersion = "fsus-image-codec/0.2.0";
 #if defined(__wasm_simd128__)
-constexpr const char* kCodecLevel = "simd";
+constexpr const char* KCodecLevel = "simd";
 #else
 constexpr const char* KCodecLevel = "basic";
 #endif
@@ -59,17 +59,17 @@ constexpr std::uint32_t KSupportWebpBit = 1u << 2;
 constexpr std::uint32_t KSupportAvifBit = 1u << 3;
 constexpr std::uint32_t KSupportGifBit = 1u << 4;
 #ifdef FSUSBLOG_IMAGE_CODEC_ENABLE_JPEG
-constexpr std::uint32_t kSupportJpegEnabledBit = kSupportJpegBit;
+constexpr std::uint32_t KSupportJpegEnabledBit = KSupportJpegBit;
 #else
 constexpr std::uint32_t KSupportJpegEnabledBit = 0u;
 #endif
 #ifdef FSUSBLOG_IMAGE_CODEC_ENABLE_WEBP
-constexpr std::uint32_t kSupportWebpEnabledBit = kSupportWebpBit;
+constexpr std::uint32_t KSupportWebpEnabledBit = KSupportWebpBit;
 #else
 constexpr std::uint32_t KSupportWebpEnabledBit = 0u;
 #endif
 #ifdef FSUSBLOG_IMAGE_CODEC_ENABLE_AVIF
-constexpr std::uint32_t kSupportAvifEnabledBit = kSupportAvifBit;
+constexpr std::uint32_t KSupportAvifEnabledBit = KSupportAvifBit;
 #else
 constexpr std::uint32_t KSupportAvifEnabledBit = 0u;
 #endif
@@ -240,7 +240,7 @@ bool EncodeJpegRgba(
 #else
     if (width == 0 || height == 0)
     {
-        set_error(ErrorCode::DimensionInvalid, "image_dimension_invalid");
+        SetError(ErrorCode::DimensionInvalid, "image_dimension_invalid");
         return false;
     }
 
@@ -281,7 +281,7 @@ bool EncodeJpegRgba(
             jpeg_buf = nullptr;
         }
         jpeg_destroy_compress(&cinfo);
-        set_error(ErrorCode::EncodeFailed, jerr.message[0] != '\0' ? jerr.message : "codec_encode_failed");
+        SetError(ErrorCode::EncodeFailed, jerr.message[0] != '\0' ? jerr.message : "codec_encode_failed");
         return false;
     }
     jpeg_create_compress(&cinfo);
@@ -314,7 +314,7 @@ bool EncodeJpegRgba(
             std::free(jpeg_buf);
         }
         jpeg_destroy_compress(&cinfo);
-        set_error(ErrorCode::EncodeFailed, "codec_encode_failed");
+        SetError(ErrorCode::EncodeFailed, "codec_encode_failed");
         return false;
     }
 
@@ -339,7 +339,7 @@ bool EncodeWebpRgba(
 #else
     if (width == 0 || height == 0)
     {
-        set_error(ErrorCode::DimensionInvalid, "image_dimension_invalid");
+        SetError(ErrorCode::DimensionInvalid, "image_dimension_invalid");
         return false;
     }
     const int normalized_quality = std::clamp(quality <= 0 ? 82 : quality, 1, 100);
@@ -352,7 +352,7 @@ bool EncodeWebpRgba(
                                            &webp_buf);
     if (webp_len == 0 || webp_buf == nullptr)
     {
-        set_error(ErrorCode::EncodeFailed, "codec_encode_failed");
+        SetError(ErrorCode::EncodeFailed, "codec_encode_failed");
         return false;
     }
     out.assign(webp_buf, webp_buf + webp_len);
@@ -375,19 +375,19 @@ bool EncodeAvifRgba(
 #else
     if (width == 0 || height == 0)
     {
-        set_error(ErrorCode::DimensionInvalid, "image_dimension_invalid");
+        SetError(ErrorCode::DimensionInvalid, "image_dimension_invalid");
         return false;
     }
-    if (!avif_encoder_available())
+    if (!AvifEncoderAvailable())
     {
-        set_error(ErrorCode::NeedFallback, "codec_need_fallback");
+        SetError(ErrorCode::NeedFallback, "codec_need_fallback");
         return false;
     }
 
     avifImage* image = avifImageCreate(static_cast<int>(width), static_cast<int>(height), 8, AVIF_PIXEL_FORMAT_YUV444);
     if (image == nullptr)
     {
-        set_error(ErrorCode::EncodeFailed, "codec_encode_failed");
+        SetError(ErrorCode::EncodeFailed, "codec_encode_failed");
         return false;
     }
 
@@ -400,7 +400,7 @@ bool EncodeAvifRgba(
     if (allocResult != AVIF_RESULT_OK)
     {
         avifImageDestroy(image);
-        set_error(ErrorCode::EncodeFailed, "codec_encode_failed");
+        SetError(ErrorCode::EncodeFailed, "codec_encode_failed");
         return false;
     }
     std::memcpy(rgb.pixels, rgba, static_cast<std::size_t>(rgb.rowBytes) * height);
@@ -410,7 +410,7 @@ bool EncodeAvifRgba(
     if (rgbToYuvResult != AVIF_RESULT_OK)
     {
         avifImageDestroy(image);
-        set_error(ErrorCode::EncodeFailed, "codec_encode_failed");
+        SetError(ErrorCode::EncodeFailed, "codec_encode_failed");
         return false;
     }
 
@@ -418,7 +418,7 @@ bool EncodeAvifRgba(
     if (encoder == nullptr)
     {
         avifImageDestroy(image);
-        set_error(ErrorCode::EncodeFailed, "codec_encode_failed");
+        SetError(ErrorCode::EncodeFailed, "codec_encode_failed");
         return false;
     }
 
@@ -437,7 +437,7 @@ bool EncodeAvifRgba(
         {
             avifRWDataFree(&output);
         }
-        set_error(ErrorCode::EncodeFailed, "codec_encode_failed");
+        SetError(ErrorCode::EncodeFailed, "codec_encode_failed");
         return false;
     }
 

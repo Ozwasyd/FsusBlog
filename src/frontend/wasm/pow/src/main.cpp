@@ -142,10 +142,10 @@ namespace Simd4
     const std::uint8_t* b0, const std::uint8_t* b1, const std::uint8_t* b2, const std::uint8_t* b3, int word) noexcept
 {
     const int offset = word * 4;
-    return wasm_i32x4_make(static_cast<std::int32_t>(load_be32(b0 + offset)),
-                           static_cast<std::int32_t>(load_be32(b1 + offset)),
-                           static_cast<std::int32_t>(load_be32(b2 + offset)),
-                           static_cast<std::int32_t>(load_be32(b3 + offset)));
+    return wasm_i32x4_make(static_cast<std::int32_t>(LoadBe32(b0 + offset)),
+                           static_cast<std::int32_t>(LoadBe32(b1 + offset)),
+                           static_cast<std::int32_t>(LoadBe32(b2 + offset)),
+                           static_cast<std::int32_t>(LoadBe32(b3 + offset)));
 }
 
 [[gnu::always_inline]] inline v128_t splat(std::uint32_t value) noexcept
@@ -197,7 +197,7 @@ namespace Simd4
 {
     for (int i = 0; i < 8; ++i)
     {
-        state[i] = splat(kInitialState[i]);
+        state[i] = splat(KInitialState[i]);
     }
 }
 
@@ -228,7 +228,7 @@ namespace Simd4
 
     for (int i = 0; i < 64; ++i)
     {
-        const v128_t t1 = add(add(add(add(h, ep1(e)), ch(e, f, g)), splat(kRoundConstants[i])), w[i]);
+        const v128_t t1 = add(add(add(add(h, ep1(e)), ch(e, f, g)), splat(KRoundConstants[i])), w[i]);
         const v128_t t2 = add(ep0(a), maj(a, b, c));
         h = g;
         g = f;
@@ -514,10 +514,10 @@ bool SolveRangeSimd4(const char* salt,
 {
     if (difficulty > 32) [[unlikely]]
     {
-        return solve_range_scalar(salt, salt_len, browser_fp, browser_fp_len, difficulty, start_nonce, step, solution);
+        return SolveRangeScalar(salt, salt_len, browser_fp, browser_fp_len, difficulty, start_nonce, step, solution);
     }
 
-    alignas(16) std::uint8_t blocks[4][kShortBlockBytes];
+    alignas(16) std::uint8_t blocks[4][KShortBlockBytes];
     v128_t state[8];
     std::uint32_t nonce = start_nonce;
 
@@ -533,11 +533,11 @@ bool SolveRangeSimd4(const char* salt,
             {
                 return false;
             }
-            if (!build_short_blocks(
+            if (!BuildShortBlocks(
                     salt, salt_len, browser_fp, browser_fp_len, candidates[lane], blocks[lane], block_counts[lane]))
                 [[unlikely]]
             {
-                return solve_range_scalar(
+                return SolveRangeScalar(
                     salt, salt_len, browser_fp, browser_fp_len, difficulty, nonce, step, solution);
             }
         }
@@ -548,7 +548,7 @@ bool SolveRangeSimd4(const char* salt,
             for (int lane = 0; lane < 4; ++lane)
             {
                 std::uint32_t scalar_solution = 0;
-                if (solve_range_scalar(salt,
+                if (SolveRangeScalar(salt,
                                        salt_len,
                                        browser_fp,
                                        browser_fp_len,
@@ -572,7 +572,7 @@ bool SolveRangeSimd4(const char* salt,
 
         for (int lane = 0; lane < 4; ++lane)
         {
-            if (meets_difficulty_first_word(state0[lane], difficulty))
+            if (MeetsDifficultyFirstWord(state0[lane], difficulty))
             {
                 solution = candidates[lane];
                 return true;
@@ -605,11 +605,11 @@ bool SolveLimitedSimd4(const char* salt,
 
     if (difficulty > 32) [[unlikely]]
     {
-        return solve_limited_scalar(
+        return SolveLimitedScalar(
             salt, salt_len, browser_fp, browser_fp_len, difficulty, start_nonce, max_attempts, solution);
     }
 
-    alignas(16) std::uint8_t blocks[4][kShortBlockBytes];
+    alignas(16) std::uint8_t blocks[4][KShortBlockBytes];
     v128_t state[8];
     std::uint32_t nonce = start_nonce;
     std::uint32_t attempted = 0;
@@ -619,7 +619,7 @@ bool SolveLimitedSimd4(const char* salt,
         const std::uint32_t remaining = max_attempts - attempted;
         if (remaining < 4u || nonce > std::numeric_limits<std::uint32_t>::max() - 3u) [[unlikely]]
         {
-            return solve_limited_scalar(
+            return SolveLimitedScalar(
                 salt, salt_len, browser_fp, browser_fp_len, difficulty, nonce, remaining, solution);
         }
 
@@ -629,11 +629,11 @@ bool SolveLimitedSimd4(const char* salt,
         for (int lane = 0; lane < 4; ++lane)
         {
             candidates[lane] = nonce + static_cast<std::uint32_t>(lane);
-            if (!build_short_blocks(
+            if (!BuildShortBlocks(
                     salt, salt_len, browser_fp, browser_fp_len, candidates[lane], blocks[lane], block_counts[lane]))
                 [[unlikely]]
             {
-                return solve_limited_scalar(
+                return SolveLimitedScalar(
                     salt, salt_len, browser_fp, browser_fp_len, difficulty, nonce, remaining, solution);
             }
         }
@@ -641,7 +641,7 @@ bool SolveLimitedSimd4(const char* salt,
         if (block_counts[0] != block_counts[1] || block_counts[0] != block_counts[2]
             || block_counts[0] != block_counts[3]) [[unlikely]]
         {
-            return solve_limited_scalar(
+            return SolveLimitedScalar(
                 salt, salt_len, browser_fp, browser_fp_len, difficulty, nonce, remaining, solution);
         }
 
@@ -653,7 +653,7 @@ bool SolveLimitedSimd4(const char* salt,
 
         for (int lane = 0; lane < 4; ++lane)
         {
-            if (meets_difficulty_first_word(state0[lane], difficulty))
+            if (MeetsDifficultyFirstWord(state0[lane], difficulty))
             {
                 solution = candidates[lane];
                 return true;
@@ -738,12 +738,12 @@ int SolvePowRangeImpl(const char* salt,
 
     std::uint32_t solution = 0;
 #ifdef __wasm_simd128__
-    const bool solved = SolveRangeSimd4(salt, salt_len, browser_fp, fp_len, difficulty, start_nonce, step, solution);
+    const bool solved = SolveRangeSimd4(salt, saltLen, browserFp, fpLen, difficulty, startNonce, step, solution);
 #else
-    const bool Solved = SolveRangeScalar(salt, saltLen, browserFp, fpLen, difficulty, startNonce, step, solution);
+    const bool solved = SolveRangeScalar(salt, saltLen, browserFp, fpLen, difficulty, startNonce, step, solution);
 #endif
 
-    if (!Solved)
+    if (!solved)
     {
         static constexpr char KOverflow[] = "failed_overflow";
         constexpr std::size_t OverflowLen = sizeof(KOverflow);
@@ -809,12 +809,12 @@ extern "C"
         std::uint32_t solution = 0;
 #ifdef __wasm_simd128__
         const bool solved =
-            SolveLimitedSimd4(salt, salt_len, browser_fp, fp_len, difficulty, start_nonce, max_attempts, solution);
+            SolveLimitedSimd4(salt, saltLen, browserFp, fpLen, difficulty, startNonce, maxAttempts, solution);
 #else
-        const bool Solved =
+        const bool solved =
             SolveLimitedScalar(salt, saltLen, browserFp, fpLen, difficulty, startNonce, maxAttempts, solution);
 #endif
-        if (!Solved)
+        if (!solved)
         {
             return 0;
         }

@@ -182,6 +182,7 @@ src/frontend/wasm/build/
 src/frontend/wasm/pow/build/
 src/frontend/wasm/build-basic/
 src/frontend/wasm/build-simd/
+src/frontend/wasm/stage/
 src/frontend/wasm/.cmake/
 src/frontend/wasm/.artifacts/
 src/frontend/wasm/.emscripten-cache/
