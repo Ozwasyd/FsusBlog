@@ -160,8 +160,8 @@
 
 @media (min-width: 1024px) {
   .account-route-frame {
-    gap: calc(var(--fsus-space-5) * 2);
-    padding-inline: calc(var(--fsus-space-5) * 2);
+    gap: var(--fsus-space-8);
+    padding-inline: var(--fsus-space-6);
   }
 
   .account-route-frame__sidebar {
