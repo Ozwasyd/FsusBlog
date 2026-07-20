@@ -452,7 +452,6 @@ const handleMoveToTrash = (row: ArticleListViewItem): void => handleMoreCommand(
 
 .article-list-empty-state {
   min-height: 7rem;
-  padding: var(--fsus-space-6) var(--fsus-space-6);
 }
 
 .article-list-empty-actions {
@@ -467,10 +466,6 @@ const handleMoveToTrash = (row: ArticleListViewItem): void => handleMoreCommand(
 }
 
 @media (max-width: 639px) {
-  .article-list-empty-state {
-    padding-inline: var(--fsus-space-5);
-  }
-
   .article-list-empty-actions {
     gap: var(--fsus-space-2);
   }

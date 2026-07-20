@@ -44,7 +44,7 @@ const descriptionText = computed(() => props.description || props.content || '')
     box-sizing: border-box;
     width: 100%;
     min-width: 0;
-    padding: var(--fsus-space-6);
+    padding: var(--fsus-space-5);
     text-align: left;
 }
 
@@ -61,7 +61,7 @@ const descriptionText = computed(() => props.description || props.content || '')
  {
     .admin-inline-empty-state
  {
-        padding: var(--fsus-space-5);
+        padding: var(--fsus-space-4);
     }
 
     .admin-inline-empty-state__actions

@@ -191,7 +191,6 @@ const submitForm = (): void => {
 
 .taxonomy-empty-state {
   min-height: 7rem;
-  padding: var(--fsus-space-6);
 }
 
 .taxonomy-empty-actions {
@@ -260,10 +259,6 @@ const submitForm = (): void => {
 }
 
 @media (max-width: 639px) {
-  .taxonomy-empty-state {
-    padding-inline: var(--fsus-space-5);
-  }
-
   .taxonomy-empty-action {
     min-width: 6rem;
   }

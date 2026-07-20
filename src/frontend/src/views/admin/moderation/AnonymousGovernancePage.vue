@@ -982,7 +982,6 @@ watch(() => route.name, () => {
   border: 1px dashed color-mix(in srgb, var(--fsusblog-text-muted) 34%, transparent);
   border-radius: var(--fsus-radius-control);
   background: color-mix(in srgb, var(--fsusblog-panel-bg) 68%, var(--fsusblog-page-bg) 32%);
-  padding: var(--fsus-space-4);
 }
 
 .anonymous-governance-subject {
