@@ -130,14 +130,6 @@ public sealed record class ArticleRevisionRollbackRequest(
     [property: System.ComponentModel.DataAnnotations.MaxLength(500)]
     string Reason);
 
-public sealed record class ArticleRevisionRollbackResponse(
-    bool RolledBack,
-    string RevisionId,
-    int RevisionNo,
-    int Status,
-    string ReleaseId,
-    int ReleaseNo);
-
 public sealed record class ArticlePreviewResponse(string Html, string PlainText, IReadOnlyList<PrepublishIssue> Issues);
 
 public sealed record class PrepublishIssue(string Severity, string Code, string Message);

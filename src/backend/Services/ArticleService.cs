@@ -1,8 +1,10 @@
 using System.Data;
 using System.Data.Common;
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 using System.Text;
 
+using FsusBlog.Core.Common;
 using FsusBlog.Core.Integrity;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Services.Articles;
@@ -22,6 +24,8 @@ using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Background;
+
+using Npgsql;
 
 using SqlSugar;
 
@@ -55,11 +59,15 @@ public partial class ArticleService(
     IArticleViewWriteBuffer _viewWriteBuffer,
     IArticlePublicationValidator _publicationValidator,
     ArticleBodyRepairQueue _articleBodyRepairQueue,
-    TimeProvider? _timeProvider = null) : IArticleCoreGateway
+    TimeProvider? _timeProvider = null) : IArticleCoreGateway, IArticleMutationCommandService
 #pragma warning restore IDE1006
 {
     private readonly record struct TrashArticleRow(int Id, int CategoryId, string? CoverImageUrl);
     private readonly record struct ArticleRevisionCoordinates(long Id, int RevisionNo);
+    private readonly record struct ArticleMutationIdentity(
+        long AdminPrincipalId,
+        string ClientMutationId,
+        string RequestHash);
     private sealed record ArticleRightsWriteModel(
         bool Enabled,
         string LicenseType,
@@ -666,9 +674,23 @@ public partial class ArticleService(
     }
 
     public async Task<int> CreateAsync(ArticleWriteRequestCoreModel dto, CancellationToken cancellationToken = default)
+        => (await CreateMutationAsync(dto, identity: null, cancellationToken).ConfigureAwait(false)).ArticleId;
+
+    private async Task<ArticleMutationResult> CreateMutationAsync(
+        ArticleWriteRequestCoreModel dto,
+        ArticleMutationIdentity? identity,
+        CancellationToken cancellationToken = default)
     {
         CancellationToken ct = ResolveCancellationToken(cancellationToken);
         ct.ThrowIfCancellationRequested();
+        if (identity.HasValue)
+        {
+            ArticleMutationCommand? existing = await LoadArticleMutationCommandAsync(identity.Value, ct).ConfigureAwait(false);
+            if (existing is not null)
+            {
+                return ReplayArticleMutation(existing, identity.Value.RequestHash);
+            }
+        }
         var title = NormalizeText(dto.Title, MaxTitleLength);
         var content = NormalizeText(dto.Content, MaxContentLength);
         var summary = NormalizeText(dto.Summary, MaxSummaryLength);
@@ -787,14 +809,31 @@ public partial class ArticleService(
                         dto.CategoryId,
                         tagIds,
                         ArticleMutationVisibility.From(status)));
-                return id;
+                var mutation = new ArticleMutationResult(
+                    id,
+                    version.RevisionId,
+                    version.RevisionNo,
+                    version.PublicationId ?? 0,
+                    version.PublicationNo ?? 0,
+                    (int)status,
+                    version.RightsSnapshotId,
+                    version.RevisionNo,
+                    IdempotencyReplay: false,
+                    (byte)ErrorCode.None);
+                if (identity.HasValue)
+                {
+                    await _db.Insertable(ToArticleMutationCommand(identity.Value, mutation, now))
+                        .ExecuteCommandAsync(ct)
+                        .ConfigureAwait(false);
+                }
+                return mutation;
             });
 
-            mutationCommitted = result.IsSuccess && result.Data > 0;
+            mutationCommitted = result.IsSuccess && result.Data.ArticleId > 0;
             ct.ThrowIfCancellationRequested();
-            if (result.IsSuccess && result.Data == 0)
+            if (result.IsSuccess && result.Data.ArticleId == 0)
             {
-                return 0;
+                return default;
             }
 
             if (result.IsSuccess)
@@ -803,10 +842,10 @@ public partial class ArticleService(
                 ct.ThrowIfCancellationRequested();
                 await InvalidatePublicAotAsync(null, [dto.CategoryId], tagIds, "create");
                 ct.ThrowIfCancellationRequested();
-                ArticleListItemResponse? realtimePreview = await LoadRealtimePreviewAsync(result.Data);
+                ArticleListItemResponse? realtimePreview = await LoadRealtimePreviewAsync(result.Data.ArticleId);
                 ct.ThrowIfCancellationRequested();
 
-                await _mutationSideEffects.AfterCreatedAsync(article, result.Data, realtimePreview);
+                await _mutationSideEffects.AfterCreatedAsync(article, result.Data.ArticleId, realtimePreview);
 
                 return result.Data;
             }
@@ -814,8 +853,16 @@ public partial class ArticleService(
             {
                 throw validationException;
             }
+            if (identity.HasValue && IsArticleMutationIdentityConflict(result.ErrorException))
+            {
+                ArticleMutationCommand? existing = await LoadArticleMutationCommandAsync(identity.Value, ct).ConfigureAwait(false);
+                if (existing is not null)
+                {
+                    return ReplayArticleMutation(existing, identity.Value.RequestHash);
+                }
+            }
             _logger.LogError("创建文章失败 | DbError: {Error}", result.ErrorMessage);
-            return 0;
+            return default;
         }
         finally
         {
@@ -823,6 +870,188 @@ public partial class ArticleService(
             {
                 await RecoverAbortedPublicMutationFenceAsync(null, "article-create-fence-aborted").ConfigureAwait(false);
             }
+        }
+    }
+
+    private async Task<ArticleMutationCommand?> LoadArticleMutationCommandAsync(
+        ArticleMutationIdentity identity,
+        CancellationToken cancellationToken)
+        => await _db.Queryable<ArticleMutationCommand>()
+            .Where(command => command.AdminPrincipalId == identity.AdminPrincipalId
+                && command.ClientMutationId == identity.ClientMutationId)
+            .FirstAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+    private static ArticleMutationCommand ToArticleMutationCommand(
+        ArticleMutationIdentity identity,
+        ArticleMutationResult result,
+        DateTime createdAtUtc)
+        => new()
+        {
+            AdminPrincipalId = identity.AdminPrincipalId,
+            ClientMutationId = identity.ClientMutationId,
+            RequestHash = identity.RequestHash,
+            ArticleId = result.ArticleId,
+            RevisionId = result.RevisionId,
+            RevisionNo = result.RevisionNo,
+            ReleaseId = result.ReleaseId,
+            ReleaseNo = result.ReleaseNo,
+            Status = result.Status,
+            RightsSnapshotId = result.RightsSnapshotId,
+            RightsRevisionNo = result.RightsRevisionNo,
+            CreatedAtUtc = createdAtUtc
+        };
+
+    private static ArticleMutationResult ReplayArticleMutation(
+        ArticleMutationCommand command,
+        string requestHash)
+    {
+        if (!CryptographicOperations.FixedTimeEquals(
+                Convert.FromHexString(command.RequestHash),
+                Convert.FromHexString(requestHash)))
+        {
+            throw new ArticleMutationContentConflictException();
+        }
+
+        return new ArticleMutationResult(
+            command.ArticleId,
+            command.RevisionId,
+            command.RevisionNo,
+            command.ReleaseId,
+            command.ReleaseNo,
+            command.Status,
+            command.RightsSnapshotId,
+            command.RightsRevisionNo,
+            IdempotencyReplay: true,
+            (byte)ErrorCode.None);
+    }
+
+    private static bool IsArticleMutationIdentityConflict(Exception? exception)
+    {
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is PostgresException postgres
+                && string.Equals(postgres.SqlState, PostgresErrorCodes.UniqueViolation, StringComparison.Ordinal)
+                && string.Equals(postgres.ConstraintName, "ux_article_mutation_command_identity", StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    async Task<Result<ArticleMutationResult>> IArticleMutationCommandService.CreateAsync(
+        long adminPrincipalId,
+        string clientMutationId,
+        string requestHash,
+        ArticleWriteRequestCoreModel request,
+        CancellationToken cancellationToken)
+    {
+        if (adminPrincipalId <= 0)
+        {
+            return Result<ArticleMutationResult>.Failure(ErrorCode.Unauthorized, "admin_principal_required");
+        }
+        if (!Guid.TryParseExact(clientMutationId, "D", out Guid parsedMutationId)
+            || !string.Equals(clientMutationId, parsedMutationId.ToString("D"), StringComparison.Ordinal))
+        {
+            return Result<ArticleMutationResult>.Failure(ErrorCode.Validation, "article_client_mutation_id_invalid");
+        }
+        if (requestHash.Length != 64 || !requestHash.All(Uri.IsHexDigit))
+        {
+            return Result<ArticleMutationResult>.Failure(ErrorCode.Validation, "article_mutation_request_hash_invalid");
+        }
+
+        try
+        {
+            ArticleMutationResult result = await CreateMutationAsync(
+                request,
+                new ArticleMutationIdentity(adminPrincipalId, clientMutationId, requestHash.ToUpperInvariant()),
+                cancellationToken).ConfigureAwait(false);
+            return result.ArticleId > 0
+                ? Result<ArticleMutationResult>.Success(result)
+                : Result<ArticleMutationResult>.Failure(ErrorCode.InfraFailure, "article_create_failed");
+        }
+        catch (ArticleMutationContentConflictException)
+        {
+            return Result<ArticleMutationResult>.Failure(ErrorCode.Conflict, "article_mutation_content_conflict");
+        }
+        catch (ArticleStatusTransitionValidationException ex)
+        {
+            return Result<ArticleMutationResult>.Failure(ErrorCode.Validation, ex.Validation.Code);
+        }
+        catch (ArticleWriteValidationException ex)
+        {
+            return Result<ArticleMutationResult>.Failure(ErrorCode.Validation, ex.Code);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Idempotent article create failed for admin {AdminPrincipalId}", adminPrincipalId);
+            return Result<ArticleMutationResult>.Failure(ErrorCode.InfraFailure, "article_create_infrastructure_failure");
+        }
+    }
+
+    async Task<Result<ArticleMutationResult>> IArticleMutationCommandService.UpdateAsync(
+        int articleId,
+        ArticleWriteRequestCoreModel request,
+        CancellationToken cancellationToken)
+    {
+        if (articleId <= 0)
+        {
+            return Result<ArticleMutationResult>.Failure(ErrorCode.Validation, "article_id_invalid");
+        }
+
+        try
+        {
+            ArticleVersionCoordinates? committedVersion = null;
+            bool updated = await UpdateAsync(
+                articleId,
+                request,
+                transitionKind: null,
+                force: false,
+                rollback: null,
+                captureVersion: version => committedVersion = version,
+                cancellationToken).ConfigureAwait(false);
+            if (!updated)
+            {
+                return Result<ArticleMutationResult>.Failure(ErrorCode.NotFound, "article_not_found");
+            }
+
+            if (!committedVersion.HasValue)
+            {
+                return Result<ArticleMutationResult>.Failure(ErrorCode.InfraFailure, "article_mutation_coordinates_unavailable");
+            }
+            ArticleVersionCoordinates version = committedVersion.Value;
+
+            return Result<ArticleMutationResult>.Success(new ArticleMutationResult(
+                articleId,
+                version.RevisionId,
+                version.RevisionNo,
+                version.PublicationId ?? 0,
+                version.PublicationNo ?? 0,
+                request.Status,
+                version.RightsSnapshotId,
+                version.RevisionNo,
+                IdempotencyReplay: false,
+                (byte)ErrorCode.None));
+        }
+        catch (ArticleRevisionConflictException ex)
+        {
+            return Result<ArticleMutationResult>.Failure(
+                ErrorDetail.Create(ErrorCode.Conflict, "article_revision_conflict", ex.ToApiDetails()));
+        }
+        catch (ArticleStatusTransitionValidationException ex)
+        {
+            return Result<ArticleMutationResult>.Failure(ErrorCode.Validation, ex.Validation.Code);
+        }
+        catch (ArticleWriteValidationException ex)
+        {
+            return Result<ArticleMutationResult>.Failure(ErrorCode.Validation, ex.Code);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Article update failed for {ArticleId}", articleId);
+            return Result<ArticleMutationResult>.Failure(ErrorCode.InfraFailure, "article_update_infrastructure_failure");
         }
     }
 
@@ -1445,7 +1674,7 @@ public partial class ArticleService(
     }
 
     public Task<bool> UpdateAsync(int id, ArticleWriteRequestCoreModel dto, CancellationToken cancellationToken = default)
-        => UpdateAsync(id, dto, transitionKind: null, force: false, rollback: null, cancellationToken);
+        => UpdateAsync(id, dto, transitionKind: null, force: false, rollback: null, captureVersion: null, cancellationToken);
 
     private async Task<bool> UpdateAsync(
         int id,
@@ -1453,6 +1682,7 @@ public partial class ArticleService(
         string? transitionKind,
         bool force,
         ArticleRollbackMetadata? rollback,
+        Action<ArticleVersionCoordinates>? captureVersion,
         CancellationToken cancellationToken)
     {
         CancellationToken ct = ResolveCancellationToken(cancellationToken);
@@ -1605,6 +1835,7 @@ public partial class ArticleService(
                         transitionKind == ArticlePublicationTransitionKinds.Rollback
                             ? ArticleStatusTransitionOperation.Rollback
                             : ArticleStatusTransitionOperation.Update));
+                captureVersion?.Invoke(version);
                 await RecordArticleMutationOutboxAsync(
                     id,
                     ArticleMutationEventTypes.Updated,

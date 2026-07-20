@@ -17,6 +17,7 @@ using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Shared.Contracts.Outputs;
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -436,7 +437,7 @@ public sealed class ArticleRightsWritePathTests(
 
         Article current = await db.Queryable<Article>().InSingleAsync(articleId);
         const string Reason = "Restore the reviewed historical package";
-        Result<ArticleRevisionRollbackResponse?> rollback = await lifecycle.RollbackRevisionAsync(
+        Result<ArticleMutationResult> rollback = await lifecycle.RollbackRevisionAsync(
             17,
             articleId,
             originalRevision.Id,
@@ -468,7 +469,6 @@ public sealed class ArticleRightsWritePathTests(
         Article rolledBackArticle = await db.Queryable<Article>().InSingleAsync(articleId);
 
         Assert.True(rollback.IsSuccess);
-        Assert.NotNull(rollback.Value);
         Assert.Equal("CC-BY-4.0", policy.LicenseType);
         Assert.Equal("Original Holder", policy.CopyrightHolder);
         Assert.Equal("CC-BY-4.0", latest.LicenseType);
@@ -486,7 +486,7 @@ public sealed class ArticleRightsWritePathTests(
         Assert.Equal(createdRelease.Id, outbox.ArticlePublicationId);
         Assert.Equal(targetStatus, rolledBackArticle.Status);
         Assert.Equal((int)targetStatus, rollback.Value.Status);
-        Assert.Equal(createdRelease.Id.ToString(CultureInfo.InvariantCulture), rollback.Value.ReleaseId);
+        Assert.Equal(createdRelease.Id, rollback.Value.ReleaseId);
     }
 
     [Fact]
@@ -529,7 +529,7 @@ public sealed class ArticleRightsWritePathTests(
         int outboxBefore = await db.Queryable<ArticleMutationOutboxEvent>().Where(item => item.AggregateId == articleId).CountAsync();
 
         ArticleRevisionDetailResponse? historicalPackage = await lifecycle.GetRevisionAsync(articleId, originalRevision.Id);
-        Result<ArticleRevisionRollbackResponse?> rollback = await lifecycle.RollbackRevisionAsync(
+        Result<ArticleMutationResult> rollback = await lifecycle.RollbackRevisionAsync(
             17,
             articleId,
             originalRevision.Id,

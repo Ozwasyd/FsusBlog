@@ -266,8 +266,8 @@
 | GET | `/api/binary/stats` | 👑 📦 | `AdminStats`(7) | Binary 聚合统计（overview + recent comments + regions） |
 | GET | `/api/binary/admin/article` | 👑 📦 | `ArticleList`(1) | 管理端文章列表，可带 `status` / `isDeleted`；`page>=1`、`size=1..100`，非法值返回 400 |
 | GET | `/api/binary/admin/article/{id}` | 👑 📦 | `ArticleDetail`(2) | 管理端文章详情 |
-| POST | `/api/binary/admin/article` | 👑 📦 🚦 PoW | `ArticleWriteRequest` → `MutationId`(241) | 创建文章；V5 的 `baseRevisionId=0`，响应携带 article/revision 与 rights snapshot 坐标 |
-| PUT | `/api/binary/admin/article/{id}` | 👑 📦 🚦 PoW | `ArticleWriteRequest` → `MutationId`(241) | 更新文章；必须提交详情中的 `baseRevisionId`，失配返回 409 且不写入；rights 支持 preserve/replace/reset |
+| POST | `/api/binary/admin/article` | 👑 📦 🚦 PoW | `ArticleWriteRequest` → `MutationId`(241) | 创建文章；必须携带 admin-scoped `X-Fsus-Client-Mutation-Id`；同键同内容安全重放，同键异内容 409；返回 48B 强类型 article/revision/release/result |
+| PUT | `/api/binary/admin/article/{id}` | 👑 📦 🚦 PoW | `ArticleWriteRequest` → `MutationId`(241) | 更新文章；必须提交详情中的 `baseRevisionId`，失配返回 409 且不写入；返回同一 48B 强类型结果 |
 | POST | `/api/binary/upload/init` | 👑 | `UploadInit`(20) | 初始化分片上传 |
 | GET | `/api/binary/upload/{id}` | 👑 📦 | `UploadStatus`(21) | 查询上传状态 |
 | PUT | `/api/binary/upload/{id}/part/{n}` | 👑 📦 | `UploadPartAck`(22) | 上传分片 |
@@ -346,7 +346,7 @@
 | GET | `/api/binary/author/articles/{articleId}/revisions/{revisionId}` | 👑 | 完整历史版本包：正文、rights、responsibility 与 release 坐标；缺项通过 `packageComplete` 明示 |
 | GET | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/responsibility` | 👑 | `ArticleResponsibilityHistory(228)`；按版本倒序读取 append-only 责任历史 |
 | PUT | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/responsibility` | 👑 | 以 `expectedVersion` CAS 追加责任版本；冲突返回 HTTP 409 |
-| POST | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/rollback` | 👑 | `ArticleRevisionRollbackRequest(213)`；提交 base revision、Draft/Published/Archived 目标和审计原因，复制完整历史包到新 revision/release；冲突或不完整包不写入 |
+| POST | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/rollback` | 👑 | `ArticleRevisionRollbackRequest(213)` → `MutationId(241)` 48B 强类型结果；提交 base revision、Draft/Published/Archived 目标和审计原因，复制完整历史包到新 revision/release；冲突或不完整包不写入 |
 | POST | `/api/binary/author/articles/{articleId}/assets/reindex` | 👑 | 重建资产引用 |
 | GET | `/api/binary/author/assets` | 👑 | 资产库列表 |
 | DELETE | `/api/binary/author/assets/orphans` | 👑 | 删除孤儿资产库记录 |

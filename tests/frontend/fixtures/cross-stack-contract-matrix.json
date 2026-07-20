@@ -1865,7 +1865,7 @@
           "method": "POST",
           "path": "/author/articles/{articleId:int}/revisions/{revisionId:long}/rollback",
           "requestFrame": "ArticleRevisionRollbackRequest",
-          "responseFrame": "ArticleRevisionRollbackResponse"
+          "responseFrame": "MutationId"
         },
         {
           "auth": "admin",

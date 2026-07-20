@@ -11,9 +11,9 @@ export function mapEmptySuccessFromPayload(payload: Uint8Array): null
     return null;
 }
 
-export function mapMutationIdFromPayload(payload: Uint8Array): { id: number; revisionId?: number; revisionNo?: number; rightsSnapshotId?: number; rightsRevisionNo?: number; }
+export function mapMutationIdFromPayload(payload: Uint8Array): { id: number; articleId?: number; revisionId?: number; revisionNo?: number; releaseId?: number; releaseNo?: number; status?: number; rightsSnapshotId?: number; rightsRevisionNo?: number; idempotencyReplay?: boolean; errorCode?: number; }
 {
-    if (payload.byteLength !== 8 && payload.byteLength !== 16 && payload.byteLength !== 28)
+    if (payload.byteLength !== 8 && payload.byteLength !== 16 && payload.byteLength !== 28 && payload.byteLength !== 48)
     {
         throw createAppError(AppErrorCode.ProtocolFailure, 'mutation_id_payload_invalid');
     }
@@ -24,6 +24,23 @@ export function mapMutationIdFromPayload(payload: Uint8Array): { id: number; rev
     }
 
     const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength);
+    if (payload.byteLength === 48)
+    {
+        const articleId = view.getInt32(0, true);
+        return {
+            id: articleId,
+            articleId,
+            revisionId: readInt64Number(payload, 4),
+            revisionNo: view.getInt32(12, true),
+            releaseId: readInt64Number(payload, 16),
+            releaseNo: view.getInt32(24, true),
+            status: view.getInt32(28, true),
+            rightsSnapshotId: readInt64Number(payload, 32),
+            rightsRevisionNo: view.getInt32(40, true),
+            idempotencyReplay: payload[44] !== 0,
+            errorCode: payload[45]
+        };
+    }
     if (payload.byteLength === 28)
     {
         return {

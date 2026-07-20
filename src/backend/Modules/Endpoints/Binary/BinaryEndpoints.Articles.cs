@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Data.Common;
+using System.Security.Cryptography;
 
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
@@ -255,6 +256,7 @@ public static partial class BinaryEndpoints
         group.MapPost("/admin/article", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IArticleEndpointService articles,
+            IConfiguration configuration,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
@@ -269,10 +271,46 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "文章写入请求体非法"), aeds);
             }
 
-            Result<ArticleMutationResponseDto> result = await articles.CreateAsync(request, cancellationToken);
+            if (!(configuration.GetValue<bool?>("Articles:MutationIdempotencyEnabled") ?? true))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.InfraFailure, "article_mutation_idempotency_disabled"),
+                    aeds,
+                    StatusCodes.Status503ServiceUnavailable);
+            }
+            if (!httpContext.Request.Headers.TryGetValue("X-Fsus-Client-Mutation-Id", out var rawMutationId))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.Validation, "article_client_mutation_id_required"),
+                    aeds);
+            }
+
+            string clientMutationId = rawMutationId.ToString();
+            if (!Guid.TryParseExact(clientMutationId, "D", out Guid parsedMutationId)
+                || !string.Equals(clientMutationId, parsedMutationId.ToString("D"), StringComparison.Ordinal))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.Validation, "article_client_mutation_id_invalid"),
+                    aeds);
+            }
+            if (!httpContext.User.TryGetAdminPrincipalId(out long adminPrincipalId))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.Unauthorized, "admin_principal_required"),
+                    aeds,
+                    StatusCodes.Status401Unauthorized);
+            }
+
+            string requestHash = Convert.ToHexString(SHA256.HashData(payload.Payload.Span));
+            Result<ArticleMutationResult> result = await articles.CreateAsync(
+                adminPrincipalId,
+                clientMutationId,
+                requestHash,
+                request,
+                cancellationToken);
 
             return result.IsSuccess
-                ? BinaryResults.Frame(aeds, AedsFrameType.MutationId, writer => PodBinaryCodec.WriteArticleMutationResponse(result.Value, writer))
+                ? BinaryResults.Frame(aeds, AedsFrameType.MutationId, writer => PodBinaryCodec.WriteArticleMutationResult(result.Value, writer))
                 : BinaryResults.FromError(result.Error, aeds);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
@@ -296,10 +334,10 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "文章写入请求体非法"), aeds);
             }
 
-            Result<ArticleMutationResponseDto> result = await articles.UpdateAsync(id, request, cancellationToken);
+            Result<ArticleMutationResult> result = await articles.UpdateAsync(id, request, cancellationToken);
 
             return result.IsSuccess
-                ? BinaryResults.Frame(aeds, AedsFrameType.MutationId, writer => PodBinaryCodec.WriteArticleMutationResponse(result.Value, writer))
+                ? BinaryResults.Frame(aeds, AedsFrameType.MutationId, writer => PodBinaryCodec.WriteArticleMutationResult(result.Value, writer))
                 : BinaryResults.FromError(result.Error, aeds);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)

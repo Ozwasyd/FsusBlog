@@ -32,7 +32,7 @@ Use `FsusBlog.Shared.Contracts.Validation.PodSizeCatalog` values as authoritativ
 
 - primitives: `Utf8Fixed*`, `Utf8SliceRef`
 - envelopes: `PodEnvelopeHeader`, `PageEnvelope`, `CursorEnvelope`, `PagedPodEnvelope`, `CursorPodEnvelope`
-- article: `ArticleListItemPod`, legacy `ArticleDetailPod`, `ArticleDetailV3HeaderPod`, 84-byte `ArticleDetailV3RecordPod`, `ArticleDetailV4HeaderPod`, 92-byte `ArticleDetailV4RecordPod`, 116-byte `ArticleDetailV5RecordPod`, `ArticleDetailTagV3RecordPod`, `ArticleRightsV3RecordPod`, `TagPod`, `TagWithCountPod`, `CategoryPod`, `ArticleNoticePod`, `ArticleMutationResponsePod`, `TrashClearResponsePod`
+- article: `ArticleListItemPod`, legacy `ArticleDetailPod`, `ArticleDetailV3HeaderPod`, 84-byte `ArticleDetailV3RecordPod`, `ArticleDetailV4HeaderPod`, 92-byte `ArticleDetailV4RecordPod`, 116-byte `ArticleDetailV5RecordPod`, `ArticleDetailTagV3RecordPod`, `ArticleRightsV3RecordPod`, `TagPod`, `TagWithCountPod`, `CategoryPod`, `ArticleNoticePod`, `ArticleMutationResultPod`, `TrashClearResponsePod`
 - comment: `CommentItemPod`, `UserCommentPod`
 - message: `MessageInboxPod`, `CommentPushPod`, `CommentAddedNotifyPod`, `GlobalNoticePayloadPod`, `MessageRevokedPayloadPod`, `AccountStatusPayloadPod`, `NoticePayloadPod`, `CommentRemovedPayloadPod`
 - user/auth: `TokenResponsePod`, `LoginResponsePod`, `UserListItemPod` (anonymous account list row)

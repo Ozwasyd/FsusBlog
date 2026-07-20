@@ -177,6 +177,19 @@ describe('article API (admin)', () => {
     })
   })
 
+  it('createArticle reuses the mutation id after a lost response and clears it after success', async () => {
+    const data = { title: 'Retry', content: 'C', summary: 'S', categoryId: 1, tagIds: [] }
+    mockBinary.mockRejectedValueOnce(new Error('response lost')).mockResolvedValueOnce({ articleId: 42 } as never)
+
+    await expect(createArticle(data)).rejects.toThrow('response lost')
+    const firstId = mockBinary.mock.calls[0][0].requestOptions?.headers?.['X-Fsus-Client-Mutation-Id']
+    await createArticle(data)
+    const retryId = mockBinary.mock.calls[1][0].requestOptions?.headers?.['X-Fsus-Client-Mutation-Id']
+
+    expect(firstId).toMatch(/^[0-9a-f-]{36}$/)
+    expect(retryId).toBe(firstId)
+  })
+
   it('createArticle encodes ArticleWriteRequest V5 preserve mode without a base revision', async () => {
     const data = { title: 'T', content: 'C', summary: 'S', categoryId: 1, tagIds: [] }
     await createArticle(data)

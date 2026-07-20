@@ -149,7 +149,7 @@ public static partial class AuthoringEndpoints
         if (HttpMethods.IsGet(method) && segments is ["articles", _, "revisions", _])
             return Found(null, AedsFrameType.ArticleRevisionDetail, out route);
         if (HttpMethods.IsPost(method) && segments is ["articles", _, "revisions", _, "rollback"])
-            return Found(AedsFrameType.ArticleRevisionRollbackRequest, AedsFrameType.ArticleRevisionRollbackResponse, out route);
+            return Found(AedsFrameType.ArticleRevisionRollbackRequest, AedsFrameType.MutationId, out route);
         if (HttpMethods.IsPut(method) && segments is ["articles", _, "revisions", _, "responsibility"])
             return Found(AedsFrameType.ArticleResponsibilityRequest, AedsFrameType.ArticleResponsibilityResponse, out route);
         if (HttpMethods.IsGet(method) && segments is ["articles", _, "revisions", _, "responsibility"])

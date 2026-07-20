@@ -319,7 +319,7 @@ public sealed class AuthoringDraftLifecycleService(
         return ToRevisionDetailResponse(revision, rights, responsibility, release);
     }
 
-    public async Task<Result<ArticleRevisionRollbackResponse?>> RollbackRevisionAsync(
+    public async Task<Result<ArticleMutationResult>> RollbackRevisionAsync(
         long actorAdminPrincipalId,
         int articleId,
         long revisionId,
@@ -329,17 +329,17 @@ public sealed class AuthoringDraftLifecycleService(
         string reason = request.Reason?.Trim() ?? string.Empty;
         if (request.BaseRevisionId <= 0)
         {
-            return Result<ArticleRevisionRollbackResponse?>.Failure(ErrorCode.Validation, "article_base_revision_required");
+            return Result<ArticleMutationResult>.Failure(ErrorCode.Validation, "article_base_revision_required");
         }
         if (reason.Length is < 8 or > 500)
         {
-            return Result<ArticleRevisionRollbackResponse?>.Failure(ErrorCode.Validation, "article_rollback_reason_invalid");
+            return Result<ArticleMutationResult>.Failure(ErrorCode.Validation, "article_rollback_reason_invalid");
         }
         if (request.TargetStatus is not ((int)ArticleStatus.Draft)
             and not ((int)ArticleStatus.Published)
             and not ((int)ArticleStatus.Archived))
         {
-            return Result<ArticleRevisionRollbackResponse?>.Failure(ErrorCode.Validation, "article_rollback_status_invalid");
+            return Result<ArticleMutationResult>.Failure(ErrorCode.Validation, "article_rollback_status_invalid");
         }
 
         ArticleRevision? revision = await db.Queryable<ArticleRevision>()
@@ -347,7 +347,7 @@ public sealed class AuthoringDraftLifecycleService(
             .FirstAsync(cancellationToken);
         if (revision is null)
         {
-            return Result<ArticleRevisionRollbackResponse?>.Success(null);
+            return Result<ArticleMutationResult>.Failure(ErrorCode.NotFound, "revision_not_found");
         }
 
         string? summary = ArticleSummaryProjection.WasAutomaticallyGenerated(revision.DiffSummary)
@@ -375,26 +375,30 @@ public sealed class AuthoringDraftLifecycleService(
         bool updated = updateResult.IsSuccess;
         if (!updated)
         {
-            return Result<ArticleRevisionRollbackResponse?>.Failure(updateResult.Error);
+            return Result<ArticleMutationResult>.Failure(updateResult.Error);
         }
 
-        Article? article = await db.Queryable<Article>()
-            .Where(it => it.Id == articleId && !it.IsDeleted)
+        ArticleRevision? createdRevision = await db.Queryable<ArticleRevision>()
+            .Where(it => it.ArticleId == articleId
+                && it.RollbackSourceRevisionId == revisionId
+                && it.CreatedByAdminPrincipalId == actorAdminPrincipalId
+                && it.RollbackReason == reason)
+            .OrderByDescending(it => it.Id)
             .FirstAsync(cancellationToken);
-        ArticleRevision? createdRevision = article?.CurrentRevisionId is > 0
-            ? await db.Queryable<ArticleRevision>()
-                .Where(it => it.ArticleId == articleId && it.Id == article.CurrentRevisionId.Value)
-                .FirstAsync(cancellationToken)
-            : null;
         ArticlePublicationRecord? createdRelease = createdRevision is not null
             ? await db.Queryable<ArticlePublicationRecord>()
                 .Where(it => it.ArticleId == articleId && it.ArticleRevisionId == createdRevision.Id)
                 .OrderByDescending(it => it.PublicationNo)
                 .FirstAsync(cancellationToken)
             : null;
-        if (createdRevision is null || createdRelease is null)
+        ArticleRightsSnapshot? createdRights = createdRevision is not null
+            ? await db.Queryable<ArticleRightsSnapshot>()
+                .Where(it => it.ArticleId == articleId && it.ArticleRevisionId == createdRevision.Id)
+                .FirstAsync(cancellationToken)
+            : null;
+        if (createdRevision is null || createdRelease is null || createdRights is null)
         {
-            return Result<ArticleRevisionRollbackResponse?>.Failure(ErrorCode.InfraFailure, "article_rollback_coordinates_missing");
+            return Result<ArticleMutationResult>.Failure(ErrorCode.InfraFailure, "article_rollback_coordinates_missing");
         }
 
         auditWriter.Write(
@@ -402,13 +406,17 @@ public sealed class AuthoringDraftLifecycleService(
             "article-revision-rollback",
             actorAdminPrincipalId,
             $"{articleId}:{revisionId}->{createdRevision.Id};status={request.TargetStatus}");
-        return Result<ArticleRevisionRollbackResponse?>.Success(new ArticleRevisionRollbackResponse(
-            true,
-            createdRevision.Id.ToString(CultureInfo.InvariantCulture),
+        return Result<ArticleMutationResult>.Success(new ArticleMutationResult(
+            articleId,
+            createdRevision.Id,
             createdRevision.RevisionNo,
+            createdRelease.Id,
+            createdRelease.PublicationNo,
             request.TargetStatus,
-            createdRelease.Id.ToString(CultureInfo.InvariantCulture),
-            createdRelease.PublicationNo));
+            createdRights.Id,
+            createdRights.RevisionNo,
+            IdempotencyReplay: false,
+            (byte)ErrorCode.None));
     }
 
     public Task<ArticlePreviewResponse> PreviewAsync(ServerDraftSaveRequest request)

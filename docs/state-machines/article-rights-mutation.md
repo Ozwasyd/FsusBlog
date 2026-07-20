@@ -33,7 +33,7 @@ silently overwrite the effective article policy.
 - V3 always carried a complete rights section and is interpreted as `replace`.
 - Payloads from before the rights section was introduced are interpreted as `preserve`.
 - The response keeps frame type `MutationId(241)`: generic mutations remain the original 8-byte ID payload, while
-  article create/update use the 16-byte `ArticleMutationResponsePod`.
+  article create/update/rollback use the 48-byte `ArticleMutationResultPod`.
 
 ## Risk and rollback
 

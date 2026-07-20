@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 
 using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
@@ -203,7 +204,7 @@ public static partial class AuthoringEndpoints
                 return parsed.ToErrorResult(aeds);
             }
 
-            Result<ArticleRevisionRollbackResponse?> rollback = await service.RollbackRevisionAsync(
+            Result<ArticleMutationResult> rollback = await service.RollbackRevisionAsync(
                 ResolveRequiredAdminPrincipalId(context),
                 articleId,
                 revisionId,
@@ -214,9 +215,10 @@ public static partial class AuthoringEndpoints
                 return BinaryResults.FromError(rollback.Error, aeds);
             }
 
-            return rollback.Value is not null
-                ? Ok(context, aeds, rollback.Value)
-                : AedsJsonResults.NotFound(aeds, "revision_not_found");
+            return BinaryResults.Frame(
+                aeds,
+                AedsFrameType.MutationId,
+                writer => PodBinaryCodec.WriteArticleMutationResult(rollback.Value, writer));
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
 

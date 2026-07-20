@@ -423,15 +423,16 @@ public sealed class ArticleEndpointServiceTests
     public async Task CreateAsync_PreservesLifecycleValidationDetails()
     {
         var core = Substitute.For<IArticleCoreService>();
+        var mutations = Substitute.For<IArticleMutationCommandService>();
         ErrorDetail error = ErrorDetail.Create(
             ErrorCode.Validation,
             "文章状态未定义",
             ArticleStatusTransitionErrorCodes.UndefinedStatus);
-        core.CreateAsync(Arg.Any<CreateArticleCommand>(), Arg.Any<CancellationToken>())
-            .Returns(Result<int>.Failure(error));
-        var service = Create(core);
+        mutations.CreateAsync(Arg.Any<long>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<ArticleWriteRequestCoreModel>(), Arg.Any<CancellationToken>())
+            .Returns(Result<ArticleMutationResult>.Failure(error));
+        var service = Create(core, mutations: mutations);
 
-        Result<ArticleMutationResponseDto> result = await service.CreateAsync(default);
+        Result<ArticleMutationResult> result = await service.CreateAsync(7, Guid.NewGuid().ToString("D"), new string('A', 64), default);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ArticleStatusTransitionErrorCodes.UndefinedStatus, result.Error.Details);
@@ -441,25 +442,15 @@ public sealed class ArticleEndpointServiceTests
     public async Task CreateAsync_ReturnsBoundRightsSnapshotCoordinates()
     {
         var core = Substitute.For<IArticleCoreService>();
-        core.CreateAsync(Arg.Any<CreateArticleCommand>(), Arg.Any<CancellationToken>())
-            .Returns(Result<int>.Success(42));
-        var rights = default(ArticleRightsCoreModel) with
-        {
-            SnapshotId = 9001,
-            RevisionNo = 3
-        };
-        var detail = default(ArticleDetailCoreModel) with
-        {
-            Rights = rights
-        };
-        core.GetByIdAsync(new ArticleDetailQuery(42, IncludePrivate: true), Arg.Any<CancellationToken>())
-            .Returns(Result<ArticleDetailCoreModel?>.Success(detail));
-        var service = Create(core);
+        var mutations = Substitute.For<IArticleMutationCommandService>();
+        mutations.CreateAsync(Arg.Any<long>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<ArticleWriteRequestCoreModel>(), Arg.Any<CancellationToken>())
+            .Returns(Result<ArticleMutationResult>.Success(new(42, 81, 2, 91, 1, 1, 9001, 3, false, 0)));
+        var service = Create(core, mutations: mutations);
 
-        Result<ArticleMutationResponseDto> result = await service.CreateAsync(default);
+        Result<ArticleMutationResult> result = await service.CreateAsync(7, Guid.NewGuid().ToString("D"), new string('A', 64), default);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(42, result.Value.Id);
+        Assert.Equal(42, result.Value.ArticleId);
         Assert.Equal(9001, result.Value.RightsSnapshotId);
         Assert.Equal(3, result.Value.RightsRevisionNo);
     }
@@ -468,15 +459,16 @@ public sealed class ArticleEndpointServiceTests
     public async Task UpdateAsync_PreservesLifecycleValidationDetails()
     {
         var core = Substitute.For<IArticleCoreService>();
+        var mutations = Substitute.For<IArticleMutationCommandService>();
         ErrorDetail error = ErrorDetail.Create(
             ErrorCode.Validation,
             "计划发布时间必须晚于当前时间",
             ArticleStatusTransitionErrorCodes.ScheduledAtMustBeFuture);
-        core.UpdateAsync(Arg.Any<UpdateArticleCommand>(), Arg.Any<CancellationToken>())
-            .Returns(Result.Failure(error));
-        var service = Create(core);
+        mutations.UpdateAsync(Arg.Any<int>(), Arg.Any<ArticleWriteRequestCoreModel>(), Arg.Any<CancellationToken>())
+            .Returns(Result<ArticleMutationResult>.Failure(error));
+        var service = Create(core, mutations: mutations);
 
-        Result<ArticleMutationResponseDto> result = await service.UpdateAsync(42, default);
+        Result<ArticleMutationResult> result = await service.UpdateAsync(42, default);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ArticleStatusTransitionErrorCodes.ScheduledAtMustBeFuture, result.Error.Details);
@@ -486,25 +478,15 @@ public sealed class ArticleEndpointServiceTests
     public async Task UpdateAsync_ReturnsBoundRightsSnapshotCoordinates()
     {
         var core = Substitute.For<IArticleCoreService>();
-        core.UpdateAsync(Arg.Any<UpdateArticleCommand>(), Arg.Any<CancellationToken>())
-            .Returns(Result.Success());
-        var rights = default(ArticleRightsCoreModel) with
-        {
-            SnapshotId = 9002,
-            RevisionNo = 4
-        };
-        var detail = default(ArticleDetailCoreModel) with
-        {
-            Rights = rights
-        };
-        core.GetByIdAsync(new ArticleDetailQuery(42, IncludePrivate: true), Arg.Any<CancellationToken>())
-            .Returns(Result<ArticleDetailCoreModel?>.Success(detail));
-        var service = Create(core);
+        var mutations = Substitute.For<IArticleMutationCommandService>();
+        mutations.UpdateAsync(Arg.Any<int>(), Arg.Any<ArticleWriteRequestCoreModel>(), Arg.Any<CancellationToken>())
+            .Returns(Result<ArticleMutationResult>.Success(new(42, 82, 3, 92, 2, 1, 9002, 4, false, 0)));
+        var service = Create(core, mutations: mutations);
 
-        Result<ArticleMutationResponseDto> result = await service.UpdateAsync(42, default);
+        Result<ArticleMutationResult> result = await service.UpdateAsync(42, default);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(42, result.Value.Id);
+        Assert.Equal(42, result.Value.ArticleId);
         Assert.Equal(9002, result.Value.RightsSnapshotId);
         Assert.Equal(4, result.Value.RightsRevisionNo);
     }
@@ -516,7 +498,8 @@ public sealed class ArticleEndpointServiceTests
         IUnifiedCache? cache = null,
         IOwnedFrameCache? ownedFrameCache = null,
         ICacheMissCoordinator? cacheMissCoordinator = null,
-        IPublicArticleProjectionStore? projection = null)
+        IPublicArticleProjectionStore? projection = null,
+        IArticleMutationCommandService? mutations = null)
     {
         cache ??= Substitute.For<IUnifiedCache>();
         ownedFrameCache ??= CreateOwnedFrameCacheSubstitute();
@@ -526,6 +509,7 @@ public sealed class ArticleEndpointServiceTests
 
         return new ArticleEndpointService(
             core,
+            mutations ?? Substitute.For<IArticleMutationCommandService>(),
             cache,
             ownedFrameCache,
             cacheMissCoordinator ?? new PassthroughCacheMissCoordinator(),

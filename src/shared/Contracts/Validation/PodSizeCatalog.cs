@@ -66,7 +66,7 @@ public static class PodSizeCatalog
     public static readonly int TagWithCountPod = PodContractValidation.SizeOf<TagWithCountPod>();
     public static readonly int CategoryPod = PodContractValidation.SizeOf<CategoryPod>();
     public static readonly int ArticleNoticePod = PodContractValidation.SizeOf<ArticleNoticePod>();
-    public static readonly int ArticleMutationResponsePod = PodContractValidation.SizeOf<ArticleMutationResponsePod>();
+    public static readonly int ArticleMutationResultPod = PodContractValidation.SizeOf<ArticleMutationResultPod>();
     public static readonly int TrashClearResponsePod = PodContractValidation.SizeOf<TrashClearResponsePod>();
     public static readonly int ArticleWriteRequestPod = PodContractValidation.SizeOf<ArticleWriteRequestPod>();
     public static readonly int ArticleRightsWriteRequestPod = PodContractValidation.SizeOf<ArticleRightsWriteRequestPod>();

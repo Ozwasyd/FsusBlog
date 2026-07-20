@@ -7617,7 +7617,7 @@
         "summary": "authoring-console",
         "responses": {
           "200": {
-            "description": "ArticleRevisionRollbackResponse AEDS frame",
+            "description": "MutationId AEDS frame",
             "content": {
               "application/octet-stream": {
                 "schema": {
@@ -7642,7 +7642,7 @@
         "x-fsus-protocol": "AEDS",
         "x-fsus-aeds-version": 2,
         "x-fsus-request-frame": "ArticleRevisionRollbackRequest",
-        "x-fsus-response-frame": "ArticleRevisionRollbackResponse",
+        "x-fsus-response-frame": "MutationId",
         "x-fsus-error-frame": "ApiError",
         "x-fsus-auth": "admin",
         "x-fsus-pow": false,

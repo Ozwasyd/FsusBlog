@@ -1151,11 +1151,8 @@ export function useAdminArticleWrite() {
           reason: selection.reason.trim()
         },
         { mfaProofToken })
-      if (!rollback.rolledBack) {
-        showWarningToast('历史版本不存在或已被清理', '历史版本不存在或已被清理')
-        taskFeedback.partial('历史版本回滚未执行', '目标版本不存在或已被清理', 'article-revision')
-        return
-      }
+      currentRevisionId.value = String(rollback.revisionId)
+      currentRevisionNo.value = rollback.revisionNo
 
       suppressDraftSave = true
       const expectedServerRevision = serverDraftRevision.value
@@ -1646,7 +1643,9 @@ export function useAdminArticleWrite() {
           targetArticleId = articleId.value
         } else {
           const result = await createArticle(articlePayload, config)
-          const createdId = Number(result?.id)
+          const createdId = Number(result?.articleId ?? result?.id)
+          currentRevisionId.value = String(result.revisionId)
+          currentRevisionNo.value = result.revisionNo
           if (Number.isFinite(createdId) && createdId > 0) {
             targetArticleId = createdId
           }

@@ -77,6 +77,7 @@ public partial class ArticleService
             command.Intent == ArticleUpdateIntent.Rollback ? ArticlePublicationTransitionKinds.Rollback : null,
             command.Force,
             command.Rollback,
+            captureVersion: null,
             cancellationToken);
 
     Task<bool> IArticleCoreGateway.DeleteAsync(ArticleIdCommand command, CancellationToken cancellationToken)

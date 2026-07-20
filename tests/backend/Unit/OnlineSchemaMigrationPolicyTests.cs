@@ -162,6 +162,8 @@ public sealed class OnlineSchemaMigrationPolicyTests
             metadata["20260719-pre-article-publication-coordinates"];
         OnlineSchemaMigrationMetadata articlePublicationConsistency =
             metadata["20260719-post-article-publication-consistency"];
+        OnlineSchemaMigrationMetadata articleMutationIdempotency =
+            metadata[ArticleMutationIdempotencyMigrationDefinitions.MigrationId];
         OnlineSchemaMigrationMetadata commentModerationEvent =
             metadata["20260719-post-comment-moderation-event"];
         OnlineSchemaMigrationMetadata messageAdminQueue =
@@ -214,6 +216,10 @@ public sealed class OnlineSchemaMigrationPolicyTests
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, articleAssetReferences.Phase);
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, articlePublicationCoordinates.Phase);
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, articlePublicationConsistency.Phase);
+        Assert.Equal(OnlineSchemaMigrationPhase.Expand, articleMutationIdempotency.Phase);
+        Assert.Equal(OnlineSchemaMigrationRollbackMode.CompatibleCode, articleMutationIdempotency.RollbackMode);
+        Assert.Equal(OnlineSchemaMigrationLockRisk.Low, articleMutationIdempotency.EstimatedLockRisk);
+        Assert.Contains("article_mutation_idempotency", articleMutationIdempotency.Validators);
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, commentModerationEvent.Phase);
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, messageAdminQueue.Phase);
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, messageMutationOutbox.Phase);
@@ -246,7 +252,7 @@ public sealed class OnlineSchemaMigrationPolicyTests
         Assert.Equal(AccountSubjectHashBackfillStep.BatchSize, subjectBackfill.BatchSize);
         Assert.Equal("last_account_id", subjectBackfill.ResumeTokenName);
         Assert.Equal(OnlineSchemaMigrationRollbackMode.ResumeFromCheckpoint, subjectBackfill.RollbackMode);
-        Assert.All(new[] { passkeyExpand, publicArticleProjectionExpand, articleOutboxClaimLeaseExpand, activeReleaseFenceWitnessExpand, activeReleaseFencedCommitExpand, readEventRetirementCompat, anonymousEligibilityPredicateExpand, subjectExpand, subjectBackfill, articleAssetReferences, articlePublicationCoordinates, articlePublicationConsistency, commentModerationEvent, messageAdminQueue, messageMutationOutbox, messageMutationIdempotency, conversationStatusAudit, messageUnreadAuthority, passkeySignalVersion, commentMutationIdempotency, scheduledPublishDueIndex, articleDraftBaseRevision, accountEnrollment, refreshTokenLineage, userSessionModeAuthority }, classification =>
+        Assert.All(new[] { passkeyExpand, publicArticleProjectionExpand, articleOutboxClaimLeaseExpand, activeReleaseFenceWitnessExpand, activeReleaseFencedCommitExpand, readEventRetirementCompat, anonymousEligibilityPredicateExpand, subjectExpand, subjectBackfill, articleAssetReferences, articlePublicationCoordinates, articlePublicationConsistency, articleMutationIdempotency, commentModerationEvent, messageAdminQueue, messageMutationOutbox, messageMutationIdempotency, conversationStatusAudit, messageUnreadAuthority, passkeySignalVersion, commentMutationIdempotency, scheduledPublishDueIndex, articleDraftBaseRevision, accountEnrollment, refreshTokenLineage, userSessionModeAuthority }, classification =>
         {
             Assert.False(classification.LegacyBootstrapOnly);
             Assert.False(classification.Destructive);
@@ -267,6 +273,7 @@ public sealed class OnlineSchemaMigrationPolicyTests
             articleAssetReferences.MigrationId,
             articlePublicationCoordinates.MigrationId,
             articlePublicationConsistency.MigrationId,
+            articleMutationIdempotency.MigrationId,
             commentModerationEvent.MigrationId,
             messageAdminQueue.MigrationId,
             messageMutationOutbox.MigrationId,

@@ -17,14 +17,19 @@ public readonly record struct TagDto(int Id, string Name);
 /// </summary>
 public readonly record struct TagWithCountDto(int Id, string Name, int ArticleCount);
 /// <summary>
-/// Defines the API output contract represented by <c>ArticleMutationResponseDto</c>.
+/// Defines the successful result shared by article create, update, and rollback commands.
 /// </summary>
-public readonly record struct ArticleMutationResponseDto(
-    int Id,
+public readonly record struct ArticleMutationResult(
+    int ArticleId,
     long RevisionId,
     int RevisionNo,
+    long ReleaseId,
+    int ReleaseNo,
+    int Status,
     long RightsSnapshotId,
-    int RightsRevisionNo);
+    int RightsRevisionNo,
+    bool IdempotencyReplay,
+    byte ErrorCode);
 /// <summary>
 /// Defines the API output contract represented by <c>TrashClearResponseDto</c>.
 /// </summary>

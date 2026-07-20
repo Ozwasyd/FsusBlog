@@ -52,7 +52,7 @@ public class PodSizeCatalogTests
         AssertPositiveSize(PodSizeCatalog.TagWithCountPod, nameof(PodSizeCatalog.TagWithCountPod));
         AssertPositiveSize(PodSizeCatalog.CategoryPod, nameof(PodSizeCatalog.CategoryPod));
         AssertPositiveSize(PodSizeCatalog.ArticleNoticePod, nameof(PodSizeCatalog.ArticleNoticePod));
-        AssertPositiveSize(PodSizeCatalog.ArticleMutationResponsePod, nameof(PodSizeCatalog.ArticleMutationResponsePod));
+        Assert.Equal(48, PodSizeCatalog.ArticleMutationResultPod);
         AssertPositiveSize(PodSizeCatalog.TrashClearResponsePod, nameof(PodSizeCatalog.TrashClearResponsePod));
         AssertPositiveSize(PodSizeCatalog.ArticleWriteRequestPod, nameof(PodSizeCatalog.ArticleWriteRequestPod));
         AssertPositiveSize(PodSizeCatalog.ArticleRightsWriteRequestPod, nameof(PodSizeCatalog.ArticleRightsWriteRequestPod));

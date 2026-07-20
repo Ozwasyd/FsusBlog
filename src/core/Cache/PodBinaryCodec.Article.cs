@@ -20,41 +20,52 @@ public static partial class PodBinaryCodec
     /// <summary>
     /// Writes an article mutation result with the rights snapshot coordinates bound by the write.
     /// </summary>
-    public static void WriteArticleMutationResponse(
-        ArticleMutationResponseDto response,
+    public static void WriteArticleMutationResult(
+        ArticleMutationResult response,
         IBufferWriter<byte> destination)
     {
         var writer = new BinaryPodWriter(destination);
-        writer.WritePod(Cast<MutableArticleMutationResponsePod, ArticleMutationResponsePod>(new MutableArticleMutationResponsePod
+        writer.WritePod(Cast<MutableArticleMutationResultPod, ArticleMutationResultPod>(new MutableArticleMutationResultPod
         {
-            Id = response.Id,
+            ArticleId = response.ArticleId,
             RevisionId = response.RevisionId,
             RevisionNo = response.RevisionNo,
+            ReleaseId = response.ReleaseId,
+            ReleaseNo = response.ReleaseNo,
+            Status = response.Status,
             RightsSnapshotId = response.RightsSnapshotId,
-            RightsRevisionNo = response.RightsRevisionNo
+            RightsRevisionNo = response.RightsRevisionNo,
+            IdempotencyReplay = response.IdempotencyReplay ? (byte)1 : (byte)0,
+            ErrorCode = response.ErrorCode,
+            Reserved = 0
         }));
     }
 
     /// <summary>
     /// Attempts to decode an article mutation result and its bound rights snapshot coordinates.
     /// </summary>
-    public static bool TryDecodeArticleMutationResponse(
+    public static bool TryDecodeArticleMutationResult(
         ReadOnlyMemory<byte> source,
-        out ArticleMutationResponseDto response)
+        out ArticleMutationResult response)
     {
         var reader = new BinaryPodReader(source.Span);
-        if (!reader.TryReadPod(out ArticleMutationResponsePod pod) || !reader.IsConsumed)
+        if (!reader.TryReadPod(out ArticleMutationResultPod pod) || !reader.IsConsumed)
         {
             response = default;
             return false;
         }
 
-        response = new ArticleMutationResponseDto(
-            pod.Id,
+        response = new ArticleMutationResult(
+            pod.ArticleId,
             pod.RevisionId,
             pod.RevisionNo,
+            pod.ReleaseId,
+            pod.ReleaseNo,
+            pod.Status,
             pod.RightsSnapshotId,
-            pod.RightsRevisionNo);
+            pod.RightsRevisionNo,
+            pod.IdempotencyReplay != 0,
+            pod.ErrorCode);
         return true;
     }
 
@@ -382,13 +393,19 @@ public static partial class PodBinaryCodec
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    private struct MutableArticleMutationResponsePod
+    private struct MutableArticleMutationResultPod
     {
-        public int Id;
+        public int ArticleId;
         public long RevisionId;
         public int RevisionNo;
+        public long ReleaseId;
+        public int ReleaseNo;
+        public int Status;
         public long RightsSnapshotId;
         public int RightsRevisionNo;
+        public byte IdempotencyReplay;
+        public byte ErrorCode;
+        public ushort Reserved;
     }
 
     private static Utf8SliceRef PlanUtf8Slice(string? value, ref int nextOffset)

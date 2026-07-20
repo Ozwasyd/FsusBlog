@@ -124,20 +124,26 @@ public class PodBinaryCodecTests
     }
 
     [Fact]
-    public void ArticleMutationResponse_RoundTrip_ReportsBoundRightsSnapshot()
+    public void ArticleMutationResult_RoundTrip_ReportsVersionAndReplayCoordinates()
     {
-        var response = new ArticleMutationResponseDto(42, 8123, 8, 9007199254740, 7);
+        var response = new ArticleMutationResult(42, 8123, 8, 7201, 4, 1, 9007199254740, 7, true, 0);
         var buffer = new ArrayBufferWriter<byte>();
 
-        PodBinaryCodec.WriteArticleMutationResponse(response, buffer);
-        bool ok = PodBinaryCodec.TryDecodeArticleMutationResponse(buffer.WrittenMemory, out var decoded);
+        PodBinaryCodec.WriteArticleMutationResult(response, buffer);
+        bool ok = PodBinaryCodec.TryDecodeArticleMutationResult(buffer.WrittenMemory, out var decoded);
 
         Assert.True(ok);
-        Assert.Equal(42, decoded.Id);
+        Assert.Equal(48, buffer.WrittenCount);
+        Assert.Equal(42, decoded.ArticleId);
         Assert.Equal(8123, decoded.RevisionId);
         Assert.Equal(8, decoded.RevisionNo);
+        Assert.Equal(7201, decoded.ReleaseId);
+        Assert.Equal(4, decoded.ReleaseNo);
+        Assert.Equal(1, decoded.Status);
         Assert.Equal(9007199254740, decoded.RightsSnapshotId);
         Assert.Equal(7, decoded.RightsRevisionNo);
+        Assert.True(decoded.IdempotencyReplay);
+        Assert.Equal(0, decoded.ErrorCode);
     }
 
     [Fact]

@@ -283,16 +283,22 @@ public readonly struct ArticleNoticePod
 }
 
 /// <summary>
-/// Defines the fixed-layout binary representation used by the <c>ArticleMutationResponse</c> wire contract.
+/// Defines the fixed-layout binary representation used by the <c>ArticleMutationResult</c> wire contract.
 /// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
-public readonly struct ArticleMutationResponsePod
+public readonly struct ArticleMutationResultPod
 {
-    public readonly int Id;
+    public readonly int ArticleId;
     public readonly long RevisionId;
     public readonly int RevisionNo;
+    public readonly long ReleaseId;
+    public readonly int ReleaseNo;
+    public readonly int Status;
     public readonly long RightsSnapshotId;
     public readonly int RightsRevisionNo;
+    public readonly byte IdempotencyReplay;
+    public readonly byte ErrorCode;
+    public readonly ushort Reserved;
 }
 
 /// <summary>

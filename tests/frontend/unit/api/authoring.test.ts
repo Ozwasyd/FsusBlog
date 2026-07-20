@@ -162,12 +162,17 @@ describe('authoring API binary transport', () => {
 
   it('rollbackArticleRevision sends explicit version-package rollback intent', async () => {
     const response = {
-      rolledBack: true,
-      revisionId: '9011',
+      id: 42,
+      articleId: 42,
+      revisionId: 9011,
       revisionNo: 4,
       status: 3,
-      releaseId: '7004',
-      releaseNo: 4
+      releaseId: 7004,
+      releaseNo: 4,
+      rightsSnapshotId: 6004,
+      rightsRevisionNo: 4,
+      idempotencyReplay: false,
+      errorCode: 0
     }
     binaryMock.mockResolvedValue(response)
 
@@ -180,6 +185,7 @@ describe('authoring API binary transport', () => {
     const call = binaryMock.mock.calls[0]?.[0]
     expect(call?.binaryUrl).toBe('/api/binary/author/articles/42/revisions/9001/rollback')
     expect(call?.requestOptions?.method).toBe('POST')
+    expect(call?.frameType).toBe(FrameType.MutationId)
     expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof')
     expectAedsJsonBody(call?.requestOptions?.body, FrameType.ArticleRevisionRollbackRequest, {
       baseRevisionId: '9010',

@@ -177,23 +177,42 @@ export const getAdminArticleById = (id: number, config?: ApiRequestConfig) =>
  */
 export interface ArticleMutationResponse {
     id: number;
+    articleId?: number;
     revisionId: number;
     revisionNo: number;
+    releaseId: number;
+    releaseNo: number;
+    status: number;
     rightsSnapshotId: number;
     rightsRevisionNo: number;
+    idempotencyReplay: boolean;
+    errorCode: number;
 }
 
-export const createArticle = (data: ArticleWriteRequest, config?: ApiRequestConfig) =>
-    requestBinaryOnly<ArticleMutationResponse>({
+const pendingArticleMutationIds = new Map<string, string>();
+
+export const createArticle = (data: ArticleWriteRequest & { clientMutationId?: string }, config?: ApiRequestConfig) =>
+{
+    const identityKey = JSON.stringify(data, (key, value) => key === 'clientMutationId' ? undefined : value);
+    const clientMutationId = data.clientMutationId ?? pendingArticleMutationIds.get(identityKey) ?? crypto.randomUUID().toLowerCase();
+    pendingArticleMutationIds.set(identityKey, clientMutationId);
+    const request = requestBinaryOnly<ArticleMutationResponse>({
         binaryRoute: { operationId: 'binary_post_admin_article' },
         frameType: FrameType.MutationId,
         signal: config?.signal,
         requestOptions: {
             method: 'POST',
             requiresPow: true,
+            headers: { 'X-Fsus-Client-Mutation-Id': clientMutationId },
             body: encodeAedsFrame(FrameType.ArticleWriteRequest, encodeArticleWriteRequest(data))
         }
     });
+    return request.then((result) =>
+    {
+        pendingArticleMutationIds.delete(identityKey);
+        return result;
+    });
+};
 
 /**
  * 更新文章

@@ -7,7 +7,7 @@ import { encodeAedsFrame } from './binaryFrame'
 import { encodeJsonRequest } from '@/codecs/binary/jsonRequestEncoder'
 import { FSUS_HEADERS } from './contracts'
 import { getBrowserFp } from '@/utils/fingerprint'
-import type { ArticleRightsRequest } from './article'
+import type { ArticleMutationResponse, ArticleRightsRequest } from './article'
 import { AppErrorCode, createAppError } from '@/utils/appError'
 import { runPrivateRequest } from '@/services/privateRequestRuntime'
 
@@ -119,15 +119,6 @@ export interface ArticleRevisionRollbackRequest {
   baseRevisionId: string
   targetStatus: 0 | 2 | 3
   reason: string
-}
-
-export interface ArticleRevisionRollbackResponse {
-  rolledBack: boolean
-  revisionId: string
-  revisionNo: number
-  status: number
-  releaseId: string
-  releaseNo: number
 }
 
 export interface ArticleResponsiblePerson {
@@ -1748,8 +1739,8 @@ export async function rollbackArticleRevision(
   revisionId: string,
   request: ArticleRevisionRollbackRequest,
   config?: ApiRequestConfig
-): Promise<ArticleRevisionRollbackResponse> {
-  return requestAuthoringBinary<ArticleRevisionRollbackResponse>(`/articles/${articleId}/revisions/${revisionId}/rollback`, FrameType.ArticleRevisionRollbackResponse, config, {
+): Promise<ArticleMutationResponse> {
+  return requestAuthoringBinary<ArticleMutationResponse>(`/articles/${articleId}/revisions/${revisionId}/rollback`, FrameType.MutationId, config, {
     method: 'POST',
     requestFrame: FrameType.ArticleRevisionRollbackRequest,
     request

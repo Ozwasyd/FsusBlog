@@ -15,6 +15,29 @@ public readonly record struct ArticleDetailArtifactPayload(ReadOnlyMemory<byte> 
     public bool HasPreencodedFrame => !PreencodedFrame.IsEmpty;
 }
 
+public sealed class ArticleMutationContentConflictException : Exception
+{
+    public ArticleMutationContentConflictException()
+        : base("article_mutation_content_conflict")
+    {
+    }
+}
+
+public interface IArticleMutationCommandService
+{
+    Task<Result<ArticleMutationResult>> CreateAsync(
+        long adminPrincipalId,
+        string clientMutationId,
+        string requestHash,
+        ArticleWriteRequestCoreModel request,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<ArticleMutationResult>> UpdateAsync(
+        int articleId,
+        ArticleWriteRequestCoreModel request,
+        CancellationToken cancellationToken = default);
+}
+
 public interface IArticleEndpointService
 {
     Task<ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>>> GetPageListAsync(
@@ -47,9 +70,14 @@ public interface IArticleEndpointService
         int count,
         CancellationToken cancellationToken = default);
 
-    Task<Result<ArticleMutationResponseDto>> CreateAsync(ArticleWriteRequestCoreModel request, CancellationToken cancellationToken = default);
+    Task<Result<ArticleMutationResult>> CreateAsync(
+        long adminPrincipalId,
+        string clientMutationId,
+        string requestHash,
+        ArticleWriteRequestCoreModel request,
+        CancellationToken cancellationToken = default);
 
-    Task<Result<ArticleMutationResponseDto>> UpdateAsync(int id, ArticleWriteRequestCoreModel request, CancellationToken cancellationToken = default);
+    Task<Result<ArticleMutationResult>> UpdateAsync(int id, ArticleWriteRequestCoreModel request, CancellationToken cancellationToken = default);
 
     Task<int> ClearTrashAsync(CancellationToken cancellationToken = default);
 

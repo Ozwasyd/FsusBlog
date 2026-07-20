@@ -13,6 +13,7 @@ using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Shared.Contracts.Outputs;
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -34,6 +35,78 @@ public sealed class ArticleRevisionConcurrencyTests(
     private static readonly MethodInfo s_saveRevisionMethod = typeof(ArticleService)
         .GetMethod("SaveArticleRevisionAsync", BindingFlags.Instance | BindingFlags.NonPublic)
         ?? throw new InvalidOperationException("SaveArticleRevisionAsync should exist.");
+
+    [Fact]
+    public async Task CreateAsync_ResponseLossRetryReturnsOriginalResultWithoutDuplicateWrites()
+    {
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(classDatabase.ConnectionString);
+        CreateTables(db);
+        await SeedTaxonomyAsync(db);
+        IArticleMutationCommandService commands = CreateService(db);
+        string mutationId = Guid.NewGuid().ToString("D");
+        var request = CreateDraftRequest("retry-safe");
+
+        Result<ArticleMutationResult> first = await commands.CreateAsync(17, mutationId, new string('A', 64), request);
+        Result<ArticleMutationResult> retry = await commands.CreateAsync(17, mutationId, new string('A', 64), request);
+
+        Assert.True(first.IsSuccess, first.Error.Message);
+        Assert.True(retry.IsSuccess, retry.Error.Message);
+        Assert.False(first.Value.IdempotencyReplay);
+        Assert.True(retry.Value.IdempotencyReplay);
+        Assert.Equal(first.Value.ArticleId, retry.Value.ArticleId);
+        Assert.Equal(first.Value.RevisionId, retry.Value.RevisionId);
+        Assert.Equal(1, await db.Queryable<Article>().CountAsync());
+        Assert.Equal(1, await db.Queryable<ArticleMutationCommand>().CountAsync());
+        Assert.Equal(1, await db.Queryable<ArticleMutationOutboxEvent>().CountAsync());
+    }
+
+    [Fact]
+    public async Task CreateAsync_SameIdentityDifferentBodyReturnsConflictWithoutSecondArticle()
+    {
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(classDatabase.ConnectionString);
+        CreateTables(db);
+        await SeedTaxonomyAsync(db);
+        IArticleMutationCommandService commands = CreateService(db);
+        string mutationId = Guid.NewGuid().ToString("D");
+
+        Result<ArticleMutationResult> first = await commands.CreateAsync(19, mutationId, new string('A', 64), CreateDraftRequest("first"));
+        Result<ArticleMutationResult> conflict = await commands.CreateAsync(19, mutationId, new string('B', 64), CreateDraftRequest("changed"));
+
+        Assert.True(first.IsSuccess, first.Error.Message);
+        Assert.False(conflict.IsSuccess);
+        Assert.Equal(ErrorCode.Conflict, conflict.Error.Code);
+        Assert.Equal("article_mutation_content_conflict", conflict.Error.Message);
+        Assert.Equal(1, await db.Queryable<Article>().CountAsync());
+        Assert.Equal(1, await db.Queryable<ArticleMutationCommand>().CountAsync());
+    }
+
+    [Fact]
+    public async Task CreateAsync_ConcurrentDoubleClickCommitsOneArticleAndReplaysWinner()
+    {
+        string connectionString = classDatabase.ConnectionString;
+        using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
+        CreateTables(setupDb);
+        await SeedTaxonomyAsync(setupDb);
+        using SqlSugarClient firstDb = PostgresSqlSugarTestClient.Create(connectionString);
+        using SqlSugarClient secondDb = PostgresSqlSugarTestClient.Create(connectionString);
+        IArticleMutationCommandService first = CreateService(firstDb);
+        IArticleMutationCommandService second = CreateService(secondDb);
+        string mutationId = Guid.NewGuid().ToString("D");
+        var request = CreateDraftRequest("double-click");
+        using var barrier = new Barrier(2);
+
+        Result<ArticleMutationResult>[] results = await Task.WhenAll(
+            StartBarrierTaskAsync(barrier, () => first.CreateAsync(23, mutationId, new string('C', 64), request)),
+            StartBarrierTaskAsync(barrier, () => second.CreateAsync(23, mutationId, new string('C', 64), request)));
+
+        Assert.All(results, result => Assert.True(result.IsSuccess, result.Error.Message));
+        Assert.Single(results, result => result.Value.IdempotencyReplay);
+        Assert.Single(results, result => !result.Value.IdempotencyReplay);
+        Assert.Equal(results[0].Value.ArticleId, results[1].Value.ArticleId);
+        Assert.Equal(1, await setupDb.Queryable<Article>().CountAsync());
+        Assert.Equal(1, await setupDb.Queryable<ArticleMutationCommand>().CountAsync());
+        Assert.Equal(1, await setupDb.Queryable<ArticleMutationOutboxEvent>().CountAsync());
+    }
 
     [Fact]
     public async Task UpdateAsync_TwoConnectionsWithSameBaseRevision_OnlyFirstWriterCommits()
@@ -645,6 +718,29 @@ public sealed class ArticleRevisionConcurrencyTests(
             TaskCreationOptions.LongRunning,
             TaskScheduler.Default).Unwrap();
 
+    private static Task<T> StartBarrierTaskAsync<T>(Barrier barrier, Func<Task<T>> action)
+        => Task.Factory.StartNew(
+            async () =>
+            {
+                Assert.True(barrier.SignalAndWait(TimeSpan.FromSeconds(30)));
+                return await action();
+            },
+            CancellationToken.None,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default).Unwrap();
+
+    private static ArticleWriteRequestCoreModel CreateDraftRequest(string suffix)
+        => new(
+            $"Article {suffix}",
+            $"# Body {suffix}",
+            "summary",
+            null,
+            1,
+            [1],
+            (int)ArticleStatus.Draft,
+            Rights: null,
+            BaseRevisionId: null);
+
     private static async Task<int> SeedArticleAsync(
         SqlSugarClient db,
         bool isDeleted = false,
@@ -733,7 +829,8 @@ public sealed class ArticleRevisionConcurrencyTests(
             typeof(ArticleRightsSnapshot),
             typeof(ArticleResponsibilitySnapshot),
             typeof(ArticlePublicationRecord),
-            typeof(ArticleMutationOutboxEvent));
+            typeof(ArticleMutationOutboxEvent),
+            typeof(ArticleMutationCommand));
 
     private static ArticleService CreateService(
         SqlSugarClient db,

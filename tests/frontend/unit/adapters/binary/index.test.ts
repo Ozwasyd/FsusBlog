@@ -336,4 +336,31 @@ describe('decodeBinaryFramePayload', () => {
       rightsRevisionNo: 7
     })
   })
+
+  it('maps the strong article mutation result payload', () => {
+    const payload = new Uint8Array(48)
+    writeInt32(payload, 0, 42)
+    writeInt64(payload, 4, 8123n)
+    writeInt32(payload, 12, 8)
+    writeInt64(payload, 16, 7201n)
+    writeInt32(payload, 24, 4)
+    writeInt32(payload, 28, 1)
+    writeInt64(payload, 32, 9007199254740n)
+    writeInt32(payload, 40, 7)
+    payload[44] = 1
+
+    expect(decodeBinaryFramePayload(FrameType.MutationId, payload)).toEqual({
+      id: 42,
+      articleId: 42,
+      revisionId: 8123,
+      revisionNo: 8,
+      releaseId: 7201,
+      releaseNo: 4,
+      status: 1,
+      rightsSnapshotId: 9007199254740,
+      rightsRevisionNo: 7,
+      idempotencyReplay: true,
+      errorCode: 0
+    })
+  })
 })

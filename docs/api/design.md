@@ -42,7 +42,7 @@ HTTP shell 契约由 `src/shared/Contracts/Validation/fsusblog.openapi.json` 提
 
 ### 3. 统一响应包装
 
-所有运行时主业务响应体均为 AEDS v2 frame。成功写操作使用 `EmptySuccess` 或 `MutationId`；会被前端立即选中、关联或跳转到新资源的创建操作必须返回 `MutationId`，例如分类、标签和文章创建，不能让前端只靠刷新列表后按名称猜测。分类、标签等通用 mutation 仍返回 8B `MutationIdPod`；文章 create/update 在同一 frame type 下返回 28B `ArticleMutationResponsePod`，同时给出 article ID、新 revision ID/no 和绑定的 rights snapshot ID/revision no，调用方不得从随后读取的“最新策略”猜测本次绑定结果。失败、鉴权拒绝、限流和异常兜底统一使用 `ApiError` frame。AEDS v1 frame 不再兼容，也不保留旧 frame fallback。
+所有运行时主业务响应体均为 AEDS v2 frame。成功写操作使用 `EmptySuccess` 或 `MutationId`；会被前端立即选中、关联或跳转到新资源的创建操作必须返回 `MutationId`，例如分类、标签和文章创建，不能让前端只靠刷新列表后按名称猜测。分类、标签等通用 mutation 仍返回 8B `MutationIdPod`；文章 create/update/rollback 在同一 frame type 下返回 48B `ArticleMutationResultPod`，同时给出 article、revision、release、status、rights snapshot、幂等重放标记和显式错误码，调用方不得从随后读取的“最新状态”猜测本次绑定结果。失败、鉴权拒绝、限流和异常兜底统一使用 `ApiError` frame。AEDS v1 frame 不再兼容，也不保留旧 frame fallback。
 
 ### 4. 原生 AEDS 内部 API 原则
 
@@ -687,6 +687,8 @@ SPA 接管失败时采用 fail-closed：snapshot head 缺失、旧版本、diges
 服务端草稿以 `ownerAdminPrincipalId + draftKey` 隔离并持久化正文、分类标签、发布状态、定时发布时间、Rights V3 `rights` 策略、`clientRevision`、稳定 `serverRevision` 与编辑开始时的 `baseRevisionId`；该 owner 来自 independent admin principal 的 `admin_id`，不复用普通匿名账号 `sys_user.id`。首写必须提交 `expectedServerRevision=null` 并以 `serverRevision=1` create-only；后续自动保存提交读取到的 `expectedServerRevision`，服务端只在相等时原子更新并递增。相同 `clientRevision` 与规范化内容的重试返回当前版本但不重复递增；旧标签页或乱序保存返回 `409 draft_conflict` 且不覆盖。冲突 `ApiError.details` 只含当前版本、更新时间和截断标题摘要，客户端停止自动重试并重新读取服务端草稿供人工比较。丢弃通过 `expectedServerRevision` query 执行条件删除，不能删除已被其它标签页更新的草稿。延迟自动保存和跨设备恢复必须继续携带 `baseRevisionId`，不能在恢复时替换成随后读取到的新 article revision。浏览器 localStorage 的 AEDS payload（`fsus:article-draft:create` / `fsus:article-draft:edit:{id}`）只能保存 schema、保存时间、来源文章、编辑标记和 `clientRevision`，不得保存标题、摘要、正文、封面、分类标签、发布状态、server revision 或 rights。刷新/跨设备恢复只接受 admin-authenticated server draft；若服务端暂不可用，页面只能提示当前内存中的更改尚未同步，不能把 metadata 当作可恢复草稿覆盖表单。旧的完整或残缺 localStorage snapshot 必须在读取时拒绝并删除。
 
 ### 修订与回滚
+
+文章 create 是 admin principal 作用域内可安全重试的命令。请求必须携带规范小写 UUID `D` 格式的 `X-Fsus-Client-Mutation-Id`；服务端以 `(adminPrincipalId, clientMutationId)` 建立唯一身份，在同一个 PostgreSQL 事务写入文章、revision/release、outbox 与请求 SHA-256/完整结果。相同身份和请求摘要返回原坐标并标记 `idempotencyReplay=true`，相同身份但不同内容返回 `409 article_mutation_content_conflict`，双击、并发、超时和响应丢失不得重复产生文章或通知。`Articles:MutationIdempotencyEnabled=false` 可热重载并仅将新 create fail closed 为 `503 article_mutation_idempotency_disabled`；读取、update、rollback、notification stream 与 binary 基础设施保持可用。表结构是 additive，回退代码时保留该表；重新启用前应确认迁移完成。48B 响应需要前后端协调部署，旧客户端只接受旧长度时不得用于新服务端写入。
 
 代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringUseCasePorts.cs`](../../src/backend/Services/Authoring/AuthoringUseCasePorts.cs)、[`useAdminArticleWrite.ts`](../../src/frontend/src/composables/useAdminArticleWrite.ts)。
 
