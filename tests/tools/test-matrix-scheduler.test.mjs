@@ -1095,9 +1095,13 @@ test('active dynamic bundles expand from the live scheduler grant after a siblin
         await delay(20)
         return { code: 0, signal: null }
       }
-      await delay(50)
-      const grants = JSON.parse(fs.readFileSync(context.env.FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE, 'utf8'))
-      expandedGrant = grants.grants.long
+      const deadline = Date.now() + 1_000
+      do {
+        const grants = JSON.parse(fs.readFileSync(context.env.FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE, 'utf8'))
+        expandedGrant = grants.grants.long
+        if (expandedGrant?.cpuUnits === 8) break
+        await delay(5)
+      } while (Date.now() < deadline)
       return { code: 0, signal: null }
     }
   })
