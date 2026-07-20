@@ -240,8 +240,9 @@ describe('home editorial components', () => {
     expect(wrapper.get('[data-home-feed-heading]').text()).toBe('最新文章')
     expect(wrapper.get('[data-home-feed-section]').attributes('aria-labelledby')).toBe('home-feed-heading')
     expect(wrapper.get('[data-home-feed-section]').classes()).toEqual(
-      expect.arrayContaining(['border-t-2', 'pt-8'])
+      expect.arrayContaining(['border-t', 'pt-10'])
     )
+    expect(wrapper.get('[data-home-feed-section]').classes()).not.toContain('border-t-2')
     wrapper.unmount()
   })
 })

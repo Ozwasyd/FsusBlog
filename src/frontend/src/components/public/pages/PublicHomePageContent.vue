@@ -17,7 +17,7 @@
 
           <section
             v-if="view.items.length > 0"
-            class="border-t-2 border-[var(--fsusblog-panel-border)] pt-8"
+            class="border-t border-[var(--fsusblog-panel-border)] pt-10"
             aria-labelledby="home-feed-heading"
             data-home-feed-section
           >
