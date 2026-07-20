@@ -489,6 +489,21 @@ function checkPublicTypographyContract()
         /tagLink: `inline-flex min-h-9 items-center px-1 text-xs sm:text-sm leading-4 sm:leading-5[\s\S]*?outline-none \$\{focusRing\}/,
         'public article tags must retain a 36px mobile touch target and visible focus treatment'
     );
+    assertContains(
+        publicArticleListPath,
+        /class="public-article-tag el-tag el-tag--small el-tag--light inline-flex min-h-\[32px\] items-center px-2"[\s\S]*?:class="themeTokens\.focusRing"/,
+        'public article-list tags must retain a 32px centered hit target and shared inset focus ring'
+    );
+    assertContains(
+        publicArticleListPath,
+        /\.public-article-tag\s*\{[\s\S]*?min-height:\s*32px;[\s\S]*?padding-inline:\s*8px;/,
+        'public article-list tag geometry must override the 20px small-tag default'
+    );
+    assertContains(
+        publicArticleListPath,
+        /\.public-article-tag:focus-visible\s*\{[\s\S]*?box-shadow:\s*inset 0 0 0 2px var\(--fsusblog-color-focus-ring\);[\s\S]*?outline:\s*none;/,
+        'public article-list tag focus must override the FsusUI el-tag shadow reset without clipping'
+    );
 
     const publicShellCriticalCss = read(publicShellCriticalCssPath);
     const publicShellEmergencyCss = read(publicShellEmergencyCssPath);

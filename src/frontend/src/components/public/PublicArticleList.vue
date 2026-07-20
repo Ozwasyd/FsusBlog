@@ -36,7 +36,8 @@
         >
           <a
             :href="tag.href"
-            class="public-article-tag el-tag el-tag--small el-tag--light"
+            class="public-article-tag el-tag el-tag--small el-tag--light inline-flex min-h-[32px] items-center px-2"
+            :class="themeTokens.focusRing"
             data-public-link="tag"
             @click="handleNavigate($event, tag.href)"
           >
@@ -159,3 +160,15 @@ function handleNext(event: MouseEvent): void {
   emit('page-next');
 }
 </script>
+
+<style scoped>
+.public-article-tag {
+  min-height: 32px;
+  padding-inline: 8px;
+}
+
+.public-article-tag:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
+  outline: none;
+}
+</style>

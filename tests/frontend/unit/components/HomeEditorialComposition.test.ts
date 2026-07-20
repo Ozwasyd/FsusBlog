@@ -40,7 +40,10 @@ const recommendation = (id: number): PopularArticleSummaryResponse => ({
   views: id * 10
 })
 
-const card = (id: number): ArticleListCardViewContract => ({
+const card = (
+  id: number,
+  tags: ArticleListCardViewContract['tags'] = []
+): ArticleListCardViewContract => ({
   card: { kind: 'article-list-card', index: id },
   id,
   href: `/article/${id}`,
@@ -52,7 +55,7 @@ const card = (id: number): ArticleListCardViewContract => ({
     fullTime: '2026-07-11 00:00:00',
     categoryName: '工程'
   },
-  tags: []
+  tags
 })
 
 const listView = (items: readonly ArticleListCardViewContract[]): ArticleListViewContract => ({
@@ -263,6 +266,32 @@ describe('home editorial components', () => {
 
     await wrapper.get('[data-aot-action="page-next"]').trigger('click')
     expect(wrapper.emitted('page-next')).toHaveLength(1)
+    wrapper.unmount()
+  })
+
+  it('keeps article-list tags centered in a 32px focus-safe hit target', async () => {
+    const wrapper = mount(PublicArticleList, {
+      props: {
+        items: [card(1, [{ label: '#Vue', href: '/filter?tag=7' }])],
+        pagination: listView([]).pagination,
+        showPagination: false,
+        spaNavigation: true
+      },
+      global: homeGlobals
+    })
+
+    const tag = wrapper.get('.public-article-tag')
+    expect(tag.classes()).toEqual(expect.arrayContaining([
+      'inline-flex',
+      'min-h-[32px]',
+      'items-center',
+      'px-2',
+      'focus-visible:ring-2',
+      'focus-visible:ring-inset',
+      'focus-visible:outline-none'
+    ]))
+    await tag.trigger('click')
+    expect(wrapper.emitted('navigate')).toEqual([['/filter?tag=7']])
     wrapper.unmount()
   })
 
