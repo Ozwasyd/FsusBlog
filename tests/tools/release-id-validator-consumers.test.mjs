@@ -29,14 +29,21 @@ test('classic service worker generated validator matches the release ID authorit
 })
 
 test('release ID validator consumers use the authority adapters for their runtime', () => {
-  for (const relative of [
-    'tools/operations/check-release-evidence-manifest.mjs',
-    'tools/operations/seal-release-evidence-bundle.mjs',
-    'tools/operations/evidence-classification.mjs',
-    'tools/operations/check-release-evidence-layout.mjs'
+  for (const [relative, helpers] of [
+    ['tools/operations/check-release-evidence-manifest.mjs', ['assertReleaseIdentity', 'isValidReleaseId']],
+    ['tools/operations/seal-release-evidence-bundle.mjs', ['assertReleaseIdentity']],
+    ['tools/operations/evidence-classification.mjs', ['isValidReleaseId']],
+    ['tools/operations/check-release-evidence-layout.mjs', ['isValidReleaseId']]
   ]) {
     const source = fs.readFileSync(path.join(root, relative), 'utf8')
-    assert.match(source, /import \{ (?:isValidReleaseId|assertReleaseIdentity) \} from '\.\.\/release\/release-id\.mjs'/u)
+    for (const helper of helpers) {
+      assert.match(
+        source,
+        new RegExp(`import \\{[^}]*\\b${helper}\\b[^}]*\\} from '\\.\\.\\/release\\/release-id\\.mjs'`, 'su'),
+        `${relative} must import ${helper}`
+      )
+      assert.match(source, new RegExp(`\\b${helper}\\(`, 'u'), `${relative} must call ${helper}`)
+    }
     assert.doesNotMatch(source, /\^\[0-9A-Za-z\]\[0-9A-Za-z\._-\]\{5,127\}\$/u)
   }
 
