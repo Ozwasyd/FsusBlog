@@ -356,8 +356,8 @@
                 </div>
               </section>
 
-              <section class="mt-10 border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] p-5" aria-label="SEO 与社交分享预览">
-                <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)] mb-4">搜索结果预览</div>
+              <section class="mt-10 rounded-[var(--fsus-radius-panel)] border border-l-4 border-[var(--fsusblog-panel-border)] border-l-[var(--fsusblog-color-primary)] bg-[var(--fsusblog-page-bg-soft)] p-6" aria-label="SEO 与社交分享预览">
+                <h3 class="mb-4 text-xs font-bold uppercase tracking-wider text-[var(--fsusblog-text-muted)]">搜索结果预览</h3>
                 <div class="space-y-2">
                   <p class="text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ siteSearchPreview.title }}</p>
                   <p class="text-[12px] text-[var(--fsusblog-color-success)] break-all">{{ siteSearchPreview.url }}</p>
@@ -468,8 +468,8 @@
                 </div>
 
                 <aside class="mt-10 space-y-8 lg:mt-0">
-                  <section class="border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] p-5" aria-label="页脚合规预览">
-                    <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)] mb-4">页脚预览</div>
+                  <section class="rounded-[var(--fsus-radius-panel)] border border-l-4 border-[var(--fsusblog-panel-border)] border-l-[var(--fsusblog-color-primary)] bg-[var(--fsusblog-page-bg-soft)] p-6" aria-label="页脚合规预览">
+                    <h3 class="mb-4 text-xs font-bold uppercase tracking-wider text-[var(--fsusblog-text-muted)]">页脚预览</h3>
                     <div class="space-y-3 text-[12px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">
                       <p class="font-bold text-[var(--fsusblog-text-primary)]">{{ compliancePreview.copyright }}</p>
                       <p v-if="compliancePreview.license">许可：{{ compliancePreview.license }}</p>
