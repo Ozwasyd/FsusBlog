@@ -17,7 +17,7 @@ FsusBlog is in Public Preview. It is suitable for development, evaluation, code 
 | `docs/` | Public and internal architecture, API, security, operations, testing, and development documentation |
 | `tests/` | Backend, frontend, contract, static governance, visual, security, and release gate tests |
 
-The application is modular inside one repository and one default process. Multi-node work belongs to the [Distributed Runtime](../../ROADMAP.md#distributed-runtime) capability stage and has not entered the supported deployment baseline.
+The application is modular inside one repository and one default process. Multi-node work belongs to the [Distributed Runtime](../../ROADMAP.md#distributed-runtime) capability stage and has not entered the supported deployment baseline. Its invariant is the [monolithic distributed boundary](monolithic-distributed-boundary.md): every node runs the same application artifact rather than a fixed business service split.
 
 ## Runtime Baseline
 

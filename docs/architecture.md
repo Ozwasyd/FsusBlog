@@ -650,6 +650,8 @@ Release identity 的规范格式权威位于 `tools/release/release-id.mjs` 与�
 
 ## Runtime capability 文件边界
 
+多节点 capability 仍服从[单体分布式架构边界](architecture/monolithic-distributed-boundary.md)：同构节点运行同一主应用发布物，`single`、`static-role` 与 `adaptive` 只改变运行时职责，不能新增固定业务 sidecar 或让领域模块直接感知节点与 transport。
+
 Search index、article service、PublicHotRead 与 application composition 仍按 orchestration、policy/state、I/O/persistence、codec/routing 和 metrics 组织 capability files。authoring 改由 analytics、asset library、draft lifecycle、content transfer 与 moderation workflow 五个 scoped 模块拥有独立构造依赖和失败/事务边界；endpoint 只看窄 port，任何模块不得通过另一个实现类或 `IServiceProvider` 回调原聚合。受治理 capability file 必须少于 1,500 行，`backend-build-governance` 会执行机器检查；最终 endpoint data source 和 DI descriptor 的行为测试负责证明 authoring 58 条 method/path、admin permission、frame lookup 与 scoped lifetime 未漂移。历史 capability slicing 背景见 [Runtime capability slices and source-file budget](architecture/issue-1119-runtime-capability-slices.md)。
 
 Schema migration 不再使用 runtime service partial。`SchemaMigrationRegistry` 只暴露由 `SchemaMigrationManifest` 验证后的执行计划；release-range catalog 声明本区间 descriptor，domain-oriented definition 类型承载不可删除的历史 SQL/step。manifest 在数据库访问前校验 ID 唯一、phase + migration ID 单调顺序、catalog range、phase-tail dependency 和显式 gap，runner 不再自行重排数组。空库与 20260517 代表性历史 fixture 都必须在重复执行前后保持各自的 columns/indexes/constraints snapshot、history 和数据转换结果不变。目录、版本边界和新增迁移规则见 [Database Migration Runbook](database-migration.md#versioned-legacy-catalog)。

@@ -1,0 +1,105 @@
+{
+    "schema": "fsusblog.monolithic-distributed-architecture.v1",
+    "mainApplication": {
+        "project": "src/backend/FsusBlog.Server.csproj",
+        "dockerfile": "ops/docker/FsusBlog.Server.Dockerfile",
+        "composeService": "fsusblog.server",
+        "frontendIntegrationTokens": [
+            "<SpaRoot>..\\frontend</SpaRoot>",
+            "<ClientWwwRootPublishDir>",
+            "<Copy SourceFiles=\"@(ClientDistFiles)\""
+        ]
+    },
+    "runtimeModes": [
+        "single",
+        "static-role",
+        "adaptive"
+    ],
+    "composeServices": {
+        "ops/development/dependencies.compose.yml": {
+            "postgres": "infrastructure",
+            "redis": "infrastructure"
+        },
+        "ops/docker/docker-compose.development-backend.yml": {
+            "fsusblog.server": "application"
+        },
+        "ops/docker/docker-compose.production.yml": {
+            "fsusblog.server": "application"
+        },
+        "ops/docker/docker-compose.zero-downtime.yml": {
+            "openresty": "gateway",
+            "postgres": "infrastructure",
+            "redis": "infrastructure"
+        }
+    },
+    "domainRoots": [
+        "src/backend/Entities",
+        "src/core"
+    ],
+    "domainForbiddenPatterns": [
+        {
+            "label": "remote or infrastructure namespace",
+            "pattern": "using\\s+(?:System\\.Net\\.Http|Grpc|StackExchange\\.Redis|System\\.Net\\.Sockets)"
+        },
+        {
+            "label": "node-location or transport implementation",
+            "pattern": "\\b(?:HttpClient|GrpcChannel|ConnectionMultiplexer|IDistributedInvalidationTransport|RuntimeModeOptions|NodeLocation)\\b"
+        }
+    ],
+    "remoteInvocation": {
+        "patterns": [
+            "\\b(?:IRemoteModuleInvoker|RemoteModuleInvoker|RemoteInvocationTransport|NodeLocationResolver|GrpcChannel)\\b"
+        ],
+        "allowedRoots": [
+            "src/backend/Infrastructure/Bootstrap",
+            "src/backend/Infrastructure/Distributed",
+            "src/backend/Interfaces",
+            "src/shared/Contracts"
+        ]
+    },
+    "singleModeGuard": {
+        "runtimeOptions": "src/backend/Infrastructure/Distributed/RuntimeModeOptions.cs",
+        "runtimeRequiredTokens": [
+            "public string Mode { get; set; } = RuntimeModeNames.Single;",
+            "public bool ClusterComponentsEnabled => ResolveMode() != RuntimeModeKind.Single;"
+        ],
+        "bootstrap": "src/backend/Infrastructure/Bootstrap/DistributedInvalidationServiceCollectionExtensions.cs",
+        "bootstrapOrderedTokens": [
+            "if (!options.Enabled)",
+            "SingleNodeDistributedInvalidationPublisher",
+            "IDistributedInvalidationTransport, RedisDistributedInvalidationTransport"
+        ]
+    },
+    "documentation": {
+        "boundary": "docs/architecture/monolithic-distributed-boundary.md",
+        "linkedFrom": [
+            "docs/architecture.md",
+            "docs/architecture/overview.md"
+        ],
+        "requiredPhrases": [
+            "单体分布式",
+            "Homogeneous Binary, Heterogeneous Runtime",
+            "同一套 FsusBlog 程序",
+            "唯一业务入口",
+            "`single`",
+            "`static-role`",
+            "`adaptive`",
+            "remote invocation",
+            "port / adapter"
+        ],
+        "requiredIssueTitles": [
+            "#110 单体分布式支持：同构全能力节点与动态职责调度",
+            "#111 节点能力注册与集群成员治理",
+            "#112 动态职责调度与自适应负载均衡",
+            "#113 分布式状态控制",
+            "#114 本地 / 远程调用透明切换与模块边界约束",
+            "#115 多节点部署、观测与故障治理"
+        ],
+        "forbiddenAssertions": [
+            "FsusBlog 是微服务架构",
+            "默认拆分为固定业务服务",
+            "前端与后端作为独立生产发布物",
+            "single mode 必须经过 remote invocation"
+        ]
+    }
+}

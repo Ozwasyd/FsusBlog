@@ -89,6 +89,34 @@
             ]
         },
         {
+            "id": "monolithic-distributed-architecture-governance",
+            "description": "FsusBlog preserves one repository, one integrated application artifact and one business entrypoint while single, static-role and adaptive modes vary only runtime responsibility behind ports and adapters.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "tools/governance/check-monolithic-distributed-architecture.mjs",
+                "tests/governance/monolithic-distributed-architecture.json",
+                "tests/tools/monolithic-distributed-architecture.test.mjs",
+                "docs/architecture/monolithic-distributed-boundary.md",
+                "docs/architecture.md",
+                "docs/architecture/overview.md",
+                "src/backend/FsusBlog.Server.csproj",
+                "src/backend/Infrastructure/Distributed/RuntimeModeOptions.cs",
+                "src/backend/Infrastructure/Bootstrap/DistributedInvalidationServiceCollectionExtensions.cs",
+                "ops/docker/FsusBlog.Server.Dockerfile",
+                "ops/docker/docker-compose.production.yml",
+                "ops/docker/docker-compose.development-backend.yml",
+                "ops/docker/docker-compose.zero-downtime.yml",
+                "ops/development/dependencies.compose.yml"
+            ],
+            "assertionType": "static",
+            "failClosedRule": "The static-governance lane must reject a second business entrypoint or application Dockerfile, an unclassified Compose service, a fixed business sidecar, domain infrastructure coupling, remote invocation outside port or adapter roots, missing single-mode local-fast-path ordering, or contradictory architecture wording.",
+            "minimumRequirement": "Fixture-backed evidence must accept the canonical repository and reject project, Dockerfile, Compose, domain dependency, remote invocation, documentation and single-mode ordering drift.",
+            "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
             "id": "immutable-release-identity",
             "description": "Canonical UTC14 plus SHA12 release identity binds one full commit, immutable registry digest, frontend/Wasm hashes, runtime slot, readiness and release evidence without SemVer or mutable deployment tags.",
             "owner": "ServerContractAgent",

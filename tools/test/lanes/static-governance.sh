@@ -27,6 +27,7 @@ StaticCodeIntent() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/ch
 StaticCustomRulePlatform() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-rule-platform.mjs" --mode full; }
 StaticAppsettingsAuthority() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/configuration/check-appsettings-authority.mjs"; }
 StaticBackendConfigurationContract() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/configuration/check-backend-configuration-contract.mjs"; }
+StaticMonolithicDistributedArchitecture() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-monolithic-distributed-architecture.mjs"; }
 StaticCsharpStyle() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/dotnet/check-csharp-style.mjs" --mode changed
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/dotnet/check-csharp-style.mjs" --mode full
@@ -55,6 +56,7 @@ STATIC_NODE_CONTRACT_FILES=(
     "$ROOT_DIR/tests/tools/issue-1172-backend-configuration-contract.test.mjs"
     "$ROOT_DIR/tests/tools/configuration-layout.test.mjs"
     "$ROOT_DIR/tests/tools/operations-layout.test.mjs"
+    "$ROOT_DIR/tests/tools/monolithic-distributed-architecture.test.mjs"
     "$ROOT_DIR/tests/tools/deployment-slots.test.mjs"
     "$ROOT_DIR/tests/tools/gateway-switch.test.mjs"
     "$ROOT_DIR/tests/tools/dead-code-audit-index.test.mjs"
@@ -183,6 +185,7 @@ RunStaticPrechecksPhase() {
         custom-rule-platform StaticCustomRulePlatform \
         appsettings-authority StaticAppsettingsAuthority \
         backend-configuration-contract StaticBackendConfigurationContract \
+        monolithic-distributed-architecture StaticMonolithicDistributedArchitecture \
         csharp-style StaticCsharpStyle
 }
 

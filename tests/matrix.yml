@@ -1368,6 +1368,7 @@ tiers:
           - security-domain-structure-governance
           - configuration-layout-governance
           - operations-layout-governance
+          - monolithic-distributed-architecture-governance
           - runtime-publish-profile-matrix
           - blue-green-slot-orchestration
           - atomic-gateway-switch-rollback
@@ -1415,6 +1416,14 @@ tiers:
           - tests/issue-1015-dead-code-audit-evidence.json
           - tests/tools/gateway-switch.test.mjs
           - tests/tools/deployment-slots.test.mjs
+          - tools/governance/check-monolithic-distributed-architecture.mjs
+          - tests/governance/monolithic-distributed-architecture.json
+          - tests/tools/monolithic-distributed-architecture.test.mjs
+          - docs/architecture/monolithic-distributed-boundary.md
+          - docs/architecture.md
+          - src/backend/Infrastructure/Distributed/RuntimeModeOptions.cs
+          - src/backend/Infrastructure/Bootstrap/DistributedInvalidationServiceCollectionExtensions.cs
+          - ops/docker/docker-compose.zero-downtime.yml
           - tools/deployment/slot-preflight.sh
           - ops/docker/docker-compose.production.yml
           - tools/deployment/image-runtime-contract.sh
