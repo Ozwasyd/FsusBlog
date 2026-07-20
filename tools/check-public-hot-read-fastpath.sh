@@ -12,11 +12,14 @@ METRICS_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHot
 PROJECTOR_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactProjector.cs"
 REVOCATION_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicArtifactRevocation.cs"
 MUTATION_FENCE_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicMutationFenceLease.cs"
+MUTATION_FENCE_COORDINATOR_FILE="$ROOT_DIR/src/backend/Services/ArticlePublicMutationFence.cs"
 MUTATION_SIDE_EFFECTS_FILE="$ROOT_DIR/src/backend/Services/ArticleMutationSideEffects.cs"
+ARTICLE_SERVICE_FILE="$ROOT_DIR/src/backend/Services/ArticleService.cs"
 EARLY_DATA_PLANE_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadEarlyDataPlane.cs"
 ROUTE_SECURITY_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadRouteSecurityCatalog.cs"
 SECURITY_GATE_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSecurityGateMiddleware.cs"
 COMPOSITION_FILE="$ROOT_DIR/src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs"
+PUBLIC_WEB_RUNTIME_FILE="$ROOT_DIR/src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs"
 GATEWAY_FILE="$ROOT_DIR/ops/gateway/production-openresty.conf"
 NONCE_TEMPLATE_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicAot/CspNonceUtf8Template.cs"
 AOT_FILE_CACHE_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs"
@@ -50,7 +53,7 @@ const revocation = block.indexOf('UseFsusPublicArtifactRevocation');
 const core = block.indexOf('UseFsusCoreMiddlewares');
 const fast = block.indexOf('UseFsusPublicHotReadFastPath');
 const restore = block.indexOf('UseFsusPublicHotReadFallbackRestore');
-const endpoint = block.indexOf('UseFsusEndpointPipeline');
+const endpoint = block.indexOf('ConfigureEndpointPipeline(app)');
 if ([core, correlation, classifier, audit, limiter, gate, revocation, fast, restore, endpoint].some(index => index < 0)
     || !(core < correlation && correlation < classifier && classifier < audit && audit < limiter && limiter < gate && gate < revocation && revocation < fast && fast < restore && restore < endpoint)) {
   console.error('[public-hot-read] trace/classifier/rate/security/revocation/writer must run before the generic endpoint pipeline');
@@ -188,12 +191,14 @@ for (const token of [
 NODE
 
 echo "[public-hot-read] checking pre-commit mutation fence and owner recovery"
-node - "$REVOCATION_FILE" "$MUTATION_FENCE_FILE" "$MUTATION_SIDE_EFFECTS_FILE" <<'NODE'
+node - "$REVOCATION_FILE" "$MUTATION_FENCE_FILE" "$MUTATION_FENCE_COORDINATOR_FILE" "$MUTATION_SIDE_EFFECTS_FILE" "$ARTICLE_SERVICE_FILE" <<'NODE'
 const fs = require('node:fs');
-const [revocationFile, fenceFile, sideEffectsFile] = process.argv.slice(2);
+const [revocationFile, fenceFile, fenceCoordinatorFile, sideEffectsFile, articleServiceFile] = process.argv.slice(2);
 const revocation = fs.readFileSync(revocationFile, 'utf8');
 const fence = fs.readFileSync(fenceFile, 'utf8');
+const fenceCoordinator = fs.readFileSync(fenceCoordinatorFile, 'utf8');
 const sideEffects = fs.readFileSync(sideEffectsFile, 'utf8');
+const articleService = fs.readFileSync(articleServiceFile, 'utf8');
 for (const token of [
   'TransitionPending=true',
   'MarkTransitionCommittedAsync',
@@ -223,24 +228,37 @@ for (const token of [
 for (const token of [
   'BeginPublicMutationFenceAsync',
   'CommitPublicMutationFenceAsync',
+  'CompleteArticleMutationFenceAsync',
   'RecoverAbortedPublicMutationFenceAsync',
   'mutationFenceLease.AcquireAsync',
   'mutationFenceLease.ReleaseAsync'
 ]) {
+  if (!fenceCoordinator.includes(token)) {
+    console.error(`[public-hot-read] missing mutation fence coordinator token: ${token}`);
+    process.exit(1);
+  }
+}
+for (const token of ['CommitPublicMutationFenceAsync', 'CompleteArticleMutationFenceAsync']) {
   if (!sideEffects.includes(token)) {
     console.error(`[public-hot-read] missing mutation side-effect fence token: ${token}`);
+    process.exit(1);
+  }
+}
+for (const token of ['BeginPublicMutationFenceAsync', 'RecoverAbortedPublicMutationFenceAsync']) {
+  if (!articleService.includes(token)) {
+    console.error(`[public-hot-read] missing article mutation fence boundary: ${token}`);
     process.exit(1);
   }
 }
 NODE
 
 echo "[public-hot-read] checking CSP nonce template publication boundary"
-node - "$FASTPATH_FILE" "$COMPOSITION_FILE" "$NONCE_TEMPLATE_FILE" <<'NODE'
+node - "$FASTPATH_FILE" "$PUBLIC_WEB_RUNTIME_FILE" "$NONCE_TEMPLATE_FILE" <<'NODE'
 const fs = require('node:fs');
-const [fastPathFile, compositionFile, templateFile] = process.argv.slice(2);
+const [fastPathFile, publicWebRuntimeFile, templateFile] = process.argv.slice(2);
 const fastPath = [fastPathFile, ...process.env.FSUSBLOG_FASTPATH_PART_FILES.split(':')]
   .map((file) => fs.readFileSync(file, 'utf8')).join('\n');
-const composition = fs.readFileSync(compositionFile, 'utf8');
+const publicWebRuntime = fs.readFileSync(publicWebRuntimeFile, 'utf8');
 const template = fs.readFileSync(templateFile, 'utf8');
 for (const [label, source, token] of [
   ['template', template, 'FindSlotOffsets'],
@@ -251,7 +269,7 @@ for (const [label, source, token] of [
   ['fast path', fastPath, 'Cache-Control"] = "private,no-store"'],
   ['fast path', fastPath, 'AcceptsIdentity'],
   ['fast path', fastPath, 'CspNonceTemplate'],
-  ['composition', composition, 'WritePublicAotHtmlNonceTemplateAsync']
+  ['public web runtime', publicWebRuntime, 'WritePublicAotHtmlNonceTemplateAsync']
 ]) {
   if (!source.includes(token)) {
     console.error(`[public-hot-read] ${label} missing CSP nonce contract token: ${token}`);
@@ -259,7 +277,7 @@ for (const [label, source, token] of [
   }
 }
 for (const [label, source, token] of [
-  ['composition', composition, 'ConditionalWeakTable'],
+  ['public web runtime', publicWebRuntime, 'ConditionalWeakTable'],
   ['fast path', fastPath, 'ApplyCspNonceToHtml'],
   ['fast path', fastPath, 'Encoding.UTF8.GetString(html.Bytes.Span)']
 ]) {
