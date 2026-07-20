@@ -1,5 +1,5 @@
 <template>
-  <header class="flex flex-col gap-3 border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+  <header class="admin-collection-summary flex flex-col gap-3 border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
     <div class="min-w-0">
       <h2 :id="id" class="m-0 text-[14px] font-bold leading-snug text-[var(--fsusblog-text-primary)]">
         <slot name="title">{{ title }}</slot>

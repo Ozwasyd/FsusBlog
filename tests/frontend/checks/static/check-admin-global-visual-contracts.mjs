@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url'
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
 const adminWorkspacePath = path.join(repoRoot, 'src/frontend/src/assets/admin-workspace.css')
 const adminWorkspace = fs.readFileSync(adminWorkspacePath, 'utf8')
+const toolbar = fs.readFileSync(path.join(repoRoot, 'src/frontend/src/components/admin/AdminCollectionToolbar.vue'), 'utf8')
+const summary = fs.readFileSync(path.join(repoRoot, 'src/frontend/src/components/admin/AdminCollectionSummary.vue'), 'utf8')
 const failures = []
 
 function requireToken(source, token, message) {
@@ -35,6 +37,13 @@ for (const token of [
 ]) {
   requireToken(adminWorkspace, token, `article write primary contract is missing ${token}`)
 }
+
+requireToken(toolbar, 'class="admin-collection-toolbar border-y ', 'collection toolbar must expose its stable hook and retain standalone top/bottom borders')
+requireToken(summary, 'class="admin-collection-summary flex flex-col gap-3 border-b ', 'collection summary must expose its stable hook and retain the one-pixel separator')
+const adjacentSelector = '.admin-workspace-frame .admin-data-surface > .admin-collection-summary + .admin-collection-toolbar {'
+requireToken(adminWorkspace, adjacentSelector, 'stacked-border override must require a direct adjacent summary and toolbar')
+requireToken(adminWorkspace, `${adjacentSelector}\n  border-top-width: 0;`, 'adjacent toolbar must remove only its top border width')
+forbidToken(adminWorkspace, '.admin-data-surface .admin-collection-toolbar {', 'standalone data-surface toolbars must retain their top border')
 
 if (failures.length > 0) {
   console.error(failures.map((failure) => `[admin-global-visual] ${failure}`).join('\n'))

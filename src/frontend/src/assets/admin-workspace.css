@@ -122,6 +122,10 @@ html[data-theme-resolved='dark'] .admin-workspace-frame .article-list-toolbar-bu
   box-shadow: none;
 }
 
+.admin-workspace-frame .admin-data-surface > .admin-collection-summary + .admin-collection-toolbar {
+  border-top-width: 0;
+}
+
 .admin-workspace-frame .admin-data-surface__toolbar {
   display: flex;
   flex-direction: column;
