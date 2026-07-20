@@ -110,6 +110,7 @@ export function useHomeView() {
   const canGoNext = computed(() => currentPage.value < totalPages.value && !loading.value)
 
   const articleTask = useAbortableTask()
+  const articleCursorByPage = new Map<number, string | null>([[1, null]])
   const featuredTask = useAbortableTask()
   const homeRuntimeMetrics = {
     patchApplied: 0,
@@ -197,7 +198,8 @@ export function useHomeView() {
           await getArticles(
             {
               page: currentPage.value,
-              size: pageSize.value
+              size: pageSize.value,
+              cursor: articleCursorByPage.get(currentPage.value)
             },
             { signal }
           )
@@ -209,6 +211,9 @@ export function useHomeView() {
           useSeedRenderTime.value = false
           articleItems.value = response.items
           setPageTotal(Number(response.total) || 0)
+          if (response.hasMore && response.nextCursor) {
+            articleCursorByPage.set(currentPage.value + 1, response.nextCursor)
+          }
           error.value = null
         } else {
           throw createAppError(AppErrorCode.ProtocolFailure, 'home_articles_response_invalid')

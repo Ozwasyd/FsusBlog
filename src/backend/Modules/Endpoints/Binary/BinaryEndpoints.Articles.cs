@@ -4,6 +4,7 @@ using System.Data.Common;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
+using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
@@ -38,6 +39,60 @@ public static partial class BinaryEndpoints
 
     private static void MapBinaryArticleEndpoints(IEndpointRouteBuilder group)
     {
+        group.MapGet("/article/list/home/{page:int}/{size:int}.aeds", static (
+            int page,
+            int size,
+            string? cursor,
+            IArticleEndpointService articles,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+            ServePublicArticleListAsync(page, size, categoryId: null, tagId: null, cursor, articles, aeds, cancellationToken))
+        .AllowAnonymous()
+        .RequireRateLimiting("public_read")
+        .WithRiskAction(RiskActionNames.PublicRead, "article.list")
+        .AddEndpointFilterWithMetadata<RiskAwarePublicReadFilter>();
+
+        group.MapGet("/article/list/archive/{page:int}/{size:int}.aeds", static (
+            int page,
+            int size,
+            string? cursor,
+            IArticleEndpointService articles,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+            ServePublicArticleListAsync(page, size, categoryId: null, tagId: null, cursor, articles, aeds, cancellationToken))
+        .AllowAnonymous()
+        .RequireRateLimiting("public_read")
+        .WithRiskAction(RiskActionNames.PublicRead, "article.list")
+        .AddEndpointFilterWithMetadata<RiskAwarePublicReadFilter>();
+
+        group.MapGet("/article/list/category/{categoryId:int}/{page:int}/{size:int}.aeds", static (
+            int categoryId,
+            int page,
+            int size,
+            string? cursor,
+            IArticleEndpointService articles,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+            ServePublicArticleListAsync(page, size, categoryId, tagId: null, cursor, articles, aeds, cancellationToken))
+        .AllowAnonymous()
+        .RequireRateLimiting("public_read")
+        .WithRiskAction(RiskActionNames.PublicRead, "article.list")
+        .AddEndpointFilterWithMetadata<RiskAwarePublicReadFilter>();
+
+        group.MapGet("/article/list/tag/{tagId:int}/{page:int}/{size:int}.aeds", static (
+            int tagId,
+            int page,
+            int size,
+            string? cursor,
+            IArticleEndpointService articles,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+            ServePublicArticleListAsync(page, size, categoryId: null, tagId, cursor, articles, aeds, cancellationToken))
+        .AllowAnonymous()
+        .RequireRateLimiting("public_read")
+        .WithRiskAction(RiskActionNames.PublicRead, "article.list")
+        .AddEndpointFilterWithMetadata<RiskAwarePublicReadFilter>();
+
         group.MapGet("/article/{articleId:int}/related.aeds", static async Task<BinaryFrameResult> (
             int articleId,
             RelatedReadingService service,
@@ -446,5 +501,44 @@ public static partial class BinaryEndpoints
 
         error = ErrorDetail.None;
         return true;
+    }
+
+    private static async Task<IResult> ServePublicArticleListAsync(
+        int page,
+        int size,
+        int? categoryId,
+        int? tagId,
+        string? cursor,
+        IArticleEndpointService articles,
+        IAedsEncoder aeds,
+        CancellationToken cancellationToken)
+    {
+        if (!TryBindArticleListPagination(page, size, out int pageValue, out int sizeValue, out ErrorDetail paginationError))
+        {
+            return BinaryResults.FromError(paginationError, aeds);
+        }
+
+        ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>> payload = await articles.GetPageListAsync(
+            pageValue,
+            sizeValue,
+            categoryId,
+            tagId,
+            isDeleted: false,
+            canReadDeleted: false,
+            status: null,
+            canReadPrivate: false,
+            keyword: null,
+            cursor,
+            cancellationToken);
+        if (payload.HasCachedFrame)
+        {
+            return BinaryResults.PreencodedFrame(payload.CachedFrame!);
+        }
+
+        return BinaryResults.FromResult(
+            payload.Result,
+            aeds,
+            AedsFrameType.ArticleList,
+            static (value, writer) => PodBinaryCodec.WriteArticlePage(value, writer));
     }
 }

@@ -7,10 +7,12 @@ using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Mapping.Projectors;
+using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Content;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Services.Background;
@@ -592,8 +594,7 @@ public sealed class PublicHotArtifactProjector(
         {
             int maxRows = checked(pages.Max() * sizes.Max());
             CorePageResult<ArticleListCoreModel> window = await LoadArticlePageWindowFromDbAsync(
-                    offset: 0,
-                    limit: maxRows,
+                    maxRows,
                     categoryId,
                     tagId,
                     ct)
@@ -608,7 +609,16 @@ public sealed class PublicHotArtifactProjector(
                     IReadOnlyList<ArticleListCoreModel> items = offset >= window.Items.Count
                         ? []
                         : window.Items.Skip(offset).Take(size).ToList();
-                    var result = new CorePageResult<ArticleListCoreModel>(items, window.Total);
+                    bool hasMore = offset + items.Count < window.Total && items.Count > 0;
+                    ArticleListCoreModel? lastItem = items.Count > 0 ? items[^1] : null;
+                    string? nextCursor = hasMore && lastItem.HasValue
+                        ? ArticleListCursorCodec.Encode(
+                            new ArticleListCursorPosition(lastItem.Value.CreateTime, lastItem.Value.Id),
+                            categoryId,
+                            tagId,
+                            normalizedKeyword: null)
+                        : null;
+                    var result = new CorePageResult<ArticleListCoreModel>(items, window.Total, nextCursor, hasMore);
                     frames[new PublicListKey(kind, targetId, (ushort)page, (byte)size)] =
                         EncodeFrame(AedsFrameType.ArticleList, writer => PodBinaryCodec.WriteArticlePage(result, writer), version, options);
                 }
@@ -659,13 +669,11 @@ public sealed class PublicHotArtifactProjector(
     }
 
     private async Task<CorePageResult<ArticleListCoreModel>> LoadArticlePageWindowFromDbAsync(
-        int offset,
         int limit,
         int? categoryId,
         int? tagId,
         CancellationToken ct)
     {
-        offset = Math.Max(0, offset);
         limit = limit switch
         {
             < 1 => 10,
@@ -686,7 +694,6 @@ public sealed class PublicHotArtifactProjector(
             new("@IsDeleted", false),
             new("@PublishedStatus", (int)ArticleStatus.Published),
             new("@Now", DateTime.UtcNow),
-            new("@Offset", offset),
             new("@Limit", limit)
         ];
 
@@ -739,7 +746,6 @@ public sealed class PublicHotArtifactProjector(
             LEFT JOIN category c ON revision.categoryid = c.id
             WHERE {{whereSql}}
             ORDER BY a.createtime DESC, a.id DESC
-            OFFSET @Offset
             LIMIT @Limit;
             """;
 

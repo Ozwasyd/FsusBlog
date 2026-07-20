@@ -12,6 +12,7 @@ using FsusBlog.Server.Infrastructure.Content;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Interfaces;
@@ -506,14 +507,14 @@ public partial class ArticleService
         int? status,
         bool includePrivate,
         string keyword,
+        ArticleListCursorPosition? cursor,
         CancellationToken cancellationToken)
     {
         List<string> whereClauses = ["a.isdeleted = @IsDeleted"];
         List<SugarParameter> parameters =
         [
             new("@IsDeleted", isDeleted),
-            new("@Now", DateTime.UtcNow),
-            new("@Limit", size)
+            new("@Now", DateTime.UtcNow)
         ];
 
         if (!isDeleted && !includePrivate)
@@ -558,9 +559,20 @@ public partial class ArticleService
         if (ShouldUsePublicKeysetPagination(isDeleted, status, includePrivate))
         {
             string countIdentity = BuildArticleListCountIdentity(version, categoryId, tagId, isDeleted, status, includePrivate, keyword);
-            return await LoadPublicArticleListPageByKeysetAsync(page, size, whereSql, parameters, countIdentity, cancellationToken);
+            return await LoadPublicArticleListPageByKeysetAsync(
+                page,
+                size,
+                categoryId,
+                tagId,
+                keyword,
+                cursor,
+                whereSql,
+                parameters,
+                countIdentity,
+                cancellationToken);
         }
 
+        parameters.Add(new SugarParameter("@Limit", size));
         parameters.Add(new SugarParameter("@Offset", (page - 1) * size));
         string combinedSql = $$"""
             SELECT COUNT(1) AS "{{ArticleListTotalCountColumn}}"
@@ -624,42 +636,105 @@ public partial class ArticleService
     private async Task<ArticleListPageReadModel> LoadPublicArticleListPageByKeysetAsync(
         int page,
         int size,
+        int? categoryId,
+        int? tagId,
+        string keyword,
+        ArticleListCursorPosition? cursor,
         string whereSql,
         IReadOnlyCollection<SugarParameter> baseParameters,
         string countIdentity,
         CancellationToken cancellationToken)
     {
         int totalCount = await GetCachedArticleListTotalCountAsync(countIdentity, whereSql, baseParameters, cancellationToken);
-        long offset = ((long)page - 1L) * size;
-        if (page > 1 && offset >= totalCount)
+        ArticleListCursorPosition? effectiveCursor = cursor;
+        if (!effectiveCursor.HasValue && page > 1)
         {
-            return new ArticleListPageReadModel { Items = [], Total = totalCount };
+            effectiveCursor = await ResolveLegacyPublicArticleListCursorAsync(
+                page,
+                size,
+                whereSql,
+                baseParameters,
+                cancellationToken);
+            if (!effectiveCursor.HasValue)
+            {
+                return new ArticleListPageReadModel { Items = [], Total = totalCount };
+            }
         }
 
-        var parameters = new List<SugarParameter>(baseParameters.Count + 1);
-        parameters.AddRange(baseParameters);
-        parameters.Add(new SugarParameter("@Offset", checked((int)offset)));
-        List<ArticleListItemReadModel> pageItems = await LoadPublicArticleListOffsetPageItemsAsync(whereSql, parameters, size, cancellationToken);
+        List<ArticleListItemReadModel> pageItems = await LoadPublicArticleListKeysetPageItemsAsync(
+            whereSql,
+            baseParameters,
+            effectiveCursor,
+            size + 1,
+            cancellationToken);
+        bool hasMore = pageItems.Count > size;
+        if (hasMore)
+        {
+            pageItems.RemoveAt(pageItems.Count - 1);
+        }
+
         await AttachPublishedArticleListTagsAsync(pageItems, cancellationToken);
         ArticleListItemReadModel? lastItem = pageItems.Count > 0 ? pageItems[^1] : null;
-        bool hasMore = totalCount > page * size;
         return new ArticleListPageReadModel
         {
             Items = pageItems,
             Total = totalCount,
-            NextCursor = hasMore && lastItem is not null ? FormatArticleListCursor(lastItem) : null,
+            NextCursor = hasMore && lastItem is not null
+                ? ArticleListCursorCodec.Encode(
+                    new ArticleListCursorPosition(lastItem.CreateTime, lastItem.Id),
+                    categoryId,
+                    tagId,
+                    keyword)
+                : null,
             HasMore = hasMore
         };
     }
 
-    private async Task<List<ArticleListItemReadModel>> LoadPublicArticleListOffsetPageItemsAsync(
-        string whereSql,
-        IReadOnlyCollection<SugarParameter> parameters,
+    private async Task<ArticleListCursorPosition?> ResolveLegacyPublicArticleListCursorAsync(
+        int page,
         int size,
+        string whereSql,
+        IReadOnlyCollection<SugarParameter> baseParameters,
         CancellationToken cancellationToken)
     {
-        string pageSql = BuildArticleListOffsetPageSql(whereSql);
-        var pageItems = new List<ArticleListItemReadModel>(size);
+        ArticleListCursorPosition? cursor = null;
+        for (int completedPage = 1; completedPage < page; completedPage++)
+        {
+            List<ArticleListItemReadModel> rows = await LoadPublicArticleListKeysetPageItemsAsync(
+                whereSql,
+                baseParameters,
+                cursor,
+                size,
+                cancellationToken);
+            if (rows.Count < size)
+            {
+                return null;
+            }
+
+            ArticleListItemReadModel last = rows[^1];
+            cursor = new ArticleListCursorPosition(last.CreateTime, last.Id);
+        }
+
+        return cursor;
+    }
+
+    private async Task<List<ArticleListItemReadModel>> LoadPublicArticleListKeysetPageItemsAsync(
+        string whereSql,
+        IReadOnlyCollection<SugarParameter> baseParameters,
+        ArticleListCursorPosition? cursor,
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        string pageSql = BuildArticleListKeysetPageSql(whereSql, cursor.HasValue);
+        List<SugarParameter> parameters = CloneArticleListParameters(baseParameters);
+        parameters.Add(new SugarParameter("@Limit", limit));
+        if (cursor is { } position)
+        {
+            parameters.Add(new SugarParameter("@CursorTime", position.CreateTimeUtc));
+            parameters.Add(new SugarParameter("@CursorId", position.Id));
+        }
+
+        var pageItems = new List<ArticleListItemReadModel>(limit);
         using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(pageSql, parameters))
         {
             await ReadArticleListItemsAsync(reader, pageItems, cancellationToken);
@@ -667,34 +742,6 @@ public partial class ArticleService
 
         return pageItems;
     }
-
-    private static string BuildArticleListOffsetPageSql(string whereSql)
-        => $$"""
-            SELECT
-                a.id AS "Id",
-                revision.title AS "Title",
-                revision.summary AS "Summary",
-                revision.cover_image_url AS "CoverImageUrl",
-                a.views AS "Views",
-                a.createtime AS "CreateTime",
-                revision.categoryid AS "CategoryId",
-                c.name AS "CategoryName",
-                a.isdeleted AS "IsDeleted",
-                a.status AS "Status",
-                a.scheduled_publish_at AS "ScheduledPublishAt",
-                publication.published_at AS "PublishedAt",
-                revision.id AS "CurrentRevisionId",
-                revision.revision_no AS "RevisionNo",
-                publication.id AS "CurrentPublicationId",
-                publication.publication_no AS "PublicationNo"
-            FROM article a
-            JOIN article_publication publication ON publication.id = a.current_publication_id
-            JOIN article_revision revision ON revision.id = publication.article_revision_id
-            LEFT JOIN category c ON revision.categoryid = c.id
-            WHERE {{whereSql}}
-            ORDER BY a.createtime DESC, a.id DESC
-            LIMIT @Limit OFFSET @Offset;
-            """;
 
     private async Task<int> GetCachedArticleListTotalCountAsync(
         string countIdentity,
@@ -731,7 +778,7 @@ public partial class ArticleService
         return totalCount;
     }
 
-    private static string BuildArticleListKeysetPageSql(string whereSql)
+    private static string BuildArticleListKeysetPageSql(string whereSql, bool hasCursor)
         => $$"""
             SELECT
                 a.id AS "Id",
@@ -754,7 +801,7 @@ public partial class ArticleService
             JOIN article_publication publication ON publication.id = a.current_publication_id
             JOIN article_revision revision ON revision.id = publication.article_revision_id
             LEFT JOIN category c ON revision.categoryid = c.id
-            WHERE {{whereSql}}
+            WHERE {{whereSql}}{{(hasCursor ? ArticleListCursorWhereClause : string.Empty)}}
             ORDER BY a.createtime DESC, a.id DESC
             LIMIT @Limit;
             """;

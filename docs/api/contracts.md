@@ -455,7 +455,7 @@ Authoring 和审核 schema 的 fresh DB 最终态不得创建旧用户归因列�
 {
   "items": [ /* T[] */ ],
   "total": 100,
-  "nextCursor": "1715299200000:42",
+  "nextCursor": "AQAA...",
   "hasMore": true,
   "page": 1,
   "pageSize": 20
@@ -463,7 +463,7 @@ Authoring 和审核 schema 的 fresh DB 最终态不得创建旧用户归因列�
 ```
 
 文章列表页码参数不得静默修正：`page` 必须大于等于 `1`，`pageSize` / binary `size` 必须在 `1..100`。缺省参数仍按 `page=1`、`size=10` 处理；显式非法值返回 HTTP `400` + AEDS `ApiError`，不回退第一页，也不截断到最大页大小。
-公共文章列表保留 page URL 兼容层，但 AEDS `ArticleList` 响应会额外携带可选 `nextCursor` / `hasMore`。`nextCursor` 使用 `{createTimeUnixMs}:{id}`，排序仍固定为 `createtime DESC, id DESC`；服务端深页内部用 `(createtime, id)` keyset walk，不允许为公共列表回退 `OFFSET`。
+公共文章列表保留 page URL 兼容层，但 AEDS `ArticleList` 响应会额外携带可选 `nextCursor` / `hasMore`。首屏省略 `cursor`，下一页请求在原路径追加 `?cursor=<nextCursor>`；opaque cursor v1 固定绑定最后一项的 UTC `createtime`、`id` 与 category/tag/keyword 归一化筛选指纹，并带完整性校验。非法、篡改、过长或跨筛选复用的 cursor 返回 HTTP `400` + AEDS `ApiError(Validation)`。排序固定为 `createtime DESC, id DESC`，严格边界为 `createtime < cursorTime OR (createtime = cursorTime AND id < cursorId)`；公共 page 兼容请求内部同样逐页 keyset walk，不允许回退 `OFFSET`。管理端文章列表仍使用独立 page/offset 契约且拒绝 cursor。
 
 ### `CursorResponse<T>`（基于游标）
 
@@ -491,8 +491,13 @@ Authoring 和审核 schema 的 fresh DB 最终态不得创建旧用户归因列�
 | | Reserved | int | 保留（填 0） |
 | `PageEnvelope` | Total | int | 总记录数 |
 | | Count | int | 当前页记录数 |
-| `ArticleListCursorEnvelope` | NextCursorUnixMs | long | 下一页游标时间戳；无更多时为 `0` |
-| | HasMore | bool | 是否还有后续文章 |
+| `ArticleListCursorEnvelopeV2` | Magic | int32 | `0x41535046`（`FSPA`） |
+| | Version | int32 | `2` |
+| | HasMore | byte | `0` 或 `1` |
+| | Total | int32 | 当前筛选总数 |
+| | NextCursor | bytes | length-prefixed UTF-8 opaque cursor，最大 64B；无更多时为空 |
+
+`ArticleList` writer 只写 v2；decoder 只读兼容 v1 的 `nextCursorUnixMs:int64 + hasMore:byte + total:int32`。v2 必须满足 `hasMore` 与 cursor 是否非空完全一致，cursor 必须是 canonical base64url 字符串；未知版本、非法 UTF-8、尾随数据或状态不一致均按 protocol failure 拒绝。
 | `CursorEnvelope` | NextCursor | long | 下一页游标值（-1 表示无更多） |
 | | HasMore | bool | 是否有更多 |
 

@@ -227,7 +227,7 @@ public sealed class PodBinaryCodecBatchAllocationTests
         return new CorePageResult<ArticleListCoreModel>(
             items,
             itemCount + 10,
-            NextCursor: itemCount == 0 ? null : $"{PodTimeCodec.ToUnixMs(items[^1].CreateTime)}:{items[^1].Id}",
+            NextCursor: itemCount == 0 ? null : "AQIDBA",
             HasMore: itemCount > 0);
     }
 
@@ -366,7 +366,7 @@ public sealed class PodBinaryCodecBatchAllocationTests
     private static class LegacyReference
     {
         private const int ArticlePageCursorEnvelopeMagic = 0x41535046;
-        private const int ArticlePageCursorEnvelopeVersion = 1;
+        private const int ArticlePageCursorEnvelopeVersion = 2;
         private const uint ArticleDetailV4PayloadMagic = 0x41524434;
         private const int ArticleDetailV4PayloadVersion = 4;
         private const int RightsFlagEnabled = 1 << 0;
@@ -407,9 +407,9 @@ public sealed class PodBinaryCodecBatchAllocationTests
             var writer = new ReferenceWriter(destination);
             writer.WriteInt32(ArticlePageCursorEnvelopeMagic);
             writer.WriteInt32(ArticlePageCursorEnvelopeVersion);
-            writer.WriteInt64(ParseCursor(page.NextCursor));
             writer.WriteByte(page.HasMore ? (byte)1 : (byte)0);
             writer.WriteInt32(page.Total);
+            writer.WriteBytes(Encoding.UTF8.GetBytes(page.HasMore ? page.NextCursor ?? string.Empty : string.Empty));
             writer.WriteInt32(page.Items.Count);
             writer.WriteInt32(tagRecords.Count);
             writer.WriteBytes(CollectionsMarshal.AsSpan(blob));
@@ -431,6 +431,10 @@ public sealed class PodBinaryCodecBatchAllocationTests
                 writer.WriteInt32(record.Item.Status);
                 writer.WriteInt64(ToUnixMsOrZero(record.Item.ScheduledPublishAt));
                 writer.WriteInt64(ToUnixMsOrZero(record.Item.PublishedAt));
+                writer.WriteInt64(record.Item.CurrentRevisionId);
+                writer.WriteInt32(record.Item.RevisionNo);
+                writer.WriteInt64(record.Item.CurrentPublicationId.GetValueOrDefault());
+                writer.WriteInt32(record.Item.PublicationNo.GetValueOrDefault());
             }
 
             foreach ((int id, Utf8SliceRef name) in tagRecords)
@@ -522,18 +526,6 @@ public sealed class PodBinaryCodecBatchAllocationTests
             writer.WritePod(Cast<MutableArticleRightsV3RecordPod, ArticleRightsV3RecordPod>(rightsRecord));
             destination.Write(CollectionsMarshal.AsSpan(blob));
             return destination.WrittenSpan.ToArray();
-        }
-
-        private static long ParseCursor(string? cursor)
-        {
-            if (string.IsNullOrWhiteSpace(cursor))
-            {
-                return 0;
-            }
-
-            int separator = cursor.IndexOf(':', StringComparison.Ordinal);
-            string value = separator > 0 ? cursor[..separator] : cursor;
-            return long.TryParse(value, out long parsed) ? parsed : 0;
         }
 
         private static long ToUnixMsOrZero(DateTime? value)

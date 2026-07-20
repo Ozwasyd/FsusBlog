@@ -515,6 +515,7 @@ public partial class ArticleService
     private static string BuildArticleListIdentity(long version, int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status, bool includePrivate, string keyword)
     {
         return string.Concat(
+            "v2:",
             includePrivate ? "admin:" : "public:",
             version.ToString(), ":",
             page.ToString(), ":",
@@ -539,12 +540,6 @@ public partial class ArticleService
             status?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "-1",
             ":",
             keyword);
-
-    private static string FormatArticleListCursor(ArticleListItemReadModel item)
-        => string.Concat(
-            new DateTimeOffset(DateTime.SpecifyKind(item.CreateTime, DateTimeKind.Utc)).ToUnixTimeMilliseconds().ToString(System.Globalization.CultureInfo.InvariantCulture),
-            ":",
-            item.Id.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
     private static string NormalizeArticleListKeyword(string? keyword)
     {

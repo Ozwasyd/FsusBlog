@@ -1997,6 +1997,21 @@ public class PodBinaryCodecTests
     }
 
     [Fact]
+    public void ArticlePage_OpaqueCursor_RoundTripPreservesExactToken()
+    {
+        var item = MakeListItem(5, "Hello World");
+        const string Cursor = "AQIDBA-filter-bound-checksum";
+        var page = new CorePageResult<ArticleListCoreModel>([item], 20, Cursor, true);
+
+        byte[] encoded = PodBinaryCodec.EncodeArticlePage(page);
+        bool ok = PodBinaryCodec.TryDecodeArticlePage(encoded, out CorePageResult<ArticleListCoreModel> decoded);
+
+        Assert.True(ok);
+        Assert.Equal(Cursor, decoded.NextCursor);
+        Assert.True(decoded.HasMore);
+    }
+
+    [Fact]
     public void ArticlePage_EmptyBytes_ReturnsFalse()
     {
         bool ok = PodBinaryCodec.TryDecodeArticlePage(ReadOnlyMemory<byte>.Empty, out _);

@@ -552,41 +552,41 @@ public class ArticleServiceValidationTests
     }
 
     [Fact]
-    public void LoadPublicArticleListPageByKeysetAsync_RuntimeUsesSingleOffsetReadWithoutConcurrentScopedDbCommands()
+    public void LoadPublicArticleListPageByKeysetAsync_RuntimeUsesStrictCursorWindow()
     {
         string method = ArticleRuntime(
             "LoadPublicArticleListPageByKeysetAsync",
             "GetCachedArticleListTotalCountAsync",
-            "LoadPublicArticleListOffsetPageItemsAsync");
+            "LoadPublicArticleListKeysetPageItemsAsync");
 
         Assert.Contains("GetCachedArticleListTotalCountAsync", method, StringComparison.Ordinal);
-        Assert.Contains("LoadPublicArticleListOffsetPageItemsAsync", method, StringComparison.Ordinal);
+        Assert.Contains("LoadPublicArticleListKeysetPageItemsAsync", method, StringComparison.Ordinal);
+        Assert.Contains("ResolveLegacyPublicArticleListCursorAsync", method, StringComparison.Ordinal);
+        Assert.Contains("ArticleListCursorCodec.Encode", method, StringComparison.Ordinal);
         Assert.DoesNotContain("Task.WhenAll", method, StringComparison.Ordinal);
-        Assert.Contains("@Offset", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("currentPage", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("@Offset", method, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void LoadPublicArticleListPageByKeysetAsync_RuntimeDoesNotCloneParametersPerWalkPage()
+    public void LoadPublicArticleListKeysetPageItemsAsync_RuntimeBindsCompositeBoundary()
     {
         FieldInfo cursorClause = typeof(ArticleService).GetField(
             "ArticleListCursorWhereClause",
             BindingFlags.Static | BindingFlags.NonPublic)!;
         Assert.True(cursorClause.IsLiteral);
-        IReadOnlyList<string> offsetLoaderCallers = RuntimeMetadataInspection.FindMethodsCallingMember(
+        IReadOnlyList<string> keysetLoaderCallers = RuntimeMetadataInspection.FindMethodsCallingMember(
             typeof(ArticleService),
             static member => member.DeclaringType == typeof(ArticleService)
-                && member.Name == "LoadPublicArticleListOffsetPageItemsAsync");
-        Assert.Contains(offsetLoaderCallers,
+                && member.Name == "LoadPublicArticleListKeysetPageItemsAsync");
+        Assert.Contains(keysetLoaderCallers,
             static caller => caller.Contains("<LoadPublicArticleListPageByKeysetAsync>", StringComparison.Ordinal));
-        foreach (string forbiddenMethod in new[] { "CloneArticleListParameters", "BuildArticleListKeysetPageSql" })
-        {
-            IReadOnlyList<string> callers = RuntimeMetadataInspection.FindMethodsCallingMember(
-                typeof(ArticleService),
-                member => member.DeclaringType == typeof(ArticleService) && member.Name == forbiddenMethod);
-            Assert.DoesNotContain(callers,
-                static caller => caller.Contains("<LoadPublicArticleListPageByKeysetAsync>", StringComparison.Ordinal));
-        }
+        Assert.Contains(keysetLoaderCallers,
+            static caller => caller.Contains("<ResolveLegacyPublicArticleListCursorAsync>", StringComparison.Ordinal));
+
+        string loader = ArticleRuntime("LoadPublicArticleListKeysetPageItemsAsync", "BuildArticleListKeysetPageSql");
+        Assert.Contains("@CursorTime", loader, StringComparison.Ordinal);
+        Assert.Contains("@CursorId", loader, StringComparison.Ordinal);
+        Assert.DoesNotContain("@Offset", loader, StringComparison.Ordinal);
     }
 
     [Fact]

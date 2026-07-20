@@ -946,6 +946,28 @@ describe('mapArticlePageFromPodPayload', () => {
     expect(result.nextCursor).toBe('1715299200000:1')
     expect(result.hasMore).toBe(true)
   })
+
+  it('preserves opaque cursor metadata from article list envelope v2', () => {
+    const body = buildArticleListPayload([
+      { id: 1, categoryId: 9, categoryName: 'Backend', title: 'Post A' }
+    ])
+    const cursor = 'AQIDBA_cursor-filter-checksum'
+    const cursorBytes = enc.encode(cursor)
+    const payload = new Uint8Array(8 + 1 + 4 + 4 + cursorBytes.byteLength + body.byteLength - 4)
+    const view = new DataView(payload.buffer)
+    view.setInt32(0, 0x41535046, true)
+    view.setInt32(4, 2, true)
+    payload[8] = 1
+    view.setInt32(9, 1, true)
+    view.setInt32(13, cursorBytes.byteLength, true)
+    payload.set(cursorBytes, 17)
+    payload.set(body.subarray(4), 17 + cursorBytes.byteLength)
+
+    const result = mapArticlePageFromPodPayload(payload)
+
+    expect(result.nextCursor).toBe(cursor)
+    expect(result.hasMore).toBe(true)
+  })
 })
 
 describe('mapArticleSearchFromPodPayload', () => {

@@ -206,9 +206,10 @@
 
 | Binary 路径 | 权限 | FrameType | 说明 |
 | ------------ | ------ | ----------- | ------ |
-| GET `/api/binary/article/list/home/{page}/{size}.aeds` | 🔓 📦 | `ArticleList`(1) | 首页文章列表 L0 artifact |
-| GET `/api/binary/article/list/category/{categoryId}/{page}/{size}.aeds` | 🔓 📦 | `ArticleList`(1) | 分类文章列表 L0 artifact |
-| GET `/api/binary/article/list/tag/{tagId}/{page}/{size}.aeds` | 🔓 📦 | `ArticleList`(1) | 标签文章列表 L0 artifact |
+| GET `/api/binary/article/list/home/{page}/{size}.aeds?cursor={nextCursor}` | 🔓 📦 | `ArticleList`(1) | 首页文章列表；首屏省略 cursor，后续原样回传 opaque cursor；page URL 保留兼容 |
+| GET `/api/binary/article/list/archive/{page}/{size}.aeds?cursor={nextCursor}` | 🔓 📦 | `ArticleList`(1) | 归档文章列表；cursor/page 兼容语义同首页 |
+| GET `/api/binary/article/list/category/{categoryId}/{page}/{size}.aeds?cursor={nextCursor}` | 🔓 📦 | `ArticleList`(1) | 分类文章列表；cursor 绑定 category 筛选，不可跨筛选复用 |
+| GET `/api/binary/article/list/tag/{tagId}/{page}/{size}.aeds?cursor={nextCursor}` | 🔓 📦 | `ArticleList`(1) | 标签文章列表；cursor 绑定 tag 筛选，不可跨筛选复用 |
 | GET `/api/binary/article/{id}.aeds` | 🔓 📦 | `ArticleDetail`(2) | 文章详情 L0 artifact |
 | GET `/api/binary/article/hot/{size}.aeds` | 🔓 📦 | `ArticleHot`(3) | 热门文章 L0 artifact |
 | GET `/api/binary/category.aeds` | 🔓 📦 | `CategoryList`(9) | 分类元数据 L0 artifact |

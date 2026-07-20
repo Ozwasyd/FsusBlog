@@ -302,7 +302,7 @@ TOTP 在匿名身份模式下只作为敏感操作 step-up。TOTP issuer account
 {
   "items": [...],
   "total": 100,
-  "nextCursor": "1715299200000:42",
+  "nextCursor": "AQAA...",
   "hasMore": true,
   "page": 1,
   "pageSize": 20
@@ -314,7 +314,9 @@ TOTP 在匿名身份模式下只作为敏感操作 step-up。TOTP issuer account
 文章列表分页不做静默修正：`page` 必须大于等于 `1`，`pageSize` / binary `size` 必须在 `1..100`。缺省值仍为 `page=1`、`size=10`；显式传入 `page<1`、`size<1` 或 `size>100` 返回 `400 Bad Request`，不得回退到第一页或截断到最大值。
 
 首页、分类和标签的公开 HTML 使用独立的抓取分页契约：第一页 canonical 是不带 query 的基础路径，第 N 页是唯一的 `?page=N`；服务端必须在首个 HTML 中读取规范化页码、输出该页文章以及可用上一页/下一页的真实 `<a href>`。显式 `page=1`、非整数、负数、0、重复 page、非规范数字或夹带其它 query 参数统一 301 到规范 URL；超过总页数返回 404。该 HTML 规范化不改变 `/api/binary/**` 的 400 参数校验契约。
-公共文章列表的 page URL 是兼容层；服务端内部必须使用 `(createtime, id)` keyset walk 读取深页，并在响应上返回可选 `nextCursor` / `hasMore` 供客户端后续切换 cursor 翻页。公共列表 count 按 `ArticleListVersion + filter` 缓存，文章内容 mutation 通过 ArticleList version 失效，不允许每次公开读取都重新执行大范围 `COUNT + OFFSET`。
+公共文章列表的 page URL 是兼容层；首屏省略 `cursor`，后续页优先原样回传响应中的 opaque `nextCursor`。游标 v1 同时绑定最后一项的 UTC `createtime`、`id` 和 category/tag/keyword 归一化筛选指纹，并带完整性校验；非法、篡改或跨筛选复用的游标返回 `400 Validation`。服务端按 `createtime DESC, id DESC` 和严格边界 `(createtime < cursorTime OR (createtime = cursorTime AND id < cursorId))` 查询；兼容 page URL 也只通过顺序 keyset walk 定位，不允许公共列表回退 `OFFSET`。因此首屏之后并发插入的更新记录不会造成边界前既有记录重复或漏读。管理端文章列表继续使用独立的页码/offset 契约。
+
+公开列表 frame/cache identity 使用 `cursor:first` 或完整 opaque cursor；page 兼容请求使用独立 `legacy-page:{page}` identity，source cache 前缀为 `v2`。旧 page cache 不与新 cursor cache 混用，文章内容 mutation 仍通过 ArticleList version 失效。客户端需要紧急降级时可在不重启服务的情况下停止发送 `cursor` 并继续使用 page URL 兼容层；不得恢复公共 SQL `OFFSET`。
 
 ### 基于游标的分页（`CursorResponse<T>`）
 

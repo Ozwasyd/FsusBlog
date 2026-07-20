@@ -253,7 +253,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 [count/meta] [blobLength:int32 + blob] [fixed numeric records] [slice refs into blob]
 ```
 
-- `ArticleList`：`total:int32`、`count:int32`、`tagRecordCount:int32`、共享 blob、每篇当前 100B article record、每个 tag 12B record。100B record 在旧 76B 生命周期字段后追加 `currentRevisionId:int64`、`revisionNo:int32`、`currentPublicationId:int64`、`publicationNo:int32`；解码器只读兼容 56B/76B record。
+- `ArticleList`：writer 先写 cursor envelope v2：`magic:int32=0x41535046`、`version:int32=2`、`hasMore:byte`、`total:int32`、`nextCursor:bytes`，再写 `count:int32`、`tagRecordCount:int32`、共享 blob、每篇当前 100B article record、每个 tag 12B record。cursor 是最大 64B 的 canonical base64url opaque token，`hasMore=true` 时必须非空；decoder 只读兼容 envelope v1 及 56B/76B article record。100B record 在旧 76B 生命周期字段后追加 `currentRevisionId:int64`、`revisionNo:int32`、`currentPublicationId:int64`、`publicationNo:int32`。
 - `ArticleSearch`：当前 FAS4 payload 在计数前写 magic/version，并为每条 article 写入同一组 24B publication 坐标；无 magic/version 的旧 payload 仅保留读取兼容。离线 search shard/package/manifest 与 Wasm result 使用 version 4，doc metadata/result item 为 76B。
 - `ArticleHot`：`count:int32`、共享 blob、每篇 16B record。
 - `Category` / `Tag`：`count:int32`、共享 blob、每条 16B record。

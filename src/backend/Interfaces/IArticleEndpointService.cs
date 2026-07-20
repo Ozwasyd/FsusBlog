@@ -27,6 +27,7 @@ public interface IArticleEndpointService
         int? status,
         bool canReadPrivate,
         string? keyword = null,
+        string? cursor = null,
         CancellationToken cancellationToken = default);
 
     Task<Result<ArticleDetailCoreModel?>> GetByIdAsync(

@@ -14,6 +14,7 @@ using FsusBlog.Server.Infrastructure.Content;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Interfaces;
@@ -218,7 +219,7 @@ public partial class ArticleService(
                     "article-list",
                     async gateCt =>
                     {
-                        ArticleListPageReadModel result = await LoadArticleListPageFromDbAsync(version, page, size, categoryId, tagId, isDeleted, status, includePrivate, normalizedKeyword, gateCt);
+                        ArticleListPageReadModel result = await LoadArticleListPageFromDbAsync(version, page, size, categoryId, tagId, isDeleted, status, includePrivate, normalizedKeyword, cursor: null, gateCt);
                         gateCt.ThrowIfCancellationRequested();
                         int totalPages = Math.Max(1, (int)Math.Ceiling(result.Total / (double)size));
                         if (page <= totalPages)

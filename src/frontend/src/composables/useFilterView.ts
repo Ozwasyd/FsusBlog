@@ -90,6 +90,7 @@ export function useFilterView() {
   const labelText = computed(() => getPublicFilterLabel(filterType.value))
 
   const articleTask = useAbortableTask()
+  const articleCursorByFilterPage = new Map<string, string | null>()
   const buildSignalConfig = (signal: AbortSignal): ApiRequestConfig => ({ signal })
   const resolveRouteFilterIdentity = (): RouteFilterIdentity => resolvePublicFilterIdentity({
     routeName: typeof route.name === 'string' ? route.name : null,
@@ -324,15 +325,23 @@ export function useFilterView() {
       if (isSearch) {
         response = await searchIndex(keyword, searchSortMode.value, currentPage.value, pageSize.value, signal)
       } else {
+        const cursorKey = `${filterType.value}:${filterId.value}:${currentPage.value}`
         response = await getArticles(
           {
             page: currentPage.value,
             size: pageSize.value,
             categoryId: filterType.value === PUBLIC_FILTER_TYPE.category ? filterId.value : undefined,
-            tagId: filterType.value === PUBLIC_FILTER_TYPE.tag ? filterId.value : undefined
+            tagId: filterType.value === PUBLIC_FILTER_TYPE.tag ? filterId.value : undefined,
+            cursor: articleCursorByFilterPage.get(cursorKey)
           },
           buildSignalConfig(signal)
         )
+        if (response.hasMore && response.nextCursor) {
+          articleCursorByFilterPage.set(
+            `${filterType.value}:${filterId.value}:${currentPage.value + 1}`,
+            response.nextCursor
+          )
+        }
       }
 
       if (lifecycle.isActive() && !signal.aborted) {

@@ -15,7 +15,7 @@ public partial class ArticleService
         CancellationToken cancellationToken)
     {
         ArticleListPageReadModel source;
-        if (query.UseSourceCache)
+        if (query.UseSourceCache && !query.Cursor.HasValue)
         {
             source = await GetPageListAsync(
                 query.Page,
@@ -45,6 +45,7 @@ public partial class ArticleService
                     query.Status,
                     query.IncludePrivate,
                     keyword,
+                    query.Cursor,
                     gateCt),
                 _ => Task.FromException<ArticleListPageReadModel>(
                     new TimeoutException($"db-gate-timeout:article-list-frame-source:{query.Page}:{query.Size}")),

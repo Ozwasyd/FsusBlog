@@ -80,6 +80,14 @@ describe('article API (binary)', () => {
     }))
   })
 
+  it('getArticles forwards the opaque cursor without parsing it', async () => {
+    await getArticles({ page: 2, cursor: 'AQIDBA_filter-bound-checksum' })
+    expectBinaryRoute('binary_get_article_list_home_page_size_aeds', FrameType.ArticleList, {
+      params: { page: 2, size: 10 },
+      query: 'cursor=AQIDBA_filter-bound-checksum'
+    })
+  })
+
   it('getArticles can target archive artifact route', async () => {
     await getArticles({ listKind: 'archive' })
     const call = mockBinary.mock.calls[0][0]

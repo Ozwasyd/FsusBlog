@@ -55,7 +55,8 @@ public static partial class PodBinaryCodec
     internal const int ArticleDetailDirectCharThreshold = 8 * 1024;
     // COMPATIBILITY: The wire prefix is ASCII FSPA in little-endian storage order.
     private const int ArticlePageCursorEnvelopeMagic = 0x41535046;
-    private const int ArticlePageCursorEnvelopeVersion = 1;
+    private const int ArticlePageCursorEnvelopeLegacyVersion = 1;
+    private const int ArticlePageCursorEnvelopeVersion = 2;
     // COMPATIBILITY: Existing payloads retain the ARD3 and ARD4 wire identifiers.
     private const uint ArticleDetailV3PayloadMagic = 0x41524433;
     private const int ArticleDetailV3PayloadVersion = 3;
@@ -445,12 +446,25 @@ public static partial class PodBinaryCodec
                 ? stackalloc Utf8SliceRef[tagRecordCount]
                 : (rentedTagSlices = tagSlicePool.Rent(tagRecordCount)).AsSpan(0, tagRecordCount);
 
+            string cursor = page.HasMore ? page.NextCursor ?? string.Empty : string.Empty;
+            int cursorByteCount = Encoding.UTF8.GetByteCount(cursor);
+            if ((page.HasMore && cursorByteCount == 0) || cursorByteCount > 64)
+            {
+                throw new InvalidOperationException("Article page cursor metadata is invalid.");
+            }
+
+            Span<byte> cursorBytes = stackalloc byte[cursorByteCount];
+            Encoding.UTF8.GetBytes(cursor, cursorBytes);
+            if (!TryDecodeArticleListCursorUtf8(cursorBytes, out _))
+            {
+                throw new InvalidOperationException("Article page cursor metadata is invalid.");
+            }
             var writer = new BinaryPodWriter(destination);
             writer.WriteInt32(ArticlePageCursorEnvelopeMagic);
             writer.WriteInt32(ArticlePageCursorEnvelopeVersion);
-            writer.WriteInt64(ParseArticleListCursorUnixMs(page.NextCursor));
             writer.WriteByte(page.HasMore ? (byte)1 : (byte)0);
             writer.WriteInt32(page.Total);
+            writer.WriteBytes(cursorBytes);
             writer.WriteInt32(itemCount);
             writer.WriteInt32(tagRecordCount);
             writer.WriteInt32(blobLength);
@@ -564,7 +578,7 @@ public static partial class PodBinaryCodec
     public static bool TryDecodeArticlePage(ReadOnlyMemory<byte> bytes, out CorePageResult<ArticleListCoreModel> page)
     {
         var reader = new BinaryPodReader(bytes.Span);
-        long nextCursorUnixMs = 0;
+        string? nextCursor = null;
         bool hasMore = false;
         if (!reader.TryReadInt32(out int total))
         {
@@ -574,18 +588,57 @@ public static partial class PodBinaryCodec
 
         if (total == ArticlePageCursorEnvelopeMagic)
         {
-            if (!reader.TryReadInt32(out int version) ||
-                version != ArticlePageCursorEnvelopeVersion ||
-                !reader.TryReadInt64(out nextCursorUnixMs) ||
-                !reader.TryReadByte(out byte hasMoreByte) ||
-                hasMoreByte > 1 ||
-                !reader.TryReadInt32(out total))
+            if (!reader.TryReadInt32(out int version))
             {
                 page = default;
                 return false;
             }
 
-            hasMore = hasMoreByte == 1;
+            if (version == ArticlePageCursorEnvelopeLegacyVersion)
+            {
+                if (!reader.TryReadInt64(out long nextCursorUnixMs)
+                    || !reader.TryReadByte(out byte legacyHasMoreByte)
+                    || legacyHasMoreByte > 1
+                    || !reader.TryReadInt32(out total))
+                {
+                    page = default;
+                    return false;
+                }
+
+                hasMore = legacyHasMoreByte == 1;
+                nextCursor = nextCursorUnixMs > 0
+                    ? nextCursorUnixMs.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    : null;
+            }
+            else if (version == ArticlePageCursorEnvelopeVersion)
+            {
+                if (!reader.TryReadByte(out byte hasMoreByte)
+                    || hasMoreByte > 1
+                    || !reader.TryReadInt32(out total)
+                    || !reader.TryReadBytes(out ReadOnlySpan<byte> cursorBytes)
+                    || cursorBytes.Length > 64)
+                {
+                    page = default;
+                    return false;
+                }
+
+                hasMore = hasMoreByte == 1;
+                if (!TryDecodeArticleListCursorUtf8(cursorBytes, out nextCursor))
+                {
+                    page = default;
+                    return false;
+                }
+                if (hasMore != !string.IsNullOrWhiteSpace(nextCursor))
+                {
+                    page = default;
+                    return false;
+                }
+            }
+            else
+            {
+                page = default;
+                return false;
+            }
         }
 
         if (
@@ -716,29 +769,33 @@ public static partial class PodBinaryCodec
                 record.PublicationNo));
         }
 
-        string? nextCursor = hasMore && nextCursorUnixMs > 0 && items.Count > 0
-            ? FormatArticleListCursor(nextCursorUnixMs, items[^1].Id)
-            : null;
+        if (hasMore && nextCursor is not null && nextCursor.IndexOf(':', StringComparison.Ordinal) < 0
+            && long.TryParse(nextCursor, out long legacyUnixMs) && items.Count > 0)
+        {
+            nextCursor = string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{legacyUnixMs}:{items[^1].Id}");
+        }
         page = new CorePageResult<ArticleListCoreModel>(items, total, nextCursor, hasMore);
         return reader.IsConsumed;
     }
 
-    private static long ParseArticleListCursorUnixMs(string? cursor)
+    private static bool TryDecodeArticleListCursorUtf8(ReadOnlySpan<byte> cursorBytes, out string? cursor)
     {
-        if (string.IsNullOrWhiteSpace(cursor))
+        cursor = null;
+        if (cursorBytes.IsEmpty)
         {
-            return 0;
+            return true;
         }
 
-        int separator = cursor.IndexOf(':', StringComparison.Ordinal);
-        string value = separator > 0 ? cursor[..separator] : cursor;
-        return long.TryParse(value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out long parsed)
-            ? parsed
-            : 0;
+        try
+        {
+            cursor = s_strictUtf8.GetString(cursorBytes);
+            return cursor.All(static character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_');
+        }
+        catch (DecoderFallbackException)
+        {
+            return false;
+        }
     }
-
-    private static string FormatArticleListCursor(long unixMs, int id)
-        => string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{unixMs}:{id}");
 
     /// <summary>
     /// Writes the <c>ArticleDetail</c> contract to the supplied binary destination.

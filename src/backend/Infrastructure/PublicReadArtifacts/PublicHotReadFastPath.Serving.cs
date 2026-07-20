@@ -266,6 +266,14 @@ public static partial class PublicHotReadFastPath
                 return next(ctx);
             }
 
+            if (route.Kind == PublicHotReadRouteKind.ArticleList
+                && ctx.Request.ContentLength.GetValueOrDefault() == 0
+                && ctx.Request.Query.Count == 1
+                && ctx.Request.Query.ContainsKey("cursor"))
+            {
+                return next(ctx);
+            }
+
             WriteLegacyRouteHint(ctx, path);
             return WriteStatus(ctx, StatusCodes.Status400BadRequest, isDevelopment);
         }

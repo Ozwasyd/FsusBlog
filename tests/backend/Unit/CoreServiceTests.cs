@@ -57,6 +57,36 @@ public class ArticleCoreServiceTests
         Assert.Equal(5, result.Value!.Total);
     }
 
+    [Fact]
+    public async Task GetPageList_PublicUtcCursor_PassesCompositePositionToGateway()
+    {
+        var cursor = new ArticleListCursorPosition(new DateTime(2026, 7, 20, 8, 0, 0, DateTimeKind.Utc), 42);
+        var query = new ArticlePageQuery(2, 10, null, null, false, Cursor: cursor);
+        _gw.GetPageListAsync(query, Arg.Any<CancellationToken>())
+            .Returns(new CorePageResult<ArticleListCoreModel>([], 0));
+
+        Result<CorePageResult<ArticleListCoreModel>> result = await Svc().GetPageListAsync(query);
+
+        Assert.True(result.IsSuccess);
+        await _gw.Received(1).GetPageListAsync(query, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetPageList_AdminOrNonUtcCursor_FailsClosed()
+    {
+        var utcCursor = new ArticleListCursorPosition(new DateTime(2026, 7, 20, 8, 0, 0, DateTimeKind.Utc), 42);
+        var localCursor = new ArticleListCursorPosition(new DateTime(2026, 7, 20, 8, 0, 0, DateTimeKind.Local), 42);
+
+        Result<CorePageResult<ArticleListCoreModel>> admin = await Svc().GetPageListAsync(
+            new ArticlePageQuery(2, 10, null, null, false, IncludePrivate: true, Cursor: utcCursor));
+        Result<CorePageResult<ArticleListCoreModel>> nonUtc = await Svc().GetPageListAsync(
+            new ArticlePageQuery(2, 10, null, null, false, Cursor: localCursor));
+
+        Assert.False(admin.IsSuccess);
+        Assert.False(nonUtc.IsSuccess);
+        await _gw.DidNotReceiveWithAnyArgs().GetPageListAsync(default, default);
+    }
+
     // GetByIdAsync
     [Theory]
     [InlineData(0)]

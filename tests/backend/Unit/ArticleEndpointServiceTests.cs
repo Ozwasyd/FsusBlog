@@ -6,6 +6,7 @@ using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Services.Abstractions;
 using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
@@ -247,6 +248,80 @@ public sealed class ArticleEndpointServiceTests
             TimeSpan.FromMinutes(10),
             Arg.Any<CancellationToken>());
         result.CachedFrame!.Dispose();
+    }
+
+    [Fact]
+    public async Task GetPageListAsync_PublicCursor_ValidatesFilterAndUsesCursorCacheIdentity()
+    {
+        var core = Substitute.For<IArticleCoreService>();
+        var cache = Substitute.For<IUnifiedCache>();
+        var ownedFrameCache = CreateOwnedFrameCacheSubstitute();
+        var service = Create(core, cache: cache, ownedFrameCache: ownedFrameCache);
+        var position = new ArticleListCursorPosition(new DateTime(2026, 7, 20, 8, 0, 0, DateTimeKind.Utc), 42);
+        string cursor = ArticleListCursorCodec.Encode(position, categoryId: 7, tagId: null, normalizedKeyword: string.Empty);
+        cache.GetStringAsync(CachePolicyId.ArticleListVersion, "main", Arg.Any<CancellationToken>()).Returns("11");
+        ownedFrameCache.TryGetOwnedFrameAsync(
+                CachePolicyId.ArticleListFrame,
+                Arg.Any<string>(),
+                AedsFrameType.ArticleList,
+                Arg.Any<CancellationToken>())
+            .Returns(default(OwnedFrameCacheReadResult));
+        core.GetPageListAsync(Arg.Any<ArticlePageQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Result<CorePageResult<ArticleListCoreModel>>.Success(new CorePageResult<ArticleListCoreModel>([], 0)));
+
+        ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>> result = await service.GetPageListAsync(
+            2,
+            10,
+            categoryId: 7,
+            tagId: null,
+            isDeleted: false,
+            canReadDeleted: false,
+            status: null,
+            canReadPrivate: false,
+            cursor: cursor);
+
+        Assert.True(result.Result.IsSuccess);
+        await core.Received(1).GetPageListAsync(
+            Arg.Is<ArticlePageQuery>(query => query.Cursor == position && !query.UseSourceCache),
+            Arg.Any<CancellationToken>());
+        await ownedFrameCache.Received().TryGetOwnedFrameAsync(
+            CachePolicyId.ArticleListFrame,
+            Arg.Is<string>(identity => identity.Contains($":cursor:{cursor}:", StringComparison.Ordinal)),
+            AedsFrameType.ArticleList,
+            Arg.Any<CancellationToken>());
+        result.CachedFrame!.Dispose();
+    }
+
+    [Fact]
+    public async Task GetPageListAsync_InvalidOrCrossFilterCursor_FailsBeforeCacheAndCore()
+    {
+        var core = Substitute.For<IArticleCoreService>();
+        var cache = Substitute.For<IUnifiedCache>();
+        var ownedFrameCache = CreateOwnedFrameCacheSubstitute();
+        var service = Create(core, cache: cache, ownedFrameCache: ownedFrameCache);
+        string cursor = ArticleListCursorCodec.Encode(
+            new ArticleListCursorPosition(new DateTime(2026, 7, 20, 8, 0, 0, DateTimeKind.Utc), 42),
+            categoryId: 7,
+            tagId: null,
+            normalizedKeyword: string.Empty);
+        cache.GetStringAsync(CachePolicyId.ArticleListVersion, "main", Arg.Any<CancellationToken>()).Returns("11");
+
+        ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>> result = await service.GetPageListAsync(
+            2,
+            10,
+            categoryId: 8,
+            tagId: null,
+            isDeleted: false,
+            canReadDeleted: false,
+            status: null,
+            canReadPrivate: false,
+            cursor: cursor);
+
+        Assert.False(result.Result.IsSuccess);
+        Assert.Equal(ErrorCode.Validation, result.Result.Error.Code);
+        await cache.DidNotReceiveWithAnyArgs().GetStringAsync(default, default!, default);
+        await ownedFrameCache.DidNotReceiveWithAnyArgs().TryGetOwnedFrameAsync(default, (string)null!, default, default);
+        await core.DidNotReceiveWithAnyArgs().GetPageListAsync(default, default);
     }
 
     [Fact]

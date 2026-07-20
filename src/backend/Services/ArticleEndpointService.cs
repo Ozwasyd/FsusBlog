@@ -6,6 +6,7 @@ using FsusBlog.Core.Services.Abstractions;
 using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -34,6 +35,7 @@ public sealed class ArticleEndpointService(
         int? status,
         bool canReadPrivate,
         string? keyword = null,
+        string? cursor = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -52,9 +54,21 @@ public sealed class ArticleEndpointService(
             return new(default, Result<CorePageResult<ArticleListCoreModel>>.Failure(ErrorCode.Forbidden, "权限不足"));
         }
 
-        long version = await GetArticleListCacheVersionAsync(cancellationToken);
         string normalizedKeyword = NormalizeArticleListKeyword(keyword);
-        string identity = BuildArticleListCacheIdentity(version, page, size, categoryId, tagId, isDeleted, status, canReadPrivate, normalizedKeyword);
+        ArticleListCursorPosition? cursorPosition = null;
+        if (cursor is not null)
+        {
+            if (!ShouldBypassCoreArticleListCacheForPublicFrame(isDeleted, canReadDeleted, status, canReadPrivate)
+                || !ArticleListCursorCodec.TryDecode(cursor, categoryId, tagId, normalizedKeyword, out ArticleListCursorPosition decodedCursor))
+            {
+                return new(default, Result<CorePageResult<ArticleListCoreModel>>.Failure(ErrorCode.Validation, "文章 cursor 参数非法"));
+            }
+
+            cursorPosition = decodedCursor;
+        }
+
+        long version = await GetArticleListCacheVersionAsync(cancellationToken);
+        string identity = BuildArticleListCacheIdentity(version, page, size, categoryId, tagId, isDeleted, status, canReadPrivate, normalizedKeyword, cursor);
         ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>>? coordinated = await cacheMissCoordinator.CoordinateAsync(
             CachePolicyId.ArticleListFrame,
             identity,
@@ -77,7 +91,7 @@ public sealed class ArticleEndpointService(
             {
                 token.ThrowIfCancellationRequested();
                 Result<CorePageResult<ArticleListCoreModel>> result = ShouldBypassCoreArticleListCacheForPublicFrame(isDeleted, canReadDeleted, status, canReadPrivate)
-                    ? await LoadPublicArticleListFrameSourceAsync(page, size, categoryId, tagId, normalizedKeyword, version, token)
+                    ? await LoadPublicArticleListFrameSourceAsync(page, size, categoryId, tagId, normalizedKeyword, version, cursorPosition, token)
                     : await core.GetPageListAsync(
                         new ArticlePageQuery(page, size, categoryId, tagId, isDeleted, status, canReadPrivate, normalizedKeyword, version),
                         token);
@@ -286,6 +300,7 @@ public sealed class ArticleEndpointService(
         int? tagId,
         string keyword,
         long listCacheVersion,
+        ArticleListCursorPosition? cursor,
         CancellationToken cancellationToken)
     {
         return await core.GetPageListAsync(
@@ -299,15 +314,23 @@ public sealed class ArticleEndpointService(
                 IncludePrivate: false,
                 keyword,
                 ListCacheVersion: listCacheVersion,
-                UseSourceCache: false),
+                UseSourceCache: false,
+                Cursor: cursor),
             cancellationToken);
     }
 
     private static bool ShouldBypassCoreArticleListCacheForPublicFrame(bool isDeleted, bool canReadDeleted, int? status, bool canReadPrivate)
         => !isDeleted && !canReadDeleted && status is null && !canReadPrivate;
 
-    private static string BuildArticleListCacheIdentity(long version, int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status, bool includePrivate, string keyword)
-        => $"core:v4:{(includePrivate ? "admin" : "public")}:{version}:{page}:{size}:{categoryId ?? 0}:{tagId ?? 0}:{(isDeleted ? 1 : 0)}:{status ?? -1}:{keyword}";
+    private static string BuildArticleListCacheIdentity(long version, int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status, bool includePrivate, string keyword, string? cursor)
+    {
+        string windowIdentity = includePrivate
+            ? $"page:{page}"
+            : cursor is not null
+                ? $"cursor:{cursor}"
+                : page == 1 ? "cursor:first" : $"legacy-page:{page}";
+        return $"core:v5:{(includePrivate ? "admin" : "public")}:{version}:{windowIdentity}:{size}:{categoryId ?? 0}:{tagId ?? 0}:{(isDeleted ? 1 : 0)}:{status ?? -1}:{keyword}";
+    }
 
     private static string NormalizeArticleListKeyword(string? keyword)
         => string.IsNullOrWhiteSpace(keyword) ? string.Empty : keyword.Trim()[..Math.Min(keyword.Trim().Length, 80)];

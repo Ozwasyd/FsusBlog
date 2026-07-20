@@ -660,6 +660,28 @@ public sealed class PublicHotReadFastPathTests
     }
 
     [Fact]
+    public async Task TryServeAsync_ArticleListCursorQuery_ContinuesToDynamicEndpoint()
+    {
+        var context = CreateContext("/api/binary/article/list/home/2/10.aeds");
+        context.Request.QueryString = new QueryString("?cursor=opaque-v1-cursor");
+        bool nextCalled = false;
+
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            },
+            CreateReadyEmptyStore(),
+            new PublicHotReadOptions(),
+            new PublicHotReadCounters());
+
+        Assert.True(nextCalled);
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+    }
+
+    [Fact]
     public async Task TryServeAsync_PublicBody_IsRejectedBeforeNormalPipeline()
     {
         var context = CreateContext("/api/binary/article/42.aeds");

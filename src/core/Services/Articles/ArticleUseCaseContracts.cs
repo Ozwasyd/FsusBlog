@@ -12,7 +12,10 @@ public readonly record struct ArticlePageQuery(
     bool IncludePrivate = false,
     string? Keyword = null,
     long? ListCacheVersion = null,
-    bool UseSourceCache = true);
+    bool UseSourceCache = true,
+    ArticleListCursorPosition? Cursor = null);
+
+public readonly record struct ArticleListCursorPosition(DateTime CreateTimeUtc, int Id);
 
 public readonly record struct ArticleDetailQuery(int Id, bool IncludePrivate = false);
 

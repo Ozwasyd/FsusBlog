@@ -26,6 +26,16 @@ public sealed class ArticleCoreService(
             return Result<CorePageResult<ArticleListCoreModel>>.Failure(ErrorCode.Validation, "文章状态非法");
         }
 
+        if (query.Cursor is { } cursor
+            && (query.IsDeleted
+                || query.IncludePrivate
+                || query.Status.HasValue
+                || cursor.Id <= 0
+                || cursor.CreateTimeUtc.Kind != DateTimeKind.Utc))
+        {
+            return Result<CorePageResult<ArticleListCoreModel>>.Failure(ErrorCode.Validation, "文章 cursor 参数非法");
+        }
+
         return Result<CorePageResult<ArticleListCoreModel>>.Success(await gateway.GetPageListAsync(query, cancellationToken));
     }
 
