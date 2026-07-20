@@ -31,7 +31,7 @@ export const themeTokens: ThemeTokenContract = {
     summary: `ui-article-summary mt-2 text-sm sm:text-base font-normal ${textSecondary} leading-[1.7] line-clamp-3`,
     readLink: `ui-article-link mt-4 min-h-11 ${microRadius} text-xs sm:text-sm leading-4 sm:leading-5 font-medium tracking-normal ${textMuted} ${primaryHover} ${colorTransition} flex items-center gap-3 px-2 py-2 -ml-0.5 outline-none ${focusRing}`,
     pagination: `ui-pagination mt-24 sm:mt-32 pt-12 border-t ${lineBorder} flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-6`,
-    paginationIndicator: `text-xs font-bold ${textSubtle} uppercase tracking-normal ${numericText}`
+    paginationIndicator: `text-xs font-bold ${textMuted} uppercase tracking-normal ${numericText}`
   },
   articleDetail: {
     header: `mb-3 sm:mb-4 pb-3 sm:pb-4 border-b ${lineBorder}`,
@@ -55,10 +55,10 @@ export const themeTokens: ThemeTokenContract = {
     itemHeader: 'flex flex-col sm:flex-row justify-between items-start gap-5 sm:gap-6 mb-5 sm:mb-6',
     articleLabel: `text-xs font-medium ${textMuted} uppercase tracking-normal`,
     articleLink: `block text-sm font-bold ${textPrimary} ${primaryHover} ${colorTransition} tracking-normal leading-snug wrap-break-word outline-none ${focusRing}`,
-    time: `text-xs sm:text-sm leading-4 sm:leading-5 font-medium ${textSubtle} uppercase tracking-normal shrink-0 pt-0.5 ${numericText}`,
+    time: `text-xs sm:text-sm leading-4 sm:leading-5 font-medium ${textMuted} uppercase tracking-normal shrink-0 pt-0.5 ${numericText}`,
     content: `${textTertiary} text-sm leading-relaxed whitespace-pre-wrap mb-6 wrap-break-word overflow-hidden`,
     footer: `pt-12 border-t ${lineBorderStrong} flex justify-center`,
-    endHint: `text-xs font-medium tracking-normal ${textSubtle} uppercase`
+    endHint: `text-xs font-medium tracking-normal ${textMuted} uppercase`
   },
   dashboard: {
     statGrid: 'mb-8 gap-3',

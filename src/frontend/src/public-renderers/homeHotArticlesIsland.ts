@@ -27,7 +27,7 @@ function createAsideElement(items: Array<{ id: number; title: string; views: num
     item.className = 'group flex items-start gap-6'
 
     const rank = document.createElement('span')
-    rank.className = 'flex-none text-sm tabular-nums font-medium text-[var(--fsusblog-text-subtle)] group-hover:text-[var(--fsusblog-color-primary)] transition-colors duration-[var(--fsus-motion-control)] w-6 pt-0.5'
+    rank.className = 'flex-none text-sm tabular-nums font-medium text-[var(--fsusblog-text-muted)] group-hover:text-[var(--fsusblog-color-primary)] transition-colors duration-[var(--fsus-motion-control)] w-6 pt-0.5'
     rank.textContent = String(index + 1).padStart(2, '0')
 
     const body = document.createElement('div')

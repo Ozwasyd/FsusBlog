@@ -97,7 +97,7 @@ const handleDrawerNavigate = (id: string): void => {
 
 .article-toc-panel__title {
   margin: 0 0 0.75rem;
-  color: var(--fsusblog-text-subtle);
+  color: var(--fsusblog-text-muted);
   font-size: 12px;
   font-weight: 700;
 }

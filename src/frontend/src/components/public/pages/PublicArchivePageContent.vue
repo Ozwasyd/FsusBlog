@@ -66,7 +66,7 @@
               :key="monthGroup.month"
               class="relative"
             >
-              <h3 class="mb-8 flex items-center gap-8 text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
+              <h3 class="mb-8 flex items-center gap-8 text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
                 {{ monthGroup.monthLabel }}
                 <span class="h-px grow bg-[var(--fsusblog-panel-bg-soft)]" aria-hidden="true"></span>
               </h3>
@@ -86,7 +86,7 @@
                     <time
                       :datetime="article.createTime"
                       :title="article.fullLocalTimeText"
-                      class="flex-none text-xs tabular-nums font-medium text-[var(--fsusblog-text-subtle)] group-hover:text-[var(--fsusblog-color-primary)] transition-colors w-12"
+                      class="flex-none text-xs tabular-nums font-medium text-[var(--fsusblog-text-muted)] group-hover:text-[var(--fsusblog-color-primary)] transition-colors w-12"
                     >
                       {{ article.dayText }}
                     </time>

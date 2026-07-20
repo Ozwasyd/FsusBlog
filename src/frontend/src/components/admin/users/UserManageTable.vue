@@ -63,7 +63,7 @@
             >
               {{ row.status === 0 ? '封禁' : '解封' }}
             </el-button>
-            <span v-else class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
+            <span v-else class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
               已注销账户
             </span>
           </div>
@@ -130,10 +130,10 @@
                     <span class="text-[12px] font-bold text-[var(--fsusblog-text-tertiary)]">
                       {{ (rowData as UserListViewItem).credentialSummary }}
                     </span>
-                    <span class="text-[11px] text-[var(--fsusblog-text-subtle)]">
+                    <span class="text-[11px] text-[var(--fsusblog-text-muted)]">
                       匿名身份：{{ (rowData as UserListViewItem).anonymousCredentialText }}
                     </span>
-                    <span class="text-[11px] text-[var(--fsusblog-text-subtle)]">
+                    <span class="text-[11px] text-[var(--fsusblog-text-muted)]">
                       风险标记：{{ (rowData as UserListViewItem).riskFlagsText }}
                     </span>
                   </div>
@@ -163,7 +163,7 @@
                   </div>
                   <span
                     v-else-if="column.key === 'actions'"
-                    class="pr-4 text-xs font-medium italic normal-case tracking-normal text-[var(--fsusblog-text-subtle)]"
+                    class="pr-4 text-xs font-medium italic normal-case tracking-normal text-[var(--fsusblog-text-muted)]"
                   >
                     已注销
                   </span>

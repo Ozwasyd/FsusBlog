@@ -82,7 +82,7 @@
           class="border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg)] px-10 py-16 text-center"
           :aria-label="messages.article.content.emptyAria"
         >
-          <p class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
+          <p class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
             {{ messages.article.content.empty }}
           </p>
         </div>

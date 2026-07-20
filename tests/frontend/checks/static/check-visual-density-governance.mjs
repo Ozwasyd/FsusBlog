@@ -501,7 +501,8 @@ function checkPublicTypographyContract()
         '--text-decorative: #71717A;',
         '--fsus-dot-gray: var(--text-decorative);',
         '--fsusblog-reading-marker: var(--text-decorative);',
-        '--fsusblog-text-subtle: var(--text-muted);'
+        '--fsusblog-text-subtle: var(--fsus-color-text-decorative, var(--text-decorative, #A1A1AA));',
+        '--fsusblog-text-muted: var(--fsus-color-text-muted, var(--text-muted, #71717A));'
     ];
     for (const token of requiredTokenAssignments)
     {
@@ -515,7 +516,8 @@ function checkPublicTypographyContract()
         '--text-muted: #B2B2BA;',
         '--text-decorative: #71717A;',
         '--fsus-dot-gray: var(--text-decorative);',
-        '--fsusblog-text-subtle: var(--text-muted);'
+        '--fsusblog-text-subtle: var(--fsus-color-text-decorative-dark, var(--text-decorative, #71717A));',
+        '--fsusblog-text-muted: var(--fsus-color-text-muted-dark, var(--text-muted, #A1A1AA));'
     ])
     {
         assertContains(publicShellCriticalCssPath, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `critical public shell token contract is missing ${token}`);

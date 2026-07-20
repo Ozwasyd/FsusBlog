@@ -35,8 +35,8 @@
   --fsusblog-text-primary: var(--fsus-color-text-primary, var(--text));
   --fsusblog-text-secondary: var(--text-secondary);
   --fsusblog-text-tertiary: var(--text-tertiary);
-  --fsusblog-text-muted: var(--text-muted);
-  --fsusblog-text-subtle: var(--text-muted);
+  --fsusblog-text-muted: var(--fsus-color-text-muted, var(--text-muted, #71717A));
+  --fsusblog-text-subtle: var(--fsus-color-text-decorative, var(--text-decorative, #A1A1AA));
   --fsusblog-text-quiet: var(--fsus-color-text-quiet, #A1A1AA);
   --fsusblog-text-decorative: var(--fsus-color-text-decorative, var(--text-decorative));
   --fsusblog-panel-border: var(--fsus-color-border-subtle, var(--border));
@@ -214,8 +214,8 @@ html[data-theme-resolved='dark'] {
   --fsusblog-text-heading: var(--text-heading);
   --fsusblog-text-secondary: var(--text-secondary);
   --fsusblog-text-tertiary: var(--text-tertiary);
-  --fsusblog-text-muted: var(--text-muted);
-  --fsusblog-text-subtle: var(--text-muted);
+  --fsusblog-text-muted: var(--fsus-color-text-muted-dark, var(--text-muted, #A1A1AA));
+  --fsusblog-text-subtle: var(--fsus-color-text-decorative-dark, var(--text-decorative, #71717A));
   --fsusblog-text-quiet: var(--fsus-color-text-quiet, #A1A1AA);
   --fsusblog-text-decorative: var(--fsus-color-text-decorative, var(--text-decorative));
   --fsusblog-color-focus-ring: var(--fsus-color-focus-ring, var(--accent, Highlight));
@@ -274,8 +274,8 @@ html[data-theme-resolved='dark'] {
   --fsusblog-text-heading: var(--text-heading);
   --fsusblog-text-secondary: var(--text-secondary);
   --fsusblog-text-tertiary: var(--text-tertiary);
-  --fsusblog-text-muted: var(--text-muted);
-  --fsusblog-text-subtle: var(--text-muted);
+  --fsusblog-text-muted: var(--fsus-color-text-muted-dark, var(--text-muted, #A1A1AA));
+  --fsusblog-text-subtle: var(--fsus-color-text-decorative-dark, var(--text-decorative, #71717A));
   --fsusblog-text-quiet: var(--fsus-color-text-quiet, #A1A1AA);
   --fsusblog-text-decorative: var(--fsus-color-text-decorative, var(--text-decorative));
   --fsusblog-color-focus-ring: var(--fsus-color-focus-ring, var(--accent, Highlight));

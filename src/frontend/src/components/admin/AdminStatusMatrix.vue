@@ -153,7 +153,7 @@ const emit = defineEmits<{
 
 .admin-status-matrix__meta {
   margin-left: auto;
-  color: var(--fsusblog-text-subtle);
+  color: var(--fsusblog-text-muted);
   font-size: 12px;
   font-weight: 500;
 }

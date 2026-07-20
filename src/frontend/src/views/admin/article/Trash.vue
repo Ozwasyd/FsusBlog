@@ -46,7 +46,7 @@
                 <el-tag size="small" type="info">{{ row.categoryName }}</el-tag>
               </div>
             </div>
-            <span class="shrink-0 tabular-nums text-[12px] font-bold text-[var(--fsusblog-text-subtle)]">#{{ row.id }}</span>
+            <span class="shrink-0 tabular-nums text-[12px] font-bold text-[var(--fsusblog-text-muted)]">#{{ row.id }}</span>
           </div>
           <div class="mt-5 grid grid-cols-2 gap-2">
             <el-button
@@ -143,7 +143,7 @@
       </div>
 
       <div class="px-4 py-4 border-t border-[var(--fsusblog-panel-border)] flex items-center justify-between">
-        <span class="text-[11px] text-[var(--fsusblog-text-subtle)] tabular-nums normal-case select-none">
+        <span class="text-[11px] text-[var(--fsusblog-text-muted)] tabular-nums normal-case select-none">
           永久删除不可撤销。
         </span>
         <el-pagination

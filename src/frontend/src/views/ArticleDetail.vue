@@ -125,7 +125,7 @@
             <div
               v-else-if="!hasMore"
               key="end"
-              class="text-xs leading-4 tabular-nums text-[var(--fsusblog-text-subtle)] normal-case px-4"
+              class="text-xs leading-4 tabular-nums text-[var(--fsusblog-text-muted)] normal-case px-4"
             >
               {{ pageDetailView.comments.endText }}
             </div>
