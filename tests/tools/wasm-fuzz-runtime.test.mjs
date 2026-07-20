@@ -13,6 +13,8 @@ test('wasm fuzz lane executes the real decoder instead of projecting an environm
   assert.match(runner, /decoderVariants = \['basic', 'speed'\]/u)
   assert.match(runner, /readFile\(variant\.wasmPath\)/u)
   assert.match(runner, /createAedsModule\(\{ wasmBinary/u)
+  assert.match(runner, /instance\._reserve_io_buffer\(input\.byteLength\)/u)
+  assert.match(runner, /instance\._get_io_buffer_ptr\(inputToken\)/u)
   assert.match(runner, /instance\._decode_io_buffer\(inputToken, input\.byteLength\)/u)
   assert.match(runner, /wasm_fuzz_tier_differential/u)
   assert.match(runner, /wasm_fuzz_arena_clear_failed/u)
