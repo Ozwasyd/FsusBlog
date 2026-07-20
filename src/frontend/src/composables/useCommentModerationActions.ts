@@ -2,10 +2,12 @@ import { computed, ref } from 'vue'
 import {
   CommentModerationStatus,
   blockAnonymousNullifier,
+  claimCommentModeration,
   moderateComment,
   moderateCommentsBulk,
+  releaseCommentModerationClaim,
   revokeAnonymousCredential,
-  type CommentModerationItemResponse
+  type CommentModerationClaimResponse
 } from '@/api/authoring'
 import { ensureAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
 import { commentModerationStatusLabel, type CommentModerationViewItem } from '@/composables/useCommentModerationQueue'
@@ -106,7 +108,12 @@ function anonymousGovernanceErrorMessage(error: unknown, fallback: string): stri
   return message
 }
 
-export function useCommentModerationActions() {
+type ActiveDecisionClaim = Readonly<{
+  item: CommentModerationViewItem
+  claim: CommentModerationClaimResponse
+}>
+
+export function useCommentModerationActions(resolveQueueItems: () => readonly CommentModerationViewItem[] = () => []) {
   const selectedIds = ref<string[]>([])
   const actionReason = ref('')
   const banUsers = ref(false)
@@ -114,6 +121,31 @@ export function useCommentModerationActions() {
   const processingBulk = ref(false)
   const isProcessing = computed(() => processingBulk.value || processingId.value !== null)
   const taskFeedback = useAdminTaskFeedback()
+
+  const acquireDecisionClaim = async (item: CommentModerationViewItem): Promise<ActiveDecisionClaim> => {
+    const claim = await claimCommentModeration(item.id, {
+      leaseSeconds: 120,
+      processSlaSeconds: 1800,
+      escalationStatus: 'none'
+    })
+    if (!claim.applied || !claim.commentRowVersion || !claim.claimToken || !claim.claimGeneration || !claim.claimRowVersion) {
+      throw new Error('comment_moderation_claim_invalid_response')
+    }
+    return { item, claim }
+  }
+
+  const releaseDecisionClaim = async ({ item, claim }: ActiveDecisionClaim): Promise<void> => {
+    if (!claim.claimToken || !claim.claimGeneration || !claim.claimRowVersion) return
+    try {
+      await releaseCommentModerationClaim(item.id, {
+        claimToken: claim.claimToken,
+        claimGeneration: claim.claimGeneration,
+        claimRowVersion: claim.claimRowVersion
+      })
+    } catch {
+      // The lease is bounded and may already have expired or been completed.
+    }
+  }
 
   const toggleSelection = (id: string, checked: boolean): void => {
     selectedIds.value = checked
@@ -131,19 +163,26 @@ export function useCommentModerationActions() {
   }
 
   const applySingle = async (
-    comment: CommentModerationItemResponse,
+    comment: CommentModerationViewItem,
     status: CommentModerationStatus,
     afterSuccess?: () => Promise<void> | void
   ): Promise<boolean> => {
     processingId.value = comment.id
+    let activeClaim: ActiveDecisionClaim | null = null
     const targetStatus = commentModerationStatusLabel(status)
     taskFeedback.begin('正在审核评论', `#${comment.id} -> ${targetStatus}`, comment.id)
     try {
       const mfaProofToken = await ensureAdminSensitiveProof()
+      activeClaim = await acquireDecisionClaim(comment)
       await moderateComment(comment.id, {
         status,
         reason: normalizeModerationReason(status, actionReason.value),
-        banUser: banUsers.value && isBanEligibleStatus(status)
+        banUser: banUsers.value && isBanEligibleStatus(status),
+        expectedStatus: comment.status,
+        commentRowVersion: activeClaim.claim.commentRowVersion!,
+        claimToken: activeClaim.claim.claimToken!,
+        claimGeneration: activeClaim.claim.claimGeneration!,
+        claimRowVersion: activeClaim.claim.claimRowVersion!
       }, {
         mfaProofToken
       })
@@ -152,6 +191,7 @@ export function useCommentModerationActions() {
       await afterSuccess?.()
       return true
     } catch (error: unknown) {
+      if (activeClaim) await releaseDecisionClaim(activeClaim)
       const message = moderationErrorMessage(error, '评论审核操作失败')
       taskFeedback.fail('评论审核操作失败', message, message, comment.id)
       showErrorToast(message, '评论审核操作失败')
@@ -171,19 +211,46 @@ export function useCommentModerationActions() {
     }
 
     processingBulk.value = true
+    let bulkClaims: ActiveDecisionClaim[] = []
     const selectedCount = selectedIds.value.length
     const targetStatus = commentModerationStatusLabel(status)
     taskFeedback.begin('正在批量审核评论', `${selectedCount} 条 -> ${targetStatus}`, 'moderation-bulk')
     try {
       const mfaProofToken = await ensureAdminSensitiveProof()
+      const itemsById = new Map(resolveQueueItems().map((item) => [item.id, item] as const))
+      try {
+        for (const id of selectedIds.value) {
+          const item = itemsById.get(id)
+          if (!item) throw new Error('comment_moderation_selection_stale')
+          bulkClaims.push(await acquireDecisionClaim(item))
+        }
+      } catch (error) {
+        await Promise.all(bulkClaims.map(releaseDecisionClaim))
+        bulkClaims = []
+        throw error
+      }
       const result = await moderateCommentsBulk({
         commentIds: selectedIds.value,
         status,
         reason: normalizeModerationReason(status, actionReason.value),
-        banUsers: banUsers.value && isBanEligibleStatus(status)
+        banUsers: banUsers.value && isBanEligibleStatus(status),
+        preconditions: bulkClaims.map(({ item, claim }) => ({
+          commentId: item.id,
+          expectedStatus: item.status,
+          commentRowVersion: claim.commentRowVersion!,
+          claimToken: claim.claimToken!,
+          claimGeneration: claim.claimGeneration!,
+          claimRowVersion: claim.claimRowVersion!
+        }))
       }, {
         mfaProofToken
       })
+      if ((result.conflicts?.length ?? 0) > 0) {
+        await Promise.all(bulkClaims.map(releaseDecisionClaim))
+        bulkClaims = []
+        throw new Error('comment_moderation_conflict')
+      }
+      bulkClaims = []
       if (result.updated === selectedCount) {
         taskFeedback.succeed('批量审核完成', `已处理 ${result.updated} 条评论`, 'moderation-bulk')
       } else {
@@ -194,6 +261,7 @@ export function useCommentModerationActions() {
       await afterSuccess?.()
       return true
     } catch (error: unknown) {
+      if (bulkClaims.length > 0) await Promise.all(bulkClaims.map(releaseDecisionClaim))
       const message = moderationErrorMessage(error, '批量审核操作失败')
       taskFeedback.fail('批量审核操作失败', message, message, 'moderation-bulk')
       showErrorToast(message, '批量审核操作失败')

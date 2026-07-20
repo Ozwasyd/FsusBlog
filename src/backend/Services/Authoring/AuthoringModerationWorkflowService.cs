@@ -34,6 +34,7 @@ public sealed class AuthoringModerationWorkflowService(
     IMessageCommandService messageCommandService,
     IAuthoringAuditWriter auditWriter,
     ILogger<AuthoringModerationWorkflowService> logger,
+    CommentModerationQueueStore? moderationQueueStore = null,
     ICommentMutationOutbox? mutationOutbox = null) : IAuthoringModerationQueue, IAuthoringModerationCommands
 {
     private const string ModelRiskBorderlineReviewReason = "model_policy:model_risk_borderline_review";
@@ -41,8 +42,16 @@ public sealed class AuthoringModerationWorkflowService(
         CommentModerationStatus? status = null,
         int limit = 50,
         CancellationToken cancellationToken = default)
+        => await ListCommentModerationQueuePageAsync(status, limit, null, cancellationToken);
+
+    public async Task<CommentModerationQueueResponse> ListCommentModerationQueuePageAsync(
+        CommentModerationStatus? status,
+        int limit,
+        string? cursor,
+        CancellationToken cancellationToken = default)
     {
         int normalizedLimit = Math.Clamp(limit, 1, 100);
+        CommentModerationQueueStorePage? queuePage = null;
         var query = db.Queryable<Comment, Article, CommentRegionCompliance>((c, a, rc) => new object[]
             {
                 JoinType.Left, c.ArticleId == a.Id,
@@ -51,10 +60,18 @@ public sealed class AuthoringModerationWorkflowService(
 
         if (BuildCommentModerationQueuePredicate(status))
         {
-            query = query.Where((c, a, rc) => !c.IsDeleted
-                && (c.ModerationStatus == CommentModerationStatus.Pending
-                    || (c.ModerationStatus == CommentModerationStatus.Hidden
-                        && c.ModerationReason == ModelRiskBorderlineReviewReason)));
+            CommentModerationQueueStore queueStore = moderationQueueStore
+                ?? new CommentModerationQueueStore(
+                    db,
+                    new CommentModerationQueueService(TimeProvider.System),
+                    TimeProvider.System);
+            queuePage = await queueStore.ListAsync(
+                cursor,
+                normalizedLimit,
+                cancellationToken,
+                borderlineReviewReason: ModelRiskBorderlineReviewReason);
+            long[] queueIds = [.. queuePage.Items.Select(static item => item.CommentId)];
+            query = query.Where((c, a, rc) => queueIds.Contains(c.Id));
         }
         else
         {
@@ -63,8 +80,6 @@ public sealed class AuthoringModerationWorkflowService(
         }
 
         List<CommentModerationQueueRow> rows = await query
-            .OrderByDescending((c, a, rc) => c.CreateTime)
-            .Take(normalizedLimit)
             .Select((c, a, rc) => new CommentModerationQueueRow
             {
                 Id = c.Id,
@@ -98,6 +113,17 @@ public sealed class AuthoringModerationWorkflowService(
                 RegionHideUntilReviewed = rc.HideUntilReviewed
             })
             .ToListAsync(cancellationToken);
+        if (queuePage is not null)
+        {
+            IReadOnlyDictionary<long, int> queueOrder = queuePage.Items
+                .Select(static (item, index) => (item.CommentId, index))
+                .ToDictionary(static item => item.CommentId, static item => item.index);
+            rows.Sort((left, right) => queueOrder[left.Id].CompareTo(queueOrder[right.Id]));
+        }
+        else
+        {
+            rows = [.. rows.OrderByDescending(static row => row.CreateTime).Take(normalizedLimit)];
+        }
         await LoadAnonymousNullifierSummariesAsync(rows, cancellationToken);
         IReadOnlyDictionary<long, CommentModerationModelSignalResponse> latestSignals = await LoadLatestModelSignalsAsync(rows, cancellationToken);
         foreach (CommentModerationQueueRow row in rows)
@@ -114,7 +140,23 @@ public sealed class AuthoringModerationWorkflowService(
             rows.Select(ToCommentModerationItem).ToArray(),
             counts.Pending,
             counts.Rejected,
-            counts.Hidden);
+            counts.Hidden,
+            queuePage?.NextCursor,
+            queuePage?.Items.Select(static item => new CommentModerationQueueLeaseResponse(
+                item.CommentId.ToString(CultureInfo.InvariantCulture),
+                item.CommentRowVersion,
+                item.AppealPriority,
+                item.RiskScore,
+                item.WaitingSinceUtc,
+                item.ClaimOwnerAdminPrincipalId,
+                item.ClaimState,
+                item.ClaimClaimedAtUtc,
+                item.ClaimLeaseExpiresAtUtc,
+                item.ClaimProcessSlaDueAtUtc,
+                item.ClaimNote,
+                item.ClaimEscalationStatus,
+                item.ClaimGeneration,
+                item.ClaimRowVersion)).ToArray());
     }
 
     private static bool BuildCommentModerationQueuePredicate(CommentModerationStatus? status)
@@ -124,7 +166,11 @@ public sealed class AuthoringModerationWorkflowService(
     {
         using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync("""
             SELECT
-                SUM(CASE WHEN moderation_status = @PendingStatus OR moderation_reason = @BorderlineReviewReason THEN 1 ELSE 0 END)::integer AS pending,
+                SUM(CASE WHEN moderation_status = @PendingStatus
+                              OR moderation_reason = @BorderlineReviewReason
+                              OR EXISTS (SELECT 1 FROM comment_report report WHERE report.comment_id = comment.id AND report.status IN ('open','reviewing'))
+                              OR EXISTS (SELECT 1 FROM comment_author_appeal appeal WHERE appeal.comment_id = comment.id AND appeal.status = 'pending')
+                         THEN 1 ELSE 0 END)::integer AS pending,
                 SUM(CASE WHEN moderation_status = @RejectedStatus THEN 1 ELSE 0 END)::integer AS rejected,
                 SUM(CASE WHEN moderation_status = @HiddenStatus THEN 1 ELSE 0 END)::integer AS hidden
             FROM comment
@@ -158,6 +204,18 @@ public sealed class AuthoringModerationWorkflowService(
             return false;
         }
 
+        bool hasPreconditions = request.ExpectedStatus.HasValue
+            && !string.IsNullOrWhiteSpace(request.CommentRowVersion)
+            && !string.IsNullOrWhiteSpace(request.ClaimToken)
+            && request.ClaimGeneration is > 0
+            && !string.IsNullOrWhiteSpace(request.ClaimRowVersion);
+        if (hasPreconditions
+            && (request.ExpectedStatus != current.Status
+                || !StringComparer.Ordinal.Equals(request.CommentRowVersion, current.RowVersion)))
+        {
+            return false;
+        }
+
         if (request.Status == CommentModerationStatus.Approved && !IsRegionApprovalAllowed(current))
         {
             return false;
@@ -166,15 +224,39 @@ public sealed class AuthoringModerationWorkflowService(
         DateTime moderatedAt = DateTime.UtcNow;
         string? normalizedReason = TextHelpers.NormalizeNullable(request.Reason, 256);
         int count = 0;
+        bool claimConflict = false;
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
-            count = await db.Updateable<Comment>()
-                .SetColumns(it => it.ModerationStatus == request.Status)
-                .SetColumns(it => it.ModerationReason == normalizedReason)
-                .SetColumns(it => it.ModeratedByAdminPrincipalId == actorAdminPrincipalId)
-                .SetColumns(it => it.ModeratedAt == moderatedAt)
-                .Where(it => it.Id == commentId && !it.IsDeleted && it.ModerationStatus == current.Status)
-                .ExecuteCommandAsync(cancellationToken);
+            count = hasPreconditions
+                ? await UpdateModeratedCommentWithVersionAsync(
+                    current,
+                    request.Status,
+                    normalizedReason,
+                    actorAdminPrincipalId,
+                    moderatedAt,
+                    cancellationToken)
+                : await db.Updateable<Comment>()
+                    .SetColumns(it => it.ModerationStatus == request.Status)
+                    .SetColumns(it => it.ModerationReason == normalizedReason)
+                    .SetColumns(it => it.ModeratedByAdminPrincipalId == actorAdminPrincipalId)
+                    .SetColumns(it => it.ModeratedAt == moderatedAt)
+                    .Where(it => it.Id == commentId && !it.IsDeleted && it.ModerationStatus == current.Status)
+                    .ExecuteCommandAsync(cancellationToken);
+            if (count > 0 && hasPreconditions)
+            {
+                CommentModerationClaimCommandResult completed = await moderationQueueStore!.CompleteAsync(
+                    commentId,
+                    actorAdminPrincipalId,
+                    request.ClaimToken!,
+                    request.ClaimGeneration!.Value,
+                    request.ClaimRowVersion!,
+                    cancellationToken);
+                if (!completed.Success)
+                {
+                    claimConflict = true;
+                    throw new InvalidOperationException("Comment moderation claim conflicted.");
+                }
+            }
             if (count > 0 && mutationOutbox is not null)
             {
                 await EnqueueModerationEventsAsync(current, request.Status, actorAdminPrincipalId, moderatedAt, cancellationToken);
@@ -182,6 +264,10 @@ public sealed class AuthoringModerationWorkflowService(
         });
         if (!transaction.IsSuccess)
         {
+            if (claimConflict)
+            {
+                return false;
+            }
             throw new InvalidOperationException("Comment moderation update failed.", transaction.ErrorException);
         }
         if (count > 0)
@@ -225,6 +311,30 @@ public sealed class AuthoringModerationWorkflowService(
         }
 
         List<CommentModerationStateRow> rows = await LoadCommentModerationStatesAsync(ids, cancellationToken);
+        Dictionary<long, CommentModerationDecisionPrecondition>? preconditions = request.Preconditions?
+            .Select(static item => (Item: item, Id: long.TryParse(item.CommentId, NumberStyles.Integer, CultureInfo.InvariantCulture, out long id) ? id : 0))
+            .Where(static item => item.Id > 0)
+            .GroupBy(static item => item.Id)
+            .ToDictionary(static group => group.Key, static group => group.First().Item);
+        if (request.Preconditions is not null)
+        {
+            string[] conflicts = [.. ids.Where(id =>
+            {
+                CommentModerationStateRow? row = rows.FirstOrDefault(candidate => candidate.Id == id);
+                return row is null
+                    || preconditions is null
+                    || !preconditions.TryGetValue(id, out CommentModerationDecisionPrecondition? expected)
+                    || expected.ExpectedStatus != row.Status
+                    || !StringComparer.Ordinal.Equals(expected.CommentRowVersion, row.RowVersion)
+                    || expected.ClaimGeneration <= 0
+                    || string.IsNullOrWhiteSpace(expected.ClaimToken)
+                    || string.IsNullOrWhiteSpace(expected.ClaimRowVersion);
+            }).Select(static id => id.ToString(CultureInfo.InvariantCulture))];
+            if (conflicts.Length > 0)
+            {
+                return new CommentModerationBulkResponse(0, 0, conflicts);
+            }
+        }
         var eligibleRows = new List<CommentModerationStateRow>(rows.Count);
         DateTime moderatedAt = DateTime.UtcNow;
         string? normalizedReason = TextHelpers.NormalizeNullable(request.Reason, 256);
@@ -249,21 +359,48 @@ public sealed class AuthoringModerationWorkflowService(
         }
 
         var updatedRows = new List<CommentModerationStateRow>(eligibleRows.Count);
+        var concurrencyConflicts = new List<string>();
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
             foreach (CommentModerationStateRow row in eligibleRows)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                int affected = await db.Updateable<Comment>()
-                    .SetColumns(it => it.ModerationStatus == request.Status)
-                    .SetColumns(it => it.ModerationReason == normalizedReason)
-                    .SetColumns(it => it.ModeratedByAdminPrincipalId == actorAdminPrincipalId)
-                    .SetColumns(it => it.ModeratedAt == moderatedAt)
-                    .Where(it => it.Id == row.Id && !it.IsDeleted && it.ModerationStatus == row.Status)
-                    .ExecuteCommandAsync(cancellationToken);
+                int affected = preconditions is not null
+                    ? await UpdateModeratedCommentWithVersionAsync(
+                        row,
+                        request.Status,
+                        normalizedReason,
+                        actorAdminPrincipalId,
+                        moderatedAt,
+                        cancellationToken)
+                    : await db.Updateable<Comment>()
+                        .SetColumns(it => it.ModerationStatus == request.Status)
+                        .SetColumns(it => it.ModerationReason == normalizedReason)
+                        .SetColumns(it => it.ModeratedByAdminPrincipalId == actorAdminPrincipalId)
+                        .SetColumns(it => it.ModeratedAt == moderatedAt)
+                        .Where(it => it.Id == row.Id && !it.IsDeleted && it.ModerationStatus == row.Status)
+                        .ExecuteCommandAsync(cancellationToken);
                 if (affected <= 0)
                 {
+                    concurrencyConflicts.Add(row.Id.ToString(CultureInfo.InvariantCulture));
                     throw new InvalidOperationException("Comment moderation bulk update conflicted.");
+                }
+
+                if (preconditions is not null)
+                {
+                    CommentModerationDecisionPrecondition expected = preconditions[row.Id];
+                    CommentModerationClaimCommandResult completed = await moderationQueueStore!.CompleteAsync(
+                        row.Id,
+                        actorAdminPrincipalId,
+                        expected.ClaimToken,
+                        expected.ClaimGeneration,
+                        expected.ClaimRowVersion,
+                        cancellationToken);
+                    if (!completed.Success)
+                    {
+                        concurrencyConflicts.Add(row.Id.ToString(CultureInfo.InvariantCulture));
+                        throw new InvalidOperationException("Comment moderation bulk claim conflicted.");
+                    }
                 }
 
                 if (mutationOutbox is not null)
@@ -275,6 +412,10 @@ public sealed class AuthoringModerationWorkflowService(
         });
         if (!transaction.IsSuccess)
         {
+            if (concurrencyConflicts.Count > 0)
+            {
+                return new CommentModerationBulkResponse(0, 0, concurrencyConflicts);
+            }
             throw new InvalidOperationException("Comment moderation bulk update failed.", transaction.ErrorException);
         }
 
@@ -757,7 +898,13 @@ public sealed class AuthoringModerationWorkflowService(
             })
             .FirstAsync(cancellationToken);
 
-        return row is null ? null : HydrateCommentModerationDisplayNames(row);
+        if (row is null)
+        {
+            return null;
+        }
+
+        row.RowVersion = await LoadCommentRowVersionAsync(row.Id, cancellationToken);
+        return HydrateCommentModerationDisplayNames(row);
     }
 
     private async Task<List<CommentModerationStateRow>> LoadCommentModerationStatesAsync(long[] commentIds, CancellationToken cancellationToken)
@@ -803,11 +950,49 @@ public sealed class AuthoringModerationWorkflowService(
 
         foreach (CommentModerationStateRow row in rows)
         {
+            row.RowVersion = await LoadCommentRowVersionAsync(row.Id, cancellationToken);
             HydrateCommentModerationDisplayNames(row);
         }
 
         return rows;
     }
+
+    private async Task<string?> LoadCommentRowVersionAsync(long commentId, CancellationToken cancellationToken)
+    {
+        await using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            "SELECT xmin::text AS row_version FROM comment WHERE id = @CommentId AND is_deleted = false;",
+            new SugarParameter("@CommentId", commentId));
+        return await reader.ReadAsync(cancellationToken)
+            ? reader.ReadString("row_version")
+            : null;
+    }
+
+    private Task<int> UpdateModeratedCommentWithVersionAsync(
+        CommentModerationStateRow current,
+        CommentModerationStatus nextStatus,
+        string? reason,
+        long actorAdminPrincipalId,
+        DateTime moderatedAt,
+        CancellationToken cancellationToken)
+        => db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE comment
+            SET moderation_status = @NextStatus,
+                moderation_reason = @Reason,
+                moderated_by_admin_principal_id = @ActorAdminPrincipalId,
+                moderated_at = @ModeratedAt
+            WHERE id = @CommentId
+              AND is_deleted = false
+              AND moderation_status = @ExpectedStatus
+              AND xmin::text = @CommentRowVersion;
+            """,
+            new SugarParameter("@NextStatus", (int)nextStatus),
+            new SugarParameter("@Reason", reason),
+            new SugarParameter("@ActorAdminPrincipalId", actorAdminPrincipalId),
+            new SugarParameter("@ModeratedAt", moderatedAt),
+            new SugarParameter("@CommentId", current.Id),
+            new SugarParameter("@ExpectedStatus", (int)current.Status),
+            new SugarParameter("@CommentRowVersion", current.RowVersion));
 
     private static CommentModerationStateRow HydrateCommentModerationDisplayNames(CommentModerationStateRow row)
     {
@@ -1120,6 +1305,10 @@ public sealed class AuthoringModerationWorkflowService(
 
     private sealed class CommentModerationStateRow
     {
+        public string? RowVersion
+        {
+            get; set;
+        }
         public long Id
         {
             get; init;

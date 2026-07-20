@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -926,6 +927,7 @@ public static partial class AuthoringEndpoints
             IAedsEncoder aeds,
             int? status,
             int? limit,
+            string? cursor,
             IAuthoringModerationQueue service,
             CancellationToken cancellationToken) =>
         {
@@ -934,8 +936,99 @@ public static partial class AuthoringEndpoints
                 return AedsJsonResults.BadRequest(aeds, "comment_status_invalid");
             }
 
-            CommentModerationQueueResponse queue = await service.ListCommentModerationQueueAsync(resolvedStatus, limit ?? 50, cancellationToken);
+            CommentModerationQueueResponse queue;
+            try
+            {
+                queue = await service.ListCommentModerationQueuePageAsync(resolvedStatus, limit ?? 50, cursor, cancellationToken);
+            }
+            catch (ArgumentException)
+            {
+                return AedsJsonResults.BadRequest(aeds, "comment_moderation_cursor_invalid");
+            }
             return Ok(context, aeds, queue);
+        })
+        .RequireAdminPermission(AdminPermissions.CommentModerate)
+        .RequireRateLimiting("fixed_ip");
+
+        group.MapPost("/comments/{commentId:long}/moderation/claim", async (
+            long commentId,
+            HttpContext context,
+            IAedsEncoder aeds,
+            CommentModerationQueueStore store,
+            CancellationToken cancellationToken) =>
+        {
+            var parsed = await ReadRequestAsync<CommentModerationClaimRequest>(
+                context, aeds, "comment_moderation_claim_request_invalid", cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+
+            CommentModerationClaimRequest request = parsed.Value!;
+            CommentModerationClaimCommandResult result = await store.ClaimAsync(
+                commentId,
+                ResolveRequiredAdminPrincipalId(context),
+                TimeSpan.FromSeconds(request.LeaseSeconds),
+                TimeSpan.FromSeconds(request.ProcessSlaSeconds),
+                request.Note,
+                request.EscalationStatus,
+                cancellationToken);
+            return ClaimResult(context, aeds, commentId, result);
+        })
+        .RequireAdminPermission(AdminPermissions.CommentModerate)
+        .RequireRateLimiting("fixed_ip");
+
+        group.MapPost("/comments/{commentId:long}/moderation/claim/renew", async (
+            long commentId,
+            HttpContext context,
+            IAedsEncoder aeds,
+            CommentModerationQueueStore store,
+            CancellationToken cancellationToken) =>
+        {
+            var parsed = await ReadRequestAsync<CommentModerationClaimMutationRequest>(
+                context, aeds, "comment_moderation_claim_mutation_invalid", cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+
+            CommentModerationClaimMutationRequest request = parsed.Value!;
+            CommentModerationClaimCommandResult result = await store.RenewAsync(
+                commentId,
+                ResolveRequiredAdminPrincipalId(context),
+                request.ClaimToken,
+                request.ClaimGeneration,
+                request.ClaimRowVersion,
+                TimeSpan.FromSeconds(request.LeaseSeconds),
+                cancellationToken);
+            return ClaimResult(context, aeds, commentId, result);
+        })
+        .RequireAdminPermission(AdminPermissions.CommentModerate)
+        .RequireRateLimiting("fixed_ip");
+
+        group.MapPost("/comments/{commentId:long}/moderation/claim/release", async (
+            long commentId,
+            HttpContext context,
+            IAedsEncoder aeds,
+            CommentModerationQueueStore store,
+            CancellationToken cancellationToken) =>
+        {
+            var parsed = await ReadRequestAsync<CommentModerationClaimMutationRequest>(
+                context, aeds, "comment_moderation_claim_mutation_invalid", cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+
+            CommentModerationClaimMutationRequest request = parsed.Value!;
+            CommentModerationClaimCommandResult result = await store.ReleaseAsync(
+                commentId,
+                ResolveRequiredAdminPrincipalId(context),
+                request.ClaimToken,
+                request.ClaimGeneration,
+                request.ClaimRowVersion,
+                cancellationToken);
+            return ClaimResult(context, aeds, commentId, result);
         })
         .RequireAdminPermission(AdminPermissions.CommentModerate)
         .RequireRateLimiting("fixed_ip");
@@ -959,6 +1052,15 @@ public static partial class AuthoringEndpoints
             }
 
             CommentModerationBulkRequest request = parsed.Value!;
+            if (request.Preconditions is null
+                || request.Preconditions.Count != request.CommentIds.Distinct(StringComparer.Ordinal).Count()
+                || request.Preconditions.Any(static item => string.IsNullOrWhiteSpace(item.CommentRowVersion)
+                    || string.IsNullOrWhiteSpace(item.ClaimToken)
+                    || item.ClaimGeneration <= 0
+                    || string.IsNullOrWhiteSpace(item.ClaimRowVersion)))
+            {
+                return AedsJsonResults.BadRequest(aeds, "comment_moderation_precondition_required");
+            }
             IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
             if (stepUp is not null)
             {
@@ -1010,6 +1112,14 @@ public static partial class AuthoringEndpoints
             }
 
             CommentModerationRequest request = parsed.Value!;
+            if (!request.ExpectedStatus.HasValue
+                || string.IsNullOrWhiteSpace(request.CommentRowVersion)
+                || string.IsNullOrWhiteSpace(request.ClaimToken)
+                || request.ClaimGeneration is null or <= 0
+                || string.IsNullOrWhiteSpace(request.ClaimRowVersion))
+            {
+                return AedsJsonResults.BadRequest(aeds, "comment_moderation_precondition_required");
+            }
             IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
             if (stepUp is not null)
             {
@@ -1037,7 +1147,7 @@ public static partial class AuthoringEndpoints
                 {
                     moderated
                 })
-                : AedsJsonResults.NotFound(aeds, "comment_not_found");
+                : AedsJsonResults.Error(aeds, ErrorCode.Conflict, "comment_moderation_conflict", StatusCodes.Status409Conflict);
         })
         .RequireAdminPermission(AdminPermissions.CommentModerate)
         .WithAdminSensitiveStepUp()
@@ -1104,5 +1214,38 @@ public static partial class AuthoringEndpoints
         .WithAdminSensitiveStepUp()
         .RequireRateLimiting("fixed_ip");
 
+    }
+
+    private static IResult ClaimResult(
+        HttpContext context,
+        IAedsEncoder aeds,
+        long commentId,
+        CommentModerationClaimCommandResult result)
+    {
+        CommentModerationQueueClaim? claim = result.Claim;
+        var response = new CommentModerationClaimResponse(
+            result.Success,
+            result.Code,
+            commentId.ToString(CultureInfo.InvariantCulture),
+            result.CommentRowVersion,
+            result.ClaimToken,
+            claim?.OwnerAdminPrincipalId,
+            claim?.State,
+            claim?.ClaimedAtUtc,
+            claim?.LeaseExpiresAtUtc,
+            claim?.ProcessSlaDueAtUtc,
+            claim?.Note,
+            claim?.EscalationStatus,
+            claim?.ClaimGeneration,
+            claim?.RowVersion);
+        return result.Success
+            ? Ok(context, aeds, response)
+            : AedsJsonResults.Error(
+                aeds,
+                result.Code.EndsWith("_conflict", StringComparison.Ordinal) ? ErrorCode.Conflict : ErrorCode.Validation,
+                result.Code,
+                result.Code.EndsWith("_conflict", StringComparison.Ordinal)
+                    ? StatusCodes.Status409Conflict
+                    : StatusCodes.Status400BadRequest);
     }
 }

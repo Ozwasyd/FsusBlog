@@ -260,6 +260,9 @@ enum class FrameType : std::uint16_t
     CommentAppealDecisionRequest = 226,
     CommentAppealDecisionResult = 227,
     ArticleResponsibilityHistory = 228,
+    CommentModerationClaimRequest = 229,
+    CommentModerationClaimMutationRequest = 230,
+    CommentModerationClaimResponse = 231,
     EmptySuccess = 240,
     MutationId = 241,
     ApiError = 251,
@@ -489,6 +492,9 @@ enum class FrameType : std::uint16_t
         case FrameType::CommentAppealDecisionRequest:
         case FrameType::CommentAppealDecisionResult:
         case FrameType::ArticleResponsibilityHistory:
+        case FrameType::CommentModerationClaimRequest:
+        case FrameType::CommentModerationClaimMutationRequest:
+        case FrameType::CommentModerationClaimResponse:
         case FrameType::EmptySuccess:
         case FrameType::MutationId:
         case FrameType::ApiError:

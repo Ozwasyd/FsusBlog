@@ -353,7 +353,10 @@
 | GET | `/api/binary/author/taxonomy/categories` | 👑 | 管理端分类真实引用计数 |
 | GET | `/api/binary/author/taxonomy/tags` | 👑 | 管理端标签真实引用计数 |
 | GET | `/api/binary/author/analytics` | 👑 | 单作者分析 |
-| GET | `/api/binary/author/comments/moderation` | 👑 `comment.moderate` | 评论审核队列 |
+| GET | `/api/binary/author/comments/moderation?status&limit&cursor` | 👑 `comment.moderate` | 稳定 keyset 评论审核队列；响应返回 `nextCursor`、评论/claim row version 与 lease 状态 |
+| POST | `/api/binary/author/comments/{commentId}/moderation/claim` | 👑 `comment.moderate` | 抢占审核 lease；活跃 lease 冲突返回 409 |
+| POST | `/api/binary/author/comments/{commentId}/moderation/claim/renew` | 👑 `comment.moderate` | 以 token + generation + claim row version 续租 |
+| POST | `/api/binary/author/comments/{commentId}/moderation/claim/release` | 👑 `comment.moderate` | 以 token + generation + claim row version 释放 lease |
 | POST | `/api/binary/author/comments/moderation/bulk` | 👑 `comment.moderate` 🚦 MFA | 批量评论审核 |
 | POST | `/api/binary/author/comments/{commentId}/moderation` | 👑 `comment.moderate` 🚦 MFA | 评论审核 |
 | GET | `/api/binary/author/moderation/overview` | 👑 | 审核系统总览 |

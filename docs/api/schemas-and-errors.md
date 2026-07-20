@@ -656,3 +656,11 @@ replyToAuthorPayload?:CommentAuthorViewPod + blobLength:int32 + blob
 ## 文章/线程评论策略错误
 
 admin authoring JSON 使用既有 AEDS frame envelope，不新增公开文本 fallback。并发更新要求 `expectedPolicyVersion`；版本不符返回 `409 comment_policy_version_conflict`。评论写入可返回 `comment_policy_closed`、`comment_thread_locked`、`comment_slow_mode_active`；这些状态不改变公共读取结果。
+
+## 评论审核队列错误
+
+- `400 comment_moderation_cursor_invalid`：cursor 不是当前版本的合法 opaque keyset。
+- `400 comment_moderation_precondition_required`：单条或批量审核缺少评论/claim 并发前置条件。
+- `400 comment_moderation_claim_invalid`：lease/SLA/note/escalation 或 token 形状无效。
+- `409 comment_moderation_claim_conflict`：claim 已被占用、过期、续租或释放所携带的 owner/token/generation/row version 已过时。
+- `409 comment_moderation_conflict`：评论状态、评论 row version 或 claim 条件在决策前变化；事务不写评论、outbox、审计或 claim 完成状态。

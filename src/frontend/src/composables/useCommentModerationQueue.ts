@@ -614,7 +614,9 @@ export function useCommentModerationQueue(options: UseCommentModerationQueueOpti
             items: [],
             pendingCount: 0,
             rejectedCount: 0,
-            hiddenCount: 0
+            hiddenCount: 0,
+            nextCursor: null,
+            leases: []
           }
         }
       }

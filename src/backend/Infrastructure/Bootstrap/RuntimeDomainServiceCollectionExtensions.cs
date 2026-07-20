@@ -114,6 +114,8 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IAuthoringContentImport>(sp => sp.GetRequiredService<AuthoringContentTransferService>());
         services.AddScoped<IAuthoringAiAssist>(sp => sp.GetRequiredService<AuthoringContentTransferService>());
         services.AddScoped<AuthoringModerationWorkflowService>();
+        services.AddScoped<CommentModerationQueueService>();
+        services.AddScoped<CommentModerationQueueStore>();
         services.AddScoped<IAuthoringModerationQueue>(sp => sp.GetRequiredService<AuthoringModerationWorkflowService>());
         services.AddScoped<IAuthoringModerationCommands>(sp => sp.GetRequiredService<AuthoringModerationWorkflowService>());
         services.AddScoped<IAuthoringAuditWriter, AuthoringAuditWriter>();

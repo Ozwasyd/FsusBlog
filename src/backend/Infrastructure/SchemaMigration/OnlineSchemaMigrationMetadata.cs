@@ -757,6 +757,29 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
+            CommentModerationQueueMigrationDefinitions.MigrationId,
+            new OnlineSchemaMigrationMetadata(
+                CommentModerationQueueMigrationDefinitions.MigrationId,
+                OnlineSchemaMigrationPhase.Expand,
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260720-comment-moderation-queue-lease"),
+                ContractAfterCoordinate: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write",
+                    "comment_moderation_queue_query_plan",
+                    "comment_moderation_claim_cas"
+                ]));
+
+        result.Add(
             ArticleDraftBaseRevisionMigrationDefinitions.MigrationId,
             new OnlineSchemaMigrationMetadata(
                 ArticleDraftBaseRevisionMigrationDefinitions.MigrationId,

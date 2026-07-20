@@ -197,7 +197,15 @@ public sealed record class AuthorAnalyticsResponse(
     IReadOnlyList<AuthorAnalyticsMetricResponse> RumPageTypes,
     IReadOnlyList<AuthorAnalyticsMetricResponse> RumAotSources);
 
-public sealed record class CommentModerationRequest(CommentModerationStatus Status, string? Reason, bool BanUser = false);
+public sealed record class CommentModerationRequest(
+    CommentModerationStatus Status,
+    string? Reason,
+    bool BanUser = false,
+    CommentModerationStatus? ExpectedStatus = null,
+    string? CommentRowVersion = null,
+    string? ClaimToken = null,
+    int? ClaimGeneration = null,
+    string? ClaimRowVersion = null);
 
 public sealed record class CommentModerationModelSignalResponse(
     string Provider,
@@ -261,15 +269,73 @@ public sealed record class CommentModerationQueueResponse(
     IReadOnlyList<CommentModerationItemResponse> Items,
     int PendingCount,
     int RejectedCount,
-    int HiddenCount);
+    int HiddenCount,
+    string? NextCursor = null,
+    IReadOnlyList<CommentModerationQueueLeaseResponse>? Leases = null);
+
+public sealed record class CommentModerationQueueLeaseResponse(
+    string CommentId,
+    string CommentRowVersion,
+    int AppealPriority,
+    int RiskScore,
+    DateTime WaitingSinceUtc,
+    long? OwnerAdminPrincipalId,
+    string? State,
+    DateTime? ClaimedAtUtc,
+    DateTime? LeaseExpiresAtUtc,
+    DateTime? ProcessSlaDueAtUtc,
+    string? Note,
+    string? EscalationStatus,
+    int? ClaimGeneration,
+    string? ClaimRowVersion);
+
+public sealed record class CommentModerationClaimRequest(
+    int LeaseSeconds = 120,
+    int ProcessSlaSeconds = 1800,
+    string? Note = null,
+    string EscalationStatus = "none");
+
+public sealed record class CommentModerationClaimMutationRequest(
+    string ClaimToken,
+    int ClaimGeneration,
+    string ClaimRowVersion,
+    int LeaseSeconds = 120);
+
+public sealed record class CommentModerationClaimResponse(
+    bool Applied,
+    string Code,
+    string CommentId,
+    string? CommentRowVersion,
+    string? ClaimToken,
+    long? OwnerAdminPrincipalId,
+    string? State,
+    DateTime? ClaimedAtUtc,
+    DateTime? LeaseExpiresAtUtc,
+    DateTime? ProcessSlaDueAtUtc,
+    string? Note,
+    string? EscalationStatus,
+    int? ClaimGeneration,
+    string? ClaimRowVersion);
 
 public sealed record class CommentModerationBulkRequest(
     IReadOnlyList<string> CommentIds,
     CommentModerationStatus Status,
     string? Reason,
-    bool BanUsers = false);
+    bool BanUsers = false,
+    IReadOnlyList<CommentModerationDecisionPrecondition>? Preconditions = null);
 
-public sealed record class CommentModerationBulkResponse(int Updated, int BannedUsers);
+public sealed record class CommentModerationDecisionPrecondition(
+    string CommentId,
+    CommentModerationStatus ExpectedStatus,
+    string CommentRowVersion,
+    string ClaimToken,
+    int ClaimGeneration,
+    string ClaimRowVersion);
+
+public sealed record class CommentModerationBulkResponse(
+    int Updated,
+    int BannedUsers,
+    IReadOnlyList<string>? Conflicts = null);
 
 public sealed record class AnonymousNullifierBlockRequest(
     string NullifierHash,

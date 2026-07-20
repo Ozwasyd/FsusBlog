@@ -91,6 +91,12 @@ public interface IAuthoringModerationQueue
         CommentModerationStatus? status = null,
         int limit = 50,
         CancellationToken cancellationToken = default);
+
+    Task<CommentModerationQueueResponse> ListCommentModerationQueuePageAsync(
+        CommentModerationStatus? status,
+        int limit,
+        string? cursor,
+        CancellationToken cancellationToken = default);
 }
 
 public interface IAuthoringModerationCommands

@@ -225,6 +225,9 @@ public enum AedsFrameType : ushort
     CommentAppealDecisionRequest = 226,
     CommentAppealDecisionResult = 227,
     ArticleResponsibilityHistory = 228,
+    CommentModerationClaimRequest = 229,
+    CommentModerationClaimMutationRequest = 230,
+    CommentModerationClaimResponse = 231,
     EmptySuccess = 240,
     MutationId = 241,
     ApiError = 251

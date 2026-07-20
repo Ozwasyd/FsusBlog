@@ -124,7 +124,7 @@ const {
   applyBulk,
   applyBlockAnonymousNullifier,
   applyRevokeAnonymousCredential
-} = useCommentModerationActions()
+} = useCommentModerationActions(() => allItems.value)
 const {
   highlightedKeys: taskFeedbackHighlightedIds
 } = taskFeedback

@@ -937,6 +937,18 @@
             "value": 228
         },
         {
+            "name": "CommentModerationClaimRequest",
+            "value": 229
+        },
+        {
+            "name": "CommentModerationClaimMutationRequest",
+            "value": 230
+        },
+        {
+            "name": "CommentModerationClaimResponse",
+            "value": 231
+        },
+        {
             "name": "EmptySuccess",
             "value": 240
         },

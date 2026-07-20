@@ -34,6 +34,7 @@ internal static class SchemaMigrationCatalog20260720
                 UserSessionModeMigrationDefinitions.BuildMigration(),
                 RefreshTokenLineageMigrationDefinitions.BuildMigration(),
                 ArticleCommentPolicyMigrationDefinitions.BuildMigration(),
+                CommentModerationQueueMigrationDefinitions.BuildMigration(),
                 CommentMutationIdempotencyMigrationDefinitions.BuildMigration(),
                 CommentMutationOutboxMigrationDefinitions.BuildMigration(),
                 CommentGovernanceMigrationDefinitions.BuildMigration(),

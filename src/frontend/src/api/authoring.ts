@@ -672,12 +672,76 @@ export interface CommentModerationQueueResponse {
   pendingCount: number
   rejectedCount: number
   hiddenCount: number
+  nextCursor: string | null
+  leases: CommentModerationQueueLeaseResponse[]
+}
+
+export interface CommentModerationQueueLeaseResponse {
+  commentId: string
+  commentRowVersion: string
+  appealPriority: number
+  riskScore: number
+  waitingSinceUtc: string
+  ownerAdminPrincipalId: number | null
+  state: string | null
+  claimedAtUtc: string | null
+  leaseExpiresAtUtc: string | null
+  processSlaDueAtUtc: string | null
+  note: string | null
+  escalationStatus: string | null
+  claimGeneration: number | null
+  claimRowVersion: string | null
+}
+
+export interface CommentModerationClaimRequest {
+  leaseSeconds?: number
+  processSlaSeconds?: number
+  note?: string | null
+  escalationStatus?: 'none' | 'watch' | 'escalated'
+}
+
+export interface CommentModerationClaimMutationRequest {
+  claimToken: string
+  claimGeneration: number
+  claimRowVersion: string
+  leaseSeconds?: number
+}
+
+export interface CommentModerationClaimResponse {
+  applied: boolean
+  code: string
+  commentId: string
+  commentRowVersion: string | null
+  claimToken: string | null
+  ownerAdminPrincipalId: number | null
+  state: string | null
+  claimedAtUtc: string | null
+  leaseExpiresAtUtc: string | null
+  processSlaDueAtUtc: string | null
+  note: string | null
+  escalationStatus: string | null
+  claimGeneration: number | null
+  claimRowVersion: string | null
 }
 
 export interface CommentModerationRequest {
   status: CommentModerationStatus
   reason: string | null
   banUser?: boolean
+  expectedStatus?: CommentModerationStatus
+  commentRowVersion?: string
+  claimToken?: string
+  claimGeneration?: number
+  claimRowVersion?: string
+}
+
+export interface CommentModerationDecisionPrecondition {
+  commentId: string
+  expectedStatus: CommentModerationStatus
+  commentRowVersion: string
+  claimToken: string
+  claimGeneration: number
+  claimRowVersion: string
 }
 
 export interface CommentModerationBulkRequest {
@@ -685,11 +749,13 @@ export interface CommentModerationBulkRequest {
   status: CommentModerationStatus
   reason: string | null
   banUsers?: boolean
+  preconditions?: CommentModerationDecisionPrecondition[]
 }
 
 export interface CommentModerationBulkResponse {
   updated: number
   bannedUsers: number
+  conflicts: string[] | null
 }
 
 export interface AnonymousNullifierBlockRequest {
@@ -1356,13 +1422,51 @@ export async function applyIntegrityFix(
 export async function listCommentModerationQueue(
   status: CommentModerationStatus = CommentModerationStatus.Pending,
   limit = 50,
-  config?: ApiRequestConfig
+  config?: ApiRequestConfig,
+  cursor?: string | null
 ): Promise<CommentModerationQueueResponse> {
   const search = new URLSearchParams({
     status: String(status),
     limit: String(limit)
   })
+  if (cursor) search.set('cursor', cursor)
   return requestAuthoringBinary<CommentModerationQueueResponse>(`/comments/moderation?${search.toString()}`, FrameType.CommentModerationQueue, config)
+}
+
+export async function claimCommentModeration(
+  commentId: string,
+  request: CommentModerationClaimRequest,
+  config?: ApiRequestConfig
+): Promise<CommentModerationClaimResponse> {
+  return requestAuthoringBinary<CommentModerationClaimResponse>(`/comments/${encodeURIComponent(commentId)}/moderation/claim`, FrameType.CommentModerationClaimResponse, config, {
+    method: 'POST',
+    requestFrame: FrameType.CommentModerationClaimRequest,
+    request
+  })
+}
+
+export async function renewCommentModerationClaim(
+  commentId: string,
+  request: CommentModerationClaimMutationRequest,
+  config?: ApiRequestConfig
+): Promise<CommentModerationClaimResponse> {
+  return requestAuthoringBinary<CommentModerationClaimResponse>(`/comments/${encodeURIComponent(commentId)}/moderation/claim/renew`, FrameType.CommentModerationClaimResponse, config, {
+    method: 'POST',
+    requestFrame: FrameType.CommentModerationClaimMutationRequest,
+    request
+  })
+}
+
+export async function releaseCommentModerationClaim(
+  commentId: string,
+  request: CommentModerationClaimMutationRequest,
+  config?: ApiRequestConfig
+): Promise<CommentModerationClaimResponse> {
+  return requestAuthoringBinary<CommentModerationClaimResponse>(`/comments/${encodeURIComponent(commentId)}/moderation/claim/release`, FrameType.CommentModerationClaimResponse, config, {
+    method: 'POST',
+    requestFrame: FrameType.CommentModerationClaimMutationRequest,
+    request
+  })
 }
 
 export async function getModerationOverview(config?: ApiRequestConfig): Promise<ModerationOverviewResponse> {

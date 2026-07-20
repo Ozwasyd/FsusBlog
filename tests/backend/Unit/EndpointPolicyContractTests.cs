@@ -145,6 +145,19 @@ public sealed class EndpointPolicyContractTests
         AssertRateLimit(queue, "fixed_ip");
         Assert.Null(queue.Metadata.GetMetadata<AdminSensitiveStepUpMetadata>());
 
+        foreach (string route in new[]
+        {
+            "/api/binary/author/comments/{commentId:long}/moderation/claim",
+            "/api/binary/author/comments/{commentId:long}/moderation/claim/renew",
+            "/api/binary/author/comments/{commentId:long}/moderation/claim/release"
+        })
+        {
+            RouteEndpoint claim = EndpointContractApplication.Find(app, route, HttpMethods.Post);
+            AssertAdminPermission(claim, AdminPermissions.CommentModerate);
+            AssertRateLimit(claim, "fixed_ip");
+            Assert.Null(claim.Metadata.GetMetadata<AdminSensitiveStepUpMetadata>());
+        }
+
         foreach ((string route, string method) in new[]
         {
             ("/api/binary/author/comments/moderation/bulk", HttpMethods.Post),

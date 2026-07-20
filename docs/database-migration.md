@@ -295,3 +295,11 @@ WHERE author_mode = 'public' AND user_id IS NOT NULL;
 The older `20260418-post-comment-threading-indexes` descriptor is left immutable because applied migration checksums are verified at startup. New or restored databases may briefly create the old index while replaying legacy descriptors, then the finalizer removes it in the same migration run.
 
 Rollback without restarting the application is limited to the database index shape: recreate `idx_comment_user_id_desc` manually only if an emergency query plan regression is confirmed, then remove it again before reenabling anonymous-comment write traffic. Do not use that fallback to reintroduce default anonymous user-bound queries.
+
+## Comment Moderation Queue Lease
+
+`20260720-post-comment-moderation-queue-lease` is an additive, non-transactional post-CodeFirst migration. It creates `comment_moderation_queue_claim` with one current row per comment, hashed claim tokens, owner, lease/SLA timestamps, note, escalation state and monotonic generation. The four indexes are created with `CREATE INDEX CONCURRENTLY`: expired-lease recovery, owner lease lookup, the partial pending/borderline queue index `(create_time, id)`, and the pending-appeal queue index.
+
+The migration is safe to retry. Runtime claim takeover uses `INSERT ... ON CONFLICT ... WHERE` and can replace only released/expired leases or an active lease whose expiry boundary has passed. Deployment gates are: invalid-index check in `pg_index`, queue `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)` showing bounded keyset work, and claim conflict/expiry integration tests. Observe index bytes, `n_tup_upd`, dead tuples and autovacuum cadence after rollout; the claim table intentionally isolates lease write amplification from the large `comment` table.
+
+No-restart degradation is to stop issuing new claims at the edge and continue read-only queue inspection while existing leases expire. Rollback drops only the four new indexes concurrently; the additive table remains through the N-1 window so an older process cannot lose in-flight ownership evidence. A later destructive cleanup may drop it only after rollback eligibility ends and a backup is verified.

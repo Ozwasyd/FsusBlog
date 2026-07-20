@@ -50,6 +50,20 @@ public sealed class AuthoringNativeAedsEndpointTests
             out var commentPolicyUpdateRoute));
         Assert.Equal(AedsFrameType.CommentPolicyUpdateRequest, commentPolicyUpdateRoute.RequestFrame);
         Assert.Equal(AedsFrameType.CommentPolicySnapshot, commentPolicyUpdateRoute.ResponseFrame);
+
+        Assert.True(AuthoringEndpoints.TryResolveRoute(
+            HttpMethods.Post,
+            new PathString("/comments/88001/moderation/claim"),
+            out var claimRoute));
+        Assert.Equal(AedsFrameType.CommentModerationClaimRequest, claimRoute.RequestFrame);
+        Assert.Equal(AedsFrameType.CommentModerationClaimResponse, claimRoute.ResponseFrame);
+
+        Assert.True(AuthoringEndpoints.TryResolveRoute(
+            HttpMethods.Post,
+            new PathString("/comments/88001/moderation/claim/renew"),
+            out var renewRoute));
+        Assert.Equal(AedsFrameType.CommentModerationClaimMutationRequest, renewRoute.RequestFrame);
+        Assert.Equal(AedsFrameType.CommentModerationClaimResponse, renewRoute.ResponseFrame);
     }
 
     [Fact]
