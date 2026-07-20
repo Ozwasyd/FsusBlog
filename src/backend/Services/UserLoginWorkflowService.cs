@@ -42,6 +42,7 @@ public sealed partial class UserLoginWorkflowService(
         string? userAgent,
         bool mfaVerified,
         bool rememberMe,
+        UserSessionAuthenticationContext? authenticationContext = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -57,7 +58,8 @@ public sealed partial class UserLoginWorkflowService(
             deviceFingerprint,
             userAgent,
             mfaVerified,
-            rememberMe);
+            rememberMe,
+            authenticationContext);
         return (
             result.Success,
             result.Message,
@@ -88,7 +90,8 @@ public sealed partial class UserLoginWorkflowService(
         string? deviceFingerprint,
         string? userAgent,
         bool mfaVerified,
-        bool rememberMe)
+        bool rememberMe,
+        UserSessionAuthenticationContext? authenticationContext = null)
     {
         if (!AccountRegistrationStates.IsActive(user.RegistrationState))
         {
@@ -111,10 +114,25 @@ public sealed partial class UserLoginWorkflowService(
             LogBannedAccountLogin(accountSubject);
         }
 
+        DateTime authenticatedAtUtc = DateTime.UtcNow;
+        UserSessionAuthenticationContext sessionAuthentication = authenticationContext
+            ?? UserSessionAuthenticationContext.FromLegacy(mfaVerified, rememberMe, authenticatedAtUtc);
+        sessionAuthentication = sessionAuthentication with
+        {
+            AuthenticatedAtUtc = DateTime.SpecifyKind(sessionAuthentication.AuthenticatedAtUtc, DateTimeKind.Utc),
+            DurationPolicy = UserSessionDurationPolicies.FromRememberMe(rememberMe)
+        };
+        if (!UserSessionAuthenticationMethods.IsValid(sessionAuthentication.Method) ||
+            !UserSessionAuthenticationStrengths.IsValid(sessionAuthentication.Strength) ||
+            sessionAuthentication.AuthenticatedAtUtc == default)
+        {
+            return (false, "登录认证上下文无效", null, null);
+        }
+
         string refreshToken = jwt.GenerateRefreshToken();
         string refreshTokenHash = HashToken(refreshToken);
         string sessionId = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
-        IssuedAccessToken accessToken = jwt.GenerateAccessToken(user, sessionId, mfaVerified);
+        IssuedAccessToken accessToken = jwt.GenerateAccessToken(user, sessionId, sessionAuthentication);
         DateTime idleExpiresAt = DateTime.MinValue;
         DateTime absoluteExpiresAt = DateTime.MinValue;
 
@@ -130,8 +148,13 @@ public sealed partial class UserLoginWorkflowService(
             LastSeenAt = DateTime.UtcNow,
             IdleExpiresAt = idleExpiresAt,
             AbsoluteExpiresAt = absoluteExpiresAt,
-            MfaVerified = mfaVerified,
-            RememberMe = rememberMe
+            MfaVerified = UserSessionAuthenticationStrengths.IsCoarseMfa(sessionAuthentication.Strength),
+            RememberMe = rememberMe,
+            AuthenticationMethod = sessionAuthentication.Method,
+            AuthenticationStrength = sessionAuthentication.Strength,
+            AuthenticatedAtUtc = sessionAuthentication.AuthenticatedAtUtc,
+            AuthenticatedCredentialRowId = sessionAuthentication.CredentialRowId,
+            DurationPolicy = sessionAuthentication.DurationPolicy
         };
 
         long transactionStarted = Stopwatch.GetTimestamp();
@@ -210,7 +233,8 @@ public sealed partial class UserLoginWorkflowService(
             accessToken.ExpiresAtUtc,
             refreshToken,
             session.SessionId,
-            idleExpiresAt), user);
+            idleExpiresAt,
+            session.DurationPolicy), user);
     }
 
     private async Task<(int Expired, int LimitEvicted)> RevokeSessionsForAdmissionAsync(

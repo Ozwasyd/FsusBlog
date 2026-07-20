@@ -1,5 +1,6 @@
 using System.Reflection;
 
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.Security;
@@ -196,14 +197,29 @@ public sealed class MfaChallengeServiceTests
     public async Task MfaProofTokens_AreBoundToSubjectActionAndCryptographicRandomness()
     {
         var cache = new RecordingCounterCache();
-        var service = new MfaChallengeService(cache, cache, cache, cache, cache, NullLogger<MfaChallengeService>.Instance);
-        string first = await service.CreateProofTokenAsync(42, s_atomicSubjectHash, "passkey.delete", TimeSpan.FromMinutes(1));
-        string second = await service.CreateProofTokenAsync(42, s_atomicSubjectHash, "passkey.delete", TimeSpan.FromMinutes(1));
-        string otherSubject = await service.CreateProofTokenAsync(42, s_lockedSubjectHash, "passkey.delete", TimeSpan.FromMinutes(1));
-        string otherAction = await service.CreateProofTokenAsync(42, s_atomicSubjectHash, "profile.email", TimeSpan.FromMinutes(1));
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [MfaChallengeService.ProofFreshnessMinutesConfigurationKey] = "1"
+            })
+            .Build();
+        var service = new MfaChallengeService(
+            cache,
+            cache,
+            cache,
+            cache,
+            cache,
+            NullLogger<MfaChallengeService>.Instance,
+            configuration);
+        string first = await service.CreateProofTokenAsync(42, s_atomicSubjectHash, "session-a", "passkey.delete", UserSessionAuthenticationMethods.Passkey, TimeSpan.FromMinutes(1));
+        string second = await service.CreateProofTokenAsync(42, s_atomicSubjectHash, "session-a", "passkey.delete", UserSessionAuthenticationMethods.Passkey, TimeSpan.FromMinutes(1));
+        string otherSubject = await service.CreateProofTokenAsync(42, s_lockedSubjectHash, "session-a", "passkey.delete", UserSessionAuthenticationMethods.Passkey, TimeSpan.FromMinutes(1));
+        string otherAction = await service.CreateProofTokenAsync(42, s_atomicSubjectHash, "session-a", "profile.email", UserSessionAuthenticationMethods.Passkey, TimeSpan.FromMinutes(1));
+        string otherSession = await service.CreateProofTokenAsync(42, s_atomicSubjectHash, "session-b", "passkey.delete", UserSessionAuthenticationMethods.Passkey, TimeSpan.FromMinutes(1));
 
         Assert.NotEqual(first, second);
-        Assert.Equal(4, cache.StringWriteIdentities.Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(5, cache.StringWriteIdentities.Distinct(StringComparer.Ordinal).Count());
+        Assert.All(cache.StringWriteTtls, ttl => Assert.Equal(TimeSpan.FromMinutes(1), ttl));
         string createProof = RuntimeMetadataInspection.DescribeMethods(
             typeof(MfaChallengeService),
             nameof(MfaChallengeService.CreateProofTokenAsync));
@@ -218,13 +234,77 @@ public sealed class MfaChallengeServiceTests
         Assert.DoesNotContain("Guid.NewGuid", createProof, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task MfaProofTokens_AreOneTimeAndRejectCrossAccountSubjectSessionAndActionUse()
+    {
+        var cache = new RecordingCounterCache();
+        var service = new MfaChallengeService(
+            cache,
+            cache,
+            cache,
+            cache,
+            cache,
+            NullLogger<MfaChallengeService>.Instance);
+
+        string replayToken = await service.CreateProofTokenAsync(
+            42,
+            s_atomicSubjectHash,
+            "session-a",
+            "passkey.delete",
+            UserSessionAuthenticationMethods.Passkey,
+            TimeSpan.FromMinutes(5));
+        Assert.True(await service.ValidateAndConsumeProofTokenAsync(
+            42,
+            s_atomicSubjectHash,
+            "session-a",
+            "passkey.delete",
+            replayToken));
+        Assert.False(await service.ValidateAndConsumeProofTokenAsync(
+            42,
+            s_atomicSubjectHash,
+            "session-a",
+            "passkey.delete",
+            replayToken));
+
+        foreach ((int AccountId, string Subject, string SessionId, string Action) mismatch in new[]
+        {
+            (43, s_atomicSubjectHash, "session-a", "passkey.delete"),
+            (42, s_lockedSubjectHash, "session-a", "passkey.delete"),
+            (42, s_atomicSubjectHash, "session-b", "passkey.delete"),
+            (42, s_atomicSubjectHash, "session-a", "recovery.rotate")
+        })
+        {
+            string token = await service.CreateProofTokenAsync(
+                42,
+                s_atomicSubjectHash,
+                "session-a",
+                "passkey.delete",
+                UserSessionAuthenticationMethods.Passkey,
+                TimeSpan.FromMinutes(5));
+            Assert.False(await service.ValidateAndConsumeProofTokenAsync(
+                mismatch.AccountId,
+                mismatch.Subject,
+                mismatch.SessionId,
+                mismatch.Action,
+                token));
+            Assert.True(await service.ValidateAndConsumeProofTokenAsync(
+                42,
+                s_atomicSubjectHash,
+                "session-a",
+                "passkey.delete",
+                token));
+        }
+    }
+
     private sealed class RecordingCounterCache : IUnifiedCache
     {
         public Dictionary<string, long> Counters { get; } = new(StringComparer.Ordinal);
         public HashSet<string> Removed { get; } = new(StringComparer.Ordinal);
+        public List<TimeSpan?> StringWriteTtls { get; } = [];
         public List<string[]> AtomicIncrementBatches { get; } = [];
         public List<TimeSpan> AtomicIncrementBatchTtls { get; } = [];
         public List<string> StringWriteIdentities { get; } = [];
+        public HashSet<string> ActiveStringIdentities { get; } = new(StringComparer.Ordinal);
         public int SingleIncrementCalls
         {
             get; private set;
@@ -251,6 +331,8 @@ public sealed class MfaChallengeServiceTests
         public Task SetStringAsync(CachePolicyId policyId, string identity, string value, TimeSpan? l2TtlOverride = null, CancellationToken cancellationToken = default)
         {
             StringWriteIdentities.Add(identity);
+            StringWriteTtls.Add(l2TtlOverride);
+            ActiveStringIdentities.Add(identity);
             return Task.CompletedTask;
         }
 
@@ -287,7 +369,7 @@ public sealed class MfaChallengeServiceTests
             => Task.FromResult(false);
 
         public Task<bool> ConsumeOnceAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
-            => Task.FromResult(false);
+            => Task.FromResult(ActiveStringIdentities.Remove(identity));
 
         public Task<CacheReadResult<T>> ConsumeOnceAndGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default)
             => Task.FromResult(new CacheReadResult<T>(false, default));

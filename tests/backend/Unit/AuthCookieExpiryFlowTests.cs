@@ -84,6 +84,14 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
             return;
         }
 
+        if (flow == AuthExpiryFlow.PasskeyLogin)
+        {
+            AssertCookieHasNoExpiry(response, "AccessToken");
+            AssertCookieHasNoExpiry(response, "RefreshToken");
+            AssertCookieHasNoExpiry(response, "SessionId");
+            return;
+        }
+
         Assert.Equal(
             flow is AuthExpiryFlow.AdminBootstrap or AuthExpiryFlow.AdminLogin
                 ? s_adminAccessTokenExpiresAtUtc
@@ -259,6 +267,16 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
             DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal);
     }
 
+    private static void AssertCookieHasNoExpiry(HttpResponseMessage response, string cookieName)
+    {
+        string cookie = Assert.Single(
+            response.Headers.GetValues("Set-Cookie"),
+            value => value.StartsWith(cookieName + "=", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            cookie.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+            static attribute => attribute.StartsWith("expires=", StringComparison.OrdinalIgnoreCase));
+    }
+
     public enum AuthExpiryFlow
     {
         AnonymousBootstrap,
@@ -406,8 +424,8 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
             passkeys.CompleteAssertionAsync(
                     Arg.Any<PasskeyLoginCompleteCoreModel>(),
                     Arg.Any<CancellationToken>())
-                .Returns(Task.FromResult<(bool Success, string Message, User? User)>(
-                    (true, "ok", passkeyUser)));
+                .Returns(Task.FromResult<(bool Success, string Message, User? User, int? CredentialRowId)>(
+                    (true, "ok", passkeyUser, 41)));
 
             pow.VerifyAsync(Arg.Any<IPowRequest>(), Arg.Any<string>(), Arg.Any<string?>())
                 .Returns(Task.FromResult(true));
@@ -435,12 +453,6 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
 
                 string testId = Interlocked.Increment(ref testSequence)
                     .ToString(CultureInfo.InvariantCulture);
-                var sessionTokens = new SessionTokenResponseDto(
-                    $"issued-user-access-{testId}",
-                    s_userAccessTokenExpiresAtUtc,
-                    $"issued-user-refresh-{testId}",
-                    $"issued-user-session-{testId}",
-                    DateTime.SpecifyKind(s_userAccessTokenExpiresAtUtc.UtcDateTime.AddDays(7), DateTimeKind.Utc));
                 loginWorkflow.CompleteLoginAsync(
                         Arg.Any<int>(),
                         Arg.Any<string>(),
@@ -448,12 +460,28 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
                         Arg.Any<string?>(),
                         Arg.Any<bool>(),
                         Arg.Any<bool>(),
+                        Arg.Any<UserSessionAuthenticationContext?>(),
                         Arg.Any<CancellationToken>())
-                    .Returns(Task.FromResult<(
-                        bool Success,
-                        string Message,
-                        SessionTokenResponseDto? Data,
-                        UserAccountSnapshot? User)>((true, "ok", sessionTokens, account)));
+                    .Returns(call =>
+                    {
+                        string durationPolicy = call.ArgAt<bool>(5)
+                            ? UserSessionDurationPolicies.Persistent30Days
+                            : UserSessionDurationPolicies.BrowserSession;
+                        var sessionTokens = new SessionTokenResponseDto(
+                            $"issued-user-access-{testId}",
+                            s_userAccessTokenExpiresAtUtc,
+                            $"issued-user-refresh-{testId}",
+                            $"issued-user-session-{testId}",
+                            DateTime.SpecifyKind(
+                                s_userAccessTokenExpiresAtUtc.UtcDateTime.AddDays(7),
+                                DateTimeKind.Utc),
+                            durationPolicy);
+                        return Task.FromResult<(
+                            bool Success,
+                            string Message,
+                            SessionTokenResponseDto? Data,
+                            UserAccountSnapshot? User)>((true, "ok", sessionTokens, account));
+                    });
 
                 var refreshTokens = new TokenResponseDto(
                     $"rotated-user-access-{testId}",
@@ -461,6 +489,12 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
                     s_userAccessTokenExpiresAtUtc.UtcDateTime.AddDays(7),
                     $"rotated-user-session-{testId}",
                     s_userAccessTokenExpiresAtUtc);
+                sessions.GetSessionByRefreshTokenAsync("old-refresh", Arg.Any<CancellationToken>())
+                    .Returns(Task.FromResult<UserSession?>(new UserSession
+                    {
+                        SessionId = "old-session",
+                        DurationPolicy = UserSessionDurationPolicies.Persistent30Days
+                    }));
                 sessions.RefreshTokenWithExpiryAsync(
                         "old-refresh",
                         "old-session",
@@ -710,7 +744,7 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
                 AuthenticatorData = [7, 8, 9],
                 Signature = [10, 11, 12],
                 UserHandle = [13],
-                RememberMe = true
+                RememberMe = false
             };
 
         private static void WriteStorageState(

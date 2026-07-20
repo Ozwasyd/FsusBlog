@@ -4,11 +4,14 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
+
+using SqlSugar;
 
 namespace FsusBlog.Server.Services.Security;
 
@@ -52,8 +55,8 @@ public interface IMfaChallengeService
     Task<MfaChallengeTicket?> GetChallengeAsync(string ticketId);
     Task ConsumeChallengeAsync(string ticketId);
     Task<bool> RecordFailureAsync(MfaChallengeTicket ticket, string clientIp, string? userAgent);
-    Task<string> CreateProofTokenAsync(int accountId, string accountSubjectHash, string action, TimeSpan ttl);
-    Task<bool> ValidateAndConsumeProofTokenAsync(int accountId, string accountSubjectHash, string action, string token);
+    Task<string> CreateProofTokenAsync(int accountId, string accountSubjectHash, string sessionId, string action, string stepUpMethod, TimeSpan ttl);
+    Task<bool> ValidateAndConsumeProofTokenAsync(int accountId, string accountSubjectHash, string sessionId, string action, string token);
 }
 
 public sealed class MfaChallengeService(
@@ -63,8 +66,12 @@ public sealed class MfaChallengeService(
     ICacheOneTimeStore oneTimeStore,
     ICacheInvalidationStore invalidation,
     ILogger<MfaChallengeService> logger,
-    IConfiguration? configuration = null) : IMfaChallengeService
+    IConfiguration? configuration = null,
+    ISqlSugarClient? db = null) : IMfaChallengeService
 {
+    public const string ProofFreshnessMinutesConfigurationKey = "Security:StepUp:FreshnessMinutes";
+    public const int MinimumProofFreshnessMinutes = 1;
+    public const int MaximumProofFreshnessMinutes = 15;
     private const uint TicketMagic = 0x41464D46; // FMFA
     private const byte TicketVersion = 2;
     private const int MaxTicketFailures = 5;
@@ -157,25 +164,65 @@ public sealed class MfaChallengeService(
         return locked;
     }
 
-    public async Task<string> CreateProofTokenAsync(int accountId, string accountSubjectHash, string action, TimeSpan ttl)
+    public async Task<string> CreateProofTokenAsync(
+        int accountId,
+        string accountSubjectHash,
+        string sessionId,
+        string action,
+        string stepUpMethod,
+        TimeSpan ttl)
     {
+        if (string.IsNullOrWhiteSpace(sessionId))
+        {
+            throw new ArgumentException("Session id is required for an MFA proof.", nameof(sessionId));
+        }
+        if (!UserSessionAuthenticationMethods.IsValid(stepUpMethod))
+        {
+            throw new ArgumentException("Step-up authentication method is invalid.", nameof(stepUpMethod));
+        }
         string token = Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
         string subject = ResolveAccountSubjectHash(accountSubjectHash);
-        string identity = BuildProofIdentity(accountId, subject, action, token);
-        await cacheWriter.SetStringAsync(CachePolicyId.SecurityMfaProof, identity, "1", ttl);
+        string identity = BuildProofIdentity(accountId, subject, sessionId, action, token);
+        TimeSpan freshness = ResolveProofFreshness();
+        await cacheWriter.SetStringAsync(CachePolicyId.SecurityMfaProof, identity, "1", ttl < freshness ? ttl : freshness);
+        if (db is not null)
+        {
+            DateTime steppedUpAtUtc = DateTime.UtcNow;
+            int updated = await db.Updateable<UserSession>()
+                .SetColumns(session => session.LastStepUpAtUtc == steppedUpAtUtc)
+                .SetColumns(session => session.LastStepUpMethod == stepUpMethod)
+                .Where(session => session.UserId == accountId
+                    && session.SessionId == sessionId
+                    && session.RevokedAt == null)
+                .ExecuteCommandAsync();
+            if (updated != 1)
+            {
+                await invalidation.RemoveAsync(CachePolicyId.SecurityMfaProof, identity);
+                throw new InvalidOperationException("Cannot mint an MFA proof for an inactive session.");
+            }
+        }
         return token;
     }
 
-    public Task<bool> ValidateAndConsumeProofTokenAsync(int accountId, string accountSubjectHash, string action, string token)
+    public Task<bool> ValidateAndConsumeProofTokenAsync(int accountId, string accountSubjectHash, string sessionId, string action, string token)
     {
-        if (string.IsNullOrWhiteSpace(token))
+        if (string.IsNullOrWhiteSpace(token) || string.IsNullOrWhiteSpace(sessionId))
         {
             return Task.FromResult(false);
         }
 
         string subject = ResolveAccountSubjectHash(accountSubjectHash);
-        string identity = BuildProofIdentity(accountId, subject, action, token);
+        string identity = BuildProofIdentity(accountId, subject, sessionId, action, token);
         return oneTimeStore.ConsumeOnceAsync(CachePolicyId.SecurityMfaProof, identity);
+    }
+
+    private TimeSpan ResolveProofFreshness()
+    {
+        int minutes = configuration?.GetValue<int?>(ProofFreshnessMinutesConfigurationKey) ?? 5;
+        return TimeSpan.FromMinutes(Math.Clamp(
+            minutes,
+            MinimumProofFreshnessMinutes,
+            MaximumProofFreshnessMinutes));
     }
 
     private async Task<MfaChallengeTicket> CreateAsync(
@@ -347,13 +394,14 @@ public sealed class MfaChallengeService(
         return Encoding.UTF8.GetBytes(value.Trim());
     }
 
-    private static string BuildProofIdentity(int accountId, string subject, string action, string token)
+    private static string BuildProofIdentity(int accountId, string subject, string sessionId, string action, string token)
     {
         string material = string.Join(
             ':',
             "mfa-proof",
             accountId.ToString(CultureInfo.InvariantCulture),
             subject,
+            sessionId.Trim(),
             TextHelpers.LowerTrimmed(action) ?? string.Empty,
             token.Trim());
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(material)));

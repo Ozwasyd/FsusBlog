@@ -33,7 +33,7 @@ public sealed class UserSessionRevocationIntegrationTests(PostgresSchemaMigratio
         UserSession session = await SeedSessionAsync(db, accountId, "single-revoke");
         var cache = new VersionedSessionValidationCache();
         var validator = new UserSessionValidationService(db, cache);
-        ClaimsPrincipal principal = CreatePrincipal(accountId, session.SessionId);
+        ClaimsPrincipal principal = CreatePrincipal(accountId, session);
 
         Assert.True((await validator.ValidateAsync(principal, CancellationToken.None)).IsValid);
 
@@ -57,9 +57,9 @@ public sealed class UserSessionRevocationIntegrationTests(PostgresSchemaMigratio
         UserSession otherB = await SeedSessionAsync(db, accountId, "other-b");
         var cache = new VersionedSessionValidationCache();
         var validator = new UserSessionValidationService(db, cache);
-        ClaimsPrincipal currentPrincipal = CreatePrincipal(accountId, current.SessionId);
-        ClaimsPrincipal otherAPrincipal = CreatePrincipal(accountId, otherA.SessionId);
-        ClaimsPrincipal otherBPrincipal = CreatePrincipal(accountId, otherB.SessionId);
+        ClaimsPrincipal currentPrincipal = CreatePrincipal(accountId, current);
+        ClaimsPrincipal otherAPrincipal = CreatePrincipal(accountId, otherA);
+        ClaimsPrincipal otherBPrincipal = CreatePrincipal(accountId, otherB);
 
         Assert.True((await validator.ValidateAsync(currentPrincipal, CancellationToken.None)).IsValid);
         Assert.True((await validator.ValidateAsync(otherAPrincipal, CancellationToken.None)).IsValid);
@@ -89,8 +89,8 @@ public sealed class UserSessionRevocationIntegrationTests(PostgresSchemaMigratio
         UserSession second = await SeedSessionAsync(db, accountId, "rollback-b");
         var cache = new VersionedSessionValidationCache();
         var validator = new UserSessionValidationService(db, cache);
-        ClaimsPrincipal firstPrincipal = CreatePrincipal(accountId, first.SessionId);
-        ClaimsPrincipal secondPrincipal = CreatePrincipal(accountId, second.SessionId);
+        ClaimsPrincipal firstPrincipal = CreatePrincipal(accountId, first);
+        ClaimsPrincipal secondPrincipal = CreatePrincipal(accountId, second);
 
         Assert.True((await validator.ValidateAsync(firstPrincipal, CancellationToken.None)).IsValid);
         Assert.True((await validator.ValidateAsync(secondPrincipal, CancellationToken.None)).IsValid);
@@ -115,6 +115,44 @@ public sealed class UserSessionRevocationIntegrationTests(PostgresSchemaMigratio
     }
 
     [Fact]
+    public async Task RevokeSessionsByCredential_RevokesOnlyExactAccountCredentialBinding()
+    {
+        using SqlSugarClient db = await CreateDbAsync();
+        int accountId = await SeedAccountAsync(db);
+        int otherAccountId = await SeedAccountAsync(db);
+        UserSession targetA = await SeedSessionAsync(db, accountId, "credential-a", credentialRowId: 701);
+        UserSession targetB = await SeedSessionAsync(db, accountId, "credential-b", credentialRowId: 701);
+        UserSession otherCredential = await SeedSessionAsync(db, accountId, "credential-other", credentialRowId: 702);
+        UserSession otherAccount = await SeedSessionAsync(db, otherAccountId, "credential-other-account", credentialRowId: 701);
+        var cache = new VersionedSessionValidationCache();
+        var validator = new UserSessionValidationService(db, cache);
+        ClaimsPrincipal targetPrincipal = CreatePrincipal(accountId, targetA);
+        ClaimsPrincipal retainedPrincipal = CreatePrincipal(accountId, otherCredential);
+        Assert.True((await validator.ValidateAsync(targetPrincipal, CancellationToken.None)).IsValid);
+        Assert.True((await validator.ValidateAsync(retainedPrincipal, CancellationToken.None)).IsValid);
+
+        UserSessionCommandService users = CreateSessionService(db, cache);
+        int revoked = await users.RevokeSessionsByCredentialAsync(accountId, 701, CancellationToken.None);
+
+        Assert.Equal(2, revoked);
+        Assert.Equal("user_session_revoked", (await validator.ValidateAsync(targetPrincipal, CancellationToken.None)).Reason);
+        Assert.True((await validator.ValidateAsync(retainedPrincipal, CancellationToken.None)).IsValid);
+        List<UserSession> rows = await db.Queryable<UserSession>()
+            .Where(row => row.UserId == accountId || row.UserId == otherAccountId)
+            .ToListAsync();
+        Assert.All(
+            rows.Where(row => row.UserId == accountId && row.AuthenticatedCredentialRowId == 701),
+            row =>
+            {
+                Assert.NotNull(row.RevokedAt);
+                Assert.Equal("credential_deleted", row.RevokeReason);
+            });
+        Assert.Null(Assert.Single(rows, row => row.SessionId == otherCredential.SessionId).RevokedAt);
+        Assert.Null(Assert.Single(rows, row => row.SessionId == otherAccount.SessionId).RevokedAt);
+        Assert.NotNull(Assert.Single(rows, row => row.SessionId == targetB.SessionId).RevokedAt);
+    }
+
+    [Fact]
     public async Task RefreshReplay_RevokesSessionAndImmediatelyRejectsOldPrincipal()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -126,7 +164,7 @@ public sealed class UserSessionRevocationIntegrationTests(PostgresSchemaMigratio
             refreshTokenHash: HashToken("current-refresh-token"));
         var cache = new VersionedSessionValidationCache();
         var validator = new UserSessionValidationService(db, cache);
-        ClaimsPrincipal principal = CreatePrincipal(accountId, session.SessionId);
+        ClaimsPrincipal principal = CreatePrincipal(accountId, session);
         Assert.True((await validator.ValidateAsync(principal, CancellationToken.None)).IsValid);
 
         UserSessionCommandService users = CreateSessionService(db, cache);
@@ -164,9 +202,9 @@ public sealed class UserSessionRevocationIntegrationTests(PostgresSchemaMigratio
             deviceFingerprint: "device-family-b");
         var cache = new VersionedSessionValidationCache();
         var validator = new UserSessionValidationService(db, cache);
-        ClaimsPrincipal targetPrincipal = CreatePrincipal(accountId, replayTarget.SessionId);
-        ClaimsPrincipal siblingPrincipal = CreatePrincipal(accountId, sameDevice.SessionId);
-        ClaimsPrincipal otherPrincipal = CreatePrincipal(accountId, otherDevice.SessionId);
+        ClaimsPrincipal targetPrincipal = CreatePrincipal(accountId, replayTarget);
+        ClaimsPrincipal siblingPrincipal = CreatePrincipal(accountId, sameDevice);
+        ClaimsPrincipal otherPrincipal = CreatePrincipal(accountId, otherDevice);
         Assert.True((await validator.ValidateAsync(targetPrincipal, CancellationToken.None)).IsValid);
         Assert.True((await validator.ValidateAsync(siblingPrincipal, CancellationToken.None)).IsValid);
         Assert.True((await validator.ValidateAsync(otherPrincipal, CancellationToken.None)).IsValid);
@@ -201,7 +239,7 @@ public sealed class UserSessionRevocationIntegrationTests(PostgresSchemaMigratio
         var cache = new VersionedSessionValidationCache();
         cache.BlockNextActivePublish();
         var validator = new UserSessionValidationService(db, cache);
-        ClaimsPrincipal principal = CreatePrincipal(accountId, session.SessionId);
+        ClaimsPrincipal principal = CreatePrincipal(accountId, session);
 
         Task<UserSessionValidationResult> concurrentValidation = validator.ValidateAsync(principal, CancellationToken.None);
         await cache.WaitForBlockedActivePublishAsync();
@@ -254,7 +292,8 @@ public sealed class UserSessionRevocationIntegrationTests(PostgresSchemaMigratio
         int accountId,
         string suffix,
         string? refreshTokenHash = null,
-        string? deviceFingerprint = null)
+        string? deviceFingerprint = null,
+        int? credentialRowId = null)
     {
         string sessionId = $"{suffix}-{Guid.NewGuid():N}";
         var session = new UserSession
@@ -267,7 +306,12 @@ public sealed class UserSessionRevocationIntegrationTests(PostgresSchemaMigratio
             LastSeenAt = DateTime.UtcNow.AddMinutes(-1),
             IdleExpiresAt = DateTime.UtcNow.AddHours(1),
             AbsoluteExpiresAt = DateTime.UtcNow.AddDays(1),
-            MfaVerified = true
+            MfaVerified = true,
+            AuthenticationMethod = UserSessionAuthenticationMethods.Passkey,
+            AuthenticationStrength = UserSessionAuthenticationStrengths.WebAuthnUv,
+            AuthenticatedAtUtc = DateTime.UtcNow.AddMinutes(-5),
+            AuthenticatedCredentialRowId = credentialRowId,
+            DurationPolicy = UserSessionDurationPolicies.BrowserSession
         };
         await db.Insertable(session).ExecuteCommandAsync();
         return session;
@@ -281,6 +325,8 @@ public sealed class UserSessionRevocationIntegrationTests(PostgresSchemaMigratio
         jwt.GenerateRefreshToken().Returns("rotated-refresh-token");
         jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<bool>()).Returns(
             new IssuedAccessToken("rotated-access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
+        jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<UserSessionAuthenticationContext>()).Returns(
+            new IssuedAccessToken("rotated-access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
         return new UserSessionCommandService(
             db,
             NullLogger<UserSessionCommandService>.Instance,
@@ -288,13 +334,20 @@ public sealed class UserSessionRevocationIntegrationTests(PostgresSchemaMigratio
             validationCache);
     }
 
-    private static ClaimsPrincipal CreatePrincipal(int accountId, string sessionId)
+    private static ClaimsPrincipal CreatePrincipal(int accountId, UserSession session)
         => new(new ClaimsIdentity(
         [
             new Claim(ClaimTypes.NameIdentifier, accountId.ToString(System.Globalization.CultureInfo.InvariantCulture)),
             new Claim("identity_kind", AnonymousIdentityRuntime.AnonymousAccountKind),
-            new Claim("sid", sessionId),
-            new Claim("mfa", "1")
+            new Claim("sid", session.SessionId),
+            new Claim("mfa", "1"),
+            new Claim("auth_method", session.AuthenticationMethod),
+            new Claim("auth_strength", session.AuthenticationStrength),
+            new Claim(
+                "auth_time",
+                new DateTimeOffset(session.AuthenticatedAtUtc)
+                    .ToUnixTimeSeconds()
+                    .ToString(System.Globalization.CultureInfo.InvariantCulture))
         ], "Bearer"));
 
     private static string HashToken(string token)

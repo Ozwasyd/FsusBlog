@@ -25,8 +25,8 @@ public sealed class SchemaMigrationCatalogTests
             catalog => Assert.Equal("current-20260709-20260716", catalog.CatalogId),
             catalog => Assert.Equal("current-20260719", catalog.CatalogId),
             catalog => Assert.Equal("current-20260720", catalog.CatalogId));
-        Assert.Equal(106, manifest.Descriptors.Count);
-        const string ExpectedPlanFingerprint = "FED17131C1604716725BB578CEE3073BB7C3EEE2D87880ED158F1D3CF6396B89";
+        Assert.Equal(107, manifest.Descriptors.Count);
+        const string ExpectedPlanFingerprint = "4072DC7FFFECF99EC13B23374BBB909E737F9203ED9B135381CB460406336919";
         string actualPlanFingerprint = ComputePlanFingerprint(manifest.Descriptors);
         Assert.True(
             string.Equals(ExpectedPlanFingerprint, actualPlanFingerprint, StringComparison.Ordinal),
@@ -218,6 +218,32 @@ public sealed class SchemaMigrationCatalogTests
     }
 
     [Fact]
+    public void UserSessionAuthenticationContext_IsRegisteredAndBackfillsLegacyRowsFailClosed()
+    {
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            new SchemaMigrationRegistry().GetDescriptors(),
+            item => item.MigrationId == UserSessionAuthenticationContextMigrationDefinitions.MigrationId);
+        string migration = string.Join('\n', descriptor.Steps.Select(step => step.Fingerprint));
+
+        Assert.Equal(SchemaMigrationPhase.PreCodeFirst, descriptor.Phase);
+        Assert.Contains("authentication_method", migration, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("authentication_strength", migration, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("authenticated_at_utc", migration, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("authenticated_credential_row_id", migration, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("last_step_up_at_utc", migration, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("last_step_up_method", migration, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("duration_policy", migration, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("legacy_verified", migration, StringComparison.Ordinal);
+        Assert.Contains("legacy_unverified", migration, StringComparison.Ordinal);
+        Assert.Contains("persistent_30d", migration, StringComparison.Ordinal);
+        Assert.Contains("browser_session", migration, StringComparison.Ordinal);
+        Assert.Contains("authentication_method SET NOT NULL", migration, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("authentication_strength SET NOT NULL", migration, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("authenticated_at_utc SET NOT NULL", migration, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("duration_policy SET NOT NULL", migration, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void SourceLayout_PreventsLegacyRegistryDescriptorAggregation()
     {
         string migrationRoot = BackendTestPaths.FromRoot(
@@ -242,7 +268,7 @@ public sealed class SchemaMigrationCatalogTests
         Assert.DoesNotContain("partial class SchemaMigrationRegistry", registrySource, StringComparison.Ordinal);
         Assert.DoesNotContain("new SchemaMigrationDescriptor(", registrySource, StringComparison.Ordinal);
         Assert.DoesNotContain("Build", registrySource, StringComparison.Ordinal);
-        Assert.Equal(106, descriptorDefinitionCount);
+        Assert.Equal(107, descriptorDefinitionCount);
         Assert.All(
             definitionFiles.Select(File.ReadAllText),
             static source => Assert.DoesNotContain("partial class", source, StringComparison.Ordinal));

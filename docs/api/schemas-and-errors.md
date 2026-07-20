@@ -299,7 +299,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 22 | `UploadPartAck` | `UploadPartAckPod` | `PUT /api/binary/upload/{id}/part/{n}` |
 | 23 | `UploadComplete` | `UploadCompletePod` | `POST /api/binary/upload/{id}/complete` |
 | 24 | `UploadPartMap` | `UploadPartMapPod` | `GET /api/binary/upload/{id}/parts` |
-| 25 | `AuthSessionList` | `UserSessionSummaryPod[count]` without raw IP/user id fields | `GET /api/binary/auth/sessions` |
+| 25 | `AuthSessionList` | privacy-safe `UserSessionSummaryPod[count]` without credential id, fingerprint, token, raw user agent/IP, or user id | `GET /api/binary/auth/sessions` |
 | 26 | `SiteComplianceConfig` | `SiteComplianceConfigPod` | `GET /api/binary/system/compliance` |
 | 170 | `AdminSessionList` | `AdminSessionSummaryPod[count]` | `GET /api/binary/auth/admin/sessions` |
 | 171 | `SecurityChallengeAssignment` | `SecurityChallengeAssignmentPod` | ordered envelope 中的单个 RiskControl member assignment |
@@ -535,7 +535,7 @@ replyToAuthorPayload?:CommentAuthorViewPod + blobLength:int32 + blob
 | `AuthLoginFlowPod` | 168 |
 | `CurrentUserSnapshotPod` | 372 |
 | `IdentityAccountSnapshotPod` | 72 |
-| `UserSessionSummaryPod` | 332 |
+| `UserSessionSummaryPod` | 500 |
 | `AdminSessionSummaryPod` | 356 |
 | `MfaChallengeResultPod` | 296 |
 

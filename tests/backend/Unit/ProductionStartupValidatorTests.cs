@@ -52,6 +52,7 @@ public sealed class ProductionStartupValidatorTests
             ["Security:Pow:SigningKey"] = TestSecrets.PowSigningKey,
             ["Security:CaptchaV1:SigningKey"] = TestSecrets.CaptchaSigningKey,
             [UserSessionPolicy.MaxActiveSessionsConfigurationKey] = "10",
+            [MfaChallengeService.ProofFreshnessMinutesConfigurationKey] = "5",
             ["Security:PerceptionSealedToken:CurrentKeyVersion"] = "k1",
             ["Security:PerceptionSealedToken:Keys:k1"] = new string('a', 64),
             [SecurityRiskPseudonymizer.CurrentEpochKey] = "1",
@@ -114,6 +115,19 @@ public sealed class ProductionStartupValidatorTests
         IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
 
         Assert.Contains(errors, error => error.Contains(UserSessionPolicy.MaxActiveSessionsConfigurationKey, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ValidateCore_RejectsOutOfRangeStepUpFreshness()
+    {
+        IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
+        {
+            [MfaChallengeService.ProofFreshnessMinutesConfigurationKey] = "16"
+        });
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
+
+        Assert.Contains(errors, error => error.Contains(MfaChallengeService.ProofFreshnessMinutesConfigurationKey, StringComparison.Ordinal));
     }
 
     [Fact]
@@ -1045,6 +1059,7 @@ public sealed class ProductionStartupValidatorTests
             [SecurityRiskPseudonymizer.CurrentKeyKey] = RiskPseudonymKey,
             ["Security:RecoveryKeyPepper"] = TestSecrets.RecoveryKeyPepper,
             [UserSessionPolicy.MaxActiveSessionsConfigurationKey] = "10",
+            [MfaChallengeService.ProofFreshnessMinutesConfigurationKey] = "5",
             ["PublicAot:ManifestToken"] = "public-aot-manifest-token-with-enough-entropy",
             ["MfaChallenge:TicketSigningKey"] = TestSecrets.MfaTicketSigningKey,
             ["HumanReadProof:SigningKey"] = TestSecrets.HumanReadProofSigningKey,

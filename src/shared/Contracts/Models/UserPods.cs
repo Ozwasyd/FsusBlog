@@ -91,14 +91,18 @@ public readonly struct IdentityAccountSnapshotPod
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct UserSessionSummaryPod
 {
+    public readonly long CreatedAtUnixMs;
     public readonly long LastSeenAtUnixMs;
     public readonly byte IsCurrent;
-    public readonly byte MfaVerified;
     public readonly byte HasLastSeenAt;
-    public readonly byte Reserved;
+    public readonly byte HasPasskeyFriendlyName;
+    public readonly byte Reserved0;
     public readonly Utf8Fixed64 SessionId;
-    public readonly Utf8Fixed128 DeviceFingerprint;
-    public readonly Utf8Fixed128 DeviceLabel;
+    public readonly Utf8Fixed64 DeviceLabel;
+    public readonly Utf8Fixed32 AuthenticationMethod;
+    public readonly Utf8Fixed32 AuthenticationStrength;
+    public readonly Utf8Fixed32 DurationPolicy;
+    public readonly Utf8Fixed256 PasskeyFriendlyName;
 }
 
 /// <summary>

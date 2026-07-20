@@ -29,7 +29,8 @@ public sealed record UserSecurityStepUpRequest(
     int AccountId,
     string Action,
     UserSecurityStepUpProof Proof,
-    string ClientIp);
+    string ClientIp,
+    string? SessionId = null);
 
 public readonly record struct UserSecurityStepUpResult(
     bool Success,
@@ -60,7 +61,7 @@ public sealed class UserSecurityStepUpService(
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (request.AccountId <= 0 || string.IsNullOrWhiteSpace(request.Action))
+        if (request.AccountId <= 0 || string.IsNullOrWhiteSpace(request.Action) || string.IsNullOrWhiteSpace(request.SessionId))
         {
             return UserSecurityStepUpResult.Rejected(
                 ErrorCode.Unauthorized,
@@ -102,6 +103,7 @@ public sealed class UserSecurityStepUpService(
             bool accepted = await mfaChallenges.ValidateAndConsumeProofTokenAsync(
                 account.Value.Id,
                 accountSubjectHash,
+                request.SessionId,
                 action,
                 proofToken).ConfigureAwait(false);
             return accepted

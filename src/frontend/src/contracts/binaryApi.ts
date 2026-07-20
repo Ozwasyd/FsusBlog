@@ -221,11 +221,14 @@ export interface RecoveryKeyVerifyResponse {
 
 export interface UserSessionSummary {
     sessionId: string;
-    deviceFingerprint: string;
     deviceLabel: string;
+    createdAt: string;
     lastSeenAt: string | null;
+    authenticationMethod: 'passkey' | 'recovery_key' | 'enrollment' | 'other';
+    authenticationStrength: 'webauthn_uv' | 'mfa' | 'recovery' | 'legacy_verified' | 'legacy_unverified';
+    passkeyFriendlyName: string | null;
+    durationPolicy: 'browser_session' | 'persistent_30d';
     isCurrent: boolean;
-    mfaVerified: boolean;
 }
 
 export interface PasskeyCredentialSummary {

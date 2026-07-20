@@ -223,14 +223,18 @@ public static partial class PodBinaryCodec
         {
             var mutable = new MutableUserSessionSummaryPod
             {
+                CreatedAtUnixMs = PodTimeCodec.ToUnixMs(session.CreatedAt),
                 LastSeenAtUnixMs = session.LastSeenAt.HasValue ? PodTimeCodec.ToUnixMs(session.LastSeenAt.Value) : 0,
                 IsCurrent = session.IsCurrent ? (byte)1 : (byte)0,
-                MfaVerified = session.MfaVerified ? (byte)1 : (byte)0,
                 HasLastSeenAt = session.LastSeenAt.HasValue ? (byte)1 : (byte)0,
-                Reserved = 0,
+                HasPasskeyFriendlyName = session.PasskeyFriendlyName is null ? (byte)0 : (byte)1,
+                Reserved0 = 0,
                 SessionId = PodUtf8Codec.ToFixed64(session.SessionId),
-                DeviceFingerprint = PodUtf8Codec.ToFixed128(session.DeviceFingerprint),
-                DeviceLabel = PodUtf8Codec.ToFixed128(session.DeviceLabel)
+                DeviceLabel = PodUtf8Codec.ToFixed64(session.DeviceLabel),
+                AuthenticationMethod = PodUtf8Codec.ToFixed32(session.AuthenticationMethod),
+                AuthenticationStrength = PodUtf8Codec.ToFixed32(session.AuthenticationStrength),
+                DurationPolicy = PodUtf8Codec.ToFixed32(session.DurationPolicy),
+                PasskeyFriendlyName = PodUtf8Codec.ToFixed256(session.PasskeyFriendlyName)
             };
             writer.WritePod(CastUserPod<MutableUserSessionSummaryPod, UserSessionSummaryPod>(mutable));
         }
@@ -259,20 +263,26 @@ public static partial class PodBinaryCodec
         {
             if (!reader.TryReadPod(out UserSessionSummaryPod pod) ||
                 pod.IsCurrent > 1 ||
-                pod.MfaVerified > 1 ||
-                pod.HasLastSeenAt > 1)
+                pod.HasLastSeenAt > 1 ||
+                pod.HasPasskeyFriendlyName > 1 ||
+                pod.Reserved0 != 0)
             {
                 sessions = Array.Empty<UserSessionSummaryDto>();
                 return false;
             }
 
             items.Add(new UserSessionSummaryDto(
-                PodUtf8Codec.FromFixed64(pod.SessionId),
-                PodUtf8Codec.FromFixed128(pod.DeviceFingerprint),
-                PodUtf8Codec.FromFixed128(pod.DeviceLabel),
-                pod.HasLastSeenAt == 1 ? PodTimeCodec.FromUnixMs(pod.LastSeenAtUnixMs) : null,
-                pod.IsCurrent == 1,
-                pod.MfaVerified == 1));
+                SessionId: PodUtf8Codec.FromFixed64(pod.SessionId),
+                DeviceLabel: PodUtf8Codec.FromFixed64(pod.DeviceLabel),
+                CreatedAt: PodTimeCodec.FromUnixMs(pod.CreatedAtUnixMs),
+                LastSeenAt: pod.HasLastSeenAt == 1 ? PodTimeCodec.FromUnixMs(pod.LastSeenAtUnixMs) : null,
+                AuthenticationMethod: PodUtf8Codec.FromFixed32(pod.AuthenticationMethod),
+                AuthenticationStrength: PodUtf8Codec.FromFixed32(pod.AuthenticationStrength),
+                PasskeyFriendlyName: pod.HasPasskeyFriendlyName == 1
+                    ? PodUtf8Codec.FromFixed256(pod.PasskeyFriendlyName)
+                    : null,
+                DurationPolicy: PodUtf8Codec.FromFixed32(pod.DurationPolicy),
+                IsCurrent: pod.IsCurrent == 1));
         }
 
         sessions = items;
@@ -1025,14 +1035,18 @@ public static partial class PodBinaryCodec
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct MutableUserSessionSummaryPod
     {
+        public long CreatedAtUnixMs;
         public long LastSeenAtUnixMs;
         public byte IsCurrent;
-        public byte MfaVerified;
         public byte HasLastSeenAt;
-        public byte Reserved;
+        public byte HasPasskeyFriendlyName;
+        public byte Reserved0;
         public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed64 SessionId;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed128 DeviceFingerprint;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed128 DeviceLabel;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed64 DeviceLabel;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed32 AuthenticationMethod;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed32 AuthenticationStrength;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed32 DurationPolicy;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed256 PasskeyFriendlyName;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]

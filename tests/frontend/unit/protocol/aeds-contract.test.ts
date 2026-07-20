@@ -118,26 +118,34 @@ describe('AEDS cross-stack contract fixture', () => {
 
     expect(result.ok).toBe(true)
     expect(result.frameType).toBe(FrameType.AuthSessionList)
-    expect(result.payloadView.byteLength).toBe(668)
+    expect(result.payloadView.byteLength).toBe(1004)
     expect(mapUserSessionsFromPayload(result.payloadView)).toEqual([
       {
         sessionId: 'session-1',
-        deviceFingerprint: 'fp-1',
         deviceLabel: 'Chrome on Linux',
+        createdAt: '2026-01-02T02:03:04.000Z',
         lastSeenAt: '2026-01-02T03:04:05.000Z',
-        isCurrent: true,
-        mfaVerified: true
+        authenticationMethod: 'passkey',
+        authenticationStrength: 'webauthn_uv',
+        passkeyFriendlyName: 'Work security key',
+        durationPolicy: 'persistent_30d',
+        isCurrent: true
       },
       {
         sessionId: 'session-2',
-        deviceFingerprint: 'fp-2',
-        deviceLabel: 'Safari on iPhone',
+        deviceLabel: 'Safari on iPhone/iPad',
+        createdAt: '2026-01-01T02:03:04.000Z',
         lastSeenAt: null,
-        isCurrent: false,
-        mfaVerified: false
+        authenticationMethod: 'other',
+        authenticationStrength: 'legacy_unverified',
+        passkeyFriendlyName: null,
+        durationPolicy: 'browser_session',
+        isCurrent: false
       }
     ])
     expect(mapUserSessionsFromPayload(result.payloadView)[0]).not.toHaveProperty('lastIp')
+    expect(mapUserSessionsFromPayload(result.payloadView)[0]).not.toHaveProperty('deviceFingerprint')
+    expect(mapUserSessionsFromPayload(result.payloadView)[0]).not.toHaveProperty('mfaVerified')
   })
 
   it('decodes the checked-in backend CurrentUserSnapshot frame with the real frontend decoder', async () => {

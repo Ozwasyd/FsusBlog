@@ -619,11 +619,30 @@ public class PodBinaryCodecTests
     [Fact]
     public void UserSessions_RoundTrip_PreservesSessionFields()
     {
+        var createdAt = new DateTime(2026, 1, 2, 2, 3, 4, DateTimeKind.Utc);
         var lastSeenAt = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);
         UserSessionSummaryDto[] sessions =
         [
-            new("session-1", "fp-1", "Chrome on Linux", lastSeenAt, true, true),
-            new("session-2", "fp-2", "Firefox", null, false, false)
+            new(
+                SessionId: "session-1",
+                DeviceLabel: "Chrome on Linux",
+                CreatedAt: createdAt,
+                LastSeenAt: lastSeenAt,
+                AuthenticationMethod: "passkey",
+                AuthenticationStrength: "webauthn_uv",
+                PasskeyFriendlyName: "Work security key",
+                DurationPolicy: "persistent_30d",
+                IsCurrent: true),
+            new(
+                SessionId: "session-2",
+                DeviceLabel: "Firefox on Other",
+                CreatedAt: createdAt,
+                LastSeenAt: null,
+                AuthenticationMethod: "other",
+                AuthenticationStrength: "legacy_unverified",
+                PasskeyFriendlyName: null,
+                DurationPolicy: "browser_session",
+                IsCurrent: false)
         ];
 
         byte[] encoded = PodBinaryCodec.EncodeUserSessions(sessions);
@@ -631,14 +650,62 @@ public class PodBinaryCodecTests
 
         Assert.True(ok);
         Assert.Equal(2, decoded.Count);
-        Assert.Equal(sizeof(int) + 2 * 332, encoded.Length);
+        Assert.Equal(sizeof(int) + 2 * 500, encoded.Length);
         Assert.Equal("session-1", decoded[0].SessionId);
-        Assert.Equal("fp-1", decoded[0].DeviceFingerprint);
         Assert.Equal("Chrome on Linux", decoded[0].DeviceLabel);
+        Assert.Equal(createdAt, decoded[0].CreatedAt);
         Assert.Equal(lastSeenAt, decoded[0].LastSeenAt);
+        Assert.Equal("passkey", decoded[0].AuthenticationMethod);
+        Assert.Equal("webauthn_uv", decoded[0].AuthenticationStrength);
+        Assert.Equal("Work security key", decoded[0].PasskeyFriendlyName);
+        Assert.Equal("persistent_30d", decoded[0].DurationPolicy);
         Assert.True(decoded[0].IsCurrent);
-        Assert.True(decoded[0].MfaVerified);
         Assert.Null(decoded[1].LastSeenAt);
+        Assert.Null(decoded[1].PasskeyFriendlyName);
+        Assert.Null(typeof(UserSessionSummaryDto).GetProperty("DeviceFingerprint"));
+        Assert.Null(typeof(UserSessionSummaryDto).GetProperty("MfaVerified"));
+        Assert.Null(typeof(UserSessionSummaryPod).GetField("DeviceFingerprint"));
+        Assert.Null(typeof(UserSessionSummaryPod).GetField("MfaVerified"));
+    }
+
+    [Fact]
+    public void UserSessionSummaryPod_UsesPrivacySafeStableOffsets()
+    {
+        Assert.Equal(500, Marshal.SizeOf<UserSessionSummaryPod>());
+        Assert.Equal(0, Marshal.OffsetOf<UserSessionSummaryPod>(nameof(UserSessionSummaryPod.CreatedAtUnixMs)).ToInt32());
+        Assert.Equal(8, Marshal.OffsetOf<UserSessionSummaryPod>(nameof(UserSessionSummaryPod.LastSeenAtUnixMs)).ToInt32());
+        Assert.Equal(16, Marshal.OffsetOf<UserSessionSummaryPod>(nameof(UserSessionSummaryPod.IsCurrent)).ToInt32());
+        Assert.Equal(17, Marshal.OffsetOf<UserSessionSummaryPod>(nameof(UserSessionSummaryPod.HasLastSeenAt)).ToInt32());
+        Assert.Equal(18, Marshal.OffsetOf<UserSessionSummaryPod>(nameof(UserSessionSummaryPod.HasPasskeyFriendlyName)).ToInt32());
+        Assert.Equal(19, Marshal.OffsetOf<UserSessionSummaryPod>(nameof(UserSessionSummaryPod.Reserved0)).ToInt32());
+        Assert.Equal(20, Marshal.OffsetOf<UserSessionSummaryPod>(nameof(UserSessionSummaryPod.SessionId)).ToInt32());
+        Assert.Equal(84, Marshal.OffsetOf<UserSessionSummaryPod>(nameof(UserSessionSummaryPod.DeviceLabel)).ToInt32());
+        Assert.Equal(148, Marshal.OffsetOf<UserSessionSummaryPod>(nameof(UserSessionSummaryPod.AuthenticationMethod)).ToInt32());
+        Assert.Equal(180, Marshal.OffsetOf<UserSessionSummaryPod>(nameof(UserSessionSummaryPod.AuthenticationStrength)).ToInt32());
+        Assert.Equal(212, Marshal.OffsetOf<UserSessionSummaryPod>(nameof(UserSessionSummaryPod.DurationPolicy)).ToInt32());
+        Assert.Equal(244, Marshal.OffsetOf<UserSessionSummaryPod>(nameof(UserSessionSummaryPod.PasskeyFriendlyName)).ToInt32());
+    }
+
+    [Fact]
+    public void UserSessions_DecodeRejectsNonZeroReservedByte()
+    {
+        UserSessionSummaryDto[] sessions =
+        [
+            new(
+                SessionId: "session-1",
+                DeviceLabel: "Chrome on Linux",
+                CreatedAt: DateTime.UnixEpoch,
+                LastSeenAt: null,
+                AuthenticationMethod: "passkey",
+                AuthenticationStrength: "webauthn_uv",
+                PasskeyFriendlyName: null,
+                DurationPolicy: "browser_session",
+                IsCurrent: true)
+        ];
+        byte[] encoded = PodBinaryCodec.EncodeUserSessions(sessions);
+        encoded[sizeof(int) + 19] = 1;
+
+        Assert.False(PodBinaryCodec.TryDecodeUserSessions(encoded, out _));
     }
 
     [Fact]
@@ -679,7 +746,16 @@ public class PodBinaryCodecTests
     {
         var options = new JsonSerializerOptions { PropertyNamingPolicy = null };
         var userSessionJson = JsonSerializer.Serialize(
-            new UserSessionSummaryDto("session-1", "fp-1", "Device", null, true, true),
+            new UserSessionSummaryDto(
+                SessionId: "session-1",
+                DeviceLabel: "Chrome on Linux",
+                CreatedAt: DateTime.UnixEpoch,
+                LastSeenAt: null,
+                AuthenticationMethod: "passkey",
+                AuthenticationStrength: "webauthn_uv",
+                PasskeyFriendlyName: "Security key",
+                DurationPolicy: "browser_session",
+                IsCurrent: true),
             options);
         var adminSessionJson = JsonSerializer.Serialize(
             new AdminSessionSummaryDto(
@@ -710,6 +786,8 @@ public class PodBinaryCodecTests
             Assert.DoesNotContain("InternalUserId", json, StringComparison.Ordinal);
             Assert.DoesNotContain("\"UserId\"", json, StringComparison.Ordinal);
         }
+        Assert.DoesNotContain("DeviceFingerprint", userSessionJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("MfaVerified", userSessionJson, StringComparison.Ordinal);
     }
 
     [Fact]

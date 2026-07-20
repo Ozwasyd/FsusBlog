@@ -202,7 +202,8 @@ public sealed class AccountEnrollmentService(
             }
 
             validation.Credential.AccountId = activatedUser.Id;
-            await db.Insertable(validation.Credential).ExecuteCommandAsync();
+            int credentialRowId = await db.Insertable(validation.Credential).ExecuteReturnIdentityAsync();
+            validation.Credential.Id = credentialRowId;
 
             string stableHandle = WebEncoders.Base64UrlEncode(Convert.FromHexString(lockedEnrollment.PasskeyUserHandle));
             int activated = await db.Updateable<User>()
@@ -222,7 +223,13 @@ public sealed class AccountEnrollmentService(
             activatedUser.RegistrationState = AccountRegistrationStates.Active;
             activatedUser.PasskeyEnabled = true;
             activatedUser.PasskeyUserHandle = stableHandle;
-            accessToken = jwt.GenerateAccessToken(activatedUser, sessionId, mfaVerified: true);
+            var authenticationContext = new UserSessionAuthenticationContext(
+                UserSessionAuthenticationMethods.Enrollment,
+                UserSessionAuthenticationStrengths.WebAuthnUv,
+                now,
+                credentialRowId,
+                UserSessionDurationPolicies.BrowserSession);
+            accessToken = jwt.GenerateAccessToken(activatedUser, sessionId, authenticationContext);
 
             await db.Insertable(new UserSession
             {
@@ -237,7 +244,12 @@ public sealed class AccountEnrollmentService(
                 IdleExpiresAt = idleExpiresAt,
                 AbsoluteExpiresAt = absoluteExpiresAt,
                 MfaVerified = true,
-                RememberMe = false
+                RememberMe = false,
+                AuthenticationMethod = authenticationContext.Method,
+                AuthenticationStrength = authenticationContext.Strength,
+                AuthenticatedAtUtc = authenticationContext.AuthenticatedAtUtc,
+                AuthenticatedCredentialRowId = authenticationContext.CredentialRowId,
+                DurationPolicy = authenticationContext.DurationPolicy
             }).ExecuteCommandAsync();
 
             int completed = await db.Updateable<AccountEnrollmentSession>()
@@ -421,7 +433,11 @@ public sealed class AccountEnrollmentService(
             return Fail(ErrorCode.InfraFailure, "注册完成凭据无法恢复");
         }
 
-        IssuedAccessToken accessToken = jwt.GenerateAccessToken(user, session.SessionId, mfaVerified: true);
+        if (!UserSessionAuthenticationContext.TryFromSession(session, out UserSessionAuthenticationContext authenticationContext))
+        {
+            return Fail(ErrorCode.Conflict, "注册已完成，但会话认证上下文无效");
+        }
+        IssuedAccessToken accessToken = jwt.GenerateAccessToken(user, session.SessionId, authenticationContext);
         return Success(user, accessToken, refreshToken, session.SessionId, session.IdleExpiresAt);
     }
 

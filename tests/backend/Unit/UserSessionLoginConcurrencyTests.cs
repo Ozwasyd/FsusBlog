@@ -266,6 +266,8 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
         jwt.GenerateRefreshToken().Returns(_ => $"refresh-token-{Guid.NewGuid():N}");
         jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<bool>()).Returns(
             new IssuedAccessToken("access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
+        jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<UserSessionAuthenticationContext>()).Returns(
+            new IssuedAccessToken("access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
 
         return new UserLoginWorkflowService(
             db,

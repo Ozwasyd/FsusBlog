@@ -1594,11 +1594,14 @@ public readonly record struct MfaChallengeResultDto(
 /// </summary>
 public readonly record struct UserSessionSummaryDto(
     string SessionId,
-    string DeviceFingerprint,
     string DeviceLabel,
+    DateTime CreatedAt,
     DateTime? LastSeenAt,
-    bool IsCurrent,
-    bool MfaVerified);
+    string AuthenticationMethod,
+    string AuthenticationStrength,
+    string? PasskeyFriendlyName,
+    string DurationPolicy,
+    bool IsCurrent);
 
 /// <summary>
 /// Defines the API output contract represented by <c>AdminSessionSummaryDto</c>.

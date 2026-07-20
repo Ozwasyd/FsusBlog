@@ -51,6 +51,7 @@ public readonly record struct IssuedAccessToken(string Token, DateTimeOffset Exp
 public interface IJwtHelper
 {
     IssuedAccessToken GenerateAccessToken(User user, string? sessionId = null, bool mfaVerified = false);
+    IssuedAccessToken GenerateAccessToken(User user, string? sessionId, UserSessionAuthenticationContext authenticationContext);
     IssuedAccessToken GenerateAdminAccessToken(AdminPrincipal principal, AdminSession session, IReadOnlyCollection<string> permissions, bool stepUpVerified = false);
     string GenerateRefreshToken();
 }
@@ -82,6 +83,15 @@ public class JwtHelper : IJwtHelper
     }
 
     public IssuedAccessToken GenerateAccessToken(User user, string? sessionId = null, bool mfaVerified = false)
+        => GenerateAccessToken(
+            user,
+            sessionId,
+            UserSessionAuthenticationContext.FromLegacy(mfaVerified, rememberMe: false));
+
+    public IssuedAccessToken GenerateAccessToken(
+        User user,
+        string? sessionId,
+        UserSessionAuthenticationContext authenticationContext)
     {
         if (!AccountRegistrationStates.IsActive(user.RegistrationState))
         {
@@ -91,7 +101,14 @@ public class JwtHelper : IJwtHelper
         string identityKind = string.IsNullOrWhiteSpace(user.IdentityKind)
             ? AnonymousIdentityRuntime.AnonymousAccountKind
             : user.IdentityKind.Trim();
-        var claims = new List<Claim>(5)
+        if (!UserSessionAuthenticationMethods.IsValid(authenticationContext.Method) ||
+            !UserSessionAuthenticationStrengths.IsValid(authenticationContext.Strength) ||
+            authenticationContext.AuthenticatedAtUtc == default)
+        {
+            throw new InvalidOperationException("Session authentication context is invalid.");
+        }
+
+        var claims = new List<Claim>(8)
         {
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new("identity_kind", identityKind),
@@ -103,7 +120,16 @@ public class JwtHelper : IJwtHelper
         {
             claims.Add(new Claim("sid", sessionId));
         }
-        claims.Add(new Claim("mfa", mfaVerified ? "1" : "0"));
+        claims.Add(new Claim(
+            "mfa",
+            UserSessionAuthenticationStrengths.IsCoarseMfa(authenticationContext.Strength) ? "1" : "0"));
+        claims.Add(new Claim("auth_method", authenticationContext.Method));
+        claims.Add(new Claim("auth_strength", authenticationContext.Strength));
+        claims.Add(new Claim(
+            "auth_time",
+            new DateTimeOffset(DateTime.SpecifyKind(authenticationContext.AuthenticatedAtUtc, DateTimeKind.Utc))
+                .ToUnixTimeSeconds()
+                .ToString(System.Globalization.CultureInfo.InvariantCulture)));
 
         DateTimeOffset issuedAtUtc = TruncateToUnixSecond(DateTimeOffset.UtcNow);
         DateTimeOffset expiresAtUtc = issuedAtUtc.AddMinutes(ResolveAccessTokenExpiresMinutes());

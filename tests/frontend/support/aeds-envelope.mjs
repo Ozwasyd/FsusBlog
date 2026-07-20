@@ -59,7 +59,7 @@ const FRAME_API_ERROR = frameType('ApiError');
 const AUTH_LOGIN_FLOW_POD_SIZE = 168;
 const CURRENT_USER_SNAPSHOT_POD_SIZE = 372;
 const IDENTITY_ACCOUNT_SNAPSHOT_POD_SIZE = 72;
-const USER_SESSION_SUMMARY_POD_SIZE = 332;
+const USER_SESSION_SUMMARY_POD_SIZE = 500;
 const MFA_SETUP_START_POD_SIZE = 36;
 const MFA_SETUP_VERIFY_POD_SIZE = 8;
 const MFA_RECOVERY_CODE_POD_SIZE = 64;
@@ -1977,12 +1977,17 @@ function decodeUserSessions(payload)
     {
         const offset = 4 + i * USER_SESSION_SUMMARY_POD_SIZE;
         sessions.push({
-            lastSeenAt: payload[offset + 10] === 1 ? new Date(readInt64Number(view, offset)).toISOString() : null,
-            isCurrent: payload[offset + 8] === 1,
-            mfaVerified: payload[offset + 9] === 1,
-            sessionId: readFixedUtf8(payload, offset + 12, 64),
-            deviceFingerprint: readFixedUtf8(payload, offset + 76, 128),
-            deviceLabel: readFixedUtf8(payload, offset + 204, 128)
+            createdAt: new Date(readInt64Number(view, offset)).toISOString(),
+            lastSeenAt: payload[offset + 17] === 1 ? new Date(readInt64Number(view, offset + 8)).toISOString() : null,
+            isCurrent: payload[offset + 16] === 1,
+            sessionId: readFixedUtf8(payload, offset + 20, 64),
+            deviceLabel: readFixedUtf8(payload, offset + 84, 64),
+            authenticationMethod: readFixedUtf8(payload, offset + 148, 32),
+            authenticationStrength: readFixedUtf8(payload, offset + 180, 32),
+            durationPolicy: readFixedUtf8(payload, offset + 212, 32),
+            passkeyFriendlyName: payload[offset + 18] === 1
+                ? readFixedUtf8(payload, offset + 244, 256)
+                : null
         });
     }
     return sessions;

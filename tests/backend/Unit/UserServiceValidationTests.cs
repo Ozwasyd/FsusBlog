@@ -858,7 +858,7 @@ public class UserServiceValidationTests
             DateTimeOffset.UtcNow.AddMinutes(60).ToUnixTimeSeconds());
         var jwt = Substitute.For<IJwtHelper>();
         jwt.GenerateRefreshToken().Returns("rotated-refresh-token");
-        jwt.GenerateAccessToken(Arg.Any<User>(), "session-rotation", true)
+        jwt.GenerateAccessToken(Arg.Any<User>(), "session-rotation", Arg.Any<UserSessionAuthenticationContext>())
             .Returns(new IssuedAccessToken("rotated-access-token", accessTokenExpiresAtUtc));
         var service = BuildSessionService(db, jwt);
 
@@ -870,7 +870,7 @@ public class UserServiceValidationTests
         Assert.Equal("rotated-refresh-token", data.Value.RefreshToken);
         Assert.True(data.Value.AccessTokenExpiresAtUtc.HasValue);
         Assert.Equal(accessTokenExpiresAtUtc, data.Value.AccessTokenExpiresAtUtc.Value);
-        jwt.Received(1).GenerateAccessToken(Arg.Any<User>(), "session-rotation", true);
+        jwt.Received(1).GenerateAccessToken(Arg.Any<User>(), "session-rotation", Arg.Any<UserSessionAuthenticationContext>());
     }
 
     [Fact]
@@ -930,7 +930,7 @@ public class UserServiceValidationTests
         DateTimeOffset accessExpiry = DateTimeOffset.UtcNow.AddMinutes(15);
         var jwt = Substitute.For<IJwtHelper>();
         jwt.GenerateRefreshToken().Returns("rotated-refresh-token");
-        jwt.GenerateAccessToken(Arg.Any<User>(), "facade-refresh-session", true)
+        jwt.GenerateAccessToken(Arg.Any<User>(), "facade-refresh-session", Arg.Any<UserSessionAuthenticationContext>())
             .Returns(new IssuedAccessToken("rotated-access-token", accessExpiry));
         var measurements = new ConcurrentBag<(string Name, double Value)>();
         using MeterListener listener = ListenToFsusMeasurements(measurements);
@@ -1097,7 +1097,7 @@ public class UserServiceValidationTests
             .Returns(_ => Task.FromResult((IDataReader)new DataTable().CreateDataReader()));
         var jwt = Substitute.For<IJwtHelper>();
         jwt.GenerateRefreshToken().Returns("lost-race-refresh-token");
-        jwt.GenerateAccessToken(Arg.Any<User>(), activeSession.SessionId, false)
+        jwt.GenerateAccessToken(Arg.Any<User>(), activeSession.SessionId, Arg.Any<UserSessionAuthenticationContext>())
             .Returns(new IssuedAccessToken("lost-race-access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
         var measurements = new ConcurrentBag<(string Name, double Value)>();
         using MeterListener listener = ListenToFsusMeasurements(measurements);
@@ -1136,7 +1136,7 @@ public class UserServiceValidationTests
         var jwt = Substitute.For<IJwtHelper>();
         jwt.GenerateRefreshToken().Returns("refresh-token");
         DateTimeOffset accessTokenExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(15);
-        jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<bool>())
+        jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<UserSessionAuthenticationContext>())
             .Returns(new IssuedAccessToken("access-token", accessTokenExpiresAtUtc));
         var persistence = ConfigureLoginPersistence(db);
         var svc = BuildLoginService(db, jwt);
@@ -1163,7 +1163,13 @@ public class UserServiceValidationTests
         Assert.Equal("refresh-token", data.Value.RefreshToken);
         Assert.Same(bannedUser, userEntity);
         jwt.Received(1).GenerateRefreshToken();
-        jwt.Received(1).GenerateAccessToken(bannedUser, Arg.Any<string>(), false);
+        jwt.Received(1).GenerateAccessToken(
+            bannedUser,
+            Arg.Any<string>(),
+            Arg.Is<UserSessionAuthenticationContext>(context =>
+                context.Method == UserSessionAuthenticationMethods.Other &&
+                context.Strength == UserSessionAuthenticationStrengths.LegacyUnverified &&
+                context.DurationPolicy == UserSessionDurationPolicies.BrowserSession));
         await persistence.SessionInsert.Received(1).ExecuteCommandAsync();
         await persistence.UserUpdate.DidNotReceive().ExecuteCommandAsync();
     }
@@ -1176,7 +1182,7 @@ public class UserServiceValidationTests
         var jwt = Substitute.For<IJwtHelper>();
         jwt.GenerateRefreshToken().Returns("refresh-token");
         DateTimeOffset accessTokenExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(60);
-        jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<bool>())
+        jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<UserSessionAuthenticationContext>())
             .Returns(new IssuedAccessToken("access-token", accessTokenExpiresAtUtc));
         var persistence = ConfigureLoginPersistence(db);
         var svc = BuildLoginService(db, jwt);
@@ -1198,7 +1204,13 @@ public class UserServiceValidationTests
         Assert.Equal("refresh-token", data.Value.RefreshToken);
         Assert.Same(user, userEntity);
         jwt.Received(1).GenerateRefreshToken();
-        jwt.Received(1).GenerateAccessToken(user, Arg.Any<string>(), true);
+        jwt.Received(1).GenerateAccessToken(
+            user,
+            Arg.Any<string>(),
+            Arg.Is<UserSessionAuthenticationContext>(context =>
+                context.Method == UserSessionAuthenticationMethods.Other &&
+                context.Strength == UserSessionAuthenticationStrengths.LegacyVerified &&
+                context.DurationPolicy == UserSessionDurationPolicies.BrowserSession));
         await persistence.SessionInsert.Received(1).ExecuteCommandAsync();
         await persistence.UserUpdate.DidNotReceive().ExecuteCommandAsync();
     }
@@ -1262,7 +1274,7 @@ public class UserServiceValidationTests
             });
         var jwt = Substitute.For<IJwtHelper>();
         jwt.GenerateRefreshToken().Returns("new-refresh-token");
-        jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), true)
+        jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<UserSessionAuthenticationContext>())
             .Returns(new IssuedAccessToken("new-access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
         var measurements = new ConcurrentBag<(string Name, double Value)>();
         using MeterListener listener = ListenToFsusMeasurements(measurements);
@@ -1326,7 +1338,7 @@ public class UserServiceValidationTests
         var cache = Substitute.For<IUserSessionValidationCache>();
         var jwt = Substitute.For<IJwtHelper>();
         jwt.GenerateRefreshToken().Returns("discarded-refresh-token");
-        jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), false)
+        jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<UserSessionAuthenticationContext>())
             .Returns(new IssuedAccessToken("discarded-access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
         var service = BuildLoginService(db, jwt, cache);
 
@@ -1408,7 +1420,7 @@ public class UserServiceValidationTests
             });
         var jwt = Substitute.For<IJwtHelper>();
         jwt.GenerateRefreshToken().Returns("discarded-refresh-token");
-        jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), false)
+        jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<UserSessionAuthenticationContext>())
             .Returns(new IssuedAccessToken("discarded-access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
         var service = BuildLoginService(db, jwt, cache);
 
@@ -1713,23 +1725,26 @@ public class UserServiceValidationTests
     }
 
     [Theory]
-    [InlineData(null, null, "unknown")]
-    [InlineData("", null, "unknown")]
-    [InlineData("Mozilla/5.0", null, "Mozilla/5.0")]
-    [InlineData(null, "fp-abc", "fp-abc")]
-    public void BuildDeviceLabel_ReturnsExpected(string? userAgent, string? fingerprint, string expected)
+    [InlineData(null, "Unknown device")]
+    [InlineData("", "Unknown device")]
+    [InlineData("Mozilla/5.0", "Browser on Other")]
+    [InlineData("Mozilla/5.0 (Windows NT 10.0) AppleWebKit Chrome/124.0 Safari/537.36", "Chrome on Windows")]
+    [InlineData("Mozilla/5.0 (X11; Linux x86_64) Firefox/126.0", "Firefox on Linux")]
+    [InlineData("Mozilla/5.0 (iPhone; CPU iPhone OS 17_5) AppleWebKit Safari/604.1", "Safari on iPhone/iPad")]
+    [InlineData("Mozilla/5.0 (Windows NT 10.0) AppleWebKit Chrome/124.0 Edg/124.0", "Edge on Windows")]
+    public void BuildDeviceLabel_ReturnsCoarseExpectedValue(string? userAgent, string expected)
     {
-        var result = InvokeSessionPrivateStatic<string>("BuildDeviceLabel", [userAgent, fingerprint]);
+        var result = InvokeSessionPrivateStatic<string>("BuildDeviceLabel", [userAgent]);
         Assert.Equal(expected, result);
     }
 
     [Fact]
-    public void BuildDeviceLabel_LongUserAgent_Truncates()
+    public void BuildDeviceLabel_DoesNotEchoUnknownHighEntropyUserAgent()
     {
         string longAgent = new string('x', 200);
-        var result = InvokeSessionPrivateStatic<string>("BuildDeviceLabel", [longAgent, null]);
-        Assert.EndsWith("...", result);
-        Assert.Equal(99, result.Length); // 96 + "..."
+        var result = InvokeSessionPrivateStatic<string>("BuildDeviceLabel", [longAgent]);
+        Assert.Equal("Browser on Other", result);
+        Assert.DoesNotContain(longAgent, result, StringComparison.Ordinal);
     }
 
     private static object? ReadAssignmentValue<T>(

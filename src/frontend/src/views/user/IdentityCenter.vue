@@ -313,7 +313,7 @@
           >
             <template #title>
               <p class="m-0 block min-w-0 max-w-full truncate text-[14px] font-bold text-[var(--fsusblog-text-primary)]">
-                {{ formatSessionDevice(session.deviceLabel, session.deviceFingerprint) }}
+                {{ formatSessionDevice(session.deviceLabel) }}
               </p>
             </template>
             <template #meta>
@@ -325,6 +325,12 @@
                 <FsusUiMetadataItem v-if="session.lastSeenAt" :label="sessionsCopy.activeAtLabel">
                   <SemanticTime :value="session.lastSeenAt" format="date" />
                 </FsusUiMetadataItem>
+                <FsusUiMetadataItem :label="sessionsCopy.createdAtLabel">
+                  <SemanticTime :value="session.createdAt" format="date" />
+                </FsusUiMetadataItem>
+                <FsusUiMetadataItem :label="sessionsCopy.loginMethodLabel" :value="formatAuthenticationMethod(session.authenticationMethod)" />
+                <FsusUiMetadataItem v-if="session.passkeyFriendlyName" :label="sessionsCopy.credentialLabel" :value="session.passkeyFriendlyName" />
+                <FsusUiMetadataItem :label="sessionsCopy.durationLabel" :value="formatDurationPolicy(session.durationPolicy)" />
               </FsusUiMetadataRow>
             </template>
             <template v-if="!session.isCurrent" #actions>
@@ -1041,8 +1047,18 @@ const revokeOtherSessionDevices = async (): Promise<void> => {
   await refreshSessions()
 }
 
-const formatSessionDevice = (label: string | null | undefined, fingerprint: string | null | undefined): string =>
-  label?.trim() || fingerprint?.trim() || sessionsCopy.deviceFallback
+const formatSessionDevice = (label: string | null | undefined): string =>
+  label?.trim() || sessionsCopy.deviceFallback
+
+const formatAuthenticationMethod = (method: UserSessionSummary['authenticationMethod']): string => ({
+  passkey: '通行密钥',
+  recovery_key: '恢复密钥',
+  enrollment: '首次绑定',
+  other: '其他方式'
+})[method]
+
+const formatDurationPolicy = (policy: UserSessionSummary['durationPolicy']): string =>
+  policy === 'persistent_30d' ? '保持登录（30 天）' : '关闭浏览器后退出'
 
 onMounted(() => {
   void refreshIdentityData()

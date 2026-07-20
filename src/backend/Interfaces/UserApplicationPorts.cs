@@ -42,7 +42,8 @@ public readonly record struct SessionTokenResponseDto(
     DateTimeOffset AccessTokenExpiresAtUtc,
     string RefreshToken,
     string SessionId,
-    DateTime RefreshTokenExpiresAt);
+    DateTime RefreshTokenExpiresAt,
+    string DurationPolicy = UserSessionDurationPolicies.BrowserSession);
 
 public interface IUserAccountReader
 {
@@ -65,6 +66,7 @@ public interface IUserLoginWorkflowService
         string? userAgent,
         bool mfaVerified,
         bool rememberMe,
+        UserSessionAuthenticationContext? authenticationContext = null,
         CancellationToken cancellationToken = default);
 
     Task<RiskEvaluationResult> EvaluateLoginRiskAsync(int userId, string clientIp, string? deviceFingerprint, string? userAgent, CancellationToken cancellationToken = default);
@@ -94,6 +96,8 @@ public interface IUserSessionCommandService
     Task<bool> RevokeSessionAsync(int userId, string sessionId, string reason = "manual_revoke", CancellationToken cancellationToken = default);
 
     Task<int> RevokeOtherSessionsAsync(int userId, string? currentSessionId, CancellationToken cancellationToken = default);
+
+    Task<int> RevokeSessionsByCredentialAsync(int userId, int credentialRowId, CancellationToken cancellationToken = default);
 
     Task<int> RevokeAllSessionsAsync(int userId, string reason, CancellationToken cancellationToken = default);
 

@@ -48,7 +48,8 @@ public sealed class AuthCookieService
         DateTimeOffset accessTokenExpiresAtUtc,
         string refreshToken,
         string? sessionId,
-        DateTime idleExpiresAt)
+        DateTime idleExpiresAt,
+        bool persistent = true)
     {
         CookieOptions baseOptions = CreateBaseOptions(env);
         bool useSecureTransportCookies = baseOptions.Secure;
@@ -57,19 +58,23 @@ public sealed class AuthCookieService
         string refreshCookieName = useSecureTransportCookies ? HostRefreshTokenCookieName : RefreshTokenCookieName;
         string sessionCookieName = useSecureTransportCookies ? HostSessionIdCookieName : SessionIdCookieName;
 
-        AppendAccessTokenCookie(context, accessCookieName, accessToken, accessTokenExpiresAtUtc, baseOptions);
+        AppendAccessTokenCookie(context, accessCookieName, accessToken, accessTokenExpiresAtUtc, baseOptions, persistent);
 
-        context.Response.Cookies.Append(refreshCookieName, refreshToken, new CookieOptions(baseOptions)
+        CookieOptions refreshOptions = new(baseOptions);
+        if (persistent)
         {
-            Expires = idleExpiresAt
-        });
+            refreshOptions.Expires = idleExpiresAt;
+        }
+        context.Response.Cookies.Append(refreshCookieName, refreshToken, refreshOptions);
 
         if (!string.IsNullOrWhiteSpace(sessionId))
         {
-            context.Response.Cookies.Append(sessionCookieName, sessionId, new CookieOptions(baseOptions)
+            CookieOptions sessionOptions = new(baseOptions);
+            if (persistent)
             {
-                Expires = idleExpiresAt
-            });
+                sessionOptions.Expires = idleExpiresAt;
+            }
+            context.Response.Cookies.Append(sessionCookieName, sessionId, sessionOptions);
         }
     }
 
@@ -115,10 +120,12 @@ public sealed class AuthCookieService
             new CookieOptions(baseOptions) { Expires = expiresAt, Path = "/api/binary/auth/enrollment" });
     }
 
+    /// <summary>Reads the enrollment-only token from the secure or compatibility cookie name.</summary>
     public string? ReadEnrollmentToken(HttpContext context)
         => ReadCookie(context, ShouldUseSecureTransportCookies(null) ? HostEnrollmentTokenCookieName : EnrollmentTokenCookieName)
             ?? ReadCookie(context, EnrollmentTokenCookieName);
 
+    /// <summary>Clears both enrollment cookie names after completion or rejection.</summary>
     public void ClearEnrollmentCookie(HttpContext context)
     {
         context.Response.Cookies.Delete(EnrollmentTokenCookieName, new CookieOptions { Path = "/api/binary/auth/enrollment" });
@@ -148,11 +155,16 @@ public sealed class AuthCookieService
         string cookieName,
         string accessToken,
         DateTimeOffset accessTokenExpiresAtUtc,
-        CookieOptions baseOptions)
-        => context.Response.Cookies.Append(cookieName, accessToken, new CookieOptions(baseOptions)
+        CookieOptions baseOptions,
+        bool persistent = true)
+    {
+        CookieOptions options = new(baseOptions);
+        if (persistent)
         {
-            Expires = accessTokenExpiresAtUtc.ToUniversalTime()
-        });
+            options.Expires = accessTokenExpiresAtUtc.ToUniversalTime();
+        }
+        context.Response.Cookies.Append(cookieName, accessToken, options);
+    }
 
     /// <summary>Deletes every supported user and administrator authentication cookie variant.</summary>
     public void ClearTokenCookies(HttpContext context)

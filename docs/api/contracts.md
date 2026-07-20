@@ -599,15 +599,18 @@ Passkey complete、MFA verify 与匿名 bootstrap 的成功响应只表示服务
 ```json
 {
   "sessionId": "uuid-v4",
-  "deviceFingerprint": "sha256-or-client-fp",
   "deviceLabel": "Chrome on Windows",
+  "createdAt": "2026-01-01T00:00:00Z",
   "lastSeenAt": "2026-01-01T01:00:00Z",
-  "isCurrent": true,
-  "mfaVerified": true
+  "authenticationMethod": "passkey",
+  "authenticationStrength": "webauthn_uv",
+  "passkeyFriendlyName": "Work laptop",
+  "durationPolicy": "browser_session",
+  "isCurrent": true
 }
 ```
 
-普通账号同时只保留一个 active `UserSession`；新登录会在事务内撤销同账号旧 active session，因此 session list 正常只返回当前 active session。该列表不返回 `lastIp`、region、raw user agent 或 user id。服务端可继续在 `sys_user_session.last_ip` 内部用于风险判定，但 `AuthSessionList` 的 `UserSessionSummaryPod` 不包含该字段，IdentityCenter 不显示原始 IP。
+普通账号可同时保留受服务端上限约束的多个 active `UserSession`。列表只提供可操作的 session id、粗粒度设备标签、创建/最近活跃时间、登录来源与强度、可选 Passkey 友好名称、Cookie 持久化策略和当前会话标记。它不返回内部 credential row id、设备指纹、raw user agent、原始 IP、JWT/refresh token、长期 `mfaVerified` 状态或 user id；服务端可继续把这些内部数据用于风险判定和精确撤销，但不得编码进 `AuthSessionList`。
 
 ### `AdminSessionSummaryDto`（管理员会话列表项）
 

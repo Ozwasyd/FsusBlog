@@ -418,6 +418,9 @@ complete 先用数据库状态、request hash 和 lease 排除并发，再在同
 
 ## 会话管理
 
+- 普通账号 Session 的登录来源、认证强度、初始认证时间、可选 Passkey 内部来源、step-up 审计时间与持续时间策略统一由 [普通账号 Session 认证上下文](security/user-session-authentication-context.md) 定义。`MfaVerified` / JWT `mfa` 仅是兼容和粗粒度信号，不能代替绑定 account、当前 Session 与 action 的短期一次性 proof；refresh 保留初始认证上下文但不延长 step-up。
+- `rememberMe=false` 映射为 `browser_session`，access/refresh/session Cookie 都不设置持久 `Expires`；`rememberMe=true` 映射为 `persistent_30d`。Refresh 必须沿用数据库中的 `DurationPolicy`，未知策略清理普通账号 Cookie 并要求重新登录。
+- 普通账号会话列表只允许展示粗粒度设备标签、创建/最近活动时间、登录方法、Passkey 友好名称、当前会话标记和持续时间策略；不得返回内部 credential row ID、原始 WebAuthn credential ID、Refresh Token、JWT、proof、raw IP 或精确设备指纹。
 - 每次登录创建独立会话记录（设备、IP、时间），存储于 PostgreSQL + Redis；一个普通账号允许多个 active `UserSession`。`Security:UserSessions:MaxActiveSessions` 默认 10、范围 1-50，登录 admission 在账号级事务锁内清理过期项并优先淘汰最久未使用的旧会话，新创建会话不参与本轮淘汰。
 - 匿名账号 bootstrap 与 Passkey login complete 复用同一会话创建逻辑（`CompleteLoginAsync`），bootstrap 默认创建非 remember-me 标准会话，Passkey 登录按客户端 rememberMe 请求创建。
 - `CompleteLoginAsync` 是 access token、refresh token 与 `UserSession` 记录的最终签发边界；该边界使用 PostgreSQL transaction-scoped advisory lock 串行化 login、revoke-others、账户注销和上限淘汰，并在 insert 前重新确认账户未注销。`sys_user_session` 不再保留“每账号一个 active session”的 partial unique index，而使用 active recency partial index 支持有界淘汰。MFA、Passkey 或匿名 bootstrap 已完成验证后，`User.Status == Banned` 会签发受限会话并写入 session，用于展示账号状态、登出、撤销会话、删除本人账号等安全收尾操作。`Deleted` / `DeletedAt` 仍必须返回注销失败且不得生成 token。

@@ -262,6 +262,29 @@ public sealed class JwtHelperTests
     }
 
     [Fact]
+    public void GenerateAccessToken_StructuredAuthenticationContext_PreservesSafeProvenanceOnly()
+    {
+        var helper = CreateHelper();
+        DateTime authenticatedAtUtc = new(2026, 7, 20, 1, 2, 3, DateTimeKind.Utc);
+        string token = helper.GenerateAccessToken(
+            TestUser(),
+            "session-auth-context",
+            new UserSessionAuthenticationContext(
+                UserSessionAuthenticationMethods.Passkey,
+                UserSessionAuthenticationStrengths.WebAuthnUv,
+                authenticatedAtUtc,
+                CredentialRowId: 812,
+                UserSessionDurationPolicies.BrowserSession));
+
+        IEnumerable<Claim> claims = ParseClaims(token);
+        Assert.Contains(claims, claim => claim.Type == "auth_method" && claim.Value == "passkey");
+        Assert.Contains(claims, claim => claim.Type == "auth_strength" && claim.Value == "webauthn_uv");
+        Assert.Contains(claims, claim => claim.Type == "auth_time");
+        Assert.Contains(claims, claim => claim.Type == "mfa" && claim.Value == "1");
+        Assert.DoesNotContain(claims, claim => claim.Type.Contains("credential", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void GenerateAccessToken_UsesConfiguredIssuerAndAudience()
     {
         var helper = CreateHelper(issuer: "my-issuer", audience: "my-audience");

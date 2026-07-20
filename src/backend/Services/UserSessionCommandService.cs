@@ -33,8 +33,10 @@ public sealed partial class UserSessionCommandService(
     private static readonly TimeSpan s_rememberMeSessionIdleTtl = TimeSpan.FromDays(30);
     private static readonly TimeSpan s_refreshConcurrencyGrace = TimeSpan.FromSeconds(10);
 
-    private static TimeSpan ResolveIdleSessionTtl(bool rememberMe)
-        => rememberMe ? s_rememberMeSessionIdleTtl : s_standardSessionIdleTtl;
+    private static TimeSpan ResolveIdleSessionTtl(string durationPolicy)
+        => UserSessionDurationPolicies.IsPersistent(durationPolicy)
+            ? s_rememberMeSessionIdleTtl
+            : s_standardSessionIdleTtl;
 
     private static string HashToken(string token)
         => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
@@ -147,36 +149,49 @@ public sealed partial class UserSessionCommandService(
     {
         cancellationToken.ThrowIfCancellationRequested();
         var sessions = await db.Queryable<UserSession>()
-            .Where(s => s.UserId == userId && s.RevokedAt == null && s.IdleExpiresAt > DateTime.UtcNow && s.AbsoluteExpiresAt > DateTime.UtcNow)
-            .OrderByDescending(s => s.LastSeenAt)
+            .LeftJoin<PasskeyCredential>((session, credential) =>
+                session.AuthenticatedCredentialRowId == credential.Id &&
+                session.UserId == credential.AccountId)
+            .Where((session, _) =>
+                session.UserId == userId &&
+                session.RevokedAt == null &&
+                session.IdleExpiresAt > DateTime.UtcNow &&
+                session.AbsoluteExpiresAt > DateTime.UtcNow)
+            .OrderByDescending((session, _) => session.LastSeenAt)
             .Take(50)
-            .Select(s => new UserSessionSummaryRow
+            .Select((session, credential) => new UserSessionSummaryRow
             {
-                SessionId = s.SessionId,
-                DeviceFingerprint = s.DeviceFingerprint,
-                UserAgent = s.UserAgent,
-                LastSeenAt = s.LastSeenAt,
-                MfaVerified = s.MfaVerified
+                SessionId = session.SessionId,
+                UserAgent = session.UserAgent,
+                CreatedAt = session.CreatedAt,
+                LastSeenAt = session.LastSeenAt,
+                AuthenticationMethod = session.AuthenticationMethod,
+                AuthenticationStrength = session.AuthenticationStrength,
+                PasskeyFriendlyName = credential.DeviceFriendlyName,
+                DurationPolicy = session.DurationPolicy
             })
             .ToListAsync();
 
         return sessions.Select(s => new UserSessionSummaryDto(
-            s.SessionId,
-            s.DeviceFingerprint ?? "unknown",
-            BuildDeviceLabel(s.UserAgent, s.DeviceFingerprint),
-            s.LastSeenAt,
-            string.Equals(s.SessionId, currentSessionId, StringComparison.Ordinal),
-            s.MfaVerified)).ToList();
+            SessionId: s.SessionId,
+            DeviceLabel: BuildDeviceLabel(s.UserAgent),
+            CreatedAt: s.CreatedAt,
+            LastSeenAt: s.LastSeenAt,
+            AuthenticationMethod: NormalizeAuthenticationMethod(s.AuthenticationMethod),
+            AuthenticationStrength: NormalizeAuthenticationStrength(s.AuthenticationStrength),
+            PasskeyFriendlyName: NormalizeFriendlyName(s.PasskeyFriendlyName),
+            DurationPolicy: NormalizeDurationPolicy(s.DurationPolicy),
+            IsCurrent: string.Equals(s.SessionId, currentSessionId, StringComparison.Ordinal))).ToList();
     }
 
     private sealed record UserSessionSummaryRow
     {
         public string SessionId { get; init; } = string.Empty;
-        public string? DeviceFingerprint
+        public string? UserAgent
         {
             get; init;
         }
-        public string? UserAgent
+        public DateTime CreatedAt
         {
             get; init;
         }
@@ -184,27 +199,64 @@ public sealed partial class UserSessionCommandService(
         {
             get; init;
         }
-        public bool MfaVerified
+        public string AuthenticationMethod { get; init; } = UserSessionAuthenticationMethods.Other;
+        public string AuthenticationStrength { get; init; } = UserSessionAuthenticationStrengths.LegacyUnverified;
+        public string? PasskeyFriendlyName
         {
             get; init;
         }
+        public string DurationPolicy { get; init; } = UserSessionDurationPolicies.BrowserSession;
     }
 
-    private static string BuildDeviceLabel(string? userAgent, string? fingerprint)
+    private static string BuildDeviceLabel(string? userAgent)
     {
-        if (!string.IsNullOrWhiteSpace(userAgent))
+        if (string.IsNullOrWhiteSpace(userAgent))
         {
-            string normalized = userAgent.Trim();
-            if (normalized.Length <= 96)
-            {
-                return normalized;
-            }
-
-            return $"{normalized[..96]}...";
+            return "Unknown device";
         }
 
-        return string.IsNullOrWhiteSpace(fingerprint) ? "unknown" : fingerprint;
+        string browser = userAgent.Contains("Edg/", StringComparison.OrdinalIgnoreCase)
+            ? "Edge"
+            : userAgent.Contains("Firefox/", StringComparison.OrdinalIgnoreCase)
+                ? "Firefox"
+                : userAgent.Contains("Chrome/", StringComparison.OrdinalIgnoreCase) ||
+                  userAgent.Contains("CriOS/", StringComparison.OrdinalIgnoreCase)
+                    ? "Chrome"
+                    : userAgent.Contains("Safari/", StringComparison.OrdinalIgnoreCase)
+                        ? "Safari"
+                        : "Browser";
+        string platform = userAgent.Contains("iPhone", StringComparison.OrdinalIgnoreCase) ||
+                          userAgent.Contains("iPad", StringComparison.OrdinalIgnoreCase)
+            ? "iPhone/iPad"
+            : userAgent.Contains("Android", StringComparison.OrdinalIgnoreCase)
+                ? "Android"
+                : userAgent.Contains("Windows", StringComparison.OrdinalIgnoreCase)
+                    ? "Windows"
+                    : userAgent.Contains("Mac OS", StringComparison.OrdinalIgnoreCase)
+                        ? "macOS"
+                        : userAgent.Contains("Linux", StringComparison.OrdinalIgnoreCase)
+                            ? "Linux"
+                            : "Other";
+        return $"{browser} on {platform}";
     }
+
+    private static string NormalizeAuthenticationMethod(string? value)
+        => UserSessionAuthenticationMethods.IsValid(value)
+            ? value!
+            : UserSessionAuthenticationMethods.Other;
+
+    private static string NormalizeAuthenticationStrength(string? value)
+        => UserSessionAuthenticationStrengths.IsValid(value)
+            ? value!
+            : UserSessionAuthenticationStrengths.LegacyUnverified;
+
+    private static string NormalizeDurationPolicy(string? value)
+        => UserSessionDurationPolicies.IsValid(value)
+            ? value!
+            : UserSessionDurationPolicies.BrowserSession;
+
+    private static string? NormalizeFriendlyName(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     public async Task<bool> RevokeSessionAsync(
         int userId,
@@ -331,6 +383,65 @@ public sealed partial class UserSessionCommandService(
         }
 
         await PublishSessionRevocationAsync(userId, "revoke_others", revokedSessions.Count);
+        return revokedSessions.Count;
+    }
+
+    public async Task<int> RevokeSessionsByCredentialAsync(
+        int userId,
+        int credentialRowId,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (userId <= 0 || credentialRowId <= 0)
+        {
+            return 0;
+        }
+
+        DateTime revokedAt = DateTime.UtcNow;
+        List<UserSessionValidationCacheState> revokedSessions = [];
+        bool publicationAttempted = false;
+        var transaction = await db.Ado.UseTranAsync(async () =>
+        {
+            using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+                """
+                UPDATE sys_user_session
+                SET revokedat = @RevokedAt,
+                    revokereason = 'credential_deleted'
+                WHERE userid = @UserId
+                  AND authenticated_credential_row_id = @CredentialRowId
+                  AND revokedat IS NULL
+                RETURNING sessionid,
+                          userid,
+                          revokedat,
+                          idleexpiresat,
+                          absoluteexpiresat,
+                          xmin::text AS row_version;
+                """,
+                new SugarParameter("@RevokedAt", revokedAt),
+                new SugarParameter("@UserId", userId),
+                new SugarParameter("@CredentialRowId", credentialRowId));
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                revokedSessions.Add(ReadRevokedSessionValidationState(reader));
+            }
+
+            publicationAttempted = revokedSessions.Count > 0;
+            await sessionValidation.PublishManyAsync(
+                revokedSessions,
+                allowOverwrite: true,
+                cancellationToken);
+        });
+        if (!transaction.IsSuccess)
+        {
+            if (publicationAttempted)
+            {
+                await BestEffortInvalidateRevocationSnapshotsAsync(revokedSessions);
+            }
+            throw transaction.ErrorException
+                ?? new InvalidOperationException("credential-bound session revocation failed");
+        }
+
+        await PublishSessionRevocationAsync(userId, "credential_deleted", revokedSessions.Count);
         return revokedSessions.Count;
     }
 
@@ -502,6 +613,18 @@ public sealed partial class UserSessionCommandService(
             return (false, null);
         }
 
+        if (!UserSessionAuthenticationContext.TryFromSession(session, out UserSessionAuthenticationContext authenticationContext))
+        {
+            using var _ = AuditLogScope.Push(
+                AuditSourceCatalog.Auth,
+                AuditTypeCatalog.Security,
+                new KeyValuePair<string, object?>("AuditAction", "refresh.failed"),
+                new KeyValuePair<string, object?>("Reason", "invalid-session-authentication-context"),
+                new KeyValuePair<string, object?>("SessionId", session.SessionId));
+            LogTokenRefreshFailure();
+            return (false, null);
+        }
+
         if (user.Status == UserStatusBanned)
         {
             string accountSubject = AccountSubjectHashRequirement.Require(user.AccountSubjectHash, "token-refresh-restriction-audit");
@@ -510,12 +633,12 @@ public sealed partial class UserSessionCommandService(
 
         string newRefreshToken = jwt.GenerateRefreshToken();
         string newRefreshHash = HashToken(newRefreshToken);
-        DateTime idleExpiresAt = now.Add(ResolveIdleSessionTtl(session.RememberMe));
+        DateTime idleExpiresAt = now.Add(ResolveIdleSessionTtl(authenticationContext.DurationPolicy));
         if (idleExpiresAt > session.AbsoluteExpiresAt)
         {
             idleExpiresAt = session.AbsoluteExpiresAt;
         }
-        IssuedAccessToken accessToken = jwt.GenerateAccessToken(user, session.SessionId, session.MfaVerified);
+        IssuedAccessToken accessToken = jwt.GenerateAccessToken(user, session.SessionId, authenticationContext);
 
         int rotated = await db.Updateable<UserSession>()
             .SetColumns(s => s.RefreshTokenHash == newRefreshHash)

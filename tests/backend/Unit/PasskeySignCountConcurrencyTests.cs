@@ -198,6 +198,7 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
         Assert.All(results, static result => Assert.True(result.Success));
         PasskeyCredential stored = await setupDb.Queryable<PasskeyCredential>()
             .SingleAsync(item => item.CredentialId == credentialId);
+        Assert.All(results, result => Assert.Equal(stored.Id, result.CredentialRowId));
         Assert.Equal(12, stored.SignCount);
         Assert.True(stored.BackupEligible);
         Assert.True(stored.BackupState);

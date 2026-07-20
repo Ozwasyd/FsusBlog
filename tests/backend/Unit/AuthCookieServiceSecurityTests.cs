@@ -61,6 +61,32 @@ public sealed class AuthCookieServiceSecurityTests
         Assert.DoesNotContain(setCookies, static cookie => cookie.StartsWith("__Host-SessionId=", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void SetTokenCookies_BrowserSession_OmitsPersistentExpiryFromAllUserCookies()
+    {
+        var service = new AuthCookieService(CreateConfiguration());
+        var context = new DefaultHttpContext();
+
+        service.SetTokenCookies(
+            context,
+            ProductionEnv(),
+            "access-token",
+            DateTimeOffset.UtcNow.AddMinutes(15),
+            "refresh-token",
+            "session-123",
+            DateTime.UtcNow.AddDays(7),
+            persistent: false);
+
+        string[] setCookies = ReadSetCookieHeaders(context);
+        Assert.Equal(3, setCookies.Length);
+        Assert.All(setCookies, cookie =>
+        {
+            Assert.DoesNotContain("expires=", cookie, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("max-age=", cookie, StringComparison.OrdinalIgnoreCase);
+            AssertProductionCookieAttributes(cookie);
+        });
+    }
+
     [Theory]
     [InlineData(1)]
     [InlineData(15)]

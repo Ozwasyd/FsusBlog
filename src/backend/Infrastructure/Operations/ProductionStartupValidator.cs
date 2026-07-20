@@ -389,6 +389,7 @@ public static class ProductionStartupValidator
         ValidateFido2Settings(fido2ServerDomain, fido2Origins, seoBaseUrl, corsOrigins, enforceProductionRules, errors);
         ValidateAuthCookieSettings(configuration, enforceProductionRules, errors);
         ValidateUserSessionSettings(configuration, errors);
+        ValidateStepUpSettings(configuration, errors);
         ValidateAccountEnrollmentSettings(configuration, errors);
         errors.AddRange(DataProtectionKeyProtection.ValidateConfiguration(configuration, enforceProductionRules));
         ValidateAnonymousIdentityMode(anonymousIdentityMode, enforceProductionRules, errors);
@@ -447,6 +448,19 @@ public static class ProductionStartupValidator
         if (cleanupInterval is null or < 1 or > 30)
         {
             errors.Add("AuthEnrollment:CleanupIntervalMinutes must be between 1 and 30.");
+        }
+    }
+
+    private static void ValidateStepUpSettings(IConfiguration configuration, List<string> errors)
+    {
+        int? configured = configuration.GetValue<int?>(MfaChallengeService.ProofFreshnessMinutesConfigurationKey);
+        if (configured is null
+            || configured < MfaChallengeService.MinimumProofFreshnessMinutes
+            || configured > MfaChallengeService.MaximumProofFreshnessMinutes)
+        {
+            errors.Add(
+                $"{MfaChallengeService.ProofFreshnessMinutesConfigurationKey} must be between "
+                + $"{MfaChallengeService.MinimumProofFreshnessMinutes} and {MfaChallengeService.MaximumProofFreshnessMinutes}.");
         }
     }
 

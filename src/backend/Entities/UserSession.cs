@@ -81,6 +81,36 @@ public class UserSession
         get; set;
     }
 
+    [SugarColumn(ColumnName = "authentication_method", Length = 24, DefaultValue = UserSessionAuthenticationMethods.Other)]
+    public string AuthenticationMethod { get; set; } = UserSessionAuthenticationMethods.Other;
+
+    [SugarColumn(ColumnName = "authentication_strength", Length = 24, DefaultValue = UserSessionAuthenticationStrengths.LegacyUnverified)]
+    public string AuthenticationStrength { get; set; } = UserSessionAuthenticationStrengths.LegacyUnverified;
+
+    [SugarColumn(ColumnName = "authenticated_at_utc")]
+    public DateTime AuthenticatedAtUtc { get; set; } = DateTime.UtcNow;
+
+    [SugarColumn(ColumnName = "authenticated_credential_row_id", IsNullable = true)]
+    public int? AuthenticatedCredentialRowId
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "last_step_up_at_utc", IsNullable = true)]
+    public DateTime? LastStepUpAtUtc
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "last_step_up_method", IsNullable = true, Length = 24)]
+    public string? LastStepUpMethod
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "duration_policy", Length = 24, DefaultValue = UserSessionDurationPolicies.BrowserSession)]
+    public string DurationPolicy { get; set; } = UserSessionDurationPolicies.BrowserSession;
+
     [SugarColumn(IsIgnore = true)]
     public string? RowVersion
     {

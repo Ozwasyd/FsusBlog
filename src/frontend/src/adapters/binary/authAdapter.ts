@@ -212,13 +212,20 @@ export function mapRecoveryKeyVerifyResponseFromPayload(payload: Uint8Array): Re
 
 function readUserSessionSummary(reader: BinaryReader): UserSessionSummary {
   const pod = reader.readSpan(USER_SESSION_SUMMARY_POD_SIZE);
-  const hasLastSeenAt = readByte(pod, 10) === 1;
+  const hasLastSeenAt = readByte(pod, 17) === 1;
+  const hasPasskeyFriendlyName = readByte(pod, 18) === 1;
+  if (readByte(pod, 16) > 1 || readByte(pod, 17) > 1 || readByte(pod, 18) > 1 || readByte(pod, 19) !== 0) {
+    throw new Error('auth_session_flags_invalid');
+  }
   return {
-    lastSeenAt: hasLastSeenAt ? readIsoDate64(pod, 0) : null,
-    isCurrent: readByte(pod, 8) === 1,
-    mfaVerified: readByte(pod, 9) === 1,
-    sessionId: readFixedUtf8(pod, 12, 64),
-    deviceFingerprint: readFixedUtf8(pod, 76, 128),
-    deviceLabel: readFixedUtf8(pod, 204, 128)
+    createdAt: readIsoDate64(pod, 0),
+    lastSeenAt: hasLastSeenAt ? readIsoDate64(pod, 8) : null,
+    isCurrent: readByte(pod, 16) === 1,
+    sessionId: readFixedUtf8(pod, 20, 64),
+    deviceLabel: readFixedUtf8(pod, 84, 64),
+    authenticationMethod: readFixedUtf8(pod, 148, 32) as UserSessionSummary['authenticationMethod'],
+    authenticationStrength: readFixedUtf8(pod, 180, 32) as UserSessionSummary['authenticationStrength'],
+    durationPolicy: readFixedUtf8(pod, 212, 32) as UserSessionSummary['durationPolicy'],
+    passkeyFriendlyName: hasPasskeyFriendlyName ? readFixedUtf8(pod, 244, 256) : null
   };
 }

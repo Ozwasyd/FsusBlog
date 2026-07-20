@@ -1,7 +1,8 @@
-using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.NotificationStream;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
@@ -27,7 +28,8 @@ public sealed class UserSessionRefreshBoundaryTests
                 typeof(ISqlSugarClient),
                 typeof(ILogger<UserSessionCommandService>),
                 typeof(IJwtHelper),
-                typeof(IUserSessionValidationCache)
+                typeof(IUserSessionValidationCache),
+                typeof(IMessageNotificationStreamPort)
             ],
             dependencies);
         Assert.DoesNotContain(typeof(UserService), dependencies);
@@ -49,6 +51,20 @@ public sealed class UserSessionRefreshBoundaryTests
         Assert.DoesNotContain("UserService", runtime, StringComparison.Ordinal);
         Assert.Null(typeof(UserService).GetMethod(nameof(UserSessionCommandService.RefreshTokenAsync)));
         Assert.Null(typeof(UserService).GetMethod(nameof(UserSessionCommandService.RevokeSessionAsync)));
+    }
+
+    [Fact]
+    public void CredentialDeletion_RevokesOnlySessionsCreatedByThatInternalCredentialRow()
+    {
+        string runtime = RuntimeMetadataInspection.DescribeMethods(
+            typeof(UserSessionCommandService),
+            nameof(UserSessionCommandService.RevokeSessionsByCredentialAsync));
+
+        Assert.Contains("authenticated_credential_row_id = @CredentialRowId", runtime, StringComparison.Ordinal);
+        Assert.Contains("userid = @UserId", runtime, StringComparison.Ordinal);
+        Assert.Contains("credential_deleted", runtime, StringComparison.Ordinal);
+        Assert.Contains("PublishManyAsync", runtime, StringComparison.Ordinal);
+        Assert.DoesNotContain("credentialid", runtime, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

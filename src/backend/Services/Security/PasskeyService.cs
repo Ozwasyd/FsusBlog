@@ -42,7 +42,7 @@ public interface IPasskeyService
         string registrationSessionKey,
         CancellationToken cancellationToken = default);
     Task<(bool Success, string Message, PasskeyAuthBeginData? Data)> BeginAssertionAsync(CancellationToken cancellationToken = default);
-    Task<(bool Success, string Message, User? User)> CompleteAssertionAsync(PasskeyLoginCompleteCoreModel request, CancellationToken cancellationToken = default);
+    Task<(bool Success, string Message, User? User, int? CredentialRowId)> CompleteAssertionAsync(PasskeyLoginCompleteCoreModel request, CancellationToken cancellationToken = default);
     Task<(bool Success, string Message, PasskeyAuthBeginData? Data)> BeginStepUpAssertionAsync(int accountId, CancellationToken cancellationToken = default);
     Task<(bool Success, string Message)> CompleteStepUpAssertionAsync(int accountId, PasskeyLoginCompleteCoreModel request, CancellationToken cancellationToken = default);
     Task<(bool Success, string Message, PasskeyAuthBeginData? Data)> BeginActionStepUpAssertionAsync(int accountId, string action, CancellationToken cancellationToken = default);
@@ -643,7 +643,7 @@ public sealed class PasskeyService(
         return (true, "已生成认证选项", new PasskeyAuthBeginData(coreOptions));
     }
 
-    public async Task<(bool Success, string Message, User? User)> CompleteAssertionAsync(PasskeyLoginCompleteCoreModel request, CancellationToken cancellationToken = default)
+    public async Task<(bool Success, string Message, User? User, int? CredentialRowId)> CompleteAssertionAsync(PasskeyLoginCompleteCoreModel request, CancellationToken cancellationToken = default)
     {
         long started = Stopwatch.GetTimestamp();
         cancellationToken.ThrowIfCancellationRequested();
@@ -656,7 +656,7 @@ public sealed class PasskeyService(
             cancellationToken);
         if (!cached.Hit || cached.Value is null)
         {
-            return (false, "认证会话已过期，请重新开始", null);
+            return (false, "认证会话已过期，请重新开始", null, null);
         }
 
         await invalidation.RemoveAsync(CachePolicyId.SecurityPasskeyAuthChallenge, request.ChallengeToken, cancellationToken);
@@ -664,7 +664,7 @@ public sealed class PasskeyService(
         var options = ToAssertionOptions(cached.Value);
         if (options.UserVerification != UserVerificationRequirement.Required)
         {
-            return (false, "通行密钥验证失败，请重试", null);
+            return (false, "通行密钥验证失败，请重试", null, null);
         }
 
         AuthenticatorAssertionRawResponse assertionResponse = ToAssertionResponse(request);
@@ -675,7 +675,7 @@ public sealed class PasskeyService(
         if (assertionState is null)
         {
             FsusObservability.RecordPasskeyAssertion("login", 1, Stopwatch.GetElapsedTime(started), "credential_not_found");
-            return (false, CredentialNotFoundMessage, null);
+            return (false, CredentialNotFoundMessage, null, null);
         }
 
         PasskeyCredential storedCred = assertionState.Credential;
@@ -684,7 +684,7 @@ public sealed class PasskeyService(
         if (user.Status == 2 || user.DeletedAt.HasValue)
         {
             FsusObservability.RecordPasskeyAssertion("login", 1, Stopwatch.GetElapsedTime(started), "account_deleted");
-            return (false, "账户不存在或已注销", null);
+            return (false, "账户不存在或已注销", null, null);
         }
 
         string? storedUserHandle = user.PasskeyUserHandle;
@@ -710,7 +710,7 @@ public sealed class PasskeyService(
             if (!TryReadAssertionMetadata(request.AuthenticatorData, out PasskeyAssertionMetadata assertionMetadata))
             {
                 FsusObservability.RecordPasskeyAssertion("login", 1, Stopwatch.GetElapsedTime(started), "authenticator_metadata_invalid");
-                return (false, "通行密钥验证失败，请重试", null);
+                return (false, "通行密钥验证失败，请重试", null, null);
             }
 
             PasskeyCounterDecision invalidCounterDecision =
@@ -733,11 +733,11 @@ public sealed class PasskeyService(
                     1,
                     Stopwatch.GetElapsedTime(started),
                     CounterDecisionResult(invalidCounterDecision));
-                return (false, CounterFailureMessage(invalidCounterDecision, stepUp: false), null);
+                return (false, CounterFailureMessage(invalidCounterDecision, stepUp: false), null, null);
             }
 
             FsusObservability.RecordPasskeyAssertion("login", 1, Stopwatch.GetElapsedTime(started), "success");
-            return (true, "验证成功", user);
+            return (true, "验证成功", user, storedCred.Id);
         }
         catch (Exception ex)
         {
@@ -749,13 +749,13 @@ public sealed class PasskeyService(
                 ResolveAccountSubjectHashForLog(user),
                 ex.GetType().Name);
             FsusObservability.RecordPasskeyAssertion("login", 1, Stopwatch.GetElapsedTime(started), "verify_failed");
-            return (false, "通行密钥验证失败，请重试", null);
+            return (false, "通行密钥验证失败，请重试", null, null);
         }
 
         if (!TryReadAssertionMetadata(request.AuthenticatorData, out PasskeyAssertionMetadata verifiedMetadata))
         {
             FsusObservability.RecordPasskeyAssertion("login", 1, Stopwatch.GetElapsedTime(started), "authenticator_metadata_invalid");
-            return (false, "通行密钥验证失败，请重试", null);
+            return (false, "通行密钥验证失败，请重试", null, null);
         }
 
         PasskeyCounterDecision counterDecision = await ApplyPasskeyCounterAsync(
@@ -771,11 +771,11 @@ public sealed class PasskeyService(
                 1,
                 Stopwatch.GetElapsedTime(started),
                 CounterDecisionResult(counterDecision));
-            return (false, CounterFailureMessage(counterDecision, stepUp: false), null);
+            return (false, CounterFailureMessage(counterDecision, stepUp: false), null, null);
         }
 
         FsusObservability.RecordPasskeyAssertion("login", 1, Stopwatch.GetElapsedTime(started), "success");
-        return (true, "验证成功", user);
+        return (true, "验证成功", user, storedCred.Id);
     }
 
     public async Task<(bool Success, string Message, PasskeyAuthBeginData? Data)> BeginStepUpAssertionAsync(
@@ -1443,6 +1443,7 @@ public sealed class PasskeyService(
         cancellationToken.ThrowIfCancellationRequested();
         PasskeyCredentialMutationResult result = PasskeyCredentialMutationResult.Missing("通行密钥不存在");
         bool invalidateAccountSnapshot = false;
+        bool reconcileCredentialSessions = false;
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
             PasskeyDeleteState deleteState = await TryDeletePasskeyCredentialAsync(accountId, credId, cancellationToken);
@@ -1454,6 +1455,7 @@ public sealed class PasskeyService(
 
             if (!deleteState.CredentialFound)
             {
+                reconcileCredentialSessions = true;
                 result = PasskeyCredentialMutationResult.Missing("通行密钥不存在");
                 return;
             }
@@ -1481,11 +1483,18 @@ public sealed class PasskeyService(
             }
 
             invalidateAccountSnapshot = true;
+            reconcileCredentialSessions = true;
             result = PasskeyCredentialMutationResult.Succeeded("通行密钥已删除", signalState.Value);
         });
         if (!transaction.IsSuccess)
         {
             throw new InvalidOperationException("passkey_credential_remove_failed", transaction.ErrorException);
+        }
+
+        if (reconcileCredentialSessions)
+        {
+            _ = await sessions.RevokeSessionsByCredentialAsync(accountId, credId, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         if (invalidateAccountSnapshot)

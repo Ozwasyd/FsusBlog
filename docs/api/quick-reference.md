@@ -42,7 +42,7 @@
 
 | 方法 | 路径 | 权限 | 说明 |
 | ------ | ------ | ------ | ------ |
-| GET | `/api/binary/auth/sessions` | 🔑 📦 | 获取活跃会话列表 |
+| GET | `/api/binary/auth/sessions` | 🔑 📦 | 获取隐私安全的活跃会话列表（粗粒度设备、认证来源/强度、持续时间） |
 | POST | `/api/binary/auth/sessions/{id}/revoke` | 🔑 📦 | 吊销指定会话 |
 | POST | `/api/binary/auth/sessions/revoke-others` | 🔑 📦 | 吊销全部其他会话 |
 

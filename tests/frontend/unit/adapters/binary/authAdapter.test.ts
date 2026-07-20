@@ -146,27 +146,36 @@ describe('binary auth adapter', () => {
   })
 
   it('maps user session list payload', () => {
-    const payload = new Uint8Array(4 + 332)
+    const payload = new Uint8Array(4 + 500)
     const view = new DataView(payload.buffer)
     view.setInt32(0, 1, true)
-    view.setBigInt64(4, BigInt(Date.parse('2026-01-02T03:04:05.000Z')), true)
-    payload[12] = 1
-    payload[13] = 1
-    payload[14] = 1
-    writeFixed(payload, 16, 64, 'session-1')
-    writeFixed(payload, 80, 128, 'fp-1')
-    writeFixed(payload, 208, 128, 'Chrome on Linux')
+    view.setBigInt64(4, BigInt(Date.parse('2026-01-01T02:03:04.000Z')), true)
+    view.setBigInt64(12, BigInt(Date.parse('2026-01-02T03:04:05.000Z')), true)
+    payload[20] = 1
+    payload[21] = 1
+    payload[22] = 1
+    writeFixed(payload, 24, 64, 'session-1')
+    writeFixed(payload, 88, 64, 'Chrome on Linux')
+    writeFixed(payload, 152, 32, 'passkey')
+    writeFixed(payload, 184, 32, 'webauthn_uv')
+    writeFixed(payload, 216, 32, 'persistent_30d')
+    writeFixed(payload, 248, 256, 'Work security key')
 
     expect(mapUserSessionsFromPayload(payload)).toEqual([{
       sessionId: 'session-1',
-      deviceFingerprint: 'fp-1',
       deviceLabel: 'Chrome on Linux',
+      createdAt: '2026-01-01T02:03:04.000Z',
       lastSeenAt: '2026-01-02T03:04:05.000Z',
-      isCurrent: true,
-      mfaVerified: true
+      authenticationMethod: 'passkey',
+      authenticationStrength: 'webauthn_uv',
+      passkeyFriendlyName: 'Work security key',
+      durationPolicy: 'persistent_30d',
+      isCurrent: true
     }])
 
     expect(mapUserSessionsFromPayload(payload)[0]).not.toHaveProperty('lastIp')
+    expect(mapUserSessionsFromPayload(payload)[0]).not.toHaveProperty('deviceFingerprint')
+    expect(mapUserSessionsFromPayload(payload)[0]).not.toHaveProperty('mfaVerified')
   })
 
   it('maps recovery key verify payload without hydrating legacy id slots', () => {

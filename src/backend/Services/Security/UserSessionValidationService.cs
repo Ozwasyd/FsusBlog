@@ -2,6 +2,7 @@ using System.Data.Common;
 using System.Globalization;
 using System.Security.Claims;
 
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
@@ -33,7 +34,10 @@ public sealed record UserSessionValidationCacheState(
     string RowVersion,
     int AccountStatus,
     DateTime? AccountDeletedAtUtc,
-    string IdentityKind);
+    string IdentityKind,
+    string AuthenticationMethod = "",
+    string AuthenticationStrength = "",
+    DateTime? AuthenticatedAtUtc = null);
 
 public interface IUserSessionValidationCache
 {
@@ -62,7 +66,7 @@ public sealed class UserSessionValidationCache(
     IConfiguration configuration) : IUserSessionValidationCache
 {
     internal const string DistributedCacheEnabledKey = "Security:UserSessionValidation:DistributedCacheEnabled";
-    private const string PayloadVersion = "v1";
+    private const string PayloadVersion = "v2";
     private static readonly TimeSpan s_snapshotTtl = TimeSpan.FromMinutes(2);
     private readonly IDatabase _database = redis.GetDatabase();
 
@@ -170,12 +174,15 @@ public sealed class UserSessionValidationCache(
             ToTicks(state.AbsoluteExpiresAtUtc),
             state.AccountStatus.ToString(CultureInfo.InvariantCulture),
             ToTicks(state.AccountDeletedAtUtc),
-            state.IdentityKind);
+            state.IdentityKind,
+            state.AuthenticationMethod,
+            state.AuthenticationStrength,
+            ToTicks(state.AuthenticatedAtUtc));
 
     internal static UserSessionValidationCacheState? Decode(string payload, string expectedSessionId)
     {
         string[] fields = payload.Split('|');
-        if (fields.Length != 9 ||
+        if (fields.Length != 12 ||
             !string.Equals(fields[0], PayloadVersion, StringComparison.Ordinal) ||
             string.IsNullOrWhiteSpace(fields[1]) ||
             !int.TryParse(fields[2], NumberStyles.None, CultureInfo.InvariantCulture, out int accountId) ||
@@ -185,7 +192,16 @@ public sealed class UserSessionValidationCache(
             !TryParseRequiredUtc(fields[5], out DateTime absoluteExpiresAtUtc) ||
             !int.TryParse(fields[6], NumberStyles.Integer, CultureInfo.InvariantCulture, out int accountStatus) ||
             !TryParseNullableUtc(fields[7], out DateTime? accountDeletedAtUtc) ||
-            string.IsNullOrWhiteSpace(fields[8]))
+            string.IsNullOrWhiteSpace(fields[8]) ||
+            !TryParseNullableUtc(fields[11], out DateTime? authenticatedAtUtc))
+        {
+            return null;
+        }
+
+        bool validAuthenticationContext = UserSessionAuthenticationMethods.IsValid(fields[9])
+            && UserSessionAuthenticationStrengths.IsValid(fields[10])
+            && authenticatedAtUtc.HasValue;
+        if (!revokedAtUtc.HasValue && !validAuthenticationContext)
         {
             return null;
         }
@@ -199,7 +215,10 @@ public sealed class UserSessionValidationCache(
             fields[1],
             accountStatus,
             accountDeletedAtUtc,
-            fields[8]);
+            fields[8],
+            fields[9],
+            fields[10],
+            authenticatedAtUtc);
     }
 
     private static string NormalizeSessionIdentity(string sessionId)
@@ -319,7 +338,7 @@ public sealed class UserSessionValidationService(
 
         if (state is not null)
         {
-            return ValidateState(state, accountId, DateTime.UtcNow);
+            return ValidateState(state, accountId, principal, DateTime.UtcNow);
         }
 
         state = await LoadStateAsync(sessionId, cancellationToken).ConfigureAwait(false);
@@ -339,7 +358,7 @@ public sealed class UserSessionValidationService(
                 UserSessionValidationCacheState? current = await cache.ReadAsync(sessionId, cancellationToken).ConfigureAwait(false);
                 return current is null
                     ? UserSessionValidationResult.Invalid("user_session_cache_conflict")
-                    : ValidateState(current, accountId, DateTime.UtcNow);
+                    : ValidateState(current, accountId, principal, DateTime.UtcNow);
             }
         }
         catch (Exception exception) when (exception is RedisException or InvalidDataException or InvalidOperationException or ArgumentException)
@@ -347,7 +366,7 @@ public sealed class UserSessionValidationService(
             return UserSessionValidationResult.Invalid("user_session_cache_unavailable");
         }
 
-        return ValidateState(state, accountId, DateTime.UtcNow);
+        return ValidateState(state, accountId, principal, DateTime.UtcNow);
     }
 
     private async Task<UserSessionValidationCacheState?> LoadStateAsync(
@@ -365,7 +384,10 @@ public sealed class UserSessionValidationService(
                    s.xmin::text AS row_version,
                    u.status,
                    u.deleted_at,
-                   u.identity_kind
+                   u.identity_kind,
+                   s.authentication_method,
+                   s.authentication_strength,
+                   s.authenticated_at_utc
             FROM sys_user_session s
             JOIN sys_user u ON u.id = s.userid
             WHERE s.sessionid = @SessionId;
@@ -385,12 +407,16 @@ public sealed class UserSessionValidationService(
             reader.ReadString("row_version"),
             reader.ReadInt32("status"),
             reader.IsNull("deleted_at") ? null : AsUtc(reader.ReadDateTime("deleted_at")),
-            reader.IsNull("identity_kind") ? string.Empty : reader.ReadString("identity_kind"));
+            reader.IsNull("identity_kind") ? string.Empty : reader.ReadString("identity_kind"),
+            reader.IsNull("authentication_method") ? string.Empty : reader.ReadString("authentication_method"),
+            reader.IsNull("authentication_strength") ? string.Empty : reader.ReadString("authentication_strength"),
+            reader.IsNull("authenticated_at_utc") ? null : AsUtc(reader.ReadDateTime("authenticated_at_utc")));
     }
 
     private static UserSessionValidationResult ValidateState(
         UserSessionValidationCacheState state,
         int accountId,
+        ClaimsPrincipal principal,
         DateTime now)
     {
         if (state.AccountId != accountId)
@@ -421,6 +447,21 @@ public sealed class UserSessionValidationService(
         if (!string.Equals(state.IdentityKind, AnonymousIdentityRuntime.AnonymousAccountKind, StringComparison.Ordinal))
         {
             return UserSessionValidationResult.Invalid("user_session_identity_kind_mismatch");
+        }
+
+        if (!UserSessionAuthenticationMethods.IsValid(state.AuthenticationMethod) ||
+            !UserSessionAuthenticationStrengths.IsValid(state.AuthenticationStrength) ||
+            !state.AuthenticatedAtUtc.HasValue ||
+            !string.Equals(principal.FindFirst("auth_method")?.Value, state.AuthenticationMethod, StringComparison.Ordinal) ||
+            !string.Equals(principal.FindFirst("auth_strength")?.Value, state.AuthenticationStrength, StringComparison.Ordinal) ||
+            !long.TryParse(
+                principal.FindFirst("auth_time")?.Value,
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out long tokenAuthTime) ||
+            tokenAuthTime != new DateTimeOffset(AsUtc(state.AuthenticatedAtUtc.Value)).ToUnixTimeSeconds())
+        {
+            return UserSessionValidationResult.Invalid("user_session_authentication_context_mismatch");
         }
 
         return UserSessionValidationResult.Valid;

@@ -254,19 +254,25 @@ public sealed class AedsProtocolCrossLanguageTests
         List<UserSessionSummaryDto> sessions =
         [
             new(
-                "session-1",
-                "fp-1",
-                "Chrome on Linux",
-                new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc),
-                true,
-                true),
+                SessionId: "session-1",
+                DeviceLabel: "Chrome on Linux",
+                CreatedAt: new DateTime(2026, 1, 2, 2, 3, 4, DateTimeKind.Utc),
+                LastSeenAt: new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc),
+                AuthenticationMethod: "passkey",
+                AuthenticationStrength: "webauthn_uv",
+                PasskeyFriendlyName: "Work security key",
+                DurationPolicy: "persistent_30d",
+                IsCurrent: true),
             new(
-                "session-2",
-                "fp-2",
-                "Safari on iPhone",
-                null,
-                false,
-                false)
+                SessionId: "session-2",
+                DeviceLabel: "Safari on iPhone/iPad",
+                CreatedAt: new DateTime(2026, 1, 1, 2, 3, 4, DateTimeKind.Utc),
+                LastSeenAt: null,
+                AuthenticationMethod: "other",
+                AuthenticationStrength: "legacy_unverified",
+                PasskeyFriendlyName: null,
+                DurationPolicy: "browser_session",
+                IsCurrent: false)
         ];
 
         byte[] encoded = new CoreAedsEncoder().Encode(CoreFrameType.AuthSessionList, PodBinaryCodec.EncodeUserSessions(sessions));

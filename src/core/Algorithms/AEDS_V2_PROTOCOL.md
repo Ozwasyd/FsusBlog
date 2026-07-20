@@ -195,7 +195,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `AuthLoginFlow` payload: `AuthLoginFlowPod`；字段语义为 `accountId`、`identityKind`、`authPhase`、`mfaMode`、`challengeToken`。原定长文本槽位只承载 `identityKind` 和 reserved bytes，不再承载 legacy username 或 role。
 - `CurrentUserSnapshot` payload: `CurrentUserSnapshotPod`；仅保留给 admin-only accountId 查询、迁移和 refresh-token 兼容路径，不再作为 `/api/binary/auth/me` 的用户侧输出，也不再支持 username lookup。字段语义为 `accountId`、`identityKind`、`status`、`banReason`、`deletedAt`，不再暴露 username/role。
 - `IdentityAccountSnapshot` payload: `IdentityAccountSnapshotPod` followed by blob payload for public handle、anonymous credential status/level、identity kind and ban reason. It is the `/api/binary/auth/me` output and must not expose internal username or role.
-- `AuthSessionList` payload: `int32 count` followed by `UserSessionSummaryPod[count]`.
+- `AuthSessionList` payload: `int32 count` followed by 500-byte `UserSessionSummaryPod[count]`. Each POD carries created/last-seen timestamps, current/optional flags, session id, coarse device label, authentication method/strength, duration policy, and an optional Passkey friendly name. It never carries an internal credential row id, device fingerprint, raw user agent/IP, token, long-lived MFA flag, or user id.
 - `AdminSessionList` payload: `int32 count` followed by `AdminSessionSummaryPod[count]`; records expose admin session id, device fingerprint, user agent, timestamps and status flags, but not raw IP.
 - `MfaSetupStart` payload: `MfaSetupStartPod` followed by blob payload for secret/OTP auth URL/issuer/account.
 - `MfaSetupVerify` payload: `MfaSetupVerifyPod` followed by `MfaRecoveryCodePod[count]`.

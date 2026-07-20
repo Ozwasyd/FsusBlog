@@ -1,5 +1,6 @@
 using System.Security.Claims;
 
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.Security;
@@ -16,6 +17,8 @@ namespace FsusBlog.Server.Tests.Unit;
 [Trait("Category", "SecurityStateMachine")]
 public sealed class UserSessionValidationServiceTests
 {
+    private static readonly DateTime s_authenticatedAtUtc = new(2026, 7, 20, 1, 2, 3, DateTimeKind.Utc);
+
     [Fact]
     public void CachePayload_RoundTripsVersionedSessionSnapshot()
     {
@@ -28,13 +31,16 @@ public sealed class UserSessionValidationServiceTests
             "2147483651",
             1,
             null,
-            AnonymousIdentityRuntime.AnonymousAccountKind);
+            AnonymousIdentityRuntime.AnonymousAccountKind,
+            UserSessionAuthenticationMethods.Passkey,
+            UserSessionAuthenticationStrengths.WebAuthnUv,
+            s_authenticatedAtUtc);
 
         string payload = UserSessionValidationCache.Encode(state);
         UserSessionValidationCacheState? decoded = UserSessionValidationCache.Decode(payload, state.SessionId);
 
         Assert.Equal(state, decoded);
-        Assert.StartsWith("v1|2147483651|42|", payload, StringComparison.Ordinal);
+        Assert.StartsWith("v2|2147483651|42|", payload, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -84,6 +90,38 @@ public sealed class UserSessionValidationServiceTests
 
         Assert.False(result.IsValid);
         Assert.Equal("user_session_revoked", result.Reason);
+        _ = db.DidNotReceive().Ado;
+    }
+
+    [Theory]
+    [InlineData("auth_method", "recovery_key")]
+    [InlineData("auth_strength", "recovery")]
+    [InlineData("auth_time", "1")]
+    [InlineData("auth_method", null)]
+    [InlineData("auth_strength", null)]
+    [InlineData("auth_time", null)]
+    [InlineData("auth_time", "not-a-unix-time")]
+    public async Task CachedSession_RejectsMissingMalformedOrMismatchedJwtAuthenticationContext(
+        string claimType,
+        string? replacement)
+    {
+        const int AccountId = 42;
+        const string SessionId = "context-mismatch";
+        var cache = new StubSessionValidationCache(CreateState(SessionId, AccountId));
+        var db = Substitute.For<ISqlSugarClient>();
+        var service = new UserSessionValidationService(db, cache);
+        ClaimsPrincipal principal = CreatePrincipal(AccountId, SessionId);
+        var identity = (ClaimsIdentity)principal.Identity!;
+        identity.RemoveClaim(principal.FindFirst(claimType)!);
+        if (replacement is not null)
+        {
+            identity.AddClaim(new Claim(claimType, replacement));
+        }
+
+        UserSessionValidationResult result = await service.ValidateAsync(principal, CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        Assert.Equal("user_session_authentication_context_mismatch", result.Reason);
         _ = db.DidNotReceive().Ado;
     }
 
@@ -224,7 +262,7 @@ public sealed class UserSessionValidationServiceTests
         await unified.Received(1).TrySetVersionedStringAsync(
             CachePolicyId.SecurityUserSessionValidation,
             state.SessionId,
-            Arg.Is<string>(payload => payload.StartsWith("v1|19|42|", StringComparison.Ordinal)),
+            Arg.Is<string>(payload => payload.StartsWith("v2|19|42|", StringComparison.Ordinal)),
             "19",
             true,
             TimeSpan.FromMinutes(2),
@@ -274,14 +312,20 @@ public sealed class UserSessionValidationServiceTests
             "7",
             0,
             null,
-            AnonymousIdentityRuntime.AnonymousAccountKind);
+            AnonymousIdentityRuntime.AnonymousAccountKind,
+            UserSessionAuthenticationMethods.Passkey,
+            UserSessionAuthenticationStrengths.WebAuthnUv,
+            s_authenticatedAtUtc);
 
     private static ClaimsPrincipal CreatePrincipal(int accountId, string sessionId)
         => new(new ClaimsIdentity(
         [
             new Claim(ClaimTypes.NameIdentifier, accountId.ToString(System.Globalization.CultureInfo.InvariantCulture)),
             new Claim("identity_kind", AnonymousIdentityRuntime.AnonymousAccountKind),
-            new Claim("sid", sessionId)
+            new Claim("sid", sessionId),
+            new Claim("auth_method", UserSessionAuthenticationMethods.Passkey),
+            new Claim("auth_strength", UserSessionAuthenticationStrengths.WebAuthnUv),
+            new Claim("auth_time", new DateTimeOffset(s_authenticatedAtUtc).ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture))
         ], "Bearer"));
 
     private sealed class StubSessionValidationCache(UserSessionValidationCacheState? state)

@@ -30,7 +30,7 @@ public sealed class UserSecurityStepUpServiceTests
         IUserAccountReader users = Substitute.For<IUserAccountReader>();
         IMfaChallengeService mfa = Substitute.For<IMfaChallengeService>();
         users.GetAccountByIdAsync(42).Returns(CreateUser(mfaEnabled: true));
-        mfa.ValidateAndConsumeProofTokenAsync(42, StableAccountSubjectHash, UserSecurityStepUpActions.PasskeyDelete, "proof-1")
+        mfa.ValidateAndConsumeProofTokenAsync(42, StableAccountSubjectHash, "session-a", UserSecurityStepUpActions.PasskeyDelete, "proof-1")
             .Returns(true, false);
         var service = new UserSecurityStepUpService(users, mfa);
 
@@ -38,23 +38,34 @@ public sealed class UserSecurityStepUpServiceTests
             42,
             UserSecurityStepUpActions.PasskeyDelete,
             new UserSecurityStepUpProof(MfaProofToken: "proof-1"),
-            "203.0.113.10"));
+            "203.0.113.10",
+            "session-a"));
         UserSecurityStepUpResult replay = await service.VerifyAsync(new UserSecurityStepUpRequest(
             42,
             UserSecurityStepUpActions.PasskeyDelete,
             new UserSecurityStepUpProof(MfaProofToken: "proof-1"),
-            "203.0.113.10"));
+            "203.0.113.10",
+            "session-a"));
         UserSecurityStepUpResult wrongAction = await service.VerifyAsync(new UserSecurityStepUpRequest(
             42,
             UserSecurityStepUpActions.RecoveryKeyCreate,
             new UserSecurityStepUpProof(MfaProofToken: "proof-1"),
-            "203.0.113.10"));
+            "203.0.113.10",
+            "session-a"));
+        UserSecurityStepUpResult wrongSession = await service.VerifyAsync(new UserSecurityStepUpRequest(
+            42,
+            UserSecurityStepUpActions.PasskeyDelete,
+            new UserSecurityStepUpProof(MfaProofToken: "proof-1"),
+            "203.0.113.10",
+            "session-b"));
 
         Assert.True(first.Success);
         Assert.False(replay.Success);
         Assert.False(wrongAction.Success);
-        await mfa.Received(2).ValidateAndConsumeProofTokenAsync(42, StableAccountSubjectHash, UserSecurityStepUpActions.PasskeyDelete, "proof-1");
-        await mfa.Received(1).ValidateAndConsumeProofTokenAsync(42, StableAccountSubjectHash, UserSecurityStepUpActions.RecoveryKeyCreate, "proof-1");
+        Assert.False(wrongSession.Success);
+        await mfa.Received(2).ValidateAndConsumeProofTokenAsync(42, StableAccountSubjectHash, "session-a", UserSecurityStepUpActions.PasskeyDelete, "proof-1");
+        await mfa.Received(1).ValidateAndConsumeProofTokenAsync(42, StableAccountSubjectHash, "session-a", UserSecurityStepUpActions.RecoveryKeyCreate, "proof-1");
+        await mfa.Received(1).ValidateAndConsumeProofTokenAsync(42, StableAccountSubjectHash, "session-b", UserSecurityStepUpActions.PasskeyDelete, "proof-1");
     }
 
     [Fact]
@@ -84,7 +95,8 @@ public sealed class UserSecurityStepUpServiceTests
             42,
             UserSecurityStepUpActions.RecoveryKeyRotate,
             new UserSecurityStepUpProof(),
-            "203.0.113.10"));
+            "203.0.113.10",
+            "session-a"));
 
         Assert.False(result.Success);
         Assert.Equal(StatusCodes.Status428PreconditionRequired, result.StatusCode);
@@ -103,12 +115,13 @@ public sealed class UserSecurityStepUpServiceTests
             42,
             UserSecurityStepUpActions.PasskeyCredentialNameUpdate,
             new UserSecurityStepUpProof(),
-            "203.0.113.10"));
+            "203.0.113.10",
+            "session-a"));
 
         Assert.False(result.Success);
         Assert.Equal(StatusCodes.Status428PreconditionRequired, result.StatusCode);
         Assert.Equal("ANONYMOUS_STEP_UP_PROOF_REQUIRED", result.Message);
-        await mfa.DidNotReceiveWithAnyArgs().ValidateAndConsumeProofTokenAsync(default, default!, default!, default!);
+        await mfa.DidNotReceiveWithAnyArgs().ValidateAndConsumeProofTokenAsync(default, default!, default!, default!, default!);
     }
 
     [Fact]
@@ -123,12 +136,13 @@ public sealed class UserSecurityStepUpServiceTests
             42,
             UserSecurityStepUpActions.RecoveryKeyCreate,
             new UserSecurityStepUpProof(),
-            "203.0.113.10"));
+            "203.0.113.10",
+            "session-a"));
 
         Assert.False(result.Success);
         Assert.Equal(StatusCodes.Status428PreconditionRequired, result.StatusCode);
         Assert.Equal("ANONYMOUS_STEP_UP_PROOF_REQUIRED", result.Message);
-        await mfa.DidNotReceiveWithAnyArgs().ValidateAndConsumeProofTokenAsync(default, default!, default!, default!);
+        await mfa.DidNotReceiveWithAnyArgs().ValidateAndConsumeProofTokenAsync(default, default!, default!, default!, default!);
     }
 
     [Fact]
@@ -143,21 +157,24 @@ public sealed class UserSecurityStepUpServiceTests
             42,
             UserSecurityStepUpActions.PasskeyDelete,
             new UserSecurityStepUpProof(MfaProofToken: "proof-1"),
-            "203.0.113.10"));
+            "203.0.113.10",
+            "session-a"));
 
         users.GetAccountByIdAsync(42).Returns(CreateUser(mfaEnabled: false, deletedAt: DateTime.UtcNow));
         UserSecurityStepUpResult deleted = await service.VerifyAsync(new UserSecurityStepUpRequest(
             42,
             UserSecurityStepUpActions.RecoveryKeyCreate,
             new UserSecurityStepUpProof(MfaProofToken: "proof-1"),
-            "203.0.113.10"));
+            "203.0.113.10",
+            "session-a"));
 
         users.GetAccountByIdAsync(42).Returns(CreateUser(mfaEnabled: false, status: 2));
         UserSecurityStepUpResult banned = await service.VerifyAsync(new UserSecurityStepUpRequest(
             42,
             UserSecurityStepUpActions.RecoveryKeyRotate,
             new UserSecurityStepUpProof(MfaProofToken: "proof-1"),
-            "203.0.113.10"));
+            "203.0.113.10",
+            "session-a"));
 
         Assert.False(missing.Success);
         Assert.False(deleted.Success);
@@ -165,7 +182,7 @@ public sealed class UserSecurityStepUpServiceTests
         Assert.Equal(StatusCodes.Status401Unauthorized, missing.StatusCode);
         Assert.Equal(StatusCodes.Status401Unauthorized, deleted.StatusCode);
         Assert.Equal(StatusCodes.Status401Unauthorized, banned.StatusCode);
-        await mfa.DidNotReceiveWithAnyArgs().ValidateAndConsumeProofTokenAsync(default, default!, default!, default!);
+        await mfa.DidNotReceiveWithAnyArgs().ValidateAndConsumeProofTokenAsync(default, default!, default!, default!, default!);
     }
 
     [Theory]
@@ -184,7 +201,8 @@ public sealed class UserSecurityStepUpServiceTests
             42,
             UserSecurityStepUpActions.RecoveryKeyCreate,
             new UserSecurityStepUpProof(MfaProofToken: "proof-must-not-be-consumed"),
-            "203.0.113.10"));
+            "203.0.113.10",
+            "session-a"));
 
         Assert.False(result.Success);
         Assert.Equal(ErrorCode.Unauthorized, result.ErrorCode);

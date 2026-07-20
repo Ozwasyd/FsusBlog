@@ -100,7 +100,8 @@ public static partial class BinaryEndpoints
                     tokens.AccessTokenExpiresAtUtc,
                     tokens.RefreshToken,
                     tokens.SessionId,
-                    tokens.RefreshTokenExpiresAt);
+                    tokens.RefreshTokenExpiresAt,
+                    persistent: false);
             }
 
             return AuthBinaryResponseWriter.LoginFlow(aeds, result.Flow);
@@ -166,7 +167,8 @@ public static partial class BinaryEndpoints
                 tokens.AccessTokenExpiresAtUtc,
                 tokens.RefreshToken,
                 tokens.SessionId,
-                tokens.RefreshTokenExpiresAt);
+                tokens.RefreshTokenExpiresAt,
+                persistent: false);
             authCookieService.ClearEnrollmentCookie(httpContext);
             return AuthBinaryResponseWriter.LoginFlow(aeds, result.Flow);
         })
@@ -684,7 +686,8 @@ public static partial class BinaryEndpoints
             ISystemService systemService,
             IAedsEncoder aeds) =>
         {
-            int userId = EndpointUserContext.From(httpContext).AccountId;
+            EndpointUserContext endpointUser = EndpointUserContext.From(httpContext);
+            int userId = endpointUser.AccountId;
             string? password = null;
             string? code = null;
             string? recoveryCode = null;
@@ -699,6 +702,7 @@ public static partial class BinaryEndpoints
                     !await mfaChallengeService.ValidateAndConsumeProofTokenAsync(
                         userId,
                         accountSubjectHash,
+                        endpointUser.SessionId ?? string.Empty,
                         setupAction,
                         proofToken))
                 {
@@ -787,7 +791,8 @@ public static partial class BinaryEndpoints
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
-            int userId = EndpointUserContext.From(httpContext).AccountId;
+            EndpointUserContext endpointUser = EndpointUserContext.From(httpContext);
+            int userId = endpointUser.AccountId;
             string password = string.Empty;
             string? code = null;
             string? recoveryCode = null;
@@ -801,6 +806,7 @@ public static partial class BinaryEndpoints
                     !await mfaChallengeService.ValidateAndConsumeProofTokenAsync(
                         userId,
                         accountSubjectHash,
+                        endpointUser.SessionId ?? string.Empty,
                         "mfa_disable",
                         proofToken))
                 {
@@ -845,7 +851,8 @@ public static partial class BinaryEndpoints
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
-            int userId = EndpointUserContext.From(httpContext).AccountId;
+            EndpointUserContext endpointUser = EndpointUserContext.From(httpContext);
+            int userId = endpointUser.AccountId;
             string password = string.Empty;
             string? code = null;
             string? recoveryCode = null;
@@ -859,6 +866,7 @@ public static partial class BinaryEndpoints
                     !await mfaChallengeService.ValidateAndConsumeProofTokenAsync(
                         userId,
                         accountSubjectHash,
+                        endpointUser.SessionId ?? string.Empty,
                         "mfa_recovery_regenerate",
                         proofToken))
                 {
@@ -975,6 +983,14 @@ public static partial class BinaryEndpoints
             }
 
             int accountId = EndpointUserContext.From(httpContext).AccountId;
+            string? sessionId = EndpointUserContext.From(httpContext).SessionId;
+            if (string.IsNullOrWhiteSpace(sessionId))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.Unauthorized, "SESSION_CONTEXT_REQUIRED"),
+                    aeds,
+                    StatusCodes.Status401Unauthorized);
+            }
             var result = await passkeyService.CompleteActionStepUpAssertionAsync(accountId, request, cancellationToken);
             if (!result.Success || string.IsNullOrWhiteSpace(result.Action))
             {
@@ -1001,7 +1017,9 @@ public static partial class BinaryEndpoints
             string proofToken = await challengeService.CreateProofTokenAsync(
                 account.Value.Id,
                 accountSubjectHash,
+                sessionId,
                 result.Action,
+                UserSessionAuthenticationMethods.Passkey,
                 TimeSpan.FromMinutes(5));
             var proof = new MfaChallengeResultDto(true, result.Action, proofToken, null);
             return BinaryResults.Frame(aeds, AedsFrameType.MfaChallengeResult, writer => PodBinaryCodec.WriteMfaChallengeResult(proof, writer));
@@ -1031,7 +1049,15 @@ public static partial class BinaryEndpoints
                 action = decodedAction;
             }
 
-            int userId = EndpointUserContext.From(httpContext).AccountId;
+            EndpointUserContext endpointUser = EndpointUserContext.From(httpContext);
+            int userId = endpointUser.AccountId;
+            if (string.IsNullOrWhiteSpace(endpointUser.SessionId))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.Unauthorized, "SESSION_CONTEXT_REQUIRED"),
+                    aeds,
+                    StatusCodes.Status401Unauthorized);
+            }
             long accountReadStartedAt = Stopwatch.GetTimestamp();
             UserAccountSnapshot? user = await users.GetAccountByIdAsync(userId);
             FsusObservability.RecordMfaChallengeStartAccountRead(Stopwatch.GetElapsedTime(accountReadStartedAt));
@@ -1069,7 +1095,9 @@ public static partial class BinaryEndpoints
                 string proofToken = await challengeService.CreateProofTokenAsync(
                     user.Value.Id,
                     accountSubjectHash,
+                    endpointUser.SessionId,
                     action,
+                    UserSessionAuthenticationMethods.Other,
                     TimeSpan.FromMinutes(5));
                 var noMfa = new MfaChallengeResultDto(true, action, proofToken, null);
                 return BinaryResults.Frame(aeds, AedsFrameType.MfaChallengeResult, writer => PodBinaryCodec.WriteMfaChallengeResult(noMfa, writer));
@@ -1139,6 +1167,15 @@ public static partial class BinaryEndpoints
                     httpContext.GetUserAgent(),
                     mfaVerified: true,
                     rememberMe: ticket.RememberMe,
+                    authenticationContext: new UserSessionAuthenticationContext(
+                        string.IsNullOrWhiteSpace(request.RecoveryCode)
+                            ? UserSessionAuthenticationMethods.Other
+                            : UserSessionAuthenticationMethods.RecoveryKey,
+                        string.IsNullOrWhiteSpace(request.RecoveryCode)
+                            ? UserSessionAuthenticationStrengths.Mfa
+                            : UserSessionAuthenticationStrengths.Recovery,
+                        DateTime.UtcNow,
+                        DurationPolicy: UserSessionDurationPolicies.FromRememberMe(ticket.RememberMe)),
                     cancellationToken: cancellationToken);
                 if (!login.Success || login.Data == null || login.User == null)
                 {
@@ -1152,7 +1189,8 @@ public static partial class BinaryEndpoints
                     login.Data.Value.AccessTokenExpiresAtUtc,
                     login.Data.Value.RefreshToken,
                     login.Data.Value.SessionId,
-                    login.Data.Value.RefreshTokenExpiresAt);
+                    login.Data.Value.RefreshTokenExpiresAt,
+                    persistent: UserSessionDurationPolicies.IsPersistent(login.Data.Value.DurationPolicy));
                 var loginResult = new MfaChallengeResultDto(
                     true,
                     "login",
@@ -1163,10 +1201,23 @@ public static partial class BinaryEndpoints
                 return BinaryResults.Frame(aeds, AedsFrameType.MfaChallengeResult, writer => PodBinaryCodec.WriteMfaChallengeResult(loginResult, writer));
             }
 
+            string? currentSessionId = EndpointUserContext.From(httpContext).SessionId;
+            if (string.IsNullOrWhiteSpace(currentSessionId))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.Unauthorized, "SESSION_CONTEXT_REQUIRED"),
+                    aeds,
+                    StatusCodes.Status401Unauthorized);
+            }
+
             string proofToken = await challengeService.CreateProofTokenAsync(
                 ticket.AccountId,
                 ticket.AccountSubjectHash,
+                currentSessionId,
                 ticket.Action,
+                string.IsNullOrWhiteSpace(request.RecoveryCode)
+                    ? UserSessionAuthenticationMethods.Other
+                    : UserSessionAuthenticationMethods.RecoveryKey,
                 TimeSpan.FromMinutes(5));
             var result = new MfaChallengeResultDto(true, ticket.Action, proofToken, null);
             return BinaryResults.Frame(aeds, AedsFrameType.MfaChallengeResult, writer => PodBinaryCodec.WriteMfaChallengeResult(result, writer));
@@ -1190,6 +1241,15 @@ public static partial class BinaryEndpoints
             }
 
             string? sessionId = authCookieService.ReadSessionId(httpContext);
+            UserSession? existingSession = await sessions.GetSessionByRefreshTokenAsync(oldRefreshToken, cancellationToken);
+            if (existingSession is null ||
+                !string.Equals(existingSession.SessionId, sessionId, StringComparison.Ordinal) ||
+                !UserSessionDurationPolicies.IsValid(existingSession.DurationPolicy))
+            {
+                authCookieService.ClearUserSessionCookies(httpContext);
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "会话认证上下文无效，请重新登录"), aeds);
+            }
+            bool persistent = UserSessionDurationPolicies.IsPersistent(existingSession.DurationPolicy);
             var (success, newTokens, expiresAt) = await sessions.RefreshTokenWithExpiryAsync(oldRefreshToken, sessionId, cancellationToken);
             if (!success
                 || newTokens == null
@@ -1231,7 +1291,8 @@ public static partial class BinaryEndpoints
                     accessTokenExpiresAtUtc,
                     rotatedTokens.RefreshToken,
                     rotatedSessionId,
-                    expiresAt);
+                    expiresAt,
+                    persistent);
             }
             catch
             {
@@ -1550,7 +1611,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "请求参数无效"), aeds);
             }
 
-            var (success, message, user) = await passkeyService.CompleteAssertionAsync(request, cancellationToken);
+            var (success, message, user, credentialRowId) = await passkeyService.CompleteAssertionAsync(request, cancellationToken);
             if (!success || user == null)
             {
                 await RecordPasskeyAssertionFailureAsync(httpContext, riskSignals, cancellationToken);
@@ -1563,7 +1624,20 @@ public static partial class BinaryEndpoints
             string clientIp = httpContext.GetClientIp();
             string? deviceFp = GetDeviceFingerprint(httpContext);
             string? userAgent = httpContext.GetUserAgent();
-            var login = await loginWorkflow.CompleteLoginAsync(user.Id, clientIp, deviceFp, userAgent, mfaVerified: true, rememberMe: request.RememberMe, cancellationToken: cancellationToken);
+            var login = await loginWorkflow.CompleteLoginAsync(
+                user.Id,
+                clientIp,
+                deviceFp,
+                userAgent,
+                mfaVerified: true,
+                rememberMe: request.RememberMe,
+                authenticationContext: new UserSessionAuthenticationContext(
+                    UserSessionAuthenticationMethods.Passkey,
+                    UserSessionAuthenticationStrengths.WebAuthnUv,
+                    DateTime.UtcNow,
+                    credentialRowId,
+                    UserSessionDurationPolicies.FromRememberMe(request.RememberMe)),
+                cancellationToken: cancellationToken);
             if (!login.Success || login.Data == null || login.User == null)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, login.Message), aeds);
@@ -1577,7 +1651,8 @@ public static partial class BinaryEndpoints
                 login.Data.Value.AccessTokenExpiresAtUtc,
                 login.Data.Value.RefreshToken,
                 login.Data.Value.SessionId,
-                login.Data.Value.RefreshTokenExpiresAt);
+                login.Data.Value.RefreshTokenExpiresAt,
+                persistent: UserSessionDurationPolicies.IsPersistent(login.Data.Value.DurationPolicy));
             var flow = new AuthLoginFlowDto(
                 login.User.Value.Id,
                 ResolveBinaryIdentityKind(login.User.Value.IdentityKind),
@@ -1710,7 +1785,8 @@ public static partial class BinaryEndpoints
                 EndpointUserContext.From(httpContext).AccountId,
                 action,
                 new UserSecurityStepUpProof(proofToken),
-                httpContext.GetClientIp()),
+                httpContext.GetClientIp(),
+                EndpointUserContext.From(httpContext).SessionId),
             cancellationToken);
         return result.Success
             ? null
