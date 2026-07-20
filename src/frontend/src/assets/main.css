@@ -13,6 +13,28 @@
    src/assets/public-shell-critical.css for the full rationale. */
 @import '@ozwasyd/element-plus/dist/el-fsus-theme.css';
 
+.transition-fsus {
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+  transition-timing-function: var(--fsus-motion-standard, cubic-bezier(0.4, 0, 0.2, 1));
+}
+
+.transition-fsus-fast {
+  animation-duration: var(--fsus-motion-control-fast, 220ms);
+  transition-duration: var(--fsus-motion-control-fast, 220ms);
+}
+
+.transition-fsus-base {
+  animation-duration: var(--fsus-motion-control-base, var(--fsus-motion-control, 360ms));
+  transition-duration: var(--fsus-motion-control-base, var(--fsus-motion-control, 360ms));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .transition-fsus {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
 /* Keep public shell material tokens authoritative after the full FsusUI theme
    bundle is loaded. Scope through :has() so account/admin surfaces keep the
    default FsusUI surface contract. */

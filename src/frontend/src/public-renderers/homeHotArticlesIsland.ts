@@ -27,7 +27,7 @@ function createAsideElement(items: Array<{ id: number; title: string; views: num
     item.className = 'group flex items-start gap-6'
 
     const rank = document.createElement('span')
-    rank.className = 'flex-none text-sm tabular-nums font-medium text-[var(--fsusblog-text-muted)] group-hover:text-[var(--fsusblog-color-primary)] transition-colors duration-[var(--fsus-motion-control)] w-6 pt-0.5'
+    rank.className = 'flex-none text-sm tabular-nums font-medium text-[var(--fsusblog-text-muted)] group-hover:text-[var(--fsusblog-color-primary)] transition-fsus transition-fsus-base w-6 pt-0.5'
     rank.textContent = String(index + 1).padStart(2, '0')
 
     const body = document.createElement('div')
@@ -35,7 +35,7 @@ function createAsideElement(items: Array<{ id: number; title: string; views: num
 
     const link = document.createElement('a')
     link.setAttribute('href', buildPublicArticleHref(article.id))
-    link.className = 'rounded-[var(--fsusblog-radius-control)] text-sm font-medium text-[var(--fsusblog-text-primary)] group-hover:text-[var(--fsusblog-color-primary)] transition-colors duration-[var(--fsus-motion-control)] leading-relaxed line-clamp-2 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)]'
+    link.className = 'rounded-[var(--fsusblog-radius-control)] text-sm font-medium text-[var(--fsusblog-text-primary)] group-hover:text-[var(--fsusblog-color-primary)] transition-fsus transition-fsus-base leading-relaxed line-clamp-2 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)]'
     link.textContent = article.title
 
     const views = document.createElement('p')

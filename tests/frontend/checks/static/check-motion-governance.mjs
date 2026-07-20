@@ -47,6 +47,17 @@ const mainCss = read('src/frontend/src/assets/main.css')
 if (!mainCss.includes("@import '@/assets/motion.css';")) {
   errors.push('main.css must import motion.css')
 }
+for (const token of [
+  '.transition-fsus {',
+  'transition-property: color, background-color, border-color, box-shadow, opacity, transform;',
+  'transition-timing-function: var(--fsus-motion-standard, cubic-bezier(0.4, 0, 0.2, 1));',
+  '.transition-fsus-fast {',
+  'transition-duration: var(--fsus-motion-control-fast, 220ms);',
+  '.transition-fsus-base {',
+  'transition-duration: var(--fsus-motion-control-base, var(--fsus-motion-control, 360ms));'
+]) {
+  if (!mainCss.includes(token)) errors.push(`main.css missing reusable motion contract ${token}`)
+}
 
 const motionCss = read('src/frontend/src/assets/motion.css')
 for (const token of [
@@ -305,8 +316,12 @@ for (const file of scanned) {
     errors.push(`${rel}: keyframes must be registered in assets/motion.css`)
   }
 
-  if (!rel.endsWith('motion.css') && /cubic-bezier\(/.test(source)) {
+  if (!rel.endsWith('motion.css') && !rel.endsWith('main.css') && /cubic-bezier\(/.test(source)) {
     errors.push(`${rel}: use --blog-motion-ease instead of cubic-bezier`)
+  }
+
+  if (/duration-\[var\(--fsus-motion-[^)]+\)\]/u.test(source)) {
+    errors.push(`${rel}: consume motion durations through transition-fsus-fast/base`)
   }
 
   if (/\b(?:blog-motion-media-hover|blog-motion-icon-nudge|blog-motion-row-nudge|blog-motion-loading-bar)\b/.test(source)) {

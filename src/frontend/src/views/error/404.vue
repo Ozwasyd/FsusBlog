@@ -3,7 +3,7 @@
     class="blog-page-shell error-page-shell min-h-[75vh] px-5 py-10 sm:px-8 sm:py-16"
     aria-labelledby="not-found-page-title"
   >
-    <section class="mx-auto w-full max-w-xl animate-in fade-in duration-[var(--fsus-motion-control-fast)]">
+    <section class="mx-auto w-full max-w-xl animate-in fade-in transition-fsus transition-fsus-fast">
       <p class="mb-4 text-sm font-bold leading-6 text-[var(--fsusblog-text-muted)]" aria-hidden="true">
         {{ copy.codePrefix }}<span class="text-[var(--fsusblog-text-muted)]">.</span>
       </p>
