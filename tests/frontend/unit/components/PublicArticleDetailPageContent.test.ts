@@ -20,4 +20,17 @@ describe('PublicArticleDetailPageContent visual contracts', () => {
       /id="comments"\s+class="mb-6 border-b border-\[var\(--fsusblog-panel-border\)\] pb-4 text-sm font-bold normal-case text-\[var\(--fsusblog-text-primary\)\]"/u
     )
   })
+
+  it('separates appendix copyright, tags, and the related-reading label', () => {
+    expect(source).toMatch(/\.fsus-appendix\s*\{[^}]*gap:\s*24px;/su)
+    expect(source).toMatch(
+      /\.fsus-appendix__copyright\s*\{[^}]*padding:\s*16px;[^}]*border-radius:\s*var\(--fsusblog-radius-control, 6px\);[^}]*background:\s*var\(--fsusblog-page-bg-soft\);[^}]*color:\s*var\(--fsusblog-text-tertiary\);[^}]*font-size:\s*13px;[^}]*font-weight:\s*400;[^}]*line-height:\s*1\.7;/su
+    )
+    expect(source).toMatch(
+      /\.fsus-appendix__nav-label\s*\{[^}]*margin-bottom:\s*12px;[^}]*color:\s*var\(--fsusblog-text-muted\);[^}]*font-size:\s*12px;[^}]*font-weight:\s*700;[^}]*letter-spacing:\s*0\.05em;[^}]*text-transform:\s*uppercase;/su
+    )
+    expect(source).toMatch(
+      /\.fsus-appendix__tag:hover,\s*\.fsus-appendix__tag:focus-visible\s*\{[^}]*color:\s*var\(--fsusblog-text-primary\) !important;/su
+    )
+  })
 })

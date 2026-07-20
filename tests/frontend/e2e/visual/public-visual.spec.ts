@@ -45,6 +45,7 @@ const themes: ThemeMode[] = ['light', 'dark']
 const semanticColors = {
   light: {
     primary: 'rgb(15, 15, 17)',
+    tertiary: 'rgb(113, 113, 122)',
     quiet: 'rgb(161, 161, 170)',
     border: 'rgb(228, 228, 231)',
     accent: 'rgb(42, 89, 156)',
@@ -52,6 +53,7 @@ const semanticColors = {
   },
   dark: {
     primary: 'rgb(240, 240, 244)',
+    tertiary: 'rgb(161, 161, 170)',
     quiet: 'rgb(161, 161, 170)',
     border: 'rgb(39, 39, 42)',
     accent: 'rgb(75, 121, 204)',
@@ -74,7 +76,7 @@ async function assertArchetypeAccessibility(page: Page, label: string): Promise<
 async function assertArticleSemanticColors(page: Page, theme: ThemeMode): Promise<void> {
   const expected = semanticColors[theme]
   const targets = [
-    ['[data-article-rights-notice]', expected.quiet],
+    ['[data-article-rights-notice]', expected.tertiary],
     ['.fsus-appendix__meta', expected.quiet],
     ['.fsus-appendix__link', expected.primary],
     ['.fsus-comment', expected.primary],

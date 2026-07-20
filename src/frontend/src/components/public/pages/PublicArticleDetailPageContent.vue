@@ -341,7 +341,7 @@ const appendixCopyrightText = computed(() => {
 .fsus-appendix {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 24px;
   margin-top: 40px;
   padding-top: 20px;
   border-top: 1px solid var(--fsusblog-panel-border);
@@ -377,18 +377,22 @@ const appendixCopyrightText = computed(() => {
 }
 
 .fsus-appendix__copyright {
-  color: var(--fsusblog-text-quiet);
-  font-size: 14px;
+  padding: 16px;
+  border-radius: var(--fsusblog-radius-control, 6px);
+  background: var(--fsusblog-page-bg-soft);
+  color: var(--fsusblog-text-tertiary);
+  font-size: 13px;
   font-weight: 400;
-  line-height: 1.6;
+  line-height: 1.7;
 }
 
 .fsus-appendix__nav-label {
-  margin-bottom: 10px;
-  color: var(--fsusblog-text-quiet);
+  margin-bottom: 12px;
+  color: var(--fsusblog-text-muted);
   font-size: 12px;
-  font-weight: 400;
-  letter-spacing: 1px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .fsus-appendix__nav-list {
@@ -429,6 +433,11 @@ const appendixCopyrightText = computed(() => {
 
 .fsus-appendix__tag:visited {
   color: var(--fsusblog-text-quiet) !important;
+}
+
+.fsus-appendix__tag:hover,
+.fsus-appendix__tag:focus-visible {
+  color: var(--fsusblog-text-primary) !important;
 }
 
 .fsus-appendix__link:visited {
