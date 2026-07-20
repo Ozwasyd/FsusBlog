@@ -1,4 +1,5 @@
 import type { AccountArea } from '@/router/accountRouteMeta'
+import { messages } from '@/locales'
 
 export type { AccountArea, AccountContentMode } from '@/router/accountRouteMeta'
 export type AccountNavGroupKey =
@@ -151,6 +152,27 @@ const accountNavItems: readonly AccountNavItem[] = [
   { label: 'Integrity Proof', to: '/user/manage/integrity-proof', helper: '证明', area: 'manage', groupKey: 'ops', adminOnly: true, requiredPermission: 'system.config' }
 ]
 
+const navLabelKeys = {
+  '/user/identity': 'identityCenter', '/user/messagebox': 'messages', '/user/identity/passkeys': 'passkeys',
+  '/user/identity/recovery-key': 'recoveryKey', '/user/identity/public-profile': 'publicProfile',
+  '/user/identity/comment-records': 'publicComments', '/user/identity/sessions': 'sessions', '/user/identity/mfa': 'mfa',
+  '/user/manage': 'dashboard', '/user/manage/article/list': 'articles', '/user/manage/article/trash': 'trash',
+  '/user/manage/category': 'categories', '/user/manage/tag': 'tags', '/user/manage/assets': 'assets',
+  '/user/manage/moderation': 'moderation', '/user/manage/messages': 'inbox', '/user/manage/users': 'users',
+  '/user/manage/moderation/anonymous-policy': 'anonymousPolicy', '/user/manage/moderation/anonymous-risk': 'anonymousRisk',
+  '/user/manage/moderation/anonymous-credentials': 'anonymousCredentials', '/user/manage/moderation/nullifiers': 'anonymousNullifiers',
+  '/user/manage/moderation/zk-anonymous': 'privacyProof', '/user/manage/security': 'security',
+  '/user/manage/settings': 'settings', '/user/manage/content-tools': 'contentTools', '/user/manage/audit': 'audit',
+  '/user/manage/analytics': 'analytics', '/user/manage/ops': 'operations', '/user/manage/cache': 'cache',
+  '/user/manage/integrity': 'integrity', '/user/manage/integrity-proof': 'integrityProof'
+} as const
+
+const helperKeys = {
+  '设备': 'devices', '恢复': 'recovery', '评论/策略': 'commentsPolicies', '工单': 'tickets', '开关': 'toggle',
+  '风险桶': 'riskBuckets', '撤销': 'revoke', '封禁': 'block', '证明': 'proof', '风险防护': 'riskProtection',
+  '导入/导出': 'importExport', '统计': 'statistics', '后台': 'background', '索引': 'index', '一致性': 'consistency'
+} as const
+
 const navGroupTemplates: readonly AccountNavGroupTemplate[] = [
   { key: 'self', label: '账户', helper: '身份与消息', area: 'self', landingTo: '/user/identity' },
   { key: 'identity', label: '身份', helper: '凭证与会话', area: 'self', landingTo: '/user/identity/passkeys' },
@@ -173,11 +195,17 @@ export function getAccountNavGroups(context: AccountNavWorkspaceContext): Accoun
 
       return landingItem ? {
         key: group.key,
-        label: group.label,
-        helper: group.helper,
+        label: messages.value.admin.groups[group.key],
+        helper: messages.value.admin.groupHelpers[group.key],
         area: group.area,
         to: landingItem.to,
-        items
+        items: items.map((item) => ({
+          ...item,
+          label: messages.value.admin.nav[navLabelKeys[item.to as keyof typeof navLabelKeys]],
+          helper: item.helper
+            ? messages.value.admin.helpers[helperKeys[item.helper as keyof typeof helperKeys]]
+            : undefined
+        }))
       } : null
     })
     .filter((group): group is AccountNavGroup => group !== null)

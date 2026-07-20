@@ -2,7 +2,7 @@
   <div
     class="fsus-comments-empty"
     data-fsus-surface="reading"
-    aria-label="评论空状态"
+    :aria-label="messages.article.comments.emptyTitle"
   >
     <p class="fsus-comments-empty__text" role="status" aria-live="polite">
       {{ message }}
@@ -12,19 +12,22 @@
       class="fsus-comments-empty__btn"
       :to="loginRoute"
     >
-      登录以参与讨论
+      {{ messages.article.comments.loginCta }}
     </router-link>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18nText } from '@/composables/useI18nText'
 
 const props = defineProps<{
   isLoggedIn: boolean
   redirectPath: string
   message: string
 }>()
+
+const { messages } = useI18nText()
 
 const loginRoute = computed(() => ({
   path: '/login',

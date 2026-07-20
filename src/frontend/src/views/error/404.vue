@@ -49,9 +49,10 @@
 import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { useHumanReadProof } from '@/composables/useHumanReadProof'
-import { FSUSBLOG_ERRORS_COPY } from '@/copy'
+import { useI18nText } from '@/composables/useI18nText'
 
-const copy = FSUSBLOG_ERRORS_COPY.notFound
+const { messages } = useI18nText()
+const copy = computed(() => messages.value.errors.notFound)
 
 const route = useRoute()
 

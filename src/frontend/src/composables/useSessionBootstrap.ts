@@ -5,6 +5,8 @@ import { useAdminStore } from '@/store/admin'
 import { useSiteStore } from '@/store/site'
 import { useUserStore } from '@/store/user'
 import { FSUSBLOG_LAYOUT_COPY } from '@/copy'
+import { translate } from '@/locales'
+import { resolveRouteTitleKey } from '@/locales/routeTitles'
 import {
   createLocalFixtureAccountSnapshot,
   createLocalFixtureAdminPrincipal,
@@ -91,11 +93,13 @@ export function useSessionBootstrap() {
   }
 
   const syncDocumentTitle = (routeOrTitle?: RouteLocationNormalizedLoaded | string | null): string => {
-    const pageTitle = typeof routeOrTitle === 'string'
+    const rawPageTitle = typeof routeOrTitle === 'string'
       ? routeOrTitle
       : typeof routeOrTitle?.meta?.title === 'string'
         ? routeOrTitle.meta.title
         : ''
+    const titleKey = rawPageTitle ? resolveRouteTitleKey(rawPageTitle) : undefined
+    const pageTitle = titleKey ? translate(titleKey) : rawPageTitle
 
     const title = pageTitle ? `${pageTitle} - ${baseTitle.value}` : baseTitle.value
     if (typeof document !== 'undefined') {

@@ -5,15 +5,15 @@
     </h1>
 
     <div :class="themeTokens.articleDetail.metaRow">
-      <span>发布于</span>
-      <time :datetime="view.meta.published.isoTime" :title="view.meta.published.fullTime" itemprop="datePublished">
-        {{ view.meta.published.displayTime }}
+      <span>{{ messages.article.metadata.publishedAt }}</span>
+      <time :datetime="view.meta.published.isoTime" :title="formatDate(view.meta.published.isoTime, fullDateOptions)" itemprop="datePublished">
+        {{ formatDate(view.meta.published.isoTime) }}
       </time>
       <template v-if="view.meta.modified">
         <span :class="themeTokens.articleDetail.metaSeparator" aria-hidden="true">·</span>
-        <span>更新于</span>
-        <time :datetime="view.meta.modified.isoTime" :title="view.meta.modified.fullTime" itemprop="dateModified">
-          {{ view.meta.modified.displayTime }}
+        <span>{{ messages.article.metadata.updatedAt }}</span>
+        <time :datetime="view.meta.modified.isoTime" :title="formatDate(view.meta.modified.isoTime, fullDateOptions)" itemprop="dateModified">
+          {{ formatDate(view.meta.modified.isoTime) }}
         </time>
       </template>
       <span :class="themeTokens.articleDetail.metaSeparator" aria-hidden="true">·</span>
@@ -40,6 +40,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18nText } from '@/composables/useI18nText'
 import { themeTokens } from '@/ui-tokens/themeTokens'
 import type { ArticleDetailHeaderViewContract } from '@/view-contracts/articleDetail'
 
@@ -49,6 +50,15 @@ const props = withDefaults(defineProps<{
 }>(), {
   linkMode: 'router'
 })
+
+const { formatDate, messages } = useI18nText()
+const fullDateOptions: Intl.DateTimeFormatOptions = {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit'
+}
 
 const categoryComponent = computed(() => (
   props.linkMode === 'anchor'

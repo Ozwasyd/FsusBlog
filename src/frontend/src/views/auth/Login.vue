@@ -158,15 +158,17 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { Key } from '@/fsusui/icons'
 import { useAuthLogin } from '@/composables/useAuthLogin'
 import { usePasskeyLogin } from '@/composables/usePasskeyLogin'
 import { themeTokens } from '@/ui-tokens/themeTokens'
-import { FSUSBLOG_AUTH_COPY } from '@/copy'
+import { useI18nText } from '@/composables/useI18nText'
 import FsusSecurityChallenge from '@/components/security/FsusSecurityChallenge.vue'
 
 const focusRingClass = themeTokens.focusRing
-const copy = FSUSBLOG_AUTH_COPY.login
+const { messages } = useI18nText()
+const copy = computed(() => messages.value.auth.login)
 
 const {
   errorMessage,

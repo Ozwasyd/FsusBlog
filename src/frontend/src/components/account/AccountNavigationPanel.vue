@@ -1,8 +1,8 @@
 <template>
   <div class="account-navigation-panel" :data-variant="variant">
-    <nav class="account-global-module-nav" :aria-label="`${areaLabel}一级模块`">
+    <nav class="account-global-module-nav" :aria-label="t('admin.shell.primaryModules', { area: localizedAreaLabel })">
       <h2 v-if="headingId" :id="headingId" class="account-sidebar-index-label">
-        {{ areaLabel }}导航
+        {{ t('admin.shell.navigation', { area: localizedAreaLabel }) }}
       </h2>
       <ul class="account-global-module-list" role="list">
         <li v-for="group in groups" :key="group.key">
@@ -26,9 +26,9 @@
       :aria-labelledby="localNavigationTitleId"
     >
       <h2 :id="localNavigationTitleId" class="account-local-navigation__title">
-        {{ currentGroup.label }}内导航
+        {{ t('admin.shell.localNavigation', { group: currentGroup.label }) }}
       </h2>
-      <nav :aria-label="`${currentGroup.label}局部导航`">
+      <nav :aria-label="t('admin.shell.localNavigationAria', { group: currentGroup.label })">
         <ul class="account-local-navigation__list" role="list">
           <li v-for="item in currentGroup.items" :key="item.to">
             <router-link
@@ -51,6 +51,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
+import { useI18nText } from '@/composables/useI18nText'
 import {
   isAccountNavGroupActive,
   isAccountNavItemActive,
@@ -72,6 +73,11 @@ defineEmits<{
 }>()
 
 const route = useRoute()
+const { messages, t } = useI18nText()
+const localizedAreaLabel = computed(() => {
+  const area = props.groups[0]?.area
+  return area ? messages.value.admin.areas[area] : props.areaLabel
+})
 const currentGroup = computed(() => (
   [...props.groups].reverse().find((group) => isAccountNavGroupActive(group, route.path))
   ?? props.groups[0]

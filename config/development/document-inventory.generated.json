@@ -1844,6 +1844,19 @@
             "producer": null
         },
         {
+            "path": "docs/i18n.md",
+            "title": "Internationalization",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "governance",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
+        {
             "path": "docs/index.md",
             "title": "Documentation Index",
             "kind": "markdown",
@@ -4049,6 +4062,19 @@
         {
             "path": "docs/security/user-session-authentication-context.md",
             "title": "普通账号 Session 认证上下文",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "security",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/security/user-session-metadata-privacy.md",
+            "title": "User session metadata privacy",
             "kind": "markdown",
             "status": "current",
             "owner": "security",

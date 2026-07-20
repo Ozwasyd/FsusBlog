@@ -1,6 +1,7 @@
 import { nextTick, onUnmounted, type MaybeRefOrGetter, toValue, watch } from 'vue'
 import { toast } from '@/fsusui/feedback'
 import { fsusBlogScrollRevealOptions } from '@/fsusui/blogMotion'
+import { locale, translate } from '@/locales'
 import { useScrollReveal } from '@ozwasyd/element-plus/motion'
 
 const ENHANCED_ATTR = 'data-fsus-code-copy'
@@ -77,31 +78,31 @@ export function useCodeBlockCopy(
       const button = document.createElement('button')
       button.type = 'button'
       button.className = 'fsus-code-copy-button blog-motion-reading-control'
-      button.textContent = '复制'
-      button.setAttribute('aria-label', '复制代码块')
+      button.textContent = translate('article.actions.copyCode')
+      button.setAttribute('aria-label', translate('article.actions.copyCode'))
       button.setAttribute('aria-live', 'polite')
       button.addEventListener('click', async (event) => {
         event.preventDefault()
         event.stopPropagation()
         try {
           await writeClipboard(source)
-          button.textContent = '已复制'
-          button.setAttribute('aria-label', '代码已复制')
+          button.textContent = translate('article.actions.codeCopied')
+          button.setAttribute('aria-label', translate('article.actions.codeCopied'))
           button.classList.add('fsus-code-copy-button--copied')
-          toast.success('已复制', 1200)
+          toast.success(translate('article.actions.codeCopied'), 1200)
           const previousTimer = resetTimers.get(button)
           if (previousTimer) {
             globalThis.clearTimeout(previousTimer)
           }
           const resetTimer = globalThis.setTimeout(() => {
-            button.textContent = '复制'
-            button.setAttribute('aria-label', '复制代码块')
+            button.textContent = translate('article.actions.copyCode')
+            button.setAttribute('aria-label', translate('article.actions.copyCode'))
             button.classList.remove('fsus-code-copy-button--copied')
             resetTimers.delete(button)
           }, 1400)
           resetTimers.set(button, resetTimer)
         } catch {
-          toast.error('复制失败', 2200)
+          toast.error(translate('article.actions.copyFailed'), 2200)
         }
       })
 
@@ -116,7 +117,7 @@ export function useCodeBlockCopy(
     })
   }
 
-  watch(() => [toValue(contentRoot), toValue(allowCodeCopy)] as const, () => {
+  watch(() => [toValue(contentRoot), toValue(allowCodeCopy), locale.value] as const, () => {
     cleanup()
     void enhance()
   }, { flush: 'post' })

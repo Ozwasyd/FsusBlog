@@ -53,9 +53,10 @@ import { ref, watch, onUnmounted } from 'vue'
 import { getPageData } from '@/api/system'
 import FsusDialog from '@/components/ui/FsusDialog.vue'
 import MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue'
-import { FSUSBLOG_AUTH_COPY } from '@/copy'
+import { useI18nText } from '@/composables/useI18nText'
 
-const copy = FSUSBLOG_AUTH_COPY.policyModal
+const { messages } = useI18nText()
+const copy = computed(() => messages.value.auth.policyModal)
 
 const props = defineProps<{
   type: 'privacy' | 'guidelines'

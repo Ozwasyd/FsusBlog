@@ -155,12 +155,13 @@ import { verifyRecoveryKey } from '@/api/auth'
 import PasskeyRegisterModal from '@/components/ui/PasskeyRegisterModal.vue'
 import { themeTokens } from '@/ui-tokens/themeTokens'
 import { toAppError } from '@/utils/appError'
-import { FSUSBLOG_AUTH_COPY } from '@/copy'
+import { useI18nText } from '@/composables/useI18nText'
 import FsusSecurityChallenge from '@/components/security/FsusSecurityChallenge.vue'
 import { useRiskChallengeCommand } from '@/composables/useRiskChallengeCommand'
 import { fixedRiskChallengeContext, riskChallengeRoutes } from '@/security/risk-challenge-routes'
 
-const copy = FSUSBLOG_AUTH_COPY.recover
+const { messages } = useI18nText()
+const copy = computed(() => messages.value.auth.recover)
 const focusRingClass = themeTokens.focusRing
 const recoveryKeyInput = ref('')
 const recoveryRevokePasskeys = ref(true)

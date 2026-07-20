@@ -1,5 +1,6 @@
 import { nextTick, onUnmounted, ref, type MaybeRefOrGetter, toValue, watch } from 'vue'
 import { fsusBlogScrollRevealOptions } from '@/fsusui/blogMotion'
+import { locale, translate } from '@/locales'
 import { useScrollReveal } from '@ozwasyd/element-plus/motion'
 
 export type ArticleLightboxImage = Readonly<{
@@ -77,7 +78,9 @@ export function useArticleImageLightbox(contentRoot: MaybeRefOrGetter<HTMLElemen
       image.setAttribute('data-fsus-motion-surface', 'article-body-image')
       image.setAttribute('role', 'button')
       image.setAttribute('tabindex', '0')
-      image.setAttribute('aria-label', image.alt?.trim() ? `查看大图：${image.alt.trim()}` : '查看大图')
+      image.setAttribute('aria-label', image.alt?.trim()
+        ? translate('article.actions.viewImageNamed', { title: image.alt.trim() })
+        : translate('article.actions.viewImage'))
       image.addEventListener('click', click)
       image.addEventListener('keydown', keydown)
       revealControls.reveal(image, fsusBlogScrollRevealOptions)
@@ -103,7 +106,7 @@ export function useArticleImageLightbox(contentRoot: MaybeRefOrGetter<HTMLElemen
     activeIndex.value = (activeIndex.value + images.value.length - 1) % images.value.length
   }
 
-  watch(() => toValue(contentRoot), () => {
+  watch(() => [toValue(contentRoot), locale.value] as const, () => {
     void scan()
   }, { flush: 'post' })
 

@@ -3,9 +3,9 @@
     v-if="items.length > 0"
     class="article-toc-panel hidden xl:block"
     data-fsus-surface="reading"
-    aria-label="文章目录"
+    :aria-label="messages.article.actions.tocAria"
   >
-    <p class="article-toc-panel__title">目录</p>
+    <p class="article-toc-panel__title">{{ messages.article.actions.toc }}</p>
     <nav class="article-toc-panel__nav">
       <button
         v-for="item in items"
@@ -26,14 +26,14 @@
 
   <el-drawer
     v-model="drawerVisible"
-    title="目录"
+    :title="messages.article.actions.toc"
     direction="btt"
     size="62%"
     class="article-toc-drawer"
     data-fsus-surface="reading"
     :motion="fsusBlogMotionPresets.mobileDrawer"
   >
-    <nav class="article-toc-drawer__nav" aria-label="文章目录">
+    <nav class="article-toc-drawer__nav" :aria-label="messages.article.actions.tocAria">
       <button
         v-for="item in items"
         :key="item.id"
@@ -55,6 +55,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { ArticleTocItem } from '@/composables/article/useArticleToc'
+import { useI18nText } from '@/composables/useI18nText'
 import { fsusBlogMotionPresets } from '@/fsusui/blogMotion'
 
 const props = defineProps<{
@@ -62,6 +63,8 @@ const props = defineProps<{
   activeId: string | null
   mobileOpen: boolean
 }>()
+
+const { messages } = useI18nText()
 
 const emit = defineEmits<{
   (event: 'navigate', id: string): void

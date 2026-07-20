@@ -1,0 +1,98 @@
+import type { DeepStringShape } from '../keys';
+import type { admin as zhCNAdmin } from '../zh-CN/admin';
+
+export const admin = {
+    shell: {
+        skipToMain: 'Skip to content',
+        mainSite: 'Site',
+        account: 'Account',
+        manage: 'Manage',
+        openMenu: 'Open account menu',
+        accountMenu: 'Account',
+        accountCenter: 'Account center',
+        adminConsole: 'Admin console',
+        guidelines: 'Guidelines',
+        privacy: 'Privacy policy',
+        logout: 'Log out',
+        loggingOut: 'Logging out',
+        logoutFailed: 'Log out failed. Try again.',
+        primaryModules: '{area} modules',
+        navigation: '{area} navigation',
+        localNavigation: '{group} navigation',
+        localNavigationAria: '{group} local navigation'
+    },
+    areas: {
+        self: 'Account',
+        manage: 'Manage'
+    },
+    groups: {
+        self: 'Account',
+        identity: 'Identity',
+        workbench: 'Workspace',
+        content: 'Content',
+        interaction: 'Community',
+        security: 'Security',
+        system: 'System',
+        ops: 'Operations'
+    },
+    groupHelpers: {
+        self: 'Identity and messages',
+        identity: 'Credentials and sessions',
+        workbench: 'Current tasks',
+        content: 'Posts and assets',
+        interaction: 'Moderation and users',
+        security: 'Risk controls',
+        system: 'Configuration and audit',
+        ops: 'Metrics and integrity'
+    },
+    nav: {
+        identityCenter: 'Identity center',
+        messages: 'Messages',
+        passkeys: 'Passkeys',
+        recoveryKey: 'Recovery Key',
+        publicProfile: 'Public profile',
+        publicComments: 'Public comments',
+        sessions: 'Sessions',
+        mfa: 'Second factor',
+        dashboard: 'Dashboard',
+        articles: 'Posts',
+        trash: 'Trash',
+        categories: 'Categories',
+        tags: 'Tags',
+        assets: 'Assets',
+        moderation: 'Moderation',
+        inbox: 'Inbox',
+        users: 'Users',
+        anonymousPolicy: 'Anonymous comment policy',
+        anonymousRisk: 'Anonymous risk',
+        anonymousCredentials: 'Anonymous credentials',
+        anonymousNullifiers: 'Anonymous identifiers',
+        privacyProof: 'Privacy proof status',
+        security: 'Security',
+        settings: 'Settings',
+        contentTools: 'Backup and migration',
+        audit: 'Audit log',
+        analytics: 'Analytics',
+        operations: 'Services and jobs',
+        cache: 'Cache and indexes',
+        integrity: 'Content integrity',
+        integrityProof: 'Integrity Proof'
+    },
+    helpers: {
+        devices: 'Devices',
+        recovery: 'Recovery',
+        commentsPolicies: 'Comments / policy',
+        tickets: 'Tickets',
+        toggle: 'Toggle',
+        riskBuckets: 'Risk',
+        revoke: 'Revoke',
+        block: 'Block',
+        proof: 'Proof',
+        riskProtection: 'Risk controls',
+        importExport: 'Import / export',
+        statistics: 'Metrics',
+        background: 'Jobs',
+        index: 'Indexes',
+        consistency: 'Integrity'
+    }
+} as const satisfies DeepStringShape<typeof zhCNAdmin>;

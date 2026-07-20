@@ -9,7 +9,7 @@
       href="#main-content"
       class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[1000] focus:inline-flex focus:min-h-10 focus:items-center focus:bg-[var(--fsusblog-text-primary)] focus:px-4 focus:text-[var(--fsusblog-page-bg)]"
     >
-      跳到主要内容
+      {{ t('public.shell.skipToMain') }}
     </a>
     <FsusUiPublicShell
       class="is-sticky"
@@ -19,7 +19,7 @@
       :data-public-mobile-nav-mode="PUBLIC_MOBILE_NAV_MODE"
       :brand="shellIdentity.siteTitle"
       :brand-href="PUBLIC_FIXED_PATHS.home"
-      :nav-items="PUBLIC_NAV_ITEMS"
+      :nav-items="publicNavItems"
       :active-nav="activeNav"
       active-nav-motion="indicator"
       :mobile-nav-mode="PUBLIC_MOBILE_NAV_MODE"
@@ -36,7 +36,7 @@
       :search-action="PUBLIC_ROUTE_PATHS.search"
       search-name="q"
       :search-query="searchQuery"
-      :search-placeholder="searchPlaceholder"
+      :search-placeholder="resolvedSearchPlaceholder"
       :search-aria-label="layoutCopy.searchAriaLabel"
       :spa-search="spaSearch"
       :sticky="true"
@@ -74,6 +74,7 @@
       </template>
 
       <template #desktop-actions>
+        <LocaleToggle />
         <ThemeModeToggle visibility="desktop" variant="menu-button" />
       </template>
 
@@ -88,6 +89,7 @@
             variant="menu-button"
             :labels="PUBLIC_THEME_MODE_LABELS"
           />
+          <LocaleToggle />
         </div>
       </template>
 
@@ -114,7 +116,9 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import ThemeModeToggle from '@/components/ui/ThemeModeToggle.vue'
+import LocaleToggle from '@/components/ui/LocaleToggle.vue'
 import PublicComplianceFooter from '@/components/public/PublicComplianceFooter.vue'
+import { useI18nText } from '@/composables/useI18nText'
 import { usePublicStickyGeometry } from '@/components/public/usePublicStickyGeometry'
 import {
   FSUSBLOG_PUBLIC_MOBILE_NAV_MODE,
@@ -134,7 +138,8 @@ import { publicShellRuntimeAuthState } from '@/public-renderers/publicShellRunti
 import type { SiteComplianceConfigPublic } from '@/api/system'
 import { FSUSBLOG_LAYOUT_COPY } from '@/copy'
 
-const layoutCopy = FSUSBLOG_LAYOUT_COPY.siteHeader
+const { initializeLocaleRuntime, messages, t } = useI18nText()
+const layoutCopy = computed(() => messages.value.public.shell)
 const PUBLIC_MOBILE_NAV_MODE = FSUSBLOG_PUBLIC_MOBILE_NAV_MODE
 
 const SHELL_DEFAULTS = {
@@ -226,19 +231,19 @@ let hydrationObserver: MutationObserver | null = null
 const FullAppRuntime = defineAsyncComponent(
   () => import('@/components/runtime/AppRuntime.vue'),
 )
-const PUBLIC_THEME_MODE_LABELS = {
-  light: '浅色',
-  dark: '深色',
-  system: '跟随系统',
-  lightShort: '浅',
-  darkShort: '深',
-  systemShort: '系统',
-}
-const PUBLIC_NAV_ITEMS = [
-  { key: 'home', label: '首页', href: PUBLIC_FIXED_PATHS.home },
-  { key: 'archive', label: '归档', href: PUBLIC_FIXED_PATHS.archive },
-  { key: 'about', label: '关于', href: PUBLIC_FIXED_PATHS.about },
-]
+const PUBLIC_THEME_MODE_LABELS = computed(() => ({
+  light: layoutCopy.value.light,
+  dark: layoutCopy.value.dark,
+  system: layoutCopy.value.system,
+  lightShort: layoutCopy.value.lightShort,
+  darkShort: layoutCopy.value.darkShort,
+  systemShort: layoutCopy.value.systemShort,
+}))
+const publicNavItems = computed(() => [
+  { key: 'home', label: layoutCopy.value.home, href: PUBLIC_FIXED_PATHS.home },
+  { key: 'archive', label: layoutCopy.value.archive, href: PUBLIC_FIXED_PATHS.archive },
+  { key: 'about', label: layoutCopy.value.about, href: PUBLIC_FIXED_PATHS.about },
+])
 const shellIdentity = computed(() =>
   createPublicSiteIdentity({
     siteTitle: siteTitleText.value,
@@ -267,16 +272,29 @@ const shouldUseRuntimeAuthState = computed(() =>
   && (props.authHref?.trim() || SHELL_DEFAULTS.authHref) === SHELL_DEFAULTS.authHref
 )
 const shouldShowRuntime = computed(() => props.showRuntime || clientRuntimeEnabled.value)
-const resolvedAuthLabel = computed(() =>
-  shouldUseRuntimeAuthState.value
-    ? publicShellRuntimeAuthState.value.authLabel
-    : props.authLabel?.trim() || SHELL_DEFAULTS.authLabel
-)
 const resolvedAuthHref = computed(() =>
   shouldUseRuntimeAuthState.value
     ? publicShellRuntimeAuthState.value.authHref
     : props.authHref?.trim() || SHELL_DEFAULTS.authHref
 )
+const resolvedAuthLabel = computed(() =>
+  resolvedAuthHref.value === '/login'
+    ? layoutCopy.value.login
+    : resolvedAuthHref.value === '/user/manage'
+      ? layoutCopy.value.dashboard
+      : resolvedAuthHref.value.startsWith('/user')
+        ? layoutCopy.value.account
+        : props.authLabel?.trim() || layoutCopy.value.login
+)
+const resolvedSearchPlaceholder = computed(() => {
+  const value = props.searchPlaceholder?.trim()
+  if (!value || value === SHELL_DEFAULTS.searchPlaceholder || value.startsWith(SHELL_DEFAULTS.searchPlaceholder)) {
+    return value?.includes('Ctrl+K')
+      ? layoutCopy.value.searchPlaceholderShortcut
+      : layoutCopy.value.searchPlaceholder
+  }
+  return value
+})
 
 providePublicSiteIdentity(shellIdentity)
 
@@ -360,6 +378,7 @@ watch(
 )
 
 onMounted(() => {
+  initializeLocaleRuntime()
   enableRuntimeAfterHydration()
 })
 

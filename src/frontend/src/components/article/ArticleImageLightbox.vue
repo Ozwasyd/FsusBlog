@@ -9,7 +9,7 @@
         data-fsus-material="glass"
         role="dialog"
         aria-modal="true"
-        aria-label="查看大图"
+        :aria-label="messages.article.actions.viewImage"
         tabindex="-1"
         @click.self="emit('close')"
         @keydown.esc.prevent="emit('close')"
@@ -17,20 +17,20 @@
         <button
           type="button"
           class="article-image-lightbox__close"
-          aria-label="关闭大图"
+          :aria-label="messages.article.actions.closeImage"
           @click="emit('close')"
         >
-          关闭
+          {{ messages.common.actions.close }}
         </button>
 
         <button
           v-if="images.length > 1"
           type="button"
           class="article-image-lightbox__nav article-image-lightbox__nav--prev"
-          aria-label="上一张图片"
+          :aria-label="messages.article.actions.previousImage"
           @click.stop="emit('previous')"
         >
-          上一张
+          {{ messages.article.actions.previousImage }}
         </button>
 
         <figure class="article-image-lightbox__figure">
@@ -44,10 +44,10 @@
           v-if="images.length > 1"
           type="button"
           class="article-image-lightbox__nav article-image-lightbox__nav--next"
-          aria-label="下一张图片"
+          :aria-label="messages.article.actions.nextImage"
           @click.stop="emit('next')"
         >
-          下一张
+          {{ messages.article.actions.nextImage }}
         </button>
       </div>
     </FsuTransition>
@@ -57,6 +57,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import type { ArticleLightboxImage } from '@/composables/article/useArticleImageLightbox'
+import { useI18nText } from '@/composables/useI18nText'
 import { fsusBlogMotionPresets } from '@/fsusui/blogMotion'
 import { FsuTransition } from '@ozwasyd/element-plus/motion'
 
@@ -65,6 +66,8 @@ const props = defineProps<{
   images: ArticleLightboxImage[]
   activeIndex: number
 }>()
+
+const { messages } = useI18nText()
 
 const emit = defineEmits<{
   (event: 'close'): void

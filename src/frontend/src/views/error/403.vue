@@ -40,11 +40,13 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/store/user'
-import { FSUSBLOG_ERRORS_COPY } from '@/copy'
+import { useI18nText } from '@/composables/useI18nText'
 
-const copy = FSUSBLOG_ERRORS_COPY.forbidden
+const { messages } = useI18nText()
+const copy = computed(() => messages.value.errors.forbidden)
 
 const router = useRouter()
 const route = useRoute()

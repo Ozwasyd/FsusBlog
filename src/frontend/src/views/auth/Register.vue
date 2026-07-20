@@ -215,10 +215,11 @@ import { useAnonymousOnboarding } from '@/composables/useAnonymousOnboarding'
 import PolicyModal from '@/components/PolicyModal.vue'
 import PasskeyRegisterModal from '@/components/ui/PasskeyRegisterModal.vue'
 import { themeTokens } from '@/ui-tokens/themeTokens'
-import { FSUSBLOG_AUTH_COPY } from '@/copy'
+import { useI18nText } from '@/composables/useI18nText'
 
 const focusRingClass = themeTokens.focusRing
-const copy = FSUSBLOG_AUTH_COPY.register
+const { messages } = useI18nText()
+const copy = computed(() => messages.value.auth.register)
 
 const {
   localError,

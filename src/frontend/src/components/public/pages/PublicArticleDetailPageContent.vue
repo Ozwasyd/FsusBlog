@@ -47,7 +47,7 @@
     >
       <img
         :src="detailCover.url"
-        :alt="`${detailView.header.title} — 题图`"
+        :alt="t('article.content.coverAlt', { title: detailView.header.title })"
         class="aspect-video w-full object-cover object-center shadow-none"
         width="1200"
         height="675"
@@ -80,10 +80,10 @@
         <div
           v-if="!hasBodyContent"
           class="border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg)] px-10 py-16 text-center"
-          aria-label="文章正文为空"
+          :aria-label="messages.article.content.emptyAria"
         >
           <p class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
-            这篇文章目前还没有正文内容
+            {{ messages.article.content.empty }}
           </p>
         </div>
         <slot v-else name="body">
@@ -106,7 +106,7 @@
       <div
         v-if="detailView.header.tags.length > 0"
         class="fsus-appendix__tags"
-        aria-label="文章标签"
+        :aria-label="messages.article.content.tagsAria"
       >
         <component
           :is="appendixTagComponent"
@@ -127,7 +127,7 @@
         :data-rights-snapshot-id="detailView.rights.snapshotId"
         :data-rights-policy-hash="detailView.rights.policyHash"
         :data-rights-content-hash="detailView.rights.contentCanonicalHash"
-        aria-label="版权与引用"
+        :aria-label="messages.article.content.rightsAria"
       >
         {{ appendixCopyrightText }}
       </div>
@@ -143,17 +143,17 @@
           id="fsus-related-reading-heading"
           class="fsus-appendix__nav-label"
         >
-          {{ detailView.relatedReading.title }}
+          {{ messages.article.actions.related }}
         </div>
 
-        <nav aria-label="延伸阅读文章">
+        <nav :aria-label="messages.article.content.relatedAria">
           <ul class="fsus-appendix__nav-list">
             <li
               v-if="detailView.relatedReading.previous"
               class="fsus-appendix__nav-item"
             >
               <span class="fsus-appendix__meta">
-                {{ detailView.relatedReading.previousLabel }} · {{ detailView.relatedReading.previous.displayTime }}
+                {{ messages.article.actions.previousArticle }} · {{ detailView.relatedReading.previous.displayTime }}
               </span>
               <a
                 :href="detailView.relatedReading.previous.href"
@@ -169,7 +169,7 @@
               class="fsus-appendix__nav-item"
             >
               <span class="fsus-appendix__meta">
-                {{ detailView.relatedReading.nextLabel }} · {{ detailView.relatedReading.next.displayTime }}
+                {{ messages.article.actions.nextArticle }} · {{ detailView.relatedReading.next.displayTime }}
               </span>
               <a
                 :href="detailView.relatedReading.next.href"
@@ -186,7 +186,7 @@
               class="fsus-appendix__nav-item"
             >
               <span class="fsus-appendix__meta">
-                {{ detailView.relatedReading.relatedLabel }} · {{ item.displayTime }}
+                {{ messages.article.actions.related }} · {{ item.displayTime }}
               </span>
               <a
                 :href="item.href"
@@ -211,7 +211,7 @@
         id="comments"
         class="mb-5 border-b border-[var(--fsusblog-panel-border)] pb-3 text-xs font-medium leading-5 normal-case text-[var(--fsusblog-text-muted)]"
       >
-        读者评论
+        {{ messages.article.comments.heading }}
       </h2>
       <div
         id="fsus-comments-island-content"
@@ -229,6 +229,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18nText } from '@/composables/useI18nText'
 import ArticleReadingNotice from '@/components/article/ArticleReadingNotice.vue'
 import ArticleDetailHeader from '@/components/article/ArticleDetailHeader.vue'
 import ArticleResponsibilityDisclosure from '@/components/article/ArticleResponsibilityDisclosure.vue'
@@ -259,6 +260,8 @@ const props = withDefaults(defineProps<{
   bodyHtml: '',
   linkMode: 'anchor'
 })
+
+const { messages, t } = useI18nText()
 
 const siteTitle = usePublicSiteTitle()
 const effectiveResponsibilityAuthors = computed(() => (

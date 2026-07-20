@@ -4,6 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useHead } from '@unhead/vue'
 
 import { useSessionBootstrap } from '@/composables/useSessionBootstrap'
+import { useI18nText } from '@/composables/useI18nText'
 import { useWindowEvents } from '@/composables/useWindowEvents'
 import { handleRootAotClick } from '@/bootstrap/aotActionBridge'
 import { createSessionExpiredNavigationHandler, SESSION_EXPIRED_EVENT } from '@/bootstrap/sessionExpiryBridge'
@@ -23,7 +24,8 @@ import {
 
 const router = useRouter()
 const route = useRoute()
-const { userStore, siteStore, syncAuthPhase, setRuntimePhase } = useSessionBootstrap()
+const { userStore, siteStore, syncAuthPhase, setRuntimePhase, syncDocumentTitle } = useSessionBootstrap()
+const { initializeLocaleRuntime, locale } = useI18nText()
 const FullAppRuntime = defineAsyncComponent(() => import('@/components/runtime/AppRuntime.vue'))
 const { mode } = useThemeRuntime()
 const routeCleanup = useMotionRouteCleanup()
@@ -207,7 +209,14 @@ watch(
   { flush: 'pre' }
 )
 
+watch(locale, () => {
+  if (route.name !== 'ArticleDetail') {
+    syncDocumentTitle(route)
+  }
+})
+
 onMounted(() => {
+  initializeLocaleRuntime()
   document.addEventListener('click', onDocumentClick, { passive: false })
 })
 
