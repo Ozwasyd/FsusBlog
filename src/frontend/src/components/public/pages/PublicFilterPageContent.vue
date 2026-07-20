@@ -20,6 +20,7 @@
         <span class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">排序</span>
         <el-radio-group
           :model-value="searchSortMode"
+          class="fsus-radio-group--touch"
           size="small"
           aria-label="搜索排序"
           @change="handleSortChange"
