@@ -17,7 +17,7 @@ fi
 STAMP="${FSUSBLOG_RELEASE_STAMP:-$(date -u +%Y%m%dT%H%M%SZ)}"
 RELEASE_NAMESPACE="$STAMP"
 if [[ -n "${FSUSBLOG_RELEASE_ID:-}" ]]; then
-    if [[ ! "${FSUSBLOG_RELEASE_ID}" =~ ^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$ ]]; then
+    if ! node "$ROOT_DIR/tools/release/release-id.mjs" validate "$FSUSBLOG_RELEASE_ID" >/dev/null; then
         echo "FSUSBLOG_RELEASE_ID cannot form a safe release-evidence namespace" >&2
         exit 2
     fi

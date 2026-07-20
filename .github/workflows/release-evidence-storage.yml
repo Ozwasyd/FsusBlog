@@ -54,7 +54,7 @@ jobs:
                   COMMIT_SHA: ${{ inputs.commit_sha }}
               run: |
                   set -euo pipefail
-                  [[ "$RELEASE_ID" =~ ^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$ ]]
+                  node tools/release/release-id.mjs validate "$RELEASE_ID" >/dev/null
                   [[ "$COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]
                   printf 'artifact_name=fsusblog-release-evidence-%s-%s\n' "$RELEASE_ID" "${COMMIT_SHA:0:12}" >> "$GITHUB_OUTPUT"
 

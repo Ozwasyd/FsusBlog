@@ -1,6 +1,7 @@
+importScripts('/generated/release-id-contract.js')
+
 const BUILD_ID_CANDIDATE = new URL(self.location.href).searchParams.get('build') ?? ''
-const FRONTEND_BUILD_ID = /^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$/.test(BUILD_ID_CANDIDATE)
-  && !['latest', 'current', 'final-current'].includes(BUILD_ID_CANDIDATE.toLowerCase())
+const FRONTEND_BUILD_ID = self.FsusReleaseIdContract.isCanonicalReleaseId(BUILD_ID_CANDIDATE)
   ? BUILD_ID_CANDIDATE
   : ''
 const CACHE_NAMESPACE = FRONTEND_BUILD_ID ? `:${FRONTEND_BUILD_ID}` : ''
@@ -54,7 +55,8 @@ const PUBLIC_SHELL_PATHS = [
 ]
 const STATIC_ASSET_PATTERN = /\.(?:css|js|mjs|wasm|woff2?|ttf|otf|eot|ico|svg|png|jpe?g|webp|avif)$/i
 const WASM_RUNTIME_ASSET_PATTERN = /^\/wasm\/[^/]+\.(?:js|wasm|json)$/i
-const IMMUTABLE_RELEASE_WASM_ASSET_PATTERN = /^\/release-assets\/[0-9A-Za-z][0-9A-Za-z._-]{5,127}\/wasm\/[^/]+\.(?:js|wasm|json)$/i
+const IMMUTABLE_RELEASE_WASM_ASSET_PATTERN = /^\/release-assets\/([^/]+)\/wasm\/[^/]+\.(?:js|wasm|json)$/i
+const IMMUTABLE_RELEASE_ASSET_PATTERN = /^\/release-assets\/([^/]+)\/[0-9A-Za-z][0-9A-Za-z._/-]*$/i
 const PRIVATE_OR_SENSITIVE_PATHS = [
   /^\/api(?:\/|$)/i,
   /^\/(?:user|admin|login|account|manage|author|private)(?:\/|$)/i,
@@ -62,7 +64,6 @@ const PRIVATE_OR_SENSITIVE_PATHS = [
 ]
 const EXPLICIT_PUBLIC_STATIC_PATHS = [
   /^\/assets\/[0-9A-Za-z][0-9A-Za-z._/-]*$/i,
-  /^\/release-assets\/[0-9A-Za-z][0-9A-Za-z._-]{5,127}\/[0-9A-Za-z][0-9A-Za-z._/-]*$/i,
   /^\/favicon\/[0-9A-Za-z][0-9A-Za-z._/-]*$/i,
   /^\/wasm\/[0-9A-Za-z][0-9A-Za-z._/-]*$/i,
   /^\/favicon\.ico$/i
@@ -136,7 +137,7 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  if (IMMUTABLE_RELEASE_WASM_ASSET_PATTERN.test(url.pathname)) {
+  if (isCanonicalReleaseAssetPath(url.pathname, IMMUTABLE_RELEASE_WASM_ASSET_PATTERN)) {
     event.respondWith(cacheFirstStatic(request))
     return
   }
@@ -215,7 +216,13 @@ function isPrivateOrSensitiveRequest(request, url) {
 
 function isExplicitPublicStaticRequest(url) {
   return STATIC_ASSET_PATTERN.test(url.pathname)
-    && EXPLICIT_PUBLIC_STATIC_PATHS.some((pattern) => pattern.test(url.pathname))
+    && (EXPLICIT_PUBLIC_STATIC_PATHS.some((pattern) => pattern.test(url.pathname))
+      || isCanonicalReleaseAssetPath(url.pathname, IMMUTABLE_RELEASE_ASSET_PATTERN))
+}
+
+function isCanonicalReleaseAssetPath(pathname, pattern) {
+  const match = pattern.exec(pathname)
+  return match !== null && self.FsusReleaseIdContract.isCanonicalReleaseId(match[1])
 }
 
 async function networkOnlyRequest(request, failureKind) {

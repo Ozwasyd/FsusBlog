@@ -7,6 +7,7 @@ import vm from 'node:vm'
 const root = process.cwd()
 const manifestPath = resolve(root, 'public/manifest.webmanifest')
 const serviceWorkerPath = resolve(root, 'public/sw.js')
+const releaseIdContractPath = resolve(root, 'public/generated/release-id-contract.js')
 const indexPath = resolve(root, 'index.html')
 
 function assert(condition, message) {
@@ -22,6 +23,7 @@ function read(path) {
 
 const manifest = JSON.parse(read(manifestPath))
 const sw = read(serviceWorkerPath)
+const releaseIdContract = read(releaseIdContractPath)
 const index = read(indexPath)
 
 assert(manifest.name === 'Fsu’s Blog.', 'static manifest must use the checked-in default brand name')
@@ -152,6 +154,7 @@ function createServiceWorkerContext(initialPaths = []) {
     Set,
     Map,
     console,
+    importScripts: () => {},
     fetch: async () => new Response('ok', {
       headers: { 'Cache-Control': 'private,no-store' }
     }),
@@ -171,6 +174,7 @@ function createServiceWorkerContext(initialPaths = []) {
     delete: async () => true
   }
   const sandbox = vm.createContext(context)
+  vm.runInContext(releaseIdContract, sandbox, { filename: 'generated/release-id-contract.js' })
   vm.runInContext(sw, sandbox, { filename: 'sw.js' })
   return { context, sandbox }
 }

@@ -128,7 +128,7 @@ function deploymentEnvironment(overrides = {}) {
   return {
     ...environment,
     FSUSBLOG_INTERNAL_SLOT_OPERATION: '1',
-    FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE: '20260710000000-previous0',
+    FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE: '20260710000000-aaaaaaaaaaaa',
     ...overrides
   }
 }
@@ -281,7 +281,7 @@ test('production build preflight rejects mutable aliases and ambiguous modes bef
     FSUSBLOG_FINAL_SKIP_WASM: '1'
   }
   const cases = [
-    [{ FSUSBLOG_RELEASE_ID: 'latest' }, /mutable or malformed image reference is forbidden/u],
+    [{ FSUSBLOG_RELEASE_ID: 'latest' }, /FSUSBLOG_RELEASE_ID is invalid/u],
     [{ FSUSBLOG_FINAL_IMAGE_REPOSITORY: 'ghcr.io/fsusblog/app:latest' }, /must be an untagged lowercase repository/u],
     [{ FSUSBLOG_FINAL_PUSH: '1', FSUSBLOG_FINAL_LOCAL_ONLY: '1' }, /set exactly one/u]
   ]
@@ -333,7 +333,7 @@ test('production build generates one immutable release id when the caller omits 
     env: environment
   })
 
-  assert.equal(result.status, 97)
+  assert.equal(result.status, 97, result.stderr)
   const invocation = fs.readFileSync(dockerArgs, 'utf8')
   const generated = invocation.match(/FSUSBLOG_RELEASE_ID=(\d{14}-[0-9a-f]{12})/u)?.[1]
   assert.ok(generated)

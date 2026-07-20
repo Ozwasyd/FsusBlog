@@ -96,9 +96,13 @@ fi
 COMMIT_SHA="${COMMIT_SHA,,}"
 [[ "$COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || Fail "FSUSBLOG_COMMIT_SHA must be a full lowercase Git SHA"
 if [[ -z "$RELEASE_ID" ]]; then
-    RELEASE_ID="$(date -u +%Y%m%d%H%M%S)-${COMMIT_SHA:0:12}"
+    RELEASE_CREATED_AT_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    RELEASE_ID="$(node "$ROOT_DIR/tools/release/release-id.mjs" create \
+        --created-at-utc "$RELEASE_CREATED_AT_UTC" \
+        --commit-sha "$COMMIT_SHA")" || Fail "unable to create canonical FSUSBLOG_RELEASE_ID"
 fi
-[[ "$RELEASE_ID" =~ ^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$ ]] || Fail "FSUSBLOG_RELEASE_ID is invalid"
+node "$ROOT_DIR/tools/release/release-id.mjs" validate "$RELEASE_ID" >/dev/null ||
+    Fail "FSUSBLOG_RELEASE_ID is invalid"
 
 mapfile -t runtime_profile_fields < <(node "$ROOT_DIR/tools/runtime-profiles/resolve-runtime-publish-profile.mjs" \
     --manifest "$RUNTIME_PROFILE_MANIFEST" \

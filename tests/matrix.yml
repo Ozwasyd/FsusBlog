@@ -1413,6 +1413,14 @@ tiers:
           - ops/docker/FsusBlog.Server.Dockerfile
           - src/backend/FsusBlog.Server.csproj
           - docs/issue-1024-release-identity-handoff.md
+          - src/shared/Contracts/Validation/release-id-contract.json
+          - tools/release/release-id.mjs
+          - src/backend/Infrastructure/Operations/ReleaseIdContract.Generated.cs
+          - src/frontend/src/generated/releaseIdContract.ts
+          - src/frontend/public/generated/release-id-contract.js
+          - tests/fixtures/release/release-id-cases.json
+          - tests/tools/release-id.test.mjs
+          - tests/tools/release-id-validator-consumers.test.mjs
           - tests/tools/release-manifest.test.mjs
           - tests/tools/runtime-publish-profile.test.mjs
           - tests/tools/final-image-toolchain-pin.test.mjs

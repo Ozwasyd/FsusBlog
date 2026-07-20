@@ -18,6 +18,8 @@ import {
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const orchestratorSource = path.join(repositoryRoot, 'tools/deployment/zero-downtime-rehearsal.sh')
 const planToolSource = path.join(repositoryRoot, 'tools/deployment/zero-downtime-rehearsal-plan.mjs')
+const releaseIdToolSource = path.join(repositoryRoot, 'tools/release/release-id.mjs')
+const releaseIdContractSource = path.join(repositoryRoot, 'src/shared/Contracts/Validation/release-id-contract.json')
 const faultTemplateSource = path.join(repositoryRoot, 'tests/fixtures/deployment/zero-downtime-fault-plan.template.json')
 const migrationQualificationTemplateSource = path.join(repositoryRoot, 'tests/fixtures/deployment/release-migration-qualification-scenario.template.json')
 const activeRehearsalProcessGroups = new Set()
@@ -109,7 +111,7 @@ if (runsFixtureShard('base')) test('plan resolution is local-only, private-file-
   const resolved = resolveRehearsalPlan(raw, { planFile: fixture.plan, repoRoot: fixture.root })
   assert.equal(resolved.environment, 'Test')
   assert.equal(resolved.source.slot, 'blue')
-  assert.equal(resolved.source.previousRollbackRelease, 'release-blue-000')
+  assert.equal(resolved.source.previousRollbackRelease, '20260709010101-cccccccccccc')
   assert.equal(resolved.target.slot, 'green')
   assert.match(resolved.workRoot, /\.tmp[/\\]rehearsal$/u)
   assert.equal(resolved.workers.observerEnvFile, fs.realpathSync(path.join(fixture.root, 'secrets', 'worker-observer.env')))
@@ -282,6 +284,8 @@ function createFixture(t, { continuationOnly = false } = {}) {
   fs.mkdirSync(secrets, { recursive: true })
   fs.mkdirSync(path.join(root, 'deploy'), { recursive: true })
   fs.mkdirSync(path.join(root, 'tools/db'), { recursive: true })
+  fs.mkdirSync(path.join(root, 'tools/release'), { recursive: true })
+  fs.mkdirSync(path.join(root, 'src/shared/Contracts/Validation'), { recursive: true })
   fs.mkdirSync(path.join(root, '.tmp/docker-failure-bin'), { recursive: true })
   fs.writeFileSync(path.join(root, '.tmp/docker-failure-bin/docker'), '#!/usr/bin/env bash\nexit 73\n', { mode: 0o755 })
   fs.mkdirSync(path.join(root, 'bin'), { recursive: true })
@@ -289,6 +293,8 @@ function createFixture(t, { continuationOnly = false } = {}) {
   fs.copyFileSync(orchestratorSource, path.join(deployment, 'zero-downtime-rehearsal.sh'))
   if (continuationOnly) installContinuationModeFixture(path.join(deployment, 'zero-downtime-rehearsal.sh'))
   fs.copyFileSync(planToolSource, path.join(deployment, 'zero-downtime-rehearsal-plan.mjs'))
+  fs.copyFileSync(releaseIdToolSource, path.join(root, 'tools/release/release-id.mjs'))
+  fs.copyFileSync(releaseIdContractSource, path.join(root, 'src/shared/Contracts/Validation/release-id-contract.json'))
   fs.copyFileSync(faultTemplateSource, path.join(fixtureDirectory, 'zero-downtime-fault-plan.template.json'))
   fs.copyFileSync(migrationQualificationTemplateSource, path.join(fixtureDirectory, 'release-migration-qualification-scenario.template.json'))
   fs.writeFileSync(path.join(root, 'fixture-runner.mjs'), fixtureRunnerSource())
@@ -315,12 +321,12 @@ function createFixture(t, { continuationOnly = false } = {}) {
 
   const blueManifest = path.join(root, 'blue-manifest.json')
   const greenManifest = path.join(root, 'green-manifest.json')
-  writeJson(blueManifest, releaseManifest('release-blue-001', '1'))
-  writeJson(greenManifest, releaseManifest('release-green-001', '2'))
+  writeJson(blueManifest, releaseManifest('20260710010101-aaaaaaaaaaaa', '1'))
+  writeJson(greenManifest, releaseManifest('20260711010101-bbbbbbbbbbbb', '2'))
   const deployAsset = path.join(root, 'asset-blue-green.json')
   const rollbackAsset = path.join(root, 'asset-green-blue.json')
-  writeJson(deployAsset, assetScenario('release-blue-001', 'release-green-001'))
-  writeJson(rollbackAsset, assetScenario('release-green-001', 'release-blue-001'))
+  writeJson(deployAsset, assetScenario('20260710010101-aaaaaaaaaaaa', '20260711010101-bbbbbbbbbbbb'))
+  writeJson(rollbackAsset, assetScenario('20260711010101-bbbbbbbbbbbb', '20260710010101-aaaaaaaaaaaa'))
   const workerPlan = path.join(root, 'worker-plan.json')
   writeJson(workerPlan, {
     schema: 'fsusblog.release-worker-drill-plan.v1',
@@ -415,7 +421,7 @@ function createFixture(t, { continuationOnly = false } = {}) {
     source: {
       slot: 'blue',
       manifest: blueManifest,
-      previousRollbackRelease: 'release-blue-000'
+      previousRollbackRelease: '20260709010101-cccccccccccc'
     },
     target: { slot: 'green', manifest: greenManifest, migrationServerDll: path.join(root, 'server.dll') },
     evidenceInputs: {

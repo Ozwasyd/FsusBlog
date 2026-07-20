@@ -315,6 +315,7 @@ public sealed class DeploymentRuntimeStateTests
         var values = new Dictionary<string, string?>
         {
             ["FSUSBLOG_RELEASE_ID"] = ReleaseId,
+            ["FSUSBLOG_RELEASE_CREATED_AT_UTC"] = "2026-07-11T01:01:01Z",
             ["FSUSBLOG_RELEASE_SLOT"] = Slot,
             ["FSUSBLOG_COMMIT_SHA"] = "0123456789abcdef0123456789abcdef01234567",
             ["FSUSBLOG_IMAGE_DIGEST"] = $"sha256:{new string('a', 64)}",

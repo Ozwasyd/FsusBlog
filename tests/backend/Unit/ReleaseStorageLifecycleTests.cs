@@ -28,7 +28,7 @@ public sealed class ReleaseStorageLifecycleTests
                 Path.Combine(root, "derived"),
                 Path.Combine(root, "assets"),
                 Path.Combine(root, "instances"),
-                "20260711-abcdef123456",
+                "20260711000000-abcdef123456",
                 "green",
                 "generation-42");
             var siblingInstance = new ReleaseStorageLayout(
@@ -36,7 +36,7 @@ public sealed class ReleaseStorageLifecycleTests
                 Path.Combine(root, "derived"),
                 Path.Combine(root, "assets"),
                 Path.Combine(root, "instances"),
-                "20260711-abcdef123456",
+                "20260711000000-abcdef123456",
                 "green",
                 "generation-43");
 
@@ -71,7 +71,7 @@ public sealed class ReleaseStorageLifecycleTests
                 Path.Combine(root, "derived"),
                 Path.Combine(root, "assets"),
                 Path.Combine(root, "instances"),
-                "candidate-20260711",
+                "20260711000001-abcdef123456",
                 "green",
                 "instance-1");
 
@@ -91,20 +91,20 @@ public sealed class ReleaseStorageLifecycleTests
     {
         string hash = new('a', 64);
 
-        string url = ReleaseStorageLayout.BuildReleaseAssetUrl("release-20260711", "wasm/aeds_decoder.wasm");
+        string url = ReleaseStorageLayout.BuildReleaseAssetUrl("20260711000002-abcdef123456", "wasm/aeds_decoder.wasm");
         ReleaseStorageLayout.EnsureAppendOnlyHash(url, hash, $"sha256:{hash}");
 
-        Assert.Equal("/release-assets/release-20260711/wasm/aeds_decoder.wasm", url);
+        Assert.Equal("/release-assets/20260711000002-abcdef123456/wasm/aeds_decoder.wasm", url);
         Assert.Equal("public,max-age=31536000,immutable", ReleaseStorageLayout.CacheControlFor(immutable: true));
         Assert.Equal("no-store,max-age=0,must-revalidate", ReleaseStorageLayout.CacheControlFor(immutable: false));
         Assert.Equal(
-            "release-20260711",
-            ReleaseAssetStaticFileExtensions.ResolveBuildId(new PathString("/release-assets/release-20260711/assets/app.js")));
+            "20260711000002-abcdef123456",
+            ReleaseAssetStaticFileExtensions.ResolveBuildId(new PathString("/release-assets/20260711000002-abcdef123456/assets/app.js")));
         Assert.Equal(
             "unknown",
             ReleaseAssetStaticFileExtensions.ResolveBuildId(new PathString("/release-assets/../active/app.js")));
         Assert.Throws<InvalidOperationException>(() => ReleaseStorageLayout.EnsureAppendOnlyHash(url, hash, new string('b', 64)));
-        Assert.Throws<ArgumentException>(() => ReleaseStorageLayout.BuildReleaseAssetUrl("release-20260711", "../active/index.html"));
+        Assert.Throws<ArgumentException>(() => ReleaseStorageLayout.BuildReleaseAssetUrl("20260711000002-abcdef123456", "../active/index.html"));
     }
 
     [Fact]
@@ -118,7 +118,7 @@ public sealed class ReleaseStorageLifecycleTests
                 Path.Combine(root, "derived"),
                 Path.Combine(root, "assets"),
                 Path.Combine(root, "instances"),
-                "candidate-20260711",
+                "20260711000003-abcdef123456",
                 "green",
                 "instance-1");
             var publisher = new ReleaseDerivedArtifactPublisher(layout);
@@ -159,7 +159,7 @@ public sealed class ReleaseStorageLifecycleTests
         {
             var publisher = new ReleaseDerivedArtifactPublisher(
                 Path.Combine(root, "derived"),
-                "release-20260712-search");
+                "20260712000000-abcdef123456");
             var first = new Dictionary<string, ReadOnlyMemory<byte>>(StringComparer.Ordinal)
             {
                 ["index.core.v1.bin"] = new byte[] { 1, 2, 3 },
@@ -243,7 +243,7 @@ public sealed class ReleaseStorageLifecycleTests
         try
         {
             string derivedRoot = Path.Combine(root, "derived");
-            const string ReleaseId = "release-20260712-concurrent";
+            const string ReleaseId = "20260712000001-abcdef123456";
             var firstPublisher = new ReleaseDerivedArtifactPublisher(derivedRoot, ReleaseId);
             var secondPublisher = new ReleaseDerivedArtifactPublisher(derivedRoot, ReleaseId);
             var first = new Dictionary<string, ReadOnlyMemory<byte>>(StringComparer.Ordinal)
@@ -307,7 +307,7 @@ public sealed class ReleaseStorageLifecycleTests
         try
         {
             string derivedRoot = Path.Combine(root, "derived");
-            const string ReleaseId = "release-20260712-lock-timeout";
+            const string ReleaseId = "20260712000002-abcdef123456";
             var publisher = new ReleaseDerivedArtifactPublisher(derivedRoot, ReleaseId);
             var baseline = new Dictionary<string, ReadOnlyMemory<byte>>(StringComparer.Ordinal)
             {
@@ -367,7 +367,7 @@ public sealed class ReleaseStorageLifecycleTests
         {
             var publisher = new ReleaseDerivedArtifactPublisher(
                 Path.Combine(root, "derived"),
-                "release-20260712-tamper");
+                "20260712000003-abcdef123456");
             var first = new Dictionary<string, ReadOnlyMemory<byte>>(StringComparer.Ordinal)
             {
                 ["index.bin"] = Encoding.UTF8.GetBytes("first-index"),
@@ -413,7 +413,7 @@ public sealed class ReleaseStorageLifecycleTests
     public void SearchIndex_UsesReleaseScopedRootAndBrowserUrlWhenDerivedRootIsConfigured()
     {
         string root = Path.Combine(Path.GetTempPath(), "fsusblog-derived-search");
-        const string ReleaseId = "release-20260711-abcdef";
+        const string ReleaseId = "20260711000004-abcdef123456";
 
         string searchRoot = SearchIndexService.ResolveReleaseScopedSearchRoot(root, ReleaseId);
         string publicBase = SearchIndexService.ResolveReleaseScopedSearchPublicBase(ReleaseId);
@@ -433,7 +433,7 @@ public sealed class ReleaseStorageLifecycleTests
         string root = CreateTempDirectory();
         try
         {
-            const string ReleaseId = "release-20260711-public-aot";
+            const string ReleaseId = "20260711000005-abcdef123456";
             var environment = new TestWebHostEnvironment(root)
             {
                 EnvironmentName = "Production"

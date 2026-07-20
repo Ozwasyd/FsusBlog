@@ -445,7 +445,7 @@ LoadReleaseManifest() {
     export FSUSBLOG_RELEASE_MANIFEST_HOST_PATH="$RELEASE_MANIFEST"
     [[ -n "${FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE:-}" ]] ||
         Fail "FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE must be derived from the durable active slot before deploy"
-    [[ "$FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE" =~ ^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$ ]] ||
+    node "$ROOT_DIR/tools/release/release-id.mjs" validate "$FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE" >/dev/null ||
         Fail "FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE is invalid"
     [[ "$FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE" != "$FSUSBLOG_RELEASE_ID" ]] ||
         Fail "previous rollback release must differ from the candidate release"

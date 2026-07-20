@@ -52,8 +52,8 @@ function compatibility(releaseId, overrides = {}) {
 
 test('materialization is release-addressed append-only idempotent and keeps old assets', (t) => {
   const { root, source, store } = fixture(t)
-  const firstRelease = 'release-20260710-aaaaaa'
-  const secondRelease = 'release-20260711-bbbbbb'
+  const firstRelease = '20260710010101-aaaaaaaaaaaa'
+  const secondRelease = '20260711010101-bbbbbbbbbbbb'
   writeSource(source, 'aaaaaa')
 
   const dryRun = materializeReleaseAssets({
@@ -118,9 +118,9 @@ test('materialization is release-addressed append-only idempotent and keeps old 
 })
 
 test('compatibility matrix covers N N-1 old service worker and old decoder', () => {
-  const candidate = compatibility('release-20260711-bbbbbb')
-  const active = compatibility('release-20260710-aaaaaa')
-  const previous = compatibility('release-20260709-999999')
+  const candidate = compatibility('20260711010101-bbbbbbbbbbbb')
+  const active = compatibility('20260710010101-aaaaaaaaaaaa')
+  const previous = compatibility('20260709010101-999999999999')
 
   const matrix = buildCompatibilityMatrix({
     candidate,
@@ -138,7 +138,7 @@ test('compatibility matrix covers N N-1 old service worker and old decoder', () 
     'old-decoder-to-N-frame'
   ])
 
-  const incompatibleOldClient = compatibility('release-20260708-888888', {
+  const incompatibleOldClient = compatibility('20260708010101-888888888888', {
     aeds: { emitVersion: 1, minDecoderVersion: 1, maxDecoderVersion: 1 }
   })
   const result = evaluateClientServerCompatibility(incompatibleOldClient, candidate)
@@ -152,25 +152,26 @@ test('service worker derives cache namespace and search URLs from immutable buil
   assert.match(serviceWorker, /new URL\(self\.location\.href\)\.searchParams\.get\('build'\)/u)
   assert.match(serviceWorker, /fsus-static-v5\$\{CACHE_NAMESPACE\}/u)
   assert.match(serviceWorker, /\/release-derived\/\$\{FRONTEND_BUILD_ID\}\/search/u)
-  assert.match(serviceWorker, /latest.*current.*final-current/u)
+  assert.match(serviceWorker, /importScripts\('\/generated\/release-id-contract\.js'\)/u)
+  assert.match(serviceWorker, /FsusReleaseIdContract\.isCanonicalReleaseId\(BUILD_ID_CANDIDATE\)/u)
 })
 
 test('GC dry-run is locked and protects active previous draining retention and references', (t) => {
   const { root, store } = fixture(t)
   const releases = [
-    ['orphan-20260701-000001', 'orphan'],
-    ['active-20260711-111111', 'active'],
-    ['previous-20260710-222222', 'previous'],
-    ['draining-20260709-333333', 'draining'],
-    ['retained-20260708-444444', 'retained'],
-    ['referenced-20260707-555555', 'referenced']
+    ['20260701010101-000001000001', 'orphan'],
+    ['20260711010101-111111111111', 'active'],
+    ['20260710010101-222222222222', 'previous'],
+    ['20260709010101-333333333333', 'draining'],
+    ['20260708010101-444444444444', 'retained'],
+    ['20260707010101-555555555555', 'referenced']
   ]
   for (const [releaseId, marker] of releases) {
     const source = path.join(root, `source-${marker}`)
     writeSource(source, marker)
     materializeReleaseAssets({
       releaseId,
-      slot: releaseId.startsWith('active') ? 'green' : 'blue',
+      slot: marker === 'active' ? 'green' : 'blue',
       sourceDirectory: source,
       storeDirectory: store,
       compatibility: compatibility(releaseId),
@@ -208,8 +209,8 @@ test('GC dry-run is locked and protects active previous draining retention and r
 
 test('host CLIs emit stable machine JSON and retained asset gate fails closed', (t) => {
   const { root, source, store } = fixture(t)
-  const candidateRelease = 'release-20260711-abcdef'
-  const previousRelease = 'release-20260710-fedcba'
+  const candidateRelease = '20260711010101-abcdefabcdef'
+  const previousRelease = '20260710010101-fedcbafedcba'
   writeSource(source, 'candidate')
   const releaseManifestFile = path.join(root, 'release-manifest.json')
   writeReleaseManifestAtomic(releaseManifestFile, createReleaseManifest({

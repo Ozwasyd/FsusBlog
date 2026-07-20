@@ -1,3 +1,5 @@
+import { isValidReleaseId } from '../release/release-id.mjs'
+
 const EVIDENCE_CLASSES = new Set([
   'contract',
   'fixture',
@@ -49,7 +51,7 @@ export function evidenceClassificationErrors(value, expectedClass = null) {
     if (value.freshExecution !== true) errors.push('release-closeout-evidence requires freshExecution')
     if (value.releaseBound !== true) errors.push('release-closeout-evidence requires releaseBound')
     if (value.productionFreshRun !== true) errors.push('release-closeout-evidence requires productionFreshRun')
-    if (!/^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$/u.test(String(value.releaseId ?? ''))) {
+    if (!isValidReleaseId(value.releaseId, { forPublication: true })) {
       errors.push('release-closeout-evidence requires a valid releaseId')
     }
     if (!/^[0-9a-f]{40}$/u.test(String(value.commitSha ?? ''))) {

@@ -16,8 +16,8 @@ import {
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const tool = path.join(root, 'tools/storage/prepare-release-retention.mjs')
-const sourceRelease = 'release-retention-source'
-const targetRelease = 'release-retention-target'
+const sourceRelease = '20260710010101-aaaaaaaaaaaa'
+const targetRelease = '20260711010101-bbbbbbbbbbbb'
 const sourceDigest = `sha256:${'a'.repeat(64)}`
 const targetDigest = `sha256:${'b'.repeat(64)}`
 

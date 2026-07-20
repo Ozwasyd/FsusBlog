@@ -1,11 +1,11 @@
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
+import { isValidReleaseId } from '../release/release-id.mjs'
 
 export const RELEASE_ASSET_MANIFEST_SCHEMA = 'fsusblog.release-assets.v1'
 export const MATERIALIZATION_REPORT_SCHEMA = 'fsusblog.release-assets.materialization.v1'
 
-const RELEASE_ID = /^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$/u
 const MUTABLE_ENTRY_NAMES = new Set([
   'index.html',
   'sw.js',
@@ -25,7 +25,7 @@ export function sha256File(file) {
 
 export function normalizeReleaseId(value) {
   const releaseId = String(value ?? '')
-  if (!RELEASE_ID.test(releaseId) || ['latest', 'current', 'final-current'].includes(releaseId.toLowerCase())) {
+  if (!isValidReleaseId(releaseId)) {
     throw new Error('releaseId must be a safe immutable identifier')
   }
   return releaseId

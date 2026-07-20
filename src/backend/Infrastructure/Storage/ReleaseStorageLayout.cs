@@ -1,5 +1,7 @@
 using System.Collections.Frozen;
 
+using FsusBlog.Server.Infrastructure.Operations;
+
 namespace FsusBlog.Server.Infrastructure.Storage;
 
 public enum ReleaseStorageClass
@@ -198,15 +200,12 @@ public sealed class ReleaseStorageLayout
 
     private static string NormalizeReleaseId(string value, string parameterName)
     {
-        string releaseId = NormalizeIdentity(value, parameterName);
-        if (releaseId.Equals("latest", StringComparison.OrdinalIgnoreCase)
-            || releaseId.Equals("current", StringComparison.OrdinalIgnoreCase)
-            || releaseId.Equals("final-current", StringComparison.OrdinalIgnoreCase))
+        if (!ReleaseIdContract.TryParse(value, out _, out _))
         {
-            throw new ArgumentException("Release identity cannot be a mutable alias.", parameterName);
+            throw new ArgumentException("Release identity must use the canonical immutable release ID format.", parameterName);
         }
 
-        return releaseId;
+        return value;
     }
 
     private static string ResolveRelativePath(string root, string relativePath)

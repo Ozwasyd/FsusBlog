@@ -1,9 +1,8 @@
-const IMMUTABLE_BUILD_ID = /^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$/
-const MUTABLE_BUILD_IDS = new Set(['latest', 'current', 'final-current'])
+import { isCanonicalReleaseId } from '@/generated/releaseIdContract'
 
 export function normalizeFrontendBuildId(value?: string | null): string | null {
   const candidate = value?.trim() || ''
-  return IMMUTABLE_BUILD_ID.test(candidate) && !MUTABLE_BUILD_IDS.has(candidate.toLowerCase())
+  return isCanonicalReleaseId(candidate)
     ? candidate
     : null
 }

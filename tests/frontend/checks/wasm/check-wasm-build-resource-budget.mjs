@@ -188,7 +188,7 @@ for (const token of ['BINARYEN_VERSION="version_123"', 'ARCHIVE_SHA256', 'sha256
   assert.match(binaryenBootstrapSource, new RegExp(token, 'u'));
 }
 assert.match(serviceWorkerSource, /IMMUTABLE_RELEASE_WASM_ASSET_PATTERN/u);
-assert.match(serviceWorkerSource, /\(IMMUTABLE_RELEASE_WASM_ASSET_PATTERN\.test\(url\.pathname\)\)[\s\S]*cacheFirstStatic/u,
+assert.match(serviceWorkerSource, /isCanonicalReleaseAssetPath\(url\.pathname, IMMUTABLE_RELEASE_WASM_ASSET_PATTERN\)[\s\S]*cacheFirstStatic/u,
   'immutable release-scoped AEDS JS/Wasm/manifest assets must remain cacheable for N/N-1');
 
 console.log('[check-wasm-build-resource-budget] ok');

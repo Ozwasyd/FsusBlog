@@ -3,6 +3,7 @@
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
+import { isValidReleaseId } from '../release/release-id.mjs'
 
 const SCHEMA_VERSION = 'fsus.active-release-fence-evidence.v1'
 const DEFAULT_OUTPUT = '.tmp/deployment/active-release-fence.json'
@@ -95,7 +96,7 @@ function positiveInteger(value, flag) {
 }
 
 function requireIdentity(options) {
-  if (!/^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$/.test(options.releaseId ?? '')) {
+  if (!isValidReleaseId(options.releaseId)) {
     fail('--release is invalid')
   }
   if (!/^[a-z][a-z0-9-]{0,31}$/.test(options.slot ?? '')) {

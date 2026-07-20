@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
+import { isValidReleaseId } from '../release/release-id.mjs'
 import { validateReleaseManifest } from '../release/release-manifest.mjs'
 import { validateReleaseRuntimeMatrix } from '../runtime-profiles/release-runtime-matrix.mjs'
 import { evidenceClassificationErrors } from './evidence-classification.mjs'
@@ -293,7 +294,7 @@ function gatewayReleaseIdentityOk(identity) {
     && typeof identity === 'object'
     && !Array.isArray(identity)
     && ['blue', 'green'].includes(identity.slot)
-    && /^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$/u.test(String(identity.releaseId ?? ''))
+    && isValidReleaseId(identity.releaseId, { forPublication: true })
     && /^sha256:[0-9a-f]{64}$/u.test(String(identity.imageDigest ?? ''))
 }
 
@@ -772,8 +773,7 @@ function releaseEvidenceModelErrors(manifest, options, context) {
   if (manifest.releaseId !== (manifest.releaseIdentity?.releaseId ?? null)) {
     errors.push('releaseId must match releaseIdentity.releaseId')
   }
-  const identityMatches = typeof manifest.releaseId === 'string'
-    && /^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$/u.test(manifest.releaseId)
+  const identityMatches = isValidReleaseId(manifest.releaseId, { forPublication: true })
     && /^[0-9a-f]{40}$/u.test(String(manifest.commitSha ?? ''))
     && /^sha256:[0-9a-f]{64}$/u.test(String(manifest.imageDigest ?? ''))
     && manifest.releaseIdentity?.commitSha === manifest.commitSha

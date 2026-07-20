@@ -1,6 +1,7 @@
 using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -13,6 +14,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class ReleaseIdentityTests
 {
     private const string ReleaseId = "20260711010101-0123456789ab";
+    private const string CreatedAtUtc = "2026-07-11T01:01:01Z";
     private const string CommitSha = "0123456789abcdef0123456789abcdef01234567";
     private static readonly string s_digest = $"sha256:{new string('a', 64)}";
 
@@ -34,6 +36,14 @@ public sealed class ReleaseIdentityTests
 
     [Theory]
     [InlineData("FSUSBLOG_RELEASE_ID", "latest")]
+    [InlineData("FSUSBLOG_RELEASE_ID", "current")]
+    [InlineData("FSUSBLOG_RELEASE_ID", "final-current")]
+    [InlineData("FSUSBLOG_RELEASE_ID", "v1.2.0")]
+    [InlineData("FSUSBLOG_RELEASE_ID", "20260230010101-0123456789ab")]
+    [InlineData("FSUSBLOG_RELEASE_ID", "20260711010101-0123456789AB")]
+    [InlineData("FSUSBLOG_RELEASE_ID", "20260711010101-1123456789ab")]
+    [InlineData("FSUSBLOG_RELEASE_CREATED_AT_UTC", "2026-07-11T01:01:02Z")]
+    [InlineData("FSUSBLOG_RELEASE_CREATED_AT_UTC", "2026-07-11T09:01:01+08:00")]
     [InlineData("FSUSBLOG_RELEASE_SLOT", "Candidate Slot")]
     [InlineData("FSUSBLOG_COMMIT_SHA", "short")]
     [InlineData("FSUSBLOG_IMAGE_DIGEST", "sha256:abc")]
@@ -58,6 +68,58 @@ public sealed class ReleaseIdentityTests
         Assert.Equal("ok", provider.CreateHealthCheck(requireConfigured: false).Status);
         Assert.Equal("failed", provider.CreateHealthCheck(requireConfigured: true).Status);
         Assert.Equal("local-unversioned", provider.Current.ReleaseId);
+    }
+
+    [Fact]
+    public void Provider_DerivesCanonicalUtcSecondWhenLegacyDeploymentDoesNotInjectCreatedAt()
+    {
+        IConfiguration configuration = CreateConfiguration(new Dictionary<string, string?>
+        {
+            ["FSUSBLOG_RELEASE_CREATED_AT_UTC"] = null
+        });
+
+        var provider = new ReleaseIdentityProvider(configuration);
+
+        Assert.Equal("ok", provider.CreateHealthCheck(requireConfigured: true).Status);
+        Assert.Equal(DateTimeOffset.Parse(CreatedAtUtc), provider.Current.CreatedAtUtc);
+    }
+
+    [Fact]
+    public void GeneratedContract_MatchesSharedCrossLanguageFixture()
+    {
+        using JsonDocument fixture = JsonDocument.Parse(File.ReadAllText(
+            BackendTestPaths.FromRoot("tests", "fixtures", "release", "release-id-cases.json")));
+
+        foreach (JsonElement releaseId in fixture.RootElement.GetProperty("valid").EnumerateArray())
+        {
+            Assert.True(ReleaseIdContract.TryParse(
+                releaseId.GetString(),
+                out _,
+                out _));
+        }
+        foreach (JsonElement releaseId in fixture.RootElement.GetProperty("invalid").EnumerateArray())
+        {
+            Assert.False(ReleaseIdContract.TryParse(
+                releaseId.GetString(),
+                out _,
+                out _));
+        }
+
+        JsonElement identity = fixture.RootElement.GetProperty("identity");
+        JsonElement expected = fixture.RootElement.GetProperty("expectedParsedIdentity");
+        Assert.True(ReleaseIdContract.TryParse(
+            identity.GetProperty("releaseId").GetString(),
+            out DateTimeOffset parsedCreatedAtUtc,
+            out string parsedCommitShaPrefix));
+        Assert.Equal(DateTimeOffset.Parse(expected.GetProperty("createdAtUtc").GetString()!), parsedCreatedAtUtc);
+        Assert.Equal(expected.GetProperty("commitShaPrefix").GetString(), parsedCommitShaPrefix);
+        IConfiguration configuration = CreateConfiguration(new Dictionary<string, string?>
+        {
+            ["FSUSBLOG_RELEASE_ID"] = identity.GetProperty("releaseId").GetString(),
+            ["FSUSBLOG_COMMIT_SHA"] = identity.GetProperty("commitSha").GetString(),
+            ["FSUSBLOG_RELEASE_CREATED_AT_UTC"] = identity.GetProperty("createdAtUtc").GetString()
+        });
+        Assert.Equal("ok", new ReleaseIdentityProvider(configuration).CreateHealthCheck(requireConfigured: true).Status);
     }
 
     [Fact]
@@ -138,6 +200,7 @@ public sealed class ReleaseIdentityTests
         var values = new Dictionary<string, string?>
         {
             ["FSUSBLOG_RELEASE_ID"] = ReleaseId,
+            ["FSUSBLOG_RELEASE_CREATED_AT_UTC"] = CreatedAtUtc,
             ["FSUSBLOG_RELEASE_SLOT"] = "candidate",
             ["FSUSBLOG_COMMIT_SHA"] = CommitSha,
             ["FSUSBLOG_IMAGE_DIGEST"] = s_digest,

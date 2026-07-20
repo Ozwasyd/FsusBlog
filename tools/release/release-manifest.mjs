@@ -1,12 +1,13 @@
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
+import { isValidReleaseId } from './release-id.mjs'
 
 export const RELEASE_MANIFEST_SCHEMA = 'fsusblog.release-manifest.v1'
 const SHA256 = /^sha256:[0-9a-f]{64}$/u
 const ZERO_SHA256 = `sha256:${'0'.repeat(64)}`
 const COMMIT_SHA = /^[0-9a-f]{40}$/u
-const RELEASE_ID = /^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$/u
+const SCHEMA_COMPATIBILITY_COORDINATE = /^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$/u
 const IMAGE_REPOSITORY = /^[a-z0-9]+(?:[._/-][a-z0-9]+)*(?::[0-9]+(?:\/[a-z0-9]+(?:[._/-][a-z0-9]+)*)?)?$/u
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u
 const TOP_LEVEL_FIELDS = new Set([
@@ -98,8 +99,7 @@ export function validateReleaseManifest(manifest, options = {}) {
   if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) return ['release manifest must be an object']
   rejectUnknownFields(manifest, TOP_LEVEL_FIELDS, 'manifest', errors)
   if (manifest.schema !== RELEASE_MANIFEST_SCHEMA) errors.push(`schema must be ${RELEASE_MANIFEST_SCHEMA}`)
-  if (!RELEASE_ID.test(String(manifest.releaseId ?? ''))) errors.push('releaseId must be a safe immutable identifier')
-  if (['latest', 'final-current'].includes(String(manifest.releaseId ?? '').toLowerCase())) errors.push('releaseId must not be a mutable alias')
+  if (!isValidReleaseId(manifest.releaseId)) errors.push('releaseId must be a canonical immutable identifier')
   if (!COMMIT_SHA.test(String(manifest.commitSha ?? ''))) errors.push('commitSha must be a lowercase full Git SHA')
   if (!IMAGE_REPOSITORY.test(String(manifest.imageRepository ?? ''))) errors.push('imageRepository is invalid or mutable')
   if (manifest.imageTag !== `${manifest.imageRepository}:${manifest.releaseId}`) errors.push('imageTag must equal imageRepository:releaseId')
@@ -116,7 +116,7 @@ export function validateReleaseManifest(manifest, options = {}) {
   } else {
     rejectUnknownFields(manifest.schemaCompatibility, SCHEMA_COMPATIBILITY_FIELDS, 'schemaCompatibility', errors)
     for (const field of ['minRelease', 'maxRelease']) {
-      if (!RELEASE_ID.test(String(manifest.schemaCompatibility[field] ?? ''))) errors.push(`schemaCompatibility.${field} is invalid`)
+      if (!SCHEMA_COMPATIBILITY_COORDINATE.test(String(manifest.schemaCompatibility[field] ?? ''))) errors.push(`schemaCompatibility.${field} is invalid`)
     }
   }
   if (!manifest.toolchain || typeof manifest.toolchain !== 'object') {

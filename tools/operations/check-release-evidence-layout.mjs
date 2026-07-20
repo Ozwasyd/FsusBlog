@@ -6,6 +6,7 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 import { evidenceClassificationErrors } from './evidence-classification.mjs'
+import { isValidReleaseId } from '../release/release-id.mjs'
 import { parseYamlDocument } from '../yaml/parse-document.mjs'
 import { workflowSectionKeys } from '../yaml/workflow-structure.mjs'
 
@@ -256,7 +257,7 @@ function checkReleaseIndexes(root, errors) {
       errors.push(`${relative}: release index contains fields outside the strict identity and integrity schema`)
     }
     if (value.schema !== 'fsusblog.release-evidence-index.v1') errors.push(`${relative}: invalid schema`)
-    if (!/^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$/u.test(String(value.releaseId ?? ''))) errors.push(`${relative}: invalid releaseId`)
+    if (!isValidReleaseId(value.releaseId, { forPublication: true })) errors.push(`${relative}: invalid releaseId`)
     if (!/^[0-9a-f]{40}$/u.test(String(value.commitSha ?? ''))) errors.push(`${relative}: invalid commitSha`)
     if (!/^sha256:[0-9a-f]{64}$/u.test(String(value.imageDigest ?? ''))) errors.push(`${relative}: invalid imageDigest`)
     if (!/^sha256:[0-9a-f]{64}$/u.test(String(value.evidenceBundleSha256 ?? ''))) errors.push(`${relative}: invalid evidenceBundleSha256`)

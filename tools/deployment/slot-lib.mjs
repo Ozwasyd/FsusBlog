@@ -1,9 +1,9 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { isValidReleaseId } from '../release/release-id.mjs'
 
 export const SLOT_STATE_SCHEMA = 'fsusblog.deployment-slots.v1'
 export const RELEASE_SLOTS = Object.freeze(['blue', 'green'])
-const RELEASE_ID = /^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$/u
 const IMAGE_DIGEST = /^sha256:[0-9a-f]{64}$/u
 const IMAGE_REF = /^[a-z0-9]+(?:[._/-][a-z0-9]+)*(?::[0-9]+(?:\/[a-z0-9]+(?:[._/-][a-z0-9]+)*)?)?@sha256:[0-9a-f]{64}$/u
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/u
@@ -447,7 +447,7 @@ function validateFailureMessage(value) {
 
 function validateReleaseId(value) {
   const releaseId = String(value ?? '')
-  if (!RELEASE_ID.test(releaseId) || ['latest', 'final-current'].includes(releaseId.toLowerCase())) throw new Error('releaseId is invalid or mutable')
+  if (!isValidReleaseId(releaseId)) throw new Error('releaseId is invalid or mutable')
   return releaseId
 }
 

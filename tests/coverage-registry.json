@@ -90,18 +90,23 @@
         },
         {
             "id": "immutable-release-identity",
-            "description": "Production release identity binds one commit, immutable registry digest, frontend/Wasm hashes, runtime slot, readiness and release evidence without mutable deployment tags.",
+            "description": "Canonical UTC14 plus SHA12 release identity binds one full commit, immutable registry digest, frontend/Wasm hashes, runtime slot, readiness and release evidence without SemVer or mutable deployment tags.",
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
+                "src/shared/Contracts/Validation/release-id-contract.json",
+                "tools/release/release-id.mjs",
+                "tests/fixtures/release/release-id-cases.json",
+                "tests/tools/release-id.test.mjs",
+                "tests/tools/release-id-validator-consumers.test.mjs",
                 "tests/tools/release-manifest.test.mjs",
                 "tests/backend/Unit/ReleaseIdentityTests.cs",
                 "tools/operations/test-release-evidence-fixture.sh",
                 "docs/issue-1024-release-identity-handoff.md"
             ],
             "assertionType": "integration",
-            "failClosedRule": "The static-governance lane must reject mutable or inconsistent manifests, pulled image digests or labels, missing production runtime identity, and release evidence that does not match its commit and image digest.",
-            "minimumRequirement": "Evidence must cover manifest creation and immutability, digest/OCI label verification, no-build deploy dry-run, production startup/readiness identity, and release evidence coherence.",
+            "failClosedRule": "The static-governance lane must reject malformed calendar timestamps, SemVer or mutable ReleaseIds, generated cross-language contract drift, inconsistent commit/time identity, mutable or inconsistent manifests, pulled image digests or labels, missing production runtime identity, and release evidence that does not match its commit and image digest.",
+            "minimumRequirement": "Evidence must cover the shared ReleaseId fixture and stable shell CLI, C#/TypeScript generation, manifest creation and immutability, digest/OCI label verification, no-build deploy dry-run, production startup/readiness identity, and release evidence coherence.",
             "tierIds": [
                 "static-governance"
             ]

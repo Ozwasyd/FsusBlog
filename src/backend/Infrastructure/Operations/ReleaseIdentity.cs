@@ -6,7 +6,9 @@ public sealed record ReleaseIdentitySnapshot(
     string CommitSha,
     string ImageRef,
     string ImageDigest,
-    bool Configured);
+    bool Configured,
+    DateTimeOffset? CreatedAtUtc = null,
+    bool CreatedAtConsistent = true);
 
 public static class ReleaseIdentityResponseHeaders
 {
@@ -50,7 +52,8 @@ public sealed class ReleaseIdentityProvider(IConfiguration configuration) : IRel
     {
         string releaseId = Read(configuration, "FSUSBLOG_RELEASE_ID", "Release:Id");
         string releaseSlot = Read(configuration, "FSUSBLOG_RELEASE_SLOT", "Release:Slot");
-        string commitSha = Read(configuration, "FSUSBLOG_COMMIT_SHA", "Release:CommitSha").ToLowerInvariant();
+        string commitSha = Read(configuration, "FSUSBLOG_COMMIT_SHA", "Release:CommitSha");
+        string createdAtValue = Read(configuration, "FSUSBLOG_RELEASE_CREATED_AT_UTC", "Release:CreatedAtUtc");
         string imageRef = Read(configuration, "FSUSBLOG_IMAGE_REF", "Release:ImageRef");
         string imageDigest = Read(configuration, "FSUSBLOG_IMAGE_DIGEST", "Release:ImageDigest").ToLowerInvariant();
         bool configured = releaseId.Length > 0
@@ -58,13 +61,29 @@ public sealed class ReleaseIdentityProvider(IConfiguration configuration) : IRel
             && commitSha.Length > 0
             && imageRef.Length > 0
             && imageDigest.Length > 0;
+        bool releaseIdParsed = ReleaseIdContract.TryParse(
+            releaseId,
+            out DateTimeOffset releaseCreatedAtUtc,
+            out _);
+        bool createdAtProvided = createdAtValue.Length > 0;
+        DateTimeOffset configuredCreatedAtUtc = default;
+        bool createdAtParsed = !createdAtProvided || ReleaseIdContract.TryParseCreatedAtUtc(
+            createdAtValue,
+            out configuredCreatedAtUtc);
+        bool createdAtConsistent = !configured ||
+            (releaseIdParsed &&
+             createdAtParsed &&
+             (!createdAtProvided ||
+              releaseCreatedAtUtc == configuredCreatedAtUtc.AddTicks(-(configuredCreatedAtUtc.Ticks % TimeSpan.TicksPerSecond))));
         return new ReleaseIdentitySnapshot(
             releaseId.Length == 0 ? "local-unversioned" : releaseId,
             releaseSlot.Length == 0 ? "local" : releaseSlot,
             commitSha.Length == 0 ? new string('0', 40) : commitSha,
             imageRef.Length == 0 ? "local-unversioned" : imageRef,
             imageDigest.Length == 0 ? $"sha256:{new string('0', 64)}" : imageDigest,
-            configured);
+            configured,
+            releaseIdParsed ? releaseCreatedAtUtc : null,
+            createdAtConsistent);
     }
 
     internal static IReadOnlyList<string> Validate(ReleaseIdentitySnapshot snapshot, bool requireConfigured)
@@ -79,22 +98,27 @@ public sealed class ReleaseIdentityProvider(IConfiguration configuration) : IRel
         {
             return errors;
         }
-        if (!System.Text.RegularExpressions.Regex.IsMatch(snapshot.ReleaseId, "^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$"))
+        if (!ReleaseIdContract.TryParse(snapshot.ReleaseId, out DateTimeOffset releaseCreatedAtUtc, out string commitShaPrefix))
         {
             errors.Add("release_id_invalid");
         }
-        else if (string.Equals(snapshot.ReleaseId, "latest", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(snapshot.ReleaseId, "final-current", StringComparison.OrdinalIgnoreCase))
+        else if (!System.Text.RegularExpressions.Regex.IsMatch(snapshot.CommitSha, "^[0-9a-f]{40}$"))
         {
-            errors.Add("release_id_mutable");
+            errors.Add("release_commit_invalid");
+        }
+        else if (!snapshot.CommitSha.StartsWith(commitShaPrefix, StringComparison.Ordinal))
+        {
+            errors.Add("release_id_commit_mismatch");
+        }
+        if (snapshot.CreatedAtUtc is null ||
+            snapshot.CreatedAtUtc.Value != releaseCreatedAtUtc ||
+            !snapshot.CreatedAtConsistent)
+        {
+            errors.Add("release_id_created_at_mismatch");
         }
         if (!System.Text.RegularExpressions.Regex.IsMatch(snapshot.ReleaseSlot, "^[a-z][a-z0-9-]{0,31}$"))
         {
             errors.Add("release_slot_invalid");
-        }
-        if (!System.Text.RegularExpressions.Regex.IsMatch(snapshot.CommitSha, "^[0-9a-f]{40}$"))
-        {
-            errors.Add("release_commit_invalid");
         }
         if (!System.Text.RegularExpressions.Regex.IsMatch(snapshot.ImageDigest, "^sha256:[0-9a-f]{64}$"))
         {

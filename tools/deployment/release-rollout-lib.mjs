@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { isValidReleaseId } from '../release/release-id.mjs'
 
 export const ROLLOUT_SCHEMA = 'fsusblog.release-rollout-state.v1'
 export const ROLLOUT_STAGES = Object.freeze([
@@ -20,7 +21,6 @@ export const ROLLOUT_STAGES = Object.freeze([
   'release-evidence'
 ])
 
-const RELEASE_ID = /^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$/u
 const DIGEST = /^sha256:[0-9a-f]{64}$/u
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/u
 
@@ -378,8 +378,7 @@ function recoveryAction(value) {
 function releaseIdentity(value, label) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} identity is required`)
   if (!['blue', 'green'].includes(value.slot)) throw new Error(`${label}.slot must be blue or green`)
-  if (!RELEASE_ID.test(String(value.releaseId ?? ''))
-    || ['latest', 'final-current'].includes(String(value.releaseId).toLowerCase())) throw new Error(`${label}.releaseId is invalid`)
+  if (!isValidReleaseId(value.releaseId)) throw new Error(`${label}.releaseId is invalid`)
   if (!DIGEST.test(String(value.imageDigest ?? ''))) throw new Error(`${label}.imageDigest is invalid`)
   const generation = Number(value.runtimeGeneration)
   if (!Number.isSafeInteger(generation) || generation < 1) throw new Error(`${label}.runtimeGeneration is invalid`)

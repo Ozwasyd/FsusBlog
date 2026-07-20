@@ -5,6 +5,7 @@ import path from 'node:path'
 import process from 'node:process'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import { isValidReleaseId } from '../release/release-id.mjs'
 
 const scriptPath = fileURLToPath(import.meta.url)
 const repositoryRoot = path.resolve(path.dirname(scriptPath), '..', '..')
@@ -103,8 +104,7 @@ export function sealReleaseEvidenceBundle(bundleDirectory, options = {}) {
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
   const contract = JSON.parse(fs.readFileSync(path.join(repositoryRoot, storageContractPath), 'utf8'))
   const releaseId = manifest.releaseIdentity?.releaseId ?? null
-  const identityOk = typeof releaseId === 'string'
-    && /^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$/u.test(releaseId)
+  const identityOk = isValidReleaseId(releaseId, { forPublication: true })
     && /^[0-9a-f]{40}$/u.test(String(manifest.commitSha ?? ''))
     && /^sha256:[0-9a-f]{64}$/u.test(String(manifest.imageDigest ?? ''))
     && manifest.releaseIdentity?.commitSha === manifest.commitSha

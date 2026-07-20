@@ -1,7 +1,8 @@
+import { isCanonicalReleaseId } from '../../../src/generated/releaseIdContract';
+
 const baseUrl = (import.meta.env?.BASE_URL || '/').replace(/\/?$/, '/');
 const frontendBuildId = import.meta.env?.VITE_FSUSBLOG_BUILD_ID?.trim() || '';
-const releaseAssetBase = /^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$/.test(frontendBuildId)
-  && !['latest', 'current', 'final-current'].includes(frontendBuildId.toLowerCase())
+const releaseAssetBase = isCanonicalReleaseId(frontendBuildId)
   ? `${baseUrl}release-assets/${frontendBuildId}/`
   : baseUrl;
 

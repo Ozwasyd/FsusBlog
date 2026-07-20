@@ -335,7 +335,8 @@ ReadInitialState() {
     SOURCE_DIGEST="$(jq -r '.activeImageDigest // ""' <<<"$state")"
     SOURCE_GENERATION="$(jq -r --arg slot "$SOURCE_SLOT" '.slots[$slot].deploymentGeneration // 0' <<<"$state")"
     SlotRequire "$SOURCE_SLOT"
-    [[ "$SOURCE_RELEASE" =~ ^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$ ]] || RolloutFail "active release identity is invalid"
+    node "$ROOT_DIR/tools/release/release-id.mjs" validate "$SOURCE_RELEASE" >/dev/null ||
+        RolloutFail "active release identity is invalid"
     [[ "$SOURCE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || RolloutFail "active image digest is invalid"
     [[ "$SOURCE_GENERATION" =~ ^[0-9]+$ && "$SOURCE_GENERATION" -ge 1 ]] || RolloutFail "active runtime generation is invalid"
 

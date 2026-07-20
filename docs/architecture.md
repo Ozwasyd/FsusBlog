@@ -642,6 +642,8 @@ Health/ops 协议独立于 PublicAOT 与 AEDS payload。`ProductionHealthEndpoin
 
 `DropColumnStep` / `DropTableStep` 还必须携带 descriptor-matched rollback-window proof；冷启动 runner 与 online executor 都在事务前校验真实 source commit、引入时间、至少 30 天窗口和本地 proof anchor。issue #1127 报告的 44 个步骤在 read-event retirement 合入后已变为 46 个，动态库存与证明规则见 [destructive schema rollback-window proof](schema-migrations/destructive-rollback-window.md)。仅数据库完全无表时允许 fresh bootstrap；已有任意表时窗口未结束即 fail closed。
 
+Release identity 的规范格式权威位于 `tools/release/release-id.mjs` 与共享 JSON 契约；生成的 C#/TypeScript 消费者必须通过 `--check` 保持一致。`ReleaseIdentityProvider` 要求真实 UTC 秒的 `YYYYMMDDHHmmss-sha12` 匹配完整 commit 前缀；若部署入口已注入 `createdAtUtc`，还必须通过同秒交叉校验。旧部署入口未注入该字段时从 canonical ReleaseId 派生只读 UTC 秒，以在后续 manifest/deployment wiring 合入前保持生产兼容；`local-unversioned` 只允许未配置的本地非发布诊断路径。该应用版本域不得替代 AEDS、manifest、rollout、migration 或密码学 schema version。
+
 ## Runtime capability 文件边界
 
 Search index、article service、PublicHotRead 与 application composition 仍按 orchestration、policy/state、I/O/persistence、codec/routing 和 metrics 组织 capability files。authoring 改由 analytics、asset library、draft lifecycle、content transfer 与 moderation workflow 五个 scoped 模块拥有独立构造依赖和失败/事务边界；endpoint 只看窄 port，任何模块不得通过另一个实现类或 `IServiceProvider` 回调原聚合。受治理 capability file 必须少于 1,500 行，`backend-build-governance` 会执行机器检查；最终 endpoint data source 和 DI descriptor 的行为测试负责证明 authoring 58 条 method/path、admin permission、frame lookup 与 scoped lifetime 未漂移。历史 capability slicing 背景见 [Runtime capability slices and source-file budget](architecture/issue-1119-runtime-capability-slices.md)。

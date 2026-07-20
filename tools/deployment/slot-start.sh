@@ -55,7 +55,7 @@ if [[ -n "$active_slot" ]]; then
 else
     previous_rollback_release="${FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE:-}"
 fi
-[[ "$previous_rollback_release" =~ ^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$ ]] ||
+node "$ROOT_DIR/tools/release/release-id.mjs" validate "$previous_rollback_release" >/dev/null ||
     SlotFail "unable to derive a valid previous rollback release"
 [[ "$previous_rollback_release" != "$FSUSBLOG_RELEASE_ID" ]] ||
     SlotFail "previous rollback release must differ from the candidate release"

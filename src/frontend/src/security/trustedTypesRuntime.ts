@@ -1,3 +1,5 @@
+import { isCanonicalReleaseId } from '@/generated/releaseIdContract'
+
 type TrustedTypePolicyRules = {
   createHTML?: (value: string) => string
   createScript?: (value: string) => string
@@ -20,8 +22,6 @@ const MARKDOWN_RENDERER_WORKER_PATH = /^\/assets\/markdown-renderer\.worker-[A-Z
 const APPLICATION_WORKER_PATH = /^\/assets\/(?:captcha|commentPrivacy|perception-v2|pospace|pow|wasmDecode)\.worker-[A-Za-z0-9_-]+\.js$/u
 const APPLICATION_WORKER_DEV_SOURCE_PATH = /^\/src\/workers\/(?:(?:pow|wasmDecode)\.worker|security\/(?:captcha|perception-v2|pospace)\.worker|privacy\/commentPrivacy\.worker)\.ts$/u
 const SERVICE_WORKER_MODULE_PATH = '/sw.js'
-const IMMUTABLE_BUILD_ID = /^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$/u
-const MUTABLE_BUILD_IDS = new Set(['latest', 'current', 'final-current'])
 const NON_EXECUTABLE_SCRIPT_TYPES = new Set([
   'application/json',
   'application/ld+json',
@@ -102,8 +102,7 @@ export function toTrustedServiceWorkerScriptUrl(moduleUrl: string): unknown {
   const buildIds = resolved.searchParams.getAll('build')
   const hasValidBuildId = buildIds.length === 0
     || buildIds.length === 1
-      && IMMUTABLE_BUILD_ID.test(buildIds[0] ?? '')
-      && !MUTABLE_BUILD_IDS.has((buildIds[0] ?? '').toLowerCase())
+      && isCanonicalReleaseId(buildIds[0] ?? '')
   if (resolved.pathname !== SERVICE_WORKER_MODULE_PATH
     || resolved.hash
     || [...resolved.searchParams.keys()].some(key => key !== 'build')

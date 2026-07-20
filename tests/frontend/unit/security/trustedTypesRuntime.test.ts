@@ -138,8 +138,8 @@ describe('trustedTypesRuntime', () => {
   it('only trusts the same-origin release service worker artifact', () => {
     expect(String(toTrustedServiceWorkerScriptUrl('/sw.js')))
       .toBe(new URL('/sw.js', globalThis.location.href).href)
-    expect(String(toTrustedServiceWorkerScriptUrl('/sw.js?build=release-2026.07.16')))
-      .toBe(new URL('/sw.js?build=release-2026.07.16', globalThis.location.href).href)
+    expect(String(toTrustedServiceWorkerScriptUrl('/sw.js?build=20260716010203-0123456789ab')))
+      .toBe(new URL('/sw.js?build=20260716010203-0123456789ab', globalThis.location.href).href)
     expect(() => toTrustedServiceWorkerScriptUrl('/sw.js?build=latest'))
       .toThrow('service_worker_artifact_invalid')
     expect(() => toTrustedServiceWorkerScriptUrl('/sw.js?replace=1'))

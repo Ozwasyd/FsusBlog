@@ -19,6 +19,7 @@ using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.Background;
@@ -386,13 +387,7 @@ public sealed partial class SearchIndexService(
 
     private static string NormalizeSearchReleaseId(string releaseId)
     {
-        if (releaseId.Length is < 6 or > 128
-            || !char.IsAsciiLetterOrDigit(releaseId[0])
-            || releaseId.Any(static character => !char.IsAsciiLetterOrDigit(character)
-                && character is not '.' and not '_' and not '-')
-            || releaseId.Equals("latest", StringComparison.OrdinalIgnoreCase)
-            || releaseId.Equals("current", StringComparison.OrdinalIgnoreCase)
-            || releaseId.Equals("final-current", StringComparison.OrdinalIgnoreCase))
+        if (!ReleaseIdContract.TryParse(releaseId, out _, out _))
         {
             throw new InvalidOperationException("Release-scoped search storage requires a safe immutable FSUSBLOG_RELEASE_ID.");
         }

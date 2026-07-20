@@ -72,12 +72,14 @@ SlotRequireCommand awk
 SlotRequireCommand curl
 SlotRequireCommand grep
 SlotRequireCommand jq
+SlotRequireCommand node
 SlotRequireCommand sleep
 SlotRequireCommand stat
 
 if [[ "$ACTION" != "status" ]]; then
     SlotRequire "$SLOT"
-    [[ "$RELEASE_ID" =~ ^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$ ]] || SlotFail "--release is invalid"
+    node "$ROOT_DIR/tools/release/release-id.mjs" validate "$RELEASE_ID" >/dev/null ||
+        SlotFail "--release is invalid"
     [[ "$GENERATION" =~ ^[0-9]+$ && "$GENERATION" -ge 1 ]] || SlotFail "--generation must be a positive integer"
 fi
 if [[ -z "$PORT" && -n "$SLOT" ]]; then

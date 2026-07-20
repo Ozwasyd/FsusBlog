@@ -7,7 +7,7 @@ import {
 
 describe('release storage identity', () => {
   it('binds search and service worker URLs to one immutable frontend build', () => {
-    const buildId = 'release-20260711-abcdef'
+    const buildId = '20260711010101-0123456789ab'
 
     expect(normalizeFrontendBuildId(buildId)).toBe(buildId)
     expect(resolveReleaseSearchManifestUrl('/', buildId))
@@ -17,7 +17,7 @@ describe('release storage identity', () => {
   })
 
   it('rejects traversal or mutable aliases and preserves development URLs', () => {
-    for (const invalid of ['../active', 'latest', 'bad/id', '']) {
+    for (const invalid of ['../active', 'latest', 'v1.2.0', '20260230010101-0123456789ab', 'bad/id', '']) {
       expect(normalizeFrontendBuildId(invalid)).toBeNull()
       expect(resolveReleaseSearchManifestUrl('/blog', invalid)).toBe('/blog/search/index.manifest.aeds')
       expect(resolveServiceWorkerScriptUrl('/blog', invalid)).toBe('/blog/sw.js')

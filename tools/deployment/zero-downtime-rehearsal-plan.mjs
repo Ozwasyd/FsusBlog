@@ -5,6 +5,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { pathToFileURL } from 'node:url'
+import { isValidReleaseId } from '../release/release-id.mjs'
 
 export const REHEARSAL_PLAN_SCHEMA = 'fsusblog.zero-downtime-rehearsal-plan.v1'
 export const RESOLVED_PLAN_SCHEMA = 'fsusblog.zero-downtime-rehearsal-resolved-plan.v1'
@@ -63,7 +64,6 @@ export const MIGRATION_QUALIFICATION_CASES = Object.freeze([
 ])
 
 const MODES = new Set(['normal', 'explicit-rollback', 'post-switch-rollback', 'sigkill-resume'])
-const RELEASE_ID = /^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$/u
 const DIGEST = /^sha256:[0-9a-f]{64}$/u
 const SAFE_ID = /^[0-9A-Za-z][0-9A-Za-z._-]{2,127}$/u
 const NORMAL_WORKER_KINDS = Object.freeze([
@@ -709,7 +709,7 @@ export function buildSigkillMatrixEvidence(modeRoot, stages = HOST_INTERRUPTION_
 export function deriveRehearsalRolloutId(role, phase, releaseId, runId) {
   if (!['normal', 'qualification'].includes(role)) fail('rollout role must be normal or qualification')
   const safePhase = safeId(phase, 'rollout phase')
-  if (!RELEASE_ID.test(String(releaseId ?? ''))) fail('rollout releaseId is invalid')
+  if (!isValidReleaseId(releaseId)) fail('rollout releaseId is invalid')
   const safeRun = safeId(runId, 'rehearsal runId')
   const binding = `${role}\0${safePhase}\0${releaseId}\0${safeRun}`
   const suffix = crypto.createHash('sha256').update(binding).digest('hex').slice(0, 16)
@@ -1046,7 +1046,7 @@ function resolveFaultTokens(raw, planFile, repoRoot, workRoot) {
 
 function releaseManifest(file, label) {
   const value = readJson(file, label)
-  if (!RELEASE_ID.test(String(value.releaseId ?? ''))) fail(`${label} releaseId is invalid`)
+  if (!isValidReleaseId(value.releaseId)) fail(`${label} releaseId is invalid`)
   if (!DIGEST.test(String(value.imageDigest ?? ''))) fail(`${label} imageDigest is invalid`)
   return { manifest: file, releaseId: value.releaseId, imageDigest: value.imageDigest }
 }

@@ -3,6 +3,7 @@
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
+import { isValidReleaseId } from '../release/release-id.mjs'
 
 const DEFAULT_OUTPUT = '.tmp/deployment/notification-stream-restart.json'
 
@@ -51,7 +52,7 @@ function parseArgs(argv) {
     fail('--port must be between 1 and 65535')
   }
   if (action === 'restart') {
-    if (!/^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$/.test(options.releaseId ?? '')) fail('--release is invalid')
+    if (!isValidReleaseId(options.releaseId)) fail('--release is invalid')
     if (!/^[a-z][a-z0-9-]{0,31}$/.test(options.slot ?? '')) fail('--slot is invalid')
     if (!Number.isSafeInteger(options.generation) || options.generation < 1) fail('--generation is required')
   }
