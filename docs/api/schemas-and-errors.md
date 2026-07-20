@@ -401,6 +401,8 @@ frame 208 的 `no_change`，不属于错误。动态关闭 `Messages:StatusMutat
 | 183 | `AnonymousPrivacyStateSnapshot` | `AnonymousPrivacyStateSnapshotPod` | 前端匿名隐私状态快照 |
 | 184 | `PerceptionSealedChallengeV2` | `PerceptionSealedChallengeV2Pod` | `fsu.challenge/perception-sealed@v2` issue payload；覆盖 Character、Localization、MicroInteraction 三类 perception task |
 | 185 | `PerceptionSealedResultV2` | `PerceptionSealedResultV2Pod` | `fsu.challenge/perception-sealed@v2` verify payload；支持 character、coordinates、steps response payload |
+| nested | `PerceptionCharacterV3Issue` | `PerceptionCharacterV3IssuePod` | frame 175 内按 assignment `kind=14` 判别的 typed union；final Gray8/WAV bytes + opaque state |
+| nested | `PerceptionCharacterV3Verify` | `PerceptionCharacterV3VerifyPod` | frame 174 内按 `kind=14` 判别的 typed union；只含 answer + opaque state |
 | 186 | `RetiredCredentialSpecificRevocationRequest` | 无 | 永久 retired；不得复用或解析 body |
 | 187 | `RetiredCredentialSpecificRevocationResponse` | 无 | 永久 retired；服务端不发送 |
 | 196 | `AnonymousCredentialRevocationSnapshot` | `AnonymousCredentialRevocationArtifactPod` | 公共 full revoked-set snapshot |
@@ -595,6 +597,8 @@ replyToAuthorPayload?:CommentAuthorViewPod + blobLength:int32 + blob
 | `SecurityChallengeCancelRequestPod` | 40 |
 | `PerceptionSealedChallengeV2Pod` | 916 |
 | `PerceptionSealedResultV2Pod` | 892 |
+| `PerceptionCharacterV3IssuePod` | 256 |
+| `PerceptionCharacterV3VerifyPod` | 156 |
 
 > 精确值以 `PodSizeCatalog.cs` 为准；`PodContractValidation.AreAllPodModelsReferenceFree()` 在测试和启动时校验。
 

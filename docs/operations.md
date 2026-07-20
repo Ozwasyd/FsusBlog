@@ -533,3 +533,16 @@ When rotating `Moderation:RegionPolicy:IpHashKey`, old `comment_region_complianc
 - DB pressure: lower public traffic at the gateway, check DB concurrency gate detail, and inspect slow SQL logs.
 - Redis outage: keep the app isolated from new traffic until readiness returns; public hot paths may degrade without L2 cache.
 - WebSocket pressure: inspect readiness runtime detail and logs for slow consumer disconnects.
+
+## PerceptionCharacterV3 stop and recovery
+
+1. 热更新 RiskControl policy，移除 `perceptionCharacterV3`，先停止所有匿名、登录、admin 和 notification subscribe action 的新 V3 assignment；无需重启。
+2. 对 active envelope 调用 binary cancel/revocation；确认 audit 中 terminal state 为 `revoked`，不要删除 Redis key 或重置 attempts。
+3. renderer/Redis/crypto 故障时保持公开 `unavailable`，不得切到 CaptchaV1、Perception V2、JSON 或本地进程内 attempt state。
+4. key ring 故障使用独立 V3 token/answer ring 的上一有效 version 修正 secret 后滚动重启。两个 ring 的任何 key material 都不得相等；未知旧 version 的 active token保持 fail closed。
+
+匿名 device authority 的 Redis keys 与 challenge state 同属 fail-closed 基础设施；不要只清理 device lease 或 IP→device 映射中的一侧。cookie 丢失时同一 pseudonymous IP 复用权威租约，伪造 UUID 不会自动创建新 bucket。spoken atlas 由 embedded JSON 提供，startup 完整性失败时不得回退到 runtime TTS、Morse、索引音调或 V2 audio。
+
+spoken atlas 的可复现输入是 `perception-character-v3-spoken-atlas-source.json` 与仓库内 `tests/fixtures/security/perception-character-v3-spoken-atlas-source-wav/*.wav`：逐 symbol 固定 SSML、spoken label、eSpeak source-WAV hash、resampled PCM hash/length；独立 golden 文件再绑定 source manifest 与最终 atlas 的 SHA-256。常规验收执行 `node tools/contracts/generate-perception-character-v3-spoken-atlas.mjs --check`，完全离线读取受控 WAV，重新 trim/resample 并逐层比对 PCM 与最终 atlas，不要求本机安装 TTS。只有明确更新权威语音源时才使用 eSpeak NG **1.51** 执行 `--regenerate-source --espeak-ng <path>`；脚本固定 `-m -v en-us -s 135 -p 45 -a 150` 并重写 WAV/source/output/golden，随后必须审阅所有 binary/hash 变化。
+
+本地验收先运行 `tools/test/perception-character-v3-redis-fixture.sh`，它使用一次性 Redis 7 container 验证并发 correct/incorrect、两次上限、replay、expiry、revoke、binding substitution 与 unavailable fail-closed；随后运行 targeted backend suite 和 protocol vector generator `--check`。

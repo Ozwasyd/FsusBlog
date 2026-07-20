@@ -7,6 +7,7 @@ using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Security;
 
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -128,6 +129,19 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<ISecurityChallengeProvider, PerceptionTextTaskV2Provider>();
         services.AddScoped<ISecurityChallengeProvider, PerceptionLocalizationV2Provider>();
         services.AddScoped<ISecurityChallengeProvider, PerceptionMicroInteractionV2Provider>();
+        bool perceptionV3Enabled = SecuritySystemModes.IsEnforcing(
+            SecuritySystemModes.Normalize(configuration["Security:PerceptionCharacterV3:Enabled"] ?? SecuritySystemModes.Disabled));
+        services.AddScoped<IPerceptionCharacterV3StateStore, RedisPerceptionCharacterV3StateStore>();
+        services.AddScoped<IPerceptionCharacterV3DeviceAuthority, RedisPerceptionCharacterV3DeviceAuthority>();
+        if (perceptionV3Enabled)
+        {
+            services.AddSingleton<IPerceptionCharacterV3KeyRing, PerceptionCharacterV3KeyRing>();
+            services.AddSingleton<IPerceptionCharacterV3NonceSource, PerceptionCharacterV3RandomNonceSource>();
+            services.AddSingleton<IPerceptionCharacterV3Renderer, PerceptionCharacterV3Renderer>();
+            services.AddSingleton<IPerceptionCharacterV3ResourceGate, PerceptionCharacterV3ResourceGate>();
+            services.AddSingleton<IPerceptionCharacterV3AuditSink, PerceptionCharacterV3AuditSink>();
+            services.AddScoped<ISecurityChallengeProvider, PerceptionCharacterV3Provider>();
+        }
         services.AddScoped<ISecurityChallengeOrchestrator, SecurityChallengeOrchestrator>();
 
         services.Configure<LifecycleBootstrapOptions>(configuration.GetSection(LifecycleBootstrapOptions.SectionName));
@@ -143,6 +157,8 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<IAccountSubjectHashInvariantGate, AccountSubjectHashInvariantGate>();
         if (!OpenApiExportMode.IsEnabled(configuration))
         {
+            if (perceptionV3Enabled)
+                services.AddHostedService<PerceptionCharacterV3StartupGate>();
             services.AddHostedService<ProductionStartupValidationHostedService>();
             services.AddHostedService<LifecycleHostedBootstrapService>();
             services.AddHostedService<SecurityPolicySnapshotHostedService>();

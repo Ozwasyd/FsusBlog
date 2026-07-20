@@ -36,6 +36,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
         var context = CreateContext(
             AedsFrameType.SecurityChallengeIssueRequest,
             BinaryRequestPayload.Success(PodBinaryCodec.EncodeSecurityChallengeIssueRequest(request)));
+        context.Request.Headers["X-Fsus-Device-Fp"] = "request-context-device";
         var orchestrator = new FakeChallengeOrchestrator();
         SecurityChallengeAssignment assignment = CreateAssignment();
         orchestrator.IssueResult = SecurityChallengeOrchestrationIssueResult.Success(
@@ -72,6 +73,12 @@ public sealed class SecurityChallengeBinaryEndpointTests
         Assert.NotNull(orchestrator.LastIssueRequest);
         Assert.Equal("security.pow", orchestrator.LastIssueRequest.Decision.RequiredChallenges[0]);
         Assert.Matches("^[0-9a-f]{64}$", orchestrator.LastIssueRequest.SubjectHash);
+        Assert.Equal(
+            Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes("request-context-device"))),
+            orchestrator.LastIssueRequest.DeviceFpHash);
+        Assert.NotEqual(
+            Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(request.DeviceFingerprint))),
+            orchestrator.LastIssueRequest.DeviceFpHash);
     }
 
     [Fact]
@@ -112,6 +119,43 @@ public sealed class SecurityChallengeBinaryEndpointTests
         Assert.Equal("captchaV1", signal.Detail);
         Assert.NotNull(orchestrator.LastIssueRequest);
         Assert.Equal(["captchaV1"], orchestrator.LastIssueRequest.Decision.RequiredChallenges);
+    }
+
+    [Theory]
+    [InlineData("crypto_failure", "unavailable", StatusCodes.Status503ServiceUnavailable)]
+    [InlineData("redis_failure", "unavailable", StatusCodes.Status503ServiceUnavailable)]
+    [InlineData("provider_exception", "unavailable", StatusCodes.Status503ServiceUnavailable)]
+    [InlineData("provider_missing", "unavailable", StatusCodes.Status503ServiceUnavailable)]
+    [InlineData("envelope_state_unavailable", "unavailable", StatusCodes.Status503ServiceUnavailable)]
+    [InlineData("assignment_invalid_internal", "rejected", StatusCodes.Status428PreconditionRequired)]
+    public async Task IssueAsync_PerceptionCharacterV3InternalFailureReturnsOnlyCoarseError(string internalReason, string expectedPublicReason, int expectedStatus)
+    {
+        var aeds = new AedsEncoder();
+        var request = new SecurityChallengeIssueBinaryRequest("public.read", "article:42", "client-controlled-device", "{}");
+        var context = CreateContext(AedsFrameType.SecurityChallengeIssueRequest, BinaryRequestPayload.Success(PodBinaryCodec.EncodeSecurityChallengeIssueRequest(request)));
+        var orchestrator = new FakeChallengeOrchestrator
+        {
+            IssueResult = SecurityChallengeOrchestrationIssueResult.Failed(internalReason)
+        };
+
+        BinaryFrameResult result = await BinaryEndpoints.HandleSecurityChallengeIssueAsync(
+            context,
+            aeds,
+            new FixedRiskScoreReader(50),
+            new FixedRiskPolicyProvider(CreatePolicy(PerceptionCharacterV3Contracts.WireName)),
+            new RiskControlContextFactory(),
+            new RiskDecisionService(),
+            orchestrator,
+            new NullRiskSink(),
+            CancellationToken.None);
+
+        AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
+        Assert.Equal(expectedStatus, context.Response.StatusCode);
+        Assert.Equal(AedsFrameType.ApiError, decoded.FrameType);
+        Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Payload, out var errorPod));
+        ErrorDetail error = PodBinaryCodec.ToErrorDetail(errorPod);
+        Assert.Equal(expectedPublicReason, error.Message);
+        Assert.DoesNotContain(internalReason, error.Details ?? string.Empty, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -475,6 +519,46 @@ public sealed class SecurityChallengeBinaryEndpointTests
         Assert.DoesNotContain(internalReason, error.Details ?? string.Empty, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("provider_exception", "unavailable", StatusCodes.Status503ServiceUnavailable)]
+    [InlineData("provider_missing", "unavailable", StatusCodes.Status503ServiceUnavailable)]
+    [InlineData("state_unavailable", "unavailable", StatusCodes.Status503ServiceUnavailable)]
+    [InlineData("token_open_failed_internal", "rejected", StatusCodes.Status428PreconditionRequired)]
+    public async Task VerifyAsync_PerceptionCharacterV3InternalFailureReturnsOnlyCoarseError(string internalReason, string expectedPublicReason, int expectedStatus)
+    {
+        var aeds = new AedsEncoder();
+        string challengeId = SecurityChallengeContracts.CreateChallengeId();
+        string envelopeId = SecurityChallengeContracts.CreateChallengeId();
+        var typed = new PerceptionCharacterV3VerifyPayload(PerceptionCharacterV3Contracts.Algorithm, challengeId, envelopeId, PerceptionCharacterV3Representation.Visual, "A7C9Q", "opaque-state");
+        var request = new SecurityChallengeVerifyBinaryRequest(envelopeId, challengeId, SecurityChallengeKind.PerceptionCharacterV3, "public.read", "article:42", string.Empty)
+        {
+            PerceptionCharacterV3 = typed
+        };
+        var context = CreateContext(AedsFrameType.SecurityChallengeVerifyRequest, BinaryRequestPayload.Success(PodBinaryCodec.EncodeSecurityChallengeVerifyRequest(request)));
+        var orchestrator = new FakeChallengeOrchestrator
+        {
+            VerifyResult = SecurityChallengeOrchestrationVerifyResult.Failed(internalReason)
+        };
+
+        BinaryFrameResult result = await BinaryEndpoints.HandleSecurityChallengeVerifyAsync(
+            context,
+            aeds,
+            new FixedRiskPolicyProvider(CreatePolicy(PerceptionCharacterV3Contracts.WireName)),
+            new RiskControlContextFactory(),
+            orchestrator,
+            new AllowingSecurityChallengeVerifyRateLimiter(),
+            new NullRiskSink(),
+            CancellationToken.None);
+
+        AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
+        Assert.Equal(expectedStatus, context.Response.StatusCode);
+        Assert.Equal(AedsFrameType.ApiError, decoded.FrameType);
+        Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Payload, out var errorPod));
+        ErrorDetail error = PodBinaryCodec.ToErrorDetail(errorPod);
+        Assert.Equal(expectedPublicReason, error.Message);
+        Assert.DoesNotContain(internalReason, error.Details ?? string.Empty, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task VerifyAsync_RepeatedCompositeFailures_ReturnGenericFailureWithoutCallingOrchestratorAfterMaxAttempts()
     {
@@ -657,6 +741,116 @@ public sealed class SecurityChallengeBinaryEndpointTests
             Arg.Any<string>(),
             Arg.Any<string?>(),
             Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CancelAsync_PerceptionCharacterV3DisabledServicesFailClosedWithoutBreakingRoute()
+    {
+        var aeds = new AedsEncoder();
+        string envelopeId = SecurityChallengeContracts.CreateChallengeId();
+        string challengeId = SecurityChallengeContracts.CreateChallengeId();
+        var request = new SecurityChallengeCancelBinaryRequest(envelopeId, "public.read", "article:42", "device", "policy");
+        var context = CreateContext(AedsFrameType.SecurityChallengeCancelRequest, BinaryRequestPayload.Success(PodBinaryCodec.EncodeSecurityChallengeCancelRequest(request)));
+        var stateService = Substitute.For<ISecurityChallengeEnvelopeStateService>();
+        stateService.GetAsync(envelopeId, Arg.Any<CancellationToken>()).Returns(new SecurityChallengeEnvelopeState(
+            envelopeId, request.Action, request.RouteKey, HashA, HashB, HashC, "issued-policy", [challengeId], [PerceptionCharacterV3Contracts.WireName], [SecurityChallengeEnvelopeMemberStatuses.Issued], 1, 2, SecurityChallengeEnvelopeStatuses.Active, 0));
+        var persistence = Substitute.For<ISecurityChallengePersistenceService>();
+
+        BinaryFrameResult result = await BinaryEndpoints.HandleSecurityChallengeCancelAsync(
+            context, aeds, new RiskControlContextFactory(), stateService, persistence, CancellationToken.None,
+            Substitute.For<IPerceptionCharacterV3StateStore>());
+
+        AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, context.Response.StatusCode);
+        Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Payload, out var errorPod));
+        Assert.Equal("unavailable", PodBinaryCodec.ToErrorDetail(errorPod).Message);
+        await stateService.DidNotReceive().RevokeAsync(Arg.Any<SecurityChallengeEnvelopeBindingRequest>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(PerceptionCharacterV3TransitionKind.ReissueRequired, "revoked_now", "revoked", true)]
+    [InlineData(PerceptionCharacterV3TransitionKind.ReissueRequired, "expired_or_revoked", "terminal", true)]
+    [InlineData(PerceptionCharacterV3TransitionKind.Rejected, "binding_mismatch", "rejected", false)]
+    public async Task CancelAsync_PerceptionCharacterV3RequiresCurrentServerDeviceAndAuditsSpecificOutcome(
+        PerceptionCharacterV3TransitionKind transitionKind,
+        string internalReason,
+        string expectedAuditOutcome,
+        bool expectedEnvelopeRevocation)
+    {
+        var aeds = new AedsEncoder();
+        string envelopeId = SecurityChallengeContracts.CreateChallengeId();
+        string challengeId = SecurityChallengeContracts.CreateChallengeId();
+        var request = new SecurityChallengeCancelBinaryRequest(envelopeId, "public.read", "article:42", "rotated-client-device", "newly-published-policy");
+        var context = CreateContext(AedsFrameType.SecurityChallengeCancelRequest, BinaryRequestPayload.Success(PodBinaryCodec.EncodeSecurityChallengeCancelRequest(request)));
+        context.Request.Headers["X-Fsus-Device-Fp"] = "another-rotated-client-device";
+        byte[] answerKey = Enumerable.Repeat((byte)0x44, 32).ToArray();
+        string serverDeviceBinding = PerceptionCharacterV3Crypto.DeriveDeviceBinding(answerKey, "session:current-device");
+        string storedDeviceBinding = transitionKind == PerceptionCharacterV3TransitionKind.Rejected
+            ? PerceptionCharacterV3Crypto.DeriveDeviceBinding(answerKey, "session:issued-device")
+            : serverDeviceBinding;
+        var stateService = Substitute.For<ISecurityChallengeEnvelopeStateService>();
+        stateService.GetAsync(envelopeId, Arg.Any<CancellationToken>()).Returns(new SecurityChallengeEnvelopeState(
+            envelopeId, request.Action, request.RouteKey, HashA, HashB, HashC, "issued-policy", [challengeId], [PerceptionCharacterV3Contracts.WireName], [SecurityChallengeEnvelopeMemberStatuses.Issued], 1, 2, SecurityChallengeEnvelopeStatuses.Active, 0));
+        stateService.RevokeAsync(Arg.Any<SecurityChallengeEnvelopeBindingRequest>(), "client_cancelled", Arg.Any<CancellationToken>()).Returns(true);
+        var persistence = Substitute.For<ISecurityChallengePersistenceService>();
+        persistence.RevokeAsync(challengeId, Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(true);
+        var v3Store = Substitute.For<IPerceptionCharacterV3StateStore>();
+        v3Store.ReadAsync(challengeId, Arg.Any<CancellationToken>()).Returns(new PerceptionCharacterV3StateRecord(
+            challengeId, envelopeId, request.Action, request.RouteKey, HashA, storedDeviceBinding, HashB, "issued-policy", HashC, "visual", 1, 2, "tk", "ak", HashA));
+        v3Store.RevokeAsync(Arg.Any<PerceptionCharacterV3StateRecord>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
+            .Returns(new PerceptionCharacterV3Transition(transitionKind, internalReason, 0));
+        var deviceAuthority = Substitute.For<IPerceptionCharacterV3DeviceAuthority>();
+        deviceAuthority.ResolveAsync(context, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(PerceptionCharacterV3DeviceAuthorityResult.Success("session:current-device"));
+        var audit = new CapturingPerceptionV3Audit();
+
+        BinaryFrameResult result = await BinaryEndpoints.HandleSecurityChallengeCancelAsync(
+            context, aeds, new RiskControlContextFactory(), stateService, persistence, CancellationToken.None,
+            v3Store, deviceAuthority, new FixedPerceptionV3Keys(answerKey), audit);
+
+        AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
+        Assert.Equal(AedsFrameType.EmptySuccess, decoded.FrameType);
+        Assert.Contains(audit.Events, entry => entry == ("cancel", expectedAuditOutcome, internalReason));
+        await v3Store.Received(1).RevokeAsync(
+            Arg.Is<PerceptionCharacterV3StateRecord>(record => record.DeviceBindingHash == serverDeviceBinding && record.PolicyVersion == "issued-policy"),
+            Arg.Any<long>(), Arg.Any<CancellationToken>());
+        if (expectedEnvelopeRevocation)
+            await stateService.Received(1).RevokeAsync(Arg.Any<SecurityChallengeEnvelopeBindingRequest>(), "client_cancelled", Arg.Any<CancellationToken>());
+        else
+            await stateService.DidNotReceive().RevokeAsync(Arg.Any<SecurityChallengeEnvelopeBindingRequest>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CancelAsync_PerceptionCharacterV3RedisFailureReturnsOnlyUnavailableAndAuditsReason()
+    {
+        var aeds = new AedsEncoder();
+        string envelopeId = SecurityChallengeContracts.CreateChallengeId();
+        string challengeId = SecurityChallengeContracts.CreateChallengeId();
+        var request = new SecurityChallengeCancelBinaryRequest(envelopeId, "public.read", "article:42", "device", "policy");
+        var context = CreateContext(AedsFrameType.SecurityChallengeCancelRequest, BinaryRequestPayload.Success(PodBinaryCodec.EncodeSecurityChallengeCancelRequest(request)));
+        byte[] answerKey = Enumerable.Repeat((byte)0x45, 32).ToArray();
+        var stateService = Substitute.For<ISecurityChallengeEnvelopeStateService>();
+        stateService.GetAsync(envelopeId, Arg.Any<CancellationToken>()).Returns(new SecurityChallengeEnvelopeState(
+            envelopeId, request.Action, request.RouteKey, HashA, HashB, HashC, "issued-policy", [challengeId], [PerceptionCharacterV3Contracts.WireName], [SecurityChallengeEnvelopeMemberStatuses.Issued], 1, 2, SecurityChallengeEnvelopeStatuses.Active, 0));
+        var persistence = Substitute.For<ISecurityChallengePersistenceService>();
+        var v3Store = Substitute.For<IPerceptionCharacterV3StateStore>();
+        v3Store.ReadAsync(challengeId, Arg.Any<CancellationToken>())
+            .Returns<Task<PerceptionCharacterV3StateRecord?>>(_ => throw new PerceptionCharacterV3StoreUnavailableException(new InvalidOperationException("redis secret")));
+        var deviceAuthority = Substitute.For<IPerceptionCharacterV3DeviceAuthority>();
+        deviceAuthority.ResolveAsync(context, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(PerceptionCharacterV3DeviceAuthorityResult.Success("session:current-device"));
+        var audit = new CapturingPerceptionV3Audit();
+
+        BinaryFrameResult result = await BinaryEndpoints.HandleSecurityChallengeCancelAsync(
+            context, aeds, new RiskControlContextFactory(), stateService, persistence, CancellationToken.None,
+            v3Store, deviceAuthority, new FixedPerceptionV3Keys(answerKey), audit);
+
+        AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, context.Response.StatusCode);
+        Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Payload, out var errorPod));
+        Assert.Equal("unavailable", PodBinaryCodec.ToErrorDetail(errorPod).Message);
+        Assert.Contains(audit.Events, entry => entry == ("cancel", "unavailable", "redis_unavailable"));
+        await stateService.DidNotReceive().RevokeAsync(Arg.Any<SecurityChallengeEnvelopeBindingRequest>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -956,6 +1150,32 @@ public sealed class SecurityChallengeBinaryEndpointTests
     {
         public ValueTask AddRiskAsync(SecurityRiskSignal signal, CancellationToken cancellationToken = default)
             => ValueTask.CompletedTask;
+    }
+
+    private sealed class FixedPerceptionV3Keys(byte[] answerKey) : IPerceptionCharacterV3KeyRing
+    {
+        public string CurrentTokenVersion => "tk";
+        public string CurrentAnswerVersion => "ak";
+        public bool TryGetTokenKey(string version, out byte[] key)
+        {
+            key = [];
+            return false;
+        }
+        public bool TryGetAnswerKey(string version, out byte[] key)
+        {
+            key = answerKey;
+            return version == "ak";
+        }
+    }
+
+    private sealed class CapturingPerceptionV3Audit : IPerceptionCharacterV3AuditSink
+    {
+        public List<(string Operation, string Outcome, string Reason)> Events { get; } = [];
+        public ValueTask WriteAsync(string operation, string challengeId, string action, string outcome, string internalReason, CancellationToken cancellationToken)
+        {
+            Events.Add((operation, outcome, internalReason));
+            return ValueTask.CompletedTask;
+        }
     }
 
     private sealed class FakePoSpaceUnsupportedReissueService : IPoSpaceUnsupportedReissueService

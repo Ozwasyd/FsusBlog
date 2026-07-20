@@ -28,7 +28,8 @@ public sealed class SecurityChallengeContractTests
             "zkAnonymousCommentProofV1",
             "perceptionCharacterV2",
             "perceptionLocalizationV2",
-            "perceptionMicroInteractionV2"
+            "perceptionMicroInteractionV2",
+            "perceptionCharacterV3"
         ];
 
         Assert.Equal(expected.Length, SecurityChallengeContracts.SupportedKinds.Count);

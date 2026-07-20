@@ -249,6 +249,7 @@
 | POST `/api/binary/security/challenge` | 🔓 🚦 📦 | `SecurityChallengeIssueRequest`(173) → `SecurityChallengeIssueResponse`(175) | 签发 UUIDv7 envelope 与 1..8 个 ordered assignments，保留每个 member 的 provider payload 对应关系；单 challenge 使用同一状态机；不提供 JSON fallback |
 | POST `/api/binary/security/challenge/verify` | 🔓 🚦 📦 | `SecurityChallengeVerifyRequest`(174) → `SecurityChallengeVerifyResponse`(176) | 请求显式携带 envelope/member identity；成功返回 member progress，仅全部完成时返回 aggregate `proofToken` 与权威 `expiresAtUnixMs` |
 | POST `/api/binary/security/challenge/cancel` | 🔓 🚦 📦 | `SecurityChallengeCancelRequest`(200) → `EmptySuccess`(240) | refresh/cancel/身份或路由变化/卸载时撤销整个 envelope；完整 binding 不匹配也返回 opaque idempotent success，不提供 JSON fallback |
+| `PerceptionCharacterV3` union | 🔓 🚦 📦 | issue: final Gray8/WAV + opaque state；verify: answer + opaque state | `kind=14` typed member；两次原子尝试；无 JSON/V1/V2 alias/fallback；公开失败仅 `retryable/reissueRequired/unavailable/rejected` |
 | GET `/api/binary/anonymous-credential/root` | 🔓 🚦 📦 | `AnonymousCredentialRootSnapshot`(179) | 公开 credential root / epoch / expiry / circuit metadata；`public_read` 限流 |
 | GET `/api/binary/anonymous-credential/circuit` | 🔓 🚦 📦 | `AnonymousCredentialRootSnapshot`(179) | 同 root snapshot，用于 prover 预热读取 circuit/verifying key metadata |
 | POST `/api/binary/anonymous-credential/revocation-witness` | 🔓 🚦 📦 | 固定 `ApiError` / 410 | credential-specific witness 永久 retired；body/参数均不读取 |

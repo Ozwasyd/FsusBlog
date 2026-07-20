@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
 const {
@@ -22,6 +24,28 @@ const {
 
 const fixturePath = new URL('../fixtures/security/perception-character-v3-vectors.json', import.meta.url);
 const fixture = JSON.parse(readFileSync(fixturePath, 'utf8'));
+const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
+const spokenAtlasGenerator = fileURLToPath(new URL('../../tools/contracts/generate-perception-character-v3-spoken-atlas.mjs', import.meta.url));
+
+test('spoken atlas check is repository-contained and regeneration reports a missing eSpeak cleanly', () =>
+{
+    const unavailable = '/definitely/missing/espeak-ng';
+    const offline = spawnSync(process.execPath, [spokenAtlasGenerator, '--check'], {
+        cwd: repositoryRoot,
+        env: { ...process.env, ESPEAK_NG_BIN: unavailable },
+        encoding: 'utf8'
+    });
+    assert.equal(offline.status, 0, offline.stderr);
+    assert.match(offline.stdout, /offline source WAV, PCM and atlas goldens are in sync/);
+
+    const regeneration = spawnSync(process.execPath, [spokenAtlasGenerator, '--regenerate-source', '--espeak-ng', unavailable], {
+        cwd: repositoryRoot,
+        encoding: 'utf8'
+    });
+    assert.notEqual(regeneration.status, 0);
+    assert.match(regeneration.stderr, /eSpeak NG is unavailable: .*ENOENT/);
+    assert.doesNotMatch(regeneration.stderr, /TypeError/);
+});
 
 test('V3 identity is exact and forbidden predecessor names are not aliases', () =>
 {

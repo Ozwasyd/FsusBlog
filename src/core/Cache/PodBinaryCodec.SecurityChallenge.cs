@@ -265,6 +265,9 @@ public static partial class PodBinaryCodec
             (request.Action?.Length ?? 0) +
             (request.RouteKey?.Length ?? 0) +
             (request.ProviderPayloadJson?.Length ?? 0)));
+        byte[]? typedV3 = request.Kind == SecurityChallengeKind.PerceptionCharacterV3 && request.PerceptionCharacterV3 is not null
+            ? EncodePerceptionCharacterV3Verify(request.PerceptionCharacterV3)
+            : null;
         var mutable = new MutableSecurityChallengeVerifyRequestPod
         {
             Kind = (byte)request.Kind,
@@ -272,7 +275,7 @@ public static partial class PodBinaryCodec
             ChallengeId = PodUtf8Codec.AppendSlice(request.ChallengeId, blob),
             Action = PodUtf8Codec.AppendSlice(request.Action, blob),
             RouteKey = PodUtf8Codec.AppendSlice(request.RouteKey, blob),
-            ProviderPayloadJson = PodUtf8Codec.AppendSlice(request.ProviderPayloadJson, blob)
+            ProviderPayloadJson = typedV3 is null ? PodUtf8Codec.AppendSlice(request.ProviderPayloadJson, blob) : AppendBytes(typedV3, blob)
         };
 
         var writer = new BinaryPodWriter(destination);
@@ -301,13 +304,29 @@ public static partial class PodBinaryCodec
             return false;
         }
 
+        SecurityChallengeKind kind = ToSecurityChallengeKind(pod.Kind);
+        PerceptionCharacterV3VerifyPayload? typed = null;
+        string legacyJson = string.Empty;
+        if (kind == SecurityChallengeKind.PerceptionCharacterV3)
+        {
+            if (!TryReadBytes(pod.ProviderPayloadJson, blob, out byte[] bytes) || !TryDecodePerceptionCharacterV3Verify(bytes, out typed))
+            {
+                request = new SecurityChallengeVerifyBinaryRequest(string.Empty, string.Empty, SecurityChallengeKind.Unknown, string.Empty, string.Empty, string.Empty);
+                return false;
+            }
+        }
+        else
+            legacyJson = PodUtf8Codec.ReadSlice(pod.ProviderPayloadJson, blob);
         request = new SecurityChallengeVerifyBinaryRequest(
             PodUtf8Codec.ReadSlice(pod.EnvelopeId, blob),
             PodUtf8Codec.ReadSlice(pod.ChallengeId, blob),
-            ToSecurityChallengeKind(pod.Kind),
+            kind,
             PodUtf8Codec.ReadSlice(pod.Action, blob),
             PodUtf8Codec.ReadSlice(pod.RouteKey, blob),
-            PodUtf8Codec.ReadSlice(pod.ProviderPayloadJson, blob));
+            legacyJson)
+        {
+            PerceptionCharacterV3 = typed
+        };
         return reader.IsConsumed && SecurityChallengeContracts.ValidateVerifyRequest(request).IsValid;
     }
 
@@ -342,10 +361,11 @@ public static partial class PodBinaryCodec
         var payloadPods = new List<SecurityChallengeProviderPayloadPod>(providerPayloads.Count);
         foreach (SecurityChallengeProviderPayload payload in providerPayloads)
         {
+            byte[]? typedV3 = payload.PerceptionCharacterV3 is null ? null : EncodePerceptionCharacterV3Issue(payload.PerceptionCharacterV3);
             var mutablePayload = new MutableSecurityChallengeProviderPayloadPod
             {
                 ChallengeId = PodUtf8Codec.ToFixed64(payload.ChallengeId),
-                PayloadJson = PodUtf8Codec.AppendSlice(payload.PayloadJson, blob)
+                PayloadJson = typedV3 is null ? PodUtf8Codec.AppendSlice(payload.PayloadJson, blob) : AppendBytes(typedV3, blob)
             };
             payloadPods.Add(Cast<MutableSecurityChallengeProviderPayloadPod, SecurityChallengeProviderPayloadPod>(mutablePayload));
         }
@@ -436,9 +456,19 @@ public static partial class PodBinaryCodec
         List<SecurityChallengeProviderPayload> providerPayloads = [];
         foreach (SecurityChallengeProviderPayloadPod payloadPod in payloadPods)
         {
-            providerPayloads.Add(new SecurityChallengeProviderPayload(
-                PodUtf8Codec.FromFixed64(payloadPod.ChallengeId),
-                PodUtf8Codec.ReadSlice(payloadPod.PayloadJson, blob)));
+            string id = PodUtf8Codec.FromFixed64(payloadPod.ChallengeId);
+            SecurityChallengeKind kind = assignments.FirstOrDefault(item => string.Equals(item.ChallengeId, id, StringComparison.Ordinal))?.Kind ?? SecurityChallengeKind.Unknown;
+            if (kind == SecurityChallengeKind.PerceptionCharacterV3)
+            {
+                if (!TryReadBytes(payloadPod.PayloadJson, blob, out byte[] bytes) || !TryDecodePerceptionCharacterV3Issue(bytes, out PerceptionCharacterV3IssuePayload typed))
+                {
+                    response = EmptySecurityChallengeIssueResponse();
+                    return false;
+                }
+                providerPayloads.Add(new SecurityChallengeProviderPayload(id, string.Empty) { PerceptionCharacterV3 = typed });
+            }
+            else
+                providerPayloads.Add(new SecurityChallengeProviderPayload(id, PodUtf8Codec.ReadSlice(payloadPod.PayloadJson, blob)));
         }
 
         SecurityChallengeEnvelope? envelope = pod.AssignmentCount > 0

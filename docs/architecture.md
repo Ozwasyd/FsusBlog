@@ -685,6 +685,14 @@ Schema migration 不再使用 runtime service partial。`SchemaMigrationRegistry
 
 运行时可通过收紧 `Comments:AuthorEditWindowMinutes` 在不重启的情况下停止新的编辑。该降级不回滚 additive schema，也不影响匿名请求、登录请求、admin 修订读取、notification stream 或 binary 公共读取；旧客户端将 POD 保留位视为零/忽略。
 
+## PerceptionCharacterV3 provider
+
+`SecurityChallengeOrchestrator` 在生成 envelopeId 后把它传给 V3 provider；provider 解析服务端 device authority 后执行 IP/device/subject/action/稳定 active-identity gates，再进入全局 2-worker/8-waiter bounded render queue。active identity 由权威 subject/server-device/IP/action/route 组成，不含每次刷新的 envelopeId。renderer wait 与 renderer 本体都受 deadline/cancellation 控制且不启动后台任务；超时释放 lease。render 完成后计算 exact-media SHA-256、answer HMAC 和 AES-256-GCM opaque state，最后创建 Redis authoritative row；Redis 创建失败时不返回媒体。visual/audio replacement 以旧 envelope + opaque token + 全绑定在同一 Lua transition 原子 revoke 旧 challenge，再生成新的 envelope/challenge/token/attempt identity，replacement 失败也不复活旧 identity。
+
+audio 使用 build-time 固化、hash 校验的 26-symbol en-US spoken-character PCM atlas；atlas 由 eSpeak NG 1.51 的逐字符 SSML source manifest 离线生成并降采样为 12 kHz mono PCM16。source manifest 固定 tool args/SSML/label/source-WAV hash/PCM hash，仓库同时保存精确 source WAV，独立 golden 再绑定 source 与 output；默认 `--check` 无外部工具地从这些受控 WAV 重新 trim/resample，而不是信任 output 自描述，只有显式 `--regenerate-source` 才调用精确版本的 eSpeak NG 从 SSML 更新 source。runtime 只按答案顺序拼接语音单元与固定 180 ms 间隔，输出 bounded final WAV，不调用外部 TTS、不给客户端 unit/label/recipe。startup gate 校验所有 atlas 单元长度与 SHA-256。
+
+V3 typed union 复用现有 AEDS 174/175 外层 frame，但 V3 payload slice 由 Core 的 `PodBinaryCodec.PerceptionCharacterV3` 读写，不走 UTF-8 JSON dictionary。Shared 只持 closed public records/POD，Backend 持 canonical loader、renderer/crypto/provider/Redis，Client/UI composition 留给 #1367；没有 V1/V2 parser、alias 或 fallback。notification stream 仍只消费 aggregate proof，不承载 V3 media/state，因此 provider 故障不会改变 stream 协议或连接生命周期。
+
 ## 评论策略分层与失效
 
 `ArticleCommentPolicyService` 在请求时组合全站匿名评论策略、`article_comment_policy` override 与 `comment_thread_policy` 锁定状态。最终写入校验和 privacy-safe slow-mode CAS 位于同一数据库事务，避免 ticket 签发后的策略变化或并发锁定穿透。文章/线程更新使用 PostgreSQL advisory lock + `policy_version` 乐观并发，并追加 `comment_policy_audit_event`；提交后复用 `InvalidateCommentPolicyAsync` 广播，多节点不持有不可失效的文章策略副本。无需重启即可将文章 `enabled=false` 或设置 `closedAtUtc`，读取链路保持不变。

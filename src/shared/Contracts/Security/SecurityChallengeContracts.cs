@@ -18,7 +18,8 @@ public enum SecurityChallengeKind : byte
     PerceptionCharacterV2 = 10,
     PerceptionLocalizationV2 = 11,
     PerceptionMicroInteractionV2 = 12,
-    PerceptionTextTaskV2 = 13
+    PerceptionTextTaskV2 = 13,
+    PerceptionCharacterV3 = 14
 }
 
 /// <summary>
@@ -79,14 +80,26 @@ public sealed record class SecurityChallengeVerifyBinaryRequest(
     SecurityChallengeKind Kind,
     string Action,
     string RouteKey,
-    string ProviderPayloadJson);
+    string ProviderPayloadJson)
+{
+    public PerceptionCharacterV3VerifyPayload? PerceptionCharacterV3
+    {
+        get; init;
+    }
+}
 
 /// <summary>
 /// Defines the security transport contract represented by <c>SecurityChallengeProviderPayload</c>.
 /// </summary>
 public sealed record class SecurityChallengeProviderPayload(
     string ChallengeId,
-    string PayloadJson);
+    string PayloadJson)
+{
+    public PerceptionCharacterV3IssuePayload? PerceptionCharacterV3
+    {
+        get; init;
+    }
+}
 
 /// <summary>
 /// Defines the security transport contract represented by <c>SecurityChallengeIssueBinaryResponse</c>.
@@ -146,7 +159,8 @@ public static class SecurityChallengeContracts
         SecurityChallengeKind.ZkAnonymousCommentProofV1,
         SecurityChallengeKind.PerceptionCharacterV2,
         SecurityChallengeKind.PerceptionLocalizationV2,
-        SecurityChallengeKind.PerceptionMicroInteractionV2
+        SecurityChallengeKind.PerceptionMicroInteractionV2,
+        SecurityChallengeKind.PerceptionCharacterV3
     };
 
     public static string CreateChallengeId()
@@ -201,6 +215,7 @@ public static class SecurityChallengeContracts
             SecurityChallengeKind.PerceptionCharacterV2 => "perceptionCharacterV2",
             SecurityChallengeKind.PerceptionLocalizationV2 => "perceptionLocalizationV2",
             SecurityChallengeKind.PerceptionMicroInteractionV2 => "perceptionMicroInteractionV2",
+            SecurityChallengeKind.PerceptionCharacterV3 => "perceptionCharacterV3",
             _ => "unknown"
         };
 
@@ -286,7 +301,13 @@ public static class SecurityChallengeContracts
             return Invalid("action_missing");
         if (IsMissing(request.RouteKey))
             return Invalid("route_key_missing");
-        if (IsMissing(request.ProviderPayloadJson))
+        if (request.Kind == SecurityChallengeKind.PerceptionCharacterV3)
+        {
+            SecurityChallengeValidationResult typed = PerceptionCharacterV3Contracts.ValidateVerify(request.PerceptionCharacterV3);
+            if (!typed.IsValid || !string.IsNullOrEmpty(request.ProviderPayloadJson))
+                return Invalid("provider_payload_invalid");
+        }
+        else if (IsMissing(request.ProviderPayloadJson))
             return Invalid("provider_payload_missing");
 
         return SecurityChallengeValidationResult.Valid;

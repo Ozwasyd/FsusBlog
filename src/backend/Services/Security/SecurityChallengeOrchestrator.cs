@@ -41,6 +41,7 @@ public sealed record SecurityChallengeProviderIssueRequest(
     int EscalationLevel,
     string Traceparent)
 {
+    public string EnvelopeId { get; init; } = string.Empty;
     public int RiskScore
     {
         get; init;
@@ -68,7 +69,14 @@ public sealed record SecurityChallengeProviderVerifyRequest(
     string ClientIpHash,
     string DeviceFpHash,
     string PolicyVersion,
-    IReadOnlyDictionary<string, string> ProviderPayload);
+    IReadOnlyDictionary<string, string> ProviderPayload)
+{
+    public string EnvelopeId { get; init; } = string.Empty;
+    public PerceptionCharacterV3VerifyPayload? PerceptionCharacterV3
+    {
+        get; init;
+    }
+}
 
 public sealed record SecurityChallengeProviderIssueResult(
     bool Succeeded,
@@ -76,6 +84,10 @@ public sealed record SecurityChallengeProviderIssueResult(
     SecurityChallengeAssignment? Assignment,
     IReadOnlyDictionary<string, string> ProviderPayload)
 {
+    public PerceptionCharacterV3IssuePayload? PerceptionCharacterV3
+    {
+        get; init;
+    }
     private static readonly IReadOnlyDictionary<string, string> s_emptyProviderPayload = new Dictionary<string, string>(0, StringComparer.Ordinal);
 
     public static SecurityChallengeProviderIssueResult Success(SecurityChallengeAssignment assignment, IReadOnlyDictionary<string, string>? providerPayload = null)
@@ -120,7 +132,13 @@ public sealed record SecurityChallengeOrchestrationVerifyRequest(
     string ClientIpHash,
     string DeviceFpHash,
     string PolicyVersion,
-    IReadOnlyDictionary<string, string> ProviderPayload);
+    IReadOnlyDictionary<string, string> ProviderPayload)
+{
+    public PerceptionCharacterV3VerifyPayload? PerceptionCharacterV3
+    {
+        get; init;
+    }
+}
 
 public sealed record SecurityChallengeOrchestrationIssueResult(
     bool Succeeded,
@@ -128,6 +146,11 @@ public sealed record SecurityChallengeOrchestrationIssueResult(
     SecurityChallengeEnvelope? Envelope,
     IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> ProviderPayloads)
 {
+    public IReadOnlyDictionary<string, PerceptionCharacterV3IssuePayload> PerceptionCharacterV3Payloads
+    {
+        get; init;
+    }
+        = new Dictionary<string, PerceptionCharacterV3IssuePayload>(0, StringComparer.Ordinal);
     private static readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> s_emptyProviderPayloads =
         new Dictionary<string, IReadOnlyDictionary<string, string>>(0, StringComparer.Ordinal);
 
@@ -152,12 +175,16 @@ public sealed record SecurityChallengeOrchestrationVerifyResult(
     string? ProofToken,
     DateTimeOffset? ProofExpiresAt)
 {
+    public string PolicyVersion { get; init; } = string.Empty;
     public static SecurityChallengeOrchestrationVerifyResult Progress(
         SecurityChallengeEnvelopeMemberResult member,
         string challengeId,
         string kind)
         => new(true, "ok", member.State?.EnvelopeId ?? string.Empty, challengeId, kind,
-            member.CompletedCount, member.MemberCount, false, null, null);
+            member.CompletedCount, member.MemberCount, false, null, null)
+        {
+            PolicyVersion = member.State?.PolicyVersion ?? string.Empty
+        };
 
     public static SecurityChallengeOrchestrationVerifyResult Completed(
         SecurityChallengeEnvelopeMemberResult member,
@@ -165,7 +192,10 @@ public sealed record SecurityChallengeOrchestrationVerifyResult(
         string kind,
         SecurityChallengeProofMintResult proof)
         => new(true, "ok", member.State?.EnvelopeId ?? string.Empty, challengeId, kind,
-            member.CompletedCount, member.MemberCount, true, proof.ProofToken, proof.Claims.ExpiresAt);
+            member.CompletedCount, member.MemberCount, true, proof.ProofToken, proof.Claims.ExpiresAt)
+        {
+            PolicyVersion = member.State?.PolicyVersion ?? proof.Claims.PolicyVersion
+        };
 
     public static SecurityChallengeOrchestrationVerifyResult Failed(
         string reason,
@@ -214,6 +244,7 @@ public sealed partial class SecurityChallengeOrchestrator(
         string envelopeId = SecurityChallengeContracts.CreateChallengeId();
         var assignments = new List<SecurityChallengeAssignment>(request.Decision.RequiredChallenges.Count);
         var providerPayloads = new Dictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.Ordinal);
+        var v3Payloads = new Dictionary<string, PerceptionCharacterV3IssuePayload>(StringComparer.Ordinal);
         foreach (string rawKind in request.Decision.RequiredChallenges)
         {
             string kind = NormalizeKind(rawKind);
@@ -260,6 +291,7 @@ public sealed partial class SecurityChallengeOrchestrator(
                         request.Decision.EscalationLevel,
                         NormalizeRequired(request.Traceparent, nameof(request.Traceparent), 128))
                     {
+                        EnvelopeId = envelopeId,
                         RiskScore = request.Decision.RiskScore,
                         EffectiveRiskScore = request.Decision.EffectiveRiskScore,
                         GeneratorDistributionPolicy = request.Decision.PerceptionGeneratorPolicy
@@ -294,6 +326,10 @@ public sealed partial class SecurityChallengeOrchestrator(
             {
                 providerPayloads[providerResult.Assignment.ChallengeId] = providerResult.ProviderPayload;
             }
+            if (providerResult.PerceptionCharacterV3 is not null)
+            {
+                v3Payloads[providerResult.Assignment.ChallengeId] = providerResult.PerceptionCharacterV3;
+            }
         }
 
         var envelope = new SecurityChallengeEnvelope(
@@ -326,7 +362,10 @@ public sealed partial class SecurityChallengeOrchestrator(
             LogChallengeIssueSucceeded(logger, request.Decision.ActionName, assignments.Count, request.Decision.PolicyVersion);
         }
 
-        return SecurityChallengeOrchestrationIssueResult.Success(envelope, providerPayloads);
+        return SecurityChallengeOrchestrationIssueResult.Success(envelope, providerPayloads) with
+        {
+            PerceptionCharacterV3Payloads = v3Payloads
+        };
     }
 
     public async Task<SecurityChallengeOrchestrationVerifyResult> VerifyAsync(SecurityChallengeOrchestrationVerifyRequest request, CancellationToken cancellationToken = default)
@@ -335,6 +374,17 @@ public sealed partial class SecurityChallengeOrchestrator(
         cancellationToken.ThrowIfCancellationRequested();
 
         string kind = NormalizeKind(request.Kind);
+        string issuedPolicyVersion = NormalizeRequired(request.PolicyVersion, nameof(request.PolicyVersion), 64);
+        string issuedDeviceBinding = NormalizeHash(request.DeviceFpHash, nameof(request.DeviceFpHash));
+        if (request.PerceptionCharacterV3 is not null)
+        {
+            SecurityChallengeEnvelopeState? issuedState = await envelopeStateService.GetAsync(request.EnvelopeId, cancellationToken).ConfigureAwait(false);
+            if (issuedState is not null)
+            {
+                issuedPolicyVersion = issuedState.PolicyVersion;
+                issuedDeviceBinding = issuedState.DeviceFpHash;
+            }
+        }
         var memberRequest = new SecurityChallengeEnvelopeMemberRequest(
             NormalizeRequired(request.EnvelopeId, nameof(request.EnvelopeId), 64),
             NormalizeRequired(request.ChallengeId, nameof(request.ChallengeId), 64),
@@ -343,8 +393,8 @@ public sealed partial class SecurityChallengeOrchestrator(
             NormalizeRequired(request.RouteKey, nameof(request.RouteKey), 256),
             NormalizeHash(request.SubjectHash, nameof(request.SubjectHash)),
             NormalizeHash(request.ClientIpHash, nameof(request.ClientIpHash)),
-            NormalizeHash(request.DeviceFpHash, nameof(request.DeviceFpHash)),
-            NormalizeRequired(request.PolicyVersion, nameof(request.PolicyVersion), 64));
+            issuedDeviceBinding,
+            issuedPolicyVersion);
         SecurityChallengeEnvelopeMemberResult validation = await envelopeStateService.ValidateMemberAsync(memberRequest, cancellationToken).ConfigureAwait(false);
         if (!validation.Accepted)
         {
@@ -388,9 +438,13 @@ public sealed partial class SecurityChallengeOrchestrator(
                     NormalizeRequired(request.RouteKey, nameof(request.RouteKey), 256),
                     NormalizeHash(request.SubjectHash, nameof(request.SubjectHash)),
                     NormalizeHash(request.ClientIpHash, nameof(request.ClientIpHash)),
-                    NormalizeHash(request.DeviceFpHash, nameof(request.DeviceFpHash)),
-                    NormalizeRequired(request.PolicyVersion, nameof(request.PolicyVersion), 64),
-                    request.ProviderPayload),
+                    issuedDeviceBinding,
+                    issuedPolicyVersion,
+                    request.ProviderPayload)
+                {
+                    EnvelopeId = request.EnvelopeId,
+                    PerceptionCharacterV3 = request.PerceptionCharacterV3
+                },
                 cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

@@ -267,6 +267,63 @@ public sealed class SecurityChallengeOrchestratorTests
     }
 
     [Fact]
+    public async Task VerifyAsync_PerceptionCharacterV3UsesIssuedEnvelopeDeviceAndPolicyBindings()
+    {
+        string envelopeId = SecurityChallengeContracts.CreateChallengeId();
+        string challengeId = SecurityChallengeContracts.CreateChallengeId();
+        long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var state = new TestSecurityChallengeEnvelopeStateService(autoCreateSingleMember: false);
+        Assert.True(await state.CreateAsync(new SecurityChallengeEnvelopeState(
+            envelopeId,
+            "public.read",
+            "/article/42",
+            HashA,
+            HashB,
+            HashC,
+            "issued-policy",
+            [challengeId],
+            [PerceptionCharacterV3Contracts.WireName],
+            [SecurityChallengeEnvelopeMemberStatuses.Issued],
+            now,
+            now + 300_000,
+            SecurityChallengeEnvelopeStatuses.Active,
+            Version: 0)));
+        var provider = new FakeChallengeProvider(PerceptionCharacterV3Contracts.WireName);
+        var proof = new MintingProofService();
+        var orchestrator = new SecurityChallengeOrchestrator([provider], proof, new CapturingRiskSink(), state);
+        var typed = new PerceptionCharacterV3VerifyPayload(
+            PerceptionCharacterV3Contracts.Algorithm,
+            challengeId,
+            envelopeId,
+            PerceptionCharacterV3Representation.Visual,
+            "A7C9Q",
+            "opaque-state");
+        var request = new SecurityChallengeOrchestrationVerifyRequest(
+            new DefaultHttpContext(),
+            envelopeId,
+            PerceptionCharacterV3Contracts.WireName,
+            challengeId,
+            "public.read",
+            "/article/42",
+            HashA,
+            HashB,
+            new string('d', 64),
+            "newly-published-policy",
+            new Dictionary<string, string>(StringComparer.Ordinal))
+        {
+            PerceptionCharacterV3 = typed
+        };
+
+        SecurityChallengeOrchestrationVerifyResult result = await orchestrator.VerifyAsync(request, CancellationToken.None);
+
+        Assert.True(result.Succeeded, result.Reason);
+        Assert.Equal(HashC, provider.LastVerifyRequest!.DeviceFpHash);
+        Assert.Equal("issued-policy", provider.LastVerifyRequest.PolicyVersion);
+        Assert.Equal(HashC, proof.LastMintRequest!.DeviceFpHash);
+        Assert.Equal("issued-policy", proof.LastMintRequest.PolicyVersion);
+    }
+
+    [Fact]
     public async Task IssueThenVerifyAsync_SingleMemberUsesSameEnvelopeStateMachine()
     {
         var provider = new FakeChallengeProvider("captchaV1");
@@ -507,6 +564,11 @@ public sealed class SecurityChallengeOrchestratorTests
             get; private set;
         }
 
+        public SecurityChallengeProviderVerifyRequest? LastVerifyRequest
+        {
+            get; private set;
+        }
+
         public SecurityChallengeProviderIssueResult? IssueResult
         {
             get; init;
@@ -543,6 +605,7 @@ public sealed class SecurityChallengeOrchestratorTests
         public Task<SecurityChallengeProviderVerifyResult> VerifyAsync(SecurityChallengeProviderVerifyRequest request, CancellationToken cancellationToken = default)
         {
             VerifyCalls++;
+            LastVerifyRequest = request;
             return Task.FromResult(VerifyResult);
         }
     }

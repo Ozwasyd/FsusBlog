@@ -33,7 +33,7 @@ public sealed record SecurityChallengeCapabilityResolution(
 /// </summary>
 public static class SecurityChallengeCapabilityCatalog
 {
-    public const string ManifestVersion = "2026.07.19.3";
+    public const string ManifestVersion = "2026.07.20.4";
     public const string NotificationSubscribeAction = "notification.subscribe";
 
     public static readonly IReadOnlyList<SecurityChallengeCapability> All =
@@ -51,7 +51,9 @@ public static class SecurityChallengeCapabilityCatalog
         Entry(SecurityChallengeKind.PerceptionCharacterV2, true, false, true, false, true, false, true, "*"),
         Entry(SecurityChallengeKind.PerceptionLocalizationV2, true, true, true, false, true, false, true, "*"),
         Entry(SecurityChallengeKind.PerceptionMicroInteractionV2, true, true, true, false, true, false, true, "*"),
-        Entry(SecurityChallengeKind.PerceptionTextTaskV2, true, true, true, false, true, false, true, "*")
+        Entry(SecurityChallengeKind.PerceptionTextTaskV2, true, true, true, false, true, false, true, "*"),
+        // #1366 registers the backend provider; #1367 owns client executor/host activation.
+        Entry(SecurityChallengeKind.PerceptionCharacterV3, true, true, false, false, false, false, true, "*")
     ];
 
     private static readonly IReadOnlyDictionary<SecurityChallengeKind, SecurityChallengeCapability> s_byKind =
