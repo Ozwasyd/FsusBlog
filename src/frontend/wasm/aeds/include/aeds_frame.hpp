@@ -254,6 +254,11 @@ enum class FrameType : std::uint16_t
     CommentAuthorStatusResult = 220,
     CommentAuthorAppealRequest = 221,
     CommentRevisionList = 222,
+    CommentReportRequest = 223,
+    CommentReportResult = 224,
+    CommentModerationTimeline = 225,
+    CommentAppealDecisionRequest = 226,
+    CommentAppealDecisionResult = 227,
     EmptySuccess = 240,
     MutationId = 241,
     ApiError = 251,
@@ -477,6 +482,11 @@ enum class FrameType : std::uint16_t
         case FrameType::CommentAuthorStatusResult:
         case FrameType::CommentAuthorAppealRequest:
         case FrameType::CommentRevisionList:
+        case FrameType::CommentReportRequest:
+        case FrameType::CommentReportResult:
+        case FrameType::CommentModerationTimeline:
+        case FrameType::CommentAppealDecisionRequest:
+        case FrameType::CommentAppealDecisionResult:
         case FrameType::EmptySuccess:
         case FrameType::MutationId:
         case FrameType::ApiError:

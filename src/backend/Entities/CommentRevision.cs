@@ -127,4 +127,34 @@ public sealed class CommentAuthorAppeal
 
     [SugarColumn(ColumnName = "status", Length = 24)]
     public string Status { get; set; } = "pending";
+
+    [SugarColumn(ColumnName = "target_moderation_event_id", IsNullable = true)]
+    public long? TargetModerationEventId
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "reviewer_admin_principal_id", IsNullable = true)]
+    public long? ReviewerAdminPrincipalId
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "decision", Length = 24, IsNullable = true)]
+    public string? Decision
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "decision_reason", Length = 1000, IsNullable = true)]
+    public string? DecisionReason
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "decided_at_utc", IsNullable = true)]
+    public DateTime? DecidedAtUtc
+    {
+        get; set;
+    }
 }

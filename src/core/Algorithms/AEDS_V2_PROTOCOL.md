@@ -152,6 +152,11 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `219`: CommentAuthorStatusRequest
 - `220`: CommentAuthorStatusResult
 - `221`: CommentAuthorAppealRequest
+- `223`: CommentReportRequest
+- `224`: CommentReportResult
+- `225`: CommentModerationTimeline
+- `226`: CommentAppealDecisionRequest
+- `227`: CommentAppealDecisionResult
 - `222`: CommentRevisionList
 - `240`: EmptySuccess
 - `241`: MutationId

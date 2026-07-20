@@ -325,6 +325,11 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 220 | `CommentAuthorStatusResult` | JSON-in-AEDS | capability-scoped 当前审核/删除/编辑状态，不包含历史正文 |
 | 221 | `CommentAuthorAppealRequest` | JSON-in-AEDS | 匿名申诉原因、challenge 与 capability |
 | 222 | `CommentRevisionList` | JSON-in-AEDS | admin-only 修订内容、SHA-256、操作、时间与 actor mode |
+| 223 | `CommentReportRequest` | JSON-in-AEDS | 固定 reason code、可选说明；匿名入口额外携带 comment-scoped credential |
+| 224 | `CommentReportResult` | JSON-in-AEDS | report id、是否重复；不代表评论可见性变化 |
+| 225 | `CommentModerationTimeline` | JSON-in-AEDS | admin-only append-only 事件、重建投影与一致性标记 |
+| 226 | `CommentAppealDecisionRequest` | JSON-in-AEDS | granted/denied、复核理由；admin step-up |
+| 227 | `CommentAppealDecisionResult` | JSON-in-AEDS | 申诉决定结果与 appeal id |
 | 69 | `NotificationEvent` | binary notification value | `/api/notifications/stream` WebSocket 事件；`CommentAdded` payload 的 `comment` 字段使用 `author` / `replyToAuthor` 作者快照，不允许恢复 legacy identity fields |
 | 70 | `NotificationHeartbeat` | `int64 timestampUnixMs` | `/api/notifications/stream` WebSocket 心跳 |
 | 71 | `PublicAotBootstrap` | binary tagged value | Public AOT HTML bootstrap / hydration；`GET /api/public/navigation-snapshot.aeds?path=...` 的 `public-navigation-snapshot` envelope（含 schema/version/SHA-256 digest 的 `PublicSeoHeadModel`） |

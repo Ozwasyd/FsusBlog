@@ -673,4 +673,6 @@ Schema migration 不再使用 runtime service partial。`SchemaMigrationRegistry
 
 评论修订链由 `comment.current_version` 指向当前内容，`comment_revision(comment_id, version)` 保存 append-only 正文快照、操作与摘要。创建、编辑、删除的主表更新、revision 与 mutation outbox 位于同一数据库事务；编辑以 expectedVersion CAS 防止覆盖。public 作者管理通过 account authorization，强匿名作者管理通过不可逆 capability commitment，二者不共享身份映射。公开投影只编码当前正文与 `isEdited` 保留位；admin authoring 边界才读取完整 revision 序列。客户端 capability vault 为 memory-only，刷新即丢失，不进入 storage registry、service worker cache 或 notification stream。
 
+评论治理写模型由三条 append-only 事实链组成：`comment_report` 保存去重后的风险队列输入，`comment_author_appeal` 绑定被申诉的 moderation event 并保存独立复核结果，`comment_moderation_event` 保存所有状态/删除/恢复/申诉事件。`comment.moderation_status` 仅是热路径当前投影；admin timeline 从 event 顺序重建并与投影比较。举报入口不写投影，申诉批准只通过既有 CAS/trigger 路径恢复可见性。
+
 运行时可通过收紧 `Comments:AuthorEditWindowMinutes` 在不重启的情况下停止新的编辑。该降级不回滚 additive schema，也不影响匿名请求、登录请求、admin 修订读取、notification stream 或 binary 公共读取；旧客户端将 POD 保留位视为零/忽略。

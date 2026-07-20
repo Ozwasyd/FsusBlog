@@ -233,6 +233,11 @@
 | POST `/api/binary/comment/{id}/management/delete` | 🔓 🚦 📦 | `CommentAuthorStatusRequest`(219) → `CommentAuthorMutationResult`(218) | 强匿名作者以一次性 challenge 删除自己的评论 |
 | POST `/api/binary/comment/{id}/management/status` | 🔓 🚦 📦 | `CommentAuthorStatusRequest`(219) → `CommentAuthorStatusResult`(220) | capability-scoped 单评论审核状态读取；不支持枚举 |
 | POST `/api/binary/comment/{id}/management/appeal` | 🔓 🚦 📦 | `CommentAuthorAppealRequest`(221) → `CommentAuthorMutationResult`(218) | capability-scoped 申诉；secret/challenge 仅在 no-store body 中传输 |
+| POST `/api/binary/comment/{id}/author/appeal` | 🔒 🚦 📦 | `CommentAuthorAppealRequest`(221) → `CommentAuthorMutationResult`(218) | public 作者账号所有权 + 单次 challenge |
+| POST `/api/binary/comment/{id}/report` | 🔒 🚦 📦 | `CommentReportRequest`(223) → `CommentReportResult`(224) | 账号按评论去重；不自动隐藏 |
+| POST `/api/binary/comment/{id}/anonymous-report` | 🔓 🚦 📦 | `CommentReportRequest`(223) → `CommentReportResult`(224) | 无身份污染；comment-scoped credential HMAC |
+| GET `/api/binary/author/comments/{id}/moderation-timeline` | 🛡️ 🚦 📦 | → `CommentModerationTimeline`(225) | admin 重建投影并检查一致性 |
+| POST `/api/binary/author/moderation/appeals/{id}/decision` | 🛡️ 🚦 📦 | `CommentAppealDecisionRequest`(226) → `CommentAppealDecisionResult`(227) | 独立复核 + step-up |
 | GET `/api/binary/author/comments/{id}/revisions` | 🛡️ 🚦 📦 | `CommentRevisionList`(222) | admin 查看完整修订序列；公共读取永不返回历史正文 |
 
 评论创建的幂等窗口默认 24 小时（`Comments:MutationIdempotencyTtlHours` 限制为 1..168）。public 相同账号/相同 mutation ID、anonymous 相同 ticket 承诺在窗口内最多写入一次；完整结果固定为 `commentId/rootId/parentId/createdAtUtc/moderationStatus/visibilityState/isPubliclyVisible/idempotencyReplay`。`Comments:MutationIdempotencyEnabled=false` 可热重载 fail closed 两类创建并返回 `503 comment_mutation_idempotency_disabled`，读取与 notification stream 不受影响。

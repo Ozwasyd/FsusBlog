@@ -125,6 +125,25 @@ public sealed class SchemaMigrationRegistryTests
     }
 
     [Fact]
+    public void GetDescriptors_CommentGovernance_EnforcesDedupeAppealLimitAndTimelineContext()
+    {
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            new SchemaMigrationRegistry().GetDescriptors(),
+            static item => item.MigrationId == CommentGovernanceMigrationDefinitions.MigrationId);
+        string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
+
+        Assert.Equal(SchemaMigrationPhase.PostCodeFirst, descriptor.Phase);
+        Assert.True(descriptor.Transactional);
+        Assert.Contains("ux_comment_report_account", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("ux_comment_report_anonymous_scope", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("ux_comment_appeal_decision", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("event_type", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("policy_version", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("model_version", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("UPDATE OF moderation_status, is_deleted", fingerprint, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void GetDescriptors_AccountSubjectProjection_UsesCompatibleExpandAndCanonicalBackfill()
     {
         var registry = new SchemaMigrationRegistry();

@@ -734,6 +734,10 @@ SEO 预览是作者工作台内的发布前质量门，不是新路由模型：�
 
 评论治理是公开讨论区前置安全门禁：新评论先完成长度、受限 Markdown、地区 `can_publish=false` 等硬拒绝校验；通过后由地区、匿名凭证、风险裁决、模型开关和处置模式计算 `Pending/Hidden/Approved` 初始状态，绝不先公开再异步撤回。需要模型的评论先写 `Pending`，只有最终 `Approved` 才进入公开评论线程；公开评论线程和回复游标仍只读取 `Approved` 且按 viewer region 过滤。模型默认 `FailOpen=false`；缺失、超时或异常保留 `Pending`，显式 fail-open 也必须通过地区与匿名策略门禁。模型与人工状态转换使用 CAS；只有 `Pending -> Approved` 才清理公开缓存并发布 `CommentAdded`，已公开评论转为 `Hidden/Rejected` 才发布 `CommentRemoved`。每次初始状态和状态变化由数据库 trigger 追加到 `comment_moderation_event`，该表拒绝 UPDATE/DELETE。作者工作台与 `/comment/me` 保留 `Pending/Approved/Rejected/Hidden` 区分，管理员权限与匿名治理权限边界不变。
 
+举报只追加 `comment_report` 风险队列事实，不直接隐藏或拒绝评论。原因使用固定低基数分类；账号举报按 `(comment, account)` 去重，匿名举报只保存 comment-scoped HMAC，不产生可跨评论关联的身份。两类入口都执行 `fixed_ip` 限流并写结构化审计。申诉绑定触发当前 Hidden/Rejected 投影的 moderation event，每个决定最多一次；public 作者用账号所有权，强匿名作者用 management capability。复核人默认必须与原审核人不同，批准才通过既有状态转换恢复 Approved。
+
+`comment_moderation_event` 是重建当前投影的 append-only 权威序列：事件包含 create/pending/approve/hide/reject/delete/restore/appeal、actor type、reason、policy/model version、前后状态，但禁止保存匿名证明、原始 IP 或可逆身份材料。admin timeline 读取同时返回重建状态与一致性结果；不一致必须进入修复流程，不能静默覆盖历史。
+
 ### 审核系统控制台
 
 代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`ModerationDictionaryService.cs`](../../src/backend/Services/Moderation/ModerationDictionaryService.cs)、[`RegionLegalModerationService.cs`](../../src/backend/Services/Moderation/RegionLegalModerationService.cs)。

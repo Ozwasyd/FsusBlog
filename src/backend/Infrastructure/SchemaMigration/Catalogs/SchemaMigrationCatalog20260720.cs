@@ -32,6 +32,7 @@ internal static class SchemaMigrationCatalog20260720
                 RefreshTokenLineageMigrationDefinitions.BuildMigration(),
                 CommentMutationIdempotencyMigrationDefinitions.BuildMigration(),
                 CommentMutationOutboxMigrationDefinitions.BuildMigration(),
+                CommentGovernanceMigrationDefinitions.BuildMigration(),
                 ScheduledPublishIndexMigrationDefinitions.BuildMigration()
             ]);
 }

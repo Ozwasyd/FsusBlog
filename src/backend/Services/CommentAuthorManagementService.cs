@@ -109,6 +109,12 @@ public interface ICommentAuthorManagementService
         CommentAppealRequest request,
         CancellationToken cancellationToken);
 
+    Task<CommentAuthorMutationResult> AppealAsAccountAsync(
+        long commentId,
+        int accountId,
+        CommentAppealRequest request,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyList<CommentRevisionResult>> ReadRevisionsAsAdminAsync(
         long commentId,
         CancellationToken cancellationToken);
@@ -121,7 +127,8 @@ public sealed class CommentAuthorManagementService(
     IContentFilterService contentFilter,
     ICommentMutationOutbox mutationOutbox,
     IConfiguration configuration,
-    TimeProvider timeProvider) : ICommentAuthorManagementService
+    TimeProvider timeProvider,
+    ICommentGovernanceService? governance = null) : ICommentAuthorManagementService
 {
     private const int DefaultEditWindowMinutes = 30;
 
@@ -325,6 +332,15 @@ public sealed class CommentAuthorManagementService(
         CommentAppealRequest request,
         CancellationToken cancellationToken)
     {
+        if (governance is not null)
+        {
+            CommentAppealResult governed = await governance.AppealAsAnonymousAsync(
+                commentId, capabilitySecret, request, cancellationToken);
+            return governed.Success
+                ? new CommentAuthorMutationResult(true, "ok", 0, CommentModerationStatus.Pending)
+                : Failed(governed.Code);
+        }
+
         Comment? comment = await LoadAnonymousCommentAsync(commentId, capabilitySecret, cancellationToken);
         string reason = (request.Reason ?? string.Empty).Trim();
         if (comment is null || reason.Length is < 10 or > 1000)
@@ -358,6 +374,22 @@ public sealed class CommentAuthorManagementService(
         return transaction.IsSuccess && inserted
             ? new CommentAuthorMutationResult(true, "ok", comment.CurrentVersion, comment.ModerationStatus, comment.EditedAtUtc)
             : Failed("comment_management_challenge_invalid");
+    }
+
+    public async Task<CommentAuthorMutationResult> AppealAsAccountAsync(
+        long commentId,
+        int accountId,
+        CommentAppealRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (governance is null)
+        {
+            return Failed("comment_appeal_unavailable");
+        }
+        CommentAppealResult result = await governance.AppealAsAccountAsync(commentId, accountId, request, cancellationToken);
+        return result.Success
+            ? new CommentAuthorMutationResult(true, "ok", 0, CommentModerationStatus.Pending)
+            : Failed(result.Code);
     }
 
     public async Task<IReadOnlyList<CommentRevisionResult>> ReadRevisionsAsAdminAsync(

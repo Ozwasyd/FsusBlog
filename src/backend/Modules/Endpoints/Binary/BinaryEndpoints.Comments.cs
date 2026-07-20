@@ -664,6 +664,77 @@ public static partial class BinaryEndpoints
         .RequireAuthorization()
         .RequireRateLimiting("fixed_ip");
 
+        group.MapPost("/comment/{id:long}/author/appeal", static async Task<IResult> (
+            long id,
+            HttpContext context,
+            AccountPrincipalContext account,
+            ICommentAuthorManagementService management,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            var parsed = await ReadCommentManagementRequestAsync<CommentAppealRequest>(
+                context,
+                aeds,
+                AedsFrameType.CommentAuthorAppealRequest,
+                "comment_author_appeal_request_invalid",
+                cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+
+            return WriteCommentMutationResult(aeds, await management.AppealAsAccountAsync(
+                id, account.AccountId, parsed.Value!, cancellationToken));
+        })
+        .RequireAnonymousAccountPrincipal()
+        .RequireAuthorization()
+        .RequireRateLimiting("fixed_ip");
+
+        group.MapPost("/comment/{id:long}/report", static async Task<IResult> (
+            long id,
+            HttpContext context,
+            AccountPrincipalContext account,
+            ICommentGovernanceService governance,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            var parsed = await ReadCommentManagementRequestAsync<CommentReportRequest>(
+                context, aeds, AedsFrameType.CommentReportRequest, "comment_report_request_invalid", cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+            CommentReportResult result = await governance.ReportAsAccountAsync(id, account.AccountId, parsed.Value!, cancellationToken);
+            return result.Success
+                ? AedsJsonResults.Ok(aeds, AedsFrameType.CommentReportResult, result)
+                : AedsJsonResults.BadRequest(aeds, result.Code);
+        })
+        .RequireAnonymousAccountPrincipal()
+        .RequireAuthorization()
+        .RequireRateLimiting("fixed_ip");
+
+        group.MapPost("/comment/{id:long}/anonymous-report", static async Task<IResult> (
+            long id,
+            HttpContext context,
+            ICommentGovernanceService governance,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            var parsed = await ReadCommentManagementRequestAsync<CommentReportRequest>(
+                context, aeds, AedsFrameType.CommentReportRequest, "comment_report_request_invalid", cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+            CommentReportResult result = await governance.ReportAsScopedAnonymousAsync(id, parsed.Value!, cancellationToken);
+            return result.Success
+                ? AedsJsonResults.Ok(aeds, AedsFrameType.CommentReportResult, result)
+                : AedsJsonResults.BadRequest(aeds, result.Code);
+        })
+        .AllowAnonymous()
+        .RequireRateLimiting("fixed_ip")
+        .RequireStrongAnonymousRequest();
+
         group.MapPost("/comment/{id:long}/management/challenge", static async Task<IResult> (
             long id,
             HttpContext context,

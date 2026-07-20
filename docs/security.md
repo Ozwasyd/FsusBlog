@@ -656,3 +656,6 @@ credential vault 与 Service Worker 私有缓存。Service Worker 对 `/api/**` 
 强匿名评论的后续管理使用与创建 ticket 分离的 256-bit capability。服务端仅保存 SHA-256 commitment；capability 和一次性 challenge 禁止写入 URL、日志、缓存键、localStorage、telemetry 或任何 account/credential/nullifier 映射。challenge 绑定 comment id 与 edit/delete/status/appeal purpose，五分钟过期且通过数据库 CAS 只消费一次；所有入口执行 `fixed_ip` 限流。伪造、重放和跨评论 challenge 统一失败，不泄漏评论是否存在。capability 丢失不可恢复，客户端必须在提交后明确告知。管理员可读取完整修订历史；匿名与公开读取只获得当前可见正文和 edited bit。
 
 无需重启的降级路径是将 `Comments:AuthorEditWindowMinutes` 收紧到最小窗口，阻止新的历史编辑；删除、状态查询、申诉、公共读取、notification stream 与 admin 审核边界不改变。迁移仅增加 nullable/defaulted 列和新表，旧客户端可继续读取既有 comment POD。
+评论举报的匿名凭据与作者 capability 分域：举报凭据经 `Moderation:ReportPepper`（未单配时使用 `Moderation:Pepper`）和 comment id 做 HMAC，只能在同一评论内去重，不能跨评论、账号、nullifier 或 credential root 关联。原始凭据、IP、匿名证明不进入 report/event 表、审计 payload 或 telemetry；请求期 `fixed_ip` 限流仅在同步边界使用。运行时可通过动态限流策略收紧/关闭匿名举报而无需重启，账号举报与既有审核读取继续可用。
+
+申诉 capability 只证明当前评论作者控制权；申诉绑定最新 Hidden/Rejected event，并由数据库唯一索引限制每个决定一次。`Moderation:Appeals:RequireDifferentReviewer=true` 为默认安全值，原审核 admin principal 不能复核自己的决定。紧急降级可在配置 reload 后拒绝新的 appeal decision 写入，同时保留 timeline/report 读取；不得删除或改写既有事件。

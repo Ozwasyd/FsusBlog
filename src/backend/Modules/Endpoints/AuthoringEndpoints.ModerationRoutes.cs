@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
 
+using Microsoft.AspNetCore.Mvc;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
@@ -961,7 +963,7 @@ public static partial class AuthoringEndpoints
             long commentId,
             HttpContext context,
             IAedsEncoder aeds,
-            ICommentAuthorManagementService management,
+            [FromServices] ICommentAuthorManagementService management,
             CancellationToken cancellationToken) =>
         {
             IReadOnlyList<CommentRevisionResult> revisions = await management.ReadRevisionsAsAdminAsync(
@@ -972,6 +974,50 @@ public static partial class AuthoringEndpoints
                 : AedsJsonResults.NotFound(aeds, "comment_revision_not_found");
         })
         .RequireAdminPermission(AdminPermissions.CommentModerate)
+        .RequireRateLimiting("fixed_ip");
+
+        group.MapGet("/comments/{commentId:long}/moderation-timeline", async (
+            long commentId,
+            HttpContext context,
+            IAedsEncoder aeds,
+            [FromServices] ICommentGovernanceService governance,
+            CancellationToken cancellationToken) =>
+        {
+            CommentModerationTimelineResult? timeline = await governance.ReadTimelineAsync(commentId, cancellationToken);
+            return timeline is null
+                ? AedsJsonResults.NotFound(aeds, "comment_not_found")
+                : Ok(context, aeds, timeline);
+        })
+        .RequireAdminPermission(AdminPermissions.CommentModerate)
+        .RequireRateLimiting("fixed_ip");
+
+        group.MapPost("/moderation/appeals/{appealId:long}/decision", async (
+            long appealId,
+            HttpContext context,
+            IAedsEncoder aeds,
+            IAdminPrincipalService adminPrincipals,
+            [FromServices] ICommentGovernanceService governance,
+            CancellationToken cancellationToken) =>
+        {
+            var parsed = await ReadRequestAsync<CommentAppealDecisionRequest>(
+                context, aeds, "comment_appeal_decision_request_invalid", cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
+            if (stepUp is not null)
+            {
+                return stepUp;
+            }
+            CommentAppealResult result = await governance.ReviewAppealAsync(
+                appealId, ResolveRequiredAdminPrincipalId(context), parsed.Value!, cancellationToken);
+            return result.Success
+                ? Ok(context, aeds, result)
+                : AedsJsonResults.BadRequest(aeds, result.Code);
+        })
+        .RequireAdminPermission(AdminPermissions.CommentModerate)
+        .WithAdminSensitiveStepUp()
         .RequireRateLimiting("fixed_ip");
 
     }

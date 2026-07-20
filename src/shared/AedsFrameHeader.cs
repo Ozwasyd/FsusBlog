@@ -257,6 +257,11 @@ public enum AedsFrameType : ushort
     CommentAuthorStatusResult = 220,
     CommentAuthorAppealRequest = 221,
     CommentRevisionList = 222,
+    CommentReportRequest = 223,
+    CommentReportResult = 224,
+    CommentModerationTimeline = 225,
+    CommentAppealDecisionRequest = 226,
+    CommentAppealDecisionResult = 227,
     EmptySuccess = 240,
     MutationId = 241,
     ApiError = 251

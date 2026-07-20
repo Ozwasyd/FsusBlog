@@ -8,8 +8,8 @@ using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Articles;
-using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Authoring;
+using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Distribution;
 using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Services.Security;
@@ -44,6 +44,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<ICommentModerationService, CommentModerationService>();
         services.AddScoped<ICommentManagementCapabilityService, CommentManagementCapabilityService>();
         services.AddScoped<ICommentAuthorManagementService, CommentAuthorManagementService>();
+        services.AddScoped<ICommentGovernanceService, CommentGovernanceService>();
         services.AddScoped<ICommentAttributionPrivacyService, CommentAttributionPrivacyService>();
         services.AddSingleton<ICommentCursorPolicyResolver, ConfigurationCommentCursorPolicyResolver>();
         services.AddSingleton<IModerationRuntimeStateService, ModerationRuntimeStateService>();

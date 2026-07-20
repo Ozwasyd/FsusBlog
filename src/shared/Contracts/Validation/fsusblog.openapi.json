@@ -5239,6 +5239,150 @@
         "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/commentAdapter.ts"
       }
     },
+    "/api/binary/comment/{id:long}/author/appeal": {
+      "post": {
+        "operationId": "binary_post_comment_id_long_author_appeal",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "/comment/{id:long}/author/appeal",
+        "responses": {
+          "200": {
+            "description": "CommentAuthorMutationResult AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "CommentAuthorAppealRequest",
+        "x-fsus-response-frame": "CommentAuthorMutationResult",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "user",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "/comment/{id:long}/author/appeal",
+        "x-fsus-source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/comment.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/commentAdapter.ts"
+      }
+    },
+    "/api/binary/comment/{id:long}/report": {
+      "post": {
+        "operationId": "binary_post_comment_id_long_report",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "/comment/{id:long}/report",
+        "responses": {
+          "200": {
+            "description": "CommentReportResult AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "CommentReportRequest",
+        "x-fsus-response-frame": "CommentReportResult",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "user",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "/comment/{id:long}/report",
+        "x-fsus-source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/comment.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/commentAdapter.ts"
+      }
+    },
+    "/api/binary/comment/{id:long}/anonymous-report": {
+      "post": {
+        "operationId": "binary_post_comment_id_long_anonymous_report",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "/comment/{id:long}/anonymous-report",
+        "responses": {
+          "200": {
+            "description": "CommentReportResult AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "CommentReportRequest",
+        "x-fsus-response-frame": "CommentReportResult",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "anonymous",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "/comment/{id:long}/anonymous-report",
+        "x-fsus-source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/comment.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/commentAdapter.ts"
+      }
+    },
     "/api/binary/comment/{id:long}/management/challenge": {
       "post": {
         "operationId": "binary_post_comment_id_long_management_challenge",
@@ -8675,6 +8819,102 @@
         "x-fsus-aeds-version": 2,
         "x-fsus-request-frame": null,
         "x-fsus-response-frame": "CommentRevisionList",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Modules/Endpoints/AuthoringEndpoints.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/comments/{commentId:long}/moderation-timeline": {
+      "get": {
+        "operationId": "binary_get_author_comments_commentId_long_moderation_timeline",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "CommentModerationTimeline AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "CommentModerationTimeline",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Modules/Endpoints/AuthoringEndpoints.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/moderation/appeals/{appealId:long}/decision": {
+      "post": {
+        "operationId": "binary_post_author_moderation_appeals_appealId_long_decision",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "CommentAppealDecisionResult AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "CommentAppealDecisionRequest",
+        "x-fsus-response-frame": "CommentAppealDecisionResult",
         "x-fsus-error-frame": "ApiError",
         "x-fsus-auth": "admin",
         "x-fsus-pow": false,

@@ -913,6 +913,26 @@
             "value": 222
         },
         {
+            "name": "CommentReportRequest",
+            "value": 223
+        },
+        {
+            "name": "CommentReportResult",
+            "value": 224
+        },
+        {
+            "name": "CommentModerationTimeline",
+            "value": 225
+        },
+        {
+            "name": "CommentAppealDecisionRequest",
+            "value": 226
+        },
+        {
+            "name": "CommentAppealDecisionResult",
+            "value": 227
+        },
+        {
             "name": "EmptySuccess",
             "value": 240
         },
