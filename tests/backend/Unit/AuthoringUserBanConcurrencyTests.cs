@@ -27,6 +27,65 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class AuthoringUserBanConcurrencyTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
+    public async Task AdminChangeStatusAsync_AtomicallyTransitionsActiveSessionModes()
+    {
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
+        CreateTables(setupDb);
+        SeedUser(setupDb, 19);
+        setupDb.Insertable(new UserSession
+        {
+            SessionId = "status-mode-session",
+            UserId = 19,
+            RefreshTokenHash = "status-mode-refresh",
+            RefreshFamilyId = "status-mode-family",
+            IdleExpiresAt = DateTime.UtcNow.AddHours(1),
+            AbsoluteExpiresAt = DateTime.UtcNow.AddDays(1),
+            AuthenticationMethod = UserSessionAuthenticationMethods.Passkey,
+            AuthenticationStrength = UserSessionAuthenticationStrengths.WebAuthnUv,
+            AuthenticatedAtUtc = DateTime.UtcNow
+        }).ExecuteCommand();
+        using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
+        var cache = Substitute.For<IUserSessionValidationCache>();
+        cache.PublishManyAsync(
+                Arg.Any<IReadOnlyList<UserSessionValidationCacheState>>(),
+                true,
+                Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+        UserAdminModerationService service = CreateAdminService(
+            serviceDb,
+            new RecordingBlacklistService(),
+            cache);
+
+        (bool banned, _) = await service.AdminChangeStatusAsync(new AdminChangeStatusDto
+        {
+            AccountId = 19,
+            Status = 1,
+            Reason = "policy"
+        });
+        Assert.True(banned);
+        Assert.Equal(UserSessionMode.Restricted, setupDb.Queryable<UserSession>().InSingle("status-mode-session").SessionMode);
+        await cache.Received(1).PublishManyAsync(
+            Arg.Is<IReadOnlyList<UserSessionValidationCacheState>>(states =>
+                states.Count == 1 && states[0].SessionMode == UserSessionMode.Restricted),
+            true,
+            Arg.Any<CancellationToken>());
+
+        (bool unbanned, _) = await service.AdminChangeStatusAsync(new AdminChangeStatusDto
+        {
+            AccountId = 19,
+            Status = 0
+        });
+        Assert.True(unbanned);
+        Assert.Equal(UserSessionMode.Normal, setupDb.Queryable<UserSession>().InSingle("status-mode-session").SessionMode);
+        await cache.Received(1).PublishManyAsync(
+            Arg.Is<IReadOnlyList<UserSessionValidationCacheState>>(states =>
+                states.Count == 1 && states[0].SessionMode == UserSessionMode.Normal),
+            true,
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task ModerateCommentsAsync_ConcurrentAccountDeletionDoesNotRestoreBannedStatus()
     {
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
@@ -160,6 +219,7 @@ public sealed class AuthoringUserBanConcurrencyTests(PostgresSchemaMigrationFixt
         => PostgresSqlSugarTestClient.InitTables(
             db,
             typeof(User),
+            typeof(UserSession),
             typeof(Article),
             typeof(Comment),
             typeof(CommentRegionCompliance));
@@ -239,7 +299,10 @@ public sealed class AuthoringUserBanConcurrencyTests(PostgresSchemaMigrationFixt
             _totpService: Substitute.For<ITotpService>());
     }
 
-    private static UserAdminModerationService CreateAdminService(SqlSugarClient db, IBlacklistService blacklist)
+    private static UserAdminModerationService CreateAdminService(
+        SqlSugarClient db,
+        IBlacklistService blacklist,
+        IUserSessionValidationCache? sessionValidation = null)
     {
         var messages = Substitute.For<IMessageCommandService>();
         messages.SendAccountBannedNoticeAsync(Arg.Any<int>(), Arg.Any<string>()).Returns(Task.CompletedTask);
@@ -249,7 +312,8 @@ public sealed class AuthoringUserBanConcurrencyTests(PostgresSchemaMigrationFixt
             NullLogger<UserAdminModerationService>.Instance,
             blacklist,
             messages,
-            Substitute.For<ICacheCounterStore>());
+            Substitute.For<ICacheCounterStore>(),
+            sessionValidation);
     }
 
     private sealed class RecordingBlacklistService : IBlacklistService

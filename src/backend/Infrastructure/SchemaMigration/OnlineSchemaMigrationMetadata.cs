@@ -775,6 +775,28 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
+            UserSessionModeMigrationDefinitions.MigrationId,
+            new OnlineSchemaMigrationMetadata(
+                UserSessionModeMigrationDefinitions.MigrationId,
+                OnlineSchemaMigrationPhase.Expand,
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260720-user-session-mode-authority"),
+                ContractAfterCoordinate: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write",
+                    "user_session_mode_authority_backfill"
+                ]));
+
+        result.Add(
             RefreshTokenLineageMigrationDefinitions.MigrationId,
             new OnlineSchemaMigrationMetadata(
                 RefreshTokenLineageMigrationDefinitions.MigrationId,

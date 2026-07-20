@@ -609,18 +609,27 @@ internal sealed class UnifiedCache(
         cancellationToken.ThrowIfCancellationRequested();
         const string Script = """
 local current = redis.call('GET', KEYS[1])
-if current and ARGV[4] == '0' then
+if current then
   local first = string.find(current, '|', 1, true)
   local second = nil
   if first then
     second = string.find(current, '|', first + 1, true)
   end
-  if not first or not second or string.sub(current, 1, first - 1) ~= 'v1' then
+  local payloadVersion = first and string.sub(current, 1, first - 1) or ''
+  if not first or not second or (payloadVersion ~= 'v1' and payloadVersion ~= 'v2' and payloadVersion ~= 'v3') then
     return 0
   end
   local currentVersion = string.sub(current, first + 1, second - 1)
-  if currentVersion ~= ARGV[2] then
-    return 0
+  if ARGV[4] == '0' then
+    if currentVersion ~= ARGV[2] then
+      return 0
+    end
+  else
+    local currentNumeric = tonumber(currentVersion)
+    local incomingNumeric = tonumber(ARGV[2])
+    if currentNumeric and incomingNumeric and incomingNumeric < currentNumeric then
+      return 0
+    end
   end
 end
 if tonumber(ARGV[3]) and tonumber(ARGV[3]) > 0 then

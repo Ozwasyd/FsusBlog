@@ -305,6 +305,53 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
     }
 
     [Fact]
+    public async Task RunAsync_UserSessionModeAuthority_BackfillsNormalRestrictedAndRevoked()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+        await fixture.ExecuteAsync(connectionString, """
+            CREATE TABLE sys_user (
+                id integer PRIMARY KEY,
+                status integer NOT NULL
+            );
+            CREATE TABLE sys_user_session (
+                sessionid varchar(64) PRIMARY KEY,
+                userid integer NOT NULL,
+                revokedat timestamp NULL
+            );
+            INSERT INTO sys_user(id, status) VALUES (1, 0), (2, 1), (3, 0);
+            INSERT INTO sys_user_session(sessionid, userid, revokedat) VALUES
+                ('normal-session', 1, NULL),
+                ('restricted-session', 2, NULL),
+                ('revoked-session', 3, now() AT TIME ZONE 'utc');
+            """);
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            new SchemaMigrationRegistry().GetDescriptors(),
+            static item => item.MigrationId == UserSessionModeMigrationDefinitions.MigrationId);
+        ISchemaMigrationRegistry focusedRegistry = Substitute.For<ISchemaMigrationRegistry>();
+        focusedRegistry.GetDescriptors().Returns([descriptor]);
+
+        await RunMigrationsAsync(connectionString, focusedRegistry);
+        await RunMigrationsAsync(connectionString, focusedRegistry);
+
+        Assert.Equal(
+            0,
+            await fixture.QueryScalarAsync<int>(
+                connectionString,
+                "SELECT session_mode FROM sys_user_session WHERE sessionid = 'normal-session';"));
+        Assert.Equal(
+            1,
+            await fixture.QueryScalarAsync<int>(
+                connectionString,
+                "SELECT session_mode FROM sys_user_session WHERE sessionid = 'restricted-session';"));
+        Assert.Equal(
+            2,
+            await fixture.QueryScalarAsync<int>(
+                connectionString,
+                "SELECT session_mode FROM sys_user_session WHERE sessionid = 'revoked-session';"));
+    }
+
+    [Fact]
     public async Task RunAsync_RefreshTokenLineage_BackfillsFamiliesAndEnforcesHashOnlyTombstones()
     {
         string databaseName = await fixture.CreateDatabaseAsync();

@@ -9,6 +9,7 @@ using System.Text;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Binary;
@@ -578,6 +579,12 @@ public sealed class EndpointSecurityTestServer : IDisposable
     public static void AddAnonymousAccount(HttpRequestMessage request)
         => request.Headers.Add("X-Test-Principal", "anonymous-account");
 
+    public static void AddRestrictedAnonymousAccount(HttpRequestMessage request)
+    {
+        AddAnonymousAccount(request);
+        request.Headers.Add("X-Test-Session-Mode", UserSessionModes.ToClaimValue(UserSessionMode.Restricted));
+    }
+
     public static void AddRiskProof(HttpRequestMessage request, string proof)
     {
         request.Headers.Add(RequiresRiskControlFilter.ChallengeProofHeaderName, proof);
@@ -638,14 +645,19 @@ public sealed class EndpointSecurityTestServer : IDisposable
         }
         else if (string.Equals(principal, "anonymous-account", StringComparison.Ordinal))
         {
-            context.User = new ClaimsPrincipal(new ClaimsIdentity(
-            [
+            var claims = new List<Claim>
+            {
                 new Claim(ClaimTypes.NameIdentifier, "42"),
                 new Claim("identity_kind", AnonymousIdentityRuntime.AnonymousAccountKind),
                 new Claim(AccountSubjectHasher.ClaimType, AccountSubjectHash),
                 new Claim("sid", "account-session-42")
-            ],
-            "endpoint-test"));
+            };
+            string sessionMode = context.Request.Headers["X-Test-Session-Mode"].ToString();
+            if (!string.IsNullOrWhiteSpace(sessionMode))
+            {
+                claims.Add(new Claim(UserSessionModes.ClaimType, sessionMode));
+            }
+            context.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "endpoint-test"));
         }
 
         await next();

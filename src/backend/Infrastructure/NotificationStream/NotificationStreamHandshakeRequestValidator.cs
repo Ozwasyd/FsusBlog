@@ -1,5 +1,7 @@
 using System.Diagnostics;
 
+using FsusBlog.Server.Entities;
+
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Operations;
 
@@ -69,6 +71,16 @@ internal sealed class NotificationStreamHandshakeRequestValidator(
             return NotificationStreamHandshakeRequestValidation.Rejected(
                 StatusCodes.Status401Unauthorized,
                 "auth_failed");
+        }
+
+        if (isAuthenticated && string.Equals(
+                context.User.FindFirst(UserSessionModes.ClaimType)?.Value,
+                UserSessionModes.ToClaimValue(UserSessionMode.Restricted),
+                StringComparison.Ordinal))
+        {
+            return NotificationStreamHandshakeRequestValidation.Rejected(
+                StatusCodes.Status423Locked,
+                "restricted_session_not_allowed");
         }
 
         return NotificationStreamHandshakeRequestValidation.Allowed(isAuthenticated);

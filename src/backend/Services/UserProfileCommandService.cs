@@ -119,7 +119,8 @@ public sealed class UserProfileCommandService(
                 """
                 UPDATE sys_user_session
                 SET revokedat = @RevokedAt,
-                    revokereason = 'account_deleted'
+                    revokereason = 'account_deleted',
+                    session_mode = 2
                 WHERE userid = @UserId
                   AND revokedat IS NULL
                 RETURNING sessionid,
@@ -236,7 +237,8 @@ public sealed class UserProfileCommandService(
             reader.ReadString("row_version"),
             UserStatusNormal,
             null,
-            AnonymousIdentityRuntime.AnonymousAccountKind);
+            AnonymousIdentityRuntime.AnonymousAccountKind,
+            SessionMode: UserSessionMode.Revoked);
 
     private static DateTime AsUtc(DateTime value)
         => value.Kind switch

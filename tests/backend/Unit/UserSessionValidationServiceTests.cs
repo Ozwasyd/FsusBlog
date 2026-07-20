@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Data;
 
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
@@ -34,13 +35,15 @@ public sealed class UserSessionValidationServiceTests
             AnonymousIdentityRuntime.AnonymousAccountKind,
             UserSessionAuthenticationMethods.Passkey,
             UserSessionAuthenticationStrengths.WebAuthnUv,
-            s_authenticatedAtUtc);
+            s_authenticatedAtUtc,
+            UserSessionMode.Restricted,
+            "2147483652");
 
         string payload = UserSessionValidationCache.Encode(state);
         UserSessionValidationCacheState? decoded = UserSessionValidationCache.Decode(payload, state.SessionId);
 
         Assert.Equal(state, decoded);
-        Assert.StartsWith("v2|2147483651|42|", payload, StringComparison.Ordinal);
+        Assert.StartsWith("v3|2147483651|42|", payload, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -91,6 +94,189 @@ public sealed class UserSessionValidationServiceTests
         Assert.False(result.IsValid);
         Assert.Equal("user_session_revoked", result.Reason);
         _ = db.DidNotReceive().Ado;
+    }
+
+    [Fact]
+    public async Task CachedUnknownSessionMode_FailsClosedWithoutDatabaseRead()
+    {
+        UserSessionValidationCacheState invalid = CreateState("invalid-mode", 42) with
+        {
+            SessionMode = (UserSessionMode)99
+        };
+        var db = Substitute.For<ISqlSugarClient>();
+        var service = new UserSessionValidationService(db, new StubSessionValidationCache(invalid));
+
+        UserSessionValidationResult result = await service.ValidateAsync(
+            CreatePrincipal(42, invalid.SessionId),
+            CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        Assert.Equal("user_session_mode_invalid", result.Reason);
+        _ = db.DidNotReceive().Ado;
+    }
+
+    [Fact]
+    public async Task CacheError_FallsBackToPostgresAndRepairsCache()
+    {
+        const int AccountId = 42;
+        const string SessionId = "redis-error-fallback";
+        var cache = Substitute.For<IUserSessionValidationCache>();
+        cache.ReadAsync(SessionId, Arg.Any<CancellationToken>())
+            .Returns<Task<UserSessionValidationCacheState?>>(_ => throw new RedisConnectionException(ConnectionFailureType.UnableToConnect, "offline"));
+        cache.PublishAsync(Arg.Any<UserSessionValidationCacheState>(), true, Arg.Any<CancellationToken>())
+            .Returns(true);
+        var db = Substitute.For<ISqlSugarClient>();
+        var ado = Substitute.For<IAdo>();
+        db.Ado.Returns(ado);
+        ado.GetDataReaderAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>())
+            .Returns(_ => Task.FromResult((IDataReader)CreateDatabaseStateReader(SessionId, AccountId, UserSessionMode.Normal, 0)));
+        var service = new UserSessionValidationService(db, cache);
+
+        UserSessionValidationResult result = await service.ValidateAsync(CreatePrincipal(AccountId, SessionId), CancellationToken.None);
+
+        Assert.True(result.IsValid, result.Reason);
+        Assert.Equal(UserSessionMode.Normal, result.SessionMode);
+        await cache.Received(1).PublishAsync(
+            Arg.Is<UserSessionValidationCacheState>(state => state.RowVersion == "19" && state.AccountRowVersion == "23"),
+            true,
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CacheError_PostgresFailureFailsClosed()
+    {
+        var cache = Substitute.For<IUserSessionValidationCache>();
+        cache.ReadAsync("db-failure", Arg.Any<CancellationToken>())
+            .Returns<Task<UserSessionValidationCacheState?>>(_ => throw new InvalidDataException("corrupt"));
+        var db = Substitute.For<ISqlSugarClient>();
+        var ado = Substitute.For<IAdo>();
+        db.Ado.Returns(ado);
+        ado.GetDataReaderAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>())
+            .Returns<Task<IDataReader>>(_ => throw new InvalidOperationException("postgres offline"));
+        var service = new UserSessionValidationService(db, cache);
+
+        UserSessionValidationResult result = await service.ValidateAsync(CreatePrincipal(42, "db-failure"), CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        Assert.Equal("user_session_database_unavailable", result.Reason);
+        await cache.DidNotReceive().PublishAsync(Arg.Any<UserSessionValidationCacheState>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CacheRepairConflict_CannotOverrideAuthoritativeDatabaseRevocation()
+    {
+        const string SessionId = "repair-conflict-revoked";
+        var cache = Substitute.For<IUserSessionValidationCache>();
+        cache.ReadAsync(SessionId, Arg.Any<CancellationToken>())
+            .Returns<Task<UserSessionValidationCacheState?>>(_ => throw new InvalidDataException("corrupt"));
+        cache.PublishAsync(Arg.Any<UserSessionValidationCacheState>(), true, Arg.Any<CancellationToken>())
+            .Returns(false);
+        var db = Substitute.For<ISqlSugarClient>();
+        var ado = Substitute.For<IAdo>();
+        db.Ado.Returns(ado);
+        ado.GetDataReaderAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>())
+            .Returns(_ => Task.FromResult((IDataReader)CreateDatabaseStateReader(
+                SessionId,
+                42,
+                UserSessionMode.Revoked,
+                0,
+                DateTime.UtcNow.AddSeconds(-1))));
+        var service = new UserSessionValidationService(db, cache);
+
+        UserSessionValidationResult result = await service.ValidateAsync(
+            CreatePrincipal(42, SessionId),
+            CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        Assert.Equal("user_session_revoked", result.Reason);
+        await cache.Received(1).PublishAsync(
+            Arg.Is<UserSessionValidationCacheState>(state =>
+                state.SessionMode == UserSessionMode.Revoked && state.RevokedAtUtc.HasValue),
+            true,
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CacheRepairConflict_FailsClosedInsteadOfAllowingStaleActiveDatabaseRead()
+    {
+        const string SessionId = "repair-conflict-active";
+        var cache = Substitute.For<IUserSessionValidationCache>();
+        cache.ReadAsync(SessionId, Arg.Any<CancellationToken>()).Returns((UserSessionValidationCacheState?)null);
+        cache.PublishAsync(Arg.Any<UserSessionValidationCacheState>(), false, Arg.Any<CancellationToken>()).Returns(false);
+        var db = Substitute.For<ISqlSugarClient>();
+        var ado = Substitute.For<IAdo>();
+        db.Ado.Returns(ado);
+        ado.GetDataReaderAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>())
+            .Returns(_ => Task.FromResult((IDataReader)CreateDatabaseStateReader(
+                SessionId,
+                42,
+                UserSessionMode.Normal,
+                0)));
+        var service = new UserSessionValidationService(db, cache);
+
+        UserSessionValidationResult result = await service.ValidateAsync(
+            CreatePrincipal(42, SessionId),
+            CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        Assert.Equal("user_session_cache_conflict", result.Reason);
+    }
+
+    [Fact]
+    public async Task CacheMiss_FallbackBudgetRejectionFailsClosedWithoutDatabaseRead()
+    {
+        var cache = new StubSessionValidationCache(null);
+        var gate = Substitute.For<IUserSessionDbFallbackGate>();
+        gate.TryEnterAsync(Arg.Any<CancellationToken>())
+            .Returns(ValueTask.FromResult<IUserSessionDbFallbackLease?>(null));
+        var db = Substitute.For<ISqlSugarClient>();
+        var service = new UserSessionValidationService(db, cache, fallbackGate: gate);
+
+        UserSessionValidationResult result = await service.ValidateAsync(
+            CreatePrincipal(42, "budget-rejected"),
+            CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        Assert.Equal("user_session_fallback_budget_exhausted", result.Reason);
+        _ = db.DidNotReceive().Ado;
+    }
+
+    [Theory]
+    [InlineData(UserSessionMode.Restricted, "normal")]
+    [InlineData(UserSessionMode.Normal, "restricted")]
+    public async Task SessionModeMismatch_UsesTheStricterServerEffectiveMode(UserSessionMode databaseMode, string tokenMode)
+    {
+        UserSessionValidationCacheState state = CreateState("mode-mismatch", 42) with
+        {
+            SessionMode = databaseMode,
+            AccountStatus = databaseMode == UserSessionMode.Restricted ? 1 : 0
+        };
+        var service = new UserSessionValidationService(Substitute.For<ISqlSugarClient>(), new StubSessionValidationCache(state));
+        ClaimsPrincipal principal = CreatePrincipal(42, state.SessionId, tokenMode);
+
+        UserSessionValidationResult result = await service.ValidateAsync(principal, CancellationToken.None);
+
+        Assert.True(result.IsValid, result.Reason);
+        Assert.Equal(UserSessionMode.Restricted, result.SessionMode);
+        Assert.Equal("restricted", principal.FindFirst(UserSessionModes.ClaimType)?.Value);
+    }
+
+    [Fact]
+    public async Task DbFallbackGate_RejectsExcessConcurrencyAndOpensCircuit()
+    {
+        IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            [$"{UserSessionDbFallbackGate.SectionName}:MaxConcurrent"] = "1",
+            [$"{UserSessionDbFallbackGate.SectionName}:FailureThreshold"] = "1",
+            [$"{UserSessionDbFallbackGate.SectionName}:BreakSeconds"] = "5"
+        }).Build();
+        var gate = new UserSessionDbFallbackGate(configuration);
+        IUserSessionDbFallbackLease lease = Assert.IsAssignableFrom<IUserSessionDbFallbackLease>(
+            await gate.TryEnterAsync(CancellationToken.None));
+        Assert.Null(await gate.TryEnterAsync(CancellationToken.None));
+        lease.RecordFailure();
+        lease.Dispose();
+        Assert.Null(await gate.TryEnterAsync(CancellationToken.None));
     }
 
     [Theory]
@@ -262,7 +448,7 @@ public sealed class UserSessionValidationServiceTests
         await unified.Received(1).TrySetVersionedStringAsync(
             CachePolicyId.SecurityUserSessionValidation,
             state.SessionId,
-            Arg.Is<string>(payload => payload.StartsWith("v2|19|42|", StringComparison.Ordinal)),
+            Arg.Is<string>(payload => payload.StartsWith("v3|19|42|", StringComparison.Ordinal)),
             "19",
             true,
             TimeSpan.FromMinutes(2),
@@ -315,9 +501,11 @@ public sealed class UserSessionValidationServiceTests
             AnonymousIdentityRuntime.AnonymousAccountKind,
             UserSessionAuthenticationMethods.Passkey,
             UserSessionAuthenticationStrengths.WebAuthnUv,
-            s_authenticatedAtUtc);
+            s_authenticatedAtUtc,
+            UserSessionMode.Normal,
+            "8");
 
-    private static ClaimsPrincipal CreatePrincipal(int accountId, string sessionId)
+    private static ClaimsPrincipal CreatePrincipal(int accountId, string sessionId, string? sessionMode = null)
         => new(new ClaimsIdentity(
         [
             new Claim(ClaimTypes.NameIdentifier, accountId.ToString(System.Globalization.CultureInfo.InvariantCulture)),
@@ -325,8 +513,49 @@ public sealed class UserSessionValidationServiceTests
             new Claim("sid", sessionId),
             new Claim("auth_method", UserSessionAuthenticationMethods.Passkey),
             new Claim("auth_strength", UserSessionAuthenticationStrengths.WebAuthnUv),
-            new Claim("auth_time", new DateTimeOffset(s_authenticatedAtUtc).ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture))
+            new Claim("auth_time", new DateTimeOffset(s_authenticatedAtUtc).ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            .. sessionMode is null ? [] : new[] { new Claim(UserSessionModes.ClaimType, sessionMode) }
         ], "Bearer"));
+
+    private static IDataReader CreateDatabaseStateReader(
+        string sessionId,
+        int accountId,
+        UserSessionMode mode,
+        int accountStatus,
+        DateTime? revokedAtUtc = null)
+    {
+        var table = new DataTable();
+        table.Columns.Add("sessionid", typeof(string));
+        table.Columns.Add("userid", typeof(int));
+        table.Columns.Add("revokedat", typeof(DateTime));
+        table.Columns.Add("idleexpiresat", typeof(DateTime));
+        table.Columns.Add("absoluteexpiresat", typeof(DateTime));
+        table.Columns.Add("row_version", typeof(string));
+        table.Columns.Add("status", typeof(int));
+        table.Columns.Add("deleted_at", typeof(DateTime));
+        table.Columns.Add("identity_kind", typeof(string));
+        table.Columns.Add("session_mode", typeof(int));
+        table.Columns.Add("account_row_version", typeof(string));
+        table.Columns.Add("authentication_method", typeof(string));
+        table.Columns.Add("authentication_strength", typeof(string));
+        table.Columns.Add("authenticated_at_utc", typeof(DateTime));
+        table.Rows.Add(
+            sessionId,
+            accountId,
+            revokedAtUtc.HasValue ? revokedAtUtc.Value : DBNull.Value,
+            DateTime.UtcNow.AddHours(1),
+            DateTime.UtcNow.AddDays(1),
+            "19",
+            accountStatus,
+            DBNull.Value,
+            AnonymousIdentityRuntime.AnonymousAccountKind,
+            (int)mode,
+            "23",
+            UserSessionAuthenticationMethods.Passkey,
+            UserSessionAuthenticationStrengths.WebAuthnUv,
+            s_authenticatedAtUtc);
+        return table.CreateDataReader();
+    }
 
     private sealed class StubSessionValidationCache(UserSessionValidationCacheState? state)
         : IUserSessionValidationCache

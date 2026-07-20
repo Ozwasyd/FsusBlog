@@ -30,6 +30,7 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<IAdminPrincipalService, AdminPrincipalService>();
         services.AddScoped<IAdminSessionValidationService, AdminSessionValidationService>();
         services.AddSingleton<IUserSessionValidationCache, UserSessionValidationCache>();
+        services.AddSingleton<IUserSessionDbFallbackGate, UserSessionDbFallbackGate>();
         services.AddScoped<IUserSessionValidationService, UserSessionValidationService>();
         services.AddScoped<IRecoveryKeyService, RecoveryKeyService>();
         if (ShouldUseLocalDevZkProofBackend(configuration))

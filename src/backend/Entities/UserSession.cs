@@ -97,6 +97,9 @@ public class UserSession
         get; set;
     }
 
+    [SugarColumn(ColumnName = "session_mode", DefaultValue = "0")]
+    public UserSessionMode SessionMode { get; set; } = UserSessionMode.Normal;
+
     [SugarColumn(DefaultValue = "false")]
     public bool MfaVerified
     {

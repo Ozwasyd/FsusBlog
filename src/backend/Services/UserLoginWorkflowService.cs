@@ -120,7 +120,10 @@ public sealed partial class UserLoginWorkflowService(
         sessionAuthentication = sessionAuthentication with
         {
             AuthenticatedAtUtc = DateTime.SpecifyKind(sessionAuthentication.AuthenticatedAtUtc, DateTimeKind.Utc),
-            DurationPolicy = UserSessionDurationPolicies.FromRememberMe(rememberMe)
+            DurationPolicy = UserSessionDurationPolicies.FromRememberMe(rememberMe),
+            SessionMode = user.Status == UserStatusBanned
+                ? UserSessionMode.Restricted
+                : UserSessionMode.Normal
         };
         if (!UserSessionAuthenticationMethods.IsValid(sessionAuthentication.Method) ||
             !UserSessionAuthenticationStrengths.IsValid(sessionAuthentication.Strength) ||
@@ -151,6 +154,7 @@ public sealed partial class UserLoginWorkflowService(
             LastSeenAt = DateTime.UtcNow,
             IdleExpiresAt = idleExpiresAt,
             AbsoluteExpiresAt = absoluteExpiresAt,
+            SessionMode = sessionAuthentication.SessionMode,
             MfaVerified = UserSessionAuthenticationStrengths.IsCoarseMfa(sessionAuthentication.Strength),
             RememberMe = rememberMe,
             AuthenticationMethod = sessionAuthentication.Method,
@@ -278,7 +282,8 @@ public sealed partial class UserLoginWorkflowService(
             )
             UPDATE sys_user_session session
             SET revokedat = @RevokedAt,
-                revokereason = candidate.revoke_reason
+                revokereason = candidate.revoke_reason,
+                session_mode = 2
             FROM revoke_candidates candidate
             WHERE session.sessionid = candidate.sessionid
               AND session.revokedat IS NULL
@@ -340,7 +345,8 @@ public sealed partial class UserLoginWorkflowService(
             reader.ReadString("row_version"),
             UserStatusNormal,
             null,
-            AnonymousIdentityRuntime.AnonymousAccountKind);
+            AnonymousIdentityRuntime.AnonymousAccountKind,
+            SessionMode: UserSessionMode.Revoked);
 
     private static DateTime AsUtc(DateTime value)
         => value.Kind switch

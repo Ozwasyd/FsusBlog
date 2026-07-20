@@ -5,11 +5,16 @@ namespace FsusBlog.Server.Infrastructure.Policies;
 
 public enum RestrictedAccountAction
 {
+    ViewSelf,
+    ViewRestriction,
+    ViewSessions,
     Logout,
     DeleteOwnAccount,
     RevokeOwnSession,
     RevokeOtherSessions,
-    Appeal
+    Appeal,
+    SecurityStepUp,
+    RefreshSession
 }
 
 public sealed class RestrictedAccountActionMetadata(RestrictedAccountAction action)

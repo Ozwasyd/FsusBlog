@@ -1,12 +1,12 @@
 using System.Security.Claims;
 
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Interfaces;
 
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace FsusBlog.Server.Infrastructure.Filters;
@@ -37,15 +37,7 @@ public class BannedUserMiddleware(RequestDelegate _next)
             return;
         }
 
-        // SECURITY-INVARIANT: Anonymous endpoint metadata wins over a stale authenticated cookie so
-        // restricted users can still reach login and refresh recovery paths.
         var endpoint = context.GetEndpoint();
-        if (endpoint?.Metadata?.GetMetadata<IAllowAnonymous>() != null)
-        {
-            await _next(context);
-            return;
-        }
-
         if (context.User.IsAdminPrincipal())
         {
             await _next(context);
@@ -73,6 +65,26 @@ public class BannedUserMiddleware(RequestDelegate _next)
         if (user == null || user.Value.DeletedAt.HasValue || user.Value.Status == 2)
         {
             await MiddlewareResults.WriteErrorAsync(context, "账户已注销", StatusCodes.Status401Unauthorized);
+            return;
+        }
+
+        bool restrictedSession = string.Equals(
+            context.User.FindFirst(UserSessionModes.ClaimType)?.Value,
+            UserSessionModes.ToClaimValue(UserSessionMode.Restricted),
+            StringComparison.Ordinal);
+        if (restrictedSession)
+        {
+            if (endpoint?.Metadata.GetMetadata<RestrictedAccountActionMetadata>() != null)
+            {
+                await _next(context);
+                return;
+            }
+
+            await MiddlewareResults.WriteErrorAsync(
+                context,
+                BannedWriteMessage,
+                StatusCodes.Status423Locked,
+                details: BannedWriteErrorCode);
             return;
         }
 

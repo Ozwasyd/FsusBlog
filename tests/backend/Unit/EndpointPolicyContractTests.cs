@@ -174,10 +174,16 @@ public sealed class EndpointPolicyContractTests
 
         var expected = new Dictionary<(string Route, string Method), RestrictedAccountAction>
         {
+            [("/api/binary/auth/me", HttpMethods.Get)] = RestrictedAccountAction.ViewSelf,
+            [("/api/binary/auth/sessions", HttpMethods.Get)] = RestrictedAccountAction.ViewSessions,
             [("/api/binary/auth/logout", HttpMethods.Post)] = RestrictedAccountAction.Logout,
             [("/api/binary/auth/delete-account", HttpMethods.Post)] = RestrictedAccountAction.DeleteOwnAccount,
             [("/api/binary/auth/sessions/{id}/revoke", HttpMethods.Post)] = RestrictedAccountAction.RevokeOwnSession,
-            [("/api/binary/auth/sessions/revoke-others", HttpMethods.Post)] = RestrictedAccountAction.RevokeOtherSessions
+            [("/api/binary/auth/sessions/revoke-others", HttpMethods.Post)] = RestrictedAccountAction.RevokeOtherSessions,
+            [("/api/binary/auth/refresh-token", HttpMethods.Post)] = RestrictedAccountAction.RefreshSession,
+            [("/api/binary/auth/step-up/passkey/begin", HttpMethods.Post)] = RestrictedAccountAction.SecurityStepUp,
+            [("/api/binary/auth/step-up/passkey/complete", HttpMethods.Post)] = RestrictedAccountAction.SecurityStepUp,
+            [("/api/binary/auth/mfa/challenge/start", HttpMethods.Post)] = RestrictedAccountAction.SecurityStepUp
         };
 
         foreach (KeyValuePair<(string Route, string Method), RestrictedAccountAction> entry in expected)

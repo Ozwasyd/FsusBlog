@@ -1,4 +1,5 @@
 using System.Data.Common;
+using System.Diagnostics;
 using System.Globalization;
 using System.Security.Claims;
 
@@ -6,6 +7,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Observability;
 
 using SqlSugar;
 
@@ -18,9 +20,11 @@ public interface IUserSessionValidationService
     Task<UserSessionValidationResult> ValidateAsync(ClaimsPrincipal? principal, CancellationToken cancellationToken);
 }
 
-public sealed record UserSessionValidationResult(bool IsValid, string Reason)
+public sealed record UserSessionValidationResult(bool IsValid, string Reason, UserSessionMode? SessionMode = null)
 {
-    public static readonly UserSessionValidationResult Valid = new(true, "ok");
+    public static readonly UserSessionValidationResult Valid = new(true, "ok", UserSessionMode.Normal);
+
+    public static UserSessionValidationResult Allowed(UserSessionMode mode) => new(true, "ok", mode);
 
     public static UserSessionValidationResult Invalid(string reason) => new(false, reason);
 }
@@ -37,7 +41,86 @@ public sealed record UserSessionValidationCacheState(
     string IdentityKind,
     string AuthenticationMethod = "",
     string AuthenticationStrength = "",
-    DateTime? AuthenticatedAtUtc = null);
+    DateTime? AuthenticatedAtUtc = null,
+    UserSessionMode SessionMode = UserSessionMode.Normal,
+    string AccountRowVersion = "");
+
+public interface IUserSessionDbFallbackGate
+{
+    ValueTask<IUserSessionDbFallbackLease?> TryEnterAsync(CancellationToken cancellationToken);
+}
+
+public interface IUserSessionDbFallbackLease : IDisposable
+{
+    void RecordSuccess();
+    void RecordFailure();
+}
+
+public sealed class UserSessionDbFallbackGate : IUserSessionDbFallbackGate
+{
+    internal const string SectionName = "Security:UserSessionValidation:DbFallback";
+    private readonly SemaphoreSlim _concurrency;
+    private readonly int _failureThreshold;
+    private readonly TimeSpan _breakDuration;
+    private int _consecutiveFailures;
+    private long _openUntilTimestamp;
+
+    public UserSessionDbFallbackGate(IConfiguration configuration)
+    {
+        int maxConcurrent = Math.Clamp(configuration.GetValue<int?>($"{SectionName}:MaxConcurrent") ?? 32, 1, 512);
+        _failureThreshold = Math.Clamp(configuration.GetValue<int?>($"{SectionName}:FailureThreshold") ?? 5, 1, 100);
+        _breakDuration = TimeSpan.FromSeconds(Math.Clamp(
+            configuration.GetValue<int?>($"{SectionName}:BreakSeconds") ?? 5,
+            1,
+            60));
+        _concurrency = new SemaphoreSlim(maxConcurrent, maxConcurrent);
+    }
+
+    public ValueTask<IUserSessionDbFallbackLease?> TryEnterAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (Stopwatch.GetTimestamp() < Volatile.Read(ref _openUntilTimestamp) || !_concurrency.Wait(0))
+        {
+            FsusObservability.RecordUserSessionDbFallbackRejected();
+            return ValueTask.FromResult<IUserSessionDbFallbackLease?>(null);
+        }
+
+        FsusObservability.RecordUserSessionDbFallbackConcurrency(1);
+        return ValueTask.FromResult<IUserSessionDbFallbackLease?>(new Lease(this));
+    }
+
+    private void Success() => Interlocked.Exchange(ref _consecutiveFailures, 0);
+
+    private void Failure()
+    {
+        if (Interlocked.Increment(ref _consecutiveFailures) >= _failureThreshold)
+        {
+            long until = Stopwatch.GetTimestamp() + (long)(_breakDuration.TotalSeconds * Stopwatch.Frequency);
+            Interlocked.Exchange(ref _openUntilTimestamp, until);
+            Interlocked.Exchange(ref _consecutiveFailures, 0);
+        }
+    }
+
+    private void Exit()
+    {
+        FsusObservability.RecordUserSessionDbFallbackConcurrency(-1);
+        _concurrency.Release();
+    }
+
+    private sealed class Lease(UserSessionDbFallbackGate owner) : IUserSessionDbFallbackLease
+    {
+        private int _disposed;
+        public void RecordSuccess() => owner.Success();
+        public void RecordFailure() => owner.Failure();
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            {
+                owner.Exit();
+            }
+        }
+    }
+}
 
 public interface IUserSessionValidationCache
 {
@@ -66,7 +149,7 @@ public sealed class UserSessionValidationCache(
     IConfiguration configuration) : IUserSessionValidationCache
 {
     internal const string DistributedCacheEnabledKey = "Security:UserSessionValidation:DistributedCacheEnabled";
-    private const string PayloadVersion = "v2";
+    private const string PayloadVersion = "v3";
     private static readonly TimeSpan s_snapshotTtl = TimeSpan.FromMinutes(2);
     private readonly IDatabase _database = redis.GetDatabase();
 
@@ -177,13 +260,16 @@ public sealed class UserSessionValidationCache(
             state.IdentityKind,
             state.AuthenticationMethod,
             state.AuthenticationStrength,
-            ToTicks(state.AuthenticatedAtUtc));
+            ToTicks(state.AuthenticatedAtUtc),
+            ((int)state.SessionMode).ToString(CultureInfo.InvariantCulture),
+            string.IsNullOrWhiteSpace(state.AccountRowVersion) ? state.RowVersion : state.AccountRowVersion);
 
     internal static UserSessionValidationCacheState? Decode(string payload, string expectedSessionId)
     {
         string[] fields = payload.Split('|');
-        if (fields.Length != 12 ||
-            !string.Equals(fields[0], PayloadVersion, StringComparison.Ordinal) ||
+        bool legacyV2 = fields.Length == 12 && string.Equals(fields[0], "v2", StringComparison.Ordinal);
+        if ((!legacyV2 && fields.Length != 14) ||
+            (!legacyV2 && !string.Equals(fields[0], PayloadVersion, StringComparison.Ordinal)) ||
             string.IsNullOrWhiteSpace(fields[1]) ||
             !int.TryParse(fields[2], NumberStyles.None, CultureInfo.InvariantCulture, out int accountId) ||
             accountId <= 0 ||
@@ -193,7 +279,10 @@ public sealed class UserSessionValidationCache(
             !int.TryParse(fields[6], NumberStyles.Integer, CultureInfo.InvariantCulture, out int accountStatus) ||
             !TryParseNullableUtc(fields[7], out DateTime? accountDeletedAtUtc) ||
             string.IsNullOrWhiteSpace(fields[8]) ||
-            !TryParseNullableUtc(fields[11], out DateTime? authenticatedAtUtc))
+            !TryParseNullableUtc(fields[11], out DateTime? authenticatedAtUtc) ||
+            (!legacyV2 && (!int.TryParse(fields[12], NumberStyles.Integer, CultureInfo.InvariantCulture, out int sessionModeValue)
+                || !Enum.IsDefined((UserSessionMode)sessionModeValue)
+                || string.IsNullOrWhiteSpace(fields[13]))))
         {
             return null;
         }
@@ -206,6 +295,11 @@ public sealed class UserSessionValidationCache(
             return null;
         }
 
+        UserSessionMode sessionMode = legacyV2
+            ? revokedAtUtc.HasValue
+                ? UserSessionMode.Revoked
+                : accountStatus == 1 ? UserSessionMode.Restricted : UserSessionMode.Normal
+            : (UserSessionMode)int.Parse(fields[12], CultureInfo.InvariantCulture);
         return new UserSessionValidationCacheState(
             expectedSessionId,
             accountId,
@@ -218,7 +312,9 @@ public sealed class UserSessionValidationCache(
             fields[8],
             fields[9],
             fields[10],
-            authenticatedAtUtc);
+            authenticatedAtUtc,
+            sessionMode,
+            legacyV2 ? string.Empty : fields[13]);
     }
 
     private static string NormalizeSessionIdentity(string sessionId)
@@ -292,8 +388,13 @@ public sealed class UserSessionValidationCache(
 
 public sealed class UserSessionValidationService(
     ISqlSugarClient db,
-    IUserSessionValidationCache cache) : IUserSessionValidationService
+    IUserSessionValidationCache cache,
+    ILogger<UserSessionValidationService>? logger = null,
+    IUserSessionDbFallbackGate? fallbackGate = null) : IUserSessionValidationService
 {
+    private readonly IUserSessionDbFallbackGate _fallbackGate =
+        fallbackGate ?? new UserSessionDbFallbackGate(new ConfigurationBuilder().Build());
+    private const int BannedAccountStatus = 1;
     private const int DeletedAccountStatus = 2;
 
     public async Task<UserSessionValidationResult> ValidateAsync(
@@ -327,13 +428,18 @@ public sealed class UserSessionValidationService(
         }
 
         UserSessionValidationCacheState? state;
+        bool cacheReadFailed = false;
         try
         {
             state = await cache.ReadAsync(sessionId, cancellationToken).ConfigureAwait(false);
+            FsusObservability.RecordUserSessionValidationCache(state is null ? "miss" : "hit");
         }
         catch (Exception exception) when (exception is RedisException or InvalidDataException or ArgumentException)
         {
-            return UserSessionValidationResult.Invalid("user_session_cache_unavailable");
+            cacheReadFailed = true;
+            state = null;
+            FsusObservability.RecordUserSessionValidationCache("error");
+            logger?.LogWarning(exception, "User session cache read failed; falling back to PostgreSQL");
         }
 
         if (state is not null)
@@ -341,32 +447,87 @@ public sealed class UserSessionValidationService(
             return ValidateState(state, accountId, principal, DateTime.UtcNow);
         }
 
-        state = await LoadStateAsync(sessionId, cancellationToken).ConfigureAwait(false);
-        if (state is null)
+        long fallbackStarted = Stopwatch.GetTimestamp();
+        IUserSessionDbFallbackLease? fallbackLease = await _fallbackGate
+            .TryEnterAsync(cancellationToken).ConfigureAwait(false);
+        if (fallbackLease is null)
         {
-            return UserSessionValidationResult.Invalid("user_session_not_found");
+            return UserSessionValidationResult.Invalid("user_session_fallback_budget_exhausted");
         }
 
         try
         {
+            state = await LoadStateAsync(sessionId, cancellationToken).ConfigureAwait(false);
+            fallbackLease.RecordSuccess();
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            fallbackLease.RecordFailure();
+            FsusObservability.RecordUserSessionDbFallback("error", cacheReadFailed, Stopwatch.GetElapsedTime(fallbackStarted));
+            logger?.LogError(exception, "PostgreSQL user session validation failed closed");
+            return UserSessionValidationResult.Invalid("user_session_database_unavailable");
+        }
+        finally
+        {
+            fallbackLease.Dispose();
+        }
+
+        if (state is null)
+        {
+            FsusObservability.RecordUserSessionDbFallback("reject", cacheReadFailed, Stopwatch.GetElapsedTime(fallbackStarted));
+            return UserSessionValidationResult.Invalid("user_session_not_found");
+        }
+
+        UserSessionValidationResult result = ValidateState(state, accountId, principal, DateTime.UtcNow);
+        try
+        {
             bool published = await cache.PublishAsync(
                 state,
-                allowOverwrite: false,
+                allowOverwrite: cacheReadFailed,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
             if (!published)
             {
-                UserSessionValidationCacheState? current = await cache.ReadAsync(sessionId, cancellationToken).ConfigureAwait(false);
-                return current is null
-                    ? UserSessionValidationResult.Invalid("user_session_cache_conflict")
-                    : ValidateState(current, accountId, principal, DateTime.UtcNow);
+                FsusObservability.RecordUserSessionCacheRepair("conflict");
+                FsusObservability.RecordUserSessionDbFallback(
+                    "reject",
+                    cacheReadFailed,
+                    Stopwatch.GetElapsedTime(fallbackStarted));
+                if (!result.IsValid)
+                {
+                    return result;
+                }
+
+                try
+                {
+                    UserSessionValidationCacheState? winner = await cache.ReadAsync(
+                        sessionId,
+                        cancellationToken).ConfigureAwait(false);
+                    return winner is null
+                        ? UserSessionValidationResult.Invalid("user_session_cache_conflict")
+                        : ValidateState(winner, accountId, principal, DateTime.UtcNow);
+                }
+                catch (Exception exception) when (exception is RedisException or InvalidDataException or ArgumentException)
+                {
+                    logger?.LogWarning(exception, "User session cache winner could not be read after repair conflict");
+                    return UserSessionValidationResult.Invalid("user_session_cache_conflict");
+                }
+            }
+            else
+            {
+                FsusObservability.RecordUserSessionCacheRepair(cacheReadFailed ? "repair" : "fill");
             }
         }
         catch (Exception exception) when (exception is RedisException or InvalidDataException or InvalidOperationException or ArgumentException)
         {
-            return UserSessionValidationResult.Invalid("user_session_cache_unavailable");
+            FsusObservability.RecordUserSessionCacheRepair("error");
+            logger?.LogWarning(exception, "User session cache repair failed; PostgreSQL result remains authoritative");
         }
 
-        return ValidateState(state, accountId, principal, DateTime.UtcNow);
+        FsusObservability.RecordUserSessionDbFallback(
+            result.IsValid ? "success" : "reject",
+            cacheReadFailed,
+            Stopwatch.GetElapsedTime(fallbackStarted));
+        return result;
     }
 
     private async Task<UserSessionValidationCacheState?> LoadStateAsync(
@@ -385,6 +546,8 @@ public sealed class UserSessionValidationService(
                    u.status,
                    u.deleted_at,
                    u.identity_kind,
+                   s.session_mode,
+                   u.xmin::text AS account_row_version,
                    s.authentication_method,
                    s.authentication_strength,
                    s.authenticated_at_utc
@@ -410,7 +573,11 @@ public sealed class UserSessionValidationService(
             reader.IsNull("identity_kind") ? string.Empty : reader.ReadString("identity_kind"),
             reader.IsNull("authentication_method") ? string.Empty : reader.ReadString("authentication_method"),
             reader.IsNull("authentication_strength") ? string.Empty : reader.ReadString("authentication_strength"),
-            reader.IsNull("authenticated_at_utc") ? null : AsUtc(reader.ReadDateTime("authenticated_at_utc")));
+            reader.IsNull("authenticated_at_utc") ? null : AsUtc(reader.ReadDateTime("authenticated_at_utc")),
+            reader.IsNull("session_mode")
+                ? UserSessionMode.Normal
+                : (UserSessionMode)reader.ReadInt32("session_mode"),
+            reader.ReadString("account_row_version"));
     }
 
     private static UserSessionValidationResult ValidateState(
@@ -424,7 +591,12 @@ public sealed class UserSessionValidationService(
             return UserSessionValidationResult.Invalid("user_session_account_mismatch");
         }
 
-        if (state.RevokedAtUtc.HasValue)
+        if (!Enum.IsDefined(state.SessionMode))
+        {
+            return UserSessionValidationResult.Invalid("user_session_mode_invalid");
+        }
+
+        if (state.RevokedAtUtc.HasValue || state.SessionMode == UserSessionMode.Revoked)
         {
             return UserSessionValidationResult.Invalid("user_session_revoked");
         }
@@ -464,7 +636,33 @@ public sealed class UserSessionValidationService(
             return UserSessionValidationResult.Invalid("user_session_authentication_context_mismatch");
         }
 
-        return UserSessionValidationResult.Valid;
+        UserSessionMode databaseMode = state.AccountStatus == BannedAccountStatus || state.SessionMode == UserSessionMode.Restricted
+            ? UserSessionMode.Restricted
+            : UserSessionMode.Normal;
+        string? tokenModeClaim = principal.FindFirst(UserSessionModes.ClaimType)?.Value;
+        UserSessionMode tokenMode = UserSessionModes.TryParseClaim(tokenModeClaim, out UserSessionMode parsedTokenMode)
+            ? parsedTokenMode
+            : UserSessionMode.Normal;
+        if (tokenMode == UserSessionMode.Revoked)
+        {
+            return UserSessionValidationResult.Invalid("user_session_token_revoked");
+        }
+
+        // The server always chooses the stricter side. A ban takes effect immediately even for
+        // an older normal JWT; an unban cannot silently upgrade an older restricted JWT.
+        UserSessionMode effectiveMode = databaseMode == UserSessionMode.Restricted || tokenMode == UserSessionMode.Restricted
+            ? UserSessionMode.Restricted
+            : UserSessionMode.Normal;
+        if (principal.Identity is ClaimsIdentity identity)
+        {
+            foreach (Claim claim in identity.FindAll(UserSessionModes.ClaimType).ToArray())
+            {
+                identity.RemoveClaim(claim);
+            }
+            identity.AddClaim(new Claim(UserSessionModes.ClaimType, UserSessionModes.ToClaimValue(effectiveMode)));
+        }
+
+        return UserSessionValidationResult.Allowed(effectiveMode);
     }
 
     private static DateTime AsUtc(DateTime value)

@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Security.Claims;
 using System.Text;
 
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Binary;
@@ -40,6 +41,27 @@ namespace FsusBlog.Server.Tests.Unit;
 public class NotificationStreamBoundaryTests
 {
     private const string StableAccountSubjectHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+    [Fact]
+    public async Task RestrictedSession_IsRejectedBeforeNotificationAdmission()
+    {
+        NotificationStreamHandshakeService service = CreateHandshakeService(
+            new TestWebHostEnvironment(),
+            ["Seo:BaseUrl=https://example.com"]);
+        DefaultHttpContext context = CreateHandshakeContext("https://example.com", "example.com");
+        ((ClaimsIdentity)context.User.Identity!).AddClaim(new Claim(
+            UserSessionModes.ClaimType,
+            UserSessionModes.ToClaimValue(UserSessionMode.Restricted)));
+
+        NotificationStreamHandshakeResult result = await service.ValidateAsync(
+            context,
+            CancellationToken.None,
+            requireWebSocket: false);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(StatusCodes.Status423Locked, result.StatusCode);
+        Assert.Equal("restricted_session_not_allowed", result.ErrorCode);
+    }
 
     [Fact]
     public async Task DrainingDeployment_RejectsNewHandshakeBeforeAdmissionWithRetryableCode()

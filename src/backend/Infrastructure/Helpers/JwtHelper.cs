@@ -108,7 +108,7 @@ public class JwtHelper : IJwtHelper
             throw new InvalidOperationException("Session authentication context is invalid.");
         }
 
-        var claims = new List<Claim>(8)
+        var claims = new List<Claim>(9)
         {
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new("identity_kind", identityKind),
@@ -125,6 +125,9 @@ public class JwtHelper : IJwtHelper
             UserSessionAuthenticationStrengths.IsCoarseMfa(authenticationContext.Strength) ? "1" : "0"));
         claims.Add(new Claim("auth_method", authenticationContext.Method));
         claims.Add(new Claim("auth_strength", authenticationContext.Strength));
+        claims.Add(new Claim(
+            UserSessionModes.ClaimType,
+            UserSessionModes.ToClaimValue(authenticationContext.SessionMode)));
         claims.Add(new Claim(
             "auth_time",
             new DateTimeOffset(DateTime.SpecifyKind(authenticationContext.AuthenticatedAtUtc, DateTimeKind.Utc))

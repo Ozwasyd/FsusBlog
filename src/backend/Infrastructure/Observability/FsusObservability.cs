@@ -260,6 +260,13 @@ public static class FsusObservability
     private static readonly Counter<long> s_authRefreshRotationConflictCount = s_meter.CreateCounter<long>("fsus.auth.refresh.rotation_conflict_count");
     private static readonly Counter<long> s_authRefreshDeliveryFailureCount = s_meter.CreateCounter<long>("fsus.auth.refresh.delivery_failure_count");
     private static readonly Counter<long> s_authRefreshDatabaseFailureCount = s_meter.CreateCounter<long>("fsus.auth.refresh.database_failure_count");
+    private static readonly Counter<long> s_userSessionValidationCacheCount = s_meter.CreateCounter<long>("fsus.auth.session_validation.cache_count");
+    private static readonly Counter<long> s_userSessionDbFallbackCount = s_meter.CreateCounter<long>("fsus.auth.session_validation.db_fallback_count");
+    private static readonly Counter<long> s_userSessionDbFallbackExtraQps = s_meter.CreateCounter<long>("fsus.auth.session_validation.db_fallback_extra_qps");
+    private static readonly Counter<long> s_userSessionDbFallbackRejected = s_meter.CreateCounter<long>("fsus.auth.session_validation.db_fallback_rejected_count");
+    private static readonly UpDownCounter<long> s_userSessionDbFallbackConcurrency = s_meter.CreateUpDownCounter<long>("fsus.auth.session_validation.db_fallback_concurrency");
+    private static readonly Histogram<double> s_userSessionDbFallbackElapsed = s_meter.CreateHistogram<double>("fsus.auth.session_validation.db_fallback_elapsed_ms", "ms");
+    private static readonly Counter<long> s_userSessionCacheRepairCount = s_meter.CreateCounter<long>("fsus.auth.session_validation.cache_repair_count");
     private static readonly Counter<long> s_accountSnapshotCacheHit = s_meter.CreateCounter<long>("fsus.account_snapshot.cache_hit");
     private static readonly Counter<long> s_accountSnapshotDbReadCount = s_meter.CreateCounter<long>("fsus.account_snapshot.db_read_count");
     private static long s_commentActorResolverPublicHandleHits;
@@ -1312,6 +1319,42 @@ public static class FsusObservability
             s_authRefreshSuccessElapsed.Record(elapsed.TotalMilliseconds, tags);
         });
     }
+
+    public static void RecordUserSessionValidationCache(string result)
+    {
+        TryRecord(() => s_userSessionValidationCacheCount.Add(
+            1,
+            CreateBaseTags("auth-session-validation", "cache", NormalizeTelemetryValue(result, "unknown"))));
+    }
+
+    public static void RecordUserSessionDbFallback(string result, bool causedByCacheError, TimeSpan elapsed)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("auth-session-validation", "db-fallback", NormalizeTelemetryValue(result, "unknown"));
+            s_userSessionDbFallbackCount.Add(1, tags);
+            if (causedByCacheError)
+            {
+                s_userSessionDbFallbackExtraQps.Add(1, tags);
+            }
+            s_userSessionDbFallbackElapsed.Record(Math.Max(0, elapsed.TotalMilliseconds), tags);
+        });
+    }
+
+    public static void RecordUserSessionDbFallbackRejected()
+        => TryRecord(() => s_userSessionDbFallbackRejected.Add(
+            1,
+            CreateBaseTags("auth-session-validation", "db-fallback", "budget_rejected")));
+
+    public static void RecordUserSessionDbFallbackConcurrency(long delta)
+        => TryRecord(() => s_userSessionDbFallbackConcurrency.Add(
+            delta,
+            CreateBaseTags("auth-session-validation", "db-fallback", "active")));
+
+    public static void RecordUserSessionCacheRepair(string result)
+        => TryRecord(() => s_userSessionCacheRepairCount.Add(
+            1,
+            CreateBaseTags("auth-session-validation", "cache-repair", NormalizeTelemetryValue(result, "unknown"))));
 
     public static void RecordAuthRefreshReplayDetected()
     {

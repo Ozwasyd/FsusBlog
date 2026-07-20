@@ -525,7 +525,8 @@ public static partial class BinaryEndpoints
                 FsusObservability.RecordAuthMe(Stopwatch.GetElapsedTime(startedAt));
             }
         })
-        .RequireAnonymousAccountPrincipal();
+        .RequireAnonymousAccountPrincipal()
+        .AllowRestrictedAccountAction(RestrictedAccountAction.ViewSelf);
 
         group.MapGet("/auth/{id:int}", static async Task<BinaryFrameResult> (
             int id,
@@ -647,7 +648,8 @@ public static partial class BinaryEndpoints
             var result = await sessions.GetUserSessionsAsync(userContext.AccountId, userContext.SessionId, cancellationToken);
             return BinaryResults.Frame(aeds, AedsFrameType.AuthSessionList, writer => PodBinaryCodec.WriteUserSessions(result, writer));
         })
-        .RequireAnonymousAccountPrincipal();
+        .RequireAnonymousAccountPrincipal()
+        .AllowRestrictedAccountAction(RestrictedAccountAction.ViewSessions);
 
         group.MapPost("/auth/sessions/{id}/revoke", static async Task<BinaryFrameResult> (
             string id,
@@ -946,6 +948,7 @@ public static partial class BinaryEndpoints
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Forbidden, message), aeds, StatusCodes.Status428PreconditionRequired);
         })
         .RequireAnonymousAccountPrincipal()
+        .AllowRestrictedAccountAction(RestrictedAccountAction.SecurityStepUp)
         .RequireRateLimiting("fixed_ip")
         .RequireNoStoreResponse();
 
@@ -1025,6 +1028,7 @@ public static partial class BinaryEndpoints
             return BinaryResults.Frame(aeds, AedsFrameType.MfaChallengeResult, writer => PodBinaryCodec.WriteMfaChallengeResult(proof, writer));
         })
         .RequireAnonymousAccountPrincipal()
+        .AllowRestrictedAccountAction(RestrictedAccountAction.SecurityStepUp)
         .RequireRateLimiting("fixed_ip")
         .RequireNoStoreResponse();
 
@@ -1114,7 +1118,8 @@ public static partial class BinaryEndpoints
             return BinaryResults.Frame(aeds, AedsFrameType.MfaChallengeResult, writer => PodBinaryCodec.WriteMfaChallengeResult(challenge, writer));
         })
         .RequireRateLimiting("fixed_ip")
-        .RequireAnonymousAccountPrincipal();
+        .RequireAnonymousAccountPrincipal()
+        .AllowRestrictedAccountAction(RestrictedAccountAction.SecurityStepUp);
 
         group.MapPost("/auth/mfa/challenge", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
@@ -1332,6 +1337,7 @@ public static partial class BinaryEndpoints
         })
         .RequireRateLimiting("fixed_ip")
         .AllowAnonymous()
+        .AllowRestrictedAccountAction(RestrictedAccountAction.RefreshSession)
         .RequireNoStoreResponse();
 
         group.MapPost("/auth/logout", static async Task<BinaryFrameResult> (

@@ -41,12 +41,46 @@ public static class UserSessionDurationPolicies
         => value is BrowserSession or Persistent30Days;
 }
 
+public enum UserSessionMode
+{
+    Normal = 0,
+    Restricted = 1,
+    Revoked = 2
+}
+
+public static class UserSessionModes
+{
+    public const string ClaimType = "session_mode";
+
+    public static string ToClaimValue(UserSessionMode mode)
+        => mode switch
+        {
+            UserSessionMode.Normal => "normal",
+            UserSessionMode.Restricted => "restricted",
+            UserSessionMode.Revoked => "revoked",
+            _ => throw new ArgumentOutOfRangeException(nameof(mode))
+        };
+
+    public static bool TryParseClaim(string? value, out UserSessionMode mode)
+    {
+        mode = value switch
+        {
+            "normal" => UserSessionMode.Normal,
+            "restricted" => UserSessionMode.Restricted,
+            "revoked" => UserSessionMode.Revoked,
+            _ => (UserSessionMode)(-1)
+        };
+        return Enum.IsDefined(mode);
+    }
+}
+
 public readonly record struct UserSessionAuthenticationContext(
     string Method,
     string Strength,
     DateTime AuthenticatedAtUtc,
     int? CredentialRowId = null,
-    string DurationPolicy = UserSessionDurationPolicies.BrowserSession)
+    string DurationPolicy = UserSessionDurationPolicies.BrowserSession,
+    UserSessionMode SessionMode = UserSessionMode.Normal)
 {
     public static UserSessionAuthenticationContext FromLegacy(bool mfaVerified, bool rememberMe, DateTime? authenticatedAtUtc = null)
         => new(
@@ -56,7 +90,8 @@ public readonly record struct UserSessionAuthenticationContext(
                 : UserSessionAuthenticationStrengths.LegacyUnverified,
             authenticatedAtUtc ?? DateTime.UtcNow,
             null,
-            UserSessionDurationPolicies.FromRememberMe(rememberMe));
+            UserSessionDurationPolicies.FromRememberMe(rememberMe),
+            UserSessionMode.Normal);
 
     public static bool TryFromSession(UserSession session, out UserSessionAuthenticationContext context)
     {
@@ -74,7 +109,8 @@ public readonly record struct UserSessionAuthenticationContext(
             session.AuthenticationStrength,
             DateTime.SpecifyKind(session.AuthenticatedAtUtc, DateTimeKind.Utc),
             session.AuthenticatedCredentialRowId,
-            session.DurationPolicy);
+            session.DurationPolicy,
+            session.SessionMode);
         return true;
     }
 }

@@ -582,6 +582,7 @@ public sealed class UnifiedCacheTests
         Assert.Equal(key, memory.RemovedKey);
         Assert.NotNull(capturedScript);
         Assert.Contains("currentVersion ~= ARGV[2]", capturedScript, StringComparison.Ordinal);
+        Assert.Contains("incomingNumeric < currentNumeric", capturedScript, StringComparison.Ordinal);
         Assert.Contains("return 0", capturedScript, StringComparison.Ordinal);
         Assert.NotNull(capturedKeys);
         Assert.Equal([new RedisKey(key)], capturedKeys);

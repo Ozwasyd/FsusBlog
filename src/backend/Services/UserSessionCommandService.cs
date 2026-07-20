@@ -136,6 +136,14 @@ public sealed partial class UserSessionCommandService(
             LogBannedAccountTokenRefresh(accountSubject);
         }
 
+        UserSessionMode authoritativeMode = user.Status == UserStatusBanned
+            ? UserSessionMode.Restricted
+            : UserSessionMode.Normal;
+        authenticationContext = authenticationContext with
+        {
+            SessionMode = authoritativeMode
+        };
+
         string nextToken = jwt.GenerateRefreshToken();
         string nextHash = HashToken(nextToken);
         DateTime idleExpiresAt = now.Add(ResolveIdleSessionTtl(authenticationContext.DurationPolicy));
@@ -159,7 +167,8 @@ public sealed partial class UserSessionCommandService(
                         refresh_generation = refresh_generation + 1,
                         refresh_rotated_at_utc = @RotatedAtUtc,
                         lastseenat = @RotatedAtUtc,
-                        idleexpiresat = @IdleExpiresAt
+                        idleexpiresat = @IdleExpiresAt,
+                        session_mode = @SessionMode
                     WHERE sessionid = @SessionId
                       AND refreshtokenhash = @CurrentHash
                       AND refresh_family_id = @FamilyId
@@ -185,6 +194,7 @@ public sealed partial class UserSessionCommandService(
                 new SugarParameter("@Generation", session.RefreshGeneration),
                 new SugarParameter("@RotatedAtUtc", now),
                 new SugarParameter("@IdleExpiresAt", idleExpiresAt),
+                new SugarParameter("@SessionMode", (int)authoritativeMode),
                 new SugarParameter("@SessionId", session.SessionId),
                 new SugarParameter("@CurrentHash", currentHash),
                 new SugarParameter("@TombstoneExpiresAt", tombstoneExpiresAt));
@@ -298,6 +308,7 @@ public sealed partial class UserSessionCommandService(
                 UPDATE sys_user_session
                 SET revokedat = @CompromisedAt,
                     revokereason = @Reason,
+                    session_mode = 2,
                     refresh_compromised_at_utc = @CompromisedAt,
                     refresh_compromise_reason = @Reason
                 WHERE refresh_family_id = @FamilyId
@@ -380,7 +391,8 @@ public sealed partial class UserSessionCommandService(
                 """
                 UPDATE sys_user_session
                 SET revokedat = @RevokedAt,
-                    revokereason = 'logout'
+                    revokereason = 'logout',
+                    session_mode = 2
                 WHERE refreshtokenhash = @RefreshTokenHash
                   AND revokedat IS NULL
                 RETURNING sessionid,
@@ -574,7 +586,8 @@ public sealed partial class UserSessionCommandService(
                 """
                 UPDATE sys_user_session
                 SET revokedat = @RevokedAt,
-                    revokereason = @Reason
+                    revokereason = @Reason,
+                    session_mode = 2
                 WHERE userid = @UserId
                   AND sessionid = @SessionId
                   AND revokedat IS NULL
@@ -639,7 +652,8 @@ public sealed partial class UserSessionCommandService(
                 """
                 UPDATE sys_user_session
                 SET revokedat = @RevokedAt,
-                    revokereason = 'revoke_others'
+                    revokereason = 'revoke_others',
+                    session_mode = 2
                 WHERE userid = @UserId
                   AND revokedat IS NULL
                   AND (@CurrentSessionId IS NULL OR sessionid <> @CurrentSessionId)
@@ -701,7 +715,8 @@ public sealed partial class UserSessionCommandService(
                 """
                 UPDATE sys_user_session
                 SET revokedat = @RevokedAt,
-                    revokereason = 'credential_deleted'
+                    revokereason = 'credential_deleted',
+                    session_mode = 2
                 WHERE userid = @UserId
                   AND authenticated_credential_row_id = @CredentialRowId
                   AND revokedat IS NULL
@@ -768,7 +783,8 @@ public sealed partial class UserSessionCommandService(
                 """
                 UPDATE sys_user_session
                 SET revokedat = @RevokedAt,
-                    revokereason = @Reason
+                    revokereason = @Reason,
+                    session_mode = 2
                 WHERE userid = @UserId
                   AND revokedat IS NULL
                 RETURNING sessionid,
@@ -841,7 +857,8 @@ public sealed partial class UserSessionCommandService(
             reader.ReadString("row_version"),
             UserStatusNormal,
             null,
-            AnonymousIdentityRuntime.AnonymousAccountKind);
+            AnonymousIdentityRuntime.AnonymousAccountKind,
+            SessionMode: UserSessionMode.Revoked);
 
     private static DateTime AsUtc(DateTime value)
         => value.Kind switch
@@ -926,6 +943,14 @@ public sealed partial class UserSessionCommandService(
             LogBannedAccountTokenRefresh(accountSubject);
         }
 
+        UserSessionMode authoritativeMode = user.Status == UserStatusBanned
+            ? UserSessionMode.Restricted
+            : UserSessionMode.Normal;
+        authenticationContext = authenticationContext with
+        {
+            SessionMode = authoritativeMode
+        };
+
         string newRefreshToken = jwt.GenerateRefreshToken();
         string newRefreshHash = HashToken(newRefreshToken);
         DateTime idleExpiresAt = now.Add(ResolveIdleSessionTtl(authenticationContext.DurationPolicy));
@@ -939,6 +964,7 @@ public sealed partial class UserSessionCommandService(
             .SetColumns(s => s.RefreshTokenHash == newRefreshHash)
             .SetColumns(s => s.LastSeenAt == now)
             .SetColumns(s => s.IdleExpiresAt == idleExpiresAt)
+            .SetColumns(s => s.SessionMode == authoritativeMode)
             .Where(s => s.SessionId == session.SessionId
                 && s.RefreshTokenHash == hash
                 && s.RevokedAt == null
@@ -1067,7 +1093,8 @@ public sealed partial class UserSessionCommandService(
                 revoked AS (
                     UPDATE sys_user_session AS session
                     SET revokedat = @RevokedAt,
-                        revokereason = @Reason
+                        revokereason = @Reason,
+                        session_mode = 2
                     FROM replay_target AS target
                     WHERE session.userid = target.userid
                       AND session.revokedat IS NULL

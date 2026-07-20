@@ -1169,7 +1169,9 @@ public class UserServiceValidationTests
             Arg.Is<UserSessionAuthenticationContext>(context =>
                 context.Method == UserSessionAuthenticationMethods.Other &&
                 context.Strength == UserSessionAuthenticationStrengths.LegacyUnverified &&
-                context.DurationPolicy == UserSessionDurationPolicies.BrowserSession));
+                context.DurationPolicy == UserSessionDurationPolicies.BrowserSession &&
+                context.SessionMode == UserSessionMode.Restricted));
+        _ = db.Received(1).Insertable(Arg.Is<UserSession>(session => session.SessionMode == UserSessionMode.Restricted));
         await persistence.SessionInsert.Received(1).ExecuteCommandAsync();
         await persistence.UserUpdate.DidNotReceive().ExecuteCommandAsync();
     }
@@ -1210,7 +1212,8 @@ public class UserServiceValidationTests
             Arg.Is<UserSessionAuthenticationContext>(context =>
                 context.Method == UserSessionAuthenticationMethods.Other &&
                 context.Strength == UserSessionAuthenticationStrengths.LegacyVerified &&
-                context.DurationPolicy == UserSessionDurationPolicies.BrowserSession));
+                context.DurationPolicy == UserSessionDurationPolicies.BrowserSession &&
+                context.SessionMode == UserSessionMode.Normal));
         await persistence.SessionInsert.Received(1).ExecuteCommandAsync();
         await persistence.UserUpdate.DidNotReceive().ExecuteCommandAsync();
     }

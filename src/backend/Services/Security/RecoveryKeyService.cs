@@ -154,7 +154,8 @@ public sealed class RecoveryKeyService(
                     """
                     UPDATE sys_user_session
                     SET revokedat = @RevokedAt,
-                        revokereason = 'recovery_key_verified'
+                        revokereason = 'recovery_key_verified',
+                        session_mode = 2
                     WHERE userid = @AccountId
                       AND revokedat IS NULL
                     RETURNING sessionid,
@@ -177,7 +178,8 @@ public sealed class RecoveryKeyService(
                         reader.ReadString("row_version"),
                         0,
                         null,
-                        AnonymousIdentityRuntime.AnonymousAccountKind));
+                        AnonymousIdentityRuntime.AnonymousAccountKind,
+                        SessionMode: UserSessionMode.Revoked));
                 }
             }
 

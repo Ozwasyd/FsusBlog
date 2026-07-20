@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
 
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
@@ -10,6 +11,7 @@ using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Responses;
+using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Outputs;
 
 using SqlSugar;
@@ -21,7 +23,8 @@ public sealed class UserAdminModerationService(
     ILogger<UserAdminModerationService> logger,
     IBlacklistService blacklist,
     IMessageCommandService messages,
-    ICacheCounterStore counters) : IUserAdminModerationService
+    ICacheCounterStore counters,
+    IUserSessionValidationCache? sessionValidation = null) : IUserAdminModerationService
 {
     private const int UserStatusNormal = 0;
     private const int UserStatusBanned = 1;
@@ -240,7 +243,8 @@ public sealed class UserAdminModerationService(
 
         string? effectiveReason = dto.Status == 1 ? (dto.Reason ?? "违反社区规定") : null;
 
-        if (!await TryUpdateAdminStatusAsync(user, dto.Status, effectiveReason))
+        AdminStatusUpdateResult statusUpdate = await TryUpdateAdminStatusAsync(user, dto.Status, effectiveReason);
+        if (!statusUpdate.Success)
         {
             var current = await LoadAdminStatusTargetAsync(dto.AccountId);
             if (current == null)
@@ -299,26 +303,130 @@ public sealed class UserAdminModerationService(
             reader.ReadString("row_version"));
     }
 
-    private async Task<bool> TryUpdateAdminStatusAsync(AdminStatusTarget target, int status, string? banReason)
+    private async Task<AdminStatusUpdateResult> TryUpdateAdminStatusAsync(AdminStatusTarget target, int status, string? banReason)
     {
-        int updated = await db.Ado.ExecuteCommandAsync(
-            """
-            UPDATE sys_user
-            SET status = @Status,
-                banreason = @BanReason
-            WHERE id = @AccountId
-              AND identity_kind = @IdentityKind
-              AND status <> 2
-              AND deleted_at IS NULL
-              AND xmin::text = @RowVersion;
-            """,
-            new SugarParameter("@AccountId", target.Id),
-            new SugarParameter("@IdentityKind", target.IdentityKind),
-            new SugarParameter("@Status", status),
-            new SugarParameter("@BanReason", banReason),
-            new SugarParameter("@RowVersion", target.RowVersion));
-        return updated > 0;
+        if (db.CurrentConnectionConfig?.DbType != DbType.PostgreSQL)
+        {
+            int updated = await db.Ado.ExecuteCommandAsync(
+                """
+                UPDATE sys_user
+                SET status = @Status,
+                    banreason = @BanReason
+                WHERE id = @AccountId
+                  AND identity_kind = @IdentityKind
+                  AND status <> 2
+                  AND deleted_at IS NULL
+                  AND xmin::text = @RowVersion;
+                """,
+                new SugarParameter("@AccountId", target.Id),
+                new SugarParameter("@IdentityKind", target.IdentityKind),
+                new SugarParameter("@Status", status),
+                new SugarParameter("@BanReason", banReason),
+                new SugarParameter("@RowVersion", target.RowVersion));
+            return new AdminStatusUpdateResult(updated > 0, 0);
+        }
+
+        var states = new List<UserSessionValidationCacheState>();
+        bool publicationAttempted = false;
+        bool accountUpdated = false;
+        var transaction = await db.Ado.UseTranAsync(async () =>
+        {
+            await UserSessionConcurrencyGate.AcquireAsync(db, target.Id);
+            string? accountRowVersion = null;
+            using (var accountReader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+                """
+                UPDATE sys_user
+                SET status = @Status,
+                    banreason = @BanReason
+                WHERE id = @AccountId
+                  AND identity_kind = @IdentityKind
+                  AND status <> 2
+                  AND deleted_at IS NULL
+                  AND xmin::text = @RowVersion
+                RETURNING xmin::text AS account_row_version;
+                """,
+                new SugarParameter("@AccountId", target.Id),
+                new SugarParameter("@IdentityKind", target.IdentityKind),
+                new SugarParameter("@Status", status),
+                new SugarParameter("@BanReason", banReason),
+                new SugarParameter("@RowVersion", target.RowVersion)))
+            {
+                if (await accountReader.ReadAsync())
+                {
+                    accountUpdated = true;
+                    accountRowVersion = accountReader.ReadString("account_row_version");
+                }
+            }
+
+            if (!accountUpdated)
+            {
+                return;
+            }
+
+            UserSessionMode mode = status == UserStatusBanned
+                ? UserSessionMode.Restricted
+                : UserSessionMode.Normal;
+            using var sessionReader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+                """
+                UPDATE sys_user_session
+                SET session_mode = @SessionMode
+                WHERE userid = @AccountId
+                  AND revokedat IS NULL
+                RETURNING sessionid, userid, revokedat, idleexpiresat, absoluteexpiresat,
+                          authentication_method, authentication_strength, authenticated_at_utc,
+                          session_mode, xmin::text AS row_version;
+                """,
+                new SugarParameter("@AccountId", target.Id),
+                new SugarParameter("@SessionMode", (int)mode));
+            while (await sessionReader.ReadAsync())
+            {
+                states.Add(new UserSessionValidationCacheState(
+                    sessionReader.ReadString("sessionid"),
+                    sessionReader.ReadInt32("userid"),
+                    null,
+                    AsUtc(sessionReader.ReadDateTime("idleexpiresat")),
+                    AsUtc(sessionReader.ReadDateTime("absoluteexpiresat")),
+                    sessionReader.ReadString("row_version"),
+                    status,
+                    null,
+                    target.IdentityKind,
+                    sessionReader.ReadString("authentication_method"),
+                    sessionReader.ReadString("authentication_strength"),
+                    AsUtc(sessionReader.ReadDateTime("authenticated_at_utc")),
+                    mode,
+                    accountRowVersion!));
+            }
+
+            publicationAttempted = states.Count > 0 && sessionValidation is not null;
+            if (sessionValidation is not null)
+            {
+                await sessionValidation.PublishManyAsync(states, allowOverwrite: true);
+            }
+        });
+
+        if (!transaction.IsSuccess)
+        {
+            if (publicationAttempted)
+            {
+                try
+                {
+                    await sessionValidation!.InvalidateManyAsync(states, CancellationToken.None);
+                }
+                catch (Exception cleanupError)
+                {
+                    logger.LogWarning(cleanupError, "Failed to clean up rolled-back session-mode snapshots");
+                }
+            }
+            throw transaction.ErrorException ?? new InvalidOperationException("account status transaction failed");
+        }
+
+        return new AdminStatusUpdateResult(accountUpdated, states.Count);
     }
+
+    private static DateTime AsUtc(DateTime value)
+        => value.Kind == DateTimeKind.Utc ? value : DateTime.SpecifyKind(value, DateTimeKind.Utc);
+
+    private readonly record struct AdminStatusUpdateResult(bool Success, int SessionCount);
 
     private sealed record AdminStatusTarget(
         int Id,

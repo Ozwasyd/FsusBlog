@@ -329,10 +329,35 @@ public sealed class AuthRiskControlEndpointContractTests(
             "/api/binary/auth/passkey/login/begin");
         EndpointSecurityTestServer.AddAnonymousAccount(allowAnonymousAuth);
         using HttpResponseMessage authResponse = await client.SendAsync(allowAnonymousAuth);
-        Assert.Equal((HttpStatusCode)StatusCodes.Status428PreconditionRequired, authResponse.StatusCode);
+        Assert.Equal((HttpStatusCode)StatusCodes.Status423Locked, authResponse.StatusCode);
         Assert.Equal(
-            "RISK_CHALLENGE_PROOF_REQUIRED",
-            (await EndpointSecurityTestServer.ReadErrorAsync(authResponse)).Message);
+            "ACCOUNT_BANNED_WRITE_LOCKED",
+            (await EndpointSecurityTestServer.ReadErrorAsync(authResponse)).Details);
+    }
+
+    [Fact]
+    public async Task TestServer_RestrictedSessionUsesExplicitWhitelistForReadsAndWrites()
+    {
+        using EndpointSecurityTestServer server = EndpointSecurityTestServer.Create();
+        using HttpClient client = CreateIsolatedClient(server);
+        server.Sessions.GetUserSessionsAsync(42, "account-session-42", Arg.Any<CancellationToken>())
+            .Returns([]);
+
+        using var blockedRead = new HttpRequestMessage(HttpMethod.Get, "/api/binary/auth/passkey/credentials");
+        EndpointSecurityTestServer.AddRestrictedAnonymousAccount(blockedRead);
+        using HttpResponseMessage blocked = await client.SendAsync(blockedRead);
+        Assert.Equal((HttpStatusCode)StatusCodes.Status423Locked, blocked.StatusCode);
+        Assert.Equal("ACCOUNT_BANNED_WRITE_LOCKED", (await EndpointSecurityTestServer.ReadErrorAsync(blocked)).Details);
+
+        using var blockedPublic = new HttpRequestMessage(HttpMethod.Post, "/api/binary/auth/passkey/login/begin");
+        EndpointSecurityTestServer.AddRestrictedAnonymousAccount(blockedPublic);
+        using HttpResponseMessage publicResponse = await client.SendAsync(blockedPublic);
+        Assert.Equal((HttpStatusCode)StatusCodes.Status423Locked, publicResponse.StatusCode);
+
+        using var allowedRead = new HttpRequestMessage(HttpMethod.Get, "/api/binary/auth/sessions");
+        EndpointSecurityTestServer.AddRestrictedAnonymousAccount(allowedRead);
+        using HttpResponseMessage allowed = await client.SendAsync(allowedRead);
+        Assert.Equal(HttpStatusCode.OK, allowed.StatusCode);
     }
 
     [Fact]

@@ -285,6 +285,22 @@ public sealed class JwtHelperTests
     }
 
     [Fact]
+    public void GenerateAccessToken_RestrictedSessionCarriesExplicitModeClaim()
+    {
+        var helper = CreateHelper();
+        UserSessionAuthenticationContext context = UserSessionAuthenticationContext.FromLegacy(false, false) with
+        {
+            SessionMode = UserSessionMode.Restricted
+        };
+
+        string token = helper.GenerateAccessToken(TestUser(), "restricted-session", context);
+
+        Assert.Contains(
+            ParseClaims(token),
+            claim => claim.Type == UserSessionModes.ClaimType && claim.Value == "restricted");
+    }
+
+    [Fact]
     public void GenerateAccessToken_UsesConfiguredIssuerAndAudience()
     {
         var helper = CreateHelper(issuer: "my-issuer", audience: "my-audience");

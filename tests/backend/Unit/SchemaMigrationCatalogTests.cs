@@ -25,8 +25,8 @@ public sealed class SchemaMigrationCatalogTests
             catalog => Assert.Equal("current-20260709-20260716", catalog.CatalogId),
             catalog => Assert.Equal("current-20260719", catalog.CatalogId),
             catalog => Assert.Equal("current-20260720", catalog.CatalogId));
-        Assert.Equal(108, manifest.Descriptors.Count);
-        const string ExpectedPlanFingerprint = "F02F69899950F14D00C46248A932FF8A199F5E68AB965400B27612FE9A7F4277";
+        Assert.Equal(111, manifest.Descriptors.Count);
+        const string ExpectedPlanFingerprint = "8E15BE90C43866B1E12B51C701384ED00198F4719C9FA48C2E3A2379C450C62F";
         string actualPlanFingerprint = ComputePlanFingerprint(manifest.Descriptors);
         Assert.True(
             string.Equals(ExpectedPlanFingerprint, actualPlanFingerprint, StringComparison.Ordinal),
@@ -244,6 +244,22 @@ public sealed class SchemaMigrationCatalogTests
     }
 
     [Fact]
+    public void UserSessionModeAuthority_IsRegisteredAndBackfillsAuthoritativeModes()
+    {
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            new SchemaMigrationRegistry().GetDescriptors(),
+            item => item.MigrationId == UserSessionModeMigrationDefinitions.MigrationId);
+        string migration = string.Join('\n', descriptor.Steps.Select(step => step.Fingerprint));
+
+        Assert.Equal(SchemaMigrationPhase.PreCodeFirst, descriptor.Phase);
+        Assert.True(descriptor.Transactional);
+        Assert.Contains("session_mode", migration, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("revokedat IS NOT NULL THEN 2", migration, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("account.status = 1 THEN 1", migration, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("integer NULL DEFAULT 0", migration, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void SourceLayout_PreventsLegacyRegistryDescriptorAggregation()
     {
         string migrationRoot = BackendTestPaths.FromRoot(
@@ -268,7 +284,7 @@ public sealed class SchemaMigrationCatalogTests
         Assert.DoesNotContain("partial class SchemaMigrationRegistry", registrySource, StringComparison.Ordinal);
         Assert.DoesNotContain("new SchemaMigrationDescriptor(", registrySource, StringComparison.Ordinal);
         Assert.DoesNotContain("Build", registrySource, StringComparison.Ordinal);
-        Assert.Equal(107, descriptorDefinitionCount);
+        Assert.Equal(111, descriptorDefinitionCount);
         Assert.All(
             definitionFiles.Select(File.ReadAllText),
             static source => Assert.DoesNotContain("partial class", source, StringComparison.Ordinal));
