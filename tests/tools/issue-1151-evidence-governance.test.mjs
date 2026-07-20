@@ -101,9 +101,9 @@ test('workflow aggregates keep diagnostics outside correctness', () => {
   assert.doesNotMatch(browserContract, /run-flaky-governed|--retry/u)
 
   const diagnostics = read('.github/workflows/browser-diagnostics.yml')
-  assert.match(diagnostics, /^  schedule:/mu)
-  assert.match(diagnostics, /^  workflow_dispatch:/mu)
-  assert.doesNotMatch(diagnostics, /^  pull_request:|^  push:/mu)
+  assert.match(diagnostics, /^\s+schedule:/mu)
+  assert.match(diagnostics, /^\s+workflow_dispatch:/mu)
+  assert.doesNotMatch(diagnostics, /^\s+(?:pull_request|push):/mu)
 })
 
 test('testing docs state the four execution boundaries without compatibility ambiguity', () => {
