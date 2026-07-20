@@ -36,4 +36,14 @@ describe('account shell geometry', () => {
     )
     expect(shellCss).not.toMatch(/\.el-drawer__(?:header|title)/)
   })
+
+  it('derives the desktop scroll region from the actual 89px site header', () => {
+    expect(shellCss).toMatch(
+      /\.account-shell\s*\{[\s\S]*?--fsusblog-account-header-height:\s*5\.5625rem;/
+    )
+    expect(shellCss).toContain(
+      'max-height: calc(100dvh - var(--fsusblog-account-header-height) - var(--fsus-space-8) - var(--fsus-space-8));'
+    )
+    expect(shellCss).not.toContain('max-height: calc(100dvh - 7rem);')
+  })
 })
