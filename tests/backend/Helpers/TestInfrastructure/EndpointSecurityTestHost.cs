@@ -503,6 +503,8 @@ public sealed class EndpointSecurityTestServer : IDisposable
             ["Security:Pow:BaseDifficulty"] = "1",
             ["Security:Pow:MaxDifficulty"] = "1",
             ["Security:IpHashKey"] = "endpoint-security-test-key",
+            [SecurityRiskPseudonymizer.CurrentEpochKey] = "1",
+            [SecurityRiskPseudonymizer.CurrentKeyKey] = "ZW5kcG9pbnQtcmlzay1wc2V1ZG9ueW0ta2V5LTMyYnl0ZXMh",
             ["Moderation:Pepper"] = "endpoint-security-moderation-pepper-at-least-32-bytes"
         });
         builder.Services.AddLogging();

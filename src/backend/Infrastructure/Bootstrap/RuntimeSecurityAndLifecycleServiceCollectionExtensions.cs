@@ -99,6 +99,7 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<ITotpService, TotpService>();
         services.AddScoped<IMfaChallengeService, MfaChallengeService>();
         services.AddScoped<IAuthRiskService, AuthRiskService>();
+        services.AddSingleton<IUserSessionMetadataProtector, UserSessionMetadataProtector>();
         services.AddScoped<IRiskControlContextFactory, RiskControlContextFactory>();
         services.AddScoped<IRiskDecisionService, RiskDecisionService>();
         services.AddScoped<ISecurityPolicySnapshotService, SecurityPolicySnapshotService>();

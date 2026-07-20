@@ -121,6 +121,21 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    public void ValidateCore_RejectsOutOfRangeUserSessionMetadataRetention()
+    {
+        IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
+        {
+            [UserSessionMetadataRetentionPolicy.RetentionDaysConfigurationKey] = "91"
+        });
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
+
+        Assert.Contains(
+            errors,
+            error => error.Contains(UserSessionMetadataRetentionPolicy.RetentionDaysConfigurationKey, StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void ValidateCore_RejectsOutOfRangeStepUpFreshness()
     {
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>

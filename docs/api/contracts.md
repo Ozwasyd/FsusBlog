@@ -606,7 +606,7 @@ Passkey complete、MFA verify 与匿名 bootstrap 的成功响应只表示服务
 ```json
 {
   "sessionId": "uuid-v4",
-  "deviceLabel": "Chrome on Windows",
+  "deviceLabel": "Chrome / Windows / Desktop",
   "createdAt": "2026-01-01T00:00:00Z",
   "lastSeenAt": "2026-01-01T01:00:00Z",
   "authenticationMethod": "passkey",
@@ -617,7 +617,7 @@ Passkey complete、MFA verify 与匿名 bootstrap 的成功响应只表示服务
 }
 ```
 
-普通账号可同时保留受服务端上限约束的多个 active `UserSession`。列表只提供可操作的 session id、粗粒度设备标签、创建/最近活跃时间、登录来源与强度、可选 Passkey 友好名称、Cookie 持久化策略和当前会话标记。它不返回内部 credential row id、设备指纹、raw user agent、原始 IP、JWT/refresh token、长期 `mfaVerified` 状态或 user id；服务端可继续把这些内部数据用于风险判定和精确撤销，但不得编码进 `AuthSessionList`。
+普通账号可同时保留受服务端上限约束的多个 active `UserSession`。列表只提供可操作的 session id、由 browser family / OS family / form factor 组成的粗粒度设备标签、创建/最近活跃时间、登录来源与强度、可选 Passkey 友好名称、Cookie 持久化策略和当前会话标记。它不返回内部 credential row id、客户端设备指纹、raw user agent、原始 IP、内部 device/network HMAC、JWT/refresh token、长期 `mfaVerified` 状态或 user id。服务端只持久化 account-scoped rotating HMAC + epoch 及低基数 UA 标签；fingerprint 不参与授权、账号绑定、step-up 豁免或 refresh replay 撤销范围。signal 缺失仍可完成正常 Passkey 登录。
 
 ### `AdminSessionSummaryDto`（管理员会话列表项）
 

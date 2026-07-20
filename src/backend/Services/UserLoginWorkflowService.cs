@@ -8,6 +8,7 @@ using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.NotificationStream;
 using FsusBlog.Server.Services.Security;
@@ -24,6 +25,7 @@ public sealed partial class UserLoginWorkflowService(
     IJwtHelper jwt,
     IUserSessionValidationCache sessionValidation,
     IAuthRiskService authRisk,
+    IUserSessionMetadataProtector sessionMetadata,
     IConfiguration? configuration = null,
     IMessageNotificationStreamPort? notificationStream = null) : IUserLoginWorkflowService
 {
@@ -140,6 +142,11 @@ public sealed partial class UserLoginWorkflowService(
         DateTime idleExpiresAt = DateTime.MinValue;
         DateTime absoluteExpiresAt = DateTime.MinValue;
 
+        UserSessionMetadataSnapshot metadata = sessionMetadata.Capture(
+            user.Id,
+            clientIp,
+            deviceFingerprint,
+            userAgent);
         var session = new UserSession
         {
             SessionId = sessionId,
@@ -147,9 +154,13 @@ public sealed partial class UserLoginWorkflowService(
             RefreshTokenHash = refreshTokenHash,
             RefreshFamilyId = refreshFamilyId,
             RefreshGeneration = 0,
-            DeviceFingerprint = string.IsNullOrWhiteSpace(deviceFingerprint) ? null : deviceFingerprint,
-            LastIp = clientIp,
-            UserAgent = Truncate(userAgent, 512),
+            DeviceSignalHash = metadata.DeviceSignalHash,
+            DeviceSignalEpoch = metadata.DeviceSignalEpoch,
+            NetworkSignalHash = metadata.NetworkSignalHash,
+            NetworkSignalEpoch = metadata.NetworkSignalEpoch,
+            BrowserFamily = metadata.BrowserFamily,
+            OperatingSystemFamily = metadata.OperatingSystemFamily,
+            FormFactor = metadata.FormFactor,
             CreatedAt = DateTime.UtcNow,
             LastSeenAt = DateTime.UtcNow,
             IdleExpiresAt = idleExpiresAt,

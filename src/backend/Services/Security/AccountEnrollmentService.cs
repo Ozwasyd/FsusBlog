@@ -11,6 +11,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Shared.Contracts.Outputs;
 
@@ -41,6 +42,7 @@ public sealed class AccountEnrollmentService(
     ICacheCounterStore counters,
     ICacheInvalidationStore invalidation,
     IDataProtectionProvider dataProtection,
+    IUserSessionMetadataProtector sessionMetadata,
     ILogger<AccountEnrollmentService> logger) : IAccountEnrollmentService
 {
     private static readonly TimeSpan s_completionLease = TimeSpan.FromMinutes(2);
@@ -231,6 +233,11 @@ public sealed class AccountEnrollmentService(
                 UserSessionDurationPolicies.BrowserSession);
             accessToken = jwt.GenerateAccessToken(activatedUser, sessionId, authenticationContext);
 
+            UserSessionMetadataSnapshot metadata = sessionMetadata.Capture(
+                activatedUser.Id,
+                client.ClientIp,
+                client.DeviceFingerprint,
+                client.UserAgent);
             await db.Insertable(new UserSession
             {
                 SessionId = sessionId,
@@ -238,9 +245,13 @@ public sealed class AccountEnrollmentService(
                 RefreshTokenHash = HashOpaqueToken(refreshToken),
                 RefreshFamilyId = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)),
                 RefreshGeneration = 0,
-                DeviceFingerprint = Normalize(client.DeviceFingerprint, 128),
-                LastIp = Normalize(client.ClientIp, 64),
-                UserAgent = Normalize(client.UserAgent, 512),
+                DeviceSignalHash = metadata.DeviceSignalHash,
+                DeviceSignalEpoch = metadata.DeviceSignalEpoch,
+                NetworkSignalHash = metadata.NetworkSignalHash,
+                NetworkSignalEpoch = metadata.NetworkSignalEpoch,
+                BrowserFamily = metadata.BrowserFamily,
+                OperatingSystemFamily = metadata.OperatingSystemFamily,
+                FormFactor = metadata.FormFactor,
                 CreatedAt = now,
                 LastSeenAt = now,
                 IdleExpiresAt = idleExpiresAt,

@@ -133,6 +133,8 @@ public sealed class OnlineSchemaMigrationPolicyTests
             metadata[UserSessionModeMigrationDefinitions.MigrationId];
         OnlineSchemaMigrationMetadata userSessionAuthenticationContext =
             metadata[UserSessionAuthenticationContextMigrationDefinitions.MigrationId];
+        OnlineSchemaMigrationMetadata userSessionMetadataMinimization =
+            metadata[UserSessionMetadataMinimizationMigrationDefinitions.MigrationId];
         OnlineSchemaMigrationMetadata commentMutationOutbox =
             metadata[CommentMutationOutboxMigrationDefinitions.MigrationId];
         OnlineSchemaMigrationMetadata userSessionMultiDevice =
@@ -175,6 +177,10 @@ public sealed class OnlineSchemaMigrationPolicyTests
         Assert.Equal(OnlineSchemaMigrationPhase.Contract, userSessionAuthenticationContext.Phase);
         Assert.True(userSessionAuthenticationContext.Destructive);
         Assert.Equal(OnlineSchemaMigrationRollbackMode.BackupRestore, userSessionAuthenticationContext.RollbackMode);
+        Assert.Equal(OnlineSchemaMigrationPhase.Contract, userSessionMetadataMinimization.Phase);
+        Assert.True(userSessionMetadataMinimization.Destructive);
+        Assert.True(userSessionMetadataMinimization.RequiresExclusiveMode);
+        Assert.Equal(OnlineSchemaMigrationRollbackMode.BackupRestore, userSessionMetadataMinimization.RollbackMode);
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, commentMutationOutbox.Phase);
         Assert.False(commentMutationOutbox.Destructive);
         Assert.Equal(OnlineSchemaMigrationPhase.Contract, userSessionMultiDevice.Phase);
@@ -218,6 +224,7 @@ public sealed class OnlineSchemaMigrationPolicyTests
             refreshTokenLineage.MigrationId,
             userSessionModeAuthority.MigrationId,
             userSessionAuthenticationContext.MigrationId,
+            userSessionMetadataMinimization.MigrationId,
             commentMutationOutbox.MigrationId,
             MessagePrivacyRetentionMigrationDefinitions.MigrationId,
             userSessionMultiDevice.MigrationId

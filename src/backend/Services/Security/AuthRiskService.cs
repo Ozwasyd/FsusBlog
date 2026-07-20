@@ -1,4 +1,5 @@
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Security;
 
 using SqlSugar;
 
@@ -21,7 +22,10 @@ public interface IAuthRiskService
     Task<RiskEvaluationResult> EvaluateSensitiveActionRiskAsync(int userId, string clientIp, string? deviceFingerprint, string action);
 }
 
-public sealed class AuthRiskService(ISqlSugarClient db) : IAuthRiskService
+public sealed class AuthRiskService(
+    ISqlSugarClient db,
+    IUserSessionMetadataProtector metadataProtector,
+    IConfiguration configuration) : IAuthRiskService
 {
     public async Task<RiskEvaluationResult> EvaluateLoginRiskAsync(int userId, string clientIp, string? deviceFingerprint, string? userAgent)
     {
@@ -31,9 +35,13 @@ public sealed class AuthRiskService(ISqlSugarClient db) : IAuthRiskService
             .Take(20)
             .Select(s => new AuthRiskSessionSample
             {
-                DeviceFingerprint = s.DeviceFingerprint,
-                LastIp = s.LastIp,
-                UserAgent = s.UserAgent,
+                DeviceSignalHash = s.DeviceSignalHash,
+                DeviceSignalEpoch = s.DeviceSignalEpoch,
+                NetworkSignalHash = s.NetworkSignalHash,
+                NetworkSignalEpoch = s.NetworkSignalEpoch,
+                BrowserFamily = s.BrowserFamily,
+                OperatingSystemFamily = s.OperatingSystemFamily,
+                FormFactor = s.FormFactor,
                 CreatedAt = s.CreatedAt
             })
             .ToListAsync();
@@ -46,16 +54,30 @@ public sealed class AuthRiskService(ISqlSugarClient db) : IAuthRiskService
         int score = 0;
         AuthRiskFlags flags = AuthRiskFlags.None;
 
-        bool knownDevice = !string.IsNullOrWhiteSpace(deviceFingerprint)
-            && sessions.Any(s => s.DeviceFingerprint == deviceFingerprint);
-        if (!knownDevice)
+        bool metadataRiskSignalsEnabled = configuration.GetValue(
+            UserSessionMetadataRetentionPolicy.RiskSignalsEnabledConfigurationKey,
+            true);
+        IReadOnlyList<SecurityRiskPseudonym> deviceSignals = metadataRiskSignalsEnabled
+            ? metadataProtector.ProtectDeviceForRead(userId, deviceFingerprint)
+            : [];
+        bool knownDevice = deviceSignals.Count == 0 || sessions.Any(session =>
+            deviceSignals.Any(signal =>
+                signal.Epoch == session.DeviceSignalEpoch
+                && string.Equals(signal.Hash, session.DeviceSignalHash, StringComparison.Ordinal)));
+        if (deviceSignals.Count > 0 && !knownDevice)
         {
             score += 50;
             flags |= AuthRiskFlags.UnknownDevice;
         }
 
-        bool knownIp = sessions.Any(s => string.Equals(s.LastIp, clientIp, StringComparison.Ordinal));
-        if (!knownIp)
+        IReadOnlyList<SecurityRiskPseudonym> networkSignals = metadataRiskSignalsEnabled
+            ? metadataProtector.ProtectNetworkForRead(userId, clientIp)
+            : [];
+        bool knownNetwork = networkSignals.Count == 0 || sessions.Any(session =>
+            networkSignals.Any(signal =>
+                signal.Epoch == session.NetworkSignalEpoch
+                && string.Equals(signal.Hash, session.NetworkSignalHash, StringComparison.Ordinal)));
+        if (networkSignals.Count > 0 && !knownNetwork)
         {
             score += 40;
             flags |= AuthRiskFlags.UnknownIp;
@@ -69,9 +91,13 @@ public sealed class AuthRiskService(ISqlSugarClient db) : IAuthRiskService
             flags |= AuthRiskFlags.RapidRefresh;
         }
 
-        if (!string.IsNullOrWhiteSpace(userAgent))
+        if (metadataRiskSignalsEnabled && !string.IsNullOrWhiteSpace(userAgent))
         {
-            bool knownUa = sessions.Any(s => string.Equals(s.UserAgent, userAgent, StringComparison.Ordinal));
+            UserSessionMetadataSnapshot coarse = metadataProtector.Capture(userId, null, null, userAgent);
+            bool knownUa = sessions.Any(s =>
+                string.Equals(s.BrowserFamily, coarse.BrowserFamily, StringComparison.Ordinal)
+                && string.Equals(s.OperatingSystemFamily, coarse.OperatingSystemFamily, StringComparison.Ordinal)
+                && string.Equals(s.FormFactor, coarse.FormFactor, StringComparison.Ordinal));
             if (!knownUa)
             {
                 score += 15;
@@ -102,18 +128,28 @@ public sealed class AuthRiskService(ISqlSugarClient db) : IAuthRiskService
 
     private sealed record AuthRiskSessionSample
     {
-        public string? DeviceFingerprint
+        public string? DeviceSignalHash
         {
             get; init;
         }
-        public string? LastIp
+        public int? DeviceSignalEpoch
         {
             get; init;
         }
-        public string? UserAgent
+        public string? NetworkSignalHash
         {
             get; init;
         }
+        public int? NetworkSignalEpoch
+        {
+            get; init;
+        }
+        public string BrowserFamily { get; init; } = "Unknown";
+        public string OperatingSystemFamily { get; init; } = "Unknown";
+        public string FormFactor
+        {
+            get; init;
+        } = "Unknown";
         public DateTime CreatedAt
         {
             get; init;

@@ -469,7 +469,9 @@ public sealed partial class UserSessionCommandService(
             .Select((session, credential) => new UserSessionSummaryRow
             {
                 SessionId = session.SessionId,
-                UserAgent = session.UserAgent,
+                BrowserFamily = session.BrowserFamily,
+                OperatingSystemFamily = session.OperatingSystemFamily,
+                FormFactor = session.FormFactor,
                 CreatedAt = session.CreatedAt,
                 LastSeenAt = session.LastSeenAt,
                 AuthenticationMethod = session.AuthenticationMethod,
@@ -481,7 +483,7 @@ public sealed partial class UserSessionCommandService(
 
         return sessions.Select(s => new UserSessionSummaryDto(
             SessionId: s.SessionId,
-            DeviceLabel: BuildDeviceLabel(s.UserAgent),
+            DeviceLabel: BuildDeviceLabel(s.BrowserFamily, s.OperatingSystemFamily, s.FormFactor),
             CreatedAt: s.CreatedAt,
             LastSeenAt: s.LastSeenAt,
             AuthenticationMethod: NormalizeAuthenticationMethod(s.AuthenticationMethod),
@@ -494,10 +496,9 @@ public sealed partial class UserSessionCommandService(
     private sealed record UserSessionSummaryRow
     {
         public string SessionId { get; init; } = string.Empty;
-        public string? UserAgent
-        {
-            get; init;
-        }
+        public string BrowserFamily { get; init; } = "Unknown";
+        public string OperatingSystemFamily { get; init; } = "Unknown";
+        public string FormFactor { get; init; } = "Unknown";
         public DateTime CreatedAt
         {
             get; init;
@@ -515,37 +516,14 @@ public sealed partial class UserSessionCommandService(
         public string DurationPolicy { get; init; } = UserSessionDurationPolicies.BrowserSession;
     }
 
-    private static string BuildDeviceLabel(string? userAgent)
-    {
-        if (string.IsNullOrWhiteSpace(userAgent))
-        {
-            return "Unknown device";
-        }
+    private static string BuildDeviceLabel(
+        string? browserFamily,
+        string? operatingSystemFamily,
+        string? formFactor)
+        => $"{NormalizeCoarseLabel(browserFamily)} / {NormalizeCoarseLabel(operatingSystemFamily)} / {NormalizeCoarseLabel(formFactor)}";
 
-        string browser = userAgent.Contains("Edg/", StringComparison.OrdinalIgnoreCase)
-            ? "Edge"
-            : userAgent.Contains("Firefox/", StringComparison.OrdinalIgnoreCase)
-                ? "Firefox"
-                : userAgent.Contains("Chrome/", StringComparison.OrdinalIgnoreCase) ||
-                  userAgent.Contains("CriOS/", StringComparison.OrdinalIgnoreCase)
-                    ? "Chrome"
-                    : userAgent.Contains("Safari/", StringComparison.OrdinalIgnoreCase)
-                        ? "Safari"
-                        : "Browser";
-        string platform = userAgent.Contains("iPhone", StringComparison.OrdinalIgnoreCase) ||
-                          userAgent.Contains("iPad", StringComparison.OrdinalIgnoreCase)
-            ? "iPhone/iPad"
-            : userAgent.Contains("Android", StringComparison.OrdinalIgnoreCase)
-                ? "Android"
-                : userAgent.Contains("Windows", StringComparison.OrdinalIgnoreCase)
-                    ? "Windows"
-                    : userAgent.Contains("Mac OS", StringComparison.OrdinalIgnoreCase)
-                        ? "macOS"
-                        : userAgent.Contains("Linux", StringComparison.OrdinalIgnoreCase)
-                            ? "Linux"
-                            : "Other";
-        return $"{browser} on {platform}";
-    }
+    private static string NormalizeCoarseLabel(string? value)
+        => string.IsNullOrWhiteSpace(value) ? "Unknown" : value.Trim();
 
     private static string NormalizeAuthenticationMethod(string? value)
         => UserSessionAuthenticationMethods.IsValid(value)
@@ -1082,8 +1060,8 @@ public sealed partial class UserSessionCommandService(
             using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
                 """
                 WITH replay_target AS MATERIALIZED (
-                    SELECT userid,
-                           devicefingerprint
+                    SELECT sessionid,
+                           userid
                     FROM sys_user_session
                     WHERE sessionid = @SessionId
                       AND revokedat IS NULL
@@ -1096,9 +1074,9 @@ public sealed partial class UserSessionCommandService(
                         revokereason = @Reason,
                         session_mode = 2
                     FROM replay_target AS target
-                    WHERE session.userid = target.userid
+                    WHERE session.sessionid = target.sessionid
+                      AND session.userid = target.userid
                       AND session.revokedat IS NULL
-                      AND session.devicefingerprint IS NOT DISTINCT FROM target.devicefingerprint
                     RETURNING session.sessionid,
                               session.userid,
                               session.revokedat,

@@ -6,6 +6,8 @@
 
 Security-risk 持久化只使用独立、带 epoch 且按 IP/device/account 域隔离的 HMAC pseudonym，并停止保留请求 path 与 User-Agent。生产 key ring、轮换、遗留 unkeyed hash 删除迁移、retention 和流量回退要求见 [security-risk identity pseudonyms](security/security-risk-pseudonyms.md)。
 
+普通账号 session 元数据也遵循最小化边界：`X-Fsus-Device-Fp` 明确不可信且不是 credential；`sys_user_session` 不保存原始 fingerprint、完整 IP 或完整 User-Agent，只保存账号作用域、epoch 隔离的 device/network HMAC 与 browser/OS/form-factor 标签。IPv4 先截断为 `/24`、IPv6 截断为 `/48`；缺失或变化的 signal 不能独立授权、绑定账号、豁免 step-up 或扩大撤销范围。旧值清理、30 天默认 retention、key rotation 与无需重启的风险信号降级见 [user-session metadata privacy](security/user-session-metadata-privacy.md)。
+
 历史 VisitLog IP pseudonym 仍按受限 pseudonym 而非匿名数据处置；当前 read analytics 不再创建该 pseudonym，也不把任何地址或地址 hash 放进 `VisitLogMessage`。遗留 `VisitLog:IpPseudonymization` key 只供仍在迁移期使用 `security-log` domain 的安全日志调用方，不能恢复 `analytics` 写入。历史 raw IP 的删除必须同步覆盖 backup、WAL archive、日志、Redis legacy keys 与 ETL/S3，保留上限、DSR export/delete、脱敏审计和月度全链扫描见 [historical raw-IP lifecycle](security/ip-anonymization-lifecycle.md)。不得用备份加密代替删除，也不得为按用户查找访问记录重建账号关联。
 
 ## 纵深防御层次

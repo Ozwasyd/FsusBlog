@@ -434,6 +434,18 @@ public static class ProductionStartupValidator
                 $"{UserSessionPolicy.MaxActiveSessionsConfigurationKey} must be between "
                 + $"{UserSessionPolicy.MinimumMaxActiveSessions} and {UserSessionPolicy.MaximumMaxActiveSessions}.");
         }
+
+        int? metadataRetentionDays = configuration.GetValue<int?>(
+            UserSessionMetadataRetentionPolicy.RetentionDaysConfigurationKey);
+        if (metadataRetentionDays is not null
+            && (metadataRetentionDays < UserSessionMetadataRetentionPolicy.MinimumRetentionDays
+                || metadataRetentionDays > UserSessionMetadataRetentionPolicy.MaximumRetentionDays))
+        {
+            errors.Add(
+                $"{UserSessionMetadataRetentionPolicy.RetentionDaysConfigurationKey} must be between "
+                + $"{UserSessionMetadataRetentionPolicy.MinimumRetentionDays} and "
+                + $"{UserSessionMetadataRetentionPolicy.MaximumRetentionDays}.");
+        }
     }
 
     private static void ValidateAccountEnrollmentSettings(IConfiguration configuration, List<string> errors)

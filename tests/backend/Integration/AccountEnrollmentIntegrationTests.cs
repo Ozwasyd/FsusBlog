@@ -5,6 +5,7 @@ using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
@@ -194,6 +195,8 @@ public sealed class AccountEnrollmentIntegrationTests(PostgresSchemaMigrationFix
             Substitute.For<ICacheCounterStore>(),
             Substitute.For<ICacheInvalidationStore>(),
             new EphemeralDataProtectionProvider(),
+            new UserSessionMetadataProtector(
+                new SecurityRiskPseudonymizer(1, Enumerable.Range(1, 32).Select(static value => (byte)value).ToArray())),
             NullLogger<AccountEnrollmentService>.Instance);
     }
 

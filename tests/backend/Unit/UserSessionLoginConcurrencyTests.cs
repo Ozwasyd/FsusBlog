@@ -1,6 +1,7 @@
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services;
@@ -53,8 +54,8 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
 
         Assert.Equal(2, sessions.Count);
         Assert.All(sessions, static session => Assert.Null(session.RevokedAt));
-        Assert.Contains(sessions, static session => session.DeviceFingerprint == "device-a");
-        Assert.Contains(sessions, static session => session.DeviceFingerprint == "device-b");
+        Assert.All(sessions, static session => Assert.NotNull(session.DeviceSignalHash));
+        Assert.Equal(2, sessions.Select(static session => session.DeviceSignalHash).Distinct(StringComparer.Ordinal).Count());
         Assert.Contains(sessions, session => session.SessionId == first.Data?.SessionId);
         Assert.Contains(sessions, session => session.SessionId == second.Data?.SessionId);
     }
@@ -275,6 +276,8 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
             jwt,
             Substitute.For<IUserSessionValidationCache>(),
             Substitute.For<IAuthRiskService>(),
+            new UserSessionMetadataProtector(
+                new SecurityRiskPseudonymizer(1, Enumerable.Range(1, 32).Select(static value => (byte)value).ToArray())),
             new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string?>
                 {

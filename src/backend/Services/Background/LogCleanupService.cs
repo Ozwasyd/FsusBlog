@@ -4,6 +4,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Infrastructure.Security;
 
 using SqlSugar;
 
@@ -24,7 +25,8 @@ public class LogCleanupService(
     IActiveReleaseCommitGuard? activeReleaseCommitGuard = null,
     AuditRetentionErasureService? retentionErasureService = null,
     AuditLegalHoldRegistry? legalHoldRegistry = null,
-    AuditFallbackRetentionPurger? fallbackRetentionPurger = null) : BackgroundService
+    AuditFallbackRetentionPurger? fallbackRetentionPurger = null,
+    IConfiguration? configuration = null) : BackgroundService
 #pragma warning restore IDE1006
 {
     internal const string FencedCommitOperationScope = "fenced-commit-retention";
@@ -95,6 +97,23 @@ public class LogCleanupService(
         USING expired
         WHERE target.commit_token = expired.commit_token;
         """;
+    private const string CleanupUserSessionMetadataSql = """
+        WITH expired AS (
+            SELECT sessionid
+            FROM sys_user_session
+            WHERE (revokedat IS NOT NULL OR COALESCE(lastseenat, createdat) < @ExpireDate)
+              AND (device_signal_hash IS NOT NULL OR network_signal_hash IS NOT NULL)
+            ORDER BY COALESCE(lastseenat, createdat), sessionid
+            LIMIT @ChunkSize
+        )
+        UPDATE sys_user_session target
+        SET device_signal_hash = NULL,
+            device_signal_epoch = NULL,
+            network_signal_hash = NULL,
+            network_signal_epoch = NULL
+        FROM expired
+        WHERE target.sessionid = expired.sessionid;
+        """;
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("【系统】日志清理任务初始化完成。策略：RUM 保留 {RumDays} 天，审计按 AuditRetentionCatalog 的 action 上限清理；high-value/Critical 不构成永久保留。", RumRetentionDays);
@@ -134,6 +153,8 @@ public class LogCleanupService(
         DateTime rumExpireDate = now.AddDays(-RumRetentionDays);
         DateTime anonymousCredentialAuditExpireDate = now.AddDays(-AnonymousCredentialIssuanceAuditRetentionDays);
         DateTime fencedCommitExpireDate = now.AddDays(-FencedCommitRetentionDays);
+        DateTime userSessionMetadataExpireDate = now.AddDays(
+            -UserSessionMetadataRetentionPolicy.ResolveRetentionDays(configuration));
 
         _logger.LogDebug("执行计划启动：寻找过期访问/RUM/普通审计日志...");
 
@@ -168,6 +189,14 @@ public class LogCleanupService(
                 fencedCommitExpireDate,
                 scopedToken),
             token);
+        Task<int> userSessionMetadataTask = CleanupWithScopedDbAsync(
+            (db, scopedToken) => CleanupWithActiveReleaseGuardAsync(
+                db,
+                "user-session-metadata-retention",
+                CleanupUserSessionMetadataSql,
+                userSessionMetadataExpireDate,
+                scopedToken),
+            token);
         Task<MessageRetentionCleanupResult> messageRetentionTask = CleanupMessageRetentionAsync(token);
         await Task.WhenAll(
             rumTask,
@@ -175,6 +204,7 @@ public class LogCleanupService(
             anonymousCredentialAuditTask,
             legacySecurityRiskTask,
             fencedCommitTask,
+            userSessionMetadataTask,
             messageRetentionTask);
         int fallbackFilesDeleted = fallbackRetentionPurger is null
             ? 0
@@ -186,6 +216,7 @@ public class LogCleanupService(
         int anonymousCredentialAuditDeleted = await anonymousCredentialAuditTask;
         int legacySecurityRiskDeleted = await legacySecurityRiskTask;
         int fencedCommitDeleted = await fencedCommitTask;
+        int userSessionMetadataCleared = await userSessionMetadataTask;
         MessageRetentionCleanupResult messageRetention = await messageRetentionTask;
 
         if (rumDeleted > 0
@@ -193,16 +224,18 @@ public class LogCleanupService(
             || anonymousCredentialAuditDeleted > 0
             || legacySecurityRiskDeleted > 0
             || fencedCommitDeleted > 0
+            || userSessionMetadataCleared > 0
             || messageRetention.ChangedRows > 0
             || fallbackFilesDeleted > 0)
         {
             _logger.LogInformation(
-                "日志自动清理成功 | rum={RumCount} audit={AuditCount} anonymousCredentialAudit={AnonymousCredentialAuditCount} legacySecurityRisk={LegacySecurityRiskCount} fencedCommit={FencedCommitCount} fallbackFiles={FallbackFileCount}",
+                "日志自动清理成功 | rum={RumCount} audit={AuditCount} anonymousCredentialAudit={AnonymousCredentialAuditCount} legacySecurityRisk={LegacySecurityRiskCount} fencedCommit={FencedCommitCount} userSessionMetadata={UserSessionMetadataCount} fallbackFiles={FallbackFileCount}",
                 rumDeleted,
                 auditDeleted,
                 anonymousCredentialAuditDeleted,
                 legacySecurityRiskDeleted,
                 fencedCommitDeleted,
+                userSessionMetadataCleared,
                 fallbackFilesDeleted);
         }
     }

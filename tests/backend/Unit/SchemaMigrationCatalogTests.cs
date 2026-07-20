@@ -25,8 +25,8 @@ public sealed class SchemaMigrationCatalogTests
             catalog => Assert.Equal("current-20260709-20260716", catalog.CatalogId),
             catalog => Assert.Equal("current-20260719", catalog.CatalogId),
             catalog => Assert.Equal("current-20260720", catalog.CatalogId));
-        Assert.Equal(111, manifest.Descriptors.Count);
-        const string ExpectedPlanFingerprint = "8E15BE90C43866B1E12B51C701384ED00198F4719C9FA48C2E3A2379C450C62F";
+        Assert.Equal(112, manifest.Descriptors.Count);
+        const string ExpectedPlanFingerprint = "970E1FDD750966CC7F522E335E92631855D58656D9701DDC99DB420603280BCA";
         string actualPlanFingerprint = ComputePlanFingerprint(manifest.Descriptors);
         Assert.True(
             string.Equals(ExpectedPlanFingerprint, actualPlanFingerprint, StringComparison.Ordinal),
@@ -260,6 +260,25 @@ public sealed class SchemaMigrationCatalogTests
     }
 
     [Fact]
+    public void UserSessionMetadataMinimization_ScrubsRawValuesAndAddsPrivacySafeColumns()
+    {
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            new SchemaMigrationRegistry().GetDescriptors(),
+            item => item.MigrationId == UserSessionMetadataMinimizationMigrationDefinitions.MigrationId);
+        string migration = string.Join('\n', descriptor.Steps.Select(step => step.Fingerprint));
+
+        Assert.Equal(SchemaMigrationPhase.PreCodeFirst, descriptor.Phase);
+        Assert.Contains("device_signal_hash", migration, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("network_signal_hash", migration, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("browser_family", migration, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("os_family", migration, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("form_factor", migration, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("SET devicefingerprint = NULL", migration, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("SET lastip = NULL", migration, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("SET useragent = NULL", migration, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void SourceLayout_PreventsLegacyRegistryDescriptorAggregation()
     {
         string migrationRoot = BackendTestPaths.FromRoot(
@@ -284,7 +303,7 @@ public sealed class SchemaMigrationCatalogTests
         Assert.DoesNotContain("partial class SchemaMigrationRegistry", registrySource, StringComparison.Ordinal);
         Assert.DoesNotContain("new SchemaMigrationDescriptor(", registrySource, StringComparison.Ordinal);
         Assert.DoesNotContain("Build", registrySource, StringComparison.Ordinal);
-        Assert.Equal(111, descriptorDefinitionCount);
+        Assert.Equal(112, descriptorDefinitionCount);
         Assert.All(
             definitionFiles.Select(File.ReadAllText),
             static source => Assert.DoesNotContain("partial class", source, StringComparison.Ordinal));

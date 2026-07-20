@@ -47,23 +47,41 @@ public class UserSession
         get; set;
     }
 
-    [SugarColumn(IsNullable = true, Length = 128)]
-    public string? DeviceFingerprint
+    [SugarColumn(ColumnName = "device_signal_hash", IsNullable = true, Length = 64)]
+    public string? DeviceSignalHash
     {
         get; set;
     }
 
-    [SugarColumn(IsNullable = true, Length = 64)]
-    public string? LastIp
+    [SugarColumn(ColumnName = "device_signal_epoch", IsNullable = true)]
+    public int? DeviceSignalEpoch
     {
         get; set;
     }
 
-    [SugarColumn(IsNullable = true, Length = 512)]
-    public string? UserAgent
+    [SugarColumn(ColumnName = "network_signal_hash", IsNullable = true, Length = 64)]
+    public string? NetworkSignalHash
     {
         get; set;
     }
+
+    [SugarColumn(ColumnName = "network_signal_epoch", IsNullable = true)]
+    public int? NetworkSignalEpoch
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "browser_family", Length = 24, DefaultValue = "Unknown")]
+    public string BrowserFamily { get; set; } = "Unknown";
+
+    [SugarColumn(ColumnName = "os_family", Length = 24, DefaultValue = "Unknown")]
+    public string OperatingSystemFamily { get; set; } = "Unknown";
+
+    [SugarColumn(ColumnName = "form_factor", Length = 16, DefaultValue = "Unknown")]
+    public string FormFactor
+    {
+        get; set;
+    } = "Unknown";
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

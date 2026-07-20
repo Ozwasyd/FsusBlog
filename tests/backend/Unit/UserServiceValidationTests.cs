@@ -10,6 +10,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services;
@@ -75,6 +76,8 @@ public class UserServiceValidationTests
             jwt,
             sessionValidationCache ?? Substitute.For<IUserSessionValidationCache>(),
             Substitute.For<IAuthRiskService>(),
+            new UserSessionMetadataProtector(
+                new SecurityRiskPseudonymizer(1, Enumerable.Range(1, 32).Select(static value => (byte)value).ToArray())),
             new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string?>
                 {
@@ -1728,26 +1731,30 @@ public class UserServiceValidationTests
     }
 
     [Theory]
-    [InlineData(null, "Unknown device")]
-    [InlineData("", "Unknown device")]
-    [InlineData("Mozilla/5.0", "Browser on Other")]
-    [InlineData("Mozilla/5.0 (Windows NT 10.0) AppleWebKit Chrome/124.0 Safari/537.36", "Chrome on Windows")]
-    [InlineData("Mozilla/5.0 (X11; Linux x86_64) Firefox/126.0", "Firefox on Linux")]
-    [InlineData("Mozilla/5.0 (iPhone; CPU iPhone OS 17_5) AppleWebKit Safari/604.1", "Safari on iPhone/iPad")]
-    [InlineData("Mozilla/5.0 (Windows NT 10.0) AppleWebKit Chrome/124.0 Edg/124.0", "Edge on Windows")]
-    public void BuildDeviceLabel_ReturnsCoarseExpectedValue(string? userAgent, string expected)
+    [InlineData(null, null, null, "Unknown / Unknown / Unknown")]
+    [InlineData("", "", "", "Unknown / Unknown / Unknown")]
+    [InlineData("Browser", "Other", "Desktop", "Browser / Other / Desktop")]
+    [InlineData("Chrome", "Windows", "Desktop", "Chrome / Windows / Desktop")]
+    [InlineData("Firefox", "Linux", "Desktop", "Firefox / Linux / Desktop")]
+    [InlineData("Safari", "iOS", "Mobile", "Safari / iOS / Mobile")]
+    [InlineData("Edge", "Windows", "Desktop", "Edge / Windows / Desktop")]
+    public void BuildDeviceLabel_ReturnsCoarseExpectedValue(
+        string? browser,
+        string? operatingSystem,
+        string? formFactor,
+        string expected)
     {
-        var result = InvokeSessionPrivateStatic<string>("BuildDeviceLabel", [userAgent]);
+        var result = InvokeSessionPrivateStatic<string>("BuildDeviceLabel", [browser, operatingSystem, formFactor]);
         Assert.Equal(expected, result);
     }
 
     [Fact]
     public void BuildDeviceLabel_DoesNotEchoUnknownHighEntropyUserAgent()
     {
-        string longAgent = new string('x', 200);
-        var result = InvokeSessionPrivateStatic<string>("BuildDeviceLabel", [longAgent]);
-        Assert.Equal("Browser on Other", result);
-        Assert.DoesNotContain(longAgent, result, StringComparison.Ordinal);
+        string highEntropyValue = new string('x', 200);
+        var result = InvokeSessionPrivateStatic<string>("BuildDeviceLabel", ["Browser", "Other", "Desktop"]);
+        Assert.Equal("Browser / Other / Desktop", result);
+        Assert.DoesNotContain(highEntropyValue, result, StringComparison.Ordinal);
     }
 
     private static object? ReadAssignmentValue<T>(

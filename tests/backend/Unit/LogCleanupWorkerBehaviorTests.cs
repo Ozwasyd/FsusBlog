@@ -70,6 +70,7 @@ public sealed class LogCleanupWorkerBehaviorTests
         Assert.Equal(s_baselineNow.UtcDateTime.AddDays(-30), cutoffs["anonymous-credential-audit"]);
         Assert.Equal(s_baselineNow.UtcDateTime, cutoffs["legacy-security-risk"]);
         Assert.Equal(s_baselineNow.UtcDateTime.AddDays(-30), cutoffs["fenced-commit"]);
+        Assert.Equal(s_baselineNow.UtcDateTime.AddDays(-30), cutoffs["user-session-metadata"]);
         Assert.DoesNotContain("visit", cutoffs.Keys);
         Assert.DoesNotContain("legacy-visit-log-ip", cutoffs.Keys);
     }
@@ -179,6 +180,8 @@ public sealed class LogCleanupWorkerBehaviorTests
             return "legacy-security-risk";
         if (sql.Contains("sys_fenced_commit", StringComparison.Ordinal))
             return "fenced-commit";
+        if (sql.Contains("sys_user_session", StringComparison.Ordinal))
+            return "user-session-metadata";
         throw new Xunit.Sdk.XunitException("Unknown cleanup target.");
     }
 
