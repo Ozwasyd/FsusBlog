@@ -43,7 +43,7 @@ public sealed class CommentMutationPostgresConcurrencyTests(PostgresSchemaMigrat
         IMessageRealtimePublisher realtime = Substitute.For<IMessageRealtimePublisher>();
         var logger = new RecordingLogger<CommentCommandService>();
         using var barrier = new Barrier(2);
-        const string mutationId = "018ff010-1234-7abc-8def-0123456789ab";
+        const string MutationId = "018ff010-1234-7abc-8def-0123456789ab";
         CommentCreateV2RequestCoreModel request = CreatePublicRequest("same comment");
 
         CommentCreateResult[] results = await Task.WhenAll(
@@ -51,13 +51,13 @@ public sealed class CommentMutationPostgresConcurrencyTests(PostgresSchemaMigrat
             {
                 using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
                 return await CreateCommentService(db, invalidations, realtime, CreatePublicAttribution(), logger)
-                    .CreateAttributablePublicCommentResultAsync(new AccountPrincipalContext(7, "session-a"), request, mutationId);
+                    .CreateAttributablePublicCommentResultAsync(new AccountPrincipalContext(7, "session-a"), request, MutationId);
             }),
             StartBarrierTaskAsync(barrier, async () =>
             {
                 using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
                 return await CreateCommentService(db, invalidations, realtime, CreatePublicAttribution(), logger)
-                    .CreateAttributablePublicCommentResultAsync(new AccountPrincipalContext(7, "session-b"), request, mutationId);
+                    .CreateAttributablePublicCommentResultAsync(new AccountPrincipalContext(7, "session-b"), request, MutationId);
             })).WaitAsync(TimeSpan.FromSeconds(20));
 
         using SqlSugarClient assertDb = PostgresSqlSugarTestClient.Create(connectionString);
@@ -82,16 +82,16 @@ public sealed class CommentMutationPostgresConcurrencyTests(PostgresSchemaMigrat
         IMessageRealtimePublisher realtime = Substitute.For<IMessageRealtimePublisher>();
         var logger = new RecordingLogger<CommentCommandService>();
         CommentCommandService service = CreateCommentService(db, invalidations, realtime, CreatePublicAttribution(), logger);
-        const string mutationId = "018ff011-1234-7abc-8def-0123456789ab";
+        const string MutationId = "018ff011-1234-7abc-8def-0123456789ab";
 
         CommentCreateResult created = await service.CreateAttributablePublicCommentResultAsync(
             new AccountPrincipalContext(7, "session-a"),
             CreatePublicRequest("first content"),
-            mutationId);
+            MutationId);
         CommentCreateResult conflict = await service.CreateAttributablePublicCommentResultAsync(
             new AccountPrincipalContext(7, "session-a"),
             CreatePublicRequest("changed content"),
-            mutationId);
+            MutationId);
 
         Assert.True(created.Created, logger.Details);
         Assert.False(conflict.Created);
