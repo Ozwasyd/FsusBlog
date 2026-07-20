@@ -179,11 +179,7 @@ const localNavigationTitleId = computed(() => (
   }
 }
 
-.account-module-link:hover::before,
-.account-module-link:focus-visible::before,
 .account-module-link-active::before,
-.account-local-navigation__link:hover::before,
-.account-local-navigation__link:focus-visible::before,
 .account-local-navigation__link--active::before {
   height: 1.25rem;
   opacity: 1;

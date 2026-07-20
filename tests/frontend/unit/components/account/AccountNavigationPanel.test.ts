@@ -87,6 +87,18 @@ describe('AccountNavigationPanel', () => {
     expect(source).toMatch(/\.account-local-navigation\s*\{[\s\S]*?margin-top:\s*var\(--fsus-space-6\);/)
   })
 
+  it('reserves the two-pixel navigation marker for the active item', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/components/account/AccountNavigationPanel.vue'), 'utf8')
+    const indicatorRule = source.match(
+      /\.account-module-link-active::before,([\s\S]*?)\{([\s\S]*?)\}/
+    )?.[0] ?? ''
+
+    expect(source).toMatch(/\.account-module-link::before,[\s\S]*?width:\s*2px;/)
+    expect(indicatorRule).toContain('.account-local-navigation__link--active::before')
+    expect(indicatorRule).toContain('opacity: 1')
+    expect(source).not.toMatch(/(?:hover|focus-visible)::before/)
+  })
+
   it('renders no more than six global links and only the current module leaves', async () => {
     const { wrapper } = await mountPanel('/user/manage/article/edit/42')
 
