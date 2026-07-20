@@ -174,6 +174,13 @@ for (const file of [
 
 const settingsPath = path.join(repoRoot, 'src/frontend/src/views/admin/Settings.vue')
 const settings = read(settingsPath)
+const adminWorkspacePath = path.join(repoRoot, 'src/frontend/src/assets/admin-workspace.css')
+const adminWorkspace = read(adminWorkspacePath)
+forbidToken(settingsPath, settings, '--fsusblog-admin-status-warning', 'settings warning icon must use the Element Plus warning semantic')
+requireToken(settingsPath, settings, 'text-[var(--el-color-warning)]', 'settings warning icon must use --el-color-warning')
+forbidToken(adminWorkspacePath, adminWorkspace, '--fsusblog-admin-status-warning', 'admin warning alerts must not create a custom mixed warning semantic')
+requireToken(adminWorkspacePath, adminWorkspace, '--fsusblog-admin-alert-accent: var(--el-color-warning);', 'admin warning alerts must use --el-color-warning for the accent')
+requireToken(adminWorkspacePath, adminWorkspace, 'background: color-mix(in srgb, var(--el-color-warning) 8%, var(--fsusblog-page-bg));', 'admin warning alerts must use the restrained warning tint')
 requireToken(settingsPath, settings, '<button', 'settings dropzone empty state must be a real button')
 requireToken(settingsPath, settings, 'type="button"', 'settings dropzone empty state button must not submit forms')
 requireToken(settingsPath, settings, 'aria-label="上传预览图"', 'settings dropzone button must expose an accessible name')

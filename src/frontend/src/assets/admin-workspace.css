@@ -3,11 +3,9 @@
 .admin-workspace-frame {
   --fsusblog-admin-status-info: color-mix(in srgb, var(--fsusblog-color-primary) 46%, var(--fsusblog-text-muted));
   --fsusblog-admin-status-success: color-mix(in srgb, var(--fsusblog-color-success) 42%, var(--fsusblog-text-muted));
-  --fsusblog-admin-status-warning: color-mix(in srgb, var(--fsusblog-color-warning) 42%, var(--fsusblog-text-muted));
   --fsusblog-admin-status-danger: color-mix(in srgb, var(--fsusblog-color-error) 46%, var(--fsusblog-text-muted));
   --fsusblog-admin-status-info-border: color-mix(in srgb, var(--fsusblog-admin-status-info) 24%, var(--fsusblog-panel-border));
   --fsusblog-admin-status-success-border: color-mix(in srgb, var(--fsusblog-admin-status-success) 24%, var(--fsusblog-panel-border));
-  --fsusblog-admin-status-warning-border: color-mix(in srgb, var(--fsusblog-admin-status-warning) 26%, var(--fsusblog-panel-border));
   --fsusblog-admin-status-danger-border: color-mix(in srgb, var(--fsusblog-admin-status-danger) 28%, var(--fsusblog-panel-border));
   --fsusblog-admin-status-weak-bg: color-mix(in srgb, var(--fsusblog-panel-bg) 76%, var(--fsusblog-page-bg) 24%);
   --fsusblog-admin-alert-bg: color-mix(in srgb, var(--fsusblog-panel-bg) 84%, var(--fsusblog-page-bg) 16%);
@@ -55,7 +53,9 @@
 }
 
 .admin-workspace-frame .admin-muted-alert--warning {
-  --fsusblog-admin-alert-accent: var(--fsusblog-admin-status-warning-border);
+  --fsusblog-admin-alert-accent: var(--el-color-warning);
+  border-color: color-mix(in srgb, var(--el-color-warning) 24%, var(--fsusblog-panel-border));
+  background: color-mix(in srgb, var(--el-color-warning) 8%, var(--fsusblog-page-bg));
 }
 
 .admin-workspace-frame .admin-muted-alert--danger {
@@ -65,6 +65,10 @@
 .admin-workspace-frame .admin-muted-alert strong,
 .admin-workspace-frame .admin-muted-alert__title {
   color: var(--fsusblog-text-primary);
+}
+
+.admin-workspace-frame .admin-muted-alert--warning .admin-muted-alert__title {
+  color: var(--el-color-warning);
 }
 
 .admin-workspace-frame .workbench-panel {
