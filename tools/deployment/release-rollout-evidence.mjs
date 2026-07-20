@@ -320,7 +320,7 @@ function validateAuxiliaryEvidence(name, value, state, errors) {
   if (value.source?.releaseId !== undefined && value.source.releaseId !== state.source.releaseId) errors.push(`${name}: source release mismatch`)
   if (Array.isArray(value.errors) && value.errors.length > 0) errors.push(`${name}: errors must be empty`)
   if (name === 'releaseManifest') {
-    if (value.schema !== 'fsusblog.release-manifest.v1'
+    if (value.schema !== 'fsusblog.release-manifest.v2'
       || value.releaseId !== state.target.releaseId
       || value.imageDigest !== state.target.imageDigest) {
       errors.push(`${name}: immutable target identity mismatch`)

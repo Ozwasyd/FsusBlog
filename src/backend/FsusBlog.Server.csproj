@@ -18,6 +18,13 @@
 		<InterceptorsNamespaces>$(InterceptorsNamespaces);Microsoft.AspNetCore.OpenApi.Generated</InterceptorsNamespaces>
 		<SwaggerAdminEnable>false</SwaggerAdminEnable>
 		<DefaultItemExcludes>$(DefaultItemExcludes);wwwroot\aot-cache\**;wwwroot/aot-cache/**</DefaultItemExcludes>
+		<FsusBlogReleaseId Condition="'$(FsusBlogReleaseId)' == ''">local-unversioned</FsusBlogReleaseId>
+		<FsusBlogCommitSha Condition="'$(FsusBlogCommitSha)' == ''">0000000000000000000000000000000000000000</FsusBlogCommitSha>
+		<AssemblyVersion>0.0.0.0</AssemblyVersion>
+		<FileVersion>0.0.0.0</FileVersion>
+		<InformationalVersion>$(FsusBlogReleaseId)</InformationalVersion>
+		<SourceRevisionId>$(FsusBlogCommitSha)</SourceRevisionId>
+		<IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
 
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
@@ -102,6 +109,28 @@
 		<ItemGroup>
 			<Analyzer Remove="$(PkgMicrosoft_AspNetCore_OpenApi)/analyzers/dotnet/cs/Microsoft.AspNetCore.OpenApi.SourceGenerators.dll" />
 		</ItemGroup>
+	</Target>
+
+	<Target Name="ValidateFsusBlogProductionPublishMetadata"
+		BeforeTargets="Publish"
+		Condition="'$(Configuration)' == 'Release'">
+		<PropertyGroup>
+			<_FsusBlogCanonicalReleaseId>$([System.Text.RegularExpressions.Regex]::IsMatch('$(FsusBlogReleaseId)', '^[0-9]{14}-[0-9a-f]{12}$'))</_FsusBlogCanonicalReleaseId>
+			<_FsusBlogCanonicalCommitSha>$([System.Text.RegularExpressions.Regex]::IsMatch('$(FsusBlogCommitSha)', '^[0-9a-f]{40}$'))</_FsusBlogCanonicalCommitSha>
+		</PropertyGroup>
+		<Error Condition="'$(_FsusBlogCanonicalReleaseId)' != 'True'"
+			Text="Release publish requires canonical FsusBlogReleaseId (yyyyMMddHHmmss-12 lowercase commit hex)." />
+		<Error Condition="'$(_FsusBlogCanonicalCommitSha)' != 'True'"
+			Text="Release publish requires FsusBlogCommitSha as a full 40-character lowercase Git SHA." />
+		<PropertyGroup Condition="'$(_FsusBlogCanonicalReleaseId)' == 'True'">
+			<_FsusBlogReleaseTimestamp>$(FsusBlogReleaseId.Substring(0, 14))</_FsusBlogReleaseTimestamp>
+			<_FsusBlogParsedReleaseTimestamp>$([System.DateTime]::ParseExact('$(_FsusBlogReleaseTimestamp)', 'yyyyMMddHHmmss', $([System.Globalization.CultureInfo]::GetCultureInfo('en-US'))).ToString('yyyyMMddHHmmss'))</_FsusBlogParsedReleaseTimestamp>
+		</PropertyGroup>
+		<PropertyGroup Condition="'$(_FsusBlogCanonicalReleaseId)' == 'True' and '$(_FsusBlogCanonicalCommitSha)' == 'True'">
+			<_FsusBlogCommitShaPrefix>$(FsusBlogCommitSha.Substring(0, 12))</_FsusBlogCommitShaPrefix>
+		</PropertyGroup>
+		<Error Condition="'$(_FsusBlogCanonicalReleaseId)' == 'True' and '$(_FsusBlogCanonicalCommitSha)' == 'True' and !$(FsusBlogReleaseId.EndsWith('-$(_FsusBlogCommitShaPrefix)'))"
+			Text="FsusBlogReleaseId commit suffix must match the first 12 characters of FsusBlogCommitSha." />
 	</Target>
 
 	<ItemGroup>

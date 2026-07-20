@@ -323,7 +323,7 @@ async function runSelfTest() {
     commitSha: commit,
     imageDigest,
     releaseIdentity: {
-      schema: 'fsusblog.release-manifest.v1',
+      schema: 'fsusblog.release-manifest.v2',
       releaseId,
       commitSha: commit,
       imageRepository: 'ghcr.io/fsusblog/app',

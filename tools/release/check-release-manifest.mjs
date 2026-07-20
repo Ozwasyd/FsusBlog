@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import path from 'node:path'
 import process from 'node:process'
-import { readReleaseManifest } from './release-manifest.mjs'
+import { readLegacyReleaseManifestV1, readReleaseManifest } from './release-manifest.mjs'
 
 function parseArgs(argv) {
   const options = {}
@@ -18,21 +18,30 @@ try {
   const options = parseArgs(process.argv.slice(2))
   if (!options.manifest) throw new Error('missing --manifest')
   const manifestFile = path.resolve(options.manifest)
-  const manifest = readReleaseManifest(manifestFile, {
+  const legacyRollback = options['legacy-rollback'] === 'true'
+  if (options['legacy-rollback'] !== undefined && !['true', 'false'].includes(options['legacy-rollback'])) {
+    throw new Error('--legacy-rollback must be true or false')
+  }
+  const readOptions = {
     requireRegistryDigest: true,
     requireConcreteRuntimeProfile: true,
     expectedReleaseId: options['release-id'],
     expectedImageRef: options['image-ref'],
     expectedImageDigest: options['image-digest'],
     expectedCommitSha: options['commit-sha']
-  })
+  }
+  const legacyResult = legacyRollback ? readLegacyReleaseManifestV1(manifestFile, readOptions) : null
+  const manifest = legacyResult?.manifest ?? readReleaseManifest(manifestFile, readOptions)
   const slot = options.slot ?? 'candidate'
   if (!/^[a-z][a-z0-9-]{0,31}$/u.test(slot)) throw new Error('slot must be a safe lowercase identifier')
   const output = {
     schema: 'fsusblog.release-deploy-input.v1',
     status: 'ok',
+    legacy: legacyResult?.legacy === true,
+    rollbackOnly: legacyResult?.rollbackOnly === true,
     manifest: manifestFile,
     releaseId: manifest.releaseId,
+    createdAtUtc: manifest.createdAtUtc,
     commitSha: manifest.commitSha,
     slot,
     imageRef: manifest.imageRef,
@@ -43,7 +52,7 @@ try {
     rollbackTarget: manifest.releaseId
   }
   if (options.format === 'lines') {
-    for (const field of ['releaseId', 'commitSha', 'slot', 'imageRef', 'imageTag', 'imageDigest', 'rollbackTarget', 'zkLocalReviewHash']) {
+    for (const field of ['releaseId', 'createdAtUtc', 'commitSha', 'slot', 'imageRef', 'imageTag', 'imageDigest', 'rollbackTarget', 'zkLocalReviewHash']) {
       console.log(output[field])
     }
   } else {

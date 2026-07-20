@@ -17,7 +17,7 @@ function parseArgs(argv) {
 try {
   const options = parseArgs(process.argv.slice(2))
   const required = [
-    'output', 'release-id', 'commit-sha', 'image-repository', 'image-tag', 'image-digest',
+    'output', 'release-id', 'created-at-utc', 'commit-sha', 'image-repository', 'image-tag', 'image-digest',
     'frontend-manifest-hash', 'wasm-artifact-hash', 'zk-local-review-hash', 'schema-min-release', 'schema-max-release',
     'dotnet-version', 'node-version', 'docker-version', 'dockerfile-digest'
   ]

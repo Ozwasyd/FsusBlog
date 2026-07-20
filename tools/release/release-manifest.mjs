@@ -1,9 +1,12 @@
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
-import { isValidReleaseId } from './release-id.mjs'
+import { assertReleaseIdentity, isValidReleaseId } from './release-id.mjs'
 
-export const RELEASE_MANIFEST_SCHEMA = 'fsusblog.release-manifest.v1'
+export const RELEASE_MANIFEST_SCHEMA = 'fsusblog.release-manifest.v2'
+export const LEGACY_RELEASE_MANIFEST_SCHEMA = 'fsusblog.release-manifest.v1'
+export const LEGACY_RELEASE_MANIFEST_RETIREMENT =
+  'Remove the v1 reader after every N-1 rollback artifact has expired from the supported rollback window.'
 const SHA256 = /^sha256:[0-9a-f]{64}$/u
 const ZERO_SHA256 = `sha256:${'0'.repeat(64)}`
 const COMMIT_SHA = /^[0-9a-f]{40}$/u
@@ -66,7 +69,7 @@ export function createReleaseManifest(input) {
     imageDigest: input.imageDigest,
     imageRef: `${input.imageRepository}@${input.imageDigest}`,
     registryDigestVerified: input.registryDigestVerified === true,
-    createdAtUtc: input.createdAtUtc ?? new Date().toISOString(),
+    createdAtUtc: input.createdAtUtc,
     frontendManifestHash: input.frontendManifestHash,
     wasmArtifactHash: input.wasmArtifactHash,
     zkLocalReviewHash: input.zkLocalReviewHash,
@@ -95,11 +98,30 @@ export function createReleaseManifest(input) {
 }
 
 export function validateReleaseManifest(manifest, options = {}) {
+  return validateManifest(manifest, options, {
+    schema: RELEASE_MANIFEST_SCHEMA,
+    requireCanonicalIdentity: true
+  })
+}
+
+function validateManifest(manifest, options, contract) {
   const errors = []
   if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) return ['release manifest must be an object']
   rejectUnknownFields(manifest, TOP_LEVEL_FIELDS, 'manifest', errors)
-  if (manifest.schema !== RELEASE_MANIFEST_SCHEMA) errors.push(`schema must be ${RELEASE_MANIFEST_SCHEMA}`)
-  if (!isValidReleaseId(manifest.releaseId)) errors.push('releaseId must be a canonical immutable identifier')
+  if (manifest.schema !== contract.schema) errors.push(`schema must be ${contract.schema}`)
+  if (contract.requireCanonicalIdentity) {
+    try {
+      assertReleaseIdentity({
+        releaseId: manifest.releaseId,
+        createdAtUtc: manifest.createdAtUtc,
+        commitSha: manifest.commitSha
+      })
+    } catch (error) {
+      errors.push(...String(error instanceof Error ? error.message : error).split('\n'))
+    }
+  } else if (!isValidReleaseId(manifest.releaseId)) {
+    errors.push('releaseId must be a canonical immutable identifier')
+  }
   if (!COMMIT_SHA.test(String(manifest.commitSha ?? ''))) errors.push('commitSha must be a lowercase full Git SHA')
   if (!IMAGE_REPOSITORY.test(String(manifest.imageRepository ?? ''))) errors.push('imageRepository is invalid or mutable')
   if (manifest.imageTag !== `${manifest.imageRepository}:${manifest.releaseId}`) errors.push('imageTag must equal imageRepository:releaseId')
@@ -170,18 +192,33 @@ function validateRuntimeProfile(value, errors, options = {}) {
 }
 
 export function readReleaseManifest(file, options = {}) {
-  let manifest
-  try {
-    manifest = JSON.parse(fs.readFileSync(file, 'utf8'))
-  } catch (error) {
-    throw new Error(`unable to read release manifest: ${error instanceof Error ? error.message : String(error)}`)
-  }
+  const manifest = parseReleaseManifestFile(file)
   const errors = validateReleaseManifest(manifest, options)
   if (errors.length > 0) throw new Error(errors.join('\n'))
   return manifest
 }
 
+export function readLegacyReleaseManifestV1(file, options = {}) {
+  const manifest = parseReleaseManifestFile(file)
+  const errors = validateManifest(manifest, options, {
+    schema: LEGACY_RELEASE_MANIFEST_SCHEMA,
+    requireCanonicalIdentity: false
+  })
+  if (errors.length > 0) throw new Error(errors.join('\n'))
+  return Object.freeze({
+    legacy: true,
+    rollbackOnly: true,
+    retirementCondition: LEGACY_RELEASE_MANIFEST_RETIREMENT,
+    manifest
+  })
+}
+
 export function writeReleaseManifestAtomic(file, manifest) {
+  const errors = validateReleaseManifest(manifest, {
+    requireRegistryDigest: true,
+    requireConcreteRuntimeProfile: true
+  })
+  if (errors.length > 0) throw new Error(errors.join('\n'))
   fs.mkdirSync(path.dirname(file), { recursive: true })
   const temporary = `${file}.tmp-${process.pid}-${crypto.randomUUID()}`
   try {
@@ -189,6 +226,14 @@ export function writeReleaseManifestAtomic(file, manifest) {
     fs.linkSync(temporary, file)
   } finally {
     fs.rmSync(temporary, { force: true })
+  }
+}
+
+function parseReleaseManifestFile(file) {
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8'))
+  } catch (error) {
+    throw new Error(`unable to read release manifest: ${error instanceof Error ? error.message : String(error)}`)
   }
 }
 

@@ -10,6 +10,7 @@ import {
   assertReleaseIdentity,
   compareReleaseIds,
   createReleaseId,
+  createReleaseIdentitySnapshot,
   parseReleaseId,
   renderGeneratedContracts,
   validateReleaseId
@@ -48,6 +49,17 @@ test('createReleaseId uses UTC seconds and the lowercase commit prefix', () => {
   assert.throws(() => createReleaseId('2026-02-28T01:02:03Z', fixtures.identity.commitSha.toUpperCase()), /lowercase/u)
   assert.throws(() => createReleaseId('2026-02-30T01:02:03Z', fixtures.identity.commitSha), /real UTC/u)
   assert.throws(() => createReleaseId('2026-02-28T09:02:03+08:00', fixtures.identity.commitSha), /real UTC/u)
+})
+
+test('identity snapshot captures release ID UTC second and commit exactly once', () => {
+  assert.deepEqual(createReleaseIdentitySnapshot({
+    createdAtUtc: fixtures.identity.createdAtUtc,
+    commitSha: fixtures.identity.commitSha
+  }), {
+    releaseId: fixtures.identity.releaseId,
+    createdAtUtc: '2026-02-28T01:02:03.987Z',
+    commitSha: fixtures.identity.commitSha
+  })
 })
 
 test('parse and validate reject fake calendar dates aliases semver and malformed IDs', () => {
@@ -145,4 +157,17 @@ test('stable shell CLI exposes create parse validate assert and compare operatio
   assert.equal(run('compare', fixtures.valid[0], fixtures.valid[1]).stdout.trim(), '1')
   assert.notEqual(run('validate', 'v1.2.0').status, 0)
   assert.notEqual(run('validate', LOCAL_RELEASE_ID).status, 0)
+
+  const snapshot = run(
+    'snapshot',
+    '--created-at-utc', fixtures.identity.createdAtUtc,
+    '--commit-sha', fixtures.identity.commitSha,
+    '--format', 'lines'
+  )
+  assert.equal(snapshot.status, 0, snapshot.stderr)
+  assert.deepEqual(snapshot.stdout.trim().split('\n'), [
+    fixtures.identity.releaseId,
+    fixtures.identity.createdAtUtc,
+    fixtures.identity.commitSha
+  ])
 })

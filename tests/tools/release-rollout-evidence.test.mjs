@@ -418,7 +418,7 @@ function writeAuxiliary(fixture) {
       : path.join(fixture.directory, 'auxiliary', `${name}.json`)
     const payload = name === 'releaseManifest'
       ? {
-          schema: 'fsusblog.release-manifest.v1',
+          schema: 'fsusblog.release-manifest.v2',
           releaseId: target.releaseId,
           imageDigest: target.imageDigest
         }

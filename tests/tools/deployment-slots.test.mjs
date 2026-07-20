@@ -20,6 +20,7 @@ import { createReleaseManifest, writeReleaseManifestAtomic } from '../../tools/r
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const commitSha = '0123456789abcdef0123456789abcdef01234567'
+const greenCommitSha = 'fedcba9876543210fedcba9876543210fedcba98'
 const blueRelease = '20260711010101-0123456789ab'
 const greenRelease = '20260711020202-fedcba987654'
 const blueDigest = `sha256:${'a'.repeat(64)}`
@@ -29,12 +30,12 @@ const localReviewHash = `sha256:${crypto.createHash('sha256').update('{}\n').dig
 function releaseInput(releaseId, imageDigest) {
   return {
     releaseId,
-    commitSha,
+    commitSha: releaseId === greenRelease ? greenCommitSha : commitSha,
     imageRepository: 'ghcr.io/fsusblog/app',
     imageTag: `ghcr.io/fsusblog/app:${releaseId}`,
     imageDigest,
     registryDigestVerified: true,
-    createdAtUtc: '2026-07-11T01:01:01.000Z',
+    createdAtUtc: releaseId === greenRelease ? '2026-07-11T02:02:02.000Z' : '2026-07-11T01:01:01.000Z',
     frontendManifestHash: `sha256:${'b'.repeat(64)}`,
     wasmArtifactHash: `sha256:${'c'.repeat(64)}`,
     zkLocalReviewHash: localReviewHash,
@@ -528,6 +529,7 @@ if [[ "\${1:-}" == "image" && "\${2:-}" == "inspect" ]]; then
     *io.fsusblog.runtime.topology-mode*) printf 'smt-visible\\n' ;;
     *RepoDigests*) printf '%s\\n' "\${FSUSBLOG_IMAGE_REF:-}" ;;
     *image.version*) printf '%s\\n' "\${FSUSBLOG_RELEASE_ID:-}" ;;
+    *image.created*) printf '%s\\n' "\${FSUSBLOG_RELEASE_CREATED_AT_UTC:-}" ;;
     *image.revision*) printf '%s\\n' "\${FSUSBLOG_COMMIT_SHA:-}" ;;
     *) exit 31 ;;
   esac

@@ -492,7 +492,7 @@ function rolloutAuxiliarySemanticsOk(name, value, rollout) {
   if (value.source?.releaseId !== undefined && value.source.releaseId !== rollout.source.releaseId) return false
   if (Array.isArray(value.errors) && value.errors.length !== 0) return false
   if (name === 'releaseManifest') {
-    return value.schema === 'fsusblog.release-manifest.v1'
+    return value.schema === 'fsusblog.release-manifest.v2'
       && value.releaseId === rollout.target.releaseId
       && value.imageDigest === rollout.target.imageDigest
   }
@@ -1604,7 +1604,7 @@ async function runSelfTest() {
     workflowRun: { id: '123', attempt: '1', workflow: 'Quality Gate' },
     imageDigest,
     releaseIdentity: {
-      schema: 'fsusblog.release-manifest.v1',
+      schema: 'fsusblog.release-manifest.v2',
       releaseId,
       commitSha,
       imageRepository: 'ghcr.io/fsusblog/app',

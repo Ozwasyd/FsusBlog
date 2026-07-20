@@ -182,6 +182,8 @@ RUN sh -lc 'for i in 1 2 3; do dotnet build "./FsusBlog.Server.csproj" -c "$BUIL
 
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
+ARG FSUSBLOG_RELEASE_ID=local-unversioned
+ARG FSUSBLOG_COMMIT_SHA=0000000000000000000000000000000000000000
 ARG TARGET_RUNTIME=linux-musl-x64
 ARG PUBLISH_SINGLE_FILE=true
 ARG PUBLISH_READY_TO_RUN=false
@@ -198,6 +200,8 @@ RUN sh -lc 'for i in 1 2 3; do dotnet publish "./FsusBlog.Server.csproj" \
     /p:SkipClientDependenciesForPublish=true \
     /p:SkipClientReleaseBuild=true \
     /p:SkipClientReleaseArtifactCopy=true \
+    /p:FsusBlogReleaseId="$FSUSBLOG_RELEASE_ID" \
+    /p:FsusBlogCommitSha="$FSUSBLOG_COMMIT_SHA" \
     /p:PublishSingleFile="$PUBLISH_SINGLE_FILE" \
     /p:UseAppHost=true \
     /p:PublishTrimmed=false \
@@ -241,6 +245,8 @@ RUN sh -lc 'for i in 1 2 3; do dotnet publish "./FsusBlog.Server.csproj" \
 ## =========================================================================
 FROM node-runtime-musl AS frontend-build
 ARG FSUSBLOG_USE_LOCAL_FSUSUI=0
+ARG FSUSBLOG_RELEASE_CREATED_AT_UTC=local-unversioned
+ARG FSUSBLOG_COMMIT_SHA=0000000000000000000000000000000000000000
 ENV FSUSBLOG_USE_LOCAL_FSUSUI=${FSUSBLOG_USE_LOCAL_FSUSUI} \
     FSUSBLOG_LOCAL_FSUSUI_ROOT=/opt/fsusui \
     NPM_CONFIG_AUDIT=false \
@@ -273,7 +279,9 @@ RUN --mount=type=secret,id=github_packages_token \
         --fetch-retry-maxtimeout=20000'
 
 ARG FSUSBLOG_RELEASE_ID=local-unversioned
-ENV VITE_FSUSBLOG_BUILD_ID=${FSUSBLOG_RELEASE_ID}
+ENV VITE_FSUSBLOG_BUILD_ID=${FSUSBLOG_RELEASE_ID} \
+    FSUSBLOG_RELEASE_CREATED_AT_UTC=${FSUSBLOG_RELEASE_CREATED_AT_UTC} \
+    FSUSBLOG_COMMIT_SHA=${FSUSBLOG_COMMIT_SHA}
 COPY tools/test/run-command-manifest.mjs /tools/test/run-command-manifest.mjs
 COPY tools/test/bundles/bundle-steps.mjs /tools/test/bundles/bundle-steps.mjs
 COPY tests/matrix.yml /tests/matrix.yml
@@ -294,6 +302,7 @@ RUN npm run build:release
 ## =========================================================================
 FROM base AS final
 ARG FSUSBLOG_RELEASE_ID=local-unversioned
+ARG FSUSBLOG_RELEASE_CREATED_AT_UTC=local-unversioned
 ARG FSUSBLOG_COMMIT_SHA=0000000000000000000000000000000000000000
 ARG FSUSBLOG_FSUSUI_SOURCE=published-package
 ARG FSUSBLOG_FSUSUI_COMMIT_SHA=0000000000000000000000000000000000000000
@@ -331,8 +340,9 @@ ENV FSUSBLOG_RUNTIME_PROFILE_ID=${RUNTIME_PROFILE_ID} \
     DOTNET_TC_QuickJitForLoops=${QUICK_JIT_FOR_LOOPS} \
     DOTNET_gcServer=${SERVER_GC}
 LABEL org.opencontainers.image.version="${FSUSBLOG_RELEASE_ID}" \
+      org.opencontainers.image.created="${FSUSBLOG_RELEASE_CREATED_AT_UTC}" \
       org.opencontainers.image.revision="${FSUSBLOG_COMMIT_SHA}" \
-      io.fsusblog.release.manifest-schema="fsusblog.release-manifest.v1" \
+      io.fsusblog.release.manifest-schema="fsusblog.release-manifest.v2" \
       io.fsusblog.build.vcpkg-commit="${VCPKG_COMMIT}" \
       io.fsusblog.build.fsusui-source="${FSUSBLOG_FSUSUI_SOURCE}" \
       io.fsusblog.build.fsusui-commit="${FSUSBLOG_FSUSUI_COMMIT_SHA}" \

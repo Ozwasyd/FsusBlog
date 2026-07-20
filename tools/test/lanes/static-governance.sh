@@ -33,6 +33,7 @@ StaticCsharpStyle() {
 STATIC_NODE_CONTRACT_FILES=(
     "$ROOT_DIR/tests/tools/release-id.test.mjs"
     "$ROOT_DIR/tests/tools/release-manifest.test.mjs"
+    "$ROOT_DIR/tests/tools/issue-1315-dotnet-release-metadata.test.mjs"
     "$ROOT_DIR/tests/tools/runtime-publish-profile.test.mjs"
     "$ROOT_DIR/tests/tools/final-image-toolchain-pin.test.mjs"
     "$ROOT_DIR/tests/tools/issue-1165-wasm-artifact-ownership.test.mjs"

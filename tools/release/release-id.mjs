@@ -29,6 +29,21 @@ export function createReleaseId(timestampOrOptions, commitShaArgument) {
   return `${formatUtcTimestamp(createdAtUtc)}-${commitSha.slice(0, contract.shaDigits)}`
 }
 
+export function createReleaseIdentitySnapshot(options = {}) {
+  const commitSha = String(options.commitSha ?? '').trim()
+  if (!fullCommitRegex.test(commitSha)) {
+    throw new Error('commitSha must be a lowercase 40-character Git SHA')
+  }
+  const createdAtUtc = toValidDate(options.createdAtUtc ?? new Date())
+  if (!createdAtUtc) throw new Error('createdAtUtc must be a real UTC timestamp')
+  const canonicalCreatedAtUtc = createdAtUtc.toISOString().replace(/[.]000Z$/u, 'Z')
+  return Object.freeze({
+    releaseId: createReleaseId(canonicalCreatedAtUtc, commitSha),
+    createdAtUtc: canonicalCreatedAtUtc,
+    commitSha
+  })
+}
+
 export function parseReleaseId(value) {
   if (typeof value !== 'string' || !releaseIdRegex.test(value)) return null
   const timestamp = value.slice(0, contract.timestampDigits)
@@ -309,6 +324,19 @@ function runCli() {
     console.log(createReleaseId(options['created-at-utc'], options['commit-sha']))
     return
   }
+  if (command === 'snapshot') {
+    const options = parseCliOptions(args.slice(1))
+    const snapshot = createReleaseIdentitySnapshot({
+      createdAtUtc: options['created-at-utc'],
+      commitSha: options['commit-sha']
+    })
+    if (options.format === 'lines') {
+      for (const field of ['releaseId', 'createdAtUtc', 'commitSha']) console.log(snapshot[field])
+    } else {
+      console.log(JSON.stringify(snapshot))
+    }
+    return
+  }
   if (command === 'parse') {
     requirePositionalCount(args, 2)
     const parsed = parseReleaseId(args[1])
@@ -372,7 +400,7 @@ function requirePositionalCount(args, count) {
 }
 
 function cliUsage() {
-  return 'usage: release-id.mjs [--check] | create --created-at-utc <utc> --commit-sha <sha40> | parse <release-id> | validate <release-id> | assert --release-id <id> --created-at-utc <utc> --commit-sha <sha40> | compare <left> <right>'
+  return 'usage: release-id.mjs [--check] | create --created-at-utc <utc> --commit-sha <sha40> | snapshot --commit-sha <sha40> [--created-at-utc <utc>] [--format lines] | parse <release-id> | validate <release-id> | assert --release-id <id> --created-at-utc <utc> --commit-sha <sha40> | compare <left> <right>'
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

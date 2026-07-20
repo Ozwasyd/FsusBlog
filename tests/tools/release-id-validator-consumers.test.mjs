@@ -73,7 +73,7 @@ test('release build deployment and storage validators consume the authority', ()
     'tools/storage/release-assets.mjs'
   ]) {
     const source = fs.readFileSync(path.join(root, relative), 'utf8')
-    assert.match(source, /import \{ isValidReleaseId \} from/u, relative)
+    assert.match(source, /import \{[^}]*isValidReleaseId[^}]*\} from/su, relative)
     assert.match(source, /isValidReleaseId\(/u, relative)
   }
 
@@ -85,8 +85,12 @@ test('release build deployment and storage validators consume the authority', ()
     'tools/deployment/slot-start.sh'
   ]) {
     const source = fs.readFileSync(path.join(root, relative), 'utf8')
-    assert.match(source, /tools\/release\/release-id\.mjs"? validate/u, relative)
+    if (relative === 'tools/build-final-image.sh') {
+      assert.match(source, /tools\/release\/release-id\.mjs"? "\$\{identity_args\[@\]\}"/u, relative)
+    } else {
+      assert.match(source, /tools\/release\/release-id\.mjs"? validate/u, relative)
+    }
   }
   const build = fs.readFileSync(path.join(root, 'tools/build-final-image.sh'), 'utf8')
-  assert.match(build, /tools\/release\/release-id\.mjs"? create/u)
+  assert.match(build, /identity_args=\(snapshot/u)
 })

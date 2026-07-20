@@ -433,15 +433,16 @@ LoadReleaseManifest() {
     fi
     local -a fields=()
     mapfile -t fields <<<"$output"
-    [[ "${#fields[@]}" -eq 8 ]] || Fail "release manifest validator returned incomplete deployment fields"
+    [[ "${#fields[@]}" -eq 9 ]] || Fail "release manifest validator returned incomplete deployment fields"
     export FSUSBLOG_RELEASE_ID="${fields[0]}"
-    export FSUSBLOG_COMMIT_SHA="${fields[1]}"
-    export FSUSBLOG_RELEASE_SLOT="${fields[2]}"
-    export FSUSBLOG_IMAGE_REF="${fields[3]}"
-    export FSUSBLOG_IMAGE_TAG="${fields[4]}"
-    export FSUSBLOG_IMAGE_DIGEST="${fields[5]}"
-    export FSUSBLOG_ROLLBACK_TARGET="${fields[6]}"
-    export FSUSBLOG_ZK_LOCAL_REVIEW_SHA256="${fields[7]}"
+    export FSUSBLOG_RELEASE_CREATED_AT_UTC="${fields[1]}"
+    export FSUSBLOG_COMMIT_SHA="${fields[2]}"
+    export FSUSBLOG_RELEASE_SLOT="${fields[3]}"
+    export FSUSBLOG_IMAGE_REF="${fields[4]}"
+    export FSUSBLOG_IMAGE_TAG="${fields[5]}"
+    export FSUSBLOG_IMAGE_DIGEST="${fields[6]}"
+    export FSUSBLOG_ROLLBACK_TARGET="${fields[7]}"
+    export FSUSBLOG_ZK_LOCAL_REVIEW_SHA256="${fields[8]}"
     export FSUSBLOG_RELEASE_MANIFEST_HOST_PATH="$RELEASE_MANIFEST"
     [[ -n "${FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE:-}" ]] ||
         Fail "FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE must be derived from the durable active slot before deploy"
@@ -491,14 +492,16 @@ ValidatePulledImage() {
         return 0
     fi
 
-    local repoDigests actualRelease actualCommit
+    local repoDigests actualRelease actualCreatedAtUtc actualCommit
     repoDigests="$(docker image inspect "$FSUSBLOG_IMAGE_REF" --format '{{range .RepoDigests}}{{println .}}{{end}}')"
     if ! grep -Fxq "$FSUSBLOG_IMAGE_REF" <<<"$repoDigests"; then
         Fail "pulled image digest does not match release manifest: $FSUSBLOG_IMAGE_REF"
     fi
     actualRelease="$(docker image inspect "$FSUSBLOG_IMAGE_REF" --format '{{index .Config.Labels "org.opencontainers.image.version"}}')"
+    actualCreatedAtUtc="$(docker image inspect "$FSUSBLOG_IMAGE_REF" --format '{{index .Config.Labels "org.opencontainers.image.created"}}')"
     actualCommit="$(docker image inspect "$FSUSBLOG_IMAGE_REF" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"
     [[ "$actualRelease" == "$FSUSBLOG_RELEASE_ID" ]] || Fail "pulled image release label does not match manifest"
+    [[ "$actualCreatedAtUtc" == "$FSUSBLOG_RELEASE_CREATED_AT_UTC" ]] || Fail "pulled image created label does not match manifest"
     [[ "$actualCommit" == "$FSUSBLOG_COMMIT_SHA" ]] || Fail "pulled image commit label does not match manifest"
 }
 

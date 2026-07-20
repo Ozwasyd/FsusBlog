@@ -543,6 +543,7 @@ test('successful profile results require concrete runtime, image, SDK, Node and 
 
 test('publish scripts and Dockerfile consume the named profile instead of restoring split hardcoded defaults', () => {
   const dockerfile = fs.readFileSync(path.join(root, 'ops/docker/FsusBlog.Server.Dockerfile'), 'utf8')
+  const frontendBuild = dockerfile.slice(dockerfile.indexOf('FROM node-runtime-musl AS frontend-build'))
   const nativeBuild = fs.readFileSync(path.join(root, 'tools/build-native.sh'), 'utf8')
   const finalBuild = fs.readFileSync(path.join(root, 'tools/build-final-image.sh'), 'utf8')
   const collector = fs.readFileSync(path.join(root, 'tools/operations/collect-release-evidence.sh'), 'utf8')
@@ -562,8 +563,8 @@ test('publish scripts and Dockerfile consume the named profile instead of restor
   assert.match(dockerfile, /io\.fsusblog\.build\.fsusui-commit/u)
   assert.match(dockerfile, /HEALTHCHECK[\s\S]*-H "Host: \$host"[\s\S]*\/health\/live/u)
   assert.ok(
-    dockerfile.indexOf('RUN --mount=type=secret,id=github_packages_token')
-      < dockerfile.indexOf('ARG FSUSBLOG_RELEASE_ID=local-unversioned'),
+    frontendBuild.indexOf('RUN --mount=type=secret,id=github_packages_token')
+      < frontendBuild.indexOf('ARG FSUSBLOG_RELEASE_ID=local-unversioned'),
     'release identity must not invalidate the npm dependency layer',
   )
   assert.match(nativeBuild, /resolve-runtime-publish-profile\.mjs/u)

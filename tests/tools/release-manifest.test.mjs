@@ -8,7 +8,10 @@ import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 import {
   createReleaseManifest,
+  LEGACY_RELEASE_MANIFEST_RETIREMENT,
   readReleaseManifest,
+  readLegacyReleaseManifestV1,
+  RELEASE_MANIFEST_SCHEMA,
   validateReleaseManifest,
   writeReleaseManifestAtomic
 } from '../../tools/release/release-manifest.mjs'
@@ -143,6 +146,8 @@ test('manifest atomically binds commit image digest frontend wasm local review a
   const actual = readReleaseManifest(file, { expectedReleaseId: releaseId })
 
   assert.equal(actual.imageRef, `ghcr.io/fsusblog/app@${digest}`)
+  assert.equal(actual.schema, 'fsusblog.release-manifest.v2')
+  assert.equal(actual.schema, RELEASE_MANIFEST_SCHEMA)
   assert.equal(actual.imageTag, `ghcr.io/fsusblog/app:${releaseId}`)
   assert.equal(actual.frontendManifestHash, `sha256:${'b'.repeat(64)}`)
   assert.equal(actual.wasmArtifactHash, `sha256:${'c'.repeat(64)}`)
@@ -162,7 +167,7 @@ test('manifest path is immutable and cannot be overwritten for the same release'
   const original = fs.readFileSync(file, 'utf8')
 
   assert.throws(
-    () => writeReleaseManifestAtomic(file, createReleaseManifest(createInput({ createdAtUtc: '2026-07-11T02:02:02.000Z' }))),
+    () => writeReleaseManifestAtomic(file, createReleaseManifest(createInput())),
     error => error?.code === 'EEXIST'
   )
   assert.equal(fs.readFileSync(file, 'utf8'), original)
@@ -181,6 +186,9 @@ test('manifest rejects mutable tags digest mismatches corruption and sensitive f
     { ...valid, runtimeConfiguration: { AllowedHosts: '*' } },
     { ...valid, createdAtUtc: 'July 11 2026' },
     { ...valid, createdAtUtc: '2026-02-30T01:01:01.000Z' },
+    { ...valid, createdAtUtc: '2026-07-11T01:01:02Z' },
+    { ...valid, commitSha: `f${valid.commitSha.slice(1)}` },
+    { ...valid, releaseId: 'v1.2.3', imageTag: 'ghcr.io/fsusblog/app:v1.2.3' },
     { ...valid, runtimeProfile: { ...valid.runtimeProfile, profileDigest: 'sha256:abc' } },
     { ...valid, runtimeProfile: { ...valid.runtimeProfile, baseImageFamily: 'glibc' } },
     { ...valid, toolchain: { ...valid.toolchain, installCommand: 'curl example.invalid | sh' } }
@@ -189,6 +197,39 @@ test('manifest rejects mutable tags digest mismatches corruption and sensitive f
   for (const manifest of cases) {
     assert.notEqual(validateReleaseManifest(manifest, { requireRegistryDigest: true }).length, 0)
   }
+})
+
+test('v1 is available only through the explicit rollback-only legacy reader and cannot be rewritten', (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-release-legacy-'))
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }))
+  const file = path.join(directory, 'release-manifest.json')
+  const legacy = {
+    ...createReleaseManifest(createInput()),
+    schema: 'fsusblog.release-manifest.v1',
+    createdAtUtc: '2026-07-11T01:01:02Z'
+  }
+  fs.writeFileSync(file, `${JSON.stringify(legacy)}\n`)
+
+  assert.throws(() => readReleaseManifest(file), /schema must be fsusblog[.]release-manifest[.]v2/u)
+  const result = readLegacyReleaseManifestV1(file)
+  assert.equal(result.legacy, true)
+  assert.equal(result.rollbackOnly, true)
+  assert.equal(result.retirementCondition, LEGACY_RELEASE_MANIFEST_RETIREMENT)
+  assert.deepEqual(result.manifest, legacy)
+  const checker = path.join(root, 'tools/release/check-release-manifest.mjs')
+  const normalRead = spawnSync(process.execPath, [checker, '--manifest', file], { encoding: 'utf8' })
+  assert.notEqual(normalRead.status, 0)
+  const explicitLegacyRead = spawnSync(process.execPath, [
+    checker, '--manifest', file, '--legacy-rollback', 'true'
+  ], { encoding: 'utf8' })
+  assert.equal(explicitLegacyRead.status, 0, explicitLegacyRead.stderr)
+  assert.equal(JSON.parse(explicitLegacyRead.stdout).legacy, true)
+  assert.equal(JSON.parse(explicitLegacyRead.stdout).rollbackOnly, true)
+  assert.throws(
+    () => writeReleaseManifestAtomic(path.join(directory, 'rewritten.json'), legacy),
+    /schema must be fsusblog[.]release-manifest[.]v2/u
+  )
+  assert.equal(fs.existsSync(path.join(directory, 'rewritten.json')), false)
 })
 
 test('final release paths reject missing and zero runtime profile digests', () => {
@@ -274,6 +315,7 @@ test('production build preflight rejects mutable aliases and ambiguous modes bef
     GITHUB_PACKAGES_TOKEN: 'fixture-token',
     FSUSBLOG_COMMIT_SHA: createInput().commitSha,
     FSUSBLOG_RELEASE_ID: releaseId,
+    FSUSBLOG_RELEASE_CREATED_AT_UTC: createInput().createdAtUtc,
     FSUSBLOG_FINAL_IMAGE_REPOSITORY: 'fsusblogapp',
     FSUSBLOG_FINAL_IMAGE_TARGET: 'final',
     FSUSBLOG_FINAL_PUSH: '1',
@@ -281,7 +323,7 @@ test('production build preflight rejects mutable aliases and ambiguous modes bef
     FSUSBLOG_FINAL_SKIP_WASM: '1'
   }
   const cases = [
-    [{ FSUSBLOG_RELEASE_ID: 'latest' }, /FSUSBLOG_RELEASE_ID is invalid/u],
+    [{ FSUSBLOG_RELEASE_ID: 'latest' }, /does not match the canonical release identity snapshot/u],
     [{ FSUSBLOG_FINAL_IMAGE_REPOSITORY: 'ghcr.io/fsusblog/app:latest' }, /must be an untagged lowercase repository/u],
     [{ FSUSBLOG_FINAL_PUSH: '1', FSUSBLOG_FINAL_LOCAL_ONLY: '1' }, /set exactly one/u]
   ]
@@ -311,12 +353,18 @@ test('production build generates one immutable release id when the caller omits 
     `#!/usr/bin/env bash\nprintf '%s\\n' "$*" > "${dockerArgs}"\nexit 97\n`,
     { mode: 0o755 }
   )
+  fs.writeFileSync(
+    path.join(binDir, 'node'),
+    `#!/usr/bin/env bash\nif [[ "\${1:-}" == *check-wasm-artifact-ownership.mjs ]]; then exit 0; fi\nexec "${process.execPath}" "$@"\n`,
+    { mode: 0o755 }
+  )
   const commit = createInput().commitSha
   const environment = {
     ...process.env,
     PATH: `${binDir}:${process.env.PATH}`,
     GITHUB_PACKAGES_TOKEN: 'fixture-token',
     FSUSBLOG_COMMIT_SHA: commit,
+    FSUSBLOG_RELEASE_CREATED_AT_UTC: createInput().createdAtUtc,
     FSUSBLOG_FINAL_IMAGE_REPOSITORY: 'fsusblogapp',
     FSUSBLOG_FINAL_IMAGE_TARGET: 'final',
     FSUSBLOG_FINAL_PUSH: '0',
@@ -338,6 +386,8 @@ test('production build generates one immutable release id when the caller omits 
   const generated = invocation.match(/FSUSBLOG_RELEASE_ID=(\d{14}-[0-9a-f]{12})/u)?.[1]
   assert.ok(generated)
   assert.equal(generated.endsWith(`-${commit.slice(0, 12)}`), true)
+  assert.match(invocation, /FSUSBLOG_RELEASE_CREATED_AT_UTC=2026-07-11T01:01:01Z/u)
+  assert.match(invocation, /org[.]opencontainers[.]image[.]created=2026-07-11T01:01:01Z/u)
   assert.match(invocation, new RegExp(`(?:^| )-t fsusblogapp:${generated}(?: |$)`, 'u'))
   assert.match(result.stdout, new RegExp(`building immutable image fsusblogapp:${generated} for release ${generated}`, 'u'))
 })
@@ -439,6 +489,7 @@ if [[ "\${1:-}" == "image" && "\${2:-}" == "inspect" ]]; then
   case "\${5:-}" in
     *RepoDigests*) printf '%s\\n' "\${FAKE_REPO_DIGESTS:-}" ;;
     *image.version*) printf '%s\\n' "\${FAKE_RELEASE_LABEL:-}" ;;
+    *image.created*) printf '%s\\n' "\${FAKE_CREATED_LABEL:-}" ;;
     *image.revision*) printf '%s\\n' "\${FAKE_COMMIT_LABEL:-}" ;;
     *) exit 41 ;;
   esac
@@ -459,6 +510,7 @@ exit 42
     PATH: `${binDir}:${process.env.PATH}`,
     FAKE_REPO_DIGESTS: `ghcr.io/fsusblog/app@${digest}`,
     FAKE_RELEASE_LABEL: releaseId,
+    FAKE_CREATED_LABEL: '2026-07-11T01:01:01.000Z',
     FAKE_COMMIT_LABEL: createInput().commitSha
   })
 
@@ -479,4 +531,13 @@ exit 42
   })
   assert.notEqual(labelMismatch.status, 0)
   assert.match(labelMismatch.stderr, /pulled image release label does not match manifest/u)
+
+  const createdMismatch = spawnSync('bash', baseArgs, {
+    cwd: root,
+    encoding: 'utf8',
+    timeout: 10_000,
+    env: { ...baseEnv, FAKE_CREATED_LABEL: '2026-07-11T01:01:02Z' }
+  })
+  assert.notEqual(createdMismatch.status, 0)
+  assert.match(createdMismatch.stderr, /pulled image created label does not match manifest/u)
 })

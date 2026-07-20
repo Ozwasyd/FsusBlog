@@ -7,7 +7,8 @@ PUSH_IMAGE="${FSUSBLOG_FINAL_PUSH:-0}"
 LOCAL_ONLY="${FSUSBLOG_FINAL_LOCAL_ONLY:-0}"
 IMAGE_REPOSITORY="${FSUSBLOG_FINAL_IMAGE_REPOSITORY:-fsusblogapp}"
 COMMIT_SHA="${FSUSBLOG_COMMIT_SHA:-}"
-RELEASE_ID="${FSUSBLOG_RELEASE_ID:-}"
+REQUESTED_RELEASE_ID="${FSUSBLOG_RELEASE_ID:-}"
+REQUESTED_RELEASE_CREATED_AT_UTC="${FSUSBLOG_RELEASE_CREATED_AT_UTC:-}"
 RUNTIME_PROFILE_ID="${FSUSBLOG_RUNTIME_PROFILE_ID:-}"
 RUNTIME_PROFILE_MANIFEST="${FSUSBLOG_RUNTIME_PROFILE_MANIFEST:-$ROOT_DIR/tools/runtime-profiles/runtime-publish-profiles.json}"
 USE_LOCAL_FSUSUI_RAW="${FSUSBLOG_USE_LOCAL_FSUSUI:-0}"
@@ -95,14 +96,19 @@ if [[ -z "$COMMIT_SHA" ]]; then
 fi
 COMMIT_SHA="${COMMIT_SHA,,}"
 [[ "$COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || Fail "FSUSBLOG_COMMIT_SHA must be a full lowercase Git SHA"
-if [[ -z "$RELEASE_ID" ]]; then
-    RELEASE_CREATED_AT_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-    RELEASE_ID="$(node "$ROOT_DIR/tools/release/release-id.mjs" create \
-        --created-at-utc "$RELEASE_CREATED_AT_UTC" \
-        --commit-sha "$COMMIT_SHA")" || Fail "unable to create canonical FSUSBLOG_RELEASE_ID"
+identity_args=(snapshot --commit-sha "$COMMIT_SHA" --format lines)
+if [[ -n "$REQUESTED_RELEASE_CREATED_AT_UTC" ]]; then
+    identity_args+=(--created-at-utc "$REQUESTED_RELEASE_CREATED_AT_UTC")
 fi
-node "$ROOT_DIR/tools/release/release-id.mjs" validate "$RELEASE_ID" >/dev/null ||
-    Fail "FSUSBLOG_RELEASE_ID is invalid"
+mapfile -t release_identity < <(node "$ROOT_DIR/tools/release/release-id.mjs" "${identity_args[@]}") ||
+    Fail "unable to create canonical release identity snapshot"
+[[ "${#release_identity[@]}" -eq 3 ]] || Fail "release identity snapshot returned incomplete fields"
+RELEASE_ID="${release_identity[0]}"
+RELEASE_CREATED_AT_UTC="${release_identity[1]}"
+[[ "${release_identity[2]}" == "$COMMIT_SHA" ]] || Fail "release identity snapshot changed commitSha"
+if [[ -n "$REQUESTED_RELEASE_ID" && "$REQUESTED_RELEASE_ID" != "$RELEASE_ID" ]]; then
+    Fail "FSUSBLOG_RELEASE_ID does not match the canonical release identity snapshot"
+fi
 
 mapfile -t runtime_profile_fields < <(node "$ROOT_DIR/tools/runtime-profiles/resolve-runtime-publish-profile.mjs" \
     --manifest "$RUNTIME_PROFILE_MANIFEST" \
@@ -207,6 +213,7 @@ DOCKER_BUILDKIT=1 docker build \
     -f "$ROOT_DIR/ops/docker/FsusBlog.Server.Dockerfile" \
     --target "$TARGET" \
     --build-arg "FSUSBLOG_RELEASE_ID=$RELEASE_ID" \
+    --build-arg "FSUSBLOG_RELEASE_CREATED_AT_UTC=$RELEASE_CREATED_AT_UTC" \
     --build-arg "FSUSBLOG_COMMIT_SHA=$COMMIT_SHA" \
     --build-arg "FSUSBLOG_USE_LOCAL_FSUSUI=$USE_LOCAL_FSUSUI" \
     --build-arg "FSUSBLOG_FSUSUI_SOURCE=$FSUSUI_SOURCE" \
@@ -239,6 +246,7 @@ DOCKER_BUILDKIT=1 docker build \
     --build-arg "TOPOLOGY_MODE=$TOPOLOGY_MODE" \
     --label "org.opencontainers.image.revision=$COMMIT_SHA" \
     --label "org.opencontainers.image.version=$RELEASE_ID" \
+    --label "org.opencontainers.image.created=$RELEASE_CREATED_AT_UTC" \
     --build-context "fsusui=$FSUSUI_CONTEXT_DIR" \
     -t "$IMAGE_TAG" \
     --secret id=github_packages_token,env=GITHUB_PACKAGES_TOKEN \
@@ -258,6 +266,9 @@ image_id="$({
         FSUSBLOG_EXPECTED_RUNTIME_BASE_FLAVOR="$RUNTIME_BASE_FLAVOR" \
         FSUSBLOG_EXPECTED_TARGET_RUNTIME="$TARGET_RUNTIME" \
         FSUSBLOG_EXPECTED_RUNTIME_PROFILE_ID="$RUNTIME_PROFILE_ID" \
+        FSUSBLOG_EXPECTED_RELEASE_ID="$RELEASE_ID" \
+        FSUSBLOG_EXPECTED_RELEASE_CREATED_AT_UTC="$RELEASE_CREATED_AT_UTC" \
+        FSUSBLOG_EXPECTED_COMMIT_SHA="$COMMIT_SHA" \
         FSUSBLOG_EXPECTED_RUNTIME_PROFILE_MANIFEST_DIGEST="$RUNTIME_PROFILE_MANIFEST_DIGEST" \
         FSUSBLOG_EXPECTED_RUNTIME_PROFILE_DIGEST="$RUNTIME_PROFILE_DIGEST" \
         FSUSBLOG_EXPECTED_PUBLISH_SINGLE_FILE="$PUBLISH_SINGLE_FILE" \
@@ -279,6 +290,9 @@ image_id="$({
     if (!image || typeof image !== "object") process.exit(20);
     const labels = image.Config?.Labels ?? {};
     const expected = {
+      "org.opencontainers.image.version": process.env.FSUSBLOG_EXPECTED_RELEASE_ID,
+      "org.opencontainers.image.created": process.env.FSUSBLOG_EXPECTED_RELEASE_CREATED_AT_UTC,
+      "org.opencontainers.image.revision": process.env.FSUSBLOG_EXPECTED_COMMIT_SHA,
       "io.fsusblog.runtime.dotnet-version": process.env.FSUSBLOG_EXPECTED_DOTNET_RUNTIME_VERSION,
       "io.fsusblog.build.dotnet-sdk-version": process.env.FSUSBLOG_EXPECTED_DOTNET_SDK_VERSION,
       "io.fsusblog.runtime.base-image": process.env.FSUSBLOG_EXPECTED_RUNTIME_BASE_IMAGE,
@@ -370,6 +384,7 @@ manifest_file="$manifest_dir/release-manifest.json"
 node "$ROOT_DIR/tools/release/create-release-manifest.mjs" \
     --output "$manifest_file" \
     --release-id "$RELEASE_ID" \
+    --created-at-utc "$RELEASE_CREATED_AT_UTC" \
     --commit-sha "$COMMIT_SHA" \
     --image-repository "$IMAGE_REPOSITORY" \
     --image-tag "$IMAGE_TAG" \

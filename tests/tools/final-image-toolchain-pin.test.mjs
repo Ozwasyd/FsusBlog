@@ -9,6 +9,9 @@ import { resolveRuntimeProfile } from '../../tools/runtime-profiles/runtime-publ
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const dockerfile = fs.readFileSync(path.join(root, 'ops/docker/FsusBlog.Server.Dockerfile'), 'utf8')
+const releaseId = '20260715010101-0123456789ab'
+const releaseCreatedAtUtc = '2026-07-15T01:01:01Z'
+const commitSha = '0123456789abcdef0123456789abcdef01234567'
 
 const pins = {
   runtimeVersion: '10.0.10',
@@ -86,7 +89,12 @@ function runBuildWithInspect(t, labels, extraEnv = {}) {
   const dockerRunArgs = path.join(directory, 'docker-run-args.txt')
   const inspectJson = JSON.stringify([{
     Id: `sha256:${'a'.repeat(64)}`,
-    Config: { Labels: labels }
+    Config: { Labels: {
+      'org.opencontainers.image.version': releaseId,
+      'org.opencontainers.image.created': releaseCreatedAtUtc,
+      'org.opencontainers.image.revision': commitSha,
+      ...labels
+    } }
   }])
   fs.mkdirSync(binDir)
   fs.writeFileSync(path.join(binDir, 'node'), `#!/usr/bin/env bash
@@ -110,8 +118,9 @@ exit 91
       ...process.env,
       PATH: `${binDir}:${process.env.PATH}`,
       GITHUB_PACKAGES_TOKEN: 'fixture-token',
-      FSUSBLOG_COMMIT_SHA: '0123456789abcdef0123456789abcdef01234567',
-      FSUSBLOG_RELEASE_ID: '20260715010101-0123456789ab',
+      FSUSBLOG_COMMIT_SHA: commitSha,
+      FSUSBLOG_RELEASE_ID: releaseId,
+      FSUSBLOG_RELEASE_CREATED_AT_UTC: releaseCreatedAtUtc,
       FSUSBLOG_FINAL_IMAGE_REPOSITORY: 'fsusblogapp',
       FSUSBLOG_FINAL_IMAGE_TARGET: 'final',
       FSUSBLOG_FINAL_PUSH: '0',

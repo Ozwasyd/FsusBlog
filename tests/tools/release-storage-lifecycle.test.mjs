@@ -209,7 +209,7 @@ test('GC dry-run is locked and protects active previous draining retention and r
 
 test('host CLIs emit stable machine JSON and retained asset gate fails closed', (t) => {
   const { root, source, store } = fixture(t)
-  const candidateRelease = '20260711010101-abcdefabcdef'
+  const candidateRelease = '20260711010101-0123456789ab'
   const previousRelease = '20260710010101-fedcbafedcba'
   writeSource(source, 'candidate')
   const releaseManifestFile = path.join(root, 'release-manifest.json')

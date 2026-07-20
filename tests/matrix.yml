@@ -1422,6 +1422,7 @@ tiers:
           - tests/tools/release-id.test.mjs
           - tests/tools/release-id-validator-consumers.test.mjs
           - tests/tools/release-manifest.test.mjs
+          - tests/tools/issue-1315-dotnet-release-metadata.test.mjs
           - tests/tools/runtime-publish-profile.test.mjs
           - tests/tools/final-image-toolchain-pin.test.mjs
           - tools/runtime-profiles/runtime-publish-profiles.json
