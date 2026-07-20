@@ -20,13 +20,13 @@ node tools/test/calibrate-backend-production-topology.mjs \
   --max-candidates 1
 ```
 
-候选 id 使用 `h<testhost>-p<partitionMultiplier>-<uniform|weighted>`。默认矩阵为 testhost `2/4/6/8/12`、partition multiplier `1.5/2/3`、processor allocation `uniform/weighted`，再由本机 CPU、实时 free memory、每 host 1 GiB 下限和 planning unit 数裁剪。显式 `--cpu-budget`、`--memory-gib` 与 `--planning-units` 只限制诊断矩阵，不能让实际 scheduler 越权授予资源。
+候选 id 使用 `h<testhost>-p<partitionMultiplier>-<uniform|weighted>`。默认矩阵为 testhost `2/4/6/8/12`、partition multiplier `1.5/2/3`、processor allocation `uniform/weighted`，再由本机 CPU、实时 free memory、每 host 1 GiB 下限和 planning unit 数裁剪。每个候选至少执行三次 Fresh；`--repeat 1/2` 会在启动前拒绝。显式 `--cpu-budget` 不得超过进程可见 CPU，`--memory-gib` 不得超过宿主总内存；这些参数只允许收窄诊断矩阵，不能扩张真实机器容量或让 scheduler 越权授予资源。
 
 每个 sample 都执行完整 `./tools/test.sh production --fresh`。runner 在下一 sample 前删除该 sample 的 production checkpoint、backend TRX/coverage 与 release evidence；校准输出不得成为 logical tier projection、coverage threshold 或 release evidence 的输入。选出候选后必须另跑一次普通 fresh production，才能产生可交付 evidence。
 
 ## Evidence contract
 
-默认报告为 `.tmp/diagnostics/backend-topology-calibration.json`，schema 是 `fsusblog.backend-topology-calibration.v1`。报告绑定完整 source commit、clean-worktree fingerprint、平台/架构和机器 CPU/内存；执行期间 source identity 变化会 fail closed。每个候选保存三次 sample、wall-clock median/p25/p75/mean/variance/standard deviation、discovery summary、实际 topology、逐 partition duration、最慢 partition、exact-once 状态，以及 GNU `time -v` 可获得的 child-tree user/system CPU、peak RSS、context switch 与 filesystem I/O。
+默认报告为 `.tmp/diagnostics/backend-topology-calibration.json`，schema 是 `fsusblog.backend-topology-calibration.v1`。报告绑定完整 source commit、完整 SHA-256 clean-worktree fingerprint、平台/架构和机器 CPU/内存；执行期间 source identity 变化会 fail closed。每个候选保存至少三次 sample、wall-clock median/p25/p75/mean/variance/standard deviation、discovery summary、实际 topology、逐 partition duration、最慢 partition、exact-once 状态，以及 GNU `time -v` 可获得的 child-tree user/system CPU、peak RSS、context switch 与 filesystem I/O。
 
 Linux 优先使用 `/usr/bin/time -v`。testhost process start 由 runner 记录，first-test-start 与 test execution span 来自对应 TRX 的 `startTime` / `endTime`；无法解析时必须写成 `status=unavailable` / `null`，不能伪造为 `0`。当前 PostgreSQL wait 明确标记 unavailable，后续 canonical resource-utilization evidence 才负责进程树采样和等待分类。报告只在所有 sample 成功时为 `success`，但失败候选仍保留全部已收集 sample，便于一次暴露多项失败。
 

@@ -11,6 +11,7 @@ import { buildBackendTopologyCalibrationMatrix } from './backend-production-topo
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const defaultOutput = '.tmp/diagnostics/backend-topology-calibration.json'
+const minimumFreshSamples = 3
 
 function positiveInteger(value, label) {
   const parsed = Number(value)
@@ -24,15 +25,25 @@ function positiveNumber(value, label) {
   return parsed
 }
 
-export function parseBackendTopologyCalibrationArgs(argv) {
+export function parseBackendTopologyCalibrationArgs(argv, {
+  availableCpu = os.availableParallelism(),
+  totalMemoryGiB = os.totalmem() / (1024 ** 3),
+  freeMemoryGiB = os.freemem() / (1024 ** 3)
+} = {}) {
+  const liveCpu = positiveInteger(availableCpu, 'live machine CPU capacity')
+  const liveTotalMemoryGiB = positiveNumber(totalMemoryGiB, 'live machine memory capacity')
+  const liveFreeMemoryGiB = Math.min(
+    positiveNumber(freeMemoryGiB, 'live machine free memory'),
+    liveTotalMemoryGiB
+  )
   const options = {
     fresh: false,
     output: defaultOutput,
-    repeat: 3,
+    repeat: minimumFreshSamples,
     maxCandidates: Number.POSITIVE_INFINITY,
     candidateIds: [],
-    cpuBudget: os.availableParallelism(),
-    memoryGiB: os.freemem() / (1024 ** 3),
+    cpuBudget: liveCpu,
+    memoryGiB: liveFreeMemoryGiB,
     planningUnitCount: 1024
   }
   for (let index = 0; index < argv.length; index += 1) {
@@ -56,6 +67,19 @@ export function parseBackendTopologyCalibrationArgs(argv) {
   }
   if (!options.help && !options.fresh) {
     throw new Error('backend topology calibration requires --fresh; historical test results are never reusable')
+  }
+  if (!options.help && options.repeat < minimumFreshSamples) {
+    throw new Error(`backend topology calibration requires at least ${minimumFreshSamples} fresh samples per candidate`)
+  }
+  if (!options.help && options.cpuBudget > liveCpu) {
+    throw new Error(
+      `backend topology calibration CPU envelope ${options.cpuBudget} exceeds live machine capacity ${liveCpu}`
+    )
+  }
+  if (!options.help && options.memoryGiB > liveTotalMemoryGiB + Number.EPSILON) {
+    throw new Error(
+      `backend topology calibration memory envelope ${options.memoryGiB} GiB exceeds live machine capacity ${liveTotalMemoryGiB} GiB`
+    )
   }
   return options
 }
@@ -102,8 +126,10 @@ function quantile(values, fraction) {
 }
 
 export function summarizeBackendTopologyCalibrationCandidate(candidate, samples) {
-  if (!Array.isArray(samples) || samples.length === 0) {
-    throw new Error('backend topology calibration candidate requires samples')
+  if (!Array.isArray(samples) || samples.length < minimumFreshSamples) {
+    throw new Error(
+      `backend topology calibration candidate requires at least ${minimumFreshSamples} fresh samples`
+    )
   }
   const successes = samples.filter(({ status }) => status === 'success')
   const wallClockMs = successes.map(({ wallClockMs: value }) => value)
@@ -141,8 +167,8 @@ export function buildBackendTopologyCalibrationReport({
   if (!/^[0-9a-f]{40}$/u.test(String(sourceCommit))) {
     throw new Error('backend topology calibration requires a full source commit')
   }
-  if (!String(sourceFingerprint).startsWith('sha256:')) {
-    throw new Error('backend topology calibration requires a source fingerprint')
+  if (!/^sha256:[0-9a-f]{64}$/u.test(String(sourceFingerprint))) {
+    throw new Error('backend topology calibration requires a full SHA-256 source fingerprint')
   }
   const rankedSuccessfulCandidates = candidates
     .filter(({ status, wallClock }) => status === 'success' && Number.isFinite(wallClock?.medianMs))
@@ -314,7 +340,7 @@ Calibration pass/coverage/release artifacts are removed after each sample and ca
 
 Options:
   --candidate <id>       Repeatable candidate id such as h4-p2-uniform
-  --repeat <n>           Fresh samples per candidate (default: 3)
+  --repeat <n>           Fresh samples per candidate (minimum/default: 3)
   --max-candidates <n>   Bound a broad diagnostic sweep
   --cpu-budget <n>       Candidate-matrix CPU envelope (default: live machine)
   --memory-gib <n>       Candidate-matrix memory envelope (default: live free memory)
