@@ -136,6 +136,31 @@ public static class BoundaryExecutor
         }
     }
 
+    public static async Task ExecutePropagatingAsync<TException>(
+        Func<Task> action,
+        ILogger logger,
+        string operation,
+        LogLevel level = LogLevel.Warning)
+        where TException : Exception
+    {
+        try
+        {
+            await action().ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (TException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.Log(level, ex, "Boundary execution failed: {Operation}", operation);
+        }
+    }
+
     private static ErrorDetail Normalize(in ErrorDetail error)
         => error.Normalize().WithTraceId(Activity.Current?.Id);
 }

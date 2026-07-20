@@ -10,10 +10,18 @@ public sealed class ArticleMutationDelivery(
     IMessageRealtimePublisher messagePublisher,
     IIntegrityProofScheduler integrityProofScheduler)
 {
+    public Task ProjectSearchAsync(
+        Article article,
+        ArticleMutationVersionReference version,
+        CancellationToken cancellationToken)
+        => version.ReleaseId.HasValue || version.RevisionId.HasValue
+            ? searchIndex.AddOrUpdateVersionedIndexAsync(article, version, cancellationToken)
+            : ArticlePublication.IsPubliclyVisible(article, DateTime.UtcNow)
+                ? searchIndex.AddOrUpdateIndexAsync(article)
+                : searchIndex.DeleteIndexAsync(article.Id);
+
     public Task ProjectSearchAsync(Article article)
-        => ArticlePublication.IsPubliclyVisible(article, DateTime.UtcNow)
-            ? searchIndex.AddOrUpdateIndexAsync(article)
-            : searchIndex.DeleteIndexAsync(article.Id);
+        => ProjectSearchAsync(article, default, CancellationToken.None);
 
     public Task DeleteSearchAsync(int articleId)
         => searchIndex.DeleteIndexAsync(articleId);
@@ -23,9 +31,16 @@ public sealed class ArticleMutationDelivery(
         string action,
         ArticleListItemResponse? preview = null,
         string? idempotencyKey = null,
-        DateTime? eventTime = null)
+        DateTime? eventTime = null,
+        ArticleMutationVersionReference version = default)
         => messagePublisher.PushArticleChangedAsync(
-            new ArticleNoticeDto(articleId, action, eventTime ?? DateTime.UtcNow, preview),
+            new ArticleNoticeDto(
+                articleId,
+                action,
+                eventTime ?? DateTime.UtcNow,
+                preview,
+                version.RevisionId?.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                version.ReleaseId?.ToString(System.Globalization.CultureInfo.InvariantCulture)),
             idempotencyKey);
 
     public Task ScheduleIntegrityProofAsync(

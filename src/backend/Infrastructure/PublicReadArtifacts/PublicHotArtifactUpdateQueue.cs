@@ -206,9 +206,9 @@ public sealed class PublicHotArtifactUpdateWorker(
             articleIds.Add(id);
             if (update.ExpectedReleaseId is long expectedReleaseId && expectedReleaseId > 0)
             {
-                expectedReleaseIds[id] = expectedReleaseIds.TryGetValue(id, out long current)
-                    ? Math.Max(current, expectedReleaseId)
-                    : expectedReleaseId;
+                // Publication ids are coordinates, not sequence numbers. The channel is ordered,
+                // so retain the last event coordinate instead of guessing ordering from its id.
+                expectedReleaseIds[id] = expectedReleaseId;
             }
             return;
         }

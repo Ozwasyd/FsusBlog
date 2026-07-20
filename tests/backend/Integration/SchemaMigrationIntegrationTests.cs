@@ -636,7 +636,10 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
                 typeof(ArticleMutationOutboxEvent),
                 typeof(ArticleMutationOutboxEdge),
                 typeof(Article),
-                typeof(ArticleTag));
+                typeof(ArticleTag),
+                typeof(ArticleRevision),
+                typeof(ArticlePublicationRecord),
+                typeof(ArticleRightsSnapshot));
         }
 
         IConfiguration configuration = new ConfigurationBuilder()
@@ -695,13 +698,48 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             IsAutoCloseConnection = true,
             InitKeyType = InitKeyType.Attribute
         });
-        long outboxId = await verificationDb.Insertable(new ArticleMutationOutboxEvent
+        var revision = new ArticleRevision
         {
-            AggregateId = 77,
-            EventType = "updated",
-            Status = "pending",
-            NextRetryAt = DateTime.UtcNow.AddSeconds(-1)
-        }).ExecuteReturnBigIdentityAsync();
+            ArticleId = 77,
+            RevisionNo = 1,
+            Title = "restart-v2",
+            MarkdownContent = "restart-v2"
+        };
+        revision.Id = await verificationDb.Insertable(revision).ExecuteReturnBigIdentityAsync();
+        var rights = new ArticleRightsSnapshot
+        {
+            ArticleId = 77,
+            ArticleRevisionId = revision.Id,
+            RevisionNo = 1
+        };
+        rights.Id = await verificationDb.Insertable(rights).ExecuteReturnBigIdentityAsync();
+        var publication = new ArticlePublicationRecord
+        {
+            ArticleId = 77,
+            PublicationNo = 1,
+            ArticleRevisionId = revision.Id,
+            RevisionNo = 1,
+            RightsSnapshotId = rights.Id,
+            TransitionKind = "updated"
+        };
+        publication.Id = await verificationDb.Insertable(publication).ExecuteReturnBigIdentityAsync();
+        await verificationDb.Insertable(new Article
+        {
+            Id = 77,
+            Title = "restart-v2",
+            Content = "restart-v2",
+            Status = ArticleStatus.Published,
+            CurrentRevisionId = revision.Id,
+            CurrentPublicationId = publication.Id
+        }).ExecuteCommandAsync();
+        ArticleMutationOutboxEvent v2Event = ArticleMutationOutboxProducer.Create(
+            77,
+            "updated",
+            new ArticleVersionCoordinates(revision.Id, 1, rights.Id, null, publication.Id, 1),
+            null,
+            null,
+            DateTime.UtcNow.AddSeconds(-1));
+        long outboxId = await verificationDb.Insertable(v2Event).ExecuteReturnBigIdentityAsync();
         var dispatcher = new ArticleMutationOutboxDispatcher(
             provider.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<ArticleMutationOutboxDispatcher>.Instance,
@@ -757,6 +795,15 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             "updated",
             Arg.Any<string>(),
             Arg.Any<ArticleMutationVersionReference>(),
+            Arg.Any<IReadOnlySet<string>>(),
+            Arg.Any<CancellationToken>());
+        await coordinator.Received(2).ReplayOutboxAsync(
+            77,
+            "updated",
+            Arg.Any<string>(),
+            Arg.Is<ArticleMutationVersionReference>(version => version.RevisionId == revision.Id
+                && version.ReleaseId == publication.Id
+                && version.RightsSnapshotId == rights.Id),
             Arg.Any<IReadOnlySet<string>>(),
             Arg.Any<CancellationToken>());
     }

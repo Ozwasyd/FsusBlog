@@ -1394,6 +1394,8 @@ fixture redirect query 最大 2048 字符；`user.storage-state.json` / `admin.s
 | 15 | `InboxConversationStatusChanged` | `InboxConversationStatusChangedPayload` | 对话状态变更；载荷携带精确目标状态，覆盖 pending/closed/reopen |
 | 16 | `SessionRevoked` | `SessionRevokedPayload` | 已验证的 Passkey counter 回滚等账号级安全事件撤销全部普通会话；客户端立即进入重新认证，独立 admin principal 不受影响 |
 
+`ArticleChangedPayload` 固定包含 `articleId:int32`、`action:string`、`eventTime:datetime`、可空 `preview`，并为 v2 article mutation 携带可空 decimal-string `revisionId` 与 `releaseId`。两项坐标标识通知实际对应的不可变 revision/release；前端禁止将它们转为 JavaScript `number`。dispatcher 必须在发送前重新核验当前 publication/revision 坐标；若已被新版本取代，不发送旧通知，并将 notification 及其余未完成 edge 以相同 superseded reason 持久化为 skipped。legacy v1 payload 允许两项均为空。
+
 ### `SessionRevokedPayload`
 
 ```json

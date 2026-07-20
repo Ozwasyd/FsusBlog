@@ -479,6 +479,8 @@ payload；`reset` 不得同时携带 replacement payload。V3 rights payload 只
 仅含文章主体和 lifecycle tail 的旧 payload 只读兼容为 `preserve`。文章 create/update 的 frame type 仍为
 `MutationId(241)`，但 payload 使用 `ArticleMutationResponsePod`：`id:int32`、`revisionId:int64`、`revisionNo:int32`、`rightsSnapshotId:int64`、`rightsRevisionNo:int32`；其他通用 mutation 继续使用 8B `MutationIdPod`。`article_revision_conflict` 使用 HTTP 409 `ApiError`，details 为当前 revision 坐标、status 和 updatedAt；不暴露 `xmin`。草稿保存与丢弃的 `draft_conflict` 同样使用 HTTP 409 `ApiError`，details 固定为 `{currentServerRevision:int64|null,currentUpdatedAt:datetime|null,titleSummary:string|null}`；不得放入 content、summary、rights、tagIds 或其它未发布内容。
 
+Notification stream 的 `ArticleChangedPayload` schema 为 `{articleId:int32,action:string,eventTime:datetime,preview?:ArticleListItemResponse|null,revisionId?:decimal-string|null,releaseId?:decimal-string|null}`。v2 mutation 必须填充两个坐标，legacy v1 可空；decimal string 避免 AEDS notification value 解码后越过 JavaScript safe-integer 边界。它不改变 AEDS frame type。
+
 ### 评论 POD
 
 | 类型 | 字节数 |

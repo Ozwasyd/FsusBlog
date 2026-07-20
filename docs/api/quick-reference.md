@@ -461,6 +461,7 @@
 | GET | `/api/release-evidence/schema-qualification/readiness` | 👑🚦 Test-only | 同一双重 guard；missing Expand 返回 503 `schema_incompatible`，生产不映射 |
 
 通知通道是 AEDS WebSocket notification stream，不是标准 Server-Sent Events，不使用 `EventSource` 或 `text/event-stream`。
+`ArticleChanged(8)` 的 v2 payload 携带可空 `revisionId/releaseId` 精确坐标；前端按 decimal string 接收 int64。发送前坐标已 superseded 时该事件不发布，outbox 将剩余 edge 记为 skipped。
 账号 Passkey counter 回滚会在全部普通会话持久撤销后发布 `NotificationStreamEventType.SessionRevoked=16`；浏览器立即清除普通账号态并跨 tab 强制重新认证，独立 admin session 不随之撤销。
 
 ---

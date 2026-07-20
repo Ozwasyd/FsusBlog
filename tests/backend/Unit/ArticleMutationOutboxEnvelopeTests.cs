@@ -288,10 +288,43 @@ public sealed class ArticleMutationOutboxEnvelopeTests
             1215,
             "Updated",
             idempotencyKey: "delivery-key",
-            eventTime: occurredAt);
+            eventTime: occurredAt,
+            version: new ArticleMutationVersionReference(1501, 3, 1601, 4));
 
         await publisher.Received(1).PushArticleChangedAsync(
-            Arg.Is<ArticleNoticeDto>(notice => notice.ArticleId == 1215 && notice.EventTime == occurredAt),
+            Arg.Is<ArticleNoticeDto>(notice => notice.ArticleId == 1215
+                && notice.EventTime == occurredAt
+                && notice.RevisionId == "1501"
+                && notice.ReleaseId == "1601"),
             "delivery-key");
+    }
+
+    [Fact]
+    public void SupersededDisposition_ReturnsNewlyCompletedAndMarksEveryRemainingEdgeSkipped()
+    {
+        var terminal = new HashSet<string>(StringComparer.Ordinal)
+        {
+            ArticleMutationReplayEdges.PublicAotInvalidation,
+            ArticleMutationReplayEdges.HttpCacheInvalidation,
+            ArticleMutationReplayEdges.SearchProjection
+        };
+        var newlyCompleted = new HashSet<string>(StringComparer.Ordinal)
+        {
+            ArticleMutationReplayEdges.SearchProjection
+        };
+
+        ArticleMutationReplayResult result = ArticleMutationReplayResult.ForSupersededPublication(
+            terminal,
+            "superseded-by-release:1602",
+            newlyCompleted);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(newlyCompleted, result.CompletedEdges);
+        Assert.DoesNotContain(ArticleMutationReplayEdges.SearchProjection, result.SkippedEdges);
+        Assert.Contains(ArticleMutationReplayEdges.ArticleDetailAeds, result.SkippedEdges);
+        Assert.Contains(ArticleMutationReplayEdges.PublicHotRead, result.SkippedEdges);
+        Assert.Contains(ArticleMutationReplayEdges.Notification, result.SkippedEdges);
+        Assert.All(result.SkippedEdges, edge =>
+            Assert.Equal("superseded-by-release:1602", result.SkippedEdgeReasons[edge]));
     }
 }

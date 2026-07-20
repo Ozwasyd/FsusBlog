@@ -140,7 +140,8 @@ public sealed record ArticleMutationReplayResult(
 
     internal static ArticleMutationReplayResult ForSupersededPublication(
         IReadOnlySet<string> terminalEdges,
-        string reason = "superseded-by-newer-publication")
+        string reason = "superseded-by-newer-publication",
+        IReadOnlySet<string>? completedDuringReplay = null)
     {
         var skippedEdges = ArticleMutationReplayEdges.Required
             .Where(edge => !terminalEdges.Contains(edge))
@@ -157,7 +158,12 @@ public sealed record ArticleMutationReplayResult(
             }
         }
 
-        return Skipped(skippedEdges) with
+        return new ArticleMutationReplayResult(
+            true,
+            null,
+            completedDuringReplay ?? new HashSet<string>(StringComparer.Ordinal),
+            skippedEdges,
+            new Dictionary<string, string>(StringComparer.Ordinal)) with
         {
             SkippedEdgeReasons = skippedEdges.ToDictionary(
                 static edge => edge,
@@ -339,6 +345,37 @@ public sealed class ArticleMutationSideEffectCoordinator(
         var completed = new HashSet<string>(completedEdges, StringComparer.Ordinal);
         var completedDuringReplay = new HashSet<string>(StringComparer.Ordinal);
         var failed = new Dictionary<string, string>(StringComparer.Ordinal);
+        async Task EnsureEventVersionIsCurrentAsync()
+        {
+            if (!version.ReleaseId.HasValue
+                && !version.RevisionId.HasValue
+                && !version.RightsSnapshotId.HasValue
+                && !version.ResponsibilitySnapshotId.HasValue)
+            {
+                return;
+            }
+
+            var envelope = new ArticleMutationOutboxEnvelope(
+                ArticleMutationOutboxEnvelopeCodec.CurrentSchemaVersion,
+                outboxEventId,
+                articleId,
+                eventType,
+                version,
+                new ArticleMutationScopeChange(null, null),
+                version.EventOccurredAt ?? DateTime.UtcNow);
+            ArticleMutationVersionDisposition disposition = await ArticleMutationOutboxVersionGuard
+                .EvaluateAsync(db, envelope, cancellationToken)
+                .ConfigureAwait(false);
+            if (disposition.Kind == ArticleMutationVersionDispositionKind.Skip)
+            {
+                throw new ArticleMutationSupersededException(disposition.Reason ?? "superseded-by-newer-publication");
+            }
+            if (disposition.Kind == ArticleMutationVersionDispositionKind.Invalid)
+            {
+                throw new InvalidOperationException(disposition.Reason ?? "invalid-article-mutation-coordinate");
+            }
+        }
+
         async Task<bool> RunEdgeAsync(string edgeName, Func<Task> effect)
         {
             if (completed.Contains(edgeName))
@@ -348,12 +385,17 @@ public sealed class ArticleMutationSideEffectCoordinator(
 
             try
             {
+                await EnsureEventVersionIsCurrentAsync().ConfigureAwait(false);
                 await effect().ConfigureAwait(false);
                 completed.Add(edgeName);
                 completedDuringReplay.Add(edgeName);
                 return true;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (ArticleMutationSupersededException)
             {
                 throw;
             }
@@ -381,11 +423,16 @@ public sealed class ArticleMutationSideEffectCoordinator(
 
             try
             {
+                await EnsureEventVersionIsCurrentAsync().ConfigureAwait(false);
                 await effect().ConfigureAwait(false);
                 completed.Add(edgeName);
                 completedDuringReplay.Add(edgeName);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (ArticleMutationSupersededException)
             {
                 throw;
             }
@@ -463,7 +510,9 @@ public sealed class ArticleMutationSideEffectCoordinator(
                         ArticleMutationReplayEdges.PublicArtifactRevocation,
                         () => projections.RevokeArticleAsync(articleId, cancellationToken))
                     .ConfigureAwait(false)
-                || !await RunEdgeAsync(ArticleMutationReplayEdges.SearchProjection, () => delivery.ProjectSearchAsync(article))
+                || !await RunEdgeAsync(
+                        ArticleMutationReplayEdges.SearchProjection,
+                        () => delivery.ProjectSearchAsync(article, version, cancellationToken))
                     .ConfigureAwait(false)
                 || !await RunEdgeAsync(
                         ArticleMutationReplayEdges.TaxonomyProjection,
@@ -478,9 +527,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
                         async () =>
                         {
                             await projections.EnsurePublicHotUpdateQueuedAsync(
-                                    normalized is ArticleMutationEventTypes.Created or ArticleMutationEventTypes.ScheduledPublished
-                                        ? null
-                                        : articleId,
+                                    articleId,
                                     $"outbox-{normalized}",
                                     version.ReleaseId)
                                 .ConfigureAwait(false);
@@ -504,7 +551,8 @@ public sealed class ArticleMutationSideEffectCoordinator(
                         articleId,
                         action,
                         idempotencyKey: ArticleMutationDeliveryKey.Build(outboxEventId, ArticleMutationReplayEdges.Notification),
-                        eventTime: version.EventOccurredAt))
+                        eventTime: version.EventOccurredAt,
+                        version: version))
                 .ConfigureAwait(false);
 
             return ArticleMutationReplayResult.Success(completedDuringReplay, failed);
@@ -512,6 +560,18 @@ public sealed class ArticleMutationSideEffectCoordinator(
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
+        }
+        catch (ArticleMutationSupersededException ex)
+        {
+            logger.LogInformation(
+                "article-outbox-replay-version-skipped {ArticleId} {EventType} {Reason}",
+                articleId,
+                eventType,
+                ex.Reason);
+            return ArticleMutationReplayResult.ForSupersededPublication(
+                completed,
+                ex.Reason,
+                completedDuringReplay);
         }
         catch (Exception ex)
         {

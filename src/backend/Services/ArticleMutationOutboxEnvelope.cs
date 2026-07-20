@@ -7,6 +7,11 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Services;
 
+public sealed class ArticleMutationSupersededException(string reason) : Exception(reason)
+{
+    public string Reason { get; } = reason;
+}
+
 public sealed record ArticleMutationScopeSnapshot(
     int? CategoryId,
     IReadOnlyList<int> TagIds,

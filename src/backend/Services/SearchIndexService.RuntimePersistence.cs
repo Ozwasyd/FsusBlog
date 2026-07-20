@@ -33,9 +33,32 @@ namespace FsusBlog.Server.Services;
 
 public sealed partial class SearchIndexService
 {
-    private async Task<List<SearchSourceArticle>> LoadArticlesAsync(ISqlSugarClient db)
+    private async Task<List<SearchSourceArticle>> LoadArticlesAsync(
+        ISqlSugarClient db,
+        int? expectedArticleId = null,
+        long? expectedReleaseId = null,
+        CancellationToken cancellationToken = default)
     {
-        List<SearchArticleRow> articleRows = await LoadArticleRowsAsync(db);
+        List<SearchArticleRow> articleRows = await LoadArticleRowsAsync(
+            db,
+            expectedArticleId,
+            expectedReleaseId,
+            cancellationToken).ConfigureAwait(false);
+        if (expectedArticleId.HasValue && expectedReleaseId.HasValue)
+        {
+            long? currentReleaseId = await db.Queryable<Article>()
+                .ClearFilter()
+                .Where(article => article.Id == expectedArticleId.Value)
+                .Select(article => article.CurrentPublicationId)
+                .FirstAsync(cancellationToken);
+            if (currentReleaseId != expectedReleaseId.Value)
+            {
+                throw new ArticleMutationSupersededException(
+                    currentReleaseId.HasValue
+                        ? $"superseded-by-release:{currentReleaseId.Value}"
+                        : $"superseded-search-release:{expectedReleaseId.Value}");
+            }
+        }
         return await LoadSearchSourceArticlesAsync(db, articleRows).ConfigureAwait(false);
     }
 
@@ -130,7 +153,11 @@ public sealed partial class SearchIndexService
     private static string TrimSearchBodyForTokenization(string body)
         => body.Length > MaxIndexedBodyChars ? body[..MaxIndexedBodyChars] : body;
 
-    private static async Task<List<SearchArticleRow>> LoadArticleRowsAsync(ISqlSugarClient db)
+    private static async Task<List<SearchArticleRow>> LoadArticleRowsAsync(
+        ISqlSugarClient db,
+        int? expectedArticleId,
+        long? expectedReleaseId,
+        CancellationToken cancellationToken)
     {
         DateTime now = DateTime.UtcNow;
         return await db.Queryable<Article>()
@@ -142,6 +169,11 @@ public sealed partial class SearchIndexService
                 && a.Status == ArticleStatus.Published
                 && (a.PublishedAt == null || a.PublishedAt <= now)
                 && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= now))
+            .WhereIF(
+                expectedArticleId.HasValue && expectedReleaseId.HasValue,
+                (a, publication, revision, category) => a.Id != expectedArticleId.GetValueOrDefault()
+                    || (a.CurrentPublicationId == expectedReleaseId.GetValueOrDefault()
+                        && publication.Id == expectedReleaseId.GetValueOrDefault()))
             .OrderByDescending((a, publication, revision, category) => publication.PublishedAt)
             .Select((a, publication, revision, category, body) => new SearchArticleRow
             {
@@ -161,7 +193,7 @@ public sealed partial class SearchIndexService
                 PublicationNo = publication.PublicationNo,
                 PublishedAt = publication.PublishedAt
             })
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
     }
 
     private static async Task<Dictionary<int, string>> LoadBodyMapAsync(ISqlSugarClient db, int[] articleIds)

@@ -82,6 +82,9 @@ export interface ArticleUpdatePayload {
   action: 'Created' | 'Updated' | 'Deleted' | 'Restored'
   eventTime: string
   preview?: ArticleListItemResponse | null
+  /** Immutable mutation coordinates; int64 values stay strings in the JS boundary. */
+  revisionId?: string | null
+  releaseId?: string | null
 }
 
 export interface CacheControlPayload {

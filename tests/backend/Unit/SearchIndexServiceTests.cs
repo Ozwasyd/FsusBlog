@@ -657,7 +657,6 @@ public sealed class SearchIndexServiceTests
             "RebuildSearchIndexAsync",
             "RecordSearchRuntimeSnapshotMemory");
         string publish = RuntimeMetadataInspection.DescribeMethods(service, "PublishArtifactsAsync");
-        string search = RuntimeMetadataInspection.DescribeMethods(service, nameof(SearchIndexService.SearchAsync));
         Type runtimeDocument = service.GetNestedType("SearchRuntimeDocument", BindingFlags.NonPublic)!;
 
         Assert.Contains(addOrUpdateCalls, static method => method.Name == "ApplyIncrementalSearchIndexAsync");
@@ -671,7 +670,9 @@ public sealed class SearchIndexServiceTests
         Assert.Contains("WriteFileAtomically", publish, StringComparison.Ordinal);
         Assert.DoesNotContain(service.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static),
             static method => method.Name is "LoadArticlesByIdsAsync" or "PublishIncrementalPatchAsync");
-        Assert.DoesNotContain("ArticleBody", search, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            ReadCalledMethods(service.GetMethod(nameof(SearchIndexService.SearchAsync))!).Select(static call => call.Method),
+            static method => method.Name == "LoadArticlesAsync");
         Assert.Null(runtimeDocument.GetProperty("Body"));
         Assert.NotNull(runtimeDocument.GetProperty("SnippetWindow"));
         Type runtimeSnapshot = service.GetNestedType("SearchRuntimeSnapshot", BindingFlags.NonPublic)!;

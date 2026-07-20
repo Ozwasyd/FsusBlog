@@ -83,7 +83,7 @@ public sealed class PublicHotArtifactProjector(
         long? expectedReleaseId,
         CancellationToken ct)
     {
-        if (articleId <= 0 || current.ArticleFrameCount == 0)
+        if (articleId <= 0)
         {
             return BuildSnapshotAsync(current.HtmlArtifacts, ct);
         }
@@ -874,11 +874,11 @@ public sealed class PublicHotArtifactProjector(
             .InnerJoin<ArticlePublicationRecord>((article, publication) => article.CurrentPublicationId == publication.Id)
             .InnerJoin<ArticleRevision>((article, publication, revision) => publication.ArticleRevisionId == revision.Id)
             .LeftJoin<Category>((article, publication, revision, category) => revision.CategoryId == category.Id)
-            .Where(a => ids.Contains(a.Id)
-                && a.IsDeleted == false
-                && a.Status == ArticleStatus.Published
-                && (a.PublishedAt == null || a.PublishedAt <= utcNow)
-                && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= utcNow))
+            .Where((article, publication, revision, category) => ids.Contains(article.Id)
+                && article.IsDeleted == false
+                && article.Status == ArticleStatus.Published
+                && (article.PublishedAt == null || article.PublishedAt <= utcNow)
+                && (article.ScheduledPublishAt == null || article.ScheduledPublishAt <= utcNow))
             .WhereIF(expectedReleaseId.HasValue, (article, publication, revision, category) =>
                 publication.Id == expectedReleaseId!.Value)
             .Select((article, publication, revision, category) => new

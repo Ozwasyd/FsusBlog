@@ -180,10 +180,24 @@ public sealed partial class SearchIndexService(
             LogLevel.Error);
 
     public Task AddOrUpdateIndexAsync(Article article)
-        => ApplyIncrementalSearchIndexAsync([article.Id], []);
+        => ApplyIncrementalSearchIndexAsync([article.Id], [], null, null);
+
+    public Task AddOrUpdateVersionedIndexAsync(
+        Article article,
+        ArticleMutationVersionReference version,
+        CancellationToken cancellationToken = default)
+    {
+        bool publiclyVisible = ArticlePublication.IsPubliclyVisible(article, DateTime.UtcNow);
+        return ApplyIncrementalSearchIndexAsync(
+            publiclyVisible ? [article.Id] : [],
+            publiclyVisible ? [] : [article.Id],
+            version.ReleaseId.HasValue ? article.Id : null,
+            version.ReleaseId,
+            cancellationToken);
+    }
 
     public Task DeleteIndexAsync(int id)
-        => ApplyIncrementalSearchIndexAsync([], [id]);
+        => ApplyIncrementalSearchIndexAsync([], [id], null, null);
 
     public static string? NormalizeTokenForTests(string input)
     {
@@ -240,8 +254,13 @@ public sealed partial class SearchIndexService(
         using var runtime = SearchDictionaryRuntime.Open(path);
     }
 
-    private Task RebuildSearchIndexAsync(IReadOnlyCollection<int> upsertArticleIds, IReadOnlyCollection<int> deletedArticleIds)
-        => BoundaryExecutor.ExecuteAsync(
+    private Task RebuildSearchIndexAsync(
+        IReadOnlyCollection<int> upsertArticleIds,
+        IReadOnlyCollection<int> deletedArticleIds,
+        int? expectedArticleId = null,
+        long? expectedReleaseId = null,
+        CancellationToken cancellationToken = default)
+        => ExecuteMutationBoundaryAsync(
             async () =>
             {
                 long startedAt = Stopwatch.GetTimestamp();
@@ -253,7 +272,11 @@ public sealed partial class SearchIndexService(
                     await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
                     ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
 
-                    List<SearchSourceArticle> articles = await LoadArticlesAsync(db);
+                    List<SearchSourceArticle> articles = await LoadArticlesAsync(
+                        db,
+                        expectedArticleId,
+                        expectedReleaseId,
+                        cancellationToken).ConfigureAwait(false);
                     string root = ResolveSearchRoot();
                     string dictionariesDirectory = Path.Combine(root, SearchDictionaryDirectory);
                     Directory.CreateDirectory(dictionariesDirectory);
@@ -283,12 +306,16 @@ public sealed partial class SearchIndexService(
                     FsusObservability.RecordSearchOperation("rebuild", result, FsusObservability.GetElapsed(startedAt));
                 }
             },
-            logger,
             "search-index-rebuild",
-            LogLevel.Error);
+            expectedReleaseId.HasValue);
 
-    private Task ApplyIncrementalSearchIndexAsync(IReadOnlyCollection<int> upsertArticleIds, IReadOnlyCollection<int> deletedArticleIds)
-        => BoundaryExecutor.ExecuteAsync(
+    private Task ApplyIncrementalSearchIndexAsync(
+        IReadOnlyCollection<int> upsertArticleIds,
+        IReadOnlyCollection<int> deletedArticleIds,
+        int? expectedArticleId,
+        long? expectedReleaseId,
+        CancellationToken cancellationToken = default)
+        => ExecuteMutationBoundaryAsync(
             async () =>
             {
                 long startedAt = Stopwatch.GetTimestamp();
@@ -302,14 +329,23 @@ public sealed partial class SearchIndexService(
                     SearchIndexManifest? previousManifest = ReadManifest(manifestPath);
                     if (previousManifest is null)
                     {
-                        await RebuildSearchIndexAsync(upsertArticleIds, deletedArticleIds).ConfigureAwait(false);
+                        await RebuildSearchIndexAsync(
+                            upsertArticleIds,
+                            deletedArticleIds,
+                            expectedArticleId,
+                            expectedReleaseId,
+                            cancellationToken).ConfigureAwait(false);
                         result = "full_compact";
                         return;
                     }
 
                     await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
                     ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
-                    List<SearchSourceArticle> articles = await LoadArticlesAsync(db).ConfigureAwait(false);
+                    List<SearchSourceArticle> articles = await LoadArticlesAsync(
+                        db,
+                        expectedArticleId,
+                        expectedReleaseId,
+                        cancellationToken).ConfigureAwait(false);
                     string dictionariesDirectory = Path.Combine(root, SearchDictionaryDirectory);
                     Directory.CreateDirectory(dictionariesDirectory);
                     string lexiconPath = Path.Combine(dictionariesDirectory, SearchLexiconBinaryFileName);
@@ -335,9 +371,17 @@ public sealed partial class SearchIndexService(
                     FsusObservability.RecordSearchOperation("incremental", result, FsusObservability.GetElapsed(startedAt));
                 }
             },
-            logger,
             "search-index-incremental",
-            LogLevel.Error);
+            expectedReleaseId.HasValue);
+
+    private Task ExecuteMutationBoundaryAsync(Func<Task> action, string operation, bool propagateSuperseded)
+        => propagateSuperseded
+            ? BoundaryExecutor.ExecutePropagatingAsync<ArticleMutationSupersededException>(
+                action,
+                logger,
+                operation,
+                LogLevel.Error)
+            : BoundaryExecutor.ExecuteAsync(action, logger, operation, LogLevel.Error);
 
     private string ResolveSearchRoot()
     {

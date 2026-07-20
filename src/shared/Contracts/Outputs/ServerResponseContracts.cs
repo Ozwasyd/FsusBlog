@@ -32,7 +32,13 @@ public readonly record struct TrashClearResponseDto(int Count);
 /// <summary>
 /// Defines the API output contract represented by <c>ArticleNoticeDto</c>.
 /// </summary>
-public readonly record struct ArticleNoticeDto(int ArticleId, string Action, DateTime EventTime, ArticleListItemResponse? Preview = null);
+public readonly record struct ArticleNoticeDto(
+    int ArticleId,
+    string Action,
+    DateTime EventTime,
+    ArticleListItemResponse? Preview = null,
+    string? RevisionId = null,
+    string? ReleaseId = null);
 
 /// <summary>通行密钥凭证摘要（返回给前端）</summary>
 public readonly record struct PasskeyCredentialSummaryDto(

@@ -99,6 +99,31 @@ public sealed class ArticleResponsibilityVersioningTests(PostgresSchemaMigration
     }
 
     [Fact]
+    public async Task SaveAsync_OutboxProducerFailureRollsBackSnapshotPublicationAndPointer()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        (int articleId, long revisionId, long initialPublicationId) = SeedPublishedArticle(db);
+        await db.Ado.ExecuteCommandAsync(
+            """
+            ALTER TABLE article_mutation_outbox
+            ADD CONSTRAINT reject_responsibility_outbox
+            CHECK (event_type <> 'responsibility-updated');
+            """);
+        var service = new ArticleResponsibilityAuthoringService(db);
+
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => service.SaveAsync(articleId, revisionId, Draft(expectedVersion: 0, "must rollback")));
+
+        Assert.Contains("not saved atomically", error.Message, StringComparison.Ordinal);
+        Assert.Equal(0, await db.Queryable<ArticleResponsibilitySnapshot>().CountAsync());
+        Assert.Equal(0, await db.Queryable<ArticleMutationOutboxEvent>().CountAsync());
+        Assert.Equal(1, await db.Queryable<ArticlePublicationRecord>().CountAsync());
+        Article current = Assert.IsType<Article>(await db.Queryable<Article>().InSingleAsync(articleId));
+        Assert.Equal(initialPublicationId, current.CurrentPublicationId);
+        Assert.Null((await db.Queryable<ArticlePublicationRecord>().InSingleAsync(initialPublicationId))!.ResponsibilitySnapshotId);
+    }
+
+    [Fact]
     public async Task GetHistoryAsync_ReturnsEveryVersionNewestFirstForExactRevision()
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
