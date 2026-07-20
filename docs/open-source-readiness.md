@@ -1,6 +1,6 @@
 # Open Source Readiness
 
-FsusBlog v1.1.0 is a public-preview release for development, evaluation, code review, and personal self-hosting experiments. It is not a stable production release and does not provide a production SLA.
+FsusBlog is in Public Preview for development, evaluation, code review, and personal self-hosting experiments. It is not stable production software and does not provide a production SLA. This status is a capability classification, not a product version.
 
 ## Required Policies
 
@@ -15,7 +15,7 @@ FsusBlog v1.1.0 is a public-preview release for development, evaluation, code re
 | Repository governance | [docs/repository-governance.md](repository-governance.md) |
 | Code of conduct | [CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md) |
 | Known limitations | [docs/known-limitations.md](known-limitations.md) |
-| Release notes | [docs/releases/v1.1.0-public-preview.md](releases/v1.1.0-public-preview.md) |
+| Current preview policy | [docs/releases/public-preview-policy.md](releases/public-preview-policy.md) |
 
 ## Safe Configuration Examples
 
@@ -35,9 +35,9 @@ Current scanner output is generated under the untracked `.tmp/open-source-readin
 | CodeQL SARIF analysis | `.github/workflows/codeql.yml` |
 | OpenSSF Scorecard posture scan | `.github/workflows/scorecard.yml` |
 | Branch protection and workflow permissions | [docs/repository-governance.md](repository-governance.md) |
-| Historical v1.1.0 checklist | `docs/reports/open-source-readiness/v1.1.0-public-preview/readiness-checklist.md` |
+| Historical legacy product-version checklist | `docs/reports/open-source-readiness/v1.1.0-public-preview/readiness-checklist.md` |
 
-The retained [v1.1.0 public-preview snapshot](reports/open-source-readiness/v1.1.0-public-preview/README.md) is dated, revision-scoped provenance. Historical `green` or `ok` fields there do not state current master readiness and cannot satisfy fresh or release gates.
+The retained [legacy public-preview snapshot](reports/open-source-readiness/v1.1.0-public-preview/README.md) is dated, revision-scoped provenance. Its path preserves a legacy product-version label. Historical `green` or `ok` fields there do not state current master readiness and cannot satisfy fresh or release gates.
 
 The secret scan covers the tracked tree, git history, public GitHub issue text, issue comments, and a documentation image inventory. It blocks unapproved private keys, tokens, production-looking credentials, public IPs, and personal email patterns.
 

@@ -1,6 +1,6 @@
 # Repository Governance
 
-FsusBlog v1.1.0 public preview uses GitHub-native repository controls as release safety rails. This page documents the expected default-branch settings; it does not enable branch protection through the API.
+FsusBlog Public Preview uses GitHub-native repository controls as release safety rails. This page documents the expected default-branch settings; it does not enable branch protection through the API or derive policy from a product version.
 
 ## Source ownership
 

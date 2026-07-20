@@ -1,8 +1,8 @@
 # Roadmap
 
-This roadmap describes public-preview direction. Future items do not block v1.1.0 public preview unless a separate readiness issue says so.
+This roadmap describes capability stages. Stages express dependencies, scope, and completion conditions; they are not product versions or delivery-date promises.
 
-## v1.1.0 Public Preview
+## Current Public Preview
 
 Goal: make the repository public, reviewable, and usable for development, evaluation, and personal self-hosting experiments.
 
@@ -24,9 +24,13 @@ Status:
 - Deployment: Self-hosting preview.
 - Production SLA: none.
 
-## v1.2.0
+Completion condition: the documented single-process baseline, public contribution workflow, and local acceptance evidence remain reproducible from current `master`.
+
+## Localization and Public UX
 
 Goal: establish localization and public-facing UX maturity after public preview.
+
+Status: planned; tracked by [#72](https://github.com/Ozwasyd/FsusBlog/issues/72).
 
 Planned work:
 
@@ -36,11 +40,13 @@ Planned work:
 - Public documentation cleanup based on external contributor feedback.
 - More explicit stable extension points where appropriate.
 
-v1.2.0 is not a blocker for opening v1.1.0 as public preview.
+Dependencies and completion condition: localization contract work must be tracked by dedicated issues; the stage completes only when the public shell, authentication flows, route metadata, formatting, errors, and contributor documentation share tested locale behavior.
 
-## v1.3.0
+## Distributed Runtime
 
 Goal: add multi-node and distributed runtime capabilities without sacrificing the single-process baseline.
+
+Status: planned; the supported baseline remains single-process. Cluster operations are tracked by [#115](https://github.com/Ozwasyd/FsusBlog/issues/115), with individual protocol and convergence work kept in their own issues.
 
 Planned work:
 
@@ -51,11 +57,13 @@ Planned work:
 - Adaptive responsibility scheduling.
 - Cluster operations, observability, and failover diagnostics.
 
-v1.3.0 is a future architecture direction, not a public-preview requirement.
+Dependencies and completion condition: this stage depends on explicit cluster protocol, fencing, recovery, and operations contracts. Multi-node deployment is not part of the supported baseline until those contracts and their failure-mode tests are complete.
 
-## Post-v1.3.0
+## Plugin, Theme and Font Ecosystem
 
 Longer-term ecosystem work:
+
+Status: planned; the integrated ecosystem boundary is tracked by [#181](https://github.com/Ozwasyd/FsusBlog/issues/181).
 
 - Plugin system.
 - Theme system.
@@ -66,6 +74,8 @@ Longer-term ecosystem work:
 - Release artifact signing and SBOM hardening.
 - Ecosystem hardening for third-party integrations.
 
+Dependencies and completion condition: each extension surface must have an owner, a dedicated stability document, compatibility fixtures, and a lifecycle policy before it is advertised as stable.
+
 ## Stability Rule
 
-Only documented stable extension points should be treated as stable. Undocumented internal APIs, AEDS frames, admin routes, and database schema remain experimental during v1.1.x.
+Only documented stable extension points should be treated as stable. Undocumented internal APIs, AEDS frames, admin routes, and database schema remain experimental regardless of roadmap stage.

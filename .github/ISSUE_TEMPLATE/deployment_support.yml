@@ -28,6 +28,14 @@ body:
               - Other
       validations:
           required: true
+    - type: input
+      id: release-identity
+      attributes:
+          label: Release ID or full commit SHA
+          description: Include the canonical ReleaseId from the deployed artifact or the full 40-character commit SHA.
+          placeholder: "20260720143025-32a785eabb20 / 32a785eabb2061f447d064bd55a61ddca0928582"
+      validations:
+          required: true
     - type: textarea
       id: runtime-versions
       attributes:

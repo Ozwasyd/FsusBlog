@@ -18,7 +18,7 @@ FsusBlog is in public preview. Support is limited to development, evaluation, co
 
 For local, Docker Compose, Kestrel-only, reverse proxy, CDN, or production-like setup problems, include:
 
-- FsusBlog version, branch, or commit SHA.
+- FsusBlog canonical ReleaseId or full commit SHA.
 - Deployment mode and whether a reverse proxy, CDN, VPN, WAF, or managed database is involved.
 - OS, CPU architecture, .NET, Node/npm, Docker, PostgreSQL, and Redis versions.
 - Sanitized environment variable names and non-secret values.

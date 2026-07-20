@@ -3885,6 +3885,32 @@
             ]
         },
         {
+            "id": "product-version-governance",
+            "description": "Current product status, roadmap, compatibility, changelog, release policy and issue intake use capability stages, explicit contract classifications and canonical ReleaseId evidence instead of product SemVer.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "README.md",
+                "ROADMAP.md",
+                "CHANGELOG.md",
+                ".github/ISSUE_TEMPLATE",
+                "docs/api/stability.md",
+                "docs/known-limitations.md",
+                "docs/architecture/overview.md",
+                "docs/releases/public-preview-policy.md",
+                "docs/releases/v1.1.0-public-preview.md",
+                "tools/docs/check-public-preview-docs.mjs",
+                "tools/docs/check-community-workflow.mjs",
+                "tests/tools/issue-1319-product-version-governance.test.mjs"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "Reject product SemVer in active policy sources, missing capability stages or stability classifications, non-canonical issue evidence prompts, an unclassified legacy policy, or multiple current preview-policy authorities while allowing protocol, schema, runtime, dependency and historical provenance versions.",
+            "minimumRequirement": "Static governance must validate repository sources and fixture-backed rejection/exemption behavior for product-version language.",
+            "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
             "id": "authoritative-development-docs-governance",
             "description": "One C#-derived cross-language convention authority defines precedence, language mappings, external contract exceptions and generated/vendor/fixture ownership while repository maps, symbols, commands and links remain live.",
             "owner": "ServerContractAgent",

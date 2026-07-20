@@ -16,6 +16,14 @@ body:
               Do not report security vulnerabilities here. Use `SECURITY.md` and GitHub private vulnerability reporting.
               Remove secrets, tokens, private domains, real IPs, real emails, production logs, and private user data before posting publicly.
     - type: input
+      id: release-identity
+      attributes:
+          label: Release ID or full commit SHA
+          description: Identify the affected build with a canonical ReleaseId or full 40-character commit SHA.
+          placeholder: "20260720143025-32a785eabb20 / 32a785eabb2061f447d064bd55a61ddca0928582"
+      validations:
+          required: true
+    - type: input
       id: route-component
       attributes:
           label: Route, page, or component

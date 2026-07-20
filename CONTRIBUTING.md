@@ -11,11 +11,11 @@ FsusBlog is currently a public-preview project. Contributions should keep change
     - documentation reports for stale, missing, confusing, or incorrect docs
     - deployment/self-hosting reports for local, Docker, Kestrel, reverse proxy, CDN, or production-like setup problems
     - accessibility/UI reports for keyboard, screen reader, reduced-motion, dark-mode, mobile, or responsive defects
-    - governance/process reports for public-preview policy, test gate, release evidence, contribution workflow, and issue/PR routing drift
+    - governance/process reports for status policy, contract classification, test gate, release evidence, contribution workflow, and issue/PR routing drift
 - Do not file security vulnerabilities as public GitHub issues. Follow [SECURITY.md](SECURITY.md).
 - For setup, usage, deployment, or self-hosting routing, start with [SUPPORT.md](SUPPORT.md) and then use the matching issue form only when the report is actionable.
 - Never put security vulnerability details or private deployment data in public support threads, issue comments, or PRs.
-- Include a commit SHA or version, deployment mode, and sanitized evidence.
+- Include a canonical ReleaseId or full commit SHA, deployment mode, and sanitized evidence.
 - For performance reports, state whether the measurement is the Kestrel-only baseline or includes a reverse proxy, CDN, or other deployment layer.
 - New issues and pull requests use the namespaced label taxonomy in [docs/repository-labels.md](docs/repository-labels.md).
 
@@ -85,15 +85,17 @@ Keep PRs reviewable. Split unrelated API, UI, database, and security changes unl
 
 Default-branch merge expectations, required status checks, CodeQL/Scorecard posture checks, and GitHub Actions permission rules are documented in [docs/repository-governance.md](docs/repository-governance.md).
 
-## Public-Preview Stability Policy
+## Public Preview Stability Policy
 
-During the v1.1.x public-preview phase:
+During Public Preview:
 
 - internal AEDS frames are experimental unless explicitly documented as stable
 - undocumented internal APIs may change
 - database schema and admin routes may change
 - deployment configuration may change
 - third-party client compatibility is not guaranteed
+
+Stability comes only from the classifications in [docs/api/stability.md](docs/api/stability.md). A roadmap stage or product label does not grant compatibility. When reporting a build, use its canonical ReleaseId or the full commit SHA.
 
 Standard external protocols such as RSS, Atom, Sitemap, `robots.txt`, and health probes should remain documented separately from internal AEDS APIs.
 

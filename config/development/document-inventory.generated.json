@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v1",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:89c9cfb23f2f4fc2884d8296ab7dc596a15b5a5da002b7ef0b6eaa6631f1e65e",
+    "policyDigest": "sha256:f6f7d83aebc0a346a5905aca8cee69edb3086880e67def182e6d60bc81e2ad5a",
     "documents": [
         {
             "path": "docs/active-release-fenced-commits.md",
@@ -105,6 +105,21 @@
             "supersedes": [],
             "supersededBy": null,
             "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/api/issue-1208-article-body-missing.md",
+            "title": "Issue 1208：发布文章正文缺失契约",
+            "kind": "markdown",
+            "status": "historical",
+            "owner": "backend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1208
+            ],
             "producer": null
         },
         {
@@ -251,6 +266,32 @@
             "producer": null
         },
         {
+            "path": "docs/architecture/article-deletion-data-catalog.json",
+            "title": "Article Deletion Data Catalog",
+            "kind": "json",
+            "status": "current",
+            "owner": "backend",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/architecture/article-deletion-lifecycle.md",
+            "title": "Article permanent-deletion lifecycle",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "backend",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
+        {
             "path": "docs/architecture/article-mutation-outbox-claim-lease.md",
             "title": "Article mutation outbox claim lease",
             "kind": "markdown",
@@ -266,6 +307,19 @@
         {
             "path": "docs/architecture/article-mutation-side-effect-boundaries.md",
             "title": "Article mutation side-effect boundaries",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "backend",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/architecture/article-revision-concurrency.md",
+            "title": "Article revision concurrency",
             "kind": "markdown",
             "status": "current",
             "owner": "backend",
@@ -316,6 +370,19 @@
             "producer": null
         },
         {
+            "path": "docs/architecture/comment-mutation-outbox.md",
+            "title": "Comment mutation outbox",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "backend",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
+        {
             "path": "docs/architecture/comment-notification-boundary.md",
             "title": "Comment notification boundary",
             "kind": "markdown",
@@ -331,6 +398,19 @@
         {
             "path": "docs/architecture/comment-query-boundary.md",
             "title": "Comment query boundary",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "backend",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/architecture/composition-root-boundary.md",
+            "title": "Composition root boundary",
             "kind": "markdown",
             "status": "current",
             "owner": "backend",
@@ -396,6 +476,21 @@
             "producer": null
         },
         {
+            "path": "docs/architecture/issue-1208-article-body-repair.md",
+            "title": "Issue 1208：ArticleBody 本机修复与公开产物门禁",
+            "kind": "markdown",
+            "status": "historical",
+            "owner": "backend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1208
+            ],
+            "producer": null
+        },
+        {
             "path": "docs/architecture/issue-1262-router-bootstrap-ownership.md",
             "title": "Router and FullApp bootstrap ownership",
             "kind": "markdown",
@@ -423,6 +518,19 @@
             "relatedIssues": [
                 1264
             ],
+            "producer": null
+        },
+        {
+            "path": "docs/architecture/message-center-responsibilities.md",
+            "title": "MessageCenter 内部职责边界",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "backend",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
             "producer": null
         },
         {
@@ -973,6 +1081,366 @@
             "producer": null
         },
         {
+            "path": "docs/assets/screenshots/issue-1310/after-admin-collection-1365x768-light.png",
+            "title": "After Admin Collection 1365x768 Light",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1310
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/assets/screenshots/issue-1310/after-admin-console-390x844-dark.png",
+            "title": "After Admin Console 390x844 Dark",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1310
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/assets/screenshots/issue-1310/after-admin-dashboard-1365x768-dark.png",
+            "title": "After Admin Dashboard 1365x768 Dark",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1310
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/assets/screenshots/issue-1310/after-admin-form-390x844-light.png",
+            "title": "After Admin Form 390x844 Light",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1310
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/assets/screenshots/issue-1310/after-admin-settings-1365x768-dark.png",
+            "title": "After Admin Settings 1365x768 Dark",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1310
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/assets/screenshots/issue-1310/after-identity-inbox-390x844-dark.png",
+            "title": "After Identity Inbox 390x844 Dark",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1310
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/assets/screenshots/issue-1310/after-identity-settings-1365x768-light.png",
+            "title": "After Identity Settings 1365x768 Light",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1310
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/assets/screenshots/issue-1310/before-admin-collection-1365x768-light.png",
+            "title": "Before Admin Collection 1365x768 Light",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1310
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/assets/screenshots/issue-1310/before-admin-console-390x844-dark.png",
+            "title": "Before Admin Console 390x844 Dark",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1310
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/assets/screenshots/issue-1310/before-admin-dashboard-1365x768-dark.png",
+            "title": "Before Admin Dashboard 1365x768 Dark",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1310
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/assets/screenshots/issue-1310/before-admin-form-390x844-light.png",
+            "title": "Before Admin Form 390x844 Light",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1310
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/assets/screenshots/issue-1310/before-admin-settings-1365x768-dark.png",
+            "title": "Before Admin Settings 1365x768 Dark",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1310
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/assets/screenshots/issue-1310/before-identity-inbox-390x844-dark.png",
+            "title": "Before Identity Inbox 390x844 Dark",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1310
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/assets/screenshots/issue-1310/before-identity-settings-1365x768-light.png",
+            "title": "Before Identity Settings 1365x768 Light",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1310
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/assets/screenshots/issue-1312/after-admin-settled.png",
+            "title": "After Admin Settled",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1312
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/assets/screenshots/issue-1312/after-admin-transient.png",
+            "title": "After Admin Transient",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1312
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/assets/screenshots/issue-1312/after-identity-settled.png",
+            "title": "After Identity Settled",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1312
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/assets/screenshots/issue-1312/after-identity-transient.png",
+            "title": "After Identity Transient",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1312
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/assets/screenshots/issue-1312/after-inbox-transient.png",
+            "title": "After Inbox Transient",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1312
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/assets/screenshots/issue-1312/after-reduced-transient.png",
+            "title": "After Reduced Transient",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1312
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/assets/screenshots/issue-1312/before-admin-settled.png",
+            "title": "Before Admin Settled",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1312
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/assets/screenshots/issue-1312/before-admin-transient.png",
+            "title": "Before Admin Transient",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1312
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/assets/screenshots/issue-1312/before-identity-settled.png",
+            "title": "Before Identity Settled",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1312
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/assets/screenshots/issue-1312/before-identity-transient.png",
+            "title": "Before Identity Transient",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1312
+            ],
+            "producer": null
+        },
+        {
             "path": "docs/assets/screenshots/operations-status.png",
             "title": "Operations Status",
             "kind": "asset",
@@ -1075,6 +1543,19 @@
             "supersededBy": null,
             "relatedIssues": [],
             "producer": "tools/configuration/check-backend-configuration-contract.mjs"
+        },
+        {
+            "path": "docs/content-credentials.md",
+            "title": "Content Credentials 离线原型",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "governance",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
         },
         {
             "path": "docs/database-migration.md",
@@ -1326,6 +1807,19 @@
         {
             "path": "docs/frontend/fsusui-typecheck-modes.md",
             "title": "FsusUI Typecheck Modes",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "frontend",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/frontend/layout-visual-governance.md",
+            "title": "Layout visual governance",
             "kind": "markdown",
             "status": "current",
             "owner": "frontend",
@@ -2155,6 +2649,21 @@
             "producer": null
         },
         {
+            "path": "docs/issue-1310-account-css-ownership-handoff.md",
+            "title": "Issue #1310 Account CSS ownership handoff",
+            "kind": "markdown",
+            "status": "historical",
+            "owner": "governance",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1310
+            ],
+            "producer": null
+        },
+        {
             "path": "docs/issue-1311-account-header-actions.md",
             "title": "Issue #1311 account header action handoff",
             "kind": "markdown",
@@ -2170,8 +2679,51 @@
             "producer": null
         },
         {
+            "path": "docs/issue-1312-account-route-motion-handoff.md",
+            "title": "Issue #1312 Account route motion handoff",
+            "kind": "markdown",
+            "status": "historical",
+            "owner": "governance",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1312
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/issue-399-distributed-invalidation.md",
+            "title": "Issue #399 节点间缓存失效总线",
+            "kind": "markdown",
+            "status": "historical",
+            "owner": "governance",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                399
+            ],
+            "producer": null
+        },
+        {
             "path": "docs/known-limitations.md",
             "title": "Known Limitations",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "governance",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/message-schema-field-matrix.md",
+            "title": "Message schema field matrix",
             "kind": "markdown",
             "status": "current",
             "owner": "governance",
@@ -2689,6 +3241,19 @@
             "producer": null
         },
         {
+            "path": "docs/releases/public-preview-policy.md",
+            "title": "Public Preview Policy",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "release",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
+        {
             "path": "docs/releases/release-storage-backup-and-restore.md",
             "title": "Release storage backup and restore",
             "kind": "markdown",
@@ -2729,11 +3294,11 @@
         },
         {
             "path": "docs/releases/v1.1.0-public-preview.md",
-            "title": "v1.1.0 Public Preview",
+            "title": "Historical / Legacy: v1.1.0 Public Preview",
             "kind": "markdown",
-            "status": "current",
+            "status": "historical",
             "owner": "release",
-            "sourceOfTruth": true,
+            "sourceOfTruth": false,
             "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
             "supersedes": [],
             "supersededBy": null,
@@ -3027,6 +3592,19 @@
             "producer": null
         },
         {
+            "path": "docs/schema-migrations/atomic-account-enrollment.md",
+            "title": "Atomic account enrollment migration",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "backend",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
+        {
             "path": "docs/schema-migrations/data-reader-projections.json",
             "title": "Data Reader Projections",
             "kind": "json",
@@ -3055,6 +3633,19 @@
         {
             "path": "docs/schema-migrations/destructive-rollback-window.md",
             "title": "Destructive schema rollback-window proof",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "backend",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/schema-migrations/scheduled-publish-due-index.md",
+            "title": "Scheduled publish due index",
             "kind": "markdown",
             "status": "current",
             "owner": "backend",
@@ -3172,6 +3763,19 @@
         {
             "path": "docs/security/comment-privacy-credential-vault.md",
             "title": "Comment privacy credential vault",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "security",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/security/content-credentials-key-lifecycle.md",
+            "title": "Content Credentials 密钥生命周期",
             "kind": "markdown",
             "status": "current",
             "owner": "security",
@@ -3365,6 +3969,19 @@
             "producer": null
         },
         {
+            "path": "docs/security/refresh-token-lineage.md",
+            "title": "Refresh Token lineage",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "security",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
+        {
             "path": "docs/security/security-domain-layout.md",
             "title": "Security domain ownership",
             "kind": "markdown",
@@ -3430,6 +4047,19 @@
             "producer": null
         },
         {
+            "path": "docs/security/user-session-authentication-context.md",
+            "title": "普通账号 Session 认证上下文",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "security",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
+        {
             "path": "docs/security/visit-log-ip-pseudonyms.md",
             "title": "Security-log IP pseudonyms",
             "kind": "markdown",
@@ -3448,6 +4078,19 @@
             "kind": "markdown",
             "status": "current",
             "owner": "frontend",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/state-machines/article-rights-mutation.md",
+            "title": "Article rights mutation state machine",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "governance",
             "sourceOfTruth": true,
             "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
             "supersedes": [],
@@ -3484,6 +4127,19 @@
         {
             "path": "docs/testing/admin-console-behavior-tests.md",
             "title": "管理控制台行为测试边界",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "release",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/testing/article-list-keyset-pagination.md",
+            "title": "公共文章列表 Keyset 验证",
             "kind": "markdown",
             "status": "current",
             "owner": "release",

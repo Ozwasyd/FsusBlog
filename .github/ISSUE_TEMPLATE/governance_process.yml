@@ -1,5 +1,5 @@
 name: Governance / process report
-description: Report public-preview policy, test gate, release evidence, contribution workflow, or issue/PR process drift.
+description: Report status policy, contract classification, test gate, release evidence, contribution workflow, or issue/PR process drift.
 title: "[Governance] "
 labels:
     [
@@ -20,7 +20,7 @@ body:
       attributes:
           label: Governance area
           options:
-              - Public-preview policy gap
+              - Status or contract-classification policy gap
               - Test gate or quality gate drift
               - Release evidence drift
               - Contribution workflow issue
@@ -34,6 +34,14 @@ body:
       attributes:
           label: Current process or policy
           description: Link the file, workflow, checklist, issue form, PR template, or command that appears wrong.
+      validations:
+          required: true
+    - type: input
+      id: release-identity
+      attributes:
+          label: Release ID or full commit SHA
+          description: Identify the affected repository state with a canonical ReleaseId or full 40-character commit SHA.
+          placeholder: "20260720143025-32a785eabb20 / 32a785eabb2061f447d064bd55a61ddca0928582"
       validations:
           required: true
     - type: textarea
@@ -52,7 +60,7 @@ body:
     - type: textarea
       id: release-impact
       attributes:
-          label: Release, test, or public-preview impact
+          label: Release, test, status, or contract impact
           description: State whether this affects release evidence, required checks, docs, or maintainer routing.
       validations:
           required: true

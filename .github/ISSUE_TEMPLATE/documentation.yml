@@ -9,6 +9,14 @@ body:
               Do not report security vulnerabilities here. Use `SECURITY.md` and GitHub private vulnerability reporting.
               Remove secrets, tokens, private domains, real IPs, real emails, production logs, and private deployment details before posting publicly.
     - type: input
+      id: release-identity
+      attributes:
+          label: Release ID or full commit SHA
+          description: Identify the documentation snapshot with a canonical ReleaseId or full 40-character commit SHA.
+          placeholder: "20260720143025-32a785eabb20 / 32a785eabb2061f447d064bd55a61ddca0928582"
+      validations:
+          required: true
+    - type: input
       id: document
       attributes:
           label: Affected document path or URL
@@ -51,9 +59,9 @@ body:
       validations:
           required: true
     - type: dropdown
-      id: public-preview-impact
+      id: stability-impact
       attributes:
-          label: Affects public-preview stability or release evidence?
+          label: Affects status, contract classification, or release evidence?
           options:
               - "Yes"
               - "No"

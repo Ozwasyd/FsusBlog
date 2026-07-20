@@ -12,6 +12,7 @@
         },
         {
             "patterns": [
+                "docs/releases/v1.1.0-public-preview.md",
                 "docs/issue-*",
                 "docs/**/issue-*",
                 "docs/**/issue-*/**",
@@ -135,6 +136,14 @@
         {
             "id": "testing-model",
             "path": "docs/testing.md"
+        },
+        {
+            "id": "public-preview-policy",
+            "path": "docs/releases/public-preview-policy.md"
+        },
+        {
+            "id": "api-stability-policy",
+            "path": "docs/api/stability.md"
         }
     ],
     "closedIssues": [

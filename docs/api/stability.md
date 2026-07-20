@@ -1,30 +1,33 @@
 # API Stability
 
-FsusBlog v1.1.x is a public preview. Its internal application APIs are available for development and evaluation, but they are not stable compatibility contracts for third-party clients.
+FsusBlog is in Public Preview. Stability is granted per contract classification, never inferred from a product version, roadmap stage, route visibility, or the fact that an implementation is documented for maintainers.
 
-## v1.1.x Compatibility Rules
+## Internal / Experimental
 
-During v1.1.x:
+The following remain internal or experimental unless a dedicated stability document explicitly reclassifies a named surface:
 
 - Internal AEDS frame contracts are experimental.
 - Undocumented internal APIs may change without compatibility guarantees.
 - Database schema may change.
 - Admin API routes may change.
 - Deployment configuration may change.
-- No compatibility guarantee is provided for third-party clients.
+- Third-party client compatibility is not guaranteed.
 - Performance profiles must identify whether they use the Kestrel-only baseline or optional deployment layers such as reverse proxy or CDN.
 
-These rules apply even when the current implementation is documented for maintainers. A route or frame becomes a stable public extension point only when a stability document explicitly says so.
+These rules apply even when the current implementation is documented for maintainers.
 
-## v1.2.0 And Later
+## Documented Stable Extension Point
 
-From v1.2.0 onward:
+A surface is stable only when a dedicated document:
 
-- Stable public extension points will be documented explicitly.
-- Undocumented internal APIs remain unstable.
-- Breaking-change policy will be tied to the specific stable extension point, not to every internal endpoint.
+- names the exact routes, messages, files, or plugin boundary covered;
+- defines compatibility and breaking-change rules;
+- identifies the owning maintainer area and test fixtures;
+- states migration, deprecation, and rollback behavior.
 
-## Standard Protocols
+No roadmap stage automatically grants this classification. Anything outside the explicitly registered boundary stays internal or experimental.
+
+## Standard External Protocol
 
 The following outputs are standard external protocols or operational probes, not internal AEDS APIs:
 
@@ -35,12 +38,16 @@ The following outputs are standard external protocols or operational probes, not
 - `robots.txt`
 - health probes
 
-They should stay standards-compatible and should not be interpreted as evidence that undocumented binary/admin/internal routes are stable.
+They remain compatible with their respective standards independently of FsusBlog release identity. That compatibility is not evidence that undocumented binary, admin, or internal routes are stable.
+
+## Maintainer-Facing Deployment / Operations Contract
+
+Health probes and explicitly documented release, rollback, backup, and operations inputs are maintainer-facing contracts. Their authority comes from their operations documentation, schemas, and local checks. Undocumented configuration, release-evidence internals, database schema, and administration endpoints remain experimental.
 
 ## Internal Binary API
 
-The `/api/binary/**` runtime surface is the main application transport. It is optimized for FsusBlog clients and shared contracts inside this repository. Do not build third-party clients against undocumented AEDS frames unless you accept breakage during public preview.
+The `/api/binary/**` runtime surface is the main application transport. It is optimized for FsusBlog clients and shared contracts inside this repository. Do not build third-party clients against undocumented AEDS frames unless you accept breaking changes.
 
 ## Admin And Deployment APIs
 
-Admin routes, operations probes, release evidence formats, and deployment configuration may change during public preview. Treat these as maintainer-facing implementation contracts unless a future stable extension document says otherwise.
+Admin routes and undocumented deployment internals may change. Treat them as maintainer-facing implementation details unless a dedicated stability document says otherwise.

@@ -1,12 +1,12 @@
-# Changelog
+# Historical / Legacy Changelog
 
-本文件记录 FsusBlog 的版本历史，遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 格式。
+> 本文件只保留旧产品版本体系的历史记录，不代表当前 `master`，也不得用于生成新的发布身份。当前变更与 canonical ReleaseId 归档规则见仓库根目录 [`CHANGELOG.md`](../../CHANGELOG.md)。
 
-版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
+旧条目没有可证明的 UTC + SHA 映射，因此保持原样，不补造 ReleaseId。
 
 ---
 
-## [Unreleased]
+## Legacy Unreleased Snapshot
 
 ### 新增
 
@@ -138,6 +138,3 @@
 - 数据库 CodeFirst 自动迁移
 
 ---
-
-[Unreleased]: https://github.com/example/FsusBlog/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/example/FsusBlog/releases/tag/v1.0.0

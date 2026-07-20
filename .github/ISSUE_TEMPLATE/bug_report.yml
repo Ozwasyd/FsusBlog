@@ -8,11 +8,11 @@ body:
           value: |
               Do not report security vulnerabilities here. Use `SECURITY.md` and GitHub private vulnerability reporting.
     - type: input
-      id: version
+      id: release-identity
       attributes:
-          label: Version or commit
-          description: Include a release tag, branch, or commit SHA.
-          placeholder: "v1.1.0-preview / abc1234"
+          label: Release ID or full commit SHA
+          description: Include the canonical ReleaseId for a built artifact or the full 40-character commit SHA for source-based reproduction.
+          placeholder: "20260720143025-32a785eabb20 / 32a785eabb2061f447d064bd55a61ddca0928582"
       validations:
           required: true
     - type: dropdown

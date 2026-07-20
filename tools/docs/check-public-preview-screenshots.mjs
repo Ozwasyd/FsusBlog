@@ -274,23 +274,22 @@ for (const token of [
   includes('README.md', readme, token)
 }
 
-const releaseNotes = read('docs/releases/v1.1.0-public-preview.md')
+const releaseNotes = read('docs/releases/public-preview-policy.md')
 for (const token of [
-  'docs/assets/screenshots/',
-  'docs/known-limitations.md',
+  'Known Limitations',
   'ROADMAP.md',
-  'docs/api/stability.md',
-  'not stable production software'
+  'API Stability',
+  'Production SLA: none'
 ]) {
-  includes('docs/releases/v1.1.0-public-preview.md', releaseNotes, token)
+  includes('docs/releases/public-preview-policy.md', releaseNotes, token)
 }
 
 const limitations = read('docs/known-limitations.md')
 for (const token of [
-  'v1.1.0 is public preview, not stable production release',
-  'Internal API contracts may change before v1.2.0',
+  'Public Preview and is not stable production software',
+  'Internal API contracts may change unless a dedicated stability document',
   'AEDS frame contracts are experimental',
-  'Multi-node deployment is not supported until v1.3.0',
+  'Multi-node runtime has not entered the supported deployment baseline',
   'What Is Safe To Try',
   'What Should Not Be Relied On Yet',
   'Reporting Issues',

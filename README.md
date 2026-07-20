@@ -2,7 +2,7 @@
 
 一个面向真实部署、以二进制公开读取链路和可验证运行时契约为核心的个人内容系统。
 
-> **v1.1.0-public-preview** — FsusBlog 当前处于公开预览阶段，可用于开发、自托管实验和代码审查，但在 v1.2.0 前 API、部署契约、数据模型、后台工作流和性能 profile 仍可能发生破坏性变更。不应将 v1.1.0-public-preview 视为稳定生产版。
+> **Public Preview** — API Stability: Experimental · Deployment: Self-hosting preview · Production SLA: none。FsusBlog 可用于开发、自托管实验和代码审查；稳定性由明确登记的契约分类决定，不由产品版本号推导。需要标识具体构建时，请使用 canonical ReleaseId（`YYYYMMDDHHmmss-sha12`）或完整 commit SHA。
 
 | Public preview entry | Link |
 | ---------------------- | ------ |
@@ -269,7 +269,7 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
 | [docs/architecture.md](docs/architecture.md) | 系统架构、缓存分层、双读链、安全链路全景 |
 | [docs/architecture/overview.md](docs/architecture/overview.md) | 面向外部贡献者的短版架构概览、运行基线、AEDS / HotRead / AOT 定位 |
 | [docs/api.md](docs/api.md) | API 端点快速参考（路由 / 认证要求 / 速率限制） |
-| [docs/api/stability.md](docs/api/stability.md) | v1.1.x public-preview API 稳定性、实验性内部契约和标准协议豁免 |
+| [docs/api/stability.md](docs/api/stability.md) | 显式稳定性分类、实验性内部契约和标准协议边界 |
 | [docs/api/design.md](docs/api/design.md) | API 设计哲学、响应格式约定、双链路决策 |
 | [docs/api/contracts.md](docs/api/contracts.md) | 请求/响应 DTO 完整契约、通知 WebSocket 契约、AOT 契约 |
 | [docs/api/quick-reference.md](docs/api/quick-reference.md) | 所有端点路由速查表（含认证 / 限流 / Binary 对照） |
@@ -287,10 +287,11 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
 | [docs/moderation/third-party-model-development.md](docs/moderation/third-party-model-development.md) | 第三方审核模型 Provider 契约、schema、CLI/HTTP 接入和 conformance 测试 |
 | [tests/backend/TESTING.md](tests/backend/TESTING.md) | 测试分层规则与洁净性约定 |
 | [src/core/Algorithms/AEDS_V2_PROTOCOL.md](src/core/Algorithms/AEDS_V2_PROTOCOL.md) | AEDS 二进制帧协议规格（当前运行时只接受 v2） |
-| [ROADMAP.md](ROADMAP.md) | v1.1.0 public preview、v1.2.0 i18n、v1.3.0 分布式和后续生态路线 |
+| [ROADMAP.md](ROADMAP.md) | 当前预览、本地化与公开 UX、分布式运行时及扩展生态能力阶段 |
 | [docs/known-limitations.md](docs/known-limitations.md) | public-preview 已知限制、可尝试范围和不应依赖的内部契约 |
 | [docs/assets/screenshots/](docs/assets/screenshots/) | sanitized public-preview screenshots 和截图安全/品牌说明 |
-| [docs/releases/v1.1.0-public-preview.md](docs/releases/v1.1.0-public-preview.md) | public-preview release notes、能力范围、限制和路线链接 |
+| [docs/releases/public-preview-policy.md](docs/releases/public-preview-policy.md) | 当前 Public Preview policy、能力范围、限制和契约边界 |
+| [CHANGELOG.md](CHANGELOG.md) | 当前变更聚合与 canonical ReleaseId 归档格式 |
 | [docs/open-source-readiness.md](docs/open-source-readiness.md) | 开源预览许可证、行为准则、安全配置、secret/history scan、dependency license audit 与 supply-chain audit 证据入口 |
 | [docs/repository-labels.md](docs/repository-labels.md) | GitHub issue / PR label taxonomy、路径 labeler、issue triage 策略 |
 | [docs/repository-governance.md](docs/repository-governance.md) | 默认分支保护、required checks、CodeQL / Scorecard posture checks 与 GitHub Actions 权限策略 |
@@ -304,6 +305,6 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
 
 ## 开源预览边界
 
-FsusBlog 代码以 Apache-2.0 许可发布；贡献流程、安全报告、行为准则、已知限制、路线图和 release notes 均在上方 public-preview entry 与文档索引中列出。v1.1.0 不承诺生产 SLA、稳定第三方客户端兼容或稳定内部 AEDS/admin/database 契约。
+FsusBlog 代码以 Apache-2.0 许可发布；贡献流程、安全报告、行为准则、已知限制、路线图和 current preview policy 均在上方入口与文档索引中列出。Public Preview 不提供生产 SLA，也不默认承诺第三方客户端或内部 AEDS、admin、database 契约稳定。
 
-历史开源 readiness 快照位于 `docs/reports/open-source-readiness/v1.1.0-public-preview/`，只保留对应审计窗口的 provenance，不能代表当前 `master` 或充当 fresh release credential。当前证据分类、release identity 绑定与不可变存储规则见 `docs/release-evidence-model.md`。公开截图与 demo seed data 使用 fictional content；仓库不包含真实生产域名、邮箱、IP、日志、token、私有标识、独立商标图稿或生产品牌资产。
+历史开源 readiness 快照位于 `docs/reports/open-source-readiness/v1.1.0-public-preview/`；路径中的产品版本是 legacy product-version label，仅保留对应审计窗口的 provenance，不能代表当前 `master` 或充当 fresh release credential。当前证据分类、release identity 绑定与不可变存储规则见 `docs/release-evidence-model.md`。公开截图与 demo seed data 使用 fictional content；仓库不包含真实生产域名、邮箱、IP、日志、token、私有标识、独立商标图稿或生产品牌资产。

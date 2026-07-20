@@ -6,6 +6,7 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_lane-collect-support.sh"
 StaticEvidencePlan() { Run "$ROOT_DIR/tools/test/run-matrix-governance-once.sh" static-evidence-plan; }
 StaticAedsPolicy() { Run "$ROOT_DIR/tools/check-aeds-only-policy.sh"; }
 StaticCommunityWorkflow() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/check-community-workflow.mjs"; }
+StaticProductVersionDocs() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/check-public-preview-docs.mjs"; }
 StaticLabelGovernance() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/check-github-label-governance.mjs"; }
 StaticIntegrityDocs() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/check-integrity-proof-docs.mjs"; }
 StaticDeadCodeIndex() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-dead-code-audit-index.mjs"; }
@@ -45,6 +46,7 @@ STATIC_NODE_CONTRACT_FILES=(
     "$ROOT_DIR/tests/tools/issue-1174-csharp-entrypoint-ownership.test.mjs"
     "$ROOT_DIR/tests/tools/issue-1157-authoritative-development-docs.test.mjs"
     "$ROOT_DIR/tests/tools/issue-1161-document-lifecycle.test.mjs"
+    "$ROOT_DIR/tests/tools/issue-1319-product-version-governance.test.mjs"
     "$ROOT_DIR/tests/tools/issue-1158-csharp-style.test.mjs"
     "$ROOT_DIR/tests/tools/issue-1155-code-intent.test.mjs"
     "$ROOT_DIR/tests/tools/issue-1162-rule-platform.test.mjs"
@@ -160,6 +162,7 @@ RunStaticPrechecksPhase() {
         evidence-plan StaticEvidencePlan \
         aeds-policy StaticAedsPolicy \
         community-workflow StaticCommunityWorkflow \
+        product-version-docs StaticProductVersionDocs \
         label-governance StaticLabelGovernance \
         integrity-docs StaticIntegrityDocs \
         dead-code-index StaticDeadCodeIndex \

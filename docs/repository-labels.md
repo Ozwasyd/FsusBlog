@@ -40,7 +40,7 @@ FsusBlog uses namespaced labels for new issues and pull requests. Historical Git
 | `risk:breaking-change` | Behavior or contract change that may break existing users or deployments. |
 | `risk:migration` | Requires database, cache, data, or deployment migration handling. |
 | `risk:security-sensitive` | Touches security-sensitive code or routing. Do not use public issues for vulnerability details. |
-| `risk:public-preview-policy` | Affects v1.1.x public-preview promises, known limitations, release evidence, or required gates. |
+| `risk:public-preview-policy` | Affects current status, explicit compatibility classifications, known limitations, release evidence, or required gates. The label name is retained for issue-routing compatibility, not as a product-version line. |
 
 ## Status Labels
 

@@ -1,8 +1,6 @@
 # Known Limitations
 
-FsusBlog v1.1.0-public-preview is not stable production software.
-
-v1.1.0 is public preview, not stable production release.
+FsusBlog is in Public Preview and is not stable production software.
 
 It is suitable for:
 
@@ -20,14 +18,14 @@ It should not be treated as:
 
 ## Current Limitations
 
-- Internal API contracts may change before v1.2.0.
+- Internal API contracts may change unless a dedicated stability document explicitly classifies the surface as stable.
 - Internal AEDS frame contracts are experimental unless explicitly documented as stable.
 - Database schema may change.
 - Admin workflows may still be consolidated.
 - Deployment configuration may change.
 - Public API stability is experimental.
-- Multi-node deployment is not supported until v1.3.0.
-- i18n is planned for v1.2.0 and is not complete in v1.1.0.
+- Multi-node runtime has not entered the supported deployment baseline; see the Distributed Runtime stage in [ROADMAP.md](../ROADMAP.md).
+- i18n is not complete; see the Localization and Public UX stage in [ROADMAP.md](../ROADMAP.md).
 - Production SLA is not provided.
 - Performance claims require benchmark mode and environment metadata.
 - Kestrel-only internal baseline must be separated from optional reverse proxy or CDN deployment evidence.
@@ -54,4 +52,4 @@ It should not be treated as:
 
 Use [CONTRIBUTING.md](../CONTRIBUTING.md) and the GitHub issue templates for normal reports. Do not file security vulnerabilities as public issues; use [SECURITY.md](../SECURITY.md).
 
-See [ROADMAP.md](../ROADMAP.md) for planned v1.2.0 and v1.3.0 work.
+See [ROADMAP.md](../ROADMAP.md) for capability stages, dependencies, and completion conditions.

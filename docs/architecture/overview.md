@@ -4,7 +4,7 @@ FsusBlog is a personal content system built around a cache-aware public read pat
 
 ## Current Status
 
-FsusBlog v1.1.0 is a public preview. It is suitable for development, evaluation, code review, and personal self-hosting experiments. It should not be treated as stable production software, and internal APIs, deployment contracts, data models, admin workflows, and performance profiles may change before v1.2.0.
+FsusBlog is in Public Preview. It is suitable for development, evaluation, code review, and personal self-hosting experiments. It should not be treated as stable production software. Internal APIs, deployment internals, data models, admin workflows, and performance profiles remain experimental unless a dedicated contract document explicitly classifies them otherwise.
 
 ## Repository Layout
 
@@ -17,7 +17,7 @@ FsusBlog v1.1.0 is a public preview. It is suitable for development, evaluation,
 | `docs/` | Public and internal architecture, API, security, operations, testing, and development documentation |
 | `tests/` | Backend, frontend, contract, static governance, visual, security, and release gate tests |
 
-The application is modular inside one repository and one default process. Future distributed work is tracked for v1.3.0, but it is not a blocker for v1.1.0 public preview.
+The application is modular inside one repository and one default process. Multi-node work belongs to the [Distributed Runtime](../../ROADMAP.md#distributed-runtime) capability stage and has not entered the supported deployment baseline.
 
 ## Runtime Baseline
 
@@ -36,7 +36,7 @@ Reverse proxies, CDNs, WAFs, and deployment-layer acceleration are allowed in re
 
 AEDS is the internal binary frame protocol used by the main runtime API. The client receives typed frames and decodes them through TypeScript and C++23/Wasm paths. This keeps hot public and admin routes on a compact binary contract and avoids maintaining old text API fallbacks for the core application surface.
 
-During v1.1.x, internal AEDS frame contracts are experimental unless explicitly documented as stable. See [API stability](../api/stability.md).
+Internal AEDS frame contracts are experimental unless explicitly documented as stable. See [API stability](../api/stability.md).
 
 ## Public HotRead
 
@@ -95,4 +95,4 @@ These outputs should remain standards-compatible even while undocumented interna
 
 The stable project direction is single-process FsusBlog with Kestrel, PostgreSQL, Redis, public AOT/HotRead, AEDS runtime API, moderation, security, and admin console baselines.
 
-The exact internal API shape, AEDS frame layout, database schema, admin routes, deployment configuration, and third-party client compatibility are not stable in v1.1.x.
+The exact internal API shape, AEDS frame layout, database schema, admin routes, deployment configuration, and third-party client compatibility are not stable unless explicitly classified by a dedicated stability document.

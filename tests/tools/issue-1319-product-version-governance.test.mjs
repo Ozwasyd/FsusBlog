@@ -1,0 +1,45 @@
+#!/usr/bin/env node
+
+import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
+import test from 'node:test'
+import { resolve } from 'node:path'
+
+import {
+  ProductPolicyPaths,
+  ValidateProductVersionGovernance
+} from '../../tools/docs/check-public-preview-docs.mjs'
+
+const root = resolve(import.meta.dirname, '../..')
+
+test('repository product-version governance passes', () => {
+  const result = spawnSync(process.execPath, ['tools/docs/check-public-preview-docs.mjs'], {
+    cwd: root,
+    encoding: 'utf8'
+  })
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`)
+})
+
+test('active policy sources reject product SemVer promises', () => {
+  for (const path of ProductPolicyPaths) {
+    const errors = ValidateProductVersionGovernance(new Map([[path, 'Stable from v9.8.7 onward.']]))
+    assert.ok(errors.some((error) => error.includes(`${path} uses product SemVer v9.8.7`)), path)
+  }
+  const readmeErrors = ValidateProductVersionGovernance(new Map([['README.md', 'FsusBlog v9.8.7 is the current release.']]))
+  assert.ok(readmeErrors.includes('README.md uses product SemVer as a current status or compatibility boundary'))
+})
+
+test('governance does not confuse protocol, schema, runtime, dependency, or provenance versions with product SemVer', () => {
+  const exemptEvidence = [
+    'AEDS v2',
+    'fsusblog.release-manifest.v2',
+    'schema version 2',
+    '.NET 10',
+    'Node.js 20',
+    'Vue 3.5.32',
+    'RFC 6238',
+    'docs/reports/open-source-readiness/v1.1.0-public-preview/ is historical provenance'
+  ].join('\n')
+  const errors = ValidateProductVersionGovernance(new Map([['README.md', exemptEvidence]]))
+  assert.ok(!errors.some((error) => error.includes('uses product SemVer')), errors.join('\n'))
+})
