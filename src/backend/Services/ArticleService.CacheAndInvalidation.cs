@@ -138,6 +138,7 @@ public partial class ArticleService
         using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
             """
             SELECT a.categoryid,
+                   a.status,
                    a.xmin::text AS row_version,
                    COALESCE(
                        array_agg(at.tagid ORDER BY at.tagid)
@@ -148,7 +149,7 @@ public partial class ArticleService
             LEFT JOIN article_tag at ON at.articleid = a.id
             WHERE a.id = @ArticleId
               AND a.isdeleted = @IsDeleted
-            GROUP BY a.id, a.categoryid, a.xmin;
+            GROUP BY a.id, a.categoryid, a.status, a.xmin;
             """,
             new SugarParameter("@ArticleId", articleId),
             new SugarParameter("@IsDeleted", isDeleted));
@@ -160,7 +161,12 @@ public partial class ArticleService
         int categoryId = reader.ReadInt32("categoryid");
         string rowVersion = reader.ReadString("row_version");
         int[] tags = reader.ReadFieldValue<int[]>("tag_ids");
-        return new ArticleMutationState([categoryId], tags.ToList(), rowVersion);
+        return new ArticleMutationState(
+            [categoryId],
+            tags.ToList(),
+            rowVersion,
+            (ArticleStatus)reader.ReadInt32("status"),
+            isDeleted);
     }
 
     private async Task<bool> LockDeletedArticleForMutationAsync(int articleId, string rowVersion)

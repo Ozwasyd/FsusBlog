@@ -4,6 +4,7 @@ using System.Text.Json;
 
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Services;
 
 using SqlSugar;
 
@@ -729,7 +730,7 @@ public sealed class ArticleResponsibilityAuthoringService(
         return (publicationId, publicationNo);
     }
 
-    private Task<int> InsertOutboxAsync(
+    private async Task<int> InsertOutboxAsync(
         int articleId,
         long articleRevisionId,
         int revisionNo,
@@ -741,34 +742,31 @@ public sealed class ArticleResponsibilityAuthoringService(
         long? rightsSnapshotId,
         DateTime createdAt,
         CancellationToken cancellationToken)
-        => db.Insertable(new ArticleMutationOutboxEvent
+    {
+        _ = previousSnapshotId;
+        if (rightsSnapshotId is null)
         {
-            EventId = Guid.NewGuid().ToString("N"),
-            AggregateId = articleId,
-            ArticleRevisionId = articleRevisionId,
-            RevisionNo = revisionNo,
-            ResponsibilitySnapshotId = responsibilitySnapshotId,
-            ArticlePublicationId = publicationId,
-            PublicationNo = publicationNo,
-            EventType = ResponsibilityUpdatedEventType,
-            PayloadJson = JsonSerializer.Serialize(new
-            {
+            throw new InvalidOperationException("Responsibility mutation requires an exact rights snapshot coordinate.");
+        }
+
+        var version = new ArticleVersionCoordinates(
+            articleRevisionId,
+            revisionNo,
+            rightsSnapshotId.Value,
+            responsibilitySnapshotId,
+            publicationId,
+            publicationNo,
+            responsibilityVersion);
+        ArticleMutationOutboxEvent outboxEvent = await ArticleMutationOutboxProducer.CreateForVersionAsync(
+                db,
                 articleId,
-                eventType = ResponsibilityUpdatedEventType,
-                articleRevisionId,
-                revisionNo,
-                rightsSnapshotId,
-                responsibilitySnapshotId,
-                responsibilityVersion,
-                previousSnapshotId,
-                articlePublicationId = publicationId,
-                publicationNo
-            }, s_jsonOptions),
-            Status = "pending",
-            RetryCount = 0,
-            NextRetryAt = createdAt,
-            CreatedAt = createdAt
-        }).ExecuteCommandAsync(cancellationToken);
+                ResponsibilityUpdatedEventType,
+                version,
+                createdAt,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return await db.Insertable(outboxEvent).ExecuteCommandAsync(cancellationToken).ConfigureAwait(false);
+    }
 
     private static ArticleResponsibilityVersionResponse ToVersionResponse(ArticleResponsibilitySnapshot snapshot)
         => new(

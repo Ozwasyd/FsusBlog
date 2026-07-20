@@ -1097,6 +1097,16 @@ public class IntegrityMerkleCheckpoint
 [SugarIndex("ux_article_mutation_outbox_event_id", nameof(EventId), OrderByType.Asc, true)]
 [SugarIndex("idx_article_mutation_outbox_pending", nameof(Status), OrderByType.Asc, nameof(NextRetryAt), OrderByType.Asc, nameof(Id), OrderByType.Asc)]
 [SugarIndex("idx_article_mutation_outbox_claim", nameof(Status), OrderByType.Asc, nameof(ClaimExpiresAt), OrderByType.Asc, nameof(Id), OrderByType.Asc)]
+[SugarIndex(
+    "idx_article_mutation_outbox_version_coordinate",
+    nameof(AggregateId),
+    OrderByType.Asc,
+    nameof(ArticlePublicationId),
+    OrderByType.Asc,
+    nameof(ArticleRevisionId),
+    OrderByType.Asc,
+    nameof(Id),
+    OrderByType.Asc)]
 public class ArticleMutationOutboxEvent
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
@@ -1117,6 +1127,9 @@ public class ArticleMutationOutboxEvent
         get; set;
     }
 
+    [SugarColumn(ColumnName = "schema_version")]
+    public int SchemaVersion { get; set; } = 1;
+
     [SugarColumn(ColumnName = "article_revision_id", IsNullable = true)]
     public long? ArticleRevisionId
     {
@@ -1129,8 +1142,20 @@ public class ArticleMutationOutboxEvent
         get; set;
     }
 
+    [SugarColumn(ColumnName = "rights_snapshot_id", IsNullable = true)]
+    public long? RightsSnapshotId
+    {
+        get; set;
+    }
+
     [SugarColumn(ColumnName = "responsibility_snapshot_id", IsNullable = true)]
     public long? ResponsibilitySnapshotId
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "responsibility_version", IsNullable = true)]
+    public int? ResponsibilityVersion
     {
         get; set;
     }

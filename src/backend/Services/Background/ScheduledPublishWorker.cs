@@ -207,7 +207,12 @@ public sealed class ScheduledPublishWorker(
                         reader.ReadInt64("rights_snapshot_id"),
                         reader.IsNull("responsibility_snapshot_id")
                             ? null
-                            : reader.ReadInt64("responsibility_snapshot_id")));
+                            : reader.ReadInt64("responsibility_snapshot_id"),
+                        reader.IsNull("responsibility_version")
+                            ? null
+                            : reader.ReadInt32("responsibility_version"),
+                        reader.ReadInt32("categoryid"),
+                        reader.IsNull("tag_ids") ? string.Empty : reader.ReadString("tag_ids")));
                 }
             }
 
@@ -223,11 +228,14 @@ public sealed class ScheduledPublishWorker(
                     db,
                     new ArticlePublicationTransitionRequest(
                         candidate.ArticleId,
-                        ArticleVersionCoordinates.Revision(
+                        new ArticleVersionCoordinates(
                             candidate.RevisionId,
                             candidate.RevisionNo,
                             candidate.RightsSnapshotId,
-                            candidate.ResponsibilitySnapshotId),
+                            candidate.ResponsibilitySnapshotId,
+                            null,
+                            null,
+                            candidate.ResponsibilityVersion),
                         ArticleStatus.Published,
                         null,
                         now,
@@ -235,7 +243,7 @@ public sealed class ScheduledPublishWorker(
                         ArticleStatusTransitionOperation.ScheduledPublish),
                     cancellationToken).ConfigureAwait(false);
                 claimedArticleIds.Add(candidate.ArticleId);
-                outboxEvents.Add(BuildScheduledPublishOutboxEvent(candidate.ArticleId, published, now));
+                outboxEvents.Add(BuildScheduledPublishOutboxEvent(candidate, published, now));
             }
             insertedOutboxEvents = await db.Insertable(outboxEvents).ExecuteCommandAsync(cancellationToken);
             if (insertedOutboxEvents != claimedArticleIds.Count)
@@ -312,34 +320,39 @@ public sealed class ScheduledPublishWorker(
     }
 
     private static ArticleMutationOutboxEvent BuildScheduledPublishOutboxEvent(
-        int articleId,
+        ScheduledPublicationCandidate candidate,
         ArticleVersionCoordinates version,
         DateTime now)
-        => new()
-        {
-            EventId = Guid.NewGuid().ToString("N"),
-            AggregateId = articleId,
-            ArticleRevisionId = version.RevisionId,
-            RevisionNo = version.RevisionNo,
-            ArticlePublicationId = version.PublicationId,
-            PublicationNo = version.PublicationNo,
-            EventType = ArticleMutationEventTypes.ScheduledPublished,
-            PayloadJson = ArticlePublicationTransitionWriter.BuildOutboxPayload(
-                articleId,
-                ArticleMutationEventTypes.ScheduledPublished,
-                version),
-            Status = "pending",
-            RetryCount = 0,
-            NextRetryAt = now,
-            CreatedAt = now
-        };
+    {
+        int[] tagIds = candidate.TagIds
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(static value => int.Parse(value, System.Globalization.CultureInfo.InvariantCulture))
+            .Where(static value => value > 0)
+            .Distinct()
+            .Order()
+            .ToArray();
+        var before = new ArticleMutationScopeSnapshot(candidate.CategoryId, tagIds, "scheduled");
+        return ArticleMutationOutboxProducer.Create(
+            candidate.ArticleId,
+            ArticleMutationEventTypes.ScheduledPublished,
+            version,
+            before,
+            before with
+            {
+                Visibility = "published"
+            },
+            now);
+    }
 
     private sealed record ScheduledPublicationCandidate(
         int ArticleId,
         long RevisionId,
         int RevisionNo,
         long RightsSnapshotId,
-        long? ResponsibilitySnapshotId);
+        long? ResponsibilitySnapshotId,
+        int? ResponsibilityVersion,
+        int CategoryId,
+        string TagIds);
 
     private sealed record ScheduledPublishBatchCommit(
         IReadOnlyList<int> ClaimedArticleIds,

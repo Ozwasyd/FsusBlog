@@ -39,13 +39,6 @@ public interface IArticleMutationSideEffectCoordinator
         CancellationToken cancellationToken);
 }
 
-public readonly record struct ArticleMutationVersionReference(
-    long? RevisionId,
-    int? RevisionNo,
-    long? PublicationId,
-    int? PublicationNo,
-    long? ResponsibilitySnapshotId = null);
-
 public static class ArticleMutationReplayEdges
 {
     public const string PublicAotInvalidation = "public-aot-invalidation";
@@ -118,6 +111,12 @@ public sealed record ArticleMutationReplayResult(
     IReadOnlySet<string> SkippedEdges,
     IReadOnlyDictionary<string, string> FailedEdges)
 {
+    public IReadOnlyDictionary<string, string> SkippedEdgeReasons
+    {
+        get;
+        init;
+    } = new Dictionary<string, string>(StringComparer.Ordinal);
+
     public static ArticleMutationReplayResult Success(IReadOnlySet<string> completedEdges)
         => new(
             true,
@@ -139,7 +138,9 @@ public sealed record ArticleMutationReplayResult(
             skippedEdges,
             new Dictionary<string, string>(StringComparer.Ordinal));
 
-    internal static ArticleMutationReplayResult ForSupersededPublication(IReadOnlySet<string> terminalEdges)
+    internal static ArticleMutationReplayResult ForSupersededPublication(
+        IReadOnlySet<string> terminalEdges,
+        string reason = "superseded-by-newer-publication")
     {
         var skippedEdges = ArticleMutationReplayEdges.Required
             .Where(edge => !terminalEdges.Contains(edge))
@@ -156,7 +157,13 @@ public sealed record ArticleMutationReplayResult(
             }
         }
 
-        return Skipped(skippedEdges);
+        return Skipped(skippedEdges) with
+        {
+            SkippedEdgeReasons = skippedEdges.ToDictionary(
+                static edge => edge,
+                _ => reason,
+                StringComparer.Ordinal)
+        };
     }
 
     public static ArticleMutationReplayResult Failed(
@@ -464,7 +471,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
                     .ConfigureAwait(false)
                 || !await RunEdgeAsync(
                         ArticleMutationReplayEdges.ArticleDetailAeds,
-                        () => projections.GenerateDetailAsync(articleId, cancellationToken))
+                        () => projections.GenerateDetailAsync(articleId, version, cancellationToken))
                     .ConfigureAwait(false)
                 || !await RunEdgeAsync(
                         ArticleMutationReplayEdges.PublicHotRead,
@@ -474,7 +481,8 @@ public sealed class ArticleMutationSideEffectCoordinator(
                                     normalized is ArticleMutationEventTypes.Created or ArticleMutationEventTypes.ScheduledPublished
                                         ? null
                                         : articleId,
-                                    $"outbox-{normalized}")
+                                    $"outbox-{normalized}",
+                                    version.ReleaseId)
                                 .ConfigureAwait(false);
                             if (normalized == ArticleMutationEventTypes.Restored)
                             {
@@ -495,7 +503,8 @@ public sealed class ArticleMutationSideEffectCoordinator(
                     () => delivery.NotifyAsync(
                         articleId,
                         action,
-                        idempotencyKey: ArticleMutationDeliveryKey.Build(outboxEventId, ArticleMutationReplayEdges.Notification)))
+                        idempotencyKey: ArticleMutationDeliveryKey.Build(outboxEventId, ArticleMutationReplayEdges.Notification),
+                        eventTime: version.EventOccurredAt))
                 .ConfigureAwait(false);
 
             return ArticleMutationReplayResult.Success(completedDuringReplay, failed);
@@ -548,7 +557,8 @@ public sealed class ArticleMutationSideEffectCoordinator(
                     () => delivery.NotifyAsync(
                         articleId,
                         "Deleted",
-                        idempotencyKey: ArticleMutationDeliveryKey.Build(outboxEventId, ArticleMutationReplayEdges.Notification)))
+                        idempotencyKey: ArticleMutationDeliveryKey.Build(outboxEventId, ArticleMutationReplayEdges.Notification),
+                        eventTime: version.EventOccurredAt))
                 .ConfigureAwait(false);
 
             return ArticleMutationReplayResult.Success(completedDuringReplay, failed);
@@ -618,7 +628,10 @@ public sealed class ArticleMutationSideEffectCoordinator(
             if (publication is null
                 || (version.PublicationNo.HasValue && publication.PublicationNo != version.PublicationNo.Value)
                 || (version.RevisionId.HasValue && publication.ArticleRevisionId != version.RevisionId.Value)
-                || (version.RevisionNo.HasValue && publication.RevisionNo != version.RevisionNo.Value))
+                || (version.RevisionNo.HasValue && publication.RevisionNo != version.RevisionNo.Value)
+                || (version.RightsSnapshotId.HasValue && publication.RightsSnapshotId != version.RightsSnapshotId.Value)
+                || (version.ResponsibilitySnapshotId.HasValue
+                    && publication.ResponsibilitySnapshotId != version.ResponsibilitySnapshotId.Value))
             {
                 throw new InvalidOperationException($"Article mutation event coordinates do not resolve for article {articleId}.");
             }
@@ -663,7 +676,9 @@ public sealed class ArticleMutationSideEffectCoordinator(
             .Where(snapshot => snapshot.Id == version.ResponsibilitySnapshotId.Value
                 && snapshot.ArticleId == articleId
                 && snapshot.ArticleRevisionId == version.RevisionId.Value
-                && snapshot.RevisionNo == version.RevisionNo.Value)
+                && snapshot.RevisionNo == version.RevisionNo.Value
+                && (!version.ResponsibilityVersion.HasValue
+                    || snapshot.ResponsibilityVersion == version.ResponsibilityVersion.Value))
             .AnyAsync();
         if (!resolves)
         {

@@ -25,7 +25,8 @@ public readonly record struct ArticleVersionCoordinates(
     long RightsSnapshotId,
     long? ResponsibilitySnapshotId,
     long? PublicationId,
-    int? PublicationNo)
+    int? PublicationNo,
+    int? ResponsibilityVersion = null)
 {
     public static ArticleVersionCoordinates Revision(
         long revisionId,
@@ -54,6 +55,8 @@ public readonly record struct ArticlePublicationTransitionPlan(
 
 public static class ArticlePublicationTransitionWriter
 {
+    private static readonly JsonSerializerOptions s_outboxJsonOptions = new(JsonSerializerDefaults.Web);
+
     public static async Task<ArticleVersionCoordinates> ApplyAsync(
         ISqlSugarClient db,
         ArticlePublicationTransitionRequest request,
@@ -200,18 +203,31 @@ public static class ArticlePublicationTransitionWriter
         };
     }
 
-    public static string BuildOutboxPayload(int articleId, string eventType, ArticleVersionCoordinates version)
+    public static string BuildOutboxPayload(
+        int articleId,
+        string eventType,
+        ArticleVersionCoordinates version,
+        ArticleMutationScopeSnapshot? before = null,
+        ArticleMutationScopeSnapshot? after = null,
+        DateTime? occurredAt = null,
+        DateTime? publicUpdatedAt = null)
         => JsonSerializer.Serialize(new
         {
+            schemaVersion = ArticleMutationOutboxEnvelopeCodec.CurrentSchemaVersion,
             articleId,
             eventType,
             articleRevisionId = version.RevisionId,
             revisionNo = version.RevisionNo,
             rightsSnapshotId = version.RightsSnapshotId,
             responsibilitySnapshotId = version.ResponsibilitySnapshotId,
-            articlePublicationId = version.PublicationId,
-            publicationNo = version.PublicationNo
-        });
+            responsibilityVersion = version.ResponsibilityVersion,
+            releaseId = version.PublicationId,
+            releaseNo = version.PublicationNo,
+            publicUpdatedAt = publicUpdatedAt ?? occurredAt,
+            occurredAt,
+            before,
+            after
+        }, s_outboxJsonOptions);
 
     private static async Task<ArticleVersionCoordinates> InsertPublicationAsync(
         ISqlSugarClient db,

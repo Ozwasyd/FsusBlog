@@ -759,17 +759,34 @@ public partial class ArticleService(
                     rights,
                     now);
                 long? responsibilitySnapshotId = await LoadResponsibilitySnapshotIdAsync(revision.Id);
+                int? responsibilityVersion = await LoadResponsibilityVersionAsync(responsibilitySnapshotId);
                 ArticleVersionCoordinates version = await ArticlePublicationTransitionWriter.ApplyAsync(
                     _db,
                     new ArticlePublicationTransitionRequest(
                         id,
-                        ArticleVersionCoordinates.Revision(revision.Id, revision.RevisionNo, rightsSnapshotId, responsibilitySnapshotId),
+                        new ArticleVersionCoordinates(
+                            revision.Id,
+                            revision.RevisionNo,
+                            rightsSnapshotId,
+                            responsibilitySnapshotId,
+                            null,
+                            null,
+                            responsibilityVersion),
                         status,
                         article.ScheduledPublishAt,
                         now,
                         TransitionKindFor(status),
                         ArticleStatusTransitionOperation.Create));
-                await RecordArticleMutationOutboxAsync(id, ArticleMutationEventTypes.Created, version, now);
+                await RecordArticleMutationOutboxAsync(
+                    id,
+                    ArticleMutationEventTypes.Created,
+                    version,
+                    now,
+                    before: null,
+                    after: new ArticleMutationScopeSnapshot(
+                        dto.CategoryId,
+                        tagIds,
+                        ArticleMutationVisibility.From(status)));
                 return id;
             });
 
@@ -1298,27 +1315,45 @@ public partial class ArticleService(
         int articleId,
         string eventType,
         ArticleVersionCoordinates version,
-        DateTime createdAt)
-        => _db.Insertable(new ArticleMutationOutboxEvent
-        {
-            EventId = Guid.NewGuid().ToString("N"),
-            AggregateId = articleId,
-            ArticleRevisionId = version.RevisionId,
-            RevisionNo = version.RevisionNo,
-            ArticlePublicationId = version.PublicationId,
-            PublicationNo = version.PublicationNo,
-            EventType = eventType,
-            PayloadJson = ArticlePublicationTransitionWriter.BuildOutboxPayload(articleId, eventType, version),
-            Status = "pending",
-            RetryCount = 0,
-            NextRetryAt = createdAt,
-            CreatedAt = createdAt
-        }).ExecuteCommandAsync();
+        DateTime createdAt,
+        ArticleMutationScopeSnapshot? before = null,
+        ArticleMutationScopeSnapshot? after = null)
+        => _db.Insertable(ArticleMutationOutboxProducer.Create(
+            articleId,
+            eventType,
+            version,
+            before,
+            after,
+            createdAt)).ExecuteCommandAsync();
 
     private async Task RecordArticleMutationOutboxAsync(int articleId, string eventType)
     {
         ArticleVersionCoordinates version = await LoadCurrentVersionCoordinatesAsync(articleId).ConfigureAwait(false);
-        await RecordArticleMutationOutboxAsync(articleId, eventType, version, UtcNow).ConfigureAwait(false);
+        ArticleMutationScopeSnapshot scope = await LoadCurrentMutationScopeAsync(articleId).ConfigureAwait(false);
+        await RecordArticleMutationOutboxAsync(
+                articleId,
+                eventType,
+                version,
+                UtcNow,
+                scope,
+                scope)
+            .ConfigureAwait(false);
+    }
+
+    private async Task RecordArticleMutationOutboxAsync(
+        int articleId,
+        string eventType,
+        ArticleVersionCoordinates version)
+    {
+        ArticleMutationScopeSnapshot scope = await LoadCurrentMutationScopeAsync(articleId).ConfigureAwait(false);
+        await RecordArticleMutationOutboxAsync(
+                articleId,
+                eventType,
+                version,
+                UtcNow,
+                scope,
+                scope)
+            .ConfigureAwait(false);
     }
 
     private async Task<ArticleVersionCoordinates> LoadCurrentVersionCoordinatesAsync(int articleId)
@@ -1330,17 +1365,34 @@ public partial class ArticleService(
                 revision.revision_no,
                 rights.id AS rights_snapshot_id,
                 responsibility.id AS responsibility_snapshot_id,
+                responsibility.responsibility_version,
                 publication.id AS publication_id,
                 publication.publication_no
             FROM article article
             JOIN article_revision revision ON revision.id = article.current_revision_id
-            JOIN article_rights_snapshot rights
-              ON rights.article_id = article.id
-             AND rights.article_revision_id = revision.id
-            LEFT JOIN article_responsibility_snapshot responsibility
-              ON responsibility.article_revision_id = revision.id
             LEFT JOIN article_publication publication
               ON publication.id = article.current_publication_id
+            LEFT JOIN LATERAL (
+                SELECT snapshot.id
+                FROM article_rights_snapshot snapshot
+                WHERE snapshot.article_id = article.id
+                  AND snapshot.article_revision_id = revision.id
+                  AND (publication.rights_snapshot_id IS NULL OR snapshot.id = publication.rights_snapshot_id)
+                ORDER BY snapshot.revision_no DESC, snapshot.id DESC
+                LIMIT 1
+            ) rights ON TRUE
+            LEFT JOIN LATERAL (
+                SELECT snapshot.id, snapshot.responsibility_version
+                FROM article_responsibility_snapshot snapshot
+                WHERE snapshot.article_id = article.id
+                  AND snapshot.article_revision_id = revision.id
+                  AND (
+                      publication.responsibility_snapshot_id IS NULL
+                      OR snapshot.id = publication.responsibility_snapshot_id
+                  )
+                ORDER BY snapshot.responsibility_version DESC, snapshot.id DESC
+                LIMIT 1
+            ) responsibility ON TRUE
             WHERE article.id = @ArticleId;
             """,
             new SugarParameter("@ArticleId", articleId));
@@ -1355,7 +1407,41 @@ public partial class ArticleService(
             reader.ReadInt64("rights_snapshot_id"),
             reader.IsNull("responsibility_snapshot_id") ? null : reader.ReadInt64("responsibility_snapshot_id"),
             reader.IsNull("publication_id") ? null : reader.ReadInt64("publication_id"),
-            reader.IsNull("publication_no") ? null : reader.ReadInt32("publication_no"));
+            reader.IsNull("publication_no") ? null : reader.ReadInt32("publication_no"),
+            reader.IsNull("responsibility_version") ? null : reader.ReadInt32("responsibility_version"));
+    }
+
+    private async Task<ArticleMutationScopeSnapshot> LoadCurrentMutationScopeAsync(int articleId)
+    {
+        using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
+            """
+            SELECT revision.categoryid,
+                   revision.tag_ids,
+                   article.status,
+                   article.isdeleted
+            FROM article article
+            JOIN article_revision revision ON revision.id = article.current_revision_id
+            WHERE article.id = @ArticleId;
+            """,
+            new SugarParameter("@ArticleId", articleId));
+        if (!await reader.ReadAsync(Ct).ConfigureAwait(false))
+        {
+            throw new InvalidOperationException($"Article {articleId} has no mutation scope.");
+        }
+
+        string tagIds = reader.IsNull("tag_ids") ? string.Empty : reader.ReadString("tag_ids");
+        int[] tags = tagIds.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(static value => int.Parse(value, System.Globalization.CultureInfo.InvariantCulture))
+            .Where(static value => value > 0)
+            .Distinct()
+            .Order()
+            .ToArray();
+        return new ArticleMutationScopeSnapshot(
+            reader.ReadInt32("categoryid"),
+            tags,
+            ArticleMutationVisibility.From(
+                (ArticleStatus)reader.ReadInt32("status"),
+                reader.ReadBoolean("isdeleted")));
     }
 
     public Task<bool> UpdateAsync(int id, ArticleWriteRequestCoreModel dto, CancellationToken cancellationToken = default)
@@ -1499,11 +1585,19 @@ public partial class ArticleService(
                 long? responsibilitySnapshotId = rollback.HasValue
                     ? await CloneResponsibilitySnapshotAsync(id, revision, rollback.Value.SourceRevisionId).ConfigureAwait(false)
                     : await LoadResponsibilitySnapshotIdAsync(revision.Id);
+                int? responsibilityVersion = await LoadResponsibilityVersionAsync(responsibilitySnapshotId);
                 ArticleVersionCoordinates version = await ArticlePublicationTransitionWriter.ApplyAsync(
                     _db,
                     new ArticlePublicationTransitionRequest(
                         id,
-                        ArticleVersionCoordinates.Revision(revision.Id, revision.RevisionNo, rightsSnapshotId, responsibilitySnapshotId),
+                        new ArticleVersionCoordinates(
+                            revision.Id,
+                            revision.RevisionNo,
+                            rightsSnapshotId,
+                            responsibilitySnapshotId,
+                            null,
+                            null,
+                            responsibilityVersion),
                         status,
                         scheduledPublishAt,
                         now,
@@ -1511,7 +1605,19 @@ public partial class ArticleService(
                         transitionKind == ArticlePublicationTransitionKinds.Rollback
                             ? ArticleStatusTransitionOperation.Rollback
                             : ArticleStatusTransitionOperation.Update));
-                await RecordArticleMutationOutboxAsync(id, ArticleMutationEventTypes.Updated, version, now);
+                await RecordArticleMutationOutboxAsync(
+                    id,
+                    ArticleMutationEventTypes.Updated,
+                    version,
+                    now,
+                    new ArticleMutationScopeSnapshot(
+                        state.CategoryId,
+                        state.TagIds,
+                        ArticleMutationVisibility.From(state.Status)),
+                    new ArticleMutationScopeSnapshot(
+                        dto.CategoryId,
+                        tagIds,
+                        ArticleMutationVisibility.From(status)));
             });
 
             mutationCommitted = result.IsSuccess && articleUpdated;
@@ -1783,6 +1889,20 @@ public partial class ArticleService(
         return value > 0 ? value : null;
     }
 
+    private async Task<int?> LoadResponsibilityVersionAsync(long? snapshotId)
+    {
+        if (!snapshotId.HasValue)
+        {
+            return null;
+        }
+
+        int value = await _db.Queryable<ArticleResponsibilitySnapshot>()
+            .Where(snapshot => snapshot.Id == snapshotId.Value)
+            .Select(snapshot => snapshot.ResponsibilityVersion)
+            .FirstAsync(Ct);
+        return value > 0 ? value : null;
+    }
+
     private async Task<long> CloneResponsibilitySnapshotAsync(
         int articleId,
         ArticleRevisionCoordinates targetRevision,
@@ -1850,6 +1970,11 @@ public partial class ArticleService(
             "The historical revision has no responsibility snapshot.");
     }
 
-    private sealed record ArticleMutationState(List<int> CategoryIds, List<int> TagIds, string RowVersion);
+    private sealed record ArticleMutationState(
+        List<int> CategoryIds,
+        List<int> TagIds,
+        string RowVersion,
+        ArticleStatus Status,
+        bool IsDeleted);
 
 }

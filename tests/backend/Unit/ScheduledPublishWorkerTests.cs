@@ -58,7 +58,8 @@ public sealed class ScheduledPublishWorkerTests(PostgresSchemaMigrationFixture f
         Assert.Equal(publication.Id, outbox.ArticlePublicationId);
         Assert.Equal(publication.PublicationNo, outbox.PublicationNo);
         Assert.Contains($"\"articleId\":{dueArticleId}", outbox.PayloadJson, StringComparison.Ordinal);
-        Assert.Contains($"\"articlePublicationId\":{publication.Id}", outbox.PayloadJson, StringComparison.Ordinal);
+        Assert.Contains("\"schemaVersion\":2", outbox.PayloadJson, StringComparison.Ordinal);
+        Assert.Contains($"\"releaseId\":{publication.Id}", outbox.PayloadJson, StringComparison.Ordinal);
 
         Assert.Equal(0, await worker.PublishDueArticlesAsync(CancellationToken.None));
         Assert.Single(await db.Queryable<ArticleMutationOutboxEvent>().ToListAsync());
@@ -318,16 +319,16 @@ public sealed class ScheduledPublishWorkerTests(PostgresSchemaMigrationFixture f
         string connectionString = db.CurrentConnectionConfig.ConnectionString;
         await db.Ado.ExecuteCommandAsync(
             """
-            INSERT INTO article (title, categoryid, views, createtime, status, isdeleted)
-            SELECT 'published-plan-' || value, 1, 0, @Now, @PublishedStatus, false
+            INSERT INTO article (title, categoryid, views, createtime, metadata_updated_at, status, isdeleted)
+            SELECT 'published-plan-' || value, 1, 0, @Now, @Now, @PublishedStatus, false
             FROM generate_series(1, 50000) AS value;
 
-            INSERT INTO article (title, categoryid, views, createtime, status, scheduled_publish_at, isdeleted)
-            SELECT 'future-plan-' || value, 1, 0, @Now, @ScheduledStatus, @FutureAt, false
+            INSERT INTO article (title, categoryid, views, createtime, metadata_updated_at, status, scheduled_publish_at, isdeleted)
+            SELECT 'future-plan-' || value, 1, 0, @Now, @Now, @ScheduledStatus, @FutureAt, false
             FROM generate_series(1, 20000) AS value;
 
-            INSERT INTO article (title, categoryid, views, createtime, status, scheduled_publish_at, isdeleted)
-            SELECT 'deleted-plan-' || value, 1, 0, @Now, @ScheduledStatus, @DueAt, true
+            INSERT INTO article (title, categoryid, views, createtime, metadata_updated_at, status, scheduled_publish_at, isdeleted)
+            SELECT 'deleted-plan-' || value, 1, 0, @Now, @Now, @ScheduledStatus, @DueAt, true
             FROM generate_series(1, 1000) AS value;
 
             CREATE INDEX IF NOT EXISTS idx_article_pending_publication_due

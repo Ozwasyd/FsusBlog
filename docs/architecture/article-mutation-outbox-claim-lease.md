@@ -5,6 +5,11 @@
 committed claim may start an external side effect; no cache, artifact, search, notification, or
 PublicHot operation is executed inside or before that transaction commits.
 
+Claims do not weaken the v2 event coordinate contract. Before an owner executes any edge it must
+validate the persisted revision/release/rights/responsibility coordinates. A superseded event is
+completed with terminal `skipped` edges and an explicit reason; an expired owner can be reclaimed,
+but already completed or skipped edges are never executed again.
+
 ## State machine
 
 | From | Guard | To | Atomic database write |
@@ -13,7 +18,7 @@ PublicHot operation is executed inside or before that transaction commits.
 | expired `processing` | effective lease deadline `<= now` | `processing` | replace the old token and owner; report a stale reclaim |
 | live `processing` | matching token and unexpired deadline | `processing` | heartbeat and extend the deadline |
 | owned `processing` | effect failed | `pending` or `poison` | increment retry count, set `next_retry_at` and error, clear all claim fields |
-| owned `processing` | every required edge receipt is `completed` | `processed` | set `processed_at` and clear all claim fields |
+| owned `processing` | every required edge receipt is terminal (`completed` or version-superseded `skipped`) | `processed` | set `processed_at` and clear all claim fields |
 
 Claim uses one `UPDATE ... FROM (SELECT ... FOR UPDATE SKIP LOCKED) ... RETURNING` statement.
 The returned rows are visible to dispatcher code only after the statement has completed. A claim

@@ -40,6 +40,11 @@ public partial class ArticleService
         }
 
         DateTime now = DateTime.UtcNow;
+        ArticleVersionCoordinates version = await LoadCurrentVersionCoordinatesAsync(id).ConfigureAwait(false);
+        var beforeScope = new ArticleMutationScopeSnapshot(
+            state.CategoryIds.Single(),
+            state.TagIds,
+            ArticleMutationVisibility.From(state.Status, state.IsDeleted));
         bool fenceEstablished = false;
         bool mutationCommitted = false;
         try
@@ -66,7 +71,16 @@ public partial class ArticleService
                 if (updated > 0)
                 {
                     success = true;
-                    await RecordArticleMutationOutboxAsync(id, "deleted");
+                    await RecordArticleMutationOutboxAsync(
+                        id,
+                        ArticleMutationEventTypes.Deleted,
+                        version,
+                        now,
+                        beforeScope,
+                        beforeScope with
+                        {
+                            Visibility = "deleted"
+                        });
                 }
             });
             ct.ThrowIfCancellationRequested();
@@ -102,6 +116,10 @@ public partial class ArticleService
 
         ArticleVersionCoordinates version = await LoadCurrentVersionCoordinatesAsync(id).ConfigureAwait(false);
         DateTime restoredAt = UtcNow;
+        var beforeScope = new ArticleMutationScopeSnapshot(
+            state.CategoryIds.Single(),
+            state.TagIds,
+            "deleted");
 
         bool success = false;
         var result = await _db.Ado.UseTranAsync(async () =>
@@ -131,7 +149,16 @@ public partial class ArticleService
                         ArticlePublicationTransitionKinds.Restore,
                         ArticleStatusTransitionOperation.Restore),
                     ct).ConfigureAwait(false);
-                await RecordArticleMutationOutboxAsync(id, "restored", published, restoredAt);
+                await RecordArticleMutationOutboxAsync(
+                    id,
+                    ArticleMutationEventTypes.Restored,
+                    published,
+                    restoredAt,
+                    beforeScope,
+                    beforeScope with
+                    {
+                        Visibility = "published"
+                    });
             }
         });
         ct.ThrowIfCancellationRequested();
@@ -165,6 +192,12 @@ public partial class ArticleService
         string[] imageUrls = [.. ArticleAssetReferenceStore
             .BuildReferenceCounts(article.Content, article.CoverImageUrl)
             .Keys];
+        ArticleVersionCoordinates version = await LoadCurrentVersionCoordinatesAsync(id).ConfigureAwait(false);
+        var beforeScope = new ArticleMutationScopeSnapshot(
+            state.CategoryIds.Single(),
+            state.TagIds,
+            "deleted");
+        DateTime deletedAt = UtcNow;
 
         var result = await _db.Ado.UseTranAsync(async () =>
         {
@@ -176,7 +209,16 @@ public partial class ArticleService
 
             return await new ArticleDeletionKernel(_db).DeleteLockedAsync(
                 [id],
-                articleId => RecordArticleMutationOutboxAsync(articleId, "permanently-deleted"),
+                articleId => RecordArticleMutationOutboxAsync(
+                    articleId,
+                    ArticleMutationEventTypes.PermanentlyDeleted,
+                    version,
+                    deletedAt,
+                    beforeScope,
+                    beforeScope with
+                    {
+                        Visibility = "absent"
+                    }),
                 ct).ConfigureAwait(false);
         });
 
@@ -202,6 +244,8 @@ public partial class ArticleService
         List<int> categoryIds = [];
         List<int> tagIds = [];
         Dictionary<int, string> trashedBodyMap = new();
+        Dictionary<int, ArticleVersionCoordinates> versions = new();
+        Dictionary<int, ArticleMutationScopeSnapshot> scopes = new();
         ct.ThrowIfCancellationRequested();
         var result = await _db.Ado.UseTranAsync(async () =>
         {
@@ -212,6 +256,11 @@ public partial class ArticleService
             }
 
             articleIds = lockedTrashArticles.Select(static a => a.Id).ToList();
+            foreach (int articleId in articleIds)
+            {
+                versions[articleId] = await LoadCurrentVersionCoordinatesAsync(articleId).ConfigureAwait(false);
+                scopes[articleId] = await LoadCurrentMutationScopeAsync(articleId).ConfigureAwait(false);
+            }
             categoryIds = lockedTrashArticles.Select(static a => a.CategoryId).Distinct().ToList();
             tagIds = await LoadArticleTagIdsAsync(articleIds);
             trashedBodyMap = (await _db.Queryable<ArticleBody>()
@@ -221,7 +270,16 @@ public partial class ArticleService
                 .ToDictionary(static it => it.ArticleId, static it => it.MarkdownContent);
             return await new ArticleDeletionKernel(_db).DeleteLockedAsync(
                 articleIds,
-                articleId => RecordArticleMutationOutboxAsync(articleId, "trash-cleared"),
+                articleId => RecordArticleMutationOutboxAsync(
+                    articleId,
+                    ArticleMutationEventTypes.TrashCleared,
+                    versions[articleId],
+                    UtcNow,
+                    scopes[articleId],
+                    scopes[articleId] with
+                    {
+                        Visibility = "absent"
+                    }),
                 ct).ConfigureAwait(false);
         });
 

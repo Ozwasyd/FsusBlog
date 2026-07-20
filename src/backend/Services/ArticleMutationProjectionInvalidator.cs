@@ -31,6 +31,14 @@ public sealed class ArticleMutationProjectionInvalidator(
     public Task GenerateDetailAsync(int articleId, CancellationToken cancellationToken = default)
         => articleDetailArtifacts.GenerateAndStoreAsync(articleId, cancellationToken);
 
+    public Task GenerateDetailAsync(
+        int articleId,
+        ArticleMutationVersionReference version,
+        CancellationToken cancellationToken = default)
+        => articleDetailArtifacts is IVersionedArticleDetailAedsArtifactProjector versionedProjector
+            ? versionedProjector.GenerateAndStoreAsync(articleId, version, cancellationToken)
+            : articleDetailArtifacts.GenerateAndStoreAsync(articleId, cancellationToken);
+
     public Task RemoveDetailAsync(int articleId, CancellationToken cancellationToken = default)
         => articleDetailArtifacts.RemoveAsync(articleId, cancellationToken);
 
@@ -46,9 +54,10 @@ public sealed class ArticleMutationProjectionInvalidator(
     public Task<PublicHotArtifactEnqueueResult> QueuePublicHotUpdateAsync(
         int? articleId,
         string reason,
-        bool required = false)
+        bool required = false,
+        long? expectedReleaseId = null)
     {
-        PublicHotArtifactEnqueueResult result = publicHotUpdates.Enqueue(articleId, reason);
+        PublicHotArtifactEnqueueResult result = publicHotUpdates.Enqueue(articleId, reason, expectedReleaseId);
         if (!result.Accepted)
         {
             logger.LogWarning(
@@ -62,9 +71,16 @@ public sealed class ArticleMutationProjectionInvalidator(
         return Task.FromResult(result);
     }
 
-    public async Task EnsurePublicHotUpdateQueuedAsync(int? articleId, string reason)
+    public async Task EnsurePublicHotUpdateQueuedAsync(
+        int? articleId,
+        string reason,
+        long? expectedReleaseId = null)
     {
-        PublicHotArtifactEnqueueResult result = await QueuePublicHotUpdateAsync(articleId, reason, required: true)
+        PublicHotArtifactEnqueueResult result = await QueuePublicHotUpdateAsync(
+                articleId,
+                reason,
+                required: true,
+                expectedReleaseId: expectedReleaseId)
             .ConfigureAwait(false);
         if (!result.Accepted)
         {

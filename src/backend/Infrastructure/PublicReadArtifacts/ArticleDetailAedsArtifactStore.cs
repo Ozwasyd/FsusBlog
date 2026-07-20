@@ -15,6 +15,7 @@ using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Models.ReadModels;
+using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Background;
 
 using SqlSugar;
@@ -42,6 +43,14 @@ public interface IArticleDetailAedsArtifactProjector
 {
     Task GenerateAndStoreAsync(int articleId, CancellationToken cancellationToken = default);
     Task RemoveAsync(int articleId, CancellationToken cancellationToken = default);
+}
+
+public interface IVersionedArticleDetailAedsArtifactProjector
+{
+    Task GenerateAndStoreAsync(
+        int articleId,
+        ArticleMutationVersionReference version,
+        CancellationToken cancellationToken = default);
 }
 
 internal static class ArticleDetailProjectionCommitSequence
@@ -1003,17 +1012,35 @@ public sealed class ArticleDetailAedsArtifactProjector(
     IPublicArticleProjectionStore publicProjection,
     IDbConcurrencyGate dbGate,
     ArticleBodyRepairQueue articleBodyRepairQueue,
-    ILogger<ArticleDetailAedsArtifactProjector> logger) : IArticleDetailAedsArtifactProjector
+    ILogger<ArticleDetailAedsArtifactProjector> logger)
+    : IArticleDetailAedsArtifactProjector, IVersionedArticleDetailAedsArtifactProjector
 {
     public Task GenerateAndStoreAsync(int articleId, CancellationToken cancellationToken = default)
+        => GenerateAndStoreAsync(articleId, default, cancellationToken);
+
+    public Task GenerateAndStoreAsync(
+        int articleId,
+        ArticleMutationVersionReference version,
+        CancellationToken cancellationToken = default)
         => dbGate.ExecuteClassifiedAsync(
             DbWorkloadClass.BackgroundProjection,
             "public-article-projection-build",
             async ct =>
             {
-                ArticleDetailReadModel? article = await LoadArticleDetailFromDbAsync(articleId, ct).ConfigureAwait(false);
+                ArticleDetailReadModel? article = await LoadArticleDetailFromDbAsync(articleId, version, ct).ConfigureAwait(false);
                 if (article is null)
                 {
+                    if (ArticleMutationProjectionVersionPolicy.PreserveCurrentWhenCoordinateDoesNotResolve(
+                        version.ReleaseId,
+                        coordinateResolved: false))
+                    {
+                        logger.LogInformation(
+                            "article-detail-aeds-version-skipped {ArticleId} {ExpectedReleaseId}",
+                            articleId,
+                            version.ReleaseId);
+                        return true;
+                    }
+
                     await ArticleDetailProjectionCommitSequence.MarkUnavailableAsync(
                         () => publicProjection.MarkUnavailableAsync(articleId, "not-public", ct),
                         () => store.RemoveAsync(articleId, ct)).ConfigureAwait(false);
@@ -1067,25 +1094,28 @@ public sealed class ArticleDetailAedsArtifactProjector(
             () => store.RemoveAsync(articleId, cancellationToken)).ConfigureAwait(false);
     }
 
-    private async Task<ArticleDetailReadModel?> LoadArticleDetailFromDbAsync(int id, CancellationToken ct)
+    private async Task<ArticleDetailReadModel?> LoadArticleDetailFromDbAsync(
+        int id,
+        ArticleMutationVersionReference version,
+        CancellationToken ct)
     {
         DateTime utcNow = DateTime.UtcNow;
         string sql = $$"""
             SELECT
                 a.id AS "Id",
-                a.title AS "Title",
-                a.summary AS "Summary",
-                a.coverimageurl AS "CoverImageUrl",
-                a.categoryid AS "CategoryId",
+                revision.title AS "Title",
+                revision.summary AS "Summary",
+                revision.cover_image_url AS "CoverImageUrl",
+                revision.categoryid AS "CategoryId",
                 a.views AS "Views",
                 a.createtime AS "CreateTime",
                 a.isdeleted AS "IsDeleted",
                 a.status AS "Status",
                 a.scheduled_publish_at AS "ScheduledPublishAt",
-                a.published_at AS "PublishedAt",
+                publication.published_at AS "PublishedAt",
                 a.public_updated_at AS "UpdatedAt",
                 c.name AS "CategoryName",
-                COALESCE(ab.markdown_content, '') AS "Content",
+                COALESCE(revision.markdown_content, '') AS "Content",
                 rights.id AS "RightsSnapshotId",
                 rights.article_revision_id AS "RightsArticleRevisionId",
                 rights.revision_no AS "RightsRevisionNo",
@@ -1119,13 +1149,14 @@ public sealed class ArticleDetailAedsArtifactProjector(
                     ARRAY[]::text[]
                 ) AS "TagNames"
             FROM article a
-            LEFT JOIN category c ON a.categoryid = c.id
-            LEFT JOIN article_body ab ON ab.article_id = a.id
+            JOIN article_publication publication ON publication.id = a.current_publication_id
+            JOIN article_revision revision ON revision.id = publication.article_revision_id
+            LEFT JOIN category c ON revision.categoryid = c.id
             LEFT JOIN LATERAL (
                 SELECT snapshot.*
                 FROM article_rights_snapshot snapshot
-                WHERE snapshot.article_id = a.id
-                ORDER BY snapshot.revision_no DESC, snapshot.created_at DESC, snapshot.id DESC
+                WHERE snapshot.id = publication.rights_snapshot_id
+                  AND (@RightsSnapshotId IS NULL OR snapshot.id = @RightsSnapshotId)
                 LIMIT 1
             ) rights ON TRUE
             LEFT JOIN LATERAL (
@@ -1135,25 +1166,34 @@ public sealed class ArticleDetailAedsArtifactProjector(
                 ORDER BY proof.created_at DESC, proof.id DESC
                 LIMIT 1
             ) rights_proof ON TRUE
-            LEFT JOIN article_tag at ON at.articleid = a.id
-            LEFT JOIN tag t ON t.id = at.tagid
+            LEFT JOIN LATERAL unnest(
+                COALESCE(
+                    string_to_array(NULLIF(revision.tag_ids, ''), ',')::integer[],
+                    ARRAY[]::integer[]
+                )
+            ) AS revision_tag(tag_id) ON TRUE
+            LEFT JOIN tag t ON t.id = revision_tag.tag_id
             WHERE a.id = @Id
+              AND (@ReleaseId IS NULL OR publication.id = @ReleaseId)
+              AND (@RevisionId IS NULL OR revision.id = @RevisionId)
+              AND (@RevisionNo IS NULL OR revision.revision_no = @RevisionNo)
               AND a.isdeleted = false
               AND a.status = @PublishedStatus
               AND (a.published_at IS NULL OR a.published_at <= @Now)
               AND (a.scheduled_publish_at IS NULL OR a.scheduled_publish_at <= @Now)
             GROUP BY
                 a.id,
-                a.title,
-                a.summary,
-                a.coverimageurl,
-                a.categoryid,
+                revision.title,
+                revision.summary,
+                revision.cover_image_url,
+                revision.categoryid,
+                revision.markdown_content,
                 a.views,
                 a.createtime,
                 a.isdeleted,
                 a.status,
                 a.scheduled_publish_at,
-                a.published_at,
+                publication.published_at,
                 a.public_updated_at,
                 c.name,
                 rights.id,
@@ -1174,13 +1214,16 @@ public sealed class ArticleDetailAedsArtifactProjector(
                 rights.policy_hash,
                 rights.content_canonical_hash,
                 rights_proof.id,
-                rights_proof.proof_status,
-                ab.markdown_content;
+                rights_proof.proof_status;
             """;
         ArticleDetailReadModel? article = null;
         using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             sql,
             new SugarParameter("@Id", id),
+            new SugarParameter("@ReleaseId", version.ReleaseId.HasValue ? version.ReleaseId.Value : DBNull.Value),
+            new SugarParameter("@RevisionId", version.RevisionId.HasValue ? version.RevisionId.Value : DBNull.Value),
+            new SugarParameter("@RevisionNo", version.RevisionNo.HasValue ? version.RevisionNo.Value : DBNull.Value),
+            new SugarParameter("@RightsSnapshotId", version.RightsSnapshotId.HasValue ? version.RightsSnapshotId.Value : DBNull.Value),
             new SugarParameter("@Now", utcNow),
             new SugarParameter("@PublishedStatus", (int)ArticleStatus.Published)))
         {

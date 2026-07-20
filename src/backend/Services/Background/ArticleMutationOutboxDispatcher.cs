@@ -171,6 +171,53 @@ public sealed class ArticleMutationOutboxDispatcher(
         {
             await EnsureClaimOwnedAsync(db, dbGate, item, cancellationToken).ConfigureAwait(false);
             var completedAfterReplay = new HashSet<string>(completedEdges, StringComparer.Ordinal);
+            ArticleMutationOutboxEnvelope envelope = ArticleMutationOutboxEnvelopeCodec.Read(item);
+            ArticleMutationVersionDisposition disposition = await ArticleMutationOutboxVersionGuard
+                .EvaluateAsync(db, envelope, cancellationToken)
+                .ConfigureAwait(false);
+            bool processCurrentVersion = await RouteAfterVersionPreflightAsync(
+                    disposition,
+                    async reason =>
+                    {
+                        ArticleMutationReplayResult skipped = ArticleMutationReplayResult.ForSupersededPublication(
+                            completedAfterReplay,
+                            reason);
+                        await UpsertReplayEdgesAsync(db, dbGate, item, skipped, cancellationToken).ConfigureAwait(false);
+                        completedAfterReplay.UnionWith(skipped.SkippedEdges);
+                        if (!ArticleMutationReplayEdges.Required.All(completedAfterReplay.Contains))
+                        {
+                            return await MarkRetryAsync(
+                                    db,
+                                    dbGate,
+                                    item,
+                                    "superseded article mutation did not reach a terminal edge state",
+                                    null,
+                                    cancellationToken)
+                                .ConfigureAwait(false);
+                        }
+
+                        logger.LogInformation(
+                            "article-mutation-outbox-version-skipped {OutboxId} {EventId} {ArticleId} {Reason}",
+                            item.Id,
+                            item.EventId,
+                            item.AggregateId,
+                            reason);
+                        await CompleteAsync(db, dbGate, item, cancellationToken).ConfigureAwait(false);
+                        return false;
+                    },
+                    static () => Task.FromResult(true))
+                .ConfigureAwait(false);
+            if (!processCurrentVersion)
+            {
+                return disposition.Kind == ArticleMutationVersionDispositionKind.Skip;
+            }
+
+            IReadOnlyList<int> categoryIds = envelope.Scope.CategoryIds.Count > 0
+                ? envelope.Scope.CategoryIds
+                : aotScope.CategoryIds;
+            IReadOnlyList<int> tagIds = envelope.Scope.TagIds.Count > 0
+                ? envelope.Scope.TagIds
+                : aotScope.TagIds;
 
             if (!await RunDispatcherEdgeAsync(
                     db,
@@ -180,8 +227,8 @@ public sealed class ArticleMutationOutboxDispatcher(
                     ArticleMutationReplayEdges.PublicAotInvalidation,
                     ct => publicAotInvalidation.InvalidateArticleMutationAsync(
                         item.AggregateId,
-                        aotScope.CategoryIds,
-                        aotScope.TagIds,
+                        categoryIds,
+                        tagIds,
                         ct),
                     cancellationToken).ConfigureAwait(false)
                 || !await RunDispatcherEdgeAsync(
@@ -202,12 +249,7 @@ public sealed class ArticleMutationOutboxDispatcher(
                     item.AggregateId,
                     item.EventType,
                     item.EventId,
-                    new ArticleMutationVersionReference(
-                        item.ArticleRevisionId,
-                        item.RevisionNo,
-                        item.ArticlePublicationId,
-                        item.PublicationNo,
-                        item.ResponsibilitySnapshotId),
+                    envelope.Version,
                     completedAfterReplay,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -235,29 +277,7 @@ public sealed class ArticleMutationOutboxDispatcher(
                     .ConfigureAwait(false);
             }
 
-            DateTime processedAt = timeProvider.GetUtcNow().UtcDateTime;
-            await EnsureCurrentGenerationAsync(cancellationToken).ConfigureAwait(false);
-            int completedRows = await dbGate.ExecuteAsync(
-                FencedCommitOperationScope,
-                gateCt => ExecuteFencedMutationAsync(
-                    db,
-                    FencedCommitOperationScope,
-                    $"{item.Id}:{item.ClaimToken}",
-                    _ => db.Ado.ExecuteCommandAsync(
-                        BuildCompleteSql(),
-                        new SugarParameter("@Id", item.Id),
-                        new SugarParameter("@ClaimToken", item.ClaimToken),
-                        new SugarParameter("@ProcessedAt", processedAt)),
-                    gateCt,
-                    static updatedRows => updatedRows > 0),
-                _ => Task.FromResult(0),
-                cancellationToken).ConfigureAwait(false);
-            if (completedRows != 1)
-            {
-                throw new ArticleMutationOutboxClaimLostException(item.Id);
-            }
-
-            return true;
+            return await CompleteAsync(db, dbGate, item, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -277,6 +297,50 @@ public sealed class ArticleMutationOutboxDispatcher(
         {
             return await MarkRetryAsync(db, dbGate, item, ex.Message, ex, cancellationToken).ConfigureAwait(false);
         }
+    }
+
+    internal static Task<T> RouteAfterVersionPreflightAsync<T>(
+        ArticleMutationVersionDisposition disposition,
+        Func<string, Task<T>> onSkipped,
+        Func<Task<T>> onCurrent)
+        => disposition.Kind switch
+        {
+            ArticleMutationVersionDispositionKind.Process => onCurrent(),
+            ArticleMutationVersionDispositionKind.Skip => onSkipped(
+                disposition.Reason ?? "superseded-by-newer-version"),
+            _ => throw new InvalidOperationException(
+                disposition.Reason ?? "invalid-article-mutation-version-coordinate")
+        };
+
+    private async Task<bool> CompleteAsync(
+        ISqlSugarClient db,
+        IDbConcurrencyGate dbGate,
+        ArticleMutationOutboxEvent item,
+        CancellationToken cancellationToken)
+    {
+        DateTime processedAt = timeProvider.GetUtcNow().UtcDateTime;
+        await EnsureCurrentGenerationAsync(cancellationToken).ConfigureAwait(false);
+        int completedRows = await dbGate.ExecuteAsync(
+            FencedCommitOperationScope,
+            gateCt => ExecuteFencedMutationAsync(
+                db,
+                FencedCommitOperationScope,
+                $"{item.Id}:{item.ClaimToken}",
+                _ => db.Ado.ExecuteCommandAsync(
+                    BuildCompleteSql(),
+                    new SugarParameter("@Id", item.Id),
+                    new SugarParameter("@ClaimToken", item.ClaimToken),
+                    new SugarParameter("@ProcessedAt", processedAt)),
+                gateCt,
+                static updatedRows => updatedRows > 0),
+            _ => Task.FromResult(0),
+            cancellationToken).ConfigureAwait(false);
+        if (completedRows != 1)
+        {
+            throw new ArticleMutationOutboxClaimLostException(item.Id);
+        }
+
+        return true;
     }
 
     private async Task<bool> RunDispatcherEdgeAsync(
@@ -616,9 +680,12 @@ public sealed class ArticleMutationOutboxDispatcher(
                       outbox.event_id,
                       outbox.aggregate_type,
                       outbox.aggregate_id,
+                      outbox.schema_version,
                       outbox.article_revision_id,
                       outbox.revision_no,
+                      outbox.rights_snapshot_id,
                       outbox.responsibility_snapshot_id,
+                      outbox.responsibility_version,
                       outbox.article_publication_id,
                       outbox.publication_no,
                       outbox.event_type,
@@ -652,9 +719,12 @@ public sealed class ArticleMutationOutboxDispatcher(
                 EventId = reader.ReadString("event_id"),
                 AggregateType = reader.ReadString("aggregate_type"),
                 AggregateId = reader.ReadInt32("aggregate_id"),
+                SchemaVersion = reader.ReadInt32("schema_version"),
                 ArticleRevisionId = reader.IsNull("article_revision_id") ? null : reader.ReadInt64("article_revision_id"),
                 RevisionNo = reader.IsNull("revision_no") ? null : reader.ReadInt32("revision_no"),
+                RightsSnapshotId = reader.IsNull("rights_snapshot_id") ? null : reader.ReadInt64("rights_snapshot_id"),
                 ResponsibilitySnapshotId = reader.IsNull("responsibility_snapshot_id") ? null : reader.ReadInt64("responsibility_snapshot_id"),
+                ResponsibilityVersion = reader.IsNull("responsibility_version") ? null : reader.ReadInt32("responsibility_version"),
                 ArticlePublicationId = reader.IsNull("article_publication_id") ? null : reader.ReadInt64("article_publication_id"),
                 PublicationNo = reader.IsNull("publication_no") ? null : reader.ReadInt32("publication_no"),
                 EventType = reader.ReadString("event_type"),
@@ -751,7 +821,7 @@ public sealed class ArticleMutationOutboxDispatcher(
                     item.Id,
                     edgeName,
                     ArticleMutationOutboxEdgeStatus.Skipped,
-                    null,
+                    replay.SkippedEdgeReasons.GetValueOrDefault(edgeName),
                     ArticleMutationDeliveryKey.Build(item.EventId, edgeName)));
             }
         }
@@ -921,7 +991,7 @@ public sealed class ArticleMutationOutboxDispatcher(
                       FROM article_mutation_outbox_edge AS edge
                       WHERE edge.outbox_event_id = outbox.id
                         AND edge.edge_name = required.edge_name
-                        AND edge.status = 'completed'
+                        AND edge.status IN ('completed', 'skipped')
                   )
               );
             """;

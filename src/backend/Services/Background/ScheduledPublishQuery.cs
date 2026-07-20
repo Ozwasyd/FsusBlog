@@ -36,16 +36,25 @@ internal static class ScheduledPublishQuery
                 article.id,
                 revision.id AS revision_id,
                 revision.revision_no,
+                revision.categoryid,
+                revision.tag_ids,
                 rights.id AS rights_snapshot_id,
-                responsibility.id AS responsibility_snapshot_id
+                responsibility.id AS responsibility_snapshot_id,
+                responsibility.responsibility_version
             FROM due_articles due
             JOIN article article ON article.id = due.id
             JOIN article_revision revision ON revision.id = article.current_revision_id
             JOIN article_rights_snapshot rights
               ON rights.article_id = article.id
              AND rights.article_revision_id = revision.id
-            LEFT JOIN article_responsibility_snapshot responsibility
-              ON responsibility.article_revision_id = revision.id
+            LEFT JOIN LATERAL (
+                SELECT snapshot.id, snapshot.responsibility_version
+                FROM article_responsibility_snapshot snapshot
+                WHERE snapshot.article_id = article.id
+                  AND snapshot.article_revision_id = revision.id
+                ORDER BY snapshot.responsibility_version DESC, snapshot.id DESC
+                LIMIT 1
+            ) responsibility ON TRUE
             ORDER BY due.due_at, article.id
             LIMIT @BatchSize
             FOR UPDATE OF article SKIP LOCKED;

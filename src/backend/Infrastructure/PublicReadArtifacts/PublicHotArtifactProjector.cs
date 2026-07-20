@@ -15,6 +15,7 @@ using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Models.ReadModels;
+using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Shared.Contracts.Outputs;
 
@@ -39,6 +40,15 @@ public interface IPublicHotArtifactProjector
         CancellationToken ct);
 }
 
+public interface IVersionedPublicHotArtifactProjector
+{
+    Task<PublicHotReadSnapshot> RebuildAfterArticleMutationAsync(
+        PublicHotReadSnapshot current,
+        int articleId,
+        long? expectedReleaseId,
+        CancellationToken ct);
+}
+
 internal sealed record PublicArticleFrameSelection(
     IReadOnlyList<int> ArticleIds,
     int PublicArticleCount,
@@ -56,13 +66,21 @@ public sealed class PublicHotArtifactProjector(
     IDbConcurrencyGate dbConcurrencyGate,
     IOptions<PublicHotReadOptions> options,
     ArticleBodyRepairQueue articleBodyRepairQueue,
-    ILogger<PublicHotArtifactProjector> logger) : IPublicHotArtifactProjector
+    ILogger<PublicHotArtifactProjector> logger)
+    : IPublicHotArtifactProjector, IVersionedPublicHotArtifactProjector
 {
     private const int MaxPageSize = 100;
     private const int MaxHotArticlesCount = 100;
     public Task<PublicHotReadSnapshot> RebuildAfterArticleMutationAsync(
         PublicHotReadSnapshot current,
         int articleId,
+        CancellationToken ct)
+        => RebuildAfterArticleMutationAsync(current, articleId, null, ct);
+
+    public Task<PublicHotReadSnapshot> RebuildAfterArticleMutationAsync(
+        PublicHotReadSnapshot current,
+        int articleId,
+        long? expectedReleaseId,
         CancellationToken ct)
     {
         if (articleId <= 0 || current.ArticleFrameCount == 0)
@@ -72,7 +90,7 @@ public sealed class PublicHotArtifactProjector(
 
         return dbConcurrencyGate.ExecuteAsync(
             "public-hot-read-delta",
-            gateCt => BuildDeltaSnapshotCoreAsync(current, articleId, gateCt),
+            gateCt => BuildDeltaSnapshotCoreAsync(current, articleId, expectedReleaseId, gateCt),
             _ => Task.FromException<PublicHotReadSnapshot>(
                 new TimeoutException("db-gate-timeout:public-hot-read-delta")),
             ct);
@@ -134,6 +152,7 @@ public sealed class PublicHotArtifactProjector(
     private async Task<PublicHotReadSnapshot> BuildDeltaSnapshotCoreAsync(
         PublicHotReadSnapshot current,
         int articleId,
+        long? expectedReleaseId,
         CancellationToken ct)
     {
         long started = Stopwatch.GetTimestamp();
@@ -143,7 +162,20 @@ public sealed class PublicHotArtifactProjector(
         long version = projectionCutoff.ToUnixTimeMilliseconds();
         var articleFrames = current.ArticleArtifacts.ToDictionary(static pair => pair.Key, static pair => pair.Value);
         var listFrames = current.ListArtifacts.ToDictionary(static pair => pair.Key, static pair => pair.Value);
-        IReadOnlyList<ArticleDetailReadModel> changedArticles = await LoadArticleDetailsFromDbAsync([articleId], ct).ConfigureAwait(false);
+        IReadOnlyList<ArticleDetailReadModel> changedArticles = await LoadArticleDetailsFromDbAsync(
+            [articleId],
+            ct,
+            expectedReleaseId).ConfigureAwait(false);
+        if (ArticleMutationProjectionVersionPolicy.PreserveCurrentWhenCoordinateDoesNotResolve(
+            expectedReleaseId,
+            changedArticles.Count > 0))
+        {
+            logger.LogInformation(
+                "public-hot-read-version-skipped {ArticleId} {ExpectedReleaseId}",
+                articleId,
+                expectedReleaseId.GetValueOrDefault());
+            return current;
+        }
         ArticleDetailReadModel? changed = changedArticles.FirstOrDefault(article =>
             article.Id > 0 && IsPubliclyVisible(article, visibilityCutoff));
         PublicHotDeltaScope scope;
@@ -828,7 +860,8 @@ public sealed class PublicHotArtifactProjector(
 
     private async Task<IReadOnlyList<ArticleDetailReadModel>> LoadArticleDetailsFromDbAsync(
         IReadOnlyCollection<int> articleIds,
-        CancellationToken ct)
+        CancellationToken ct,
+        long? expectedReleaseId = null)
     {
         int[] ids = [.. articleIds.Where(static id => id > 0).Distinct()];
         if (ids.Length == 0)
@@ -846,6 +879,8 @@ public sealed class PublicHotArtifactProjector(
                 && a.Status == ArticleStatus.Published
                 && (a.PublishedAt == null || a.PublishedAt <= utcNow)
                 && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= utcNow))
+            .WhereIF(expectedReleaseId.HasValue, (article, publication, revision, category) =>
+                publication.Id == expectedReleaseId!.Value)
             .Select((article, publication, revision, category) => new
             {
                 article.Id,

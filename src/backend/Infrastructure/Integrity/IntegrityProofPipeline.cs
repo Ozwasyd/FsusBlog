@@ -291,7 +291,11 @@ public sealed class IntegrityProofScheduler(
         {
             rightsProofId = await UpsertArticleRightsProofAsync(finalized, signature, failureCode, cancellationToken)
                 .ConfigureAwait(false);
-            int outboxRows = await db.Insertable(BuildRightsProofProjectionOutboxEvent(articleId))
+            ArticleMutationOutboxEvent outboxEvent = await BuildRightsProofProjectionOutboxEventAsync(
+                    articleId,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            int outboxRows = await db.Insertable(outboxEvent)
                 .ExecuteCommandAsync(cancellationToken)
                 .ConfigureAwait(false);
             if (outboxRows != 1)
@@ -319,20 +323,17 @@ public sealed class IntegrityProofScheduler(
         return new IntegrityProofScheduleResult(true, status, failureCode, status is PublishProofStatus.Pending or PublishProofStatus.Retrying);
     }
 
-    private static ArticleMutationOutboxEvent BuildRightsProofProjectionOutboxEvent(int articleId)
+    private Task<ArticleMutationOutboxEvent> BuildRightsProofProjectionOutboxEventAsync(
+        int articleId,
+        CancellationToken cancellationToken)
     {
         DateTime now = DateTime.UtcNow;
-        return new ArticleMutationOutboxEvent
-        {
-            EventId = Guid.NewGuid().ToString("N"),
-            AggregateId = articleId,
-            EventType = ArticleMutationEventTypes.RightsProofUpdated,
-            PayloadJson = $"{{\"articleId\":{articleId},\"eventType\":\"rights-proof-updated\"}}",
-            Status = "pending",
-            RetryCount = 0,
-            NextRetryAt = now,
-            CreatedAt = now
-        };
+        return ArticleMutationOutboxProducer.CreateCurrentAsync(
+            db,
+            articleId,
+            ArticleMutationEventTypes.RightsProofUpdated,
+            now,
+            cancellationToken);
     }
 
     private async Task<ArticleRevision?> LoadLatestRevisionAsync(int articleId, CancellationToken cancellationToken)

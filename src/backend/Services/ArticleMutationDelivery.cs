@@ -22,9 +22,10 @@ public sealed class ArticleMutationDelivery(
         int articleId,
         string action,
         ArticleListItemResponse? preview = null,
-        string? idempotencyKey = null)
+        string? idempotencyKey = null,
+        DateTime? eventTime = null)
         => messagePublisher.PushArticleChangedAsync(
-            new ArticleNoticeDto(articleId, action, DateTime.UtcNow, preview),
+            new ArticleNoticeDto(articleId, action, eventTime ?? DateTime.UtcNow, preview),
             idempotencyKey);
 
     public Task ScheduleIntegrityProofAsync(

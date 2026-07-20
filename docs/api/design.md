@@ -789,6 +789,8 @@ SEO 预览是作者工作台内的发布前质量门，不是新路由模型：�
 
 category/tag 重命名、rights/proof、scheduled publish、revision/content 与文章全生命周期 mutation 必须在 primary write 的同一事务写入 `article_mutation_outbox`。事件列和 payload 都必须保存精确 revision/publication 坐标；replay 只允许加载该坐标，过期 publication 事件不得覆盖更新的公开投影。`article-detail-aeds` 仍是 required replay edge：DB projection、shadow parity 和 file artifact 任一步失败时不得把 edge/outbox 标记为完成。完整迁移、回填、门禁与回退说明见 [公共文章读取投影](../performance-public-article-projection.md) 与 [发布坐标一致性验证](../testing/article-publication-consistency.md)。
 
+article mutation envelope v2 还必须携带 rights snapshot ID、responsibility snapshot/version、`occurredAt`、`publicUpdatedAt`，以及 category/tag/visibility 的 before/after scope；`releaseId` 是 `article_publication.id` 的事件字段别名。dispatcher 对列与 payload 的别名/坐标不一致 fail closed。superseded event 不发送旧通知也不重建旧 search/AEDS/AOT/HotRead，而是为每个未完成 edge 持久化相同的显式 skip reason。该 schema 是内部 durable event contract，不新增 JSON runtime API，也不改变 AEDS wire frame layout。
+
 ## Out of Scope
 
 本文件只定义 API 设计哲学和跨模块约束，不重复维护以下真相源：

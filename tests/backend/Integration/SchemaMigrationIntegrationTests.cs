@@ -629,7 +629,15 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
     {
         string databaseName = await fixture.CreateDatabaseAsync();
         string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
-        await RunMigrationsAsync(connectionString);
+        using (SqlSugarClient bootstrapDb = PostgresSqlSugarTestClient.Create(connectionString))
+        {
+            PostgresSqlSugarTestClient.InitTables(
+                bootstrapDb,
+                typeof(ArticleMutationOutboxEvent),
+                typeof(ArticleMutationOutboxEdge),
+                typeof(Article),
+                typeof(ArticleTag));
+        }
 
         IConfiguration configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -740,6 +748,17 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         Assert.Equal(ArticleMutationOutboxEdgeStatus.Completed, projectionEdge.Status);
         Assert.Equal(2, projectionEdge.AttemptCount);
         Assert.Equal(64, projectionEdge.DeliveryKey?.Length);
+
+        // A fresh dispatcher poll after the reclaimed claim completed is a duplicate delivery.
+        // The processed row must not be claimed or replayed again.
+        Assert.Equal(0, await dispatcher.ProcessPendingAsync(CancellationToken.None));
+        await coordinator.Received(2).ReplayOutboxAsync(
+            77,
+            "updated",
+            Arg.Any<string>(),
+            Arg.Any<ArticleMutationVersionReference>(),
+            Arg.Any<IReadOnlySet<string>>(),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]

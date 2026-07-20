@@ -80,7 +80,7 @@ public sealed class ArticleMutationOutboxClaimLeaseTests
         Assert.Contains("claim_token = @ClaimToken", complete, StringComparison.Ordinal);
         Assert.Contains("claim_expires_at > @ProcessedAt", complete, StringComparison.Ordinal);
         Assert.Contains("NOT EXISTS", complete, StringComparison.Ordinal);
-        Assert.Contains("edge.status = 'completed'", complete, StringComparison.Ordinal);
+        Assert.Contains("edge.status IN ('completed', 'skipped')", complete, StringComparison.Ordinal);
     }
 
     [Fact]

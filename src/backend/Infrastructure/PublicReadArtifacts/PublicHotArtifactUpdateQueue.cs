@@ -13,7 +13,11 @@ public enum PublicHotArtifactDirtyReason
     ScheduledPublish = 4
 }
 
-public readonly record struct PublicHotArtifactUpdate(int? ArticleId, string Reason, PublicHotArtifactDirtyReason DirtyReason);
+public readonly record struct PublicHotArtifactUpdate(
+    int? ArticleId,
+    string Reason,
+    PublicHotArtifactDirtyReason DirtyReason,
+    long? ExpectedReleaseId = null);
 
 public readonly record struct PublicHotArtifactEnqueueResult(
     bool Accepted,
@@ -46,11 +50,15 @@ public sealed class PublicHotArtifactUpdateQueue
     public bool TryEnqueue(int? articleId, string reason)
         => Enqueue(articleId, reason).Accepted;
 
-    public PublicHotArtifactEnqueueResult Enqueue(int? articleId, string reason)
+    public PublicHotArtifactEnqueueResult Enqueue(int? articleId, string reason, long? expectedReleaseId = null)
     {
         string normalized = string.IsNullOrWhiteSpace(reason) ? "unknown" : reason;
         PublicHotArtifactDirtyReason dirtyReason = ClassifyReason(normalized);
-        bool accepted = _channel.Writer.TryWrite(new PublicHotArtifactUpdate(articleId, normalized, dirtyReason));
+        bool accepted = _channel.Writer.TryWrite(new PublicHotArtifactUpdate(
+            articleId,
+            normalized,
+            dirtyReason,
+            expectedReleaseId));
         return accepted
             ? PublicHotArtifactEnqueueResult.AcceptedResult(normalized, dirtyReason)
             : PublicHotArtifactEnqueueResult.Rejected(normalized, dirtyReason);
@@ -95,8 +103,9 @@ public sealed class PublicHotArtifactUpdateWorker(
             PublicHotArtifactDirtyReason dirtyReason = first.DirtyReason;
             int coalesced = 1;
             var articleIds = new HashSet<int>();
+            var expectedReleaseIds = new Dictionary<int, long>();
             bool requiresFullRebuild = false;
-            CollectUpdate(first, articleIds, ref requiresFullRebuild);
+            CollectUpdate(first, articleIds, expectedReleaseIds, ref requiresFullRebuild);
             TimeSpan debounce = TimeSpan.FromMilliseconds(Math.Clamp(options.Value.UpdateDebounceMilliseconds, 0, 30_000));
             if (debounce > TimeSpan.Zero)
             {
@@ -108,7 +117,7 @@ public sealed class PublicHotArtifactUpdateWorker(
                 reason = string.Concat(reason, "+", next.Reason);
                 dirtyReason |= next.DirtyReason;
                 coalesced++;
-                CollectUpdate(next, articleIds, ref requiresFullRebuild);
+                CollectUpdate(next, articleIds, expectedReleaseIds, ref requiresFullRebuild);
             }
 
             if (dirtyReason == PublicHotArtifactDirtyReason.ViewProjection)
@@ -147,9 +156,18 @@ public sealed class PublicHotArtifactUpdateWorker(
                 {
                     foreach (int articleId in articleIds)
                     {
-                        snapshot = await projector
-                            .RebuildAfterArticleMutationAsync(snapshot, articleId, stoppingToken)
-                            .ConfigureAwait(false);
+                        expectedReleaseIds.TryGetValue(articleId, out long expectedReleaseId);
+                        snapshot = projector is IVersionedPublicHotArtifactProjector versionedProjector
+                            ? await versionedProjector
+                                .RebuildAfterArticleMutationAsync(
+                                    snapshot,
+                                    articleId,
+                                    expectedReleaseId > 0 ? expectedReleaseId : null,
+                                    stoppingToken)
+                                .ConfigureAwait(false)
+                            : await projector
+                                .RebuildAfterArticleMutationAsync(snapshot, articleId, stoppingToken)
+                                .ConfigureAwait(false);
                     }
                 }
 
@@ -180,11 +198,18 @@ public sealed class PublicHotArtifactUpdateWorker(
     private static void CollectUpdate(
         PublicHotArtifactUpdate update,
         HashSet<int> articleIds,
+        Dictionary<int, long> expectedReleaseIds,
         ref bool requiresFullRebuild)
     {
         if (update.ArticleId is int id && id > 0)
         {
             articleIds.Add(id);
+            if (update.ExpectedReleaseId is long expectedReleaseId && expectedReleaseId > 0)
+            {
+                expectedReleaseIds[id] = expectedReleaseIds.TryGetValue(id, out long current)
+                    ? Math.Max(current, expectedReleaseId)
+                    : expectedReleaseId;
+            }
             return;
         }
 

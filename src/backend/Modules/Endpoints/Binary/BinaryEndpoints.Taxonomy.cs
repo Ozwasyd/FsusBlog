@@ -604,21 +604,17 @@ public static partial class BinaryEndpoints
         CancellationToken cancellationToken)
     {
         DateTime now = DateTime.UtcNow;
-        List<ArticleMutationOutboxEvent> events = articleIds
-            .Where(static articleId => articleId > 0)
-            .Distinct()
-            .Select(articleId => new ArticleMutationOutboxEvent
-            {
-                EventId = Guid.NewGuid().ToString("N"),
-                AggregateId = articleId,
-                EventType = eventType,
-                PayloadJson = $"{{\"articleId\":{articleId},\"eventType\":\"{eventType}\"}}",
-                Status = "pending",
-                RetryCount = 0,
-                NextRetryAt = now,
-                CreatedAt = now
-            })
-            .ToList();
+        var events = new List<ArticleMutationOutboxEvent>();
+        foreach (int articleId in articleIds.Where(static articleId => articleId > 0).Distinct().Order())
+        {
+            events.Add(await ArticleMutationOutboxProducer.CreateCurrentAsync(
+                    db,
+                    articleId,
+                    eventType,
+                    now,
+                    cancellationToken)
+                .ConfigureAwait(false));
+        }
         if (events.Count == 0)
         {
             return 0;
