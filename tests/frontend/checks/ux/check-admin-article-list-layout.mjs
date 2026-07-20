@@ -37,5 +37,15 @@ assert.match(
   'article management actions must use a compact 4px horizontal gap'
 )
 assert.doesNotMatch(articleList, /<el-divider\b/, 'article management actions must not spend width on dividers')
+assert.doesNotMatch(
+  articleList,
+  /<AdminFilterGroup\s+label="状态">/,
+  'article status filter must not render a redundant visible label'
+)
+assert.match(
+  articleList,
+  /<AdminSegmentedControl[\s\S]*?aria-label="文章状态筛选"[\s\S]*?\/>/,
+  'article status filter must retain an accessible name'
+)
 
 console.log('admin article list layout checks passed')

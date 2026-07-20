@@ -74,15 +74,13 @@
           </el-form-item>
 
           <el-form-item class="article-list-toolbar-item article-list-status-filter !m-0">
-            <AdminFilterGroup label="状态">
-              <AdminSegmentedControl
-                :model-value="queryParam.status"
-                :items="statusFilters"
-                aria-label="文章状态筛选"
-                :disabled="isBusy"
-                @update:model-value="handleStatusFilterChange"
-              />
-            </AdminFilterGroup>
+            <AdminSegmentedControl
+              :model-value="queryParam.status"
+              :items="statusFilters"
+              aria-label="文章状态筛选"
+              :disabled="isBusy"
+              @update:model-value="handleStatusFilterChange"
+            />
           </el-form-item>
 
           <el-form-item class="article-list-toolbar-item article-list-toolbar-buttons !m-0">
@@ -291,7 +289,6 @@ import { useMediaQuery } from '@/composables/useMediaQuery'
 import AdminArticleCompactCard from '@/components/admin/article/AdminArticleCompactCard.vue'
 import AdminCollectionSummary from '@/components/admin/AdminCollectionSummary.vue'
 import AdminCollectionToolbar from '@/components/admin/AdminCollectionToolbar.vue'
-import AdminFilterGroup from '@/components/admin/AdminFilterGroup.vue'
 import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import AdminSegmentedControl from '@/components/admin/AdminSegmentedControl.vue'
 import SemanticTime from '@/components/ui/SemanticTime.vue'
