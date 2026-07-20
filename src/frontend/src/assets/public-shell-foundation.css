@@ -416,7 +416,7 @@ html[data-theme-resolved='dark'] body {
 
 #fsus-aot-shell .public-colophon__policy-links,
 #fsus-aot-shell .public-colophon__records {
-  gap: 2px 14px;
+  gap: 2px 12px;
 }
 
 #fsus-aot-shell .public-colophon__link {
@@ -426,7 +426,7 @@ html[data-theme-resolved='dark'] body {
   max-width: 100%;
   align-items: center;
   box-sizing: border-box;
-  padding-inline: 4px;
+  padding-inline: 8px;
   text-decoration: none;
 }
 
