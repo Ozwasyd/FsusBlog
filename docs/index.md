@@ -133,6 +133,7 @@
 - [JWT signing-key rotation](security/jwt-key-rotation.md)
 - [Passkey signature counter 风险响应](security/passkey-counter-risk-response.md)
 - [Passkey metadata 与 PasskeyEnabled 投影](security/passkey-metadata-projection.md)
+- [PerceptionCharacterV3 protocol](security/perception-character-v3-protocol.md)
 - [私有请求身份代际](security/private-request-generations.md)
 - [私有页面运行时销毁边界](security/private-surface-runtime.md)
 - [PublicHotRead 横切控制与回退手册](security/public-hot-read-cross-cutting-controls.md)

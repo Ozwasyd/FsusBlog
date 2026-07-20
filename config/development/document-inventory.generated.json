@@ -3982,6 +3982,19 @@
             "producer": null
         },
         {
+            "path": "docs/security/perception-character-v3-protocol.md",
+            "title": "PerceptionCharacterV3 protocol",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "security",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
+        {
             "path": "docs/security/private-request-generations.md",
             "title": "私有请求身份代际",
             "kind": "markdown",
