@@ -3,8 +3,9 @@
 import { mount } from '@vue/test-utils'
 import { defineComponent, nextTick } from 'vue'
 import { afterEach, describe, expect, it } from 'vitest'
-import type { FeaturedArticleItem } from '@/api/article'
+import type { FeaturedArticleItem, PopularArticleSummaryResponse } from '@/api/article'
 import FeaturedArticlesSection from '@/components/home/FeaturedArticlesSection.vue'
+import HomeTextFirstRecommendations from '@/components/home/HomeTextFirstRecommendations.vue'
 import PublicArticleList from '@/components/public/PublicArticleList.vue'
 import PublicHomePageContent from '@/components/public/pages/PublicHomePageContent.vue'
 import type { ArticleListCardViewContract, ArticleListViewContract } from '@/view-contracts/articleList'
@@ -30,6 +31,12 @@ const featured = (coverImageUrl: string): FeaturedArticleItem => ({
   views: 100,
   createTime: '2026-07-11T00:00:00.000Z',
   category: { id: 7, name: '工程' }
+})
+
+const recommendation = (id: number): PopularArticleSummaryResponse => ({
+  id,
+  title: `Recommendation ${id}`,
+  views: id * 10
 })
 
 const card = (id: number): ArticleListCardViewContract => ({
@@ -74,6 +81,26 @@ afterEach(() => {
 })
 
 describe('home editorial components', () => {
+  it('aligns recommendation indices and titles on a shared baseline', () => {
+    const wrapper = mount(HomeTextFirstRecommendations, {
+      props: { articles: [recommendation(1)] },
+      global: homeGlobals
+    })
+
+    const link = wrapper.get('a')
+    const index = link.findAll('span')[0]
+    const title = link.findAll('span')[2]
+    const views = link.findAll('span')[3]
+    expect(link.classes()).toContain('items-baseline')
+    expect(link.classes()).not.toContain('items-start')
+    expect(index?.classes()).toEqual(expect.arrayContaining(['leading-5']))
+    expect(index?.classes()).not.toContain('mt-1')
+    expect(title?.classes()).toEqual(expect.arrayContaining(['leading-5']))
+    expect(views?.classes()).toEqual(expect.arrayContaining(['mt-1', 'leading-4']))
+
+    wrapper.unmount()
+  })
+
   it('renders exactly one media lead when its cover exists', () => {
     const wrapper = mount(FeaturedArticlesSection, {
       props: { article: featured('/uploads/lead.webp'), loading: false },

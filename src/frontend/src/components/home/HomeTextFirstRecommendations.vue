@@ -23,20 +23,20 @@
         <RouterLink v-slot="{ href, navigate }" custom :to="articleHref(article.id)">
           <a
             :href="href"
-            class="group flex min-h-16 items-start gap-3 border-b border-[var(--fsusblog-panel-border)] pb-4 outline-none transition-colors"
+            class="group flex min-h-16 items-baseline gap-3 border-b border-[var(--fsusblog-panel-border)] pb-4 outline-none transition-colors"
             :class="focusRingClass"
             :aria-label="readFullLabel(article.title)"
             @click="navigate"
             @keydown.space.prevent="navigate()"
           >
-            <span class="mt-1 flex-none text-xs leading-4 tabular-nums font-medium text-[var(--fsusblog-text-muted)] group-hover:text-[var(--fsusblog-color-primary)]">
+            <span class="flex-none text-xs leading-5 tabular-nums font-medium text-[var(--fsusblog-text-muted)] group-hover:text-[var(--fsusblog-color-primary)]">
               {{ (index + 1).toString().padStart(2, '0') }}
             </span>
             <span class="min-w-0">
-              <span class="block text-sm font-bold leading-snug text-[var(--fsusblog-text-primary)] transition-colors group-hover:text-[var(--fsusblog-color-primary)]">
+              <span class="block text-sm font-bold leading-5 text-[var(--fsusblog-text-primary)] transition-colors group-hover:text-[var(--fsusblog-color-primary)]">
                 {{ article.title }}
               </span>
-              <span class="mt-2 block text-xs leading-4 tabular-nums font-medium normal-case text-[var(--fsusblog-text-muted)]">
+              <span class="mt-1 block text-xs leading-4 tabular-nums font-medium normal-case text-[var(--fsusblog-text-muted)]">
                 {{ formatViews(article.views) }} {{ copy.viewsUnit }}
               </span>
             </span>
