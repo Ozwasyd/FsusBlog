@@ -205,14 +205,24 @@ function parseCssDeclarations(body) {
 
 function validateAccountHeaderFocusContract(source) {
   const contractFailures = []
+  let cssRules
   let focusRules
   try {
     const commentFreeSource = stripCssComments(source)
-    focusRules = enumerateCssRules(commentFreeSource)
+    cssRules = enumerateCssRules(commentFreeSource)
+    focusRules = cssRules
       .filter((rule) => rule.selector === '.account-header-link:focus-visible')
   } catch (error) {
     contractFailures.push(`account-shell-base.css cannot enumerate account header focus owners: ${error.message}`)
     return contractFailures
+  }
+
+  if (cssRules.some((rule) => rule.selector.includes('\\'))) {
+    contractFailures.push('account-shell-base.css selectors must not hide account focus ownership behind CSS identifier escapes')
+  }
+  if (cssRules.some((rule) => parseCssDeclarations(rule.body)
+    .some((declaration) => declaration.property.includes('\\')))) {
+    contractFailures.push('account-shell-base.css properties must not hide account focus behavior behind CSS identifier escapes')
   }
 
   if (focusRules.length !== 1) {
@@ -220,7 +230,8 @@ function validateAccountHeaderFocusContract(source) {
     return contractFailures
   }
 
-  const boxShadowDeclarations = parseCssDeclarations(focusRules[0].body)
+  const focusDeclarations = parseCssDeclarations(focusRules[0].body)
+  const boxShadowDeclarations = focusDeclarations
     .filter((declaration) => declaration.property === 'box-shadow')
   const insetFocusRing = /^inset\s+0\s+0\s+0\s+2px\s+var\(--fsusblog-color-focus-ring\)$/u
   if (boxShadowDeclarations.length !== 1 || !insetFocusRing.test(boxShadowDeclarations[0].value)) {
@@ -500,6 +511,30 @@ assertAccountFocusMutationRejected(
   accountShellBase,
   'quoted selector impersonation',
   (source) => `.account-shell-copy::before {\n  content: "}.account-header-link:focus-visible { box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring); }";\n}\n${mutateAccountHeaderFocus(source, 'box-shadow: none;')}`
+)
+assertAccountFocusMutationRejected(
+  accountShellBase,
+  'escaped box-shadow suffix',
+  (source) => mutateAccountHeaderFocus(
+    source,
+    'box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);\n  box-shado\\77: none;'
+  )
+)
+assertAccountFocusMutationRejected(
+  accountShellBase,
+  'escaped box-shadow hyphen',
+  (source) => mutateAccountHeaderFocus(
+    source,
+    'box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);\n  box\\2d shadow: none;'
+  )
+)
+assertAccountFocusMutationRejected(
+  accountShellBase,
+  'escaped focus owner selector',
+  (source) => source.replace(
+    '.account-header-link:focus-visible {',
+    '.account-header\\2d link:focus-visible {'
+  )
 )
 expectNotMatches(accountShellBase, /\bfocus-visible:ring-1\b/, 'account-shell-base.css must not use ring-1 focus')
 expectNotMatches(accountLayout, /backdrop-filter:\s*blur\(/, 'AccountLayout.vue default shell must not use blur')
