@@ -1,10 +1,10 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:6b3525bd297c8a7a52d0398d82384ba3c4b02ae35fe6d4f38b3f67d50dac02f3",
-    "sourceStateSha256": "6b3525bd297c8a7a52d0398d82384ba3c4b02ae35fe6d4f38b3f67d50dac02f3",
-    "configurationSha256": "e0b5e6b2a7b69e7be2a8c15979a3a7a27bd403328233c66cb437a3d1f988ccc2",
-    "violationCount": 333661,
-    "fileCount": 1079,
+    "generatedFrom": "source-state:018738cd8e26ec95eb8e28facbb375ea7c94fe71f3ae37e2d62db38b85b19ac7",
+    "sourceStateSha256": "018738cd8e26ec95eb8e28facbb375ea7c94fe71f3ae37e2d62db38b85b19ac7",
+    "configurationSha256": "097e93375187fd89b8741031800d4ffd703a6961882b6f9ba9f5af94cf27f8ec",
+    "violationCount": 333675,
+    "fileCount": 1080,
     "files": [
         {
             "path": "src/frontend/public/sw.js",
@@ -138,7 +138,7 @@
         },
         {
             "path": "src/frontend/src/adapters/binary/authAdapter.ts",
-            "sourceSha256": "14f9798680f01f80fe6b3134534e562d69eb8f6e116e527665f3f0d264c56a07",
+            "sourceSha256": "485a4f8752f79fe68dbae40706fff03392dd862184607c7aa0803514808f01bb",
             "violationCount": 170,
             "violationDigest": "c795f6cc5d22f5090220d17d6d497803cc7d559ca22d7734df4f8eb725cb66d3",
             "rules": {
@@ -363,14 +363,15 @@
         },
         {
             "path": "src/frontend/src/api/admin.ts",
-            "sourceSha256": "40b0d78ca98eb85622c8e73e9b5d3e24769f59d61c8e9a49c31da9af1d2e6417",
-            "violationCount": 116,
-            "violationDigest": "6b72e57203d30d29aeb8e4c0d8eea8377d566590eb670104d8dda78141f4a310",
+            "sourceSha256": "5ad213fc7cc2fafcb2f7e5dd8869a7e277e30cb29c9134d0379ab6249d402626",
+            "violationCount": 132,
+            "violationDigest": "3819b7a3dd9a2bf5f3bf15235e76941c7945b2b5fecf0f2bf20689373c3654eb",
             "rules": {
                 "eslint/@stylistic/brace-style": 5,
-                "eslint/@stylistic/indent": 58,
-                "eslint/@stylistic/member-delimiter-style": 13,
-                "eslint/@stylistic/semi": 31,
+                "eslint/@stylistic/indent": 65,
+                "eslint/@stylistic/member-delimiter-style": 20,
+                "eslint/@stylistic/semi": 32,
+                "eslint/@typescript-eslint/consistent-type-definitions": 1,
                 "eslint/@typescript-eslint/no-unnecessary-type-assertion": 2,
                 "eslint/curly": 2,
                 "eslint/import-x/order": 5
@@ -393,25 +394,27 @@
         },
         {
             "path": "src/frontend/src/api/article.ts",
-            "sourceSha256": "15fa59442b1f7bb6f933c4ab67ea5e49e753b69bffc9ce69ff3302ec1f71193d",
-            "violationCount": 3,
-            "violationDigest": "816f7de4dfec93c9ab171388d5e2ce164056519e20808c4f47c711cb6593becb",
+            "sourceSha256": "383e15f5e18446548c1f84c30e3cffefc0c003bd08c6e5c9943978f63bbf1b63",
+            "violationCount": 5,
+            "violationDigest": "60bd0158b8622b06225fe83c2725e7fe046c3df4eaea51023c2a2e185ef74aff",
             "rules": {
                 "eslint/@stylistic/brace-style": 1,
                 "eslint/@stylistic/member-delimiter-style": 1,
-                "eslint/@typescript-eslint/no-unsafe-return": 1
+                "eslint/@stylistic/semi": 1,
+                "eslint/@typescript-eslint/no-unsafe-return": 1,
+                "eslint/import-x/order": 1
             }
         },
         {
             "path": "src/frontend/src/api/auth.ts",
-            "sourceSha256": "479e90ff1ffca542d802de4fddfba02917fe3c0bcc9cac9ec247adf82f81369d",
-            "violationCount": 802,
-            "violationDigest": "eba687b5efbca9027afa3298a8c5822d2dd0ae359ba2fedf73aac7eee81b9b5e",
+            "sourceSha256": "81f660f27c8cc135489738f9ec4bdcbe65157115bb4f4ca48c3d3ad7a18e6e34",
+            "violationCount": 805,
+            "violationDigest": "b811ffc08dbe871ec43032b30da2ad227bd822186a85adbdff072de0b629292a",
             "rules": {
                 "eslint/@stylistic/brace-style": 33,
                 "eslint/@stylistic/indent": 486,
                 "eslint/@stylistic/member-delimiter-style": 31,
-                "eslint/@stylistic/semi": 169,
+                "eslint/@stylistic/semi": 170,
                 "eslint/@typescript-eslint/array-type": 4,
                 "eslint/@typescript-eslint/no-explicit-any": 5,
                 "eslint/@typescript-eslint/no-unnecessary-type-assertion": 42,
@@ -419,20 +422,20 @@
                 "eslint/@typescript-eslint/no-unsafe-assignment": 3,
                 "eslint/@typescript-eslint/no-unsafe-member-access": 13,
                 "eslint/curly": 1,
-                "eslint/import-x/order": 5
+                "eslint/import-x/order": 7
             }
         },
         {
             "path": "src/frontend/src/api/authoring.ts",
-            "sourceSha256": "dba3eed982e2d5dc9477682e64f93b38b2609036e8ddb9f460d22b2ca6d4e9c0",
-            "violationCount": 1693,
-            "violationDigest": "89b9c8cccfc88428feb4731667cd87b97dd27cd96b44dd8183f37f7a98c88de8",
+            "sourceSha256": "d6142ce1b0709c98eeadf3f1a82fc33bd58ddf0ae448355f5e92d76e6a0df199",
+            "violationCount": 1704,
+            "violationDigest": "1cf55dd1796d7828a43ed195fed97c0b17b05b114664b6f1118699831d8ba1cd",
             "rules": {
-                "eslint/@stylistic/brace-style": 68,
-                "eslint/@stylistic/indent": 895,
+                "eslint/@stylistic/brace-style": 69,
+                "eslint/@stylistic/indent": 904,
                 "eslint/@stylistic/max-statements-per-line": 1,
                 "eslint/@stylistic/member-delimiter-style": 609,
-                "eslint/@stylistic/semi": 93,
+                "eslint/@stylistic/semi": 94,
                 "eslint/@typescript-eslint/consistent-type-definitions": 1,
                 "eslint/@typescript-eslint/no-redundant-type-constituents": 7,
                 "eslint/@typescript-eslint/no-unnecessary-type-assertion": 2,
@@ -482,20 +485,20 @@
         },
         {
             "path": "src/frontend/src/api/comment.ts",
-            "sourceSha256": "6975ccbf8d93bf9fa64918cd0dca8c0a73341173a0aaa6d3467b955f42321f00",
-            "violationCount": 532,
-            "violationDigest": "4c14132b32aba896153588b8e31a1fb86ba019e9c3dd4f9d130783d822d91f9f",
+            "sourceSha256": "773ffd5391b70055508eb078a42df9ca5c650449ec2e95455a589a52151d59c5",
+            "violationCount": 535,
+            "violationDigest": "84cd1029d53fb4a2981dadc0e89790179c42fa47cf91f3b9003378bf64691652",
             "rules": {
                 "eslint/@stylistic/brace-style": 34,
                 "eslint/@stylistic/indent": 304,
                 "eslint/@stylistic/max-statements-per-line": 4,
-                "eslint/@stylistic/semi": 153,
+                "eslint/@stylistic/semi": 154,
                 "eslint/@typescript-eslint/no-inferrable-types": 2,
                 "eslint/@typescript-eslint/no-unnecessary-type-assertion": 16,
                 "eslint/@typescript-eslint/no-unused-vars": 9,
                 "eslint/@typescript-eslint/prefer-nullish-coalescing": 1,
                 "eslint/curly": 1,
-                "eslint/import-x/order": 8
+                "eslint/import-x/order": 10
             }
         },
         {
@@ -674,11 +677,11 @@
         },
         {
             "path": "src/frontend/src/assets/main.css",
-            "sourceSha256": "f5e3b2500aa963e498feb203c9b1095ccf645fbf29d654484a3e018e3288b219",
-            "violationCount": 38,
-            "violationDigest": "cdb0c19d978ae0fce604e40495e90b66838cc8e6fdcf8adf0b07163783cba898",
+            "sourceSha256": "82bf3dcc92604a995182bd08b44c92debdfa5aab1a18b8eb416375966b8b999c",
+            "violationCount": 41,
+            "violationDigest": "14b78a5623c1fb34873343c371416f374d0fc80896de7443c653784d945a0e5b",
             "rules": {
-                "stylelint/@stylistic/block-opening-brace-newline-before": 2,
+                "stylelint/@stylistic/block-opening-brace-newline-before": 5,
                 "stylelint/@stylistic/indentation": 35,
                 "stylelint/comment-empty-line-before": 1
             }
@@ -1277,7 +1280,7 @@
         },
         {
             "path": "src/frontend/src/components/admin/AdminTaxonomyManageView.vue",
-            "sourceSha256": "3998f8da3ccb0ad6734c8e9faa36491215541d14d813a98f322c91178e8138bc",
+            "sourceSha256": "f2bbe65e0687107c7727f0232c290cf9f97ef29c4335f2cdbad88de5daa096c2",
             "violationCount": 359,
             "violationDigest": "283a96227665702452fe3760f6cd00461a8e07e47720378fa9f17861f6f9331f",
             "rules": {
@@ -1415,7 +1418,7 @@
         },
         {
             "path": "src/frontend/src/components/admin/article/ArticleRevisionPanel.vue",
-            "sourceSha256": "752e8f7f5068bf27e1a527e886cd5b4f25b2db8eebb94004d0cfb13e5aa108eb",
+            "sourceSha256": "2840bb093a1665dfb40671223cc709cbe2587783c0bedd5608253df59dbd78c0",
             "violationCount": 236,
             "violationDigest": "79574d4affe0c05b1833697f205c4922473ea5d691db5f150ad486388a1d9e43",
             "rules": {
@@ -1507,7 +1510,7 @@
         },
         {
             "path": "src/frontend/src/components/admin/comment-moderation/CommentModerationDetailDrawer.vue",
-            "sourceSha256": "ebf2d0b7a1965500a6ff281c0c03700d53442012ffc8d913b59870f11e7d594c",
+            "sourceSha256": "23cf35e2b8f68ddc43a7c8469b0a8222824d06b9262cd848bbf6b3de7f6e6369",
             "violationCount": 2,
             "violationDigest": "0bd652e03be71641698b1a39cfadf5e02b64a060f7878e6f4fcdd0a30eb0f607",
             "rules": {
@@ -1694,9 +1697,9 @@
         },
         {
             "path": "src/frontend/src/components/article/ArticleCommentsVirtualList.vue",
-            "sourceSha256": "0298b32c7a596ff83b090484aa48bdafcb61588882248f0161c052fed5f567bd",
-            "violationCount": 97,
-            "violationDigest": "c68f6887e700cddcf1f7c76abbcfb2099751371831e45f2a53d3d3ec71f629c1",
+            "sourceSha256": "ebfab7bfa7e0a59467c91782d460990e86d2a010762ea6a147f86ff7c98bb84b",
+            "violationCount": 101,
+            "violationDigest": "96e21fd25e0b673fb0de3d84a20547beb54d948d3c7a53afe04900757c8e9fff",
             "rules": {
                 "eslint/@stylistic/brace-style": 3,
                 "eslint/@stylistic/max-statements-per-line": 1,
@@ -1709,11 +1712,11 @@
                 "eslint/vue/script-indent": 10,
                 "stylelint/@stylistic/block-closing-brace-newline-before": 4,
                 "stylelint/@stylistic/block-opening-brace-newline-after": 4,
-                "stylelint/@stylistic/block-opening-brace-newline-before": 5,
+                "stylelint/@stylistic/block-opening-brace-newline-before": 6,
                 "stylelint/@stylistic/declaration-block-semicolon-newline-after": 2,
-                "stylelint/@stylistic/indentation": 6,
+                "stylelint/@stylistic/indentation": 8,
                 "stylelint/declaration-block-single-line-max-declarations": 2,
-                "stylelint/rule-empty-line-before": 1
+                "stylelint/rule-empty-line-before": 2
             }
         },
         {
@@ -4794,29 +4797,30 @@
         },
         {
             "path": "src/frontend/src/services/authBroadcastRuntime.ts",
-            "sourceSha256": "cb5f8812731808a39ad8fcb2b85d9b2c347262e6ed12db7388b4a66160dce3aa",
-            "violationCount": 198,
-            "violationDigest": "ffbc95942ab1ca8512c0159f3b0471c362498fd1d9a157b174f5cd7e5a0dfc39",
+            "sourceSha256": "c8da04e603608beb307fb1cd2901fec417c74ea33aee562d5d93bfc02d163aad",
+            "violationCount": 200,
+            "violationDigest": "0a49584085103197e55dfa5a5732a3371366affc5c2d9e460351c5831d03419b",
             "rules": {
                 "eslint/@stylistic/brace-style": 28,
                 "eslint/@stylistic/indent": 109,
                 "eslint/@stylistic/member-delimiter-style": 5,
-                "eslint/@stylistic/semi": 53,
+                "eslint/@stylistic/semi": 54,
                 "eslint/@typescript-eslint/no-unnecessary-type-assertion": 1,
                 "eslint/@typescript-eslint/no-unused-vars": 1,
-                "eslint/curly": 1
+                "eslint/curly": 1,
+                "eslint/import-x/order": 1
             }
         },
         {
             "path": "src/frontend/src/services/authRefreshCoordinator.ts",
-            "sourceSha256": "784bb5603b941697800f05c48bd101f22fb090215c6579f061b9de22340c9291",
-            "violationCount": 484,
-            "violationDigest": "343547758595a7b1f0fed9a1db1a9b6f10a5e14f021e45b7697ac6fe01ffb905",
+            "sourceSha256": "88d0accc645fd865538c3ed7c2a87e8b5402f819924e0fbfea5daee4e0ac53f6",
+            "violationCount": 485,
+            "violationDigest": "ef1865fdcde56b5789ae0125d550f82dde1af98246ae460ee6d733b36c0954a9",
             "rules": {
                 "eslint/@stylistic/brace-style": 53,
                 "eslint/@stylistic/indent": 241,
                 "eslint/@stylistic/member-delimiter-style": 25,
-                "eslint/@stylistic/semi": 146,
+                "eslint/@stylistic/semi": 147,
                 "eslint/@typescript-eslint/consistent-type-definitions": 4,
                 "eslint/@typescript-eslint/no-unnecessary-type-assertion": 2,
                 "eslint/curly": 13
@@ -4824,16 +4828,16 @@
         },
         {
             "path": "src/frontend/src/services/authSessionRuntime.ts",
-            "sourceSha256": "11c61970075a40019ec1e62de11221ae0670ef27aaac6c912cc33f3cd2c81e00",
-            "violationCount": 372,
-            "violationDigest": "542513a953d9b1655cd9bc3ef74c3b0ae68abfd72917579bf1eae11d41734c80",
+            "sourceSha256": "6c279b92d71ad32b12f6a4360bbd201c59c4ded7994c13787e4586b059ba4cd6",
+            "violationCount": 367,
+            "violationDigest": "ac9a806597361efe9b23c9cf8d181e71cef6eda87de9e8f3555283f934907214",
             "rules": {
                 "eslint/@stylistic/brace-style": 44,
                 "eslint/@stylistic/indent": 189,
                 "eslint/@stylistic/member-delimiter-style": 1,
-                "eslint/@stylistic/semi": 123,
+                "eslint/@stylistic/semi": 124,
                 "eslint/curly": 6,
-                "eslint/import-x/order": 9
+                "eslint/import-x/order": 3
             }
         },
         {
@@ -5021,14 +5025,14 @@
         },
         {
             "path": "src/frontend/src/services/privateStorageRegistry.ts",
-            "sourceSha256": "42c70a5bc8c917e34dac9390f9ea072e7263049353fc2e6126735fd1aee13254",
-            "violationCount": 346,
-            "violationDigest": "9d27944ee872ac513bc5b6abd7e3bf6c6365701b95ac0bfe87eb8add75461a52",
+            "sourceSha256": "ab273d5e24af7e6e57198e5931731dbe62ed70974454b01e02abf0dbc278db08",
+            "violationCount": 347,
+            "violationDigest": "8f9a2e671dd4cf1403e68cc5914b68aa9260b9e29e1d1a56e2425bf3df3d5ce8",
             "rules": {
                 "eslint/@stylistic/brace-style": 38,
                 "eslint/@stylistic/indent": 186,
                 "eslint/@stylistic/member-delimiter-style": 44,
-                "eslint/@stylistic/semi": 70,
+                "eslint/@stylistic/semi": 71,
                 "eslint/curly": 8
             }
         },
@@ -5122,14 +5126,14 @@
         },
         {
             "path": "src/frontend/src/services/securityPoSpaceChallengeExecutor.ts",
-            "sourceSha256": "6caac92a99b9de9ca456bcd8349926a0cb9ba5ad0ff83322c684a78675a4b0b5",
-            "violationCount": 386,
-            "violationDigest": "32c8627d42d47a0f683e252e77f76338722bcc025a9ce1f8ba34e0bb0dc36a65",
+            "sourceSha256": "3be8bceac3d69ca3f1260caac982714c4dbe0ec720ae162752c6b4aa1b4c4f69",
+            "violationCount": 387,
+            "violationDigest": "f19714fc0f9ca9d24e74b653f58795a55a47829c4bc5d9dcc2750f732031b382",
             "rules": {
                 "eslint/@stylistic/brace-style": 36,
                 "eslint/@stylistic/indent": 231,
                 "eslint/@stylistic/member-delimiter-style": 36,
-                "eslint/@stylistic/semi": 81,
+                "eslint/@stylistic/semi": 82,
                 "eslint/import-x/order": 2
             }
         },
@@ -6051,7 +6055,7 @@
         },
         {
             "path": "src/frontend/src/views/admin/Settings.vue",
-            "sourceSha256": "7bb3d8df5ffe49f6a8b9553ee4718ff3704222159ee2cd45570ffec7c0f606e6",
+            "sourceSha256": "00f809aebff6a08555593d437f7c50fc034d2d63af18d1fbcdfbcd295ada4f13",
             "violationCount": 1015,
             "violationDigest": "d278eb6e20ebcd9bd78f43494c97d02eaf3b2fa0930352e67c5e2aa60744a558",
             "rules": {
@@ -6141,9 +6145,9 @@
         },
         {
             "path": "src/frontend/src/views/admin/article/Write.vue",
-            "sourceSha256": "64a4c835faf5c21f973ba63c179b6d7d0cecac8da2aba53dbb35e4fed434873b",
-            "violationCount": 1385,
-            "violationDigest": "1ea4fcd0080eecd2d9fcdf363b39e32631657498b0899470937ff8288effe31e",
+            "sourceSha256": "67e1682b7f544780d4596488485c7414c34f5d8746fdb706e3b9d21769a6ce9d",
+            "violationCount": 1387,
+            "violationDigest": "fc7fd34d3d6f8436b3ef310e45a863c1ce87898abd9f0bee2c59f2f6de54aa05",
             "rules": {
                 "eslint/@stylistic/brace-style": 36,
                 "eslint/@stylistic/member-delimiter-style": 4,
@@ -6151,7 +6155,7 @@
                 "eslint/@typescript-eslint/array-type": 1,
                 "eslint/import-x/order": 12,
                 "eslint/vue/component-name-in-template-casing": 55,
-                "eslint/vue/html-indent": 639,
+                "eslint/vue/html-indent": 641,
                 "eslint/vue/max-attributes-per-line": 78,
                 "eslint/vue/multi-word-component-names": 1,
                 "eslint/vue/script-indent": 203,
@@ -6383,14 +6387,14 @@
         },
         {
             "path": "src/frontend/src/views/admin/security/SecurityChallenges.vue",
-            "sourceSha256": "47d42f8a95945c698ee157f660ab6b9d8efc80ff3d3095e7742c5a10b65c6639",
-            "violationCount": 234,
-            "violationDigest": "0f0da88ea459a6eee8af996a377cd6a69d5a9e8fdce438c222ea6ba5506cae76",
+            "sourceSha256": "4e6af6274eaeed98dcff1a665915580d864b13ff6b27f9190995b477d164c07c",
+            "violationCount": 233,
+            "violationDigest": "d491cf16a561e70557d839e03c53c838b944ea8d53ad873cb56c3e567137f315",
             "rules": {
                 "eslint/@stylistic/brace-style": 10,
                 "eslint/@stylistic/semi": 49,
                 "eslint/curly": 3,
-                "eslint/import-x/order": 2,
+                "eslint/import-x/order": 1,
                 "eslint/vue/component-name-in-template-casing": 2,
                 "eslint/vue/html-indent": 92,
                 "eslint/vue/max-attributes-per-line": 16,
@@ -7275,13 +7279,13 @@
         },
         {
             "path": "tests/frontend/checks/public/check-public-aot-contracts.mjs",
-            "sourceSha256": "0be2d7701372cd053cc172528f80544246802a80c3024f949049a9c4ddec2b1c",
-            "violationCount": 1087,
-            "violationDigest": "200f9273fbebc1bce0290edd9e84eced8be44a9b7193d5fed24dd635f1eb4ca2",
+            "sourceSha256": "82ce6f3ce4d4b9dd2e6fcda7c22d8ecd1411122b71858ad6b8429a6db8b273ba",
+            "violationCount": 1098,
+            "violationDigest": "2d19fb8c25800364871eea2d34d8894618c2624cbe82390fe188295296d0c906",
             "rules": {
-                "eslint/@stylistic/brace-style": 166,
-                "eslint/@stylistic/indent": 739,
-                "eslint/@stylistic/semi": 181,
+                "eslint/@stylistic/brace-style": 167,
+                "eslint/@stylistic/indent": 746,
+                "eslint/@stylistic/semi": 184,
                 "eslint/import-x/order": 1
             }
         },
@@ -8038,7 +8042,7 @@
         },
         {
             "path": "tests/frontend/checks/static/check-asset-size-budget.mjs",
-            "sourceSha256": "493fbae3aed0568a9c0b6c7db33d7c9691bb7ab759607430c651039446bed413",
+            "sourceSha256": "83064f43f364399eed0e9f3a8e4c8a980cc7f2d6d436fbdc61ff2c91d3399542",
             "violationCount": 251,
             "violationDigest": "a77b789710ee27056413a5e9b1ba11603de59347fa3ade5ecffade5eeaaa20b6",
             "rules": {
@@ -8225,9 +8229,9 @@
         },
         {
             "path": "tests/frontend/checks/static/check-font-size-contract.mjs",
-            "sourceSha256": "8172f705873682df6caa1e7b6b4e6c60903d28442ff9745eada90489561cc543",
+            "sourceSha256": "345664246ef3aa522ed7df55f334c9e140d04f531f1053e26c0d7829c559a8fa",
             "violationCount": 84,
-            "violationDigest": "086bd81f09c9f1f16cb3e1b5fbaf20956850ef429a843194a8f4f40d4c86315e",
+            "violationDigest": "749b6f0d6faf2544c22d92a87b66a946d33a673f3e7bd40e951fd252e4034567",
             "rules": {
                 "eslint/@stylistic/brace-style": 18,
                 "eslint/@stylistic/indent": 33,
@@ -8363,7 +8367,7 @@
         },
         {
             "path": "tests/frontend/checks/static/check-json-long-id-governance.mjs",
-            "sourceSha256": "9b2d4dc3c1f09645b3996929a6db34f5557c745ebb71ae679870af94d93f0105",
+            "sourceSha256": "591723b520ec7e698c19e539bd0b1d9edcd2ec762d1886689e08b712ef25f3a3",
             "violationCount": 61,
             "violationDigest": "a6a59ec161b72a6bc40deb6c96a24061e40ac8672d00b61c0d380ea8d23463ea",
             "rules": {
@@ -8723,12 +8727,13 @@
         },
         {
             "path": "tests/frontend/checks/static/check-runtime-entry-reachability.mjs",
-            "sourceSha256": "1d1fb0b6a168188d813d69751e38b96970c51e3730795ea04e334dfc47cc61d6",
-            "violationCount": 291,
-            "violationDigest": "2c25f3968a4e5b3e939b83a29af700079f1163d669d8b9b014c5c93132eac943",
+            "sourceSha256": "6cd33a5041e3ec93c5e273aff2676dbeb6adfd5ef9683d2432d943d2099835b5",
+            "violationCount": 294,
+            "violationDigest": "e6449ad7635f156f9aff5b91cae96fa483d491578e224ec3f11043e99043bc58",
             "rules": {
                 "eslint/@stylistic/brace-style": 41,
-                "eslint/@stylistic/indent": 141,
+                "eslint/@stylistic/comma-dangle": 1,
+                "eslint/@stylistic/indent": 143,
                 "eslint/@stylistic/semi": 92,
                 "eslint/curly": 17
             }
@@ -8746,12 +8751,12 @@
         },
         {
             "path": "tests/frontend/checks/static/check-server-try-catch.mjs",
-            "sourceSha256": "786a865ff8ae222a109332eeb6715369ad5fe2ef22621a14a701dd5c63c8aee8",
-            "violationCount": 295,
-            "violationDigest": "8ad2e89c66b9b55a0f08c1b654f7a1f75bcf0b582d35c2e84c0881d9d370777d",
+            "sourceSha256": "1156f15eeec1b8d02dd4a8b0794d4be5fc2836de0d4998440f2f0678798f88e1",
+            "violationCount": 243,
+            "violationDigest": "e78c9126b9581da37b619022951bcf45710f332c8c105918346db6f28dd610ab",
             "rules": {
                 "eslint/@stylistic/brace-style": 54,
-                "eslint/@stylistic/indent": 241
+                "eslint/@stylistic/indent": 189
             }
         },
         {
@@ -10140,13 +10145,13 @@
         },
         {
             "path": "tests/tools/issue-1169-release-evidence-model.test.mjs",
-            "sourceSha256": "65586581134a10399e00d33d8a5d15f84fd20ce9cadcca205266f3a34b961bce",
-            "violationCount": 254,
-            "violationDigest": "030228ef9546a558a26994a1731507fe42b977daa78a9569c1693c021178d9cf",
+            "sourceSha256": "526e91bb501b0d6158e79c65f933f9d5efeb541d9b1916d58a9591450bd44508",
+            "violationCount": 261,
+            "violationDigest": "32d3d90814a6003b13c2310d0e6cae6f298f4e07a567a9cb53285bfd21121d31",
             "rules": {
                 "eslint/@stylistic/brace-style": 11,
-                "eslint/@stylistic/indent": 138,
-                "eslint/@stylistic/semi": 100,
+                "eslint/@stylistic/indent": 140,
+                "eslint/@stylistic/semi": 105,
                 "eslint/curly": 2,
                 "eslint/import-x/no-relative-parent-imports": 2,
                 "eslint/import-x/order": 1
@@ -10180,7 +10185,7 @@
         },
         {
             "path": "tests/tools/issue-1171-appsettings-authority.test.mjs",
-            "sourceSha256": "20053daefe9768f58fab992905795bbb1a71b6802ad86e2ea4451e765917cc03",
+            "sourceSha256": "c936ae171b9e577107e67ce016c7bb49ca3cd7f8dd0c4923dca829656e2f8315",
             "violationCount": 168,
             "violationDigest": "442e4a7b620e8e9a3907642fe42a2e3dbc0738113d4f361e223c095a015f178d",
             "rules": {
@@ -10738,7 +10743,7 @@
         },
         {
             "path": "tests/tools/release-traffic-probe-session.test.mjs",
-            "sourceSha256": "a7a9911ae242f413a697a44c83a0fa287606f0e0b51d02b35a193c5aa2bee946",
+            "sourceSha256": "0e6b093af8e94a1074a5eef571d5f23a4e22e03ca4f74b59a7fdbc54b226d2f4",
             "violationCount": 532,
             "violationDigest": "5ffb2b5a466ef1798a100f0f2e67b8b44b908ca0f08dac28f4a8b19e0a410ff2",
             "rules": {
@@ -10766,7 +10771,7 @@
         },
         {
             "path": "tests/tools/release-worker-normal-observer.test.mjs",
-            "sourceSha256": "e63d45876e5f4ca6f56d0497306b5da93d4022ba7d445d21cb93fa7b51180e52",
+            "sourceSha256": "7ca4689dc5686c6b84c5dfc3c213625e25054c01f17bf8856050b1bd3c5105d5",
             "violationCount": 401,
             "violationDigest": "e3f220eaa320f845a970c9a3c39c7de563bc15bd4b19b5c0128977378d7dc5af",
             "rules": {
@@ -10792,7 +10797,7 @@
         },
         {
             "path": "tests/tools/release-worker-reconciliation.test.mjs",
-            "sourceSha256": "ef32168af0060ffab28f7427e6f8b3ebc448c52ca58be5d767d62c4e513a0444",
+            "sourceSha256": "b0f61c49753bfa5d54011f55b58aa43bfa7764ef8d66daf832d9bcb679895d45",
             "violationCount": 390,
             "violationDigest": "22ddb0d62924a3ac5680ad85504c0b564725ec3ef94539fdd1d837299b55a881",
             "rules": {
@@ -11735,9 +11740,9 @@
         },
         {
             "path": "tools/contracts/generate-pospace-v1-contract.mjs",
-            "sourceSha256": "8b8edca0c367de2ff9b3fb38ed2117495673eb4be064a6949bb2b51e53a066de",
+            "sourceSha256": "74da337fd4869b556e68aabfccb780d7e009b7ba004249a948df3388dccd3dc7",
             "violationCount": 68,
-            "violationDigest": "34f6d98de96357d9f9dea58eb2cf465a640db33a380feb95d0a9c4e6992f2ace",
+            "violationDigest": "c71760c9b4b9d428e23ccb8a0e27dc995caebaa7cc33a5c4b45c176b3c71dd0a",
             "rules": {
                 "eslint/@stylistic/brace-style": 10,
                 "eslint/@stylistic/indent": 33,
@@ -14568,6 +14573,16 @@
                 "eslint/@stylistic/indent": 87,
                 "eslint/@stylistic/semi": 69,
                 "eslint/curly": 23
+            }
+        },
+        {
+            "path": "src/frontend/src/assets/account-shell-base.css",
+            "sourceSha256": "e2e87173384f95df820bd0200768dbc09adebb4cc4a0622d8aad966ffd15eee7",
+            "violationCount": 2,
+            "violationDigest": "b7592594b14ec4455f1cc33bd2660511a9fbb8e747b1d59dd368fa94210426ae",
+            "rules": {
+                "stylelint/@stylistic/block-opening-brace-newline-before": 1,
+                "stylelint/media-feature-range-notation": 1
             }
         }
     ]

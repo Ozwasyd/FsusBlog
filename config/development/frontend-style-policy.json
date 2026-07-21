@@ -28,33 +28,59 @@
     "eslintSourceSets": [
         {
             "root": "src/frontend/src",
-            "extensions": [".ts", ".tsx", ".vue", ".js", ".mjs"]
+            "extensions": [
+                ".ts",
+                ".tsx",
+                ".vue",
+                ".js",
+                ".mjs"
+            ]
         },
         {
             "root": "src/frontend/wasm/web",
-            "extensions": [".ts", ".tsx", ".js", ".mjs"]
+            "extensions": [
+                ".ts",
+                ".tsx",
+                ".js",
+                ".mjs"
+            ]
         },
         {
             "root": "src/frontend/scripts",
-            "extensions": [".js", ".mjs", ".cjs"]
+            "extensions": [
+                ".js",
+                ".mjs",
+                ".cjs"
+            ]
         },
         {
             "root": "src/frontend/public",
-            "extensions": [".js", ".mjs"]
+            "extensions": [
+                ".js",
+                ".mjs"
+            ]
         },
         {
             "root": "tools",
-            "extensions": [".mjs"]
+            "extensions": [
+                ".mjs"
+            ]
         },
         {
             "root": "tests",
-            "extensions": [".mjs"]
+            "extensions": [
+                ".mjs"
+            ]
         }
     ],
     "stylelintSourceSets": [
         {
             "root": "src/frontend/src",
-            "extensions": [".vue", ".css", ".scss"]
+            "extensions": [
+                ".vue",
+                ".css",
+                ".scss"
+            ]
         }
     ],
     "excludedPaths": [
@@ -69,12 +95,18 @@
         "src/frontend/wasm/stage/",
         "tools/frontend/style-toolchain/node_modules/",
         "tests/**/Fixtures/",
-        "tests/**/fixtures/"
+        "tests/**/fixtures/",
+        "src/frontend/public/generated/"
     ],
-    "excludedSuffixes": [".min.js", ".min.css"],
+    "excludedSuffixes": [
+        ".min.js",
+        ".min.css"
+    ],
     "authority": {
         "formatter": "eslint-stylelint-ast",
-        "forbiddenAuthoritativePackages": ["prettier"],
+        "forbiddenAuthoritativePackages": [
+            "prettier"
+        ],
         "indentSize": 4,
         "braceStyle": "allman",
         "semicolons": "always",

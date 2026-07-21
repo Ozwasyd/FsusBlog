@@ -1,21 +1,21 @@
 import { effectScope, watch, type EffectScope } from 'vue'
 import type { Pinia } from 'pinia'
 import { getMe, refreshToken } from '@/api/auth'
-import { authBroadcastRuntime } from '@/services/authBroadcastRuntime'
 import {
   disposeAuthBroadcastComposition,
   installAuthBroadcastComposition
 } from '@/services/authBroadcastComposition'
-import { useAppShellStore } from '@/store/appShell'
-import { useAdminStore } from '@/store/admin'
-import { useUserStore } from '@/store/user'
-import { AppErrorCode, createAppError } from '@/utils/appError'
-import { isAuthFailureError } from '@/utils/errorKinds'
-import { ensureLocalFixtureSessionCookies, isLocalFixtureSessionActive } from '@/services/localFixtureSession'
+import { authBroadcastRuntime } from '@/services/authBroadcastRuntime'
 import {
   createBrowserAuthRefreshCoordinator,
   type AuthRefreshCoordinator
 } from '@/services/authRefreshCoordinator'
+import { ensureLocalFixtureSessionCookies, isLocalFixtureSessionActive } from '@/services/localFixtureSession'
+import { useAdminStore } from '@/store/admin'
+import { useAppShellStore } from '@/store/appShell'
+import { useUserStore } from '@/store/user'
+import { AppErrorCode, createAppError } from '@/utils/appError'
+import { isAuthFailureError } from '@/utils/errorKinds'
 
 const REFRESH_LEEWAY_MS = 2 * 60 * 1000
 const MIN_REFRESH_DELAY_MS = 1_000
