@@ -240,6 +240,7 @@
             "id": "fixture",
             "owner": "TestOwner",
             "patterns": [
+                "tests/fixtures/**",
                 "tests/**/Fixtures/**",
                 "tests/**/fixtures/**",
                 "src/frontend/public/fixtures/**",
