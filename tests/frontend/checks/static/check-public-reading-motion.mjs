@@ -48,6 +48,7 @@ const publicArticleList = read('src/frontend/src/components/public/PublicArticle
 const publicArticleDetail = read('src/frontend/src/components/public/pages/PublicArticleDetailPageContent.vue')
 const publicFilter = read('src/frontend/src/components/public/pages/PublicFilterPageContent.vue')
 const publicShell = read('src/frontend/src/components/public/PublicBlogLayoutShell.vue')
+const publicComplianceFooter = read('src/frontend/src/components/public/PublicComplianceFooter.vue')
 const articleDetailLoading = read('src/frontend/src/components/article/ArticleDetailLoadingState.vue')
 const homeArticleLoading = read('src/frontend/src/components/home/HomeArticleLoadingState.vue')
 const publicAbout = read('src/frontend/src/components/public/pages/PublicAboutPageContent.vue')
@@ -277,6 +278,62 @@ expectNotMatches(lightbox, /rgb\(/, 'ArticleImageLightbox.vue must use overlay t
 expectIncludes(publicShell, '<FsusUiPublicShell', 'PublicBlogLayoutShell.vue FsusUI public shell boundary')
 expectIncludes(publicShell, ':active-nav="activeNav"', 'PublicBlogLayoutShell.vue delegated desktop nav aria-current state')
 expectNotMatches(publicShell, /el-public-shell__header-action/, 'PublicBlogLayoutShell.vue desktop header must not use bordered header action affordance')
+const publicShellTemplate = publicShell.match(/<template>(?<body>[\s\S]*?)<\/template>/u)?.groups?.body ?? ''
+const publicSkipLinkIndex = publicShellTemplate.indexOf('href="#main-content"')
+const firstPublicFocusableIndex = publicShellTemplate.search(/<(?:a|button|input|select|textarea)\b/u)
+if (
+  publicSkipLinkIndex < 0
+  || publicShellTemplate.lastIndexOf('<a', publicSkipLinkIndex) !== firstPublicFocusableIndex
+) {
+  errors.push('PublicBlogLayoutShell.vue skip link must remain the first focusable element')
+}
+expectMatches(
+  publicShell,
+  /<template>[\s\S]*?<a[\s\S]*?href="#main-content"[\s\S]*?<FsusUiPublicShell/u,
+  'PublicBlogLayoutShell.vue skip link must remain the first focusable shell control'
+)
+expectMatches(
+  publicShell,
+  /id="main-content"[\s\S]*?tabindex="-1"/u,
+  'PublicBlogLayoutShell.vue skip target must remain programmatically focusable'
+)
+expectIncludes(
+  publicShell,
+  'class="fsusblog-public-skip-link sr-only',
+  'PublicBlogLayoutShell.vue owned skip-link hook'
+)
+expectNotMatches(publicShell, /focus:top-4/u, 'PublicBlogLayoutShell.vue skip link must not use the retired fixed top offset')
+expectMatches(
+  publicShellFoundation,
+  /#fsus-aot-shell \.fsusblog-public-skip-link:focus\s*\{\s*top: calc\(var\(--fsusblog-public-header-height-current\) \+ 8px\);\s*\}/u,
+  'public-shell-foundation.css skip link must sit eight pixels below measured header geometry'
+)
+
+expectMatches(
+  publicShellFoundation,
+  /#fsus-aot-shell \.public-colophon__link\s*\{[^}]*min-width:\s*44px;[^}]*min-height:\s*44px;[^}]*padding-inline:\s*8px;/su,
+  'public-shell-foundation.css footer links must preserve a padded 44px touch target'
+)
+expectMatches(
+  publicShellFoundation,
+  /#fsus-aot-shell \.public-colophon__policy-links,\s*#fsus-aot-shell \.public-colophon__records\s*\{[^}]*gap:\s*2px 12px;/su,
+  'public-shell-foundation.css footer link groups must use the compact two-dimensional gap'
+)
+expectMatches(
+  publicShellFoundation,
+  /#fsus-aot-shell \.public-colophon__record-link\s*\{[^}]*line-height:\s*20px;/su,
+  'public-shell-foundation.css record links must own stable text metrics'
+)
+expectMatches(
+  publicShellFoundation,
+  /#fsus-aot-shell \.public-colophon__record-icon\s*\{[^}]*display:\s*inline-flex;[^}]*flex:\s*0 0 16px;[^}]*width:\s*16px;[^}]*height:\s*16px;[^}]*align-items:\s*center;[^}]*justify-content:\s*center;/su,
+  'public-shell-foundation.css record icons must remain centered in a fixed box'
+)
+expectMatches(
+  publicComplianceFooter,
+  /<span v-if="record\.icon" class="public-colophon__record-icon">\s*<img/u,
+  'PublicComplianceFooter.vue record icon must use the centered wrapper'
+)
 
 expectNotMatches(publicArticleList, /\bv-motion\b/, 'PublicArticleList.vue reading surface must not use v-motion')
 expectNotMatches(publicArticleList, /fsusBlogMotionPresets\.articleCards/, 'PublicArticleList.vue reading surface must not use articleCards preset')
@@ -286,6 +343,17 @@ expectNotMatches(publicArticleDetail, /\bv-scroll-reveal\b/, 'PublicArticleDetai
 expectNotMatches(publicArticleDetail, /fsusBlog(?:MotionPresets|ScrollRevealMotion)/, 'PublicArticleDetailPageContent.vue reading surface must not import motion presets')
 expectNotMatches(publicArticleDetail, /@ozwasyd\/element-plus\/motion/, 'PublicArticleDetailPageContent.vue must not import motion directives')
 expectIncludes(publicArticleDetail, 'data-article-tail-group', 'PublicArticleDetailPageContent.vue groups article tail sections')
+expectIncludes(
+  publicArticleDetail,
+  '<!-- 760px 将中文正文行长控制在舒适阅读范围，避免宽屏下单行文字过长。 -->',
+  'PublicArticleDetailPageContent.vue Chinese reading-line rationale'
+)
+expectIncludes(publicArticleDetail, 'max-w-[760px]', 'PublicArticleDetailPageContent.vue reading column width')
+expectMatches(
+  publicArticleDetail,
+  /id="comments"\s+class="mb-6 border-b border-\[var\(--fsusblog-panel-border\)\] pb-4 text-sm font-bold normal-case text-\[var\(--fsusblog-text-primary\)\]"/u,
+  'PublicArticleDetailPageContent.vue comments heading hierarchy'
+)
 expectIncludes(publicArticleDetail, 'class="fsus-appendix"', 'PublicArticleDetailPageContent.vue restrained appendix boundary')
 expectIncludes(publicArticleDetail, 'data-fsus-surface="reading"', 'PublicArticleDetailPageContent.vue appendix reading surface')
 expectIncludes(publicArticleDetail, 'class="fsus-appendix__tags"', 'PublicArticleDetailPageContent.vue inline appendix tags')
@@ -309,6 +377,33 @@ expectNotMatches(publicArticleDetail, /blog-link-underline/, 'PublicArticleDetai
 expectNotMatches(publicArticleDetail, /\.fsus-appendix__(?:tags|tag|copyright|nav|nav-label|nav-list|nav-item|meta|link)\s*\{[^}]*(?:border-top|border-bottom):/s, 'PublicArticleDetailPageContent.vue appendix descendants must not add dividers')
 expectMatches(publicArticleDetail, /\.fsus-appendix__nav-label\s*\{[^}]*font-weight:\s*700;/s, 'PublicArticleDetailPageContent.vue related-reading label owns the appendix hierarchy')
 expectMatches(publicArticleDetail, /\.fsus-appendix__(?:tag|copyright|link)\s*\{[^}]*font-weight:\s*400;/s, 'PublicArticleDetailPageContent.vue appendix content remains restrained below its label')
+expectMatches(publicArticleDetail, /\.fsus-appendix\s*\{[^}]*gap:\s*24px;/su, 'PublicArticleDetailPageContent.vue appendix group spacing')
+expectMatches(
+  publicArticleDetail,
+  /\.fsus-appendix__copyright\s*\{[^}]*padding:\s*16px;[^}]*border-radius:\s*var\(--fsusblog-radius-control, 6px\);[^}]*background:\s*var\(--fsusblog-page-bg-soft\);[^}]*color:\s*var\(--fsusblog-text-tertiary\);[^}]*font-size:\s*13px;[^}]*font-weight:\s*400;[^}]*line-height:\s*1\.7;/su,
+  'PublicArticleDetailPageContent.vue copyright treatment'
+)
+expectMatches(
+  publicArticleDetail,
+  /\.fsus-appendix__nav-label\s*\{[^}]*margin-bottom:\s*12px;[^}]*color:\s*var\(--fsusblog-text-muted\);[^}]*font-size:\s*12px;[^}]*font-weight:\s*700;[^}]*letter-spacing:\s*0\.05em;[^}]*text-transform:\s*uppercase;/su,
+  'PublicArticleDetailPageContent.vue related-reading label rhythm'
+)
+expectMatches(
+  publicArticleDetail,
+  /\.fsus-appendix__tag:hover,\s*\.fsus-appendix__tag:focus-visible\s*\{[^}]*color:\s*var\(--fsusblog-text-primary\) !important;/su,
+  'PublicArticleDetailPageContent.vue tag interaction color'
+)
+expectMatches(publicArticleDetail, /\.fsus-appendix__nav-item\s*\{[^}]*gap:\s*6px;/su, 'PublicArticleDetailPageContent.vue related-reading content gap')
+expectMatches(
+  publicArticleDetail,
+  /\.fsus-appendix__link:focus-visible,\s*\.fsus-appendix__tag:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--fsusblog-color-focus-ring\);[^}]*outline-offset:\s*-2px;/su,
+  'PublicArticleDetailPageContent.vue related links must use the inset Scholarly Blue focus ring'
+)
+expectNotMatches(
+  publicArticleDetail,
+  /box-shadow:\s*inset 0 0 0 2px var\(--fsusblog-color-focus-ring\)/u,
+  'PublicArticleDetailPageContent.vue appendix focus must retain its forced-colors-compatible outline owner'
+)
 expectIncludes(publicArticleDetail, 'id="fsus-comments-island"\n      class="mt-6 sm:mt-8"', 'PublicArticleDetailPageContent.vue comments island follows article tail without duplicate rule')
 expectIncludes(publicArticleDetail, 'id="fsus-comments-island-content"\n        class="min-h-0"', 'PublicArticleDetailPageContent.vue comments mount must not reserve a tall empty block')
 expectNotMatches(publicArticleDetail, /class="mt-12 sm:mt-16 border-t border-\[var\(--fsusblog-panel-border\)\] pt-8 sm:pt-10"/, 'PublicArticleDetailPageContent.vue comments island must not add a duplicate top rule and large whitespace after related reading')

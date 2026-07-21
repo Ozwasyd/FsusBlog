@@ -13,6 +13,7 @@ const files = {
   publicPage: path.join(repoRoot, 'src/frontend/src/assets/public-page.css'),
   accountShellBase: path.join(repoRoot, 'src/frontend/src/assets/account-shell-base.css'),
   accountLayout: path.join(repoRoot, 'src/frontend/src/layouts/AccountLayout.vue'),
+  siteChromeHeaderAdapter: path.join(repoRoot, 'src/frontend/src/components/layout/SiteChromeHeaderAdapter.vue'),
   login: path.join(repoRoot, 'src/frontend/src/views/auth/Login.vue'),
   register: path.join(repoRoot, 'src/frontend/src/views/auth/Register.vue'),
   packageJson: path.join(repoRoot, 'src/frontend/package.json')
@@ -125,6 +126,13 @@ checkLines(files.accountLayout, [
     message: 'account sticky header must not use translucent page background'
   }
 ])
+
+const siteChromeHeaderAdapter = read(files.siteChromeHeaderAdapter)
+for (const token of ['is-glass', 'data-site-header-material', 'backdrop-filter:']) {
+  if (siteChromeHeaderAdapter.includes(token)) {
+    fail(files.siteChromeHeaderAdapter, 1, `site header adapter must keep paper material as the default; found ${token}`)
+  }
+}
 
 for (const file of [files.login, files.register]) {
   checkLines(file, [

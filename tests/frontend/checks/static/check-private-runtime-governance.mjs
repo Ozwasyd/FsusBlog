@@ -18,6 +18,11 @@ const authComposition = read('src/frontend/src/services/authBroadcastComposition
 const serviceWorker = read('src/frontend/public/sw.js')
 const matrix = read('tests/frontend/unit/router/index.test.ts')
 const lifecycle = read('tests/frontend/unit/bootstrap/sessionExpiryBridge.test.ts')
+const postAuthCallers = [
+  'src/frontend/src/composables/usePasskeyLogin.ts',
+  'src/frontend/src/composables/useAuthLogin.ts',
+  'src/frontend/src/composables/useAnonymousOnboarding.ts'
+]
 
 for (const registeredValue of [
   'fsus_user_storage',
@@ -68,5 +73,16 @@ assert(serviceWorker.includes('isPrivateOrSensitiveRequest(request, url)'),
   'service worker private network-only boundary must remain active')
 assert(serviceWorker.includes('isPublicShellRequest(request, url)'),
   'service worker Public AOT shell boundary must remain active')
+
+for (const path of postAuthCallers) {
+  const source = read(path)
+  const commitIndex = source.indexOf('if (!await commitPostAuthSession())')
+  const broadcastIndex = source.indexOf('await authBroadcastRuntime.broadcastLogin()')
+  assert(source.includes("import { usePostAuthCommit } from '@/composables/usePostAuthCommit'"),
+    `${path} must delegate identity ownership to usePostAuthCommit`)
+  assert(commitIndex >= 0, `${path} must fail closed when the shared post-auth commit fails`)
+  assert(broadcastIndex > commitIndex, `${path} must broadcast login only after the shared post-auth commit`)
+  assert(!source.includes('ensureBootstrap(true)'), `${path} must not substitute bootstrap for a Session snapshot`)
+}
 
 console.log('[check-private-runtime-governance] ok')

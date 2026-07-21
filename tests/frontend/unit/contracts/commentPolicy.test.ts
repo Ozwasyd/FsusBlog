@@ -1,21 +1,14 @@
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
-
 import { describe, expect, it } from 'vitest'
 
 import {
     CommentPolicyContractVersion,
     CommentPolicyReadiness,
-    commentPolicyWireFields,
-    zkProdServerUnavailableReasons,
     type DecodedCommentPolicySnapshot
 } from '@/contracts/commentPolicy'
 import {
     finalizeCommentPolicySnapshot,
     isStrongAnonymousCommentAvailable
 } from '@/policies/commentPolicy'
-
-const repoFile = (path: string): string => fileURLToPath(new URL(`../../../../${path}`, import.meta.url))
 
 const readySnapshot: DecodedCommentPolicySnapshot = {
     contractVersion: CommentPolicyContractVersion.Current,
@@ -84,47 +77,5 @@ describe('comment policy readiness contract', () => {
 
         expect(policy.zkProdReadiness).toBe(CommentPolicyReadiness.ContractInvalid)
         expect(isStrongAnonymousCommentAvailable(policy)).toBe(false)
-    })
-})
-
-describe('comment policy cross-stack field alignment', () => {
-    it('keeps the backend POD and frontend wire field sets identical', () => {
-        const source = readFileSync(
-            repoFile('src/shared/Contracts/Models/CommentPods.cs'),
-            'utf8'
-        )
-        const structBody = source.match(
-            /public readonly struct CommentPolicySnapshotPod\s*\{(?<body>[\s\S]*?)\n\}/u
-        )?.groups?.body
-        expect(structBody).toBeDefined()
-
-        const backendFields = [...(structBody ?? '').matchAll(/public readonly \w+ (?<name>\w+);/gu)]
-            .map((match) => match.groups?.name ?? '')
-            .map((name) => `${name[0].toLowerCase()}${name.slice(1)}`)
-
-        expect(backendFields).toEqual(commentPolicyWireFields)
-    })
-
-    it('keeps backend unavailable reason codes in the frontend controlled enum', () => {
-        const source = readFileSync(
-            repoFile('src/backend/Services/Security/ZkProdOptions.cs'),
-            'utf8'
-        )
-        const method = source.slice(source.indexOf('private static string ResolveUnavailableReason'))
-        const backendReasons = [...method.matchAll(/return "(?<reason>[a-z0-9_]+)";/gu)]
-            .map((match) => match.groups?.reason ?? '')
-
-        expect(['', ...backendReasons]).toEqual(zkProdServerUnavailableReasons)
-    })
-
-    it('forbids local optional readiness casts and missing-field allow defaults', () => {
-        const source = readFileSync(
-            repoFile('src/frontend/src/composables/useArticleDetailView.ts'),
-            'utf8'
-        )
-
-        expect(source).not.toMatch(/ZkProdCommentPolicySnapshot/u)
-        expect(source).not.toMatch(/zkProd\w+\s*===\s*undefined/u)
-        expect(source).not.toMatch(/as\s+ZkProd/u)
     })
 })

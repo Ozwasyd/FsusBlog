@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import {
   PostAuthCommitCoordinator,
@@ -25,21 +23,6 @@ const createContext = (): PostAuthCommitContext => ({
 })
 
 describe('PostAuthCommitCoordinator', () => {
-  it.each([
-    'usePasskeyLogin.ts',
-    'useAuthLogin.ts',
-    'useAnonymousOnboarding.ts'
-  ])('%s delegates authentication state ownership to the shared commit', (fileName) => {
-    const source = readFileSync(resolve(process.cwd(), 'src/composables', fileName), 'utf8')
-
-    expect(source).toContain("import { usePostAuthCommit } from '@/composables/usePostAuthCommit'")
-    expect(source).toContain('if (!await commitPostAuthSession())')
-    expect(source).toContain('await authBroadcastRuntime.broadcastLogin()')
-    expect(source.indexOf('if (!await commitPostAuthSession())'))
-      .toBeLessThan(source.indexOf('authBroadcastRuntime.broadcastLogin()'))
-    expect(source).not.toContain('ensureBootstrap(true)')
-  })
-
   it('invalidates a fresh guest result and accepts only a forced server Session snapshot', async () => {
     const coordinator = new PostAuthCommitCoordinator()
     const context = createContext()

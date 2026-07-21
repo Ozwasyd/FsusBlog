@@ -70,6 +70,65 @@ for (const file of walk(resolve(root, 'src/frontend/src/api'), path => /\.(ts|js
   }
 }
 
+const commentPolicyContract = readFileSync(resolve(root, 'src/frontend/src/contracts/commentPolicy.ts'), 'utf8')
+const commentPolicyPod = readFileSync(resolve(root, 'src/shared/Contracts/Models/CommentPods.cs'), 'utf8')
+const zkProdOptions = readFileSync(resolve(root, 'src/backend/Services/Security/ZkProdOptions.cs'), 'utf8')
+const articleDetail = readFileSync(resolve(root, 'src/frontend/src/composables/useArticleDetailView.ts'), 'utf8')
+const frontendWireFieldsBody = commentPolicyContract.match(
+  /export const commentPolicyWireFields = \[(?<body>[\s\S]*?)\] as const/u
+)?.groups?.body ?? ''
+const frontendWireFields = [...frontendWireFieldsBody.matchAll(/'(?<name>[A-Za-z0-9_]+)'/gu)]
+  .map((match) => match.groups?.name ?? '')
+const podBody = commentPolicyPod.match(
+  /public readonly struct CommentPolicySnapshotPod\s*\{(?<body>[\s\S]*?)\n\}/u
+)?.groups?.body ?? ''
+assert(podBody, 'CommentPolicySnapshotPod body is missing')
+const backendWireFields = [...podBody.matchAll(/public readonly \w+ (?<name>\w+);/gu)]
+  .map((match) => match.groups?.name ?? '')
+  .map((name) => `${name[0].toLowerCase()}${name.slice(1)}`)
+assert(
+  JSON.stringify(frontendWireFields) === JSON.stringify(backendWireFields),
+  `comment policy wire fields drifted: frontend=${frontendWireFields.join(',')} backend=${backendWireFields.join(',')}`
+)
+
+const frontendReasonsBody = commentPolicyContract.match(
+  /export const zkProdServerUnavailableReasons = \[(?<body>[\s\S]*?)\] as const/u
+)?.groups?.body ?? ''
+const frontendReasons = [...frontendReasonsBody.matchAll(/'(?<reason>[a-z0-9_]*)'/gu)]
+  .map((match) => match.groups?.reason ?? '')
+const backendReasonMethod = zkProdOptions.slice(zkProdOptions.indexOf('private static string ResolveUnavailableReason'))
+const backendReasons = ['', ...backendReasonMethod.matchAll(/return "(?<reason>[a-z0-9_]+)";/gu)]
+  .map((entry) => typeof entry === 'string' ? entry : (entry.groups?.reason ?? ''))
+assert(
+  JSON.stringify(frontendReasons) === JSON.stringify(backendReasons),
+  `comment policy unavailable reasons drifted: frontend=${frontendReasons.join(',')} backend=${backendReasons.join(',')}`
+)
+for (const pattern of [/ZkProdCommentPolicySnapshot/u, /zkProd\w+\s*===\s*undefined/u, /as\s+ZkProd/u]) {
+  assert(!pattern.test(articleDetail), `useArticleDetailView.ts contains a fail-open comment policy escape: ${pattern}`)
+}
+
+const frontendMessagePolicy = readFileSync(resolve(root, 'src/frontend/src/contracts/messageContentPolicy.ts'), 'utf8')
+const backendMessagePolicy = readFileSync(resolve(root, 'src/shared/Contracts/Validation/MessageContentPolicy.cs'), 'utf8')
+const messageLimits = [
+  ['subjectMaxScalars', 'SubjectMaxScalars'],
+  ['subjectMaxGraphemes', 'SubjectMaxGraphemes'],
+  ['subjectMaxUtf8Bytes', 'SubjectMaxUtf8Bytes'],
+  ['bodyMaxScalars', 'BodyMaxScalars'],
+  ['bodyMaxGraphemes', 'BodyMaxGraphemes'],
+  ['bodyMaxUtf8Bytes', 'BodyMaxUtf8Bytes'],
+  ['previewMaxGraphemes', 'PreviewMaxGraphemes']
+]
+for (const [frontendName, backendName] of messageLimits) {
+  const frontendValue = frontendMessagePolicy.match(new RegExp(`${frontendName}:\\s*(?<value>\\d+)`, 'u'))?.groups?.value
+  assert(frontendValue, `frontend message policy is missing ${frontendName}`)
+  assert(
+    backendMessagePolicy.includes(`const int ${backendName} = ${frontendValue};`),
+    `message policy ${frontendName}/${backendName} is not numerically aligned`
+  )
+}
+assert(frontendMessagePolicy.includes('maxRequestFrameBytes: 20 * 1024'), 'frontend message frame limit must remain 20 KiB')
+assert(backendMessagePolicy.includes('MaxRequestFrameBytes = 20 * 1024'), 'backend message frame limit must remain 20 KiB')
+
 console.log(`[frontend-backend-api-parity] ok openapiRoutes=${routes.length}`)
 
 function matchesKnownPath(value) {

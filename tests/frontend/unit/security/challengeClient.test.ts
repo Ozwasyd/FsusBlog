@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from 'vitest'
-import { readFileSync } from 'node:fs'
 import {
   SecurityChallengeKind,
   type SecurityChallengeIssueResponse,
@@ -654,14 +653,6 @@ describe('security challenge client and proof store', () => {
     expect(store.peek(context.action, context.routeKey)).toBeNull()
   })
 
-  it('keeps proof storage free of persistence, URL, broadcast, and logging APIs', () => {
-    const source = readFileSync(
-      new URL('../../../../src/frontend/src/security/challenge-proof-store.ts', import.meta.url),
-      'utf8'
-    )
-
-    expect(source).not.toMatch(/localStorage|sessionStorage|BroadcastChannel|URLSearchParams|console\./)
-  })
 })
 
 function proof(proofToken: string) {

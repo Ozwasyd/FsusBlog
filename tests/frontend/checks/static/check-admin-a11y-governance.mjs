@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
 const failures = []
+let taxonomyMutationProofs = 0
 const adminAccountRoots = [
   'src/frontend/src/views/admin',
   'src/frontend/src/views/user',
@@ -37,6 +38,112 @@ function requireToken(file, source, token, message) {
 function forbidToken(file, source, token, message) {
   if (source.includes(token)) {
     fail(file, lineOf(source, token), message)
+  }
+}
+
+function withoutBlockComments(source) {
+  return source
+    .replace(/<!--[\s\S]*?-->/gu, '')
+    .replace(/\/\*[\s\S]*?\*\//gu, '')
+}
+
+function validateTaxonomyManageContract(source) {
+  const contractFailures = []
+  const cleanSource = withoutBlockComments(source)
+  const templateStart = cleanSource.indexOf('<template>')
+  const scriptStart = cleanSource.indexOf('<script')
+  const template = templateStart >= 0 && scriptStart > templateStart
+    ? cleanSource.slice(templateStart + '<template>'.length, scriptStart)
+    : ''
+  const requireIn = (scope, token, message) => {
+    if (!scope.includes(token)) contractFailures.push(message)
+  }
+
+  const lockedAction = template.match(
+    /<el-tooltip\b(?=[^>]*\bv-if="!row\.canDelete")[^>]*>[\s\S]*?<\/el-tooltip>/u
+  )?.[0] ?? ''
+  if (!lockedAction) {
+    contractFailures.push('locked taxonomy action block is missing')
+  } else {
+    if (lockedAction.includes('<el-button')) {
+      contractFailures.push('locked taxonomy state must remain a non-button status inside its tooltip')
+    }
+    for (const [token, message] of [
+      ['class="taxonomy-action-locked"', 'locked taxonomy action must expose its status hook inside the locked block'],
+      ['tabindex="0"', 'locked taxonomy action must remain keyboard focusable inside the locked block'],
+      [':title="state.relationLockReason(row)"', 'locked taxonomy action must expose its reason inside the locked block'],
+      [':aria-label="`锁定：${state.relationLockReason(row)}`"', 'locked taxonomy action must expose a stable accessible name inside the locked block'],
+      [':size="14"', 'locked taxonomy icon must retain its compact size inside the locked block']
+    ]) {
+      requireIn(lockedAction, token, message)
+    }
+  }
+
+  const dangerDeleteTag = [...template.matchAll(/<el-button\b[^>]*>/gu)]
+    .map((match) => match[0])
+    .find((tag) => /(?:^|\s)v-else(?:\s|=|>)/u.test(tag))
+  if (
+    !dangerDeleteTag
+    || !/(?:^|\s)link(?:\s|=|>)/u.test(dangerDeleteTag)
+    || !/(?:^|\s)type="danger"(?:\s|>)/u.test(dangerDeleteTag)
+    || !/(?:^|\s)@click="state\.handleDelete\(row\)"(?:\s|>)/u.test(dangerDeleteTag)
+  ) {
+    contractFailures.push('deletable taxonomy state must keep v-else, link, danger, and handleDelete on one button tag')
+  }
+
+  const compactHookCount = (template.match(/'admin-table-action--compact': isCompact/gu) ?? []).length
+  if (compactHookCount !== 3) {
+    contractFailures.push('edit, view, and delete taxonomy actions must all opt into the compact hit-target hook')
+  }
+  if (!template.includes(':width="actionColumnWidth"')) {
+    contractFailures.push('taxonomy action column must retain its explicit width')
+  }
+
+  const noteBlock = template.match(
+    /<div\b(?=[^>]*taxonomy-dialog-note)[^>]*>[\s\S]*?<\/div>/u
+  )?.[0] ?? ''
+  if (!noteBlock) {
+    contractFailures.push('taxonomy dialog guidance block is missing')
+  } else {
+    for (const [token, message] of [
+      ['class="taxonomy-dialog-note__icon"', 'taxonomy dialog guidance must retain its icon hook inside the note block'],
+      ['aria-hidden="true" :size="16"', 'taxonomy dialog guidance icon must remain decorative and 16px inside the note block'],
+      ['taxonomy-dialog-note__text', 'taxonomy dialog guidance must retain its text hook inside the note block']
+    ]) {
+      requireIn(noteBlock, token, message)
+    }
+  }
+
+  if (!/\.taxonomy-action-locked\s*\{[\s\S]*?min-height:\s*32px;[\s\S]*?color:\s*var\(--fsusblog-text-muted\);/u.test(cleanSource)) {
+    contractFailures.push('locked taxonomy status must retain its 32px muted treatment')
+  }
+  if (!/@media \(max-width: 639px\)[\s\S]*?\.taxonomy-action-locked\s*\{[\s\S]*?min-width:\s*32px;/u.test(cleanSource)) {
+    contractFailures.push('locked taxonomy status must retain its mobile 32px width')
+  }
+  if (!/\.admin-table-action--compact\s*\{[\s\S]*?display:\s*inline-flex;[\s\S]*?align-items:\s*center;[\s\S]*?justify-content:\s*center;[\s\S]*?min-width:\s*32px;[\s\S]*?min-height:\s*32px;/u.test(cleanSource)) {
+    contractFailures.push('compact taxonomy actions must retain centered 32px hit targets')
+  }
+  if (!/\.taxonomy-dialog-note__text\s*\{[\s\S]*?color:\s*var\(--fsusblog-text-tertiary\);[\s\S]*?font-size:\s*13px;[\s\S]*?line-height:\s*20px;/u.test(cleanSource)) {
+    contractFailures.push('taxonomy dialog guidance must retain its tertiary 13/20 rhythm')
+  }
+  if (cleanSource.includes('text-[12px] text-[var(--fsusblog-text-muted)] leading-relaxed')) {
+    contractFailures.push('taxonomy dialog guidance must not compete with form labels')
+  }
+
+  return contractFailures
+}
+
+function assertTaxonomyMutationRejected(source, label, mutate, expectedFailure) {
+  const mutated = mutate(source)
+  if (mutated === source) {
+    failures.push(`taxonomy mutation fixture ${label} did not alter its source`)
+    return
+  }
+  const mutationFailures = validateTaxonomyManageContract(mutated)
+  if (!mutationFailures.some((message) => message.includes(expectedFailure))) {
+    failures.push(`taxonomy mutation fixture ${label} was not rejected for ${expectedFailure}`)
+  } else {
+    taxonomyMutationProofs += 1
   }
 }
 
@@ -112,6 +219,36 @@ requireToken(
   messagesConversationList,
   ':aria-current="item.conversationId === selectedConversationId ? \'true\' : undefined"',
   'conversation list item must keep aria-current state'
+)
+
+const taxonomyManagePath = path.join(repoRoot, 'src/frontend/src/components/admin/AdminTaxonomyManageView.vue')
+const taxonomyManage = read(taxonomyManagePath)
+for (const message of validateTaxonomyManageContract(taxonomyManage)) {
+  fail(taxonomyManagePath, 1, message)
+}
+assertTaxonomyMutationRejected(
+  taxonomyManage,
+  'locked hook moved to comment',
+  (source) => source
+    .replace('class="taxonomy-action-locked"', 'class="taxonomy-action-status"')
+    .replace('<el-tooltip v-if="!row.canDelete"', '<!-- class="taxonomy-action-locked" -->\n              <el-tooltip v-if="!row.canDelete"'),
+  'status hook inside the locked block'
+)
+assertTaxonomyMutationRejected(
+  taxonomyManage,
+  'danger click moved to another button',
+  (source) => source
+    .replace(' @click="state.handleDelete(row)"', '')
+    .replace('</el-tooltip>', '</el-tooltip>\n              <el-button @click="state.handleDelete(row)">unrelated</el-button>'),
+  'handleDelete on one button tag'
+)
+assertTaxonomyMutationRejected(
+  taxonomyManage,
+  'note icon hook moved outside note block',
+  (source) => source
+    .replace('class="taxonomy-dialog-note__icon"', 'class="taxonomy-dialog-note-icon-missing"')
+    .replace('<FsusUiTaskPageHeader', '<span class="taxonomy-dialog-note__icon"></span>\n    <FsusUiTaskPageHeader'),
+  'icon hook inside the note block'
 )
 
 const userManageTablePath = path.join(repoRoot, 'src/frontend/src/components/admin/users/UserManageTable.vue')
@@ -217,4 +354,4 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log('[admin-a11y-governance] ok')
+console.log(`[admin-a11y-governance] ok taxonomyMutationProofs=${taxonomyMutationProofs}`)

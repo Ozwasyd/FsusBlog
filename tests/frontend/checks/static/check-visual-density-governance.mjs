@@ -33,6 +33,7 @@ const accountRouteFramePath = path.join(repoRoot, 'src/frontend/src/layouts/Acco
 const accountMobileActionPath = path.join(repoRoot, 'src/frontend/src/layouts/AccountFrameMobileAction.vue');
 const accountNavigationPanelPath = path.join(repoRoot, 'src/frontend/src/components/account/AccountNavigationPanel.vue');
 const accountHeaderMenuPath = path.join(repoRoot, 'src/frontend/src/components/account/AccountHeaderMenu.vue');
+const siteChromeHeaderAdapterPath = path.join(repoRoot, 'src/frontend/src/components/layout/SiteChromeHeaderAdapter.vue');
 const registerPath = path.join(repoRoot, 'src/frontend/src/views/auth/Register.vue');
 const adminDashboardPath = path.join(repoRoot, 'src/frontend/src/views/admin/Dashboard.vue');
 const adminDashboardWorkbenchPath = path.join(repoRoot, 'src/frontend/src/components/admin/AdminDashboardTaskWorkbench.vue');
@@ -668,10 +669,29 @@ function checkIssueDensityContracts()
     assertContains(accountNavigationPanelPath, /\.account-module-link::before,[\s\S]*?width:\s*2px;[\s\S]*?background:\s*var\(--fsusblog-color-primary\);/, 'Account navigation must keep a 2px primary active indicator');
     assertContains(accountNavigationPanelPath, /\.account-module-link-active::before,[\s\S]*?\.account-local-navigation__link--active::before\s*\{[^}]*opacity:\s*1;/, 'Account active navigation items must reveal the primary indicator');
     assertNotContains(accountNavigationPanelPath, /(?:hover|focus-visible)::before/, 'Account hover and focus states must not reuse the active indicator');
+    assertContains(accountNavigationPanelPath, /\.account-global-module-list,[\s\S]*?gap:\s*var\(--fsus-space-1\);/, 'Account global navigation items must retain the four-pixel rhythm');
+    assertContains(accountNavigationPanelPath, /\.account-local-navigation\s*\{[\s\S]*?margin-top:\s*var\(--fsus-space-6\);/, 'Account local navigation must remain one 24px section step below global modules');
     assertContains(accountNavigationPanelPath, /\.account-local-navigation__title\s*\{[^}]*\}\s*\.account-local-navigation__link\s*\{[^}]*padding:\s*var\(--fsus-space-1\) var\(--fsus-space-2\) var\(--fsus-space-1\) var\(--fsus-space-8\);/, 'Account local links must indent one tokenized 16px step beyond first-level modules');
     assertContains(accountNavigationPanelPath, /\.account-navigation-panel\[data-variant="desktop"\] \.account-local-navigation__link\s*\{[^}]*min-height:\s*2\.5rem;/, 'Account desktop local links must use the 40px compact tier without shrinking mobile targets');
     assertNotContains(accountRouteFramePath, /account-sidebar-scroll|\.account-sidebar-frame\s*\{[^}]*overflow-y:\s*auto;/s, 'desktop account sidebar must not create an internal scrollbar from leaf navigation');
     assertContains(accountHeaderMenuPath, /打开账号菜单[\s\S]*使用规范[\s\S]*隐私政策[\s\S]*command="logout"/, 'account menu must own policy and logout actions');
+    assertContains(accountLayoutPath, /<template #desktop-actions>[\s\S]*?class="account-header-locale-action"[\s\S]*?\bbordered\b[\s\S]*?<\/template>/, 'account desktop locale action must join the bordered action family');
+    assertNotContains(accountLayoutPath, /<template #mobile-primary-actions>[\s\S]*?account-header-locale-action[\s\S]*?<\/template>/, 'account mobile locale action must not inherit the desktop-only bordered hook');
+    assertContains(accountShellBasePath, /\.account-site-header__actions \.account-header-link,[\s\S]*?\.account-header-theme-action > button,[\s\S]*?\.account-header-locale-action\.fsusblog-locale-toggle,[\s\S]*?\.account-header-menu__trigger\.account-header-menu__trigger[\s\S]*?height:\s*var\(--fsus-control-height-compact\);[\s\S]*?border:\s*1px solid var\(--fsusblog-panel-border\);/, 'account desktop actions must share the 40px bordered paper treatment');
+    assertContains(accountShellBasePath, /\.account-site-header__actions \.account-header-link:hover,[\s\S]*?border-color:\s*var\(--fsusblog-color-primary\);[\s\S]*?background:\s*var\(--fsusblog-page-bg-soft\);/, 'account desktop actions must share the restrained hover treatment');
+    assertContains(accountShellBasePath, /@media \(min-width: 1024px\)[\s\S]*?\.account-route-frame\s*\{[\s\S]*?gap:\s*var\(--fsus-space-8\);[\s\S]*?padding-inline:\s*var\(--fsus-space-6\);/, 'account desktop frame must use the 32px gap and 24px horizontal inset');
+    assertNotContains(accountShellBasePath, /calc\(var\(--fsus-space-5\) \* 2\)/, 'account desktop frame must not restore the non-tokenized 40px calculation');
+    assertContains(accountShellBasePath, /\.account-shell\s*\{[\s\S]*?--fsusblog-account-header-height:\s*5\.5625rem;/, 'account shell must expose the measured 89px header token');
+    assertContains(accountShellBasePath, /max-height:\s*calc\(100dvh - var\(--fsusblog-account-header-height\) - var\(--fsus-space-8\) - var\(--fsus-space-8\)\);/, 'account desktop scroll region must derive from measured header and tokenized insets');
+    assertNotContains(accountShellBasePath, /max-height:\s*calc\(100dvh - 7rem\);/, 'account desktop scroll region must not restore the hard-coded offset');
+    assertContains(accountRouteFramePath, /<template #header="\{ titleId, titleClass \}">[\s\S]*?\[titleClass, 'account-mobile-drawer__title'\]/, 'account drawer must own its title through the public header slot');
+    assertContains(accountShellBasePath, /\.account-mobile-drawer__title\s*\{[\s\S]*?margin:\s*0;[\s\S]*?color:\s*var\(--fsusblog-text-primary\);[\s\S]*?font-size:\s*16px;[\s\S]*?font-weight:\s*700;/, 'account drawer title must retain its explicit hierarchy');
+    assertContains(accountShellBasePath, /\.account-mobile-drawer\s*\{[\s\S]*?--el-drawer-padding-primary:\s*var\(--fsus-space-5\);/, 'account drawer must configure its 20px inset through the public token');
+    assertNotContains(accountShellBasePath, /\.el-drawer__(?:header|title)/, 'account shell must not reach into FsusUI drawer internals');
+    assertContains(siteChromeHeaderAdapterPath, /:class="`site-chrome-header__brand-mark--\$\{brandContext\}`"/, 'site chrome brand mark must expose its context modifier');
+    assertContains(siteChromeHeaderAdapterPath, /\.site-chrome-header__brand-mark\s*\{[\s\S]*?max-width:\s*min\(14rem, 42vw\);/, 'site chrome default wordmark must retain its public width cap');
+    assertContains(siteChromeHeaderAdapterPath, /\.site-chrome-header__brand-mark--account\s*\{[\s\S]*?max-width:\s*min\(10rem, 32vw\);/, 'site chrome account wordmark must retain its tighter width cap');
+    assertNotContains(siteChromeHeaderAdapterPath, /\.site-chrome-header__brand-mark--public\s*\{/, 'site chrome public wordmark must keep the shared default rather than a forked override');
     assertContains(path.join(repoRoot, 'docs/public-layout-rules.md'), /AccountLayout[\s\S]*Drawer[\s\S]*一级模块[\s\S]*局部导航[\s\S]*44px/, 'public layout rules must document the AccountLayout single-drawer module navigation pattern');
 
     assertNotContains(registerPath, /高级|极致|奢华|未来感|智能|大气|简约而不简单|沉浸式/, 'Register copy must avoid FsusUI marketing adjective blacklist');

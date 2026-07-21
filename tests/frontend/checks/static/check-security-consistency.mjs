@@ -137,6 +137,13 @@ if (/localStorage\.setItem\(key,\s*encodePublicAotPayload\(snapshot\)\)/.test(ad
   violations.push('src/frontend/src/composables/useAdminArticleWrite.ts: article draft body must not be persisted to localStorage')
 }
 
+const challengeProofStore = readRepoFile('src/frontend/src/security/challenge-proof-store.ts')
+for (const forbidden of ['localStorage', 'sessionStorage', 'BroadcastChannel', 'URLSearchParams', 'console.']) {
+  if (challengeProofStore.includes(forbidden)) {
+    violations.push(`src/frontend/src/security/challenge-proof-store.ts: proof storage must stay memory-only and telemetry-free; found ${forbidden}`)
+  }
+}
+
 const openResty = readRepoFile('ops/gateway/production-openresty.conf')
 for (const header of ['Content-Security-Policy', 'Cross-Origin-Opener-Policy', 'Cross-Origin-Embedder-Policy', 'Cross-Origin-Resource-Policy']) {
   if (!openResty.includes(header)) {

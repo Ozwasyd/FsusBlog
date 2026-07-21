@@ -1,8 +1,6 @@
 // @vitest-environment happy-dom
 
 import { mount } from '@vue/test-utils'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { h, nextTick } from 'vue'
 import {
   createMemoryHistory,
@@ -66,39 +64,6 @@ const mountPanel = async (path: string, variant: 'desktop' | 'mobile' = 'desktop
 }
 
 describe('AccountNavigationPanel', () => {
-  it('keeps a system focus outline when forced colors suppress shadows', () => {
-    const source = readFileSync(resolve(process.cwd(), 'src/components/account/AccountNavigationPanel.vue'), 'utf8')
-
-    expect(source).toMatch(/@media \(forced-colors: active\)/)
-    expect(source).toMatch(/\.account-module-link:focus-visible,[\s\S]*?\.account-local-navigation__link:focus-visible/)
-    expect(source).toContain('outline: 2px solid Highlight;')
-    expect(source).toContain('outline-offset: -2px;')
-    expect(source).not.toMatch(/outline-offset:\s*(?:2|4)px/)
-  })
-
-  it('keeps section labels and navigation states on distinct type levels', () => {
-    const source = readFileSync(resolve(process.cwd(), 'src/components/account/AccountNavigationPanel.vue'), 'utf8')
-
-    expect(source).toMatch(/\.account-sidebar-index-label,[\s\S]*?font-size:\s*11px;[\s\S]*?font-weight:\s*700;[\s\S]*?text-transform:\s*uppercase;/)
-    expect(source).toMatch(/\.account-module-link__label\s*\{[\s\S]*?font-size:\s*13px;[\s\S]*?font-weight:\s*500;/)
-    expect(source).toMatch(/\.account-local-navigation__link > span:first-child\s*\{[\s\S]*?font-size:\s*13px;[\s\S]*?font-weight:\s*500;/)
-    expect(source).toMatch(/\.account-module-link-active \.account-module-link__label,[\s\S]*?font-weight:\s*700;/)
-    expect(source).toMatch(/\.account-global-module-list,[\s\S]*?gap:\s*var\(--fsus-space-1\);/)
-    expect(source).toMatch(/\.account-local-navigation\s*\{[\s\S]*?margin-top:\s*var\(--fsus-space-6\);/)
-  })
-
-  it('reserves the two-pixel navigation marker for the active item', () => {
-    const source = readFileSync(resolve(process.cwd(), 'src/components/account/AccountNavigationPanel.vue'), 'utf8')
-    const indicatorRule = source.match(
-      /\.account-module-link-active::before,([\s\S]*?)\{([\s\S]*?)\}/
-    )?.[0] ?? ''
-
-    expect(source).toMatch(/\.account-module-link::before,[\s\S]*?width:\s*2px;/)
-    expect(indicatorRule).toContain('.account-local-navigation__link--active::before')
-    expect(indicatorRule).toContain('opacity: 1')
-    expect(source).not.toMatch(/(?:hover|focus-visible)::before/)
-  })
-
   it('renders no more than six global links and only the current module leaves', async () => {
     const { wrapper } = await mountPanel('/user/manage/article/edit/42')
 
