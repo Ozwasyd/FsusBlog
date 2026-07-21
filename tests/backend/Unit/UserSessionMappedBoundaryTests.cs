@@ -148,6 +148,15 @@ public sealed class UserSessionMappedBoundaryTests(
         var riskScores = Substitute.For<ISecurityRiskScoreReader>();
         var cache = Substitute.For<IUnifiedCache>();
         var handshake = Substitute.For<INotificationStreamHandshakeService>();
+        // Handshake must return a concrete failure for revoked sessions so preflight
+        // never observes a null Task result from the substitute default.
+        handshake.ValidateAsync(
+                Arg.Any<HttpContext>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>())
+            .Returns(NotificationStreamHandshakeResult.Failure(
+                StatusCodes.Status401Unauthorized,
+                "auth_failed"));
 
         builder.Services.AddSingleton<AuthCookieService>();
         builder.Services.AddSingleton<IUserSessionValidationService>(userValidator);

@@ -129,10 +129,12 @@ public sealed class HotStatsInvalidationCoalescerTests
         var first = new HotStatsInvalidationCoalescer(
             provider.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<HotStatsInvalidationCoalescer>.Instance,
+            cache,
             cache);
         var second = new HotStatsInvalidationCoalescer(
             provider.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<HotStatsInvalidationCoalescer>.Instance,
+            cache,
             cache);
 
         await first.MarkStatsDirtyAsync("visit-log-flush");
