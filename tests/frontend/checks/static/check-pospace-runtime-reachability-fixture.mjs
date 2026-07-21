@@ -93,6 +93,33 @@ const cases = [
         expected: 'must keep the PoSpace executor lazy'
     },
     {
+        name: 'value export star executor regression',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script lang="ts">',
+            "<script lang=\"ts\">\nexport * from '@/services/securityPoSpaceChallengeExecutor'"
+        ),
+        expected: 'must keep the PoSpace executor lazy'
+    },
+    {
+        name: 'named value re-export executor regression',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script lang="ts">',
+            "<script lang=\"ts\">\nexport { createPoSpaceChallengeExecutor } from '@/services/securityPoSpaceChallengeExecutor'"
+        ),
+        expected: 'must keep the PoSpace executor lazy'
+    },
+    {
+        name: 'inline type-only re-export executor is not an eager edge',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script lang="ts">',
+            "<script lang=\"ts\">\nexport { type PoSpaceChallengeExecutor } from '@/services/securityPoSpaceChallengeExecutor'"
+        ),
+        shouldPass: true
+    },
+    {
         name: 'multiline component runtime edge remains valid',
         file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
         mutate: source => source.replace(
@@ -125,6 +152,15 @@ const cases = [
         mutate: source => source.replace(
             '<script setup lang="ts">',
             '<script setup lang="ts">\ntype solvePoSpaceProof = { readonly brand: unique symbol }'
+        ),
+        shouldPass: true
+    },
+    {
+        name: 'ambient solve declaration is not a runtime implementation',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script setup lang="ts">',
+            '<script setup lang="ts">\ndeclare const solvePoSpaceProof: unknown'
         ),
         shouldPass: true
     },

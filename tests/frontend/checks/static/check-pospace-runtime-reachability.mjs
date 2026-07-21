@@ -123,7 +123,7 @@ export function checkPoSpaceRuntimeReachability(root = repoRoot)
     for (const hostId of ['poSpaceHost', 'notification'])
     {
         assert.ok(
-            ![...facts[hostId].valueStaticImports].some(isExecutorModuleSpecifier),
+            ![...facts[hostId].runtimeImports].some(isExecutorModuleSpecifier),
             `${nodes[hostId]} must keep the PoSpace executor lazy instead of restoring an eager compatibility edge`
         );
     }
@@ -139,11 +139,11 @@ export function checkPoSpaceRuntimeReachability(root = repoRoot)
 
     const forbiddenHostImplementations = Object.freeze([
         ['direct Worker construction', facts => facts.newExpressions.has('Worker')],
-        ['Argon2 implementation import', facts => [...facts.runtimeImports].some(isArgon2ModuleSpecifier) || facts.valueIdentifiers.has('argon2idAsync')],
+        ['Argon2 implementation import', facts => hasRuntimeModule(facts, isArgon2ModuleSpecifier) || facts.valueIdentifiers.has('argon2idAsync')],
         ['runtime proof solve', facts => facts.valueIdentifiers.has('solvePoSpaceProof')],
         ['Worker client construction', facts => facts.valueIdentifiers.has('createPoSpaceWorkerClient')],
         ['verify payload construction', facts => facts.valueIdentifiers.has('createPoSpaceVerifyPayload')],
-        ['direct Worker URL import', facts => [...facts.runtimeImports].some(module => module.includes('pospace.worker.ts?worker'))]
+        ['direct Worker URL import', facts => hasRuntimeModule(facts, module => module.includes('pospace.worker.ts?worker'))]
     ]);
 
     for (const hostId of ['challengeHost', 'poSpaceHost', 'notification'])
@@ -230,7 +230,7 @@ function visit(node, facts)
     }
     if (ts.isExportDeclaration(node))
     {
-        if (!node.isTypeOnly)
+        if (!isTypeOnlyExport(node))
         {
             if (node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier))
             {
@@ -257,7 +257,6 @@ function visit(node, facts)
     && ts.isStringLiteralLike(node.arguments[0])
     )
     {
-        facts.runtimeImports.add(node.arguments[0].text);
         facts.dynamicImports.add(node.arguments[0].text);
     }
     if (ts.isIdentifier(node) && isValueIdentifier(node))
@@ -328,6 +327,20 @@ function importedValueNames(node)
         }
     }
     return names;
+}
+
+function isTypeOnlyExport(node)
+{
+    if (node.isTypeOnly)
+    {
+        return true;
+    }
+    return Boolean(
+        node.exportClause
+    && ts.isNamedExports(node.exportClause)
+    && node.exportClause.elements.length > 0
+    && node.exportClause.elements.every(element => element.isTypeOnly)
+    );
 }
 
 function isValueIdentifier(node)
@@ -415,6 +428,11 @@ function isExecutorModuleSpecifier(module)
 function isArgon2ModuleSpecifier(module)
 {
     return module === '@noble/hashes/argon2' || module === '@noble/hashes/argon2.js';
+}
+
+function hasRuntimeModule(facts, predicate)
+{
+    return [...facts.runtimeImports, ...facts.dynamicImports].some(predicate);
 }
 
 const invokedPath = process.argv[1] ? path.resolve(process.argv[1]) : '';
