@@ -39,7 +39,7 @@ coverage markers plus the frontend build marker, rather than whole-bundle
 summaries. Runtime-preserving data-scale and fault-injection work moves behind
 the stable runtime handoff.
 
-Every timed profiler waits at `performance-measurement-ready`. That barrier
+Every authoritative correctness profiler waits at `performance-measurement-ready`. That barrier
 requires all non-measurement preparation, runtime mutation, producer quiet
 markers, benchmark build readiness, runtime stability, and the consumed
 resident handoff. The profilers then serialize on the inner
@@ -49,11 +49,20 @@ while it is merely waiting or preparing.
 Every performance step carries one evidence phase: `coordination`,
 `preparation`, `measurement`, or `post-measurement`. Deadline evidence v2
 binds the scheduler run and source state, records each phase duration and exact
-timestamps, requires the exact five measurement step identities, and rejects
+timestamps, requires exactly these four measurement step identities—`backend-perf`,
+`privacy-zk-benchmark`, `mixed-performance-window`, and `aeds-frame-cost`—and rejects
 both measurement-to-measurement overlap and preparation/post-processing noise
 overlap. The DAG contract allows only measurement steps to request
-`benchmark-window`. Privacy finalization waits for all five timed measurements,
+`benchmark-window`. Privacy finalization waits for all four timed measurements,
 so it cannot become noise beside a later profiler.
+
+The former Production `browser-performance` measurement is superseded by the
+scheduled/manual Browser Diagnostics performance probe after #1148/#1150.
+It owns a diagnostics-only receipt and fixed single-browser execution boundary;
+it is not a `performanceSteps()` node, does not enter correctness deadline
+evidence or `benchmark-window`, and cannot pass or fail browserless Production.
+Conversely, the four authoritative timed measurements cannot claim that real
+renderer/AEDS browser diagnostics were executed.
 
 | Step group | Required receipts | Reads runtime | Mutates runtime/database | Timing-sensitive | `benchmark-window` |
 | --- | --- | ---: | ---: | ---: | ---: |
@@ -61,12 +70,16 @@ so it cannot become noise beside a later profiler.
 | `aeds-compression` | frontend build | no | no | no | no |
 | `privacy-zk-project-functional`, input verification | backend/frontend coverage + frontend build + contract/functional receipts | no | no | no | no |
 | `data-scale-xs`, `data-scale-s`, summary, `fault-injection` | runtime stable + resident handoff | yes | yes | no | no |
-| `browser-performance` | measurement barrier | yes | no | yes | yes |
 | `backend-perf` | measurement barrier + benchmark build | yes | no | yes | yes |
 | `privacy-zk-benchmark` | measurement barrier + privacy receipts | yes | no | yes | yes |
 | `mixed-performance-window` | measurement barrier + benchmark build | yes | controlled benchmark writes | yes | yes |
 | `aeds-frame-cost` | measurement barrier + benchmark build | no | no | yes | yes |
-| privacy finalize, summaries and release evidence | all completed measurement receipts | no | no | no | no |
+| privacy finalize, summaries and release evidence | all four completed measurement receipts | no | no | no | no |
+
+Browser performance remains visible only in the independently published
+diagnostics performance summary. The correctness `performance-evidence-summary`
+aggregates the four timed measurements plus its non-timed preparation evidence
+and must not import that diagnostics status.
 
 The scheduler includes resident process and OCI reservations in admission
 accounting. If the reservation appears while an elastic consumer is active,
@@ -106,5 +119,8 @@ node --check tools/test/bundles/run-bundle.mjs
 node --check tools/test/verify-privacy-zk-performance-inputs.mjs
 ```
 
-Final acceptance still requires three successful fresh production runs on the
-same SHA. Until those measurements exist, #1081 must remain open.
+Final acceptance still requires three successful fresh browserless Production
+runs on the same SHA, each sealing all four authoritative timed measurements.
+Browser Diagnostics retains its own current-source performance receipt and is
+reported independently rather than becoming a fifth correctness measurement.
+Until the Production measurements exist, #1081 must remain open.
