@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
@@ -46,6 +47,19 @@ test('security static phase is bootstrap-free and retains every static gate exac
     securityStatic.indexOf('network-baseline::') < securityStatic.indexOf('supply-chain::'),
     'measured 74s network gate must lead the 41s supply-chain gate'
   )
+})
+
+test('security domain layout gate uses Node without depending on the checker executable bit', () => {
+  const checker = path.join(root, 'tools/security/check-security-domain-layout.mjs')
+  assert.equal(fs.statSync(checker).mode & 0o111, 0, 'security domain checker fixture must remain non-executable')
+  assert.match(
+    securityStatic,
+    /security-domain::\\"\$\{FSUSBLOG_NODE:-node\}\\" \\"\$ROOT_DIR\/tools\/security\/check-security-domain-layout\.mjs\\"/u
+  )
+
+  const result = spawnSync(process.execPath, [checker], { cwd: root, encoding: 'utf8' })
+  assert.equal(result.status, 0, result.stderr || result.stdout)
+  assert.match(result.stdout, /\[security-domain\] ok:/u)
 })
 
 test('adaptive security pools re-read fail-closed live grants without abandoning active jobs', () => {
