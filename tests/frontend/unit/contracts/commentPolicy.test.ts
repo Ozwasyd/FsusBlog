@@ -46,7 +46,7 @@ describe('comment policy readiness contract', () => {
         [{ zkProdUnavailableReason: 'credential_issuer_unavailable' }, CommentPolicyReadiness.CredentialRootMissing],
         [{ zkProdCredentialRequired: false, zkProdUnavailableReason: '' }, CommentPolicyReadiness.PolicyUnavailable],
         [{ zkProdUnavailableReason: 'dev_verifier_disallowed' }, CommentPolicyReadiness.PolicyUnavailable]
-    ] as const)('fails closed for a non-ready production state', (changes, expected) => {
+    ] as const)('fails closed for a non-ready production state (%j -> %s)', (changes, expected) => {
         const policy = finalizeCommentPolicySnapshot({ ...readySnapshot, ...changes })
 
         expect(policy.zkProdReadiness).toBe(expected)

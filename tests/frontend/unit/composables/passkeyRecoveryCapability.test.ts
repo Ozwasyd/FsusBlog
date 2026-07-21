@@ -12,7 +12,7 @@ describe('passkey recovery capability suggestion', () => {
     [[{ backupEligible: true }], false],
     [[{ backupEligible: false }, { backupEligible: false }], false],
     [[{ backupEligible: false }], true]
-  ])('does not repeat the suggestion when recovery capability exists', (credentials, recoveryEnabled) => {
+  ])('does not repeat the suggestion when recovery capability exists (%j, recovery=%s)', (credentials, recoveryEnabled) => {
     expect(shouldSuggestPasskeyRecovery(credentials, recoveryEnabled)).toBe(false)
   })
 })
