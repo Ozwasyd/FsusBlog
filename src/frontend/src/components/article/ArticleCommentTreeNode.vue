@@ -246,7 +246,13 @@ const toggleBranch = (): void => branchExpanded.value ? collapseBranch() : expan
 .fsus-comment-tree-node__author.is-anonymous,
 .fsus-comment-tree-node__target,
 .fsus-comment-tree-node__time { color: var(--fsusblog-text-quiet); }
-.fsus-comment-tree-node__badge { padding: 2px 6px; border: 1px solid var(--fsusblog-panel-border-strong); border-radius: 999px; font-size: 12px; }
+.fsus-comment-tree-node__badge {
+  padding: 2px 6px;
+  border: 1px solid var(--fsusblog-panel-border-strong);
+  border-radius: 999px;
+  color: var(--fsusblog-text-muted);
+  font-size: 12px;
+}
 .fsus-comment-tree-node__time { font-size: 14px; text-decoration: none; }
 .fsus-comment-tree-node__edited { color: var(--fsusblog-text-quiet); font-size: 12px; }
 .fsus-comment-tree-node__content { margin-block: 8px; overflow-wrap: anywhere; }

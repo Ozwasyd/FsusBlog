@@ -11,11 +11,19 @@
       </span>
       <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] font-normal text-[var(--fsusblog-text-secondary)]">
         <span class="inline-flex items-center gap-1.5">
-          {{ t('article.metadata.words', { count: formatNumber(notice.wordCount) }) }}
+          {{ messages.article.metadata.wordsPrefix }}
+          <span class="tabular-nums font-bold text-[var(--fsusblog-text-primary)]">
+            {{ formatNumber(notice.wordCount) }}
+          </span>
+          {{ messages.article.metadata.wordsSuffix }}
         </span>
         <span class="h-0.5 w-0.5 rounded-[var(--fsus-radius-control-small)] bg-[var(--fsusblog-text-muted)] opacity-40" aria-hidden="true"></span>
         <span class="inline-flex items-center gap-1.5">
-          {{ t('article.metadata.readingMinutes', { count: formatNumber(notice.readingMinutes) }) }}
+          {{ messages.article.metadata.readingMinutesPrefix }}
+          <span class="tabular-nums font-bold text-[var(--fsusblog-text-primary)]">
+            {{ formatNumber(notice.readingMinutes) }}
+          </span>
+          {{ messages.article.metadata.readingMinutesSuffix }}
         </span>
       </div>
     </div>
@@ -30,7 +38,7 @@ defineProps<{
   notice: ArticleReadingNoticeContract
 }>()
 
-const { formatNumber, messages, t } = useI18nText()
+const { formatNumber, messages } = useI18nText()
 </script>
 
 <style scoped>

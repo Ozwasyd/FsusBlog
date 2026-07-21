@@ -29,8 +29,10 @@ export const article = {
     metadata: {
         publishedAt: 'Published',
         updatedAt: 'Updated',
-        words: '{count} words',
-        readingMinutes: '{count} min read',
+        wordsPrefix: '',
+        wordsSuffix: 'words',
+        readingMinutesPrefix: '',
+        readingMinutesSuffix: 'min read',
         longRead: 'Long read',
         longReadAria: 'Long-read notice'
     },

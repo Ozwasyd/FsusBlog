@@ -41,6 +41,7 @@ const publicPageCss = read('src/frontend/src/assets/public-page.css')
 const publicShellFoundation = read('src/frontend/src/assets/public-shell-foundation.css')
 const themeTokens = read('src/frontend/src/ui-tokens/themeTokens.ts')
 const accountLayout = read('src/frontend/src/layouts/AccountLayout.vue')
+const accountShellBase = read('src/frontend/src/assets/account-shell-base.css')
 const progress = read('src/frontend/src/components/article/ArticleReadingProgress.vue')
 const toc = read('src/frontend/src/components/article/ArticleTocPanel.vue')
 const lightbox = read('src/frontend/src/components/article/ArticleImageLightbox.vue')
@@ -59,6 +60,7 @@ const markdownRenderer = read('src/frontend/src/components/ui/MarkdownRenderer.v
 const readingNotice = read('src/frontend/src/components/article/ArticleReadingNotice.vue')
 const articleDetailHeader = read('src/frontend/src/components/article/ArticleDetailHeader.vue')
 const commentsVirtualList = read('src/frontend/src/components/article/ArticleCommentsVirtualList.vue')
+const commentTreeNode = read('src/frontend/src/components/article/ArticleCommentTreeNode.vue')
 const commentMarkdown = read('src/frontend/src/components/article/CommentMarkdownRenderer.vue')
 const commentComposer = read('src/frontend/src/components/article/ArticleCommentComposer.vue')
 const commentsEmpty = read('src/frontend/src/components/public/ArticleCommentsEmptyState.vue')
@@ -71,6 +73,7 @@ const articleDetail = read('src/frontend/src/views/ArticleDetail.vue')
 const featuredArticles = read('src/frontend/src/components/home/FeaturedArticlesSection.vue')
 const homeRecommendations = read('src/frontend/src/components/home/HomeTextFirstRecommendations.vue')
 const hotArticlesIsland = read('src/frontend/src/public-renderers/homeHotArticlesIsland.ts')
+const articleLocaleZh = read('src/frontend/src/locales/zh-CN/article.ts')
 
 for (const token of [
   '.blog-motion-reading-control',
@@ -206,8 +209,12 @@ for (const [source, label] of [
 }
 expectIncludes(readingNotice, 'text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-secondary)]', 'ArticleReadingNotice.vue long-read label stays secondary at 500')
 expectIncludes(readingNotice, 'text-[13px] font-normal text-[var(--fsusblog-text-secondary)]', 'ArticleReadingNotice.vue connective copy stays secondary at 400')
-expectMatches(readingNotice, /全文约\s*<span class="[^"]*\bfont-bold\b[^"]*text-\[var\(--fsusblog-text-primary\)\][^"]*">/, 'ArticleReadingNotice.vue word count remains the primary 700 focal point')
-expectMatches(readingNotice, /预计阅读\s*<span class="[^"]*\bfont-bold\b[^"]*text-\[var\(--fsusblog-text-primary\)\][^"]*">/, 'ArticleReadingNotice.vue reading minutes remain the primary 700 focal point')
+expectIncludes(readingNotice, '{{ messages.article.metadata.wordsPrefix }}', 'ArticleReadingNotice.vue localized word-count prefix')
+expectIncludes(readingNotice, '{{ messages.article.metadata.readingMinutesPrefix }}', 'ArticleReadingNotice.vue localized reading-minutes prefix')
+expectMatches(readingNotice, /messages\.article\.metadata\.wordsPrefix[\s\S]*?<span class="[^"]*\btabular-nums\b[^"]*\bfont-bold\b[^"]*text-\[var\(--fsusblog-text-primary\)\][^"]*">[\s\S]*?formatNumber\(notice\.wordCount\)/, 'ArticleReadingNotice.vue word count remains the primary 700 focal point')
+expectMatches(readingNotice, /messages\.article\.metadata\.readingMinutesPrefix[\s\S]*?<span class="[^"]*\btabular-nums\b[^"]*\bfont-bold\b[^"]*text-\[var\(--fsusblog-text-primary\)\][^"]*">[\s\S]*?formatNumber\(notice\.readingMinutes\)/, 'ArticleReadingNotice.vue reading minutes remain the primary 700 focal point')
+expectIncludes(articleLocaleZh, "wordsPrefix: '全文约'", 'zh-CN article locale preserves the word-count framing copy')
+expectIncludes(articleLocaleZh, "readingMinutesPrefix: '预计阅读'", 'zh-CN article locale preserves the reading-minutes framing copy')
 expectNotMatches(readingNotice, /text-xs font-medium normal-case tracking-normal text-\[var\(--fsusblog-text-primary\)\]/, 'ArticleReadingNotice.vue long-read label must not compete with numeric focal points')
 expectNotMatches(readingNotice, /text-\[13px\] font-medium text-\[var\(--fsusblog-text-secondary\)\]/, 'ArticleReadingNotice.vue connective copy must not regain medium emphasis')
 expectIncludes(publicArticleDetail, 'id="fsus-comments-island"', 'PublicArticleDetailPageContent.vue comments island')
@@ -244,20 +251,20 @@ expectNotMatches(
 )
 
 expectIncludes(
-  accountLayout,
-  'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)]',
-  'AccountLayout.vue'
+  accountShellBase,
+  '.account-header-link:focus-visible {',
+  'account-shell-base.css account header focus owner'
 )
 expectIncludes(
-  accountLayout,
+  accountShellBase,
   'box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);',
-  'AccountLayout.vue'
+  'account-shell-base.css shared inset focus ring'
 )
-expectNotMatches(accountLayout, /\bfocus-visible:ring-1\b/, 'AccountLayout.vue must not use ring-1 focus')
+expectNotMatches(accountShellBase, /\bfocus-visible:ring-1\b/, 'account-shell-base.css must not use ring-1 focus')
 expectNotMatches(
-  accountLayout,
+  accountShellBase,
   /box-shadow:\s*0 0 0 2px var\(--fsusblog-color-focus-ring\)/,
-  'AccountLayout.vue focus must use inset ring'
+  'account-shell-base.css focus must use inset ring'
 )
 expectNotMatches(accountLayout, /backdrop-filter:\s*blur\(/, 'AccountLayout.vue default shell must not use blur')
 
@@ -408,7 +415,8 @@ expectIncludes(publicArticleDetail, 'id="fsus-comments-island"\n      class="mt-
 expectIncludes(publicArticleDetail, 'id="fsus-comments-island-content"\n        class="min-h-0"', 'PublicArticleDetailPageContent.vue comments mount must not reserve a tall empty block')
 expectNotMatches(publicArticleDetail, /class="mt-12 sm:mt-16 border-t border-\[var\(--fsusblog-panel-border\)\] pt-8 sm:pt-10"/, 'PublicArticleDetailPageContent.vue comments island must not add a duplicate top rule and large whitespace after related reading')
 expectNotMatches(publicArticleDetail, /class="min-h-\[10rem\]"/, 'PublicArticleDetailPageContent.vue comments mount must not keep the old tall empty state')
-expectIncludes(publicArticleDetail, 'aria-label="延伸阅读文章"', 'PublicArticleDetailPageContent.vue related reading row-list aria label')
+expectIncludes(publicArticleDetail, ':aria-label="messages.article.content.relatedAria"', 'PublicArticleDetailPageContent.vue localized related reading row-list aria label')
+expectIncludes(articleLocaleZh, "relatedAria: '延伸阅读文章'", 'zh-CN article locale preserves the related-reading aria label')
 expectNotMatches(publicArticleDetail, /grid-cols-\[4rem_minmax\(0,1fr\)\]/, 'PublicArticleDetailPageContent.vue related reading must not squeeze content with a narrow label column')
 expectNotMatches(publicArticleDetail, /class="flex flex-col gap-8"/, 'PublicArticleDetailPageContent.vue extended reading must not keep large vertical gaps')
 expectNotMatches(publicArticleDetail, /class="flex flex-col gap-4"/, 'PublicArticleDetailPageContent.vue extended reading must use compact rows instead of stacked blocks')
@@ -430,18 +438,20 @@ expectNotMatches(commentComposer, /\.fsus-comment-login\s*\{[^}]*justify-content
 expectNotMatches(commentComposer, /fsus-reading-gate|fsus-auth-gate|参与讨论/, 'ArticleCommentComposer.vue compact comment login row must not retain the demoted title gate')
 expectNotMatches(commentDetailContract, /guestShell:\s*'mb-12 py-8 bg-\[var\(--fsusblog-panel-bg\)\]\/50 flex items-center justify-center border border-\[var\(--fsusblog-panel-border\)\]'/, 'commentDetail.ts guest composer prompt must not render as a tall card')
 expectIncludes(commentsVirtualList, 'class="fsus-comments-list"', 'ArticleCommentsVirtualList.vue uses an open editorial comment list')
-expectIncludes(commentsVirtualList, 'isAnonymousAuthor(thread.author)', 'ArticleCommentsVirtualList.vue distinguishes anonymous root authors')
-expectIncludes(commentsVirtualList, 'class="fsus-comment__badge">匿名', 'ArticleCommentsVirtualList.vue labels anonymous identity plainly')
-expectIncludes(commentsVirtualList, 'class="fsus-comment__footer"', 'ArticleCommentsVirtualList.vue places actions in a quiet footer')
-expectIncludes(commentsVirtualList, 'formatCommentRelativeTime(iso)', 'ArticleCommentsVirtualList.vue renders comment times in Chinese')
-expectIncludes(commentsVirtualList, 'padding-block: 20px;', 'ArticleCommentsVirtualList.vue comment item uses the editorial vertical rhythm')
-expectIncludes(commentsVirtualList, 'border-bottom: 1px solid var(--fsusblog-panel-border);', 'ArticleCommentsVirtualList.vue comment item uses the restrained semantic divider')
-expectIncludes(commentsVirtualList, 'box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);', 'ArticleCommentsVirtualList.vue actions keep the shared inset focus ring')
-expectMatches(commentsVirtualList, /\.fsus-comment__author\.is-authenticated\s*\{[^}]*font-weight:\s*700;/s, 'ArticleCommentsVirtualList.vue authenticated authors keep the strong identity weight')
-expectMatches(commentsVirtualList, /\.fsus-comment__badge\s*\{[^}]*border:\s*1px solid var\(--fsusblog-panel-border-strong\);[^}]*color:\s*var\(--fsusblog-text-muted\);/s, 'ArticleCommentsVirtualList.vue anonymous badge keeps readable text and boundary roles')
-expectMatches(commentsVirtualList, /\.fsus-comment__action\s*\{[^}]*color:\s*var\(--fsusblog-text-muted\);/s, 'ArticleCommentsVirtualList.vue actions remain readable at rest')
-expectMatches(commentsVirtualList, /\.fsus-comment__replies\s*\{[^}]*border-left:\s*2px solid var\(--fsusblog-panel-border-strong\);/s, 'ArticleCommentsVirtualList.vue replies retain a visible nested boundary')
-expectMatches(commentsVirtualList, /\.fsus-comment__action--danger:hover\s*\{[^}]*color:\s*var\(--el-color-danger\);/s, 'ArticleCommentsVirtualList.vue destructive hover keeps the danger semantic')
+expectIncludes(commentsVirtualList, "import ArticleCommentTreeNode from '@/components/article/ArticleCommentTreeNode.vue'", 'ArticleCommentsVirtualList.vue delegates recursive comment rendering to its authoritative node owner')
+expectIncludes(commentsVirtualList, '<ArticleCommentTreeNode', 'ArticleCommentsVirtualList.vue renders the recursive node owner')
+expectIncludes(commentTreeNode, "const isAnonymous = computed(() => props.node.author.mode !== 'public')", 'ArticleCommentTreeNode.vue distinguishes anonymous authors')
+expectIncludes(commentTreeNode, 'class="fsus-comment-tree-node__badge">匿名', 'ArticleCommentTreeNode.vue labels anonymous identity plainly')
+expectIncludes(commentTreeNode, 'class="fsus-comment-tree-node__footer"', 'ArticleCommentTreeNode.vue places actions in a quiet footer')
+expectIncludes(commentTreeNode, 'relativeTimeText: formatRelativeTime(props.node.createTime)', 'ArticleCommentTreeNode.vue renders relative comment times in Chinese')
+expectIncludes(commentTreeNode, 'padding-block: 20px;', 'ArticleCommentTreeNode.vue root item uses the editorial vertical rhythm')
+expectIncludes(commentTreeNode, 'border-bottom: 1px solid var(--fsusblog-panel-border);', 'ArticleCommentTreeNode.vue root item uses the restrained semantic divider')
+expectIncludes(commentTreeNode, 'box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);', 'ArticleCommentTreeNode.vue actions keep the shared inset focus ring')
+expectMatches(commentTreeNode, /\.fsus-comment-tree-node__author\.is-authenticated\s*\{[^}]*font-weight:\s*700;/s, 'ArticleCommentTreeNode.vue authenticated authors keep the strong identity weight')
+expectMatches(commentTreeNode, /\.fsus-comment-tree-node__badge\s*\{[^}]*border:\s*1px solid var\(--fsusblog-panel-border-strong\);[^}]*color:\s*var\(--fsusblog-text-muted\);/s, 'ArticleCommentTreeNode.vue anonymous badge keeps readable text and boundary roles')
+expectMatches(commentTreeNode, /\.fsus-comment-tree-node__action\s*\{[^}]*color:\s*var\(--fsusblog-text-muted\);/s, 'ArticleCommentTreeNode.vue actions remain readable at rest')
+expectMatches(commentTreeNode, /\.fsus-comment-tree-node__children\s*\{[^}]*border-left:\s*2px solid var\(--fsusblog-panel-border-strong\);/s, 'ArticleCommentTreeNode.vue replies retain a visible nested boundary')
+expectMatches(commentTreeNode, /\.fsus-comment-tree-node__action\.is-danger:hover\s*\{[^}]*color:\s*var\(--el-color-danger\);/s, 'ArticleCommentTreeNode.vue destructive hover keeps the danger semantic')
 expectNotMatches(commentsVirtualList, /comment-thread-action/, 'ArticleCommentsVirtualList.vue must not retain the old Element Plus action styling')
 expectIncludes(commentMarkdown, 'class="comment-markdown-renderer fsus-markdown-body"', 'CommentMarkdownRenderer.vue exposes the restrained markdown surface')
 expectIncludes(commentMarkdown, 'data-fsus-surface="reading"', 'CommentMarkdownRenderer.vue declares the shared reading surface')
@@ -460,7 +470,8 @@ expectIncludes(commentsEmpty, 'class="fsus-comments-empty"', 'ArticleCommentsEmp
 expectIncludes(commentsEmpty, 'class="fsus-comments-empty__text"', 'ArticleCommentsEmptyState.vue empty state copy')
 expectIncludes(commentsEmpty, 'class="fsus-comments-empty__btn"', 'ArticleCommentsEmptyState.vue guest login action')
 expectIncludes(articleDetail, ":message=\"isCommentsEmpty ? '暂无评论。' : pageDetailView.comments.endText\"", 'ArticleDetail.vue preserves the empty-state copy and end-of-list copy')
-expectIncludes(commentsEmpty, '登录以参与讨论', 'ArticleCommentsEmptyState.vue empty state login text')
+expectIncludes(commentsEmpty, '{{ messages.article.comments.loginCta }}', 'ArticleCommentsEmptyState.vue localized empty state login text binding')
+expectIncludes(articleLocaleZh, "loginCta: '登录以参与讨论'", 'zh-CN article locale preserves the empty state login text')
 expectIncludes(commentsEmpty, 'flex-direction: column;', 'ArticleCommentsEmptyState.vue centered vertical grouping')
 expectIncludes(commentsEmpty, 'align-items: center;', 'ArticleCommentsEmptyState.vue centered horizontal alignment')
 expectIncludes(commentsEmpty, 'justify-content: center;', 'ArticleCommentsEmptyState.vue centered vertical alignment')
@@ -482,6 +493,7 @@ expectIncludes(publicPageCss, '#fsus-aot-shell .blog-link-underline {\n  display
 for (const [source, label] of [
   [publicArticleDetail, 'PublicArticleDetailPageContent.vue'],
   [commentsVirtualList, 'ArticleCommentsVirtualList.vue'],
+  [commentTreeNode, 'ArticleCommentTreeNode.vue'],
   [commentMarkdown, 'CommentMarkdownRenderer.vue'],
   [commentComposer, 'ArticleCommentComposer.vue'],
   [commentsEmpty, 'ArticleCommentsEmptyState.vue']

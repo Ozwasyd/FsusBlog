@@ -3,9 +3,11 @@
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
 import ArticleReadingNotice from '@/components/article/ArticleReadingNotice.vue'
+import { resetLocaleRuntimeForTests, setLocale } from '@/locales'
 
 afterEach(() => {
   document.body.replaceChildren()
+  resetLocaleRuntimeForTests()
 })
 
 describe('ArticleReadingNotice hierarchy', () => {
@@ -39,6 +41,25 @@ describe('ArticleReadingNotice hierarchy', () => {
       expect(metric.classes()).toContain('tabular-nums')
       expect(metric.classes()).toContain('text-[var(--fsusblog-text-primary)]')
     }
+
+    wrapper.unmount()
+  })
+
+  it('keeps the numeric hierarchy while localizing the surrounding English copy', () => {
+    setLocale('en-US')
+    const wrapper = mount(ArticleReadingNotice, {
+      props: {
+        notice: {
+          visible: true,
+          wordCount: 8432,
+          readingMinutes: 34
+        }
+      }
+    })
+
+    expect(wrapper.text()).toContain('8,432 words')
+    expect(wrapper.text()).toContain('34 min read')
+    expect(wrapper.findAll('.font-bold')).toHaveLength(2)
 
     wrapper.unmount()
   })
