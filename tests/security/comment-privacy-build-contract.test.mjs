@@ -8,7 +8,9 @@ import test from 'node:test'
 
 import {
   commentPrivacyBuildContract,
-  validateCommentPrivacyBuild
+  validateCommentPrivacyBuild,
+  validateCommentPrivacyWasmBuildSource,
+  validateRetiredCommentPrivacyBuildResidue
 } from '../../tools/security/comment-privacy-build-contract.mjs'
 
 const root = path.resolve(import.meta.dirname, '..', '..')
@@ -86,12 +88,55 @@ test('build contracts contain no retired proving-key restore path', () => {
     'tools/build-wasm-artifact.sh'
   ]) {
     const source = readFileSync(path.join(root, relativePath), 'utf8')
+    assert.deepEqual(validateRetiredCommentPrivacyBuildResidue(source), [], relativePath)
     const retiredKeyPattern = new RegExp([
       `COMMENT_PRIVACY_${'PROVER_KEY_PATH'}`
     ].join('|'), 'u')
     assert.doesNotMatch(source, retiredKeyPattern,
       relativePath)
   }
+})
+
+test('Wasm build contract rejects an appended retired prover archive block and compatibility flags', () => {
+  const source = readFileSync(path.join(root, 'src/frontend/wasm/build.sh'), 'utf8')
+  assert.deepEqual(validateCommentPrivacyWasmBuildSource(source), [])
+
+  const bundleVariable = ['PROVER', 'BUNDLE'].join('_')
+  const bundleTarVariable = [bundleVariable, 'TAR'].join('_')
+  const bundleEnvironment = ['FSUSBLOG', 'COMMENT', 'PROVER', 'BUNDLE'].join('_')
+  const retiredVersion = ['v', '3'].join('')
+  const retiredLayout = ['layout', '4'].join('')
+  const retiredArchiveBlock = [
+    `${bundleVariable}="\${${bundleEnvironment}:-\${ROOT_DIR}/../../artifacts/zk/comment-${retiredVersion}-${retiredLayout}/delivery/comment_${retiredVersion}_prover_wasm.tar.gz}"`,
+    `${bundleTarVariable}="\${${bundleVariable}}.tmp.tar"`,
+    `tar --sort=name -cf "\${${bundleTarVariable}}" comment-privacy-prover.js comment-privacy-prover.zkey`,
+    `gzip -n -9 -f "\${${bundleTarVariable}}"`
+  ].join('\n')
+  const archiveErrors = validateCommentPrivacyWasmBuildSource(`${source}\n${retiredArchiveBlock}\n`)
+  for (const token of [bundleEnvironment, bundleVariable, bundleTarVariable]) {
+    assert.ok(archiveErrors.some((error) => error.endsWith(token)), `missing fail-closed error for ${token}`)
+  }
+  assert.match(archiveErrors.join('\n'), /prover archive under artifacts\/zk/u)
+  assert.match(archiveErrors.join('\n'), /with tar/u)
+  assert.match(archiveErrors.join('\n'), /with gzip/u)
+
+  const retiredKeyEnvironment = ['FSUSBLOG', 'COMMENT', 'PROVER', 'KEY'].join('_')
+  assert.match(
+    validateCommentPrivacyWasmBuildSource(`${source}\n${retiredKeyEnvironment}=fixture\n`).join('\n'),
+    /retired comment-prover compatibility token/u
+  )
+
+  const legitimateArchiveBlock = [
+    'AEDS_RUNTIME_ARCHIVE="build/aeds-runtime.tar.gz"',
+    'tar -cf "${AEDS_RUNTIME_ARCHIVE%.gz}" aeds-runtime-manifest.json wasm-manifest.aeds',
+    'gzip -9 -f "${AEDS_RUNTIME_ARCHIVE%.gz}"',
+    'VERIFIER_FIXTURE="artifacts/zk/comment-v5/verifier-fixture.tar.gz"'
+  ].join('\n')
+  assert.deepEqual(
+    validateCommentPrivacyWasmBuildSource(`${source}\n${legitimateArchiveBlock}\n`),
+    [],
+    'non-prover AEDS and verifier-fixture archives remain valid'
+  )
 })
 
 function createReadyFixture(t) {

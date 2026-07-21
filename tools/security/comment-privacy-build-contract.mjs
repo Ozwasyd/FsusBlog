@@ -29,6 +29,77 @@ export function productionZkRequested(env = process.env) {
   return value === '1'
 }
 
+export function validateCommentPrivacyWasmBuildSource(source) {
+  const buildSource = String(source ?? '')
+  const errors = []
+  const requiredTokens = [
+    'COMMENT_PRIVACY_BUILD_CONTRACT="${REPOSITORY_ROOT}/tools/security/comment-privacy-build-contract.mjs"',
+    '"${FSUSBLOG_NODE:-node}" "${COMMENT_PRIVACY_BUILD_CONTRACT}" --print-mode)',
+    '"${FSUSBLOG_NODE:-node}" "${COMMENT_PRIVACY_BUILD_CONTRACT}" --print-proving-key)',
+    'comment_privacy=%s circuit=fsus.anonymous.comment.v5 layout=6'
+  ]
+  for (const token of requiredTokens) {
+    if (!buildSource.includes(token)) errors.push(`Wasm build is missing current v5 contract token: ${token}`)
+  }
+
+  for (const [label, statement, enabledOnlyBlock] of [
+    [
+      'proving key',
+      'cp -f "${COMMENT_PRIVACY_PROVER_KEY}" "${OUT_DIR}/comment-privacy-prover.zkey"',
+      'if [[ "${COMMENT_PRIVACY_BUILD_MODE}" == "enabled" ]]; then\n' +
+        '    cp -f "${COMMENT_PRIVACY_PROVER_KEY}" "${OUT_DIR}/comment-privacy-prover.zkey"\nfi'
+    ],
+    [
+      'prover manifest',
+      'node "${REPOSITORY_ROOT}/tools/frontend/write-comment-privacy-prover-manifest.mjs"',
+      'if [[ "${COMMENT_PRIVACY_BUILD_MODE}" == "enabled" ]]; then\n' +
+        '    FSUSBLOG_REPOSITORY_ROOT="${REPOSITORY_ROOT}" \\\n' +
+        '        node "${REPOSITORY_ROOT}/tools/frontend/write-comment-privacy-prover-manifest.mjs"\nfi'
+    ]
+  ]) {
+    if (!buildSource.includes(enabledOnlyBlock)) {
+      errors.push(`Wasm build must emit the ${label} only when the current v5 contract is enabled`)
+    }
+    if (buildSource.split(statement).length !== 2) {
+      errors.push(`Wasm build must contain exactly one ${label} emission statement`)
+    }
+  }
+
+  errors.push(...validateRetiredCommentPrivacyBuildResidue(buildSource))
+  return errors
+}
+
+export function validateRetiredCommentPrivacyBuildResidue(source) {
+  const buildSource = String(source ?? '')
+  const errors = []
+  const retiredCompatibilityTokens = [
+    ['FSUSBLOG', 'COMMENT', 'PROVER', 'BUNDLE'].join('_'),
+    ['FSUSBLOG', 'COMMENT', 'PROVER', 'KEY'].join('_'),
+    ['PROVER', 'BUNDLE', 'TAR'].join('_'),
+    ['PROVER', 'BUNDLE'].join('_')
+  ]
+  for (const token of retiredCompatibilityTokens) {
+    if (buildSource.includes(token)) errors.push(`Wasm build retains retired comment-prover compatibility token: ${token}`)
+  }
+  const proverArchivePath = /artifacts\/zk\/[^\s"'`]*(?:prover|bundle)[^\s"'`]*(?:\.tar(?:\.gz)?|\.tgz)\b/iu
+  if (proverArchivePath.test(buildSource)) {
+    errors.push('Wasm build must not recreate a prover archive under artifacts/zk')
+  }
+  const logicalLines = buildSource.replace(/\\\r?\n[ \t]*/gu, ' ').split(/\r?\n/u)
+  const archiveCommand = /^[ \t]*(?:(?:[A-Za-z_][A-Za-z0-9_]*=[^ \t]+)[ \t]+)*(?:command[ \t]+)?(?<tool>tar|gzip)(?:[ \t]|$)/u
+  const privacyArchiveArgument = new RegExp([
+    'comment[-_]privacy[-_](?:prover|runtime)',
+    ...retiredCompatibilityTokens,
+    'artifacts/zk/[^\\s"\'`]*(?:prover|bundle)[^\\s"\'`]*(?:\\.tar(?:\\.gz)?|\\.tgz)\\b'
+  ].join('|'), 'iu')
+  for (const line of logicalLines) {
+    const command = line.match(archiveCommand)
+    if (!command || !privacyArchiveArgument.test(line)) continue
+    errors.push(`Wasm build must not package comment-prover outputs with ${command.groups.tool}`)
+  }
+  return errors
+}
+
 export function validateCommentPrivacyBuild({
   root = process.env.FSUSBLOG_REPOSITORY_ROOT || defaultRoot,
   env = process.env

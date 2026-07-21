@@ -2,6 +2,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { validateCommentPrivacyWasmBuildSource } from '../../../../tools/security/comment-privacy-build-contract.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
 const errors = []
@@ -215,11 +216,36 @@ requireIncludes('src/frontend/wasm/build.sh', [
   '--check-source-paths',
   'emcmake "${CMAKE_BIN}" --fresh "${WASM_SOURCE_DIR}"',
   'emcmake "${CMAKE_BIN}" --fresh "${WASM_POW_SOURCE_DIR}"',
-  '--sort=name',
-  '--mtime=@0',
-  '--numeric-owner',
-  'gzip -n -9'
+  'COMMENT_PRIVACY_BUILD_CONTRACT="${REPOSITORY_ROOT}/tools/security/comment-privacy-build-contract.mjs"',
+  '"${FSUSBLOG_NODE:-node}" "${COMMENT_PRIVACY_BUILD_CONTRACT}" --print-mode)',
+  '"${FSUSBLOG_NODE:-node}" "${COMMENT_PRIVACY_BUILD_CONTRACT}" --print-proving-key)',
+  'comment_privacy=%s circuit=fsus.anonymous.comment.v5 layout=6'
 ])
+const wasmBuildSource = read('src/frontend/wasm/build.sh')
+for (const [label, statement, enabledOnlyBlock] of [
+  [
+    'proving key',
+    'cp -f "${COMMENT_PRIVACY_PROVER_KEY}" "${OUT_DIR}/comment-privacy-prover.zkey"',
+    'if [[ "${COMMENT_PRIVACY_BUILD_MODE}" == "enabled" ]]; then\n' +
+      '    cp -f "${COMMENT_PRIVACY_PROVER_KEY}" "${OUT_DIR}/comment-privacy-prover.zkey"\nfi'
+  ],
+  [
+    'prover manifest',
+    'node "${REPOSITORY_ROOT}/tools/frontend/write-comment-privacy-prover-manifest.mjs"',
+    'if [[ "${COMMENT_PRIVACY_BUILD_MODE}" == "enabled" ]]; then\n' +
+      '    FSUSBLOG_REPOSITORY_ROOT="${REPOSITORY_ROOT}" \\\n' +
+      '        node "${REPOSITORY_ROOT}/tools/frontend/write-comment-privacy-prover-manifest.mjs"\nfi'
+  ]
+]) {
+  if (!wasmBuildSource.includes(enabledOnlyBlock)) {
+    errors.push(`src/frontend/wasm/build.sh must emit the ${label} only when the current v5 build contract is enabled`)
+  }
+  if (wasmBuildSource.split(statement).length !== 2) {
+    errors.push(`src/frontend/wasm/build.sh must contain exactly one ${label} emission statement`)
+  }
+}
+errors.push(...validateCommentPrivacyWasmBuildSource(wasmBuildSource)
+  .map((error) => `src/frontend/wasm/build.sh ${error}`))
 requireIncludes('tools/test/bundles/bundle-steps.mjs', [
   "step('cross-stack', 'FSUSBLOG_OPENAPI_BUILD=0 tools/test/lanes/cross-stack-contract.sh static'",
   "step('cross-stack-runtime', 'tools/test/lanes/cross-stack-contract.sh runtime'",
