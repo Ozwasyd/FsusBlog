@@ -1,5 +1,7 @@
 using System.Reflection;
 
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Interfaces;
@@ -8,6 +10,7 @@ using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Moderation;
+using FsusBlog.Shared.Contracts.Outputs;
 
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -19,7 +22,9 @@ namespace FsusBlog.Server.Tests.Unit;
 /// <summary>
 /// Tests CommentCommandService validation paths that return early before any DB query.
 /// </summary>
-public class CommentServiceValidationTests
+[Trait("Dependency", "Docker")]
+[Collection(nameof(SchemaMigrationPostgresCollectionB))]
+public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixture)
 {
     private static CommentCommandService BuildService()
     {
@@ -331,14 +336,86 @@ public class CommentServiceValidationTests
     }
 
     [Fact]
-    public void ApprovedReplyNotification_UsesTransitionScopedIdentityAndCarriesCommentLocation()
+    public async Task ApprovedReplyNotification_UsesTransitionScopedIdentityAndCarriesCommentLocation()
     {
-        string source = File.ReadAllText(BackendTestPaths.FromRoot(
-            "src/backend/Services/Authoring/AuthoringModerationWorkflowService.cs"));
+        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        PostgresSqlSugarTestClient.InitTables(
+            db,
+            typeof(User),
+            typeof(Article),
+            typeof(Comment),
+            typeof(CommentRegionCompliance));
+        DateTime createdAt = DateTime.UtcNow.AddMinutes(-1);
+        await db.Insertable(new Article
+        {
+            Id = 42,
+            Title = "Notification article",
+            CategoryId = 1,
+            Views = 0,
+            CreateTime = createdAt,
+            Status = ArticleStatus.Published,
+            PublishedAt = createdAt
+        }).ExecuteCommandAsync();
+        await db.Insertable(new[]
+        {
+            new Comment
+            {
+                Id = 100,
+                ArticleId = 42,
+                UserId = 7,
+                AuthorMode = CommentAuthorModes.Public,
+                PublicHandle = "target-user",
+                Content = "parent",
+                CreateTime = createdAt,
+                ModerationStatus = CommentModerationStatus.Approved
+            },
+            new Comment
+            {
+                Id = 101,
+                ArticleId = 42,
+                UserId = 8,
+                AuthorMode = CommentAuthorModes.Public,
+                PublicHandle = "reply-user",
+                Content = "approved reply",
+                CreateTime = createdAt,
+                ParentId = 100,
+                RootId = 100,
+                ReplyToCommentId = 100,
+                ReplyToUserId = 7,
+                Depth = 1,
+                ModerationStatus = CommentModerationStatus.Pending
+            }
+        }).ExecuteCommandAsync();
+        var contentFilter = Substitute.For<IContentFilterService>();
+        contentFilter.ValidateContent(Arg.Any<string>())
+            .Returns(new ContentValidationResult(true, string.Empty, string.Empty));
+        IMessageCommandService commands = Substitute.For<IMessageCommandService>();
+        IMessageRealtimePublisher realtime = Substitute.For<IMessageRealtimePublisher>();
+        var service = new AuthoringModerationWorkflowService(
+            db,
+            contentFilter,
+            Substitute.For<IBlacklistService>(),
+            Substitute.For<ICacheInvalidationDispatcher>(),
+            realtime,
+            commands,
+            new AuthoringAuditWriter(new AuditLogChannel()),
+            NullLogger<AuthoringModerationWorkflowService>.Instance);
 
-        Assert.Contains("comment-moderation-notify-reply:{row.Id}:{row.ReplyToUserId.Value}", source, StringComparison.Ordinal);
-        Assert.Contains("/article/{row.ArticleId}#comment-{row.Id}", source, StringComparison.Ordinal);
-        Assert.Contains("row.Status != CommentModerationStatus.Approved && nextStatus == CommentModerationStatus.Approved", source, StringComparison.Ordinal);
+        Assert.True(await service.ModerateCommentAsync(
+            9,
+            101,
+            new CommentModerationRequest(CommentModerationStatus.Approved, "reviewed")));
+        Assert.False(await service.ModerateCommentAsync(
+            9,
+            101,
+            new CommentModerationRequest(CommentModerationStatus.Approved, "duplicate")));
+
+        await commands.Received(1).SendAccountTransactionalNoticeAsync(
+            7,
+            "收到新的评论回复",
+            Arg.Is<string>(body => body.Contains("/article/42#comment-101", StringComparison.Ordinal)));
+        await realtime.Received(1).PushCommentAddAsync(
+            Arg.Is<CommentAddedNotifyDto>(notification => notification.Comment.Depth == 1));
     }
 
     private static T InvokeAttributionPrivateStatic<T>(string methodName, object?[] args)

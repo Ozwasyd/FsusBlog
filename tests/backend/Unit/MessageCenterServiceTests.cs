@@ -35,24 +35,36 @@ public sealed class MessageCenterServiceTests
     [Fact]
     public void BinaryMessageMutationEndpoints_RequireStableCommandIdentityHeaders()
     {
-        string endpoints = File.ReadAllText(BackendTestPaths.FromRoot(
-            "src",
-            "backend",
-            "Modules",
-            "Endpoints",
-            "Binary",
-            "BinaryEndpoints.Messages.cs"));
+        var context = new DefaultHttpContext();
+        Assert.False(InvokeMessageHeaderParser<string>("TryResolveClientMutationId", context, out _));
+        Assert.False(InvokeMessageHeaderParser<long>("TryResolveSourceEventId", context, out _));
 
-        Assert.Contains("X-Fsus-Client-Mutation-Id", endpoints, StringComparison.Ordinal);
-        Assert.Contains("client_mutation_id_required", endpoints, StringComparison.Ordinal);
-        Assert.Contains("X-Fsus-Source-Event-Id", endpoints, StringComparison.Ordinal);
-        Assert.Contains("source_event_id_required", endpoints, StringComparison.Ordinal);
+        context.Request.Headers["X-Fsus-Client-Mutation-Id"] = " stable-command-17 ";
+        context.Request.Headers["X-Fsus-Source-Event-Id"] = "91231001";
+        Assert.True(InvokeMessageHeaderParser("TryResolveClientMutationId", context, out string mutationId));
+        Assert.Equal("stable-command-17", mutationId);
+        Assert.True(InvokeMessageHeaderParser("TryResolveSourceEventId", context, out long sourceEventId));
+        Assert.Equal(91231001, sourceEventId);
+
+        context.Request.Headers["X-Fsus-Client-Mutation-Id"] = new string('x', 65);
+        context.Request.Headers["X-Fsus-Source-Event-Id"] = "-1";
+        Assert.False(InvokeMessageHeaderParser<string>("TryResolveClientMutationId", context, out _));
+        Assert.False(InvokeMessageHeaderParser<long>("TryResolveSourceEventId", context, out _));
         Assert.Equal(
             typeof(bool),
             typeof(ConversationDetailResponse).GetProperty(nameof(ConversationDetailResponse.IdempotencyReplay))!.PropertyType);
         Assert.Equal(
             typeof(bool),
             typeof(ConversationMessageResponse).GetProperty(nameof(ConversationMessageResponse.IdempotencyReplay))!.PropertyType);
+    }
+
+    private static bool InvokeMessageHeaderParser<T>(string methodName, HttpContext context, out T value)
+    {
+        MethodInfo method = typeof(BinaryEndpoints).GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static)!;
+        object?[] arguments = [context, null];
+        bool success = (bool)method.Invoke(null, arguments)!;
+        value = arguments[1] is T parsed ? parsed : default!;
+        return success;
     }
 
     [Fact]

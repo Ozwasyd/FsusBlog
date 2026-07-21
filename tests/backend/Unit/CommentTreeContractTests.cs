@@ -1,12 +1,28 @@
 using System.Runtime.InteropServices;
 
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Models.CommentIdentity;
+using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Shared.Contracts.Models;
+using FsusBlog.Shared.Contracts.Outputs;
+
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
+
+using NSubstitute;
+
+using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
-public sealed class CommentTreeContractTests
+[Trait("Dependency", "Docker")]
+[Collection(nameof(SchemaMigrationPostgresCollectionB))]
+public sealed class CommentTreeContractTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
     public async Task InvalidTreeCoordinates_ReturnEmptyWithoutDatabaseAccess()
@@ -52,31 +68,123 @@ public sealed class CommentTreeContractTests
     }
 
     [Fact]
-    public void CommentWrites_EnforceDepthAndPerParentConcurrencyLimits()
+    public async Task CommentWrites_EnforceDepthAndPerParentConcurrencyLimits()
     {
-        string source = File.ReadAllText(BackendTestPaths.FromRoot("src/backend/Services/CommentService.cs"));
+        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        PostgresSqlSugarTestClient.InitTables(db, typeof(User), typeof(Article), typeof(Comment), typeof(CommentRegionCompliance));
+        DateTime createdAt = DateTime.UtcNow.AddMinutes(-1);
+        await db.Insertable(new Article
+        {
+            Id = 42,
+            Title = "Comment limits",
+            CategoryId = 1,
+            Views = 0,
+            CreateTime = createdAt,
+            Status = ArticleStatus.Published,
+            PublishedAt = createdAt
+        }).ExecuteCommandAsync();
+        await db.Insertable(new[]
+        {
+            Comment(99, parentId: null, rootId: null, depth: 0),
+            Comment(100, parentId: 99, rootId: 99, depth: 2),
+            Comment(200, parentId: null, rootId: null, depth: 0),
+            Comment(201, parentId: 200, rootId: 200, depth: 1)
+        }).ExecuteCommandAsync();
+        ICommentAttributionPrivacyService attribution = Substitute.For<ICommentAttributionPrivacyService>();
+        attribution.ResolvePublicActorAsync(
+                Arg.Any<int>(),
+                Arg.Any<CommentDto>(),
+                Arg.Any<string>(),
+                Arg.Any<string?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(new CommentActor(
+                8,
+                CommentAuthorModes.Public,
+                "writer",
+                null,
+                "writer",
+                "zh-CN",
+                null,
+                null,
+                "writer-subject",
+                "common",
+                false));
+        ICacheInvalidationDispatcher invalidations = Substitute.For<ICacheInvalidationDispatcher>();
+        ICommentNotificationService notifications = Substitute.For<ICommentNotificationService>();
+        var service = new CommentCommandService(
+            db,
+            NullLogger<CommentCommandService>.Instance,
+            notifications,
+            new CommentModerationService(
+                db,
+                new RegionLegalModerationService(),
+                invalidations,
+                notifications,
+                NullLogger<CommentModerationService>.Instance),
+            attribution,
+            invalidations,
+            new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["CommentThreads:MaxDepth"] = "2",
+                ["CommentThreads:MaxChildrenPerNode"] = "1"
+            }).Build());
 
-        Assert.Contains("CommentThreads:MaxDepth", source, StringComparison.Ordinal);
-        Assert.Contains("CommentThreads:MaxChildrenPerNode", source, StringComparison.Ordinal);
-        Assert.Contains("pg_advisory_xact_lock(@ParentId)", source, StringComparison.Ordinal);
-        Assert.Contains("comment.ParentId == parentId", source, StringComparison.Ordinal);
-        Assert.Contains("comment_thread_depth_limit", source, StringComparison.Ordinal);
-        Assert.Contains("comment_child_limit", source, StringComparison.Ordinal);
+        Assert.False(await service.CreateCommentAsync(8, new CommentDto
+        {
+            ArticleId = 42,
+            Content = "too deep",
+            ParentId = "100",
+            RootId = "99"
+        }));
+        Assert.False(await service.CreateCommentAsync(8, new CommentDto
+        {
+            ArticleId = 42,
+            Content = "too many children",
+            ParentId = "200",
+            RootId = "200"
+        }));
+        Assert.Equal(4, await db.Queryable<Comment>().CountAsync());
 
-        string endpoint = File.ReadAllText(BackendTestPaths.FromRoot("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs"));
-        Assert.Contains("ErrorCode.Conflict", endpoint, StringComparison.Ordinal);
-        Assert.Contains("result.FailureCode ?? fallbackMessage", endpoint, StringComparison.Ordinal);
+        string runtime = RuntimeMetadataInspection.DescribeType(typeof(CommentCommandService));
+        Assert.Contains("pg_advisory_xact_lock(@ParentId)", runtime, StringComparison.Ordinal);
+        Assert.Contains("comment_thread_depth_limit", runtime, StringComparison.Ordinal);
+        Assert.Contains("comment_child_limit", runtime, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void RealtimeDepth_RemainsServerAuthoritative()
+    public async Task RealtimeDepth_RemainsServerAuthoritative()
     {
-        string direct = File.ReadAllText(BackendTestPaths.FromRoot("src/backend/Services/CommentNotificationService.cs"));
-        string moderation = File.ReadAllText(BackendTestPaths.FromRoot("src/backend/Services/Authoring/AuthoringModerationWorkflowService.cs"));
+        IMessageRealtimePublisher realtime = Substitute.For<IMessageRealtimePublisher>();
+        var notifications = new CommentNotificationService(
+            realtime,
+            Substitute.For<IMessageCommandService>(),
+            NullLogger<CommentNotificationService>.Instance);
+        var comment = Comment(901, parentId: 900, rootId: 800, depth: 9);
 
-        Assert.DoesNotContain("Math.Clamp(comment.Depth, 0, 2)", direct, StringComparison.Ordinal);
-        Assert.DoesNotContain("Math.Min(2, Math.Max(0, row.Depth))", moderation, StringComparison.Ordinal);
-        Assert.Contains("Depth = Math.Max(0, comment.Depth)", direct, StringComparison.Ordinal);
-        Assert.Contains("Depth = Math.Max(0, row.Depth)", moderation, StringComparison.Ordinal);
+        await notifications.PublishAddedAsync(comment, DateTime.UtcNow);
+
+        await realtime.Received(1).PushCommentAddAsync(
+            Arg.Is<CommentAddedNotifyDto>(notification => notification.Comment.Depth == 9),
+            Arg.Any<string?>());
+        string moderationRuntime = RuntimeMetadataInspection.DescribeMethods(
+            typeof(AuthoringModerationWorkflowService),
+            "PublishModerationRealtimeAsync");
+        Assert.Contains("Math.Max", moderationRuntime, StringComparison.Ordinal);
     }
+
+    private static Comment Comment(long id, long? parentId, long? rootId, int depth)
+        => new()
+        {
+            Id = id,
+            ArticleId = 42,
+            UserId = 7,
+            AuthorMode = CommentAuthorModes.Public,
+            PublicHandle = "target",
+            Content = $"comment {id}",
+            CreateTime = DateTime.UtcNow.AddMinutes(-1),
+            ParentId = parentId,
+            RootId = rootId,
+            Depth = depth,
+            ModerationStatus = CommentModerationStatus.Approved
+        };
 }

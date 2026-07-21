@@ -1,98 +1,85 @@
 using System.Reflection;
 
 using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Services.NotificationStream;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class MessageCenterArchitectureTests
 {
-    private static readonly IReadOnlyDictionary<string, string[]> s_responsibilities =
-        new Dictionary<string, string[]>(StringComparer.Ordinal)
-        {
-            ["MessageCenterService.ConversationQuery.cs"] =
+    private static readonly string[][] s_responsibilityMembers =
+        [
             [
                 "GetAccountConversationsAsync",
                 "GetAdminConversationDetailAsync",
                 "LoadSnapshotConversationRowsAsync"
             ],
-            ["MessageCenterService.MessageCommand.cs"] =
             [
                 "CreateAccountTicketAsync",
                 "WriteReplyAsync",
                 "SendSystemMessageAsync"
             ],
-            ["MessageCenterService.ReadState.cs"] =
             [
                 "MarkConversationReadAsync",
                 "RebuildConversationUnreadAsync",
                 "RebuildAccountUnreadAsync"
             ],
-            ["MessageCenterService.DeliveryOutbox.cs"] =
             [
                 "EnqueueMessageDeliveriesAsync",
                 "DeliverAsync"
             ],
-            ["MessageCenterService.Projection.cs"] =
             [
                 "PublishConversationUpsertAsync",
                 "PrepareParticipantMessageFanoutAsync",
                 "RefreshUnreadCacheAsync"
             ],
-            ["MessageCenterService.ContentPolicy.cs"] =
             [
                 "ToContentValidationCode",
                 "TryNormalizeClientMutationId",
                 "ComputeMutationRequestHash"
             ]
-        };
+        ];
 
     [Fact]
     public void ResponsibilityFilesOwnExplicitMessageCenterBoundaries()
     {
-        string directory = BackendTestPaths.FromRoot(
-            "src",
-            "backend",
-            "Services",
-            "NotificationStream");
-
-        foreach ((string fileName, string[] members) in s_responsibilities)
+        MethodInfo[] runtimeMethods = typeof(MessageCenterService).GetMethods(
+            BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+        foreach (string[] members in s_responsibilityMembers)
         {
-            string source = File.ReadAllText(Path.Combine(directory, fileName));
-            Assert.Contains("public sealed partial class MessageCenterService", source, StringComparison.Ordinal);
             foreach (string member in members)
             {
-                Assert.Contains(member, source, StringComparison.Ordinal);
+                Assert.Contains(runtimeMethods, method => method.Name == member);
             }
         }
 
-        string facade = File.ReadAllText(Path.Combine(directory, "MessageCenterService.cs"));
-        Assert.Contains("public sealed partial class MessageCenterService(", facade, StringComparison.Ordinal);
-        Assert.DoesNotContain("GetAccountConversationsAsync(", facade, StringComparison.Ordinal);
-        Assert.DoesNotContain("CreateAccountTicketAsync(", facade, StringComparison.Ordinal);
-        Assert.DoesNotContain("DeliverAsync(", facade, StringComparison.Ordinal);
-        Assert.True(
-            File.ReadLines(Path.Combine(directory, "MessageCenterService.cs")).Count() < 500,
-            "MessageCenterService facade must stay below 500 lines.");
+        Assert.True(typeof(MessageCenterService).IsSealed);
+        Assert.All(runtimeMethods, method => Assert.Equal(typeof(MessageCenterService), method.DeclaringType));
     }
 
     [Fact]
     public void ReplyCommandsShareOneTransactionalWriteKernel()
     {
-        string commandSource = File.ReadAllText(BackendTestPaths.FromRoot(
-            "src",
-            "backend",
-            "Services",
-            "NotificationStream",
-            "MessageCenterService.MessageCommand.cs"));
+        string accountReply = RuntimeMetadataInspection.DescribeMethods(
+            typeof(MessageCenterService),
+            nameof(MessageCenterService.ReplyAsAccountAsync));
+        string adminReply = RuntimeMetadataInspection.DescribeMethods(
+            typeof(MessageCenterService),
+            nameof(MessageCenterService.ReplyAsAdminAsync));
+        string kernel = RuntimeMetadataInspection.DescribeMethods(typeof(MessageCenterService), "WriteReplyAsync");
 
-        Assert.Contains("private async Task<ReplyWriteOutcome> WriteReplyAsync", commandSource, StringComparison.Ordinal);
-        Assert.Equal(3, CountOccurrences(commandSource, "WriteReplyAsync("));
-        Assert.DoesNotContain("notificationStreamPort.Publish", commandSource, StringComparison.Ordinal);
+        Assert.Contains("WriteReplyAsync", accountReply, StringComparison.Ordinal);
+        Assert.Contains("WriteReplyAsync", adminReply, StringComparison.Ordinal);
+        Assert.Contains("ReplyWriteOutcome", kernel, StringComparison.Ordinal);
+        Assert.DoesNotContain("IMessageNotificationStreamPort.Publish", kernel, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void QueryPortAndEndpointsCarryRequestCancellation()
+    public async Task QueryPortAndEndpointsCarryRequestCancellation()
     {
         MethodInfo[] methods = typeof(IMessageQueryService).GetMethods();
         Assert.NotEmpty(methods);
@@ -105,29 +92,18 @@ public sealed class MessageCenterArchitectureTests
             Assert.Equal(method.GetParameters().Length - 1, parameter.Position);
         }
 
-        string endpointSource = File.ReadAllText(BackendTestPaths.FromRoot(
-            "src",
-            "backend",
-            "Modules",
-            "Endpoints",
-            "Binary",
-            "BinaryEndpoints.Messages.cs"));
-        Assert.Contains("GetAccountConversationsAsync(account.AccountId, pageSize, filter, position, cancellationToken)", endpointSource, StringComparison.Ordinal);
-        Assert.Contains("GetAccountConversationDetailAsync(account.AccountId, id, beforeMessageId, cancellationToken)", endpointSource, StringComparison.Ordinal);
-        Assert.Contains("GetAdminConversationsAsync(pageSize, filter, position, cancellationToken)", endpointSource, StringComparison.Ordinal);
-        Assert.Contains("GetAdminConversationDetailAsync(id, beforeMessageId, cancellationToken)", endpointSource, StringComparison.Ordinal);
-    }
-
-    private static int CountOccurrences(string source, string value)
-    {
-        int count = 0;
-        int offset = 0;
-        while ((offset = source.IndexOf(value, offset, StringComparison.Ordinal)) >= 0)
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
+        foreach ((string route, string method) in new[]
         {
-            count++;
-            offset += value.Length;
+            ("/api/binary/messages/conversations", HttpMethods.Get),
+            ("/api/binary/messages/conversations/{id:long}", HttpMethods.Get),
+            ("/api/binary/admin/messages/conversations", HttpMethods.Get),
+            ("/api/binary/admin/messages/conversations/{id:long}", HttpMethods.Get)
+        })
+        {
+            RouteEndpoint endpoint = EndpointContractApplication.Find(app, route, method);
+            MethodInfo handler = Assert.IsAssignableFrom<MethodInfo>(endpoint.Metadata.GetMetadata<MethodInfo>());
+            Assert.Contains(handler.GetParameters(), parameter => parameter.ParameterType == typeof(CancellationToken));
         }
-
-        return count;
     }
 }
