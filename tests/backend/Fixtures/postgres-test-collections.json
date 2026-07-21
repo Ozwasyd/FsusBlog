@@ -29,7 +29,7 @@
     },
     {
       "id": "SchemaMigrationPostgresCollectionB",
-      "estimatedFacts": 343,
+      "estimatedFacts": 311,
       "tests": [
         { "path": "Integration/AccountEnrollmentIntegrationTests.cs", "class": "AccountEnrollmentIntegrationTests" },
         { "path": "Integration/MessageCenterQueryPlanIntegrationTests.cs", "class": "MessageCenterQueryPlanIntegrationTests" },
