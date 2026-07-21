@@ -585,12 +585,8 @@ public partial class CommentCommandService(
                 p.root_id AS "RootId",
                 p.parent_id AS "ParentId",
                 p.depth AS "Depth",
-                u.id AS "UserId"
+                p.user_id AS "UserId"
             FROM comment p
-            LEFT JOIN sys_user u
-              ON u.id = p.user_id
-             AND u.status = 0
-             AND u.deleted_at IS NULL
             JOIN comment r
               ON r.id = COALESCE(p.root_id, p.id)
              AND r.article_id = p.article_id
