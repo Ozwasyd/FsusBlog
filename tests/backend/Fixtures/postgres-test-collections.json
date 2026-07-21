@@ -29,7 +29,7 @@
     },
     {
       "id": "SchemaMigrationPostgresCollectionB",
-      "estimatedFacts": 289,
+      "estimatedFacts": 343,
       "tests": [
         { "path": "Integration/AccountEnrollmentIntegrationTests.cs", "class": "AccountEnrollmentIntegrationTests" },
         { "path": "Integration/MessageCenterQueryPlanIntegrationTests.cs", "class": "MessageCenterQueryPlanIntegrationTests" },
@@ -61,6 +61,8 @@
         { "path": "Unit/AnonymousNullifierPostgresConcurrencyTests.cs", "class": "AnonymousNullifierPostgresConcurrencyTests" },
         { "path": "Unit/ArticleDestructiveMutationBehaviorTests.cs", "class": "ArticleDestructiveMutationBehaviorTests" },
         { "path": "Unit/CommentMutationPostgresConcurrencyTests.cs", "class": "CommentMutationPostgresConcurrencyTests" },
+        { "path": "Unit/CommentServiceValidationTests.cs", "class": "CommentServiceValidationTests" },
+        { "path": "Unit/CommentTreeContractTests.cs", "class": "CommentTreeContractTests" },
         { "path": "Unit/CommentAuthorManagementServiceTests.cs", "class": "CommentAuthorManagementServiceTests" },
         { "path": "Unit/CommentManagementCapabilityServiceTests.cs", "class": "CommentManagementCapabilityServiceTests" },
         { "path": "Unit/CommentMutationOutboxPostgresTests.cs", "class": "CommentMutationOutboxPostgresTests" },
