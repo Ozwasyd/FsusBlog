@@ -2,8 +2,8 @@
     "schema": "fsusblog.custom-rule-registry.v1",
     "generatedBy": "tools/governance/check-rule-platform.mjs --write-registry",
     "inventory": {
-        "packageScriptCount": 190,
-        "implementationCount": 337
+        "packageScriptCount": 189,
+        "implementationCount": 340
     },
     "rules": [
         {
@@ -3099,7 +3099,7 @@
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
                 "mode": "delegated-command",
-                "command": "dotnet test ../../tests/backend/FsusBlog.Server.Tests.csproj --filter \"FullyQualifiedName~AnonymousCredentialIssuerTests|FullyQualifiedName~AnonymousCommentTicketServiceTests|FullyQualifiedName~AnonymousCommentSubmitTests|FullyQualifiedName~ZkAnonymousProofVerifierContractTests|FullyQualifiedName~AnonymousCommentGovernanceContractTests|FullyQualifiedName~AnonymousCommentModerationPipelineTests|FullyQualifiedName~RejectIdentifiedPrincipalFilterTests|FullyQualifiedName~PodBinaryCodecTests|FullyQualifiedName~BackendGoldenCatalogTests|FullyQualifiedName~AnonymousCredentialRootLifecycleTests|FullyQualifiedName~AnonymousCredentialRevocationArtifactServiceTests|FullyQualifiedName~AnonymousCredentialRootEndpointTests|FullyQualifiedName~ZkCommentV2CrossStackFixtureTests\"",
+                "command": "dotnet test ../../tests/backend/FsusBlog.Server.Tests.csproj --filter \"FullyQualifiedName~AnonymousCommentTicketServiceTests|FullyQualifiedName~AnonymousCommentSubmitTests|FullyQualifiedName~ZkAnonymousProofVerifierContractTests|FullyQualifiedName~AnonymousCommentGovernanceContractTests|FullyQualifiedName~AnonymousCommentModerationPipelineTests|FullyQualifiedName~RejectIdentifiedPrincipalFilterTests|FullyQualifiedName~PodBinaryCodecTests|FullyQualifiedName~BackendGoldenCatalogTests|FullyQualifiedName~AnonymousCredentialRootLifecycleTests|FullyQualifiedName~AnonymousCredentialRevocationArtifactServiceTests|FullyQualifiedName~AnonymousCredentialRootEndpointTests\"",
                 "implementation": "tests/backend/FsusBlog.Server.Tests.cs",
                 "executionKey": "governance:check:privacy-zk-backend",
                 "receiptCompatible": true
@@ -3129,7 +3129,7 @@
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
                 "mode": "delegated-command",
-                "command": "dotnet test ../../tests/backend/FsusBlog.Server.Tests.csproj --filter \"FullyQualifiedName~AnonymousCredentialIssuerTests|FullyQualifiedName~AnonymousCommentTicketServiceTests|FullyQualifiedName~AnonymousCommentSubmitTests|FullyQualifiedName~ZkAnonymousProofVerifierContractTests|FullyQualifiedName~AnonymousCommentGovernanceContractTests|FullyQualifiedName~AnonymousCommentModerationPipelineTests|FullyQualifiedName~RejectIdentifiedPrincipalFilterTests|FullyQualifiedName~PodBinaryCodecTests|FullyQualifiedName~BackendGoldenCatalogTests|FullyQualifiedName~AnonymousCredentialRootLifecycleTests|FullyQualifiedName~AnonymousCredentialRevocationArtifactServiceTests|FullyQualifiedName~AnonymousCredentialRootEndpointTests|FullyQualifiedName~ZkCommentV2CrossStackFixtureTests|FullyQualifiedName~AnonymousPrivacyConcurrencyTests\"",
+                "command": "dotnet test ../../tests/backend/FsusBlog.Server.Tests.csproj --filter \"FullyQualifiedName~AnonymousCommentTicketServiceTests|FullyQualifiedName~AnonymousCommentSubmitTests|FullyQualifiedName~ZkAnonymousProofVerifierContractTests|FullyQualifiedName~AnonymousCommentGovernanceContractTests|FullyQualifiedName~AnonymousCommentModerationPipelineTests|FullyQualifiedName~RejectIdentifiedPrincipalFilterTests|FullyQualifiedName~PodBinaryCodecTests|FullyQualifiedName~BackendGoldenCatalogTests|FullyQualifiedName~AnonymousCredentialRootLifecycleTests|FullyQualifiedName~AnonymousCredentialRevocationArtifactServiceTests|FullyQualifiedName~AnonymousCredentialRootEndpointTests|FullyQualifiedName~AnonymousPrivacyConcurrencyTests\"",
                 "implementation": "tests/backend/FsusBlog.Server.Tests.cs",
                 "executionKey": "governance:check:privacy-zk-backend-complete",
                 "receiptCompatible": true
@@ -3159,39 +3159,9 @@
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
                 "mode": "delegated-command",
-                "command": "dotnet test ../../tests/backend/FsusBlog.Server.Tests.csproj -c Release --filter \"(FullyQualifiedName~AnonymousCredentialIssuerTests|FullyQualifiedName~AnonymousCommentTicketServiceTests|FullyQualifiedName~AnonymousCommentSubmitTests|FullyQualifiedName~AnonymousCommentModerationPipelineTests|FullyQualifiedName~RejectIdentifiedPrincipalFilterTests|FullyQualifiedName~PodBinaryCodecTests|FullyQualifiedName~BackendGoldenCatalogTests|FullyQualifiedName~AnonymousCredentialRootLifecycleTests|FullyQualifiedName~AnonymousCredentialRevocationArtifactServiceTests|FullyQualifiedName~AnonymousCredentialRootEndpointTests|FullyQualifiedName~ZkCommentV2CrossStackFixtureTests|FullyQualifiedName~AnonymousPrivacyConcurrencyTests)&Category!=Performance\"",
+                "command": "dotnet test ../../tests/backend/FsusBlog.Server.Tests.csproj -c Release --filter \"(FullyQualifiedName~AnonymousCommentTicketServiceTests|FullyQualifiedName~AnonymousCommentSubmitTests|FullyQualifiedName~AnonymousCommentModerationPipelineTests|FullyQualifiedName~RejectIdentifiedPrincipalFilterTests|FullyQualifiedName~PodBinaryCodecTests|FullyQualifiedName~BackendGoldenCatalogTests|FullyQualifiedName~AnonymousCredentialRootLifecycleTests|FullyQualifiedName~AnonymousCredentialRevocationArtifactServiceTests|FullyQualifiedName~AnonymousCredentialRootEndpointTests|FullyQualifiedName~AnonymousPrivacyConcurrencyTests)&Category!=Performance\"",
                 "implementation": "tests/backend/FsusBlog.Server.Tests.cs",
                 "executionKey": "governance:check:privacy-zk-backend-functional",
-                "receiptCompatible": true
-            }
-        },
-        {
-            "id": "Command.CheckPrivacyZkBenchmark",
-            "externalId": "check:privacy-zk-benchmark",
-            "symbol": "CheckPrivacyZkBenchmark",
-            "owner": "PrivacyGovernanceOwner",
-            "category": "security-privacy",
-            "engine": "runtime",
-            "sourceScopes": [
-                "tests/backend/FsusBlog.Server.Tests.cs",
-                "security/**",
-                "src/backend/**",
-                "src/frontend/src/privacy/**",
-                "tests/security/**"
-            ],
-            "severity": "error",
-            "fixable": false,
-            "changedFileSafe": false,
-            "dependencies": [],
-            "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
-            ],
-            "documentation": "docs/development/custom-rule-platform.md",
-            "execution": {
-                "mode": "delegated-command",
-                "command": "dotnet test ../../tests/backend/FsusBlog.Server.Tests.csproj -c Release --filter \"FullyQualifiedName~ZkCommentV2CrossStackFixtureTests.RepositoryMclPairingFixture_P99StaysInsideManifestBudget\"",
-                "implementation": "tests/backend/FsusBlog.Server.Tests.cs",
-                "executionKey": "governance:check:privacy-zk-benchmark",
                 "receiptCompatible": true
             }
         },
@@ -3279,7 +3249,7 @@
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
                 "mode": "delegated-command",
-                "command": "node ../../tools/security/check-zk-comment-v5-manifests.mjs && FSUSBLOG_ZK_MCL_NO_BUILD=1 node --test --test-name-pattern=\"browser wasm prover bundle\" ../../tests/security/zk-comment-v2-cross-stack-fixture.test.mjs",
+                "command": "node ../../tools/security/check-zk-comment-v5-manifests.mjs",
                 "implementation": "tools/security/check-zk-comment-v5-manifests.mjs",
                 "executionKey": "governance:check:privacy-zk-contract:postbuild",
                 "receiptCompatible": true
@@ -3309,7 +3279,7 @@
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
                 "mode": "delegated-command",
-                "command": "node ../../tools/security/check-comment-privacy-contract-boundaries.mjs && node ../../tools/security/check-comment-author-mode-retirement.mjs && node ../../tools/security/check-public-revocation-distribution.mjs && node ../../tools/security/comment-privacy-build-contract.mjs && node ../../tools/crypto/check-zk-artifact-ownership.mjs && node --test ../../tests/security/comment-privacy-build-contract.test.mjs && node ../../tools/security/check-zk-comment-v2-unlinkability.mjs && node --test ../../tests/security/zk-comment-v2-unlinkability.test.mjs && node ../../tools/security/check-mcl-platform-assets.mjs && node --test --test-name-pattern=\"MCL pairing fixture\" ../../tests/security/zk-comment-v2-cross-stack-fixture.test.mjs && npm run check:security:matrices && npm run check:openapi-sync && npm run check:contract:frame-schema && node ../../tools/run-test-matrix.mjs validate && node ../../tools/run-test-matrix.mjs ci-plan --format github-actions --out .tmp/privacy-zk-ci-plan.json && node ../../tools/check-workflow-matrix-sync.mjs .tmp/privacy-zk-ci-plan.json .github/workflows/quality-gate.yml",
+                "command": "node ../../tools/security/check-comment-privacy-contract-boundaries.mjs && node ../../tools/security/check-comment-author-mode-retirement.mjs && node ../../tools/security/check-public-revocation-distribution.mjs && node ../../tools/security/comment-privacy-build-contract.mjs && node ../../tools/crypto/check-zk-artifact-ownership.mjs && node --test ../../tests/security/comment-privacy-build-contract.test.mjs && node ../../tools/security/check-zk-comment-v5-unlinkability.mjs && node --test ../../tests/security/zk-comment-v5-unlinkability.test.mjs && npm run check:security:matrices && npm run check:openapi-sync && npm run check:contract:frame-schema && node ../../tools/run-test-matrix.mjs validate && node ../../tools/run-test-matrix.mjs ci-plan --format github-actions --out .tmp/privacy-zk-ci-plan.json && node ../../tools/check-workflow-matrix-sync.mjs .tmp/privacy-zk-ci-plan.json .github/workflows/quality-gate.yml",
                 "implementation": "tools/security/check-comment-privacy-contract-boundaries.mjs",
                 "executionKey": "governance:check:privacy-zk-contract:prebuild",
                 "receiptCompatible": true
@@ -4709,7 +4679,7 @@
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
                 "mode": "delegated-command",
-                "command": "node ../../tools/contracts/generate-pospace-v1-contract.mjs --check && node ../../tests/frontend/checks/static/check-pospace-v1-contract.mjs && npm run check:pospace-runtime-reachability && node ../../tests/frontend/checks/static/check-security-consistency.mjs && node ../../tests/frontend/checks/static/check-risk-challenge-proof-transport.mjs && node ../../tests/frontend/checks/static/check-bootstrap-import-retry-privacy.mjs && node ../../tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs && node ../../tests/frontend/checks/static/check-private-runtime-governance.mjs && npm run check:private-request-generation && node ../../tests/frontend/checks/static/check-challenge-capability-registry.mjs && node ../../tests/frontend/checks/static/check-challenge-policy-shadow.mjs",
+                "command": "node ../../tools/contracts/generate-pospace-v1-contract.mjs --check && node ../../tests/frontend/checks/static/check-pospace-v1-contract.mjs && npm run check:pospace-runtime-reachability && node ../../tests/frontend/checks/static/check-security-consistency.mjs && node ../../tests/frontend/checks/static/check-risk-challenge-proof-transport.mjs && node ../../tests/frontend/checks/static/check-bootstrap-import-retry-privacy.mjs && node ../../tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs && node ../../tests/frontend/checks/static/check-private-runtime-governance.mjs && npm run check:private-request-generation && node ../../tests/frontend/checks/static/check-challenge-capability-registry.mjs && node ../../tests/frontend/checks/static/check-challenge-policy-shadow.mjs && node ../../tests/frontend/checks/static/check-perception-character-v3-dialog.mjs",
                 "implementation": "tools/contracts/generate-pospace-v1-contract.mjs",
                 "executionKey": "governance:check:security-consistency",
                 "receiptCompatible": true
@@ -8236,6 +8206,35 @@
             "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
         },
         {
+            "id": "Implementation.TestsFrontendChecksStaticCheckPerceptionCharacterV3DialogMjs",
+            "externalId": "tests/frontend/checks/static/check-perception-character-v3-dialog.mjs",
+            "symbol": "CheckTestsFrontendChecksStaticCheckPerceptionCharacterV3Dialog",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "text",
+            "sourceScopes": [
+                "tests/frontend/checks/static/check-perception-character-v3-dialog.mjs",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/frontend/checks/static/check-perception-character-v3-dialog.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tests/frontend/checks/static/check-perception-character-v3-dialog.mjs",
+                "executionKey": "governance:file:tests/frontend/checks/static/check-perception-character-v3-dialog.mjs",
+                "receiptCompatible": true
+            },
+            "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
+        },
+        {
             "id": "Implementation.TestsFrontendChecksStaticCheckPerformanceGovernanceMjs",
             "externalId": "tests/frontend/checks/static/check-performance-governance.mjs",
             "symbol": "CheckTestsFrontendChecksStaticCheckPerformanceGovernance",
@@ -10700,6 +10699,36 @@
             }
         },
         {
+            "id": "Implementation.ToolsDeploymentCheckChallengeKindCutoverRolloutContractMjs",
+            "externalId": "tools/deployment/check-challenge-kind-cutover-rollout-contract.mjs",
+            "symbol": "CheckToolsDeploymentCheckChallengeKindCutoverRolloutContract",
+            "owner": "ReleaseEngineeringOwner",
+            "category": "release-evidence",
+            "engine": "text",
+            "sourceScopes": [
+                "tools/deployment/check-challenge-kind-cutover-rollout-contract.mjs",
+                ".github/**",
+                "ops/**",
+                "tools/**",
+                "tests/tools/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/issue-1162-rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/deployment/check-challenge-kind-cutover-rollout-contract.mjs",
+                "executionKey": "governance:file:tools/deployment/check-challenge-kind-cutover-rollout-contract.mjs",
+                "receiptCompatible": true
+            },
+            "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
+        },
+        {
             "id": "Implementation.ToolsDocsCheckAuthoritativeDevelopmentDocsMjs",
             "externalId": "tools/docs/check-authoritative-development-docs.mjs",
             "symbol": "CheckToolsDocsCheckAuthoritativeDevelopmentDocs",
@@ -12065,35 +12094,6 @@
             }
         },
         {
-            "id": "Implementation.ToolsSecurityCheckMclPlatformAssetsMjs",
-            "externalId": "tools/security/check-mcl-platform-assets.mjs",
-            "symbol": "CheckToolsSecurityCheckMclPlatformAssets",
-            "owner": "SecurityGovernanceOwner",
-            "category": "security-privacy",
-            "engine": "parser",
-            "sourceScopes": [
-                "tools/security/check-mcl-platform-assets.mjs",
-                "security/**",
-                "src/backend/**",
-                "src/frontend/src/privacy/**",
-                "tests/security/**"
-            ],
-            "severity": "error",
-            "fixable": false,
-            "changedFileSafe": true,
-            "dependencies": [],
-            "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
-            ],
-            "documentation": "docs/development/custom-rule-platform.md",
-            "execution": {
-                "mode": "delegated-implementation",
-                "implementation": "tools/security/check-mcl-platform-assets.mjs",
-                "executionKey": "governance:file:tools/security/check-mcl-platform-assets.mjs",
-                "receiptCompatible": true
-            }
-        },
-        {
             "id": "Implementation.ToolsSecurityCheckPerceptionV2E2eEvidenceMjs",
             "externalId": "tools/security/check-perception-v2-e2e-evidence.mjs",
             "symbol": "CheckToolsSecurityCheckPerceptionV2E2eEvidence",
@@ -12384,6 +12384,35 @@
             }
         },
         {
+            "id": "Implementation.ToolsSecurityCheckRetiredCharacterChallengeResidueMjs",
+            "externalId": "tools/security/check-retired-character-challenge-residue.mjs",
+            "symbol": "CheckToolsSecurityCheckRetiredCharacterChallengeResidue",
+            "owner": "SecurityGovernanceOwner",
+            "category": "security-privacy",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tools/security/check-retired-character-challenge-residue.mjs",
+                "security/**",
+                "src/backend/**",
+                "src/frontend/src/privacy/**",
+                "tests/security/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/issue-1162-rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/security/check-retired-character-challenge-residue.mjs",
+                "executionKey": "governance:file:tools/security/check-retired-character-challenge-residue.mjs",
+                "receiptCompatible": true
+            }
+        },
+        {
             "id": "Implementation.ToolsSecurityCheckSecurityDomainLayoutMjs",
             "externalId": "tools/security/check-security-domain-layout.mjs",
             "symbol": "CheckToolsSecurityCheckSecurityDomainLayout",
@@ -12500,35 +12529,6 @@
             }
         },
         {
-            "id": "Implementation.ToolsSecurityCheckZkCommentV2UnlinkabilityMjs",
-            "externalId": "tools/security/check-zk-comment-v2-unlinkability.mjs",
-            "symbol": "CheckToolsSecurityCheckZkCommentV2Unlinkability",
-            "owner": "SecurityGovernanceOwner",
-            "category": "security-privacy",
-            "engine": "parser",
-            "sourceScopes": [
-                "tools/security/check-zk-comment-v2-unlinkability.mjs",
-                "security/**",
-                "src/backend/**",
-                "src/frontend/src/privacy/**",
-                "tests/security/**"
-            ],
-            "severity": "error",
-            "fixable": false,
-            "changedFileSafe": true,
-            "dependencies": [],
-            "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
-            ],
-            "documentation": "docs/development/custom-rule-platform.md",
-            "execution": {
-                "mode": "delegated-implementation",
-                "implementation": "tools/security/check-zk-comment-v2-unlinkability.mjs",
-                "executionKey": "governance:file:tools/security/check-zk-comment-v2-unlinkability.mjs",
-                "receiptCompatible": true
-            }
-        },
-        {
             "id": "Implementation.ToolsSecurityCheckZkCommentV5ManifestsMjs",
             "externalId": "tools/security/check-zk-comment-v5-manifests.mjs",
             "symbol": "CheckToolsSecurityCheckZkCommentV5Manifests",
@@ -12554,6 +12554,35 @@
                 "mode": "delegated-implementation",
                 "implementation": "tools/security/check-zk-comment-v5-manifests.mjs",
                 "executionKey": "governance:file:tools/security/check-zk-comment-v5-manifests.mjs",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Implementation.ToolsSecurityCheckZkCommentV5UnlinkabilityMjs",
+            "externalId": "tools/security/check-zk-comment-v5-unlinkability.mjs",
+            "symbol": "CheckToolsSecurityCheckZkCommentV5Unlinkability",
+            "owner": "SecurityGovernanceOwner",
+            "category": "security-privacy",
+            "engine": "parser",
+            "sourceScopes": [
+                "tools/security/check-zk-comment-v5-unlinkability.mjs",
+                "security/**",
+                "src/backend/**",
+                "src/frontend/src/privacy/**",
+                "tests/security/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/issue-1162-rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/security/check-zk-comment-v5-unlinkability.mjs",
+                "executionKey": "governance:file:tools/security/check-zk-comment-v5-unlinkability.mjs",
                 "receiptCompatible": true
             }
         },
