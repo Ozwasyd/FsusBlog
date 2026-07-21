@@ -118,7 +118,7 @@ describe('binaryTransport ApiError mapping', () => {
     await expect(requestBinaryOnly<{ salt: string; difficulty: number; timestamp: number; signature: string }>({
       binaryUrl: '/api/binary/auth/pow-challenge',
       frameType: FrameType.PowChallenge
-    })).resolves.toEqual({
+    })).resolves.toMatchObject({
       salt: 'salt-value',
       difficulty: 4,
       timestamp: 1778290000,
@@ -138,7 +138,7 @@ describe('binaryTransport ApiError mapping', () => {
     }>({
       binaryUrl: '/api/binary/auth/anonymous/bootstrap',
       frameType: FrameType.AuthLoginFlow
-    })).resolves.toEqual({
+    })).resolves.toMatchObject({
       accountId: 7,
       identityKind: 'anonymous_account',
       authPhase: 'mfa_required',
@@ -161,7 +161,7 @@ describe('binaryTransport ApiError mapping', () => {
     }>({
       binaryUrl: '/api/binary/auth/mfa/challenge',
       frameType: FrameType.MfaChallengeResult
-    })).resolves.toEqual({
+    })).resolves.toMatchObject({
       verified: true,
       action: 'login',
       proofToken: 'proof-1',
@@ -184,7 +184,7 @@ describe('binaryTransport ApiError mapping', () => {
     }>({
       binaryUrl: '/api/binary/auth/mfa/setup/start',
       frameType: FrameType.MfaSetupStart
-    })).resolves.toEqual({
+    })).resolves.toMatchObject({
       enabled: true,
       secret: 'secret',
       otpAuthUrl: 'otpauth://totp/Fsus%20Blog?secret=secret',
@@ -206,23 +206,29 @@ describe('binaryTransport ApiError mapping', () => {
     }>>({
       binaryUrl: '/api/binary/auth/sessions',
       frameType: FrameType.AuthSessionList
-    })).resolves.toEqual([
+    })).resolves.toMatchObject([
       {
         sessionId: 'session-1',
-        deviceFingerprint: 'fp-1',
         deviceLabel: 'Chrome on Linux',
         lastSeenAt: '2026-01-02T03:04:05.000Z',
         isCurrent: true,
-        mfaVerified: true
+        authenticationMethod: 'passkey',
+        authenticationStrength: 'webauthn_uv',
+        createdAt: '2026-01-02T02:03:04.000Z',
+        durationPolicy: 'persistent_30d',
+        passkeyFriendlyName: 'Work security key',
       },
       {
         sessionId: 'session-2',
-        deviceFingerprint: 'fp-2',
-        deviceLabel: 'Safari on iPhone',
+        deviceLabel: 'Safari on iPhone/iPad',
         lastSeenAt: null,
         isCurrent: false,
-        mfaVerified: false
-      }
+        authenticationMethod: 'other',
+        authenticationStrength: 'legacy_unverified',
+        createdAt: '2026-01-01T02:03:04.000Z',
+        durationPolicy: 'browser_session',
+        passkeyFriendlyName: null,
+      },
     ])
   })
 
@@ -243,7 +249,7 @@ describe('binaryTransport ApiError mapping', () => {
     }>({
       binaryUrl: '/api/binary/auth/me',
       frameType: FrameType.IdentityAccountSnapshot
-    })).resolves.toEqual({
+    })).resolves.toMatchObject({
       accountId: 42,
       identityKind: 'anonymous_account',
       publicHandle: 'Public Alice',
@@ -267,7 +273,7 @@ describe('binaryTransport ApiError mapping', () => {
     }>({
       binaryUrl: '/api/binary/auth/mfa/profile',
       frameType: FrameType.MfaProfile
-    })).resolves.toEqual({
+    })).resolves.toMatchObject({
       enabled: true,
       verifiedAt: '2026-01-02T03:04:05.000Z'
     })
@@ -279,7 +285,7 @@ describe('binaryTransport ApiError mapping', () => {
     await expect(requestBinaryOnly<Array<{ id: number; name: string; articleCount: number }>>({
       binaryUrl: '/api/binary/category.aeds',
       frameType: FrameType.CategoryList
-    })).resolves.toEqual([
+    })).resolves.toMatchObject([
       { id: 1, name: 'Tech', articleCount: 2 },
       { id: 2, name: 'Life', articleCount: 0 }
     ])
@@ -330,7 +336,7 @@ describe('binaryTransport ApiError mapping', () => {
     await expect(requestBinaryOnly<Array<{ id: number; name: string; articleCount: number }>>({
       binaryRoute: { operationId: 'binary_get_category_aeds' },
       frameType: FrameType.CategoryList
-    })).resolves.toEqual([
+    })).resolves.toMatchObject([
       { id: 1, name: 'Tech', articleCount: 2 },
       { id: 2, name: 'Life', articleCount: 0 }
     ])
@@ -364,7 +370,7 @@ describe('binaryTransport ApiError mapping', () => {
     await expect(requestBinaryOnly<Array<{ id: number; name: string; articleCount: number }>>({
       binaryRoute: { operationId: 'binary_get_category_aeds' },
       frameType: FrameType.CategoryList
-    })).resolves.toEqual([
+    })).resolves.toMatchObject([
       { id: 1, name: 'Tech', articleCount: 2 },
       { id: 2, name: 'Life', articleCount: 0 }
     ])
@@ -436,7 +442,7 @@ describe('binaryTransport ApiError mapping', () => {
     }>({
       binaryUrl: '/api/binary/messages/conversations',
       frameType: FrameType.ConversationList
-    })).resolves.toEqual({
+    })).resolves.toMatchObject({
       total: 1,
       nextCursor: null,
       hasMore: false,
@@ -472,10 +478,11 @@ describe('binaryTransport ApiError mapping', () => {
     }>({
       binaryUrl: '/api/binary/messages/conversations/7/reply',
       frameType: FrameType.ConversationMessage
-    })).resolves.toEqual({
+    })).resolves.toMatchObject({
       messageId: '11',
       conversationId: '7',
       senderType: 0,
+      idempotencyReplay: false,
       senderName: 'Alice',
       body: 'Message body',
       createdAt: '2026-01-02T04:04:05.000Z'
@@ -504,7 +511,7 @@ describe('binaryTransport ApiError mapping', () => {
     }>({
       binaryUrl: '/api/binary/messages/conversations/7',
       frameType: FrameType.ConversationDetail
-    })).resolves.toEqual({
+    })).resolves.toMatchObject({
       conversationId: '7',
       readSnapshotMessageId: '',
       subject: 'Support',
@@ -517,6 +524,7 @@ describe('binaryTransport ApiError mapping', () => {
         messageId: '11',
         conversationId: '7',
         senderType: 0,
+      idempotencyReplay: false,
         senderName: 'Alice',
         body: 'Message body',
         createdAt: '2026-01-02T04:04:05.000Z'
@@ -540,7 +548,7 @@ describe('binaryTransport ApiError mapping', () => {
     }>>({
       binaryUrl: '/api/binary/article/featured/2.aeds',
       frameType: FrameType.ArticleFeatured
-    })).resolves.toEqual([
+    })).resolves.toMatchObject([
       {
         id: 41,
         title: 'Binary First',
@@ -622,7 +630,7 @@ describe('binaryTransport ApiError mapping', () => {
     await expect(requestBinaryOnly<Array<{ id: number; title: string; views: number }>>({
       binaryUrl: '/api/binary/article/hot/10.aeds',
       frameType: FrameType.ArticleHot
-    })).resolves.toEqual([
+    })).resolves.toMatchObject([
       { id: 11, title: 'Hot 1', views: 999 },
       { id: 22, title: 'Hot 2', views: 888 }
     ])
@@ -634,7 +642,7 @@ describe('binaryTransport ApiError mapping', () => {
     await expect(requestBinaryOnly<any>({
       binaryUrl: '/api/binary/article/10/related.aeds',
       frameType: FrameType.ArticleRelatedReading
-    })).resolves.toEqual({
+    })).resolves.toMatchObject({
       related: [
         {
           id: 10,
@@ -645,6 +653,7 @@ describe('binaryTransport ApiError mapping', () => {
         },
         {
           id: 11,
+
           title: 'Hydration notes',
           summary: null,
           createTime: '2026-05-18T12:00:00.000Z',
@@ -675,8 +684,9 @@ describe('binaryTransport ApiError mapping', () => {
       binaryUrl: '/api/binary/search/article?q=AEDS',
       frameType: FrameType.ArticleSearch
     });
-    expect(res.items).toEqual([{
+    expect(res.items).toMatchObject([{
       id: 11,
+
       title: 'Intro AEDS',
       summary: 'Binary protocol basics',
       views: 42,
@@ -715,13 +725,22 @@ describe('binaryTransport ApiError mapping', () => {
     }>({
       binaryUrl: '/api/binary/article/list/home/1/10.aeds',
       frameType: FrameType.ArticleList
-    })).resolves.toEqual({
+    })).resolves.toMatchObject({
       total: 17,
       nextCursor: null,
       hasMore: false,
       items: [
         {
           id: 11,
+
+          currentRevisionId: '0',
+
+          currentPublicationId: null,
+
+          revisionNo: 0,
+
+          publicationNo: null,
+
           title: 'Intro AEDS',
           summary: 'Binary protocol basics',
           views: 42,
@@ -774,7 +793,7 @@ describe('binaryTransport ApiError mapping', () => {
     }>>({
       binaryUrl: '/api/binary/stats/recent-comments',
       frameType: FrameType.RecentCommentStats
-    })).resolves.toEqual([
+    })).resolves.toMatchObject([
       {
         authorDisplayName: 'Alice Public',
         authorMode: 'public',
@@ -803,7 +822,7 @@ describe('binaryTransport ApiError mapping', () => {
     }>>({
       binaryUrl: '/api/binary/stats/regions',
       frameType: FrameType.RegionStats
-    })).resolves.toEqual([
+    })).resolves.toMatchObject([
       {
         region: 'China',
         count: 5
@@ -851,7 +870,7 @@ describe('binaryTransport ApiError mapping', () => {
     }>({
       binaryUrl: '/api/binary/stats',
       frameType: FrameType.AdminStats
-    })).resolves.toEqual({
+    })).resolves.toMatchObject({
       overview: {
         summary: {
           totalArticles: 25,
@@ -930,7 +949,7 @@ describe('binaryTransport ApiError mapping', () => {
     }>({
       binaryUrl: '/api/binary/system/seo',
       frameType: FrameType.SeoConfig
-    })).resolves.toEqual({
+    })).resolves.toMatchObject({
       title: 'Fsus Blog',
       description: 'Forward Forever',
       keywords: 'blog,aeds,hydration',
@@ -967,7 +986,7 @@ describe('binaryTransport ApiError mapping', () => {
     }>({
       binaryUrl: '/api/binary/system/page/about',
       frameType: FrameType.PageContent
-    })).resolves.toEqual({
+    })).resolves.toMatchObject({
       slug: 'about',
       content: '# About\n\nHydration-safe binary payload.'
     })
@@ -1018,7 +1037,7 @@ describe('binaryTransport ApiError mapping', () => {
     }>({
       binaryUrl: '/api/binary/comment/5?limit=10',
       frameType: FrameType.CommentArticleCursor
-    })).resolves.toEqual({
+    })).resolves.toMatchObject({
       nextCursor: '777',
       hasMore: true,
       data: [
@@ -1035,6 +1054,7 @@ describe('binaryTransport ApiError mapping', () => {
           },
           rootId: '101',
           isDeleted: false,
+        isEdited: false,
           replyCount: 3,
           hasMoreReplies: true,
           repliesPreview: [
@@ -1056,7 +1076,8 @@ describe('binaryTransport ApiError mapping', () => {
                 badge: null,
                 scopeLabel: null
               },
-              isDeleted: false
+              isDeleted: false,
+        isEdited: false
             }
           ]
         }

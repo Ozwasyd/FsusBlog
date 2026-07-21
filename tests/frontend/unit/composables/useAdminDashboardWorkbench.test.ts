@@ -125,8 +125,8 @@ describe('useAdminDashboardWorkbench', () => {
     )
     expect(mocks.adminGetConversations).toHaveBeenCalledWith(
       1,
-      1,
       'pending',
+      null,
       expect.objectContaining({ signal: expect.any(AbortSignal) })
     )
     expect(mocks.getCacheDiagnostics).toHaveBeenCalledWith(

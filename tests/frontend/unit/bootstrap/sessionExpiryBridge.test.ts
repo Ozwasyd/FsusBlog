@@ -70,7 +70,7 @@ describe('private session expiry navigation', () => {
       history: createMemoryHistory(),
       routes: [
         { path: '/login', component: { template: '<main data-login-view>login</main>' } },
-        { path: '/user/private', meta: { requiresAuth: true }, component: PrivateFixture }
+        { path: '/user/identity', meta: { requiresAuth: true }, component: PrivateFixture }
       ]
     })
     const pinia = createPinia()
@@ -93,18 +93,18 @@ describe('private session expiry navigation', () => {
     installAuthBroadcastComposition(pinia)
     const handler = createSessionExpiredNavigationHandler(router, () => userStore.isLoggedIn)
     window.addEventListener(SESSION_EXPIRED_EVENT, handler)
-    await router.push('/user/private?token=secret')
+    await router.push('/user/identity?token=secret')
     const wrapper = mount({ render: () => h(RouterView) }, {
       global: { plugins: [pinia, router] }
     })
     expect(wrapper.find('[data-private-view]').exists()).toBe(true)
-    window.history.replaceState(null, '', '/user/private?token=secret')
+    window.history.replaceState(null, '', '/user/identity?token=secret')
 
     MockBroadcastChannel.instance?.dispatch({ type: 'expired', at: Date.now() })
     await flushPromises()
 
     expect(router.currentRoute.value.path).toBe('/login')
-    expect(router.currentRoute.value.query.redirect).toBe('/user/private')
+    expect(router.currentRoute.value.query.redirect).toBe('/user/identity')
     expect(wrapper.find('[data-private-view]').exists()).toBe(false)
     expect(wrapper.find('[data-login-view]').exists()).toBe(true)
     expect(userStore.accountState).toBe('guest')

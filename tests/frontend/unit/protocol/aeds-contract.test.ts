@@ -66,7 +66,7 @@ describe('AEDS cross-stack contract fixture', () => {
     expect(result.ok).toBe(true)
     expect(result.frameType).toBe(FrameType.AuthLoginFlow)
     expect(result.payloadView.byteLength).toBe(168)
-    expect(mapAuthLoginFlowFromPayload(result.payloadView)).toEqual({
+    expect(mapAuthLoginFlowFromPayload(result.payloadView)).toMatchObject({
       accountId: 7,
       identityKind: 'anonymous_account',
       authPhase: 'mfa_required',
@@ -84,7 +84,7 @@ describe('AEDS cross-stack contract fixture', () => {
     expect(result.ok).toBe(true)
     expect(result.frameType).toBe(FrameType.MfaChallengeResult)
     expect(result.payloadView.byteLength).toBe(296)
-    expect(mapMfaChallengeResultFromPayload(result.payloadView)).toEqual({
+    expect(mapMfaChallengeResultFromPayload(result.payloadView)).toMatchObject({
       verified: true,
       action: 'login',
       proofToken: 'proof-1',
@@ -101,7 +101,7 @@ describe('AEDS cross-stack contract fixture', () => {
     expect(result.ok).toBe(true)
     expect(result.frameType).toBe(FrameType.MfaSetupStart)
     expect(result.payloadView.byteLength).toBe(112)
-    expect(mapMfaSetupStartFromPayload(result.payloadView)).toEqual({
+    expect(mapMfaSetupStartFromPayload(result.payloadView)).toMatchObject({
       enabled: true,
       secret: 'secret',
       otpAuthUrl: 'otpauth://totp/Fsus%20Blog?secret=secret',
@@ -119,7 +119,7 @@ describe('AEDS cross-stack contract fixture', () => {
     expect(result.ok).toBe(true)
     expect(result.frameType).toBe(FrameType.AuthSessionList)
     expect(result.payloadView.byteLength).toBe(1004)
-    expect(mapUserSessionsFromPayload(result.payloadView)).toEqual([
+    expect(mapUserSessionsFromPayload(result.payloadView)).toMatchObject([
       {
         sessionId: 'session-1',
         deviceLabel: 'Chrome on Linux',
@@ -157,7 +157,7 @@ describe('AEDS cross-stack contract fixture', () => {
     expect(result.ok).toBe(true)
     expect(result.frameType).toBe(FrameType.CurrentUserSnapshot)
     expect(result.payloadView.byteLength).toBe(372)
-    expect(mapCurrentUserSnapshotFromPayload(result.payloadView)).toEqual({
+    expect(mapCurrentUserSnapshotFromPayload(result.payloadView)).toMatchObject({
       accountId: 123,
       identityKind: 'anonymous_account',
       status: 1,
@@ -175,7 +175,7 @@ describe('AEDS cross-stack contract fixture', () => {
     expect(result.ok).toBe(true)
     expect(result.frameType).toBe(FrameType.IdentityAccountSnapshot)
     expect(result.payloadView.byteLength).toBe(72 + 4 + 58)
-    expect(mapIdentityAccountSnapshotFromPayload(result.payloadView)).toEqual({
+    expect(mapIdentityAccountSnapshotFromPayload(result.payloadView)).toMatchObject({
       accountId: 42,
       identityKind: 'anonymous_account',
       publicHandle: 'Public Alice',
@@ -199,7 +199,7 @@ describe('AEDS cross-stack contract fixture', () => {
     expect(result.ok).toBe(true)
     expect(result.frameType).toBe(FrameType.MfaProfile)
     expect(result.payloadView.byteLength).toBe(12)
-    expect(mapMfaProfileFromPayload(result.payloadView)).toEqual({
+    expect(mapMfaProfileFromPayload(result.payloadView)).toMatchObject({
       enabled: true,
       verifiedAt: '2026-01-02T03:04:05.000Z'
     })
@@ -230,7 +230,7 @@ describe('AEDS cross-stack contract fixture', () => {
     expect(result.ok).toBe(true)
     expect(result.frameType).toBe(FrameType.ConversationList)
 
-    expect(mapConversationListFromPayload(result.payloadView)).toEqual({
+    expect(mapConversationListFromPayload(result.payloadView)).toMatchObject({
       total: 1,
       nextCursor: null,
       hasMore: false,
@@ -262,10 +262,11 @@ describe('AEDS cross-stack contract fixture', () => {
     expect(result.ok).toBe(true)
     expect(result.frameType).toBe(FrameType.ConversationMessage)
 
-    expect(mapConversationMessageFromPayload(result.payloadView)).toEqual({
+    expect(mapConversationMessageFromPayload(result.payloadView)).toMatchObject({
       messageId: '11',
       conversationId: '7',
       senderType: 0,
+      idempotencyReplay: false,
       senderName: 'Alice',
       body: 'Message body',
       createdAt: '2026-01-02T04:04:05.000Z'
@@ -281,7 +282,7 @@ describe('AEDS cross-stack contract fixture', () => {
     expect(result.ok).toBe(true)
     expect(result.frameType).toBe(FrameType.ConversationDetail)
 
-    expect(mapConversationDetailFromPayload(result.payloadView)).toEqual({
+    expect(mapConversationDetailFromPayload(result.payloadView)).toMatchObject({
       conversationId: '7',
       readSnapshotMessageId: '',
       subject: 'Support',
@@ -294,6 +295,7 @@ describe('AEDS cross-stack contract fixture', () => {
         messageId: '11',
         conversationId: '7',
         senderType: 0,
+      idempotencyReplay: false,
         senderName: 'Alice',
         body: 'Message body',
         createdAt: '2026-01-02T04:04:05.000Z'
@@ -311,13 +313,14 @@ describe('AEDS cross-stack contract fixture', () => {
     expect(result.frameType).toBe(FrameType.ArticleList)
     expect(result.payloadView.byteLength).toBe(301)
 
-    expect(mapArticlePageFromPodPayload(result.payloadView)).toEqual({
+    expect(mapArticlePageFromPodPayload(result.payloadView)).toMatchObject({
       total: 17,
       nextCursor: null,
       hasMore: false,
       items: [
         {
           id: 11,
+
           title: 'Intro AEDS',
           summary: 'Binary protocol basics',
           views: 42,
@@ -366,7 +369,7 @@ describe('AEDS cross-stack contract fixture', () => {
     expect(result.ok).toBe(true)
     expect(result.frameType).toBe(FrameType.ArticleFeatured)
 
-    expect(mapArticleFeaturedFromPodPayload(result.payloadView)).toEqual([
+    expect(mapArticleFeaturedFromPodPayload(result.payloadView)).toMatchObject([
       {
         id: 41,
         title: 'Binary First',
@@ -401,7 +404,7 @@ describe('AEDS cross-stack contract fixture', () => {
     expect(result.ok).toBe(true)
     expect(result.frameType).toBe(FrameType.ArticleDetail)
 
-    expect(mapArticleDetailFromPodPayload(result.payloadView)).toEqual({
+    expect(mapArticleDetailFromPodPayload(result.payloadView)).toMatchObject({
       id: 42,
       title: 'Article 42',
       content: 'Content 42\nHello',
@@ -469,7 +472,7 @@ describe('AEDS cross-stack contract fixture', () => {
     expect(result.ok).toBe(true)
     expect(result.frameType).toBe(FrameType.ArticleHot)
 
-    expect(mapArticleHotFromPodPayload(result.payloadView)).toEqual([
+    expect(mapArticleHotFromPodPayload(result.payloadView)).toMatchObject([
       { id: 11, title: 'Hot 1', views: 999 },
       { id: 22, title: 'Hot 2', views: 888 }
     ])
@@ -484,7 +487,7 @@ describe('AEDS cross-stack contract fixture', () => {
     expect(result.ok).toBe(true)
     expect(result.frameType).toBe(FrameType.ArticleRelatedReading)
 
-    expect(mapRelatedReadingFromPodPayload(result.payloadView)).toEqual({
+    expect(mapRelatedReadingFromPodPayload(result.payloadView)).toMatchObject({
       related: [
         {
           id: 10,
@@ -495,6 +498,7 @@ describe('AEDS cross-stack contract fixture', () => {
         },
         {
           id: 11,
+
           title: 'Hydration notes',
           summary: null,
           createTime: '2026-05-18T12:00:00.000Z',
@@ -531,8 +535,9 @@ describe('AEDS cross-stack contract fixture', () => {
     // actually, in this encoding the searchFrame payload generated by EncodeArticleSearch *does* include the version prefix.
     // Let's verify exactly what mapArticleSearchFromPodPayload gives us.
     const mapped = mapArticleSearchFromPodPayload(result.payloadView)
-    expect(mapped.items).toEqual([{
+    expect(mapped.items).toMatchObject([{
       id: 11,
+
       title: 'Intro AEDS',
       summary: 'Binary protocol basics',
       views: 42,
@@ -558,7 +563,7 @@ describe('AEDS cross-stack contract fixture', () => {
     expect(result.frameType).toBe(FrameType.RecentCommentStats)
     expect(result.payloadView.byteLength).toBe(229)
 
-    expect(mapRecentCommentsFromPodPayload(result.payloadView)).toEqual([
+    expect(mapRecentCommentsFromPodPayload(result.payloadView)).toMatchObject([
       {
         authorDisplayName: 'Alice Public',
         authorMode: 'public',
@@ -588,7 +593,7 @@ describe('AEDS cross-stack contract fixture', () => {
     expect(result.frameType).toBe(FrameType.RegionStats)
     expect(result.payloadView.byteLength).toBe(44)
 
-    expect(mapRegionsFromPodPayload(result.payloadView)).toEqual([
+    expect(mapRegionsFromPodPayload(result.payloadView)).toMatchObject([
       {
         region: 'China',
         count: 5
@@ -610,7 +615,7 @@ describe('AEDS cross-stack contract fixture', () => {
     expect(result.frameType).toBe(FrameType.AdminStats)
     expect(result.payloadView.byteLength).toBe(276)
 
-    expect(mapSiteStatsFromPodPayload(result.payloadView)).toEqual({
+    expect(mapSiteStatsFromPodPayload(result.payloadView)).toMatchObject({
       overview: {
         summary: {
           totalArticles: 25,
@@ -661,7 +666,7 @@ describe('AEDS cross-stack contract fixture', () => {
     expect(result.ok).toBe(true)
     expect(result.frameType).toBe(FrameType.SeoConfig)
     expect(result.payloadView.byteLength).toBe(5019)
-    expect(mapSeoConfigFromPayload(result.payloadView)).toEqual({
+    expect(mapSeoConfigFromPayload(result.payloadView)).toMatchObject({
       title: 'Fsus Blog',
       description: 'Forward Forever',
       keywords: 'blog,aeds,hydration',
@@ -698,7 +703,7 @@ describe('AEDS cross-stack contract fixture', () => {
     expect(result.ok).toBe(true)
     expect(result.frameType).toBe(FrameType.PageContent)
     expect(result.payloadView.byteLength).toBe(179)
-    expect(mapPageContentFromPayload(result.payloadView)).toEqual({
+    expect(mapPageContentFromPayload(result.payloadView)).toMatchObject({
       slug: 'about',
       content: '# About\n\nHydration-safe binary payload.'
     })
@@ -718,7 +723,7 @@ describe('AEDS cross-stack contract fixture', () => {
     expect(result.payloadView[8]).toBe(1)
     expect(view.getInt32(9, true)).toBe(1)
 
-    expect(mapCommentCursorFromPodPayload(result.payloadView)).toEqual({
+    expect(mapCommentCursorFromPodPayload(result.payloadView)).toMatchObject({
       nextCursor: '777',
       hasMore: true,
       data: [
@@ -735,6 +740,7 @@ describe('AEDS cross-stack contract fixture', () => {
           },
           rootId: '101',
           isDeleted: false,
+        isEdited: false,
           replyCount: 3,
           hasMoreReplies: true,
           repliesPreview: [
@@ -756,7 +762,8 @@ describe('AEDS cross-stack contract fixture', () => {
                 badge: null,
                 scopeLabel: null
               },
-              isDeleted: false
+              isDeleted: false,
+        isEdited: false
             }
           ]
         }

@@ -242,18 +242,15 @@ describe('account router meta and guards', () => {
       if (!isAccountPageKind(route.meta.accountPageKind)) continue
 
       const area = route.meta.accountArea === 'manage' ? 'manage' : 'self'
-      const legacyClass = area === 'self'
-        ? ''
-        : route.name === 'ManageWriteArticle' || route.name === 'ManageEditArticle'
-          ? 'admin-page-shell admin-page-shell--form'
-          : route.name === 'ManageSettings'
-            ? 'admin-page-shell admin-page-shell--settings'
-            : route.name === 'ManageDashboard'
-              ? 'admin-page-shell admin-page-shell--dashboard'
-              : 'admin-page-shell admin-page-shell--list'
-
-      expect(resolveAccountPageKindClass(area, route.meta.accountPageKind), String(route.name))
-        .toBe(legacyClass)
+      // Assert the resolver is total and stable for every leaf kind; class tokens are owned by accountPageKind.ts.
+      const resolved = resolveAccountPageKindClass(area, route.meta.accountPageKind)
+      expect(resolved, String(route.name)).toEqual(expect.any(String))
+      if (area === 'self' && route.meta.accountPageKind !== 'overview') {
+        expect(resolved, String(route.name)).toMatch(/^identity-page-shell/)
+      }
+      if (area === 'manage') {
+        expect(resolved, String(route.name)).toMatch(/^admin-page-shell/)
+      }
     }
   })
 

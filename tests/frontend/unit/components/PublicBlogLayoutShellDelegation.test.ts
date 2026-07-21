@@ -25,7 +25,7 @@ function mountShell() {
   return mount(PublicBlogLayoutShell, {
     attachTo: document.body,
     props: {
-      authLabel: '个人中心',
+      authLabel: '账户',
       authHref: '/user/profile',
       initialSearchQuery: 'initial',
       searchPlaceholder: '搜索文章',
@@ -49,7 +49,7 @@ describe('PublicBlogLayoutShell PublicShell delegation', () => {
   it('keeps native auth and search fallbacks in CSP-safe server output', async () => {
     const app = createSSRApp({
       render: () => h(PublicBlogLayoutShell, {
-        authLabel: '个人中心',
+        authLabel: '账户',
         authHref: '/user/profile',
       }),
     })
@@ -70,10 +70,10 @@ describe('PublicBlogLayoutShell PublicShell delegation', () => {
     const shell = wrapper.findComponent(FsusUiPublicShell)
 
     expect(shell.props()).toMatchObject({
-      authLabel: '个人中心',
+      authLabel: '账户',
       authHref: '/user/profile',
       desktopSearchMode: 'trigger',
-      desktopSearchTriggerLabel: '搜索',
+      desktopSearchTriggerLabel: '',
       searchAction: '/search',
       searchName: 'q',
       searchQuery: 'initial',

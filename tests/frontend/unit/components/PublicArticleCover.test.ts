@@ -121,11 +121,11 @@ describe('public article cover', () => {
     expect(appendix.get('.fsus-appendix__copyright').text()).toBe(
       "© 2026 Fsu's Blog. 保留所有权利。允许代码块复制及最多 300 字符摘录，需追加署名 (rights-v3)。"
     )
-    expect(appendix.get('.fsus-appendix__nav-label').text()).toBe('延伸阅读')
+    expect(appendix.get('.fsus-appendix__nav-label').text()).toBe('相关阅读')
     expect(appendix.findAll('.fsus-appendix__meta').map((item) => item.text())).toEqual([
       '上一篇 · 06-01 18:00',
       '下一篇 · 2 hours ago',
-      '相关文章 · 06-01 18:00'
+      '相关阅读 · 06-01 18:00'
     ])
     expect(appendix.findAll('.fsus-appendix__link').map((item) => item.text())).toEqual([
       'Public Preview Walkthrough',
