@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 
@@ -119,6 +120,79 @@ test('frozen history rejects duplicate retired identity digests', () => {
   manifest.historyBaseline.retiredRecords[1] = structuredClone(
     manifest.historyBaseline.retiredRecords[0]
   )
+  assert.throws(
+    () => historicalDeletedRecords(root, manifest),
+    /frozen Browser test baseline drifted/u
+  )
+})
+
+test('frozen history requires the manifest digest pairs in pinned authority order', () => {
+  const manifest = JSON.parse(readFileSync(
+    path.join(root, 'tests/governance/browser-test-migration.json'),
+    'utf8'
+  ))
+  manifest.historyBaseline.retiredRecords.reverse()
+  assert.throws(
+    () => historicalDeletedRecords(root, manifest),
+    /frozen Browser test baseline drifted/u
+  )
+})
+
+test('frozen history rejects a coordinated fallback, authority, count, and expected-total rewrite', (t) => {
+  const manifest = JSON.parse(readFileSync(
+    path.join(root, 'tests/governance/browser-test-migration.json'),
+    'utf8'
+  ))
+  const fallback = JSON.parse(readFileSync(
+    path.join(root, manifest.historyBaseline.fallback),
+    'utf8'
+  ))
+  const [unapproved, ...remainingRecords] = fallback.records
+  fallback.records = remainingRecords
+  fallback.recordCount = remainingRecords.length
+  manifest.historyBaseline.retiredRecordCount = 3
+  manifest.historyBaseline.retiredRecords.unshift({
+    sourceFileSha256: createHash('sha256').update(unapproved.sourceFile).digest('hex'),
+    sourceTestIdSha256: createHash('sha256').update(unapproved.sourceTestId).digest('hex'),
+    issue: '#1368',
+    reason: 'A coordinated rewrite must not expand the independently pinned retirement authority.'
+  })
+
+  const forgedExpectedHistoricalDeleted = 43
+  assert.equal(forgedExpectedHistoricalDeleted, 44 - 1)
+  const fixtureDirectory = mkdtempSync(path.join(tmpdir(), 'fsusblog-browser-history-'))
+  t.after(() => rmSync(fixtureDirectory, { recursive: true, force: true }))
+  const fallbackPath = path.join(fixtureDirectory, 'historical-deleted-tests.json')
+  writeFileSync(fallbackPath, `${JSON.stringify(fallback, null, 2)}\n`)
+  manifest.historyBaseline.fallback = path.relative(root, fallbackPath)
+
+  assert.throws(
+    () => historicalDeletedRecords(root, manifest),
+    /frozen Browser test baseline drifted/u
+  )
+})
+
+test('frozen fallback record-set authority remains pinned when git history is unavailable', (t) => {
+  const manifest = JSON.parse(readFileSync(
+    path.join(root, 'tests/governance/browser-test-migration.json'),
+    'utf8'
+  ))
+  const fallback = JSON.parse(readFileSync(
+    path.join(root, manifest.historyBaseline.fallback),
+    'utf8'
+  ))
+  fallback.records.shift()
+  fallback.recordCount = fallback.records.length
+  const unavailableBaseline = 'f'.repeat(40)
+  fallback.sourceCommit = unavailableBaseline
+  manifest.historyBaseline.commit = unavailableBaseline
+
+  const fixtureDirectory = mkdtempSync(path.join(tmpdir(), 'fsusblog-browser-history-'))
+  t.after(() => rmSync(fixtureDirectory, { recursive: true, force: true }))
+  const fallbackPath = path.join(fixtureDirectory, 'historical-deleted-tests.json')
+  writeFileSync(fallbackPath, `${JSON.stringify(fallback, null, 2)}\n`)
+  manifest.historyBaseline.fallback = path.relative(root, fallbackPath)
+
   assert.throws(
     () => historicalDeletedRecords(root, manifest),
     /frozen Browser test baseline drifted/u
