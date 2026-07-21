@@ -60,6 +60,25 @@ public sealed class ArticleCommentPolicy
     public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
 }
 
+[SugarTable("comment_slow_mode_state")]
+public sealed class CommentSlowModeState
+{
+    [SugarColumn(IsPrimaryKey = true, ColumnName = "article_id")]
+    public int ArticleId
+    {
+        get; set;
+    }
+
+    [SugarColumn(IsPrimaryKey = true, ColumnName = "subject_hash", Length = 64)]
+    public string SubjectHash { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "next_allowed_at_utc")]
+    public DateTime NextAllowedAtUtc
+    {
+        get; set;
+    }
+}
+
 [SugarTable("comment_thread_policy")]
 public sealed class CommentThreadPolicy
 {
