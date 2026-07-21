@@ -13,20 +13,17 @@
    src/assets/public-shell-critical.css for the full rationale. */
 @import '@ozwasyd/element-plus/dist/el-fsus-theme.css';
 
-.transition-fsus
-{
+.transition-fsus {
     transition-property: color, background-color, border-color, box-shadow, opacity, transform;
     transition-timing-function: var(--fsus-motion-standard, cubic-bezier(0.4, 0, 0.2, 1));
 }
 
-.transition-fsus-fast
-{
+.transition-fsus-fast {
     animation-duration: var(--fsus-motion-control-fast, 220ms);
     transition-duration: var(--fsus-motion-control-fast, 220ms);
 }
 
-.transition-fsus-base
-{
+.transition-fsus-base {
     animation-duration: var(--fsus-motion-control-base, var(--fsus-motion-control, 360ms));
     transition-duration: var(--fsus-motion-control-base, var(--fsus-motion-control, 360ms));
 }

@@ -1,5 +1,8 @@
 namespace FsusBlog.Shared.Contracts.Security;
 
+/// <summary>
+/// Media representation chosen for a PerceptionCharacter V3 challenge issue.
+/// </summary>
 public enum PerceptionCharacterV3Representation : byte
 {
     Unknown = 0,
@@ -34,6 +37,9 @@ public sealed record PerceptionCharacterV3VerifyPayload(
     string Answer,
     string StateToken);
 
+/// <summary>
+/// Wire constants and validation helpers for PerceptionCharacter V3 challenge payloads.
+/// </summary>
 public static class PerceptionCharacterV3Contracts
 {
     public const string Algorithm = "fsu.challenge/perception-character-raster@v3";

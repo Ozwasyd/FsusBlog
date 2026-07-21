@@ -125,9 +125,19 @@ public sealed class PerceptionCharacterV3Provider(
             await audit.WriteAsync("issue", challengeId, request.Action, "unavailable", "render_timeout", CancellationToken.None);
             return SecurityChallengeProviderIssueResult.Failed("unavailable");
         }
-        catch (OperationCanceledException) { throw; }
-        catch (Exception) { await audit.WriteAsync("issue", challengeId, request.Action, "unavailable", "render_failed", cancellationToken); return SecurityChallengeProviderIssueResult.Failed("unavailable"); }
-        finally { CryptographicOperations.ZeroMemory(seed); }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            await audit.WriteAsync("issue", challengeId, request.Action, "unavailable", "render_failed", cancellationToken);
+            return SecurityChallengeProviderIssueResult.Failed("unavailable");
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(seed);
+        }
         string mediaHash = Convert.ToHexStringLower(SHA256.HashData(media));
         DateTimeOffset issuedAt = timeProvider.GetUtcNow(), expiresAt = issuedAt + s_lifetime;
         var context = new PerceptionCharacterV3BindingContext(challengeId, envelopeId, request.Action, request.RouteKey, request.SubjectHash, deviceBinding, request.ClientIpHash, request.PolicyVersion, mediaHash, issuedAt.ToUnixTimeMilliseconds(), expiresAt.ToUnixTimeMilliseconds(), keys.CurrentTokenVersion);
@@ -139,7 +149,10 @@ public sealed class PerceptionCharacterV3Provider(
         {
             token = PerceptionCharacterV3Crypto.SealState(tokenKey, context, state, nonceSource);
         }
-        finally { CryptographicOperations.ZeroMemory(answerTag); }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(answerTag);
+        }
         string tokenHash = Convert.ToHexStringLower(SHA256.HashData(Encoding.ASCII.GetBytes(token)));
         var record = new PerceptionCharacterV3StateRecord(challengeId, envelopeId, request.Action, request.RouteKey, request.SubjectHash, deviceBinding, deviceAuthorityHash, request.ClientIpHash, request.PolicyVersion, mediaHash, state.Representation, context.IssuedAtUnixMs, context.ExpiresAtUnixMs, keys.CurrentTokenVersion, keys.CurrentAnswerVersion, tokenHash);
         var assignment = new SecurityChallengeAssignment(challengeId, request.Traceparent, request.TenantId, SecurityChallengeKind.PerceptionCharacterV3, request.EscalationLevel, request.Action, request.RouteKey, request.SubjectHash, request.ClientIpHash, request.DeviceFpHash, context.IssuedAtUnixMs, context.ExpiresAtUnixMs);
@@ -204,7 +217,10 @@ public sealed class PerceptionCharacterV3Provider(
         {
             record = await stateStore.ReadAsync(request.ChallengeId, cancellationToken);
         }
-        catch (PerceptionCharacterV3StoreUnavailableException) { return await Failed(request, "unavailable", "redis_read_failed", cancellationToken); }
+        catch (PerceptionCharacterV3StoreUnavailableException)
+        {
+            return await Failed(request, "unavailable", "redis_read_failed", cancellationToken);
+        }
         if (record is null)
             return await Failed(request, "rejected", "state_missing", cancellationToken);
         if (!keys.TryGetTokenKey(record.TokenKeyVersion, out byte[] tokenKey) || !keys.TryGetAnswerKey(record.AnswerKeyVersion, out byte[] answerKey))

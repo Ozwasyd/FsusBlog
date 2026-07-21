@@ -12,11 +12,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
-using NSubstitute;
-
 using Npgsql;
 
+using NSubstitute;
+
 using SqlSugar;
+
 namespace FsusBlog.Server.Tests;
 
 [Trait("Dependency", "Docker")]

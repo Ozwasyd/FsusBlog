@@ -19,6 +19,7 @@ import { encodeAedsFrame } from './binaryFrame';
 
 import type { ApiRequestConfig } from './requestConfig';
 
+import { AppErrorCode, createAppError } from '@/utils/appError'
 export { ArticlePublishStatus };
 export type {
     ArticleDetailResponse,
@@ -426,7 +427,7 @@ function encodeArticleWriteRequest(data: ArticleWriteRequest): Uint8Array
 
     const baseRevisionId = data.baseRevisionId == null ? 0n : BigInt(data.baseRevisionId);
     if (baseRevisionId < 0n) {
-        throw new Error('article_base_revision_invalid');
+        throw createAppError(AppErrorCode.Validation, 'article_base_revision_invalid');
     }
     view.setBigInt64(cursor, baseRevisionId, true);
 
@@ -439,7 +440,7 @@ function resolveArticleRightsMutation(data: ArticleWriteRequest): number
     {
         if (data.rights != null)
         {
-            throw new Error('article_rights_reset_payload_conflict');
+            throw createAppError(AppErrorCode.Validation, 'article_rights_reset_payload_conflict');
         }
         return ArticleRightsMutationReset;
     }

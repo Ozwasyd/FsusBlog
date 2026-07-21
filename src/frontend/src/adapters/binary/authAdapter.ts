@@ -217,7 +217,7 @@ function readUserSessionSummary(reader: BinaryReader): UserSessionSummary
     const hasPasskeyFriendlyName = readByte(pod, 18) === 1;
     if (readByte(pod, 16) > 1 || readByte(pod, 17) > 1 || readByte(pod, 18) > 1 || readByte(pod, 19) !== 0)
 {
-        throw new Error('auth_session_flags_invalid');
+        throw createAppError(AppErrorCode.Validation, 'auth_session_flags_invalid');
     }
     return {
         createdAt: readIsoDate64(pod, 0),

@@ -1,5 +1,5 @@
-using System.Security.Claims;
 using System.Data;
+using System.Security.Claims;
 
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
@@ -13,6 +13,7 @@ using NSubstitute;
 using SqlSugar;
 
 using StackExchange.Redis;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Category", "SecurityStateMachine")]

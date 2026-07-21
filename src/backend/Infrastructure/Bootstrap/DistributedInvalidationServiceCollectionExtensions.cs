@@ -22,11 +22,10 @@ internal static class DistributedInvalidationServiceCollectionExtensions
         services.AddSingleton<IDistributedInvalidationTransport, RedisDistributedInvalidationTransport>();
         services.AddSingleton<DistributedInvalidationBus>();
         services.AddSingleton<IDistributedInvalidationPublisher>(
-            static provider => provider.GetRequiredService<DistributedInvalidationBus>());
+            sp => sp.GetRequiredService<DistributedInvalidationBus>());
         if (!OpenApiExportMode.IsEnabled(configuration))
         {
-            services.AddHostedService(
-                static provider => provider.GetRequiredService<DistributedInvalidationBus>());
+            services.AddHostedService(sp => sp.GetRequiredService<DistributedInvalidationBus>());
         }
         return services;
     }

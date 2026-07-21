@@ -70,4 +70,9 @@ const showMoreRootThreads = (): void => { rootRenderLimit.value += COMMENT_CONTE
 }
 .fsus-comments-list__action:hover { color: var(--fsusblog-color-primary); }
 .fsus-comments-list__action:focus-visible { box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring); outline: none; }
+.fsus-comment__reply-target,
+.fsus-comment__time {
+  font-size: 14px;
+  line-height: 1.4;
+}
 </style>

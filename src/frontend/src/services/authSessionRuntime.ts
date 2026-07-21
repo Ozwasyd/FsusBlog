@@ -16,6 +16,7 @@ import {
   type AuthRefreshCoordinator
 } from '@/services/authRefreshCoordinator'
 
+import { AppErrorCode, createAppError } from '@/utils/appError'
 const REFRESH_LEEWAY_MS = 2 * 60 * 1000
 const MIN_REFRESH_DELAY_MS = 1_000
 const NETWORK_RETRY_BASE_MS = 5_000
@@ -180,7 +181,7 @@ class AuthSessionRuntime {
           },
           revalidate: async () => {
             await this.revalidateSession(userStore)
-            if (this.isRefreshDue()) throw new Error('auth_refresh_follower_revalidation_stale')
+            if (this.isRefreshDue()) throw createAppError(AppErrorCode.Validation, 'auth_refresh_follower_revalidation_stale')
           }
         })
         this.networkFailureCount = 0

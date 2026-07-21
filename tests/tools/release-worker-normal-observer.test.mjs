@@ -27,13 +27,13 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const planTemplate = path.join(root, 'tests/fixtures/deployment/release-worker-normal-observer-plan.template.json')
 const source = {
   slot: 'blue',
-  releaseId: '20260711010101-sourceaaaaaa',
+  releaseId: '20260711010101-aaaaaaaaaaaa',
   imageDigest: `sha256:${'a'.repeat(64)}`,
   runtimeGeneration: 71
 }
 const target = {
   slot: 'green',
-  releaseId: '20260711020202-targetbbbbbb',
+  releaseId: '20260711020202-bbbbbbbbbbbb',
   imageDigest: `sha256:${'b'.repeat(64)}`,
   runtimeGeneration: 72
 }

@@ -1,5 +1,6 @@
 import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime';
 
+import { AppErrorCode, createAppError } from '@/utils/appError'
 export type AuthBroadcastEvent =
   | { type: 'login'; at: number; }
   | { type: 'logout'; at: number; }
@@ -108,7 +109,7 @@ export class AuthBroadcastRuntime {
       || !cleanup.serviceWorkerAcknowledged
       || !cleanup.cacheStorageCleared)
 {
-            throw new Error('auth_login_private_state_cleanup_failed');
+            throw createAppError(AppErrorCode.Validation, 'auth_login_private_state_cleanup_failed');
         }
         this.broadcast(createEvent('login'));
     }

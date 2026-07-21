@@ -39,7 +39,7 @@ test('canonical repository keeps one base, one production overlay, one minimal d
   const result = checkAppsettingsAuthority({ root: repositoryRoot, policyFile: policyPath })
   assert.deepEqual(result.errors, [])
   assert.equal(result.developmentLeafCount, 11)
-  assert.equal(result.productionSectionCount, 19)
+  assert.equal(result.productionSectionCount, 22)
   assert.ok(result.productionEnvironmentKeyCount >= 50)
   assert.equal(result.templateConsumerCount, 15)
 })

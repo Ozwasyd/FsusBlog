@@ -6,7 +6,7 @@
       id="security-challenge-capabilities-title"
     >
       <div class="overflow-x-auto border-y border-[var(--fsusblog-panel-border)]">
-        <table class="w-full min-w-[58rem] text-left text-[12px]" data-test="challenge-capability-matrix">
+        <table class="w-full min-w-0 md:min-w-[58rem] text-left text-[12px]" data-test="challenge-capability-matrix">
           <thead class="text-[11px] uppercase text-[var(--fsusblog-text-muted)]">
             <tr class="border-b border-[var(--fsusblog-panel-border)]">
               <th class="px-5 py-3">类型</th>

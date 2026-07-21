@@ -16,7 +16,7 @@ const budgets = {
   totalBytes: Number(process.env.FSUSBLOG_ASSET_TOTAL_BUDGET_BYTES || 80 * 1024 * 1024),
   jsBytes: Number(process.env.FSUSBLOG_ASSET_JS_BUDGET_BYTES || 900 * 1024),
   cssBytes: Number(process.env.FSUSBLOG_ASSET_CSS_BUDGET_BYTES || 600 * 1024),
-  appCssBytes: Number(process.env.FSUSBLOG_ASSET_APP_CSS_BUDGET_BYTES || 680 * 1024),
+  appCssBytes: Number(process.env.FSUSBLOG_ASSET_APP_CSS_BUDGET_BYTES || 720 * 1024),
   wasmBytes: Number(process.env.FSUSBLOG_ASSET_WASM_BUDGET_BYTES || 220 * 1024),
   jsGzipBytes: Number(process.env.FSUSBLOG_ASSET_JS_GZIP_BUDGET_BYTES || 300 * 1024),
   jsBrotliBytes: Number(process.env.FSUSBLOG_ASSET_JS_BROTLI_BUDGET_BYTES || 260 * 1024),

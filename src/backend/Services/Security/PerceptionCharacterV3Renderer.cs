@@ -233,7 +233,9 @@ public sealed class PerceptionCharacterV3Renderer : IPerceptionCharacterV3Render
 
     private sealed class RasterRandom
     {
-        private readonly byte[] _key; private uint _counter; private byte[] _available = [];
+        private readonly byte[] _key;
+        private uint _counter;
+        private byte[] _available = [];
         public RasterRandom(ReadOnlySpan<byte> seed)
         {
             if (seed.Length != 32)

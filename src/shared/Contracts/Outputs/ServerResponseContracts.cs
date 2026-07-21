@@ -17,7 +17,7 @@ public readonly record struct TagDto(int Id, string Name);
 /// </summary>
 public readonly record struct TagWithCountDto(int Id, string Name, int ArticleCount);
 /// <summary>
-/// Defines the successful result shared by article create, update, and rollback commands.
+/// Distinguishes whether an article mutation applied a change or was a no-op.
 /// </summary>
 public enum ArticleMutationOutcome : byte
 {
@@ -25,6 +25,9 @@ public enum ArticleMutationOutcome : byte
     NoChange = 1
 }
 
+/// <summary>
+/// Defines the successful result shared by article create, update, and rollback commands.
+/// </summary>
 public readonly record struct ArticleMutationResult(
     int ArticleId,
     long RevisionId,

@@ -8,12 +8,21 @@ using FsusBlog.Shared.Contracts.Security;
 
 namespace FsusBlog.Core.Cache;
 
+/// <summary>
+/// Provides binary serialization and decoding operations for PerceptionCharacter V3 challenge pods.
+/// </summary>
 public static partial class PodBinaryCodec
 {
+    /// <summary>
+    /// Encodes a PerceptionCharacter V3 issue payload into a binary pod frame.
+    /// </summary>
     public static byte[] EncodePerceptionCharacterV3Issue(PerceptionCharacterV3IssuePayload payload)
         => EncodeToArray(Marshal.SizeOf<PerceptionCharacterV3IssuePod>() + payload.MediaBytes.Length + payload.StateToken.Length + 128,
             writer => WritePerceptionCharacterV3Issue(payload, writer));
 
+    /// <summary>
+    /// Writes a PerceptionCharacter V3 issue payload to the supplied binary destination.
+    /// </summary>
     public static void WritePerceptionCharacterV3Issue(PerceptionCharacterV3IssuePayload payload, IBufferWriter<byte> destination)
     {
         SecurityChallengeValidationResult validation = PerceptionCharacterV3Contracts.ValidateIssue(payload);
@@ -44,6 +53,9 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(blob.WrittenSpan);
     }
 
+    /// <summary>
+    /// Attempts to decode a PerceptionCharacter V3 issue payload from a binary pod frame.
+    /// </summary>
     public static bool TryDecodePerceptionCharacterV3Issue(ReadOnlyMemory<byte> source, out PerceptionCharacterV3IssuePayload payload)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -61,10 +73,16 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed && PerceptionCharacterV3Contracts.ValidateIssue(payload).IsValid;
     }
 
+    /// <summary>
+    /// Encodes a PerceptionCharacter V3 verify payload into a binary pod frame.
+    /// </summary>
     public static byte[] EncodePerceptionCharacterV3Verify(PerceptionCharacterV3VerifyPayload payload)
         => EncodeToArray(Marshal.SizeOf<PerceptionCharacterV3VerifyPod>() + payload.Answer.Length + payload.StateToken.Length + 128,
             writer => WritePerceptionCharacterV3Verify(payload, writer));
 
+    /// <summary>
+    /// Writes a PerceptionCharacter V3 verify payload to the supplied binary destination.
+    /// </summary>
     public static void WritePerceptionCharacterV3Verify(PerceptionCharacterV3VerifyPayload payload, IBufferWriter<byte> destination)
     {
         SecurityChallengeValidationResult validation = PerceptionCharacterV3Contracts.ValidateVerify(payload);
@@ -85,6 +103,9 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(blob.WrittenSpan);
     }
 
+    /// <summary>
+    /// Attempts to decode a PerceptionCharacter V3 verify payload from a binary pod frame.
+    /// </summary>
     public static bool TryDecodePerceptionCharacterV3Verify(ReadOnlyMemory<byte> source, out PerceptionCharacterV3VerifyPayload payload)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -116,13 +137,35 @@ public static partial class PodBinaryCodec
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct MutableIssuePod
     {
-        public byte Representation; public byte AttemptBudget; public ushort PhysicalWidth; public ushort PhysicalHeight; public ushort DisplayWidth; public ushort DisplayHeight; public ushort Reserved;
-        public int MediaByteCount; public long IssuedAtUnixMs; public long ExpiresAtUnixMs; public Utf8Fixed64 ChallengeId; public Utf8Fixed64 EnvelopeId; public Utf8Fixed64 PolicyVersion;
-        public Utf8SliceRef Algorithm; public Utf8SliceRef MediaType; public Utf8SliceRef MediaBytes; public Utf8SliceRef StateToken;
+        public byte Representation;
+        public byte AttemptBudget;
+        public ushort PhysicalWidth;
+        public ushort PhysicalHeight;
+        public ushort DisplayWidth;
+        public ushort DisplayHeight;
+        public ushort Reserved;
+        public int MediaByteCount;
+        public long IssuedAtUnixMs;
+        public long ExpiresAtUnixMs;
+        public Utf8Fixed64 ChallengeId;
+        public Utf8Fixed64 EnvelopeId;
+        public Utf8Fixed64 PolicyVersion;
+        public Utf8SliceRef Algorithm;
+        public Utf8SliceRef MediaType;
+        public Utf8SliceRef MediaBytes;
+        public Utf8SliceRef StateToken;
     }
+
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct MutableVerifyPod
     {
-        public byte Representation; public byte Reserved0; public ushort Reserved1; public Utf8Fixed64 ChallengeId; public Utf8Fixed64 EnvelopeId; public Utf8SliceRef Algorithm; public Utf8SliceRef Answer; public Utf8SliceRef StateToken;
+        public byte Representation;
+        public byte Reserved0;
+        public ushort Reserved1;
+        public Utf8Fixed64 ChallengeId;
+        public Utf8Fixed64 EnvelopeId;
+        public Utf8SliceRef Algorithm;
+        public Utf8SliceRef Answer;
+        public Utf8SliceRef StateToken;
     }
 }

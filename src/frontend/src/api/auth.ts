@@ -20,6 +20,7 @@ import type {
 import { encodeAedsFrame, encodePasskeyCredentialFriendlyNameUpdateRequest, encodeStringMutationRequest, writeFixedUtf8 } from './binaryFrame'
 import { FSUS_HEADERS } from './contracts'
 
+import { AppErrorCode, createAppError } from '@/utils/appError'
 export type {
   AuthLoginFlow,
   CurrentUserSnapshot,
@@ -109,7 +110,7 @@ export const getMe = async (config?: ApiRequestConfig) => {
     }
   })
   if (!accessExpiresAtUtc || !Number.isFinite(Date.parse(accessExpiresAtUtc))) {
-    throw new Error('auth_access_expiry_missing')
+    throw createAppError(AppErrorCode.Validation, 'auth_access_expiry_missing')
   }
   return { ...snapshot, accessExpiresAtUtc }
 }

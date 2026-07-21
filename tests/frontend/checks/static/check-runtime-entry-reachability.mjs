@@ -35,7 +35,9 @@ const declaredRuntimeEntries = [
 // an explicit integration obligation.
 const pendingRuntimeIntegrations = new Map([
   ['src/components/security/FsusPasskeyStepUpChallenge.vue', '#1274'],
-  ['src/components/security/FsusPowChallenge.vue', '#1274']
+  ['src/components/admin/AdminFilterGroup.vue', '#1083'],
+  ['src/performance/browserTaskScheduler.ts', '#1083'],
+  ['src/views/user/Profile.vue', '#1083'],
 ])
 
 function toFrontendPath(filePath) {

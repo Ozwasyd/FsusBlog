@@ -143,7 +143,10 @@ public static class PerceptionCharacterV3Crypto
         {
             return HMACSHA256.HashData(key, material);
         }
-        finally { CryptographicOperations.ZeroMemory(material); }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(material);
+        }
     }
 
     public static bool FixedTimeTagEquals(ReadOnlySpan<byte> left, ReadOnlySpan<byte> right)
@@ -187,7 +190,10 @@ public static class PerceptionCharacterV3Crypto
             using var aes = new AesGcm(key, 16);
             aes.Encrypt(nonce, plaintext, ciphertext, tag, aad);
         }
-        finally { CryptographicOperations.ZeroMemory(plaintext); }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(plaintext);
+        }
         byte[] version = Ascii(context.TokenKeyVersion);
         byte[] token = new byte[3 + version.Length + nonce.Length + ciphertext.Length + tag.Length];
         token[0] = PerceptionCharacterV3CanonicalContract.Value.Version;
@@ -227,9 +233,15 @@ public static class PerceptionCharacterV3Crypto
                 state = DecodeState(plaintext);
                 return state is not null;
             }
-            finally { CryptographicOperations.ZeroMemory(plaintext); }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(plaintext);
+            }
         }
-        catch (Exception ex) when (ex is FormatException or CryptographicException or DecoderFallbackException or ArgumentException) { return false; }
+        catch (Exception ex) when (ex is FormatException or CryptographicException or DecoderFallbackException or ArgumentException)
+        {
+            return false;
+        }
     }
 
     private static PerceptionCharacterV3State? DecodeState(ReadOnlySpan<byte> bytes)

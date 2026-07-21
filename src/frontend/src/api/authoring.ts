@@ -1748,17 +1748,16 @@ export async function getArticleRevision(
 }
 
 export async function rollbackArticleRevision(
-    articleId: number,
-    revisionId: string,
-    request: ArticleRevisionRollbackRequest,
-    config?: ApiRequestConfig
-): Promise<ArticleMutationResponse>
-{
-    return requestAuthoringBinary<ArticleMutationResponse>(`/articles/${articleId}/revisions/${revisionId}/rollback`, FrameType.MutationId, config, {
-        method: 'POST',
-        requestFrame: FrameType.ArticleRevisionRollbackRequest,
-        request
-    });
+  articleId: number,
+  revisionId: string,
+  request: ArticleRevisionRollbackRequest,
+  config?: ApiRequestConfig
+): Promise<ArticleMutationResponse> {
+  return requestAuthoringBinary<ArticleMutationResponse>(`/articles/${articleId}/revisions/${revisionId}/rollback`, FrameType.MutationId, config, {
+    method: 'POST',
+    requestFrame: FrameType.ArticleRevisionRollbackRequest,
+    request
+  })
 }
 
 export async function saveArticleResponsibility(

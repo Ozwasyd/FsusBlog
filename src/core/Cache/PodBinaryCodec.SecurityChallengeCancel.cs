@@ -8,6 +8,9 @@ using FsusBlog.Shared.Contracts.Security;
 
 namespace FsusBlog.Core.Cache;
 
+/// <summary>
+/// Provides binary serialization and decoding operations for security challenge cancellation pods.
+/// </summary>
 public static partial class PodBinaryCodec
 {
     /// <summary>

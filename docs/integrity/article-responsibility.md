@@ -23,7 +23,7 @@
 
 `verification.proofStatus` 只输出 `ready`、`failed` 或 `unavailable`，不泄漏失败详情、后台 principal、草稿、审计上下文或密钥。旧文章没有责任快照时，输出确定性的站点作者继承结果并标记 `legacyFallback=true`，不会根据请求时间生成随机或临时内容。早于 revision 表的公开旧文章在 current 端点中使用 `revisionNo=0`、`proofStatus=unavailable` 和当前文章 proof URL；指定不存在的历史 revision 仍返回 404。
 
-公开 current sidecar 读取 `current_publication_id` 显式引用的责任快照；历史 sidecar 读取该 revision 对应 publication 的显式快照。因此后续责任修订不会改写旧 publication 的证据。已发布当前 revision 的责任保存会新建 publication，并通过同事务 `responsibility-updated` outbox 更新 AOT、AEDS、cache 与 notification。管理端可用 `GET /api/binary/author/articles/{articleId}/revisions/{revisionId}/responsibility` 读取全部版本；PUT 的 stale `expectedVersion` 返回 409。
+公开 current sidecar 读取 `current_publication_id` 显式引用的责任快照；历史 sidecar 读取该 revision 对应 publication 的显式快照。因此后续责任修订不会改写旧 publication 的证据。已发布当前 revision 的责任保存会新建 publication，并通过同事务 `responsibility-updated` outbox 更新 AOT、AEDS、cache 与 notification。管理端可用 `GET /api/binary/author/articles/{articleId}/revisions/{articleRevisionId}/responsibility` 读取全部版本；PUT 的 stale `expectedVersion` 返回 409。
 
 ## 迁移
 

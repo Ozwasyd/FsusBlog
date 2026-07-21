@@ -29,7 +29,7 @@ test('registry has exact existing custom-check inventory parity and complete met
     const inventory = new RepositoryInventory(repositoryRoot, policy.inventory.ignoredPaths);
     const discovered = DiscoverRules(repositoryRoot, policy, inventory);
     assert.deepEqual(ValidateRegistry(repositoryRoot, registry, discovered), []);
-    assert.equal(registry.inventory.packageScriptCount, 190);
+    assert.equal(registry.inventory.packageScriptCount, 189);
     assert.ok(registry.inventory.implementationCount > 200);
     assert.ok(registry.rules.some((rule) => rule.category === 'security-privacy'));
     assert.ok(registry.rules.some((rule) => rule.category === 'aeds-wire'));

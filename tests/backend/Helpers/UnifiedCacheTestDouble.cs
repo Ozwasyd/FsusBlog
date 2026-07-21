@@ -1,6 +1,6 @@
-using FsusBlog.Server.Infrastructure.Cache;
-
 using System.Reflection;
+
+using FsusBlog.Server.Infrastructure.Cache;
 
 namespace FsusBlog.Server.Infrastructure.Cache;
 

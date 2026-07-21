@@ -61,7 +61,7 @@
                 >正在读取修订历史…</div>
                 <div
                     v-else-if="revisionsError"
-                    class="p-5 text-[12px] text-[var(--el-color-danger)]"
+                    class="p-5 text-[12px] text-[var(--fsusblog-color-danger)]"
                 >{{ revisionsError }}</div>
                 <div
                     v-else

@@ -1,7 +1,6 @@
 using System.Diagnostics;
 
 using FsusBlog.Server.Entities;
-
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Operations;
 

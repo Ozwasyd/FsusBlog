@@ -254,7 +254,7 @@ const submitForm = (): void => {
 .taxonomy-dialog-note__text {
   margin: 0;
   color: var(--fsusblog-text-tertiary);
-  font-size: 13px;
+  font-size: 12px;
   line-height: 20px;
 }
 

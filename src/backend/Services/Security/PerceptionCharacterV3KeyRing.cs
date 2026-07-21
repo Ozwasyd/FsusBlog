@@ -68,7 +68,10 @@ public sealed partial class PerceptionCharacterV3KeyRing : IPerceptionCharacterV
             {
                 key = encoded.Length == 64 && encoded.All(Uri.IsHexDigit) ? Convert.FromHexString(encoded) : Convert.FromBase64String(encoded);
             }
-            catch (FormatException ex) { throw new InvalidOperationException($"PerceptionCharacterV3 {label} key encoding is invalid.", ex); }
+            catch (FormatException ex)
+            {
+                throw new InvalidOperationException($"PerceptionCharacterV3 {label} key encoding is invalid.", ex);
+            }
             if (key.Length != 32)
                 throw new InvalidOperationException($"PerceptionCharacterV3 {label} key must be exactly 256 bits.");
             string digest = Convert.ToHexStringLower(SHA256.HashData(key));

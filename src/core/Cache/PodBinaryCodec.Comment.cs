@@ -228,6 +228,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the binary comment-create result frame to the supplied destination.
+    /// </summary>
     public static void WriteCommentCreateResult(
         long commentId,
         int moderationStatus,
@@ -251,6 +254,9 @@ public static partial class PodBinaryCodec
         writer.WriteByte(parentId.HasValue ? (byte)1 : (byte)0);
     }
 
+    /// <summary>
+    /// Encodes the binary comment-create result frame into a new byte array.
+    /// </summary>
     public static byte[] EncodeCommentCreateResult(
         long commentId,
         int moderationStatus,
@@ -273,6 +279,9 @@ public static partial class PodBinaryCodec
                 idempotencyReplay,
                 writer));
 
+    /// <summary>
+    /// Attempts to decode a binary comment-create result frame from the supplied source.
+    /// </summary>
     public static bool TryDecodeCommentCreateResult(
         ReadOnlyMemory<byte> bytes,
         out long commentId,

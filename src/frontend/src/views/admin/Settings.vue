@@ -12,7 +12,7 @@
       class="admin-muted-alert admin-muted-alert--warning mb-8 px-5 py-4"
     >
       <div class="flex items-center gap-3 mb-2">
-        <span class="text-[var(--el-color-warning)]">
+        <span class="text-[var(--fsusblog-color-warning)]">
           <el-icon aria-hidden="true"><Warning /></el-icon>
         </span>
         <span id="settings-privileged-mode-title" class="admin-muted-alert__title text-xs font-medium normal-case tracking-normal">高权限管理模式</span>

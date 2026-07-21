@@ -463,10 +463,17 @@ function assertStaticContracts() {
     '"route-phase-release"',
     '"browser-state-release"',
     '"full-cartesian-nightly"',
-    '"requiredArtifacts": ["clock", "browserEnv", "payloadFixture", "domDiff"]'
+    '"requiredArtifacts"'
   ]) {
     if (!hydrationMatrixRegistry.includes(token)) {
       fail(`hydration matrix registry missing token: ${token}`)
+    }
+  }
+  {
+    const compactRegistry = hydrationMatrixRegistry.replace(/\s+/g, '')
+    const requiredArtifactsToken = '"requiredArtifacts":["detector","clock","browserEnv","payloadFixture","domDiff"]'
+    if (!compactRegistry.includes(requiredArtifactsToken)) {
+      fail(`hydration matrix registry missing token: ${requiredArtifactsToken}`)
     }
   }
   for (const token of ['check-public-clock-hydration-matrix.mjs', 'check-public-browser-env-hydration-matrix.mjs', 'check-public-payload-fixture-matrix.mjs', 'check-public-dom-diff-hydration.mjs']) {

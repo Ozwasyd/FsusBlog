@@ -217,7 +217,7 @@ watch(() => props.selectedRevision?.id, () => {
 .revision-rollback-form label {
   color: var(--fsusblog-text-secondary);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .revision-rollback-hint {

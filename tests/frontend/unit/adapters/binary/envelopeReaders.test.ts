@@ -64,7 +64,7 @@ describe('readPageEnvelope', () => {
     expect(result.items).toEqual([10, 20, 30])
   })
 
-  it('throws when count is negative', () => {
+  it('throws when page envelope count is negative', () => {
     const r = buildReader([/* total */ 5, /* count */ -1])
     expect(() => readPageEnvelope(r, readInt32Item, 'bad_count', 'trail')).toThrow()
   })
@@ -102,7 +102,7 @@ describe('readCursorEnvelope', () => {
     expect(result.data).toEqual([10, 20])
   })
 
-  it('throws when count is negative', () => {
+  it('throws when cursor envelope count is negative', () => {
     const r = buildReader([{ i64: 0n }, { byte: 0 }, -1])
     expect(() => readCursorEnvelope(r, readInt32Item, 'bad', 'trail')).toThrow()
   })
@@ -127,7 +127,7 @@ describe('readArrayEnvelope', () => {
     expect(readArrayEnvelope(r, readInt32Item, 'err', 'trail')).toEqual([1, 2, 3])
   })
 
-  it('throws when count is negative', () => {
+  it('throws when array envelope count is negative', () => {
     const r = buildReader([-1])
     expect(() => readArrayEnvelope(r, readInt32Item, 'bad', 'trail')).toThrow()
   })

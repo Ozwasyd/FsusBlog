@@ -4,6 +4,9 @@ using FsusBlog.Shared.Contracts.Primitives;
 
 namespace FsusBlog.Shared.Contracts.Models;
 
+/// <summary>
+/// Fixed layout binary pod for a PerceptionCharacter V3 issue response.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct PerceptionCharacterV3IssuePod
 {
@@ -26,6 +29,9 @@ public readonly struct PerceptionCharacterV3IssuePod
     public readonly Utf8SliceRef StateToken;
 }
 
+/// <summary>
+/// Fixed layout binary pod for a PerceptionCharacter V3 verify request.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct PerceptionCharacterV3VerifyPod
 {

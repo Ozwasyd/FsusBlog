@@ -22,18 +22,20 @@
           </span>
         </template>
         <template #actions>
-          <el-button class="write-command-back" text @click="requestLeave" :disabled="submitting">
-            返回
-          </el-button>
-          <div class="write-submit-button">
-            <el-button
-              type="primary"
-              :loading="submitting"
-              @click="requestSubmit"
-              aria-describedby="article-editor-status"
-            >
-              {{ submitButtonText }}
+          <div class="write-command-actions">
+            <el-button class="write-command-back" text @click="requestLeave" :disabled="submitting">
+              返回
             </el-button>
+            <div class="write-submit-button">
+              <el-button
+                type="primary"
+                :loading="submitting"
+                @click="requestSubmit"
+                aria-describedby="article-editor-status"
+              >
+                {{ submitButtonText }}
+              </el-button>
+            </div>
           </div>
         </template>
       </FsusUiTaskPageHeader>

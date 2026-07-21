@@ -110,10 +110,12 @@ test('layout governance reports ambiguous, contradictory, historical, matrix, an
   writeFileSync(readmePath, '# Historical report without warning\n')
 
   const matrixPath = path.join(fixture, 'security/matrices/privacy-zk-comment.yml')
-  const matrix = readFileSync(matrixPath, 'utf8').replace(
-    '  fresh-run-evidence:\n',
-    '  fresh-run-evidence:\n    - security/evidence-contracts/public-revocation-distribution.json\n'
-  )
+  const matrixSource = readFileSync(matrixPath, 'utf8')
+  const dualClassNeedle = 'security/evidence-contracts/public-revocation-distribution.json'
+  const freshItem = /^(?<indent>[ \t]*)fresh-run-evidence:\s*\n(?<itemIndent>[ \t]*)- /m.exec(matrixSource)
+  assert.ok(freshItem, 'fixture matrix must declare fresh-run-evidence items')
+  const insertAt = freshItem.index + freshItem[0].indexOf('\n') + 1
+  const matrix = `${matrixSource.slice(0, insertAt)}${freshItem.groups.itemIndent}- ${dualClassNeedle}\n${matrixSource.slice(insertAt)}`
   writeFileSync(matrixPath, matrix)
   writeJson(path.join(fixture, 'release-index', 'forged.json'), {
     schema: 'wrong',

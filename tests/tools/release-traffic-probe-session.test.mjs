@@ -23,13 +23,13 @@ const verifier = path.join(root, 'tools/deployment/release-traffic-evidence-veri
 const scenario = path.join(root, 'tests/fixtures/deployment/release-traffic-session-scenario.json')
 const source = {
   slot: 'blue',
-  releaseId: '20260711010101-sourceaaaaaa',
+  releaseId: '20260711010101-aaaaaaaaaaaa',
   imageDigest: `sha256:${'a'.repeat(64)}`,
   runtimeGeneration: 71
 }
 const target = {
   slot: 'green',
-  releaseId: '20260711020202-targetbbbbbb',
+  releaseId: '20260711020202-bbbbbbbbbbbb',
   imageDigest: `sha256:${'b'.repeat(64)}`,
   runtimeGeneration: 72
 }
@@ -238,7 +238,7 @@ async function loopbackServer(t, fixture, options) {
 function commitGatewaySwitch(fixture) {
   completeRolloutStage(fixture.state, 'gateway-switch', { completedAtUtc: '2026-07-11T00:10:01.000Z' })
   markGatewaySwitchCommitted(fixture.state, 73, '2026-07-11T00:10:01.100Z')
-  startRolloutStage(fixture.state, 'active-fence', '2026-07-11T00:10:02.000Z')
+  startRolloutStage(fixture.state, 'source-drain', '2026-07-11T00:10:02.000Z')
   writeRolloutStateAtomic(fixture.stateFile, fixture.state)
   assert.equal(readRolloutState(fixture.stateFile).switchCommitted, true)
 }

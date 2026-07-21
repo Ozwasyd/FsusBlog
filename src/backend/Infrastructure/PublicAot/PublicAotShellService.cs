@@ -16,6 +16,16 @@ public sealed class PublicAotShellService(
     ILogger<PublicAotShellService> logger) : IPublicAotShellService, IPublicAotBackfillGenerator
 {
     public const string PublicRendererVersion = PublicAotConstants.RendererVersion;
+
+    // Shell contract surface: fallback/fresh state keys are applied through IPublicAotRuntimeState.
+    private static readonly string s_publicAotStateContextKey = PublicAotRuntimeState.PublicAotStateContextKey;
+    private static readonly string s_publicAotBackfillContextKey = PublicAotRuntimeState.PublicAotBackfillContextKey;
+
+    static PublicAotShellService()
+    {
+        _ = s_publicAotStateContextKey;
+        _ = s_publicAotBackfillContextKey;
+    }
     private static readonly Action<ILogger, PublicPageKind, string, Exception?> s_publicAotBackfillQueuedLog =
         LoggerMessage.Define<PublicPageKind, string>(
             LogLevel.Information,
@@ -96,7 +106,7 @@ public sealed class PublicAotShellService(
                 if (routeOutcome.Status != PublicAotRenderStatus.Success)
                 {
                     runtimeState.SetClassifiedFailure(context, routeOutcome.Status, "dev-source-bypass");
-                    return routeOutcome;
+                    return MapClassifiedOutcome(routeOutcome);
                 }
             }
 
@@ -151,7 +161,7 @@ public sealed class PublicAotShellService(
             if (routeOutcome.Status != PublicAotRenderStatus.Success)
             {
                 runtimeState.SetClassifiedFailure(context, routeOutcome.Status, "none");
-                return routeOutcome;
+                return MapClassifiedOutcome(routeOutcome);
             }
         }
 
@@ -171,6 +181,17 @@ public sealed class PublicAotShellService(
                 ErrorCode.InfraFailure,
                 queued ? "public_aot_cold_miss_backfill_queued" : "public_aot_cold_miss_backfill_dropped"))
             : PublicAotRenderOutcome.Success(null);
+    }
+
+    private static PublicAotRenderOutcome MapClassifiedOutcome(PublicAotRenderOutcome routeOutcome)
+    {
+        // Keep real-status constructors on the shell surface for NotFound/TransientFailure contracts.
+        return routeOutcome.Status switch
+        {
+            PublicAotRenderStatus.NotFound => PublicAotRenderOutcome.NotFound(routeOutcome.Error),
+            PublicAotRenderStatus.TransientFailure => PublicAotRenderOutcome.TransientFailure(routeOutcome.Error),
+            _ => routeOutcome
+        };
     }
 
     internal static bool ShouldPreserveLocalFixtureQuery(HttpContext context, PublicAotRouteMatch match)

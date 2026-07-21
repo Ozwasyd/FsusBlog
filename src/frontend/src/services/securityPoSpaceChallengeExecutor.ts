@@ -23,6 +23,7 @@ import {
   createPoSpaceVerifyPayload
 } from './securityPoSpaceRuntime'
 
+import { AppErrorCode, createAppError } from '@/utils/appError'
 export type PoSpaceChallengeStatus =
   | 'preparing'
   | 'unsupported'
@@ -295,16 +296,16 @@ export function createPoSpaceChallengeExecutor(
 
 function validateInput(input: PoSpaceChallengeExecuteInput): void {
   if (input.assignment.kind !== SecurityChallengeKind.Argon2IdPoSpaceV1) {
-    throw new Error('pospace_assignment_kind_invalid')
+    throw createAppError(AppErrorCode.Validation, 'pospace_assignment_kind_invalid')
   }
   if (input.providerPayload.challengeId !== input.assignment.challengeId) {
-    throw new Error('pospace_provider_payload_mismatch')
+    throw createAppError(AppErrorCode.Validation, 'pospace_provider_payload_mismatch')
   }
   if (input.assignment.action !== input.context.action || input.assignment.routeKey !== input.context.routeKey) {
-    throw new Error('pospace_assignment_context_mismatch')
+    throw createAppError(AppErrorCode.Validation, 'pospace_assignment_context_mismatch')
   }
   if (!input.policyVersion.trim()) {
-    throw new Error('pospace_policy_version_missing')
+    throw createAppError(AppErrorCode.Validation, 'pospace_policy_version_missing')
   }
 }
 

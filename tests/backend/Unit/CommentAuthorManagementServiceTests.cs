@@ -14,7 +14,7 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
-[Trait("Category", "Integration")]
+[Trait("Category", "Unit")]
 [Trait("Dependency", "Docker")]
 [Collection(nameof(SchemaMigrationPostgresCollectionB))]
 public sealed class CommentAuthorManagementServiceTests(PostgresSchemaMigrationFixture fixture)

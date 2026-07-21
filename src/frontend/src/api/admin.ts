@@ -6,6 +6,17 @@ import { encodeAedsFrame } from './binaryFrame'
 
 export type { AdminAccountListItem, PageResult } from '@/contracts/binaryApi'
 
+/** Governance-visible anonymous account contract surface (mirrors AdminAccountListItem fields). */
+export type AdminAnonymousAccountApiContract = {
+  accountId: number
+  identityKind: string
+  publicHandle?: string
+  passkeyInitialized: boolean
+  recoveryInitialized: boolean
+  anonymousCredentialStatus: string
+  riskFlags: number
+}
+
 const ADMIN_SENSITIVE_MFA_HEADER = 'X-Fsus-Mfa-Proof'
 
 // ================= 类型定义 =================

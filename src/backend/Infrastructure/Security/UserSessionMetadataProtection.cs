@@ -2,6 +2,9 @@ using System.Net;
 
 namespace FsusBlog.Server.Infrastructure.Security;
 
+/// <summary>
+/// Configuration bounds for how long user-session device and network metadata may be retained.
+/// </summary>
 public static class UserSessionMetadataRetentionPolicy
 {
     public const string RetentionDaysConfigurationKey = "Security:UserSessions:MetadataRetentionDays";
@@ -10,6 +13,9 @@ public static class UserSessionMetadataRetentionPolicy
     public const int MinimumRetentionDays = 1;
     public const int MaximumRetentionDays = 90;
 
+    /// <summary>
+    /// Resolves retention days from configuration, clamped to the supported range.
+    /// </summary>
     public static int ResolveRetentionDays(IConfiguration? configuration)
         => Math.Clamp(
             configuration?.GetValue<int?>(RetentionDaysConfigurationKey) ?? DefaultRetentionDays,
@@ -17,6 +23,9 @@ public static class UserSessionMetadataRetentionPolicy
             MaximumRetentionDays);
 }
 
+/// <summary>
+/// Account-scoped, minimized device and network labels captured at session creation time.
+/// </summary>
 public readonly record struct UserSessionMetadataSnapshot(
     string? DeviceSignalHash,
     int? DeviceSignalEpoch,
@@ -26,15 +35,30 @@ public readonly record struct UserSessionMetadataSnapshot(
     string OperatingSystemFamily,
     string FormFactor)
 {
+    /// <summary>
+    /// Low-cardinality display label built from browser, OS, and form-factor families.
+    /// </summary>
     public string DeviceLabel => $"{BrowserFamily} / {OperatingSystemFamily} / {FormFactor}";
 }
 
+/// <summary>
+/// Captures and re-protects request-boundary session metadata without retaining raw signals.
+/// </summary>
 public interface IUserSessionMetadataProtector
 {
+    /// <summary>
+    /// Captures minimized device and network risk pseudonyms plus display labels for a session.
+    /// </summary>
     UserSessionMetadataSnapshot Capture(int accountId, string? clientIp, string? deviceSignal, string? userAgent);
 
+    /// <summary>
+    /// Re-protects a stored device signal for read paths under the current rotation epoch.
+    /// </summary>
     IReadOnlyList<SecurityRiskPseudonym> ProtectDeviceForRead(int accountId, string? deviceSignal);
 
+    /// <summary>
+    /// Re-protects a stored network signal for read paths under the current rotation epoch.
+    /// </summary>
     IReadOnlyList<SecurityRiskPseudonym> ProtectNetworkForRead(int accountId, string? clientIp);
 }
 
@@ -49,6 +73,7 @@ public sealed class UserSessionMetadataProtector(
     private const int MaximumDeviceSignalLength = 128;
     private const int MaximumUserAgentInspectionLength = 1024;
 
+    /// <inheritdoc />
     public UserSessionMetadataSnapshot Capture(
         int accountId,
         string? clientIp,
@@ -74,12 +99,14 @@ public sealed class UserSessionMetadataProtector(
             formFactor);
     }
 
+    /// <inheritdoc />
     public IReadOnlyList<SecurityRiskPseudonym> ProtectDeviceForRead(int accountId, string? deviceSignal)
         => ProtectForRead(
             accountId,
             SecurityRiskIdentityDomain.DeviceFingerprint,
             NormalizeDeviceSignal(deviceSignal));
 
+    /// <inheritdoc />
     public IReadOnlyList<SecurityRiskPseudonym> ProtectNetworkForRead(int accountId, string? clientIp)
         => ProtectForRead(
             accountId,

@@ -1,6 +1,5 @@
-import { AppErrorCode, createAppError } from '@/utils/appError';
-
 // Mirrors FsusBlog.Shared.Contracts.Validation.MessageContentPolicy.
+// Keep this module free of runtime app-layer imports so contracts stay boundary-pure.
 export const MESSAGE_CONTENT_LIMITS = Object.freeze({
     subjectMaxScalars: 320,
     subjectMaxGraphemes: 160,
@@ -20,6 +19,11 @@ const encoder = new TextEncoder();
 const graphemes = (value: string): string[] =>
     Array.from(segmenter.segment(value), (entry) => entry.segment);
 
+function validationError(code: string): Error
+{
+    return Object.assign(new Error(code), { name: 'MessageContentValidationError', code });
+}
+
 export function validateMessageContent(value: string, kind: MessageContentKind): void
 {
     const scalarLimit = kind === 'subject' ? MESSAGE_CONTENT_LIMITS.subjectMaxScalars : MESSAGE_CONTENT_LIMITS.bodyMaxScalars;
@@ -27,19 +31,19 @@ export function validateMessageContent(value: string, kind: MessageContentKind):
     const utf8Limit = kind === 'subject' ? MESSAGE_CONTENT_LIMITS.subjectMaxUtf8Bytes : MESSAGE_CONTENT_LIMITS.bodyMaxUtf8Bytes;
     if (!value.trim())
     {
-        throw createAppError(AppErrorCode.Validation, `message_${kind}_empty`);
+        throw validationError(`message_${kind}_empty`);
     }
     if (Array.from(value).length > scalarLimit)
     {
-        throw createAppError(AppErrorCode.Validation, `message_${kind}_scalar_limit_exceeded`);
+        throw validationError(`message_${kind}_scalar_limit_exceeded`);
     }
     if (graphemes(value).length > graphemeLimit)
     {
-        throw createAppError(AppErrorCode.Validation, `message_${kind}_grapheme_limit_exceeded`);
+        throw validationError(`message_${kind}_grapheme_limit_exceeded`);
     }
     if (encoder.encode(value).byteLength > utf8Limit)
     {
-        throw createAppError(AppErrorCode.Validation, `message_${kind}_utf8_limit_exceeded`);
+        throw validationError(`message_${kind}_utf8_limit_exceeded`);
     }
 }
 
@@ -60,7 +64,7 @@ export function assertMessageFrameSize(frame: { readonly byteLength: number; }):
 {
     if (frame.byteLength > MESSAGE_CONTENT_LIMITS.maxRequestFrameBytes)
     {
-        throw createAppError(AppErrorCode.Validation, 'message_frame_utf8_limit_exceeded');
+        throw validationError('message_frame_utf8_limit_exceeded');
     }
 }
 

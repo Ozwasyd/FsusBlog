@@ -202,7 +202,8 @@
                             "_mutationSideEffects",
                             "_viewWriteBuffer",
                             "_publicationValidator",
-                            "_articleBodyRepairQueue"
+                            "_articleBodyRepairQueue",
+                            "_timeProvider"
                         ]
                     }
                 ],
@@ -241,7 +242,8 @@
                             "activeReleaseCommitGuard",
                             "retentionErasureService",
                             "legalHoldRegistry",
-                            "fallbackRetentionPurger"
+                            "fallbackRetentionPurger",
+                            "configuration"
                         ]
                     }
                 ],
@@ -254,7 +256,8 @@
                         "name": "StatsService",
                         "parameters": [
                             "_db",
-                            "_cache",
+                            "_cacheReader",
+                            "_cacheWriter",
                             "_cacheMissCoordinator",
                             "_dbConcurrencyGate",
                             "_readAnalyticsPrivacy",
@@ -271,7 +274,9 @@
                         "name": "SystemService",
                         "parameters": [
                             "_db",
-                            "_cache",
+                            "_cacheReader",
+                            "_cacheWriter",
+                            "_stringWriter",
                             "_cacheMissCoordinator",
                             "_dbConcurrencyGate",
                             "_logger",
@@ -291,14 +296,8 @@
                         "parameters": [
                             "_db",
                             "_logger",
-                            "_jwtHelper",
-                            "_cache",
-                            "_blacklistService",
-                            "_messageCommandService",
-                            "_messageRealtimePublisher",
-                            "_totpService",
-                            "_authRiskService",
-                            "_userSessionValidationCache"
+                            "_cacheCounters",
+                            "_totpService"
                         ]
                     }
                 ],

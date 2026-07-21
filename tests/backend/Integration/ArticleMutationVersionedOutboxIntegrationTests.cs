@@ -1,7 +1,5 @@
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Entities;
-using FsusBlog.Server.Infrastructure.SchemaMigration;
-using FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Integrity;
@@ -9,23 +7,25 @@ using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+using FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Taxonomy;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
-using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 using NSubstitute;
 
-using StackExchange.Redis;
-
 using SqlSugar;
+
+using StackExchange.Redis;
 
 namespace FsusBlog.Server.Tests;
 

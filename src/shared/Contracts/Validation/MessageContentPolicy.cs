@@ -3,6 +3,9 @@ using System.Text;
 
 namespace FsusBlog.Shared.Contracts.Validation;
 
+/// <summary>
+/// Classifies why message subject or body content failed validation.
+/// </summary>
 public enum MessageContentViolation
 {
     None = 0,
@@ -12,6 +15,9 @@ public enum MessageContentViolation
     Utf8ByteLimit = 4
 }
 
+/// <summary>
+/// Result of validating a message content field against scalar, grapheme, and UTF-8 limits.
+/// </summary>
 public readonly record struct MessageContentValidation(
     bool IsValid,
     string Value,
@@ -22,6 +28,9 @@ public readonly record struct MessageContentValidation(
     public static MessageContentValidation Invalid(string value, MessageContentViolation violation) => new(false, value, violation);
 }
 
+/// <summary>
+/// Shared limits and validators for message subject, body, and preview content.
+/// </summary>
 public static class MessageContentPolicy
 {
     public const int SubjectMaxScalars = 320;

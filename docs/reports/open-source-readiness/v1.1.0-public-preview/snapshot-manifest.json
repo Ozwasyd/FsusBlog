@@ -38,8 +38,8 @@
     },
     {
       "path": "readiness-checklist.md",
-      "bytes": 3880,
-      "sha256": "sha256:1313c45b24637cec15b003fc32c775b74c13e4aa201e435bf51f312083d61e95"
+      "bytes": 3900,
+      "sha256": "sha256:22833e2b6f993dcd4b733a4da961de9123ba69cbf6a16f078fee24e116ec0deb"
     },
     {
       "path": "secret-scan.json",

@@ -1,6 +1,7 @@
-using StackExchange.Redis;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
+
+using StackExchange.Redis;
 
 namespace FsusBlog.Server.Services.Security;
 
@@ -181,7 +182,10 @@ return 0
             var d = e.ToDictionary(x => x.Name.ToString(), x => x.Value.ToString(), StringComparer.Ordinal);
             return new(challengeId, d["envelopeId"], d["action"], d["routeKey"], d["subjectHash"], d["deviceHash"], d["deviceAuthorityHash"], d["ipHash"], d["policyVersion"], d["mediaHash"], d["representation"], long.Parse(d["issuedAt"], System.Globalization.CultureInfo.InvariantCulture), long.Parse(d["expiresAt"], System.Globalization.CultureInfo.InvariantCulture), d["tokenKeyVersion"], d["answerKeyVersion"], d["tokenHash"]);
         }
-        catch (Exception ex) when (ex is RedisException or KeyNotFoundException or FormatException) { throw new PerceptionCharacterV3StoreUnavailableException(ex); }
+        catch (Exception ex) when (ex is RedisException or KeyNotFoundException or FormatException)
+        {
+            throw new PerceptionCharacterV3StoreUnavailableException(ex);
+        }
     }
 
     public Task<PerceptionCharacterV3Transition> VerifyAsync(PerceptionCharacterV3StateRecord expected, bool answerMatches, long nowUnixMs, CancellationToken cancellationToken)
@@ -208,7 +212,10 @@ return 0
         {
             return await ReadbackSettleAndMapAsync(lost.Key, lost.OperationId).ConfigureAwait(false);
         }
-        catch (RedisException) { return await ReadbackSettleAndMapAsync(key, operationId).ConfigureAwait(false); }
+        catch (RedisException)
+        {
+            return await ReadbackSettleAndMapAsync(key, operationId).ConfigureAwait(false);
+        }
     }
 
     private async Task<PerceptionCharacterV3Transition> ReplaceCoreAsync(PerceptionCharacterV3StateRecord expected, PerceptionCharacterV3StateRecord replacement, long now, CancellationToken ct)
@@ -449,7 +456,8 @@ public interface IPerceptionCharacterV3ResourceGate
 public sealed class PerceptionCharacterV3ResourceGate : IPerceptionCharacterV3ResourceGate
 {
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, Window> _windows = new(StringComparer.Ordinal);
-    private readonly SemaphoreSlim _renders = new(2, 2); private int _queued;
+    private readonly SemaphoreSlim _renders = new(2, 2);
+    private int _queued;
     public bool TryAcquireIssue(string ip, string device, string subject, string action, string identity, long nowUnixMs, out string dimension)
     {
         foreach ((string name, string value, int max) in new[] { ("ip", ip, 12), ("device", device, 10), ("subject", subject, 8), ("action", action, 30), ("challenge", identity, 2) })
@@ -475,8 +483,14 @@ public sealed class PerceptionCharacterV3ResourceGate : IPerceptionCharacterV3Re
             await _renders.WaitAsync(timeout.Token);
             return new Lease(_renders);
         }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { return null; }
-        finally { Interlocked.Decrement(ref _queued); }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return null;
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _queued);
+        }
     }
     private bool Acquire(string key, int max, long now)
     {

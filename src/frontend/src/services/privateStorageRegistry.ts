@@ -1,3 +1,4 @@
+import { AppErrorCode, createAppError } from '@/utils/appError'
 export type PrivateStateCleanupTrigger =
   | 'logout'
   | 'admin-logout'
@@ -134,7 +135,7 @@ function findRuntimeEntry(id: string): RuntimeStorageEntry | undefined {
 
 export function registerPrivateStateCleanupHandler(id: string, handler: PrivateStateCleanupHandler): () => void {
   if (!findRuntimeEntry(id)) {
-    throw new Error(`private_state_cleanup_handler_not_registered:${id}`)
+    throw createAppError(AppErrorCode.InfraFailure, `private_state_cleanup_handler_not_registered:${id}`)
   }
   const handlers = runtimeCleanupHandlers.get(id) ?? new Set<PrivateStateCleanupHandler>()
   handlers.add(handler)

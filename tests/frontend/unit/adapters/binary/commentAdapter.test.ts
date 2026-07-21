@@ -607,7 +607,7 @@ describe('anonymous privacy binary adapters', () => {
 // mapThreadReplyCursorFromPodPayload
 // ---------------------------------------------------------------------------
 describe('mapThreadReplyCursorFromPodPayload', () => {
-  it('returns empty cursor', () => {
+  it('returns empty thread reply cursor', () => {
     // rootId(int64) + nextCursor(int64) + hasMore(byte) + count(int32)
     const payload = buildPayload(
       int64Buf(100n),  // rootId
@@ -654,7 +654,7 @@ describe('mapThreadReplyCursorFromPodPayload', () => {
 // mapUserCommentCursorFromPodPayload
 // ---------------------------------------------------------------------------
 describe('mapUserCommentCursorFromPodPayload', () => {
-  it('returns empty cursor', () => {
+  it('returns empty user comment cursor', () => {
     const payload = buildPayload(int64Buf(0n), byteBuf(0), int32Buf(0))
     const result = mapUserCommentCursorFromPodPayload(payload)
     expect(result.data).toEqual([])

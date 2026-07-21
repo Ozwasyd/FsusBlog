@@ -1,3 +1,4 @@
+import { AppErrorCode, createAppError } from '@/utils/appError'
 export type AuthRefreshTask = {
   isRefreshDue: () => boolean
   refreshAndRevalidate: () => Promise<void>
@@ -132,7 +133,7 @@ export class AuthRefreshCoordinator {
           return
         }
         if (this.lastFailedSettlementAt >= requestedAt) {
-          throw new Error('auth_refresh_leader_failed')
+          throw createAppError(AppErrorCode.Validation, 'auth_refresh_leader_failed')
         }
         if (!task.isRefreshDue()) return
         await this.runLeader(Math.floor(requestedAt / this.electionWindowMs), task)
@@ -170,13 +171,13 @@ export class AuthRefreshCoordinator {
       return
     }
     if (settled?.outcome === 'failed' || this.lastFailedSettlementAt >= requestedAt) {
-      throw new Error('auth_refresh_leader_failed')
+      throw createAppError(AppErrorCode.Validation, 'auth_refresh_leader_failed')
     }
     if (retry === 0) {
       await this.coordinateByChannel(task, requestedAt, 1)
       return
     }
-    throw new Error('auth_refresh_leader_unavailable')
+    throw createAppError(AppErrorCode.Validation, 'auth_refresh_leader_unavailable')
   }
 
   private async runLeader(round: number, task: AuthRefreshTask): Promise<void> {

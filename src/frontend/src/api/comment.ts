@@ -39,6 +39,7 @@ import type {
 import { encodeAedsFrame } from './binaryFrame';
 import { validateCommentContent } from '@/utils/contentFilter';
 
+import { AppErrorCode, createAppError } from '@/utils/appError'
 export { resolveCommentAuthorView } from '@/utils/commentAuthorView';
 export type {
     AnonymousCommentCreateRequestDto,
@@ -265,7 +266,7 @@ function normalizeCommentMutationId(value?: string): string
     const mutationId = value?.trim() || globalThis.crypto?.randomUUID?.() || '';
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(mutationId))
 {
-        throw new Error('comment_client_mutation_id_invalid');
+        throw createAppError(AppErrorCode.Validation, 'comment_client_mutation_id_invalid');
     }
     return mutationId;
 }
