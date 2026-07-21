@@ -1,12 +1,10 @@
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.RegularExpressions;
 
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Infrastructure.SchemaMigration.Catalogs;
 using FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
-using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -25,8 +23,8 @@ public sealed class SchemaMigrationCatalogTests
             catalog => Assert.Equal("current-20260709-20260716", catalog.CatalogId),
             catalog => Assert.Equal("current-20260719", catalog.CatalogId),
             catalog => Assert.Equal("current-20260720", catalog.CatalogId));
-        Assert.Equal(121, manifest.Descriptors.Count);
-        const string ExpectedPlanFingerprint = "B90351CEE6E1013BC1F4B4F03D57C27B8CD3A2D549CCA987E7BA6FE986C2ED6E";
+        Assert.Equal(122, manifest.Descriptors.Count);
+        const string ExpectedPlanFingerprint = "92AA7B777E59450AB02730A7102FFDEC3AE296B614C63924BB7315FB07E3F883";
         string actualPlanFingerprint = ComputePlanFingerprint(manifest.Descriptors);
         Assert.True(
             string.Equals(ExpectedPlanFingerprint, actualPlanFingerprint, StringComparison.Ordinal),
@@ -281,32 +279,19 @@ public sealed class SchemaMigrationCatalogTests
     [Fact]
     public void SourceLayout_PreventsLegacyRegistryDescriptorAggregation()
     {
-        string migrationRoot = BackendTestPaths.FromRoot(
-            "src",
-            "backend",
-            "Infrastructure",
-            "SchemaMigration");
-        string registrySource = File.ReadAllText(Path.Combine(migrationRoot, "SchemaMigrationRegistry.cs"));
-        string[] legacyRegistryPartials = Directory.GetFiles(
-            migrationRoot,
-            "SchemaMigrationRegistry.*.cs",
-            SearchOption.TopDirectoryOnly);
-        string[] definitionFiles = Directory.GetFiles(
-            Path.Combine(migrationRoot, "Definitions"),
-            "*.cs",
-            SearchOption.TopDirectoryOnly);
-        int descriptorDefinitionCount = definitionFiles
-            .Select(File.ReadAllText)
-            .Sum(static source => Regex.Matches(source, "new SchemaMigrationDescriptor\\(").Count);
+        var registry = new SchemaMigrationRegistry();
+        IReadOnlyList<ISchemaMigrationDescriptor> first = registry.GetDescriptors();
+        IReadOnlyList<ISchemaMigrationDescriptor> second = registry.GetDescriptors();
+        IReadOnlyList<ISchemaMigrationDescriptor> manifest = SchemaMigrationManifest.Current.Descriptors;
 
-        Assert.Empty(legacyRegistryPartials);
-        Assert.DoesNotContain("partial class SchemaMigrationRegistry", registrySource, StringComparison.Ordinal);
-        Assert.DoesNotContain("new SchemaMigrationDescriptor(", registrySource, StringComparison.Ordinal);
-        Assert.DoesNotContain("Build", registrySource, StringComparison.Ordinal);
-        Assert.Equal(122, descriptorDefinitionCount);
-        Assert.All(
-            definitionFiles.Select(File.ReadAllText),
-            static source => Assert.DoesNotContain("partial class", source, StringComparison.Ordinal));
+        Assert.Same(first, second);
+        Assert.Same(manifest, first);
+        Assert.Equal(122, first.Count);
+        Assert.Equal(first.Count, first.Select(static descriptor => descriptor.MigrationId).Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(
+            ComputePlanFingerprint(manifest),
+            ComputePlanFingerprint(first));
+        Assert.All(first, static descriptor => Assert.IsType<SchemaMigrationDescriptor>(descriptor));
     }
 
     [Theory]

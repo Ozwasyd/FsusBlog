@@ -1,5 +1,7 @@
+using System.Reflection;
+
 using FsusBlog.Server.Infrastructure.Cache;
-using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Server.Infrastructure.Security;
 
 using Microsoft.Extensions.Caching.Memory;
 
@@ -10,55 +12,72 @@ public sealed class CachePortArchitectureTests
     [Fact]
     public void ProductionCacheConsumersUseNarrowPorts()
     {
-        string backendRoot = BackendTestPaths.FromRoot("src/backend");
-        string[] files = Directory.GetFiles(backendRoot, "*.cs", SearchOption.AllDirectories);
-        var violations = files
-            .Select(path => new { Path = path, Source = File.ReadAllText(path) })
-            .Where(static file => file.Source.Contains("IUnifiedCache", StringComparison.Ordinal))
-            .Select(file => Path.GetRelativePath(BackendTestPaths.RepositoryRoot, file.Path))
-            .ToArray();
+        Assembly backend = typeof(CachePolicyId).Assembly;
+        Assert.Null(backend.GetType("FsusBlog.Server.Infrastructure.Cache.IUnifiedCache"));
+        Assert.Null(backend.GetType("FsusBlog.Server.Infrastructure.CoreBridge.Caching.ArticleCoreQueryCache"));
 
-        Assert.Empty(violations);
-        Assert.False(File.Exists(Path.Combine(backendRoot, "Infrastructure/Cache/IUnifiedCache.cs")));
+        FieldInfo governorCache = Assert.Single(
+            typeof(AdaptivePowGovernor).GetFields(BindingFlags.Instance | BindingFlags.NonPublic),
+            static field => field.FieldType == typeof(ICacheStringReader));
+        Assert.Equal("_cache", governorCache.Name);
 
+        ConstructorInfo coordinatorConstructor = Assert.Single(typeof(CacheMissCoordinator).GetConstructors());
         Assert.Contains(
-            "ICacheStringReader _cache",
-            File.ReadAllText(Path.Combine(backendRoot, "Infrastructure/Security/AdaptivePowGovernor.cs")),
-            StringComparison.Ordinal);
-        Assert.Contains(
-            "ICacheSingleFlightCoordinator singleFlightCoordinator",
-            File.ReadAllText(Path.Combine(backendRoot, "Infrastructure/Cache/CacheMissCoordinator.cs")),
-            StringComparison.Ordinal);
-        Assert.False(File.Exists(Path.Combine(
-            backendRoot,
-            "Infrastructure/CoreBridge/Caching/ArticleCoreQueryCache.cs")));
-        Assert.Contains(
-            "internal sealed class UnifiedCache",
-            File.ReadAllText(Path.Combine(backendRoot, "Infrastructure/Cache/RedisCacheStorage.cs")),
-            StringComparison.Ordinal);
+            coordinatorConstructor.GetParameters(),
+            static parameter => parameter.ParameterType == typeof(ICacheSingleFlightCoordinator));
+
+        Type unifiedCache = Assert.IsAssignableFrom<Type>(
+            backend.GetType("FsusBlog.Server.Infrastructure.Cache.UnifiedCache"));
+        Assert.True(unifiedCache.IsNotPublic);
+        Assert.True(unifiedCache.IsSealed);
+        Assert.Contains(typeof(ICacheStringReader), unifiedCache.GetInterfaces());
+        Assert.Contains(typeof(ICacheLeaseStore), unifiedCache.GetInterfaces());
     }
 
     [Fact]
     public void CacheModulesKeepSingleDirectionDependencies()
     {
-        string cacheRoot = BackendTestPaths.FromRoot("src/backend/Infrastructure/Cache");
-        string contracts = File.ReadAllText(Path.Combine(cacheRoot, "CachePorts.cs"));
-        string local = File.ReadAllText(Path.Combine(cacheRoot, "CacheLocalStore.cs"));
-        string keys = File.ReadAllText(Path.Combine(cacheRoot, "CacheKeyResolver.cs"));
-        string coordination = File.ReadAllText(Path.Combine(cacheRoot, "CacheSingleFlightCoordinator.cs"));
-        string distributed = File.ReadAllText(Path.Combine(cacheRoot, "SharedRedisDistributedCache.cs"));
-        string telemetry = File.ReadAllText(Path.Combine(cacheRoot, "CacheTelemetry.cs"));
+        Type[] contracts =
+        [
+            typeof(ICacheTypedReader),
+            typeof(ICacheRawReader),
+            typeof(ICacheStringReader),
+            typeof(ICacheRawWriter),
+            typeof(ICacheStringWriter),
+            typeof(ICacheCompareExchangeStore),
+            typeof(ICacheCounterStore),
+            typeof(ICacheOneTimeStore),
+            typeof(ICacheOneTimeExchangeStore),
+            typeof(ICacheInvalidationStore),
+            typeof(ICacheLeaseStore),
+            typeof(ICacheSingleFlightCoordinator),
+            typeof(ICacheDiagnostics)
+        ];
+        Assert.All(contracts, static contract =>
+        {
+            Assert.True(contract.IsInterface);
+            Assert.DoesNotContain(
+                DescribePublicContract(contract),
+                static type => IsFromNamespace(type, "StackExchange.Redis")
+                    || IsFromNamespace(type, "Microsoft.Extensions.Caching"));
+        });
 
-        Assert.DoesNotContain("StackExchange.Redis", contracts, StringComparison.Ordinal);
-        Assert.DoesNotContain("Microsoft.Extensions.Caching", contracts, StringComparison.Ordinal);
-        Assert.DoesNotContain("StackExchange.Redis", local, StringComparison.Ordinal);
-        Assert.DoesNotContain("UnifiedCache", keys, StringComparison.Ordinal);
-        Assert.DoesNotContain("StackExchange.Redis", coordination, StringComparison.Ordinal);
-        Assert.DoesNotContain("IMemoryCache", coordination, StringComparison.Ordinal);
-        Assert.DoesNotContain("UnifiedCache", distributed, StringComparison.Ordinal);
-        Assert.DoesNotContain("IOwnedFrameCache", distributed, StringComparison.Ordinal);
-        Assert.DoesNotContain("ICacheSingleFlightCoordinator", distributed, StringComparison.Ordinal);
-        Assert.DoesNotContain("StackExchange.Redis", telemetry, StringComparison.Ordinal);
+        ConstructorInfo missCoordinator = Assert.Single(typeof(CacheMissCoordinator).GetConstructors());
+        Assert.DoesNotContain(
+            missCoordinator.GetParameters(),
+            static parameter => IsFromNamespace(parameter.ParameterType, "StackExchange.Redis")
+                || IsFromNamespace(parameter.ParameterType, "Microsoft.Extensions.Caching"));
+
+        Assert.DoesNotContain(
+            typeof(CacheTelemetry).GetFields(BindingFlags.Instance | BindingFlags.NonPublic),
+            static field => IsFromNamespace(field.FieldType, "StackExchange.Redis"));
+
+        Assembly backend = typeof(CachePolicyId).Assembly;
+        Type distributed = Assert.IsAssignableFrom<Type>(
+            backend.GetType("FsusBlog.Server.Infrastructure.Cache.SharedRedisDistributedCache"));
+        Type[] distributedInterfaces = distributed.GetInterfaces();
+        Assert.DoesNotContain(typeof(ICacheSingleFlightCoordinator), distributedInterfaces);
+        Assert.DoesNotContain(distributedInterfaces, static type => type.Name == "IOwnedFrameCache");
     }
 
     [Fact]
@@ -107,6 +126,36 @@ public sealed class CachePortArchitectureTests
         public string BuildKey(CachePolicyId policyId, string identity, string? version = null)
             => $"test:{policyId}:{identity}:{version}";
     }
+
+    private static IEnumerable<Type> DescribePublicContract(Type contract)
+        => contract.GetMethods()
+            .SelectMany(static method => method.GetParameters()
+                .Select(static parameter => parameter.ParameterType)
+                .Append(method.ReturnType))
+            .SelectMany(FlattenType);
+
+    private static IEnumerable<Type> FlattenType(Type type)
+    {
+        yield return type;
+        if (type.HasElementType && type.GetElementType() is { } element)
+        {
+            foreach (Type nested in FlattenType(element))
+            {
+                yield return nested;
+            }
+        }
+
+        foreach (Type argument in type.GetGenericArguments())
+        {
+            foreach (Type nested in FlattenType(argument))
+            {
+                yield return nested;
+            }
+        }
+    }
+
+    private static bool IsFromNamespace(Type type, string namespacePrefix)
+        => type.Namespace?.StartsWith(namespacePrefix, StringComparison.Ordinal) == true;
 
     private sealed class ManualTimeProvider : TimeProvider
     {

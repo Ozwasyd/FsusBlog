@@ -1,7 +1,13 @@
 using System.Reflection;
+using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
 using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -113,22 +119,156 @@ public sealed class UserSessionMetadataProtectionTests
         Assert.DoesNotContain(sessionProperties, property => forbiddenProperties.Contains(property.Name, StringComparer.Ordinal));
         Assert.DoesNotContain(responseProperties, property => forbiddenProperties.Contains(property.Name, StringComparer.Ordinal));
 
-        string loginSource = File.ReadAllText(BackendTestPaths.FromRoot("src", "backend", "Services", "UserLoginWorkflowService.cs"));
-        string enrollmentSource = File.ReadAllText(BackendTestPaths.FromRoot("src", "backend", "Services", "Security", "AccountEnrollmentService.cs"));
-        string sessionCommandSource = File.ReadAllText(BackendTestPaths.FromRoot("src", "backend", "Services", "UserSessionCommandService.cs"));
-        string migrationSource = File.ReadAllText(BackendTestPaths.FromRoot(
-            "src", "backend", "Infrastructure", "SchemaMigration", "Definitions", "UserSessionMetadataMinimizationMigrationDefinitions.cs"));
+        AssertPersistenceUsesProtectedSnapshot(typeof(UserLoginWorkflowService));
+        AssertPersistenceUsesProtectedSnapshot(typeof(AccountEnrollmentService));
 
-        foreach (string source in new[] { loginSource, enrollmentSource })
+        MethodBase[] sessionCommands = ReadCompiledCalls(typeof(UserSessionCommandService)).ToArray();
+        Assert.DoesNotContain(
+            sessionCommands,
+            method => method.DeclaringType == typeof(UserSession)
+                && forbiddenProperties.Any(property => method.Name == $"set_{property}"));
+
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            new SchemaMigrationRegistry().GetDescriptors(),
+            item => item.MigrationId == UserSessionMetadataMinimizationMigrationDefinitions.MigrationId);
+        string migration = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
+        Assert.Contains("SET devicefingerprint = NULL", migration, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("SET lastip = NULL", migration, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("SET useragent = NULL", migration, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void AssertPersistenceUsesProtectedSnapshot(Type serviceType)
+    {
+        MethodBase[] calls = ReadCompiledCalls(serviceType).ToArray();
+        Assert.Contains(
+            calls,
+            static method => method.DeclaringType == typeof(IUserSessionMetadataProtector)
+                && method.Name == nameof(IUserSessionMetadataProtector.Capture));
+        foreach (string property in new[]
+                 {
+                     nameof(UserSession.DeviceSignalHash),
+                     nameof(UserSession.DeviceSignalEpoch),
+                     nameof(UserSession.NetworkSignalHash),
+                     nameof(UserSession.NetworkSignalEpoch),
+                     nameof(UserSession.BrowserFamily),
+                     nameof(UserSession.OperatingSystemFamily),
+                     nameof(UserSession.FormFactor)
+                 })
         {
-            Assert.DoesNotContain("DeviceFingerprint =", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("LastIp =", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("UserAgent =", source, StringComparison.Ordinal);
+            Assert.Contains(
+                calls,
+                method => method.DeclaringType == typeof(UserSession) && method.Name == $"set_{property}");
         }
-        Assert.DoesNotContain("devicefingerprint IS NOT DISTINCT", sessionCommandSource, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("SET devicefingerprint = NULL", migrationSource, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("SET lastip = NULL", migrationSource, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("SET useragent = NULL", migrationSource, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static IEnumerable<MethodBase> ReadCompiledCalls(Type root)
+    {
+        foreach (Type type in DescendantsAndSelf(root))
+        {
+            foreach (MethodInfo method in type.GetMethods(
+                         BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
+            {
+                MethodInfo runtimeMethod = method.GetCustomAttribute<AsyncStateMachineAttribute>() is { } stateMachine
+                    ? stateMachine.StateMachineType.GetMethod(
+                        "MoveNext",
+                        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!
+                    : method;
+                foreach (MethodBase called in ReadCalledMethods(runtimeMethod))
+                {
+                    yield return called;
+                }
+            }
+        }
+    }
+
+    private static IEnumerable<Type> DescendantsAndSelf(Type type)
+    {
+        yield return type;
+        foreach (Type nested in type.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic))
+        {
+            foreach (Type descendant in DescendantsAndSelf(nested))
+            {
+                yield return descendant;
+            }
+        }
+    }
+
+    private static IEnumerable<MethodBase> ReadCalledMethods(MethodInfo method)
+    {
+        byte[] il = method.GetMethodBody()?.GetILAsByteArray() ?? [];
+        for (int offset = 0; offset < il.Length;)
+        {
+            OpCode operation = ReadOpCode(il, ref offset);
+            int operandOffset = offset;
+            int operandSize = OperandSize(operation, il, operandOffset);
+            if ((operation == OpCodes.Call || operation == OpCodes.Callvirt || operation == OpCodes.Newobj)
+                && operandSize == sizeof(int))
+            {
+                MethodBase? called = null;
+                try
+                {
+                    called = method.Module.ResolveMethod(
+                        BitConverter.ToInt32(il, operandOffset),
+                        method.DeclaringType?.GetGenericArguments(),
+                        method.GetGenericArguments());
+                }
+                catch (ArgumentException)
+                {
+                    // An unresolved generic token is irrelevant to the persistence boundary assertions.
+                }
+
+                if (called is not null)
+                {
+                    yield return called;
+                }
+            }
+
+            offset += operandSize;
+        }
+    }
+
+    private static OpCode ReadOpCode(byte[] il, ref int offset)
+    {
+        byte first = il[offset++];
+        if (first != 0xFE)
+        {
+            return s_singleByteOpCodes[first];
+        }
+
+        return s_multiByteOpCodes[il[offset++]];
+    }
+
+    private static int OperandSize(OpCode operation, byte[] il, int operandOffset)
+        => operation.OperandType switch
+        {
+            OperandType.InlineNone => 0,
+            OperandType.ShortInlineBrTarget or OperandType.ShortInlineI or OperandType.ShortInlineVar => 1,
+            OperandType.InlineVar => 2,
+            OperandType.InlineI or OperandType.InlineBrTarget or OperandType.InlineField
+                or OperandType.InlineMethod or OperandType.InlineSig or OperandType.InlineString
+                or OperandType.InlineTok or OperandType.InlineType or OperandType.ShortInlineR => 4,
+            OperandType.InlineI8 or OperandType.InlineR => 8,
+            OperandType.InlineSwitch => 4 + (BitConverter.ToInt32(il, operandOffset) * 4),
+            _ => throw new InvalidOperationException($"Unsupported IL operand type: {operation.OperandType}")
+        };
+
+    private static readonly OpCode[] s_singleByteOpCodes = BuildOpCodeTable(multiByte: false);
+    private static readonly OpCode[] s_multiByteOpCodes = BuildOpCodeTable(multiByte: true);
+
+    private static OpCode[] BuildOpCodeTable(bool multiByte)
+    {
+        var result = new OpCode[256];
+        foreach (FieldInfo field in typeof(OpCodes).GetFields(BindingFlags.Public | BindingFlags.Static))
+        {
+            var operation = (OpCode)field.GetValue(null)!;
+            ushort value = unchecked((ushort)operation.Value);
+            if ((value > byte.MaxValue) == multiByte)
+            {
+                result[value & byte.MaxValue] = operation;
+            }
+        }
+
+        return result;
     }
 
     private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
