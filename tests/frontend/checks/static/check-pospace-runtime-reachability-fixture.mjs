@@ -159,6 +159,15 @@ const cases = [
         expected: 'must keep the PoSpace executor lazy'
     },
     {
+        name: 'Array prototype map call executor import is proactive',
+        file: 'src/frontend/src/composables/useNotification.ts',
+        mutate: source => source.replace(
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'",
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'\n\nconst eagerExecutorModules = Array.prototype.map.call([0], () => import('@/services/securityPoSpaceChallengeExecutor'))"
+        ),
+        expected: 'must keep the PoSpace executor lazy'
+    },
+    {
         name: 'user event path keeps nested scheduled and array loaders lazy',
         file: 'src/frontend/src/composables/useNotification.ts',
         mutate: source => source.replace(
@@ -501,6 +510,24 @@ const cases = [
         expected: 'must not duplicate direct Worker construction'
     },
     {
+        name: 'Reflect construct globalThis Worker remains forbidden in a host',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script setup lang="ts">',
+            "<script setup lang=\"ts\">\nconst duplicateWorker = Reflect.construct(globalThis.Worker, ['/worker.js'])"
+        ),
+        expected: 'must not duplicate direct Worker construction'
+    },
+    {
+        name: 'Reflect construct optional computed globalThis Worker remains forbidden in a host',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script setup lang="ts">',
+            "<script setup lang=\"ts\">\nconst duplicateWorker = Reflect.construct(globalThis?.[`Worker`], ['/worker.js'])"
+        ),
+        expected: 'must not duplicate direct Worker construction'
+    },
+    {
         name: 'parenthesized globalThis Worker construction remains forbidden in a host',
         file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
         mutate: source => source.replace(
@@ -537,11 +564,38 @@ const cases = [
         expected: 'must not duplicate direct Worker construction'
     },
     {
+        name: 'object-stored globalThis Worker alias remains forbidden in a host',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script setup lang="ts">',
+            "<script setup lang=\"ts\">\nconst browserConstructors = { worker: globalThis.Worker }\nconst WorkerAlias = browserConstructors.worker\nconst duplicateWorker = new WorkerAlias('/worker.js')"
+        ),
+        expected: 'must not duplicate direct Worker construction'
+    },
+    {
+        name: 'array-stored globalThis Worker alias remains forbidden in a host',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script setup lang="ts">',
+            "<script setup lang=\"ts\">\nconst browserConstructors = [globalThis.Worker] as const\nconst WorkerAlias = browserConstructors[0]\nconst duplicateWorker = new WorkerAlias('/worker.js')"
+        ),
+        expected: 'must not duplicate direct Worker construction'
+    },
+    {
         name: 'custom destructured Worker constructor is not the browser Worker',
         file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
         mutate: source => source.replace(
             '<script setup lang="ts">',
             "<script setup lang=\"ts\">\nconst customConstructors = { Worker: class LocalWorker {} }\nconst { Worker: WorkerAlias } = customConstructors\nconst localWorker = new WorkerAlias()"
+        ),
+        shouldPass: true
+    },
+    {
+        name: 'local Worker property constructor is not the browser Worker',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script setup lang="ts">',
+            "<script setup lang=\"ts\">\nconst localBag = { Worker: class LocalWorker {} }\nconst localWorker = new localBag.Worker()"
         ),
         shouldPass: true
     },

@@ -168,7 +168,7 @@ export function checkPoSpaceRuntimeReachability(root = repoRoot)
 
     return {
         check: 'pospace-runtime-reachability',
-        version: 6,
+        version: 7,
         ok: true,
         nodes,
         edges: edges.map(({ from, to, kind }) => ({ from, to, kind })),
@@ -310,14 +310,15 @@ function visit(node, facts, relative, flow)
         {
             facts.newExpressions.add('Worker');
         }
-        else
-        {
-            const constructor = expressionPropertyName(node.expression);
-            if (constructor)
-            {
-                facts.newExpressions.add(constructor);
-            }
-        }
+    }
+    if (
+        ts.isCallExpression(node)
+    && isReflectConstructCall(node.expression)
+    && node.arguments[0]
+    && isWorkerConstructorExpression(node.arguments[0], facts, flow)
+    )
+    {
+        facts.newExpressions.add('Worker');
     }
     if (
         ts.isVariableDeclaration(node)
@@ -601,8 +602,33 @@ function isProactiveCallbackCall(node, flow)
     {
         return true;
     }
+    if (isArrayPrototypeCallbackInvocation(target))
+    {
+        return true;
+    }
     return synchronousArrayCallbackMethods.has(target.name.text)
     && isStaticArrayValue(target.expression, node, flow);
+}
+
+function isArrayPrototypeCallbackInvocation(target)
+{
+    if (!['apply', 'call'].includes(target.name.text))
+    {
+        return false;
+    }
+    const method = unwrapRuntimeExpression(target.expression);
+    if (
+        !ts.isPropertyAccessExpression(method)
+    || !synchronousArrayCallbackMethods.has(method.name.text)
+    )
+    {
+        return false;
+    }
+    const prototype = unwrapRuntimeExpression(method.expression);
+    return ts.isPropertyAccessExpression(prototype)
+    && prototype.name.text === 'prototype'
+    && ts.isIdentifier(unwrapRuntimeExpression(prototype.expression))
+    && unwrapRuntimeExpression(prototype.expression).text === 'Array';
 }
 
 function isStaticArrayValue(node, useNode, flow, seen = new Set())
@@ -667,6 +693,10 @@ function staticStringValue(node, flow, seen = new Set())
     {
         return expression.text;
     }
+    if (ts.isNumericLiteral(expression))
+    {
+        return expression.text;
+    }
     if (ts.isIdentifier(expression) && flow && !seen.has(expression.text))
     {
         seen.add(expression.text);
@@ -694,22 +724,45 @@ function bindingPropertyName(node, flow)
     return ts.isComputedPropertyName(node) ? staticStringValue(node.expression, flow) : null;
 }
 
-function isWorkerConstructorExpression(node, facts, flow)
+function isWorkerConstructorExpression(node, facts, flow, seen = new Set())
 {
     const expression = unwrapRuntimeExpression(node);
     if (ts.isIdentifier(expression))
     {
-        return facts.workerConstructorAliases.has(expression.text);
+        if (facts.workerConstructorAliases.has(expression.text))
+        {
+            return true;
+        }
+        const binding = resolveBinding(flow.constValueBindings, expression, expression);
+        if (!binding || seen.has(binding.declaration))
+        {
+            return false;
+        }
+        seen.add(binding.declaration);
+        return isWorkerConstructorExpression(binding.value, facts, flow, seen);
     }
     if (ts.isPropertyAccessExpression(expression))
     {
-        return expression.name.text === 'Worker'
-        && isWorkerGlobalExpression(expression.expression, facts);
+        if (expression.name.text === 'Worker' && isWorkerGlobalExpression(expression.expression, facts))
+        {
+            return true;
+        }
+        const value = resolveStaticMemberValue(expression.expression, expression.name.text, expression, flow, seen);
+        return value ? isWorkerConstructorExpression(value, facts, flow, seen) : false;
     }
     if (ts.isElementAccessExpression(expression) && expression.argumentExpression)
     {
-        return staticStringValue(expression.argumentExpression, flow) === 'Worker'
-        && isWorkerGlobalExpression(expression.expression, facts);
+        const property = staticStringValue(expression.argumentExpression, flow);
+        if (property === null)
+        {
+            return false;
+        }
+        if (property === 'Worker' && isWorkerGlobalExpression(expression.expression, facts))
+        {
+            return true;
+        }
+        const value = resolveStaticMemberValue(expression.expression, property, expression, flow, seen);
+        return value ? isWorkerConstructorExpression(value, facts, flow, seen) : false;
     }
     if (ts.isCallExpression(expression))
     {
@@ -719,7 +772,7 @@ function isWorkerConstructorExpression(node, facts, flow)
         && target.name.text === 'bind'
         )
         {
-            return isWorkerConstructorExpression(target.expression, facts, flow);
+            return isWorkerConstructorExpression(target.expression, facts, flow, seen);
         }
         if (
             ts.isElementAccessExpression(target)
@@ -727,7 +780,7 @@ function isWorkerConstructorExpression(node, facts, flow)
         && staticStringValue(target.argumentExpression, flow) === 'bind'
         )
         {
-            return isWorkerConstructorExpression(target.expression, facts, flow);
+            return isWorkerConstructorExpression(target.expression, facts, flow, seen);
         }
     }
     if (
@@ -735,7 +788,94 @@ function isWorkerConstructorExpression(node, facts, flow)
     && expression.operatorToken.kind === ts.SyntaxKind.CommaToken
     )
     {
-        return isWorkerConstructorExpression(expression.right, facts, flow);
+        return isWorkerConstructorExpression(expression.right, facts, flow, seen);
+    }
+    return false;
+}
+
+function resolveStaticMemberValue(containerNode, property, useNode, flow, seen)
+{
+    const container = resolveStaticValue(containerNode, useNode, flow, seen);
+    if (ts.isObjectLiteralExpression(container))
+    {
+        for (const element of container.properties)
+        {
+            if (ts.isPropertyAssignment(element) && propertyNameText(element.name, flow) === property)
+            {
+                return element.initializer;
+            }
+            if (ts.isShorthandPropertyAssignment(element) && element.name.text === property)
+            {
+                return element.name;
+            }
+        }
+    }
+    if (ts.isArrayLiteralExpression(container) && /^(?:0|[1-9]\d*)$/u.test(property))
+    {
+        const element = container.elements[Number(property)];
+        return element && !ts.isOmittedExpression(element) && !ts.isSpreadElement(element) ? element : null;
+    }
+    return null;
+}
+
+function resolveStaticValue(node, useNode, flow, seen)
+{
+    const expression = unwrapRuntimeExpression(node);
+    if (ts.isIdentifier(expression))
+    {
+        const binding = resolveBinding(flow.constValueBindings, expression, useNode);
+        if (!binding || seen.has(binding.declaration))
+        {
+            return expression;
+        }
+        seen.add(binding.declaration);
+        return resolveStaticValue(binding.value, binding.declaration, flow, seen);
+    }
+    if (ts.isPropertyAccessExpression(expression))
+    {
+        const value = resolveStaticMemberValue(expression.expression, expression.name.text, expression, flow, seen);
+        return value ? resolveStaticValue(value, expression, flow, seen) : expression;
+    }
+    if (ts.isElementAccessExpression(expression) && expression.argumentExpression)
+    {
+        const property = staticStringValue(expression.argumentExpression, flow);
+        if (property !== null)
+        {
+            const value = resolveStaticMemberValue(expression.expression, property, expression, flow, seen);
+            return value ? resolveStaticValue(value, expression, flow, seen) : expression;
+        }
+    }
+    return expression;
+}
+
+function propertyNameText(node, flow)
+{
+    if (ts.isIdentifier(node) || ts.isStringLiteralLike(node) || ts.isNumericLiteral(node))
+    {
+        return node.text;
+    }
+    return ts.isComputedPropertyName(node) ? staticStringValue(node.expression, flow) : null;
+}
+
+function isReflectConstructCall(node)
+{
+    const expression = unwrapRuntimeExpression(node);
+    if (
+        ts.isPropertyAccessExpression(expression)
+    && expression.name.text === 'construct'
+    )
+    {
+        return ts.isIdentifier(unwrapRuntimeExpression(expression.expression))
+        && unwrapRuntimeExpression(expression.expression).text === 'Reflect';
+    }
+    if (
+        ts.isElementAccessExpression(expression)
+    && expression.argumentExpression
+    && staticStringValue(expression.argumentExpression, null) === 'construct'
+    )
+    {
+        return ts.isIdentifier(unwrapRuntimeExpression(expression.expression))
+        && unwrapRuntimeExpression(expression.expression).text === 'Reflect';
     }
     return false;
 }
@@ -765,27 +905,6 @@ function recordWorkerDestructuringAliases(pattern, initializer, facts, flow)
             facts.workerConstructorAliases.add(element.name.text);
         }
     }
-}
-
-function expressionPropertyName(node)
-{
-    const expression = unwrapRuntimeExpression(node);
-    if (ts.isIdentifier(expression))
-    {
-        return expression.text;
-    }
-    if (ts.isPropertyAccessExpression(expression))
-    {
-        return expression.name.text;
-    }
-    if (
-        ts.isElementAccessExpression(expression)
-    && expression.argumentExpression
-    )
-    {
-        return staticStringValue(expression.argumentExpression, null);
-    }
-    return null;
 }
 
 function isTypeOnlyImport(node)
