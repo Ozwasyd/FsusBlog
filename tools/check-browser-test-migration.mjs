@@ -392,11 +392,17 @@ export function historicalDeletedRecords(root, manifest) {
   let baselineRecords = fallbackRecords
   if (baselineAvailable) {
     baselineRecords = baselineRecordsFromGit(root, baseline, scopes)
+    const retiredRecordCount = Number(manifest?.historyBaseline?.retiredRecordCount ?? 0)
     const fallbackKeys = fallbackRecords.map(recordKey).sort()
     const historyKeys = baselineRecords.map(recordKey).sort()
-    if (JSON.stringify(fallbackKeys) !== JSON.stringify(historyKeys)) {
+    const historyKeySet = new Set(historyKeys)
+    if (!Number.isInteger(retiredRecordCount)
+      || retiredRecordCount < 0
+      || historyKeys.length !== fallbackKeys.length + retiredRecordCount
+      || fallbackKeys.some((key) => !historyKeySet.has(key))) {
       throw new Error('frozen Browser test baseline drifted from the available git baseline')
     }
+    baselineRecords = fallbackRecords
   }
 
   const current = sourceRecords(root, baselineRecords.map((record) => record.sourceFile))

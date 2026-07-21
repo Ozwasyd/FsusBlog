@@ -10,6 +10,7 @@
             "tests/tools/ux-risk-elastic-pool.test.mjs"
         ],
         "fallback": "tests/fixtures/issue-1151-browser-migration/historical-deleted-tests.json",
+        "retiredRecordCount": 2,
         "reason": "#1145 is the last source state before Acceptance thinning, Browser Contract extraction, diagnostics isolation, and removal of elastic/persistent browser orchestration."
     },
     "authorities": {

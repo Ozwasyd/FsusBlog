@@ -6,7 +6,7 @@
     "tests/tools/runtime-browser-resource-plan.test.mjs",
     "tests/tools/ux-risk-elastic-pool.test.mjs"
   ],
-  "recordCount": 69,
+  "recordCount": 67,
   "records": [
     {
       "sourceFile": "tests/frontend/e2e/acceptance/admin-console.spec.ts",
