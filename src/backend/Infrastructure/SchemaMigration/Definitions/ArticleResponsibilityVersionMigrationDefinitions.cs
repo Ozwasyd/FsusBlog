@@ -59,13 +59,15 @@ internal static class ArticleResponsibilityVersionMigrationDefinitions
                     BEGIN
                     IF to_regclass('article_publication') IS NOT NULL
                        AND to_regclass('article_responsibility_snapshot') IS NOT NULL THEN
-                    UPDATE article_publication publication
-                    SET responsibility_snapshot_id = responsibility.id
-                    FROM article_responsibility_snapshot responsibility
-                    WHERE publication.responsibility_snapshot_id IS NULL
-                      AND responsibility.article_id = publication.article_id
-                      AND responsibility.article_revision_id = publication.article_revision_id
-                      AND responsibility.responsibility_version = 1;
+                    EXECUTE $migration$
+                        UPDATE article_publication publication
+                        SET responsibility_snapshot_id = responsibility.id
+                        FROM article_responsibility_snapshot responsibility
+                        WHERE publication.responsibility_snapshot_id IS NULL
+                          AND responsibility.article_id = publication.article_id
+                          AND responsibility.article_revision_id = publication.article_revision_id
+                          AND responsibility.responsibility_version = 1
+                    $migration$;
                     END IF;
                     END $$;
                     """),
@@ -75,13 +77,15 @@ internal static class ArticleResponsibilityVersionMigrationDefinitions
                     BEGIN
                     IF to_regclass('article_mutation_outbox') IS NOT NULL
                        AND to_regclass('article_responsibility_snapshot') IS NOT NULL THEN
-                    UPDATE article_mutation_outbox event
-                    SET responsibility_snapshot_id = responsibility.id
-                    FROM article_responsibility_snapshot responsibility
-                    WHERE event.responsibility_snapshot_id IS NULL
-                      AND responsibility.article_id = event.aggregate_id
-                      AND responsibility.article_revision_id = event.article_revision_id
-                      AND responsibility.responsibility_version = 1;
+                    EXECUTE $migration$
+                        UPDATE article_mutation_outbox event
+                        SET responsibility_snapshot_id = responsibility.id
+                        FROM article_responsibility_snapshot responsibility
+                        WHERE event.responsibility_snapshot_id IS NULL
+                          AND responsibility.article_id = event.aggregate_id
+                          AND responsibility.article_revision_id = event.article_revision_id
+                          AND responsibility.responsibility_version = 1
+                    $migration$;
                     END IF;
                     END $$;
                     """),
@@ -89,15 +93,20 @@ internal static class ArticleResponsibilityVersionMigrationDefinitions
                     "Responsibility versions remain positive and unique per article revision.",
                     """
                     DO $$
+                    DECLARE invalid_versions boolean;
                     BEGIN
-                    IF to_regclass('article_responsibility_snapshot') IS NOT NULL
-                       AND EXISTS (
-                           SELECT 1
-                           FROM article_responsibility_snapshot
-                           GROUP BY article_revision_id, responsibility_version
-                           HAVING responsibility_version <= 0 OR COUNT(*) > 1
-                       ) THEN
-                        RAISE EXCEPTION 'Article responsibility versions are invalid or duplicated.';
+                    IF to_regclass('article_responsibility_snapshot') IS NOT NULL THEN
+                        EXECUTE $migration$
+                            SELECT EXISTS (
+                                SELECT 1
+                                FROM article_responsibility_snapshot
+                                GROUP BY article_revision_id, responsibility_version
+                                HAVING responsibility_version <= 0 OR COUNT(*) > 1
+                            )
+                        $migration$ INTO invalid_versions;
+                        IF invalid_versions THEN
+                            RAISE EXCEPTION 'Article responsibility versions are invalid or duplicated.';
+                        END IF;
                     END IF;
                     END $$;
                     """),
@@ -105,18 +114,23 @@ internal static class ArticleResponsibilityVersionMigrationDefinitions
                     "Published responsibility pointers resolve to the same article revision.",
                     """
                     DO $$
+                    DECLARE invalid_coordinates boolean;
                     BEGIN
                     IF to_regclass('article_publication') IS NOT NULL
-                       AND to_regclass('article_responsibility_snapshot') IS NOT NULL
-                       AND EXISTS (
-                           SELECT 1
-                           FROM article_publication publication
-                           JOIN article_responsibility_snapshot responsibility
-                             ON responsibility.id = publication.responsibility_snapshot_id
-                           WHERE responsibility.article_id <> publication.article_id
-                              OR responsibility.article_revision_id <> publication.article_revision_id
-                       ) THEN
-                        RAISE EXCEPTION 'Article publication responsibility coordinates do not resolve.';
+                       AND to_regclass('article_responsibility_snapshot') IS NOT NULL THEN
+                        EXECUTE $migration$
+                            SELECT EXISTS (
+                                SELECT 1
+                                FROM article_publication publication
+                                JOIN article_responsibility_snapshot responsibility
+                                  ON responsibility.id = publication.responsibility_snapshot_id
+                                WHERE responsibility.article_id <> publication.article_id
+                                   OR responsibility.article_revision_id <> publication.article_revision_id
+                            )
+                        $migration$ INTO invalid_coordinates;
+                        IF invalid_coordinates THEN
+                            RAISE EXCEPTION 'Article publication responsibility coordinates do not resolve.';
+                        END IF;
                     END IF;
                     END $$;
                     """)

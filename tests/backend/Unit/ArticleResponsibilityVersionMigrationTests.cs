@@ -32,6 +32,21 @@ public sealed class ArticleResponsibilityVersionMigrationContractTests
 public sealed class ArticleResponsibilityVersionMigrationDatabaseTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
+    public async Task FreshDatabaseWithoutResponsibilityTablesIsNoOp()
+    {
+        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        ISchemaMigrationDescriptor descriptor = ArticleResponsibilityVersionMigrationDefinitions.BuildMigration();
+
+        // Empty public schema: migration must not fail when optional tables are absent
+        // (fresh production bootstrap creates tables later via CodeFirst).
+        await ApplyAsync(db, descriptor);
+        await ApplyAsync(db, descriptor);
+
+        Assert.Equal(0, await db.Ado.GetIntAsync(
+            "SELECT COUNT(1) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'article_responsibility_snapshot';"));
+    }
+
+    [Fact]
     public async Task ExistingRowsBecomeVersionOneAndPublicationOutboxPointersAreBackfilledIdempotently()
     {
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
