@@ -1759,7 +1759,8 @@ EnsureReleasePreview() {
     fi
     managedPid="$(ReadPidFile "$pidFile")"
     existingPid="$(FindPortPid "$RELEASE_PREVIEW_PORT")"
-    if ProbeUrl "$RELEASE_PREVIEW_URL/"; then
+    local releasePreviewProbeUrl="${RELEASE_PREVIEW_URL}/?fsus-preview-proof=bootstrap"
+    if ProbeUrl "$releasePreviewProbeUrl"; then
         releaseReachable=1
     fi
     AdmitDedicatedRuntimePort \
@@ -1822,8 +1823,9 @@ EnsureReleasePreview() {
     fi
     printf '%s\n' "$nextFingerprint" >"$fingerprintFile"
 
+    # Restart path: re-probe the immutable frontend entry (not backend SSR).
     releaseReachable=0
-    if ProbeUrl "$RELEASE_PREVIEW_URL/"; then
+    if ProbeUrl "$releasePreviewProbeUrl"; then
         releaseReachable=1
     fi
     AdmitDedicatedRuntimePort \
@@ -1836,7 +1838,7 @@ EnsureReleasePreview() {
 
     StartBackgroundIfNeeded \
         'release preview' \
-        "$RELEASE_PREVIEW_URL/" \
+        "$releasePreviewProbeUrl" \
         "$RELEASE_PREVIEW_PORT" \
         "$pidFile" \
         "$TMP_DIR/preview.log" \
@@ -1968,9 +1970,11 @@ Main() {
     WaitForPowReady
     PrepareFixtures
     if CiProductionHasDomain frontend-dist; then
+        # Prefer the immutable frontend entry for liveness. Real public SSR may
+        # still be warming via public-AOT backfill after empty-DB bootstrap.
         WaitForUrl \
             'release preview public home after fixture seeding' \
-            "$RELEASE_PREVIEW_URL/" \
+            "${RELEASE_PREVIEW_URL}/?fsus-preview-proof=bootstrap" \
             "$EXECUTION_DEADLINE_AT_MS"
     fi
     jq -n \
