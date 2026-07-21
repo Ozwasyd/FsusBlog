@@ -164,10 +164,10 @@ test('frozen history rejects a coordinated fallback, authority, count, and expec
   t.after(() => rmSync(fixtureDirectory, { recursive: true, force: true }))
   const fallbackPath = path.join(fixtureDirectory, 'historical-deleted-tests.json')
   writeFileSync(fallbackPath, `${JSON.stringify(fallback, null, 2)}\n`)
-  manifest.historyBaseline.fallback = path.relative(root, fallbackPath)
+  manifest.historyBaseline.fallback = path.basename(fallbackPath)
 
   assert.throws(
-    () => historicalDeletedRecords(root, manifest),
+    () => historicalDeletedRecords(fixtureDirectory, manifest),
     /frozen Browser test baseline drifted/u
   )
 })
@@ -183,6 +183,46 @@ test('frozen fallback record-set authority remains pinned when git history is un
   ))
   fallback.records.shift()
   fallback.recordCount = fallback.records.length
+
+  const fixtureDirectory = mkdtempSync(path.join(tmpdir(), 'fsusblog-browser-history-'))
+  t.after(() => rmSync(fixtureDirectory, { recursive: true, force: true }))
+  const fallbackPath = path.join(fixtureDirectory, 'historical-deleted-tests.json')
+  writeFileSync(fallbackPath, `${JSON.stringify(fallback, null, 2)}\n`)
+  manifest.historyBaseline.fallback = path.basename(fallbackPath)
+
+  assert.throws(
+    () => historicalDeletedRecords(fixtureDirectory, manifest),
+    /frozen Browser test baseline drifted/u
+  )
+})
+
+test('canonical fallback remains authoritative when git history is unavailable', (t) => {
+  const manifest = JSON.parse(readFileSync(
+    path.join(root, 'tests/governance/browser-test-migration.json'),
+    'utf8'
+  ))
+  const fallback = JSON.parse(readFileSync(
+    path.join(root, manifest.historyBaseline.fallback),
+    'utf8'
+  ))
+  const fixtureDirectory = mkdtempSync(path.join(tmpdir(), 'fsusblog-browser-history-'))
+  t.after(() => rmSync(fixtureDirectory, { recursive: true, force: true }))
+  const fallbackPath = path.join(fixtureDirectory, 'historical-deleted-tests.json')
+  writeFileSync(fallbackPath, `${JSON.stringify(fallback, null, 2)}\n`)
+  manifest.historyBaseline.fallback = path.basename(fallbackPath)
+
+  assert.equal(historicalDeletedRecords(fixtureDirectory, manifest).length, fallback.recordCount)
+})
+
+test('frozen fallback rejects a provenance-only baseline commit rewrite when git history is unavailable', (t) => {
+  const manifest = JSON.parse(readFileSync(
+    path.join(root, 'tests/governance/browser-test-migration.json'),
+    'utf8'
+  ))
+  const fallback = JSON.parse(readFileSync(
+    path.join(root, manifest.historyBaseline.fallback),
+    'utf8'
+  ))
   const unavailableBaseline = 'f'.repeat(40)
   fallback.sourceCommit = unavailableBaseline
   manifest.historyBaseline.commit = unavailableBaseline
@@ -191,10 +231,38 @@ test('frozen fallback record-set authority remains pinned when git history is un
   t.after(() => rmSync(fixtureDirectory, { recursive: true, force: true }))
   const fallbackPath = path.join(fixtureDirectory, 'historical-deleted-tests.json')
   writeFileSync(fallbackPath, `${JSON.stringify(fallback, null, 2)}\n`)
-  manifest.historyBaseline.fallback = path.relative(root, fallbackPath)
+  manifest.historyBaseline.fallback = path.basename(fallbackPath)
 
   assert.throws(
-    () => historicalDeletedRecords(root, manifest),
+    () => historicalDeletedRecords(fixtureDirectory, manifest),
+    /frozen Browser test baseline drifted/u
+  )
+})
+
+test('frozen fallback rejects a provenance-only scope rewrite when git history is unavailable', (t) => {
+  const manifest = JSON.parse(readFileSync(
+    path.join(root, 'tests/governance/browser-test-migration.json'),
+    'utf8'
+  ))
+  const fallback = JSON.parse(readFileSync(
+    path.join(root, manifest.historyBaseline.fallback),
+    'utf8'
+  ))
+  const rewrittenScopes = [
+    'tests/frontend/e2e',
+    'tests/tools/other-browser-resource-plan.test.mjs'
+  ]
+  fallback.scopes = rewrittenScopes
+  manifest.historyBaseline.scopes = rewrittenScopes
+
+  const fixtureDirectory = mkdtempSync(path.join(tmpdir(), 'fsusblog-browser-history-'))
+  t.after(() => rmSync(fixtureDirectory, { recursive: true, force: true }))
+  const fallbackPath = path.join(fixtureDirectory, 'historical-deleted-tests.json')
+  writeFileSync(fallbackPath, `${JSON.stringify(fallback, null, 2)}\n`)
+  manifest.historyBaseline.fallback = path.basename(fallbackPath)
+
+  assert.throws(
+    () => historicalDeletedRecords(fixtureDirectory, manifest),
     /frozen Browser test baseline drifted/u
   )
 })

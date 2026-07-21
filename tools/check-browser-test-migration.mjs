@@ -114,8 +114,15 @@ function retiredHistoryKey(record) {
 }
 
 const retiredHistoryAuthorityCount = 2
+const retiredHistoryBaselineCommit = '73c9c087185e69925aa4fee8593feec3f858051c'
+const retiredHistoryBaselineScopes = Object.freeze([
+  'tests/frontend/e2e',
+  'tests/tools/runtime-browser-resource-plan.test.mjs',
+  'tests/tools/ux-risk-elastic-pool.test.mjs'
+])
 const retiredHistoryFallbackCount = 67
 const retiredHistoryFallbackRecordSetSha256 = '0311b66e4149b75fd7cb2a18eba8b91a7b4bf3daf9df35b41a0d56bc6f7656d7'
+const retiredHistoryFallbackAuthoritySha256 = '03d04c90b75ccd631392e7caaea6c4c8eaa134dbf3c64b6c2a62cba57d33fe1c'
 const retiredHistoryAuthority = Object.freeze([
   Object.freeze({
     sourceFileSha256: 'fc34e1382099e056c8bcf1b1f45ac34677aa5bfa9d140b4a7b1fca31120f4a63',
@@ -391,9 +398,22 @@ function baselineRecordsFromFallback(root, manifest, baseline, scopes) {
     sourceTestId: String(record.sourceTestId ?? '').trim()
   }))
   const keys = records.map(recordKey)
+  const canonicalAuthority = {
+    schema: String(fallback.schema ?? '').trim(),
+    sourceCommit: String(fallback.sourceCommit ?? '').trim(),
+    scopes: strings(fallback.scopes),
+    recordCount: Number(fallback.recordCount),
+    records: [...keys].sort()
+  }
+  const authoritySha256 = createHash('sha256')
+    .update(JSON.stringify(canonicalAuthority))
+    .digest('hex')
   if (records.some((record) => !record.sourceFile || !record.sourceTestId)
     || new Set(keys).size !== keys.length) {
     throw new Error('browser migration fallback snapshot contains an empty or duplicate test identity')
+  }
+  if (authoritySha256 !== retiredHistoryFallbackAuthoritySha256) {
+    throw new Error('frozen Browser test baseline drifted from the pinned fallback authority')
   }
   return records
 }
@@ -407,6 +427,10 @@ export function historicalDeletedRecords(root, manifest) {
     && scopes.slice(1).every((scope) => /^tests\/tools\/[A-Za-z0-9._/-]+\.test\.mjs$/u.test(scope))
   if (!/^[0-9a-f]{40}$/u.test(baseline) || !validScopes) {
     throw new Error('browser migration historyBaseline requires a full commit, the e2e scope, and explicit browser-orchestration test scopes')
+  }
+  if (baseline !== retiredHistoryBaselineCommit
+    || JSON.stringify(scopes) !== JSON.stringify(retiredHistoryBaselineScopes)) {
+    throw new Error('frozen Browser test baseline drifted from the pinned commit or scopes')
   }
   const fallbackRecords = baselineRecordsFromFallback(root, manifest, baseline, scopes)
   const retiredRecordCount = Number(manifest?.historyBaseline?.retiredRecordCount ?? 0)
