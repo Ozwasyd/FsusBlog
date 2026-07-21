@@ -8,6 +8,7 @@ import {
   auditRetentionRecords,
   mergeReplacementEntries,
   scanBackendSourceLocking,
+  validateReplacementChainAuthority,
   validateAfterSnapshotAuthority,
   verifySourceLockingFixtures
 } from './test-convergence/audit.mjs'
@@ -123,6 +124,10 @@ const compactBefore = isCompactRetentionBaseline(beforeSnapshot)
 if (compactBefore) validateCompactRetentionBaseline(beforeSnapshot)
 const beforeRecords = compactBefore ? null : recordsFromSnapshot(beforeSnapshot, repoPath(beforePath))
 const merged = mergeReplacementEntries([{ source: repoPath(centralPath), manifest: readJson(centralPath) }])
+const replacementChainAuthority = validateReplacementChainAuthority(merged.entries, {
+  edgeCount: 188,
+  edgeSetSha256: 'ea380935f1165d4df01cc43cad9ad0ada8026e74bf50c1d71879ce303275d7c5'
+})
 const postBaseline = validatePostBaselines(retentionGovernance.postBaselines, merged.entries)
 const defaultAfterPath = resolve(root, retentionGovernance.auditOutput ?? '.tmp/release-evidence/test-retention-audit.json')
 const afterPath = options.after ?? (options.final && existsSync(defaultAfterPath) ? defaultAfterPath : null)
@@ -152,6 +157,7 @@ const errors = [
   ...afterAuthorityErrors,
   ...postBaseline.errors,
   ...merged.errors,
+  ...replacementChainAuthority.errors,
   ...retention.errors,
   ...sourceLocking.fixtureAudit.errors,
   ...sourceLocking.violations.map((violation) =>
@@ -174,6 +180,7 @@ const report = {
     beforeTestRecords: compactBefore ? beforeSnapshot.testIndex.count : beforeRecords.length,
     afterTestRecords: afterRecords?.length ?? null,
     replacementDeclarations: merged.entries.length,
+    historicalReplacementChainEdges: replacementChainAuthority.edgeCount,
     postBaselineDeletionDeclarations: postBaseline.ids.length,
     deletedTestRecords: retention.deletedRecords.length,
     backendSourceFilesScanned: sourceLocking.scannedFiles,
@@ -185,6 +192,7 @@ const report = {
   unknownDeletionDeclarations: retention.unknownDeletionDeclarations,
   mismatchedDeletionPaths: retention.mismatchedDeletionPaths,
   missingReplacementTargets: retention.missingReplacementTargets,
+  replacementChainAuthority,
   backendSourceLockViolations: sourceLocking.violations,
   errors
 }

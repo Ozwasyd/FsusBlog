@@ -10,6 +10,7 @@ import {
   expandPathReplacementPlan,
   mergeReplacementEntries,
   scanBackendSourceLocking,
+  validateReplacementChainAuthority,
   validateAfterSnapshotAuthority,
   validateChildIssueStatusEvidence,
   validateConvergencePlan,
@@ -122,6 +123,46 @@ test('replacement merge accepts identical declarations and reports conflicting o
   assert.deepEqual(clean.errors, [])
   assert.equal(conflict.conflicts.length, 1)
   assert.match(conflict.errors[0], /conflicting replacement declarations/u)
+})
+
+test('post-baseline replacements cannot introduce or retarget a deleted-ledger chain edge', () => {
+  const historical = [{
+    id: 'xunit:old#Old.A',
+    path: 'tests/backend/Unit/Old.cs',
+    replacementTestIds: ['xunit:old#Old.B']
+  }, {
+    id: 'xunit:old#Old.B',
+    path: 'tests/backend/Unit/Old.cs',
+    replacementTestIds: ['xunit:current#Current.Test']
+  }]
+  const authority = {
+    edgeCount: 1,
+    edgeSetSha256: 'd70448f45f8dbc973adfc8234581d6fdfe436fe4462eb872e50b249265ffed66'
+  }
+
+  assert.deepEqual(validateReplacementChainAuthority(historical, authority).errors, [])
+
+  const appendedChain = [...historical, {
+    id: 'xunit:newer#Newer.C',
+    path: 'tests/backend/Unit/Newer.cs',
+    replacementTestIds: ['xunit:old#Old.B']
+  }]
+  assert.match(
+    validateReplacementChainAuthority(appendedChain, authority).errors[0],
+    /outside the frozen historical chain authority/u
+  )
+
+  const coordinatedRetarget = structuredClone(historical)
+  coordinatedRetarget[0].replacementTestIds = ['xunit:newer#Newer.C']
+  coordinatedRetarget.push({
+    id: 'xunit:newer#Newer.C',
+    path: 'tests/backend/Unit/Newer.cs',
+    replacementTestIds: ['xunit:current#Current.Test']
+  })
+  assert.match(
+    validateReplacementChainAuthority(coordinatedRetarget, authority).errors[0],
+    /outside the frozen historical chain authority/u
+  )
 })
 
 test('issue-local replacement manifest count is exact', () => {

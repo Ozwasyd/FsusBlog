@@ -1621,7 +1621,7 @@
                 "xunit:tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs#AnonymousNullifierPostgresConcurrencyTests.CreateStrongAnonymousCommentAsync_InitiallyHiddenNeverPublishesRemoveEvent",
                 "xunit:tests/backend/Unit/AnonymousCommentSubmitTests.cs#AnonymousCommentSubmitTests.CreateStrongAnonymousCommentAsync_ArticleDeletedAfterPrecheck_IsRejected",
                 "xunit:tests/backend/Unit/AnonymousCommentSubmitTests.cs#AnonymousCommentSubmitTests.CreateStrongAnonymousCommentAsync_ParentHiddenAfterPrecheck_IsRejected",
-                "xunit:tests/backend/Unit/AnonymousCommentSubmitTests.cs#AnonymousCommentSubmitTests.CreateStrongAnonymousCommentAsync_ValidReply_UsesServerSideReplyProjectionWithoutReplyUserId",
+                "xunit:tests/backend/Unit/AnonymousCommentSubmitTests.cs#AnonymousCommentSubmitTests.CreateStrongAnonymousCommentAsync_ValidReplyToPublicTarget_PreservesRecipientWithoutAttributingActor",
                 "xunit:tests/backend/Unit/AnonymousCommentSubmitTests.cs#AnonymousCommentSubmitTests.DeleteCommentAsync_AccountCannotDeleteStrongAnonymousCommentEvenWhenLegacyUserIdMatches"
             ],
             "reason": "Real database locks, rollback, visibility checks, concurrent CAS, and observable invalidation counts replace source-order assertions."
@@ -4985,7 +4985,7 @@
             "path": "tests/frontend/unit/router/index.test.ts",
             "replacementTestIds": [
                 "node-script:tests/frontend/checks/static/check-security-consistency.mjs",
-                "vitest:tests/frontend/unit/router/index.test.ts#keeps-user-authenticated-without-legacy-role-meta-e42551a7d7",
+                "vitest:tests/frontend/unit/router/index.test.ts#keeps-user-as-a-confirmed-identity-redirect-without-a-su-59ea657fd5",
                 "vitest:tests/frontend/unit/router/index.test.ts#manage-route-checks-required-permissions-after-admin-pro-4bb39b769e"
             ],
             "reason": "source assertion removed while direct behavior tests remain in the file or its static owner"
@@ -6741,7 +6741,7 @@
             "path": "tests/frontend/unit/view-contracts/anonymousAccountOutputWorkflow.test.ts",
             "replacementTestIds": [
                 "vitest:tests/frontend/unit/store/user.test.ts#isadmin-stays-false-for-anonymous-account-snapshots-535e27550f",
-                "vitest:tests/frontend/unit/router/index.test.ts#keeps-user-authenticated-without-legacy-role-meta-e42551a7d7",
+                "vitest:tests/frontend/unit/router/index.test.ts#keeps-user-as-a-confirmed-identity-redirect-without-a-su-59ea657fd5",
                 "vitest:tests/frontend/unit/layouts/accountNavModules.test.ts#keeps-account-and-admin-surfaces-separate-in-the-persist-fd176fd462"
             ],
             "reason": "Store, router and imported navigation behavior prove account/admin separation and role-free route guards directly."
@@ -6936,7 +6936,7 @@
             "replacementTestIds": [
                 "vitest:tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts#preloads-article-metadata-prepares-a-short-lived-ticket--84bead9691",
                 "vitest:tests/frontend/unit/api/comment.test.ts#createanonymouscomment-posts-an-anonymouscommentcreatere-d93c70823f",
-                "xunit:tests/backend/Unit/AnonymousCommentSubmitTests.cs#AnonymousCommentSubmitTests.CreateStrongAnonymousCommentAsync_ReplayedTicket_IsRejectedBeforeSecondWrite",
+                "xunit:tests/backend/Unit/AnonymousCommentSubmitTests.cs#AnonymousCommentSubmitTests.CreateStrongAnonymousCommentAsync_ReplayedTicket_ReturnsOriginalResultWithoutSecondWrite",
                 "vitest:tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts#delegates-proof-generation-to-the-loaded-wasm-prover-art-dd80c27445"
             ],
             "reason": "Consume-once runtime, credential-free fallback transport, server replay rejection and console-free prover behavior replace implementation string checks."
@@ -7328,7 +7328,7 @@
             "id": "vitest:tests/frontend/unit/session-fixtures-contract.test.ts#keeps-account-fixture-sessions-separate-from-admin-fixtu-4c9d91f4b6",
             "path": "tests/frontend/unit/session-fixtures-contract.test.ts",
             "replacementTestIds": [
-                "vitest:tests/frontend/unit/router/index.test.ts#keeps-user-authenticated-without-legacy-role-meta-e42551a7d7",
+                "vitest:tests/frontend/unit/router/index.test.ts#keeps-user-as-a-confirmed-identity-redirect-without-a-su-59ea657fd5",
                 "vitest:tests/frontend/unit/router/index.test.ts#manage-route-checks-required-permissions-after-admin-pro-4bb39b769e"
             ],
             "reason": "Router execution proves account and independently elevated admin identity planes."

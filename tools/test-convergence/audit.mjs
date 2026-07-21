@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto'
+
 import {
   compactRetentionKey,
   decodeCompactRetentionIndex,
@@ -252,6 +254,31 @@ export function mergeReplacementEntries(manifests) {
     }
   }
   return { entries: [...merged.values()].sort((left, right) => left.id.localeCompare(right.id)), conflicts, errors }
+}
+
+export function validateReplacementChainAuthority(replacements, authority) {
+  const expectedEdgeCount = Number(authority?.edgeCount)
+  const expectedEdgeSetSha256 = String(authority?.edgeSetSha256 ?? '').trim()
+  const deletedIds = new Set(replacements.map((entry) => entry.id))
+  const edges = [...new Set(replacements.flatMap((entry) =>
+    entry.replacementTestIds
+      .filter((replacementId) => deletedIds.has(replacementId))
+      .map((replacementId) => `${entry.id}\n${replacementId}`)
+  ))].sort()
+  const edgeSetSha256 = createHash('sha256')
+    .update(JSON.stringify(edges))
+    .digest('hex')
+  const errors = []
+  if (!Number.isInteger(expectedEdgeCount)
+    || expectedEdgeCount < 0
+    || !/^[0-9a-f]{64}$/u.test(expectedEdgeSetSha256)) {
+    errors.push('replacement chain authority is missing or invalid')
+  } else if (edges.length !== expectedEdgeCount || edgeSetSha256 !== expectedEdgeSetSha256) {
+    errors.push(
+      'replacementTestId points to a deleted ledger ID outside the frozen historical chain authority'
+    )
+  }
+  return { edgeCount: edges.length, edgeSetSha256, errors }
 }
 
 export function expandPathReplacementPlan(beforeRecords, plan, source = '<path-plan>') {
