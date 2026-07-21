@@ -150,25 +150,6 @@
                 "resolved": "5.2.0",
                 "contentHash": "po1jhvFd+8pbfvJR/puh+fkHi0GRanAdvayh/0e47yaM6CXWZ6opUjCMFuYlAnD2LcbyvQE7fPJKvogmaUcN+w=="
             },
-            "Microsoft.Extensions.Caching.Abstractions": {
-                "type": "Transitive",
-                "resolved": "10.0.7",
-                "contentHash": "pUDgQKEqNUFlerDIFRg7zzoDVRPEWIG7nR40h8Gzg8RXza4Ry0lWZ7u91bmwu3iUDCxw3Dv6TLHVFoAgY0gy7Q==",
-                "dependencies": {
-                    "Microsoft.Extensions.Primitives": "10.0.7"
-                }
-            },
-            "Microsoft.Extensions.Caching.StackExchangeRedis": {
-                "type": "Transitive",
-                "resolved": "10.0.7",
-                "contentHash": "TvD0totA8qeyrZ2YeY/qRNgYBy4BvO6dG59ziJDLVnLH4s2jeLUFEFcgA3xzqPhCMMbuz9bJTRwHxkZ/7c87jQ==",
-                "dependencies": {
-                    "Microsoft.Extensions.Caching.Abstractions": "10.0.7",
-                    "Microsoft.Extensions.Logging.Abstractions": "10.0.7",
-                    "Microsoft.Extensions.Options": "10.0.7",
-                    "StackExchange.Redis": "2.7.27"
-                }
-            },
             "Microsoft.Extensions.Configuration": {
                 "type": "Transitive",
                 "resolved": "10.0.0",
@@ -277,10 +258,10 @@
             },
             "Microsoft.Extensions.Logging.Abstractions": {
                 "type": "Transitive",
-                "resolved": "10.0.7",
-                "contentHash": "tIEcQ2gvERrH2KiCjdsVcHGhXt9lIsuDStfOIeZWr7/fP8IXhGiYfx0/80PNI7WPO2IYuFtlZLSlnTS8+/Mchw==",
+                "resolved": "10.0.0",
+                "contentHash": "FU/IfjDfwaMuKr414SSQNTIti/69bHEMb+QKrskRb26oVqpx3lNFXMjs/RC9ZUuhBhcwDM2BwOgoMw+PZ+beqQ==",
                 "dependencies": {
-                    "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.7"
+                    "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0"
                 }
             },
             "Microsoft.Extensions.Logging.Configuration": {
@@ -300,11 +281,11 @@
             },
             "Microsoft.Extensions.Options": {
                 "type": "Transitive",
-                "resolved": "10.0.7",
-                "contentHash": "00SHUGTh2jSMvIr6x9Xwd2nE+B5/qFCO/9hDwUDhJsjYRDlADmaBZ7tqehXzBDsfjHSXJzuRHJzPYPPjphBQ7Q==",
+                "resolved": "10.0.0",
+                "contentHash": "8oCAgXOow5XDrY9HaXX1QmH3ORsyZO/ANVHBlhLyCeWTH5Sg4UuqZeOTWJi6484M+LqSx0RqQXDJtdYy2BNiLQ==",
                 "dependencies": {
-                    "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.7",
-                    "Microsoft.Extensions.Primitives": "10.0.7"
+                    "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0",
+                    "Microsoft.Extensions.Primitives": "10.0.0"
                 }
             },
             "Microsoft.Extensions.Options.ConfigurationExtensions": {
@@ -708,7 +689,6 @@
                     "MessagePack": "[2.5.301, )",
                     "Microsoft.AspNetCore.Authentication.JwtBearer": "[10.0.7, )",
                     "Microsoft.AspNetCore.OpenApi": "[10.0.9, )",
-                    "Microsoft.Extensions.Caching.StackExchangeRedis": "[10.0.7, )",
                     "Microsoft.OpenApi": "[2.7.5, )",
                     "Microsoft.VisualStudio.Azure.Containers.Tools.Targets": "[1.23.0, )",
                     "Nethermind.MclBindings": "[1.0.5, )",
@@ -724,7 +704,8 @@
                     "Serilog.Sinks.Async": "[2.1.0, )",
                     "Serilog.Sinks.Console": "[6.1.1, )",
                     "Serilog.Sinks.File": "[7.0.0, )",
-                    "SqlSugarCoreNoDrive": "[5.1.4.213, )"
+                    "SqlSugarCoreNoDrive": "[5.1.4.213, )",
+                    "StackExchange.Redis": "[2.7.27, )"
                 }
             },
             "fsusblog.shared": {
