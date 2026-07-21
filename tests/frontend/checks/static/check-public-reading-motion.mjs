@@ -33,20 +33,197 @@ function expectMatches(source, pattern, message) {
   }
 }
 
+function stripCssComments(source) {
+  let output = ''
+  let quote = null
+
+  for (let index = 0; index < source.length; index += 1) {
+    const character = source[index]
+    const nextCharacter = source[index + 1]
+
+    if (quote !== null) {
+      output += character
+      if (character === '\\' && nextCharacter !== undefined) {
+        output += nextCharacter
+        index += 1
+      } else if (character === quote) {
+        quote = null
+      }
+      continue
+    }
+
+    if (character === '"' || character === "'") {
+      quote = character
+      output += character
+      continue
+    }
+
+    if (character !== '/' || nextCharacter !== '*') {
+      output += character
+      continue
+    }
+
+    index += 2
+    while (index < source.length && !(source[index] === '*' && source[index + 1] === '/')) {
+      output += source[index] === '\n' ? '\n' : ' '
+      index += 1
+    }
+    if (index >= source.length) {
+      throw new Error('unterminated CSS comment')
+    }
+    output += '  '
+    index += 1
+  }
+
+  return output
+}
+
+function enumerateCssRules(source) {
+  const rules = []
+  const blockStack = []
+  let segmentStart = 0
+  let quote = null
+  let parenthesisDepth = 0
+
+  for (let index = 0; index < source.length; index += 1) {
+    const character = source[index]
+    const nextCharacter = source[index + 1]
+
+    if (quote !== null) {
+      if (character === '\\' && nextCharacter !== undefined) {
+        index += 1
+      } else if (character === quote) {
+        quote = null
+      }
+      continue
+    }
+
+    if (character === '"' || character === "'") {
+      quote = character
+      continue
+    }
+
+    if (character === '(') {
+      parenthesisDepth += 1
+      continue
+    }
+    if (character === ')') {
+      parenthesisDepth = Math.max(0, parenthesisDepth - 1)
+      continue
+    }
+    if (parenthesisDepth > 0) {
+      continue
+    }
+
+    if (character === '{') {
+      blockStack.push({
+        prelude: source.slice(segmentStart, index).trim(),
+        bodyStart: index + 1
+      })
+      segmentStart = index + 1
+      continue
+    }
+
+    if (character === ';') {
+      segmentStart = index + 1
+      continue
+    }
+
+    if (character !== '}') {
+      continue
+    }
+
+    const block = blockStack.pop()
+    if (!block) {
+      throw new Error('unmatched CSS closing brace')
+    }
+    if (!block.prelude.startsWith('@')) {
+      rules.push({
+        selector: block.prelude,
+        body: source.slice(block.bodyStart, index)
+      })
+    }
+    segmentStart = index + 1
+  }
+
+  if (quote !== null) {
+    throw new Error('unterminated CSS string')
+  }
+  if (blockStack.length > 0) {
+    throw new Error('unterminated CSS block')
+  }
+
+  return rules
+}
+
+function parseCssDeclarations(body) {
+  const declarations = []
+  let segmentStart = 0
+  let quote = null
+  let parenthesisDepth = 0
+
+  function appendDeclaration(segmentEnd) {
+    const segment = body.slice(segmentStart, segmentEnd).trim()
+    const colonIndex = segment.indexOf(':')
+    if (colonIndex <= 0) {
+      return
+    }
+    declarations.push({
+      property: segment.slice(0, colonIndex).trim().toLowerCase(),
+      value: segment.slice(colonIndex + 1).trim()
+    })
+  }
+
+  for (let index = 0; index < body.length; index += 1) {
+    const character = body[index]
+    const nextCharacter = body[index + 1]
+
+    if (quote !== null) {
+      if (character === '\\' && nextCharacter !== undefined) {
+        index += 1
+      } else if (character === quote) {
+        quote = null
+      }
+      continue
+    }
+
+    if (character === '"' || character === "'") {
+      quote = character
+    } else if (character === '(') {
+      parenthesisDepth += 1
+    } else if (character === ')') {
+      parenthesisDepth = Math.max(0, parenthesisDepth - 1)
+    } else if (character === ';' && parenthesisDepth === 0) {
+      appendDeclaration(index)
+      segmentStart = index + 1
+    }
+  }
+  appendDeclaration(body.length)
+
+  return declarations
+}
+
 function validateAccountHeaderFocusContract(source) {
   const contractFailures = []
-  const focusRule = source.match(
-    /(?:^|\n)\.account-header-link:focus-visible\s*\{(?<body>[^}]*)\}/u
-  )
-
-  if (!focusRule?.groups?.body) {
-    contractFailures.push('account-shell-base.css account header focus owner is missing')
+  let focusRules
+  try {
+    const commentFreeSource = stripCssComments(source)
+    focusRules = enumerateCssRules(commentFreeSource)
+      .filter((rule) => rule.selector === '.account-header-link:focus-visible')
+  } catch (error) {
+    contractFailures.push(`account-shell-base.css cannot enumerate account header focus owners: ${error.message}`)
     return contractFailures
   }
 
-  const boxShadowDeclarations = focusRule.groups.body.match(/box-shadow\s*:[^;]+;/gu) ?? []
-  const insetFocusRing = /^box-shadow:\s*inset\s+0\s+0\s+0\s+2px\s+var\(--fsusblog-color-focus-ring\);$/u
-  if (boxShadowDeclarations.length !== 1 || !insetFocusRing.test(boxShadowDeclarations[0])) {
+  if (focusRules.length !== 1) {
+    contractFailures.push(`account-shell-base.css must have exactly one account header focus owner; found ${focusRules.length}`)
+    return contractFailures
+  }
+
+  const boxShadowDeclarations = parseCssDeclarations(focusRules[0].body)
+    .filter((declaration) => declaration.property === 'box-shadow')
+  const insetFocusRing = /^inset\s+0\s+0\s+0\s+2px\s+var\(--fsusblog-color-focus-ring\)$/u
+  if (boxShadowDeclarations.length !== 1 || !insetFocusRing.test(boxShadowDeclarations[0].value)) {
     contractFailures.push('account-shell-base.css account header focus owner must retain its inset 2px focus ring')
   }
 
@@ -60,15 +237,15 @@ function mutateAccountHeaderFocus(source, replacement) {
   )
 }
 
-function assertAccountFocusMutationRejected(source, label, replacement) {
-  const mutated = mutateAccountHeaderFocus(source, replacement)
+function assertAccountFocusMutationRejected(source, label, mutate) {
+  const mutated = mutate(source)
   if (mutated === source) {
     errors.push(`account focus mutation fixture ${label} did not alter its source`)
     return
   }
 
   const mutationFailures = validateAccountHeaderFocusContract(mutated)
-  if (!mutationFailures.some((message) => message.includes('must retain its inset 2px focus ring'))) {
+  if (mutationFailures.length === 0) {
     errors.push(`account focus mutation fixture ${label} was not rejected`)
   } else {
     accountFocusMutationProofs += 1
@@ -294,11 +471,35 @@ expectNotMatches(
 )
 
 errors.push(...validateAccountHeaderFocusContract(accountShellBase))
-assertAccountFocusMutationRejected(accountShellBase, 'none', 'box-shadow: none;')
+assertAccountFocusMutationRejected(
+  accountShellBase,
+  'none',
+  (source) => mutateAccountHeaderFocus(source, 'box-shadow: none;')
+)
 assertAccountFocusMutationRejected(
   accountShellBase,
   'non-inset',
-  'box-shadow: 0 0 0 2px var(--fsusblog-color-focus-ring);'
+  (source) => mutateAccountHeaderFocus(source, 'box-shadow: 0 0 0 2px var(--fsusblog-color-focus-ring);')
+)
+assertAccountFocusMutationRejected(
+  accountShellBase,
+  'duplicate exact owner impersonation',
+  (source) => `.account-header-link:focus-visible {\n  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);\n}\n${mutateAccountHeaderFocus(source, 'box-shadow: none;')}`
+)
+assertAccountFocusMutationRejected(
+  accountShellBase,
+  'comment impersonation',
+  (source) => `/*\n.account-header-link:focus-visible {\n  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);\n}\n*/\n${mutateAccountHeaderFocus(source, 'box-shadow: none;')}`
+)
+assertAccountFocusMutationRejected(
+  accountShellBase,
+  'other selector impersonation',
+  (source) => `${mutateAccountHeaderFocus(source, 'box-shadow: none;')}\n.account-shell-copy .account-header-link:focus-visible {\n  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);\n}\n`
+)
+assertAccountFocusMutationRejected(
+  accountShellBase,
+  'quoted selector impersonation',
+  (source) => `.account-shell-copy::before {\n  content: "}.account-header-link:focus-visible { box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring); }";\n}\n${mutateAccountHeaderFocus(source, 'box-shadow: none;')}`
 )
 expectNotMatches(accountShellBase, /\bfocus-visible:ring-1\b/, 'account-shell-base.css must not use ring-1 focus')
 expectNotMatches(accountLayout, /backdrop-filter:\s*blur\(/, 'AccountLayout.vue default shell must not use blur')
