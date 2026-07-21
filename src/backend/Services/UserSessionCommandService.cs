@@ -202,7 +202,7 @@ public sealed partial class UserSessionCommandService(
                 new SugarParameter("@TombstoneExpiresAt", tombstoneExpiresAt));
             if (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
             {
-                rotated = string.Equals(reader.ReadString("session_id"), session.SessionId, StringComparison.Ordinal)
+                rotated = string.Equals(reader.ReadString("sessionid"), session.SessionId, StringComparison.Ordinal)
                     && reader.ReadInt64("refresh_generation") == nextGeneration;
             }
         }).ConfigureAwait(false);
