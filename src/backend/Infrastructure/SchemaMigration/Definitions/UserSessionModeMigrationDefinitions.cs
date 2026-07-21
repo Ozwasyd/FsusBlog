@@ -15,15 +15,23 @@ internal static class UserSessionModeMigrationDefinitions
                 new EnsureColumnStep("sys_user_session", "session_mode", "integer NULL DEFAULT 0"),
                 new RawSqlStep(
                     """
-                    UPDATE sys_user_session session
-                    SET session_mode = CASE
-                        WHEN session.revokedat IS NOT NULL THEN 2
-                        WHEN account.status = 1 THEN 1
-                        ELSE 0
-                    END
-                    FROM sys_user account
-                    WHERE account.id = session.userid
-                      AND session.session_mode IS NULL;
+                    DO $$
+                    BEGIN
+                    IF to_regclass('sys_user_session') IS NOT NULL
+                       AND to_regclass('sys_user') IS NOT NULL THEN
+                    EXECUTE $migration$
+                        UPDATE sys_user_session session
+                        SET session_mode = CASE
+                            WHEN session.revokedat IS NOT NULL THEN 2
+                            WHEN account.status = 1 THEN 1
+                            ELSE 0
+                        END
+                        FROM sys_user account
+                        WHERE account.id = session.userid
+                          AND session.session_mode IS NULL
+                    $migration$;
+                    END IF;
+                    END $$;
                     """)
             ]);
 }

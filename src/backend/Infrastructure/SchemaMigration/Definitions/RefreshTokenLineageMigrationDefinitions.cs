@@ -19,18 +19,26 @@ internal static class RefreshTokenLineageMigrationDefinitions
                 new EnsureColumnStep("sys_user_session", "refresh_compromise_reason", "varchar(64) NULL"),
                 new RawSqlStep(
                     """
-                    UPDATE sys_user_session
-                    SET refresh_family_id = COALESCE(NULLIF(refresh_family_id, ''), sessionid),
-                        refresh_generation = COALESCE(refresh_generation, 0),
-                        refresh_rotated_at_utc = COALESCE(refresh_rotated_at_utc, lastseenat, createdat)
-                    WHERE refresh_family_id IS NULL
-                       OR refresh_family_id = ''
-                       OR refresh_generation IS NULL
-                       OR refresh_rotated_at_utc IS NULL;
+                    DO $$
+                    BEGIN
+                    IF to_regclass('sys_user_session') IS NOT NULL THEN
+                    EXECUTE $migration$
+                        UPDATE sys_user_session
+                        SET refresh_family_id = COALESCE(NULLIF(refresh_family_id, ''), sessionid),
+                            refresh_generation = COALESCE(refresh_generation, 0),
+                            refresh_rotated_at_utc = COALESCE(refresh_rotated_at_utc, lastseenat, createdat)
+                        WHERE refresh_family_id IS NULL
+                           OR refresh_family_id = ''
+                           OR refresh_generation IS NULL
+                           OR refresh_rotated_at_utc IS NULL
+                    $migration$;
+                    END IF;
+                    END $$;
                     """),
                 new CreateIndexStep(
                     "ux_user_session_refresh_family",
                     "CREATE UNIQUE INDEX IF NOT EXISTS ux_user_session_refresh_family ON sys_user_session(refresh_family_id);"),
+                // Create tombstone without FK first; attach when session table exists.
                 new EnsureTableStep(
                     "user_refresh_token_tombstone",
                     """
@@ -42,10 +50,25 @@ internal static class RefreshTokenLineageMigrationDefinitions
                         generation bigint NOT NULL,
                         used_at_utc timestamp NOT NULL,
                         expires_at_utc timestamp NOT NULL,
-                        CONSTRAINT fk_user_refresh_tombstone_session FOREIGN KEY (session_id) REFERENCES sys_user_session(sessionid) ON DELETE CASCADE,
                         CONSTRAINT ck_user_refresh_tombstone_generation CHECK (generation >= 0),
                         CONSTRAINT ck_user_refresh_tombstone_expiry CHECK (expires_at_utc > used_at_utc)
                     );
+                    """),
+                new RawSqlStep(
+                    """
+                    DO $$
+                    BEGIN
+                    IF to_regclass('sys_user_session') IS NOT NULL
+                       AND to_regclass('user_refresh_token_tombstone') IS NOT NULL
+                       AND NOT EXISTS (
+                           SELECT 1 FROM pg_constraint
+                           WHERE conname = 'fk_user_refresh_tombstone_session'
+                       ) THEN
+                        EXECUTE 'ALTER TABLE user_refresh_token_tombstone
+                            ADD CONSTRAINT fk_user_refresh_tombstone_session
+                            FOREIGN KEY (session_id) REFERENCES sys_user_session(sessionid) ON DELETE CASCADE';
+                    END IF;
+                    END $$;
                     """),
                 new CreateIndexStep(
                     "ux_user_refresh_tombstone_hash",

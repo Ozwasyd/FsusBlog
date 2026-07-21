@@ -23,6 +23,10 @@ internal static class UserSessionMetadataMinimizationMigrationDefinitions
                     """
                     DO $$
                     BEGIN
+                    IF to_regclass('sys_user_session') IS NULL THEN
+                        RETURN;
+                    END IF;
+
                         IF EXISTS (
                             SELECT 1 FROM information_schema.columns
                             WHERE table_schema = 'public'
@@ -74,18 +78,18 @@ internal static class UserSessionMetadataMinimizationMigrationDefinitions
                         ) THEN
                             UPDATE sys_user_session SET lastip = NULL WHERE lastip IS NOT NULL;
                         END IF;
-                    END $$;
 
-                    UPDATE sys_user_session
-                    SET browser_family = COALESCE(NULLIF(BTRIM(browser_family), ''), 'Unknown'),
-                        os_family = COALESCE(NULLIF(BTRIM(os_family), ''), 'Unknown'),
-                        form_factor = COALESCE(NULLIF(BTRIM(form_factor), ''), 'Unknown');
-                    ALTER TABLE sys_user_session ALTER COLUMN browser_family SET DEFAULT 'Unknown';
-                    ALTER TABLE sys_user_session ALTER COLUMN browser_family SET NOT NULL;
-                    ALTER TABLE sys_user_session ALTER COLUMN os_family SET DEFAULT 'Unknown';
-                    ALTER TABLE sys_user_session ALTER COLUMN os_family SET NOT NULL;
-                    ALTER TABLE sys_user_session ALTER COLUMN form_factor SET DEFAULT 'Unknown';
-                    ALTER TABLE sys_user_session ALTER COLUMN form_factor SET NOT NULL;
+                        UPDATE sys_user_session
+                        SET browser_family = COALESCE(NULLIF(BTRIM(browser_family), ''), 'Unknown'),
+                            os_family = COALESCE(NULLIF(BTRIM(os_family), ''), 'Unknown'),
+                            form_factor = COALESCE(NULLIF(BTRIM(form_factor), ''), 'Unknown');
+                        ALTER TABLE sys_user_session ALTER COLUMN browser_family SET DEFAULT 'Unknown';
+                        ALTER TABLE sys_user_session ALTER COLUMN browser_family SET NOT NULL;
+                        ALTER TABLE sys_user_session ALTER COLUMN os_family SET DEFAULT 'Unknown';
+                        ALTER TABLE sys_user_session ALTER COLUMN os_family SET NOT NULL;
+                        ALTER TABLE sys_user_session ALTER COLUMN form_factor SET DEFAULT 'Unknown';
+                        ALTER TABLE sys_user_session ALTER COLUMN form_factor SET NOT NULL;
+                    END $$;
                     """)
             ]);
 }

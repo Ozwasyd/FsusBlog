@@ -12,6 +12,39 @@ internal static class CommentMutationOutboxMigrationDefinitions
             Transactional: true,
             Steps:
             [
+                // Attach comment-revision management FKs deferred from PreCodeFirst (comment may not exist yet there).
+                new RawSqlStep(
+                    """
+                    DO $$
+                    BEGIN
+                    IF to_regclass('comment') IS NOT NULL THEN
+                        IF to_regclass('comment_revision') IS NOT NULL
+                           AND NOT EXISTS (
+                               SELECT 1 FROM pg_constraint WHERE conname = 'fk_comment_revision_comment'
+                           ) THEN
+                            EXECUTE 'ALTER TABLE comment_revision
+                                ADD CONSTRAINT fk_comment_revision_comment
+                                FOREIGN KEY (comment_id) REFERENCES comment(id) ON DELETE RESTRICT';
+                        END IF;
+                        IF to_regclass('comment_management_challenge') IS NOT NULL
+                           AND NOT EXISTS (
+                               SELECT 1 FROM pg_constraint WHERE conname = 'fk_comment_management_challenge_comment'
+                           ) THEN
+                            EXECUTE 'ALTER TABLE comment_management_challenge
+                                ADD CONSTRAINT fk_comment_management_challenge_comment
+                                FOREIGN KEY (comment_id) REFERENCES comment(id) ON DELETE CASCADE';
+                        END IF;
+                        IF to_regclass('comment_author_appeal') IS NOT NULL
+                           AND NOT EXISTS (
+                               SELECT 1 FROM pg_constraint WHERE conname = 'fk_comment_author_appeal_comment'
+                           ) THEN
+                            EXECUTE 'ALTER TABLE comment_author_appeal
+                                ADD CONSTRAINT fk_comment_author_appeal_comment
+                                FOREIGN KEY (comment_id) REFERENCES comment(id) ON DELETE RESTRICT';
+                        END IF;
+                    END IF;
+                    END $$;
+                    """),
                 new EnsureTableStep(
                     "comment_mutation_outbox",
                     """

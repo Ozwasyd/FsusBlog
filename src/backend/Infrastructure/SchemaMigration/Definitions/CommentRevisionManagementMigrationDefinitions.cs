@@ -22,6 +22,7 @@ internal static class CommentRevisionManagementMigrationDefinitions
                 new EnsureColumnStep("comment", "current_version", "integer NOT NULL DEFAULT 1"),
                 new EnsureColumnStep("comment", "edited_at_utc", "timestamp without time zone NULL"),
                 new EnsureColumnStep("comment", "management_capability_hash", "varchar(64) NULL"),
+                // Create without FKs so fresh bootstrap can run before CodeFirst creates comment.
                 new EnsureTableStep(
                     "comment_revision",
                     """
@@ -36,8 +37,6 @@ internal static class CommentRevisionManagementMigrationDefinitions
                         actor_account_id integer NULL,
                         actor_admin_principal_id bigint NULL,
                         actor_mode varchar(32) NOT NULL,
-                        CONSTRAINT fk_comment_revision_comment
-                            FOREIGN KEY (comment_id) REFERENCES comment(id) ON DELETE RESTRICT,
                         CONSTRAINT ck_comment_revision_version CHECK (version > 0),
                         CONSTRAINT ck_comment_revision_operation CHECK (operation IN ('created', 'edited', 'deleted')),
                         CONSTRAINT ux_comment_revision_comment_version UNIQUE (comment_id, version)
@@ -52,8 +51,6 @@ internal static class CommentRevisionManagementMigrationDefinitions
                         purpose varchar(24) NOT NULL,
                         expires_at_utc timestamp without time zone NOT NULL,
                         used_at_utc timestamp without time zone NULL,
-                        CONSTRAINT fk_comment_management_challenge_comment
-                            FOREIGN KEY (comment_id) REFERENCES comment(id) ON DELETE CASCADE,
                         CONSTRAINT ck_comment_management_challenge_purpose CHECK (purpose IN ('edit', 'delete', 'status', 'appeal'))
                     );
                     """),
@@ -67,9 +64,7 @@ internal static class CommentRevisionManagementMigrationDefinitions
                         created_at_utc timestamp without time zone NOT NULL,
                         author_mode varchar(32) NOT NULL,
                         account_id integer NULL,
-                        status varchar(24) NOT NULL DEFAULT 'pending',
-                        CONSTRAINT fk_comment_author_appeal_comment
-                            FOREIGN KEY (comment_id) REFERENCES comment(id) ON DELETE RESTRICT
+                        status varchar(24) NOT NULL DEFAULT 'pending'
                     );
                     """),
                 new CreateIndexStep(
@@ -81,6 +76,41 @@ internal static class CommentRevisionManagementMigrationDefinitions
                 new CreateIndexStep(
                     "idx_comment_author_appeal_comment_created",
                     "CREATE INDEX IF NOT EXISTS idx_comment_author_appeal_comment_created ON comment_author_appeal(comment_id, created_at_utc DESC);"),
+                new RawSqlStep(
+                    """
+                    DO $$
+                    BEGIN
+                    IF to_regclass('comment') IS NOT NULL THEN
+                        IF to_regclass('comment_revision') IS NOT NULL
+                           AND NOT EXISTS (
+                               SELECT 1 FROM pg_constraint
+                               WHERE conname = 'fk_comment_revision_comment'
+                           ) THEN
+                            EXECUTE 'ALTER TABLE comment_revision
+                                ADD CONSTRAINT fk_comment_revision_comment
+                                FOREIGN KEY (comment_id) REFERENCES comment(id) ON DELETE RESTRICT';
+                        END IF;
+                        IF to_regclass('comment_management_challenge') IS NOT NULL
+                           AND NOT EXISTS (
+                               SELECT 1 FROM pg_constraint
+                               WHERE conname = 'fk_comment_management_challenge_comment'
+                           ) THEN
+                            EXECUTE 'ALTER TABLE comment_management_challenge
+                                ADD CONSTRAINT fk_comment_management_challenge_comment
+                                FOREIGN KEY (comment_id) REFERENCES comment(id) ON DELETE CASCADE';
+                        END IF;
+                        IF to_regclass('comment_author_appeal') IS NOT NULL
+                           AND NOT EXISTS (
+                               SELECT 1 FROM pg_constraint
+                               WHERE conname = 'fk_comment_author_appeal_comment'
+                           ) THEN
+                            EXECUTE 'ALTER TABLE comment_author_appeal
+                                ADD CONSTRAINT fk_comment_author_appeal_comment
+                                FOREIGN KEY (comment_id) REFERENCES comment(id) ON DELETE RESTRICT';
+                        END IF;
+                    END IF;
+                    END $$;
+                    """),
                 new BackfillCommentInitialRevisionStep()
             ]);
 
@@ -94,6 +124,13 @@ internal static class CommentRevisionManagementMigrationDefinitions
 
         internal override async Task ExecuteAsync(ISqlSugarClient db, CancellationToken cancellationToken)
         {
+            int commentExists = await db.Ado.GetIntAsync(
+                "SELECT CASE WHEN to_regclass('comment') IS NULL THEN 0 ELSE 1 END");
+            if (commentExists == 0)
+            {
+                return;
+            }
+
             long lastId = 0;
             while (true)
             {
