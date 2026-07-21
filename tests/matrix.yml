@@ -1387,6 +1387,7 @@ tiers:
           - zero-downtime-release-rehearsal
           - backend-security-hardening-boundary-and-ast
           - test-suite-convergence
+          - backend-physical-topology-governance
           - test-tool-artifact-behavior
           - frontend-source-locking-convergence
           - backend-operations-readiness-behavior
@@ -1400,6 +1401,7 @@ tiers:
               .tmp/release-evidence/test-retention-audit.json,
               .tmp/release-evidence/flaky/registry.json,
               .tmp/docs/integrity-proof-docs.json,
+              .tmp/release-evidence/backend-physical-topology.json,
           ]
       evidence:
           - .tmp/gate-logs
@@ -1410,6 +1412,7 @@ tiers:
           - tests/test-retention-before.json
           - .tmp/release-evidence/flaky/registry.json
           - .tmp/docs/integrity-proof-docs.json
+          - .tmp/release-evidence/backend-physical-topology.json
           - tests/backend/issue-1013-runtime-fallback-milestones.json
           - tests/backend/issue-1014-identity-retirement-evidence.json
           - docs/issue-1014-identity-retirement-handoff.md
@@ -1482,6 +1485,16 @@ tiers:
           - tools/check-csharp-entrypoint-ownership.mjs
           - tests/governance/csharp-entrypoint-ownership.json
           - tests/tools/issue-1174-csharp-entrypoint-ownership.test.mjs
+          - tools/architecture/check-backend-physical-topology.mjs
+          - tools/architecture/backend-physical-topology/audit-bootstrap-authoring.mjs
+          - tools/architecture/backend-physical-topology/audit-cache-modules.mjs
+          - tools/architecture/backend-physical-topology/audit-message-center-partials.mjs
+          - tools/architecture/backend-physical-topology/audit-schema-migration-layout.mjs
+          - tools/architecture/backend-physical-topology/csharp-mask.mjs
+          - tools/architecture/backend-physical-topology/csharp-source.mjs
+          - tests/governance/backend-physical-topology.json
+          - tests/tools/backend-physical-topology.test.mjs
+          - tools/test/lanes/static-governance.sh
           - docs/testing/issue-1174-csharp-entrypoint-ownership.md
           - .editorconfig
           - Directory.Build.props
@@ -6145,6 +6158,7 @@ tiers:
           [
               release-final-publish-credential,
               test-suite-convergence,
+              backend-physical-topology-governance,
               testing-evidence-governance,
           ]
       artifacts:
@@ -6156,6 +6170,7 @@ tiers:
           [
               .tmp/release-evidence,
               .tmp/release-evidence/test-suite-convergence.json,
+              .tmp/release-evidence/backend-physical-topology.json,
               .tmp/release-evidence/release-final-test-evidence-binding.json,
               tools/release/test-evidence-receipts.mjs,
               tools/release/test-evidence-receipts-cli.mjs,
@@ -6300,6 +6315,7 @@ tiers:
           - backend-upload-cleanup-queue-behavior
           - backend-human-read-proof-behavior
           - test-suite-convergence
+          - backend-physical-topology-governance
           - backend-hotpath-executable-measurement
           - test-tool-artifact-behavior
           - frontend-source-locking-convergence
@@ -6338,6 +6354,7 @@ tiers:
           - .tmp/perf/release-summaries/backend-benchmark-regression.json
           - tests/test-retention-replacements.json
           - .tmp/release-evidence/test-suite-convergence.json
+          - .tmp/release-evidence/backend-physical-topology.json
       ciJob: production-summary
       localOnly: false
       nightlyOnly: false

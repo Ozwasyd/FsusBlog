@@ -3677,6 +3677,34 @@
             ]
         },
         {
+            "id": "backend-physical-topology-governance",
+            "description": "One static owner preserves backend composition, authoring, cache, message-center partial and schema-migration physical boundaries after behavior tests stop reading production source.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "tests/governance/backend-physical-topology.json",
+                "tools/architecture/check-backend-physical-topology.mjs",
+                "tools/architecture/backend-physical-topology/audit-bootstrap-authoring.mjs",
+                "tools/architecture/backend-physical-topology/audit-cache-modules.mjs",
+                "tools/architecture/backend-physical-topology/audit-message-center-partials.mjs",
+                "tools/architecture/backend-physical-topology/audit-schema-migration-layout.mjs",
+                "tools/architecture/backend-physical-topology/csharp-mask.mjs",
+                "tools/architecture/backend-physical-topology/csharp-source.mjs",
+                "tests/tools/backend-physical-topology.test.mjs",
+                "tools/test/lanes/static-governance.sh",
+                "tests/matrix.yml",
+                ".tmp/release-evidence/backend-physical-topology.json"
+            ],
+            "assertionType": "static",
+            "failClosedRule": "Reject topology drift, retired cache or authoring identities, reversed cache dependencies, misplaced MessageCenter members, a facade at or above 500 lines, legacy schema registry partials, or attempts to satisfy rules with comments and strings.",
+            "minimumRequirement": "The current tree and mutation fixtures must prove every physical partition, exact MessageCenter ownership, facade budget and fail-closed source masking through the single matrix-owned Node checker.",
+            "tierIds": [
+                "static-governance",
+                "production",
+                "release-final"
+            ]
+        },
+        {
             "id": "test-suite-convergence",
             "description": "The final suite-convergence gate reconciles the matrix-owned baseline policy, central replacement ledger, source-locking owners and final after snapshot without hiding multiple errors.",
             "owner": "ServerContractAgent",

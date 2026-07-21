@@ -3,7 +3,7 @@
     "generatedBy": "tools/governance/check-rule-platform.mjs --write-registry",
     "inventory": {
         "packageScriptCount": 190,
-        "implementationCount": 336
+        "implementationCount": 337
     },
     "rules": [
         {
@@ -9577,6 +9577,35 @@
                 "mode": "delegated-implementation",
                 "implementation": "tests/frontend/checks/wasm/check-wasm-build-resource-budget.mjs",
                 "executionKey": "governance:file:tests/frontend/checks/wasm/check-wasm-build-resource-budget.mjs",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Implementation.ToolsArchitectureCheckBackendPhysicalTopologyMjs",
+            "externalId": "tools/architecture/check-backend-physical-topology.mjs",
+            "symbol": "CheckToolsArchitectureCheckBackendPhysicalTopology",
+            "owner": "RepositoryGovernanceOwner",
+            "category": "repository-governance",
+            "engine": "parser",
+            "sourceScopes": [
+                "tools/architecture/check-backend-physical-topology.mjs",
+                "config/**",
+                "docs/**",
+                "tools/**",
+                "tests/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/issue-1162-rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/architecture/check-backend-physical-topology.mjs",
+                "executionKey": "governance:file:tools/architecture/check-backend-physical-topology.mjs",
                 "receiptCompatible": true
             }
         },

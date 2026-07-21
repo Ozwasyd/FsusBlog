@@ -12,6 +12,7 @@ StaticIntegrityDocs() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/check
 StaticDeadCodeIndex() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-dead-code-audit-index.mjs"; }
 StaticBackgroundServices() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-background-service-classification.mjs"; }
 StaticSuiteConvergence() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-suite-convergence.mjs"; }
+StaticBackendPhysicalTopology() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/architecture/check-backend-physical-topology.mjs" --out "$ROOT_DIR/.tmp/release-evidence/backend-physical-topology.json"; }
 StaticBrowserTestMigration() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-browser-test-migration.mjs"; }
 StaticTestOrchestrator() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-orchestrator-uniqueness.mjs"; }
 StaticBackendGovernance() { RunTier "static-governance" RunBackendTestGovernanceOnly; }
@@ -66,6 +67,7 @@ STATIC_NODE_CONTRACT_FILES=(
     "$ROOT_DIR/tests/tools/backup-envelope-contract.test.mjs"
     "$ROOT_DIR/tests/tools/security-source-analyzer.test.mjs"
     "$ROOT_DIR/tests/tools/test-suite-convergence.test.mjs"
+    "$ROOT_DIR/tests/tools/backend-physical-topology.test.mjs"
     "$ROOT_DIR/tests/tools/release-rollout-state.test.mjs"
     "$ROOT_DIR/tests/tools/release-worker-drill.test.mjs"
     "$ROOT_DIR/tests/tools/release-worker-reconciliation.test.mjs"
@@ -171,6 +173,7 @@ RunStaticPrechecksPhase() {
         dead-code-index StaticDeadCodeIndex \
         background-services StaticBackgroundServices \
         suite-convergence StaticSuiteConvergence \
+        backend-physical-topology StaticBackendPhysicalTopology \
         browser-test-migration StaticBrowserTestMigration \
         test-orchestrator StaticTestOrchestrator \
         backend-governance StaticBackendGovernance \

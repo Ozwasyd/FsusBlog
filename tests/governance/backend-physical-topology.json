@@ -1,0 +1,145 @@
+{
+  "schema": "fsusblog.backend-physical-topology.v1",
+  "bootstrapComposition": {
+    "composition": {
+      "path": "src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs",
+      "requiredIdentifiers": [
+        "UseFsusApplicationPipeline",
+        "MapFsusApplicationRoutes",
+        "PipelineStage",
+        "ReportHttp3TransportStartup"
+      ],
+      "requiredTokens": [
+        "PublicWebRuntime.ReportHttp3TransportStartup"
+      ],
+      "forbiddenTokens": [
+        "HttpContext",
+        "Results.",
+        "TypedResults.",
+        "Encoding.",
+        "BodyWriter",
+        "BuildHtmlCsp",
+        "IsKnownSpaRoute",
+        "TryBuildTrailingSlashRedirect",
+        "RenderClassifiedAsync",
+        "GetRequiredService<",
+        "IServiceProvider"
+      ]
+    },
+    "runtimeOwners": [
+      {
+        "path": "src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs",
+        "requiredIdentifiers": ["ServePublicShellOrIndexAsync", "WritePublicStatusHtmlAsync", "ReportHttp3TransportStartup"]
+      },
+      {
+        "path": "src/backend/Infrastructure/Bootstrap/PublicWebRuntime.HtmlMaterialization.cs",
+        "requiredIdentifiers": ["WriteSpaHtmlResponseAsync"]
+      }
+    ],
+    "registrationRoots": [
+      "src/backend/Infrastructure/Bootstrap/RuntimeInfrastructureServiceCollectionExtensions.cs",
+      "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs"
+    ],
+    "registrationForbiddenTokens": [
+      "BuildServiceProvider(",
+      "HttpContext",
+      "Results.",
+      "TypedResults.",
+      "MapGet(",
+      "MapPost(",
+      "BodyWriter",
+      "RenderClassifiedAsync(",
+      "ExecuteAsync("
+    ]
+  },
+  "authoringModules": {
+    "backendRoot": "src/backend",
+    "retiredIdentifiers": ["AuthoringWorkflowService"],
+    "endpointRoot": "src/backend/Modules/Endpoints",
+    "endpointPrefix": "AuthoringEndpoints",
+    "endpointForbiddenIdentifiers": [
+      "AuthoringAnalyticsReadService",
+      "AuthoringAssetLibraryService",
+      "AuthoringDraftLifecycleService",
+      "AuthoringContentTransferService",
+      "AuthoringModerationWorkflowService"
+    ],
+    "serviceRoot": "src/backend/Services/Authoring",
+    "serviceForbiddenIdentifiers": ["IServiceProvider"],
+    "implementations": [
+      "AuthoringAnalyticsReadService",
+      "AuthoringAssetLibraryService",
+      "AuthoringDraftLifecycleService",
+      "AuthoringContentTransferService",
+      "AuthoringModerationWorkflowService"
+    ]
+  },
+  "cacheModules": {
+    "backendRoot": "src/backend",
+    "retiredIdentifiers": ["IUnifiedCache"],
+    "retiredPaths": [
+      "src/backend/Infrastructure/Cache/IUnifiedCache.cs",
+      "src/backend/Infrastructure/CoreBridge/Caching/ArticleCoreQueryCache.cs"
+    ],
+    "requiredTokensByPath": {
+      "src/backend/Infrastructure/Security/AdaptivePowGovernor.cs": ["private readonly ICacheStringReader _cache;"],
+      "src/backend/Infrastructure/Cache/CacheMissCoordinator.cs": ["ICacheSingleFlightCoordinator singleFlightCoordinator,"],
+      "src/backend/Infrastructure/Cache/RedisCacheStorage.cs": ["internal sealed class UnifiedCache"]
+    },
+    "forbiddenTokensByPath": {
+      "src/backend/Infrastructure/Cache/CachePorts.cs": ["StackExchange.Redis", "Microsoft.Extensions.Caching"],
+      "src/backend/Infrastructure/Cache/CacheLocalStore.cs": ["StackExchange.Redis"],
+      "src/backend/Infrastructure/Cache/CacheKeyResolver.cs": ["UnifiedCache"],
+      "src/backend/Infrastructure/Cache/CacheSingleFlightCoordinator.cs": ["StackExchange.Redis", "IMemoryCache"],
+      "src/backend/Infrastructure/Cache/SharedRedisDistributedCache.cs": ["UnifiedCache", "IOwnedFrameCache", "ICacheSingleFlightCoordinator"],
+      "src/backend/Infrastructure/Cache/CacheTelemetry.cs": ["StackExchange.Redis"]
+    }
+  },
+  "messageCenterPartials": {
+    "directory": "src/backend/Services/NotificationStream",
+    "facade": "MessageCenterService.cs",
+    "facadeMaxLinesExclusive": 500,
+    "facadeForbiddenMembers": [
+      "GetAccountConversationsAsync",
+      "CreateAccountTicketAsync",
+      "DeliverAsync"
+    ],
+    "owners": {
+      "MessageCenterService.ConversationQuery.cs": [
+        "GetAccountConversationsAsync",
+        "GetAdminConversationDetailAsync",
+        "LoadSnapshotConversationRowsAsync"
+      ],
+      "MessageCenterService.MessageCommand.cs": [
+        "CreateAccountTicketAsync",
+        "WriteReplyAsync",
+        "SendSystemMessageAsync"
+      ],
+      "MessageCenterService.ReadState.cs": [
+        "MarkConversationReadAsync",
+        "RebuildConversationUnreadAsync",
+        "RebuildAccountUnreadAsync"
+      ],
+      "MessageCenterService.DeliveryOutbox.cs": [
+        "EnqueueMessageDeliveriesAsync",
+        "DeliverAsync"
+      ],
+      "MessageCenterService.Projection.cs": [
+        "PublishConversationUpsertAsync",
+        "PrepareParticipantMessageFanoutAsync",
+        "RefreshUnreadCacheAsync"
+      ],
+      "MessageCenterService.ContentPolicy.cs": [
+        "ToContentValidationCode",
+        "TryNormalizeClientMutationId",
+        "ComputeMutationRequestHash"
+      ]
+    }
+  },
+  "schemaMigrationLayout": {
+    "directory": "src/backend/Infrastructure/SchemaMigration",
+    "registry": "SchemaMigrationRegistry.cs",
+    "legacyRegistryPattern": "SchemaMigrationRegistry.*.cs",
+    "definitionsDirectory": "src/backend/Infrastructure/SchemaMigration/Definitions"
+  }
+}
