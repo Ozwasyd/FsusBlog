@@ -481,6 +481,15 @@ function loadBaseline()
         fail('frontend style baseline files must be an array');
         return new Map();
     }
+    const currentSourceStateSha256 = sourceStateDigest();
+    if (document.sourceStateSha256 !== currentSourceStateSha256)
+    {
+        fail(`frontend style baseline source-state digest is stale: expected ${currentSourceStateSha256}`);
+    }
+    if (document.generatedFrom !== `source-state:${currentSourceStateSha256}`)
+    {
+        fail('frontend style baseline generatedFrom does not match the current source-state digest');
+    }
     return new Map(document.files.map((entry) => [entry.path, entry]));
 }
 
@@ -583,8 +592,8 @@ function writeBaseline(violations, selectedFiles, args)
         }
         files = nextFiles;
     }
-    const sourceStateSha256 = sourceStateDigest();
     const violationCount = files.reduce((sum, entry) => sum + entry.violationCount, 0);
+    const sourceStateSha256 = sourceStateDigest();
     const document = {
         schema: baselineSchema,
         generatedFrom: `source-state:${sourceStateSha256}`,

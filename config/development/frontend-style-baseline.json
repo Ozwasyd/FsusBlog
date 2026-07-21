@@ -1,8 +1,8 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:f9bc2a157ae6165c8e4263e891a6626c03bfef0e0ba4d9cb3b3ba9720da343de",
-    "sourceStateSha256": "f9bc2a157ae6165c8e4263e891a6626c03bfef0e0ba4d9cb3b3ba9720da343de",
-    "configurationSha256": "87a9a9fa9a8be1a1cb9896faa4084c89afa3e6a4b8c38a075d9b4de23d83157e",
+    "generatedFrom": "source-state:2d32a044ccef2df5ef8ec7fe6bec810143d1017991d8d0b999931f635a9d7db6",
+    "sourceStateSha256": "2d32a044ccef2df5ef8ec7fe6bec810143d1017991d8d0b999931f635a9d7db6",
+    "configurationSha256": "a430d812ee26b0ca1c426b11b758dbc032523a4672245fbc50b7bc5c5da2e82f",
     "violationCount": 332250,
     "fileCount": 1088,
     "files": [

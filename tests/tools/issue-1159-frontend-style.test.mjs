@@ -492,6 +492,73 @@ test('issue 1159 baseline records real zero state and candidate source identity'
     });
 });
 
+test('issue 1159 full check rejects a tampered baseline source-state digest', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        const relativePath = 'tools/legacy/digest-binding-tool.mjs';
+        writeFixture(fixtureRoot, relativePath, `export function digest_name(value) {
+  return value
+}
+`);
+        const initial = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline']);
+        assert.equal(initial.status, 0, output(initial));
+        const baselinePath = path.join(fixtureRoot, sourcePolicy.baseline);
+        const document = JSON.parse(readFileSync(baselinePath, 'utf8'));
+        document.sourceStateSha256 = '0'.repeat(64);
+        writeFileSync(baselinePath, `${JSON.stringify(document, null, 4)}\n`);
+
+        const checked = runChecker(fixtureRoot, ['--mode', 'full']);
+        assert.notEqual(checked.status, 0);
+        assert.match(output(checked), /baseline source-state digest is stale/u);
+    });
+});
+
+test('issue 1159 full check rejects a tampered baseline generatedFrom binding', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        const relativePath = 'tools/legacy/generated-from-binding-tool.mjs';
+        writeFixture(fixtureRoot, relativePath, `export function generated_name(value) {
+  return value
+}
+`);
+        const initial = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline']);
+        assert.equal(initial.status, 0, output(initial));
+        const baselinePath = path.join(fixtureRoot, sourcePolicy.baseline);
+        const document = JSON.parse(readFileSync(baselinePath, 'utf8'));
+        document.generatedFrom = `source-state:${'0'.repeat(64)}`;
+        writeFileSync(baselinePath, `${JSON.stringify(document, null, 4)}\n`);
+
+        const checked = runChecker(fixtureRoot, ['--mode', 'full']);
+        assert.notEqual(checked.status, 0);
+        assert.match(output(checked), /baseline generatedFrom does not match/u);
+    });
+});
+
+test('issue 1159 full check rejects source drift without a per-file baseline entry', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        const debtPath = 'tools/legacy/source-binding-tool.mjs';
+        writeFixture(fixtureRoot, debtPath, `export function source_name(value) {
+  return value
+}
+`);
+        const initial = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline']);
+        assert.equal(initial.status, 0, output(initial));
+
+        writeFixture(fixtureRoot, 'tools/sample/new-clean-source.mjs', `export function readValue(value)
+{
+    return value;
+}
+`);
+        const checked = runChecker(fixtureRoot, ['--mode', 'full']);
+        assert.notEqual(checked.status, 0);
+        assert.match(output(checked), /baseline source-state digest is stale/u);
+    });
+});
+
 test('issue 1159 baseline removes deleted paths only through reviewed pruning', () =>
 {
     withFixture((fixtureRoot) =>
