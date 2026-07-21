@@ -2,11 +2,14 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 const retiredCircuits = [
+    ['fsus.anonymous.comment.', 'v', '2'].join(''),
     ['fsus.anonymous.comment.', 'v', '3'].join(''),
     ['fsus.anonymous.comment.', 'v', '4'].join('')
 ];
 const retiredSymbols = [
     ['ZkComment', 'V2'].join(''),
+    ['ZkComment', 'V3', 'Compat'].join(''),
+    ['ZkComment', 'V4', 'Compat'].join(''),
     ['Circuit', 'Native'].join(''),
     ['AnonymousCredentialIssue', 'Request'].join(''),
     ['AnonymousCredentialIssue', 'Response'].join('')
@@ -15,7 +18,7 @@ const retiredPathPatterns = [
     new RegExp(['comment', '[-_]', 'v', '[234]'].join(''), 'iu')
 ];
 const retiredLayoutPatterns = [
-    new RegExp(['public[_A-Za-z]*layout[_A-Za-z]*version', '[^0-9]{0,12}', '[45]', '\\b'].join(''), 'iu'),
+    new RegExp(['public[_A-Za-z]*layout[_A-Za-z]*version', '[^0-9]{0,12}', '[345]', '\\b'].join(''), 'iu'),
     new RegExp(['["\'`]?layout["\'`]?', '\\s*[:=]\\s*', '[45]', '\\b'].join(''), 'iu')
 ];
 const cryptoArtifactPath = new RegExp(
