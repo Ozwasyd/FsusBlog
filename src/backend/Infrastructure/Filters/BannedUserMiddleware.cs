@@ -24,6 +24,9 @@ public class BannedUserMiddleware(RequestDelegate _next)
         AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(60)
     };
 
+    // SECURITY-INVARIANT: Authenticated non-admin restricted account sessions may invoke only
+    // endpoints with explicit restricted-account action metadata; unauthenticated requests and
+    // authenticated administrators bypass this account gate.
     public async Task InvokeAsync(
         HttpContext context,
         IBlacklistService blacklist,

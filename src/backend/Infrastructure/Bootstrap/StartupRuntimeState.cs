@@ -10,17 +10,32 @@ public sealed record StartupRuntimeSnapshot(
     IReadOnlyDictionary<string, StartupLifecycleTaskReport> Tasks);
 
 /// <summary>
-/// Thread-safe runtime projection of startup lifecycle outcomes. Startup workers own
-/// validation and lifecycle rules; the composition root only registers their modules.
+/// Runtime projection of startup lifecycle outcomes. This state serializes cache-clear state,
+/// task reports, and snapshot copies; startup workers retain validation and lifecycle ownership.
 /// </summary>
 public sealed class StartupRuntimeState
 {
+    // OWNERSHIP: This instance's gate serializes every mutable field and each detached snapshot copy.
     private readonly object _gate = new();
     private readonly Dictionary<string, StartupLifecycleTaskReport> _startupTasks = new(StringComparer.Ordinal);
+    private bool _systemCachesClearedOnStartup;
 
     public bool SystemCachesClearedOnStartup
     {
-        get; set;
+        get
+        {
+            lock (_gate)
+            {
+                return _systemCachesClearedOnStartup;
+            }
+        }
+        set
+        {
+            lock (_gate)
+            {
+                _systemCachesClearedOnStartup = value;
+            }
+        }
     }
 
     public void ReportStartupTask(string taskName, string status, string? detail = null)
@@ -44,7 +59,7 @@ public sealed class StartupRuntimeState
         lock (_gate)
         {
             return new StartupRuntimeSnapshot(
-                SystemCachesClearedOnStartup,
+                _systemCachesClearedOnStartup,
                 new Dictionary<string, StartupLifecycleTaskReport>(_startupTasks, StringComparer.Ordinal));
         }
     }

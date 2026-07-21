@@ -83,6 +83,17 @@ public sealed class ArticleSummaryProjectionTests
     }
 
     [Fact]
+    public void ToPlainText_SentenceFallbackRetainsThePunctuationTextElement()
+    {
+        const string PunctuationWithCombiningMark = "abcdef.\u0301 ghijklmnop";
+
+        string result = ArticleSummaryProjection.ToPlainText(PunctuationWithCombiningMark, 10);
+
+        Assert.Equal("abcdef.\u0301", result);
+        Assert.Equal(7, StringInfo.ParseCombiningCharacters(result).Length);
+    }
+
+    [Fact]
     public void ArticleSummaryConsumers_UseTheSingleProjectionPipeline()
     {
         string articleService = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/ArticleService.cs");

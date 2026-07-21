@@ -123,6 +123,8 @@ public static partial class ArticleSummaryProjection
         => !string.IsNullOrWhiteSpace(revisionDescription)
             && revisionDescription.Contains(RevisionMarkerPrefix, StringComparison.Ordinal);
 
+    // COMPATIBILITY: Both truncation budgets stop at Unicode text-element boundaries so persisted
+    // summaries cannot split surrogate pairs or combining sequences.
     private static string TruncateAtGraphemeBoundary(
         string plain,
         int maxGraphemes,
@@ -167,7 +169,17 @@ public static partial class ArticleSummaryProjection
         int sentenceEnd = plain.LastIndexOfAny(['。', '！', '？', '.', '!', '?', '；', ';'], limit - 1, limit);
         if (sentenceEnd >= limit / 2)
         {
-            return plain[..(sentenceEnd + 1)].TrimEnd();
+            int sentenceElementEnd = plain.Length;
+            foreach (int boundary in boundaries)
+            {
+                if (boundary > sentenceEnd)
+                {
+                    sentenceElementEnd = boundary;
+                    break;
+                }
+            }
+
+            return plain[..sentenceElementEnd].TrimEnd();
         }
 
         int wordBoundary = plain.LastIndexOf(' ', limit - 1, limit);

@@ -299,7 +299,7 @@
             ],
             "claimLevel": "S",
             "status": "structural-only",
-            "structuralBoundary": "Anonymous recovery endpoints bypass account write restrictions while authenticated writes bind ban state to both account ID and stable subject hash."
+            "structuralBoundary": "Unauthenticated requests and authenticated administrators bypass this account gate; authenticated non-admin restricted account sessions reach only explicitly marked actions, while other authenticated non-admin writes bind ban state to both account ID and stable subject hash."
         },
         {
             "id": "redis-pow-bounded-hash-buffer",
@@ -325,7 +325,7 @@
         {
             "id": "article-summary-unicode-boundary",
             "sourcePaths": [
-                "src/backend/Services/ArticleService.CacheAndInvalidation.cs"
+                "src/backend/Infrastructure/Content/ArticleSummaryProjection.cs"
             ],
             "intentKinds": [
                 "compatibility",
@@ -333,14 +333,35 @@
             ],
             "anchors": [
                 {
-                    "path": "src/backend/Services/ArticleService.CacheAndInvalidation.cs",
+                    "path": "src/backend/Infrastructure/Content/ArticleSummaryProjection.cs",
                     "marker": "COMPATIBILITY:",
-                    "symbol": "GenerateSafeSummary"
+                    "symbol": "TruncateAtGraphemeBoundary"
                 }
             ],
             "claimLevel": "S",
             "status": "structural-only",
-            "structuralBoundary": "Summary truncation preserves UTF-16 surrogate pairs so the persisted and returned text cannot contain a split emoji code point."
+            "structuralBoundary": "Generated summary truncation applies both grapheme and UTF-16 budgets only at Unicode text-element boundaries, preventing persisted and returned text from splitting surrogate pairs or combining sequences."
+        },
+        {
+            "id": "startup-runtime-state-snapshot-lock",
+            "sourcePaths": [
+                "src/backend/Infrastructure/Bootstrap/StartupRuntimeState.cs"
+            ],
+            "intentKinds": [
+                "ownership",
+                "concurrency",
+                "deliberate-lock"
+            ],
+            "anchors": [
+                {
+                    "path": "src/backend/Infrastructure/Bootstrap/StartupRuntimeState.cs",
+                    "marker": "OWNERSHIP:",
+                    "symbol": "_gate"
+                }
+            ],
+            "claimLevel": "S",
+            "status": "structural-only",
+            "structuralBoundary": "One instance gate serializes cache-clear state, startup task mutation, and detached snapshot construction so readers cannot observe a dictionary during mutation."
         },
         {
             "id": "vite-worker-sourcemap-compatibility",
