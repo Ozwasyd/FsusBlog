@@ -25,12 +25,7 @@ public sealed partial class ArchitectureMaintainabilityBehaviorTests
     [Fact]
     public void WebApplicationCompositionRoot_ContainsAssemblyOnly()
     {
-        string composition = BackendTestPaths.ReadAllTextFromRoot(
-            "src", "backend", "Infrastructure", "Bootstrap", "WebApplicationCompositionExtensions.cs");
-        string runtime = BackendTestPaths.ReadAllTextFromRoot(
-            "src", "backend", "Infrastructure", "Bootstrap", "PublicWebRuntime.cs");
-        string materialization = BackendTestPaths.ReadAllTextFromRoot(
-            "src", "backend", "Infrastructure", "Bootstrap", "PublicWebRuntime.HtmlMaterialization.cs");
+        string composition = RuntimeMetadataInspection.DescribeType(typeof(WebApplicationCompositionExtensions));
 
         Assert.Contains("UseFsusApplicationPipeline", composition, StringComparison.Ordinal);
         Assert.Contains("MapFsusApplicationRoutes", composition, StringComparison.Ordinal);
@@ -55,18 +50,18 @@ public sealed partial class ArchitectureMaintainabilityBehaviorTests
             Assert.DoesNotContain(forbidden, composition, StringComparison.Ordinal);
         }
 
-        Assert.Contains("ServePublicShellOrIndexAsync", runtime, StringComparison.Ordinal);
-        Assert.Contains("WritePublicStatusHtmlAsync", runtime, StringComparison.Ordinal);
-        Assert.Contains("WriteSpaHtmlResponseAsync", materialization, StringComparison.Ordinal);
+        const BindingFlags RuntimeMethods = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+        Assert.NotNull(typeof(PublicWebRuntime).GetMethod("ServePublicShellOrIndexAsync", RuntimeMethods));
+        Assert.NotNull(typeof(PublicWebRuntime).GetMethod("WritePublicStatusHtmlAsync", RuntimeMethods));
+        Assert.NotNull(typeof(PublicWebRuntime).GetMethod("WriteSpaHtmlResponseAsync", RuntimeMethods));
     }
 
     [Fact]
     public void RuntimeServiceRegistrationRoots_DoNotExecuteUseCasesOrMaterializeResponses()
     {
-        string infrastructure = BackendTestPaths.ReadAllTextFromRoot(
-            "src", "backend", "Infrastructure", "Bootstrap", "RuntimeInfrastructureServiceCollectionExtensions.cs");
-        string domain = BackendTestPaths.ReadAllTextFromRoot(
-            "src", "backend", "Infrastructure", "Bootstrap", "RuntimeDomainServiceCollectionExtensions.cs");
+        string infrastructure = RuntimeMetadataInspection.DescribeType(
+            typeof(RuntimeInfrastructureServiceCollectionExtensions));
+        string domain = RuntimeMetadataInspection.DescribeType(typeof(RuntimeDomainServiceCollectionExtensions));
         string registrations = string.Concat(infrastructure, "\n", domain);
 
         foreach (string forbidden in new[]
@@ -151,43 +146,54 @@ public sealed partial class ArchitectureMaintainabilityBehaviorTests
             "ImportArticleAsync",
             "ListAssetsAsync",
             "ListCommentModerationQueueAsync",
+            "ListCommentModerationQueuePageAsync",
             "ModerateCommentAsync",
             "ModerateCommentsAsync",
             "PreviewAsync",
             "ReindexAssetsAsync",
             "RollbackRevisionAsync",
             "RunPrepublishCheck",
+            "RunPrepublishCheckAsync",
             "SaveDraftAsync"
         ], methodNames);
 
-        string backendRoot = BackendTestPaths.FromRoot("src/backend");
-        string[] productionFiles = Directory.GetFiles(backendRoot, "*.cs", SearchOption.AllDirectories);
-        Assert.DoesNotContain(productionFiles, path => File.ReadAllText(path).Contains("AuthoringWorkflowService", StringComparison.Ordinal));
-        string endpoints = string.Join('\n', productionFiles
-            .Where(static path => Path.GetFileName(path).StartsWith("AuthoringEndpoints", StringComparison.Ordinal))
-            .Select(File.ReadAllText));
-        Assert.DoesNotContain("AuthoringAnalyticsReadService service", endpoints, StringComparison.Ordinal);
-        Assert.DoesNotContain("AuthoringAssetLibraryService service", endpoints, StringComparison.Ordinal);
-        Assert.DoesNotContain("AuthoringDraftLifecycleService service", endpoints, StringComparison.Ordinal);
-        Assert.DoesNotContain("AuthoringContentTransferService service", endpoints, StringComparison.Ordinal);
-        Assert.DoesNotContain("AuthoringModerationWorkflowService service", endpoints, StringComparison.Ordinal);
-        Assert.DoesNotContain("IServiceProvider", string.Join('\n', productionFiles
-            .Where(static path => path.Contains("/Services/Authoring/", StringComparison.Ordinal))
-            .Select(File.ReadAllText)), StringComparison.Ordinal);
+        Assembly serverAssembly = typeof(ArticleService).Assembly;
+        Assert.DoesNotContain(
+            serverAssembly.GetTypes(),
+            static type => string.Equals(type.Name, "AuthoringWorkflowService", StringComparison.Ordinal));
 
-        var implementations = new Dictionary<string, string>(StringComparer.Ordinal)
+        string endpoints = RuntimeMetadataInspection.DescribeType(typeof(AuthoringEndpoints));
+        Assert.DoesNotContain(nameof(AuthoringAnalyticsReadService), endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain(nameof(AuthoringAssetLibraryService), endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain(nameof(AuthoringDraftLifecycleService), endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain(nameof(AuthoringContentTransferService), endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain(nameof(AuthoringModerationWorkflowService), endpoints, StringComparison.Ordinal);
+
+        Type[] authoringRuntimeTypes = serverAssembly.GetTypes()
+            .Where(static type => string.Equals(
+                type.Namespace,
+                typeof(AuthoringAnalyticsReadService).Namespace,
+                StringComparison.Ordinal))
+            .ToArray();
+        Assert.DoesNotContain(
+            authoringRuntimeTypes,
+            static type => RuntimeMetadataInspection.DescribeType(type)
+                .Contains(nameof(IServiceProvider), StringComparison.Ordinal));
+
+        var implementations = new Dictionary<string, Type>(StringComparer.Ordinal)
         {
-            [nameof(AuthoringAnalyticsReadService)] = File.ReadAllText(Path.Combine(backendRoot, "Services/Authoring/AuthoringAnalyticsReadService.cs")),
-            [nameof(AuthoringAssetLibraryService)] = File.ReadAllText(Path.Combine(backendRoot, "Services/Authoring/AuthoringAssetLibraryService.cs")),
-            [nameof(AuthoringDraftLifecycleService)] = File.ReadAllText(Path.Combine(backendRoot, "Services/Authoring/AuthoringDraftLifecycleService.cs")),
-            [nameof(AuthoringContentTransferService)] = File.ReadAllText(Path.Combine(backendRoot, "Services/Authoring/AuthoringContentTransferService.cs")),
-            [nameof(AuthoringModerationWorkflowService)] = File.ReadAllText(Path.Combine(backendRoot, "Services/Authoring/AuthoringModerationWorkflowService.cs"))
+            [nameof(AuthoringAnalyticsReadService)] = typeof(AuthoringAnalyticsReadService),
+            [nameof(AuthoringAssetLibraryService)] = typeof(AuthoringAssetLibraryService),
+            [nameof(AuthoringDraftLifecycleService)] = typeof(AuthoringDraftLifecycleService),
+            [nameof(AuthoringContentTransferService)] = typeof(AuthoringContentTransferService),
+            [nameof(AuthoringModerationWorkflowService)] = typeof(AuthoringModerationWorkflowService)
         };
-        foreach ((string owner, string source) in implementations)
+        foreach ((string owner, Type implementation) in implementations)
         {
+            string runtimeShape = RuntimeMetadataInspection.DescribeType(implementation);
             Assert.DoesNotContain(
                 implementations.Keys.Where(candidate => !string.Equals(candidate, owner, StringComparison.Ordinal)),
-                source.Contains);
+                runtimeShape.Contains);
         }
     }
 
@@ -203,7 +209,7 @@ public sealed partial class ArchitectureMaintainabilityBehaviorTests
             .OrderBy(static endpoint => endpoint.RoutePattern.RawText, StringComparer.Ordinal)
             .ToArray();
 
-        Assert.Equal(61, endpoints.Length);
+        Assert.Equal(68, endpoints.Length);
         foreach (RouteEndpoint endpoint in endpoints)
         {
             string rawPath = Assert.IsType<string>(endpoint.RoutePattern.RawText);
