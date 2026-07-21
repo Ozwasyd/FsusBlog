@@ -1099,6 +1099,7 @@ public sealed class AnonymousCommentSubmitTests(
             typeof(Article),
             typeof(ArticlePublicationRecord),
             typeof(Comment),
+            typeof(CommentRevision),
             typeof(CommentBlockedRegion),
             typeof(CommentRegionCompliance));
     }
