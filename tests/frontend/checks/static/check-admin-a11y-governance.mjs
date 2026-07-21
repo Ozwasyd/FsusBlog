@@ -314,7 +314,7 @@ const settings = read(settingsPath);
 const adminWorkspacePath = path.join(repoRoot, 'src/frontend/src/assets/admin-workspace.css');
 const adminWorkspace = read(adminWorkspacePath);
 forbidToken(settingsPath, settings, '--fsusblog-admin-status-warning', 'settings warning icon must use the Element Plus warning semantic');
-requireToken(settingsPath, settings, 'text-[var(--el-color-warning)]', 'settings warning icon must use --el-color-warning');
+requireToken(settingsPath, settings, 'text-[var(--fsusblog-color-warning)]', 'settings warning icon must use --fsusblog-color-warning');
 requireToken(settingsPath, settings, 'max-width: var(--fsusblog-container-settings);', 'settings tabs must share the canonical settings content width');
 requireToken(settingsPath, settings, 'margin-inline: auto;', 'settings tabs must remain centered at wide viewports');
 forbidToken(settingsPath, settings, 'mt-12', 'settings sections must not use the retired 48px top margin');

@@ -58,7 +58,7 @@ describe('comment policy readiness contract', () => {
         { zkProdEnabled: 'true' },
         { snapshotHash: '' },
         { supportedDisplayLanguages: 'zh-CN' }
-    ])('maps unknown, missing, or type-damaged readiness to contract_invalid', (changes) => {
+    ])('maps unknown, missing, or type-damaged readiness to contract_invalid (%j)', (changes) => {
         const policy = finalizeCommentPolicySnapshot({
             ...readySnapshot,
             ...changes

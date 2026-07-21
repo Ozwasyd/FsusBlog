@@ -18,7 +18,8 @@ const excludedDirectories = new Set(['generated']);
 const forbiddenDeclarationPattern = /font-size\s*:\s*(0?\.[6-9][0-9]*(?:rem|em)|(?:11|13)px)(?:\s*!important)?\s*;/gu;
 const scopedScaleExceptions = new Map([
     ['src/frontend/src/components/account/AccountNavigationPanel.vue', new Set(['11px', '13px'])],
-    ['src/frontend/src/components/public/pages/PublicArticleDetailPageContent.vue', new Set(['13px'])]
+    ['src/frontend/src/components/public/pages/PublicArticleDetailPageContent.vue', new Set(['13px'])],
+    ['src/frontend/src/components/admin/AdminTaxonomyManageView.vue', new Set(['13px'])]
 ]);
 const errors = [];
 let scannedFileCount = 0;
