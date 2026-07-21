@@ -3,7 +3,7 @@
     "generatedFrom": "source-state:493efceaaad8abb61f1b121a7361008095f5f9fa854a760400e4f57619b58b70",
     "sourceStateSha256": "493efceaaad8abb61f1b121a7361008095f5f9fa854a760400e4f57619b58b70",
     "configurationSha256": "e0b5e6b2a7b69e7be2a8c15979a3a7a27bd403328233c66cb437a3d1f988ccc2",
-    "violationCount": 333620,
+    "violationCount": 333622,
     "fileCount": 1079,
     "files": [
         {
@@ -8274,12 +8274,12 @@
         },
         {
             "path": "tests/frontend/checks/static/check-frontend-backend-pow-parity.mjs",
-            "sourceSha256": "6c29228c5330b322bc97d4d6a24f759d67005fbb54069777586f3f31193c5b72",
-            "violationCount": 173,
-            "violationDigest": "1b942ed585fd5a4d044c91a35431268a4947dc1ffb2ff069192f06b034c822fe",
+            "sourceSha256": "1a459e3e1405d44e3359fda276dc7fe220e51be16cc0ebc78a8b4d6eb3b90c7f",
+            "violationCount": 175,
+            "violationDigest": "d708c9a751e75c7d83296ebfc68c547ceb589d0d2289169d8d442b99c48a7129",
             "rules": {
                 "eslint/@stylistic/brace-style": 21,
-                "eslint/@stylistic/indent": 83,
+                "eslint/@stylistic/indent": 85,
                 "eslint/@stylistic/semi": 67,
                 "eslint/import-x/no-relative-parent-imports": 1,
                 "eslint/import-x/order": 1
@@ -14030,9 +14030,9 @@
         },
         {
             "path": "tools/test/bundles/run-bundle.mjs",
-            "sourceSha256": "e0a15d4e21ff2b22e5d76fc19489b1ae8be197c253f322584a992b6baf6b6c24",
+            "sourceSha256": "0fcde39c30528bb78a8c9f11dae0bd23ddba223a73bb739ea1e087101fd439f4",
             "violationCount": 3003,
-            "violationDigest": "5b9f31042d941de4790a54874118a5ff8a90fc245bdd751c0dfed35b987f76b6",
+            "violationDigest": "0610a299decc8576ed811f436449352ab2f341c6a71931eeb56035010ee10735",
             "rules": {
                 "eslint/@stylistic/brace-style": 246,
                 "eslint/@stylistic/indent": 1882,
