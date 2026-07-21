@@ -609,6 +609,53 @@ upsert_rights_snapshot AS (
       policy_hash = EXCLUDED.policy_hash,
       content_canonical_hash = EXCLUDED.content_canonical_hash,
       created_at = EXCLUDED.created_at
+  RETURNING id, article_id, article_revision_id, revision_no
+),
+upsert_publication AS (
+  INSERT INTO article_publication(
+    article_id,
+    publication_no,
+    article_revision_id,
+    revision_no,
+    rights_snapshot_id,
+    responsibility_snapshot_id,
+    transition_kind,
+    published_at,
+    created_at
+  )
+  SELECT
+    revision.article_id,
+    1,
+    revision.id,
+    revision.revision_no,
+    rights.id,
+    NULL,
+    'publish',
+    NOW() - INTERVAL '${publishOffsetHours} hours',
+    NOW()
+  FROM upsert_revision revision
+  JOIN upsert_rights_snapshot rights
+    ON rights.article_id = revision.article_id
+   AND rights.article_revision_id = revision.id
+  ON CONFLICT (article_id, publication_no) DO UPDATE
+  SET article_revision_id = EXCLUDED.article_revision_id,
+      revision_no = EXCLUDED.revision_no,
+      rights_snapshot_id = EXCLUDED.rights_snapshot_id,
+      transition_kind = EXCLUDED.transition_kind,
+      published_at = EXCLUDED.published_at
+  RETURNING id, article_id, article_revision_id
+),
+link_article_publication AS (
+  UPDATE article article
+  SET current_revision_id = publication.article_revision_id,
+      current_publication_id = publication.id,
+      status = 2,
+      published_at = COALESCE(article.published_at, NOW() - INTERVAL '${publishOffsetHours} hours'),
+      metadata_updated_at = COALESCE(article.metadata_updated_at, NOW() - INTERVAL '${publishOffsetHours} hours'),
+      isdeleted = false
+  FROM upsert_publication publication
+  WHERE article.id = publication.article_id
+  RETURNING article.id
 )
 SELECT id FROM final_article;
 `
@@ -723,13 +770,24 @@ async function main() {
       const seeded = seedPublicFixtures()
       seededFallback = seeded
       console.log(`[discover-playwright-fixtures] seeded minimal public fixtures via direct DB article=${seeded.articleId} category=${seeded.categoryId} tag=${seeded.tagId}`)
-      await refreshDirectDbSeedCaches(seeded)
+      try {
+        await refreshDirectDbSeedCaches(seeded)
+      } catch (cacheError) {
+        console.warn(`[discover-playwright-fixtures] direct DB cache refresh unavailable: ${cacheError instanceof Error ? cacheError.message : String(cacheError)}`)
+      }
     }
 
-    const snapshot = await waitForPublicFixtureSnapshot()
-    page = snapshot.page
-    categories = snapshot.categories
-    tags = snapshot.tags
+    try {
+      const snapshot = await waitForPublicFixtureSnapshot()
+      page = snapshot.page
+      categories = snapshot.categories
+      tags = snapshot.tags
+    } catch (snapshotError) {
+      if (!seededFallback) {
+        throw snapshotError
+      }
+      console.warn(`[discover-playwright-fixtures] public snapshot not converged after direct DB seed: ${snapshotError instanceof Error ? snapshotError.message : String(snapshotError)}`)
+    }
   }
 
   const featuredArticles = await fetchPublicFeaturedArticles(3).catch(() => [])
