@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const checkerPath = path.join(root, 'tools/check-postgres-test-collections.mjs')
+const sourceMaskPath = path.join(root, 'tools/test/csharp-source-mask.mjs')
 const backendRoot = path.join(root, 'tests/backend')
 const manifestPath = path.join(backendRoot, 'Fixtures/postgres-test-collections.json')
 
@@ -18,8 +19,10 @@ function createFixture() {
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
 
   fs.mkdirSync(fixtureToolsRoot, { recursive: true })
+  fs.mkdirSync(path.join(fixtureToolsRoot, 'test'), { recursive: true })
   fs.mkdirSync(path.join(fixtureBackendRoot, 'Fixtures'), { recursive: true })
   fs.copyFileSync(checkerPath, path.join(fixtureToolsRoot, 'check-postgres-test-collections.mjs'))
+  fs.copyFileSync(sourceMaskPath, path.join(fixtureToolsRoot, 'test/csharp-source-mask.mjs'))
   fs.copyFileSync(
     path.join(backendRoot, 'Fixtures/SchemaMigrationPostgresCollection.cs'),
     path.join(fixtureBackendRoot, 'Fixtures/SchemaMigrationPostgresCollection.cs')
@@ -53,8 +56,8 @@ test('accepts the checked-in PostgreSQL collection manifest', () => {
 
   assert.equal(result.status, 0, result.stderr)
   assert.match(result.stdout, /collections=2/u)
-  assert.match(result.stdout, /SchemaMigrationPostgresCollectionA:175/u)
-  assert.match(result.stdout, /SchemaMigrationPostgresCollectionB:270/u)
+  assert.match(result.stdout, /SchemaMigrationPostgresCollectionA:190/u)
+  assert.match(result.stdout, /SchemaMigrationPostgresCollectionB:289/u)
 })
 
 test('rejects a fixture-backed test class that is absent from the manifest', () => {

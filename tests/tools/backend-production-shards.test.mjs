@@ -193,9 +193,24 @@ test('backend PostgreSQL manifest projects exact classes as soft planning weight
       {
         id: 'SchemaMigrationPostgresCollectionB',
         estimatedFacts: 1,
-        tests: [{ path: 'Unit/BetaTests.cs', class: 'BetaTests' }]
+        tests: [{ path: 'Unit/CombinedMigrationTests.cs', class: 'BetaTests' }]
       }
     ]
+  }
+  const combinedMigrationSource = 'public sealed class UnitOnlyMigrationTests {}\npublic sealed class BetaTests {}'
+  const sources = new Map([
+    ['/repo/tests/backend/Unit/AlphaTests.cs', 'public sealed class AlphaTests {}'],
+    ['/repo/tests/backend/Integration/ExcludedIntegrationTests.cs', 'public sealed class ExcludedIntegrationTests {}'],
+    ['/repo/tests/backend/Unit/CombinedMigrationTests.cs', combinedMigrationSource],
+    ['/repo/tests/backend/Unit/MissingTests.cs', 'public sealed class MissingTests {}']
+  ])
+  const sourceOptions = {
+    repositoryRoot: '/repo',
+    readFile: (file) => sources.get(file)
+  }
+  const planningOptions = {
+    excludedTestNames: ['FsusBlog.Server.Tests.Integration.ExcludedIntegrationTests.Case'],
+    ...sourceOptions
   }
   const union = [
     'FsusBlog.Server.Tests.Unit.AlphaTests.First',
@@ -203,9 +218,7 @@ test('backend PostgreSQL manifest projects exact classes as soft planning weight
     'FsusBlog.Server.Tests.Unit.BetaTests.Second',
     'FsusBlog.Server.Tests.Unit.EndpointTests.Contract'
   ]
-  const postgres = buildPostgresCollectionPlanningWeights(union, manifest, {
-    excludedTestNames: ['FsusBlog.Server.Tests.Integration.ExcludedIntegrationTests.Case']
-  })
+  const postgres = buildPostgresCollectionPlanningWeights(union, manifest, planningOptions)
   assert.deepEqual(postgres.map(({ name, estimatedFacts, excludedTestCaseCount, testClasses, testNames }) => ({
     name, estimatedFacts, excludedTestCaseCount, testClasses, testNames
   })), [
@@ -246,11 +259,41 @@ test('backend PostgreSQL manifest projects exact classes as soft planning weight
   missing.collections[1].tests[0].class = 'MissingTests'
   missing.collections[1].tests[0].path = 'Unit/MissingTests.cs'
   assert.throws(
-    () => buildPostgresCollectionPlanningWeights(union, missing, {
-      excludedTestNames: ['FsusBlog.Server.Tests.Integration.ExcludedIntegrationTests.Case']
-    }),
+    () => buildPostgresCollectionPlanningWeights(union, missing, planningOptions),
     /must match exactly one authoritative VSTest class/u
   )
+  const wrongSource = structuredClone(manifest)
+  wrongSource.collections[1].tests[0].class = 'UnitOnlyMigrationTests'
+  assert.throws(
+    () => buildPostgresCollectionPlanningWeights(union, wrongSource, planningOptions),
+    /must match exactly one authoritative VSTest class/u
+  )
+  const absentDeclaration = structuredClone(manifest)
+  absentDeclaration.collections[1].tests[0].class = 'DeclaredOnlyInTheManifest'
+  assert.throws(
+    () => buildPostgresCollectionPlanningWeights(union, absentDeclaration, planningOptions),
+    /does not declare class DeclaredOnlyInTheManifest/u
+  )
+  const missingSource = structuredClone(manifest)
+  missingSource.collections[1].tests[0].path = 'Unit/AbsentMigrationTests.cs'
+  assert.throws(
+    () => buildPostgresCollectionPlanningWeights(union, missingSource, planningOptions),
+    /source file is missing: Unit\/AbsentMigrationTests\.cs/u
+  )
+  const pseudoDeclarations = [
+    '// public sealed class BetaTests {}',
+    '/* public sealed class BetaTests {} */',
+    'const string Source = "public sealed class BetaTests {}";',
+    'const string Source = """\npublic sealed class BetaTests {}\n""";'
+  ]
+  for (const pseudoDeclaration of pseudoDeclarations) {
+    sources.set('/repo/tests/backend/Unit/CombinedMigrationTests.cs', pseudoDeclaration)
+    assert.throws(
+      () => buildPostgresCollectionPlanningWeights(union, manifest, planningOptions),
+      /does not declare class BetaTests/u
+    )
+  }
+  sources.set('/repo/tests/backend/Unit/CombinedMigrationTests.cs', combinedMigrationSource)
 })
 
 test('rolling production splits PostgreSQL collections by class while application startup stays a soft weight', () => {
@@ -331,7 +374,11 @@ test('backend PostgreSQL planning admits only source-proven class-wide productio
     'Example.Unit.AlphaTests.One',
     'Example.Unit.AlphaTests.Two',
     'Example.Unit.BetaTests.One'
-  ], manifest, { manifestExcludedClasses: exclusions })
+  ], manifest, {
+    manifestExcludedClasses: exclusions,
+    repositoryRoot: '/repo',
+    readFile: (file) => sources.get(file)
+  })
   assert.deepEqual(projected.map(({ excludedTestCaseCount }) => excludedTestCaseCount), [1, 0])
 })
 

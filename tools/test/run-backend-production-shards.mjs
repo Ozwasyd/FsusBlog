@@ -25,6 +25,7 @@ import {
   resolveProductionBuildLayout
 } from '../test-matrix/production-build-layout.mjs'
 import { resolveCgroupLimits } from '../test-matrix/production-resource-enforcement.mjs'
+import { findCSharpClassDeclaration } from './csharp-source-mask.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const project = 'tests/backend/FsusBlog.Server.Tests.csproj'
@@ -892,7 +893,9 @@ export function validateExactProductionUnion(testNames, recordGroups, { authorit
 
 export function buildPostgresCollectionPlanningWeights(testNames, manifest, {
   excludedTestNames = [],
-  manifestExcludedClasses = []
+  manifestExcludedClasses = [],
+  repositoryRoot = root,
+  readFile = (file) => fs.readFileSync(file, 'utf8')
 } = {}) {
   if (manifest?.schema !== 'fsusblog.postgres-test-collections.v1'
     || !Array.isArray(manifest.collections) || manifest.collections.length !== 2) {
@@ -937,9 +940,11 @@ export function buildPostgresCollectionPlanningWeights(testNames, manifest, {
     for (const entry of collection.tests) {
       const manifestPath = String(entry?.path ?? '').replaceAll('\\', '/')
       const className = String(entry?.class ?? '').trim()
-      if (!manifestPath || !className || !manifestPath.endsWith(`/${className}.cs`)) {
-        throw new Error(`backend PostgreSQL collection ${id} has an invalid class declaration`)
-      }
+      readPostgresManifestClassSource({ path: manifestPath, class: className }, {
+        repositoryRoot,
+        readFile,
+        errorPrefix: `backend PostgreSQL collection ${id}`
+      })
       const matchingClasses = [...allDiscoveredClasses].filter((testClass) => testClass.split('.').at(-1) === className)
       if (matchingClasses.length === 0 && allowedManifestExcludedClasses.has(className)) {
         hasManifestExcludedClass = true
@@ -1072,21 +1077,49 @@ export function readManifestClassWideProductionExclusions(manifest, {
   }
   const excluded = new Set()
   for (const entry of manifest.collections.flatMap((collection) => collection.tests ?? [])) {
-    const relativePath = String(entry?.path ?? '').replaceAll('\\', '/')
-    const className = String(entry?.class ?? '').trim()
-    if (!relativePath || relativePath.startsWith('/') || relativePath.split('/').includes('..') || !className) {
-      throw new Error('backend PostgreSQL class-wide exclusion scan received an invalid manifest entry')
-    }
-    const source = readFile(path.join(repositoryRoot, 'tests/backend', relativePath))
-    const classPattern = new RegExp(`\\bclass\\s+${className.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')}\\b`, 'u')
-    const classMatch = classPattern.exec(source)
-    if (!classMatch) throw new Error(`backend PostgreSQL manifest class is absent from its source: ${className}`)
+    const { classMatch, className, source } = readPostgresManifestClassSource(entry, {
+      repositoryRoot,
+      readFile,
+      errorPrefix: 'backend PostgreSQL class-wide exclusion scan'
+    })
     const declarationPrefix = source.slice(Math.max(0, classMatch.index - 4096), classMatch.index)
     if (/\[Trait\(\s*"Category"\s*,\s*"(?:Integration|Performance)"\s*\)\]/u.test(declarationPrefix)) {
       excluded.add(className)
     }
   }
   return [...excluded].sort()
+}
+
+function readPostgresManifestClassSource(entry, {
+  repositoryRoot,
+  readFile,
+  errorPrefix
+}) {
+  const relativePath = String(entry?.path ?? '').replaceAll('\\', '/')
+  const className = String(entry?.class ?? '').trim()
+  const invalidPath = !relativePath
+    || relativePath.startsWith('/')
+    || /^[A-Za-z]:\//u.test(relativePath)
+    || relativePath.split('/').includes('..')
+    || !relativePath.endsWith('.cs')
+  if (invalidPath || !/^[A-Za-z_][A-Za-z0-9_]*$/u.test(className)) {
+    throw new Error(`${errorPrefix} has an invalid class declaration`)
+  }
+  const sourcePath = path.resolve(repositoryRoot, 'tests/backend', relativePath)
+  let source
+  try {
+    source = readFile(sourcePath)
+  } catch (error) {
+    throw new Error(`${errorPrefix} source file is missing: ${relativePath}`, { cause: error })
+  }
+  if (typeof source !== 'string') {
+    throw new Error(`${errorPrefix} source file is missing: ${relativePath}`)
+  }
+  const classMatch = findCSharpClassDeclaration(source, className)
+  if (!classMatch) {
+    throw new Error(`${errorPrefix} source ${relativePath} does not declare class ${className}`)
+  }
+  return { classMatch, className, source }
 }
 
 export function aggregateCategoryDiscoveryFailures(categoryDiscoveryRuns) {

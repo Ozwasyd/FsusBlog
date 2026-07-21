@@ -3,7 +3,7 @@
   "collections": [
     {
       "id": "SchemaMigrationPostgresCollectionA",
-      "estimatedFacts": 175,
+      "estimatedFacts": 190,
       "tests": [
         { "path": "Integration/SchemaMigrationIntegrationTests.cs", "class": "SchemaMigrationIntegrationTests" },
         { "path": "Integration/ArticleListKeysetPaginationIntegrationTests.cs", "class": "ArticleListKeysetPaginationIntegrationTests" },
@@ -22,12 +22,14 @@
         { "path": "Unit/IntegrityAdminConsoleServiceTests.cs", "class": "IntegrityAdminConsoleServiceTests" },
         { "path": "Unit/AuthoringRevisionRestoreTests.cs", "class": "AuthoringRevisionRestoreTests" },
         { "path": "Unit/UserSessionLoginConcurrencyTests.cs", "class": "UserSessionLoginConcurrencyTests" },
-        { "path": "Unit/SubscriptionEndpointsContractTests.cs", "class": "SubscriptionEndpointsContractTests" }
+        { "path": "Unit/SubscriptionEndpointsContractTests.cs", "class": "SubscriptionEndpointsContractTests" },
+        { "path": "Integration/ArticleMutationVersionedOutboxIntegrationTests.cs", "class": "ArticleMutationVersionedOutboxIntegrationTests" },
+        { "path": "Unit/CommentModerationQueueStoreTests.cs", "class": "CommentModerationQueueStoreTests" }
       ]
     },
     {
       "id": "SchemaMigrationPostgresCollectionB",
-      "estimatedFacts": 270,
+      "estimatedFacts": 289,
       "tests": [
         { "path": "Integration/AccountEnrollmentIntegrationTests.cs", "class": "AccountEnrollmentIntegrationTests" },
         { "path": "Integration/MessageCenterQueryPlanIntegrationTests.cs", "class": "MessageCenterQueryPlanIntegrationTests" },
@@ -76,7 +78,12 @@
         { "path": "Integration/MessageCenterPersistenceIntegrationTests.cs", "class": "MessageCenterPersistenceIntegrationTests" },
         { "path": "Unit/PublicMutationFenceLeaseTests.cs", "class": "PublicMutationFenceLeaseTests" },
         { "path": "Unit/ReadEventRetirementMigrationDatabaseTests.cs", "class": "ReadEventRetirementMigrationDatabaseTests" },
-        { "path": "Unit/VisitLogIpPseudonymMigrationDatabaseTests.cs", "class": "VisitLogIpPseudonymMigrationDatabaseTests" }
+        { "path": "Unit/VisitLogIpPseudonymMigrationDatabaseTests.cs", "class": "VisitLogIpPseudonymMigrationDatabaseTests" },
+        { "path": "Unit/ArticleDraftServerRevisionMigrationTests.cs", "class": "ArticleDraftServerRevisionMigrationDatabaseTests" },
+        { "path": "Unit/ArticleMutationIdempotencyMigrationTests.cs", "class": "ArticleMutationIdempotencyMigrationDatabaseTests" },
+        { "path": "Unit/ArticleResponsibilityVersionMigrationTests.cs", "class": "ArticleResponsibilityVersionMigrationDatabaseTests" },
+        { "path": "Unit/ArticleResponsibilityVersioningTests.cs", "class": "ArticleResponsibilityVersioningTests" },
+        { "path": "Unit/CommentGovernanceServiceTests.cs", "class": "CommentGovernanceServiceTests" }
       ]
     }
   ]
