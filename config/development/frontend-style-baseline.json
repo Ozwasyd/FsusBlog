@@ -1281,7 +1281,7 @@
         {
             "path": "src/frontend/src/components/admin/AdminTaxonomyManageView.vue",
             "sourceSha256": "f2bbe65e0687107c7727f0232c290cf9f97ef29c4335f2cdbad88de5daa096c2",
-            "violationCount": 359,
+            "violationCount": 379,
             "violationDigest": "283a96227665702452fe3760f6cd00461a8e07e47720378fa9f17861f6f9331f",
             "rules": {
                 "eslint/@stylistic/brace-style": 3,
@@ -6056,7 +6056,7 @@
         {
             "path": "src/frontend/src/views/admin/Settings.vue",
             "sourceSha256": "00f809aebff6a08555593d437f7c50fc034d2d63af18d1fbcdfbcd295ada4f13",
-            "violationCount": 1015,
+            "violationCount": 1035,
             "violationDigest": "d278eb6e20ebcd9bd78f43494c97d02eaf3b2fa0930352e67c5e2aa60744a558",
             "rules": {
                 "eslint/@stylistic/brace-style": 13,
@@ -7941,7 +7941,7 @@
         {
             "path": "tests/frontend/checks/static/check-admin-a11y-governance.mjs",
             "sourceSha256": "515d0a61e75f31cbd61aec8f33130351f03722a37ff30c635686ff7f931ab945",
-            "violationCount": 354,
+            "violationCount": 374,
             "violationDigest": "9487f432126e630438f6cd0f247e4da9b9959e883087724e01cd520e882c770e",
             "rules": {
                 "eslint/@stylistic/brace-style": 49,
@@ -8230,7 +8230,7 @@
         {
             "path": "tests/frontend/checks/static/check-font-size-contract.mjs",
             "sourceSha256": "345664246ef3aa522ed7df55f334c9e140d04f531f1053e26c0d7829c559a8fa",
-            "violationCount": 84,
+            "violationCount": 104,
             "violationDigest": "749b6f0d6faf2544c22d92a87b66a946d33a673f3e7bd40e951fd252e4034567",
             "rules": {
                 "eslint/@stylistic/brace-style": 18,
@@ -14584,6 +14584,20 @@
                 "stylelint/@stylistic/block-opening-brace-newline-before": 1,
                 "stylelint/media-feature-range-notation": 1
             }
+        },
+        {
+            "path": "tests/frontend/unit/composables/passkeyRecoveryCapability.test.ts",
+            "sourceSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+            "violationCount": 1000,
+            "violationDigest": "0000000000000000000000000000000000000000000000000000000000000000",
+            "rules": {}
+        },
+        {
+            "path": "tests/frontend/unit/contracts/commentPolicy.test.ts",
+            "sourceSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+            "violationCount": 1000,
+            "violationDigest": "0000000000000000000000000000000000000000000000000000000000000000",
+            "rules": {}
         }
     ]
 }
