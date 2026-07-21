@@ -5,6 +5,7 @@ import { resolve } from 'node:path'
 
 const repoRoot = resolve(process.cwd(), '../..')
 const errors = []
+let accountFocusMutationProofs = 0
 
 function read(path) {
   return readFileSync(resolve(repoRoot, path), 'utf8')
@@ -29,6 +30,48 @@ function expectNotMatches(source, pattern, message) {
 function expectMatches(source, pattern, message) {
   if (!pattern.test(source)) {
     errors.push(`${message} missing ${pattern}`)
+  }
+}
+
+function validateAccountHeaderFocusContract(source) {
+  const contractFailures = []
+  const focusRule = source.match(
+    /(?:^|\n)\.account-header-link:focus-visible\s*\{(?<body>[^}]*)\}/u
+  )
+
+  if (!focusRule?.groups?.body) {
+    contractFailures.push('account-shell-base.css account header focus owner is missing')
+    return contractFailures
+  }
+
+  const boxShadowDeclarations = focusRule.groups.body.match(/box-shadow\s*:[^;]+;/gu) ?? []
+  const insetFocusRing = /^box-shadow:\s*inset\s+0\s+0\s+0\s+2px\s+var\(--fsusblog-color-focus-ring\);$/u
+  if (boxShadowDeclarations.length !== 1 || !insetFocusRing.test(boxShadowDeclarations[0])) {
+    contractFailures.push('account-shell-base.css account header focus owner must retain its inset 2px focus ring')
+  }
+
+  return contractFailures
+}
+
+function mutateAccountHeaderFocus(source, replacement) {
+  return source.replace(
+    /((?:^|\n)\.account-header-link:focus-visible\s*\{[^}]*?)box-shadow\s*:[^;]+;/u,
+    `$1${replacement}`
+  )
+}
+
+function assertAccountFocusMutationRejected(source, label, replacement) {
+  const mutated = mutateAccountHeaderFocus(source, replacement)
+  if (mutated === source) {
+    errors.push(`account focus mutation fixture ${label} did not alter its source`)
+    return
+  }
+
+  const mutationFailures = validateAccountHeaderFocusContract(mutated)
+  if (!mutationFailures.some((message) => message.includes('must retain its inset 2px focus ring'))) {
+    errors.push(`account focus mutation fixture ${label} was not rejected`)
+  } else {
+    accountFocusMutationProofs += 1
   }
 }
 
@@ -250,22 +293,14 @@ expectNotMatches(
   'ArticleTocPanel.vue active/focus must use Scholarly Blue'
 )
 
-expectIncludes(
+errors.push(...validateAccountHeaderFocusContract(accountShellBase))
+assertAccountFocusMutationRejected(accountShellBase, 'none', 'box-shadow: none;')
+assertAccountFocusMutationRejected(
   accountShellBase,
-  '.account-header-link:focus-visible {',
-  'account-shell-base.css account header focus owner'
-)
-expectIncludes(
-  accountShellBase,
-  'box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);',
-  'account-shell-base.css shared inset focus ring'
+  'non-inset',
+  'box-shadow: 0 0 0 2px var(--fsusblog-color-focus-ring);'
 )
 expectNotMatches(accountShellBase, /\bfocus-visible:ring-1\b/, 'account-shell-base.css must not use ring-1 focus')
-expectNotMatches(
-  accountShellBase,
-  /box-shadow:\s*0 0 0 2px var\(--fsusblog-color-focus-ring\)/,
-  'account-shell-base.css focus must use inset ring'
-)
 expectNotMatches(accountLayout, /backdrop-filter:\s*blur\(/, 'AccountLayout.vue default shell must not use blur')
 
 expectNotMatches(articleDetail, /ArticleMobileActionBar/, 'ArticleDetail.vue must not render removed mobile action bar')
@@ -583,4 +618,4 @@ if (errors.length > 0) {
   process.exit(1)
 }
 
-console.log('[public-reading-motion] ok')
+console.log(`[public-reading-motion] ok accountFocusMutationProofs=${accountFocusMutationProofs}`)
