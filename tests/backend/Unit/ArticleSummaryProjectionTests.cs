@@ -3,6 +3,8 @@ using System.Text.Json;
 
 using FsusBlog.Server.Helpers;
 using FsusBlog.Server.Infrastructure.Content;
+using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -96,19 +98,32 @@ public sealed class ArticleSummaryProjectionTests
     [Fact]
     public void ArticleSummaryConsumers_UseTheSingleProjectionPipeline()
     {
-        string articleService = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/ArticleService.cs");
-        string articleCache = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/ArticleService.CacheAndInvalidation.cs");
-        string search = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/SearchIndexService.RuntimePersistence.cs");
-        string authoring = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Authoring/AuthoringDraftLifecycleService.cs");
-        string imageHelper = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Helpers/ImageHelper.cs");
+        string articleService = RuntimeMetadataInspection.DescribeMethods(
+            typeof(ArticleService),
+            "CreateMutationAsync",
+            "UpdateAsync");
+        string search = RuntimeMetadataInspection.DescribeDeclaredMethodContaining(
+            typeof(SearchIndexService),
+            "ArticleSummaryProjection.Resolve");
+        string authoringPreview = RuntimeMetadataInspection.DescribeMethods(
+            typeof(AuthoringDraftLifecycleService),
+            nameof(AuthoringDraftLifecycleService.PreviewAsync));
+        string authoringRollback = RuntimeMetadataInspection.DescribeMethods(
+            typeof(AuthoringDraftLifecycleService),
+            nameof(AuthoringDraftLifecycleService.RollbackRevisionAsync));
+        string imageHelper = RuntimeMetadataInspection.DescribeMethods(
+            typeof(ImageHelper),
+            nameof(ImageHelper.StripMarkdown));
 
-        Assert.Contains("ArticleSummaryProjection.Resolve(summary, content)", articleService, StringComparison.Ordinal);
+        Assert.Contains("ArticleSummaryProjection.Resolve", articleService, StringComparison.Ordinal);
         Assert.Contains("ArticleSummaryProjection.AttachGenerationVersion", articleService, StringComparison.Ordinal);
-        Assert.DoesNotContain("GenerateSafeSummary", articleService, StringComparison.Ordinal);
-        Assert.DoesNotContain("GenerateSafeSummary", articleCache, StringComparison.Ordinal);
-        Assert.Contains("ArticleSummaryProjection.Resolve(summary, body, MaxSummaryLength)", search, StringComparison.Ordinal);
-        Assert.Contains("ArticleSummaryProjection.Resolve(request.Summary, request.Content, 180)", authoring, StringComparison.Ordinal);
-        Assert.Contains("ArticleSummaryProjection.WasAutomaticallyGenerated(revision.DiffSummary)", authoring, StringComparison.Ordinal);
-        Assert.Contains("ArticleSummaryProjection.ToPlainText(content, maxLength)", imageHelper, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "GenerateSafeSummary",
+            RuntimeMetadataInspection.DescribeType(typeof(ArticleService)),
+            StringComparison.Ordinal);
+        Assert.Contains("ArticleSummaryProjection.Resolve", search, StringComparison.Ordinal);
+        Assert.Contains("ArticleSummaryProjection.Resolve", authoringPreview, StringComparison.Ordinal);
+        Assert.Contains("ArticleSummaryProjection.WasAutomaticallyGenerated", authoringRollback, StringComparison.Ordinal);
+        Assert.Contains("ArticleSummaryProjection.ToPlainText", imageHelper, StringComparison.Ordinal);
     }
 }

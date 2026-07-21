@@ -146,16 +146,18 @@ public sealed class ArticleServiceTests
     [InlineData("", "")]                     // empty → empty
     public void GenerateSafeSummary_ShortContent_ReturnsAsIs(string? input, string expected)
     {
-        var result = InvokePrivateStatic<string>("GenerateSafeSummary", [input]);
-        Assert.Equal(expected, result);
+        ArticleSummaryProjectionResult result = ArticleSummaryProjection.Resolve(null, input);
+        Assert.Equal(expected, result.Text);
+        Assert.True(result.IsGenerated);
     }
 
     [Fact]
     public void GenerateSafeSummary_LongContent_TruncatesAt200()
     {
         string longContent = new string('a', 300);
-        var result = InvokePrivateStatic<string>("GenerateSafeSummary", [longContent]);
-        Assert.Equal(200, result.Length);
+        ArticleSummaryProjectionResult result = ArticleSummaryProjection.Resolve(null, longContent);
+        Assert.Equal(200, result.Text.Length);
+        Assert.EndsWith("…", result.Text, StringComparison.Ordinal);
     }
 
     [Fact]
