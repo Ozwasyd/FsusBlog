@@ -20,7 +20,8 @@ const fixtureRoot = path.join(root, 'tests/fixtures/governance/code-intent')
 const registry = JSON.parse(fs.readFileSync(path.join(root, 'tests/governance/code-intent-registry.json'), 'utf8'))
 
 function fixture(group, name) {
-    return fs.readFileSync(path.join(fixtureRoot, group, name), 'utf8')
+    const storedName = name.endsWith('.cs') ? `${name}.fixture` : name
+    return fs.readFileSync(path.join(fixtureRoot, group, storedName), 'utf8')
 }
 
 function clone(value) {
@@ -114,7 +115,7 @@ test('a tracked TODO requires the exact open issue and removal condition record'
     const todoRegistry = clone(registry)
     todoRegistry.trackedTodos = [{
         id: 'fixture-removal',
-        path: 'tests/fixtures/governance/code-intent/valid/tracked-todo.cs',
+        path: 'tests/fixtures/governance/code-intent/valid/tracked-todo.cs.fixture',
         issue: 1234,
         issueUrl: 'https://github.com/Ozwasyd/FsusBlog/issues/1234',
         state: 'open',
