@@ -486,7 +486,7 @@ function writeEvidenceArtifacts(dir) {
     proofFixture: writeArtifact(dir, 'comment-v5-proof-fixture.json', '{"proof":"redacted"}'),
     publicInputs: writeArtifact(dir, 'comment-v5-public-inputs.json', '{"inputs":["redacted"]}'),
     tamperCases: writeArtifact(dir, 'comment-v5-tamper-cases.json', '{"tamperCases":["redacted"]}'),
-    unlinkabilityTranscripts: writeArtifact(dir, 'comment-v3-unlinkability.json', '{"sampledScopes":100,"stableCredentialFields":[]}')
+    unlinkabilityTranscripts: writeArtifact(dir, 'comment-v5-unlinkability.json', '{"sampledScopes":100,"stableCredentialFields":[]}')
   }
 }
 

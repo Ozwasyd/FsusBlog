@@ -5,6 +5,8 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { findTrackedZkResidue } from '../crypto/zk-retired-residue.mjs'
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const circuitId = 'fsus.anonymous.comment.v5'
 const layoutVersion = 6
@@ -200,24 +202,8 @@ function array(value) {
 }
 
 function checkTrackedResidue() {
-  const retiredCircuit = ['fsus.anonymous.comment.', 'v', '3'].join('')
-  const retiredPath = ['comment', '-', 'v', '2'].join('')
-  const retiredSymbols = [['ZkComment', 'V2'].join(''), ['Circuit', 'Native'].join('')]
   const tracked = execFileSync('git', ['-C', root, 'ls-files', '-z'], { encoding: 'utf8' }).split('\0').filter(Boolean)
-  for (const file of tracked) {
-    if (file.toLowerCase().includes(retiredPath)) fail(`${file} retains a retired proving-system path`)
-    let content
-    try {
-      content = readFileSync(path.join(root, file))
-    } catch {
-      continue
-    }
-    if (content.includes(0)) continue
-    const text = content.toString('utf8')
-    if (text.includes(retiredCircuit) || retiredSymbols.some((symbol) => text.includes(symbol))) {
-      fail(`${file} retains retired proving-system text`)
-    }
-  }
+  for (const error of findTrackedZkResidue({ root, trackedFiles: tracked })) fail(error)
 }
 
 function fail(message) {

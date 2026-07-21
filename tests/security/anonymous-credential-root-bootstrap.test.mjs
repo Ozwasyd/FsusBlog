@@ -115,6 +115,31 @@ test('dotnet anonymous credential root bootstrap rejects mismatched empty revoca
   })
 })
 
+test('dotnet anonymous credential root bootstrap rejects v2 manifest authority drift before database access', () => {
+  withTempDir((dir) => {
+    const trustedSetup = writeJson(dir, 'trusted-setup.json', trustedSetupManifest(hex('a')))
+    const verifyingKey = writeJson(dir, 'verifying-key.json', verifyingKeyManifest(hex('a'), {
+      trusted_setup_manifest: 'security/zk/provenance/not-current.json'
+    }))
+    const input = writeJson(dir, 'bootstrap-input.json', bootstrapInput({
+      revocationRootHash: emptyAccumulatorRoot()
+    }))
+    const evidence = path.join(dir, 'rotated-evidence.json')
+
+    const result = runDotnetBootstrap(
+      '--input', input,
+      '--trusted-setup-manifest', trustedSetup,
+      '--verifying-key-manifest', verifyingKey,
+      '--evidence', evidence,
+      '--db-type', 'sqlite',
+      '--connection-string', `Data Source=${path.join(dir, 'must-not-open.db')}`)
+
+    assert.notEqual(result.status, 0)
+    assert.match(`${result.stdout}\n${result.stderr}`, /trusted_setup_manifest must be security\/zk\/provenance\/comment-v5-trusted-setup\.manifest\.json/)
+    assert.equal(existsSync(evidence), false)
+  })
+})
+
 test('anonymous credential root bootstrap rejects invalid circuit identity and layout', () => {
   withTempDir((dir) => {
     const trustedSetup = writeJson(dir, 'trusted-setup.json', trustedSetupManifest(hex('a')))
@@ -193,7 +218,7 @@ test('anonymous credential root bootstrap runbook documents rotate, gate and rol
   assert.match(doc, /不删除已写入的匿名评论/)
 })
 
-test('dotnet root bootstrap emits comment v2 revocation metadata', () => {
+test('dotnet root bootstrap emits the current revocation metadata profile', () => {
   const source = readFileSync(path.join(root, 'tools/security/AnonymousCredentialRootBootstrap/Program.cs'), 'utf8')
 
   assert.match(source, /"layout":3/)
@@ -220,24 +245,35 @@ function bootstrapInput(overrides = {}) {
   }
 }
 
-function trustedSetupManifest(verifyingKeyHash) {
+function trustedSetupManifest(verifyingKeyHash, overrides = {}) {
   return {
     schema: 'fsusblog.zk.trusted-setup-manifest.v2',
     circuit_id: 'fsus.anonymous.comment.v5',
     public_input_layout_version: 6,
     production_usable: true,
     ceremony_status: 'verified',
-    verifying_key_hash: verifyingKeyHash
+    circuit_manifest_path: 'security/zk/contracts/comment-v5-circuit.manifest.json',
+    artifacts: {
+      verifying_key: {
+        path: 'artifacts/zk/comment-v5/comment_v5_verifying_key.bin'
+      }
+    },
+    verifying_key_hash: verifyingKeyHash,
+    ...overrides
   }
 }
 
-function verifyingKeyManifest(verifyingKeyHash) {
+function verifyingKeyManifest(verifyingKeyHash, overrides = {}) {
   return {
     schema: 'fsusblog.zk.verifying-key-config.v2',
     circuit_id: 'fsus.anonymous.comment.v5',
     public_input_layout_version: 6,
     production_usable: true,
-    verifying_key_hash: verifyingKeyHash
+    trusted_setup_manifest: 'security/zk/provenance/comment-v5-trusted-setup.manifest.json',
+    circuit_manifest: 'security/zk/contracts/comment-v5-circuit.manifest.json',
+    verifying_key_path: 'artifacts/zk/comment-v5/comment_v5_verifying_key.bin',
+    verifying_key_hash: verifyingKeyHash,
+    ...overrides
   }
 }
 
@@ -252,6 +288,11 @@ function runDotnetBootstrap(...args) {
   return spawnSync('dotnet', ['run', '--project', dotnetProject, '--', ...args], {
     cwd: root,
     encoding: 'utf8',
+    env: {
+      ...process.env,
+      AnonymousCredentialRoot__AttestationKey: 'root-bootstrap-test-attestation-key-32-bytes-minimum',
+      AnonymousCredentialRoot__AttestationKeyId: 'root-bootstrap-test'
+    },
     timeout: 120_000
   })
 }

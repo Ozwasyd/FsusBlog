@@ -123,6 +123,9 @@ function validateTrustedSetup(manifest, expectedVkHash) {
   if (Number(manifest.public_input_layout_version) !== EXPECTED_LAYOUT_VERSION) {
     errors.push(`trusted setup manifest public_input_layout_version must be ${EXPECTED_LAYOUT_VERSION}.`)
   }
+  if (manifest.circuit_manifest_path !== 'security/zk/contracts/comment-v5-circuit.manifest.json') {
+    errors.push('trusted setup manifest circuit_manifest_path is not the current circuit authority.')
+  }
   if (manifest.production_usable !== true) {
     errors.push('trusted setup manifest production_usable must be true for root bootstrap.')
   }
@@ -151,6 +154,16 @@ function validateVerifyingKeyManifest(manifest, expectedVkHash, trustedSetup) {
   }
   if (Number(manifest.public_input_layout_version) !== EXPECTED_LAYOUT_VERSION) {
     errors.push(`verifying key manifest public_input_layout_version must be ${EXPECTED_LAYOUT_VERSION}.`)
+  }
+  if (manifest.trusted_setup_manifest !== 'security/zk/provenance/comment-v5-trusted-setup.manifest.json') {
+    errors.push('verifying key manifest trusted_setup_manifest is not the current setup authority.')
+  }
+  if (manifest.circuit_manifest !== 'security/zk/contracts/comment-v5-circuit.manifest.json') {
+    errors.push('verifying key manifest circuit_manifest is not the current circuit authority.')
+  }
+  if (!trustedSetup.artifacts?.verifying_key?.path ||
+      manifest.verifying_key_path !== trustedSetup.artifacts.verifying_key.path) {
+    errors.push('verifying key manifest verifying_key_path must match trusted setup artifacts.verifying_key.path.')
   }
   if (manifest.production_usable !== true) {
     errors.push('verifying key manifest production_usable must be true for root bootstrap.')

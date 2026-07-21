@@ -11,10 +11,14 @@ Use this process only after the trusted setup and verifying-key manifests have
 real production material:
 
 - `security/zk/provenance/comment-v5-trusted-setup.manifest.json` has
-  `production_usable=true`, `ceremony_status=verified`, and a real
-  `verifying_key_hash`.
+  schema `fsusblog.zk.trusted-setup-manifest.v2`,
+  `circuit_manifest_path=security/zk/contracts/comment-v5-circuit.manifest.json`,
+  `production_usable=true`, `ceremony_status=verified`, a real
+  `verifying_key_hash`, and the current verifying-key artifact path.
 - `config/zk/anonymous-comment-v5-verifying-key.manifest.json` has
-  `production_usable=true` and the same real `verifying_key_hash`.
+  schema `fsusblog.zk.verifying-key-config.v2`, points to the canonical trusted
+  setup and circuit manifests, uses the same verifying-key artifact path,
+  `production_usable=true`, and the same real `verifying_key_hash`.
 - The RFC 9474 blind issuer has produced a public issuer key hash.
 - The credential root and revocation accumulator root were computed by the
   issuer/root ceremony outside this repository.
@@ -60,7 +64,8 @@ node tools/security/bootstrap-anonymous-credential-root.mjs \
   --evidence .tmp/security/anonymous-credential-root-bootstrap.json
 ```
 
-The tool validates hash format, `circuitId =
+The tool validates both v2 manifest schemas and their canonical authority
+references before accepting operator material. It also validates hash format, `circuitId =
 fsus.anonymous.comment.v5`, `publicInputLayoutVersion = 6`, trusted setup
 manifest binding, verifying-key manifest binding, root expiry ordering, and
 forbidden sensitive input fields.
@@ -76,6 +81,17 @@ The actual database change must run inside the backend operational boundary. Use
 the .NET ops tool, which validates the same public manifests and then calls
 `AnonymousCredentialRootLifecycleService.RotateAsync` through the backend
 service graph:
+
+The paths below are the authoritative manifests. Do not substitute an ad-hoc
+manifest: update the canonical v2 documents through the reviewed ceremony and
+release process first; the tool rejects authority-path drift before opening the
+database.
+
+Before invoking the tool, inject the same root-attestation secret and key id
+used by the target runtime through the secret store as
+`AnonymousCredentialRoot__AttestationKey` (at least 32 characters) and
+`AnonymousCredentialRoot__AttestationKeyId`. Do not put the attestation key in
+the JSON request or command line.
 
 ```bash
 dotnet run --project tools/security/AnonymousCredentialRootBootstrap/FsusBlog.AnonymousCredentialRootBootstrap.csproj -- \

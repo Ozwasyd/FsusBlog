@@ -1369,13 +1369,6 @@
                 "dependencyImportCount": 24
             }
         },
-        "src/backend/Services/Security/AnonymousCredentialIssuerService.cs": {
-            "category": "ServiceDomainLogic",
-            "excess": {
-                "typeCount": 16,
-                "publicSurfaceCount": 41
-            }
-        },
         "src/backend/Services/Security/AnonymousCredentialRevocationAccumulator.cs": {
             "category": "ServiceDomainLogic",
             "excess": {

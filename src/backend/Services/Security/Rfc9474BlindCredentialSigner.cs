@@ -12,7 +12,7 @@ using Org.BouncyCastle.Security;
 namespace FsusBlog.Server.Services.Security;
 
 /// <summary>
-/// The only private-key operation permitted for anonymous credential v4 issuance.
+/// The only private-key operation permitted for current anonymous credential issuance.
 /// The client performs RFC 9474 Prepare/Blind/Finalize; this boundary only performs
 /// BlindSign on a fixed-width RSA representative.
 /// </summary>

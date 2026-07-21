@@ -67,11 +67,11 @@ circuit-native Groth16 artifacts are incompatible and cannot be reused.
 
 ## Ceremony boundary
 
-This decision does not claim a completed v4 Groth16 circuit or trusted setup.
-The current checkout has no v4 R1CS, phase-2 transcript, proving key, verifying
+This decision does not claim a completed v5 Groth16 circuit or trusted setup.
+The current checkout has no v5 R1CS, phase-2 transcript, proving key, verifying
 key or browser prover that constrains possession of the finalized blind RSA
-credential. Production flags therefore remain disabled and all v4 ZK ticket
-paths fail closed. A later ceremony must bind a reviewed v4 circuit and publish
+credential. Production flags therefore remain disabled and all non-current ZK ticket
+paths fail closed. A later ceremony must bind the reviewed v5 circuit and publish
 real cross-stack/tamper/performance evidence before `production_usable` can be
 true.
 
@@ -86,6 +86,6 @@ true.
   credential or consumed quota. Network timing, authentication and endpoint
   access remain observable at the issuer; the threat model records that
   residual boundary.
-- The old issuance endpoint stays permanently fail-closed with HTTP 410.
+- No compatibility issuance endpoint or handler remains registered.
 - The contract export snapshot and import-boundary checker prevent the provider
   and Blind-RSA implementation from becoming a strongly connected component.

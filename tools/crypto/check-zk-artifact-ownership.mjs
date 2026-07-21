@@ -6,6 +6,8 @@ import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
+import { findTrackedZkResidue } from './zk-retired-residue.mjs'
+
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const manifestPath = 'security/zk/provenance/artifact-ownership.manifest.json'
 const expectedCircuitId = 'fsus.anonymous.comment.v5'
@@ -73,51 +75,13 @@ export function validateZkArtifactOwnership({
   if (declaredExternal.size !== expectedExternal.size) {
     errors.push('external artifact ownership set must exactly match the current trusted setup manifest')
   }
-  checkWholeTreeResidue(errors, normalizedTracked, readTrackedFile)
+  errors.push(...findTrackedZkResidue({ root, trackedFiles: normalizedTracked, readTrackedFile }))
   return errors
 }
 
 function listTrackedFiles(root) {
   return execFileSync('git', ['-C', root, 'ls-files', '-z'], { encoding: 'utf8' })
     .split('\0').filter(Boolean)
-}
-
-function checkWholeTreeResidue(errors, trackedFiles, readTrackedFile) {
-  const cryptoArtifactExtension = /(?:^|[.])(?:fsg16pk|fsg16vk|pk|vk|proof|public_inputs|r1cs|zkey)$/iu
-  const retiredPathNeedle = ['comment', '-', 'v', '2'].join('')
-  const retiredCircuitNeedle = ['fsus.anonymous.comment.', 'v', '3'].join('')
-  const retiredSymbols = [
-    ['ZkComment', 'V2'].join(''),
-    ['Circuit', 'Native'].join(''),
-    ['AnonymousCredentialIssue', 'Request'].join(''),
-    ['AnonymousCredentialIssue', 'Response'].join('')
-  ]
-  const binaryMagics = [Buffer.from(['FSG16', 'VK1'].join('')), Buffer.from(['FSG16', 'PF1'].join(''))]
-
-  for (const file of trackedFiles) {
-    if (cryptoArtifactExtension.test(file)) {
-      errors.push(`cryptographic artifact must not be tracked in ordinary Git: ${file}`)
-    }
-    if (file.toLowerCase().includes(retiredPathNeedle)) {
-      errors.push(`retired proving-system path must not be tracked: ${file}`)
-    }
-    let content
-    try {
-      content = Buffer.from(readTrackedFile(file))
-    } catch {
-      continue
-    }
-    if (content.includes(0)) {
-      if (binaryMagics.some((magic) => content.includes(magic))) {
-        errors.push(`encoded proving artifact must not be tracked in ordinary Git: ${file}`)
-      }
-      continue
-    }
-    const text = content.toString('utf8')
-    if (text.includes(retiredCircuitNeedle) || retiredSymbols.some((symbol) => text.includes(symbol))) {
-      errors.push(`retired proving-system identity must not remain in tracked text: ${file}`)
-    }
-  }
 }
 
 function readJson(file) {
