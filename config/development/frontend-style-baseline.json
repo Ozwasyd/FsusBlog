@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:018738cd8e26ec95eb8e28facbb375ea7c94fe71f3ae37e2d62db38b85b19ac7",
-    "sourceStateSha256": "018738cd8e26ec95eb8e28facbb375ea7c94fe71f3ae37e2d62db38b85b19ac7",
+    "generatedFrom": "source-state:91879f0d2cfae2ddf0dc84251309f1c8170cb5720191cbb5e9b75a82c3ac3513",
+    "sourceStateSha256": "91879f0d2cfae2ddf0dc84251309f1c8170cb5720191cbb5e9b75a82c3ac3513",
     "configurationSha256": "097e93375187fd89b8741031800d4ffd703a6961882b6f9ba9f5af94cf27f8ec",
     "violationCount": 333675,
     "fileCount": 1080,
@@ -1280,8 +1280,8 @@
         },
         {
             "path": "src/frontend/src/components/admin/AdminTaxonomyManageView.vue",
-            "sourceSha256": "f2bbe65e0687107c7727f0232c290cf9f97ef29c4335f2cdbad88de5daa096c2",
-            "violationCount": 379,
+            "sourceSha256": "3998f8da3ccb0ad6734c8e9faa36491215541d14d813a98f322c91178e8138bc",
+            "violationCount": 359,
             "violationDigest": "283a96227665702452fe3760f6cd00461a8e07e47720378fa9f17861f6f9331f",
             "rules": {
                 "eslint/@stylistic/brace-style": 3,
@@ -6056,7 +6056,7 @@
         {
             "path": "src/frontend/src/views/admin/Settings.vue",
             "sourceSha256": "00f809aebff6a08555593d437f7c50fc034d2d63af18d1fbcdfbcd295ada4f13",
-            "violationCount": 1035,
+            "violationCount": 1015,
             "violationDigest": "d278eb6e20ebcd9bd78f43494c97d02eaf3b2fa0930352e67c5e2aa60744a558",
             "rules": {
                 "eslint/@stylistic/brace-style": 13,
@@ -7940,8 +7940,8 @@
         },
         {
             "path": "tests/frontend/checks/static/check-admin-a11y-governance.mjs",
-            "sourceSha256": "515d0a61e75f31cbd61aec8f33130351f03722a37ff30c635686ff7f931ab945",
-            "violationCount": 374,
+            "sourceSha256": "615c285c7d57665d63c00a08aa616b849ea29936dfabb14ae588131071a8e7f7",
+            "violationCount": 354,
             "violationDigest": "9487f432126e630438f6cd0f247e4da9b9959e883087724e01cd520e882c770e",
             "rules": {
                 "eslint/@stylistic/brace-style": 49,
@@ -8229,9 +8229,9 @@
         },
         {
             "path": "tests/frontend/checks/static/check-font-size-contract.mjs",
-            "sourceSha256": "345664246ef3aa522ed7df55f334c9e140d04f531f1053e26c0d7829c559a8fa",
-            "violationCount": 104,
-            "violationDigest": "749b6f0d6faf2544c22d92a87b66a946d33a673f3e7bd40e951fd252e4034567",
+            "sourceSha256": "31477795b1e5fb5afc0e19da7e81633613225e1cab77af3582c3ebeafffe098c",
+            "violationCount": 84,
+            "violationDigest": "5f4a49a43f62389ea668d235ef627a87aed3aa195388e3ee7332b637ee84e408",
             "rules": {
                 "eslint/@stylistic/brace-style": 18,
                 "eslint/@stylistic/indent": 33,
@@ -14584,20 +14584,6 @@
                 "stylelint/@stylistic/block-opening-brace-newline-before": 1,
                 "stylelint/media-feature-range-notation": 1
             }
-        },
-        {
-            "path": "tests/frontend/unit/composables/passkeyRecoveryCapability.test.ts",
-            "sourceSha256": "0000000000000000000000000000000000000000000000000000000000000000",
-            "violationCount": 1000,
-            "violationDigest": "0000000000000000000000000000000000000000000000000000000000000000",
-            "rules": {}
-        },
-        {
-            "path": "tests/frontend/unit/contracts/commentPolicy.test.ts",
-            "sourceSha256": "0000000000000000000000000000000000000000000000000000000000000000",
-            "violationCount": 1000,
-            "violationDigest": "0000000000000000000000000000000000000000000000000000000000000000",
-            "rules": {}
         }
     ]
 }
