@@ -252,6 +252,51 @@ export const workerRuntimeCases = [
         expected: 'must not duplicate direct Worker construction'
     },
     {
+        name: 'stable let Worker alias remains forbidden in a host',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script setup lang="ts">',
+            "<script setup lang=\"ts\">\nlet WorkerAlias = globalThis.Worker\nconst duplicateWorker = new WorkerAlias('/worker.js')"
+        ),
+        expected: 'must not duplicate direct Worker construction'
+    },
+    {
+        name: 'object-stored Reflect construct remains forbidden in a host',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script setup lang="ts">',
+            "<script setup lang=\"ts\">\nconst factories = { construct: Reflect.construct }\nconst duplicateWorker = factories.construct(globalThis.Worker, ['/worker.js'])"
+        ),
+        expected: 'must not duplicate direct Worker construction'
+    },
+    {
+        name: 'globalThis Reflect construct remains forbidden in a host',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script setup lang="ts">',
+            "<script setup lang=\"ts\">\nconst duplicateWorker = globalThis.Reflect.construct(globalThis.Worker, ['/worker.js'])"
+        ),
+        expected: 'must not duplicate direct Worker construction'
+    },
+    {
+        name: 'window Reflect construct remains forbidden in a host',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script setup lang="ts">',
+            "<script setup lang=\"ts\">\nconst duplicateWorker = window.Reflect.construct(globalThis.Worker, ['/worker.js'])"
+        ),
+        expected: 'must not duplicate direct Worker construction'
+    },
+    {
+        name: 'global Reflect object alias remains forbidden in a host',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script setup lang="ts">',
+            "<script setup lang=\"ts\">\nconst R = globalThis.Reflect\nconst duplicateWorker = R.construct(globalThis.Worker, ['/worker.js'])"
+        ),
+        expected: 'must not duplicate direct Worker construction'
+    },
+    {
         name: 'Worker metadata property is not Worker construction',
         file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
         mutate: source => source.replace(

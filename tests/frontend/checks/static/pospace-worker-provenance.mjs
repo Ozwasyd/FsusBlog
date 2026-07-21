@@ -210,6 +210,11 @@ export function createPoSpaceWorkerProvenance(ts, provenance)
         {
             return isReflectConstructFunctionValue(expression.right, facts, flow, seen);
         }
+        const resolved = resolveStaticValue(expression, expression, flow, new Set(seen));
+        if (resolved !== expression)
+        {
+            return isReflectConstructFunctionValue(resolved, facts, flow, seen);
+        }
         const member = staticMemberAccess(expression, flow);
         return Boolean(
             member
@@ -221,13 +226,25 @@ export function createPoSpaceWorkerProvenance(ts, provenance)
     function isReflectObjectExpression(node, facts, flow, seen = new Set())
     {
         const expression = unwrapRuntimeExpression(node);
+        if (
+            ts.isIdentifier(expression)
+        && expression.text === 'Reflect'
+        && isUnshadowedGlobalIdentifier(expression, flow)
+        )
+        {
+            return true;
+        }
+        const member = staticMemberAccess(expression, flow);
+        if (
+            member?.property === 'Reflect'
+        && isWorkerGlobalExpression(member.container, facts, flow)
+        )
+        {
+            return true;
+        }
         if (!ts.isIdentifier(expression))
         {
             return false;
-        }
-        if (expression.text === 'Reflect' && isUnshadowedGlobalIdentifier(expression, flow))
-        {
-            return true;
         }
         const binding = resolveBinding(flow.constValueBindings, expression, expression);
         if (!binding || seen.has(binding.declaration))

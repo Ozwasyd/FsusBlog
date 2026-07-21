@@ -2951,7 +2951,7 @@
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
                 "mode": "delegated-command",
-                "command": "node ../../tests/frontend/checks/static/check-pospace-runtime-reachability.mjs",
+                "command": "node ../../tests/frontend/checks/static/check-pospace-runtime-reachability.mjs && node ../../tests/frontend/checks/static/check-pospace-runtime-reachability-fixture.mjs",
                 "implementation": "tests/frontend/checks/static/check-pospace-runtime-reachability.mjs",
                 "executionKey": "governance:check:pospace-runtime-reachability",
                 "receiptCompatible": true
@@ -8293,12 +8293,40 @@
             "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
         },
         {
+            "id": "Implementation.TestsFrontendChecksStaticCheckPospaceRuntimeReachabilityFixtureMjs",
+            "externalId": "tests/frontend/checks/static/check-pospace-runtime-reachability-fixture.mjs",
+            "symbol": "CheckTestsFrontendChecksStaticCheckPospaceRuntimeReachabilityFixture",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tests/frontend/checks/static/check-pospace-runtime-reachability-fixture.mjs",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/frontend/checks/static/check-pospace-runtime-reachability-fixture.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tests/frontend/checks/static/check-pospace-runtime-reachability-fixture.mjs",
+                "executionKey": "governance:file:tests/frontend/checks/static/check-pospace-runtime-reachability-fixture.mjs",
+                "receiptCompatible": true
+            }
+        },
+        {
             "id": "Implementation.TestsFrontendChecksStaticCheckPospaceRuntimeReachabilityMjs",
             "externalId": "tests/frontend/checks/static/check-pospace-runtime-reachability.mjs",
             "symbol": "CheckTestsFrontendChecksStaticCheckPospaceRuntimeReachability",
             "owner": "TestGovernanceOwner",
             "category": "test-governance",
-            "engine": "text",
+            "engine": "vue-ast",
             "sourceScopes": [
                 "tests/frontend/checks/static/check-pospace-runtime-reachability.mjs",
                 "tests/**",

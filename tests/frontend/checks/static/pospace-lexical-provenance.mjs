@@ -12,7 +12,9 @@ export function createPoSpaceLexicalProvenance(ts, resolveStaticMemberValue)
             }
             if (ts.isClassDeclaration(node) && node.name)
             {
-                flow.lexicalBindings.push(makeBinding(node.name.text, node, node, true));
+                const binding = makeBinding(node.name.text, node, node, true);
+                flow.lexicalBindings.push(binding);
+                flow.constValueBindings.push(binding);
             }
             if (
                 ts.isVariableDeclaration(node)
@@ -21,7 +23,7 @@ export function createPoSpaceLexicalProvenance(ts, resolveStaticMemberValue)
             {
                 const binding = makeBinding(node.name.text, node, node.initializer ?? null, false);
                 flow.lexicalBindings.push(binding);
-                if (node.initializer && isConstVariableDeclaration(node))
+                if (node.initializer && isStableVariableDeclaration(node, sourceFile))
                 {
                     flow.constValueBindings.push(binding);
                     if (
@@ -174,6 +176,46 @@ export function createPoSpaceLexicalProvenance(ts, resolveStaticMemberValue)
     {
         return ts.isVariableDeclarationList(node.parent)
     && (node.parent.flags & ts.NodeFlags.Const) !== 0;
+    }
+
+    function isStableVariableDeclaration(node, sourceFile)
+    {
+        if (isConstVariableDeclaration(node))
+        {
+            return true;
+        }
+        let reassigned = false;
+        walk(sourceFile, candidate =>
+        {
+            reassigned ||= ts.isIdentifier(candidate)
+            && candidate.text === node.name.text
+            && candidate.pos !== node.name.pos
+            && isWriteTarget(candidate);
+        });
+        return !reassigned;
+    }
+
+    function isWriteTarget(identifier)
+    {
+        const parent = identifier.parent;
+        if (
+            ts.isBinaryExpression(parent)
+        && parent.left === identifier
+        && parent.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
+        && parent.operatorToken.kind <= ts.SyntaxKind.LastAssignment
+        )
+        {
+            return true;
+        }
+        if (
+            (ts.isPrefixUnaryExpression(parent) || ts.isPostfixUnaryExpression(parent))
+        && [ts.SyntaxKind.MinusMinusToken, ts.SyntaxKind.PlusPlusToken].includes(parent.operator)
+        )
+        {
+            return true;
+        }
+        return (ts.isForInStatement(parent) || ts.isForOfStatement(parent))
+        && parent.initializer === identifier;
     }
 
     function resolveBinding(bindings, identifier, useNode)

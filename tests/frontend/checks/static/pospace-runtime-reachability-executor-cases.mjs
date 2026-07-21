@@ -414,6 +414,69 @@ export const executorReachabilityCases = [
         shouldPass: true
     },
     {
+        name: 'class static helper propagates callback argument execution',
+        file: 'src/frontend/src/composables/useNotification.ts',
+        mutate: source => source.replace(
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'",
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'\n\nclass Helpers { static invokeNow(callback: () => unknown) { return callback() } }\nHelpers.invokeNow(() => import('@/services/securityPoSpaceChallengeExecutor'))"
+        ),
+        expected: 'must keep the PoSpace executor lazy'
+    },
+    {
+        name: 'aliased Promise resolve callback is proactive',
+        file: 'src/frontend/src/composables/useNotification.ts',
+        mutate: source => source.replace(
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'",
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'\n\nconst P = Promise\nP.resolve().then(() => import('@/services/securityPoSpaceChallengeExecutor'))"
+        ),
+        expected: 'must keep the PoSpace executor lazy'
+    },
+    {
+        name: 'bound Promise resolve callback is proactive',
+        file: 'src/frontend/src/composables/useNotification.ts',
+        mutate: source => source.replace(
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'",
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'\n\nconst resolveNow = Promise.resolve.bind(Promise)\nresolveNow().then(() => import('@/services/securityPoSpaceChallengeExecutor'))"
+        ),
+        expected: 'must keep the PoSpace executor lazy'
+    },
+    {
+        name: 'globalThis Promise resolve callback is proactive',
+        file: 'src/frontend/src/composables/useNotification.ts',
+        mutate: source => source.replace(
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'",
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'\n\nglobalThis.Promise.resolve().then(() => import('@/services/securityPoSpaceChallengeExecutor'))"
+        ),
+        expected: 'must keep the PoSpace executor lazy'
+    },
+    {
+        name: 'window Promise resolve callback is proactive',
+        file: 'src/frontend/src/composables/useNotification.ts',
+        mutate: source => source.replace(
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'",
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'\n\nwindow.Promise.resolve().then(() => import('@/services/securityPoSpaceChallengeExecutor'))"
+        ),
+        expected: 'must keep the PoSpace executor lazy'
+    },
+    {
+        name: 'shadowed Array instance map callback remains deferred',
+        file: 'src/frontend/src/composables/useNotification.ts',
+        mutate: source => source.replace(
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'",
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'\n\nclass Array { map(callback: () => unknown) { return callback } }\nnew Array().map(() => import('@/services/securityPoSpaceChallengeExecutor'))"
+        ),
+        shouldPass: true
+    },
+    {
+        name: 'shadowed Array from map callback remains deferred',
+        file: 'src/frontend/src/composables/useNotification.ts',
+        mutate: source => source.replace(
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'",
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'\n\nclass Array { static from() { return { map: (callback: () => unknown) => callback } } }\nArray.from().map(() => import('@/services/securityPoSpaceChallengeExecutor'))"
+        ),
+        shouldPass: true
+    },
+    {
         name: 'template script-looking text remains valid SFC content',
         file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
         mutate: source => source.replace(

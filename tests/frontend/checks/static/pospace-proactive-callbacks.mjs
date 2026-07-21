@@ -105,12 +105,30 @@ export function createPoSpaceProactiveCallbacks(ts, provenance)
         );
     }
 
-    function isTrustedPromiseConstructor(node, flow)
+    function isTrustedPromiseConstructor(node, flow, seen = new Set())
     {
         const expression = unwrapRuntimeExpression(node);
-        return ts.isIdentifier(expression)
-    && expression.text === 'Promise'
-    && isUnshadowedGlobalIdentifier(expression, flow);
+        if (ts.isIdentifier(expression))
+        {
+            if (expression.text === 'Promise' && isUnshadowedGlobalIdentifier(expression, flow))
+            {
+                return true;
+            }
+            const binding = resolveBinding(flow.constValueBindings, expression, expression);
+            if (!binding || seen.has(binding.declaration))
+            {
+                return false;
+            }
+            seen.add(binding.declaration);
+            const value = resolveBindingValue(binding, expression, flow, seen);
+            return value ? isTrustedPromiseConstructor(value, flow, seen) : false;
+        }
+        const member = staticMemberAccess(expression, flow);
+        return Boolean(
+            member
+        && member.property === 'Promise'
+        && isWorkerGlobalExpression(member.container, null, flow)
+        );
     }
 
     function isTrustedPromiseValue(node, useNode, flow, seen = new Set())
@@ -136,6 +154,10 @@ export function createPoSpaceProactiveCallbacks(ts, provenance)
             return false;
         }
         const target = unwrapRuntimeExpression(expression.expression);
+        if (isTrustedPromiseFactoryValue(target, expression, flow, seen))
+        {
+            return true;
+        }
         const member = staticMemberAccess(target, flow);
         if (!member)
         {
@@ -153,6 +175,44 @@ export function createPoSpaceProactiveCallbacks(ts, provenance)
         }
         return member.property === 'fetch'
     && isWorkerGlobalExpression(member.container, null, flow);
+    }
+
+    function isTrustedPromiseFactoryValue(node, useNode, flow, seen = new Set())
+    {
+        const expression = unwrapRuntimeExpression(node);
+        if (ts.isIdentifier(expression))
+        {
+            const binding = resolveBinding(flow.constValueBindings, expression, useNode);
+            if (!binding || seen.has(binding.declaration))
+            {
+                return false;
+            }
+            seen.add(binding.declaration);
+            const value = resolveBindingValue(binding, expression, flow, seen);
+            return value ? isTrustedPromiseFactoryValue(value, binding.declaration, flow, seen) : false;
+        }
+        if (ts.isCallExpression(expression))
+        {
+            const invocation = staticMemberAccess(expression.expression, flow);
+            return Boolean(
+                invocation
+            && invocation.property === 'bind'
+            && isTrustedPromiseFactoryValue(invocation.container, expression, flow, seen)
+            );
+        }
+        if (
+            ts.isBinaryExpression(expression)
+        && expression.operatorToken.kind === ts.SyntaxKind.CommaToken
+        )
+        {
+            return isTrustedPromiseFactoryValue(expression.right, useNode, flow, seen);
+        }
+        const member = staticMemberAccess(expression, flow);
+        return Boolean(
+            member
+        && ['all', 'allSettled', 'any', 'race', 'reject', 'resolve', 'withResolvers'].includes(member.property)
+        && isTrustedPromiseConstructor(member.container, flow)
+        );
     }
 
     function arrayPrototypeCallbackInvocation(target, useNode, flow)
@@ -174,6 +234,7 @@ export function createPoSpaceProactiveCallbacks(ts, provenance)
     && prototype.name.text === 'prototype'
     && ts.isIdentifier(unwrapRuntimeExpression(prototype.expression))
     && unwrapRuntimeExpression(prototype.expression).text === 'Array'
+    && isUnshadowedGlobalIdentifier(unwrapRuntimeExpression(prototype.expression), flow)
             ? target.name.text
             : null;
     }
@@ -194,7 +255,8 @@ export function createPoSpaceProactiveCallbacks(ts, provenance)
         }
         if (ts.isNewExpression(expression) && ts.isIdentifier(expression.expression))
         {
-            return expression.expression.text === 'Array';
+            return expression.expression.text === 'Array'
+            && isUnshadowedGlobalIdentifier(expression.expression, flow);
         }
         if (ts.isCallExpression(expression))
         {
@@ -203,6 +265,7 @@ export function createPoSpaceProactiveCallbacks(ts, provenance)
                 ts.isPropertyAccessExpression(callee)
         && ts.isIdentifier(callee.expression)
         && callee.expression.text === 'Array'
+        && isUnshadowedGlobalIdentifier(callee.expression, flow)
         && ['from', 'of'].includes(callee.name.text)
             )
             {

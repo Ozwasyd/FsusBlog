@@ -36,6 +36,20 @@ export function createPoSpaceStaticValues(ts, lexical)
                 }
             }
         }
+        if (ts.isClassDeclaration(container) || ts.isClassExpression(container))
+        {
+            for (const member of container.members)
+            {
+                if (
+                    ts.isMethodDeclaration(member)
+                && member.modifiers?.some(modifier => modifier.kind === ts.SyntaxKind.StaticKeyword)
+                && propertyNameText(member.name, flow) === property
+                )
+                {
+                    return member;
+                }
+            }
+        }
         if (/^(?:0|[1-9]\d*)$/u.test(property))
         {
             const elements = staticArrayElements(container, useNode, flow, new Set(seen));
