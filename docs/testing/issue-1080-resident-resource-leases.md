@@ -19,7 +19,7 @@
 - process：PID + `/proc/<pid>/stat` start time；
 - container：完整 container ID + Docker Created time。
 
-v2 inventory 绑定 run ID、namespace、owner、producer 实际 `resourceGrant`、generation 与 canonical SHA-256 digest。production scheduler 还要求 service roster 必须精确等于上述五类服务；旧 v1 inventory fail closed，不在 resume 时继承缺少 grant 绑定的 reservation。修改字段、删减服务、复制到其他 run/namespace、PID 复用或 container recreation 都不能静默通过。PID start time 必须是 `/proc` 数字 tick，container identity 必须是完整 64 位 OCI ID 和可解析 created timestamp。
+当前 inventory schema 为 `fsusblog.test-matrix.resident-resource-leases.v4`。它绑定 run ID、namespace、owner、source commit/worktree fingerprint、bootstrap step 的实际 `resourceGrant`、scheduler 当时授予该 physical bundle 的 `schedulerResourceGrant`、整轮 `resourceBudget`、generation 与 canonical SHA-256 digest，并在 bootstrap 完成 hard-limit 接线后把 process cgroup / OCI enforcement evidence 一并重新封存。必须满足 `step grant <= scheduler grant <= run budget`；resume 校验从同一 run 的 grant history 中找到原 scheduler grant，而不是拿当前更大 grant 为旧 inventory 补签。production scheduler 还要求 service roster 必须精确等于上述五类服务；旧 v1–v3 inventory 全部 fail closed，不继承缺少 source、grant hierarchy、budget 或 enforcement 绑定的 reservation。修改字段、删减服务、复制到其他 run/namespace/source、PID 复用或 container recreation 都不能静默通过。PID start time 必须是 `/proc` 数字 tick，container identity 必须是完整 64 位 OCI ID 和可解析 created timestamp。
 
 ## 动态 reservation 与 admission
 
@@ -29,7 +29,7 @@ reservation 从当前 live step grant、服务数量与 readiness 后实测 RSS 
 - memory 按各服务 RSS 权重分配，使用服务数量派生 safety factor，并为 downstream 保留服务数量派生的 envelope slice；
 - 每个 live service 的 CPU 和 memory reservation 都严格大于零。
 
-validator 会按 inventory 保存的原始 grant 与实测 RSS 重新计算每项 reservation，并由 scheduler 对照 producer 当时的实际 grant。即使调用者重新计算 digest，也不能通过伪造较小 grant/reservation 来释放并不存在的容量。
+validator 会按 inventory 保存的 step grant 与实测 RSS 重新计算每项 reservation，同时对照 scheduler grant history 与 run budget。process service 合并为一个 process enforcement scope，container service 各自绑定完整 OCI identity；`enforced` 模式还会复核 reservation、CPU limit、`memory.high` 与 `memory.max` 的观测值。即使调用者重新计算 digest，也不能通过伪造较小 grant/reservation、替换 source 或删除 hard-limit evidence 来释放并不存在的容量。
 
 scheduler 的 peak、admission、dynamic expansion、wait reason 和 `resource-grants.json` 使用：
 
