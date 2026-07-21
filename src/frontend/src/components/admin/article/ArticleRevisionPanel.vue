@@ -102,6 +102,7 @@
             id="revision-rollback-reason"
             v-model="rollbackReason"
             type="textarea"
+            :csp-safe="true"
             :rows="2"
             maxlength="500"
             show-word-limit

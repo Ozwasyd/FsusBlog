@@ -3,8 +3,7 @@
     :id="`comment-${node.id}`"
     ref="nodeElement"
     class="fsus-comment-tree-node"
-    :class="{ 'is-root': depth === 0, 'is-deep': depth >= 4 }"
-    :style="{ '--comment-tree-depth': String(Math.min(depth, 4)) }"
+    :class="[depthClass, { 'is-root': depth === 0, 'is-deep': depth >= 4 }]"
     tabindex="-1"
     @keydown.left.self.stop="collapseBranch"
     @keydown.right.self.stop="expandBranch"
@@ -153,6 +152,7 @@ const branchExpanded = ref(props.node.childrenExpanded || props.node.children.le
 const contentExpanded = ref(false)
 const contentOverflow = ref(false)
 const isAnonymous = computed(() => props.node.author.mode !== 'public')
+const depthClass = computed(() => `fsus-comment-tree-node--depth-${Math.min(Math.max(props.depth, 0), 4)}`)
 const hasAnonymousCapability = computed(() => getCommentManagementCapabilityVault().get(props.node.id) !== null)
 const canEdit = computed(() => !props.node.isDeleted && (props.ownedCommentIds.has(props.node.id) || hasAnonymousCapability.value))
 const canDelete = computed(() => props.isAdmin || props.ownedCommentIds.has(props.node.id) || hasAnonymousCapability.value)
@@ -215,6 +215,12 @@ const toggleBranch = (): void => branchExpanded.value ? collapseBranch() : expan
   color: var(--fsusblog-text-primary);
   outline: none;
 }
+
+.fsus-comment-tree-node--depth-0 { --comment-tree-depth: 0; }
+.fsus-comment-tree-node--depth-1 { --comment-tree-depth: 1; }
+.fsus-comment-tree-node--depth-2 { --comment-tree-depth: 2; }
+.fsus-comment-tree-node--depth-3 { --comment-tree-depth: 3; }
+.fsus-comment-tree-node--depth-4 { --comment-tree-depth: 4; }
 
 .fsus-comment-tree-node.is-root {
   padding-block: 20px;

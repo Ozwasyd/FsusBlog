@@ -103,7 +103,8 @@ describe('ArticleCommentsVirtualList recursive comment tree', () => {
 
     expect(wrapper.findAll('.fsus-comment-tree-node')).toHaveLength(12)
     expect(wrapper.findAll('.fsus-comment-tree-node.is-deep')).toHaveLength(8)
-    expect(wrapper.get('#comment-12').attributes('style')).toContain('--comment-tree-depth: 4')
+    expect(wrapper.get('#comment-12').classes()).toContain('fsus-comment-tree-node--depth-4')
+    expect(wrapper.get('#comment-12').attributes('style')).toBeUndefined()
     wrapper.unmount()
   })
 
