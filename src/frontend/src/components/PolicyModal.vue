@@ -62,16 +62,18 @@ const copy = computed(() => ({
   ...messages.value.auth.policyModal
 }))
 
+type PolicyType = 'privacy' | 'guidelines'
+
 const props = defineProps<{
-  type: 'privacy' | 'guidelines'
+  type: PolicyType
 }>()
 
 const dialogVisible = defineModel<boolean>('visible', { required: true })
 
-const titleMap: Record<string, string> = {
-  privacy: copy.privacyTitle,
-  guidelines: copy.guidelinesTitle
-}
+const titleMap = computed<Record<PolicyType, string>>(() => ({
+  privacy: copy.value.privacyTitle,
+  guidelines: copy.value.guidelinesTitle
+}))
 
 const markdownContent = ref('')
 const loading = ref(false)
