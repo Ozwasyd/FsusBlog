@@ -12,6 +12,7 @@ import {
 } from '@/security/challenge-client'
 import type { SecurityChallengeProof } from '@/security/challenge-proof-store'
 import type { PoSpaceUnsupportedReason } from '@/generated/poSpaceV1Contract'
+import { AppErrorCode, createAppError } from '@/utils/appError'
 import { getErrorMessage } from '@/utils/errors'
 import {
   createPoSpaceWorkerClient,
@@ -23,7 +24,6 @@ import {
   createPoSpaceVerifyPayload
 } from './securityPoSpaceRuntime'
 
-import { AppErrorCode, createAppError } from '@/utils/appError'
 export type PoSpaceChallengeStatus =
   | 'preparing'
   | 'unsupported'

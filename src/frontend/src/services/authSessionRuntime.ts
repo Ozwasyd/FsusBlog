@@ -9,6 +9,7 @@ import {
 import { useAppShellStore } from '@/store/appShell'
 import { useAdminStore } from '@/store/admin'
 import { useUserStore } from '@/store/user'
+import { AppErrorCode, createAppError } from '@/utils/appError'
 import { isAuthFailureError } from '@/utils/errorKinds'
 import { ensureLocalFixtureSessionCookies, isLocalFixtureSessionActive } from '@/services/localFixtureSession'
 import {
@@ -16,7 +17,6 @@ import {
   type AuthRefreshCoordinator
 } from '@/services/authRefreshCoordinator'
 
-import { AppErrorCode, createAppError } from '@/utils/appError'
 const REFRESH_LEEWAY_MS = 2 * 60 * 1000
 const MIN_REFRESH_DELAY_MS = 1_000
 const NETWORK_RETRY_BASE_MS = 5_000

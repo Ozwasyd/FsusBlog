@@ -21,6 +21,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
 using SqlSugar;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]

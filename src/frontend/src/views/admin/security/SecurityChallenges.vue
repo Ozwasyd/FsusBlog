@@ -108,12 +108,12 @@ import {
 import AdminStatusMatrix, { type AdminStatusMatrixItem } from '@/components/admin/AdminStatusMatrix.vue'
 import { FsusUiSettingsSection } from '@/fsusui'
 import { Refresh } from '@/fsusui/icons'
-import { showErrorToast } from '@/utils/errorPresentation'
 import {
   SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION,
   resolveChallengeCapability,
   securityChallengeCapabilityManifest
 } from '@/security/challenge-capability-registry'
+import { showErrorToast } from '@/utils/errorPresentation'
 
 const loading = shallowRef(false)
 const metricsState = shallowRef<SecurityChallengeMetricsResponse | null>(null)
