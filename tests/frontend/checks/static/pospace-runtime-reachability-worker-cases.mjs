@@ -297,6 +297,33 @@ export const workerRuntimeCases = [
         expected: 'must not duplicate direct Worker construction'
     },
     {
+        name: 'inner Worker alias writes do not pollute stable outer alias',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script setup lang="ts">',
+            "<script setup lang=\"ts\">\nlet WorkerAlias = globalThis.Worker\n{ let WorkerAlias = class SafeWorker {}; WorkerAlias = class OtherSafeWorker {} }\nconst duplicateWorker = new WorkerAlias('/worker.js')"
+        ),
+        expected: 'must not duplicate direct Worker construction'
+    },
+    {
+        name: 'later Worker alias reassignment does not sanitize earlier construction',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script setup lang="ts">',
+            "<script setup lang=\"ts\">\nlet WorkerAlias = globalThis.Worker\nconst duplicateWorker = new WorkerAlias('/worker.js')\nWorkerAlias = class SafeWorker {}"
+        ),
+        expected: 'must not duplicate direct Worker construction'
+    },
+    {
+        name: 'reassigned destructured Worker alias is no longer browser Worker',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script setup lang="ts">',
+            "<script setup lang=\"ts\">\nlet { Worker: WorkerAlias } = globalThis\nWorkerAlias = class SafeWorker {}\nconst localWorker = new WorkerAlias()"
+        ),
+        shouldPass: true
+    },
+    {
         name: 'Worker metadata property is not Worker construction',
         file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
         mutate: source => source.replace(

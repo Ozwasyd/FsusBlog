@@ -23,7 +23,7 @@ export function createPoSpaceLexicalProvenance(ts, resolveStaticMemberValue)
             {
                 const binding = makeBinding(node.name.text, node, node.initializer ?? null, false);
                 flow.lexicalBindings.push(binding);
-                if (node.initializer && isStableVariableDeclaration(node, sourceFile))
+                if (node.initializer)
                 {
                     flow.constValueBindings.push(binding);
                     if (
@@ -76,6 +76,7 @@ export function createPoSpaceLexicalProvenance(ts, resolveStaticMemberValue)
                 }
             }
         });
+        collectBindingWrites(sourceFile, flow);
     }
 
     function constDestructuredMemberSource(node)
@@ -89,7 +90,6 @@ export function createPoSpaceLexicalProvenance(ts, resolveStaticMemberValue)
         if (
             !ts.isVariableDeclaration(declaration)
     || !declaration.initializer
-    || !isConstVariableDeclaration(declaration)
         )
         {
             return null;
@@ -172,50 +172,49 @@ export function createPoSpaceLexicalProvenance(ts, resolveStaticMemberValue)
         return node.getSourceFile();
     }
 
-    function isConstVariableDeclaration(node)
+    function collectBindingWrites(sourceFile, flow)
     {
-        return ts.isVariableDeclarationList(node.parent)
-    && (node.parent.flags & ts.NodeFlags.Const) !== 0;
-    }
-
-    function isStableVariableDeclaration(node, sourceFile)
-    {
-        if (isConstVariableDeclaration(node))
+        walk(sourceFile, node =>
         {
-            return true;
-        }
-        let reassigned = false;
-        walk(sourceFile, candidate =>
-        {
-            reassigned ||= ts.isIdentifier(candidate)
-            && candidate.text === node.name.text
-            && candidate.pos !== node.name.pos
-            && isWriteTarget(candidate);
+            if (
+                !ts.isBinaryExpression(node)
+            || node.operatorToken.kind < ts.SyntaxKind.FirstAssignment
+            || node.operatorToken.kind > ts.SyntaxKind.LastAssignment
+            )
+            {
+                return;
+            }
+            const left = unwrapRuntimeExpression(node.left);
+            if (ts.isIdentifier(left))
+            {
+                const binding = resolveLexicalBinding(flow.lexicalBindings, left, node);
+                if (binding && flow.constValueBindings.includes(binding))
+                {
+                    binding.writes ??= [];
+                    binding.writes.push({ node, value: assignmentValue(node) });
+                }
+                return;
+            }
+            const member = staticMemberAccess(left, flow);
+            const container = member && unwrapRuntimeExpression(member.container);
+            if (!member || !ts.isIdentifier(container))
+            {
+                return;
+            }
+            const binding = resolveLexicalBinding(flow.lexicalBindings, container, node);
+            if (binding && flow.constValueBindings.includes(binding))
+            {
+                binding.memberWrites ??= new Map();
+                const writes = binding.memberWrites.get(member.property) ?? [];
+                writes.push({ node, value: assignmentValue(node) });
+                binding.memberWrites.set(member.property, writes);
+            }
         });
-        return !reassigned;
     }
 
-    function isWriteTarget(identifier)
+    function assignmentValue(node)
     {
-        const parent = identifier.parent;
-        if (
-            ts.isBinaryExpression(parent)
-        && parent.left === identifier
-        && parent.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
-        && parent.operatorToken.kind <= ts.SyntaxKind.LastAssignment
-        )
-        {
-            return true;
-        }
-        if (
-            (ts.isPrefixUnaryExpression(parent) || ts.isPostfixUnaryExpression(parent))
-        && [ts.SyntaxKind.MinusMinusToken, ts.SyntaxKind.PlusPlusToken].includes(parent.operator)
-        )
-        {
-            return true;
-        }
-        return (ts.isForInStatement(parent) || ts.isForOfStatement(parent))
-        && parent.initializer === identifier;
+        return node.operatorToken.kind === ts.SyntaxKind.EqualsToken ? node.right : null;
     }
 
     function resolveBinding(bindings, identifier, useNode)
@@ -237,6 +236,11 @@ export function createPoSpaceLexicalProvenance(ts, resolveStaticMemberValue)
 
     function resolveBindingValue(binding, useNode, flow, seen)
     {
+        const write = latestWriteBefore(binding.writes, useNode);
+        if (write)
+        {
+            return write.value;
+        }
         if (binding.memberSource)
         {
             return resolveStaticMemberValue(
@@ -249,9 +253,22 @@ export function createPoSpaceLexicalProvenance(ts, resolveStaticMemberValue)
         }
         if (binding.restSource)
         {
-            return binding.declaration.name;
+            return null;
         }
         return binding.value;
+    }
+
+    function resolveBindingMemberValue(binding, property, useNode)
+    {
+        const write = latestWriteBefore(binding.memberWrites?.get(property), useNode);
+        return write ? { found: true, value: write.value } : { found: false, value: null };
+    }
+
+    function latestWriteBefore(writes, useNode)
+    {
+        return [...(writes ?? [])]
+            .filter(write => write.node.pos < useNode.pos)
+            .sort((left, right) => right.node.pos - left.node.pos)[0] ?? null;
     }
 
     function isUnshadowedGlobalIdentifier(identifier, flow)
@@ -334,6 +351,7 @@ export function createPoSpaceLexicalProvenance(ts, resolveStaticMemberValue)
         collectRuntimeBindings,
         isUnshadowedGlobalIdentifier,
         resolveBinding,
+        resolveBindingMemberValue,
         resolveBindingValue,
         resolveLexicalBinding,
         staticMemberAccess,

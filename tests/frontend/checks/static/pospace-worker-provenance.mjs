@@ -27,6 +27,12 @@ export function createPoSpaceWorkerProvenance(ts, provenance)
             {
                 return false;
             }
+            seen.add(binding.declaration);
+            const value = resolveBindingValue(binding, expression, flow, seen);
+            if (value)
+            {
+                return isWorkerConstructorExpression(value, facts, flow, seen);
+            }
             if (
                 binding.memberSource?.property === 'Worker'
         && hasWorkerMember(binding.memberSource.container, facts, flow, seen)
@@ -42,9 +48,7 @@ export function createPoSpaceWorkerProvenance(ts, provenance)
             {
                 return true;
             }
-            seen.add(binding.declaration);
-            const value = resolveBindingValue(binding, expression, flow, seen);
-            return value ? isWorkerConstructorExpression(value, facts, flow, seen) : false;
+            return false;
         }
         if (ts.isPropertyAccessExpression(expression))
         {
@@ -183,16 +187,14 @@ export function createPoSpaceWorkerProvenance(ts, provenance)
             {
                 return false;
             }
-            if (
-                binding.memberSource?.property === 'construct'
-        && isReflectObjectExpression(binding.memberSource.container, facts, flow)
-            )
-            {
-                return true;
-            }
             seen.add(binding.declaration);
             const value = resolveBindingValue(binding, expression, flow, seen);
-            return value ? isReflectConstructFunctionValue(value, facts, flow, seen) : false;
+            if (value)
+            {
+                return isReflectConstructFunctionValue(value, facts, flow, seen);
+            }
+            return binding.memberSource?.property === 'construct'
+            && isReflectObjectExpression(binding.memberSource.container, facts, flow);
         }
         if (ts.isCallExpression(expression))
         {

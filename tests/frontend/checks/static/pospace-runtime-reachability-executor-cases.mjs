@@ -477,6 +477,33 @@ export const executorReachabilityCases = [
         shouldPass: true
     },
     {
+        name: 'inner Promise alias writes do not pollute stable outer alias',
+        file: 'src/frontend/src/composables/useNotification.ts',
+        mutate: source => source.replace(
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'",
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'\n\nconst P = Promise\n{ let P = { resolve: () => ({ then: (callback: () => unknown) => callback }) }; P = { resolve: () => ({ then: (callback: () => unknown) => callback }) } }\nP.resolve().then(() => import('@/services/securityPoSpaceChallengeExecutor'))"
+        ),
+        expected: 'must keep the PoSpace executor lazy'
+    },
+    {
+        name: 'later Promise alias reassignment does not sanitize earlier proactive use',
+        file: 'src/frontend/src/composables/useNotification.ts',
+        mutate: source => source.replace(
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'",
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'\n\nlet P = Promise\nP.resolve().then(() => import('@/services/securityPoSpaceChallengeExecutor'))\nP = { resolve: () => ({ then: (callback: () => unknown) => callback }) }"
+        ),
+        expected: 'must keep the PoSpace executor lazy'
+    },
+    {
+        name: 'reassigned class static helper keeps callback deferred',
+        file: 'src/frontend/src/composables/useNotification.ts',
+        mutate: source => source.replace(
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'",
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'\n\nclass Helpers { static invokeNow(callback: () => unknown) { return callback() } }\nHelpers.invokeNow = (callback: () => unknown) => callback\nHelpers.invokeNow(() => import('@/services/securityPoSpaceChallengeExecutor'))"
+        ),
+        shouldPass: true
+    },
+    {
         name: 'template script-looking text remains valid SFC content',
         file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
         mutate: source => source.replace(

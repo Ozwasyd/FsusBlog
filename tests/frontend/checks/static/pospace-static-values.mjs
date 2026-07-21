@@ -2,6 +2,7 @@ export function createPoSpaceStaticValues(ts, lexical)
 {
     const {
         resolveBinding,
+        resolveBindingMemberValue,
         resolveBindingValue,
         staticStringValue,
         unwrapRuntimeExpression
@@ -9,6 +10,19 @@ export function createPoSpaceStaticValues(ts, lexical)
 
     function resolveStaticMemberValue(containerNode, property, useNode, flow, seen)
     {
+        const containerExpression = unwrapRuntimeExpression(containerNode);
+        if (ts.isIdentifier(containerExpression))
+        {
+            const binding = resolveBinding(flow.constValueBindings, containerExpression, useNode);
+            if (binding)
+            {
+                const write = resolveBindingMemberValue(binding, property, useNode);
+                if (write.found)
+                {
+                    return write.value;
+                }
+            }
+        }
         const container = resolveStaticValue(containerNode, useNode, flow, seen);
         if (ts.isObjectLiteralExpression(container))
         {
