@@ -2348,17 +2348,6 @@
                 "publicSurfaceCount": 68
             }
         },
-        "tests/backend/Unit/AnonymousCredentialIssuerTests.cs": {
-            "category": "HandwrittenModule",
-            "excess": {
-                "fileLines": 1344,
-                "codeLines": 1189,
-                "functionMethodCount": 83,
-                "dependencyImportCount": 57,
-                "publicSurfaceCount": 60,
-                "responsibilityCount": 7
-            }
-        },
         "tests/backend/Unit/AnonymousCredentialRootEndpointTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
@@ -3927,15 +3916,6 @@
             "excess": {
                 "cognitiveComplexity": 198,
                 "maxNestingDepth": 7
-            }
-        },
-        "tools/security/ZkCommentV2MclFixture/Program.cs": {
-            "category": "HandwrittenModule",
-            "excess": {
-                "fileLines": 804,
-                "codeLines": 702,
-                "typeCount": 11,
-                "functionMethodCount": 59
             }
         },
         "tools/security/check-comment-privacy-credential-vault.mjs": {

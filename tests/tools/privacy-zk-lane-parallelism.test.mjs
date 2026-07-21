@@ -8,12 +8,11 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const lane = fs.readFileSync(path.join(root, 'tools/test/lanes/privacy-zk-comment-matrix.sh'), 'utf8')
 const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'src/frontend/package.json'), 'utf8'))
 
-test('privacy ZK lane exposes prebuild/postbuild contract, functional, benchmark and finalize stages', () => {
+test('privacy ZK lane exposes prebuild/postbuild contract, functional and finalize stages', () => {
   const contractPrebuild = lane.indexOf('RunContractPrebuildStage()')
   const contractPostbuild = lane.indexOf('RunContractPostbuildStage()')
   const contract = lane.indexOf('RunContractStage()')
   const functional = lane.indexOf('RunFunctionalStage()')
-  const benchmark = lane.indexOf('RunBenchmarkStage()')
   const finalize = lane.indexOf('FinalizePrivacyMatrix()')
 
   assert.ok(contractPrebuild >= 0)
@@ -21,19 +20,16 @@ test('privacy ZK lane exposes prebuild/postbuild contract, functional, benchmark
   assert.ok(contractPostbuild < contract)
   assert.ok(contract >= 0)
   assert.ok(contract < functional)
-  assert.ok(functional < benchmark)
-  assert.ok(benchmark < finalize)
+  assert.ok(functional < finalize)
   assert.match(lane, /source .*\/_lane-collect-support\.sh/u)
   assert.match(lane, /RunCollectParallel privacy-zk-functional/u)
   assert.match(lane, /backend-functional RunPrivacyBackendFunctional/u)
   assert.match(lane, /frontend RunPrivacyFrontend/u)
   assert.match(lane, /prod-smoke RunPrivacyProdSmoke/u)
-  assert.match(lane, /privacy-zk-native-p99 RunPrivacyBenchmark/u)
   assert.match(lane, /ConfigureDotnetTestProcessors/u)
   assert.match(lane, /PRIVACY_DOTNET_ARGS=\(-- --no-build --no-restore\)/u)
   assert.match(lane, /RunPrivacyPrebuildContract\(\)[\s\S]*?FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug EnsureBackendFilteredBuild \|\| return \$\?[\s\S]*?FSUSBLOG_ZK_MCL_NO_BUILD=1/u)
   assert.match(lane, /RunPrivacyBackendFunctional\(\)[\s\S]*?ConfigureDotnetTestProcessors \|\| return \$\?[\s\S]*?FSUSBLOG_BACKEND_TEST_CONFIGURATION=Release EnsureBackendFilteredBuild \|\| return \$\?[\s\S]*?check:privacy-zk-backend-functional/u)
-  assert.match(lane, /RunPrivacyBenchmark\(\)[\s\S]*?ConfigureDotnetTestProcessors \|\| return \$\?[\s\S]*?FSUSBLOG_BACKEND_TEST_CONFIGURATION=Release EnsureBackendFilteredBuild \|\| return \$\?[\s\S]*?check:privacy-zk-benchmark/u)
   assert.match(lane, /WriteStageReceipt contract-prebuild/u)
   assert.match(lane, /RequireStageReceipt contract-prebuild/u)
   assert.match(lane, /WriteStageReceipt contract /u)
@@ -42,7 +38,7 @@ test('privacy ZK lane exposes prebuild/postbuild contract, functional, benchmark
   assert.doesNotMatch(lane, /maxFailures|max[-_ ]?errors|fail-fast/u)
 })
 
-test('privacy contract package scripts keep build-independent MCL work before the generated prover check', () => {
+test('privacy contract package scripts keep current circuit checks before the generated prover check', () => {
   const scripts = packageJson.scripts
   const contract = scripts['check:privacy-zk-contract']
   const prebuild = scripts['check:privacy-zk-contract:prebuild']
@@ -50,22 +46,18 @@ test('privacy contract package scripts keep build-independent MCL work before th
 
   assert.equal(contract, 'npm run check:privacy-zk-contract:prebuild && npm run check:privacy-zk-contract:postbuild')
   assert.match(prebuild, /comment-privacy-build-contract\.mjs/u)
-  assert.match(prebuild, /MCL pairing fixture/u)
-  assert.doesNotMatch(prebuild, /browser wasm prover bundle/u)
+  assert.match(prebuild, /check-zk-comment-v5-unlinkability\.mjs/u)
   assert.match(postbuild, /check-zk-comment-v5-manifests\.mjs/u)
-  assert.match(postbuild, /browser wasm prover bundle/u)
-  assert.match(postbuild, /FSUSBLOG_ZK_MCL_NO_BUILD=1/u)
+  assert.doesNotMatch(postbuild, /MCL pairing fixture/u)
 })
 
-test('privacy functional and benchmark commands keep benchmark isolation exact', () => {
+test('privacy functional command excludes performance tests', () => {
   const scripts = packageJson.scripts
   const originalBackend = scripts['check:privacy-zk-backend']
   const functionalBackend = scripts['check:privacy-zk-backend-functional']
-  const benchmark = scripts['check:privacy-zk-benchmark']
 
   assert.ok(originalBackend)
   assert.ok(functionalBackend)
-  assert.ok(benchmark)
   assert.match(functionalBackend, /^dotnet test /u)
   assert.match(functionalBackend, / -c Release /u)
   assert.match(functionalBackend, /AnonymousPrivacyConcurrencyTests/u)
@@ -74,19 +66,14 @@ test('privacy functional and benchmark commands keep benchmark isolation exact',
     if (/ZkAnonymousProofVerifierContractTests|AnonymousCommentGovernanceContractTests/u.test(selection)) continue
     assert.match(functionalBackend, new RegExp(selection, 'u'))
   }
-  assert.match(benchmark, /^dotnet test /u)
-  assert.match(benchmark, / -c Release /u)
-  assert.match(benchmark, /ZkCommentV2CrossStackFixtureTests\.RepositoryMclPairingFixture_P99StaysInsideManifestBudget/u)
   assert.doesNotMatch(functionalBackend, /FSUSBLOG_RUN_PERFORMANCE_TESTS/u)
-  assert.match(lane, /FSUSBLOG_RUN_PERFORMANCE_TESTS=1[\s\\]*npm .*check:privacy-zk-benchmark/u)
 })
 
 test('privacy evidence requires all successful stage receipts', () => {
   const finalize = lane.slice(lane.indexOf('FinalizePrivacyMatrix()'), lane.indexOf('case "${1:-all}"'))
   assert.match(finalize, /RequireStageReceipt contract/u)
   assert.match(finalize, /RequireStageReceipt functional/u)
-  assert.match(finalize, /RequireStageReceipt benchmark/u)
-  assert.match(finalize, /isolated native verifier P99 benchmark stage receipts/u)
+  assert.doesNotMatch(finalize, /RequireStageReceipt benchmark/u)
   assert.match(lane, /receipt\.runId !== expectedRunId/u)
 })
 

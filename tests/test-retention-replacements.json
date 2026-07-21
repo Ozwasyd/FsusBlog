@@ -975,15 +975,6 @@
             "reason": "Public navigation, subscription, local fixture and passkey inputs now demonstrate fail-fast behavior at actual boundaries instead of constant-name assertions."
         },
         {
-            "id": "xunit:tests/backend/Unit/CryptoRandomnessHardeningContractTests.cs#CryptoRandomnessHardeningContractTests.AnonymousCredentialIssuer_DoesNotFallbackToLocalIssuerKey",
-            "path": "tests/backend/Unit/CryptoRandomnessHardeningContractTests.cs",
-            "replacementTestIds": [
-                "xunit:tests/backend/Unit/AnonymousCredentialIssuerTests.cs#AnonymousCredentialIssuerTests.ProductionCircuitNativeCredentialIssuer_ConfiguredManagedBackendWithoutPrivateKey_FailsClosed",
-                "xunit:tests/backend/Unit/AnonymousCredentialIssuerTests.cs#AnonymousCredentialIssuerTests.ProductionCircuitNativeCredentialIssuer_PublicKeyHashMismatch_FailsClosed"
-            ],
-            "reason": "The production issuer fails through observable results when private key material is missing or the configured public key hash is wrong."
-        },
-        {
             "id": "xunit:tests/backend/Unit/CryptoRandomnessHardeningContractTests.cs#CryptoRandomnessHardeningContractTests.SecretAndWitnessComparisons_UseFixedTimeEquals",
             "path": "tests/backend/Unit/CryptoRandomnessHardeningContractTests.cs",
             "replacementTestIds": [
@@ -1011,16 +1002,6 @@
                 "xunit:tests/backend/Unit/ZkProofVerifierTests.cs#ZkProofVerifierTests.ProductionZkProofVerifier_RejectsOversizedHexPublicInputsBeforeBackendCall"
             ],
             "reason": "FSUSBLOGSEC006-008 enforce Argon2/PBKDF2 minima by Roslyn AST and the production verifier exercises bounded public-input shapes."
-        },
-        {
-            "id": "xunit:tests/backend/Unit/CryptoRandomnessHardeningContractTests.cs#CryptoRandomnessHardeningContractTests.SealedTokensAndPayloadHashes_AvoidAmbiguousCrypto",
-            "path": "tests/backend/Unit/CryptoRandomnessHardeningContractTests.cs",
-            "replacementTestIds": [
-                "xunit:tests/backend/Unit/PerceptionSealedTokenServiceTests.cs#PerceptionSealedTokenServiceTests.SealOpen_RoundTripsPayloadWithConfiguredKeyVersion",
-                "xunit:tests/backend/Unit/PerceptionSealedTokenServiceTests.cs#PerceptionSealedTokenServiceTests.Open_RejectsTamperedAadField",
-                "xunit:tests/backend/Unit/AnonymousCredentialIssuerTests.cs#AnonymousCredentialIssuerTests.ManagedCircuitNativeCredentialSigner_SignsLowSAndRejectsHighSResponse"
-            ],
-            "reason": "Round-trip, authenticated-envelope tampering and canonical signature behavior replace implementation-call counting."
         },
         {
             "id": "xunit:tests/backend/Unit/InformationDisclosureHardeningContractTests.cs#InformationDisclosureHardeningContractTests.ExceptionMiddleware_DoesNotReturnRawExceptionMessagesOutsideDevelopment",
@@ -8081,38 +8062,6 @@
             "path": "tests/backend/Unit/AnonymousCommentTicketServiceTests.cs",
             "replacementTestIds": [
                 "xunit:tests/backend/Unit/AnonymousCommentTicketServiceTests.cs#AnonymousCommentTicketServiceTests.AnonymousCommentTicketIssue_RuntimeUsesPrecheckInsteadOfReservation"
-            ],
-            "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
-        },
-        {
-            "id": "xunit:tests/backend/Unit/AnonymousCredentialIssuerTests.cs#AnonymousCredentialIssuerTests.IssuerService_DoesNotWriteRawUserIdToIssuanceStoreOrHighValueAudit",
-            "path": "tests/backend/Unit/AnonymousCredentialIssuerTests.cs",
-            "replacementTestIds": [
-                "xunit:tests/backend/Unit/AnonymousCredentialIssuerTests.cs#AnonymousCredentialIssuerTests.IssuerService_RuntimeContractDoesNotWriteRawUserIdToIssuanceStoreOrHighValueAudit"
-            ],
-            "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
-        },
-        {
-            "id": "xunit:tests/backend/Unit/AnonymousCredentialIssuerTests.cs#AnonymousCredentialIssuerTests.IssuerService_SourceRequiresIndependentSubjectHashPepperWithoutFallbacks",
-            "path": "tests/backend/Unit/AnonymousCredentialIssuerTests.cs",
-            "replacementTestIds": [
-                "xunit:tests/backend/Unit/AnonymousCredentialIssuerTests.cs#AnonymousCredentialIssuerTests.IssuerService_RuntimeRequiresIndependentSubjectHashPepperWithoutFallbacks"
-            ],
-            "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
-        },
-        {
-            "id": "xunit:tests/backend/Unit/AnonymousCredentialIssuerTests.cs#AnonymousCredentialIssuerTests.ManagedCircuitNativeCredentialSigner_VerifyKeepsSubgroupChecksOnPublicKeyAndNoncePoint",
-            "path": "tests/backend/Unit/AnonymousCredentialIssuerTests.cs",
-            "replacementTestIds": [
-                "xunit:tests/backend/Unit/AnonymousCredentialIssuerTests.cs#AnonymousCredentialIssuerTests.ManagedCircuitNativeCredentialSigner_VerifyRuntimeKeepsSubgroupChecksOnPublicKeyAndNoncePoint"
-            ],
-            "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
-        },
-        {
-            "id": "xunit:tests/backend/Unit/AnonymousCredentialIssuerTests.cs#AnonymousCredentialIssuerTests.ProductionCircuitNativeCredentialIssuer_UsesBoundedConcurrencyAndDoesNotLogPayloads",
-            "path": "tests/backend/Unit/AnonymousCredentialIssuerTests.cs",
-            "replacementTestIds": [
-                "xunit:tests/backend/Unit/AnonymousCredentialIssuerTests.cs#AnonymousCredentialIssuerTests.ProductionCircuitNativeCredentialIssuer_RuntimeUsesBoundedConcurrencyAndDoesNotLogPayloads"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },

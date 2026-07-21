@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { parseYamlDocument } from './yaml/parse-document.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
-const negativeInvariantIdPattern = /^tamper-[a-z0-9]+(?:-[a-z0-9]+)*-reject$/u
+const negativeInvariantIdPattern = /^tamper-[a-z0-9]+(?:-[a-z0-9]+)*$/u
 
 const failures = []
 
@@ -66,6 +66,7 @@ function extractMatrixRequiredCases(yaml) {
   const scenarios = Array.isArray(document.scenarios) ? document.scenarios : []
   const required = new Set()
   for (const scenario of scenarios) {
+    if (scenario?.id !== 'PRIVACY-ZK-CIRCUIT-CONTRACT') continue
     for (const item of Array.isArray(scenario?.requiredCases) ? scenario.requiredCases : []) {
       const id = String(item).trim()
       if (negativeInvariantIdPattern.test(id)) required.add(id)
@@ -81,7 +82,7 @@ function asArray(value) {
 function main() {
   const args = parseArgs(process.argv.slice(2))
   const matrixPath = resolvePath(args.matrix ?? 'security/matrices/privacy-zk-comment.yml')
-  const tamperPath = resolvePath(args.tamper ?? 'security/zk/contracts/comment-v2-tamper-cases.manifest.json')
+  const tamperPath = resolvePath(args.tamper ?? 'security/zk/contracts/comment-v5-tamper-cases.manifest.json')
   let matrixText = readText(matrixPath)
   const tamper = readJson(tamperPath)
   if (!matrixText.endsWith('\n')) {
@@ -98,34 +99,14 @@ function main() {
       .filter((entry) => typeof entry?.id === 'string')
       .map((entry) => [entry.id, entry])
   )
-  const invariants = new Map(
-    asArray(tamper.negative_invariants)
-      .filter((entry) => typeof entry?.id === 'string')
-      .map((entry) => [entry.id, entry])
-  )
-
   for (const id of requiredNegativeInvariants) {
-    const invariant = invariants.get(id)
-    if (!invariant) {
-      fail(`${relative(tamperPath)} missing negative invariant ${id}`)
+    const tamperCase = tamperCases.get(id)
+    if (!tamperCase) {
+      fail(`${relative(tamperPath)} missing tamper case ${id}`)
       continue
     }
-
-    const referencedCases = asArray(invariant.tamper_cases).map((item) => String(item).trim()).filter(Boolean)
-    if (referencedCases.length === 0) {
-      fail(`negative invariant ${id} must reference at least one tamper case`)
-      continue
-    }
-
-    for (const caseId of referencedCases) {
-      const tamperCase = tamperCases.get(caseId)
-      if (!tamperCase) {
-        fail(`negative invariant ${id} references missing tamper case ${caseId}`)
-        continue
-      }
-      if (tamperCase.expected !== 'reject') {
-        fail(`negative invariant ${id} references non-reject tamper case ${caseId}`)
-      }
+    if (tamperCase.expected !== 'reject') {
+      fail(`tamper case ${id} must expect reject`)
     }
   }
 

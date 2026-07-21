@@ -36,8 +36,6 @@
             "root": "security/zk/contracts",
             "owner": "ServerContractAgent",
             "documents": [
-                "security/zk/contracts/comment-v2-feasibility.manifest.json",
-                "security/zk/contracts/comment-v2-tamper-cases.manifest.json",
                 "security/zk/contracts/comment-v5-circuit.manifest.json",
                 "security/zk/contracts/comment-v5-tamper-cases.manifest.json"
             ],

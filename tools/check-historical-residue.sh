@@ -65,7 +65,7 @@ RequireSecurityLiteral() {
     local literal="$1"
     local paths=()
     local candidate
-    for candidate in security/matrices/privacy-zk-comment.yml security/zk/contracts/comment-v2-tamper-cases.manifest.json; do
+    for candidate in security/matrices/privacy-zk-comment.yml security/zk/contracts/comment-v5-tamper-cases.manifest.json; do
         if [[ -e "$candidate" ]]; then
             paths+=("$candidate")
         fi
@@ -144,11 +144,10 @@ RunAppsettingsIdentityResidueCheck() {
     fi
 }
 
-RequireSecurityLiteral "tamper-nullifier-scope-root-revocation-reject"
-RequireSecurityLiteral "tamper-nullifier-hash"
 RequireSecurityLiteral "tamper-scope"
-RequireSecurityLiteral "tamper-credential-root"
+RequireSecurityLiteral "tamper-root"
 RequireSecurityLiteral "tamper-revocation-root"
+RequireSecurityLiteral "tamper-non-current-layout"
 
 RunResidueCheck \
     "legacy gateway markers" \
@@ -303,15 +302,8 @@ RunResidueCheck \
     "raw anonymous credential issuance user ids" \
     "raw anonymous credential issuance user-id residue detected" \
     'anonymous_credential_issuance_audit[(][^)]*user_id|unique_idx_anonymous_credential_issuance_user_epoch|idx_anonymous_credential_issuance_user\b|ON CONFLICT[(]user_id,\s*epoch[)]|ActorId:\s*userId[.]ToString|int\s+UserId,\s*long\s+Epoch' \
-    '^(tests/backend/Unit/AnonymousCredentialIssuerTests[.]cs|src/backend/Infrastructure/SchemaMigration/Definitions/[^/]+MigrationDefinitions[.]cs)$' \
-    src/backend/Entities/AnonymousCredentialIssuanceAudit.cs src/backend/Services/Security/AnonymousCredentialIssuerService.cs src/backend/Infrastructure/SchemaMigration/Definitions tests/backend/Unit/AnonymousCredentialIssuerTests.cs
-
-RunResidueCheck \
-    "anonymous credential issue naked authorization" \
-    "anonymous credential issue naked authorization residue detected" \
-    '[.]RequireAuthorization[(][)]|httpContext[.]GetUserId[(][)]' \
-    "" \
-    src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AnonymousCredential.cs
+    '^(src/backend/Infrastructure/SchemaMigration/Definitions/[^/]+MigrationDefinitions[.]cs)$' \
+    src/backend/Entities/AnonymousCredentialIssuanceAudit.cs src/backend/Infrastructure/SchemaMigration/Definitions
 
 RunResidueCheck \
     "frontend anonymous step-up password proof payloads" \

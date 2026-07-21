@@ -14,7 +14,7 @@ const expectedDomains = new Set(['matrices', 'policies', 'zk-contracts', 'zk-pro
 const legacyPaths = [
   /security\/(?:backend-source-policy\.json|zap-warn-policy\.yml|(?:asvs-v5\.0\.0|wstg-v4\.2|webauthn|risk-control-test|perception-v2-test|privacy-zk-comment)-matrix\.yml)/u,
   /security\/privacy\/comment-privacy-credential-vault\.release-plan\.json/u,
-  /security\/zk\/(?:artifact-ownership|comment-v2-(?:circuit|feasibility|local-review|tamper-cases|trusted-setup)|comment-v5-(?:circuit|tamper-cases|trusted-setup))\.manifest\.json/u
+  /security\/zk\/(?:artifact-ownership|comment-v5-(?:circuit|tamper-cases|trusted-setup))\.manifest\.json/u
 ]
 const ignoredRoots = new Set(['.git', '.tmp', 'bin', 'build', 'coverage', 'dist', 'node_modules', 'obj'])
 const legacyReferenceFixtures = new Set([

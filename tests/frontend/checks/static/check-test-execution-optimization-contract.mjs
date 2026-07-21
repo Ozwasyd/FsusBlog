@@ -477,8 +477,7 @@ if (!suiteSupportSource.includes('RunBackendDotnetFilterOnly "$BACKEND_ORDINARY_
 }
 if (!suiteSupportSource.includes('FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.Server.Tests/bin/Debug/net10.0')
   || !suiteSupportSource.includes('FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.Server/bin/Debug/net10.0')
-  || !suiteSupportSource.includes('FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.ZkCommentV2MclFixture/bin/Debug/net10.0')
-  || !suiteSupportSource.includes('outputContract="$debugOutputDir|$debugServerOutputDir|$debugFixtureOutputDir"')
+  || !suiteSupportSource.includes('outputContract="$debugOutputDir|$debugServerOutputDir"')
   || !suiteSupportSource.includes('outputContract="$releaseOutputDir"')) {
   errors.push('backend shared build cache must require complete run-bound Debug and Release output directories')
 }

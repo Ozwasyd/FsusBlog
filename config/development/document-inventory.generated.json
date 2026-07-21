@@ -448,19 +448,6 @@
             "producer": null
         },
         {
-            "path": "docs/architecture/decisions/ADR-ZK-CircuitNative-Groth16.md",
-            "title": "ADR: ZK anonymous comments use circuit-native credentials and Groth16 proofs",
-            "kind": "markdown",
-            "status": "current",
-            "owner": "backend",
-            "sourceOfTruth": true,
-            "lastVerifiedCommit": "8637fe87196035f42e20e397af02b73e2dbffc4c",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [],
-            "producer": null
-        },
-        {
             "path": "docs/architecture/dependency-injection-lifetime-validation.md",
             "title": "DI lifetime validation",
             "kind": "markdown",

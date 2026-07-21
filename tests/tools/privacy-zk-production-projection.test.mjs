@@ -121,7 +121,7 @@ test('fails closed when a required privacy backend class is absent', () => {
     writeTrx(mainTrx, requiredBackendClasses.slice(1))
     assert.throws(
       () => projectPrivacyFunctionalEvidence({ ...files, expectedRunId: files.runId }),
-      /missing privacy class AnonymousCredentialIssuerTests/u
+      /missing privacy class AnonymousCommentTicketServiceTests/u
     )
     assert.equal(fs.existsSync(files.output), false)
   } finally {

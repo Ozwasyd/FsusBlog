@@ -1061,18 +1061,16 @@ BackendTestConfiguration() {
 
 EnsureBackendFilteredBuild() {
     local configuration configurationSlug outputContract fingerprintVariant dotnetSdkVersion buildTarget
-    local debugOutputDir releaseOutputDir debugServerOutputDir debugFixtureOutputDir
+    local debugOutputDir releaseOutputDir debugServerOutputDir
     local -a buildCommand
     configuration="$(BackendTestConfiguration)" || return $?
     configurationSlug="${configuration,,}"
     debugOutputDir="${FSUSBLOG_PRODUCTION_BUILD_ROOT:+$FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.Server.Tests/bin/Debug/net10.0}"
     releaseOutputDir="${FSUSBLOG_PRODUCTION_BUILD_ROOT:+$FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.Server.Tests/bin/Release/net10.0}"
     debugServerOutputDir="${FSUSBLOG_PRODUCTION_BUILD_ROOT:+$FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.Server/bin/Debug/net10.0}"
-    debugFixtureOutputDir="${FSUSBLOG_PRODUCTION_BUILD_ROOT:+$FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.ZkCommentV2MclFixture/bin/Debug/net10.0}"
     debugOutputDir="${debugOutputDir:-tests/backend/bin/Debug/net10.0}"
     releaseOutputDir="${releaseOutputDir:-tests/backend/bin/Release/net10.0}"
     debugServerOutputDir="${debugServerOutputDir:-src/backend/bin/Debug/net10.0}"
-    debugFixtureOutputDir="${debugFixtureOutputDir:-tools/security/ZkCommentV2MclFixture/bin/Debug/net10.0}"
     if [[ "$configuration" == "Release" ]]; then
         outputContract="$releaseOutputDir"
         fingerprintVariant='backend-filtered-release-v2'
@@ -1083,11 +1081,9 @@ EnsureBackendFilteredBuild() {
         # Directory contracts cover every runtime dependency, including the
         # managed server and MCL native asset. A partially written DLL can never
         # make another local-profile consumer bypass the run-once producer.
-        outputContract="$debugOutputDir|$debugServerOutputDir|$debugFixtureOutputDir"
+        outputContract="$debugOutputDir|$debugServerOutputDir"
         fingerprintVariant='backend-filtered-debug-v2'
-        # The Debug privacy contract consumes the standalone MCL fixture with
-        # --no-build. The solution producer owns both test and fixture binaries.
-        buildTarget="$ROOT_DIR/FsusBlog.slnx"
+        buildTarget="$SERVER_TEST_PROJ"
     fi
     local fingerprint
     ConfigureDotnetBuildParallelism || return $?
@@ -1118,7 +1114,6 @@ EnsureBackendFilteredBuild() {
             --path tests/backend \
             --path benchmarks/core \
             --path tools/architecture/FsusBlog.DiLifetimeAnalyzer \
-            --path tools/security/ZkCommentV2MclFixture \
             --path tools/build-with-data-env.sh \
             --path tools/test/lanes/_suite-support.sh \
             --value "$fingerprintVariant" \

@@ -7,7 +7,7 @@ import { spawnSync } from 'node:child_process'
 
 const verifier = 'tools/verify-zk-privacy-matrix.mjs'
 const matrixPath = 'security/matrices/privacy-zk-comment.yml'
-const tamperPath = 'security/zk/contracts/comment-v2-tamper-cases.manifest.json'
+const tamperPath = 'security/zk/contracts/comment-v5-tamper-cases.manifest.json'
 
 function runVerifier(args = []) {
   return spawnSync(process.execPath, [verifier, ...args], {
@@ -27,16 +27,14 @@ test('zk privacy matrix verifier fails when required negative invariant lacks a 
     const matrix = path.join(dir, 'matrix.yml')
     const tamper = path.join(dir, 'tamper.json')
     const manifest = JSON.parse(readFileSync(tamperPath, 'utf8'))
-    manifest.negative_invariants = manifest.negative_invariants.filter(
-      (entry) => entry.id !== 'tamper-nullifier-scope-root-revocation-reject'
-    )
+    manifest.tamper_cases = manifest.tamper_cases.filter((entry) => entry.id !== 'tamper-root')
 
     writeFileSync(matrix, readFileSync(matrixPath, 'utf8'))
     writeFileSync(tamper, `${JSON.stringify(manifest, null, 2)}\n`)
 
     const result = runVerifier(['--matrix', matrix, '--tamper', tamper])
     assert.notEqual(result.status, 0)
-    assert.match(`${result.stdout}\n${result.stderr}`, /tamper-nullifier-scope-root-revocation-reject/)
+    assert.match(`${result.stdout}\n${result.stderr}`, /tamper-root/)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
@@ -48,17 +46,15 @@ test('zk privacy matrix verifier fails when a negative invariant references a mi
     const matrix = path.join(dir, 'matrix.yml')
     const tamper = path.join(dir, 'tamper.json')
     const manifest = JSON.parse(readFileSync(tamperPath, 'utf8'))
-    const invariant = manifest.negative_invariants.find(
-      (entry) => entry.id === 'tamper-nullifier-scope-root-revocation-reject'
-    )
-    invariant.tamper_cases = ['tamper-missing-case']
+    const tamperCase = manifest.tamper_cases.find((entry) => entry.id === 'tamper-scope')
+    tamperCase.expected = 'accept'
 
     writeFileSync(matrix, readFileSync(matrixPath, 'utf8'))
     writeFileSync(tamper, `${JSON.stringify(manifest, null, 2)}\n`)
 
     const result = runVerifier(['--matrix', matrix, '--tamper', tamper])
     assert.notEqual(result.status, 0)
-    assert.match(`${result.stdout}\n${result.stderr}`, /tamper-missing-case/)
+    assert.match(`${result.stdout}\n${result.stderr}`, /tamper-scope/)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }

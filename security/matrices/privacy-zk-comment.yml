@@ -17,16 +17,16 @@ evidenceClassRegistry:
     release-closeout-evidence:
         - .tmp/release-evidence/<release-identity>/manifest.json
 cryptoDecision:
-    adr: docs/architecture/decisions/ADR-ZK-CircuitNative-Groth16.md
-    credentialScheme: circuit-native-credential-v2
+    adr: docs/architecture/decisions/ADR-Anonymous-Credential-Blind-Issuance.md
+    credentialScheme: RFC 9474 blind RSA credential
     proofSystem: Groth16 anonymous comment proof
-    circuit_id: fsus.anonymous.comment.v3
-    public_input_layout_version: 4
+    circuit_id: fsus.anonymous.comment.v5
+    public_input_layout_version: 6
     verifying_key_hash: trusted setup vk hash binding
     nullifier: nullifier = PRF(credential_secret, action_context, scope)
     credentialRoot: credential root membership for active or grace epoch
     revocationRoot: revocation root non-revocation witness
-    productionMode: fail-closed until circuit-native issuer, Groth16, trusted setup and native verifier are complete
+    productionMode: fail-closed until blind issuer, Groth16, trusted setup and native verifier are complete
 scenarios:
     - id: PRIVACY-ZK-AUTHOR-MODE-RETIREMENT
       scenario: production comment creation accepts only explicit public or identity-clean zk anonymous while historical server-visible pseudonyms remain display-only
@@ -64,7 +64,7 @@ scenarios:
       status: automated
       requiredCases:
           [
-              circuit-native-credential-possession,
+              blind-credential-possession,
               credential-root-membership,
               revocation-non-membership-witness,
               nullifier-secret-action-scope-binding,
@@ -73,17 +73,20 @@ scenarios:
               no-stable-credential-public-input,
               complete-wire-transcript-unlinkability-100-scopes,
               legacy-layout-fail-closed,
-              tamper-nullifier-scope-root-revocation-reject,
+              tamper-root,
+              tamper-revocation-root,
+              tamper-scope,
+              tamper-non-current-layout,
           ]
       localCommands: [check:privacy-zk-contract]
       code:
           - security/zk/contracts/comment-v5-circuit.manifest.json
           - security/zk/contracts/comment-v5-tamper-cases.manifest.json
           - tools/security/comment-privacy-build-contract.mjs
-          - tools/security/check-zk-comment-v2-unlinkability.mjs
+          - tools/security/check-zk-comment-v5-unlinkability.mjs
       tests:
           - tests/security/comment-privacy-build-contract.test.mjs
-          - tests/security/zk-comment-v2-unlinkability.test.mjs
+          - tests/security/zk-comment-v5-unlinkability.test.mjs
           - tools/security/comment-privacy-build-contract.mjs
       evidence:
           - .tmp/security/comment-privacy-build-contract.json

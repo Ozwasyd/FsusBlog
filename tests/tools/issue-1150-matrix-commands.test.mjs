@@ -72,7 +72,6 @@ test('logical native measurements hold a machine-quiet benchmark window', () => 
 
   const perfInputs = requireTier('backend-perf').cacheInputs
   assert.ok(perfInputs.includes('tools/architecture/FsusBlog.DiLifetimeAnalyzer'))
-  assert.ok(perfInputs.includes('tools/security/ZkCommentV2MclFixture'))
   assert.ok(
     requireTier('backend-benchmark-regression').cacheInputs
       .includes('tools/architecture/FsusBlog.DiLifetimeAnalyzer')

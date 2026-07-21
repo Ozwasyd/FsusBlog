@@ -559,28 +559,6 @@ public interface IAnonymousCredentialService
     }
   },
   {
-    name: 'anonymous credential issue naked authorization',
-    expected: 'anonymous credential issue naked authorization residue detected',
-    files: {
-      'src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AnonymousCredential.cs': `
-public static partial class BinaryEndpoints
-{
-    private static void MapBinaryAnonymousCredentialEndpoints(IEndpointRouteBuilder group)
-    {
-        group.MapPost("/anonymous-credential/issue", HandleAnonymousCredentialIssueAsync)
-            .RequireAuthorization();
-    }
-
-    internal static Task<BinaryFrameResult> HandleAnonymousCredentialIssueAsync(HttpContext httpContext)
-    {
-        int userId = httpContext.GetUserId();
-        return IssueAsync(userId);
-    }
-}
-`
-    }
-  },
-  {
     name: 'legacy admin password reset governance',
     expected: 'legacy admin password reset governance residue detected',
     files: {
@@ -724,25 +702,23 @@ public class VisitLog
 const securityInvariantFixture = {
   'security/matrices/privacy-zk-comment.yml': `
 requiredCases:
-  - tamper-nullifier-scope-root-revocation-reject
-requiredFields:
-  - tamper-nullifier-hash
-  - tamper-scope
-  - tamper-credential-root
+  - tamper-root
   - tamper-revocation-root
+  - tamper-scope
+  - tamper-non-current-layout
+requiredFields:
+  - tamper-scope
+  - tamper-root
+  - tamper-revocation-root
+  - tamper-non-current-layout
 `,
-  'security/zk/contracts/comment-v2-tamper-cases.manifest.json': `
+  'security/zk/contracts/comment-v5-tamper-cases.manifest.json': `
 {
-  "cases": [
-    {
-      "id": "tamper-nullifier-scope-root-revocation-reject",
-      "fields": [
-        "tamper-nullifier-hash",
-        "tamper-scope",
-        "tamper-credential-root",
-        "tamper-revocation-root"
-      ]
-    }
+  "tamper_cases": [
+    { "id": "tamper-root", "expected": "reject" },
+    { "id": "tamper-revocation-root", "expected": "reject" },
+    { "id": "tamper-scope", "expected": "reject" },
+    { "id": "tamper-non-current-layout", "expected": "reject" }
   ]
 }
 `

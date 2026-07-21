@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto'
+import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -45,7 +46,7 @@ const requiredTamperCases = [
   'tamper-root',
   'tamper-revocation-root',
   'tamper-scope',
-  'tamper-layout-5',
+  'tamper-non-current-layout',
   'inject-exact-attribute-public-input'
 ]
 const failures = []
@@ -73,6 +74,7 @@ equal(circuit.source, 'src/zk/circuits/anonymous-comment-v5/comment_v5.circuit.j
 equal(circuit.source_sha256, sha256File(files.source), 'circuit.source_sha256')
 equal(circuit.artifact_status, 'source-only', 'circuit.artifact_status')
 equal(circuit.production_usable, false, 'circuit.production_usable')
+equal(circuit.reject_non_current_layout, true, 'circuit.reject_non_current_layout')
 exactArray(circuit.public_inputs, publicInputs, 'circuit.public_inputs')
 exactArray(source.public_inputs, publicInputs, 'source.public_inputs')
 exactArray(source.forbidden_public_inputs, forbiddenPublicInputs, 'source.forbidden_public_inputs')
@@ -112,8 +114,24 @@ for (const file of [
 ]) {
   const sourceText = readText(path.join(root, file), file)
   if (!sourceText.includes(transcriptDomain)) fail(`${file} must use ${transcriptDomain}`)
-  if (sourceText.includes('fsus.anonymous.comment.v4.public-inputs')) fail(`${file} retains the v4 transcript domain`)
+  if (/fsus[.]anonymous[.]comment[.]v(?!5\b)[0-9]+[.]public-inputs/u.test(sourceText)) {
+    fail(`${file} retains a non-current transcript domain`)
+  }
 }
+
+for (const file of [
+  'src/frontend/wasm/comment_privacy/comment-privacy-prover.js',
+  'src/frontend/src/privacy/commentPrivacyBlindRsaSuite.ts',
+  'src/shared/Contracts/Validation/AnonymousPrivacyContract.cs',
+  'tools/dev/start.sh'
+]) {
+  const sourceText = readText(path.join(root, file), file)
+  if (sourceText.includes(['fsus.anonymous.comment.', 'v', '3'].join(''))) {
+    fail(`${file} retains a retired circuit identity`)
+  }
+}
+
+checkTrackedResidue()
 
 for (const file of [
   'src/backend/appsettings.json',
@@ -179,6 +197,27 @@ function nonEmpty(value, label) {
 
 function array(value) {
   return Array.isArray(value) ? value : []
+}
+
+function checkTrackedResidue() {
+  const retiredCircuit = ['fsus.anonymous.comment.', 'v', '3'].join('')
+  const retiredPath = ['comment', '-', 'v', '2'].join('')
+  const retiredSymbols = [['ZkComment', 'V2'].join(''), ['Circuit', 'Native'].join('')]
+  const tracked = execFileSync('git', ['-C', root, 'ls-files', '-z'], { encoding: 'utf8' }).split('\0').filter(Boolean)
+  for (const file of tracked) {
+    if (file.toLowerCase().includes(retiredPath)) fail(`${file} retains a retired proving-system path`)
+    let content
+    try {
+      content = readFileSync(path.join(root, file))
+    } catch {
+      continue
+    }
+    if (content.includes(0)) continue
+    const text = content.toString('utf8')
+    if (text.includes(retiredCircuit) || retiredSymbols.some((symbol) => text.includes(symbol))) {
+      fail(`${file} retains retired proving-system text`)
+    }
+  }
 }
 
 function fail(message) {

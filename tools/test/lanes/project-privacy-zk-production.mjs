@@ -30,7 +30,6 @@ for (const evidence of credentialVaultReleasePlan.requiredEvidence) {
 }
 
 export const requiredBackendClasses = [
-  'AnonymousCredentialIssuerTests',
   'AnonymousCommentTicketServiceTests',
   'AnonymousCommentSubmitTests',
   'AnonymousCommentModerationPipelineTests',
@@ -40,7 +39,6 @@ export const requiredBackendClasses = [
   'AnonymousCredentialRootLifecycleTests',
   'AnonymousCredentialRevocationArtifactServiceTests',
   'AnonymousCredentialRootEndpointTests',
-  'ZkCommentV2CrossStackFixtureTests',
   'AnonymousPrivacyConcurrencyTests'
 ]
 

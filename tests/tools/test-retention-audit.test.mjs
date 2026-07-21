@@ -70,10 +70,6 @@ test('tier invocation inference accounts for ordinary, coverage, specialized, an
     ['backend-nightly', 'backend-perf']
   )
   assert.deepEqual(
-    inferTierIdsForFile('tests/backend/Unit/ZkCommentV2CrossStackFixtureTests.cs', '[Trait("Category", "Performance")]'),
-    ['privacy-zk-comment-matrix']
-  )
-  assert.deepEqual(
     inferTierIdsForFile('tests/frontend/e2e/ux/viewport-boundaries.spec.ts', ''),
     ['ux-viewport-boundaries', 'ux-viewport-smoke', 'ux-viewport-visual']
   )

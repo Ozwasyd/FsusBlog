@@ -14,7 +14,8 @@ const expectedLayout = 6
 export function validateZkArtifactOwnership({
   root = repositoryRoot,
   manifest = readJson(path.join(root, manifestPath)),
-  trackedFiles = listTrackedFiles(root)
+  trackedFiles = listTrackedFiles(root),
+  readTrackedFile = (file) => readFileSync(path.join(root, file))
 } = {}) {
   const errors = []
   equal(errors, manifest.schema, 'fsusblog.zk.artifact-ownership.v2', 'schema')
@@ -27,12 +28,13 @@ export function validateZkArtifactOwnership({
     'production_requires_matching_release_evidence')
 
   const allowedTracked = new Set(array(manifest.ordinary_git_files).map(repoPath))
+  const normalizedTracked = trackedFiles.map(repoPath)
   const controlledPrefix = `${repoPath(manifest.controlled_root)}/`
-  for (const file of trackedFiles.map(repoPath).filter((value) => value.startsWith(controlledPrefix))) {
+  for (const file of normalizedTracked.filter((value) => value.startsWith(controlledPrefix))) {
     if (!allowedTracked.has(file)) errors.push(`cryptographic artifact must not be tracked in ordinary Git: ${file}`)
   }
   for (const file of allowedTracked) {
-    if (!trackedFiles.map(repoPath).includes(file) || !existsSync(path.join(root, file))) {
+    if (!normalizedTracked.includes(file) || !existsSync(path.join(root, file))) {
       errors.push(`declared ordinary Git file is missing: ${file}`)
     }
   }
@@ -64,19 +66,58 @@ export function validateZkArtifactOwnership({
     if (!expectedPath || declaredExternal.get(field) !== expectedPath) {
       errors.push(`external artifact ownership must match trusted setup ${field}`)
     }
-    if (trackedFiles.map(repoPath).includes(expectedPath)) {
+    if (normalizedTracked.includes(expectedPath)) {
       errors.push(`external ceremony or delivery artifact must not be Git-tracked: ${expectedPath}`)
     }
   }
   if (declaredExternal.size !== expectedExternal.size) {
     errors.push('external artifact ownership set must exactly match the current trusted setup manifest')
   }
+  checkWholeTreeResidue(errors, normalizedTracked, readTrackedFile)
   return errors
 }
 
 function listTrackedFiles(root) {
-  return execFileSync('git', ['-C', root, 'ls-files', '-z', '--', 'artifacts/zk'], { encoding: 'utf8' })
+  return execFileSync('git', ['-C', root, 'ls-files', '-z'], { encoding: 'utf8' })
     .split('\0').filter(Boolean)
+}
+
+function checkWholeTreeResidue(errors, trackedFiles, readTrackedFile) {
+  const cryptoArtifactExtension = /(?:^|[.])(?:fsg16pk|fsg16vk|pk|vk|proof|public_inputs|r1cs|zkey)$/iu
+  const retiredPathNeedle = ['comment', '-', 'v', '2'].join('')
+  const retiredCircuitNeedle = ['fsus.anonymous.comment.', 'v', '3'].join('')
+  const retiredSymbols = [
+    ['ZkComment', 'V2'].join(''),
+    ['Circuit', 'Native'].join(''),
+    ['AnonymousCredentialIssue', 'Request'].join(''),
+    ['AnonymousCredentialIssue', 'Response'].join('')
+  ]
+  const binaryMagics = [Buffer.from(['FSG16', 'VK1'].join('')), Buffer.from(['FSG16', 'PF1'].join(''))]
+
+  for (const file of trackedFiles) {
+    if (cryptoArtifactExtension.test(file)) {
+      errors.push(`cryptographic artifact must not be tracked in ordinary Git: ${file}`)
+    }
+    if (file.toLowerCase().includes(retiredPathNeedle)) {
+      errors.push(`retired proving-system path must not be tracked: ${file}`)
+    }
+    let content
+    try {
+      content = Buffer.from(readTrackedFile(file))
+    } catch {
+      continue
+    }
+    if (content.includes(0)) {
+      if (binaryMagics.some((magic) => content.includes(magic))) {
+        errors.push(`encoded proving artifact must not be tracked in ordinary Git: ${file}`)
+      }
+      continue
+    }
+    const text = content.toString('utf8')
+    if (text.includes(retiredCircuitNeedle) || retiredSymbols.some((symbol) => text.includes(symbol))) {
+      errors.push(`retired proving-system identity must not remain in tracked text: ${file}`)
+    }
+  }
 }
 
 function readJson(file) {

@@ -87,14 +87,12 @@ test('shared backend producers bind scheduler source identity without hashing ru
   assert.doesNotMatch(scheduledBranch, /--path (?:src\/backend|src\/core|src\/shared|tests\/backend)/u)
   assert.match(filteredBuild.slice(scheduledEnd), /--path src\/backend/u)
   assert.match(filteredBuild.slice(scheduledEnd), /--path tools\/architecture\/FsusBlog\.DiLifetimeAnalyzer/u)
-  assert.match(filteredBuild.slice(scheduledEnd), /--path tools\/security\/ZkCommentV2MclFixture/u)
   assert.match(filteredBuild, /configuration="\$\(BackendTestConfiguration\)" \|\| return \$\?/u)
   assert.match(filteredBuild, /ConfigureDotnetBuildParallelism \|\| return \$\?/u)
   assert.match(filteredBuild, /fingerprint="\$\(TestInputFingerprint[\s\S]*?\)" \|\| return \$\?/u)
   assert.match(filteredBuild, /buildTarget="\$SERVER_TEST_PROJ"/u)
-  assert.match(filteredBuild, /buildTarget="\$ROOT_DIR\/FsusBlog\.slnx"/u)
   assert.match(filteredBuild, /dotnet build "\$buildTarget"/u)
-  assert.match(filteredBuild, /outputContract="\$debugOutputDir\|\$debugServerOutputDir\|\$debugFixtureOutputDir"/u)
+  assert.match(filteredBuild, /outputContract="\$debugOutputDir\|\$debugServerOutputDir"/u)
   assert.match(filteredBuild, /outputContract="\$releaseOutputDir"/u)
   assert.doesNotMatch(filteredBuild, /FSUSBLOG_LOCAL_PROFILE[\s\S]*?return/u)
   assert.match(
@@ -157,11 +155,10 @@ test('Release writer lock is not inherited by a detached compiler descendant', (
   }
 })
 
-test('backend perf native P99 consumes the fresh Release test assembly without a duplicate Debug build', () => {
+test('backend performance tests consume the fresh Release test assembly without a duplicate Debug build', () => {
   assert.match(legacy, /BackendTestConfiguration\(\)[\s\S]*?FSUSBLOG_BACKEND_TEST_CONFIGURATION:-Debug/u)
   assert.match(legacy, /Debug \| Release/u)
   assert.match(legacy, /releaseOutputDir="\$\{FSUSBLOG_PRODUCTION_BUILD_ROOT:\+\$FSUSBLOG_PRODUCTION_BUILD_ROOT\/dotnet\/FsusBlog\.Server\.Tests\/bin\/Release\/net10\.0\}"/u)
   assert.match(legacy, /debugServerOutputDir="\$\{FSUSBLOG_PRODUCTION_BUILD_ROOT:\+\$FSUSBLOG_PRODUCTION_BUILD_ROOT\/dotnet\/FsusBlog\.Server\/bin\/Debug\/net10\.0\}"/u)
-  assert.match(legacy, /debugFixtureOutputDir="\$\{FSUSBLOG_PRODUCTION_BUILD_ROOT:\+\$FSUSBLOG_PRODUCTION_BUILD_ROOT\/dotnet\/FsusBlog\.ZkCommentV2MclFixture\/bin\/Debug\/net10\.0\}"/u)
   assert.match(legacy, /dotnet test "\$SERVER_TEST_PROJ" -c "\$configuration" -v minimal --no-build --no-restore/u)
 })

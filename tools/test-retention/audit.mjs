@@ -724,12 +724,8 @@ export function inferTierIdsForFile(file, source = '', explicitCategory = undefi
       tiers.add('backend-golden')
       tiers.add('backend-nightly')
     } else if (category === 'Performance') {
-      if (file.endsWith('/ZkCommentV2CrossStackFixtureTests.cs')) {
-        tiers.add('privacy-zk-comment-matrix')
-      } else {
-        tiers.add('backend-perf')
-        tiers.add('backend-nightly')
-      }
+      tiers.add('backend-perf')
+      tiers.add('backend-nightly')
     } else {
       tiers.add('backend-unit')
       tiers.add('coverage-backend')

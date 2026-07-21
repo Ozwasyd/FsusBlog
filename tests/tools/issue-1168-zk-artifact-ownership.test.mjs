@@ -16,8 +16,8 @@ test('canonical ZK artifact ownership is v5 layout-6 only', () => {
 
 test('checker rejects identity drift and tracked ceremony artifacts together', () => {
   const drifted = structuredClone(manifest)
-  drifted.circuit_id = 'fsus.anonymous.comment.v4'
-  drifted.public_input_layout_version = 5
+  drifted.circuit_id = 'fsus.anonymous.comment.invalid'
+  drifted.public_input_layout_version = 0
   const provingKeyPath = drifted.external_artifacts
     .find((entry) => entry.manifest_field === 'artifacts.proving_key.path').path
   const errors = validateZkArtifactOwnership({
@@ -37,4 +37,27 @@ test('checker rejects external ownership drift from the trusted setup manifest',
   const errors = validateZkArtifactOwnership({ root, manifest: drifted, trackedFiles })
   assert.ok(errors.some((error) => error.includes('artifacts.wasm_prover_bundle.path')))
   assert.ok(errors.some((error) => error.includes('exactly match')))
+})
+
+test('checker rejects retired paths, text identities, key extensions and encoded artifacts across the tree', () => {
+  const retiredPath = ['nested/', 'comment', '-', 'v', '2', '/fixture.json'].join('')
+  const retiredIdentity = ['fsus.anonymous.comment.', 'v', '3'].join('')
+  const encodedMagic = ['FSG16', 'VK1'].join('')
+  const files = [...trackedFiles, retiredPath, 'nested/operator.vk', 'nested/readme.txt', 'nested/blob.bin']
+  const content = new Map([
+    [retiredPath, Buffer.from('{}')],
+    ['nested/operator.vk', Buffer.from('not-a-key')],
+    ['nested/readme.txt', Buffer.from(retiredIdentity)],
+    ['nested/blob.bin', Buffer.from(`${encodedMagic}\0payload`)]
+  ])
+  const errors = validateZkArtifactOwnership({
+    root,
+    manifest,
+    trackedFiles: files,
+    readTrackedFile: (file) => content.get(file) ?? readFileSync(path.join(root, file))
+  })
+  assert.ok(errors.some((error) => error.includes('retired proving-system path')))
+  assert.ok(errors.some((error) => error.includes('cryptographic artifact')))
+  assert.ok(errors.some((error) => error.includes('retired proving-system identity')))
+  assert.ok(errors.some((error) => error.includes('encoded proving artifact')))
 })
