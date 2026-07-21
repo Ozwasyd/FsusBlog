@@ -504,6 +504,24 @@ export const executorReachabilityCases = [
         shouldPass: true
     },
     {
+        name: 'Promise alias reassigned to native constructor is proactive',
+        file: 'src/frontend/src/composables/useNotification.ts',
+        mutate: source => source.replace(
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'",
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'\n\nlet P = { resolve: () => ({ then: (callback: () => unknown) => callback }) }\nP = Promise\nP.resolve().then(() => import('@/services/securityPoSpaceChallengeExecutor'))"
+        ),
+        expected: 'must keep the PoSpace executor lazy'
+    },
+    {
+        name: 'reassigned helper class keeps callback deferred',
+        file: 'src/frontend/src/composables/useNotification.ts',
+        mutate: source => source.replace(
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'",
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'\n\nlet Helpers = class { static invokeNow(callback: () => unknown) { return callback() } }\nHelpers = class { static invokeNow(callback: () => unknown) { return callback } }\nHelpers.invokeNow(() => import('@/services/securityPoSpaceChallengeExecutor'))"
+        ),
+        shouldPass: true
+    },
+    {
         name: 'template script-looking text remains valid SFC content',
         file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
         mutate: source => source.replace(

@@ -324,6 +324,24 @@ export const workerRuntimeCases = [
         shouldPass: true
     },
     {
+        name: 'Worker alias reassigned to browser constructor remains forbidden',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script setup lang="ts">',
+            "<script setup lang=\"ts\">\nlet WorkerAlias = class SafeWorker {}\nWorkerAlias = globalThis.Worker\nconst duplicateWorker = new WorkerAlias('/worker.js')"
+        ),
+        expected: 'must not duplicate direct Worker construction'
+    },
+    {
+        name: 'array destructuring assignment sanitizes Worker alias',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script setup lang="ts">',
+            "<script setup lang=\"ts\">\nlet WorkerAlias = globalThis.Worker\n;[WorkerAlias] = [class SafeWorker {}]\nconst localWorker = new WorkerAlias()"
+        ),
+        shouldPass: true
+    },
+    {
         name: 'Worker metadata property is not Worker construction',
         file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
         mutate: source => source.replace(

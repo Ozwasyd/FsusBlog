@@ -1,6 +1,7 @@
 export function createPoSpaceWorkerProvenance(ts, provenance)
 {
     const {
+        bindingHasWriteBefore,
         isUnshadowedGlobalIdentifier,
         propertyNameText,
         resolveBinding,
@@ -35,6 +36,7 @@ export function createPoSpaceWorkerProvenance(ts, provenance)
             }
             if (
                 binding.memberSource?.property === 'Worker'
+        && !bindingHasWriteBefore(binding, expression)
         && hasWorkerMember(binding.memberSource.container, facts, flow, seen)
             )
             {
@@ -42,6 +44,7 @@ export function createPoSpaceWorkerProvenance(ts, provenance)
             }
             if (
                 binding.restSource
+        && !bindingHasWriteBefore(binding, expression)
         && !binding.restSource.excludedProperties.has('Worker')
         && hasWorkerMember(binding.restSource.container, facts, flow, seen)
             )
@@ -194,6 +197,7 @@ export function createPoSpaceWorkerProvenance(ts, provenance)
                 return isReflectConstructFunctionValue(value, facts, flow, seen);
             }
             return binding.memberSource?.property === 'construct'
+            && !bindingHasWriteBefore(binding, expression)
             && isReflectObjectExpression(binding.memberSource.container, facts, flow);
         }
         if (ts.isCallExpression(expression))

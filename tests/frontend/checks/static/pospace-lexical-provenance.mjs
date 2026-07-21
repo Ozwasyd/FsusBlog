@@ -1,3 +1,5 @@
+import { collectBindingWrites } from './pospace-binding-writes.mjs';
+
 export function createPoSpaceLexicalProvenance(ts, resolveStaticMemberValue)
 {
     function collectRuntimeBindings(sourceFile, flow)
@@ -76,7 +78,12 @@ export function createPoSpaceLexicalProvenance(ts, resolveStaticMemberValue)
                 }
             }
         });
-        collectBindingWrites(sourceFile, flow);
+        collectBindingWrites(ts, sourceFile, flow, {
+            resolveLexicalBinding,
+            staticMemberAccess,
+            unwrapRuntimeExpression,
+            walk
+        });
     }
 
     function constDestructuredMemberSource(node)
@@ -172,51 +179,6 @@ export function createPoSpaceLexicalProvenance(ts, resolveStaticMemberValue)
         return node.getSourceFile();
     }
 
-    function collectBindingWrites(sourceFile, flow)
-    {
-        walk(sourceFile, node =>
-        {
-            if (
-                !ts.isBinaryExpression(node)
-            || node.operatorToken.kind < ts.SyntaxKind.FirstAssignment
-            || node.operatorToken.kind > ts.SyntaxKind.LastAssignment
-            )
-            {
-                return;
-            }
-            const left = unwrapRuntimeExpression(node.left);
-            if (ts.isIdentifier(left))
-            {
-                const binding = resolveLexicalBinding(flow.lexicalBindings, left, node);
-                if (binding && flow.constValueBindings.includes(binding))
-                {
-                    binding.writes ??= [];
-                    binding.writes.push({ node, value: assignmentValue(node) });
-                }
-                return;
-            }
-            const member = staticMemberAccess(left, flow);
-            const container = member && unwrapRuntimeExpression(member.container);
-            if (!member || !ts.isIdentifier(container))
-            {
-                return;
-            }
-            const binding = resolveLexicalBinding(flow.lexicalBindings, container, node);
-            if (binding && flow.constValueBindings.includes(binding))
-            {
-                binding.memberWrites ??= new Map();
-                const writes = binding.memberWrites.get(member.property) ?? [];
-                writes.push({ node, value: assignmentValue(node) });
-                binding.memberWrites.set(member.property, writes);
-            }
-        });
-    }
-
-    function assignmentValue(node)
-    {
-        return node.operatorToken.kind === ts.SyntaxKind.EqualsToken ? node.right : null;
-    }
-
     function resolveBinding(bindings, identifier, useNode)
     {
         return bindings
@@ -269,6 +231,11 @@ export function createPoSpaceLexicalProvenance(ts, resolveStaticMemberValue)
         return [...(writes ?? [])]
             .filter(write => write.node.pos < useNode.pos)
             .sort((left, right) => right.node.pos - left.node.pos)[0] ?? null;
+    }
+
+    function bindingHasWriteBefore(binding, useNode)
+    {
+        return Boolean(latestWriteBefore(binding.writes, useNode));
     }
 
     function isUnshadowedGlobalIdentifier(identifier, flow)
@@ -348,6 +315,7 @@ export function createPoSpaceLexicalProvenance(ts, resolveStaticMemberValue)
 
     return {
         bindingPropertyName,
+        bindingHasWriteBefore,
         collectRuntimeBindings,
         isUnshadowedGlobalIdentifier,
         resolveBinding,

@@ -8346,8 +8346,7 @@
                 "implementation": "tests/frontend/checks/static/check-pospace-runtime-reachability.mjs",
                 "executionKey": "governance:file:tests/frontend/checks/static/check-pospace-runtime-reachability.mjs",
                 "receiptCompatible": true
-            },
-            "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
+            }
         },
         {
             "id": "Implementation.TestsFrontendChecksStaticCheckPospaceV1ContractMjs",
