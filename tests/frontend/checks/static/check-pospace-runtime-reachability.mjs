@@ -188,7 +188,8 @@ function inspectModule(source, relative)
         valueStaticImports: new Set(),
         valueImports: new Map(),
         valueIdentifiers: new Set(),
-        newExpressions: new Set()
+        newExpressions: new Set(),
+        workerConstructorAliases: new Set(['Worker'])
     };
     const scripts = relative.endsWith('.vue') ? extractVueScripts(source, relative) : [source];
     assert.ok(scripts.length > 0, `${relative} must contain an executable script block`);
@@ -280,19 +281,22 @@ function visit(node, facts, relative)
     if (
         ts.isElementAccessExpression(node)
     && node.argumentExpression
-    && ts.isStringLiteralLike(node.argumentExpression)
     && isValueIdentifier(node)
     )
     {
-        facts.valueIdentifiers.add(node.argumentExpression.text);
+        const property = staticStringValue(node.argumentExpression);
+        if (property)
+        {
+            facts.valueIdentifiers.add(property);
+        }
     }
-    if (
-        ts.isBindingElement(node)
-    && node.propertyName
-    && ts.isStringLiteralLike(node.propertyName)
-    )
+    if (ts.isBindingElement(node) && node.propertyName)
     {
-        facts.valueIdentifiers.add(node.propertyName.text);
+        const property = bindingPropertyName(node.propertyName);
+        if (property)
+        {
+            facts.valueIdentifiers.add(property);
+        }
     }
     if (ts.isIdentifier(node) && isValueIdentifier(node))
     {
@@ -300,11 +304,36 @@ function visit(node, facts, relative)
     }
     if (ts.isNewExpression(node))
     {
-        const constructor = expressionPropertyName(node.expression);
-        if (constructor)
+        if (isWorkerConstructorExpression(node.expression, facts))
         {
-            facts.newExpressions.add(constructor);
+            facts.newExpressions.add('Worker');
         }
+        else
+        {
+            const constructor = expressionPropertyName(node.expression);
+            if (constructor)
+            {
+                facts.newExpressions.add(constructor);
+            }
+        }
+    }
+    if (
+        ts.isVariableDeclaration(node)
+    && ts.isIdentifier(node.name)
+    && node.initializer
+    && isWorkerConstructorExpression(node.initializer, facts)
+    )
+    {
+        facts.workerConstructorAliases.add(node.name.text);
+    }
+    if (
+        ts.isBinaryExpression(node)
+    && node.operatorToken.kind === ts.SyntaxKind.EqualsToken
+    && ts.isIdentifier(node.left)
+    && isWorkerConstructorExpression(node.right, facts)
+    )
+    {
+        facts.workerConstructorAliases.add(node.left.text);
     }
     ts.forEachChild(node, child => visit(child, facts, relative));
 }
@@ -324,37 +353,154 @@ function isDeferredDynamicImport(node)
 
 function isImmediatelyInvokedFunction(node)
 {
-    let expression = node;
-    while (
-        expression.parent
-    && (ts.isParenthesizedExpression(expression.parent)
-        || ts.isAsExpression(expression.parent)
-        || ts.isSatisfiesExpression(expression.parent)
-        || ts.isNonNullExpression(expression.parent))
+    const expression = outerRuntimeExpression(node);
+    if (ts.isCallExpression(expression.parent) && expression.parent.expression === expression)
+    {
+        return true;
+    }
+    if (
+        ts.isPropertyAccessExpression(expression.parent)
+    && expression.parent.expression === expression
+    && ['call', 'apply'].includes(expression.parent.name.text)
+    && ts.isCallExpression(expression.parent.parent)
+    && expression.parent.parent.expression === expression.parent
     )
     {
-        expression = expression.parent;
+        return true;
     }
-    return ts.isCallExpression(expression.parent) && expression.parent.expression === expression;
+    if (
+        ts.isCallExpression(expression.parent)
+    && expression.parent.arguments.includes(expression)
+    && isImmediateCallbackCall(expression.parent.expression)
+    )
+    {
+        return true;
+    }
+    return false;
+}
+
+function outerRuntimeExpression(node)
+{
+    let expression = node;
+    while (expression.parent)
+    {
+        const parent = expression.parent;
+        if (
+            ts.isParenthesizedExpression(parent)
+        || ts.isAsExpression(parent)
+        || ts.isSatisfiesExpression(parent)
+        || ts.isNonNullExpression(parent)
+        )
+        {
+            expression = parent;
+            continue;
+        }
+        if (
+            ts.isBinaryExpression(parent)
+        && parent.operatorToken.kind === ts.SyntaxKind.CommaToken
+        && parent.right === expression
+        )
+        {
+            expression = parent;
+            continue;
+        }
+        break;
+    }
+    return expression;
+}
+
+function isImmediateCallbackCall(expression)
+{
+    const target = unwrapRuntimeExpression(expression);
+    return ts.isPropertyAccessExpression(target)
+    && ['then', 'catch', 'finally'].includes(target.name.text);
+}
+
+function unwrapRuntimeExpression(node)
+{
+    let expression = node;
+    while (
+        ts.isParenthesizedExpression(expression)
+    || ts.isAsExpression(expression)
+    || ts.isSatisfiesExpression(expression)
+    || ts.isNonNullExpression(expression)
+    )
+    {
+        expression = expression.expression;
+    }
+    return expression;
+}
+
+function staticStringValue(node)
+{
+    const expression = unwrapRuntimeExpression(node);
+    if (ts.isStringLiteralLike(expression))
+    {
+        return expression.text;
+    }
+    if (
+        ts.isBinaryExpression(expression)
+    && expression.operatorToken.kind === ts.SyntaxKind.PlusToken
+    )
+    {
+        const left = staticStringValue(expression.left);
+        const right = staticStringValue(expression.right);
+        return left === null || right === null ? null : left + right;
+    }
+    return null;
+}
+
+function bindingPropertyName(node)
+{
+    if (ts.isStringLiteralLike(node) || ts.isIdentifier(node))
+    {
+        return node.text;
+    }
+    return ts.isComputedPropertyName(node) ? staticStringValue(node.expression) : null;
+}
+
+function isWorkerConstructorExpression(node, facts)
+{
+    const expression = unwrapRuntimeExpression(node);
+    if (ts.isIdentifier(expression))
+    {
+        return facts.workerConstructorAliases.has(expression.text);
+    }
+    if (ts.isPropertyAccessExpression(expression))
+    {
+        return expression.name.text === 'Worker';
+    }
+    if (ts.isElementAccessExpression(expression) && expression.argumentExpression)
+    {
+        return staticStringValue(expression.argumentExpression) === 'Worker';
+    }
+    if (
+        ts.isBinaryExpression(expression)
+    && expression.operatorToken.kind === ts.SyntaxKind.CommaToken
+    )
+    {
+        return isWorkerConstructorExpression(expression.right, facts);
+    }
+    return false;
 }
 
 function expressionPropertyName(node)
 {
-    if (ts.isIdentifier(node))
+    const expression = unwrapRuntimeExpression(node);
+    if (ts.isIdentifier(expression))
     {
-        return node.text;
+        return expression.text;
     }
-    if (ts.isPropertyAccessExpression(node))
+    if (ts.isPropertyAccessExpression(expression))
     {
-        return node.name.text;
+        return expression.name.text;
     }
     if (
-        ts.isElementAccessExpression(node)
-    && node.argumentExpression
-    && ts.isStringLiteralLike(node.argumentExpression)
+        ts.isElementAccessExpression(expression)
+    && expression.argumentExpression
     )
     {
-        return node.argumentExpression.text;
+        return staticStringValue(expression.argumentExpression);
     }
     return null;
 }
