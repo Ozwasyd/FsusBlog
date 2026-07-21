@@ -168,7 +168,7 @@ export function checkPoSpaceRuntimeReachability(root = repoRoot)
 
     return {
         check: 'pospace-runtime-reachability',
-        version: 7,
+        version: 8,
         ok: true,
         nodes,
         edges: edges.map(({ from, to, kind }) => ({ from, to, kind })),
@@ -188,9 +188,7 @@ function inspectModule(source, relative)
         valueStaticImports: new Set(),
         valueImports: new Map(),
         valueIdentifiers: new Set(),
-        newExpressions: new Set(),
-        workerGlobalAliases: new Set(['globalThis', 'self', 'window']),
-        workerConstructorAliases: new Set(['Worker'])
+        newExpressions: new Set()
     };
     const scripts = relative.endsWith('.vue') ? extractVueScripts(source, relative) : [source];
     assert.ok(scripts.length > 0, `${relative} must contain an executable script block`);
@@ -313,52 +311,12 @@ function visit(node, facts, relative, flow)
     }
     if (
         ts.isCallExpression(node)
-    && isReflectConstructCall(node.expression)
+    && isReflectConstructCall(node.expression, facts, flow)
     && node.arguments[0]
     && isWorkerConstructorExpression(node.arguments[0], facts, flow)
     )
     {
         facts.newExpressions.add('Worker');
-    }
-    if (
-        ts.isVariableDeclaration(node)
-    && ts.isIdentifier(node.name)
-    && node.initializer
-    && isWorkerConstructorExpression(node.initializer, facts, flow)
-    )
-    {
-        facts.workerConstructorAliases.add(node.name.text);
-    }
-    if (
-        ts.isVariableDeclaration(node)
-    && ts.isIdentifier(node.name)
-    && node.initializer
-    && isWorkerGlobalExpression(node.initializer, facts)
-    )
-    {
-        facts.workerGlobalAliases.add(node.name.text);
-    }
-    if (ts.isVariableDeclaration(node) && ts.isObjectBindingPattern(node.name) && node.initializer)
-    {
-        recordWorkerDestructuringAliases(node.name, node.initializer, facts, flow);
-    }
-    if (
-        ts.isBinaryExpression(node)
-    && node.operatorToken.kind === ts.SyntaxKind.EqualsToken
-    && ts.isIdentifier(node.left)
-    && isWorkerConstructorExpression(node.right, facts, flow)
-    )
-    {
-        facts.workerConstructorAliases.add(node.left.text);
-    }
-    if (
-        ts.isBinaryExpression(node)
-    && node.operatorToken.kind === ts.SyntaxKind.EqualsToken
-    && ts.isIdentifier(node.left)
-    && isWorkerGlobalExpression(node.right, facts)
-    )
-    {
-        facts.workerGlobalAliases.add(node.left.text);
     }
     ts.forEachChild(node, child => visit(child, facts, relative, flow));
 }
@@ -413,6 +371,8 @@ function analyzeRuntimeFlow(sourceFile)
     const flow = {
         functionBindings: [],
         constValueBindings: [],
+        lexicalBindings: [],
+        parameterFunctionValues: new Map(),
         immediateFunctions: new Set()
     };
     collectRuntimeBindings(sourceFile, flow);
@@ -424,12 +384,16 @@ function analyzeRuntimeFlow(sourceFile)
         {
             if (ts.isCallExpression(node) && isImmediateExecutionContext(node, flow))
             {
-                changed = markImmediateFunction(resolveCalledFunction(node.expression, node, flow), flow) || changed;
-                if (isProactiveCallbackCall(node, flow))
+                for (const called of resolveFunctionValues(node.expression, node, flow, { called: true }))
                 {
-                    for (const argument of node.arguments)
+                    changed = markImmediateFunction(called, flow) || changed;
+                    changed = propagateParameterFunctionValues(called, runtimeCallArguments(node), node, flow) || changed;
+                }
+                for (const argument of proactiveCallbackArguments(node, flow))
+                {
+                    for (const callback of resolveFunctionValues(argument, node, flow))
                     {
-                        changed = markImmediateFunction(resolveFunctionValue(argument, node, flow), flow) || changed;
+                        changed = markImmediateFunction(callback, flow) || changed;
                     }
                 }
             }
@@ -442,7 +406,10 @@ function analyzeRuntimeFlow(sourceFile)
             {
                 for (const argument of node.arguments ?? [])
                 {
-                    changed = markImmediateFunction(resolveFunctionValue(argument, node, flow), flow) || changed;
+                    for (const callback of resolveFunctionValues(argument, node, flow))
+                    {
+                        changed = markImmediateFunction(callback, flow) || changed;
+                    }
                 }
             }
         });
@@ -457,27 +424,121 @@ function collectRuntimeBindings(sourceFile, flow)
     {
         if (ts.isFunctionDeclaration(node) && node.name)
         {
-            flow.functionBindings.push(makeBinding(node.name.text, node, node, true));
+            const binding = makeBinding(node.name.text, node, node, true);
+            flow.functionBindings.push(binding);
+            flow.lexicalBindings.push(binding);
+        }
+        if (ts.isClassDeclaration(node) && node.name)
+        {
+            flow.lexicalBindings.push(makeBinding(node.name.text, node, node, true));
         }
         if (
             ts.isVariableDeclaration(node)
         && ts.isIdentifier(node.name)
-        && node.initializer
-        && isConstVariableDeclaration(node)
         )
         {
-            const binding = makeBinding(node.name.text, node, node.initializer, false);
-            flow.constValueBindings.push(binding);
-            if (
-                ts.isFunctionExpression(unwrapRuntimeExpression(node.initializer))
-            || ts.isArrowFunction(unwrapRuntimeExpression(node.initializer))
-            || ts.isIdentifier(unwrapRuntimeExpression(node.initializer))
-            )
+            const binding = makeBinding(node.name.text, node, node.initializer ?? null, false);
+            flow.lexicalBindings.push(binding);
+            if (node.initializer && isConstVariableDeclaration(node))
             {
-                flow.functionBindings.push(binding);
+                flow.constValueBindings.push(binding);
+                if (
+                    ts.isFunctionExpression(unwrapRuntimeExpression(node.initializer))
+                || ts.isArrowFunction(unwrapRuntimeExpression(node.initializer))
+                || ts.isIdentifier(unwrapRuntimeExpression(node.initializer))
+                )
+                {
+                    flow.functionBindings.push(binding);
+                }
+            }
+        }
+        if (ts.isParameter(node) && ts.isIdentifier(node.name))
+        {
+            flow.lexicalBindings.push({
+                name: node.name.text,
+                declaration: node,
+                value: null,
+                hoisted: true,
+                scope: node.parent
+            });
+        }
+        if (ts.isBindingElement(node) && ts.isIdentifier(node.name))
+        {
+            const binding = makeBinding(node.name.text, node, null, false);
+            flow.lexicalBindings.push(binding);
+            const memberSource = constDestructuredMemberSource(node);
+            if (memberSource)
+            {
+                binding.memberSource = memberSource;
+                flow.constValueBindings.push(binding);
+            }
+        }
+        if (ts.isImportClause(node))
+        {
+            if (node.name)
+            {
+                flow.lexicalBindings.push(makeBinding(node.name.text, node.name, null, true));
+            }
+            if (node.namedBindings && ts.isNamespaceImport(node.namedBindings))
+            {
+                flow.lexicalBindings.push(makeBinding(node.namedBindings.name.text, node.namedBindings.name, null, true));
+            }
+            if (node.namedBindings && ts.isNamedImports(node.namedBindings))
+            {
+                for (const element of node.namedBindings.elements)
+                {
+                    flow.lexicalBindings.push(makeBinding(element.name.text, element.name, null, true));
+                }
             }
         }
     });
+}
+
+function constDestructuredMemberSource(node)
+{
+    const pattern = node.parent;
+    if (!ts.isObjectBindingPattern(pattern) && !ts.isArrayBindingPattern(pattern))
+    {
+        return null;
+    }
+    const declaration = pattern.parent;
+    if (
+        !ts.isVariableDeclaration(declaration)
+    || !declaration.initializer
+    || !isConstVariableDeclaration(declaration)
+    )
+    {
+        return null;
+    }
+    if (ts.isObjectBindingPattern(pattern))
+    {
+        const property = node.propertyName ?? node.name;
+        const key = staticPropertySyntaxValue(property);
+        return key === null ? null : { container: declaration.initializer, property: key };
+    }
+    return { container: declaration.initializer, property: String(pattern.elements.indexOf(node)) };
+}
+
+function staticPropertySyntaxValue(node)
+{
+    if (ts.isIdentifier(node) || ts.isStringLiteralLike(node) || ts.isNumericLiteral(node))
+    {
+        return node.text;
+    }
+    if (ts.isComputedPropertyName(node))
+    {
+        return staticPropertySyntaxValue(node.expression);
+    }
+    if (
+        ts.isBinaryExpression(node)
+    && node.operatorToken.kind === ts.SyntaxKind.PlusToken
+    )
+    {
+        const left = staticPropertySyntaxValue(node.left);
+        const right = staticPropertySyntaxValue(node.right);
+        return left === null || right === null ? null : left + right;
+    }
+    return null;
 }
 
 function walk(node, callback)
@@ -529,40 +590,113 @@ function resolveBinding(bindings, identifier, useNode)
         .sort((left, right) => (left.scope.end - left.scope.pos) - (right.scope.end - right.scope.pos))[0] ?? null;
 }
 
-function resolveCalledFunction(expression, useNode, flow)
+function resolveLexicalBinding(bindings, identifier, useNode)
 {
-    const target = unwrapRuntimeExpression(expression);
+    return bindings
+        .filter(binding => binding.name === identifier.text)
+        .filter(binding => binding.scope.pos <= useNode.pos && useNode.end <= binding.scope.end)
+        .sort((left, right) => (left.scope.end - left.scope.pos) - (right.scope.end - right.scope.pos))[0] ?? null;
+}
+
+function resolveBindingValue(binding, useNode, flow, seen)
+{
+    if (binding.memberSource)
+    {
+        return resolveStaticMemberValue(
+            binding.memberSource.container,
+            binding.memberSource.property,
+            useNode,
+            flow,
+            seen
+        );
+    }
+    return binding.value;
+}
+
+function isUnshadowedGlobalIdentifier(identifier, flow)
+{
+    return !resolveLexicalBinding(flow.lexicalBindings, identifier, identifier);
+}
+
+function resolveFunctionValues(expression, useNode, flow, options = {}, seen = new Set())
+{
+    let target = unwrapRuntimeExpression(expression);
     if (
-        ts.isPropertyAccessExpression(target)
+        options.called
+    && ts.isPropertyAccessExpression(target)
     && ['call', 'apply'].includes(target.name.text)
     )
     {
-        return resolveFunctionValue(target.expression, useNode, flow);
+        target = unwrapRuntimeExpression(target.expression);
     }
-    return resolveFunctionValue(target, useNode, flow);
-}
-
-function resolveFunctionValue(expression, useNode, flow, seen = new Set())
-{
-    const target = unwrapRuntimeExpression(expression);
     if (
         ts.isBinaryExpression(target)
     && target.operatorToken.kind === ts.SyntaxKind.CommaToken
     )
     {
-        return resolveFunctionValue(target.right, useNode, flow, seen);
+        return resolveFunctionValues(target.right, useNode, flow, options, seen);
     }
     if (ts.isFunctionExpression(target) || ts.isArrowFunction(target) || ts.isFunctionDeclaration(target))
     {
-        return target;
+        return [target];
     }
-    if (!ts.isIdentifier(target) || seen.has(target.text))
+    if (!ts.isIdentifier(target))
     {
-        return null;
+        return [];
     }
-    seen.add(target.text);
+    const lexical = resolveLexicalBinding(flow.lexicalBindings, target, useNode);
+    if (lexical && ts.isParameter(lexical.declaration))
+    {
+        return [...(flow.parameterFunctionValues.get(lexical.declaration) ?? [])];
+    }
     const binding = resolveBinding(flow.functionBindings, target, useNode);
-    return binding ? resolveFunctionValue(binding.value, binding.declaration, flow, seen) : null;
+    if (!binding || seen.has(binding.declaration))
+    {
+        return [];
+    }
+    seen.add(binding.declaration);
+    return resolveFunctionValues(binding.value, binding.declaration, flow, options, seen);
+}
+
+function runtimeCallArguments(node)
+{
+    const target = unwrapRuntimeExpression(node.expression);
+    if (!ts.isPropertyAccessExpression(target))
+    {
+        return [...node.arguments];
+    }
+    if (target.name.text === 'call')
+    {
+        return node.arguments.slice(1);
+    }
+    if (target.name.text === 'apply' && node.arguments[1] && ts.isArrayLiteralExpression(unwrapRuntimeExpression(node.arguments[1])))
+    {
+        return [...unwrapRuntimeExpression(node.arguments[1]).elements].filter(element => !ts.isOmittedExpression(element));
+    }
+    return [...node.arguments];
+}
+
+function propagateParameterFunctionValues(called, argumentsList, useNode, flow)
+{
+    let changed = false;
+    for (const [index, parameter] of called.parameters.entries())
+    {
+        if (!ts.isIdentifier(parameter.name) || !argumentsList[index])
+        {
+            continue;
+        }
+        const values = flow.parameterFunctionValues.get(parameter) ?? new Set();
+        for (const value of resolveFunctionValues(argumentsList[index], useNode, flow))
+        {
+            if (!values.has(value))
+            {
+                values.add(value);
+                changed = true;
+            }
+        }
+        flow.parameterFunctionValues.set(parameter, values);
+    }
+    return changed;
 }
 
 function markImmediateFunction(node, flow)
@@ -587,48 +721,57 @@ function isImmediateExecutionContext(node, flow)
     return true;
 }
 
-function isProactiveCallbackCall(node, flow)
+function proactiveCallbackArguments(node, flow)
 {
     const target = unwrapRuntimeExpression(node.expression);
     if (ts.isIdentifier(target))
     {
-        return proactiveCallbackFunctions.has(target.text);
+        return proactiveCallbackFunctions.has(target.text) ? [...node.arguments] : [];
     }
     if (!ts.isPropertyAccessExpression(target))
     {
-        return false;
+        return [];
     }
     if (proactivePromiseCallbackMethods.has(target.name.text))
     {
-        return true;
+        return [...node.arguments];
     }
-    if (isArrayPrototypeCallbackInvocation(target))
+    const prototypeInvocation = arrayPrototypeCallbackInvocation(target, node, flow);
+    if (prototypeInvocation === 'call')
     {
-        return true;
+        return node.arguments.slice(1);
+    }
+    if (prototypeInvocation === 'apply' && node.arguments[1])
+    {
+        return (staticArrayElements(node.arguments[1], node, flow, new Set()) ?? []).filter(Boolean);
     }
     return synchronousArrayCallbackMethods.has(target.name.text)
-    && isStaticArrayValue(target.expression, node, flow);
+    && isStaticArrayValue(target.expression, node, flow)
+        ? [...node.arguments]
+        : [];
 }
 
-function isArrayPrototypeCallbackInvocation(target)
+function arrayPrototypeCallbackInvocation(target, useNode, flow)
 {
     if (!['apply', 'call'].includes(target.name.text))
     {
-        return false;
+        return null;
     }
-    const method = unwrapRuntimeExpression(target.expression);
+    const method = resolveStaticValue(target.expression, useNode, flow, new Set());
     if (
         !ts.isPropertyAccessExpression(method)
     || !synchronousArrayCallbackMethods.has(method.name.text)
     )
     {
-        return false;
+        return null;
     }
     const prototype = unwrapRuntimeExpression(method.expression);
     return ts.isPropertyAccessExpression(prototype)
     && prototype.name.text === 'prototype'
     && ts.isIdentifier(unwrapRuntimeExpression(prototype.expression))
-    && unwrapRuntimeExpression(prototype.expression).text === 'Array';
+    && unwrapRuntimeExpression(prototype.expression).text === 'Array'
+        ? target.name.text
+        : null;
 }
 
 function isStaticArrayValue(node, useNode, flow, seen = new Set())
@@ -642,7 +785,8 @@ function isStaticArrayValue(node, useNode, flow, seen = new Set())
     {
         seen.add(expression.text);
         const binding = resolveBinding(flow.constValueBindings, expression, useNode);
-        return binding ? isStaticArrayValue(binding.value, binding.declaration, flow, seen) : false;
+        const value = binding ? resolveBindingValue(binding, expression, flow, seen) : null;
+        return value ? isStaticArrayValue(value, binding.declaration, flow, seen) : false;
     }
     if (ts.isNewExpression(expression) && ts.isIdentifier(expression.expression))
     {
@@ -701,7 +845,8 @@ function staticStringValue(node, flow, seen = new Set())
     {
         seen.add(expression.text);
         const binding = resolveBinding(flow.constValueBindings, expression, expression);
-        return binding ? staticStringValue(binding.value, flow, seen) : null;
+        const value = binding ? resolveBindingValue(binding, expression, flow, seen) : null;
+        return value ? staticStringValue(value, flow, seen) : null;
     }
     if (
         ts.isBinaryExpression(expression)
@@ -729,7 +874,7 @@ function isWorkerConstructorExpression(node, facts, flow, seen = new Set())
     const expression = unwrapRuntimeExpression(node);
     if (ts.isIdentifier(expression))
     {
-        if (facts.workerConstructorAliases.has(expression.text))
+        if (expression.text === 'Worker' && isUnshadowedGlobalIdentifier(expression, flow))
         {
             return true;
         }
@@ -738,12 +883,20 @@ function isWorkerConstructorExpression(node, facts, flow, seen = new Set())
         {
             return false;
         }
+        if (
+            binding.memberSource?.property === 'Worker'
+        && isWorkerGlobalExpression(binding.memberSource.container, facts, flow)
+        )
+        {
+            return true;
+        }
         seen.add(binding.declaration);
-        return isWorkerConstructorExpression(binding.value, facts, flow, seen);
+        const value = resolveBindingValue(binding, expression, flow, seen);
+        return value ? isWorkerConstructorExpression(value, facts, flow, seen) : false;
     }
     if (ts.isPropertyAccessExpression(expression))
     {
-        if (expression.name.text === 'Worker' && isWorkerGlobalExpression(expression.expression, facts))
+        if (expression.name.text === 'Worker' && isWorkerGlobalExpression(expression.expression, facts, flow))
         {
             return true;
         }
@@ -757,7 +910,7 @@ function isWorkerConstructorExpression(node, facts, flow, seen = new Set())
         {
             return false;
         }
-        if (property === 'Worker' && isWorkerGlobalExpression(expression.expression, facts))
+        if (property === 'Worker' && isWorkerGlobalExpression(expression.expression, facts, flow))
         {
             return true;
         }
@@ -798,7 +951,7 @@ function resolveStaticMemberValue(containerNode, property, useNode, flow, seen)
     const container = resolveStaticValue(containerNode, useNode, flow, seen);
     if (ts.isObjectLiteralExpression(container))
     {
-        for (const element of container.properties)
+        for (const element of [...container.properties].reverse())
         {
             if (ts.isPropertyAssignment(element) && propertyNameText(element.name, flow) === property)
             {
@@ -808,14 +961,52 @@ function resolveStaticMemberValue(containerNode, property, useNode, flow, seen)
             {
                 return element.name;
             }
+            if (ts.isSpreadAssignment(element))
+            {
+                const value = resolveStaticMemberValue(element.expression, property, element, flow, new Set(seen));
+                if (value)
+                {
+                    return value;
+                }
+            }
         }
     }
-    if (ts.isArrayLiteralExpression(container) && /^(?:0|[1-9]\d*)$/u.test(property))
+    if (/^(?:0|[1-9]\d*)$/u.test(property))
     {
-        const element = container.elements[Number(property)];
-        return element && !ts.isOmittedExpression(element) && !ts.isSpreadElement(element) ? element : null;
+        const elements = staticArrayElements(container, useNode, flow, new Set(seen));
+        return elements?.[Number(property)] ?? null;
     }
     return null;
+}
+
+function staticArrayElements(node, useNode, flow, seen)
+{
+    const value = resolveStaticValue(node, useNode, flow, seen);
+    if (!ts.isArrayLiteralExpression(value))
+    {
+        return null;
+    }
+    const elements = [];
+    for (const element of value.elements)
+    {
+        if (ts.isOmittedExpression(element))
+        {
+            elements.push(null);
+            continue;
+        }
+        if (ts.isSpreadElement(element))
+        {
+            const spread = staticArrayElements(element.expression, element, flow, new Set(seen));
+            if (!spread)
+            {
+                return null;
+            }
+            elements.push(...spread);
+            continue;
+        }
+        elements.push(element);
+    }
+    return elements;
 }
 
 function resolveStaticValue(node, useNode, flow, seen)
@@ -829,7 +1020,8 @@ function resolveStaticValue(node, useNode, flow, seen)
             return expression;
         }
         seen.add(binding.declaration);
-        return resolveStaticValue(binding.value, binding.declaration, flow, seen);
+        const value = resolveBindingValue(binding, expression, flow, seen);
+        return value ? resolveStaticValue(value, binding.declaration, flow, seen) : expression;
     }
     if (ts.isPropertyAccessExpression(expression))
     {
@@ -857,54 +1049,86 @@ function propertyNameText(node, flow)
     return ts.isComputedPropertyName(node) ? staticStringValue(node.expression, flow) : null;
 }
 
-function isReflectConstructCall(node)
+function isReflectConstructCall(node, facts, flow)
 {
     const expression = unwrapRuntimeExpression(node);
+    if (ts.isIdentifier(expression))
+    {
+        const binding = resolveBinding(flow.constValueBindings, expression, expression);
+        if (!binding)
+        {
+            return false;
+        }
+        if (
+            binding.memberSource?.property === 'construct'
+        && isReflectObjectExpression(binding.memberSource.container, facts, flow)
+        )
+        {
+            return true;
+        }
+        const value = resolveBindingValue(binding, expression, flow, new Set([binding.declaration]));
+        return value ? isReflectConstructCall(value, facts, flow) : false;
+    }
     if (
         ts.isPropertyAccessExpression(expression)
     && expression.name.text === 'construct'
     )
     {
-        return ts.isIdentifier(unwrapRuntimeExpression(expression.expression))
-        && unwrapRuntimeExpression(expression.expression).text === 'Reflect';
+        return isReflectObjectExpression(expression.expression, facts, flow);
     }
     if (
         ts.isElementAccessExpression(expression)
     && expression.argumentExpression
-    && staticStringValue(expression.argumentExpression, null) === 'construct'
+    && staticStringValue(expression.argumentExpression, flow) === 'construct'
     )
     {
-        return ts.isIdentifier(unwrapRuntimeExpression(expression.expression))
-        && unwrapRuntimeExpression(expression.expression).text === 'Reflect';
+        return isReflectObjectExpression(expression.expression, facts, flow);
     }
     return false;
 }
 
-function isWorkerGlobalExpression(node, facts)
+function isReflectObjectExpression(node, facts, flow, seen = new Set())
 {
     const expression = unwrapRuntimeExpression(node);
-    return ts.isIdentifier(expression) && facts.workerGlobalAliases.has(expression.text);
+    if (!ts.isIdentifier(expression))
+    {
+        return false;
+    }
+    if (expression.text === 'Reflect' && isUnshadowedGlobalIdentifier(expression, flow))
+    {
+        return true;
+    }
+    const binding = resolveBinding(flow.constValueBindings, expression, expression);
+    if (!binding || seen.has(binding.declaration))
+    {
+        return false;
+    }
+    seen.add(binding.declaration);
+    const value = resolveBindingValue(binding, expression, flow, seen);
+    return value ? isReflectObjectExpression(value, facts, flow, seen) : false;
 }
 
-function recordWorkerDestructuringAliases(pattern, initializer, facts, flow)
+function isWorkerGlobalExpression(node, facts, flow)
 {
-    const source = unwrapRuntimeExpression(initializer);
-    if (!isWorkerGlobalExpression(source, facts))
+    const expression = unwrapRuntimeExpression(node);
+    if (!ts.isIdentifier(expression))
     {
-        return;
+        return false;
     }
-    for (const element of pattern.elements)
+    if (
+        ['globalThis', 'self', 'window'].includes(expression.text)
+    && isUnshadowedGlobalIdentifier(expression, flow)
+    )
     {
-        if (
-            !ts.isOmittedExpression(element)
-        && ts.isIdentifier(element.name)
-        && element.propertyName
-        && bindingPropertyName(element.propertyName, flow) === 'Worker'
-        )
-        {
-            facts.workerConstructorAliases.add(element.name.text);
-        }
+        return true;
     }
+    const binding = resolveBinding(flow.constValueBindings, expression, expression);
+    if (!binding)
+    {
+        return false;
+    }
+    const value = resolveBindingValue(binding, expression, flow, new Set([binding.declaration]));
+    return value ? isWorkerGlobalExpression(value, facts, flow) : false;
 }
 
 function isTypeOnlyImport(node)
