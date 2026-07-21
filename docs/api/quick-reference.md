@@ -257,7 +257,6 @@
 | GET `/api/binary/anonymous-credential/revocation/{epoch}/{version}/{root}/delta/{baseVersion}.aeds` | 🔓 🚦 📦 | `AnonymousCredentialRevocationDelta`(197) | 公共 append-only delta；客户端仅允许精确上一 version 更新；坐标冲突 `409`、未生成 `404`、provider 不可用 `503` |
 | GET `/api/binary/anonymous-credential/blind-issuer` | 🔓 🚦 📦 | `BlindCredentialIssuerMetadata`(193) | RFC 9474 profile、root 绑定、issuer SPKI/hash；`public_read`、`no-store`，runtime disable 时 503 |
 | POST `/api/binary/anonymous-credential/blind-issue` | 🔑 🚦 📦 | `BlindCredentialIssueRequest`(194) → `BlindCredentialIssueResponse`(195) | RFC 9474 blind issuance；只接收 384B blinded representative，统一拒绝与延迟桶，`no-store` |
-| POST `/api/binary/anonymous-credential/issue` | 🔑 🚦 📦 | `ApiError`(251) | 已撤销的 circuit-native issuance；固定 `410 Gone`，不得重新挂载旧 handler |
 | POST `/api/binary/telemetry/rum` | 🔓 🚦 📦 | `RumMetricBatchRequest`(75) → `RumMetricIngestResponse`(76) | 匿名 RUM 批量 ingestion；`credentials: omit` |
 
 ### 管理端 Binary

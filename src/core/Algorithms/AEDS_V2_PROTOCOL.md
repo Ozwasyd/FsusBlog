@@ -124,8 +124,8 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `75`: RumMetricBatchRequest
 - `76`: RumMetricIngestResponse
 - `166`: CommentCreateV2Request
-- `177`: AnonymousCredentialIssueRequest
-- `178`: AnonymousCredentialIssueResponse
+- `177`: reserved; no decoder or compatibility path
+- `178`: reserved; no decoder or compatibility path
 - `179`: AnonymousCredentialRootSnapshot
 - `180`: AnonymousCommentTicketRequest
 - `181`: AnonymousCommentTicketResponse

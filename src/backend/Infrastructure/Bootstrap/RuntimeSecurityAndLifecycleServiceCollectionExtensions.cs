@@ -62,17 +62,7 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddSingleton<IAnonymousCommentPolicyService>(provider => provider.GetRequiredService<AnonymousCommentPolicyService>());
         services.AddSingleton<IAnonymousCommentPolicyInvalidationSink>(provider => provider.GetRequiredService<AnonymousCommentPolicyService>());
         services.AddScoped<IAnonymousCredentialService, AnonymousCredentialService>();
-        if (ShouldUseProductionCircuitNativeCredentialIssuer(configuration))
-        {
-            services.TryAddSingleton<ICircuitNativeCredentialIssuer, ProductionCircuitNativeCredentialIssuer>();
-        }
-        else
-        {
-            services.TryAddSingleton<ICircuitNativeCredentialIssuer, UnavailableCircuitNativeCredentialIssuer>();
-        }
-
         services.AddScoped<IAnonymousCredentialIssuanceAuditStore, AnonymousCredentialIssuanceAuditStore>();
-        services.AddScoped<IAnonymousCredentialIssuerService, AnonymousCredentialIssuerService>();
         services.Configure<BlindCredentialRuntimeOptions>(
             configuration.GetSection(BlindCredentialRuntimeOptions.SectionName));
         services.TryAddSingleton<IBlindCredentialRuntimeGate, BlindCredentialRuntimeGate>();
@@ -178,6 +168,4 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
     private static bool ShouldUseLocalDevZkProofBackend(IConfiguration configuration)
         => LocalDevZkProofBackend.IsEnabled(configuration);
 
-    private static bool ShouldUseProductionCircuitNativeCredentialIssuer(IConfiguration configuration)
-        => CircuitNativeCredentialIssuerOptions.FromConfiguration(configuration).Enabled;
 }

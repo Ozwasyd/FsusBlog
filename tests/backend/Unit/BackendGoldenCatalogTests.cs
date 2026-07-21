@@ -99,8 +99,6 @@ public sealed class BackendGoldenCatalogTests
         Assert.DoesNotContain("reputation_bucket", matrix, StringComparison.Ordinal);
         Assert.Contains("\"blindCredentialScheme\": \"rfc9474-rsabssa-sha384-pss-randomized-3072\"", matrix, StringComparison.Ordinal);
         Assert.Contains("\"blindRsaModulusBytes\": 384", matrix, StringComparison.Ordinal);
-        Assert.Contains("\"maxCircuitNativeIssuerSignatureBytes\": 256", matrix, StringComparison.Ordinal);
-        Assert.Contains("\"maxCircuitNativeCredentialRequestBytes\": 256", matrix, StringComparison.Ordinal);
         Assert.Contains("\"maxGroth16ProofBytes\": 4096", matrix, StringComparison.Ordinal);
         Assert.Contains("\"anonymousTicketPublicInputs\"", matrix, StringComparison.Ordinal);
         Assert.Contains("\"credential_root\"", matrix, StringComparison.Ordinal);

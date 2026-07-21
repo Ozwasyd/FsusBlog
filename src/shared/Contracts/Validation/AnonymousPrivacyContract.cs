@@ -8,10 +8,6 @@ public static class AnonymousPrivacyContract
     public const string CircuitId = "fsus.anonymous.comment.v5";
     public const ushort PublicInputLayoutVersion = 6;
 
-    public const int MaxCircuitNativeCredentialRequestBytes = 256;
-    public const int MaxCircuitNativeIssuerSignatureBytes = 256;
-    public const int MaxClientNonceBytes = 128;
-    public const int MaxIssuerPublicKeyIdBytes = 128;
     public const int MaxIssuerPublicKeyHashBytes = 128;
     public const int MaxVerifyingKeyHashBytes = 128;
     public const int MaxCredentialRootBytes = 64;
@@ -48,7 +44,7 @@ public static class AnonymousPrivacyContract
 public static class Rfc9474BlindCredentialProfile
 {
     public const string SchemeId = "rfc9474-rsabssa-sha384-pss-randomized-3072";
-    public const string MessageDomain = "fsus.anonymous.credential.v4";
+    public const string MessageDomain = "fsus.anonymous.credential.v5";
     public const int ModulusBits = 3072;
     public const int ModulusBytes = ModulusBits / 8;
     public const int HashBytes = 48;

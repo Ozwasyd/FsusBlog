@@ -87,7 +87,7 @@
             ]
         },
         {
-            "id": "tamper-layout-5",
+            "id": "tamper-non-current-layout",
             "expected": "reject",
             "mutates": [
                 "public_input_layout_version"

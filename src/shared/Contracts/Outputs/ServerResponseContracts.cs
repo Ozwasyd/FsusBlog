@@ -575,31 +575,6 @@ public record struct UserCommentResponse
 }
 
 /// <summary>
-/// Defines the API output contract represented by <c>AnonymousCredentialIssueRequest</c>.
-/// </summary>
-public sealed record class AnonymousCredentialIssueRequest(
-    long CredentialEpoch,
-    uint CircuitNumericId,
-    ushort PublicInputLayoutVersion,
-    string CircuitId,
-    string CredentialLevel,
-    byte[] CredentialRequest,
-    byte[] ClientNonce);
-
-/// <summary>
-/// Defines the API output contract represented by <c>AnonymousCredentialIssueResponse</c>.
-/// </summary>
-public sealed record class AnonymousCredentialIssueResponse(
-    long CredentialEpoch,
-    long ExpiresAtUnixMs,
-    uint CircuitNumericId,
-    ushort PublicInputLayoutVersion,
-    string CircuitId,
-    string CredentialLevel,
-    string IssuerPublicKeyId,
-    byte[] IssuerSignature);
-
-/// <summary>
 /// Defines the API output contract represented by <c>BlindCredentialIssuerMetadata</c>.
 /// </summary>
 public sealed record class BlindCredentialIssuerMetadata(

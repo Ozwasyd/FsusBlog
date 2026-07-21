@@ -124,39 +124,6 @@ public readonly struct CommentCreateResultPod
 }
 
 /// <summary>
-/// Defines the fixed-layout binary representation used by the <c>AnonymousCredentialIssueRequest</c> wire contract.
-/// </summary>
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-public readonly struct AnonymousCredentialIssueRequestPod
-{
-    public readonly long CredentialEpoch;
-    public readonly uint CircuitNumericId;
-    public readonly ushort PublicInputLayoutVersion;
-    public readonly ushort Reserved0;
-    public readonly Utf8SliceRef CircuitId;
-    public readonly Utf8SliceRef CredentialLevel;
-    public readonly Utf8SliceRef CredentialRequest;
-    public readonly Utf8SliceRef ClientNonce;
-}
-
-/// <summary>
-/// Defines the fixed-layout binary representation used by the <c>AnonymousCredentialIssueResponse</c> wire contract.
-/// </summary>
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-public readonly struct AnonymousCredentialIssueResponsePod
-{
-    public readonly long CredentialEpoch;
-    public readonly long ExpiresAtUnixMs;
-    public readonly uint CircuitNumericId;
-    public readonly ushort PublicInputLayoutVersion;
-    public readonly ushort Reserved0;
-    public readonly Utf8SliceRef CircuitId;
-    public readonly Utf8SliceRef CredentialLevel;
-    public readonly Utf8SliceRef IssuerPublicKeyId;
-    public readonly Utf8SliceRef IssuerSignature;
-}
-
-/// <summary>
 /// Defines the fixed-layout binary representation used by the <c>BlindCredentialIssuerMetadata</c> wire contract.
 /// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]

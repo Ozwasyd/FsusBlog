@@ -163,25 +163,6 @@ public readonly record struct CommentCreateV2RequestCoreModel(
     string? ProofToken,
     byte[] ZkProof);
 
-public readonly record struct AnonymousCredentialIssueRequestCoreModel(
-    long CredentialEpoch,
-    uint CircuitNumericId,
-    ushort PublicInputLayoutVersion,
-    string CircuitId,
-    string CredentialLevel,
-    byte[] CredentialRequest,
-    byte[] ClientNonce);
-
-public readonly record struct AnonymousCredentialIssueResponseCoreModel(
-    long CredentialEpoch,
-    long ExpiresAtUnixMs,
-    uint CircuitNumericId,
-    ushort PublicInputLayoutVersion,
-    string CircuitId,
-    string CredentialLevel,
-    string IssuerPublicKeyId,
-    byte[] IssuerSignature);
-
 public readonly record struct BlindCredentialIssuerMetadataCoreModel(
     long CredentialEpoch,
     long ExpiresAtUnixMs,

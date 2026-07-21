@@ -210,8 +210,8 @@ enum class FrameType : std::uint16_t
     SecurityChallengeVerifyRequest = 174,
     SecurityChallengeIssueResponse = 175,
     SecurityChallengeVerifyResponse = 176,
-    AnonymousCredentialIssueRequest = 177,
-    AnonymousCredentialIssueResponse = 178,
+    Reserved177 = 177,
+    Reserved178 = 178,
     AnonymousCredentialRootSnapshot = 179,
     AnonymousCommentCreateRequest = 182,
     AnonymousPrivacyStateSnapshot = 183,
@@ -442,8 +442,8 @@ enum class FrameType : std::uint16_t
         case FrameType::SecurityChallengeVerifyRequest:
         case FrameType::SecurityChallengeIssueResponse:
         case FrameType::SecurityChallengeVerifyResponse:
-        case FrameType::AnonymousCredentialIssueRequest:
-        case FrameType::AnonymousCredentialIssueResponse:
+        case FrameType::Reserved177:
+        case FrameType::Reserved178:
         case FrameType::AnonymousCredentialRootSnapshot:
         case FrameType::AnonymousCommentCreateRequest:
         case FrameType::AnonymousPrivacyStateSnapshot:

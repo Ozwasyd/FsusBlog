@@ -1,6 +1,5 @@
 import type {
   AnonymousCommentTicketResponse,
-  AnonymousCredentialIssueResponse,
   AnonymousCredentialRevocationArtifact,
   AnonymousCredentialRootSnapshot,
   BlindCredentialIssuerMetadata,
@@ -29,7 +28,6 @@ import { readCursorEnvelope } from './envelopeReaders';
 import { readCommentTreeNodeFromReader, readReplyItem, readThreadItemFromReader } from './podReaders';
 import {
     ANONYMOUS_COMMENT_TICKET_RESPONSE_POD_SIZE,
-    ANONYMOUS_CREDENTIAL_ISSUE_RESPONSE_POD_SIZE,
   ANONYMOUS_CREDENTIAL_REVOCATION_ARTIFACT_POD_SIZE,
   ANONYMOUS_CREDENTIAL_ROOT_SNAPSHOT_POD_SIZE,
   BLIND_CREDENTIAL_ISSUER_METADATA_POD_SIZE,
@@ -179,21 +177,6 @@ function tryMapCommentPolicySnapshotFromLayout(payload: Uint8Array, layout: Comm
     zkProdUnavailableReason: readSliceText(blob, readSliceRef(pod, layout.unavailableReasonOffset))
   };
   return finalizeCommentPolicySnapshot(decoded);
-}
-
-export function mapAnonymousCredentialIssueResponseFromPayload(payload: Uint8Array): AnonymousCredentialIssueResponse {
-  const { pod, blob } = readAnonymousPrivacyPayload(payload, ANONYMOUS_CREDENTIAL_ISSUE_RESPONSE_POD_SIZE, 'anonymous_credential_issue_response');
-
-  return {
-    credentialEpoch: readInt64Number(pod, 0),
-    rootExpiresAtUnixMs: readInt64Number(pod, 8),
-    circuitNumericId: readUint32(pod, 16),
-    publicInputLayoutVersion: readUint16(pod, 20),
-    circuitId: readAnonymousSliceText(blob, readSliceRef(pod, 24), 'anonymous_credential_issue_response_circuit_invalid'),
-    credentialLevel: readAnonymousSliceText(blob, readSliceRef(pod, 32), 'anonymous_credential_issue_response_level_invalid'),
-    issuerPublicKeyId: readAnonymousSliceText(blob, readSliceRef(pod, 40), 'anonymous_credential_issue_response_issuer_invalid'),
-    issuerSignature: readAnonymousSliceBytes(blob, readSliceRef(pod, 48), 'anonymous_credential_issue_response_signature_invalid')
-  };
 }
 
 export function mapBlindCredentialIssuerMetadataFromPayload(payload: Uint8Array): BlindCredentialIssuerMetadata {

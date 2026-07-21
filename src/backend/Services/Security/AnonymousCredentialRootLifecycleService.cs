@@ -524,7 +524,7 @@ public sealed class AnonymousCredentialRootLifecycleService(
     {
         string rootHash = NormalizeToken(request.RootHash, 128);
         string revocationRoot = NormalizeToken(request.RevocationRootHash, 128);
-        string circuitId = NormalizeToken(request.CircuitId, AnonymousCredentialIssuerLimits.MaxCircuitIdChars);
+        string circuitId = NormalizeToken(request.CircuitId, AnonymousCredentialContractLimits.MaxCircuitIdChars);
         string verifyingKeyHash = NormalizeToken(request.VerifyingKeyHash, 128);
         string issuerPublicKeyHash = ResolveIssuerPublicKeyHash(request.IssuerPublicKeyHash);
         string? circuitMetadata = TextHelpers.NormalizeNullable(request.CircuitMetadata, 4096);
@@ -594,7 +594,7 @@ public sealed class AnonymousCredentialRootLifecycleService(
             DecodePublicBytes(root.RootHash),
             DecodePublicBytes(root.RevocationRootHash),
             NormalizeToken(root.RootHash, 128),
-            NormalizeToken(root.CircuitId, AnonymousCredentialIssuerLimits.MaxCircuitIdChars),
+            NormalizeToken(root.CircuitId, AnonymousCredentialContractLimits.MaxCircuitIdChars),
             root.CircuitNumericId <= 0 ? 0U : (uint)root.CircuitNumericId,
             NormalizeToken(root.VerifyingKeyHash, 128),
             ResolveIssuerPublicKeyHash(root.IssuerPublicKeyHash),
@@ -726,7 +726,7 @@ internal static class AnonymousCredentialRootAttestation
                 NormalizeToken(root.RootHash, 128),
                 NormalizeToken(root.RevocationRootHash, 128),
                 ResolveIssuerPublicKeyHash(root.IssuerPublicKeyHash),
-                NormalizeToken(root.CircuitId, AnonymousCredentialIssuerLimits.MaxCircuitIdChars),
+                NormalizeToken(root.CircuitId, AnonymousCredentialContractLimits.MaxCircuitIdChars),
                 root.CircuitNumericId <= 0 ? 0U : (uint)root.CircuitNumericId,
                 NormalizeToken(root.VerifyingKeyHash, 128),
                 root.PublicInputLayoutVersion <= 0 ? (ushort)0 : (ushort)Math.Min(root.PublicInputLayoutVersion, ushort.MaxValue),
@@ -768,7 +768,7 @@ internal static class AnonymousCredentialRootAttestation
             NormalizeToken(rootHash, 128).ToLowerInvariant(),
             NormalizeToken(revocationRootHash, 128).ToLowerInvariant(),
             ResolveIssuerPublicKeyHash(issuerPublicKeyHash),
-            NormalizeToken(circuitId, AnonymousCredentialIssuerLimits.MaxCircuitIdChars),
+            NormalizeToken(circuitId, AnonymousCredentialContractLimits.MaxCircuitIdChars),
             circuitNumericId.ToString(System.Globalization.CultureInfo.InvariantCulture),
             NormalizeToken(verifyingKeyHash, 128).ToLowerInvariant(),
             publicInputLayoutVersion.ToString(System.Globalization.CultureInfo.InvariantCulture),

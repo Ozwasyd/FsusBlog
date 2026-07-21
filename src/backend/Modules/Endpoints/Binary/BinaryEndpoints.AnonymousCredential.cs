@@ -105,21 +105,6 @@ public static partial class BinaryEndpoints
         .WithName("binary_get_anonymous_credential_revocation_delta")
         .WithSummary("public immutable revocation delta");
 
-        group.MapPost("/anonymous-credential/issue", static async Task<BinaryFrameResult> (
-            HttpContext httpContext,
-            IAedsEncoder aeds,
-            CancellationToken cancellationToken) =>
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return BinaryResults.FromError(
-                ErrorDetail.Create(ErrorCode.Validation, "anonymous_credential_legacy_issuance_rejected"),
-                aeds,
-                StatusCodes.Status410Gone);
-        })
-        .RequireAnonymousAccountPrincipal()
-        .RequireRateLimiting("fixed_ip")
-        .RequireNoStoreResponse();
-
         group.MapGet("/anonymous-credential/blind-issuer", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IAedsEncoder aeds,
@@ -388,128 +373,6 @@ public static partial class BinaryEndpoints
             writer => PodBinaryCodec.WriteAnonymousCredentialRevocationArtifact(response, writer));
     }
 
-    internal static async Task<BinaryFrameResult> HandleAnonymousCredentialIssueAsync(
-        HttpContext httpContext,
-        IAedsEncoder aeds,
-        IAnonymousCredentialIssuerService issuer,
-        IUserAccountReader users,
-        IAuditEventService auditEvents,
-        CancellationToken cancellationToken)
-    {
-        if (!AcceptsBinaryResponse(httpContext.Request))
-        {
-            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "binary_accept_required"), aeds, StatusCodes.Status406NotAcceptable);
-        }
-
-        Result<int> accountId = await ResolveAnonymousCredentialIssueAccountAsync(
-            httpContext,
-            users,
-            auditEvents,
-            cancellationToken);
-        if (!accountId.IsSuccess)
-        {
-            int statusCode = accountId.Error.Code == ErrorCode.Unauthorized
-                ? StatusCodes.Status401Unauthorized
-                : StatusCodes.Status403Forbidden;
-            return BinaryResults.FromError(accountId.Error, aeds, statusCode);
-        }
-
-        BinaryRequestPayload payload = await ReadBinaryRequestPayloadAsync(
-            httpContext,
-            aeds,
-            AedsFrameType.AnonymousCredentialIssueRequest,
-            cancellationToken,
-            AnonymousCredentialIssuerLimits.MaxIssueRequestFrameBytes);
-        if (!payload.IsSuccess)
-        {
-            return BinaryResults.FromError(payload.Error, aeds);
-        }
-
-        if (!PodBinaryCodec.TryDecodeAnonymousCredentialIssueRequest(payload.Payload, out AnonymousCredentialIssueRequestCoreModel request))
-        {
-            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "anonymous_credential_issue_request_invalid"), aeds);
-        }
-
-        Result<AnonymousCredentialIssueResponseCoreModel> issued = await issuer.IssueAsync(
-            accountId.Value,
-            request,
-            httpContext.TraceIdentifier,
-            cancellationToken);
-        return issued.IsSuccess && issued.Value is { } response
-            ? BinaryResults.Frame(aeds, AedsFrameType.AnonymousCredentialIssueResponse, writer => PodBinaryCodec.WriteAnonymousCredentialIssueResponse(response, writer))
-            : BinaryResults.FromError(issued.Error, aeds);
-    }
-
-    private static async Task<Result<int>> ResolveAnonymousCredentialIssueAccountAsync(
-        HttpContext httpContext,
-        IUserAccountReader users,
-        IAuditEventService auditEvents,
-        CancellationToken cancellationToken)
-    {
-        if (httpContext.User.Identity?.IsAuthenticated != true ||
-            !TryReadUserId(httpContext.User, out int accountId))
-        {
-            return Result<int>.Failure(ErrorCode.Unauthorized, "anonymous_credential_auth_required");
-        }
-
-        string? identityKind = httpContext.User.FindFirst("identity_kind")?.Value;
-        if (string.IsNullOrWhiteSpace(identityKind))
-        {
-            await RecordAnonymousCredentialIssueDeniedAsync(
-                httpContext,
-                auditEvents,
-                accountId,
-                "identity_kind_missing",
-                cancellationToken);
-            return Result<int>.Failure(ErrorCode.Forbidden, "anonymous_credential_anonymous_account_required");
-        }
-
-        if (!string.Equals(identityKind, AnonymousIdentityRuntime.AnonymousAccountKind, StringComparison.Ordinal))
-        {
-            string reason = string.Equals(identityKind, AnonymousIdentityRuntime.AdminPrincipalKind, StringComparison.Ordinal)
-                ? "admin_principal_rejected"
-                : "identity_kind_invalid";
-            await RecordAnonymousCredentialIssueDeniedAsync(
-                httpContext,
-                auditEvents,
-                accountId,
-                reason,
-                cancellationToken);
-            return Result<int>.Failure(ErrorCode.Forbidden, "anonymous_credential_anonymous_account_required");
-        }
-
-        UserAccountSnapshot? account = await users.GetAccountByIdAsync(accountId);
-        if (account is null ||
-            account.Value.DeletedAt.HasValue ||
-            account.Value.Status == 2 ||
-            !string.Equals(account.Value.IdentityKind, AnonymousIdentityRuntime.AnonymousAccountKind, StringComparison.Ordinal))
-        {
-            await RecordAnonymousCredentialIssueDeniedAsync(
-                httpContext,
-                auditEvents,
-                accountId,
-                "account_unavailable",
-                cancellationToken);
-            return Result<int>.Failure(ErrorCode.Forbidden, "anonymous_credential_account_unavailable");
-        }
-
-        if (!string.Equals(
-                NormalizeAnonymousCredentialStatus(account.Value.AnonymousCredentialStatus),
-                AnonymousCredentialStatuses.Active,
-                StringComparison.Ordinal))
-        {
-            await RecordAnonymousCredentialIssueDeniedAsync(
-                httpContext,
-                auditEvents,
-                accountId,
-                "credential_disabled",
-                cancellationToken);
-            return Result<int>.Failure(ErrorCode.Forbidden, "anonymous_credential_disabled");
-        }
-
-        return Result<int>.Success(accountId);
-    }
-
     private static bool TryReadUserId(ClaimsPrincipal principal, out int userId)
     {
         userId = 0;
@@ -523,29 +386,4 @@ public static partial class BinaryEndpoints
         return normalized;
     }
 
-    private static Task RecordAnonymousCredentialIssueDeniedAsync(
-        HttpContext httpContext,
-        IAuditEventService auditEvents,
-        int accountId,
-        string reason,
-        CancellationToken cancellationToken)
-        => auditEvents.RecordHighValueAsync(new AuditEvent(
-            AuditSourceCatalog.Security,
-            AuditTypeCatalog.Security,
-            AuditActionCatalog.AnonymousCredentialIssued,
-            AuditOutcomeCatalog.Denied,
-            AuditSeverityCatalog.Warning,
-            "匿名凭证签发主体校验拒绝",
-            ActorType: AuditActorTypeCatalog.Anonymous,
-            ActorId: accountId.ToString(CultureInfo.InvariantCulture),
-            TargetType: "anonymous_credential_issuance",
-            TargetId: "anonymous-account-principal",
-            ReasonCode: reason,
-            Context: new Dictionary<string, object?>(StringComparer.Ordinal)
-            {
-                ["traceId"] = httpContext.TraceIdentifier,
-                ["path"] = httpContext.Request.Path.Value,
-                ["identityKind"] = httpContext.User.FindFirst("identity_kind")?.Value
-            }),
-            cancellationToken);
 }

@@ -465,7 +465,7 @@ public sealed class ProductionStartupValidatorTests
             (typeof(AuditTamperEvidence), "Audit:TamperEvidenceKey"),
             (typeof(RedisPowService), "Security:Pow:SigningKey"),
             (typeof(RecoveryKeyService), "Security:RecoveryKeyPepper"),
-            (typeof(AnonymousCredentialIssuerService), "AnonymousCredentialIssuer:SubjectHashPepper"),
+            (typeof(BlindCredentialIssuanceService), "AnonymousCredentialIssuer:SubjectHashPepper"),
             (typeof(VisitLogIpPseudonymizer), "VisitLog:IpPseudonymization:CurrentKey"),
             (typeof(ClientRegionResolver), "Moderation:RegionPolicy:IpHashKey")
         ];
@@ -1014,7 +1014,6 @@ public sealed class ProductionStartupValidatorTests
     {
         IConfiguration configuration = CreateZkProdProductionConfiguration(new Dictionary<string, string?>
         {
-            ["AnonymousCredentialIssuer:CircuitNative:Enabled"] = "false"
         });
 
         IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(

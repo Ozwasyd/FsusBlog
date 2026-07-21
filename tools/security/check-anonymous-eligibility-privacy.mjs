@@ -36,7 +36,7 @@ expect(Array.isArray(circuit.private_witness) && circuit.private_witness.include
 expect(circuit.forbidden_public_inputs?.includes('credential_epoch') && circuit.forbidden_public_inputs?.includes('credential_level'), 'exact attributes must be explicitly forbidden as public inputs')
 expect(setup.ceremony_status === 'not-run' && setup.production_usable === false && setup.verifying_key_hash === '', 'unrun setup must remain fail closed')
 expect(manifest.production_usable === false && manifest.minimum_production_anonymity_set_size === 20, 'manifest must require k >= 20 and remain non-production')
-expect(tamper.tamper_cases?.some(item => item.id === 'tamper-layout-5' && item.expected === 'reject'), 'legacy layout tamper case is required')
+expect(tamper.tamper_cases?.some(item => item.id === 'tamper-non-current-layout' && item.expected === 'reject'), 'non-current layout tamper case is required')
 for (const id of ['tamper-is-eligible', 'tamper-may-comment', 'tamper-rate-class', 'tamper-requires-moderation']) {
   expect(tamper.tamper_cases?.some(item => item.id === id && item.expected === 'reject'), `${id} rejection is required`)
 }

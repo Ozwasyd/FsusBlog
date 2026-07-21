@@ -40,7 +40,6 @@
 - [Comment query boundary](architecture/comment-query-boundary.md)
 - [Composition root boundary](architecture/composition-root-boundary.md)
 - [ADR: anonymous credentials use RFC 9474 blind issuance](architecture/decisions/ADR-Anonymous-Credential-Blind-Issuance.md)
-- [ADR: ZK anonymous comments use circuit-native credentials and Groth16 proofs](architecture/decisions/ADR-ZK-CircuitNative-Groth16.md)
 - [DI lifetime validation](architecture/dependency-injection-lifetime-validation.md)
 - [MessageCenter 内部职责边界](architecture/message-center-responsibilities.md)
 - [单体分布式架构边界](architecture/monolithic-distributed-boundary.md)

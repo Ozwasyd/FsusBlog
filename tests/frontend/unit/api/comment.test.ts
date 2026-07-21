@@ -25,7 +25,6 @@ import {
   deleteComment,
   encodeAnonymousCommentCreateRequest,
   encodeAnonymousCommentTicketRequest,
-  encodeAnonymousCredentialIssueRequest,
   getAnonymousCredentialRevocationArtifact,
   resolveCommentAuthorView
 } from '@/api/comment'
@@ -263,28 +262,6 @@ describe('comment API', () => {
     expect(payload[13]).toBe(1)
   })
 
-  it('encodeAnonymousCredentialIssueRequest writes a fixed POD and blob slices', () => {
-    const payload = encodeAnonymousCredentialIssueRequest({
-      credentialEpoch: 20260618,
-      circuitNumericId: 7,
-      publicInputLayoutVersion: 4,
-      circuitId: 'fsus.anonymous.comment.v3',
-      credentialLevel: 'strong_anonymous',
-      credentialRequest: new Uint8Array([1, 2, 3]),
-      clientNonce: new Uint8Array([4, 5])
-    })
-
-    const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
-    expect(view.getBigInt64(0, true)).toBe(20260618n)
-    expect(view.getUint32(8, true)).toBe(7)
-    expect(view.getUint16(12, true)).toBe(4)
-    const blob = payload.subarray(52)
-    expect(readSliceText(payload, blob, 16)).toBe('fsus.anonymous.comment.v3')
-    expect(readSliceText(payload, blob, 24)).toBe('strong_anonymous')
-    expect([...readSliceBytes(payload, blob, 32)]).toEqual([1, 2, 3])
-    expect([...readSliceBytes(payload, blob, 40)]).toEqual([4, 5])
-  })
-
   it('encodeAnonymousCommentTicketRequest writes the v5 minimal-predicate ticket POD without exact attributes', () => {
     const payload = encodeAnonymousCommentTicketRequest({
       articleId: 42,
@@ -436,9 +413,9 @@ describe('comment API', () => {
       replyToCommentId: '80',
       credentialEpoch: 20260618,
       circuitNumericId: 7,
-      publicInputLayoutVersion: 4,
+      publicInputLayoutVersion: 6,
       anonymousScope: 'article:42',
-      circuitId: 'fsus.anonymous.comment.v3',
+      circuitId: 'fsus.anonymous.comment.v5',
       actionContext: 'comment.create',
       verifyingKeyHash: 'a'.repeat(64),
       nullifierHash: new Uint8Array([9, 10]),

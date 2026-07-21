@@ -383,7 +383,7 @@ public sealed class AedsEncoderTests
     [InlineData(AedsFrameType.CurrentUserSnapshot)]
     [InlineData(AedsFrameType.MfaChallengeResult)]
     [InlineData(AedsFrameType.PasskeyLoginBegin)]
-    [InlineData(AedsFrameType.AnonymousCredentialIssueResponse)]
+    [InlineData(AedsFrameType.Reserved178)]
     [InlineData(AedsFrameType.ApiError)]
     public void FrameBufferWriter_SensitiveAndUnknownFramesAlwaysClearPoolBuffer(AedsFrameType frameType)
     {

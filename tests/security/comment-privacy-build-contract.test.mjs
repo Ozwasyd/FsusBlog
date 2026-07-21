@@ -65,7 +65,7 @@ test('enabled browser prover manifest is emitted with the v5 layout-6 identity',
 
 test('explicit production ZK rejects retired identity and artifact digest drift', t => {
   const retired = createReadyFixture(t)
-  retired.setup.circuit_id = 'fsus.anonymous.comment.v3'
+  retired.setup.circuit_id = 'fsus.anonymous.comment.invalid'
   writeJson(retired.root, commentPrivacyBuildContract.trustedSetupManifest, retired.setup)
   assert.throws(() => validateCommentPrivacyBuild({
     root: retired.root,

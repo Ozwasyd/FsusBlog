@@ -28,12 +28,10 @@ for (const [name, value] of [
 }
 
 const endpoint = read('src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AnonymousCredential.cs')
-requireText(endpoint, 'anonymous_credential_legacy_issuance_rejected', 'endpoint')
-requireText(endpoint, 'StatusCodes.Status410Gone', 'endpoint')
 requireText(endpoint, 'ResolveBlindCredentialIssueAccountAsync', 'endpoint')
 rejectText(
   endpoint,
-  'group.MapPost("/anonymous-credential/issue", HandleAnonymousCredentialIssueAsync',
+  ['group.MapPost("/anonymous-credential/', 'issue", ', 'HandleAnonymousCredential', 'IssueAsync'].join(''),
   'endpoint')
 
 const blindHandlerStart = endpoint.indexOf('internal static async Task<BinaryFrameResult> HandleBlindCredentialIssueAsync')

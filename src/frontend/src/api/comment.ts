@@ -9,8 +9,6 @@ import type {
     AnonymousCommentSubmitTicket,
     AnonymousCommentTicketRequestDto,
   AnonymousCommentTicketResponse,
-  AnonymousCredentialIssueRequestDto,
-  AnonymousCredentialIssueResponse,
   AnonymousCredentialRevocationArtifact,
   AnonymousCredentialRootSnapshot,
   AnonymousPrivacyStateSnapshot,
@@ -49,8 +47,6 @@ export type {
     AnonymousCommentSubmitTicket,
     AnonymousCommentTicketRequestDto,
   AnonymousCommentTicketResponse,
-  AnonymousCredentialIssueRequestDto,
-  AnonymousCredentialIssueResponse,
   AnonymousCredentialRevocationArtifact,
   AnonymousCredentialRootSnapshot,
   AnonymousPrivacyStateSnapshot,
@@ -588,29 +584,6 @@ export function encodeCommentCreateV2Request(data: CommentCreateV2Dto): Uint8Arr
   return bytes
 }
 
-export function encodeAnonymousCredentialIssueRequest(data: AnonymousCredentialIssueRequestDto): Uint8Array {
-  const circuitId = encodeText(data.circuitId ?? '')
-  const credentialLevel = encodeText(data.credentialLevel ?? '')
-  const credentialRequest = bytesFrom(data.credentialRequest)
-  const clientNonce = bytesFrom(data.clientNonce)
-  const blobLength = circuitId.byteLength + credentialLevel.byteLength + credentialRequest.byteLength + clientNonce.byteLength
-  const bytes = new Uint8Array(ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_POD_SIZE + 4 + blobLength)
-  const view = new DataView(bytes.buffer)
-
-  view.setBigInt64(0, BigInt(data.credentialEpoch ?? 0), true)
-  view.setUint32(8, data.circuitNumericId ?? 0, true)
-  view.setUint16(12, data.publicInputLayoutVersion ?? 0, true)
-  view.setUint16(14, 0, true)
-
-  let offset = 0
-  offset = writeBlobPart(bytes, view, 16, ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_BLOB_START, offset, circuitId)
-  offset = writeBlobPart(bytes, view, 24, ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_BLOB_START, offset, credentialLevel)
-  offset = writeBlobPart(bytes, view, 32, ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_BLOB_START, offset, credentialRequest)
-  writeBlobPart(bytes, view, 40, ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_BLOB_START, offset, clientNonce)
-  view.setInt32(ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_POD_SIZE, blobLength, true)
-  return bytes
-}
-
 export function encodeBlindCredentialIssueRequest(data: BlindCredentialIssueRequestDto): Uint8Array {
   const circuitId = encodeText(data.circuitId ?? '')
   const credentialLevel = encodeText(data.credentialLevel ?? '')
@@ -758,8 +731,6 @@ function parseOptionalId(value?: string | null): bigint | null {
   }
 }
 
-const ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_POD_SIZE = 48
-const ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_BLOB_START = ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_POD_SIZE + 4
 const BLIND_CREDENTIAL_ISSUE_REQUEST_POD_SIZE = 56
 const BLIND_CREDENTIAL_ISSUE_REQUEST_BLOB_START = BLIND_CREDENTIAL_ISSUE_REQUEST_POD_SIZE + 4
 const ANONYMOUS_COMMENT_TICKET_REQUEST_POD_SIZE = 120

@@ -368,27 +368,6 @@ export type PublicCommentCreateInput = Omit<CommentCreateV2Dto, 'authorMode' | '
     publicSendExplicitlySelected?: boolean | null;
 };
 
-export interface AnonymousCredentialIssueResponse {
-    credentialEpoch: number;
-    rootExpiresAtUnixMs: number;
-    circuitNumericId: number;
-    publicInputLayoutVersion: number;
-    circuitId: string;
-    credentialLevel: string;
-    issuerPublicKeyId: string;
-    issuerSignature: Uint8Array;
-}
-
-export interface AnonymousCredentialIssueRequestDto {
-    credentialEpoch: number;
-    circuitNumericId: number;
-    publicInputLayoutVersion: number;
-    circuitId: string;
-    credentialLevel: string;
-    credentialRequest: Uint8Array | number[];
-    clientNonce: Uint8Array | number[];
-}
-
 export interface BlindCredentialIssuerMetadata {
     credentialEpoch: number;
     expiresAtUnixMs: number;

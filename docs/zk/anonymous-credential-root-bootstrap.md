@@ -1,7 +1,7 @@
 # Anonymous credential root bootstrap runbook
 
 This runbook covers the production bootstrap and rotation evidence flow for
-`fsus.anonymous.comment.v3` anonymous credential roots. It does not generate a
+`fsus.anonymous.comment.v5` anonymous credential roots. It does not generate a
 credential root, revocation root, issuer key, private key, witness, proof, or
 verifying key hash.
 
@@ -15,14 +15,13 @@ real production material:
   `verifying_key_hash`.
 - `config/zk/anonymous-comment-v5-verifying-key.manifest.json` has
   `production_usable=true` and the same real `verifying_key_hash`.
-- The circuit-native issuer service has produced a public issuer key hash.
+- The RFC 9474 blind issuer has produced a public issuer key hash.
 - The credential root and revocation accumulator root were computed by the
   issuer/root ceremony outside this repository.
 
 The committed fail-closed manifests intentionally keep
-`production_usable=false` and are rejected by this bootstrap flow. They may carry
-the current placeholder verifying-key artifact hash only for repository
-consistency checks; that hash is not production rollout approval.
+`production_usable=false` and are rejected by this bootstrap flow. Empty hashes
+mean the ceremony has not run; they are not production rollout approval.
 
 ## Input
 
@@ -35,9 +34,9 @@ Prepare a JSON request with this public material only:
   "credentialRootHash": "<64-char-hex>",
   "revocationRootHash": "<64-char-hex>",
   "issuerPublicKeyHash": "<64-char-hex>",
-  "circuitId": "fsus.anonymous.comment.v3",
+  "circuitId": "fsus.anonymous.comment.v5",
   "circuitNumericId": 7,
-  "publicInputLayoutVersion": 4,
+  "publicInputLayoutVersion": 6,
   "verifyingKeyHash": "<64-char-hex>",
   "expiresAt": "2026-07-20T00:00:00Z",
   "graceExpiresAt": "2026-07-27T00:00:00Z",
@@ -62,7 +61,7 @@ node tools/security/bootstrap-anonymous-credential-root.mjs \
 ```
 
 The tool validates hash format, `circuitId =
-fsus.anonymous.comment.v3`, `publicInputLayoutVersion = 4`, trusted setup
+fsus.anonymous.comment.v5`, `publicInputLayoutVersion = 6`, trusted setup
 manifest binding, verifying-key manifest binding, root expiry ordering, and
 forbidden sensitive input fields.
 

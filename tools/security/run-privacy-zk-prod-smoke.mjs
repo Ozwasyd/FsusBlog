@@ -49,7 +49,7 @@ const configuration = configPaths
 
 const zkProd = readSection(configuration, ['AnonymousIdentity', 'ZkProd'])
 const zkVerifier = readSection(configuration, ['AnonymousIdentity', 'ZkVerifier'])
-const credentialIssuer = readSection(configuration, ['AnonymousCredentialIssuer', 'CircuitNative'])
+const credentialIssuer = readSection(configuration, ['AnonymousCredentialIssuer', 'BlindRsa'])
 const enabled = readBoolEnv('FSUSBLOG_ZK_PROD_ENABLED') ?? readBool(zkProd.Enabled) ?? false
 const traceId = `zk-prod-smoke-${Date.now().toString(36)}`
 const realEvidence = args.realEvidence ? readRealEvidence(args.realEvidence) : null
@@ -149,8 +149,9 @@ function inspectArtifacts() {
   const proverManifest = readOptionalJson(proverManifestPath)
   const wasmProver = hasUsableBrowserProver(proverManifest)
 
-  const credential = readBool(zkProd.CredentialReady) === true ||
-    normalizeString(process.env.FSUSBLOG_ZK_ISSUER_PUBLIC_KEY ?? credentialIssuer.IssuerPublicKeyPath ?? zkProd.IssuerPublicKeyPath).length > 0
+  const credentialHash = normalizeString(
+    process.env.FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_HASH ?? credentialIssuer.PublicKeyHash).toLowerCase()
+  const credential = readBool(zkProd.CredentialReady) === true || isSha256Hex(credentialHash)
 
   const safeArtifacts = {
     nativeVerifierConfigured: nativeVerifier,

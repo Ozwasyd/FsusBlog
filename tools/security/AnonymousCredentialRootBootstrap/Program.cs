@@ -20,8 +20,8 @@ namespace FsusBlog.Tools.Security.AnonymousCredentialRootBootstrap;
 
 internal static partial class Program
 {
-    private const string ExpectedCircuitId = "fsus.anonymous.comment.v3";
-    private const ushort ExpectedLayoutVersion = 4;
+    private const string ExpectedCircuitId = "fsus.anonymous.comment.v5";
+    private const ushort ExpectedLayoutVersion = 6;
     private const string TrustedSetupSchema = "fsusblog.zk.trusted-setup-manifest.v1";
     private const string VerifyingKeySchema = "fsusblog.zk.verifying-key-config.v1";
     private const string EvidenceSchema = "fsusblog.anonymous-credential-root-bootstrap-evidence.v1";
@@ -751,8 +751,8 @@ internal static partial class Program
                 },
                 [
                     "hash-format-valid",
-                    "circuit-id-fsus.anonymous.comment.v3",
-                    "public-input-layout-version-4",
+                    "circuit-id-fsus.anonymous.comment.v5",
+                    "public-input-layout-version-6",
                     "verifying-key-hash-bound-to-trusted-setup",
                     "verifying-key-hash-bound-to-config-manifest",
                     "root-lifecycle-rotate-called",

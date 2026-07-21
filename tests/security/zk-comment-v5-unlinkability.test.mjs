@@ -7,7 +7,7 @@ import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
-const checker = path.join(root, 'tools/security/check-zk-comment-v2-unlinkability.mjs')
+const checker = path.join(root, 'tools/security/check-zk-comment-v5-unlinkability.mjs')
 
 test('100-scope complete wire transcripts contain no stable credential identifier', () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'fsus-zk-unlinkable-'))

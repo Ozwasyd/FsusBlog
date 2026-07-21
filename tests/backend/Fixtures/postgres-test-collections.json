@@ -37,7 +37,6 @@
         { "path": "Integration/MessageRetentionCleanupIntegrationTests.cs", "class": "MessageRetentionCleanupIntegrationTests" },
         { "path": "Integration/PasskeyProjectionConsistencyIntegrationTests.cs", "class": "PasskeyProjectionConsistencyIntegrationTests" },
         { "path": "Integration/PasskeyRegistrationProjectionIntegrationTests.cs", "class": "PasskeyRegistrationProjectionIntegrationTests" },
-        { "path": "Unit/AnonymousCredentialIssuerTests.cs", "class": "AnonymousCredentialIssuerTests" },
         { "path": "Unit/AnonymousCredentialRootLifecycleTests.cs", "class": "AnonymousCredentialRootLifecycleTests" },
         { "path": "Unit/SecurityPolicySnapshotPersistenceTests.cs", "class": "SecurityPolicySnapshotPersistenceTests" },
         { "path": "Unit/AdminSessionManagementTests.cs", "class": "AdminSessionManagementTests" },

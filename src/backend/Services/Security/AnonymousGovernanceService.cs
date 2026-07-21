@@ -179,7 +179,7 @@ public sealed class AnonymousGovernanceService(
             value.CredentialEpoch,
             rootHash,
             MaskHash(rootHash),
-            TextHelpers.NormalizeNullable(value.CircuitId, AnonymousCredentialIssuerLimits.MaxCircuitIdChars),
+            TextHelpers.NormalizeNullable(value.CircuitId, AnonymousCredentialContractLimits.MaxCircuitIdChars),
             TextHelpers.NormalizeNullable(value.VerifyingKeyHash, 128),
             value.PublicInputLayoutVersion,
             DateTimeOffset.FromUnixTimeMilliseconds(value.RootExpiresAtUnixMs),

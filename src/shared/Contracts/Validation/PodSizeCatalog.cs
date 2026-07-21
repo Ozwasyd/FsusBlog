@@ -78,8 +78,6 @@ public static class PodSizeCatalog
     public static readonly int CommentCreateV2RequestPod = PodContractValidation.SizeOf<CommentCreateV2RequestPod>();
     public static readonly int CommentCreateResultPod = PodContractValidation.SizeOf<CommentCreateResultPod>();
     public static readonly int CommentAuthorViewPod = PodContractValidation.SizeOf<CommentAuthorViewPod>();
-    public static readonly int AnonymousCredentialIssueRequestPod = PodContractValidation.SizeOf<AnonymousCredentialIssueRequestPod>();
-    public static readonly int AnonymousCredentialIssueResponsePod = PodContractValidation.SizeOf<AnonymousCredentialIssueResponsePod>();
     public static readonly int BlindCredentialIssuerMetadataPod = PodContractValidation.SizeOf<BlindCredentialIssuerMetadataPod>();
     public static readonly int BlindCredentialIssueRequestPod = PodContractValidation.SizeOf<BlindCredentialIssueRequestPod>();
     public static readonly int BlindCredentialIssueResponsePod = PodContractValidation.SizeOf<BlindCredentialIssueResponsePod>();

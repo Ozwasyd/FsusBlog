@@ -75,13 +75,15 @@ public sealed class ZkAnonymousProofService : IZkAnonymousProofService
     private readonly IZkProofVerifier _verifier;
     private readonly IOptionsMonitor<ZkProdOptions> _zkProdOptions;
     private readonly IAnonymousCredentialRootReader? _rootReader;
-    private readonly ICircuitNativeCredentialIssuer? _credentialIssuer;
+    private readonly IRfc9474BlindCredentialSigner? _credentialSigner;
+    private readonly IBlindCredentialRuntimeGate? _credentialGate;
 
     public ZkAnonymousProofService(IConfiguration configuration, IZkProofVerifier verifier)
         : this(
             configuration,
             verifier,
             new StaticOptionsMonitor<ZkProdOptions>(ZkProdOptions.FromConfiguration(configuration)),
+            null,
             null,
             null)
     {
@@ -92,13 +94,15 @@ public sealed class ZkAnonymousProofService : IZkAnonymousProofService
         IZkProofVerifier verifier,
         IOptionsMonitor<ZkProdOptions> zkProdOptions,
         IAnonymousCredentialRootReader? rootReader = null,
-        ICircuitNativeCredentialIssuer? credentialIssuer = null)
+        IRfc9474BlindCredentialSigner? credentialSigner = null,
+        IBlindCredentialRuntimeGate? credentialGate = null)
     {
         _configuration = configuration;
         _verifier = verifier;
         _zkProdOptions = zkProdOptions;
         _rootReader = rootReader;
-        _credentialIssuer = credentialIssuer;
+        _credentialSigner = credentialSigner;
+        _credentialGate = credentialGate;
     }
 
     public AnonymousCommentPolicySnapshot CurrentCommentPolicy
@@ -134,7 +138,7 @@ public sealed class ZkAnonymousProofService : IZkAnonymousProofService
             new ZkProdRuntimeReadiness(
                 _verifier.IsConfigured,
                 HasReadyCredentialRoot(),
-                _credentialIssuer?.IsConfigured == true),
+                _credentialSigner?.IsConfigured == true && _credentialGate?.IsEnabled == true),
             _configuration);
 
     public async Task<ZkProofVerificationResult> VerifyCommentProofAsync(

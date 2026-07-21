@@ -12,8 +12,6 @@
     "publicInputLayoutVersion": 6,
     "blindCredentialScheme": "rfc9474-rsabssa-sha384-pss-randomized-3072",
     "blindRsaModulusBytes": 384,
-    "maxCircuitNativeIssuerSignatureBytes": 256,
-    "maxCircuitNativeCredentialRequestBytes": 256,
     "maxGroth16ProofBytes": 4096,
     "anonymousTicketPublicInputs": [
       "action_context",
@@ -636,16 +634,6 @@
           "operationId": "binary_get_anonymous_credential_revocation_delta",
           "summary": "public immutable revocation delta",
           "surface": "anonymous-credential-public-revocation"
-        },
-        {
-          "method": "POST",
-          "path": "/anonymous-credential/issue",
-          "auth": "user",
-          "cache": "no-store",
-          "rateLimit": "fixed_ip",
-          "responseFrame": "ApiError",
-          "successStatus": 410,
-          "surface": "anonymous-credential-legacy-issue-gone"
         },
         {
           "method": "GET",
@@ -2607,5 +2595,5 @@
     "openapi": "src/shared/Contracts/Validation/fsusblog.openapi.json",
     "protocol": "src/shared/Contracts/Validation/aeds-protocol.json"
   },
-  "openapiOperationCount": 242
+  "openapiOperationCount": 241
 }

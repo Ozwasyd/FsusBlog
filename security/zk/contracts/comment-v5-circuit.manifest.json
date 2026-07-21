@@ -31,13 +31,7 @@
         "unknown"
     ],
     "minimum_production_anonymity_set_size": 20,
-    "legacy_layouts_rejected": [
-        1,
-        2,
-        3,
-        4,
-        5
-    ],
+    "reject_non_current_layout": true,
     "transcript_unlinkability": {
         "sample_scope_count": 100,
         "same_scope_nullifier_stable": true,

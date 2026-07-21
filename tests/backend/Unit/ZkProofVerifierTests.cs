@@ -12,9 +12,9 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ZkProofVerifierTests
 {
-    private const string CircuitId = "fsus.anonymous.comment.v3";
+    private const string CircuitId = "fsus.anonymous.comment.v5";
     private static readonly string s_verifyingKeyHash = new('d', 64);
-    private const ushort PublicInputLayoutVersion = 4;
+    private const ushort PublicInputLayoutVersion = 6;
     private const long CredentialEpoch = 7;
     private static readonly string s_credentialRoot = new('e', 64);
     private static readonly string s_revocationRoot = new('8', 64);

@@ -68,7 +68,7 @@ public sealed class AnonymousCredentialRootStore(ISqlSugarClient db, IConfigurat
             DecodePublicBytes(root.RootHash),
             DecodePublicBytes(root.RevocationRootHash),
             Normalize(root.RootHash, 128),
-            Normalize(root.CircuitId, AnonymousCredentialIssuerLimits.MaxCircuitIdChars),
+            Normalize(root.CircuitId, AnonymousCredentialContractLimits.MaxCircuitIdChars),
             root.CircuitNumericId <= 0 ? 0U : (uint)root.CircuitNumericId,
             Normalize(root.VerifyingKeyHash, 128),
             Normalize(root.IssuerPublicKeyHash, 128),

@@ -283,14 +283,14 @@ function completeRealEvidence(dir, overrides = {}) {
 
 function writeEvidenceArtifacts(dir) {
   return {
-    r1cs: writeArtifact(dir, 'comment-v2.r1cs', 'r1cs artifact'),
-    provingKey: writeArtifact(dir, 'comment-v2.pk', 'proving key artifact'),
-    verifyingKey: writeArtifact(dir, 'comment-v2.vk', 'verifying key artifact'),
+    r1cs: writeArtifact(dir, 'comment-v5.r1cs', 'r1cs artifact'),
+    provingKey: writeArtifact(dir, 'comment-v5.pk', 'proving key artifact'),
+    verifyingKey: writeArtifact(dir, 'comment-v5.vk', 'verifying key artifact'),
     nativeVerifier: writeArtifact(dir, 'libfsus_zk_native.so', 'native verifier artifact'),
     wasmProver: writeArtifact(dir, 'comment-privacy-prover.wasm', 'wasm prover artifact'),
-    proofFixture: writeArtifact(dir, 'comment-v2-proof-fixture.json', '{"proof":"redacted"}'),
-    publicInputs: writeArtifact(dir, 'comment-v2-public-inputs.json', '{"inputs":["redacted"]}'),
-    tamperCases: writeArtifact(dir, 'comment-v2-tamper-cases.json', '{"tamperCases":["redacted"]}'),
+    proofFixture: writeArtifact(dir, 'comment-v5-proof-fixture.json', '{"proof":"redacted"}'),
+    publicInputs: writeArtifact(dir, 'comment-v5-public-inputs.json', '{"inputs":["redacted"]}'),
+    tamperCases: writeArtifact(dir, 'comment-v5-tamper-cases.json', '{"tamperCases":["redacted"]}'),
     unlinkabilityTranscripts: writeArtifact(dir, 'comment-v3-unlinkability.json', '{"sampledScopes":100,"stableCredentialFields":[]}')
   }
 }

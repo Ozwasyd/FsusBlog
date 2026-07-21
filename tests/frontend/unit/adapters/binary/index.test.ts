@@ -222,7 +222,7 @@ describe('decodeBinaryFramePayload', () => {
 
   it('maps anonymous privacy state snapshot frames', () => {
     const pod = new Uint8Array(ANONYMOUS_PRIVACY_STATE_SNAPSHOT_POD_SIZE)
-    const circuit = textBytes('fsus.anonymous.comment.v3')
+    const circuit = textBytes('fsus.anonymous.comment.v5')
     const verifyingKeyHash = textBytes('vk-sha256')
     const status = textBytes('active')
     const level = textBytes('strong_anonymous')
@@ -232,7 +232,7 @@ describe('decodeBinaryFramePayload', () => {
     writeInt64(pod, 8, 1780000000000n)
     writeInt64(pod, 16, 1780000005000n)
     writeInt32(pod, 24, 7)
-    writeUint16(pod, 28, 4)
+    writeUint16(pod, 28, 6)
     pod[30] = 1
     pod[31] = 1
     pod[32] = 0
@@ -246,11 +246,11 @@ describe('decodeBinaryFramePayload', () => {
       rootExpiresAtUnixMs: 1780000000000,
       ticketExpiresAtUnixMs: 1780000005000,
       circuitNumericId: 7,
-      publicInputLayoutVersion: 4,
+      publicInputLayoutVersion: 6,
       hasActiveCredential: true,
       canIssueCredential: true,
       canSubmitAnonymousComment: false,
-      circuitId: 'fsus.anonymous.comment.v3',
+      circuitId: 'fsus.anonymous.comment.v5',
       verifyingKeyHash: 'vk-sha256',
       credentialStatus: 'active',
       credentialLevel: 'strong_anonymous'

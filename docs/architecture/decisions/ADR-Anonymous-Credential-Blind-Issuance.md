@@ -47,7 +47,7 @@ result, so the wire protocol and caller-visible error mapping do not change.
 
 The protocol id is
 `rfc9474-rsabssa-sha384-pss-randomized-3072`. The target presentation contract
-is `fsus.anonymous.comment.v4`, public-input layout 5. Old v3/layout 4
+is `fsus.anonymous.comment.v5`, public-input layout 6. Non-current
 circuit-native Groth16 artifacts are incompatible and cannot be reused.
 
 ## Isolation and operations

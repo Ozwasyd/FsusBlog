@@ -1001,7 +1001,8 @@ public sealed class ConfigurationHealthSnapshot(
     {
         IZkProofVerifier? verifier = serviceProvider.GetService<IZkProofVerifier>();
         IAnonymousCredentialRootReader? rootReader = serviceProvider.GetService<IAnonymousCredentialRootReader>();
-        ICircuitNativeCredentialIssuer? credentialIssuer = serviceProvider.GetService<ICircuitNativeCredentialIssuer>();
+        IRfc9474BlindCredentialSigner? credentialSigner = serviceProvider.GetService<IRfc9474BlindCredentialSigner>();
+        IBlindCredentialRuntimeGate? credentialGate = serviceProvider.GetService<IBlindCredentialRuntimeGate>();
         DateTimeOffset now = DateTimeOffset.UtcNow;
         bool rootReady = rootReader?.CurrentSnapshot.AcceptedRoots.Any(root =>
             root.GraceExpiresAtUtc > now &&
@@ -1013,7 +1014,7 @@ public sealed class ConfigurationHealthSnapshot(
         return new ZkProdRuntimeReadiness(
             verifier?.IsConfigured == true,
             rootReady,
-            credentialIssuer?.IsConfigured == true);
+            credentialSigner?.IsConfigured == true && credentialGate?.IsEnabled == true);
     }
 }
 

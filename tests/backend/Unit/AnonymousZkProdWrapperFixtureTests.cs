@@ -252,7 +252,8 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             verifier,
             new StaticOptionsMonitor<ZkProdOptions>(ZkProdOptions.FromConfiguration(configuration)),
             rootReader,
-            new ConfiguredCredentialIssuer());
+            new ConfiguredBlindCredentialSigner(),
+            new EnabledBlindCredentialGate());
     }
 
     private static CommentCommandService CreateCommentService(
@@ -525,21 +526,24 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             => Task.FromResult(true);
     }
 
-    private sealed class ConfiguredCredentialIssuer : ICircuitNativeCredentialIssuer
+    private sealed class ConfiguredBlindCredentialSigner : IRfc9474BlindCredentialSigner
     {
         public bool IsConfigured => true;
+        public string KeyId => "unit-test-blind-issuer";
+        public string PublicKeyHash => AnonymousZkProdWrapperFixtureTests.s_issuerPublicKeyHash;
+        public byte[] SubjectPublicKeyInfo => [1];
+        public int ModulusBytes => Rfc9474BlindCredentialProfile.ModulusBytes;
 
-        public string IssuerPublicKeyId => "unit-test-circuit-native-issuer";
-
-        public string IssuerPublicKeyHash => AnonymousZkProdWrapperFixtureTests.s_issuerPublicKeyHash;
-
-        public ValueTask<Result<CircuitNativeCredentialIssueResult>> SignAsync(
-            CircuitNativeCredentialIssueMaterial material,
+        public ValueTask<Result<byte[]>> BlindSignAsync(
+            ReadOnlyMemory<byte> blindedMessage,
             CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
+    }
 
-        public bool VerifyIssuerSignature(CircuitNativeCredentialIssueMaterial material, ReadOnlySpan<byte> signature)
-            => false;
+    private sealed class EnabledBlindCredentialGate : IBlindCredentialRuntimeGate
+    {
+        public bool IsEnabled => true;
+        public TimeSpan GetEnvelopeDelay(TimeSpan elapsed) => TimeSpan.Zero;
     }
 
     private sealed record CacheWrite(CachePolicyId PolicyId, string Identity, byte[] Value, TimeSpan? Ttl);

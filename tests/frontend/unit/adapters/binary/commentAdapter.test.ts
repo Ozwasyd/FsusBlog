@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
   mapAnonymousCommentTicketResponseFromPayload,
-  mapAnonymousCredentialIssueResponseFromPayload,
   mapAnonymousCredentialRevocationArtifactFromPayload,
   mapAnonymousCredentialRootSnapshotFromPayload,
   mapAnonymousPrivacyStateSnapshotFromPayload,
@@ -16,7 +15,6 @@ import {
 } from '@/adapters/binary/commentAdapter'
 import {
   ANONYMOUS_COMMENT_TICKET_RESPONSE_POD_SIZE,
-  ANONYMOUS_CREDENTIAL_ISSUE_RESPONSE_POD_SIZE,
   ANONYMOUS_CREDENTIAL_REVOCATION_ARTIFACT_POD_SIZE,
   ANONYMOUS_CREDENTIAL_ROOT_SNAPSHOT_POD_SIZE,
   ANONYMOUS_PRIVACY_STATE_SNAPSHOT_POD_SIZE,
@@ -480,40 +478,9 @@ describe('mapCommentPolicySnapshotFromPayload', () => {
 // anonymous privacy POD response adapters
 // ---------------------------------------------------------------------------
 describe('anonymous privacy binary adapters', () => {
-  it('decodes credential issue response without exposing reversible identity', () => {
-    const pod = new Uint8Array(ANONYMOUS_CREDENTIAL_ISSUE_RESPONSE_POD_SIZE)
-    const circuit = textBytes('zk-comment-v2')
-    const level = textBytes('strong_anonymous')
-    const issuerPublicKeyId = textBytes('issuer-key-2026q2')
-    const issuerSignature = new Uint8Array([7, 8, 9])
-    const blob = buildPayload(circuit, level, issuerPublicKeyId, issuerSignature)
-
-    writeInt64(pod, 0, 20260618n)
-    writeInt64(pod, 8, 1780000000000n)
-    writeInt32(pod, 16, 7)
-    writeUint16(pod, 20, 3)
-    writeSliceRef(pod, 24, 0, circuit.length)
-    writeSliceRef(pod, 32, circuit.length, level.length)
-    writeSliceRef(pod, 40, circuit.length + level.length, issuerPublicKeyId.length)
-    writeSliceRef(pod, 48, circuit.length + level.length + issuerPublicKeyId.length, issuerSignature.length)
-
-    const result = mapAnonymousCredentialIssueResponseFromPayload(buildPayload(pod, blobParts(blob)))
-
-    expect(result.credentialEpoch).toBe(20260618)
-    expect(result.rootExpiresAtUnixMs).toBe(1780000000000)
-    expect(result.circuitNumericId).toBe(7)
-    expect(result.publicInputLayoutVersion).toBe(3)
-    expect(result.circuitId).toBe('zk-comment-v2')
-    expect(result.credentialLevel).toBe('strong_anonymous')
-    expect(result.issuerPublicKeyId).toBe('issuer-key-2026q2')
-    expect([...result.issuerSignature]).toEqual([7, 8, 9])
-    expect(JSON.stringify(result)).not.toContain('userId')
-    expect(JSON.stringify(result)).not.toContain('credentialCommitment')
-  })
-
   it('decodes root snapshot, ticket response, and privacy state snapshots', () => {
     const rootPod = new Uint8Array(ANONYMOUS_CREDENTIAL_ROOT_SNAPSHOT_POD_SIZE)
-    const circuit = textBytes('zk-comment-v2')
+    const circuit = textBytes('fsus.anonymous.comment.v5')
     const vk = textBytes('vk-sha256')
     const issuerPublicKeyHash = textBytes('issuer-public-key-hash')
     const credentialRoot = new Uint8Array([1, 2])

@@ -49,7 +49,7 @@ const configuration = configPaths
 
 const zkProd = readSection(configuration, ['AnonymousIdentity', 'ZkProd'])
 const zkVerifier = readSection(configuration, ['AnonymousIdentity', 'ZkVerifier'])
-const credentialIssuer = readSection(configuration, ['AnonymousCredentialIssuer', 'CircuitNative'])
+const credentialIssuer = readSection(configuration, ['AnonymousCredentialIssuer', 'BlindRsa'])
 
 const enabled = readBoolEnv('FSUSBLOG_ZK_PROD_ENABLED')
   ?? readBool(zkProd.Enabled)
@@ -136,16 +136,16 @@ function checkEnabledProductionReadiness() {
     checks.push({ id: 'verifying-key-hash-bound', status: 'ok', detail: expectedVkHash })
   }
 
-  const issuerPublicKeyPath = normalizeString(
-    process.env.FSUSBLOG_ZK_ISSUER_PUBLIC_KEY
-      ?? credentialIssuer.IssuerPublicKeyPath
-      ?? zkProd.IssuerPublicKeyPath)
-  checkExistingFile('credential-issuer-public-key', issuerPublicKeyPath)
+  const issuerPublicKeyHash = normalizeString(
+    process.env.FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_HASH
+      ?? credentialIssuer.PublicKeyHash)
+  if (!isSha256Hex(issuerPublicKeyHash)) {
+    errors.push('AnonymousCredentialIssuer:BlindRsa:PublicKeyHash must be a 64-char hex SHA-256 digest.')
+  }
 
   const issuerPrivateKeyPath = normalizeString(
     process.env.FSUSBLOG_ZK_ISSUER_PRIVATE_KEY
-      ?? credentialIssuer.IssuerPrivateKeyPath
-      ?? zkProd.IssuerPrivateKeyPath)
+      ?? credentialIssuer.PrivateKeyPath)
   checkExistingFile('credential-issuer-private-key', issuerPrivateKeyPath)
 
   const smokeEvidencePath = normalizeString(

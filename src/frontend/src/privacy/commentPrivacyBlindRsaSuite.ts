@@ -7,8 +7,8 @@ import type {
 } from './commentPrivacyContracts'
 
 export const BLIND_CREDENTIAL_SCHEME = 'rfc9474-rsabssa-sha384-pss-randomized-3072'
-const MESSAGE_DOMAIN = 'fsus.anonymous.credential.v4'
-const WITNESS_DOMAIN = new TextEncoder().encode('fsus.anonymous.credential.v4:witness')
+const MESSAGE_DOMAIN = 'fsus.anonymous.credential.v5'
+const WITNESS_DOMAIN = new TextEncoder().encode('fsus.anonymous.credential.v5:witness')
 const OPENING_MAGIC = new TextEncoder().encode('FSUS-RFC9474-OPENING-V1')
 const MODULUS_BYTES = 384
 const HASH_BYTES = 48

@@ -5,10 +5,9 @@ production Groth16 proof consumption is still gated by the trusted setup and
 browser prover artifacts.
 
 This document records the revocation accumulator boundary for
-`fsus.anonymous.comment.v3`. The repository keeps the deterministic legacy
-SHA-256 accumulator for backend governance and migration checks, and adds the
-production metadata slot `circuit-friendly-non-membership.v1` for a circuit
-friendly sparse Merkle non-membership accumulator.
+`fsus.anonymous.comment.v5`. The current metadata slot
+`circuit-friendly-non-membership.v1` defines a sparse Merkle non-membership
+accumulator for the active proof contract.
 
 ## Metadata Gate
 

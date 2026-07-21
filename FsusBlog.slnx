@@ -20,7 +20,6 @@
     <Project Path="ops/docker/docker-compose.dcproj">
       <Build />
     </Project>
-    <Project Path="tools/security/ZkCommentV2MclFixture/FsusBlog.ZkCommentV2MclFixture.csproj" />
     <File Path="ops/docker/docker-compose.production.yml" />
     <File Path="ops/docker/docker-compose.development-backend.yml" />
     <File Path="ops/docker/docker-compose.zero-downtime.yml" />

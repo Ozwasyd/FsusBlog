@@ -357,10 +357,14 @@
                 "Production"
             ],
             "allowedSources": [
+                "environment",
                 "repository-base",
                 "repository-production-overlay"
             ],
-            "environmentVariables": [],
+            "environmentVariables": [
+                "AnonymousCredentialIssuer__BlindRsa__Enabled",
+                "FSUSBLOG_ZK_BLIND_ISSUER_ENABLED"
+            ],
             "secret": false,
             "requiredStatus": "optional",
             "requiredWhen": "optional",
@@ -385,10 +389,13 @@
                 "Production"
             ],
             "allowedSources": [
+                "environment",
                 "repository-base",
                 "repository-production-overlay"
             ],
-            "environmentVariables": [],
+            "environmentVariables": [
+                "AnonymousCredentialIssuer__BlindRsa__KeyId"
+            ],
             "secret": false,
             "requiredStatus": "optional",
             "requiredWhen": "optional",
@@ -475,7 +482,8 @@
                 "repository-production-overlay"
             ],
             "environmentVariables": [
-                "AnonymousCredentialIssuer__BlindRsa__PrivateKeyPath"
+                "AnonymousCredentialIssuer__BlindRsa__PrivateKeyPath",
+                "FSUSBLOG_ZK_ISSUER_PRIVATE_KEY"
             ],
             "secret": false,
             "requiredStatus": "conditional",
@@ -501,10 +509,13 @@
                 "Production"
             ],
             "allowedSources": [
+                "environment",
                 "repository-base",
                 "repository-production-overlay"
             ],
-            "environmentVariables": [],
+            "environmentVariables": [
+                "AnonymousCredentialIssuer__BlindRsa__Profile"
+            ],
             "secret": false,
             "requiredStatus": "optional",
             "requiredWhen": "optional",
@@ -529,10 +540,14 @@
                 "Production"
             ],
             "allowedSources": [
+                "environment",
                 "repository-base",
                 "repository-production-overlay"
             ],
-            "environmentVariables": [],
+            "environmentVariables": [
+                "AnonymousCredentialIssuer__BlindRsa__PublicKeyHash",
+                "FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_HASH"
+            ],
             "secret": false,
             "requiredStatus": "optional",
             "requiredWhen": "optional",
@@ -549,220 +564,6 @@
         },
         {
             "key": "AnonymousCredentialIssuer:BlindRsa:TimeoutMs",
-            "owner": "anonymous-identity",
-            "purpose": "Anonymous identity and credentials setting: TimeoutMs",
-            "valueType": "integer",
-            "environments": [
-                "Development",
-                "Production"
-            ],
-            "allowedSources": [
-                "repository-base",
-                "repository-production-overlay"
-            ],
-            "environmentVariables": [],
-            "secret": false,
-            "requiredStatus": "optional",
-            "requiredWhen": "optional",
-            "repositoryValuePolicy": "safe-non-secret-default",
-            "allowEmptyBaseValue": false,
-            "validation": {
-                "kind": "consumer",
-                "owner": "anonymous identity feature validator"
-            },
-            "documentation": "docs/security.md",
-            "consumer": "src/backend/Services/Security",
-            "runtimeOnly": false,
-            "deprecation": null
-        },
-        {
-            "key": "AnonymousCredentialIssuer:CircuitNative:Backend",
-            "owner": "anonymous-identity",
-            "purpose": "Anonymous identity and credentials setting: Backend",
-            "valueType": "string",
-            "environments": [
-                "Development",
-                "Production"
-            ],
-            "allowedSources": [
-                "repository-base",
-                "repository-production-overlay"
-            ],
-            "environmentVariables": [],
-            "secret": false,
-            "requiredStatus": "optional",
-            "requiredWhen": "optional",
-            "repositoryValuePolicy": "safe-non-secret-default",
-            "allowEmptyBaseValue": false,
-            "validation": {
-                "kind": "consumer",
-                "owner": "anonymous identity feature validator"
-            },
-            "documentation": "docs/security.md",
-            "consumer": "src/backend/Services/Security",
-            "runtimeOnly": false,
-            "deprecation": null
-        },
-        {
-            "key": "AnonymousCredentialIssuer:CircuitNative:Enabled",
-            "owner": "anonymous-identity",
-            "purpose": "Anonymous identity and credentials setting: Enabled",
-            "valueType": "boolean",
-            "environments": [
-                "Development",
-                "Production"
-            ],
-            "allowedSources": [
-                "environment",
-                "repository-base",
-                "repository-production-overlay"
-            ],
-            "environmentVariables": [
-                "AnonymousCredentialIssuer__CircuitNative__Enabled",
-                "FSUSBLOG_ZK_CREDENTIAL_ISSUER_ENABLED"
-            ],
-            "secret": false,
-            "requiredStatus": "optional",
-            "requiredWhen": "optional",
-            "repositoryValuePolicy": "safe-non-secret-default",
-            "allowEmptyBaseValue": false,
-            "validation": {
-                "kind": "consumer",
-                "owner": "anonymous identity feature validator"
-            },
-            "documentation": "docs/security.md",
-            "consumer": "src/backend/Services/Security",
-            "runtimeOnly": false,
-            "deprecation": null
-        },
-        {
-            "key": "AnonymousCredentialIssuer:CircuitNative:IssuerPrivateKeyPath",
-            "owner": "anonymous-identity",
-            "purpose": "Anonymous identity and credentials setting: IssuerPrivateKeyPath",
-            "valueType": "path",
-            "environments": [
-                "Development",
-                "Production"
-            ],
-            "allowedSources": [
-                "environment",
-                "mounted-file",
-                "repository-base",
-                "repository-production-overlay"
-            ],
-            "environmentVariables": [
-                "AnonymousCredentialIssuer__CircuitNative__IssuerPrivateKeyPath",
-                "FSUSBLOG_ZK_ISSUER_PRIVATE_KEY"
-            ],
-            "secret": false,
-            "requiredStatus": "conditional",
-            "requiredWhen": "when the owning feature is enabled",
-            "repositoryValuePolicy": "safe-non-secret-default",
-            "allowEmptyBaseValue": true,
-            "validation": {
-                "kind": "feature-gate",
-                "owner": "anonymous identity feature validator"
-            },
-            "documentation": "docs/security.md",
-            "consumer": "src/backend/Services/Security",
-            "runtimeOnly": false,
-            "deprecation": null
-        },
-        {
-            "key": "AnonymousCredentialIssuer:CircuitNative:IssuerPublicKeyHash",
-            "owner": "anonymous-identity",
-            "purpose": "Anonymous identity and credentials setting: IssuerPublicKeyHash",
-            "valueType": "sha256",
-            "environments": [
-                "Development",
-                "Production"
-            ],
-            "allowedSources": [
-                "environment",
-                "repository-base",
-                "repository-production-overlay"
-            ],
-            "environmentVariables": [
-                "AnonymousCredentialIssuer__CircuitNative__IssuerPublicKeyHash",
-                "FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_HASH"
-            ],
-            "secret": false,
-            "requiredStatus": "conditional",
-            "requiredWhen": "when the owning feature is enabled",
-            "repositoryValuePolicy": "safe-non-secret-default",
-            "allowEmptyBaseValue": true,
-            "validation": {
-                "kind": "feature-gate",
-                "owner": "anonymous identity feature validator"
-            },
-            "documentation": "docs/security.md",
-            "consumer": "src/backend/Services/Security",
-            "runtimeOnly": false,
-            "deprecation": null
-        },
-        {
-            "key": "AnonymousCredentialIssuer:CircuitNative:IssuerPublicKeyPath",
-            "owner": "anonymous-identity",
-            "purpose": "Anonymous identity and credentials setting: IssuerPublicKeyPath",
-            "valueType": "path",
-            "environments": [
-                "Development",
-                "Production"
-            ],
-            "allowedSources": [
-                "environment",
-                "mounted-file",
-                "repository-base",
-                "repository-production-overlay"
-            ],
-            "environmentVariables": [
-                "AnonymousCredentialIssuer__CircuitNative__IssuerPublicKeyPath",
-                "FSUSBLOG_ZK_ISSUER_PUBLIC_KEY"
-            ],
-            "secret": false,
-            "requiredStatus": "conditional",
-            "requiredWhen": "when the owning feature is enabled",
-            "repositoryValuePolicy": "safe-non-secret-default",
-            "allowEmptyBaseValue": true,
-            "validation": {
-                "kind": "feature-gate",
-                "owner": "anonymous identity feature validator"
-            },
-            "documentation": "docs/security.md",
-            "consumer": "src/backend/Services/Security",
-            "runtimeOnly": false,
-            "deprecation": null
-        },
-        {
-            "key": "AnonymousCredentialIssuer:CircuitNative:MaxConcurrentSignatures",
-            "owner": "anonymous-identity",
-            "purpose": "Anonymous identity and credentials setting: MaxConcurrentSignatures",
-            "valueType": "integer",
-            "environments": [
-                "Development",
-                "Production"
-            ],
-            "allowedSources": [
-                "repository-base",
-                "repository-production-overlay"
-            ],
-            "environmentVariables": [],
-            "secret": false,
-            "requiredStatus": "optional",
-            "requiredWhen": "optional",
-            "repositoryValuePolicy": "safe-non-secret-default",
-            "allowEmptyBaseValue": false,
-            "validation": {
-                "kind": "consumer",
-                "owner": "anonymous identity feature validator"
-            },
-            "documentation": "docs/security.md",
-            "consumer": "src/backend/Services/Security",
-            "runtimeOnly": false,
-            "deprecation": null
-        },
-        {
-            "key": "AnonymousCredentialIssuer:CircuitNative:TimeoutMs",
             "owner": "anonymous-identity",
             "purpose": "Anonymous identity and credentials setting: TimeoutMs",
             "valueType": "integer",
@@ -868,62 +669,6 @@
             "requiredWhen": "optional",
             "repositoryValuePolicy": "safe-non-secret-default",
             "allowEmptyBaseValue": true,
-            "validation": {
-                "kind": "consumer",
-                "owner": "anonymous identity feature validator"
-            },
-            "documentation": "docs/security.md",
-            "consumer": "src/backend/Services/Security",
-            "runtimeOnly": false,
-            "deprecation": null
-        },
-        {
-            "key": "AnonymousCredentialIssuer:MaxClientNonceBytes",
-            "owner": "anonymous-identity",
-            "purpose": "Anonymous identity and credentials setting: MaxClientNonceBytes",
-            "valueType": "integer",
-            "environments": [
-                "Development",
-                "Production"
-            ],
-            "allowedSources": [
-                "repository-base",
-                "repository-production-overlay"
-            ],
-            "environmentVariables": [],
-            "secret": false,
-            "requiredStatus": "optional",
-            "requiredWhen": "optional",
-            "repositoryValuePolicy": "safe-non-secret-default",
-            "allowEmptyBaseValue": false,
-            "validation": {
-                "kind": "consumer",
-                "owner": "anonymous identity feature validator"
-            },
-            "documentation": "docs/security.md",
-            "consumer": "src/backend/Services/Security",
-            "runtimeOnly": false,
-            "deprecation": null
-        },
-        {
-            "key": "AnonymousCredentialIssuer:MaxCredentialRequestBytes",
-            "owner": "anonymous-identity",
-            "purpose": "Anonymous identity and credentials setting: MaxCredentialRequestBytes",
-            "valueType": "integer",
-            "environments": [
-                "Development",
-                "Production"
-            ],
-            "allowedSources": [
-                "repository-base",
-                "repository-production-overlay"
-            ],
-            "environmentVariables": [],
-            "secret": false,
-            "requiredStatus": "optional",
-            "requiredWhen": "optional",
-            "repositoryValuePolicy": "safe-non-secret-default",
-            "allowEmptyBaseValue": false,
             "validation": {
                 "kind": "consumer",
                 "owner": "anonymous identity feature validator"
@@ -5570,12 +5315,12 @@
             "deprecation": null
         },
         {
-            "name": "AnonymousCredentialIssuer__CircuitNative__Enabled",
+            "name": "AnonymousCredentialIssuer__BlindRsa__Enabled",
             "category": "application-configuration",
             "owner": "release-lifecycle",
             "secret": false,
             "mapsTo": [
-                "AnonymousCredentialIssuer:CircuitNative:Enabled"
+                "AnonymousCredentialIssuer:BlindRsa:Enabled"
             ],
             "sources": [
                 "ops/docker/docker-compose.production.yml"
@@ -5583,12 +5328,12 @@
             "deprecation": null
         },
         {
-            "name": "AnonymousCredentialIssuer__CircuitNative__IssuerPrivateKeyPath",
+            "name": "AnonymousCredentialIssuer__BlindRsa__KeyId",
             "category": "application-configuration",
             "owner": "release-lifecycle",
             "secret": false,
             "mapsTo": [
-                "AnonymousCredentialIssuer:CircuitNative:IssuerPrivateKeyPath"
+                "AnonymousCredentialIssuer:BlindRsa:KeyId"
             ],
             "sources": [
                 "ops/docker/docker-compose.production.yml"
@@ -5596,12 +5341,12 @@
             "deprecation": null
         },
         {
-            "name": "AnonymousCredentialIssuer__CircuitNative__IssuerPublicKeyHash",
+            "name": "AnonymousCredentialIssuer__BlindRsa__PrivateKeyPath",
             "category": "application-configuration",
             "owner": "release-lifecycle",
             "secret": false,
             "mapsTo": [
-                "AnonymousCredentialIssuer:CircuitNative:IssuerPublicKeyHash"
+                "AnonymousCredentialIssuer:BlindRsa:PrivateKeyPath"
             ],
             "sources": [
                 "ops/docker/docker-compose.production.yml"
@@ -5609,12 +5354,25 @@
             "deprecation": null
         },
         {
-            "name": "AnonymousCredentialIssuer__CircuitNative__IssuerPublicKeyPath",
+            "name": "AnonymousCredentialIssuer__BlindRsa__Profile",
             "category": "application-configuration",
             "owner": "release-lifecycle",
             "secret": false,
             "mapsTo": [
-                "AnonymousCredentialIssuer:CircuitNative:IssuerPublicKeyPath"
+                "AnonymousCredentialIssuer:BlindRsa:Profile"
+            ],
+            "sources": [
+                "ops/docker/docker-compose.production.yml"
+            ],
+            "deprecation": null
+        },
+        {
+            "name": "AnonymousCredentialIssuer__BlindRsa__PublicKeyHash",
+            "category": "application-configuration",
+            "owner": "release-lifecycle",
+            "secret": false,
+            "mapsTo": [
+                "AnonymousCredentialIssuer:BlindRsa:PublicKeyHash"
             ],
             "sources": [
                 "ops/docker/docker-compose.production.yml"
@@ -7684,6 +7442,20 @@
             "deprecation": null
         },
         {
+            "name": "FSUSBLOG_ZK_BLIND_ISSUER_ENABLED",
+            "category": "deployment-control",
+            "owner": "anonymous-identity",
+            "secret": false,
+            "mapsTo": [
+                "AnonymousCredentialIssuer:BlindRsa:Enabled"
+            ],
+            "sources": [
+                ".env.production.example",
+                "ops/docker/docker-compose.production.yml"
+            ],
+            "deprecation": null
+        },
+        {
             "name": "FSUSBLOG_ZK_CONFIG_DIR",
             "category": "secret-file-path",
             "owner": "anonymous-identity",
@@ -7693,19 +7465,6 @@
                 ".env.production.example",
                 "ops/docker/docker-compose.production.yml",
                 "tools/deploy-production.sh"
-            ],
-            "deprecation": null
-        },
-        {
-            "name": "FSUSBLOG_ZK_CREDENTIAL_ISSUER_ENABLED",
-            "category": "deployment-control",
-            "owner": "anonymous-identity",
-            "secret": false,
-            "mapsTo": [
-                "AnonymousCredentialIssuer:CircuitNative:Enabled"
-            ],
-            "sources": [
-                "ops/docker/docker-compose.production.yml"
             ],
             "deprecation": null
         },
@@ -7741,23 +7500,9 @@
             "name": "FSUSBLOG_ZK_ISSUER_PRIVATE_KEY",
             "category": "secret-file-path",
             "owner": "anonymous-identity",
-            "secret": false,
+            "secret": true,
             "mapsTo": [
-                "AnonymousCredentialIssuer:CircuitNative:IssuerPrivateKeyPath"
-            ],
-            "sources": [
-                ".env.production.example",
-                "ops/docker/docker-compose.production.yml"
-            ],
-            "deprecation": null
-        },
-        {
-            "name": "FSUSBLOG_ZK_ISSUER_PUBLIC_KEY",
-            "category": "secret-file-path",
-            "owner": "anonymous-identity",
-            "secret": false,
-            "mapsTo": [
-                "AnonymousCredentialIssuer:CircuitNative:IssuerPublicKeyPath"
+                "AnonymousCredentialIssuer:BlindRsa:PrivateKeyPath"
             ],
             "sources": [
                 ".env.production.example",
@@ -7771,7 +7516,7 @@
             "owner": "anonymous-identity",
             "secret": false,
             "mapsTo": [
-                "AnonymousCredentialIssuer:CircuitNative:IssuerPublicKeyHash"
+                "AnonymousCredentialIssuer:BlindRsa:PublicKeyHash"
             ],
             "sources": [
                 ".env.production.example",
@@ -8335,26 +8080,6 @@
             "locationScope": "container path projected from an operator-controlled mount"
         },
         {
-            "pathSettingKey": "AnonymousCredentialIssuer:CircuitNative:IssuerPrivateKeyPath",
-            "expectedFileClass": "circuit-native issuer private key",
-            "owner": "anonymous-identity",
-            "permissions": "container service account read-only",
-            "requiredWhen": "CircuitNative issuer is enabled",
-            "identityValidation": "public key hash must match AnonymousCredentialIssuer:CircuitNative:IssuerPublicKeyHash",
-            "integritySettingKey": "AnonymousCredentialIssuer:CircuitNative:IssuerPublicKeyHash",
-            "locationScope": "host FSUSBLOG_ZK_SECRET_DIR mounted read-only into the container"
-        },
-        {
-            "pathSettingKey": "AnonymousCredentialIssuer:CircuitNative:IssuerPublicKeyPath",
-            "expectedFileClass": "circuit-native issuer public key",
-            "owner": "anonymous-identity",
-            "permissions": "container service account read-only",
-            "requiredWhen": "CircuitNative issuer is enabled",
-            "identityValidation": "SHA-256 identity checked at startup",
-            "integritySettingKey": "AnonymousCredentialIssuer:CircuitNative:IssuerPublicKeyHash",
-            "locationScope": "host FSUSBLOG_ZK_CONFIG_DIR mounted read-only into the container"
-        },
-        {
             "pathSettingKey": "AnonymousIdentity:ZkVerifier:NativeGroth16:VerifyingKeyPath",
             "expectedFileClass": "Groth16 verifying key",
             "owner": "anonymous-identity",
@@ -8373,6 +8098,16 @@
             "identityValidation": "trusted setup and release manifest gates validate immutable hashes",
             "integritySettingKey": "AnonymousIdentity:ZkProd:VerifyingKeyHash",
             "locationScope": "host FSUSBLOG_ZK_CONFIG_DIR mounted read-only into the container"
+        },
+        {
+            "pathSettingKey": "AnonymousCredentialIssuer:BlindRsa:PrivateKeyPath",
+            "expectedFileClass": "3072-bit RSA PKCS#8 DER private key",
+            "owner": "anonymous-identity",
+            "permissions": "container service account read-only",
+            "requiredWhen": "BlindRsa issuer is enabled",
+            "identityValidation": "derived SPKI SHA-256 must match AnonymousCredentialIssuer:BlindRsa:PublicKeyHash",
+            "integritySettingKey": "AnonymousCredentialIssuer:BlindRsa:PublicKeyHash",
+            "locationScope": "host FSUSBLOG_ZK_SECRET_DIR mounted read-only into the container"
         }
     ],
     "retiredAliases": [
