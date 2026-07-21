@@ -279,10 +279,9 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
             db.Ado.ExecuteCommand(
                 """
                 INSERT INTO article
-                    (id, title, summary, categoryid, views, createtime, status, published_at, deleted_at, isdeleted)
+                    (id, title, summary, categoryid, views, createtime, metadata_updated_at, status, published_at, deleted_at, isdeleted)
                 VALUES
-                    (@Id, @Title, @Summary, @CategoryId, 0, @CreateTime, @Status,
-                     CAST(@PublishedAt AS timestamp), CAST(@DeletedAt AS timestamp), @IsDeleted);
+                (@Id, @Title, @Summary, @CategoryId, 0, @CreateTime, @CreateTime, @Status, CAST(@PublishedAt AS timestamp), CAST(@DeletedAt AS timestamp), @IsDeleted);
                 """,
                 new SugarParameter("@Id", id.Value),
                 new SugarParameter("@Title", article.Title),

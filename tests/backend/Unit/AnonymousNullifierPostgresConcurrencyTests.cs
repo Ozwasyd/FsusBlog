@@ -345,9 +345,9 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
         => db.Ado.ExecuteCommand(
             """
             INSERT INTO article
-                (id, title, categoryid, views, createtime, isdeleted, status, published_at, scheduled_publish_at)
+                (id, title, categoryid, views, createtime, metadata_updated_at, isdeleted, status, published_at, scheduled_publish_at)
             VALUES
-                (@Id, 'concurrency article', 1, 0, @PublishedAt, false, @Status, @PublishedAt, NULL);
+                (@Id, 'concurrency article', 1, 0, @PublishedAt, @PublishedAt, false, @Status, @PublishedAt, NULL);
             """,
             new SugarParameter("@Id", articleId),
             new SugarParameter("@Status", (int)ArticleStatus.Published),
