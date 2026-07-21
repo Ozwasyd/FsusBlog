@@ -827,23 +827,31 @@ async function main() {
     const seeded = seedPublicFixtures()
     seededFallback = seeded
     console.log(`[discover-playwright-fixtures] seeded replacement public fixture via direct DB article=${seeded.articleId} category=${seeded.categoryId} tag=${seeded.tagId}`)
-    await refreshDirectDbSeedCaches(seeded)
-    const snapshot = await waitForPublicFixtureSnapshot()
-    page = snapshot.page
-    categories = snapshot.categories
-    tags = snapshot.tags
-    for (const candidate of page?.items ?? []) {
-      if (!candidate?.id || !pickArticleTag(candidate, Array.isArray(tags) ? tags : [])) {
-        continue
-      }
+    try {
+      await refreshDirectDbSeedCaches(seeded)
+    } catch (cacheError) {
+      console.warn(`[discover-playwright-fixtures] replacement cache refresh unavailable: ${cacheError instanceof Error ? cacheError.message : String(cacheError)}`)
+    }
+    try {
+      const snapshot = await waitForPublicFixtureSnapshot()
+      page = snapshot.page
+      categories = snapshot.categories
+      tags = snapshot.tags
+      for (const candidate of page?.items ?? []) {
+        if (!candidate?.id || !pickArticleTag(candidate, Array.isArray(tags) ? tags : [])) {
+          continue
+        }
 
-      try {
-        articleDetail = await fetchPublicArticleDetail(candidate.id)
-        firstArticle = candidate
-        break
-      } catch {
-        // Keep scanning; the list can contain stale cache entries while the acceptance environment is reused.
+        try {
+          articleDetail = await fetchPublicArticleDetail(candidate.id)
+          firstArticle = candidate
+          break
+        } catch {
+          // Keep scanning; the list can contain stale cache entries while the acceptance environment is reused.
+        }
       }
+    } catch (snapshotError) {
+      console.warn(`[discover-playwright-fixtures] public snapshot still incomplete after replacement seed: ${snapshotError instanceof Error ? snapshotError.message : String(snapshotError)}`)
     }
   }
 
