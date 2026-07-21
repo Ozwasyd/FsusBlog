@@ -331,6 +331,29 @@ test('issue 1159 rejects reduced source coverage or specialized governance comma
     });
 });
 
+test('issue 1159 migrates specialized governance authority after retiring the ZK benchmark command', () =>
+{
+    assert.equal(sourcePolicy.specializedGovernance.count, 189);
+    withFixture((fixtureRoot) =>
+    {
+        const current = runChecker(fixtureRoot, ['--mode', 'changed', '--file', 'src/frontend/package.json']);
+        assert.equal(current.status, 0, output(current));
+
+        const packagePath = path.join(fixtureRoot, 'src/frontend/package.json');
+        const packageDocument = JSON.parse(readFileSync(packagePath, 'utf8'));
+        assert.equal(packageDocument.scripts['check:privacy-zk-benchmark'], undefined);
+        packageDocument.scripts['check:privacy-zk-benchmark'] = 'node retired-zk-benchmark.mjs';
+        writeFileSync(packagePath, `${JSON.stringify(packageDocument, null, 4)}\n`);
+
+        const resurrected = runChecker(fixtureRoot, ['--mode', 'changed', '--file', 'src/frontend/package.json']);
+        const combined = output(resurrected);
+        assert.notEqual(resurrected.status, 0);
+        assert.match(combined, /specialized governance command count changed: expected 189, got 190/u);
+        assert.match(combined, /specialized governance command IDs changed/u);
+        assert.match(combined, /specialized governance command definitions changed/u);
+    });
+});
+
 test('issue 1159 full mode accepts only unchanged baseline debt and strict-full exposes it', () =>
 {
     withFixture((fixtureRoot) =>

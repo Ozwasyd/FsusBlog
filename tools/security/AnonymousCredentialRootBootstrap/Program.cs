@@ -5,7 +5,6 @@ using System.Text.RegularExpressions;
 
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
-using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Services.Security;
 
@@ -14,18 +13,12 @@ using Microsoft.Extensions.DependencyInjection;
 
 using SqlSugar;
 
-using DbType = SqlSugar.DbType;
-
 namespace FsusBlog.Tools.Security.AnonymousCredentialRootBootstrap;
 
 internal static partial class Program
 {
     private const string ExpectedCircuitId = "fsus.anonymous.comment.v5";
     private const ushort ExpectedLayoutVersion = 6;
-    private const string TrustedSetupSchema = "fsusblog.zk.trusted-setup-manifest.v2";
-    private const string VerifyingKeySchema = "fsusblog.zk.verifying-key-config.v2";
-    private const string CircuitManifestPath = "security/zk/contracts/comment-v5-circuit.manifest.json";
-    private const string TrustedSetupManifestPath = "security/zk/provenance/comment-v5-trusted-setup.manifest.json";
     private const string EvidenceSchema = "fsusblog.anonymous-credential-root-bootstrap-evidence.v1";
     private static readonly HashSet<string> s_allowedInputKeys = new(StringComparer.Ordinal)
     {
@@ -80,8 +73,11 @@ internal static partial class Program
         FailOnSensitiveFields(inputDocument.RootElement, "input", errors);
         RejectUnknownInputFields(inputDocument.RootElement, errors);
         BootstrapMaterial material = ValidateInput(inputDocument.RootElement, errors);
-        ValidateTrustedSetup(trustedSetupDocument.RootElement, material.VerifyingKeyHash, errors);
-        ValidateVerifyingKeyManifest(verifyingKeyDocument.RootElement, material.VerifyingKeyHash, trustedSetupDocument.RootElement, errors);
+        ManifestAuthorityValidator.Validate(
+            trustedSetupDocument.RootElement,
+            verifyingKeyDocument.RootElement,
+            material.VerifyingKeyHash,
+            errors);
         return material;
     }
 
@@ -95,7 +91,7 @@ internal static partial class Program
         {
             await using AsyncServiceScope scope = provider.CreateAsyncScope();
             ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
-            EnsureLifecycleSchema(db, options.DbType);
+            BootstrapDatabase.EnsureLifecycleSchema(db, options.DbType);
         }
 
         var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
@@ -156,7 +152,7 @@ internal static partial class Program
         services.AddSingleton<IZkProofVerifier, DisabledZkProofVerifier>();
         services.AddSingleton<IAnonymousCredentialRootService, AnonymousCredentialRootService>();
         services.AddScoped<IAnonymousCredentialRootStore, AnonymousCredentialRootStore>();
-        services.AddScoped<ISqlSugarClient>(_ => CreateDb(options.DbType, options.ConnectionString));
+        services.AddScoped<ISqlSugarClient>(_ => BootstrapDatabase.Create(options.DbType, options.ConnectionString));
         services.AddSingleton<BootstrapAuditSink>();
         services.AddScoped<IAuditEventService>(static sp => sp.GetRequiredService<BootstrapAuditSink>());
         services.AddSingleton<AnonymousCredentialRootLifecycleService>();
@@ -169,93 +165,6 @@ internal static partial class Program
             ValidateOnBuild = true,
             ValidateScopes = true
         });
-    }
-
-    private static ISqlSugarClient CreateDb(string dbType, string connectionString)
-    {
-        var config = new ConnectionConfig
-        {
-            DbType = dbType.Equals("sqlite", StringComparison.OrdinalIgnoreCase)
-                ? DbType.Sqlite
-                : DbType.PostgreSQL,
-            ConnectionString = connectionString,
-            InitKeyType = InitKeyType.Attribute,
-            IsAutoCloseConnection = true,
-            MoreSettings = new ConnMoreSettings
-            {
-                PgSqlIsAutoToLower = true,
-                PgSqlIsAutoToLowerCodeFirst = true
-            }
-        };
-
-        return new SqlSugarClient(config);
-    }
-
-    private static void EnsureLifecycleSchema(ISqlSugarClient db, string dbType)
-    {
-        if (!dbType.Equals("sqlite", StringComparison.OrdinalIgnoreCase))
-        {
-            db.CodeFirst.InitTables<AnonymousCredentialEpoch, AnonymousCredentialRoot, AnonymousCredentialRevocation>();
-            return;
-        }
-
-        string[] statements =
-        [
-            """
-            CREATE TABLE IF NOT EXISTS anonymous_credential_epoch (
-              epoch INTEGER PRIMARY KEY,
-              status TEXT NOT NULL,
-              created_at_utc TEXT NOT NULL,
-              activated_at_utc TEXT NULL,
-              expires_at_utc TEXT NOT NULL,
-              root_grace_expires_at_utc TEXT NOT NULL,
-              active_root_hash TEXT NULL,
-              reason TEXT NULL
-            )
-            """,
-            """
-            CREATE TABLE IF NOT EXISTS anonymous_credential_root (
-              epoch INTEGER PRIMARY KEY,
-              root_hash TEXT NOT NULL,
-              revocation_root_hash TEXT NOT NULL,
-              circuit_id TEXT NOT NULL,
-              circuit_numeric_id INTEGER NOT NULL,
-              verifying_key_hash TEXT NOT NULL,
-              issuer_public_key_hash TEXT NOT NULL,
-              public_input_layout_version INTEGER NOT NULL,
-              circuit_metadata TEXT NULL,
-              root_attestation TEXT NOT NULL,
-              root_attestation_key_id TEXT NOT NULL,
-              created_at_utc TEXT NOT NULL,
-              activated_at_utc TEXT NULL,
-              expires_at_utc TEXT NOT NULL,
-              root_grace_expires_at_utc TEXT NOT NULL,
-              revoked_at_utc TEXT NULL,
-              updated_at_utc TEXT NOT NULL,
-              status TEXT NOT NULL,
-              revoke_reason TEXT NULL
-            )
-            """,
-            """
-            CREATE TABLE IF NOT EXISTS anonymous_credential_revocation (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              epoch INTEGER NOT NULL,
-              root_hash TEXT NOT NULL,
-              revocation_handle_hash TEXT NOT NULL,
-              revocation_root_hash TEXT NOT NULL,
-              reason TEXT NULL,
-              actor_id TEXT NULL,
-              revoked_at_utc TEXT NOT NULL
-            )
-            """,
-            "CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_anonymous_credential_root_hash ON anonymous_credential_root(root_hash)",
-            "CREATE INDEX IF NOT EXISTS idx_anonymous_credential_root_status_epoch ON anonymous_credential_root(status, epoch DESC)",
-            "CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_anonymous_credential_revocation_epoch_handle ON anonymous_credential_revocation(epoch, revocation_handle_hash)"
-        ];
-        foreach (string statement in statements)
-        {
-            db.Ado.ExecuteCommand(statement);
-        }
     }
 
     private static BootstrapMaterial ValidateInput(JsonElement input, List<string> errors)
@@ -325,107 +234,6 @@ internal static partial class Program
             graceExpiresAt,
             operatorId,
             reason);
-    }
-
-    private static void ValidateTrustedSetup(JsonElement manifest, string expectedVkHash, List<string> errors)
-    {
-        if (!string.Equals(ReadString(manifest, "schema"), TrustedSetupSchema, StringComparison.Ordinal))
-        {
-            errors.Add("trusted setup manifest schema is invalid.");
-        }
-
-        if (!string.Equals(ReadString(manifest, "circuit_id"), ExpectedCircuitId, StringComparison.Ordinal))
-        {
-            errors.Add($"trusted setup manifest circuit_id must be {ExpectedCircuitId}.");
-        }
-
-        if (ReadInt(manifest, "public_input_layout_version") != ExpectedLayoutVersion)
-        {
-            errors.Add($"trusted setup manifest public_input_layout_version must be {ExpectedLayoutVersion}.");
-        }
-
-        if (!string.Equals(ReadRepoPath(manifest, "circuit_manifest_path"), CircuitManifestPath, StringComparison.Ordinal))
-        {
-            errors.Add($"trusted setup manifest circuit_manifest_path must be {CircuitManifestPath}.");
-        }
-
-        if (!ReadBoolean(manifest, "production_usable"))
-        {
-            errors.Add("trusted setup manifest production_usable must be true for root bootstrap.");
-        }
-
-        if (!string.Equals(ReadString(manifest, "ceremony_status"), "verified", StringComparison.Ordinal))
-        {
-            errors.Add("trusted setup manifest ceremony_status must be verified for root bootstrap.");
-        }
-
-        ValidateManifestHash(ReadString(manifest, "verifying_key_hash"), expectedVkHash, "trusted setup manifest", errors);
-    }
-
-    private static void ValidateVerifyingKeyManifest(JsonElement manifest, string expectedVkHash, JsonElement trustedSetup, List<string> errors)
-    {
-        if (!string.Equals(ReadString(manifest, "schema"), VerifyingKeySchema, StringComparison.Ordinal))
-        {
-            errors.Add("verifying key manifest schema is invalid.");
-        }
-
-        if (!string.Equals(ReadString(manifest, "circuit_id"), ExpectedCircuitId, StringComparison.Ordinal))
-        {
-            errors.Add($"verifying key manifest circuit_id must be {ExpectedCircuitId}.");
-        }
-
-        if (ReadInt(manifest, "public_input_layout_version") != ExpectedLayoutVersion)
-        {
-            errors.Add($"verifying key manifest public_input_layout_version must be {ExpectedLayoutVersion}.");
-        }
-
-        if (!string.Equals(ReadRepoPath(manifest, "trusted_setup_manifest"), TrustedSetupManifestPath, StringComparison.Ordinal))
-        {
-            errors.Add($"verifying key manifest trusted_setup_manifest must be {TrustedSetupManifestPath}.");
-        }
-
-        if (!string.Equals(ReadRepoPath(manifest, "circuit_manifest"), CircuitManifestPath, StringComparison.Ordinal))
-        {
-            errors.Add($"verifying key manifest circuit_manifest must be {CircuitManifestPath}.");
-        }
-
-        string trustedVerifyingKeyPath = ReadNestedString(trustedSetup, "artifacts", "verifying_key", "path");
-        string configuredVerifyingKeyPath = ReadRepoPath(manifest, "verifying_key_path");
-        if (string.IsNullOrEmpty(trustedVerifyingKeyPath) ||
-            !string.Equals(configuredVerifyingKeyPath, trustedVerifyingKeyPath, StringComparison.Ordinal))
-        {
-            errors.Add("verifying key manifest verifying_key_path must match trusted setup artifacts.verifying_key.path.");
-        }
-
-        if (!ReadBoolean(manifest, "production_usable"))
-        {
-            errors.Add("verifying key manifest production_usable must be true for root bootstrap.");
-        }
-
-        string manifestVkHash = ReadString(manifest, "verifying_key_hash").ToLowerInvariant();
-        string trustedVkHash = ReadString(trustedSetup, "verifying_key_hash").ToLowerInvariant();
-        ValidateManifestHash(manifestVkHash, expectedVkHash, "verifying key manifest", errors);
-        if (IsSha256Hex(manifestVkHash) && IsSha256Hex(trustedVkHash) && manifestVkHash != trustedVkHash)
-        {
-            errors.Add("trusted setup manifest verifying_key_hash does not match verifying key manifest.");
-        }
-    }
-
-    private static void ValidateManifestHash(string rawHash, string expectedVkHash, string label, List<string> errors)
-    {
-        string normalized = NormalizeHash(rawHash);
-        if (!IsSha256Hex(normalized))
-        {
-            errors.Add($"{label} verifying_key_hash must be a 64-char hex SHA-256 digest.");
-        }
-        else if (IsPlaceholderHash(normalized))
-        {
-            errors.Add($"{label} verifying_key_hash must not be a placeholder.");
-        }
-        else if (!string.Equals(normalized, expectedVkHash, StringComparison.Ordinal))
-        {
-            errors.Add($"input verifying_key_hash does not match {label}.");
-        }
     }
 
     private static void RejectUnknownInputFields(JsonElement input, List<string> errors)
@@ -550,35 +358,6 @@ internal static partial class Program
             value.ValueKind == JsonValueKind.String
             ? value.GetString()?.Trim() ?? string.Empty
             : string.Empty;
-
-    private static string ReadRepoPath(JsonElement parent, string propertyName)
-        => ReadString(parent, propertyName).Replace('\\', '/').TrimStart('.', '/');
-
-    private static string ReadNestedString(JsonElement parent, params string[] path)
-    {
-        JsonElement current = parent;
-        foreach (string segment in path)
-        {
-            if (current.ValueKind != JsonValueKind.Object || !current.TryGetProperty(segment, out current))
-            {
-                return string.Empty;
-            }
-        }
-
-        return current.ValueKind == JsonValueKind.String
-            ? (current.GetString() ?? string.Empty).Replace('\\', '/').TrimStart('.', '/')
-            : string.Empty;
-    }
-
-    private static int ReadInt(JsonElement parent, string propertyName)
-        => parent.TryGetProperty(propertyName, out JsonElement value) &&
-            value.TryGetInt32(out int result)
-            ? result
-            : 0;
-
-    private static bool ReadBoolean(JsonElement parent, string propertyName)
-        => parent.TryGetProperty(propertyName, out JsonElement value) &&
-            value.ValueKind == JsonValueKind.True;
 
     private static JsonDocument ReadJson(string file, string label)
     {
