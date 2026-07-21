@@ -224,7 +224,7 @@ const submitForm = (): void => {
   align-items: center;
   box-sizing: border-box;
   min-height: 32px;
-  gap: 4px;
+  gap: var(--fsus-space-1);
   color: var(--fsusblog-text-muted);
   font-size: 12px;
   font-weight: 500;
