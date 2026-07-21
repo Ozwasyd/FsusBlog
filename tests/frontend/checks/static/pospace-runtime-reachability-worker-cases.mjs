@@ -486,6 +486,48 @@ export const workerRuntimeCases = [
         shouldPass: true
     },
     {
+        name: 'nested object destructuring reaches browser Worker',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace('<script setup lang="ts">', "<script setup lang=\"ts\">\nconst source = { nested: { Worker: globalThis.Worker } }\nlet WorkerAlias: any = class SafeWorker {}\n;({ nested: { Worker: WorkerAlias } } = source)\nconst duplicateWorker = new WorkerAlias('/worker.js')"),
+        expected: 'must not duplicate direct Worker construction'
+    },
+    {
+        name: 'computed binding key object destructuring reaches browser Worker',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace('<script setup lang="ts">', "<script setup lang=\"ts\">\nconst workerKey = 'Worker'\nlet WorkerAlias: any = class SafeWorker {}\n;({ [workerKey]: WorkerAlias } = globalThis)\nconst duplicateWorker = new WorkerAlias('/worker.js')"),
+        expected: 'must not duplicate direct Worker construction'
+    },
+    {
+        name: 'class static Worker property remains forbidden in a host',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace('<script setup lang="ts">', "<script setup lang=\"ts\">\nclass BrowserConstructors { static W = globalThis.Worker }\nconst duplicateWorker = new BrowserConstructors.W('/worker.js')"),
+        expected: 'must not duplicate direct Worker construction'
+    },
+    {
+        name: 'class static Reflect property remains forbidden in a host',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace('<script setup lang="ts">', "<script setup lang=\"ts\">\nclass BrowserObjects { static R = globalThis.Reflect }\nconst duplicateWorker = BrowserObjects.R.construct(globalThis.Worker, ['/worker.js'])"),
+        expected: 'must not duplicate direct Worker construction'
+    },
+    {
+        name: 'exhaustive if else safe writes kill Worker provenance',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace('<script setup lang="ts">', "<script setup lang=\"ts\">\nlet WorkerAlias: any = globalThis.Worker\nif (Date.now() > 0) WorkerAlias = class SafeWorker {}\nelse WorkerAlias = class OtherSafeWorker {}\nconst localWorker = new WorkerAlias()"),
+        shouldPass: true
+    },
+    {
+        name: 'exhaustive try catch safe writes kill Worker provenance',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace('<script setup lang="ts">', "<script setup lang=\"ts\">\nlet WorkerAlias: any = globalThis.Worker\ntry { WorkerAlias = class SafeWorker {} } catch { WorkerAlias = class OtherSafeWorker {} }\nconst localWorker = new WorkerAlias()"),
+        shouldPass: true
+    },
+    {
+        name: 'constant true short circuit safe write kills Worker provenance',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace('<script setup lang="ts">', "<script setup lang=\"ts\">\nlet WorkerAlias: any = globalThis.Worker\ntrue && (WorkerAlias = class SafeWorker {})\nconst localWorker = new WorkerAlias()"),
+        shouldPass: true
+    },
+    {
         name: 'Worker metadata property is not Worker construction',
         file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
         mutate: source => source.replace(

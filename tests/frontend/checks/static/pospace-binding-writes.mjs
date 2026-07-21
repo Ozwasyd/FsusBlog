@@ -1,9 +1,12 @@
+import { controlBranch, functionOwner, isConditionalExecution } from './pospace-control-flow-writes.mjs';
+
 export function collectBindingWrites(ts, sourceFile, flow, helpers)
 {
     const {
         provenanceMember,
         resolveLexicalBinding,
         staticMemberAccess,
+        staticStringValue,
         unwrapRuntimeExpression,
         walk
     } = helpers;
@@ -100,7 +103,7 @@ export function collectBindingWrites(ts, sourceFile, flow, helpers)
                 {
                     continue;
                 }
-                const name = destructuringPropertyName(ts, property.name);
+                const name = destructuringPropertyName(ts, property.name, flow, staticStringValue);
                 const target = ts.isPropertyAssignment(property) ? property.initializer : property.name;
                 if (name)
                 {
@@ -114,15 +117,15 @@ export function collectBindingWrites(ts, sourceFile, flow, helpers)
     });
 }
 
-function destructuringPropertyName(ts, name)
+function destructuringPropertyName(ts, name, flow, staticStringValue)
 {
     if (ts.isIdentifier(name) || ts.isStringLiteralLike(name) || ts.isNumericLiteral(name))
     {
         return name.text;
     }
-    if (ts.isComputedPropertyName(name) && ts.isStringLiteralLike(name.expression))
+    if (ts.isComputedPropertyName(name))
     {
-        return name.expression.text;
+        return staticStringValue(name.expression, flow);
     }
     return null;
 }
@@ -149,6 +152,33 @@ function recordTarget(ts, targetNode, node, value, options, recordIdentifier, re
                 recordMember,
                 staticMemberAccess
             );
+        }
+        return;
+    }
+    if (ts.isObjectLiteralExpression(target))
+    {
+        for (const property of target.properties)
+        {
+            if (!ts.isPropertyAssignment(property) && !ts.isShorthandPropertyAssignment(property))
+            {
+                continue;
+            }
+            const name = property.name && (property.name.text ?? null);
+            const nestedTarget = ts.isPropertyAssignment(property) ? property.initializer : property.name;
+            if (name)
+            {
+                const nestedValue = { container: value, property: name, provenanceMember: true };
+                recordTarget(
+                    ts,
+                    nestedTarget,
+                    node,
+                    nestedValue,
+                    options,
+                    recordIdentifier,
+                    recordMember,
+                    staticMemberAccess
+                );
+            }
         }
         return;
     }
@@ -181,84 +211,11 @@ function recordWrite(binding, property, write)
 function makeWrite(ts, node, value, options)
 {
     return {
+        ...controlBranch(ts, node),
         conditional: options.conditional || isConditionalExecution(ts, node),
         kills: options.kills ?? false,
         node,
         owner: functionOwner(ts, node),
         value
     };
-}
-
-function isConditionalExecution(ts, node)
-{
-    const owner = functionOwner(ts, node);
-    for (let current = node.parent; current && current !== owner; current = current.parent)
-    {
-        if (
-            ts.isIfStatement(current)
-        || ts.isConditionalExpression(current)
-        || isShortCircuitExpression(ts, current)
-        || ts.isForStatement(current)
-        || ts.isForInStatement(current)
-        || ts.isForOfStatement(current)
-        || ts.isWhileStatement(current)
-        || ts.isCaseClause(current)
-        || ts.isDefaultClause(current)
-        || ts.isCatchClause(current)
-        || (ts.isTryStatement(current) && current.tryBlock.pos <= node.pos && node.end <= current.tryBlock.end)
-        )
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-function isShortCircuitExpression(ts, node)
-{
-    return ts.isBinaryExpression(node)
-    && [
-        ts.SyntaxKind.AmpersandAmpersandToken,
-        ts.SyntaxKind.BarBarToken,
-        ts.SyntaxKind.QuestionQuestionToken
-    ].includes(node.operatorToken.kind);
-}
-
-export function functionOwner(ts, node)
-{
-    for (let current = node.parent; current; current = current.parent)
-    {
-        if (ts.isFunctionLike(current))
-        {
-            const invocation = directInvocation(ts, current);
-            if (!invocation)
-            {
-                return current;
-            }
-            current = invocation;
-        }
-    }
-    return null;
-}
-
-function directInvocation(ts, functionNode)
-{
-    let expression = functionNode;
-    while (
-        expression.parent
-    && (
-        ts.isParenthesizedExpression(expression.parent)
-        || ts.isAsExpression(expression.parent)
-        || ts.isNonNullExpression(expression.parent)
-    )
-    && expression.parent.expression === expression
-    )
-    {
-        expression = expression.parent;
-    }
-    return expression.parent
-    && ts.isCallExpression(expression.parent)
-    && expression.parent.expression === expression
-        ? expression.parent
-        : null;
 }

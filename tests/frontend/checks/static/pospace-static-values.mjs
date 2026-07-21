@@ -62,6 +62,15 @@ export function createPoSpaceStaticValues(ts, lexical)
                 {
                     return member;
                 }
+                if (
+                    ts.isPropertyDeclaration(member)
+                && member.initializer
+                && member.modifiers?.some(modifier => modifier.kind === ts.SyntaxKind.StaticKeyword)
+                && propertyNameText(member.name, flow) === property
+                )
+                {
+                    return member.initializer;
+                }
             }
         }
         if (/^(?:0|[1-9]\d*)$/u.test(property))

@@ -585,6 +585,15 @@ export const executorReachabilityCases = [
         expected: 'must keep the PoSpace executor lazy'
     },
     {
+        name: 'class static callback property is resolved as eager helper',
+        file: 'src/frontend/src/composables/useNotification.ts',
+        mutate: source => source.replace(
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'",
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'\n\nclass Helpers { static invokeNow = (callback: () => unknown) => callback() }\nHelpers.invokeNow(() => import('@/services/securityPoSpaceChallengeExecutor'))"
+        ),
+        expected: 'must keep the PoSpace executor lazy'
+    },
+    {
         name: 'template script-looking text remains valid SFC content',
         file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
         mutate: source => source.replace(

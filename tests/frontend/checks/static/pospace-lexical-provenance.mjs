@@ -1,7 +1,9 @@
-import { collectBindingWrites, functionOwner } from './pospace-binding-writes.mjs';
+import { collectBindingWrites } from './pospace-binding-writes.mjs';
+import { createPoSpaceReachingDefinitions } from './pospace-reaching-definitions.mjs';
 
 export function createPoSpaceLexicalProvenance(ts, resolveStaticMemberValue)
 {
+    const { reachingValues } = createPoSpaceReachingDefinitions(ts);
     function collectRuntimeBindings(sourceFile, flow)
     {
         walk(sourceFile, node =>
@@ -102,6 +104,7 @@ export function createPoSpaceLexicalProvenance(ts, resolveStaticMemberValue)
             provenanceMember,
             resolveLexicalBinding,
             staticMemberAccess,
+            staticStringValue,
             unwrapRuntimeExpression,
             walk
         });
@@ -238,17 +241,7 @@ export function createPoSpaceLexicalProvenance(ts, resolveStaticMemberValue)
     function resolveBindingValue(binding, useNode, flow, seen)
     {
         const value = resolveBindingValues(binding, useNode, flow, seen).at(-1) ?? null;
-        if (!isProvenanceMember(value))
-        {
-            return value;
-        }
-        return resolveStaticMemberValue(
-            value.container,
-            value.property,
-            useNode,
-            flow,
-            seen
-        ) ?? value;
+        return resolveProvenanceMemberValue(value, useNode, flow, seen);
     }
 
     function resolveBindingMemberValue(binding, property, useNode)
@@ -272,29 +265,6 @@ export function createPoSpaceLexicalProvenance(ts, resolveStaticMemberValue)
         return reachingValues([], binding.memberWrites?.get(property), useNode);
     }
 
-    function reachingValues(initial, writes, useNode)
-    {
-        let values = [...initial];
-        let initialReaches = true;
-        const owner = functionOwner(ts, useNode);
-        for (const write of [...(writes ?? [])]
-            .filter(candidate => candidate.node.pos < useNode.pos && candidate.owner === owner)
-            .sort((left, right) => left.node.pos - right.node.pos))
-        {
-            if (write.conditional || !write.kills)
-            {
-                if (write.value)
-                {
-                    values.push(write.value);
-                }
-                continue;
-            }
-            initialReaches = false;
-            values = write.value ? [write.value] : [];
-        }
-        return { initialReaches, values };
-    }
-
     function provenanceMember(container, property)
     {
         return { container, property, provenanceMember: true };
@@ -303,6 +273,27 @@ export function createPoSpaceLexicalProvenance(ts, resolveStaticMemberValue)
     function isProvenanceMember(value)
     {
         return value?.provenanceMember === true;
+    }
+
+    function resolveProvenanceMemberValue(value, useNode, flow, seen)
+    {
+        if (!isProvenanceMember(value))
+        {
+            return value;
+        }
+        const lookupNode = useNode?.kind === undefined ? provenanceMemberUseNode(value) : useNode;
+        const container = resolveProvenanceMemberValue(value.container, lookupNode, flow, seen);
+        return resolveStaticMemberValue(container, value.property, lookupNode, flow, seen) ?? value;
+    }
+
+    function provenanceMemberUseNode(value)
+    {
+        let current = value;
+        while (isProvenanceMember(current))
+        {
+            current = current.container;
+        }
+        return current;
     }
 
     function isUnshadowedGlobalIdentifier(identifier, flow)
@@ -391,6 +382,7 @@ export function createPoSpaceLexicalProvenance(ts, resolveStaticMemberValue)
         resolveBindingValue,
         resolveBindingValues,
         resolveLexicalBinding,
+        resolveProvenanceMemberValue,
         staticMemberAccess,
         staticStringValue,
         unwrapRuntimeExpression,

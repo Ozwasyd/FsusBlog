@@ -7,6 +7,7 @@ export function createPoSpaceProactiveCallbacks(ts, provenance)
         resolveBinding,
         resolveBindingValue,
         resolveBindingValues,
+        resolveProvenanceMemberValue,
         resolveStaticValue,
         staticArrayElements,
         staticMemberAccess,
@@ -111,8 +112,9 @@ export function createPoSpaceProactiveCallbacks(ts, provenance)
     {
         if (isProvenanceMember(node))
         {
+            const container = resolveProvenanceMemberValue(node.container, node.container, flow, seen);
             return node.property === 'Promise'
-            && isWorkerGlobalExpression(node.container, null, flow);
+            && isWorkerGlobalExpression(container, null, flow);
         }
         const expression = unwrapRuntimeExpression(node);
         if (

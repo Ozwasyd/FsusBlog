@@ -7,6 +7,7 @@ export function createPoSpaceReflectProvenance(ts, provenance)
         resolveBinding,
         resolveBindingMemberValues,
         resolveBindingValues,
+        resolveProvenanceMemberValue,
         resolveStaticValue,
         staticArrayElements,
         staticMemberAccess,
@@ -96,8 +97,13 @@ export function createPoSpaceReflectProvenance(ts, provenance)
     {
         if (isProvenanceMember(node))
         {
-            return node.property === 'Reflect'
-            && isWorkerGlobalExpression(node.container, facts, flow);
+            const container = resolveProvenanceMemberValue(node.container, node.container, flow, seen);
+            if (node.property === 'Reflect' && isWorkerGlobalExpression(container, facts, flow))
+            {
+                return true;
+            }
+            const value = resolveProvenanceMemberValue(node, node.container, flow, new Set(seen));
+            return value !== node && isReflectObjectExpression(value, facts, flow, seen);
         }
         const expression = unwrapRuntimeExpression(node);
         if (
@@ -135,6 +141,11 @@ export function createPoSpaceReflectProvenance(ts, provenance)
         )
         {
             return true;
+        }
+        const resolved = resolveStaticValue(expression, expression, flow, new Set(seen));
+        if (resolved !== expression)
+        {
+            return isReflectObjectExpression(resolved, facts, flow, seen);
         }
         if (!ts.isIdentifier(expression))
         {

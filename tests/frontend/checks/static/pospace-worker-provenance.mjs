@@ -8,6 +8,7 @@ export function createPoSpaceWorkerProvenance(ts, provenance)
         resolveBindingMemberValues,
         resolveBindingValue,
         resolveBindingValues,
+        resolveProvenanceMemberValue,
         resolveStaticMemberValue,
         resolveStaticValue,
         staticStringValue,
@@ -18,8 +19,13 @@ export function createPoSpaceWorkerProvenance(ts, provenance)
     {
         if (isProvenanceMember(node))
         {
-            return node.property === 'Worker'
-            && isWorkerGlobalExpression(node.container, facts, flow);
+            const container = resolveProvenanceMemberValue(node.container, node.container, flow, seen);
+            if (node.property === 'Worker' && isWorkerGlobalExpression(container, facts, flow))
+            {
+                return true;
+            }
+            const value = resolveStaticMemberValue(container, node.property, container, flow, new Set(seen));
+            return value ? isWorkerConstructorExpression(value, facts, flow, seen) : false;
         }
         const expression = unwrapRuntimeExpression(node);
         if (ts.isIdentifier(expression))
@@ -201,6 +207,11 @@ export function createPoSpaceWorkerProvenance(ts, provenance)
 
     function isWorkerGlobalExpression(node, facts, flow, seen = new Set())
     {
+        if (isProvenanceMember(node))
+        {
+            const value = resolveProvenanceMemberValue(node, node.container, flow, seen);
+            return value !== node && isWorkerGlobalExpression(value, facts, flow, seen);
+        }
         const expression = unwrapRuntimeExpression(node);
         if (!ts.isIdentifier(expression))
         {
