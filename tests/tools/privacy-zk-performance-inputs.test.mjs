@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -6,8 +7,15 @@ import test from 'node:test'
 
 import { verifyPrivacyZkPerformanceInputs } from '../../tools/test/verify-privacy-zk-performance-inputs.mjs'
 import { publishRunBoundMarker } from '../../tools/test-matrix/run-bound-marker.mjs'
+import { digestDeclaredOutputs } from '../../tools/test-matrix/local-profile.mjs'
 
 const sourceState = { commit: 'abc123', worktreeFingerprint: 'tree-1' }
+const expectedFrontendBuildStages = [{
+  id: 'frontend-build',
+  command: ['vite', 'build'],
+  dependsOn: [],
+  ownedOutputs: []
+}]
 
 function writeJson(root, relativeFile, value) {
   const file = path.join(root, relativeFile)
@@ -38,9 +46,41 @@ function writeFixture(root, runId) {
       sourceState, producerBundleId, producerStepId, artifacts: [artifactFile]
     })
   }
+  const stageReceiptPath = `.tmp/build/${runId}/generated/frontend-build-stages.json`
+  const frontendDistPath = `.tmp/build/${runId}/frontend/dist`
+  const backendWebRootPath = `.tmp/build/${runId}/frontend/wwwroot`
+  writeJson(root, `${frontendDistPath}/asset.json`, { current: true })
+  writeJson(root, `${backendWebRootPath}/asset.json`, { current: true })
+  const treeDigests = digestDeclaredOutputs(root, [frontendDistPath, backendWebRootPath])
+  const stageReceipt = {
+    schema: 'fsusblog.frontend-build-stage-receipt.v1',
+    status: 'success',
+    schedulerRunId: runId,
+    sourceState,
+    stages: [{
+      ...expectedFrontendBuildStages[0],
+      status: 'success',
+      outputs: {}
+    }]
+  }
+  writeJson(root, stageReceiptPath, stageReceipt)
+  const stageReceiptBytes = fs.readFileSync(path.join(root, stageReceiptPath))
   writeJson(root, `.tmp/test-runs/${runId}/frontend-build-ready.json`, {
     schema: 'fsusblog.local-production.frontend-build-ready.v1', status: 'success', schedulerRunId: runId,
-    buildLayout: { sourceCommit: sourceState.commit, sourceFingerprint: sourceState.worktreeFingerprint }
+    buildLayout: { sourceCommit: sourceState.commit, sourceFingerprint: sourceState.worktreeFingerprint },
+    frontendDist: { path: frontendDistPath, digest: treeDigests[frontendDistPath] },
+    backendWebRoot: { path: backendWebRootPath, digest: treeDigests[backendWebRootPath] },
+    stageReceipt: {
+      path: stageReceiptPath,
+      contentDigest: `sha256:${createHash('sha256').update(stageReceiptBytes).digest('hex')}`,
+      identity: {
+        schema: stageReceipt.schema,
+        status: stageReceipt.status,
+        schedulerRunId: runId,
+        sourceCommit: sourceState.commit,
+        sourceFingerprint: sourceState.worktreeFingerprint
+      }
+    }
   })
   for (const stage of ['contract', 'functional']) {
     writeJson(root, `.tmp/security/privacy-zk-comment-matrix-stages/${stage}.json`, {
@@ -60,12 +100,49 @@ test('privacy-ZK performance inputs bind all prerequisite bundles and receipts t
   const evidence = verifyPrivacyZkPerformanceInputs({
     runId: 'production-fresh',
     sourceState,
-    repositoryRoot: root
+    repositoryRoot: root,
+    expectedFrontendBuildStages
   })
   assert.equal(evidence.markers.length, 2)
   assert.equal(evidence.stages.length, 2)
   assert.ok([...evidence.markers, evidence.frontendBuild, ...evidence.stages]
     .every((entry) => entry.digest.startsWith('sha256:')))
+})
+
+test('privacy-ZK performance inputs reject a mutated frontend stage receipt', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-privacy-performance-stage-receipt-'))
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }))
+  writeFixture(root, 'production-fresh')
+  fs.appendFileSync(path.join(root, '.tmp/build/production-fresh/generated/frontend-build-stages.json'), ' ')
+
+  assert.throws(
+    () => verifyPrivacyZkPerformanceInputs({
+      runId: 'production-fresh', sourceState, repositoryRoot: root, expectedFrontendBuildStages
+    }),
+    (error) => {
+      assert.ok(error instanceof AggregateError)
+      assert.match(error.message, /stage receipt content digest mismatch/u)
+      return true
+    }
+  )
+})
+
+test('privacy-ZK performance inputs reject a mutated final frontend tree', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-privacy-performance-frontend-tree-'))
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }))
+  writeFixture(root, 'production-fresh')
+  fs.appendFileSync(path.join(root, '.tmp/build/production-fresh/frontend/dist/asset.json'), ' ')
+
+  assert.throws(
+    () => verifyPrivacyZkPerformanceInputs({
+      runId: 'production-fresh', sourceState, repositoryRoot: root, expectedFrontendBuildStages
+    }),
+    (error) => {
+      assert.ok(error instanceof AggregateError)
+      assert.match(error.message, /frontend tree digest mismatch/u)
+      return true
+    }
+  )
 })
 
 test('privacy-ZK performance inputs reject a re-signed marker for the wrong semantic artifact', (t) => {
@@ -89,7 +166,8 @@ test('privacy-ZK performance inputs reject a re-signed marker for the wrong sema
     () => verifyPrivacyZkPerformanceInputs({
       runId: 'production-fresh',
       sourceState,
-      repositoryRoot: root
+      repositoryRoot: root,
+      expectedFrontendBuildStages
     }),
     (error) => {
       assert.ok(error instanceof AggregateError)
@@ -107,7 +185,9 @@ test('privacy-ZK performance inputs report every missing or stale prerequisite t
   fs.rmSync(path.join(root, '.tmp/test-runs/stale-run/frontend-build-ready.json'))
 
   assert.throws(
-    () => verifyPrivacyZkPerformanceInputs({ runId: 'production-fresh', sourceState, repositoryRoot: root }),
+    () => verifyPrivacyZkPerformanceInputs({
+      runId: 'production-fresh', sourceState, repositoryRoot: root, expectedFrontendBuildStages
+    }),
     (error) => {
       assert.ok(error instanceof AggregateError)
       assert.equal(error.errors.length, 5)

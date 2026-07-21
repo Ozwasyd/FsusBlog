@@ -1772,6 +1772,8 @@ EnsureReleasePreview() {
         -f "$ROOT_DIR/.tmp/test-runs/$FSUSBLOG_TEST_RUN_ID/frontend-build-ready.json" ]]; then
         FSUSBLOG_REPOSITORY_ROOT="$ROOT_DIR" \
             FSUSBLOG_TEST_RUN_ID="$FSUSBLOG_TEST_RUN_ID" \
+            FSUSBLOG_TEST_SOURCE_COMMIT="${FSUSBLOG_TEST_SOURCE_COMMIT:?frontend build source commit is required}" \
+            FSUSBLOG_TEST_SOURCE_FINGERPRINT="${FSUSBLOG_TEST_SOURCE_FINGERPRINT:?frontend build source fingerprint is required}" \
             "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/ux/release-preview-readiness.mjs" validate-build
         runBoundBuild="true"
         rm -f "$ROOT_DIR/.tmp/test-runs/$FSUSBLOG_TEST_RUN_ID/release-preview-ready.json"
@@ -1792,6 +1794,8 @@ EnsureReleasePreview() {
             WaitForBinaryUrl 'release preview namespace API' "$RELEASE_PREVIEW_URL/api/binary/system/seo" "$readinessDeadline"
             FSUSBLOG_REPOSITORY_ROOT="$ROOT_DIR" \
                 FSUSBLOG_TEST_RUN_ID="$FSUSBLOG_TEST_RUN_ID" \
+                FSUSBLOG_TEST_SOURCE_COMMIT="${FSUSBLOG_TEST_SOURCE_COMMIT:?frontend build source commit is required}" \
+                FSUSBLOG_TEST_SOURCE_FINGERPRINT="${FSUSBLOG_TEST_SOURCE_FINGERPRINT:?frontend build source fingerprint is required}" \
                 FSUSBLOG_TEST_NAMESPACE="$FSUSBLOG_TEST_NAMESPACE" \
                 FSUSBLOG_RELEASE_PREVIEW_URL="$RELEASE_PREVIEW_URL" \
                 FSUSBLOG_DEBUG_BACKEND_URL="$DEBUG_BACKEND_URL" \
@@ -1844,6 +1848,8 @@ EnsureReleasePreview() {
         WaitForBinaryUrl 'release preview namespace API' "$RELEASE_PREVIEW_URL/api/binary/system/seo" "$readinessDeadline"
         FSUSBLOG_REPOSITORY_ROOT="$ROOT_DIR" \
             FSUSBLOG_TEST_RUN_ID="$FSUSBLOG_TEST_RUN_ID" \
+            FSUSBLOG_TEST_SOURCE_COMMIT="${FSUSBLOG_TEST_SOURCE_COMMIT:?frontend build source commit is required}" \
+            FSUSBLOG_TEST_SOURCE_FINGERPRINT="${FSUSBLOG_TEST_SOURCE_FINGERPRINT:?frontend build source fingerprint is required}" \
             FSUSBLOG_TEST_NAMESPACE="$FSUSBLOG_TEST_NAMESPACE" \
             FSUSBLOG_RELEASE_PREVIEW_URL="$RELEASE_PREVIEW_URL" \
             FSUSBLOG_DEBUG_BACKEND_URL="$DEBUG_BACKEND_URL" \

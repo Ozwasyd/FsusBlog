@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import {
   runFrontendBuildStageDag,
@@ -12,6 +14,8 @@ import {
   createFrontendBuildStages,
   renderStableSpaEntryAlias
 } from '../../tools/frontend/build.mjs'
+
+const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 
 function resources(overrides = {}) {
   return {
@@ -90,7 +94,10 @@ test('frontend build stage validation rejects unknown dependencies and cycles', 
 })
 
 test('release build declares independent prebuild stages and explicit postbuild joins', () => {
-  const stages = validateFrontendBuildStages(createFrontendBuildStages([], 'generate'))
+  const stages = validateFrontendBuildStages(createFrontendBuildStages([], 'generate', {
+    frontendRoot: path.join(repositoryRoot, 'src/frontend'),
+    env: process.env
+  }))
   const byId = new Map(stages.map((entry) => [entry.id, entry]))
 
   assert.deepEqual(byId.get('generate-public-page-manifest').dependsOn, [])
@@ -105,6 +112,40 @@ test('release build declares independent prebuild stages and explicit postbuild 
     byId.get('sync-fsusui-markdown-runtime-assets').consumedInputs[0],
     /(?:FsusUI\/vue\/packages\/wasm\/dist|node_modules\/@ozwasyd\/element-plus\/es\/wasm\/dist)$/u
   )
+})
+
+test('frontend stage declarations are identical across caller cwd and bind the explicit frontend root', () => {
+  const frontendRoot = path.join(repositoryRoot, 'src/frontend')
+  const runRoot = path.join(repositoryRoot, '.tmp/build/cwd-contract')
+  const env = {
+    ...process.env,
+    FSUSBLOG_FRONTEND_DIST_ROOT: path.join(runRoot, 'frontend/dist'),
+    FSUSBLOG_FRONTEND_WASM_ROOT: path.join(runRoot, 'frontend/wasm'),
+    FSUSBLOG_BACKEND_WEBROOT: path.join(runRoot, 'frontend/wwwroot'),
+    FSUSBLOG_SKIP_BACKEND_WWWROOT_SYNC: '1'
+  }
+  const moduleUrl = pathToFileURL(path.join(repositoryRoot, 'tools/frontend/build.mjs')).href
+  const script = `
+    const { createFrontendBuildStages } = await import(${JSON.stringify(moduleUrl)});
+    const stages = createFrontendBuildStages([], 'generate', { frontendRoot: process.argv[1], env: process.env });
+    process.stdout.write(JSON.stringify(stages.map(({ id, command, dependsOn, ownedOutputs }) => ({ id, command, dependsOn, ownedOutputs }))));
+  `
+  const declarations = [repositoryRoot, frontendRoot].map((cwd) => {
+    const result = spawnSync(process.execPath, ['--input-type=module', '-e', script, frontendRoot], {
+      cwd,
+      env,
+      encoding: 'utf8'
+    })
+    assert.equal(result.status, 0, result.stderr)
+    return JSON.parse(result.stdout)
+  })
+  assert.deepEqual(declarations[0], declarations[1])
+  const byId = new Map(declarations[0].map((stage) => [stage.id, stage]))
+  assert.equal(byId.get('vue-tsc').command[0], path.join(frontendRoot, 'node_modules/.bin/vue-tsc'))
+  assert.equal(byId.get('vite-build').command[0], path.join(frontendRoot, 'node_modules/.bin/vite'))
+  assert.deepEqual(byId.get('sync-stable-spa-entry').ownedOutputs, [
+    path.join(runRoot, 'frontend/dist/assets/fsus-spa-entry.js')
+  ])
 })
 
 test('stable SPA entry preserves the hashed entry as the only module identity', () => {

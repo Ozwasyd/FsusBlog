@@ -52,7 +52,11 @@ import {
   publishRunBoundMarker,
   waitForRunBoundMarker
 } from '../../test-matrix/run-bound-marker.mjs'
-import { publishFrontendBuildTerminalMarker } from '../../test-matrix/frontend-build-ready-marker.mjs'
+import {
+  publishFrontendBuildTerminalMarker,
+  validateFrontendBuildStageReceiptBinding,
+  validateFrontendBuildStageReceiptIdentity
+} from '../../test-matrix/frontend-build-ready-marker.mjs'
 import { productionZkRequested } from '../../security/comment-privacy-build-contract.mjs'
 import {
   consumeResidentLeaseHandoffFile,
@@ -78,6 +82,7 @@ if (path.resolve(process.env.FSUSBLOG_PRODUCTION_BUILD_ROOT ?? '') !== productio
   throw new Error('physical bundle requires the current run-bound production build root')
 }
 Object.assign(process.env, productionBuildEnvironment(productionBuildLayout, process.env))
+const { createFrontendBuildStages } = await import('../../frontend/build.mjs')
 const dotnetArtifacts = productionDotnetArtifacts(productionBuildLayout)
 const backendTestDll = dotnetArtifacts.testDll
 const benchmarkDll = dotnetArtifacts.benchmarkDll
@@ -262,6 +267,36 @@ function frontendBuildReadyFile(runId = schedulerRunId()) {
   return path.join(root, '.tmp/test-runs', runId, 'frontend-build-ready.json')
 }
 
+function frontendBuildStageReceiptFile() {
+  const configured = String(process.env.FSUSBLOG_FRONTEND_BUILD_STAGE_RECEIPT ?? '').trim()
+  if (!configured) return path.join(productionBuildLayout.generatedRoot, 'frontend-build-stages.json')
+  return path.isAbsolute(configured)
+    ? path.resolve(configured)
+    : path.resolve(root, 'src/frontend', configured)
+}
+
+function expectedFrontendBuildStages() {
+  const generatedOnly = process.env.FSUSBLOG_VALIDATE_GENERATED_ONLY === '1'
+  return createFrontendBuildStages(generatedOnly ? ['--check'] : [], generatedOnly ? 'check' : 'generate', {
+    frontendRoot: path.join(root, 'src/frontend'),
+    env: process.env
+  })
+}
+
+function criticalFrontendBuildStageOutputs(stages = expectedFrontendBuildStages()) {
+  const owned = new Set(stages.flatMap((stage) => stage.ownedOutputs))
+  return [
+    path.join(frontendDistRoot, 'index.html'),
+    path.join(frontendDistRoot, 'server', 'public-shell-emergency.css'),
+    path.join(frontendDistRoot, 'wasm'),
+    path.join(frontendDistRoot, 'assets', 'fsus-spa-entry.js'),
+    path.join(frontendDistRoot, 'dist'),
+    path.join(frontendWasmRoot, 'wasm-manifest.aeds'),
+    path.join(frontendWasmRoot, 'aeds-runtime-manifest.json'),
+    backendWebRoot
+  ].filter((candidate) => owned.has(candidate))
+}
+
 const runMarkerProducers = {
   'backend-coverage-ready': ['backend-tests', 'backend-coverage-summary'],
   'frontend-coverage-ready': ['frontend-tests', 'frontend-coverage-summary'],
@@ -439,17 +474,49 @@ function publishBenchmarkBuildReady() {
 
 function publishFrontendBuildReady() {
   const runId = schedulerRunId()
+  const expectedStages = expectedFrontendBuildStages()
   const artifactPath = relative(path.join(frontendDistRoot, 'index.html'))
   const privacyWasmPaths = [
     'comment-privacy-prover.js',
     ...(productionZkRequested() ? ['comment-privacy-prover.zkey', 'comment-privacy-prover.manifest.json'] : [])
   ].map((file) => relative(path.join(frontendWasmRoot, file)))
   const summaryPath = '.tmp/frontend/frontend-build.json'
+  const stageReceiptFile = frontendBuildStageReceiptFile()
+  const stageReceiptPath = relative(stageReceiptFile)
   const requiredArtifacts = [artifactPath, ...privacyWasmPaths]
-  const missingArtifacts = requiredArtifacts.filter((requiredPath) => !fs.existsSync(path.join(root, requiredPath)))
+  const frontendDistPath = relative(frontendDistRoot)
+  const backendWebRootPath = relative(backendWebRoot)
+  const missingArtifacts = [...requiredArtifacts, stageReceiptPath]
+    .filter((requiredPath) => !fs.existsSync(path.join(root, requiredPath)))
   if (missingArtifacts.length > 0) {
     throw new Error(`frontend build completed without required artifact(s): ${missingArtifacts.join(', ')}`)
   }
+  let stageReceipt
+  try {
+    stageReceipt = JSON.parse(fs.readFileSync(stageReceiptFile, 'utf8'))
+  } catch (error) {
+    throw new Error(`frontend build stage receipt is unreadable: ${stageReceiptPath}`, { cause: error })
+  }
+  const stageReceiptIdentity = validateFrontendBuildStageReceiptIdentity(stageReceipt, {
+    runId,
+    sourceState: currentSourceState()
+  })
+  validateFrontendBuildStageReceiptBinding({
+    root,
+    marker: {
+      stageReceipt: {
+        path: stageReceiptPath,
+        contentDigest: fileContentDigest(stageReceiptFile),
+        identity: stageReceiptIdentity
+      }
+    },
+    runId,
+    sourceState: currentSourceState(),
+    expectedPath: stageReceiptPath,
+    expectedStages,
+    stageCwd: path.join(root, 'src/frontend'),
+    criticalOutputPaths: criticalFrontendBuildStageOutputs(expectedStages)
+  })
   const artifacts = digestArtifacts(requiredArtifacts, 'frontend-build-ready')
   const artifactDigests = artifacts.digests
   const generatedContractFile = path.join(productionBuildLayout.generatedRoot, 'frontend-build-contract.json')
@@ -467,6 +534,9 @@ function publishFrontendBuildReady() {
   const generatedContractPath = relative(generatedContractFile)
   const generatedContract = digestArtifacts([generatedContractPath], 'frontend-generated-contract')
   const generatedContractDigest = generatedContract.digests[generatedContractPath]
+  const stageReceiptArtifact = digestArtifacts([stageReceiptPath], 'frontend-build-stage-receipt')
+  const frontendDistArtifact = digestArtifacts([frontendDistPath], 'frontend-build-ready-dist')
+  const backendWebRootArtifact = digestArtifacts([backendWebRootPath], 'frontend-build-ready-wwwroot')
   const publishedAt = new Date().toISOString()
   const marker = {
     schema: 'fsusblog.local-production.frontend-build-ready.v1',
@@ -490,6 +560,23 @@ function publishFrontendBuildReady() {
       digest: generatedContractDigest,
       artifactRef: generatedContract.refs[generatedContractPath]
     },
+    stageReceipt: {
+      path: stageReceiptPath,
+      digest: stageReceiptArtifact.digests[stageReceiptPath],
+      contentDigest: fileContentDigest(stageReceiptFile),
+      artifactRef: stageReceiptArtifact.refs[stageReceiptPath],
+      identity: stageReceiptIdentity
+    },
+    frontendDist: {
+      path: frontendDistPath,
+      digest: frontendDistArtifact.digests[frontendDistPath],
+      artifactRef: frontendDistArtifact.refs[frontendDistPath]
+    },
+    backendWebRoot: {
+      path: backendWebRootPath,
+      digest: backendWebRootArtifact.digests[backendWebRootPath],
+      artifactRef: backendWebRootArtifact.refs[backendWebRootPath]
+    },
     publishedAt,
     generatedAt: publishedAt
   }
@@ -504,12 +591,27 @@ function publishFrontendBuildReady() {
 
 function publishFrontendBuildTerminal(status, reason) {
   const runId = schedulerRunId()
+  const stageReceiptPath = relative(frontendBuildStageReceiptFile())
   publishFrontendBuildTerminalMarker({
     file: frontendBuildReadyFile(runId),
     runId,
     buildLayout: buildLayoutBinding(),
     status,
-    reason
+    reason,
+    validateExistingSuccess: (marker) => {
+      if (!markerHasCurrentBuildLayout(marker) || marker.stageReceipt?.path !== stageReceiptPath) return false
+      validateFrontendBuildStageReceiptBinding({
+        root,
+        marker,
+        runId,
+        sourceState: currentSourceState(),
+        expectedPath: stageReceiptPath,
+        expectedStages: expectedFrontendBuildStages(),
+        stageCwd: path.join(root, 'src/frontend'),
+        criticalOutputPaths: criticalFrontendBuildStageOutputs()
+      })
+      return true
+    }
   })
 }
 
@@ -1463,6 +1565,10 @@ async function waitForFrontendBuildReady(timeoutMs = resolveExecutionWaitTimeout
     ...(productionZkRequested() ? ['comment-privacy-prover.zkey', 'comment-privacy-prover.manifest.json'] : [])
   ].map((file) => relative(path.join(frontendWasmRoot, file)))
   const generatedContractPath = relative(path.join(productionBuildLayout.generatedRoot, 'frontend-build-contract.json'))
+  const stageReceiptPath = relative(frontendBuildStageReceiptFile())
+  const frontendDistPath = relative(frontendDistRoot)
+  const backendWebRootPath = relative(backendWebRoot)
+  const expectedStages = expectedFrontendBuildStages()
   const startedAtMs = Date.now()
   const readiness = await waitForRunBoundMarker({
     file: markerFile,
@@ -1494,10 +1600,30 @@ async function waitForFrontendBuildReady(timeoutMs = resolveExecutionWaitTimeout
             || !markerHasCurrentBuildLayout(marker)
             || marker.distEntry?.path !== artifactPath
             || marker.generatedContract?.path !== generatedContractPath
+            || marker.stageReceipt?.path !== stageReceiptPath
+            || marker.frontendDist?.path !== frontendDistPath
+            || marker.backendWebRoot?.path !== backendWebRootPath
             || privacyWasmPaths.some((requiredPath) => marker.privacyWasmArtifacts?.[requiredPath]?.path !== requiredPath)) {
           throw new Error(`frontend build readiness marker is not bound to scheduler run ${expectedRunId}`)
         }
-        const requiredArtifacts = [artifactPath, ...privacyWasmPaths, generatedContractPath]
+        const stageReceipt = validateFrontendBuildStageReceiptBinding({
+          root,
+          marker,
+          runId: expectedRunId,
+          sourceState: currentSourceState(),
+          expectedPath: stageReceiptPath,
+          expectedStages,
+          stageCwd: path.join(root, 'src/frontend'),
+          criticalOutputPaths: criticalFrontendBuildStageOutputs(expectedStages)
+        })
+        const requiredArtifacts = [
+          artifactPath,
+          ...privacyWasmPaths,
+          generatedContractPath,
+          stageReceiptPath,
+          frontendDistPath,
+          backendWebRootPath
+        ]
         const missingArtifacts = requiredArtifacts.filter((requiredPath) => !fs.existsSync(path.join(root, requiredPath)))
         if (missingArtifacts.length > 0) {
           throw new Error(`frontend build readiness artifact(s) missing: ${missingArtifacts.join(', ')}`)
@@ -1509,11 +1635,23 @@ async function waitForFrontendBuildReady(timeoutMs = resolveExecutionWaitTimeout
             ? marker.distEntry.digest
             : requiredPath === generatedContractPath
               ? marker.generatedContract.digest
+              : requiredPath === stageReceiptPath
+                ? marker.stageReceipt.digest
+              : requiredPath === frontendDistPath
+                ? marker.frontendDist.digest
+              : requiredPath === backendWebRootPath
+                ? marker.backendWebRoot.digest
               : marker.privacyWasmArtifacts[requiredPath].digest
           const expectedRef = requiredPath === artifactPath
             ? marker.distEntry.artifactRef
             : requiredPath === generatedContractPath
               ? marker.generatedContract.artifactRef
+              : requiredPath === stageReceiptPath
+                ? marker.stageReceipt.artifactRef
+              : requiredPath === frontendDistPath
+                ? marker.frontendDist.artifactRef
+              : requiredPath === backendWebRootPath
+                ? marker.backendWebRoot.artifactRef
               : marker.privacyWasmArtifacts[requiredPath].artifactRef
           return !expectedDigest || actualDigests[requiredPath] !== expectedDigest
             || !expectedRef || actual.refs[requiredPath] !== expectedRef
@@ -1530,7 +1668,8 @@ async function waitForFrontendBuildReady(timeoutMs = resolveExecutionWaitTimeout
             path: requiredPath,
             digest: actualDigests[requiredPath],
             artifactRef: actual.refs[requiredPath]
-          }))
+          })),
+          stageReceiptIdentity: stageReceipt.identity
         }
       } catch (error) {
         throw new Error(`invalid run-bound frontend build readiness marker: ${error.message}`, { cause: error })

@@ -7,7 +7,9 @@ import process from 'node:process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { digestDeclaredOutputs } from '../test-matrix/local-profile.mjs'
+import { validateFrontendBuildStageReceiptBinding } from '../test-matrix/frontend-build-ready-marker.mjs'
 import { resolveProductionBuildLayout } from '../test-matrix/production-build-layout.mjs'
+import { createFrontendBuildStages } from '../frontend/build.mjs'
 
 export const frontendBuildReadySchema = 'fsusblog.local-production.frontend-build-ready.v1'
 export const releasePreviewReadySchema = 'fsusblog.release-preview-ready.v1'
@@ -70,6 +72,28 @@ export function releasePreviewReadyFile(root, runId) {
   return path.join(path.resolve(root), '.tmp/test-runs', requireSafeRunId(runId), releasePreviewReadyFileName)
 }
 
+function currentFrontendBuildStages(frontendRoot, env = process.env) {
+  const generatedOnly = env.FSUSBLOG_VALIDATE_GENERATED_ONLY === '1'
+  return createFrontendBuildStages(generatedOnly ? ['--check'] : [], generatedOnly ? 'check' : 'generate', {
+    frontendRoot,
+    env
+  })
+}
+
+function criticalFrontendBuildOutputs(layout, stages) {
+  const owned = new Set(stages.flatMap((stage) => stage.ownedOutputs))
+  return [
+    path.join(layout.frontendDist, 'index.html'),
+    path.join(layout.frontendDist, 'server', 'public-shell-emergency.css'),
+    path.join(layout.frontendDist, 'wasm'),
+    path.join(layout.frontendDist, 'assets', 'fsus-spa-entry.js'),
+    path.join(layout.frontendDist, 'dist'),
+    path.join(layout.frontendWasm, 'wasm-manifest.aeds'),
+    path.join(layout.frontendWasm, 'aeds-runtime-manifest.json'),
+    layout.backendWebRoot
+  ].filter((candidate) => owned.has(candidate))
+}
+
 export function validateReleasePreviewReady({ root = defaultRoot, runId, previewUrl } = {}) {
   const repositoryRoot = path.resolve(root)
   const schedulerRunId = requireSafeRunId(runId)
@@ -122,11 +146,22 @@ export function validateReleasePreviewReady({ root = defaultRoot, runId, preview
   }
 }
 
-export function validateFrontendBuildReady({ root = defaultRoot, runId } = {}) {
+export function validateFrontendBuildReady({
+  root = defaultRoot,
+  runId,
+  expectedSourceState,
+  expectedStages,
+  criticalOutputPaths
+} = {}) {
   const repositoryRoot = path.resolve(root)
   const schedulerRunId = requireSafeRunId(runId)
   const layout = resolveProductionBuildLayout({ root: repositoryRoot, runId: schedulerRunId })
+  const resolvedExpectedStages = expectedStages ?? currentFrontendBuildStages(
+    path.join(repositoryRoot, 'src/frontend')
+  )
   const distEntryPath = path.relative(repositoryRoot, path.join(layout.frontendDist, 'index.html')).replaceAll(path.sep, '/')
+  const frontendDistPath = path.relative(repositoryRoot, layout.frontendDist).replaceAll(path.sep, '/')
+  const backendWebRootPath = path.relative(repositoryRoot, layout.backendWebRoot).replaceAll(path.sep, '/')
   const markerFile = path.join(repositoryRoot, '.tmp/test-runs', schedulerRunId, 'frontend-build-ready.json')
   if (!fs.existsSync(markerFile)) {
     throw new Error(`frontend build readiness marker is missing for scheduler run ${schedulerRunId}`)
@@ -143,6 +178,10 @@ export function validateFrontendBuildReady({ root = defaultRoot, runId } = {}) {
     || marker.physicalBundleId !== 'build-static'
     || marker.producerStepId !== 'sync-static-assets'
     || marker.schedulerRunId !== schedulerRunId
+    || marker.buildLayout?.sourceCommit !== expectedSourceState?.commit
+    || marker.buildLayout?.sourceFingerprint !== expectedSourceState?.worktreeFingerprint
+    || marker.frontendDist?.path !== frontendDistPath
+    || marker.backendWebRoot?.path !== backendWebRootPath
     || marker.distEntry?.path !== distEntryPath) {
     throw new Error(`frontend build readiness marker is not bound to current build-static run: ${schedulerRunId}`)
   }
@@ -155,6 +194,27 @@ export function validateFrontendBuildReady({ root = defaultRoot, runId } = {}) {
   if (!marker.distEntry.digest || marker.distEntry.digest !== currentDigest) {
     throw new Error(`frontend build readiness dist digest does not match current ${distEntryPath}`)
   }
+  const currentTreeDigests = digestDeclaredOutputs(repositoryRoot, [frontendDistPath, backendWebRootPath])
+  if (!marker.frontendDist.digest || marker.frontendDist.digest !== currentTreeDigests[frontendDistPath]) {
+    throw new Error('frontend build readiness final dist tree digest mismatch')
+  }
+  if (!marker.backendWebRoot.digest || marker.backendWebRoot.digest !== currentTreeDigests[backendWebRootPath]) {
+    throw new Error('frontend build readiness backend wwwroot tree digest mismatch')
+  }
+  const stageReceiptPath = path.relative(
+    repositoryRoot,
+    path.join(layout.generatedRoot, 'frontend-build-stages.json')
+  ).replaceAll(path.sep, '/')
+  validateFrontendBuildStageReceiptBinding({
+    root: repositoryRoot,
+    marker,
+    runId: schedulerRunId,
+    sourceState: expectedSourceState,
+    expectedPath: stageReceiptPath,
+    expectedStages: resolvedExpectedStages,
+    stageCwd: path.join(repositoryRoot, 'src/frontend'),
+    criticalOutputPaths: criticalOutputPaths ?? criticalFrontendBuildOutputs(layout, resolvedExpectedStages)
+  })
   return {
     marker,
     markerFile,
@@ -204,13 +264,22 @@ export async function publishReleasePreviewReady({
   namespace,
   previewUrl,
   backendUrl,
+  expectedSourceState,
+  expectedStages,
+  criticalOutputPaths,
   fetchImpl = globalThis.fetch,
   generatedAt = new Date().toISOString()
 } = {}) {
   if (typeof fetchImpl !== 'function') throw new Error('fetch implementation is required')
   const markerFile = releasePreviewReadyFile(root, runId)
   fs.rmSync(markerFile, { force: true })
-  const build = validateFrontendBuildReady({ root, runId })
+  const build = validateFrontendBuildReady({
+    root,
+    runId,
+    expectedSourceState,
+    expectedStages,
+    criticalOutputPaths
+  })
   const normalizedNamespace = requireNamespace(namespace)
   const normalizedPreviewUrl = requireBaseUrl(previewUrl, 'FSUSBLOG_RELEASE_PREVIEW_URL')
   const normalizedBackendUrl = requireBaseUrl(backendUrl, 'FSUSBLOG_DEBUG_BACKEND_URL')
@@ -289,7 +358,11 @@ async function main() {
   const action = process.argv[2]
   const options = {
     root: process.env.FSUSBLOG_REPOSITORY_ROOT || defaultRoot,
-    runId: process.env.FSUSBLOG_TEST_RUN_ID
+    runId: process.env.FSUSBLOG_TEST_RUN_ID,
+    expectedSourceState: {
+      commit: process.env.FSUSBLOG_TEST_SOURCE_COMMIT,
+      worktreeFingerprint: process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT
+    }
   }
   if (action === 'validate-build') {
     const result = validateFrontendBuildReady(options)
