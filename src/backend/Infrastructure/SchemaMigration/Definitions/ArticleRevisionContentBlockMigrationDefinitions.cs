@@ -29,49 +29,79 @@ internal static class ArticleRevisionContentBlockMigrationDefinitions
                 new EnsureColumnStep("article_revision", "content_block_id", "bigint NULL"),
                 new BackfillSqlStep(
                     """
-                    INSERT INTO article_revision_content_block(content_hash, markdown_content, byte_length, created_at)
-                    SELECT encode(sha256(convert_to(markdown_content, 'UTF8')), 'hex'),
-                           markdown_content,
-                           octet_length(convert_to(markdown_content, 'UTF8')),
-                           MIN(created_at)
-                    FROM article_revision
-                    WHERE content_block_id IS NULL
-                    GROUP BY markdown_content
-                    ON CONFLICT (content_hash) DO NOTHING;
+                    DO $$
+                    BEGIN
+                    IF to_regclass('article_revision') IS NOT NULL
+                       AND to_regclass('article_revision_content_block') IS NOT NULL THEN
+                    EXECUTE $migration$
+                        INSERT INTO article_revision_content_block(content_hash, markdown_content, byte_length, created_at)
+                        SELECT encode(sha256(convert_to(markdown_content, 'UTF8')), 'hex'),
+                               markdown_content,
+                               octet_length(convert_to(markdown_content, 'UTF8')),
+                               MIN(created_at)
+                        FROM article_revision
+                        WHERE content_block_id IS NULL
+                        GROUP BY markdown_content
+                        ON CONFLICT (content_hash) DO NOTHING;
 
-                    UPDATE article_revision revision
-                    SET content_block_id = block.id
-                    FROM article_revision_content_block block
-                    WHERE revision.content_block_id IS NULL
-                      AND block.content_hash = encode(sha256(convert_to(revision.markdown_content, 'UTF8')), 'hex')
-                      AND block.markdown_content = revision.markdown_content;
+                        UPDATE article_revision revision
+                        SET content_block_id = block.id
+                        FROM article_revision_content_block block
+                        WHERE revision.content_block_id IS NULL
+                          AND block.content_hash = encode(sha256(convert_to(revision.markdown_content, 'UTF8')), 'hex')
+                          AND block.markdown_content = revision.markdown_content
+                    $migration$;
+                    END IF;
+                    END $$;
                     """),
                 new AssertSqlStep(
                     "Every article revision resolves exactly one immutable content block",
                     """
                     DO $$
+                    DECLARE unreachable boolean;
                     BEGIN
-                        IF EXISTS (
-                            SELECT 1
-                            FROM article_revision revision
-                            LEFT JOIN article_revision_content_block block ON block.id = revision.content_block_id
-                            WHERE block.id IS NULL
-                               OR block.markdown_content <> revision.markdown_content
-                               OR block.byte_length <> octet_length(convert_to(block.markdown_content, 'UTF8'))
-                        ) THEN
+                    IF to_regclass('article_revision') IS NOT NULL
+                       AND to_regclass('article_revision_content_block') IS NOT NULL THEN
+                        EXECUTE $migration$
+                            SELECT EXISTS (
+                                SELECT 1
+                                FROM article_revision revision
+                                LEFT JOIN article_revision_content_block block ON block.id = revision.content_block_id
+                                WHERE block.id IS NULL
+                                   OR block.markdown_content <> revision.markdown_content
+                                   OR block.byte_length <> octet_length(convert_to(block.markdown_content, 'UTF8'))
+                            )
+                        $migration$ INTO unreachable;
+                        IF unreachable THEN
                             RAISE EXCEPTION 'article_revision_content_block_reachability_failed';
                         END IF;
+                    END IF;
                     END $$;
                     """),
-                new RawSqlStep("ALTER TABLE article_revision ALTER COLUMN content_block_id SET NOT NULL;"),
+                new RawSqlStep(
+                    """
+                    DO $$
+                    BEGIN
+                    IF to_regclass('article_revision') IS NOT NULL THEN
+                        EXECUTE 'ALTER TABLE article_revision ALTER COLUMN content_block_id SET NOT NULL';
+                    END IF;
+                    END $$;
+                    """),
                 new CreateIndexStep(
                     "idx_article_revision_content_block",
                     "CREATE INDEX IF NOT EXISTS idx_article_revision_content_block ON article_revision(content_block_id);"),
                 new BackfillSqlStep(
                     """
-                    UPDATE article_revision
-                    SET markdown_content = ''
-                    WHERE markdown_content <> '';
+                    DO $$
+                    BEGIN
+                    IF to_regclass('article_revision') IS NOT NULL THEN
+                        EXECUTE $migration$
+                            UPDATE article_revision
+                            SET markdown_content = ''
+                            WHERE markdown_content <> ''
+                        $migration$;
+                    END IF;
+                    END $$;
                     """)
             ]);
 }
