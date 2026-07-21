@@ -71,11 +71,11 @@ public sealed class PerceptionChallengeV2E2eTests
                 BusinessFlow,
                 "perceptionMicroInteractionV2",
                 ["issue", "render", "verify", "proof", "business-action-resume"],
-                ["micro-interaction"],
+                ["localization", "micro-interaction"],
                 ["comment.create"]),
             new PerceptionE2eCoverage(
                 ["comment.create:issue-render-verify-proof-resume"],
-                ["wrong-step", "expired", "duplicate-submit", "action-mismatch", "route-mismatch"],
+                ["wrong-answer", "expired", "duplicate-submit", "action-mismatch", "route-mismatch"],
                 ["issue-p99", "verify-gate-latency", "async-audit-queue-nonblocking"]),
             new PerceptionE2eMetrics(
                 Percentile(issueDurations, 0.99),
