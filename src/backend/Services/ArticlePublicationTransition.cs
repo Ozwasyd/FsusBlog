@@ -1,4 +1,6 @@
 using System.Data.Common;
+
+using FsusBlog.Server.Infrastructure.Data;
 using System.Text.Json;
 
 using FsusBlog.Core.Services.Articles;
@@ -87,11 +89,11 @@ public static class ArticlePublicationTransitionWriter
                 throw new InvalidOperationException($"Article {request.ArticleId} was not available for publication transition.");
             }
 
-            currentPublicationId = reader.IsDBNull(0) ? null : reader.GetInt64(0);
-            currentPublicationNo = reader.IsDBNull(1) ? null : reader.GetInt32(1);
-            sourceStatus = reader.GetBoolean(3)
+            currentPublicationId = reader.IsNull("current_publication_id") ? null : reader.ReadInt64("current_publication_id");
+            currentPublicationNo = reader.IsNull("publication_no") ? null : reader.ReadInt32("publication_no");
+            sourceStatus = reader.ReadBoolean("isdeleted")
                 ? ArticleStatus.Deleted
-                : (ArticleStatus)reader.GetInt32(2);
+                : (ArticleStatus)reader.ReadInt32("status");
         }
 
         ThrowIfInvalid(ArticleStatusTransitionPolicy.ValidateTransition(
@@ -274,8 +276,8 @@ public static class ArticlePublicationTransitionWriter
 
         return request.Version with
         {
-            PublicationId = reader.GetInt64(0),
-            PublicationNo = reader.GetInt32(1)
+            PublicationId = reader.ReadInt64("id"),
+            PublicationNo = reader.ReadInt32("publication_no")
         };
     }
 

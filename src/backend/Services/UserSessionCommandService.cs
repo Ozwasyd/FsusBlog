@@ -1,4 +1,6 @@
 using System.Data.Common;
+
+using FsusBlog.Server.Infrastructure.Data;
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
@@ -200,8 +202,8 @@ public sealed partial class UserSessionCommandService(
                 new SugarParameter("@TombstoneExpiresAt", tombstoneExpiresAt));
             if (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
             {
-                rotated = string.Equals(reader.GetString(0), session.SessionId, StringComparison.Ordinal)
-                    && reader.GetInt64(1) == nextGeneration;
+                rotated = string.Equals(reader.ReadString("session_id"), session.SessionId, StringComparison.Ordinal)
+                    && reader.ReadInt64("refresh_generation") == nextGeneration;
             }
         }).ConfigureAwait(false);
 

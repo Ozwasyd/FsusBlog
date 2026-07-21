@@ -23,6 +23,8 @@ public sealed class Argon2idPoSpaceV1ChallengeProvider(
 {
     public const string WireKind = "argon2idPoSpaceV1";
     public const string Algorithm = PoSpaceV1Contract.Algorithm;
+    public const int MinMemoryKib = 19456;
+    public const int MinIterations = 2;
 
     private const int ChallengeTtlSeconds = 300;
     private static readonly TimeSpan s_riskSignalTtl = TimeSpan.FromMinutes(10);

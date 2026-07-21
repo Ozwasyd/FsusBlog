@@ -5075,8 +5075,8 @@
       "repositoryValuePolicy": "safe-non-secret-default",
       "allowEmptyBaseValue": false,
       "validation": {
-        "kind": "consumer",
-        "owner": "message retention cleanup"
+        "kind": "startup",
+        "owner": "ProductionStartupValidator"
       },
       "documentation": "docs/security.md",
       "consumer": "src/backend/Services/Background/MessageRetentionCleanupService.cs",

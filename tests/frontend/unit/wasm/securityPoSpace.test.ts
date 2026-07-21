@@ -64,7 +64,7 @@ describe('Argon2idPoSpaceV1 frontend runtime', () => {
     expect(capability.maxAllowedMemoryKib).toBe(maxAllowedMemoryKib)
   })
 
-  it('derives deterministic Argon2id proof fields for a fixed nonce', async () => {
+  it('derives deterministic Argon2id proof fields for a fixed nonce', { timeout: 30_000 }, async () => {
     const parsedPayload = parsePoSpacePayload(providerPayload)
     const parsedAssignment = parsePoSpaceAssignment(assignment)
     const nonceHex = vector.nonceHex

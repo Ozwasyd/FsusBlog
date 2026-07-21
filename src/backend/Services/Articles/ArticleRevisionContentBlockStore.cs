@@ -1,3 +1,4 @@
+using FsusBlog.Server.Infrastructure.Data;
 using System.Data.Common;
 using System.Security.Cryptography;
 using System.Text;
@@ -68,7 +69,7 @@ public static class ArticleRevisionContentBlockStore
             new SugarParameter("@CreatedAt", createdAtUtc));
         if (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
         {
-            return reader.GetInt64(0);
+            return reader.ReadInt64("id");
         }
 
         throw new InvalidOperationException("article_revision_content_hash_collision");
@@ -140,7 +141,11 @@ public static class ArticleRevisionContentBlockStore
             """);
         await reader.ReadAsync(cancellationToken).ConfigureAwait(false);
         return new ArticleRevisionContentReachability(
-            reader.GetInt64(0), reader.GetInt64(1), reader.GetInt64(2), reader.GetInt64(3), reader.GetInt64(4));
+            reader.ReadInt64("revision_count"),
+            reader.ReadInt64("block_count"),
+            reader.ReadInt64("reachable_count"),
+            reader.ReadInt64("missing_count"),
+            reader.ReadInt64("orphan_count"));
     }
 
     public static Task<int> DeleteUnreferencedAsync(

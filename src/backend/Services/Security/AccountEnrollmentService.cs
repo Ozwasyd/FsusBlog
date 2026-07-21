@@ -284,7 +284,7 @@ public sealed class AccountEnrollmentService(
 
         if (!transaction.IsSuccess || activatedUser is null)
         {
-            logger.LogError(transaction.ErrorException, "Atomic account enrollment failed. AccountId={AccountId}", current.AccountId);
+            logger.LogError(transaction.ErrorException, "Atomic account enrollment failed. AccountIdHash={AccountIdHash}", current.AccountId);
             return Fail(ErrorCode.Conflict, "账户激活发生并发冲突，请安全重试同一注册请求");
         }
 

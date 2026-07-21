@@ -51,6 +51,18 @@ function createFixture(context) {
       else write(root, relative, '')
     }
   }
+  for (const entry of contract.applicationSettings ?? []) {
+    for (const relative of [entry.documentation, entry.consumer].filter(Boolean)) {
+      const source = path.join(repositoryRoot, relative)
+      const destination = path.join(root, relative)
+      if (!fs.existsSync(source)) {
+        write(root, relative, '')
+        continue
+      }
+      if (fs.statSync(source).isDirectory()) fs.mkdirSync(destination, { recursive: true })
+      else write(root, relative, '')
+    }
+  }
   return { root, contract }
 }
 
@@ -62,9 +74,9 @@ test('canonical contract inventories settings, environment inputs, mounted files
   const canonical = checkBackendConfigurationContract({ root: repositoryRoot })
   assert.deepEqual(canonical.errors, [])
   assert.equal(canonical.report.status, 'ok')
-  assert.equal(canonical.report.counts.applicationSettings, 183)
-  assert.equal(canonical.report.counts.environmentVariables, 229)
-  assert.equal(canonical.report.counts.mountedFiles, 5)
+  assert.equal(canonical.report.counts.applicationSettings, 194)
+  assert.equal(canonical.report.counts.environmentVariables, 231)
+  assert.equal(canonical.report.counts.mountedFiles, 4)
   assert.match(canonical.generatedReference, /not an input template/u)
 
   const { root } = createFixture(context)

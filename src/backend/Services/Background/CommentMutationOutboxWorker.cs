@@ -1,4 +1,6 @@
 using System.Data.Common;
+
+using FsusBlog.Server.Infrastructure.Data;
 using System.Diagnostics.Metrics;
 using System.Security.Cryptography;
 using System.Text;
@@ -506,28 +508,28 @@ public sealed class CommentMutationOutboxWorker(
     private static CommentMutationOutboxEvent ReadEvent(DbDataReader reader)
         => new()
         {
-            Id = reader.GetInt64(0),
-            EventId = reader.GetString(1),
-            EventType = reader.GetString(2),
-            CommentId = reader.GetInt64(3),
-            ArticleId = reader.GetInt32(4),
-            RootId = reader.GetInt64(5),
-            ParentId = reader.IsDBNull(6) ? null : reader.GetInt64(6),
-            AccountId = reader.IsDBNull(7) ? null : reader.GetInt32(7),
-            ReplyToAccountId = reader.IsDBNull(8) ? null : reader.GetInt32(8),
-            ActorAdminPrincipalId = reader.IsDBNull(9) ? null : reader.GetInt64(9),
-            PreviousStatus = reader.IsDBNull(10) ? null : (CommentModerationStatus)reader.GetInt32(10),
-            NextStatus = reader.IsDBNull(11) ? null : (CommentModerationStatus)reader.GetInt32(11),
-            PayloadJson = reader.GetString(12),
-            Status = reader.GetString(13),
-            AttemptCount = reader.GetInt32(14),
-            NextAttemptAt = reader.GetDateTime(15),
-            ClaimToken = reader.IsDBNull(16) ? null : reader.GetString(16),
-            ClaimedAt = reader.IsDBNull(17) ? null : reader.GetDateTime(17),
-            LeaseExpiresAt = reader.IsDBNull(18) ? null : reader.GetDateTime(18),
-            LastError = reader.IsDBNull(19) ? null : reader.GetString(19),
-            OccurredAtUtc = reader.GetDateTime(20),
-            ProcessedAtUtc = reader.IsDBNull(21) ? null : reader.GetDateTime(21)
+            Id = reader.ReadInt64("id"),
+            EventId = reader.ReadString("event_id"),
+            EventType = reader.ReadString("event_type"),
+            CommentId = reader.ReadInt64("comment_id"),
+            ArticleId = reader.ReadInt32("article_id"),
+            RootId = reader.ReadInt64("root_id"),
+            ParentId = reader.IsNull("parent_id") ? null : reader.ReadInt64("parent_id"),
+            AccountId = reader.IsNull("account_id") ? null : reader.ReadInt32("account_id"),
+            ReplyToAccountId = reader.IsNull("reply_to_account_id") ? null : reader.ReadInt32("reply_to_account_id"),
+            ActorAdminPrincipalId = reader.IsNull("actor_admin_principal_id") ? null : reader.ReadInt64("actor_admin_principal_id"),
+            PreviousStatus = reader.IsNull("previous_status") ? null : (CommentModerationStatus)reader.ReadInt32("previous_status"),
+            NextStatus = reader.IsNull("next_status") ? null : (CommentModerationStatus)reader.ReadInt32("next_status"),
+            PayloadJson = reader.ReadString("payload_json"),
+            Status = reader.ReadString("status"),
+            AttemptCount = reader.ReadInt32("attempt_count"),
+            NextAttemptAt = reader.ReadDateTime("next_attempt_at"),
+            ClaimToken = reader.IsNull("claim_token") ? null : reader.ReadString("claim_token"),
+            ClaimedAt = reader.IsNull("claimed_at") ? null : reader.ReadDateTime("claimed_at"),
+            LeaseExpiresAt = reader.IsNull("lease_expires_at") ? null : reader.ReadDateTime("lease_expires_at"),
+            LastError = reader.IsNull("last_error") ? null : reader.ReadString("last_error"),
+            OccurredAtUtc = reader.ReadDateTime("occurred_at_utc"),
+            ProcessedAtUtc = reader.IsNull("processed_at_utc") ? null : reader.ReadDateTime("processed_at_utc")
         };
 
     private static Task MarkProcessedAsync(ISqlSugarClient db, CommentMutationOutboxEvent item, DateTime now)
@@ -570,15 +572,19 @@ public sealed class CommentMutationOutboxWorker(
         await using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             """
             SELECT
-                COUNT(*) FILTER (WHERE status IN ('pending','processing','failed'))::integer,
-                COUNT(*) FILTER (WHERE status = 'failed')::integer,
-                COUNT(*) FILTER (WHERE status = 'poison')::integer,
-                COALESCE(EXTRACT(EPOCH FROM (@Now - MIN(occurred_at_utc) FILTER (WHERE status IN ('pending','processing','failed'))))::bigint, 0)
+                COUNT(*) FILTER (WHERE status IN ('pending','processing','failed'))::integer AS pending_count,
+                COUNT(*) FILTER (WHERE status = 'failed')::integer AS failed_count,
+                COUNT(*) FILTER (WHERE status = 'poison')::integer AS poison_count,
+                COALESCE(EXTRACT(EPOCH FROM (@Now - MIN(occurred_at_utc) FILTER (WHERE status IN ('pending','processing','failed'))))::bigint, 0) AS oldest_pending_seconds
             FROM comment_mutation_outbox;
             """,
             new SugarParameter("@Now", now));
         await reader.ReadAsync(cancellationToken).ConfigureAwait(false);
-        return new(reader.GetInt32(0), reader.GetInt32(1), reader.GetInt32(2), reader.GetInt64(3));
+        return new(
+            reader.ReadInt32("pending_count"),
+            reader.ReadInt32("failed_count"),
+            reader.ReadInt32("poison_count"),
+            reader.ReadInt64("oldest_pending_seconds"));
     }
 
     private TimeSpan GetPollInterval()

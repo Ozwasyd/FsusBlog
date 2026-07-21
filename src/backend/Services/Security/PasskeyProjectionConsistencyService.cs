@@ -1,3 +1,4 @@
+using FsusBlog.Server.Infrastructure.Data;
 using System.Data.Common;
 
 using FsusBlog.Server.Infrastructure.Cache;
@@ -93,7 +94,7 @@ public sealed class PasskeyProjectionConsistencyService(
             {
                 while (await reader.ReadAsync(cancellationToken))
                 {
-                    repairedAccountIds.Add(reader.GetInt32(0));
+                    repairedAccountIds.Add(reader.ReadInt32("id"));
                 }
             }
 

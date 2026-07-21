@@ -133,8 +133,8 @@ test('driver has a closed external-command set and never invokes a shell', () =>
 function validPlan() {
   const rollout = {
     rolloutId: 'rollout-worker-drill-test',
-    source: { releaseId: 'release-source', slot: 'blue', runtimeGeneration: 40 },
-    target: { releaseId: 'release-target', slot: 'green', runtimeGeneration: 41 }
+    source: { releaseId: '20260712010101-aaaaaaaaaaaa', slot: 'blue', runtimeGeneration: 40 },
+    target: { releaseId: '20260712020202-bbbbbbbbbbbb', slot: 'green', runtimeGeneration: 41 }
   }
   const variables = {
     runId: 'worker-drill-test-run',
