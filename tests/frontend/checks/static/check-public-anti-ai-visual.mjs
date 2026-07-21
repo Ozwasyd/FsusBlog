@@ -46,24 +46,24 @@ const homeErrorState = read('src/frontend/src/components/home/HomeArticleErrorSt
 const aboutPage = read('src/frontend/src/components/public/pages/PublicAboutPageContent.vue')
 const articleDetailState = read('src/frontend/src/view-contracts/articleDetail.ts')
 const homeViewComposable = read('src/frontend/src/composables/useHomeView.ts')
-const packageJson = JSON.parse(read('src/frontend/package.json'))
+const packageJson = JSON.parse(read('src/frontend/package.json'));
 
 for (const token of [
-  '--fsusblog-radius-control: var(--fsus-radius-control, 6px);',
-  '--fsusblog-radius-panel: var(--fsus-radius-panel, 12px);',
-  '--fsusblog-radius-reading-media: var(--fsus-radius-panel, 12px);',
-  '--fsusblog-reading-shadow-panel: none;',
-  '--fsusblog-reading-backdrop-blur: 0px;',
-  '--fsusblog-reading-motion-trail: transparent;',
+    '--fsusblog-radius-control: var(--fsus-radius-control, 6px);',
+    '--fsusblog-radius-panel: var(--fsus-radius-panel, 12px);',
+    '--fsusblog-radius-reading-media: var(--fsus-radius-panel, 12px);',
+    '--fsusblog-reading-shadow-panel: none;',
+    '--fsusblog-reading-backdrop-blur: 0px;',
+    '--fsusblog-reading-motion-trail: transparent;',
   '--fsusblog-reading-glow: transparent;'
 ]) {
-  expectIncludes(publicCss, token, 'public-page.css')
+    expectIncludes(publicCss, token, 'public-page.css');
 }
 
-expectIncludes(publicCss, 'border-radius: var(--fsusblog-radius-panel);', 'public-page.css .aot-panel')
-expectIncludes(publicCss, 'box-shadow: var(--fsusblog-reading-shadow-panel);', 'public-page.css .aot-panel')
-expectNotIncludes(publicCss, '--stagger-delay', 'public-page.css')
-expectNotMatches(publicCss, /animation-delay:\s*calc\(min\(var\(--index/s, 'public-page.css must not stagger AOT fade-in by content index')
+expectIncludes(publicCss, 'border-radius: var(--fsusblog-radius-panel);', 'public-page.css .aot-panel');
+expectIncludes(publicCss, 'box-shadow: var(--fsusblog-reading-shadow-panel);', 'public-page.css .aot-panel');
+expectNotIncludes(publicCss, '--stagger-delay', 'public-page.css');
+expectNotMatches(publicCss, /animation-delay:\s*calc\(min\(var\(--index/s, 'public-page.css must not stagger AOT fade-in by content index');
 
 const publicReadingSources = new Map([
   ['public-page.css', publicCss],
@@ -75,25 +75,28 @@ const publicReadingSources = new Map([
   ['PublicArticleDetailPageContent.vue', articleDetail],
   ['HomeFeedSurface.vue', homeFeedSurface],
   ['homeHotArticlesIsland.ts', hotArticlesIsland]
-])
+]);
 
-for (const [label, source] of publicReadingSources) {
-  for (const token of [
-    '--fsus-shadow-panel',
-    'list-stagger'
-  ]) {
+for (const [label, source] of publicReadingSources)
+{
+    for (const token of [
+        '--fsus-shadow-panel',
+        'list-stagger'
+    ])
+{
     expectNotIncludes(source, token, label)
-  }
+    }
 }
 
-for (const [label, source] of publicReadingSources) {
-  expectNotMatches(source, /(?:rounded-\[var\(|border-radius:\s*var\()--fsus-radius-panel/u, `${label} must consume the FsusBlog panel alias`)
-  expectNotIncludes(source, '--fsusblog-reading-radius-', `${label} retired radius namespace`)
+for (const [label, source] of publicReadingSources)
+{
+    expectNotMatches(source, /(?:rounded-\[var\(|border-radius:\s*var\()--fsus-radius-panel/u, `${label} must consume the FsusBlog panel alias`);
+    expectNotIncludes(source, '--fsusblog-reading-radius-', `${label} retired radius namespace`);
 }
 
 for (const [label, source] of [
-  ['fsusui/motion.ts', motion],
-  ['PublicArticleList.vue', articleList],
+    ['fsusui/motion.ts', motion],
+    ['PublicArticleList.vue', articleList],
   ['PublicHomePageContent.vue', homePage],
   ['FeaturedArticlesSection.vue', featured],
   ['PublicArticleDetailPageContent.vue', articleDetail]
@@ -101,11 +104,11 @@ for (const [label, source] of [
   expectNotIncludes(source, 'fade-up', label)
 }
 
-expectIncludes(themeTokens, 'commentsPlaceholderRoot', 'themeTokens.ts')
-expectIncludes(themeTokens, 'rounded-[var(--fsusblog-radius-panel)]', 'themeTokens.ts comments placeholder')
-expectIncludes(themeTokens, 'shadow-none', 'themeTokens.ts comments placeholder')
-expectNotIncludes(themeTokens, 'backdrop-blur', 'themeTokens.ts comments placeholder')
-expectNotIncludes(themeTokens, 'pageSurfaceTranslucent', 'themeTokens.ts comments placeholder')
+expectIncludes(themeTokens, 'commentsPlaceholderRoot', 'themeTokens.ts');
+expectIncludes(themeTokens, 'rounded-[var(--fsusblog-radius-panel)]', 'themeTokens.ts comments placeholder');
+expectIncludes(themeTokens, 'shadow-none', 'themeTokens.ts comments placeholder');
+expectNotIncludes(themeTokens, 'backdrop-blur', 'themeTokens.ts comments placeholder');
+expectNotIncludes(themeTokens, 'pageSurfaceTranslucent', 'themeTokens.ts comments placeholder');
 
 expectIncludes(motion, "homeHero: 'fade-in'", 'fsusui/motion.ts')
 expectIncludes(motion, "articleCards: 'fade-in'", 'fsusui/motion.ts')
@@ -120,23 +123,23 @@ expectNotIncludes(articleList, 'index, once: true', 'PublicArticleList.vue')
 
 expectIncludes(homePage, 'data-fsus-motion-surface="home-hero"', 'PublicHomePageContent.vue')
 expectNotIncludes(homePage, 'fsusBlogMotionPresets.homeHero', 'PublicHomePageContent.vue')
-expectNotMatches(homePage, /<header[\s\S]*?\bv-motion=/, 'PublicHomePageContent.vue home hero must not use v-motion by default')
+expectNotMatches(homePage, /<header[\s\S]*?\bv-motion=/, 'PublicHomePageContent.vue home hero must not use v-motion by default');
 
-expectIncludes(featured, 'data-fsus-motion-surface="home-featured-article"', 'FeaturedArticlesSection.vue')
-expectIncludes(featured, 'rounded-[var(--fsusblog-radius-reading-media)]', 'FeaturedArticlesSection.vue')
-expectNotIncludes(featured, 'v-motion=', 'FeaturedArticlesSection.vue')
-expectNotIncludes(featured, 'fsusBlogMotionPresets.articleCards', 'FeaturedArticlesSection.vue')
+expectIncludes(featured, 'data-fsus-motion-surface="home-featured-article"', 'FeaturedArticlesSection.vue');
+expectIncludes(featured, 'rounded-[var(--fsusblog-radius-reading-media)]', 'FeaturedArticlesSection.vue');
+expectNotIncludes(featured, 'v-motion=', 'FeaturedArticlesSection.vue');
+expectNotIncludes(featured, 'fsusBlogMotionPresets.articleCards', 'FeaturedArticlesSection.vue');
 
-expectIncludes(articleDetail, 'rounded-[var(--fsusblog-radius-reading-media)]', 'PublicArticleDetailPageContent.vue')
-expectIncludes(homeFeedSurface, 'const hasAside = computed(() => props.showAside && Boolean(slots.aside))', 'HomeFeedSurface.vue slot-aware aside visibility')
-expectIncludes(homeFeedSurface, '<slot name="aside" />', 'HomeFeedSurface.vue real aside slot')
-expectNotIncludes(homeFeedSurface, 'public-aside-placeholder', 'HomeFeedSurface.vue dead aside placeholder')
-expectNotIncludes(homeFeedSurface, 'min-h-[18rem]', 'HomeFeedSurface.vue 18rem blank fallback')
-expectNotIncludes(homeFeedSurface, 'v-else\n      id="fsus-home-hot-articles-slot"', 'HomeFeedSurface.vue hidden aside fallback')
-expectIncludes(hotArticlesIsland, 'rounded-[var(--fsusblog-radius-control)]', 'homeHotArticlesIsland.ts')
-expectIncludes(siteStore, 'FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackKeywords', 'site.ts default keywords source')
-expectIncludes(siteStore, 'normalizePublicSiteDescription(payload?.siteDescription)', 'site.ts default description source')
-expectIncludes(siteIdentityDefaults, '工程记录、性能实验、UI 系统与 FsusBlog 构建过程。', 'publicSiteIdentityDefaults.ts default description')
+expectIncludes(articleDetail, 'rounded-[var(--fsusblog-radius-reading-media)]', 'PublicArticleDetailPageContent.vue');
+expectIncludes(homeFeedSurface, 'const hasAside = computed(() => props.showAside && Boolean(slots.aside))', 'HomeFeedSurface.vue slot-aware aside visibility');
+expectIncludes(homeFeedSurface, '<slot name="aside" />', 'HomeFeedSurface.vue real aside slot');
+expectNotIncludes(homeFeedSurface, 'public-aside-placeholder', 'HomeFeedSurface.vue dead aside placeholder');
+expectNotIncludes(homeFeedSurface, 'min-h-[18rem]', 'HomeFeedSurface.vue 18rem blank fallback');
+expectNotIncludes(homeFeedSurface, 'v-else\n      id="fsus-home-hot-articles-slot"', 'HomeFeedSurface.vue hidden aside fallback');
+expectIncludes(hotArticlesIsland, 'rounded-[var(--fsusblog-radius-control)]', 'homeHotArticlesIsland.ts');
+expectIncludes(siteStore, 'FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackKeywords', 'site.ts default keywords source');
+expectIncludes(siteStore, 'normalizePublicSiteDescription(payload?.siteDescription)', 'site.ts default description source');
+expectIncludes(siteIdentityDefaults, '工程记录、性能实验、UI 系统与 FsusBlog 构建过程。', 'publicSiteIdentityDefaults.ts default description');
 expectIncludes(siteIdentityDefaults, '.NET, 前端性能, 系统设计, UI 系统, 技术博客, FsusBlog', 'publicSiteIdentityDefaults.ts default keywords')
 expectNotIncludes(siteIdentityDefaults, '极简主义个人内容发布系统', 'publicSiteIdentityDefaults.ts default description')
 expectNotIncludes(siteIdentityDefaults, 'Minimalism, Blog, Fsu', 'publicSiteIdentityDefaults.ts default keywords')

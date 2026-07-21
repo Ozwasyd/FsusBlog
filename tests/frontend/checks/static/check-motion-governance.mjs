@@ -44,22 +44,24 @@ requireFile('src/frontend/src/fsusui/motion.ts')
 requireFile('docs/frontend/motion-guidelines.md')
 
 const mainCss = read('src/frontend/src/assets/main.css')
-if (!mainCss.includes("@import '@/assets/motion.css';")) {
-  errors.push('main.css must import motion.css')
+if (!mainCss.includes("@import '@/assets/motion.css';"))
+{
+    errors.push('main.css must import motion.css');
 }
 for (const token of [
-  '.transition-fsus {',
-  'transition-property: color, background-color, border-color, box-shadow, opacity, transform;',
-  'transition-timing-function: var(--fsus-motion-standard, cubic-bezier(0.4, 0, 0.2, 1));',
-  '.transition-fsus-fast {',
-  'transition-duration: var(--fsus-motion-control-fast, 220ms);',
-  '.transition-fsus-base {',
-  'transition-duration: var(--fsus-motion-control-base, var(--fsus-motion-control, 360ms));'
-]) {
-  if (!mainCss.includes(token)) errors.push(`main.css missing reusable motion contract ${token}`)
+    '.transition-fsus {',
+    'transition-property: color, background-color, border-color, box-shadow, opacity, transform;',
+    'transition-timing-function: var(--fsus-motion-standard, cubic-bezier(0.4, 0, 0.2, 1));',
+    '.transition-fsus-fast {',
+    'transition-duration: var(--fsus-motion-control-fast, 220ms);',
+    '.transition-fsus-base {',
+    'transition-duration: var(--fsus-motion-control-base, var(--fsus-motion-control, 360ms));'
+])
+{
+    if (!mainCss.includes(token)) {errors.push(`main.css missing reusable motion contract ${token}`)};
 }
 
-const motionCss = read('src/frontend/src/assets/motion.css')
+const motionCss = read('src/frontend/src/assets/motion.css');
 for (const token of [
   '--blog-motion-fast',
   '--blog-motion-control',
@@ -151,55 +153,64 @@ for (const token of [
 for (const forbidden of ['isPublicSeoRouteName', 'v-if="isPublicSeoRoute"', '<RouterView v-if="isPublicSeoRoute"']) {
   if (appVue.includes(forbidden)) {
     errors.push(`src/frontend/src/App.vue: public shell route transition must not split on ${forbidden}`)
-  }
+    }
 }
 
 const accountRouteFrame = expectIncludes(
-  'src/frontend/src/layouts/AccountRouteFrame.vue',
-  ':disabled="motionPolicy.preset === null || !motionEnabled"',
-  'frame-owned account route motion gate'
-)
-if (!accountRouteFrame.includes(':key="accountRouteViewKey"')) {
-  errors.push('src/frontend/src/layouts/AccountRouteFrame.vue: account route transition must key child pages by accountRouteViewKey')
+    'src/frontend/src/layouts/AccountRouteFrame.vue',
+    ':disabled="motionPolicy.preset === null || !motionEnabled"',
+    'frame-owned account route motion gate'
+);
+if (!accountRouteFrame.includes(':key="accountRouteViewKey"'))
+{
+    errors.push('src/frontend/src/layouts/AccountRouteFrame.vue: account route transition must key child pages by accountRouteViewKey');
 }
-for (const forbidden of ['mode="out-in"', ':duration="220"', 'duration="220"']) {
-  if (accountRouteFrame.includes(forbidden)) {
-    errors.push(`src/frontend/src/layouts/AccountRouteFrame.vue: account route motion must not retain ${forbidden}`)
-  }
+for (const forbidden of ['mode="out-in"', ':duration="220"', 'duration="220"'])
+{
+    if (accountRouteFrame.includes(forbidden))
+{
+        errors.push(`src/frontend/src/layouts/AccountRouteFrame.vue: account route motion must not retain ${forbidden}`);
+    }
 }
-for (const token of ['shouldRestoreAccountRouteFocus', 'if (restoreFocus)', 'accountMain.value?.focus({ preventScroll: true })']) {
-  if (!accountRouteFrame.includes(token)) {
-    errors.push(`src/frontend/src/layouts/AccountRouteFrame.vue: account route focus continuity is missing ${token}`)
-  }
+for (const token of ['shouldRestoreAccountRouteFocus', 'if (restoreFocus)', 'accountMain.value?.focus({ preventScroll: true })'])
+{
+    if (!accountRouteFrame.includes(token))
+{
+        errors.push(`src/frontend/src/layouts/AccountRouteFrame.vue: account route focus continuity is missing ${token}`);
+    }
 }
 
 const accountRouteMotion = expectIncludes(
-  'src/frontend/src/layouts/accountRouteMotion.ts',
-  'ACCOUNT_ROUTE_MOTION_POLICIES',
-  'typed account route motion policy'
-)
+    'src/frontend/src/layouts/accountRouteMotion.ts',
+    'ACCOUNT_ROUTE_MOTION_POLICIES',
+    'typed account route motion policy'
+);
 for (const token of [
-  "preset: fsusBlogMotionPresets.identityRoute",
-  "preset: null",
-  "contentMode === 'takeover'",
-  "reason: 'pane-continuity'",
-  "reason: 'task-immediacy'"
-]) {
-  if (!accountRouteMotion.includes(token)) {
-    errors.push(`src/frontend/src/layouts/accountRouteMotion.ts: missing ${token}`)
-  }
+    "preset: fsusBlogMotionPresets.identityRoute",
+    "preset: null",
+    "contentMode === 'takeover'",
+    "reason: 'pane-continuity'",
+    "reason: 'task-immediacy'"
+])
+{
+    if (!accountRouteMotion.includes(token))
+{
+        errors.push(`src/frontend/src/layouts/accountRouteMotion.ts: missing ${token}`);
+    }
 }
-if (/\bduration\s*:\s*\d+/u.test(accountRouteMotion)) {
-  errors.push('src/frontend/src/layouts/accountRouteMotion.ts: frame policy must consume the FsusUI preset duration contract')
+if (/\bduration\s*:\s*\d+/u.test(accountRouteMotion))
+{
+    errors.push('src/frontend/src/layouts/accountRouteMotion.ts: frame policy must consume the FsusUI preset duration contract');
 }
 
 const accountShellCss = expectIncludes(
-  'src/frontend/src/assets/admin-workspace.css',
-  '.account-motion-enter',
-  'admin page motion compatibility marker'
-)
-if (/\.account-motion-enter\s*\{[^}]*blog-motion-page-enter/s.test(accountShellCss)) {
-  errors.push('src/frontend/src/assets/admin-workspace.css: account-motion-enter must not run page-enter animation; admin routes replace immediately')
+    'src/frontend/src/assets/admin-workspace.css',
+    '.account-motion-enter',
+    'admin page motion compatibility marker'
+);
+if (/\.account-motion-enter\s*\{[^}]*blog-motion-page-enter/s.test(accountShellCss))
+{
+    errors.push('src/frontend/src/assets/admin-workspace.css: account-motion-enter must not run page-enter animation; admin routes replace immediately');
 }
 
 const blogLayout = expectIncludes(
@@ -313,20 +324,23 @@ for (const file of scanned) {
   }
 
   if (!rel.endsWith('motion.css') && /@keyframes\s+/.test(source)) {
-    errors.push(`${rel}: keyframes must be registered in assets/motion.css`)
-  }
+        errors.push(`${rel}: keyframes must be registered in assets/motion.css`);
+    }
 
-  if (!rel.endsWith('motion.css') && !rel.endsWith('main.css') && /cubic-bezier\(/.test(source)) {
-    errors.push(`${rel}: use --blog-motion-ease instead of cubic-bezier`)
-  }
+    if (!rel.endsWith('motion.css') && !rel.endsWith('main.css') && /cubic-bezier\(/.test(source))
+{
+        errors.push(`${rel}: use --blog-motion-ease instead of cubic-bezier`);
+    }
 
-  if (/duration-\[var\(--fsus-motion-[^)]+\)\]/u.test(source)) {
-    errors.push(`${rel}: consume motion durations through transition-fsus-fast/base`)
-  }
+    if (/duration-\[var\(--fsus-motion-[^)]+\)\]/u.test(source))
+{
+        errors.push(`${rel}: consume motion durations through transition-fsus-fast/base`);
+    }
 
-  if (/\b(?:blog-motion-media-hover|blog-motion-icon-nudge|blog-motion-row-nudge|blog-motion-loading-bar)\b/.test(source)) {
-    errors.push(`${rel}: generic decorative motion helper is not allowed`)
-  }
+    if (/\b(?:blog-motion-media-hover|blog-motion-icon-nudge|blog-motion-row-nudge|blog-motion-loading-bar)\b/.test(source))
+{
+        errors.push(`${rel}: generic decorative motion helper is not allowed`);
+    }
 
   const allowedIssue728HoverNudge = new Set([
     'src/frontend/src/components/public/PublicComplianceFooter.vue'

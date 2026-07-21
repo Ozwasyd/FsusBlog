@@ -1,8 +1,8 @@
-import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime'
+import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime';
 
 export type AuthBroadcastEvent =
-  | { type: 'login'; at: number }
-  | { type: 'logout'; at: number }
+  | { type: 'login'; at: number; }
+  | { type: 'logout'; at: number; }
   | { type: 'expired'; at: number }
   | { type: 'user-expired'; at: number }
   | { type: 'admin-logout'; at: number }
@@ -96,45 +96,54 @@ export class AuthBroadcastRuntime {
     this.storageListenerInstalled = false
     this.initialized = false
     this.recentEventKeys.clear()
-    this.subscribers.clear()
-  }
+        this.subscribers.clear();
+    }
 
-  async broadcastLogin(): Promise<void> {
-    const cleanup = await clearPrivateBrowserState('account-switch')
-    if (!cleanup.registeredStorageCleared
+    async broadcastLogin(): Promise<void>
+{
+        const cleanup = await clearPrivateBrowserState('account-switch');
+        if (!cleanup.registeredStorageCleared
       || !cleanup.credentialStateCleared
       || !cleanup.legacyCredentialDatabaseCleared
       || !cleanup.serviceWorkerAcknowledged
-      || !cleanup.cacheStorageCleared) {
-      throw new Error('auth_login_private_state_cleanup_failed')
+      || !cleanup.cacheStorageCleared)
+{
+            throw new Error('auth_login_private_state_cleanup_failed');
+        }
+        this.broadcast(createEvent('login'));
     }
-    this.broadcast(createEvent('login'))
-  }
 
-  broadcastLogout(): void {
-    this.broadcast(createEvent('logout'))
-  }
+    broadcastLogout(): void
+{
+        this.broadcast(createEvent('logout'));
+    }
 
-  broadcastExpired(): void {
-    this.broadcast(createEvent('expired'))
-  }
+    broadcastExpired(): void
+{
+        this.broadcast(createEvent('expired'));
+    }
 
-  expireUserSession(): void {
-    this.broadcast(createEvent('user-expired'))
-  }
+    expireUserSession(): void
+{
+        this.broadcast(createEvent('user-expired'));
+    }
 
-  broadcastAdminChanged(): void {
-    this.broadcast(createEvent('admin-changed'))
-  }
+    broadcastAdminChanged(): void
+{
+        this.broadcast(createEvent('admin-changed'));
+    }
 
-  broadcastAdminLogout(): void {
-    this.broadcast(createEvent('admin-logout'))
-  }
+    broadcastAdminLogout(): void
+{
+        this.broadcast(createEvent('admin-logout'));
+    }
 
-  private broadcast(event: AuthBroadcastEvent): void {
-    this.dispatch(event, 'local')
-    if (this.channel) {
-      this.channel.postMessage(event)
+    private broadcast(event: AuthBroadcastEvent): void
+{
+        this.dispatch(event, 'local');
+        if (this.channel)
+{
+            this.channel.postMessage(event);
       return
     }
 

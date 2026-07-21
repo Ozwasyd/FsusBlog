@@ -14,13 +14,13 @@ import {
   summarizeLocalStaticPlan
 } from '../../tools/test/local-static-governance.mjs'
 import {
-  planWeightedManifestEntries,
-  readManifestSchedulerResourceGrant,
-  resolveAdaptiveManifestWorkers,
-  resolveManifestAdmissionSnapshot,
-  resolveManifestLiveCapacity,
-  runWeightedCommandManifest,
-  validateCommandManifest
+    planWeightedManifestEntries,
+    readManifestSchedulerResourceGrant,
+    resolveAdaptiveManifestWorkers,
+    resolveManifestAdmissionSnapshot,
+    resolveManifestLiveCapacity,
+    runWeightedCommandManifest,
+    validateCommandManifest
 } from '../../tools/test/run-command-manifest.mjs'
 import { loadCommandGroup } from '../../tools/test-matrix/command-groups.mjs'
 
@@ -52,49 +52,51 @@ async function waitFor(predicate, timeoutMs = 2_000) {
 test('local static manifest expands only the explicit production views plan without omitting a check', () => {
   const chainedScripts = extractChainedNpmScripts(frontendPackage.scripts['check:views-constraints'])
   const manifest = buildLocalStaticManifest(staticManifest, frontendPackage.scripts)
-  const expanded = manifest.commands.filter((entry) => entry.id.startsWith('views-constraints:'))
-  const declared = staticManifest.commands.find((entry) => entry.id === 'views-constraints').localCommands
+    const expanded = manifest.commands.filter((entry) => entry.id.startsWith('views-constraints:'));
+    const declared = staticManifest.commands.find((entry) => entry.id === 'views-constraints').localCommands;
 
-  assert.deepEqual(expanded[0].command, ['node', '../../tests/frontend/checks/static/check-views-constraints.mjs'])
-  assert.deepEqual(expanded, declared)
-  for (const script of chainedScripts) {
-    assert.equal(
-      manifest.commands.filter((entry) => entry.script === script).length,
-      1,
-      `${script} must have exactly one explicit manifest owner`
-    )
-  }
-  assert.deepEqual(
-    manifest.commands.filter((entry) => !entry.id.startsWith('views-constraints:')).map((entry) => entry.id),
-    staticManifest.commands.filter((entry) => entry.id !== 'views-constraints').map((entry) => entry.id)
+    assert.deepEqual(expanded[0].command, ['node', '../../tests/frontend/checks/static/check-views-constraints.mjs']);
+    assert.deepEqual(expanded, declared);
+    for (const script of chainedScripts)
+{
+        assert.equal(
+            manifest.commands.filter((entry) => entry.script === script).length,
+            1,
+            `${script} must have exactly one explicit manifest owner`
+        );
+    }
+    assert.deepEqual(
+        manifest.commands.filter((entry) => !entry.id.startsWith('views-constraints:')).map((entry) => entry.id),
+        staticManifest.commands.filter((entry) => entry.id !== 'views-constraints').map((entry) => entry.id)
   )
   const writes = expanded.filter((entry) => entry.access === 'write').map((entry) => entry.script)
   assert.deepEqual(writes, [
-    'check:dom-depth-static',
-    'check:route-asset-budget'
-  ])
+        'check:dom-depth-static',
+        'check:route-asset-budget'
+    ]);
 
-  const missingOwner = structuredClone(staticManifest)
-  missingOwner.commands = missingOwner.commands.filter((entry) => entry.id !== 'radius-scale-contract')
-  assert.throws(
-    () => buildLocalStaticManifest(missingOwner, frontendPackage.scripts),
-    /check:views-constraints script check:radius-scale-contract must have exactly one explicit manifest owner/u
-  )
+    const missingOwner = structuredClone(staticManifest);
+    missingOwner.commands = missingOwner.commands.filter((entry) => entry.id !== 'radius-scale-contract');
+    assert.throws(
+        () => buildLocalStaticManifest(missingOwner, frontendPackage.scripts),
+        /check:views-constraints script check:radius-scale-contract must have exactly one explicit manifest owner/u
+    );
 
-  const duplicateOwner = structuredClone(staticManifest)
-  const layoutOwner = duplicateOwner.commands.find((entry) => entry.id === 'layout-archetype-governance')
-  duplicateOwner.commands.find((entry) => entry.id === 'views-constraints').localCommands.push({
-    ...layoutOwner,
-    id: 'views-constraints:layout-archetype-governance'
-  })
-  assert.throws(
-    () => buildLocalStaticManifest(duplicateOwner, frontendPackage.scripts),
-    /check:views-constraints script check:layout-archetype-governance must have exactly one explicit manifest owner/u
-  )
+    const duplicateOwner = structuredClone(staticManifest);
+    const layoutOwner = duplicateOwner.commands.find((entry) => entry.id === 'layout-archetype-governance');
+    duplicateOwner.commands.find((entry) => entry.id === 'views-constraints').localCommands.push({
+        ...layoutOwner,
+        id: 'views-constraints:layout-archetype-governance'
+    });
+    assert.throws(
+        () => buildLocalStaticManifest(duplicateOwner, frontendPackage.scripts),
+        /check:views-constraints script check:layout-archetype-governance must have exactly one explicit manifest owner/u
+    );
 
-  for (const entry of manifest.commands) {
-    assert.ok(entry.reason)
-    assert.ok(entry.stage)
+    for (const entry of manifest.commands)
+{
+        assert.ok(entry.reason);
+        assert.ok(entry.stage);
     assert.ok(entry.consumedInputs.length > 0)
     assert.ok(Array.isArray(entry.ownedOutputs))
     assert.ok(Array.isArray(entry.dependsOn))
@@ -118,13 +120,13 @@ test('frontend static v2 schema rejects missing stages, reasons, and write owner
 
 test('local static plan derives every stage from manifest metadata', () => {
   const manifest = buildLocalStaticManifest(staticManifest, frontendPackage.scripts)
-  const plan = planLocalStaticCommands(manifest)
+    const plan = planLocalStaticCommands(manifest);
 
-  assert.deepEqual(plan['blocking-prebuild'].map((entry) => entry.id), [
-    'frontend-style-full',
-    'frontend-test-governance',
-    'frontend-test-layout',
-    'csharp-entrypoint-ownership',
+    assert.deepEqual(plan['blocking-prebuild'].map((entry) => entry.id), [
+        'frontend-style-full',
+        'frontend-test-governance',
+        'frontend-test-layout',
+        'csharp-entrypoint-ownership',
     'test-execution-optimization',
     'views-constraints:fsusui-typecheck-modes'
   ])
@@ -134,28 +136,29 @@ test('local static plan derives every stage from manifest metadata', () => {
     'public-aot-contracts',
     'views-constraints:route-asset-budget'
   ])
-  assert.deepEqual(plan.final.map((entry) => entry.id), ['views-constraints:public-performance-batch'])
-})
+    assert.deepEqual(plan.final.map((entry) => entry.id), ['views-constraints:public-performance-batch']);
+});
 
-test('five explicit phases form an exact 79-command partition with timing evidence', () => {
-  const manifest = buildLocalStaticManifest(staticManifest, frontendPackage.scripts)
-  const plan = planLocalStaticCommands(manifest)
-  const summary = summarizeLocalStaticPlan(plan)
-  const plannedIds = Object.values(plan).flat().map((entry) => entry.id)
+test('five explicit phases form an exact 79-command partition with timing evidence', () =>
+{
+    const manifest = buildLocalStaticManifest(staticManifest, frontendPackage.scripts);
+    const plan = planLocalStaticCommands(manifest);
+    const summary = summarizeLocalStaticPlan(plan);
+    const plannedIds = Object.values(plan).flat().map((entry) => entry.id);
 
-  assert.equal(manifest.commands.length, 79)
-  assert.deepEqual(summary, {
-    'blocking-prebuild': 6,
-    concurrent: 68,
-    postbuild: 3,
-    isolated: 1,
-    final: 1,
-    total: 79
-  })
-  assert.equal(new Set(plannedIds).size, 79)
-  assert.deepEqual(new Set(plannedIds), new Set(manifest.commands.map((entry) => entry.id)))
-  assert.match(localStaticSource, /staticStages\.map\(\(stage\) => manifest\.execution\[stage\]\)\.join\('\+'\)/u)
-  assert.match(localStaticSource, /total=\$\{manifest\.execution\.total\}/u)
+    assert.equal(manifest.commands.length, 79);
+    assert.deepEqual(summary, {
+        'blocking-prebuild': 6,
+        concurrent: 68,
+        postbuild: 3,
+        isolated: 1,
+        final: 1,
+        total: 79
+    });
+    assert.equal(new Set(plannedIds).size, 79);
+    assert.deepEqual(new Set(plannedIds), new Set(manifest.commands.map((entry) => entry.id)));
+    assert.match(localStaticSource, /staticStages\.map\(\(stage\) => manifest\.execution\[stage\]\)\.join\('\+'\)/u);
+    assert.match(localStaticSource, /total=\$\{manifest\.execution\.total\}/u);
   assert.match(localStaticSource, /commandIds: executedCommands\.map\(\(entry\) => entry\.id\)/u)
   assert.match(localStaticSource, /frontend-static-governance-phase\.v2/u)
   assert.match(localStaticSource, /FSUSBLOG_LOCAL_STATIC_EVIDENCE_FILE/u)
@@ -168,14 +171,15 @@ test('five explicit phases form an exact 79-command partition with timing eviden
   assert.match(localStaticSource, /grantHistory:[\s\S]*?admissions:[\s\S]*?blockedReasons:/u)
 })
 
-test('static governance propagates bounded dynamic workers and explicit Node test concurrency', () => {
-  assert.match(localStaticSource, /workload: 'scheduler-admitted'/u)
-  assert.match(localStaticSource, /memoryCostGiB:[\s\S]*?0\.125 \* entry\.resources\.memoryWeight/u)
-  assert.match(collectSupportSource, /ResolveCollectAdmissionSnapshot "\$total"/u)
-  assert.match(collectSupportSource, /resolveManifestAdmissionSnapshot/u)
-  assert.match(collectSupportSource, /FSUSBLOG_STEP_CPU_BUDGET/u)
-  assert.match(collectSupportSource, /FSUSBLOG_STEP_MEMORY_GIB/u)
-  assert.match(staticLaneSource, /RunCollectParallel static-governance-prechecks/u)
+test('static governance propagates bounded dynamic workers and explicit Node test concurrency', () =>
+{
+    assert.match(localStaticSource, /workload: 'scheduler-admitted'/u);
+    assert.match(localStaticSource, /memoryCostGiB:[\s\S]*?0\.125 \* entry\.resources\.memoryWeight/u);
+    assert.match(collectSupportSource, /ResolveCollectAdmissionSnapshot "\$total"/u);
+    assert.match(collectSupportSource, /resolveManifestAdmissionSnapshot/u);
+    assert.match(collectSupportSource, /FSUSBLOG_STEP_CPU_BUDGET/u);
+    assert.match(collectSupportSource, /FSUSBLOG_STEP_MEMORY_GIB/u);
+    assert.match(staticLaneSource, /RunCollectParallel static-governance-prechecks/u);
   assert.match(staticLaneSource, /runWeightedCommandManifest/u)
   assert.match(staticLaneSource, /FSUSBLOG_ZDT_FIXTURE_SHARD: shard/u)
   assert.match(staticLaneSource, /concurrencyWeight: Number\.MAX_SAFE_INTEGER/u)
@@ -425,50 +429,53 @@ test('live capacity resolves workers and parent limits from one atomic grant sna
   assert.equal(capacity.cpuUnits, 4)
   assert.equal(capacity.memoryGiB, 4)
   assert.equal(capacity.parentCpuUnits, 4)
-  assert.equal(capacity.parentMemoryGiB, 4)
-})
+    assert.equal(capacity.parentMemoryGiB, 4);
+});
 
-test('collect admission binds worker cap and child quotas to one atomic grant snapshot', () => {
-  let reads = 0
-  const env = {
-    FSUSBLOG_TEST_RUN_ID: 'collect-atomic-run',
-    FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE: '/tmp/collect-atomic-grants.json',
-    FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID: 'collect',
-    FSUSBLOG_COMMAND_MANIFEST_WORKERS: '4'
-  }
-  const snapshot = resolveManifestAdmissionSnapshot({
-    env,
-    maxWorkers: 4,
-    cpuCount: 8,
-    freeMemoryBytes: 8 * 1024 ** 3,
-    totalMemoryBytes: 8 * 1024 ** 3,
-    load1: 0,
-    workload: 'scheduler-admitted',
-    readGrantFile: () => {
-      reads += 1
-      const cpuUnits = reads === 1 ? 4 : 1
-      return JSON.stringify({
-        schema: 'fsusblog.test-matrix.resource-grants.v1',
-        runId: 'collect-atomic-run',
-        resourceBudget: { cpuUnits: 4, memoryGiB: 8 },
-        grants: { collect: { cpuUnits, memoryGiB: cpuUnits * 2 } }
-      })
-    }
-  })
+test('collect admission binds worker cap and child quotas to one atomic grant snapshot', () =>
+{
+    let reads = 0;
+    const env = {
+        FSUSBLOG_TEST_RUN_ID: 'collect-atomic-run',
+        FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE: '/tmp/collect-atomic-grants.json',
+        FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID: 'collect',
+        FSUSBLOG_COMMAND_MANIFEST_WORKERS: '4'
+    };
+    const snapshot = resolveManifestAdmissionSnapshot({
+        env,
+        maxWorkers: 4,
+        cpuCount: 8,
+        freeMemoryBytes: 8 * 1024 ** 3,
+        totalMemoryBytes: 8 * 1024 ** 3,
+        load1: 0,
+        workload: 'scheduler-admitted',
+        readGrantFile: () =>
+{
+            reads += 1;
+            const cpuUnits = reads === 1 ? 4 : 1;
+            return JSON.stringify({
+                schema: 'fsusblog.test-matrix.resource-grants.v1',
+                runId: 'collect-atomic-run',
+                resourceBudget: { cpuUnits: 4, memoryGiB: 8 },
+                grants: { collect: { cpuUnits, memoryGiB: cpuUnits * 2 } }
+            });
+        }
+    });
 
-  assert.equal(reads, 1)
-  assert.equal(snapshot.workerCap, 4)
-  assert.equal(snapshot.capacity.parentCpuUnits, 4)
-  assert.equal(snapshot.capacity.parentMemoryGiB, 8)
-  assert.equal(snapshot.childEnvironment.FSUSBLOG_STEP_CPU_BUDGET, '1')
-  assert.equal(snapshot.childEnvironment.FSUSBLOG_STEP_MEMORY_GIB, '2')
-  assert.equal(snapshot.childEnvironment.FSUSBLOG_PARALLEL_ACTIVE_WORKERS, '4')
-  assert.equal(snapshot.childEnvironment.FSUSBLOG_COMMAND_MANIFEST_WORKERS, '1')
-})
+    assert.equal(reads, 1);
+    assert.equal(snapshot.workerCap, 4);
+    assert.equal(snapshot.capacity.parentCpuUnits, 4);
+    assert.equal(snapshot.capacity.parentMemoryGiB, 8);
+    assert.equal(snapshot.childEnvironment.FSUSBLOG_STEP_CPU_BUDGET, '1');
+    assert.equal(snapshot.childEnvironment.FSUSBLOG_STEP_MEMORY_GIB, '2');
+    assert.equal(snapshot.childEnvironment.FSUSBLOG_PARALLEL_ACTIVE_WORKERS, '4');
+    assert.equal(snapshot.childEnvironment.FSUSBLOG_COMMAND_MANIFEST_WORKERS, '1');
+});
 
-test('direct manifest execution records its fixed fallback mode honestly', async () => {
-  const evidence = await runWeightedCommandManifest({
-    schema: 'fsusblog.test-command-manifest.v1',
+test('direct manifest execution records its fixed fallback mode honestly', async () =>
+{
+    const evidence = await runWeightedCommandManifest({
+        schema: 'fsusblog.test-command-manifest.v1',
     lane: 'direct-fixed',
     commands: [{ id: 'only', access: 'read', command: ['only'] }]
   }, {
@@ -794,29 +801,31 @@ test('lane collect support expands and shrinks pending admission from the same l
   fs.writeFileSync(`${releasePrefix}-d`, '')
   const result = await exit
   assert.deepEqual(result, { code: 0, signal: null }, stderr)
-  const evidence = JSON.parse(fs.readFileSync(evidenceFile, 'utf8'))
-  assert.equal(evidence.status, 'success')
-  assert.deepEqual(evidence.grantHistory.map((entry) => entry.workerCap), [3, 1])
-  assert.deepEqual(evidence.grantHistory.map((entry) => entry.parentCpuUnits), [3, 1])
-  assert.deepEqual(evidence.grantHistory.map((entry) => entry.parentMemoryGiB), [3, 1])
-  assert.deepEqual(evidence.grantHistory.map((entry) => entry.source), [
-    'scheduler-resource-grants',
-    'scheduler-resource-grants'
-  ])
-  assert.deepEqual(evidence.children.map((entry) => entry.status), ['success', 'success', 'success', 'success'])
-  assert.ok(evidence.blocked.some((entry) => entry.activeWeight > entry.workerCap))
-})
+    const evidence = JSON.parse(fs.readFileSync(evidenceFile, 'utf8'));
+    assert.equal(evidence.status, 'success');
+    assert.deepEqual(evidence.grantHistory.map((entry) => entry.workerCap), [3, 1]);
+    assert.deepEqual(evidence.grantHistory.map((entry) => entry.parentCpuUnits), [3, 1]);
+    assert.deepEqual(evidence.grantHistory.map((entry) => entry.parentMemoryGiB), [3, 1]);
+    assert.deepEqual(evidence.grantHistory.map((entry) => entry.source), [
+        'scheduler-resource-grants',
+        'scheduler-resource-grants'
+    ]);
+    assert.deepEqual(evidence.children.map((entry) => entry.status), ['success', 'success', 'success', 'success']);
+    assert.ok(evidence.blocked.some((entry) => entry.activeWeight > entry.workerCap));
+});
 
-test('lane collect support derives worker cap and child quotas from one admission snapshot', () => {
-  assert.match(collectSupportSource, /ResolveCollectAdmissionSnapshot/u)
-  assert.match(collectSupportSource, /resolveManifestAdmissionSnapshot/u)
-  assert.doesNotMatch(collectSupportSource, /ResolveCollectParallelWorkers|ResolveCollectChildEnvironment/u)
-  assert.match(collectSupportSource, /FSUSBLOG_PARALLEL_ACTIVE_WORKERS/u)
-})
+test('lane collect support derives worker cap and child quotas from one admission snapshot', () =>
+{
+    assert.match(collectSupportSource, /ResolveCollectAdmissionSnapshot/u);
+    assert.match(collectSupportSource, /resolveManifestAdmissionSnapshot/u);
+    assert.doesNotMatch(collectSupportSource, /ResolveCollectParallelWorkers|ResolveCollectChildEnvironment/u);
+    assert.match(collectSupportSource, /FSUSBLOG_PARALLEL_ACTIVE_WORKERS/u);
+});
 
-test('static governance parallel group preserves every named check and the aggregate finish', () => {
-  for (const label of [
-    'evidence-plan',
+test('static governance parallel group preserves every named check and the aggregate finish', () =>
+{
+    for (const label of [
+        'evidence-plan',
     'aeds-policy',
     'community-workflow',
     'label-governance',

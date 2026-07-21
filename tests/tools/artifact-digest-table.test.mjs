@@ -178,36 +178,37 @@ test('substitution records bind canonical path to every physical proof ref', (t)
   )
   const table = JSON.parse(fs.readFileSync(value.file, 'utf8'))
   const record = table.artifacts[substitution.artifactId]
-  assert.deepEqual(record.actualArtifactRefs, physical.refs)
-  assert.equal(record.digest, substitution.digest)
-  validateArtifactRefs(
-    { ...physical.digests, '.tmp/canonical/summary.json': substitution.digest },
-    { ...physical.refs, '.tmp/canonical/summary.json': substitution.artifactId },
-    table
-  )
-  assert.throws(() => validateArtifactRefs(
-    { '.tmp/canonical/summary.json': substitution.digest },
-    { '.tmp/canonical/summary.json': substitution.artifactId },
-    table
-  ), /substitution actual ref mismatch/u)
-  assert.throws(() => value.table.registerSubstitution(
-    '.tmp/canonical/summary.json',
-    physical.digests,
-    { ...physical.refs, '.tmp/results/unbound.json': Object.values(physical.refs)[0] }
-  ), /requires physical refs/u)
-  assert.throws(() => value.table.registerSubstitution(
-    '.tmp/canonical/summary.json',
-    { '.tmp/results/unbound.json': Object.values(physical.digests)[0] },
-    { '.tmp/results/unbound.json': Object.values(physical.refs)[0] }
-  ), /does not match path/u)
-  assert.throws(() => value.table.registerSubstitution(
-    '.tmp/canonical/summary.json',
-    { '../escaped.json': Object.values(physical.digests)[0] },
-    { '../escaped.json': Object.values(physical.refs)[0] }
-  ), /path is invalid/u)
-})
+    assert.deepEqual(record.actualArtifactRefs, physical.refs);
+    assert.equal(record.digest, substitution.digest);
+    validateArtifactRefs(
+        { ...physical.digests, '.tmp/canonical/summary.json': substitution.digest },
+        { ...physical.refs, '.tmp/canonical/summary.json': substitution.artifactId },
+        table
+    );
+    assert.throws(() => validateArtifactRefs(
+        { '.tmp/canonical/summary.json': substitution.digest },
+        { '.tmp/canonical/summary.json': substitution.artifactId },
+        table
+    ), /substitution actual ref mismatch/u);
+    assert.throws(() => value.table.registerSubstitution(
+        '.tmp/canonical/summary.json',
+        physical.digests,
+        { ...physical.refs, '.tmp/results/unbound.json': Object.values(physical.refs)[0] }
+    ), /requires physical refs/u);
+    assert.throws(() => value.table.registerSubstitution(
+        '.tmp/canonical/summary.json',
+        { '.tmp/results/unbound.json': Object.values(physical.digests)[0] },
+        { '.tmp/results/unbound.json': Object.values(physical.refs)[0] }
+    ), /does not match path/u);
+    assert.throws(() => value.table.registerSubstitution(
+        '.tmp/canonical/summary.json',
+        { '../escaped.json': Object.values(physical.digests)[0] },
+        { '../escaped.json': Object.values(physical.refs)[0] }
+    ), /path is invalid/u);
+});
 
-test('final table is source-bound, self-verifying and rejects corruption', (t) => {
+test('final table is source-bound, self-verifying and rejects corruption', (t) =>
+{
   const value = fixture()
   t.after(() => fs.rmSync(value.root, { recursive: true, force: true }))
   write(value.root, '.tmp/results/summary.json', 'ok')

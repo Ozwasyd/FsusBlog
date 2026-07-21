@@ -116,13 +116,13 @@ function classifyMatch(entries, match) {
 
 function scanFiles() {
   return [
-    ...listFiles('src/backend/Modules/Endpoints', '.cs'),
-    'src/backend/Infrastructure/Operations/ProductionHealth.cs',
-    'src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs',
-    'src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs',
-    ...listFiles('src/frontend/src/api', '.ts'),
-    'src/frontend/src/services/telemetryService.ts',
-    'src/frontend/src/services/notificationStreamRuntime.ts'
+        ...listFiles('src/backend/Modules/Endpoints', '.cs'),
+        'src/backend/Infrastructure/Operations/ProductionHealth.cs',
+        'src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs',
+        'src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs',
+        ...listFiles('src/frontend/src/api', '.ts'),
+        'src/frontend/src/services/telemetryService.ts',
+        'src/frontend/src/services/notificationStreamRuntime.ts'
   ].filter((file, index, files) => files.indexOf(file) === index && fs.existsSync(path.join(root, file)))
 }
 

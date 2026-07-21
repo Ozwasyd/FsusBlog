@@ -54,16 +54,16 @@ function assertStaticContracts() {
   const documentComposer = read('src/backend/Infrastructure/PublicAot/PublicAotDocumentComposer.cs')
   const documentService = read('src/backend/Infrastructure/PublicAot/PublicAotDocumentService.cs')
   const seoHeadContract = read('src/shared/Contracts/Outputs/PublicSeoHeadContracts.cs')
-  const navigationSnapshot = read('src/backend/Infrastructure/PublicAot/PublicAotNavigationSnapshot.cs')
-  const publicRoutePreload = read('src/frontend/src/router/publicRoutePreload.ts')
-  const publicSeoHead = read('src/frontend/src/router/publicSeoHead.ts')
-  const webApplicationComposition = [
-    read('src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs'),
-    read('src/backend/Infrastructure/Bootstrap/PublicWebRuntime.HtmlMaterialization.cs')
-  ].join('\n')
-  const apiContracts = read('src/frontend/src/api/contracts.ts')
-  const publicShell = read('src/frontend/src/bootstrap/publicShell.ts')
-  const hydrationBootstrap = read('src/frontend/src/bootstrap/publicHydrationBootstrap.ts')
+    const navigationSnapshot = read('src/backend/Infrastructure/PublicAot/PublicAotNavigationSnapshot.cs');
+    const publicRoutePreload = read('src/frontend/src/router/publicRoutePreload.ts');
+    const publicSeoHead = read('src/frontend/src/router/publicSeoHead.ts');
+    const webApplicationComposition = [
+        read('src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs'),
+        read('src/backend/Infrastructure/Bootstrap/PublicWebRuntime.HtmlMaterialization.cs')
+    ].join('\n');
+    const apiContracts = read('src/frontend/src/api/contracts.ts');
+    const publicShell = read('src/frontend/src/bootstrap/publicShell.ts');
+    const hydrationBootstrap = read('src/frontend/src/bootstrap/publicHydrationBootstrap.ts');
   const binaryPayload = read('src/frontend/src/bootstrap/publicAotBinaryPayload.ts')
   const aotCacheResilienceCheck = read('tests/frontend/checks/public/check-aot-cache-resilience.mjs')
   const hydrationSmoke = read('tests/frontend/checks/public/public-hydration-smoke.mjs')

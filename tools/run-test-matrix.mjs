@@ -44,12 +44,12 @@ import {
 } from './test-matrix/production-build-layout.mjs'
 import { createArtifactDigestTable } from './test-matrix/artifact-digest-table.mjs'
 import {
-  measureResourceCollectorOverhead,
-  writeResourceUtilizationEvidence
-} from './test-matrix/resource-utilization.mjs'
-import { topologyEnvironmentForTier, validateTierTopology } from './test-matrix/topology.mjs'
+    measureResourceCollectorOverhead,
+    writeResourceUtilizationEvidence
+} from './test-matrix/resource-utilization.mjs';
+import { topologyEnvironmentForTier, validateTierTopology } from './test-matrix/topology.mjs';
 
-const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
+const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'));
 const matrixFile = process.env.FSUSBLOG_MATRIX_FILE
   ? path.resolve(root, process.env.FSUSBLOG_MATRIX_FILE)
   : path.join(root, 'tests/matrix.yml')
@@ -556,13 +556,15 @@ function validateMatrix(matrix) {
     for (const field of requiredFields) {
       if (!(field in tier)) errors.push(`${tier.id} missing ${field}`)
     }
-    for (const field of ['dependsOn', 'services', 'exclusiveResources', 'coverage', 'artifacts', 'evidence']) {
-      if (!Array.isArray(tier[field])) errors.push(`${tier.id}.${field} must be an array`)
-    }
-    errors.push(...validateTierTopology(tier))
-    for (const field of ['supersedes', 'cacheInputs']) {
-      if (field in tier && !Array.isArray(tier[field])) errors.push(`${tier.id}.${field} must be an array`)
-    }
+        for (const field of ['dependsOn', 'services', 'exclusiveResources', 'coverage', 'artifacts', 'evidence'])
+{
+            if (!Array.isArray(tier[field])) {errors.push(`${tier.id}.${field} must be an array`)};
+        }
+        errors.push(...validateTierTopology(tier));
+        for (const field of ['supersedes', 'cacheInputs'])
+{
+            if (field in tier && !Array.isArray(tier[field])) {errors.push(`${tier.id}.${field} must be an array`)};
+        }
     const commandSource = commandSourcePath(tier.command)
     if ((tier.cacheInputs?.length ?? 0) > 0 && commandSource && !tier.cacheInputs.some((input) => cacheInputCoversSource(input, commandSource))) {
       errors.push(`${tier.id}.cacheInputs must cover command source ${commandSource}`)
@@ -931,13 +933,13 @@ function resourceEnvironmentForTier(tier, baseEnv = {}) {
   const workerBudget = Math.max(1, Math.floor(cpuUnits))
   const cappedWorkerBudget = (name) => {
     const requested = Number.parseInt(String(baseEnv[name] ?? process.env[name] ?? ''), 10)
-    return Number.isFinite(requested) && requested > 0 ? Math.min(workerBudget, requested) : workerBudget
-  }
-  const env = {
-    ...topologyEnvironmentForTier(tier),
-    FSUSBLOG_TIER_CPU_UNITS: String(cpuUnits),
-    FSUSBLOG_TIER_MEMORY_GIB: String(memoryGiB),
-    FSUSBLOG_VITEST_MAX_WORKERS: String(cappedWorkerBudget('FSUSBLOG_VITEST_MAX_WORKERS')),
+        return Number.isFinite(requested) && requested > 0 ? Math.min(workerBudget, requested) : workerBudget;
+    };
+    const env = {
+        ...topologyEnvironmentForTier(tier),
+        FSUSBLOG_TIER_CPU_UNITS: String(cpuUnits),
+        FSUSBLOG_TIER_MEMORY_GIB: String(memoryGiB),
+        FSUSBLOG_VITEST_MAX_WORKERS: String(cappedWorkerBudget('FSUSBLOG_VITEST_MAX_WORKERS')),
     FSUSBLOG_COMMAND_MANIFEST_WORKERS: String(cappedWorkerBudget('FSUSBLOG_COMMAND_MANIFEST_WORKERS')),
     FSUSBLOG_PLAYWRIGHT_WORKERS: String(cappedWorkerBudget('FSUSBLOG_PLAYWRIGHT_WORKERS'))
   }

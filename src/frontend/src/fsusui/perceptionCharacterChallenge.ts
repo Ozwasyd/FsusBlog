@@ -1,14 +1,11 @@
-import {
-  FsusPerceptionCharacterChallenge,
-  FsusPerceptionChallenge
-} from '@ozwasyd/element-plus/perception-challenge'
-
-export const FsusUiPerceptionCharacterChallenge = FsusPerceptionCharacterChallenge
-export { FsusPerceptionChallenge }
+export {
+    FsusPerceptionCharacterChallenge as FsusUiPerceptionCharacterChallenge,
+    FsusPerceptionChallenge
+} from '@ozwasyd/element-plus/perception-challenge';
 
 export type {
-  PerceptionCharacterMedia as FsusUiPerceptionCharacterMedia,
-  PerceptionCharacterSubmitPayload as FsusUiPerceptionCharacterSubmitPayload,
-  PerceptionChallengeRenderPayload as FsusUiPerceptionCharacterRenderPayload,
-  PerceptionChallengeVerifyResult
-} from '@ozwasyd/element-plus/perception-challenge'
+    PerceptionCharacterMedia as FsusUiPerceptionCharacterMedia,
+    PerceptionCharacterSubmitPayload as FsusUiPerceptionCharacterSubmitPayload,
+    PerceptionChallengeRenderPayload as FsusUiPerceptionCharacterRenderPayload,
+    PerceptionChallengeVerifyResult
+} from '@ozwasyd/element-plus/perception-challenge';

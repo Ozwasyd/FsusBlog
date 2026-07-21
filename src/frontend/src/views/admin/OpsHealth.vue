@@ -1,46 +1,51 @@
 <template>
-  <div class="account-page ops-health-page account-motion-enter w-full">
-    <FsusUiTaskPageHeader
-      title="服务与后台状态"
-      description="核心依赖、后台任务、备份与队列状态。"
-      class="account-task-page-header"
-      density="compact"
-    />
+    <div class="account-page ops-health-page account-motion-enter w-full">
+        <FsusUiTaskPageHeader
+            title="服务与后台状态"
+            description="核心依赖、后台任务、备份与队列状态。"
+            class="account-task-page-header"
+            density="compact"
+        />
 
-    <FsusUiSettingsSection
-      class="mb-8"
+        <FsusUiSettingsSection
+            class="mb-8"
       title="站点状态"
       :description="health ? `检查时间：${formatTime(health.checkedAt)}` : ''"
       id="ops-runtime-title"
     >
       <template #actions>
-        <el-button :icon="Refresh" :loading="loading" @click="loadHealth">刷新</el-button>
-      </template>
+                <el-button :icon="Refresh"
+:loading="loading" @click="loadHealth">刷新</el-button>
+            </template>
 
-      <FsusUiKeyValueGrid v-if="health" class="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
-        <FsusUiKeyValueItem label="状态" :tone="kvTone(health.status)">
-          <el-tag :type="toFsusUiTagType(adminStatusTone[toAdminSystemStatus(health.status)])">
-            {{ adminStatusLabel[toAdminSystemStatus(health.status)] }}
+            <FsusUiKeyValueGrid v-if="health"
+class="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
+                <FsusUiKeyValueItem label="状态"
+:tone="kvTone(health.status)">
+                    <el-tag :type="toFsusUiTagType(adminStatusTone[toAdminSystemStatus(health.status)])">
+                        {{ adminStatusLabel[toAdminSystemStatus(health.status)] }}
           </el-tag>
         </FsusUiKeyValueItem>
-        <FsusUiKeyValueItem label="环境">
-          {{ health.environment }}
-        </FsusUiKeyValueItem>
-        <FsusUiKeyValueItem label="发布">
-          <span class="truncate" :title="releaseIdentityView.releaseLabel">
-            {{ releaseIdentityView.releaseLabel }}
-          </span>
-        </FsusUiKeyValueItem>
-        <FsusUiKeyValueItem label="提交">
-          <span class="truncate" :title="releaseIdentityView.fullCommitSha ?? undefined">
-            {{ releaseIdentityView.commitLabel }}
-          </span>
-        </FsusUiKeyValueItem>
-        <FsusUiKeyValueItem label="槽位">
-          {{ releaseIdentityView.releaseSlotLabel }}
-        </FsusUiKeyValueItem>
-        <FsusUiKeyValueItem label="队列">
-          {{ health.queueBacklog.articleMutationPending }} / {{ health.queueBacklog.auditQueued }}
+                <FsusUiKeyValueItem label="环境">
+                    {{ health.environment }}
+                </FsusUiKeyValueItem>
+                <FsusUiKeyValueItem label="发布">
+                    <span class="truncate"
+:title="releaseIdentityView.releaseLabel">
+                        {{ releaseIdentityView.releaseLabel }}
+                    </span>
+                </FsusUiKeyValueItem>
+                <FsusUiKeyValueItem label="提交">
+                    <span class="truncate"
+:title="releaseIdentityView.fullCommitSha ?? undefined">
+                        {{ releaseIdentityView.commitLabel }}
+                    </span>
+                </FsusUiKeyValueItem>
+                <FsusUiKeyValueItem label="槽位">
+                    {{ releaseIdentityView.releaseSlotLabel }}
+                </FsusUiKeyValueItem>
+                <FsusUiKeyValueItem label="队列">
+                    {{ health.queueBacklog.articleMutationPending }} / {{ health.queueBacklog.auditQueued }}
         </FsusUiKeyValueItem>
       </FsusUiKeyValueGrid>
     </FsusUiSettingsSection>
@@ -184,38 +189,39 @@ import {
   type AdminServiceStatusResponse,
   type BackupArtifactResponse,
   type OpsHealthResponse,
-  type RecentOpsErrorResponse
-} from '@/api/authoring'
-import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
-import { FsusUiSettingsSection, FsusUiTaskPageHeader } from '@/fsusui'
-import { FsusUiKeyValueGrid, FsusUiKeyValueItem } from '@/fsusui'
-import { CopyDocument, Refresh } from '@/fsusui/icons'
-import { toFsusUiTagType } from '@/fsusui/primitiveAdapters'
+    type RecentOpsErrorResponse
+} from '@/api/authoring';
+import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue';
+import { FsusUiSettingsSection, FsusUiTaskPageHeader } from '@/fsusui';
+import { FsusUiKeyValueGrid, FsusUiKeyValueItem } from '@/fsusui';
+import { CopyDocument, Refresh } from '@/fsusui/icons';
+import { toFsusUiTagType } from '@/fsusui/primitiveAdapters';
 import { toast } from '@/fsusui/feedback'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
 import {
   adminStatusLabel,
   adminStatusTone,
-  type AdminStatusTone,
-  type AdminSystemStatus
-} from '@/view-contracts/adminStatus'
-import { toOpsReleaseIdentityView } from '@/view-contracts/opsReleaseIdentity'
+    type AdminStatusTone,
+    type AdminSystemStatus
+} from '@/view-contracts/adminStatus';
+import { toOpsReleaseIdentityView } from '@/view-contracts/opsReleaseIdentity';
 
-const loading = shallowRef(false)
-const health = shallowRef<OpsHealthResponse | null>(null)
-const opsRecentErrors = computed(() => health.value?.recentErrors ?? [])
+const loading = shallowRef(false);
+const health = shallowRef<OpsHealthResponse | null>(null);
+const opsRecentErrors = computed(() => health.value?.recentErrors ?? []);
 const releaseIdentityView = computed(() => health.value
-  ? toOpsReleaseIdentityView(health.value.releaseIdentity)
-  : {
-      releaseLabel: '-',
-      commitLabel: '-',
-      releaseSlotLabel: '-',
-      fullCommitSha: null,
-      published: false
-    })
+    ? toOpsReleaseIdentityView(health.value.releaseIdentity)
+    : {
+        releaseLabel: '-',
+        commitLabel: '-',
+        releaseSlotLabel: '-',
+        fullCommitSha: null,
+        published: false
+    });
 
-const loadHealth = async (): Promise<void> => {
-  loading.value = true
+const loadHealth = async (): Promise<void> =>
+{
+    loading.value = true;
   try {
     health.value = await getOpsHealth()
   } catch (error) {

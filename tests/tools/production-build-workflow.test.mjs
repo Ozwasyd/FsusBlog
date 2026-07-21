@@ -9,21 +9,23 @@ import { fileURLToPath } from 'node:url'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const workflowFile = path.join(root, '.github/workflows/quality-gate.yml')
 const actionFile = path.join(root, '.github/actions/consume-production-build/action.yml')
-const producerLaneFile = path.join(root, 'tools/test/lanes/production-build-artifacts.sh')
+const producerLaneFile = path.join(root, 'tools/test/lanes/production-build-artifacts.sh');
 
-function jobSource(workflow, jobId) {
-  const escapedId = jobId.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')
-  const marker = workflow.match(new RegExp(`^(?<indent>[ \\t]+)${escapedId}:[ \\t]*$`, 'mu'))
-  assert.ok(marker?.groups?.indent, `missing workflow job ${jobId}`)
-  const start = marker.index
-  const bodyStart = start + marker[0].length
-  const next = workflow
-    .slice(bodyStart)
-    .search(new RegExp(`^${marker.groups.indent}[A-Za-z0-9_-]+:[ \\t]*$`, 'mu'))
-  return next === -1 ? workflow.slice(start) : workflow.slice(start, bodyStart + next)
+function jobSource(workflow, jobId)
+{
+    const escapedId = jobId.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+    const marker = workflow.match(new RegExp(`^(?<indent>[ \\t]+)${escapedId}:[ \\t]*$`, 'mu'));
+    assert.ok(marker?.groups?.indent, `missing workflow job ${jobId}`);
+    const start = marker.index;
+    const bodyStart = start + marker[0].length;
+    const next = workflow
+        .slice(bodyStart)
+        .search(new RegExp(`^${marker.groups.indent}[A-Za-z0-9_-]+:[ \\t]*$`, 'mu'));
+    return next === -1 ? workflow.slice(start) : workflow.slice(start, bodyStart + next);
 }
 
-test('quality gate has one smart-gated producer and all immutable-build consumers verify it', () => {
+test('quality gate has one smart-gated producer and all immutable-build consumers verify it', () =>
+{
   const workflow = fs.readFileSync(workflowFile, 'utf8')
   const producer = jobSource(workflow, 'production-build-artifacts')
   assert.match(producer, /ci-tier production-build-artifacts --no-deps/u)
@@ -37,13 +39,14 @@ test('quality gate has one smart-gated producer and all immutable-build consumer
     'integration-runtime', 'endpoint-depth-runtime', 'release-public', 'security-runtime',
     'browser-contract', 'resilience-runtime', 'load-smoke',
     'backend-qps-collectors', 'perf-regression'
-  ]
-  for (const jobId of consumers) {
-    const source = jobSource(workflow, jobId)
-    assert.match(source, /needs:[\s\S]*production-build-artifacts/u, jobId)
-    assert.match(source, /uses: \.\/\.github\/actions\/consume-production-build/u, jobId)
-    assert.match(source, /needs\.production-build-artifacts\.outputs\.source_fingerprint/u, jobId)
-    assert.match(source, /needs\.production-build-artifacts\.outputs\.receipt_digest/u, jobId)
+    ];
+    for (const jobId of consumers)
+{
+        const source = jobSource(workflow, jobId);
+        assert.match(source, /needs:[\s\S]*production-build-artifacts/u, jobId);
+        assert.match(source, /uses: \.\/\.github\/actions\/consume-production-build/u, jobId);
+        assert.match(source, /needs\.production-build-artifacts\.outputs\.source_fingerprint/u, jobId);
+        assert.match(source, /needs\.production-build-artifacts\.outputs\.receipt_digest/u, jobId);
     const consumerAction = source.indexOf('uses: ./.github/actions/consume-production-build')
     assert.ok(source.indexOf('actions/setup-node@') < consumerAction, `${jobId} must set up Node before verification`)
     assert.ok(source.indexOf('actions/setup-dotnet@') < consumerAction, `${jobId} must set up .NET before verification`)
@@ -87,17 +90,17 @@ test('producer receipts existing lock, project and build configuration inputs', 
     'tests/backend/FsusBlog.Server.Tests.csproj',
     'src/frontend/package.json',
     'src/frontend/package-lock.json',
-    'src/frontend/vite.config.ts',
-    'tools/frontend/build.mjs',
-    'tools/frontend/ensure-wasm.mjs',
-    'tools/frontend/write-comment-privacy-prover-manifest.mjs',
-    'tools/security/comment-privacy-build-contract.mjs',
-    'security/zk/contracts/comment-v5-circuit.manifest.json',
-    'security/zk/provenance/comment-v5-trusted-setup.manifest.json',
-    'config/zk/anonymous-comment-v5-verifying-key.manifest.json',
-    'src/frontend/wasm/CMakeLists.txt'
-  ]) assert.match(source, new RegExp(`--input ${input.replaceAll('.', '\\.')}`, 'u'), input)
-  assert.doesNotMatch(source, /--input global\.json/u)
+        'src/frontend/vite.config.ts',
+        'tools/frontend/build.mjs',
+        'tools/frontend/ensure-wasm.mjs',
+        'tools/frontend/write-comment-privacy-prover-manifest.mjs',
+        'tools/security/comment-privacy-build-contract.mjs',
+        'security/zk/contracts/comment-v5-circuit.manifest.json',
+        'security/zk/provenance/comment-v5-trusted-setup.manifest.json',
+        'config/zk/anonymous-comment-v5-verifying-key.manifest.json',
+        'src/frontend/wasm/CMakeLists.txt'
+    ]) {assert.match(source, new RegExp(`--input ${input.replaceAll('.', '\\.')}`, 'u'), input)};
+    assert.doesNotMatch(source, /--input global\.json/u);
   const declaredInputs = [...source.matchAll(/--input ([A-Za-z0-9_./-]+)/gu)].map(match => match[1])
   assert.ok(declaredInputs.length > 0)
   for (const input of declaredInputs) {

@@ -35,30 +35,32 @@ const fsusUiMarkdownRuntimeAssets = [
   'markdown_simd.js',
   'markdown_simd.wasm',
   'markdown_basic.js',
-  'markdown_basic.wasm'
+    'markdown_basic.wasm'
 ];
 
-function resolveLocalFsusUiRoot({ env = process.env, root = repositoryRoot } = {}) {
-  const disabled = env.FSUSBLOG_USE_LOCAL_FSUSUI === '0'
+function resolveLocalFsusUiRoot({ env = process.env, root = repositoryRoot } = {})
+{
+    const disabled = env.FSUSBLOG_USE_LOCAL_FSUSUI === '0'
     || env.FSUSBLOG_USE_LOCAL_FSUSUI?.toLowerCase() === 'false';
-  if (disabled) return null;
-  const candidate = resolve(
-    env.FSUSBLOG_LOCAL_FSUSUI_ROOT || join(root, '..', 'FsusUI')
-  );
-  return fs.existsSync(join(candidate, 'vue', 'packages', 'element-plus', 'index.ts'))
-    ? candidate
-    : null;
+    if (disabled) {return null;}
+    const candidate = resolve(
+        env.FSUSBLOG_LOCAL_FSUSUI_ROOT || join(root, '..', 'FsusUI')
+    );
+    return fs.existsSync(join(candidate, 'vue', 'packages', 'element-plus', 'index.ts'))
+        ? candidate
+        : null;
 }
 
 function fsusUiMarkdownRuntimeSourceDir({
-  root = clientRoot,
-  repository = repositoryRoot,
-  env = process.env
-} = {}) {
-  const localRoot = resolveLocalFsusUiRoot({ env, root: repository });
-  return localRoot
-    ? join(localRoot, 'vue', 'packages', 'wasm', 'dist')
-    : join(root, 'node_modules', '@ozwasyd', 'element-plus', 'es', 'wasm', 'dist');
+    root = clientRoot,
+    repository = repositoryRoot,
+    env = process.env
+} = {})
+{
+    const localRoot = resolveLocalFsusUiRoot({ env, root: repository });
+    return localRoot
+        ? join(localRoot, 'vue', 'packages', 'wasm', 'dist')
+        : join(root, 'node_modules', '@ozwasyd', 'element-plus', 'es', 'wasm', 'dist');
 }
 
 const inheritedDeadlineMs = positiveNumber(
@@ -69,7 +71,8 @@ const hostCpu = os.availableParallelism?.() ?? os.cpus().length;
 const hostFreeMemoryGiB = os.freemem() / (1024 ** 3);
 const productionProfile = parseMatrix(fs.readFileSync(join(repositoryRoot, 'tests/matrix.yml'), 'utf8')).localProfiles?.production;
 const directBuildBundle = productionProfile?.bundles?.find((entry) => entry.id === 'build-static');
-if (!Number.isFinite(productionProfile?.budgetMs) || !directBuildBundle) {
+if (!Number.isFinite(productionProfile?.budgetMs) || !directBuildBundle)
+{
   throw new Error('production build-static machine budget is unavailable');
 }
 const directBuildDeadlineMs = Math.ceil(productionProfile.budgetMs * Math.max(
@@ -370,32 +373,33 @@ async function syncBackendWebRoot() {
 }
 
 function buildStageResources(cpuWeight, memoryWeight, minMemoryGiB, exclusiveResources = []) {
-  return { cpuWeight, memoryWeight, minCpuUnits: 1, minMemoryGiB, exclusiveResources };
+    return { cpuWeight, memoryWeight, minCpuUnits: 1, minMemoryGiB, exclusiveResources };
 }
 
 export function createFrontendBuildStages(generatedArgs, generatedAction, {
-  frontendRoot,
-  env = process.env
-} = {}) {
-  if (!String(frontendRoot ?? '').trim()) throw new Error('frontend build stage declaration requires frontendRoot');
-  const stageClientRoot = resolve(frontendRoot);
-  const stageDistRoot = resolve(env.FSUSBLOG_FRONTEND_DIST_ROOT || join(stageClientRoot, 'dist'));
-  const stageDistAssetsDir = join(stageDistRoot, 'assets');
-  const stagePublicRoot = join(stageClientRoot, 'public');
-  const stageFrontendWasmRoot = resolve(env.FSUSBLOG_FRONTEND_WASM_ROOT || join(stagePublicRoot, 'wasm'));
-  const stageBackendWebRoot = resolve(env.FSUSBLOG_BACKEND_WEBROOT || join(stageClientRoot, '..', 'backend', 'wwwroot'));
-  const stageVueTscBin = join(stageClientRoot, 'node_modules', '.bin', `vue-tsc${binExtension}`);
-  const stageViteBin = join(stageClientRoot, 'node_modules', '.bin', `vite${binExtension}`);
-  const markdownRuntimeSource = fsusUiMarkdownRuntimeSourceDir({
-    root: stageClientRoot,
-    repository: repositoryRoot,
-    env
-  });
-  const runBound = Boolean(env.FSUSBLOG_FRONTEND_DIST_ROOT);
-  const syncBackend = env.FSUSBLOG_SKIP_BACKEND_WWWROOT_SYNC !== '1';
-  return [
-    {
-      id: `${generatedAction}-public-page-manifest`,
+    frontendRoot,
+    env = process.env
+} = {})
+{
+    if (!String(frontendRoot ?? '').trim()) {throw new Error('frontend build stage declaration requires frontendRoot');}
+    const stageClientRoot = resolve(frontendRoot);
+    const stageDistRoot = resolve(env.FSUSBLOG_FRONTEND_DIST_ROOT || join(stageClientRoot, 'dist'));
+    const stageDistAssetsDir = join(stageDistRoot, 'assets');
+    const stagePublicRoot = join(stageClientRoot, 'public');
+    const stageFrontendWasmRoot = resolve(env.FSUSBLOG_FRONTEND_WASM_ROOT || join(stagePublicRoot, 'wasm'));
+    const stageBackendWebRoot = resolve(env.FSUSBLOG_BACKEND_WEBROOT || join(stageClientRoot, '..', 'backend', 'wwwroot'));
+    const stageVueTscBin = join(stageClientRoot, 'node_modules', '.bin', `vue-tsc${binExtension}`);
+    const stageViteBin = join(stageClientRoot, 'node_modules', '.bin', `vite${binExtension}`);
+    const markdownRuntimeSource = fsusUiMarkdownRuntimeSourceDir({
+        root: stageClientRoot,
+        repository: repositoryRoot,
+        env
+    });
+    const runBound = Boolean(env.FSUSBLOG_FRONTEND_DIST_ROOT);
+    const syncBackend = env.FSUSBLOG_SKIP_BACKEND_WWWROOT_SYNC !== '1';
+    return [
+        {
+            id: `${generatedAction}-public-page-manifest`,
       command: [process.execPath, generatePublicPageManifestScript, ...generatedArgs],
       dependsOn: [],
       consumedInputs: ['src/shared/Contracts/Outputs/PublicPageContracts.cs'],
@@ -416,95 +420,95 @@ export function createFrontendBuildStages(generatedArgs, generatedAction, {
     },
     {
       id: 'ensure-wasm',
-      command: [process.execPath, ensureWasmScript, 'ensure'],
-      dependsOn: [],
-      consumedInputs: ['wasm'],
-      ownedOutputs: env.FSUSBLOG_SKIP_ENSURE_WASM === '1'
-        ? []
-        : [join(stageFrontendWasmRoot, 'wasm-manifest.aeds'), join(stageFrontendWasmRoot, 'aeds-runtime-manifest.json')],
-      resources: buildStageResources(3, 2, 0.75, ['frontend-wasm-output']),
-      estimatedDurationMs: 45_000,
-      toolchain: { executable: process.execPath }
-    },
-    {
-      id: 'vue-tsc',
-      command: [stageVueTscBin],
-      dependsOn: [`${generatedAction}-public-page-manifest`, `${generatedAction}-public-shell-emergency`, 'ensure-wasm'],
-      consumedInputs: ['src', 'public/wasm'],
-      ownedOutputs: [],
-      resources: buildStageResources(2, 2, 0.75),
-      estimatedDurationMs: 35_000,
-      toolchain: { executable: stageVueTscBin }
-    },
-    {
-      id: 'vite-build',
-      command: [stageViteBin, 'build', '--outDir', stageDistRoot, '--logLevel', 'warn'],
-      dependsOn: [`${generatedAction}-public-page-manifest`, `${generatedAction}-public-shell-emergency`, 'ensure-wasm'],
-      consumedInputs: ['src', 'public'],
-      ownedOutputs: [join(stageDistRoot, 'index.html'), join(stageDistRoot, 'assets')],
-      resources: buildStageResources(4, 4, 1.5, ['frontend-dist']),
-      estimatedDurationMs: 50_000,
-      toolchain: { executable: stageViteBin }
-    },
-    {
-      id: 'vite-public-ssr-build',
-      command: [process.execPath, buildPublicSsrBundleScript],
-      dependsOn: ['vue-tsc', 'vite-build'],
-      consumedInputs: ['src/public-renderers', join(stageDistRoot, 'assets')],
-      ownedOutputs: [join(stageDistRoot, 'server')],
-      resources: buildStageResources(3, 3, 1, ['frontend-dist']),
-      estimatedDurationMs: 25_000,
-      toolchain: { executable: process.execPath }
+            command: [process.execPath, ensureWasmScript, 'ensure'],
+            dependsOn: [],
+            consumedInputs: ['wasm'],
+            ownedOutputs: env.FSUSBLOG_SKIP_ENSURE_WASM === '1'
+                ? []
+                : [join(stageFrontendWasmRoot, 'wasm-manifest.aeds'), join(stageFrontendWasmRoot, 'aeds-runtime-manifest.json')],
+            resources: buildStageResources(3, 2, 0.75, ['frontend-wasm-output']),
+            estimatedDurationMs: 45_000,
+            toolchain: { executable: process.execPath }
+        },
+        {
+            id: 'vue-tsc',
+            command: [stageVueTscBin],
+            dependsOn: [`${generatedAction}-public-page-manifest`, `${generatedAction}-public-shell-emergency`, 'ensure-wasm'],
+            consumedInputs: ['src', 'public/wasm'],
+            ownedOutputs: [],
+            resources: buildStageResources(2, 2, 0.75),
+            estimatedDurationMs: 35_000,
+            toolchain: { executable: stageVueTscBin }
+        },
+        {
+            id: 'vite-build',
+            command: [stageViteBin, 'build', '--outDir', stageDistRoot, '--logLevel', 'warn'],
+            dependsOn: [`${generatedAction}-public-page-manifest`, `${generatedAction}-public-shell-emergency`, 'ensure-wasm'],
+            consumedInputs: ['src', 'public'],
+            ownedOutputs: [join(stageDistRoot, 'index.html'), join(stageDistRoot, 'assets')],
+            resources: buildStageResources(4, 4, 1.5, ['frontend-dist']),
+            estimatedDurationMs: 50_000,
+            toolchain: { executable: stageViteBin }
+        },
+        {
+            id: 'vite-public-ssr-build',
+            command: [process.execPath, buildPublicSsrBundleScript],
+            dependsOn: ['vue-tsc', 'vite-build'],
+            consumedInputs: ['src/public-renderers', join(stageDistRoot, 'assets')],
+            ownedOutputs: [join(stageDistRoot, 'server')],
+            resources: buildStageResources(3, 3, 1, ['frontend-dist']),
+            estimatedDurationMs: 25_000,
+            toolchain: { executable: process.execPath }
     },
     {
       id: 'assemble-run-bound-public-shell-emergency',
-      command: [process.execPath, generatePublicShellEmergencyScript],
-      dependsOn: ['vite-public-ssr-build'],
-      consumedInputs: ['src/assets/public-page.css'],
-      ownedOutputs: runBound ? [join(stageDistRoot, 'server', 'public-shell-emergency.css')] : [],
-      resources: buildStageResources(1, 1, 0.25, ['frontend-dist']),
-      estimatedDurationMs: 2_000,
-      toolchain: { executable: process.execPath }
+            command: [process.execPath, generatePublicShellEmergencyScript],
+            dependsOn: ['vite-public-ssr-build'],
+            consumedInputs: ['src/assets/public-page.css'],
+            ownedOutputs: runBound ? [join(stageDistRoot, 'server', 'public-shell-emergency.css')] : [],
+            resources: buildStageResources(1, 1, 0.25, ['frontend-dist']),
+            estimatedDurationMs: 2_000,
+            toolchain: { executable: process.execPath }
     },
     {
       id: 'sync-run-bound-public-assets',
-      command: ['internal', 'sync-run-bound-public-assets'],
-      dependsOn: ['assemble-run-bound-public-shell-emergency'],
-      consumedInputs: ['public'],
-      ownedOutputs: runBound ? [join(stageDistRoot, 'wasm')] : [],
-      resources: buildStageResources(1, 1, 0.5, ['frontend-dist']),
-      estimatedDurationMs: 5_000,
-      toolchain: { executable: 'node:fs/promises' }
+            command: ['internal', 'sync-run-bound-public-assets'],
+            dependsOn: ['assemble-run-bound-public-shell-emergency'],
+            consumedInputs: ['public'],
+            ownedOutputs: runBound ? [join(stageDistRoot, 'wasm')] : [],
+            resources: buildStageResources(1, 1, 0.5, ['frontend-dist']),
+            estimatedDurationMs: 5_000,
+            toolchain: { executable: 'node:fs/promises' }
     },
     {
-      id: 'sync-stable-spa-entry',
-      command: ['internal', 'sync-stable-spa-entry'],
-      dependsOn: ['sync-run-bound-public-assets'],
-      consumedInputs: [join(stageDistRoot, 'assets')],
-      ownedOutputs: [join(stageDistAssetsDir, stableSpaEntryName)],
-      resources: buildStageResources(1, 1, 0.25, ['frontend-dist-assets']),
-      estimatedDurationMs: 2_000,
-      toolchain: { executable: 'node:fs/promises' }
+            id: 'sync-stable-spa-entry',
+            command: ['internal', 'sync-stable-spa-entry'],
+            dependsOn: ['sync-run-bound-public-assets'],
+            consumedInputs: [join(stageDistRoot, 'assets')],
+            ownedOutputs: [join(stageDistAssetsDir, stableSpaEntryName)],
+            resources: buildStageResources(1, 1, 0.25, ['frontend-dist-assets']),
+            estimatedDurationMs: 2_000,
+            toolchain: { executable: 'node:fs/promises' }
     },
     {
-      id: 'sync-fsusui-markdown-runtime-assets',
-      command: ['internal', 'sync-fsusui-markdown-runtime-assets'],
-      dependsOn: ['sync-run-bound-public-assets'],
-      consumedInputs: [markdownRuntimeSource],
-      ownedOutputs: [join(stageDistRoot, 'dist')],
-      resources: buildStageResources(1, 1, 0.25, ['frontend-dist-markdown']),
-      estimatedDurationMs: 2_000,
-      toolchain: { executable: 'node:fs/promises' }
+            id: 'sync-fsusui-markdown-runtime-assets',
+            command: ['internal', 'sync-fsusui-markdown-runtime-assets'],
+            dependsOn: ['sync-run-bound-public-assets'],
+            consumedInputs: [markdownRuntimeSource],
+            ownedOutputs: [join(stageDistRoot, 'dist')],
+            resources: buildStageResources(1, 1, 0.25, ['frontend-dist-markdown']),
+            estimatedDurationMs: 2_000,
+            toolchain: { executable: 'node:fs/promises' }
     },
     {
-      id: 'sync-backend-wwwroot',
-      command: ['internal', 'sync-backend-wwwroot'],
-      dependsOn: ['sync-stable-spa-entry', 'sync-fsusui-markdown-runtime-assets'],
-      consumedInputs: [stageDistRoot],
-      ownedOutputs: syncBackend ? [stageBackendWebRoot] : [],
-      resources: buildStageResources(1, 1, 0.5, ['backend-wwwroot']),
-      estimatedDurationMs: 6_000,
-      toolchain: { executable: 'node:fs/promises' }
+            id: 'sync-backend-wwwroot',
+            command: ['internal', 'sync-backend-wwwroot'],
+            dependsOn: ['sync-stable-spa-entry', 'sync-fsusui-markdown-runtime-assets'],
+            consumedInputs: [stageDistRoot],
+            ownedOutputs: syncBackend ? [stageBackendWebRoot] : [],
+            resources: buildStageResources(1, 1, 0.5, ['backend-wwwroot']),
+            estimatedDurationMs: 6_000,
+            toolchain: { executable: 'node:fs/promises' }
     }
   ];
 }
@@ -586,16 +590,17 @@ async function main() {
   const receiptFile = resolve(process.env.FSUSBLOG_FRONTEND_BUILD_STAGE_RECEIPT || join(
     process.env.FSUSBLOG_PRODUCTION_BUILD_ROOT || join(repositoryRoot, '.tmp', 'frontend'),
     'generated',
-    'frontend-build-stages.json'
-  ));
-  try {
-    const receipt = await runFrontendBuildStageDag(createFrontendBuildStages(generatedArgs, generatedAction, {
-      frontendRoot: clientRoot,
-      env: process.env
-    }), {
-      cwd: clientRoot,
-      env: process.env,
-      receiptFile,
+        'frontend-build-stages.json'
+    ));
+    try
+{
+        const receipt = await runFrontendBuildStageDag(createFrontendBuildStages(generatedArgs, generatedAction, {
+            frontendRoot: clientRoot,
+            env: process.env
+        }), {
+            cwd: clientRoot,
+            env: process.env,
+            receiptFile,
       signal: controller.signal,
       toolchain: {
         node: process.version,

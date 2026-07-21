@@ -1,25 +1,25 @@
-import { isValidReleaseId } from '../release/release-id.mjs'
+import { isValidReleaseId } from '../release/release-id.mjs';
 
 const EVIDENCE_CLASSES = new Set([
-  'contract',
-  'fixture',
+    'contract',
+    'fixture',
   'implementation-attestation',
   'historical-report',
   'fresh-run-evidence',
   'release-closeout-evidence'
-])
+]);
 
 const STATIC_CLASSES = new Set([
   'contract',
   'fixture',
   'implementation-attestation',
   'historical-report'
-])
+]);
 
 export function evidenceClassificationErrors(value, expectedClass = null) {
-  const errors = []
+  const errors = [];
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return ['evidence document must be a JSON object']
+    return ['evidence document must be a JSON object'];
   }
 
   if (!EVIDENCE_CLASSES.has(value.evidenceClass)) {
@@ -48,13 +48,15 @@ export function evidenceClassificationErrors(value, expectedClass = null) {
   }
 
   if (value.evidenceClass === 'release-closeout-evidence') {
-    if (value.freshExecution !== true) errors.push('release-closeout-evidence requires freshExecution')
-    if (value.releaseBound !== true) errors.push('release-closeout-evidence requires releaseBound')
-    if (value.productionFreshRun !== true) errors.push('release-closeout-evidence requires productionFreshRun')
-    if (!isValidReleaseId(value.releaseId, { forPublication: true })) {
-      errors.push('release-closeout-evidence requires a valid releaseId')
-    }
-    if (!/^[0-9a-f]{40}$/u.test(String(value.commitSha ?? ''))) {
+        if (value.freshExecution !== true) {errors.push('release-closeout-evidence requires freshExecution')};
+        if (value.releaseBound !== true) {errors.push('release-closeout-evidence requires releaseBound')};
+        if (value.productionFreshRun !== true) {errors.push('release-closeout-evidence requires productionFreshRun')};
+        if (!isValidReleaseId(value.releaseId, { forPublication: true }))
+{
+            errors.push('release-closeout-evidence requires a valid releaseId');
+        }
+        if (!/^[0-9a-f]{40}$/u.test(String(value.commitSha ?? '')))
+{
       errors.push('release-closeout-evidence requires a full commitSha')
     }
     if (!/^sha256:[0-9a-f]{64}$/u.test(String(value.imageDigest ?? ''))) {

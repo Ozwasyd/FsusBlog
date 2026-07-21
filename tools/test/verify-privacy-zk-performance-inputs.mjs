@@ -3,41 +3,44 @@ import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath } from 'node:url';
 
-import { readRunBoundMarker } from '../test-matrix/run-bound-marker.mjs'
-import { validateFrontendBuildStageReceiptBinding } from '../test-matrix/frontend-build-ready-marker.mjs'
-import { digestDeclaredOutputs } from '../test-matrix/local-profile.mjs'
-import { resolveProductionBuildLayout } from '../test-matrix/production-build-layout.mjs'
-import { createFrontendBuildStages } from '../frontend/build.mjs'
+import { readRunBoundMarker } from '../test-matrix/run-bound-marker.mjs';
+import { validateFrontendBuildStageReceiptBinding } from '../test-matrix/frontend-build-ready-marker.mjs';
+import { digestDeclaredOutputs } from '../test-matrix/local-profile.mjs';
+import { resolveProductionBuildLayout } from '../test-matrix/production-build-layout.mjs';
+import { createFrontendBuildStages } from '../frontend/build.mjs';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
-function currentFrontendBuildStages(frontendRoot, env = process.env) {
-  const generatedOnly = env.FSUSBLOG_VALIDATE_GENERATED_ONLY === '1'
-  return createFrontendBuildStages(generatedOnly ? ['--check'] : [], generatedOnly ? 'check' : 'generate', {
-    frontendRoot,
-    env
-  })
+function currentFrontendBuildStages(frontendRoot, env = process.env)
+{
+    const generatedOnly = env.FSUSBLOG_VALIDATE_GENERATED_ONLY === '1';
+    return createFrontendBuildStages(generatedOnly ? ['--check'] : [], generatedOnly ? 'check' : 'generate', {
+        frontendRoot,
+        env
+    });
 }
 
-function criticalFrontendBuildOutputs(layout, stages) {
-  const owned = new Set(stages.flatMap((stage) => stage.ownedOutputs))
-  return [
-    path.join(layout.frontendDist, 'index.html'),
-    path.join(layout.frontendDist, 'server', 'public-shell-emergency.css'),
-    path.join(layout.frontendDist, 'wasm'),
-    path.join(layout.frontendDist, 'assets', 'fsus-spa-entry.js'),
-    path.join(layout.frontendDist, 'dist'),
-    path.join(layout.frontendWasm, 'wasm-manifest.aeds'),
-    path.join(layout.frontendWasm, 'aeds-runtime-manifest.json'),
-    layout.backendWebRoot
-  ].filter((candidate) => owned.has(candidate))
+function criticalFrontendBuildOutputs(layout, stages)
+{
+    const owned = new Set(stages.flatMap((stage) => stage.ownedOutputs));
+    return [
+        path.join(layout.frontendDist, 'index.html'),
+        path.join(layout.frontendDist, 'server', 'public-shell-emergency.css'),
+        path.join(layout.frontendDist, 'wasm'),
+        path.join(layout.frontendDist, 'assets', 'fsus-spa-entry.js'),
+        path.join(layout.frontendDist, 'dist'),
+        path.join(layout.frontendWasm, 'wasm-manifest.aeds'),
+        path.join(layout.frontendWasm, 'aeds-runtime-manifest.json'),
+        layout.backendWebRoot
+    ].filter((candidate) => owned.has(candidate));
 }
 
-function readBoundJson(repositoryRoot, relativeFile, validate) {
-  const file = path.join(repositoryRoot, relativeFile)
-  if (!fs.existsSync(file)) throw new Error(`privacy-ZK performance input is missing: ${relativeFile}`)
+function readBoundJson(repositoryRoot, relativeFile, validate)
+{
+    const file = path.join(repositoryRoot, relativeFile);
+    if (!fs.existsSync(file)) {throw new Error(`privacy-ZK performance input is missing: ${relativeFile}`)};
   const source = fs.readFileSync(file)
   let value
   try {
@@ -55,22 +58,25 @@ function readBoundJson(repositoryRoot, relativeFile, validate) {
 export function verifyPrivacyZkPerformanceInputs({
   runId = process.env.FSUSBLOG_TEST_RUN_ID,
   sourceState = {
-    commit: process.env.FSUSBLOG_TEST_SOURCE_COMMIT,
-    worktreeFingerprint: process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT
-  },
-  repositoryRoot = root,
-  expectedFrontendBuildStages,
-  criticalFrontendOutputPaths
-} = {}) {
-  const normalizedRunId = String(runId ?? '').trim()
-  if (!normalizedRunId) throw new Error('privacy-ZK performance input verification requires FSUSBLOG_TEST_RUN_ID')
-  const resolvedRoot = path.resolve(repositoryRoot)
-  const resolvedExpectedStages = expectedFrontendBuildStages
-    ?? currentFrontendBuildStages(path.join(resolvedRoot, 'src/frontend'))
-  const productionLayout = resolveProductionBuildLayout({ root: resolvedRoot, runId: normalizedRunId })
-  const failures = []
-  const collect = (relativeFile, validate) => {
-    try {
+        commit: process.env.FSUSBLOG_TEST_SOURCE_COMMIT,
+        worktreeFingerprint: process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT
+    },
+    repositoryRoot = root,
+    expectedFrontendBuildStages,
+    criticalFrontendOutputPaths
+} = {})
+{
+    const normalizedRunId = String(runId ?? '').trim();
+    if (!normalizedRunId) {throw new Error('privacy-ZK performance input verification requires FSUSBLOG_TEST_RUN_ID')};
+    const resolvedRoot = path.resolve(repositoryRoot);
+    const resolvedExpectedStages = expectedFrontendBuildStages
+    ?? currentFrontendBuildStages(path.join(resolvedRoot, 'src/frontend'));
+    const productionLayout = resolveProductionBuildLayout({ root: resolvedRoot, runId: normalizedRunId });
+    const failures = [];
+    const collect = (relativeFile, validate) =>
+{
+        try
+{
       return readBoundJson(resolvedRoot, relativeFile, validate)
     } catch (error) {
       failures.push(error instanceof Error ? error : new Error(String(error)))
@@ -116,34 +122,37 @@ export function verifyPrivacyZkPerformanceInputs({
         || marker.status !== 'success'
         || marker.schedulerRunId !== normalizedRunId
         || marker.buildLayout?.sourceCommit !== sourceState.commit
-        || marker.buildLayout?.sourceFingerprint !== sourceState.worktreeFingerprint) {
-        throw new Error(`privacy-ZK performance input is not the current frontend build marker: ${relativeFile}`)
-      }
-      validateFrontendBuildStageReceiptBinding({
-        root: resolvedRoot,
-        marker,
-        runId: normalizedRunId,
-        sourceState,
-        expectedPath: `.tmp/build/${normalizedRunId}/generated/frontend-build-stages.json`,
-        expectedStages: resolvedExpectedStages,
-        stageCwd: path.join(resolvedRoot, 'src/frontend'),
-        criticalOutputPaths: criticalFrontendOutputPaths
+        || marker.buildLayout?.sourceFingerprint !== sourceState.worktreeFingerprint)
+{
+                throw new Error(`privacy-ZK performance input is not the current frontend build marker: ${relativeFile}`);
+            }
+            validateFrontendBuildStageReceiptBinding({
+                root: resolvedRoot,
+                marker,
+                runId: normalizedRunId,
+                sourceState,
+                expectedPath: `.tmp/build/${normalizedRunId}/generated/frontend-build-stages.json`,
+                expectedStages: resolvedExpectedStages,
+                stageCwd: path.join(resolvedRoot, 'src/frontend'),
+                criticalOutputPaths: criticalFrontendOutputPaths
           ?? criticalFrontendBuildOutputs(productionLayout, resolvedExpectedStages)
-      })
-      const frontendDistPath = path.relative(resolvedRoot, productionLayout.frontendDist).replaceAll(path.sep, '/')
-      const backendWebRootPath = path.relative(resolvedRoot, productionLayout.backendWebRoot).replaceAll(path.sep, '/')
-      if (marker.frontendDist?.path !== frontendDistPath
-        || marker.backendWebRoot?.path !== backendWebRootPath) {
-        throw new Error(`privacy-ZK performance input frontend tree paths are invalid: ${relativeFile}`)
-      }
-      const treeDigests = digestDeclaredOutputs(resolvedRoot, [frontendDistPath, backendWebRootPath])
-      if (marker.frontendDist.digest !== treeDigests[frontendDistPath]
-        || marker.backendWebRoot.digest !== treeDigests[backendWebRootPath]) {
-        throw new Error(`privacy-ZK performance input frontend tree digest mismatch: ${relativeFile}`)
-      }
-    }
-  )
-  const stages = ['contract', 'functional'].map((stage) => collect(
+            });
+            const frontendDistPath = path.relative(resolvedRoot, productionLayout.frontendDist).replaceAll(path.sep, '/');
+            const backendWebRootPath = path.relative(resolvedRoot, productionLayout.backendWebRoot).replaceAll(path.sep, '/');
+            if (marker.frontendDist?.path !== frontendDistPath
+        || marker.backendWebRoot?.path !== backendWebRootPath)
+{
+                throw new Error(`privacy-ZK performance input frontend tree paths are invalid: ${relativeFile}`);
+            }
+            const treeDigests = digestDeclaredOutputs(resolvedRoot, [frontendDistPath, backendWebRootPath]);
+            if (marker.frontendDist.digest !== treeDigests[frontendDistPath]
+        || marker.backendWebRoot.digest !== treeDigests[backendWebRootPath])
+{
+                throw new Error(`privacy-ZK performance input frontend tree digest mismatch: ${relativeFile}`);
+            }
+        }
+    );
+    const stages = ['contract', 'functional'].map((stage) => collect(
     `.tmp/security/privacy-zk-comment-matrix-stages/${stage}.json`,
     (receipt, relativeFile) => {
       if (receipt?.schema !== 'fsusblog.privacy-zk-comment-matrix-stage.v1'

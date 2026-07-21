@@ -543,45 +543,49 @@ export function createArtifactDigestTable({
     },
     registerSubstitution(canonicalPath, actualDigests, actualRefs, { producer = {} } = {}) {
       return update((table) => {
-        const canonical = normalize(canonicalPath)
-        safeRelativePath(root, canonical, 'canonical artifact')
-        const paths = Object.keys(actualDigests ?? {}).sort()
-        const refPaths = Object.keys(actualRefs ?? {}).sort()
-        if (paths.length === 0 || JSON.stringify(paths) !== JSON.stringify(refPaths)) {
-          throw new Error(`artifact substitution requires physical refs: ${canonical}`)
-        }
-        for (const actualPath of paths) {
-          const normalizedActualPath = safeRelativePath(root, actualPath, 'substitution actual artifact').declaration
-          const record = table.artifacts[actualRefs[actualPath]]
-          if (!record || record.digest !== actualDigests[actualPath]) {
-            throw new Error(`artifact substitution ref does not match digest: ${actualPath}`)
-          }
-          if ((!record.canonicalPaths?.includes(normalizedActualPath) && record.path !== normalizedActualPath)
-            || normalizedActualPath !== actualPath) {
-            throw new Error(`artifact substitution ref does not match path: ${actualPath}`)
-          }
-        }
-        const digest = `sha256:${sha256(JSON.stringify({
-          schema: 'fsusblog.local-artifact-substitution.v1',
+                const canonical = normalize(canonicalPath);
+                safeRelativePath(root, canonical, 'canonical artifact');
+                const paths = Object.keys(actualDigests ?? {}).sort();
+                const refPaths = Object.keys(actualRefs ?? {}).sort();
+                if (paths.length === 0 || JSON.stringify(paths) !== JSON.stringify(refPaths))
+{
+                    throw new Error(`artifact substitution requires physical refs: ${canonical}`);
+                }
+                for (const actualPath of paths)
+{
+                    const normalizedActualPath = safeRelativePath(root, actualPath, 'substitution actual artifact').declaration;
+                    const record = table.artifacts[actualRefs[actualPath]];
+                    if (!record || record.digest !== actualDigests[actualPath])
+{
+                        throw new Error(`artifact substitution ref does not match digest: ${actualPath}`);
+                    }
+                    if ((!record.canonicalPaths?.includes(normalizedActualPath) && record.path !== normalizedActualPath)
+            || normalizedActualPath !== actualPath)
+{
+                        throw new Error(`artifact substitution ref does not match path: ${actualPath}`);
+                    }
+                }
+                const digest = `sha256:${sha256(JSON.stringify({
+                    schema: 'fsusblog.local-artifact-substitution.v1',
           canonicalPath: canonical,
-          actualDigests: Object.fromEntries(paths.map((entry) => [entry, actualDigests[entry]]))
-        }))}`
-        const artifactId = `artifact:${sha256(`substitution:${canonical}:${paths.map((entry) => actualRefs[entry]).join('|')}`)}`
-        const existing = table.artifacts[artifactId]
-        table.artifacts[artifactId] = {
-          artifactId,
-          path: canonical,
+                    actualDigests: Object.fromEntries(paths.map((entry) => [entry, actualDigests[entry]]))
+                }))}`;
+                const artifactId = `artifact:${sha256(`substitution:${canonical}:${paths.map((entry) => actualRefs[entry]).join('|')}`)}`;
+                const existing = table.artifacts[artifactId];
+                table.artifacts[artifactId] = {
+                    artifactId,
+                    path: canonical,
           canonicalPaths: [canonical],
           pathType: 'substitution',
           size: paths.reduce((total, entry) => total + Number(table.artifacts[actualRefs[entry]].size), 0),
           count: paths.length,
-          digest,
-          actualPaths: paths,
-          actualArtifactRefs: Object.fromEntries(paths.map((entry) => [entry, actualRefs[entry]])),
-          producers: [...new Set([...(existing?.producers ?? []), producerKey(producer)])].sort(),
-          sourceRunId: table.runId,
-          sourceFingerprint: table.sourceState.worktreeFingerprint
-        }
+                    digest,
+                    actualPaths: paths,
+                    actualArtifactRefs: Object.fromEntries(paths.map((entry) => [entry, actualRefs[entry]])),
+                    producers: [...new Set([...(existing?.producers ?? []), producerKey(producer)])].sort(),
+                    sourceRunId: table.runId,
+                    sourceFingerprint: table.sourceState.worktreeFingerprint
+                };
         return { artifactId, digest }
       })
     },
@@ -701,19 +705,23 @@ export function validateArtifactRefs(artifactDigests, artifactRefs, table) {
     if (record.digest !== artifactDigests[artifactPath]) {
       throw new Error(`artifact ref digest mismatch: ${artifactPath}`)
     }
-    if (!record.canonicalPaths?.includes(artifactPath) && record.path !== artifactPath) {
-      throw new Error(`artifact ref path mismatch: ${artifactPath}`)
+        if (!record.canonicalPaths?.includes(artifactPath) && record.path !== artifactPath)
+{
+            throw new Error(`artifact ref path mismatch: ${artifactPath}`);
+        }
+        if (record.pathType !== 'substitution') {continue};
+        const actualPaths = [...(record.actualPaths ?? [])].sort();
+        const actualRefPaths = Object.keys(record.actualArtifactRefs ?? {}).sort();
+        if (actualPaths.length === 0 || JSON.stringify(actualPaths) !== JSON.stringify(actualRefPaths))
+{
+            throw new Error(`artifact substitution refs are incomplete: ${artifactPath}`);
+        }
+        for (const actualPath of actualPaths)
+{
+            if (artifactRefs[actualPath] !== record.actualArtifactRefs[actualPath])
+{
+                throw new Error(`artifact substitution actual ref mismatch: ${artifactPath}/${actualPath}`);
+            }
+        }
     }
-    if (record.pathType !== 'substitution') continue
-    const actualPaths = [...(record.actualPaths ?? [])].sort()
-    const actualRefPaths = Object.keys(record.actualArtifactRefs ?? {}).sort()
-    if (actualPaths.length === 0 || JSON.stringify(actualPaths) !== JSON.stringify(actualRefPaths)) {
-      throw new Error(`artifact substitution refs are incomplete: ${artifactPath}`)
-    }
-    for (const actualPath of actualPaths) {
-      if (artifactRefs[actualPath] !== record.actualArtifactRefs[actualPath]) {
-        throw new Error(`artifact substitution actual ref mismatch: ${artifactPath}/${actualPath}`)
-      }
-    }
-  }
 }

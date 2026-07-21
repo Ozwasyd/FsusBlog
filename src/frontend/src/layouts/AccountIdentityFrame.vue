@@ -12,9 +12,9 @@
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 
-import AccountRouteFrame from '@/layouts/AccountRouteFrame.vue';
 import { getAccountNavGroups } from '@/layouts/accountNav';
 import { resolveAccountPageKindClass } from '@/layouts/accountPageKind';
+import AccountRouteFrame from '@/layouts/AccountRouteFrame.vue';
 import { resolveAccountRouteMotionPolicy } from '@/layouts/accountRouteMotion';
 import { useAccountWorkspaceContext } from '@/layouts/accountWorkspaceContext';
 import {

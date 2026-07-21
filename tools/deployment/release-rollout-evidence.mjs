@@ -29,16 +29,16 @@ const REQUIRED_AUXILIARY_EVIDENCE = Object.freeze([
   'candidateSmoke',
   'compatibilityMatrix',
   'gatewayTransition',
-  'activeFenceAcquire',
-  'activeFenceSourceRevoke',
-  'activeFenceVerify',
-  'challengeKindCutoverReceipt',
-  'challengeKindCutoverAcceptance',
-  'challengeKindCutoverGate',
-  'challengeProtocolActivation',
-  'publicTrafficCheckpoint',
-  'sourceDrainSnapshot',
-  'sourceDrainGate',
+    'activeFenceAcquire',
+    'activeFenceSourceRevoke',
+    'activeFenceVerify',
+    'challengeKindCutoverReceipt',
+    'challengeKindCutoverAcceptance',
+    'challengeKindCutoverGate',
+    'challengeProtocolActivation',
+    'publicTrafficCheckpoint',
+    'sourceDrainSnapshot',
+    'sourceDrainGate',
   'targetHealth',
   'retentionDrainComplete',
   'operatorNote'
@@ -321,13 +321,15 @@ function validateAuxiliaryEvidence(name, value, state, errors) {
   if (value.releaseId !== undefined && name !== 'releaseManifest'
     && ![state.source.releaseId, state.target.releaseId].includes(value.releaseId)) errors.push(`${name}: releaseId is outside rollout identities`)
   if (value.target?.releaseId !== undefined && value.target.releaseId !== state.target.releaseId) errors.push(`${name}: target release mismatch`)
-  if (value.source?.releaseId !== undefined && value.source.releaseId !== state.source.releaseId) errors.push(`${name}: source release mismatch`)
-  if (Array.isArray(value.errors) && value.errors.length > 0) errors.push(`${name}: errors must be empty`)
-  if (name === 'releaseManifest') {
-    if (value.schema !== 'fsusblog.release-manifest.v2'
+    if (value.source?.releaseId !== undefined && value.source.releaseId !== state.source.releaseId) {errors.push(`${name}: source release mismatch`)};
+    if (Array.isArray(value.errors) && value.errors.length > 0) {errors.push(`${name}: errors must be empty`)};
+    if (name === 'releaseManifest')
+{
+        if (value.schema !== 'fsusblog.release-manifest.v2'
       || value.releaseId !== state.target.releaseId
-      || value.imageDigest !== state.target.imageDigest) {
-      errors.push(`${name}: immutable target identity mismatch`)
+      || value.imageDigest !== state.target.imageDigest)
+{
+            errors.push(`${name}: immutable target identity mismatch`);
     }
     return
   }
@@ -349,29 +351,34 @@ function validateAuxiliaryEvidence(name, value, state, errors) {
       requireScope: 'all',
       maxAgeSeconds: Number.MAX_SAFE_INTEGER
     })
-    errors.push(...publicAotErrors.map((error) => `${name}: ${error}`))
-    return
-  }
-  const targetGeneration = Number(state.target.runtimeGeneration ?? state.target.generation)
-  if (name === 'challengeKindCutoverReceipt') {
-    if (value.schemaVersion !== 'fsus.security-challenge-kind-cutover-receipt.v1'
+        errors.push(...publicAotErrors.map((error) => `${name}: ${error}`));
+        return;
+    }
+    const targetGeneration = Number(state.target.runtimeGeneration ?? state.target.generation);
+    if (name === 'challengeKindCutoverReceipt')
+{
+        if (value.schemaVersion !== 'fsus.security-challenge-kind-cutover-receipt.v1'
       || value.accepted !== true || value.status !== 'applied' || value.dryRun !== false
       || value.releaseId !== state.target.releaseId || value.slot !== state.target.slot
-      || value.generation !== targetGeneration) {
-      errors.push(`${name}: applied receipt is not bound to the target release fence`)
+      || value.generation !== targetGeneration)
+{
+            errors.push(`${name}: applied receipt is not bound to the target release fence`);
+        }
+        return;
     }
-    return
-  }
-  if (name === 'challengeKindCutoverAcceptance') {
-    if (value.schemaVersion !== 'fsus.security-challenge-kind-cutover-acceptance.v1'
+    if (name === 'challengeKindCutoverAcceptance')
+{
+        if (value.schemaVersion !== 'fsus.security-challenge-kind-cutover-acceptance.v1'
       || value.accepted !== true || value.releaseId !== state.target.releaseId
-      || value.slot !== state.target.slot || value.generation !== targetGeneration) {
-      errors.push(`${name}: verifier acceptance is not bound to the target release fence`)
+      || value.slot !== state.target.slot || value.generation !== targetGeneration)
+{
+            errors.push(`${name}: verifier acceptance is not bound to the target release fence`);
+        }
+        return;
     }
-    return
-  }
-  if (name === 'challengeKindCutoverGate') {
-    if (value.schema !== 'fsusblog.release-challenge-kind-cutover-gate.v1'
+    if (name === 'challengeKindCutoverGate')
+{
+        if (value.schema !== 'fsusblog.release-challenge-kind-cutover-gate.v1'
       || value.status !== 'pass' || value.rolloutId !== state.rolloutId
       || value.releaseId !== state.target.releaseId || value.slot !== state.target.slot
       || value.generation !== targetGeneration
@@ -380,23 +387,27 @@ function validateAuxiliaryEvidence(name, value, state, errors) {
       || value.lifecycle?.stage !== 'source-drain'
       || value.bindings?.backendFence !== true || value.bindings?.frontend !== true
       || value.bindings?.staticAssets !== true || value.bindings?.cutover !== true
-      || value.bindings?.protocolActivation !== true) {
-      errors.push(`${name}: cross-layer target binding gate is invalid`)
+      || value.bindings?.protocolActivation !== true)
+{
+            errors.push(`${name}: cross-layer target binding gate is invalid`);
+        }
+        return;
     }
-    return
-  }
-  if (name === 'challengeProtocolActivation') {
-    if (value.schemaVersion !== 'fsus.security-challenge-protocol-activation.v1'
+    if (name === 'challengeProtocolActivation')
+{
+        if (value.schemaVersion !== 'fsus.security-challenge-protocol-activation.v1'
       || value.accepted !== true || value.status !== 'open'
       || value.releaseId !== state.target.releaseId || value.slot !== state.target.slot
-      || value.generation !== targetGeneration) {
-      errors.push(`${name}: protocol activation is not bound to the target release fence`)
+      || value.generation !== targetGeneration)
+{
+            errors.push(`${name}: protocol activation is not bound to the target release fence`);
+        }
+        return;
     }
-    return
-  }
-  if (value.status !== undefined && !['pass', 'ok', 'healthy', 'completed', 'dry-run'].includes(value.status)) {
-    errors.push(`${name}: status is not successful`)
-  }
+    if (value.status !== undefined && !['pass', 'ok', 'healthy', 'completed', 'dry-run'].includes(value.status))
+{
+        errors.push(`${name}: status is not successful`);
+    }
 }
 
 function verifyFinalEvidence(file) {

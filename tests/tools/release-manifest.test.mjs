@@ -5,16 +5,16 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath } from 'node:url';
 import {
-  createReleaseManifest,
-  LEGACY_RELEASE_MANIFEST_RETIREMENT,
-  readReleaseManifest,
-  readLegacyReleaseManifestV1,
-  RELEASE_MANIFEST_SCHEMA,
-  validateReleaseManifest,
-  writeReleaseManifestAtomic
-} from '../../tools/release/release-manifest.mjs'
+    createReleaseManifest,
+    LEGACY_RELEASE_MANIFEST_RETIREMENT,
+    readReleaseManifest,
+    readLegacyReleaseManifestV1,
+    RELEASE_MANIFEST_SCHEMA,
+    validateReleaseManifest,
+    writeReleaseManifestAtomic
+} from '../../tools/release/release-manifest.mjs';
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const releaseId = '20260711010101-0123456789ab'
@@ -28,14 +28,14 @@ function createInput(overrides = {}) {
     imageTag: `ghcr.io/fsusblog/app:${releaseId}`,
     imageDigest: digest,
     registryDigestVerified: true,
-    createdAtUtc: '2026-07-11T01:01:01.000Z',
-    frontendManifestHash: `sha256:${'b'.repeat(64)}`,
-    wasmArtifactHash: `sha256:${'c'.repeat(64)}`,
-    schemaMinimumCoordinate: releaseId,
-    schemaMaximumCoordinate: releaseId,
-    dotnetVersion: '10.0.100',
-    nodeVersion: 'v20.19.0',
-    dockerVersion: '28.0.0',
+        createdAtUtc: '2026-07-11T01:01:01.000Z',
+        frontendManifestHash: `sha256:${'b'.repeat(64)}`,
+        wasmArtifactHash: `sha256:${'c'.repeat(64)}`,
+        schemaMinimumCoordinate: releaseId,
+        schemaMaximumCoordinate: releaseId,
+        dotnetVersion: '10.0.100',
+        nodeVersion: 'v20.19.0',
+        dockerVersion: '28.0.0',
     dockerfileDigest: `sha256:${'d'.repeat(64)}`,
     runtimeProfile: {
       id: 'throughput-musl',
@@ -63,31 +63,31 @@ function createDeploymentFixture(t) {
   const configDir = path.join(directory, 'zk-config')
   const secretDir = path.join(directory, 'zk-secret')
   fs.mkdirSync(configDir, { recursive: true })
-  fs.mkdirSync(secretDir, { recursive: true })
-  fs.writeFileSync(path.join(configDir, 'trusted.json'), '{}\n')
-  fs.writeFileSync(path.join(configDir, 'verifying.json'), '{}\n')
-  fs.writeFileSync(path.join(configDir, 'comment.v5.vk'), 'verifying key\n')
-  fs.writeFileSync(path.join(configDir, 'issuer-public.key'), 'issuer public\n')
-  fs.writeFileSync(path.join(secretDir, 'issuer-private.key'), 'issuer private\n')
-  const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')
-  const verifyingHash = hash(path.join(configDir, 'comment.v5.vk'))
-  const issuerHash = hash(path.join(configDir, 'issuer-public.key'))
-  const envFile = path.join(directory, '.env.production')
-  fs.writeFileSync(envFile, [
-    'EXTERNAL_DB_HOST=db',
+    fs.mkdirSync(secretDir, { recursive: true });
+    fs.writeFileSync(path.join(configDir, 'trusted.json'), '{}\n');
+    fs.writeFileSync(path.join(configDir, 'verifying.json'), '{}\n');
+    fs.writeFileSync(path.join(configDir, 'comment.v5.vk'), 'verifying key\n');
+    fs.writeFileSync(path.join(configDir, 'issuer-public.key'), 'issuer public\n');
+    fs.writeFileSync(path.join(secretDir, 'issuer-private.key'), 'issuer private\n');
+    const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+    const verifyingHash = hash(path.join(configDir, 'comment.v5.vk'));
+    const issuerHash = hash(path.join(configDir, 'issuer-public.key'));
+    const envFile = path.join(directory, '.env.production');
+    fs.writeFileSync(envFile, [
+        'EXTERNAL_DB_HOST=db',
     'EXTERNAL_REDIS_HOST=redis',
     'DB_USER=fsus',
-    'DB_PASSWORD=database-password',
-    'DB_NAME=fsusblog',
-    'REDIS_PASSWORD=redis-password',
-    'FSUSBLOG_RELEASE_ID=latest',
-    'FSUSBLOG_RELEASE_CREATED_AT_UTC=1999-01-01T00:00:00.000Z',
-    'FSUSBLOG_COMMIT_SHA=ffffffffffffffffffffffffffffffffffffffff',
-    'FSUSBLOG_IMAGE_REF=ghcr.io/fsusblog/app:latest',
-    `FSUSBLOG_IMAGE_DIGEST=sha256:${'f'.repeat(64)}`,
-    'Jwt__SecretKey=0123456789abcdef0123456789abcdef',
-    'Jwt__KeyVersion=v2-2026-07',
-    'Jwt__RotationWindowDays=30',
+        'DB_PASSWORD=database-password',
+        'DB_NAME=fsusblog',
+        'REDIS_PASSWORD=redis-password',
+        'FSUSBLOG_RELEASE_ID=latest',
+        'FSUSBLOG_RELEASE_CREATED_AT_UTC=1999-01-01T00:00:00.000Z',
+        'FSUSBLOG_COMMIT_SHA=ffffffffffffffffffffffffffffffffffffffff',
+        'FSUSBLOG_IMAGE_REF=ghcr.io/fsusblog/app:latest',
+        `FSUSBLOG_IMAGE_DIGEST=sha256:${'f'.repeat(64)}`,
+        'Jwt__SecretKey=0123456789abcdef0123456789abcdef',
+        'Jwt__KeyVersion=v2-2026-07',
+        'Jwt__RotationWindowDays=30',
     'SITE_BASEURL=https://example.com',
     'CORS_ALLOWED_HOSTS=https://example.com',
     'APP_ALLOWED_HOSTS=example.com',
@@ -103,18 +103,18 @@ function createDeploymentFixture(t) {
     'FSUSBLOG_ZK_CREDENTIAL_ISSUER_ENABLED=true',
     `FSUSBLOG_ZK_CONFIG_DIR=${configDir}`,
     `FSUSBLOG_ZK_SECRET_DIR=${secretDir}`,
-    `FSUSBLOG_ZK_VERIFYING_KEY_HASH=${verifyingHash}`,
-    'FSUSBLOG_ZK_TRUSTED_SETUP_MANIFEST=/app/config/zk/trusted.json',
-    'FSUSBLOG_ZK_VERIFYING_KEY_MANIFEST=/app/config/zk/verifying.json',
-    'FSUSBLOG_ZK_GROTH16_VERIFYING_KEY=/app/config/zk/comment.v5.vk',
-    'FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_ID=issuer-v1',
-    'FSUSBLOG_ZK_ISSUER_PUBLIC_KEY=/app/config/zk/issuer-public.key',
-    'FSUSBLOG_ZK_ISSUER_PRIVATE_KEY=/app/secrets/zk/issuer-private.key',
-    `FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_HASH=${issuerHash}`
-  ].join('\n') + '\n')
-  const manifestFile = path.join(directory, 'release-manifest.json')
-  writeReleaseManifestAtomic(manifestFile, createReleaseManifest(createInput()))
-  return { directory, envFile, manifestFile }
+        `FSUSBLOG_ZK_VERIFYING_KEY_HASH=${verifyingHash}`,
+        'FSUSBLOG_ZK_TRUSTED_SETUP_MANIFEST=/app/config/zk/trusted.json',
+        'FSUSBLOG_ZK_VERIFYING_KEY_MANIFEST=/app/config/zk/verifying.json',
+        'FSUSBLOG_ZK_GROTH16_VERIFYING_KEY=/app/config/zk/comment.v5.vk',
+        'FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_ID=issuer-v1',
+        'FSUSBLOG_ZK_ISSUER_PUBLIC_KEY=/app/config/zk/issuer-public.key',
+        'FSUSBLOG_ZK_ISSUER_PRIVATE_KEY=/app/secrets/zk/issuer-private.key',
+        `FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_HASH=${issuerHash}`
+    ].join('\n') + '\n');
+    const manifestFile = path.join(directory, 'release-manifest.json');
+    writeReleaseManifestAtomic(manifestFile, createReleaseManifest(createInput()));
+    return { directory, envFile, manifestFile };
 }
 
 function deploymentEnvironment(overrides = {}) {
@@ -129,32 +129,33 @@ function deploymentEnvironment(overrides = {}) {
     'FSUSBLOG_RELEASE_MANIFEST_HOST_PATH',
     'FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE'
   ]) delete environment[key]
-  return {
-    ...environment,
-    FSUSBLOG_INTERNAL_SLOT_OPERATION: '1',
-    FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE: '20260710000000-aaaaaaaaaaaa',
-    ...overrides
-  }
+    return {
+        ...environment,
+        FSUSBLOG_INTERNAL_SLOT_OPERATION: '1',
+        FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE: '20260710000000-aaaaaaaaaaaa',
+        ...overrides
+    };
 }
 
-test('manifest atomically binds commit image digest frontend wasm and toolchain', (t) => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-release-manifest-'))
-  t.after(() => fs.rmSync(directory, { recursive: true, force: true }))
-  const file = path.join(directory, releaseId, 'release-manifest.json')
+test('manifest atomically binds commit image digest frontend wasm and toolchain', (t) =>
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-release-manifest-'));
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const file = path.join(directory, releaseId, 'release-manifest.json');
   const manifest = createReleaseManifest(createInput())
 
   writeReleaseManifestAtomic(file, manifest)
-  const actual = readReleaseManifest(file, { expectedReleaseId: releaseId })
+    const actual = readReleaseManifest(file, { expectedReleaseId: releaseId });
 
-  assert.equal(actual.imageRef, `ghcr.io/fsusblog/app@${digest}`)
-  assert.equal(actual.schema, 'fsusblog.release-manifest.v2')
-  assert.equal(actual.schema, RELEASE_MANIFEST_SCHEMA)
-  assert.equal(actual.imageTag, `ghcr.io/fsusblog/app:${releaseId}`)
-  assert.equal(actual.frontendManifestHash, `sha256:${'b'.repeat(64)}`)
-  assert.equal(actual.wasmArtifactHash, `sha256:${'c'.repeat(64)}`)
-  assert.equal(actual.toolchain.dockerfileDigest, `sha256:${'d'.repeat(64)}`)
-  assert.equal(actual.runtimeProfile.id, 'throughput-musl')
-  assert.equal(actual.runtimeProfile.profileDigest, `sha256:${'f'.repeat(64)}`)
+    assert.equal(actual.imageRef, `ghcr.io/fsusblog/app@${digest}`);
+    assert.equal(actual.schema, 'fsusblog.release-manifest.v2');
+    assert.equal(actual.schema, RELEASE_MANIFEST_SCHEMA);
+    assert.equal(actual.imageTag, `ghcr.io/fsusblog/app:${releaseId}`);
+    assert.equal(actual.frontendManifestHash, `sha256:${'b'.repeat(64)}`);
+    assert.equal(actual.wasmArtifactHash, `sha256:${'c'.repeat(64)}`);
+    assert.equal(actual.toolchain.dockerfileDigest, `sha256:${'d'.repeat(64)}`);
+    assert.equal(actual.runtimeProfile.id, 'throughput-musl');
+    assert.equal(actual.runtimeProfile.profileDigest, `sha256:${'f'.repeat(64)}`);
   assert.deepEqual(fs.readdirSync(path.dirname(file)).filter(name => name.includes('.tmp-')), [])
 })
 
@@ -164,76 +165,78 @@ test('manifest path is immutable and cannot be overwritten for the same release'
   const file = path.join(directory, 'release-manifest.json')
   const manifest = createReleaseManifest(createInput())
   writeReleaseManifestAtomic(file, manifest)
-  const original = fs.readFileSync(file, 'utf8')
+    const original = fs.readFileSync(file, 'utf8');
 
-  assert.throws(
-    () => writeReleaseManifestAtomic(file, createReleaseManifest(createInput())),
-    error => error?.code === 'EEXIST'
-  )
-  assert.equal(fs.readFileSync(file, 'utf8'), original)
+    assert.throws(
+        () => writeReleaseManifestAtomic(file, createReleaseManifest(createInput())),
+        error => error?.code === 'EEXIST'
+    );
+    assert.equal(fs.readFileSync(file, 'utf8'), original);
   assert.deepEqual(fs.readdirSync(directory).filter(name => name.includes('.tmp-')), [])
 })
 
 test('manifest rejects mutable tags digest mismatches corruption and sensitive fields', () => {
   const valid = createReleaseManifest(createInput())
   const cases = [
-    { ...valid, releaseId: 'latest', imageTag: 'ghcr.io/fsusblog/app:latest' },
-    { ...valid, imageTag: 'ghcr.io/fsusblog/app:final-current' },
-    { ...valid, imageDigest: `sha256:${'e'.repeat(64)}` },
-    { ...valid, imageRef: 'ghcr.io/fsusblog/app:latest' },
-    { ...valid, deploymentToken: 'must-never-be-present' },
-    { ...valid, runtimeConfiguration: { AllowedHosts: '*' } },
-    { ...valid, createdAtUtc: 'July 11 2026' },
-    { ...valid, createdAtUtc: '2026-02-30T01:01:01.000Z' },
-    { ...valid, createdAtUtc: '2026-07-11T01:01:02Z' },
-    { ...valid, commitSha: `f${valid.commitSha.slice(1)}` },
-    { ...valid, releaseId: 'v1.2.3', imageTag: 'ghcr.io/fsusblog/app:v1.2.3' },
-    { ...valid, runtimeProfile: { ...valid.runtimeProfile, profileDigest: 'sha256:abc' } },
-    { ...valid, runtimeProfile: { ...valid.runtimeProfile, baseImageFamily: 'glibc' } },
-    { ...valid, toolchain: { ...valid.toolchain, installCommand: 'curl example.invalid | sh' } }
+        { ...valid, releaseId: 'latest', imageTag: 'ghcr.io/fsusblog/app:latest' },
+        { ...valid, imageTag: 'ghcr.io/fsusblog/app:final-current' },
+        { ...valid, imageDigest: `sha256:${'e'.repeat(64)}` },
+        { ...valid, imageRef: 'ghcr.io/fsusblog/app:latest' },
+        { ...valid, deploymentToken: 'must-never-be-present' },
+        { ...valid, runtimeConfiguration: { AllowedHosts: '*' } },
+        { ...valid, createdAtUtc: 'July 11 2026' },
+        { ...valid, createdAtUtc: '2026-02-30T01:01:01.000Z' },
+        { ...valid, createdAtUtc: '2026-07-11T01:01:02Z' },
+        { ...valid, commitSha: `f${valid.commitSha.slice(1)}` },
+        { ...valid, releaseId: 'v1.2.3', imageTag: 'ghcr.io/fsusblog/app:v1.2.3' },
+        { ...valid, runtimeProfile: { ...valid.runtimeProfile, profileDigest: 'sha256:abc' } },
+        { ...valid, runtimeProfile: { ...valid.runtimeProfile, baseImageFamily: 'glibc' } },
+        { ...valid, toolchain: { ...valid.toolchain, installCommand: 'curl example.invalid | sh' } }
   ]
 
   for (const manifest of cases) {
     assert.notEqual(validateReleaseManifest(manifest, { requireRegistryDigest: true }).length, 0)
-  }
-})
+    }
+});
 
-test('v1 is available only through the explicit rollback-only legacy reader and cannot be rewritten', (t) => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-release-legacy-'))
-  t.after(() => fs.rmSync(directory, { recursive: true, force: true }))
-  const file = path.join(directory, 'release-manifest.json')
-  const legacy = {
-    ...createReleaseManifest(createInput()),
-    schema: 'fsusblog.release-manifest.v1',
-    createdAtUtc: '2026-07-11T01:01:02Z'
-  }
-  fs.writeFileSync(file, `${JSON.stringify(legacy)}\n`)
+test('v1 is available only through the explicit rollback-only legacy reader and cannot be rewritten', (t) =>
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-release-legacy-'));
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const file = path.join(directory, 'release-manifest.json');
+    const legacy = {
+        ...createReleaseManifest(createInput()),
+        schema: 'fsusblog.release-manifest.v1',
+        createdAtUtc: '2026-07-11T01:01:02Z'
+    };
+    fs.writeFileSync(file, `${JSON.stringify(legacy)}\n`);
 
-  assert.throws(() => readReleaseManifest(file), /schema must be fsusblog[.]release-manifest[.]v2/u)
-  const result = readLegacyReleaseManifestV1(file)
-  assert.equal(result.legacy, true)
-  assert.equal(result.rollbackOnly, true)
-  assert.equal(result.retirementCondition, LEGACY_RELEASE_MANIFEST_RETIREMENT)
-  assert.deepEqual(result.manifest, legacy)
-  const checker = path.join(root, 'tools/release/check-release-manifest.mjs')
-  const normalRead = spawnSync(process.execPath, [checker, '--manifest', file], { encoding: 'utf8' })
-  assert.notEqual(normalRead.status, 0)
-  const explicitLegacyRead = spawnSync(process.execPath, [
-    checker, '--manifest', file, '--legacy-rollback', 'true'
-  ], { encoding: 'utf8' })
-  assert.equal(explicitLegacyRead.status, 0, explicitLegacyRead.stderr)
-  assert.equal(JSON.parse(explicitLegacyRead.stdout).legacy, true)
-  assert.equal(JSON.parse(explicitLegacyRead.stdout).rollbackOnly, true)
-  assert.throws(
-    () => writeReleaseManifestAtomic(path.join(directory, 'rewritten.json'), legacy),
-    /schema must be fsusblog[.]release-manifest[.]v2/u
-  )
-  assert.equal(fs.existsSync(path.join(directory, 'rewritten.json')), false)
-})
+    assert.throws(() => readReleaseManifest(file), /schema must be fsusblog[.]release-manifest[.]v2/u);
+    const result = readLegacyReleaseManifestV1(file);
+    assert.equal(result.legacy, true);
+    assert.equal(result.rollbackOnly, true);
+    assert.equal(result.retirementCondition, LEGACY_RELEASE_MANIFEST_RETIREMENT);
+    assert.deepEqual(result.manifest, legacy);
+    const checker = path.join(root, 'tools/release/check-release-manifest.mjs');
+    const normalRead = spawnSync(process.execPath, [checker, '--manifest', file], { encoding: 'utf8' });
+    assert.notEqual(normalRead.status, 0);
+    const explicitLegacyRead = spawnSync(process.execPath, [
+        checker, '--manifest', file, '--legacy-rollback', 'true'
+    ], { encoding: 'utf8' });
+    assert.equal(explicitLegacyRead.status, 0, explicitLegacyRead.stderr);
+    assert.equal(JSON.parse(explicitLegacyRead.stdout).legacy, true);
+    assert.equal(JSON.parse(explicitLegacyRead.stdout).rollbackOnly, true);
+    assert.throws(
+        () => writeReleaseManifestAtomic(path.join(directory, 'rewritten.json'), legacy),
+        /schema must be fsusblog[.]release-manifest[.]v2/u
+    );
+    assert.equal(fs.existsSync(path.join(directory, 'rewritten.json')), false);
+});
 
-test('final release paths reject missing and zero runtime profile digests', () => {
-  const valid = createReleaseManifest(createInput())
-  const zeroProfile = {
+test('final release paths reject missing and zero runtime profile digests', () =>
+{
+    const valid = createReleaseManifest(createInput());
+    const zeroProfile = {
     ...valid,
     runtimeProfile: {
       ...valid.runtimeProfile,
@@ -265,14 +268,14 @@ test('manifest creator CLI writes the same digest-bound schema consumed by deplo
     '--commit-sha', input.commitSha,
     '--image-repository', input.imageRepository,
     '--image-tag', input.imageTag,
-    '--image-digest', input.imageDigest,
-    '--frontend-manifest-hash', input.frontendManifestHash,
-    '--wasm-artifact-hash', input.wasmArtifactHash,
-    '--schema-minimum-coordinate', input.schemaMinimumCoordinate,
-    '--schema-maximum-coordinate', input.schemaMaximumCoordinate,
-    '--dotnet-version', input.dotnetVersion,
-    '--node-version', input.nodeVersion,
-    '--docker-version', input.dockerVersion,
+        '--image-digest', input.imageDigest,
+        '--frontend-manifest-hash', input.frontendManifestHash,
+        '--wasm-artifact-hash', input.wasmArtifactHash,
+        '--schema-minimum-coordinate', input.schemaMinimumCoordinate,
+        '--schema-maximum-coordinate', input.schemaMaximumCoordinate,
+        '--dotnet-version', input.dotnetVersion,
+        '--node-version', input.nodeVersion,
+        '--docker-version', input.dockerVersion,
     '--dockerfile-digest', input.dockerfileDigest,
     '--runtime-profile-id', input.runtimeProfile.id,
     '--runtime-profile-manifest-digest', input.runtimeProfile.manifestDigest,
@@ -310,21 +313,21 @@ test('production build preflight rejects mutable aliases and ambiguous modes bef
   const baseEnv = {
     ...process.env,
     PATH: `${binDir}:${process.env.PATH}`,
-    GITHUB_PACKAGES_TOKEN: 'fixture-token',
-    FSUSBLOG_COMMIT_SHA: createInput().commitSha,
-    FSUSBLOG_RELEASE_ID: releaseId,
-    FSUSBLOG_RELEASE_CREATED_AT_UTC: createInput().createdAtUtc,
-    FSUSBLOG_FINAL_IMAGE_REPOSITORY: 'fsusblogapp',
-    FSUSBLOG_FINAL_IMAGE_TARGET: 'final',
-    FSUSBLOG_FINAL_PUSH: '1',
+        GITHUB_PACKAGES_TOKEN: 'fixture-token',
+        FSUSBLOG_COMMIT_SHA: createInput().commitSha,
+        FSUSBLOG_RELEASE_ID: releaseId,
+        FSUSBLOG_RELEASE_CREATED_AT_UTC: createInput().createdAtUtc,
+        FSUSBLOG_FINAL_IMAGE_REPOSITORY: 'fsusblogapp',
+        FSUSBLOG_FINAL_IMAGE_TARGET: 'final',
+        FSUSBLOG_FINAL_PUSH: '1',
     FSUSBLOG_FINAL_LOCAL_ONLY: '0',
-    FSUSBLOG_FINAL_SKIP_WASM: '1'
-  }
-  const cases = [
-    [{ FSUSBLOG_RELEASE_ID: 'latest' }, /does not match the canonical release identity snapshot/u],
-    [{ FSUSBLOG_FINAL_IMAGE_REPOSITORY: 'ghcr.io/fsusblog/app:latest' }, /must be an untagged lowercase repository/u],
-    [{ FSUSBLOG_FINAL_PUSH: '1', FSUSBLOG_FINAL_LOCAL_ONLY: '1' }, /set exactly one/u]
-  ]
+        FSUSBLOG_FINAL_SKIP_WASM: '1'
+    };
+    const cases = [
+        [{ FSUSBLOG_RELEASE_ID: 'latest' }, /does not match the canonical release identity snapshot/u],
+        [{ FSUSBLOG_FINAL_IMAGE_REPOSITORY: 'ghcr.io/fsusblog/app:latest' }, /must be an untagged lowercase repository/u],
+        [{ FSUSBLOG_FINAL_PUSH: '1', FSUSBLOG_FINAL_LOCAL_ONLY: '1' }, /set exactly one/u]
+    ];
 
   for (const [overrides, expected] of cases) {
     fs.rmSync(dockerMarker, { force: true })
@@ -348,24 +351,24 @@ test('production build generates one immutable release id when the caller omits 
   fs.mkdirSync(binDir)
   fs.writeFileSync(
     path.join(binDir, 'docker'),
-    `#!/usr/bin/env bash\nprintf '%s\\n' "$*" > "${dockerArgs}"\nexit 97\n`,
-    { mode: 0o755 }
-  )
-  fs.writeFileSync(
-    path.join(binDir, 'node'),
-    `#!/usr/bin/env bash\nif [[ "\${1:-}" == *check-wasm-artifact-ownership.mjs ]]; then exit 0; fi\nexec "${process.execPath}" "$@"\n`,
-    { mode: 0o755 }
-  )
-  const commit = createInput().commitSha
-  const environment = {
-    ...process.env,
-    PATH: `${binDir}:${process.env.PATH}`,
-    GITHUB_PACKAGES_TOKEN: 'fixture-token',
-    FSUSBLOG_COMMIT_SHA: commit,
-    FSUSBLOG_RELEASE_CREATED_AT_UTC: createInput().createdAtUtc,
-    FSUSBLOG_FINAL_IMAGE_REPOSITORY: 'fsusblogapp',
-    FSUSBLOG_FINAL_IMAGE_TARGET: 'final',
-    FSUSBLOG_FINAL_PUSH: '0',
+        `#!/usr/bin/env bash\nprintf '%s\\n' "$*" > "${dockerArgs}"\nexit 97\n`,
+        { mode: 0o755 }
+    );
+    fs.writeFileSync(
+        path.join(binDir, 'node'),
+        `#!/usr/bin/env bash\nif [[ "\${1:-}" == *check-wasm-artifact-ownership.mjs ]]; then exit 0; fi\nexec "${process.execPath}" "$@"\n`,
+        { mode: 0o755 }
+    );
+    const commit = createInput().commitSha;
+    const environment = {
+        ...process.env,
+        PATH: `${binDir}:${process.env.PATH}`,
+        GITHUB_PACKAGES_TOKEN: 'fixture-token',
+        FSUSBLOG_COMMIT_SHA: commit,
+        FSUSBLOG_RELEASE_CREATED_AT_UTC: createInput().createdAtUtc,
+        FSUSBLOG_FINAL_IMAGE_REPOSITORY: 'fsusblogapp',
+        FSUSBLOG_FINAL_IMAGE_TARGET: 'final',
+        FSUSBLOG_FINAL_PUSH: '0',
     FSUSBLOG_FINAL_LOCAL_ONLY: '1',
     FSUSBLOG_FINAL_SKIP_WASM: '1'
   }
@@ -376,19 +379,19 @@ test('production build generates one immutable release id when the caller omits 
     cwd: root,
     encoding: 'utf8',
     timeout: 10_000,
-    env: environment
-  })
+        env: environment
+    });
 
-  assert.equal(result.status, 97, result.stderr)
-  const invocation = fs.readFileSync(dockerArgs, 'utf8')
-  const generated = invocation.match(/FSUSBLOG_RELEASE_ID=(\d{14}-[0-9a-f]{12})/u)?.[1]
-  assert.ok(generated)
-  assert.equal(generated.endsWith(`-${commit.slice(0, 12)}`), true)
-  assert.match(invocation, /FSUSBLOG_RELEASE_CREATED_AT_UTC=2026-07-11T01:01:01Z/u)
-  assert.match(invocation, /org[.]opencontainers[.]image[.]created=2026-07-11T01:01:01Z/u)
-  assert.match(invocation, new RegExp(`(?:^| )-t fsusblogapp:${generated}(?: |$)`, 'u'))
-  assert.match(result.stdout, new RegExp(`building immutable image fsusblogapp:${generated} for release ${generated}`, 'u'))
-})
+    assert.equal(result.status, 97, result.stderr);
+    const invocation = fs.readFileSync(dockerArgs, 'utf8');
+    const generated = invocation.match(/FSUSBLOG_RELEASE_ID=(\d{14}-[0-9a-f]{12})/u)?.[1];
+    assert.ok(generated);
+    assert.equal(generated.endsWith(`-${commit.slice(0, 12)}`), true);
+    assert.match(invocation, /FSUSBLOG_RELEASE_CREATED_AT_UTC=2026-07-11T01:01:01Z/u);
+    assert.match(invocation, /org[.]opencontainers[.]image[.]created=2026-07-11T01:01:01Z/u);
+    assert.match(invocation, new RegExp(`(?:^| )-t fsusblogapp:${generated}(?: |$)`, 'u'));
+    assert.match(result.stdout, new RegExp(`building immutable image fsusblogapp:${generated} for release ${generated}`, 'u'));
+});
 
 test('deploy input checker emits exact release slot digest and rollback target', (t) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-release-input-'))
@@ -455,13 +458,14 @@ test('production dry-run reports immutable release slot digest and rollback befo
   assert.match(result.stdout, /rollbackTarget=20260711010101-0123456789ab/u)
   assert.match(result.stdout, /dry-run command: docker pull ghcr\.io\/fsusblog\/app@sha256/u)
   assert.match(result.stdout, /verify pulled image digest and OCI release labels/u)
-  assert.match(result.stdout, /up -d --no-build --pull always/u)
-  assert.doesNotMatch(result.stdout, /build-final-image\.sh/u)
-})
+    assert.match(result.stdout, /up -d --no-build --pull always/u);
+    assert.doesNotMatch(result.stdout, /build-final-image\.sh/u);
+});
 
-test('production deploy rejects a pulled digest or OCI release label that disagrees with manifest', (t) => {
-  const { directory, envFile, manifestFile } = createDeploymentFixture(t)
-  const binDir = path.join(directory, 'bin')
+test('production deploy rejects a pulled digest or OCI release label that disagrees with manifest', (t) =>
+{
+    const { directory, envFile, manifestFile } = createDeploymentFixture(t);
+    const binDir = path.join(directory, 'bin');
   fs.mkdirSync(binDir)
   const fakeDocker = path.join(binDir, 'docker')
   fs.writeFileSync(fakeDocker, `#!/usr/bin/env bash
@@ -489,12 +493,12 @@ exit 42
     '--skip-up'
   ]
   const baseEnv = deploymentEnvironment({
-    PATH: `${binDir}:${process.env.PATH}`,
-    FAKE_REPO_DIGESTS: `ghcr.io/fsusblog/app@${digest}`,
-    FAKE_RELEASE_LABEL: releaseId,
-    FAKE_CREATED_LABEL: '2026-07-11T01:01:01.000Z',
-    FAKE_COMMIT_LABEL: createInput().commitSha
-  })
+        PATH: `${binDir}:${process.env.PATH}`,
+        FAKE_REPO_DIGESTS: `ghcr.io/fsusblog/app@${digest}`,
+        FAKE_RELEASE_LABEL: releaseId,
+        FAKE_CREATED_LABEL: '2026-07-11T01:01:01.000Z',
+        FAKE_COMMIT_LABEL: createInput().commitSha
+    });
 
   const digestMismatch = spawnSync('bash', baseArgs, {
     cwd: root,
@@ -510,16 +514,16 @@ exit 42
     encoding: 'utf8',
     timeout: 10_000,
     env: { ...baseEnv, FAKE_RELEASE_LABEL: '20260711020202-deadbeefcafe' }
-  })
-  assert.notEqual(labelMismatch.status, 0)
-  assert.match(labelMismatch.stderr, /pulled image release label does not match manifest/u)
+    });
+    assert.notEqual(labelMismatch.status, 0);
+    assert.match(labelMismatch.stderr, /pulled image release label does not match manifest/u);
 
-  const createdMismatch = spawnSync('bash', baseArgs, {
-    cwd: root,
-    encoding: 'utf8',
-    timeout: 10_000,
-    env: { ...baseEnv, FAKE_CREATED_LABEL: '2026-07-11T01:01:02Z' }
-  })
-  assert.notEqual(createdMismatch.status, 0)
-  assert.match(createdMismatch.stderr, /pulled image created label does not match manifest/u)
-})
+    const createdMismatch = spawnSync('bash', baseArgs, {
+        cwd: root,
+        encoding: 'utf8',
+        timeout: 10_000,
+        env: { ...baseEnv, FAKE_CREATED_LABEL: '2026-07-11T01:01:02Z' }
+    });
+    assert.notEqual(createdMismatch.status, 0);
+    assert.match(createdMismatch.stderr, /pulled image created label does not match manifest/u);
+});

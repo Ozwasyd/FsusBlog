@@ -309,33 +309,34 @@ for (const file of [
   }
 }
 
-const settingsPath = path.join(repoRoot, 'src/frontend/src/views/admin/Settings.vue')
-const settings = read(settingsPath)
-const adminWorkspacePath = path.join(repoRoot, 'src/frontend/src/assets/admin-workspace.css')
-const adminWorkspace = read(adminWorkspacePath)
-forbidToken(settingsPath, settings, '--fsusblog-admin-status-warning', 'settings warning icon must use the Element Plus warning semantic')
-requireToken(settingsPath, settings, 'text-[var(--el-color-warning)]', 'settings warning icon must use --el-color-warning')
-requireToken(settingsPath, settings, 'max-width: var(--fsusblog-container-settings);', 'settings tabs must share the canonical settings content width')
-requireToken(settingsPath, settings, 'margin-inline: auto;', 'settings tabs must remain centered at wide viewports')
-forbidToken(settingsPath, settings, 'mt-12', 'settings sections must not use the retired 48px top margin')
-forbidToken(settingsPath, settings, 'pt-10', 'settings divided sections must not exceed 32px top padding')
-requireToken(settingsPath, settings, 'mt-10 border-t border-[var(--fsusblog-panel-border)] pt-8', 'settings divided sections must use the 40px/32px spacing pair')
-requireToken(settingsPath, settings, 'rounded-[var(--fsus-radius-panel)] border border-l-4', 'settings preview outputs must use the canonical panel radius and a four-pixel accent')
-requireToken(settingsPath, settings, 'border-l-[var(--fsusblog-color-primary)]', 'settings preview outputs must use the Scholarly Blue accent')
-requireToken(settingsPath, settings, '<h3 class="mb-4 text-xs font-bold uppercase tracking-wider text-[var(--fsusblog-text-muted)]">搜索结果预览</h3>', 'settings search preview must expose the compact output heading')
-requireToken(settingsPath, settings, '<h3 class="mb-4 text-xs font-bold uppercase tracking-wider text-[var(--fsusblog-text-muted)]">页脚预览</h3>', 'settings footer preview must expose the compact output heading')
-forbidToken(adminWorkspacePath, adminWorkspace, '--fsusblog-admin-status-warning', 'admin warning alerts must not create a custom mixed warning semantic')
-requireToken(adminWorkspacePath, adminWorkspace, '--fsusblog-admin-alert-accent: var(--el-color-warning);', 'admin warning alerts must use --el-color-warning for the accent')
-requireToken(adminWorkspacePath, adminWorkspace, 'background: color-mix(in srgb, var(--el-color-warning) 8%, var(--fsusblog-page-bg));', 'admin warning alerts must use the restrained warning tint')
-requireToken(settingsPath, settings, '<button', 'settings dropzone empty state must be a real button')
-requireToken(settingsPath, settings, 'type="button"', 'settings dropzone empty state button must not submit forms')
-requireToken(settingsPath, settings, 'aria-label="上传预览图"', 'settings dropzone button must expose an accessible name')
-requireToken(settingsPath, settings, 'class="h-full min-h-12 w-full flex flex-col items-center justify-center', 'settings dropzone button must provide the spacious 48px touch target')
-requireToken(settingsPath, settings, '<el-icon :size="24" aria-hidden="true"><Plus /></el-icon>', 'settings dropzone icon must be decorative and 24px')
-forbidToken(settingsPath, settings, '<el-icon :size="20" aria-hidden="true"><Plus /></el-icon>', 'settings dropzone must not regress to the retired 20px placeholder icon')
+const settingsPath = path.join(repoRoot, 'src/frontend/src/views/admin/Settings.vue');
+const settings = read(settingsPath);
+const adminWorkspacePath = path.join(repoRoot, 'src/frontend/src/assets/admin-workspace.css');
+const adminWorkspace = read(adminWorkspacePath);
+forbidToken(settingsPath, settings, '--fsusblog-admin-status-warning', 'settings warning icon must use the Element Plus warning semantic');
+requireToken(settingsPath, settings, 'text-[var(--el-color-warning)]', 'settings warning icon must use --el-color-warning');
+requireToken(settingsPath, settings, 'max-width: var(--fsusblog-container-settings);', 'settings tabs must share the canonical settings content width');
+requireToken(settingsPath, settings, 'margin-inline: auto;', 'settings tabs must remain centered at wide viewports');
+forbidToken(settingsPath, settings, 'mt-12', 'settings sections must not use the retired 48px top margin');
+forbidToken(settingsPath, settings, 'pt-10', 'settings divided sections must not exceed 32px top padding');
+requireToken(settingsPath, settings, 'mt-10 border-t border-[var(--fsusblog-panel-border)] pt-8', 'settings divided sections must use the 40px/32px spacing pair');
+requireToken(settingsPath, settings, 'rounded-[var(--fsus-radius-panel)] border border-l-4', 'settings preview outputs must use the canonical panel radius and a four-pixel accent');
+requireToken(settingsPath, settings, 'border-l-[var(--fsusblog-color-primary)]', 'settings preview outputs must use the Scholarly Blue accent');
+requireToken(settingsPath, settings, '<h3 class="mb-4 text-xs font-bold uppercase tracking-wider text-[var(--fsusblog-text-muted)]">搜索结果预览</h3>', 'settings search preview must expose the compact output heading');
+requireToken(settingsPath, settings, '<h3 class="mb-4 text-xs font-bold uppercase tracking-wider text-[var(--fsusblog-text-muted)]">页脚预览</h3>', 'settings footer preview must expose the compact output heading');
+forbidToken(adminWorkspacePath, adminWorkspace, '--fsusblog-admin-status-warning', 'admin warning alerts must not create a custom mixed warning semantic');
+requireToken(adminWorkspacePath, adminWorkspace, '--fsusblog-admin-alert-accent: var(--el-color-warning);', 'admin warning alerts must use --el-color-warning for the accent');
+requireToken(adminWorkspacePath, adminWorkspace, 'background: color-mix(in srgb, var(--el-color-warning) 8%, var(--fsusblog-page-bg));', 'admin warning alerts must use the restrained warning tint');
+requireToken(settingsPath, settings, '<button', 'settings dropzone empty state must be a real button');
+requireToken(settingsPath, settings, 'type="button"', 'settings dropzone empty state button must not submit forms');
+requireToken(settingsPath, settings, 'aria-label="上传预览图"', 'settings dropzone button must expose an accessible name');
+requireToken(settingsPath, settings, 'class="h-full min-h-12 w-full flex flex-col items-center justify-center', 'settings dropzone button must provide the spacious 48px touch target');
+requireToken(settingsPath, settings, '<el-icon :size="24" aria-hidden="true"><Plus /></el-icon>', 'settings dropzone icon must be decorative and 24px');
+forbidToken(settingsPath, settings, '<el-icon :size="20" aria-hidden="true"><Plus /></el-icon>', 'settings dropzone must not regress to the retired 20px placeholder icon');
 
-for (const file of adminAccountRoots.flatMap((dir) => walk(dir))) {
-  assertSwitchesDoNotUseVisibleStateText(file)
+for (const file of adminAccountRoots.flatMap((dir) => walk(dir)))
+{
+    assertSwitchesDoNotUseVisibleStateText(file);
 }
 
 const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json')

@@ -1,8 +1,8 @@
-import assert from 'node:assert/strict'
-import { createHash } from 'node:crypto'
-import fs from 'node:fs'
-import http from 'node:http'
-import os from 'node:os'
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import fs from 'node:fs';
+import http from 'node:http';
+import os from 'node:os';
 import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
@@ -25,89 +25,90 @@ function createBuildFixture(t, runId = 'production-fresh-1') {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-release-preview-'))
   t.after(() => fs.rmSync(root, { recursive: true, force: true }))
   const distEntryPath = `.tmp/build/${runId}/frontend/dist/index.html`
-  const distEntry = path.join(root, distEntryPath)
-  fs.mkdirSync(path.dirname(distEntry), { recursive: true })
-  fs.writeFileSync(distEntry, '<!doctype html>\n<html><body><script src="/assets/app-current.js"></script></body></html>\n')
-  const ordinaryAsset = path.join(path.dirname(distEntry), 'assets/app-current.js')
-  fs.mkdirSync(path.dirname(ordinaryAsset), { recursive: true })
-  fs.writeFileSync(ordinaryAsset, 'export const current = true\n')
-  const frontendDistPath = `.tmp/build/${runId}/frontend/dist`
-  const backendWebRootPath = `.tmp/build/${runId}/frontend/wwwroot`
-  fs.cpSync(path.join(root, frontendDistPath), path.join(root, backendWebRootPath), { recursive: true })
-  const digest = digestDeclaredOutputs(root, [distEntryPath])[distEntryPath]
-  const treeDigests = digestDeclaredOutputs(root, [frontendDistPath, backendWebRootPath])
-  const sourceState = { commit: 'commit-1', worktreeFingerprint: 'tree-1' }
-  const expectedStages = [{
-    id: 'vite-build',
-    command: ['vite', 'build'],
-    dependsOn: [],
-    ownedOutputs: [distEntry]
-  }]
-  const distBytes = fs.readFileSync(distEntry)
-  const stageReceiptPath = `.tmp/build/${runId}/generated/frontend-build-stages.json`
-  const stageReceiptFile = path.join(root, stageReceiptPath)
-  const stageReceipt = {
-    schema: 'fsusblog.frontend-build-stage-receipt.v1',
-    status: 'success',
-    schedulerRunId: runId,
-    sourceState,
-    stages: [{
-      ...expectedStages[0],
-      status: 'success',
-      outputs: {
-        [distEntry]: {
-          status: 'file',
-          size: distBytes.length,
-          sha256: `sha256:${createHash('sha256').update(distBytes).digest('hex')}`
-        }
-      }
-    }]
-  }
-  const stageReceiptBytes = Buffer.from(`${JSON.stringify(stageReceipt)}\n`)
-  fs.mkdirSync(path.dirname(stageReceiptFile), { recursive: true })
-  fs.writeFileSync(stageReceiptFile, stageReceiptBytes)
-  const markerFile = path.join(root, '.tmp/test-runs', runId, 'frontend-build-ready.json')
-  fs.mkdirSync(path.dirname(markerFile), { recursive: true })
-  fs.writeFileSync(markerFile, `${JSON.stringify({
+    const distEntry = path.join(root, distEntryPath);
+    fs.mkdirSync(path.dirname(distEntry), { recursive: true });
+    fs.writeFileSync(distEntry, '<!doctype html>\n<html><body><script src="/assets/app-current.js"></script></body></html>\n');
+    const ordinaryAsset = path.join(path.dirname(distEntry), 'assets/app-current.js');
+    fs.mkdirSync(path.dirname(ordinaryAsset), { recursive: true });
+    fs.writeFileSync(ordinaryAsset, 'export const current = true\n');
+    const frontendDistPath = `.tmp/build/${runId}/frontend/dist`;
+    const backendWebRootPath = `.tmp/build/${runId}/frontend/wwwroot`;
+    fs.cpSync(path.join(root, frontendDistPath), path.join(root, backendWebRootPath), { recursive: true });
+    const digest = digestDeclaredOutputs(root, [distEntryPath])[distEntryPath];
+    const treeDigests = digestDeclaredOutputs(root, [frontendDistPath, backendWebRootPath]);
+    const sourceState = { commit: 'commit-1', worktreeFingerprint: 'tree-1' };
+    const expectedStages = [{
+        id: 'vite-build',
+        command: ['vite', 'build'],
+        dependsOn: [],
+        ownedOutputs: [distEntry]
+    }];
+    const distBytes = fs.readFileSync(distEntry);
+    const stageReceiptPath = `.tmp/build/${runId}/generated/frontend-build-stages.json`;
+    const stageReceiptFile = path.join(root, stageReceiptPath);
+    const stageReceipt = {
+        schema: 'fsusblog.frontend-build-stage-receipt.v1',
+        status: 'success',
+        schedulerRunId: runId,
+        sourceState,
+        stages: [{
+            ...expectedStages[0],
+            status: 'success',
+            outputs: {
+                [distEntry]: {
+                    status: 'file',
+                    size: distBytes.length,
+                    sha256: `sha256:${createHash('sha256').update(distBytes).digest('hex')}`
+                }
+            }
+        }]
+    };
+    const stageReceiptBytes = Buffer.from(`${JSON.stringify(stageReceipt)}\n`);
+    fs.mkdirSync(path.dirname(stageReceiptFile), { recursive: true });
+    fs.writeFileSync(stageReceiptFile, stageReceiptBytes);
+    const markerFile = path.join(root, '.tmp/test-runs', runId, 'frontend-build-ready.json');
+    fs.mkdirSync(path.dirname(markerFile), { recursive: true });
+    fs.writeFileSync(markerFile, `${JSON.stringify({
     schema: 'fsusblog.local-production.frontend-build-ready.v1',
     status: 'success',
-    physicalBundleId: 'build-static',
-    producerStepId: 'sync-static-assets',
-    schedulerRunId: runId,
-    buildLayout: {
-      sourceCommit: sourceState.commit,
-      sourceFingerprint: sourceState.worktreeFingerprint
-    },
-    distEntry: { path: distEntryPath, digest },
-    frontendDist: { path: frontendDistPath, digest: treeDigests[frontendDistPath] },
-    backendWebRoot: { path: backendWebRootPath, digest: treeDigests[backendWebRootPath] },
-    stageReceipt: {
-      path: stageReceiptPath,
-      contentDigest: `sha256:${createHash('sha256').update(stageReceiptBytes).digest('hex')}`,
-      identity: {
-        schema: stageReceipt.schema,
-        status: stageReceipt.status,
+        physicalBundleId: 'build-static',
+        producerStepId: 'sync-static-assets',
         schedulerRunId: runId,
-        sourceCommit: sourceState.commit,
-        sourceFingerprint: sourceState.worktreeFingerprint
-      }
-    }
-  }, null, 2)}\n`)
-  return {
-    root,
-    runId,
-    distEntry,
-    markerFile,
-    digest,
-    stageReceiptFile,
-    expectedSourceState: sourceState,
-    expectedStages,
-    criticalOutputPaths: [distEntry],
-    ordinaryAsset
-  }
+        buildLayout: {
+            sourceCommit: sourceState.commit,
+            sourceFingerprint: sourceState.worktreeFingerprint
+        },
+        distEntry: { path: distEntryPath, digest },
+        frontendDist: { path: frontendDistPath, digest: treeDigests[frontendDistPath] },
+        backendWebRoot: { path: backendWebRootPath, digest: treeDigests[backendWebRootPath] },
+        stageReceipt: {
+            path: stageReceiptPath,
+            contentDigest: `sha256:${createHash('sha256').update(stageReceiptBytes).digest('hex')}`,
+            identity: {
+                schema: stageReceipt.schema,
+                status: stageReceipt.status,
+                schedulerRunId: runId,
+                sourceCommit: sourceState.commit,
+                sourceFingerprint: sourceState.worktreeFingerprint
+            }
+        }
+    }, null, 2)}\n`);
+    return {
+        root,
+        runId,
+        distEntry,
+        markerFile,
+        digest,
+        stageReceiptFile,
+        expectedSourceState: sourceState,
+        expectedStages,
+        criticalOutputPaths: [distEntry],
+        ordinaryAsset
+    };
 }
 
-async function listen(t, handler) {
+async function listen(t, handler)
+{
   const server = http.createServer(handler)
   await new Promise((resolve, reject) => {
     server.once('error', reject)
@@ -138,41 +139,45 @@ test('run-bound frontend build validation checks schema, bundle, run, path, and 
   assert.throws(
     () => validateFrontendBuildReady(fixture),
     /not bound to current build-static run/u
-  )
-})
+    );
+});
 
-test('run-bound frontend build validation rejects a changed stage receipt', t => {
-  const fixture = createBuildFixture(t)
-  fs.appendFileSync(fixture.stageReceiptFile, ' ')
-  assert.throws(
-    () => validateFrontendBuildReady(fixture),
-    /stage receipt content digest mismatch/u
-  )
-})
+test('run-bound frontend build validation rejects a changed stage receipt', t =>
+{
+    const fixture = createBuildFixture(t);
+    fs.appendFileSync(fixture.stageReceiptFile, ' ');
+    assert.throws(
+        () => validateFrontendBuildReady(fixture),
+        /stage receipt content digest mismatch/u
+    );
+});
 
-test('run-bound frontend build validation rejects marker-selected source identity', t => {
-  const fixture = createBuildFixture(t)
-  assert.throws(
-    () => validateFrontendBuildReady({
-      ...fixture,
-      expectedSourceState: { commit: 'commit-current', worktreeFingerprint: 'tree-current' }
-    }),
-    /not bound to current build-static run/u
-  )
-})
+test('run-bound frontend build validation rejects marker-selected source identity', t =>
+{
+    const fixture = createBuildFixture(t);
+    assert.throws(
+        () => validateFrontendBuildReady({
+            ...fixture,
+            expectedSourceState: { commit: 'commit-current', worktreeFingerprint: 'tree-current' }
+        }),
+        /not bound to current build-static run/u
+    );
+});
 
-test('run-bound frontend build validation rejects an ordinary final-dist asset mutation', t => {
-  const fixture = createBuildFixture(t)
-  fs.appendFileSync(fixture.ordinaryAsset, 'export const mutated = true\n')
-  assert.throws(
-    () => validateFrontendBuildReady(fixture),
-    /final dist tree digest mismatch/u
-  )
-})
+test('run-bound frontend build validation rejects an ordinary final-dist asset mutation', t =>
+{
+    const fixture = createBuildFixture(t);
+    fs.appendFileSync(fixture.ordinaryAsset, 'export const mutated = true\n');
+    assert.throws(
+        () => validateFrontendBuildReady(fixture),
+        /final dist tree digest mismatch/u
+    );
+});
 
-test('preview readiness proves normalized served HTML and preview-origin API namespace binding', async t => {
-  const fixture = createBuildFixture(t)
-  const apiBody = Buffer.from('AEDS-current-namespace')
+test('preview readiness proves normalized served HTML and preview-origin API namespace binding', async t =>
+{
+    const fixture = createBuildFixture(t);
+    const apiBody = Buffer.from('AEDS-current-namespace');
   const backendUrl = await listen(t, (request, response) => {
     assert.equal(request.url, '/api/binary/system/seo')
     response.writeHead(200, { 'content-type': 'application/octet-stream' })
@@ -270,16 +275,16 @@ test('bootstrap validates the build marker before reuse/start and publishes only
   const reuse = bootstrapSource.indexOf('release preview already healthy with matching fingerprint', ensureStart)
   const start = bootstrapSource.indexOf("'release preview' \\", ensureStart)
   const apiReady = bootstrapSource.indexOf("WaitForBinaryUrl 'release preview namespace API'", start)
-  const publish = bootstrapSource.indexOf('release-preview-readiness.mjs" publish-ready', apiReady)
+    const publish = bootstrapSource.indexOf('release-preview-readiness.mjs" publish-ready', apiReady);
 
-  assert.ok(validate > ensureStart)
-  assert.match(
-    bootstrapSource.slice(ensureStart, validate),
-    /FSUSBLOG_TEST_SOURCE_COMMIT=.*frontend build source commit is required[\s\S]*?FSUSBLOG_TEST_SOURCE_FINGERPRINT=.*frontend build source fingerprint is required/u
-  )
-  assert.ok(validate < reuse)
-  assert.ok(validate < start)
-  assert.ok(apiReady > start)
+    assert.ok(validate > ensureStart);
+    assert.match(
+        bootstrapSource.slice(ensureStart, validate),
+        /FSUSBLOG_TEST_SOURCE_COMMIT=.*frontend build source commit is required[\s\S]*?FSUSBLOG_TEST_SOURCE_FINGERPRINT=.*frontend build source fingerprint is required/u
+    );
+    assert.ok(validate < reuse);
+    assert.ok(validate < start);
+    assert.ok(apiReady > start);
   assert.ok(publish > apiReady)
   assert.match(bootstrapSource, /rm -f "\$ROOT_DIR\/\.tmp\/test-runs\/\$FSUSBLOG_TEST_RUN_ID\/release-preview-ready\.json"/u)
   assert.match(

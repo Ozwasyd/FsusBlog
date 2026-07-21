@@ -4,13 +4,14 @@ import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import vm from 'node:vm'
 
-const root = process.cwd()
-const manifestPath = resolve(root, 'public/manifest.webmanifest')
-const serviceWorkerPath = resolve(root, 'public/sw.js')
-const releaseIdContractPath = resolve(root, 'public/generated/release-id-contract.js')
-const indexPath = resolve(root, 'index.html')
+const root = process.cwd();
+const manifestPath = resolve(root, 'public/manifest.webmanifest');
+const serviceWorkerPath = resolve(root, 'public/sw.js');
+const releaseIdContractPath = resolve(root, 'public/generated/release-id-contract.js');
+const indexPath = resolve(root, 'index.html');
 
-function assert(condition, message) {
+function assert(condition, message)
+{
   if (!condition) {
     throw new Error(message)
   }
@@ -21,12 +22,12 @@ function read(path) {
   return readFileSync(path, 'utf8')
 }
 
-const manifest = JSON.parse(read(manifestPath))
-const sw = read(serviceWorkerPath)
-const releaseIdContract = read(releaseIdContractPath)
-const index = read(indexPath)
+const manifest = JSON.parse(read(manifestPath));
+const sw = read(serviceWorkerPath);
+const releaseIdContract = read(releaseIdContractPath);
+const index = read(indexPath);
 
-assert(manifest.name === 'Fsu’s Blog.', 'static manifest must use the checked-in default brand name')
+assert(manifest.name === 'Fsu’s Blog.', 'static manifest must use the checked-in default brand name');
 assert(manifest.short_name === 'FsuBlog', 'static manifest short_name must use the checked-in default brand short name')
 assert(manifest.description === 'A personal blog under Fsu’s Club.', 'static manifest description must use the checked-in default brand description')
 assert(manifest.theme_color === '#0B4F7A', 'static manifest theme_color must use the default brand primary blue')
@@ -151,13 +152,14 @@ function createServiceWorkerContext(initialPaths = []) {
     Array,
     ArrayBuffer,
     Uint8Array,
-    Set,
-    Map,
-    console,
-    importScripts: () => {},
-    fetch: async () => new Response('ok', {
-      headers: { 'Cache-Control': 'private,no-store' }
-    }),
+        Set,
+        Map,
+        console,
+        importScripts: () =>
+{},
+        fetch: async () => new Response('ok', {
+            headers: { 'Cache-Control': 'private,no-store' }
+        }),
     self: {
       location: { origin: 'https://example.test', href: 'https://example.test/sw.js?build=test-build' },
       addEventListener(type, handler) { handlers.set(type, handler) },
@@ -171,12 +173,12 @@ function createServiceWorkerContext(initialPaths = []) {
   context.caches = {
     open: async () => context.__cache,
     keys: async () => [],
-    delete: async () => true
-  }
-  const sandbox = vm.createContext(context)
-  vm.runInContext(releaseIdContract, sandbox, { filename: 'generated/release-id-contract.js' })
-  vm.runInContext(sw, sandbox, { filename: 'sw.js' })
-  return { context, sandbox }
+        delete: async () => true
+    };
+    const sandbox = vm.createContext(context);
+    vm.runInContext(releaseIdContract, sandbox, { filename: 'generated/release-id-contract.js' });
+    vm.runInContext(sw, sandbox, { filename: 'sw.js' });
+    return { context, sandbox };
 }
 
 async function runShellInvalidationBehaviorCheck(scope, initialPaths) {

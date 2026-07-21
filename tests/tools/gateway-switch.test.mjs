@@ -7,13 +7,13 @@ import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 import {
   abortGatewayTransition,
-  beginGatewayTransition,
-  commitGatewayTransition,
-  createEmptySlotState,
-  readLegacySlotState,
-  readSlotState,
-  recordSlotStart,
-  setActiveSlot,
+    beginGatewayTransition,
+    commitGatewayTransition,
+    createEmptySlotState,
+    readLegacySlotState,
+    readSlotState,
+    recordSlotStart,
+    setActiveSlot,
   writeSlotStateAtomic
 } from '../../tools/deployment/slot-lib.mjs'
 import {
@@ -105,29 +105,30 @@ test('legacy slot state upgrades only from a complete persisted active identity 
   for (const key of [
     'activeReleaseId', 'activeImageDigest', 'previousSlot', 'previousReleaseId', 'previousImageDigest',
     'switchedAtUtc', 'switchGeneration', 'status', 'pendingTransition', 'lastTrafficTransition'
-  ]) delete legacy[key]
-  delete legacy.runtimeGeneration
-  fs.writeFileSync(file, `${JSON.stringify(legacy, null, 2)}\n`)
-  assert.throws(() => readSlotState(file, { allowMissing: false }), /explicit readLegacySlotState/u)
-  const legacyResult = readLegacySlotState(file)
-  assert.equal(legacyResult.legacy, true)
-  assert.equal(legacyResult.rollbackOnly, true)
-  const upgraded = legacyResult.state
-  assert.equal(upgraded.status, 'stable')
-  assert.equal(upgraded.activeSlot, 'blue')
-  assert.equal(upgraded.activeReleaseId, blueRelease)
+    ]) {delete legacy[key]};
+    delete legacy.runtimeGeneration;
+    fs.writeFileSync(file, `${JSON.stringify(legacy, null, 2)}\n`);
+    assert.throws(() => readSlotState(file, { allowMissing: false }), /explicit readLegacySlotState/u);
+    const legacyResult = readLegacySlotState(file);
+    assert.equal(legacyResult.legacy, true);
+    assert.equal(legacyResult.rollbackOnly, true);
+    const upgraded = legacyResult.state;
+    assert.equal(upgraded.status, 'stable');
+    assert.equal(upgraded.activeSlot, 'blue');
+    assert.equal(upgraded.activeReleaseId, blueRelease);
   assert.equal(upgraded.activeImageDigest, blueDigest)
   assert.equal(upgraded.switchGeneration, 1)
   assert.equal(upgraded.runtimeGeneration, 2)
 
-  delete legacy.activeSlot
-  legacy.status = 'stable'
-  fs.writeFileSync(file, `${JSON.stringify(legacy, null, 2)}\n`)
-  assert.throws(() => readSlotState(file, { allowMissing: false }), /explicit readLegacySlotState/u)
-  assert.throws(() => readLegacySlotState(file), /partial gateway-state extension/u)
-})
+    delete legacy.activeSlot;
+    legacy.status = 'stable';
+    fs.writeFileSync(file, `${JSON.stringify(legacy, null, 2)}\n`);
+    assert.throws(() => readSlotState(file, { allowMissing: false }), /explicit readLegacySlotState/u);
+    assert.throws(() => readLegacySlotState(file), /partial gateway-state extension/u);
+});
 
-test('gateway switches blue to green and rolls back while sustained public requests avoid failures', async (t) => {
+test('gateway switches blue to green and rolls back while sustained public requests avoid failures', async (t) =>
+{
   const fixture = createGatewayFixture(t)
   const requester = collectChild(spawn('bash', ['-c', [
     'failures=0',

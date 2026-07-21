@@ -10,12 +10,12 @@ import { fileURLToPath } from 'node:url';
 import {
   checkWasmArtifactOwnership,
   validateGeneratedPackageFreshness,
-  validateGeneratedWasmPackage
+    validateGeneratedWasmPackage
 } from '../../tools/check-wasm-artifact-ownership.mjs';
 import {
-  resolveWasmRequiredOutputFiles,
-  wasmArtifactContract,
-  wasmToolchainContract
+    resolveWasmRequiredOutputFiles,
+    wasmArtifactContract,
+    wasmToolchainContract
 } from '../../tools/frontend/ensure-wasm.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -173,14 +173,14 @@ test('ensure-wasm exposes the current schema v3, ABI v4 and complete output cont
     maximumMemoryBytes: 64 * 1024 * 1024,
     memoryGrowth: 'disabled'
   });
-  assert.ok(wasmArtifactContract.requiredOutputFiles.includes('aeds_decoder_basic.wasm'));
-  assert.ok(wasmArtifactContract.requiredOutputFiles.includes('aeds_decoder_speed.wasm'));
-  assert.ok(wasmArtifactContract.requiredOutputFiles.includes('aeds-runtime-manifest.json'));
-  assert.equal(wasmArtifactContract.requiredOutputFiles.includes('comment-privacy-prover.zkey'), false);
-  assert.ok(resolveWasmRequiredOutputFiles({ FSUSBLOG_ZK_PRODUCTION_ENABLED: '1' })
-    .includes('comment-privacy-prover.zkey'));
-  assert.equal(new Set(wasmArtifactContract.requiredOutputFiles).size,
-    wasmArtifactContract.requiredOutputFiles.length);
+    assert.ok(wasmArtifactContract.requiredOutputFiles.includes('aeds_decoder_basic.wasm'));
+    assert.ok(wasmArtifactContract.requiredOutputFiles.includes('aeds_decoder_speed.wasm'));
+    assert.ok(wasmArtifactContract.requiredOutputFiles.includes('aeds-runtime-manifest.json'));
+    assert.equal(wasmArtifactContract.requiredOutputFiles.includes('comment-privacy-prover.zkey'), false);
+    assert.ok(resolveWasmRequiredOutputFiles({ FSUSBLOG_ZK_PRODUCTION_ENABLED: '1' })
+        .includes('comment-privacy-prover.zkey'));
+    assert.equal(new Set(wasmArtifactContract.requiredOutputFiles).size,
+        wasmArtifactContract.requiredOutputFiles.length);
 });
 
 test('generated package validator accepts an exact schema v3 package', async (t) => {
@@ -204,14 +204,15 @@ test('fresh-source write-manifest output passes the release ownership gate end t
     artifactDir
   ], {
     cwd: repoRoot,
-    encoding: 'utf8'
-  });
-  assert.equal(checked.status, 0, checked.stderr || checked.stdout);
-  assert.match(checked.stdout,
-    new RegExp(`schema=3 abi=fsusblog\\.aeds\\.v4 outputs=${wasmArtifactContract.requiredOutputFiles.length}`, 'u'));
+        encoding: 'utf8'
+    });
+    assert.equal(checked.status, 0, checked.stderr || checked.stdout);
+    assert.match(checked.stdout,
+        new RegExp(`schema=3 abi=fsusblog\\.aeds\\.v4 outputs=${wasmArtifactContract.requiredOutputFiles.length}`, 'u'));
 });
 
-test('generated package validator rejects stale schema and missing output files', async (t) => {
+test('generated package validator rejects stale schema and missing output files', async (t) =>
+{
   const staleDir = await writeValidPackage();
   const missingDir = await writeValidPackage();
   t.after(() => Promise.all([

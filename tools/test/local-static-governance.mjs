@@ -43,28 +43,32 @@ export function buildLocalStaticManifest(staticManifest, scripts) {
   const chainedScripts = extractChainedNpmScripts(source)
   if (chainedScripts.length === 0) throw new Error('check:views-constraints must contain npm run checks')
   const [core, ...declaredScripts] = viewsEntry.localCommands
-  if (JSON.stringify(core.command) !== JSON.stringify(viewsCoreCommand(source))) {
-    throw new Error('views-constraints core command differs from the explicit local manifest')
-  }
-
-  const explicitEntries = staticManifest.commands.flatMap((entry) => entry.id === 'views-constraints'
-    ? declaredScripts
-    : [entry])
-  for (const script of chainedScripts) {
-    const matches = explicitEntries.filter((entry) => entry.script === script)
-    if (matches.length !== 1) {
-      throw new Error(`check:views-constraints script ${script} must have exactly one explicit manifest owner`)
+    if (JSON.stringify(core.command) !== JSON.stringify(viewsCoreCommand(source)))
+{
+        throw new Error('views-constraints core command differs from the explicit local manifest');
     }
-  }
-  const chainedScriptSet = new Set(chainedScripts)
-  const staleLocalScripts = declaredScripts
-    .map((entry) => entry.script)
-    .filter((script) => !chainedScriptSet.has(script))
-  if (staleLocalScripts.length > 0) {
-    throw new Error(`views-constraints local manifest contains stale scripts: ${staleLocalScripts.join(', ')}`)
-  }
 
-  return {
+    const explicitEntries = staticManifest.commands.flatMap((entry) => entry.id === 'views-constraints'
+        ? declaredScripts
+        : [entry]);
+    for (const script of chainedScripts)
+{
+        const matches = explicitEntries.filter((entry) => entry.script === script);
+        if (matches.length !== 1)
+{
+            throw new Error(`check:views-constraints script ${script} must have exactly one explicit manifest owner`);
+        }
+    }
+    const chainedScriptSet = new Set(chainedScripts);
+    const staleLocalScripts = declaredScripts
+        .map((entry) => entry.script)
+        .filter((script) => !chainedScriptSet.has(script));
+    if (staleLocalScripts.length > 0)
+{
+        throw new Error(`views-constraints local manifest contains stale scripts: ${staleLocalScripts.join(', ')}`);
+    }
+
+    return {
     ...staticManifest,
     lane: `${staticManifest.lane}:local-production`,
     commands: staticManifest.commands.flatMap((entry) => entry.id === 'views-constraints' ? entry.localCommands : [entry])

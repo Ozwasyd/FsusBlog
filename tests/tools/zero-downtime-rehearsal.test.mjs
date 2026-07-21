@@ -15,14 +15,14 @@ import {
   resolveRehearsalPlan
 } from '../../tools/deployment/zero-downtime-rehearsal-plan.mjs'
 
-const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-const orchestratorSource = path.join(repositoryRoot, 'tools/deployment/zero-downtime-rehearsal.sh')
-const planToolSource = path.join(repositoryRoot, 'tools/deployment/zero-downtime-rehearsal-plan.mjs')
-const releaseIdToolSource = path.join(repositoryRoot, 'tools/release/release-id.mjs')
-const releaseIdContractSource = path.join(repositoryRoot, 'src/shared/Contracts/Validation/release-id-contract.json')
-const faultTemplateSource = path.join(repositoryRoot, 'tests/fixtures/deployment/zero-downtime-fault-plan.template.json')
-const migrationQualificationTemplateSource = path.join(repositoryRoot, 'tests/fixtures/deployment/release-migration-qualification-scenario.template.json')
-const activeRehearsalProcessGroups = new Set()
+const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const orchestratorSource = path.join(repositoryRoot, 'tools/deployment/zero-downtime-rehearsal.sh');
+const planToolSource = path.join(repositoryRoot, 'tools/deployment/zero-downtime-rehearsal-plan.mjs');
+const releaseIdToolSource = path.join(repositoryRoot, 'tools/release/release-id.mjs');
+const releaseIdContractSource = path.join(repositoryRoot, 'src/shared/Contracts/Validation/release-id-contract.json');
+const faultTemplateSource = path.join(repositoryRoot, 'tests/fixtures/deployment/zero-downtime-fault-plan.template.json');
+const migrationQualificationTemplateSource = path.join(repositoryRoot, 'tests/fixtures/deployment/release-migration-qualification-scenario.template.json');
+const activeRehearsalProcessGroups = new Set();
 
 function killActiveRehearsalProcessGroups() {
   for (const pid of activeRehearsalProcessGroups) {
@@ -108,13 +108,13 @@ if (runsFixtureShard('base')) test('semantic rehearsal delays stay pressure-awar
 if (runsFixtureShard('base')) test('plan resolution is local-only, private-file-only and materializes exact isolated fault cases', (t) => {
   const fixture = createFixture(t)
   const raw = JSON.parse(fs.readFileSync(fixture.plan, 'utf8'))
-  const resolved = resolveRehearsalPlan(raw, { planFile: fixture.plan, repoRoot: fixture.root })
-  assert.equal(resolved.environment, 'Test')
-  assert.equal(resolved.source.slot, 'blue')
-  assert.equal(resolved.source.previousRollbackRelease, '20260709010101-cccccccccccc')
-  assert.equal(resolved.target.slot, 'green')
-  assert.match(resolved.workRoot, /\.tmp[/\\]rehearsal$/u)
-  assert.equal(resolved.workers.observerEnvFile, fs.realpathSync(path.join(fixture.root, 'secrets', 'worker-observer.env')))
+    const resolved = resolveRehearsalPlan(raw, { planFile: fixture.plan, repoRoot: fixture.root });
+    assert.equal(resolved.environment, 'Test');
+    assert.equal(resolved.source.slot, 'blue');
+    assert.equal(resolved.source.previousRollbackRelease, '20260709010101-cccccccccccc');
+    assert.equal(resolved.target.slot, 'green');
+    assert.match(resolved.workRoot, /\.tmp[/\\]rehearsal$/u);
+    assert.equal(resolved.workers.observerEnvFile, fs.realpathSync(path.join(fixture.root, 'secrets', 'worker-observer.env')));
   assert.equal(resolved.workers.deploy.observerServicePlan.baseUrl, 'http://127.0.0.1:19031')
   assert.equal(resolved.workers.deploy.normalScenario.baseUrl, resolved.workers.deploy.observerServicePlan.baseUrl)
 
@@ -281,23 +281,23 @@ function createFixture(t, { continuationOnly = false } = {}) {
   const secrets = path.join(root, 'secrets')
   fs.mkdirSync(deployment, { recursive: true })
   fs.mkdirSync(fixtureDirectory, { recursive: true })
-  fs.mkdirSync(secrets, { recursive: true })
-  fs.mkdirSync(path.join(root, 'deploy'), { recursive: true })
-  fs.mkdirSync(path.join(root, 'tools/db'), { recursive: true })
-  fs.mkdirSync(path.join(root, 'tools/release'), { recursive: true })
-  fs.mkdirSync(path.join(root, 'src/shared/Contracts/Validation'), { recursive: true })
-  fs.mkdirSync(path.join(root, '.tmp/docker-failure-bin'), { recursive: true })
-  fs.writeFileSync(path.join(root, '.tmp/docker-failure-bin/docker'), '#!/usr/bin/env bash\nexit 73\n', { mode: 0o755 })
-  fs.mkdirSync(path.join(root, 'bin'), { recursive: true })
+    fs.mkdirSync(secrets, { recursive: true });
+    fs.mkdirSync(path.join(root, 'deploy'), { recursive: true });
+    fs.mkdirSync(path.join(root, 'tools/db'), { recursive: true });
+    fs.mkdirSync(path.join(root, 'tools/release'), { recursive: true });
+    fs.mkdirSync(path.join(root, 'src/shared/Contracts/Validation'), { recursive: true });
+    fs.mkdirSync(path.join(root, '.tmp/docker-failure-bin'), { recursive: true });
+    fs.writeFileSync(path.join(root, '.tmp/docker-failure-bin/docker'), '#!/usr/bin/env bash\nexit 73\n', { mode: 0o755 });
+    fs.mkdirSync(path.join(root, 'bin'), { recursive: true });
   fs.writeFileSync(path.join(root, 'bin/docker'), '#!/usr/bin/env bash\nexit 0\n', { mode: 0o755 })
-  fs.copyFileSync(orchestratorSource, path.join(deployment, 'zero-downtime-rehearsal.sh'))
-  if (continuationOnly) installContinuationModeFixture(path.join(deployment, 'zero-downtime-rehearsal.sh'))
-  fs.copyFileSync(planToolSource, path.join(deployment, 'zero-downtime-rehearsal-plan.mjs'))
-  fs.copyFileSync(releaseIdToolSource, path.join(root, 'tools/release/release-id.mjs'))
-  fs.copyFileSync(releaseIdContractSource, path.join(root, 'src/shared/Contracts/Validation/release-id-contract.json'))
-  fs.copyFileSync(faultTemplateSource, path.join(fixtureDirectory, 'zero-downtime-fault-plan.template.json'))
-  fs.copyFileSync(migrationQualificationTemplateSource, path.join(fixtureDirectory, 'release-migration-qualification-scenario.template.json'))
-  fs.writeFileSync(path.join(root, 'fixture-runner.mjs'), fixtureRunnerSource())
+    fs.copyFileSync(orchestratorSource, path.join(deployment, 'zero-downtime-rehearsal.sh'));
+    if (continuationOnly) {installContinuationModeFixture(path.join(deployment, 'zero-downtime-rehearsal.sh'))};
+    fs.copyFileSync(planToolSource, path.join(deployment, 'zero-downtime-rehearsal-plan.mjs'));
+    fs.copyFileSync(releaseIdToolSource, path.join(root, 'tools/release/release-id.mjs'));
+    fs.copyFileSync(releaseIdContractSource, path.join(root, 'src/shared/Contracts/Validation/release-id-contract.json'));
+    fs.copyFileSync(faultTemplateSource, path.join(fixtureDirectory, 'zero-downtime-fault-plan.template.json'));
+    fs.copyFileSync(migrationQualificationTemplateSource, path.join(fixtureDirectory, 'release-migration-qualification-scenario.template.json'));
+    fs.writeFileSync(path.join(root, 'fixture-runner.mjs'), fixtureRunnerSource());
   fs.writeFileSync(path.join(deployment, 'rehearsal-schema-qualification-probe.mjs'), 'export {}\n', { mode: 0o600 })
   fs.writeFileSync(path.join(root, 'tools/db/run-online-migrations.sh'), '#!/usr/bin/env bash\nexit 0\n', { mode: 0o700 })
 
@@ -319,17 +319,17 @@ function createFixture(t, { continuationOnly = false } = {}) {
     fs.writeFileSync(path.join(deployment, name), '#!/usr/bin/env bash\nexit 0\n', { mode: 0o755 })
   }
 
-  const blueManifest = path.join(root, 'blue-manifest.json')
-  const greenManifest = path.join(root, 'green-manifest.json')
-  writeJson(blueManifest, releaseManifest('20260710010101-aaaaaaaaaaaa', '1'))
-  writeJson(greenManifest, releaseManifest('20260711010101-bbbbbbbbbbbb', '2'))
-  const deployAsset = path.join(root, 'asset-blue-green.json')
-  const rollbackAsset = path.join(root, 'asset-green-blue.json')
-  writeJson(deployAsset, assetScenario('20260710010101-aaaaaaaaaaaa', '20260711010101-bbbbbbbbbbbb'))
-  writeJson(rollbackAsset, assetScenario('20260711010101-bbbbbbbbbbbb', '20260710010101-aaaaaaaaaaaa'))
-  const workerPlan = path.join(root, 'worker-plan.json')
-  writeJson(workerPlan, {
-    schema: 'fsusblog.release-worker-drill-plan.v1',
+    const blueManifest = path.join(root, 'blue-manifest.json');
+    const greenManifest = path.join(root, 'green-manifest.json');
+    writeJson(blueManifest, releaseManifest('20260710010101-aaaaaaaaaaaa', '1'));
+    writeJson(greenManifest, releaseManifest('20260711010101-bbbbbbbbbbbb', '2'));
+    const deployAsset = path.join(root, 'asset-blue-green.json');
+    const rollbackAsset = path.join(root, 'asset-green-blue.json');
+    writeJson(deployAsset, assetScenario('20260710010101-aaaaaaaaaaaa', '20260711010101-bbbbbbbbbbbb'));
+    writeJson(rollbackAsset, assetScenario('20260711010101-bbbbbbbbbbbb', '20260710010101-aaaaaaaaaaaa'));
+    const workerPlan = path.join(root, 'worker-plan.json');
+    writeJson(workerPlan, {
+        schema: 'fsusblog.release-worker-drill-plan.v1',
     security: { allowedHttpOrigins: ['http://127.0.0.1:19031'] },
     coordination: {
       mode: 'file-handshake',
@@ -418,13 +418,13 @@ function createFixture(t, { continuationOnly = false } = {}) {
     envFile,
     adminHeaderFile: path.join(secrets, 'admin-header.txt'),
     notificationAuthStorageState: path.join(secrets, 'auth-state.json'),
-    source: {
-      slot: 'blue',
-      manifest: blueManifest,
-      previousRollbackRelease: '20260709010101-cccccccccccc'
-    },
-    target: { slot: 'green', manifest: greenManifest, migrationServerDll: path.join(root, 'server.dll') },
-    evidenceInputs: {
+        source: {
+            slot: 'blue',
+            manifest: blueManifest,
+            previousRollbackRelease: '20260709010101-cccccccccccc'
+        },
+        target: { slot: 'green', manifest: greenManifest, migrationServerDll: path.join(root, 'server.dll') },
+        evidenceInputs: {
       backupRestore: path.join(root, 'backup.json'),
       trafficScenario: path.join(root, 'traffic.json'),
       trafficBindingKey: path.join(secrets, 'traffic-binding.key'),

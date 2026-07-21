@@ -52,15 +52,16 @@ const forbiddenProfileTokens = [
   'profileNewPassword',
   'profileConfirmPassword',
   'deleteAccountPassword',
-  'deleteAccountState',
-  'passwordForm',
-  'updateUsername',
-  'updatePassword',
-  'ProfileInlineEmptyState',
-  'ProfileSettingsPrimitives'
-]
+    'deleteAccountState',
+    'passwordForm',
+    'updateUsername',
+    'updatePassword',
+    'ProfileInlineEmptyState',
+    'ProfileSettingsPrimitives'
+];
 
-for (const token of forbiddenProfileTokens) {
+for (const token of forbiddenProfileTokens)
+{
   if (profile.includes(token)) {
     fail(profilePath, lineOf(profile, token), `Profile page must not include ${token}`)
   }
@@ -69,16 +70,16 @@ for (const token of forbiddenProfileTokens) {
 const requiredProfileTokens = [
   'profileCopy.pageTitle',
   'profileCopy.pageDescription',
-  'profileCopy.emptyTitle',
-  'profileCopy.emptyContent',
-  'profileCopy.openIdentityCta',
-  'FsusUiEmptyState',
-  'size="inline"',
-  ':illustration="false"',
-  ':description="profileCopy.emptyContent"',
-  'router.replace({ name: \'UserIdentityOverview\' })',
-  'to="/user/identity"'
-]
+    'profileCopy.emptyTitle',
+    'profileCopy.emptyContent',
+    'profileCopy.openIdentityCta',
+    'FsusUiEmptyState',
+    'size="inline"',
+    ':illustration="false"',
+    ':description="profileCopy.emptyContent"',
+    'router.replace({ name: \'UserIdentityOverview\' })',
+    'to="/user/identity"'
+];
 
 for (const token of requiredProfileTokens) {
   if (!profile.includes(token)) {
@@ -107,42 +108,47 @@ for (const token of [
 ]) {
   if (!identityCenter.includes(token)) {
     fail(identityCenterPath, 1, `Identity center contract is missing ${token}`)
-  }
+    }
 }
 
 for (const token of [
-  'FsusUiResourceList',
-  'FsusUiResourceListItem',
-  'FsusUiMetadataRow',
-  'FsusUiMetadataItem',
-  'FsusUiInlineActions',
-  'FsusUiEmptyState',
-  'FsusUiDangerZone',
-  'FsusUiRiskNotice',
-  'FsusUiDestructiveActionPanel',
-  ':illustration="false"',
-  'copy.lifecycleWarning',
-  'deleteCurrentAccount'
-]) {
-  if (!identityCenter.includes(token)) {
-    fail(identityCenterPath, 1, `Identity center FsusUI primitive contract is missing ${token}`)
-  }
+    'FsusUiResourceList',
+    'FsusUiResourceListItem',
+    'FsusUiMetadataRow',
+    'FsusUiMetadataItem',
+    'FsusUiInlineActions',
+    'FsusUiEmptyState',
+    'FsusUiDangerZone',
+    'FsusUiRiskNotice',
+    'FsusUiDestructiveActionPanel',
+    ':illustration="false"',
+    'copy.lifecycleWarning',
+    'deleteCurrentAccount'
+])
+{
+    if (!identityCenter.includes(token))
+{
+        fail(identityCenterPath, 1, `Identity center FsusUI primitive contract is missing ${token}`);
+    }
 }
 
 for (const token of [
-  'ProfileResourceList',
-  'ProfileResourceListItem',
-  'ProfileInlineEmptyState',
-  'ProfileSettingsPrimitives'
-]) {
-  if (identityCenter.includes(token)) {
-    fail(identityCenterPath, lineOf(identityCenter, token), `Identity center must not keep retired local primitive ${token}`)
-  }
+    'ProfileResourceList',
+    'ProfileResourceListItem',
+    'ProfileInlineEmptyState',
+    'ProfileSettingsPrimitives'
+])
+{
+    if (identityCenter.includes(token))
+{
+        fail(identityCenterPath, lineOf(identityCenter, token), `Identity center must not keep retired local primitive ${token}`);
+    }
 }
 
-const plainMfaStatusToken = '<span>{{ mfaProfile?.enabled ? mfaCopy.enabled : mfaCopy.disabled }}</span>'
-if (identityCenter.includes(plainMfaStatusToken)) {
-  fail(identityCenterPath, lineOf(identityCenter, plainMfaStatusToken), 'MFA enabled/disabled state must use an FsusUI status tag, not plain text')
+const plainMfaStatusToken = '<span>{{ mfaProfile?.enabled ? mfaCopy.enabled : mfaCopy.disabled }}</span>';
+if (identityCenter.includes(plainMfaStatusToken))
+{
+    fail(identityCenterPath, lineOf(identityCenter, plainMfaStatusToken), 'MFA enabled/disabled state must use an FsusUI status tag, not plain text');
 }
 
 if (identityCenter.includes('mfaCopy.enabledHint')) {

@@ -18,30 +18,31 @@ import {
 } from '../../tools/deployment/slot-lib.mjs'
 import { createReleaseManifest, writeReleaseManifestAtomic } from '../../tools/release/release-manifest.mjs'
 
-const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
-const commitSha = '0123456789abcdef0123456789abcdef01234567'
-const greenCommitSha = 'fedcba9876543210fedcba9876543210fedcba98'
-const blueRelease = '20260711010101-0123456789ab'
-const greenRelease = '20260711020202-fedcba987654'
-const blueDigest = `sha256:${'a'.repeat(64)}`
-const greenDigest = `sha256:${'e'.repeat(64)}`
+const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
+const commitSha = '0123456789abcdef0123456789abcdef01234567';
+const greenCommitSha = 'fedcba9876543210fedcba9876543210fedcba98';
+const blueRelease = '20260711010101-0123456789ab';
+const greenRelease = '20260711020202-fedcba987654';
+const blueDigest = `sha256:${'a'.repeat(64)}`;
+const greenDigest = `sha256:${'e'.repeat(64)}`;
 
-function releaseInput(releaseId, imageDigest) {
-  return {
-    releaseId,
-    commitSha: releaseId === greenRelease ? greenCommitSha : commitSha,
-    imageRepository: 'ghcr.io/fsusblog/app',
-    imageTag: `ghcr.io/fsusblog/app:${releaseId}`,
-    imageDigest,
-    registryDigestVerified: true,
-    createdAtUtc: releaseId === greenRelease ? '2026-07-11T02:02:02.000Z' : '2026-07-11T01:01:01.000Z',
-    frontendManifestHash: `sha256:${'b'.repeat(64)}`,
-    wasmArtifactHash: `sha256:${'c'.repeat(64)}`,
-    schemaMinimumCoordinate: blueRelease,
-    schemaMaximumCoordinate: greenRelease,
-    dotnetVersion: '10.0.100',
-    nodeVersion: 'v20.19.0',
-    dockerVersion: '28.0.0',
+function releaseInput(releaseId, imageDigest)
+{
+    return {
+        releaseId,
+        commitSha: releaseId === greenRelease ? greenCommitSha : commitSha,
+        imageRepository: 'ghcr.io/fsusblog/app',
+        imageTag: `ghcr.io/fsusblog/app:${releaseId}`,
+        imageDigest,
+        registryDigestVerified: true,
+        createdAtUtc: releaseId === greenRelease ? '2026-07-11T02:02:02.000Z' : '2026-07-11T01:01:01.000Z',
+        frontendManifestHash: `sha256:${'b'.repeat(64)}`,
+        wasmArtifactHash: `sha256:${'c'.repeat(64)}`,
+        schemaMinimumCoordinate: blueRelease,
+        schemaMaximumCoordinate: greenRelease,
+        dotnetVersion: '10.0.100',
+        nodeVersion: 'v20.19.0',
+        dockerVersion: '28.0.0',
     dockerfileDigest: `sha256:${'d'.repeat(64)}`,
     runtimeProfile: {
       id: 'throughput-musl',
@@ -129,76 +130,78 @@ test('slot state uses atomic durable files and preserves independent release ide
   assert.equal(recovered.slots.green.status, 'stopped')
   assert.equal(fs.statSync(stateFile).mode & 0o777, 0o600)
   assert.throws(() => resolveSlotConfig('red', environment), /blue or green/u)
-  assert.throws(() => resolveSlotConfig('blue', { FSUSBLOG_BLUE_PORT: '18081', FSUSBLOG_GREEN_PORT: '18081' }), /must be different/u)
-})
+    assert.throws(() => resolveSlotConfig('blue', { FSUSBLOG_BLUE_PORT: '18081', FSUSBLOG_GREEN_PORT: '18081' }), /must be different/u);
+});
 
-test('manifest v2 is the sole identity source for slot and rollout state writers', (t) => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-release-propagation-'))
-  t.after(() => fs.rmSync(directory, { recursive: true, force: true }))
-  const stateFile = path.join(directory, 'slots.json')
-  const rolloutFile = path.join(directory, 'rollout.json')
-  const blueManifest = path.join(directory, 'blue-release-manifest.json')
-  const greenManifest = path.join(directory, 'green-release-manifest.json')
-  writeReleaseManifestAtomic(blueManifest, createReleaseManifest(releaseInput(blueRelease, blueDigest)))
-  writeReleaseManifestAtomic(greenManifest, createReleaseManifest(releaseInput(greenRelease, greenDigest)))
+test('manifest v2 is the sole identity source for slot and rollout state writers', (t) =>
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-release-propagation-'));
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const stateFile = path.join(directory, 'slots.json');
+    const rolloutFile = path.join(directory, 'rollout.json');
+    const blueManifest = path.join(directory, 'blue-release-manifest.json');
+    const greenManifest = path.join(directory, 'green-release-manifest.json');
+    writeReleaseManifestAtomic(blueManifest, createReleaseManifest(releaseInput(blueRelease, blueDigest)));
+    writeReleaseManifestAtomic(greenManifest, createReleaseManifest(releaseInput(greenRelease, greenDigest)));
 
-  let result = spawnSync(process.execPath, [
-    'tools/deployment/slot-state.mjs', 'record-start', '--state', stateFile, '--slot', 'blue',
-    '--release-manifest', blueManifest, '--release-id', blueRelease,
-    '--image-ref', `ghcr.io/fsusblog/app@${blueDigest}`, '--image-digest', blueDigest,
-    '--at', '2026-07-11T01:00:00.000Z'
-  ], { cwd: root, encoding: 'utf8' })
-  assert.equal(result.status, 0, result.stderr)
-  result = spawnSync(process.execPath, [
-    'tools/deployment/slot-state.mjs', 'set-active', '--state', stateFile,
-    '--slot', 'blue', '--kind', 'bootstrap', '--at', '2026-07-11T01:01:00.000Z'
-  ], { cwd: root, encoding: 'utf8' })
-  assert.equal(result.status, 0, result.stderr)
-  result = spawnSync(process.execPath, [
-    'tools/deployment/slot-state.mjs', 'reserve-generation', '--state', stateFile,
-    '--slot', 'green', '--at', '2026-07-11T02:00:00.000Z'
-  ], { cwd: root, encoding: 'utf8' })
-  assert.equal(result.status, 0, result.stderr)
-  const targetGeneration = JSON.parse(result.stdout).generation
+    let result = spawnSync(process.execPath, [
+        'tools/deployment/slot-state.mjs', 'record-start', '--state', stateFile, '--slot', 'blue',
+        '--release-manifest', blueManifest, '--release-id', blueRelease,
+        '--image-ref', `ghcr.io/fsusblog/app@${blueDigest}`, '--image-digest', blueDigest,
+        '--at', '2026-07-11T01:00:00.000Z'
+    ], { cwd: root, encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    result = spawnSync(process.execPath, [
+        'tools/deployment/slot-state.mjs', 'set-active', '--state', stateFile,
+        '--slot', 'blue', '--kind', 'bootstrap', '--at', '2026-07-11T01:01:00.000Z'
+    ], { cwd: root, encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    result = spawnSync(process.execPath, [
+        'tools/deployment/slot-state.mjs', 'reserve-generation', '--state', stateFile,
+        '--slot', 'green', '--at', '2026-07-11T02:00:00.000Z'
+    ], { cwd: root, encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    const targetGeneration = JSON.parse(result.stdout).generation;
 
-  result = spawnSync(process.execPath, [
-    'tools/deployment/rollout-state.mjs', 'create', '--state', rolloutFile,
-    '--rollout-id', 'rollout-20260711', '--kind', 'deploy', '--manifest', greenManifest,
-    '--slot-state', stateFile,
-    '--source-slot', 'blue', '--source-release', blueRelease, '--source-digest', blueDigest, '--source-generation', '1',
-    '--target-slot', 'green', '--target-release', greenRelease, '--target-digest', greenDigest,
-    '--target-generation', String(targetGeneration), '--at', '2026-07-11T02:01:00.000Z'
-  ], { cwd: root, encoding: 'utf8' })
-  assert.equal(result.status, 0, result.stderr)
-  const rollout = JSON.parse(result.stdout)
-  assert.equal(rollout.source.releaseId, blueRelease)
-  assert.equal(rollout.target.releaseId, greenRelease)
-  assert.equal(rollout.target.imageDigest, greenDigest)
-  assert.equal(rollout.manifestPath, greenManifest)
+    result = spawnSync(process.execPath, [
+        'tools/deployment/rollout-state.mjs', 'create', '--state', rolloutFile,
+        '--rollout-id', 'rollout-20260711', '--kind', 'deploy', '--manifest', greenManifest,
+        '--slot-state', stateFile,
+        '--source-slot', 'blue', '--source-release', blueRelease, '--source-digest', blueDigest, '--source-generation', '1',
+        '--target-slot', 'green', '--target-release', greenRelease, '--target-digest', greenDigest,
+        '--target-generation', String(targetGeneration), '--at', '2026-07-11T02:01:00.000Z'
+    ], { cwd: root, encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    const rollout = JSON.parse(result.stdout);
+    assert.equal(rollout.source.releaseId, blueRelease);
+    assert.equal(rollout.target.releaseId, greenRelease);
+    assert.equal(rollout.target.imageDigest, greenDigest);
+    assert.equal(rollout.manifestPath, greenManifest);
 
-  result = spawnSync(process.execPath, [
-    'tools/deployment/slot-state.mjs', 'record-start', '--state', stateFile, '--slot', 'green',
-    '--release-manifest', greenManifest, '--release-id', blueRelease,
-    '--image-ref', `ghcr.io/fsusblog/app@${greenDigest}`, '--image-digest', greenDigest
-  ], { cwd: root, encoding: 'utf8' })
-  assert.notEqual(result.status, 0)
-  assert.match(result.stderr, /releaseId does not match/u)
+    result = spawnSync(process.execPath, [
+        'tools/deployment/slot-state.mjs', 'record-start', '--state', stateFile, '--slot', 'green',
+        '--release-manifest', greenManifest, '--release-id', blueRelease,
+        '--image-ref', `ghcr.io/fsusblog/app@${greenDigest}`, '--image-digest', greenDigest
+    ], { cwd: root, encoding: 'utf8' });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /releaseId does not match/u);
 
-  result = spawnSync(process.execPath, [
-    'tools/deployment/rollout-state.mjs', 'create', '--state', path.join(directory, 'forged-rollout.json'),
-    '--rollout-id', 'rollout-forged', '--kind', 'deploy', '--manifest', greenManifest,
-    '--slot-state', stateFile,
-    '--source-slot', 'blue', '--source-release', greenRelease, '--source-digest', blueDigest, '--source-generation', '1',
-    '--target-slot', 'green', '--target-release', greenRelease, '--target-digest', greenDigest,
-    '--target-generation', String(targetGeneration)
-  ], { cwd: root, encoding: 'utf8' })
-  assert.notEqual(result.status, 0)
-  assert.match(result.stderr, /source identity does not match persisted slot state/u)
-})
+    result = spawnSync(process.execPath, [
+        'tools/deployment/rollout-state.mjs', 'create', '--state', path.join(directory, 'forged-rollout.json'),
+        '--rollout-id', 'rollout-forged', '--kind', 'deploy', '--manifest', greenManifest,
+        '--slot-state', stateFile,
+        '--source-slot', 'blue', '--source-release', greenRelease, '--source-digest', blueDigest, '--source-generation', '1',
+        '--target-slot', 'green', '--target-release', greenRelease, '--target-digest', greenDigest,
+        '--target-generation', String(targetGeneration)
+    ], { cwd: root, encoding: 'utf8' });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /source identity does not match persisted slot state/u);
+});
 
-test('slot scripts coexist, remain idempotent, preserve active slot on candidate failures and recover status', (t) => {
-  const fixture = createScriptFixture(t)
-  const blueManifest = writeManifest(fixture.directory, 'blue.json', blueRelease, blueDigest)
+test('slot scripts coexist, remain idempotent, preserve active slot on candidate failures and recover status', (t) =>
+{
+    const fixture = createScriptFixture(t);
+    const blueManifest = writeManifest(fixture.directory, 'blue.json', blueRelease, blueDigest);
   const greenManifest = writeManifest(fixture.directory, 'green.json', greenRelease, greenDigest)
 
   const blueStart = runSlot(fixture, 'slot-start.sh', [
@@ -490,13 +493,13 @@ function createScriptFixture(t) {
     FSUSBLOG_GREEN_PORT: '18082',
     FSUSBLOG_SLOT_MIN_AVAILABLE_MEMORY_MB: '256',
     FSUSBLOG_SLOT_MIN_FREE_DISK_MB: '256',
-    FSUSBLOG_SLOT_IMAGE_PULL_RESERVE_MB: '256',
-    FSUSBLOG_SLOT_HEALTH_TIMEOUT_SECONDS: '2',
-    FSUSBLOG_SLOT_HEALTH_INTERVAL_SECONDS: '1',
-    FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE: '20260710010101-aaaaaaaaaaaa',
-    FSUSBLOG_ROLLOUT_ENTRY: '1',
-    FSUSBLOG_DEPLOYMENT_LOCK_FILE: path.join(directory, 'deployment.lock')
-  })
+        FSUSBLOG_SLOT_IMAGE_PULL_RESERVE_MB: '256',
+        FSUSBLOG_SLOT_HEALTH_TIMEOUT_SECONDS: '2',
+        FSUSBLOG_SLOT_HEALTH_INTERVAL_SECONDS: '1',
+        FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE: '20260710010101-aaaaaaaaaaaa',
+        FSUSBLOG_ROLLOUT_ENTRY: '1',
+        FSUSBLOG_DEPLOYMENT_LOCK_FILE: path.join(directory, 'deployment.lock')
+    });
   return { directory, envFile, stateFile, dockerLog, environment }
 }
 
@@ -505,13 +508,13 @@ function createProductionEnv(directory) {
   const secretDir = path.join(directory, 'zk-secret')
   fs.mkdirSync(configDir)
   fs.mkdirSync(secretDir)
-  for (const [name, value] of [
-    ['trusted.json', '{}\n'],
-    ['verifying.json', '{}\n'],
-    ['comment.v5.vk', 'verifying key\n'],
-    ['issuer-public.key', 'issuer public\n']
-  ]) fs.writeFileSync(path.join(configDir, name), value)
-  fs.writeFileSync(path.join(secretDir, 'issuer-private.key'), 'issuer private\n')
+    for (const [name, value] of [
+        ['trusted.json', '{}\n'],
+        ['verifying.json', '{}\n'],
+        ['comment.v5.vk', 'verifying key\n'],
+        ['issuer-public.key', 'issuer public\n']
+    ]) {fs.writeFileSync(path.join(configDir, name), value)};
+    fs.writeFileSync(path.join(secretDir, 'issuer-private.key'), 'issuer private\n');
   const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')
   const envFile = path.join(directory, '.env.production')
   fs.writeFileSync(envFile, [
@@ -523,16 +526,16 @@ function createProductionEnv(directory) {
     'FSUSBLOG_SHARED_UPLOADS_VOLUME=fsusblog-uploads-fixture',
     'FSUSBLOG_SHARED_DATA_PROTECTION_VOLUME=fsusblog-data-protection-fixture',
     'FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1', 'FSUSBLOG_ZK_PROD_ENABLED=true',
-    'FSUSBLOG_ZK_TRUSTED_SETUP_VERIFIED=true', 'FSUSBLOG_ZK_CREDENTIAL_READY=true',
-    'FSUSBLOG_ZK_VERIFIER_ENABLED=true', 'FSUSBLOG_ZK_CREDENTIAL_ISSUER_ENABLED=true',
-    `FSUSBLOG_ZK_CONFIG_DIR=${configDir}`, `FSUSBLOG_ZK_SECRET_DIR=${secretDir}`,
-    `FSUSBLOG_ZK_VERIFYING_KEY_HASH=${hash(path.join(configDir, 'comment.v5.vk'))}`,
-    'FSUSBLOG_ZK_TRUSTED_SETUP_MANIFEST=/app/config/zk/trusted.json',
-    'FSUSBLOG_ZK_VERIFYING_KEY_MANIFEST=/app/config/zk/verifying.json',
-    'FSUSBLOG_ZK_GROTH16_VERIFYING_KEY=/app/config/zk/comment.v5.vk',
-    'FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_ID=issuer-v1',
-    'FSUSBLOG_ZK_ISSUER_PUBLIC_KEY=/app/config/zk/issuer-public.key',
-    'FSUSBLOG_ZK_ISSUER_PRIVATE_KEY=/app/secrets/zk/issuer-private.key',
+        'FSUSBLOG_ZK_TRUSTED_SETUP_VERIFIED=true', 'FSUSBLOG_ZK_CREDENTIAL_READY=true',
+        'FSUSBLOG_ZK_VERIFIER_ENABLED=true', 'FSUSBLOG_ZK_CREDENTIAL_ISSUER_ENABLED=true',
+        `FSUSBLOG_ZK_CONFIG_DIR=${configDir}`, `FSUSBLOG_ZK_SECRET_DIR=${secretDir}`,
+        `FSUSBLOG_ZK_VERIFYING_KEY_HASH=${hash(path.join(configDir, 'comment.v5.vk'))}`,
+        'FSUSBLOG_ZK_TRUSTED_SETUP_MANIFEST=/app/config/zk/trusted.json',
+        'FSUSBLOG_ZK_VERIFYING_KEY_MANIFEST=/app/config/zk/verifying.json',
+        'FSUSBLOG_ZK_GROTH16_VERIFYING_KEY=/app/config/zk/comment.v5.vk',
+        'FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_ID=issuer-v1',
+        'FSUSBLOG_ZK_ISSUER_PUBLIC_KEY=/app/config/zk/issuer-public.key',
+        'FSUSBLOG_ZK_ISSUER_PRIVATE_KEY=/app/secrets/zk/issuer-private.key',
     `FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_HASH=${hash(path.join(configDir, 'issuer-public.key'))}`
   ].join('\n') + '\n')
   return envFile

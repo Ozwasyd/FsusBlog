@@ -128,31 +128,33 @@ test('layout identity binds run, source fingerprint and digest before readiness 
   assert.match(digestDeclaredOutputs(root, [canonical], env)[canonical], /^sha256:/u)
   assert.equal(fs.existsSync(env.FSUSBLOG_ARTIFACT_DIGEST_TABLE), true)
   finalizeProductionBuildLayout(layout, { status: 'success' })
-  assert.equal(productionBuildLayoutDigest(layout), identityDigest)
-})
+    assert.equal(productionBuildLayoutDigest(layout), identityDigest);
+});
 
-test('a run root cannot be rebound to another source identity while retaining its artifacts', t => {
-  const root = repositoryFixture(t)
-  const layout = prepareProductionBuildLayout({ root, runId: 'immutable-source' })
-  const originalSource = { commit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) }
-  bindProductionBuildLayoutSource(layout, originalSource)
-  fs.mkdirSync(layout.frontendDist, { recursive: true })
-  const artifact = path.join(layout.frontendDist, 'index.html')
-  fs.writeFileSync(artifact, 'original-source')
-  const originalDigest = productionBuildLayoutDigest(layout)
+test('a run root cannot be rebound to another source identity while retaining its artifacts', t =>
+{
+    const root = repositoryFixture(t);
+    const layout = prepareProductionBuildLayout({ root, runId: 'immutable-source' });
+    const originalSource = { commit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) };
+    bindProductionBuildLayoutSource(layout, originalSource);
+    fs.mkdirSync(layout.frontendDist, { recursive: true });
+    const artifact = path.join(layout.frontendDist, 'index.html');
+    fs.writeFileSync(artifact, 'original-source');
+    const originalDigest = productionBuildLayoutDigest(layout);
 
-  assert.deepEqual(bindProductionBuildLayoutSource(layout, originalSource).sourceState, originalSource)
-  assert.throws(() => bindProductionBuildLayoutSource(layout, {
-    commit: 'c'.repeat(40),
-    worktreeFingerprint: 'd'.repeat(64)
-  }), /source identity is immutable/u)
-  assert.equal(productionBuildLayoutDigest(layout), originalDigest)
-  assert.equal(fs.readFileSync(artifact, 'utf8'), 'original-source')
-})
+    assert.deepEqual(bindProductionBuildLayoutSource(layout, originalSource).sourceState, originalSource);
+    assert.throws(() => bindProductionBuildLayoutSource(layout, {
+        commit: 'c'.repeat(40),
+        worktreeFingerprint: 'd'.repeat(64)
+    }), /source identity is immutable/u);
+    assert.equal(productionBuildLayoutDigest(layout), originalDigest);
+    assert.equal(fs.readFileSync(artifact, 'utf8'), 'original-source');
+});
 
-test('fresh run never reads an older run root and finalization removes the active marker', t => {
-  const root = repositoryFixture(t)
-  const oldLayout = prepareProductionBuildLayout({ root, runId: 'old-run' })
+test('fresh run never reads an older run root and finalization removes the active marker', t =>
+{
+    const root = repositoryFixture(t);
+    const oldLayout = prepareProductionBuildLayout({ root, runId: 'old-run' });
   fs.mkdirSync(oldLayout.frontendDist, { recursive: true })
   fs.writeFileSync(path.join(oldLayout.frontendDist, 'index.html'), 'stale')
   const current = prepareProductionBuildLayout({ root, runId: 'current-run' })

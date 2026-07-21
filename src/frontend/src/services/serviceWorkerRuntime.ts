@@ -80,16 +80,17 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
     return null
   }
 
-  bindListener()
-  if (!registrationPromise) {
-    const base = (import.meta.env.BASE_URL || '/').replace(/\/?$/, '/')
-    const scriptUrl = resolveServiceWorkerScriptUrl(
-      base,
-      import.meta.env.VITE_FSUSBLOG_BUILD_ID,
-      true)
-    registrationPromise = navigator.serviceWorker.register(toTrustedServiceWorkerScriptUrl(
-      scriptUrl
-    ) as string, {
+    bindListener();
+    if (!registrationPromise)
+{
+        const base = (import.meta.env.BASE_URL || '/').replace(/\/?$/, '/');
+        const scriptUrl = resolveServiceWorkerScriptUrl(
+            base,
+            import.meta.env.VITE_FSUSBLOG_BUILD_ID,
+            true);
+        registrationPromise = navigator.serviceWorker.register(toTrustedServiceWorkerScriptUrl(
+            scriptUrl
+        ) as string, {
       scope: '/',
       type: 'module',
       updateViaCache: 'none'
@@ -222,15 +223,15 @@ export async function clearPrivateBrowserState(
   reason: PrivateBrowserStateClearReason,
   options: { broadcastCredentialPurge?: boolean } = {}
 ): Promise<PrivateBrowserStateClearResult> {
-  const storageCleanup = clearRegisteredPrivateState({
-    trigger: reason as PrivateStateCleanupTrigger
-  })
-  const panicCachePurge = reason === 'panic'
-    ? storageCleanup.then(() => clearEveryFsusBlogCache())
-    : Promise.resolve(true)
-  const credentialPurge = reason === 'admin-logout'
-    ? Promise.resolve()
-    : purgeCommentPrivacyCredentialState(reason, {
+    const storageCleanup = clearRegisteredPrivateState({
+        trigger: reason as PrivateStateCleanupTrigger
+    });
+    const panicCachePurge = reason === 'panic'
+        ? storageCleanup.then(() => clearEveryFsusBlogCache())
+        : Promise.resolve(true);
+    const credentialPurge = reason === 'admin-logout'
+        ? Promise.resolve()
+        : purgeCommentPrivacyCredentialState(reason, {
         broadcast: options.broadcastCredentialPurge !== false
       })
   const legacyDatabasePurge = reason === 'admin-logout'
@@ -242,12 +243,12 @@ export async function clearPrivateBrowserState(
     ? postSwControlMessageToAllWorkers({ type: 'privacy.clear', reason })
     : Promise.resolve({ targetCount: 0, acknowledgedCount: 0 })
   return await buildPrivateBrowserStateClearResult(
-    credentialPurgeStatus,
-    legacyDatabasePurgeStatus,
-    serviceWorkerPurge,
-    storageCleanup,
-    panicCachePurge
-  )
+        credentialPurgeStatus,
+        legacyDatabasePurgeStatus,
+        serviceWorkerPurge,
+        storageCleanup,
+        panicCachePurge
+    );
 }
 
 export async function panicWipePrivateBrowserState(): Promise<PrivateBrowserStateClearResult> {
@@ -299,41 +300,46 @@ async function cleanupStatus(promise: Promise<unknown>): Promise<boolean> {
     return true
   } catch {
     return false
-  }
+    }
 }
 
-async function clearEveryFsusBlogCache(): Promise<boolean> {
-  if (typeof caches === 'undefined') return true
-  try {
-    const cacheNames = await caches.keys()
-    const results = await Promise.all(cacheNames.map(async cacheName =>
-      !cacheName.startsWith('fsus-') || await caches.delete(cacheName)))
-    return results.every(Boolean)
-  } catch {
-    return false
-  }
+async function clearEveryFsusBlogCache(): Promise<boolean>
+{
+    if (typeof caches === 'undefined') {return true};
+    try
+{
+        const cacheNames = await caches.keys();
+        const results = await Promise.all(cacheNames.map(async cacheName =>
+            !cacheName.startsWith('fsus-') || await caches.delete(cacheName)));
+        return results.every(Boolean);
+    }
+ catch
+{
+        return false;
+    }
 }
 
 async function buildPrivateBrowserStateClearResult(
-  credentialPurgeStatus: Promise<boolean>,
-  legacyDatabasePurgeStatus: Promise<boolean>,
-  serviceWorkerPurge: Promise<{ targetCount: number; acknowledgedCount: number }>,
-  storageCleanup: Promise<PrivateStorageCleanupResult>,
-  panicCachePurge: Promise<boolean>
-): Promise<PrivateBrowserStateClearResult> {
-  const [credentialStateCleared, legacyCredentialDatabaseCleared, workerResult, registryResult, panicCachesCleared] = await Promise.all([
-    credentialPurgeStatus,
-    legacyDatabasePurgeStatus,
-    serviceWorkerPurge,
-    storageCleanup,
-    panicCachePurge
-  ])
-  const cacheStorageCleared = registryResult.items
-    .filter(item => item.medium === 'cache-storage')
-    .every(item => item.status !== 'failed') && panicCachesCleared
-  return {
-    registeredStorageCleared: registryResult.complete,
-    credentialStateCleared,
+    credentialPurgeStatus: Promise<boolean>,
+    legacyDatabasePurgeStatus: Promise<boolean>,
+    serviceWorkerPurge: Promise<{ targetCount: number; acknowledgedCount: number; }>,
+    storageCleanup: Promise<PrivateStorageCleanupResult>,
+    panicCachePurge: Promise<boolean>
+): Promise<PrivateBrowserStateClearResult>
+{
+    const [credentialStateCleared, legacyCredentialDatabaseCleared, workerResult, registryResult, panicCachesCleared] = await Promise.all([
+        credentialPurgeStatus,
+        legacyDatabasePurgeStatus,
+        serviceWorkerPurge,
+        storageCleanup,
+        panicCachePurge
+    ]);
+    const cacheStorageCleared = registryResult.items
+        .filter(item => item.medium === 'cache-storage')
+        .every(item => item.status !== 'failed') && panicCachesCleared;
+    return {
+        registeredStorageCleared: registryResult.complete,
+        credentialStateCleared,
     legacyCredentialDatabaseCleared,
     serviceWorkerAcknowledged: workerResult.acknowledgedCount === workerResult.targetCount,
     cacheStorageCleared,

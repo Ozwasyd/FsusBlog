@@ -1,10 +1,10 @@
 import {
-  isCanonicalReleaseId,
-  LOCAL_UNVERSIONED_RELEASE_ID
-} from '@/generated/releaseIdContract'
+    isCanonicalReleaseId,
+    LOCAL_UNVERSIONED_RELEASE_ID
+} from '@/generated/releaseIdContract';
 
-export const BOOTSTRAP_IMPORT_RETRY_KEY = 'fsus:bootstrap-import-retry'
-export const BOOTSTRAP_IMPORT_RETRY_TTL_MS = 5 * 60 * 1000
+export const BOOTSTRAP_IMPORT_RETRY_KEY = 'fsus:bootstrap-import-retry';
+export const BOOTSTRAP_IMPORT_RETRY_TTL_MS = 5 * 60 * 1000;
 
 interface BootstrapImportRetryState {
   buildId: string
@@ -33,16 +33,20 @@ export function isRecoverableBootstrapImportError(error: unknown): boolean {
 
 export function createBootstrapImportRecovery(
   options: BootstrapImportRecoveryOptions
-): BootstrapImportRecovery {
-  const now = options.now ?? Date.now
-  const ttlMs = options.ttlMs ?? BOOTSTRAP_IMPORT_RETRY_TTL_MS
-  const buildId = options.buildId.trim()
-  if (buildId !== LOCAL_UNVERSIONED_RELEASE_ID && !isCanonicalReleaseId(buildId)) {
-    throw new Error('Bootstrap import recovery requires a canonical frontend build identity.')
-  }
+): BootstrapImportRecovery
+{
+    const now = options.now ?? Date.now;
+    const ttlMs = options.ttlMs ?? BOOTSTRAP_IMPORT_RETRY_TTL_MS;
+    const buildId = options.buildId.trim();
+    if (buildId !== LOCAL_UNVERSIONED_RELEASE_ID && !isCanonicalReleaseId(buildId))
+{
+        throw new Error('Bootstrap import recovery requires a canonical frontend build identity.');
+    }
 
-  const clear = (): void => {
-    try {
+    const clear = (): void =>
+{
+        try
+{
       options.storage.removeItem(BOOTSTRAP_IMPORT_RETRY_KEY)
     } catch {
       // Storage can be unavailable in hardened/private browser contexts.

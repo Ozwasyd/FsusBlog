@@ -50,13 +50,14 @@ function compatibility(releaseId, overrides = {}) {
   return createReleaseCompatibilityMetadata({ releaseId, ...overrides })
 }
 
-test('materialization is release-addressed append-only idempotent and keeps old assets', (t) => {
-  const { root, source, store } = fixture(t)
-  const firstRelease = '20260710010101-aaaaaaaaaaaa'
-  const secondRelease = '20260711010101-bbbbbbbbbbbb'
-  writeSource(source, 'aaaaaa')
+test('materialization is release-addressed append-only idempotent and keeps old assets', (t) =>
+{
+    const { root, source, store } = fixture(t);
+    const firstRelease = '20260710010101-aaaaaaaaaaaa';
+    const secondRelease = '20260711010101-bbbbbbbbbbbb';
+    writeSource(source, 'aaaaaa');
 
-  const dryRun = materializeReleaseAssets({
+    const dryRun = materializeReleaseAssets({
     releaseId: firstRelease,
     slot: 'blue',
     sourceDirectory: source,
@@ -115,15 +116,16 @@ test('materialization is release-addressed append-only idempotent and keeps old 
     dryRun: false
   }), /append-only asset conflict/u)
   assert.equal(root.length > 0, true)
-})
+});
 
-test('compatibility matrix covers N N-1 old service worker and old decoder', () => {
-  const candidate = compatibility('20260711010101-bbbbbbbbbbbb')
-  const active = compatibility('20260710010101-aaaaaaaaaaaa')
-  const previous = compatibility('20260709010101-999999999999')
+test('compatibility matrix covers N N-1 old service worker and old decoder', () =>
+{
+    const candidate = compatibility('20260711010101-bbbbbbbbbbbb');
+    const active = compatibility('20260710010101-aaaaaaaaaaaa');
+    const previous = compatibility('20260709010101-999999999999');
 
-  const matrix = buildCompatibilityMatrix({
-    candidate,
+    const matrix = buildCompatibilityMatrix({
+        candidate,
     active,
     previous,
     retainedAssetReleaseIds: [candidate.releaseId, active.releaseId, previous.releaseId]
@@ -135,13 +137,13 @@ test('compatibility matrix covers N N-1 old service worker and old decoder', () 
     'N-1-client-to-N-server',
     'previous-client-to-N-server',
     'old-service-worker-assets-retained',
-    'old-decoder-to-N-frame'
-  ])
+        'old-decoder-to-N-frame'
+    ]);
 
-  const incompatibleOldClient = compatibility('20260708010101-888888888888', {
-    aeds: { emitVersion: 1, minDecoderVersion: 1, maxDecoderVersion: 1 }
-  })
-  const result = evaluateClientServerCompatibility(incompatibleOldClient, candidate)
+    const incompatibleOldClient = compatibility('20260708010101-888888888888', {
+        aeds: { emitVersion: 1, minDecoderVersion: 1, maxDecoderVersion: 1 }
+    });
+    const result = evaluateClientServerCompatibility(incompatibleOldClient, candidate);
   assert.equal(result.compatible, false)
   assert.match(result.errors.join('\n'), /AEDS frame/u)
 })
@@ -149,32 +151,34 @@ test('compatibility matrix covers N N-1 old service worker and old decoder', () 
 test('service worker derives cache namespace and search URLs from immutable build identity', () => {
   const serviceWorker = fs.readFileSync(path.join(repositoryRoot, 'src/frontend/public/sw.js'), 'utf8')
 
-  assert.match(serviceWorker, /new URL\(self\.location\.href\)\.searchParams\.get\('build'\)/u)
-  assert.match(serviceWorker, /fsus-static-v5\$\{CACHE_NAMESPACE\}/u)
-  assert.match(serviceWorker, /\/release-derived\/\$\{FRONTEND_BUILD_ID\}\/search/u)
-  assert.match(serviceWorker, /importScripts\('\/generated\/release-id-contract\.js'\)/u)
-  assert.match(serviceWorker, /FsusReleaseIdContract\.isCanonicalReleaseId\(BUILD_ID_CANDIDATE\)/u)
-})
+    assert.match(serviceWorker, /new URL\(self\.location\.href\)\.searchParams\.get\('build'\)/u);
+    assert.match(serviceWorker, /fsus-static-v5\$\{CACHE_NAMESPACE\}/u);
+    assert.match(serviceWorker, /\/release-derived\/\$\{FRONTEND_BUILD_ID\}\/search/u);
+    assert.match(serviceWorker, /importScripts\('\/generated\/release-id-contract\.js'\)/u);
+    assert.match(serviceWorker, /FsusReleaseIdContract\.isCanonicalReleaseId\(BUILD_ID_CANDIDATE\)/u);
+});
 
-test('GC dry-run is locked and protects active previous draining retention and references', (t) => {
-  const { root, store } = fixture(t)
-  const releases = [
-    ['20260701010101-000001000001', 'orphan'],
-    ['20260711010101-111111111111', 'active'],
-    ['20260710010101-222222222222', 'previous'],
-    ['20260709010101-333333333333', 'draining'],
-    ['20260708010101-444444444444', 'retained'],
-    ['20260707010101-555555555555', 'referenced']
-  ]
-  for (const [releaseId, marker] of releases) {
-    const source = path.join(root, `source-${marker}`)
-    writeSource(source, marker)
-    materializeReleaseAssets({
-      releaseId,
-      slot: marker === 'active' ? 'green' : 'blue',
-      sourceDirectory: source,
-      storeDirectory: store,
-      compatibility: compatibility(releaseId),
+test('GC dry-run is locked and protects active previous draining retention and references', (t) =>
+{
+    const { root, store } = fixture(t);
+    const releases = [
+        ['20260701010101-000001000001', 'orphan'],
+        ['20260711010101-111111111111', 'active'],
+        ['20260710010101-222222222222', 'previous'],
+        ['20260709010101-333333333333', 'draining'],
+        ['20260708010101-444444444444', 'retained'],
+        ['20260707010101-555555555555', 'referenced']
+    ];
+    for (const [releaseId, marker] of releases)
+{
+        const source = path.join(root, `source-${marker}`);
+        writeSource(source, marker);
+        materializeReleaseAssets({
+            releaseId,
+            slot: marker === 'active' ? 'green' : 'blue',
+            sourceDirectory: source,
+            storeDirectory: store,
+            compatibility: compatibility(releaseId),
       dryRun: false
     })
   }
@@ -207,27 +211,28 @@ test('GC dry-run is locked and protects active previous draining retention and r
   assert.equal(fs.existsSync(path.join(store, 'releases', releases[1][0])), true)
 })
 
-test('host CLIs emit stable machine JSON and retained asset gate fails closed', (t) => {
-  const { root, source, store } = fixture(t)
-  const candidateRelease = '20260711010101-0123456789ab'
-  const previousRelease = '20260710010101-fedcbafedcba'
-  writeSource(source, 'candidate')
-  const releaseManifestFile = path.join(root, 'release-manifest.json')
-  writeReleaseManifestAtomic(releaseManifestFile, createReleaseManifest({
+test('host CLIs emit stable machine JSON and retained asset gate fails closed', (t) =>
+{
+    const { root, source, store } = fixture(t);
+    const candidateRelease = '20260711010101-0123456789ab';
+    const previousRelease = '20260710010101-fedcbafedcba';
+    writeSource(source, 'candidate');
+    const releaseManifestFile = path.join(root, 'release-manifest.json');
+    writeReleaseManifestAtomic(releaseManifestFile, createReleaseManifest({
     releaseId: candidateRelease,
     commitSha: '0123456789abcdef0123456789abcdef01234567',
     imageRepository: 'ghcr.io/fsusblog/app',
     imageTag: `ghcr.io/fsusblog/app:${candidateRelease}`,
     imageDigest: `sha256:${'a'.repeat(64)}`,
     registryDigestVerified: true,
-    createdAtUtc: '2026-07-11T01:01:01.000Z',
-    frontendManifestHash: `sha256:${'b'.repeat(64)}`,
-    wasmArtifactHash: `sha256:${'c'.repeat(64)}`,
-    schemaMinimumCoordinate: previousRelease,
-    schemaMaximumCoordinate: candidateRelease,
-    dotnetVersion: '10.0.100',
-    nodeVersion: 'v20.19.0',
-    dockerVersion: '28.0.0',
+        createdAtUtc: '2026-07-11T01:01:01.000Z',
+        frontendManifestHash: `sha256:${'b'.repeat(64)}`,
+        wasmArtifactHash: `sha256:${'c'.repeat(64)}`,
+        schemaMinimumCoordinate: previousRelease,
+        schemaMaximumCoordinate: candidateRelease,
+        dotnetVersion: '10.0.100',
+        nodeVersion: 'v20.19.0',
+        dockerVersion: '28.0.0',
     dockerfileDigest: `sha256:${'d'.repeat(64)}`,
     runtimeProfile: {
       id: 'throughput-musl',

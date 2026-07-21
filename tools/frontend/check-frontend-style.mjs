@@ -444,25 +444,61 @@ function writeBaseline(violations)
         entry.ids.push(violation.id);
         byFile.set(violation.file, entry);
     }
-    const files = [...byFile.entries()].map(([file, entry]) => ({
+    const currentFiles = [...byFile.entries()].map(([file, entry]) => ({
         path: file,
         sourceSha256: sha256(fs.readFileSync(path.join(root, file))),
         violationCount: entry.ids.length,
         violationDigest: sha256(entry.ids.sort().join('\n')),
         rules: Object.fromEntries(Object.entries(entry.rules).sort(([left], [right]) => compareOrdinal(left, right)))
     })).sort((left, right) => compareOrdinal(left.path, right.path));
+    let files = currentFiles;
+    if (fs.existsSync(target))
+    {
+        const previous = readJson(target, policy.baseline);
+        if (!previous || previous.schema !== baselineSchema || !Array.isArray(previous.files))
+        {
+            fail('cannot update an invalid frontend style baseline');
+            return;
+        }
+        const previousByPath = new Map(previous.files.map((entry) => [entry.path, entry]));
+        if (previousByPath.size !== previous.files.length)
+        {
+            fail('frontend style baseline contains duplicate paths');
+            return;
+        }
+        for (const current of currentFiles)
+        {
+            const prior = previousByPath.get(current.path);
+            if (!prior)
+            {
+                fail(`refusing new frontend style baseline path ${current.path} with ${current.violationCount} violations`);
+                continue;
+            }
+            if (current.violationCount > prior.violationCount)
+            {
+                fail(`refusing frontend style baseline violation increase for ${current.path}: ${prior.violationCount} -> ${current.violationCount}`);
+            }
+        }
+        if (failures.length > 0)
+        {
+            return;
+        }
+        const currentByPath = new Map(currentFiles.map((entry) => [entry.path, entry]));
+        files = previous.files.map((entry) => currentByPath.get(entry.path) ?? entry);
+    }
     const commit = command(['git', 'rev-parse', 'HEAD'], { allowFailure: true }).stdout.trim() || 'uncommitted';
+    const violationCount = files.reduce((sum, entry) => sum + entry.violationCount, 0);
     const document = {
         schema: baselineSchema,
         generatedFrom: commit,
         configurationSha256: configurationDigest(),
-        violationCount: violations.length,
+        violationCount,
         fileCount: files.length,
         files
     };
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, `${JSON.stringify(document, null, 4)}\n`);
-    console.log(`[frontend-style] baseline updated violations=${violations.length} path=${policy.baseline}`);
+    console.log(`[frontend-style] baseline updated violations=${violationCount} path=${policy.baseline}`);
 }
 
 function validateSpecializedGovernance()

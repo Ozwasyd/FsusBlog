@@ -863,24 +863,24 @@ test('cold frontend static phases move to frontend-tests while build-static rema
   assert.match(frontendBundleRunner, /executeWeightedStepDag\(\[[\s\S]*?staticStageStep\('concurrent'/u)
   assert.match(frontendBundleRunner, /staticStageStep\('postbuild',[\s\S]*?dependsOn: \['frontend-build-ready'\]/u)
   assert.match(frontendBundleRunner, /staticStageStep\('isolated',[\s\S]*?dependsOn: \['vitest-settled'\]/u)
-  assert.match(frontendBundleRunner, /commandStep\('frontend-static-final-ready',[\s\S]*?runAfterSettled: true,[\s\S]*?coordinationOnly: true/u)
-  assert.match(frontendBundleRunner, /staticStageStep\('final',[\s\S]*?dependsOn: \['frontend-static-final-ready'\]/u)
-  assert.match(localBundleRunner, /frontend-build-ready\.v1[\s\S]*?schedulerRunId: runId[\s\S]*?privacyWasmArtifacts[\s\S]*?artifactRef/u)
-  assert.match(localBundleRunner, /validateFrontendBuildStageReceiptIdentity\(stageReceipt,[\s\S]*?runId,[\s\S]*?sourceState: currentSourceState\(\)/u)
-  assert.match(localBundleRunner, /expectedFrontendBuildStages\(\)[\s\S]*?createFrontendBuildStages/u)
-  assert.match(localBundleRunner, /criticalFrontendBuildStageOutputs[\s\S]*?frontendDistRoot[\s\S]*?frontendWasmRoot[\s\S]*?backendWebRoot/u)
-  assert.match(localBundleRunner, /stageReceipt:[\s\S]*?path: stageReceiptPath[\s\S]*?digest:[\s\S]*?contentDigest:[\s\S]*?artifactRef:[\s\S]*?identity: stageReceiptIdentity/u)
-  assert.match(localBundleRunner, /frontendDist:[\s\S]*?path: frontendDistPath[\s\S]*?digest:[\s\S]*?artifactRef:/u)
-  assert.match(localBundleRunner, /backendWebRoot:[\s\S]*?path: backendWebRootPath[\s\S]*?digest:[\s\S]*?artifactRef:/u)
-  assert.match(localBundleRunner, /if \(step\.id === 'sync-static-assets'\) publishFrontendBuildReady\(\)/u)
-  assert.match(localBundleRunner, /async function waitForFrontendBuildReady[\s\S]*?marker\.schedulerRunId !== expectedRunId[\s\S]*?digestArtifacts/u)
-  assert.match(localBundleRunner, /async function waitForFrontendBuildReady[\s\S]*?validateFrontendBuildStageReceiptBinding\([\s\S]*?expectedPath: stageReceiptPath[\s\S]*?marker\.stageReceipt\.digest[\s\S]*?marker\.stageReceipt\.artifactRef/u)
-  assert.match(localBundleRunner, /producerStepId: 'sync-static-assets'[\s\S]*?publishedAt/u)
-  assert.match(localBundleRunner, /function publishFrontendBuildTerminal[\s\S]*?publishFrontendBuildTerminalMarker/u)
-  assert.match(localBundleRunner, /function publishFrontendBuildTerminal[\s\S]*?validateExistingSuccess:[\s\S]*?validateFrontendBuildStageReceiptBinding/u)
-  assert.match(localBundleRunner, /\['frontend-build', 'sync-static-assets'\]\.includes\(step\.id\)[\s\S]*?publishFrontendBuildTerminal\('failure'/u)
-  assert.match(localBundleRunner, /bundleId === 'build-static'\) publishFrontendBuildTerminal\('cancelled', signal\)/u)
-  assert.match(localBundleRunner, /function resolveMarkerPollIntervalMs\(\)[\s\S]*?bundleCapacity\(\)\.cpuUnits[\s\S]*?Math\.ceil\(1000 \/ cpuUnits\)/u)
+    assert.match(frontendBundleRunner, /commandStep\('frontend-static-final-ready',[\s\S]*?runAfterSettled: true,[\s\S]*?coordinationOnly: true/u);
+    assert.match(frontendBundleRunner, /staticStageStep\('final',[\s\S]*?dependsOn: \['frontend-static-final-ready'\]/u);
+    assert.match(localBundleRunner, /frontend-build-ready\.v1[\s\S]*?schedulerRunId: runId[\s\S]*?privacyWasmArtifacts[\s\S]*?artifactRef/u);
+    assert.match(localBundleRunner, /validateFrontendBuildStageReceiptIdentity\(stageReceipt,[\s\S]*?runId,[\s\S]*?sourceState: currentSourceState\(\)/u);
+    assert.match(localBundleRunner, /expectedFrontendBuildStages\(\)[\s\S]*?createFrontendBuildStages/u);
+    assert.match(localBundleRunner, /criticalFrontendBuildStageOutputs[\s\S]*?frontendDistRoot[\s\S]*?frontendWasmRoot[\s\S]*?backendWebRoot/u);
+    assert.match(localBundleRunner, /stageReceipt:[\s\S]*?path: stageReceiptPath[\s\S]*?digest:[\s\S]*?contentDigest:[\s\S]*?artifactRef:[\s\S]*?identity: stageReceiptIdentity/u);
+    assert.match(localBundleRunner, /frontendDist:[\s\S]*?path: frontendDistPath[\s\S]*?digest:[\s\S]*?artifactRef:/u);
+    assert.match(localBundleRunner, /backendWebRoot:[\s\S]*?path: backendWebRootPath[\s\S]*?digest:[\s\S]*?artifactRef:/u);
+    assert.match(localBundleRunner, /if \(step\.id === 'sync-static-assets'\) publishFrontendBuildReady\(\)/u);
+    assert.match(localBundleRunner, /async function waitForFrontendBuildReady[\s\S]*?marker\.schedulerRunId !== expectedRunId[\s\S]*?digestArtifacts/u);
+    assert.match(localBundleRunner, /async function waitForFrontendBuildReady[\s\S]*?validateFrontendBuildStageReceiptBinding\([\s\S]*?expectedPath: stageReceiptPath[\s\S]*?marker\.stageReceipt\.digest[\s\S]*?marker\.stageReceipt\.artifactRef/u);
+    assert.match(localBundleRunner, /producerStepId: 'sync-static-assets'[\s\S]*?publishedAt/u);
+    assert.match(localBundleRunner, /function publishFrontendBuildTerminal[\s\S]*?publishFrontendBuildTerminalMarker/u);
+    assert.match(localBundleRunner, /function publishFrontendBuildTerminal[\s\S]*?validateExistingSuccess:[\s\S]*?validateFrontendBuildStageReceiptBinding/u);
+    assert.match(localBundleRunner, /\['frontend-build', 'sync-static-assets'\]\.includes\(step\.id\)[\s\S]*?publishFrontendBuildTerminal\('failure'/u);
+    assert.match(localBundleRunner, /bundleId === 'build-static'\) publishFrontendBuildTerminal\('cancelled', signal\)/u);
+    assert.match(localBundleRunner, /function resolveMarkerPollIntervalMs\(\)[\s\S]*?bundleCapacity\(\)\.cpuUnits[\s\S]*?Math\.ceil\(1000 \/ cpuUnits\)/u);
 })
 
 test('runtime early start is guarded by run-bound atomic backend and frontend build markers', () => {
@@ -896,14 +896,14 @@ test('runtime early start is guarded by run-bound atomic backend and frontend bu
   assert.match(localBundleRunner, /writeFileSync\(temporary[\s\S]*?renameSync\(temporary, markerFile\)/u)
   assert.match(localBundleRunner, /async function waitForBackendBuildReady[\s\S]*?marker\.schema !== 'fsusblog\.local-production\.backend-build-ready\.v1'[\s\S]*?marker\.schedulerRunId !== expectedRunId[\s\S]*?digestArtifacts/u)
   assert.match(localBundleRunner, /async function waitForFrontendBuildReady[\s\S]*?marker\.schema !== 'fsusblog\.local-production\.frontend-build-ready\.v1'[\s\S]*?marker\.schedulerRunId !== expectedRunId[\s\S]*?digestArtifacts/u)
-  assert.match(localBundleRunner, /function buildLayoutBinding\(\)[\s\S]*?productionBuildLayoutDigest[\s\S]*?sourceFingerprint/u)
-  assert.match(localBundleRunner, /benchmarkDll:[\s\S]*?digest: artifact\.digests\[artifactPath\][\s\S]*?contentDigest: fileContentDigest\(benchmarkDll\)[\s\S]*?artifactRef/u)
-  assert.match(localBundleRunner, /async function waitForBenchmarkBuildReady[\s\S]*?digestArtifacts\(\[artifactPath\],[\s\S]*?marker\.benchmarkDll\?\.digest !== artifact\.digests\[artifactPath\][\s\S]*?marker\.benchmarkDll\?\.contentDigest !== fileContentDigest\(benchmarkDll\)[\s\S]*?marker\.benchmarkDll\?\.artifactRef !== artifact\.refs\[artifactPath\]/u)
-  assert.match(localBundleRunner, /production-frontend-build-contract\.v1[\s\S]*?privacyWasmArtifacts[\s\S]*?generatedContract/u)
-  assert.doesNotMatch(localBundleRunner, /generatedProverBundle/u)
-  assert.match(localBundleRunner, /checkpoint\.tiers\?\.\[`local-\$\{profileId\}-backend-tests`\]\?\.status[\s\S]*?failure[\s\S]*?blocked[\s\S]*?cancelled/u)
-  assert.match(localBundleRunner, /async function executeRuntimeStep[\s\S]*?backend-build-ready[\s\S]*?waitForBackendBuildReady[\s\S]*?frontend-build-ready[\s\S]*?waitForFrontendBuildReady/u)
-  assert.match(localBundleRunner, /bundleId === 'runtime-browser' \? executeRuntimeStep : executePerformanceStep/u)
+    assert.match(localBundleRunner, /function buildLayoutBinding\(\)[\s\S]*?productionBuildLayoutDigest[\s\S]*?sourceFingerprint/u);
+    assert.match(localBundleRunner, /benchmarkDll:[\s\S]*?digest: artifact\.digests\[artifactPath\][\s\S]*?contentDigest: fileContentDigest\(benchmarkDll\)[\s\S]*?artifactRef/u);
+    assert.match(localBundleRunner, /async function waitForBenchmarkBuildReady[\s\S]*?digestArtifacts\(\[artifactPath\],[\s\S]*?marker\.benchmarkDll\?\.digest !== artifact\.digests\[artifactPath\][\s\S]*?marker\.benchmarkDll\?\.contentDigest !== fileContentDigest\(benchmarkDll\)[\s\S]*?marker\.benchmarkDll\?\.artifactRef !== artifact\.refs\[artifactPath\]/u);
+    assert.match(localBundleRunner, /production-frontend-build-contract\.v1[\s\S]*?privacyWasmArtifacts[\s\S]*?generatedContract/u);
+    assert.doesNotMatch(localBundleRunner, /generatedProverBundle/u);
+    assert.match(localBundleRunner, /checkpoint\.tiers\?\.\[`local-\$\{profileId\}-backend-tests`\]\?\.status[\s\S]*?failure[\s\S]*?blocked[\s\S]*?cancelled/u);
+    assert.match(localBundleRunner, /async function executeRuntimeStep[\s\S]*?backend-build-ready[\s\S]*?waitForBackendBuildReady[\s\S]*?frontend-build-ready[\s\S]*?waitForFrontendBuildReady/u);
+    assert.match(localBundleRunner, /bundleId === 'runtime-browser' \? executeRuntimeStep : executePerformanceStep/u);
 })
 
 test('performance marker producers are exact and quiet markers publish only after bundle finalization', () => {

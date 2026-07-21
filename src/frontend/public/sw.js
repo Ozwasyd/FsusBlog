@@ -1,10 +1,10 @@
-importScripts('/generated/release-id-contract.js')
+importScripts('/generated/release-id-contract.js');
 
-const BUILD_ID_CANDIDATE = new URL(self.location.href).searchParams.get('build') ?? ''
+const BUILD_ID_CANDIDATE = new URL(self.location.href).searchParams.get('build') ?? '';
 const FRONTEND_BUILD_ID = self.FsusReleaseIdContract.isCanonicalReleaseId(BUILD_ID_CANDIDATE)
-  ? BUILD_ID_CANDIDATE
-  : ''
-const CACHE_NAMESPACE = FRONTEND_BUILD_ID ? `:${FRONTEND_BUILD_ID}` : ''
+    ? BUILD_ID_CANDIDATE
+    : '';
+const CACHE_NAMESPACE = FRONTEND_BUILD_ID ? `:${FRONTEND_BUILD_ID}` : '';
 const STATIC_CACHE = `fsus-static-v5${CACHE_NAMESPACE}`
 const SHELL_CACHE = `fsus-shell-v6${CACHE_NAMESPACE}`
 const SEARCH_CACHE = `fsus-search-v5${CACHE_NAMESPACE}`
@@ -52,21 +52,21 @@ const PUBLIC_SHELL_PATHS = [
   /^\/article\/\d+\/?$/,
   /^\/category\/\d+\/?$/,
   /^\/tag\/\d+\/?$/
-]
-const STATIC_ASSET_PATTERN = /\.(?:css|js|mjs|wasm|woff2?|ttf|otf|eot|ico|svg|png|jpe?g|webp|avif)$/i
-const WASM_RUNTIME_ASSET_PATTERN = /^\/wasm\/[^/]+\.(?:js|wasm|json)$/i
-const IMMUTABLE_RELEASE_WASM_ASSET_PATTERN = /^\/release-assets\/([^/]+)\/wasm\/[^/]+\.(?:js|wasm|json)$/i
-const IMMUTABLE_RELEASE_ASSET_PATTERN = /^\/release-assets\/([^/]+)\/[0-9A-Za-z][0-9A-Za-z._/-]*$/i
+];
+const STATIC_ASSET_PATTERN = /\.(?:css|js|mjs|wasm|woff2?|ttf|otf|eot|ico|svg|png|jpe?g|webp|avif)$/i;
+const WASM_RUNTIME_ASSET_PATTERN = /^\/wasm\/[^/]+\.(?:js|wasm|json)$/i;
+const IMMUTABLE_RELEASE_WASM_ASSET_PATTERN = /^\/release-assets\/([^/]+)\/wasm\/[^/]+\.(?:js|wasm|json)$/i;
+const IMMUTABLE_RELEASE_ASSET_PATTERN = /^\/release-assets\/([^/]+)\/[0-9A-Za-z][0-9A-Za-z._/-]*$/i;
 const PRIVATE_OR_SENSITIVE_PATHS = [
-  /^\/api(?:\/|$)/i,
-  /^\/(?:user|admin|login|account|manage|author|private)(?:\/|$)/i,
-  /^\/notifications?(?:\/|$)/i
-]
+    /^\/api(?:\/|$)/i,
+    /^\/(?:user|admin|login|account|manage|author|private)(?:\/|$)/i,
+    /^\/notifications?(?:\/|$)/i
+];
 const EXPLICIT_PUBLIC_STATIC_PATHS = [
-  /^\/assets\/[0-9A-Za-z][0-9A-Za-z._/-]*$/i,
-  /^\/favicon\/[0-9A-Za-z][0-9A-Za-z._/-]*$/i,
-  /^\/wasm\/[0-9A-Za-z][0-9A-Za-z._/-]*$/i,
-  /^\/favicon\.ico$/i
+    /^\/assets\/[0-9A-Za-z][0-9A-Za-z._/-]*$/i,
+    /^\/favicon\/[0-9A-Za-z][0-9A-Za-z._/-]*$/i,
+    /^\/wasm\/[0-9A-Za-z][0-9A-Za-z._/-]*$/i,
+    /^\/favicon\.ico$/i
 ]
 const PRIVATE_BROWSER_CACHE_NAME_PATTERN = /^fsus-(?:shell|search|search-meta)-/i
 const SENSITIVE_REQUEST_HEADERS = [
@@ -134,13 +134,14 @@ self.addEventListener('fetch', (event) => {
 
   if (isPublicShellRequest(request, url)) {
     event.respondWith(networkFirstShell(request))
-    return
-  }
+        return;
+    }
 
-  if (isCanonicalReleaseAssetPath(url.pathname, IMMUTABLE_RELEASE_WASM_ASSET_PATTERN)) {
-    event.respondWith(cacheFirstStatic(request))
-    return
-  }
+    if (isCanonicalReleaseAssetPath(url.pathname, IMMUTABLE_RELEASE_WASM_ASSET_PATTERN))
+{
+        event.respondWith(cacheFirstStatic(request));
+        return;
+    }
 
   if (WASM_RUNTIME_ASSET_PATTERN.test(url.pathname)) {
     event.respondWith(networkFirstStatic(request))
@@ -214,18 +215,21 @@ function isPrivateOrSensitiveRequest(request, url) {
   return SENSITIVE_REQUEST_HEADERS.some((header) => request.headers.has(header))
 }
 
-function isExplicitPublicStaticRequest(url) {
-  return STATIC_ASSET_PATTERN.test(url.pathname)
+function isExplicitPublicStaticRequest(url)
+{
+    return STATIC_ASSET_PATTERN.test(url.pathname)
     && (EXPLICIT_PUBLIC_STATIC_PATHS.some((pattern) => pattern.test(url.pathname))
-      || isCanonicalReleaseAssetPath(url.pathname, IMMUTABLE_RELEASE_ASSET_PATTERN))
+      || isCanonicalReleaseAssetPath(url.pathname, IMMUTABLE_RELEASE_ASSET_PATTERN));
 }
 
-function isCanonicalReleaseAssetPath(pathname, pattern) {
-  const match = pattern.exec(pathname)
-  return match !== null && self.FsusReleaseIdContract.isCanonicalReleaseId(match[1])
+function isCanonicalReleaseAssetPath(pathname, pattern)
+{
+    const match = pattern.exec(pathname);
+    return match !== null && self.FsusReleaseIdContract.isCanonicalReleaseId(match[1]);
 }
 
-async function networkOnlyRequest(request, failureKind) {
+async function networkOnlyRequest(request, failureKind)
+{
   try {
     // Sensitive requests retain credentials but bypass both Service Worker and HTTP caches.
     return await fetch(request, { cache: 'no-store' })

@@ -1,10 +1,10 @@
-import type { AppErrorCode } from '@/utils/appError'
+import type { AppErrorCode } from '@/utils/appError';
 import type {
-  ArticleListItemResponse,
-  InboxConversationStatusChangedPayload,
-  InboxConversationUpsertPayload,
-  InboxMessageAppendPayload,
-  InboxReadUpdatedPayload
+    ArticleListItemResponse,
+    InboxConversationStatusChangedPayload,
+    InboxConversationUpsertPayload,
+    InboxMessageAppendPayload,
+    InboxReadUpdatedPayload
 } from '@/contracts/binaryApi'
 import type { PowParams } from '@/contracts/binaryTransport'
 
@@ -79,19 +79,19 @@ export interface MessageRevokedPayload {
 
 export interface ArticleUpdatePayload {
   articleId: number
-  action: 'Created' | 'Updated' | 'Deleted' | 'Restored'
-  eventTime: string
-  preview?: ArticleListItemResponse | null
-  /** Immutable mutation coordinates; int64 values stay strings in the JS boundary. */
-  revisionId?: string | null
-  releaseId?: string | null
+    action: 'Created' | 'Updated' | 'Deleted' | 'Restored';
+    eventTime: string;
+    preview?: ArticleListItemResponse | null;
+    /** Immutable mutation coordinates; int64 values stay strings in the JS boundary. */
+    revisionId?: string | null;
+    releaseId?: string | null;
 }
 
 export interface CacheControlPayload {
-  type: 'shell.invalidate' | 'search-index.updated' | 'asset.clear' | 'comment-policy.updated'
-  scope?: string | null
-  cache?: string | null
-  keys?: string[] | null
+    type: 'shell.invalidate' | 'search-index.updated' | 'asset.clear' | 'comment-policy.updated';
+    scope?: string | null;
+    cache?: string | null;
+    keys?: string[] | null;
 }
 
 export interface SearchIndexUpdatePayload {
@@ -112,12 +112,12 @@ export const NotificationStreamEventType = {
   MessageRevoked: 9,
   CacheControl: 10,
   SearchIndexUpdated: 11,
-  InboxConversationUpsert: 12,
-  InboxMessageAppend: 13,
-  InboxReadUpdated: 14,
-  InboxConversationStatusChanged: 15,
-  SessionRevoked: 16
-} as const
+    InboxConversationUpsert: 12,
+    InboxMessageAppend: 13,
+    InboxReadUpdated: 14,
+    InboxConversationStatusChanged: 15,
+    SessionRevoked: 16
+} as const;
 
 export type NotificationStreamEventType = (typeof NotificationStreamEventType)[keyof typeof NotificationStreamEventType]
 
@@ -198,9 +198,9 @@ export type NotificationStreamInboxRenderPatch = Readonly<{
     | 'message-append'
     | 'read-updated'
     | 'conversation-status-changed'
-    | 'reconnected'
-  eventId?: number
-  ts?: number
+    | 'reconnected';
+    eventId?: number;
+    ts?: number;
   replayMissed?: boolean
   payload?:
     | NoticePayload
@@ -210,7 +210,7 @@ export type NotificationStreamInboxRenderPatch = Readonly<{
     | InboxConversationUpsertPayload
     | InboxMessageAppendPayload
     | InboxReadUpdatedPayload
-    | InboxConversationStatusChangedPayload
-}>
+    | InboxConversationStatusChangedPayload;
+}>;
 
-export type NotificationStreamRenderPatch = NotificationStreamArticleRenderPatch | NotificationStreamCommentRenderPatch | NotificationStreamInboxRenderPatch
+export type NotificationStreamRenderPatch = NotificationStreamArticleRenderPatch | NotificationStreamCommentRenderPatch | NotificationStreamInboxRenderPatch;

@@ -1,25 +1,25 @@
 #!/usr/bin/env node
-import crypto from 'node:crypto'
-import fs from 'node:fs'
-import path from 'node:path'
-import process from 'node:process'
-import { fileURLToPath } from 'node:url'
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
-import { evidenceClassificationErrors } from './evidence-classification.mjs'
-import { isValidReleaseId } from '../release/release-id.mjs'
-import { parseYamlDocument } from '../yaml/parse-document.mjs'
-import { workflowSectionKeys } from '../yaml/workflow-structure.mjs'
+import { evidenceClassificationErrors } from './evidence-classification.mjs';
+import { isValidReleaseId } from '../release/release-id.mjs';
+import { parseYamlDocument } from '../yaml/parse-document.mjs';
+import { workflowSectionKeys } from '../yaml/workflow-structure.mjs';
 
-const HISTORICAL_ROOT = 'docs/reports/open-source-readiness/v1.1.0-public-preview'
-const HISTORICAL_MANIFEST = `${HISTORICAL_ROOT}/snapshot-manifest.json`
-const MATRIX_PATH = 'security/matrices/privacy-zk-comment.yml'
+const HISTORICAL_ROOT = 'docs/reports/open-source-readiness/v1.1.0-public-preview';
+const HISTORICAL_MANIFEST = `${HISTORICAL_ROOT}/snapshot-manifest.json`;
+const MATRIX_PATH = 'security/matrices/privacy-zk-comment.yml';
 const REQUIRED_MATRIX_CLASSES = [
   'contract',
   'fixture',
   'implementation-attestation',
   'fresh-run-evidence',
   'release-closeout-evidence'
-]
+];
 const STATIC_PATH_CLASSES = new Map([
   ['security/evidence-contracts/anonymous-credential-blind-issuance.json', 'implementation-attestation'],
   ['security/evidence-contracts/comment-author-mode-retirement.json', 'implementation-attestation'],
@@ -254,13 +254,13 @@ function checkReleaseIndexes(root, errors) {
     if (!value) continue
     const keys = Object.keys(value).sort()
     if (JSON.stringify(keys) !== JSON.stringify(RELEASE_INDEX_KEYS)) {
-      errors.push(`${relative}: release index contains fields outside the strict identity and integrity schema`)
-    }
-    if (value.schema !== 'fsusblog.release-evidence-index.v1') errors.push(`${relative}: invalid schema`)
-    if (!isValidReleaseId(value.releaseId, { forPublication: true })) errors.push(`${relative}: invalid releaseId`)
-    if (!/^[0-9a-f]{40}$/u.test(String(value.commitSha ?? ''))) errors.push(`${relative}: invalid commitSha`)
-    if (!/^sha256:[0-9a-f]{64}$/u.test(String(value.imageDigest ?? ''))) errors.push(`${relative}: invalid imageDigest`)
-    if (!/^sha256:[0-9a-f]{64}$/u.test(String(value.evidenceBundleSha256 ?? ''))) errors.push(`${relative}: invalid evidenceBundleSha256`)
+            errors.push(`${relative}: release index contains fields outside the strict identity and integrity schema`);
+        }
+        if (value.schema !== 'fsusblog.release-evidence-index.v1') {errors.push(`${relative}: invalid schema`)};
+        if (!isValidReleaseId(value.releaseId, { forPublication: true })) {errors.push(`${relative}: invalid releaseId`)};
+        if (!/^[0-9a-f]{40}$/u.test(String(value.commitSha ?? ''))) {errors.push(`${relative}: invalid commitSha`)};
+        if (!/^sha256:[0-9a-f]{64}$/u.test(String(value.imageDigest ?? ''))) {errors.push(`${relative}: invalid imageDigest`)};
+        if (!/^sha256:[0-9a-f]{64}$/u.test(String(value.evidenceBundleSha256 ?? ''))) {errors.push(`${relative}: invalid evidenceBundleSha256`)};
     if (!/^github-actions:\/\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/actions\/runs\/\d+\/artifacts\/[A-Za-z0-9_.-]+$/u.test(String(value.storageReference ?? ''))) errors.push(`${relative}: invalid immutable storageReference`)
     if (value.status !== 'collected-ok') errors.push(`${relative}: status must be collected-ok`)
     if (!Number.isInteger(value.retentionDays) || value.retentionDays < 1) errors.push(`${relative}: invalid retentionDays`)

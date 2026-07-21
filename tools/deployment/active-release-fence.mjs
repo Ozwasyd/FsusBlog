@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
-import path from 'node:path'
-import process from 'node:process'
-import { isValidReleaseId } from '../release/release-id.mjs'
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import process from 'node:process';
+import { isValidReleaseId } from '../release/release-id.mjs';
 
-const SCHEMA_VERSION = 'fsus.active-release-fence-evidence.v1'
-const DEFAULT_OUTPUT = '.tmp/deployment/active-release-fence.json'
+const SCHEMA_VERSION = 'fsus.active-release-fence-evidence.v1';
+const DEFAULT_OUTPUT = '.tmp/deployment/active-release-fence.json';
 const VALID_ACTIONS = new Set(['acquire', 'revoke', 'status'])
 
 function fail(message) {
@@ -95,11 +95,14 @@ function positiveInteger(value, flag) {
   return parsed
 }
 
-function requireIdentity(options) {
-  if (!isValidReleaseId(options.releaseId)) {
-    fail('--release is invalid')
-  }
-  if (!/^[a-z][a-z0-9-]{0,31}$/.test(options.slot ?? '')) {
+function requireIdentity(options)
+{
+    if (!isValidReleaseId(options.releaseId))
+{
+        fail('--release is invalid');
+    }
+    if (!/^[a-z][a-z0-9-]{0,31}$/.test(options.slot ?? ''))
+{
     fail('--slot is invalid')
   }
   if (!Number.isSafeInteger(options.generation) || options.generation < 1) {

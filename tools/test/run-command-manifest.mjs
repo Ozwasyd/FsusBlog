@@ -369,22 +369,23 @@ function resolveAdaptiveManifestWorkersFromGrant({
 export function resolveAdaptiveManifestWorkers(options = {}) {
   const env = options.env ?? process.env
   const grant = readManifestSchedulerResourceGrant({ env, readFile: options.readGrantFile })
-  return resolveAdaptiveManifestWorkersFromGrant(options, grant)
+    return resolveAdaptiveManifestWorkersFromGrant(options, grant);
 }
 
 function resolveManifestLiveCapacityFromGrant({
-  env = process.env,
-  cpuCount = os.availableParallelism?.() ?? os.cpus().length,
-  freeMemoryBytes = os.freemem(),
-  totalMemoryBytes = os.totalmem(),
-  load1 = os.loadavg()[0] ?? 0,
-  workload = 'orchestration',
-  orchestrationWorkersPerCpu = 2,
-  orchestrationMemoryGiBPerWorker = 0.125
-} = {}, grant) {
-  const workers = resolveAdaptiveManifestWorkersFromGrant({
-    env,
-    cpuCount,
+    env = process.env,
+    cpuCount = os.availableParallelism?.() ?? os.cpus().length,
+    freeMemoryBytes = os.freemem(),
+    totalMemoryBytes = os.totalmem(),
+    load1 = os.loadavg()[0] ?? 0,
+    workload = 'orchestration',
+    orchestrationWorkersPerCpu = 2,
+    orchestrationMemoryGiBPerWorker = 0.125
+} = {}, grant)
+{
+    const workers = resolveAdaptiveManifestWorkersFromGrant({
+        env,
+        cpuCount,
     freeMemoryBytes,
     totalMemoryBytes,
     load1,
@@ -413,18 +414,19 @@ function resolveManifestLiveCapacityFromGrant({
     parentCpuUnits,
     parentMemoryGiB,
     source: grant ? 'scheduler-resource-grants' : 'direct-invocation-fallback'
-  }
+    };
 }
 
-export function resolveManifestLiveCapacity(options = {}) {
-  const env = options.env ?? process.env
-  const grant = readManifestSchedulerResourceGrant({ env, readFile: options.readGrantFile })
-  return resolveManifestLiveCapacityFromGrant(options, grant)
+export function resolveManifestLiveCapacity(options = {})
+{
+    const env = options.env ?? process.env;
+    const grant = readManifestSchedulerResourceGrant({ env, readFile: options.readGrantFile });
+    return resolveManifestLiveCapacityFromGrant(options, grant);
 }
 
 export function resolveManifestRuntimeChildEnvironment({
-  env = process.env,
-  runtimeCapacity,
+    env = process.env,
+    runtimeCapacity,
   parentCapacity
 } = {}) {
   const slots = Number(parentCapacity?.cpuUnits)
@@ -478,34 +480,36 @@ export function resolveManifestChildEnvironment({
     FSUSBLOG_PARALLEL_ACTIVE_WORKERS: String(concurrent ? workerCount : 1),
     FSUSBLOG_COMMAND_MANIFEST_WORKERS: String(nestedWorkers),
     FSUSBLOG_NODE_TEST_CONCURRENCY: String(nestedWorkers)
-  }
+    };
 }
 
-export function resolveManifestAdmissionSnapshot({ maxWorkers, ...options } = {}) {
-  const workerLimit = positiveInteger(maxWorkers)
-  if (workerLimit === null) throw new Error('maxWorkers must be a positive integer')
-  const env = options.env ?? process.env
-  const grant = readManifestSchedulerResourceGrant({ env, readFile: options.readGrantFile })
-  const capacity = resolveManifestLiveCapacityFromGrant(options, grant)
-  const workerCap = Math.min(workerLimit, capacity.maxParallel)
-  const childBaseEnvironment = grant
-    ? {
+export function resolveManifestAdmissionSnapshot({ maxWorkers, ...options } = {})
+{
+    const workerLimit = positiveInteger(maxWorkers);
+    if (workerLimit === null) {throw new Error('maxWorkers must be a positive integer')};
+    const env = options.env ?? process.env;
+    const grant = readManifestSchedulerResourceGrant({ env, readFile: options.readGrantFile });
+    const capacity = resolveManifestLiveCapacityFromGrant(options, grant);
+    const workerCap = Math.min(workerLimit, capacity.maxParallel);
+    const childBaseEnvironment = grant
+        ? {
         ...env,
         FSUSBLOG_STEP_CPU_BUDGET: String(grant.cpuUnits),
         FSUSBLOG_STEP_MEMORY_GIB: String(grant.memoryGiB)
       }
-    : env
-  const childEnvironment = resolveManifestChildEnvironment({
-    env: childBaseEnvironment,
-    workers: workerCap,
-    concurrent: workerCap > 1
-  })
-  return { capacity, workerCap, childEnvironment }
+        : env;
+    const childEnvironment = resolveManifestChildEnvironment({
+        env: childBaseEnvironment,
+        workers: workerCap,
+        concurrent: workerCap > 1
+    });
+    return { capacity, workerCap, childEnvironment };
 }
 
-function commandArguments(entry) {
-  return entry.script
-    ? ['npm', 'run', entry.script]
+function commandArguments(entry)
+{
+    return entry.script
+        ? ['npm', 'run', entry.script]
     : entry.command
 }
 

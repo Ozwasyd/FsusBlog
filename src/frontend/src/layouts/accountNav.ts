@@ -1,7 +1,7 @@
-import type { AccountArea } from '@/router/accountRouteMeta'
-import { messages } from '@/locales'
+import type { AccountArea } from '@/router/accountRouteMeta';
+import { messages } from '@/locales';
 
-export type { AccountArea, AccountContentMode } from '@/router/accountRouteMeta'
+export type { AccountArea, AccountContentMode } from '@/router/accountRouteMeta';
 export type AccountNavGroupKey =
   | 'self'
   | 'identity'
@@ -149,33 +149,33 @@ const accountNavItems: readonly AccountNavItem[] = [
   { label: '服务与后台状态', to: '/user/manage/ops', helper: '后台', area: 'manage', groupKey: 'ops', adminOnly: true, requiredPermission: 'system.config' },
   { label: '缓存与索引', to: '/user/manage/cache', helper: '索引', area: 'manage', groupKey: 'ops', adminOnly: true, requiredPermission: 'system.config' },
   { label: '内容一致性', to: '/user/manage/integrity', helper: '一致性', area: 'manage', groupKey: 'ops', adminOnly: true, requiredPermission: 'system.config' },
-  { label: 'Integrity Proof', to: '/user/manage/integrity-proof', helper: '证明', area: 'manage', groupKey: 'ops', adminOnly: true, requiredPermission: 'system.config' }
-]
+    { label: 'Integrity Proof', to: '/user/manage/integrity-proof', helper: '证明', area: 'manage', groupKey: 'ops', adminOnly: true, requiredPermission: 'system.config' }
+];
 
 const navLabelKeys = {
-  '/user/identity': 'identityCenter', '/user/messagebox': 'messages', '/user/identity/passkeys': 'passkeys',
-  '/user/identity/recovery-key': 'recoveryKey', '/user/identity/public-profile': 'publicProfile',
-  '/user/identity/comment-records': 'publicComments', '/user/identity/sessions': 'sessions', '/user/identity/mfa': 'mfa',
-  '/user/manage': 'dashboard', '/user/manage/article/list': 'articles', '/user/manage/article/trash': 'trash',
-  '/user/manage/category': 'categories', '/user/manage/tag': 'tags', '/user/manage/assets': 'assets',
-  '/user/manage/moderation': 'moderation', '/user/manage/messages': 'inbox', '/user/manage/users': 'users',
-  '/user/manage/moderation/anonymous-policy': 'anonymousPolicy', '/user/manage/moderation/anonymous-risk': 'anonymousRisk',
-  '/user/manage/moderation/anonymous-credentials': 'anonymousCredentials', '/user/manage/moderation/nullifiers': 'anonymousNullifiers',
-  '/user/manage/moderation/zk-anonymous': 'privacyProof', '/user/manage/security': 'security',
-  '/user/manage/settings': 'settings', '/user/manage/content-tools': 'contentTools', '/user/manage/audit': 'audit',
-  '/user/manage/analytics': 'analytics', '/user/manage/ops': 'operations', '/user/manage/cache': 'cache',
-  '/user/manage/integrity': 'integrity', '/user/manage/integrity-proof': 'integrityProof'
-} as const
+    '/user/identity': 'identityCenter', '/user/messagebox': 'messages', '/user/identity/passkeys': 'passkeys',
+    '/user/identity/recovery-key': 'recoveryKey', '/user/identity/public-profile': 'publicProfile',
+    '/user/identity/comment-records': 'publicComments', '/user/identity/sessions': 'sessions', '/user/identity/mfa': 'mfa',
+    '/user/manage': 'dashboard', '/user/manage/article/list': 'articles', '/user/manage/article/trash': 'trash',
+    '/user/manage/category': 'categories', '/user/manage/tag': 'tags', '/user/manage/assets': 'assets',
+    '/user/manage/moderation': 'moderation', '/user/manage/messages': 'inbox', '/user/manage/users': 'users',
+    '/user/manage/moderation/anonymous-policy': 'anonymousPolicy', '/user/manage/moderation/anonymous-risk': 'anonymousRisk',
+    '/user/manage/moderation/anonymous-credentials': 'anonymousCredentials', '/user/manage/moderation/nullifiers': 'anonymousNullifiers',
+    '/user/manage/moderation/zk-anonymous': 'privacyProof', '/user/manage/security': 'security',
+    '/user/manage/settings': 'settings', '/user/manage/content-tools': 'contentTools', '/user/manage/audit': 'audit',
+    '/user/manage/analytics': 'analytics', '/user/manage/ops': 'operations', '/user/manage/cache': 'cache',
+    '/user/manage/integrity': 'integrity', '/user/manage/integrity-proof': 'integrityProof'
+} as const;
 
 const helperKeys = {
-  '设备': 'devices', '恢复': 'recovery', '评论/策略': 'commentsPolicies', '工单': 'tickets', '开关': 'toggle',
-  '风险桶': 'riskBuckets', '撤销': 'revoke', '封禁': 'block', '证明': 'proof', '风险防护': 'riskProtection',
-  '导入/导出': 'importExport', '统计': 'statistics', '后台': 'background', '索引': 'index', '一致性': 'consistency'
-} as const
+    '设备': 'devices', '恢复': 'recovery', '评论/策略': 'commentsPolicies', '工单': 'tickets', '开关': 'toggle',
+    '风险桶': 'riskBuckets', '撤销': 'revoke', '封禁': 'block', '证明': 'proof', '风险防护': 'riskProtection',
+    '导入/导出': 'importExport', '统计': 'statistics', '后台': 'background', '索引': 'index', '一致性': 'consistency'
+} as const;
 
 const navGroupTemplates: readonly AccountNavGroupTemplate[] = [
-  { key: 'self', label: '账户', helper: '身份与消息', area: 'self', landingTo: '/user/identity' },
-  { key: 'identity', label: '身份', helper: '凭证与会话', area: 'self', landingTo: '/user/identity/passkeys' },
+    { key: 'self', label: '账户', helper: '身份与消息', area: 'self', landingTo: '/user/identity' },
+    { key: 'identity', label: '身份', helper: '凭证与会话', area: 'self', landingTo: '/user/identity/passkeys' },
   { key: 'workbench', label: '工作台', helper: '今日待办', area: 'manage', landingTo: '/user/manage' },
   { key: 'content', label: '内容', helper: '文章与素材', area: 'manage', landingTo: '/user/manage/article/list' },
   { key: 'interaction', label: '互动', helper: '审核与用户', area: 'manage', landingTo: '/user/manage/moderation' },
@@ -193,7 +193,7 @@ export function getAccountNavGroups(context: AccountNavWorkspaceContext): Accoun
       ))
       const landingItem = items.find((item) => item.to === group.landingTo) ?? items[0]
 
-      return landingItem ? {
+            return landingItem ? {
         key: group.key,
         label: messages.value.admin.groups[group.key],
         helper: messages.value.admin.groupHelpers[group.key],
@@ -206,9 +206,9 @@ export function getAccountNavGroups(context: AccountNavWorkspaceContext): Accoun
             ? messages.value.admin.helpers[helperKeys[item.helper as keyof typeof helperKeys]]
             : undefined
         }))
-      } : null
-    })
-    .filter((group): group is AccountNavGroup => group !== null)
+      } : null;
+        })
+        .filter((group): group is AccountNavGroup => group !== null);
 
   return groups.slice(0, ACCOUNT_GLOBAL_MODULE_LIMIT)
 }

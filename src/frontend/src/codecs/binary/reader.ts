@@ -9,16 +9,18 @@ export function readInt32(bytes: Uint8Array, offset: number): number {
     | ((bytes[offset + 1] ?? 0) << 8)
     | ((bytes[offset + 2] ?? 0) << 16)
     | ((bytes[offset + 3] ?? 0) << 24)
-  );
+    );
 }
 
-export function readUint16(bytes: Uint8Array, offset: number): number {
-  return (bytes[offset] ?? 0) | ((bytes[offset + 1] ?? 0) << 8)
+export function readUint16(bytes: Uint8Array, offset: number): number
+{
+    return (bytes[offset] ?? 0) | ((bytes[offset + 1] ?? 0) << 8);
 }
 
-export function readInt64Number(bytes: Uint8Array, offset: number): number {
-  const low = BigInt(
-    ((bytes[offset] ?? 0))
+export function readInt64Number(bytes: Uint8Array, offset: number): number
+{
+    const low = BigInt(
+        ((bytes[offset] ?? 0))
     | ((bytes[offset + 1] ?? 0) << 8)
     | ((bytes[offset + 2] ?? 0) << 16)
     | ((bytes[offset + 3] ?? 0) << 24)
@@ -90,12 +92,14 @@ export function readIsoDate64(bytes: Uint8Array, offset: number): string {
   return new Date(readInt64Number(bytes, offset)).toISOString();
 }
 
-export function readNullableId64(bytes: Uint8Array, offset: number): string | null {
-  const value = readInt64String(bytes, offset);
-  return value === '0' ? null : value;
+export function readNullableId64(bytes: Uint8Array, offset: number): string | null
+{
+    const value = readInt64String(bytes, offset);
+    return value === '0' ? null : value;
 }
 
-export function readBlobText(pod: Uint8Array, blob: Uint8Array, sliceOffset: number): string {
+export function readBlobText(pod: Uint8Array, blob: Uint8Array, sliceOffset: number): string
+{
   return readSliceText(blob, readSliceRef(pod, sliceOffset));
 }
 

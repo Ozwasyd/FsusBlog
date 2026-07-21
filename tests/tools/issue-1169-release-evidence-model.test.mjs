@@ -58,14 +58,14 @@ function releaseManifest(status = 'collected-blocked') {
     generatedAt: '2026-07-18T00:00:00Z',
     gitRevision: 'a'.repeat(12),
     commitSha: 'a'.repeat(40),
-    workflowRun: { id: '12345', attempt: '1', workflow: 'fixture' },
-    imageDigest: `sha256:${'b'.repeat(64)}`,
-    releaseIdentity: {
-      releaseId: '20260718000000-aaaaaaaaaaaa',
-      createdAtUtc: '2026-07-18T00:00:00Z',
-      commitSha: 'a'.repeat(40),
-      imageDigest: `sha256:${'b'.repeat(64)}`,
-      releaseSlot: 'green',
+        workflowRun: { id: '12345', attempt: '1', workflow: 'fixture' },
+        imageDigest: `sha256:${'b'.repeat(64)}`,
+        releaseIdentity: {
+            releaseId: '20260718000000-aaaaaaaaaaaa',
+            createdAtUtc: '2026-07-18T00:00:00Z',
+            commitSha: 'a'.repeat(40),
+            imageDigest: `sha256:${'b'.repeat(64)}`,
+            releaseSlot: 'green',
       runtimeProfile: { id: 'throughput-musl' }
     },
     artifacts: {},
@@ -130,13 +130,14 @@ test('layout governance reports ambiguous, contradictory, historical, matrix, an
   assert.ok(errors.some(error => error.includes('strict identity and integrity schema')))
 })
 
-test('bundle sealer hashes every copied artifact and detects later tampering', () => {
-  const bundle = bundleFixture()
-  const result = sealReleaseEvidenceBundle(bundle, {
-    releaseNamespace: '20260718000000-aaaaaaaaaaaa--bbbbbbbbbbbb',
-    environment: {}
-  })
-  assert.equal(result.manifest.schema, 'fsusblog.release-evidence-manifest.v2')
+test('bundle sealer hashes every copied artifact and detects later tampering', () =>
+{
+    const bundle = bundleFixture();
+    const result = sealReleaseEvidenceBundle(bundle, {
+        releaseNamespace: '20260718000000-aaaaaaaaaaaa--bbbbbbbbbbbb',
+        environment: {}
+    });
+    assert.equal(result.manifest.schema, 'fsusblog.release-evidence-manifest.v2');
   assert.equal(result.manifest.evidenceClass, 'fresh-run-evidence')
   assert.equal(result.manifest.artifactInventory.fileCount, 2)
   assert.deepEqual(result.manifest.artifactInventory.files.map(file => file.path), [
@@ -154,13 +155,14 @@ test('bundle sealer hashes every copied artifact and detects later tampering', (
   assert.match(checked.stderr, /artifactInventory\.files must exactly seal every copied bundle artifact/)
 })
 
-test('collected-ok bundle remains a fresh candidate until require-ok succeeds', () => {
-  const bundle = bundleFixture('collected-ok')
-  const result = sealReleaseEvidenceBundle(bundle, {
-    releaseNamespace: '20260718000000-aaaaaaaaaaaa--bbbbbbbbbbbb',
-    environment: {
-      GITHUB_RUN_ID: '12345',
-      GITHUB_REPOSITORY: 'Ozwasyd/FsusBlog'
+test('collected-ok bundle remains a fresh candidate until require-ok succeeds', () =>
+{
+    const bundle = bundleFixture('collected-ok');
+    const result = sealReleaseEvidenceBundle(bundle, {
+        releaseNamespace: '20260718000000-aaaaaaaaaaaa--bbbbbbbbbbbb',
+        environment: {
+            GITHUB_RUN_ID: '12345',
+            GITHUB_REPOSITORY: 'Ozwasyd/FsusBlog'
     }
   })
   assert.equal(result.manifest.evidenceClass, 'fresh-run-evidence')
@@ -173,13 +175,14 @@ test('collected-ok bundle remains a fresh candidate until require-ok succeeds', 
   assert.equal(existsSync(path.join(bundle, 'release-index.json')), false)
 })
 
-test('v2 checker rejects timestamp, environment, topology, namespace, and storage identity drift together', () => {
-  const bundle = bundleFixture()
-  const result = sealReleaseEvidenceBundle(bundle, {
-    releaseNamespace: '20260718000000-aaaaaaaaaaaa--bbbbbbbbbbbb',
-    environment: {
-      GITHUB_RUN_ID: '12345',
-      GITHUB_REPOSITORY: 'Ozwasyd/FsusBlog'
+test('v2 checker rejects timestamp, environment, topology, namespace, and storage identity drift together', () =>
+{
+    const bundle = bundleFixture();
+    const result = sealReleaseEvidenceBundle(bundle, {
+        releaseNamespace: '20260718000000-aaaaaaaaaaaa--bbbbbbbbbbbb',
+        environment: {
+            GITHUB_RUN_ID: '12345',
+            GITHUB_REPOSITORY: 'Ozwasyd/FsusBlog'
     }
   })
   result.manifest.generatedAt = 'not-a-timestamp'
@@ -204,22 +207,22 @@ test('v2 checker rejects timestamp, environment, topology, namespace, and storag
 test('small release index is created only after the require-ok authority succeeds', () => {
   const bundle = bundleFixture('collected-ok')
   const checker = path.join(temporaryRoot('accepting-checker'), 'checker.mjs')
-  writeFileSync(checker, 'process.exit(0)\n')
-  const result = writeReleaseIndexAfterRequireOk(bundle, {
-    checkerPath: checker,
-    releaseNamespace: '20260718000000-aaaaaaaaaaaa--bbbbbbbbbbbb',
-    environment: {
-      GITHUB_RUN_ID: '12345',
-      GITHUB_REPOSITORY: 'Ozwasyd/FsusBlog'
+    writeFileSync(checker, 'process.exit(0)\n');
+    const result = writeReleaseIndexAfterRequireOk(bundle, {
+        checkerPath: checker,
+        releaseNamespace: '20260718000000-aaaaaaaaaaaa--bbbbbbbbbbbb',
+        environment: {
+            GITHUB_RUN_ID: '12345',
+            GITHUB_REPOSITORY: 'Ozwasyd/FsusBlog'
     }
   })
-  assert.equal(result.index.status, 'collected-ok')
-  assert.equal(result.manifest.evidenceClass, 'release-closeout-evidence')
-  assert.match(result.index.evidenceBundleSha256, /^sha256:[0-9a-f]{64}$/)
-  assert.match(result.index.storageReference, /actions\/runs\/12345\/artifacts\/fsusblog-release-evidence-20260718000000-aaaaaaaaaaaa$/)
-  assert.deepEqual(Object.keys(result.index).sort(), [
-    'commitSha',
-    'evidenceBundleSha256',
+    assert.equal(result.index.status, 'collected-ok');
+    assert.equal(result.manifest.evidenceClass, 'release-closeout-evidence');
+    assert.match(result.index.evidenceBundleSha256, /^sha256:[0-9a-f]{64}$/);
+    assert.match(result.index.storageReference, /actions\/runs\/12345\/artifacts\/fsusblog-release-evidence-20260718000000-aaaaaaaaaaaa$/);
+    assert.deepEqual(Object.keys(result.index).sort(), [
+        'commitSha',
+        'evidenceBundleSha256',
     'generatedAt',
     'imageDigest',
     'releaseId',
@@ -233,13 +236,13 @@ test('small release index is created only after the require-ok authority succeed
 test('failed require-ok authority cannot leave a release index', () => {
   const bundle = bundleFixture('collected-ok')
   const checker = path.join(temporaryRoot('rejecting-checker'), 'checker.mjs')
-  writeFileSync(checker, "process.stderr.write('blocked fixture\\n'); process.exit(1)\n")
-  assert.throws(() => writeReleaseIndexAfterRequireOk(bundle, {
-    checkerPath: checker,
-    releaseNamespace: '20260718000000-aaaaaaaaaaaa--bbbbbbbbbbbb',
-    environment: {
-      GITHUB_RUN_ID: '12345',
-      GITHUB_REPOSITORY: 'Ozwasyd/FsusBlog'
+    writeFileSync(checker, "process.stderr.write('blocked fixture\\n'); process.exit(1)\n");
+    assert.throws(() => writeReleaseIndexAfterRequireOk(bundle, {
+        checkerPath: checker,
+        releaseNamespace: '20260718000000-aaaaaaaaaaaa--bbbbbbbbbbbb',
+        environment: {
+            GITHUB_RUN_ID: '12345',
+            GITHUB_REPOSITORY: 'Ozwasyd/FsusBlog'
     }
   }), /requires successful --require-ok validation/)
   assert.equal(existsSync(path.join(bundle, 'release-index.json')), false)

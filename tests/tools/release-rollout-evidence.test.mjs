@@ -7,14 +7,14 @@ import { spawnSync } from 'node:child_process'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 import {
-  ROLLOUT_STAGES,
-  completeRolloutStage,
-  createRolloutState,
-  markActivationCommitted,
-  markDestructiveCutoverStarted,
-  markGatewaySwitchCommitted,
-  startRolloutStage,
-  writeRolloutStateAtomic
+    ROLLOUT_STAGES,
+    completeRolloutStage,
+    createRolloutState,
+    markActivationCommitted,
+    markDestructiveCutoverStarted,
+    markGatewaySwitchCommitted,
+    startRolloutStage,
+    writeRolloutStateAtomic
 } from '../../tools/deployment/release-rollout-lib.mjs'
 import { createPublicAotWarmEvidence } from '../../tools/frontend/public-aot-warm-evidence.mjs'
 
@@ -42,15 +42,15 @@ const requiredArtifactNames = [
   'faultInjection'
 ]
 const requiredAuxiliaryNames = [
-  'releaseManifest', 'backupRestoreGate', 'migrationExpand', 'candidateReadiness',
-  'assetMaterialization', 'retentionPrepared', 'retainedAssets', 'publicAotWarm',
-  'candidateSmoke', 'compatibilityMatrix', 'gatewayTransition', 'activeFenceAcquire',
-  'activeFenceSourceRevoke', 'activeFenceVerify', 'challengeKindCutoverReceipt',
-  'challengeKindCutoverAcceptance', 'challengeKindCutoverGate', 'challengeProtocolActivation',
-  'publicTrafficCheckpoint',
-  'sourceDrainSnapshot', 'sourceDrainGate', 'targetHealth',
-  'retentionDrainComplete', 'operatorNote'
-]
+    'releaseManifest', 'backupRestoreGate', 'migrationExpand', 'candidateReadiness',
+    'assetMaterialization', 'retentionPrepared', 'retainedAssets', 'publicAotWarm',
+    'candidateSmoke', 'compatibilityMatrix', 'gatewayTransition', 'activeFenceAcquire',
+    'activeFenceSourceRevoke', 'activeFenceVerify', 'challengeKindCutoverReceipt',
+    'challengeKindCutoverAcceptance', 'challengeKindCutoverGate', 'challengeProtocolActivation',
+    'publicTrafficCheckpoint',
+    'sourceDrainSnapshot', 'sourceDrainGate', 'targetHealth',
+    'retentionDrainComplete', 'operatorNote'
+];
 const faultCases = [
   'manifest-digest-mismatch',
   'capacity-insufficient',
@@ -115,14 +115,14 @@ function advanceState(fixture, { includeFinalStage = false, runFinalStage = fals
   const state = newState(fixture.directory)
   const end = includeFinalStage ? ROLLOUT_STAGES.length : ROLLOUT_STAGES.length - 1
   for (let index = 0; index < end; index += 1) {
-    const stage = ROLLOUT_STAGES[index]
-    const minute = String(index).padStart(2, '0')
-    startRolloutStage(state, stage, `2026-07-11T00:${minute}:00.000Z`)
-    if (stage === 'source-drain') markDestructiveCutoverStarted(state, `2026-07-11T00:${minute}:00.500Z`)
-    if (stage === 'active-fence') markActivationCommitted(state, `2026-07-11T00:${minute}:00.500Z`)
-    completeRolloutStage(state, stage, {
-      completedAtUtc: `2026-07-11T00:${minute}:01.000Z`,
-      evidencePath: stageEvidenceFile(fixture, stage)
+        const stage = ROLLOUT_STAGES[index];
+        const minute = String(index).padStart(2, '0');
+        startRolloutStage(state, stage, `2026-07-11T00:${minute}:00.000Z`);
+        if (stage === 'source-drain') {markDestructiveCutoverStarted(state, `2026-07-11T00:${minute}:00.500Z`)};
+        if (stage === 'active-fence') {markActivationCommitted(state, `2026-07-11T00:${minute}:00.500Z`)};
+        completeRolloutStage(state, stage, {
+            completedAtUtc: `2026-07-11T00:${minute}:01.000Z`,
+            evidencePath: stageEvidenceFile(fixture, stage)
     })
     if (stage === 'gateway-switch') {
       markGatewaySwitchCommitted(state, 27, `2026-07-11T00:${minute}:02.000Z`)
@@ -421,14 +421,14 @@ function writeAuxiliary(fixture) {
   for (const name of requiredAuxiliaryNames) {
     const file = name === 'releaseManifest'
       ? path.join(fixture.directory, 'release-manifest.json')
-      : path.join(fixture.directory, 'auxiliary', `${name}.json`)
-    const payload = name === 'releaseManifest'
-      ? {
+            : path.join(fixture.directory, 'auxiliary', `${name}.json`);
+        const payload = name === 'releaseManifest'
+            ? {
           schema: 'fsusblog.release-manifest.v2',
           releaseId: target.releaseId,
           imageDigest: target.imageDigest
         }
-      : name === 'publicAotWarm'
+            : name === 'publicAotWarm'
         ? validPublicAotWarmEvidence()
         : name === 'challengeKindCutoverReceipt'
           ? { schemaVersion: 'fsus.security-challenge-kind-cutover-receipt.v1', accepted: true, status: 'applied', dryRun: false, releaseId: target.releaseId, slot: target.slot, generation: target.runtimeGeneration }

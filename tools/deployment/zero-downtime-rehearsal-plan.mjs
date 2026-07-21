@@ -2,13 +2,13 @@
 
 import crypto from 'node:crypto'
 import fs from 'node:fs'
-import path from 'node:path'
-import process from 'node:process'
-import { pathToFileURL } from 'node:url'
-import { isValidReleaseId } from '../release/release-id.mjs'
+import path from 'node:path';
+import process from 'node:process';
+import { pathToFileURL } from 'node:url';
+import { isValidReleaseId } from '../release/release-id.mjs';
 
-export const REHEARSAL_PLAN_SCHEMA = 'fsusblog.zero-downtime-rehearsal-plan.v1'
-export const RESOLVED_PLAN_SCHEMA = 'fsusblog.zero-downtime-rehearsal-resolved-plan.v1'
+export const REHEARSAL_PLAN_SCHEMA = 'fsusblog.zero-downtime-rehearsal-plan.v1';
+export const RESOLVED_PLAN_SCHEMA = 'fsusblog.zero-downtime-rehearsal-resolved-plan.v1';
 export const MODE_EVIDENCE_SCHEMA = 'fsusblog.zero-downtime-rehearsal-mode-evidence.v1'
 
 export const ROLLOUT_STAGES = Object.freeze([
@@ -19,15 +19,15 @@ export const ROLLOUT_STAGES = Object.freeze([
   'candidate-start',
   'candidate-readiness',
   'asset-materialize',
-  'candidate-smoke',
-  'compatibility-smoke',
-  'gateway-switch',
-  'source-drain',
-  'active-fence',
-  'public-verify',
-  'source-stop',
-  'release-evidence'
-])
+    'candidate-smoke',
+    'compatibility-smoke',
+    'gateway-switch',
+    'source-drain',
+    'active-fence',
+    'public-verify',
+    'source-stop',
+    'release-evidence'
+]);
 
 export const HOST_INTERRUPTION_STAGES = Object.freeze([
   'source-drain',
@@ -60,12 +60,12 @@ export const MIGRATION_QUALIFICATION_CASES = Object.freeze([
   'advisory-lock-timeout',
   'database-disconnect',
   'partial-failure-recovery',
-  'history-integrity-rejected'
-])
+    'history-integrity-rejected'
+]);
 
-const MODES = new Set(['normal', 'explicit-rollback', 'post-switch-rollback', 'sigkill-resume'])
-const DIGEST = /^sha256:[0-9a-f]{64}$/u
-const SAFE_ID = /^[0-9A-Za-z][0-9A-Za-z._-]{2,127}$/u
+const MODES = new Set(['normal', 'explicit-rollback', 'post-switch-rollback', 'sigkill-resume']);
+const DIGEST = /^sha256:[0-9a-f]{64}$/u;
+const SAFE_ID = /^[0-9A-Za-z][0-9A-Za-z._-]{2,127}$/u;
 const NORMAL_WORKER_KINDS = Object.freeze([
   'scheduled-publish',
   'article-mutation-outbox',
@@ -706,13 +706,14 @@ export function buildSigkillMatrixEvidence(modeRoot, stages = HOST_INTERRUPTION_
   }
 }
 
-export function deriveRehearsalRolloutId(role, phase, releaseId, runId) {
-  if (!['normal', 'qualification'].includes(role)) fail('rollout role must be normal or qualification')
-  const safePhase = safeId(phase, 'rollout phase')
-  if (!isValidReleaseId(releaseId)) fail('rollout releaseId is invalid')
-  const safeRun = safeId(runId, 'rehearsal runId')
-  const binding = `${role}\0${safePhase}\0${releaseId}\0${safeRun}`
-  const suffix = crypto.createHash('sha256').update(binding).digest('hex').slice(0, 16)
+export function deriveRehearsalRolloutId(role, phase, releaseId, runId)
+{
+    if (!['normal', 'qualification'].includes(role)) {fail('rollout role must be normal or qualification')};
+    const safePhase = safeId(phase, 'rollout phase');
+    if (!isValidReleaseId(releaseId)) {fail('rollout releaseId is invalid')};
+    const safeRun = safeId(runId, 'rehearsal runId');
+    const binding = `${role}\0${safePhase}\0${releaseId}\0${safeRun}`;
+    const suffix = crypto.createHash('sha256').update(binding).digest('hex').slice(0, 16);
   const fixed = `${role}-${safePhase}-`
   const tail = `-${suffix}`
   const available = 120 - fixed.length - tail.length
@@ -1044,11 +1045,12 @@ function resolveFaultTokens(raw, planFile, repoRoot, workRoot) {
   return { failingOpenRestyWrapper, dockerFailureBinPath, retainedAsset, corruptAsset, longRequestPath }
 }
 
-function releaseManifest(file, label) {
-  const value = readJson(file, label)
-  if (!isValidReleaseId(value.releaseId)) fail(`${label} releaseId is invalid`)
-  if (!DIGEST.test(String(value.imageDigest ?? ''))) fail(`${label} imageDigest is invalid`)
-  return { manifest: file, releaseId: value.releaseId, imageDigest: value.imageDigest }
+function releaseManifest(file, label)
+{
+    const value = readJson(file, label);
+    if (!isValidReleaseId(value.releaseId)) {fail(`${label} releaseId is invalid`)};
+    if (!DIGEST.test(String(value.imageDigest ?? ''))) {fail(`${label} imageDigest is invalid`)};
+    return { manifest: file, releaseId: value.releaseId, imageDigest: value.imageDigest };
 }
 
 function assertAssetScenario(file, oldReleaseId, newReleaseId, label) {

@@ -2,7 +2,8 @@
 
 @reference "./tailwind.css";
 
-:root {
+:root
+{
   color-scheme: light dark;
   --bg: #F7F7F8;
   --surface: #FFFFFF;
@@ -128,12 +129,14 @@
 }
 
 html.light,
-html[data-theme-resolved='light'] {
+html[data-theme-resolved='light']
+{
   color-scheme: light;
 }
 
 html.dark,
-html[data-theme-resolved='dark'] {
+html[data-theme-resolved='dark']
+{
   color-scheme: dark;
   --bg: #09090B;
   --surface: #121214;

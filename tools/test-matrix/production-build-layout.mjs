@@ -189,13 +189,13 @@ export function productionBuildEnvironment(layout, env = process.env) {
     FSUSBLOG_PUBLIC_AOT_SSR_WORKER_SCRIPT: './server/server-public-ssr.bundle.mjs',
     FSUSBLOG_WEB_ROOT: layout.backendWebRoot,
     FSUSBLOG_RETENTION_WEBROOT_DIR: layout.backendWebRoot,
-    ASPNETCORE_WEBROOT: layout.backendWebRoot,
-    FSUSBLOG_GENERATED_OUTPUT_ROOT: layout.generatedRoot,
-    FSUSBLOG_ARTIFACT_DIGEST_TABLE: path.join(layout.generatedRoot, 'artifact-digest-table.json'),
-    FSUSBLOG_ZK_PRODUCTION_ENABLED: env.FSUSBLOG_ZK_PRODUCTION_ENABLED ?? '0',
-    FSUSBLOG_BACKEND_SERVER_DLL: artifacts.serverDll,
-    FSUSBLOG_BACKEND_TEST_DLL: artifacts.testDll,
-    FSUSBLOG_BACKEND_TEST_BIN_DIR: artifacts.tests.outputDirectory,
+        ASPNETCORE_WEBROOT: layout.backendWebRoot,
+        FSUSBLOG_GENERATED_OUTPUT_ROOT: layout.generatedRoot,
+        FSUSBLOG_ARTIFACT_DIGEST_TABLE: path.join(layout.generatedRoot, 'artifact-digest-table.json'),
+        FSUSBLOG_ZK_PRODUCTION_ENABLED: env.FSUSBLOG_ZK_PRODUCTION_ENABLED ?? '0',
+        FSUSBLOG_BACKEND_SERVER_DLL: artifacts.serverDll,
+        FSUSBLOG_BACKEND_TEST_DLL: artifacts.testDll,
+        FSUSBLOG_BACKEND_TEST_BIN_DIR: artifacts.tests.outputDirectory,
     FSUSBLOG_BACKEND_TEST_OBJ_DIR: artifacts.tests.baseIntermediateOutputPath,
     FSUSBLOG_BENCHMARK_DLL: artifacts.benchmarkDll
   }
@@ -260,18 +260,19 @@ export function bindProductionBuildLayoutSource(layout, sourceState) {
   if (manifest.schema !== productionBuildLayoutSchema || manifest.runId !== layout.runId || manifest.status !== 'active') {
     throw new Error(`production build layout cannot bind source identity: ${layout.manifestFile}`)
   }
-  const commit = String(sourceState?.commit ?? '').trim()
-  const worktreeFingerprint = String(sourceState?.worktreeFingerprint ?? '').trim()
-  if (!commit || !worktreeFingerprint) throw new Error('production build layout requires complete source identity')
-  const existingCommit = String(manifest.sourceState?.commit ?? '').trim()
-  const existingWorktreeFingerprint = String(manifest.sourceState?.worktreeFingerprint ?? '').trim()
-  if ((existingCommit && existingCommit !== commit)
-    || (existingWorktreeFingerprint && existingWorktreeFingerprint !== worktreeFingerprint)) {
-    throw new Error('production build layout source identity is immutable after binding')
-  }
-  const bound = {
-    ...manifest,
-    sourceState: { commit, worktreeFingerprint }
+    const commit = String(sourceState?.commit ?? '').trim();
+    const worktreeFingerprint = String(sourceState?.worktreeFingerprint ?? '').trim();
+    if (!commit || !worktreeFingerprint) {throw new Error('production build layout requires complete source identity')};
+    const existingCommit = String(manifest.sourceState?.commit ?? '').trim();
+    const existingWorktreeFingerprint = String(manifest.sourceState?.worktreeFingerprint ?? '').trim();
+    if ((existingCommit && existingCommit !== commit)
+    || (existingWorktreeFingerprint && existingWorktreeFingerprint !== worktreeFingerprint))
+{
+        throw new Error('production build layout source identity is immutable after binding');
+    }
+    const bound = {
+        ...manifest,
+        sourceState: { commit, worktreeFingerprint }
   }
   atomicWriteJson(layout.manifestFile, bound)
   return bound

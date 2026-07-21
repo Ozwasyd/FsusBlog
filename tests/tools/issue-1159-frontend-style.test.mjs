@@ -358,6 +358,43 @@ test('issue 1159 full mode accepts only unchanged baseline debt and strict-full 
     });
 });
 
+test('issue 1159 baseline updates preserve paths and reject violation growth', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        const existingPath = 'tools/legacy/existing-tool.mjs';
+        const addedPath = 'tools/legacy/added-tool.mjs';
+        writeFixture(fixtureRoot, existingPath, `export function existing_name(value) {
+  return value
+}
+`);
+        const initial = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline']);
+        assert.equal(initial.status, 0, output(initial));
+        const baselinePath = path.join(fixtureRoot, sourcePolicy.baseline);
+        const before = readFileSync(baselinePath, 'utf8');
+
+        writeFixture(fixtureRoot, addedPath, `export function added_name(value) {
+  return value
+}
+`);
+        const added = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline']);
+        assert.notEqual(added.status, 0);
+        assert.match(output(added), /refusing new frontend style baseline path tools\/legacy\/added-tool\.mjs/u);
+        assert.equal(readFileSync(baselinePath, 'utf8'), before);
+        rmSync(path.join(fixtureRoot, addedPath));
+
+        writeFixture(fixtureRoot, existingPath, `export function existing_name(value) {
+  const extra_value = value
+  return extra_value
+}
+`);
+        const increased = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline']);
+        assert.notEqual(increased.status, 0);
+        assert.match(output(increased), /refusing frontend style baseline violation increase for tools\/legacy\/existing-tool\.mjs/u);
+        assert.equal(readFileSync(baselinePath, 'utf8'), before);
+    });
+});
+
 test('issue 1159 AST fixes are idempotent and diagnostics are locale and CI stable', () =>
 {
     withFixture((fixtureRoot) =>

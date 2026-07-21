@@ -9,15 +9,15 @@ import {
   completeRolloutRecovery,
   completeRolloutStage,
   createRolloutState,
-  failRolloutStage,
-  failRolloutRecovery,
-  markCandidateOnly,
-  markActivationCommitted,
-  markContractMigrationApplied,
-  markDestructiveCutoverStarted,
-  markGatewaySwitchCommitted,
-  planRolloutRecovery,
-  readRolloutState,
+    failRolloutStage,
+    failRolloutRecovery,
+    markCandidateOnly,
+    markActivationCommitted,
+    markContractMigrationApplied,
+    markDestructiveCutoverStarted,
+    markGatewaySwitchCommitted,
+    planRolloutRecovery,
+    readRolloutState,
   startRolloutStage,
   validateRolloutState,
   writeRolloutStateAtomic
@@ -39,26 +39,28 @@ function createState() {
 
 function completeThrough(state, exclusiveStage) {
   const end = ROLLOUT_STAGES.indexOf(exclusiveStage)
-  for (let index = 0; index < end; index++) {
-    const stage = ROLLOUT_STAGES[index]
-    startRolloutStage(state, stage, `2026-07-11T00:${String(index).padStart(2, '0')}:00.000Z`)
-    if (stage === 'source-drain') markDestructiveCutoverStarted(state, `2026-07-11T00:${String(index).padStart(2, '0')}:00.500Z`)
-    if (stage === 'active-fence') markActivationCommitted(state, `2026-07-11T00:${String(index).padStart(2, '0')}:00.500Z`)
-    completeRolloutStage(state, stage, { completedAtUtc: `2026-07-11T00:${String(index).padStart(2, '0')}:01.000Z` })
-    if (stage === 'gateway-switch') markGatewaySwitchCommitted(state, 9, '2026-07-11T00:09:02.000Z')
-  }
+    for (let index = 0; index < end; index++)
+{
+        const stage = ROLLOUT_STAGES[index];
+        startRolloutStage(state, stage, `2026-07-11T00:${String(index).padStart(2, '0')}:00.000Z`);
+        if (stage === 'source-drain') {markDestructiveCutoverStarted(state, `2026-07-11T00:${String(index).padStart(2, '0')}:00.500Z`)};
+        if (stage === 'active-fence') {markActivationCommitted(state, `2026-07-11T00:${String(index).padStart(2, '0')}:00.500Z`)};
+        completeRolloutStage(state, stage, { completedAtUtc: `2026-07-11T00:${String(index).padStart(2, '0')}:01.000Z` });
+        if (stage === 'gateway-switch') {markGatewaySwitchCommitted(state, 9, '2026-07-11T00:09:02.000Z')};
+    }
 }
 
 test('rollout state completes the only ordered production stage sequence with immutable evidence', () => {
   const state = createState()
-  for (let index = 0; index < ROLLOUT_STAGES.length; index++) {
-    const stage = ROLLOUT_STAGES[index]
-    startRolloutStage(state, stage, `2026-07-11T00:${String(index).padStart(2, '0')}:00.000Z`)
-    if (stage === 'source-drain') markDestructiveCutoverStarted(state, `2026-07-11T00:${String(index).padStart(2, '0')}:00.500Z`)
-    if (stage === 'active-fence') markActivationCommitted(state, `2026-07-11T00:${String(index).padStart(2, '0')}:00.500Z`)
-    completeRolloutStage(state, stage, {
-      completedAtUtc: `2026-07-11T00:${String(index).padStart(2, '0')}:01.000Z`,
-      evidencePath: `/var/lib/fsusblog/evidence/${stage}.json`
+    for (let index = 0; index < ROLLOUT_STAGES.length; index++)
+{
+        const stage = ROLLOUT_STAGES[index];
+        startRolloutStage(state, stage, `2026-07-11T00:${String(index).padStart(2, '0')}:00.000Z`);
+        if (stage === 'source-drain') {markDestructiveCutoverStarted(state, `2026-07-11T00:${String(index).padStart(2, '0')}:00.500Z`)};
+        if (stage === 'active-fence') {markActivationCommitted(state, `2026-07-11T00:${String(index).padStart(2, '0')}:00.500Z`)};
+        completeRolloutStage(state, stage, {
+            completedAtUtc: `2026-07-11T00:${String(index).padStart(2, '0')}:01.000Z`,
+            evidencePath: `/var/lib/fsusblog/evidence/${stage}.json`
     })
     if (stage === 'gateway-switch') markGatewaySwitchCommitted(state, 9, '2026-07-11T00:09:02.000Z')
   }
@@ -96,15 +98,15 @@ test('every injected stage failure produces the phase-correct recovery action', 
     ['candidate-start', 'preserve-source-stop-candidate'],
     ['candidate-readiness', 'preserve-source-stop-candidate'],
     ['asset-materialize', 'preserve-source-stop-candidate'],
-    ['candidate-smoke', 'preserve-source-stop-candidate'],
-    ['compatibility-smoke', 'preserve-source-stop-candidate'],
-    ['gateway-switch', 'gateway-recover'],
-    ['source-drain', 'rollback-gateway-to-source'],
-    ['active-fence', 'resume-release-activation-same-cutover'],
-    ['public-verify', 'resume-release-activation-same-cutover'],
-    ['source-stop', 'retain-source-report-cleanup-blocker'],
-    ['release-evidence', 'resume-release-evidence']
-  ])
+        ['candidate-smoke', 'preserve-source-stop-candidate'],
+        ['compatibility-smoke', 'preserve-source-stop-candidate'],
+        ['gateway-switch', 'gateway-recover'],
+        ['source-drain', 'rollback-gateway-to-source'],
+        ['active-fence', 'resume-release-activation-same-cutover'],
+        ['public-verify', 'resume-release-activation-same-cutover'],
+        ['source-stop', 'retain-source-report-cleanup-blocker'],
+        ['release-evidence', 'resume-release-evidence']
+    ]);
 
   for (let index = 0; index < ROLLOUT_STAGES.length; index++) {
     const stage = ROLLOUT_STAGES[index]
@@ -116,19 +118,21 @@ test('every injected stage failure produces the phase-correct recovery action', 
       failedAtUtc: `2026-07-11T02:${String(index).padStart(2, '0')}:01.000Z`
     })
 
-    const recovery = planRolloutRecovery(state)
-    assert.equal(recovery.action, expected.get(stage), stage)
-    assert.equal(recovery.failedStage, stage)
-    if (stage === 'source-drain') {
-      assert.equal(recovery.reason, 'post_switch_gate_failed_before_source_drain')
+        const recovery = planRolloutRecovery(state);
+        assert.equal(recovery.action, expected.get(stage), stage);
+        assert.equal(recovery.failedStage, stage);
+        if (stage === 'source-drain')
+{
+            assert.equal(recovery.reason, 'post_switch_gate_failed_before_source_drain');
+        }
+        if (stage === 'active-fence' || stage === 'public-verify')
+{
+            assert.equal(recovery.reason, 'destructive_cutover_started_old_source_rollback_forbidden');
+            assert.notEqual(recovery.action, 'rollback-gateway-to-source');
+        }
+        assert.equal(state.status, 'recovery_required');
     }
-    if (stage === 'active-fence' || stage === 'public-verify') {
-      assert.equal(recovery.reason, 'destructive_cutover_started_old_source_rollback_forbidden')
-      assert.notEqual(recovery.action, 'rollback-gateway-to-source')
-    }
-    assert.equal(state.status, 'recovery_required')
-  }
-})
+});
 
 test('failed stages cannot resume until their exact recovery action has durable evidence', () => {
   const state = createState()
@@ -159,37 +163,39 @@ test('failed stages cannot resume until their exact recovery action has durable 
 
   assert.equal(state.recoveries.length, 2)
   assert.deepEqual(state.recoveries.map(item => item.status), ['failed', 'ok'])
-  assert.equal(state.currentStage, 'candidate-start')
-})
+    assert.equal(state.currentStage, 'candidate-start');
+});
 
-test('pre-cutover source drain failure may rollback, while a started cutover can only resume target activation', () => {
-  const state = createState()
-  completeThrough(state, 'source-drain')
-  startRolloutStage(state, 'source-drain', '2026-07-11T02:40:00.000Z')
-  failRolloutStage(state, 'source-drain', {
-    errorCode: 'source_drain_failed_before_cutover',
-    failedAtUtc: '2026-07-11T02:40:01.000Z'
-  })
-  completeRolloutRecovery(state, {
+test('pre-cutover source drain failure may rollback, while a started cutover can only resume target activation', () =>
+{
+    const state = createState();
+    completeThrough(state, 'source-drain');
+    startRolloutStage(state, 'source-drain', '2026-07-11T02:40:00.000Z');
+    failRolloutStage(state, 'source-drain', {
+        errorCode: 'source_drain_failed_before_cutover',
+        failedAtUtc: '2026-07-11T02:40:01.000Z'
+    });
+    completeRolloutRecovery(state, {
     action: 'rollback-gateway-to-source',
     evidencePath: '/var/lib/fsusblog/evidence/post-switch-rollback.json',
     terminalStatus: 'rolled_back',
     completedAtUtc: '2026-07-11T02:40:02.000Z'
   })
 
-  assert.equal(state.status, 'rolled_back')
-  assert.equal(state.outcome, 'rolled_back')
-  assert.throws(() => startRolloutStage(state, 'source-drain'), /terminal/u)
+    assert.equal(state.status, 'rolled_back');
+    assert.equal(state.outcome, 'rolled_back');
+    assert.throws(() => startRolloutStage(state, 'source-drain'), /terminal/u);
 
-  const irreversible = createState()
-  completeThrough(irreversible, 'source-drain')
-  startRolloutStage(irreversible, 'source-drain', '2026-07-11T02:41:00.000Z')
-  markDestructiveCutoverStarted(irreversible, '2026-07-11T02:41:00.500Z')
-  failRolloutStage(irreversible, 'source-drain', { errorCode: 'receipt_lost', failedAtUtc: '2026-07-11T02:41:01.000Z' })
-  assert.equal(planRolloutRecovery(irreversible).action, 'resume-release-activation-same-cutover')
-})
+    const irreversible = createState();
+    completeThrough(irreversible, 'source-drain');
+    startRolloutStage(irreversible, 'source-drain', '2026-07-11T02:41:00.000Z');
+    markDestructiveCutoverStarted(irreversible, '2026-07-11T02:41:00.500Z');
+    failRolloutStage(irreversible, 'source-drain', { errorCode: 'receipt_lost', failedAtUtc: '2026-07-11T02:41:01.000Z' });
+    assert.equal(planRolloutRecovery(irreversible).action, 'resume-release-activation-same-cutover');
+});
 
-test('Contract migration disables automatic rollback and survives a later failure as manual recovery', () => {
+test('Contract migration disables automatic rollback and survives a later failure as manual recovery', () =>
+{
   const state = createState()
   completeThrough(state, 'source-stop')
   markContractMigrationApplied(state, '2026-07-11T03:00:00.000Z')

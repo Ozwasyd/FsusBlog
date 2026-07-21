@@ -17,13 +17,13 @@ const adminAccountRoots = [
   'src/frontend/src/components/user'
 ].map((dir) => path.join(repoRoot, dir))
 
-const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json')
-const adminInlineEmptyStatePath = path.join(sourceRoot, 'components/admin/AdminInlineEmptyState.vue')
-const articleListPath = path.join(sourceRoot, 'views/admin/article/List.vue')
-const taxonomyManageViewPath = path.join(sourceRoot, 'components/admin/AdminTaxonomyManageView.vue')
-const anonymousGovernancePath = path.join(sourceRoot, 'views/admin/moderation/AnonymousGovernancePage.vue')
+const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json');
+const adminInlineEmptyStatePath = path.join(sourceRoot, 'components/admin/AdminInlineEmptyState.vue');
+const articleListPath = path.join(sourceRoot, 'views/admin/article/List.vue');
+const taxonomyManageViewPath = path.join(sourceRoot, 'components/admin/AdminTaxonomyManageView.vue');
+const anonymousGovernancePath = path.join(sourceRoot, 'views/admin/moderation/AnonymousGovernancePage.vue');
 
-const directElEmptyAllowlist = new Map()
+const directElEmptyAllowlist = new Map();
 
 const dashPlaceholderAllowlist = [
   {
@@ -156,30 +156,35 @@ if (!adminInlineEmptyState.includes('class="admin-inline-empty-state"')) {
 if (!adminInlineEmptyState.includes('admin-inline-empty-state__actions')) {
   fail(adminInlineEmptyStatePath, 1, 'AdminInlineEmptyState must own action spacing for compact empty states')
 }
-if (!adminInlineEmptyState.includes('props.description || props.content')) {
-  fail(adminInlineEmptyStatePath, 1, 'AdminInlineEmptyState must support content fallback for existing admin callers')
+if (!adminInlineEmptyState.includes('props.description || props.content'))
+{
+    fail(adminInlineEmptyStatePath, 1, 'AdminInlineEmptyState must support content fallback for existing admin callers');
 }
-if (!/\.admin-inline-empty-state\s*\{[^}]*padding:\s*var\(--fsus-space-5\);/s.test(adminInlineEmptyState)) {
-  fail(adminInlineEmptyStatePath, 1, 'AdminInlineEmptyState must use the shared 20px desktop inset')
+if (!/\.admin-inline-empty-state\s*\{[^}]*padding:\s*var\(--fsus-space-5\);/s.test(adminInlineEmptyState))
+{
+    fail(adminInlineEmptyStatePath, 1, 'AdminInlineEmptyState must use the shared 20px desktop inset');
 }
-if (!/@media\s*\(width <= 639px\)\s*\{[\s\S]*?\.admin-inline-empty-state\s*\{[^}]*padding:\s*var\(--fsus-space-4\);/s.test(adminInlineEmptyState)) {
-  fail(adminInlineEmptyStatePath, 1, 'AdminInlineEmptyState must use the shared 16px mobile inset')
+if (!/@media\s*\(width <= 639px\)\s*\{[\s\S]*?\.admin-inline-empty-state\s*\{[^}]*padding:\s*var\(--fsus-space-4\);/s.test(adminInlineEmptyState))
+{
+    fail(adminInlineEmptyStatePath, 1, 'AdminInlineEmptyState must use the shared 16px mobile inset');
 }
 
 for (const [file, selector] of [
-  [articleListPath, 'article-list-empty-state'],
-  [taxonomyManageViewPath, 'taxonomy-empty-state'],
-  [anonymousGovernancePath, 'anonymous-governance-empty']
-]) {
-  const content = read(file)
-  const selectorPattern = new RegExp(`\\.${selector}\\s*\\{[^}]*\\bpadding(?:-[a-z]+)?\\s*:`, 'gs')
-  if (selectorPattern.test(content)) {
-    fail(file, 1, `.${selector} must inherit padding from AdminInlineEmptyState`)
-  }
+    [articleListPath, 'article-list-empty-state'],
+    [taxonomyManageViewPath, 'taxonomy-empty-state'],
+    [anonymousGovernancePath, 'anonymous-governance-empty']
+])
+{
+    const content = read(file);
+    const selectorPattern = new RegExp(`\\.${selector}\\s*\\{[^}]*\\bpadding(?:-[a-z]+)?\\s*:`, 'gs');
+    if (selectorPattern.test(content))
+{
+        fail(file, 1, `.${selector} must inherit padding from AdminInlineEmptyState`);
+    }
 }
 
-const packageJson = JSON.parse(read(packageJsonPath))
-const scripts = packageJson.scripts ?? {}
+const packageJson = JSON.parse(read(packageJsonPath));
+const scripts = packageJson.scripts ?? {};
 const checkScript = 'node ../../tests/frontend/checks/static/check-admin-empty-state-governance.mjs'
 if (scripts['check:admin-empty-state-governance'] !== checkScript) {
   fail(packageJsonPath, 1, 'check:admin-empty-state-governance script is missing')

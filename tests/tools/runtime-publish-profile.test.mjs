@@ -541,12 +541,13 @@ test('successful profile results require concrete runtime, image, SDK, Node and 
   ]) assert.ok(errors.some((error) => error.includes(expected)), expected)
 })
 
-test('publish scripts and Dockerfile consume the named profile instead of restoring split hardcoded defaults', () => {
-  const dockerfile = fs.readFileSync(path.join(root, 'ops/docker/FsusBlog.Server.Dockerfile'), 'utf8')
-  const frontendBuild = dockerfile.slice(dockerfile.indexOf('FROM node-runtime-musl AS frontend-build'))
-  const nativeBuild = fs.readFileSync(path.join(root, 'tools/build-native.sh'), 'utf8')
-  const finalBuild = fs.readFileSync(path.join(root, 'tools/build-final-image.sh'), 'utf8')
-  const collector = fs.readFileSync(path.join(root, 'tools/operations/collect-release-evidence.sh'), 'utf8')
+test('publish scripts and Dockerfile consume the named profile instead of restoring split hardcoded defaults', () =>
+{
+    const dockerfile = fs.readFileSync(path.join(root, 'ops/docker/FsusBlog.Server.Dockerfile'), 'utf8');
+    const frontendBuild = dockerfile.slice(dockerfile.indexOf('FROM node-runtime-musl AS frontend-build'));
+    const nativeBuild = fs.readFileSync(path.join(root, 'tools/build-native.sh'), 'utf8');
+    const finalBuild = fs.readFileSync(path.join(root, 'tools/build-final-image.sh'), 'utf8');
+    const collector = fs.readFileSync(path.join(root, 'tools/operations/collect-release-evidence.sh'), 'utf8');
   const ensureWasm = fs.readFileSync(path.join(root, 'tools/frontend/ensure-wasm.mjs'), 'utf8')
   assert.match(dockerfile, /FROM base-\$\{RUNTIME_BASE_FLAVOR\} AS base/u)
   assert.match(dockerfile, /FROM build-\$\{RUNTIME_BASE_FLAVOR\} AS build/u)
@@ -560,14 +561,14 @@ test('publish scripts and Dockerfile consume the named profile instead of restor
   assert.match(dockerfile, /COPY --from=fsusui \/vue\/packages \/opt\/fsusui\/vue\/packages/u)
   assert.match(dockerfile, /ln -s \/app\/node_modules \/opt\/fsusui\/node_modules/u)
   assert.match(dockerfile, /FSUSBLOG_LOCAL_FSUSUI_ROOT=\/opt\/fsusui/u)
-  assert.match(dockerfile, /io\.fsusblog\.build\.fsusui-commit/u)
-  assert.match(dockerfile, /HEALTHCHECK[\s\S]*-H "Host: \$host"[\s\S]*\/health\/live/u)
-  assert.ok(
-    frontendBuild.indexOf('RUN --mount=type=secret,id=github_packages_token')
+    assert.match(dockerfile, /io\.fsusblog\.build\.fsusui-commit/u);
+    assert.match(dockerfile, /HEALTHCHECK[\s\S]*-H "Host: \$host"[\s\S]*\/health\/live/u);
+    assert.ok(
+        frontendBuild.indexOf('RUN --mount=type=secret,id=github_packages_token')
       < frontendBuild.indexOf('ARG FSUSBLOG_RELEASE_ID=local-unversioned'),
-    'release identity must not invalidate the npm dependency layer',
-  )
-  assert.match(nativeBuild, /resolve-runtime-publish-profile\.mjs/u)
+        'release identity must not invalidate the npm dependency layer'
+  );
+    assert.match(nativeBuild, /resolve-runtime-publish-profile\.mjs/u);
   assert.match(finalBuild, /--runtime-profile-manifest-digest/u)
   assert.match(finalBuild, /NativeAOT is a conditional narrow prototype/u)
   assert.match(finalBuild, /--build-context "fsusui=\$FSUSUI_CONTEXT_DIR"/u)

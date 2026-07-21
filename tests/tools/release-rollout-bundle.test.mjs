@@ -17,17 +17,17 @@ const artifactNames = [
   'workerReconciliation',
   'resourceBudget',
   'faultInjection'
-]
+];
 const auxiliaryNames = [
-  'releaseManifest', 'backupRestoreGate', 'migrationExpand', 'candidateReadiness',
-  'assetMaterialization', 'retentionPrepared', 'retainedAssets', 'publicAotWarm', 'candidateSmoke',
-  'compatibilityMatrix', 'gatewayTransition', 'activeFenceAcquire',
-  'activeFenceSourceRevoke', 'activeFenceVerify', 'challengeKindCutoverReceipt',
-  'challengeKindCutoverAcceptance', 'challengeKindCutoverGate', 'challengeProtocolActivation',
-  'publicTrafficCheckpoint',
-  'sourceDrainSnapshot', 'sourceDrainGate', 'targetHealth',
-  'retentionDrainComplete', 'operatorNote'
-]
+    'releaseManifest', 'backupRestoreGate', 'migrationExpand', 'candidateReadiness',
+    'assetMaterialization', 'retentionPrepared', 'retainedAssets', 'publicAotWarm', 'candidateSmoke',
+    'compatibilityMatrix', 'gatewayTransition', 'activeFenceAcquire',
+    'activeFenceSourceRevoke', 'activeFenceVerify', 'challengeKindCutoverReceipt',
+    'challengeKindCutoverAcceptance', 'challengeKindCutoverGate', 'challengeProtocolActivation',
+    'publicTrafficCheckpoint',
+    'sourceDrainSnapshot', 'sourceDrainGate', 'targetHealth',
+    'retentionDrainComplete', 'operatorNote'
+];
 
 function sha256(file) {
   return `sha256:${crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`

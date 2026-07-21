@@ -1,13 +1,13 @@
 <template>
-  <div class="account-page moderation-system-page account-motion-enter w-full">
-    <FsusUiTaskPageHeader
-      title="审核系统"
-      description="评论队列、词库资产、地区策略、回放预览、模型信号与审计证据集中治理。"
-      class="account-task-page-header"
-      density="compact"
-    />
+    <div class="account-page moderation-system-page account-motion-enter w-full">
+        <FsusUiTaskPageHeader
+            title="审核系统"
+            description="评论队列、词库资产、地区策略、回放预览、模型信号与审计证据集中治理。"
+            class="account-task-page-header"
+            density="compact"
+        />
 
-    <section class="admin-muted-alert admin-muted-alert--warning mb-8 px-5 py-4 text-[12px] leading-6">
+        <section class="admin-muted-alert admin-muted-alert--warning mb-8 px-5 py-4 text-[12px] leading-6">
       <strong class="text-[var(--fsusblog-text-primary)]">地区法律策略优先级高于反垃圾模型。</strong>
       <span class="ml-2">模型输出只作为风险信号；最终动作来自地区策略、硬词库和管理员审核。</span>
     </section>
@@ -22,9 +22,9 @@
 </template>
 
 <script setup lang="ts">
-import { RouterView } from 'vue-router'
-import { FsusUiTaskPageHeader } from "@/fsusui"
-import AdminSystemTabs, { type AdminSystemTab } from '@/components/admin/AdminSystemTabs.vue'
+import { RouterView } from 'vue-router';
+import { FsusUiTaskPageHeader } from "@/fsusui";
+import AdminSystemTabs, { type AdminSystemTab } from '@/components/admin/AdminSystemTabs.vue';
 
 const moderationSystemTabs = [
   { label: '总览', name: 'ManageModerationDashboard' },

@@ -1,8 +1,8 @@
-import fs from 'node:fs'
-import path from 'node:path'
-import { isValidReleaseId } from '../release/release-id.mjs'
+import fs from 'node:fs';
+import path from 'node:path';
+import { isValidReleaseId } from '../release/release-id.mjs';
 
-export const ROLLOUT_SCHEMA = 'fsusblog.release-rollout-state.v1'
+export const ROLLOUT_SCHEMA = 'fsusblog.release-rollout-state.v1';
 export const ROLLOUT_STAGES = Object.freeze([
   'manifest-validate',
   'capacity-preflight',
@@ -11,18 +11,18 @@ export const ROLLOUT_STAGES = Object.freeze([
   'candidate-start',
   'candidate-readiness',
   'asset-materialize',
-  'candidate-smoke',
-  'compatibility-smoke',
-  'gateway-switch',
-  'source-drain',
-  'active-fence',
-  'public-verify',
-  'source-stop',
-  'release-evidence'
-])
+    'candidate-smoke',
+    'compatibility-smoke',
+    'gateway-switch',
+    'source-drain',
+    'active-fence',
+    'public-verify',
+    'source-stop',
+    'release-evidence'
+]);
 
-const DIGEST = /^sha256:[0-9a-f]{64}$/u
-const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/u
+const DIGEST = /^sha256:[0-9a-f]{64}$/u;
+const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/u;
 
 export function createRolloutState(input) {
   const createdAtUtc = timestamp(input.createdAtUtc ?? new Date().toISOString(), 'createdAtUtc')
@@ -40,14 +40,14 @@ export function createRolloutState(input) {
     currentStage: null,
     completedStages: [],
     stages: [],
-    switchCommitted: false,
-    gatewayGeneration: null,
-    contractMigrationApplied: false,
-    destructiveCutoverStarted: false,
-    activationCommitted: false,
-    rollbackAllowed: true,
-    candidateOnly: false,
-    outcome: null,
+        switchCommitted: false,
+        gatewayGeneration: null,
+        contractMigrationApplied: false,
+        destructiveCutoverStarted: false,
+        activationCommitted: false,
+        rollbackAllowed: true,
+        candidateOnly: false,
+        outcome: null,
     recovery: null,
     recoveries: [],
     finalEvidencePath: null,
@@ -76,18 +76,21 @@ export function startRolloutStage(state, stageValue, at = new Date().toISOString
   return state
 }
 
-export function completeRolloutStage(state, stageValue, input = {}) {
-  validateRolloutState(state)
-  const stage = rolloutStage(stageValue)
-  if (stage === 'source-drain' && state.destructiveCutoverStarted !== true) {
-    throw new Error('source-drain cannot complete before the destructive cutover boundary is durable')
-  }
-  if (stage === 'active-fence' && state.activationCommitted !== true) {
-    throw new Error('active-fence cannot complete before activation is durably committed')
-  }
-  if (state.currentStage !== stage) throw new Error(`cannot complete ${stage}; current stage is ${state.currentStage ?? 'none'}`)
-  const completedAtUtc = timestamp(input.completedAtUtc ?? new Date().toISOString(), 'stage.completedAtUtc')
-  const record = state.stages.at(-1)
+export function completeRolloutStage(state, stageValue, input = {})
+{
+    validateRolloutState(state);
+    const stage = rolloutStage(stageValue);
+    if (stage === 'source-drain' && state.destructiveCutoverStarted !== true)
+{
+        throw new Error('source-drain cannot complete before the destructive cutover boundary is durable');
+    }
+    if (stage === 'active-fence' && state.activationCommitted !== true)
+{
+        throw new Error('active-fence cannot complete before activation is durably committed');
+    }
+    if (state.currentStage !== stage) {throw new Error(`cannot complete ${stage}; current stage is ${state.currentStage ?? 'none'}`)};
+    const completedAtUtc = timestamp(input.completedAtUtc ?? new Date().toISOString(), 'stage.completedAtUtc');
+    const record = state.stages.at(-1);
   if (!record || record.stage !== stage || record.status !== 'running') throw new Error('running stage record is missing')
   record.status = 'ok'
   record.completedAtUtc = completedAtUtc
@@ -143,35 +146,40 @@ export function markContractMigrationApplied(state, at = new Date().toISOString(
   state.rollbackAllowed = false
   state.updatedAtUtc = timestamp(at, 'contractMigrationAppliedAtUtc')
   validateRolloutState(state)
-  return state
+    return state;
 }
 
-export function markDestructiveCutoverStarted(state, at = new Date().toISOString()) {
-  validateRolloutState(state)
-  if (!state.switchCommitted || state.currentStage !== 'source-drain') {
-    throw new Error('destructive cutover boundary requires the committed gateway and running source-drain stage')
-  }
-  state.destructiveCutoverStarted = true
-  state.updatedAtUtc = timestamp(at, 'destructiveCutoverStartedAtUtc')
-  validateRolloutState(state)
-  return state
+export function markDestructiveCutoverStarted(state, at = new Date().toISOString())
+{
+    validateRolloutState(state);
+    if (!state.switchCommitted || state.currentStage !== 'source-drain')
+{
+        throw new Error('destructive cutover boundary requires the committed gateway and running source-drain stage');
+    }
+    state.destructiveCutoverStarted = true;
+    state.updatedAtUtc = timestamp(at, 'destructiveCutoverStartedAtUtc');
+    validateRolloutState(state);
+    return state;
 }
 
-export function markActivationCommitted(state, at = new Date().toISOString()) {
-  validateRolloutState(state)
-  if (!state.destructiveCutoverStarted || state.currentStage !== 'active-fence'
-      || !state.completedStages.includes('source-drain')) {
-    throw new Error('activation requires completed destructive cutover and running active-fence stage')
-  }
-  state.activationCommitted = true
-  state.updatedAtUtc = timestamp(at, 'activationCommittedAtUtc')
-  validateRolloutState(state)
-  return state
+export function markActivationCommitted(state, at = new Date().toISOString())
+{
+    validateRolloutState(state);
+    if (!state.destructiveCutoverStarted || state.currentStage !== 'active-fence'
+      || !state.completedStages.includes('source-drain'))
+{
+        throw new Error('activation requires completed destructive cutover and running active-fence stage');
+    }
+    state.activationCommitted = true;
+    state.updatedAtUtc = timestamp(at, 'activationCommittedAtUtc');
+    validateRolloutState(state);
+    return state;
 }
 
-export function markCandidateOnly(state, at = new Date().toISOString()) {
-  validateRolloutState(state)
-  if (!state.completedStages.includes('compatibility-smoke')) throw new Error('candidate-only completion requires compatibility smoke')
+export function markCandidateOnly(state, at = new Date().toISOString())
+{
+    validateRolloutState(state);
+    if (!state.completedStages.includes('compatibility-smoke')) {throw new Error('candidate-only completion requires compatibility smoke')};
   if (state.switchCommitted) throw new Error('candidate-only rollout cannot have committed traffic')
   state.status = 'candidate_ready'
   state.candidateOnly = true
@@ -312,16 +320,16 @@ export function validateRolloutState(state) {
   if (!Array.isArray(state.stages)) throw new Error('stages must be an array')
   for (const record of state.stages) validateStageRecord(record)
   if (typeof state.switchCommitted !== 'boolean') throw new Error('switchCommitted must be boolean')
-  if (state.gatewayGeneration !== null && (!Number.isSafeInteger(state.gatewayGeneration) || state.gatewayGeneration < 1)) throw new Error('gatewayGeneration is invalid')
-  if (state.switchCommitted !== (state.gatewayGeneration !== null)) throw new Error('switchCommitted and gatewayGeneration disagree')
-  if (typeof state.contractMigrationApplied !== 'boolean' || typeof state.rollbackAllowed !== 'boolean') throw new Error('migration rollback flags are invalid')
-  if (typeof state.destructiveCutoverStarted !== 'boolean') throw new Error('destructiveCutoverStarted must be boolean')
-  if (state.destructiveCutoverStarted && !state.switchCommitted) throw new Error('destructive cutover requires a committed gateway switch')
-  if (typeof state.activationCommitted !== 'boolean') throw new Error('activationCommitted must be boolean')
-  if (state.activationCommitted && !state.destructiveCutoverStarted) throw new Error('activation cannot precede destructive cutover')
-  if (state.contractMigrationApplied && state.rollbackAllowed) throw new Error('Contract migration must disable rollback')
-  if (typeof state.candidateOnly !== 'boolean') throw new Error('candidateOnly must be boolean')
-  if (state.status === 'candidate_ready' && !state.candidateOnly) throw new Error('candidate_ready status requires candidateOnly')
+    if (state.gatewayGeneration !== null && (!Number.isSafeInteger(state.gatewayGeneration) || state.gatewayGeneration < 1)) {throw new Error('gatewayGeneration is invalid')};
+    if (state.switchCommitted !== (state.gatewayGeneration !== null)) {throw new Error('switchCommitted and gatewayGeneration disagree')};
+    if (typeof state.contractMigrationApplied !== 'boolean' || typeof state.rollbackAllowed !== 'boolean') {throw new Error('migration rollback flags are invalid')};
+    if (typeof state.destructiveCutoverStarted !== 'boolean') {throw new Error('destructiveCutoverStarted must be boolean')};
+    if (state.destructiveCutoverStarted && !state.switchCommitted) {throw new Error('destructive cutover requires a committed gateway switch')};
+    if (typeof state.activationCommitted !== 'boolean') {throw new Error('activationCommitted must be boolean')};
+    if (state.activationCommitted && !state.destructiveCutoverStarted) {throw new Error('activation cannot precede destructive cutover')};
+    if (state.contractMigrationApplied && state.rollbackAllowed) {throw new Error('Contract migration must disable rollback')};
+    if (typeof state.candidateOnly !== 'boolean') {throw new Error('candidateOnly must be boolean')};
+    if (state.status === 'candidate_ready' && !state.candidateOnly) {throw new Error('candidate_ready status requires candidateOnly')};
   if (state.outcome !== null) enumValue(state.outcome, ['succeeded', 'candidate_ready', 'rolled_back', 'aborted'], 'outcome')
   if (state.status === 'completed' && state.outcome !== 'succeeded') throw new Error('completed rollout outcome must be succeeded')
   if (state.status === 'candidate_ready' && state.outcome !== 'candidate_ready') throw new Error('candidate rollout outcome must be candidate_ready')
@@ -346,22 +354,26 @@ function recoveryPlan(state, failedStage) {
   if (!state.switchCommitted && index < switchIndex) {
     return { action: 'preserve-source-stop-candidate', automatic: true, reason: 'failure_before_gateway_switch', failedStage }
   }
-  if (!state.switchCommitted) {
-    return { action: 'gateway-recover', automatic: true, reason: 'gateway_ownership_uncommitted', failedStage }
-  }
-  if (failedStage === 'source-drain' && !state.destructiveCutoverStarted) {
-    return { action: 'rollback-gateway-to-source', automatic: true, reason: 'post_switch_gate_failed_before_source_drain', failedStage }
-  }
-  if (state.destructiveCutoverStarted && index >= drainIndex && index <= ROLLOUT_STAGES.indexOf('public-verify')) {
-    return {
-      action: 'resume-release-activation-same-cutover',
-      automatic: true,
-      reason: 'destructive_cutover_started_old_source_rollback_forbidden',
-      failedStage
+    if (!state.switchCommitted)
+{
+        return { action: 'gateway-recover', automatic: true, reason: 'gateway_ownership_uncommitted', failedStage };
     }
-  }
-  if (failedStage === 'source-stop') {
-    return { action: 'retain-source-report-cleanup-blocker', automatic: false, reason: 'source_stop_failed_after_commit', failedStage }
+    if (failedStage === 'source-drain' && !state.destructiveCutoverStarted)
+{
+        return { action: 'rollback-gateway-to-source', automatic: true, reason: 'post_switch_gate_failed_before_source_drain', failedStage };
+    }
+    if (state.destructiveCutoverStarted && index >= drainIndex && index <= ROLLOUT_STAGES.indexOf('public-verify'))
+{
+        return {
+            action: 'resume-release-activation-same-cutover',
+            automatic: true,
+            reason: 'destructive_cutover_started_old_source_rollback_forbidden',
+            failedStage
+        };
+    }
+    if (failedStage === 'source-stop')
+{
+        return { action: 'retain-source-report-cleanup-blocker', automatic: false, reason: 'source_stop_failed_after_commit', failedStage };
   }
   return { action: 'resume-release-evidence', automatic: true, reason: 'traffic_and_drain_complete', failedStage }
 }
@@ -405,23 +417,24 @@ function validateRecoveryRecord(value) {
 
 function recoveryAction(value) {
   return enumValue(value, [
-    'preserve-source-stop-candidate',
-    'gateway-recover',
-    'rollback-gateway-to-source',
-    'resume-release-activation-same-cutover',
-    'retain-source-report-cleanup-blocker',
-    'resume-release-evidence',
-    'manual-contract-recovery'
+        'preserve-source-stop-candidate',
+        'gateway-recover',
+        'rollback-gateway-to-source',
+        'resume-release-activation-same-cutover',
+        'retain-source-report-cleanup-blocker',
+        'resume-release-evidence',
+        'manual-contract-recovery'
   ], 'recovery.action')
 }
 
-function releaseIdentity(value, label) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} identity is required`)
-  if (!['blue', 'green'].includes(value.slot)) throw new Error(`${label}.slot must be blue or green`)
-  if (!isValidReleaseId(value.releaseId)) throw new Error(`${label}.releaseId is invalid`)
-  if (!DIGEST.test(String(value.imageDigest ?? ''))) throw new Error(`${label}.imageDigest is invalid`)
-  const generation = Number(value.runtimeGeneration)
-  if (!Number.isSafeInteger(generation) || generation < 1) throw new Error(`${label}.runtimeGeneration is invalid`)
+function releaseIdentity(value, label)
+{
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {throw new Error(`${label} identity is required`)};
+    if (!['blue', 'green'].includes(value.slot)) {throw new Error(`${label}.slot must be blue or green`)};
+    if (!isValidReleaseId(value.releaseId)) {throw new Error(`${label}.releaseId is invalid`)};
+    if (!DIGEST.test(String(value.imageDigest ?? ''))) {throw new Error(`${label}.imageDigest is invalid`)};
+    const generation = Number(value.runtimeGeneration);
+    if (!Number.isSafeInteger(generation) || generation < 1) {throw new Error(`${label}.runtimeGeneration is invalid`)};
   return { slot: value.slot, releaseId: value.releaseId, imageDigest: value.imageDigest, runtimeGeneration: generation }
 }
 

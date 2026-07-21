@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
-import path from 'node:path'
-import process from 'node:process'
-import { isValidReleaseId } from '../release/release-id.mjs'
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import process from 'node:process';
+import { isValidReleaseId } from '../release/release-id.mjs';
 
-const DEFAULT_OUTPUT = '.tmp/deployment/notification-stream-restart.json'
+const DEFAULT_OUTPUT = '.tmp/deployment/notification-stream-restart.json';
 
 function fail(message) {
   throw new Error(message)
@@ -49,13 +49,14 @@ function parseArgs(argv) {
     }
   }
   if (!Number.isSafeInteger(options.port) || options.port < 1 || options.port > 65535) {
-    fail('--port must be between 1 and 65535')
-  }
-  if (action === 'restart') {
-    if (!isValidReleaseId(options.releaseId)) fail('--release is invalid')
-    if (!/^[a-z][a-z0-9-]{0,31}$/.test(options.slot ?? '')) fail('--slot is invalid')
-    if (!Number.isSafeInteger(options.generation) || options.generation < 1) fail('--generation is required')
-  }
+        fail('--port must be between 1 and 65535');
+    }
+    if (action === 'restart')
+{
+        if (!isValidReleaseId(options.releaseId)) {fail('--release is invalid')};
+        if (!/^[a-z][a-z0-9-]{0,31}$/.test(options.slot ?? '')) {fail('--slot is invalid')};
+        if (!Number.isSafeInteger(options.generation) || options.generation < 1) {fail('--generation is required')};
+    }
   if (!options.adminHeaderFile) fail('--admin-header-file is required')
   if (!isAllowedOrigin(options.origin)) fail('--origin must be an explicit HTTPS origin')
   return options

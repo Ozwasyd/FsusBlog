@@ -44,13 +44,14 @@ function createRunnerFixture(temp) {
   const yamlDirectory = path.join(toolsDirectory, 'yaml')
   const workflowDirectory = path.join(temp, '.github/workflows')
   fs.mkdirSync(schedulerDirectory, { recursive: true })
-  fs.mkdirSync(yamlDirectory, { recursive: true })
-  fs.mkdirSync(workflowDirectory, { recursive: true })
-  fs.copyFileSync(path.join(root, 'tools/run-test-matrix.mjs'), path.join(toolsDirectory, 'run-test-matrix.mjs'))
-  for (const file of ['scheduler.mjs', 'async-log-pipeline.mjs', 'local-profile.mjs', 'parse-matrix.mjs', 'topology.mjs', 'fresh-production.mjs', 'local-runtime-cleanup.mjs', 'dotnet-build-server-cleanup.mjs', 'production-build-layout.mjs', 'production-build-gc.mjs', 'artifact-digest-table.mjs', 'resource-utilization.mjs', 'production-resource-enforcement.mjs', 'resident-resource-leases.mjs']) {
-    fs.copyFileSync(path.join(root, 'tools/test-matrix', file), path.join(schedulerDirectory, file))
-  }
-  fs.copyFileSync(path.join(root, 'tools/yaml/parse-document.mjs'), path.join(yamlDirectory, 'parse-document.mjs'))
+    fs.mkdirSync(yamlDirectory, { recursive: true });
+    fs.mkdirSync(workflowDirectory, { recursive: true });
+    fs.copyFileSync(path.join(root, 'tools/run-test-matrix.mjs'), path.join(toolsDirectory, 'run-test-matrix.mjs'));
+    for (const file of ['scheduler.mjs', 'async-log-pipeline.mjs', 'local-profile.mjs', 'parse-matrix.mjs', 'topology.mjs', 'fresh-production.mjs', 'local-runtime-cleanup.mjs', 'dotnet-build-server-cleanup.mjs', 'production-build-layout.mjs', 'production-build-gc.mjs', 'artifact-digest-table.mjs', 'resource-utilization.mjs', 'production-resource-enforcement.mjs', 'resident-resource-leases.mjs'])
+{
+        fs.copyFileSync(path.join(root, 'tools/test-matrix', file), path.join(schedulerDirectory, file));
+    }
+    fs.copyFileSync(path.join(root, 'tools/yaml/parse-document.mjs'), path.join(yamlDirectory, 'parse-document.mjs'));
   fs.copyFileSync(path.join(root, 'tools/yaml/workflow-structure.mjs'), path.join(yamlDirectory, 'workflow-structure.mjs'))
   fs.copyFileSync(path.join(root, '.github/workflows/quality-gate.yml'), path.join(workflowDirectory, 'quality-gate.yml'))
   return path.join(toolsDirectory, 'run-test-matrix.mjs')
@@ -1092,19 +1093,20 @@ test('active dynamic bundles expand from the live scheduler grant after a siblin
     snapshotWorktree: stableSnapshot,
     executeTier: async (current, context) => {
       if (current.id === 'short') {
-        await delay(20)
-        return { code: 0, signal: null }
-      }
-      const deadline = Date.now() + 1_000
-      do {
-        const grants = JSON.parse(fs.readFileSync(context.env.FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE, 'utf8'))
-        expandedGrant = grants.grants.long
-        if (expandedGrant?.cpuUnits === 8) break
-        await delay(5)
-      } while (Date.now() < deadline)
-      return { code: 0, signal: null }
-    }
-  })
+                await delay(20);
+                return { code: 0, signal: null };
+            }
+            const deadline = Date.now() + 1_000;
+            do
+{
+                const grants = JSON.parse(fs.readFileSync(context.env.FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE, 'utf8'));
+                expandedGrant = grants.grants.long;
+                if (expandedGrant?.cpuUnits === 8) {break};
+                await delay(5);
+            } while (Date.now() < deadline);
+            return { code: 0, signal: null };
+        }
+    });
 
   assert.equal(result.status, 'success')
   assert.equal(expandedGrant.cpuUnits, 8)

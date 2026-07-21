@@ -53,17 +53,17 @@ const components = [
       'src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadMetrics.cs'
     ],
     minimumFiles: 4
-  },
-  {
-    id: 'web-application-composition',
-    roots: [
-      'src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs',
-      'src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs',
-      'src/backend/Infrastructure/Bootstrap/PublicWebRuntime.HtmlMaterialization.cs',
+    },
+    {
+        id: 'web-application-composition',
+        roots: [
+            'src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs',
+            'src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs',
+            'src/backend/Infrastructure/Bootstrap/PublicWebRuntime.HtmlMaterialization.cs'
     ],
-    minimumFiles: 2
-  }
-]
+        minimumFiles: 2
+    }
+];
 
 function countLines(source) {
   if (source.length === 0) return 0

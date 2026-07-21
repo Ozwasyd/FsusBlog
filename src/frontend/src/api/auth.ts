@@ -8,13 +8,13 @@ import type {
   MfaProfile,
   MfaSetupStart,
   MfaSetupVerify,
-  PasskeyCredentialSummary,
-  PasskeyLoginBeginResponse,
-  PasskeyRegisterBeginResponse,
-  PasskeySignalState,
-  RecoveryKeyCreateResponse,
-  RecoveryKeyVerifyRequest,
-  RecoveryKeyVerifyResponse,
+    PasskeyCredentialSummary,
+    PasskeyLoginBeginResponse,
+    PasskeyRegisterBeginResponse,
+    PasskeySignalState,
+    RecoveryKeyCreateResponse,
+    RecoveryKeyVerifyRequest,
+    RecoveryKeyVerifyResponse,
   UserSessionSummary
 } from '@/contracts/binaryApi'
 import { encodeAedsFrame, encodePasskeyCredentialFriendlyNameUpdateRequest, encodeStringMutationRequest, writeFixedUtf8 } from './binaryFrame'
@@ -27,13 +27,13 @@ export type {
   MfaProfile,
   MfaSetupStart,
   MfaSetupVerify,
-  PasskeyCredentialSummary,
-  PasskeyLoginBeginResponse,
-  PasskeyRegisterBeginResponse,
-  PasskeySignalState,
-  RecoveryKeyCreateResponse,
-  RecoveryKeyVerifyRequest,
-  RecoveryKeyVerifyResponse,
+    PasskeyCredentialSummary,
+    PasskeyLoginBeginResponse,
+    PasskeyRegisterBeginResponse,
+    PasskeySignalState,
+    RecoveryKeyCreateResponse,
+    RecoveryKeyVerifyRequest,
+    RecoveryKeyVerifyResponse,
   UserSessionSummary
 } from '@/contracts/binaryApi'
 
@@ -370,56 +370,56 @@ export const passkeyRegisterBegin = (config?: ApiRequestConfig) =>
     frameType: FrameType.PasskeyRegisterBegin,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: { method: 'POST' }
-  })
+    });
 
 export const passkeyRegisterComplete = (data: PasskeyRegisterCompleteRequest, config?: ApiRequestConfig) =>
-  requestBinaryOnly<PasskeySignalState>({
-    binaryRoute: { operationId: 'binary_post_auth_passkey_register_complete' },
-    frameType: FrameType.PasskeySignalState,
-    signal: config?.signal as AbortSignal | undefined,
-    requestOptions: {
-      method: 'POST',
-      body: encodeAedsFrame(FrameType.PasskeyRegisterCompleteRequest, encodePasskeyRegisterCompleteRequest(data))
-    }
-  })
+    requestBinaryOnly<PasskeySignalState>({
+        binaryRoute: { operationId: 'binary_post_auth_passkey_register_complete' },
+        frameType: FrameType.PasskeySignalState,
+        signal: config?.signal as AbortSignal | undefined,
+        requestOptions: {
+            method: 'POST',
+            body: encodeAedsFrame(FrameType.PasskeyRegisterCompleteRequest, encodePasskeyRegisterCompleteRequest(data))
+        }
+    });
 
 export const enrollmentPasskeyRegisterBegin = (config?: ApiRequestConfig) =>
-  requestBinaryOnly<PasskeyRegisterBeginResponse>({
-    binaryRoute: { operationId: 'binary_post_auth_enrollment_passkey_register_begin' },
-    frameType: FrameType.PasskeyRegisterBegin,
-    signal: config?.signal as AbortSignal | undefined,
-    requestOptions: { method: 'POST' }
-  })
+    requestBinaryOnly<PasskeyRegisterBeginResponse>({
+        binaryRoute: { operationId: 'binary_post_auth_enrollment_passkey_register_begin' },
+        frameType: FrameType.PasskeyRegisterBegin,
+        signal: config?.signal as AbortSignal | undefined,
+        requestOptions: { method: 'POST' }
+    });
 
 export const enrollmentPasskeyRegisterComplete = (data: PasskeyRegisterCompleteRequest, config?: ApiRequestConfig) =>
-  requestBinaryOnly<AuthLoginFlow>({
-    binaryRoute: { operationId: 'binary_post_auth_enrollment_passkey_register_complete' },
-    frameType: FrameType.AuthLoginFlow,
-    signal: config?.signal as AbortSignal | undefined,
-    requestOptions: {
-      method: 'POST',
+    requestBinaryOnly<AuthLoginFlow>({
+        binaryRoute: { operationId: 'binary_post_auth_enrollment_passkey_register_complete' },
+        frameType: FrameType.AuthLoginFlow,
+        signal: config?.signal as AbortSignal | undefined,
+        requestOptions: {
+            method: 'POST',
       body: encodeAedsFrame(FrameType.PasskeyRegisterCompleteRequest, encodePasskeyRegisterCompleteRequest(data))
-    }
-  })
+        }
+    });
 
 export const getEnrollmentStatus = (config?: ApiRequestConfig) =>
-  requestBinaryOnly<AuthLoginFlow>({
-    binaryRoute: { operationId: 'binary_get_auth_enrollment_status' },
-    frameType: FrameType.AuthLoginFlow,
-    signal: config?.signal as AbortSignal | undefined
-  })
+    requestBinaryOnly<AuthLoginFlow>({
+        binaryRoute: { operationId: 'binary_get_auth_enrollment_status' },
+        frameType: FrameType.AuthLoginFlow,
+        signal: config?.signal as AbortSignal | undefined
+    });
 
 export const cancelEnrollment = (config?: ApiRequestConfig) =>
-  requestBinaryOnly<null>({
-    binaryRoute: { operationId: 'binary_post_auth_enrollment_cancel' },
-    frameType: FrameType.EmptySuccess,
-    signal: config?.signal as AbortSignal | undefined,
-    requestOptions: { method: 'POST' }
-  })
+    requestBinaryOnly<null>({
+        binaryRoute: { operationId: 'binary_post_auth_enrollment_cancel' },
+        frameType: FrameType.EmptySuccess,
+        signal: config?.signal as AbortSignal | undefined,
+        requestOptions: { method: 'POST' }
+    });
 
 export const createRecoveryKey = (config?: ApiRequestConfig) =>
-  requestBinaryOnly<RecoveryKeyCreateResponse>({
-    binaryRoute: { operationId: 'binary_post_auth_recovery_key_create' },
+    requestBinaryOnly<RecoveryKeyCreateResponse>({
+        binaryRoute: { operationId: 'binary_post_auth_recovery_key_create' },
     frameType: FrameType.RecoveryKeyCreateResponse,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -526,23 +526,23 @@ export const listPasskeys = (config?: ApiRequestConfig) =>
   requestBinaryOnly<PasskeyCredentialSummary[]>({
     binaryRoute: { operationId: 'binary_get_auth_passkey_credentials' },
     frameType: FrameType.PasskeyCredentialList,
-    signal: config?.signal as AbortSignal | undefined
-  })
+        signal: config?.signal as AbortSignal | undefined
+    });
 
 export const getPasskeySignalState = (config?: ApiRequestConfig) =>
-  requestBinaryOnly<PasskeySignalState>({
-    binaryRoute: { operationId: 'binary_get_auth_passkey_signal_state' },
-    frameType: FrameType.PasskeySignalState,
-    signal: config?.signal as AbortSignal | undefined
-  })
+    requestBinaryOnly<PasskeySignalState>({
+        binaryRoute: { operationId: 'binary_get_auth_passkey_signal_state' },
+        frameType: FrameType.PasskeySignalState,
+        signal: config?.signal as AbortSignal | undefined
+    });
 
 export const deletePasskey = (id: number, config?: ApiRequestConfig) =>
-  requestBinaryOnly<PasskeySignalState>({
-    binaryRoute: { operationId: 'binary_delete_auth_passkey_credentials_id_int', params: { id } },
-    frameType: FrameType.PasskeySignalState,
-    signal: config?.signal as AbortSignal | undefined,
-    requestOptions: {
-      method: 'DELETE',
+    requestBinaryOnly<PasskeySignalState>({
+        binaryRoute: { operationId: 'binary_delete_auth_passkey_credentials_id_int', params: { id } },
+        frameType: FrameType.PasskeySignalState,
+        signal: config?.signal as AbortSignal | undefined,
+        requestOptions: {
+            method: 'DELETE',
       headers: mfaProofHeaders(config?.mfaProofToken)
     }
   })

@@ -1,11 +1,11 @@
 import { AppErrorCode, createAppError } from '@/utils/appError';
 import {
-  SecurityChallengeKind,
-  PerceptionCharacterV3Representation,
-  type PerceptionCharacterV3IssuePayload,
-  type SecurityChallengeAssignment,
-  type SecurityChallengeDecision,
-  type SecurityChallengeIssueResponse,
+    SecurityChallengeKind,
+    PerceptionCharacterV3Representation,
+    type PerceptionCharacterV3IssuePayload,
+    type SecurityChallengeAssignment,
+    type SecurityChallengeDecision,
+    type SecurityChallengeIssueResponse,
   type SecurityChallengeProviderPayload,
   type SecurityChallengeVerifyResponse
 } from '@/contracts/binaryApi';
@@ -23,10 +23,12 @@ const PERCEPTION_CHARACTER_V3_VISUAL_BYTES = 512 * 192;
 const PERCEPTION_CHARACTER_V3_MAX_AUDIO_BYTES = 256 * 1024;
 const PERCEPTION_CHARACTER_V3_MAX_STATE_BYTES = 2048;
 const PERCEPTION_CHARACTER_V3_MAX_ENCODED_BYTES =
-  PERCEPTION_CHARACTER_V3_ISSUE_POD_SIZE + 4 + 128 + 64 + PERCEPTION_CHARACTER_V3_MAX_AUDIO_BYTES + PERCEPTION_CHARACTER_V3_MAX_STATE_BYTES;
+    PERCEPTION_CHARACTER_V3_ISSUE_POD_SIZE + 4 + 128 + 64 + PERCEPTION_CHARACTER_V3_MAX_AUDIO_BYTES + PERCEPTION_CHARACTER_V3_MAX_STATE_BYTES;
 
-export function mapSecurityJsonFromPayload<T = unknown>(payload: Uint8Array): T {
-  try {
+export function mapSecurityJsonFromPayload<T = unknown>(payload: Uint8Array): T
+{
+    try
+{
     return JSON.parse(decoder.decode(payload)) as T;
   } catch {
     throw createAppError(AppErrorCode.ProtocolFailure, 'security_json_payload_invalid');
@@ -56,24 +58,26 @@ export function mapSecurityChallengeIssueResponseFromPayload(payload: Uint8Array
     assignments.push(readSecurityChallengeAssignment(payload, assignmentsOffset + index * SECURITY_CHALLENGE_ASSIGNMENT_POD_SIZE));
   }
 
-  const blob = readBinaryPodBlob(payload, blobOffset, 'security_challenge_issue_payload_truncated');
-  const providerPayloads: SecurityChallengeProviderPayload[] = [];
-  const assignmentsById = new Map(assignments.map((assignment) => [assignment.challengeId, assignment]));
-  for (let index = 0; index < providerPayloadCount; index += 1) {
-    const offset = providerPodsOffset + index * SECURITY_CHALLENGE_PROVIDER_PAYLOAD_POD_SIZE;
-    const challengeId = readFixedUtf8(payload, offset, 64);
-    const assignment = assignmentsById.get(challengeId);
-    if (!assignment) {
-      throw createAppError(AppErrorCode.ProtocolFailure, 'security_challenge_provider_payload_challenge_mismatch');
-    }
-    const payloadBytes = readSliceBytesStrict(
-      blob,
-      readSliceRef(payload, offset + 64),
-      'security_challenge_provider_payload_slice_invalid',
+    const blob = readBinaryPodBlob(payload, blobOffset, 'security_challenge_issue_payload_truncated');
+    const providerPayloads: SecurityChallengeProviderPayload[] = [];
+    const assignmentsById = new Map(assignments.map((assignment) => [assignment.challengeId, assignment]));
+    for (let index = 0; index < providerPayloadCount; index += 1)
+{
+        const offset = providerPodsOffset + index * SECURITY_CHALLENGE_PROVIDER_PAYLOAD_POD_SIZE;
+        const challengeId = readFixedUtf8(payload, offset, 64);
+        const assignment = assignmentsById.get(challengeId);
+        if (!assignment)
+{
+            throw createAppError(AppErrorCode.ProtocolFailure, 'security_challenge_provider_payload_challenge_mismatch');
+        }
+        const payloadBytes = readSliceBytesStrict(
+            blob,
+            readSliceRef(payload, offset + 64),
+            'security_challenge_provider_payload_slice_invalid',
       assignment.kind === SecurityChallengeKind.PerceptionCharacterV3 ? PERCEPTION_CHARACTER_V3_MAX_ENCODED_BYTES : Number.MAX_SAFE_INTEGER
-    );
-    providerPayloads.push(assignment.kind === SecurityChallengeKind.PerceptionCharacterV3
-      ? {
+        );
+        providerPayloads.push(assignment.kind === SecurityChallengeKind.PerceptionCharacterV3
+            ? {
           challengeId,
           payload: {},
           perceptionCharacterV3: mapPerceptionCharacterV3IssuePayload(payloadBytes, {
@@ -82,13 +86,13 @@ export function mapSecurityChallengeIssueResponseFromPayload(payload: Uint8Array
             policyVersion: readFixedUtf8(payload, 84, 64)
           })
         }
-      : {
+            : {
           challengeId,
           payload: parseProviderPayloadJson(decodeUtf8Strict(payloadBytes, 'security_challenge_provider_payload_invalid'))
         });
-  }
-  const assignmentIds = new Set(assignments.map((assignment) => assignment.challengeId));
-  const providerPayloadIds = new Set<string>();
+    }
+    const assignmentIds = new Set(assignments.map((assignment) => assignment.challengeId));
+    const providerPayloadIds = new Set<string>();
   for (const providerPayload of providerPayloads) {
     if (!assignmentIds.has(providerPayload.challengeId) || providerPayloadIds.has(providerPayload.challengeId)) {
       throw createAppError(AppErrorCode.ProtocolFailure, 'security_challenge_provider_payload_challenge_mismatch');
@@ -111,91 +115,99 @@ export function mapSecurityChallengeIssueResponseFromPayload(payload: Uint8Array
         }
       : null,
     providerPayloads
-  };
+    };
 }
 
 export function mapPerceptionCharacterV3IssuePayload(
-  payload: Uint8Array,
-  expected?: { challengeId: string; envelopeId: string; policyVersion: string }
-): PerceptionCharacterV3IssuePayload {
-  if (payload.byteLength < PERCEPTION_CHARACTER_V3_ISSUE_POD_SIZE + 4) {
-    throw protocolFailure('perception_character_v3_issue_payload_short');
-  }
+    payload: Uint8Array,
+    expected?: { challengeId: string; envelopeId: string; policyVersion: string; }
+): PerceptionCharacterV3IssuePayload
+{
+    if (payload.byteLength < PERCEPTION_CHARACTER_V3_ISSUE_POD_SIZE + 4)
+{
+        throw protocolFailure('perception_character_v3_issue_payload_short');
+    }
 
-  const representation = readByte(payload, 0);
-  const attemptBudget = readByte(payload, 1);
-  const physicalWidth = readUint16(payload, 2);
-  const physicalHeight = readUint16(payload, 4);
-  const displayWidth = readUint16(payload, 6);
-  const displayHeight = readUint16(payload, 8);
-  const reserved = readUint16(payload, 10);
-  const mediaByteCount = readInt32(payload, 12);
-  const issuedAtUnixMs = readInt64Number(payload, 16);
-  const expiresAtUnixMs = readInt64Number(payload, 24);
-  const challengeId = readFixedUtf8(payload, 32, 64);
-  const envelopeId = readFixedUtf8(payload, 96, 64);
-  const policyVersion = readFixedUtf8(payload, 160, 64);
+    const representation = readByte(payload, 0);
+    const attemptBudget = readByte(payload, 1);
+    const physicalWidth = readUint16(payload, 2);
+    const physicalHeight = readUint16(payload, 4);
+    const displayWidth = readUint16(payload, 6);
+    const displayHeight = readUint16(payload, 8);
+    const reserved = readUint16(payload, 10);
+    const mediaByteCount = readInt32(payload, 12);
+    const issuedAtUnixMs = readInt64Number(payload, 16);
+    const expiresAtUnixMs = readInt64Number(payload, 24);
+    const challengeId = readFixedUtf8(payload, 32, 64);
+    const envelopeId = readFixedUtf8(payload, 96, 64);
+    const policyVersion = readFixedUtf8(payload, 160, 64);
 
-  if ((representation !== PerceptionCharacterV3Representation.Visual && representation !== PerceptionCharacterV3Representation.Audio) ||
+    if ((representation !== PerceptionCharacterV3Representation.Visual && representation !== PerceptionCharacterV3Representation.Audio) ||
       attemptBudget !== 2 || reserved !== 0 || mediaByteCount <= 0 ||
       !Number.isSafeInteger(issuedAtUnixMs) || !Number.isSafeInteger(expiresAtUnixMs) || expiresAtUnixMs <= issuedAtUnixMs ||
-      !isUuidV7(challengeId) || !isUuidV7(envelopeId) || !policyVersion.trim()) {
-    throw protocolFailure('perception_character_v3_issue_contract_invalid');
-  }
-  if (expected && (challengeId !== expected.challengeId || envelopeId !== expected.envelopeId || policyVersion !== expected.policyVersion)) {
-    throw protocolFailure('perception_character_v3_issue_identity_mismatch');
-  }
+      !isUuidV7(challengeId) || !isUuidV7(envelopeId) || !policyVersion.trim())
+{
+        throw protocolFailure('perception_character_v3_issue_contract_invalid');
+    }
+    if (expected && (challengeId !== expected.challengeId || envelopeId !== expected.envelopeId || policyVersion !== expected.policyVersion))
+{
+        throw protocolFailure('perception_character_v3_issue_identity_mismatch');
+    }
 
-  const blob = readBinaryPodBlob(payload, PERCEPTION_CHARACTER_V3_ISSUE_POD_SIZE, 'perception_character_v3_issue_payload_truncated');
-  const algorithmBytes = readSliceBytesStrict(blob, readSliceRef(payload, 224), 'perception_character_v3_algorithm_slice_invalid', 128);
-  const mediaTypeBytes = readSliceBytesStrict(blob, readSliceRef(payload, 232), 'perception_character_v3_media_type_slice_invalid', 64);
-  const mediaRef = readSliceRef(payload, 240);
-  const mediaMaximum = representation === PerceptionCharacterV3Representation.Visual
-    ? PERCEPTION_CHARACTER_V3_VISUAL_BYTES
-    : PERCEPTION_CHARACTER_V3_MAX_AUDIO_BYTES;
-  if (mediaRef.length !== mediaByteCount || mediaRef.length > mediaMaximum) {
-    throw protocolFailure('perception_character_v3_media_size_invalid');
-  }
-  const mediaBytes = readSliceBytesStrict(blob, mediaRef, 'perception_character_v3_media_slice_invalid', mediaMaximum);
-  const stateBytes = readSliceBytesStrict(blob, readSliceRef(payload, 248), 'perception_character_v3_state_slice_invalid', PERCEPTION_CHARACTER_V3_MAX_STATE_BYTES);
-  const algorithm = decodeUtf8Strict(algorithmBytes, 'perception_character_v3_algorithm_invalid');
-  const mediaType = decodeUtf8Strict(mediaTypeBytes, 'perception_character_v3_media_type_invalid');
-  const stateToken = decodeUtf8Strict(stateBytes, 'perception_character_v3_state_invalid');
+    const blob = readBinaryPodBlob(payload, PERCEPTION_CHARACTER_V3_ISSUE_POD_SIZE, 'perception_character_v3_issue_payload_truncated');
+    const algorithmBytes = readSliceBytesStrict(blob, readSliceRef(payload, 224), 'perception_character_v3_algorithm_slice_invalid', 128);
+    const mediaTypeBytes = readSliceBytesStrict(blob, readSliceRef(payload, 232), 'perception_character_v3_media_type_slice_invalid', 64);
+    const mediaRef = readSliceRef(payload, 240);
+    const mediaMaximum = representation === PerceptionCharacterV3Representation.Visual
+        ? PERCEPTION_CHARACTER_V3_VISUAL_BYTES
+        : PERCEPTION_CHARACTER_V3_MAX_AUDIO_BYTES;
+    if (mediaRef.length !== mediaByteCount || mediaRef.length > mediaMaximum)
+{
+        throw protocolFailure('perception_character_v3_media_size_invalid');
+    }
+    const mediaBytes = readSliceBytesStrict(blob, mediaRef, 'perception_character_v3_media_slice_invalid', mediaMaximum);
+    const stateBytes = readSliceBytesStrict(blob, readSliceRef(payload, 248), 'perception_character_v3_state_slice_invalid', PERCEPTION_CHARACTER_V3_MAX_STATE_BYTES);
+    const algorithm = decodeUtf8Strict(algorithmBytes, 'perception_character_v3_algorithm_invalid');
+    const mediaType = decodeUtf8Strict(mediaTypeBytes, 'perception_character_v3_media_type_invalid');
+    const stateToken = decodeUtf8Strict(stateBytes, 'perception_character_v3_state_invalid');
 
-  if (algorithm !== PERCEPTION_CHARACTER_V3_ALGORITHM || !stateToken ||
+    if (algorithm !== PERCEPTION_CHARACTER_V3_ALGORITHM || !stateToken ||
       (representation === PerceptionCharacterV3Representation.Visual &&
         (mediaType !== 'application/x-fsus-gray8' || mediaBytes.byteLength !== PERCEPTION_CHARACTER_V3_VISUAL_BYTES ||
           physicalWidth !== 512 || physicalHeight !== 192 || displayWidth !== 320 || displayHeight !== 120)) ||
       (representation === PerceptionCharacterV3Representation.Audio &&
-        (mediaType !== 'audio/wav' || physicalWidth !== 0 || physicalHeight !== 0 || displayWidth !== 0 || displayHeight !== 0))) {
-    throw protocolFailure('perception_character_v3_issue_shape_invalid');
-  }
-  const typedMediaType = representation === PerceptionCharacterV3Representation.Visual
-    ? 'application/x-fsus-gray8' as const
-    : 'audio/wav' as const;
+        (mediaType !== 'audio/wav' || physicalWidth !== 0 || physicalHeight !== 0 || displayWidth !== 0 || displayHeight !== 0)))
+{
+        throw protocolFailure('perception_character_v3_issue_shape_invalid');
+    }
+    const typedMediaType = representation === PerceptionCharacterV3Representation.Visual
+        ? 'application/x-fsus-gray8' as const
+        : 'audio/wav' as const;
 
-  return {
-    algorithm,
-    challengeId,
-    envelopeId,
-    representation,
-    mediaType: typedMediaType,
-    mediaBytes,
-    physicalWidth,
-    physicalHeight,
-    displayWidth,
-    displayHeight,
-    attemptBudget: 2,
-    policyVersion,
-    issuedAtUnixMs,
-    expiresAtUnixMs,
-    stateToken
-  };
+    return {
+        algorithm,
+        challengeId,
+        envelopeId,
+        representation,
+        mediaType: typedMediaType,
+        mediaBytes,
+        physicalWidth,
+        physicalHeight,
+        displayWidth,
+        displayHeight,
+        attemptBudget: 2,
+        policyVersion,
+        issuedAtUnixMs,
+        expiresAtUnixMs,
+        stateToken
+    };
 }
 
-export function mapSecurityChallengeVerifyResponseFromPayload(payload: Uint8Array): SecurityChallengeVerifyResponse {
-  if (payload.byteLength < SECURITY_CHALLENGE_VERIFY_RESPONSE_POD_SIZE) {
-    throw createAppError(AppErrorCode.ProtocolFailure, 'security_challenge_verify_payload_short');
+export function mapSecurityChallengeVerifyResponseFromPayload(payload: Uint8Array): SecurityChallengeVerifyResponse
+{
+    if (payload.byteLength < SECURITY_CHALLENGE_VERIFY_RESPONSE_POD_SIZE)
+{
+        throw createAppError(AppErrorCode.ProtocolFailure, 'security_challenge_verify_payload_short');
   }
 
   const verifiedRaw = readByte(payload, 0);
@@ -246,16 +258,18 @@ function isValidSecurityChallengeVerifyResponse(response: SecurityChallengeVerif
     (response.envelopeCompleted ? response.proofToken.trim().length > 0 : response.proofToken.length === 0);
 }
 
-function isCompatibleChallengeId(_kind: SecurityChallengeKind, value: string): boolean {
-  return isUuidVersion(value, '7');
+function isCompatibleChallengeId(_kind: SecurityChallengeKind, value: string): boolean
+{
+    return isUuidVersion(value, '7');
 }
 
 function isUuidV7(value: string): boolean {
-  return isUuidVersion(value, '7');
+    return isUuidVersion(value, '7');
 }
 
-function isUuidVersion(value: string, version: '7'): boolean {
-  return new RegExp(`^[0-9a-f]{8}-[0-9a-f]{4}-${version}[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`, 'iu').test(value);
+function isUuidVersion(value: string, version: '7'): boolean
+{
+    return new RegExp(`^[0-9a-f]{8}-[0-9a-f]{4}-${version}[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`, 'iu').test(value);
 }
 
 function readBinaryPodBlob(payload: Uint8Array, offset: number, errorCode: string): Uint8Array {
@@ -270,31 +284,39 @@ function readBinaryPodBlob(payload: Uint8Array, offset: number, errorCode: strin
     throw createAppError(AppErrorCode.ProtocolFailure, errorCode);
   }
 
-  return payload.subarray(blobStart, blobEnd);
+    return payload.subarray(blobStart, blobEnd);
 }
 
-function readSliceBytesStrict(blob: Uint8Array, slice: { offset: number; length: number }, errorCode: string, maximum = Number.MAX_SAFE_INTEGER): Uint8Array {
-  if (!Number.isInteger(slice.offset) || !Number.isInteger(slice.length) || slice.offset < 0 || slice.length < 0 ||
-      slice.length > maximum || slice.offset > blob.byteLength - slice.length) {
-    throw protocolFailure(errorCode);
-  }
-  return blob.subarray(slice.offset, slice.offset + slice.length);
+function readSliceBytesStrict(blob: Uint8Array, slice: { offset: number; length: number; }, errorCode: string, maximum = Number.MAX_SAFE_INTEGER): Uint8Array
+{
+    if (!Number.isInteger(slice.offset) || !Number.isInteger(slice.length) || slice.offset < 0 || slice.length < 0 ||
+      slice.length > maximum || slice.offset > blob.byteLength - slice.length)
+{
+        throw protocolFailure(errorCode);
+    }
+    return blob.subarray(slice.offset, slice.offset + slice.length);
 }
 
-function decodeUtf8Strict(bytes: Uint8Array, errorCode: string): string {
-  try {
-    return decoder.decode(bytes);
-  } catch {
-    throw protocolFailure(errorCode);
-  }
+function decodeUtf8Strict(bytes: Uint8Array, errorCode: string): string
+{
+    try
+{
+        return decoder.decode(bytes);
+    }
+ catch
+{
+        throw protocolFailure(errorCode);
+    }
 }
 
-function protocolFailure(errorCode: string): ReturnType<typeof createAppError> {
-  return createAppError(AppErrorCode.ProtocolFailure, errorCode);
+function protocolFailure(errorCode: string): ReturnType<typeof createAppError>
+{
+    return createAppError(AppErrorCode.ProtocolFailure, errorCode);
 }
 
-function readUint16(bytes: Uint8Array, offset: number): number {
-  return (bytes[offset] ?? 0) | ((bytes[offset + 1] ?? 0) << 8);
+function readUint16(bytes: Uint8Array, offset: number): number
+{
+    return (bytes[offset] ?? 0) | ((bytes[offset + 1] ?? 0) << 8);
 }
 
 function readSecurityChallengeAssignment(payload: Uint8Array, offset: number): SecurityChallengeAssignment {

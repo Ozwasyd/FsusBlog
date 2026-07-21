@@ -4,47 +4,47 @@ import { decode } from '@wasm/aeds'
 import { binaryRequest } from '@/api/binaryApiClient'
 import { requestBinaryOnly } from '@/composition/binaryTransport'
 import { encodeAedsFrame } from './binaryFrame'
-import { encodeJsonRequest } from '@/codecs/binary/jsonRequestEncoder'
-import { FSUS_HEADERS } from './contracts'
-import { getBrowserFp } from '@/utils/fingerprint'
-import type { ArticleMutationResponse, ArticleRightsRequest } from './article'
-import { AppErrorCode, createAppError } from '@/utils/appError'
-import { runPrivateRequest } from '@/services/privateRequestRuntime'
+import { encodeJsonRequest } from '@/codecs/binary/jsonRequestEncoder';
+import { FSUS_HEADERS } from './contracts';
+import { getBrowserFp } from '@/utils/fingerprint';
+import type { ArticleMutationResponse, ArticleRightsRequest } from './article';
+import { AppErrorCode, createAppError } from '@/utils/appError';
+import { runPrivateRequest } from '@/services/privateRequestRuntime';
 
 export interface ServerDraftSaveRequest {
-  draftKey: string
-  articleId: number | null
-  baseRevisionId: string | null
-  title: string
-  content: string
-  summary: string | null
+    draftKey: string;
+    articleId: number | null;
+    baseRevisionId: string | null;
+    title: string;
+    content: string;
+    summary: string | null;
   coverImageUrl: string | null
   categoryId: number
   tagIds: number[]
   clientRevision: string
-  status: number
-  scheduledPublishAt: string | null
-  rights: ArticleRightsRequest
-  expectedServerRevision: number | null
-  warningOverrideReason?: string | null
+    status: number;
+    scheduledPublishAt: string | null;
+    rights: ArticleRightsRequest;
+    expectedServerRevision: number | null;
+    warningOverrideReason?: string | null;
 }
 
 export interface ServerDraftResponse {
-  draftKey: string
-  articleId: number | null
-  baseRevisionId: string | null
-  title: string
-  content: string
-  summary: string | null
+    draftKey: string;
+    articleId: number | null;
+    baseRevisionId: string | null;
+    title: string;
+    content: string;
+    summary: string | null;
   coverImageUrl: string | null
   categoryId: number
   tagIds: number[]
   clientRevision: string | null
   status: number
-  scheduledPublishAt: string | null
-  rights: ArticleRightsRequest
-  updatedAt: string
-  serverRevision: number
+    scheduledPublishAt: string | null;
+    rights: ArticleRightsRequest;
+    updatedAt: string;
+    serverRevision: number;
 }
 
 export interface ArticleRevisionSummaryResponse {
@@ -52,73 +52,73 @@ export interface ArticleRevisionSummaryResponse {
   articleId: number
   revisionNo: number
   title: string
-  diffSummary: string
-  createdByAdminPrincipalId: string
-  createdAt: string
-  rollbackSourceRevisionId: string | null
-  rollbackReason: string | null
+    diffSummary: string;
+    createdByAdminPrincipalId: string;
+    createdAt: string;
+    rollbackSourceRevisionId: string | null;
+    rollbackReason: string | null;
 }
 
 export interface ArticleRevisionRightsSnapshotResponse {
-  id: string
-  enabled: boolean
-  licenseType: string
-  copyrightHolder: string | null
-  copyrightYear: number | null
-  rightsStatement: string | null
-  attributionTemplate: string | null
-  copyPolicy: string
-  maxExcerptChars: number
-  allowCodeCopy: boolean
-  showPublicBadge: boolean
-  proofBindingEnabled: boolean
-  policyHash: string
-  contentCanonicalHash: string
-  createdAt: string
+    id: string;
+    enabled: boolean;
+    licenseType: string;
+    copyrightHolder: string | null;
+    copyrightYear: number | null;
+    rightsStatement: string | null;
+    attributionTemplate: string | null;
+    copyPolicy: string;
+    maxExcerptChars: number;
+    allowCodeCopy: boolean;
+    showPublicBadge: boolean;
+    proofBindingEnabled: boolean;
+    policyHash: string;
+    contentCanonicalHash: string;
+    createdAt: string;
 }
 
 export interface ArticleRevisionResponsibilitySnapshotResponse {
-  id: string
-  responsibilityVersion: number
-  previousSnapshotId: string | null
-  inheritSiteAuthor: boolean
-  authors: ArticleResponsiblePerson[]
-  reviewer: ArticleResponsiblePerson | null
-  sources: ArticleEvidenceSource[]
-  updateSummary: string | null
-  updateReason: string | null
-  effectiveAt: string | null
-  conclusionImpact: string | null
-  methodology: string | null
-  applicability: string | null
-  limitations: string | null
-  responsiblePersonConfirmed: boolean
-  createdAt: string
+    id: string;
+    responsibilityVersion: number;
+    previousSnapshotId: string | null;
+    inheritSiteAuthor: boolean;
+    authors: ArticleResponsiblePerson[];
+    reviewer: ArticleResponsiblePerson | null;
+    sources: ArticleEvidenceSource[];
+    updateSummary: string | null;
+    updateReason: string | null;
+    effectiveAt: string | null;
+    conclusionImpact: string | null;
+    methodology: string | null;
+    applicability: string | null;
+    limitations: string | null;
+    responsiblePersonConfirmed: boolean;
+    createdAt: string;
 }
 
 export interface ArticleRevisionReleaseResponse {
-  id: string
-  publicationNo: number
-  transitionKind: string
-  publishedAt: string
+    id: string;
+    publicationNo: number;
+    transitionKind: string;
+    publishedAt: string;
 }
 
 export interface ArticleRevisionDetailResponse extends ArticleRevisionSummaryResponse {
   content: string
   summary: string | null
-  coverImageUrl: string | null
-  categoryId: number
-  tagIds: number[]
-  packageComplete: boolean
-  rights: ArticleRevisionRightsSnapshotResponse | null
-  responsibility: ArticleRevisionResponsibilitySnapshotResponse | null
-  release: ArticleRevisionReleaseResponse | null
+    coverImageUrl: string | null;
+    categoryId: number;
+    tagIds: number[];
+    packageComplete: boolean;
+    rights: ArticleRevisionRightsSnapshotResponse | null;
+    responsibility: ArticleRevisionResponsibilitySnapshotResponse | null;
+    release: ArticleRevisionReleaseResponse | null;
 }
 
 export interface ArticleRevisionRollbackRequest {
-  baseRevisionId: string
-  targetStatus: 0 | 2 | 3
-  reason: string
+    baseRevisionId: string;
+    targetStatus: 0 | 2 | 3;
+    reason: string;
 }
 
 export interface ArticleResponsiblePerson {
@@ -149,35 +149,35 @@ export interface ArticleResponsibilityDraft {
   applicability: string | null
   limitations: string | null
   responsiblePersonConfirmed: boolean
-  containsStrongClaims: boolean
-  isSubstantiveUpdate: boolean
-  requiresMethodsDisclosure: boolean
-  expectedVersion: number
+    containsStrongClaims: boolean;
+    isSubstantiveUpdate: boolean;
+    requiresMethodsDisclosure: boolean;
+    expectedVersion: number;
 }
 
 export interface ArticleResponsibilitySaveResponse {
-  saved: boolean
-  versionConflict: boolean
-  articleId: number
-  articleRevisionId: string
-  revisionNo: number
-  responsibilitySnapshotId: string | null
-  responsibilityVersion: number
-  previousSnapshotId: string | null
-  articlePublicationId: string | null
-  publicationNo: number | null
-  issues: PrepublishIssue[]
+    saved: boolean;
+    versionConflict: boolean;
+    articleId: number;
+    articleRevisionId: string;
+    revisionNo: number;
+    responsibilitySnapshotId: string | null;
+    responsibilityVersion: number;
+    previousSnapshotId: string | null;
+    articlePublicationId: string | null;
+    publicationNo: number | null;
+    issues: PrepublishIssue[];
 }
 
 export interface ArticleResponsibilityVersionResponse extends ArticleRevisionResponsibilitySnapshotResponse {
-  articleId: number
-  articleRevisionId: string
-  revisionNo: number
+    articleId: number;
+    articleRevisionId: string;
+    revisionNo: number;
 }
 
 export interface PrepublishIssue {
-  severity: string
-  code: string
+    severity: string;
+    code: string;
   message: string
 }
 
@@ -379,26 +379,26 @@ export interface RecentOpsErrorResponse {
 }
 
 export interface OpsHealthResponse {
-  status: string
-  checkedAt: string
-  environment: string
-  releaseIdentity: OpsReleaseIdentityResponse
-  services: AdminServiceStatusResponse[]
-  workers: AdminServiceStatusResponse[]
-  queueBacklog: QueueBacklogResponse
+    status: string;
+    checkedAt: string;
+    environment: string;
+    releaseIdentity: OpsReleaseIdentityResponse;
+    services: AdminServiceStatusResponse[];
+    workers: AdminServiceStatusResponse[];
+    queueBacklog: QueueBacklogResponse;
   backup: BackupStatusResponse
-  recentErrors: RecentOpsErrorResponse[]
+    recentErrors: RecentOpsErrorResponse[];
 }
 
 export interface OpsReleaseIdentityResponse {
-  releaseId: string
-  commitSha: string
-  releaseSlot: string
+    releaseId: string;
+    commitSha: string;
+    releaseSlot: string;
 }
 
 export interface AotDiagnosticsResponse {
-  status: string
-  version: number
+    status: string;
+    version: number;
   lastBuildAt: string | null
   lastBuildStatus: string | null
   lastBuildReason: string | null
@@ -660,93 +660,93 @@ export interface CommentModerationItemResponse {
 
 export interface CommentModerationQueueResponse {
   items: CommentModerationItemResponse[]
-  pendingCount: number
-  rejectedCount: number
-  hiddenCount: number
-  nextCursor: string | null
-  leases: CommentModerationQueueLeaseResponse[]
+    pendingCount: number;
+    rejectedCount: number;
+    hiddenCount: number;
+    nextCursor: string | null;
+    leases: CommentModerationQueueLeaseResponse[];
 }
 
 export interface CommentModerationQueueLeaseResponse {
-  commentId: string
-  commentRowVersion: string
-  appealPriority: number
-  riskScore: number
-  waitingSinceUtc: string
-  ownerAdminPrincipalId: number | null
-  state: string | null
-  claimedAtUtc: string | null
-  leaseExpiresAtUtc: string | null
-  processSlaDueAtUtc: string | null
-  note: string | null
-  escalationStatus: string | null
-  claimGeneration: number | null
-  claimRowVersion: string | null
+    commentId: string;
+    commentRowVersion: string;
+    appealPriority: number;
+    riskScore: number;
+    waitingSinceUtc: string;
+    ownerAdminPrincipalId: number | null;
+    state: string | null;
+    claimedAtUtc: string | null;
+    leaseExpiresAtUtc: string | null;
+    processSlaDueAtUtc: string | null;
+    note: string | null;
+    escalationStatus: string | null;
+    claimGeneration: number | null;
+    claimRowVersion: string | null;
 }
 
 export interface CommentModerationClaimRequest {
-  leaseSeconds?: number
-  processSlaSeconds?: number
-  note?: string | null
-  escalationStatus?: 'none' | 'watch' | 'escalated'
+    leaseSeconds?: number;
+    processSlaSeconds?: number;
+    note?: string | null;
+    escalationStatus?: 'none' | 'watch' | 'escalated';
 }
 
 export interface CommentModerationClaimMutationRequest {
-  claimToken: string
-  claimGeneration: number
-  claimRowVersion: string
-  leaseSeconds?: number
+    claimToken: string;
+    claimGeneration: number;
+    claimRowVersion: string;
+    leaseSeconds?: number;
 }
 
 export interface CommentModerationClaimResponse {
-  applied: boolean
-  code: string
-  commentId: string
-  commentRowVersion: string | null
-  claimToken: string | null
-  ownerAdminPrincipalId: number | null
-  state: string | null
-  claimedAtUtc: string | null
-  leaseExpiresAtUtc: string | null
-  processSlaDueAtUtc: string | null
-  note: string | null
-  escalationStatus: string | null
-  claimGeneration: number | null
-  claimRowVersion: string | null
+    applied: boolean;
+    code: string;
+    commentId: string;
+    commentRowVersion: string | null;
+    claimToken: string | null;
+    ownerAdminPrincipalId: number | null;
+    state: string | null;
+    claimedAtUtc: string | null;
+    leaseExpiresAtUtc: string | null;
+    processSlaDueAtUtc: string | null;
+    note: string | null;
+    escalationStatus: string | null;
+    claimGeneration: number | null;
+    claimRowVersion: string | null;
 }
 
 export interface CommentModerationRequest {
-  status: CommentModerationStatus
-  reason: string | null
-  banUser?: boolean
-  expectedStatus?: CommentModerationStatus
-  commentRowVersion?: string
-  claimToken?: string
-  claimGeneration?: number
-  claimRowVersion?: string
+    status: CommentModerationStatus;
+    reason: string | null;
+    banUser?: boolean;
+    expectedStatus?: CommentModerationStatus;
+    commentRowVersion?: string;
+    claimToken?: string;
+    claimGeneration?: number;
+    claimRowVersion?: string;
 }
 
 export interface CommentModerationDecisionPrecondition {
-  commentId: string
-  expectedStatus: CommentModerationStatus
-  commentRowVersion: string
-  claimToken: string
-  claimGeneration: number
-  claimRowVersion: string
+    commentId: string;
+    expectedStatus: CommentModerationStatus;
+    commentRowVersion: string;
+    claimToken: string;
+    claimGeneration: number;
+    claimRowVersion: string;
 }
 
 export interface CommentModerationBulkRequest {
   commentIds: string[]
-  status: CommentModerationStatus
-  reason: string | null
-  banUsers?: boolean
-  preconditions?: CommentModerationDecisionPrecondition[]
+    status: CommentModerationStatus;
+    reason: string | null;
+    banUsers?: boolean;
+    preconditions?: CommentModerationDecisionPrecondition[];
 }
 
 export interface CommentModerationBulkResponse {
-  updated: number
-  bannedUsers: number
-  conflicts: string[] | null
+    updated: number;
+    bannedUsers: number;
+    conflicts: string[] | null;
 }
 
 export interface AnonymousNullifierBlockRequest {
@@ -785,38 +785,38 @@ export interface AnonymousCommentPolicyUpdateRequest {
   supportedDisplayLanguages?: string[] | null
   commentMaxChars?: number | null
   commentMaxUtf8Bytes?: number | null
-  reason?: string | null
+    reason?: string | null;
 }
 
 export interface EffectiveArticleCommentPolicyResponse {
-  articleId: number
-  enabled: boolean
-  publicCommentsEnabled: boolean
-  anonymousCommentsEnabled: boolean
-  moderationMode: 'direct' | 'premoderated' | 'risk_based'
-  slowModeSeconds: number
-  closedAtUtc: string | null
-  articlePolicyVersion: number
-  rootCommentId: number | null
-  threadLocked: boolean
-  threadPolicyVersion: number
-  snapshotHash: string
+    articleId: number;
+    enabled: boolean;
+    publicCommentsEnabled: boolean;
+    anonymousCommentsEnabled: boolean;
+    moderationMode: 'direct' | 'premoderated' | 'risk_based';
+    slowModeSeconds: number;
+    closedAtUtc: string | null;
+    articlePolicyVersion: number;
+    rootCommentId: number | null;
+    threadLocked: boolean;
+    threadPolicyVersion: number;
+    snapshotHash: string;
 }
 
 export interface ArticleCommentPolicyUpdateRequest {
-  enabled: boolean | null
-  publicCommentsEnabled: boolean | null
-  anonymousCommentsEnabled: boolean | null
-  moderationMode: 'direct' | 'premoderated' | 'risk_based' | null
-  slowModeSeconds: number | null
-  closedAtUtc: string | null
-  expectedPolicyVersion: number
-  reason: string | null
+    enabled: boolean | null;
+    publicCommentsEnabled: boolean | null;
+    anonymousCommentsEnabled: boolean | null;
+    moderationMode: 'direct' | 'premoderated' | 'risk_based' | null;
+    slowModeSeconds: number | null;
+    closedAtUtc: string | null;
+    expectedPolicyVersion: number;
+    reason: string | null;
 }
 
 export interface ModerationOverviewResponse {
-  pendingCount: number
-  rejectedCount: number
+    pendingCount: number;
+    rejectedCount: number;
   hiddenCount: number
   dictionaryCount: number
   regionPolicyCount: number
@@ -1151,13 +1151,14 @@ const BINARY_API_PREFIX = '/api/binary'
 const authoringJsonDecoder = new TextDecoder()
 
 type AuthoringBinaryRequestOptions = {
-  method?: string
-  requestFrame?: FrameType
-  request?: unknown
-  headers?: Record<string, string>
-}
+    method?: string;
+    requestFrame?: FrameType;
+    request?: unknown;
+    headers?: Record<string, string>;
+};
 
-const authoringHeaders = (mfaProofToken?: string | null): Headers => {
+const authoringHeaders = (mfaProofToken?: string | null): Headers =>
+{
   const headers = new Headers()
   headers.set(FSUS_HEADERS.deviceFingerprint, getBrowserFp())
   const proofToken = mfaProofToken?.trim()
@@ -1179,15 +1180,17 @@ function requestAuthoringBinary<T>(
   options: AuthoringBinaryRequestOptions = {}
 ): Promise<T> {
   const requestOptions: RequestInit = {
-    credentials: 'include',
-    headers: authoringHeaders(config?.mfaProofToken)
-  }
-  for (const [name, value] of Object.entries(options.headers ?? {})) {
-    ;(requestOptions.headers as Headers).set(name, value)
-  }
-  if (options.method) {
-    requestOptions.method = options.method
-  }
+        credentials: 'include',
+        headers: authoringHeaders(config?.mfaProofToken)
+    };
+    for (const [name, value] of Object.entries(options.headers ?? {}))
+{
+        ;(requestOptions.headers as Headers).set(name, value);
+    }
+    if (options.method)
+{
+        requestOptions.method = options.method;
+    }
   if (options.requestFrame !== undefined) {
     requestOptions.body = authoringBody(options.requestFrame, options.request)
   }
@@ -1244,19 +1247,20 @@ export async function saveServerDraft(
 }
 
 export async function getServerDraft(draftKey: string, config?: ApiRequestConfig): Promise<ServerDraftResponse | null> {
-  return requestAuthoringBinary<ServerDraftResponse | null>(`/drafts/${encodeURIComponent(draftKey)}`, FrameType.AuthorDraftResponse, config)
+    return requestAuthoringBinary<ServerDraftResponse | null>(`/drafts/${encodeURIComponent(draftKey)}`, FrameType.AuthorDraftResponse, config);
 }
 
 export async function discardServerDraft(
-  draftKey: string,
-  expectedServerRevision: number,
-  config?: ApiRequestConfig
-): Promise<boolean> {
-  const query = new URLSearchParams({ expectedServerRevision: expectedServerRevision.toString() })
-  const result = await requestAuthoringBinary<{ discarded?: boolean }>(`/drafts/${encodeURIComponent(draftKey)}?${query.toString()}`, FrameType.AuthorDraftDiscardResponse, config, {
-    method: 'DELETE'
-  })
-  return result.discarded === true
+    draftKey: string,
+    expectedServerRevision: number,
+    config?: ApiRequestConfig
+): Promise<boolean>
+{
+    const query = new URLSearchParams({ expectedServerRevision: expectedServerRevision.toString() });
+    const result = await requestAuthoringBinary<{ discarded?: boolean; }>(`/drafts/${encodeURIComponent(draftKey)}?${query.toString()}`, FrameType.AuthorDraftDiscardResponse, config, {
+        method: 'DELETE'
+    });
+    return result.discarded === true;
 }
 
 export async function previewArticleDraft(
@@ -1411,57 +1415,62 @@ export async function applyIntegrityFix(
 }
 
 export async function listCommentModerationQueue(
-  status: CommentModerationStatus = CommentModerationStatus.Pending,
-  limit = 50,
-  config?: ApiRequestConfig,
-  cursor?: string | null
-): Promise<CommentModerationQueueResponse> {
-  const search = new URLSearchParams({
-    status: String(status),
-    limit: String(limit)
-  })
-  if (cursor) search.set('cursor', cursor)
-  return requestAuthoringBinary<CommentModerationQueueResponse>(`/comments/moderation?${search.toString()}`, FrameType.CommentModerationQueue, config)
+    status: CommentModerationStatus = CommentModerationStatus.Pending,
+    limit = 50,
+    config?: ApiRequestConfig,
+    cursor?: string | null
+): Promise<CommentModerationQueueResponse>
+{
+    const search = new URLSearchParams({
+        status: String(status),
+        limit: String(limit)
+    });
+    if (cursor) {search.set('cursor', cursor)};
+    return requestAuthoringBinary<CommentModerationQueueResponse>(`/comments/moderation?${search.toString()}`, FrameType.CommentModerationQueue, config);
 }
 
 export async function claimCommentModeration(
-  commentId: string,
-  request: CommentModerationClaimRequest,
-  config?: ApiRequestConfig
-): Promise<CommentModerationClaimResponse> {
-  return requestAuthoringBinary<CommentModerationClaimResponse>(`/comments/${encodeURIComponent(commentId)}/moderation/claim`, FrameType.CommentModerationClaimResponse, config, {
-    method: 'POST',
-    requestFrame: FrameType.CommentModerationClaimRequest,
-    request
-  })
+    commentId: string,
+    request: CommentModerationClaimRequest,
+    config?: ApiRequestConfig
+): Promise<CommentModerationClaimResponse>
+{
+    return requestAuthoringBinary<CommentModerationClaimResponse>(`/comments/${encodeURIComponent(commentId)}/moderation/claim`, FrameType.CommentModerationClaimResponse, config, {
+        method: 'POST',
+        requestFrame: FrameType.CommentModerationClaimRequest,
+        request
+    });
 }
 
 export async function renewCommentModerationClaim(
-  commentId: string,
-  request: CommentModerationClaimMutationRequest,
-  config?: ApiRequestConfig
-): Promise<CommentModerationClaimResponse> {
-  return requestAuthoringBinary<CommentModerationClaimResponse>(`/comments/${encodeURIComponent(commentId)}/moderation/claim/renew`, FrameType.CommentModerationClaimResponse, config, {
-    method: 'POST',
-    requestFrame: FrameType.CommentModerationClaimMutationRequest,
-    request
-  })
+    commentId: string,
+    request: CommentModerationClaimMutationRequest,
+    config?: ApiRequestConfig
+): Promise<CommentModerationClaimResponse>
+{
+    return requestAuthoringBinary<CommentModerationClaimResponse>(`/comments/${encodeURIComponent(commentId)}/moderation/claim/renew`, FrameType.CommentModerationClaimResponse, config, {
+        method: 'POST',
+        requestFrame: FrameType.CommentModerationClaimMutationRequest,
+        request
+    });
 }
 
 export async function releaseCommentModerationClaim(
-  commentId: string,
-  request: CommentModerationClaimMutationRequest,
-  config?: ApiRequestConfig
-): Promise<CommentModerationClaimResponse> {
-  return requestAuthoringBinary<CommentModerationClaimResponse>(`/comments/${encodeURIComponent(commentId)}/moderation/claim/release`, FrameType.CommentModerationClaimResponse, config, {
-    method: 'POST',
-    requestFrame: FrameType.CommentModerationClaimMutationRequest,
-    request
-  })
+    commentId: string,
+    request: CommentModerationClaimMutationRequest,
+    config?: ApiRequestConfig
+): Promise<CommentModerationClaimResponse>
+{
+    return requestAuthoringBinary<CommentModerationClaimResponse>(`/comments/${encodeURIComponent(commentId)}/moderation/claim/release`, FrameType.CommentModerationClaimResponse, config, {
+        method: 'POST',
+        requestFrame: FrameType.CommentModerationClaimMutationRequest,
+        request
+    });
 }
 
-export async function getModerationOverview(config?: ApiRequestConfig): Promise<ModerationOverviewResponse> {
-  return requestAuthoringBinary<ModerationOverviewResponse>('/moderation/overview', FrameType.ModerationOverview, config)
+export async function getModerationOverview(config?: ApiRequestConfig): Promise<ModerationOverviewResponse>
+{
+    return requestAuthoringBinary<ModerationOverviewResponse>('/moderation/overview', FrameType.ModerationOverview, config);
 }
 
 export async function getAnonymousCommentPolicy(config?: ApiRequestConfig): Promise<AnonymousCommentPolicyResponse> {
@@ -1476,44 +1485,48 @@ export async function updateAnonymousCommentPolicy(
     method: 'PUT',
     requestFrame: FrameType.CommentPolicyUpdateRequest,
     request
-  })
+    });
 }
 
 export async function getArticleCommentPolicy(
-  articleId: number,
-  rootId?: number,
-  config?: ApiRequestConfig
-): Promise<EffectiveArticleCommentPolicyResponse> {
-  const query = rootId ? `?rootId=${encodeURIComponent(String(rootId))}` : ''
-  return requestAuthoringJson<EffectiveArticleCommentPolicyResponse>(
-    `/moderation/articles/${articleId}/comment-policy${query}`, FrameType.CommentPolicySnapshot, config)
+    articleId: number,
+    rootId?: number,
+    config?: ApiRequestConfig
+): Promise<EffectiveArticleCommentPolicyResponse>
+{
+    const query = rootId ? `?rootId=${encodeURIComponent(String(rootId))}` : '';
+    return requestAuthoringJson<EffectiveArticleCommentPolicyResponse>(
+        `/moderation/articles/${articleId}/comment-policy${query}`, FrameType.CommentPolicySnapshot, config);
 }
 
 export async function updateArticleCommentPolicy(
-  articleId: number,
-  request: ArticleCommentPolicyUpdateRequest,
-  config?: ApiRequestConfig
-): Promise<EffectiveArticleCommentPolicyResponse> {
-  return requestAuthoringJson<EffectiveArticleCommentPolicyResponse>(
-    `/moderation/articles/${articleId}/comment-policy`, FrameType.CommentPolicySnapshot, config, {
-      method: 'PUT', requestFrame: FrameType.CommentPolicyUpdateRequest, request
-    })
+    articleId: number,
+    request: ArticleCommentPolicyUpdateRequest,
+    config?: ApiRequestConfig
+): Promise<EffectiveArticleCommentPolicyResponse>
+{
+    return requestAuthoringJson<EffectiveArticleCommentPolicyResponse>(
+        `/moderation/articles/${articleId}/comment-policy`, FrameType.CommentPolicySnapshot, config, {
+            method: 'PUT', requestFrame: FrameType.CommentPolicyUpdateRequest, request
+        });
 }
 
 export async function updateCommentThreadPolicy(
-  articleId: number,
-  rootId: number,
-  request: { locked: boolean; expectedPolicyVersion: number; reason: string | null },
-  config?: ApiRequestConfig
-): Promise<EffectiveArticleCommentPolicyResponse> {
-  return requestAuthoringJson<EffectiveArticleCommentPolicyResponse>(
-    `/moderation/articles/${articleId}/comment-threads/${rootId}`, FrameType.CommentPolicySnapshot, config, {
-      method: 'PUT', requestFrame: FrameType.CommentPolicyUpdateRequest, request
-    })
+    articleId: number,
+    rootId: number,
+    request: { locked: boolean; expectedPolicyVersion: number; reason: string | null; },
+    config?: ApiRequestConfig
+): Promise<EffectiveArticleCommentPolicyResponse>
+{
+    return requestAuthoringJson<EffectiveArticleCommentPolicyResponse>(
+        `/moderation/articles/${articleId}/comment-threads/${rootId}`, FrameType.CommentPolicySnapshot, config, {
+            method: 'PUT', requestFrame: FrameType.CommentPolicyUpdateRequest, request
+        });
 }
 
-export async function getModerationDictionarySnapshot(config?: ApiRequestConfig): Promise<ModerationDictionaryRuntimeSnapshot> {
-  return requestAuthoringBinary<ModerationDictionaryRuntimeSnapshot>('/moderation/dictionaries', FrameType.ModerationDictionarySnapshot, config)
+export async function getModerationDictionarySnapshot(config?: ApiRequestConfig): Promise<ModerationDictionaryRuntimeSnapshot>
+{
+    return requestAuthoringBinary<ModerationDictionaryRuntimeSnapshot>('/moderation/dictionaries', FrameType.ModerationDictionarySnapshot, config);
 }
 
 export async function reloadModerationDictionaries(config?: ApiRequestConfig): Promise<ModerationDictionaryReloadResponse> {
@@ -1735,16 +1748,17 @@ export async function getArticleRevision(
 }
 
 export async function rollbackArticleRevision(
-  articleId: number,
-  revisionId: string,
-  request: ArticleRevisionRollbackRequest,
-  config?: ApiRequestConfig
-): Promise<ArticleMutationResponse> {
-  return requestAuthoringBinary<ArticleMutationResponse>(`/articles/${articleId}/revisions/${revisionId}/rollback`, FrameType.MutationId, config, {
-    method: 'POST',
-    requestFrame: FrameType.ArticleRevisionRollbackRequest,
-    request
-  })
+    articleId: number,
+    revisionId: string,
+    request: ArticleRevisionRollbackRequest,
+    config?: ApiRequestConfig
+): Promise<ArticleMutationResponse>
+{
+    return requestAuthoringBinary<ArticleMutationResponse>(`/articles/${articleId}/revisions/${revisionId}/rollback`, FrameType.MutationId, config, {
+        method: 'POST',
+        requestFrame: FrameType.ArticleRevisionRollbackRequest,
+        request
+    });
 }
 
 export async function saveArticleResponsibility(
@@ -1762,24 +1776,27 @@ export async function saveArticleResponsibility(
       requestFrame: FrameType.ArticleResponsibilityRequest,
       request
     }
-  )
+    );
 }
 
 export async function getArticleResponsibilityHistory(
-  articleId: number,
-  revisionId: string,
-  config?: ApiRequestConfig
-): Promise<ArticleResponsibilityVersionResponse[]> {
-  return requestAuthoringBinary<ArticleResponsibilityVersionResponse[]>(
-    `/articles/${articleId}/revisions/${revisionId}/responsibility`,
-    FrameType.ArticleResponsibilityHistory,
-    config
-  )
+    articleId: number,
+    revisionId: string,
+    config?: ApiRequestConfig
+): Promise<ArticleResponsibilityVersionResponse[]>
+{
+    return requestAuthoringBinary<ArticleResponsibilityVersionResponse[]>(
+        `/articles/${articleId}/revisions/${revisionId}/responsibility`,
+        FrameType.ArticleResponsibilityHistory,
+        config
+    );
 }
 
-function buildAuditSearch(params: AuditLogQueryParams): URLSearchParams {
-  const search = new URLSearchParams()
-  for (const [key, value] of Object.entries(params)) {
+function buildAuditSearch(params: AuditLogQueryParams): URLSearchParams
+{
+    const search = new URLSearchParams();
+    for (const [key, value] of Object.entries(params))
+{
     if (value === undefined || value === null || value === '') {
       continue
     }

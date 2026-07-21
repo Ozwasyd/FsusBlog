@@ -47,25 +47,25 @@ function expectNotIncludes(path, source, needle, label = needle) {
 
 const publicPagePath = 'src/frontend/src/assets/public-page.css'
 const publicShellPath = 'src/frontend/src/assets/public-shell-foundation.css'
-const motionPath = 'src/frontend/src/assets/motion.css'
-const tailwindPath = 'src/frontend/src/assets/tailwind.css'
-const markdownPath = 'src/frontend/src/assets/markdown.css'
-const accountShellBasePath = 'src/frontend/src/assets/account-shell-base.css'
-const moderationAuditPath = 'src/frontend/src/views/admin/moderation/ModerationAudit.vue'
-const messagesPath = 'src/frontend/src/components/user/messages/MessagesConversationList.vue'
-const identityPath = 'src/frontend/src/views/user/IdentityCenter.vue'
+const motionPath = 'src/frontend/src/assets/motion.css';
+const tailwindPath = 'src/frontend/src/assets/tailwind.css';
+const markdownPath = 'src/frontend/src/assets/markdown.css';
+const accountShellBasePath = 'src/frontend/src/assets/account-shell-base.css';
+const moderationAuditPath = 'src/frontend/src/views/admin/moderation/ModerationAudit.vue';
+const messagesPath = 'src/frontend/src/components/user/messages/MessagesConversationList.vue';
+const identityPath = 'src/frontend/src/views/user/IdentityCenter.vue';
 const complianceFooterPath = 'src/frontend/src/components/public/PublicComplianceFooter.vue'
 const packagePath = 'src/frontend/package.json'
 
 const publicPage = read(publicPagePath)
 const publicShell = read(publicShellPath)
-const motion = read(motionPath)
-const tailwind = read(tailwindPath)
-const markdown = read(markdownPath)
-const accountShellBase = read(accountShellBasePath)
-const moderationAudit = read(moderationAuditPath)
-const messages = read(messagesPath)
-const identity = read(identityPath)
+const motion = read(motionPath);
+const tailwind = read(tailwindPath);
+const markdown = read(markdownPath);
+const accountShellBase = read(accountShellBasePath);
+const moderationAudit = read(moderationAuditPath);
+const messages = read(messagesPath);
+const identity = read(identityPath);
 const complianceFooter = read(complianceFooterPath)
 const packageJson = JSON.parse(read(packagePath))
 
@@ -95,13 +95,13 @@ for (const [path, source] of [
   expectIncludes(path, source, '--accent: #4B79CC;', '--accent dark token')
   expectIncludes(path, source, '--accent-hover: #6F93D7;', '--accent-hover dark token')
   expectIncludes(path, source, '--fsus-page: var(--bg);', '--fsus-page palette alias')
-  expectIncludes(path, source, '--fsus-border: var(--border);', '--fsus-border palette alias')
-  expectIncludes(path, source, '--fsus-scholarly-blue: var(--accent);', '--fsus Scholarly Blue accent alias')
-  expectIncludes(path, source, '--fsusblog-color-primary: var(--fsus-color-action-primary, var(--accent, LinkText));', '--fsusblog primary FsusUI alias')
-  expectIncludes(path, source, '--fsusblog-color-focus-ring: var(--fsus-color-primary, #2A599C);', '--fsusblog Scholarly Blue focus ring alias')
-  expectIncludes(path, source, '--fsusblog-text-primary: var(--fsus-color-text-primary, var(--text));', '--fsusblog primary text FsusUI alias')
-  expectIncludes(path, source, '--fsusblog-text-quiet: var(--fsus-color-text-quiet, #A1A1AA);', '--fsusblog quiet text FsusUI alias')
-  expectIncludes(path, source, '--fsusblog-text-decorative: var(--fsus-color-text-decorative, var(--text-decorative));', '--fsusblog decorative text FsusUI alias')
+    expectIncludes(path, source, '--fsus-border: var(--border);', '--fsus-border palette alias');
+    expectIncludes(path, source, '--fsus-scholarly-blue: var(--accent);', '--fsus Scholarly Blue accent alias');
+    expectIncludes(path, source, '--fsusblog-color-primary: var(--fsus-color-action-primary, var(--accent, LinkText));', '--fsusblog primary FsusUI alias');
+    expectIncludes(path, source, '--fsusblog-color-focus-ring: var(--fsus-color-primary, #2A599C);', '--fsusblog Scholarly Blue focus ring alias');
+    expectIncludes(path, source, '--fsusblog-text-primary: var(--fsus-color-text-primary, var(--text));', '--fsusblog primary text FsusUI alias');
+    expectIncludes(path, source, '--fsusblog-text-quiet: var(--fsus-color-text-quiet, #A1A1AA);', '--fsusblog quiet text FsusUI alias');
+    expectIncludes(path, source, '--fsusblog-text-decorative: var(--fsus-color-text-decorative, var(--text-decorative));', '--fsusblog decorative text FsusUI alias');
   expectIncludes(path, source, '--fsusblog-reading-inline-code-bg: var(--fsus-color-surface-raised, var(--surface-subtle));', '--fsusblog inline code raised surface FsusUI alias')
   expectNotIncludes(path, source, legacyPageToken, 'legacy green-tinted page token')
   expectNotIncludes(path, source, legacyBorderToken, 'legacy yellow-tinted border token')
@@ -112,21 +112,22 @@ for (const [path, source] of [
   expectNotIncludes(path, source, legacyScholarlyBlueToken, 'legacy light Scholarly Blue token')
   expectNotIncludes(path, source, legacyDarkScholarlyBlueToken, 'legacy dark Scholarly Blue token')
   expectNotIncludes(path, source, legacyFsusBackdropSaturate, `unregistered ${legacyFsusBackdropSaturate} alias`)
-  expectNotIncludes(path, source, legacyFsusBackdropBlurSoft, `unregistered ${legacyFsusBackdropBlurSoft} alias`)
+    expectNotIncludes(path, source, legacyFsusBackdropBlurSoft, `unregistered ${legacyFsusBackdropBlurSoft} alias`);
 }
 
 for (const retiredPublicChromeToken of [
-  '--fsusblog-backdrop-saturate:',
-  '--fsusblog-backdrop-blur-soft:',
-  '--fsusblog-header-bg:',
-  '--fsusblog-header-border:'
-]) {
-  expectNotIncludes(publicPagePath, publicPage, retiredPublicChromeToken)
-  expectNotIncludes(publicShellPath, publicShell, retiredPublicChromeToken)
+    '--fsusblog-backdrop-saturate:',
+    '--fsusblog-backdrop-blur-soft:',
+    '--fsusblog-header-bg:',
+    '--fsusblog-header-border:'
+])
+{
+    expectNotIncludes(publicPagePath, publicPage, retiredPublicChromeToken);
+    expectNotIncludes(publicShellPath, publicShell, retiredPublicChromeToken);
 }
 
 for (const token of [
-  '--blog-motion-fast: var(--fsus-motion-control-fast, 140ms);',
+    '--blog-motion-fast: var(--fsus-motion-control-fast, 140ms);',
   '--blog-motion-control: var(--fsus-motion-control, 220ms);',
   '--blog-motion-panel: var(--fsus-motion-panel, 360ms);',
   '--blog-motion-overlay: var(--fsus-motion-overlay, 300ms);',
@@ -154,17 +155,17 @@ expectIncludes(moderationAuditPath, moderationAudit, canonicalCodeMonoStack, 'ca
 
 expectNotIncludes(messagesPath, messages, legacyTabularNumsVar)
 expectIncludes(messagesPath, messages, 'font-variant-numeric: tabular-nums;')
-expectNotIncludes(identityPath, identity, legacyFsusFontMonoVar)
-expectIncludes(identityPath, identity, 'font-family: var(--font-mono);')
+expectNotIncludes(identityPath, identity, legacyFsusFontMonoVar);
+expectIncludes(identityPath, identity, 'font-family: var(--font-mono);');
 
-expectIncludes(publicShellPath, publicShell, '--fsusblog-public-header-height: 4rem;')
-expectNotIncludes(publicShellPath, publicShell, '--fsusblog-public-overlay-radius:')
-expectIncludes(markdownPath, markdown, 'border-radius: var(--fsus-radius-panel, 12px);')
-expectIncludes(markdownPath, markdown, 'border-radius: var(--fsus-radius-control-small, 4px)')
-expectIncludes(markdownPath, markdown, 'border-radius: var(--fsus-radius-control, 6px);')
-expectIncludes(accountShellBasePath, accountShellBase, 'border-radius: var(--fsus-radius-control);')
+expectIncludes(publicShellPath, publicShell, '--fsusblog-public-header-height: 4rem;');
+expectNotIncludes(publicShellPath, publicShell, '--fsusblog-public-overlay-radius:');
+expectIncludes(markdownPath, markdown, 'border-radius: var(--fsus-radius-panel, 12px);');
+expectIncludes(markdownPath, markdown, 'border-radius: var(--fsus-radius-control-small, 4px)');
+expectIncludes(markdownPath, markdown, 'border-radius: var(--fsus-radius-control, 6px);');
+expectIncludes(accountShellBasePath, accountShellBase, 'border-radius: var(--fsus-radius-control);');
 
-expectIncludes(complianceFooterPath, complianceFooter, 'transition-transform group-hover:-translate-y-px')
+expectIncludes(complianceFooterPath, complianceFooter, 'transition-transform group-hover:-translate-y-px');
 
 const scripts = packageJson.scripts ?? {}
 expectIncludes(packagePath, String(scripts['check:foundation-token-governance'] ?? ''), 'check-foundation-token-governance.mjs')

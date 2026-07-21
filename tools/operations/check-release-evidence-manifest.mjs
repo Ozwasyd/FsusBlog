@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 import crypto from 'node:crypto'
 import fs from 'node:fs'
-import os from 'node:os'
-import path from 'node:path'
-import process from 'node:process'
-import { assertReleaseIdentity, isValidReleaseId } from '../release/release-id.mjs'
-import { validateReleaseManifest } from '../release/release-manifest.mjs'
-import { validateReleaseRuntimeMatrix } from '../runtime-profiles/release-runtime-matrix.mjs'
-import { evidenceClassificationErrors } from './evidence-classification.mjs'
+import os from 'node:os';
+import path from 'node:path';
+import process from 'node:process';
+import { assertReleaseIdentity, isValidReleaseId } from '../release/release-id.mjs';
+import { validateReleaseManifest } from '../release/release-manifest.mjs';
+import { validateReleaseRuntimeMatrix } from '../runtime-profiles/release-runtime-matrix.mjs';
+import { evidenceClassificationErrors } from './evidence-classification.mjs';
 
 const rootDir = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..')
 const requiredRedisFaultCases = ['redis-restart', 'redis-reconnect', 'redis-latency']
@@ -16,13 +16,13 @@ const requiredNotificationFaultCases = ['notification-stream-slow-consumer']
 const requiredGracefulShutdownFaultCases = ['graceful-shutdown']
 const requiredDiskArtifactFaultCases = ['disk-artifact-storage-write-failure']
 const requiredRolloutStages = [
-  'manifest-validate', 'capacity-preflight', 'backup-restore-gate', 'expand-migration',
-  'candidate-start', 'candidate-readiness', 'asset-materialize', 'candidate-smoke',
-  'compatibility-smoke', 'gateway-switch', 'source-drain', 'active-fence',
-  'public-verify', 'source-stop', 'release-evidence'
-]
+    'manifest-validate', 'capacity-preflight', 'backup-restore-gate', 'expand-migration',
+    'candidate-start', 'candidate-readiness', 'asset-materialize', 'candidate-smoke',
+    'compatibility-smoke', 'gateway-switch', 'source-drain', 'active-fence',
+    'public-verify', 'source-stop', 'release-evidence'
+];
 const requiredRolloutArtifacts = [
-  'publicTraffic', 'notificationStream', 'assetCompatibility',
+    'publicTraffic', 'notificationStream', 'assetCompatibility',
   'workerReconciliation', 'resourceBudget', 'faultInjection'
 ]
 const requiredTrafficCategories = [
@@ -295,7 +295,7 @@ function gatewayReleaseIdentityOk(identity) {
     && !Array.isArray(identity)
     && ['blue', 'green'].includes(identity.slot)
     && isValidReleaseId(identity.releaseId, { forPublication: true })
-    && /^sha256:[0-9a-f]{64}$/u.test(String(identity.imageDigest ?? ''))
+    && /^sha256:[0-9a-f]{64}$/u.test(String(identity.imageDigest ?? ''));
 }
 
 function deploymentLifecycleEvidenceOk(report) {
@@ -489,13 +489,14 @@ function rolloutAuxiliarySemanticsOk(name, value, rollout) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false
   if (value.rolloutId !== undefined && value.rolloutId !== rollout.rolloutId) return false
   if (value.target?.releaseId !== undefined && value.target.releaseId !== rollout.target.releaseId) return false
-  if (value.source?.releaseId !== undefined && value.source.releaseId !== rollout.source.releaseId) return false
-  if (Array.isArray(value.errors) && value.errors.length !== 0) return false
-  if (name === 'releaseManifest') {
-    return value.schema === 'fsusblog.release-manifest.v2'
+    if (value.source?.releaseId !== undefined && value.source.releaseId !== rollout.source.releaseId) {return false};
+    if (Array.isArray(value.errors) && value.errors.length !== 0) {return false};
+    if (name === 'releaseManifest')
+{
+        return value.schema === 'fsusblog.release-manifest.v2'
       && value.releaseId === rollout.target.releaseId
-      && value.imageDigest === rollout.target.imageDigest
-  }
+      && value.imageDigest === rollout.target.imageDigest;
+    }
   if (name === 'operatorNote') {
     return value.schema === 'fsusblog.release-rollout-operator-note.v1'
       && value.rolloutId === rollout.rolloutId
@@ -770,22 +771,26 @@ function releaseEvidenceModelErrors(manifest, options, context) {
   if (manifest.status === 'collected-blocked' && manifest.evidenceClass !== 'fresh-run-evidence') {
     errors.push('collected-blocked manifest cannot claim release-closeout-evidence')
   }
-  if (manifest.releaseId !== (manifest.releaseIdentity?.releaseId ?? null)) {
-    errors.push('releaseId must match releaseIdentity.releaseId')
-  }
-  let canonicalIdentity = false
-  try {
-    assertReleaseIdentity({
-      releaseId: manifest.releaseId,
-      createdAtUtc: manifest.releaseIdentity?.createdAtUtc,
-      commitSha: manifest.commitSha
-    })
-    canonicalIdentity = true
-  } catch {}
-  const identityMatches = canonicalIdentity
+    if (manifest.releaseId !== (manifest.releaseIdentity?.releaseId ?? null))
+{
+        errors.push('releaseId must match releaseIdentity.releaseId');
+    }
+    let canonicalIdentity = false;
+    try
+{
+        assertReleaseIdentity({
+            releaseId: manifest.releaseId,
+            createdAtUtc: manifest.releaseIdentity?.createdAtUtc,
+            commitSha: manifest.commitSha
+        });
+        canonicalIdentity = true;
+    }
+ catch
+{}
+    const identityMatches = canonicalIdentity
     && /^sha256:[0-9a-f]{64}$/u.test(String(manifest.imageDigest ?? ''))
     && manifest.releaseIdentity?.commitSha === manifest.commitSha
-    && manifest.releaseIdentity?.imageDigest === manifest.imageDigest
+    && manifest.releaseIdentity?.imageDigest === manifest.imageDigest;
   if (manifest.releaseBound !== identityMatches) {
     errors.push('releaseBound must exactly reflect release ID, commit SHA, and image digest agreement')
   }
@@ -795,16 +800,17 @@ function releaseEvidenceModelErrors(manifest, options, context) {
     errors.push('targetTopology must match the release slot and selected runtime profile')
   }
   if (!/^[0-9A-Za-z][0-9A-Za-z._-]{5,191}$/u.test(String(manifest.releaseNamespace ?? ''))) {
-    errors.push('releaseNamespace must be a safe immutable identity namespace')
-  }
-  const expectedNamespace = identityMatches
-    ? `${manifest.releaseId}--${manifest.imageDigest.slice('sha256:'.length, 'sha256:'.length + 12)}`
-    : null
-  if (expectedNamespace && manifest.releaseNamespace !== expectedNamespace) {
-    errors.push('releaseNamespace must bind canonical release ID and image digest without duplicating commitSha12')
-  }
+        errors.push('releaseNamespace must be a safe immutable identity namespace');
+    }
+    const expectedNamespace = identityMatches
+        ? `${manifest.releaseId}--${manifest.imageDigest.slice('sha256:'.length, 'sha256:'.length + 12)}`
+        : null;
+    if (expectedNamespace && manifest.releaseNamespace !== expectedNamespace)
+{
+        errors.push('releaseNamespace must bind canonical release ID and image digest without duplicating commitSha12');
+    }
 
-  const storage = manifest.storage
+    const storage = manifest.storage;
   if (storage?.schema !== 'fsusblog.release-evidence-storage-binding.v1'
     || storage.authority !== 'github-actions-artifact'
     || storage.contractPath !== 'security/evidence-contracts/release-bundle-storage.json'
@@ -819,15 +825,18 @@ function releaseEvidenceModelErrors(manifest, options, context) {
     || typeof storage.retention?.legalHoldPolicy !== 'string'
     || typeof storage.retention?.auditHoldPolicy !== 'string'
     || typeof storage.retention?.rollbackReferencePolicy !== 'string') {
-    errors.push('storage binding must include the complete retention and hold contract')
-  }
-  if (identityMatches) {
-    const expectedArtifactName = `fsusblog-release-evidence-${manifest.releaseId}`
-    if (storage?.artifactName !== expectedArtifactName) {
-      errors.push('storage artifact name must bind the canonical release ID without duplicating commitSha12')
+        errors.push('storage binding must include the complete retention and hold contract');
     }
-  }
-  if (options.requireOk || manifest.evidenceClass === 'release-closeout-evidence') {
+    if (identityMatches)
+{
+        const expectedArtifactName = `fsusblog-release-evidence-${manifest.releaseId}`;
+        if (storage?.artifactName !== expectedArtifactName)
+{
+            errors.push('storage artifact name must bind the canonical release ID without duplicating commitSha12');
+        }
+    }
+    if (options.requireOk || manifest.evidenceClass === 'release-closeout-evidence')
+{
     if (!/^\d+$/u.test(String(manifest.workflowRun?.id ?? ''))
       || !/^\d+$/u.test(String(manifest.workflowRun?.attempt ?? ''))
       || typeof manifest.workflowRun?.workflow !== 'string'
@@ -837,13 +846,16 @@ function releaseEvidenceModelErrors(manifest, options, context) {
     if (String(storage?.workflowRunId ?? '') !== String(manifest.workflowRun?.id ?? '')) {
       errors.push('storage workflow run must match manifest workflowRun.id')
     }
-    if (!/^\d+$/u.test(String(storage?.workflowRunId ?? ''))) {
-      errors.push('release closeout storage requires a numeric workflow run id')
-    }
-    if (!/^fsusblog-release-evidence-\d{14}-[0-9a-f]{12}$/u.test(String(storage?.artifactName ?? ''))) {
-      errors.push('release closeout storage requires an identity-bound artifact name')
-    }
-    if (!/^github-actions:\/\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/actions\/runs\/\d+\/artifacts\/[A-Za-z0-9_.-]+$/u.test(String(storage?.storageReference ?? ''))) {
+        if (!/^\d+$/u.test(String(storage?.workflowRunId ?? '')))
+{
+            errors.push('release closeout storage requires a numeric workflow run id');
+        }
+        if (!/^fsusblog-release-evidence-\d{14}-[0-9a-f]{12}$/u.test(String(storage?.artifactName ?? '')))
+{
+            errors.push('release closeout storage requires an identity-bound artifact name');
+        }
+        if (!/^github-actions:\/\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/actions\/runs\/\d+\/artifacts\/[A-Za-z0-9_.-]+$/u.test(String(storage?.storageReference ?? '')))
+{
       errors.push('release closeout storage requires an immutable workflow-run storage reference')
     } else if (!String(storage.storageReference).endsWith(`/artifacts/${storage.artifactName}`)) {
       errors.push('release closeout storage reference must name the identity-bound artifact')
@@ -1609,24 +1621,24 @@ async function runSelfTest() {
   const base = {
     status: 'collected-ok',
     commitSha,
-    workflowRun: { id: '123', attempt: '1', workflow: 'Quality Gate' },
-    imageDigest,
-    releaseIdentity: {
-      schema: 'fsusblog.release-manifest.v2',
-      releaseId,
-      commitSha,
-      imageRepository: 'ghcr.io/fsusblog/app',
+        workflowRun: { id: '123', attempt: '1', workflow: 'Quality Gate' },
+        imageDigest,
+        releaseIdentity: {
+            schema: 'fsusblog.release-manifest.v2',
+            releaseId,
+            commitSha,
+            imageRepository: 'ghcr.io/fsusblog/app',
       imageTag: `ghcr.io/fsusblog/app:${releaseId}`,
       imageDigest,
       imageRef: `ghcr.io/fsusblog/app@${imageDigest}`,
       registryDigestVerified: true,
-      createdAtUtc: '2026-07-11T01:01:01.000Z',
-      frontendManifestHash: `sha256:${'b'.repeat(64)}`,
-      wasmArtifactHash: `sha256:${'c'.repeat(64)}`,
-      schemaCompatibility: { minimumCoordinate: releaseId, maximumCoordinate: releaseId },
-      toolchain: {
-        dotnetVersion: '10.0.100',
-        nodeVersion: 'v20.19.0',
+            createdAtUtc: '2026-07-11T01:01:01.000Z',
+            frontendManifestHash: `sha256:${'b'.repeat(64)}`,
+            wasmArtifactHash: `sha256:${'c'.repeat(64)}`,
+            schemaCompatibility: { minimumCoordinate: releaseId, maximumCoordinate: releaseId },
+            toolchain: {
+                dotnetVersion: '10.0.100',
+                nodeVersion: 'v20.19.0',
         dockerVersion: '28.0.0',
         dockerfileDigest: `sha256:${'d'.repeat(64)}`
       },

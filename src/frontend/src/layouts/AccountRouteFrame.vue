@@ -28,7 +28,10 @@
         />
     </ElDrawer>
 
-    <div class="account-route-frame" :class="frameClass">
+    <div
+        class="account-route-frame"
+        :class="frameClass"
+    >
         <aside class="account-route-frame__sidebar">
             <AccountNavigationPanel
                 class="account-sidebar-frame sticky top-24 pr-6"
@@ -73,13 +76,13 @@ import { fsusBlogMotionPresets } from '@/fsusui/blogMotion';
 import { FsuTransition } from '@/fsusui/motion';
 import { useAccountFrameDrawerState } from '@/layouts/accountFrameContext';
 import {
-    shouldRestoreAccountRouteFocus,
-    type AccountRouteMotionPolicy
-} from '@/layouts/accountRouteMotion';
-import {
     isAccountNavGroupActive,
     type AccountNavGroup
 } from '@/layouts/accountNav';
+import {
+    shouldRestoreAccountRouteFocus,
+    type AccountRouteMotionPolicy
+} from '@/layouts/accountRouteMotion';
 
 const props = defineProps<{
     areaLabel: string;

@@ -1,8 +1,8 @@
-import { isCanonicalReleaseId } from '@/generated/releaseIdContract'
+import { isCanonicalReleaseId } from '@/generated/releaseIdContract';
 
 type TrustedTypePolicyRules = {
-  createHTML?: (value: string) => string
-  createScript?: (value: string) => string
+    createHTML?: (value: string) => string;
+    createScript?: (value: string) => string;
   createScriptURL?: (value: string) => string
 }
 
@@ -16,17 +16,17 @@ type TrustedTypePolicyFactoryLike = {
   createPolicy(name: string, rules: TrustedTypePolicyRules): TrustedTypePolicyLike
 }
 
-const APP_POLICY_NAME = 'fsusblog'
-const COMMENT_PRIVACY_PROVER_MODULE_PATH = '/wasm/comment-privacy-prover.js'
-const MARKDOWN_RENDERER_WORKER_PATH = /^\/assets\/markdown-renderer\.worker-[A-Za-z0-9_-]+\.js$/u
-const APPLICATION_WORKER_PATH = /^\/assets\/(?:commentPrivacy|perception-v2|pospace|pow|wasmDecode)\.worker-[A-Za-z0-9_-]+\.js$/u
-const APPLICATION_WORKER_DEV_SOURCE_PATH = /^\/src\/workers\/(?:(?:pow|wasmDecode)\.worker|security\/(?:perception-v2|pospace)\.worker|privacy\/commentPrivacy\.worker)\.ts$/u
-const SERVICE_WORKER_MODULE_PATH = '/sw.js'
-const IMMUTABLE_BUILD_ID = /^\d{14}-[0-9a-f]{12}$/u
-const MUTABLE_BUILD_IDS = new Set(['latest', 'current', 'development'])
+const APP_POLICY_NAME = 'fsusblog';
+const COMMENT_PRIVACY_PROVER_MODULE_PATH = '/wasm/comment-privacy-prover.js';
+const MARKDOWN_RENDERER_WORKER_PATH = /^\/assets\/markdown-renderer\.worker-[A-Za-z0-9_-]+\.js$/u;
+const APPLICATION_WORKER_PATH = /^\/assets\/(?:commentPrivacy|perception-v2|pospace|pow|wasmDecode)\.worker-[A-Za-z0-9_-]+\.js$/u;
+const APPLICATION_WORKER_DEV_SOURCE_PATH = /^\/src\/workers\/(?:(?:pow|wasmDecode)\.worker|security\/(?:perception-v2|pospace)\.worker|privacy\/commentPrivacy\.worker)\.ts$/u;
+const SERVICE_WORKER_MODULE_PATH = '/sw.js';
+const IMMUTABLE_BUILD_ID = /^\d{14}-[0-9a-f]{12}$/u;
+const MUTABLE_BUILD_IDS = new Set(['latest', 'current', 'development']);
 const NON_EXECUTABLE_SCRIPT_TYPES = new Set([
-  'application/json',
-  'application/ld+json',
+    'application/json',
+    'application/ld+json',
   'application/octet-stream'
 ])
 const UNSAFE_HTML_PATTERN = /<\s*(?:script|iframe|object|embed|form|input|button|textarea|select|option|svg|math|foreignobject|link)\b|\s(?:on[a-z]+|srcdoc)\s*=|\s(?:href|src|xlink:href|formaction)\s*=\s*(?:['"]\s*)?javascript:/iu
@@ -99,16 +99,16 @@ export function toTrustedApplicationWorkerScriptUrl(moduleUrl: URL | string): un
 export function toTrustedServiceWorkerScriptUrl(moduleUrl: string): unknown {
   const resolved = resolveApplicationUrl(
     moduleUrl,
-    'service_worker_artifact_invalid'
-  )
-  const buildIds = resolved.searchParams.getAll('build')
-  const buildId = buildIds[0] ?? ''
-  const hasValidBuildId = buildIds.length === 0
+        'service_worker_artifact_invalid'
+    );
+    const buildIds = resolved.searchParams.getAll('build');
+    const buildId = buildIds[0] ?? '';
+    const hasValidBuildId = buildIds.length === 0
     || buildIds.length === 1
       && IMMUTABLE_BUILD_ID.test(buildId)
       && isCanonicalReleaseId(buildId)
-      && !MUTABLE_BUILD_IDS.has(buildId)
-  if (resolved.pathname !== SERVICE_WORKER_MODULE_PATH
+      && !MUTABLE_BUILD_IDS.has(buildId);
+    if (resolved.pathname !== SERVICE_WORKER_MODULE_PATH
     || resolved.hash
     || [...resolved.searchParams.keys()].some(key => key !== 'build')
     || !hasValidBuildId) {

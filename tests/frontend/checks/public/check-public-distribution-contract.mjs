@@ -29,15 +29,15 @@ const articlePage = read('src/frontend/src/components/public/pages/PublicArticle
 const articleViewContract = read('src/frontend/src/view-contracts/articleDetail.ts')
 const publicEntryRegistry = read('src/frontend/src/public-renderers/publicEntryRegistry.ts')
 const index = read('src/frontend/index.html')
-const searchRequestPolicy = read('src/backend/Infrastructure/Spa/PublicSearchRequestPolicy.cs')
-const searchRoutePolicy = read('src/frontend/src/public-renderers/publicSearchRoutePolicy.ts')
-const generatedPageManifest = read('src/frontend/src/public-renderers/generated/publicPageManifest.ts')
+const searchRequestPolicy = read('src/backend/Infrastructure/Spa/PublicSearchRequestPolicy.cs');
+const searchRoutePolicy = read('src/frontend/src/public-renderers/publicSearchRoutePolicy.ts');
+const generatedPageManifest = read('src/frontend/src/public-renderers/generated/publicPageManifest.ts');
 const applicationComposition = [
-  read('src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs'),
-  read('src/backend/Infrastructure/Bootstrap/PublicWebRuntime.HtmlMaterialization.cs')
-].join('\n')
-const publicOriginPolicy = read('src/backend/Infrastructure/PublicAot/PublicOriginPolicy.cs')
-const lifecycleBootstrap = read('src/backend/Infrastructure/Bootstrap/LifecycleHostedBootstrapService.cs')
+    read('src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs'),
+    read('src/backend/Infrastructure/Bootstrap/PublicWebRuntime.HtmlMaterialization.cs')
+].join('\n');
+const publicOriginPolicy = read('src/backend/Infrastructure/PublicAot/PublicOriginPolicy.cs');
+const lifecycleBootstrap = read('src/backend/Infrastructure/Bootstrap/LifecycleHostedBootstrapService.cs');
 const sqlSugarVisibilitySources = [
   'src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Taxonomy.cs',
   'src/backend/Modules/Endpoints/DistributionEndpoints.cs',

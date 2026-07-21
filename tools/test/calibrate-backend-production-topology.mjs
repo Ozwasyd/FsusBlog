@@ -9,12 +9,13 @@ import { fileURLToPath } from 'node:url'
 
 import { buildBackendTopologyCalibrationMatrix } from './backend-production-topology.mjs'
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-const defaultOutput = '.tmp/diagnostics/backend-topology-calibration.json'
-const minimumFreshSamples = 3
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const defaultOutput = '.tmp/diagnostics/backend-topology-calibration.json';
+const minimumFreshSamples = 3;
 
-function positiveInteger(value, label) {
-  const parsed = Number(value)
+function positiveInteger(value, label)
+{
+    const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 1) throw new Error(`${label} must be a positive integer`)
   return parsed
 }
@@ -22,31 +23,33 @@ function positiveInteger(value, label) {
 function positiveNumber(value, label) {
   const parsed = Number(value)
   if (!Number.isFinite(parsed) || parsed <= 0) throw new Error(`${label} must be a positive number`)
-  return parsed
+    return parsed;
 }
 
 export function parseBackendTopologyCalibrationArgs(argv, {
-  availableCpu = os.availableParallelism(),
-  totalMemoryGiB = os.totalmem() / (1024 ** 3),
-  freeMemoryGiB = os.freemem() / (1024 ** 3)
-} = {}) {
-  const liveCpu = positiveInteger(availableCpu, 'live machine CPU capacity')
-  const liveTotalMemoryGiB = positiveNumber(totalMemoryGiB, 'live machine memory capacity')
-  const liveFreeMemoryGiB = Math.min(
-    positiveNumber(freeMemoryGiB, 'live machine free memory'),
-    liveTotalMemoryGiB
-  )
-  const options = {
-    fresh: false,
-    output: defaultOutput,
-    repeat: minimumFreshSamples,
-    maxCandidates: Number.POSITIVE_INFINITY,
-    candidateIds: [],
-    cpuBudget: liveCpu,
-    memoryGiB: liveFreeMemoryGiB,
-    planningUnitCount: 1024
-  }
-  for (let index = 0; index < argv.length; index += 1) {
+    availableCpu = os.availableParallelism(),
+    totalMemoryGiB = os.totalmem() / (1024 ** 3),
+    freeMemoryGiB = os.freemem() / (1024 ** 3)
+} = {})
+{
+    const liveCpu = positiveInteger(availableCpu, 'live machine CPU capacity');
+    const liveTotalMemoryGiB = positiveNumber(totalMemoryGiB, 'live machine memory capacity');
+    const liveFreeMemoryGiB = Math.min(
+        positiveNumber(freeMemoryGiB, 'live machine free memory'),
+        liveTotalMemoryGiB
+    );
+    const options = {
+        fresh: false,
+        output: defaultOutput,
+        repeat: minimumFreshSamples,
+        maxCandidates: Number.POSITIVE_INFINITY,
+        candidateIds: [],
+        cpuBudget: liveCpu,
+        memoryGiB: liveFreeMemoryGiB,
+        planningUnitCount: 1024
+    };
+    for (let index = 0; index < argv.length; index += 1)
+{
     const argument = argv[index]
     const value = () => {
       index += 1
@@ -65,23 +68,27 @@ export function parseBackendTopologyCalibrationArgs(argv, {
     } else if (argument === '--help') options.help = true
     else throw new Error(`unknown backend topology calibration option: ${argument}`)
   }
-  if (!options.help && !options.fresh) {
-    throw new Error('backend topology calibration requires --fresh; historical test results are never reusable')
-  }
-  if (!options.help && options.repeat < minimumFreshSamples) {
-    throw new Error(`backend topology calibration requires at least ${minimumFreshSamples} fresh samples per candidate`)
-  }
-  if (!options.help && options.cpuBudget > liveCpu) {
-    throw new Error(
-      `backend topology calibration CPU envelope ${options.cpuBudget} exceeds live machine capacity ${liveCpu}`
-    )
-  }
-  if (!options.help && options.memoryGiB > liveTotalMemoryGiB + Number.EPSILON) {
-    throw new Error(
-      `backend topology calibration memory envelope ${options.memoryGiB} GiB exceeds live machine capacity ${liveTotalMemoryGiB} GiB`
-    )
-  }
-  return options
+    if (!options.help && !options.fresh)
+{
+        throw new Error('backend topology calibration requires --fresh; historical test results are never reusable');
+    }
+    if (!options.help && options.repeat < minimumFreshSamples)
+{
+        throw new Error(`backend topology calibration requires at least ${minimumFreshSamples} fresh samples per candidate`);
+    }
+    if (!options.help && options.cpuBudget > liveCpu)
+{
+        throw new Error(
+            `backend topology calibration CPU envelope ${options.cpuBudget} exceeds live machine capacity ${liveCpu}`
+        );
+    }
+    if (!options.help && options.memoryGiB > liveTotalMemoryGiB + Number.EPSILON)
+{
+        throw new Error(
+            `backend topology calibration memory envelope ${options.memoryGiB} GiB exceeds live machine capacity ${liveTotalMemoryGiB} GiB`
+        );
+    }
+    return options;
 }
 
 function field(text, label) {
@@ -125,14 +132,16 @@ function quantile(values, fraction) {
   return sorted[lower] + (sorted[upper] - sorted[lower]) * (position - lower)
 }
 
-export function summarizeBackendTopologyCalibrationCandidate(candidate, samples) {
-  if (!Array.isArray(samples) || samples.length < minimumFreshSamples) {
-    throw new Error(
-      `backend topology calibration candidate requires at least ${minimumFreshSamples} fresh samples`
-    )
-  }
-  const successes = samples.filter(({ status }) => status === 'success')
-  const wallClockMs = successes.map(({ wallClockMs: value }) => value)
+export function summarizeBackendTopologyCalibrationCandidate(candidate, samples)
+{
+    if (!Array.isArray(samples) || samples.length < minimumFreshSamples)
+{
+        throw new Error(
+            `backend topology calibration candidate requires at least ${minimumFreshSamples} fresh samples`
+        );
+    }
+    const successes = samples.filter(({ status }) => status === 'success');
+    const wallClockMs = successes.map(({ wallClockMs: value }) => value);
   const medianMs = quantile(wallClockMs, 0.5)
   const meanMs = wallClockMs.length === 0
     ? null
@@ -164,14 +173,16 @@ export function buildBackendTopologyCalibrationReport({
   candidates,
   generatedAt = new Date().toISOString()
 }) {
-  if (!/^[0-9a-f]{40}$/u.test(String(sourceCommit))) {
-    throw new Error('backend topology calibration requires a full source commit')
-  }
-  if (!/^sha256:[0-9a-f]{64}$/u.test(String(sourceFingerprint))) {
-    throw new Error('backend topology calibration requires a full SHA-256 source fingerprint')
-  }
-  const rankedSuccessfulCandidates = candidates
-    .filter(({ status, wallClock }) => status === 'success' && Number.isFinite(wallClock?.medianMs))
+    if (!/^[0-9a-f]{40}$/u.test(String(sourceCommit)))
+{
+        throw new Error('backend topology calibration requires a full source commit');
+    }
+    if (!/^sha256:[0-9a-f]{64}$/u.test(String(sourceFingerprint)))
+{
+        throw new Error('backend topology calibration requires a full SHA-256 source fingerprint');
+    }
+    const rankedSuccessfulCandidates = candidates
+        .filter(({ status, wallClock }) => status === 'success' && Number.isFinite(wallClock?.medianMs))
     .sort((left, right) => left.wallClock.medianMs - right.wallClock.medianMs)
     .map(({ id, wallClock }, index) => ({ rank: index + 1, id, medianMs: wallClock.medianMs }))
   return {

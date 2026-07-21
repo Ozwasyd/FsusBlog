@@ -7,13 +7,13 @@ import {
   type IssueSecurityChallengeRequest,
   type SecurityChallengeAssignment,
   type SecurityChallengeIssueResponse,
-  type SecurityChallengeProviderPayload,
-  type SecurityChallengeVerifyResponse,
-  type VerifySecurityChallengeRequest
-} from '@/api/security'
+    type SecurityChallengeProviderPayload,
+    type SecurityChallengeVerifyResponse,
+    type VerifySecurityChallengeRequest
+} from '@/api/security';
 import {
-  defaultChallengeProofStore,
-  type ChallengeProofSettlement,
+    defaultChallengeProofStore,
+    type ChallengeProofSettlement,
   type ChallengeProofStore,
   type SecurityChallengeProof
 } from './challenge-proof-store'
@@ -23,16 +23,16 @@ import {
   resolveChallengeCapability,
   SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION,
   type ChallengeCapabilityResolution,
-  type ChallengeExecutionMode,
-  type ChallengeKindGroup
-} from './challenge-capability-registry'
+    type ChallengeExecutionMode,
+    type ChallengeKindGroup
+} from './challenge-capability-registry';
 import {
-  requestChallengeCapabilityReload,
-  type ChallengeCapabilityReloadResult
-} from './challenge-capability-reload'
+    requestChallengeCapabilityReload,
+    type ChallengeCapabilityReloadResult
+} from './challenge-capability-reload';
 
-export type { ChallengeKindGroup } from './challenge-capability-registry'
-export type ChallengeIssueStatus = 'verified' | 'allow' | 'challenge' | 'unsupported' | 'failed'
+export type { ChallengeKindGroup } from './challenge-capability-registry';
+export type ChallengeIssueStatus = 'verified' | 'allow' | 'challenge' | 'unsupported' | 'failed';
 export type ChallengeVerifyStatus = 'verified' | 'continue' | 'unsupported' | 'failed'
 export type SecurityChallengeMemberVerifyRequest = Omit<VerifySecurityChallengeRequest, 'envelopeId'> & {
   envelopeId?: string
@@ -75,34 +75,35 @@ export interface SecurityChallengeProofLease extends RiskChallengeProofContext {
 }
 
 export interface SecurityChallengeClient {
-  issue(context: SecurityChallengeContext, options?: { forceRefresh?: boolean }): Promise<SecurityChallengeIssueResult>
-  refresh(context: SecurityChallengeContext, representation?: 'visual' | 'audio'): Promise<SecurityChallengeIssueResult>
-  replace(context: SecurityChallengeContext, representation: 'visual' | 'audio'): Promise<SecurityChallengeIssueResult>
-  verify(context: SecurityChallengeContext, request: SecurityChallengeMemberVerifyRequest): Promise<SecurityChallengeVerifyResult>
-  reserveProof(context: SecurityChallengeContext): SecurityChallengeProofLease | null
-  cancelEnvelope(context: SecurityChallengeContext): void
+    issue(context: SecurityChallengeContext, options?: { forceRefresh?: boolean; }): Promise<SecurityChallengeIssueResult>;
+    refresh(context: SecurityChallengeContext, representation?: 'visual' | 'audio'): Promise<SecurityChallengeIssueResult>;
+    replace(context: SecurityChallengeContext, representation: 'visual' | 'audio'): Promise<SecurityChallengeIssueResult>;
+    verify(context: SecurityChallengeContext, request: SecurityChallengeMemberVerifyRequest): Promise<SecurityChallengeVerifyResult>;
+    reserveProof(context: SecurityChallengeContext): SecurityChallengeProofLease | null;
+    cancelEnvelope(context: SecurityChallengeContext): void;
   clearProof(context: SecurityChallengeContext): void
 }
 
 export interface SecurityChallengeClientOptions {
   cancelChallenge?: (request: CancelSecurityChallengeRequest) => Promise<unknown>
   issueChallenge?: (request: IssueSecurityChallengeRequest, config?: { signal?: AbortSignal }) => Promise<SecurityChallengeIssueResponse>
-  verifyChallenge?: (request: VerifySecurityChallengeRequest, config?: { signal?: AbortSignal }) => Promise<SecurityChallengeVerifyResponse>
-  proofStore?: ChallengeProofStore
-  now?: () => number
-  requestCapabilityReload?: (manifestVersion: string) => ChallengeCapabilityReloadResult
+    verifyChallenge?: (request: VerifySecurityChallengeRequest, config?: { signal?: AbortSignal; }) => Promise<SecurityChallengeVerifyResponse>;
+    proofStore?: ChallengeProofStore;
+    now?: () => number;
+    requestCapabilityReload?: (manifestVersion: string) => ChallengeCapabilityReloadResult;
 }
 
-export function createSecurityChallengeClient(options: SecurityChallengeClientOptions = {}): SecurityChallengeClient {
+export function createSecurityChallengeClient(options: SecurityChallengeClientOptions = {}): SecurityChallengeClient
+{
   const cancelChallenge = options.cancelChallenge ?? cancelSecurityChallenge
   const issueChallenge = options.issueChallenge ?? issueSecurityChallenge
-  const verifyChallenge = options.verifyChallenge ?? verifySecurityChallenge
-  const proofStore = options.proofStore ?? defaultChallengeProofStore
-  const now = options.now ?? (() => Date.now())
-  const requestCapabilityReload = options.requestCapabilityReload ?? requestChallengeCapabilityReload
-  const envelopeRuns = new Map<string, ActiveEnvelopeRun>()
-  const contextGenerations = new Map<string, number>()
-  const activeRequests = new Map<string, AbortController>()
+    const verifyChallenge = options.verifyChallenge ?? verifySecurityChallenge;
+    const proofStore = options.proofStore ?? defaultChallengeProofStore;
+    const now = options.now ?? (() => Date.now());
+    const requestCapabilityReload = options.requestCapabilityReload ?? requestChallengeCapabilityReload;
+    const envelopeRuns = new Map<string, ActiveEnvelopeRun>();
+    const contextGenerations = new Map<string, number>();
+    const activeRequests = new Map<string, AbortController>();
 
   const reserveProof = (context: SecurityChallengeContext): SecurityChallengeProofLease | null => {
     const reservation = proofStore.reserve(context.action, context.routeKey)
@@ -123,32 +124,37 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
 
   const cancelEnvelope = (context: SecurityChallengeContext): void => {
     invalidateContext(context)
-  }
+    };
 
-  async function issue(context: SecurityChallengeContext, issueOptions: { forceRefresh?: boolean } = {}): Promise<SecurityChallengeIssueResult> {
-    return issueInternal(context, issueOptions)
-  }
-
-  async function issueInternal(
-    context: SecurityChallengeContext,
-    issueOptions: {
-      forceRefresh?: boolean
-      requestedRepresentation?: 'visual' | 'audio'
-      replacementRepresentation?: 'visual' | 'audio'
-    } = {}
-  ): Promise<SecurityChallengeIssueResult> {
-    const activeV3 = issueOptions.replacementRepresentation ? currentV3Replacement(context) : null
-    const replacement = activeV3
-      ? { challengeId: activeV3.challengeId, envelopeId: activeV3.envelopeId, stateToken: activeV3.stateToken }
-      : null
-    if (issueOptions.replacementRepresentation && !replacement) {
-      return failedIssueResult(null, 'perception_character_v3_replacement_missing')
+    async function issue(context: SecurityChallengeContext, issueOptions: { forceRefresh?: boolean; } = {}): Promise<SecurityChallengeIssueResult>
+{
+        return issueInternal(context, issueOptions);
     }
-    const replacementRun = replacement ? envelopeRuns.get(contextKey(context)) : undefined
-    const operation = beginContextGeneration(context, replacement === null)
-    if (!issueOptions.forceRefresh) {
-      const proof = proofStore.peek(context.action, context.routeKey)
-      if (proof) {
+
+    async function issueInternal(
+        context: SecurityChallengeContext,
+        issueOptions: {
+            forceRefresh?: boolean;
+            requestedRepresentation?: 'visual' | 'audio';
+            replacementRepresentation?: 'visual' | 'audio';
+        } = {}
+    ): Promise<SecurityChallengeIssueResult>
+{
+        const activeV3 = issueOptions.replacementRepresentation ? currentV3Replacement(context) : null;
+        const replacement = activeV3
+            ? { challengeId: activeV3.challengeId, envelopeId: activeV3.envelopeId, stateToken: activeV3.stateToken }
+            : null;
+        if (issueOptions.replacementRepresentation && !replacement)
+{
+            return failedIssueResult(null, 'perception_character_v3_replacement_missing');
+        }
+        const replacementRun = replacement ? envelopeRuns.get(contextKey(context)) : undefined;
+        const operation = beginContextGeneration(context, replacement === null);
+        if (!issueOptions.forceRefresh)
+{
+            const proof = proofStore.peek(context.action, context.routeKey);
+            if (proof)
+{
         finishRequest(operation)
         return {
           status: 'verified',
@@ -169,52 +175,63 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
     try {
       const response = await issueChallenge({
         action: context.action,
-        routeKey: context.routeKey,
-        attributes: context.attributes,
-        deviceFingerprint: context.deviceFingerprint,
-        capabilityManifestVersion: effectiveCapabilityManifestVersion(context),
-        ...(issueOptions.replacementRepresentation || issueOptions.requestedRepresentation
-          ? { representation: issueOptions.replacementRepresentation ?? issueOptions.requestedRepresentation }
-          : {}),
-        ...(replacement ? { replacement } : {})
-      }, { signal: operation.controller.signal })
-      if (!isCurrentOperation(operation)) {
-        revokeLateReplacementResponse(context, response, operation, replacementRun)
-        return cancelledIssueResult()
-      }
-      if (response.decision === 'allow' && replacementRun) {
-        abandonReplacement(context, replacementRun)
-        return failedIssueResult(response, 'security_challenge_issue_failed')
-      }
-      if (response.decision === 'allow') {
-        return allowResult(response)
-      }
-      if (response.decision !== 'challenge' && response.decision !== 'stepUp') {
-        abandonReplacement(context, replacementRun)
-        return failedIssueResult(response, 'security_challenge_issue_failed')
-      }
-      const run = createEnvelopeRun(context, response, operation.generation)
-      if (!run) {
-        abandonReplacement(context, replacementRun)
-        return failedIssueResult(response, 'security_challenge_envelope_invalid')
-      }
-      envelopeRuns.set(operation.key, run)
-      const selected = selectEnvelopeMember(context, run, 0, now())
-      return selected.capability?.unavailableReason === 'version_incompatible'
-        ? capabilityReloadResult(selected.response, requestCapabilityReload(effectiveCapabilityManifestVersion(context)))
-        : selected
-    } catch (error) {
-      if (!isCurrentOperation(operation) || operation.controller.signal.aborted) {
-        return cancelledIssueResult()
-      }
-      abandonReplacement(context, replacementRun)
-      if (isCapabilityManifestIncompatibleError(error)) {
-        return capabilityReloadResult(null, requestCapabilityReload(effectiveCapabilityManifestVersion(context)))
-      }
-      return failedIssueResult(null, 'security_challenge_issue_failed')
-    } finally {
-      finishRequest(operation)
-    }
+                routeKey: context.routeKey,
+                attributes: context.attributes,
+                deviceFingerprint: context.deviceFingerprint,
+                capabilityManifestVersion: effectiveCapabilityManifestVersion(context),
+                ...(issueOptions.replacementRepresentation || issueOptions.requestedRepresentation
+                    ? { representation: issueOptions.replacementRepresentation ?? issueOptions.requestedRepresentation }
+                    : {}),
+                ...(replacement ? { replacement } : {})
+            }, { signal: operation.controller.signal });
+            if (!isCurrentOperation(operation))
+{
+                revokeLateReplacementResponse(context, response, operation, replacementRun);
+                return cancelledIssueResult();
+            }
+            if (response.decision === 'allow' && replacementRun)
+{
+                abandonReplacement(context, replacementRun);
+                return failedIssueResult(response, 'security_challenge_issue_failed');
+            }
+            if (response.decision === 'allow')
+{
+                return allowResult(response);
+            }
+            if (response.decision !== 'challenge' && response.decision !== 'stepUp')
+{
+                abandonReplacement(context, replacementRun);
+                return failedIssueResult(response, 'security_challenge_issue_failed');
+            }
+            const run = createEnvelopeRun(context, response, operation.generation);
+            if (!run)
+{
+                abandonReplacement(context, replacementRun);
+                return failedIssueResult(response, 'security_challenge_envelope_invalid');
+            }
+            envelopeRuns.set(operation.key, run);
+            const selected = selectEnvelopeMember(context, run, 0, now());
+            return selected.capability?.unavailableReason === 'version_incompatible'
+                ? capabilityReloadResult(selected.response, requestCapabilityReload(effectiveCapabilityManifestVersion(context)))
+                : selected;
+        }
+ catch (error)
+{
+            if (!isCurrentOperation(operation) || operation.controller.signal.aborted)
+{
+                return cancelledIssueResult();
+            }
+            abandonReplacement(context, replacementRun);
+            if (isCapabilityManifestIncompatibleError(error))
+{
+                return capabilityReloadResult(null, requestCapabilityReload(effectiveCapabilityManifestVersion(context)));
+            }
+            return failedIssueResult(null, 'security_challenge_issue_failed');
+        }
+ finally
+{
+            finishRequest(operation);
+        }
   }
 
   async function verify(context: SecurityChallengeContext, request: SecurityChallengeMemberVerifyRequest): Promise<SecurityChallengeVerifyResult> {
@@ -230,14 +247,16 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
       return failedVerifyResult('security_challenge_member_mismatch')
     }
 
-    const operation = beginRequest(key, run.generation)
-    try {
-      const response = sanitizeVerifyResponse(await verifyChallenge(
-        { ...request, envelopeId: run.envelopeId },
-        { signal: operation.controller.signal }))
-      if (!isCurrentOperation(operation) || envelopeRuns.get(key) !== run) {
-        return failedVerifyResult('security_challenge_request_cancelled')
-      }
+        const operation = beginRequest(key, run.generation);
+        try
+{
+            const response = sanitizeVerifyResponse(await verifyChallenge(
+                { ...request, envelopeId: run.envelopeId },
+                { signal: operation.controller.signal }));
+            if (!isCurrentOperation(operation) || envelopeRuns.get(key) !== run)
+{
+                return failedVerifyResult('security_challenge_request_cancelled');
+            }
       if (!isExpectedProgressResponse(run, assignment, response)) {
         return failedVerifyResult('security_challenge_progress_invalid', response)
       }
@@ -295,13 +314,15 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
       }
       return {
         status: 'failed',
-        response: null,
-        proof: null,
-        next: null,
-        reason: 'security_challenge_verify_failed',
-        retryAfterMs: 0
-      }
-    } finally {
+                response: null,
+                proof: null,
+                next: null,
+                reason: 'security_challenge_verify_failed',
+                retryAfterMs: 0
+            };
+        }
+ finally
+{
       finishRequest(operation)
     }
   }
@@ -312,46 +333,51 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
     activeRequests.get(key)?.abort()
     activeRequests.delete(key)
     contextGenerations.set(key, (contextGenerations.get(key) ?? 0) + 1)
-    envelopeRuns.delete(key)
-  }
-
-  function beginContextGeneration(context: SecurityChallengeContext, revokePrevious = true): ChallengeClientOperation {
-    const key = contextKey(context)
-    if (revokePrevious) {
-      revokeRun(context, envelopeRuns.get(key))
-      envelopeRuns.delete(key)
+        envelopeRuns.delete(key);
     }
-    activeRequests.get(key)?.abort()
-    const generation = (contextGenerations.get(key) ?? 0) + 1
-    contextGenerations.set(key, generation)
-    return beginRequest(key, generation)
-  }
 
-  function currentV3Replacement(context: SecurityChallengeContext): {
-    challengeId: string
-    envelopeId: string
-    stateToken: string
-    representation: 'visual' | 'audio'
-  } | null {
-    const run = envelopeRuns.get(contextKey(context))
-    const assignment = run?.response.envelope?.assignments[run.completedCount]
-    const payload = assignment
-      ? run?.response.providerPayloads.find((item) => item.challengeId === assignment.challengeId)
-      : null
-    const typed = payload?.perceptionCharacterV3
-    return run && assignment?.kind === SecurityChallengeKind.PerceptionCharacterV3 && typed
-      ? {
+    function beginContextGeneration(context: SecurityChallengeContext, revokePrevious = true): ChallengeClientOperation
+{
+        const key = contextKey(context);
+        if (revokePrevious)
+{
+            revokeRun(context, envelopeRuns.get(key));
+            envelopeRuns.delete(key);
+        }
+        activeRequests.get(key)?.abort();
+        const generation = (contextGenerations.get(key) ?? 0) + 1;
+        contextGenerations.set(key, generation);
+        return beginRequest(key, generation);
+    }
+
+    function currentV3Replacement(context: SecurityChallengeContext): {
+        challengeId: string;
+        envelopeId: string;
+        stateToken: string;
+        representation: 'visual' | 'audio';
+    } | null
+{
+        const run = envelopeRuns.get(contextKey(context));
+        const assignment = run?.response.envelope?.assignments[run.completedCount];
+        const payload = assignment
+            ? run?.response.providerPayloads.find((item) => item.challengeId === assignment.challengeId)
+            : null;
+        const typed = payload?.perceptionCharacterV3;
+        return run && assignment?.kind === SecurityChallengeKind.PerceptionCharacterV3 && typed
+            ? {
           challengeId: assignment.challengeId,
           envelopeId: run.envelopeId,
           stateToken: typed.stateToken,
           representation: typed.representation === 1 ? 'visual' : 'audio'
         }
-      : null
-  }
+            : null;
+    }
 
-  function revokeRun(context: SecurityChallengeContext, run: ActiveEnvelopeRun | undefined): void {
-    if (!run) {
-      return
+    function revokeRun(context: SecurityChallengeContext, run: ActiveEnvelopeRun | undefined): void
+{
+        if (!run)
+{
+            return;
     }
 
     const request: CancelSecurityChallengeRequest = {
@@ -361,35 +387,41 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
       deviceFingerprint: context.deviceFingerprint,
       policyVersion: run.response.policyVersion
     }
-    void cancelChallenge(request).catch(() => cancelChallenge(request).catch(() => undefined))
-  }
-
-  function abandonReplacement(context: SecurityChallengeContext, run: ActiveEnvelopeRun | undefined): void {
-    if (!run || envelopeRuns.get(contextKey(context)) !== run) {
-      return
+        void cancelChallenge(request).catch(() => cancelChallenge(request).catch(() => undefined));
     }
-    revokeRun(context, run)
-    envelopeRuns.delete(contextKey(context))
-  }
 
-  function revokeLateReplacementResponse(
-    context: SecurityChallengeContext,
-    response: SecurityChallengeIssueResponse,
-    operation: ChallengeClientOperation,
-    replacementRun: ActiveEnvelopeRun | undefined
-  ): void {
-    if (!replacementRun || (response.decision !== 'challenge' && response.decision !== 'stepUp')) {
-      return
+    function abandonReplacement(context: SecurityChallengeContext, run: ActiveEnvelopeRun | undefined): void
+{
+        if (!run || envelopeRuns.get(contextKey(context)) !== run)
+{
+            return;
+        }
+        revokeRun(context, run);
+        envelopeRuns.delete(contextKey(context));
     }
-    const lateRun = createEnvelopeRun(context, response, operation.generation)
-    if (lateRun) {
-      revokeRun(context, lateRun)
-    }
-  }
 
-  function beginRequest(key: string, generation: number): ChallengeClientOperation {
-    activeRequests.get(key)?.abort()
-    const controller = new AbortController()
+    function revokeLateReplacementResponse(
+        context: SecurityChallengeContext,
+        response: SecurityChallengeIssueResponse,
+        operation: ChallengeClientOperation,
+        replacementRun: ActiveEnvelopeRun | undefined
+    ): void
+{
+        if (!replacementRun || (response.decision !== 'challenge' && response.decision !== 'stepUp'))
+{
+            return;
+        }
+        const lateRun = createEnvelopeRun(context, response, operation.generation);
+        if (lateRun)
+{
+            revokeRun(context, lateRun);
+        }
+    }
+
+    function beginRequest(key: string, generation: number): ChallengeClientOperation
+{
+        activeRequests.get(key)?.abort();
+        const controller = new AbortController();
     activeRequests.set(key, controller)
     return { key, generation, controller }
   }
@@ -406,23 +438,26 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
     }
   }
 
-  return {
-    issue,
-    refresh(context, representation) {
-      const activeV3 = currentV3Replacement(context)
-      if (activeV3) {
-        return issueInternal(context, {
-          forceRefresh: true,
-          replacementRepresentation: representation ?? activeV3.representation
-        })
-      }
-      return issueInternal(context, { forceRefresh: true, requestedRepresentation: representation })
-    },
-    replace(context, representation) {
-      return issueInternal(context, { forceRefresh: true, replacementRepresentation: representation })
-    },
-    verify,
-    reserveProof,
+    return {
+        issue,
+        refresh(context, representation)
+{
+            const activeV3 = currentV3Replacement(context);
+            if (activeV3)
+{
+                return issueInternal(context, {
+                    forceRefresh: true,
+                    replacementRepresentation: representation ?? activeV3.representation
+                });
+            }
+            return issueInternal(context, { forceRefresh: true, requestedRepresentation: representation });
+        },
+        replace(context, representation)
+{
+            return issueInternal(context, { forceRefresh: true, replacementRepresentation: representation });
+        },
+        verify,
+        reserveProof,
     cancelEnvelope,
     clearProof
   }
@@ -566,29 +601,33 @@ function failedIssueResult(response: SecurityChallengeIssueResponse | null, reas
     kindGroup: null,
     capability: null,
     reason,
-    retryAfterMs: response?.retryAfterMs ?? 0
-  }
+        retryAfterMs: response?.retryAfterMs ?? 0
+    };
 }
 
 function capabilityReloadResult(
-  response: SecurityChallengeIssueResponse | null,
-  outcome: ChallengeCapabilityReloadResult
-): SecurityChallengeIssueResult {
-  return failedIssueResult(
-    response,
+    response: SecurityChallengeIssueResponse | null,
+    outcome: ChallengeCapabilityReloadResult
+): SecurityChallengeIssueResult
+{
+    return failedIssueResult(
+        response,
     outcome === 'reload_requested'
-      ? 'security_challenge_capability_reload_requested'
-      : 'security_challenge_capability_reload_suppressed'
-  )
+        ? 'security_challenge_capability_reload_requested'
+        : 'security_challenge_capability_reload_suppressed'
+    );
 }
 
-function isCapabilityManifestIncompatibleError(error: unknown): boolean {
-  return error instanceof Error && error.message === 'security_challenge_client_capability_incompatible'
+function isCapabilityManifestIncompatibleError(error: unknown): boolean
+{
+    return error instanceof Error && error.message === 'security_challenge_client_capability_incompatible';
 }
 
-function sanitizeVerifyResponse(response: SecurityChallengeVerifyResponse): SecurityChallengeVerifyResponse {
-  if (response.verified || response.reason === 'retryable' || response.reason === 'reissueRequired' || response.reason === 'unavailable') {
-    return response
-  }
-  return { ...response, reason: 'rejected' }
+function sanitizeVerifyResponse(response: SecurityChallengeVerifyResponse): SecurityChallengeVerifyResponse
+{
+    if (response.verified || response.reason === 'retryable' || response.reason === 'reissueRequired' || response.reason === 'unavailable')
+{
+        return response;
+    }
+    return { ...response, reason: 'rejected' };
 }

@@ -6,12 +6,12 @@ import { fileURLToPath } from 'node:url'
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(scriptDir, '../../../..')
-const sourceRoot = resolve(repoRoot, 'src/frontend/src')
-const sourceExtensions = new Set(['.css', '.scss', '.vue', '.ts', '.tsx', '.js', '.jsx'])
-const forbiddenRadiusPattern = /border-radius\s*:\s*(2px|3px|8px|0\.5rem)(?=\s*[;}])/gu
-const legacyConsumerRadiusPattern = /--fsusblog-reading-radius-/gu
-const errors = []
-let scannedFileCount = 0
+const sourceRoot = resolve(repoRoot, 'src/frontend/src');
+const sourceExtensions = new Set(['.css', '.scss', '.vue', '.ts', '.tsx', '.js', '.jsx']);
+const forbiddenRadiusPattern = /border-radius\s*:\s*(2px|3px|8px|0\.5rem)(?=\s*[;}])/gu;
+const legacyConsumerRadiusPattern = /--fsusblog-reading-radius-/gu;
+const errors = [];
+let scannedFileCount = 0;
 
 function collectSourceFiles(directory) {
   const files = []
@@ -55,22 +55,23 @@ for (const path of collectSourceFiles(sourceRoot)) {
   forbiddenRadiusPattern.lastIndex = 0
   for (const match of source.matchAll(forbiddenRadiusPattern)) {
     errors.push(
-      `${relativePath(path)}:${lineNumberAt(source, match.index)} border-radius ${match[1]} is outside the 4/6/10/12/24/999px scale`
-    )
-  }
+            `${relativePath(path)}:${lineNumberAt(source, match.index)} border-radius ${match[1]} is outside the 4/6/10/12/24/999px scale`
+        );
+    }
 
-  legacyConsumerRadiusPattern.lastIndex = 0
-  for (const match of source.matchAll(legacyConsumerRadiusPattern)) {
-    errors.push(`${relativePath(path)}:${lineNumberAt(source, match.index)} uses the retired --fsusblog-reading-radius-* namespace`)
-  }
+    legacyConsumerRadiusPattern.lastIndex = 0;
+    for (const match of source.matchAll(legacyConsumerRadiusPattern))
+{
+        errors.push(`${relativePath(path)}:${lineNumberAt(source, match.index)} uses the retired --fsusblog-reading-radius-* namespace`);
+    }
 }
 
 expectCount(
-  'src/frontend/src/components/PolicyModal.vue',
-  'border-radius: var(--fsusblog-radius-control, 6px);',
-  1,
-  'policy emphasis control radius'
-)
+    'src/frontend/src/components/PolicyModal.vue',
+    'border-radius: var(--fsusblog-radius-control, 6px);',
+    1,
+    'policy emphasis control radius'
+);
 expectCount(
   'src/frontend/src/assets/public-page.css',
   'border-radius: var(--fsus-radius-control-small, 4px);',
@@ -82,13 +83,13 @@ expectCount(
   'border-radius: var(--fsus-radius-pill, 999px);',
   2,
   'scrollbar pill radii'
-)
+);
 expectCount(
-  'src/frontend/src/components/article/ArticleCommentComposer.vue',
-  'border-radius: var(--fsusblog-radius-control, 6px);',
-  5,
-  'composer control radii'
-)
+    'src/frontend/src/components/article/ArticleCommentComposer.vue',
+    'border-radius: var(--fsusblog-radius-control, 6px);',
+    5,
+    'composer control radii'
+);
 expectCount(
   'src/frontend/src/components/article/ArticleCommentComposer.vue',
   'border-radius: var(--fsus-radius-control-small, 4px);',
@@ -108,14 +109,15 @@ expectCount(
   'private preview inline-code radius usage'
 )
 
-const layoutRules = read('docs/public-layout-rules.md')
+const layoutRules = read('docs/public-layout-rules.md');
 for (const requiredText of [
-  '行内高亮与紧凑标记使用 `--fsus-radius-control-small`（4px）',
-  '`--fsusblog-radius-control`（映射 `--fsus-radius-control`，默认 6px）',
-  '`--fsusblog-radius-panel`（映射 `--fsus-radius-panel`，默认 12px）',
-  '横向滚动条 thumb 是真实胶囊几何',
-  '`border-radius` 禁止重新引入 2/3/8px 字面值'
-]) {
+    '行内高亮与紧凑标记使用 `--fsus-radius-control-small`（4px）',
+    '`--fsusblog-radius-control`（映射 `--fsus-radius-control`，默认 6px）',
+    '`--fsusblog-radius-panel`（映射 `--fsus-radius-panel`，默认 12px）',
+    '横向滚动条 thumb 是真实胶囊几何',
+    '`border-radius` 禁止重新引入 2/3/8px 字面值'
+])
+{
   if (!layoutRules.includes(requiredText)) {
     errors.push(`docs/public-layout-rules.md: missing radius contract text: ${requiredText}`)
   }

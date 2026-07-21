@@ -8,7 +8,7 @@ type TagViewModel = ArticleListItemResponse['tags'][number];
 type CategoryViewModel = ArticleListItemResponse['category'];
 
 type CommentCore = Pick<
-  CommentReplyItem,
+    CommentReplyItem,
   'id' | 'parentId' | 'rootId' | 'replyToCommentId' | 'depth' | 'isDeleted' | 'isEdited' | 'createTime' | 'author' | 'replyToAuthor' | 'content'
 >;
 
@@ -162,70 +162,73 @@ function readCommentCore(pod: Uint8Array, blob: Uint8Array): CommentCore {
     id: String(readInt64Number(pod, 0)),
     parentId: readNullableId64(pod, 8),
     rootId: String(readInt64Number(pod, 16)),
-    replyToCommentId: readNullableId64(pod, 28),
-    depth: readInt32(pod, 36),
-    isDeleted: (pod[40] ?? 0) === 1,
-    isEdited: (readUint16(pod, 42) & 1) === 1,
-    createTime: readIsoDate64(pod, 44),
-    author: author.author!,
-    replyToAuthor: replyToAuthor.author,
+        replyToCommentId: readNullableId64(pod, 28),
+        depth: readInt32(pod, 36),
+        isDeleted: (pod[40] ?? 0) === 1,
+        isEdited: (readUint16(pod, 42) & 1) === 1,
+        createTime: readIsoDate64(pod, 44),
+        author: author.author!,
+        replyToAuthor: replyToAuthor.author,
     content: content.text
   };
 }
 
 export function readReplyItem(pod: Uint8Array, blob: Uint8Array): CommentReplyItem {
-  return readCommentCore(pod, blob);
+    return readCommentCore(pod, blob);
 }
 
-export function readCommentTreeNodeFromReader(reader: BinaryReader): CommentTreeNode {
-  const pod = reader.readSpan(COMMENT_TREE_NODE_POD_SIZE);
-  const blob = reader.readBlob();
-  const content = readStrictSliceText(blob, pod, 52, 'comment_tree_content_slice_invalid');
-  const author = readRequiredEmbeddedAuthorView(blob, content.nextOffset, 'comment_tree_author_contract_missing');
-  const replyToAuthor = readOptionalEmbeddedAuthorView(blob, author.nextOffset, 'comment_tree_reply_author_contract_missing');
-  validateCommentAuthorPayload(replyToAuthor.nextOffset, blob.byteLength);
-  const isDeleted = pod[40] ?? 0;
-  const hasMoreChildren = pod[41] ?? 0;
-  const depth = readInt32(pod, 32);
-  const childCount = readInt32(pod, 36);
-  if (isDeleted > 1 || hasMoreChildren > 1 || depth < 0 || childCount < 0
+export function readCommentTreeNodeFromReader(reader: BinaryReader): CommentTreeNode
+{
+    const pod = reader.readSpan(COMMENT_TREE_NODE_POD_SIZE);
+    const blob = reader.readBlob();
+    const content = readStrictSliceText(blob, pod, 52, 'comment_tree_content_slice_invalid');
+    const author = readRequiredEmbeddedAuthorView(blob, content.nextOffset, 'comment_tree_author_contract_missing');
+    const replyToAuthor = readOptionalEmbeddedAuthorView(blob, author.nextOffset, 'comment_tree_reply_author_contract_missing');
+    validateCommentAuthorPayload(replyToAuthor.nextOffset, blob.byteLength);
+    const isDeleted = pod[40] ?? 0;
+    const hasMoreChildren = pod[41] ?? 0;
+    const depth = readInt32(pod, 32);
+    const childCount = readInt32(pod, 36);
+    if (isDeleted > 1 || hasMoreChildren > 1 || depth < 0 || childCount < 0
     || (hasMoreChildren === 1 && childCount === 0)
-    || readUint16(pod, 42) > 1) {
-    throw createAppError(AppErrorCode.ProtocolFailure, 'comment_tree_node_value_invalid');
-  }
+    || readUint16(pod, 42) > 1)
+{
+        throw createAppError(AppErrorCode.ProtocolFailure, 'comment_tree_node_value_invalid');
+    }
 
-  return {
-    id: readInt64String(pod, 0),
-    parentId: readNullableId64(pod, 8),
-    rootId: readInt64String(pod, 16),
-    replyToCommentId: readNullableId64(pod, 24),
-    depth,
-    childCount,
-    isDeleted: isDeleted === 1,
-    isEdited: (readUint16(pod, 42) & 1) === 1,
-    hasMoreChildren: hasMoreChildren === 1,
-    createTime: readIsoDate64(pod, 44),
-    author: author.author!,
-    replyToAuthor: replyToAuthor.author,
-    content: content.text
-  };
+    return {
+        id: readInt64String(pod, 0),
+        parentId: readNullableId64(pod, 8),
+        rootId: readInt64String(pod, 16),
+        replyToCommentId: readNullableId64(pod, 24),
+        depth,
+        childCount,
+        isDeleted: isDeleted === 1,
+        isEdited: (readUint16(pod, 42) & 1) === 1,
+        hasMoreChildren: hasMoreChildren === 1,
+        createTime: readIsoDate64(pod, 44),
+        author: author.author!,
+        replyToAuthor: replyToAuthor.author,
+        content: content.text
+    };
 }
 
-function readReplyPreviewItemFromReader(reader: BinaryReader): CommentReplyPreviewItem {
-  const pod = reader.readSpan(COMMENT_REPLY_PREVIEW_ITEM_POD_SIZE);
-  const blob = reader.readBlob();
+function readReplyPreviewItemFromReader(reader: BinaryReader): CommentReplyPreviewItem
+{
+    const pod = reader.readSpan(COMMENT_REPLY_PREVIEW_ITEM_POD_SIZE);
+    const blob = reader.readBlob();
   const content = readStrictSliceText(blob, pod, 20, 'comment_preview_content_slice_invalid');
   const author = readRequiredEmbeddedAuthorView(blob, content.nextOffset, 'comment_author_contract_missing');
   const replyToAuthor = readOptionalEmbeddedAuthorView(blob, author.nextOffset, 'comment_reply_author_contract_missing');
   validateCommentAuthorPayload(replyToAuthor.nextOffset, blob.byteLength);
 
-  return {
-    id: String(readInt64Number(pod, 0)),
-    isDeleted: (pod[8] ?? 0) === 1,
-    isEdited: (pod[9] ?? 0) === 1,
-    createTime: readIsoDate64(pod, 12),
-    author: author.author!,
-    replyToAuthor: replyToAuthor.author,
+    return {
+        id: String(readInt64Number(pod, 0)),
+        isDeleted: (pod[8] ?? 0) === 1,
+        isEdited: (pod[9] ?? 0) === 1,
+        createTime: readIsoDate64(pod, 12),
+        author: author.author!,
+        replyToAuthor: replyToAuthor.author,
     content: content.text
   };
 }
@@ -248,13 +251,13 @@ export function readThreadItemFromReader(reader: BinaryReader): CommentThreadIte
     id: String(readInt64Number(pod, 0)),
     content: content.text,
     createTime: readIsoDate64(pod, 44),
-    author: author.author!,
-    rootId: String(readInt64Number(pod, 16)),
-    isDeleted: (pod[40] ?? 0) === 1,
-    isEdited: (readUint16(pod, 42) & 1) === 1,
-    replyCount: readInt32(pod, 60),
-    hasMoreReplies: (pod[64] ?? 0) === 1,
-    repliesPreview
+        author: author.author!,
+        rootId: String(readInt64Number(pod, 16)),
+        isDeleted: (pod[40] ?? 0) === 1,
+        isEdited: (readUint16(pod, 42) & 1) === 1,
+        replyCount: readInt32(pod, 60),
+        hasMoreReplies: (pod[64] ?? 0) === 1,
+        repliesPreview
   };
 }
 

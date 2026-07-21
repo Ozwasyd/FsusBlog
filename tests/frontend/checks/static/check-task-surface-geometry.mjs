@@ -4,15 +4,15 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, extname, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..')
-const sourceRoot = resolve(repoRoot, 'src/frontend/src')
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
+const sourceRoot = resolve(repoRoot, 'src/frontend/src');
 const geometryRoots = [
-  'assets/account-shell-base.css',
-  'assets/account-identity.css',
-  'assets/admin-workspace.css',
-  'assets/admin',
-  'components/account',
-  'components/admin',
+    'assets/account-shell-base.css',
+    'assets/account-identity.css',
+    'assets/admin-workspace.css',
+    'assets/admin',
+    'components/account',
+    'components/admin',
   'components/ui/FsusDialog.vue',
   'components/ui/MfaSetupModal.vue',
   'components/ui/PasskeyRegisterModal.vue',

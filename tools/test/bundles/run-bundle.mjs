@@ -49,18 +49,18 @@ import {
 import { resolveCgroupLimits } from '../../test-matrix/production-resource-enforcement.mjs'
 import { createAsyncLogPipeline } from '../../test-matrix/async-log-pipeline.mjs'
 import {
-  publishRunBoundMarker,
-  waitForRunBoundMarker
-} from '../../test-matrix/run-bound-marker.mjs'
+    publishRunBoundMarker,
+    waitForRunBoundMarker
+} from '../../test-matrix/run-bound-marker.mjs';
 import {
-  publishFrontendBuildTerminalMarker,
-  validateFrontendBuildStageReceiptBinding,
-  validateFrontendBuildStageReceiptIdentity
-} from '../../test-matrix/frontend-build-ready-marker.mjs'
-import { productionZkRequested } from '../../security/comment-privacy-build-contract.mjs'
+    publishFrontendBuildTerminalMarker,
+    validateFrontendBuildStageReceiptBinding,
+    validateFrontendBuildStageReceiptIdentity
+} from '../../test-matrix/frontend-build-ready-marker.mjs';
+import { productionZkRequested } from '../../security/comment-privacy-build-contract.mjs';
 import {
-  consumeResidentLeaseHandoffFile,
-  productionResidentServiceIds,
+    consumeResidentLeaseHandoffFile,
+    productionResidentServiceIds,
   readResidentLeaseDocument,
   validateResidentLeaseInventory
 } from '../../test-matrix/resident-resource-leases.mjs'
@@ -79,13 +79,13 @@ const logDir = path.join(outDir, 'steps')
 const startedAt = Date.now()
 const productionBuildLayout = resolveProductionBuildLayout({ root })
 if (path.resolve(process.env.FSUSBLOG_PRODUCTION_BUILD_ROOT ?? '') !== productionBuildLayout.runRoot) {
-  throw new Error('physical bundle requires the current run-bound production build root')
+    throw new Error('physical bundle requires the current run-bound production build root');
 }
-Object.assign(process.env, productionBuildEnvironment(productionBuildLayout, process.env))
-const { createFrontendBuildStages } = await import('../../frontend/build.mjs')
-const dotnetArtifacts = productionDotnetArtifacts(productionBuildLayout)
-const backendTestDll = dotnetArtifacts.testDll
-const benchmarkDll = dotnetArtifacts.benchmarkDll
+Object.assign(process.env, productionBuildEnvironment(productionBuildLayout, process.env));
+const { createFrontendBuildStages } = await import('../../frontend/build.mjs');
+const dotnetArtifacts = productionDotnetArtifacts(productionBuildLayout);
+const backendTestDll = dotnetArtifacts.testDll;
+const benchmarkDll = dotnetArtifacts.benchmarkDll;
 const backendServerDll = dotnetArtifacts.serverDll
 const frontendDistRoot = productionBuildLayout.frontendDist
 const frontendWasmRoot = productionBuildLayout.frontendWasm
@@ -264,42 +264,45 @@ function backendTestsReadyFile(runId = schedulerRunId()) {
 }
 
 function frontendBuildReadyFile(runId = schedulerRunId()) {
-  return path.join(root, '.tmp/test-runs', runId, 'frontend-build-ready.json')
+    return path.join(root, '.tmp/test-runs', runId, 'frontend-build-ready.json');
 }
 
-function frontendBuildStageReceiptFile() {
-  const configured = String(process.env.FSUSBLOG_FRONTEND_BUILD_STAGE_RECEIPT ?? '').trim()
-  if (!configured) return path.join(productionBuildLayout.generatedRoot, 'frontend-build-stages.json')
-  return path.isAbsolute(configured)
-    ? path.resolve(configured)
-    : path.resolve(root, 'src/frontend', configured)
+function frontendBuildStageReceiptFile()
+{
+    const configured = String(process.env.FSUSBLOG_FRONTEND_BUILD_STAGE_RECEIPT ?? '').trim();
+    if (!configured) {return path.join(productionBuildLayout.generatedRoot, 'frontend-build-stages.json')};
+    return path.isAbsolute(configured)
+        ? path.resolve(configured)
+        : path.resolve(root, 'src/frontend', configured);
 }
 
-function expectedFrontendBuildStages() {
-  const generatedOnly = process.env.FSUSBLOG_VALIDATE_GENERATED_ONLY === '1'
-  return createFrontendBuildStages(generatedOnly ? ['--check'] : [], generatedOnly ? 'check' : 'generate', {
-    frontendRoot: path.join(root, 'src/frontend'),
-    env: process.env
-  })
+function expectedFrontendBuildStages()
+{
+    const generatedOnly = process.env.FSUSBLOG_VALIDATE_GENERATED_ONLY === '1';
+    return createFrontendBuildStages(generatedOnly ? ['--check'] : [], generatedOnly ? 'check' : 'generate', {
+        frontendRoot: path.join(root, 'src/frontend'),
+        env: process.env
+    });
 }
 
-function criticalFrontendBuildStageOutputs(stages = expectedFrontendBuildStages()) {
-  const owned = new Set(stages.flatMap((stage) => stage.ownedOutputs))
-  return [
-    path.join(frontendDistRoot, 'index.html'),
-    path.join(frontendDistRoot, 'server', 'public-shell-emergency.css'),
-    path.join(frontendDistRoot, 'wasm'),
-    path.join(frontendDistRoot, 'assets', 'fsus-spa-entry.js'),
-    path.join(frontendDistRoot, 'dist'),
-    path.join(frontendWasmRoot, 'wasm-manifest.aeds'),
-    path.join(frontendWasmRoot, 'aeds-runtime-manifest.json'),
-    backendWebRoot
-  ].filter((candidate) => owned.has(candidate))
+function criticalFrontendBuildStageOutputs(stages = expectedFrontendBuildStages())
+{
+    const owned = new Set(stages.flatMap((stage) => stage.ownedOutputs));
+    return [
+        path.join(frontendDistRoot, 'index.html'),
+        path.join(frontendDistRoot, 'server', 'public-shell-emergency.css'),
+        path.join(frontendDistRoot, 'wasm'),
+        path.join(frontendDistRoot, 'assets', 'fsus-spa-entry.js'),
+        path.join(frontendDistRoot, 'dist'),
+        path.join(frontendWasmRoot, 'wasm-manifest.aeds'),
+        path.join(frontendWasmRoot, 'aeds-runtime-manifest.json'),
+        backendWebRoot
+    ].filter((candidate) => owned.has(candidate));
 }
 
 const runMarkerProducers = {
-  'backend-coverage-ready': ['backend-tests', 'backend-coverage-summary'],
-  'frontend-coverage-ready': ['frontend-tests', 'frontend-coverage-summary'],
+    'backend-coverage-ready': ['backend-tests', 'backend-coverage-summary'],
+    'frontend-coverage-ready': ['frontend-tests', 'frontend-coverage-summary'],
   'runtime-state-ready': ['runtime-browser', 'runtime-state-stable'],
   'backend-quiet-ready': ['backend-tests', 'backend-tests-quiet'],
   'frontend-quiet-ready': ['frontend-tests', 'frontend-tests-quiet'],
@@ -472,54 +475,59 @@ function publishBenchmarkBuildReady() {
   console.log(`[local-production:${bundleId}] benchmark-build-ready=${relative(markerFile)}`)
 }
 
-function publishFrontendBuildReady() {
-  const runId = schedulerRunId()
-  const expectedStages = expectedFrontendBuildStages()
-  const artifactPath = relative(path.join(frontendDistRoot, 'index.html'))
-  const privacyWasmPaths = [
-    'comment-privacy-prover.js',
-    ...(productionZkRequested() ? ['comment-privacy-prover.zkey', 'comment-privacy-prover.manifest.json'] : [])
-  ].map((file) => relative(path.join(frontendWasmRoot, file)))
-  const summaryPath = '.tmp/frontend/frontend-build.json'
-  const stageReceiptFile = frontendBuildStageReceiptFile()
-  const stageReceiptPath = relative(stageReceiptFile)
-  const requiredArtifacts = [artifactPath, ...privacyWasmPaths]
-  const frontendDistPath = relative(frontendDistRoot)
-  const backendWebRootPath = relative(backendWebRoot)
-  const missingArtifacts = [...requiredArtifacts, stageReceiptPath]
-    .filter((requiredPath) => !fs.existsSync(path.join(root, requiredPath)))
-  if (missingArtifacts.length > 0) {
-    throw new Error(`frontend build completed without required artifact(s): ${missingArtifacts.join(', ')}`)
-  }
-  let stageReceipt
-  try {
-    stageReceipt = JSON.parse(fs.readFileSync(stageReceiptFile, 'utf8'))
-  } catch (error) {
-    throw new Error(`frontend build stage receipt is unreadable: ${stageReceiptPath}`, { cause: error })
-  }
-  const stageReceiptIdentity = validateFrontendBuildStageReceiptIdentity(stageReceipt, {
-    runId,
-    sourceState: currentSourceState()
-  })
-  validateFrontendBuildStageReceiptBinding({
-    root,
-    marker: {
-      stageReceipt: {
-        path: stageReceiptPath,
-        contentDigest: fileContentDigest(stageReceiptFile),
-        identity: stageReceiptIdentity
-      }
-    },
-    runId,
-    sourceState: currentSourceState(),
-    expectedPath: stageReceiptPath,
-    expectedStages,
-    stageCwd: path.join(root, 'src/frontend'),
-    criticalOutputPaths: criticalFrontendBuildStageOutputs(expectedStages)
-  })
-  const artifacts = digestArtifacts(requiredArtifacts, 'frontend-build-ready')
-  const artifactDigests = artifacts.digests
-  const generatedContractFile = path.join(productionBuildLayout.generatedRoot, 'frontend-build-contract.json')
+function publishFrontendBuildReady()
+{
+    const runId = schedulerRunId();
+    const expectedStages = expectedFrontendBuildStages();
+    const artifactPath = relative(path.join(frontendDistRoot, 'index.html'));
+    const privacyWasmPaths = [
+        'comment-privacy-prover.js',
+        ...(productionZkRequested() ? ['comment-privacy-prover.zkey', 'comment-privacy-prover.manifest.json'] : [])
+    ].map((file) => relative(path.join(frontendWasmRoot, file)));
+    const summaryPath = '.tmp/frontend/frontend-build.json';
+    const stageReceiptFile = frontendBuildStageReceiptFile();
+    const stageReceiptPath = relative(stageReceiptFile);
+    const requiredArtifacts = [artifactPath, ...privacyWasmPaths];
+    const frontendDistPath = relative(frontendDistRoot);
+    const backendWebRootPath = relative(backendWebRoot);
+    const missingArtifacts = [...requiredArtifacts, stageReceiptPath]
+        .filter((requiredPath) => !fs.existsSync(path.join(root, requiredPath)));
+    if (missingArtifacts.length > 0)
+{
+        throw new Error(`frontend build completed without required artifact(s): ${missingArtifacts.join(', ')}`);
+    }
+    let stageReceipt;
+    try
+{
+        stageReceipt = JSON.parse(fs.readFileSync(stageReceiptFile, 'utf8'));
+    }
+ catch (error)
+{
+        throw new Error(`frontend build stage receipt is unreadable: ${stageReceiptPath}`, { cause: error });
+    }
+    const stageReceiptIdentity = validateFrontendBuildStageReceiptIdentity(stageReceipt, {
+        runId,
+        sourceState: currentSourceState()
+    });
+    validateFrontendBuildStageReceiptBinding({
+        root,
+        marker: {
+            stageReceipt: {
+                path: stageReceiptPath,
+                contentDigest: fileContentDigest(stageReceiptFile),
+                identity: stageReceiptIdentity
+            }
+        },
+        runId,
+        sourceState: currentSourceState(),
+        expectedPath: stageReceiptPath,
+        expectedStages,
+        stageCwd: path.join(root, 'src/frontend'),
+        criticalOutputPaths: criticalFrontendBuildStageOutputs(expectedStages)
+    });
+    const artifacts = digestArtifacts(requiredArtifacts, 'frontend-build-ready');
+    const artifactDigests = artifacts.digests;
+    const generatedContractFile = path.join(productionBuildLayout.generatedRoot, 'frontend-build-contract.json');
   writeJsonAtomic(generatedContractFile, {
     schema: 'fsusblog.production-frontend-build-contract.v1',
     status: 'success',
@@ -531,15 +539,15 @@ function publishFrontendBuildReady() {
     }])),
     generatedAt: new Date().toISOString()
   })
-  const generatedContractPath = relative(generatedContractFile)
-  const generatedContract = digestArtifacts([generatedContractPath], 'frontend-generated-contract')
-  const generatedContractDigest = generatedContract.digests[generatedContractPath]
-  const stageReceiptArtifact = digestArtifacts([stageReceiptPath], 'frontend-build-stage-receipt')
-  const frontendDistArtifact = digestArtifacts([frontendDistPath], 'frontend-build-ready-dist')
-  const backendWebRootArtifact = digestArtifacts([backendWebRootPath], 'frontend-build-ready-wwwroot')
-  const publishedAt = new Date().toISOString()
-  const marker = {
-    schema: 'fsusblog.local-production.frontend-build-ready.v1',
+    const generatedContractPath = relative(generatedContractFile);
+    const generatedContract = digestArtifacts([generatedContractPath], 'frontend-generated-contract');
+    const generatedContractDigest = generatedContract.digests[generatedContractPath];
+    const stageReceiptArtifact = digestArtifacts([stageReceiptPath], 'frontend-build-stage-receipt');
+    const frontendDistArtifact = digestArtifacts([frontendDistPath], 'frontend-build-ready-dist');
+    const backendWebRootArtifact = digestArtifacts([backendWebRootPath], 'frontend-build-ready-wwwroot');
+    const publishedAt = new Date().toISOString();
+    const marker = {
+        schema: 'fsusblog.local-production.frontend-build-ready.v1',
     status: 'success',
     physicalBundleId: 'build-static',
     producerStepId: 'sync-static-assets',
@@ -551,68 +559,70 @@ function publishFrontendBuildReady() {
       artifactRef: artifacts.refs[artifactPath]
     },
     privacyWasmArtifacts: Object.fromEntries(privacyWasmPaths.map((requiredPath) => [requiredPath, {
-      path: requiredPath,
-      digest: artifactDigests[requiredPath],
-      artifactRef: artifacts.refs[requiredPath]
-    }])),
-    generatedContract: {
-      path: generatedContractPath,
-      digest: generatedContractDigest,
-      artifactRef: generatedContract.refs[generatedContractPath]
-    },
-    stageReceipt: {
-      path: stageReceiptPath,
-      digest: stageReceiptArtifact.digests[stageReceiptPath],
-      contentDigest: fileContentDigest(stageReceiptFile),
-      artifactRef: stageReceiptArtifact.refs[stageReceiptPath],
-      identity: stageReceiptIdentity
-    },
-    frontendDist: {
-      path: frontendDistPath,
-      digest: frontendDistArtifact.digests[frontendDistPath],
-      artifactRef: frontendDistArtifact.refs[frontendDistPath]
-    },
-    backendWebRoot: {
-      path: backendWebRootPath,
-      digest: backendWebRootArtifact.digests[backendWebRootPath],
-      artifactRef: backendWebRootArtifact.refs[backendWebRootPath]
-    },
-    publishedAt,
-    generatedAt: publishedAt
-  }
+            path: requiredPath,
+            digest: artifactDigests[requiredPath],
+            artifactRef: artifacts.refs[requiredPath]
+        }])),
+        generatedContract: {
+            path: generatedContractPath,
+            digest: generatedContractDigest,
+            artifactRef: generatedContract.refs[generatedContractPath]
+        },
+        stageReceipt: {
+            path: stageReceiptPath,
+            digest: stageReceiptArtifact.digests[stageReceiptPath],
+            contentDigest: fileContentDigest(stageReceiptFile),
+            artifactRef: stageReceiptArtifact.refs[stageReceiptPath],
+            identity: stageReceiptIdentity
+        },
+        frontendDist: {
+            path: frontendDistPath,
+            digest: frontendDistArtifact.digests[frontendDistPath],
+            artifactRef: frontendDistArtifact.refs[frontendDistPath]
+        },
+        backendWebRoot: {
+            path: backendWebRootPath,
+            digest: backendWebRootArtifact.digests[backendWebRootPath],
+            artifactRef: backendWebRootArtifact.refs[backendWebRootPath]
+        },
+        publishedAt,
+        generatedAt: publishedAt
+    };
   for (const markerFile of [path.join(root, summaryPath), frontendBuildReadyFile(runId)]) {
     fs.mkdirSync(path.dirname(markerFile), { recursive: true })
     const temporary = `${markerFile}.next-${process.pid}-${randomUUID()}`
     fs.writeFileSync(temporary, `${JSON.stringify(marker, null, 2)}\n`)
     fs.renameSync(temporary, markerFile)
   }
-  console.log(`[local-production:${bundleId}] frontend-build-ready=${relative(frontendBuildReadyFile(runId))}`)
+    console.log(`[local-production:${bundleId}] frontend-build-ready=${relative(frontendBuildReadyFile(runId))}`);
 }
 
-function publishFrontendBuildTerminal(status, reason) {
-  const runId = schedulerRunId()
-  const stageReceiptPath = relative(frontendBuildStageReceiptFile())
-  publishFrontendBuildTerminalMarker({
-    file: frontendBuildReadyFile(runId),
-    runId,
-    buildLayout: buildLayoutBinding(),
-    status,
-    reason,
-    validateExistingSuccess: (marker) => {
-      if (!markerHasCurrentBuildLayout(marker) || marker.stageReceipt?.path !== stageReceiptPath) return false
-      validateFrontendBuildStageReceiptBinding({
-        root,
-        marker,
+function publishFrontendBuildTerminal(status, reason)
+{
+    const runId = schedulerRunId();
+    const stageReceiptPath = relative(frontendBuildStageReceiptFile());
+    publishFrontendBuildTerminalMarker({
+        file: frontendBuildReadyFile(runId),
         runId,
-        sourceState: currentSourceState(),
-        expectedPath: stageReceiptPath,
-        expectedStages: expectedFrontendBuildStages(),
-        stageCwd: path.join(root, 'src/frontend'),
-        criticalOutputPaths: criticalFrontendBuildStageOutputs()
-      })
-      return true
-    }
-  })
+        buildLayout: buildLayoutBinding(),
+        status,
+        reason,
+        validateExistingSuccess: (marker) =>
+{
+            if (!markerHasCurrentBuildLayout(marker) || marker.stageReceipt?.path !== stageReceiptPath) {return false};
+            validateFrontendBuildStageReceiptBinding({
+                root,
+                marker,
+                runId,
+                sourceState: currentSourceState(),
+                expectedPath: stageReceiptPath,
+                expectedStages: expectedFrontendBuildStages(),
+                stageCwd: path.join(root, 'src/frontend'),
+                criticalOutputPaths: criticalFrontendBuildStageOutputs()
+            });
+            return true;
+        }
+    });
 }
 
 function register(step, result, testIds = null, artifactFiles = []) {
@@ -1559,19 +1569,19 @@ async function waitForFrontendBuildReady(timeoutMs = resolveExecutionWaitTimeout
   const expectedRunId = schedulerRunId()
   const markerFile = frontendBuildReadyFile(expectedRunId)
   const checkpointFile = path.join(root, '.tmp/test-runs', expectedRunId, 'checkpoint.json')
-  const artifactPath = relative(path.join(frontendDistRoot, 'index.html'))
-  const privacyWasmPaths = [
-    'comment-privacy-prover.js',
-    ...(productionZkRequested() ? ['comment-privacy-prover.zkey', 'comment-privacy-prover.manifest.json'] : [])
-  ].map((file) => relative(path.join(frontendWasmRoot, file)))
-  const generatedContractPath = relative(path.join(productionBuildLayout.generatedRoot, 'frontend-build-contract.json'))
-  const stageReceiptPath = relative(frontendBuildStageReceiptFile())
-  const frontendDistPath = relative(frontendDistRoot)
-  const backendWebRootPath = relative(backendWebRoot)
-  const expectedStages = expectedFrontendBuildStages()
-  const startedAtMs = Date.now()
-  const readiness = await waitForRunBoundMarker({
-    file: markerFile,
+    const artifactPath = relative(path.join(frontendDistRoot, 'index.html'));
+    const privacyWasmPaths = [
+        'comment-privacy-prover.js',
+        ...(productionZkRequested() ? ['comment-privacy-prover.zkey', 'comment-privacy-prover.manifest.json'] : [])
+    ].map((file) => relative(path.join(frontendWasmRoot, file)));
+    const generatedContractPath = relative(path.join(productionBuildLayout.generatedRoot, 'frontend-build-contract.json'));
+    const stageReceiptPath = relative(frontendBuildStageReceiptFile());
+    const frontendDistPath = relative(frontendDistRoot);
+    const backendWebRootPath = relative(backendWebRoot);
+    const expectedStages = expectedFrontendBuildStages();
+    const startedAtMs = Date.now();
+    const readiness = await waitForRunBoundMarker({
+        file: markerFile,
     expected: { markerId: 'frontend-build-ready' },
     timeoutMs,
     pollIntervalMs: resolveMarkerPollIntervalMs(),
@@ -1603,37 +1613,39 @@ async function waitForFrontendBuildReady(timeoutMs = resolveExecutionWaitTimeout
             || marker.stageReceipt?.path !== stageReceiptPath
             || marker.frontendDist?.path !== frontendDistPath
             || marker.backendWebRoot?.path !== backendWebRootPath
-            || privacyWasmPaths.some((requiredPath) => marker.privacyWasmArtifacts?.[requiredPath]?.path !== requiredPath)) {
-          throw new Error(`frontend build readiness marker is not bound to scheduler run ${expectedRunId}`)
-        }
-        const stageReceipt = validateFrontendBuildStageReceiptBinding({
-          root,
-          marker,
-          runId: expectedRunId,
-          sourceState: currentSourceState(),
-          expectedPath: stageReceiptPath,
-          expectedStages,
-          stageCwd: path.join(root, 'src/frontend'),
-          criticalOutputPaths: criticalFrontendBuildStageOutputs(expectedStages)
-        })
-        const requiredArtifacts = [
-          artifactPath,
-          ...privacyWasmPaths,
-          generatedContractPath,
-          stageReceiptPath,
-          frontendDistPath,
-          backendWebRootPath
-        ]
-        const missingArtifacts = requiredArtifacts.filter((requiredPath) => !fs.existsSync(path.join(root, requiredPath)))
-        if (missingArtifacts.length > 0) {
-          throw new Error(`frontend build readiness artifact(s) missing: ${missingArtifacts.join(', ')}`)
+            || privacyWasmPaths.some((requiredPath) => marker.privacyWasmArtifacts?.[requiredPath]?.path !== requiredPath))
+{
+                    throw new Error(`frontend build readiness marker is not bound to scheduler run ${expectedRunId}`);
+                }
+                const stageReceipt = validateFrontendBuildStageReceiptBinding({
+                    root,
+                    marker,
+                    runId: expectedRunId,
+                    sourceState: currentSourceState(),
+                    expectedPath: stageReceiptPath,
+                    expectedStages,
+                    stageCwd: path.join(root, 'src/frontend'),
+                    criticalOutputPaths: criticalFrontendBuildStageOutputs(expectedStages)
+                });
+                const requiredArtifacts = [
+                    artifactPath,
+                    ...privacyWasmPaths,
+                    generatedContractPath,
+                    stageReceiptPath,
+                    frontendDistPath,
+                    backendWebRootPath
+                ];
+                const missingArtifacts = requiredArtifacts.filter((requiredPath) => !fs.existsSync(path.join(root, requiredPath)));
+                if (missingArtifacts.length > 0)
+{
+                    throw new Error(`frontend build readiness artifact(s) missing: ${missingArtifacts.join(', ')}`);
         }
         const actual = digestArtifacts(requiredArtifacts, 'consume-frontend-build-ready')
         const actualDigests = actual.digests
         const mismatches = requiredArtifacts.filter((requiredPath) => {
           const expectedDigest = requiredPath === artifactPath
-            ? marker.distEntry.digest
-            : requiredPath === generatedContractPath
+                        ? marker.distEntry.digest
+                        : requiredPath === generatedContractPath
               ? marker.generatedContract.digest
               : requiredPath === stageReceiptPath
                 ? marker.stageReceipt.digest
@@ -1641,10 +1653,10 @@ async function waitForFrontendBuildReady(timeoutMs = resolveExecutionWaitTimeout
                 ? marker.frontendDist.digest
               : requiredPath === backendWebRootPath
                 ? marker.backendWebRoot.digest
-              : marker.privacyWasmArtifacts[requiredPath].digest
-          const expectedRef = requiredPath === artifactPath
-            ? marker.distEntry.artifactRef
-            : requiredPath === generatedContractPath
+              : marker.privacyWasmArtifacts[requiredPath].digest;
+                    const expectedRef = requiredPath === artifactPath
+                        ? marker.distEntry.artifactRef
+                        : requiredPath === generatedContractPath
               ? marker.generatedContract.artifactRef
               : requiredPath === stageReceiptPath
                 ? marker.stageReceipt.artifactRef
@@ -1652,10 +1664,10 @@ async function waitForFrontendBuildReady(timeoutMs = resolveExecutionWaitTimeout
                 ? marker.frontendDist.artifactRef
               : requiredPath === backendWebRootPath
                 ? marker.backendWebRoot.artifactRef
-              : marker.privacyWasmArtifacts[requiredPath].artifactRef
-          return !expectedDigest || actualDigests[requiredPath] !== expectedDigest
-            || !expectedRef || actual.refs[requiredPath] !== expectedRef
-        })
+              : marker.privacyWasmArtifacts[requiredPath].artifactRef;
+                    return !expectedDigest || actualDigests[requiredPath] !== expectedDigest
+            || !expectedRef || actual.refs[requiredPath] !== expectedRef;
+                });
         if (mismatches.length > 0) {
           throw new Error(`frontend build readiness digest mismatch: ${mismatches.join(', ')}`)
         }
@@ -1665,14 +1677,16 @@ async function waitForFrontendBuildReady(timeoutMs = resolveExecutionWaitTimeout
           producerPhysicalBundleId: marker.physicalBundleId,
           producerStepId: marker.producerStepId,
           artifacts: requiredArtifacts.map((requiredPath) => ({
-            path: requiredPath,
-            digest: actualDigests[requiredPath],
-            artifactRef: actual.refs[requiredPath]
-          })),
-          stageReceiptIdentity: stageReceipt.identity
-        }
-      } catch (error) {
-        throw new Error(`invalid run-bound frontend build readiness marker: ${error.message}`, { cause: error })
+                        path: requiredPath,
+                        digest: actualDigests[requiredPath],
+                        artifactRef: actual.refs[requiredPath]
+                    })),
+                    stageReceiptIdentity: stageReceipt.identity
+                };
+            }
+ catch (error)
+{
+                throw new Error(`invalid run-bound frontend build readiness marker: ${error.message}`, { cause: error });
       }
     }
   })

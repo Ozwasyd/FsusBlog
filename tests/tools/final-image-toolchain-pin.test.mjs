@@ -7,14 +7,14 @@ import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { resolveRuntimeProfile } from '../../tools/runtime-profiles/runtime-publish-profile.mjs'
 
-const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
-const dockerfile = fs.readFileSync(path.join(root, 'ops/docker/FsusBlog.Server.Dockerfile'), 'utf8')
-const releaseId = '20260715010101-0123456789ab'
-const releaseCreatedAtUtc = '2026-07-15T01:01:01Z'
-const commitSha = '0123456789abcdef0123456789abcdef01234567'
+const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
+const dockerfile = fs.readFileSync(path.join(root, 'ops/docker/FsusBlog.Server.Dockerfile'), 'utf8');
+const releaseId = '20260715010101-0123456789ab';
+const releaseCreatedAtUtc = '2026-07-15T01:01:01Z';
+const commitSha = '0123456789abcdef0123456789abcdef01234567';
 
 const pins = {
-  runtimeVersion: '10.0.10',
+    runtimeVersion: '10.0.10',
   sdkVersion: '10.0.302',
   aspnetMusl: 'sha256:27b6b84beeede74fd16886177d360799c8e4299ceadfbd64eef57bafead7878a',
   aspnetGlibc: 'sha256:1fa23fc4872d95fd71c2833ebe65d7e84a43b2d51a31d119516852f13d9505a7',
@@ -86,18 +86,18 @@ function runBuildWithInspect(t, labels, extraEnv = {}) {
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }))
   const binDir = path.join(directory, 'bin')
   const dockerArgs = path.join(directory, 'docker-args.txt')
-  const dockerRunArgs = path.join(directory, 'docker-run-args.txt')
-  const inspectJson = JSON.stringify([{
-    Id: `sha256:${'a'.repeat(64)}`,
-    Config: { Labels: {
-      'org.opencontainers.image.version': releaseId,
-      'org.opencontainers.image.created': releaseCreatedAtUtc,
-      'org.opencontainers.image.revision': commitSha,
-      ...labels
-    } }
-  }])
-  fs.mkdirSync(binDir)
-  fs.writeFileSync(path.join(binDir, 'node'), `#!/usr/bin/env bash
+    const dockerRunArgs = path.join(directory, 'docker-run-args.txt');
+    const inspectJson = JSON.stringify([{
+        Id: `sha256:${'a'.repeat(64)}`,
+        Config: { Labels: {
+            'org.opencontainers.image.version': releaseId,
+            'org.opencontainers.image.created': releaseCreatedAtUtc,
+            'org.opencontainers.image.revision': commitSha,
+            ...labels
+        } }
+    }]);
+    fs.mkdirSync(binDir);
+    fs.writeFileSync(path.join(binDir, 'node'), `#!/usr/bin/env bash
 set -euo pipefail
 if [[ "\${1:-}" == "${path.join(root, 'tools/check-wasm-artifact-ownership.mjs')}" ]]; then exit 0; fi
 exec "${process.execPath}" "$@"
@@ -115,15 +115,15 @@ exit 91
     encoding: 'utf8',
     timeout: 10_000,
     env: {
-      ...process.env,
-      PATH: `${binDir}:${process.env.PATH}`,
-      GITHUB_PACKAGES_TOKEN: 'fixture-token',
-      FSUSBLOG_COMMIT_SHA: commitSha,
-      FSUSBLOG_RELEASE_ID: releaseId,
-      FSUSBLOG_RELEASE_CREATED_AT_UTC: releaseCreatedAtUtc,
-      FSUSBLOG_FINAL_IMAGE_REPOSITORY: 'fsusblogapp',
-      FSUSBLOG_FINAL_IMAGE_TARGET: 'final',
-      FSUSBLOG_FINAL_PUSH: '0',
+            ...process.env,
+            PATH: `${binDir}:${process.env.PATH}`,
+            GITHUB_PACKAGES_TOKEN: 'fixture-token',
+            FSUSBLOG_COMMIT_SHA: commitSha,
+            FSUSBLOG_RELEASE_ID: releaseId,
+            FSUSBLOG_RELEASE_CREATED_AT_UTC: releaseCreatedAtUtc,
+            FSUSBLOG_FINAL_IMAGE_REPOSITORY: 'fsusblogapp',
+            FSUSBLOG_FINAL_IMAGE_TARGET: 'final',
+            FSUSBLOG_FINAL_PUSH: '0',
       FSUSBLOG_FINAL_LOCAL_ONLY: '1',
       FSUSBLOG_FINAL_SKIP_WASM: '1',
       ...extraEnv

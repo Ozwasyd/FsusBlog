@@ -177,25 +177,27 @@ requireIncludes('tools/test/lanes/_suite-support.sh', [
   'RunBackendBuildGovernanceLane',
   'RunBackendUnitLane',
   'RunBackendFastSummaryLane',
-  'RunFrontendPropertyModelPerfLane',
-  '--value "session-prefix=${FSUSBLOG_TEST_SESSION_PREFIX:-pw}"'
-])
+    'RunFrontendPropertyModelPerfLane',
+    '--value "session-prefix=${FSUSBLOG_TEST_SESSION_PREFIX:-pw}"'
+]);
 requireIncludes('tools/test/lanes/_lane-collect-support.sh', [
-  'ResolveCollectAdmissionSnapshot "$total"',
-  'resolveManifestAdmissionSnapshot',
-  'FSUSBLOG_COLLECT_PARENT_CPU_UNITS',
-  'FSUSBLOG_COLLECT_PARENT_MEMORY_GIB',
-  'FSUSBLOG_PARALLEL_ACTIVE_WORKERS'
-])
-const collectSupportSource = read('tools/test/lanes/_lane-collect-support.sh')
-for (const retiredSplitResolver of ['ResolveCollectParallelWorkers', 'ResolveCollectChildEnvironment']) {
-  if (collectSupportSource.includes(retiredSplitResolver)) {
-    errors.push(`lane collect support must not split one admission across ${retiredSplitResolver}`)
-  }
+    'ResolveCollectAdmissionSnapshot "$total"',
+    'resolveManifestAdmissionSnapshot',
+    'FSUSBLOG_COLLECT_PARENT_CPU_UNITS',
+    'FSUSBLOG_COLLECT_PARENT_MEMORY_GIB',
+    'FSUSBLOG_PARALLEL_ACTIVE_WORKERS'
+]);
+const collectSupportSource = read('tools/test/lanes/_lane-collect-support.sh');
+for (const retiredSplitResolver of ['ResolveCollectParallelWorkers', 'ResolveCollectChildEnvironment'])
+{
+    if (collectSupportSource.includes(retiredSplitResolver))
+{
+        errors.push(`lane collect support must not split one admission across ${retiredSplitResolver}`);
+    }
 }
 requireIncludes('tools/frontend/build.mjs', [
-  'FSUSBLOG_VALIDATE_GENERATED_ONLY',
-  "['--check']",
+    'FSUSBLOG_VALIDATE_GENERATED_ONLY',
+    "['--check']",
   'FSUSBLOG_SKIP_BACKEND_WWWROOT_SYNC=1',
   'await mkdir(backendWebRoot, { recursive: true })'
 ])

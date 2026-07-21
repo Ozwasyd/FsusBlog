@@ -9,18 +9,18 @@ const repoRoot = resolve(scriptDir, '../../../..')
 const sourceRoot = resolve(repoRoot, 'src/frontend/src')
 const emergencyShellPath = resolve(repoRoot, 'src/frontend/public/public-shell-emergency.css')
 const layoutRulesPath = resolve(repoRoot, 'docs/public-layout-rules.md')
-const markdownPath = resolve(sourceRoot, 'assets/markdown.css')
-const commentListPath = resolve(sourceRoot, 'components/article/ArticleCommentsVirtualList.vue')
-const identityCenterPath = resolve(sourceRoot, 'views/user/IdentityCenter.vue')
-const accountShellBasePath = resolve(sourceRoot, 'assets/account-shell-base.css')
-const sourceExtensions = new Set(['.css', '.scss', '.vue', '.ts', '.tsx', '.js', '.jsx'])
-const excludedDirectories = new Set(['generated'])
-const forbiddenDeclarationPattern = /font-size\s*:\s*(0?\.[6-9][0-9]*(?:rem|em)|(?:11|13)px)(?:\s*!important)?\s*;/gu
+const markdownPath = resolve(sourceRoot, 'assets/markdown.css');
+const commentListPath = resolve(sourceRoot, 'components/article/ArticleCommentsVirtualList.vue');
+const identityCenterPath = resolve(sourceRoot, 'views/user/IdentityCenter.vue');
+const accountShellBasePath = resolve(sourceRoot, 'assets/account-shell-base.css');
+const sourceExtensions = new Set(['.css', '.scss', '.vue', '.ts', '.tsx', '.js', '.jsx']);
+const excludedDirectories = new Set(['generated']);
+const forbiddenDeclarationPattern = /font-size\s*:\s*(0?\.[6-9][0-9]*(?:rem|em)|(?:11|13)px)(?:\s*!important)?\s*;/gu;
 const scopedScaleExceptions = new Map([
-  ['src/frontend/src/components/account/AccountNavigationPanel.vue', new Set(['11px', '13px'])]
-])
-const errors = []
-let scannedFileCount = 0
+    ['src/frontend/src/components/account/AccountNavigationPanel.vue', new Set(['11px', '13px'])]
+]);
+const errors = [];
+let scannedFileCount = 0;
 
 function expectRuleFontSize(source, path, label, rulePattern, expectedSize) {
   const ruleBody = rulePattern.exec(source)?.groups?.body ?? ''
@@ -56,13 +56,14 @@ for (const path of [...collectSourceFiles(sourceRoot), emergencyShellPath]) {
   const source = readFileSync(path, 'utf8')
   scannedFileCount += 1
 
-  forbiddenDeclarationPattern.lastIndex = 0
-  for (const match of source.matchAll(forbiddenDeclarationPattern)) {
-    if (scopedScaleExceptions.get(relativePath(path))?.has(match[1])) continue
+    forbiddenDeclarationPattern.lastIndex = 0;
+    for (const match of source.matchAll(forbiddenDeclarationPattern))
+{
+        if (scopedScaleExceptions.get(relativePath(path))?.has(match[1])) {continue};
 
-    errors.push(
-      `${relativePath(path)}:${lineNumberAt(source, match.index)} font-size ${match[1]} must use the canonical 12/14/16px small-text scale`
-    )
+        errors.push(
+            `${relativePath(path)}:${lineNumberAt(source, match.index)} font-size ${match[1]} must use the canonical 12/14/16px small-text scale`
+        );
   }
 }
 
@@ -83,31 +84,34 @@ for (const [label, rulePattern, expectedSize] of [
   ['status description', /\.identity-status-card p,\s*\.identity-copy-block p\s*\{(?<body>[^}]*)\}/u, '12px'],
   ['status label', /\.identity-status-label\s*\{(?<body>[^}]*)\}/u, '12px'],
   ['summary list', /\.identity-summary-list,\s*\.identity-state-row\s*\{(?<body>[^}]*)\}/u, '14px'],
-  ['summary term', /\.identity-summary-list dt\s*\{(?<body>[^}]*)\}/u, '12px'],
-  ['summary detail', /\.identity-summary-list dt\s*\{[^}]*\}\s*\.identity-summary-list dd\s*\{(?<body>[^}]*)\}/u, '14px'],
-  ['policy item', /\.identity-policy-item\s*\{(?<body>[^}]*)\}/u, '14px'],
-  ['loading and error states', /\.identity-loading-state,\s*\.identity-error-state\s*\{(?<body>[^}]*)\}/u, '14px'],
-  ['secret value', /\.identity-secret-panel code\s*\{(?<body>[^}]*)\}/u, '14px']
-]) {
-  expectRuleFontSize(identityCenter, identityCenterPath, label, rulePattern, expectedSize)
+    ['summary term', /\.identity-summary-list dt\s*\{(?<body>[^}]*)\}/u, '12px'],
+    ['summary detail', /\.identity-summary-list dt\s*\{[^}]*\}\s*\.identity-summary-list dd\s*\{(?<body>[^}]*)\}/u, '14px'],
+    ['policy item', /\.identity-policy-item\s*\{(?<body>[^}]*)\}/u, '14px'],
+    ['loading and error states', /\.identity-loading-state,\s*\.identity-error-state\s*\{(?<body>[^}]*)\}/u, '14px'],
+    ['secret value', /\.identity-secret-panel code\s*\{(?<body>[^}]*)\}/u, '14px']
+])
+{
+    expectRuleFontSize(identityCenter, identityCenterPath, label, rulePattern, expectedSize);
 }
 
-const accountShellBase = readFileSync(accountShellBasePath, 'utf8')
+const accountShellBase = readFileSync(accountShellBasePath, 'utf8');
 expectRuleFontSize(
-  accountShellBase,
-  accountShellBasePath,
-  'account header action',
-  /\.account-header-link\s*\{(?<body>[^}]*)\}/u,
-  '12px'
-)
+    accountShellBase,
+    accountShellBasePath,
+    'account header action',
+    /\.account-header-link\s*\{(?<body>[^}]*)\}/u,
+    '12px'
+);
 
-const layoutRules = readFileSync(layoutRulesPath, 'utf8')
+const layoutRules = readFileSync(layoutRulesPath, 'utf8');
 for (const requiredText of [
-  'CSS `font-size` 小字号只写 `12px`、`14px` 或 `16px`',
-  '`AccountNavigationPanel.vue` 的导航层级是唯一例外',
-  'Markdown blockquote 继承 16px'
-]) {
-  if (!layoutRules.includes(requiredText)) {
+    'CSS `font-size` 小字号只写 `12px`、`14px` 或 `16px`',
+    '`AccountNavigationPanel.vue` 的导航层级是唯一例外',
+    'Markdown blockquote 继承 16px'
+])
+{
+    if (!layoutRules.includes(requiredText))
+{
     errors.push(`docs/public-layout-rules.md: missing font-size contract text: ${requiredText}`)
   }
 }

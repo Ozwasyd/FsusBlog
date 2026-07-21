@@ -68,23 +68,24 @@ export function validateIsolatedPerfExecution(perfReport, ordinaryReport, covera
     exactOnce: true,
     disjointFromOrdinary: true,
     coverageUnchanged: true
-  }
+    };
 }
 
-export function parseTransformCacheDebug(output, { cachePath } = {}) {
-  const normalizedCachePath = cachePath
-    ? path.resolve(cachePath).replaceAll(path.sep, '/')
-    : null
-  const plain = String(output).replaceAll(/\u001b\[[0-9;]*m/gu, '')
-  const cacheLines = plain.split(/\r?\n/gu)
-    .map((line) => line.replaceAll('\\', '/'))
-    .filter((line) => /(?:^|\s)vitest:cache:fs(?:\s|$)/u.test(line)
-      && (!normalizedCachePath || line.includes(normalizedCachePath)))
-  return {
-    hits: cacheLines.filter((line) => line.includes('[read]')).length,
-    misses: cacheLines.filter((line) => line.includes('[empty]')).length,
-    writes: cacheLines.filter((line) => line.includes('[write]')).length
-  }
+export function parseTransformCacheDebug(output, { cachePath } = {})
+{
+    const normalizedCachePath = cachePath
+        ? path.resolve(cachePath).replaceAll(path.sep, '/')
+        : null;
+    const plain = String(output).replaceAll(/\u001b\[[0-9;]*m/gu, '');
+    const cacheLines = plain.split(/\r?\n/gu)
+        .map((line) => line.replaceAll('\\', '/'))
+        .filter((line) => /(?:^|\s)vitest:cache:fs(?:\s|$)/u.test(line)
+      && (!normalizedCachePath || line.includes(normalizedCachePath)));
+    return {
+        hits: cacheLines.filter((line) => line.includes('[read]')).length,
+        misses: cacheLines.filter((line) => line.includes('[empty]')).length,
+        writes: cacheLines.filter((line) => line.includes('[write]')).length
+    };
 }
 
 export function requireTransformCacheReuse(stats, { allowSafeRebuild = false } = {}) {
@@ -96,43 +97,48 @@ export function requireTransformCacheReuse(stats, { allowSafeRebuild = false } =
     throw new Error('isolated perf did not reuse any ordinary Vitest transform-cache entry')
   }
   const requests = stats.hits + stats.misses
-  return { ...stats, requests, hitRate: requests > 0 ? stats.hits / requests : 0, reused: true, safeRebuild: false }
+    return { ...stats, requests, hitRate: requests > 0 ? stats.hits / requests : 0, reused: true, safeRebuild: false };
 }
 
 export function validatePerfTiming({
-  processStartedAtMs,
-  vitestStartedAtMs,
-  testStartedAtMs,
-  processFinishedAtMs
-}) {
-  const testStarts = Array.isArray(testStartedAtMs) ? testStartedAtMs.map(Number) : []
-  const firstPerfTestStartedAtMs = testStarts.length > 0 ? Math.min(...testStarts) : Number.NaN
-  const values = {
-    processStartedAtMs: Number(processStartedAtMs),
-    vitestStartedAtMs: Number(vitestStartedAtMs),
-    firstPerfTestStartedAtMs,
-    processFinishedAtMs: Number(processFinishedAtMs)
-  }
-  const invalid = Object.entries(values).filter(([, value]) => !Number.isFinite(value) || value < 0)
-  if (invalid.length > 0) {
-    throw new Error(`isolated perf timing is missing or invalid: ${invalid.map(([key]) => key).join(',')}`)
-  }
-  if (!(values.processStartedAtMs <= values.vitestStartedAtMs
+    processStartedAtMs,
+    vitestStartedAtMs,
+    testStartedAtMs,
+    processFinishedAtMs
+})
+{
+    const testStarts = Array.isArray(testStartedAtMs) ? testStartedAtMs.map(Number) : [];
+    const firstPerfTestStartedAtMs = testStarts.length > 0 ? Math.min(...testStarts) : Number.NaN;
+    const values = {
+        processStartedAtMs: Number(processStartedAtMs),
+        vitestStartedAtMs: Number(vitestStartedAtMs),
+        firstPerfTestStartedAtMs,
+        processFinishedAtMs: Number(processFinishedAtMs)
+    };
+    const invalid = Object.entries(values).filter(([, value]) => !Number.isFinite(value) || value < 0);
+    if (invalid.length > 0)
+{
+        throw new Error(`isolated perf timing is missing or invalid: ${invalid.map(([key]) => key).join(',')}`);
+    }
+    if (!(values.processStartedAtMs <= values.vitestStartedAtMs
     && values.vitestStartedAtMs <= values.firstPerfTestStartedAtMs
-    && values.firstPerfTestStartedAtMs <= values.processFinishedAtMs)) {
-    throw new Error('isolated perf timing is not monotonic')
-  }
-  return {
-    ...values,
-    coldStartupMs: values.vitestStartedAtMs - values.processStartedAtMs,
-    timeToFirstTestMs: values.firstPerfTestStartedAtMs - values.processStartedAtMs,
-    wallClockMs: values.processFinishedAtMs - values.processStartedAtMs
-  }
+    && values.firstPerfTestStartedAtMs <= values.processFinishedAtMs))
+{
+        throw new Error('isolated perf timing is not monotonic');
+    }
+    return {
+        ...values,
+        coldStartupMs: values.vitestStartedAtMs - values.processStartedAtMs,
+        timeToFirstTestMs: values.firstPerfTestStartedAtMs - values.processStartedAtMs,
+        wallClockMs: values.processFinishedAtMs - values.processStartedAtMs
+    };
 }
 
-function runPerf(env) {
-  return new Promise((resolve) => {
-    const startedAtMs = Date.now()
+function runPerf(env)
+{
+    return new Promise((resolve) =>
+{
+        const startedAtMs = Date.now();
     const child = spawn('npx', [
       'vitest', 'run', '--config', 'vitest.production.config.ts', '--project=perf'
     ], {
@@ -202,21 +208,21 @@ async function main() {
       throw result.error ?? new Error(`isolated perf Vitest failed (${result.signal ?? result.code})`)
     }
     const perfReport = JSON.parse(fs.readFileSync(reportFile, 'utf8'))
-    const ordinaryReport = JSON.parse(fs.readFileSync(ordinaryReportFile, 'utf8'))
-    const coverageAfter = digestDirectory(coverageRoot)
-    const exact = validateIsolatedPerfExecution(perfReport, ordinaryReport, coverageBefore, coverageAfter)
-    const timing = validatePerfTiming({
-      processStartedAtMs: result.startedAtMs,
-      vitestStartedAtMs: perfReport.startTime,
-      testStartedAtMs: perfReport.testResults.map((entry) => entry.startTime),
-      processFinishedAtMs: result.finishedAtMs
-    })
-    const cacheReuse = requireTransformCacheReuse(parseTransformCacheDebug(result.output, {
-      cachePath: cache.cachePath
-    }), {
-      allowSafeRebuild: cache.repair.recreatedDirectory || cache.repair.rebuiltEntries > 0
-    })
-    const evidence = {
+        const ordinaryReport = JSON.parse(fs.readFileSync(ordinaryReportFile, 'utf8'));
+        const coverageAfter = digestDirectory(coverageRoot);
+        const exact = validateIsolatedPerfExecution(perfReport, ordinaryReport, coverageBefore, coverageAfter);
+        const timing = validatePerfTiming({
+            processStartedAtMs: result.startedAtMs,
+            vitestStartedAtMs: perfReport.startTime,
+            testStartedAtMs: perfReport.testResults.map((entry) => entry.startTime),
+            processFinishedAtMs: result.finishedAtMs
+        });
+        const cacheReuse = requireTransformCacheReuse(parseTransformCacheDebug(result.output, {
+            cachePath: cache.cachePath
+        }), {
+            allowSafeRebuild: cache.repair.recreatedDirectory || cache.repair.rebuiltEntries > 0
+        });
+        const evidence = {
       schema: 'fsusblog.frontend-vitest-perf-transform-cache-timing.v1',
       status: 'success',
       schedulerRunId: process.env.FSUSBLOG_TEST_RUN_ID,
@@ -239,13 +245,13 @@ async function main() {
       cache: {
         ...cacheReuse,
         repair: cache.repair,
-        before: inventoryBefore,
-        after: inspectTransformCache(cache.cachePath)
-      },
-      timing,
-      execution: exact,
-      artifacts: {
-        perfReport: path.relative(root, reportFile).replaceAll(path.sep, '/'),
+                before: inventoryBefore,
+                after: inspectTransformCache(cache.cachePath)
+            },
+            timing,
+            execution: exact,
+            artifacts: {
+                perfReport: path.relative(root, reportFile).replaceAll(path.sep, '/'),
         ordinaryReport: path.relative(root, ordinaryReportFile).replaceAll(path.sep, '/'),
         timingEvidence: path.relative(root, timingEvidenceFile).replaceAll(path.sep, '/')
       }

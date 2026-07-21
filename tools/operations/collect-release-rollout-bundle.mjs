@@ -9,17 +9,17 @@ const FINAL_SCHEMA = 'fsusblog.release-rollout-evidence.v1'
 const REQUIRED_ARTIFACTS = Object.freeze([
   'publicTraffic', 'notificationStream', 'assetCompatibility',
   'workerReconciliation', 'resourceBudget', 'faultInjection'
-])
+]);
 const REQUIRED_AUXILIARY = Object.freeze([
-  'releaseManifest', 'backupRestoreGate', 'migrationExpand', 'candidateReadiness',
-  'assetMaterialization', 'retentionPrepared', 'retainedAssets', 'publicAotWarm', 'candidateSmoke',
-  'compatibilityMatrix', 'gatewayTransition', 'activeFenceAcquire',
-  'activeFenceSourceRevoke', 'activeFenceVerify', 'challengeKindCutoverReceipt',
-  'challengeKindCutoverAcceptance', 'challengeKindCutoverGate', 'challengeProtocolActivation',
-  'publicTrafficCheckpoint',
-  'sourceDrainSnapshot', 'sourceDrainGate', 'targetHealth',
-  'retentionDrainComplete', 'operatorNote'
-])
+    'releaseManifest', 'backupRestoreGate', 'migrationExpand', 'candidateReadiness',
+    'assetMaterialization', 'retentionPrepared', 'retainedAssets', 'publicAotWarm', 'candidateSmoke',
+    'compatibilityMatrix', 'gatewayTransition', 'activeFenceAcquire',
+    'activeFenceSourceRevoke', 'activeFenceVerify', 'challengeKindCutoverReceipt',
+    'challengeKindCutoverAcceptance', 'challengeKindCutoverGate', 'challengeProtocolActivation',
+    'publicTrafficCheckpoint',
+    'sourceDrainSnapshot', 'sourceDrainGate', 'targetHealth',
+    'retentionDrainComplete', 'operatorNote'
+]);
 
 try {
   const options = parseArgs(process.argv.slice(2))

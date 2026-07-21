@@ -128,37 +128,39 @@ test('invalid diagnostic overrides fail closed', () => {
 
 test('calibration CLI requires fresh semantics and accepts bounded candidate selection', () => {
   assert.throws(() => parseBackendTopologyCalibrationArgs([]), /requires --fresh/u)
-  const options = parseBackendTopologyCalibrationArgs([
-    '--fresh', '--candidate', 'h4-p2-uniform', '--repeat', '3', '--max-candidates', '1',
-    '--cpu-budget', '16', '--memory-gib', '32', '--planning-units', '47'
-  ], { availableCpu: 16, totalMemoryGiB: 64, freeMemoryGiB: 48 })
-  assert.equal(options.fresh, true)
-  assert.deepEqual(options.candidateIds, ['h4-p2-uniform'])
-  assert.equal(options.repeat, 3)
+    const options = parseBackendTopologyCalibrationArgs([
+        '--fresh', '--candidate', 'h4-p2-uniform', '--repeat', '3', '--max-candidates', '1',
+        '--cpu-budget', '16', '--memory-gib', '32', '--planning-units', '47'
+    ], { availableCpu: 16, totalMemoryGiB: 64, freeMemoryGiB: 48 });
+    assert.equal(options.fresh, true);
+    assert.deepEqual(options.candidateIds, ['h4-p2-uniform']);
+    assert.equal(options.repeat, 3);
   assert.equal(options.maxCandidates, 1)
   assert.equal(options.cpuBudget, 16)
   assert.equal(options.memoryGiB, 32)
-  assert.equal(options.planningUnitCount, 47)
-})
+    assert.equal(options.planningUnitCount, 47);
+});
 
-test('calibration CLI rejects under-sampled or impossible machine envelopes', () => {
-  const machine = { availableCpu: 16, totalMemoryGiB: 64, freeMemoryGiB: 48 }
-  assert.throws(
-    () => parseBackendTopologyCalibrationArgs(['--fresh', '--repeat', '2'], machine),
-    /at least 3 fresh samples/u
-  )
-  assert.throws(
-    () => parseBackendTopologyCalibrationArgs(['--fresh', '--cpu-budget', '17'], machine),
-    /CPU envelope 17 exceeds live machine capacity 16/u
-  )
-  assert.throws(
-    () => parseBackendTopologyCalibrationArgs(['--fresh', '--memory-gib', '65'], machine),
-    /memory envelope 65 GiB exceeds live machine capacity 64 GiB/u
-  )
-})
+test('calibration CLI rejects under-sampled or impossible machine envelopes', () =>
+{
+    const machine = { availableCpu: 16, totalMemoryGiB: 64, freeMemoryGiB: 48 };
+    assert.throws(
+        () => parseBackendTopologyCalibrationArgs(['--fresh', '--repeat', '2'], machine),
+        /at least 3 fresh samples/u
+    );
+    assert.throws(
+        () => parseBackendTopologyCalibrationArgs(['--fresh', '--cpu-budget', '17'], machine),
+        /CPU envelope 17 exceeds live machine capacity 16/u
+    );
+    assert.throws(
+        () => parseBackendTopologyCalibrationArgs(['--fresh', '--memory-gib', '65'], machine),
+        /memory envelope 65 GiB exceeds live machine capacity 64 GiB/u
+    );
+});
 
-test('GNU time diagnostics preserve measured values and mark absent metrics unavailable', () => {
-  const metrics = parseGnuTimeVerboseMetrics(`
+test('GNU time diagnostics preserve measured values and mark absent metrics unavailable', () =>
+{
+    const metrics = parseGnuTimeVerboseMetrics(`
     User time (seconds): 12.25
     System time (seconds): 1.75
     Elapsed (wall clock) time (h:mm:ss or m:ss): 0:14.50
@@ -198,20 +200,20 @@ test('calibration report ranks three fresh samples and forbids result reuse', ()
   assert.equal(report.status, 'success')
   assert.deepEqual(report.rankedSuccessfulCandidates, [{ rank: 1, id: 'h4-p2-uniform', medianMs: 1000 }])
   assert.equal(report.semantics.freshProductionPerSample, true)
-  assert.equal(report.semantics.historicalPassReuseAllowed, false)
-  assert.equal(report.semantics.coverageReuseAllowed, false)
-  assert.equal(report.semantics.releaseEvidenceReuseAllowed, false)
-  assert.throws(
-    () => summarizeBackendTopologyCalibrationCandidate({ id: 'under-sampled' }, [
-      { repeat: 1, status: 'success', wallClockMs: 1000 },
-      { repeat: 2, status: 'success', wallClockMs: 900 }
-    ]),
-    /at least 3 fresh samples/u
-  )
-  assert.throws(() => buildBackendTopologyCalibrationReport({
-    sourceCommit: 'a'.repeat(40),
-    sourceFingerprint: 'sha256:',
-    machine: { cpuBudget: 16, memoryGiB: 32 },
-    candidates: [candidate]
-  }), /full SHA-256/u)
-})
+    assert.equal(report.semantics.historicalPassReuseAllowed, false);
+    assert.equal(report.semantics.coverageReuseAllowed, false);
+    assert.equal(report.semantics.releaseEvidenceReuseAllowed, false);
+    assert.throws(
+        () => summarizeBackendTopologyCalibrationCandidate({ id: 'under-sampled' }, [
+            { repeat: 1, status: 'success', wallClockMs: 1000 },
+            { repeat: 2, status: 'success', wallClockMs: 900 }
+        ]),
+        /at least 3 fresh samples/u
+    );
+    assert.throws(() => buildBackendTopologyCalibrationReport({
+        sourceCommit: 'a'.repeat(40),
+        sourceFingerprint: 'sha256:',
+        machine: { cpuBudget: 16, memoryGiB: 32 },
+        candidates: [candidate]
+    }), /full SHA-256/u);
+});

@@ -57,19 +57,19 @@ const expectAdminCollectionSfcPrimitives = () => {
 expectIncludes('src/frontend/src/layouts/accountNav.ts', "label: '内容'", 'admin nav must expose content task group')
 expectIncludes('src/frontend/src/layouts/accountNav.ts', "label: '互动'", 'admin nav must expose interaction task group')
 expectIncludes('src/frontend/src/layouts/accountNav.ts', "label: '安全'", 'admin nav must expose security task group')
-expectIncludes('src/frontend/src/layouts/accountNav.ts', "label: '系统'", 'admin nav must expose system task group')
-expectIncludes('src/frontend/src/layouts/accountNav.ts', "label: '运维'", 'admin nav must expose ops task group')
-expectIncludes('src/frontend/src/layouts/accountNav.ts', 'ACCOUNT_GLOBAL_MODULE_LIMIT = 7', 'account shell must cap persistent first-level modules')
-expectIncludes('src/frontend/src/layouts/AccountRouteFrame.vue', 'mobileDrawerVisible', 'mobile nav must use the account frame drawer state')
-expectIncludes('src/frontend/src/layouts/AccountLayout.vue', '<RouterView name="accountMobileAction" />', 'mobile nav action must live in the shared header outlet')
-expectIncludes('src/frontend/src/layouts/AccountFrameMobileAction.vue', 'account-mobile-drawer-trigger', 'active frame must provide the mobile nav trigger')
-expectIncludes('src/frontend/src/layouts/AccountRouteFrame.vue', 'account-shell-area-title', 'account frame area label must be non-heading display text')
-expectIncludes('src/frontend/src/layouts/AccountRouteFrame.vue', 'AccountNavigationPanel', 'account frames must share module and local navigation between desktop and mobile')
-expectIncludes('src/frontend/src/layouts/AccountLayout.vue', 'AccountHeaderMenu', 'policy and logout actions must live in the account menu')
-expectNotIncludes('src/frontend/src/layouts/AccountRouteFrame.vue', 'account-sidebar-scroll', 'desktop sidebar must not scroll because every leaf is flattened')
-expectIncludes('src/frontend/src/components/account/AccountNavigationPanel.vue', 'account-global-module-nav', 'account shell must distinguish first-level modules')
-expectIncludes('src/frontend/src/components/account/AccountNavigationPanel.vue', 'account-local-navigation', 'account shell must expose current-module local navigation')
-expectNotIncludes('src/frontend/src/components/account/AccountNavigationPanel.vue', 'FsusUiSectionNav', 'account module leaves must not become a universal top-tab row')
+expectIncludes('src/frontend/src/layouts/accountNav.ts', "label: '系统'", 'admin nav must expose system task group');
+expectIncludes('src/frontend/src/layouts/accountNav.ts', "label: '运维'", 'admin nav must expose ops task group');
+expectIncludes('src/frontend/src/layouts/accountNav.ts', 'ACCOUNT_GLOBAL_MODULE_LIMIT = 7', 'account shell must cap persistent first-level modules');
+expectIncludes('src/frontend/src/layouts/AccountRouteFrame.vue', 'mobileDrawerVisible', 'mobile nav must use the account frame drawer state');
+expectIncludes('src/frontend/src/layouts/AccountLayout.vue', '<RouterView name="accountMobileAction" />', 'mobile nav action must live in the shared header outlet');
+expectIncludes('src/frontend/src/layouts/AccountFrameMobileAction.vue', 'account-mobile-drawer-trigger', 'active frame must provide the mobile nav trigger');
+expectIncludes('src/frontend/src/layouts/AccountRouteFrame.vue', 'account-shell-area-title', 'account frame area label must be non-heading display text');
+expectIncludes('src/frontend/src/layouts/AccountRouteFrame.vue', 'AccountNavigationPanel', 'account frames must share module and local navigation between desktop and mobile');
+expectIncludes('src/frontend/src/layouts/AccountLayout.vue', 'AccountHeaderMenu', 'policy and logout actions must live in the account menu');
+expectNotIncludes('src/frontend/src/layouts/AccountRouteFrame.vue', 'account-sidebar-scroll', 'desktop sidebar must not scroll because every leaf is flattened');
+expectIncludes('src/frontend/src/components/account/AccountNavigationPanel.vue', 'account-global-module-nav', 'account shell must distinguish first-level modules');
+expectIncludes('src/frontend/src/components/account/AccountNavigationPanel.vue', 'account-local-navigation', 'account shell must expose current-module local navigation');
+expectNotIncludes('src/frontend/src/components/account/AccountNavigationPanel.vue', 'FsusUiSectionNav', 'account module leaves must not become a universal top-tab row');
 expectIncludes('src/frontend/src/components/account/AccountHeaderMenu.vue', '使用规范', 'account menu must expose usage guidelines')
 expectIncludes('src/frontend/src/components/account/AccountHeaderMenu.vue', '隐私政策', 'account menu must expose privacy policy')
 expectIncludes('src/frontend/src/components/account/AccountHeaderMenu.vue', 'command="logout"', 'account menu must expose logout')
@@ -128,13 +128,13 @@ expectNotIncludes('src/frontend/src/components/admin/AdminDashboardTaskWorkbench
 expectIncludes('src/frontend/src/components/admin/AdminDashboardTaskWorkbench.vue', '<FsusUiSectionHeader', 'dashboard sections must use compact section headers')
 expectNotIncludes('src/frontend/src/components/admin/AdminDashboardTaskWorkbench.vue', 'eyebrow="常用入口"', 'dashboard section headers must not opt into WorkbenchPanel eyebrow')
 expectIncludes('src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue', '<FsusUiSectionHeader', 'author analytics must use the compact dashboard section header')
-expectIncludes('src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue', '阅读数据、搜索表现与运行状态。', 'author analytics header copy must be short and task-oriented')
-expectIncludes('src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue', '仅使用站点运行信号，不采集正文输入或账号敏感字段。', 'author analytics privacy text must stay visible as compact note copy')
-expectIncludes('src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue', 'dashboard-section-note', 'author analytics header note copy must use the compact note treatment')
-expectIncludes('src/frontend/src/assets/admin-workspace.css', 'margin: var(--fsus-space-1) 0 0;', 'dashboard section note spacing must stay compact and tokenized')
-expectNotIncludes('src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue', '阅读与性能', 'author analytics must remove eyebrow copy')
-expectNotIncludes('src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue', '聚合真实阅读证明、公开路由、搜索与 AOT 运行信号，不采集正文输入或账号敏感字段。', 'author analytics must not use long PRD-style header copy')
-expectIncludes('src/frontend/src/fsusui/metricPrimitives.ts', 'FsusUiMetricList', 'dashboard metrics must route through FsusUI metric primitives adapter')
+expectIncludes('src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue', '阅读数据、搜索表现与运行状态。', 'author analytics header copy must be short and task-oriented');
+expectIncludes('src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue', '仅使用站点运行信号，不采集正文输入或账号敏感字段。', 'author analytics privacy text must stay visible as compact note copy');
+expectIncludes('src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue', 'dashboard-section-note', 'author analytics header note copy must use the compact note treatment');
+expectIncludes('src/frontend/src/assets/admin-workspace.css', 'margin: var(--fsus-space-1) 0 0;', 'dashboard section note spacing must stay compact and tokenized');
+expectNotIncludes('src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue', '阅读与性能', 'author analytics must remove eyebrow copy');
+expectNotIncludes('src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue', '聚合真实阅读证明、公开路由、搜索与 AOT 运行信号，不采集正文输入或账号敏感字段。', 'author analytics must not use long PRD-style header copy');
+expectIncludes('src/frontend/src/fsusui/metricPrimitives.ts', 'FsusUiMetricList', 'dashboard metrics must route through FsusUI metric primitives adapter');
 expectIncludes('src/frontend/src/fsusui/metricPrimitives.ts', 'FsusUiDistributionBarRow', 'dashboard distributions must route through FsusUI distribution primitives adapter')
 expectIncludes('src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue', 'AdminStatusMatrix', 'technical summary metrics must use FsusBlog compact admin status density')
 expectIncludes('src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue', 'dashboard-rum-metric', 'Core Web Vitals rows must use local compact technical metric rows')

@@ -7,24 +7,24 @@ import {
   encodeSecurityChallengeIssueRequest,
   encodeSecurityChallengeVerifyRequest
 } from '@/codecs/binary/securityRequestEncoder'
-import { encodeJsonRequest } from '@/codecs/binary/jsonRequestEncoder'
+import { encodeJsonRequest } from '@/codecs/binary/jsonRequestEncoder';
 import {
-  SecurityChallengeKind,
-  type PerceptionCharacterV3VerifyPayload,
-  type SecurityChallengeIssueResponse,
-  type SecurityChallengeVerifyResponse
-} from '@/contracts/binaryApi'
+    SecurityChallengeKind,
+    type PerceptionCharacterV3VerifyPayload,
+    type SecurityChallengeIssueResponse,
+    type SecurityChallengeVerifyResponse
+} from '@/contracts/binaryApi';
 import { FSUS_HEADERS } from './contracts'
 import { getBrowserFp } from '@/utils/fingerprint'
 
-export { SecurityChallengeKind }
+export { SecurityChallengeKind };
 export type {
-  PerceptionCharacterV3IssuePayload,
-  PerceptionCharacterV3Representation,
-  PerceptionCharacterV3VerifyPayload,
-  SecurityChallengeAssignment,
-  SecurityChallengeEnvelope,
-  SecurityChallengeIssueResponse,
+    PerceptionCharacterV3IssuePayload,
+    PerceptionCharacterV3Representation,
+    PerceptionCharacterV3VerifyPayload,
+    SecurityChallengeAssignment,
+    SecurityChallengeEnvelope,
+    SecurityChallengeIssueResponse,
   SecurityChallengeProviderPayload,
   SecurityChallengeVerifyResponse
 } from '@/contracts/binaryApi'
@@ -278,10 +278,10 @@ export interface SecurityRiskPolicySnapshotV2 {
 }
 
 export interface PerceptionSealedV2PolicyOptions {
-  enabled: boolean
-  localizationEnabled: boolean
-  microInteractionEnabled: boolean
-  poSpaceFallbackEnabled: boolean
+    enabled: boolean;
+    localizationEnabled: boolean;
+    microInteractionEnabled: boolean;
+    poSpaceFallbackEnabled: boolean;
   earlyRejectThreshold: number
   maxAttempts: number
   minSolveDurationMs: number
@@ -485,25 +485,25 @@ type SecurityBinaryRequestOptions = {
 export interface IssueSecurityChallengeRequest {
   action: string
   routeKey: string
-  attributes?: Record<string, unknown>
-  deviceFingerprint?: string
-  capabilityManifestVersion?: string
-  representation?: 'visual' | 'audio'
-  replacement?: {
-    challengeId: string
-    envelopeId: string
-    stateToken: string
-  }
+    attributes?: Record<string, unknown>;
+    deviceFingerprint?: string;
+    capabilityManifestVersion?: string;
+    representation?: 'visual' | 'audio';
+    replacement?: {
+        challengeId: string;
+        envelopeId: string;
+        stateToken: string;
+    };
 }
 
 export interface VerifySecurityChallengeRequest {
   envelopeId: string
   challengeId: string
-  kind: SecurityChallengeKind
-  action: string
-  routeKey: string
-  providerPayload?: Record<string, string>
-  perceptionCharacterV3?: PerceptionCharacterV3VerifyPayload
+    kind: SecurityChallengeKind;
+    action: string;
+    routeKey: string;
+    providerPayload?: Record<string, string>;
+    perceptionCharacterV3?: PerceptionCharacterV3VerifyPayload;
 }
 
 export interface CancelSecurityChallengeRequest {
@@ -524,23 +524,25 @@ const securityHeaders = (mfaProofToken?: string | null): Headers => {
 }
 
 function securityBody(frameType: FrameType, request: unknown): ArrayBuffer {
-  return encodeAedsFrame(frameType, encodeJsonRequest(request))
+    return encodeAedsFrame(frameType, encodeJsonRequest(request));
 }
 
 function securityChallengeHeaders(
-  deviceFingerprint?: string,
-  replacement?: IssueSecurityChallengeRequest['replacement'],
-  representation?: IssueSecurityChallengeRequest['representation']
-): Headers {
-  const headers = new Headers()
-  headers.set(FSUS_HEADERS.deviceFingerprint, deviceFingerprint?.trim() || getBrowserFp())
-  if (representation) headers.set('X-Fsus-Challenge-Representation', representation)
-  if (replacement) {
-    headers.set('X-Fsus-Replaces-Challenge', replacement.challengeId)
-    headers.set('X-Fsus-Replaces-Envelope', replacement.envelopeId)
-    headers.set('X-Fsus-Replaces-State-Token', replacement.stateToken)
-  }
-  return headers
+    deviceFingerprint?: string,
+    replacement?: IssueSecurityChallengeRequest['replacement'],
+    representation?: IssueSecurityChallengeRequest['representation']
+): Headers
+{
+    const headers = new Headers();
+    headers.set(FSUS_HEADERS.deviceFingerprint, deviceFingerprint?.trim() || getBrowserFp());
+    if (representation) {headers.set('X-Fsus-Challenge-Representation', representation)};
+    if (replacement)
+{
+        headers.set('X-Fsus-Replaces-Challenge', replacement.challengeId);
+        headers.set('X-Fsus-Replaces-Envelope', replacement.envelopeId);
+        headers.set('X-Fsus-Replaces-State-Token', replacement.stateToken);
+    }
+    return headers;
 }
 
 function requestSecurityBinary<T>(
@@ -621,13 +623,13 @@ export const issueSecurityChallenge = (request: IssueSecurityChallengeRequest, c
     binaryUrl: `${BINARY_API_PREFIX}/security/challenge`,
     privateScope: 'public',
     frameType: FrameType.SecurityChallengeIssueResponse,
-    requestOptions: {
-      method: 'POST',
-      credentials: 'include',
-      headers: securityChallengeHeaders(request.deviceFingerprint, request.replacement, request.representation),
-      body: encodeAedsFrame(
-        FrameType.SecurityChallengeIssueRequest,
-        encodeSecurityChallengeIssueRequest({
+        requestOptions: {
+            method: 'POST',
+            credentials: 'include',
+            headers: securityChallengeHeaders(request.deviceFingerprint, request.replacement, request.representation),
+            body: encodeAedsFrame(
+                FrameType.SecurityChallengeIssueRequest,
+                encodeSecurityChallengeIssueRequest({
           action: request.action,
           routeKey: request.routeKey,
           deviceFingerprint: request.deviceFingerprint?.trim() || getBrowserFp(),
@@ -653,14 +655,14 @@ export const verifySecurityChallenge = (request: VerifySecurityChallengeRequest,
         encodeSecurityChallengeVerifyRequest({
           envelopeId: request.envelopeId,
           challengeId: request.challengeId,
-          kind: request.kind,
-          action: request.action,
-          routeKey: request.routeKey,
-          providerPayloadJson: request.perceptionCharacterV3 ? '' : JSON.stringify(request.providerPayload ?? {}),
-          perceptionCharacterV3: request.perceptionCharacterV3
-        })
-      )
-    },
+                    kind: request.kind,
+                    action: request.action,
+                    routeKey: request.routeKey,
+                    providerPayloadJson: request.perceptionCharacterV3 ? '' : JSON.stringify(request.providerPayload ?? {}),
+                    perceptionCharacterV3: request.perceptionCharacterV3
+                })
+            )
+        },
     signal: config?.signal as AbortSignal | undefined
   })
 

@@ -28,13 +28,13 @@ export function mapAuthLoginFlowFromPayload(payload: Uint8Array): AuthLoginFlow 
   const mfaMode = readByte(payload, 5);
   const hasChallengeToken = readByte(payload, 6) === 1;
   const hasIdentityKind = readByte(payload, 7) === 1;
-  return {
-    accountId: readInt32(payload, 0),
-    identityKind: hasIdentityKind ? normalizeIdentityKind(readFixedUtf8(payload, 8, 64)) : DEFAULT_IDENTITY_KIND,
-    authPhase: authPhase === 2 ? 'mfa_required' : authPhase === 3 ? 'enrollment_required' : 'authenticated',
-    mfaMode: mfaMode === 1 ? 'risk' : mfaMode === 2 ? 'standard' : null,
-    challengeToken: hasChallengeToken ? readFixedUtf8(payload, 104, 64) : null
-  };
+    return {
+        accountId: readInt32(payload, 0),
+        identityKind: hasIdentityKind ? normalizeIdentityKind(readFixedUtf8(payload, 8, 64)) : DEFAULT_IDENTITY_KIND,
+        authPhase: authPhase === 2 ? 'mfa_required' : authPhase === 3 ? 'enrollment_required' : 'authenticated',
+        mfaMode: mfaMode === 1 ? 'risk' : mfaMode === 2 ? 'standard' : null,
+        challengeToken: hasChallengeToken ? readFixedUtf8(payload, 104, 64) : null
+    };
 }
 
 export function mapCurrentUserSnapshotFromPayload(payload: Uint8Array): AdminCurrentUserSnapshot {
@@ -210,22 +210,24 @@ export function mapRecoveryKeyVerifyResponseFromPayload(payload: Uint8Array): Re
   };
 }
 
-function readUserSessionSummary(reader: BinaryReader): UserSessionSummary {
-  const pod = reader.readSpan(USER_SESSION_SUMMARY_POD_SIZE);
-  const hasLastSeenAt = readByte(pod, 17) === 1;
-  const hasPasskeyFriendlyName = readByte(pod, 18) === 1;
-  if (readByte(pod, 16) > 1 || readByte(pod, 17) > 1 || readByte(pod, 18) > 1 || readByte(pod, 19) !== 0) {
-    throw new Error('auth_session_flags_invalid');
-  }
-  return {
-    createdAt: readIsoDate64(pod, 0),
-    lastSeenAt: hasLastSeenAt ? readIsoDate64(pod, 8) : null,
-    isCurrent: readByte(pod, 16) === 1,
-    sessionId: readFixedUtf8(pod, 20, 64),
-    deviceLabel: readFixedUtf8(pod, 84, 64),
-    authenticationMethod: readFixedUtf8(pod, 148, 32) as UserSessionSummary['authenticationMethod'],
-    authenticationStrength: readFixedUtf8(pod, 180, 32) as UserSessionSummary['authenticationStrength'],
-    durationPolicy: readFixedUtf8(pod, 212, 32) as UserSessionSummary['durationPolicy'],
-    passkeyFriendlyName: hasPasskeyFriendlyName ? readFixedUtf8(pod, 244, 256) : null
-  };
+function readUserSessionSummary(reader: BinaryReader): UserSessionSummary
+{
+    const pod = reader.readSpan(USER_SESSION_SUMMARY_POD_SIZE);
+    const hasLastSeenAt = readByte(pod, 17) === 1;
+    const hasPasskeyFriendlyName = readByte(pod, 18) === 1;
+    if (readByte(pod, 16) > 1 || readByte(pod, 17) > 1 || readByte(pod, 18) > 1 || readByte(pod, 19) !== 0)
+{
+        throw new Error('auth_session_flags_invalid');
+    }
+    return {
+        createdAt: readIsoDate64(pod, 0),
+        lastSeenAt: hasLastSeenAt ? readIsoDate64(pod, 8) : null,
+        isCurrent: readByte(pod, 16) === 1,
+        sessionId: readFixedUtf8(pod, 20, 64),
+        deviceLabel: readFixedUtf8(pod, 84, 64),
+        authenticationMethod: readFixedUtf8(pod, 148, 32) as UserSessionSummary['authenticationMethod'],
+        authenticationStrength: readFixedUtf8(pod, 180, 32) as UserSessionSummary['authenticationStrength'],
+        durationPolicy: readFixedUtf8(pod, 212, 32) as UserSessionSummary['durationPolicy'],
+        passkeyFriendlyName: hasPasskeyFriendlyName ? readFixedUtf8(pod, 244, 256) : null
+    };
 }

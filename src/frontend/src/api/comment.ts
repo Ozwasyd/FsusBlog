@@ -3,11 +3,11 @@ import { FrameType } from '@wasm/protocol/frame';
 import { requestBinaryOnly } from '@/composition/binaryTransport';
 import type { FsusBinaryOperationId } from '@/generated/fsusBinaryRoutes';
 import type {
-  AnonymousCommentCreateRequestDto,
-  AnonymousCommentCreateResult,
-  AnonymousCommentSubmitDto,
-  AnonymousCommentSubmitTicket,
-  AnonymousCommentTicketRequestDto,
+    AnonymousCommentCreateRequestDto,
+    AnonymousCommentCreateResult,
+    AnonymousCommentSubmitDto,
+    AnonymousCommentSubmitTicket,
+    AnonymousCommentTicketRequestDto,
   AnonymousCommentTicketResponse,
   AnonymousCredentialIssueRequestDto,
   AnonymousCredentialIssueResponse,
@@ -15,39 +15,39 @@ import type {
   AnonymousCredentialRootSnapshot,
   AnonymousPrivacyStateSnapshot,
   BlindCredentialIssueRequestDto,
-  BlindCredentialIssueResponse,
-  BlindCredentialIssuerMetadata,
-  CommentAuthorMode,
-  CommentAuthorMutationResult,
-  CommentAuthorStatusResult,
-  CommentAuthorView,
-  CommentAuthorViewMode,
-  CommentCreateV2Dto as CommentCreateV2ContractDto,
-  CommentCreateResult,
-  CommentDisplayLanguage,
-  CommentPermalinkContext,
-  CommentPermalinkStatus,
-  CommentPolicySnapshot,
-  CommentManagementChallengeResult,
-  CommentReplyItem,
-  CommentReplyPreviewItem,
-  CommentThreadItem,
-  CommentTreeNode,
-  CommentTreeRoot,
-  CursorResponse,
-  PublicCommentCreateInput,
-  UserCommentResponse
+    BlindCredentialIssueResponse,
+    BlindCredentialIssuerMetadata,
+    CommentAuthorMode,
+    CommentAuthorMutationResult,
+    CommentAuthorStatusResult,
+    CommentAuthorView,
+    CommentAuthorViewMode,
+    CommentCreateV2Dto as CommentCreateV2ContractDto,
+    CommentCreateResult,
+    CommentDisplayLanguage,
+    CommentPermalinkContext,
+    CommentPermalinkStatus,
+    CommentPolicySnapshot,
+    CommentManagementChallengeResult,
+    CommentReplyItem,
+    CommentReplyPreviewItem,
+    CommentThreadItem,
+    CommentTreeNode,
+    CommentTreeRoot,
+    CursorResponse,
+    PublicCommentCreateInput,
+    UserCommentResponse
 } from '@/contracts/binaryApi';
 import { encodeAedsFrame } from './binaryFrame';
 import { validateCommentContent } from '@/utils/contentFilter';
 
-export { resolveCommentAuthorView } from '@/utils/commentAuthorView'
+export { resolveCommentAuthorView } from '@/utils/commentAuthorView';
 export type {
-  AnonymousCommentCreateRequestDto,
-  AnonymousCommentCreateResult,
-  AnonymousCommentSubmitDto,
-  AnonymousCommentSubmitTicket,
-  AnonymousCommentTicketRequestDto,
+    AnonymousCommentCreateRequestDto,
+    AnonymousCommentCreateResult,
+    AnonymousCommentSubmitDto,
+    AnonymousCommentSubmitTicket,
+    AnonymousCommentTicketRequestDto,
   AnonymousCommentTicketResponse,
   AnonymousCredentialIssueRequestDto,
   AnonymousCredentialIssueResponse,
@@ -55,32 +55,32 @@ export type {
   AnonymousCredentialRootSnapshot,
   AnonymousPrivacyStateSnapshot,
   BlindCredentialIssueRequestDto,
-  BlindCredentialIssueResponse,
-  BlindCredentialIssuerMetadata,
-  CommentAuthorMode,
-  CommentAuthorMutationResult,
-  CommentAuthorStatusResult,
-  CommentAuthorView,
-  CommentAuthorViewMode,
-  CommentCreateResult,
-  CommentDisplayLanguage,
-  CommentPermalinkContext,
-  CommentPermalinkStatus,
-  CommentPolicySnapshot,
-  CommentManagementChallengeResult,
-  CommentReplyItem,
-  CommentReplyPreviewItem,
-  CommentThreadItem,
-  CommentTreeNode,
-  CommentTreeRoot,
-  CursorResponse,
-  PublicCommentCreateInput,
-  UserCommentResponse
-} from '@/contracts/binaryApi'
+    BlindCredentialIssueResponse,
+    BlindCredentialIssuerMetadata,
+    CommentAuthorMode,
+    CommentAuthorMutationResult,
+    CommentAuthorStatusResult,
+    CommentAuthorView,
+    CommentAuthorViewMode,
+    CommentCreateResult,
+    CommentDisplayLanguage,
+    CommentPermalinkContext,
+    CommentPermalinkStatus,
+    CommentPolicySnapshot,
+    CommentManagementChallengeResult,
+    CommentReplyItem,
+    CommentReplyPreviewItem,
+    CommentThreadItem,
+    CommentTreeNode,
+    CommentTreeRoot,
+    CursorResponse,
+    PublicCommentCreateInput,
+    UserCommentResponse
+} from '@/contracts/binaryApi';
 
 export interface CommentCreateV2Dto extends CommentCreateV2ContractDto {
-  /** @deprecated 匿名模式不应设置 replyToUserId；编码器始终写入兼容占位。 */
-  replyToUserId?: number | null
+    /** @deprecated 匿名模式不应设置 replyToUserId；编码器始终写入兼容占位。 */
+    replyToUserId?: number | null;
 }
 
 // =================================================================================
@@ -113,30 +113,33 @@ export const createAnonymousComment = (
     replyToCommentId: data.replyToCommentId ?? null,
     anonymousScope: data.anonymousScope,
     displayLanguage: data.displayLanguage,
-    ticket: ticket.ticket
-  })
+        ticket: ticket.ticket
+    });
 
-  const request = () => requestBinaryOnly<AnonymousCommentCreateResult>({
-    binaryRoute: { operationId: 'binary_post_comment_anonymous' },
-    frameType: FrameType.AnonymousCommentCreateResult,
-    signal: config?.signal as AbortSignal | undefined,
-    requestOptions: {
-      method: 'POST',
+    const request = () => requestBinaryOnly<AnonymousCommentCreateResult>({
+        binaryRoute: { operationId: 'binary_post_comment_anonymous' },
+        frameType: FrameType.AnonymousCommentCreateResult,
+        signal: config?.signal as AbortSignal | undefined,
+        requestOptions: {
+            method: 'POST',
       credentials: 'omit',
-      body: encodeAedsFrame(FrameType.AnonymousCommentCreateRequest, payload)
-    }
-  })
+            body: encodeAedsFrame(FrameType.AnonymousCommentCreateRequest, payload)
+        }
+    });
 
-  return request().catch((error: unknown) => {
-    if (!isNetworkTransportFailure(error) || config?.signal?.aborted) {
-      throw error
-    }
+    return request().catch((error: unknown) =>
+{
+        if (!isNetworkTransportFailure(error) || config?.signal?.aborted)
+{
+            throw error;
+        }
 
-    return request()
-  })
-}
+        return request();
+    });
+};
 
-export const createPublicComment = (data: PublicCommentCreateInput, config?: ApiRequestConfig) => {
+export const createPublicComment = (data: PublicCommentCreateInput, config?: ApiRequestConfig) =>
+{
   return sendCommentMutation(
     {
       ...data,
@@ -144,27 +147,28 @@ export const createPublicComment = (data: PublicCommentCreateInput, config?: Api
       publicSendExplicitlySelected: true
     },
     config
-  )
-}
+    );
+};
 
 export const getCommentPolicySnapshot = (
-  config?: ApiRequestConfig,
-  articleId?: number,
-  rootId?: string | null
-) => {
-  const query = new URLSearchParams()
-  if (articleId && articleId > 0) query.set('articleId', String(articleId))
-  if (rootId) query.set('rootId', rootId)
-  return requestBinaryOnly<CommentPolicySnapshot>({
-    binaryRoute: { operationId: 'binary_get_comment_policy', query },
-    frameType: FrameType.CommentPolicySnapshot,
-    signal: config?.signal as AbortSignal | undefined,
-    requestOptions: { credentials: 'omit' }
-  })
-}
+    config?: ApiRequestConfig,
+    articleId?: number,
+    rootId?: string | null
+) =>
+{
+    const query = new URLSearchParams();
+    if (articleId && articleId > 0) {query.set('articleId', String(articleId))};
+    if (rootId) {query.set('rootId', rootId)};
+    return requestBinaryOnly<CommentPolicySnapshot>({
+        binaryRoute: { operationId: 'binary_get_comment_policy', query },
+        frameType: FrameType.CommentPolicySnapshot,
+        signal: config?.signal as AbortSignal | undefined,
+        requestOptions: { credentials: 'omit' }
+    });
+};
 
 export const getAnonymousCredentialRootSnapshot = (config?: ApiRequestConfig) =>
-  requestBinaryOnly<AnonymousCredentialRootSnapshot>({
+    requestBinaryOnly<AnonymousCredentialRootSnapshot>({
     binaryRoute: { operationId: 'binary_get_anonymous_credential_root' },
     frameType: FrameType.AnonymousCredentialRootSnapshot,
     signal: config?.signal as AbortSignal | undefined,
@@ -239,40 +243,42 @@ function sendCommentMutation(
   const validation = validateCommentContent(data.content ?? '')
   if (!validation.isValid) {
     return Promise.reject(new Error(validation.message))
-  }
+    }
 
-  const payload = encodeCommentCreateV2Request(data)
-  const clientMutationId = normalizeCommentMutationId(data.clientMutationId)
+    const payload = encodeCommentCreateV2Request(data);
+    const clientMutationId = normalizeCommentMutationId(data.clientMutationId);
 
-  return requestBinaryOnly<CommentCreateResult>({
-    binaryRoute: { operationId: 'binary_post_comment' },
+    return requestBinaryOnly<CommentCreateResult>({
+        binaryRoute: { operationId: 'binary_post_comment' },
     frameType: FrameType.CommentCreateResult,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
-      method: 'POST',
-      requiresPow: true,
-      riskChallengeProof: config?.riskChallengeProof ?? undefined,
-      headers: {
-        'X-Fsus-Client-Mutation-Id': clientMutationId
-      },
-      body: encodeAedsFrame(FrameType.CommentCreateV2Request, payload)
-    }
-  })
+            method: 'POST',
+            requiresPow: true,
+            riskChallengeProof: config?.riskChallengeProof ?? undefined,
+            headers: {
+                'X-Fsus-Client-Mutation-Id': clientMutationId
+            },
+            body: encodeAedsFrame(FrameType.CommentCreateV2Request, payload)
+        }
+    });
 }
 
-function normalizeCommentMutationId(value?: string): string {
-  const mutationId = value?.trim() || globalThis.crypto?.randomUUID?.() || ''
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(mutationId)) {
-    throw new Error('comment_client_mutation_id_invalid')
-  }
-  return mutationId
+function normalizeCommentMutationId(value?: string): string
+{
+    const mutationId = value?.trim() || globalThis.crypto?.randomUUID?.() || '';
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(mutationId))
+{
+        throw new Error('comment_client_mutation_id_invalid');
+    }
+    return mutationId;
 }
 
 const isNetworkTransportFailure = (error: unknown): boolean =>
-  typeof error === 'object'
+    typeof error === 'object'
   && error !== null
-  && (error as { name?: unknown }).name === 'BinaryTransportError'
-  && (error as { kind?: unknown }).kind === 'network'
+  && (error as { name?: unknown; }).name === 'BinaryTransportError'
+  && (error as { kind?: unknown; }).kind === 'network';
 
 /** 获取文章下的评论列表
  * 透传 config.signal，使调用方可中断长列表请求。
@@ -284,67 +290,69 @@ export const getComments = (
   config?: ApiRequestConfig
 ) => {
   const search = new URLSearchParams();
-  if (cursor) search.set('cursor', cursor);
-  search.set('limit', String(limit));
+    if (cursor) {search.set('cursor', cursor);}
+    search.set('limit', String(limit));
 
-  return requestBinaryOnly<CursorResponse<CommentTreeRoot>>({
-    binaryRoute: {
-      operationId: 'binary_get_comment_articleId_int',
-      params: { articleId },
-      query: search
-    },
-    frameType: FrameType.CommentTreeRootCursor,
-    signal: config?.signal as AbortSignal | undefined,
-    requestOptions: {
-      credentials: 'omit'
+    return requestBinaryOnly<CursorResponse<CommentTreeRoot>>({
+        binaryRoute: {
+            operationId: 'binary_get_comment_articleId_int',
+            params: { articleId },
+            query: search
+        },
+        frameType: FrameType.CommentTreeRootCursor,
+        signal: config?.signal as AbortSignal | undefined,
+        requestOptions: {
+            credentials: 'omit'
     }
-  });
-}
+    });
+};
 
 export const getCommentChildren = (
-  articleId: number,
-  parentId: string,
-  cursor?: string | null,
-  limit = 20,
-  config?: ApiRequestConfig
-) => {
-  const search = new URLSearchParams();
-  if (cursor) search.set('cursor', cursor);
-  search.set('limit', String(limit));
-  return requestBinaryOnly<CursorResponse<CommentTreeNode>>({
-    binaryRoute: {
-      operationId: 'binary_get_comment_articleId_int_children_parentId_long',
-      params: { articleId, parentId },
-      query: search
-    },
-    frameType: FrameType.CommentChildCursor,
-    signal: config?.signal as AbortSignal | undefined,
-    requestOptions: { credentials: 'omit' }
-  });
-}
+    articleId: number,
+    parentId: string,
+    cursor?: string | null,
+    limit = 20,
+    config?: ApiRequestConfig
+) =>
+{
+    const search = new URLSearchParams();
+    if (cursor) {search.set('cursor', cursor);}
+    search.set('limit', String(limit));
+    return requestBinaryOnly<CursorResponse<CommentTreeNode>>({
+        binaryRoute: {
+            operationId: 'binary_get_comment_articleId_int_children_parentId_long',
+            params: { articleId, parentId },
+            query: search
+        },
+        frameType: FrameType.CommentChildCursor,
+        signal: config?.signal as AbortSignal | undefined,
+        requestOptions: { credentials: 'omit' }
+    });
+};
 
 export const getCommentPermalinkContext = (
-  articleId: number,
-  commentId: string,
-  siblingWindow = 6,
-  config?: ApiRequestConfig
-) => {
-  const search = new URLSearchParams({ window: String(siblingWindow) });
-  return requestBinaryOnly<CommentPermalinkContext>({
-    binaryRoute: {
-      operationId: 'binary_get_comment_articleId_int_context_commentId_long',
-      params: { articleId, commentId },
-      query: search
-    },
-    frameType: FrameType.CommentPermalinkContext,
-    signal: config?.signal as AbortSignal | undefined,
-    requestOptions: { credentials: 'omit' }
-  });
-}
+    articleId: number,
+    commentId: string,
+    siblingWindow = 6,
+    config?: ApiRequestConfig
+) =>
+{
+    const search = new URLSearchParams({ window: String(siblingWindow) });
+    return requestBinaryOnly<CommentPermalinkContext>({
+        binaryRoute: {
+            operationId: 'binary_get_comment_articleId_int_context_commentId_long',
+            params: { articleId, commentId },
+            query: search
+        },
+        frameType: FrameType.CommentPermalinkContext,
+        signal: config?.signal as AbortSignal | undefined,
+        requestOptions: { credentials: 'omit' }
+    });
+};
 
 export const getThreadReplies = (
-  articleId: number,
-  rootId: string,
+    articleId: number,
+    rootId: string,
   cursor?: string | null,
   limit = 20,
   config?: ApiRequestConfig
@@ -422,129 +430,131 @@ export const deleteComment = (id: string, config?: ApiRequestConfig) =>
     requestOptions: {
       method: 'DELETE',
       requiresPow: true
-    }
-  })
+        }
+    });
 
 export const issueCommentManagementChallenge = (
-  id: string,
-  purpose: 'edit' | 'delete' | 'status' | 'appeal',
-  capabilitySecret: string | null,
-  config?: ApiRequestConfig
+    id: string,
+    purpose: 'edit' | 'delete' | 'status' | 'appeal',
+    capabilitySecret: string | null,
+    config?: ApiRequestConfig
 ) => requestCommentManagementJson<CommentManagementChallengeResult>(
   capabilitySecret
-    ? 'binary_post_comment_id_long_management_challenge'
-    : 'binary_post_comment_id_long_author_challenge',
+      ? 'binary_post_comment_id_long_management_challenge'
+      : 'binary_post_comment_id_long_author_challenge',
   id,
   FrameType.CommentManagementChallengeRequest,
   FrameType.CommentManagementChallengeResponse,
   { purpose, capabilitySecret },
   capabilitySecret ? 'public' : 'account',
   config
-)
+);
 
 export const editCommentAsAuthor = (
-  id: string,
-  request: { expectedVersion: number; content: string; challenge: string; capabilitySecret?: string },
-  config?: ApiRequestConfig
+    id: string,
+    request: { expectedVersion: number; content: string; challenge: string; capabilitySecret?: string; },
+    config?: ApiRequestConfig
 ) => requestCommentManagementJson<CommentAuthorMutationResult>(
   request.capabilitySecret
-    ? 'binary_post_comment_id_long_management_edit'
-    : 'binary_post_comment_id_long_author_edit',
+      ? 'binary_post_comment_id_long_management_edit'
+      : 'binary_post_comment_id_long_author_edit',
   id,
   FrameType.CommentAuthorEditRequest,
   FrameType.CommentAuthorMutationResult,
   request,
   request.capabilitySecret ? 'public' : 'account',
   config
-)
+);
 
 export const deleteAnonymousComment = (
-  id: string,
-  capabilitySecret: string,
-  challenge: string,
-  config?: ApiRequestConfig
+    id: string,
+    capabilitySecret: string,
+    challenge: string,
+    config?: ApiRequestConfig
 ) => requestCommentManagementJson<CommentAuthorMutationResult>(
-  'binary_post_comment_id_long_management_delete',
-  id,
-  FrameType.CommentAuthorStatusRequest,
-  FrameType.CommentAuthorMutationResult,
-  { capabilitySecret, challenge },
-  'public',
-  config
-)
+    'binary_post_comment_id_long_management_delete',
+    id,
+    FrameType.CommentAuthorStatusRequest,
+    FrameType.CommentAuthorMutationResult,
+    { capabilitySecret, challenge },
+    'public',
+    config
+);
 
 export const deleteCommentAsAuthor = (
-  id: string,
-  challenge: string,
-  config?: ApiRequestConfig
+    id: string,
+    challenge: string,
+    config?: ApiRequestConfig
 ) => requestCommentManagementJson<CommentAuthorMutationResult>(
-  'binary_post_comment_id_long_author_delete',
-  id,
-  FrameType.CommentAuthorStatusRequest,
-  FrameType.CommentAuthorMutationResult,
-  { challenge, capabilitySecret: '' },
-  'account',
-  config
-)
+    'binary_post_comment_id_long_author_delete',
+    id,
+    FrameType.CommentAuthorStatusRequest,
+    FrameType.CommentAuthorMutationResult,
+    { challenge, capabilitySecret: '' },
+    'account',
+    config
+);
 
 export const getAnonymousCommentStatus = (
-  id: string,
-  capabilitySecret: string,
-  challenge: string,
-  config?: ApiRequestConfig
+    id: string,
+    capabilitySecret: string,
+    challenge: string,
+    config?: ApiRequestConfig
 ) => requestCommentManagementJson<CommentAuthorStatusResult>(
-  'binary_post_comment_id_long_management_status',
-  id,
-  FrameType.CommentAuthorStatusRequest,
-  FrameType.CommentAuthorStatusResult,
-  { capabilitySecret, challenge },
-  'public',
-  config
-)
+    'binary_post_comment_id_long_management_status',
+    id,
+    FrameType.CommentAuthorStatusRequest,
+    FrameType.CommentAuthorStatusResult,
+    { capabilitySecret, challenge },
+    'public',
+    config
+);
 
 export const appealAnonymousComment = (
-  id: string,
-  capabilitySecret: string,
-  challenge: string,
-  reason: string,
-  config?: ApiRequestConfig
+    id: string,
+    capabilitySecret: string,
+    challenge: string,
+    reason: string,
+    config?: ApiRequestConfig
 ) => requestCommentManagementJson<CommentAuthorMutationResult>(
-  'binary_post_comment_id_long_management_appeal',
-  id,
-  FrameType.CommentAuthorAppealRequest,
-  FrameType.CommentAuthorMutationResult,
-  { capabilitySecret, challenge, reason },
-  'public',
-  config
-)
+    'binary_post_comment_id_long_management_appeal',
+    id,
+    FrameType.CommentAuthorAppealRequest,
+    FrameType.CommentAuthorMutationResult,
+    { capabilitySecret, challenge, reason },
+    'public',
+    config
+);
 
 function requestCommentManagementJson<T>(
-  operationId: FsusBinaryOperationId,
-  id: string,
-  requestFrame: FrameType,
-  responseFrame: FrameType,
-  value: unknown,
-  privateScope: 'public' | 'account',
-  config?: ApiRequestConfig
-): Promise<T> {
-  const payload = new TextEncoder().encode(JSON.stringify(value))
-  return requestBinaryOnly<T>({
-    binaryRoute: { operationId, params: { id } },
-    privateScope,
-    frameType: responseFrame,
-    signal: config?.signal as AbortSignal | undefined,
-    requestOptions: {
-      method: 'POST',
-      cache: 'no-store',
-      credentials: privateScope === 'account' ? 'include' : 'omit',
-      body: encodeAedsFrame(requestFrame, payload)
-    }
-  })
+    operationId: FsusBinaryOperationId,
+    id: string,
+    requestFrame: FrameType,
+    responseFrame: FrameType,
+    value: unknown,
+    privateScope: 'public' | 'account',
+    config?: ApiRequestConfig
+): Promise<T>
+{
+    const payload = new TextEncoder().encode(JSON.stringify(value));
+    return requestBinaryOnly<T>({
+        binaryRoute: { operationId, params: { id } },
+        privateScope,
+        frameType: responseFrame,
+        signal: config?.signal as AbortSignal | undefined,
+        requestOptions: {
+            method: 'POST',
+            cache: 'no-store',
+            credentials: privateScope === 'account' ? 'include' : 'omit',
+            body: encodeAedsFrame(requestFrame, payload)
+        }
+    });
 }
 
-export function encodeCommentCreateV2Request(data: CommentCreateV2Dto): Uint8Array {
-  const anonymousScope = new Uint8Array()
-  const displayLanguage = encodeText(data.displayLanguage ?? '')
+export function encodeCommentCreateV2Request(data: CommentCreateV2Dto): Uint8Array
+{
+    const anonymousScope = new Uint8Array();
+    const displayLanguage = encodeText(data.displayLanguage ?? '');
   const proofToken = new Uint8Array()
   const zkProof = new Uint8Array()
   const content = encodeText(data.content ?? '')
