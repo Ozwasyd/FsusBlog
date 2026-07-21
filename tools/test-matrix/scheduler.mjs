@@ -1498,9 +1498,16 @@ async function runDagUnlocked(options) {
   const tierLogDirectory = path.join(runDirectory, 'tiers')
   const snapshotWorktree = options.snapshotWorktree ?? (() => snapshotGitWorktree(root))
   const runSourceSnapshot = await snapshotWorktree()
+  // Honor explicit source-identity env overrides so prepareProductionBuildLayout
+  // (which seeds layout.json from the same env) and onSourceState bind once with
+  // the same commit/fingerprint. Without this, fixture/CI overrides in
+  // FSUSBLOG_TEST_SOURCE_* would pre-bind the layout, then git-derived values
+  // here would fail closed as an immutable identity mismatch (#1069 / #1079).
+  const envCommit = String(process.env.FSUSBLOG_TEST_SOURCE_COMMIT ?? '').trim()
+  const envFingerprint = String(process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT ?? '').trim()
   const sourceState = {
-    commit: gitHead(root),
-    worktreeFingerprint: runSourceSnapshot.fingerprint
+    commit: envCommit || gitHead(root),
+    worktreeFingerprint: envFingerprint || runSourceSnapshot.fingerprint
   }
   await options.onSourceState?.(sourceState)
   const resources = options.systemResources ?? defaultSystemResources()
