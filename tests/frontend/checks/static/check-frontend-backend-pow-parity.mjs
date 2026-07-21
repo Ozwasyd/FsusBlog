@@ -4,6 +4,7 @@ import { resolve } from 'node:path'
 import {
   assert,
   extractBackendBinaryRoutes,
+  routeKey,
   root,
   walk
 } from '../support/crossStackMatrix.mjs'
@@ -27,7 +28,8 @@ for (const expected of [
   ['POST', '/admin/article', true, 'admin article create']
 ]) {
   const [method, path, pow, label] = expected
-  const route = routesByKey.get(`${method} ${path}`)
+  // routeKey normalizes Minimal API type constraints to OpenAPI bare params.
+  const route = routesByKey.get(routeKey(method, path))
   assert(route, `${label} backend route missing from OpenAPI`)
   assert(route.pow === pow, `${label} backend x-fsus-pow expected ${pow}, got ${route.pow}`)
 }

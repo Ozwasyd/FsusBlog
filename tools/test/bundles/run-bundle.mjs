@@ -279,9 +279,15 @@ function frontendBuildStageReceiptFile()
 function expectedFrontendBuildStages()
 {
     const generatedOnly = process.env.FSUSBLOG_VALIDATE_GENERATED_ONLY === '1';
+    // frontend-build runs with FSUSBLOG_SKIP_BACKEND_WWWROOT_SYNC=1 so the stage
+    // receipt records empty ownedOutputs for sync-backend-wwwroot. Validation must
+    // re-create the same stage roster instead of assuming a live wwwroot sync.
     return createFrontendBuildStages(generatedOnly ? ['--check'] : [], generatedOnly ? 'check' : 'generate', {
         frontendRoot: path.join(root, 'src/frontend'),
-        env: process.env
+        env: {
+            ...process.env,
+            FSUSBLOG_SKIP_BACKEND_WWWROOT_SYNC: process.env.FSUSBLOG_SKIP_BACKEND_WWWROOT_SYNC ?? '1'
+        }
     });
 }
 
