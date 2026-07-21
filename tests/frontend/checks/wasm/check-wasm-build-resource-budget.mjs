@@ -15,7 +15,7 @@ const buildWasmArtifact = path.join(root, 'tools/build-wasm-artifact.sh');
 const serverDockerfile = path.join(root, 'ops/docker/FsusBlog.Server.Dockerfile');
 const serviceWorker = path.join(root, 'src/frontend/public/sw.js');
 const budgetVariables = [
-  'FSUSBLOG_STEP_CPU_BUDGET',
+    'FSUSBLOG_STEP_CPU_BUDGET',
   'FSUSBLOG_STEP_MEMORY_GIB',
   'FSUSBLOG_WASM_CPU_BUDGET',
   'FSUSBLOG_BUILD_CPU_BUDGET',

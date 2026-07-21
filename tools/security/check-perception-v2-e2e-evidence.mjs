@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import fs from 'node:fs'
+import fs from 'node:fs';
 import path from 'node:path'
 
 const root = path.resolve(path.join(path.dirname(new URL(import.meta.url).pathname), '..', '..'))

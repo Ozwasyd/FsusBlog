@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import path from 'node:path'
+import path from 'node:path';
 import process from 'node:process'
 import { createReleaseManifest, writeReleaseManifestAtomic } from './release-manifest.mjs'
 

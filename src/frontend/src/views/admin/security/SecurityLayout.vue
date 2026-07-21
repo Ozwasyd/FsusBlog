@@ -22,7 +22,7 @@
 </template>
 
 <script setup lang="ts">
-import { RouterView } from 'vue-router'
+import { RouterView } from 'vue-router';
 import { FsusUiTaskPageHeader } from "@/fsusui"
 import AdminSystemTabs, { type AdminSystemTab } from '@/components/admin/AdminSystemTabs.vue'
 

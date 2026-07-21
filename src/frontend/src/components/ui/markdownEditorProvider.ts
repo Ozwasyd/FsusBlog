@@ -1,4 +1,4 @@
-import type { MarkdownEditorProviderContract } from '@/ui-contracts/markdownEditor'
+import type { MarkdownEditorProviderContract } from '@/ui-contracts/markdownEditor';
 import { AsyncMarkdownRenderer } from '@/components/ui/AsyncMarkdownRenderer'
 import MarkdownTextEditor from '@/components/ui/MarkdownTextEditor.vue'
 

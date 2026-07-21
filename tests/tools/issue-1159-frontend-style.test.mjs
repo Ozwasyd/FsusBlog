@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
     mkdirSync,
     mkdtempSync,
@@ -392,6 +393,133 @@ test('issue 1159 baseline updates preserve paths and reject violation growth', (
         assert.notEqual(increased.status, 0);
         assert.match(output(increased), /refusing frontend style baseline violation increase for tools\/legacy\/existing-tool\.mjs/u);
         assert.equal(readFileSync(baselinePath, 'utf8'), before);
+    });
+});
+
+test('issue 1159 baseline updates reject equal-count violation identity replacement', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        const relativePath = 'tools/legacy/identity-tool.mjs';
+        writeFixture(fixtureRoot, relativePath, `export function first_name(value) {
+  return value
+}
+`);
+        const initial = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline']);
+        assert.equal(initial.status, 0, output(initial));
+        const baselinePath = path.join(fixtureRoot, sourcePolicy.baseline);
+        const before = readFileSync(baselinePath, 'utf8');
+
+        writeFixture(fixtureRoot, relativePath, `export function second_name(value) {
+  return value
+}
+`);
+        const replacement = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline']);
+        assert.notEqual(replacement.status, 0);
+        assert.match(output(replacement), /violation identity change without count decrease/u);
+        assert.equal(readFileSync(baselinePath, 'utf8'), before);
+    });
+});
+
+test('issue 1159 baseline configuration migration requires explicit old-digest authorization', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        const relativePath = 'tools/legacy/config-tool.mjs';
+        writeFixture(fixtureRoot, relativePath, `export function config_name(value) {
+  return value
+}
+`);
+        const initial = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline']);
+        assert.equal(initial.status, 0, output(initial));
+        const baselinePath = path.join(fixtureRoot, sourcePolicy.baseline);
+        const before = readFileSync(baselinePath, 'utf8');
+        const previous = JSON.parse(before);
+        const editorConfigPath = path.join(fixtureRoot, '.editorconfig');
+        writeFileSync(editorConfigPath, `${readFileSync(editorConfigPath, 'utf8')}\n`);
+
+        const rejected = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline']);
+        assert.notEqual(rejected.status, 0);
+        assert.match(output(rejected), /baseline configuration digest changed/u);
+        assert.equal(readFileSync(baselinePath, 'utf8'), before);
+
+        const migrated = runChecker(fixtureRoot, [
+            '--mode', 'full',
+            '--update-baseline',
+            '--migrate-baseline-configuration', previous.configurationSha256
+        ]);
+        assert.equal(migrated.status, 0, output(migrated));
+        assert.notEqual(JSON.parse(readFileSync(baselinePath, 'utf8')).configurationSha256, previous.configurationSha256);
+    });
+});
+
+test('issue 1159 baseline records real zero state and candidate source identity', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        const relativePath = 'tools/legacy/zero-tool.mjs';
+        writeFixture(fixtureRoot, relativePath, `export function zero_name(value) {
+  return value
+}
+`);
+        const initial = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline']);
+        assert.equal(initial.status, 0, output(initial));
+
+        writeFixture(fixtureRoot, relativePath, `export function readValue(value)
+{
+    return value;
+}
+`);
+        const updated = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline']);
+        assert.equal(updated.status, 0, output(updated));
+        const baselinePath = path.join(fixtureRoot, sourcePolicy.baseline);
+        const first = readFileSync(baselinePath, 'utf8');
+        const document = JSON.parse(first);
+        const entry = document.files.find((candidate) => candidate.path === relativePath);
+        assert.deepEqual(entry, {
+            path: relativePath,
+            sourceSha256: createHash('sha256').update(readFileSync(path.join(fixtureRoot, relativePath))).digest('hex'),
+            violationCount: 0,
+            violationDigest: createHash('sha256').update('').digest('hex'),
+            rules: {}
+        });
+        assert.equal(document.generatedFrom, `source-state:${document.sourceStateSha256}`);
+        assert.match(document.sourceStateSha256, /^[0-9a-f]{64}$/u);
+
+        const repeated = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline']);
+        assert.equal(repeated.status, 0, output(repeated));
+        assert.equal(readFileSync(baselinePath, 'utf8'), first);
+    });
+});
+
+test('issue 1159 baseline removes deleted paths only through reviewed pruning', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        const relativePath = 'tools/legacy/removed-tool.mjs';
+        writeFixture(fixtureRoot, relativePath, `export function removed_name(value) {
+  return value
+}
+`);
+        const initial = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline']);
+        assert.equal(initial.status, 0, output(initial));
+        const baselinePath = path.join(fixtureRoot, sourcePolicy.baseline);
+        const before = readFileSync(baselinePath, 'utf8');
+        rmSync(path.join(fixtureRoot, relativePath));
+
+        const rejected = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline']);
+        assert.notEqual(rejected.status, 0);
+        assert.match(output(rejected), /refusing missing frontend style baseline path/u);
+        assert.equal(readFileSync(baselinePath, 'utf8'), before);
+
+        const pruned = runChecker(fixtureRoot, [
+            '--mode', 'full',
+            '--update-baseline',
+            '--prune-removed-baseline-paths'
+        ]);
+        assert.equal(pruned.status, 0, output(pruned));
+        const document = JSON.parse(readFileSync(baselinePath, 'utf8'));
+        assert.equal(document.files.some((entry) => entry.path === relativePath), false);
     });
 });
 

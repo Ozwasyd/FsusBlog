@@ -40,7 +40,12 @@ function parseArgs(argv)
             parsed.fix = true;
             continue;
         }
-        if (!['--root', '--policy', '--mode', '--base', '--file'].includes(argument))
+        if (argument === '--prune-removed-baseline-paths')
+        {
+            parsed.pruneRemovedBaselinePaths = true;
+            continue;
+        }
+        if (!['--root', '--policy', '--mode', '--base', '--file', '--migrate-baseline-configuration'].includes(argument))
         {
             throw new Error(`unknown argument ${argument}`);
         }
@@ -52,6 +57,10 @@ function parseArgs(argv)
         if (argument === '--file')
         {
             parsed.files.push(value);
+        }
+        else if (argument === '--migrate-baseline-configuration')
+        {
+            parsed.migrateBaselineConfiguration = value;
         }
         else
         {
@@ -70,6 +79,14 @@ function toPosix(value)
 function sha256(value)
 {
     return crypto.createHash('sha256').update(value).digest('hex');
+}
+
+function gitBlobDigest(value)
+{
+    return crypto.createHash('sha1')
+        .update(`blob ${value.length}\0`)
+        .update(value)
+        .digest('hex');
 }
 
 function compareOrdinal(left, right)
@@ -404,6 +421,41 @@ function configurationDigest()
     return sha256(paths.map((file) => `${toPosix(path.relative(root, file))}\n${sha256(fs.readFileSync(file))}`).join('\n'));
 }
 
+function sourceStateDigest()
+{
+    const files = allRepositoryFiles()
+        .filter((file) => file !== policy.baseline)
+        .filter((file) => fs.existsSync(path.join(root, file)))
+        .sort();
+    const repositoryRoot = command(['git', 'rev-parse', '--show-toplevel'], { allowFailure: true }).stdout.trim();
+    if (repositoryRoot && path.resolve(repositoryRoot) === root)
+    {
+        const indexed = new Map();
+        const index = command(['git', 'ls-files', '--stage'], { allowFailure: true });
+        if (index.status === 0)
+        {
+            for (const line of index.stdout.split(/\r?\n/u))
+            {
+                const match = /^\d+ ([0-9a-f]+) 0\t(.+)$/u.exec(line);
+                if (match)
+                {
+                    indexed.set(toPosix(match[2]), match[1]);
+                }
+            }
+            const changed = new Set(changedFiles('HEAD'));
+            return sha256(files.map((file) =>
+            {
+                const indexedDigest = indexed.get(file);
+                const digest = indexedDigest && !changed.has(file)
+                    ? indexedDigest
+                    : gitBlobDigest(fs.readFileSync(path.join(root, file)));
+                return `${file}\n${digest}`;
+            }).join('\n'));
+        }
+    }
+    return sha256(files.map((file) => `${file}\nsha256:${sha256(fs.readFileSync(path.join(root, file)))}`).join('\n'));
+}
+
 function loadBaseline()
 {
     const baselinePath = path.join(root, policy.baseline);
@@ -432,7 +484,7 @@ function loadBaseline()
     return new Map(document.files.map((entry) => [entry.path, entry]));
 }
 
-function writeBaseline(violations)
+function writeBaseline(violations, selectedFiles, args)
 {
     const target = path.join(root, policy.baseline);
     const byFile = new Map();
@@ -444,14 +496,15 @@ function writeBaseline(violations)
         entry.ids.push(violation.id);
         byFile.set(violation.file, entry);
     }
-    const currentFiles = [...byFile.entries()].map(([file, entry]) => ({
+    const currentByPath = new Map([...byFile.entries()].map(([file, entry]) => [file, {
         path: file,
         sourceSha256: sha256(fs.readFileSync(path.join(root, file))),
         violationCount: entry.ids.length,
         violationDigest: sha256(entry.ids.sort().join('\n')),
         rules: Object.fromEntries(Object.entries(entry.rules).sort(([left], [right]) => compareOrdinal(left, right)))
-    })).sort((left, right) => compareOrdinal(left.path, right.path));
-    let files = currentFiles;
+    }]));
+    const selected = new Set(selectedFiles);
+    let files = [...currentByPath.values()].sort((left, right) => compareOrdinal(left.path, right.path));
     if (fs.existsSync(target))
     {
         const previous = readJson(target, policy.baseline);
@@ -466,7 +519,19 @@ function writeBaseline(violations)
             fail('frontend style baseline contains duplicate paths');
             return;
         }
-        for (const current of currentFiles)
+        const currentConfigurationSha256 = configurationDigest();
+        if (previous.configurationSha256 !== currentConfigurationSha256)
+        {
+            if (args.migrateBaselineConfiguration !== previous.configurationSha256)
+            {
+                fail(`frontend style baseline configuration digest changed from ${previous.configurationSha256} to ${currentConfigurationSha256}; rerun with --migrate-baseline-configuration ${previous.configurationSha256}`);
+            }
+        }
+        else if (args.migrateBaselineConfiguration)
+        {
+            fail('refusing unnecessary frontend style baseline configuration migration authorization');
+        }
+        for (const current of currentByPath.values())
         {
             const prior = previousByPath.get(current.path);
             if (!prior)
@@ -478,19 +543,52 @@ function writeBaseline(violations)
             {
                 fail(`refusing frontend style baseline violation increase for ${current.path}: ${prior.violationCount} -> ${current.violationCount}`);
             }
+            else if (current.violationCount === prior.violationCount
+                && current.violationDigest !== prior.violationDigest)
+            {
+                fail(`refusing frontend style baseline violation identity change without count decrease for ${current.path}`);
+            }
+        }
+        const emptyViolationDigest = sha256('');
+        const nextFiles = [];
+        for (const prior of previous.files)
+        {
+            const current = currentByPath.get(prior.path);
+            if (current)
+            {
+                nextFiles.push(current);
+                continue;
+            }
+            const absolute = path.join(root, prior.path);
+            if (selected.has(prior.path) && fs.existsSync(absolute))
+            {
+                nextFiles.push({
+                    path: prior.path,
+                    sourceSha256: sha256(fs.readFileSync(absolute)),
+                    violationCount: 0,
+                    violationDigest: emptyViolationDigest,
+                    rules: {}
+                });
+                continue;
+            }
+            if (!fs.existsSync(absolute) && args.pruneRemovedBaselinePaths)
+            {
+                continue;
+            }
+            fail(`refusing missing frontend style baseline path ${prior.path}; use --prune-removed-baseline-paths only after reviewing its deletion`);
         }
         if (failures.length > 0)
         {
             return;
         }
-        const currentByPath = new Map(currentFiles.map((entry) => [entry.path, entry]));
-        files = previous.files.map((entry) => currentByPath.get(entry.path) ?? entry);
+        files = nextFiles;
     }
-    const commit = command(['git', 'rev-parse', 'HEAD'], { allowFailure: true }).stdout.trim() || 'uncommitted';
+    const sourceStateSha256 = sourceStateDigest();
     const violationCount = files.reduce((sum, entry) => sum + entry.violationCount, 0);
     const document = {
         schema: baselineSchema,
-        generatedFrom: commit,
+        generatedFrom: `source-state:${sourceStateSha256}`,
+        sourceStateSha256,
         configurationSha256: configurationDigest(),
         violationCount,
         fileCount: files.length,
@@ -658,6 +756,10 @@ function main()
     {
         throw new Error('--update-baseline and --fix cannot be combined');
     }
+    if ((args.migrateBaselineConfiguration || args.pruneRemovedBaselinePaths) && !args.updateBaseline)
+    {
+        throw new Error('baseline migration options require --update-baseline');
+    }
     if (args.fix && args.mode === 'full' && args.files.length === 0)
     {
         throw new Error('refusing full-repository --fix; mechanical formatting requires a separate reviewed commit');
@@ -693,7 +795,7 @@ function main()
         {
             return null;
         }
-        writeBaseline(violations);
+        writeBaseline(violations, files, args);
         return { files: files.length, eslintFiles: eslintFiles.length, stylelintFiles: stylelintFiles.length, violations: violations.length, unexpected: 0 };
     }
 

@@ -1,7 +1,7 @@
 import {
-  readPublicHydrationPayloadAsync
-} from '@/bootstrap/publicHydrationBootstrap'
-import { hydratePublicPage, type PublicHydrationPayload } from '@/public-renderers'
+    readPublicHydrationPayloadAsync
+} from '@/bootstrap/publicHydrationBootstrap';
+import { hydratePublicPage, type PublicHydrationPayload } from '@/public-renderers';
 import {
   isPublicSeoPath,
   removeGlobalLoader

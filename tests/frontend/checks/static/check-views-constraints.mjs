@@ -7,7 +7,7 @@ const srcDir = join(root, 'src');
 const viewsDir = join(srcDir, 'views');
 const componentsDir = join(srcDir, 'components');
 const componentFacingDirs = [
-  componentsDir,
+    componentsDir,
   join(srcDir, 'ui-tokens'),
   join(srcDir, 'ui-contracts'),
   join(srcDir, 'view-contracts')

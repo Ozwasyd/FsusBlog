@@ -1,4 +1,4 @@
-import { getHotArticles } from '@/api/article'
+import { getHotArticles } from '@/api/article';
 import { buildPublicArticleHref } from '@/public-renderers/publicRouteIdentity'
 
 let mountedAsideContent: HTMLElement | null = null

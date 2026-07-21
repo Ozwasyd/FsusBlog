@@ -1,4 +1,4 @@
-import { safeConsoleError, safeConsoleInfo, safeConsoleWarn } from '@/services/safeConsole'
+import { safeConsoleError, safeConsoleInfo, safeConsoleWarn } from '@/services/safeConsole';
 import { redactAuditContext } from '@/services/telemetryPrivacy'
 
 type FrontendAuditLevel = 'info' | 'warn' | 'error'

@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router'
 import { startAuthentication } from '@simplewebauthn/browser'
 import { getPasskeySignalState, passkeyLoginBegin, passkeyLoginComplete } from '@/api/auth'

@@ -1,8 +1,8 @@
 import {
-  renderMarkdownResultWithRuntime,
-  type MarkdownRenderResult as FsusMarkdownRenderResult
-} from '@ozwasyd/element-plus/markdown-runtime'
-import type { FsusUiResult } from '@/fsusui/result'
+    renderMarkdownResultWithRuntime,
+    type MarkdownRenderResult as FsusMarkdownRenderResult
+} from '@ozwasyd/element-plus/markdown-runtime';
+import type { FsusUiResult } from '@/fsusui/result';
 import { sanitizeMarkdownRuntimeHtml } from '@/utils/safeHtml'
 
 export type MarkdownRenderMode = 'article' | 'about' | 'preview' | 'editor'

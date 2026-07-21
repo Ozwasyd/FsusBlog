@@ -1,4 +1,4 @@
-import type { ConversationMessageResponse } from '@/contracts/binaryApi'
+import type { ConversationMessageResponse } from '@/contracts/binaryApi';
 
 export function mergeConversationMessagePages(
   existing: readonly ConversationMessageResponse[],
