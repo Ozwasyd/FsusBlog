@@ -471,6 +471,19 @@ upsert_article_tag AS (
   SELECT (SELECT id FROM final_article), ${tagId}
   ON CONFLICT (articleid, tagid) DO NOTHING
 ),
+upsert_content_block AS (
+  INSERT INTO article_revision_content_block(content_hash, markdown_content, byte_length, created_at)
+  VALUES (
+    encode(sha256(convert_to('${markdown}', 'UTF8')), 'hex'),
+    '${markdown}',
+    octet_length(convert_to('${markdown}', 'UTF8')),
+    NOW()
+  )
+  ON CONFLICT (content_hash) DO UPDATE
+  SET markdown_content = EXCLUDED.markdown_content,
+      byte_length = EXCLUDED.byte_length
+  RETURNING id
+),
 upsert_revision AS (
   INSERT INTO article_revision(
     article_id,
@@ -480,30 +493,34 @@ upsert_revision AS (
     cover_image_url,
     categoryid,
     tag_ids,
+    content_block_id,
     markdown_content,
     diff_summary,
     created_by_admin_principal_id,
     created_at
   )
   SELECT
-    id,
+    article.id,
     1,
     '${title}',
     '${summary}',
     '${coverImageUrl}',
     ${categoryId},
     '${tagId}',
-    '${markdown}',
+    block.id,
+    '',
     'acceptance fixture seed',
     0,
     NOW()
-  FROM final_article
+  FROM final_article article
+  CROSS JOIN upsert_content_block block
   ON CONFLICT (article_id, revision_no) DO UPDATE
   SET title = EXCLUDED.title,
       summary = EXCLUDED.summary,
       cover_image_url = EXCLUDED.cover_image_url,
       categoryid = EXCLUDED.categoryid,
       tag_ids = EXCLUDED.tag_ids,
+      content_block_id = EXCLUDED.content_block_id,
       markdown_content = EXCLUDED.markdown_content,
       diff_summary = EXCLUDED.diff_summary,
       created_at = EXCLUDED.created_at
