@@ -18,6 +18,21 @@ const allowedRuntimeEnvironmentKeys = new Set([
   'FSUSBLOG_FIXTURE_SERVICE_GENERATION',
   'FSUSBLOG_RUNTIME_CONFIGURATION',
   'FSUSBLOG_RUNTIME_NO_BUILD',
+  // Bootstrap writes scheduler / multi-node / browser-contract identity into the
+  // namespace env file. The runtime-browser loader must accept these keys so
+  // post-bootstrap steps inherit the same run binding bootstrap sealed.
+  'FSUSBLOG_TEST_RUN_ID',
+  'FSUSBLOG_PHYSICAL_BUNDLE_ID',
+  'FSUSBLOG_STEP_ID',
+  'FSUSBLOG_TEST_RUNTIME_MODE',
+  'FSUSBLOG_TEST_NODE_COUNT',
+  'FSUSBLOG_TEST_ARTIFACT_STORAGE',
+  'FSUSBLOG_TEST_COORDINATION_STORE',
+  'FSUSBLOG_TEST_CLUSTER_SCENARIO',
+  'FSUSBLOG_TEST_CLUSTER_BOOTSTRAP',
+  'FSUSBLOG_TEST_CLUSTER_FIXTURES',
+  'FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME',
+  'FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID',
   'ConnectionStrings__DefaultConnection',
   'ConnectionStrings__Redis',
   'RedisOptions__Configuration',

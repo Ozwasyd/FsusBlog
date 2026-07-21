@@ -41,7 +41,19 @@ test('runtime environment parser preserves non-shell values and binds all URLs t
   const environment = parseRuntimeEnvironment(
     serializeRuntimeEnvironment(runtimeEnvironmentFixture({
       ConnectionStrings__DefaultConnection: 'Host=127.0.0.1;Port=24501;Password=value=with=equals',
-      ActiveReleaseFence__AllowSyntheticLocalFence: 'true'
+      ActiveReleaseFence__AllowSyntheticLocalFence: 'true',
+      FSUSBLOG_TEST_RUN_ID: 'production-2026-07-21_23-10-14-563-1341343',
+      FSUSBLOG_PHYSICAL_BUNDLE_ID: 'runtime-browser',
+      FSUSBLOG_STEP_ID: 'bootstrap',
+      FSUSBLOG_TEST_RUNTIME_MODE: 'single',
+      FSUSBLOG_TEST_NODE_COUNT: '1',
+      FSUSBLOG_TEST_ARTIFACT_STORAGE: 'local',
+      FSUSBLOG_TEST_COORDINATION_STORE: 'none',
+      FSUSBLOG_TEST_CLUSTER_SCENARIO: 'none',
+      FSUSBLOG_TEST_CLUSTER_BOOTSTRAP: 'none',
+      FSUSBLOG_TEST_CLUSTER_FIXTURES: '',
+      FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME: '0',
+      FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID: ''
     })),
     'runtime-focused-1'
   )
@@ -50,6 +62,9 @@ test('runtime environment parser preserves non-shell values and binds all URLs t
   assert.equal(environment.RuntimeTuning__ThreadPool__Enabled, 'true')
   assert.equal(environment.RuntimeTuning__ThreadPool__MinThreadsPerCpu, '20')
   assert.equal(environment.ActiveReleaseFence__AllowSyntheticLocalFence, 'true')
+  assert.equal(environment.FSUSBLOG_TEST_RUN_ID, 'production-2026-07-21_23-10-14-563-1341343')
+  assert.equal(environment.FSUSBLOG_PHYSICAL_BUNDLE_ID, 'runtime-browser')
+  assert.equal(environment.FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME, '0')
   assert.equal(
     environment.ConnectionStrings__DefaultConnection,
     'Host=127.0.0.1;Port=24501;Password=value=with=equals'
@@ -156,8 +171,8 @@ test('runtime bundle removes artificial serial dependencies while retaining ever
   const index = byId(steps)
   assert.equal(steps.length, 22)
   assert.deepEqual(steps.flatMap((step) => step.members).sort(), [
-    'acceptance', 'bootstrap', 'cross-stack-contract', 'csrf-browser-matrix',
-    'endpoint-depth', 'frontend-render-pressure', 'integration', 'release', 'resilience', 'security-authenticated-dast',
+    'bootstrap', 'cross-stack-contract', 'csrf-browser-matrix',
+    'endpoint-depth', 'integration', 'release', 'resilience', 'security-authenticated-dast',
     'rights-v3-test-matrix', 'security'
   ].sort())
 

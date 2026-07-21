@@ -667,7 +667,11 @@ export function runtimeSteps() {
       dependsOn: [...needsStableReleaseHydration, 'runtime-integration'],
       resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
     }),
-    step('acceptance', 'tools/test/lanes/acceptance-playwright.sh', ['acceptance'], {
+    // Acceptance Playwright remains a runtime correctness step, but the matrix
+    // no longer maps an `acceptance` member onto this physical bundle (browser
+    // contract owns the release-final Chromium surface). Keep members empty so
+    // register() does not claim an undeclared tier.
+    step('acceptance', 'tools/test/lanes/acceptance-playwright.sh', [], {
       dependsOn: ['release-public'],
       resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1 }
     }),
@@ -697,7 +701,11 @@ export function runtimeSteps() {
     step('cross-stack-runtime', 'tools/test/lanes/cross-stack-contract.sh runtime', [], {
       dependsOn: ['runtime-integration']
     }),
-    step('render-structure', 'tools/test/lanes/frontend-render-pressure.sh', ['frontend-render-pressure'], {
+    // Browserless render-pressure evidence is owned by frontend-tests
+    // (`frontend-render-structure`). This runtime step is a non-member probe
+    // that reuses the same lane after frontend-build-ready without claiming a
+    // matrix tier the runtime-browser bundle does not declare.
+    step('render-structure', 'tools/test/lanes/frontend-render-pressure.sh', [], {
       dependsOn: ['frontend-build-ready'],
       resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
     }),
