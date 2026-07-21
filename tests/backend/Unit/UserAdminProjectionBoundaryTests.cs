@@ -27,7 +27,8 @@ public sealed class UserAdminProjectionBoundaryTests
                 typeof(ILogger<UserAdminModerationService>),
                 typeof(IBlacklistService),
                 typeof(IMessageCommandService),
-                typeof(ICacheCounterStore)
+                typeof(ICacheCounterStore),
+                typeof(FsusBlog.Server.Services.Security.IUserSessionValidationCache)
             ],
             dependencies);
         Assert.DoesNotContain(typeof(UserService), dependencies);

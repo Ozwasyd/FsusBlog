@@ -336,7 +336,9 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
         => PostgresSqlSugarTestClient.InitTables(
             db,
             typeof(Article),
+            typeof(ArticlePublicationRecord),
             typeof(Comment),
+            typeof(CommentRevision),
             typeof(CommentBlockedRegion),
             typeof(CommentRegionCompliance),
             typeof(CommentAnonymousNullifier));

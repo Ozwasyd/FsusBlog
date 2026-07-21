@@ -217,7 +217,7 @@ public sealed class ArticlePublicationTransitionTests
         Assert.Equal(7, root.GetProperty("revisionNo").GetInt32());
         Assert.Equal(901, root.GetProperty("rightsSnapshotId").GetInt64());
         Assert.Equal(1001, root.GetProperty("responsibilitySnapshotId").GetInt64());
-        Assert.Equal(1201, root.GetProperty("articlePublicationId").GetInt64());
-        Assert.Equal(4, root.GetProperty("publicationNo").GetInt32());
+        Assert.Equal(1201, root.GetProperty("releaseId").GetInt64());
+        Assert.Equal(4, root.GetProperty("releaseNo").GetInt32());
     }
 }

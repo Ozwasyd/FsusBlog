@@ -31,7 +31,11 @@ public sealed class BackendTestGovernanceTests
 
         foreach (JsonObject profile in profiles.Select(static node => node!.AsObject()))
         {
-            Assert.StartsWith("backend-", profile["id"]!.GetValue<string>(), StringComparison.Ordinal);
+            string profileId = profile["id"]!.GetValue<string>();
+            Assert.True(
+                profileId.StartsWith("backend-", StringComparison.Ordinal)
+                || profileId.StartsWith("distributed-contract-", StringComparison.Ordinal),
+                $"profile id must be a governed backend or distributed-contract lane: {profileId}");
             Assert.StartsWith("tools/test/", profile["command"]!.GetValue<string>(), StringComparison.Ordinal);
             Assert.False(string.IsNullOrWhiteSpace(profile["risk"]!.GetValue<string>()));
 

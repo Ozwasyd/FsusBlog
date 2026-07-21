@@ -223,6 +223,7 @@ localProfiles:
                       frontend-coverage,
                       frontend-static-output,
                       frontend-render-structure,
+                      frontend-render-pressure,
                       frontend-dist,
                       generated-contracts,
                       benchmark-window,

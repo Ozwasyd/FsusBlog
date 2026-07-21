@@ -367,8 +367,8 @@ public sealed class PodBinaryCodecBatchAllocationTests
     {
         private const int ArticlePageCursorEnvelopeMagic = 0x41535046;
         private const int ArticlePageCursorEnvelopeVersion = 2;
-        private const uint ArticleDetailV4PayloadMagic = 0x41524434;
-        private const int ArticleDetailV4PayloadVersion = 4;
+        private const uint ArticleDetailV5PayloadMagic = 0x41524435;
+        private const int ArticleDetailV5PayloadVersion = 5;
         private const int RightsFlagEnabled = 1 << 0;
         private const int RightsFlagAllowCodeCopy = 1 << 1;
         private const int RightsFlagShowPublicBadge = 1 << 2;
@@ -451,7 +451,7 @@ public sealed class PodBinaryCodecBatchAllocationTests
             var destination = new ArrayBufferWriter<byte>();
             var blob = new List<byte>(Math.Max(512, item.Content.Length + item.Title.Length + (item.Summary?.Length ?? 0) + (item.CoverImageUrl?.Length ?? 0)));
             ArticleRightsCoreModel rights = item.Rights;
-            var article = new MutableArticleDetailV4RecordPod
+            var article = new MutableArticleDetailV5RecordPod
             {
                 Id = item.Id,
                 Views = item.Views,
@@ -461,6 +461,10 @@ public sealed class PodBinaryCodecBatchAllocationTests
                 ScheduledPublishAtUnixMs = ToUnixMsOrZero(item.ScheduledPublishAt),
                 PublishedAtUnixMs = ToUnixMsOrZero(item.PublishedAt),
                 UpdatedAtUnixMs = ToUnixMsOrZero(item.UpdatedAt),
+                CurrentRevisionId = item.CurrentRevisionId,
+                RevisionNo = item.RevisionNo,
+                CurrentPublicationId = item.CurrentPublicationId.GetValueOrDefault(),
+                PublicationNo = item.PublicationNo.GetValueOrDefault(),
                 IsDeleted = item.IsDeleted ? (byte)1 : (byte)0,
                 Title = PodUtf8Codec.AppendSlice(item.Title, blob),
                 Content = PodUtf8Codec.AppendSlice(item.Content, blob),
@@ -499,13 +503,13 @@ public sealed class PodBinaryCodecBatchAllocationTests
                 ProofStatus = PodUtf8Codec.AppendSlice(rights.ProofStatus, blob)
             };
             int headerSize = Unsafe.SizeOf<ArticleDetailV4HeaderPod>();
-            int articleSize = Unsafe.SizeOf<ArticleDetailV4RecordPod>();
+            int articleSize = Unsafe.SizeOf<ArticleDetailV5RecordPod>();
             int tagSize = Unsafe.SizeOf<ArticleDetailTagV3RecordPod>();
             int rightsSize = Unsafe.SizeOf<ArticleRightsV3RecordPod>();
             var header = new MutableArticleDetailV4HeaderPod
             {
-                Magic = ArticleDetailV4PayloadMagic,
-                Version = ArticleDetailV4PayloadVersion,
+                Magic = ArticleDetailV5PayloadMagic,
+                Version = ArticleDetailV5PayloadVersion,
                 ArticleRecordOffset = headerSize,
                 ArticleRecordLength = articleSize,
                 TagOffset = headerSize + articleSize,
@@ -517,7 +521,7 @@ public sealed class PodBinaryCodecBatchAllocationTests
             };
             var writer = new ReferenceWriter(destination);
             writer.WritePod(Cast<MutableArticleDetailV4HeaderPod, ArticleDetailV4HeaderPod>(header));
-            writer.WritePod(Cast<MutableArticleDetailV4RecordPod, ArticleDetailV4RecordPod>(article));
+            writer.WritePod(Cast<MutableArticleDetailV5RecordPod, ArticleDetailV5RecordPod>(article));
             foreach (ArticleDetailTagV3RecordPod tag in tags)
             {
                 writer.WritePod(tag);
@@ -628,7 +632,7 @@ public sealed class PodBinaryCodecBatchAllocationTests
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        private struct MutableArticleDetailV4RecordPod
+        private struct MutableArticleDetailV5RecordPod
         {
             public int Id;
             public int Views;
@@ -638,6 +642,10 @@ public sealed class PodBinaryCodecBatchAllocationTests
             public long ScheduledPublishAtUnixMs;
             public long PublishedAtUnixMs;
             public long UpdatedAtUnixMs;
+            public long CurrentRevisionId;
+            public int RevisionNo;
+            public long CurrentPublicationId;
+            public int PublicationNo;
             public byte IsDeleted;
             public byte Reserved0;
             public ushort Reserved1;

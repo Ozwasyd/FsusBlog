@@ -24,7 +24,7 @@ namespace FsusBlog.Server.Tests;
 
 public sealed class PublicAotFileShellCacheTests
 {
-    private const string TestReleaseId = "public-aot-cache-tests";
+    private const string TestReleaseId = "20260721000000-cafebabe0001";
 
     [Fact]
     public void SerializeEntryBytes_RoundTripsEntry()
@@ -269,10 +269,10 @@ public sealed class PublicAotFileShellCacheTests
             .Returns(Task.FromResult(1L));
         var publisher = new ReleaseDerivedArtifactPublisher(
             Path.Combine(temp.Root, "derived"),
-            "release-20260712-public-aot");
+            "20260712000000-0a0b0c0d0e0f");
         var secondPublisher = new ReleaseDerivedArtifactPublisher(
             Path.Combine(temp.Root, "derived"),
-            "release-20260712-public-aot");
+            "20260712000000-0a0b0c0d0e0f");
         var oldInstance = new PublicAotFileShellCache(
             new TestWebHostEnvironment(temp.Root, Environments.Development),
             redis,
@@ -376,7 +376,7 @@ public sealed class PublicAotFileShellCacheTests
             firstGenerationManifestPath,
             JsonSerializer.SerializeToUtf8Bytes(stored with
             {
-                ReleaseId = "other-release"
+                ReleaseId = "20260721000000-deadbeef0002"
             }));
         await Assert.ThrowsAsync<InvalidOperationException>(() => publisher.ReactivateArtifactAsync(
             "public-aot",

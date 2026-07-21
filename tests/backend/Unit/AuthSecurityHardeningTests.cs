@@ -87,7 +87,7 @@ public sealed class AuthSecurityHardeningTests
         Assert.Contains("UseTranAsync", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("FOR UPDATE", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("refreshtokenhash <> @StaleHash", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("IS NOT DISTINCT FROM", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("xmin::text", runtimeShape, StringComparison.Ordinal);
         Assert.DoesNotContain("User.set_RefreshToken", runtimeShape, StringComparison.Ordinal);
     }
 

@@ -27,6 +27,7 @@ public sealed class UserBootstrapLoginMfaBoundaryTests
                 typeof(IJwtHelper),
                 typeof(IUserSessionValidationCache),
                 typeof(IAuthRiskService),
+                typeof(FsusBlog.Server.Infrastructure.Security.IUserSessionMetadataProtector),
                 typeof(IConfiguration),
                 typeof(FsusBlog.Server.Services.NotificationStream.IMessageNotificationStreamPort)
             ],

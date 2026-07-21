@@ -42,7 +42,7 @@ public readonly record struct SchemaIdentifier
 public sealed record SchemaColumnDefinition
 {
     private static readonly Regex s_supportedDefinition = new(
-        "^(?:smallint|integer|bigint|boolean|bytea|text|timestamp|varchar\\([1-9][0-9]{0,4}\\))(?:\\s+(?:NULL|NOT NULL))?(?:\\s+DEFAULT\\s+(?:-?[0-9]+|true|false|now\\(\\)|'(?:[^']|'')*'))?$",
+        "^(?:smallint|integer|bigint|boolean|bytea|text|timestamp(?:\\s+(?:without|with)\\s+time\\s+zone)?|varchar\\([1-9][0-9]{0,4}\\))(?:\\s+(?:NULL|NOT NULL))?(?:\\s+DEFAULT\\s+(?:-?[0-9]+|true|false|now\\(\\)|'(?:[^']|'')*'))?$",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.NonBacktracking);
 
     private SchemaColumnDefinition(string value) => Value = value;
@@ -83,7 +83,11 @@ public sealed record SchemaColumnDefinition
         translated = Regex.Replace(translated, "^(?:smallint|integer|bigint)", "INTEGER", RegexOptions.IgnoreCase);
         translated = Regex.Replace(translated, "^boolean", "INTEGER", RegexOptions.IgnoreCase);
         translated = Regex.Replace(translated, "^bytea", "BLOB", RegexOptions.IgnoreCase);
-        translated = Regex.Replace(translated, "^timestamp", "TEXT", RegexOptions.IgnoreCase);
+        translated = Regex.Replace(
+            translated,
+            "^timestamp(?:\\s+(?:without|with)\\s+time\\s+zone)?",
+            "TEXT",
+            RegexOptions.IgnoreCase);
         translated = Regex.Replace(translated, "\\bDEFAULT\\s+true\\b", "DEFAULT 1", RegexOptions.IgnoreCase);
         translated = Regex.Replace(translated, "\\bDEFAULT\\s+false\\b", "DEFAULT 0", RegexOptions.IgnoreCase);
         return Regex.Replace(translated, "\\bnow\\(\\)", "CURRENT_TIMESTAMP", RegexOptions.IgnoreCase);

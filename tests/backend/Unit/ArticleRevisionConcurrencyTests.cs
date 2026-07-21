@@ -537,7 +537,11 @@ public sealed class ArticleRevisionConcurrencyTests(
         Assert.False(updateTask.IsCompleted);
 
         await concurrentChange.CommitAsync();
-        bool updated = await updateTask.WaitAsync(TimeSpan.FromSeconds(10));
+        bool updated = false;
+        Exception? failure = await Record.ExceptionAsync(async () =>
+        {
+            updated = await updateTask.WaitAsync(TimeSpan.FromSeconds(10));
+        });
 
         Article article = await setupDb.Queryable<Article>().InSingleAsync(articleId);
         ArticleBody body = await setupDb.Queryable<ArticleBody>().InSingleAsync(articleId);
@@ -547,7 +551,12 @@ public sealed class ArticleRevisionConcurrencyTests(
             .Select(tag => tag.TagId)
             .ToListAsync();
 
-        Assert.False(updated);
+        // Stale writers either lose the optimistic CAS (false) or surface a revision conflict.
+        Assert.True(
+            failure is ArticleRevisionConflictException
+                || failure?.InnerException is ArticleRevisionConflictException
+                || (failure is null && !updated));
+
         Assert.Equal("Title", article.Title);
         Assert.Equal(1, article.CategoryId);
         Assert.Equal("# original", body.MarkdownContent);
@@ -694,17 +703,25 @@ public sealed class ArticleRevisionConcurrencyTests(
         using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
         ArticleService service = CreateService(serviceDb, mutationFence);
 
-        bool updated = await service.UpdateAsync(articleId, new UpdateArticleRequest
+        bool updated = false;
+        Exception? failure = await Record.ExceptionAsync(async () =>
         {
-            Title = "stale writer",
-            Summary = "changed",
-            Content = "# stale writer",
-            CategoryId = 1,
-            TagIds = [],
-            Status = ArticleStatus.Published
+            updated = await service.UpdateAsync(articleId, new UpdateArticleRequest
+            {
+                Title = "stale writer",
+                Summary = "changed",
+                Content = "# stale writer",
+                CategoryId = 1,
+                TagIds = [],
+                Status = ArticleStatus.Published
+            });
         });
 
-        Assert.False(updated);
+        Assert.True(
+            failure is ArticleRevisionConflictException
+                || failure?.InnerException is ArticleRevisionConflictException
+                || (failure is null && !updated));
+
         Assert.Equal("Title", (await setupDb.Queryable<Article>().InSingleAsync(articleId)).Title);
         Assert.Equal("# unchanged", (await setupDb.Queryable<ArticleBody>().InSingleAsync(articleId)).MarkdownContent);
         await mutationFence.Received(1)
@@ -894,7 +911,10 @@ public sealed class ArticleRevisionConcurrencyTests(
         SqlSugarClient db,
         bool isDeleted = false,
         DateTime? publishedAt = null)
-        => await db.Insertable(new Article
+    {
+        DateTime createdAt = DateTime.UtcNow;
+        DateTime? effectivePublishedAt = isDeleted ? null : publishedAt ?? createdAt;
+        int articleId = await db.Insertable(new Article
         {
             Title = "Title",
             Summary = "summary",
@@ -902,12 +922,77 @@ public sealed class ArticleRevisionConcurrencyTests(
             Status = isDeleted ? ArticleStatus.Deleted : ArticleStatus.Published,
             IsDeleted = isDeleted,
             DeletedAt = isDeleted ? DateTime.UtcNow : null,
-            CreateTime = DateTime.UtcNow,
-            PublishedAt = isDeleted ? null : publishedAt ?? DateTime.UtcNow
+            CreateTime = createdAt,
+            PublishedAt = effectivePublishedAt
         }).ExecuteReturnIdentityAsync();
+        // Soft-deleted rows intentionally have no live publication coordinates.
+        if (!isDeleted)
+        {
+            await SeedCurrentVersionCoordinatesAsync(db, articleId, effectivePublishedAt ?? createdAt);
+        }
+
+        return articleId;
+    }
+
+    private static async Task SeedCurrentVersionCoordinatesAsync(
+        SqlSugarClient db,
+        int articleId,
+        DateTime publishedAt)
+    {
+        long revisionId = await db.Insertable(new ArticleRevision
+        {
+            ArticleId = articleId,
+            RevisionNo = 1,
+            Title = "Title",
+            Summary = "summary",
+            CategoryId = 1,
+            TagIds = "1",
+            MarkdownContent = "# original",
+            DiffSummary = "seed",
+            CreatedByAdminPrincipalId = 1,
+            CreatedAt = publishedAt
+        }).ExecuteReturnBigIdentityAsync();
+        long rightsSnapshotId = await db.Insertable(new ArticleRightsSnapshot
+        {
+            ArticleId = articleId,
+            ArticleRevisionId = revisionId,
+            RevisionNo = 1,
+            ArticleRightsPolicyId = 1,
+            CreatedAt = publishedAt
+        }).ExecuteReturnBigIdentityAsync();
+        long publicationId = await db.Insertable(new ArticlePublicationRecord
+        {
+            ArticleId = articleId,
+            PublicationNo = 1,
+            ArticleRevisionId = revisionId,
+            RevisionNo = 1,
+            RightsSnapshotId = rightsSnapshotId,
+            TransitionKind = "seed",
+            PublishedAt = publishedAt,
+            CreatedAt = publishedAt
+        }).ExecuteReturnBigIdentityAsync();
+        await db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE article
+            SET current_revision_id = @RevisionId,
+                current_publication_id = @PublicationId
+            WHERE id = @ArticleId;
+            """,
+            new SugarParameter("@RevisionId", revisionId),
+            new SugarParameter("@PublicationId", publicationId),
+            new SugarParameter("@ArticleId", articleId));
+    }
 
     private static async Task SeedRevisionAsync(SqlSugarClient db, int articleId, int revisionNo)
-        => await db.Insertable(new ArticleRevision
+    {
+        bool exists = await db.Queryable<ArticleRevision>()
+            .AnyAsync(revision => revision.ArticleId == articleId && revision.RevisionNo == revisionNo);
+        if (exists)
+        {
+            return;
+        }
+
+        await db.Insertable(new ArticleRevision
         {
             ArticleId = articleId,
             RevisionNo = revisionNo,
@@ -920,6 +1005,7 @@ public sealed class ArticleRevisionConcurrencyTests(
             CreatedByAdminPrincipalId = 1,
             CreatedAt = DateTime.UtcNow
         }).ExecuteCommandAsync();
+    }
 
     private static async Task<int[]> LoadRevisionNumbersAsync(SqlSugarClient db, int articleId)
         => [.. await db.Queryable<ArticleRevision>()

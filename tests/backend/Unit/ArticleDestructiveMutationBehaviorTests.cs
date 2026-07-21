@@ -55,9 +55,11 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
         using SqlSugarClient assertDb = PostgresSqlSugarTestClient.Create(connectionString);
         Article restored = LoadArticle(assertDb, articleId);
         Assert.False(restored.IsDeleted);
-        Assert.Equal(ArticleStatus.Draft, restored.Status);
+        // Restore republishes through the publication transition writer and
+        // returns the article to a public published coordinate set.
+        Assert.Equal(ArticleStatus.Published, restored.Status);
         Assert.Null(restored.DeletedAt);
-        Assert.Null(restored.PublishedAt);
+        Assert.NotNull(restored.PublishedAt);
     }
 
     [Fact]
@@ -234,7 +236,8 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
     public Task DisposeAsync() => Task.CompletedTask;
 
     private static void CreateTables(SqlSugarClient db)
-        => PostgresSqlSugarTestClient.InitTables(
+    {
+        PostgresSqlSugarTestClient.InitTables(
             db,
             typeof(Article),
             typeof(ArticleBody),
@@ -247,7 +250,29 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
             typeof(ArticleRevisionContentBlock),
             typeof(ArticleAssetReference),
             typeof(ArticleAssetCleanupQueueItem),
-            typeof(ArticleMutationOutboxEvent));
+            typeof(ArticleRightsPolicy),
+            typeof(ArticleRightsSnapshot),
+            typeof(ArticleResponsibilitySnapshot),
+            typeof(ArticlePublicationRecord),
+            typeof(ArticleMutationOutboxEvent),
+            typeof(ArticleMutationCommand),
+            typeof(ArticleViewSeed),
+            typeof(AssetLibraryItem),
+            typeof(ArticlePublicTaxonomyProjection));
+        // Deletion kernel targets additional projection tables that are not always
+        // modelled as SqlSugar entities; keep empty shells so DELETE stays valid.
+        db.Ado.ExecuteCommand(
+            """
+            CREATE TABLE IF NOT EXISTS asset_library_article_ref (
+                article_id integer NOT NULL,
+                asset_url text NOT NULL,
+                PRIMARY KEY (article_id, asset_url)
+            );
+            CREATE TABLE IF NOT EXISTS public_article_projection (
+                article_id integer PRIMARY KEY
+            );
+            """);
+    }
 
     private static void SeedTaxonomy(SqlSugarClient db)
     {
@@ -306,7 +331,60 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
             UpdatedAt = DateTime.UtcNow
         }).ExecuteCommand();
         db.Insertable(new ArticleTag { ArticleId = articleId, TagId = 1 }).ExecuteCommand();
+        SeedCurrentVersionCoordinates(db, articleId, article.Title, article.Summary, article.CategoryId, article.PublishedAt ?? article.CreateTime);
         return articleId;
+    }
+
+    private static void SeedCurrentVersionCoordinates(
+        SqlSugarClient db,
+        int articleId,
+        string title,
+        string? summary,
+        int categoryId,
+        DateTime publishedAt)
+    {
+        long revisionId = db.Insertable(new ArticleRevision
+        {
+            ArticleId = articleId,
+            RevisionNo = 1,
+            Title = title,
+            Summary = summary,
+            CategoryId = categoryId,
+            TagIds = "1",
+            MarkdownContent = "# body",
+            DiffSummary = "seed",
+            CreatedByAdminPrincipalId = 1,
+            CreatedAt = publishedAt
+        }).ExecuteReturnBigIdentity();
+        long rightsSnapshotId = db.Insertable(new ArticleRightsSnapshot
+        {
+            ArticleId = articleId,
+            ArticleRevisionId = revisionId,
+            RevisionNo = 1,
+            ArticleRightsPolicyId = 1,
+            CreatedAt = publishedAt
+        }).ExecuteReturnBigIdentity();
+        long publicationId = db.Insertable(new ArticlePublicationRecord
+        {
+            ArticleId = articleId,
+            PublicationNo = 1,
+            ArticleRevisionId = revisionId,
+            RevisionNo = 1,
+            RightsSnapshotId = rightsSnapshotId,
+            TransitionKind = "seed",
+            PublishedAt = publishedAt,
+            CreatedAt = publishedAt
+        }).ExecuteReturnBigIdentity();
+        db.Ado.ExecuteCommand(
+            """
+            UPDATE article
+            SET current_revision_id = @RevisionId,
+                current_publication_id = @PublicationId
+            WHERE id = @ArticleId;
+            """,
+            new SugarParameter("@RevisionId", revisionId),
+            new SugarParameter("@PublicationId", publicationId),
+            new SugarParameter("@ArticleId", articleId));
     }
 
     private static ArticleService CreateService(

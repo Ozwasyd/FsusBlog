@@ -277,6 +277,7 @@ public sealed class UserIdentityRetirementBinaryEndpointTests
             User = new ClaimsPrincipal(new ClaimsIdentity(
             [
                 new Claim(ClaimTypes.NameIdentifier, "42"),
+                new Claim("sid", "session-identity-retirement"),
                 new Claim("identity_kind", AnonymousIdentityRuntime.AnonymousAccountKind)
             ],
             "identity-retirement-test"))

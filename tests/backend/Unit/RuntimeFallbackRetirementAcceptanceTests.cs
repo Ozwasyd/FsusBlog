@@ -133,30 +133,26 @@ public sealed class RuntimeFallbackRetirementAcceptanceTests
     [Fact]
     public void A3_7_PublicAotAcceptsOnlyCanonicalHexSidecarHash()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"fsus-sidecar-{Guid.NewGuid():N}.bin");
         byte[] payload = [1, 2, 3, 4];
-        File.WriteAllBytes(path, payload);
-        try
-        {
-            MethodInfo validate = typeof(PublicAotFileShellCache).GetMethod(
-                "IsHydrationSidecarHashValid",
-                BindingFlags.NonPublic | BindingFlags.Static)!;
-            string canonical = Convert.ToHexStringLower(SHA256.HashData(payload));
-            string legacy = Microsoft.AspNetCore.WebUtilities.WebEncoders.Base64UrlEncode(SHA256.HashData(payload));
-            var canonicalReference = new PublicAotHydrationSidecarReference("/payload", canonical, "payload");
-            var legacyReference = new PublicAotHydrationSidecarReference("/payload", legacy, "payload");
+        string canonical = Convert.ToHexStringLower(SHA256.HashData(payload));
+        string legacy = Microsoft.AspNetCore.WebUtilities.WebEncoders.Base64UrlEncode(SHA256.HashData(payload));
 
-            Assert.True((bool)validate.Invoke(null, [path, canonicalReference])!);
-            Assert.False((bool)validate.Invoke(null, [path, legacyReference])!);
-            string runtime = RuntimeMetadataInspection.DescribeMethods(typeof(PublicAotFileShellCache), "IsHydrationSidecarHashValid");
-            Assert.DoesNotContain("MatchesLegacyBase64UrlPayloadHash", runtime, StringComparison.Ordinal);
-            Assert.DoesNotContain("Base64Url", runtime, StringComparison.Ordinal);
-            Assert.Contains("MatchesHash", runtime, StringComparison.Ordinal);
-        }
-        finally
-        {
-            File.Delete(path);
-        }
+        Assert.True(PublicAotHydrationSidecarReference.TryFromUrl(
+            $"/aot-cache/payloads/{canonical}.aeds",
+            out PublicAotHydrationSidecarReference hexReference));
+        Assert.Equal(canonical, hexReference.Sha256Hex);
+        Assert.False(PublicAotHydrationSidecarReference.TryFromUrl(
+            $"/aot-cache/payloads/{legacy}.aeds",
+            out _));
+
+        string runtime = RuntimeMetadataInspection.DescribeMethods(
+            typeof(PublicAotFileShellCache),
+            "IsHydrationSidecarAvailable",
+            "TryResolveHydrationSidecar");
+        Assert.DoesNotContain("MatchesLegacyBase64UrlPayloadHash", runtime, StringComparison.Ordinal);
+        Assert.DoesNotContain("Base64Url", runtime, StringComparison.Ordinal);
+        Assert.Contains("IsValid", runtime, StringComparison.Ordinal);
+        Assert.Contains("Sha256Hex", runtime, StringComparison.Ordinal);
     }
 
     [Fact]

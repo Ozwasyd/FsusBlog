@@ -82,7 +82,8 @@ public sealed class PublicArticleProjectionContractTests
             "scheduled-published",
             "category-updated",
             "tag-updated",
-            "rights-proof-updated"
+            "rights-proof-updated",
+            "responsibility-updated"
         ]));
 
         var observed = new List<string>();

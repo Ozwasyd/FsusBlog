@@ -56,9 +56,9 @@ public sealed class PerceptionCharacterV3Renderer : IPerceptionCharacterV3Render
             int variant = random.Integer(0, c.GlyphVariantsPerSymbol - 1);
             int tx = random.Integer(c.TranslationX.Min, c.TranslationX.Max), ty = random.Integer(c.TranslationY.Min, c.TranslationY.Max);
             int rotation = random.Integer(c.RotationDegrees.Min, c.RotationDegrees.Max);
-            double shear = random.Integer((int)Math.Round(c.ShearX.Min * 100), (int)Math.Round(c.ShearX.Max * 100)) / 100d;
-            double scaleX = random.Integer((int)Math.Round(c.ScaleX.Min * 100), (int)Math.Round(c.ScaleX.Max * 100)) / 100d;
-            double scaleY = random.Integer((int)Math.Round(c.ScaleY.Min * 100), (int)Math.Round(c.ScaleY.Max * 100)) / 100d;
+            double shear = random.Integer((int)Math.Round(c.ShearX.Min * 100, MidpointRounding.AwayFromZero), (int)Math.Round(c.ShearX.Max * 100, MidpointRounding.AwayFromZero)) / 100d;
+            double scaleX = random.Integer((int)Math.Round(c.ScaleX.Min * 100, MidpointRounding.AwayFromZero), (int)Math.Round(c.ScaleX.Max * 100, MidpointRounding.AwayFromZero)) / 100d;
+            double scaleY = random.Integer((int)Math.Round(c.ScaleY.Min * 100, MidpointRounding.AwayFromZero), (int)Math.Round(c.ScaleY.Max * 100, MidpointRounding.AwayFromZero)) / 100d;
             int baseline = random.Integer(c.BaselineOffsetPixels.Min, c.BaselineOffsetPixels.Max);
             int overlap = index == normalized.Length - 1 ? 0 : random.Integer(c.OverlapPixels.Min, c.OverlapPixels.Max);
             int gray = random.Integer(0, 64);

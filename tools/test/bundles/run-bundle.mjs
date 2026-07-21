@@ -1168,7 +1168,7 @@ function buildStaticSteps() {
         exclusiveResources: ['build-output']
       }
     }),
-    commandStep('validate-matrix', 'tools/test/run-matrix-governance-once.sh build-static-validate-matrix', ['validate-matrix']),
+    commandStep('validate-matrix', 'tools/test/run-matrix-governance-once.sh validate-matrix', ['validate-matrix']),
     commandStep('public-hydration-fast', 'tools/test/lanes/public-hydration-fast.sh', ['public-hydration-fast']),
     commandStep('contract-fuzz', 'tools/test/lanes/contract-fuzz.sh', ['contract-fuzz']),
     commandStep('perception-redteam', 'tools/test/lanes/perception-v2-redteam.sh pr', ['perception-v2-redteam-pr']),
@@ -2053,7 +2053,7 @@ async function runFrontendTests() {
       }
     })
   const frontendDagResults = new Map()
-  await executeWeightedStepDag([
+  const frontendSteps = [
     commandStep('frontend-build-ready', ':', [], {
       resources: { coordinationOnly: true }
     }),
@@ -2160,7 +2160,8 @@ async function runFrontendTests() {
       runAfterSettled: true,
       resources: { coordinationOnly: true }
     })
-  ], bundleDagCapacity, async (frontendStep) => {
+  ]
+  await executeWeightedStepDag(frontendSteps, () => bundleDagCapacityForSteps(frontendSteps), async (frontendStep) => {
     const result = await executeFrontendStep(frontendStep)
     if (frontendStep.id === 'frontend-coverage-summary') {
       publishCurrentRunMarker('frontend-coverage-ready', frontendStep.id)

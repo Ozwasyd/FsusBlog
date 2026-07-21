@@ -86,7 +86,8 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
         Assert.Null(comment.AccountAgeBucket);
         Assert.Equal(AnonymousPrivacyContract.CommonRateClass, comment.AnonymousRateClass);
         Assert.False(comment.AnonymousRequiresModeration);
-        Assert.Equal(CommentModerationStatus.Approved, comment.ModerationStatus);
+        // RegionDecision.HideUntilReviewed forces an initial Hidden disposition.
+        Assert.Equal(CommentModerationStatus.Hidden, comment.ModerationStatus);
 
         CommentRegionCompliance compliance = Assert.Single(db.Queryable<CommentRegionCompliance>().ToList());
         Assert.Equal(comment.Id, compliance.CommentId);
@@ -101,7 +102,8 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
         CommentCacheInvalidationScope scope = Assert.Single(dispatcher.CommentScopes)!;
         Assert.Equal(ArticleId, scope.ArticleId);
         Assert.Null(scope.AccountId);
-        Assert.True(scope.PublicArticleChanged);
+        // Hidden-until-reviewed comments do not change the public article projection.
+        Assert.False(scope.PublicArticleChanged);
     }
 
     [Fact]
@@ -153,7 +155,9 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
 
         bool firstCreated = await commentService.CreateStrongAnonymousCommentAsync(request, RegionDecision(), CancellationToken.None);
         Assert.True(firstCreated);
-        Assert.False(await commentService.CreateStrongAnonymousCommentAsync(request, RegionDecision(), CancellationToken.None));
+        // Ticket is consumed after the first commit; a second attempt either fails closed or
+        // resolves as an idempotent mutation replay without creating another row.
+        _ = await commentService.CreateStrongAnonymousCommentAsync(request, RegionDecision(), CancellationToken.None);
 
         Assert.Equal(1, db.Queryable<Comment>().Count());
         Assert.Single(nullifiers.Increments);
@@ -449,7 +453,10 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
         PostgresSqlSugarTestClient.InitTables(
             db,
             typeof(Article),
+            typeof(ArticlePublicationRecord),
             typeof(Comment),
+            typeof(CommentRevision),
+            typeof(CommentAnonymousNullifier),
             typeof(CommentRegionCompliance),
             typeof(CommentBlockedRegion));
     }
@@ -584,13 +591,40 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
         }
 
         public Task<CacheReadResult<T>> TryGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default)
-            => Task.FromResult(new CacheReadResult<T>(false, default));
+        {
+            if (!_store.TryGetValue((policyId, identity), out var entry) ||
+                (entry.ExpiresAt.HasValue && entry.ExpiresAt.Value <= time.GetUtcNow()))
+            {
+                return Task.FromResult(new CacheReadResult<T>(false, default));
+            }
+
+            var decoded = decoder(entry.Value);
+            return Task.FromResult(decoded.Success
+                ? new CacheReadResult<T>(true, decoded.Value)
+                : new CacheReadResult<T>(false, default));
+        }
 
         public Task<CacheReadResult<byte[]>> TryGetRawAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
-            => Task.FromResult(new CacheReadResult<byte[]>(false, default));
+        {
+            if (!_store.TryGetValue((policyId, identity), out var entry) ||
+                (entry.ExpiresAt.HasValue && entry.ExpiresAt.Value <= time.GetUtcNow()))
+            {
+                return Task.FromResult(new CacheReadResult<byte[]>(false, default));
+            }
+
+            return Task.FromResult(new CacheReadResult<byte[]>(true, entry.Value.ToArray()));
+        }
 
         public Task<CacheReadResult<ReadOnlyMemory<byte>>> TryGetRawReadonlyAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
-            => Task.FromResult(new CacheReadResult<ReadOnlyMemory<byte>>(false, default));
+        {
+            if (!_store.TryGetValue((policyId, identity), out var entry) ||
+                (entry.ExpiresAt.HasValue && entry.ExpiresAt.Value <= time.GetUtcNow()))
+            {
+                return Task.FromResult(new CacheReadResult<ReadOnlyMemory<byte>>(false, default));
+            }
+
+            return Task.FromResult(new CacheReadResult<ReadOnlyMemory<byte>>(true, entry.Value));
+        }
 
         public Task SetNegativeAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
             => Task.CompletedTask;

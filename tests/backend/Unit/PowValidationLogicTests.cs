@@ -186,11 +186,14 @@ public sealed class PowValidationLogicTests
             ?? throw new InvalidOperationException("Crawler client identity hasher was not found.");
         Assert.Equal(ipHash, crawlerHasher.Invoke(null, [Ip, configuration]));
 
-        MethodInfo userLoginFailure = typeof(UserService).GetMethod(
+        // Login ownership moved off UserService; PoW rejection remains the shared hashed-identity log contract.
+        Assert.Null(typeof(UserService).GetMethod(
             "LogLoginFailure",
-            BindingFlags.NonPublic | BindingFlags.Instance)
-            ?? throw new InvalidOperationException("User login failure logger was not found.");
-        Assert.Equal("clientIpHash", userLoginFailure.GetParameters()[1].Name);
+            BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static));
+        Assert.Contains(
+            typeof(PowValidationLogic).GetMethods(BindingFlags.NonPublic | BindingFlags.Static),
+            static method => method.Name == "LogAccessDenied"
+                && method.GetParameters().Any(static parameter => parameter.Name == "clientIpHash"));
     }
 
     private static PowFixture CreateFixture()

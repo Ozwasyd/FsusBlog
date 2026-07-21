@@ -173,9 +173,9 @@ public sealed class CacheInvalidationDispatcherTests
     [Fact]
     public async Task RuntimeState_RecordAsync_AggregatesCountsAcrossInstances()
     {
-        var cache = CreateSharedCounterCache();
-        var first = new CacheInvalidationRuntimeState(cache);
-        var second = new CacheInvalidationRuntimeState(cache);
+        var counters = CreateSharedCounterStore(out ICacheStringReader reader);
+        var first = new CacheInvalidationRuntimeState(counters, reader);
+        var second = new CacheInvalidationRuntimeState(counters, reader);
 
         await first.RecordAsync("article", "first-node");
         await second.RecordAsync("article", "second-node");
@@ -183,7 +183,7 @@ public sealed class CacheInvalidationDispatcherTests
         CacheInvalidationRuntimeSnapshot snapshot = await first.SnapshotAsync();
 
         Assert.Equal(2, snapshot.ArticleMutationCount);
-        await cache.Received().IncrementAsync(CachePolicyId.AdminStats, "cache-invalidation:article", 1, Arg.Any<CancellationToken>());
+        await counters.Received().IncrementAsync(CachePolicyId.AdminStats, "cache-invalidation:article", 1, Arg.Any<CancellationToken>());
     }
 
     private static bool HasKey(IReadOnlyList<CacheKeyIdentity> keys, CachePolicyId policyId, string identity)
@@ -192,18 +192,19 @@ public sealed class CacheInvalidationDispatcherTests
     private static bool HasPrefix(IReadOnlyList<CachePrefixIdentity> prefixes, CachePolicyId policyId, string identityPrefix)
         => prefixes.Any(prefix => prefix.PolicyId == policyId && prefix.IdentityPrefix == identityPrefix);
 
-    private static IUnifiedCache CreateSharedCounterCache()
+    private static ICacheCounterStore CreateSharedCounterStore(out ICacheStringReader reader)
     {
         var values = new ConcurrentDictionary<string, long>(StringComparer.Ordinal);
-        var cache = Substitute.For<IUnifiedCache>();
-        cache.IncrementAsync(Arg.Any<CachePolicyId>(), Arg.Any<string>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
+        var counters = Substitute.For<ICacheCounterStore>();
+        counters.IncrementAsync(Arg.Any<CachePolicyId>(), Arg.Any<string>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
             .Returns(call =>
             {
                 string identity = call.ArgAt<string>(1);
                 long value = call.ArgAt<long>(2);
                 return values.AddOrUpdate(identity, value, (_, current) => current + value);
             });
-        cache.GetStringAsync(Arg.Any<CachePolicyId>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+        reader = Substitute.For<ICacheStringReader>();
+        reader.GetStringAsync(Arg.Any<CachePolicyId>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(call =>
             {
                 string identity = call.ArgAt<string>(1);
@@ -211,6 +212,6 @@ public sealed class CacheInvalidationDispatcherTests
                     ? value.ToString(System.Globalization.CultureInfo.InvariantCulture)
                     : null;
             });
-        return cache;
+        return counters;
     }
 }
