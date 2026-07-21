@@ -2,8 +2,11 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import process from 'node:process'
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
+const root = process.env.FSUSBLOG_POSPACE_REACHABILITY_ROOT
+  ? path.resolve(process.env.FSUSBLOG_POSPACE_REACHABILITY_ROOT)
+  : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
 const read = (relative) => readFileSync(path.join(root, relative), 'utf8')
 
 const nodes = Object.freeze({
@@ -55,14 +58,14 @@ const edges = Object.freeze([
   {
     from: 'poSpaceHost',
     to: 'executor',
-    kind: 'static-import',
-    pattern: /from '@\/services\/securityPoSpaceChallengeExecutor'/u
+    kind: 'dynamic-import',
+    pattern: /import\('@\/services\/securityPoSpaceChallengeExecutor'\)/u
   },
   {
     from: 'notification',
     to: 'executor',
-    kind: 'static-import',
-    pattern: /from '@\/services\/securityPoSpaceChallengeExecutor'/u
+    kind: 'dynamic-import',
+    pattern: /import\(\s*'@\/services\/securityPoSpaceChallengeExecutor'\s*\)/u
   }
 ])
 
@@ -71,6 +74,14 @@ for (const edge of edges) {
     sources[edge.from],
     edge.pattern,
     `${nodes[edge.from]} must keep the ${edge.kind} edge to ${nodes[edge.to]}`
+  )
+}
+
+for (const hostId of ['poSpaceHost', 'notification']) {
+  assert.doesNotMatch(
+    sources[hostId],
+    /import\s*\{\s*createPoSpaceChallengeExecutor\s*\}\s*from\s*'@\/services\/securityPoSpaceChallengeExecutor'/u,
+    `${nodes[hostId]} must keep the PoSpace executor lazy instead of restoring an eager compatibility edge`
   )
 }
 
@@ -117,7 +128,7 @@ assert.match(
 
 const report = {
   check: 'pospace-runtime-reachability',
-  version: 1,
+  version: 2,
   ok: true,
   nodes,
   edges: edges.map(({ from, to, kind }) => ({ from, to, kind })),
