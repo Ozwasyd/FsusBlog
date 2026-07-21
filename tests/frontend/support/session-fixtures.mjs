@@ -2,13 +2,14 @@
 
 import { spawnSync } from 'node:child_process';
 import { createHash, createHmac, randomBytes } from 'node:crypto';
+import { chmod, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+
 import {
   playwrightSessionModes,
   resolveAuthFixtureDirectory,
   resolvePlaywrightSessionMode
 } from './fixture-paths.mjs';
-import { chmod, mkdir, writeFile } from 'node:fs/promises';
 import { resolveTestSession } from './test-session.mjs';
 
 const CLAIM_NAME_IDENTIFIER = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier';
@@ -401,47 +402,74 @@ INSERT INTO sys_user_session (
   sessionid,
   userid,
   refreshtokenhash,
-  devicefingerprint,
-  lastip,
-  useragent,
+  refresh_family_id,
+  refresh_generation,
+  refresh_rotated_at_utc,
+  device_signal_hash,
+  browser_family,
+  os_family,
+  form_factor,
   createdat,
   lastseenat,
   idleexpiresat,
   absoluteexpiresat,
   revokedat,
   revokereason,
+  session_mode,
   mfaverified,
-  rememberme
+  rememberme,
+  authentication_method,
+  authentication_strength,
+  authenticated_at_utc,
+  duration_policy
 )
 VALUES (
   ${sqlString(sessionId)},
   ${userId},
   ${sqlString(sha256Hex(refreshToken))},
+  ${sqlString(sessionId)},
+  0,
+  now(),
   ${sqlString(deviceFingerprint)},
-  '127.0.0.1',
-  'fsusblog-test-session-fixture',
+  'Unknown',
+  'Unknown',
+  'Unknown',
   now(),
   now(),
   now() + interval '${rememberMe ? '30 days' : '2 hours'}',
   now() + interval '30 days',
   NULL,
   NULL,
+  0,
   false,
-  ${rememberMe ? 'true' : 'false'}
+  ${rememberMe ? 'true' : 'false'},
+  'other',
+  'legacy_unverified',
+  now(),
+  ${rememberMe ? sqlString('persistent_30d') : sqlString('browser_session')}
 )
 ON CONFLICT (sessionid) DO UPDATE SET
   userid = EXCLUDED.userid,
   refreshtokenhash = EXCLUDED.refreshtokenhash,
-  devicefingerprint = EXCLUDED.devicefingerprint,
-  lastip = EXCLUDED.lastip,
-  useragent = EXCLUDED.useragent,
+  refresh_family_id = EXCLUDED.refresh_family_id,
+  refresh_generation = EXCLUDED.refresh_generation,
+  refresh_rotated_at_utc = EXCLUDED.refresh_rotated_at_utc,
+  device_signal_hash = EXCLUDED.device_signal_hash,
+  browser_family = EXCLUDED.browser_family,
+  os_family = EXCLUDED.os_family,
+  form_factor = EXCLUDED.form_factor,
   lastseenat = now(),
   idleexpiresat = EXCLUDED.idleexpiresat,
   absoluteexpiresat = EXCLUDED.absoluteexpiresat,
   revokedat = NULL,
   revokereason = NULL,
+  session_mode = EXCLUDED.session_mode,
   mfaverified = EXCLUDED.mfaverified,
-  rememberme = EXCLUDED.rememberme;
+  rememberme = EXCLUDED.rememberme,
+  authentication_method = EXCLUDED.authentication_method,
+  authentication_strength = EXCLUDED.authentication_strength,
+  authenticated_at_utc = EXCLUDED.authenticated_at_utc,
+  duration_policy = EXCLUDED.duration_policy;
 `);
 
   return {

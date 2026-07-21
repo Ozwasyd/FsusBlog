@@ -434,8 +434,8 @@ WITH existing_article AS (
   LIMIT 1
 ),
 inserted_article AS (
-  INSERT INTO article(title, summary, categoryid, coverimageurl, views, createtime, status, published_at, isdeleted)
-  SELECT '${title}', '${summary}', ${categoryId}, '${coverImageUrl}', ${views}, NOW() - INTERVAL '${publishOffsetHours} hours', 2, NOW() - INTERVAL '${publishOffsetHours} hours', false
+  INSERT INTO article(title, summary, categoryid, coverimageurl, views, createtime, status, published_at, metadata_updated_at, isdeleted)
+  SELECT '${title}', '${summary}', ${categoryId}, '${coverImageUrl}', ${views}, NOW() - INTERVAL '${publishOffsetHours} hours', 2, NOW() - INTERVAL '${publishOffsetHours} hours', NOW() - INTERVAL '${publishOffsetHours} hours', false
   WHERE NOT EXISTS (SELECT 1 FROM existing_article)
   RETURNING id
 ),
@@ -453,6 +453,7 @@ updated_article AS (
       views = GREATEST(views, ${views}),
       status = 2,
       published_at = NOW() - INTERVAL '${publishOffsetHours} hours',
+      metadata_updated_at = COALESCE(metadata_updated_at, NOW() - INTERVAL '${publishOffsetHours} hours'),
       isdeleted = false
   WHERE id = (SELECT id FROM final_article)
   RETURNING id

@@ -1,9 +1,9 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:f5037752480edca5db82541c5d9c16393ec4ead5302cde791d49eb0b8a98b592",
-    "sourceStateSha256": "f5037752480edca5db82541c5d9c16393ec4ead5302cde791d49eb0b8a98b592",
+    "generatedFrom": "source-state:09ed112d19512dbadca84390f54a8490083181163fcd50e448eddf3e45e351ba",
+    "sourceStateSha256": "09ed112d19512dbadca84390f54a8490083181163fcd50e448eddf3e45e351ba",
     "configurationSha256": "097e93375187fd89b8741031800d4ffd703a6961882b6f9ba9f5af94cf27f8ec",
-    "violationCount": 333689,
+    "violationCount": 333685,
     "fileCount": 1080,
     "files": [
         {
@@ -9155,13 +9155,12 @@
         },
         {
             "path": "tests/frontend/support/session-fixtures.mjs",
-            "sourceSha256": "b00710d36dfd2c10c262670481636ce7e7d2945c726a7d692c178cd8d651ac7d",
-            "violationCount": 432,
-            "violationDigest": "ecca4ec494ba4e795b5bb723bcb64d95b9df0e79a70dfb9c27a5b5d0571f858d",
+            "sourceSha256": "e71358dd57df3b44a699fe2187bf23eb40d6a730e3cd43aca28440037f1cec77",
+            "violationCount": 428,
+            "violationDigest": "322e4b9f6bc7573c73d50209b4c75646756cec4343d37ab8dfe7a7aec22bafac",
             "rules": {
                 "eslint/@stylistic/brace-style": 57,
-                "eslint/@stylistic/indent": 371,
-                "eslint/import-x/order": 4
+                "eslint/@stylistic/indent": 371
             }
         },
         {
