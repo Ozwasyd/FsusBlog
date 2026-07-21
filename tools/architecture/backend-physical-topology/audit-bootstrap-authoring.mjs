@@ -7,7 +7,7 @@ import {
     maskCSharp,
     policyFile,
     requireIdentifiers,
-    requireTokens,
+    requireQualifiedSymbols,
     walkCSharp
 } from './csharp-source.mjs';
 
@@ -15,7 +15,7 @@ function auditBootstrap(root, policy, errors)
 {
     const composition = policyFile(root, policy.composition.path, errors);
     requireIdentifiers(composition, policy.composition.requiredIdentifiers, errors);
-    requireTokens(composition, policy.composition.requiredTokens, errors);
+    requireQualifiedSymbols(composition, policy.composition.requiredQualifiedSymbols, errors);
     forbidTokens(composition, policy.composition.forbiddenTokens, errors);
     for (const owner of policy.runtimeOwners)
     {

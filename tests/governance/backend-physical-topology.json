@@ -9,7 +9,7 @@
         "PipelineStage",
         "ReportHttp3TransportStartup"
       ],
-      "requiredTokens": [
+      "requiredQualifiedSymbols": [
         "PublicWebRuntime.ReportHttp3TransportStartup"
       ],
       "forbiddenTokens": [

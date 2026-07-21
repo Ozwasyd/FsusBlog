@@ -95,6 +95,24 @@ export function requireIdentifiers(file, identifiers, errors)
     }
 }
 
+export function requireQualifiedSymbols(file, symbols, errors)
+{
+    if (!file)
+    {
+        return;
+    }
+    for (const symbol of symbols ?? [])
+    {
+        const pattern = new RegExp(
+            `(?<![A-Za-z0-9_])${escapeRegExp(symbol)}(?![A-Za-z0-9_])`,
+            'u');
+        if (!pattern.test(file.code))
+        {
+            errors.push(`${file.path}: required qualified code symbol is missing: ${symbol}`);
+        }
+    }
+}
+
 export function forbidTokens(file, tokens, errors)
 {
     if (!file)

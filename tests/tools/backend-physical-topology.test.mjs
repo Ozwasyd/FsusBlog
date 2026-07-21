@@ -11,7 +11,7 @@ const { auditBackendPhysicalTopology } = await import(pathToFileURL(
     join(root, 'tools/architecture/check-backend-physical-topology.mjs')
 ).href);
 const policy = JSON.parse(readFileSync(join(root, 'tests/governance/backend-physical-topology.json'), 'utf8'));
-const expectedCanonicalPolicySha256 = '4b20ae6f5dc75c53e06a58a88e1b830988207908bc37ad1e04313cdf7af695d0';
+const expectedCanonicalPolicySha256 = '6df4aee7469ab1148036053d77bf94c55683736519956cf3c03f12a6aef53e15';
 const fixturePaths = [
     'src/backend/Infrastructure/Bootstrap',
     'src/backend/Services/Authoring',
@@ -83,6 +83,22 @@ test('current backend physical topology satisfies the unique static owner', () =
     const report = auditBackendPhysicalTopology({ root, policy });
     assert.equal(report.status, 'success');
     assert.deepEqual(report.errors, []);
+});
+
+test('static lane and matrix own the physical-topology checker and evidence', () =>
+{
+    const lane = readFileSync(join(root, 'tools/test/lanes/static-governance.sh'), 'utf8');
+    assert.match(lane, /backend-physical-topology StaticBackendPhysicalTopology/u);
+    assert.match(lane, /tests\/tools\/backend-physical-topology\.test\.mjs/u);
+    assert.match(lane, /\.tmp\/release-evidence\/backend-physical-topology\.json/u);
+
+    const matrix = readFileSync(join(root, 'tests/matrix.yml'), 'utf8');
+    assert.match(matrix, /backend-physical-topology-governance/u);
+    assert.match(matrix, /tools\/architecture\/backend-physical-topology\/csharp-mask\.mjs/u);
+    assert.match(matrix, /\.tmp\/release-evidence\/backend-physical-topology\.json/u);
+
+    const workflow = readFileSync(join(root, '.github/workflows/quality-gate.yml'), 'utf8');
+    assert.match(workflow, /\.tmp\/release-evidence\/backend-physical-topology\.json/u);
 });
 
 test('canonical policy authority has an independent stable fingerprint', () =>
@@ -243,7 +259,7 @@ test('precise runtime owner, cache field, coordinator, and facade constructor co
         const composition = join(temporary, policy.bootstrapComposition.composition.path);
         mutate(composition, (source) => source.replace(
             'PublicWebRuntime.ReportHttp3TransportStartup',
-            'AlternateRuntime.ReportHttp3TransportStartup'));
+            'FakePublicWebRuntime.ReportHttp3TransportStartup'));
         const governor = join(temporary, 'src/backend/Infrastructure/Security/AdaptivePowGovernor.cs');
         mutate(governor, (source) => source.replace('private readonly ICacheStringReader _cache;', 'private readonly ICacheStringReader cacheReader;'));
         const coordinator = join(temporary, 'src/backend/Infrastructure/Cache/CacheMissCoordinator.cs');
@@ -253,7 +269,7 @@ test('precise runtime owner, cache field, coordinator, and facade constructor co
 
         const report = auditFixture(temporary);
         assert.ok(report.errors.some((error) => error.includes('required code identifier is missing: ReportHttp3TransportStartup')));
-        assert.ok(report.errors.some((error) => error.includes('required code token is missing: PublicWebRuntime.ReportHttp3TransportStartup')));
+        assert.ok(report.errors.some((error) => error.includes('required qualified code symbol is missing: PublicWebRuntime.ReportHttp3TransportStartup')));
         assert.ok(report.errors.some((error) => error.includes('required code token is missing: private readonly ICacheStringReader _cache;')));
         assert.ok(report.errors.some((error) => error.includes('required code token is missing: ICacheSingleFlightCoordinator singleFlightCoordinator,')));
         assert.ok(report.errors.some((error) => error.includes('with its primary constructor')));

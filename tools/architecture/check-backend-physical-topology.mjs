@@ -12,7 +12,7 @@ import { auditSchemaMigrationLayout } from './backend-physical-topology/audit-sc
 const repositoryRoot = resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const policyRelativePath = 'tests/governance/backend-physical-topology.json';
 const defaultPolicyPath = resolve(repositoryRoot, policyRelativePath);
-const canonicalPolicySha256 = '4b20ae6f5dc75c53e06a58a88e1b830988207908bc37ad1e04313cdf7af695d0';
+const canonicalPolicySha256 = '6df4aee7469ab1148036053d77bf94c55683736519956cf3c03f12a6aef53e15';
 
 function stableJson(value, location = '$')
 {
