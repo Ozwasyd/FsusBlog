@@ -1105,16 +1105,19 @@ public sealed class AnonymousCommentSubmitTests(
 
     private static void SeedArticle(SqlSugarClient db, int articleId)
     {
+        DateTime publishedAt = DateTime.UtcNow.AddMinutes(-1);
         db.Ado.ExecuteCommand(
             """
             INSERT INTO article
-                (id, title, categoryid, views, createtime, isdeleted, status, published_at, scheduled_publish_at)
+                (id, title, categoryid, views, createtime, metadata_updated_at, isdeleted, status,
+                 published_at, last_published_at, public_updated_at, scheduled_publish_at)
             VALUES
-                (@Id, 'unit article', 1, 0, @PublishedAt, false, @Status, @PublishedAt, NULL);
+                (@Id, 'unit article', 1, 0, @PublishedAt, @PublishedAt, false, @Status,
+                 @PublishedAt, @PublishedAt, @PublishedAt, NULL);
             """,
             new SugarParameter("@Id", articleId),
             new SugarParameter("@Status", (int)ArticleStatus.Published),
-            new SugarParameter("@PublishedAt", DateTime.UtcNow.AddMinutes(-1)));
+            new SugarParameter("@PublishedAt", publishedAt));
         long publicationId = db.Insertable(new ArticlePublicationRecord
         {
             ArticleId = articleId,
@@ -1123,8 +1126,8 @@ public sealed class AnonymousCommentSubmitTests(
             RevisionNo = 1,
             RightsSnapshotId = 1,
             TransitionKind = "publish",
-            PublishedAt = DateTime.UtcNow.AddMinutes(-1),
-            CreatedAt = DateTime.UtcNow.AddMinutes(-1)
+            PublishedAt = publishedAt,
+            CreatedAt = publishedAt
         }).ExecuteReturnBigIdentity();
         db.Ado.ExecuteCommand(
             "UPDATE article SET current_publication_id = @PublicationId WHERE id = @ArticleId;",
