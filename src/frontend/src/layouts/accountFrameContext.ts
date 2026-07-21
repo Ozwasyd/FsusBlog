@@ -14,7 +14,7 @@ export function useAccountFrameDrawerState(): Ref<boolean>
     const visible = inject(accountFrameDrawerVisibleKey);
     if (!visible)
     {
-        throw new Error('Account frame drawer state requires AccountLayout');
+        throw new Error('Account frame drawer state requires its provider');
     }
 
     return visible;

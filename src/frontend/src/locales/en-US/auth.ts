@@ -13,6 +13,8 @@ export const auth = {
         guidelinesLink: 'site guidelines',
         submitButtonIdle: 'Create account and Recovery Key',
         submitButtonLoading: 'Creating account',
+        passkeyEnrollmentTitle: 'Add the first passkey',
+        passkeyEnrollmentHint: 'The account remains temporary until passkey verification activates it and creates the full session.',
         recoveryKeyTitle: 'Save the Recovery Key',
         recoveryKeyHint: 'The Recovery Key is shown once. Without it or a working passkey, the account may be unrecoverable.',
         recoveryKeyVersionPrefix: 'Recovery Key v',

@@ -49,14 +49,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onUnmounted } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { getPageData } from '@/api/system'
 import FsusDialog from '@/components/ui/FsusDialog.vue'
 import MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue'
 import { useI18nText } from '@/composables/useI18nText'
+import { FSUSBLOG_AUTH_COPY } from '@/copy'
 
 const { messages } = useI18nText()
-const copy = computed(() => messages.value.auth.policyModal)
+const copy = computed(() => ({
+  ...FSUSBLOG_AUTH_COPY.policyModal,
+  ...messages.value.auth.policyModal
+}))
 
 const props = defineProps<{
   type: 'privacy' | 'guidelines'

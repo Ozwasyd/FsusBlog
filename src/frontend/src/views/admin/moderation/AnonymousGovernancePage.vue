@@ -631,7 +631,7 @@ const setThreadLocked = async (locked: boolean): Promise<void> => {
     articlePolicy.value = await updateCommentThreadPolicy(articlePolicyId.value, threadRootId.value, {
       locked,
       expectedPolicyVersion: currentThreadPolicy.threadPolicyVersion,
-      reason: locked ? 'admin_thread_lock' : 'admin_thread_unlock'
+      reason: locked ? 'admin_thread_lock' : 'admin_thread_reopen'
     }, { mfaProofToken })
     toast.success(locked ? '讨论串已锁定' : '讨论串已解锁')
   } catch (error) {

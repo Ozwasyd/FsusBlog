@@ -97,10 +97,10 @@
           >
             <div>
               <h2 id="passkey-enrollment-title" class="text-sm font-medium text-[var(--fsusblog-text-primary)]">
-                绑定首枚通行密钥
+                {{ copy.passkeyEnrollmentTitle }}
               </h2>
               <p class="mt-2 text-xs leading-6 text-[var(--fsusblog-text-muted)]">
-                账户目前仍是临时状态；只有通行密钥验证成功后才会激活并签发正式会话。
+                {{ copy.passkeyEnrollmentHint }}
               </p>
             </div>
             <el-button type="primary" :disabled="!canRegisterPasskey" @click="openPasskeyRegistration">
@@ -211,15 +211,20 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useAnonymousOnboarding } from '@/composables/useAnonymousOnboarding'
 import PolicyModal from '@/components/PolicyModal.vue'
 import PasskeyRegisterModal from '@/components/ui/PasskeyRegisterModal.vue'
 import { themeTokens } from '@/ui-tokens/themeTokens'
 import { useI18nText } from '@/composables/useI18nText'
+import { FSUSBLOG_AUTH_COPY } from '@/copy'
 
 const focusRingClass = themeTokens.focusRing
 const { messages } = useI18nText()
-const copy = computed(() => messages.value.auth.register)
+const copy = computed(() => ({
+  ...FSUSBLOG_AUTH_COPY.register,
+  ...messages.value.auth.register
+}))
 
 const {
   localError,

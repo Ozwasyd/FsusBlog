@@ -1051,14 +1051,14 @@ const formatSessionDevice = (label: string | null | undefined): string =>
   label?.trim() || sessionsCopy.deviceFallback
 
 const formatAuthenticationMethod = (method: UserSessionSummary['authenticationMethod']): string => ({
-  passkey: '通行密钥',
-  recovery_key: '恢复密钥',
-  enrollment: '首次绑定',
-  other: '其他方式'
+  passkey: sessionsCopy.authenticationPasskey,
+  recovery_key: sessionsCopy.authenticationRecoveryKey,
+  enrollment: sessionsCopy.authenticationEnrollment,
+  other: sessionsCopy.authenticationOther
 })[method]
 
 const formatDurationPolicy = (policy: UserSessionSummary['durationPolicy']): string =>
-  policy === 'persistent_30d' ? '保持登录（30 天）' : '关闭浏览器后退出'
+  policy === 'persistent_30d' ? sessionsCopy.durationPersistent : sessionsCopy.durationBrowserSession
 
 onMounted(() => {
   void refreshIdentityData()

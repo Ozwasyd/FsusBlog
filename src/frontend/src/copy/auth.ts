@@ -20,6 +20,8 @@ export const FSUSBLOG_AUTH_COPY = {
     guidelinesLink: '站点使用规范',
     submitButtonIdle: '创建匿名账号并生成 Recovery Key',
     submitButtonLoading: '正在创建匿名账号',
+    passkeyEnrollmentTitle: '绑定首枚通行密钥',
+    passkeyEnrollmentHint: '账户目前仍是临时状态；只有通行密钥验证成功后才会激活并签发正式会话。',
     recoveryKeyTitle: '保存 Recovery Key',
     recoveryKeyHint: 'Recovery Key 只显示一次。若它丢失且没有可用通行密钥，账号可能无法恢复。',
     recoveryKeyVersionPrefix: 'Recovery Key v',
