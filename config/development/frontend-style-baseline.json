@@ -1,9 +1,9 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:493efceaaad8abb61f1b121a7361008095f5f9fa854a760400e4f57619b58b70",
-    "sourceStateSha256": "493efceaaad8abb61f1b121a7361008095f5f9fa854a760400e4f57619b58b70",
+    "generatedFrom": "source-state:6b3525bd297c8a7a52d0398d82384ba3c4b02ae35fe6d4f38b3f67d50dac02f3",
+    "sourceStateSha256": "6b3525bd297c8a7a52d0398d82384ba3c4b02ae35fe6d4f38b3f67d50dac02f3",
     "configurationSha256": "e0b5e6b2a7b69e7be2a8c15979a3a7a27bd403328233c66cb437a3d1f988ccc2",
-    "violationCount": 333622,
+    "violationCount": 333661,
     "fileCount": 1079,
     "files": [
         {
@@ -6887,12 +6887,13 @@
         },
         {
             "path": "src/frontend/wasm/web/protocol/frame.ts",
-            "sourceSha256": "d597e65132d3a0d0e117b2d5b21c08a71cd490ce66179e35ea9657dea12dbd76",
-            "violationCount": 199,
-            "violationDigest": "4b87c5188579e88a6f2cf6e2845d123bcda036b79b9b9c252ad55edd6995ef2c",
+            "sourceSha256": "d914fa070f16a4b56072c241f53a86a5f068a35156e4a328b16038830caccef5",
+            "violationCount": 232,
+            "violationDigest": "ce4496b0ecc4c7e499f8d0d19dc538c90b7854114f94bb2786f8b263dadd6de5",
             "rules": {
                 "eslint/@stylistic/brace-style": 1,
-                "eslint/@stylistic/indent": 198
+                "eslint/@stylistic/comma-dangle": 1,
+                "eslint/@stylistic/indent": 230
             }
         },
         {
@@ -14030,14 +14031,14 @@
         },
         {
             "path": "tools/test/bundles/run-bundle.mjs",
-            "sourceSha256": "0fcde39c30528bb78a8c9f11dae0bd23ddba223a73bb739ea1e087101fd439f4",
-            "violationCount": 3003,
-            "violationDigest": "0610a299decc8576ed811f436449352ab2f341c6a71931eeb56035010ee10735",
+            "sourceSha256": "89372b2c0c556dcc7f6c81305598c7a3880da5449e52052cb0aeba02f2e58e00",
+            "violationCount": 3009,
+            "violationDigest": "91b5f5b500597e6cad53d912fde132d7de4523baae70ed8f8e6ef0a68fc78345",
             "rules": {
                 "eslint/@stylistic/brace-style": 246,
-                "eslint/@stylistic/indent": 1882,
+                "eslint/@stylistic/indent": 1887,
                 "eslint/@stylistic/max-statements-per-line": 2,
-                "eslint/@stylistic/semi": 772,
+                "eslint/@stylistic/semi": 773,
                 "eslint/curly": 62,
                 "eslint/import-x/no-duplicates": 2,
                 "eslint/import-x/no-relative-parent-imports": 17,

@@ -2161,13 +2161,17 @@ async function runFrontendTests() {
       resources: { coordinationOnly: true }
     })
   ]
-  await executeWeightedStepDag(frontendSteps, () => bundleDagCapacityForSteps(frontendSteps), async (frontendStep) => {
-    const result = await executeFrontendStep(frontendStep)
-    if (frontendStep.id === 'frontend-coverage-summary') {
-      publishCurrentRunMarker('frontend-coverage-ready', frontendStep.id)
+  await executeWeightedStepDag(
+    frontendSteps,
+    () => bundleDagCapacityForSteps(frontendSteps),
+    async (frontendStep) => {
+      const result = await executeFrontendStep(frontendStep)
+      if (frontendStep.id === 'frontend-coverage-summary') {
+        publishCurrentRunMarker('frontend-coverage-ready', frontendStep.id)
+      }
+      frontendDagResults.set(frontendStep.id, result)
     }
-    frontendDagResults.set(frontendStep.id, result)
-  })
+  )
   const result = frontendDagResults.get('vitest-production-projects')
   if (!result) throw new Error('vitest-production-projects completed without a result')
   const perfResult = frontendDagResults.get('vitest-production-perf-isolated')
