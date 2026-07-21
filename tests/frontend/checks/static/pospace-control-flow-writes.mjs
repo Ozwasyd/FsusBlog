@@ -1,12 +1,26 @@
 export function isConditionalExecution(ts, node)
 {
+    return writeExecution(ts, node) === 'conditional';
+}
+
+export function writeExecution(ts, node)
+{
     const owner = functionOwner(ts, node);
+    let conditional = false;
     for (let current = node.parent; current && current !== owner; current = current.parent)
     {
+        const shortCircuit = shortCircuitExecution(ts, current, node);
+        if (shortCircuit === 'unreachable')
+        {
+            return 'unreachable';
+        }
+        if (shortCircuit === 'conditional')
+        {
+            conditional = true;
+        }
         if (
             ts.isIfStatement(current)
         || ts.isConditionalExpression(current)
-        || isConditionalShortCircuit(ts, current, node)
         || ts.isForStatement(current)
         || ts.isForInStatement(current)
         || ts.isForOfStatement(current)
@@ -17,13 +31,13 @@ export function isConditionalExecution(ts, node)
         || (ts.isTryStatement(current) && current.tryBlock.pos <= node.pos && node.end <= current.tryBlock.end)
         )
         {
-            return true;
+            conditional = true;
         }
     }
-    return false;
+    return conditional ? 'conditional' : 'definite';
 }
 
-function isConditionalShortCircuit(ts, expression, node)
+function shortCircuitExecution(ts, expression, node)
 {
     if (
         !ts.isBinaryExpression(expression)
@@ -34,28 +48,57 @@ function isConditionalShortCircuit(ts, expression, node)
     ].includes(expression.operatorToken.kind)
     )
     {
-        return false;
+        return null;
     }
     if (!(expression.right.pos <= node.pos && node.end <= expression.right.end))
     {
-        return false;
+        return null;
     }
-    const left = expression.left;
-    if (expression.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken && left.kind === ts.SyntaxKind.TrueKeyword)
+    const left = unwrapTransparentExpression(ts, expression.left);
+    if (expression.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken)
     {
-        return false;
+        return left.kind === ts.SyntaxKind.TrueKeyword
+            ? 'definite'
+            : left.kind === ts.SyntaxKind.FalseKeyword ? 'unreachable' : 'conditional';
     }
-    if (expression.operatorToken.kind === ts.SyntaxKind.BarBarToken && left.kind === ts.SyntaxKind.FalseKeyword)
+    if (expression.operatorToken.kind === ts.SyntaxKind.BarBarToken)
     {
-        return false;
+        return left.kind === ts.SyntaxKind.FalseKeyword
+            ? 'definite'
+            : left.kind === ts.SyntaxKind.TrueKeyword ? 'unreachable' : 'conditional';
     }
-    return !(expression.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken
-        && (left.kind === ts.SyntaxKind.NullKeyword || isUndefinedIdentifier(ts, left)));
+    if (left.kind === ts.SyntaxKind.NullKeyword || isUndefinedIdentifier(ts, left))
+    {
+        return 'definite';
+    }
+    return isKnownNonNullish(ts, left) ? 'unreachable' : 'conditional';
 }
 
 function isUndefinedIdentifier(ts, node)
 {
     return ts.isIdentifier(node) && node.text === 'undefined';
+}
+
+function isKnownNonNullish(ts, node)
+{
+    return ts.isStringLiteralLike(node)
+        || ts.isNumericLiteral(node)
+        || [ts.SyntaxKind.TrueKeyword, ts.SyntaxKind.FalseKeyword].includes(node.kind);
+}
+
+function unwrapTransparentExpression(ts, node)
+{
+    let expression = node;
+    while (
+        ts.isParenthesizedExpression(expression)
+    || ts.isAsExpression(expression)
+    || ts.isSatisfiesExpression(expression)
+    || ts.isNonNullExpression(expression)
+    )
+    {
+        expression = expression.expression;
+    }
+    return expression;
 }
 
 export function controlBranch(ts, node)

@@ -528,6 +528,48 @@ export const workerRuntimeCases = [
         shouldPass: true
     },
     {
+        name: 'nested computed property destructuring reaches browser Worker',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace('<script setup lang="ts">', "<script setup lang=\"ts\">\nconst key = 'Worker'\nconst source = { bag: { Worker: globalThis.Worker } }\nlet W: any = class SafeWorker {}\n;({ bag: { [key]: W } } = source)\nconst duplicateWorker = new W('/worker.js')"),
+        expected: 'must not duplicate direct Worker construction'
+    },
+    {
+        name: 'parenthesized true short circuit safe write is definite',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace('<script setup lang="ts">', "<script setup lang=\"ts\">\nlet W: any = globalThis.Worker\n;(true) && (W = class SafeWorker {})\nconst localWorker = new W()"),
+        shouldPass: true
+    },
+    {
+        name: 'false short circuit Worker write is unreachable',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace('<script setup lang="ts">', "<script setup lang=\"ts\">\nlet W: any = class SafeWorker {}\nfalse && (W = globalThis.Worker)\nconst localWorker = new W()"),
+        shouldPass: true
+    },
+    {
+        name: 'true or Worker write is unreachable',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace('<script setup lang="ts">', "<script setup lang=\"ts\">\nlet W: any = class SafeWorker {}\ntrue || (W = globalThis.Worker)\nconst localWorker = new W()"),
+        shouldPass: true
+    },
+    {
+        name: 'multi-level computed property destructuring reaches browser Worker',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace('<script setup lang="ts">', "<script setup lang=\"ts\">\nconst key = 'Worker'\nconst source = { outer: { bag: { Worker: globalThis.Worker } } }\nlet W: any = class SafeWorker {}\n;({ outer: { bag: { [key]: W } } } = source)\nconst duplicateWorker = new W('/worker.js')"),
+        expected: 'must not duplicate direct Worker construction'
+    },
+    {
+        name: 'multi-level true short circuit safe write is definite',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace('<script setup lang="ts">', "<script setup lang=\"ts\">\nlet W: any = globalThis.Worker\n;(true) && ((true) && (W = class SafeWorker {}))\nconst localWorker = new W()"),
+        shouldPass: true
+    },
+    {
+        name: 'outer true or makes nested Worker write unreachable',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace('<script setup lang="ts">', "<script setup lang=\"ts\">\nlet W: any = class SafeWorker {}\n;(true) || ((false) || (W = globalThis.Worker))\nconst localWorker = new W()"),
+        shouldPass: true
+    },
+    {
         name: 'Worker metadata property is not Worker construction',
         file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
         mutate: source => source.replace(

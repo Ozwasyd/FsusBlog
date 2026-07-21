@@ -8,6 +8,7 @@ export function createPoSpaceReachingDefinitions(ts)
         let initialReaches = true;
         const owner = functionOwner(ts, useNode);
         const candidates = [...(writes ?? [])]
+            .filter(candidate => !candidate.unreachable)
             .filter(candidate => candidate.node.pos < useNode.pos && candidate.owner === owner)
             .sort((left, right) => left.node.pos - right.node.pos);
         const completeGroups = completeControlGroups(candidates);

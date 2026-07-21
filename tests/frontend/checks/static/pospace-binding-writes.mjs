@@ -1,4 +1,4 @@
-import { controlBranch, functionOwner, isConditionalExecution } from './pospace-control-flow-writes.mjs';
+import { controlBranch, functionOwner, isConditionalExecution, writeExecution } from './pospace-control-flow-writes.mjs';
 
 export function collectBindingWrites(ts, sourceFile, flow, helpers)
 {
@@ -56,7 +56,7 @@ export function collectBindingWrites(ts, sourceFile, flow, helpers)
                 : [null];
             for (const value of values)
             {
-                recordTarget(ts, target, node, value, { conditional: true }, recordIdentifier, recordMember, staticMemberAccess);
+                recordTarget(ts, target, node, value, { conditional: true }, recordIdentifier, recordMember, staticMemberAccess, flow, staticStringValue);
             }
             return;
         }
@@ -65,7 +65,7 @@ export function collectBindingWrites(ts, sourceFile, flow, helpers)
         && [ts.SyntaxKind.MinusMinusToken, ts.SyntaxKind.PlusPlusToken].includes(node.operator)
         )
         {
-            recordTarget(ts, node.operand, node, null, { kills: true }, recordIdentifier, recordMember, staticMemberAccess);
+            recordTarget(ts, node.operand, node, null, { kills: true }, recordIdentifier, recordMember, staticMemberAccess, flow, staticStringValue);
             return;
         }
         if (
@@ -91,7 +91,7 @@ export function collectBindingWrites(ts, sourceFile, flow, helpers)
             const values = unwrapRuntimeExpression(node.right).elements;
             for (const [index, target] of left.elements.entries())
             {
-                recordTarget(ts, target, node, values[index] ?? null, options, recordIdentifier, recordMember, staticMemberAccess);
+                recordTarget(ts, target, node, values[index] ?? null, options, recordIdentifier, recordMember, staticMemberAccess, flow, staticStringValue);
             }
             return;
         }
@@ -107,13 +107,13 @@ export function collectBindingWrites(ts, sourceFile, flow, helpers)
                 const target = ts.isPropertyAssignment(property) ? property.initializer : property.name;
                 if (name)
                 {
-                    recordTarget(ts, target, node, provenanceMember(node.right, name), options, recordIdentifier, recordMember, staticMemberAccess);
+                    recordTarget(ts, target, node, provenanceMember(node.right, name), options, recordIdentifier, recordMember, staticMemberAccess, flow, staticStringValue);
                 }
             }
             return;
         }
         const value = node.operatorToken.kind === ts.SyntaxKind.EqualsToken || logical ? node.right : null;
-        recordTarget(ts, left, node, value, options, recordIdentifier, recordMember, staticMemberAccess);
+        recordTarget(ts, left, node, value, options, recordIdentifier, recordMember, staticMemberAccess, flow, staticStringValue);
     });
 }
 
@@ -130,7 +130,18 @@ function destructuringPropertyName(ts, name, flow, staticStringValue)
     return null;
 }
 
-function recordTarget(ts, targetNode, node, value, options, recordIdentifier, recordMember, staticMemberAccess)
+function recordTarget(
+    ts,
+    targetNode,
+    node,
+    value,
+    options,
+    recordIdentifier,
+    recordMember,
+    staticMemberAccess,
+    flow,
+    staticStringValue
+)
 {
     const target = targetNode;
     if (target?.kind === undefined)
@@ -150,7 +161,9 @@ function recordTarget(ts, targetNode, node, value, options, recordIdentifier, re
                 options,
                 recordIdentifier,
                 recordMember,
-                staticMemberAccess
+                staticMemberAccess,
+                flow,
+                staticStringValue
             );
         }
         return;
@@ -163,7 +176,9 @@ function recordTarget(ts, targetNode, node, value, options, recordIdentifier, re
             {
                 continue;
             }
-            const name = property.name && (property.name.text ?? null);
+            const name = property.name
+                ? destructuringPropertyName(ts, property.name, flow, staticStringValue)
+                : null;
             const nestedTarget = ts.isPropertyAssignment(property) ? property.initializer : property.name;
             if (name)
             {
@@ -176,7 +191,9 @@ function recordTarget(ts, targetNode, node, value, options, recordIdentifier, re
                     options,
                     recordIdentifier,
                     recordMember,
-                    staticMemberAccess
+                    staticMemberAccess,
+                    flow,
+                    staticStringValue
                 );
             }
         }
@@ -210,12 +227,14 @@ function recordWrite(binding, property, write)
 
 function makeWrite(ts, node, value, options)
 {
+    const execution = writeExecution(ts, node);
     return {
         ...controlBranch(ts, node),
-        conditional: options.conditional || isConditionalExecution(ts, node),
+        conditional: options.conditional || execution === 'conditional',
         kills: options.kills ?? false,
         node,
         owner: functionOwner(ts, node),
+        unreachable: execution === 'unreachable',
         value
     };
 }
