@@ -1,9 +1,9 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:e59fa23d5bc4e153b24d0ba77a86366ebfa7f1fac4234a8f82f3dfddc98aebf9",
-    "sourceStateSha256": "e59fa23d5bc4e153b24d0ba77a86366ebfa7f1fac4234a8f82f3dfddc98aebf9",
+    "generatedFrom": "source-state:f5037752480edca5db82541c5d9c16393ec4ead5302cde791d49eb0b8a98b592",
+    "sourceStateSha256": "f5037752480edca5db82541c5d9c16393ec4ead5302cde791d49eb0b8a98b592",
     "configurationSha256": "097e93375187fd89b8741031800d4ffd703a6961882b6f9ba9f5af94cf27f8ec",
-    "violationCount": 333698,
+    "violationCount": 333689,
     "fileCount": 1080,
     "files": [
         {
@@ -9584,7 +9584,7 @@
         },
         {
             "path": "tests/tools/check-postgres-test-collections.test.mjs",
-            "sourceSha256": "bf5c0e1433d6aecc2fb884c831529c6166adab47056e4e6e50ab61048184e68d",
+            "sourceSha256": "440086f05e3df8d5339a9d749949d34e9f3e2cf9d5dd5db8bf97457e074e7e3d",
             "violationCount": 155,
             "violationDigest": "6a4c5c8b2e4fcf3d8ecf9fcf8a7532a5d652fd65db743d9778c0e8cf06e8f864",
             "rules": {
@@ -14437,16 +14437,15 @@
         },
         {
             "path": "tools/ux/release-preview-readiness.mjs",
-            "sourceSha256": "294078b02b25351e145012c11f2726c3dd01eca97292a2d31fb4113bf582efe5",
-            "violationCount": 340,
-            "violationDigest": "98388f6686be23677c6a671cd0be61ac074b567c6e71cac7a0d639a0e7929fd4",
+            "sourceSha256": "521a13c2dc25d8f5332959c15e72eb5c21e3265d801c508736b666671b4c1a2c",
+            "violationCount": 331,
+            "violationDigest": "31b4acaf84dd3d30b54a1d38959c58965a6213f737c36de9608498a6aa895167",
             "rules": {
                 "eslint/@stylistic/brace-style": 45,
                 "eslint/@stylistic/indent": 203,
                 "eslint/@stylistic/max-statements-per-line": 1,
-                "eslint/@stylistic/semi": 85,
-                "eslint/import-x/no-relative-parent-imports": 4,
-                "eslint/import-x/order": 2
+                "eslint/@stylistic/semi": 78,
+                "eslint/import-x/no-relative-parent-imports": 4
             }
         },
         {

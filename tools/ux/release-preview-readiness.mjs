@@ -1,22 +1,22 @@
 #!/usr/bin/env node
 
-import { createHash, randomUUID } from 'node:crypto'
-import fs from 'node:fs'
-import path from 'node:path'
-import process from 'node:process'
+import { createHash, randomUUID } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { digestDeclaredOutputs } from '../test-matrix/local-profile.mjs';
-import { validateFrontendBuildStageReceiptBinding } from '../test-matrix/frontend-build-ready-marker.mjs';
-import { resolveProductionBuildLayout } from '../test-matrix/production-build-layout.mjs';
 import { createFrontendBuildStages } from '../frontend/build.mjs';
+import { validateFrontendBuildStageReceiptBinding } from '../test-matrix/frontend-build-ready-marker.mjs';
+import { digestDeclaredOutputs } from '../test-matrix/local-profile.mjs';
+import { resolveProductionBuildLayout } from '../test-matrix/production-build-layout.mjs';
 
 export const frontendBuildReadySchema = 'fsusblog.local-production.frontend-build-ready.v1';
 export const releasePreviewReadySchema = 'fsusblog.release-preview-ready.v1';
-export const releasePreviewReadyFileName = 'release-preview-ready.json'
-export const releasePreviewHtmlCanonicalization = 'utf8-bom-crlf-trailing-newline-v1'
+export const releasePreviewReadyFileName = 'release-preview-ready.json';
+export const releasePreviewHtmlCanonicalization = 'utf8-bom-crlf-trailing-newline-v1';
 
-const defaultRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
+const defaultRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 function sha256(value) {
   return `sha256:${createHash('sha256').update(value).digest('hex')}`
@@ -70,15 +70,6 @@ export function canonicalizeReleasePreviewHtml(bytes, label = 'release preview H
 
 export function releasePreviewReadyFile(root, runId) {
     return path.join(path.resolve(root), '.tmp/test-runs', requireSafeRunId(runId), releasePreviewReadyFileName);
-}
-
-function currentFrontendBuildStages(frontendRoot, env = process.env)
-{
-    const generatedOnly = env.FSUSBLOG_VALIDATE_GENERATED_ONLY === '1';
-    return createFrontendBuildStages(generatedOnly ? ['--check'] : [], generatedOnly ? 'check' : 'generate', {
-        frontendRoot,
-        env
-    });
 }
 
 function criticalFrontendBuildOutputs(layout, stages)
@@ -160,9 +151,15 @@ export function validateFrontendBuildReady({
     const repositoryRoot = path.resolve(root);
     const schedulerRunId = requireSafeRunId(runId);
     const layout = resolveProductionBuildLayout({ root: repositoryRoot, runId: schedulerRunId });
-    const resolvedExpectedStages = expectedStages ?? currentFrontendBuildStages(
-        path.join(repositoryRoot, 'src/frontend')
-    );
+    // Match the run-bound stage roster used by frontend-build (FSUSBLOG_FRONTEND_DIST_ROOT).
+    const resolvedExpectedStages = expectedStages ?? createFrontendBuildStages([], 'generate', {
+        frontendRoot: path.join(repositoryRoot, 'src/frontend'),
+        env: {
+            ...process.env,
+            FSUSBLOG_FRONTEND_DIST_ROOT: layout.frontendDist,
+            FSUSBLOG_SKIP_BACKEND_WWWROOT_SYNC: process.env.FSUSBLOG_SKIP_BACKEND_WWWROOT_SYNC ?? '1'
+        }
+    });
     const distEntryPath = path.relative(repositoryRoot, path.join(layout.frontendDist, 'index.html')).replaceAll(path.sep, '/');
     const frontendDistPath = path.relative(repositoryRoot, layout.frontendDist).replaceAll(path.sep, '/');
     const backendWebRootPath = path.relative(repositoryRoot, layout.backendWebRoot).replaceAll(path.sep, '/');
