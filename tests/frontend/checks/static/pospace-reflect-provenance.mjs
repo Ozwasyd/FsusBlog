@@ -5,6 +5,7 @@ export function createPoSpaceReflectProvenance(ts, provenance)
         isUnshadowedGlobalIdentifier,
         isWorkerGlobalExpression,
         resolveBinding,
+        resolveBindingMemberValues,
         resolveBindingValues,
         resolveStaticValue,
         staticArrayElements,
@@ -100,6 +101,18 @@ export function createPoSpaceReflectProvenance(ts, provenance)
         }
         const expression = unwrapRuntimeExpression(node);
         if (
+            ts.isBinaryExpression(expression)
+        && [
+            ts.SyntaxKind.AmpersandAmpersandToken,
+            ts.SyntaxKind.BarBarToken,
+            ts.SyntaxKind.QuestionQuestionToken
+        ].includes(expression.operatorToken.kind)
+        )
+        {
+            return isReflectObjectExpression(expression.left, facts, flow, new Set(seen))
+            || isReflectObjectExpression(expression.right, facts, flow, new Set(seen));
+        }
+        if (
             ts.isIdentifier(expression)
         && expression.text === 'Reflect'
         && isUnshadowedGlobalIdentifier(expression, flow)
@@ -108,6 +121,14 @@ export function createPoSpaceReflectProvenance(ts, provenance)
             return true;
         }
         const member = staticMemberAccess(expression, flow);
+        if (member)
+        {
+            const written = isWrittenReflectMember(member.container, member.property, expression, facts, flow, seen);
+            if (written !== null)
+            {
+                return written;
+            }
+        }
         if (
             member?.property === 'Reflect'
         && isWorkerGlobalExpression(member.container, facts, flow)
@@ -127,6 +148,29 @@ export function createPoSpaceReflectProvenance(ts, provenance)
         seen.add(binding.declaration);
         return resolveBindingValues(binding, expression, flow, seen)
             .some(value => isReflectObjectExpression(value, facts, flow, new Set(seen)));
+    }
+
+    function isWrittenReflectMember(containerNode, property, useNode, facts, flow, seen)
+    {
+        const container = unwrapRuntimeExpression(containerNode);
+        if (!ts.isIdentifier(container))
+        {
+            return null;
+        }
+        const binding = resolveBinding(flow.constValueBindings, container, useNode);
+        if (!binding)
+        {
+            return null;
+        }
+        const state = resolveBindingMemberValues(binding, property, useNode);
+        for (const value of state.values)
+        {
+            if (isReflectObjectExpression(value, facts, flow, new Set(seen)))
+            {
+                return true;
+            }
+        }
+        return state.initialReaches ? null : false;
     }
 
 

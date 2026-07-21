@@ -111,6 +111,18 @@ export function createPoSpaceWorkerProvenance(ts, provenance)
         {
             return isWorkerConstructorExpression(expression.right, facts, flow, seen);
         }
+        if (
+            ts.isBinaryExpression(expression)
+        && [
+            ts.SyntaxKind.AmpersandAmpersandToken,
+            ts.SyntaxKind.BarBarToken,
+            ts.SyntaxKind.QuestionQuestionToken
+        ].includes(expression.operatorToken.kind)
+        )
+        {
+            return isWorkerConstructorExpression(expression.left, facts, flow, new Set(seen))
+            || isWorkerConstructorExpression(expression.right, facts, flow, new Set(seen));
+        }
         return false;
     }
 

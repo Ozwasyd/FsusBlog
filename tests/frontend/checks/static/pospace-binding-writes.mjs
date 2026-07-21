@@ -81,7 +81,7 @@ export function collectBindingWrites(ts, sourceFile, flow, helpers)
         ].includes(node.operatorToken.kind);
         const options = {
             conditional: logical || isConditionalExecution(ts, node),
-            kills: node.operatorToken.kind === ts.SyntaxKind.EqualsToken
+            kills: node.operatorToken.kind === ts.SyntaxKind.EqualsToken || !logical
         };
         if (ts.isArrayLiteralExpression(left) && ts.isArrayLiteralExpression(unwrapRuntimeExpression(node.right)))
         {
@@ -100,9 +100,7 @@ export function collectBindingWrites(ts, sourceFile, flow, helpers)
                 {
                     continue;
                 }
-                const name = property.name && (ts.isIdentifier(property.name) || ts.isStringLiteralLike(property.name))
-                    ? property.name.text
-                    : null;
+                const name = destructuringPropertyName(ts, property.name);
                 const target = ts.isPropertyAssignment(property) ? property.initializer : property.name;
                 if (name)
                 {
@@ -116,11 +114,42 @@ export function collectBindingWrites(ts, sourceFile, flow, helpers)
     });
 }
 
+function destructuringPropertyName(ts, name)
+{
+    if (ts.isIdentifier(name) || ts.isStringLiteralLike(name) || ts.isNumericLiteral(name))
+    {
+        return name.text;
+    }
+    if (ts.isComputedPropertyName(name) && ts.isStringLiteralLike(name.expression))
+    {
+        return name.expression.text;
+    }
+    return null;
+}
+
 function recordTarget(ts, targetNode, node, value, options, recordIdentifier, recordMember, staticMemberAccess)
 {
     const target = targetNode;
     if (target?.kind === undefined)
     {
+        return;
+    }
+    if (ts.isArrayLiteralExpression(target))
+    {
+        const values = ts.isArrayLiteralExpression(value) ? value.elements : [];
+        for (const [index, nestedTarget] of target.elements.entries())
+        {
+            recordTarget(
+                ts,
+                nestedTarget,
+                node,
+                values[index] ?? null,
+                options,
+                recordIdentifier,
+                recordMember,
+                staticMemberAccess
+            );
+        }
         return;
     }
     if (ts.isIdentifier(target))
@@ -168,14 +197,15 @@ function isConditionalExecution(ts, node)
         if (
             ts.isIfStatement(current)
         || ts.isConditionalExpression(current)
+        || isShortCircuitExpression(ts, current)
         || ts.isForStatement(current)
         || ts.isForInStatement(current)
         || ts.isForOfStatement(current)
         || ts.isWhileStatement(current)
-        || ts.isDoStatement(current)
         || ts.isCaseClause(current)
         || ts.isDefaultClause(current)
         || ts.isCatchClause(current)
+        || (ts.isTryStatement(current) && current.tryBlock.pos <= node.pos && node.end <= current.tryBlock.end)
         )
         {
             return true;
@@ -184,14 +214,51 @@ function isConditionalExecution(ts, node)
     return false;
 }
 
+function isShortCircuitExpression(ts, node)
+{
+    return ts.isBinaryExpression(node)
+    && [
+        ts.SyntaxKind.AmpersandAmpersandToken,
+        ts.SyntaxKind.BarBarToken,
+        ts.SyntaxKind.QuestionQuestionToken
+    ].includes(node.operatorToken.kind);
+}
+
 export function functionOwner(ts, node)
 {
     for (let current = node.parent; current; current = current.parent)
     {
         if (ts.isFunctionLike(current))
         {
-            return current;
+            const invocation = directInvocation(ts, current);
+            if (!invocation)
+            {
+                return current;
+            }
+            current = invocation;
         }
     }
     return null;
+}
+
+function directInvocation(ts, functionNode)
+{
+    let expression = functionNode;
+    while (
+        expression.parent
+    && (
+        ts.isParenthesizedExpression(expression.parent)
+        || ts.isAsExpression(expression.parent)
+        || ts.isNonNullExpression(expression.parent)
+    )
+    && expression.parent.expression === expression
+    )
+    {
+        expression = expression.parent;
+    }
+    return expression.parent
+    && ts.isCallExpression(expression.parent)
+    && expression.parent.expression === expression
+        ? expression.parent
+        : null;
 }

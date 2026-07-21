@@ -115,6 +115,18 @@ export function createPoSpaceProactiveCallbacks(ts, provenance)
             && isWorkerGlobalExpression(node.container, null, flow);
         }
         const expression = unwrapRuntimeExpression(node);
+        if (
+            ts.isBinaryExpression(expression)
+        && [
+            ts.SyntaxKind.AmpersandAmpersandToken,
+            ts.SyntaxKind.BarBarToken,
+            ts.SyntaxKind.QuestionQuestionToken
+        ].includes(expression.operatorToken.kind)
+        )
+        {
+            return isTrustedPromiseConstructor(expression.left, flow, new Set(seen))
+            || isTrustedPromiseConstructor(expression.right, flow, new Set(seen));
+        }
         if (ts.isIdentifier(expression))
         {
             if (expression.text === 'Promise' && isUnshadowedGlobalIdentifier(expression, flow))
