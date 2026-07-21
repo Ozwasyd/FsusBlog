@@ -1618,7 +1618,7 @@
                 "xunit:tests/backend/Unit/CommentMutationPostgresConcurrencyTests.cs#CommentMutationPostgresConcurrencyTests.DeleteCommentAsync_DatabaseFailureRollsBackAndSkipsInvalidation",
                 "xunit:tests/backend/Unit/CommentMutationPostgresConcurrencyTests.cs#CommentMutationPostgresConcurrencyTests.DeleteCommentAsync_DeletedArticleTargetIsInvisibleAndProducesNoSideEffects",
                 "xunit:tests/backend/Unit/CommentMutationPostgresConcurrencyTests.cs#CommentMutationPostgresConcurrencyTests.ModerateCommentAsync_ConcurrentCasAllowsOneWriteAndOneInvalidation",
-                "xunit:tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs#AnonymousNullifierPostgresConcurrencyTests.CreateStrongAnonymousCommentAsync_AutoHiddenDispositionInvalidatesUsingFinalStatus",
+                "xunit:tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs#AnonymousNullifierPostgresConcurrencyTests.CreateStrongAnonymousCommentAsync_InitiallyHiddenNeverPublishesRemoveEvent",
                 "xunit:tests/backend/Unit/AnonymousCommentSubmitTests.cs#AnonymousCommentSubmitTests.CreateStrongAnonymousCommentAsync_ArticleDeletedAfterPrecheck_IsRejected",
                 "xunit:tests/backend/Unit/AnonymousCommentSubmitTests.cs#AnonymousCommentSubmitTests.CreateStrongAnonymousCommentAsync_ParentHiddenAfterPrecheck_IsRejected",
                 "xunit:tests/backend/Unit/AnonymousCommentSubmitTests.cs#AnonymousCommentSubmitTests.CreateStrongAnonymousCommentAsync_ValidReply_UsesServerSideReplyProjectionWithoutReplyUserId",
@@ -1720,7 +1720,7 @@
             "id": "xunit:tests/backend/Unit/ConcurrencyRaceHardeningContractTests.cs#ConcurrencyRaceHardeningContractTests.UserSessionAndMfaPaths_KeepExistingConcurrencyGuards",
             "path": "tests/backend/Unit/ConcurrencyRaceHardeningContractTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs#UserAuthPostgresConcurrencyTests.RefreshTokenAsync_ConcurrentReplayAllowsOneRotationThenRevokesSession",
+                "xunit:tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs#UserAuthPostgresConcurrencyTests.RotateRefreshTokenAsync_ConcurrentCasHasOneWinnerThenTombstoneReplayCompromisesOnlyFamily",
                 "xunit:tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs#UserAuthPostgresConcurrencyTests.VerifyMfaOrRecoveryCodeAsync_ConcurrentConsumptionPersistsExactlyOnce",
                 "xunit:tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs#UserAuthPostgresConcurrencyTests.BlacklistService_BanAndUnbanCannotResurrectDeletedAccount",
                 "xunit:tests/backend/Unit/BackendAuthStateMachineTests.cs#BackendAuthStateMachineTests.RecoveryCode_CanMoveMfaForwardOnlyOnce"
@@ -2062,7 +2062,7 @@
             "path": "tests/backend/Unit/OperationsReadinessContractTests.cs",
             "replacementTestIds": [
                 "xunit:tests/backend/Unit/AdminOperationsBehaviorTests.cs#AdminOperationsBehaviorTests.GetDangerousOperationPolicy_RequiresDiffAndStepUpForIntegrityFix",
-                "xunit:tests/backend/Unit/AdminOperationsBehaviorTests.cs#AdminOperationsBehaviorTests.ApplyIntegrityFixAsync_WrongConfirmationReturnsWithoutApplyingChanges",
+                "xunit:tests/backend/Unit/AdminOperationsBehaviorTests.cs#AdminOperationsBehaviorTests.ApplyFixAsync_WrongConfirmationReturnsWithoutApplyingChanges",
                 "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.AdminControlPlaneEndpoints_DoNotUseBareAdminRole"
             ],
             "reason": "The service exposes diff/MFA rules and rejects wrong typed confirmation; endpoint permission remains with #1038."
@@ -2160,7 +2160,7 @@
             "id": "xunit:tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs#PublicAotArtifactPipelineHotPathContractTests.ArticleDetailAedsArtifactStore_ReadsV3FrameAndRejectsLegacyArticleDetailFrame",
             "path": "tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs#ArticleDetailAedsArtifactStoreBehaviorTests.WriteAsync_AcceptsCurrentV4AndReadCompatibleV3FramesAndRejectsRetiredPayload"
+                "xunit:tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs#ArticleDetailAedsArtifactStoreBehaviorTests.WriteAsync_AcceptsCurrentV5AndReadCompatibleV3V4FramesAndRejectsRetiredPayload"
             ],
             "reason": "V3 acceptance and legacy write rejection moved intact."
         },
@@ -2184,7 +2184,7 @@
             "id": "xunit:tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs#PublicAotArtifactPipelineHotPathContractTests.ArticleDetailAedsArtifactMaintenanceService_ClearLegacyPublicArtifactsRemovesOnlyNonV3Frames",
             "path": "tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs#ArticleDetailAedsArtifactStoreBehaviorTests.ClearLegacyPublicArtifactsAsync_PreservesSupportedV3AndV4Frames"
+                "xunit:tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs#ArticleDetailAedsArtifactStoreBehaviorTests.ClearLegacyPublicArtifactsAsync_PreservesSupportedV3V4AndV5Frames"
             ],
             "reason": "Filesystem cleanup behavior moved intact with an explicit zero-failure assertion."
         },
@@ -8000,7 +8000,7 @@
             "id": "xunit:tests/backend/Unit/AnonymousCommentModerationPipelineTests.cs#AnonymousCommentModerationPipelineTests.CommentService_AppliesModelDispositionPolicyAndAuditsAutomaticActions",
             "path": "tests/backend/Unit/AnonymousCommentModerationPipelineTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/AnonymousCommentModerationPipelineTests.cs#AnonymousCommentModerationPipelineTests.CommentService_RuntimePathAppliesModelDispositionPolicyAndAuditsAutomaticActions"
+                "xunit:tests/backend/Unit/AnonymousCommentModerationPipelineTests.cs#AnonymousCommentModerationPipelineTests.CommentModerationService_RuntimePathAppliesModelDispositionPolicyAndAuditsAutomaticActions"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -8008,7 +8008,7 @@
             "id": "xunit:tests/backend/Unit/AnonymousCommentModerationPipelineTests.cs#AnonymousCommentModerationPipelineTests.CommentService_AutomaticDispositionUsesRowVersionGuardAndRetry",
             "path": "tests/backend/Unit/AnonymousCommentModerationPipelineTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/AnonymousCommentModerationPipelineTests.cs#AnonymousCommentModerationPipelineTests.CommentService_AutomaticDispositionRuntimeUsesRowVersionGuardAndRetry"
+                "xunit:tests/backend/Unit/AnonymousCommentModerationPipelineTests.cs#AnonymousCommentModerationPipelineTests.CommentModerationService_AutomaticDispositionRuntimeUsesRowVersionGuardAndRetry"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -8016,7 +8016,7 @@
             "id": "xunit:tests/backend/Unit/AnonymousCommentModerationPipelineTests.cs#AnonymousCommentModerationPipelineTests.CommentService_EnforcesAnonymousNullifierWithAtomicConsumeBeforeCommit",
             "path": "tests/backend/Unit/AnonymousCommentModerationPipelineTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/AnonymousCommentModerationPipelineTests.cs#AnonymousCommentModerationPipelineTests.CommentService_RuntimeEnforcesAnonymousNullifierWithAtomicConsumeBeforeCommit"
+                "xunit:tests/backend/Unit/AnonymousCommentSubmitTests.cs#AnonymousCommentSubmitTests.CreateStrongAnonymousCommentAsync_RuntimeUsesAtomicNullifierConsume"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -8024,7 +8024,7 @@
             "id": "xunit:tests/backend/Unit/AnonymousCommentModerationPipelineTests.cs#AnonymousCommentModerationPipelineTests.CommentService_PassesCommentActorAndPolicySnapshotToAntiSpamContext",
             "path": "tests/backend/Unit/AnonymousCommentModerationPipelineTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/AnonymousCommentModerationPipelineTests.cs#AnonymousCommentModerationPipelineTests.CommentService_RuntimePathPassesCommentActorAndPolicySnapshotToAntiSpamContext"
+                "xunit:tests/backend/Unit/AnonymousCommentModerationPipelineTests.cs#AnonymousCommentModerationPipelineTests.CommentModerationService_RuntimePathPassesCommentActorAndPolicySnapshotToAntiSpamContext"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -8552,7 +8552,7 @@
             "id": "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleViewFlushWorker.LoadPublicArticleListPageByKeysetAsync_SourceDoesNotCloneParametersPerWalkPage",
             "path": "tests/backend/Unit/ArticleServiceValidationTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleServiceValidationTests.LoadPublicArticleListPageByKeysetAsync_RuntimeUsesSingleOffsetReadWithoutConcurrentScopedDbCommands"
+                "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleServiceValidationTests.LoadPublicArticleListPageByKeysetAsync_RuntimeUsesStrictCursorWindow"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -8560,7 +8560,7 @@
             "id": "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleViewFlushWorker.LoadPublicArticleListPageByKeysetAsync_SourceUsesSingleOffsetReadWithoutConcurrentScopedDbCommands",
             "path": "tests/backend/Unit/ArticleServiceValidationTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleServiceValidationTests.LoadPublicArticleListPageByKeysetAsync_RuntimeUsesSingleOffsetReadWithoutConcurrentScopedDbCommands"
+                "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleServiceValidationTests.LoadPublicArticleListPageByKeysetAsync_RuntimeUsesStrictCursorWindow"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -8712,7 +8712,7 @@
             "id": "xunit:tests/backend/Unit/AuthoringWorkflowServiceTests.cs#AuthoringWorkflowServiceTests.SaveDraftAsync_SourceUsesAtomicUpsert",
             "path": "tests/backend/Unit/AuthoringWorkflowServiceTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/AuthoringWorkflowServiceTests.cs#AuthoringWorkflowServiceTests.SaveDraftAsync_RuntimeUsesAtomicUpsert"
+                "xunit:tests/backend/Unit/AuthoringWorkflowServiceTests.cs#AuthoringWorkflowServiceTests.SaveDraftAsync_RuntimeUsesAtomicServerRevisionCas"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -8880,7 +8880,7 @@
             "id": "xunit:tests/backend/Unit/AuthSecurityHardeningTests.cs#AuthSecurityHardeningTests.UserService_AccountDeletionRevokesAllSessionsInTransaction",
             "path": "tests/backend/Unit/AuthSecurityHardeningTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/AuthSecurityHardeningTests.cs#AuthSecurityHardeningTests.UserService_AccountDeletionRuntimeRevokesAllSessionsInTransaction"
+                "xunit:tests/backend/Unit/AuthSecurityHardeningTests.cs#AuthSecurityHardeningTests.UserProfileCommandService_AccountDeletionRuntimeRevokesAllSessionsInTransaction"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -8904,7 +8904,7 @@
             "id": "xunit:tests/backend/Unit/AuthSecurityHardeningTests.cs#AuthSecurityHardeningTests.UserService_RefreshRotationUsesCasAndReplayRevocation",
             "path": "tests/backend/Unit/AuthSecurityHardeningTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/AuthSecurityHardeningTests.cs#AuthSecurityHardeningTests.UserService_RefreshRotationRuntimeUsesCasAndReplayRevocation"
+                "xunit:tests/backend/Unit/AuthSecurityHardeningTests.cs#AuthSecurityHardeningTests.UserSessionCommandService_RefreshRotationRuntimeUsesCasAndReplayRevocation"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -9044,7 +9044,7 @@
             "id": "xunit:tests/backend/Unit/MessageCenterServiceTests.cs#MessageCenterServiceTests.MarkConversationReadAsync_SourceUsesAtomicLastMessageUpdate",
             "path": "tests/backend/Unit/MessageCenterServiceTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/MessageCenterServiceTests.cs#MessageCenterServiceTests.MarkConversationReadAsync_RuntimeUsesAtomicLastMessageUpdate"
+                "xunit:tests/backend/Unit/MessageCenterServiceTests.cs#MessageCenterServiceTests.MarkConversationReadAsync_RuntimeUsesExplicitVisibleMonotonicCursor"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -9084,7 +9084,7 @@
             "id": "xunit:tests/backend/Unit/MessageCenterServiceTests.cs#MessageCenterServiceTests.ReplyAsAccountAsync_SourceUsesTransactionalClosedConversationWriteBarrier",
             "path": "tests/backend/Unit/MessageCenterServiceTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/MessageCenterServiceTests.cs#MessageCenterServiceTests.ReplyAsAccountAsync_RuntimeUsesTransactionalClosedConversationWriteBarrier"
+                "xunit:tests/backend/Unit/MessageCenterServiceTests.cs#MessageCenterServiceTests.AccountAndAdminReplies_ReuseTransactionalClosedConversationWriteBarrier"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -9100,7 +9100,7 @@
             "id": "xunit:tests/backend/Unit/MessageCenterServiceTests.cs#NullScope.NormalizeBody_ReturnsExpected",
             "path": "tests/backend/Unit/MessageCenterServiceTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/MessageCenterServiceTests.cs#MessageCenterServiceTests.NormalizeBody_ReturnsExpected"
+                "xunit:tests/backend/Unit/MessageCenterServiceTests.cs#MessageCenterServiceTests.MessageContentPolicy_PreservesUnicodeAndOriginalWhitespace"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -9108,7 +9108,7 @@
             "id": "xunit:tests/backend/Unit/MessageCenterServiceTests.cs#NullScope.NormalizeBody_TruncatesAt4000",
             "path": "tests/backend/Unit/MessageCenterServiceTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/MessageCenterServiceTests.cs#MessageCenterServiceTests.NormalizeBody_TruncatesAt4000"
+                "xunit:tests/backend/Unit/MessageCenterServiceTests.cs#MessageCenterServiceTests.MessageContentPolicy_RejectsUtf8OverflowWithoutTruncating"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -9116,7 +9116,7 @@
             "id": "xunit:tests/backend/Unit/MessageCenterServiceTests.cs#NullScope.NormalizeSubject_ReturnsExpected",
             "path": "tests/backend/Unit/MessageCenterServiceTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/MessageCenterServiceTests.cs#MessageCenterServiceTests.NormalizeSubject_ReturnsExpected"
+                "xunit:tests/backend/Unit/MessageCenterServiceTests.cs#MessageCenterServiceTests.MessageContentPolicy_PreservesUnicodeAndOriginalWhitespace"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -9124,7 +9124,7 @@
             "id": "xunit:tests/backend/Unit/MessageCenterServiceTests.cs#NullScope.NormalizeSubject_TruncatesAt160",
             "path": "tests/backend/Unit/MessageCenterServiceTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/MessageCenterServiceTests.cs#MessageCenterServiceTests.NormalizeSubject_TruncatesAt160"
+                "xunit:tests/backend/Unit/MessageCenterServiceTests.cs#MessageCenterServiceTests.MessageContentPolicy_RejectsUtf8OverflowWithoutTruncating"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -10076,7 +10076,7 @@
             "id": "xunit:tests/backend/Unit/UserServiceValidationTests.cs#EnvironmentVariableScope.BuildDeviceLabel_LongUserAgent_Truncates",
             "path": "tests/backend/Unit/UserServiceValidationTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.BuildDeviceLabel_LongUserAgent_Truncates"
+                "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.BuildDeviceLabel_DoesNotEchoUnknownHighEntropyUserAgent"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -10084,7 +10084,7 @@
             "id": "xunit:tests/backend/Unit/UserServiceValidationTests.cs#EnvironmentVariableScope.BuildDeviceLabel_ReturnsExpected",
             "path": "tests/backend/Unit/UserServiceValidationTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.BuildDeviceLabel_ReturnsExpected"
+                "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.BuildDeviceLabel_ReturnsCoarseExpectedValue"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -10100,7 +10100,7 @@
             "id": "xunit:tests/backend/Unit/UserServiceValidationTests.cs#EnvironmentVariableScope.NormalizeClientIp_TrimsInput",
             "path": "tests/backend/Unit/UserServiceValidationTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.NormalizeClientIp_TrimsInput"
+                "xunit:tests/backend/Unit/RiskControlContextFactoryTests.cs#RiskControlContextFactoryTests.Create_AnonymousRequest_UsesNormalizedClientIpAndMissingDeviceState"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -10164,7 +10164,7 @@
             "id": "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.CompleteLoginAsync_SourceRevokesPreviousSessionsAndInsertsNewSessionInTransaction",
             "path": "tests/backend/Unit/UserServiceValidationTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.CompleteLoginAsync_UsesPostgresLockBulkRevocationAndInsertInOneTransaction"
+                "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.CompleteLoginAsync_UsesPostgresLockBoundedAdmissionAndInsertInOneTransaction"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -10530,52 +10530,12 @@
             "reason": "The same aggregation test was renamed after browser-only evidence moved to diagnostics; it still executes producer isolation, aggregate output and fail-closed behavior."
         },
         {
-            "id": "xunit:tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs#AnonymousNullifierPostgresConcurrencyTests.CreateStrongAnonymousCommentAsync_AutoHiddenDispositionInvalidatesUsingFinalStatus",
-            "path": "tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs",
-            "replacementTestIds": [
-                "xunit:tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs#AnonymousNullifierPostgresConcurrencyTests.CreateStrongAnonymousCommentAsync_InitiallyHiddenNeverPublishesRemoveEvent"
-            ],
-            "reason": "The renamed concurrency test now asserts the stronger invariant that an initially hidden anonymous comment is never published and therefore never emits a misleading removal event."
-        },
-        {
             "id": "xunit:tests/backend/Unit/AnonymousCommentSubmitTests.cs#AnonymousCommentSubmitTests.CreateStrongAnonymousCommentAsync_ValidReply_UsesServerSideReplyProjectionWithoutReplyUserId",
             "path": "tests/backend/Unit/AnonymousCommentSubmitTests.cs",
             "replacementTestIds": [
                 "xunit:tests/backend/Unit/AnonymousCommentSubmitTests.cs#AnonymousCommentSubmitTests.CreateStrongAnonymousCommentAsync_ValidReplyToPublicTarget_PreservesRecipientWithoutAttributingActor"
             ],
             "reason": "The replacement keeps the server-side reply projection contract while making the no-actor-attribution privacy invariant explicit."
-        },
-        {
-            "id": "xunit:tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs#UserAuthPostgresConcurrencyTests.RefreshTokenAsync_ConcurrentReplayAllowsOneRotationThenRevokesSession",
-            "path": "tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs",
-            "replacementTestIds": [
-                "xunit:tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs#UserAuthPostgresConcurrencyTests.RotateRefreshTokenAsync_ConcurrentCasHasOneWinnerThenTombstoneReplayCompromisesOnlyFamily"
-            ],
-            "reason": "The current CAS test retains the one-winner replay race and narrows revocation to the compromised token family."
-        },
-        {
-            "id": "xunit:tests/backend/Unit/AdminOperationsBehaviorTests.cs#AdminOperationsBehaviorTests.ApplyIntegrityFixAsync_WrongConfirmationReturnsWithoutApplyingChanges",
-            "path": "tests/backend/Unit/AdminOperationsBehaviorTests.cs",
-            "replacementTestIds": [
-                "xunit:tests/backend/Unit/AdminOperationsBehaviorTests.cs#AdminOperationsBehaviorTests.ApplyFixAsync_WrongConfirmationReturnsWithoutApplyingChanges"
-            ],
-            "reason": "The integrity-fix command was renamed to ApplyFixAsync while preserving the fail-closed confirmation behavior."
-        },
-        {
-            "id": "xunit:tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs#ArticleDetailAedsArtifactStoreBehaviorTests.WriteAsync_AcceptsCurrentV4AndReadCompatibleV3FramesAndRejectsRetiredPayload",
-            "path": "tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs",
-            "replacementTestIds": [
-                "xunit:tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs#ArticleDetailAedsArtifactStoreBehaviorTests.WriteAsync_AcceptsCurrentV5AndReadCompatibleV3V4FramesAndRejectsRetiredPayload"
-            ],
-            "reason": "The artifact-store compatibility test advanced the current AEDS frame to V5 and still rejects payloads outside the supported read set."
-        },
-        {
-            "id": "xunit:tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs#ArticleDetailAedsArtifactStoreBehaviorTests.ClearLegacyPublicArtifactsAsync_PreservesSupportedV3AndV4Frames",
-            "path": "tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs",
-            "replacementTestIds": [
-                "xunit:tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs#ArticleDetailAedsArtifactStoreBehaviorTests.ClearLegacyPublicArtifactsAsync_PreservesSupportedV3V4AndV5Frames"
-            ],
-            "reason": "The current cleanup test extends the supported AEDS frame set through V5 while preserving the same legacy-artifact boundary."
         },
         {
             "id": "vitest:tests/frontend/unit/router/index.test.ts#keeps-user-authenticated-without-legacy-role-meta-e42551a7d7",
@@ -10594,180 +10554,12 @@
             "reason": "Idempotent replay now returns the original committed result while retaining the no-second-write invariant."
         },
         {
-            "id": "xunit:tests/backend/Unit/AnonymousCommentModerationPipelineTests.cs#AnonymousCommentModerationPipelineTests.CommentService_RuntimePathAppliesModelDispositionPolicyAndAuditsAutomaticActions",
-            "path": "tests/backend/Unit/AnonymousCommentModerationPipelineTests.cs",
-            "replacementTestIds": [
-                "xunit:tests/backend/Unit/AnonymousCommentModerationPipelineTests.cs#AnonymousCommentModerationPipelineTests.CommentModerationService_RuntimePathAppliesModelDispositionPolicyAndAuditsAutomaticActions"
-            ],
-            "reason": "The test follows the extracted CommentModerationService and retains the model-disposition and automatic-audit assertions."
-        },
-        {
-            "id": "xunit:tests/backend/Unit/AnonymousCommentModerationPipelineTests.cs#AnonymousCommentModerationPipelineTests.CommentService_AutomaticDispositionRuntimeUsesRowVersionGuardAndRetry",
-            "path": "tests/backend/Unit/AnonymousCommentModerationPipelineTests.cs",
-            "replacementTestIds": [
-                "xunit:tests/backend/Unit/AnonymousCommentModerationPipelineTests.cs#AnonymousCommentModerationPipelineTests.CommentModerationService_AutomaticDispositionRuntimeUsesRowVersionGuardAndRetry"
-            ],
-            "reason": "The service extraction renamed the owner while preserving row-version guarding and retry coverage."
-        },
-        {
-            "id": "xunit:tests/backend/Unit/AnonymousCommentModerationPipelineTests.cs#AnonymousCommentModerationPipelineTests.CommentService_RuntimeEnforcesAnonymousNullifierWithAtomicConsumeBeforeCommit",
-            "path": "tests/backend/Unit/AnonymousCommentModerationPipelineTests.cs",
-            "replacementTestIds": [
-                "xunit:tests/backend/Unit/AnonymousCommentSubmitTests.cs#AnonymousCommentSubmitTests.CreateStrongAnonymousCommentAsync_RuntimeUsesAtomicNullifierConsume"
-            ],
-            "reason": "The submission-path test now owns the production atomic-nullifier consume boundary directly."
-        },
-        {
-            "id": "xunit:tests/backend/Unit/AnonymousCommentModerationPipelineTests.cs#AnonymousCommentModerationPipelineTests.CommentService_RuntimePathPassesCommentActorAndPolicySnapshotToAntiSpamContext",
-            "path": "tests/backend/Unit/AnonymousCommentModerationPipelineTests.cs",
-            "replacementTestIds": [
-                "xunit:tests/backend/Unit/AnonymousCommentModerationPipelineTests.cs#AnonymousCommentModerationPipelineTests.CommentModerationService_RuntimePathPassesCommentActorAndPolicySnapshotToAntiSpamContext"
-            ],
-            "reason": "The extracted moderation service retains the actor and policy-snapshot anti-spam context contract."
-        },
-        {
-            "id": "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleServiceValidationTests.LoadPublicArticleListPageByKeysetAsync_RuntimeUsesSingleOffsetReadWithoutConcurrentScopedDbCommands",
-            "path": "tests/backend/Unit/ArticleServiceValidationTests.cs",
-            "replacementTestIds": [
-                "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleServiceValidationTests.LoadPublicArticleListPageByKeysetAsync_RuntimeUsesStrictCursorWindow"
-            ],
-            "reason": "The strict cursor-window test replaces the former offset-read implementation assertion with the current keyset contract."
-        },
-        {
-            "id": "xunit:tests/backend/Unit/AuthoringWorkflowServiceTests.cs#AuthoringWorkflowServiceTests.SaveDraftAsync_RuntimeUsesAtomicUpsert",
-            "path": "tests/backend/Unit/AuthoringWorkflowServiceTests.cs",
-            "replacementTestIds": [
-                "xunit:tests/backend/Unit/AuthoringWorkflowServiceTests.cs#AuthoringWorkflowServiceTests.SaveDraftAsync_RuntimeUsesAtomicServerRevisionCas"
-            ],
-            "reason": "Draft persistence moved from a generic upsert assertion to the stronger server-revision compare-and-swap contract."
-        },
-        {
-            "id": "xunit:tests/backend/Unit/AuthSecurityHardeningTests.cs#AuthSecurityHardeningTests.UserService_AccountDeletionRuntimeRevokesAllSessionsInTransaction",
-            "path": "tests/backend/Unit/AuthSecurityHardeningTests.cs",
-            "replacementTestIds": [
-                "xunit:tests/backend/Unit/AuthSecurityHardeningTests.cs#AuthSecurityHardeningTests.UserProfileCommandService_AccountDeletionRuntimeRevokesAllSessionsInTransaction"
-            ],
-            "reason": "The account-deletion transaction moved to UserProfileCommandService without weakening all-session revocation coverage."
-        },
-        {
-            "id": "xunit:tests/backend/Unit/AuthSecurityHardeningTests.cs#AuthSecurityHardeningTests.UserService_RefreshRotationRuntimeUsesCasAndReplayRevocation",
-            "path": "tests/backend/Unit/AuthSecurityHardeningTests.cs",
-            "replacementTestIds": [
-                "xunit:tests/backend/Unit/AuthSecurityHardeningTests.cs#AuthSecurityHardeningTests.UserSessionCommandService_RefreshRotationRuntimeUsesCasAndReplayRevocation"
-            ],
-            "reason": "The refresh command moved to UserSessionCommandService while retaining CAS rotation and replay revocation checks."
-        },
-        {
-            "id": "xunit:tests/backend/Unit/MessageCenterServiceTests.cs#MessageCenterServiceTests.MarkConversationReadAsync_RuntimeUsesAtomicLastMessageUpdate",
-            "path": "tests/backend/Unit/MessageCenterServiceTests.cs",
-            "replacementTestIds": [
-                "xunit:tests/backend/Unit/MessageCenterServiceTests.cs#MessageCenterServiceTests.MarkConversationReadAsync_RuntimeUsesExplicitVisibleMonotonicCursor"
-            ],
-            "reason": "Read progress now uses an explicit visible monotonic cursor, superseding the ambiguous last-message update contract."
-        },
-        {
-            "id": "xunit:tests/backend/Unit/MessageCenterServiceTests.cs#MessageCenterServiceTests.ReplyAsAccountAsync_RuntimeUsesTransactionalClosedConversationWriteBarrier",
-            "path": "tests/backend/Unit/MessageCenterServiceTests.cs",
-            "replacementTestIds": [
-                "xunit:tests/backend/Unit/MessageCenterServiceTests.cs#MessageCenterServiceTests.AccountAndAdminReplies_ReuseTransactionalClosedConversationWriteBarrier"
-            ],
-            "reason": "The shared test covers the same transactional closed-conversation barrier for both account and admin replies."
-        },
-        {
-            "id": "xunit:tests/backend/Unit/MessageCenterServiceTests.cs#MessageCenterServiceTests.NormalizeBody_ReturnsExpected",
-            "path": "tests/backend/Unit/MessageCenterServiceTests.cs",
-            "replacementTestIds": [
-                "xunit:tests/backend/Unit/MessageCenterServiceTests.cs#MessageCenterServiceTests.MessageContentPolicy_PreservesUnicodeAndOriginalWhitespace"
-            ],
-            "reason": "The explicit content policy now owns ordinary body preservation without hidden normalization."
-        },
-        {
-            "id": "xunit:tests/backend/Unit/MessageCenterServiceTests.cs#MessageCenterServiceTests.NormalizeBody_TruncatesAt4000",
-            "path": "tests/backend/Unit/MessageCenterServiceTests.cs",
-            "replacementTestIds": [
-                "xunit:tests/backend/Unit/MessageCenterServiceTests.cs#MessageCenterServiceTests.MessageContentPolicy_RejectsUtf8OverflowWithoutTruncating"
-            ],
-            "reason": "Oversized bodies are now rejected by byte-aware policy instead of silently truncated."
-        },
-        {
-            "id": "xunit:tests/backend/Unit/MessageCenterServiceTests.cs#MessageCenterServiceTests.NormalizeSubject_ReturnsExpected",
-            "path": "tests/backend/Unit/MessageCenterServiceTests.cs",
-            "replacementTestIds": [
-                "xunit:tests/backend/Unit/MessageCenterServiceTests.cs#MessageCenterServiceTests.MessageContentPolicy_PreservesUnicodeAndOriginalWhitespace"
-            ],
-            "reason": "The explicit content policy now owns ordinary subject preservation without hidden normalization."
-        },
-        {
-            "id": "xunit:tests/backend/Unit/MessageCenterServiceTests.cs#MessageCenterServiceTests.NormalizeSubject_TruncatesAt160",
-            "path": "tests/backend/Unit/MessageCenterServiceTests.cs",
-            "replacementTestIds": [
-                "xunit:tests/backend/Unit/MessageCenterServiceTests.cs#MessageCenterServiceTests.MessageContentPolicy_RejectsUtf8OverflowWithoutTruncating"
-            ],
-            "reason": "Oversized subjects are now rejected by byte-aware policy instead of silently truncated."
-        },
-        {
-            "id": "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.BuildDeviceLabel_LongUserAgent_Truncates",
-            "path": "tests/backend/Unit/UserServiceValidationTests.cs",
-            "replacementTestIds": [
-                "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.BuildDeviceLabel_DoesNotEchoUnknownHighEntropyUserAgent"
-            ],
-            "reason": "The current privacy contract avoids echoing high-entropy user-agent data rather than merely truncating it."
-        },
-        {
-            "id": "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.BuildDeviceLabel_ReturnsExpected",
-            "path": "tests/backend/Unit/UserServiceValidationTests.cs",
-            "replacementTestIds": [
-                "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.BuildDeviceLabel_ReturnsCoarseExpectedValue"
-            ],
-            "reason": "The renamed test makes the coarse, privacy-preserving device-label contract explicit."
-        },
-        {
-            "id": "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.NormalizeClientIp_TrimsInput",
-            "path": "tests/backend/Unit/UserServiceValidationTests.cs",
-            "replacementTestIds": [
-                "xunit:tests/backend/Unit/RiskControlContextFactoryTests.cs#RiskControlContextFactoryTests.Create_AnonymousRequest_UsesNormalizedClientIpAndMissingDeviceState"
-            ],
-            "reason": "Client-IP normalization is now verified at its production risk-control context boundary."
-        },
-        {
-            "id": "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.CompleteLoginAsync_UsesPostgresLockBulkRevocationAndInsertInOneTransaction",
-            "path": "tests/backend/Unit/UserServiceValidationTests.cs",
-            "replacementTestIds": [
-                "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.CompleteLoginAsync_UsesPostgresLockBoundedAdmissionAndInsertInOneTransaction"
-            ],
-            "reason": "Login admission now uses a bounded lock policy while retaining the one-transaction session insertion guarantee."
-        },
-        {
-            "id": "vitest:tests/frontend/unit/router/index.test.ts#classifies every account deep link and every manage permission in route meta",
-            "path": "tests/frontend/unit/router/index.test.ts",
-            "replacementTestIds": [
-                "vitest:tests/frontend/unit/router/index.test.ts#classifies-every-account-deep-link-by-an-explicit-non-su-d4775fb103"
-            ],
-            "reason": "The route-metadata test was tightened to require an explicit non-substitutable identity domain for every account deep link."
-        },
-        {
-            "id": "vitest:tests/frontend/unit/api/article.test.ts#createArticle encodes ArticleWriteRequest V3 explicit rights fields",
-            "path": "tests/frontend/unit/api/article.test.ts",
-            "replacementTestIds": [
-                "vitest:tests/frontend/unit/api/article.test.ts#createarticle-encodes-articlewriterequest-v5-explicit-ri-ebee2f54b8"
-            ],
-            "reason": "The current V5 write contract retains explicit rights-field encoding without restoring the retired request version."
-        },
-        {
             "id": "xunit:tests/backend/Unit/AuthoringDraftConcurrencyTests.cs#AuthoringDraftConcurrencyTests.SaveDraftAsync_ConcurrentSameOwnerAndKeyKeepsSingleDraft",
             "path": "tests/backend/Unit/AuthoringDraftConcurrencyTests.cs",
             "replacementTestIds": [
                 "xunit:tests/backend/Unit/AuthoringDraftConcurrencyTests.cs#AuthoringDraftConcurrencyTests.SaveDraftAsync_ConcurrentCreateAllowsExactlyOneWriter"
             ],
             "reason": "The current concurrency test states the stronger exactly-one-writer guarantee for same-key draft creation."
-        },
-        {
-            "id": "xunit:tests/backend/Integration/MessageCenterPersistenceIntegrationTests.cs#MessageCenterPersistenceIntegrationTests.CreateAccountTicketAsync_CommitsConversationMessageParticipantAndNotifications",
-            "path": "tests/backend/Integration/MessageCenterPersistenceIntegrationTests.cs",
-            "replacementTestIds": [
-                "xunit:tests/backend/Integration/MessageCenterPersistenceIntegrationTests.cs#MessageCenterPersistenceIntegrationTests.CreateAccountTicketAsync_CommitsConversationMessageParticipantAndOutboxAtomically"
-            ],
-            "reason": "The persistence test now verifies notification delivery through the transactional outbox while retaining atomic conversation, message and participant creation."
         }
     ],
     "assertionReplacements": [
