@@ -112,7 +112,7 @@ export function checkPoSpaceRuntimeReachability(root = repoRoot)
     for (const edge of edges)
     {
         const present = edge.kind === 'dynamic-import'
-            ? facts[edge.from].dynamicImports.has(edge.module)
+            ? hasExpectedDynamicModule(facts[edge.from], edge.module)
             : facts[edge.from].valueStaticImports.has(edge.module);
         assert.ok(
             present,
@@ -123,7 +123,7 @@ export function checkPoSpaceRuntimeReachability(root = repoRoot)
     for (const hostId of ['poSpaceHost', 'notification'])
     {
         assert.ok(
-            ![...facts[hostId].runtimeImports].some(isExecutorModuleSpecifier),
+            !facts[hostId].eagerExecutorImport,
             `${nodes[hostId]} must keep the PoSpace executor lazy instead of restoring an eager compatibility edge`
         );
     }
@@ -168,7 +168,7 @@ export function checkPoSpaceRuntimeReachability(root = repoRoot)
 
     return {
         check: 'pospace-runtime-reachability',
-        version: 4,
+        version: 5,
         ok: true,
         nodes,
         edges: edges.map(({ from, to, kind }) => ({ from, to, kind })),
@@ -180,6 +180,10 @@ function inspectModule(source, relative)
 {
     const facts = {
         dynamicImports: new Set(),
+        lazyDynamicImports: new Set(),
+        moduleTopLevelDynamicImports: new Set(),
+        eagerExecutorImport: false,
+        lazyExecutorImport: false,
         runtimeImports: new Set(),
         valueStaticImports: new Set(),
         valueImports: new Map(),
@@ -203,12 +207,12 @@ function inspectModule(source, relative)
             0,
             `${relative} script ${index + 1} must remain parseable: ${sourceFile.parseDiagnostics.map(item => item.messageText).join('; ')}`
         );
-        visit(sourceFile, facts);
+        visit(sourceFile, facts, relative);
     }
     return facts;
 }
 
-function visit(node, facts)
+function visit(node, facts, relative)
 {
     if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier))
     {
@@ -216,6 +220,7 @@ function visit(node, facts)
         if (!isTypeOnlyImport(node))
         {
             facts.runtimeImports.add(module);
+            facts.eagerExecutorImport ||= isExecutorModuleSpecifier(module, relative);
             facts.valueStaticImports.add(module);
             const names = facts.valueImports.get(module) ?? new Set();
             for (const name of importedValueNames(node))
@@ -235,6 +240,7 @@ function visit(node, facts)
             if (node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier))
             {
                 facts.runtimeImports.add(node.moduleSpecifier.text);
+                facts.eagerExecutorImport ||= isExecutorModuleSpecifier(node.moduleSpecifier.text, relative);
             }
             if (node.exportClause && ts.isNamedExports(node.exportClause))
             {
@@ -257,17 +263,100 @@ function visit(node, facts)
     && ts.isStringLiteralLike(node.arguments[0])
     )
     {
-        facts.dynamicImports.add(node.arguments[0].text);
+        const module = node.arguments[0].text;
+        facts.dynamicImports.add(module);
+        if (isDeferredDynamicImport(node))
+        {
+            facts.lazyDynamicImports.add(module);
+            facts.lazyExecutorImport ||= isExecutorModuleSpecifier(module, relative);
+        }
+        else
+        {
+            facts.moduleTopLevelDynamicImports.add(module);
+            facts.runtimeImports.add(module);
+            facts.eagerExecutorImport ||= isExecutorModuleSpecifier(module, relative);
+        }
+    }
+    if (
+        ts.isElementAccessExpression(node)
+    && node.argumentExpression
+    && ts.isStringLiteralLike(node.argumentExpression)
+    && isValueIdentifier(node)
+    )
+    {
+        facts.valueIdentifiers.add(node.argumentExpression.text);
+    }
+    if (
+        ts.isBindingElement(node)
+    && node.propertyName
+    && ts.isStringLiteralLike(node.propertyName)
+    )
+    {
+        facts.valueIdentifiers.add(node.propertyName.text);
     }
     if (ts.isIdentifier(node) && isValueIdentifier(node))
     {
         facts.valueIdentifiers.add(node.text);
     }
-    if (ts.isNewExpression(node) && ts.isIdentifier(node.expression))
+    if (ts.isNewExpression(node))
     {
-        facts.newExpressions.add(node.expression.text);
+        const constructor = expressionPropertyName(node.expression);
+        if (constructor)
+        {
+            facts.newExpressions.add(constructor);
+        }
     }
-    ts.forEachChild(node, child => visit(child, facts));
+    ts.forEachChild(node, child => visit(child, facts, relative));
+}
+
+function isDeferredDynamicImport(node)
+{
+    for (let current = node.parent; current; current = current.parent)
+    {
+        if (!ts.isFunctionLike(current))
+        {
+            continue;
+        }
+        return !isImmediatelyInvokedFunction(current);
+    }
+    return false;
+}
+
+function isImmediatelyInvokedFunction(node)
+{
+    let expression = node;
+    while (
+        expression.parent
+    && (ts.isParenthesizedExpression(expression.parent)
+        || ts.isAsExpression(expression.parent)
+        || ts.isSatisfiesExpression(expression.parent)
+        || ts.isNonNullExpression(expression.parent))
+    )
+    {
+        expression = expression.parent;
+    }
+    return ts.isCallExpression(expression.parent) && expression.parent.expression === expression;
+}
+
+function expressionPropertyName(node)
+{
+    if (ts.isIdentifier(node))
+    {
+        return node.text;
+    }
+    if (ts.isPropertyAccessExpression(node))
+    {
+        return node.name.text;
+    }
+    if (
+        ts.isElementAccessExpression(node)
+    && node.argumentExpression
+    && ts.isStringLiteralLike(node.argumentExpression)
+    )
+    {
+        return node.argumentExpression.text;
+    }
+    return null;
 }
 
 function isTypeOnlyImport(node)
@@ -387,6 +476,10 @@ function isAmbientDeclarationName(node)
 {
     for (let current = node.parent; current; current = current.parent)
     {
+        if ((current.flags & ts.NodeFlags.Ambient) !== 0)
+        {
+            return true;
+        }
         if (ts.canHaveModifiers(current))
         {
             const modifiers = ts.getModifiers(current) ?? [];
@@ -394,10 +487,6 @@ function isAmbientDeclarationName(node)
             {
                 return true;
             }
-        }
-        if (ts.isStatement(current))
-        {
-            break;
         }
     }
     return false;
@@ -419,10 +508,31 @@ function formatVueSfcError(error)
     return error instanceof Error ? error.message : String(error);
 }
 
-function isExecutorModuleSpecifier(module)
+function isExecutorModuleSpecifier(module, relative)
 {
-    return module === executorModule
-    || /(?:^|\/)securityPoSpaceChallengeExecutor(?:\.ts)?$/u.test(module);
+    const clean = module.replace(/[?#].*$/u, '');
+    let resolved;
+    if (clean.startsWith('@/'))
+    {
+        resolved = path.posix.join('src/frontend/src', clean.slice(2));
+    }
+    else if (clean.startsWith('.'))
+    {
+        resolved = path.posix.normalize(path.posix.join(path.posix.dirname(relative), clean));
+    }
+    else
+    {
+        return false;
+    }
+    const sourceIdentity = resolved.replace(/\.(?:[cm]?[jt]sx?)$/u, '');
+    return sourceIdentity === nodes.executor.replace(/\.ts$/u, '');
+}
+
+function hasExpectedDynamicModule(facts, expected)
+{
+    return expected === executorModule
+        ? facts.lazyExecutorImport
+        : facts.lazyDynamicImports.has(expected);
 }
 
 function isArgon2ModuleSpecifier(module)

@@ -66,6 +66,36 @@ const cases = [
         expected: 'must keep the dynamic-import edge'
     },
     {
+        name: 'module-top-level executor prefetch is not lazy',
+        file: 'src/frontend/src/composables/useNotification.ts',
+        mutate: source => source.replace(
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'",
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'\n\nconst eagerExecutorModule = import('@/services/securityPoSpaceChallengeExecutor')"
+        ).replace(
+            /const \{ createPoSpaceChallengeExecutor \} = await import\(\s*'@\/services\/securityPoSpaceChallengeExecutor'\s*\)/u,
+            'const { createPoSpaceChallengeExecutor } = await eagerExecutorModule'
+        ),
+        expected: 'must keep the dynamic-import edge'
+    },
+    {
+        name: 'function-deferred executor import remains lazy',
+        file: 'src/frontend/src/composables/useNotification.ts',
+        mutate: source => source.replace(
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'",
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'\n\nconst deferredExecutorModule = () => import('@/services/securityPoSpaceChallengeExecutor')"
+        ),
+        shouldPass: true
+    },
+    {
+        name: 'immediately invoked executor import is not lazy',
+        file: 'src/frontend/src/composables/useNotification.ts',
+        mutate: source => source.replace(
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'",
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'\n\nconst eagerExecutorModule = (() => import('@/services/securityPoSpaceChallengeExecutor'))()"
+        ),
+        expected: 'must keep the PoSpace executor lazy'
+    },
+    {
         name: 'eager component executor regression',
         file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
         mutate: source => source.replace(
@@ -93,6 +123,60 @@ const cases = [
         expected: 'must keep the PoSpace executor lazy'
     },
     {
+        name: 'TypeScript Bundler relative js executor import remains eager',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script setup lang="ts">',
+            "<script setup lang=\"ts\">\nimport { createPoSpaceChallengeExecutor as eagerExecutor } from '../../services/securityPoSpaceChallengeExecutor.js'"
+        ),
+        expected: 'must keep the PoSpace executor lazy'
+    },
+    {
+        name: 'TypeScript Bundler relative js dynamic import remains a valid lazy edge',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            "import('@/services/securityPoSpaceChallengeExecutor')",
+            "import('../../services/securityPoSpaceChallengeExecutor.js')"
+        ),
+        shouldPass: true
+    },
+    {
+        name: 'same-basename decoy dynamic import is not the canonical executor edge',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            "import('@/services/securityPoSpaceChallengeExecutor')",
+            "import('@/decoys/securityPoSpaceChallengeExecutor.js')"
+        ),
+        expected: 'must keep the dynamic-import edge'
+    },
+    {
+        name: 'TypeScript Bundler relative mjs executor import remains eager',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script setup lang="ts">',
+            "<script setup lang=\"ts\">\nimport { createPoSpaceChallengeExecutor as eagerExecutor } from '../../services/securityPoSpaceChallengeExecutor.mjs'"
+        ),
+        expected: 'must keep the PoSpace executor lazy'
+    },
+    {
+        name: 'TypeScript Bundler relative cjs executor import remains eager',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script setup lang="ts">',
+            "<script setup lang=\"ts\">\nimport { createPoSpaceChallengeExecutor as eagerExecutor } from '../../services/securityPoSpaceChallengeExecutor.cjs'"
+        ),
+        expected: 'must keep the PoSpace executor lazy'
+    },
+    {
+        name: 'TypeScript Bundler relative js type import is not eager',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script setup lang="ts">',
+            "<script setup lang=\"ts\">\nimport type { PoSpaceChallengeExecutor as ExecutorType } from '../../services/securityPoSpaceChallengeExecutor.js'"
+        ),
+        shouldPass: true
+    },
+    {
         name: 'value export star executor regression',
         file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
         mutate: source => source.replace(
@@ -107,6 +191,33 @@ const cases = [
         mutate: source => source.replace(
             '<script lang="ts">',
             "<script lang=\"ts\">\nexport { createPoSpaceChallengeExecutor } from '@/services/securityPoSpaceChallengeExecutor'"
+        ),
+        expected: 'must keep the PoSpace executor lazy'
+    },
+    {
+        name: 'TypeScript Bundler relative js value re-export remains eager',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script lang="ts">',
+            "<script lang=\"ts\">\nexport { createPoSpaceChallengeExecutor } from '../../services/securityPoSpaceChallengeExecutor.js'"
+        ),
+        expected: 'must keep the PoSpace executor lazy'
+    },
+    {
+        name: 'namespace value re-export executor regression',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script lang="ts">',
+            "<script lang=\"ts\">\nexport * as PoSpaceExecutorModule from '@/services/securityPoSpaceChallengeExecutor'"
+        ),
+        expected: 'must keep the PoSpace executor lazy'
+    },
+    {
+        name: 'default value re-export executor regression',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script lang="ts">',
+            "<script lang=\"ts\">\nexport { default } from '../../services/securityPoSpaceChallengeExecutor'"
         ),
         expected: 'must keep the PoSpace executor lazy'
     },
@@ -165,6 +276,33 @@ const cases = [
         shouldPass: true
     },
     {
+        name: 'declare global solve contract is not a runtime implementation',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script lang="ts">',
+            '<script lang="ts">\ndeclare global { const solvePoSpaceProof: () => void }'
+        ),
+        shouldPass: true
+    },
+    {
+        name: 'declare module solve contract is not a runtime implementation',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script lang="ts">',
+            "<script lang=\"ts\">\ndeclare module 'virtual:pospace-contract' { export const solvePoSpaceProof: () => void }"
+        ),
+        shouldPass: true
+    },
+    {
+        name: 'indexed solve type is not a runtime implementation',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script lang="ts">',
+            "<script lang=\"ts\">\ntype SolveProperty = { solvePoSpaceProof: () => void }['solvePoSpaceProof']"
+        ),
+        shouldPass: true
+    },
+    {
         name: 'Argon2 value import remains forbidden in a host',
         file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
         mutate: source => source.replace(
@@ -183,6 +321,24 @@ const cases = [
         expected: 'must not duplicate runtime proof solve'
     },
     {
+        name: 'computed solvePoSpaceProof access remains forbidden in a host',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script setup lang="ts">',
+            "<script setup lang=\"ts\">\nimport * as duplicateRuntime from '@/services/securityPoSpaceRuntime'\nconst duplicateSolve = duplicateRuntime['solvePoSpaceProof']"
+        ),
+        expected: 'must not duplicate runtime proof solve'
+    },
+    {
+        name: 'computed solvePoSpaceProof destructuring remains forbidden in a host',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script setup lang="ts">',
+            "<script setup lang=\"ts\">\nimport * as duplicateRuntime from '@/services/securityPoSpaceRuntime'\nconst { 'solvePoSpaceProof': duplicateSolve } = duplicateRuntime"
+        ),
+        expected: 'must not duplicate runtime proof solve'
+    },
+    {
         name: 'solvePoSpaceProof value re-export remains forbidden in a host',
         file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
         mutate: source => source.replace(
@@ -197,6 +353,42 @@ const cases = [
         mutate: source => source.replace(
             '<script lang="ts">',
             "<script lang=\"ts\">\nexport type { solvePoSpaceProof } from '@/services/securityPoSpaceRuntime'"
+        ),
+        shouldPass: true
+    },
+    {
+        name: 'globalThis Worker construction remains forbidden in a host',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script setup lang="ts">',
+            "<script setup lang=\"ts\">\nconst duplicateWorker = new globalThis.Worker('/worker.js')"
+        ),
+        expected: 'must not duplicate direct Worker construction'
+    },
+    {
+        name: 'window Worker construction remains forbidden in a host',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script setup lang="ts">',
+            "<script setup lang=\"ts\">\nconst duplicateWorker = new window.Worker('/worker.js')"
+        ),
+        expected: 'must not duplicate direct Worker construction'
+    },
+    {
+        name: 'self computed Worker construction remains forbidden in a host',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script setup lang="ts">',
+            "<script setup lang=\"ts\">\nconst duplicateWorker = new self['Worker']('/worker.js')"
+        ),
+        expected: 'must not duplicate direct Worker construction'
+    },
+    {
+        name: 'Worker metadata property is not Worker construction',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script setup lang="ts">',
+            "<script setup lang=\"ts\">\nconst workerMetadata = { Worker: 'dedicated' }"
         ),
         shouldPass: true
     }
