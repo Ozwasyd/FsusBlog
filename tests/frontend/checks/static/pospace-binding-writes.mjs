@@ -1,31 +1,68 @@
 export function collectBindingWrites(ts, sourceFile, flow, helpers)
 {
     const {
+        provenanceMember,
         resolveLexicalBinding,
         staticMemberAccess,
         unwrapRuntimeExpression,
         walk
     } = helpers;
-    const recordBindingWrite = (identifier, node, value) =>
+    const recordIdentifier = (identifier, node, value, options = {}) =>
     {
         const binding = resolveLexicalBinding(flow.lexicalBindings, identifier, node);
         if (binding && flow.constValueBindings.includes(binding))
         {
-            binding.writes ??= [];
-            binding.writes.push({ node, value });
+            recordWrite(binding, null, makeWrite(ts, node, value, options));
         }
     };
-    const assignmentValue = node => node.operatorToken.kind === ts.SyntaxKind.EqualsToken ? node.right : null;
+    const recordMember = (member, node, value, options = {}) =>
+    {
+        const container = unwrapRuntimeExpression(member.container);
+        if (!ts.isIdentifier(container))
+        {
+            return;
+        }
+        const binding = resolveLexicalBinding(flow.lexicalBindings, container, node);
+        if (binding && flow.constValueBindings.includes(binding))
+        {
+            recordWrite(binding, member.property, makeWrite(ts, node, value, options));
+        }
+    };
 
     walk(sourceFile, node =>
     {
         if (
-            (ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node))
-        && [ts.SyntaxKind.MinusMinusToken, ts.SyntaxKind.PlusPlusToken].includes(node.operator)
-        && ts.isIdentifier(node.operand)
+            ts.isVariableDeclaration(node)
+        && ts.isIdentifier(node.name)
+        && node.initializer
+        && ts.isVariableDeclarationList(node.parent)
+        && (node.parent.flags & ts.NodeFlags.BlockScoped) === 0
         )
         {
-            recordBindingWrite(node.operand, node, null);
+            recordIdentifier(node.name, node, node.initializer, {
+                conditional: isConditionalExecution(ts, node),
+                kills: true
+            });
+            return;
+        }
+        if (ts.isForInStatement(node) || ts.isForOfStatement(node))
+        {
+            const target = unwrapRuntimeExpression(node.initializer);
+            const values = ts.isArrayLiteralExpression(unwrapRuntimeExpression(node.expression))
+                ? unwrapRuntimeExpression(node.expression).elements
+                : [null];
+            for (const value of values)
+            {
+                recordTarget(ts, target, node, value, { conditional: true }, recordIdentifier, recordMember, staticMemberAccess);
+            }
+            return;
+        }
+        if (
+            (ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node))
+        && [ts.SyntaxKind.MinusMinusToken, ts.SyntaxKind.PlusPlusToken].includes(node.operator)
+        )
+        {
+            recordTarget(ts, node.operand, node, null, { kills: true }, recordIdentifier, recordMember, staticMemberAccess);
             return;
         }
         if (
@@ -37,40 +74,124 @@ export function collectBindingWrites(ts, sourceFile, flow, helpers)
             return;
         }
         const left = unwrapRuntimeExpression(node.left);
-        if (ts.isIdentifier(left))
-        {
-            recordBindingWrite(left, node, assignmentValue(node));
-            return;
-        }
-        if (
-            node.operatorToken.kind === ts.SyntaxKind.EqualsToken
-        && ts.isArrayLiteralExpression(left)
-        && ts.isArrayLiteralExpression(unwrapRuntimeExpression(node.right))
-        )
+        const logical = [
+            ts.SyntaxKind.AmpersandAmpersandEqualsToken,
+            ts.SyntaxKind.BarBarEqualsToken,
+            ts.SyntaxKind.QuestionQuestionEqualsToken
+        ].includes(node.operatorToken.kind);
+        const options = {
+            conditional: logical || isConditionalExecution(ts, node),
+            kills: node.operatorToken.kind === ts.SyntaxKind.EqualsToken
+        };
+        if (ts.isArrayLiteralExpression(left) && ts.isArrayLiteralExpression(unwrapRuntimeExpression(node.right)))
         {
             const values = unwrapRuntimeExpression(node.right).elements;
             for (const [index, target] of left.elements.entries())
             {
-                if (ts.isIdentifier(target))
+                recordTarget(ts, target, node, values[index] ?? null, options, recordIdentifier, recordMember, staticMemberAccess);
+            }
+            return;
+        }
+        if (ts.isObjectLiteralExpression(left))
+        {
+            for (const property of left.properties)
+            {
+                if (!ts.isPropertyAssignment(property) && !ts.isShorthandPropertyAssignment(property))
                 {
-                    recordBindingWrite(target, node, values[index] ?? null);
+                    continue;
+                }
+                const name = property.name && (ts.isIdentifier(property.name) || ts.isStringLiteralLike(property.name))
+                    ? property.name.text
+                    : null;
+                const target = ts.isPropertyAssignment(property) ? property.initializer : property.name;
+                if (name)
+                {
+                    recordTarget(ts, target, node, provenanceMember(node.right, name), options, recordIdentifier, recordMember, staticMemberAccess);
                 }
             }
             return;
         }
-        const member = staticMemberAccess(left, flow);
-        const container = member && unwrapRuntimeExpression(member.container);
-        if (!member || !ts.isIdentifier(container))
-        {
-            return;
-        }
-        const binding = resolveLexicalBinding(flow.lexicalBindings, container, node);
-        if (binding && flow.constValueBindings.includes(binding))
-        {
-            binding.memberWrites ??= new Map();
-            const writes = binding.memberWrites.get(member.property) ?? [];
-            writes.push({ node, value: assignmentValue(node) });
-            binding.memberWrites.set(member.property, writes);
-        }
+        const value = node.operatorToken.kind === ts.SyntaxKind.EqualsToken || logical ? node.right : null;
+        recordTarget(ts, left, node, value, options, recordIdentifier, recordMember, staticMemberAccess);
     });
+}
+
+function recordTarget(ts, targetNode, node, value, options, recordIdentifier, recordMember, staticMemberAccess)
+{
+    const target = targetNode;
+    if (target?.kind === undefined)
+    {
+        return;
+    }
+    if (ts.isIdentifier(target))
+    {
+        recordIdentifier(target, node, value, options);
+        return;
+    }
+    const member = staticMemberAccess(target, null);
+    if (member)
+    {
+        recordMember(member, node, value, options);
+    }
+}
+
+function recordWrite(binding, property, write)
+{
+    if (property === null)
+    {
+        binding.writes ??= [];
+        binding.writes.push(write);
+        return;
+    }
+    binding.memberWrites ??= new Map();
+    const writes = binding.memberWrites.get(property) ?? [];
+    writes.push(write);
+    binding.memberWrites.set(property, writes);
+}
+
+function makeWrite(ts, node, value, options)
+{
+    return {
+        conditional: options.conditional || isConditionalExecution(ts, node),
+        kills: options.kills ?? false,
+        node,
+        owner: functionOwner(ts, node),
+        value
+    };
+}
+
+function isConditionalExecution(ts, node)
+{
+    const owner = functionOwner(ts, node);
+    for (let current = node.parent; current && current !== owner; current = current.parent)
+    {
+        if (
+            ts.isIfStatement(current)
+        || ts.isConditionalExpression(current)
+        || ts.isForStatement(current)
+        || ts.isForInStatement(current)
+        || ts.isForOfStatement(current)
+        || ts.isWhileStatement(current)
+        || ts.isDoStatement(current)
+        || ts.isCaseClause(current)
+        || ts.isDefaultClause(current)
+        || ts.isCatchClause(current)
+        )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+export function functionOwner(ts, node)
+{
+    for (let current = node.parent; current; current = current.parent)
+    {
+        if (ts.isFunctionLike(current))
+        {
+            return current;
+        }
+    }
+    return null;
 }

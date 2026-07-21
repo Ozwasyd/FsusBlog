@@ -180,7 +180,7 @@ export function checkPoSpaceRuntimeReachability(root = repoRoot)
 
     return {
         check: 'pospace-runtime-reachability',
-        version: 11,
+        version: 12,
         ok: true,
         nodes,
         edges: edges.map(({ from, to, kind }) => ({ from, to, kind })),

@@ -522,6 +522,60 @@ export const executorReachabilityCases = [
         shouldPass: true
     },
     {
+        name: 'var redeclaration reaches native Promise constructor',
+        file: 'src/frontend/src/composables/useNotification.ts',
+        mutate: source => source.replace(
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'",
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'\n\nvar P: any = { resolve: () => ({ then: (callback: () => unknown) => callback }) }\nvar P: any = Promise\nP.resolve().then(() => import('@/services/securityPoSpaceChallengeExecutor'))"
+        ),
+        expected: 'must keep the PoSpace executor lazy'
+    },
+    {
+        name: 'conditional safe Promise write cannot erase eager initial value',
+        file: 'src/frontend/src/composables/useNotification.ts',
+        mutate: source => source.replace(
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'",
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'\n\nlet P: any = Promise\nif (false) P = { resolve: () => ({ then: (callback: () => unknown) => callback }) }\nP.resolve().then(() => import('@/services/securityPoSpaceChallengeExecutor'))"
+        ),
+        expected: 'must keep the PoSpace executor lazy'
+    },
+    {
+        name: 'uninvoked nested safe Promise write cannot erase eager initial value',
+        file: 'src/frontend/src/composables/useNotification.ts',
+        mutate: source => source.replace(
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'",
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'\n\nlet P: any = Promise\nfunction never() { P = { resolve: () => ({ then: (callback: () => unknown) => callback }) } }\nP.resolve().then(() => import('@/services/securityPoSpaceChallengeExecutor'))"
+        ),
+        expected: 'must keep the PoSpace executor lazy'
+    },
+    {
+        name: 'logical Promise assignment may reach native constructor',
+        file: 'src/frontend/src/composables/useNotification.ts',
+        mutate: source => source.replace(
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'",
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'\n\nlet P: any = null\nP ||= Promise\nP.resolve().then(() => import('@/services/securityPoSpaceChallengeExecutor'))"
+        ),
+        expected: 'must keep the PoSpace executor lazy'
+    },
+    {
+        name: 'nullish Promise assignment may reach native constructor',
+        file: 'src/frontend/src/composables/useNotification.ts',
+        mutate: source => source.replace(
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'",
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'\n\nlet P: any = null\nP ??= Promise\nP.resolve().then(() => import('@/services/securityPoSpaceChallengeExecutor'))"
+        ),
+        expected: 'must keep the PoSpace executor lazy'
+    },
+    {
+        name: 'conditional safe helper write cannot erase eager class method',
+        file: 'src/frontend/src/composables/useNotification.ts',
+        mutate: source => source.replace(
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'",
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'\n\nclass Helpers { static invokeNow(callback: () => unknown) { return callback() } }\nif (false) Helpers.invokeNow = (callback: () => unknown) => callback\nHelpers.invokeNow(() => import('@/services/securityPoSpaceChallengeExecutor'))"
+        ),
+        expected: 'must keep the PoSpace executor lazy'
+    },
+    {
         name: 'template script-looking text remains valid SFC content',
         file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
         mutate: source => source.replace(

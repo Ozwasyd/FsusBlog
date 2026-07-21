@@ -1,4 +1,5 @@
 import { createPoSpaceLexicalProvenance } from './pospace-lexical-provenance.mjs';
+import { createPoSpaceReflectProvenance } from './pospace-reflect-provenance.mjs';
 import { createPoSpaceStaticValues } from './pospace-static-values.mjs';
 import { createPoSpaceWorkerProvenance } from './pospace-worker-provenance.mjs';
 
@@ -11,5 +12,7 @@ export function createPoSpaceValueProvenance(ts)
     );
     staticValues = createPoSpaceStaticValues(ts, lexical);
     const provenance = { ...lexical, ...staticValues };
-    return { ...provenance, ...createPoSpaceWorkerProvenance(ts, provenance) };
+    const worker = createPoSpaceWorkerProvenance(ts, provenance);
+    const runtimeProvenance = { ...provenance, ...worker };
+    return { ...runtimeProvenance, ...createPoSpaceReflectProvenance(ts, runtimeProvenance) };
 }

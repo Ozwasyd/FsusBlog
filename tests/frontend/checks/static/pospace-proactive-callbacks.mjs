@@ -2,9 +2,11 @@ export function createPoSpaceProactiveCallbacks(ts, provenance)
 {
     const {
         isUnshadowedGlobalIdentifier,
+        isProvenanceMember,
         isWorkerGlobalExpression,
         resolveBinding,
         resolveBindingValue,
+        resolveBindingValues,
         resolveStaticValue,
         staticArrayElements,
         staticMemberAccess,
@@ -107,6 +109,11 @@ export function createPoSpaceProactiveCallbacks(ts, provenance)
 
     function isTrustedPromiseConstructor(node, flow, seen = new Set())
     {
+        if (isProvenanceMember(node))
+        {
+            return node.property === 'Promise'
+            && isWorkerGlobalExpression(node.container, null, flow);
+        }
         const expression = unwrapRuntimeExpression(node);
         if (ts.isIdentifier(expression))
         {
@@ -120,8 +127,8 @@ export function createPoSpaceProactiveCallbacks(ts, provenance)
                 return false;
             }
             seen.add(binding.declaration);
-            const value = resolveBindingValue(binding, expression, flow, seen);
-            return value ? isTrustedPromiseConstructor(value, flow, seen) : false;
+            return resolveBindingValues(binding, expression, flow, seen)
+                .some(value => isTrustedPromiseConstructor(value, flow, new Set(seen)));
         }
         const member = staticMemberAccess(expression, flow);
         return Boolean(
@@ -142,8 +149,8 @@ export function createPoSpaceProactiveCallbacks(ts, provenance)
                 return false;
             }
             seen.add(binding.declaration);
-            const value = resolveBindingValue(binding, expression, flow, seen);
-            return value ? isTrustedPromiseValue(value, binding.declaration, flow, seen) : false;
+            return resolveBindingValues(binding, expression, flow, seen)
+                .some(value => isTrustedPromiseValue(value, binding.declaration, flow, new Set(seen)));
         }
         if (ts.isNewExpression(expression))
         {
@@ -179,6 +186,11 @@ export function createPoSpaceProactiveCallbacks(ts, provenance)
 
     function isTrustedPromiseFactoryValue(node, useNode, flow, seen = new Set())
     {
+        if (isProvenanceMember(node))
+        {
+            return ['all', 'allSettled', 'any', 'race', 'reject', 'resolve', 'withResolvers'].includes(node.property)
+            && isTrustedPromiseConstructor(node.container, flow);
+        }
         const expression = unwrapRuntimeExpression(node);
         if (ts.isIdentifier(expression))
         {
@@ -188,8 +200,8 @@ export function createPoSpaceProactiveCallbacks(ts, provenance)
                 return false;
             }
             seen.add(binding.declaration);
-            const value = resolveBindingValue(binding, expression, flow, seen);
-            return value ? isTrustedPromiseFactoryValue(value, binding.declaration, flow, seen) : false;
+            return resolveBindingValues(binding, expression, flow, seen)
+                .some(value => isTrustedPromiseFactoryValue(value, binding.declaration, flow, new Set(seen)));
         }
         if (ts.isCallExpression(expression))
         {

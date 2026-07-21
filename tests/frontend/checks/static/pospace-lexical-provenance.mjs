@@ -1,4 +1,4 @@
-import { collectBindingWrites } from './pospace-binding-writes.mjs';
+import { collectBindingWrites, functionOwner } from './pospace-binding-writes.mjs';
 
 export function createPoSpaceLexicalProvenance(ts, resolveStaticMemberValue)
 {
@@ -23,11 +23,31 @@ export function createPoSpaceLexicalProvenance(ts, resolveStaticMemberValue)
         && ts.isIdentifier(node.name)
             )
             {
-                const binding = makeBinding(node.name.text, node, node.initializer ?? null, false);
-                flow.lexicalBindings.push(binding);
+                const varScoped = isVarDeclaration(node);
+                const scope = varScoped ? variableScope(node) : lexicalScope(node);
+                let binding = varScoped
+                    ? flow.lexicalBindings.find(candidate => candidate.varScoped
+                        && candidate.name === node.name.text
+                        && candidate.scope === scope)
+                    : null;
+                if (!binding)
+                {
+                    binding = makeBinding(
+                        node.name.text,
+                        node,
+                        varScoped ? null : (node.initializer ?? null),
+                        varScoped,
+                        scope
+                    );
+                    binding.varScoped = varScoped;
+                    flow.lexicalBindings.push(binding);
+                }
                 if (node.initializer)
                 {
-                    flow.constValueBindings.push(binding);
+                    if (!flow.constValueBindings.includes(binding))
+                    {
+                        flow.constValueBindings.push(binding);
+                    }
                     if (
                         ts.isFunctionExpression(unwrapRuntimeExpression(node.initializer))
                 || ts.isArrowFunction(unwrapRuntimeExpression(node.initializer))
@@ -79,6 +99,7 @@ export function createPoSpaceLexicalProvenance(ts, resolveStaticMemberValue)
             }
         });
         collectBindingWrites(ts, sourceFile, flow, {
+            provenanceMember,
             resolveLexicalBinding,
             staticMemberAccess,
             unwrapRuntimeExpression,
@@ -151,14 +172,14 @@ export function createPoSpaceLexicalProvenance(ts, resolveStaticMemberValue)
         ts.forEachChild(node, child => walk(child, callback));
     }
 
-    function makeBinding(name, declaration, value, hoisted)
+    function makeBinding(name, declaration, value, hoisted, scope = lexicalScope(declaration))
     {
         return {
             name,
             declaration,
             value,
             hoisted,
-            scope: lexicalScope(declaration)
+            scope
         };
     }
 
@@ -172,6 +193,24 @@ export function createPoSpaceLexicalProvenance(ts, resolveStaticMemberValue)
         || ts.isSourceFile(current)
         || ts.isCaseBlock(current)
             )
+            {
+                return current;
+            }
+        }
+        return node.getSourceFile();
+    }
+
+    function isVarDeclaration(node)
+    {
+        return ts.isVariableDeclarationList(node.parent)
+        && (node.parent.flags & ts.NodeFlags.BlockScoped) === 0;
+    }
+
+    function variableScope(node)
+    {
+        for (let current = node.parent; current; current = current.parent)
+        {
+            if (ts.isFunctionLike(current) || ts.isSourceFile(current))
             {
                 return current;
             }
@@ -198,44 +237,72 @@ export function createPoSpaceLexicalProvenance(ts, resolveStaticMemberValue)
 
     function resolveBindingValue(binding, useNode, flow, seen)
     {
-        const write = latestWriteBefore(binding.writes, useNode);
-        if (write)
+        const value = resolveBindingValues(binding, useNode, flow, seen).at(-1) ?? null;
+        if (!isProvenanceMember(value))
         {
-            return write.value;
+            return value;
         }
-        if (binding.memberSource)
-        {
-            return resolveStaticMemberValue(
-                binding.memberSource.container,
-                binding.memberSource.property,
-                useNode,
-                flow,
-                seen
-            );
-        }
-        if (binding.restSource)
-        {
-            return null;
-        }
-        return binding.value;
+        return resolveStaticMemberValue(
+            value.container,
+            value.property,
+            useNode,
+            flow,
+            seen
+        ) ?? value;
     }
 
     function resolveBindingMemberValue(binding, property, useNode)
     {
-        const write = latestWriteBefore(binding.memberWrites?.get(property), useNode);
-        return write ? { found: true, value: write.value } : { found: false, value: null };
+        const state = resolveBindingMemberValues(binding, property, useNode);
+        return state.initialReaches
+            ? { found: false, value: null }
+            : { found: true, value: state.values.at(-1) ?? null };
     }
 
-    function latestWriteBefore(writes, useNode)
+    function resolveBindingValues(binding, useNode)
     {
-        return [...(writes ?? [])]
-            .filter(write => write.node.pos < useNode.pos)
-            .sort((left, right) => right.node.pos - left.node.pos)[0] ?? null;
+        const initial = binding.memberSource
+            ? [provenanceMember(binding.memberSource.container, binding.memberSource.property)]
+            : binding.value ? [binding.value] : [];
+        return reachingValues(initial, binding.writes, useNode).values;
     }
 
-    function bindingHasWriteBefore(binding, useNode)
+    function resolveBindingMemberValues(binding, property, useNode)
     {
-        return Boolean(latestWriteBefore(binding.writes, useNode));
+        return reachingValues([], binding.memberWrites?.get(property), useNode);
+    }
+
+    function reachingValues(initial, writes, useNode)
+    {
+        let values = [...initial];
+        let initialReaches = true;
+        const owner = functionOwner(ts, useNode);
+        for (const write of [...(writes ?? [])]
+            .filter(candidate => candidate.node.pos < useNode.pos && candidate.owner === owner)
+            .sort((left, right) => left.node.pos - right.node.pos))
+        {
+            if (write.conditional || !write.kills)
+            {
+                if (write.value)
+                {
+                    values.push(write.value);
+                }
+                continue;
+            }
+            initialReaches = false;
+            values = write.value ? [write.value] : [];
+        }
+        return { initialReaches, values };
+    }
+
+    function provenanceMember(container, property)
+    {
+        return { container, property, provenanceMember: true };
+    }
+
+    function isProvenanceMember(value)
+    {
+        return value?.provenanceMember === true;
     }
 
     function isUnshadowedGlobalIdentifier(identifier, flow)
@@ -315,12 +382,14 @@ export function createPoSpaceLexicalProvenance(ts, resolveStaticMemberValue)
 
     return {
         bindingPropertyName,
-        bindingHasWriteBefore,
         collectRuntimeBindings,
+        isProvenanceMember,
         isUnshadowedGlobalIdentifier,
         resolveBinding,
         resolveBindingMemberValue,
+        resolveBindingMemberValues,
         resolveBindingValue,
+        resolveBindingValues,
         resolveLexicalBinding,
         staticMemberAccess,
         staticStringValue,
