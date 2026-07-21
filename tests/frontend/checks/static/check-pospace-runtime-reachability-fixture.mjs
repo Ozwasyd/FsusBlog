@@ -132,6 +132,51 @@ const cases = [
         expected: 'must keep the PoSpace executor lazy'
     },
     {
+        name: 'top-level IIFE propagates through a nested local loader call',
+        file: 'src/frontend/src/composables/useNotification.ts',
+        mutate: source => source.replace(
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'",
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'\n\nconst eagerExecutorModule = (() => { const load = () => import('@/services/securityPoSpaceChallengeExecutor'); return load() })()"
+        ),
+        expected: 'must keep the PoSpace executor lazy'
+    },
+    {
+        name: 'module-top-level queueMicrotask callback executor import is proactive',
+        file: 'src/frontend/src/composables/useNotification.ts',
+        mutate: source => source.replace(
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'",
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'\n\nqueueMicrotask(() => import('@/services/securityPoSpaceChallengeExecutor'))"
+        ),
+        expected: 'must keep the PoSpace executor lazy'
+    },
+    {
+        name: 'module-top-level synchronous array callback executor import is proactive',
+        file: 'src/frontend/src/composables/useNotification.ts',
+        mutate: source => source.replace(
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'",
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'\n\nconst eagerExecutorModules = [0].map(() => import('@/services/securityPoSpaceChallengeExecutor'))"
+        ),
+        expected: 'must keep the PoSpace executor lazy'
+    },
+    {
+        name: 'user event path keeps nested scheduled and array loaders lazy',
+        file: 'src/frontend/src/composables/useNotification.ts',
+        mutate: source => source.replace(
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'",
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'\n\nwindow.addEventListener('click', () => { const load = () => import('@/services/securityPoSpaceChallengeExecutor'); queueMicrotask(load); Promise.resolve().then(load); [0].map(load) })"
+        ),
+        shouldPass: true
+    },
+    {
+        name: 'custom lazy map callback does not impersonate synchronous Array map',
+        file: 'src/frontend/src/composables/useNotification.ts',
+        mutate: source => source.replace(
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'",
+            "import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'\n\nconst lazySequence = { map: (callback: () => unknown) => callback }\nconst deferredExecutorModule = lazySequence.map(() => import('@/services/securityPoSpaceChallengeExecutor'))"
+        ),
+        shouldPass: true
+    },
+    {
         name: 'eager component executor regression',
         file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
         mutate: source => source.replace(
@@ -166,6 +211,24 @@ const cases = [
             "<script setup lang=\"ts\">\nimport { createPoSpaceChallengeExecutor as eagerExecutor } from '../../services/securityPoSpaceChallengeExecutor.js'"
         ),
         expected: 'must keep the PoSpace executor lazy'
+    },
+    {
+        name: 'Vite root-absolute executor import remains eager',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script setup lang="ts">',
+            "<script setup lang=\"ts\">\nimport { createPoSpaceChallengeExecutor as eagerExecutor } from '/src/services/securityPoSpaceChallengeExecutor.ts'"
+        ),
+        expected: 'must keep the PoSpace executor lazy'
+    },
+    {
+        name: 'Vite root-absolute executor type import is not eager',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script setup lang="ts">',
+            "<script setup lang=\"ts\">\nimport type { PoSpaceChallengeExecutor as ExecutorType } from '/src/services/securityPoSpaceChallengeExecutor.ts'"
+        ),
+        shouldPass: true
     },
     {
         name: 'TypeScript Bundler relative js dynamic import remains a valid lazy edge',
@@ -375,6 +438,24 @@ const cases = [
         expected: 'must not duplicate runtime proof solve'
     },
     {
+        name: 'immutable string binding solvePoSpaceProof access remains forbidden in a host',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script setup lang="ts">',
+            "<script setup lang=\"ts\">\nimport * as duplicateRuntime from '@/services/securityPoSpaceRuntime'\nconst solveKey = 'solvePoSpaceProof'\nconst duplicateSolve = duplicateRuntime[solveKey]"
+        ),
+        expected: 'must not duplicate runtime proof solve'
+    },
+    {
+        name: 'immutable string metadata does not impersonate runtime solve access',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script setup lang="ts">',
+            "<script setup lang=\"ts\">\nconst solveKey = 'solvePoSpaceProof'\nconst runtimeLabels = { [solveKey]: 'worker-owned' }"
+        ),
+        shouldPass: true
+    },
+    {
         name: 'computed solvePoSpaceProof destructuring remains forbidden in a host',
         file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
         mutate: source => source.replace(
@@ -436,6 +517,33 @@ const cases = [
             "<script setup lang=\"ts\">\nconst WorkerAlias = globalThis.Worker\nconst duplicateWorker = new WorkerAlias('/worker.js')"
         ),
         expected: 'must not duplicate direct Worker construction'
+    },
+    {
+        name: 'destructured globalThis Worker alias remains forbidden in a host',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script setup lang="ts">',
+            "<script setup lang=\"ts\">\nconst { Worker: WorkerAlias } = globalThis\nconst duplicateWorker = new WorkerAlias('/worker.js')"
+        ),
+        expected: 'must not duplicate direct Worker construction'
+    },
+    {
+        name: 'bound globalThis Worker alias remains forbidden in a host',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script setup lang="ts">',
+            "<script setup lang=\"ts\">\nconst WorkerAlias = globalThis.Worker.bind(globalThis)\nconst duplicateWorker = new WorkerAlias('/worker.js')"
+        ),
+        expected: 'must not duplicate direct Worker construction'
+    },
+    {
+        name: 'custom destructured Worker constructor is not the browser Worker',
+        file: 'src/frontend/src/components/security/FsusPoSpaceChallenge.vue',
+        mutate: source => source.replace(
+            '<script setup lang="ts">',
+            "<script setup lang=\"ts\">\nconst customConstructors = { Worker: class LocalWorker {} }\nconst { Worker: WorkerAlias } = customConstructors\nconst localWorker = new WorkerAlias()"
+        ),
+        shouldPass: true
     },
     {
         name: 'statically computed Worker construction remains forbidden in a host',

@@ -168,7 +168,7 @@ export function checkPoSpaceRuntimeReachability(root = repoRoot)
 
     return {
         check: 'pospace-runtime-reachability',
-        version: 5,
+        version: 6,
         ok: true,
         nodes,
         edges: edges.map(({ from, to, kind }) => ({ from, to, kind })),
@@ -189,6 +189,7 @@ function inspectModule(source, relative)
         valueImports: new Map(),
         valueIdentifiers: new Set(),
         newExpressions: new Set(),
+        workerGlobalAliases: new Set(['globalThis', 'self', 'window']),
         workerConstructorAliases: new Set(['Worker'])
     };
     const scripts = relative.endsWith('.vue') ? extractVueScripts(source, relative) : [source];
@@ -208,12 +209,13 @@ function inspectModule(source, relative)
             0,
             `${relative} script ${index + 1} must remain parseable: ${sourceFile.parseDiagnostics.map(item => item.messageText).join('; ')}`
         );
-        visit(sourceFile, facts, relative);
+        const flow = analyzeRuntimeFlow(sourceFile);
+        visit(sourceFile, facts, relative, flow);
     }
     return facts;
 }
 
-function visit(node, facts, relative)
+function visit(node, facts, relative, flow)
 {
     if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier))
     {
@@ -266,7 +268,7 @@ function visit(node, facts, relative)
     {
         const module = node.arguments[0].text;
         facts.dynamicImports.add(module);
-        if (isDeferredDynamicImport(node))
+        if (isDeferredDynamicImport(node, flow))
         {
             facts.lazyDynamicImports.add(module);
             facts.lazyExecutorImport ||= isExecutorModuleSpecifier(module, relative);
@@ -284,7 +286,7 @@ function visit(node, facts, relative)
     && isValueIdentifier(node)
     )
     {
-        const property = staticStringValue(node.argumentExpression);
+        const property = staticStringValue(node.argumentExpression, flow);
         if (property)
         {
             facts.valueIdentifiers.add(property);
@@ -292,7 +294,7 @@ function visit(node, facts, relative)
     }
     if (ts.isBindingElement(node) && node.propertyName)
     {
-        const property = bindingPropertyName(node.propertyName);
+        const property = bindingPropertyName(node.propertyName, flow);
         if (property)
         {
             facts.valueIdentifiers.add(property);
@@ -304,7 +306,7 @@ function visit(node, facts, relative)
     }
     if (ts.isNewExpression(node))
     {
-        if (isWorkerConstructorExpression(node.expression, facts))
+        if (isWorkerConstructorExpression(node.expression, facts, flow))
         {
             facts.newExpressions.add('Worker');
         }
@@ -321,24 +323,46 @@ function visit(node, facts, relative)
         ts.isVariableDeclaration(node)
     && ts.isIdentifier(node.name)
     && node.initializer
-    && isWorkerConstructorExpression(node.initializer, facts)
+    && isWorkerConstructorExpression(node.initializer, facts, flow)
     )
     {
         facts.workerConstructorAliases.add(node.name.text);
     }
     if (
+        ts.isVariableDeclaration(node)
+    && ts.isIdentifier(node.name)
+    && node.initializer
+    && isWorkerGlobalExpression(node.initializer, facts)
+    )
+    {
+        facts.workerGlobalAliases.add(node.name.text);
+    }
+    if (ts.isVariableDeclaration(node) && ts.isObjectBindingPattern(node.name) && node.initializer)
+    {
+        recordWorkerDestructuringAliases(node.name, node.initializer, facts, flow);
+    }
+    if (
         ts.isBinaryExpression(node)
     && node.operatorToken.kind === ts.SyntaxKind.EqualsToken
     && ts.isIdentifier(node.left)
-    && isWorkerConstructorExpression(node.right, facts)
+    && isWorkerConstructorExpression(node.right, facts, flow)
     )
     {
         facts.workerConstructorAliases.add(node.left.text);
     }
-    ts.forEachChild(node, child => visit(child, facts, relative));
+    if (
+        ts.isBinaryExpression(node)
+    && node.operatorToken.kind === ts.SyntaxKind.EqualsToken
+    && ts.isIdentifier(node.left)
+    && isWorkerGlobalExpression(node.right, facts)
+    )
+    {
+        facts.workerGlobalAliases.add(node.left.text);
+    }
+    ts.forEachChild(node, child => visit(child, facts, relative, flow));
 }
 
-function isDeferredDynamicImport(node)
+function isDeferredDynamicImport(node, flow)
 {
     for (let current = node.parent; current; current = current.parent)
     {
@@ -346,74 +370,279 @@ function isDeferredDynamicImport(node)
         {
             continue;
         }
-        return !isImmediatelyInvokedFunction(current);
+        return !flow.immediateFunctions.has(current);
     }
     return false;
 }
 
-function isImmediatelyInvokedFunction(node)
+const proactiveCallbackFunctions = new Set([
+    'queueMicrotask',
+    'requestAnimationFrame',
+    'requestIdleCallback',
+    'setImmediate',
+    'setInterval',
+    'setTimeout'
+]);
+
+const proactivePromiseCallbackMethods = new Set([
+    'catch',
+    'finally',
+    'then'
+]);
+
+const synchronousArrayCallbackMethods = new Set([
+    'every',
+    'filter',
+    'find',
+    'findIndex',
+    'findLast',
+    'findLastIndex',
+    'flatMap',
+    'forEach',
+    'map',
+    'reduce',
+    'reduceRight',
+    'some',
+    'sort',
+    'toSorted'
+]);
+
+function analyzeRuntimeFlow(sourceFile)
 {
-    const expression = outerRuntimeExpression(node);
-    if (ts.isCallExpression(expression.parent) && expression.parent.expression === expression)
+    const flow = {
+        functionBindings: [],
+        constValueBindings: [],
+        immediateFunctions: new Set()
+    };
+    collectRuntimeBindings(sourceFile, flow);
+    let changed;
+    do
     {
-        return true;
+        changed = false;
+        walk(sourceFile, node =>
+        {
+            if (ts.isCallExpression(node) && isImmediateExecutionContext(node, flow))
+            {
+                changed = markImmediateFunction(resolveCalledFunction(node.expression, node, flow), flow) || changed;
+                if (isProactiveCallbackCall(node, flow))
+                {
+                    for (const argument of node.arguments)
+                    {
+                        changed = markImmediateFunction(resolveFunctionValue(argument, node, flow), flow) || changed;
+                    }
+                }
+            }
+            if (
+                ts.isNewExpression(node)
+            && isImmediateExecutionContext(node, flow)
+            && ts.isIdentifier(unwrapRuntimeExpression(node.expression))
+            && unwrapRuntimeExpression(node.expression).text === 'Promise'
+            )
+            {
+                for (const argument of node.arguments ?? [])
+                {
+                    changed = markImmediateFunction(resolveFunctionValue(argument, node, flow), flow) || changed;
+                }
+            }
+        });
     }
-    if (
-        ts.isPropertyAccessExpression(expression.parent)
-    && expression.parent.expression === expression
-    && ['call', 'apply'].includes(expression.parent.name.text)
-    && ts.isCallExpression(expression.parent.parent)
-    && expression.parent.parent.expression === expression.parent
-    )
-    {
-        return true;
-    }
-    if (
-        ts.isCallExpression(expression.parent)
-    && expression.parent.arguments.includes(expression)
-    && isImmediateCallbackCall(expression.parent.expression)
-    )
-    {
-        return true;
-    }
-    return false;
+    while (changed);
+    return flow;
 }
 
-function outerRuntimeExpression(node)
+function collectRuntimeBindings(sourceFile, flow)
 {
-    let expression = node;
-    while (expression.parent)
+    walk(sourceFile, node =>
     {
-        const parent = expression.parent;
-        if (
-            ts.isParenthesizedExpression(parent)
-        || ts.isAsExpression(parent)
-        || ts.isSatisfiesExpression(parent)
-        || ts.isNonNullExpression(parent)
-        )
+        if (ts.isFunctionDeclaration(node) && node.name)
         {
-            expression = parent;
-            continue;
+            flow.functionBindings.push(makeBinding(node.name.text, node, node, true));
         }
         if (
-            ts.isBinaryExpression(parent)
-        && parent.operatorToken.kind === ts.SyntaxKind.CommaToken
-        && parent.right === expression
+            ts.isVariableDeclaration(node)
+        && ts.isIdentifier(node.name)
+        && node.initializer
+        && isConstVariableDeclaration(node)
         )
         {
-            expression = parent;
-            continue;
+            const binding = makeBinding(node.name.text, node, node.initializer, false);
+            flow.constValueBindings.push(binding);
+            if (
+                ts.isFunctionExpression(unwrapRuntimeExpression(node.initializer))
+            || ts.isArrowFunction(unwrapRuntimeExpression(node.initializer))
+            || ts.isIdentifier(unwrapRuntimeExpression(node.initializer))
+            )
+            {
+                flow.functionBindings.push(binding);
+            }
         }
-        break;
-    }
-    return expression;
+    });
 }
 
-function isImmediateCallbackCall(expression)
+function walk(node, callback)
+{
+    callback(node);
+    ts.forEachChild(node, child => walk(child, callback));
+}
+
+function makeBinding(name, declaration, value, hoisted)
+{
+    return {
+        name,
+        declaration,
+        value,
+        hoisted,
+        scope: lexicalScope(declaration)
+    };
+}
+
+function lexicalScope(node)
+{
+    for (let current = node.parent; current; current = current.parent)
+    {
+        if (
+            ts.isBlock(current)
+        || ts.isModuleBlock(current)
+        || ts.isSourceFile(current)
+        || ts.isCaseBlock(current)
+        )
+        {
+            return current;
+        }
+    }
+    return node.getSourceFile();
+}
+
+function isConstVariableDeclaration(node)
+{
+    return ts.isVariableDeclarationList(node.parent)
+    && (node.parent.flags & ts.NodeFlags.Const) !== 0;
+}
+
+function resolveBinding(bindings, identifier, useNode)
+{
+    return bindings
+        .filter(binding => binding.name === identifier.text)
+        .filter(binding => binding.scope.pos <= useNode.pos && useNode.end <= binding.scope.end)
+        .filter(binding => binding.hoisted || binding.declaration.pos < useNode.pos)
+        .sort((left, right) => (left.scope.end - left.scope.pos) - (right.scope.end - right.scope.pos))[0] ?? null;
+}
+
+function resolveCalledFunction(expression, useNode, flow)
 {
     const target = unwrapRuntimeExpression(expression);
-    return ts.isPropertyAccessExpression(target)
-    && ['then', 'catch', 'finally'].includes(target.name.text);
+    if (
+        ts.isPropertyAccessExpression(target)
+    && ['call', 'apply'].includes(target.name.text)
+    )
+    {
+        return resolveFunctionValue(target.expression, useNode, flow);
+    }
+    return resolveFunctionValue(target, useNode, flow);
+}
+
+function resolveFunctionValue(expression, useNode, flow, seen = new Set())
+{
+    const target = unwrapRuntimeExpression(expression);
+    if (
+        ts.isBinaryExpression(target)
+    && target.operatorToken.kind === ts.SyntaxKind.CommaToken
+    )
+    {
+        return resolveFunctionValue(target.right, useNode, flow, seen);
+    }
+    if (ts.isFunctionExpression(target) || ts.isArrowFunction(target) || ts.isFunctionDeclaration(target))
+    {
+        return target;
+    }
+    if (!ts.isIdentifier(target) || seen.has(target.text))
+    {
+        return null;
+    }
+    seen.add(target.text);
+    const binding = resolveBinding(flow.functionBindings, target, useNode);
+    return binding ? resolveFunctionValue(binding.value, binding.declaration, flow, seen) : null;
+}
+
+function markImmediateFunction(node, flow)
+{
+    if (!node || flow.immediateFunctions.has(node))
+    {
+        return false;
+    }
+    flow.immediateFunctions.add(node);
+    return true;
+}
+
+function isImmediateExecutionContext(node, flow)
+{
+    for (let current = node.parent; current; current = current.parent)
+    {
+        if (ts.isFunctionLike(current))
+        {
+            return flow.immediateFunctions.has(current);
+        }
+    }
+    return true;
+}
+
+function isProactiveCallbackCall(node, flow)
+{
+    const target = unwrapRuntimeExpression(node.expression);
+    if (ts.isIdentifier(target))
+    {
+        return proactiveCallbackFunctions.has(target.text);
+    }
+    if (!ts.isPropertyAccessExpression(target))
+    {
+        return false;
+    }
+    if (proactivePromiseCallbackMethods.has(target.name.text))
+    {
+        return true;
+    }
+    return synchronousArrayCallbackMethods.has(target.name.text)
+    && isStaticArrayValue(target.expression, node, flow);
+}
+
+function isStaticArrayValue(node, useNode, flow, seen = new Set())
+{
+    const expression = unwrapRuntimeExpression(node);
+    if (ts.isArrayLiteralExpression(expression))
+    {
+        return true;
+    }
+    if (ts.isIdentifier(expression) && !seen.has(expression.text))
+    {
+        seen.add(expression.text);
+        const binding = resolveBinding(flow.constValueBindings, expression, useNode);
+        return binding ? isStaticArrayValue(binding.value, binding.declaration, flow, seen) : false;
+    }
+    if (ts.isNewExpression(expression) && ts.isIdentifier(expression.expression))
+    {
+        return expression.expression.text === 'Array';
+    }
+    if (ts.isCallExpression(expression))
+    {
+        const callee = unwrapRuntimeExpression(expression.expression);
+        if (
+            ts.isPropertyAccessExpression(callee)
+        && ts.isIdentifier(callee.expression)
+        && callee.expression.text === 'Array'
+        && ['from', 'of'].includes(callee.name.text)
+        )
+        {
+            return true;
+        }
+        if (
+            ts.isPropertyAccessExpression(callee)
+        && synchronousArrayCallbackMethods.has(callee.name.text)
+        )
+        {
+            return isStaticArrayValue(callee.expression, useNode, flow, seen);
+        }
+    }
+    return false;
 }
 
 function unwrapRuntimeExpression(node)
@@ -431,35 +660,41 @@ function unwrapRuntimeExpression(node)
     return expression;
 }
 
-function staticStringValue(node)
+function staticStringValue(node, flow, seen = new Set())
 {
     const expression = unwrapRuntimeExpression(node);
     if (ts.isStringLiteralLike(expression))
     {
         return expression.text;
     }
+    if (ts.isIdentifier(expression) && flow && !seen.has(expression.text))
+    {
+        seen.add(expression.text);
+        const binding = resolveBinding(flow.constValueBindings, expression, expression);
+        return binding ? staticStringValue(binding.value, flow, seen) : null;
+    }
     if (
         ts.isBinaryExpression(expression)
     && expression.operatorToken.kind === ts.SyntaxKind.PlusToken
     )
     {
-        const left = staticStringValue(expression.left);
-        const right = staticStringValue(expression.right);
+        const left = staticStringValue(expression.left, flow, seen);
+        const right = staticStringValue(expression.right, flow, seen);
         return left === null || right === null ? null : left + right;
     }
     return null;
 }
 
-function bindingPropertyName(node)
+function bindingPropertyName(node, flow)
 {
     if (ts.isStringLiteralLike(node) || ts.isIdentifier(node))
     {
         return node.text;
     }
-    return ts.isComputedPropertyName(node) ? staticStringValue(node.expression) : null;
+    return ts.isComputedPropertyName(node) ? staticStringValue(node.expression, flow) : null;
 }
 
-function isWorkerConstructorExpression(node, facts)
+function isWorkerConstructorExpression(node, facts, flow)
 {
     const expression = unwrapRuntimeExpression(node);
     if (ts.isIdentifier(expression))
@@ -468,20 +703,68 @@ function isWorkerConstructorExpression(node, facts)
     }
     if (ts.isPropertyAccessExpression(expression))
     {
-        return expression.name.text === 'Worker';
+        return expression.name.text === 'Worker'
+        && isWorkerGlobalExpression(expression.expression, facts);
     }
     if (ts.isElementAccessExpression(expression) && expression.argumentExpression)
     {
-        return staticStringValue(expression.argumentExpression) === 'Worker';
+        return staticStringValue(expression.argumentExpression, flow) === 'Worker'
+        && isWorkerGlobalExpression(expression.expression, facts);
+    }
+    if (ts.isCallExpression(expression))
+    {
+        const target = unwrapRuntimeExpression(expression.expression);
+        if (
+            ts.isPropertyAccessExpression(target)
+        && target.name.text === 'bind'
+        )
+        {
+            return isWorkerConstructorExpression(target.expression, facts, flow);
+        }
+        if (
+            ts.isElementAccessExpression(target)
+        && target.argumentExpression
+        && staticStringValue(target.argumentExpression, flow) === 'bind'
+        )
+        {
+            return isWorkerConstructorExpression(target.expression, facts, flow);
+        }
     }
     if (
         ts.isBinaryExpression(expression)
     && expression.operatorToken.kind === ts.SyntaxKind.CommaToken
     )
     {
-        return isWorkerConstructorExpression(expression.right, facts);
+        return isWorkerConstructorExpression(expression.right, facts, flow);
     }
     return false;
+}
+
+function isWorkerGlobalExpression(node, facts)
+{
+    const expression = unwrapRuntimeExpression(node);
+    return ts.isIdentifier(expression) && facts.workerGlobalAliases.has(expression.text);
+}
+
+function recordWorkerDestructuringAliases(pattern, initializer, facts, flow)
+{
+    const source = unwrapRuntimeExpression(initializer);
+    if (!isWorkerGlobalExpression(source, facts))
+    {
+        return;
+    }
+    for (const element of pattern.elements)
+    {
+        if (
+            !ts.isOmittedExpression(element)
+        && ts.isIdentifier(element.name)
+        && element.propertyName
+        && bindingPropertyName(element.propertyName, flow) === 'Worker'
+        )
+        {
+            facts.workerConstructorAliases.add(element.name.text);
+        }
+    }
 }
 
 function expressionPropertyName(node)
@@ -500,7 +783,7 @@ function expressionPropertyName(node)
     && expression.argumentExpression
     )
     {
-        return staticStringValue(expression.argumentExpression);
+        return staticStringValue(expression.argumentExpression, null);
     }
     return null;
 }
@@ -661,6 +944,10 @@ function isExecutorModuleSpecifier(module, relative)
     if (clean.startsWith('@/'))
     {
         resolved = path.posix.join('src/frontend/src', clean.slice(2));
+    }
+    else if (clean.startsWith('/src/'))
+    {
+        resolved = path.posix.join('src/frontend', clean.slice(1));
     }
     else if (clean.startsWith('.'))
     {
