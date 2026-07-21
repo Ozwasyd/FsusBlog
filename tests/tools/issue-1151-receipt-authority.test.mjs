@@ -102,7 +102,8 @@ test('scheduler receipt generation rejects a same-commit summary from another sc
   for (const relativeFile of [
     'tools/release/test-evidence-receipts-cli.mjs',
     'tools/release/test-evidence-receipts.mjs',
-    'tools/test-matrix/parse-matrix.mjs'
+    'tools/test-matrix/parse-matrix.mjs',
+    'tools/yaml/parse-document.mjs'
   ]) {
     const target = path.join(fixture, relativeFile)
     fs.mkdirSync(path.dirname(target), { recursive: true })
@@ -336,6 +337,7 @@ test('receipt CLI passes the ordinary PR plan to core without claiming policy-sk
     'tools/release/test-evidence-receipts-cli.mjs',
     'tools/release/test-evidence-receipts.mjs',
     'tools/test-matrix/parse-matrix.mjs',
+    'tools/yaml/parse-document.mjs',
     'tests/matrix.yml'
   ]) {
     const target = path.join(fixture, relativeFile)
