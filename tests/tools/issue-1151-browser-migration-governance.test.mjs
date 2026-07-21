@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import path from 'node:path'
 import test from 'node:test'
 
@@ -65,6 +66,63 @@ test('frozen history also covers removed browser resource and elastic-pool orche
     === 'tests/tools/runtime-browser-resource-plan.test.mjs'))
   assert.equal(deleted.filter((record) => record.sourceFile
     === 'tests/tools/ux-risk-elastic-pool.test.mjs').length, 6)
+})
+
+test('frozen history rejects deleting one approved retired identity from its authority', () => {
+  const manifest = JSON.parse(readFileSync(
+    path.join(root, 'tests/governance/browser-test-migration.json'),
+    'utf8'
+  ))
+  manifest.historyBaseline.retiredRecords.pop()
+  assert.throws(
+    () => historicalDeletedRecords(root, manifest),
+    /frozen Browser test baseline drifted/u
+  )
+})
+
+test('frozen history rejects substituting an unrelated historical identity for a retired one', () => {
+  const manifest = JSON.parse(readFileSync(
+    path.join(root, 'tests/governance/browser-test-migration.json'),
+    'utf8'
+  ))
+  const unrelatedTestId = 'vitest:tests/frontend/e2e/acceptance/admin-console.spec.ts#visible-admin-routes-render-cleanly-c3e6ee4f99'
+  const unrelatedSourceFile = 'tests/frontend/e2e/acceptance/admin-console.spec.ts'
+  manifest.historyBaseline.retiredRecords[0] = {
+    sourceFileSha256: createHash('sha256').update(unrelatedSourceFile).digest('hex'),
+    sourceTestIdSha256: createHash('sha256').update(unrelatedTestId).digest('hex'),
+    issue: '#1368',
+    reason: 'An unrelated historical Browser test must never substitute for the approved retired identity.'
+  }
+  assert.throws(
+    () => historicalDeletedRecords(root, manifest),
+    /frozen Browser test baseline drifted/u
+  )
+})
+
+test('frozen history rejects an invalid retired identity digest', () => {
+  const manifest = JSON.parse(readFileSync(
+    path.join(root, 'tests/governance/browser-test-migration.json'),
+    'utf8'
+  ))
+  manifest.historyBaseline.retiredRecords[0].sourceTestIdSha256 = 'not-a-sha256-digest'
+  assert.throws(
+    () => historicalDeletedRecords(root, manifest),
+    /frozen Browser test baseline drifted/u
+  )
+})
+
+test('frozen history rejects duplicate retired identity digests', () => {
+  const manifest = JSON.parse(readFileSync(
+    path.join(root, 'tests/governance/browser-test-migration.json'),
+    'utf8'
+  ))
+  manifest.historyBaseline.retiredRecords[1] = structuredClone(
+    manifest.historyBaseline.retiredRecords[0]
+  )
+  assert.throws(
+    () => historicalDeletedRecords(root, manifest),
+    /frozen Browser test baseline drifted/u
+  )
 })
 
 test('every declared replacement target resolves to a current file, test, contract, or diagnostic category', () => {

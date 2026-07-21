@@ -11,6 +11,20 @@
         ],
         "fallback": "tests/fixtures/issue-1151-browser-migration/historical-deleted-tests.json",
         "retiredRecordCount": 2,
+        "retiredRecords": [
+            {
+                "sourceFileSha256": "fc34e1382099e056c8bcf1b1f45ac34677aa5bfa9d140b4a7b1fca31120f4a63",
+                "sourceTestIdSha256": "28f621c7f4233977ada0d4c41262afe36821e15a9ef5acf41ea1327e8553878b",
+                "issue": "#1368",
+                "reason": "The legacy character-challenge browser flow was removed with its retired challenge family."
+            },
+            {
+                "sourceFileSha256": "fc34e1382099e056c8bcf1b1f45ac34677aa5bfa9d140b4a7b1fca31120f4a63",
+                "sourceTestIdSha256": "75393e91adcd31723e10b3ccca29785cb020f49ca7bb2b7c9bae4dd8513b6596",
+                "issue": "#1368",
+                "reason": "The retired character-challenge worker and canvas fallback were removed instead of retained as a compatibility path."
+            }
+        ],
         "reason": "#1145 is the last source state before Acceptance thinning, Browser Contract extraction, diagnostics isolation, and removal of elastic/persistent browser orchestration."
     },
     "authorities": {

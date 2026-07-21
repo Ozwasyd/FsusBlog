@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync, spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -100,6 +101,16 @@ export function expandBrowserTestMigrationManifest(manifest, loadJson) {
 
 function recordKey(record) {
   return `${record.sourceFile}\n${record.sourceTestId}`
+}
+
+function retiredRecordKey(record) {
+  return `${record.sourceFileSha256}\n${record.sourceTestIdSha256}`
+}
+
+function retiredHistoryKey(record) {
+  const sourceFileSha256 = createHash('sha256').update(record.sourceFile).digest('hex')
+  const sourceTestIdSha256 = createHash('sha256').update(record.sourceTestId).digest('hex')
+  return retiredRecordKey({ sourceFileSha256, sourceTestIdSha256 })
 }
 
 export function validateReplacementTargets(root, records) {
@@ -393,13 +404,34 @@ export function historicalDeletedRecords(root, manifest) {
   if (baselineAvailable) {
     baselineRecords = baselineRecordsFromGit(root, baseline, scopes)
     const retiredRecordCount = Number(manifest?.historyBaseline?.retiredRecordCount ?? 0)
+    const retiredRecords = Array.isArray(manifest?.historyBaseline?.retiredRecords)
+      ? manifest.historyBaseline.retiredRecords.map((record) => ({
+          sourceFileSha256: String(record?.sourceFileSha256 ?? '').trim(),
+          sourceTestIdSha256: String(record?.sourceTestIdSha256 ?? '').trim(),
+          issue: String(record?.issue ?? '').trim(),
+          reason: String(record?.reason ?? '').trim()
+        }))
+      : []
     const fallbackKeys = fallbackRecords.map(recordKey).sort()
     const historyKeys = baselineRecords.map(recordKey).sort()
     const historyKeySet = new Set(historyKeys)
+    const fallbackKeySet = new Set(fallbackKeys)
+    const retiredKeys = retiredRecords.map(retiredRecordKey).sort()
+    const omittedHistoryKeys = baselineRecords
+      .filter((record) => !fallbackKeySet.has(recordKey(record)))
+      .map(retiredHistoryKey)
+      .sort()
     if (!Number.isInteger(retiredRecordCount)
       || retiredRecordCount < 0
+      || retiredRecords.length !== retiredRecordCount
+      || retiredRecords.some((record) => !/^[0-9a-f]{64}$/u.test(record.sourceFileSha256)
+        || !/^[0-9a-f]{64}$/u.test(record.sourceTestIdSha256)
+        || !/^#\d+$/u.test(record.issue)
+        || record.reason.length < 20)
+      || new Set(retiredKeys).size !== retiredKeys.length
       || historyKeys.length !== fallbackKeys.length + retiredRecordCount
-      || fallbackKeys.some((key) => !historyKeySet.has(key))) {
+      || fallbackKeys.some((key) => !historyKeySet.has(key))
+      || JSON.stringify(omittedHistoryKeys) !== JSON.stringify(retiredKeys)) {
       throw new Error('frozen Browser test baseline drifted from the available git baseline')
     }
     baselineRecords = fallbackRecords
