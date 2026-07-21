@@ -49,8 +49,14 @@ export function flattenMatrixRoutes(matrix = loadMatrix()) {
   return routes
 }
 
+export function normalizeRouteTemplate(path) {
+  // Minimal API templates may include type constraints (`{page:int}`); OpenAPI
+  // and matrix routes use bare parameter names (`{page}`). Normalize for keys.
+  return String(path).replace(/\{([A-Za-z_][A-Za-z0-9_]*)(?::[^}]+)?\}/gu, '{$1}')
+}
+
 export function routeKey(method, path) {
-  return `${String(method).toUpperCase()} ${path}`
+  return `${String(method).toUpperCase()} ${normalizeRouteTemplate(path)}`
 }
 
 export function extractBackendBinaryRoutes() {

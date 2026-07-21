@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { join, resolve } from 'node:path';
 import os from 'node:os';
@@ -12,8 +12,37 @@ import {
   resolveStageEnvironment,
   runFrontendBuildStageDag
 } from './build-stage-dag.mjs';
+import { createReleaseIdentitySnapshot } from '../release/release-id.mjs';
 
 export { resolveStageEnvironment } from './build-stage-dag.mjs';
+
+function resolveProductionFrontendBuildEnv(env = process.env)
+{
+    if (env.VITE_FSUSBLOG_BUILD_ID?.trim())
+    {
+        return env;
+    }
+    const commitSha = String(
+        env.FSUSBLOG_TEST_SOURCE_COMMIT
+        || spawnSync('git', ['rev-parse', 'HEAD'], {
+            cwd: repositoryRoot,
+            encoding: 'utf8'
+        }).stdout
+        || ''
+    ).trim();
+    if (!/^[0-9a-f]{40}$/u.test(commitSha))
+    {
+        return env;
+    }
+    const identity = createReleaseIdentitySnapshot({
+        commitSha,
+        createdAtUtc: env.FSUSBLOG_RELEASE_CREATED_AT_UTC || new Date()
+    });
+    return {
+        ...env,
+        VITE_FSUSBLOG_BUILD_ID: identity.releaseId
+    };
+}
 
 const repositoryRoot = resolve(fileURLToPath(new URL('.', import.meta.url)), '../..');
 const clientRoot = join(repositoryRoot, 'src', 'frontend');
@@ -594,12 +623,17 @@ async function main() {
     ));
     try
 {
+        const buildEnv = resolveProductionFrontendBuildEnv(process.env);
+        if (buildEnv.VITE_FSUSBLOG_BUILD_ID && buildEnv.VITE_FSUSBLOG_BUILD_ID !== process.env.VITE_FSUSBLOG_BUILD_ID)
+        {
+            log(`production build identity=${buildEnv.VITE_FSUSBLOG_BUILD_ID}`);
+        }
         const receipt = await runFrontendBuildStageDag(createFrontendBuildStages(generatedArgs, generatedAction, {
             frontendRoot: clientRoot,
-            env: process.env
+            env: buildEnv
         }), {
             cwd: clientRoot,
-            env: process.env,
+            env: buildEnv,
             receiptFile,
       signal: controller.signal,
       toolchain: {
