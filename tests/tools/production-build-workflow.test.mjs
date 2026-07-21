@@ -12,10 +12,15 @@ const actionFile = path.join(root, '.github/actions/consume-production-build/act
 const producerLaneFile = path.join(root, 'tools/test/lanes/production-build-artifacts.sh')
 
 function jobSource(workflow, jobId) {
-  const start = workflow.indexOf(`\n  ${jobId}:\n`)
-  assert.notEqual(start, -1, `missing workflow job ${jobId}`)
-  const next = workflow.slice(start + 1).search(/\n  [A-Za-z0-9_-]+:\n/u)
-  return next < 0 ? workflow.slice(start) : workflow.slice(start, start + 1 + next)
+  const escapedId = jobId.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')
+  const marker = workflow.match(new RegExp(`^(?<indent>[ \\t]+)${escapedId}:[ \\t]*$`, 'mu'))
+  assert.ok(marker?.groups?.indent, `missing workflow job ${jobId}`)
+  const start = marker.index
+  const bodyStart = start + marker[0].length
+  const next = workflow
+    .slice(bodyStart)
+    .search(new RegExp(`^${marker.groups.indent}[A-Za-z0-9_-]+:[ \\t]*$`, 'mu'))
+  return next === -1 ? workflow.slice(start) : workflow.slice(start, bodyStart + next)
 }
 
 test('quality gate has one smart-gated producer and all immutable-build consumers verify it', () => {
@@ -35,7 +40,7 @@ test('quality gate has one smart-gated producer and all immutable-build consumer
   ]
   for (const jobId of consumers) {
     const source = jobSource(workflow, jobId)
-    assert.match(source, /needs:.*production-build-artifacts/u, jobId)
+    assert.match(source, /needs:[\s\S]*production-build-artifacts/u, jobId)
     assert.match(source, /uses: \.\/\.github\/actions\/consume-production-build/u, jobId)
     assert.match(source, /needs\.production-build-artifacts\.outputs\.source_fingerprint/u, jobId)
     assert.match(source, /needs\.production-build-artifacts\.outputs\.receipt_digest/u, jobId)

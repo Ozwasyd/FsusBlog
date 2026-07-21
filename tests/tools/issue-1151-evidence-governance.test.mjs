@@ -23,12 +23,15 @@ function dependencyClosure(id, seen = new Set()) {
 }
 
 function workflowJob(source, id) {
-  const marker = `  ${id}:\n`
-  const start = source.indexOf(marker)
-  assert.notEqual(start, -1, `missing workflow job ${id}`)
-  const remaining = source.slice(start + marker.length)
-  const next = remaining.search(/^  [A-Za-z0-9_-]+:\s*$/mu)
-  return next === -1 ? source.slice(start) : source.slice(start, start + marker.length + next)
+  const escapedId = id.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')
+  const marker = source.match(new RegExp(`^(?<indent>[ \\t]+)${escapedId}:[ \\t]*$`, 'mu'))
+  assert.ok(marker?.groups?.indent, `missing workflow job ${id}`)
+  const start = marker.index
+  const bodyStart = start + marker[0].length
+  const next = source
+    .slice(bodyStart)
+    .search(new RegExp(`^${marker.groups.indent}[A-Za-z0-9_-]+:[ \\t]*$`, 'mu'))
+  return next === -1 ? source.slice(start) : source.slice(start, bodyStart + next)
 }
 
 test('matrix evidence classes make every real browser boundary explicit', () => {
