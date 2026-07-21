@@ -3956,6 +3956,21 @@
             "producer": null
         },
         {
+            "path": "docs/security/issue-1369-perception-character-v3-release-validation-v1.md",
+            "title": "PerceptionCharacterV3 release validation v1",
+            "kind": "markdown",
+            "status": "historical",
+            "owner": "security",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1369
+            ],
+            "producer": null
+        },
+        {
             "path": "docs/security/jwt-key-rotation.md",
             "title": "JWT signing-key rotation",
             "kind": "markdown",

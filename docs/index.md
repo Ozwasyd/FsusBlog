@@ -345,6 +345,7 @@
 - [Src Shared FsusBlog.Shared.csproj](reports/open-source-readiness/v1.1.0-public-preview/supply-chain/nuget/src__shared__FsusBlog.Shared.csproj.json) - owner `governance`
 - [Tests Backend FsusBlog.Server.Tests.csproj](reports/open-source-readiness/v1.1.0-public-preview/supply-chain/nuget/tests__backend__FsusBlog.Server.Tests.csproj.json) - owner `governance`
 - [Summary](reports/open-source-readiness/v1.1.0-public-preview/supply-chain/summary.json) - owner `governance`
+- [PerceptionCharacterV3 release validation v1](security/issue-1369-perception-character-v3-release-validation-v1.md) - owner `security`; issues #1369
 - [Issue #1032：紧凑且无源码的删测前基线](testing/issue-1032-compact-retention-baseline.md) - owner `release`; issues #1032
 - [Issue #1036：隐私与身份切换伪 gate 的行为替代](testing/issue-1036-privacy-and-cutover-replacements.md) - owner `release`; issues #1036
 - [Issue #1038：端点安全契约改为 EndpointDataSource 与 TestServer](testing/issue-1038-endpoint-security-contract-replacements.md) - owner `release`; issues #1038
