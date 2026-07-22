@@ -101,6 +101,8 @@ test('capture contracts keep shards temporary and release verification explicit'
     assert.match(specification, /public-preview docs capture requires the complete unfiltered registry/u);
     assert.match(runner, /public-preview-docs\.lock/u);
     assert.match(runner, /ROOT_DIR=.*\ncd "\$ROOT_DIR"/u);
+    assert.doesNotMatch(runner, /source "\$ENV_FILE"/u);
+    assert.match(runner, /export "\$key=\$value"/u);
     assert.match(runner, /public-preview-screenshots\.mjs" publish/u);
     assert.match(runner, /cleanupLocalRuntime/u);
     assert.match(matrix, /id: browser-contract[\s\S]*?public-preview-screenshots\.json/u);

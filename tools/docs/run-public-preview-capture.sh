@@ -47,10 +47,11 @@ FSUSBLOG_TEST_RUN_ID="$NAMESPACE" \
 FSUSBLOG_FORCE_BOOTSTRAP=1 \
     "$ROOT_DIR/tools/bootstrap-acceptance-env.sh"
 
-set -a
-# shellcheck disable=SC1090
-source "$ENV_FILE"
-set +a
+while IFS='=' read -r key value; do
+    if [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+        export "$key=$value"
+    fi
+done <"$ENV_FILE"
 
 export FSUSBLOG_BASE_URL="$FSUSBLOG_DEBUG_BACKEND_URL"
 export PLAYWRIGHT_BASE_URL="$FSUSBLOG_DEBUG_FRONTEND_URL"
