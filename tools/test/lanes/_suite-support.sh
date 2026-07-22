@@ -1395,25 +1395,13 @@ RunBackendMutationCriticalOnly() {
 }
 
 RunCrossStackStaticContracts() {
-    FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug EnsureBackendFilteredBuild || return $?
-    FSUSBLOG_OPENAPI_BUILD=0 Run "$ROOT_DIR/tools/contracts/export-openapi.sh"
-    RunInClient npm run check:openapi-sync
-    RunInClient npm run check:contract:openapi
-    RunInClient npm run check:frontend-routes
-    RunInClient npm run check:consumer:openapi
-    RunInClient npm run check:contract:binary-matrix
-    RunInClient npm run check:contract:api-parity
-    RunInClient npm run check:contract:pow-parity
-    RunInClient npm run check:contract:frame-schema
-    RunInClient npm run check:contract:negative-matrix
-    RunInClient npm run check:coherence:runtime-matrix
     RunInClient npm run check:coherence:distribution-full
     RunInClient npm run check:coherence:notification-stream-events
     RunInClient npm run check:coherence:upload-complete
     RunInClient node ../../tests/frontend/checks/runtime/auth-state-coherence.mjs
     RunInClient npm run check:coherence:sw-cache
     RunInClient npm run check:coherence:perf
-    RunInClient npm run check:cross-stack-test-governance
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/cross-stack-receipts.mjs" owner cross-stack-static
 }
 
 RunCrossStackRuntimeContracts() {
@@ -1422,6 +1410,7 @@ RunCrossStackRuntimeContracts() {
     export FSUSBLOG_PUBLIC_BASE_URL="$DEBUG_BACKEND_URL"
     export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
     RunInClient npm run check:auth-zero-probe
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/cross-stack-receipts.mjs" owner cross-stack-runtime
 }
 
 RunCrossStackContractOnly() {
@@ -1875,8 +1864,10 @@ RunSecurityStaticOnly() {
         "supply-chain::\"$ROOT_DIR/tools/security/check-supply-chain-audit.sh\"" \
         "security-domain::\"${FSUSBLOG_NODE:-node}\" \"$ROOT_DIR/tools/security/check-security-domain-layout.mjs\"" \
         "security-matrices::\"$ROOT_DIR/tools/security/check-security-matrices.mjs\"" \
+        "pow-parity::RunInClient npm run check:contract:pow-parity" \
         "zap-warn-policy::\"$ROOT_DIR/tools/security/check-zap-warn-policy.mjs\"" \
         "sbom::\"$ROOT_DIR/tools/security/generate-sbom.sh\""
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/cross-stack-receipts.mjs" owner security-static
 }
 
 RunSecurityRuntimeCoreOnly() {

@@ -511,9 +511,11 @@ jobs:
                   retention-days: 14
                   include-hidden-files: true
                   path: |
+                      .tmp/release-evidence/cross-stack-contract.json
                       .tmp/release-evidence/jobs/**
                       src/frontend/src/generated/fsusBinaryRoutes.ts
                       src/shared/Contracts/Validation/fsusblog.openapi.json
+                      tests/fixtures/evidence-projection/cross-stack-assertion-ownership.json
                       tests/frontend/fixtures/cross-stack-contract-matrix.generated.json
                       tests/frontend/fixtures/cross-stack-contract-matrix.json
 

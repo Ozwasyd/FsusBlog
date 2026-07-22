@@ -4571,6 +4571,21 @@
             "producer": null
         },
         {
+            "path": "docs/testing/issue-1381-cross-stack-receipt-join.md",
+            "title": "Cross-stack canonical receipt join",
+            "kind": "markdown",
+            "status": "historical",
+            "owner": "release",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "6b6f67c431c1a8760fd2f10e22b52e1291e06e9b",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1381
+            ],
+            "producer": null
+        },
+        {
             "path": "docs/testing/issues-1033-1035-test-governance-retirements.md",
             "title": "Issues #1033–#1035：治理测试与阻塞 tier 收口",
             "kind": "markdown",

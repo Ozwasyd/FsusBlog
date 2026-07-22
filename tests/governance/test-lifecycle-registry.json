@@ -564,6 +564,18 @@
       ]
     },
     {
+      "file": "tests/tools/cross-stack-receipt-join.test.mjs",
+      "owner": "repository-governance:static-node-contracts",
+      "executionCategory": "repository-governance",
+      "lifecycle": "canonical-execution",
+      "physicalExecutionCount": 1,
+      "classifications": [
+        "source-text",
+        "perf",
+        "runtime"
+      ]
+    },
+    {
       "file": "tests/tools/data-reader-ordinal-analyzer.test.mjs",
       "owner": "manual-diagnostic:tests/tools/data-reader-ordinal-analyzer.test.mjs",
       "executionCategory": "manual-diagnostic",

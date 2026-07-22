@@ -2178,6 +2178,15 @@ async function runFrontendTests() {
       }
     }),
         commandStep(
+            'frontend-static-cross-stack-owner',
+            'node tools/test/cross-stack-receipts.mjs owner frontend-static-governance',
+            [],
+            {
+                dependsOn: ['frontend-static-final'],
+                resources: { cpuWeight: 0.25, memoryWeight: 0.25, minCpuUnits: 1 }
+            }
+        ),
+        commandStep(
             'frontend-render-structure',
             'tools/test/lanes/frontend-render-structure.sh',
             ['frontend-render-structure'],
@@ -2204,6 +2213,7 @@ async function runFrontendTests() {
         'frontend-static-postbuild',
         'frontend-static-isolated',
         'frontend-static-final',
+        'frontend-static-cross-stack-owner',
         'frontend-render-structure',
         'static-governance-post-vitest',
         'frontend-coverage-summary',
@@ -2212,13 +2222,15 @@ async function runFrontendTests() {
       runAfterSettled: true,
       resources: { coordinationOnly: true }
     })
-  ]
+  ];
   await executeWeightedStepDag(
     frontendSteps,
     () => bundleDagCapacityForSteps(frontendSteps),
-    async (frontendStep) => {
-      const result = await executeFrontendStep(frontendStep)
-      if (frontendStep.id === 'frontend-coverage-summary') {
+    async (frontendStep) =>
+    {
+      const result = await executeFrontendStep(frontendStep);
+      if (frontendStep.id === 'frontend-coverage-summary')
+      {
         publishCurrentRunMarker('frontend-coverage-ready', frontendStep.id)
       }
       frontendDagResults.set(frontendStep.id, result)

@@ -793,7 +793,28 @@ async function main(argv) {
     signal: controller.signal,
     evidenceFile
   })
-  console.log(`[command-manifest] ok lane=${manifest.lane} commands=${manifest.commands.length}`)
+    const crossStackReceiptOwners = new Set(['frontend-runtime-contracts', 'frontend-static-governance']);
+    if (crossStackReceiptOwners.has(manifest.lane))
+    {
+        const identity = [
+            process.env.FSUSBLOG_TEST_SOURCE_COMMIT,
+            process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT,
+            process.env.FSUSBLOG_TEST_RUN_ID,
+            process.env.FSUSBLOG_TEST_NAMESPACE
+        ];
+        if (identity.every((value) => String(value ?? '').trim()))
+        {
+            const { writeCurrentRunOwnerReceipt } = await import(pathToFileURL(
+                path.join(repoRoot, 'tools/test/cross-stack-receipts.mjs')
+            ).href);
+            writeCurrentRunOwnerReceipt(manifest.lane);
+        }
+        else
+        {
+            console.log(`[cross-stack-owner] skipped lane=${manifest.lane} reason=no-current-run-identity`);
+        }
+    }
+    console.log(`[command-manifest] ok lane=${manifest.lane} commands=${manifest.commands.length}`);
 }
 
 const isMain = process.argv[1]

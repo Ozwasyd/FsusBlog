@@ -870,10 +870,11 @@ export function runtimeSteps()
             ],
             resources: { coordinationOnly: true }
         }),
-        step('cross-stack-join', null, ['cross-stack-contract'], {
+        step('cross-stack-join', 'node tools/test/cross-stack-receipts.mjs join', ['cross-stack-contract'], {
             dependsOn: ['cross-stack', 'cross-stack-runtime'],
             runAfterSettled: true,
             joinDependencies: true,
+            artifacts: ['.tmp/release-evidence/cross-stack-contract.json'],
             testIds: [
                 'command:cross-stack',
                 'command:cross-stack-runtime',

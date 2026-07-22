@@ -364,6 +364,7 @@
 - [Issue 1249 本地会话刷新矩阵](testing/issue-1249-session-refresh-matrix.md) - owner `release`; issues #1249
 - [#1267 单一测试编排器](testing/issue-1267-single-orchestrator.md) - owner `release`; issues #1267
 - [Issue 1305 identity primitive evidence](testing/issue-1305-identity-primitives-evidence.md) - owner `release`; issues #1305
+- [Cross-stack canonical receipt join](testing/issue-1381-cross-stack-receipt-join.md) - owner `release`; issues #1381
 - [Issues #1033–#1035：治理测试与阻塞 tier 收口](testing/issues-1033-1035-test-governance-retirements.md) - owner `release`; issues #1033, #1035
 
 ## Generated
