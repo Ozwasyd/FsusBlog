@@ -3,6 +3,7 @@ set -euo pipefail
 umask 077
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$ROOT_DIR"
 MODE="${1:-capture}"
 [[ "$MODE" == "capture" || "$MODE" == "verify" ]] || {
     printf '[public-preview-capture] mode must be capture or verify\n' >&2

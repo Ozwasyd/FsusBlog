@@ -1,6 +1,6 @@
 {
     "schema": "fsusblog.complexity-baseline.v1",
-    "sourceRevision": "8b5ba79add6ed1cbd9713a98e3f24ba536037c09",
+    "sourceRevision": "9ab5b1bf40d06afa439dad7b38a03af62186f9b4",
     "measurement": "deterministic lexical structure with one shared repository inventory and content cache",
     "metricFields": [
         "fileLines",
@@ -501,7 +501,7 @@
                 "churn365Days": {
                     "p50": 3,
                     "p95": 11,
-                    "max": 47
+                    "max": 48
                 },
                 "testRelationshipCount": {
                     "p50": 0,
