@@ -39,6 +39,8 @@ import {
   resolveProductionBuildLayout
 } from '../../test-matrix/production-build-layout.mjs'
 import { createArtifactDigestTable } from '../../test-matrix/artifact-digest-table.mjs'
+import { projectEvidence } from '../../test-matrix/evidence-projection.mjs'
+import { writeIntegrityProofProducer } from '../../test-matrix/integrity-proof-producer.mjs'
 import {
   createLinuxProcessTreeCollector,
   createWaitLedger,
@@ -1335,14 +1337,6 @@ async function runBackendTests() {
           path.join(root, '.tmp/security/perception-v2-test-matrix.json')
         ]
       }),
-    commandStep('integrity-proof',
-      'tools/test/lanes/integrity-proof-verification.sh', ['integrity-proof-verification'], {
-        // Both verification lanes invoke dotnet test in Debug and therefore
-        // share src/backend/obj/Debug. Keep their builds ordered so MSBuild's
-        // static-web-assets and package caches have one writer.
-        dependsOn: ['perception-matrix'],
-        artifacts: [path.join(root, '.tmp/release-evidence/integrity-proof-verification.json')]
-      }),
     commandStep('backend-coverage-summary',
       'node tools/coverage/summarize-cobertura.mjs .tmp/coverage/backend .tmp/coverage/backend-merged/Summary.json backend-cobertura', [], {
         dependsOn: ['dotnet-production-union']
@@ -1360,6 +1354,39 @@ async function runBackendTests() {
   const trxFiles = listFiles(trxRoot, (file) => file.endsWith('.trx')).sort()
   validateShardSummaryArtifacts(shardReport, trxFiles, { repositoryRoot: root })
   const tests = trxFiles.flatMap(parseTrx)
+  const integrityCatalogFile = path.join(root, 'tests/fixtures/evidence-projection/integrity-proof-verification.json')
+  const integrityProducerFile = path.join(root, '.tmp/test-results/backend/evidence-producers/backend-unit.json')
+  const integritySourceFile = path.join(root, '.tmp/test-results/backend/integrity-proof-source.json')
+  const integrityProjectionFile = path.join(root, '.tmp/release-evidence/integrity-proof-verification.json')
+  const integrityCatalog = JSON.parse(fs.readFileSync(integrityCatalogFile, 'utf8'))
+  const integrityProduced = writeIntegrityProofProducer({
+    catalog: integrityCatalog,
+    trxFiles,
+    repositoryRoot: root,
+    sourceState: currentSourceState(),
+    runId: schedulerRunId(),
+    namespace: String(process.env.FSUSBLOG_TEST_NAMESPACE ?? '').trim(),
+    producerOutput: integrityProducerFile,
+    sourceOutput: integritySourceFile
+  })
+  const integrityProjection = projectEvidence({
+    catalog: integrityCatalog,
+    producerReceipt: integrityProduced.receipt,
+    producerReceiptPath: relative(integrityProducerFile),
+    sourceState: currentSourceState(),
+    runId: schedulerRunId(),
+    namespace: String(process.env.FSUSBLOG_TEST_NAMESPACE ?? '').trim(),
+    repositoryRoot: root
+  })
+  writeJsonAtomic(integrityProjectionFile, integrityProjection)
+  register({ id: 'integrity-proof-projection', members: ['integrity-proof-verification'] }, result,
+    integrityProjection.assertions.flatMap((entry) => entry.sourceTestIds.map((id) => `xunit:${id}`)), [
+      integrityProjectionFile,
+      integrityProducerFile,
+      integritySourceFile,
+      integrityCatalogFile,
+      ...trxFiles
+    ])
   const perceptionProjection = readPerceptionUnionProjection(trxFiles, shardSummary)
   register({ id: 'perception-union-projection', members: ['perception-v2-test-matrix'] }, result,
     perceptionProjection.tests.map((entry) => `xunit:${entry.id}`), [

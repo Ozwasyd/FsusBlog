@@ -1012,9 +1012,16 @@ tiers:
           - backend-risk-control-behavior
           - backend-projection-serialization-behavior
           - pod-binary-codec-batch-allocation
-      artifacts: [.tmp/backend-unit]
+      artifacts:
+          [
+              .tmp/backend-unit,
+              .tmp/test-results/backend/evidence-producers/backend-unit.json,
+              .tmp/test-results/backend/integrity-proof-source.json,
+          ]
       evidence:
           - .tmp/backend-unit/summary.json
+          - .tmp/test-results/backend/evidence-producers/backend-unit.json
+          - .tmp/test-results/backend/integrity-proof-source.json
           - tests/backend/Fixtures/backend-test-requirements.json
           - tests/backend/Unit/FsusHostRuntimeTuningTests.cs
           - tests/backend/Unit/PodBinaryCodecBatchAllocationTests.cs
@@ -1245,23 +1252,53 @@ tiers:
 
     - id: integrity-proof-verification
       owner: ServerContractAgent
-      command: tools/test/lanes/integrity-proof-verification.sh
-      dependsOn: [validate-matrix, backend-build-governance]
+      executionMode: projection
+      executionOwner: backend-unit
+      projectFrom: backend-unit
+      projectionCatalog: tests/fixtures/evidence-projection/integrity-proof-verification.json
+      requiredTestIds:
+          [
+              integrity-proof/golden-verifier,
+              integrity-proof/projector-failure-propagation,
+              integrity-proof/schema-migrations,
+              integrity-proof/tamper/algorithm-mismatch,
+              integrity-proof/tamper/checkpoint-tamper,
+              integrity-proof/tamper/key-id-tamper,
+              integrity-proof/tamper/log-deletion,
+              integrity-proof/tamper/log-reorder,
+              integrity-proof/tamper/payload-tamper,
+              integrity-proof/tamper/signature-tamper,
+          ]
+      requiredCoverageIds:
+          [
+              integrity-proof-release-evidence,
+              integrity-proof-schema-migration,
+              integrity-proof-tamper-matrix,
+              integrity-proof-verification,
+          ]
+      requiredArtifactDeclarations:
+          - id: integrity-proof-source-results
+            path: .tmp/test-results/backend/integrity-proof-source.json
+      requiresEvidenceFrom: [backend-unit]
+      command: node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/integrity-proof-verification.json --producer .tmp/test-results/backend/evidence-producers/backend-unit.json --output .tmp/release-evidence/integrity-proof-verification.json --root . --commit "$FSUSBLOG_TEST_SOURCE_COMMIT" --worktree-fingerprint "$FSUSBLOG_TEST_SOURCE_FINGERPRINT" --run-id "$FSUSBLOG_TEST_RUN_ID" --namespace "$FSUSBLOG_TEST_NAMESPACE"
+      dependsOn: [backend-unit]
       services: []
       parallelizable: true
-      exclusiveResources: [backend-coverlet-instrumentation]
+      exclusiveResources: []
       phase: 1
-      cost: medium
-      resourceClass: cpu
-      cpuWeight: 1
+      cost: low
+      resourceClass: io
+      cpuWeight: 0.25
       memoryWeight: 1
       minCpuUnits: 1
+      executionKey: integrity-proof-evidence-projection
+      executionVariant: ordinary
       requiresBootstrap: none
       requiresNode: true
-      requiresDotnet: true
+      requiresDotnet: false
       requiresPlaywright: none
-      cacheProfile: backend
-      timeoutMinutes: 15
+      cacheProfile: none
+      timeoutMinutes: 5
       shardable: false
       defaultShards: 1
       risk: critical
@@ -1275,7 +1312,13 @@ tiers:
               integrity-proof-release-evidence,
           ]
       artifacts: [.tmp/release-evidence/integrity-proof-verification.json]
-      evidence: [.tmp/release-evidence/integrity-proof-verification.json]
+      evidence:
+          [
+              .tmp/release-evidence/integrity-proof-verification.json,
+              .tmp/test-results/backend/evidence-producers/backend-unit.json,
+              .tmp/test-results/backend/integrity-proof-source.json,
+              tests/fixtures/evidence-projection/integrity-proof-verification.json,
+          ]
       ciJob: fast-backend
       localOnly: false
       nightlyOnly: false

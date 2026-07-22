@@ -31,6 +31,7 @@ import {
   validateLocalProfiles
 } from './test-matrix/local-profile.mjs'
 import { parseMatrix } from './test-matrix/parse-matrix.mjs'
+import { validateEvidenceExecutionDeclaration } from './test-matrix/projection-declaration.mjs'
 import { parseWorkflowJobNeeds } from './yaml/workflow-structure.mjs'
 import { assertLocalProductionCapacity, cleanLocalProductionOutputs } from './test-matrix/fresh-production.mjs'
 import { cleanupLocalRuntime, cleanupStaleLocalRuntimes } from './test-matrix/local-runtime-cleanup.mjs'
@@ -70,7 +71,6 @@ const smartGateModeValues = ['always', 'conditional', 'full-only']
 const retentionClassValues = ['must-keep', 'conditional', 'redundant-candidate', 'obsolete']
 const evidenceClassValues = ['correctness', 'browser-contract', 'diagnostic']
 const executionVariantValues = ['ordinary', 'coverage', 'property', 'model', 'performance', 'runtime']
-const executionModeValues = ['execute', 'projection', 'summary']
 const uxViewportTierIds = new Set(['ux-viewport-smoke', 'ux-viewport-visual', 'ux-viewport-boundaries'])
 const aliases = new Map([
   ['coverage', 'coverage-gate'],
@@ -557,56 +557,7 @@ function validateMatrix(matrix) {
     for (const field of requiredFields) {
       if (!(field in tier)) errors.push(`${tier.id} missing ${field}`)
     }
-    const executionMode = tier.executionMode ?? 'execute'
-    if (!executionModeValues.includes(executionMode)) {
-      errors.push(`${tier.id}.executionMode is invalid: ${tier.executionMode}`)
-    }
-    if (executionMode === 'projection') {
-      for (const field of ['executionOwner', 'projectFrom', 'projectionCatalog']) {
-        if (typeof tier[field] !== 'string' || !tier[field].trim()) errors.push(`${tier.id}.${field} is required for projection tiers`)
-      }
-      for (const field of ['requiredTestIds', 'requiredCoverageIds', 'requiredArtifactDeclarations', 'requiresEvidenceFrom']) {
-        if (!Array.isArray(tier[field]) || tier[field].length === 0) errors.push(`${tier.id}.${field} must be a non-empty array for projection tiers`)
-      }
-      for (const field of ['requiredTestIds', 'requiredCoverageIds', 'requiresEvidenceFrom']) {
-        if (Array.isArray(tier[field])) {
-          const values = tier[field]
-          if (values.some((value) => typeof value !== 'string' || !value.trim())) errors.push(`${tier.id}.${field} entries must be non-empty strings`)
-          if (new Set(values).size !== values.length) errors.push(`${tier.id}.${field} must not contain duplicates`)
-          if (JSON.stringify(values) !== JSON.stringify([...values].sort())) errors.push(`${tier.id}.${field} must be sorted`)
-        }
-      }
-      if (Array.isArray(tier.requiredArtifactDeclarations)) {
-        const artifactIds = tier.requiredArtifactDeclarations.map((entry) => entry?.id)
-        if (tier.requiredArtifactDeclarations.some((entry) => !entry || typeof entry.id !== 'string' || !entry.id.trim()
-          || typeof entry.path !== 'string' || !entry.path.trim())) {
-          errors.push(`${tier.id}.requiredArtifactDeclarations entries require id and path`)
-        }
-        if (new Set(artifactIds).size !== artifactIds.length) errors.push(`${tier.id}.requiredArtifactDeclarations must not contain duplicate IDs`)
-        if (JSON.stringify(artifactIds) !== JSON.stringify([...artifactIds].sort())) errors.push(`${tier.id}.requiredArtifactDeclarations must be sorted by ID`)
-      }
-      if (!String(tier.command ?? '').startsWith('node tools/test/project-evidence.mjs ')) {
-        errors.push(`${tier.id} projection command must use node tools/test/project-evidence.mjs`)
-      }
-      if ((tier.services?.length ?? 0) > 0 || (tier.exclusiveResources?.length ?? 0) > 0) {
-        errors.push(`${tier.id} projection tier must not declare services or exclusive resources`)
-      }
-      if (tier.requiresBootstrap !== 'none' || tier.requiresDotnet !== false || tier.requiresNode !== true
-        || tier.requiresPlaywright !== 'none' || tier.cacheProfile !== 'none') {
-        errors.push(`${tier.id} projection tier must be Node-only without bootstrap, .NET, Playwright, or execution cache`)
-      }
-      if (tier.resourceClass !== 'io' || tier.cost !== 'low') {
-        errors.push(`${tier.id} projection tier must use resourceClass=io and cost=low`)
-      }
-      if (!tier.dependsOn?.includes(tier.projectFrom) || !tier.requiresEvidenceFrom?.includes(tier.projectFrom)) {
-        errors.push(`${tier.id} projection tier must depend on and require evidence from projectFrom=${tier.projectFrom}`)
-      }
-    }
-    if (executionMode !== 'projection') {
-      for (const field of ['projectionCatalog', 'requiredTestIds', 'requiredCoverageIds', 'requiredArtifactDeclarations']) {
-        if (field in tier) errors.push(`${tier.id}.${field} is reserved for projection tiers`)
-      }
-    }
+    errors.push(...validateEvidenceExecutionDeclaration(tier))
         for (const field of ['dependsOn', 'services', 'exclusiveResources', 'coverage', 'artifacts', 'evidence'])
 {
             if (!Array.isArray(tier[field])) {errors.push(`${tier.id}.${field} must be an array`)};
@@ -3095,13 +3046,8 @@ function docs(matrix, outFile) {
       `\`${tier.ciJob}\``,
       `\`./tools/test.sh ci-tier ${tier.id}\``,
       String(tier.phase),
-      tier.risk,
-      tier.cadence,
-      tier.requiredFor,
-      tier.evidenceClass ?? 'correctness',
-      tier.executionMode ?? 'execute',
-      `\`${tier.executionOwner ?? tier.id}\``,
-      `\`${tier.projectFrom ?? tier.id}\``,
+      tier.risk, tier.cadence, tier.requiredFor, tier.evidenceClass ?? 'correctness',
+      tier.executionMode ?? 'execute', `\`${tier.executionOwner ?? tier.id}\``, `\`${tier.projectFrom ?? tier.id}\``,
       tierSmartGateMode(tier),
       tier.prDefault === true ? 'yes' : 'no',
       tier.retentionClass ?? '-',

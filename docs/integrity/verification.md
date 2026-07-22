@@ -6,13 +6,13 @@ Start from [IntegrityProof](index.md) (`docs/integrity/index.md`) for the system
 
 ## Local Command
 
-Run the verifier and write release evidence:
+Run the canonical backend producer and write the independent logical-tier projection:
 
 ```bash
-tools/test/lanes/integrity-proof-verification.sh
+./tools/test.sh integrity-proof-verification
 ```
 
-The lane runs the C# verifier tests with `FullyQualifiedName~IntegrityProofVerification` and writes `.tmp/release-evidence/integrity-proof-verification.json`.
+`backend-unit` owns the C# verifier tests. The `integrity-proof-verification` tier then runs only `tools/test/project-evidence.mjs` and writes `.tmp/release-evidence/integrity-proof-verification.json`. It does not start a second `dotnet test` or testhost.
 
 ## CI Gate
 
@@ -49,10 +49,10 @@ Keep fixtures deterministic and model names current. Updates must preserve `arti
 
 `.tmp/release-evidence/integrity-proof-verification.json` contains:
 
-- `status`
-- `command`
-- `fixtures`
-- `tamperMatrix`
-- `publicModels`
-- `externalNetwork: false`
-- generated timestamp
+- `status: success` and `executionMode: projection`
+- physical `executionOwner` and `projectFrom`
+- exact logical test IDs, concrete source test IDs and coverage IDs
+- producer receipt identity and content digest
+- source/run/namespace identity
+- artifact paths and SHA-256 digests
+- an `executionBoundary` with zero `dotnet test`, Vitest, Playwright and runtime probe launches

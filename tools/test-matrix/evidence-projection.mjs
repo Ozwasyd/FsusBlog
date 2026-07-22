@@ -107,6 +107,7 @@ export function createEvidenceProducerReceipt({
   const normalizedAssertions = (assertions ?? []).map((assertion, index) => ({
     id: requiredText(assertion?.id, `producer assertions[${index}].id`),
     outcome: requiredText(assertion?.outcome, `producer assertions[${index}].outcome`),
+    sourceTestIds: sortedUniqueStrings(assertion?.sourceTestIds, `producer assertions[${index}].sourceTestIds`),
     coverageIds: sortedUniqueStrings(assertion?.coverageIds, `producer assertions[${index}].coverageIds`),
     artifactIds: sortedUniqueStrings(assertion?.artifactIds, `producer assertions[${index}].artifactIds`, { allowEmpty: true })
   })).sort((left, right) => left.id.localeCompare(right.id))
@@ -199,8 +200,9 @@ export function projectEvidence({
     if (!assertion) throw new Error(`producer receipt is missing required test ID: ${id}`)
     if (assertion.outcome !== 'Passed') throw new Error(`required test ID ${id} did not pass: ${assertion.outcome}`)
     const coverageIds = sortedUniqueStrings(assertion.coverageIds, `producer assertion ${id} coverageIds`)
+    const sourceTestIds = sortedUniqueStrings(assertion.sourceTestIds, `producer assertion ${id} sourceTestIds`)
     const artifactIds = sortedUniqueStrings(assertion.artifactIds, `producer assertion ${id} artifactIds`, { allowEmpty: true })
-    return { id, outcome: 'Passed', coverageIds, artifactIds }
+    return { id, outcome: 'Passed', sourceTestIds, coverageIds, artifactIds }
   })
   const projectedCoverageIds = [...new Set(projectedAssertions.flatMap((assertion) => assertion.coverageIds))].sort()
   if (JSON.stringify(projectedCoverageIds) !== JSON.stringify(expected.requiredCoverageIds)) {

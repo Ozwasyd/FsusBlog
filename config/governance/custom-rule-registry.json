@@ -3,7 +3,7 @@
     "generatedBy": "tools/governance/check-rule-platform.mjs --write-registry",
     "inventory": {
         "packageScriptCount": 191,
-        "implementationCount": 340
+        "implementationCount": 339
     },
     "rules": [
         {
@@ -14130,34 +14130,6 @@
                 "mode": "delegated-implementation",
                 "implementation": "tools/test/lanes/homogeneous-two-node-fixture.sh",
                 "executionKey": "governance:file:tools/test/lanes/homogeneous-two-node-fixture.sh",
-                "receiptCompatible": true
-            }
-        },
-        {
-            "id": "Implementation.ToolsTestLanesIntegrityProofVerificationSh",
-            "externalId": "tools/test/lanes/integrity-proof-verification.sh",
-            "symbol": "CheckToolsTestLanesIntegrityProofVerification",
-            "owner": "TestGovernanceOwner",
-            "category": "test-governance",
-            "engine": "runtime",
-            "sourceScopes": [
-                "tools/test/lanes/integrity-proof-verification.sh",
-                "tests/**",
-                "tools/test/**",
-                ".github/workflows/**"
-            ],
-            "severity": "error",
-            "fixable": false,
-            "changedFileSafe": true,
-            "dependencies": [],
-            "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
-            ],
-            "documentation": "docs/development/custom-rule-platform.md",
-            "execution": {
-                "mode": "delegated-implementation",
-                "implementation": "tools/test/lanes/integrity-proof-verification.sh",
-                "executionKey": "governance:file:tools/test/lanes/integrity-proof-verification.sh",
                 "receiptCompatible": true
             }
         },

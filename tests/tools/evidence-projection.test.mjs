@@ -11,6 +11,7 @@ import {
   projectEvidence,
   sealProjectionDocument
 } from '../../tools/test-matrix/evidence-projection.mjs'
+import { validateEvidenceExecutionDeclaration } from '../../tools/test-matrix/projection-declaration.mjs'
 
 const sourceState = {
   commit: 'a'.repeat(40),
@@ -30,9 +31,9 @@ function fixture() {
     runId: 'run-1',
     namespace: 'namespace-1',
     assertions: [
-      { id: 'Backend.A', outcome: 'Passed', coverageIds: ['coverage:a'], artifactIds: ['backend-trx'] },
-      { id: 'Backend.B', outcome: 'Passed', coverageIds: ['coverage:b'], artifactIds: ['backend-trx'] },
-      { id: 'Backend.C', outcome: 'Passed', coverageIds: ['coverage:c'], artifactIds: [] }
+      { id: 'Backend.A', outcome: 'Passed', sourceTestIds: ['xunit:BackendTests.A'], coverageIds: ['coverage:a'], artifactIds: ['backend-trx'] },
+      { id: 'Backend.B', outcome: 'Passed', sourceTestIds: ['xunit:BackendTests.B'], coverageIds: ['coverage:b'], artifactIds: ['backend-trx'] },
+      { id: 'Backend.C', outcome: 'Passed', sourceTestIds: ['xunit:BackendTests.C'], coverageIds: ['coverage:c'], artifactIds: [] }
     ],
     artifacts: [{ id: 'backend-trx', path: artifactPath, digest: artifactDigest }],
     generatedAt: '2026-07-22T00:00:00.000Z'
@@ -82,6 +83,7 @@ test('one canonical producer projects two independent logical tier receipts with
     runtimeProbeLaunchCount: 0
   })
   assert.deepEqual(second.testIds, ['Backend.B'])
+  assert.deepEqual(second.assertions[0].sourceTestIds, ['xunit:BackendTests.B'])
 })
 
 test('projection fails closed for missing and duplicate test IDs', () => {
@@ -132,4 +134,40 @@ test('projection rejects wrong artifact path and digest', () => {
 
   fs.writeFileSync(values.absoluteArtifactPath, '{"status":"tampered"}\n')
   assert.throws(() => project(values, values.catalog('digest', ['Backend.A'], ['coverage:a'])), /artifact digest mismatch/u)
+})
+
+test('matrix declaration accepts a strict projector and rejects missing owner, source, IDs and artifacts', () => {
+  const declaration = {
+    id: 'logical-tier',
+    executionMode: 'projection',
+    executionOwner: 'canonical-backend',
+    projectFrom: 'canonical-backend',
+    projectionCatalog: 'tests/fixtures/evidence-projection/catalog.json',
+    requiredTestIds: ['Backend.A'],
+    requiredCoverageIds: ['coverage:a'],
+    requiredArtifactDeclarations: [{ id: 'backend-trx', path: '.tmp/backend.trx' }],
+    requiresEvidenceFrom: ['canonical-backend'],
+    command: 'node tools/test/project-evidence.mjs --catalog catalog.json',
+    dependsOn: ['canonical-backend'],
+    services: [],
+    exclusiveResources: [],
+    requiresBootstrap: 'none',
+    requiresDotnet: false,
+    requiresNode: true,
+    requiresPlaywright: 'none',
+    cacheProfile: 'none',
+    resourceClass: 'io',
+    cost: 'low'
+  }
+  assert.deepEqual(validateEvidenceExecutionDeclaration(declaration), [])
+
+  for (const field of ['executionOwner', 'projectFrom', 'requiredTestIds', 'requiredCoverageIds', 'requiredArtifactDeclarations']) {
+    const invalid = structuredClone(declaration)
+    delete invalid[field]
+    assert.notDeepEqual(validateEvidenceExecutionDeclaration(invalid), [], `${field} must fail closed`)
+  }
+  assert.match(
+    validateEvidenceExecutionDeclaration({ ...declaration, command: `${declaration.command} && dotnet test` }).join('\n'),
+    /exclusively/u
+  )
 })

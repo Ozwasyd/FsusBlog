@@ -1021,6 +1021,16 @@ RunBackendUnitLane() {
         RunBackendDotnetFilterOnly "$BACKEND_ORDINARY_TEST_FILTER" backend-unit
     fi
     WriteBackendSplitSummary backend-unit "${FSUSBLOG_TEST_SELECTION:-full}"
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/produce-integrity-proof-evidence.mjs" \
+        --catalog "$ROOT_DIR/tests/fixtures/evidence-projection/integrity-proof-verification.json" \
+        --trx "$(BackendTrxFile backend-unit)" \
+        --root "$ROOT_DIR" \
+        --commit "${FSUSBLOG_TEST_SOURCE_COMMIT:?FSUSBLOG_TEST_SOURCE_COMMIT is required}" \
+        --worktree-fingerprint "${FSUSBLOG_TEST_SOURCE_FINGERPRINT:?FSUSBLOG_TEST_SOURCE_FINGERPRINT is required}" \
+        --run-id "${FSUSBLOG_TEST_RUN_ID:?FSUSBLOG_TEST_RUN_ID is required}" \
+        --namespace "${FSUSBLOG_TEST_NAMESPACE:?FSUSBLOG_TEST_NAMESPACE is required}" \
+        --producer-output "$ROOT_DIR/.tmp/test-results/backend/evidence-producers/backend-unit.json" \
+        --source-output "$ROOT_DIR/.tmp/test-results/backend/integrity-proof-source.json"
 }
 
 RunDistributedContractFastOnly() {

@@ -31,7 +31,7 @@ The canonical producer receipt binds:
 
 - a full lowercase commit SHA and worktree SHA-256 fingerprint;
 - run ID and namespace;
-- unique assertion IDs, outcomes, coverage IDs, and artifact IDs;
+- unique assertion IDs, concrete source test IDs, outcomes, coverage IDs, and artifact IDs;
 - repository-relative artifact paths and SHA-256 digests;
 - a canonical content digest over the receipt.
 

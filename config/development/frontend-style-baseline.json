@@ -9828,18 +9828,6 @@
             }
         },
         {
-            "path": "tests/tools/integrity-proof-command.test.mjs",
-            "sourceSha256": "b8db94607563b3544a4067000fac5674fac8b4ab8b4d60e7b761cde82b94f842",
-            "violationCount": 42,
-            "violationDigest": "7f6e95c92f25ef991592b4e3ba7fe91df59d5ba49246090fb153f99962f2ca3b",
-            "rules": {
-                "eslint/@stylistic/brace-style": 3,
-                "eslint/@stylistic/indent": 19,
-                "eslint/@stylistic/semi": 19,
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
-        },
-        {
             "path": "tests/tools/issue-1149-browser-contract-fixture.test.mjs",
             "sourceSha256": "0ec5d8493b0852085e683d781eed712bc67ede5605ecd3711e270e069303c297",
             "violationCount": 1277,
@@ -12605,30 +12593,6 @@
                 "eslint/@stylistic/indent": 218,
                 "eslint/@stylistic/semi": 116,
                 "eslint/curly": 22,
-                "eslint/import-x/order": 1
-            }
-        },
-        {
-            "path": "tools/integrity/proof-command.mjs",
-            "sourceSha256": "9070b99217422f9f88fce5ca613b0147e6eac3fadead258319b684a8e122c77a",
-            "violationCount": 14,
-            "violationDigest": "a119043b36561217123ca3900a7146f32b53a26a101e55e673c82288be768b4e",
-            "rules": {
-                "eslint/@stylistic/brace-style": 1,
-                "eslint/@stylistic/indent": 11,
-                "eslint/@stylistic/semi": 2
-            }
-        },
-        {
-            "path": "tools/integrity/verify-proof-fixtures.mjs",
-            "sourceSha256": "9bfd3fe114f4b02d6f920d755da87b88a08293b27de90b8357565a1c2fc4fb2f",
-            "violationCount": 82,
-            "violationDigest": "ea25b2492392aaaf0bdec0aa8a88cdaf8df06e00d26128dc11560deef8c7f81f",
-            "rules": {
-                "eslint/@stylistic/brace-style": 3,
-                "eslint/@stylistic/indent": 50,
-                "eslint/@stylistic/semi": 25,
-                "eslint/curly": 3,
                 "eslint/import-x/order": 1
             }
         },

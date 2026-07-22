@@ -109,8 +109,8 @@ const requiredFiles = {
     'transparency log',
     'broken chain',
     'checkpoint',
-    'tools/test/lanes/integrity-proof-verification.sh',
-    'tools/integrity/verify-proof-fixtures.mjs'
+    './tools/test.sh integrity-proof-verification',
+    'tests/tools/integrity-proof-projection.test.mjs'
   ]],
   implementationNotes: ['docs/integrity/implementation-notes.md', [
     'Article',
@@ -156,7 +156,8 @@ for (const [path, tokens] of Object.values(requiredFiles)) {
 
 const verification = read('docs/integrity/verification.md')
 requireToken('docs/integrity/verification.md', verification, 'docs/integrity/index.md')
-requireToken('docs/integrity/verification.md', verification, 'externalNetwork: false')
+requireToken('docs/integrity/verification.md', verification, 'executionBoundary')
+requireToken('docs/integrity/verification.md', verification, 'executionOwner')
 
 const runbook = read('docs/integrity/runbook.md')
 requireAny('docs/integrity/runbook.md', runbook, ['.tmp/release-evidence/integrity-proof-verification.json', '.tmp'])

@@ -31,7 +31,7 @@ The publish proof manifest identifies `articleId`, `articleRevisionId`, and `rev
 The same checks are automated by:
 
 ```bash
-tools/test/lanes/integrity-proof-verification.sh
+./tools/test.sh integrity-proof-verification
 ```
 
 ## What To Reject

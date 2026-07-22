@@ -5,11 +5,11 @@ Use this runbook for local proof failures, admin console triage, release evidenc
 ## Fast Checks
 
 ```bash
-tools/test/lanes/integrity-proof-verification.sh
-node tools/integrity/verify-proof-fixtures.mjs
+./tools/test.sh integrity-proof-verification
+node --test tests/tools/integrity-proof-projection.test.mjs
 ```
 
-The lane writes `.tmp/release-evidence/integrity-proof-verification.json`. A healthy local verification run records `status=ok` and `externalNetwork=false`.
+The canonical `backend-unit` producer executes the verifier tests once and writes a source-bound producer receipt. The lightweight projection tier writes `.tmp/release-evidence/integrity-proof-verification.json`; a healthy receipt records `status=success`, `executionMode=projection`, `executionOwner=backend-unit`, and zero test-runner launches.
 
 ## Status Meanings
 
@@ -43,7 +43,7 @@ For a broken chain:
 Use the verification gate first:
 
 ```bash
-tools/test/lanes/integrity-proof-verification.sh
+./tools/test.sh integrity-proof-verification
 ```
 
 For production operations, a checkpoint rebuild command must be an explicit implemented tool before the runbook names it as runnable. Until that tool exists, rebuild through the reviewed server-side checkpoint service path and record the produced checkpoint manifest plus `.tmp/release-evidence/integrity-proof-verification.json`.
