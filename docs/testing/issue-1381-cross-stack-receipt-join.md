@@ -15,6 +15,6 @@ Cross-stack static no longer requests a Debug backend filtered build or exports 
 ## Local verification
 
 ```bash
-node --test tests/tools/cross-stack-receipt-join.test.mjs tests/tools/runtime-cross-stack-split.test.mjs
+node --test tests/tools/cross-stack-receipt-join.test.mjs
 node tools/run-test-matrix.mjs validate
 ```

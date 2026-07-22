@@ -1,10 +1,10 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:7406649ccc57f347ed85f7e2ec6b7b18475a2c481fbaa532908b52cfc146ab26",
-    "sourceStateSha256": "7406649ccc57f347ed85f7e2ec6b7b18475a2c481fbaa532908b52cfc146ab26",
+    "generatedFrom": "source-state:54e4efe2271536e823fc94666006dddc78ed3476c22ba04ad97853a999d1ca69",
+    "sourceStateSha256": "54e4efe2271536e823fc94666006dddc78ed3476c22ba04ad97853a999d1ca69",
     "configurationSha256": "3aba534caa13d9279fbebb8c81d72486d7154fe3a425764f094dc705b0ddf5f1",
-    "violationCount": 315443,
-    "fileCount": 1074,
+    "violationCount": 315178,
+    "fileCount": 1070,
     "files": [
         {
             "path": "src/frontend/public/sw.js",
@@ -9825,20 +9825,6 @@
             "rules": {}
         },
         {
-            "path": "tests/tools/issue-1150-production-summary.test.mjs",
-            "sourceSha256": "3979c1b91b89500e359ab2ea63c123f4f5667ef35712729aefd01ca59de01f7f",
-            "violationCount": 107,
-            "violationDigest": "5d2d7353498828dcf12601d0579ef6b856a9939d937bd01ff791a15aad01e545",
-            "rules": {
-                "eslint/@stylistic/brace-style": 3,
-                "eslint/@stylistic/indent": 62,
-                "eslint/@stylistic/semi": 38,
-                "eslint/curly": 2,
-                "eslint/import-x/order": 1,
-                "eslint/no-unused-vars": 1
-            }
-        },
-        {
             "path": "tests/tools/browser-migration-contract.test.mjs",
             "sourceSha256": "90b7d6d20b502cdc6d554660e4c3f3ab65ba583bde911522faa286ebd1ebf315",
             "violationCount": 0,
@@ -10103,17 +10089,6 @@
             }
         },
         {
-            "path": "tests/tools/local-dotnet-lanes.test.mjs",
-            "sourceSha256": "e72e7c5d9db6dd43ff33575344447398c1adb6c89885f865d6c43665074d79eb",
-            "violationCount": 71,
-            "violationDigest": "c75094f3e11aaaf9eb050bd8c75c2fb0e4b7b1d94b559bce85c2909e3c60bb1a",
-            "rules": {
-                "eslint/@stylistic/brace-style": 4,
-                "eslint/@stylistic/indent": 30,
-                "eslint/@stylistic/semi": 37
-            }
-        },
-        {
             "path": "tests/tools/local-production-profile.test.mjs",
             "sourceSha256": "c3c53a033ee3d6286483885a4eb47f1b9db8fb993b405aec4b97a40f34d385b8",
             "violationCount": 0,
@@ -10319,18 +10294,6 @@
                 "eslint/@stylistic/semi": 64,
                 "eslint/curly": 1,
                 "eslint/import-x/order": 1
-            }
-        },
-        {
-            "path": "tests/tools/production-dag-closure.test.mjs",
-            "sourceSha256": "8aeca4282e851c39c2bdcfe49438926d07835c157989eccf4a0cdc67e362167f",
-            "violationCount": 20,
-            "violationDigest": "8e02787b639f3cb1e87278fbef8db88848bb7d052ab1793e6efefd95c09c9795",
-            "rules": {
-                "eslint/@stylistic/brace-style": 1,
-                "eslint/@stylistic/indent": 10,
-                "eslint/@stylistic/semi": 8,
-                "eslint/import-x/no-relative-parent-imports": 1
             }
         },
         {
@@ -10694,18 +10657,6 @@
                 "eslint/@stylistic/semi": 50,
                 "eslint/import-x/no-relative-parent-imports": 2,
                 "eslint/import-x/order": 1
-            }
-        },
-        {
-            "path": "tests/tools/runtime-cross-stack-split.test.mjs",
-            "sourceSha256": "e7ccaedb4fa93c512a351daafbf5e6baa26adda32fc7017683c38dd098296a1b",
-            "violationCount": 67,
-            "violationDigest": "c5a2fa628e233c06de64074880280364962963f1a5290e1fd9bea33e8cf366ab",
-            "rules": {
-                "eslint/@stylistic/brace-style": 3,
-                "eslint/@stylistic/indent": 37,
-                "eslint/@stylistic/semi": 25,
-                "eslint/curly": 2
             }
         },
         {

@@ -33,7 +33,7 @@ case "$FLOW" in
     error-boundary)
         RunClient npm run check:result-boundaries
         RunClient npx vitest run --config vitest.config.ts \
-            ../../tests/frontend/unit/app-error.test.ts \
+            ../../tests/frontend/unit/utils/appError.test.ts \
             ../../tests/frontend/unit/utils/errorKinds.test.ts \
             ../../tests/frontend/unit/utils/errors.test.ts
         ;;

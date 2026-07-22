@@ -87,6 +87,7 @@ describe('appErrorFromStatus', () => {
     [408, AppErrorCode.Timeout],
     [504, AppErrorCode.Timeout],
     [429, AppErrorCode.RateLimited],
+    [418, AppErrorCode.Validation],
     [422, AppErrorCode.Validation],
     [500, AppErrorCode.InfraFailure],
     [503, AppErrorCode.InfraFailure]
@@ -121,5 +122,8 @@ describe('toAppError', () => {
   it('wraps unknown values with fallback message', () => {
     const e = toAppError(null, 'fallback')
     expect(e.message).toBe('fallback')
+    const objectError = toAppError({ bad: true }, 'object fallback')
+    expect(objectError.code).toBe(AppErrorCode.Unknown)
+    expect(objectError.message).toBe('object fallback')
   })
 })

@@ -36,7 +36,7 @@ run summary 聚合 physical execution 数、logical consumer 数、dedup hit、�
 node tests/frontend/checks/static/check-test-execution-helpers.mjs
 node tests/frontend/checks/static/check-test-execution-optimization-contract.mjs
 node tools/check-test-matrix.mjs
-node --test tests/tools/test-matrix-scheduler.test.mjs tests/tools/runtime-cross-stack-split.test.mjs
+node --test tests/tools/test-matrix-scheduler.test.mjs tests/tools/cross-stack-receipt-join.test.mjs
 ```
 
 三次相同 SHA、相同机器的完整 Fresh before/after wall-clock、CPU-seconds、spawn count 和 evidence bytes 由最终 production 压测统一回填；在这些测量完成前 #1079 不关闭。

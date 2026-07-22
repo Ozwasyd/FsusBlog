@@ -10735,6 +10735,118 @@
                 "node-test:tests/browser-contract/fixture-lifecycle.test.mjs#run-identity-derives-isolated-database-and-redis-resourc-5c8f009bc4"
             ],
             "reason": "The former mixed owner is split: the static suite owns fixed session/concurrency admission, while the dynamic lifecycle suite exclusively owns run-scoped database and Redis resource isolation."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/app-error.test.ts#appends-trace-id-once-when-constructing-apperror-47a2eeaf4f",
+            "path": "tests/frontend/unit/app-error.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/appError.test.ts#appends-traceid-to-message-if-not-already-present-6b043d4f3d",
+                "vitest:tests/frontend/unit/utils/appError.test.ts#does-not-duplicate-traceid-in-message-6aa05acfbe"
+            ],
+            "reason": "The canonical utility suite directly owns trace attachment and duplicate suppression without a second aggregate wrapper."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/app-error.test.ts#maps-representative-http-statuses-to-stable-error-codes-e991d71fa4",
+            "path": "tests/frontend/unit/app-error.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/appError.test.ts#maps-status-status-to-code-8cd789056e"
+            ],
+            "reason": "The canonical status table now includes the residual HTTP 418 Validation case alongside every previously covered mapping."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/app-error.test.ts#normalizes-unknown-values-with-toapperror-fd3e73d7fe",
+            "path": "tests/frontend/unit/app-error.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/appError.test.ts#returns-apperror-as-is-4831323419",
+                "vitest:tests/frontend/unit/utils/appError.test.ts#wraps-native-error-c0d81a205f",
+                "vitest:tests/frontend/unit/utils/appError.test.ts#wraps-non-empty-string-a36b6b56cb",
+                "vitest:tests/frontend/unit/utils/appError.test.ts#wraps-unknown-values-with-fallback-message-0d5b62b018"
+            ],
+            "reason": "The canonical utility suite owns each normalization branch and now explicitly covers an ordinary object fallback."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/app-error.test.ts#supports-result-helpers-and-unwrap-semantics-3bde0a7424",
+            "path": "tests/frontend/unit/app-error.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/appError.test.ts#ok-wraps-a-value-d5b90d78f3",
+                "vitest:tests/frontend/unit/utils/appError.test.ts#err-wraps-an-apperror-8979d3c1c1",
+                "vitest:tests/frontend/unit/utils/appError.test.ts#unwrapresult-returns-value-on-success-956119d318",
+                "vitest:tests/frontend/unit/utils/appError.test.ts#unwrapresult-throws-on-error-b84fef54fa"
+            ],
+            "reason": "The canonical utility suite keeps success, failure and unwrap branches independently discoverable instead of repeating them in one aggregate test."
+        },
+        {
+            "id": "node-test:tests/tools/issue-1150-production-summary.test.mjs#production-summary-emits-the-explicit-browserless-correc-5074f412d2",
+            "path": "tests/tools/issue-1150-production-summary.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/issue-1151-receipt-aggregate.test.mjs#production-summary-excludes-diagnostics-retry-evidence-f-a442581451",
+                "node-test:tests/tools/issue-1151-receipt-aggregate.test.mjs#production-summary-admits-only-policy-skipped-needs-and--5acfb0babc",
+                "node-test:tests/tools/issue-1151-receipt-aggregate.test.mjs#production-summary-fails-closed-when-the-correctness-rec-8ff9e502c3"
+            ],
+            "reason": "The receipt aggregate behavior suite owns production summary authority, policy-skipped input handling and fail-closed correctness binding without a one-off topology snapshot."
+        },
+        {
+            "id": "node-test:tests/tools/local-dotnet-lanes.test.mjs#perception-matrix-projects-the-fresh-production-union-an-986237ccbf",
+            "path": "tests/tools/local-dotnet-lanes.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/perception-union-projection.test.mjs#perception-projection-binds-exact-passed-union-results-t-4efc681cac",
+                "node-test:tests/tools/perception-union-projection.test.mjs#perception-projection-fails-closed-for-stale-runs-dll-dr-45c3d8c472"
+            ],
+            "reason": "Real Perception union projection tests own exact passed-result binding and stale or drifted evidence rejection without lane source slicing."
+        },
+        {
+            "id": "node-test:tests/tools/local-dotnet-lanes.test.mjs#rights-v3-matrix-consumes-the-shared-debug-build-without-6b1ab1dea9",
+            "path": "tests/tools/local-dotnet-lanes.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/rights-v3-projection.test.mjs#rights-v3-lane-is-projection-only-and-integration-produc-d40492e4f9"
+            ],
+            "reason": "The canonical Rights V3 projection test owns current producer attachment after the historical Debug build shape was retired."
+        },
+        {
+            "id": "node-test:tests/tools/local-dotnet-lanes.test.mjs#lanename-reuses-the-fresh-local-release-benchmark-build-c2e6c2038d",
+            "path": "tests/tools/local-dotnet-lanes.test.mjs",
+            "replacementTestIds": [
+                "shell:tools/test/ensure-benchmark-release-build.sh",
+                "node-script:tools/test/verify-benchmark-build-ready.mjs",
+                "node-test:tests/tools/production-build-artifacts.test.mjs#receipt-binds-source-toolchain-producer-input-and-every--f082895a98"
+            ],
+            "reason": "The benchmark build producer, receipt verifier and immutable artifact behavior test own build reuse without matching lane command strings."
+        },
+        {
+            "id": "node-test:tests/tools/production-dag-closure.test.mjs#production-dag-reaches-every-non-manual-production-requi-5d9823de0e",
+            "path": "tests/tools/production-dag-closure.test.mjs",
+            "replacementTestIds": [
+                "node-script:tools/check-test-matrix.mjs",
+                "node-test:tests/tools/local-production-profile.test.mjs#physical-bundle-dag-preserves-dependencies-and-derives-d-73eaaf4040"
+            ],
+            "reason": "Structured matrix validation and the physical production DAG behavior test own closure and dependency semantics without a second manual-only traversal."
+        },
+        {
+            "id": "node-test:tests/tools/runtime-cross-stack-split.test.mjs#cross-stack-static-phase-executes-only-assertions-not-ow-f15aeb0d19",
+            "path": "tests/tools/runtime-cross-stack-split.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/cross-stack-receipt-join.test.mjs#ownership-registry-assigns-every-legacy-assertion-to-one-4cd9f8816c",
+                "node-test:tests/tools/cross-stack-receipt-join.test.mjs#join-binds-all-current-run-owner-receipts-and-keeps-the--06442ef14a"
+            ],
+            "reason": "The canonical ownership registry and receipt join prove static assertion ownership through current-run evidence rather than shell source slices."
+        },
+        {
+            "id": "node-test:tests/tools/runtime-cross-stack-split.test.mjs#cross-stack-runtime-phase-binds-the-exact-browser-probe--0407b014a3",
+            "path": "tests/tools/runtime-cross-stack-split.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/cross-stack-receipt-join.test.mjs#join-binds-all-current-run-owner-receipts-and-keeps-the--06442ef14a",
+                "node-test:tests/tools/cross-stack-receipt-join.test.mjs#join-rejects-stale-source-failed-outcome-replaced-receip-bfab4f7959"
+            ],
+            "reason": "The receipt join behavior binds the runtime owner and rejects stale, failed or substituted runtime evidence without mirroring shell commands."
+        },
+        {
+            "id": "node-test:tests/tools/runtime-cross-stack-split.test.mjs#runtime-bundle-starts-static-cross-stack-early-and-joins-047150e04c",
+            "path": "tests/tools/runtime-cross-stack-split.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/cross-stack-receipt-join.test.mjs#join-binds-all-current-run-owner-receipts-and-keeps-the--06442ef14a",
+                "node-test:tests/tools/cross-stack-receipt-join.test.mjs#join-fails-closed-for-missing-shared-or-unique-assertion-5582ed56e4"
+            ],
+            "reason": "The canonical join proves both halves form one logical conclusion and fails closed when either owner or assertion is missing."
         }
     ],
     "assertionReplacements": [
