@@ -183,7 +183,7 @@ test('runtime bundle removes artificial serial dependencies while retaining ever
 {
     const steps = runtimeSteps();
     const index = byId(steps);
-    assert.equal(steps.length, 22);
+    assert.equal(steps.length, 21);
     assert.deepEqual(steps.flatMap((step) => step.members).sort(), [
         'bootstrap', 'cross-stack-contract', 'csrf-browser-matrix',
         'endpoint-depth', 'integration', 'release', 'resilience', 'security-authenticated-dast',
@@ -201,13 +201,12 @@ test('runtime bundle removes artificial serial dependencies while retaining ever
     }
     assert.deepEqual(index.get('runtime-integration').dependsOn, ['security-runtime-core']);
     assert.deepEqual(index.get('zap-baseline').dependsOn, [
-        'security-runtime-core', 'authenticated-dast', 'release-public', 'acceptance', 'resilience', 'cross-stack-runtime'
+        'security-runtime-core', 'authenticated-dast', 'release-public', 'resilience', 'cross-stack-runtime'
     ]);
     assert.deepEqual(index.get('authenticated-dast').dependsOn, ['security-runtime-core']);
     assert.deepEqual(index.get('cross-stack-runtime').dependsOn, ['runtime-integration']);
     assert.deepEqual(index.get('render-structure').dependsOn, ['frontend-build-ready']);
     assert.deepEqual(index.get('resilience').dependsOn, ['release-public']);
-    assert.deepEqual(index.get('acceptance').dependsOn, ['release-public']);
     assert.deepEqual(index.get('rights-matrix').dependsOn, ['runtime-integration']);
     assert.deepEqual(index.get('release-public').dependsOn, [
         'release-public-hydration', 'runtime-integration'
@@ -225,11 +224,6 @@ test('runtime bundle removes artificial serial dependencies while retaining ever
         assert.deepEqual(index.get(id).dependsOn, []);
         assert.deepEqual(index.get(id).resources, { coordinationOnly: true });
     }
-    assert.deepEqual(index.get('acceptance').resources, {
-        cpuWeight: 2,
-        memoryWeight: 2,
-        minCpuUnits: 1
-    });
     assert.deepEqual(index.get('resilience').resources, {
         cpuWeight: 2,
         memoryWeight: 2,
@@ -274,10 +268,10 @@ test('runtime bundle removes artificial serial dependencies while retaining ever
     assert.equal(steps[4].id, 'release-public-hydration', 'release dist writes must settle before preview readers');
     assert.equal(steps[5].id, 'security-runtime-core', 'runtime security enters the first post-hydration wave');
     assert.equal(steps[6].id, 'authenticated-dast', 'authenticated DAST follows runtime security');
-    assert.equal(steps[9].id, 'acceptance', 'the thin correctness browser contract stays in the runtime bundle');
+    assert.equal(steps[9].id, 'endpoint-depth', 'browserless endpoint depth follows stable release hydration');
     assert.equal(index.has('privacy-zk'), false);
     assert.deepEqual(index.get('runtime-state-stable').dependsOn, [
-        'runtime-integration', 'release-public', 'acceptance', 'endpoint-depth', 'security-runtime-core',
+        'runtime-integration', 'release-public', 'endpoint-depth', 'security-runtime-core',
         'local-runtime-exposure', 'authenticated-dast', 'zap-baseline', 'cross-stack-join', 'render-structure',
         'rights-matrix', 'csrf-matrix', 'resilience'
     ]);
@@ -550,7 +544,7 @@ test('exact performance markers release preparation while unrelated runtime tail
     const frontendCoverage = deferred();
     const frontendBuild = deferred();
     const benchmarkBuild = deferred();
-    let runtimeTailActive = true;
+    const runtimeTailActive = true;
     const started = [];
     const index = byId(performanceSteps());
     const execution = executeWeightedStepDag([
@@ -587,7 +581,6 @@ test('exact performance markers release preparation while unrelated runtime tail
     benchmarkBuild.resolve();
     await waitFor(() => started.includes('coverage-merge') && started.includes('aeds-compression'));
     assert.equal(runtimeTailActive, true);
-    runtimeTailActive = false;
     await execution;
 });
 
@@ -636,14 +629,14 @@ test('weighted DAG fills each dependency-ready wave from actual grants across ma
     }
 });
 
-test('runtime bundle retains thin acceptance but leaves all counted browser admission to diagnostics', () =>
+test('runtime bundle is browserless and leaves browser admission to contract and diagnostics', () =>
 {
     const index = byId(runtimeSteps());
     for (const id of ['ux-risk-matrix', 'cross-browser', 'render-pressure'])
     {
         assert.equal(index.has(id), false, `${id} must stay in scheduled/manual diagnostics`);
     }
-    assert.equal(index.has('acceptance'), true);
+    assert.equal(index.has('acceptance'), false);
     assert.equal(index.has('render-structure'), true);
     assert.equal([...index.values()].some((entry) => Object.hasOwn(entry.resources, 'countedResources')), false);
 });

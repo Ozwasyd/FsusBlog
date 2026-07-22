@@ -758,7 +758,6 @@ export function runtimeSteps()
     const runtimeStateConsumers = [
         'runtime-integration',
         'release-public',
-        'acceptance',
         'endpoint-depth',
         'security-runtime-core',
         'local-runtime-exposure',
@@ -821,27 +820,18 @@ export function runtimeSteps()
             dependsOn: [...needsStableReleaseHydration, 'runtime-integration'],
             resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
         }),
-        // Acceptance Playwright remains a runtime correctness step, but the matrix
-        // no longer maps an `acceptance` member onto this physical bundle (browser
-        // contract owns the release-final Chromium surface). Keep members empty so
-        // register() does not claim an undeclared tier.
-        step('acceptance', 'tools/test/lanes/acceptance-playwright.sh', [], {
-            dependsOn: ['release-public'],
-            resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1 }
-        }),
         step('endpoint-depth', 'tools/test/lanes/endpoint-depth.sh', ['endpoint-depth'], {
             dependsOn: needsStableReleaseHydration,
             resources: { cpuWeight: 1.5, memoryWeight: 1.5, minCpuUnits: 1 }
         }),
         // Starting/stopping the ZAP container changes the host network topology.
-        // Run it after the remaining correctness browser/runtime readers release
-        // their contexts; browser diagnostics execute in a separate workflow.
+        // Run it after the remaining correctness runtime readers release their
+        // contexts; browser contract and diagnostics execute in separate workflows.
         step('zap-baseline', 'tools/security/run-zap-baseline.sh', [], {
             dependsOn: [
                 'security-runtime-core',
                 'authenticated-dast',
                 'release-public',
-                'acceptance',
                 'resilience',
                 'cross-stack-runtime'
             ]

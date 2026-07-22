@@ -8,7 +8,7 @@ scheduling.
 ## Default correctness boundary
 
 `runtimeSteps()` does not declare `chromiumLane` or any browser-specific counted resource. Security runtime,
-authenticated DAST, release-public, and thin acceptance steps are admitted only by their real DAG dependencies and
+authenticated DAST and release-public steps are admitted only by their real DAG dependencies and
 the CPU/memory grant already owned by the physical bundle.
 
 `run-bundle.mjs` therefore does not:

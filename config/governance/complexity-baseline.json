@@ -1,6 +1,6 @@
 {
     "schema": "fsusblog.complexity-baseline.v1",
-    "sourceRevision": "5475ea88b5e2314a1de3bc1e30247076c54b0e57",
+    "sourceRevision": "3f63f6201e656aa39de39b6ed40181ef48446027",
     "measurement": "deterministic lexical structure with one shared repository inventory and content cache",
     "metricFields": [
         "fileLines",
@@ -3647,8 +3647,8 @@
         "tests/tools/bundle-step-contract.test.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1609,
-                "codeLines": 1526,
+                "fileLines": 1602,
+                "codeLines": 1519,
                 "cyclomaticComplexity": 89,
                 "cognitiveComplexity": 225
             }
@@ -4419,8 +4419,8 @@
         "tools/test/bundles/bundle-steps.mjs": {
             "category": "BuildTestOrchestrator",
             "excess": {
-                "fileLines": 1044,
-                "codeLines": 961,
+                "fileLines": 1034,
+                "codeLines": 955,
                 "functionMethodCount": 44,
                 "cyclomaticComplexity": 141,
                 "cognitiveComplexity": 230,
