@@ -374,6 +374,14 @@ WHERE user_id = ${userId};
     normalizedHandle,
     fixtureSessionScope({ rememberMe, deviceFingerprint }));
   const refreshToken = randomToken();
+  // Session validation binds JWT auth_method/auth_strength/auth_time to the
+  // sys_user_session authentication context. Keep the DB row and token claims
+  // on the same unix second so UserSessionValidationService accepts fixtures.
+  const authenticatedAtEpochSeconds = nowEpochSeconds();
+  const authenticatedAtSql = `to_timestamp(${authenticatedAtEpochSeconds}) AT TIME ZONE 'UTC'`;
+  const authenticationMethod = 'other';
+  const authenticationStrength = 'legacy_unverified';
+  const sessionModeClaim = 'normal';
   const accessTokenExpiresAtEpochSeconds = expiresAtEpochSeconds();
   const accessToken = signJwt({
     [CLAIM_NAME_IDENTIFIER]: String(userId),
@@ -381,10 +389,14 @@ WHERE user_id = ${userId};
     [ACCOUNT_SUBJECT_HASH_CLAIM]: accountSubjectHashValue,
     sid: sessionId,
     mfa: '0',
+    auth_method: authenticationMethod,
+    auth_strength: authenticationStrength,
+    session_mode: sessionModeClaim,
+    auth_time: String(authenticatedAtEpochSeconds),
     iss: jwtIssuer,
     aud: jwtAudience,
-    iat: nowEpochSeconds(),
-    nbf: nowEpochSeconds(),
+    iat: authenticatedAtEpochSeconds,
+    nbf: authenticatedAtEpochSeconds,
     exp: accessTokenExpiresAtEpochSeconds
   });
 
@@ -429,23 +441,23 @@ VALUES (
   ${sqlString(sha256Hex(refreshToken))},
   ${sqlString(sessionId)},
   0,
-  now(),
+  ${authenticatedAtSql},
   ${sqlString(deviceFingerprint)},
   'Unknown',
   'Unknown',
   'Unknown',
-  now(),
-  now(),
-  now() + interval '${rememberMe ? '30 days' : '2 hours'}',
-  now() + interval '30 days',
+  ${authenticatedAtSql},
+  ${authenticatedAtSql},
+  ${authenticatedAtSql} + interval '${rememberMe ? '30 days' : '2 hours'}',
+  ${authenticatedAtSql} + interval '30 days',
   NULL,
   NULL,
   0,
   false,
   ${rememberMe ? 'true' : 'false'},
-  'other',
-  'legacy_unverified',
-  now(),
+  ${sqlString(authenticationMethod)},
+  ${sqlString(authenticationStrength)},
+  ${authenticatedAtSql},
   ${rememberMe ? sqlString('persistent_30d') : sqlString('browser_session')}
 )
 ON CONFLICT (sessionid) DO UPDATE SET
@@ -458,7 +470,7 @@ ON CONFLICT (sessionid) DO UPDATE SET
   browser_family = EXCLUDED.browser_family,
   os_family = EXCLUDED.os_family,
   form_factor = EXCLUDED.form_factor,
-  lastseenat = now(),
+  lastseenat = EXCLUDED.lastseenat,
   idleexpiresat = EXCLUDED.idleexpiresat,
   absoluteexpiresat = EXCLUDED.absoluteexpiresat,
   revokedat = NULL,

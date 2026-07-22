@@ -457,16 +457,19 @@ public sealed partial class UserSessionCommandService(
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        // SqlSugar multi-table expressions must reuse the join alias names
+        // (`session`, `credential`). Discard parameters (`_`) fail closed with
+        // an alias-mismatch exception and surface as HTTP 500 on /auth/sessions.
         var sessions = await db.Queryable<UserSession>()
             .LeftJoin<PasskeyCredential>((session, credential) =>
                 session.AuthenticatedCredentialRowId == credential.Id &&
                 session.UserId == credential.AccountId)
-            .Where((session, _) =>
+            .Where((session, credential) =>
                 session.UserId == userId &&
                 session.RevokedAt == null &&
                 session.IdleExpiresAt > DateTime.UtcNow &&
                 session.AbsoluteExpiresAt > DateTime.UtcNow)
-            .OrderByDescending((session, _) => session.LastSeenAt)
+            .OrderByDescending((session, credential) => session.LastSeenAt)
             .Take(50)
             .Select((session, credential) => new UserSessionSummaryRow
             {

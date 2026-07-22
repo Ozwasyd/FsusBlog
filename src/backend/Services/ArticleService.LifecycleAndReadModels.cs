@@ -417,14 +417,17 @@ public partial class ArticleService
 
         DateTime now = DateTime.UtcNow;
         effectiveCt.ThrowIfCancellationRequested();
+        // SqlSugar multi-table queries require the primary alias used in Join
+        // lambdas (`article`) for subsequent In/Where expressions. Using `a`
+        // here throws at ToSql time and collapses hot/featured + Home AOT.
         var sqlObj = _db.Queryable<Article>()
             .InnerJoin<ArticlePublicationRecord>((article, publication) => article.CurrentPublicationId == publication.Id)
             .InnerJoin<ArticleRevision>((article, publication, revision) => publication.ArticleRevisionId == revision.Id)
-            .In(a => a.Id, ids)
-            .Where(a => !a.IsDeleted
-                && a.Status == ArticleStatus.Published
-                && (a.PublishedAt == null || a.PublishedAt <= now)
-                && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= now))
+            .In(article => article.Id, ids)
+            .Where((article, publication, revision) => !article.IsDeleted
+                && article.Status == ArticleStatus.Published
+                && (article.PublishedAt == null || article.PublishedAt <= now)
+                && (article.ScheduledPublishAt == null || article.ScheduledPublishAt <= now))
             .Select((article, publication, revision) => new { article.Id, revision.Title, article.Views })
             .ToSql();
         var articles = new List<PopularArticleSummaryDto>(ids.Count);
@@ -487,7 +490,7 @@ public partial class ArticleService
             .InnerJoin<ArticlePublicationRecord>((article, publication) => article.CurrentPublicationId == publication.Id)
             .InnerJoin<ArticleRevision>((article, publication, revision) => publication.ArticleRevisionId == revision.Id)
             .LeftJoin<Category>((article, publication, revision, category) => revision.CategoryId == category.Id)
-            .In(a => a.Id, ids)
+            .In(article => article.Id, ids)
             .Where((article, publication, revision, category) => !article.IsDeleted
                 && article.Status == ArticleStatus.Published
                 && (article.PublishedAt == null || article.PublishedAt <= now)
