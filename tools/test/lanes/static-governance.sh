@@ -19,6 +19,7 @@ StaticSuiteConvergence() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-t
 StaticBackendPhysicalTopology() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/architecture/check-backend-physical-topology.mjs" --out "$ROOT_DIR/.tmp/release-evidence/backend-physical-topology.json"; }
 StaticBrowserTestMigration() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-browser-test-migration.mjs"; }
 StaticTestOrchestrator() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-orchestrator-uniqueness.mjs"; }
+StaticTestLifecycle() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-lifecycle.mjs"; }
 StaticBackendGovernance() { RunTier "static-governance" RunBackendTestGovernanceOnly; }
 StaticGateIntegrity() { Run "$ROOT_DIR/tools/check-gate-integrity.sh" --self-test; }
 StaticFlakyRegistry() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/ci/check-flaky-registry.mjs"; }
@@ -104,6 +105,7 @@ STATIC_NODE_CONTRACT_FILES=(
     "$ROOT_DIR/tests/tools/issue-1152-aeds-frame-cost-evidence.test.mjs"
     "$ROOT_DIR/tests/tools/issue-1154-pod-binary-codec-batch-evidence.test.mjs"
     "$ROOT_DIR/tests/tools/test-orchestrator-uniqueness.test.mjs"
+    "$ROOT_DIR/tests/tools/test-lifecycle-governance.test.mjs"
 )
 StaticNodeContracts() {
     FSUSBLOG_STATIC_CONTRACT_FILES="$(printf '%s\n' "${STATIC_NODE_CONTRACT_FILES[@]}")" \
@@ -187,6 +189,7 @@ RunStaticPrechecksPhase() {
         backend-physical-topology StaticBackendPhysicalTopology \
         browser-test-migration StaticBrowserTestMigration \
         test-orchestrator StaticTestOrchestrator \
+        test-lifecycle StaticTestLifecycle \
         backend-governance StaticBackendGovernance \
         gate-integrity StaticGateIntegrity \
         flaky-registry StaticFlakyRegistry \
