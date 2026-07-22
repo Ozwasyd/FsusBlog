@@ -388,10 +388,8 @@ export async function openThemedAuditedContext(
     if (disableHumanReadProof) {
       const runtimeWindow = window as typeof window & {
         __FSUSBLOG_DISABLE_HUMAN_READ_PROOF__?: boolean
-        __FSUSBLOG_DISABLE_PUBLIC_READ_HYDRATION__?: boolean
       }
       runtimeWindow.__FSUSBLOG_DISABLE_HUMAN_READ_PROOF__ = true
-      runtimeWindow.__FSUSBLOG_DISABLE_PUBLIC_READ_HYDRATION__ = true
       const markHumanReadProofSuppressed = () => {
         const root = document.documentElement
         if (!root) {
@@ -399,7 +397,6 @@ export async function openThemedAuditedContext(
         }
 
         root.dataset.fsusDisableHumanReadProof = 'true'
-        root.dataset.fsusDisablePublicReadHydration = 'true'
         return true
       }
 

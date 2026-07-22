@@ -1,9 +1,9 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:aa84cd699cfd87fd9f87b16905dd9149028bd229d01e7f1d9d85160c868e438e",
-    "sourceStateSha256": "aa84cd699cfd87fd9f87b16905dd9149028bd229d01e7f1d9d85160c868e438e",
+    "generatedFrom": "source-state:5a1ed4a8fd0efcb801958aaef058d378f9ec9de501b832c0870c895faa43000d",
+    "sourceStateSha256": "5a1ed4a8fd0efcb801958aaef058d378f9ec9de501b832c0870c895faa43000d",
     "configurationSha256": "ecd54024ada83553ed048a05531c8ad064350214c110aa93b54643b6c318bf0c",
-    "violationCount": 325670,
+    "violationCount": 325668,
     "fileCount": 1080,
     "files": [
         {
@@ -5046,13 +5046,13 @@
         },
         {
             "path": "src/frontend/src/services/publicReadHydrationGuard.ts",
-            "sourceSha256": "881a7e0bb47ce84fa519a135e5fd33930b00484462db1fe18973d42bc95ee134",
-            "violationCount": 15,
-            "violationDigest": "dbd405ca298d7392aeb6e1009b40026cce402304ef1a455767193ed6c4cef063",
+            "sourceSha256": "ba92ed0769f680b3934b21b18a80e7d40bafac1d56ec75354200ef785d665cef",
+            "violationCount": 13,
+            "violationDigest": "5667b19b763a2005d9071b7fac9dde8d5fb17407a4ed0b3e4b44420bd02ccb14",
             "rules": {
                 "eslint/@stylistic/brace-style": 2,
-                "eslint/@stylistic/indent": 7,
-                "eslint/@stylistic/member-delimiter-style": 2,
+                "eslint/@stylistic/indent": 6,
+                "eslint/@stylistic/member-delimiter-style": 1,
                 "eslint/@stylistic/semi": 4
             }
         },

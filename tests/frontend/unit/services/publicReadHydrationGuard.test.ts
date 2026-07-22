@@ -9,13 +9,13 @@ describe('public read hydration guard', () => {
     delete document.documentElement.dataset.fsusDisablePublicReadHydration
   })
 
-  it('suppresses optional public read hydration when acceptance disables human read proof', () => {
+  it('keeps public hydration enabled when only human-read proof is disabled', () => {
     Object.defineProperty(window, '__FSUSBLOG_DISABLE_HUMAN_READ_PROOF__', {
       value: true,
       configurable: true
     })
 
-    expect(isPublicReadHydrationSuppressed()).toBe(true)
+    expect(isPublicReadHydrationSuppressed()).toBe(false)
   })
 
   it('suppresses optional public read hydration from the explicit runtime flag and dataset', () => {
