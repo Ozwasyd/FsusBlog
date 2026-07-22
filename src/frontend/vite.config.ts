@@ -651,7 +651,10 @@ export default defineConfig(({ command, mode }) => {
             outDir: process.env.FSUSBLOG_FRONTEND_DIST_ROOT
                 ? path.resolve(process.env.FSUSBLOG_FRONTEND_DIST_ROOT)
                 : 'dist',
-            emptyOutDir: process.env.FSUSBLOG_FRONTEND_DIST_ROOT ? true : undefined,
+            // The run-bound dist root is shared by independent client and SSR
+            // stages. build.mjs prepares its unique root exactly once before
+            // admission; an individual Vite stage must never wipe sibling output.
+            emptyOutDir: process.env.FSUSBLOG_FRONTEND_DIST_ROOT ? false : undefined,
             // COMPATIBILITY: Production sourcemaps break Wasm glue URL resolution inside the Worker.
             sourcemap: mode === 'development',
             minify: true,

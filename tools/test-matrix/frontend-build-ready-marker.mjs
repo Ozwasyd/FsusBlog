@@ -186,6 +186,41 @@ function validateFrontendBuildStageSemantics(receipt, {
     {
         throw new Error('frontend build stage receipt expected stage roster must be non-empty');
     }
+    const runBoundViteStage = expectedStages.find((stage) => (
+        stage.id === 'vite-build' && stage.command?.includes('--emptyOutDir=false')
+    ));
+    if (runBoundViteStage && (receipt.outputPreparation === undefined || receipt.outputPreparation === null))
+    {
+        throw new Error('frontend build stage receipt run-bound output preparation is missing');
+    }
+    if (receipt.outputPreparation !== undefined && receipt.outputPreparation !== null)
+    {
+        const preparation = receipt.outputPreparation;
+        if (!['run-bound-fresh-root', 'vite-default'].includes(preparation.mode)
+      || !['success', 'skipped'].includes(preparation.status)
+      || typeof preparation.path !== 'string' || !path.isAbsolute(preparation.path))
+        {
+            throw new Error('frontend build stage receipt output preparation is invalid');
+        }
+        if (preparation.mode === 'run-bound-fresh-root'
+      && (preparation.status !== 'success' || !Number.isFinite(preparation.preparedAtMs)
+        || receipt.stages.some((stage) => Number.isFinite(stage.admittedAtMs)
+          && stage.admittedAtMs < preparation.preparedAtMs)))
+        {
+            throw new Error('frontend build stage receipt output preparation was not completed before admission');
+        }
+        if (runBoundViteStage)
+        {
+            const outDirIndex = runBoundViteStage.command.indexOf('--outDir');
+            const expectedOutputRoot = outDirIndex >= 0 ? runBoundViteStage.command[outDirIndex + 1] : null;
+            if (preparation.mode !== 'run-bound-fresh-root'
+          || !expectedOutputRoot
+          || path.resolve(preparation.path) !== path.resolve(expectedOutputRoot))
+            {
+                throw new Error('frontend build stage receipt run-bound output preparation path mismatch');
+            }
+        }
+    }
     if (!Array.isArray(receipt.stages) || receipt.stages.length !== expectedStages.length)
     {
         throw new Error('frontend build stage receipt stage roster mismatch');
@@ -193,17 +228,26 @@ function validateFrontendBuildStageSemantics(receipt, {
     const expectedIds = expectedStages.map((stage) => stage.id);
     const actualIds = receipt.stages.map((stage) => stage?.id);
     if (new Set(actualIds).size !== actualIds.length
-    || JSON.stringify(actualIds) !== JSON.stringify(expectedIds))
+    || JSON.stringify([...actualIds].sort()) !== JSON.stringify([...expectedIds].sort()))
     {
         throw new Error('frontend build stage receipt stage roster mismatch');
     }
+    const actualById = new Map(receipt.stages.map((stage) => [stage.id, stage]));
     const outputOwners = new Map();
-    for (const [index, expected] of expectedStages.entries())
+    for (const expected of expectedStages)
     {
-        const actual = receipt.stages[index];
+        const actual = actualById.get(expected.id);
         exactStringArray(actual.command, expected.command, `${expected.id}.command`);
         exactStringArray(actual.dependsOn, expected.dependsOn, `${expected.id}.dependsOn`);
+        exactStringArray(actual.consumedInputs, expected.consumedInputs ?? [], `${expected.id}.consumedInputs`);
+        const expectedArtifacts = expected.producedArtifacts ?? expected.ownedOutputs;
+        exactStringArray(actual.producedArtifacts, expectedArtifacts, `${expected.id}.producedArtifacts`);
         exactStringArray(actual.ownedOutputs, expected.ownedOutputs, `${expected.id}.ownedOutputs`);
+        exactStringArray(
+            actual.exclusiveResources ?? [],
+            expected.resources?.exclusiveResources ?? [],
+            `${expected.id}.exclusiveResources`
+        );
         if (!['success', 'skipped'].includes(actual.status)
       || (actual.status === 'skipped' && expected.ownedOutputs.length > 0))
         {
@@ -227,6 +271,26 @@ function validateFrontendBuildStageSemantics(receipt, {
                 throw new Error(`frontend build stage receipt ${expected.id} has materialized skipped output`);
             }
             outputOwners.set(outputPath, { stageId: expected.id, output });
+        }
+        if (!actual.artifacts || typeof actual.artifacts !== 'object' || Array.isArray(actual.artifacts)
+      || JSON.stringify(Object.keys(actual.artifacts)) !== JSON.stringify(expectedArtifacts))
+        {
+            throw new Error(`frontend build stage receipt ${expected.id} artifact roster mismatch`);
+        }
+        for (const artifactPath of expectedArtifacts)
+        {
+            const artifact = actual.artifacts[artifactPath];
+            validateOutputShape(artifact, `${expected.id}:${artifactPath}`);
+            if (actual.status === 'success' && artifact.status === 'skipped')
+            {
+                throw new Error(`frontend build stage receipt ${expected.id} has a skipped success artifact`);
+            }
+            if (Object.hasOwn(actual.outputs, artifactPath)
+          && JSON.stringify(actual.outputs[artifactPath]) !== JSON.stringify(artifact))
+            {
+                throw new Error(`frontend build stage receipt ${expected.id} output/artifact digest mismatch: ${artifactPath}`);
+            }
+            outputOwners.set(artifactPath, { stageId: expected.id, output: artifact });
         }
     }
     const stageRoot = path.resolve(stageCwd);

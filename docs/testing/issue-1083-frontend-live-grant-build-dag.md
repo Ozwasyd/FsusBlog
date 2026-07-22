@@ -23,13 +23,14 @@ ${FSUSBLOG_PRODUCTION_BUILD_ROOT:-.tmp/frontend}/generated/frontend-build-stages
 
 - scheduler run id、source commit / worktree fingerprint；
 - grant 来源和构建期间的 grant 变化历史；
-- 每个 stage 的命令、依赖、实际 CPU / 内存、嵌套并发、工具链、耗时和状态；
-- 声明输出的文件或目录 SHA-256 摘要；
+- 每个 stage 的命令、依赖、`consumedInputs`、`producedArtifacts`、`ownedOutputs`、实际 CPU / 内存、嵌套并发、工具链、耗时和状态；
+- 独占输出以及逐个 produced artifact 的文件或目录 SHA-256 摘要；
+- critical path、stage overlap、CPU / memory work、produced artifact bytes 与 wait reasons；这些值只用于诊断，不是固定时长门禁；
 - blocked admission 记录以及失败后的 cleanup 结果。
 
 启动新构建前会删除旧 receipt，最终通过同目录临时文件原子替换。成功写 `success` receipt；stage 失败、取消、deadline 到期或 grant 校验失败写 `partial` receipt。失败清理删除本次 `dist`，避免后续流程把半成品当作完整前端产物。
 
-`build-static/sync-static-assets` 发布 `frontend-build-ready.json` 前会先 fail-closed 读取该 receipt，并要求 schema、`success` status、scheduler run ID、source commit 与 worktree fingerprint 全部等于当前 Production run。stage declaration 构造器显式接收 `src/frontend` root，不读取 verifier 的 cwd；真实 build、Production publisher、release-preview 与 privacy verifier 因此使用相同的 `node_modules/.bin` command 和 output 路径。validator 会把 receipt 的完整 stage roster 与当前 `createFrontendBuildStages()` 声明逐项比较：stage 顺序/ID、command、`dependsOn`、`ownedOutputs`、成功/允许跳过状态和 output roster 均不得自报；最终 dist entry、SSR shell、run-bound Wasm、稳定 `assets/fsus-spa-entry.js`、FsusUI markdown runtime、Wasm manifest 以及由该 DAG 直接拥有时的 backend wwwroot 会重新扫描并复算文件/目录 SHA-256。
+`build-static/sync-static-assets` 发布 `frontend-build-ready.json` 前会先 fail-closed 读取该 receipt，并要求 schema、`success` status、scheduler run ID、source commit 与 worktree fingerprint 全部等于当前 Production run。stage declaration 构造器显式接收 `src/frontend` root，不读取 verifier 的 cwd；真实 build、Production publisher、release-preview 与 privacy verifier 因此使用相同的 `node_modules/.bin` command 和 output 路径。validator 会把 receipt 的完整 stage roster 与当前 `createFrontendBuildStages()` 声明逐项比较：stage ID、command、`dependsOn`、输入、artifact、ownership、成功/允许跳过状态和 digest roster 均不得自报；互不依赖的 stage 仅改变完成顺序不会失败。最终 dist entry、SSR shell、run-bound Wasm、稳定 `assets/fsus-spa-entry.js`、FsusUI markdown runtime、Wasm manifest 以及由该 DAG 直接拥有时的 backend wwwroot 会重新扫描并复算文件/目录 SHA-256。
 
 Production 外层 `sync-static-assets` 生成的 run-bound backend wwwroot 与完整 final frontend dist tree 分别由 marker 的 artifact digest/ref 绑定。Production waiter、release-preview consumer 与 privacy-ZK performance input verifier 都会复算两棵完整目录，因此非 critical chunk、CSS、source map、Service Worker 或其他普通 asset 在 marker 发布后的任何变化也会 fail closed，而不只依赖 `index.html`。
 

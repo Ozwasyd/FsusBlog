@@ -61,8 +61,8 @@ function successfulStageReceipt(value)
     fs.writeFileSync(indexFile, '<!doctype html>\n');
     fs.writeFileSync(path.join(wasmDirectory, 'runtime.wasm'), 'wasm');
     const expectedStages = [
-        { id: 'vite-build', command: ['vite', 'build'], dependsOn: [], ownedOutputs: ['dist/index.html'] },
-        { id: 'sync-wasm', command: ['internal', 'sync-wasm'], dependsOn: ['vite-build'], ownedOutputs: ['dist/wasm'] }
+        { id: 'vite-build', command: ['vite', 'build'], dependsOn: [], consumedInputs: ['src'], producedArtifacts: ['dist/index.html'], ownedOutputs: ['dist/index.html'], resources: { exclusiveResources: ['frontend-dist-client'] } },
+        { id: 'sync-wasm', command: ['internal', 'sync-wasm'], dependsOn: ['vite-build'], consumedInputs: ['public/wasm'], producedArtifacts: ['dist/wasm'], ownedOutputs: ['dist/wasm'], resources: { exclusiveResources: ['frontend-dist-wasm'] } }
     ];
     const receipt = {
         schema: frontendBuildStageReceiptSchema,
@@ -72,13 +72,17 @@ function successfulStageReceipt(value)
         stages: [
             {
                 ...expectedStages[0],
+                exclusiveResources: [...expectedStages[0].resources.exclusiveResources],
                 status: 'success',
-                outputs: { 'dist/index.html': fileOutput(indexFile) }
+                outputs: { 'dist/index.html': fileOutput(indexFile) },
+                artifacts: { 'dist/index.html': fileOutput(indexFile) }
             },
             {
                 ...expectedStages[1],
+                exclusiveResources: [...expectedStages[1].resources.exclusiveResources],
                 status: 'success',
-                outputs: { 'dist/wasm': directoryOutput(wasmDirectory, stageCwd) }
+                outputs: { 'dist/wasm': directoryOutput(wasmDirectory, stageCwd) },
+                artifacts: { 'dist/wasm': directoryOutput(wasmDirectory, stageCwd) }
             }
         ]
     };
@@ -220,10 +224,26 @@ test('stage receipt binding rejects missing, failed, or semantically forged stag
         {
             receipt.stages[1].dependsOn = [];
         }, /dependsOn mismatch/u],
+        ['forged exclusive resource', (receipt) =>
+        {
+            receipt.stages[0].exclusiveResources = ['frontend-dist'];
+        }, /exclusiveResources mismatch/u],
+        ['forged consumed input', (receipt) =>
+        {
+            receipt.stages[0].consumedInputs = ['other'];
+        }, /consumedInputs mismatch/u],
         ['forged owned output', (receipt) =>
         {
             receipt.stages[0].ownedOutputs = ['dist/other.html'];
         }, /ownedOutputs mismatch/u],
+        ['forged produced artifact', (receipt) =>
+        {
+            receipt.stages[0].producedArtifacts = ['dist/other.html'];
+        }, /producedArtifacts mismatch/u],
+        ['missing artifact digest', (receipt) =>
+        {
+            delete receipt.stages[0].artifacts['dist/index.html'];
+        }, /artifact roster mismatch/u],
         ['missing output', (receipt) =>
         {
             delete receipt.stages[0].outputs['dist/index.html'];
@@ -231,7 +251,7 @@ test('stage receipt binding rejects missing, failed, or semantically forged stag
         ['forged output digest', (receipt) =>
         {
             receipt.stages[0].outputs['dist/index.html'].sha256 = `sha256:${'0'.repeat(64)}`;
-        }, /critical output digest mismatch/u]
+        }, /output\/artifact digest mismatch/u]
     ];
     for (const [label, mutate, expected] of cases)
     {
@@ -253,6 +273,52 @@ test('stage receipt binding rejects missing, failed, or semantically forged stag
     assert.throws(
         () => validateFrontendBuildStageReceiptBinding(validationOptions(value, binding)),
         /critical output digest mismatch/u
+    );
+});
+
+test('stage receipt binding accepts independent stage completion order changes', () =>
+{
+    const value = fixture();
+    const prepared = successfulStageReceipt(value);
+    prepared.expectedStages[1].dependsOn = [];
+    prepared.receipt.stages[1].dependsOn = [];
+    prepared.receipt.stages.reverse();
+    const binding = writeStageReceiptBinding(value, prepared);
+    assert.doesNotThrow(() => validateFrontendBuildStageReceiptBinding(validationOptions(value, binding)));
+});
+
+test('run-bound stage receipt requires matching pre-admission output preparation', () =>
+{
+    const value = fixture();
+    const prepared = successfulStageReceipt(value);
+    const outputRoot = path.join(prepared.stageCwd, 'dist');
+    prepared.expectedStages[0].command = ['vite', 'build', '--outDir', outputRoot, '--emptyOutDir=false'];
+    prepared.receipt.stages[0].command = [...prepared.expectedStages[0].command];
+    prepared.receipt.stages[0].admittedAtMs = 20;
+
+    const missingBinding = writeStageReceiptBinding(value, prepared);
+    assert.throws(
+        () => validateFrontendBuildStageReceiptBinding(validationOptions(value, missingBinding)),
+        /run-bound output preparation is missing/u
+    );
+
+    prepared.receipt.outputPreparation = {
+        mode: 'run-bound-fresh-root',
+        status: 'success',
+        path: path.join(prepared.stageCwd, 'other-dist'),
+        removedExisting: false,
+        preparedAtMs: 10
+    };
+    const wrongPathBinding = writeStageReceiptBinding(value, prepared);
+    assert.throws(
+        () => validateFrontendBuildStageReceiptBinding(validationOptions(value, wrongPathBinding)),
+        /output preparation path mismatch/u
+    );
+
+    prepared.receipt.outputPreparation.path = outputRoot;
+    const validBinding = writeStageReceiptBinding(value, prepared);
+    assert.doesNotThrow(
+        () => validateFrontendBuildStageReceiptBinding(validationOptions(value, validBinding))
     );
 });
 
