@@ -2156,6 +2156,25 @@ async function runFrontendTests() {
         exclusiveResources: ['frontend-static-output', 'frontend-render-pressure']
       }
     }),
+        commandStep(
+            'frontend-render-structure',
+            'tools/test/lanes/frontend-render-structure.sh',
+            ['frontend-render-structure'],
+            {
+                dependsOn: ['frontend-static-final'],
+                artifacts: [
+                    path.join(root, '.tmp/frontend/markdown-render-budget.json'),
+                    path.join(root, '.tmp/frontend/dom-depth-static.json'),
+                    path.join(root, '.tmp/release-evidence/frontend-render-structure-summary.json')
+                ],
+                resources: {
+                    cpuWeight: 0.5,
+                    memoryWeight: 0.5,
+                    minCpuUnits: 1,
+                    exclusiveResources: ['frontend-static-output', 'frontend-render-pressure']
+                }
+            }
+        ),
     commandStep('frontend-tests-join', null, [], {
       dependsOn: [
         'vitest-production-projects',
@@ -2165,6 +2184,7 @@ async function runFrontendTests() {
         'frontend-static-postbuild',
         'frontend-static-isolated',
         'frontend-static-final',
+        'frontend-render-structure',
         'static-governance-post-vitest',
         'frontend-coverage-summary',
         'vitest-production-perf-isolated'
@@ -2228,7 +2248,10 @@ async function runFrontendTests() {
     'coverage-frontend': nonPerfTests
   }
   for (const tierId of bundle.members) {
-    if (['static-governance', 'frontend-static-governance'].includes(tierId)) continue
+        if (['static-governance', 'frontend-static-governance', 'frontend-render-structure'].includes(tierId))
+        {
+            continue;
+        }
     const selected = byMember[tierId] ?? []
     if (selected.length === 0) throw new Error(`${tierId} received no executed Vitest IDs`)
     register({ id: 'vitest-production-projects', members: [tierId] }, result, selected.map((entry) => entry.id), [summary, ...reports])

@@ -764,7 +764,6 @@ export function runtimeSteps()
         'authenticated-dast',
         'zap-baseline',
         'cross-stack-join',
-        'render-structure',
         'rights-matrix',
         'csrf-matrix',
         'resilience'
@@ -844,14 +843,6 @@ export function runtimeSteps()
         }),
         step('cross-stack-runtime', 'tools/test/lanes/cross-stack-contract.sh runtime', [], {
             dependsOn: ['runtime-integration']
-        }),
-        // Browserless render-pressure evidence is owned by frontend-tests
-        // (`frontend-render-structure`). This runtime step is a non-member probe
-        // that reuses the same lane after frontend-build-ready without claiming a
-        // matrix tier the runtime-browser bundle does not declare.
-        step('render-structure', 'tools/test/lanes/frontend-render-pressure.sh', [], {
-            dependsOn: ['frontend-build-ready'],
-            resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
         }),
         step('rights-matrix', 'tools/test/lanes/rights-v3-test-matrix.sh', ['rights-v3-test-matrix'], { dependsOn: ['runtime-integration'] }),
         // This source-only matrix can use the backend/frontend marker gap without

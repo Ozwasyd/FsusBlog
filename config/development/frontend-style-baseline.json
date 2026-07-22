@@ -1,9 +1,9 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:43dad497cb387ea234bfd55e69ea2bbaf417f5bb56c4f400ef7a95f3fef177a8",
-    "sourceStateSha256": "43dad497cb387ea234bfd55e69ea2bbaf417f5bb56c4f400ef7a95f3fef177a8",
+    "generatedFrom": "source-state:4fa6407e146d3c3f46c119fe5c1c6e408e143ee6d3487e7fe51f4093fbd0caf8",
+    "sourceStateSha256": "4fa6407e146d3c3f46c119fe5c1c6e408e143ee6d3487e7fe51f4093fbd0caf8",
     "configurationSha256": "097e93375187fd89b8741031800d4ffd703a6961882b6f9ba9f5af94cf27f8ec",
-    "violationCount": 325841,
+    "violationCount": 325833,
     "fileCount": 1080,
     "files": [
         {
@@ -9494,7 +9494,7 @@
         },
         {
             "path": "tests/tools/bundle-step-contract.test.mjs",
-            "sourceSha256": "18831d3e13e89fdb442b3d2c918c6431741f510fd73ed5304d15ead755f3c933",
+            "sourceSha256": "20c8674e785cd79a1a136add7805ea329eb0248c4ef45b06a352a3adf4c800b3",
             "violationCount": 3,
             "violationDigest": "9184844e91f9057766a261fcc8f7342ad075870dd24922c5fa11805a9d07dd84",
             "rules": {
@@ -9751,14 +9751,14 @@
         },
         {
             "path": "tests/tools/frontend-bundle-dag.test.mjs",
-            "sourceSha256": "5d7954c20dbe6f3e3aa6624234fe99acaa83e1f123dcd9b05538ae8d7bed54ee",
-            "violationCount": 623,
-            "violationDigest": "5f1c283ad7c36ef37391bd9a7d1f4930c8760a6df29e10bb1f159a99db5cefc6",
+            "sourceSha256": "cf92ec643bb2443729a5210967acac92945d0d266c17c1f46b25514e1b621b97",
+            "violationCount": 617,
+            "violationDigest": "f2f79b72bb4d0e661b038a67900b824061b5ec5d2ed279130e1fa7aace7c872a",
             "rules": {
                 "eslint/@stylistic/brace-style": 33,
-                "eslint/@stylistic/indent": 360,
+                "eslint/@stylistic/indent": 357,
                 "eslint/@stylistic/max-statements-per-line": 1,
-                "eslint/@stylistic/semi": 216,
+                "eslint/@stylistic/semi": 213,
                 "eslint/curly": 12,
                 "eslint/import-x/no-relative-parent-imports": 1
             }
@@ -13971,22 +13971,22 @@
         },
         {
             "path": "tools/test/bundles/bundle-steps.mjs",
-            "sourceSha256": "e7213ce6c9cd51cd84c814fa16081d756e75cdf3d049e27bd97a6468d041b9f5",
+            "sourceSha256": "d1d63e80fb5eccf20170ab52c80b70115db5712834754556a0cd8f384c6b7ca1",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
         },
         {
             "path": "tools/test/bundles/run-bundle.mjs",
-            "sourceSha256": "28c25172620f3c3bb4e4b7516ddfbd278e4acebe08375b3a82f18bb541b7a5cf",
-            "violationCount": 2984,
-            "violationDigest": "3037adf17e034ebf6f3621ec98078c8b588aa02fdb5a2f31926b4b2e050ce277",
+            "sourceSha256": "13a5486a5e66fbc5cd5f1f7836e37fa96cfbd5a0377347cb4784e8468c635f7f",
+            "violationCount": 2982,
+            "violationDigest": "650e4c0e6013621b4c34e6e324615dfc16458e9a085c1a2380d4e8bd42f8ced3",
             "rules": {
                 "eslint/@stylistic/brace-style": 245,
                 "eslint/@stylistic/indent": 1872,
                 "eslint/@stylistic/max-statements-per-line": 2,
-                "eslint/@stylistic/semi": 767,
-                "eslint/curly": 59,
+                "eslint/@stylistic/semi": 766,
+                "eslint/curly": 58,
                 "eslint/import-x/no-duplicates": 2,
                 "eslint/import-x/no-relative-parent-imports": 17,
                 "eslint/import-x/order": 18,

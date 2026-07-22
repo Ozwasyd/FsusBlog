@@ -183,7 +183,7 @@ test('runtime bundle removes artificial serial dependencies while retaining ever
 {
     const steps = runtimeSteps();
     const index = byId(steps);
-    assert.equal(steps.length, 21);
+    assert.equal(steps.length, 20);
     assert.deepEqual(steps.flatMap((step) => step.members).sort(), [
         'bootstrap', 'cross-stack-contract', 'csrf-browser-matrix',
         'endpoint-depth', 'integration', 'release', 'resilience', 'security-authenticated-dast',
@@ -205,7 +205,6 @@ test('runtime bundle removes artificial serial dependencies while retaining ever
     ]);
     assert.deepEqual(index.get('authenticated-dast').dependsOn, ['security-runtime-core']);
     assert.deepEqual(index.get('cross-stack-runtime').dependsOn, ['runtime-integration']);
-    assert.deepEqual(index.get('render-structure').dependsOn, ['frontend-build-ready']);
     assert.deepEqual(index.get('resilience').dependsOn, ['release-public']);
     assert.deepEqual(index.get('rights-matrix').dependsOn, ['runtime-integration']);
     assert.deepEqual(index.get('release-public').dependsOn, [
@@ -272,7 +271,7 @@ test('runtime bundle removes artificial serial dependencies while retaining ever
     assert.equal(index.has('privacy-zk'), false);
     assert.deepEqual(index.get('runtime-state-stable').dependsOn, [
         'runtime-integration', 'release-public', 'endpoint-depth', 'security-runtime-core',
-        'local-runtime-exposure', 'authenticated-dast', 'zap-baseline', 'cross-stack-join', 'render-structure',
+        'local-runtime-exposure', 'authenticated-dast', 'zap-baseline', 'cross-stack-join',
         'rights-matrix', 'csrf-matrix', 'resilience'
     ]);
     assert.deepEqual(index.get('runtime-state-stable').resources, { coordinationOnly: true });
@@ -637,7 +636,7 @@ test('runtime bundle is browserless and leaves browser admission to contract and
         assert.equal(index.has(id), false, `${id} must stay in scheduled/manual diagnostics`);
     }
     assert.equal(index.has('acceptance'), false);
-    assert.equal(index.has('render-structure'), true);
+    assert.equal(index.has('render-structure'), false);
     assert.equal([...index.values()].some((entry) => Object.hasOwn(entry.resources, 'countedResources')), false);
 });
 
@@ -701,7 +700,7 @@ test('two-CPU runtime grant gives each dependency-ready serial phase the complet
 test('elastic 3/4/6 CPU grants immediately widen an independent runtime wave', async () =>
 {
     const core = deferred();
-    const structure = deferred();
+    const staticContract = deferred();
     const dast = deferred();
     const integration = deferred();
     const release = deferred();
@@ -711,7 +710,7 @@ test('elastic 3/4/6 CPU grants immediately widen an independent runtime wave', a
     const index = byId(runtimeSteps());
     const selected = [
         { ...index.get('security-runtime-core'), dependsOn: [] },
-        { ...index.get('render-structure'), dependsOn: [] },
+        { ...index.get('cross-stack'), dependsOn: [] },
         { ...index.get('authenticated-dast'), dependsOn: [] },
         { ...index.get('runtime-integration'), dependsOn: [] },
         { ...index.get('release-public'), dependsOn: [] },
@@ -724,9 +723,9 @@ test('elastic 3/4/6 CPU grants immediately widen an independent runtime wave', a
         {
             await core.promise;
         }
-        if (entry.id === 'render-structure')
+        if (entry.id === 'cross-stack')
         {
-            await structure.promise;
+            await staticContract.promise;
         }
         if (entry.id === 'authenticated-dast')
         {
@@ -747,13 +746,13 @@ test('elastic 3/4/6 CPU grants immediately widen an independent runtime wave', a
     });
 
     await new Promise((resolve) => setImmediate(resolve));
-    assert.deepEqual(started.map((entry) => entry.id), ['security-runtime-core', 'render-structure']);
+    assert.deepEqual(started.map((entry) => entry.id), ['security-runtime-core', 'cross-stack']);
     assert.deepEqual(started.map((entry) => entry.capacity.cpuUnits), [1, 1]);
 
     capacity = { maxParallel: 3, cpuUnits: 3, memoryGiB: 6 };
     await waitFor(() => started.some((entry) => entry.id === 'authenticated-dast'));
     assert.deepEqual(started.map((entry) => entry.id), [
-        'security-runtime-core', 'render-structure', 'authenticated-dast'
+        'security-runtime-core', 'cross-stack', 'authenticated-dast'
     ]);
 
     capacity = { maxParallel: 4, cpuUnits: 4, memoryGiB: 8 };
@@ -766,7 +765,7 @@ test('elastic 3/4/6 CPU grants immediately widen an independent runtime wave', a
     await waitFor(() => started.some((entry) => entry.id === 'endpoint-depth'));
     assert.deepEqual(started.map((entry) => entry.id), [
         'security-runtime-core',
-        'render-structure',
+        'cross-stack',
         'authenticated-dast',
         'runtime-integration',
         'release-public',
@@ -779,7 +778,7 @@ test('elastic 3/4/6 CPU grants immediately widen an independent runtime wave', a
     release.resolve();
     endpoint.resolve();
     core.resolve();
-    structure.resolve();
+    staticContract.resolve();
     await execution;
 });
 

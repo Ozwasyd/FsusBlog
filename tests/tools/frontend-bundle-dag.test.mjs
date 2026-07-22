@@ -13,8 +13,8 @@ const vitestUnitSource = fs.readFileSync(new URL('../../src/frontend/vitest.conf
 
 test('frontend bundle gates Vitest on only explicit blocking checks and schedules other static stages in the DAG', () => {
   const vitestStart = runnerSource.indexOf("const step = commandStep('vitest-production-projects'")
-  const dagStart = runnerSource.indexOf('await executeWeightedStepDag([', vitestStart)
-  const dagEnd = runnerSource.indexOf('], bundleDagCapacity, async (frontendStep)', dagStart)
+    const dagStart = runnerSource.indexOf('const frontendSteps = [', vitestStart);
+    const dagEnd = runnerSource.indexOf('\n  ]\n  await executeWeightedStepDag(', dagStart);
   assert.ok(vitestStart >= 0 && dagStart > vitestStart && dagEnd > dagStart)
 
   const perfStart = runnerSource.indexOf("const perfStep = commandStep('vitest-production-perf-isolated'", vitestStart)
@@ -62,9 +62,11 @@ test('frontend bundle gates Vitest on only explicit blocking checks and schedule
   assert.match(dagDeclaration, /staticStageStep\('isolated',[\s\S]*?dependsOn: \['vitest-settled'\][\s\S]*?frontend-render-pressure/u)
   assert.match(dagDeclaration, /commandStep\('frontend-static-final-ready',[\s\S]*?frontend-static-concurrent[\s\S]*?frontend-static-postbuild[\s\S]*?frontend-static-isolated[\s\S]*?runAfterSettled: true,[\s\S]*?coordinationOnly: true/u)
   assert.match(dagDeclaration, /staticStageStep\('final',[\s\S]*?dependsOn: \['frontend-static-final-ready'\]/u)
+    assert.match(dagDeclaration, /commandStep\([\s\S]*?'frontend-render-structure',[\s\S]*?frontend-render-structure\.sh[\s\S]*?\['frontend-render-structure'\][\s\S]*?dependsOn: \['frontend-static-final'\]/u);
   assert.match(dagDeclaration, /commandStep\('vitest-settled',[\s\S]*?runAfterSettled: true/u)
   assert.match(dagDeclaration, /perfStep,[\s\S]*?commandStep\('static-governance-node-contracts'/u)
-  assert.match(dagDeclaration, /commandStep\('frontend-tests-join',[\s\S]*?'vitest-production-projects'[\s\S]*?'frontend-static-concurrent'[\s\S]*?'frontend-static-postbuild'[\s\S]*?'frontend-static-isolated'[\s\S]*?'frontend-static-final'[\s\S]*?'frontend-coverage-summary'[\s\S]*?runAfterSettled: true/u)
+    assert.match(dagDeclaration, /commandStep\('frontend-tests-join',[\s\S]*?'vitest-production-projects'[\s\S]*?'frontend-static-concurrent'[\s\S]*?'frontend-static-postbuild'[\s\S]*?'frontend-static-isolated'[\s\S]*?'frontend-static-final'[\s\S]*?'frontend-render-structure'[\s\S]*?'frontend-coverage-summary'[\s\S]*?runAfterSettled: true/u);
+    assert.match(runnerSource, /\['static-governance', 'frontend-static-governance', 'frontend-render-structure'\]\.includes\(tierId\)/u);
 })
 
 test('frontend bundle model overlaps Vitest and static work then joins all settled failures', async () => {
