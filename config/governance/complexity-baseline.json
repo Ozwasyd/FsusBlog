@@ -1,6 +1,6 @@
 {
     "schema": "fsusblog.complexity-baseline.v1",
-    "sourceRevision": "3f63f6201e656aa39de39b6ed40181ef48446027",
+    "sourceRevision": "b7660ebdda053ef6a47b779e7c6aad672930bd14",
     "measurement": "deterministic lexical structure with one shared repository inventory and content cache",
     "metricFields": [
         "fileLines",
