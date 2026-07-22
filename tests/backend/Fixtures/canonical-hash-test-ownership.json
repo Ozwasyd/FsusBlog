@@ -30,7 +30,7 @@
       ]
     }
   ],
-  "governanceOwner": "CanonicalHashSourceGovernanceTests",
+  "governanceOwner": "tests/tools/canonical-hash-source-governance.test.mjs",
   "retiredAssertionKinds": [
     "partial-payload-string-fragment",
     "business-test-runtime-type-shape",

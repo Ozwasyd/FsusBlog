@@ -38,6 +38,20 @@ StaticMonolithicDistributedArchitecture() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_
 StaticCsharpStyle() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/dotnet/check-csharp-style.mjs" --mode full
 }
+TEST_ASSET_BEHAVIOR_FILES=(
+    "$ROOT_DIR/tests/tools/artifact-digest-table.test.mjs"
+    "$ROOT_DIR/tests/tools/async-log-pipeline.test.mjs"
+    "$ROOT_DIR/tests/tools/cross-stack-receipt-join.test.mjs"
+    "$ROOT_DIR/tests/tools/dotnet-build-server-cleanup.test.mjs"
+    "$ROOT_DIR/tests/tools/frontend-vitest-rolling-shards.test.mjs"
+    "$ROOT_DIR/tests/tools/production-resource-enforcement.test.mjs"
+    "$ROOT_DIR/tests/tools/resource-utilization.test.mjs"
+    "$ROOT_DIR/tests/tools/run-once.test.mjs"
+    "$ROOT_DIR/tests/tools/test-matrix-scheduler.test.mjs"
+)
+StaticTestAssetBehavior() {
+    Run "${FSUSBLOG_NODE:-node}" --test "${TEST_ASSET_BEHAVIOR_FILES[@]}"
+}
 STATIC_NODE_CONTRACT_FILES=(
     "$ROOT_DIR/tests/tools/release-id.test.mjs"
     "$ROOT_DIR/tests/tools/release-manifest.test.mjs"
@@ -99,6 +113,7 @@ STATIC_NODE_CONTRACT_FILES=(
     "$ROOT_DIR/tests/tools/backend-build-lock-behavior.test.mjs"
     "$ROOT_DIR/tests/tools/backend-production-build-authority.test.mjs"
     "$ROOT_DIR/tests/tools/backend-production-build-authority-measurement.test.mjs"
+    "$ROOT_DIR/tests/tools/canonical-hash-source-governance.test.mjs"
     "$ROOT_DIR/tests/tools/runtime-worker-admission.test.mjs"
     "$ROOT_DIR/tests/tools/security-worker-admission.test.mjs"
     "$ROOT_DIR/tests/tools/issue-1151-evidence-governance.test.mjs"
@@ -202,6 +217,7 @@ RunTestAssetGovernancePhase() {
         browser-test-migration StaticBrowserTestMigration \
         test-orchestrator StaticTestOrchestrator \
         test-lifecycle StaticTestLifecycle \
+        canonical-node-behavior StaticTestAssetBehavior \
         article-core-test-api StaticArticleCoreTestApi \
         backend-governance StaticBackendGovernance \
         gate-integrity StaticGateIntegrity \

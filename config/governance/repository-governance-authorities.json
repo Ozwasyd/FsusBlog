@@ -1,207 +1,362 @@
 {
-  "schema": "fsusblog.repository-governance-authorities.v1",
-  "receiptStore": ".cache/repository-governance",
-  "expirationPolicy": "content-identity-only-no-ttl",
-  "authorities": [
-    {
-      "id": "application-static-governance",
-      "canonicalOwner": "ServerContractAgent:application-correctness",
-      "inputs": [
-        "AGENTS.md",
-        "Directory.Build.props",
-        "config/**",
-        "docs/**",
-        "ops/**",
-        "security/**",
-        "src/**",
-        "tests/**",
-        "tools/**"
-      ],
-      "toolchain": {
-        "runtimes": ["bash", "git", "node"],
-        "parsers": ["node-json:built-in", "node-regexp:ecmascript-2024", "shell:bash"],
-        "identityFiles": [
-          ".config/dotnet-tools.json",
-          "Directory.Build.props",
-          "src/frontend/package-lock.json"
-        ]
-      },
-      "commands": [
+    "schema": "fsusblog.repository-governance-authorities.v1",
+    "receiptStore": ".cache/repository-governance",
+    "expirationPolicy": "content-identity-only-no-ttl",
+    "authorities": [
         {
-          "id": "application-static-prechecks",
-          "argv": ["bash", "tools/test/lanes/static-governance.sh", "application-prechecks"],
-          "checkerSources": ["tools/test/lanes/static-governance.sh"],
-          "ruleIds": [
-            "application:aeds-policy",
-            "application:background-service-classification",
-            "application:backend-physical-topology",
-            "application:code-intent",
-            "application:configuration-authority",
-            "application:csharp-style-full",
-            "application:monolithic-distributed-architecture",
-            "application:rule-platform"
-          ]
+            "id": "application-static-governance",
+            "canonicalOwner": "ServerContractAgent:application-correctness",
+            "inputs": [
+                "AGENTS.md",
+                "Directory.Build.props",
+                "config/**",
+                "docs/**",
+                "ops/**",
+                "security/**",
+                "src/**",
+                "tests/**",
+                "tools/**"
+            ],
+            "toolchain": {
+                "runtimes": [
+                    "bash",
+                    "git",
+                    "node"
+                ],
+                "parsers": [
+                    "node-json:built-in",
+                    "node-regexp:ecmascript-2024",
+                    "shell:bash"
+                ],
+                "identityFiles": [
+                    ".config/dotnet-tools.json",
+                    "Directory.Build.props",
+                    "src/frontend/package-lock.json"
+                ]
+            },
+            "commands": [
+                {
+                    "id": "application-static-prechecks",
+                    "argv": [
+                        "bash",
+                        "tools/test/lanes/static-governance.sh",
+                        "application-prechecks"
+                    ],
+                    "checkerSources": [
+                        "tools/test/lanes/static-governance.sh"
+                    ],
+                    "ruleIds": [
+                        "application:aeds-policy",
+                        "application:background-service-classification",
+                        "application:backend-physical-topology",
+                        "application:code-intent",
+                        "application:configuration-authority",
+                        "application:csharp-style-full",
+                        "application:monolithic-distributed-architecture",
+                        "application:rule-platform"
+                    ]
+                },
+                {
+                    "id": "application-static-contract-tests",
+                    "argv": [
+                        "bash",
+                        "tools/test/lanes/static-governance.sh",
+                        "node-contracts"
+                    ],
+                    "checkerSources": [
+                        "tools/test/run-command-manifest.mjs"
+                    ],
+                    "ruleIds": [
+                        "application:static-contract-test-manifest"
+                    ]
+                }
+            ]
         },
         {
-          "id": "application-static-contract-tests",
-          "argv": ["bash", "tools/test/lanes/static-governance.sh", "node-contracts"],
-          "checkerSources": ["tools/test/run-command-manifest.mjs"],
-          "ruleIds": ["application:static-contract-test-manifest"]
+            "id": "test-asset-governance",
+            "canonicalOwner": "ServerContractAgent:test-assets",
+            "inputs": [
+                "tests/**",
+                "tools/check-test-matrix.mjs",
+                "tools/check-test-retention.mjs",
+                "tools/run-test-matrix.mjs",
+                "tools/governance/check-article-core-test-api.mjs",
+                "tools/test-retention/**",
+                "tools/test-matrix/**",
+                "tools/test/**"
+            ],
+            "toolchain": {
+                "runtimes": [
+                    "git",
+                    "node"
+                ],
+                "parsers": [
+                    "node-json:built-in",
+                    "node-regexp:ecmascript-2024",
+                    "yaml:repository-test-matrix-parser"
+                ],
+                "identityFiles": [
+                    "src/frontend/package-lock.json",
+                    "tools/test-matrix/parse-matrix.mjs"
+                ]
+            },
+            "commands": [
+                {
+                    "id": "test-asset-contracts-and-retention",
+                    "argv": [
+                        "bash",
+                        "tools/test/lanes/test-asset-governance.sh"
+                    ],
+                    "checkerSources": [
+                        "tools/test/lanes/test-asset-governance.sh",
+                        "tools/check-test-matrix.mjs",
+                        "tools/check-test-retention.mjs",
+                        "tools/governance/check-article-core-test-api.mjs",
+                        "tools/test-retention/audit.mjs"
+                    ],
+                    "ruleIds": [
+                        "test-assets:article-core-current-api",
+                        "test-assets:backend-test-governance",
+                        "test-assets:browser-migration",
+                        "test-assets:coverage-registry",
+                        "test-assets:flaky-registry",
+                        "test-assets:lifecycle",
+                        "test-assets:matrix-contract",
+                        "test-assets:orchestrator-uniqueness",
+                        "test-assets:replacement-ledger",
+                        "test-assets:retention-classification",
+                        "test-assets:suite-convergence"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "workflow-lint",
+            "canonicalOwner": "ServerContractAgent:workflow-contracts",
+            "inputs": [
+                ".github/actions/**",
+                ".github/workflows/**",
+                "tests/matrix.yml",
+                "tests/tools/change-contract.test.mjs",
+                "tests/tools/production-build-workflow.test.mjs",
+                "tools/check-workflow-matrix-sync.mjs",
+                "tools/run-test-matrix.mjs",
+                "tools/test-matrix/**",
+                "tools/test/lanes/production-build-artifacts.sh"
+            ],
+            "toolchain": {
+                "runtimes": [
+                    "git",
+                    "node"
+                ],
+                "parsers": [
+                    "node-json:built-in",
+                    "yaml:repository-workflow-parser"
+                ],
+                "identityFiles": [
+                    "src/frontend/package-lock.json",
+                    "tools/test-matrix/parse-matrix.mjs"
+                ]
+            },
+            "commands": [
+                {
+                    "id": "workflow-matrix-sync",
+                    "argv": [
+                        "node",
+                        "tools/check-workflow-matrix-sync.mjs"
+                    ],
+                    "checkerSources": [
+                        "tools/check-workflow-matrix-sync.mjs"
+                    ],
+                    "ruleIds": [
+                        "workflow:matrix-sync",
+                        "workflow:job-topology"
+                    ]
+                },
+                {
+                    "id": "workflow-contract-tests",
+                    "argv": [
+                        "node",
+                        "--test",
+                        "tests/tools/change-contract.test.mjs",
+                        "tests/tools/production-build-workflow.test.mjs"
+                    ],
+                    "checkerSources": [
+                        "tests/tools/change-contract.test.mjs",
+                        "tests/tools/production-build-workflow.test.mjs"
+                    ],
+                    "ruleIds": [
+                        "workflow:change-contract",
+                        "workflow:production-build-artifact-topology"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "document-governance",
+            "canonicalOwner": "ServerContractAgent:documentation-lifecycle",
+            "inputs": [
+                "AGENTS.md",
+                "CHANGELOG.md",
+                "CONTRIBUTING.md",
+                "README.md",
+                "ROADMAP.md",
+                "config/development/authoritative-development-docs.json",
+                "config/development/document-inventory.generated.json",
+                "config/development/document-lifecycle.json",
+                "docs/**",
+                "tools/check-doc-implementation-drift.mjs",
+                "tools/governance/check-dead-code-audit-index.mjs",
+                "tools/docs/**"
+            ],
+            "toolchain": {
+                "runtimes": [
+                    "git",
+                    "node"
+                ],
+                "parsers": [
+                    "node-json:built-in",
+                    "markdown:repository-link-parser"
+                ],
+                "identityFiles": [
+                    "src/frontend/package-lock.json",
+                    "tools/docs/document-lifecycle.mjs"
+                ]
+            },
+            "commands": [
+                {
+                    "id": "public-document-contracts",
+                    "argv": [
+                        "bash",
+                        "-c",
+                        "node tools/docs/check-public-preview-docs.mjs && node tools/docs/public-preview-screenshots.mjs check && node tools/docs/check-integrity-proof-docs.mjs"
+                    ],
+                    "checkerSources": [
+                        "tools/docs/check-public-preview-docs.mjs",
+                        "tools/docs/public-preview-screenshots.mjs",
+                        "tools/docs/check-integrity-proof-docs.mjs"
+                    ],
+                    "ruleIds": [
+                        "documents:integrity-proof",
+                        "documents:public-preview",
+                        "documents:public-preview-screenshots"
+                    ]
+                },
+                {
+                    "id": "authoritative-development-docs",
+                    "argv": [
+                        "node",
+                        "tools/docs/check-authoritative-development-docs.mjs"
+                    ],
+                    "checkerSources": [
+                        "tools/docs/check-authoritative-development-docs.mjs"
+                    ],
+                    "ruleIds": [
+                        "documents:authoritative-sources"
+                    ]
+                },
+                {
+                    "id": "document-lifecycle",
+                    "argv": [
+                        "node",
+                        "tools/docs/generate-document-lifecycle.mjs",
+                        "--check"
+                    ],
+                    "checkerSources": [
+                        "tools/docs/generate-document-lifecycle.mjs",
+                        "tools/docs/document-lifecycle.mjs"
+                    ],
+                    "ruleIds": [
+                        "documents:lifecycle",
+                        "documents:index"
+                    ]
+                },
+                {
+                    "id": "documentation-implementation-drift",
+                    "argv": [
+                        "node",
+                        "tools/check-doc-implementation-drift.mjs"
+                    ],
+                    "checkerSources": [
+                        "tools/check-doc-implementation-drift.mjs"
+                    ],
+                    "ruleIds": [
+                        "documents:implementation-drift"
+                    ]
+                },
+                {
+                    "id": "dead-code-audit-index",
+                    "argv": [
+                        "node",
+                        "tools/governance/check-dead-code-audit-index.mjs"
+                    ],
+                    "checkerSources": [
+                        "tools/governance/check-dead-code-audit-index.mjs"
+                    ],
+                    "ruleIds": [
+                        "documents:dead-code-audit-index"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "community-governance",
+            "canonicalOwner": "ServerContractAgent:community-contracts",
+            "inputs": [
+                ".github/CODEOWNERS",
+                ".github/ISSUE_TEMPLATE/**",
+                ".github/PULL_REQUEST_TEMPLATE.md",
+                ".github/labeler.yml",
+                "CONTRIBUTING.md",
+                "SECURITY.md",
+                "tools/docs/check-community-workflow.mjs",
+                "tools/docs/check-github-label-governance.mjs"
+            ],
+            "toolchain": {
+                "runtimes": [
+                    "git",
+                    "node"
+                ],
+                "parsers": [
+                    "node-json:built-in",
+                    "yaml:repository-community-parser"
+                ],
+                "identityFiles": [
+                    "src/frontend/package-lock.json",
+                    "tools/docs/check-community-workflow.mjs"
+                ]
+            },
+            "commands": [
+                {
+                    "id": "community-workflow",
+                    "argv": [
+                        "node",
+                        "tools/docs/check-community-workflow.mjs"
+                    ],
+                    "checkerSources": [
+                        "tools/docs/check-community-workflow.mjs"
+                    ],
+                    "ruleIds": [
+                        "community:issue-template",
+                        "community:pull-request-template",
+                        "community:codeowners"
+                    ]
+                },
+                {
+                    "id": "github-label-governance",
+                    "argv": [
+                        "node",
+                        "tools/docs/check-github-label-governance.mjs"
+                    ],
+                    "checkerSources": [
+                        "tools/docs/check-github-label-governance.mjs"
+                    ],
+                    "ruleIds": [
+                        "community:labels",
+                        "community:labeler"
+                    ]
+                }
+            ]
         }
-      ]
-    },
-    {
-      "id": "test-asset-governance",
-      "canonicalOwner": "ServerContractAgent:test-assets",
-      "inputs": [
-        "tests/**",
-        "tools/check-test-matrix.mjs",
-        "tools/check-test-retention.mjs",
-        "tools/run-test-matrix.mjs",
-        "tools/governance/check-article-core-test-api.mjs",
-        "tools/test-retention/**",
-        "tools/test-matrix/**",
-        "tools/test/**"
-      ],
-      "toolchain": {
-        "runtimes": ["git", "node"],
-        "parsers": ["node-json:built-in", "node-regexp:ecmascript-2024", "yaml:repository-test-matrix-parser"],
-        "identityFiles": [
-          "src/frontend/package-lock.json",
-          "tools/test-matrix/parse-matrix.mjs"
-        ]
-      },
-      "commands": [
-        {
-          "id": "test-asset-contracts-and-retention",
-          "argv": ["bash", "tools/test/lanes/test-asset-governance.sh"],
-          "checkerSources": ["tools/test/lanes/test-asset-governance.sh", "tools/check-test-matrix.mjs", "tools/check-test-retention.mjs", "tools/governance/check-article-core-test-api.mjs", "tools/test-retention/audit.mjs"],
-          "ruleIds": [
-            "test-assets:article-core-current-api",
-            "test-assets:backend-test-governance",
-            "test-assets:browser-migration",
-            "test-assets:coverage-registry",
-            "test-assets:flaky-registry",
-            "test-assets:lifecycle",
-            "test-assets:matrix-contract",
-            "test-assets:orchestrator-uniqueness",
-            "test-assets:replacement-ledger",
-            "test-assets:retention-classification",
-            "test-assets:suite-convergence"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "workflow-lint",
-      "canonicalOwner": "ServerContractAgent:workflow-contracts",
-      "inputs": [
-        ".github/actions/**",
-        ".github/workflows/**",
-        "tests/matrix.yml",
-        "tools/check-workflow-matrix-sync.mjs"
-      ],
-      "toolchain": {
-        "runtimes": ["git", "node"],
-        "parsers": ["node-json:built-in", "yaml:repository-workflow-parser"],
-        "identityFiles": ["src/frontend/package-lock.json", "tools/test-matrix/parse-matrix.mjs"]
-      },
-      "commands": [
-        {
-          "id": "workflow-matrix-sync",
-          "argv": ["node", "tools/check-workflow-matrix-sync.mjs"],
-          "checkerSources": ["tools/check-workflow-matrix-sync.mjs"],
-          "ruleIds": ["workflow:matrix-sync", "workflow:job-topology"]
-        }
-      ]
-    },
-    {
-      "id": "document-governance",
-      "canonicalOwner": "ServerContractAgent:documentation-lifecycle",
-      "inputs": [
-        "AGENTS.md",
-        "CHANGELOG.md",
-        "CONTRIBUTING.md",
-        "README.md",
-        "ROADMAP.md",
-        "config/development/authoritative-development-docs.json",
-        "config/development/document-inventory.generated.json",
-        "config/development/document-lifecycle.json",
-        "docs/**",
-        "tools/check-doc-implementation-drift.mjs",
-        "tools/governance/check-dead-code-audit-index.mjs",
-        "tools/docs/**"
-      ],
-      "toolchain": {
-        "runtimes": ["git", "node"],
-        "parsers": ["node-json:built-in", "markdown:repository-link-parser"],
-        "identityFiles": ["src/frontend/package-lock.json", "tools/docs/document-lifecycle.mjs"]
-      },
-      "commands": [
-        {
-          "id": "public-document-contracts",
-          "argv": ["bash", "-c", "node tools/docs/check-public-preview-docs.mjs && node tools/docs/public-preview-screenshots.mjs check && node tools/docs/check-integrity-proof-docs.mjs"],
-          "checkerSources": ["tools/docs/check-public-preview-docs.mjs", "tools/docs/public-preview-screenshots.mjs", "tools/docs/check-integrity-proof-docs.mjs"],
-          "ruleIds": ["documents:integrity-proof", "documents:public-preview", "documents:public-preview-screenshots"]
-        },
-        {
-          "id": "authoritative-development-docs",
-          "argv": ["node", "tools/docs/check-authoritative-development-docs.mjs"],
-          "checkerSources": ["tools/docs/check-authoritative-development-docs.mjs"],
-          "ruleIds": ["documents:authoritative-sources"]
-        },
-        {
-          "id": "document-lifecycle",
-          "argv": ["node", "tools/docs/generate-document-lifecycle.mjs", "--check"],
-          "checkerSources": ["tools/docs/generate-document-lifecycle.mjs", "tools/docs/document-lifecycle.mjs"],
-          "ruleIds": ["documents:lifecycle", "documents:index"]
-        },
-        {
-          "id": "documentation-implementation-drift",
-          "argv": ["node", "tools/check-doc-implementation-drift.mjs"],
-          "checkerSources": ["tools/check-doc-implementation-drift.mjs"],
-          "ruleIds": ["documents:implementation-drift"]
-        },
-        {
-          "id": "dead-code-audit-index",
-          "argv": ["node", "tools/governance/check-dead-code-audit-index.mjs"],
-          "checkerSources": ["tools/governance/check-dead-code-audit-index.mjs"],
-          "ruleIds": ["documents:dead-code-audit-index"]
-        }
-      ]
-    },
-    {
-      "id": "community-governance",
-      "canonicalOwner": "ServerContractAgent:community-contracts",
-      "inputs": [
-        ".github/CODEOWNERS",
-        ".github/ISSUE_TEMPLATE/**",
-        ".github/PULL_REQUEST_TEMPLATE.md",
-        ".github/labeler.yml",
-        "CONTRIBUTING.md",
-        "SECURITY.md",
-        "tools/docs/check-community-workflow.mjs",
-        "tools/docs/check-github-label-governance.mjs"
-      ],
-      "toolchain": {
-        "runtimes": ["git", "node"],
-        "parsers": ["node-json:built-in", "yaml:repository-community-parser"],
-        "identityFiles": ["src/frontend/package-lock.json", "tools/docs/check-community-workflow.mjs"]
-      },
-      "commands": [
-        {
-          "id": "community-workflow",
-          "argv": ["node", "tools/docs/check-community-workflow.mjs"],
-          "checkerSources": ["tools/docs/check-community-workflow.mjs"],
-          "ruleIds": ["community:issue-template", "community:pull-request-template", "community:codeowners"]
-        },
-        {
-          "id": "github-label-governance",
-          "argv": ["node", "tools/docs/check-github-label-governance.mjs"],
-          "checkerSources": ["tools/docs/check-github-label-governance.mjs"],
-          "ruleIds": ["community:labels", "community:labeler"]
-        }
-      ]
-    }
-  ]
+    ]
 }

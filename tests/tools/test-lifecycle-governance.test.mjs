@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const { buildLifecycleReport, validateLifecycleRegistry } = await import(
+const { buildLifecycleReport, classifyNodeRegistryEntry, validateLifecycleRegistry } = await import(
     pathToFileURL(path.join(root, 'tools/test-lifecycle/lifecycle.mjs')).href
 );
 
@@ -75,4 +77,60 @@ test('fixture distinguishes source mirrors, compatibility wrappers, and unique b
         registry: registry({ classifications: ['compatibility-wrapper'], lifecycle: 'migration-bound', retireCondition: { contract: 'v1 API', condition: 'all supported callers use v2 API' } })
     }), []);
     assert.equal(buildLifecycleReport({ audit, registry: registry() }).report.decisions[0].action, 'retain');
+});
+
+test('registry classification resolves lane, authority, workflow and package-script owners', (context) =>
+{
+    const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-lifecycle-owner-'));
+    context.after(() => fs.rmSync(fixtureRoot, { recursive: true, force: true }));
+    const write = (relative, content) =>
+    {
+        const target = path.join(fixtureRoot, relative);
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.writeFileSync(target, content);
+    };
+    write('tools/test/lanes/static-governance.sh', [
+        'TEST_ASSET_BEHAVIOR_FILES=(',
+        '  tests/tools/test-asset-owner.test.mjs',
+        ')',
+        'node --test tests/tools/lane-owner.test.mjs',
+        ''
+    ].join('\n'));
+    write('.github/workflows/quality-gate.yml', 'run: node --test tests/tools/workflow-reference.test.mjs\n');
+    write('src/frontend/package.json', JSON.stringify({
+        scripts: { 'test:package-owner': 'node --test ../../tests/tools/package-owner.test.mjs' }
+    }));
+    write('config/governance/repository-governance-authorities.json', JSON.stringify({
+        authorities: [{
+            id: 'workflow-lint',
+            commands: [{ argv: ['node', '--test', 'tests/tools/authority-owner.test.mjs'] }]
+        }]
+    }));
+
+    assert.equal(
+        classifyNodeRegistryEntry(fixtureRoot, 'tests/tools/lane-owner.test.mjs', 'test("behavior", () => {})').owner,
+        'repository-governance:static-node-contracts'
+    );
+    assert.equal(
+        classifyNodeRegistryEntry(fixtureRoot, 'tests/tools/test-asset-owner.test.mjs', 'test("behavior", () => {})').owner,
+        'repository-governance:test-asset-behavior'
+    );
+    assert.deepEqual(
+        classifyNodeRegistryEntry(fixtureRoot, 'tests/tools/authority-owner.test.mjs', 'test("behavior", () => {})'),
+        {
+            owner: 'workflow-lint:tests/tools/authority-owner.test.mjs',
+            executionCategory: 'workflow-only',
+            lifecycle: 'conditional-governance',
+            physicalExecutionCount: 1,
+            classifications: ['behavior']
+        }
+    );
+    assert.equal(
+        classifyNodeRegistryEntry(fixtureRoot, 'tests/tools/workflow-reference.test.mjs', 'test("behavior", () => {})').executionCategory,
+        'workflow-only'
+    );
+    assert.equal(
+        classifyNodeRegistryEntry(fixtureRoot, 'tests/tools/package-owner.test.mjs', 'test("behavior", () => {})').owner,
+        'package-script:test:package-owner'
+    );
 });

@@ -272,6 +272,10 @@ export function renderLifecycleMatrix(report)
 export function classifyNodeRegistryEntry(root, file, source)
 {
     const staticGovernance = fs.readFileSync(path.join(root, 'tools/test/lanes/static-governance.sh'), 'utf8');
+    const authorityManifestPath = path.join(root, 'config/governance/repository-governance-authorities.json');
+    const authorityManifest = fs.existsSync(authorityManifestPath)
+        ? JSON.parse(fs.readFileSync(authorityManifestPath, 'utf8'))
+        : { authorities: [] };
     const workflowSources = fs.readdirSync(path.join(root, '.github/workflows'))
         .filter((name) => /\.ya?ml$/u.test(name))
         .map((name) => [name, fs.readFileSync(path.join(root, '.github/workflows', name), 'utf8')]);
@@ -302,9 +306,27 @@ export function classifyNodeRegistryEntry(root, file, source)
     {
         classifications.push('behavior');
     }
+    const testAssetBehaviorManifest = staticGovernance.match(/TEST_ASSET_BEHAVIOR_FILES=\([\s\S]*?\n\)/u)?.[0] ?? '';
+    if (testAssetBehaviorManifest.includes(token))
+    {
+        return { owner: 'repository-governance:test-asset-behavior', executionCategory: 'repository-governance', lifecycle: 'canonical-execution', physicalExecutionCount: 1, classifications };
+    }
     if (staticGovernance.includes(token))
     {
         return { owner: 'repository-governance:static-node-contracts', executionCategory: 'repository-governance', lifecycle: 'canonical-execution', physicalExecutionCount: 1, classifications };
+    }
+    const authority = (authorityManifest.authorities ?? []).find((entry) =>
+        (entry.commands ?? []).some((command) => (command.argv ?? []).includes(file)));
+    if (authority)
+    {
+        const workflowOnly = authority.id === 'workflow-lint';
+        return {
+            owner: `${authority.id}:${file}`,
+            executionCategory: workflowOnly ? 'workflow-only' : 'repository-governance',
+            lifecycle: workflowOnly ? 'conditional-governance' : 'canonical-execution',
+            physicalExecutionCount: 1,
+            classifications
+        };
     }
     const workflow = workflowSources.find(([, text]) => text.includes(token));
     if (workflow)

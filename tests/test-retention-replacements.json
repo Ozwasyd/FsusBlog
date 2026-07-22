@@ -7776,9 +7776,10 @@
             "id": "node-test:tests/tools/local-dotnet-lanes.test.mjs#perception-matrix-reuses-the-fresh-local-backend-build-edf45a1141",
             "path": "tests/tools/local-dotnet-lanes.test.mjs",
             "replacementTestIds": [
-                "node-test:tests/tools/local-dotnet-lanes.test.mjs#lanename-reuses-the-fresh-local-release-benchmark-build-c2e6c2038d"
+                "node-test:tests/tools/perception-union-projection.test.mjs#perception-projection-binds-exact-passed-union-results-t-4efc681cac",
+                "node-test:tests/tools/perception-union-projection.test.mjs#perception-projection-fails-closed-for-stale-runs-dll-dr-45c3d8c472"
             ],
-            "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
+            "reason": "The historical projection assertion resolves directly to the live canonical behavior tests instead of chaining through a later-retired source mirror."
         },
         {
             "id": "node-test:tests/tools/local-production-profile.test.mjs#local-production-reserves-the-declared-profile-memory-bu-820abdfce8",
@@ -8271,8 +8272,7 @@
             "id": "xunit:tests/backend/Unit/ArticleCanonicalHashTests.cs#ArticleCanonicalHashTests.RuntimeType_IsCoreOnlyAndDoesNotReferenceExternalAnchors",
             "path": "tests/backend/Unit/ArticleCanonicalHashTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs#CanonicalHashSourceGovernanceTests.CanonicalImplementation_StaysInsideCoreWithoutRuntimeOrExternalDependencies",
-                "xunit:tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs#CanonicalHashSourceGovernanceTests.CoreProject_DoesNotReferenceServerOrExternalAnchoringPackages"
+                "node-test:tests/tools/canonical-hash-source-governance.test.mjs#canonical-hash-source-boundary-keeps-core-free-of-runtim-96075599fa"
             ],
             "reason": "The unique source-governance owner checks the Core dependency boundary without mixing runtime metadata shape into product hash behavior."
         },
@@ -8280,8 +8280,7 @@
             "id": "xunit:tests/backend/Unit/ArticleCanonicalHashTests.cs#ArticleCanonicalHashTests.Source_IsCoreOnlyAndDoesNotReferenceExternalAnchors",
             "path": "tests/backend/Unit/ArticleCanonicalHashTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs#CanonicalHashSourceGovernanceTests.CanonicalImplementation_StaysInsideCoreWithoutRuntimeOrExternalDependencies",
-                "xunit:tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs#CanonicalHashSourceGovernanceTests.CoreProject_DoesNotReferenceServerOrExternalAnchoringPackages"
+                "node-test:tests/tools/canonical-hash-source-governance.test.mjs#canonical-hash-source-boundary-keeps-core-free-of-runtim-96075599fa"
             ],
             "reason": "The unique source-governance owner now checks the canonical implementation namespace boundary and Core project references without mixing runtime shape into product hash behavior."
         },
@@ -8331,8 +8330,8 @@
             "id": "xunit:tests/backend/Unit/ArticleRightsCanonicalHashTests.cs#ArticleRightsCanonicalHashTests.RuntimeType_IsCoreOnlyAndUsesBufferWriterWithoutReflectionOrDynamic",
             "path": "tests/backend/Unit/ArticleRightsCanonicalHashTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs#CanonicalHashSourceGovernanceTests.CanonicalImplementation_StaysInsideCoreWithoutRuntimeOrExternalDependencies",
-                "xunit:tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs#CanonicalHashSourceGovernanceTests.RightsCanonicalWriter_UsesTheGovernedBufferWriterBoundary"
+                "node-test:tests/tools/canonical-hash-source-governance.test.mjs#canonical-hash-source-boundary-keeps-core-free-of-runtim-96075599fa",
+                "node-test:tests/tools/canonical-hash-source-governance.test.mjs#rights-canonical-writer-keeps-the-governed-buffer-writer-8e5de4955d"
             ],
             "reason": "The unique source-governance owner checks Core-only and buffer-writer boundaries without claiming runtime shape proves rights hash behavior."
         },
@@ -8340,8 +8339,8 @@
             "id": "xunit:tests/backend/Unit/ArticleRightsCanonicalHashTests.cs#ArticleRightsCanonicalHashTests.Source_IsCoreOnlyAndUsesBufferWriterWithoutReflectionOrDynamic",
             "path": "tests/backend/Unit/ArticleRightsCanonicalHashTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs#CanonicalHashSourceGovernanceTests.CanonicalImplementation_StaysInsideCoreWithoutRuntimeOrExternalDependencies",
-                "xunit:tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs#CanonicalHashSourceGovernanceTests.RightsCanonicalWriter_UsesTheGovernedBufferWriterBoundary"
+                "node-test:tests/tools/canonical-hash-source-governance.test.mjs#canonical-hash-source-boundary-keeps-core-free-of-runtim-96075599fa",
+                "node-test:tests/tools/canonical-hash-source-governance.test.mjs#rights-canonical-writer-keeps-the-governed-buffer-writer-8e5de4955d"
             ],
             "reason": "The unique source-governance owner now checks the Core-only dependency boundary and buffer-writer architecture without claiming those source properties prove hash behavior."
         },
@@ -10882,6 +10881,46 @@
                 "node-script:tests/frontend/checks/static/check-period-motif-contract.mjs"
             ],
             "reason": "Punctuation and loading visuals no longer belong to article title authority; the single canonical motif contract now owns those exact design tokens and shared-renderer bindings."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs#CanonicalHashSourceGovernanceTests.CanonicalImplementation_StaysInsideCoreWithoutRuntimeOrExternalDependencies",
+            "path": "tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs",
+            "replacementTestIds": [
+                "node-test:tests/tools/canonical-hash-source-governance.test.mjs#canonical-hash-source-boundary-keeps-core-free-of-runtim-96075599fa"
+            ],
+            "reason": "The canonical hash architecture boundary is owned by one repository-governance Node test instead of a backend business-test source reader."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs#CanonicalHashSourceGovernanceTests.CoreProject_DoesNotReferenceServerOrExternalAnchoringPackages",
+            "path": "tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs",
+            "replacementTestIds": [
+                "node-test:tests/tools/canonical-hash-source-governance.test.mjs#canonical-hash-source-boundary-keeps-core-free-of-runtim-96075599fa"
+            ],
+            "reason": "The single static owner now checks both canonical implementation imports and Core project references."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs#CanonicalHashSourceGovernanceTests.RightsCanonicalWriter_UsesTheGovernedBufferWriterBoundary",
+            "path": "tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs",
+            "replacementTestIds": [
+                "node-test:tests/tools/canonical-hash-source-governance.test.mjs#rights-canonical-writer-keeps-the-governed-buffer-writer-8e5de4955d"
+            ],
+            "reason": "The buffer-writer source shape remains explicit under the canonical static owner."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs#CanonicalHashSourceGovernanceTests.OwnershipCatalog_MapsEveryCanonicalContractToCurrentOwnersAndGoldenVector",
+            "path": "tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs",
+            "replacementTestIds": [
+                "node-test:tests/tools/canonical-hash-source-governance.test.mjs#ownership-catalog-maps-every-canonical-contract-to-curre-5dc233d555"
+            ],
+            "reason": "Catalog, golden vector and live behavior-owner reconciliation moved unchanged to the repository-governance owner."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs#CanonicalHashSourceGovernanceTests.ProductBehaviorTests_DoNotOwnRuntimeShapeOrPayloadFragmentAssertions",
+            "path": "tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs",
+            "replacementTestIds": [
+                "node-test:tests/tools/canonical-hash-source-governance.test.mjs#product-behavior-tests-do-not-own-runtime-shape-or-paylo-45d1a5249a"
+            ],
+            "reason": "The negative ownership rule is preserved by the same static source authority without running inside backend unit tests."
         }
     ],
     "assertionReplacements": [

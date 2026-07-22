@@ -51,7 +51,9 @@
                 "replacementTestIds": "replacementTestIds"
             },
             "defaults": {
-                "assertionCategory": ["acceptance"],
+                "assertionCategory": [
+                    "acceptance"
+                ],
                 "replacementLayer": "correctness",
                 "browserOnlyRisk": {
                     "present": false,
@@ -264,7 +266,7 @@
                 "replacementTestIds": [
                     "node-script:tests/frontend/checks/static/check-visual-density-governance.mjs",
                     "node-script:tests/frontend/checks/static/check-shell-material-governance.mjs",
-                    "vitest:tests/frontend/unit/view-contracts/homeSpotlight.test.ts#makes-lead-secondary-recommendations-and-the-current-fee-e44a2e31ca",
+                    "vitest:tests/frontend/unit/view-contracts/homeSpotlight.test.ts#preserves-complete-current-page-items-across-the-first-a-f0f010c644",
                     "vitest:tests/frontend/unit/components/admin/AdminDashboardTaskWorkbench.test.ts#renders-loading-unchecked-empty-and-populated-summary-st-03724e7518"
                 ],
                 "browserOnlyRisk": {

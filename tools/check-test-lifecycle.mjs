@@ -49,7 +49,7 @@ if (writeRegistry)
             timeOrAgeMayDecideLifecycle: false
         },
         nodeTests
-    }, null, 2)}\n`);
+    }, null, 4)}\n`);
     console.log(`[test-lifecycle] wrote registry nodeTests=${nodeTests.length}`);
     process.exit(0);
 }

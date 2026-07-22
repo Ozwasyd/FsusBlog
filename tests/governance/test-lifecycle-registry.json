@@ -196,15 +196,16 @@
             "physicalExecutionCount": 1,
             "classifications": [
                 "source-text",
-                "migration"
+                "compatibility-wrapper",
+                "runtime"
             ]
         },
         {
             "file": "tests/tools/artifact-digest-table.test.mjs",
-            "owner": "manual-diagnostic:tests/tools/artifact-digest-table.test.mjs",
-            "executionCategory": "manual-diagnostic",
-            "lifecycle": "manual-diagnostic",
-            "physicalExecutionCount": 0,
+            "owner": "repository-governance:test-asset-behavior",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
             "classifications": [
                 "source-text",
                 "runtime"
@@ -212,10 +213,10 @@
         },
         {
             "file": "tests/tools/async-log-pipeline.test.mjs",
-            "owner": "manual-diagnostic:tests/tools/async-log-pipeline.test.mjs",
-            "executionCategory": "manual-diagnostic",
-            "lifecycle": "manual-diagnostic",
-            "physicalExecutionCount": 0,
+            "owner": "repository-governance:test-asset-behavior",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
             "classifications": [
                 "source-text"
             ]
@@ -469,6 +470,17 @@
             ]
         },
         {
+            "file": "tests/tools/canonical-hash-source-governance.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
             "file": "tests/tools/challenge-kind-cutover-rollout.test.mjs",
             "owner": "manual-diagnostic:tests/tools/challenge-kind-cutover-rollout.test.mjs",
             "executionCategory": "manual-diagnostic",
@@ -481,7 +493,7 @@
         },
         {
             "file": "tests/tools/change-contract.test.mjs",
-            "owner": "workflow-lint:change-contract.yml",
+            "owner": "workflow-lint:tests/tools/change-contract.test.mjs",
             "executionCategory": "workflow-only",
             "lifecycle": "conditional-governance",
             "physicalExecutionCount": 1,
@@ -587,14 +599,13 @@
         },
         {
             "file": "tests/tools/cross-stack-receipt-join.test.mjs",
-            "owner": "repository-governance:static-node-contracts",
+            "owner": "repository-governance:test-asset-behavior",
             "executionCategory": "repository-governance",
             "lifecycle": "canonical-execution",
             "physicalExecutionCount": 1,
             "classifications": [
                 "source-text",
-                "perf",
-                "runtime"
+                "compatibility-wrapper"
             ]
         },
         {
@@ -676,10 +687,10 @@
         },
         {
             "file": "tests/tools/dotnet-build-server-cleanup.test.mjs",
-            "owner": "manual-diagnostic:tests/tools/dotnet-build-server-cleanup.test.mjs",
-            "executionCategory": "manual-diagnostic",
-            "lifecycle": "manual-diagnostic",
-            "physicalExecutionCount": 0,
+            "owner": "repository-governance:test-asset-behavior",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
             "classifications": [
                 "source-text"
             ]
@@ -774,12 +785,13 @@
         },
         {
             "file": "tests/tools/frontend-vitest-rolling-shards.test.mjs",
-            "owner": "manual-diagnostic:tests/tools/frontend-vitest-rolling-shards.test.mjs",
-            "executionCategory": "manual-diagnostic",
-            "lifecycle": "manual-diagnostic",
-            "physicalExecutionCount": 0,
+            "owner": "repository-governance:test-asset-behavior",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
             "classifications": [
-                "source-text"
+                "source-text",
+                "runtime"
             ]
         },
         {
@@ -1361,8 +1373,7 @@
             "lifecycle": "canonical-execution",
             "physicalExecutionCount": 1,
             "classifications": [
-                "source-text",
-                "runtime"
+                "source-text"
             ]
         },
         {
@@ -1411,10 +1422,10 @@
         },
         {
             "file": "tests/tools/production-build-workflow.test.mjs",
-            "owner": "manual-diagnostic:tests/tools/production-build-workflow.test.mjs",
-            "executionCategory": "manual-diagnostic",
-            "lifecycle": "manual-diagnostic",
-            "physicalExecutionCount": 0,
+            "owner": "workflow-lint:tests/tools/production-build-workflow.test.mjs",
+            "executionCategory": "workflow-only",
+            "lifecycle": "conditional-governance",
+            "physicalExecutionCount": 1,
             "classifications": [
                 "source-text",
                 "runtime"
@@ -1434,10 +1445,10 @@
         },
         {
             "file": "tests/tools/production-resource-enforcement.test.mjs",
-            "owner": "manual-diagnostic:tests/tools/production-resource-enforcement.test.mjs",
-            "executionCategory": "manual-diagnostic",
-            "lifecycle": "manual-diagnostic",
-            "physicalExecutionCount": 0,
+            "owner": "repository-governance:test-asset-behavior",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
             "classifications": [
                 "source-text",
                 "migration",
@@ -1751,7 +1762,7 @@
             "physicalExecutionCount": 1,
             "classifications": [
                 "source-text",
-                "compatibility-wrapper"
+                "runtime"
             ]
         },
         {
@@ -1767,10 +1778,10 @@
         },
         {
             "file": "tests/tools/resource-utilization.test.mjs",
-            "owner": "manual-diagnostic:tests/tools/resource-utilization.test.mjs",
-            "executionCategory": "manual-diagnostic",
-            "lifecycle": "manual-diagnostic",
-            "physicalExecutionCount": 0,
+            "owner": "repository-governance:test-asset-behavior",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
             "classifications": [
                 "source-text",
                 "perf",
@@ -1784,8 +1795,7 @@
             "lifecycle": "canonical-execution",
             "physicalExecutionCount": 1,
             "classifications": [
-                "source-text",
-                "runtime"
+                "source-text"
             ]
         },
         {
@@ -1800,10 +1810,10 @@
         },
         {
             "file": "tests/tools/run-once.test.mjs",
-            "owner": "manual-diagnostic:tests/tools/run-once.test.mjs",
-            "executionCategory": "manual-diagnostic",
-            "lifecycle": "manual-diagnostic",
-            "physicalExecutionCount": 0,
+            "owner": "repository-governance:test-asset-behavior",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
             "classifications": [
                 "source-text"
             ]
@@ -1998,10 +2008,10 @@
         },
         {
             "file": "tests/tools/test-matrix-scheduler.test.mjs",
-            "owner": "manual-diagnostic:tests/tools/test-matrix-scheduler.test.mjs",
-            "executionCategory": "manual-diagnostic",
-            "lifecycle": "manual-diagnostic",
-            "physicalExecutionCount": 0,
+            "owner": "repository-governance:test-asset-behavior",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
             "classifications": [
                 "source-text",
                 "perf",
