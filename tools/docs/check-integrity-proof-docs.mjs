@@ -156,8 +156,8 @@ for (const [path, tokens] of Object.values(requiredFiles)) {
 
 const verification = read('docs/integrity/verification.md')
 requireToken('docs/integrity/verification.md', verification, 'docs/integrity/index.md')
-requireToken('docs/integrity/verification.md', verification, 'executionBoundary')
-requireToken('docs/integrity/verification.md', verification, 'executionOwner')
+requireToken('docs/integrity/verification.md', verification, 'executionBoundary');
+requireToken('docs/integrity/verification.md', verification, 'executionOwner');
 
 const runbook = read('docs/integrity/runbook.md')
 requireAny('docs/integrity/runbook.md', runbook, ['.tmp/release-evidence/integrity-proof-verification.json', '.tmp'])

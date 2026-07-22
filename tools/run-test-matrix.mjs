@@ -31,7 +31,7 @@ import {
   validateLocalProfiles
 } from './test-matrix/local-profile.mjs'
 import { parseMatrix } from './test-matrix/parse-matrix.mjs'
-import { validateEvidenceExecutionDeclaration } from './test-matrix/projection-declaration.mjs'
+import { validateEvidenceExecutionDeclaration } from './test-matrix/projection-declaration.mjs';
 import { parseWorkflowJobNeeds } from './yaml/workflow-structure.mjs'
 import { assertLocalProductionCapacity, cleanLocalProductionOutputs } from './test-matrix/fresh-production.mjs'
 import { cleanupLocalRuntime, cleanupStaleLocalRuntimes } from './test-matrix/local-runtime-cleanup.mjs'
@@ -557,7 +557,7 @@ function validateMatrix(matrix) {
     for (const field of requiredFields) {
       if (!(field in tier)) errors.push(`${tier.id} missing ${field}`)
     }
-    errors.push(...validateEvidenceExecutionDeclaration(tier))
+        errors.push(...validateEvidenceExecutionDeclaration(tier));
         for (const field of ['dependsOn', 'services', 'exclusiveResources', 'coverage', 'artifacts', 'evidence'])
 {
             if (!Array.isArray(tier[field])) {errors.push(`${tier.id}.${field} must be an array`)};

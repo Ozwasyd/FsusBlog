@@ -1354,39 +1354,39 @@ async function runBackendTests() {
   const trxFiles = listFiles(trxRoot, (file) => file.endsWith('.trx')).sort()
   validateShardSummaryArtifacts(shardReport, trxFiles, { repositoryRoot: root })
   const tests = trxFiles.flatMap(parseTrx)
-  const integrityCatalogFile = path.join(root, 'tests/fixtures/evidence-projection/integrity-proof-verification.json')
-  const integrityProducerFile = path.join(root, '.tmp/test-results/backend/evidence-producers/backend-unit.json')
-  const integritySourceFile = path.join(root, '.tmp/test-results/backend/integrity-proof-source.json')
-  const integrityProjectionFile = path.join(root, '.tmp/release-evidence/integrity-proof-verification.json')
-  const integrityCatalog = JSON.parse(fs.readFileSync(integrityCatalogFile, 'utf8'))
-  const integrityProduced = writeIntegrityProofProducer({
-    catalog: integrityCatalog,
-    trxFiles,
-    repositoryRoot: root,
-    sourceState: currentSourceState(),
-    runId: schedulerRunId(),
-    namespace: String(process.env.FSUSBLOG_TEST_NAMESPACE ?? '').trim(),
-    producerOutput: integrityProducerFile,
-    sourceOutput: integritySourceFile
-  })
-  const integrityProjection = projectEvidence({
-    catalog: integrityCatalog,
-    producerReceipt: integrityProduced.receipt,
-    producerReceiptPath: relative(integrityProducerFile),
-    sourceState: currentSourceState(),
-    runId: schedulerRunId(),
-    namespace: String(process.env.FSUSBLOG_TEST_NAMESPACE ?? '').trim(),
-    repositoryRoot: root
-  })
-  writeJsonAtomic(integrityProjectionFile, integrityProjection)
-  register({ id: 'integrity-proof-projection', members: ['integrity-proof-verification'] }, result,
-    integrityProjection.assertions.flatMap((entry) => entry.sourceTestIds.map((id) => `xunit:${id}`)), [
-      integrityProjectionFile,
-      integrityProducerFile,
-      integritySourceFile,
-      integrityCatalogFile,
-      ...trxFiles
-    ])
+    const integrityCatalogFile = path.join(root, 'tests/fixtures/evidence-projection/integrity-proof-verification.json');
+    const integrityProducerFile = path.join(root, '.tmp/test-results/backend/evidence-producers/backend-unit.json');
+    const integritySourceFile = path.join(root, '.tmp/test-results/backend/integrity-proof-source.json');
+    const integrityProjectionFile = path.join(root, '.tmp/release-evidence/integrity-proof-verification.json');
+    const integrityCatalog = JSON.parse(fs.readFileSync(integrityCatalogFile, 'utf8'));
+    const integrityProduced = writeIntegrityProofProducer({
+        catalog: integrityCatalog,
+        trxFiles,
+        repositoryRoot: root,
+        sourceState: currentSourceState(),
+        runId: schedulerRunId(),
+        namespace: String(process.env.FSUSBLOG_TEST_NAMESPACE ?? '').trim(),
+        producerOutput: integrityProducerFile,
+        sourceOutput: integritySourceFile
+    });
+    const integrityProjection = projectEvidence({
+        catalog: integrityCatalog,
+        producerReceipt: integrityProduced.receipt,
+        producerReceiptPath: relative(integrityProducerFile),
+        sourceState: currentSourceState(),
+        runId: schedulerRunId(),
+        namespace: String(process.env.FSUSBLOG_TEST_NAMESPACE ?? '').trim(),
+        repositoryRoot: root
+    });
+    writeJsonAtomic(integrityProjectionFile, integrityProjection);
+    register({ id: 'integrity-proof-projection', members: ['integrity-proof-verification'] }, result,
+        integrityProjection.assertions.flatMap((entry) => entry.sourceTestIds.map((id) => `xunit:${id}`)), [
+            integrityProjectionFile,
+            integrityProducerFile,
+            integritySourceFile,
+            integrityCatalogFile,
+            ...trxFiles
+        ]);
   const perceptionProjection = readPerceptionUnionProjection(trxFiles, shardSummary)
   register({ id: 'perception-union-projection', members: ['perception-v2-test-matrix'] }, result,
     perceptionProjection.tests.map((entry) => `xunit:${entry.id}`), [
