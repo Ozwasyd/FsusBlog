@@ -1,0 +1,163 @@
+{
+  "schema": "fsusblog.historical-topology-test-dispositions.v1",
+  "baselineCommit": "d5c0903cd5b3f715c0f7e564fe44e48ba3ad8ded",
+  "policy": "Every test in the mixed historical-topology cleanup scope is explicitly kept, deleted, or rewritten to a semantic behavior owner.",
+  "sources": [
+    {
+      "path": "tests/tools/local-production-profile.test.mjs",
+      "keep": [
+        "collectLogicalTierIds returns the complete dependency closure",
+        "production profile requires exact fresh logical-tier coverage",
+        "physical bundle creation rejects malformed resolved startup policy",
+        "local production derives full CPU, safe memory and launch parallelism from the machine",
+        "production bundle resources resolve from each machine and fill its usable capacity",
+        "frontend steady admission floor follows machine capacity and cannot deadlock its worker host",
+        "declared output digests fail closed for missing direct and wildcard artifacts",
+        "artifact substitutions use a parser-compatible flat contract and reject ambiguous mappings",
+        "repository production t0 grants scale by weights without exceeding each machine",
+        "production checkpoint projection binds every logical tier to one fresh run and source state",
+        "local production runner attaches the logical projection only after fresh physical evidence is complete",
+        "cold frontend static phases move to frontend-tests while build-static remains build focused",
+        "runtime early start is guarded by run-bound atomic backend and frontend build markers",
+        "performance marker producers are exact and quiet markers publish only after bundle finalization",
+        "bundle child processes inherit their admitted machine-resolved CPU and memory",
+        "bundle execution waits derive deadlines from matrix budgets and scheduler capacity",
+        "production evidence is assigned to the earliest safe physical bundle without being omitted",
+        "fresh production cleanup removes outputs and preserves dependency caches",
+        "fresh production cleanup preserves an external temp root and its dependency caches",
+        "fresh production capacity preflight checks the real Docker data filesystem",
+        "acceptance services enforce a bounded log file size",
+        "acceptance backend derives thread-pool capacity from machine CPUs and burst policy",
+        "acceptance bootstrap starts independent services within dynamic CPU and memory grants",
+        "acceptance service ports stay below the kernel ephemeral range and Vite cannot drift",
+        "bundle evidence must prove every member with executed IDs and digests",
+        "performance deadline evidence binds the mixed floor to same-run measured serial time",
+        "bundle step timing derives duration and finish from one clock sample",
+        "bundle evidence is bound to matrix runtime declarations or an explicit command-log fallback",
+        "local bundle runner never silently drops a declared artifact"
+      ],
+      "rewrite": [
+        { "before": "production profile fixes the approved local resource and bundle contract", "replacementTestIds": ["node-test:tests/tools/local-production-profile.test.mjs#production-profile-rejects-invalid-resource-declarations"] },
+        { "before": "repository production profile maps every logical tier exactly once", "replacementTestIds": ["node-test:tests/tools/local-production-profile.test.mjs#repository-production-profile-maps-every-logical-tier-exactly-once"] },
+        { "before": "physical bundle DAG preserves dependencies and derives deadlines from resolved machine resources", "replacementTestIds": ["node-test:tests/tools/local-production-profile.test.mjs#physical-bundle-dag-preserves-dependencies-and-derives-deadlines-from-resolved-machine-resources"] },
+        { "before": "backend bundle publishes server readiness before independent tests and benchmark builds", "replacementTestIds": ["node-test:tests/tools/local-production-profile.test.mjs#backend-bundle-exposes-run-bound-readiness-and-exact-union-contracts"] }
+      ],
+      "delete": [
+        { "before": "legacy local bundles retain explicit startup compatibility fallbacks", "replacementTestIds": ["node-test:tests/tools/local-production-profile.test.mjs#physical-bundle-creation-rejects-malformed-resolved-startup-policy"] },
+        { "before": "local production cleans stale runtimes before measuring machine capacity", "replacementTestIds": ["node-test:tests/tools/local-runtime-cleanup.test.mjs"] },
+        { "before": "production run summary fails closed beyond the five-minute wall budget", "replacementTestIds": ["node-test:tests/tools/local-production-profile.test.mjs#production-checkpoint-projection-binds-every-logical-tier-to-one-fresh-run-and-source-state"] },
+        { "before": "observe-only production records its optimization target without failing or truncating a natural run", "replacementTestIds": ["node-test:tests/tools/local-production-profile.test.mjs#production-checkpoint-projection-binds-every-logical-tier-to-one-fresh-run-and-source-state"] },
+        { "before": "repository physical DAG starts runtime and performance coordination immediately", "replacementTestIds": ["node-test:tests/tools/local-production-profile.test.mjs#physical-bundle-dag-preserves-dependencies-and-derives-deadlines-from-resolved-machine-resources"] }
+      ]
+    },
+    {
+      "path": "tests/tools/issue-1150-browserless-ci-topology.test.mjs",
+      "keep": [],
+      "rewrite": [
+        { "before": "production correctness dependency closure is completely browserless", "replacementTestIds": ["node-test:tests/tools/browserless-correctness-contract.test.mjs#production-correctness-dependency-closure-has-no-browser-capability"] },
+        { "before": "release final contains exactly one declared browser tier", "replacementTestIds": ["node-test:tests/tools/browserless-correctness-contract.test.mjs#release-closeout-binds-one-immutable-browser-contract-without-adding-it-to-correctness"] },
+        { "before": "every browser-launching tier declares the browser resource boundary", "replacementTestIds": ["node-test:tests/tools/browserless-correctness-contract.test.mjs#every-browser-capable-tier-declares-the-browser-resource-boundary"] },
+        { "before": "smart gate selects Browser Contract only for its explicit boundary", "replacementTestIds": ["node-test:tests/tools/browserless-correctness-contract.test.mjs#smart-gate-behavior-selects-browser-work-only-for-declared-boundary-inputs"] }
+      ],
+      "delete": [
+        { "before": "direct correctness runs observe duration without truncating tests", "replacementTestIds": ["node-script:tools/run-test-matrix.mjs"] },
+        { "before": "canonical correctness leaves cannot hide direct Chromium launch scripts or a second production DAG", "replacementTestIds": ["node-test:tests/tools/browserless-correctness-contract.test.mjs#production-correctness-dependency-closure-has-no-browser-capability"] },
+        { "before": "ordinary quality gate has one conditional zero-retry Chromium job", "replacementTestIds": ["node-script:tools/check-workflow-matrix-sync.mjs"] }
+      ]
+    },
+    {
+      "path": "tests/tools/issue-1150-matrix-commands.test.mjs",
+      "keep": [],
+      "rewrite": [
+        { "before": "logical native measurements hold a machine-quiet benchmark window", "replacementTestIds": ["node-test:tests/tools/test-matrix-resource-contract.test.mjs#native-measurements-reserve-an-exclusive-benchmark-window"] },
+        { "before": "ordinary backend discovery cannot overlap Coverlet instrumentation of the shared assembly", "replacementTestIds": ["node-test:tests/tools/test-matrix-resource-contract.test.mjs#backend-discovery-and-coverage-share-one-instrumentation-exclusion"] },
+        { "before": "ordinary and coverage Vitest executions cannot race the same unit transform graph", "replacementTestIds": ["node-test:tests/tools/test-matrix-resource-contract.test.mjs#ordinary-and-coverage-vitest-executions-share-one-transform-exclusion"] },
+        { "before": "production correctness dependency closure is browserless and retains immutable build identity", "replacementTestIds": ["node-test:tests/tools/browserless-correctness-contract.test.mjs#production-correctness-dependency-closure-has-no-browser-capability"] },
+        { "before": "release final introduces exactly one explicit single-Chromium Browser Contract", "replacementTestIds": ["node-test:tests/tools/browserless-correctness-contract.test.mjs#release-closeout-binds-one-immutable-browser-contract-without-adding-it-to-correctness"] },
+        { "before": "every declared Playwright tier owns a browser resource and diagnostics owns migrated probes", "replacementTestIds": ["node-test:tests/tools/test-matrix-resource-contract.test.mjs#browser-capable-tiers-cannot-hide-outside-browser-resources"] }
+      ],
+      "delete": [
+        { "before": "local entrypoints expose the four issue 1150 commands explicitly", "replacementTestIds": ["node-script:tools/check-test-matrix.mjs"] },
+        { "before": "matrix governance has one run-bound output owner across every consumer", "replacementTestIds": ["node-script:tools/test/check-physical-execution-consumer-evidence.mjs"] },
+        { "before": "release admin and auth flows own browserless Vitest evidence", "replacementTestIds": ["node-script:tools/check-test-matrix.mjs"] },
+        { "before": "migrated Acceptance and release browser probes are reachable only through diagnostics", "replacementTestIds": ["node-script:tools/check-browser-test-migration.mjs"] },
+        { "before": "canonical correctness leaves do not hide browser launches or a second production DAG", "replacementTestIds": ["node-test:tests/tools/browserless-correctness-contract.test.mjs#production-correctness-dependency-closure-has-no-browser-capability"] }
+      ]
+    },
+    {
+      "path": "tests/tools/backend-perf-lane-parallelism.test.mjs",
+      "keep": [],
+      "rewrite": [
+        { "before": "Release writer lock is not inherited by a detached compiler descendant", "replacementTestIds": ["node-test:tests/tools/backend-build-lock-behavior.test.mjs#release-writer-lock-is-not-inherited-by-a-detached-descendant"] }
+      ],
+      "delete": [
+        { "before": "backend perf prepares Release readers in parallel before opening an isolated native P99 window", "replacementTestIds": ["node-test:tests/tools/test-matrix-resource-contract.test.mjs#native-measurements-reserve-an-exclusive-benchmark-window"] },
+        { "before": "backend perf uses the shared run-bound Release build producer", "replacementTestIds": ["node-test:tests/tools/backend-build-lock-behavior.test.mjs#release-writer-lock-serializes-competing-writers"] },
+        { "before": "all logical benchmark consumers share one warning-free build and remain no-build readers", "replacementTestIds": ["node-test:tests/tools/backend-build-lock-behavior.test.mjs#release-writer-lock-serializes-competing-writers"] },
+        { "before": "shared backend producers bind scheduler source identity without hashing runtime-mutated source directories", "replacementTestIds": ["node-test:tests/tools/local-production-profile.test.mjs#production-checkpoint-projection-binds-every-logical-tier-to-one-fresh-run-and-source-state"] },
+        { "before": "dynamic .NET grant resolvers propagate failure even inside collector conditionals", "replacementTestIds": ["node-test:tests/tools/runtime-worker-admission.test.mjs#focused-orchestration-uses-its-inherited-grant-without-a-live-grant-file"] },
+        { "before": "production artifact builds share the same run-bound Release writer lock", "replacementTestIds": ["node-test:tests/tools/backend-build-lock-behavior.test.mjs#release-writer-lock-serializes-competing-writers"] },
+        { "before": "backend performance tests consume the fresh Release test assembly without a duplicate Debug build", "replacementTestIds": ["node-test:tests/tools/backend-build-lock-behavior.test.mjs#release-writer-lock-serializes-competing-writers"] }
+      ]
+    },
+    {
+      "path": "tests/tools/runtime-integration-parallelism.test.mjs",
+      "keep": [],
+      "rewrite": [
+        { "before": "orchestration pool shares one admitted CPU between two bounded children", "replacementTestIds": ["node-test:tests/tools/runtime-worker-admission.test.mjs#orchestration-admission-shares-one-granted-cpu-between-two-bounded-children"] },
+        { "before": "direct focused orchestration uses the inherited step grant without requiring a live grant file", "replacementTestIds": ["node-test:tests/tools/runtime-worker-admission.test.mjs#focused-orchestration-uses-its-inherited-grant-without-a-live-grant-file"] }
+      ],
+      "delete": [
+        { "before": "runtime integration retains every check exactly once while parallelizing only shared-state-safe work", "replacementTestIds": ["shell:tools/test/lanes/runtime-integration.sh"] },
+        { "before": "diagnostics-only pow runtime parallelizes isolated browser contexts with a machine-derived bounded pool", "replacementTestIds": ["node-script:tests/frontend/checks/runtime/pow-runtime-regression.mjs"] },
+        { "before": "runtime integration collects independent pool and stateful failures before failing the lane", "replacementTestIds": ["shell:tools/test/lanes/runtime-integration.sh"] },
+        { "before": "distribution coherence reuses only current-run taxonomy and keeps every lifecycle assertion", "replacementTestIds": ["node-script:tests/frontend/checks/runtime/distribution-version-coherence-smoke.mjs"] }
+      ]
+    },
+    {
+      "path": "tests/tools/security-runtime-parallelism.test.mjs",
+      "keep": [],
+      "rewrite": [
+        { "before": "security domain layout gate uses Node without depending on the checker executable bit", "replacementTestIds": ["node-test:tests/tools/security-worker-admission.test.mjs#security-domain-checker-runs-through-node-without-executable-permission"] },
+        { "before": "scheduler-admitted static pool trusts a current live 1 to 2 CPU expansion despite stale host pressure", "replacementTestIds": ["node-test:tests/tools/security-worker-admission.test.mjs#scheduler-admitted-security-pool-follows-a-current-live-grant"] },
+        { "before": "ordinary adaptive pool trusts an admitted live grant despite stale host load and memory readings", "replacementTestIds": ["node-test:tests/tools/security-worker-admission.test.mjs#ordinary-security-pool-follows-an-admitted-grant-despite-stale-host-pressure"] }
+      ],
+      "delete": [
+        { "before": "security static phase is bootstrap-free and retains every static gate exactly once", "replacementTestIds": ["node-script:tools/security/check-security-domain-layout.mjs"] },
+        { "before": "adaptive security pools re-read fail-closed live grants without abandoning active jobs", "replacementTestIds": ["node-test:tests/tools/security-worker-admission.test.mjs#scheduler-admitted-security-pool-follows-a-current-live-grant"] },
+        { "before": "security runtime core keeps isolated runtime checks after one preparation reset", "replacementTestIds": ["shell:tools/test/lanes/security-runtime.sh"] },
+        { "before": "correctness session-mutating security checks receive stable unique user, admin and device suffixes", "replacementTestIds": ["shell:tools/test/lanes/security-runtime.sh"] },
+        { "before": "attack resets stay exclusive while local exposure is mandatory and external closeout remains explicit", "replacementTestIds": ["shell:tools/test/lanes/security-runtime.sh"] },
+        { "before": "combined direct security lane launches both phases independently and aggregates their failures", "replacementTestIds": ["shell:tools/test/lanes/security-runtime.sh"] }
+      ]
+    },
+    {
+      "path": "tests/tools/issue-1151-browser-migration-governance.test.mjs",
+      "keep": [],
+      "rewrite": [
+        { "before": "repository migration manifest resolves every old Browser test identity", "replacementTestIds": ["node-test:tests/tools/browser-migration-contract.test.mjs#repository-browser-migration-contract-is-internally-consistent"] },
+        { "before": "every declared replacement target resolves to a current file, test, contract, or diagnostic category", "replacementTestIds": ["node-test:tests/tools/browser-migration-contract.test.mjs#every-migration-replacement-resolves-to-a-current-semantic-owner"] },
+        { "before": "an old Browser test cannot disappear without a source-ID mapping", "replacementTestIds": ["node-test:tests/tools/browser-migration-contract.test.mjs#unmapped-or-silently-removed-browser-identities-fail-closed"] },
+        { "before": "a retained diagnostic identity cannot be silently deleted", "replacementTestIds": ["node-test:tests/tools/browser-migration-contract.test.mjs#unmapped-or-silently-removed-browser-identities-fail-closed"] },
+        { "before": "replacement none fails closed without an issue-bound reason and approval", "replacementTestIds": ["node-test:tests/tools/browser-migration-contract.test.mjs#browser-only-risk-requires-a-real-browser-replacement-or-approved-removal"] },
+        { "before": "browser-only risk cannot be declared equivalent to happy-dom", "replacementTestIds": ["node-test:tests/tools/browser-migration-contract.test.mjs#browser-only-risk-requires-a-real-browser-replacement-or-approved-removal"] }
+      ],
+      "delete": [
+        { "before": "frozen history catches a test deleted inside a surviving Browser spec", "replacementTestIds": ["node-script:tools/check-browser-test-migration.mjs"] },
+        { "before": "frozen history also covers removed browser resource and elastic-pool orchestration tests", "replacementTestIds": ["node-script:tools/check-browser-test-migration.mjs"] },
+        { "before": "frozen history rejects deleting one approved retired identity from its authority", "replacementTestIds": ["node-script:tools/check-browser-test-migration.mjs"] },
+        { "before": "frozen history rejects substituting an unrelated historical identity for a retired one", "replacementTestIds": ["node-script:tools/check-browser-test-migration.mjs"] },
+        { "before": "frozen history rejects an invalid retired identity digest", "replacementTestIds": ["node-script:tools/check-browser-test-migration.mjs"] },
+        { "before": "frozen history rejects duplicate retired identity digests", "replacementTestIds": ["node-script:tools/check-browser-test-migration.mjs"] },
+        { "before": "frozen history requires the manifest digest pairs in pinned authority order", "replacementTestIds": ["node-script:tools/check-browser-test-migration.mjs"] },
+        { "before": "frozen history rejects a coordinated fallback, authority, count, and expected-total rewrite", "replacementTestIds": ["node-script:tools/check-browser-test-migration.mjs"] },
+        { "before": "frozen fallback record-set authority remains pinned when git history is unavailable", "replacementTestIds": ["node-script:tools/check-browser-test-migration.mjs"] },
+        { "before": "canonical fallback remains authoritative when git history is unavailable", "replacementTestIds": ["node-script:tools/check-browser-test-migration.mjs"] },
+        { "before": "frozen fallback rejects a provenance-only baseline commit rewrite when git history is unavailable", "replacementTestIds": ["node-script:tools/check-browser-test-migration.mjs"] },
+        { "before": "frozen fallback rejects a provenance-only scope rewrite when git history is unavailable", "replacementTestIds": ["node-script:tools/check-browser-test-migration.mjs"] },
+        { "before": "focused fixture accepts correctness, Browser Contract, diagnostics, in-place and approved removal records", "replacementTestIds": ["node-test:tests/tools/browser-migration-contract.test.mjs#repository-browser-migration-contract-is-internally-consistent"] },
+        { "before": "#1146 replacement IDs cannot drift behind the composed authority", "replacementTestIds": ["node-script:tools/check-browser-test-migration.mjs"] }
+      ]
+    }
+  ]
+}

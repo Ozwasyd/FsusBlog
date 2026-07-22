@@ -48,23 +48,11 @@ new view first entered the DOM:
 
 Representative transient frames:
 
-| State | Evidence |
-| --- | --- |
-| identity before: old view still fading after navigation | [image](assets/screenshots/issue-1312/before-identity-transient.png) |
-| identity after: new view present in the first sampled frame | [image](assets/screenshots/issue-1312/after-identity-transient.png) |
-| admin before: old dashboard still fading | [image](assets/screenshots/issue-1312/before-admin-transient.png) |
-| admin after: collection immediately visible | [image](assets/screenshots/issue-1312/after-admin-transient.png) |
-| inbox takeover after: pane immediately visible | [image](assets/screenshots/issue-1312/after-inbox-transient.png) |
-| reduced motion after: target immediately visible | [image](assets/screenshots/issue-1312/after-reduced-transient.png) |
-
-Settled composition evidence is also retained for
-[identity before](assets/screenshots/issue-1312/before-identity-settled.png) /
-[identity after](assets/screenshots/issue-1312/after-identity-settled.png) and
-[admin before](assets/screenshots/issue-1312/before-admin-settled.png) /
-[admin after](assets/screenshots/issue-1312/after-admin-settled.png). Inspection
-found no layout, typography, spacing, color, border, or content change. The
-desktop admin pair differs by six antialias pixels; the mobile identity pair's
-small difference is localized to navigation text rasterization, with unchanged
+The transient before/after campaign was retired after the motion contract was
+accepted. Settled composition remains represented by the deterministic
+[admin dashboard](assets/screenshots/admin-dashboard.png) and
+[security console](assets/screenshots/security-console.png) baselines. Inspection
+found no layout, typography, spacing, color, border, or content change, with unchanged
 DOM, CSS, geometry, and content.
 
 Every final scenario verified the exact URL/title, meaningful H1 content, no

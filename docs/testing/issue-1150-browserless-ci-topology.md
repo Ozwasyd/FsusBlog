@@ -49,7 +49,7 @@
 - `browser-contract` 必须固定 Chromium、不可并行、10 分钟、自举 runtime，并且只依赖 immutable build producer；
 - `release-final` 自身 browserless，传递闭包中唯一 browser tier 必须是 `browser-contract`。
 
-`tools/check-workflow-matrix-sync.mjs` 同时校验唯一 Chromium install/cache、固定 worker 1、immutable build consumer 与零 retry。`tests/tools/issue-1150-browserless-ci-topology.test.mjs` 额外沿 shell/npm 间接调用检查 production 不会重新带回 search、PoW、permission 或 zero-auth Chromium probe。
+`tools/check-workflow-matrix-sync.mjs` 同时校验唯一 Chromium install/cache、固定 worker 1、immutable build consumer 与零 retry。`tests/tools/browserless-correctness-contract.test.mjs` 额外沿 shell/npm 间接调用检查 production 不会重新带回 search、PoW、permission 或 zero-auth Chromium probe。
 
 直接执行 `production-correctness`、兼容别名 `production` 或 `release-final` 时，browserless correctness tier 只观测实际时长，不再把矩阵中的 CI timeout 元数据变成进程截杀预算；因此慢 tier 会自然完成并一次性暴露错误。唯一例外是 Browser Contract 自身仍保留 issue 规定的 10 分钟 fail-closed deadline。CI job 的外层 `timeout-minutes` 不受影响。
 

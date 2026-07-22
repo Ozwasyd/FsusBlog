@@ -36,13 +36,11 @@ no framework overlay, clean error/warning diagnostics, native auth hrefs, and
 the target interaction. Desktop-open runs also verified input focus after the
 ordinary search-trigger click.
 
-| State | Before | After | Classification |
-| --- | --- | --- | --- |
-| desktop light, closed | [image](assets/screenshots/issue-1306/before-1365x768-light-desktop-closed.png) | [image](assets/screenshots/issue-1306/after-1365x768-light-desktop-closed.png) | upstream shell harmonization |
-| desktop light, open | [image](assets/screenshots/issue-1306/before-1365x768-light-desktop-open.png) | [image](assets/screenshots/issue-1306/after-1365x768-light-desktop-open.png) | upstream panel geometry/focus harmonization |
-| desktop dark, open | [image](assets/screenshots/issue-1306/before-1365x768-dark-desktop-open.png) | [image](assets/screenshots/issue-1306/after-1365x768-dark-desktop-open.png) | upstream panel geometry/focus harmonization |
-| mobile light, menu open | [image](assets/screenshots/issue-1306/before-390x844-light-mobile-menu-open.png) | [image](assets/screenshots/issue-1306/after-390x844-light-mobile-menu-open.png) | canonical auth placement outside product utility slot |
-| mobile dark, menu open | [image](assets/screenshots/issue-1306/before-390x844-dark-mobile-menu-open.png) | [image](assets/screenshots/issue-1306/after-390x844-dark-mobile-menu-open.png) | canonical auth placement outside product utility slot |
+The one-off before/after captures were retired after review. Current shell
+composition is represented by the deterministic
+[light public baseline](assets/screenshots/public-home-light.png),
+[dark public baseline](assets/screenshots/public-dark.png), and their
+[provenance manifest](assets/screenshots/manifest.json).
 
 The visible changes are limited to the search/auth/action region allowed by
 #1306. Brand geometry, primary navigation hierarchy, header height, footer,

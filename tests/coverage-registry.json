@@ -1536,8 +1536,8 @@
                 "tools/test/lanes/browser-runtime-risk-diagnostics.sh",
                 ".github/workflows/quality-gate.yml",
                 ".github/workflows/browser-diagnostics.yml",
-                "tests/tools/issue-1150-matrix-commands.test.mjs",
-                "tests/tools/issue-1150-browserless-ci-topology.test.mjs",
+                "tests/tools/test-matrix-resource-contract.test.mjs",
+                "tests/tools/browserless-correctness-contract.test.mjs",
                 "docs/testing/issue-1150-browserless-ci-topology.md"
             ],
             "assertionType": "static",
@@ -1567,7 +1567,7 @@
                 "tests/tools/local-runtime-cleanup.test.mjs",
                 "tests/tools/issue-1149-browser-contract-fixture.test.mjs",
                 "tests/tools/issue-1149-session-isolation.test.mjs",
-                "tests/tools/issue-1150-browserless-ci-topology.test.mjs",
+                "tests/tools/browserless-correctness-contract.test.mjs",
                 ".github/workflows/quality-gate.yml",
                 "docs/testing/browser-contract.md",
                 "docs/testing/issue-1149-browser-contract-fixture.md",
@@ -1592,8 +1592,8 @@
                 "tests/issue-1148-browser-diagnostics-migration.json",
                 "tests/tools/browser-diagnostics.test.mjs",
                 "tools/test/lanes/browser-runtime-risk-diagnostics.sh",
-                "tests/tools/issue-1150-matrix-commands.test.mjs",
-                "tests/tools/issue-1150-browserless-ci-topology.test.mjs",
+                "tests/tools/test-matrix-resource-contract.test.mjs",
+                "tests/tools/browserless-correctness-contract.test.mjs",
                 ".github/workflows/browser-diagnostics.yml",
                 "docs/testing/issue-1148-browser-diagnostics.md",
                 "docs/testing/issue-1150-browserless-ci-topology.md"
@@ -2613,7 +2613,12 @@
             "risk": "critical",
             "evidencePaths": [
                 ".tmp/release-evidence/test-retention-audit.json",
-                "tests/test-retention-before.json"
+                "tests/test-retention-before.json",
+                "tests/governance/historical-topology-test-dispositions.json",
+                "tests/tools/historical-topology-test-dispositions.test.mjs",
+                "tests/tools/backend-build-lock-behavior.test.mjs",
+                "tests/tools/runtime-worker-admission.test.mjs",
+                "tests/tools/security-worker-admission.test.mjs"
             ],
             "assertionType": "static",
             "failClosedRule": "matrix-validate requires both the tracked before snapshot and current retention audit to be declared by static-governance; final authority rejects a missing source binding, undeclared test/assertion loss, catalog loss, a producer runId that differs from the production checkpoint, or an audit generated before checkpoint completion.",
@@ -3815,7 +3820,7 @@
             "risk": "critical",
             "evidencePaths": [
                 "tests/governance/browser-test-migration.json",
-                "tests/fixtures/issue-1151-browser-migration/historical-deleted-tests.json",
+                "tests/fixtures/browser-migration/historical-deleted-tests.json",
                 "tools/check-browser-test-migration.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/release/test-evidence-receipts-cli.mjs",
@@ -3827,7 +3832,7 @@
                 "tests/browser-contract/run.mjs",
                 "tests/browser-diagnostics/catalog.mjs",
                 "tests/browser-diagnostics/run.mjs",
-                "tests/tools/issue-1151-browser-migration-governance.test.mjs",
+                "tests/tools/browser-migration-contract.test.mjs",
                 "tests/tools/issue-1151-evidence-governance.test.mjs",
                 "tests/tools/issue-1151-flaky-governance.test.mjs",
                 "tests/tools/issue-1151-receipt-aggregate.test.mjs",

@@ -39,6 +39,12 @@
       "recursive": true
     },
     {
+      "id": "public-preview-screenshot-capture",
+      "owner": "documentation-visual-evidence",
+      "canonicalPath": "config/docs/public-preview-screenshots.json",
+      "pathType": "file"
+    },
+    {
       "id": "observability-slo",
       "owner": "operations-observability",
       "canonicalPath": "config/observability/slo.yml",

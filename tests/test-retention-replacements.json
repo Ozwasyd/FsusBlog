@@ -4976,7 +4976,6 @@
             "path": "tests/frontend/unit/services/publicReadHydrationGuard.test.ts",
             "replacementTestIds": [
                 "node-script:tests/frontend/checks/static/check-public-atomic-takeover-governance.mjs",
-                "vitest:tests/frontend/unit/services/publicReadHydrationGuard.test.ts#suppresses-optional-public-read-hydration-when-acceptanc-b24eaddff0",
                 "vitest:tests/frontend/unit/services/publicReadHydrationGuard.test.ts#suppresses-optional-public-read-hydration-from-the-expli-49889629aa"
             ],
             "reason": "source assertion removed while direct behavior tests remain in the file or its static owner"
@@ -7752,7 +7751,8 @@
             "id": "xunit:tests/backend/Unit/IntegrityProofVerificationMatrixTests.cs#IntegrityProofVerificationMatrixTests.ToolingMatrixAndDocsExposeIntegrityProofVerificationGate",
             "path": "tests/backend/Unit/IntegrityProofVerificationMatrixTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/IntegrityProofVerificationMatrixTests.cs#IntegrityProofVerificationMatrixTests.VerificationTool_EmitsOfflineReleaseEvidenceAndPropagatesFailure"
+                "xunit:tests/backend/Unit/IntegrityProofVerificationMatrixTests.cs#IntegrityProofVerificationMatrixTests.ProjectionTool_EmitsIndependentReceiptAndPropagatesFailure",
+                "node-test:tests/tools/integrity-proof-projection.test.mjs#backend-exact-union-results-produce-a-traceable-integrit-5c63f9a7cd"
             ],
             "reason": "The replacement executes the real verification evidence tool through a fake dotnet process boundary, validates its offline release evidence and tamper/public-model contract, and proves command failure is propagated."
         },

@@ -9,7 +9,7 @@
             "tests/tools/runtime-browser-resource-plan.test.mjs",
             "tests/tools/ux-risk-elastic-pool.test.mjs"
         ],
-        "fallback": "tests/fixtures/issue-1151-browser-migration/historical-deleted-tests.json",
+        "fallback": "tests/fixtures/browser-migration/historical-deleted-tests.json",
         "retiredRecordCount": 2,
         "retiredRecords": [
             {
@@ -72,7 +72,7 @@
                 ],
                 "replacementLayer": "correctness",
                 "replacementTestIds": [
-                    "node-test:tests/tools/issue-1150-browserless-ci-topology.test.mjs#every-browser-launching-tier-declares-the-browser-resour-40d7e73c6d",
+                    "node-test:tests/tools/browserless-correctness-contract.test.mjs#every-browser-capable-tier-declares-the-browser-resource-df63a35678",
                     "node-test:tests/tools/browser-diagnostics.test.mjs#diagnostics-topology-is-fixed-managed-and-independent-fr-cea18d9ce2"
                 ],
                 "browserOnlyRisk": {

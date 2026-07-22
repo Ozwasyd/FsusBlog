@@ -43,13 +43,11 @@ and title, meaningful page content, no Vite overlay, zero page/console
 error-or-warning diagnostics, native auth links, and the target interaction.
 Desktop-open runs also verified that opening Search focuses its input.
 
-| State | Before | After | Classification |
-| --- | --- | --- | --- |
-| desktop light, Search closed | [image](assets/screenshots/issue-1307/before-1365x768-light-desktop-closed.png) | [image](assets/screenshots/issue-1307/after-1365x768-light-desktop-closed.png) | expected FsusUI canonical nav/control spacing |
-| desktop light, Search open | [image](assets/screenshots/issue-1307/before-1365x768-light-desktop-open.png) | [image](assets/screenshots/issue-1307/after-1365x768-light-desktop-open.png) | expected FsusUI canonical panel width/padding |
-| desktop dark, Search open | [image](assets/screenshots/issue-1307/before-1365x768-dark-desktop-open.png) | [image](assets/screenshots/issue-1307/after-1365x768-dark-desktop-open.png) | expected FsusUI canonical panel width/padding |
-| mobile light, menu open | [image](assets/screenshots/issue-1307/before-390x844-light-mobile-menu-open.png) | [image](assets/screenshots/issue-1307/after-390x844-light-mobile-menu-open.png) | expected FsusUI canonical menu padding/alignment |
-| mobile dark, menu open | [image](assets/screenshots/issue-1307/before-390x844-dark-mobile-menu-open.png) | [image](assets/screenshots/issue-1307/after-390x844-dark-mobile-menu-open.png) | expected FsusUI canonical menu padding/alignment |
+The reviewed campaign captures were retired instead of remaining as active
+baselines. Canonical public-shell ownership is now checked against the
+[light public baseline](assets/screenshots/public-home-light.png),
+[dark public baseline](assets/screenshots/public-dark.png), and the
+[provenance manifest](assets/screenshots/manifest.json).
 
 There are no product-owned exceptions and no observed regressions. Blog brand,
 reading content, footer content/composition, light/dark palette, focus transfer,

@@ -989,12 +989,12 @@ requireFileIncludes(
   'docs/testing.md must document visual screenshot tier split and aggregate evidence'
 )
 for (const testFile of [
-  'tests/tools/issue-1150-matrix-commands.test.mjs',
-  'tests/tools/issue-1150-browserless-ci-topology.test.mjs'
+  'tests/tools/test-matrix-resource-contract.test.mjs',
+  'tests/tools/browserless-correctness-contract.test.mjs'
 ]) {
   const result = spawnSync(process.execPath, ['--test', testFile], { cwd: root, encoding: 'utf8' })
   if (result.stdout) process.stdout.write(result.stdout)
   if (result.stderr) process.stderr.write(result.stderr)
-  requireCondition(result.status === 0, `${testFile} must pass the #1150 browser-boundary governance contract`)
+  requireCondition(result.status === 0, `${testFile} must pass the browser-boundary governance contract`);
 }
 console.log('[test-matrix] ok')

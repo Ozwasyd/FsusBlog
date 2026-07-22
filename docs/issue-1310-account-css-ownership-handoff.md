@@ -36,15 +36,11 @@ URL/title, meaningful H1 content, no Vite overlay, zero page or console
 error/warning diagnostics, zero horizontal overflow, and a real action state
 change with a `44px` target.
 
-| Surface and state | Before | After | Classification |
-| --- | --- | --- | --- |
-| identity settings, desktop light | [image](assets/screenshots/issue-1310/before-identity-settings-1365x768-light.png) | [image](assets/screenshots/issue-1310/after-identity-settings-1365x768-light.png) | pixel-identical; ownership-only |
-| identity inbox takeover, mobile dark | [image](assets/screenshots/issue-1310/before-identity-inbox-390x844-dark.png) | [image](assets/screenshots/issue-1310/after-identity-inbox-390x844-dark.png) | expected: inbox now fills the takeover frame; content/control geometry is unchanged |
-| admin dashboard, desktop dark | [image](assets/screenshots/issue-1310/before-admin-dashboard-1365x768-dark.png) | [image](assets/screenshots/issue-1310/after-admin-dashboard-1365x768-dark.png) | pixel-identical; ownership-only |
-| admin collection, desktop light | [image](assets/screenshots/issue-1310/before-admin-collection-1365x768-light.png) | [image](assets/screenshots/issue-1310/after-admin-collection-1365x768-light.png) | pixel-identical; FsusUI internals no longer overridden |
-| admin form, mobile light | [image](assets/screenshots/issue-1310/before-admin-form-390x844-light.png) | [image](assets/screenshots/issue-1310/after-admin-form-390x844-light.png) | pixel-identical; responsive composition retained |
-| admin settings, desktop dark | [image](assets/screenshots/issue-1310/before-admin-settings-1365x768-dark.png) | [image](assets/screenshots/issue-1310/after-admin-settings-1365x768-dark.png) | pixel-identical; ownership-only |
-| admin console takeover, mobile dark | [image](assets/screenshots/issue-1310/before-admin-console-390x844-dark.png) | [image](assets/screenshots/issue-1310/after-admin-console-390x844-dark.png) | pixel-identical; takeover and footer stacking retained |
+The review-only comparison set was retired after ownership transfer. Current
+account/admin composition is represented by the deterministic
+[admin dashboard](assets/screenshots/admin-dashboard.png),
+[security console](assets/screenshots/security-console.png), and
+[operations status](assets/screenshots/operations-status.png) baselines.
 
 There are no product-owned visual regressions. The only visible change is the
 intended inbox takeover fill, which prevents unused frame height from escaping

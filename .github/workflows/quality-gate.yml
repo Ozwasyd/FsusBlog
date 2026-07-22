@@ -263,6 +263,8 @@ jobs:
                       .tmp/backend-concurrency/**
                       .tmp/backend-golden/**
                       .tmp/backend-property/**
+                      .tmp/test-results/backend/evidence-producers/backend-unit.json
+                      .tmp/test-results/backend/integrity-proof-source.json
                       .tmp/coverage/backend/**
                       .tmp/coverage/backend-merged/**
                       .tmp/release-evidence/integrity-proof-verification.json
