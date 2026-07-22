@@ -126,10 +126,19 @@ async function assertHomeEditorialContract(page: Page): Promise<void> {
     }
   }
 
-  const articleIds = await page.locator('#fsus-home-main-column [data-article-id]').evaluateAll((elements) =>
+  const recommendationIds = await page.locator(
+    '#fsus-home-main-column [data-home-editorial-lead][data-article-id], #fsus-home-main-column [data-home-editorial-secondary] [data-article-id]'
+  ).evaluateAll((elements) =>
     elements.map((element) => element.getAttribute('data-article-id')).filter((id): id is string => Boolean(id))
   )
-  expect(new Set(articleIds).size).toBe(articleIds.length)
+  expect(new Set(recommendationIds).size).toBe(recommendationIds.length)
+
+  const feedIds = await page.locator(
+    '#fsus-home-main-column [data-home-feed-section] [data-article-id]'
+  ).evaluateAll((elements) =>
+    elements.map((element) => element.getAttribute('data-article-id')).filter((id): id is string => Boolean(id))
+  )
+  expect(new Set(feedIds).size).toBe(feedIds.length)
 
   const ordinaryArticleEntryCounts = await page
     .locator('#fsus-home-main-column article:has(a[data-public-link="article"])')
@@ -138,10 +147,12 @@ async function assertHomeEditorialContract(page: Page): Promise<void> {
 
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await expect(page.locator('#fsus-home-main-column')).toBeVisible()
-  const reducedMotionArticleIds = await page.locator('#fsus-home-main-column [data-article-id]').evaluateAll((elements) =>
+  const reducedMotionFeedIds = await page.locator(
+    '#fsus-home-main-column [data-home-feed-section] [data-article-id]'
+  ).evaluateAll((elements) =>
     elements.map((element) => element.getAttribute('data-article-id')).filter((id): id is string => Boolean(id))
   )
-  expect(reducedMotionArticleIds).toEqual(articleIds)
+  expect(reducedMotionFeedIds).toEqual(feedIds)
 }
 
 async function assertPublicCoverRendering(page: Page, label: string): Promise<void> {

@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { mount } from '@vue/test-utils'
-import { defineComponent, nextTick } from 'vue'
+import { defineComponent, h, nextTick } from 'vue'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { FeaturedArticleItem, PopularArticleSummaryResponse } from '@/api/article'
 import FeaturedArticlesSection from '@/components/home/FeaturedArticlesSection.vue'
@@ -334,6 +334,43 @@ describe('home editorial components', () => {
       expect.arrayContaining(['border-t', 'pt-10'])
     )
     expect(wrapper.get('[data-home-feed-section]').classes()).not.toContain('border-t-2')
+    wrapper.unmount()
+  })
+
+  it('renders three feed articles even when lead and secondary recommendations reuse them', () => {
+    const feedItems = [card(42), card(2), card(3)]
+    const wrapper = mount(PublicHomePageContent, {
+      props: {
+        view: listView(feedItems),
+        loading: false,
+        isError: false,
+        hasRecommendations: true,
+        showAside: false,
+        showArticleCta: false
+      },
+      slots: {
+        featured: () => [
+          h(FeaturedArticlesSection, { article: featured('/uploads/lead.webp'), loading: false }),
+          h(HomeTextFirstRecommendations, { articles: [recommendation(2)] })
+        ]
+      },
+      global: homeGlobals
+    })
+
+    const recommendationIds = wrapper.findAll(
+      '[data-home-editorial-lead][data-article-id], [data-home-editorial-secondary] [data-article-id]'
+    ).map((node) => Number(node.attributes('data-article-id')))
+    const renderedFeedIds = wrapper.findAll(
+      '[data-home-feed-section] [data-article-id]'
+    ).map((node) => Number(node.attributes('data-article-id')))
+
+    expect(recommendationIds).toEqual([42, 2])
+    expect(new Set(recommendationIds).size).toBe(recommendationIds.length)
+    expect(renderedFeedIds).toEqual([42, 2, 3])
+    expect(renderedFeedIds).toEqual(expect.arrayContaining(recommendationIds))
+    expect(wrapper.get('[data-home-feed-heading]').text()).toBe('最新文章')
+    expect(wrapper.get('nav').text()).toContain('1 / 2')
+
     wrapper.unmount()
   })
 })

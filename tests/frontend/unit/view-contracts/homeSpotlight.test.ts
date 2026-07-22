@@ -211,6 +211,7 @@ describe('home editorial composition', () => {
   })
 
   it.each([
+    { label: 'no articles', ids: [] },
     { label: 'one article', ids: [1] },
     { label: 'two articles', ids: [1, 2] },
     { label: 'three articles', ids: [1, 2, 3] },
@@ -226,6 +227,58 @@ describe('home editorial composition', () => {
     expect(result.composition.feedItems.map((article) => article.id)).toEqual(ids)
     expect(result.view.items.map((article) => article.id)).toEqual(ids)
     expect(result.view.items).toHaveLength(feedItems.length)
+  })
+
+  it.each([
+    {
+      label: 'featured and hot overlap with the current page',
+      featuredArticles: [featured(1)],
+      hotArticles: [hot(1), hot(2)],
+      feedIds: [1, 2, 3],
+      recommendationIds: [1, 2]
+    },
+    {
+      label: 'recommendations come from another page',
+      featuredArticles: [featured(101)],
+      hotArticles: [hot(101), hot(102)],
+      feedIds: [1, 2, 3],
+      recommendationIds: [101, 102]
+    },
+    {
+      label: 'recommendation sources are empty',
+      featuredArticles: [],
+      hotArticles: [],
+      feedIds: [1, 2, 3],
+      recommendationIds: []
+    },
+    {
+      label: 'recommendations contain invalid and absent identities',
+      featuredArticles: [featured(0), featured(999)],
+      hotArticles: [hot(Number.NaN), hot(998)],
+      feedIds: [1, 2, 3],
+      recommendationIds: [999, 998]
+    }
+  ])('keeps the current-page feed when $label', ({
+    featuredArticles,
+    hotArticles,
+    feedIds,
+    recommendationIds
+  }) => {
+    const original = view(feedIds.map(feed))
+    const originalPagination = original.pagination
+    const result = createHomeEditorialPageState({
+      view: original,
+      featuredArticles,
+      hotArticles
+    })
+
+    expect(result.view).toBe(original)
+    expect(result.view.pagination).toBe(originalPagination)
+    expect(result.view.items.map((article) => article.id)).toEqual(feedIds)
+    expect([
+      result.composition.leadArticle?.id,
+      ...result.composition.secondaryArticles.map((article) => article.id)
+    ].filter((id): id is number => id !== undefined)).toEqual(recommendationIds)
   })
 
   it('gives public AOT the same editorial view and controls as the shared SPA state', () => {
