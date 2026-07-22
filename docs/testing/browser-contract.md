@@ -43,6 +43,16 @@ npm --prefix src/frontend run check:browser-contract
 
 调用者必须提供 `FSUSBLOG_TEST_SOURCE_COMMIT`、`FSUSBLOG_TEST_SOURCE_FINGERPRINT` 和 `FSUSBLOG_BROWSER_CONTRACT_BUILD_RECEIPT`。lane 默认使用仓内 `tests/browser-contract/default-fixture-provider.mjs`，也可显式指定符合同一 protocol 的 provider。runtime URL、fixture root 和 namespace 由当前 run identity/producer 产出，不应指向上一轮运行。release-final 不允许跳过 build receipt、回退到系统 Chrome、共享 fixture 或通过 retry 掩盖失败。
 
+## 测试分层与权威 owner
+
+`tests/browser-contract/invariant-owners.json` 是 browser-contract invariant 的机器可校验 owner 清单。每条 invariant 只能绑定一个 canonical test：
+
+- `tests/tools/browser-contract.test.mjs` 只负责 catalog、schema、声明式固定拓扑、runner/adapter 接口禁止项和 evidence retention policy；
+- `tests/browser-contract/fixture-lifecycle.test.mjs` 只负责必须执行才能证明的 namespace/resource 隔离、provider ownership、startup/runtime/cleanup failure、retry、signal 与 final receipt；
+- 静态层不得用 source regex 声称已经执行 cleanup 或 finalization；动态层不得重复检查固定 session/concurrency 常量。
+
+registry 本身由静态 suite 校验 schema、唯一 invariant ID、唯一 owner、层级对应文件和 owner test 存在性。matrix 与 coverage registry 将该清单作为 `release-browser-contract` evidence 输入；test 改名或合并必须同步 retention replacement ledger，不保留兼容壳或 skip。
+
 ## 风险与回退
 
 Browser Contract 失败时 release-final 保持阻断，并根据 receipt 的 `product`、`contract` 或 `infra` 分类定位；browserless production correctness 不会被改写成失败。无论成功、失败、取消或 timeout 都执行同一幂等 cleanup；cleanup failure 单独记录且不覆盖第一个产品/契约失败，并保留当前 identity 的私有 recovery state 供重试。无法证明 container/PID ownership 时必须 fail closed，禁止按名称强制删除。紧急回退可以暂停 release-final 发布动作并保留 browserless gate，不能改用旧 Acceptance 矩阵、系统浏览器、共享 `public` schema 或自动重试生成 clean pass。Nightly/manual visual、cross-browser、geometry 和性能诊断由 #1148 独立承接。

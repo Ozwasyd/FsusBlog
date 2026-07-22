@@ -1,9 +1,9 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:4fe8f51459104d7bcdcea10949554dea55af5c4130ec4d57bf76a9257a2f531b",
-    "sourceStateSha256": "4fe8f51459104d7bcdcea10949554dea55af5c4130ec4d57bf76a9257a2f531b",
+    "generatedFrom": "source-state:7406649ccc57f347ed85f7e2ec6b7b18475a2c481fbaa532908b52cfc146ab26",
+    "sourceStateSha256": "7406649ccc57f347ed85f7e2ec6b7b18475a2c481fbaa532908b52cfc146ab26",
     "configurationSha256": "3aba534caa13d9279fbebb8c81d72486d7154fe3a425764f094dc705b0ddf5f1",
-    "violationCount": 315854,
+    "violationCount": 315443,
     "fileCount": 1074,
     "files": [
         {
@@ -6992,7 +6992,7 @@
         },
         {
             "path": "tests/browser-contract/fixture-lifecycle.test.mjs",
-            "sourceSha256": "03f3b2d0ae605949fc12e411f5766c891f5ebc2d14f54b7cea807d05b0453863",
+            "sourceSha256": "8bad2be6c50167f5acc66e01467388647142cbb4a9225c444e56cc968e6c2238",
             "violationCount": 1,
             "violationDigest": "7c42ac0ad0dd5044db4db33984c6baae0b9191ceb1b15046a8dddcc50e2ac25a",
             "rules": {
@@ -7001,17 +7001,11 @@
         },
         {
             "path": "tests/browser-contract/fixture.mjs",
-            "sourceSha256": "a387bed7948fac7c8f4bfc91976e9041a061c75be8e149724261699dbc9f5bcd",
-            "violationCount": 411,
-            "violationDigest": "4443a69660bb69e68badf192066a81c66b1f78894e8a88ea266bc1cb428a058a",
+            "sourceSha256": "124c6f454b464bd8ef61b6368e7b27ce76ae0d7036083ef46f8eda414f001327",
+            "violationCount": 1,
+            "violationDigest": "62276a1eb577fef5a3fa7f2eef45895e219d7a7b5278aebde201d0b8182c94d0",
             "rules": {
-                "eslint/@stylistic/brace-style": 20,
-                "eslint/@stylistic/indent": 289,
-                "eslint/@stylistic/semi": 94,
-                "eslint/curly": 3,
-                "eslint/import-x/no-relative-parent-imports": 1,
-                "eslint/import-x/order": 1,
-                "eslint/no-unused-vars": 3
+                "eslint/import-x/no-relative-parent-imports": 1
             }
         },
         {
@@ -9387,11 +9381,11 @@
         },
         {
             "path": "tests/tools/browser-contract.test.mjs",
-            "sourceSha256": "2dfe0ce50c0e8a7dc0292d6326f247a24a4f5d087447e5bddf067eb3ef68494f",
-            "violationCount": 2,
-            "violationDigest": "6d2e13aaf5048d61d235ed8c7c71dd0bf42c2a0430a91521d00513e46508b1d0",
+            "sourceSha256": "9bd54f71806b6e50ec77f28e12ec691ea23a016ab5d081e2398be98e314d2d44",
+            "violationCount": 1,
+            "violationDigest": "44882965c7551ad30b9c80c4f1e4608381ac432321d374679b0c3ee4f4d55a62",
             "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
+                "eslint/import-x/no-relative-parent-imports": 1
             }
         },
         {

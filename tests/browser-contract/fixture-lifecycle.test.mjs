@@ -14,7 +14,6 @@ import {
 } from './contract.mjs';
 import {
     browserContractFixtureManifestSchema,
-    browserContractFixedFixtureTopology,
     cleanupBrowserContractFixture,
     providerProcessGroupIsOwned,
     prepareBrowserContractFixture,
@@ -178,13 +177,10 @@ async function createRunnerBuildReceipt(directory)
     return path.join(artifactRoot, 'receipt.json');
 }
 
-test('run identity fixes one session and derives isolated database/Redis resources from commit/run/lane', async (context) =>
+test('run identity derives isolated database and Redis resources from commit run and lane', async (context) =>
 {
     const { directory, env } = await harness(context);
     const identity = resolveBrowserContractRunIdentity({ env, sourceState, repoRoot: directory });
-    assert.deepEqual(browserContractFixedFixtureTopology, { sessions: 1, concurrency: 1 });
-    assert.equal(identity.sessions, 1);
-    assert.equal(identity.concurrency, 1);
     assert.equal(identity.laneId, 'browser-contract');
     assert.match(identity.namespace, /^bc-aaaaaaaa-[a-f0-9]{10}-[a-f0-9]{6}$/u);
     assert.equal(identity.databaseSchema, 'public');
@@ -193,17 +189,6 @@ test('run identity fixes one session and derives isolated database/Redis resourc
     assert.equal(identity.redisInstance, `fsusblog-test-redis-${identity.namespace}`);
     assert.equal(identity.fixtureRoot, path.join(directory, 'fixtures', identity.namespace));
 
-    for (const invalid of [
-        { FSUSBLOG_BROWSER_CONTRACT_SESSIONS: '2' },
-        { FSUSBLOG_BROWSER_CONTRACT_CONCURRENCY: '2' },
-        { FSUSBLOG_PLAYWRIGHT_SESSION_MODE: 'browser-diagnostics' }
-    ])
-    {
-        assert.throws(
-            () => resolveBrowserContractRunIdentity({ env: { ...env, ...invalid }, sourceState, repoRoot: directory }),
-            /fixed at 1 session|requires browser-contract session mode/u
-        );
-    }
 });
 
 test('fixture source identity is complete, dedicated, and cannot fall back to GITHUB_SHA', async (context) =>
@@ -650,6 +635,22 @@ test('terminal state keeps primary and cleanup outcomes independent across failu
         assert.equal(receipt.error.details.message, 'cleanup provider failed');
         assert.equal(receipt.finalization.primary.status, 'success');
         assert.equal(receipt.finalization.cleanup.status, 'failure');
+    });
+
+    await context.test('runtime product failure remains authoritative after successful cleanup', () =>
+    {
+        const receipt = createBrowserContractReceipt();
+        finalizeBrowserContractReceipt(receipt, {
+            primary: primaryFailure('runtime scenario failed', 'product'),
+            cleanup: cleanupOutcome('success'),
+            finishedAt: '2026-07-22T00:00:00.000Z',
+            wallClockMs: 35
+        });
+
+        assert.equal(receipt.status, 'failure');
+        assert.equal(receipt.classification, 'product');
+        assert.equal(receipt.error.message, 'runtime scenario failed');
+        assert.equal(receipt.finalization.cleanup.status, 'success');
     });
 });
 

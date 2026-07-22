@@ -10,15 +10,80 @@ import {
     browserContractScenarios,
     classifyBrowserContractFailure,
     createBrowserContractReceipt,
-    selectBrowserContractScenarios
-} from '../browser-contract/contract.mjs';
-import {
+    browserContractFixedFixtureTopology,
     browserContractFixtureAdapterSchema,
     fixtureReceiptView,
-    loadBrowserContractFixture
+    loadBrowserContractFixture,
+    resolveBrowserContractRunIdentity,
+    selectBrowserContractScenarios
 } from '../browser-contract/fixture.mjs';
 
 const root = path.resolve(import.meta.dirname, '../..');
+const invariantRegistryFile = path.join(root, 'tests/browser-contract/invariant-owners.json');
+
+test('browser contract invariant registry assigns one canonical owner per layer', async () =>
+{
+    const registry = JSON.parse(await readFile(invariantRegistryFile, 'utf8'));
+    assert.equal(registry.schema, 'fsusblog.browser-contract-invariant-owners.v1');
+    assert.ok(Array.isArray(registry.invariants));
+    assert.ok(registry.invariants.length > 0);
+    assert.equal(new Set(registry.invariants.map((entry) => entry.id)).size, registry.invariants.length);
+
+    const ownerKeys = registry.invariants.map((entry) => `${entry.owner.file}#${entry.owner.test}`);
+    assert.equal(new Set(ownerKeys).size, ownerKeys.length);
+    const ownerSources = new Map();
+    for (const invariant of registry.invariants)
+    {
+        assert.ok(['static', 'dynamic'].includes(invariant.layer), `${invariant.id} has an invalid layer`);
+        const expectedFile = invariant.layer === 'static'
+            ? 'tests/tools/browser-contract.test.mjs'
+            : 'tests/browser-contract/fixture-lifecycle.test.mjs';
+        assert.equal(invariant.owner.file, expectedFile, `${invariant.id} is owned by the wrong layer`);
+        if (!ownerSources.has(invariant.owner.file))
+        {
+            ownerSources.set(invariant.owner.file, await readFile(path.join(root, invariant.owner.file), 'utf8'));
+        }
+        const ownerSource = ownerSources.get(invariant.owner.file);
+        assert.ok(ownerSource.includes(`test('${invariant.owner.test}'`), `${invariant.id} owner test is missing`);
+    }
+    for (const [ownerFile, ownerSource] of ownerSources)
+    {
+        const discovered = [...ownerSource.matchAll(/^test\('([^']+)'/gmu)].map((match) => match[1]).sort();
+        const registered = registry.invariants
+            .filter((entry) => entry.owner.file === ownerFile)
+            .map((entry) => entry.owner.test)
+            .sort();
+        assert.deepEqual(registered, discovered, `${ownerFile} has an unregistered or stale top-level owner`);
+    }
+});
+
+test('browser contract declarative topology rejects noncanonical session configuration', () =>
+{
+    const env = {
+        FSUSBLOG_PLAYWRIGHT_SESSION_MODE: 'browser-contract',
+        FSUSBLOG_BROWSER_CONTRACT_SESSIONS: '1',
+        FSUSBLOG_BROWSER_CONTRACT_CONCURRENCY: '1',
+        FSUSBLOG_BROWSER_CONTRACT_RUN_ID: 'static-topology-contract',
+        FSUSBLOG_TEST_SOURCE_COMMIT: 'a'.repeat(40),
+        FSUSBLOG_TEST_SOURCE_FINGERPRINT: 'b'.repeat(64)
+    };
+    assert.deepEqual(browserContractFixedFixtureTopology, { sessions: 1, concurrency: 1 });
+    const identity = resolveBrowserContractRunIdentity({ env, repoRoot: root });
+    assert.equal(identity.sessions, 1);
+    assert.equal(identity.concurrency, 1);
+
+    for (const invalid of [
+        { FSUSBLOG_BROWSER_CONTRACT_SESSIONS: '2' },
+        { FSUSBLOG_BROWSER_CONTRACT_CONCURRENCY: '2' },
+        { FSUSBLOG_PLAYWRIGHT_SESSION_MODE: 'browser-diagnostics' }
+    ])
+    {
+        assert.throws(
+            () => resolveBrowserContractRunIdentity({ env: { ...env, ...invalid }, repoRoot: root }),
+            /fixed at 1 session|requires browser-contract session mode/u
+        );
+    }
+});
 
 test('release browser contract exposes a six-scenario catalog with fixed serial metadata', () =>
 {
@@ -190,11 +255,8 @@ test('runner source enforces one managed launch, one context factory, and proces
     assert.match(lane, /CONTRACT_TIMEOUT="\$\{FSUSBLOG_BROWSER_CONTRACT_TIMEOUT:-9m\}"/u);
     assert.match(lane, /FSUSBLOG_BROWSER_CONTRACT_FIXTURE_PROVIDER[^\n]+default-fixture-provider\.mjs/u);
     assert.doesNotMatch(lane, /npx\s+playwright\s+test|--workers|--shard/u);
-    assert.match(lifecycle, /detached:\s*process\.platform !== 'win32'/u);
-    assert.match(lifecycle, /process\.kill\(-child\.pid, signalName\)/u);
     assert.match(lifecycle, /FSUSBLOG_BROWSER_CONTRACT_PROVIDER_INVOCATION_ID/u);
     assert.match(lifecycle, /providerProcessGroupIsOwned/u);
-    assert.match(lifecycle, /terminate\('SIGKILL'\)[\s\S]{0,80}\}, 750/u);
     assert.match(lifecycle, /FSUSBLOG_BROWSER_CONTRACT_PROVIDER_TIMEOUT_MS/u);
     assert.match(lifecycle, /FSUSBLOG_BROWSER_CONTRACT_CLEANUP_TIMEOUT_MS/u);
     assert.match(lifecycle, /\? 10_000 : 30_000/u);
@@ -216,7 +278,6 @@ test('runner source enforces one managed launch, one context factory, and proces
     assert.match(defaultProvider, /retainedRuntimeState/u);
     assert.doesNotMatch(defaultProvider, /os\.(?:loadavg|freemem)|FSUSBLOG_POSTGRES_PID_HEADROOM/u);
     assert.match(runner, /extraHTTPHeaders:\s*fixture\.testSession\s*\?\s*\{ 'X-Fsus-Test-Session': fixture\.testSession \}\s*:\s*(?:undefined|\{\})/u);
-    assert.match(runner, /writeBrowserContractReceipt\(receiptFile, receipt\)/u);
     assert.match(runner, /async function resetRunOutput\(\)[\s\S]+await rm\(ownedReceiptFile, \{ force: true \}\)/u);
     assert.doesNotMatch(runner, /rm\(ownedOutputRoot, \{ recursive: true, force: true \}\)/u);
     assert.match(runner, /path\.join\(outputRoot, 'runs', preparedFixture\.identity\.namespace\)/u);
@@ -232,23 +293,8 @@ test('runner source enforces one managed launch, one context factory, and proces
     assert.doesNotMatch(runner, /process\.env\.GITHUB_SHA|return null/u);
     assert.match(lane, /FSUSBLOG_TEST_SOURCE_COMMIT/u);
     assert.match(lane, /FSUSBLOG_TEST_SOURCE_FINGERPRINT/u);
-    assert.ok(
-        runner.indexOf('await writeBrowserContractReceipt(receiptFile, runningReceipt)')
-      < runner.indexOf('preparedFixture = await prepareSingleBrowserContractFixture({'),
-        'the current run-scoped running receipt must replace stale evidence before fixture preparation'
-    );
     assert.match(runner, /const fallbackFixture = \{[\s\S]+createBrowserContractReceipt\(\{[\s\S]+fixture: fallbackFixture/u);
     assert.doesNotMatch(runner, /fallback\.fixture\s*=/u);
-    assert.match(lifecycle, /preparedFixture:\s*prepared/u);
-    assert.match(lifecycle, /cleanup\.resources\s*=\s*freshCleanupResources\(prepared\)/u);
-    assert.match(runner, /startupPreparedFixture\s*=\s*preparedFixture\s*\?\?\s*error\?\.preparedFixture/u);
-    assert.match(runner, /cleanup\?\.status === 'failure'[\s\S]+startup-failure-retry/u);
-    assert.match(runner, /cleanupAttempts\.push\(snapshotReceiptEvidence\(cleanup\)\)/u);
-    assert.ok(
-        runner.indexOf('const primaryError = serializeBrowserContractError(error)')
-      < runner.indexOf("reason: receivedSignal ? `signal:${receivedSignal}:retry` : 'startup-failure-retry'"),
-        'the primary startup failure must be captured before cleanup retry evidence'
-    );
 });
 
 test('authenticated Browser Contract evidence never retains or uploads raw Playwright traces', async () =>

@@ -10622,6 +10622,15 @@
                 "node-test:tests/tools/wasm-fuzz-runtime.test.mjs#release-evidence-rejects-marker-only-wasm-fuzz-summaries-8983d406ad"
             ],
             "reason": "The targetless fixed-success placeholder is retired; the remaining fuzz authority executes real decoder seeds, binds run identity and rejects marker-only evidence. This mapping does not preserve the placeholder's unsupported JWT, cookie, path or HTTP risk claims."
+        },
+        {
+            "id": "node-test:tests/browser-contract/fixture-lifecycle.test.mjs#run-identity-fixes-one-session-and-derives-isolated-data-131fc6b40e",
+            "path": "tests/browser-contract/fixture-lifecycle.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/browser-contract.test.mjs#browser-contract-declarative-topology-rejects-noncanonic-4cf3bcdc5b",
+                "node-test:tests/browser-contract/fixture-lifecycle.test.mjs#run-identity-derives-isolated-database-and-redis-resourc-5c8f009bc4"
+            ],
+            "reason": "The former mixed owner is split: the static suite owns fixed session/concurrency admission, while the dynamic lifecycle suite exclusively owns run-scoped database and Redis resource isolation."
         }
     ],
     "assertionReplacements": [

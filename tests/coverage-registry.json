@@ -1545,6 +1545,7 @@
                 "tests/browser-contract/default-fixture-provider.mjs",
                 "tests/browser-contract/fixture-lifecycle.mjs",
                 "tests/browser-contract/fixture-lifecycle.test.mjs",
+                "tests/browser-contract/invariant-owners.json",
                 "tests/browser-contract/prepare-fixture.mjs",
                 "tools/bootstrap-acceptance-env.sh",
                 "tools/test-matrix/local-runtime-cleanup.mjs",
