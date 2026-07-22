@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+// @fsusblog-vitest-host max-workers=1
 
 import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent, nextTick } from 'vue'

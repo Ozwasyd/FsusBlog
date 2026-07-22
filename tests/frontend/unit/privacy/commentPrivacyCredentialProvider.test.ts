@@ -12,29 +12,64 @@ import type {
 } from '@/privacy/commentPrivacyContracts'
 
 const MODULUS_BYTES = 384
+const TEST_PRIVATE_JWK: JsonWebKey = {
+  key_ops: ['sign'],
+  ext: true,
+  alg: 'PS384',
+  kty: 'RSA',
+  n: 'inprTHscd5CbXloge4g7_dbUyP5_0-upUa0VYwj0F2JImMUAmCaMnILt50oSEIs_Gq_dVWRP94_8WKN32a_h1A-dyGkcoS0BMtSlBcU5O60L8P9h1QQy4wt2mQ70GLA7MK7_F8Gzc_V7TDfjGoeLcsyPqMoFT3yMNF5a0TrfK8AUC0CyqzCbUoHs4UDVZxDVraGJDVZyZqJdQIDULvKhPky-J9MNkeBzBBQR8j-2KrkBHQ057Bm9lF97yVHglWVdOKrQ7Ubp7Kd_qG76NnjlfJ4A60qSvTmWrwnD407D3zxotgBKX8tVFB4Z-zFD4Z0C1It_2_XYiOC6lrEhkoZsRxkaMx5G9MEvpgTYQh0TqyiJKJ_ZLdP2G0PSuLOyA8SAqAiTI_iorMXo5Xq-CMT6mFf8k3IRHuz-5MaHPabIQdMhIoDCPVi-CuUuV1TRRJ70pbDYDKaI8U_sjpLoqB49QgC1bQfJSoIwZvCEQVWrz9i7Vdswu3TfMEtVbmCPYIdv',
+  e: 'AQAB',
+  d: 'KfuVXjmQ1tr7j65pXKpf7cRc_JbT8E7pJX8BFeZYAmLkuZQ4auh9BtJXCCEXuvZMam3Y_5OK_vYjPkhJBLFjGOSnJGRhrqezTlLTuR0jDemXzjfO1EMSnm0SRrMW5AlB2K-lXPF303cgK2piKt_fMi28fCLLW17aLuJQTFC56kywhvzVbjstS-ViCKScTkP3VE29_FIyGtWsyeqE6brbkcS4feBpo8lVdW4URsp0Ex3FraYd4munYz1TjSSKnyB8oYczRA5IwW35c_dTzgTxIgBJeug8oIKU5r0Lc8n5HAfKSfmC8tVmL1T9xp0IZFqFlh3AMavKSlVuFbGpkuTiAdBWYeqbBV5XG5AZlUnaPKuziv9aHzWHCohEDtzOEb3Rm4_DHx43z5HtMu2aIYkwrOaNwRKlCFxeef0NWC14RoUca8d9ZdyqqgXXnmoYFmskZAXbadEQ7oyQIuNuOuaspSXSrxcHcarWkgdE714J6OIDOUmng_xpybkbTZiKtBGh',
+  p: 'wPY1CPMBxD2vtuhpoAymZIqwUyaO2qg8TgWAoFAqMdYqRGc3LfpuGuX_f0xlp3ubOtFRu5LgoHnFbEqwc7N06QB9dhmSbfOAFUa3Q7phSLG9a1DnT4V-UarlYaNleC8GWqD98kQNAET1URJPuuiWc_pNFvLhnV_eAcptB3NL205rIBYGSTsz7HETJRFWoGcMh6ytPcAaTIHxyk0ZaZmwy-ZGjHQUlbP1CDBOerBLFvnSOP3UMs9aTeptef5ZTidf',
+  q: 't7ejslD8CsurtpuvbajuE-U_NfPOyq1sPtkSYWVulDl-CAACZttJbTcO9SAwEFJdvFfhkyyBrdVVN5jXmH-Xt73GVrq1_ug4tUe4LJVWrf4_KWjnwoGq0mFtKhyeC30b3iSjurNsdIzYxOhILW0_aFC3Ia62-PVqtaneshza6Fl1dcWk6WhaOAJ4c0TggwMpFAcWG3CsDkUWQZQ48YjlhUMcft2NZl_ppWkweObkMgypZUN_oq_UWnz7F37gCOnx',
+  dp: 'cq2gZVou0Zcrp9PGeoUqGpTGKBTBT7guZtwkTqJ2ATpb0l1ZUO0FpNzOFLStsXTnk3Q1U_n9n8HfD_XvmkOsFpHg_mBCQzA1DfACGLFbAd4IShBB-GPI5_Zd7sIyGtQvvYrygZnp9CAHf5AXbGiwierXB-1_Io2IHp5UX9oo2gRn7CDKyZjyyfGFxEDir9-uda-tIgbaWl_b-DQMB1N83CFWCkEuvq290YkMCyRc7CG6y34nL69F5wqM17TPFICX',
+  dq: 'ln2DRio4i89SlX7qMPXUL8_1-4f_uN5ecQz3lXi1IA4IQx1e2kp-10vmoL0BIh2WUxXZ3ejzQSYjbCtzT6QU75owwhKnymsHKNfa8gpSuqwtqQoZ7qaw-yx7c6eFfvu4vDtfMyyOhtppJsLvfOakrhqQKLMphr3h73V6yoQAfZvqL9L6x4eHf6HmcOXW0vrfx1wWq9ub1QSaupVkH9Z3zLWwvetWTKn8hlaoMiFQg_8DM8Qa5XUKiiUeuZxggGzB',
+  qi: 'G0hMMS6vMaiinufjVAjDMVJvYKlDSgSq2rHKZbhbQeCnINwL_X_aLynukUUZQhYz6kkSyBPmUxv-0ivwpeaUxkE_4iVg_DqCmzKPPp2-XJz2_8UC3iMDVpX9C8vaWUTuJ7M4EK8nZZMwv_AzHIVDp-1mV_3cHPF2S2yRbpt-e8WF7MrhbKlryj-h-jTrwRaPLjSZ9EkQaZCvRd4T5nTBNyBm-XODl_thmwoeM7pZ6gpgJBv5jvxx3L_ZQpwJW4xE'
+}
 let cryptoKey: CryptoKeyPair
 let publicSpki: Uint8Array
 let publicHash: string
 let privateJwk: JsonWebKey
 
+function deterministicSuiteCrypto(seed: number): Crypto {
+  let state = seed >>> 0
+  return {
+    subtle: crypto.subtle,
+    getRandomValues<T extends ArrayBufferView | null>(array: T): T {
+      if (!array) return array
+      const bytes = new Uint8Array(array.buffer, array.byteOffset, array.byteLength)
+      for (let index = 0; index < bytes.byteLength; index += 1) {
+        state ^= state << 13
+        state ^= state >>> 17
+        state ^= state << 5
+        bytes[index] = state & 0xff
+      }
+      return array
+    }
+  } as Crypto
+}
+
 beforeAll(async () => {
-  cryptoKey = await crypto.subtle.generateKey(
-    {
-      name: 'RSA-PSS',
-      modulusLength: 3072,
-      publicExponent: new Uint8Array([1, 0, 1]),
-      hash: 'SHA-384'
-    },
-    true,
-    ['sign', 'verify'])
+  const algorithm = { name: 'RSA-PSS', hash: 'SHA-384' }
+  cryptoKey = {
+    privateKey: await crypto.subtle.importKey('jwk', TEST_PRIVATE_JWK, algorithm, true, ['sign']),
+    publicKey: await crypto.subtle.importKey('jwk', {
+      key_ops: ['verify'],
+      ext: true,
+      alg: TEST_PRIVATE_JWK.alg,
+      kty: TEST_PRIVATE_JWK.kty,
+      n: TEST_PRIVATE_JWK.n,
+      e: TEST_PRIVATE_JWK.e
+    }, algorithm, true, ['verify'])
+  }
   publicSpki = new Uint8Array(await crypto.subtle.exportKey('spki', cryptoKey.publicKey))
   publicHash = hex(sha256(publicSpki))
-  privateJwk = await crypto.subtle.exportKey('jwk', cryptoKey.privateKey)
+  privateJwk = TEST_PRIVATE_JWK
 }, 30_000)
 
 describe('RFC 9474 blind anonymous credential suite', () => {
   it('blind-signs, unblinds, and verifies without revealing credential material', async () => {
-    const suite = createBlindRsaCredentialSuite({ crypto })
+    const suite = createBlindRsaCredentialSuite({ crypto: deterministicSuiteCrypto(1) })
     const metadata = issuerMetadata()
     const secret = crypto.getRandomValues(new Uint8Array(32))
     const nonce = crypto.getRandomValues(new Uint8Array(32))
@@ -76,7 +111,7 @@ describe('RFC 9474 blind anonymous credential suite', () => {
   }, 30_000)
 
   it('gives an issuer with both transcripts no deterministic two-client attribution', async () => {
-    const suite = createBlindRsaCredentialSuite({ crypto })
+    const suite = createBlindRsaCredentialSuite({ crypto: deterministicSuiteCrypto(2) })
     const metadata = issuerMetadata()
     const signal = new AbortController().signal
     const requests = await Promise.all([0, 1].map(async () => {
@@ -122,7 +157,7 @@ describe('RFC 9474 blind anonymous credential suite', () => {
   }, 30_000)
 
   it('fails closed on tamper, malformed opening, and issuer key rotation', async () => {
-    const suite = createBlindRsaCredentialSuite({ crypto })
+    const suite = createBlindRsaCredentialSuite({ crypto: deterministicSuiteCrypto(3) })
     const metadata = issuerMetadata()
     const secret = crypto.getRandomValues(new Uint8Array(32))
     const nonce = crypto.getRandomValues(new Uint8Array(32))
@@ -177,7 +212,7 @@ describe('RFC 9474 blind anonymous credential suite', () => {
   }, 30_000)
 
   it('maps cancellation to the existing fail-closed null result', async () => {
-    const suite = createBlindRsaCredentialSuite({ crypto })
+    const suite = createBlindRsaCredentialSuite({ crypto: deterministicSuiteCrypto(4) })
     const controller = new AbortController()
     controller.abort()
     const metadata = issuerMetadata()
