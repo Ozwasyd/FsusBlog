@@ -49,11 +49,41 @@ const projectedCategories = [
 const shardAffinities = ['EndpointContractApplication']
 const weightedDependencies = ['Docker']
 const dependencyPlanningMultiplier = 2
-const governancePostludeTest = 'FsusBlog.Server.Tests.Unit.BackendTestGovernanceTests.Issue40Requirements_HaveEvidenceAndRiskTraceability'
+const governanceRequirementTest = 'FsusBlog.Server.Tests.Unit.BackendTestGovernanceTests.Issue40Requirements_HaveEvidenceAndRiskTraceability'
 const backendPostgresContainerPattern = /^fsus-pg-.+-(\d+)-[0-9a-f]+$/u
 
 function sha256(value) {
   return createHash('sha256').update(value).digest('hex')
+}
+
+function canonicalBackendBuildBinding() {
+  const runId = String(process.env.FSUSBLOG_TEST_RUN_ID ?? '').trim()
+  if (!runId) return null
+  const receiptFile = path.join(root, '.tmp/test-runs', runId, 'backend-tests-ready.json')
+  if (!fs.existsSync(receiptFile)) throw new Error('canonical backend Release build receipt is missing')
+  const receiptBytes = fs.readFileSync(receiptFile)
+  const receipt = JSON.parse(receiptBytes)
+  const testDllPath = path.relative(root, path.resolve(root, testAssembly)).replaceAll(path.sep, '/')
+  const testDllDigest = `sha256:${sha256(fs.readFileSync(path.resolve(root, testAssembly)))}`
+  if (receipt?.schema !== 'fsusblog.local-production.backend-tests-ready.v1'
+    || receipt.status !== 'success'
+    || receipt.physicalBundleId !== 'backend-tests'
+    || receipt.schedulerRunId !== runId
+    || receipt.buildLayout?.runId !== runId
+    || receipt.buildLayout?.sourceCommit !== (process.env.FSUSBLOG_TEST_SOURCE_COMMIT ?? null)
+    || receipt.buildLayout?.sourceFingerprint !== (process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT ?? null)
+    || receipt.testDll?.path !== testDllPath
+    || receipt.testDll?.contentDigest !== testDllDigest) {
+    throw new Error('canonical backend Release build receipt does not bind the current source, run, and test DLL digest')
+  }
+  return {
+    receipt: path.relative(root, receiptFile).replaceAll(path.sep, '/'),
+    receiptDigest: `sha256:${sha256(receiptBytes)}`,
+    runId,
+    sourceCommit: receipt.buildLayout.sourceCommit,
+    sourceFingerprint: receipt.buildLayout.sourceFingerprint,
+    testDll: { path: testDllPath, contentDigest: testDllDigest }
+  }
 }
 
 function positiveInteger(value, fallback) {
@@ -82,11 +112,10 @@ export function backendProductionDatabaseNamespace(role, {
   runId = process.env.FSUSBLOG_TEST_RUN_ID ?? 'local',
   runnerPid = process.pid
 } = {}) {
-  if (!['main', 'postlude'].includes(role)) throw new Error(`unknown backend database namespace role: ${role}`)
+  if (role !== 'main') throw new Error(`unknown backend database namespace role: ${role}`)
   const pid = positiveInteger(runnerPid, null)
   if (!pid) throw new Error('backend database namespace requires a positive runner PID')
-  const roleCode = role === 'main' ? 'm' : 'p'
-  return `bp-${sha256(`${runId}:${pid}`).slice(0, 10)}-${roleCode}`
+  return `bp-${sha256(`${runId}:${pid}`).slice(0, 10)}-m`
 }
 
 export function backendRunOwnerPid(runId) {
@@ -817,65 +846,47 @@ export function projectProductionUnionRecords(records) {
   return included
 }
 
-export function partitionGovernancePostlude(testNames) {
-  if (!Array.isArray(testNames) || testNames.length === 0) {
-    throw new Error('backend governance postlude requires the production union')
-  }
-  const postlude = testNames.filter((testName) => normalizeListedTestName(testName) === governancePostludeTest)
-  if (postlude.length !== 1) {
-    throw new Error(`backend governance postlude requires exactly one ${governancePostludeTest}; discovered ${postlude.length}`)
-  }
-  const main = testNames.filter((testName) => testName !== postlude[0])
-  if (main.length === 0 || main.length + postlude.length !== testNames.length) {
-    throw new Error('backend governance postlude partition is not an exact non-empty union split')
-  }
-  return { main, postlude }
-}
-
 export function validateExactProductionUnion(testNames, recordGroups, { authoritativeRecords = null } = {}) {
   if (!Array.isArray(testNames) || testNames.length === 0
-    || !Array.isArray(recordGroups) || recordGroups.length !== 2) {
-    throw new Error('backend production exact union requires discovery plus main and postlude TRX records')
+    || !Array.isArray(recordGroups) || recordGroups.length === 0
+    || recordGroups.some((records) => !Array.isArray(records))) {
+    throw new Error('backend production exact union requires discovery plus one or more TRX record groups')
   }
-  const expectedPartition = partitionGovernancePostlude(testNames)
-  const [mainRecords, postludeRecords] = recordGroups
+  const records = recordGroups.flat()
+  const discoveredGovernance = testNames.filter((testName) => (
+    normalizeListedTestName(testName) === governanceRequirementTest
+  ))
+  if (discoveredGovernance.length !== 1) {
+    throw new Error(`backend production exact union requires exactly one ${governanceRequirementTest}; discovered ${discoveredGovernance.length}`)
+  }
   if (authoritativeRecords !== null) {
     if (!Array.isArray(authoritativeRecords) || authoritativeRecords.length !== testNames.length
       || authoritativeRecords.some((record) => typeof record?.id !== 'string' || !record.id
       || typeof record?.displayName !== 'string' || !record.displayName)) {
       throw new Error('backend production exact union requires valid authoritative VSTest records')
     }
-    const expectedMainIds = authoritativeRecords
-      .filter((record) => normalizeListedTestName(record.displayName) !== governancePostludeTest)
-      .map((record) => record.id).sort()
-    const expectedPostludeIds = authoritativeRecords
-      .filter((record) => normalizeListedTestName(record.displayName) === governancePostludeTest)
-      .map((record) => record.id).sort()
-    const actualMainIds = mainRecords.map((record) => record?.testId).sort()
-    const actualPostludeIds = postludeRecords.map((record) => record?.testId).sort()
-    if (actualMainIds.some((id) => typeof id !== 'string' || !id)
-      || actualPostludeIds.some((id) => typeof id !== 'string' || !id)
-      || JSON.stringify(actualMainIds) !== JSON.stringify(expectedMainIds)
-      || JSON.stringify(actualPostludeIds) !== JSON.stringify(expectedPostludeIds)) {
-      throw new Error('backend production main and governance postlude TRX groups do not match their exact VSTest ids')
+    const expectedIds = authoritativeRecords.map((record) => record.id).sort()
+    const actualIds = records.map((record) => record?.testId).sort()
+    if (actualIds.some((id) => typeof id !== 'string' || !id)
+      || JSON.stringify(actualIds) !== JSON.stringify(expectedIds)) {
+      throw new Error('backend production TRX groups do not match their exact VSTest ids')
     }
   } else {
-    const expectedMain = [...expectedPartition.main].sort()
-    const actualMain = mainRecords.map((record) => record?.testName).sort()
-    const expectedPostlude = [...expectedPartition.postlude].sort()
-    const actualPostlude = postludeRecords.map((record) => record?.testName).sort()
-    if (JSON.stringify(actualMain) !== JSON.stringify(expectedMain)
-      || JSON.stringify(actualPostlude) !== JSON.stringify(expectedPostlude)) {
-      throw new Error('backend production main and governance postlude TRX groups do not match their exact filters')
+    const expected = [...testNames].sort()
+    const actual = records.map((record) => record?.testName).sort()
+    if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+      throw new Error('backend production TRX groups do not match their exact filters')
     }
   }
-  const records = recordGroups.flat()
   if (records.length !== testNames.length || records.some((record) => record?.outcome !== 'Passed')) {
     throw new Error('backend production exact union is incomplete or contains a non-passing result')
   }
   const actual = records.map((record) => record?.testName).sort()
   if (actual.some((testName) => typeof testName !== 'string' || !testName)) {
     throw new Error('backend production TRX union contains an invalid result name')
+  }
+  if (records.filter((record) => normalizeListedTestName(record.testName) === governanceRequirementTest).length !== 1) {
+    throw new Error('backend production requirement/evidence governance must execute exactly once inside the canonical union')
   }
   if (authoritativeRecords === null) {
     const expected = [...testNames].sort()
@@ -1434,14 +1445,14 @@ export function validateShardRecords(plan, recordsByShard) {
 }
 
 function validateSingleTesthostSummaryArtifacts(summary, trxFiles, repositoryRoot) {
-  if (summary.partitionCount !== 2
+  if (summary.partitionCount !== 1
     || summary.maxConcurrentProcesses !== 1
     || summary.initialConcurrentProcesses !== 1
     || summary.peakConcurrentProcesses !== 1
     || summary.potentialConcurrentProcesses !== 1
     || summary.plannedConcurrentProcesses !== 1
     || summary.globalPotentialConcurrentProcesses !== 1) {
-    throw new Error('backend production single-testhost summary must declare one sequential process and two TRX partitions')
+    throw new Error('backend production single-testhost summary must declare one process and one exact-union TRX partition')
   }
   const cpuBudget = positiveInteger(summary?.parallelism?.cpuBudget, null)
   const memoryGiB = positiveNumber(summary?.parallelism?.memoryGiB, null)
@@ -1459,33 +1470,28 @@ function validateSingleTesthostSummaryArtifacts(summary, trxFiles, repositoryRoo
     || summary.resourceExpansion.potentialBudget?.cpuUnits !== cpuBudget) {
     throw new Error('backend production single-testhost summary has invalid fixed resource evidence')
   }
-  if (!Array.isArray(summary.partitions) || summary.partitions.length !== 2
-    || !Array.isArray(trxFiles) || trxFiles.length !== 2) {
-    throw new Error('backend production single-testhost summary requires main and governance-postlude TRX files')
+  if (!Array.isArray(summary.partitions) || summary.partitions.length !== 1
+    || !Array.isArray(trxFiles) || trxFiles.length !== 1) {
+    throw new Error('backend production single-testhost summary requires one exact-union TRX file')
   }
   const actualTrx = new Set(trxFiles.map((file) => path.relative(repositoryRoot, file).replaceAll(path.sep, '/')))
-  const [main, postlude] = summary.partitions
-  if (main?.id !== 0 || main?.kind !== 'coverage-main' || main?.processSlot !== 0
+  const [main] = summary.partitions
+  if (main?.id !== 0 || main?.kind !== 'coverage-exact-union' || main?.processSlot !== 0
     || main.processors !== cpuBudget || Math.abs(main.memoryGiB - memoryGiB) > 1e-9
     || typeof main.coverageRoot !== 'string' || !main.coverageRoot) {
-    throw new Error('backend production single-testhost summary has an invalid coverage main partition')
+    throw new Error('backend production single-testhost summary has an invalid coverage exact-union partition')
   }
-  if (postlude?.id !== 1 || postlude?.kind !== 'governance-postlude' || postlude?.processSlot !== 0
-    || postlude.processors !== cpuBudget || Math.abs(postlude.memoryGiB - memoryGiB) > 1e-9
-    || postlude.coverageMode !== 'excluded-pure-evidence-consumer'
-    || postlude.coverageRoot !== null || postlude.testCaseCount !== 1) {
-    throw new Error('backend production single-testhost summary has an invalid governance postlude partition')
-  }
-  if (!actualTrx.has(main.trx) || !actualTrx.has(postlude.trx) || main.trx === postlude.trx) {
-    throw new Error('backend production single-testhost summary does not bind two distinct executed TRX files')
+  if (!actualTrx.has(main.trx)) {
+    throw new Error('backend production single-testhost summary does not bind its executed TRX file')
   }
   if (summary?.execution?.exactOnce !== true || summary.execution.allPassed !== true
     || summary.execution.executedTestCaseCount !== summary?.discovery?.testCaseCount
-    || summary.execution.executedTestCaseCount !== main.testCaseCount + postlude.testCaseCount) {
+    || summary.execution.executedTestCaseCount !== main.testCaseCount
+    || summary.execution.governanceRequirementTestCaseCount !== 1) {
     throw new Error('backend production single-testhost summary does not prove a passing exact-once production union')
   }
   return {
-    partitionCount: 2,
+    partitionCount: 1,
     maxConcurrentProcesses: 1,
     initialConcurrentProcesses: 1,
     peakConcurrentProcesses: 1,
@@ -1499,7 +1505,19 @@ function validateSingleTesthostSummaryArtifacts(summary, trxFiles, repositoryRoo
 
 export function validateShardSummaryArtifacts(summary, trxFiles, { repositoryRoot = root } = {}) {
   if (summary?.status !== 'success') throw new Error('backend production shard summary is not successful')
-  if (summary?.executionMode === 'single-testhost-with-governance-postlude') {
+  if (summary?.producer?.runId !== null && summary?.producer?.runId !== undefined) {
+    const binding = summary?.buildBinding
+    if (binding?.runId !== summary.producer.runId
+      || binding.sourceCommit !== summary.producer.sourceCommit
+      || binding.sourceFingerprint !== summary.producer.sourceFingerprint
+      || typeof binding.receipt !== 'string' || !binding.receipt
+      || !/^sha256:[0-9a-f]{64}$/u.test(binding.receiptDigest ?? '')
+      || typeof binding.testDll?.path !== 'string' || !binding.testDll.path
+      || !/^sha256:[0-9a-f]{64}$/u.test(binding.testDll?.contentDigest ?? '')) {
+      throw new Error('backend production shard summary is not bound to the canonical Release build receipt')
+    }
+  }
+  if (summary?.executionMode === 'single-testhost-exact-union') {
     return validateSingleTesthostSummaryArtifacts(summary, trxFiles, repositoryRoot)
   }
   const partitionCount = positiveInteger(summary?.partitionCount, null)
@@ -1509,15 +1527,13 @@ export function validateShardSummaryArtifacts(summary, trxFiles, { repositoryRoo
   const preludePartitionCount = summary?.preludePartitionCount === undefined
     ? 0
     : positiveInteger(summary.preludePartitionCount, null)
-  const postludePartitionCount = summary?.postludePartitionCount === undefined
-    ? 0
-    : positiveInteger(summary.postludePartitionCount, null)
+  const postludePartitionCount = summary?.postludePartitionCount ?? 0
   if (![0, 1].includes(preludePartitionCount)
-    || ![0, 1].includes(postludePartitionCount)
-    || preludePartitionCount + postludePartitionCount >= partitionCount
+    || postludePartitionCount !== 0
+    || preludePartitionCount >= partitionCount
     || (summary?.rollingPartitionCount !== undefined
-      && summary.rollingPartitionCount !== partitionCount - preludePartitionCount - postludePartitionCount)) {
-    throw new Error('backend production shard summary has an invalid prelude/postlude/rolling partition split')
+      && summary.rollingPartitionCount !== partitionCount - preludePartitionCount)) {
+    throw new Error('backend production shard summary must not declare a governance postlude partition')
   }
   const maxConcurrentProcesses = positiveInteger(summary?.maxConcurrentProcesses, null)
   if (!maxConcurrentProcesses || maxConcurrentProcesses < 2 || maxConcurrentProcesses > partitionCount) {
@@ -1595,7 +1611,7 @@ export function validateShardSummaryArtifacts(summary, trxFiles, { repositoryRoo
     && peakConcurrentProcesses <= initialConcurrentProcesses) {
     throw new Error('backend production shard summary did not expand toward its observed scheduler grant')
   }
-  const rollingCoveragePartitionCount = partitionCount - preludePartitionCount - postludePartitionCount
+  const rollingCoveragePartitionCount = partitionCount - preludePartitionCount
   if (dynamicExpansion && rollingCoveragePartitionCount < plannedConcurrentProcesses) {
     throw new Error('backend production scheduler planning must provide at least one coverage partition per planned process')
   }
@@ -1612,7 +1628,7 @@ export function validateShardSummaryArtifacts(summary, trxFiles, { repositoryRoo
       || initialTopology.invariants?.exactCpuConservation !== true
       || potentialTopology.invariants?.exactCpuConservation !== true
       || initialTopology.invariants?.affinityUnitsRemainIndivisible !== true
-      || potentialTopology.invariants?.governancePostludeSeparated !== true) {
+      || potentialTopology.invariants?.governanceIncludedInExactUnion !== true) {
       throw new Error('backend production shard summary has invalid topology planning evidence')
     }
   }
@@ -1663,23 +1679,22 @@ export function validateShardSummaryArtifacts(summary, trxFiles, { repositoryRoo
       throw new Error(`backend production partition ${index} has an invalid process slot`)
     }
     const isPrelude = index < preludePartitionCount
-    const isPostlude = index >= partitionCount - postludePartitionCount
     if (isPrelude !== (partition?.kind === 'prelude')) {
       throw new Error(`backend production partition ${index} has an invalid prelude ordering marker`)
     }
-    if (isPostlude !== (partition?.kind === 'governance-postlude')) {
-      throw new Error(`backend production partition ${index} has an invalid postlude ordering marker`)
+    if (partition?.kind === 'governance-postlude') {
+      throw new Error(`backend production partition ${index} reintroduced a governance postlude`)
     }
-    if (!isPrelude && !isPostlude && partition?.processors !== summary.processorsByProcess[partition.processSlot]) {
+    if (!isPrelude && partition?.processors !== summary.processorsByProcess[partition.processSlot]) {
       throw new Error(`backend production partition ${index} processor allocation is not bound to its process slot`)
     }
     if (isPrelude && (!positiveInteger(partition?.processors, null) || !positiveNumber(partition?.memoryGiB, null))) {
       throw new Error(`backend production prelude partition ${index} has an invalid resource allocation`)
     }
-    if (!isPrelude && !isPostlude && partition?.memoryGiB !== summary.memoryGiBByProcess[partition.processSlot]) {
+    if (!isPrelude && partition?.memoryGiB !== summary.memoryGiBByProcess[partition.processSlot]) {
       throw new Error(`backend production partition ${index} memory allocation is not bound to its process slot`)
     }
-    if (initialTopology !== undefined && !isPrelude && !isPostlude) {
+    if (initialTopology !== undefined && !isPrelude) {
       const validUnavailableTiming = partition?.timingStatus === 'unavailable'
         && partition.firstTestStartedAtUnixMs === null
         && partition.testhostStartupMs === null
@@ -1695,24 +1710,18 @@ export function validateShardSummaryArtifacts(summary, trxFiles, { repositoryRoo
         throw new Error(`backend production partition ${index} has invalid testhost timing evidence`)
       }
     }
-    if (isPostlude && (!positiveInteger(partition?.processors, null)
-      || !positiveNumber(partition?.memoryGiB, null)
-      || partition.coverageMode !== 'excluded-pure-evidence-consumer'
-      || partition.coverageRoot !== null)) {
-      throw new Error(`backend production postlude partition ${index} has invalid resource or coverage evidence`)
-    }
     if (typeof partition?.trx !== 'string' || !actualTrx.has(partition.trx)) {
       throw new Error(`backend production partition ${index} TRX is not bound to an executed artifact`)
     }
     if (reportTrx.has(partition.trx)) throw new Error(`backend production shard summary repeats TRX ${partition.trx}`)
     reportTrx.add(partition.trx)
-    if (!isPostlude && (typeof partition?.coverageRoot !== 'string' || !partition.coverageRoot)) {
+    if (typeof partition?.coverageRoot !== 'string' || !partition.coverageRoot) {
       throw new Error(`backend production partition ${index} is missing its coverage root`)
     }
-    if (!isPostlude && coverageRoots.has(partition.coverageRoot)) {
+    if (coverageRoots.has(partition.coverageRoot)) {
       throw new Error(`backend production shard summary repeats coverage root ${partition.coverageRoot}`)
     }
-    if (!isPostlude) coverageRoots.add(partition.coverageRoot)
+    coverageRoots.add(partition.coverageRoot)
   }
   return {
     partitionCount,
@@ -2287,11 +2296,9 @@ async function runBackendProductionShardsCore({
   fs.mkdirSync(testResultsRoot, { recursive: true })
   fs.mkdirSync(coverageRoot, { recursive: true })
 
-  const mainFilter = `${productionFilter}&FullyQualifiedName!=${governancePostludeTest}`
-  const postludeFilter = `${productionFilter}&FullyQualifiedName=${governancePostludeTest}`
+  const mainFilter = productionFilter
   const mainTrxFile = path.join(testResultsRoot, 'main-coverage.trx')
   const mainCoverageRoot = path.join(coverageRoot, 'main')
-  const postludeTrxFile = path.join(testResultsRoot, 'governance-postlude.trx')
   fs.mkdirSync(mainCoverageRoot, { recursive: true })
   for (const staleEvidence of [
     '.tmp/security/perception-v2-e2e-runtime.json',
@@ -2335,30 +2342,14 @@ async function runBackendProductionShardsCore({
   if (discoveryResultFailed(evidenceResult)) {
     throw new Error(`backend Perception evidence finalization failed: ${discoveryFailureDetail(evidenceResult)}`)
   }
-  const postludeResult = await runDotnet([
-    'vstest', testAssembly,
-    `--TestCaseFilter:${postludeFilter}`,
-    `--logger:trx;LogFileName=${path.basename(postludeTrxFile)}`,
-    `--ResultsDirectory:${testResultsRoot}`
-  ], { env: backendPartitionEnvironment(process.env, {
-    processors: parallelism.cpuBudget,
-    memoryGiB: parallelism.memoryGiB,
-    namespace: backendProductionDatabaseNamespace('postlude')
-  }) })
-  if (discoveryResultFailed(postludeResult)) {
-    throw new Error(`backend production governance postlude failed: ${discoveryFailureDetail(postludeResult)}`)
-  }
-  const postludeEvidence = parseTrxExecutionEvidence(fs.readFileSync(postludeTrxFile, 'utf8'))
-  const postludeRecords = postludeEvidence.records
   const terminatedBuildServerPostflightPids = cleanupBackendBuildServers({
     includeInactiveProductionRuns: false
   })
-  const executionIds = new Set([...mainRecords, ...postludeRecords].map((record) => record.testId))
-  if (executionIds.size !== mainRecords.length + postludeRecords.length) {
+  const executionIds = new Set(mainRecords.map((record) => record.testId))
+  if (executionIds.size !== mainRecords.length) {
     throw new Error('backend production TRX partitions repeat a stable test ID')
   }
-  const testNames = [...mainRecords, ...postludeRecords].map((record) => record.testName)
-  partitionGovernancePostlude(testNames)
+  const testNames = mainRecords.map((record) => record.testName)
   const postgresManifest = JSON.parse(fs.readFileSync(
     path.join(root, 'tests/backend/Fixtures/postgres-test-collections.json'),
     'utf8'
@@ -2376,13 +2367,13 @@ async function runBackendProductionShardsCore({
   })
   const { partitionCount } = partitioning
   const plan = buildShardPlan(testNames, partitionCount, Array.from({ length: partitionCount }, () => 1))
-  const validation = validateExactProductionUnion(testNames, [mainRecords, postludeRecords])
+  const validation = validateExactProductionUnion(testNames, [mainRecords])
   const summary = {
     schema: 'fsusblog.backend-production-shards.v2',
     status: 'success',
     filter: productionFilter,
-    executionMode: 'single-testhost-with-governance-postlude',
-    partitionCount: 2,
+    executionMode: 'single-testhost-exact-union',
+    partitionCount: 1,
     maxConcurrentProcesses: 1,
     initialConcurrentProcesses: 1,
     peakConcurrentProcesses: 1,
@@ -2441,18 +2432,17 @@ async function runBackendProductionShardsCore({
       executionIntegrated: true,
       authoritativeTraitSource: {
         protocol: 'VSTest TRX ResultSummary/Counters plus complementary production filters',
-        trxDigests: [mainTrxFile, postludeTrxFile]
-          .map((file) => `sha256:${sha256(fs.readFileSync(file))}`),
+        trxDigests: [mainTrxFile].map((file) => `sha256:${sha256(fs.readFileSync(file))}`),
         productionTestCaseCount: testNames.length,
         mainTestCaseCount: mainEvidence.counters.executed,
-        governancePostludeTestCaseCount: postludeEvidence.counters.executed,
+        governanceRequirementTestCaseCount: 1,
         selectedTestIdCount: executionIds.size
       }
     },
     execution: {
       ...validation,
       mainTestCaseCount: mainRecords.length,
-      governancePostludeTestCaseCount: postludeRecords.length,
+      governanceRequirementTestCaseCount: 1,
       coverageMainFilter: mainFilter,
       evidenceCheckerRuns: 1
     },
@@ -2468,7 +2458,7 @@ async function runBackendProductionShardsCore({
     }])),
     partitions: [{
       id: 0,
-      kind: 'coverage-main',
+      kind: 'coverage-exact-union',
       processSlot: 0,
       processors: parallelism.cpuBudget,
       memoryGiB: parallelism.memoryGiB,
@@ -2478,32 +2468,20 @@ async function runBackendProductionShardsCore({
       durationMs: mainResult.durationMs,
       trx: path.relative(root, mainTrxFile).replaceAll(path.sep, '/'),
       coverageRoot: path.relative(root, mainCoverageRoot).replaceAll(path.sep, '/')
-    }, {
-      id: 1,
-      kind: 'governance-postlude',
-      processSlot: 0,
-      processors: parallelism.cpuBudget,
-      memoryGiB: parallelism.memoryGiB,
-      testCaseCount: postludeRecords.length,
-      testMethodCount: 1,
-      filterDigest: `sha256:${sha256(postludeFilter)}`,
-      durationMs: postludeResult.durationMs,
-      trx: path.relative(root, postludeTrxFile).replaceAll(path.sep, '/'),
-      coverageMode: 'excluded-pure-evidence-consumer',
-      coverageRoot: null
     }],
     producer: {
       runId: process.env.FSUSBLOG_TEST_RUN_ID ?? null,
       sourceCommit: process.env.FSUSBLOG_TEST_SOURCE_COMMIT ?? null,
       sourceFingerprint: process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT ?? null
     },
+    buildBinding: canonicalBackendBuildBinding(),
     generatedAt: new Date().toISOString()
   }
-  validateShardSummaryArtifacts(summary, [mainTrxFile, postludeTrxFile])
+  validateShardSummaryArtifacts(summary, [mainTrxFile])
   writeJsonAtomic(summaryFile, summary)
   console.log(
     `[backend-production-shards] ok tests=${validation.executedTestCaseCount} methods=${validation.executedMethodCount} `
-    + `testhosts=2 coverageTesthosts=1 exactOnce=${validation.exactOnce}`
+    + `testhosts=1 coverageTesthosts=1 exactOnce=${validation.exactOnce}`
   )
   return summary
 }
@@ -2564,10 +2542,7 @@ async function runExpandableBackendProductionShards({
     const allAuthoritativeRecords = alignAuthoritativeDiscovery(allTestNames, diagnostic.records)
     const authoritativeRecords = projectProductionUnionRecords(allAuthoritativeRecords)
     const testNames = authoritativeRecords.map((record) => record.displayName)
-    const { main: mainTestNames, postlude: postludeTestNames } = partitionGovernancePostlude(testNames)
-    const mainAuthoritativeRecords = authoritativeRecords.filter((record) => (
-      normalizeListedTestName(record.displayName) !== governancePostludeTest
-    ))
+    const mainTestNames = testNames
     const categoryTests = projectTraitMembership(authoritativeRecords, 'Category', projectedCategories)
     const affinityTests = projectTraitMembership(authoritativeRecords, 'ShardAffinity', shardAffinities)
     const dependencyTests = projectTraitMembership(authoritativeRecords, 'Dependency', weightedDependencies)
@@ -2630,7 +2605,6 @@ async function runExpandableBackendProductionShards({
       classStartupPenalty: deriveClassStartupPenalty(mainTestNames),
       weightedDependencyCount,
       affinityGroupCount: affinityGroups.length,
-      governancePostludeCount: 1,
       testhostOverride,
       partitionMultiplier,
       processorAllocationMode
@@ -2736,23 +2710,8 @@ async function runExpandableBackendProductionShards({
     if (discoveryResultFailed(evidenceResult)) {
       throw new Error(`backend Perception evidence finalization failed: ${discoveryFailureDetail(evidenceResult)}`)
     }
-    const postludeTrxFile = path.join(testResultsRoot, 'governance-postlude.trx')
-    const postludeResult = await runDotnet([
-      'vstest', testAssembly,
-      `--TestCaseFilter:${productionFilter}&FullyQualifiedName=${governancePostludeTest}`,
-      `--logger:trx;LogFileName=${path.basename(postludeTrxFile)}`,
-      `--ResultsDirectory:${testResultsRoot}`
-    ], { env: backendPartitionEnvironment(process.env, {
-      processors: 1,
-      memoryGiB: initialTopology.memoryGiBByTesthost[0],
-      namespace: `${databaseNamespace}-postlude`
-    }) })
-    if (discoveryResultFailed(postludeResult)) {
-      throw new Error(`backend production governance postlude failed: ${discoveryFailureDetail(postludeResult)}`)
-    }
-    const postludeRecords = parseTrxExecutionEvidence(fs.readFileSync(postludeTrxFile, 'utf8')).records
     const mainRecords = recordsByShard.flat()
-    const validation = validateExactProductionUnion(testNames, [mainRecords, postludeRecords], {
+    const validation = validateExactProductionUnion(testNames, recordsByShard, {
       authoritativeRecords
     })
     const rolling = outcomes.rollingExecution
@@ -2761,10 +2720,10 @@ async function runExpandableBackendProductionShards({
       schema: 'fsusblog.backend-production-shards.v2',
       status: 'success',
       filter: productionFilter,
-      executionMode: 'expandable-exact-partitions-with-governance-postlude',
-      partitionCount: outcomes.length + 1,
+      executionMode: 'expandable-exact-partitions',
+      partitionCount: outcomes.length,
       rollingPartitionCount: outcomes.length,
-      postludePartitionCount: 1,
+      postludePartitionCount: 0,
       maxConcurrentProcesses: rolling.peakConcurrentProcesses,
       initialConcurrentProcesses: rolling.initialConcurrentProcesses,
       peakConcurrentProcesses: rolling.peakConcurrentProcesses,
@@ -2824,7 +2783,7 @@ async function runExpandableBackendProductionShards({
       execution: {
         ...validation,
         mainTestCaseCount: mainRecords.length,
-        governancePostludeTestCaseCount: postludeRecords.length,
+        governanceRequirementTestCaseCount: 1,
         evidenceCheckerRuns: 1
       },
       categoryMembership: Object.fromEntries(Object.entries(validateCategoryMembership(plan, categoryTests))
@@ -2861,30 +2820,17 @@ async function runExpandableBackendProductionShards({
           durationMs: outcome.value.durationMs,
           trx: path.relative(root, outcome.value.trxFile).replaceAll(path.sep, '/'),
           coverageRoot: path.relative(root, outcome.value.coverageRoot).replaceAll(path.sep, '/')
-        })),
-        {
-          id: outcomes.length,
-          kind: 'governance-postlude',
-          processSlot: 0,
-          processors: 1,
-          memoryGiB: initialTopology.memoryGiBByTesthost[0],
-          testCaseCount: postludeRecords.length,
-          testMethodCount: 1,
-          filterDigest: `sha256:${sha256(postludeTestNames.join('\n'))}`,
-          durationMs: postludeResult.durationMs,
-          trx: path.relative(root, postludeTrxFile).replaceAll(path.sep, '/'),
-          coverageMode: 'excluded-pure-evidence-consumer',
-          coverageRoot: null
-        }
+        }))
       ],
       producer: {
         runId: process.env.FSUSBLOG_TEST_RUN_ID ?? null,
         sourceCommit: process.env.FSUSBLOG_TEST_SOURCE_COMMIT ?? null,
         sourceFingerprint: process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT ?? null
       },
+      buildBinding: canonicalBackendBuildBinding(),
       generatedAt: new Date().toISOString()
     }
-    const trxFiles = [...outcomes.map((outcome) => outcome.value.trxFile), postludeTrxFile]
+    const trxFiles = outcomes.map((outcome) => outcome.value.trxFile)
     validateShardSummaryArtifacts(summary, trxFiles)
     writeJsonAtomic(summaryFile, summary)
     return summary

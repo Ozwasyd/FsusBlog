@@ -153,7 +153,6 @@ export function planBackendProductionTopology({
   classStartupPenalty,
   weightedDependencyCount = 0,
   affinityGroupCount = 0,
-  governancePostludeCount = 1,
   testhostOverride = null,
   partitionMultiplier = DEFAULT_PARTITION_MULTIPLIER,
   processorAllocationMode = 'uniform',
@@ -173,15 +172,11 @@ export function planBackendProductionTopology({
   const classPenalty = positiveInteger(classStartupPenalty, 'backend topology class startup penalty')
   const dependencyCount = Number(weightedDependencyCount)
   const affinityCount = Number(affinityGroupCount)
-  const postludeCount = Number(governancePostludeCount)
   if (!Number.isInteger(dependencyCount) || dependencyCount < 0) {
     throw new Error('backend topology weighted dependency count must be a non-negative integer')
   }
   if (!Number.isInteger(affinityCount) || affinityCount < 0) {
     throw new Error('backend topology affinity group count must be a non-negative integer')
-  }
-  if (!Number.isInteger(postludeCount) || postludeCount < 1) {
-    throw new Error('backend topology governance postlude count must be a positive integer')
   }
   const configuredTesthosts = optionalPositiveInteger(testhostOverride, 'backend topology diagnostic testhost override')
   if (configuredTesthosts !== null && configuredTesthosts > capacity.testhostLimit) {
@@ -240,8 +235,8 @@ export function planBackendProductionTopology({
     source: configuredTesthosts === null ? 'automatic-machine-workload-model' : 'diagnostic-override',
     testhostCount,
     rollingPartitionCount,
-    governancePostludeCount: postludeCount,
-    totalPartitionCount: rollingPartitionCount + postludeCount,
+    governancePostludeCount: 0,
+    totalPartitionCount: rollingPartitionCount,
     processorsByTesthost,
     memoryGiBByTesthost,
     allocatedCpuUnits,
@@ -265,7 +260,7 @@ export function planBackendProductionTopology({
         memoryGiBByTesthost.reduce((sum, value) => sum + value, 0) - capacity.memoryGiB
       ) < 1e-9,
       affinityUnitsRemainIndivisible: true,
-      governancePostludeSeparated: true
+      governanceIncludedInExactUnion: true
     }
   }
 }

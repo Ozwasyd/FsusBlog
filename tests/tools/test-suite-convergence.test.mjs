@@ -24,7 +24,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 
 test('matrix is the single current command and retention governance authority', () => {
   const matrix = parseMatrix(readFileSync(resolve(root, 'tests/matrix.yml'), 'utf8'))
-  assert.equal(matrix.commandGroups['frontend-static-governance'].commands.length, 49)
+  assert.equal(matrix.commandGroups['frontend-static-governance'].commands.length, 50)
   assert.equal(matrix.commandGroups['frontend-runtime-contracts'].commands.length, 7)
   assert.equal(matrix.governance.retention.replacementLedger, 'tests/test-retention-replacements.json')
     assert.deepEqual(matrix.governance.retention.postBaselines, [

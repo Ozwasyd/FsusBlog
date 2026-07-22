@@ -1,6 +1,6 @@
 # Backend Production topology calibration
 
-`tools/test/run-backend-production-shards.mjs` 将并发 testhost、每个 testhost 的 processor 配额和 rolling partition 数视为三个独立维度。默认规划器使用实时 admitted CPU/内存、discovered class/affinity planning unit、cold application/testhost startup penalty、class startup penalty、Docker/PostgreSQL weighted dependency、独立 governance postlude 和最多 12 个 testhost 的硬上限。CPU allocation 必须精确等于本轮 grant，内存按 testhost 均分且每个 testhost 至少 1 GiB；affinity class 仍是不可拆 planning unit，governance postlude 始终最后独立执行。
+`tools/test/run-backend-production-shards.mjs` 将并发 testhost、每个 testhost 的 processor 配额和 rolling partition 数视为三个独立维度。默认规划器使用实时 admitted CPU/内存、discovered class/affinity planning unit、cold application/testhost startup penalty、class startup penalty、Docker/PostgreSQL weighted dependency 和最多 12 个 testhost 的硬上限。CPU allocation 必须精确等于本轮 grant，内存按 testhost 均分且每个 testhost 至少 1 GiB；affinity class 仍是不可拆 planning unit。纯 requirement/evidence governance 与其他普通测试一样进入 exact-union 和 coverage shard，规划器不得为它追加 postlude partition 或 testhost。
 
 ## 可重复诊断
 

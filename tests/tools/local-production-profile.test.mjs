@@ -726,8 +726,9 @@ test('backend bundle exposes run-bound readiness and exact-union contracts', () 
     assert.doesNotMatch(backendBundleRunner, /FSUSBLOG_BACKEND_PRODUCTION_SHARDS=\d|FSUSBLOG_BACKEND_SHARD_PROCESSORS=\d/u);
     assert.match(backendShardRunner, /Category!=Integration&Category!=Performance/u);
     assert.match(backendShardRunner, /'--ListTests'/u);
-    assert.match(backendShardRunner, /validateExactProductionUnion\(testNames, \[mainRecords, postludeRecords\],[\s\S]*?authoritativeRecords/u);
-    assert.match(backendShardRunner, /executionMode: 'expandable-exact-partitions-with-governance-postlude'/u);
+    assert.match(backendShardRunner, /validateExactProductionUnion\(testNames, recordsByShard,[\s\S]*?authoritativeRecords/u);
+    assert.match(backendShardRunner, /executionMode: 'expandable-exact-partitions'/u);
+    assert.doesNotMatch(backendShardRunner, /const postludeResult|governance-postlude\.trx/u);
     assert.match(backendBundleRunner, /await executeWave\(\[[\s\S]*?commandStep\('services'[\s\S]*?commandStep\('dotnet-restore'/u);
     assert.match(backendBundleRunner, /await executeWeightedStepDag\(\[[\s\S]*?testStep,[\s\S]*?commandStep\('perception-matrix'/u);
     assert.match(backendBundleRunner, /commandStep\('perception-matrix',[\s\S]*?dependsOn: \['dotnet-production-union'\]/u);

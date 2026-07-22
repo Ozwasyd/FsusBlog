@@ -24,7 +24,6 @@ function plan(cpuBudget, overrides = {}) {
     classStartupPenalty: 12,
     weightedDependencyCount: 18,
     affinityGroupCount: 3,
-    governancePostludeCount: 1,
     ...overrides
   })
 }
@@ -52,8 +51,8 @@ test('testhost, processor and rolling partition dimensions remain independent', 
   assert.equal(topology.testhostCount, 4)
   assert.deepEqual(topology.processorsByTesthost, [4, 4, 4, 4])
   assert.equal(topology.rollingPartitionCount, 12)
-  assert.equal(topology.totalPartitionCount, 13)
-  assert.equal(topology.governancePostludeCount, 1)
+  assert.equal(topology.totalPartitionCount, 12)
+  assert.equal(topology.governancePostludeCount, 0)
   assert.notEqual(topology.testhostCount, topology.rollingPartitionCount)
 })
 
@@ -84,7 +83,7 @@ test('memory and planning units cap testhosts without changing CPU conservation'
   assert.throws(() => plan(8, { memoryGiB: 1.99 }), /at least two testhosts/u)
 })
 
-test('workload evidence is retained in candidate scores and affinity/postlude invariants', () => {
+test('workload evidence is retained in candidate scores and exact-union invariants', () => {
   const topology = plan(16)
   assert.deepEqual(topology.modelInputs, {
     productionTestCaseCount: 640,
@@ -101,7 +100,7 @@ test('workload evidence is retained in candidate scores and affinity/postlude in
     && Number.isFinite(score.affinityQueue)
   )))
   assert.equal(topology.invariants.affinityUnitsRemainIndivisible, true)
-  assert.equal(topology.invariants.governancePostludeSeparated, true)
+  assert.equal(topology.invariants.governanceIncludedInExactUnion, true)
 })
 
 test('calibration matrix clips the 2/4/6/8/12 host matrix to live capacity', () => {

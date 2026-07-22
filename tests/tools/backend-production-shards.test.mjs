@@ -31,7 +31,6 @@ import {
   readBackendSchedulerResourceGrant,
   resolveBackendShardParallelism,
   resolveBackendPotentialProcessCount,
-  partitionGovernancePostlude,
   runAuthoritativeProductionDiscovery,
   runRollingPartitions,
   staleBackendBuildServerPids,
@@ -131,30 +130,29 @@ test('backend authoritative VSTest discovery aligns exactly with the console uni
   ]), records)
 })
 
-test('backend governance postlude is an exact-one split and the two TRXs prove a passing union', () => {
+test('backend requirement governance remains exact-once inside the canonical union', () => {
   const governance = 'FsusBlog.Server.Tests.Unit.BackendTestGovernanceTests.Issue40Requirements_HaveEvidenceAndRiskTraceability'
   const union = ['Example.Tests.Other.Case', governance]
-  const partition = partitionGovernancePostlude(union)
-  assert.deepEqual(partition.main, ['Example.Tests.Other.Case'])
-  assert.deepEqual(partition.postlude, [governance])
-  assert.deepEqual(validateExactProductionUnion(union, [
-    [{ testName: union[0], outcome: 'Passed' }],
-    [{ testName: governance, outcome: 'Passed' }]
-  ]), {
+  assert.deepEqual(validateExactProductionUnion(union, [[
+    { testName: union[0], outcome: 'Passed' },
+    { testName: governance, outcome: 'Passed' }
+  ]]), {
     executedTestCaseCount: 2,
     executedMethodCount: 2,
     exactOnce: true,
     allPassed: true
   })
   assert.throws(
-    () => partitionGovernancePostlude(['Example.Tests.Other.Case']),
+    () => validateExactProductionUnion(['Example.Tests.Other.Case'], [[
+      { testName: 'Example.Tests.Other.Case', outcome: 'Passed' }
+    ]]),
     /requires exactly one/u
   )
   assert.throws(
-    () => validateExactProductionUnion(union, [
-      [{ testName: governance, outcome: 'Passed' }],
-      [{ testName: union[0], outcome: 'Passed' }]
-    ]),
+    () => validateExactProductionUnion(union, [[
+      { testName: governance, outcome: 'Passed' },
+      { testName: governance, outcome: 'Passed' }
+    ]]),
     /do not match their exact filters/u
   )
   const emojiCase = 'Example.Tests.Other.Theory(value: "🙂")'
@@ -459,15 +457,13 @@ test('backend production resource cleanup selects only containers whose encoded 
   assert.throws(() => staleBackendPostgresContainers('not-an-array'), /container-name array/u)
 })
 
-test('backend production database namespace is short, deterministic, and role-isolated', () => {
+test('backend production database namespace is short, deterministic, and has no postlude role', () => {
   const main = backendProductionDatabaseNamespace('main', { runId: 'production-run', runnerPid: 42 })
   const repeated = backendProductionDatabaseNamespace('main', { runId: 'production-run', runnerPid: 42 })
-  const postlude = backendProductionDatabaseNamespace('postlude', { runId: 'production-run', runnerPid: 42 })
   assert.equal(main, repeated)
-  assert.notEqual(main, postlude)
   assert.ok(main.length <= 18)
   assert.match(main, /^bp-[0-9a-f]{10}-m$/u)
-  assert.match(postlude, /^bp-[0-9a-f]{10}-p$/u)
+  assert.throws(() => backendProductionDatabaseNamespace('postlude'), /unknown backend database namespace role/u)
   assert.throws(() => backendProductionDatabaseNamespace('unknown'), /unknown backend database namespace role/u)
 })
 
@@ -1431,16 +1427,13 @@ test('backend production summary binds rolling process capacity and artifacts to
   )
 })
 
-test('backend production summary binds one coverage testhost plus a sequential governance postlude', () => {
+test('backend production summary binds one coverage exact-union testhost', () => {
   const repositoryRoot = '/repo'
-  const trxFiles = [
-    `${repositoryRoot}/.tmp/test-results/backend/production/main-coverage.trx`,
-    `${repositoryRoot}/.tmp/test-results/backend/production/governance-postlude.trx`
-  ]
+  const trxFiles = [`${repositoryRoot}/.tmp/test-results/backend/production/main-coverage.trx`]
   const summary = {
     status: 'success',
-    executionMode: 'single-testhost-with-governance-postlude',
-    partitionCount: 2,
+    executionMode: 'single-testhost-exact-union',
+    partitionCount: 1,
     maxConcurrentProcesses: 1,
     initialConcurrentProcesses: 1,
     peakConcurrentProcesses: 1,
@@ -1459,30 +1452,25 @@ test('backend production summary binds one coverage testhost plus a sequential g
       potentialBudget: { cpuUnits: 3, memoryGiB: 12 }
     },
     discovery: { testCaseCount: 3544 },
-    execution: { executedTestCaseCount: 3544, exactOnce: true, allPassed: true },
+    execution: {
+      executedTestCaseCount: 3544,
+      governanceRequirementTestCaseCount: 1,
+      exactOnce: true,
+      allPassed: true
+    },
     partitions: [{
       id: 0,
-      kind: 'coverage-main',
+      kind: 'coverage-exact-union',
       processSlot: 0,
       processors: 3,
       memoryGiB: 12,
-      testCaseCount: 3543,
+      testCaseCount: 3544,
       trx: path.relative(repositoryRoot, trxFiles[0]).replaceAll(path.sep, '/'),
       coverageRoot: '.tmp/coverage/backend/production/main'
-    }, {
-      id: 1,
-      kind: 'governance-postlude',
-      processSlot: 0,
-      processors: 3,
-      memoryGiB: 12,
-      testCaseCount: 1,
-      trx: path.relative(repositoryRoot, trxFiles[1]).replaceAll(path.sep, '/'),
-      coverageMode: 'excluded-pure-evidence-consumer',
-      coverageRoot: null
     }]
   }
   assert.deepEqual(validateShardSummaryArtifacts(summary, trxFiles, { repositoryRoot }), {
-    partitionCount: 2,
+    partitionCount: 1,
     maxConcurrentProcesses: 1,
     initialConcurrentProcesses: 1,
     peakConcurrentProcesses: 1,
@@ -1547,7 +1535,7 @@ test('backend production summary records global 8, planned 5, initial 3, and fiv
         testhostCount: 5,
         rollingPartitionCount: 5,
         allocatedCpuUnits: 8,
-        invariants: { exactCpuConservation: true, governancePostludeSeparated: true }
+        invariants: { exactCpuConservation: true, governanceIncludedInExactUnion: true }
       }
     },
     partitions: trxFiles.map((file, id) => ({
@@ -1685,15 +1673,14 @@ test('backend projection discovery aggregates category, affinity, and dependency
   ])
 })
 
-test('backend production executes fixed exact coverage shards with live expansion before one no-coverage governance postlude', () => {
+test('backend production executes fixed exact coverage shards with governance inside the union', () => {
   const source = fs.readFileSync(path.join(root, 'tools/test/run-backend-production-shards.mjs'), 'utf8')
   const start = source.indexOf('async function runExpandableBackendProductionShards')
   const end = source.indexOf('\nexport async function runBackendProductionShards', start)
   const executionBody = source.slice(start, end)
   const rolling = executionBody.indexOf('const outcomes = await runRollingPartitions')
   const finalize = executionBody.indexOf("runNode(['tools/security/check-perception-v2-e2e-evidence.mjs']")
-  const postlude = executionBody.indexOf('const postludeResult = await runDotnet')
-  assert.ok(start > 0 && rolling > 0 && finalize > rolling && postlude > finalize)
+  assert.ok(start > 0 && rolling > 0 && finalize > rolling)
   assert.match(executionBody, /'--ListTests'[\s\S]*?`--Diag:\$\{diagnosticFile\}`/u)
   assert.match(executionBody, /prepareShardFiles\(plan,[\s\S]*?runRollingPartitions/u)
   assert.match(executionBody, /readBackendResourceGrantAfterBenchmark/u)
@@ -1706,13 +1693,14 @@ test('backend production executes fixed exact coverage shards with live expansio
   assert.match(source, /FsusBlog\.Server\.Tests\.deps\.json[\s\S]*?FsusBlog\.Server\.Tests\.runtimeconfig\.json/u)
   assert.match(source, /assets\.packageFolders[\s\S]*?coverlet\.collector\.dll/u)
   assert.match(source, /<TestCaseFilter>\$\{escapeXml\(filter\)\}<\/TestCaseFilter>/u)
-  assert.doesNotMatch(executionBody.slice(postlude, executionBody.indexOf('const postludeRecords', postlude)), /--Collect:XPlat Code Coverage/u)
   assert.match(executionBody, /executionPolicy: 'fixed-exact-partitions-expand-on-live-grant'/u)
-  assert.match(executionBody, /kind: 'coverage-shard'[\s\S]*?kind: 'governance-postlude'[\s\S]*?coverageMode: 'excluded-pure-evidence-consumer'/u)
+  assert.match(executionBody, /kind: 'coverage-shard'/u)
+  assert.doesNotMatch(executionBody, /kind: 'governance-postlude'|postludeResult|governance-postlude\.trx/u)
+  assert.match(executionBody, /governanceRequirementTestCaseCount: 1/u)
   assert.equal((executionBody.match(/check-perception-v2-e2e-evidence\.mjs/gu) ?? []).length, 1)
 })
 
-test('coverage-excluded governance postlude is a pure JSON and evidence-path consumer', () => {
+test('exact-union requirement governance remains a pure JSON and evidence-path consumer', () => {
   const source = fs.readFileSync(path.join(root, 'tests/backend/Unit/BackendTestGovernanceTests.cs'), 'utf8')
   const start = source.indexOf('public void Issue40Requirements_HaveEvidenceAndRiskTraceability()')
   const end = source.indexOf('\n    [Fact]', start)

@@ -97,6 +97,8 @@ STATIC_NODE_CONTRACT_FILES=(
     "$ROOT_DIR/tests/tools/command-manifest-behavior.test.mjs"
     "$ROOT_DIR/tests/tools/command-manifest-test-migration.test.mjs"
     "$ROOT_DIR/tests/tools/backend-build-lock-behavior.test.mjs"
+    "$ROOT_DIR/tests/tools/backend-production-build-authority.test.mjs"
+    "$ROOT_DIR/tests/tools/backend-production-build-authority-measurement.test.mjs"
     "$ROOT_DIR/tests/tools/runtime-worker-admission.test.mjs"
     "$ROOT_DIR/tests/tools/security-worker-admission.test.mjs"
     "$ROOT_DIR/tests/tools/issue-1151-evidence-governance.test.mjs"

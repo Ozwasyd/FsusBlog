@@ -267,6 +267,28 @@
       ]
     },
     {
+      "file": "tests/tools/backend-production-build-authority-measurement.test.mjs",
+      "owner": "repository-governance:static-node-contracts",
+      "executionCategory": "repository-governance",
+      "lifecycle": "canonical-execution",
+      "physicalExecutionCount": 1,
+      "classifications": [
+        "source-text",
+        "perf"
+      ]
+    },
+    {
+      "file": "tests/tools/backend-production-build-authority.test.mjs",
+      "owner": "repository-governance:static-node-contracts",
+      "executionCategory": "repository-governance",
+      "lifecycle": "canonical-execution",
+      "physicalExecutionCount": 1,
+      "classifications": [
+        "source-text",
+        "compatibility-wrapper"
+      ]
+    },
+    {
       "file": "tests/tools/backend-production-shards.test.mjs",
       "owner": "manual-diagnostic:tests/tools/backend-production-shards.test.mjs",
       "executionCategory": "manual-diagnostic",
