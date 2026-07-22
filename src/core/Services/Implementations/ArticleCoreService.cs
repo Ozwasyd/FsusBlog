@@ -303,6 +303,7 @@ public sealed class ArticleCoreService(
 
     public async ValueTask<Result<IReadOnlySet<int>>> IncreaseViewCountsAsync(ArticleViewCountBatchCommand command, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         IReadOnlyDictionary<int, int> articleCounts = command.ArticleCounts;
         if (articleCounts is null || articleCounts.Count == 0)
         {

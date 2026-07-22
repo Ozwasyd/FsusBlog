@@ -189,6 +189,17 @@
       ]
     },
     {
+      "file": "tests/tools/article-core-test-api-governance.test.mjs",
+      "owner": "repository-governance:static-node-contracts",
+      "executionCategory": "repository-governance",
+      "lifecycle": "canonical-execution",
+      "physicalExecutionCount": 1,
+      "classifications": [
+        "source-text",
+        "migration"
+      ]
+    },
+    {
       "file": "tests/tools/artifact-digest-table.test.mjs",
       "owner": "manual-diagnostic:tests/tools/artifact-digest-table.test.mjs",
       "executionCategory": "manual-diagnostic",

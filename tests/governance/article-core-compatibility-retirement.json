@@ -1,0 +1,169 @@
+{
+  "schema": "fsusblog.article-core-compatibility-retirement.v1",
+  "baselineCommit": "57a3de7649a42c5fdb68c589fa82a7d223630943",
+  "retiredHelperPath": "tests/backend/Helpers/ArticleCoreTestCompatibilityExtensions.cs",
+  "retiredMethods": [
+    { "receiver": "IArticleCoreService", "name": "GetPageListAsync", "sourceCallCount": 5 },
+    { "receiver": "IArticleCoreService", "name": "GetByIdAsync", "sourceCallCount": 5 },
+    { "receiver": "IArticleCoreService", "name": "CreateAsync", "sourceCallCount": 3 },
+    { "receiver": "IArticleCoreService", "name": "UpdateAsync", "sourceCallCount": 3 },
+    { "receiver": "IArticleCoreService", "name": "DeleteAsync", "sourceCallCount": 3 },
+    { "receiver": "IArticleCoreService", "name": "RestoreAsync", "sourceCallCount": 3 },
+    { "receiver": "IArticleCoreService", "name": "PermanentlyDeleteArticleAsync", "sourceCallCount": 2 },
+    { "receiver": "IArticleCoreService", "name": "SearchArticlesAsync", "sourceCallCount": 2 },
+    { "receiver": "IArticleCoreService", "name": "GetHotArticlesAsync", "sourceCallCount": 2 },
+    { "receiver": "IArticleCoreService", "name": "GetFeaturedArticlesAsync", "sourceCallCount": 2 },
+    { "receiver": "IArticleCoreService", "name": "IncreaseViewCountAsync", "sourceCallCount": 2 },
+    { "receiver": "IArticleCoreService", "name": "IncreaseViewCountsAsync", "sourceCallCount": 1 },
+    { "receiver": "IArticleCoreGateway", "name": "GetPageListAsync", "sourceCallCount": 2 },
+    { "receiver": "IArticleCoreGateway", "name": "GetByIdAsync", "sourceCallCount": 3 },
+    { "receiver": "IArticleCoreGateway", "name": "CreateAsync", "sourceCallCount": 0 },
+    { "receiver": "IArticleCoreGateway", "name": "UpdateAsync", "sourceCallCount": 0 },
+    { "receiver": "IArticleCoreGateway", "name": "DeleteAsync", "sourceCallCount": 2 },
+    { "receiver": "IArticleCoreGateway", "name": "RestoreAsync", "sourceCallCount": 2 },
+    { "receiver": "IArticleCoreGateway", "name": "PermanentlyDeleteArticleAsync", "sourceCallCount": 1 },
+    { "receiver": "IArticleCoreGateway", "name": "SearchArticlesAsync", "sourceCallCount": 1 },
+    { "receiver": "IArticleCoreGateway", "name": "GetHotArticlesAsync", "sourceCallCount": 1 },
+    { "receiver": "IArticleCoreGateway", "name": "GetFeaturedArticlesAsync", "sourceCallCount": 1 },
+    { "receiver": "IArticleCoreGateway", "name": "IncreaseViewCountAsync", "sourceCallCount": 1 },
+    { "receiver": "IArticleCoreGateway", "name": "IncreaseViewCountsAsync", "sourceCallCount": 0 },
+    { "receiver": "ArticleService", "name": "CreateAsync", "sourceCallCount": 11 },
+    { "receiver": "ArticleService", "name": "UpdateAsync", "sourceCallCount": 13 }
+  ],
+  "callSiteInventory": [
+    {
+      "path": "tests/backend/Unit/CoreServiceTests.cs",
+      "sourceCallCount": 45,
+      "replacementAssertionOwners": [
+        "ArticleCoreServiceTests.GetPageList_InvalidPagination_ReturnsValidationFailure",
+        "ArticleCoreServiceTests.GetPageList_WithCategoryFilter_PassesThrough",
+        "ArticleCoreServiceTests.GetById_DraftWithoutBody_RemainsReadable",
+        "ArticleCoreServiceTests.Create_InvalidParams_ReturnsValidationFailure",
+        "ArticleCoreServiceTests.Update_InvalidParams_ReturnsValidationFailure",
+        "ArticleCoreServiceTests.Delete_Success",
+        "ArticleCoreServiceTests.Restore_Success",
+        "ArticleCoreServiceTests.PermanentlyDelete_Success",
+        "ArticleCoreServiceTests.Search_ValidKeyword_ReturnsData",
+        "ArticleCoreServiceTests.GetHot_ValidCount_ReturnsData",
+        "ArticleCoreServiceTests.GetFeatured_ValidCount_DelegatesToGateway",
+        "ArticleCoreServiceTests.IncreaseViewCounts_ValidBatch_CallsGatewayBatch"
+      ]
+    },
+    {
+      "path": "tests/backend/Unit/ArticleEndpointServiceTests.cs",
+      "sourceCallCount": 2,
+      "replacementAssertionOwners": [
+        "ArticleEndpointServiceTests.GetPageListAsync_WhenCancelledBeforeCall_DoesNotTouchCacheOrCore",
+        "ArticleEndpointServiceTests.GetPageListAsync_InvalidPagination_ReturnsValidationFailureWithoutCacheOrCore"
+      ]
+    },
+    {
+      "path": "tests/backend/Unit/ArticleRightsWritePathTests.cs",
+      "sourceCallCount": 16,
+      "replacementAssertionOwners": [
+        "ArticleRightsWritePathTests.CreateAsync_WritesRightsPolicySnapshotAndOutboxInSameTransaction",
+        "ArticleRightsWritePathTests.UpdateAsync_OmittedRightsPreservesPolicyAndBindsNewRevisionSnapshot",
+        "ArticleRightsWritePathTests.UpdateAsync_ExplicitResetReplacesPolicyWithDefaults",
+        "ArticleRightsWritePathTests.RollbackRevisionAsync_CopiesHistoricalVersionPackageIntoNewCoordinates"
+      ]
+    },
+    {
+      "path": "tests/backend/Unit/ArticleRevisionConcurrencyTests.cs",
+      "sourceCallCount": 8,
+      "replacementAssertionOwners": [
+        "ArticleRevisionConcurrencyTests.UpdateAsync_ConcurrentRowVersionMismatchDoesNotRewriteArticleOrTags",
+        "ArticleRevisionConcurrencyTests.UpdateAsync_SuccessfulUpdateRewritesTagSetWithAtomicUpsert",
+        "ArticleRevisionConcurrencyTests.UpdateAsync_WhenFenceFails_DoesNotChangePublishedArticle",
+        "ArticleRevisionConcurrencyTests.UpdateAsync_ContentChangeAdvancesBodyUpdatedAtButPreservesFirstPublishedAt"
+      ]
+    }
+  ],
+  "assertionMapping": {
+    "field-mapping": [
+      "ArticleCoreServiceTests.GetPageList_WithCategoryFilter_PassesThrough",
+      "ArticleCoreServiceTests.Create_CommandPreservesFieldsAndCancellationToken"
+    ],
+    "defaults": [
+      "ArticleCoreServiceTests.ArticleQueryAndCommand_DefaultsMatchCurrentPublicContract",
+      "PublicAotBootstrapProviderTests.HomeProvider_UsesPageSpecificSnapshotOnFirstServerRender"
+    ],
+    "pagination-filter-order": [
+      "ArticleCoreServiceTests.GetPageList_InvalidPagination_ReturnsValidationFailure",
+      "ArticleCoreServiceTests.GetPageList_PublicUtcCursor_PassesCompositePositionToGateway",
+      "ArticleEndpointServiceTests.GetPageListAsync_PublicCursor_ValidatesFilterAndUsesCursorCacheIdentity"
+    ],
+    "cancellation": [
+      "ArticleCoreServiceTests.GetPageList_CancelledTokenFailsBeforeGateway",
+      "ArticleCoreServiceTests.IncreaseViewCounts_CancelledEmptyBatchFailsBeforeGateway",
+      "ArticleEndpointServiceTests.GetByIdAsync_MapsPrivatePermissionAndCancellationTokenToCurrentQuery"
+    ],
+    "context-actor-permission": [
+      "ArticleCoreServiceTests.Update_RollbackPreservesActorContextIntentAndCancellationToken",
+      "ArticleCoreServiceTests.Update_RollbackRejectsInvalidActorOrReason",
+      "ArticleEndpointServiceTests.GetPageListAsync_RejectsDeletedAndStatusFiltersWithoutRequiredPermission"
+    ],
+    "validation-error-boundary": [
+      "ArticleCoreServiceTests.Create_BaseRevisionContextIsRejectedBeforeGateway",
+      "ArticleCoreServiceTests.Update_StandardRequiresBaseRevisionUnlessForceIsExplicit",
+      "ArticleCoreServiceTests.Update_StandardRejectsRollbackActorContext",
+      "ArticleServiceValidationTests.GetPageListAsync_RuntimeRejectsInvalidPaginationWithoutSilentCoercion"
+    ],
+    "business-behavior-retained": [
+      "ArticleDestructiveMutationBehaviorTests.DeleteAndRestore_EnforceStateMachineAndRestoreToDraft",
+      "ArticleRightsWritePathTests.UpdateAsync_ExplicitResetReplacesPolicyWithDefaults",
+      "PublicAotBootstrapProviderTests.HomeProvider_ReturnsNotFoundForPageBeyondTotal"
+    ]
+  },
+  "testUniverseDelta": {
+    "removedTestIds": [
+      "xunit:tests/backend/Unit/CoreServiceTests.cs#ArticleCoreServiceTests.GetPageList_InvalidPagination_ReturnsValidationFailure",
+      "xunit:tests/backend/Unit/CoreServiceTests.cs#ArticleCoreServiceTests.GetPageList_ValidParams_CallsGateway",
+      "xunit:tests/backend/Unit/CoreServiceTests.cs#ArticleCoreServiceTests.GetPageList_WithCategoryFilter_PassesThrough",
+      "xunit:tests/backend/Unit/CoreServiceTests.cs#ArticleCoreServiceTests.GetPageList_PublicUtcCursor_PassesCompositePositionToGateway",
+      "xunit:tests/backend/Unit/CoreServiceTests.cs#ArticleCoreServiceTests.GetPageList_AdminOrNonUtcCursor_FailsClosed"
+    ],
+    "movedTestIds": [
+      {
+        "before": "xunit:tests/backend/Unit/CoreServiceTests.cs#ArticleCoreServiceTests.GetPageList_InvalidPagination_ReturnsValidationFailure",
+        "after": "xunit:tests/backend/Unit/ArticleCoreServiceCurrentApiTests.cs#ArticleCoreServiceTests.GetPageList_InvalidPagination_ReturnsValidationFailure"
+      },
+      {
+        "before": "xunit:tests/backend/Unit/CoreServiceTests.cs#ArticleCoreServiceTests.GetPageList_ValidParams_CallsGateway",
+        "after": "xunit:tests/backend/Unit/ArticleCoreServiceCurrentApiTests.cs#ArticleCoreServiceTests.GetPageList_ValidParams_CallsGateway"
+      },
+      {
+        "before": "xunit:tests/backend/Unit/CoreServiceTests.cs#ArticleCoreServiceTests.GetPageList_WithCategoryFilter_PassesThrough",
+        "after": "xunit:tests/backend/Unit/ArticleCoreServiceCurrentApiTests.cs#ArticleCoreServiceTests.GetPageList_WithCategoryFilter_PassesThrough"
+      },
+      {
+        "before": "xunit:tests/backend/Unit/CoreServiceTests.cs#ArticleCoreServiceTests.GetPageList_PublicUtcCursor_PassesCompositePositionToGateway",
+        "after": "xunit:tests/backend/Unit/ArticleCoreServiceCurrentApiTests.cs#ArticleCoreServiceTests.GetPageList_PublicUtcCursor_PassesCompositePositionToGateway"
+      },
+      {
+        "before": "xunit:tests/backend/Unit/CoreServiceTests.cs#ArticleCoreServiceTests.GetPageList_AdminOrNonUtcCursor_FailsClosed",
+        "after": "xunit:tests/backend/Unit/ArticleCoreServiceCurrentApiTests.cs#ArticleCoreServiceTests.GetPageList_AdminOrNonUtcCursor_FailsClosed"
+      }
+    ],
+    "addedTestIds": [
+      "xunit:tests/backend/Unit/ArticleCoreServiceCurrentApiTests.cs#ArticleCoreServiceTests.GetPageList_InvalidPagination_ReturnsValidationFailure",
+      "xunit:tests/backend/Unit/ArticleCoreServiceCurrentApiTests.cs#ArticleCoreServiceTests.GetPageList_ValidParams_CallsGateway",
+      "xunit:tests/backend/Unit/ArticleCoreServiceCurrentApiTests.cs#ArticleCoreServiceTests.GetPageList_WithCategoryFilter_PassesThrough",
+      "xunit:tests/backend/Unit/ArticleCoreServiceCurrentApiTests.cs#ArticleCoreServiceTests.GetPageList_PublicUtcCursor_PassesCompositePositionToGateway",
+      "xunit:tests/backend/Unit/ArticleCoreServiceCurrentApiTests.cs#ArticleCoreServiceTests.GetPageList_AdminOrNonUtcCursor_FailsClosed",
+      "xunit:tests/backend/Unit/ArticleCoreServiceCurrentApiTests.cs#ArticleCoreServiceTests.ArticleQueryAndCommand_DefaultsMatchCurrentPublicContract",
+      "xunit:tests/backend/Unit/ArticleCoreServiceCurrentApiTests.cs#ArticleCoreServiceTests.GetPageList_CancelledTokenFailsBeforeGateway",
+      "xunit:tests/backend/Unit/ArticleCoreServiceCurrentApiTests.cs#ArticleCoreServiceTests.Create_CommandPreservesFieldsAndCancellationToken",
+      "xunit:tests/backend/Unit/ArticleCoreServiceCurrentApiTests.cs#ArticleCoreServiceTests.Create_BaseRevisionContextIsRejectedBeforeGateway",
+      "xunit:tests/backend/Unit/ArticleCoreServiceCurrentApiTests.cs#ArticleCoreServiceTests.Update_StandardRequiresBaseRevisionUnlessForceIsExplicit",
+      "xunit:tests/backend/Unit/ArticleCoreServiceCurrentApiTests.cs#ArticleCoreServiceTests.Update_RollbackPreservesActorContextIntentAndCancellationToken",
+      "xunit:tests/backend/Unit/ArticleCoreServiceCurrentApiTests.cs#ArticleCoreServiceTests.Update_RollbackRejectsInvalidActorOrReason",
+      "xunit:tests/backend/Unit/ArticleCoreServiceCurrentApiTests.cs#ArticleCoreServiceTests.Update_StandardRejectsRollbackActorContext",
+      "xunit:tests/backend/Unit/ArticleCoreServiceCurrentApiTests.cs#ArticleCoreServiceTests.IncreaseViewCounts_CancelledEmptyBatchFailsBeforeGateway",
+      "xunit:tests/backend/Unit/ArticleEndpointServiceCurrentApiTests.cs#ArticleEndpointServiceTests.GetByIdAsync_MapsPrivatePermissionAndCancellationTokenToCurrentQuery",
+      "xunit:tests/backend/Unit/ArticleEndpointServiceCurrentApiTests.cs#ArticleEndpointServiceTests.GetPageListAsync_RejectsDeletedAndStatusFiltersWithoutRequiredPermission",
+      "node-test:tests/tools/article-core-test-api-governance.test.mjs#retirement-inventory-binds-the-complete-helper-and-71-call-sites",
+      "node-test:tests/tools/article-core-test-api-governance.test.mjs#governance-fixtures-accept-current-model-calls-and-reject-renamed-primitive-wrappers",
+      "node-test:tests/tools/article-core-test-api-governance.test.mjs#backend-test-tree-has-no-retired-article-core-wrapper"
+    ]
+  }
+}

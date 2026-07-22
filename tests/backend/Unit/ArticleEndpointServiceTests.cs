@@ -17,7 +17,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 namespace FsusBlog.Server.Tests.Unit;
 
-public sealed class ArticleEndpointServiceTests
+public sealed partial class ArticleEndpointServiceTests
 {
     private static readonly TimeSpan s_concurrentColdFrameWaitTimeout = TimeSpan.FromSeconds(30);
 
@@ -63,7 +63,7 @@ public sealed class ArticleEndpointServiceTests
 
         await cache.DidNotReceiveWithAnyArgs().GetStringAsync(default, default!, default);
         await cache.DidNotReceiveWithAnyArgs().TryGetRawReadonlyAsync(default, (string)null!, default);
-        await core.DidNotReceiveWithAnyArgs().GetPageListAsync(default, default, default, default, default);
+        await core.DidNotReceiveWithAnyArgs().GetPageListAsync(default, default);
     }
 
     [Theory]
@@ -90,7 +90,7 @@ public sealed class ArticleEndpointServiceTests
         Assert.Equal(ErrorCode.Validation, result.Result.Error.Code);
         await cache.DidNotReceiveWithAnyArgs().GetStringAsync(default, default!, default);
         await cache.DidNotReceiveWithAnyArgs().TryGetRawReadonlyAsync(default, (string)null!, default);
-        await core.DidNotReceiveWithAnyArgs().GetPageListAsync(default, default, default, default, default);
+        await core.DidNotReceiveWithAnyArgs().GetPageListAsync(default, default);
     }
 
     [Fact]

@@ -14,78 +14,10 @@ namespace FsusBlog.Server.Tests.Unit;
 // ArticleCoreService
 // ──────────────────────────────────────────────────────────────────────────────
 
-public class ArticleCoreServiceTests
+public partial class ArticleCoreServiceTests
 {
     private readonly IArticleCoreGateway _gw = Substitute.For<IArticleCoreGateway>();
     private ArticleCoreService Svc() => new(_gw);
-
-    // GetPageListAsync
-    [Theory]
-    [InlineData(0, 10)]
-    [InlineData(-1, 10)]
-    [InlineData(1, 0)]
-    [InlineData(1, -5)]
-    [InlineData(1, 999999)]
-    public async Task GetPageList_InvalidPagination_ReturnsValidationFailure(int page, int size)
-    {
-        var result = await Svc().GetPageListAsync(page, size, null, null, false);
-        Assert.False(result.IsSuccess);
-        Assert.Equal(ErrorCode.Validation, result.Error.Code);
-    }
-
-    [Fact]
-    public async Task GetPageList_ValidParams_CallsGateway()
-    {
-        var emptyPage = new CorePageResult<ArticleListCoreModel>([], 0);
-        _gw.GetPageListAsync(1, 10, null, null, false).Returns(emptyPage);
-
-        var result = await Svc().GetPageListAsync(1, 10, null, null, false);
-
-        Assert.True(result.IsSuccess);
-        Assert.Equal(0, result.Value!.Total);
-    }
-
-    [Fact]
-    public async Task GetPageList_WithCategoryFilter_PassesThrough()
-    {
-        var page = new CorePageResult<ArticleListCoreModel>([], 5);
-        _gw.GetPageListAsync(2, 20, 3, null, false).Returns(page);
-
-        var result = await Svc().GetPageListAsync(2, 20, 3, null, false);
-
-        Assert.True(result.IsSuccess);
-        Assert.Equal(5, result.Value!.Total);
-    }
-
-    [Fact]
-    public async Task GetPageList_PublicUtcCursor_PassesCompositePositionToGateway()
-    {
-        var cursor = new ArticleListCursorPosition(new DateTime(2026, 7, 20, 8, 0, 0, DateTimeKind.Utc), 42);
-        var query = new ArticlePageQuery(2, 10, null, null, false, Cursor: cursor);
-        _gw.GetPageListAsync(query, Arg.Any<CancellationToken>())
-            .Returns(new CorePageResult<ArticleListCoreModel>([], 0));
-
-        Result<CorePageResult<ArticleListCoreModel>> result = await Svc().GetPageListAsync(query);
-
-        Assert.True(result.IsSuccess);
-        await _gw.Received(1).GetPageListAsync(query, Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task GetPageList_AdminOrNonUtcCursor_FailsClosed()
-    {
-        var utcCursor = new ArticleListCursorPosition(new DateTime(2026, 7, 20, 8, 0, 0, DateTimeKind.Utc), 42);
-        var localCursor = new ArticleListCursorPosition(new DateTime(2026, 7, 20, 8, 0, 0, DateTimeKind.Local), 42);
-
-        Result<CorePageResult<ArticleListCoreModel>> admin = await Svc().GetPageListAsync(
-            new ArticlePageQuery(2, 10, null, null, false, IncludePrivate: true, Cursor: utcCursor));
-        Result<CorePageResult<ArticleListCoreModel>> nonUtc = await Svc().GetPageListAsync(
-            new ArticlePageQuery(2, 10, null, null, false, Cursor: localCursor));
-
-        Assert.False(admin.IsSuccess);
-        Assert.False(nonUtc.IsSuccess);
-        await _gw.DidNotReceiveWithAnyArgs().GetPageListAsync(default, default);
-    }
 
     // GetByIdAsync
     [Theory]
@@ -93,7 +25,7 @@ public class ArticleCoreServiceTests
     [InlineData(-1)]
     public async Task GetById_InvalidId_ReturnsValidationFailure(int id)
     {
-        var result = await Svc().GetByIdAsync(id);
+        var result = await Svc().GetByIdAsync(new ArticleDetailQuery(id));
         Assert.False(result.IsSuccess);
         Assert.Equal(ErrorCode.Validation, result.Error.Code);
     }
@@ -101,8 +33,9 @@ public class ArticleCoreServiceTests
     [Fact]
     public async Task GetById_NotFound_ReturnsNotFound()
     {
-        _gw.GetByIdAsync(99).Returns((ArticleDetailCoreModel?)null);
-        var result = await Svc().GetByIdAsync(99);
+        var query = new ArticleDetailQuery(99);
+        _gw.GetByIdAsync(query, Arg.Any<CancellationToken>()).Returns((ArticleDetailCoreModel?)null);
+        var result = await Svc().GetByIdAsync(query);
         Assert.False(result.IsSuccess);
         Assert.Equal(ErrorCode.NotFound, result.Error.Code);
     }
@@ -127,8 +60,9 @@ public class ArticleCoreServiceTests
             IsDeleted = false,
             Pod = default
         };
-        _gw.GetByIdAsync(1).Returns(detail);
-        var result = await Svc().GetByIdAsync(1);
+        var query = new ArticleDetailQuery(1);
+        _gw.GetByIdAsync(query, Arg.Any<CancellationToken>()).Returns(detail);
+        var result = await Svc().GetByIdAsync(query);
         Assert.True(result.IsSuccess);
         Assert.Equal(1, result.Value?.Id);
     }
@@ -148,9 +82,10 @@ public class ArticleCoreServiceTests
             CategoryId = 1,
             Status = 2
         };
-        _gw.GetByIdAsync(1).Returns(detail);
+        var query = new ArticleDetailQuery(1);
+        _gw.GetByIdAsync(query, Arg.Any<CancellationToken>()).Returns(detail);
 
-        var result = await Svc().GetByIdAsync(1);
+        var result = await Svc().GetByIdAsync(query);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ErrorCode.InfraFailure, result.Error.Code);
@@ -175,7 +110,7 @@ public class ArticleCoreServiceTests
         _gw.GetByIdAsync(Arg.Is<ArticleDetailQuery>(query => query.Id == 1 && query.IncludePrivate), Arg.Any<CancellationToken>())
             .Returns(detail);
 
-        var result = await Svc().GetByIdAsync(1, includePrivate: true);
+        var result = await Svc().GetByIdAsync(new ArticleDetailQuery(1, IncludePrivate: true));
 
         Assert.True(result.IsSuccess);
         Assert.Empty(result.Value?.Content ?? "unexpected");
@@ -189,7 +124,15 @@ public class ArticleCoreServiceTests
     [InlineData("  ", "content", 1)]
     public async Task Create_InvalidParams_ReturnsValidationFailure(string title, string content, int categoryId)
     {
-        var result = await Svc().CreateAsync(title, content, null, null, categoryId, []);
+        var command = new CreateArticleCommand(new ArticleWriteRequestCoreModel(
+            title,
+            content,
+            null,
+            null,
+            categoryId,
+            [],
+            ArticleStatusValues.Published));
+        var result = await Svc().CreateAsync(command);
         Assert.False(result.IsSuccess);
         Assert.Equal(ErrorCode.Validation, result.Error.Code);
     }
@@ -199,7 +142,9 @@ public class ArticleCoreServiceTests
     {
         _gw.CreateAsync(Arg.Any<CreateArticleCommand>(), Arg.Any<CancellationToken>())
            .Returns(0);
-        var result = await Svc().CreateAsync("title", "content", null, null, 1, []);
+        var command = new CreateArticleCommand(new ArticleWriteRequestCoreModel(
+            "title", "content", null, null, 1, [], ArticleStatusValues.Published));
+        var result = await Svc().CreateAsync(command);
         Assert.False(result.IsSuccess);
         Assert.Equal(ErrorCode.InfraFailure, result.Error.Code);
     }
@@ -209,7 +154,9 @@ public class ArticleCoreServiceTests
     {
         _gw.CreateAsync(Arg.Any<CreateArticleCommand>(), Arg.Any<CancellationToken>())
            .Returns(42);
-        var result = await Svc().CreateAsync("title", "content", null, null, 1, []);
+        var command = new CreateArticleCommand(new ArticleWriteRequestCoreModel(
+            "title", "content", null, null, 1, [], ArticleStatusValues.Published));
+        var result = await Svc().CreateAsync(command);
         Assert.True(result.IsSuccess);
         Assert.Equal(42, result.Value);
     }
@@ -338,7 +285,18 @@ public class ArticleCoreServiceTests
     [InlineData(1, "t", "c", 0)]
     public async Task Update_InvalidParams_ReturnsValidationFailure(int id, string title, string content, int categoryId)
     {
-        var result = await Svc().UpdateAsync(id, title, content, null, null, categoryId, []);
+        var command = new UpdateArticleCommand(
+            id,
+            new ArticleWriteRequestCoreModel(
+                title,
+                content,
+                null,
+                null,
+                categoryId,
+                [],
+                ArticleStatusValues.Published),
+            Force: true);
+        var result = await Svc().UpdateAsync(command);
         Assert.False(result.IsSuccess);
         Assert.Equal(ErrorCode.Validation, result.Error.Code);
     }
@@ -348,7 +306,11 @@ public class ArticleCoreServiceTests
     {
         _gw.UpdateAsync(Arg.Any<UpdateArticleCommand>(), Arg.Any<CancellationToken>())
            .Returns(false);
-        var result = await Svc().UpdateAsync(1, "t", "c", null, null, 1, []);
+        var command = new UpdateArticleCommand(
+            1,
+            new ArticleWriteRequestCoreModel("t", "c", null, null, 1, [], ArticleStatusValues.Published),
+            Force: true);
+        var result = await Svc().UpdateAsync(command);
         Assert.False(result.IsSuccess);
         Assert.Equal(ErrorCode.NotFound, result.Error.Code);
     }
@@ -358,7 +320,11 @@ public class ArticleCoreServiceTests
     {
         _gw.UpdateAsync(Arg.Any<UpdateArticleCommand>(), Arg.Any<CancellationToken>())
            .Returns(true);
-        var result = await Svc().UpdateAsync(1, "t", "c", null, null, 1, []);
+        var command = new UpdateArticleCommand(
+            1,
+            new ArticleWriteRequestCoreModel("t", "c", null, null, 1, [], ArticleStatusValues.Published),
+            Force: true);
+        var result = await Svc().UpdateAsync(command);
         Assert.True(result.IsSuccess);
     }
 
@@ -366,7 +332,7 @@ public class ArticleCoreServiceTests
     [Fact]
     public async Task Delete_InvalidId_ReturnsValidationFailure()
     {
-        var result = await Svc().DeleteAsync(0);
+        var result = await Svc().DeleteAsync(new ArticleIdCommand(0));
         Assert.False(result.IsSuccess);
         Assert.Equal(ErrorCode.Validation, result.Error.Code);
     }
@@ -374,8 +340,9 @@ public class ArticleCoreServiceTests
     [Fact]
     public async Task Delete_NotFound()
     {
-        _gw.DeleteAsync(1).Returns(false);
-        var result = await Svc().DeleteAsync(1);
+        var command = new ArticleIdCommand(1);
+        _gw.DeleteAsync(command, Arg.Any<CancellationToken>()).Returns(false);
+        var result = await Svc().DeleteAsync(command);
         Assert.False(result.IsSuccess);
         Assert.Equal(ErrorCode.NotFound, result.Error.Code);
     }
@@ -383,43 +350,47 @@ public class ArticleCoreServiceTests
     [Fact]
     public async Task Delete_Success()
     {
-        _gw.DeleteAsync(1).Returns(true);
-        Assert.True((await Svc().DeleteAsync(1)).IsSuccess);
+        var command = new ArticleIdCommand(1);
+        _gw.DeleteAsync(command, Arg.Any<CancellationToken>()).Returns(true);
+        Assert.True((await Svc().DeleteAsync(command)).IsSuccess);
     }
 
     // RestoreAsync
     [Fact]
     public async Task Restore_InvalidId_ReturnsValidationFailure()
     {
-        Assert.False((await Svc().RestoreAsync(0)).IsSuccess);
+        Assert.False((await Svc().RestoreAsync(new ArticleIdCommand(0))).IsSuccess);
     }
 
     [Fact]
     public async Task Restore_NotFound()
     {
-        _gw.RestoreAsync(1).Returns(false);
-        Assert.Equal(ErrorCode.NotFound, (await Svc().RestoreAsync(1)).Error.Code);
+        var command = new ArticleIdCommand(1);
+        _gw.RestoreAsync(command, Arg.Any<CancellationToken>()).Returns(false);
+        Assert.Equal(ErrorCode.NotFound, (await Svc().RestoreAsync(command)).Error.Code);
     }
 
     [Fact]
     public async Task Restore_Success()
     {
-        _gw.RestoreAsync(1).Returns(true);
-        Assert.True((await Svc().RestoreAsync(1)).IsSuccess);
+        var command = new ArticleIdCommand(1);
+        _gw.RestoreAsync(command, Arg.Any<CancellationToken>()).Returns(true);
+        Assert.True((await Svc().RestoreAsync(command)).IsSuccess);
     }
 
     // PermanentlyDeleteAsync
     [Fact]
     public async Task PermanentlyDelete_InvalidId()
     {
-        Assert.Equal(ErrorCode.Validation, (await Svc().PermanentlyDeleteArticleAsync(0)).Error.Code);
+        Assert.Equal(ErrorCode.Validation, (await Svc().PermanentlyDeleteArticleAsync(new ArticleIdCommand(0))).Error.Code);
     }
 
     [Fact]
     public async Task PermanentlyDelete_Success()
     {
-        _gw.PermanentlyDeleteArticleAsync(1).Returns(true);
-        Assert.True((await Svc().PermanentlyDeleteArticleAsync(1)).IsSuccess);
+        var command = new ArticleIdCommand(1);
+        _gw.PermanentlyDeleteArticleAsync(command, Arg.Any<CancellationToken>()).Returns(true);
+        Assert.True((await Svc().PermanentlyDeleteArticleAsync(command)).IsSuccess);
     }
 
     // ClearTrashAsync
@@ -444,7 +415,7 @@ public class ArticleCoreServiceTests
     [InlineData(null)]
     public async Task Search_EmptyKeyword_ReturnsValidationFailure(string? keyword)
     {
-        var result = await Svc().SearchArticlesAsync(keyword!);
+        var result = await Svc().SearchArticlesAsync(new ArticleSearchQuery(keyword!));
         Assert.False(result.IsSuccess);
         Assert.Equal(ErrorCode.Validation, result.Error.Code);
     }
@@ -453,8 +424,9 @@ public class ArticleCoreServiceTests
     public async Task Search_ValidKeyword_ReturnsData()
     {
         IReadOnlyList<ArticleListCoreModel> list = [];
-        _gw.SearchArticlesAsync("foo").Returns(list);
-        var result = await Svc().SearchArticlesAsync("foo");
+        var query = new ArticleSearchQuery("foo");
+        _gw.SearchArticlesAsync(query, Arg.Any<CancellationToken>()).Returns(list);
+        var result = await Svc().SearchArticlesAsync(query);
         Assert.True(result.IsSuccess);
     }
 
@@ -464,15 +436,16 @@ public class ArticleCoreServiceTests
     [InlineData(-1)]
     public async Task GetHot_InvalidCount_ReturnsValidationFailure(int count)
     {
-        Assert.Equal(ErrorCode.Validation, (await Svc().GetHotArticlesAsync(count)).Error.Code);
+        Assert.Equal(ErrorCode.Validation, (await Svc().GetHotArticlesAsync(new ArticleCountQuery(count))).Error.Code);
     }
 
     [Fact]
     public async Task GetHot_ValidCount_ReturnsData()
     {
         IReadOnlyList<PopularArticleCoreModel> list = [];
-        _gw.GetHotArticlesAsync(5).Returns(list);
-        var result = await Svc().GetHotArticlesAsync(5);
+        var query = new ArticleCountQuery(5);
+        _gw.GetHotArticlesAsync(query, Arg.Any<CancellationToken>()).Returns(list);
+        var result = await Svc().GetHotArticlesAsync(query);
         Assert.True(result.IsSuccess);
     }
 
@@ -482,7 +455,7 @@ public class ArticleCoreServiceTests
     [InlineData(-1)]
     public async Task GetFeatured_InvalidCount_ReturnsValidationFailure(int count)
     {
-        Assert.Equal(ErrorCode.Validation, (await Svc().GetFeaturedArticlesAsync(count)).Error.Code);
+        Assert.Equal(ErrorCode.Validation, (await Svc().GetFeaturedArticlesAsync(new ArticleCountQuery(count))).Error.Code);
     }
 
     [Fact]
@@ -493,9 +466,10 @@ public class ArticleCoreServiceTests
         [
             new(1, "Article", "/cover.webp", 100, created, new ArticleCategoryCoreModel(1, "Tech"))
         ];
-        _gw.GetFeaturedArticlesAsync(3).Returns(list);
+        var query = new ArticleCountQuery(3);
+        _gw.GetFeaturedArticlesAsync(query, Arg.Any<CancellationToken>()).Returns(list);
 
-        var result = await Svc().GetFeaturedArticlesAsync(3);
+        var result = await Svc().GetFeaturedArticlesAsync(query);
 
         Assert.True(result.IsSuccess);
         Assert.Single(result.Value!);
@@ -506,14 +480,15 @@ public class ArticleCoreServiceTests
     [Fact]
     public async Task IncreaseViewCount_InvalidId_ReturnsValidationFailure()
     {
-        Assert.Equal(ErrorCode.Validation, (await Svc().IncreaseViewCountAsync(0)).Error.Code);
+        Assert.Equal(ErrorCode.Validation, (await Svc().IncreaseViewCountAsync(new ArticleViewCountCommand(0))).Error.Code);
     }
 
     [Fact]
     public async Task IncreaseViewCount_ValidId_Success()
     {
-        _gw.IncreaseViewCountAsync(1).Returns(default(ValueTask));
-        Assert.True((await Svc().IncreaseViewCountAsync(1)).IsSuccess);
+        var command = new ArticleViewCountCommand(1);
+        _gw.IncreaseViewCountAsync(command, Arg.Any<CancellationToken>()).Returns(default(ValueTask));
+        Assert.True((await Svc().IncreaseViewCountAsync(command)).IsSuccess);
     }
 
     [Fact]
@@ -523,11 +498,12 @@ public class ArticleCoreServiceTests
         _gw.IncreaseViewCountsAsync(Arg.Any<ArticleViewCountBatchCommand>(), Arg.Any<CancellationToken>())
             .Returns(updated);
 
-        var result = await Svc().IncreaseViewCountsAsync(new Dictionary<int, int>
+        var command = new ArticleViewCountBatchCommand(new Dictionary<int, int>
         {
             [1] = 3,
             [2] = 4
         });
+        var result = await Svc().IncreaseViewCountsAsync(command);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(updated, result.Value);

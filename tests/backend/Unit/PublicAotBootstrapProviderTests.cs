@@ -61,26 +61,42 @@ public sealed class PublicAotBootstrapProviderTests
     {
         IArticleService articles = Substitute.For<IArticleService>();
         IAotSeoConfigSnapshot seo = Substitute.For<IAotSeoConfigSnapshot>();
-        articles.GetPageListAsync(Arg.Is<ArticlePageQuery>(query => query.Page == 2 && query.Size == 10), Arg.Any<CancellationToken>())
+        using var cts = new CancellationTokenSource();
+        articles.GetPageListAsync(Arg.Is<ArticlePageQuery>(query => query.Page == 2 && query.Size == 10), cts.Token)
             .Returns(Result<CorePageResult<ArticleListCoreModel>>.Success(new CorePageResult<ArticleListCoreModel>([], 21)));
-        articles.GetFeaturedArticlesAsync(new ArticleCountQuery(3), Arg.Any<CancellationToken>())
+        articles.GetFeaturedArticlesAsync(new ArticleCountQuery(3), cts.Token)
             .Returns(Result<IReadOnlyList<FeaturedArticleCoreModel>>.Success([]));
-        articles.GetHotArticlesAsync(new ArticleCountQuery(5), Arg.Any<CancellationToken>())
+        articles.GetHotArticlesAsync(new ArticleCountQuery(5), cts.Token)
             .Returns(Result<IReadOnlyList<PopularArticleCoreModel>>.Success([]));
-        seo.GetAsync(Arg.Any<CancellationToken>()).Returns(new PublicAotSeoSnapshot("Fsus", "Blog", "https://example.test"));
+        seo.GetAsync(cts.Token).Returns(new PublicAotSeoSnapshot("Fsus", "Blog", "https://example.test"));
         var provider = new PublicAotHomeBootstrapProvider(articles, seo);
         var match = new PublicAotRouteMatch(PublicPageKind.Home, PublicPageId.Home, "home:page:2", "/", "/", "?page=2")
         {
             Page = 2
         };
 
-        var result = await provider.BuildSnapshotAsync(match);
+        var result = await provider.BuildSnapshotAsync(match, cts.Token);
 
         Assert.True(result.IsSuccess, result.Error.Message);
         PublicHomePageSnapshot snapshot = Assert.IsType<PublicHomePageSnapshot>(result.Value);
         Assert.Equal(2, snapshot.Page);
         Assert.Equal(21, snapshot.Total);
-        await articles.Received(1).GetPageListAsync(Arg.Is<ArticlePageQuery>(query => query.Page == 2 && query.Size == 10), Arg.Any<CancellationToken>());
+        await articles.Received(1).GetPageListAsync(
+            Arg.Is<ArticlePageQuery>(query =>
+                query.Page == 2 &&
+                query.Size == 10 &&
+                query.CategoryId == null &&
+                query.TagId == null &&
+                !query.IsDeleted &&
+                query.Status == null &&
+                !query.IncludePrivate &&
+                query.Keyword == null &&
+                query.ListCacheVersion == null &&
+                query.UseSourceCache &&
+                query.Cursor == null),
+            cts.Token);
+        await articles.Received(1).GetFeaturedArticlesAsync(new ArticleCountQuery(3), cts.Token);
+        await articles.Received(1).GetHotArticlesAsync(new ArticleCountQuery(5), cts.Token);
     }
 
     [Fact]

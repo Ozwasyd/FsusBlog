@@ -58,6 +58,7 @@
         "tools/check-test-matrix.mjs",
         "tools/check-test-retention.mjs",
         "tools/run-test-matrix.mjs",
+        "tools/governance/check-article-core-test-api.mjs",
         "tools/test-retention/**",
         "tools/test-matrix/**",
         "tools/test/**"
@@ -74,8 +75,9 @@
         {
           "id": "test-asset-contracts-and-retention",
           "argv": ["bash", "tools/test/lanes/test-asset-governance.sh"],
-          "checkerSources": ["tools/test/lanes/test-asset-governance.sh", "tools/check-test-matrix.mjs", "tools/check-test-retention.mjs", "tools/test-retention/audit.mjs"],
+          "checkerSources": ["tools/test/lanes/test-asset-governance.sh", "tools/check-test-matrix.mjs", "tools/check-test-retention.mjs", "tools/governance/check-article-core-test-api.mjs", "tools/test-retention/audit.mjs"],
           "ruleIds": [
+            "test-assets:article-core-current-api",
             "test-assets:backend-test-governance",
             "test-assets:browser-migration",
             "test-assets:coverage-registry",

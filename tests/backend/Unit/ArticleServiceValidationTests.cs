@@ -1,5 +1,7 @@
 using System.Reflection;
 
+using FsusBlog.Core.Services.Articles;
+using FsusBlog.Core.Services.Gateways;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -149,9 +151,13 @@ public class ArticleServiceValidationTests
     public async Task GetPageListAsync_RuntimeRejectsInvalidPaginationWithoutSilentCoercion()
     {
         ArticleService service = BuildService();
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => service.GetPageListAsync(0, 10, null, null, false));
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => service.GetPageListAsync(1, 0, null, null, false));
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => service.GetPageListAsync(1, 101, null, null, false));
+        var gateway = (IArticleCoreGateway)service;
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => gateway.GetPageListAsync(
+            new ArticlePageQuery(0, 10, null, null, false)));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => gateway.GetPageListAsync(
+            new ArticlePageQuery(1, 0, null, null, false)));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => gateway.GetPageListAsync(
+            new ArticlePageQuery(1, 101, null, null, false)));
     }
 
     [Fact]

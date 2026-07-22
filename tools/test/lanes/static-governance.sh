@@ -20,6 +20,7 @@ StaticBackendPhysicalTopology() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/
 StaticBrowserTestMigration() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-browser-test-migration.mjs"; }
 StaticTestOrchestrator() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-orchestrator-uniqueness.mjs"; }
 StaticTestLifecycle() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-lifecycle.mjs"; }
+StaticArticleCoreTestApi() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-article-core-test-api.mjs"; }
 StaticBackendGovernance() { RunTier "static-governance" RunBackendTestGovernanceOnly; }
 StaticGateIntegrity() { Run "$ROOT_DIR/tools/check-gate-integrity.sh" --self-test; }
 StaticFlakyRegistry() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/ci/check-flaky-registry.mjs"; }
@@ -108,6 +109,7 @@ STATIC_NODE_CONTRACT_FILES=(
     "$ROOT_DIR/tests/tools/test-orchestrator-uniqueness.test.mjs"
     "$ROOT_DIR/tests/tools/test-lifecycle-governance.test.mjs"
     "$ROOT_DIR/tests/tools/repository-governance-authority.test.mjs"
+    "$ROOT_DIR/tests/tools/article-core-test-api-governance.test.mjs"
 )
 StaticNodeContracts() {
     FSUSBLOG_STATIC_CONTRACT_FILES="$(printf '%s\n' "${STATIC_NODE_CONTRACT_FILES[@]}")" \
@@ -196,6 +198,7 @@ RunTestAssetGovernancePhase() {
         browser-test-migration StaticBrowserTestMigration \
         test-orchestrator StaticTestOrchestrator \
         test-lifecycle StaticTestLifecycle \
+        article-core-test-api StaticArticleCoreTestApi \
         backend-governance StaticBackendGovernance \
         gate-integrity StaticGateIntegrity \
         flaky-registry StaticFlakyRegistry \

@@ -2,7 +2,9 @@ using System.Globalization;
 
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Integrity;
+using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Services.Articles;
+using FsusBlog.Core.Services.Gateways;
 using FsusBlog.Core.Services.Implementations;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
@@ -11,7 +13,6 @@ using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
-using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Authoring;
@@ -44,16 +45,16 @@ public sealed class ArticleRightsWritePathTests(
         CreateTables(db);
         ArticleService service = CreateService(db);
 
-        int articleId = await service.CreateAsync(new CreateArticleRequest
-        {
-            Title = "Rights article",
-            Content = "# body",
-            Summary = "summary",
-            CategoryId = 1,
-            TagIds = [2, 1],
-            Status = ArticleStatus.Published,
-            Rights = CustomRights("CC-BY-4.0", "Fésus", showBadge: false)
-        });
+        int articleId = await service.CreateAsync(new ArticleWriteRequestCoreModel(
+            Title: "Rights article",
+            Content: "# body",
+            Summary: "summary",
+            CoverImageUrl: null,
+            CategoryId: 1,
+            TagIds: [2, 1],
+            Status: (int)ArticleStatus.Published,
+            Rights: CustomRights("CC-BY-4.0", "Fésus", showBadge: false),
+            RightsMutation: ArticleRightsMutationMode.Replace));
 
         ArticleRevision revision = Assert.Single(await db.Queryable<ArticleRevision>()
             .Where(item => item.ArticleId == articleId)
@@ -96,15 +97,8 @@ public sealed class ArticleRightsWritePathTests(
             });
         ArticleService service = CreateService(db, mutationFence);
 
-        int articleId = await service.CreateAsync(new CreateArticleRequest
-        {
-            Title = "Fenced article",
-            Content = "# body",
-            Summary = "summary",
-            CategoryId = 1,
-            TagIds = [],
-            Status = ArticleStatus.Published
-        });
+        int articleId = await service.CreateAsync(new ArticleWriteRequestCoreModel(
+            "Fenced article", "# body", "summary", null, 1, [], (int)ArticleStatus.Published));
 
         Assert.True(articleId > 0);
         await mutationFence.Received(1)
@@ -128,15 +122,8 @@ public sealed class ArticleRightsWritePathTests(
         ArticleService service = CreateService(db, mutationFence);
 
         InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            service.CreateAsync(new CreateArticleRequest
-            {
-                Title = "must not exist",
-                Content = "# body",
-                Summary = "summary",
-                CategoryId = 1,
-                TagIds = [],
-                Status = ArticleStatus.Published
-            }));
+            service.CreateAsync(new ArticleWriteRequestCoreModel(
+                "must not exist", "# body", "summary", null, 1, [], (int)ArticleStatus.Published)));
 
         Assert.Equal("global tombstone unavailable", error.Message);
         Assert.Equal(0, db.Queryable<Article>().Count());
@@ -161,15 +148,8 @@ public sealed class ArticleRightsWritePathTests(
             publicationValidator: new ArticlePublicationValidator(db, contentFilter));
 
         ArticleWriteValidationException error = await Assert.ThrowsAsync<ArticleWriteValidationException>(() =>
-            service.CreateAsync(new CreateArticleRequest
-            {
-                Title = "Invalid taxonomy",
-                Content = "# body",
-                Summary = "summary",
-                CategoryId = 404,
-                TagIds = [999],
-                Status = ArticleStatus.Published
-            }));
+            service.CreateAsync(new ArticleWriteRequestCoreModel(
+                "Invalid taxonomy", "# body", "summary", null, 404, [999], (int)ArticleStatus.Published)));
 
         Assert.Equal("category_not_found", error.Code);
         Assert.Equal(0, await db.Queryable<Article>().CountAsync());
@@ -186,15 +166,8 @@ public sealed class ArticleRightsWritePathTests(
         CreateTables(db);
         ArticleService service = CreateService(db);
 
-        int articleId = await service.CreateAsync(new CreateArticleRequest
-        {
-            Title = "Default rights article",
-            Content = "# body",
-            Summary = "summary",
-            CategoryId = 1,
-            TagIds = [1],
-            Status = ArticleStatus.Published
-        });
+        int articleId = await service.CreateAsync(new ArticleWriteRequestCoreModel(
+            "Default rights article", "# body", "summary", null, 1, [1], (int)ArticleStatus.Published));
 
         Assert.True(articleId > 0, sqlError?.ToString() ?? "Article create returned 0 without a captured SQL error.");
         ArticleRightsPolicy policy = Assert.Single(await db.Queryable<ArticleRightsPolicy>()
@@ -233,27 +206,18 @@ public sealed class ArticleRightsWritePathTests(
         using SqlSugarClient db = classDatabase.CreateClient();
         CreateTables(db);
         ArticleService service = CreateService(db);
-        int articleId = await service.CreateAsync(new CreateArticleRequest
-        {
-            Title = "Rights article",
-            Content = "# body",
-            Summary = "summary",
-            CategoryId = 1,
-            TagIds = [1],
-            Status = ArticleStatus.Published,
-            Rights = CustomRights("all-rights-reserved", "Original", showBadge: true)
-        });
+        int articleId = await service.CreateAsync(new ArticleWriteRequestCoreModel(
+            "Rights article", "# body", "summary", null, 1, [1], (int)ArticleStatus.Published,
+            Rights: CustomRights("all-rights-reserved", "Original", showBadge: true),
+            RightsMutation: ArticleRightsMutationMode.Replace));
 
-        bool updated = await service.UpdateAsync(articleId, new UpdateArticleRequest
-        {
-            Title = "Rights article",
-            Content = "# body",
-            Summary = "summary",
-            CategoryId = 1,
-            TagIds = [1],
-            Status = ArticleStatus.Published,
-            Rights = CustomRights("CC-BY-4.0", "Updated", showBadge: false)
-        });
+        bool updated = await ((IArticleCoreGateway)service).UpdateAsync(new UpdateArticleCommand(
+            articleId,
+            new ArticleWriteRequestCoreModel(
+                "Rights article", "# body", "summary", null, 1, [1], (int)ArticleStatus.Published,
+                Rights: CustomRights("CC-BY-4.0", "Updated", showBadge: false),
+                RightsMutation: ArticleRightsMutationMode.Replace),
+            Force: true));
 
         List<ArticleRevision> revisions = await db.Queryable<ArticleRevision>()
             .Where(item => item.ArticleId == articleId)
@@ -283,29 +247,20 @@ public sealed class ArticleRightsWritePathTests(
         using SqlSugarClient db = classDatabase.CreateClient();
         CreateTables(db);
         ArticleService service = CreateService(db);
-        int articleId = await service.CreateAsync(new CreateArticleRequest
-        {
-            Title = "Rights article",
-            Content = "# original",
-            Summary = "summary",
-            CategoryId = 1,
-            TagIds = [1],
-            Status = ArticleStatus.Published,
-            Rights = CustomRights("CC-BY-4.0", "Preserved Holder", showBadge: false)
-        });
+        int articleId = await service.CreateAsync(new ArticleWriteRequestCoreModel(
+            "Rights article", "# original", "summary", null, 1, [1], (int)ArticleStatus.Published,
+            Rights: CustomRights("CC-BY-4.0", "Preserved Holder", showBadge: false),
+            RightsMutation: ArticleRightsMutationMode.Replace));
         ArticleRightsPolicy originalPolicy = await db.Queryable<ArticleRightsPolicy>()
             .Where(item => item.ArticleId == articleId)
             .FirstAsync();
 
-        bool updated = await service.UpdateAsync(articleId, new UpdateArticleRequest
-        {
-            Title = "Metadata updated",
-            Content = "# original",
-            Summary = "summary",
-            CategoryId = 1,
-            TagIds = [1],
-            Status = ArticleStatus.Published
-        });
+        bool updated = await ((IArticleCoreGateway)service).UpdateAsync(new UpdateArticleCommand(
+            articleId,
+            new ArticleWriteRequestCoreModel(
+                "Metadata updated", "# original", "summary", null, 1, [1], (int)ArticleStatus.Published,
+                RightsMutation: ArticleRightsMutationMode.Preserve),
+            Force: true));
 
         ArticleRightsPolicy policy = await db.Queryable<ArticleRightsPolicy>()
             .Where(item => item.ArticleId == articleId)
@@ -334,27 +289,17 @@ public sealed class ArticleRightsWritePathTests(
         using SqlSugarClient db = classDatabase.CreateClient();
         CreateTables(db);
         ArticleService service = CreateService(db);
-        int articleId = await service.CreateAsync(new CreateArticleRequest
-        {
-            Title = "Rights article",
-            Content = "# body",
-            Summary = "summary",
-            CategoryId = 1,
-            TagIds = [1],
-            Status = ArticleStatus.Published,
-            Rights = CustomRights("CC-BY-4.0", "Reset Holder", showBadge: false)
-        });
+        int articleId = await service.CreateAsync(new ArticleWriteRequestCoreModel(
+            "Rights article", "# body", "summary", null, 1, [1], (int)ArticleStatus.Published,
+            Rights: CustomRights("CC-BY-4.0", "Reset Holder", showBadge: false),
+            RightsMutation: ArticleRightsMutationMode.Replace));
 
-        bool updated = await service.UpdateAsync(articleId, new UpdateArticleRequest
-        {
-            Title = "Rights article",
-            Content = "# body",
-            Summary = "summary",
-            CategoryId = 1,
-            TagIds = [1],
-            Status = ArticleStatus.Published,
-            ResetRights = true
-        });
+        bool updated = await ((IArticleCoreGateway)service).UpdateAsync(new UpdateArticleCommand(
+            articleId,
+            new ArticleWriteRequestCoreModel(
+                "Rights article", "# body", "summary", null, 1, [1], (int)ArticleStatus.Published,
+                RightsMutation: ArticleRightsMutationMode.Reset),
+            Force: true));
 
         ArticleRightsPolicy policy = await db.Queryable<ArticleRightsPolicy>()
             .Where(item => item.ArticleId == articleId)
@@ -385,16 +330,10 @@ public sealed class ArticleRightsWritePathTests(
         using SqlSugarClient db = classDatabase.CreateClient();
         CreateTables(db);
         ArticleService articleService = CreateService(db);
-        int articleId = await articleService.CreateAsync(new CreateArticleRequest
-        {
-            Title = "Original",
-            Content = "# original",
-            Summary = "summary",
-            CategoryId = 1,
-            TagIds = [1],
-            Status = ArticleStatus.Published,
-            Rights = CustomRights("CC-BY-4.0", "Original Holder", showBadge: true)
-        });
+        int articleId = await articleService.CreateAsync(new ArticleWriteRequestCoreModel(
+            "Original", "# original", "summary", null, 1, [1], (int)ArticleStatus.Published,
+            Rights: CustomRights("CC-BY-4.0", "Original Holder", showBadge: true),
+            RightsMutation: ArticleRightsMutationMode.Replace));
         ArticleRevision originalRevision = await db.Queryable<ArticleRevision>()
             .Where(item => item.ArticleId == articleId)
             .FirstAsync();
@@ -410,16 +349,13 @@ public sealed class ArticleRightsWritePathTests(
             ResponsiblePersonConfirmed = true,
             CreatedAt = DateTime.UtcNow.AddMinutes(-2)
         }).ExecuteReturnBigIdentityAsync();
-        Assert.True(await articleService.UpdateAsync(articleId, new UpdateArticleRequest
-        {
-            Title = "Current",
-            Content = "# current",
-            Summary = "summary",
-            CategoryId = 1,
-            TagIds = [1],
-            Status = ArticleStatus.Published,
-            Rights = CustomRights("CC-BY-SA-4.0", "Current Holder", showBadge: false)
-        }));
+        Assert.True(await ((IArticleCoreGateway)articleService).UpdateAsync(new UpdateArticleCommand(
+            articleId,
+            new ArticleWriteRequestCoreModel(
+                "Current", "# current", "summary", null, 1, [1], (int)ArticleStatus.Published,
+                Rights: CustomRights("CC-BY-SA-4.0", "Current Holder", showBadge: false),
+                RightsMutation: ArticleRightsMutationMode.Replace),
+            Force: true)));
         var lifecycle = new AuthoringDraftLifecycleService(
             db,
             new ArticleCoreService(articleService),
@@ -495,29 +431,20 @@ public sealed class ArticleRightsWritePathTests(
         using SqlSugarClient db = classDatabase.CreateClient();
         CreateTables(db);
         ArticleService articleService = CreateService(db);
-        int articleId = await articleService.CreateAsync(new CreateArticleRequest
-        {
-            Title = "Original without responsibility",
-            Content = "# original",
-            Summary = "summary",
-            CategoryId = 1,
-            TagIds = [1],
-            Status = ArticleStatus.Published,
-            Rights = CustomRights("CC-BY-4.0", "Original Holder", showBadge: true)
-        });
+        int articleId = await articleService.CreateAsync(new ArticleWriteRequestCoreModel(
+            "Original without responsibility", "# original", "summary", null, 1, [1], (int)ArticleStatus.Published,
+            Rights: CustomRights("CC-BY-4.0", "Original Holder", showBadge: true),
+            RightsMutation: ArticleRightsMutationMode.Replace));
         ArticleRevision originalRevision = await db.Queryable<ArticleRevision>()
             .Where(item => item.ArticleId == articleId)
             .FirstAsync();
-        Assert.True(await articleService.UpdateAsync(articleId, new UpdateArticleRequest
-        {
-            Title = "Current",
-            Content = "# current",
-            Summary = "summary",
-            CategoryId = 1,
-            TagIds = [1],
-            Status = ArticleStatus.Published,
-            Rights = CustomRights("CC-BY-SA-4.0", "Current Holder", showBadge: false)
-        }));
+        Assert.True(await ((IArticleCoreGateway)articleService).UpdateAsync(new UpdateArticleCommand(
+            articleId,
+            new ArticleWriteRequestCoreModel(
+                "Current", "# current", "summary", null, 1, [1], (int)ArticleStatus.Published,
+                Rights: CustomRights("CC-BY-SA-4.0", "Current Holder", showBadge: false),
+                RightsMutation: ArticleRightsMutationMode.Replace),
+            Force: true)));
         var lifecycle = new AuthoringDraftLifecycleService(
             db,
             new ArticleCoreService(articleService),
@@ -557,16 +484,10 @@ public sealed class ArticleRightsWritePathTests(
         InstallFailingRightsSnapshotTrigger(db);
         ArticleService service = CreateService(db);
 
-        int articleId = await service.CreateAsync(new CreateArticleRequest
-        {
-            Title = "Rights article",
-            Content = "# body",
-            Summary = "summary",
-            CategoryId = 1,
-            TagIds = [1],
-            Status = ArticleStatus.Published,
-            Rights = CustomRights("CC-BY-4.0", "Fésus", showBadge: true)
-        });
+        int articleId = await service.CreateAsync(new ArticleWriteRequestCoreModel(
+            "Rights article", "# body", "summary", null, 1, [1], (int)ArticleStatus.Published,
+            Rights: CustomRights("CC-BY-4.0", "Fésus", showBadge: true),
+            RightsMutation: ArticleRightsMutationMode.Replace));
 
         Assert.Equal(0, articleId);
         Assert.Equal(0, await db.Queryable<Article>().CountAsync());
@@ -575,21 +496,19 @@ public sealed class ArticleRightsWritePathTests(
         Assert.Equal(0, await db.Queryable<ArticleMutationOutboxEvent>().CountAsync());
     }
 
-    private static ArticleRightsRequest CustomRights(string licenseType, string holder, bool showBadge)
-        => new()
-        {
-            Enabled = true,
-            LicenseType = licenseType,
-            CopyrightHolder = holder,
-            CopyrightYear = 2026,
-            RightsStatement = "Line one\nLine two",
-            AttributionTemplate = "{title} — {holder}",
-            CopyPolicy = "append-attribution",
-            MaxExcerptChars = 300,
-            AllowCodeCopy = true,
-            ShowPublicBadge = showBadge,
-            ProofBindingEnabled = true
-        };
+    private static ArticleRightsRequestCoreModel CustomRights(string licenseType, string holder, bool showBadge)
+        => new(
+            Enabled: true,
+            LicenseType: licenseType,
+            CopyrightHolder: holder,
+            CopyrightYear: 2026,
+            RightsStatement: "Line one\nLine two",
+            AttributionTemplate: "{title} — {holder}",
+            CopyPolicy: "append-attribution",
+            MaxExcerptChars: 300,
+            AllowCodeCopy: true,
+            ShowPublicBadge: showBadge,
+            ProofBindingEnabled: true);
 
     public async Task InitializeAsync()
         => _ = await classDatabase.ResetAsync(fixture);

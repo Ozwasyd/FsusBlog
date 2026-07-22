@@ -3,6 +3,7 @@ using System.Reflection;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Services.Articles;
+using FsusBlog.Core.Services.Gateways;
 using FsusBlog.Core.Services.Implementations;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -524,15 +525,11 @@ public sealed class ArticleRevisionConcurrencyTests(
             Assert.Equal(1, await updateCommand.ExecuteNonQueryAsync());
         }
 
-        Task<bool> updateTask = service.UpdateAsync(articleId, new UpdateArticleRequest
-        {
-            Title = "Concurrent overwrite",
-            Summary = "changed",
-            Content = "# changed",
-            CategoryId = 2,
-            TagIds = [3, 4],
-            Status = ArticleStatus.Published
-        });
+        Task<bool> updateTask = ((IArticleCoreGateway)service).UpdateAsync(new UpdateArticleCommand(
+            articleId,
+            new ArticleWriteRequestCoreModel(
+                "Concurrent overwrite", "# changed", "changed", null, 2, [3, 4], (int)ArticleStatus.Published),
+            Force: true));
         await Task.Delay(TimeSpan.FromMilliseconds(300));
         Assert.False(updateTask.IsCompleted);
 
@@ -576,15 +573,11 @@ public sealed class ArticleRevisionConcurrencyTests(
         using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
         ArticleService service = CreateService(serviceDb);
 
-        bool updated = await service.UpdateAsync(articleId, new UpdateArticleRequest
-        {
-            Title = "Updated",
-            Summary = "changed",
-            Content = "# changed",
-            CategoryId = 2,
-            TagIds = [2, 3, 3],
-            Status = ArticleStatus.Published
-        });
+        bool updated = await ((IArticleCoreGateway)service).UpdateAsync(new UpdateArticleCommand(
+            articleId,
+            new ArticleWriteRequestCoreModel(
+                "Updated", "# changed", "changed", null, 2, [2, 3, 3], (int)ArticleStatus.Published),
+            Force: true));
 
         Article article = await setupDb.Queryable<Article>().InSingleAsync(articleId);
         ArticleBody body = await setupDb.Queryable<ArticleBody>().InSingleAsync(articleId);
@@ -623,15 +616,11 @@ public sealed class ArticleRevisionConcurrencyTests(
         using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
         ArticleService service = CreateService(serviceDb, mutationFence);
 
-        bool updated = await service.UpdateAsync(articleId, new UpdateArticleRequest
-        {
-            Title = "After fence",
-            Summary = "changed",
-            Content = "# after fence",
-            CategoryId = 1,
-            TagIds = [],
-            Status = ArticleStatus.Published
-        });
+        bool updated = await ((IArticleCoreGateway)service).UpdateAsync(new UpdateArticleCommand(
+            articleId,
+            new ArticleWriteRequestCoreModel(
+                "After fence", "# after fence", "changed", null, 1, [], (int)ArticleStatus.Published),
+            Force: true));
 
         Assert.True(updated);
         Assert.Equal("After fence", (await setupDb.Queryable<Article>().InSingleAsync(articleId)).Title);
@@ -661,15 +650,11 @@ public sealed class ArticleRevisionConcurrencyTests(
         ArticleService service = CreateService(serviceDb, mutationFence);
 
         InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            service.UpdateAsync(articleId, new UpdateArticleRequest
-            {
-                Title = "must not commit",
-                Summary = "changed",
-                Content = "# must not commit",
-                CategoryId = 1,
-                TagIds = [],
-                Status = ArticleStatus.Published
-            }));
+            ((IArticleCoreGateway)service).UpdateAsync(new UpdateArticleCommand(
+                articleId,
+                new ArticleWriteRequestCoreModel(
+                    "must not commit", "# must not commit", "changed", null, 1, [], (int)ArticleStatus.Published),
+                Force: true)));
 
         Assert.Equal("durable tombstone unavailable", error.Message);
         Assert.Equal("Title", (await setupDb.Queryable<Article>().InSingleAsync(articleId)).Title);
@@ -706,15 +691,11 @@ public sealed class ArticleRevisionConcurrencyTests(
         bool updated = false;
         Exception? failure = await Record.ExceptionAsync(async () =>
         {
-            updated = await service.UpdateAsync(articleId, new UpdateArticleRequest
-            {
-                Title = "stale writer",
-                Summary = "changed",
-                Content = "# stale writer",
-                CategoryId = 1,
-                TagIds = [],
-                Status = ArticleStatus.Published
-            });
+            updated = await ((IArticleCoreGateway)service).UpdateAsync(new UpdateArticleCommand(
+                articleId,
+                new ArticleWriteRequestCoreModel(
+                    "stale writer", "# stale writer", "changed", null, 1, [], (int)ArticleStatus.Published),
+                Force: true));
         });
 
         Assert.True(
@@ -745,15 +726,11 @@ public sealed class ArticleRevisionConcurrencyTests(
         using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
         ArticleService service = CreateService(serviceDb);
 
-        bool updated = await service.UpdateAsync(articleId, new UpdateArticleRequest
-        {
-            Title = "Metadata changed",
-            Summary = "new summary",
-            Content = "# unchanged",
-            CategoryId = 2,
-            TagIds = [3],
-            Status = ArticleStatus.Published
-        });
+        bool updated = await ((IArticleCoreGateway)service).UpdateAsync(new UpdateArticleCommand(
+            articleId,
+            new ArticleWriteRequestCoreModel(
+                "Metadata changed", "# unchanged", "new summary", null, 2, [3], (int)ArticleStatus.Published),
+            Force: true));
 
         Article article = await setupDb.Queryable<Article>().InSingleAsync(articleId);
         ArticleBody body = await setupDb.Queryable<ArticleBody>().InSingleAsync(articleId);
@@ -776,15 +753,11 @@ public sealed class ArticleRevisionConcurrencyTests(
         using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
         ArticleService service = CreateService(serviceDb);
 
-        bool updated = await service.UpdateAsync(articleId, new UpdateArticleRequest
-        {
-            Title = "Content changed",
-            Summary = "summary",
-            Content = "# changed",
-            CategoryId = 1,
-            TagIds = [],
-            Status = ArticleStatus.Published
-        });
+        bool updated = await ((IArticleCoreGateway)service).UpdateAsync(new UpdateArticleCommand(
+            articleId,
+            new ArticleWriteRequestCoreModel(
+                "Content changed", "# changed", "summary", null, 1, [], (int)ArticleStatus.Published),
+            Force: true));
 
         Article article = await setupDb.Queryable<Article>().InSingleAsync(articleId);
         ArticleBody body = await setupDb.Queryable<ArticleBody>().InSingleAsync(articleId);
@@ -805,15 +778,11 @@ public sealed class ArticleRevisionConcurrencyTests(
         using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
         ArticleService service = CreateService(serviceDb);
 
-        bool updated = await service.UpdateAsync(articleId, new UpdateArticleRequest
-        {
-            Title = "Body created",
-            Summary = "summary",
-            Content = "# created",
-            CategoryId = 1,
-            TagIds = [],
-            Status = ArticleStatus.Published
-        });
+        bool updated = await ((IArticleCoreGateway)service).UpdateAsync(new UpdateArticleCommand(
+            articleId,
+            new ArticleWriteRequestCoreModel(
+                "Body created", "# created", "summary", null, 1, [], (int)ArticleStatus.Published),
+            Force: true));
 
         ArticleBody body = await setupDb.Queryable<ArticleBody>().InSingleAsync(articleId);
         Assert.True(updated);
