@@ -19,7 +19,7 @@ internal static class SecurityAssertionPayloadParser
 
     internal static bool TryParse(string? raw, out PasskeyLoginCompleteCoreModel assertion)
     {
-        assertion = new PasskeyLoginCompleteCoreModel();
+        assertion = null!;
         if (string.IsNullOrWhiteSpace(raw) || raw.Length > MaxAssertionJsonChars)
         {
             return false;

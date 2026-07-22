@@ -7,6 +7,10 @@ StaticEvidencePlan() { Run "$ROOT_DIR/tools/test/run-matrix-governance-once.sh" 
 StaticAedsPolicy() { Run "$ROOT_DIR/tools/check-aeds-only-policy.sh"; }
 StaticCommunityWorkflow() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/check-community-workflow.mjs"; }
 StaticProductVersionDocs() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/check-public-preview-docs.mjs"; }
+StaticPublicPreviewScreenshots() {
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/public-preview-screenshots.mjs" check
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/public-preview-screenshots.mjs" sync
+}
 StaticLabelGovernance() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/check-github-label-governance.mjs"; }
 StaticIntegrityDocs() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/check-integrity-proof-docs.mjs"; }
 StaticDeadCodeIndex() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-dead-code-audit-index.mjs"; }
@@ -85,6 +89,8 @@ STATIC_NODE_CONTRACT_FILES=(
     "$ROOT_DIR/tests/tools/performance-evidence-summary.test.mjs"
     "$ROOT_DIR/tests/tools/performance-saturation-v2.test.mjs"
     "$ROOT_DIR/tests/tools/browser-diagnostics.test.mjs"
+    "$ROOT_DIR/tests/tools/public-preview-screenshots.test.mjs"
+    "$ROOT_DIR/tests/tools/zap-baseline-contract.test.mjs"
     "$ROOT_DIR/tests/tools/issue-1151-browser-migration-governance.test.mjs"
     "$ROOT_DIR/tests/tools/issue-1151-evidence-governance.test.mjs"
     "$ROOT_DIR/tests/tools/issue-1151-flaky-governance.test.mjs"
@@ -168,6 +174,7 @@ RunStaticPrechecksPhase() {
         aeds-policy StaticAedsPolicy \
         community-workflow StaticCommunityWorkflow \
         product-version-docs StaticProductVersionDocs \
+        public-preview-screenshots StaticPublicPreviewScreenshots \
         label-governance StaticLabelGovernance \
         integrity-docs StaticIntegrityDocs \
         dead-code-index StaticDeadCodeIndex \

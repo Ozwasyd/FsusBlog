@@ -2559,10 +2559,14 @@ tiers:
       cadence: push
       requiredFor: release-final
       coverage: [release-browser-contract, testing-evidence-governance]
-      artifacts: [.tmp/browser-contract/receipt.json]
+      artifacts: [.tmp/browser-contract/receipt.json, .tmp/release-evidence/public-preview-screenshots.json]
       evidence:
           [
               .tmp/browser-contract/receipt.json,
+              .tmp/release-evidence/public-preview-screenshots.json,
+              config/docs/public-preview-screenshots.json,
+              docs/assets/screenshots/manifest.json,
+              tools/docs/public-preview-screenshots.mjs,
               tests/browser-contract/run.mjs,
               tests/browser-contract/scenarios.mjs,
               tests/browser-contract/fixture.mjs,

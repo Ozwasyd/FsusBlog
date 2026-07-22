@@ -1,6 +1,6 @@
 {
     "schema": "fsusblog.complexity-baseline.v1",
-    "sourceRevision": "5b44799ff2cfa06d9d73711540a3d1cde54994b6",
+    "sourceRevision": "8b5ba79add6ed1cbd9713a98e3f24ba536037c09",
     "measurement": "deterministic lexical structure with one shared repository inventory and content cache",
     "metricFields": [
         "fileLines",
@@ -593,7 +593,7 @@
             }
         },
         "HandwrittenModule": {
-            "fileCount": 1973,
+            "fileCount": 1978,
             "budgets": {
                 "fileLines": 783,
                 "codeLines": 622,
@@ -608,7 +608,7 @@
             },
             "observations": {
                 "fileLines": {
-                    "p50": 137,
+                    "p50": 136,
                     "p95": 783,
                     "max": 2791
                 },
@@ -670,7 +670,7 @@
                 "testRelationshipCount": {
                     "p50": 0,
                     "p95": 4,
-                    "max": 133
+                    "max": 135
                 }
             }
         }
@@ -3501,8 +3501,8 @@
             "category": "HandwrittenModule",
             "excess": {
                 "functionMethodCount": 44,
-                "cyclomaticComplexity": 115,
-                "cognitiveComplexity": 242
+                "cyclomaticComplexity": 113,
+                "cognitiveComplexity": 224
             }
         },
         "tests/frontend/e2e/security/perception-character-v3-dialog.spec.ts": {
@@ -4431,8 +4431,8 @@
         "tools/test/bundles/run-bundle.mjs": {
             "category": "BuildTestOrchestrator",
             "excess": {
-                "fileLines": 2555,
-                "codeLines": 1635,
+                "fileLines": 2558,
+                "codeLines": 1638,
                 "functionMethodCount": 103,
                 "cyclomaticComplexity": 207,
                 "cognitiveComplexity": 294,

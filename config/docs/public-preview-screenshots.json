@@ -1,0 +1,113 @@
+{
+    "schema": "fsusblog.public-preview-screenshot-registry.v1",
+    "screenshots": [
+        {
+            "id": "admin-dashboard-desktop-light",
+            "file": "admin-dashboard.png",
+            "route": "ManageDashboard",
+            "viewport": "desktop",
+            "theme": "light",
+            "scope": "admin"
+        },
+        {
+            "id": "article-detail-desktop-light",
+            "file": "article-detail-light.png",
+            "route": "ArticleDetail",
+            "viewport": "desktop",
+            "theme": "light",
+            "scope": "anonymous"
+        },
+        {
+            "id": "article-detail-mobile-light",
+            "file": "article-detail-mobile.png",
+            "route": "ArticleDetail",
+            "viewport": "mobile",
+            "theme": "light",
+            "scope": "anonymous"
+        },
+        {
+            "id": "article-editor-desktop-light",
+            "file": "article-editor.png",
+            "route": "ManageWriteArticle",
+            "viewport": "desktop",
+            "theme": "light",
+            "scope": "admin"
+        },
+        {
+            "id": "comment-moderation-desktop-light",
+            "file": "comment-moderation.png",
+            "route": "ManageModerationComments",
+            "viewport": "desktop",
+            "theme": "light",
+            "scope": "admin"
+        },
+        {
+            "id": "operations-status-desktop-light",
+            "file": "operations-status.png",
+            "route": "ManageOpsHealth",
+            "viewport": "desktop",
+            "theme": "light",
+            "scope": "admin"
+        },
+        {
+            "id": "public-home-desktop-dark",
+            "file": "public-dark.png",
+            "route": "Home",
+            "viewport": "desktop",
+            "theme": "dark",
+            "scope": "anonymous"
+        },
+        {
+            "id": "public-home-desktop-light",
+            "file": "public-home-light.png",
+            "route": "Home",
+            "viewport": "desktop",
+            "theme": "light",
+            "scope": "anonymous"
+        },
+        {
+            "id": "security-console-desktop-light",
+            "file": "security-console.png",
+            "route": "ManageSecurityDashboard",
+            "viewport": "desktop",
+            "theme": "light",
+            "scope": "admin"
+        }
+    ],
+    "visualInputs": {
+        "capture": [
+            "config/docs/public-preview-screenshots.json",
+            "tests/browser-contract/public-preview-gallery.mjs",
+            "tests/frontend/e2e/manual/manual-layout-screenshots.spec.ts",
+            "tests/frontend/support/playwright",
+            "tools/docs/public-preview-screenshots.mjs",
+            "tools/docs/run-public-preview-capture.sh"
+        ],
+        "dependencies": [
+            "src/frontend/package.json",
+            "src/frontend/package-lock.json",
+            "src/frontend/vite.config.ts",
+            "src/frontend/scripts/fsusui-local.ts"
+        ],
+        "fixtures": [
+            "src/frontend/public/fixtures",
+            "tests/frontend/fixtures",
+            "tests/frontend/support/playwright/routeAuditFixtures.ts"
+        ],
+        "localization": [
+            "src/frontend/src/copy",
+            "src/frontend/src/locales"
+        ],
+        "routes": [
+            "src/frontend/src/router",
+            "src/frontend/src/views"
+        ],
+        "visualSystem": [
+            "src/frontend/src/assets",
+            "src/frontend/src/components",
+            "src/frontend/src/fsusui",
+            "src/frontend/src/layouts",
+            "src/frontend/src/main.ts"
+        ]
+    }
+}

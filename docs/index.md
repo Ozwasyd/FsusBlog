@@ -91,6 +91,7 @@
 ### Frontend
 
 - [Public Preview Screenshots](assets/screenshots/README.md)
+- [Manifest](assets/screenshots/manifest.json)
 - [页面级标题比例](design/page-title-scale.md)
 - [阅读排版契约](design/reading-typography.md)
 - [Task surface geometry](design/task-surface-geometry.md)
@@ -186,6 +187,7 @@
 - [HTTP/3 + QUIC local-equivalent experiment](testing/http3-local-equivalent-experiment.md)
 - [私有请求 generation 验证](testing/private-request-generations.md)
 - [PrivateSurfaceRuntime 验证清单](testing/private-surface-runtime.md)
+- [Public-preview screenshot governance](testing/public-preview-screenshot-governance.md)
 - [Issue #1037：安全 hardening 边界测试替换](testing/security-hardening-boundary-replacements.md)
 - [Backend security Roslyn source policy](testing/security-hardening-source-policy.md)
 

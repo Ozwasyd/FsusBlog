@@ -2,7 +2,7 @@
     "schema": "fsusblog.custom-rule-registry.v1",
     "generatedBy": "tools/governance/check-rule-platform.mjs --write-registry",
     "inventory": {
-        "packageScriptCount": 189,
+        "packageScriptCount": 191,
         "implementationCount": 340
     },
     "rules": [
@@ -3893,6 +3893,62 @@
                 "command": "node ../../tests/frontend/checks/static/check-public-performance-batch.mjs",
                 "implementation": "tests/frontend/checks/static/check-public-performance-batch.mjs",
                 "executionKey": "governance:check:public-performance-batch",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Command.CheckPublicPreviewScreenshotManifest",
+            "externalId": "check:public-preview-screenshot-manifest",
+            "symbol": "CheckPublicPreviewScreenshotManifest",
+            "owner": "FrontendProductGovernanceOwner",
+            "category": "product-governance",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tools/docs/public-preview-screenshots.mjs",
+                "src/frontend/src/**",
+                "tests/frontend/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": false,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/issue-1162-rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-command",
+                "command": "node ../../tools/docs/public-preview-screenshots.mjs check",
+                "implementation": "tools/docs/public-preview-screenshots.mjs",
+                "executionKey": "governance:check:public-preview-screenshot-manifest",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Command.CheckPublicPreviewScreenshotSync",
+            "externalId": "check:public-preview-screenshot-sync",
+            "symbol": "CheckPublicPreviewScreenshotSync",
+            "owner": "FrontendProductGovernanceOwner",
+            "category": "product-governance",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tools/docs/public-preview-screenshots.mjs",
+                "src/frontend/src/**",
+                "tests/frontend/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": false,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/issue-1162-rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-command",
+                "command": "node ../../tools/docs/public-preview-screenshots.mjs sync",
+                "implementation": "tools/docs/public-preview-screenshots.mjs",
+                "executionKey": "governance:check:public-preview-screenshot-sync",
                 "receiptCompatible": true
             }
         },

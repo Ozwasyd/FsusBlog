@@ -825,6 +825,7 @@ jobs:
                   # classifications and relative evidence paths.
                   path: |
                       .tmp/browser-contract/receipt.json
+                      .tmp/release-evidence/public-preview-screenshots.json
                       .tmp/release-evidence/jobs/**
 
     resilience-runtime:

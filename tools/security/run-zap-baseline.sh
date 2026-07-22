@@ -50,7 +50,8 @@ for target in $TARGETS; do
         -J "$json_report" \
         -r "$html_report" \
         -w "$markdown_report" \
-        -c /zap/fsusblog-zap-baseline.conf
+        -c /zap/fsusblog-zap-baseline.conf \
+        --autooff
     status=$?
     set -e
 

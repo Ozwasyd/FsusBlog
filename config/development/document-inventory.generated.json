@@ -1454,6 +1454,19 @@
             "producer": null
         },
         {
+            "path": "docs/assets/screenshots/manifest.json",
+            "title": "Manifest",
+            "kind": "json",
+            "status": "current",
+            "owner": "frontend",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "6b6f67c431c1a8760fd2f10e22b52e1291e06e9b",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
+        {
             "path": "docs/assets/screenshots/operations-status.png",
             "title": "Operations Status",
             "kind": "asset",
@@ -5236,6 +5249,19 @@
         {
             "path": "docs/testing/private-surface-runtime.md",
             "title": "PrivateSurfaceRuntime 验证清单",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "release",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "6b6f67c431c1a8760fd2f10e22b52e1291e06e9b",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/testing/public-preview-screenshot-governance.md",
+            "title": "Public-preview screenshot governance",
             "kind": "markdown",
             "status": "current",
             "owner": "release",

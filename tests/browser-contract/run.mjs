@@ -5,7 +5,7 @@ import { existsSync, lstatSync, realpathSync } from 'node:fs'
 import { chmod, mkdir, readFile, rm } from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { verifyProductionBuildReceipt } from '../../tools/ci/production-build-artifacts.mjs'
 import {
@@ -27,6 +27,7 @@ import {
   prepareSingleBrowserContractFixture,
   resolveBrowserContractRunIdentity
 } from './prepare-fixture.mjs'
+import { capturePublicPreviewGallery } from './public-preview-gallery.mjs';
 import {
   browserContractAppReadyTimeoutMs,
   browserContractScenarioRunners,
@@ -389,6 +390,21 @@ async function main() {
         { failures: productFailures }
       )
     }
+
+        const publicPreviewStaging = path.join(runOutputRoot, 'public-preview-docs');
+        const publicPreviewOperations = await import(pathToFileURL(
+            path.join(root, 'tools/docs/public-preview-screenshots.mjs')
+        ).href);
+        await capturePublicPreviewGallery({
+            browser,
+            fixture,
+            sourceCommit: build.sourceState.commit,
+            stagingDirectory: publicPreviewStaging,
+            evidenceFile: path.join(root, '.tmp/release-evidence/public-preview-screenshots.json'),
+            receipt,
+            timeoutMs: browserContractAppReadyTimeoutMs,
+            operations: publicPreviewOperations
+        });
 
     closingBrowser = true
     await browser.close()

@@ -1,4 +1,5 @@
-import { mkdir, readdir, rm, writeFile } from 'node:fs/promises'
+import { readFileSync } from 'node:fs'
+import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { expect, test } from '@playwright/test'
 import type { Browser, Page, StorageState } from '@playwright/test'
@@ -51,11 +52,21 @@ const fixtures = loadAuditFixtures()
 const themes: ThemeMode[] = ['light', 'dark']
 const strictRuntimeAudit = process.env.FSUSBLOG_MANUAL_SCREENSHOT_RUNTIME_AUDIT !== '0'
 const strictLayoutAudit = process.env.FSUSBLOG_MANUAL_SCREENSHOT_LAYOUT_AUDIT !== '0'
-const writeDocsScreenshotAssets = process.env.FSUSBLOG_MANUAL_SCREENSHOT_WRITE_DOCS_ASSETS === '1'
+const publicPreviewDocsCapture = process.env.FSUSBLOG_PUBLIC_PREVIEW_DOCS_CAPTURE === '1'
 const manualScreenshotShardName = normalizeManualScreenshotShardName(process.env.FSUSBLOG_MANUAL_SCREENSHOT_SHARD_NAME)
-const docsScreenshotShardName = normalizeManualScreenshotShardName(process.env.FSUSBLOG_MANUAL_SCREENSHOT_DOCS_SHARD_NAME)
-const docsScreenshotWriterAllowed = writeDocsScreenshotAssets
-  && (!manualScreenshotShardName || manualScreenshotShardName === docsScreenshotShardName)
+
+if (process.env.FSUSBLOG_MANUAL_SCREENSHOT_WRITE_DOCS_ASSETS === '1') {
+  throw new Error('manual screenshot shards cannot write docs assets; run npm run capture:public-preview-docs')
+}
+
+if (publicPreviewDocsCapture && (
+  manualScreenshotShardName
+  || process.env.FSUSBLOG_MANUAL_SCREENSHOT_VIEWPORTS
+  || process.env.FSUSBLOG_MANUAL_SCREENSHOT_THEMES
+  || process.env.FSUSBLOG_MANUAL_SCREENSHOT_SCOPES
+)) {
+  throw new Error('public-preview docs capture requires the complete unfiltered registry')
+}
 
 const viewports: ManualViewport[] = [
   { name: 'desktop', size: DESKTOP_VIEWPORT },
@@ -100,18 +111,25 @@ const screenshotRoot = manualScreenshotShardName && !process.env.FSUSBLOG_MANUAL
   ? path.join(baseScreenshotRoot, manualScreenshotShardName)
   : baseScreenshotRoot
 
-const docsScreenshotRoot = path.resolve(process.cwd(), '../../docs/assets/screenshots')
-const docsScreenshotAliases = new Map<string, string>([
-  [docsScreenshotAliasKey('Home', 'desktop', 'light'), 'public-home-light.png'],
-  [docsScreenshotAliasKey('ArticleDetail', 'desktop', 'light'), 'article-detail-light.png'],
-  [docsScreenshotAliasKey('ArticleDetail', 'mobile', 'light'), 'article-detail-mobile.png'],
-  [docsScreenshotAliasKey('Home', 'desktop', 'dark'), 'public-dark.png'],
-  [docsScreenshotAliasKey('ManageDashboard', 'desktop', 'light'), 'admin-dashboard.png'],
-  [docsScreenshotAliasKey('ManageWriteArticle', 'desktop', 'light'), 'article-editor.png'],
-  [docsScreenshotAliasKey('ManageModerationComments', 'desktop', 'light'), 'comment-moderation.png'],
-  [docsScreenshotAliasKey('ManageSecurityDashboard', 'desktop', 'light'), 'security-console.png'],
-  [docsScreenshotAliasKey('ManageOpsHealth', 'desktop', 'light'), 'operations-status.png']
-])
+const docsScreenshotRoot = publicPreviewDocsCapture
+  ? path.resolve(requiredEnvironment('FSUSBLOG_PUBLIC_PREVIEW_STAGING_DIR'))
+  : null
+const docsScreenshotRegistry = JSON.parse(readFileSync(
+  path.resolve(process.cwd(), '../../config/docs/public-preview-screenshots.json'),
+  'utf8'
+)) as {
+  screenshots: Array<{
+    file: string
+    route: string
+    viewport: string
+    theme: ThemeMode
+    scope: ManualRouteScope
+  }>
+}
+const docsScreenshotAliases = new Map(docsScreenshotRegistry.screenshots.map((entry) => [
+  docsScreenshotAliasKey(entry.route, entry.viewport, entry.theme),
+  entry.file
+]))
 
 function buildManualRoutesFromRouteRecords(
   records: readonly RouteRecordRaw[],
@@ -384,41 +402,12 @@ function screenshotPath(route: ManualRoute, viewport: ManualViewport, theme: The
 }
 
 function docsScreenshotPath(route: ManualRoute, viewport: ManualViewport, theme: ThemeMode): string | null {
-  if (!docsScreenshotWriterAllowed) {
+  if (!publicPreviewDocsCapture || !docsScreenshotRoot) {
     return null
   }
 
   const alias = docsScreenshotAliases.get(docsScreenshotAliasKey(route.name, viewport.name, theme))
   return alias ? path.join(docsScreenshotRoot, alias) : null
-}
-
-async function pruneStaleDocsScreenshotAssets(): Promise<void> {
-  if (!docsScreenshotWriterAllowed) {
-    return
-  }
-
-  const currentAliases = new Set<string>()
-  for (const viewport of selectedViewports) {
-    for (const theme of selectedThemes) {
-      for (const routeSet of selectedRouteSets) {
-        const routes = viewport.routeFilter
-          ? routeSet.routes.filter(viewport.routeFilter)
-          : routeSet.routes
-        for (const route of routes) {
-          const docsPath = docsScreenshotPath(route, viewport, theme)
-          if (docsPath) {
-            currentAliases.add(path.basename(docsPath))
-          }
-        }
-      }
-    }
-  }
-
-  await mkdir(docsScreenshotRoot, { recursive: true })
-  const entries = await readdir(docsScreenshotRoot, { withFileTypes: true })
-  await Promise.all(entries
-    .filter((entry) => entry.isFile() && entry.name.endsWith('.png') && !currentAliases.has(entry.name))
-    .map((entry) => rm(path.join(docsScreenshotRoot, entry.name), { force: true })))
 }
 
 function docsScreenshotAliasKey(routeName: string, viewportName: string, theme: ThemeMode): string {
@@ -427,6 +416,14 @@ function docsScreenshotAliasKey(routeName: string, viewportName: string, theme: 
 
 function sanitizeFilename(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'route'
+}
+
+function requiredEnvironment(name: string): string {
+  const value = process.env[name]?.trim()
+  if (!value) {
+    throw new Error(`${name} is required for public-preview docs capture`)
+  }
+  return value
 }
 
 async function captureRouteScreenshot(page: Page, route: ManualRoute, viewport: ManualViewport, theme: ThemeMode): Promise<void> {
@@ -693,14 +690,17 @@ test.describe('manual layout screenshot capture', () => {
   test('captures every route for human layout review', async ({ browser }) => {
     test.setTimeout(1_800_000)
 
-    await pruneStaleDocsScreenshotAssets()
-
     for (const viewport of selectedViewports) {
       for (const theme of selectedThemes) {
         for (const routeSet of selectedRouteSets) {
-          const routes = viewport.routeFilter
+          let routes = viewport.routeFilter
             ? routeSet.routes.filter(viewport.routeFilter)
             : routeSet.routes
+          if (publicPreviewDocsCapture) {
+            routes = routes.filter((route) => docsScreenshotAliases.has(
+              docsScreenshotAliasKey(route.name, viewport.name, theme)
+            ))
+          }
           if (routes.length === 0) {
             continue
           }

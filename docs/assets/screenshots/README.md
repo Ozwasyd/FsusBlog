@@ -52,15 +52,47 @@ The Do/Don't examples and full review checklist live in
 
 The screenshots do not include a separate logo file, trademark artwork, generated bitmap illustration, or production brand asset. The visible `FsusBlog` wordmark is rendered as plain text for documentation context. Code is covered by the repository license; screenshots and brand usage should be treated as documentation examples unless a later brand policy says otherwise.
 
-## Regeneration
+## Provenance And Freshness
 
-Regenerate the PNG files by running the manual route screenshot audit from the frontend workspace:
+[`manifest.json`](manifest.json) is the machine-readable authority for the nine
+managed images. It records source commit and canonical ReleaseId provenance,
+frontend/backend build identities, deterministic fixture and capture digests,
+the resolved local FsusUI commit/tree/lock identity, the visual-input digest,
+and each PNG SHA-256. `sourceCommit` answers where an image was captured;
+`visualInputDigest` independently decides whether it is fresh for this checkout.
+
+These fast local checks do not start an application, browser, database, network
+service, or GitHub API:
 
 ```bash
-FSUSBLOG_MANUAL_SCREENSHOT_RUNTIME_AUDIT=0 FSUSBLOG_MANUAL_SCREENSHOT_LAYOUT_AUDIT=0 FSUSBLOG_MANUAL_SCREENSHOT_WRITE_DOCS_ASSETS=1 npm --prefix src/frontend run capture:manual-layout-screenshots
+npm --prefix src/frontend run check:public-preview-screenshot-manifest
+npm --prefix src/frontend run check:public-preview-screenshot-sync
 ```
 
-The manual audit derives its coverage from the frontend router table. It writes full route screenshots under `FSUSBLOG_MANUAL_SCREENSHOT_DIR` or `.tmp/manual-layout-screenshots/current`, and copies the selected documentation aliases above into this directory when `FSUSBLOG_MANUAL_SCREENSHOT_WRITE_DOCS_ASSETS=1` is set. Leave the audit flags enabled for layout QA; set them to `0` only for capture-only documentation refreshes. This is the only screenshot capture path for these documentation assets. Run it after changing a checked-in cover fixture or either cover container so all public-preview PNG aliases are refreshed from the live route, not edited or synthesized independently.
+## Regeneration And Verification
+
+The formal writer owns a unique runtime namespace, allocates isolated ports,
+builds the current checkout, seeds fictional fixtures, keeps runtime and layout
+audits enabled, captures the complete registry into staging, validates it, and
+atomically replaces the gallery only after every check passes. Success and
+failure both clean processes, containers, ports, and fixture data:
+
+```bash
+npm --prefix src/frontend run capture:public-preview-docs
+npm --prefix src/frontend run verify:public-preview-docs
+```
+
+`verify:public-preview-docs` is read-only: it recaptures into a temporary
+directory, compares every screenshot ID, writes deterministic release evidence
+under `.tmp/release-evidence/`, and requests the explicit capture command when
+an update is required. Local `release-final` runs this same matrix tier. CI,
+when available, is only another caller and is not the authority.
+
+The manual audit derives broader human-review coverage from the frontend router
+table and writes only below `FSUSBLOG_MANUAL_SCREENSHOT_DIR` or
+`.tmp/manual-layout-screenshots/current`. A filtered viewport/theme/scope shard
+cannot write or prune documentation assets. The retired
+`FSUSBLOG_MANUAL_SCREENSHOT_WRITE_DOCS_ASSETS=1` setting fails explicitly.
 
 For targeted local review or CI matrix jobs, keep each Playwright shard at
 `--workers=1` and split the route matrix with deterministic filters:
@@ -81,8 +113,6 @@ values are `anonymous`, `user`, `admin`, and `edge`. When
 `FSUSBLOG_MANUAL_SCREENSHOT_DIR` is not set, output defaults to a shard-local
 folder under `.tmp/manual-layout-screenshots/current/<shard>`.
 
-Only one shard should write documentation assets. For sharded captures, set
-`FSUSBLOG_MANUAL_SCREENSHOT_DOCS_SHARD_NAME=<same shard name>` on the intended
-docs writer together with `FSUSBLOG_MANUAL_SCREENSHOT_WRITE_DOCS_ASSETS=1`.
-Other shards keep their PNGs in shard-local temp folders and do not mutate
-`docs/assets/screenshots`.
+All shards keep PNGs in shard-local temporary folders. Only the unfiltered,
+single-writer `capture:public-preview-docs` command can publish the complete
+documentation gallery.
