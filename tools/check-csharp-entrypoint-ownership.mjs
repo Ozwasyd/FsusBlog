@@ -140,21 +140,24 @@ export function validateCSharpEntrypointOwnershipPolicy(policy) {
 
   const fileBasedApps = array(policy?.fileBasedApps)
   const fileBasedPaths = fileBasedApps.map((entry) => normalize(text(entry?.path))).filter(Boolean)
-  if (fileBasedPaths.length !== fileBasedApps.length || new Set(fileBasedPaths).size !== fileBasedPaths.length) {
-    errors.push('fileBasedApps must use unique non-empty paths')
-  }
-
-  const sourceFixtureRoots = uniqueNonEmptyStrings(
-    policy?.sourceFixtureRoots,
-    'sourceFixtureRoots',
-    errors,
-    { relative: true }
-  )
-  for (const fixtureRoot of sourceFixtureRoots) {
-    if (!isInside(fixtureRoot, 'tests/fixtures')) {
-      errors.push(`C# source fixture root must stay under tests/fixtures: ${fixtureRoot}`)
+    if (fileBasedPaths.length !== fileBasedApps.length || new Set(fileBasedPaths).size !== fileBasedPaths.length)
+    {
+        errors.push('fileBasedApps must use unique non-empty paths');
     }
-  }
+
+    const sourceFixtureRoots = uniqueNonEmptyStrings(
+        policy?.sourceFixtureRoots,
+        'sourceFixtureRoots',
+        errors,
+        { relative: true }
+    );
+    for (const fixtureRoot of sourceFixtureRoots)
+    {
+        if (!isInside(fixtureRoot, 'tests/fixtures'))
+        {
+            errors.push(`C# source fixture root must stay under tests/fixtures: ${fixtureRoot}`);
+        }
+    }
   for (const entry of fileBasedApps) {
     const appPath = normalize(text(entry?.path))
     if (!isSafeRelative(appPath) || !appPath.endsWith('.cs')) {
@@ -264,7 +267,7 @@ export function checkCSharpEntrypointOwnership({ root = defaultRoot, policyFile 
   const projectExtensions = array(policy?.dotnetProjectExtensions).map((value) => text(value)).filter(Boolean)
   const projectFiles = files.filter((file) => projectExtensions.some((extension) => file.endsWith(extension)))
   const fileBasedApps = new Map(array(policy?.fileBasedApps).map((entry) => [normalize(text(entry?.path)), entry]))
-  const sourceFixtureRoots = array(policy?.sourceFixtureRoots).map(normalize).filter(Boolean)
+    const sourceFixtureRoots = array(policy?.sourceFixtureRoots).map(normalize).filter(Boolean);
   const entrypointNames = new Set(array(policy?.entrypointNames).map((value) => text(value)).filter(Boolean))
 
   for (const file of csharpFiles) {
@@ -272,8 +275,9 @@ export function checkCSharpEntrypointOwnership({ root = defaultRoot, policyFile 
     if (javascriptOwner) {
       errors.push(`C# source cannot live under JavaScript project root ${normalize(javascriptOwner.path)}: ${file}`)
     }
-    const sourceFixture = sourceFixtureRoots.some((fixtureRoot) => isInside(file, fixtureRoot))
-    if (!closestProject(file, projectFiles) && !fileBasedApps.has(file) && !sourceFixture) {
+        const sourceFixture = sourceFixtureRoots.some((fixtureRoot) => isInside(file, fixtureRoot));
+        if (!closestProject(file, projectFiles) && !fileBasedApps.has(file) && !sourceFixture)
+        {
       const sourceKind = entrypointNames.has(path.posix.basename(file)) ? 'entrypoint' : 'source'
       errors.push(`C# ${sourceKind} has no owning project or file-based app contract: ${file}`)
     }
@@ -327,7 +331,7 @@ export function checkCSharpEntrypointOwnership({ root = defaultRoot, policyFile 
     entrypointCount: csharpFiles.filter((file) => entrypointNames.has(path.posix.basename(file))).length,
     javascriptProjectRootCount: javascriptRoots.length,
     protocolFixtureCount: actualFixtures.length,
-    sourceFixtureCount: csharpFiles.filter((file) => sourceFixtureRoots.some((fixtureRoot) => isInside(file, fixtureRoot))).length,
+        sourceFixtureCount: csharpFiles.filter((file) => sourceFixtureRoots.some((fixtureRoot) => isInside(file, fixtureRoot))).length,
     generatorCount: array(fixturePolicy.generators).length
   }
 }
