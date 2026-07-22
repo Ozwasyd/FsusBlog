@@ -1,395 +1,460 @@
 #!/usr/bin/env node
 
-import { createRequire } from 'node:module'
-import { existsSync, lstatSync, realpathSync } from 'node:fs'
-import { chmod, mkdir, readFile, rm } from 'node:fs/promises'
-import path from 'node:path'
-import process from 'node:process'
+import { existsSync, lstatSync, realpathSync } from 'node:fs';
+import { chmod, mkdir, readFile, rm } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import path from 'node:path';
+import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { verifyProductionBuildReceipt } from '../../tools/ci/production-build-artifacts.mjs'
+import { verifyProductionBuildReceipt } from '../../tools/ci/production-build-artifacts.mjs';
 import {
-  sealBrowserContractReceipt,
-  validateBrowserContractReceipt
-} from '../../tools/release/test-evidence-receipts.mjs'
+    sealBrowserContractReceipt,
+    validateBrowserContractReceipt
+} from '../../tools/release/test-evidence-receipts.mjs';
+
 import {
-  BrowserContractFailure,
-  browserContractScenarios,
-  classifyBrowserContractFailure,
-  createBrowserContractReceipt,
-  selectBrowserContractScenarios,
-  serializeBrowserContractError,
-  writeBrowserContractReceipt
-} from './contract.mjs'
-import { fixtureReceiptView, loadBrowserContractFixture } from './fixture.mjs'
+    BrowserContractFailure,
+    classifyBrowserContractFailure,
+    createBrowserContractReceipt,
+    finalizeBrowserContractReceipt,
+    persistFinalBrowserContractReceipt,
+    selectBrowserContractScenarios,
+    serializeBrowserContractError,
+    writeBrowserContractReceipt
+} from './contract.mjs';
+import { fixtureReceiptView, loadBrowserContractFixture } from './fixture.mjs';
 import {
-  cleanupSingleBrowserContractFixture,
-  prepareSingleBrowserContractFixture,
-  resolveBrowserContractRunIdentity
-} from './prepare-fixture.mjs'
+    cleanupSingleBrowserContractFixture,
+    prepareSingleBrowserContractFixture,
+    resolveBrowserContractRunIdentity
+} from './prepare-fixture.mjs';
 import { capturePublicPreviewGallery } from './public-preview-gallery.mjs';
 import {
-  browserContractAppReadyTimeoutMs,
-  browserContractScenarioRunners,
-  createPageAudit
-} from './scenarios.mjs'
+    browserContractAppReadyTimeoutMs,
+    browserContractScenarioRunners,
+    createPageAudit
+} from './scenarios.mjs';
 
-const here = path.dirname(fileURLToPath(import.meta.url))
-const root = path.resolve(here, '../..')
-const frontendRoot = path.join(root, 'src/frontend')
-const outputRoot = path.resolve(process.env.FSUSBLOG_BROWSER_CONTRACT_OUTPUT || path.join(root, '.tmp/browser-contract'))
-const receiptFile = path.resolve(process.env.FSUSBLOG_BROWSER_CONTRACT_RECEIPT || path.join(outputRoot, 'receipt.json'))
-let traceRoot = null
-let screenshotRoot = null
+const here = path.dirname(fileURLToPath(import.meta.url));
+const root = path.resolve(here, '../..');
+const frontendRoot = path.join(root, 'src/frontend');
+const outputRoot = path.resolve(process.env.FSUSBLOG_BROWSER_CONTRACT_OUTPUT || path.join(root, '.tmp/browser-contract'));
+const receiptFile = path.resolve(process.env.FSUSBLOG_BROWSER_CONTRACT_RECEIPT || path.join(outputRoot, 'receipt.json'));
+let traceRoot = null;
+let screenshotRoot = null;
 const buildReceiptFile = path.resolve(
-  process.env.FSUSBLOG_BROWSER_CONTRACT_BUILD_RECEIPT || path.join(root, '.tmp/ci-production-build/receipt.json')
-)
-const startedAtMs = Date.now()
-const require = createRequire(import.meta.url)
+    process.env.FSUSBLOG_BROWSER_CONTRACT_BUILD_RECEIPT || path.join(root, '.tmp/ci-production-build/receipt.json')
+);
+const startedAtMs = Date.now();
+const require = createRequire(import.meta.url);
 
-let browser = null
-let browserDisconnected = false
-let closingBrowser = false
-let receivedSignal = null
-let activeScenario = null
-let preparedFixture = null
-let verifiedBuild = null
-let plannedRunIdentity = null
-let outputValidated = false
-const terminationController = new AbortController()
+let browser = null;
+let browserDisconnected = false;
+let closingBrowser = false;
+let receivedSignal = null;
+let activeScenario = null;
+let preparedFixture = null;
+let verifiedBuild = null;
+let plannedRunIdentity = null;
+let outputValidated = false;
+const terminationController = new AbortController();
 
-function relative(value) {
-  return path.relative(root, value).replaceAll(path.sep, '/')
+function relative(value)
+{
+    return path.relative(root, value).replaceAll(path.sep, '/');
 }
 
-function snapshotReceiptEvidence(value) {
-  return value === null || value === undefined ? null : JSON.parse(JSON.stringify(value))
+function snapshotReceiptEvidence(value)
+{
+    return value === null || value === undefined ? null : JSON.parse(JSON.stringify(value));
 }
 
-async function writeAuditedBrowserContractReceipt(file, receipt) {
-  if (file !== receiptFile) throw new BrowserContractFailure('browser contract receipt target changed during sealing', 'contract')
-  const sealed = sealBrowserContractReceipt(receipt)
-  if (sealed.status !== 'running') {
-    const errors = validateBrowserContractReceipt(sealed, { requireSuccess: false })
-    if (errors.length > 0) {
-      throw new BrowserContractFailure(
-        `browser contract produced an invalid receipt: ${errors.join('; ')}`,
-        'contract',
-        { errors }
-      )
+async function writeAuditedBrowserContractReceipt(file, receipt)
+{
+    if (file !== receiptFile)
+    {
+        throw new BrowserContractFailure('browser contract receipt target changed during sealing', 'contract');
     }
-  }
-  Object.assign(receipt, sealed)
-  await writeBrowserContractReceipt(receiptFile, receipt)
-}
-
-async function preparePrivateDirectory(directory) {
-  await mkdir(directory, { recursive: true, mode: 0o700 })
-  const stat = lstatSync(directory)
-  if (!stat.isDirectory() || stat.isSymbolicLink() || realpathSync(directory) !== directory) {
-    throw new BrowserContractFailure(`browser contract private directory is unsafe: ${relative(directory)}`, 'contract')
-  }
-  await chmod(directory, 0o700)
-}
-
-function assertRunOwnedPath(value, label) {
-  const canonicalRoot = path.join(root, '.tmp', 'browser-contract')
-  const resolved = path.resolve(value)
-  if (resolved !== canonicalRoot && !resolved.startsWith(`${canonicalRoot}${path.sep}`)) {
-    throw new BrowserContractFailure(`${label} must stay under .tmp/browser-contract`, 'contract')
-  }
-  let current = root
-  for (const segment of path.relative(root, resolved).split(path.sep)) {
-    current = path.join(current, segment)
-    if (!existsSync(current)) continue
-    const stat = lstatSync(current)
-    if (stat.isSymbolicLink()) {
-      throw new BrowserContractFailure(`${label} contains a symlink`, 'contract')
+    const sealed = sealBrowserContractReceipt(receipt);
+    if (sealed.status !== 'running')
+    {
+        const errors = validateBrowserContractReceipt(sealed, { requireSuccess: false });
+        if (errors.length > 0)
+        {
+            throw new BrowserContractFailure(
+                `browser contract produced an invalid receipt: ${errors.join('; ')}`,
+                'contract',
+                { errors }
+            );
+        }
     }
-  }
-  return resolved
+    Object.assign(receipt, sealed);
+    await writeBrowserContractReceipt(receiptFile, receipt);
 }
 
-async function resetRunOutput() {
-  const ownedOutputRoot = assertRunOwnedPath(outputRoot, 'browser contract output root')
-  const ownedReceiptFile = assertRunOwnedPath(receiptFile, 'browser contract receipt')
-  if (existsSync(ownedOutputRoot) && !lstatSync(ownedOutputRoot).isDirectory()) {
-    throw new BrowserContractFailure('browser contract output root must be a directory', 'contract')
-  }
-  if (existsSync(ownedReceiptFile) && !lstatSync(ownedReceiptFile).isFile()) {
-    throw new BrowserContractFailure('browser contract receipt must be a regular file', 'contract')
-  }
-  await preparePrivateDirectory(ownedOutputRoot)
-  await rm(ownedReceiptFile, { force: true })
-  outputValidated = true
-}
-
-function expectedSourceState() {
-  const commit = String(process.env.FSUSBLOG_TEST_SOURCE_COMMIT || '').trim()
-  const worktreeFingerprint = String(process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT || '').trim()
-  if (!/^[a-f0-9]{40}$/u.test(commit) || !/^(?:sha256:)?[a-f0-9]{64}$/u.test(worktreeFingerprint)) {
-    throw new BrowserContractFailure(
-      'Browser Contract requires complete FSUSBLOG_TEST_SOURCE_COMMIT and FSUSBLOG_TEST_SOURCE_FINGERPRINT identity',
-      'contract'
-    )
-  }
-  return { commit, worktreeFingerprint }
-}
-
-async function verifyImmutableBuild(sourceState) {
-  if (!existsSync(buildReceiptFile)) {
-    throw new BrowserContractFailure(`immutable production build receipt is missing: ${relative(buildReceiptFile)}`, 'contract')
-  }
-  const result = verifyProductionBuildReceipt({
-    artifactRoot: path.dirname(buildReceiptFile),
-    receiptFile: path.basename(buildReceiptFile),
-    expectedSourceState: sourceState
-  })
-  const requiredDomains = ['backend-runtime', 'frontend-dist', 'generated-contracts', 'wasm']
-  const domains = new Set(result.receipt.domains.map((domain) => domain.name))
-  const missingDomains = requiredDomains.filter((domain) => !domains.has(domain))
-  if (missingDomains.length > 0) {
-    throw new BrowserContractFailure(
-      `immutable production build is missing browser contract domains: ${missingDomains.join(', ')}`,
-      'contract'
-    )
-  }
-  return {
-    receipt: relative(buildReceiptFile),
-    receiptContentDigest: result.receipt.contentDigest,
-    sourceState: result.receipt.sourceState,
-    profile: result.receipt.build?.profile ?? null,
-    domains: requiredDomains,
-    artifactCount: result.evidence.artifactCount,
-    artifactBytes: result.evidence.artifactBytes,
-    verifiedAt: result.evidence.verifiedAt
-  }
-}
-
-async function loadManagedPlaywright() {
-  const packageFile = require.resolve('@playwright/test/package.json', { paths: [frontendRoot] })
-  const moduleFile = require.resolve('@playwright/test', { paths: [frontendRoot] })
-  const packageJson = JSON.parse(await readFile(packageFile, 'utf8'))
-  const playwright = require(moduleFile)
-  const executablePath = playwright.chromium.executablePath()
-  const revisionMatch = executablePath.match(/(?:chromium|chromium_headless_shell)-(\d+)/u)
-  return {
-    chromium: playwright.chromium,
-    metadata: {
-      package: '@playwright/test',
-      version: String(packageJson.version ?? 'unknown'),
-      chromiumRevision: revisionMatch?.[1] ?? path.basename(path.dirname(executablePath)),
-      executableName: path.basename(executablePath),
-      managedExecutable: true
+async function preparePrivateDirectory(directory)
+{
+    await mkdir(directory, { recursive: true, mode: 0o700 });
+    const stat = lstatSync(directory);
+    if (!stat.isDirectory() || stat.isSymbolicLink() || realpathSync(directory) !== directory)
+    {
+        throw new BrowserContractFailure(`browser contract private directory is unsafe: ${relative(directory)}`, 'contract');
     }
-  }
+    await chmod(directory, 0o700);
 }
 
-function contextOptions(scenario, fixture) {
-  const storageState = scenario.role === 'user'
-    ? fixture.user.storageState
-    : scenario.role === 'admin' ? fixture.admin.storageState : undefined
-  return {
-    baseURL: fixture.baseUrl,
-    ...(storageState ? { storageState } : {}),
-    serviceWorkers: scenario.serviceWorkers,
-    viewport: { width: 1280, height: 800 },
-    colorScheme: 'light',
-    locale: 'zh-CN',
-    userAgent: `FsusBlog-Release-Browser-Contract/${scenario.id}`,
-    extraHTTPHeaders: fixture.testSession
-      ? { 'X-Fsus-Test-Session': fixture.testSession }
-      : {}
-  }
+function assertRunOwnedPath(value, label)
+{
+    const canonicalRoot = path.join(root, '.tmp', 'browser-contract');
+    const resolved = path.resolve(value);
+    if (resolved !== canonicalRoot && !resolved.startsWith(`${canonicalRoot}${path.sep}`))
+    {
+        throw new BrowserContractFailure(`${label} must stay under .tmp/browser-contract`, 'contract');
+    }
+    let current = root;
+    for (const segment of path.relative(root, resolved).split(path.sep))
+    {
+        current = path.join(current, segment);
+        if (!existsSync(current))
+        {
+            continue;
+        }
+        const stat = lstatSync(current);
+        if (stat.isSymbolicLink())
+        {
+            throw new BrowserContractFailure(`${label} contains a symlink`, 'contract');
+        }
+    }
+    return resolved;
 }
 
-async function captureFailureScreenshot(page, scenarioId) {
-  const file = path.join(screenshotRoot, `${scenarioId}.png`)
-  await preparePrivateDirectory(path.dirname(file))
-  await page.screenshot({ path: file, fullPage: false, timeout: 5_000 })
-  await chmod(file, 0o600)
-  return relative(file)
+async function resetRunOutput()
+{
+    const ownedOutputRoot = assertRunOwnedPath(outputRoot, 'browser contract output root');
+    const ownedReceiptFile = assertRunOwnedPath(receiptFile, 'browser contract receipt');
+    if (existsSync(ownedOutputRoot) && !lstatSync(ownedOutputRoot).isDirectory())
+    {
+        throw new BrowserContractFailure('browser contract output root must be a directory', 'contract');
+    }
+    if (existsSync(ownedReceiptFile) && !lstatSync(ownedReceiptFile).isFile())
+    {
+        throw new BrowserContractFailure('browser contract receipt must be a regular file', 'contract');
+    }
+    await preparePrivateDirectory(ownedOutputRoot);
+    await rm(ownedReceiptFile, { force: true });
+    outputValidated = true;
 }
 
-function requestTermination(signal) {
-  if (receivedSignal) return
-  receivedSignal = signal
-  browserDisconnected = true
-  terminationController.abort(new Error(`browser contract terminated by ${signal}`))
-  browser?.close().catch(() => {})
+function expectedSourceState()
+{
+    const commit = String(process.env.FSUSBLOG_TEST_SOURCE_COMMIT || '').trim();
+    const worktreeFingerprint = String(process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT || '').trim();
+    if (!/^[a-f0-9]{40}$/u.test(commit) || !/^(?:sha256:)?[a-f0-9]{64}$/u.test(worktreeFingerprint))
+    {
+        throw new BrowserContractFailure(
+            'Browser Contract requires complete FSUSBLOG_TEST_SOURCE_COMMIT and FSUSBLOG_TEST_SOURCE_FINGERPRINT identity',
+            'contract'
+        );
+    }
+    return { commit, worktreeFingerprint };
 }
 
-process.once('SIGTERM', () => requestTermination('SIGTERM'))
-process.once('SIGINT', () => requestTermination('SIGINT'))
+async function verifyImmutableBuild(sourceState)
+{
+    if (!existsSync(buildReceiptFile))
+    {
+        throw new BrowserContractFailure(`immutable production build receipt is missing: ${relative(buildReceiptFile)}`, 'contract');
+    }
+    const result = verifyProductionBuildReceipt({
+        artifactRoot: path.dirname(buildReceiptFile),
+        receiptFile: path.basename(buildReceiptFile),
+        expectedSourceState: sourceState
+    });
+    const requiredDomains = ['backend-runtime', 'frontend-dist', 'generated-contracts', 'wasm'];
+    const domains = new Set(result.receipt.domains.map((domain) => domain.name));
+    const missingDomains = requiredDomains.filter((domain) => !domains.has(domain));
+    if (missingDomains.length > 0)
+    {
+        throw new BrowserContractFailure(
+            `immutable production build is missing browser contract domains: ${missingDomains.join(', ')}`,
+            'contract'
+        );
+    }
+    return {
+        receipt: relative(buildReceiptFile),
+        receiptContentDigest: result.receipt.contentDigest,
+        sourceState: result.receipt.sourceState,
+        profile: result.receipt.build?.profile ?? null,
+        domains: requiredDomains,
+        artifactCount: result.evidence.artifactCount,
+        artifactBytes: result.evidence.artifactBytes,
+        verifiedAt: result.evidence.verifiedAt
+    };
+}
 
-async function main() {
-  const sourceState = expectedSourceState()
-  await resetRunOutput()
-  if (process.env.FSUSBLOG_PLAYWRIGHT_SESSION_MODE !== 'browser-contract') {
-    throw new BrowserContractFailure(
-      'Browser Contract requires FSUSBLOG_PLAYWRIGHT_SESSION_MODE=browser-contract',
-      'contract'
-    )
-  }
-  const build = await verifyImmutableBuild(sourceState)
-  verifiedBuild = build
-  const plannedIdentity = resolveBrowserContractRunIdentity({
-    env: process.env,
-    sourceState: build.sourceState,
-    repoRoot: root,
-    now: startedAtMs
-  })
-  plannedRunIdentity = plannedIdentity
-  const runningReceipt = createBrowserContractReceipt({
-    sourceState: build.sourceState,
-    build,
-    fixture: {
-      namespace: plannedIdentity.namespace,
-      lifecycle: {
-        identity: {
-          commit: plannedIdentity.commit,
-          runId: plannedIdentity.runId,
-          laneId: plannedIdentity.laneId,
-          namespace: plannedIdentity.namespace
-        },
-        status: 'preparing'
-      }
-    },
-    startedAt: new Date(startedAtMs).toISOString()
-  })
-  await writeAuditedBrowserContractReceipt(receiptFile, runningReceipt)
-  preparedFixture = await prepareSingleBrowserContractFixture({
-    env: process.env,
-    repoRoot: root,
-    sourceState: build.sourceState,
-    build,
-    signal: terminationController.signal,
-    now: startedAtMs
-  })
-  const runOutputRoot = path.join(outputRoot, 'runs', preparedFixture.identity.namespace)
-  traceRoot = path.join(runOutputRoot, 'traces')
-  screenshotRoot = path.join(runOutputRoot, 'screenshots')
-  await preparePrivateDirectory(traceRoot)
-  await preparePrivateDirectory(screenshotRoot)
-  const fixtureEnv = {
-    ...process.env,
-    FSUSBLOG_FIXTURE_ROOT: preparedFixture.root,
-    FSUSBLOG_TEST_NAMESPACE: preparedFixture.identity.namespace,
-    FSUSBLOG_TEST_SESSION: preparedFixture.identity.namespace
-  }
-  const fixture = await loadBrowserContractFixture({
-    env: fixtureEnv,
-    repoRoot: root,
-    fixtureRoot: preparedFixture.root,
-    lifecycle: preparedFixture.lifecycle,
-    expectedSourceState: build.sourceState,
-    expectedBuild: build
-  })
-  const selectedScenarios = selectBrowserContractScenarios(fixture.capabilities)
-  const managed = await loadManagedPlaywright()
-  const receipt = createBrowserContractReceipt({
-    sourceState: build.sourceState,
-    build,
-    fixture: fixtureReceiptView(fixture, root),
-    playwright: managed.metadata,
-    scenarios: selectedScenarios
-  })
-  const productFailures = []
+async function loadManagedPlaywright()
+{
+    const packageFile = require.resolve('@playwright/test/package.json', { paths: [frontendRoot] });
+    const moduleFile = require.resolve('@playwright/test', { paths: [frontendRoot] });
+    const packageJson = JSON.parse(await readFile(packageFile, 'utf8'));
+    const playwright = require(moduleFile);
+    const executablePath = playwright.chromium.executablePath();
+    const revisionMatch = executablePath.match(/(?:chromium|chromium_headless_shell)-(\d+)/u);
+    return {
+        chromium: playwright.chromium,
+        metadata: {
+            package: '@playwright/test',
+            version: String(packageJson.version ?? 'unknown'),
+            chromiumRevision: revisionMatch?.[1] ?? path.basename(path.dirname(executablePath)),
+            executableName: path.basename(executablePath),
+            managedExecutable: true
+        }
+    };
+}
 
-  try {
-    receipt.topology.browserLaunchCount = 1
-    browser = await managed.chromium.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-dev-shm-usage']
-    })
-    receipt.topology.maxConcurrentBrowserRoots = 1
-    receipt.playwright.chromiumVersion = browser.version()
-    browser.on('disconnected', () => {
-      if (!closingBrowser) browserDisconnected = true
-    })
+function contextOptions(scenario, fixture)
+{
+    const storageState = scenario.role === 'user'
+        ? fixture.user.storageState
+        : scenario.role === 'admin' ? fixture.admin.storageState : undefined;
+    return {
+        baseURL: fixture.baseUrl,
+        ...(storageState ? { storageState } : {}),
+        serviceWorkers: scenario.serviceWorkers,
+        viewport: { width: 1280, height: 800 },
+        colorScheme: 'light',
+        locale: 'zh-CN',
+        userAgent: `FsusBlog-Release-Browser-Contract/${scenario.id}`,
+        extraHTTPHeaders: fixture.testSession
+            ? { 'X-Fsus-Test-Session': fixture.testSession }
+            : {}
+    };
+}
 
-    for (const scenario of selectedScenarios) {
-      if (receivedSignal) {
-        throw new BrowserContractFailure(`browser contract terminated by ${receivedSignal}`, 'infra')
-      }
-      const runner = browserContractScenarioRunners[scenario.id]
-      if (typeof runner !== 'function') {
-        throw new BrowserContractFailure(`browser contract scenario runner is missing: ${scenario.id}`, 'contract')
-      }
+async function captureFailureScreenshot(page, scenarioId)
+{
+    const file = path.join(screenshotRoot, `${scenarioId}.png`);
+    await preparePrivateDirectory(path.dirname(file));
+    await page.screenshot({ path: file, fullPage: false, timeout: 5_000 });
+    await chmod(file, 0o600);
+    return relative(file);
+}
 
-      const scenarioReceipt = receipt.scenarios.find((entry) => entry.id === scenario.id)
-      const scenarioStartedAtMs = Date.now()
-      scenarioReceipt.status = 'running'
-      scenarioReceipt.startedAt = new Date(scenarioStartedAtMs).toISOString()
-      activeScenario = scenarioReceipt
-      let context = null
-      let page = null
-      let audit = null
-      // Playwright traces serialize BrowserContext options and raw network
-      // headers. Only the explicit anonymous allowlist may retain that raw
-      // evidence; every authenticated or future role remains fail closed.
-      const mayRetainRawTrace = scenario.role === 'anonymous'
-      const traceFile = path.join(traceRoot, `${scenario.id}.zip`)
-      try {
-        context = await browser.newContext(contextOptions(scenario, fixture))
-        receipt.topology.contextCount += 1
-        if (mayRetainRawTrace) {
-          await context.tracing.start({ screenshots: true, snapshots: true, sources: false, title: scenario.id })
-        }
-        page = await context.newPage()
-        page.setDefaultTimeout(browserContractAppReadyTimeoutMs)
-        page.setDefaultNavigationTimeout(browserContractAppReadyTimeoutMs)
-        audit = createPageAudit(page)
-        await runner({ browser, context, page, fixture, audit, scenario, outputRoot })
-        if (browserDisconnected) {
-          throw new BrowserContractFailure('Chromium disconnected during the release browser contract', 'infra')
-        }
-        scenarioReceipt.status = 'success'
-        scenarioReceipt.classification = 'clean'
-      } catch (error) {
-        scenarioReceipt.status = 'failure'
-        scenarioReceipt.classification = classifyBrowserContractFailure(error, { browserDisconnected })
-        scenarioReceipt.error = {
-          ...serializeBrowserContractError(error),
-          failureClass: scenarioReceipt.classification
-        }
-        if (page && !page.isClosed()) {
-          const screenshot = await captureFailureScreenshot(page, scenario.id).catch(() => null)
-          if (screenshot) scenarioReceipt.artifacts.push(screenshot)
-        }
-        if (scenarioReceipt.classification === 'product') {
-          productFailures.push({
-            scenario: scenario.id,
-            error: scenarioReceipt.error
-          })
-        } else {
-          throw error
-        }
-      } finally {
-        scenarioReceipt.issues = audit?.issues ?? []
-        if (context) {
-          if (mayRetainRawTrace) {
-            const traced = await context.tracing.stop({ path: traceFile }).then(() => true).catch(() => false)
-            if (traced) {
-              await chmod(traceFile, 0o600)
-              scenarioReceipt.artifacts.push(relative(traceFile))
+function requestTermination(signal)
+{
+    if (receivedSignal)
+    {
+        return;
+    }
+    receivedSignal = signal;
+    browserDisconnected = true;
+    terminationController.abort(new Error(`browser contract terminated by ${signal}`));
+    browser?.close().catch(() =>
+    {});
+}
+
+process.once('SIGTERM', () => requestTermination('SIGTERM'));
+process.once('SIGINT', () => requestTermination('SIGINT'));
+
+async function main()
+{
+    const sourceState = expectedSourceState();
+    await resetRunOutput();
+    if (process.env.FSUSBLOG_PLAYWRIGHT_SESSION_MODE !== 'browser-contract')
+    {
+        throw new BrowserContractFailure(
+            'Browser Contract requires FSUSBLOG_PLAYWRIGHT_SESSION_MODE=browser-contract',
+            'contract'
+        );
+    }
+    const build = await verifyImmutableBuild(sourceState);
+    verifiedBuild = build;
+    const plannedIdentity = resolveBrowserContractRunIdentity({
+        env: process.env,
+        sourceState: build.sourceState,
+        repoRoot: root,
+        now: startedAtMs
+    });
+    plannedRunIdentity = plannedIdentity;
+    const runningReceipt = createBrowserContractReceipt({
+        sourceState: build.sourceState,
+        build,
+        fixture: {
+            namespace: plannedIdentity.namespace,
+            lifecycle: {
+                identity: {
+                    commit: plannedIdentity.commit,
+                    runId: plannedIdentity.runId,
+                    laneId: plannedIdentity.laneId,
+                    namespace: plannedIdentity.namespace
+                },
+                status: 'preparing'
             }
-          }
-          await context.close().catch(() => {})
-        }
-        scenarioReceipt.finishedAt = new Date().toISOString()
-        scenarioReceipt.durationMs = Date.now() - scenarioStartedAtMs
-        activeScenario = null
-      }
-    }
+        },
+        startedAt: new Date(startedAtMs).toISOString()
+    });
+    await writeAuditedBrowserContractReceipt(receiptFile, runningReceipt);
+    preparedFixture = await prepareSingleBrowserContractFixture({
+        env: process.env,
+        repoRoot: root,
+        sourceState: build.sourceState,
+        build,
+        signal: terminationController.signal,
+        now: startedAtMs
+    });
+    const runOutputRoot = path.join(outputRoot, 'runs', preparedFixture.identity.namespace);
+    traceRoot = path.join(runOutputRoot, 'traces');
+    screenshotRoot = path.join(runOutputRoot, 'screenshots');
+    await preparePrivateDirectory(traceRoot);
+    await preparePrivateDirectory(screenshotRoot);
+    const fixtureEnv = {
+        ...process.env,
+        FSUSBLOG_FIXTURE_ROOT: preparedFixture.root,
+        FSUSBLOG_TEST_NAMESPACE: preparedFixture.identity.namespace,
+        FSUSBLOG_TEST_SESSION: preparedFixture.identity.namespace
+    };
+    const fixture = await loadBrowserContractFixture({
+        env: fixtureEnv,
+        repoRoot: root,
+        fixtureRoot: preparedFixture.root,
+        lifecycle: preparedFixture.lifecycle,
+        expectedSourceState: build.sourceState,
+        expectedBuild: build
+    });
+    const selectedScenarios = selectBrowserContractScenarios(fixture.capabilities);
+    const managed = await loadManagedPlaywright();
+    const receipt = createBrowserContractReceipt({
+        sourceState: build.sourceState,
+        build,
+        fixture: fixtureReceiptView(fixture, root),
+        playwright: managed.metadata,
+        scenarios: selectedScenarios
+    });
+    const productFailures = [];
+    let primaryOutcome = null;
 
-    if (productFailures.length > 0) {
-      throw new BrowserContractFailure(
-        `${productFailures.length} browser contract product scenario(s) failed`,
-        'product',
-        { failures: productFailures }
-      )
-    }
+    try
+    {
+        receipt.topology.browserLaunchCount = 1;
+        browser = await managed.chromium.launch({
+            headless: true,
+            args: ['--no-sandbox', '--disable-dev-shm-usage']
+        });
+        receipt.topology.maxConcurrentBrowserRoots = 1;
+        receipt.playwright.chromiumVersion = browser.version();
+        browser.on('disconnected', () =>
+        {
+            if (!closingBrowser)
+            {
+                browserDisconnected = true;
+            }
+        });
+
+        for (const scenario of selectedScenarios)
+        {
+            if (receivedSignal)
+            {
+                throw new BrowserContractFailure(`browser contract terminated by ${receivedSignal}`, 'infra');
+            }
+            const runner = browserContractScenarioRunners[scenario.id];
+            if (typeof runner !== 'function')
+            {
+                throw new BrowserContractFailure(`browser contract scenario runner is missing: ${scenario.id}`, 'contract');
+            }
+
+            const scenarioReceipt = receipt.scenarios.find((entry) => entry.id === scenario.id);
+            const scenarioStartedAtMs = Date.now();
+            scenarioReceipt.status = 'running';
+            scenarioReceipt.startedAt = new Date(scenarioStartedAtMs).toISOString();
+            activeScenario = scenarioReceipt;
+            let context = null;
+            let page = null;
+            let audit = null;
+            // Playwright traces serialize BrowserContext options and raw network
+            // headers. Only the explicit anonymous allowlist may retain that raw
+            // evidence; every authenticated or future role remains fail closed.
+            const mayRetainRawTrace = scenario.role === 'anonymous';
+            const traceFile = path.join(traceRoot, `${scenario.id}.zip`);
+            try
+            {
+                context = await browser.newContext(contextOptions(scenario, fixture));
+                receipt.topology.contextCount += 1;
+                if (mayRetainRawTrace)
+                {
+                    await context.tracing.start({ screenshots: true, snapshots: true, sources: false, title: scenario.id });
+                }
+                page = await context.newPage();
+                page.setDefaultTimeout(browserContractAppReadyTimeoutMs);
+                page.setDefaultNavigationTimeout(browserContractAppReadyTimeoutMs);
+                audit = createPageAudit(page);
+                await runner({ browser, context, page, fixture, audit, scenario, outputRoot });
+                if (browserDisconnected)
+                {
+                    throw new BrowserContractFailure('Chromium disconnected during the release browser contract', 'infra');
+                }
+                scenarioReceipt.status = 'success';
+                scenarioReceipt.classification = 'clean';
+            }
+            catch (error)
+            {
+                scenarioReceipt.status = 'failure';
+                scenarioReceipt.classification = classifyBrowserContractFailure(error, { browserDisconnected });
+                scenarioReceipt.error = {
+                    ...serializeBrowserContractError(error),
+                    failureClass: scenarioReceipt.classification
+                };
+                if (page && !page.isClosed())
+                {
+                    const screenshot = await captureFailureScreenshot(page, scenario.id).catch(() => null);
+                    if (screenshot)
+                    {
+                        scenarioReceipt.artifacts.push(screenshot);
+                    }
+                }
+                if (scenarioReceipt.classification === 'product')
+                {
+                    productFailures.push({
+                        scenario: scenario.id,
+                        error: scenarioReceipt.error
+                    });
+                }
+                else
+                {
+                    throw error;
+                }
+            }
+            finally
+            {
+                scenarioReceipt.issues = audit?.issues ?? [];
+                if (context)
+                {
+                    if (mayRetainRawTrace)
+                    {
+                        const traced = await context.tracing.stop({ path: traceFile }).then(() => true).catch(() => false);
+                        if (traced)
+                        {
+                            await chmod(traceFile, 0o600);
+                            scenarioReceipt.artifacts.push(relative(traceFile));
+                        }
+                    }
+                    await context.close().catch(() =>
+                    {});
+                }
+                scenarioReceipt.finishedAt = new Date().toISOString();
+                scenarioReceipt.durationMs = Date.now() - scenarioStartedAtMs;
+                activeScenario = null;
+            }
+        }
+
+        if (productFailures.length > 0)
+        {
+            throw new BrowserContractFailure(
+                `${productFailures.length} browser contract product scenario(s) failed`,
+                'product',
+                { failures: productFailures }
+            );
+        }
 
         const publicPreviewStaging = path.join(runOutputRoot, 'public-preview-docs');
         const publicPreviewOperations = await import(pathToFileURL(
@@ -406,93 +471,118 @@ async function main() {
             operations: publicPreviewOperations
         });
 
-    closingBrowser = true
-    await browser.close()
-    browser = null
-    if (browserDisconnected && !receivedSignal) {
-      throw new BrowserContractFailure('Chromium disconnected before contract completion', 'infra')
+        closingBrowser = true;
+        await browser.close();
+        browser = null;
+        if (browserDisconnected && !receivedSignal)
+        {
+            throw new BrowserContractFailure('Chromium disconnected before contract completion', 'infra');
+        }
+        primaryOutcome = { status: 'success', classification: 'clean', error: null };
     }
-    receipt.status = 'success'
-    receipt.classification = 'clean'
-  } catch (error) {
-    receipt.status = 'failure'
-    receipt.classification = classifyBrowserContractFailure(error, { browserDisconnected })
-    receipt.error = {
-      ...serializeBrowserContractError(error),
-      failureClass: receipt.classification,
-      activeScenario: activeScenario?.id ?? null,
-      signal: receivedSignal
+    catch (error)
+    {
+        const classification = classifyBrowserContractFailure(error, { browserDisconnected });
+        primaryOutcome = {
+            status: 'failure',
+            classification,
+            error: {
+                ...serializeBrowserContractError(error),
+                failureClass: classification,
+                activeScenario: activeScenario?.id ?? null,
+                signal: receivedSignal
+            }
+        };
+        throw Object.assign(error instanceof Error ? error : new Error(String(error)), { receipt });
     }
-    throw Object.assign(error instanceof Error ? error : new Error(String(error)), { receipt })
-  } finally {
-    if (browser) {
-      closingBrowser = true
-      await browser.close().catch(() => {})
-      browser = null
+    finally
+    {
+        if (browser)
+        {
+            closingBrowser = true;
+            await browser.close().catch(() =>
+            {});
+            browser = null;
+        }
+        const cleanup = await cleanupSingleBrowserContractFixture(preparedFixture, {
+            reason: receivedSignal
+                ? `signal:${receivedSignal}`
+                : receipt.status === 'success' ? 'success' : 'failure'
+        });
+        finalizeBrowserContractReceipt(receipt, {
+            primary: primaryOutcome ?? {
+                status: 'failure',
+                classification: 'contract',
+                error: {
+                    name: 'BrowserContractFailure',
+                    message: 'browser contract ended without a primary outcome',
+                    failureClass: 'contract',
+                    details: null,
+                    stack: null,
+                    activeScenario: activeScenario?.id ?? null,
+                    signal: receivedSignal
+                }
+            },
+            cleanup,
+            signal: receivedSignal,
+            finishedAt: new Date().toISOString(),
+            wallClockMs: Date.now() - startedAtMs
+        });
+        await persistFinalBrowserContractReceipt(
+            receipt,
+            (terminalReceipt) => writeAuditedBrowserContractReceipt(receiptFile, terminalReceipt)
+        );
     }
-    const cleanup = await cleanupSingleBrowserContractFixture(preparedFixture, {
-      reason: receivedSignal
-        ? `signal:${receivedSignal}`
-        : receipt.status === 'success' ? 'success' : 'failure'
-    })
-    if (cleanup.status === 'failure' && receipt.status === 'success') {
-      receipt.status = 'failure'
-      receipt.classification = 'contract'
-      receipt.error = {
-        name: 'BrowserContractFailure',
-        message: 'browser contract fixture cleanup failed',
-        failureClass: 'contract',
-        details: cleanup.error,
-        stack: null,
-        activeScenario: null,
-        signal: receivedSignal
-      }
+    if (receipt.status !== 'success')
+    {
+        throw Object.assign(new BrowserContractFailure(
+            receipt.error?.message ?? 'browser contract failed',
+            receipt.classification ?? 'contract',
+            receipt.error?.details ?? null
+        ), { receipt });
     }
-    receipt.finishedAt = new Date().toISOString()
-    receipt.wallClockMs = Date.now() - startedAtMs
-    await writeAuditedBrowserContractReceipt(receiptFile, receipt)
-  }
-  if (receipt.status !== 'success') {
-    throw Object.assign(new BrowserContractFailure(
-      receipt.error?.message ?? 'browser contract failed',
-      receipt.classification ?? 'contract',
-      receipt.error?.details ?? null
-    ), { receipt })
-  }
-  return receipt
+    return receipt;
 }
 
 main()
-  .then((receipt) => {
-    console.log(
-      `[browser-contract] ok scenarios=${receipt.scenarios.length} browserLaunches=${receipt.topology.browserLaunchCount} contexts=${receipt.topology.contextCount} wallMs=${receipt.wallClockMs} receipt=${relative(receiptFile)}`
-    )
-  })
-  .catch(async (error) => {
-    const receipt = error?.receipt
-    if (!receipt) {
-      const primaryClassification = classifyBrowserContractFailure(error, { browserDisconnected })
-      const primaryError = serializeBrowserContractError(error)
-      const startupPreparedFixture = preparedFixture ?? error?.preparedFixture ?? null
-      const cleanupAttempts = []
-      let cleanup = error?.cleanup ?? null
-      if (cleanup) cleanupAttempts.push(snapshotReceiptEvidence(cleanup))
-      if (!cleanup && startupPreparedFixture) {
-        cleanup = await cleanupSingleBrowserContractFixture(startupPreparedFixture, {
-          reason: receivedSignal ? `signal:${receivedSignal}` : 'startup-failure'
-        })
-        cleanupAttempts.push(snapshotReceiptEvidence(cleanup))
-      }
-      if (cleanup?.status === 'failure' && startupPreparedFixture) {
-        cleanup = await cleanupSingleBrowserContractFixture(startupPreparedFixture, {
-          reason: receivedSignal ? `signal:${receivedSignal}:retry` : 'startup-failure-retry'
-        })
-        cleanupAttempts.push(snapshotReceiptEvidence(cleanup))
-      }
-      const lifecycle = startupPreparedFixture?.lifecycle
+    .then((receipt) =>
+    {
+        console.log(
+            `[browser-contract] ok scenarios=${receipt.scenarios.length} browserLaunches=${receipt.topology.browserLaunchCount} contexts=${receipt.topology.contextCount} wallMs=${receipt.wallClockMs} receipt=${relative(receiptFile)}`
+        );
+    })
+    .catch(async (error) =>
+    {
+        const receipt = error?.receipt;
+        if (!receipt)
+        {
+            const primaryClassification = classifyBrowserContractFailure(error, { browserDisconnected });
+            const primaryError = serializeBrowserContractError(error);
+            const startupPreparedFixture = preparedFixture ?? error?.preparedFixture ?? null;
+            const cleanupAttempts = [];
+            let cleanup = error?.cleanup ?? null;
+            if (cleanup)
+            {
+                cleanupAttempts.push(snapshotReceiptEvidence(cleanup));
+            }
+            if (!cleanup && startupPreparedFixture)
+            {
+                cleanup = await cleanupSingleBrowserContractFixture(startupPreparedFixture, {
+                    reason: receivedSignal ? `signal:${receivedSignal}` : 'startup-failure'
+                });
+                cleanupAttempts.push(snapshotReceiptEvidence(cleanup));
+            }
+            if (cleanup?.status === 'failure' && startupPreparedFixture)
+            {
+                cleanup = await cleanupSingleBrowserContractFixture(startupPreparedFixture, {
+                    reason: receivedSignal ? `signal:${receivedSignal}:retry` : 'startup-failure-retry'
+                });
+                cleanupAttempts.push(snapshotReceiptEvidence(cleanup));
+            }
+            const lifecycle = startupPreparedFixture?.lifecycle
         ?? error?.fixtureLifecycle
         ?? (plannedRunIdentity
-          ? {
+            ? {
               status: 'startup-failure',
               identity: {
                 commit: plannedRunIdentity.commit,
@@ -501,30 +591,46 @@ main()
                 namespace: plannedRunIdentity.namespace
               }
             }
-          : null)
-      const fallbackFixture = {
-        namespace: lifecycle?.identity?.namespace ?? null,
-        lifecycle,
-        cleanup,
-        cleanupAttempts
-      }
-      const fallback = createBrowserContractReceipt({
-        sourceState: verifiedBuild?.sourceState ?? null,
-        build: verifiedBuild,
-        fixture: fallbackFixture,
-        startedAt: new Date(startedAtMs).toISOString()
-      })
-      fallback.status = 'failure'
-      fallback.classification = primaryClassification
-      fallback.error = {
-        ...primaryError,
-        failureClass: fallback.classification,
-        signal: receivedSignal
-      }
-      fallback.finishedAt = new Date().toISOString()
-      fallback.wallClockMs = Date.now() - startedAtMs
-      if (outputValidated) await writeAuditedBrowserContractReceipt(receiptFile, fallback).catch(() => {})
-    }
-    console.error(`[browser-contract] ${classifyBrowserContractFailure(error, { browserDisconnected })} failure: ${error instanceof Error ? error.message : String(error)}`)
-    process.exitCode = 1
-  })
+            : null);
+            const fallbackFixture = {
+                namespace: lifecycle?.identity?.namespace ?? null,
+                lifecycle,
+                cleanup,
+                cleanupAttempts
+            };
+            const fallback = createBrowserContractReceipt({
+                sourceState: verifiedBuild?.sourceState ?? null,
+                build: verifiedBuild,
+                fixture: fallbackFixture,
+                startedAt: new Date(startedAtMs).toISOString()
+            });
+            finalizeBrowserContractReceipt(fallback, {
+                primary: {
+                    status: 'failure',
+                    classification: primaryClassification,
+                    error: {
+                        ...primaryError,
+                        failureClass: primaryClassification,
+                        signal: receivedSignal
+                    }
+                },
+                cleanup,
+                cleanupAttempts,
+                signal: receivedSignal,
+                finishedAt: new Date().toISOString(),
+                wallClockMs: Date.now() - startedAtMs
+            });
+            if (outputValidated)
+            {
+                await persistFinalBrowserContractReceipt(
+                    fallback,
+                    (terminalReceipt) => writeAuditedBrowserContractReceipt(receiptFile, terminalReceipt)
+                ).catch((persistenceError) =>
+                {
+                    console.error(`[browser-contract] contract failure: ${persistenceError.message}`);
+                });
+            }
+        }
+        console.error(`[browser-contract] ${classifyBrowserContractFailure(error, { browserDisconnected })} failure: ${error instanceof Error ? error.message : String(error)}`);
+        process.exitCode = 1;
+    });
