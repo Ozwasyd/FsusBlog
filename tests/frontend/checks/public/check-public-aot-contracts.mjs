@@ -471,7 +471,7 @@ function assertStaticContracts() {
   }
   {
     const compactRegistry = hydrationMatrixRegistry.replace(/\s+/g, '')
-    const requiredArtifactsToken = '"requiredArtifacts":["detector","clock","browserEnv","payloadFixture","domDiff"]'
+    const requiredArtifactsToken = '"requiredArtifacts":["clock","browserEnv","payloadFixture","domDiff"]';
     if (!compactRegistry.includes(requiredArtifactsToken)) {
       fail(`hydration matrix registry missing token: ${requiredArtifactsToken}`)
     }

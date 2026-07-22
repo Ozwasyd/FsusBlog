@@ -1,9 +1,9 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:c36af7f8c705b6d1693c946c67c5be7b0e9e64d016d860272d9d59c9a898711f",
-    "sourceStateSha256": "c36af7f8c705b6d1693c946c67c5be7b0e9e64d016d860272d9d59c9a898711f",
+    "generatedFrom": "source-state:43dad497cb387ea234bfd55e69ea2bbaf417f5bb56c4f400ef7a95f3fef177a8",
+    "sourceStateSha256": "43dad497cb387ea234bfd55e69ea2bbaf417f5bb56c4f400ef7a95f3fef177a8",
     "configurationSha256": "097e93375187fd89b8741031800d4ffd703a6961882b6f9ba9f5af94cf27f8ec",
-    "violationCount": 325842,
+    "violationCount": 325841,
     "fileCount": 1080,
     "files": [
         {
@@ -7272,13 +7272,13 @@
         },
         {
             "path": "tests/frontend/checks/public/check-public-aot-contracts.mjs",
-            "sourceSha256": "82ce6f3ce4d4b9dd2e6fcda7c22d8ecd1411122b71858ad6b8429a6db8b273ba",
-            "violationCount": 1098,
-            "violationDigest": "2d19fb8c25800364871eea2d34d8894618c2624cbe82390fe188295296d0c906",
+            "sourceSha256": "23b52bf87b68b997f477aa007152df5d791ae91d735ae244ef87e9d3e5ed6696",
+            "violationCount": 1097,
+            "violationDigest": "2005524e7e1fed52d73a87c48ce17677190879fa059cebf7bfabde7d333cbae5",
             "rules": {
                 "eslint/@stylistic/brace-style": 167,
                 "eslint/@stylistic/indent": 746,
-                "eslint/@stylistic/semi": 184,
+                "eslint/@stylistic/semi": 183,
                 "eslint/import-x/order": 1
             }
         },
