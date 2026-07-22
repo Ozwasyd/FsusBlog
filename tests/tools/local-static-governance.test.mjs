@@ -8,13 +8,11 @@ import { fileURLToPath } from 'node:url'
 
 import {
   buildLocalStaticManifest,
-  executeStaticStage,
   extractChainedNpmScripts,
   planLocalStaticCommands,
   summarizeLocalStaticPlan
 } from '../../tools/test/local-static-governance.mjs'
 import {
-    planWeightedManifestEntries,
     readManifestSchedulerResourceGrant,
     resolveAdaptiveManifestWorkers,
     resolveManifestAdmissionSnapshot,
@@ -27,9 +25,6 @@ import { loadCommandGroup } from '../../tools/test-matrix/command-groups.mjs'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const staticManifest = loadCommandGroup(root, 'frontend-static-governance')
 const frontendPackage = JSON.parse(fs.readFileSync(path.join(root, 'src/frontend/package.json'), 'utf8'))
-const localStaticSource = fs.readFileSync(path.join(root, 'tools/test/local-static-governance.mjs'), 'utf8')
-const staticLaneSource = fs.readFileSync(path.join(root, 'tools/test/lanes/static-governance.sh'), 'utf8')
-const collectSupportSource = fs.readFileSync(path.join(root, 'tools/test/lanes/_lane-collect-support.sh'), 'utf8')
 
 function deferred() {
   let resolve
@@ -118,156 +113,21 @@ test('frontend static v2 schema rejects missing stages, reasons, and write owner
   assert.ok(validateCommandManifest(missingOwnership).some((error) => error.includes('ownedOutputs must identify')))
 })
 
-test('local static plan derives every stage from manifest metadata', () => {
+test('local static manifest produces a complete unique stage partition', () => {
   const manifest = buildLocalStaticManifest(staticManifest, frontendPackage.scripts)
-    const plan = planLocalStaticCommands(manifest);
+  const plan = planLocalStaticCommands(manifest)
+  const summary = summarizeLocalStaticPlan(plan)
+  const plannedIds = Object.values(plan).flat().map((entry) => entry.id)
 
-    assert.deepEqual(plan['blocking-prebuild'].map((entry) => entry.id), [
-        'frontend-style-full',
-        'frontend-test-governance',
-        'frontend-test-layout',
-        'csharp-entrypoint-ownership',
-    'test-execution-optimization',
-    'views-constraints:fsusui-typecheck-modes'
-  ])
-  assert.deepEqual(plan.isolated.map((entry) => entry.id), ['views-constraints:dom-depth-static'])
-  assert.deepEqual(plan.postbuild.map((entry) => entry.id), [
-    'asset-size-budget',
-    'public-aot-contracts',
-    'views-constraints:route-asset-budget'
-  ])
-    assert.deepEqual(plan.final.map((entry) => entry.id), ['views-constraints:public-performance-batch']);
-});
-
-test('five explicit phases form an exact 79-command partition with timing evidence', () =>
-{
-    const manifest = buildLocalStaticManifest(staticManifest, frontendPackage.scripts);
-    const plan = planLocalStaticCommands(manifest);
-    const summary = summarizeLocalStaticPlan(plan);
-    const plannedIds = Object.values(plan).flat().map((entry) => entry.id);
-
-    assert.equal(manifest.commands.length, 79);
-    assert.deepEqual(summary, {
-        'blocking-prebuild': 6,
-        concurrent: 68,
-        postbuild: 3,
-        isolated: 1,
-        final: 1,
-        total: 79
-    });
-    assert.equal(new Set(plannedIds).size, 79);
-    assert.deepEqual(new Set(plannedIds), new Set(manifest.commands.map((entry) => entry.id)));
-    assert.match(localStaticSource, /staticStages\.map\(\(stage\) => manifest\.execution\[stage\]\)\.join\('\+'\)/u);
-    assert.match(localStaticSource, /total=\$\{manifest\.execution\.total\}/u);
-  assert.match(localStaticSource, /commandIds: executedCommands\.map\(\(entry\) => entry\.id\)/u)
-  assert.match(localStaticSource, /frontend-static-governance-phase\.v2/u)
-  assert.match(localStaticSource, /FSUSBLOG_LOCAL_STATIC_EVIDENCE_FILE/u)
-  assert.match(localStaticSource, /writeFileSync\(temporary[\s\S]*?renameSync\(temporary, absolute\)/u)
-  assert.match(localStaticSource, /waitReason:[\s\S]*?waiting for dependencies/u)
-  assert.match(localStaticSource, /stagePlan:[\s\S]*?dependencies:[\s\S]*?exclusiveResources:/u)
-  assert.match(localStaticSource, /stageTimings[\s\S]*?commandCount:[\s\S]*?durationMs:[\s\S]*?waitReasons:/u)
-  assert.match(localStaticSource, /queuedAtMs[\s\S]*?waitDurationMs[\s\S]*?finishedAtMs[\s\S]*?durationMs/u)
-  assert.match(localStaticSource, /runWeightedCommandManifest\([\s\S]*?frontend-static:\$\{stage\}/u)
-  assert.match(localStaticSource, /grantHistory:[\s\S]*?admissions:[\s\S]*?blockedReasons:/u)
-})
-
-test('static governance propagates bounded dynamic workers and explicit Node test concurrency', () =>
-{
-    assert.match(localStaticSource, /workload: 'scheduler-admitted'/u);
-    assert.match(localStaticSource, /memoryCostGiB:[\s\S]*?0\.125 \* entry\.resources\.memoryWeight/u);
-    assert.match(collectSupportSource, /ResolveCollectAdmissionSnapshot "\$total"/u);
-    assert.match(collectSupportSource, /resolveManifestAdmissionSnapshot/u);
-    assert.match(collectSupportSource, /FSUSBLOG_STEP_CPU_BUDGET/u);
-    assert.match(collectSupportSource, /FSUSBLOG_STEP_MEMORY_GIB/u);
-    assert.match(staticLaneSource, /RunCollectParallel static-governance-prechecks/u);
-  assert.match(staticLaneSource, /runWeightedCommandManifest/u)
-  assert.match(staticLaneSource, /FSUSBLOG_ZDT_FIXTURE_SHARD: shard/u)
-  assert.match(staticLaneSource, /concurrencyWeight: Number\.MAX_SAFE_INTEGER/u)
-  assert.match(staticLaneSource, /\['all', 1_000\]/u)
-  assert.match(staticLaneSource, /\['normal', 7_000\]/u)
-  assert.match(staticLaneSource, /\['explicit-rollback', 12_000\]/u)
-  assert.match(staticLaneSource, /\['post-switch-rollback', 7_000\]/u)
-  assert.match(staticLaneSource, /\['sigkill-resume', 16_000\]/u)
-})
-
-test('concurrent static failures aggregate after every independent command is attempted', async () => {
-  const entries = ['first', 'second', 'third'].map((id) => ({
-    id,
-    access: 'read',
-    command: [id],
-    stage: 'concurrent',
-    reason: `${id} fixture`,
-    consumedInputs: ['fixture'],
-    ownedOutputs: [],
-    dependsOn: [],
-    resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, exclusiveResources: [] }
-  }))
-  const attempted = []
-  const timings = []
-  await assert.rejects(executeStaticStage({
-    stage: 'concurrent',
-    entries,
-    workers: 3,
-    frontendRoot: root,
-    env: { FSUSBLOG_STEP_CPU_BUDGET: '3', FSUSBLOG_STEP_MEMORY_GIB: '3' },
-    timings,
-    execute: async (entry) => {
-      attempted.push(entry.id)
-      if (entry.id !== 'second') throw new Error(`failed-${entry.id}`)
+  assert.equal(new Set(plannedIds).size, manifest.commands.length)
+  assert.deepEqual(new Set(plannedIds), new Set(manifest.commands.map((entry) => entry.id)))
+  assert.equal(summary.total, manifest.commands.length)
+  for (const entry of manifest.commands) {
+    assert.ok(Object.hasOwn(plan, entry.stage), `unknown stage for ${entry.id}: ${entry.stage}`)
+    for (const dependency of entry.dependsOn) {
+      assert.ok(plannedIds.includes(dependency), `${entry.id} depends on missing ${dependency}`)
     }
-  }), (error) => {
-    assert.ok(error instanceof AggregateError)
-    assert.equal(error.errors.length, 2)
-    return true
-  })
-  assert.deepEqual(new Set(attempted), new Set(['first', 'second', 'third']))
-  assert.deepEqual(new Set(timings.map((entry) => entry.status)), new Set(['success', 'failure']))
-})
-
-test('weighted contract planner starts historical long tails first and aggregates every failure', async () => {
-  const commands = [
-    { id: 'short', access: 'read', command: ['short'], estimatedDurationMs: 1 },
-    { id: 'long', access: 'read', command: ['long'], estimatedDurationMs: 30 },
-    { id: 'middle', access: 'read', command: ['middle'], estimatedDurationMs: 10 }
-  ]
-  assert.deepEqual(planWeightedManifestEntries(commands).map(entry => entry.id), ['long', 'middle', 'short'])
-
-  const attempted = []
-  const childEnvironments = []
-  await assert.rejects(
-    runWeightedCommandManifest({
-      schema: 'fsusblog.test-command-manifest.v1',
-      lane: 'fixture',
-      commands
-    }, {
-      resolveWorkers: () => 2,
-      env: {
-        FSUSBLOG_STEP_CPU_BUDGET: '2',
-        FSUSBLOG_STEP_MEMORY_GIB: '1'
-      },
-      execute: async (entry, options) => {
-        attempted.push(entry.id)
-        childEnvironments.push(options.env)
-        if (entry.id !== 'middle') throw new Error(`failed-${entry.id}`)
-      }
-    }),
-    (error) => {
-      assert.ok(error instanceof AggregateError)
-      assert.equal(error.errors.length, 2)
-      assert.match(error.message, /long: failed-long/u)
-      assert.match(error.message, /short: failed-short/u)
-      return true
-    }
-  )
-  assert.deepEqual(new Set(attempted), new Set(['long', 'middle', 'short']))
-  assert.ok(childEnvironments.every((env) => Number(env.FSUSBLOG_STEP_CPU_BUDGET) > 0))
-  assert.ok(childEnvironments.every((env) => Number(env.FSUSBLOG_STEP_MEMORY_GIB) === 0.125))
-  assert.ok(childEnvironments.every((env) => Number(env.FSUSBLOG_STEP_CPU_BUDGET) <= 2))
-  assert.ok(childEnvironments.every((env) => env.FSUSBLOG_PARALLEL_ACTIVE_WORKERS === '2'))
-  assert.ok(childEnvironments.every((env) => {
-    const concurrency = Number(env.FSUSBLOG_NODE_TEST_CONCURRENCY)
-    return Number.isInteger(concurrency) && concurrency >= 1 && concurrency <= 2
-  }))
+  }
 })
 
 test('weighted fixture admission keeps the exact CPU grant while using a third process slot', async () => {
@@ -624,43 +484,6 @@ test('manifest memory costs prevent CPU-only over-admission and child quotas sta
   assert.ok(evidence.blocked.some((entry) => entry.capacity?.memory === true))
 })
 
-test('manifest cancellation stops active work and persists partial evidence', async (t) => {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-manifest-cancel-'))
-  t.after(() => fs.rmSync(tempRoot, { recursive: true, force: true }))
-  const evidenceFile = path.join(tempRoot, 'cancel.json')
-  const controller = new AbortController()
-  const started = []
-  const active = deferred()
-  const execution = runWeightedCommandManifest({
-    schema: 'fsusblog.test-command-manifest.v1',
-    lane: 'cancel',
-    commands: ['active', 'pending'].map((id) => ({ id, access: 'read', command: [id] }))
-  }, {
-    resolveWorkers: () => 1,
-    env: { FSUSBLOG_STEP_CPU_BUDGET: '1', FSUSBLOG_STEP_MEMORY_GIB: '1' },
-    signal: controller.signal,
-    evidenceFile,
-    execute: async (entry, options) => {
-      started.push(entry.id)
-      active.resolve()
-      await new Promise((resolve, reject) => {
-        options.signal.addEventListener('abort', () => reject(options.signal.reason), { once: true })
-      })
-    }
-  })
-  await active.promise
-  controller.abort(new Error('cancel fixture'))
-  await assert.rejects(execution, (error) => {
-    assert.equal(error.liveGrantEvidence.status, 'cancelled')
-    return true
-  })
-  assert.deepEqual(started, ['active'])
-  const evidence = JSON.parse(fs.readFileSync(evidenceFile, 'utf8'))
-  assert.equal(evidence.status, 'cancelled')
-  assert.deepEqual(evidence.children.map((entry) => entry.id), ['active'])
-  assert.ok(Number.isFinite(evidence.finishedAtMs))
-})
-
 test('manifest entry environment cannot override live resource safety boundaries', () => {
   const errors = validateCommandManifest({
     schema: 'fsusblog.test-command-manifest.v1',
@@ -673,32 +496,6 @@ test('manifest entry environment cannot override live resource safety boundaries
     }]
   })
   assert.ok(errors.some((error) => error.includes('must not override resource safety boundaries')))
-})
-
-test('disjoint manifest writers run concurrently without a global write lock', async () => {
-  const release = deferred()
-  const active = new Set()
-  const execution = runWeightedCommandManifest({
-    schema: 'fsusblog.test-command-manifest.v1',
-    lane: 'disjoint-writes',
-    commands: [
-      { id: 'alpha', access: 'write', command: ['alpha'], ownedOutputs: ['alpha.json'] },
-      { id: 'beta', access: 'write', command: ['beta'], ownedOutputs: ['beta.json'] }
-    ]
-  }, {
-    resolveWorkers: () => 2,
-    env: { FSUSBLOG_STEP_CPU_BUDGET: '2', FSUSBLOG_STEP_MEMORY_GIB: '1' },
-    execute: async (entry) => {
-      active.add(entry.id)
-      await release.promise
-      active.delete(entry.id)
-    }
-  })
-
-  await waitFor(() => active.size === 2)
-  release.resolve()
-  const evidence = await execution
-  assert.deepEqual(evidence.children.map((entry) => entry.id).sort(), ['alpha', 'beta'])
 })
 
 test('manifest deadline cancels active work and retains partial timeout evidence', async () => {
@@ -813,54 +610,3 @@ test('lane collect support expands and shrinks pending admission from the same l
     assert.deepEqual(evidence.children.map((entry) => entry.status), ['success', 'success', 'success', 'success']);
     assert.ok(evidence.blocked.some((entry) => entry.activeWeight > entry.workerCap));
 });
-
-test('lane collect support derives worker cap and child quotas from one admission snapshot', () =>
-{
-    assert.match(collectSupportSource, /ResolveCollectAdmissionSnapshot/u);
-    assert.match(collectSupportSource, /resolveManifestAdmissionSnapshot/u);
-    assert.doesNotMatch(collectSupportSource, /ResolveCollectParallelWorkers|ResolveCollectChildEnvironment/u);
-    assert.match(collectSupportSource, /FSUSBLOG_PARALLEL_ACTIVE_WORKERS/u);
-});
-
-test('static governance parallel group preserves every named check and the aggregate finish', () =>
-{
-    for (const label of [
-        'evidence-plan',
-    'aeds-policy',
-    'community-workflow',
-    'label-governance',
-    'integrity-docs',
-    'dead-code-index',
-    'background-services',
-    'suite-convergence',
-    'backend-governance',
-    'gate-integrity',
-    'flaky-registry',
-    'matrix-contract',
-    'matrix-schema',
-    'implementation-drift'
-  ]) assert.match(staticLaneSource, new RegExp(`\\n\\s+${label} Static`, 'u'))
-  assert.match(staticLaneSource, /RunCollect node-contracts StaticNodeContracts/u)
-  assert.match(staticLaneSource, /orchestrationWorkersPerCpu: 3/u)
-  assert.match(staticLaneSource, /delete manifestEnv\.FSUSBLOG_COMMAND_MANIFEST_WORKERS/u)
-  assert.match(staticLaneSource, /env: manifestEnv/u)
-  assert.match(staticLaneSource, /process\.memoryUsage\(\)\.rss \/ 1024 \*\* 3/u)
-  assert.match(staticLaneSource, /orchestrationMemoryGiBPerWorker: measuredNodeOrchestratorGiB/u)
-  assert.match(staticLaneSource, /concurrencyWeight: Number\.MAX_SAFE_INTEGER/u)
-  assert.match(staticLaneSource, /node-contracts\)\s*RunStaticNodeContractsPhase/u)
-  assert.match(staticLaneSource, /RunStaticPostVitestPhase\(\) \{\s*RunCollect retention StaticRetention\s*\}/u)
-  assert.match(staticLaneSource, /concurrent\)\s*RunStaticConcurrentPhase/u)
-  assert.match(staticLaneSource, /post-vitest\)\s*RunStaticPostVitestPhase/u)
-  assert.match(staticLaneSource, /all\)\s*RunStaticConcurrentPhase\s*RunStaticPostVitestPhase/u)
-  assert.match(staticLaneSource, /FinishCollect\s*$/u)
-  assert.doesNotMatch(staticLaneSource, /max[-_]?errors?|fail-fast/u)
-})
-
-test('retention remains isolated from concurrent Vitest report writes', () => {
-  const concurrentPhase = staticLaneSource.match(/RunStaticConcurrentPhase\(\) \{([\s\S]*?)\n\}/u)?.[1] ?? ''
-  const postVitestPhase = staticLaneSource.match(/RunStaticPostVitestPhase\(\) \{([\s\S]*?)\n\}/u)?.[1] ?? ''
-
-  assert.doesNotMatch(concurrentPhase, /StaticRetention/u)
-  assert.match(postVitestPhase, /RunCollect retention StaticRetention/u)
-  assert.match(staticLaneSource, /Retention intentionally stays post-Vitest/u)
-})

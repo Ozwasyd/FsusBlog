@@ -94,6 +94,8 @@ STATIC_NODE_CONTRACT_FILES=(
     "$ROOT_DIR/tests/tools/zap-baseline-contract.test.mjs"
     "$ROOT_DIR/tests/tools/browser-migration-contract.test.mjs"
     "$ROOT_DIR/tests/tools/historical-topology-test-dispositions.test.mjs"
+    "$ROOT_DIR/tests/tools/command-manifest-behavior.test.mjs"
+    "$ROOT_DIR/tests/tools/command-manifest-test-migration.test.mjs"
     "$ROOT_DIR/tests/tools/backend-build-lock-behavior.test.mjs"
     "$ROOT_DIR/tests/tools/runtime-worker-admission.test.mjs"
     "$ROOT_DIR/tests/tools/security-worker-admission.test.mjs"

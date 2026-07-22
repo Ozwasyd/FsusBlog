@@ -494,6 +494,29 @@
       ]
     },
     {
+      "file": "tests/tools/command-manifest-behavior.test.mjs",
+      "owner": "repository-governance:static-node-contracts",
+      "executionCategory": "repository-governance",
+      "lifecycle": "canonical-execution",
+      "physicalExecutionCount": 1,
+      "classifications": [
+        "source-text",
+        "perf"
+      ]
+    },
+    {
+      "file": "tests/tools/command-manifest-test-migration.test.mjs",
+      "owner": "repository-governance:static-node-contracts",
+      "executionCategory": "repository-governance",
+      "lifecycle": "canonical-execution",
+      "physicalExecutionCount": 1,
+      "classifications": [
+        "source-text",
+        "migration",
+        "runtime"
+      ]
+    },
+    {
       "file": "tests/tools/configuration-layout.test.mjs",
       "owner": "repository-governance:static-node-contracts",
       "executionCategory": "repository-governance",
@@ -1287,8 +1310,8 @@
       ]
     },
     {
-      "file": "tests/tools/privacy-zk-lane-parallelism.test.mjs",
-      "owner": "manual-diagnostic:tests/tools/privacy-zk-lane-parallelism.test.mjs",
+      "file": "tests/tools/privacy-zk-contract.test.mjs",
+      "owner": "manual-diagnostic:tests/tools/privacy-zk-contract.test.mjs",
       "executionCategory": "manual-diagnostic",
       "lifecycle": "manual-diagnostic",
       "physicalExecutionCount": 0,
@@ -1483,13 +1506,12 @@
       ]
     },
     {
-      "file": "tests/tools/release-evidence-tail-parallelism.test.mjs",
-      "owner": "manual-diagnostic:tests/tools/release-evidence-tail-parallelism.test.mjs",
+      "file": "tests/tools/release-evidence-shell-contract.test.mjs",
+      "owner": "manual-diagnostic:tests/tools/release-evidence-shell-contract.test.mjs",
       "executionCategory": "manual-diagnostic",
       "lifecycle": "manual-diagnostic",
       "physicalExecutionCount": 0,
       "classifications": [
-        "source-text",
         "runtime"
       ]
     },
@@ -1907,14 +1929,13 @@
       ]
     },
     {
-      "file": "tests/tools/supply-chain-audit-parallelism.test.mjs",
-      "owner": "manual-diagnostic:tests/tools/supply-chain-audit-parallelism.test.mjs",
+      "file": "tests/tools/supply-chain-audit-contract.test.mjs",
+      "owner": "manual-diagnostic:tests/tools/supply-chain-audit-contract.test.mjs",
       "executionCategory": "manual-diagnostic",
       "lifecycle": "manual-diagnostic",
       "physicalExecutionCount": 0,
       "classifications": [
         "source-text",
-        "perf",
         "runtime"
       ]
     },

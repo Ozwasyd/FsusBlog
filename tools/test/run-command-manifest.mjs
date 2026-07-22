@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { spawn } from 'node:child_process'
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -7,6 +6,10 @@ import process from 'node:process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { executeWeightedStepDag } from './bundles/bundle-steps.mjs'
+import {
+  executeManifestProcessGroup,
+  validateOwnedOutputDeclarations
+} from './command-manifest-runtime.mjs'
 import { loadCommandGroup } from '../test-matrix/command-groups.mjs'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -229,6 +232,9 @@ export function validateCommandManifest(manifest) {
         if (dependency === command.id) errors.push(`${command.id}.dependsOn must not reference itself`)
       }
     }
+  }
+  if (manifest.schema === 'fsusblog.test-command-manifest.v1') {
+    errors.push(...validateOwnedOutputDeclarations(allCommands))
   }
   return errors
 }
@@ -517,22 +523,16 @@ export async function executeManifestEntry(entry, { cwd, env, signal }) {
   const command = commandArguments(entry)
   console.log(`[command-manifest] start id=${entry.id} access=${entry.access}`)
   const startedAt = Date.now()
-  await new Promise((resolve, reject) => {
-    const child = spawn(command[0], command.slice(1), {
-      cwd,
-      env: {
-        ...env,
-        ...Object.fromEntries(Object.entries(entry.environment ?? {})
-          .filter(([name]) => !protectedResourceEnvironment.has(name)))
-      },
-      stdio: 'inherit',
-      signal
-    })
-    child.on('error', reject)
-    child.on('exit', (code, signal) => {
-      if (code === 0) resolve()
-      else reject(new Error(`${entry.id} failed (${signal ? `signal ${signal}` : `exit ${code}`})`))
-    })
+  await executeManifestProcessGroup({
+    id: entry.id,
+    command,
+    cwd,
+    env: {
+      ...env,
+      ...Object.fromEntries(Object.entries(entry.environment ?? {})
+        .filter(([name]) => !protectedResourceEnvironment.has(name)))
+    },
+    signal
   })
   console.log(`[command-manifest] done id=${entry.id} durationMs=${Date.now() - startedAt}`)
 }

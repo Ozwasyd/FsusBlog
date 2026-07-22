@@ -1,0 +1,164 @@
+{
+  "schema": "fsusblog.command-manifest-test-migration.v1",
+  "baselineCommit": "57a3de7649a42c5fdb68c589fa82a7d223630943",
+  "sources": [
+    {
+      "path": "tests/tools/supply-chain-audit-parallelism.test.mjs",
+      "tests": [
+        {
+          "before": "supply-chain audit batches every NuGet project into one solution evaluation",
+          "disposition": "keep-static-contract",
+          "replacementTestIds": [
+            "node-test:tests/tools/supply-chain-audit-contract.test.mjs#supply-chain-audit-batches-every-nuget-project-into-one-solution-evaluation"
+          ]
+        },
+        {
+          "before": "supply-chain audit parallelizes independent checks with dynamic resource bounds",
+          "disposition": "replace-source-mirror",
+          "replacementTestIds": [
+            "node-test:tests/tools/command-manifest-behavior.test.mjs#independent-commands-overlap-at-an-explicit-start-barrier",
+            "node-test:tests/tools/command-manifest-behavior.test.mjs#collect-failures-preserves-every-child-failure-while-independent-safe-work-completes"
+          ]
+        },
+        {
+          "before": "supply-chain audit remains valid bash",
+          "disposition": "keep-static-contract",
+          "replacementTestIds": [
+            "node-test:tests/tools/supply-chain-audit-contract.test.mjs#supply-chain-audit-remains-valid-bash"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/tools/release-evidence-tail-parallelism.test.mjs",
+      "tests": [
+        {
+          "before": "release evidence tail preserves dependencies while parallelizing independent checks",
+          "disposition": "replace-source-mirror",
+          "replacementTestIds": [
+            "node-test:tests/tools/command-manifest-behavior.test.mjs#independent-commands-overlap-at-an-explicit-start-barrier",
+            "node-test:tests/tools/command-manifest-behavior.test.mjs#dependency-readiness-gates-admission-until-the-producer-completes",
+            "node-test:tests/tools/command-manifest-behavior.test.mjs#collect-failures-preserves-every-child-failure-while-independent-safe-work-completes"
+          ]
+        },
+        {
+          "before": "release evidence lane remains valid shell after its rolling parallel DAG change",
+          "disposition": "keep-static-contract",
+          "replacementTestIds": [
+            "node-test:tests/tools/release-evidence-shell-contract.test.mjs#release-evidence-lane-remains-valid-shell-after-its-rolling-parallel-dag-change"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/tools/privacy-zk-lane-parallelism.test.mjs",
+      "tests": [
+        {
+          "before": "privacy ZK lane exposes prebuild/postbuild contract, functional and finalize stages",
+          "disposition": "replace-source-mirror",
+          "replacementTestIds": [
+            "node-test:tests/tools/command-manifest-behavior.test.mjs#dependency-readiness-gates-admission-until-the-producer-completes",
+            "node-test:tests/tools/command-manifest-behavior.test.mjs#independent-commands-overlap-at-an-explicit-start-barrier"
+          ]
+        },
+        {
+          "before": "privacy contract package scripts keep current circuit checks before the generated prover check",
+          "disposition": "keep-static-contract",
+          "replacementTestIds": [
+            "node-test:tests/tools/privacy-zk-contract.test.mjs#privacy-contract-package-scripts-keep-current-circuit-checks-before-the-generated-prover-check"
+          ]
+        },
+        {
+          "before": "privacy functional command excludes performance tests",
+          "disposition": "keep-static-contract",
+          "replacementTestIds": [
+            "node-test:tests/tools/privacy-zk-contract.test.mjs#privacy-functional-command-excludes-performance-tests"
+          ]
+        },
+        {
+          "before": "privacy evidence requires all successful stage receipts",
+          "disposition": "keep-static-contract",
+          "replacementTestIds": [
+            "node-test:tests/tools/privacy-zk-contract.test.mjs#privacy-evidence-requires-all-successful-stage-receipts"
+          ]
+        },
+        {
+          "before": "privacy frontend report has a dedicated lane and contains no retired test paths",
+          "disposition": "keep-static-contract",
+          "replacementTestIds": [
+            "node-test:tests/tools/privacy-zk-contract.test.mjs#privacy-frontend-report-has-a-dedicated-lane-and-contains-no-retired-test-paths"
+          ]
+        }
+      ]
+    }
+  ],
+  "reductions": [
+    {
+      "path": "tests/tools/local-static-governance.test.mjs",
+      "tests": [
+        {
+          "before": "local static plan derives every stage from manifest metadata",
+          "replacementTestIds": [
+            "node-test:tests/tools/local-static-governance.test.mjs#local-static-manifest-produces-a-complete-unique-stage-partition"
+          ]
+        },
+        {
+          "before": "five explicit phases form an exact 79-command partition with timing evidence",
+          "replacementTestIds": [
+            "node-test:tests/tools/local-static-governance.test.mjs#local-static-manifest-produces-a-complete-unique-stage-partition"
+          ]
+        },
+        {
+          "before": "static governance propagates bounded dynamic workers and explicit Node test concurrency",
+          "replacementTestIds": [
+            "node-test:tests/tools/command-manifest-behavior.test.mjs#independent-commands-overlap-at-an-explicit-start-barrier",
+            "node-test:tests/tools/local-static-governance.test.mjs#collect-admission-binds-worker-cap-and-child-quotas-to-one-atomic-grant-snapshot"
+          ]
+        },
+        {
+          "before": "concurrent static failures aggregate after every independent command is attempted",
+          "replacementTestIds": [
+            "node-test:tests/tools/command-manifest-behavior.test.mjs#collect-failures-preserves-every-child-failure-while-independent-safe-work-completes"
+          ]
+        },
+        {
+          "before": "weighted contract planner starts historical long tails first and aggregates every failure",
+          "replacementTestIds": [
+            "node-test:tests/tools/command-manifest-behavior.test.mjs#collect-failures-preserves-every-child-failure-while-independent-safe-work-completes"
+          ]
+        },
+        {
+          "before": "manifest cancellation stops active work and persists partial evidence",
+          "replacementTestIds": [
+            "node-test:tests/tools/command-manifest-behavior.test.mjs#cancellation-terminates-the-complete-process-group-and-persists-partial-evidence"
+          ]
+        },
+        {
+          "before": "disjoint manifest writers run concurrently without a global write lock",
+          "replacementTestIds": [
+            "node-test:tests/tools/command-manifest-behavior.test.mjs#disjoint-ownedoutputs-remain-isolated-while-writers-overlap"
+          ]
+        },
+        {
+          "before": "lane collect support derives worker cap and child quotas from one admission snapshot",
+          "replacementTestIds": [
+            "node-test:tests/tools/local-static-governance.test.mjs#lane-collect-support-expands-and-shrinks-pending-admission-from-the-same-live-grant-contract"
+          ]
+        },
+        {
+          "before": "static governance parallel group preserves every named check and the aggregate finish",
+          "replacementTestIds": [
+            "node-test:tests/tools/command-manifest-behavior.test.mjs#collect-failures-preserves-every-child-failure-while-independent-safe-work-completes"
+          ]
+        },
+        {
+          "before": "retention remains isolated from concurrent Vitest report writes",
+          "replacementTestIds": [
+            "node-test:tests/tools/command-manifest-behavior.test.mjs#validator-rejects-shared-writer-ownership-before-any-command-is-admitted",
+            "node-test:tests/tools/command-manifest-behavior.test.mjs#disjoint-ownedoutputs-remain-isolated-while-writers-overlap"
+          ]
+        }
+      ]
+    }
+  ]
+}

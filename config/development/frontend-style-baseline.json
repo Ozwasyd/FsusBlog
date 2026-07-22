@@ -1,10 +1,10 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:7de558fbe797bd89e8dc59bec1443ee678fb492376a08f48cdf3f8b0bf48979b",
-    "sourceStateSha256": "7de558fbe797bd89e8dc59bec1443ee678fb492376a08f48cdf3f8b0bf48979b",
+    "generatedFrom": "source-state:69b37d94964402ca6b481bb38a46e25b11bac3592266dc4777ad5ad80b78cabd",
+    "sourceStateSha256": "69b37d94964402ca6b481bb38a46e25b11bac3592266dc4777ad5ad80b78cabd",
     "configurationSha256": "ecd54024ada83553ed048a05531c8ad064350214c110aa93b54643b6c318bf0c",
-    "violationCount": 323447,
-    "fileCount": 1077,
+    "violationCount": 322895,
+    "fileCount": 1074,
     "files": [
         {
             "path": "src/frontend/public/sw.js",
@@ -10186,15 +10186,15 @@
         },
         {
             "path": "tests/tools/local-static-governance.test.mjs",
-            "sourceSha256": "7437abd885326a00bbb1f8b3d558ad0b7f6e75122eceedbc8d45b5824aeb4ace",
-            "violationCount": 963,
-            "violationDigest": "30403779190f26cb5718236a945478237b488f16e603e394bf29ac139fef9243",
+            "sourceSha256": "a92d1e54607cd35763eeaec5841ddb40530bc5abd6b61089be5823b27a59dbd5",
+            "violationCount": 664,
+            "violationDigest": "10cffb9a5f4086f467a1c420778f51932329318d2211ec6498733a9aeea112a6",
             "rules": {
-                "eslint/@stylistic/brace-style": 47,
-                "eslint/@stylistic/indent": 599,
+                "eslint/@stylistic/brace-style": 35,
+                "eslint/@stylistic/indent": 421,
                 "eslint/@stylistic/max-statements-per-line": 2,
-                "eslint/@stylistic/semi": 306,
-                "eslint/curly": 6,
+                "eslint/@stylistic/semi": 200,
+                "eslint/curly": 3,
                 "eslint/import-x/no-relative-parent-imports": 3
             }
         },
@@ -10286,18 +10286,6 @@
                 "eslint/@stylistic/indent": 50,
                 "eslint/@stylistic/semi": 29,
                 "eslint/import-x/no-relative-parent-imports": 1
-            }
-        },
-        {
-            "path": "tests/tools/privacy-zk-lane-parallelism.test.mjs",
-            "sourceSha256": "c8e79f8773259b1d183f1df1cd774bf7ede562cf6bdd2b9c2cce95cd529c700f",
-            "violationCount": 131,
-            "violationDigest": "77b4123bdd4561d94407d0f7c48ac540a105da1ad9c070ec332969ee6ff961e5",
-            "rules": {
-                "eslint/@stylistic/brace-style": 6,
-                "eslint/@stylistic/indent": 57,
-                "eslint/@stylistic/semi": 67,
-                "eslint/curly": 1
             }
         },
         {
@@ -10495,18 +10483,6 @@
                 "eslint/@stylistic/indent": 22,
                 "eslint/@stylistic/semi": 28,
                 "eslint/import-x/order": 1
-            }
-        },
-        {
-            "path": "tests/tools/release-evidence-tail-parallelism.test.mjs",
-            "sourceSha256": "9a0f0a5b8e8dddc21c602b3a7f15c3a62719ebb23d57b5d9d96ffe21749dee5c",
-            "violationCount": 56,
-            "violationDigest": "ed42ad9682fcb146ce97a06e2b716883b79afb7877f8317a801321d34b96b99d",
-            "rules": {
-                "eslint/@stylistic/brace-style": 2,
-                "eslint/@stylistic/indent": 24,
-                "eslint/@stylistic/semi": 29,
-                "eslint/curly": 1
             }
         },
         {
@@ -10932,18 +10908,6 @@
                 "eslint/@stylistic/brace-style": 7,
                 "eslint/@stylistic/indent": 93,
                 "eslint/@stylistic/semi": 61
-            }
-        },
-        {
-            "path": "tests/tools/supply-chain-audit-parallelism.test.mjs",
-            "sourceSha256": "17c56f8361694545c84843467a8e89c06d79ebfe0868e3d02ff98ae0ba8d0b37",
-            "violationCount": 58,
-            "violationDigest": "6fd8ae913832125f58ed1ab7d8c937374251ebbafeb13644ed80d0f074aa47c1",
-            "rules": {
-                "eslint/@stylistic/brace-style": 3,
-                "eslint/@stylistic/indent": 21,
-                "eslint/@stylistic/semi": 33,
-                "eslint/import-x/order": 1
             }
         },
         {
@@ -14150,15 +14114,15 @@
         },
         {
             "path": "tools/test/run-command-manifest.mjs",
-            "sourceSha256": "81fce5fcbc3a5d45674ef53457ff53afdcd622fab0f809e8c3905ae6b67960de",
-            "violationCount": 1027,
-            "violationDigest": "d5384035a90e06cd6f4be187954c8b57006b05f2cbdd65f9c125067a14d3d8bd",
+            "sourceSha256": "6f6cb4f3ac7547b35f23edef12354f739483355c0643f7bbbaf84b23d5b72a52",
+            "violationCount": 1019,
+            "violationDigest": "8a52ebf405ea71f4e769876bdbb2062c16c40624eaa0d93a01487c0bd2008783",
             "rules": {
-                "eslint/@stylistic/brace-style": 101,
-                "eslint/@stylistic/indent": 616,
+                "eslint/@stylistic/brace-style": 100,
+                "eslint/@stylistic/indent": 615,
                 "eslint/@stylistic/max-statements-per-line": 1,
-                "eslint/@stylistic/semi": 272,
-                "eslint/curly": 34,
+                "eslint/@stylistic/semi": 268,
+                "eslint/curly": 32,
                 "eslint/import-x/no-relative-parent-imports": 1,
                 "eslint/import-x/order": 2
             }

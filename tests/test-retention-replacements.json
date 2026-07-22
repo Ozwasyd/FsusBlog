@@ -7808,7 +7808,7 @@
             "id": "node-test:tests/tools/local-static-governance.test.mjs#local-static-plan-starts-independent-evidence-writers-wi-8604e7ee22",
             "path": "tests/tools/local-static-governance.test.mjs",
             "replacementTestIds": [
-                "node-test:tests/tools/local-static-governance.test.mjs#disjoint-manifest-writers-run-concurrently-without-a-glo-9bf85a12d2"
+                "node-test:tests/tools/command-manifest-behavior.test.mjs#disjoint-ownedOutputs-remain-isolated-while-writers-overlap"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },

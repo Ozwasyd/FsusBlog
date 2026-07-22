@@ -3,7 +3,7 @@
     "generatedBy": "tools/governance/check-rule-platform.mjs --write-registry",
     "inventory": {
         "packageScriptCount": 191,
-        "implementationCount": 339
+        "implementationCount": 340
     },
     "rules": [
         {
