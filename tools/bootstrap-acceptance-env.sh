@@ -1859,13 +1859,6 @@ EnsureReleasePreview() {
     fi
 }
 
-RefreshAcceptanceCacheAfterFixtures() {
-    if docker exec "$REDIS_CONTAINER" redis-cli ping >/dev/null 2>&1; then
-        docker exec "$REDIS_CONTAINER" redis-cli FLUSHDB >/dev/null
-        Log 'refreshed acceptance redis cache after fixture seeding'
-    fi
-}
-
 PrepareFixtures() {
     Log 'preparing auth users and playwright fixtures'
     local laneSupport="$ROOT_DIR/tools/test/lanes/_lane-collect-support.sh"
@@ -1887,8 +1880,10 @@ PrepareFixtures() {
         # Use the same namespaced run-once keys as every downstream runtime lane.
         source "$laneSupport"
         # Auth identities and public article/taxonomy fixtures have disjoint
-        # run-once keys, output contracts and database rows. Seed them together
-        # after backend readiness, then flush Redis only after both writes settle.
+        # run-once keys, output contracts and database rows. Public fixture
+        # preparation performs scoped output-cache invalidation and a public-hot
+        # rebuild; never flush the shared runtime Redis database because it also
+        # owns active-release fences and background worker leases.
         if [[ "${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" == "1" ]]; then
             PrepareAuthFixturesOnce
             PreparePublicFixturesOnce
@@ -1899,7 +1894,6 @@ PrepareFixtures() {
                 "auth-fixtures::PrepareAuthFixturesOnce" \
                 "public-fixtures::PreparePublicFixturesOnce"
         fi
-        RefreshAcceptanceCacheAfterFixtures
     )
 }
 

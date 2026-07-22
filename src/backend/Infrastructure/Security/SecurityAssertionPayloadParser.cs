@@ -9,10 +9,13 @@ internal static class SecurityAssertionPayloadParser
     internal const int MaxAssertionJsonChars = 64 * 1024;
     internal const int MaxAssertionJsonDepth = 32;
 
-    private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web)
+    private static class JsonOptionsHolder
     {
-        MaxDepth = MaxAssertionJsonDepth
-    };
+        internal static readonly JsonSerializerOptions Value = new(JsonSerializerDefaults.Web)
+        {
+            MaxDepth = MaxAssertionJsonDepth
+        };
+    }
 
     internal static bool TryParse(string? raw, out PasskeyLoginCompleteCoreModel assertion)
     {
@@ -24,7 +27,7 @@ internal static class SecurityAssertionPayloadParser
 
         try
         {
-            PasskeyLoginCompleteCoreModel? parsed = JsonSerializer.Deserialize<PasskeyLoginCompleteCoreModel>(raw, s_jsonOptions);
+            PasskeyLoginCompleteCoreModel? parsed = JsonSerializer.Deserialize<PasskeyLoginCompleteCoreModel>(raw, JsonOptionsHolder.Value);
             if (parsed is null || string.IsNullOrWhiteSpace(parsed.ChallengeToken) || string.IsNullOrWhiteSpace(parsed.Id))
             {
                 return false;
@@ -39,4 +42,3 @@ internal static class SecurityAssertionPayloadParser
         }
     }
 }
-

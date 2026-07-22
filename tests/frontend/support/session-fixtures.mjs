@@ -6,9 +6,9 @@ import { chmod, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import {
-  playwrightSessionModes,
-  resolveAuthFixtureDirectory,
-  resolvePlaywrightSessionMode
+    playwrightSessionModes,
+    resolveAuthFixtureDirectory,
+    resolvePlaywrightSessionMode
 } from './fixture-paths.mjs';
 import { resolveTestSession } from './test-session.mjs';
 
@@ -20,15 +20,15 @@ const ANONYMOUS_ACCOUNT_KIND = 'anonymous_account';
 const ADMIN_PRINCIPAL_KIND = 'admin_principal';
 const ADMIN_PERMISSION_CLAIM = 'admin_permission';
 const defaultAdminPermissions = [
-  'article.write',
-  'article.publish',
-  'comment.moderate',
-  'anonymous.comment.configure',
-  'anonymous.nullifier.block',
-  'anonymous.credential.revoke',
-  'audit.read',
-  'system.config',
-  'admin.manage'
+    'article.write',
+    'article.publish',
+    'comment.moderate',
+    'anonymous.comment.configure',
+    'anonymous.nullifier.block',
+    'anonymous.credential.revoke',
+    'audit.read',
+    'system.config',
+    'admin.manage'
 ];
 
 const pgContainer = process.env.FSUSBLOG_PG_CONTAINER || '';
@@ -56,188 +56,220 @@ const anonymousCredentialSubjectHashPepper = process.env.AnonymousCredentialIssu
   || '';
 const resetAnonymousCredentialIssuanceFixture = process.env.FSUSBLOG_RESET_ANONYMOUS_ISSUANCE_FIXTURE !== '0';
 const accessTokenExpiresMinutes = Number.parseInt(
-  process.env.Jwt__AccessTokenExpiresMinutes
+    process.env.Jwt__AccessTokenExpiresMinutes
   || process.env.FSUSBLOG_JWT_ACCESS_TOKEN_EXPIRES_MINUTES
   || '15',
-  10
+    10
 ) || 15;
 
-function schemaForSession(session) {
-  if (!session) {
-    return '';
-  }
-  const normalized = String(session).trim().toLowerCase();
-  if (!/^[a-z0-9][a-z0-9-]{0,40}$/u.test(normalized)) {
-    throw new Error('fixture session schema requires a sanitized test session id');
-  }
-  return `fsus_e2e_${normalized.replaceAll('-', '_')}`;
+function schemaForSession(session)
+{
+    if (!session)
+    {
+        return '';
+    }
+    const normalized = String(session).trim().toLowerCase();
+    if (!/^[a-z0-9][a-z0-9-]{0,40}$/u.test(normalized))
+    {
+        throw new Error('fixture session schema requires a sanitized test session id');
+    }
+    return `fsus_e2e_${normalized.replaceAll('-', '_')}`;
 }
 
-function sqlString(value) {
-  return `'${String(value ?? '').replaceAll("'", "''")}'`;
+function sqlString(value)
+{
+    return `'${String(value ?? '').replaceAll("'", "''")}'`;
 }
 
 export function fixtureSessionSearchPathSql({
-  session = testSession,
-  mode = playwrightSessionMode
-} = {}) {
-  const schema = schemaForSession(session);
-  if (mode === playwrightSessionModes.browserContract) {
-    if (!schema) {
-      throw new Error('browser-contract fixtures require one explicit FSUSBLOG_TEST_SESSION schema');
+    session = testSession,
+    mode = playwrightSessionMode
+} = {})
+{
+    const schema = schemaForSession(session);
+    if (mode === playwrightSessionModes.browserContract)
+    {
+        if (!schema)
+        {
+            throw new Error('browser-contract fixtures require one explicit FSUSBLOG_TEST_SESSION schema');
+        }
+        return `set search_path to "${schema}";`;
     }
-    return `set search_path to "${schema}";`;
-  }
-  return schema ? `set search_path to "${schema}", public;` : '';
+    return schema ? `set search_path to "${schema}", public;` : '';
 }
 
-function assertSafeFixtureContainer() {
-  if (!/^fsusblog-(?:dev|test|ci)(?:[-_.a-zA-Z0-9]*)$/.test(pgContainer)) {
-    throw new Error('FSUSBLOG_PG_CONTAINER must name a dev/test/ci fixture container before SQL fixtures can run.');
-  }
+function assertSafeFixtureContainer()
+{
+    if (!/^fsusblog-(?:dev|test|ci)(?:[-_.a-zA-Z0-9]*)$/.test(pgContainer))
+    {
+        throw new Error('FSUSBLOG_PG_CONTAINER must name a dev/test/ci fixture container before SQL fixtures can run.');
+    }
 }
 
-function assertTestJwtSecretConfigured() {
-  if (jwtSecret.length < 32) {
-    throw new Error('FSUSBLOG_TEST_SESSION_SECRET or Jwt__SecretKey must be set to a test-only secret with at least 32 characters.');
-  }
-  if (!jwtKeyVersion) {
-    throw new Error('Jwt__KeyVersion must be set so fixture tokens carry the same signing key id as the test backend.');
-  }
+function assertTestJwtSecretConfigured()
+{
+    if (jwtSecret.length < 32)
+    {
+        throw new Error('FSUSBLOG_TEST_SESSION_SECRET or Jwt__SecretKey must be set to a test-only secret with at least 32 characters.');
+    }
+    if (!jwtKeyVersion)
+    {
+        throw new Error('Jwt__KeyVersion must be set so fixture tokens carry the same signing key id as the test backend.');
+    }
 }
 
-function runPsql(sql) {
-  assertSafeFixtureContainer();
-  assertTestJwtSecretConfigured();
-  const result = spawnSync('docker', [
-    'exec',
-    '-i',
-    pgContainer,
-    'psql',
-    '-At',
-    '-v',
-    'ON_ERROR_STOP=1',
-    '-U',
-    pgUser,
-    '-d',
-    pgDb,
-    '-c',
-    `${fixtureSessionSearchPathSql()} ${sql}`
-  ], { encoding: 'utf8' });
+function runPsql(sql)
+{
+    assertSafeFixtureContainer();
+    assertTestJwtSecretConfigured();
+    const result = spawnSync('docker', [
+        'exec',
+        '-i',
+        pgContainer,
+        'psql',
+        '-At',
+        '-v',
+        'ON_ERROR_STOP=1',
+        '-U',
+        pgUser,
+        '-d',
+        pgDb,
+        '-c',
+        `${fixtureSessionSearchPathSql()} ${sql}`
+    ], { encoding: 'utf8' });
 
-  if (result.status !== 0) {
-    throw new Error(`psql fixture command failed: ${result.stderr || result.stdout}`);
-  }
+    if (result.status !== 0)
+    {
+        throw new Error(`psql fixture command failed: ${result.stderr || result.stdout}`);
+    }
 
-  return result.stdout.trim();
+    return result.stdout.trim();
 }
 
-function runPsqlNumber(sql, description) {
-  const output = runPsql(sql);
-  const match = output.match(/^\s*(\d+)\s*$/mu);
-  const value = match ? Number(match[1]) : Number.NaN;
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new Error(`failed to read ${description}: ${output || 'empty psql output'}`);
-  }
+function runPsqlNumber(sql, description)
+{
+    const output = runPsql(sql);
+    const match = output.match(/^\s*(\d+)\s*$/mu);
+    const value = match ? Number(match[1]) : Number.NaN;
+    if (!Number.isFinite(value) || value <= 0)
+    {
+        throw new Error(`failed to read ${description}: ${output || 'empty psql output'}`);
+    }
 
-  return value;
+    return value;
 }
 
-function runRedisCli(args, description) {
-  if (!/^fsusblog-(?:dev|test|ci)(?:[-_.a-zA-Z0-9]*)$/.test(redisContainer)) {
-    throw new Error('FSUSBLOG_REDIS_CONTAINER must name a dev/test/ci fixture container before Redis fixtures can run.');
-  }
+function runRedisCli(args, description)
+{
+    if (!/^fsusblog-(?:dev|test|ci)(?:[-_.a-zA-Z0-9]*)$/.test(redisContainer))
+    {
+        throw new Error('FSUSBLOG_REDIS_CONTAINER must name a dev/test/ci fixture container before Redis fixtures can run.');
+    }
 
-  const result = spawnSync('docker', [
-    'exec',
-    redisContainer,
-    'redis-cli',
-    ...args
-  ], { encoding: 'utf8' });
+    const result = spawnSync('docker', [
+        'exec',
+        redisContainer,
+        'redis-cli',
+        ...args
+    ], { encoding: 'utf8' });
 
-  if (result.status !== 0) {
-    throw new Error(`${description} redis fixture command failed: ${result.stderr || result.stdout}`);
-  }
+    if (result.status !== 0)
+    {
+        throw new Error(`${description} redis fixture command failed: ${result.stderr || result.stdout}`);
+    }
 
-  return result.stdout.trim();
+    return result.stdout.trim();
 }
 
-function clearFixtureUserBanCache(handle) {
-  if (!redisContainer) {
-    return;
-  }
+function clearFixtureUserBanCache(handle)
+{
+    if (!redisContainer)
+    {
+        return;
+    }
 
-  const subjectHash = accountSubjectHash(ANONYMOUS_ACCOUNT_KIND, handle);
-  const key = `fsus:sec:blacklist-user:account:${subjectHash}`;
-  runRedisCli(['DEL', key, runtimeCacheKey(key)], `clear fixture user ban cache ${handle}`);
+    const subjectHash = accountSubjectHash(ANONYMOUS_ACCOUNT_KIND, handle);
+    const key = `fsus:sec:blacklist-user:account:${subjectHash}`;
+    runRedisCli(['DEL', key, runtimeCacheKey(key)], `clear fixture user ban cache ${handle}`);
 }
 
-function base64Url(input) {
-  return Buffer.from(input)
-    .toString('base64')
-    .replaceAll('+', '-')
-    .replaceAll('/', '_')
-    .replace(/=+$/u, '');
+function base64Url(input)
+{
+    return Buffer.from(input)
+        .toString('base64')
+        .replaceAll('+', '-')
+        .replaceAll('/', '_')
+        .replace(/=+$/u, '');
 }
 
-function sha256Hex(value) {
-  return createHash('sha256').update(value, 'utf8').digest('hex').toUpperCase();
+function sha256Hex(value)
+{
+    return createHash('sha256').update(value, 'utf8').digest('hex').toUpperCase();
 }
 
-function signJwt(payload) {
-  assertTestJwtSecretConfigured();
-  const header = {
-    alg: 'HS256',
-    kid: jwtKeyVersion,
-    typ: 'JWT'
-  };
-  const encodedHeader = base64Url(JSON.stringify(header));
-  const encodedPayload = base64Url(JSON.stringify(payload));
-  const signature = createHmac('sha256', jwtSecret)
-    .update(`${encodedHeader}.${encodedPayload}`)
-    .digest();
-  return `${encodedHeader}.${encodedPayload}.${base64Url(signature)}`;
+function signJwt(payload)
+{
+    assertTestJwtSecretConfigured();
+    const header = {
+        alg: 'HS256',
+        kid: jwtKeyVersion,
+        typ: 'JWT'
+    };
+    const encodedHeader = base64Url(JSON.stringify(header));
+    const encodedPayload = base64Url(JSON.stringify(payload));
+    const signature = createHmac('sha256', jwtSecret)
+        .update(`${encodedHeader}.${encodedPayload}`)
+        .digest();
+    return `${encodedHeader}.${encodedPayload}.${base64Url(signature)}`;
 }
 
-function nowEpochSeconds() {
-  return Math.floor(Date.now() / 1000);
+function nowEpochSeconds()
+{
+    return Math.floor(Date.now() / 1000);
 }
 
-function expiresAtEpochSeconds() {
-  return nowEpochSeconds() + accessTokenExpiresMinutes * 60;
+function expiresAtEpochSeconds()
+{
+    return nowEpochSeconds() + accessTokenExpiresMinutes * 60;
 }
 
-function accountSubjectHash(identityKind, subject) {
-  const normalizedKind = String(identityKind || ANONYMOUS_ACCOUNT_KIND).trim();
-  const normalizedSubject = String(subject || '').trim().toLowerCase();
-  return createHash('sha256')
-    .update(`${ACCOUNT_SUBJECT_HASH_PREFIX}:${normalizedKind}:${normalizedSubject}`, 'utf8')
-    .digest('hex');
+function accountSubjectHash(identityKind, subject)
+{
+    const normalizedKind = String(identityKind || ANONYMOUS_ACCOUNT_KIND).trim();
+    const normalizedSubject = String(subject || '').trim().toLowerCase();
+    return createHash('sha256')
+        .update(`${ACCOUNT_SUBJECT_HASH_PREFIX}:${normalizedKind}:${normalizedSubject}`, 'utf8')
+        .digest('hex');
 }
 
-function anonymousCredentialIssuanceSubjectHash(userId) {
-  const pepper = String(anonymousCredentialSubjectHashPepper || '').trim();
-  if (pepper.length < 32) {
-    return '';
-  }
+function anonymousCredentialIssuanceSubjectHash(userId)
+{
+    const pepper = String(anonymousCredentialSubjectHashPepper || '').trim();
+    if (pepper.length < 32)
+    {
+        return '';
+    }
 
-  const key = createHash('sha256').update(pepper, 'utf8').digest();
-  return createHmac('sha256', key)
-    .update(`fsusblog:anonymous-credential-issuance:v1:${userId}`, 'utf8')
-    .digest('hex');
+    const key = createHash('sha256').update(pepper, 'utf8').digest();
+    return createHmac('sha256', key)
+        .update(`fsusblog:anonymous-credential-issuance:v1:${userId}`, 'utf8')
+        .digest('hex');
 }
 
-function clearFixtureAnonymousCredentialIssuanceAudit(userId) {
-  if (!resetAnonymousCredentialIssuanceFixture) {
-    return;
-  }
+function clearFixtureAnonymousCredentialIssuanceAudit(userId)
+{
+    if (!resetAnonymousCredentialIssuanceFixture)
+    {
+        return;
+    }
 
-  const subjectHash = anonymousCredentialIssuanceSubjectHash(userId);
-  if (!subjectHash) {
-    return;
-  }
+    const subjectHash = anonymousCredentialIssuanceSubjectHash(userId);
+    if (!subjectHash)
+    {
+        return;
+    }
 
-  runPsql(`
+    runPsql(`
 DO $$
 BEGIN
   IF to_regclass('anonymous_credential_issuance_audit') IS NOT NULL THEN
@@ -248,66 +280,74 @@ END $$;
 `);
 }
 
-function runtimeCacheKey(key) {
-  return testSession ? `e2e:${testSession}:${key}` : key;
+function runtimeCacheKey(key)
+{
+    return testSession ? `e2e:${testSession}:${key}` : key;
 }
 
-function randomToken(byteLength = 32) {
-  return randomBytes(byteLength).toString('base64url');
+function randomToken(byteLength = 32)
+{
+    return randomBytes(byteLength).toString('base64url');
 }
 
-export function stableFixtureSessionId(kind, handle, sessionScope = 'default') {
-  const seed = [
-    'fsusblog-test-session-v1',
-    String(kind || '').trim().toLowerCase(),
-    String(testSession || 'default').trim().toLowerCase(),
-    String(handle || '').trim().toLowerCase(),
-    String(sessionScope || 'default').trim().toLowerCase()
-  ].join(':');
-  return createHash('sha256').update(seed, 'utf8').digest('hex').slice(0, 32).toUpperCase();
+export function stableFixtureSessionId(kind, handle, sessionScope = 'default')
+{
+    const seed = [
+        'fsusblog-test-session-v1',
+        String(kind || '').trim().toLowerCase(),
+        String(testSession || 'default').trim().toLowerCase(),
+        String(handle || '').trim().toLowerCase(),
+        String(sessionScope || 'default').trim().toLowerCase()
+    ].join(':');
+    return createHash('sha256').update(seed, 'utf8').digest('hex').slice(0, 32).toUpperCase();
 }
 
-function fixtureSessionScope({ rememberMe, deviceFingerprint }) {
-  return [
+function fixtureSessionScope({ rememberMe, deviceFingerprint })
+{
+    return [
     rememberMe ? 'remember' : 'standard',
     String(deviceFingerprint || 'default').trim().toLowerCase()
-  ].join(':');
+    ].join(':');
 }
 
-function buildUserCookieHeader({ accessToken, refreshToken, sessionId }) {
-  return [
-    `__Host-AccessToken=${accessToken}`,
-    `__Host-RefreshToken=${refreshToken}`,
-    `__Host-SessionId=${sessionId}`,
-    `AccessToken=${accessToken}`,
-    `RefreshToken=${refreshToken}`,
-    `SessionId=${sessionId}`
-  ].join('; ');
+function buildUserCookieHeader({ accessToken, refreshToken, sessionId })
+{
+    return [
+        `__Host-AccessToken=${accessToken}`,
+        `__Host-RefreshToken=${refreshToken}`,
+        `__Host-SessionId=${sessionId}`,
+        `AccessToken=${accessToken}`,
+        `RefreshToken=${refreshToken}`,
+        `SessionId=${sessionId}`
+    ].join('; ');
 }
 
-function buildAdminCookieHeader({ accessToken, sessionId }) {
-  return [
-    `__Host-AdminAccessToken=${accessToken}`,
-    `__Host-AdminSessionId=${sessionId}`,
-    `AdminAccessToken=${accessToken}`,
-    `AdminSessionId=${sessionId}`
-  ].join('; ');
+function buildAdminCookieHeader({ accessToken, sessionId })
+{
+    return [
+        `__Host-AdminAccessToken=${accessToken}`,
+        `__Host-AdminSessionId=${sessionId}`,
+        `AdminAccessToken=${accessToken}`,
+        `AdminSessionId=${sessionId}`
+    ].join('; ');
 }
 
-export function isFixtureAdminHandle(handle) {
-  const normalized = String(handle || '').trim().toLowerCase();
-  const expected = String(process.env.FSUSBLOG_ADMIN_USERNAME || 'binaryadmin').trim().toLowerCase();
-  return normalized === expected || normalized.startsWith('admin');
+export function isFixtureAdminHandle(handle)
+{
+    const normalized = String(handle || '').trim().toLowerCase();
+    const expected = String(process.env.FSUSBLOG_ADMIN_USERNAME || 'binaryadmin').trim().toLowerCase();
+    return normalized === expected || normalized.startsWith('admin');
 }
 
 export async function ensureUserFixtureSession({
-  handle,
-  rememberMe = false,
-  deviceFingerprint = 'binary-smoke-node'
-}) {
-  const normalizedHandle = String(handle || 'binaryuser').trim() || 'binaryuser';
-  const accountSubjectHashValue = accountSubjectHash(ANONYMOUS_ACCOUNT_KIND, normalizedHandle);
-  const userId = runPsqlNumber(`
+    handle,
+    rememberMe = false,
+    deviceFingerprint = 'binary-smoke-node'
+})
+{
+    const normalizedHandle = String(handle || 'binaryuser').trim() || 'binaryuser';
+    const accountSubjectHashValue = accountSubjectHash(ANONYMOUS_ACCOUNT_KIND, normalizedHandle);
+    const userId = runPsqlNumber(`
 WITH existing AS (
   SELECT id
   FROM sys_user
@@ -353,7 +393,7 @@ SELECT id FROM existing
 LIMIT 1;
 `, `fixture user ${normalizedHandle}`);
 
-  runPsql(`
+    runPsql(`
 UPDATE sys_user
 SET status = 0,
     account_subject_hash = ${sqlString(accountSubjectHashValue)},
@@ -366,41 +406,41 @@ WHERE id = ${userId};
 DELETE FROM user_mfa_profile
 WHERE user_id = ${userId};
 `, `reset fixture user MFA ${normalizedHandle}`);
-  clearFixtureUserBanCache(normalizedHandle);
-  clearFixtureAnonymousCredentialIssuanceAudit(userId);
+    clearFixtureUserBanCache(normalizedHandle);
+    clearFixtureAnonymousCredentialIssuanceAudit(userId);
 
-  const sessionId = stableFixtureSessionId(
-    ANONYMOUS_ACCOUNT_KIND,
-    normalizedHandle,
-    fixtureSessionScope({ rememberMe, deviceFingerprint }));
-  const refreshToken = randomToken();
-  // Session validation binds JWT auth_method/auth_strength/auth_time to the
-  // sys_user_session authentication context. Keep the DB row and token claims
-  // on the same unix second so UserSessionValidationService accepts fixtures.
-  const authenticatedAtEpochSeconds = nowEpochSeconds();
-  const authenticatedAtSql = `to_timestamp(${authenticatedAtEpochSeconds}) AT TIME ZONE 'UTC'`;
-  const authenticationMethod = 'other';
-  const authenticationStrength = 'legacy_unverified';
-  const sessionModeClaim = 'normal';
-  const accessTokenExpiresAtEpochSeconds = expiresAtEpochSeconds();
-  const accessToken = signJwt({
-    [CLAIM_NAME_IDENTIFIER]: String(userId),
-    identity_kind: ANONYMOUS_ACCOUNT_KIND,
-    [ACCOUNT_SUBJECT_HASH_CLAIM]: accountSubjectHashValue,
-    sid: sessionId,
-    mfa: '0',
-    auth_method: authenticationMethod,
-    auth_strength: authenticationStrength,
-    session_mode: sessionModeClaim,
-    auth_time: String(authenticatedAtEpochSeconds),
-    iss: jwtIssuer,
-    aud: jwtAudience,
-    iat: authenticatedAtEpochSeconds,
-    nbf: authenticatedAtEpochSeconds,
-    exp: accessTokenExpiresAtEpochSeconds
-  });
+    const sessionId = stableFixtureSessionId(
+        ANONYMOUS_ACCOUNT_KIND,
+        normalizedHandle,
+        fixtureSessionScope({ rememberMe, deviceFingerprint }));
+    const refreshToken = randomToken();
+    // Session validation binds JWT auth_method/auth_strength/auth_time to the
+    // sys_user_session authentication context. Keep the DB row and token claims
+    // on the same unix second so UserSessionValidationService accepts fixtures.
+    const authenticatedAtEpochSeconds = nowEpochSeconds();
+    const authenticatedAtSql = `to_timestamp(${authenticatedAtEpochSeconds}) AT TIME ZONE 'UTC'`;
+    const authenticationMethod = 'other';
+    const authenticationStrength = 'legacy_unverified';
+    const sessionModeClaim = 'normal';
+    const accessTokenExpiresAtEpochSeconds = expiresAtEpochSeconds();
+    const accessToken = signJwt({
+        [CLAIM_NAME_IDENTIFIER]: String(userId),
+        identity_kind: ANONYMOUS_ACCOUNT_KIND,
+        [ACCOUNT_SUBJECT_HASH_CLAIM]: accountSubjectHashValue,
+        sid: sessionId,
+        mfa: '0',
+        auth_method: authenticationMethod,
+        auth_strength: authenticationStrength,
+        session_mode: sessionModeClaim,
+        auth_time: String(authenticatedAtEpochSeconds),
+        iss: jwtIssuer,
+        aud: jwtAudience,
+        iat: authenticatedAtEpochSeconds,
+        nbf: authenticatedAtEpochSeconds,
+        exp: accessTokenExpiresAtEpochSeconds
+    });
 
-  runPsql(`
+    runPsql(`
 UPDATE sys_user_session
 SET revokedat = now(),
     revokereason = 'login_replaced'
@@ -409,7 +449,7 @@ WHERE userid = ${userId}
   AND revokedat IS NULL;
 `);
 
-  runPsql(`
+    runPsql(`
 INSERT INTO sys_user_session (
   sessionid,
   userid,
@@ -484,25 +524,26 @@ ON CONFLICT (sessionid) DO UPDATE SET
   duration_policy = EXCLUDED.duration_policy;
 `);
 
-  return {
-    kind: 'user',
-    userId,
-    sessionId,
-    accessToken,
-    accessTokenExpiresAtEpochSeconds,
-    refreshToken,
-    cookieHeader: buildUserCookieHeader({ accessToken, refreshToken, sessionId })
-  };
+    return {
+        kind: 'user',
+        userId,
+        sessionId,
+        accessToken,
+        accessTokenExpiresAtEpochSeconds,
+        refreshToken,
+        cookieHeader: buildUserCookieHeader({ accessToken, refreshToken, sessionId })
+    };
 }
 
 export async function ensureAdminFixtureSession({
-  handle,
-  rememberMe = false,
-  deviceFingerprint = 'binary-smoke-node'
-}) {
-  const normalizedHandle = String(handle || 'binaryadmin').trim() || 'binaryadmin';
-  const permissions = defaultAdminPermissions.join('\n');
-  const adminId = runPsqlNumber(`
+    handle,
+    rememberMe = false,
+    deviceFingerprint = 'binary-smoke-node'
+})
+{
+    const normalizedHandle = String(handle || 'binaryadmin').trim() || 'binaryadmin';
+    const permissions = defaultAdminPermissions.join('\n');
+    const adminId = runPsqlNumber(`
 INSERT INTO admin_principal (
   handle,
   displayname,
@@ -535,30 +576,30 @@ ON CONFLICT (handle) DO UPDATE SET
 RETURNING id;
 `, `fixture admin ${normalizedHandle}`);
 
-  const sessionId = stableFixtureSessionId(
-    ADMIN_PRINCIPAL_KIND,
-    normalizedHandle,
-    fixtureSessionScope({ rememberMe, deviceFingerprint }));
-  const accessTokenExpiresAtEpochSeconds = expiresAtEpochSeconds();
-  const accessToken = signJwt({
-    [CLAIM_NAME_IDENTIFIER]: String(adminId),
-    [CLAIM_NAME]: normalizedHandle,
-    identity_kind: ADMIN_PRINCIPAL_KIND,
-    admin_id: String(adminId),
-    admin_handle: normalizedHandle,
-    admin_sid: sessionId,
-    sid: sessionId,
-    admin_step_up: '1',
-    mfa: '1',
-    [ADMIN_PERMISSION_CLAIM]: defaultAdminPermissions,
-    iss: jwtIssuer,
-    aud: jwtAudience,
-    iat: nowEpochSeconds(),
-    nbf: nowEpochSeconds(),
-    exp: accessTokenExpiresAtEpochSeconds
-  });
+    const sessionId = stableFixtureSessionId(
+        ADMIN_PRINCIPAL_KIND,
+        normalizedHandle,
+        fixtureSessionScope({ rememberMe, deviceFingerprint }));
+    const accessTokenExpiresAtEpochSeconds = expiresAtEpochSeconds();
+    const accessToken = signJwt({
+        [CLAIM_NAME_IDENTIFIER]: String(adminId),
+        [CLAIM_NAME]: normalizedHandle,
+        identity_kind: ADMIN_PRINCIPAL_KIND,
+        admin_id: String(adminId),
+        admin_handle: normalizedHandle,
+        admin_sid: sessionId,
+        sid: sessionId,
+        admin_step_up: '1',
+        mfa: '1',
+        [ADMIN_PERMISSION_CLAIM]: defaultAdminPermissions,
+        iss: jwtIssuer,
+        aud: jwtAudience,
+        iat: nowEpochSeconds(),
+        nbf: nowEpochSeconds(),
+        exp: accessTokenExpiresAtEpochSeconds
+    });
 
-  runPsql(`
+    runPsql(`
 INSERT INTO admin_session (
   sessionid,
   adminprincipalid,
@@ -603,182 +644,198 @@ ON CONFLICT (sessionid) DO UPDATE SET
   stepupverified = EXCLUDED.stepupverified;
 `);
 
-  return {
-    kind: 'admin',
-    adminId,
-    sessionId,
-    accessToken,
-    accessTokenExpiresAtEpochSeconds,
-    cookieHeader: buildAdminCookieHeader({ accessToken, sessionId })
-  };
+    return {
+        kind: 'admin',
+        adminId,
+        sessionId,
+        accessToken,
+        accessTokenExpiresAtEpochSeconds,
+        cookieHeader: buildAdminCookieHeader({ accessToken, sessionId })
+    };
 }
 
 export function createAdminStepUpProofToken({
-  adminId,
-  sessionId,
-  action = 'admin-sensitive',
-  ttlSeconds = 45
-}) {
-  if (!Number.isFinite(Number(adminId)) || Number(adminId) <= 0) {
-    throw new Error('admin step-up proof requires a valid admin id');
-  }
-  if (!String(sessionId || '').trim()) {
-    throw new Error('admin step-up proof requires a valid session id');
-  }
+    adminId,
+    sessionId,
+    action = 'admin-sensitive',
+    ttlSeconds = 45
+})
+{
+    if (!Number.isFinite(Number(adminId)) || Number(adminId) <= 0)
+    {
+        throw new Error('admin step-up proof requires a valid admin id');
+    }
+    if (!String(sessionId || '').trim())
+    {
+        throw new Error('admin step-up proof requires a valid session id');
+    }
 
-  const token = randomToken();
-  const identity = [
-    'admin',
-    Number(adminId),
-    String(sessionId).trim(),
-    String(action).trim(),
-    token
-  ].join(':');
-  const key = `fsus:sec:mfa-proof:${identity}`;
-  runRedisCli(['SET', runtimeCacheKey(key), '1', 'EX', String(Math.max(1, ttlSeconds))], 'admin step-up proof');
-  return token;
+    const token = randomToken();
+    const identity = [
+        'admin',
+        Number(adminId),
+        String(sessionId).trim(),
+        String(action).trim(),
+        token
+    ].join(':');
+    const key = `fsus:sec:mfa-proof:${identity}`;
+    runRedisCli(['SET', runtimeCacheKey(key), '1', 'EX', String(Math.max(1, ttlSeconds))], 'admin step-up proof');
+    return token;
 }
 
 export function createUserMfaProofToken({
-  userId,
-  handle,
-  action,
-  ttlSeconds = 45
-}) {
-  if (!Number.isFinite(Number(userId)) || Number(userId) <= 0) {
-    throw new Error('user MFA proof requires a valid user id');
-  }
-  const normalizedHandle = String(handle || '').trim().toLowerCase();
-  if (!normalizedHandle) {
-    throw new Error('user MFA proof requires a valid handle');
-  }
-  const normalizedAction = String(action || '').trim().toLowerCase();
-  if (!normalizedAction) {
-    throw new Error('user MFA proof requires a valid action');
-  }
+    userId,
+    handle,
+    action,
+    ttlSeconds = 45
+})
+{
+    if (!Number.isFinite(Number(userId)) || Number(userId) <= 0)
+    {
+        throw new Error('user MFA proof requires a valid user id');
+    }
+    const normalizedHandle = String(handle || '').trim().toLowerCase();
+    if (!normalizedHandle)
+    {
+        throw new Error('user MFA proof requires a valid handle');
+    }
+    const normalizedAction = String(action || '').trim().toLowerCase();
+    if (!normalizedAction)
+    {
+        throw new Error('user MFA proof requires a valid action');
+    }
 
-  const token = randomToken();
-  const subject = accountSubjectHash(ANONYMOUS_ACCOUNT_KIND, normalizedHandle);
-  const identity = createHash('sha256')
-    .update([
-      'mfa-proof',
-      String(Number(userId)),
-      subject,
-      normalizedAction,
-      token
-    ].join(':'), 'utf8')
-    .digest('hex')
-    .toUpperCase();
-  const key = `fsus:sec:mfa-proof:${identity}`;
-  runRedisCli(['SET', runtimeCacheKey(key), '1', 'EX', String(Math.max(1, ttlSeconds))], 'user MFA proof');
-  return token;
+    const token = randomToken();
+    const subject = accountSubjectHash(ANONYMOUS_ACCOUNT_KIND, normalizedHandle);
+    const identity = createHash('sha256')
+        .update([
+            'mfa-proof',
+            String(Number(userId)),
+            subject,
+            normalizedAction,
+            token
+        ].join(':'), 'utf8')
+        .digest('hex')
+        .toUpperCase();
+    const key = `fsus:sec:mfa-proof:${identity}`;
+    runRedisCli(['SET', runtimeCacheKey(key), '1', 'EX', String(Math.max(1, ttlSeconds))], 'user MFA proof');
+    return token;
 }
 
-function cookieEntries(cookieHeader, url, accessTokenExpiresAtEpochSeconds) {
-  return cookieHeader
-    .split(';')
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .map((item) => {
-      const separator = item.indexOf('=');
-      const name = item.slice(0, separator);
-      const isHostPrefixed = name.startsWith('__Host-');
-      const isAccessToken = name === 'AccessToken'
+function cookieEntries(cookieHeader, url, accessTokenExpiresAtEpochSeconds)
+{
+    return cookieHeader
+        .split(';')
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .map((item) =>
+        {
+            const separator = item.indexOf('=');
+            const name = item.slice(0, separator);
+            const isHostPrefixed = name.startsWith('__Host-');
+            const isAccessToken = name === 'AccessToken'
         || name === '__Host-AccessToken'
         || name === 'AdminAccessToken'
         || name === '__Host-AdminAccessToken';
-      return {
-        name,
-        value: item.slice(separator + 1),
-        url,
-        path: '/',
-        httpOnly: true,
-        secure: isHostPrefixed,
-        sameSite: isHostPrefixed ? 'Strict' : 'Lax',
-        ...(isAccessToken ? { expires: accessTokenExpiresAtEpochSeconds } : {})
-      };
+            return {
+                name,
+                value: item.slice(separator + 1),
+                url,
+                path: '/',
+                httpOnly: true,
+                secure: isHostPrefixed,
+                sameSite: isHostPrefixed ? 'Strict' : 'Lax',
+                ...(isAccessToken ? { expires: accessTokenExpiresAtEpochSeconds } : {})
+            };
+        });
+}
+
+function fixtureStorageState(fixture, url)
+{
+    return {
+        cookies: cookieEntries(fixture.cookieHeader, url, fixture.accessTokenExpiresAtEpochSeconds),
+        origins: []
+    };
+}
+
+async function writePrivateJson(file, value)
+{
+    await writeFile(file, JSON.stringify(value, null, 2) + '\n', {
+        encoding: 'utf8',
+        mode: 0o600
     });
-}
-
-function fixtureStorageState(fixture, url) {
-  return {
-    cookies: cookieEntries(fixture.cookieHeader, url, fixture.accessTokenExpiresAtEpochSeconds),
-    origins: []
-  };
-}
-
-async function writePrivateJson(file, value) {
-  await writeFile(file, JSON.stringify(value, null, 2) + '\n', {
-    encoding: 'utf8',
-    mode: 0o600
-  });
-  await chmod(file, 0o600);
+    await chmod(file, 0o600);
 }
 
 export async function persistAuthFixtureManifest({
-  user,
-  admin,
-  baseUrl = process.env.PLAYWRIGHT_BASE_URL || process.env.FSUSBLOG_BASE_URL || 'http://localhost:3000'
-}) {
-  if (!persistAuthFixtures) {
-    return null;
-  }
-
-  const fixturesDir = resolveAuthFixtureDirectory();
-  await mkdir(fixturesDir, { recursive: true, mode: 0o700 });
-  await chmod(fixturesDir, 0o700);
-  const manifest = {
-    generatedAt: new Date().toISOString(),
-    baseUrl,
-    user: {
-      id: user.userId,
-      sessionId: user.sessionId,
-      storageStateFile: 'user.storage-state.json'
-    },
-    admin: {
-      id: admin.adminId,
-      sessionId: admin.sessionId,
-      storageStateFile: 'admin.storage-state.json'
+    user,
+    admin,
+    baseUrl = process.env.PLAYWRIGHT_BASE_URL || process.env.FSUSBLOG_BASE_URL || 'http://localhost:3000'
+})
+{
+    if (!persistAuthFixtures)
+    {
+        return null;
     }
-  };
 
-  await writePrivateJson(path.join(fixturesDir, 'auth-fixtures.json'), manifest);
-  await writePrivateJson(
-    path.join(fixturesDir, manifest.user.storageStateFile),
-    fixtureStorageState(user, baseUrl));
-  await writePrivateJson(
-    path.join(fixturesDir, manifest.admin.storageStateFile),
-    fixtureStorageState(admin, baseUrl));
-  if (testSession) {
-    const sessionPrefix = testSession.replace(/[^a-z0-9-]+/gi, '-').replace(/^-+|-+$/g, '').toLowerCase();
-    if (sessionPrefix) {
-      await writePrivateJson(
-        path.join(fixturesDir, `${sessionPrefix}.user.storage-state.json`),
+    const fixturesDir = resolveAuthFixtureDirectory();
+    await mkdir(fixturesDir, { recursive: true, mode: 0o700 });
+    await chmod(fixturesDir, 0o700);
+    const manifest = {
+        generatedAt: new Date().toISOString(),
+        baseUrl,
+        user: {
+            id: user.userId,
+            sessionId: user.sessionId,
+            storageStateFile: 'user.storage-state.json'
+        },
+        admin: {
+            id: admin.adminId,
+            sessionId: admin.sessionId,
+            storageStateFile: 'admin.storage-state.json'
+        }
+    };
+
+    await writePrivateJson(path.join(fixturesDir, 'auth-fixtures.json'), manifest);
+    await writePrivateJson(
+        path.join(fixturesDir, manifest.user.storageStateFile),
         fixtureStorageState(user, baseUrl));
-      await writePrivateJson(
-        path.join(fixturesDir, `${sessionPrefix}.admin.storage-state.json`),
+    await writePrivateJson(
+        path.join(fixturesDir, manifest.admin.storageStateFile),
         fixtureStorageState(admin, baseUrl));
+    if (testSession)
+    {
+        const sessionPrefix = testSession.replace(/[^a-z0-9-]+/gi, '-').replace(/^-+|-+$/g, '').toLowerCase();
+        if (sessionPrefix)
+        {
+            await writePrivateJson(
+                path.join(fixturesDir, `${sessionPrefix}.user.storage-state.json`),
+                fixtureStorageState(user, baseUrl));
+            await writePrivateJson(
+                path.join(fixturesDir, `${sessionPrefix}.admin.storage-state.json`),
+                fixtureStorageState(admin, baseUrl));
+        }
     }
-  }
-  return manifest;
+    return manifest;
 }
 
 export async function prepareAuthSmokeFixtures({
-  userHandle = 'binaryuser',
-  adminHandle = 'binaryadmin',
-  deviceFingerprint = 'binary-smoke-node'
-} = {}) {
-  const user = await ensureUserFixtureSession({
-    handle: userHandle,
-    rememberMe: true,
-    deviceFingerprint
-  });
-  const admin = await ensureAdminFixtureSession({
-    handle: adminHandle,
-    rememberMe: true,
-    deviceFingerprint
-  });
+    userHandle = 'binaryuser',
+    adminHandle = 'binaryadmin',
+    deviceFingerprint = 'binary-smoke-node'
+} = {})
+{
+    const user = await ensureUserFixtureSession({
+        handle: userHandle,
+        rememberMe: true,
+        deviceFingerprint
+    });
+    const admin = await ensureAdminFixtureSession({
+        handle: adminHandle,
+        rememberMe: true,
+        deviceFingerprint
+    });
 
-  const manifest = await persistAuthFixtureManifest({ user, admin });
-  return { user, admin, manifest };
+    const manifest = await persistAuthFixtureManifest({ user, admin });
+    return { user, admin, manifest };
 }

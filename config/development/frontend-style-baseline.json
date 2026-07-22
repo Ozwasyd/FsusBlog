@@ -1,9 +1,9 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:8e1f7646006560e5629dcad4f20cd6928afe00979bd64fbc67cadc0eda0a402f",
-    "sourceStateSha256": "8e1f7646006560e5629dcad4f20cd6928afe00979bd64fbc67cadc0eda0a402f",
+    "generatedFrom": "source-state:4f27367277f4209551b421b0af7b0ca7d2520c8cf32f66624e80b8151c7af04b",
+    "sourceStateSha256": "4f27367277f4209551b421b0af7b0ca7d2520c8cf32f66624e80b8151c7af04b",
     "configurationSha256": "097e93375187fd89b8741031800d4ffd703a6961882b6f9ba9f5af94cf27f8ec",
-    "violationCount": 333685,
+    "violationCount": 327042,
     "fileCount": 1080,
     "files": [
         {
@@ -3278,19 +3278,13 @@
         },
         {
             "path": "src/frontend/src/composables/useNotification.ts",
-            "sourceSha256": "a43ceaadefb471ce224ed1dbfe559083efd21a08a686d4b1fe2fd5d03b0b5b28",
-            "violationCount": 388,
-            "violationDigest": "42b806e0991ba887c68dd942d66488135c777de114dcc0c9798898c53639f8da",
+            "sourceSha256": "d74ff18f403a7c64a3c7c9dde26e2b205ec3196180d85264b2853df67aacef1a",
+            "violationCount": 10,
+            "violationDigest": "d52b26f56d1a521192c80ef96b6af6d431a8ce49e83a6910c7e6c5c2aa77d252",
             "rules": {
-                "eslint/@stylistic/brace-style": 99,
-                "eslint/@stylistic/member-delimiter-style": 1,
-                "eslint/@stylistic/semi": 261,
-                "eslint/@typescript-eslint/no-unnecessary-type-assertion": 1,
                 "eslint/@typescript-eslint/no-unsafe-argument": 3,
                 "eslint/@typescript-eslint/no-unsafe-assignment": 6,
-                "eslint/@typescript-eslint/prefer-nullish-coalescing": 1,
-                "eslint/import-x/no-duplicates": 2,
-                "eslint/import-x/order": 14
+                "eslint/@typescript-eslint/prefer-nullish-coalescing": 1
             }
         },
         {
@@ -7623,12 +7617,10 @@
         },
         {
             "path": "tests/frontend/checks/runtime/auth-session-smoke.mjs",
-            "sourceSha256": "65cd6de106e1342da83e1333466467fa59ef489767d9eaefc95a9c49ce22006e",
-            "violationCount": 75,
-            "violationDigest": "b120e5ef2fce8e58d900eee1b71d4f9307586c5783448e92156d7afe1881e570",
+            "sourceSha256": "5d65523e555116410d606cd6c64ce7f13735ae2fa9f990fc8680edb2be7f6033",
+            "violationCount": 3,
+            "violationDigest": "24862ef68e29bfb929f85fe8c69875a1c0d3b7e6631d24c4cfe84c095529a944",
             "rules": {
-                "eslint/@stylistic/brace-style": 6,
-                "eslint/@stylistic/indent": 66,
                 "eslint/import-x/no-relative-parent-imports": 2,
                 "eslint/no-unused-vars": 1
             }
@@ -7657,15 +7649,11 @@
         },
         {
             "path": "tests/frontend/checks/runtime/binary-contract-smoke.mjs",
-            "sourceSha256": "01b04c333ae83996163422fca0b0a17d6f6cd151bc4bd39b0bceee0f67641793",
-            "violationCount": 163,
-            "violationDigest": "da98bf871503fe92a16c3ff5b3cfeadf208b9d7ccf1d10cb080d63e9c76bd5a8",
+            "sourceSha256": "feb9dd210aafc907c6b9c01f4c01a0d1a6862ba4854be67747b8548ab8b57fa4",
+            "violationCount": 3,
+            "violationDigest": "aaeffbe304aa810cfa294537f4f82a398a7dec00cbcc51c7d185c17dd1408e41",
             "rules": {
-                "eslint/@stylistic/brace-style": 23,
-                "eslint/@stylistic/indent": 83,
-                "eslint/@stylistic/semi": 53,
-                "eslint/import-x/no-relative-parent-imports": 3,
-                "eslint/import-x/order": 1
+                "eslint/import-x/no-relative-parent-imports": 3
             }
         },
         {
@@ -7751,14 +7739,11 @@
         },
         {
             "path": "tests/frontend/checks/runtime/distribution-version-coherence-smoke.mjs",
-            "sourceSha256": "d51fc21969429bcf715cb65687db678ba40155ad1052243ba96e80009ff3fdcb",
-            "violationCount": 602,
-            "violationDigest": "451e6eb35e134a157d5def74bc3b6489fad5beb2b605b4a0259f129431083cb1",
+            "sourceSha256": "96b415d52349b2539cad3169ccff17856761525bda0bc4a99939e5d044dd0cea",
+            "violationCount": 16,
+            "violationDigest": "4f223f3c18a9aafa61af48414b4296c66a03392a8034698c216a38c579f9b5a9",
             "rules": {
-                "eslint/@stylistic/brace-style": 91,
-                "eslint/@stylistic/indent": 493,
                 "eslint/import-x/no-relative-parent-imports": 7,
-                "eslint/import-x/order": 2,
                 "eslint/no-useless-assignment": 1,
                 "eslint/preserve-caught-error": 8
             }
@@ -9155,13 +9140,10 @@
         },
         {
             "path": "tests/frontend/support/session-fixtures.mjs",
-            "sourceSha256": "e71358dd57df3b44a699fe2187bf23eb40d6a730e3cd43aca28440037f1cec77",
-            "violationCount": 428,
-            "violationDigest": "322e4b9f6bc7573c73d50209b4c75646756cec4343d37ab8dfe7a7aec22bafac",
-            "rules": {
-                "eslint/@stylistic/brace-style": 57,
-                "eslint/@stylistic/indent": 371
-            }
+            "sourceSha256": "897c380ee5c5a5aaf761f15f4c01b73721408a56ed2344c0c4017d018f6ad38f",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/frontend/support/system-chromium.mjs",
@@ -9517,15 +9499,10 @@
         },
         {
             "path": "tests/tools/bundle-step-contract.test.mjs",
-            "sourceSha256": "ce4c3e764fbedcf11d2cf8b03957ea5d985b5d7f9e76cfeb81312bdc05da945f",
-            "violationCount": 1904,
-            "violationDigest": "23c6f70ec330a1af5a8ee1a500058840810e64509195ea1168c32fa27d9f1b5d",
+            "sourceSha256": "9b5a2af9f3c3860ccc3651822ec1beec48839aa9ff7d761907b0ffa2d69e5989",
+            "violationCount": 4,
+            "violationDigest": "09d63c283fc45833afe542cf82c526c9b0bbf7ae8e9c644ee00cc588b8d510ba",
             "rules": {
-                "eslint/@stylistic/brace-style": 97,
-                "eslint/@stylistic/indent": 1080,
-                "eslint/@stylistic/max-statements-per-line": 3,
-                "eslint/@stylistic/semi": 657,
-                "eslint/curly": 63,
                 "eslint/import-x/no-relative-parent-imports": 3,
                 "eslint/no-useless-assignment": 1
             }
@@ -10233,17 +10210,11 @@
         },
         {
             "path": "tests/tools/local-production-profile.test.mjs",
-            "sourceSha256": "6ce55cce70212d2b449d587a50315e41d3973eaa9544a0f9053d71c14ec18416",
-            "violationCount": 1818,
-            "violationDigest": "6670710a266e2186226aa04cc84728dc055602195e1d73000fc75835d78baab6",
+            "sourceSha256": "09afab0c3cf5155e9a8db2ea528696677ec4b673fcacb1ad2f7e3ab6cce62771",
+            "violationCount": 4,
+            "violationDigest": "749c2d9c9bb254dce11031be1f6b78a277c89f56d07d41336721c4f5f0dde145",
             "rules": {
-                "eslint/@stylistic/brace-style": 59,
-                "eslint/@stylistic/comma-dangle": 1,
-                "eslint/@stylistic/indent": 1146,
-                "eslint/@stylistic/semi": 602,
-                "eslint/curly": 4,
-                "eslint/import-x/no-relative-parent-imports": 4,
-                "eslint/import-x/order": 2
+                "eslint/import-x/no-relative-parent-imports": 4
             }
         },
         {
@@ -14022,16 +13993,10 @@
         },
         {
             "path": "tools/test/bundles/bundle-steps.mjs",
-            "sourceSha256": "b7cd08912b8b1847e9e73ab00d38b7fbc4c49e6a9f8f00c319802d76b2750a9b",
-            "violationCount": 1137,
-            "violationDigest": "a180c563ae5d3258383cabc86f5e1030823503ed3dfc63bcfb43a487abc94fa1",
-            "rules": {
-                "eslint/@stylistic/brace-style": 83,
-                "eslint/@stylistic/comma-dangle": 1,
-                "eslint/@stylistic/indent": 783,
-                "eslint/@stylistic/semi": 246,
-                "eslint/curly": 24
-            }
+            "sourceSha256": "b3ea2a6e4603e305690d09dc4b7884745c743c8bb5f4789a76350787c072ecc8",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test/bundles/run-bundle.mjs",
@@ -14053,15 +14018,10 @@
         },
         {
             "path": "tools/test/bundles/runtime-environment.mjs",
-            "sourceSha256": "b9174614a4794ba815184a92f23ac74090c75645f79c4b7ba004174925fb98f8",
-            "violationCount": 168,
-            "violationDigest": "dd6e80d345765337bcd624ac34e1991d75a57b298171abe86a54cc3c3f371213",
-            "rules": {
-                "eslint/@stylistic/brace-style": 13,
-                "eslint/@stylistic/indent": 113,
-                "eslint/@stylistic/semi": 35,
-                "eslint/curly": 7
-            }
+            "sourceSha256": "8839a2c8c472284d312371b7214e28ec43550bb7bc5ad4521d7448f73dad7721",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test/bundles/step-dag.mjs",

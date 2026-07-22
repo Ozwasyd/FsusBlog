@@ -42,6 +42,8 @@ Public HTML production/acceptance 门禁把未知路由、无效动态 identity�
 
 fresh local production 在删除 `.tmp` 前先按其中的 PID/env 记录清理旧 acceptance namespace，并向 setsid 进程组发送终止信号，避免中断运行遗留 backend/Vite 子进程。随后 runner 解析 Docker 的真实 `DockerRootDir`，要求仓库与 Docker 数据文件系统均至少有 4 GiB 可用空间；不足时在启动测试前 fail closed。managed acceptance 进程继承 256 MiB 单文件写入上限，schema-migration PostgreSQL fixture 删除容器时同时删除匿名 volume。五类 acceptance 服务使用低于 Linux 默认 ephemeral range 的互斥 `20000–29999` 端口区间；Vite 使用 `--strictPort`，禁止 Docker 随机映射竞态导致 preview 静默漂移到未声明端口。
 
+Acceptance public fixture 通过 author cache action 执行逐 article output-cache invalidation 与 `public-hot-rebuild`，不得对共享 runtime Redis 执行 `FLUSHDB`。同一 Redis 同时承载 active-release fence、Public AOT worker lease、run-bound coordination 与业务缓存；全库清空会让 fixture 后失效的公开壳层失去重建 worker，并把正常安全头检查误报为 503。fixture bootstrap 必须保留这些运行期租约，只刷新自身写入影响的缓存域。
+
 UX risk matrix 只接受 browser diagnostics catalog 调用，并要求 `FSUSBLOG_BROWSER_DIAGNOSTICS_WORKERS=1`、`FSUSBLOG_PLAYWRIGHT_WORKERS=1`、`FSUSBLOG_UX_VIEWPORT_WORKERS=1`、diagnostics config 与 0 retry。它使用一个 CLI、一个 managed Chromium、一个 prepared fixture session，拒绝普通 Production 调用、resume、persistent worker、elastic pool 和基于 CPU/free-memory/load 的动态扩张。risk plan 内可继续执行的独立 case 会一次性汇总错误；失败截图、error context、progress 与 summary 保留在 run/category/probe namespace。旧 #1084 pool 的 worker lifetime/process-count 优化证据不再是当前验收要求。
 
 mobile-landscape chrome 检查只审计主内容和 footer 之外的全局 header/nav；可换行的 footer 导航属于滚动内容，不按固定 chrome 高度误报。账户全局 header 在 `max-height: 520px` landscape 下把 inner block padding 收紧到 `0.5rem`，并从完整 desktop action row 切换到 mobile actions，确保 150–200% zoom 时仍保留足够内容高度且不会横向溢出。
