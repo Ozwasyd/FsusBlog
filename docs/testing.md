@@ -192,15 +192,15 @@ node tools/run-test-matrix.mjs aggregate fast-summary --dry-run
 
 ### Rights V3 test matrix
 
-Rights V3 的完整验收矩阵由 `tools/test/lanes/rights-v3-test-matrix.sh` 承载，属于 `integration-runtime` 证据，不并入 fast gate。它会运行后端 schema migration、canonical hash、write path、当前 ArticleDetail V4 codec 与 V3 只读兼容、projector、proof pipeline、ArticleDetail artifact contract 和 preencoded artifact hot path 测试，再运行前端 V4/V3 decode、API/view contracts、admin editor flow、public article rendering、PublicAOT hydration 与 code-copy gating 的 Vitest 文件。
+Rights V3 的完整验收矩阵由 `tests/fixtures/evidence-projection/rights-v3-test-matrix.json` 列出完整 canonical assertion IDs，并由 `tools/test/lanes/rights-v3-test-matrix.sh` 生成独立 projection receipt。它属于 local Production 的 `integration-runtime` 证据，不并入 fast gate，也不再启动额外的 `dotnet test`、Vitest、frontend static checker 或兼容性 Debug build。普通 backend assertions 从同轮 backend production exact-union TRX 投影，frontend assertions 从同轮 rolling Vitest catalog/report 投影，editor workspace 与 public page manifest 规则从 run-bound frontend static receipts 投影；唯一 PostgreSQL schema migration method 由 canonical `Category=Integration` universe 执行一次并写 producer receipt。
 
 本地复现：
 
 ```bash
-./tools/test.sh ci-tier rights-v3-test-matrix --no-deps
+./tools/test.sh production
 ```
 
-该 lane 成功后写入 `.tmp/release-evidence/rights-v3-test-matrix.json`。其中必须覆盖：ArticleDetail does not use a separate public rights endpoint、artifact-hit public read does not query rights tables、legacy ArticleDetail payload is rejected、legacy public article artifact is not accepted as V3，以及 preencoded ArticleDetail artifact hot path 性能门禁。schema migration 片段会启动 Docker PostgreSQL fixture；若本机缺少 Docker，应先补环境依赖再重跑，不应跳过该集成切片。
+该 lane 成功后写入 `.tmp/release-evidence/rights-v3-test-matrix.json`。receipt 必须绑定 source commit、worktree fingerprint、run ID、namespace、每个 producer digest 和完整 expected ID 集合；缺失、重复、非 Passed、错 source/run 或 digest mismatch 均 fail closed。PostgreSQL schema migration 仍由 canonical integration universe 使用 Docker fixture 执行；若本机缺少 Docker，应先补环境依赖再重跑，不应跳过或以旧 run 证据替代。
 
 ### Browser lane scaling policy
 

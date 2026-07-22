@@ -53,14 +53,21 @@ export function validateEvidenceExecutionDeclaration(tier)
         return errors;
     }
 
-    for (const field of ['executionOwner', 'projectFrom', 'projectionCatalog'])
+    for (const field of ['executionOwner', 'projectionCatalog'])
     {
         if (typeof tier[field] !== 'string' || !tier[field].trim())
         {
             errors.push(`${tier.id}.${field} is required for projection tiers`);
         }
     }
-    if (tier.executionOwner !== tier.projectFrom)
+    const producers = Array.isArray(tier.projectFrom) ? tier.projectFrom : [tier.projectFrom];
+    if (producers.some((producer) => typeof producer !== 'string' || !producer.trim())
+        || new Set(producers).size !== producers.length
+        || JSON.stringify(producers) !== JSON.stringify([...producers].sort()))
+    {
+        errors.push(`${tier.id}.projectFrom must contain sorted unique canonical producer IDs`);
+    }
+    if (producers.length === 1 && tier.executionOwner !== producers[0])
     {
         errors.push(`${tier.id}.executionOwner must equal projectFrom for a single canonical producer`);
     }
@@ -102,7 +109,7 @@ export function validateEvidenceExecutionDeclaration(tier)
     }
 
     const command = String(tier.command ?? '');
-    if (!command.startsWith('node tools/test/project-evidence.mjs ')
+    if (!/^node tools\/test\/project-(?:evidence|rights-v3-evidence)\.mjs(?: |$)/u.test(command)
     || /(?:&&|\|\||;|\n|`|\$\()/u.test(command))
     {
         errors.push(`${tier.id} projection command must exclusively use node tools/test/project-evidence.mjs`);
@@ -120,9 +127,11 @@ export function validateEvidenceExecutionDeclaration(tier)
     {
         errors.push(`${tier.id} projection tier must use resourceClass=io and cost=low`);
     }
-    if (!tier.dependsOn?.includes(tier.projectFrom) || !tier.requiresEvidenceFrom?.includes(tier.projectFrom))
+    const missingDependencies = producers.filter((producer) => !tier.dependsOn?.includes(producer));
+    const missingEvidence = producers.filter((producer) => !tier.requiresEvidenceFrom?.includes(producer));
+    if (missingDependencies.length > 0 || missingEvidence.length > 0)
     {
-        errors.push(`${tier.id} projection tier must depend on and require evidence from projectFrom=${tier.projectFrom}`);
+        errors.push(`${tier.id} projection tier must depend on and require evidence from every projectFrom producer`);
     }
     return errors;
 }

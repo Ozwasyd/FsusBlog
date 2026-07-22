@@ -295,7 +295,7 @@
                 ".tmp/release-evidence/rights-v3-test-matrix.json"
             ],
             "assertionType": "integration",
-            "failClosedRule": "The rights-v3-test-matrix lane must exit non-zero unless every required backend, frontend, integration and performance slice passes and writes status ok evidence.",
+            "failClosedRule": "The Rights V3 projection must exit non-zero unless every catalogued backend, frontend, static and integration assertion is present exactly once, passed, and bound to the current source, run and producer digest.",
             "minimumRequirement": "Backend evidence must include schema migration, canonical hash, write path, V3 codec, projector and proof pipeline tests; frontend evidence must include V3 decode, API/view contracts, admin editor flow, public article rendering and PublicAOT hydration tests; contract evidence must reject legacy ArticleDetail/public artifacts and prove artifact-hit public reads do not query rights tables; performance evidence must include the preencoded ArticleDetail artifact hot path gate.",
             "tierIds": [
                 "rights-v3-test-matrix"

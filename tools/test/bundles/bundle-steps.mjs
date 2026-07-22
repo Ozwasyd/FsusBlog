@@ -808,7 +808,7 @@ export function runtimeSteps()
             dependsOn: ['security-runtime-core'],
             resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
         }),
-        step('runtime-integration', 'FSUSBLOG_SKIP_BACKEND_INTEGRATION_TESTS=1 tools/test/lanes/runtime-integration.sh', ['integration'], {
+        step('runtime-integration', 'tools/test/lanes/runtime-integration.sh', ['integration'], {
             dependsOn: ['security-runtime-core'],
             resources: { cpuWeight: 1.5, memoryWeight: 1.5, minCpuUnits: 1 }
         }),

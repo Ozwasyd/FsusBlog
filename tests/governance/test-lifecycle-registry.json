@@ -1765,6 +1765,17 @@
       ]
     },
     {
+      "file": "tests/tools/rights-v3-projection.test.mjs",
+      "owner": "repository-governance:static-node-contracts",
+      "executionCategory": "repository-governance",
+      "lifecycle": "canonical-execution",
+      "physicalExecutionCount": 1,
+      "classifications": [
+        "source-text",
+        "runtime"
+      ]
+    },
+    {
       "file": "tests/tools/run-bound-marker.test.mjs",
       "owner": "manual-diagnostic:tests/tools/run-bound-marker.test.mjs",
       "executionCategory": "manual-diagnostic",

@@ -267,8 +267,15 @@
                         "minLength": 1
                     },
                     "projectFrom": {
-                        "type": "string",
-                        "minLength": 1
+                        "oneOf": [
+                            {"type": "string", "minLength": 1},
+                            {
+                                "type": "array",
+                                "minItems": 2,
+                                "items": {"type": "string", "minLength": 1},
+                                "uniqueItems": true
+                            }
+                        ]
                     },
                     "projectionCatalog": {
                         "type": "string",
