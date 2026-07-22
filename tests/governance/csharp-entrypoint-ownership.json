@@ -13,6 +13,9 @@
         ".csproj"
     ],
     "fileBasedApps": [],
+    "sourceFixtureRoots": [
+        "tests/fixtures/article-core-test-api"
+    ],
     "forbiddenFixedGlobalOutputRoots": [
         "/tmp",
         "/var/tmp"

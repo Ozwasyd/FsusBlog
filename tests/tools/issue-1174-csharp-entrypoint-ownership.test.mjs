@@ -45,11 +45,28 @@ test('canonical repository has no C# source under the frontend project and every
   assert.equal(result.javascriptProjectRootCount, 1)
   assert.ok(result.entrypointCount >= 5)
   assert.equal(result.protocolFixtureCount, 0)
+  assert.equal(result.sourceFixtureCount, 3)
   assert.equal(fs.existsSync(path.join(repositoryRoot, 'src/frontend/Program.cs')), false)
   assert.deepEqual(sourceLayoutPolicy.languageOwnership.csharpEntrypoint, {
     policy: policyRelative,
     checker: 'tools/check-csharp-entrypoint-ownership.mjs'
   })
+})
+
+test('declared C# source fixtures are scoped to tests/fixtures and do not exempt sibling source', (context) => {
+  const root = fixtureRoot()
+  context.after(() => fs.rmSync(root, { recursive: true, force: true }))
+  write(root, 'tests/fixtures/article-core-test-api/current-command-query.cs', 'service.QueryAsync(new Query());\n')
+  write(root, 'tests/fixtures/unowned.cs', 'internal static class Unowned {}\n')
+
+  const result = check(root)
+  assert.ok(!result.errors.some((error) => error.includes('article-core-test-api/current-command-query.cs')))
+  assert.ok(result.errors.some((error) => error.includes('tests/fixtures/unowned.cs')))
+
+  const invalidPolicy = structuredClone(repositoryPolicy)
+  invalidPolicy.sourceFixtureRoots = ['src/backend']
+  assert.ok(validateCSharpEntrypointOwnershipPolicy(invalidPolicy)
+    .some((error) => error.includes('must stay under tests/fixtures')))
 })
 
 test('one scan exposes frontend C#, unowned entrypoints, fixed global output, and ownerless fixtures together', (context) => {
