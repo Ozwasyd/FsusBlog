@@ -16,6 +16,7 @@ import {
   captureStorageState,
   ensureThemeApplied,
   freezeUiForScreenshot,
+  normalizeDynamicEvidenceForScreenshot,
   openThemedAuditedPage,
   prewarmDevRuntime,
   settlePage,
@@ -454,6 +455,7 @@ async function captureRouteScreenshot(page: Page, route: ManualRoute, viewport: 
     await assertResponsiveLayoutContract(page, `${route.name} ${viewport.name} ${theme}`)
   }
   await freezeUiForScreenshot(page)
+  await normalizeDynamicEvidenceForScreenshot(page)
 
   const outputPath = screenshotPath(route, viewport, theme)
   const docsPath = docsScreenshotPath(route, viewport, theme)

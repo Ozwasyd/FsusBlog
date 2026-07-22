@@ -513,7 +513,20 @@ export async function prewarmDevRuntime(browser: Browser): Promise<void> {
 
   try {
     await session.page.goto('/', { waitUntil: 'domcontentloaded' })
-    await waitForAppReady(session.page, WARMUP_TIMEOUT_MS)
+    try {
+      await waitForAppReady(session.page, WARMUP_TIMEOUT_MS)
+    } catch (error) {
+      // A cold Vite dependency optimization can invalidate the document that
+      // triggered it. Reload that one stale document after the transform
+      // budget has elapsed; a persistent application failure still fails the
+      // second readiness check instead of being hidden by an open-ended retry.
+      if (!(error instanceof Error) || error.name !== 'TimeoutError') {
+        throw error
+      }
+
+      await session.page.reload({ waitUntil: 'domcontentloaded' })
+      await waitForAppReady(session.page, WARMUP_TIMEOUT_MS)
+    }
   } finally {
     await session.close()
   }
@@ -2108,6 +2121,23 @@ export async function freezeUiForScreenshot(page: Page): Promise<void> {
         display: none !important;
       }
     `)
+}
+
+export async function normalizeDynamicEvidenceForScreenshot(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
+    let node = walker.nextNode()
+    while (node) {
+      const value = node.nodeValue ?? ''
+      node.nodeValue = value
+        .replace(/\b\d{1,2}\/\d{1,2}\/\d{4},\s+\d{1,2}:\d{2}:\d{2}\s+(?:AM|PM)\b/gu, '1/1/2026, 12:00:00 AM')
+        .replace(/\b\d{4}-\d{2}-\d{2}\b/gu, '2026-01-01')
+        .replace(/\b\d{4}年\d{1,2}月\d{1,2}日\b/gu, '2026年1月1日')
+        .replace(/\b\d+\s*小时前\b/gu, '2 小时前')
+        .replace(/\/home\/[^\s]+\/\.tmp\/data\/public-preview-docs-[A-Za-z0-9_.-]+\/backups/gu, '/workspace/.tmp/data/public-preview-docs-stable/backups')
+      node = walker.nextNode()
+    }
+  })
 }
 
 export async function collectVisualMasks(page: Page): Promise<Locator[]> {
