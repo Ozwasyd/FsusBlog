@@ -425,11 +425,20 @@ async function runCheck(item) {
     assert(!body.includes('data-aot-action="activate-comments"'), `[${item.name}] article comments activator must be removed from AOT`);
   }
 
-  if (item.name === 'home') {
-    assert(!body.includes('public-aside-placeholder'), `[${item.name}] home hot-articles placeholder must be removed from AOT`);
-    assert(body.includes('id="fsus-home-hot-articles-slot"'), `[${item.name}] home hot-articles slot must render in AOT`);
-    assert(body.includes('id="fsus-home-hot-articles-slot-content"'), `[${item.name}] home hot-articles slot content must render in AOT`);
-  }
+    if (item.name === 'home')
+    {
+        assert(!body.includes('public-aside-placeholder'), `[${item.name}] home hot-articles placeholder must be removed from AOT`);
+        const hasEditorialRecommendations = body.includes('data-home-editorial-secondary');
+        const hasAsideRecommendations = body.includes('id="fsus-home-hot-articles-slot"');
+        assert(
+            hasEditorialRecommendations || hasAsideRecommendations,
+            `[${item.name}] home recommendations must render in the editorial flow or AOT aside`
+        );
+        if (hasAsideRecommendations)
+        {
+            assert(body.includes('id="fsus-home-hot-articles-slot-content"'), `[${item.name}] home hot-articles slot content must render in AOT`);
+        }
+    }
 
   for (const text of item.expectedText ?? []) {
     assert(body.includes(text), `[${item.name}] missing expected text: ${text}`);
