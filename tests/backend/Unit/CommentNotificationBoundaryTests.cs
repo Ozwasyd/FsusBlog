@@ -53,17 +53,4 @@ public sealed class CommentNotificationBoundaryTests
             static parameter => parameter.ParameterType == typeof(CommentCommandService));
     }
 
-    [Fact]
-    public void Composition_RegistersNarrowScopedPort()
-    {
-        var services = new ServiceCollection();
-
-        services.AddFsusRuntimeDomainServices();
-
-        ServiceDescriptor descriptor = Assert.Single(
-            services,
-            static candidate => candidate.ServiceType == typeof(ICommentNotificationService));
-        Assert.Equal(ServiceLifetime.Scoped, descriptor.Lifetime);
-        Assert.Equal(typeof(CommentNotificationService), descriptor.ImplementationType);
-    }
 }

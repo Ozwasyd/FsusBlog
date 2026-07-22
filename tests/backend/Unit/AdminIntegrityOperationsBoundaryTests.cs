@@ -29,17 +29,4 @@ public sealed class AdminIntegrityOperationsBoundaryTests
         Assert.DoesNotContain(typeof(IAdminDangerousOperationPolicyReader), dependencies.Select(static item => item.ParameterType));
     }
 
-    [Fact]
-    public void Composition_RegistersNarrowScopedPort()
-    {
-        var services = new ServiceCollection();
-
-        services.AddFsusRuntimeInfrastructureServices(new ConfigurationBuilder().Build());
-
-        ServiceDescriptor descriptor = Assert.Single(
-            services,
-            static candidate => candidate.ServiceType == typeof(IAdminIntegrityOperations));
-        Assert.Equal(ServiceLifetime.Scoped, descriptor.Lifetime);
-        Assert.Equal(typeof(AdminIntegrityOperations), descriptor.ImplementationType);
-    }
 }

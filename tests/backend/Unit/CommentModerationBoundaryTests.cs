@@ -54,20 +54,6 @@ public sealed class CommentModerationBoundaryTests
     }
 
     [Fact]
-    public void Composition_RegistersNarrowScopedPort()
-    {
-        var services = new ServiceCollection();
-
-        services.AddFsusRuntimeDomainServices();
-
-        ServiceDescriptor descriptor = Assert.Single(
-            services,
-            static candidate => candidate.ServiceType == typeof(ICommentModerationService));
-        Assert.Equal(ServiceLifetime.Scoped, descriptor.Lifetime);
-        Assert.Equal(typeof(CommentModerationService), descriptor.ImplementationType);
-    }
-
-    [Fact]
     public void RuntimeBoundary_ExposesOnlyDecisionPersistenceAndPostInsertUseCases()
     {
         string[] methods = typeof(ICommentModerationService)

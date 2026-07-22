@@ -76,17 +76,4 @@ public sealed class PublicAotRuntimeStateBoundaryTests
                 || parameter.ParameterType == typeof(PublicAotShellService));
     }
 
-    [Fact]
-    public void Composition_RegistersNarrowSingletonPort()
-    {
-        var services = new ServiceCollection();
-
-        services.AddFsusRuntimePublicAotServices();
-
-        ServiceDescriptor descriptor = Assert.Single(
-            services,
-            static candidate => candidate.ServiceType == typeof(IPublicAotRuntimeState));
-        Assert.Equal(ServiceLifetime.Singleton, descriptor.Lifetime);
-        Assert.Equal(typeof(PublicAotRuntimeState), descriptor.ImplementationType);
-    }
 }

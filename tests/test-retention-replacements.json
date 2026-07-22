@@ -10509,6 +10509,110 @@
                 "xunit:tests/backend/Unit/AuthoringDraftConcurrencyTests.cs#AuthoringDraftConcurrencyTests.SaveDraftAsync_ConcurrentCreateAllowsExactlyOneWriter"
             ],
             "reason": "The current concurrency test states the stronger exactly-one-writer guarantee for same-key draft creation."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminArtifactOperationsBoundaryTests.cs#AdminArtifactOperationsBoundaryTests.Composition_RegistersNarrowScopedPort",
+            "path": "tests/backend/Unit/AdminArtifactOperationsBoundaryTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/CompositionRegistrationContractTests.cs#CompositionRegistrationContractTests.CatalogEntry_MatchesCanonicalCompositionAndResolutionSemantics"
+            ],
+            "reason": "The canonical registration catalog owns implementation, scoped lifetime, multiplicity and resolution semantics while the module boundary tests retain behavior assertions."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminBackupStatusBoundaryTests.cs#AdminBackupStatusBoundaryTests.Composition_RegistersNarrowSingletonPort",
+            "path": "tests/backend/Unit/AdminBackupStatusBoundaryTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/CompositionRegistrationContractTests.cs#CompositionRegistrationContractTests.CatalogEntry_MatchesCanonicalCompositionAndResolutionSemantics"
+            ],
+            "reason": "The canonical registration catalog owns implementation, singleton lifetime, multiplicity and resolution semantics while the module boundary tests retain behavior assertions."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminCacheDiagnosticsBoundaryTests.cs#AdminCacheDiagnosticsBoundaryTests.Composition_RegistersNarrowScopedPort",
+            "path": "tests/backend/Unit/AdminCacheDiagnosticsBoundaryTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/CompositionRegistrationContractTests.cs#CompositionRegistrationContractTests.CatalogEntry_MatchesCanonicalCompositionAndResolutionSemantics"
+            ],
+            "reason": "The canonical registration catalog owns implementation, scoped lifetime, multiplicity and resolution semantics while the module boundary tests retain behavior assertions."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminDangerousOperationPolicyBoundaryTests.cs#AdminDangerousOperationPolicyBoundaryTests.Composition_RegistersNarrowSingletonPort",
+            "path": "tests/backend/Unit/AdminDangerousOperationPolicyBoundaryTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/CompositionRegistrationContractTests.cs#CompositionRegistrationContractTests.CatalogEntry_MatchesCanonicalCompositionAndResolutionSemantics"
+            ],
+            "reason": "The canonical registration catalog owns implementation, singleton lifetime, multiplicity and resolution semantics while the module boundary tests retain behavior assertions."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminIntegrityOperationsBoundaryTests.cs#AdminIntegrityOperationsBoundaryTests.Composition_RegistersNarrowScopedPort",
+            "path": "tests/backend/Unit/AdminIntegrityOperationsBoundaryTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/CompositionRegistrationContractTests.cs#CompositionRegistrationContractTests.CatalogEntry_MatchesCanonicalCompositionAndResolutionSemantics"
+            ],
+            "reason": "The canonical registration catalog owns implementation, scoped lifetime, multiplicity and resolution semantics while the module boundary tests retain behavior assertions."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminOperationsHealthBoundaryTests.cs#AdminOperationsHealthBoundaryTests.Composition_RegistersNarrowScopedPort",
+            "path": "tests/backend/Unit/AdminOperationsHealthBoundaryTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/CompositionRegistrationContractTests.cs#CompositionRegistrationContractTests.CatalogEntry_MatchesCanonicalCompositionAndResolutionSemantics"
+            ],
+            "reason": "The canonical registration catalog owns implementation, scoped lifetime, multiplicity and resolution semantics while the module boundary tests retain behavior assertions."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/CommentAttributionPrivacyBoundaryTests.cs#CommentAttributionPrivacyBoundaryTests.Composition_RegistersNarrowScopedPort",
+            "path": "tests/backend/Unit/CommentAttributionPrivacyBoundaryTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/CompositionRegistrationContractTests.cs#CompositionRegistrationContractTests.CatalogEntry_MatchesCanonicalCompositionAndResolutionSemantics"
+            ],
+            "reason": "The canonical registration catalog owns implementation, scoped lifetime, multiplicity and resolution semantics while privacy and dependency-boundary assertions remain in the module test."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/CommentModerationBoundaryTests.cs#CommentModerationBoundaryTests.Composition_RegistersNarrowScopedPort",
+            "path": "tests/backend/Unit/CommentModerationBoundaryTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/CompositionRegistrationContractTests.cs#CompositionRegistrationContractTests.CatalogEntry_MatchesCanonicalCompositionAndResolutionSemantics"
+            ],
+            "reason": "The canonical registration catalog owns implementation, scoped lifetime, multiplicity and resolution semantics while moderation behavior and negative boundaries remain in the module test."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/CommentNotificationBoundaryTests.cs#CommentNotificationBoundaryTests.Composition_RegistersNarrowScopedPort",
+            "path": "tests/backend/Unit/CommentNotificationBoundaryTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/CompositionRegistrationContractTests.cs#CompositionRegistrationContractTests.CatalogEntry_MatchesCanonicalCompositionAndResolutionSemantics"
+            ],
+            "reason": "The canonical registration catalog owns implementation, scoped lifetime, multiplicity and resolution semantics while notification behavior remains in the module test."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/CommentQueryBoundaryTests.cs#CommentQueryBoundaryTests.Composition_RegistersNarrowScopedPort",
+            "path": "tests/backend/Unit/CommentQueryBoundaryTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/CompositionRegistrationContractTests.cs#CompositionRegistrationContractTests.CatalogEntry_MatchesCanonicalCompositionAndResolutionSemantics"
+            ],
+            "reason": "The canonical registration catalog owns implementation, scoped lifetime, multiplicity and resolution semantics while query behavior remains in the module test."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/PublicAotArtifactStoreBoundaryTests.cs#PublicAotArtifactStoreBoundaryTests.Composition_RegistersNarrowScopedPort",
+            "path": "tests/backend/Unit/PublicAotArtifactStoreBoundaryTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/CompositionRegistrationContractTests.cs#CompositionRegistrationContractTests.CatalogEntry_MatchesCanonicalCompositionAndResolutionSemantics"
+            ],
+            "reason": "The canonical registration catalog owns implementation, scoped lifetime, multiplicity and resolution semantics while artifact storage behavior remains in the module test."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/PublicAotDocumentCompositionBoundaryTests.cs#PublicAotDocumentCompositionBoundaryTests.Composition_RegistersNarrowScopedPort",
+            "path": "tests/backend/Unit/PublicAotDocumentCompositionBoundaryTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/CompositionRegistrationContractTests.cs#CompositionRegistrationContractTests.CatalogEntry_MatchesCanonicalCompositionAndResolutionSemantics"
+            ],
+            "reason": "The canonical registration catalog owns implementation, scoped lifetime, multiplicity and resolution semantics while document composition behavior remains in the module test."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/PublicAotRuntimeStateBoundaryTests.cs#PublicAotRuntimeStateBoundaryTests.Composition_RegistersNarrowSingletonPort",
+            "path": "tests/backend/Unit/PublicAotRuntimeStateBoundaryTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/CompositionRegistrationContractTests.cs#CompositionRegistrationContractTests.CatalogEntry_MatchesCanonicalCompositionAndResolutionSemantics"
+            ],
+            "reason": "The canonical registration catalog owns implementation, singleton lifetime, multiplicity and resolution semantics while runtime state behavior remains in the module test."
         }
     ],
     "assertionReplacements": [

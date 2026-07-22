@@ -128,20 +128,6 @@ public sealed class PublicAotArtifactStoreBoundaryTests
                 || parameter.ParameterType == typeof(PublicAotShellService));
     }
 
-    [Fact]
-    public void Composition_RegistersNarrowScopedPort()
-    {
-        var services = new ServiceCollection();
-
-        services.AddFsusRuntimePublicAotServices();
-
-        ServiceDescriptor descriptor = Assert.Single(
-            services,
-            static candidate => candidate.ServiceType == typeof(IPublicAotArtifactStore));
-        Assert.Equal(ServiceLifetime.Scoped, descriptor.Lifetime);
-        Assert.Equal(typeof(PublicAotArtifactStore), descriptor.ImplementationType);
-    }
-
     private sealed class PrefixRuntimeKeyScope(string prefix) : IRuntimeKeyScope
     {
         public string PrefixKey(string key) => string.Concat(prefix, key);

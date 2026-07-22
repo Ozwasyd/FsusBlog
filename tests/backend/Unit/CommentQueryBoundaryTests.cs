@@ -39,17 +39,4 @@ public sealed class CommentQueryBoundaryTests
         Assert.DoesNotContain(typeof(CommentCommandService), gatewayDependencies);
     }
 
-    [Fact]
-    public void Composition_RegistersNarrowScopedPort()
-    {
-        var services = new ServiceCollection();
-
-        services.AddFsusRuntimeDomainServices();
-
-        ServiceDescriptor descriptor = Assert.Single(
-            services,
-            static candidate => candidate.ServiceType == typeof(ICommentQueryService));
-        Assert.Equal(ServiceLifetime.Scoped, descriptor.Lifetime);
-        Assert.Equal(typeof(CommentQueryService), descriptor.ImplementationType);
-    }
 }

@@ -82,17 +82,4 @@ public sealed class AdminBackupStatusBoundaryTests
             static parameter => parameter.ParameterType == typeof(AdminIntegrityOperations));
     }
 
-    [Fact]
-    public void Composition_RegistersNarrowSingletonPort()
-    {
-        var services = new ServiceCollection();
-
-        services.AddFsusRuntimeInfrastructureServices(new ConfigurationBuilder().Build());
-
-        ServiceDescriptor descriptor = Assert.Single(
-            services,
-            static candidate => candidate.ServiceType == typeof(IAdminBackupStatusReader));
-        Assert.Equal(ServiceLifetime.Singleton, descriptor.Lifetime);
-        Assert.Equal(typeof(AdminBackupStatusReader), descriptor.ImplementationType);
-    }
 }

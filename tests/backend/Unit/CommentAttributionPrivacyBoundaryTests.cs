@@ -35,20 +35,6 @@ public sealed class CommentAttributionPrivacyBoundaryTests
     }
 
     [Fact]
-    public void Composition_RegistersNarrowScopedPort()
-    {
-        var services = new ServiceCollection();
-
-        services.AddFsusRuntimeDomainServices();
-
-        ServiceDescriptor descriptor = Assert.Single(
-            services,
-            static candidate => candidate.ServiceType == typeof(ICommentAttributionPrivacyService));
-        Assert.Equal(ServiceLifetime.Scoped, descriptor.Lifetime);
-        Assert.Equal(typeof(CommentAttributionPrivacyService), descriptor.ImplementationType);
-    }
-
-    [Fact]
     public void RuntimeBoundary_HasNoGenericCommentServiceForwardingMethods()
     {
         string[] methods = typeof(ICommentAttributionPrivacyService)

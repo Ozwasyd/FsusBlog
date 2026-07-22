@@ -61,17 +61,4 @@ public sealed class AdminOperationsHealthBoundaryTests
             static method => method.Name is "ResolveVersion" or "ResolveCommit");
     }
 
-    [Fact]
-    public void Composition_RegistersNarrowScopedPort()
-    {
-        var services = new ServiceCollection();
-
-        services.AddFsusRuntimeInfrastructureServices(new ConfigurationBuilder().Build());
-
-        ServiceDescriptor descriptor = Assert.Single(
-            services,
-            static candidate => candidate.ServiceType == typeof(IAdminOperationsHealthReader));
-        Assert.Equal(ServiceLifetime.Scoped, descriptor.Lifetime);
-        Assert.Equal(typeof(AdminOperationsHealthReader), descriptor.ImplementationType);
-    }
 }

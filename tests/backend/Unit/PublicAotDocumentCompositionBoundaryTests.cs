@@ -81,20 +81,6 @@ public sealed class PublicAotDocumentCompositionBoundaryTests
                 || parameter.ParameterType == typeof(PublicAotShellService));
     }
 
-    [Fact]
-    public void Composition_RegistersNarrowScopedPort()
-    {
-        var services = new ServiceCollection();
-
-        services.AddFsusRuntimePublicAotServices();
-
-        ServiceDescriptor descriptor = Assert.Single(
-            services,
-            static candidate => candidate.ServiceType == typeof(IPublicAotDocumentComposition));
-        Assert.Equal(ServiceLifetime.Scoped, descriptor.Lifetime);
-        Assert.Equal(typeof(PublicAotDocumentComposition), descriptor.ImplementationType);
-    }
-
     private sealed class ImmediateDbConcurrencyGate : IDbConcurrencyGate
     {
         public Task<T> ExecuteAsync<T>(
