@@ -15,6 +15,12 @@
 
 Every tracked contract, fixture, attestation and historical snapshot manifest declares `evidenceClass`, `freshExecution`, `releaseBound`, `productionFreshRun` and `generatedFrom`. Static classes must set all three booleans to `false`. Checkers reject contradictory classification, so a tracked JSON file cannot satisfy a fresh production requirement by being renamed or reporting `status: ok`.
 
+## Physical producers and logical projections
+
+Fresh evidence may be produced once and consumed by more than one logical tier. This is permitted only through the fail-closed contract in [`docs/testing/evidence-projection-contract.md`](testing/evidence-projection-contract.md). The canonical producer remains the physical execution owner; each projection remains an independent logical consumer with its own exact assertion, coverage, artifact, and pass/fail receipt.
+
+A projection is valid only inside the same full commit, worktree fingerprint, run ID, and namespace. The projector verifies producer and artifact content digests and records that no test runner or runtime probe was launched. File existence, log text, timestamps, historical issue evidence, and cross-run receipts are never sufficient. Release closeout consumes the tier-specific projection receipt together with its producer binding, so projection changes execution topology without weakening evidence authority or retention.
+
 ## Historical reports
 
 The v1.1.0 public-preview readiness campaign is retained under `docs/reports/open-source-readiness/v1.1.0-public-preview/`. Every Markdown report carries a historical banner. `snapshot-manifest.json` records the time window, the revision where it was originally recorded, the limited scope of that revision claim, and every retained artifact hash. Historical green values do not describe current master.
