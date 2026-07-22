@@ -999,13 +999,16 @@ public sealed class PublicHotArtifactProjector(
     {
         count = Math.Clamp(count, 1, MaxHotArticlesCount);
         DateTime now = DateTime.UtcNow;
+        // SqlSugar multi-table Where must use the join aliases (`article`…).
+        // A discarded single-table `a` alias throws at ToSql, is swallowed by
+        // AddHotFrameAsync, and leaves public hot-read without /hot/{size}.aeds.
         var rows = await db.Queryable<Article>()
             .InnerJoin<ArticlePublicationRecord>((article, publication) => article.CurrentPublicationId == publication.Id)
             .InnerJoin<ArticleRevision>((article, publication, revision) => publication.ArticleRevisionId == revision.Id)
-            .Where(a => !a.IsDeleted
-                && a.Status == ArticleStatus.Published
-                && (a.PublishedAt == null || a.PublishedAt <= now)
-                && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= now))
+            .Where((article, publication, revision) => !article.IsDeleted
+                && article.Status == ArticleStatus.Published
+                && (article.PublishedAt == null || article.PublishedAt <= now)
+                && (article.ScheduledPublishAt == null || article.ScheduledPublishAt <= now))
             .OrderByDescending((article, publication, revision) => article.Views)
             .OrderByDescending((article, publication, revision) => article.Id)
             .Take(count)

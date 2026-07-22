@@ -1043,11 +1043,11 @@ public partial class ArticleService
             .InnerJoin<ArticlePublicationRecord>((article, publication) => article.CurrentPublicationId == publication.Id)
             .InnerJoin<ArticleRevision>((article, publication, revision) => publication.ArticleRevisionId == revision.Id)
             .LeftJoin<Category>((article, publication, revision, category) => revision.CategoryId == category.Id)
-            .Where(a => ids.Contains(a.Id)
-                && !a.IsDeleted
-                && a.Status == ArticleStatus.Published
-                && (a.PublishedAt == null || a.PublishedAt <= now)
-                && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= now))
+            .Where((article, publication, revision, category) => ids.Contains(article.Id)
+                && !article.IsDeleted
+                && article.Status == ArticleStatus.Published
+                && (article.PublishedAt == null || article.PublishedAt <= now)
+                && (article.ScheduledPublishAt == null || article.ScheduledPublishAt <= now))
             .Select((article, publication, revision, category) => new
             {
                 article.Id,

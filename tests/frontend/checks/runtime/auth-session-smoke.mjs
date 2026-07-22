@@ -47,7 +47,13 @@ async function main() {
   const currentStandardSession = standardSessions.find((item) => item.sessionId === standard.sessionId);
   assert(currentStandardSession, 'standard session not found before replacement');
   assert(currentStandardSession.isCurrent === true, 'standard session should be current before replacement');
-  assert(typeof currentStandardSession.mfaVerified === 'boolean', 'standard session mfaVerified should be boolean');
+  // Session summary contracts expose authenticationStrength (not a coarse
+  // mfaVerified boolean). Fixture sessions mint legacy_unverified by default.
+  assert(
+    typeof currentStandardSession.authenticationStrength === 'string'
+      && currentStandardSession.authenticationStrength.length > 0,
+    'standard session authenticationStrength should be a non-empty string'
+  );
 
   const remembered = await loginWithFixtureSessionBypass(userName, userPassword, true, rememberFp, requestTimeoutMs);
 
@@ -62,7 +68,11 @@ async function main() {
   assert(rememberedSession, 'remember-me session not found in session list');
 
   assert(rememberedSession.isCurrent === true, 'remember-me session should be current when listing via remember-me cookie');
-  assert(typeof rememberedSession.mfaVerified === 'boolean', 'remember-me session mfaVerified should be boolean');
+  assert(
+    typeof rememberedSession.authenticationStrength === 'string'
+      && rememberedSession.authenticationStrength.length > 0,
+    'remember-me session authenticationStrength should be a non-empty string'
+  );
 
   const replacedStandardRefreshResult = await callBinary('/api/Auth/refresh-token', standard.cookieHeader, standardFp, {
     method: 'POST'
