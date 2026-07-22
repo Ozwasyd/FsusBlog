@@ -172,7 +172,11 @@ async function fetchAdminBinary(relativePath, options = {}) {
   })
   if (!result.response.ok) {
     const message = result.payload?.message ?? result.payload?.Message ?? `status ${result.response.status}`
-    throw new Error(`request failed: ${relativePath} -> ${result.response.status} ${message}`)
+    const details = result.payload?.details ?? result.payload?.Details
+    const detailSuffix = typeof details === 'string' && details.trim() && details.trim() !== message
+      ? ` details=${details.trim()}`
+      : ''
+    throw new Error(`request failed: ${relativePath} -> ${result.response.status} ${message}${detailSuffix}`)
   }
   const payload = result.payload?.data ?? result.payload
   if (payload?.payload instanceof Uint8Array) {

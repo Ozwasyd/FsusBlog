@@ -17,6 +17,7 @@ import {
   ensureThemeApplied,
   freezeUiForScreenshot,
   openThemedAuditedPage,
+  prewarmDevRuntime,
   settlePage,
   userName,
   userPassword,
@@ -643,14 +644,20 @@ async function assertThemeModeToggleStyled(page: Page, label: string): Promise<v
     const input = toggle.querySelector<HTMLInputElement>('input[type="radio"]')
     const buttonInner = toggle.querySelector<HTMLElement>('.el-radio-button__inner')
     const checkedButtonInner = toggle.querySelector<HTMLElement>('.el-radio-button__original-radio:checked + .el-radio-button__inner')
+    const menuButton = toggle.querySelector<HTMLElement>('.el-theme-mode-toggle__menu-button')
+    const segmented = toggle.classList.contains('el-theme-mode-toggle--segmented')
+    const menuButtonVariant = toggle.classList.contains('el-theme-mode-toggle--menu-button')
+    const visibleControl = buttonInner ?? menuButton
+    const selectedControl = checkedButtonInner ?? menuButton
     const rootStyle = getComputedStyle(document.documentElement)
     const inputStyle = input ? getComputedStyle(input) : null
-    const buttonStyle = buttonInner ? getComputedStyle(buttonInner) : null
-    const checkedButtonStyle = checkedButtonInner ? getComputedStyle(checkedButtonInner) : null
+    const buttonStyle = visibleControl ? getComputedStyle(visibleControl) : null
+    const checkedButtonStyle = selectedControl ? getComputedStyle(selectedControl) : null
 
     return {
       present: true,
-      hasRadioButtonInner: Boolean(buttonInner),
+      variant: segmented ? 'segmented' : menuButtonVariant ? 'menu-button' : 'unknown',
+      hasExpectedControl: segmented ? Boolean(buttonInner) : menuButtonVariant ? Boolean(menuButton) : false,
       rootBorderToken: rootStyle.getPropertyValue('--el-border').trim(),
       rootPrimaryToken: rootStyle.getPropertyValue('--el-color-primary').trim(),
       rootFillBlankToken: rootStyle.getPropertyValue('--el-fill-color-blank').trim(),
@@ -669,14 +676,19 @@ async function assertThemeModeToggleStyled(page: Page, label: string): Promise<v
     return
   }
 
-  expect(state.hasRadioButtonInner, `${label} theme mode toggle should use FsusUI radio-button DOM`).toBe(true)
+  expect(state.variant, `${label} theme mode toggle should declare a supported FsusUI variant`).not.toBe('unknown')
+  expect(state.hasExpectedControl, `${label} theme mode toggle should use its FsusUI ${state.variant} DOM`).toBe(true)
   expect(state.rootBorderToken, `${label} theme mode toggle should load Element border token`).not.toBe('')
   expect(state.rootPrimaryToken, `${label} theme mode toggle should load Element primary token`).not.toBe('')
   expect(state.rootFillBlankToken, `${label} theme mode toggle should load Element fill token`).not.toBe('')
-  expect(state.inputOpacity, `${label} theme mode toggle native radio should be visually hidden`).toBe('0')
-  expect(state.inputPosition, `${label} theme mode toggle native radio should be removed from flow`).toBe('absolute')
-  expect(state.buttonDisplay, `${label} theme mode toggle segmented button should be styled`).toBe('inline-block')
-  expect(Number.parseFloat(state.buttonPaddingInlineStart), `${label} theme mode toggle segmented button should keep component padding`).toBeGreaterThanOrEqual(8)
+  if (state.variant === 'segmented') {
+    expect(state.inputOpacity, `${label} theme mode toggle native radio should be visually hidden`).toBe('0')
+    expect(state.inputPosition, `${label} theme mode toggle native radio should be removed from flow`).toBe('absolute')
+    expect(state.buttonDisplay, `${label} theme mode toggle segmented button should be styled`).toBe('inline-block')
+  } else {
+    expect(['inline-flex', 'flex', 'inline-block', 'block'], `${label} theme mode menu button should be styled`).toContain(state.buttonDisplay)
+  }
+  expect(Number.parseFloat(state.buttonPaddingInlineStart), `${label} theme mode toggle control should keep component padding`).toBeGreaterThanOrEqual(8)
   expect(state.checkedBackgroundColor, `${label} theme mode toggle selected segment should have themed background`).not.toBe('')
   expect(state.checkedBackgroundColor, `${label} theme mode toggle selected segment should not be transparent`).not.toBe('rgba(0, 0, 0, 0)')
   expect(state.checkedTextColor, `${label} theme mode toggle selected segment should have themed text color`).not.toBe('')
@@ -689,6 +701,12 @@ test.describe('manual layout screenshot capture', () => {
 
   test('captures every route for human layout review', async ({ browser }) => {
     test.setTimeout(1_800_000)
+
+    // The docs capture starts from a clean Vite transform cache. Warm the
+    // public bootstrap graph before the audited capture context so a valid
+    // first route is not mistaken for a hydration hang while Vite compiles
+    // the public renderer and its FsusUI dependencies.
+    await prewarmDevRuntime(browser)
 
     for (const viewport of selectedViewports) {
       for (const theme of selectedThemes) {

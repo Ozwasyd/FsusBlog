@@ -38,7 +38,10 @@ type RouteExpectation = Readonly<{
 }>
 
 export const APP_READY_TIMEOUT_MS = 45_000
-export const WARMUP_TIMEOUT_MS = 45_000
+// A clean docs capture asks Vite to transform the complete public renderer and
+// its local FsusUI alias before any route is audited. Keep that one-time cold
+// compile outside the ordinary 45s route-readiness budget.
+export const WARMUP_TIMEOUT_MS = 120_000
 
 export type ViewportSize = { width: number, height: number }
 export type UxViewport = Readonly<{
