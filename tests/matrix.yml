@@ -4,7 +4,7 @@ governance:
     retention:
         baseline: tests/test-retention-before.json
         replacementLedger: tests/test-retention-replacements.json
-        postBaselines: [tests/issue-1146-acceptance-baseline.json]
+        postBaselines: [tests/issue-1146-acceptance-baseline.json, tests/issue-1410-composition-registration-baseline.json]
         auditOutput: .tmp/release-evidence/test-retention-audit.json
         automaticDeletion: false
     sourceLocking:

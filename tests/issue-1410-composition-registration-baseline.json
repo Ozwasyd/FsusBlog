@@ -1,0 +1,74 @@
+{
+    "schema": "fsusblog.issue-acceptance-baseline.v1",
+    "issue": 1410,
+    "sourceCommit": "57a3de7649a42c5fdb68c589fa82a7d223630943",
+    "expectedRecords": 13,
+    "expectedMigrated": 13,
+    "records": [
+        {
+            "id": "xunit:tests/backend/Unit/AdminArtifactOperationsBoundaryTests.cs#AdminArtifactOperationsBoundaryTests.Composition_RegistersNarrowScopedPort",
+            "path": "tests/backend/Unit/AdminArtifactOperationsBoundaryTests.cs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminBackupStatusBoundaryTests.cs#AdminBackupStatusBoundaryTests.Composition_RegistersNarrowSingletonPort",
+            "path": "tests/backend/Unit/AdminBackupStatusBoundaryTests.cs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminCacheDiagnosticsBoundaryTests.cs#AdminCacheDiagnosticsBoundaryTests.Composition_RegistersNarrowScopedPort",
+            "path": "tests/backend/Unit/AdminCacheDiagnosticsBoundaryTests.cs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminDangerousOperationPolicyBoundaryTests.cs#AdminDangerousOperationPolicyBoundaryTests.Composition_RegistersNarrowSingletonPort",
+            "path": "tests/backend/Unit/AdminDangerousOperationPolicyBoundaryTests.cs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminIntegrityOperationsBoundaryTests.cs#AdminIntegrityOperationsBoundaryTests.Composition_RegistersNarrowScopedPort",
+            "path": "tests/backend/Unit/AdminIntegrityOperationsBoundaryTests.cs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminOperationsHealthBoundaryTests.cs#AdminOperationsHealthBoundaryTests.Composition_RegistersNarrowScopedPort",
+            "path": "tests/backend/Unit/AdminOperationsHealthBoundaryTests.cs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "xunit:tests/backend/Unit/CommentAttributionPrivacyBoundaryTests.cs#CommentAttributionPrivacyBoundaryTests.Composition_RegistersNarrowScopedPort",
+            "path": "tests/backend/Unit/CommentAttributionPrivacyBoundaryTests.cs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "xunit:tests/backend/Unit/CommentModerationBoundaryTests.cs#CommentModerationBoundaryTests.Composition_RegistersNarrowScopedPort",
+            "path": "tests/backend/Unit/CommentModerationBoundaryTests.cs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "xunit:tests/backend/Unit/CommentNotificationBoundaryTests.cs#CommentNotificationBoundaryTests.Composition_RegistersNarrowScopedPort",
+            "path": "tests/backend/Unit/CommentNotificationBoundaryTests.cs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "xunit:tests/backend/Unit/CommentQueryBoundaryTests.cs#CommentQueryBoundaryTests.Composition_RegistersNarrowScopedPort",
+            "path": "tests/backend/Unit/CommentQueryBoundaryTests.cs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "xunit:tests/backend/Unit/PublicAotArtifactStoreBoundaryTests.cs#PublicAotArtifactStoreBoundaryTests.Composition_RegistersNarrowScopedPort",
+            "path": "tests/backend/Unit/PublicAotArtifactStoreBoundaryTests.cs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "xunit:tests/backend/Unit/PublicAotDocumentCompositionBoundaryTests.cs#PublicAotDocumentCompositionBoundaryTests.Composition_RegistersNarrowScopedPort",
+            "path": "tests/backend/Unit/PublicAotDocumentCompositionBoundaryTests.cs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "xunit:tests/backend/Unit/PublicAotRuntimeStateBoundaryTests.cs#PublicAotRuntimeStateBoundaryTests.Composition_RegistersNarrowSingletonPort",
+            "path": "tests/backend/Unit/PublicAotRuntimeStateBoundaryTests.cs",
+            "disposition": "migrated"
+        }
+    ]
+}
