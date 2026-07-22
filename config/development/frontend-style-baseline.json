@@ -1,9 +1,9 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:f1cff1810a15ce97c5db17c465b6b08b662bef623750cc5480581b0a21a3de4c",
-    "sourceStateSha256": "f1cff1810a15ce97c5db17c465b6b08b662bef623750cc5480581b0a21a3de4c",
+    "generatedFrom": "source-state:0c8864fefaa8fd320ed0eabaa3e78e1c59a62fd5c9c1be9f7fafa71a0311e598",
+    "sourceStateSha256": "0c8864fefaa8fd320ed0eabaa3e78e1c59a62fd5c9c1be9f7fafa71a0311e598",
     "configurationSha256": "3aba534caa13d9279fbebb8c81d72486d7154fe3a425764f094dc705b0ddf5f1",
-    "violationCount": 308728,
+    "violationCount": 308544,
     "fileCount": 1062,
     "files": [
         {
@@ -1229,7 +1229,7 @@
         },
         {
             "path": "src/frontend/src/components/admin/AdminInlineEmptyState.vue",
-            "sourceSha256": "3be93d459058c5c83eed5b6fe43227a502e918ff313fea1b095d2fffff9b5fd9",
+            "sourceSha256": "e814b5997883d5b0af226b6a80646b23782fade730adbc1ecf9822a9f8e68bd3",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
@@ -7846,14 +7846,10 @@
         },
         {
             "path": "tests/frontend/checks/static/check-admin-empty-state-governance.mjs",
-            "sourceSha256": "fcd66ded89974d969ec464917dfcc6a1df307e8be23bba5f869b9c524f15d76a",
-            "violationCount": 184,
-            "violationDigest": "74aadf3313ff18e599622cdebe7871a91f6aabe8c7279cd6c802049b3e4624ff",
-            "rules": {
-                "eslint/@stylistic/brace-style": 29,
-                "eslint/@stylistic/indent": 98,
-                "eslint/@stylistic/semi": 57
-            }
+            "sourceSha256": "cf0298fc9ad2bfebe666be6a8c9aba76f7e532adb23d9ae3c73e77d1f8ea8f4a",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/frontend/checks/static/check-admin-eyebrow-governance.mjs",

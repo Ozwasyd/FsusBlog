@@ -31,3 +31,9 @@ done
 
 echo "[console-visual] group=admin-dashboard-workload-matrix"
 env -u NO_COLOR NODE_PATH=./node_modules npx playwright test --config="${playwright_config}" "${shard_args[@]}" visual/admin-dashboard-workbench.spec.ts --workers="${workers}"
+
+echo "[console-visual] group=admin-inline-empty-state-correctness"
+env -u NO_COLOR NODE_PATH=./node_modules npx playwright test --config="${playwright_config}" "${shard_args[@]}" admin-inline-empty-state.spec.ts --workers="${workers}"
+
+echo "[console-visual] group=admin-inline-empty-state-representatives"
+env -u NO_COLOR NODE_PATH=./node_modules npx playwright test --config="${FSUSBLOG_VISUAL_DIAGNOSTICS_CONFIG:-playwright.diagnostics.config.ts}" "${shard_args[@]}" visual/admin-inline-empty-state.spec.ts --workers="${workers}"

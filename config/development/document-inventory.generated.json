@@ -3662,6 +3662,19 @@
             "producer": null
         },
         {
+            "path": "docs/testing/canonical-hash-test-ownership.md",
+            "title": "Canonical hash test ownership",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "release",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "6b6f67c431c1a8760fd2f10e22b52e1291e06e9b",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
+        {
             "path": "docs/testing/evidence-projection-contract.md",
             "title": "Evidence Projection Contract",
             "kind": "markdown",
@@ -4582,6 +4595,81 @@
             "supersededBy": null,
             "relatedIssues": [
                 1381
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/testing/issue-1387-rolling-vitest-cache-and-coverage.md",
+            "title": "Issue #1387 rolling Vitest cache 与 coverage 合同",
+            "kind": "markdown",
+            "status": "historical",
+            "owner": "release",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "6b6f67c431c1a8760fd2f10e22b52e1291e06e9b",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1387
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/testing/issue-1389-backend-build-authority.md",
+            "title": "Backend Production build authority",
+            "kind": "markdown",
+            "status": "historical",
+            "owner": "release",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "6b6f67c431c1a8760fd2f10e22b52e1291e06e9b",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1389
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/testing/issue-1418-frontend-build-readiness-dag.md",
+            "title": "#1418 frontend build readiness DAG",
+            "kind": "markdown",
+            "status": "historical",
+            "owner": "release",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "6b6f67c431c1a8760fd2f10e22b52e1291e06e9b",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1418
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/testing/issue-1434-public-period-motif-contract.md",
+            "title": "Issue #1434：public period motif 测试分层",
+            "kind": "markdown",
+            "status": "historical",
+            "owner": "release",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "6b6f67c431c1a8760fd2f10e22b52e1291e06e9b",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1434
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/testing/issue-1435-admin-inline-empty-state-contract.md",
+            "title": "Issue #1435：admin inline empty-state 测试职责",
+            "kind": "markdown",
+            "status": "historical",
+            "owner": "release",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "6b6f67c431c1a8760fd2f10e22b52e1291e06e9b",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1435
             ],
             "producer": null
         },

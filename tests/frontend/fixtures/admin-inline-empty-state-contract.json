@@ -1,0 +1,50 @@
+{
+  "schema": "fsusblog.admin-inline-empty-state-contract.v1",
+  "insetCustomProperty": "--fsus-admin-inline-empty-state-inset",
+  "consumerRepresentatives": [
+    {
+      "id": "article",
+      "source": "src/frontend/src/views/admin/article/List.vue",
+      "className": "article-list-empty-state",
+      "distinction": "filtered collection exposes clear-filter and create actions",
+      "visualRepresentative": true
+    },
+    {
+      "id": "category",
+      "source": "src/frontend/src/components/admin/AdminTaxonomyManageView.vue",
+      "className": "taxonomy-empty-state",
+      "distinction": "taxonomy switches between filter recovery and create action",
+      "visualRepresentative": false
+    },
+    {
+      "id": "user",
+      "source": "src/frontend/src/components/admin/users/UserManageTable.vue",
+      "className": null,
+      "distinction": "user table exposes filter recovery only when filters are active",
+      "visualRepresentative": false
+    },
+    {
+      "id": "queue",
+      "source": "src/frontend/src/components/admin/comment-moderation/CommentModerationQueue.vue",
+      "className": null,
+      "distinction": "moderation queue forwards computed title and description",
+      "visualRepresentative": true
+    },
+    {
+      "id": "anonymous",
+      "source": "src/frontend/src/views/admin/moderation/AnonymousGovernancePage.vue",
+      "className": "anonymous-governance-empty",
+      "distinction": "anonymous governance provides localized record-kind copy",
+      "visualRepresentative": true
+    }
+  ],
+  "visualDiagnostics": {
+    "viewports": [
+      { "id": "desktop", "width": 1280, "height": 800 },
+      { "id": "mobile", "width": 375, "height": 812 }
+    ],
+    "states": ["neutral", "error", "loading"],
+    "authorities": ["alignment", "hierarchy", "overflow"]
+  },
+  "overrideExceptions": []
+}

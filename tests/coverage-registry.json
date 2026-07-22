@@ -2959,6 +2959,28 @@
             ]
         },
         {
+            "id": "frontend-admin-inline-empty-state-contract",
+            "description": "Admin inline empty states share one responsive inset owner while component, browser correctness and representative visual diagnostics independently own semantics, runtime health and alignment evidence.",
+            "owner": "InteropGlueAgent",
+            "risk": "medium",
+            "evidencePaths": [
+                "src/frontend/src/components/admin/AdminInlineEmptyState.vue",
+                "tests/frontend/checks/static/check-admin-empty-state-governance.mjs",
+                "tests/frontend/fixtures/admin-inline-empty-state-contract.json",
+                "tests/frontend/fixtures/adminInlineEmptyStateVisual.ts",
+                "tests/frontend/unit/components/admin/AdminInlineEmptyState.test.ts",
+                "tests/frontend/e2e/admin-inline-empty-state.spec.ts",
+                "tests/frontend/e2e/visual/admin-inline-empty-state.spec.ts",
+                "docs/testing/issue-1435-admin-inline-empty-state-contract.md"
+            ],
+            "assertionType": "browser",
+            "failClosedRule": "Reject duplicated consumer padding, private inset overrides, missing neutral/loading/error semantics, an empty hidden action wrapper, browser correctness tied to fixed CSS values, or visual diagnostics without desktop and mobile representatives.",
+            "minimumRequirement": "Component tests must cover content, fallback, state and action conditions; static governance must scan every consumer; correctness must cover visibility, accessibility, actions and runtime health; visual-console must retain representative desktop/mobile screenshot baselines.",
+            "tierIds": [
+                "visual-console"
+            ]
+        },
+        {
             "id": "frontend-admin-information-architecture",
             "description": "The account and admin console derives module and leaf navigation from route, permission, feature and policy state, keeps one mobile Drawer with measured 44px targets, avoids desktop nested scrolling and preserves deep-link and history current state.",
             "owner": "InteropGlueAgent",

@@ -3030,6 +3030,7 @@ tiers:
               playwright-visual-console,
               frontend-admin-task-first-dashboard,
               frontend-admin-information-architecture,
+              frontend-admin-inline-empty-state-contract,
           ]
       artifacts:
           [
@@ -3048,6 +3049,14 @@ tiers:
               tests/frontend/unit/components/admin/AdminDashboardTaskWorkbench.test.ts,
               tests/frontend/checks/static/check-visual-density-governance.mjs,
               src/frontend/tests/frontend/fixtures/adminDashboardWorkbenchVisual.ts,
+              src/frontend/src/components/admin/AdminInlineEmptyState.vue,
+              tests/frontend/checks/static/check-admin-empty-state-governance.mjs,
+              tests/frontend/fixtures/admin-inline-empty-state-contract.json,
+              tests/frontend/fixtures/adminInlineEmptyStateVisual.ts,
+              tests/frontend/e2e/admin-inline-empty-state.spec.ts,
+              tests/frontend/e2e/visual/admin-inline-empty-state.spec.ts,
+              tests/frontend/unit/components/admin/AdminInlineEmptyState.test.ts,
+              docs/testing/issue-1435-admin-inline-empty-state-contract.md,
               src/frontend/src/layouts/AccountLayout.vue,
               src/frontend/src/layouts/accountNav.ts,
               src/frontend/src/layouts/accountWorkspaceContext.ts,
@@ -3073,7 +3082,7 @@ tiers:
               src/frontend/tests/frontend/fixtures,
               tests/frontend/e2e/visual,
           ]
-      triggerFiles: [tests/matrix.yml]
+      triggerFiles: [tests/matrix.yml, tests/frontend/fixtures/admin-inline-empty-state-contract.json]
       triggerCoverage: [playwright-visual-console]
       triggerReason: console visual surface, CSS, or screenshot fixtures changed
 

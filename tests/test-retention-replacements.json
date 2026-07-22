@@ -10921,6 +10921,16 @@
                 "node-test:tests/tools/canonical-hash-source-governance.test.mjs#product-behavior-tests-do-not-own-runtime-shape-or-paylo-45d1a5249a"
             ],
             "reason": "The negative ownership rule is preserved by the same static source authority without running inside backend unit tests."
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/admin-inline-empty-state.spec.ts#share-the-responsive-inset-across-article-category-user--e2171b25fd",
+            "path": "tests/frontend/e2e/admin-inline-empty-state.spec.ts",
+            "replacementTestIds": [
+                "node-script:tests/frontend/checks/static/check-admin-empty-state-governance.mjs",
+                "vitest:tests/frontend/e2e/admin-inline-empty-state.spec.ts#keeps-representative-states-accessible-actionable-and-ho-18c31850f4",
+                "vitest:tests/frontend/e2e/visual/admin-inline-empty-state.spec.ts#diagnoses-representative-hierarchy-alignment-and-overflo-3ddd1c25f7"
+            ],
+            "reason": "The static owner now proves the single responsive inset contract; browser correctness owns visible semantics, actions and runtime health; the representative desktop/mobile diagnostic owns alignment, hierarchy and overflow without repeating fixed padding assertions for every caller."
         }
     ],
     "assertionReplacements": [
