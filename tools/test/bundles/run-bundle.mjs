@@ -2114,8 +2114,17 @@ async function runFrontendTests() {
       resources: { cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1 }
     }),
     step,
+        commandStep(
+            'privacy-zk-canonical-receipts',
+            'node tools/test/lanes/produce-privacy-zk-prebuild-receipts.mjs',
+            [],
+            {
+                dependsOn: ['frontend-static-concurrent'],
+                resources: { cpuWeight: 0.25, memoryWeight: 0.25, minCpuUnits: 1 }
+            }
+        ),
     commandStep('privacy-zk-contract-prebuild', 'tools/test/lanes/privacy-zk-comment-matrix.sh contract-prebuild', [], {
-      dependsOn: ['frontend-early-test-capacity-ready'],
+      dependsOn: ['privacy-zk-canonical-receipts'],
       resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
     }),
     commandStep('privacy-zk-contract', 'tools/test/lanes/privacy-zk-comment-matrix.sh contract-postbuild', [], {
@@ -2238,7 +2247,7 @@ async function runFrontendTests() {
   )
   const result = frontendDagResults.get('vitest-production-projects')
   if (!result) throw new Error('vitest-production-projects completed without a result')
-  const perfResult = frontendDagResults.get('vitest-production-perf-isolated')
+  const perfResult = frontendDagResults.get('vitest-production-perf-isolated');
   const markerResult = frontendDagResults.get('frontend-build-ready')
   const vitestSettledResult = frontendDagResults.get('vitest-settled')
   if (!perfResult || !markerResult?.readiness || !vitestSettledResult) {

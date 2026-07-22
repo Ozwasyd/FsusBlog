@@ -18,6 +18,7 @@ test('privacy contract package scripts keep current circuit checks before the ge
     assert.equal(contract, 'npm run check:privacy-zk-contract:prebuild && npm run check:privacy-zk-contract:postbuild');
     assert.match(prebuild, /comment-privacy-build-contract\.mjs/u);
     assert.match(prebuild, /check-zk-comment-v5-unlinkability\.mjs/u);
+    assert.doesNotMatch(prebuild, /check:security:matrices|check:openapi-sync|check:contract:frame-schema|run-test-matrix|check-workflow-matrix-sync/u);
     assert.match(postbuild, /check-zk-comment-v5-manifests\.mjs/u);
     assert.doesNotMatch(postbuild, /MCL pairing fixture/u);
 });
@@ -52,6 +53,14 @@ test('privacy evidence requires all successful stage receipts', () =>
     assert.match(finalize, /RequireStageReceipt functional/u);
     assert.doesNotMatch(finalize, /RequireStageReceipt benchmark/u);
     assert.match(lane, /receipt\.runId !== expectedRunId/u);
+});
+
+test('privacy prebuild consumes canonical receipts without a Debug build or inert MCL switch', () =>
+{
+    assert.doesNotMatch(lane, /EnsureBackendFilteredBuild[\s\S]{0,120}RunPrivacyPrebuildContract/u);
+    assert.doesNotMatch(lane, /FSUSBLOG_ZK_MCL_NO_BUILD/u);
+    assert.match(lane, /run-privacy-zk-prebuild-projection\.mjs/u);
+    assert.match(lane, /privacy-zk-prebuild-ownership\.json/u);
 });
 
 test('privacy frontend report has a dedicated lane and contains no retired test paths', () =>

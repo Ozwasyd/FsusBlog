@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-"${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/security/check-security-matrices.mjs"
+npm --prefix "$ROOT_DIR/src/frontend" run check:security:matrices
 mkdir -p "$ROOT_DIR/.tmp/security"
 cat >"$ROOT_DIR/.tmp/security/risk-control-test-matrix.json" <<'JSON'
 {

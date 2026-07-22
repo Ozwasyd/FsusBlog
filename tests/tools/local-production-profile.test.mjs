@@ -758,7 +758,7 @@ test('backend bundle exposes run-bound readiness and exact-union contracts', () 
     assert.match(frontendBundleRunner, /static-governance-post-vitest'[\s\S]*?repository-governance-authority\.mjs ensure test-asset-governance'[\s\S]*?dependsOn: \['vitest-settled'\]/u);
     assert.match(frontendBundleRunner, /static-governance-concurrent'[\s\S]{0,240}?dependsOn: \['frontend-build-ready'\]/u);
     assert.match(frontendBundleRunner, /commandStep\('frontend-build-ready',[\s\S]*?resources: \{ coordinationOnly: true \}/u);
-    assert.match(frontendBundleRunner, /commandStep\('privacy-zk-contract-prebuild', 'tools\/test\/lanes\/privacy-zk-comment-matrix\.sh contract-prebuild', \[\],[\s\S]*?dependsOn: \['frontend-early-test-capacity-ready'\]/u);
+    assert.match(frontendBundleRunner, /commandStep\('privacy-zk-contract-prebuild', 'tools\/test\/lanes\/privacy-zk-comment-matrix\.sh contract-prebuild', \[\],[\s\S]*?dependsOn: \['privacy-zk-canonical-receipts'\]/u);
     assert.match(frontendBundleRunner, /commandStep\('privacy-zk-contract', 'tools\/test\/lanes\/privacy-zk-comment-matrix\.sh contract-postbuild', \[\],[\s\S]*?dependsOn: \['frontend-build-ready', 'privacy-zk-contract-prebuild'\]/u);
     assert.match(localBundleRunner, /waitForBackendProductionSummaryReady[\s\S]*?backend-production-shards\.v2[\s\S]*?exactOnce[\s\S]*?allPassed[\s\S]*?validateShardSummaryArtifacts/u);
     assert.doesNotMatch(frontendBundleRunner, /privacy-zk-comment-matrix\.sh project-functional/u);

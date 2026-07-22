@@ -242,7 +242,7 @@ export async function runLocalStaticGovernance({ repoRoot = root, env = process.
 }
 
 function writePhaseEvidence(execution, status, error = null) {
-  const evidenceFile = String(process.env.FSUSBLOG_LOCAL_STATIC_EVIDENCE_FILE ?? '').trim()
+    const evidenceFile = String(process.env.FSUSBLOG_LOCAL_STATIC_EVIDENCE_FILE ?? '').trim();
   if (!evidenceFile) return
   const absolute = path.resolve(root, evidenceFile)
   fs.mkdirSync(path.dirname(absolute), { recursive: true })
@@ -251,6 +251,10 @@ function writePhaseEvidence(execution, status, error = null) {
     schema: 'fsusblog.local-production.frontend-static-governance-phase.v2',
     status,
     schedulerRunId: process.env.FSUSBLOG_TEST_RUN_ID ?? null,
+        sourceState: {
+            commit: process.env.FSUSBLOG_TEST_SOURCE_COMMIT ?? null,
+            worktreeFingerprint: process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT ?? null
+        },
     execution,
     ...(error ? { error: error instanceof Error ? error.message : String(error) } : {}),
     generatedAt: new Date().toISOString()

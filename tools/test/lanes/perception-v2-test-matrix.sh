@@ -2,7 +2,7 @@
 set -euo pipefail
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_lane-collect-support.sh"
-"${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/security/check-security-matrices.mjs"
+npm --prefix "$ROOT_DIR/src/frontend" run check:security:matrices
 
 if [[ -n "${FSUSBLOG_LOCAL_PROFILE:-}" ]]; then
     "${FSUSBLOG_NODE:-node}" --input-type=module - "$ROOT_DIR" <<'NODE'

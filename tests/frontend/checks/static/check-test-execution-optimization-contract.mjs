@@ -319,7 +319,7 @@ requireIncludes('tools/test/lanes/cross-browser-smoke.sh', [
 ])
 requireSectionIncludes('tools/test/bundles/run-bundle.mjs', "commandStep('privacy-zk-contract-prebuild',", "commandStep('privacy-zk-contract',", [
   "commandStep('privacy-zk-contract-prebuild', 'tools/test/lanes/privacy-zk-comment-matrix.sh contract-prebuild'",
-  "dependsOn: ['frontend-early-test-capacity-ready']",
+  "dependsOn: ['privacy-zk-canonical-receipts']",
   'resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }'
 ])
 requireSectionIncludes('tools/test/bundles/run-bundle.mjs', "commandStep('privacy-zk-contract',", "staticStageStep('postbuild',", [

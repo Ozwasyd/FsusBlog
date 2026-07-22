@@ -110,6 +110,7 @@ STATIC_NODE_CONTRACT_FILES=(
     "$ROOT_DIR/tests/tools/test-lifecycle-governance.test.mjs"
     "$ROOT_DIR/tests/tools/rights-v3-projection.test.mjs"
     "$ROOT_DIR/tests/tools/repository-governance-authority.test.mjs"
+    "$ROOT_DIR/tests/tools/privacy-zk-prebuild-projection.test.mjs"
     "$ROOT_DIR/tests/tools/article-core-test-api-governance.test.mjs"
 )
 StaticNodeContracts() {

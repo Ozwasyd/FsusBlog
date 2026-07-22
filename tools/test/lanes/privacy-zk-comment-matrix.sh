@@ -15,12 +15,33 @@ import process from 'node:process'
 
 const output = process.argv[2]
 const pending = `${output}.pending-${process.pid}`
+const projectionPath = process.env.STAGE_PROJECTION || ''
+let projection = null
+let projectionDigest = null
+if (projectionPath) {
+  const bytes = fs.readFileSync(projectionPath)
+  projection = JSON.parse(bytes.toString('utf8'))
+  if (projection.schema !== 'fsusblog.privacy-zk-prebuild-projection.v1' || projection.status !== 'success') {
+    throw new Error('privacy-zk prebuild projection is invalid')
+  }
+  projectionDigest = `sha256:${(await import('node:crypto')).createHash('sha256').update(bytes).digest('hex')}`
+}
 fs.writeFileSync(pending, `${JSON.stringify({
   schema: 'fsusblog.privacy-zk-comment-matrix-stage.v1',
   status: 'ok',
   stage: process.env.STAGE_NAME,
   validatedBy: process.env.STAGE_VALIDATED_BY,
   runId: process.env.FSUSBLOG_TEST_RUN_ID ?? process.env.FSUSBLOG_PRODUCTION_RUN_ID ?? null,
+  sourceState: {
+    commit: process.env.FSUSBLOG_TEST_SOURCE_COMMIT ?? null,
+    worktreeFingerprint: process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT ?? null
+  },
+  ...(projection ? {
+    assertionIds: projection.assertionIds,
+    coverageIds: projection.coverageIds,
+    projectionReceipt: projectionPath,
+    projectionDigest
+  } : {}),
   generatedAt: new Date().toISOString()
 }, null, 2)}\n`)
 fs.renameSync(pending, output)
@@ -33,6 +54,7 @@ RequireStageReceipt() {
     [[ -s "$receipt" ]] || Fail "privacy-zk stage receipt missing: $stage"
     EXPECTED_STAGE="$stage" node --input-type=module - "$receipt" <<'NODE'
 import fs from 'node:fs'
+import crypto from 'node:crypto'
 import process from 'node:process'
 
 const receipt = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'))
@@ -44,6 +66,20 @@ if (receipt.schema !== 'fsusblog.privacy-zk-comment-matrix-stage.v1'
 }
 if (expectedRunId && receipt.runId !== expectedRunId) {
   throw new Error(`privacy-zk ${expectedStage} receipt run mismatch: expected ${expectedRunId}, got ${receipt.runId ?? 'missing'}`)
+}
+const expectedCommit = process.env.FSUSBLOG_TEST_SOURCE_COMMIT ?? ''
+const expectedFingerprint = process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT ?? ''
+if (expectedCommit && (receipt.sourceState?.commit !== expectedCommit
+    || receipt.sourceState?.worktreeFingerprint !== expectedFingerprint)) {
+  throw new Error(`privacy-zk ${expectedStage} receipt source mismatch`)
+}
+if (expectedStage === 'contract-prebuild') {
+  if (!receipt.projectionReceipt || !receipt.projectionDigest || !Array.isArray(receipt.assertionIds)) {
+    throw new Error('privacy-zk contract-prebuild receipt is missing projection evidence')
+  }
+  const bytes = fs.readFileSync(receipt.projectionReceipt)
+  const digest = `sha256:${crypto.createHash('sha256').update(bytes).digest('hex')}`
+  if (digest !== receipt.projectionDigest) throw new Error('privacy-zk contract-prebuild projection digest mismatch')
 }
 NODE
 }
@@ -58,9 +94,14 @@ RunPrivacyMatrixContract() {
 }
 
 RunPrivacyPrebuildContract() {
-    FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug EnsureBackendFilteredBuild || return $?
-    FSUSBLOG_ZK_MCL_NO_BUILD=1 \
-        npm --prefix "$ROOT_DIR/src/frontend" run check:privacy-zk-contract:prebuild
+    npm --prefix "$ROOT_DIR/src/frontend" run check:privacy-zk-contract:prebuild
+    node "$ROOT_DIR/tools/test/lanes/run-privacy-zk-prebuild-projection.mjs" \
+        --root "$ROOT_DIR" \
+        --registry tests/governance/privacy-zk-prebuild-ownership.json \
+        --output .tmp/security/privacy-zk-comment-prebuild.json \
+        --commit "${FSUSBLOG_TEST_SOURCE_COMMIT:?missing test source commit}" \
+        --worktree-fingerprint "${FSUSBLOG_TEST_SOURCE_FINGERPRINT:?missing test source fingerprint}" \
+        --run-id "${FSUSBLOG_TEST_RUN_ID:?missing test run ID}"
 }
 
 RunPrivacyPostbuildContract() {
@@ -91,7 +132,8 @@ RunContractPrebuildStage() {
     RunCollect privacy-matrix-contract RunPrivacyMatrixContract
     RunCollect privacy-prebuild-contract RunPrivacyPrebuildContract
     FinishCollect
-    WriteStageReceipt contract-prebuild 'privacy matrix, current circuit and repository contract checks'
+    STAGE_PROJECTION=".tmp/security/privacy-zk-comment-prebuild.json" \
+        WriteStageReceipt contract-prebuild 'unique privacy/ZK assertions plus canonical current-run receipt projection'
 }
 
 RunContractPostbuildStage() {

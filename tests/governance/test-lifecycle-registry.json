@@ -1355,6 +1355,17 @@
       ]
     },
     {
+      "file": "tests/tools/privacy-zk-prebuild-projection.test.mjs",
+      "owner": "repository-governance:static-node-contracts",
+      "executionCategory": "repository-governance",
+      "lifecycle": "canonical-execution",
+      "physicalExecutionCount": 1,
+      "classifications": [
+        "source-text",
+        "runtime"
+      ]
+    },
+    {
       "file": "tests/tools/privacy-zk-production-projection.test.mjs",
       "owner": "manual-diagnostic:tests/tools/privacy-zk-production-projection.test.mjs",
       "executionCategory": "manual-diagnostic",

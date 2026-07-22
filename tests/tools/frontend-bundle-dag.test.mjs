@@ -14,8 +14,8 @@ const vitestUnitSource = fs.readFileSync(new URL('../../src/frontend/vitest.conf
 test('frontend bundle gates Vitest on only explicit blocking checks and schedules other static stages in the DAG', () => {
   const vitestStart = runnerSource.indexOf("const step = commandStep('vitest-production-projects'")
     const dagStart = runnerSource.indexOf('const frontendSteps = [', vitestStart);
-    const dagEnd = runnerSource.indexOf('\n  ]\n  await executeWeightedStepDag(', dagStart);
-  assert.ok(vitestStart >= 0 && dagStart > vitestStart && dagEnd > dagStart)
+    const dagEnd = runnerSource.indexOf('\n  ];\n  await executeWeightedStepDag(', dagStart);
+    assert.ok(vitestStart >= 0 && dagStart > vitestStart && dagEnd > dagStart);
 
   const perfStart = runnerSource.indexOf("const perfStep = commandStep('vitest-production-perf-isolated'", vitestStart)
   const vitestDeclaration = runnerSource.slice(vitestStart, perfStart)
@@ -55,7 +55,7 @@ test('frontend bundle gates Vitest on only explicit blocking checks and schedule
   )
   assert.match(dagDeclaration, /commandStep\('static-governance-concurrent',[\s\S]*?repository-governance-authority\.mjs run application-static-governance[\s\S]*?dependsOn: \['frontend-build-ready'\]/u);
   assert.doesNotMatch(dagDeclaration, /commandStep\('static-governance-node-contracts'/u);
-  assert.match(dagDeclaration, /commandStep\('privacy-zk-contract-prebuild',[\s\S]*?privacy-zk-comment-matrix\.sh contract-prebuild[\s\S]*?dependsOn: \['frontend-early-test-capacity-ready'\][\s\S]*?resources: \{ cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 \}/u)
+  assert.match(dagDeclaration, /commandStep\('privacy-zk-contract-prebuild',[\s\S]*?privacy-zk-comment-matrix\.sh contract-prebuild[\s\S]*?dependsOn: \['privacy-zk-canonical-receipts'\][\s\S]*?resources: \{ cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 \}/u)
   assert.match(dagDeclaration, /commandStep\('privacy-zk-contract',[\s\S]*?privacy-zk-comment-matrix\.sh contract-postbuild[\s\S]*?dependsOn: \['frontend-build-ready', 'privacy-zk-contract-prebuild'\][\s\S]*?resources: \{ cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 \}/u)
   assert.doesNotMatch(dagDeclaration, /privacy-zk-comment-matrix\.sh benchmark/u)
   assert.match(dagDeclaration, /staticStageStep\('postbuild',[\s\S]*?dependsOn: \['frontend-build-ready'\][\s\S]*?exclusiveResources: \['frontend-dist', 'frontend-static-output'\]/u)
@@ -256,7 +256,7 @@ test('frontend bundle delays Vitest until the machine-derived floor and fills ea
   await execution
 })
 
-test('three-CPU frontend admission starts Vitest at 2 plus one companion at 1 without starving static', async () => {
+test('three-CPU frontend admission runs canonical static owner before Privacy/ZK projection', async () => {
   const vitestRelease = deferred()
   const privacyRelease = deferred()
   const staticRelease = deferred()
@@ -267,8 +267,9 @@ test('three-CPU frontend admission starts Vitest at 2 plus one companion at 1 wi
       ...ordinaryStep('vitest-production-projects', ['frontend-early-test-capacity-ready']),
       resources: { cpuWeight: 2, memoryWeight: 1.5, minCpuUnits: 2 }
     },
-    ordinaryStep('privacy-zk-contract-prebuild', ['frontend-early-test-capacity-ready']),
-    ordinaryStep('static-governance-concurrent', ['frontend-early-test-capacity-ready'])
+    ordinaryStep('static-governance-concurrent', ['frontend-early-test-capacity-ready']),
+        ordinaryStep('privacy-zk-canonical-receipts', ['static-governance-concurrent']),
+    ordinaryStep('privacy-zk-contract-prebuild', ['privacy-zk-canonical-receipts'])
   ], { maxParallel: 3, cpuUnits: 3, memoryGiB: 3 }, async (step) => {
     started.push({ id: step.id, cpuUnits: step.runtimeCapacity.cpuUnits })
     if (step.id === 'vitest-production-projects') await vitestRelease.promise
@@ -280,15 +281,14 @@ test('three-CPU frontend admission starts Vitest at 2 plus one companion at 1 wi
   assert.deepEqual(started.slice(0, 3), [
     { id: 'frontend-early-test-capacity-ready', cpuUnits: 0 },
     { id: 'vitest-production-projects', cpuUnits: 2 },
-    { id: 'privacy-zk-contract-prebuild', cpuUnits: 1 }
+    { id: 'static-governance-concurrent', cpuUnits: 1 }
   ])
-  assert.ok(!started.some((entry) => entry.id === 'static-governance-concurrent'))
-
-  privacyRelease.resolve()
-  await waitFor(() => started.some((entry) => entry.id === 'static-governance-concurrent'))
-  assert.deepEqual(started.at(-1), { id: 'static-governance-concurrent', cpuUnits: 1 })
+  assert.ok(!started.some((entry) => entry.id === 'privacy-zk-contract-prebuild'))
 
   staticRelease.resolve()
+  await waitFor(() => started.some((entry) => entry.id === 'privacy-zk-contract-prebuild'))
+  assert.deepEqual(started.at(-1), { id: 'privacy-zk-contract-prebuild', cpuUnits: 1 })
+  privacyRelease.resolve()
   vitestRelease.resolve()
   await execution
 })

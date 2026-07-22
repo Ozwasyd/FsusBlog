@@ -2844,15 +2844,14 @@
             "id": "Command.CheckOpenapiSync",
             "externalId": "check:openapi-sync",
             "symbol": "CheckOpenapiSync",
-            "owner": "RepositoryGovernanceOwner",
-            "category": "repository-governance",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
             "engine": "runtime",
             "sourceScopes": [
-                "tools/contracts/check-openapi-sync.mjs",
-                "config/**",
-                "docs/**",
-                "tools/**",
-                "tests/**"
+                "tools/test/run-deterministic-command.mjs",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
             ],
             "severity": "error",
             "fixable": false,
@@ -2864,8 +2863,8 @@
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
                 "mode": "delegated-command",
-                "command": "node ../../tools/contracts/check-openapi-sync.mjs",
-                "implementation": "tools/contracts/check-openapi-sync.mjs",
+                "command": "node ../../tools/test/run-deterministic-command.mjs --key cross-stack-openapi-sync --consumer frontend-openapi-sync --cwd ../.. --projection-directory .tmp/physical-execution-projections --path tools/contracts --path tests/contracts/openapi-policy.yml --path src/backend --path src/shared/Contracts --path src/frontend/src/generated --test-id openapi-sync -- node tools/contracts/check-openapi-sync.mjs",
+                "implementation": "tools/test/run-deterministic-command.mjs",
                 "executionKey": "governance:check:openapi-sync",
                 "receiptCompatible": true
             }
@@ -3279,7 +3278,7 @@
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
                 "mode": "delegated-command",
-                "command": "node ../../tools/security/check-comment-privacy-contract-boundaries.mjs && node ../../tools/security/check-comment-author-mode-retirement.mjs && node ../../tools/security/check-public-revocation-distribution.mjs && node ../../tools/security/comment-privacy-build-contract.mjs && node ../../tools/crypto/check-zk-artifact-ownership.mjs && node --test ../../tests/security/comment-privacy-build-contract.test.mjs && node ../../tools/security/check-zk-comment-v5-unlinkability.mjs && node --test ../../tests/security/zk-comment-v5-unlinkability.test.mjs && npm run check:security:matrices && npm run check:openapi-sync && npm run check:contract:frame-schema && node ../../tools/run-test-matrix.mjs validate && node ../../tools/run-test-matrix.mjs ci-plan --format github-actions --out .tmp/privacy-zk-ci-plan.json && node ../../tools/check-workflow-matrix-sync.mjs .tmp/privacy-zk-ci-plan.json .github/workflows/quality-gate.yml",
+                "command": "node ../../tools/security/check-comment-privacy-contract-boundaries.mjs && node ../../tools/security/check-comment-author-mode-retirement.mjs && node ../../tools/security/check-public-revocation-distribution.mjs && node ../../tools/security/comment-privacy-build-contract.mjs && node ../../tools/crypto/check-zk-artifact-ownership.mjs && node --test ../../tests/security/comment-privacy-build-contract.test.mjs && node ../../tools/security/check-zk-comment-v5-unlinkability.mjs && node --test ../../tests/security/zk-comment-v5-unlinkability.test.mjs",
                 "implementation": "tools/security/check-comment-privacy-contract-boundaries.mjs",
                 "executionKey": "governance:check:privacy-zk-contract:prebuild",
                 "receiptCompatible": true
@@ -4839,7 +4838,7 @@
             "category": "security-privacy",
             "engine": "runtime",
             "sourceScopes": [
-                "tools/security/check-security-matrices.mjs",
+                "tools/test/run-deterministic-command.mjs",
                 "security/**",
                 "src/backend/**",
                 "src/frontend/src/privacy/**",
@@ -4855,8 +4854,8 @@
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
                 "mode": "delegated-command",
-                "command": "node ../../tools/security/check-security-matrices.mjs",
-                "implementation": "tools/security/check-security-matrices.mjs",
+                "command": "node ../../tools/test/run-deterministic-command.mjs --key security-matrices --consumer security-matrices --cwd ../.. --projection-directory .tmp/physical-execution-projections --path tools/security/check-security-matrices.mjs --path security/matrices --test-id security-matrix-schema -- node tools/security/check-security-matrices.mjs",
+                "implementation": "tools/test/run-deterministic-command.mjs",
                 "executionKey": "governance:check:security:matrices",
                 "receiptCompatible": true
             }
