@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:4f27367277f4209551b421b0af7b0ca7d2520c8cf32f66624e80b8151c7af04b",
-    "sourceStateSha256": "4f27367277f4209551b421b0af7b0ca7d2520c8cf32f66624e80b8151c7af04b",
+    "generatedFrom": "source-state:93f21e2449b8ef6fdb5c468f28a1a51d6f347c85ac5ce003c0ebd96a24a1150c",
+    "sourceStateSha256": "93f21e2449b8ef6fdb5c468f28a1a51d6f347c85ac5ce003c0ebd96a24a1150c",
     "configurationSha256": "097e93375187fd89b8741031800d4ffd703a6961882b6f9ba9f5af94cf27f8ec",
     "violationCount": 327042,
     "fileCount": 1080,
@@ -10210,7 +10210,7 @@
         },
         {
             "path": "tests/tools/local-production-profile.test.mjs",
-            "sourceSha256": "09afab0c3cf5155e9a8db2ea528696677ec4b673fcacb1ad2f7e3ab6cce62771",
+            "sourceSha256": "26686b8f487d6e56c5dea0cae66f568787383965ef1e68e57fd7f9a6b3eae5e5",
             "violationCount": 4,
             "violationDigest": "749c2d9c9bb254dce11031be1f6b78a277c89f56d07d41336721c4f5f0dde145",
             "rules": {
@@ -14000,7 +14000,7 @@
         },
         {
             "path": "tools/test/bundles/run-bundle.mjs",
-            "sourceSha256": "89372b2c0c556dcc7f6c81305598c7a3880da5449e52052cb0aeba02f2e58e00",
+            "sourceSha256": "e345eaffe6626586d6156952523a3071a0d112ac81805447a8cfb8fcccdae520",
             "violationCount": 3009,
             "violationDigest": "91b5f5b500597e6cad53d912fde132d7de4523baae70ed8f8e6ef0a68fc78345",
             "rules": {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { encodeArticleWriteRequest } from '../../support/aeds-envelope.mjs'
 
 describe('support ArticleWriteRequest encoder', () => {
-  it('emits the V4 preserve mode when rights are omitted', () => {
+  it('emits the V5 preserve mode and zero create base revision when rights are omitted', () => {
     const payload = encodeArticleWriteRequest({
       title: 'Title',
       content: 'Content',
@@ -16,13 +16,26 @@ describe('support ArticleWriteRequest encoder', () => {
 
     const parsed = parseArticleWriteRequestPayload(payload)
 
-    expect(parsed.version).toBe(4)
+    expect(parsed.version).toBe(5)
     expect(parsed.rightsMutation).toBe(0)
     expect(parsed.flags).toBe(15)
     expect(parsed.copyrightYear).toBe(0)
     expect(parsed.maxExcerptChars).toBe(300)
     expect(parsed.rights.licenseType).toBe('all-rights-reserved')
     expect(parsed.rights.copyPolicy).toBe('append-attribution')
+    expect(parsed.baseRevisionId).toBe(0n)
+  })
+
+  it('appends the update base revision coordinate', () => {
+    const payload = encodeArticleWriteRequest({
+      title: 'Title',
+      content: 'Content',
+      categoryId: 3,
+      tagIds: [],
+      baseRevisionId: 8123
+    })
+
+    expect(parseArticleWriteRequestPayload(payload).baseRevisionId).toBe(8123n)
   })
 })
 
@@ -32,6 +45,7 @@ function parseArticleWriteRequestPayload(payload: Uint8Array): {
   flags: number
   copyrightYear: number
   maxExcerptChars: number
+  baseRevisionId: bigint
   rights: Record<'licenseType' | 'copyrightHolder' | 'rightsStatement' | 'attributionTemplate' | 'copyPolicy', string>
 } {
   const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
@@ -67,12 +81,16 @@ function parseArticleWriteRequestPayload(payload: Uint8Array): {
     return decoder.decode(rightsBlob.subarray(slice.offset, slice.offset + slice.length))
   }
 
+  cursor += rightsBlobLength
+  const baseRevisionId = view.getBigInt64(cursor, true)
+
   return {
     version,
     rightsMutation,
     flags,
     copyrightYear,
     maxExcerptChars,
+    baseRevisionId,
     rights: {
       licenseType: readSlice(0),
       copyrightHolder: readSlice(1),

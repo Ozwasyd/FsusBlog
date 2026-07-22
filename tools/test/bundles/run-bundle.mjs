@@ -1386,13 +1386,23 @@ async function runBackendTests() {
     return [tierId, new Set(methods)]
   }))
   const specialMethods = new Set([...categoryMethods.values()].flatMap((methods) => [...methods]))
+  const distributedContractClasses = [
+    'DistributedContractFastTests',
+    'DistributedInvalidationBusTests',
+    'PublicAotBackfillLeaseTests',
+    'ArticleMutationProjectionCheckpointTests',
+    'ArticleMutationOutboxFailurePropagationTests'
+  ]
   const backendTestMembers = new Set([
-    'backend-unit', 'backend-api-integration', 'backend-auth-state-machine', 'backend-concurrency',
+    'backend-unit', 'distributed-contract-fast', 'backend-api-integration', 'backend-auth-state-machine', 'backend-concurrency',
     'backend-property', 'backend-golden', 'backend-fast', 'coverage-backend'
   ])
   for (const tierId of bundle.members.filter((id) => backendTestMembers.has(id))) {
     let selected = tests
     if (tierId === 'backend-unit') selected = tests.filter((entry) => !specialMethods.has(entry.id))
+    else if (tierId === 'distributed-contract-fast') {
+      selected = tests.filter((entry) => distributedContractClasses.some((className) => entry.id.includes(`.${className}.`)))
+    }
     else if (categoryMethods.has(tierId)) selected = tests.filter((entry) => categoryMethods.get(tierId).has(entry.id))
     if (selected.length === 0) throw new Error(`${tierId} received no executed backend test IDs`)
     register({ id: 'dotnet-production-union', members: [tierId] }, result, selected.map((entry) => `xunit:${entry.id}`), [

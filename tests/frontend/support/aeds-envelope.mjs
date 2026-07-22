@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 const UTF8_DECODER = new TextDecoder();
 const UTF8_ENCODER = new TextEncoder();
-const ArticleWriteRequestVersion = 4;
+const ArticleWriteRequestVersion = 5;
 const ArticleRightsMutationPreserve = 0;
 const ArticleRightsMutationReplace = 1;
 const ArticleRightsMutationReset = 2;
@@ -634,7 +634,7 @@ export function encodeArticleWriteRequest(data)
     const rightsBlobLength = rightsTextParts.reduce((sum, part) => sum + part.byteLength, 0);
     const tagIds = Array.isArray(data.tagIds) ? data.tagIds : [];
     const tagBytesLength = tagIds.length * 4;
-    const bytes = new Uint8Array(40 + tagBytesLength + 4 + blobLength + 76 + rightsBlobLength);
+    const bytes = new Uint8Array(40 + tagBytesLength + 4 + blobLength + 76 + rightsBlobLength + 8);
     const view = new DataView(bytes.buffer);
 
     view.setInt32(0, data.categoryId ?? 0, true);
@@ -696,6 +696,13 @@ export function encodeArticleWriteRequest(data)
         bytes.set(part, cursor);
         cursor += part.byteLength;
     }
+
+    const baseRevisionId = data.baseRevisionId == null ? 0n : BigInt(data.baseRevisionId);
+    if (baseRevisionId < 0n)
+    {
+        throw new Error('article_base_revision_invalid');
+    }
+    view.setBigInt64(cursor, baseRevisionId, true);
 
     return bytes;
 }

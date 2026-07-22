@@ -839,6 +839,8 @@ test('backend bundle publishes server readiness before independent tests and ben
     assert.match(backendBundleRunner, /commandStep\('perception-evidence-finalize',[\s\S]*?dependsOn: \['perception-matrix'\]/u);
     assert.match(backendBundleRunner, /commandStep\('integrity-proof',[\s\S]*?dependsOn: \['perception-matrix'\]/u);
     assert.match(backendBundleRunner, /commandStep\('backend-coverage-summary',[\s\S]*?dependsOn: \['dotnet-production-union'\]/u);
+    assert.match(backendBundleRunner, /const distributedContractClasses = \[[\s\S]*?'DistributedContractFastTests'[\s\S]*?'ArticleMutationOutboxFailurePropagationTests'[\s\S]*?\]/u);
+    assert.match(backendBundleRunner, /tierId === 'distributed-contract-fast'[\s\S]*?distributedContractClasses\.some/u);
     assert.doesNotMatch(backendBundleRunner, /commandStep\('benchmark-readiness-build'/u);
     assert.match(localBundleRunner, /benchmark-build-ready\.v1[\s\S]*?schedulerRunId: runId[\s\S]*?artifact\.digests[\s\S]*?artifactRef/u);
     const benchmarkReadyVerifier = fs.readFileSync(path.join(root, 'tools/test/verify-benchmark-build-ready.mjs'), 'utf8');
