@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
 import { copyFile, mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -155,7 +156,8 @@ async function fetchAdminBinary(relativePath, options = {}) {
   const {
     method = 'GET',
     body,
-    cookie
+    cookie,
+    headers = {}
   } = options
   const result = await authBinary(relativePath, {
     method,
@@ -165,7 +167,7 @@ async function fetchAdminBinary(relativePath, options = {}) {
     requiresPow: method !== 'GET'
       && method !== 'HEAD'
       && !relativePath.startsWith('/api/binary/author/'),
-    headers: method === 'GET' || method === 'HEAD' ? {} : { Origin: trustedOrigin },
+    headers: method === 'GET' || method === 'HEAD' ? headers : { Origin: trustedOrigin, ...headers },
     timeoutMs: requestTimeoutMs
   })
   if (!result.response.ok) {
@@ -729,6 +731,7 @@ async function seedPublicFixturesViaApi() {
   for (const article of seedPublicHomeArticles) {
     await fetchAdminBinary('/api/Article', {
       method: 'POST',
+      headers: { 'X-Fsus-Client-Mutation-Id': randomUUID() },
       body: {
         title: article.title,
         content: article.markdown,

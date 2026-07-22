@@ -4,7 +4,7 @@ import path from 'node:path'
 import { expect, test } from '@playwright/test'
 import type { Browser, Page, StorageState } from '@playwright/test'
 import type { RouteRecordRaw } from 'vue-router'
-import { APP_ROUTE_RECORDS } from '../../../../src/frontend/src/router/index'
+import { APP_ROUTE_RECORDS } from '../../../../src/frontend/src/router/appRouteRecords'
 import {
   DESKTOP_VIEWPORT,
   MOBILE_VIEWPORT,

@@ -8,6 +8,7 @@
         ],
         "module": "ESNext",
         "moduleResolution": "bundler",
+        "ignoreDeprecations": "6.0",
         "baseUrl": ".",
         "paths": {
             "@/*": [
@@ -40,6 +41,6 @@
         "playwright.config.ts",
         "../../tests/frontend/**/*.ts",
         "src/**/*.ts",
-        "wasm/**/*.ts"
+        "wasm/web/**/*.ts"
     ]
 }

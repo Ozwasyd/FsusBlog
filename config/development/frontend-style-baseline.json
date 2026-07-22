@@ -1,9 +1,9 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:99280a7c6653884b0eb0fd445e5b9351715021063b902486ca05e8ba4300351d",
-    "sourceStateSha256": "99280a7c6653884b0eb0fd445e5b9351715021063b902486ca05e8ba4300351d",
+    "generatedFrom": "source-state:aa84cd699cfd87fd9f87b16905dd9149028bd229d01e7f1d9d85160c868e438e",
+    "sourceStateSha256": "aa84cd699cfd87fd9f87b16905dd9149028bd229d01e7f1d9d85160c868e438e",
     "configurationSha256": "ecd54024ada83553ed048a05531c8ad064350214c110aa93b54643b6c318bf0c",
-    "violationCount": 325832,
+    "violationCount": 325670,
     "fileCount": 1080,
     "files": [
         {
@@ -4451,7 +4451,7 @@
         },
         {
             "path": "src/frontend/src/public-renderers/publicRouteRegistry.ts",
-            "sourceSha256": "c484431954a20620b263ba9634dd16162ec0b0c7ab4531f4fcd1fd36baec6625",
+            "sourceSha256": "354a967d7b026dd8e34603483edef55c0036424954db649ffb93b7a40f0c216c",
             "violationCount": 245,
             "violationDigest": "6f02df7ace144368baee9b15464695652ab419bb21aaf5a39e76fb3e4ddb5378",
             "rules": {
@@ -4623,17 +4623,17 @@
         },
         {
             "path": "src/frontend/src/router/index.ts",
-            "sourceSha256": "adfd449343ea9d9784b19e6a07211706c047c473cbc6c4ca1fcbc2c3f506bd9c",
-            "violationCount": 639,
-            "violationDigest": "6260415f5d82a704d795a6a8bc5748b3ede6cc71ff54cb169ab605795034a33b",
+            "sourceSha256": "9619f2dc24cb5c7a04541417531e3d63c5bb7567c628f616c73d57a69c23b18c",
+            "violationCount": 477,
+            "violationDigest": "836af27a7fef63fab2ed0009da27e3230f5e1455eb007aaf2720f7436b3c0f18",
             "rules": {
                 "eslint/@stylistic/brace-style": 67,
-                "eslint/@stylistic/comma-dangle": 1,
-                "eslint/@stylistic/indent": 429,
+                "eslint/@stylistic/indent": 268,
                 "eslint/@stylistic/member-delimiter-style": 3,
-                "eslint/@stylistic/semi": 128,
+                "eslint/@stylistic/semi": 126,
+                "eslint/@typescript-eslint/no-unused-vars": 3,
                 "eslint/curly": 3,
-                "eslint/import-x/order": 8
+                "eslint/import-x/order": 7
             }
         },
         {
