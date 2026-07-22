@@ -1,6 +1,6 @@
 {
     "schema": "fsusblog.complexity-baseline.v1",
-    "sourceRevision": "b7660ebdda053ef6a47b779e7c6aad672930bd14",
+    "sourceRevision": "ed49d5cbd9c81dce53b5ff0fb77ea2ba53095166",
     "measurement": "deterministic lexical structure with one shared repository inventory and content cache",
     "metricFields": [
         "fileLines",
@@ -4496,8 +4496,8 @@
         "tools/test/lanes/_suite-support.sh": {
             "category": "BuildTestOrchestrator",
             "excess": {
-                "fileLines": 2018,
-                "codeLines": 1409,
+                "fileLines": 2019,
+                "codeLines": 1410,
                 "cyclomaticComplexity": 121,
                 "cognitiveComplexity": 278,
                 "maxNestingDepth": 7,

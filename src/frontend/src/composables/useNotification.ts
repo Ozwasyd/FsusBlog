@@ -339,7 +339,7 @@ export function useNotification()
 
         if (newStatus === 1)
         {
-            showErrorToast(`账户管控通知：${data.reason || '您的账号已被限制操作'}`, '账户管控通知：您的账号已被限制操作', 10000);
+            showErrorToast(`账户管控通知：${data.reason ?? '您的账号已被限制操作'}`, '账户管控通知：您的账号已被限制操作', 10000);
             return;
         }
 

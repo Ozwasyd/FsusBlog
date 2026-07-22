@@ -1768,6 +1768,7 @@ RunReleaseOnly() {
     export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
     export FSUSBLOG_PUBLIC_BASE_URL="$DEBUG_BACKEND_URL"
     RunInClient node ../../tests/frontend/checks/public/check-public-hydration-identity.mjs
+    RunInClient node ../../tests/frontend/checks/public/public-hydration-smoke.mjs
     RunInClient node ../../tests/frontend/checks/public/check-public-clock-hydration-matrix.mjs
     RunInClient node ../../tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs
     RunInClient node ../../tests/frontend/checks/public/check-public-payload-fixture-matrix.mjs

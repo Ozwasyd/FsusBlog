@@ -1,9 +1,9 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:b62e2add1b78efdf50799ff0c71ab4cbc9203d9e076d49a387883a90b4b8474a",
-    "sourceStateSha256": "b62e2add1b78efdf50799ff0c71ab4cbc9203d9e076d49a387883a90b4b8474a",
+    "generatedFrom": "source-state:c36af7f8c705b6d1693c946c67c5be7b0e9e64d016d860272d9d59c9a898711f",
+    "sourceStateSha256": "c36af7f8c705b6d1693c946c67c5be7b0e9e64d016d860272d9d59c9a898711f",
     "configurationSha256": "097e93375187fd89b8741031800d4ffd703a6961882b6f9ba9f5af94cf27f8ec",
-    "violationCount": 325923,
+    "violationCount": 325842,
     "fileCount": 1080,
     "files": [
         {
@@ -3278,13 +3278,12 @@
         },
         {
             "path": "src/frontend/src/composables/useNotification.ts",
-            "sourceSha256": "d74ff18f403a7c64a3c7c9dde26e2b205ec3196180d85264b2853df67aacef1a",
-            "violationCount": 10,
-            "violationDigest": "d52b26f56d1a521192c80ef96b6af6d431a8ce49e83a6910c7e6c5c2aa77d252",
+            "sourceSha256": "8c09b3107d9448a16f3b715e9bb0d435047ee0f890088291eec8020f2bf2f1fb",
+            "violationCount": 9,
+            "violationDigest": "7439c2c799b3c03eac992111ca660388e20e9f5b6dca3506eea10710938126e2",
             "rules": {
                 "eslint/@typescript-eslint/no-unsafe-argument": 3,
-                "eslint/@typescript-eslint/no-unsafe-assignment": 6,
-                "eslint/@typescript-eslint/prefer-nullish-coalescing": 1
+                "eslint/@typescript-eslint/no-unsafe-assignment": 6
             }
         },
         {
@@ -9488,15 +9487,10 @@
         },
         {
             "path": "tests/tools/browserless-public-contracts.test.mjs",
-            "sourceSha256": "f34c2a860ee93ba05eec6c6069067eb583a071d30572a7bfe0073abf7c75adf1",
-            "violationCount": 80,
-            "violationDigest": "ed76e663e1724e296d2f5a8ecc1596ee2cae6d7039b4c218a81acd4f0885c190",
-            "rules": {
-                "eslint/@stylistic/brace-style": 7,
-                "eslint/@stylistic/indent": 42,
-                "eslint/@stylistic/semi": 30,
-                "eslint/curly": 1
-            }
+            "sourceSha256": "d25fdb6c667877e76b54b3b250ac53ba3659f978bdb3ba310c7c8ad39bc9758b",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/bundle-step-contract.test.mjs",
