@@ -17,7 +17,7 @@
 ```bash
 npm --prefix src/frontend run check:acceptance:auth
 npm --prefix src/frontend run check:acceptance:console
-node --test tests/tools/acceptance-layer-migration.test.mjs
+node --test tests/tools/browser-migration-contract.test.mjs
 dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore --filter FullyQualifiedName~MessageCenterPersistenceIntegrationTests
 ```
 

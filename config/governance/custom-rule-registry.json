@@ -10234,34 +10234,6 @@
             }
         },
         {
-            "id": "Implementation.ToolsCheckTestOrchestratorUniquenessMjs",
-            "externalId": "tools/check-test-orchestrator-uniqueness.mjs",
-            "symbol": "CheckToolsCheckTestOrchestratorUniqueness",
-            "owner": "TestGovernanceOwner",
-            "category": "test-governance",
-            "engine": "parser",
-            "sourceScopes": [
-                "tools/check-test-orchestrator-uniqueness.mjs",
-                "tests/**",
-                "tools/test/**",
-                ".github/workflows/**"
-            ],
-            "severity": "error",
-            "fixable": false,
-            "changedFileSafe": true,
-            "dependencies": [],
-            "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
-            ],
-            "documentation": "docs/development/custom-rule-platform.md",
-            "execution": {
-                "mode": "delegated-implementation",
-                "implementation": "tools/check-test-orchestrator-uniqueness.mjs",
-                "executionKey": "governance:file:tools/check-test-orchestrator-uniqueness.mjs",
-                "receiptCompatible": true
-            }
-        },
-        {
             "id": "Implementation.ToolsCheckTestRetentionMjs",
             "externalId": "tools/check-test-retention.mjs",
             "symbol": "CheckToolsCheckTestRetention",
@@ -12783,6 +12755,34 @@
                 "mode": "delegated-implementation",
                 "implementation": "tools/style/check-native-tooling-style.mjs",
                 "executionKey": "governance:file:tools/style/check-native-tooling-style.mjs",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Implementation.ToolsTestCheckBackendProductionBuildAuthorityMjs",
+            "externalId": "tools/test/check-backend-production-build-authority.mjs",
+            "symbol": "CheckToolsTestCheckBackendProductionBuildAuthority",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "parser",
+            "sourceScopes": [
+                "tools/test/check-backend-production-build-authority.mjs",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/issue-1162-rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/test/check-backend-production-build-authority.mjs",
+                "executionKey": "governance:file:tools/test/check-backend-production-build-authority.mjs",
                 "receiptCompatible": true
             }
         },

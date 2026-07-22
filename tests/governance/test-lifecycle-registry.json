@@ -177,18 +177,6 @@
             ]
         },
         {
-            "file": "tests/tools/acceptance-layer-migration.test.mjs",
-            "owner": "manual-diagnostic:tests/tools/acceptance-layer-migration.test.mjs",
-            "executionCategory": "manual-diagnostic",
-            "lifecycle": "manual-diagnostic",
-            "physicalExecutionCount": 0,
-            "classifications": [
-                "source-text",
-                "migration",
-                "runtime"
-            ]
-        },
-        {
             "file": "tests/tools/article-core-test-api-governance.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",
@@ -2026,30 +2014,6 @@
             "physicalExecutionCount": 0,
             "classifications": [
                 "source-text",
-                "runtime"
-            ]
-        },
-        {
-            "file": "tests/tools/test-optimization-report.test.mjs",
-            "owner": "manual-diagnostic:tests/tools/test-optimization-report.test.mjs",
-            "executionCategory": "manual-diagnostic",
-            "lifecycle": "manual-diagnostic",
-            "physicalExecutionCount": 0,
-            "classifications": [
-                "source-text",
-                "compatibility-wrapper",
-                "perf",
-                "runtime"
-            ]
-        },
-        {
-            "file": "tests/tools/test-orchestrator-uniqueness.test.mjs",
-            "owner": "repository-governance:static-node-contracts",
-            "executionCategory": "repository-governance",
-            "lifecycle": "canonical-execution",
-            "physicalExecutionCount": 1,
-            "classifications": [
-                "migration",
                 "runtime"
             ]
         },

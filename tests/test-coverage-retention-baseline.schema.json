@@ -1,7 +1,7 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://fsusblog.local/schemas/test-optimization-snapshot.schema.json",
-    "title": "FsusBlog test optimization evidence snapshot",
+    "$id": "https://fsusblog.local/schemas/test-coverage-retention-baseline.schema.json",
+    "title": "FsusBlog test coverage retention baseline",
     "type": "object",
     "required": [
         "schema",
@@ -9,7 +9,7 @@
     ],
     "properties": {
         "schema": {
-            "const": "fsusblog.test-optimization-snapshot.v1"
+            "const": "fsusblog.test-coverage-retention-baseline.v1"
         },
         "capturedAt": {
             "type": "string",
@@ -34,9 +34,6 @@
                 }
             },
             "additionalProperties": false
-        },
-        "criticalMutationSlice": {
-            "$ref": "#/$defs/mutationSlice"
         }
     },
     "additionalProperties": false,
@@ -63,41 +60,14 @@
                             "type": "number",
                             "minimum": 0,
                             "maximum": 100
+                        },
+                        "methodcoverage": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 100
                         }
                     },
                     "additionalProperties": true
-                },
-                "generatedAt": {
-                    "type": "string",
-                    "format": "date-time"
-                }
-            },
-            "additionalProperties": true
-        },
-        "mutationSlice": {
-            "type": "object",
-            "properties": {
-                "score": {
-                    "type": "number",
-                    "minimum": 0,
-                    "maximum": 100
-                },
-                "scope": {
-                    "type": "array",
-                    "minItems": 1,
-                    "items": {
-                        "type": "string",
-                        "minLength": 1
-                    },
-                    "uniqueItems": true
-                },
-                "sliceId": {
-                    "type": "string",
-                    "minLength": 1
-                },
-                "mutantCount": {
-                    "type": "integer",
-                    "minimum": 0
                 }
             },
             "additionalProperties": true

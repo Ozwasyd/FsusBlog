@@ -7825,7 +7825,11 @@
             "id": "node-test:tests/tools/test-optimization-report.test.mjs#out-of-scope-replacements-retain-critical-mutation-proof-1bd25736da",
             "path": "tests/tools/test-optimization-report.test.mjs",
             "replacementTestIds": [
-                "node-test:tests/tools/test-optimization-report.test.mjs#out-of-scope-replacements-require-a-source-bound-execute-721eba7c35"
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -7833,7 +7837,11 @@
             "id": "node-test:tests/tools/test-optimization-report.test.mjs#zero-actual-deletions-retain-critical-mutation-proof-thr-25b9820c69",
             "path": "tests/tools/test-optimization-report.test.mjs",
             "replacementTestIds": [
-                "node-test:tests/tools/test-optimization-report.test.mjs#zero-actual-deletions-still-require-a-source-bound-execu-1dd916b733"
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -10931,6 +10939,464 @@
                 "vitest:tests/frontend/e2e/visual/admin-inline-empty-state.spec.ts#diagnoses-representative-hierarchy-alignment-and-overflo-3ddd1c25f7"
             ],
             "reason": "The static owner now proves the single responsive inset contract; browser correctness owns visible semantics, actions and runtime health; the representative desktop/mobile diagnostic owns alignment, hierarchy and overflow without repeating fixed padding assertions for every caller."
+        },
+        {
+            "id": "node-test:tests/tools/acceptance-layer-migration.test.mjs#issue-1146-maps-every-removed-acceptance-assertion-targe-07c1d19364",
+            "path": "tests/tools/acceptance-layer-migration.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/browser-migration-contract.test.mjs#repository-browser-migration-contract-is-internally-cons-a5c9bd7683",
+                "node-test:tests/tools/browser-migration-contract.test.mjs#every-migration-replacement-resolves-to-a-current-semant-719b24b942"
+            ],
+            "reason": "The canonical browser migration manifest and resolver retain every current semantic replacement without preserving the historical Acceptance count."
+        },
+        {
+            "id": "node-test:tests/tools/acceptance-layer-migration.test.mjs#acceptance-retains-only-four-browser-unique-public-hydra-59087d6958",
+            "path": "tests/tools/acceptance-layer-migration.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/browser-migration-contract.test.mjs#repository-browser-migration-contract-is-internally-cons-a5c9bd7683",
+                "node-test:tests/tools/browser-migration-contract.test.mjs#every-migration-replacement-resolves-to-a-current-semant-719b24b942"
+            ],
+            "reason": "The canonical browser migration manifest and resolver retain every current semantic replacement without preserving the historical Acceptance count."
+        },
+        {
+            "id": "node-test:tests/tools/acceptance-layer-migration.test.mjs#browser-tests-contain-no-direct-sql-redis-docker-or-chil-0709921931",
+            "path": "tests/tools/acceptance-layer-migration.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/browser-migration-contract.test.mjs#browser-tests-remain-isolated-from-direct-infrastructure-44e5b4330f",
+                "node-test:tests/tools/browser-migration-contract.test.mjs#browser-isolation-rejects-sql-redis-docker-and-child-pro-04bd27688e"
+            ],
+            "reason": "Browser isolation is now a permanent positive and negative governance rule instead of an assertion inside an Acceptance migration campaign."
+        },
+        {
+            "id": "node-test:tests/tools/test-orchestrator-uniqueness.test.mjs#the-fixed-migration-catalog-resolves-through-the-sole-ma-d178a19f4b",
+            "path": "tests/tools/test-orchestrator-uniqueness.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#unowned-and-duplicate-physical-execution-fail-closed-3a7f4426c1",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#projection-and-summary-records-cannot-execute-a-producer-65c23e57b4",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#matrix-is-the-single-current-command-and-retention-gover-2d95901b5e"
+            ],
+            "reason": "Dynamic lifecycle and matrix governance own physical execution uniqueness, projection boundaries and the current topology without a hard-coded migrated-lane list."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-compares-a-source-free-compact-basel-cabf134e31",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-proves-retained-coverage-and-sorts-t-327db96055",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-fails-closed-when-baseline-test-ids--9c4534d0d0",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-fails-closed-when-matrix-artifacts-r-264cee694d",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-separates-declarations-from-an-older-31d230010e",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#final-authority-requires-a-source-bound-before-snapshot-b19ac56274",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-accepts-an-explicit-live-tier-replac-cbd5187539",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#production-membership-replacement-cannot-authorize-stand-f4e8ff102b",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-rejects-malformed-replacement-scopes-62e68e52a9",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#tier-replacement-explicitly-maps-every-removed-productio-ae4e645e21",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-accepts-an-explicit-deletion-only-wi-6a68260202",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-binds-removed-assertions-to-an-expli-c9eacb973c",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-accepts-a-declared-assertion-strengt-a9b81b2391",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-recomputes-candidate-review-complete-ca9b236268",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-does-not-claim-missing-performance-e-1a4567299a",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-consumes-the-scheduler-checkpoint-ti-1450b7ee44",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-prefers-the-latest-fresh-production--1b25ea0ab7",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-observes-production-duration-without-d574279229",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-cli-refuses-to-manufacture-a-proof-w-41867c8ea7",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-snapshot-schema-requires-all-three-line-and-b8ca9472a2",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#tracked-optimization-baseline-uses-the-authoritative-sna-7f0d01be59",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-snapshot-capture-rejects-incomplete-coverag-d71e8117dd",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#final-authority-requires-a-successful-production-fresh-c-0990c2fd40",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#final-authority-requires-every-performance-budget-to-be--cb514064da",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#performance-budget-fallback-only-accepts-a-successful-fr-5a37c8c1bd",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#final-authority-compares-backend-frontend-and-merged-lin-446445e2c5",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#physical-production-checkpoints-require-an-exact-source--6ad3fa16a9",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#final-authority-requires-a-non-regressing-critical-mutat-19f2ada432",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#out-of-scope-replacements-require-a-source-bound-execute-721eba7c35",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#zero-actual-deletions-still-require-a-source-bound-execu-1dd916b733",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#final-mutation-authority-rejects-a-mismatched-run-or-sou-e38637e1cf",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#final-authority-binds-checkpoints-coverage-and-retention-2947049189",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#final-authority-rejects-retention-evidence-from-another--053e21d9a5",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#historical-report-construction-remains-compatible-but-ex-5aaa128cfc",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-cli-rejects-a-focused-only-checkpoin-d772ea1c1f",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#lifecycle-report-binds-every-test-id-and-assertion-targe-54d36cf04e",
+                "node-test:tests/tools/test-lifecycle-governance.test.mjs#replacement-conclusions-need-proof-and-migration-retirem-9c55a923b0",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304",
+                "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+                "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
+            ],
+            "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
         }
     ],
     "assertionReplacements": [

@@ -7,7 +7,9 @@ import { pathToFileURL } from 'node:url';
 
 const root = path.resolve(import.meta.dirname, '../..');
 const {
+    browserTestIsolationViolations,
     expandBrowserTestMigrationManifest,
+    repositoryBrowserTestIsolationViolations,
     validateBrowserTestMigration,
     validateReplacementTargets
 } = await import(pathToFileURL(path.join(root, 'tools/check-browser-test-migration.mjs')).href);
@@ -89,4 +91,20 @@ test('browser-only risk requires a real browser replacement or approved removal'
     );
     visual.replacementTestIds.push('vitest:happy-dom-equivalence');
     assert.ok(validate(fixture, domOnly).some((error) => error.includes('cannot claim happy-dom equivalence')));
+});
+
+test('browser tests remain isolated from direct infrastructure control', () =>
+{
+    assert.deepEqual(repositoryBrowserTestIsolationViolations(root), []);
+});
+
+test('browser isolation rejects SQL Redis Docker and child process primitives', () =>
+{
+    const sources = [
+        { file: 'sql.spec.ts', source: "const sqlTool = 'psql'" },
+        { file: 'redis.spec.ts', source: "const redisTool = 'redis-cli'" },
+        { file: 'docker.spec.ts', source: "const containerTool = 'docker'" },
+        { file: 'process.spec.ts', source: "const processModule = 'node:child_process'" }
+    ];
+    assert.equal(browserTestIsolationViolations(sources).length, sources.length);
 });

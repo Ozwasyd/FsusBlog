@@ -18,7 +18,6 @@ StaticBackgroundServices() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check
 StaticSuiteConvergence() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-suite-convergence.mjs"; }
 StaticBackendPhysicalTopology() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/architecture/check-backend-physical-topology.mjs" --out "$ROOT_DIR/.tmp/release-evidence/backend-physical-topology.json"; }
 StaticBrowserTestMigration() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-browser-test-migration.mjs"; }
-StaticTestOrchestrator() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-orchestrator-uniqueness.mjs"; }
 StaticTestLifecycle() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-lifecycle.mjs"; }
 StaticArticleCoreTestApi() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-article-core-test-api.mjs"; }
 StaticBackendGovernance() { RunTier "static-governance" RunBackendTestGovernanceOnly; }
@@ -123,7 +122,6 @@ STATIC_NODE_CONTRACT_FILES=(
     "$ROOT_DIR/tests/tools/issue-1151-receipt-schema.test.mjs"
     "$ROOT_DIR/tests/tools/issue-1152-aeds-frame-cost-evidence.test.mjs"
     "$ROOT_DIR/tests/tools/issue-1154-pod-binary-codec-batch-evidence.test.mjs"
-    "$ROOT_DIR/tests/tools/test-orchestrator-uniqueness.test.mjs"
     "$ROOT_DIR/tests/tools/test-lifecycle-governance.test.mjs"
     "$ROOT_DIR/tests/tools/rights-v3-projection.test.mjs"
     "$ROOT_DIR/tests/tools/repository-governance-authority.test.mjs"
@@ -215,7 +213,6 @@ RunTestAssetGovernancePhase() {
         evidence-plan StaticEvidencePlan \
         suite-convergence StaticSuiteConvergence \
         browser-test-migration StaticBrowserTestMigration \
-        test-orchestrator StaticTestOrchestrator \
         test-lifecycle StaticTestLifecycle \
         canonical-node-behavior StaticTestAssetBehavior \
         article-core-test-api StaticArticleCoreTestApi \

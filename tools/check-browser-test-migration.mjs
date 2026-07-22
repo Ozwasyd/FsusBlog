@@ -2,7 +2,7 @@
 
 import { execFileSync, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -10,10 +10,48 @@ import { browserContractScenarios } from '../tests/browser-contract/contract.mjs
 import { browserDiagnosticCatalog } from '../tests/browser-diagnostics/catalog.mjs'
 import { extractTestRecords, vitestTestId } from './test-retention/audit.mjs'
 
-const schema = 'fsusblog.browser-test-migration.v1'
-const allowedReplacementLayers = new Set(['correctness', 'browser-contract', 'diagnostic', 'none'])
+const schema = 'fsusblog.browser-test-migration.v1';
+const allowedReplacementLayers = new Set(['correctness', 'browser-contract', 'diagnostic', 'none']);
 const allowedStatuses = new Set(['migrated', 'migrated-in-place', 'retained-diagnostic'])
 const browserRiskRoutes = new Set(['browser-contract', 'diagnostic'])
+const directInfrastructureControl = /(?:node:)?child_process|\bdocker\b|\bpsql\b|\bredis-cli\b|FSUSBLOG_(?:PG|REDIS)_CONTAINER/u;
+
+function sourceFilesBelow(root, relativeDirectory)
+{
+    const files = [];
+    const visit = (directory) =>
+    {
+        for (const entry of readdirSync(directory, { withFileTypes: true }))
+        {
+            const absolute = path.join(directory, entry.name);
+            if (entry.isDirectory())
+            {
+                visit(absolute);
+            }
+            else if (/\.(?:[cm]?[jt]s|tsx?)$/u.test(entry.name))
+            {
+                files.push(absolute);
+            }
+        }
+    };
+    visit(path.join(root, relativeDirectory));
+    return files.sort();
+}
+
+export function browserTestIsolationViolations(sources)
+{
+    return sources.flatMap(({ file, source }) => directInfrastructureControl.test(source)
+        ? [`${file}: browser tests must not directly control SQL, Redis, Docker, or child processes`]
+        : []);
+}
+
+export function repositoryBrowserTestIsolationViolations(root)
+{
+    return browserTestIsolationViolations(sourceFilesBelow(root, 'tests/frontend/e2e').map((absolute) => ({
+        file: path.relative(root, absolute).replaceAll('\\', '/'),
+        source: readFileSync(absolute, 'utf8')
+    })));
+}
 
 function strings(value) {
   return Array.isArray(value)
@@ -512,6 +550,7 @@ export function checkBrowserTestMigration(root) {
     currentRecords
   })
   errors.push(...validateReplacementTargets(root, records))
+  errors.push(...repositoryBrowserTestIsolationViolations(root));
   if (errors.length > 0) {
     throw new Error(`browser test migration governance failed:\n- ${errors.join('\n- ')}`)
   }

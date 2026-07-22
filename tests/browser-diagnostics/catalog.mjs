@@ -82,7 +82,7 @@ const replacementLayers = Object.freeze({
   acceptance: [
     'tests/issue-1146-acceptance-baseline.json',
     'tests/test-retention-replacements.json',
-    'tests/tools/acceptance-layer-migration.test.mjs'
+    'tests/tools/browser-migration-contract.test.mjs'
   ],
   'release-runtime': [
     'tests/browser-contract/scenarios.mjs',

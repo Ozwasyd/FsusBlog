@@ -149,7 +149,7 @@ async function buildAudit({ runId = null } = {}) {
   const matrixText = fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8')
   const coverageRegistryText = fs.readFileSync(path.join(root, 'tests/coverage-registry.json'), 'utf8')
   const requirementCatalogText = fs.readFileSync(path.join(root, 'tests/backend/Fixtures/backend-test-requirements.json'), 'utf8')
-  const optimizationCoverageBaselineText = fs.readFileSync(path.join(root, 'tests/test-optimization-coverage-baseline.json'), 'utf8')
+  const coverageRetentionBaselineText = fs.readFileSync(path.join(root, 'tests/test-coverage-retention-baseline.json'), 'utf8');
   const matrix = parseMatrix(matrixText)
   const coverageRegistry = JSON.parse(coverageRegistryText)
   const requirementCatalog = JSON.parse(requirementCatalogText)
@@ -284,7 +284,7 @@ async function buildAudit({ runId = null } = {}) {
       matrix: matrixText,
       coverageRegistry: coverageRegistryText,
       requirementCatalog: requirementCatalogText,
-      optimizationCoverageBaseline: optimizationCoverageBaselineText
+      optimizationCoverageBaseline: coverageRetentionBaselineText
     }
   })
 
@@ -331,7 +331,7 @@ function currentCatalogSnapshot() {
   const matrixText = fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8')
   const coverageRegistryText = fs.readFileSync(path.join(root, 'tests/coverage-registry.json'), 'utf8')
   const requirementCatalogText = fs.readFileSync(path.join(root, 'tests/backend/Fixtures/backend-test-requirements.json'), 'utf8')
-  const optimizationCoverageBaselineText = fs.readFileSync(path.join(root, 'tests/test-optimization-coverage-baseline.json'), 'utf8')
+  const coverageRetentionBaselineText = fs.readFileSync(path.join(root, 'tests/test-coverage-retention-baseline.json'), 'utf8');
   return buildRetentionCatalogSnapshot({
     matrix: parseMatrix(matrixText),
     coverageRegistry: JSON.parse(coverageRegistryText),
@@ -340,16 +340,17 @@ function currentCatalogSnapshot() {
       matrix: matrixText,
       coverageRegistry: coverageRegistryText,
       requirementCatalog: requirementCatalogText,
-      optimizationCoverageBaseline: optimizationCoverageBaselineText
+      optimizationCoverageBaseline: coverageRetentionBaselineText
     }
   })
 }
 
 function baselineOptimizationEvidence(audit) {
-  const coveragePath = path.join(root, 'tests/test-optimization-coverage-baseline.json')
-  const snapshot = JSON.parse(fs.readFileSync(coveragePath, 'utf8'))
-  if (snapshot?.schema !== 'fsusblog.test-optimization-snapshot.v1') {
-    throw new Error(`unsupported optimization coverage baseline schema: ${snapshot?.schema ?? 'missing'}`)
+  const coveragePath = path.join(root, 'tests/test-coverage-retention-baseline.json');
+  const snapshot = JSON.parse(fs.readFileSync(coveragePath, 'utf8'));
+  if (snapshot?.schema !== 'fsusblog.test-coverage-retention-baseline.v1')
+  {
+    throw new Error(`unsupported coverage retention baseline schema: ${snapshot?.schema ?? 'missing'}`);
   }
   const scopeIds = ['backend-mutation', 'release-mutation-critical-slice']
   const testIds = (audit?.testRecords ?? [])
@@ -358,7 +359,7 @@ function baselineOptimizationEvidence(audit) {
     .filter(Boolean)
     .sort()
   return {
-    coverageBaselinePath: 'tests/test-optimization-coverage-baseline.json',
+    coverageBaselinePath: 'tests/test-coverage-retention-baseline.json',
     coverage: snapshot.coverage,
     criticalMutationSlice: {
       evidenceMode: 'scope-identity',
@@ -382,7 +383,7 @@ function loadAuditInput(file) {
     'tests/matrix.yml',
     'tests/coverage-registry.json',
     'tests/backend/Fixtures/backend-test-requirements.json',
-    'tests/test-optimization-coverage-baseline.json'
+    'tests/test-coverage-retention-baseline.json'
   ]) {
     const baseline = spawnSync('git', ['show', `${commit}:${relative}`], {
       cwd: root,

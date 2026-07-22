@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.issue-acceptance-baseline.v1",
+    "issue": 1435,
+    "sourceCommit": "15a3d288e846dd3b97e4b0bd4b2aac59cb7fd0e2",
+    "expectedRecords": 1,
+    "expectedMigrated": 1,
+    "records": [
+        {
+            "id": "vitest:tests/frontend/e2e/admin-inline-empty-state.spec.ts#share-the-responsive-inset-across-article-category-user--e2171b25fd",
+            "path": "tests/frontend/e2e/admin-inline-empty-state.spec.ts",
+            "disposition": "migrated"
+        }
+    ]
+}

@@ -308,7 +308,7 @@ export function compactRetentionBaseline(audit, { optimizationEvidence = audit?.
 
   const compactOptimizationEvidence = {
     coverageBaseline: {
-      path: String(optimizationEvidence?.coverageBaselinePath ?? 'tests/test-optimization-coverage-baseline.json'),
+      path: String(optimizationEvidence?.coverageBaselinePath ?? 'tests/test-coverage-retention-baseline.json'),
       sourceDigest: audit?.catalogSnapshot?.sourceDigests?.optimizationCoverageBaseline ?? null,
       scopes: ['backend', 'frontend', 'merged'],
       summaryDigest: contentDigest(optimizationEvidence?.coverage ?? {})

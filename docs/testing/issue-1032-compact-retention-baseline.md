@@ -15,16 +15,18 @@
 - timing、tier invocation 与 failure history 只保留总数和确定性 digest，不保存
   `generatedAt`、`lastFailureAt` 或单次运行日志。
 - backend、frontend、merged coverage 的权威数值仍由
-  `tests/test-optimization-coverage-baseline.json` 所有；before baseline 保存该文件在
+  `tests/test-coverage-retention-baseline.json` 所有；before baseline 保存旧 campaign 文件在
   source commit 中的 digest、三个 scope 和摘要 digest，避免复制动态结果。
 - mutation critical slice 保存 scope IDs 与哈希后的 test ID index。
 
 `tools/test-retention/audit.mjs` 负责生成和验证 v3；
 `tools/check-test-retention.mjs` 校验 source commit 中 matrix、coverage registry、backend
-requirement catalog 和 optimization baseline 的完整 SHA-256；
-`tools/test/optimization-report.mjs` 在比较当前 raw after audit 时把当前 test/assertion ID
-按相同算法归一化，因此仍能阻断 undeclared deletion、undeclared assertion loss、catalog
-loss、coverage regression 和 mutation-slice drift。
+requirement catalog，以及当前 coverage retention baseline 的完整 SHA-256。历史 source
+commit 仍按原路径只读校验，
+当前运行时由 `tools/check-test-retention.mjs` 与
+`tools/check-test-suite-convergence.mjs` 将 raw after audit 的 test/assertion ID 按相同算法
+归一化，因此仍能阻断 undeclared deletion、undeclared assertion loss、catalog loss、
+coverage regression 和 mutation-slice drift。
 
 ## 风险与回退
 
@@ -38,4 +40,4 @@ loss、coverage regression 和 mutation-slice drift。
 
 本轮按统一实施指令只落地 schema、checker 兼容和直接测试源码，没有运行测试、构建、
 lint、syntax check、治理 checker、coverage、mutation 或 production fresh。统一验证阶段须
-生成 source-bound after audit，再由 optimization/convergence authority 给出最终结论。
+生成 source-bound after audit，再由 retention/convergence authority 给出最终结论。

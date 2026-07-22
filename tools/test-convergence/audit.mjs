@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto'
-
 import {
   compactRetentionKey,
   decodeCompactRetentionIndex,
@@ -256,29 +254,46 @@ export function mergeReplacementEntries(manifests) {
   return { entries: [...merged.values()].sort((left, right) => left.id.localeCompare(right.id)), conflicts, errors }
 }
 
-export function validateReplacementChainAuthority(replacements, authority) {
-  const expectedEdgeCount = Number(authority?.edgeCount)
-  const expectedEdgeSetSha256 = String(authority?.edgeSetSha256 ?? '').trim()
-  const deletedIds = new Set(replacements.map((entry) => entry.id))
-  const edges = [...new Set(replacements.flatMap((entry) =>
-    entry.replacementTestIds
-      .filter((replacementId) => deletedIds.has(replacementId))
-      .map((replacementId) => `${entry.id}\n${replacementId}`)
-  ))].sort()
-  const edgeSetSha256 = createHash('sha256')
-    .update(JSON.stringify(edges))
-    .digest('hex')
-  const errors = []
-  if (!Number.isInteger(expectedEdgeCount)
-    || expectedEdgeCount < 0
-    || !/^[0-9a-f]{64}$/u.test(expectedEdgeSetSha256)) {
-    errors.push('replacement chain authority is missing or invalid')
-  } else if (edges.length !== expectedEdgeCount || edgeSetSha256 !== expectedEdgeSetSha256) {
-    errors.push(
-      'replacementTestId points to a deleted ledger ID outside the frozen historical chain authority'
-    )
-  }
-  return { edgeCount: edges.length, edgeSetSha256, errors }
+export function validateReplacementChainAuthority(replacements)
+{
+    const deletedIds = new Set(replacements.map((entry) => entry.id));
+    const chainEdges = replacements.flatMap((entry) => entry.replacementTestIds
+        .filter((replacementId) => deletedIds.has(replacementId))
+        .map((replacementId) => ({ source: entry.id, target: replacementId })));
+    const targetsBySource = new Map();
+    for (const edge of chainEdges)
+    {
+        const targets = targetsBySource.get(edge.source) ?? [];
+        targets.push(edge.target);
+        targetsBySource.set(edge.source, targets);
+    }
+    const errors = [];
+    const visiting = new Set();
+    const visited = new Set();
+    function visit(id)
+    {
+        if (visiting.has(id))
+        {
+            errors.push(`${id}: replacement ledger contains a cycle`);
+            return;
+        }
+        if (visited.has(id))
+        {
+            return;
+        }
+        visiting.add(id);
+        for (const target of targetsBySource.get(id) ?? [])
+        {
+            visit(target);
+        }
+        visiting.delete(id);
+        visited.add(id);
+    }
+    for (const id of deletedIds)
+    {
+        visit(id);
+    }
+    return { chainEdges, errors };
 }
 
 export function expandPathReplacementPlan(beforeRecords, plan, source = '<path-plan>') {

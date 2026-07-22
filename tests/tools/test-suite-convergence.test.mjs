@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs';
 import test from 'node:test'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -24,23 +24,22 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 
 test('matrix is the single current command and retention governance authority', () => {
   const matrix = parseMatrix(readFileSync(resolve(root, 'tests/matrix.yml'), 'utf8'))
-  assert.equal(matrix.commandGroups['frontend-static-governance'].commands.length, 50)
-  assert.equal(matrix.commandGroups['frontend-runtime-contracts'].commands.length, 7)
-  assert.equal(matrix.governance.retention.replacementLedger, 'tests/test-retention-replacements.json')
-    assert.deepEqual(matrix.governance.retention.postBaselines, [
-        'tests/issue-1146-acceptance-baseline.json',
-        'tests/issue-1410-composition-registration-baseline.json'
-    ]);
-  assert.equal(matrix.governance.retention.automaticDeletion, false)
-  for (const retiredPath of [
-    'tests/frontend/checks/static/manifest.json',
-    'tests/frontend/checks/runtime/manifest.json',
-    'tests/issue-1051-suite-convergence.json',
-    'tests/frontend/checks/static/frontend-source-locking-migration-plan.mjs',
-    'tests/issue-1146-retention-replacements.json'
-  ]) {
-    assert.equal(existsSync(resolve(root, retiredPath)), false, `${retiredPath} must stay retired`)
+  for (const group of Object.values(matrix.commandGroups))
+  {
+    const commandIds = group.commands.map(({ id }) => id);
+    assert.ok(commandIds.length > 0, `${group.lane} must retain executable commands`);
+    assert.equal(new Set(commandIds).size, commandIds.length, `${group.lane} command IDs must be unique`);
   }
+  assert.equal(matrix.governance.retention.replacementLedger, 'tests/test-retention-replacements.json')
+  const postBaselines = matrix.governance.retention.postBaselines;
+  assert.equal(new Set(postBaselines).size, postBaselines.length);
+  for (const baselinePath of postBaselines)
+  {
+    const baseline = JSON.parse(readFileSync(resolve(root, baselinePath), 'utf8'));
+    assert.equal(baseline.schema, 'fsusblog.issue-acceptance-baseline.v1');
+    assert.ok(Array.isArray(baseline.records));
+  }
+  assert.equal(matrix.governance.retention.automaticDeletion, false)
 })
 
 test('backend source-locking owner accepts runtime artifacts and rejects production docs and test source', () => {
@@ -128,7 +127,7 @@ test('replacement merge accepts identical declarations and reports conflicting o
   assert.match(conflict.errors[0], /conflicting replacement declarations/u)
 })
 
-test('post-baseline replacements cannot introduce or retarget a deleted-ledger chain edge', () => {
+test('replacement chains remain acyclic without a fixed historical edge count', () => {
   const historical = [{
     id: 'xunit:old#Old.A',
     path: 'tests/backend/Unit/Old.cs',
@@ -138,22 +137,14 @@ test('post-baseline replacements cannot introduce or retarget a deleted-ledger c
     path: 'tests/backend/Unit/Old.cs',
     replacementTestIds: ['xunit:current#Current.Test']
   }]
-  const authority = {
-    edgeCount: 1,
-    edgeSetSha256: 'd70448f45f8dbc973adfc8234581d6fdfe436fe4462eb872e50b249265ffed66'
-  }
-
-  assert.deepEqual(validateReplacementChainAuthority(historical, authority).errors, [])
+  assert.deepEqual(validateReplacementChainAuthority(historical).errors, []);
 
   const appendedChain = [...historical, {
     id: 'xunit:newer#Newer.C',
     path: 'tests/backend/Unit/Newer.cs',
     replacementTestIds: ['xunit:old#Old.B']
   }]
-  assert.match(
-    validateReplacementChainAuthority(appendedChain, authority).errors[0],
-    /outside the frozen historical chain authority/u
-  )
+  assert.deepEqual(validateReplacementChainAuthority(appendedChain).errors, []);
 
   const coordinatedRetarget = structuredClone(historical)
   coordinatedRetarget[0].replacementTestIds = ['xunit:newer#Newer.C']
@@ -162,10 +153,11 @@ test('post-baseline replacements cannot introduce or retarget a deleted-ledger c
     path: 'tests/backend/Unit/Newer.cs',
     replacementTestIds: ['xunit:current#Current.Test']
   })
-  assert.match(
-    validateReplacementChainAuthority(coordinatedRetarget, authority).errors[0],
-    /outside the frozen historical chain authority/u
-  )
+  assert.deepEqual(validateReplacementChainAuthority(coordinatedRetarget).errors, []);
+
+  const cyclic = structuredClone(historical);
+  cyclic[1].replacementTestIds = ['xunit:old#Old.A'];
+  assert.match(validateReplacementChainAuthority(cyclic).errors[0], /contains a cycle/u);
 })
 
 test('issue-local replacement manifest count is exact', () => {

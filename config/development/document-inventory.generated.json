@@ -4768,6 +4768,19 @@
             "producer": null
         },
         {
+            "path": "docs/testing/test-asset-lifecycle-governance.md",
+            "title": "Test asset lifecycle governance",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "release",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "6b6f67c431c1a8760fd2f10e22b52e1291e06e9b",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
+        {
             "path": "docs/testing/test-lifecycle-governance.md",
             "title": "Test lifecycle governance",
             "kind": "markdown",

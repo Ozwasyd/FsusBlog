@@ -124,10 +124,7 @@ const compactBefore = isCompactRetentionBaseline(beforeSnapshot)
 if (compactBefore) validateCompactRetentionBaseline(beforeSnapshot)
 const beforeRecords = compactBefore ? null : recordsFromSnapshot(beforeSnapshot, repoPath(beforePath))
 const merged = mergeReplacementEntries([{ source: repoPath(centralPath), manifest: readJson(centralPath) }])
-const replacementChainAuthority = validateReplacementChainAuthority(merged.entries, {
-  edgeCount: 188,
-  edgeSetSha256: 'ea380935f1165d4df01cc43cad9ad0ada8026e74bf50c1d71879ce303275d7c5'
-})
+const replacementChainAuthority = validateReplacementChainAuthority(merged.entries);
 const postBaseline = validatePostBaselines(retentionGovernance.postBaselines, merged.entries)
 const defaultAfterPath = resolve(root, retentionGovernance.auditOutput ?? '.tmp/release-evidence/test-retention-audit.json')
 const afterPath = options.after ?? (options.final && existsSync(defaultAfterPath) ? defaultAfterPath : null)

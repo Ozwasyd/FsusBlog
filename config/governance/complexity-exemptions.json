@@ -7,7 +7,7 @@
             "reason": "Temporary coverage bridge while Production topology assertions are decomposed into authority-specific contract tests",
             "expires": "2026-08-22",
             "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/1397",
-            "sourceFingerprint": "sha256:4d33e0b5af3b1aad9e9c22075dc3b39db19c8918674a356f51489fca63ee649a"
+            "sourceFingerprint": "sha256:862ed741a73c4b87236eb3eccc046a88550d8e3a90e1581f545f7df7f91410f1"
         },
         {
             "file": "tools/governance/repository-governance-authority.mjs",

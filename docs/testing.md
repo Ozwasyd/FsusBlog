@@ -10,7 +10,7 @@ FsusBlog 采用机器可读测试 DAG。`tests/matrix.yml` 是唯一测试拓扑
 
 测试瘦身只允许基于机器证据推进。`static-governance` 会运行 `tools/check-test-retention.mjs` 并写入 `.tmp/release-evidence/test-retention-audit.json`，按测试文件归类为 `must-keep`、`conditional`、`review-candidate` 或 `obsolete-candidate`。audit 对每个测试 ID 保存 framework、tier 调用次数、p50/p95、coverage ID、断言目标、失败历史、唯一证据与 replacement IDs；没有计时或历史样本时必须显式记录证据缺失，不能伪造为零。`catalogSnapshot` 同时保存 matrix tier/artifact/evidence、coverage registry、backend requirement catalog 与 release-evidence 路径及其源文件 SHA-256。producer 元数据记录 `runId`、`sourceState` 与 `generatedAt`；矩阵内执行自动继承 `FSUSBLOG_TEST_RUN_ID`，而 standalone audit 的 `runId=null` 只能用于诊断，不能成为 release authority。`must-keep` 覆盖 API/安全/协议/发布/矩阵/治理等契约；`conditional` 代表成本较高但仍由 smart gate 或 release-final 保留的 lane；`review-candidate` 只能进入人工复核，不得自动删除；只有 coverage registry、断言目标、critical mutation slice 与矩阵/requirement/release-artifact 维度均不下降，并为每个被删 test ID 给出已保留 replacement IDs，才允许标为删除。
 
-权威 before snapshot 固定为 `tests/test-retention-before.json`。它由删测前的完整 audit 压缩生成，绑定当时的完整 commit 与 tracked worktree fingerprint，并内嵌 backend/frontend/merged coverage 基线和 `backend-mutation` / `release-mutation-critical-slice` scope identity。仓库一旦存在该文件，capture 命令会拒绝向任何路径再次捕获 before；最终 optimization report 也只接受这个 tracked 路径，并重新核对其中四个 catalog source digest 与所绑定 commit。若从已保存的 clean audit 迁移，`--audit-input` 会先验证 matrix、coverage registry、requirement catalog 与 coverage baseline 和该 audit commit 完全一致。后续历史 replacement 条目会作为 prior-campaign evidence 保留，但只对 before snapshot 中仍存在的 test/assertion ID 执行本轮删除校验。
+权威 before snapshot 固定为 `tests/test-retention-before.json`。它由删测前的完整 audit 压缩生成，绑定当时的完整 commit 与 tracked worktree fingerprint，并内嵌 backend/frontend/merged coverage 基线和 `backend-mutation` / `release-mutation-critical-slice` scope identity。仓库一旦存在该文件，capture 命令会拒绝向任何路径再次捕获 before。若从已保存的 clean audit 迁移，`--audit-input` 会先验证 matrix、coverage registry、requirement catalog 与 coverage baseline 和该 audit commit 完全一致。后续历史 replacement 条目只作为前序声明被继承；当前删除必须由 lifecycle registry、post-baseline manifest、replacement ledger 与 suite-convergence 正负测试持续证明，不再生成一次性的 optimization campaign 报告。
 
 local production 的 backend union 由 `tools/test/run-backend-production-shards.mjs` 执行。脚本先用 `Category!=Integration&Category!=Performance` 发现本轮全部测试，再按完整测试方法名生成确定性、互斥的分片；每个分片使用同一次 fresh build 的独立 DLL 复制，避免 Coverlet 并发插桩同一文件。成功条件不是“两个命令均返回 0”，而是两份 TRX 的逐方法用例计数与 discovery 完全一致、所有 outcome 均为 `Passed`，随后才允许合并 Coverlet JSON/Cobertura。`.tmp/dependency-cache/dotnet` 只保存 NuGet/.NET 工具依赖缓存，可跨 fresh 保留；编译输出统一写入 `.tmp/build/<run-id>`，新 fresh run 通过新根获得空状态，TRX、coverage、checkpoint 与 release evidence 仍逐轮重建，不能作为历史结果复用。布局、锁与 GC 契约见 [`testing/issue-1069-run-bound-production-builds.md`](testing/issue-1069-run-bound-production-builds.md)。
 
@@ -60,32 +60,19 @@ bundle 内同一 wave 的独立步骤不会在首个失败后停止调度，而�
 
 lane-local collect executor 会等待全部独立子任务结束后聚合失败，不因首错 kill peer。security 的 matrix、ZAP policy、SBOM、supply-chain 与 network baseline 静态检查并行；共享安全 fixture/runtime state 的 API、认证、权限、攻击矩阵、notification stream、a11y 与 DAST 保持有序执行，但每个失败只记入汇总，后续检查和必要 reset 继续执行，最后一次性报告全部失败。跨 lane 的依赖、取消和资源 admission 仍只属于 matrix scheduler。
 
-本轮删测证据按以下顺序生成和核验（`<run-id>` 与 checkpoint 路径必须来自同一次权威 fresh run）：
+测试资产变更使用持续治理入口，不再依赖一次性 before/after campaign CLI、固定 tier 数量或 wall-clock target：
 
 ```bash
-# 仅在任何删测发生前执行一次；已有文件时命令会失败
-node tools/check-test-retention.mjs \
-  --out .tmp/release-evidence/test-retention-before-source.json \
-  --capture-before tests/test-retention-before.json
-
-./tools/test.sh production --fresh
-./tools/test.sh ci-tier ux-viewport-boundaries --fresh
-./tools/test.sh ci-tier release-mutation-critical-slice --fresh
-node tools/check-test-retention.mjs \
-  --run-id <production-run-id> \
-  --out .tmp/release-evidence/test-retention-audit.json
-node tools/test/optimization-report.mjs \
-  --before tests/test-retention-before.json \
-  --after .tmp/release-evidence/test-retention-audit.json \
-  --checkpoint .tmp/test-runs/<production-run-id>/checkpoint.json \
-  --checkpoint .tmp/test-runs/<ux-boundaries-run-id>/checkpoint.json \
-  --checkpoint .tmp/test-runs/<mutation-run-id>/checkpoint.json \
-  --mutation-evidence .tmp/mutation/backend-critical/authority.json
+node tools/check-test-lifecycle.mjs
+node tools/check-test-retention.mjs
+node tools/check-test-suite-convergence.mjs
+node tools/run-test-matrix.mjs validate
+node tools/check-browser-test-migration.mjs
 ```
 
 mutation 使用仓库锁定的 Stryker.NET `4.14.2`。nightly `backend-mutation` 从 solution 根发现 Core/Server 可变项目，读取 `config/testing/mutation/default.json` 的项目根相对 glob，保留 Core/security/binary/cache/service 全范围并写入 `.tmp/mutation/backend`；`release-mutation-critical-slice` 从 `src/core` source-project context 启动，以 `tests/backend/FsusBlog.Server.Tests.csproj` 为 test project，读取 `config/testing/mutation/critical.json` 中经审阅的 AEDS v2 wire-frame 核心 `Algorithms/AedsEncoder.cs`，并只选择直接覆盖该范围的 `AedsEncoderTests`，写入 `.tmp/mutation/backend-critical`。该过滤器不得扩展到依赖 `.tmp` release evidence 的无关治理测试，fresh 清理后的 mutation discovery 仍必须自足。critical 运行不能用 full 历史输出替代；solution mode 也禁止用 `project` 键错误地把 test-project 路径固定为被测项目。两者保持 `Debug` configuration，并由 mutation runner 导出专用 MSBuild 标记 `FSUSBLOG_MUTATION_BUILD=1`；由于该版本在 .NET 10 下无法回滚 ASP.NET OpenAPI XML source generator 的 checksum interceptor，`FsusBlog.Server.csproj` 仅在该标记存在时移除 generator analyzer，普通 Debug/Release 的 OpenAPI 行为及业务 mutate scope 不变。阈值由各 config 的 `thresholds.{high,low,break}` 声明，动态输出通过受支持的 `--output` CLI 参数指定；`tools/test/check-stryker-report.mjs` 会拒绝没有实际执行 mutant 的零分报告，并为 critical tier 原子写入 `.tmp/mutation/backend-critical/authority.json`。authority 同时绑定 raw report/config SHA-256、mutate scope、test filter、score/status counts、fresh scheduler run id 与 source state；最终报告会重新核验两个文件 digest 和对应 mutation checkpoint，零删测也不能只凭 scope identity 跳过本轮 Stryker。配置不得重新加入旧版顶层 `threshold-*` 或 `output` 键，solution-context glob 不得带 `src/` 前缀；`backend-test-governance` 会 fail closed。
 
-最终优化报告默认 fail closed：调用方必须显式传入本轮 production、`ux-viewport-boundaries` 与 `release-mutation-critical-slice` 三个 checkpoint；不会扫描旧运行或用 focused fresh 代替 production。local production checkpoint 必须附带 exact 77 的 logical projection（76 个成功 fresh member，加 1 个明确的 external `summary-only` 兼容证据），`integration` 与 `static-governance` 使用各自 member 的真实 step 耗时；`ux-viewport-boundaries` 仍只能由同 source 的独立 fresh checkpoint证明。`ux-viewport-boundaries <= 20m`、数据库 `integration <= 4m`、`static-governance <= 20s` 必须全部通过。报告拒绝 undeclared test IDs、undeclared assertion targets、missing coverage IDs，以及 production tier、matrix artifact、release evidence 或 requirement catalog 的未声明消失；replacement manifest 中早于当前 before snapshot 的历史条目不会被误判为本轮声明。production fresh 完成后，必须用 checkpoint 的 run id 显式重跑 retention audit；报告拒绝 producer run id 不同、audit `generatedAt` 早于 production checkpoint `finishedAt`，或缺少任一时间戳的证据。三个 checkpoint、mutation authority、retention audit 以及 backend/frontend/merged coverage producer 必须同时匹配当前 `HEAD` 和 worktree fingerprint；coverage 与 retention audit 还必须来自同一个权威 production run id，源码在验证后发生任何变化都会使报告失效。仓库内的 `tests/test-optimization-coverage-baseline.json` 是优化前的默认 coverage 基线；需要捕获新的显式 coverage 基线时运行 `node tools/test/optimization-report.mjs --capture-snapshot <path>`，缺少任一 line/branch scope时命令直接失败，也可用 `--baseline-snapshot` / `--current-snapshot` 显式覆盖。若 before 没有可比较 mutation score，current critical score 只有达到 100% 才能数学上证明不低于未知基线；否则必须提供可比较的 before score。没有 before/after timing 样本时，报告只能写 `not measured`，PR、issue 评论和文档均不得声称具体分钟数收益。
+`test-lifecycle` 为每个 Node test file/test ID 解析唯一 physical owner 与 execution category；projection 与 summary 不得执行 producer，unowned 或重复 owner 直接失败。`test-retention` 和 `suite-convergence` 共同校验 test/assertion/coverage universe、replacement chain 与 source identity；matrix validator 校验动态拓扑而不冻结 tier 数量。Browser test isolation 由 `check-browser-test-migration.mjs` 持续扫描，禁止 E2E 直接控制 SQL、Redis、Docker 或子进程。性能耗时只进入 scheduler/benchmark 的本轮证据，不再作为测试是否保留或是否 obsolete 的依据。
 
 旧 `ux-viewport-canary-parity` tier 依赖不完整的历史失败签名，已从 active matrix、release evidence 和测试 inventory 中删除；缺失的历史材料不得由当前全绿结果或 tier 预算推断。当前 viewport diagnostics owner 由 `ux-viewport-smoke`、`ux-viewport-boundaries`、`ux-viewport-visual` 与 risk probe 组成，`ux-viewport-plan-progress` 作为 browserless planner/progress correctness replacement 保留。`ux-viewport-summary.json` 只陈述 diagnostics 本轮实际完成数、失败数、plan fingerprint 与 mode artifact，不参与 release correctness closeout，也不得读取 legacy runner 或伪造 parity 结论。
 
@@ -443,7 +430,7 @@ Browser Contract fixture 固定为 `1 session / 1 concurrency`，只准备一个
 ```bash
 npm --prefix src/frontend run check:acceptance:auth
 npm --prefix src/frontend run check:acceptance:console
-node --test tests/tools/acceptance-layer-migration.test.mjs
+node --test tests/tools/browser-migration-contract.test.mjs
 ./tools/test.sh production-correctness
 ./tools/test.sh browser-contract
 ./tools/test.sh browser-diagnostics

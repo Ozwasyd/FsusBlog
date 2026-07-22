@@ -1,0 +1,203 @@
+{
+    "schema": "fsusblog.issue-acceptance-baseline.v1",
+    "sourceCommit": "15a3d288e846dd3b97e4b0bd4b2aac59cb7fd0e2",
+    "expectedRecords": 39,
+    "expectedMigrated": 39,
+    "records": [
+        {
+            "id": "node-test:tests/tools/acceptance-layer-migration.test.mjs#issue-1146-maps-every-removed-acceptance-assertion-targe-07c1d19364",
+            "path": "tests/tools/acceptance-layer-migration.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/acceptance-layer-migration.test.mjs#acceptance-retains-only-four-browser-unique-public-hydra-59087d6958",
+            "path": "tests/tools/acceptance-layer-migration.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/acceptance-layer-migration.test.mjs#browser-tests-contain-no-direct-sql-redis-docker-or-chil-0709921931",
+            "path": "tests/tools/acceptance-layer-migration.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-orchestrator-uniqueness.test.mjs#the-fixed-migration-catalog-resolves-through-the-sole-ma-d178a19f4b",
+            "path": "tests/tools/test-orchestrator-uniqueness.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-compares-a-source-free-compact-basel-cabf134e31",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-proves-retained-coverage-and-sorts-t-327db96055",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-fails-closed-when-baseline-test-ids--9c4534d0d0",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-fails-closed-when-matrix-artifacts-r-264cee694d",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-separates-declarations-from-an-older-31d230010e",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#final-authority-requires-a-source-bound-before-snapshot-b19ac56274",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-accepts-an-explicit-live-tier-replac-cbd5187539",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#production-membership-replacement-cannot-authorize-stand-f4e8ff102b",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-rejects-malformed-replacement-scopes-62e68e52a9",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#tier-replacement-explicitly-maps-every-removed-productio-ae4e645e21",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-accepts-an-explicit-deletion-only-wi-6a68260202",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-binds-removed-assertions-to-an-expli-c9eacb973c",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-accepts-a-declared-assertion-strengt-a9b81b2391",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-recomputes-candidate-review-complete-ca9b236268",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-does-not-claim-missing-performance-e-1a4567299a",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-consumes-the-scheduler-checkpoint-ti-1450b7ee44",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-prefers-the-latest-fresh-production--1b25ea0ab7",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-observes-production-duration-without-d574279229",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-cli-refuses-to-manufacture-a-proof-w-41867c8ea7",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-snapshot-schema-requires-all-three-line-and-b8ca9472a2",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#tracked-optimization-baseline-uses-the-authoritative-sna-7f0d01be59",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-snapshot-capture-rejects-incomplete-coverag-d71e8117dd",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#final-authority-requires-a-successful-production-fresh-c-0990c2fd40",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#final-authority-requires-every-performance-budget-to-be--cb514064da",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#performance-budget-fallback-only-accepts-a-successful-fr-5a37c8c1bd",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#final-authority-compares-backend-frontend-and-merged-lin-446445e2c5",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#physical-production-checkpoints-require-an-exact-source--6ad3fa16a9",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#final-authority-requires-a-non-regressing-critical-mutat-19f2ada432",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#out-of-scope-replacements-require-a-source-bound-execute-721eba7c35",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#zero-actual-deletions-still-require-a-source-bound-execu-1dd916b733",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#final-mutation-authority-rejects-a-mismatched-run-or-sou-e38637e1cf",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#final-authority-binds-checkpoints-coverage-and-retention-2947049189",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#final-authority-rejects-retention-evidence-from-another--053e21d9a5",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#historical-report-construction-remains-compatible-but-ex-5aaa128cfc",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/test-optimization-report.test.mjs#optimization-report-cli-rejects-a-focused-only-checkpoin-d772ea1c1f",
+            "path": "tests/tools/test-optimization-report.test.mjs",
+            "disposition": "migrated"
+        }
+    ]
+}

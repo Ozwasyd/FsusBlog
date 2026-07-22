@@ -1,5 +1,5 @@
 {
-    "schema": "fsusblog.test-optimization-snapshot.v1",
+    "schema": "fsusblog.test-coverage-retention-baseline.v1",
     "capturedAt": "2026-07-03T09:15:31.067Z",
     "coverage": {
         "backend": {

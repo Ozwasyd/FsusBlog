@@ -193,6 +193,7 @@
 - [Repository governance authorities](testing/repository-governance-authorities.md)
 - [Issue #1037：安全 hardening 边界测试替换](testing/security-hardening-boundary-replacements.md)
 - [Backend security Roslyn source policy](testing/security-hardening-source-policy.md)
+- [Test asset lifecycle governance](testing/test-asset-lifecycle-governance.md)
 - [Test lifecycle governance](testing/test-lifecycle-governance.md)
 
 ### Governance
