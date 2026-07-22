@@ -35,7 +35,6 @@ StaticAppsettingsAuthority() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/con
 StaticBackendConfigurationContract() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/configuration/check-backend-configuration-contract.mjs"; }
 StaticMonolithicDistributedArchitecture() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-monolithic-distributed-architecture.mjs"; }
 StaticCsharpStyle() {
-    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/dotnet/check-csharp-style.mjs" --mode changed
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/dotnet/check-csharp-style.mjs" --mode full
 }
 STATIC_NODE_CONTRACT_FILES=(
@@ -108,6 +107,7 @@ STATIC_NODE_CONTRACT_FILES=(
     "$ROOT_DIR/tests/tools/issue-1154-pod-binary-codec-batch-evidence.test.mjs"
     "$ROOT_DIR/tests/tools/test-orchestrator-uniqueness.test.mjs"
     "$ROOT_DIR/tests/tools/test-lifecycle-governance.test.mjs"
+    "$ROOT_DIR/tests/tools/repository-governance-authority.test.mjs"
 )
 StaticNodeContracts() {
     FSUSBLOG_STATIC_CONTRACT_FILES="$(printf '%s\n' "${STATIC_NODE_CONTRACT_FILES[@]}")" \
@@ -176,30 +176,11 @@ NODE
 # Every concurrent-phase writer owns a distinct artifact path and none reads
 # Vitest's live report directory. Retention intentionally stays post-Vitest
 # because it scans .tmp/test-results/vitest and must never observe partial JSON.
-RunStaticPrechecksPhase() {
-    RunCollectParallel static-governance-prechecks \
-        evidence-plan StaticEvidencePlan \
+RunApplicationStaticPrechecksPhase() {
+    RunCollectParallel application-static-governance-prechecks \
         aeds-policy StaticAedsPolicy \
-        community-workflow StaticCommunityWorkflow \
-        product-version-docs StaticProductVersionDocs \
-        public-preview-screenshots StaticPublicPreviewScreenshots \
-        label-governance StaticLabelGovernance \
-        integrity-docs StaticIntegrityDocs \
-        dead-code-index StaticDeadCodeIndex \
         background-services StaticBackgroundServices \
-        suite-convergence StaticSuiteConvergence \
         backend-physical-topology StaticBackendPhysicalTopology \
-        browser-test-migration StaticBrowserTestMigration \
-        test-orchestrator StaticTestOrchestrator \
-        test-lifecycle StaticTestLifecycle \
-        backend-governance StaticBackendGovernance \
-        gate-integrity StaticGateIntegrity \
-        flaky-registry StaticFlakyRegistry \
-        matrix-contract StaticMatrixContract \
-        matrix-schema StaticMatrixSchema \
-        implementation-drift StaticImplementationDrift \
-        authoritative-development-docs StaticAuthoritativeDevelopmentDocs \
-        document-lifecycle StaticDocumentLifecycle \
         code-intent StaticCodeIntent \
         custom-rule-platform StaticCustomRulePlatform \
         appsettings-authority StaticAppsettingsAuthority \
@@ -208,8 +189,23 @@ RunStaticPrechecksPhase() {
         csharp-style StaticCsharpStyle
 }
 
+RunTestAssetGovernancePhase() {
+    RunCollectParallel test-asset-governance \
+        evidence-plan StaticEvidencePlan \
+        suite-convergence StaticSuiteConvergence \
+        browser-test-migration StaticBrowserTestMigration \
+        test-orchestrator StaticTestOrchestrator \
+        test-lifecycle StaticTestLifecycle \
+        backend-governance StaticBackendGovernance \
+        gate-integrity StaticGateIntegrity \
+        flaky-registry StaticFlakyRegistry \
+        matrix-contract StaticMatrixContract \
+        matrix-schema StaticMatrixSchema
+    RunCollect retention StaticRetention
+}
+
 RunStaticConcurrentPhase() {
-    RunStaticPrechecksPhase
+    RunApplicationStaticPrechecksPhase
     RunStaticNodeContractsPhase
 }
 
@@ -223,8 +219,14 @@ RunStaticPostVitestPhase() {
 
 STATIC_GOVERNANCE_PHASE="${FSUSBLOG_STATIC_GOVERNANCE_PHASE:-${1:-all}}"
 case "$STATIC_GOVERNANCE_PHASE" in
+    application-prechecks)
+        RunApplicationStaticPrechecksPhase
+        ;;
+    test-assets)
+        RunTestAssetGovernancePhase
+        ;;
     concurrent-prechecks)
-        RunStaticPrechecksPhase
+        RunApplicationStaticPrechecksPhase
         ;;
     concurrent)
         RunStaticConcurrentPhase
@@ -237,10 +239,10 @@ case "$STATIC_GOVERNANCE_PHASE" in
         ;;
     all)
         RunStaticConcurrentPhase
-        RunStaticPostVitestPhase
+        RunTestAssetGovernancePhase
         ;;
     *)
-        printf '[lane] unknown static governance phase: %s (expected concurrent-prechecks, concurrent, post-vitest, node-contracts, or all)\n' \
+        printf '[lane] unknown static governance phase: %s (expected application-prechecks, test-assets, concurrent-prechecks, concurrent, post-vitest, node-contracts, or all)\n' \
             "$STATIC_GOVERNANCE_PHASE" >&2
         exit 2
         ;;

@@ -4626,6 +4626,19 @@
             "producer": null
         },
         {
+            "path": "docs/testing/repository-governance-authorities.md",
+            "title": "Repository governance authorities",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "release",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "6b6f67c431c1a8760fd2f10e22b52e1291e06e9b",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
+        {
             "path": "docs/testing/security-hardening-boundary-replacements.md",
             "title": "Issue #1037：安全 hardening 边界测试替换",
             "kind": "markdown",

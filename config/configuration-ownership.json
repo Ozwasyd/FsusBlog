@@ -170,6 +170,12 @@
       "owner": "repository-governance",
       "canonicalPath": "config/governance/custom-rule-registry.json",
       "pathType": "file"
+    },
+    {
+      "id": "repository-governance-authorities",
+      "owner": "repository-governance",
+      "canonicalPath": "config/governance/repository-governance-authorities.json",
+      "pathType": "file"
     }
   ]
 }

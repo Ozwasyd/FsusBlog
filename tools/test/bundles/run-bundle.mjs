@@ -2109,7 +2109,7 @@ async function runFrontendTests() {
     // Static governance owns the first early CPU. Once build-static releases
     // capacity, Vitest starts in the remaining slots; its live scheduler grant
     // expands as this static phase settles and additional CPUs become free.
-    commandStep('static-governance-concurrent', 'tools/test/lanes/static-governance.sh concurrent-prechecks', ['static-governance'], {
+    commandStep('static-governance-concurrent', 'node tools/governance/repository-governance-authority.mjs run application-static-governance', ['static-governance'], {
       dependsOn: ['frontend-build-ready'],
       resources: { cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1 }
     }),
@@ -2137,15 +2137,10 @@ async function runFrontendTests() {
       resources: { coordinationOnly: true }
     }),
     perfStep,
-    // Preserve the complete release/rehearsal contract set, but start its long
-    // process-based fixtures only after Vitest releases the duplicated Vite
-    // transform hosts. The scheduler can then assign this step the live tail
-    // grant instead of leaving it on the initial one-CPU share.
-    commandStep('static-governance-node-contracts', 'tools/test/lanes/static-governance.sh node-contracts', ['static-governance'], {
-      dependsOn: ['vitest-settled'],
-      resources: { cpuWeight: 2, memoryWeight: 1, minCpuUnits: 1 }
-    }),
-    commandStep('static-governance-post-vitest', 'tools/test/lanes/static-governance.sh post-vitest', ['static-governance'], {
+    // Retention and the other test-asset checks are content-addressed. The
+    // authority executes them only when their declared tests/matrix/coverage
+    // inputs or checker/toolchain identity changed.
+    commandStep('static-governance-post-vitest', 'node tools/governance/repository-governance-authority.mjs ensure test-asset-governance', ['static-governance'], {
       dependsOn: ['vitest-settled'],
       resources: { cpuWeight: 0.5, memoryWeight: 0.5, minCpuUnits: 1 }
     }),
@@ -2206,7 +2201,6 @@ async function runFrontendTests() {
         'vitest-production-projects',
         'frontend-static-concurrent',
         'static-governance-concurrent',
-        'static-governance-node-contracts',
         'frontend-static-postbuild',
         'frontend-static-isolated',
         'frontend-static-final',

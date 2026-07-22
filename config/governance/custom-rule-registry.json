@@ -3,7 +3,7 @@
     "generatedBy": "tools/governance/check-rule-platform.mjs --write-registry",
     "inventory": {
         "packageScriptCount": 191,
-        "implementationCount": 340
+        "implementationCount": 341
     },
     "rules": [
         {
@@ -15068,6 +15068,34 @@
                 "mode": "delegated-implementation",
                 "implementation": "tools/test/lanes/_suite-support.sh",
                 "executionKey": "governance:file:tools/test/lanes/_suite-support.sh",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Implementation.ToolsTestLanesTestAssetGovernanceSh",
+            "externalId": "tools/test/lanes/test-asset-governance.sh",
+            "symbol": "CheckToolsTestLanesTestAssetGovernance",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tools/test/lanes/test-asset-governance.sh",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/issue-1162-rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/test/lanes/test-asset-governance.sh",
+                "executionKey": "governance:file:tools/test/lanes/test-asset-governance.sh",
                 "receiptCompatible": true
             }
         },

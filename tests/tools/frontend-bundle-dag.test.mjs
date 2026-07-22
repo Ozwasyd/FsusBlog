@@ -53,8 +53,8 @@ test('frontend bundle gates Vitest on only explicit blocking checks and schedule
     dagDeclaration.indexOf('\n    step,') < dagDeclaration.indexOf("commandStep('privacy-zk-contract-prebuild'"),
     'Vitest must be declared before every ordinary privacy/static sibling'
   )
-  assert.match(dagDeclaration, /commandStep\('static-governance-concurrent',[\s\S]*?static-governance\.sh concurrent-prechecks[\s\S]*?dependsOn: \['frontend-build-ready'\]/u)
-  assert.match(dagDeclaration, /commandStep\('static-governance-node-contracts',[\s\S]*?static-governance\.sh node-contracts[\s\S]*?dependsOn: \['vitest-settled'\][\s\S]*?cpuWeight: 2/u)
+  assert.match(dagDeclaration, /commandStep\('static-governance-concurrent',[\s\S]*?repository-governance-authority\.mjs run application-static-governance[\s\S]*?dependsOn: \['frontend-build-ready'\]/u);
+  assert.doesNotMatch(dagDeclaration, /commandStep\('static-governance-node-contracts'/u);
   assert.match(dagDeclaration, /commandStep\('privacy-zk-contract-prebuild',[\s\S]*?privacy-zk-comment-matrix\.sh contract-prebuild[\s\S]*?dependsOn: \['frontend-early-test-capacity-ready'\][\s\S]*?resources: \{ cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 \}/u)
   assert.match(dagDeclaration, /commandStep\('privacy-zk-contract',[\s\S]*?privacy-zk-comment-matrix\.sh contract-postbuild[\s\S]*?dependsOn: \['frontend-build-ready', 'privacy-zk-contract-prebuild'\][\s\S]*?resources: \{ cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 \}/u)
   assert.doesNotMatch(dagDeclaration, /privacy-zk-comment-matrix\.sh benchmark/u)
@@ -64,7 +64,7 @@ test('frontend bundle gates Vitest on only explicit blocking checks and schedule
   assert.match(dagDeclaration, /staticStageStep\('final',[\s\S]*?dependsOn: \['frontend-static-final-ready'\]/u)
     assert.match(dagDeclaration, /commandStep\([\s\S]*?'frontend-render-structure',[\s\S]*?frontend-render-structure\.sh[\s\S]*?\['frontend-render-structure'\][\s\S]*?dependsOn: \['frontend-static-final'\]/u);
   assert.match(dagDeclaration, /commandStep\('vitest-settled',[\s\S]*?runAfterSettled: true/u)
-  assert.match(dagDeclaration, /perfStep,[\s\S]*?commandStep\('static-governance-node-contracts'/u)
+  assert.match(dagDeclaration, /perfStep,[\s\S]*?commandStep\('static-governance-post-vitest'[\s\S]*?ensure test-asset-governance/u);
     assert.match(dagDeclaration, /commandStep\('frontend-tests-join',[\s\S]*?'vitest-production-projects'[\s\S]*?'frontend-static-concurrent'[\s\S]*?'frontend-static-postbuild'[\s\S]*?'frontend-static-isolated'[\s\S]*?'frontend-static-final'[\s\S]*?'frontend-render-structure'[\s\S]*?'frontend-coverage-summary'[\s\S]*?runAfterSettled: true/u);
     assert.match(runnerSource, /\['static-governance', 'frontend-static-governance', 'frontend-render-structure'\]\.includes\(tierId\)/u);
 })

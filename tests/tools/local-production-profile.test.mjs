@@ -753,9 +753,9 @@ test('backend bundle exposes run-bound readiness and exact-union contracts', () 
     assert.match(localBundleRunner, /function resolvedFrontendEarlyTestCpuTarget\(\) \{[\s\S]*?currentCpuUnits >= 3 \? currentCpuUnits - 1 : currentCpuUnits/u);
     assert.match(frontendBundleRunner, /frontend-early-test-capacity-ready'[\s\S]*?coordinationOnly: true/u);
     assert.doesNotMatch(frontendBundleRunner, /commandStep\('frontend-test-capacity-ready'/u);
-    assert.match(frontendBundleRunner, /static-governance-concurrent'[\s\S]*?static-governance\.sh concurrent-prechecks'[\s\S]*?resources: \{ cpuWeight: 1, memoryWeight: 0\.5, minCpuUnits: 1 \}/u);
-    assert.match(frontendBundleRunner, /static-governance-node-contracts'[\s\S]*?static-governance\.sh node-contracts'[\s\S]*?dependsOn: \['vitest-settled'\]/u);
-    assert.match(frontendBundleRunner, /static-governance-post-vitest'[\s\S]*?static-governance\.sh post-vitest'[\s\S]*?dependsOn: \['vitest-settled'\]/u);
+    assert.match(frontendBundleRunner, /static-governance-concurrent'[\s\S]*?repository-governance-authority\.mjs run application-static-governance'[\s\S]*?resources: \{ cpuWeight: 1, memoryWeight: 0\.5, minCpuUnits: 1 \}/u);
+    assert.doesNotMatch(frontendBundleRunner, /static-governance-node-contracts'/u);
+    assert.match(frontendBundleRunner, /static-governance-post-vitest'[\s\S]*?repository-governance-authority\.mjs ensure test-asset-governance'[\s\S]*?dependsOn: \['vitest-settled'\]/u);
     assert.match(frontendBundleRunner, /static-governance-concurrent'[\s\S]{0,240}?dependsOn: \['frontend-build-ready'\]/u);
     assert.match(frontendBundleRunner, /commandStep\('frontend-build-ready',[\s\S]*?resources: \{ coordinationOnly: true \}/u);
     assert.match(frontendBundleRunner, /commandStep\('privacy-zk-contract-prebuild', 'tools\/test\/lanes\/privacy-zk-comment-matrix\.sh contract-prebuild', \[\],[\s\S]*?dependsOn: \['frontend-early-test-capacity-ready'\]/u);
@@ -893,9 +893,9 @@ test('production evidence is assigned to the earliest safe physical bundle witho
     assert.equal(bundles.get('build-static').includes('frontend-static-governance'), false);
     assert.ok(bundles.get('frontend-tests').includes('frontend-static-governance'));
     assert.match(localBundleRunner, /commandStep\('viewport-plan-progress', 'node tools\/ux\/run-viewport-plan-progress\.mjs', \['ux-viewport-plan-progress'\],[\s\S]*?viewport-plan-progress\.json/u);
-    assert.match(frontendBundleRunner, /commandStep\('static-governance-concurrent', 'tools\/test\/lanes\/static-governance\.sh concurrent-prechecks', \['static-governance'\],[\s\S]*?cpuWeight: 1,[\s\S]*?memoryWeight: 0\.5,[\s\S]*?minCpuUnits: 1/u);
-    assert.match(frontendBundleRunner, /commandStep\('static-governance-node-contracts', 'tools\/test\/lanes\/static-governance\.sh node-contracts', \['static-governance'\],[\s\S]*?dependsOn: \['vitest-settled'\]/u);
-    assert.match(frontendBundleRunner, /commandStep\('static-governance-post-vitest', 'tools\/test\/lanes\/static-governance\.sh post-vitest', \['static-governance'\],[\s\S]*?dependsOn: \['vitest-settled'\]/u);
+    assert.match(frontendBundleRunner, /commandStep\('static-governance-concurrent', 'node tools\/governance\/repository-governance-authority\.mjs run application-static-governance', \['static-governance'\],[\s\S]*?cpuWeight: 1,[\s\S]*?memoryWeight: 0\.5,[\s\S]*?minCpuUnits: 1/u);
+    assert.doesNotMatch(frontendBundleRunner, /commandStep\('static-governance-node-contracts'/u);
+    assert.match(frontendBundleRunner, /commandStep\('static-governance-post-vitest', 'node tools\/governance\/repository-governance-authority\.mjs ensure test-asset-governance', \['static-governance'\],[\s\S]*?dependsOn: \['vitest-settled'\]/u);
     for (const tierId of ['backend-build-governance', 'integrity-proof-verification', 'perception-v2-test-matrix'])
     {
         assert.ok(bundles.get('backend-tests').includes(tierId), tierId);

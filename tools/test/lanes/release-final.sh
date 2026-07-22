@@ -12,4 +12,12 @@ rm -f "$CORRECTNESS_RECEIPT"
 "$NODE_BIN" "$ROOT_DIR/tools/ci/check-flaky-registry.mjs" --release-final
 "$NODE_BIN" "$ROOT_DIR/tools/ci/check-flaky-evidence.mjs" --release-final
 "$ROOT_DIR/tools/operations/check-release-evidence-manifest.mjs" --require-ok
+for authority in \
+    application-static-governance \
+    test-asset-governance \
+    workflow-lint \
+    document-governance \
+    community-governance; do
+    "$NODE_BIN" "$ROOT_DIR/tools/governance/repository-governance-authority.mjs" verify "$authority"
+done
 "$NODE_BIN" "$ROOT_DIR/tools/release/check-release-final.mjs"

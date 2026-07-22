@@ -189,6 +189,7 @@
 - [私有请求 generation 验证](testing/private-request-generations.md)
 - [PrivateSurfaceRuntime 验证清单](testing/private-surface-runtime.md)
 - [Public-preview screenshot governance](testing/public-preview-screenshot-governance.md)
+- [Repository governance authorities](testing/repository-governance-authorities.md)
 - [Issue #1037：安全 hardening 边界测试替换](testing/security-hardening-boundary-replacements.md)
 - [Backend security Roslyn source policy](testing/security-hardening-source-policy.md)
 - [Test lifecycle governance](testing/test-lifecycle-governance.md)

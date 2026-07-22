@@ -1,4 +1,21 @@
 {
     "schema": "fsusblog.complexity-exemptions.v1",
-    "exemptions": []
+    "exemptions": [
+        {
+            "file": "tests/tools/local-production-profile.test.mjs",
+            "owner": "ServerContractAgent:test-topology",
+            "reason": "Temporary coverage bridge while Production topology assertions are decomposed into authority-specific contract tests",
+            "expires": "2026-08-22",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/1397",
+            "sourceFingerprint": "sha256:4d33e0b5af3b1aad9e9c22075dc3b39db19c8918674a356f51489fca63ee649a"
+        },
+        {
+            "file": "tools/governance/repository-governance-authority.mjs",
+            "owner": "ServerContractAgent:repository-governance",
+            "reason": "Temporary bounded bridge until receipt identity and CLI orchestration are split without weakening content-addressed verification",
+            "expires": "2026-08-22",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/1397",
+            "sourceFingerprint": "sha256:b89af7bf42d1e15505d22581b86250c6373215fdd386255f70da56203893483a"
+        }
+    ]
 }

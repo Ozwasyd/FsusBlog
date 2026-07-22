@@ -1720,6 +1720,17 @@
       ]
     },
     {
+      "file": "tests/tools/repository-governance-authority.test.mjs",
+      "owner": "repository-governance:static-node-contracts",
+      "executionCategory": "repository-governance",
+      "lifecycle": "canonical-execution",
+      "physicalExecutionCount": 1,
+      "classifications": [
+        "source-text",
+        "compatibility-wrapper"
+      ]
+    },
+    {
       "file": "tests/tools/resident-resource-leases.test.mjs",
       "owner": "manual-diagnostic:tests/tools/resident-resource-leases.test.mjs",
       "executionCategory": "manual-diagnostic",
