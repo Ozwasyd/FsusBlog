@@ -22,8 +22,146 @@ export type BinaryFrameDecoderRegistration = readonly [FrameType, BinaryFrameDec
 
 const knownFrameTypes = new Set<number>(Object.values(FrameType));
 
+// This is the protocol-facing response catalog. Keep it independent from the
+// decoder registrations so registry validation can detect missing mappings.
+export const binaryFrameDecoderFrameTypes = Object.freeze([
+    FrameType.ArticleList,
+    FrameType.ArticleDetail,
+    FrameType.ArticleHot,
+    FrameType.ArticleSearch,
+    FrameType.ArticleFeatured,
+    FrameType.ArticleRelatedReading,
+    FrameType.HumanReadChallengeResponse,
+    FrameType.HumanReadSubmitResponse,
+    FrameType.TrashClearResponse,
+    FrameType.AdminUserList,
+    FrameType.AuthLoginFlow,
+    FrameType.CurrentUserSnapshot,
+    FrameType.IdentityAccountSnapshot,
+    FrameType.AuthSessionList,
+    FrameType.PowChallenge,
+    FrameType.MfaSetupStart,
+    FrameType.MfaSetupVerify,
+    FrameType.MfaProfile,
+    FrameType.MfaChallengeResult,
+    FrameType.RecoveryKeyCreateResponse,
+    FrameType.RecoveryKeyVerifyResponse,
+    FrameType.ConversationList,
+    FrameType.ConversationDetail,
+    FrameType.ConversationDetailV2,
+    FrameType.ConversationDetailV3,
+    FrameType.AdminConversationList,
+    FrameType.AdminConversationDetail,
+    FrameType.ConversationStatusMutationResult,
+    FrameType.ConversationMessage,
+    FrameType.PasskeyRegisterBegin,
+    FrameType.PasskeyLoginBegin,
+    FrameType.PasskeyCredentialList,
+    FrameType.PasskeySignalState,
+    FrameType.CommentPolicySnapshot,
+    FrameType.CommentCreateResult,
+    FrameType.AnonymousCommentCreateResult,
+    FrameType.CommentManagementChallengeResponse,
+    FrameType.CommentAuthorMutationResult,
+    FrameType.CommentAuthorStatusResult,
+    FrameType.CommentRevisionList,
+    FrameType.CommentArticleCursor,
+    FrameType.CommentUserCursor,
+    FrameType.CommentThreadReplyCursor,
+    FrameType.CommentTreeRootCursor,
+    FrameType.CommentChildCursor,
+    FrameType.CommentPermalinkContext,
+    FrameType.AnonymousCredentialRootSnapshot,
+    FrameType.AnonymousCredentialRevocationSnapshot,
+    FrameType.AnonymousCredentialRevocationDelta,
+    FrameType.AnonymousCommentTicketResponse,
+    FrameType.AnonymousPrivacyStateSnapshot,
+    FrameType.BlindCredentialIssuerMetadata,
+    FrameType.BlindCredentialIssueResponse,
+    FrameType.AdminStats,
+    FrameType.CategoryList,
+    FrameType.TagList,
+    FrameType.RecentCommentStats,
+    FrameType.RegionStats,
+    FrameType.SeoConfig,
+    FrameType.PageContent,
+    FrameType.SiteComplianceConfig,
+    FrameType.UploadInit,
+    FrameType.UploadStatus,
+    FrameType.UploadPartAck,
+    FrameType.UploadComplete,
+    FrameType.UploadPartMap,
+    FrameType.AuthorDraftResponse,
+    FrameType.AuthorDraftDiscardResponse,
+    FrameType.ArticlePreviewResponse,
+    FrameType.PrepublishCheckResponse,
+    FrameType.AiAssistResponse,
+    FrameType.AssetLibraryList,
+    FrameType.AssetCleanupResponse,
+    FrameType.AuthorTaxonomyCategoryList,
+    FrameType.AuthorTaxonomyTagList,
+    FrameType.AuthorAnalytics,
+    FrameType.AuditLogList,
+    FrameType.AuditLogSummary,
+    FrameType.AuditLogDetail,
+    FrameType.AuditTamperVerifyResponse,
+    FrameType.OpsHealth,
+    FrameType.BackupStatus,
+    FrameType.DangerousOperationPolicy,
+    FrameType.CacheDiagnostics,
+    FrameType.AdminCacheActionResponse,
+    FrameType.IntegrityReport,
+    FrameType.IntegrityFixPreview,
+    FrameType.IntegrityFixResponse,
+    FrameType.CommentModerationQueue,
+    FrameType.CommentModerationBulkResponse,
+    FrameType.CommentModerationResult,
+    FrameType.AnonymousGovernanceActionResponse,
+    FrameType.ContentExport,
+    FrameType.ContentBackupExport,
+    FrameType.ContentImportResponse,
+    FrameType.ArticleRevisionList,
+    FrameType.ArticleRevisionDetail,
+    FrameType.ArticleRevisionRollbackResponse,
+    FrameType.ModerationOverview,
+    FrameType.ModerationDictionarySnapshot,
+    FrameType.ModerationDictionaryReloadResponse,
+    FrameType.ModerationRuntimeStatus,
+    FrameType.ModerationRegionList,
+    FrameType.ModerationRegionGroupList,
+    FrameType.ModerationPolicyTemplateList,
+    FrameType.ModerationEffectivePolicy,
+    FrameType.RegionPolicySummaryList,
+    FrameType.ModerationModelStatus,
+    FrameType.ModerationReplayPreview,
+    FrameType.SecurityOverview,
+    FrameType.AntiCrawlerOverview,
+    FrameType.AntiCrawlerPolicySnapshot,
+    FrameType.CrawlerRangesAdminStatus,
+    FrameType.CrawlerRangeSyncResponse,
+    FrameType.SecurityRiskEventList,
+    FrameType.SecurityRiskSnapshotList,
+    FrameType.SecurityRiskResetResponse,
+    FrameType.AntiCrawlerRuleList,
+    FrameType.AntiCrawlerRuleResponse,
+    FrameType.AntiCrawlerRuleDeleteResponse,
+    FrameType.AntiCrawlerListEntryList,
+    FrameType.AntiCrawlerListEntryResponse,
+    FrameType.AntiCrawlerListEntryDeleteResponse,
+    FrameType.AntiCrawlerSimulationResult,
+    FrameType.PowOverview,
+    FrameType.PowPolicySnapshot,
+    FrameType.SecurityChallengeIssueResponse,
+    FrameType.SecurityChallengeVerifyResponse,
+    FrameType.SiteSubscriptionResponse,
+    FrameType.AdminPrincipalSnapshot,
+    FrameType.EmptySuccess,
+    FrameType.MutationId
+] as const satisfies readonly FrameType[]);
+
 export function createBinaryFrameDecoderRegistry(
-    registrations: readonly BinaryFrameDecoderRegistration[]
+    registrations: readonly BinaryFrameDecoderRegistration[],
+    expectedFrameTypes?: readonly FrameType[]
 ): Readonly<Record<number, BinaryFrameDecoder>>
 {
     const registry: Record<number, BinaryFrameDecoder> = Object.create(null) as Record<number, BinaryFrameDecoder>;
@@ -46,6 +184,32 @@ export function createBinaryFrameDecoderRegistry(
     if (Object.keys(registry).length === 0)
     {
         throw createAppError(AppErrorCode.ProtocolFailure, 'decoder_registry_empty');
+    }
+    if (expectedFrameTypes)
+    {
+        const expected = new Set(expectedFrameTypes);
+        if (expected.size !== expectedFrameTypes.length)
+        {
+            throw createAppError(AppErrorCode.ProtocolFailure, 'decoder_expected_frame_type_duplicate');
+        }
+        for (const frameType of expected)
+        {
+            if (!knownFrameTypes.has(frameType) || frameType === FrameType.Unknown || frameType === FrameType.ApiError)
+            {
+                throw createAppError(AppErrorCode.ProtocolFailure, `decoder_expected_frame_type_invalid:${frameType}`);
+            }
+            if (!registry[frameType])
+            {
+                throw createAppError(AppErrorCode.ProtocolFailure, `decoder_frame_type_missing:${frameType}`);
+            }
+        }
+        for (const frameType of Object.keys(registry).map(Number))
+        {
+            if (!expected.has(frameType as FrameType))
+            {
+                throw createAppError(AppErrorCode.ProtocolFailure, `decoder_frame_type_unexpected:${frameType}`);
+            }
+        }
     }
     return Object.freeze(registry);
 }
@@ -185,7 +349,10 @@ export const binaryFrameDecoderRegistrations = Object.freeze([
     [FrameType.MutationId, mapMutationIdFromPayload]
 ] as const satisfies readonly BinaryFrameDecoderRegistration[]);
 
-export const binaryFrameDecoderRegistry = createBinaryFrameDecoderRegistry(binaryFrameDecoderRegistrations);
+export const binaryFrameDecoderRegistry = createBinaryFrameDecoderRegistry(
+    binaryFrameDecoderRegistrations,
+    binaryFrameDecoderFrameTypes
+);
 
 export function decodeBinaryFramePayload(frameType: FrameType, payload: Uint8Array): unknown
 {

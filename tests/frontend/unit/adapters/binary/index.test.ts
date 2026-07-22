@@ -2,9 +2,10 @@ import { createHash } from 'node:crypto'
 import { describe, it, expect, vi } from 'vitest'
 import articleDetailFrameHex from '../../../../fixtures/protocol/article-detail-frame.hex?raw'
 import routingReplacementLedger from '../../../../fixtures/binary-decoder-routing-replacements.json'
-import { FrameType } from '@wasm/protocol/frame'
+import { AEDS_HEADER_LENGTH, AEDS_MAGIC, AEDS_VERSION, FrameType } from '@wasm/protocol/frame'
 import { CommentPolicyContractVersion, CommentPolicyReadiness } from '@/contracts/commentPolicy'
 import {
+  binaryFrameDecoderFrameTypes,
   binaryFrameDecoderRegistrations,
   binaryFrameDecoderRegistry,
   createBinaryFrameDecoderRegistry,
@@ -77,6 +78,18 @@ function blobbedZeroPod(podSize: number): Uint8Array {
 function protocolFixturePayload(hexSource: string): Uint8Array {
   const hex = hexSource.replaceAll(/\s+/gu, '')
   return Uint8Array.from(hex.match(/.{2}/gu) ?? [], (value) => Number.parseInt(value, 16)).subarray(16)
+}
+
+function aedsEnvelope(frameType: FrameType, payload: Uint8Array, version = AEDS_VERSION): Uint8Array {
+  const frame = new Uint8Array(AEDS_HEADER_LENGTH + payload.byteLength)
+  const view = new DataView(frame.buffer)
+  view.setUint32(0, AEDS_MAGIC, true)
+  view.setUint8(4, version)
+  view.setUint8(5, AEDS_HEADER_LENGTH)
+  view.setUint16(8, frameType, true)
+  view.setUint32(10, payload.byteLength, true)
+  frame.set(payload, AEDS_HEADER_LENGTH)
+  return frame
 }
 
 function recoveryKeyCreatePayload(): Uint8Array {
@@ -241,6 +254,12 @@ function registrationFingerprint(
   return createHash('sha256').update(identity).digest('hex')
 }
 
+function resultFingerprint(result: unknown): string {
+  const serialized = JSON.stringify(result, (_key, value) => typeof value === 'bigint' ? value.toString() : value)
+  if (serialized === undefined) throw new Error('decoder_result_undefined')
+  return createHash('sha256').update(serialized).digest('hex')
+}
+
 describe('decodeBinaryFramePayload', () => {
   it('throws for unknown frame type', () => {
     expect(() => decodeBinaryFramePayload(999 as FrameType, new Uint8Array(0))).toThrow()
@@ -284,15 +303,32 @@ describe('decodeBinaryFramePayload', () => {
     expect(registrationFingerprint(binaryFrameDecoderRegistrations))
       .toBe(routingReplacementLedger.registrationSha256)
     expect(new Set(frameTypes).size).toBe(frameTypes.length)
+    expect(binaryFrameDecoderFrameTypes).toEqual(frameTypes)
     expect(Object.keys(binaryFrameDecoderRegistry).map(Number).sort((left, right) => left - right))
       .toEqual([...frameTypes].sort((left, right) => left - right))
     expect(() => createBinaryFrameDecoderRegistry([
       binaryFrameDecoderRegistrations[0],
       binaryFrameDecoderRegistrations[0]
-    ])).toThrow('decoder_frame_type_duplicate')
+    ], binaryFrameDecoderFrameTypes)).toThrow('decoder_frame_type_duplicate')
     expect(() => createBinaryFrameDecoderRegistry([
       [999 as FrameType, () => null]
-    ])).toThrow('decoder_frame_type_invalid')
+    ], binaryFrameDecoderFrameTypes)).toThrow('decoder_frame_type_invalid')
+    expect(() => createBinaryFrameDecoderRegistry(
+      binaryFrameDecoderRegistrations,
+      [binaryFrameDecoderFrameTypes[0], binaryFrameDecoderFrameTypes[0]]
+    )).toThrow('decoder_expected_frame_type_duplicate')
+    expect(() => createBinaryFrameDecoderRegistry(
+      binaryFrameDecoderRegistrations,
+      [999 as FrameType]
+    )).toThrow('decoder_expected_frame_type_invalid')
+    expect(() => createBinaryFrameDecoderRegistry(
+      binaryFrameDecoderRegistrations.slice(1),
+      binaryFrameDecoderFrameTypes
+    )).toThrow('decoder_frame_type_missing')
+    expect(() => createBinaryFrameDecoderRegistry([
+      ...binaryFrameDecoderRegistrations,
+      [FrameType.ArticleWriteRequest, () => null]
+    ], binaryFrameDecoderFrameTypes)).toThrow('decoder_frame_type_unexpected')
     expect(registrationFingerprint(binaryFrameDecoderRegistrations.slice(1)))
       .not.toBe(routingReplacementLedger.registrationSha256)
     const rewired = binaryFrameDecoderRegistrations.map((registration, index) => index === 0
@@ -309,7 +345,7 @@ describe('decodeBinaryFramePayload', () => {
     expect(routingReplacementLedger.removedTestIds.every((id) => id.includes('empty payload'))).toBe(true)
     expect(routingReplacementLedger.replacementTestIds).toEqual([
       'builds one authoritative decoder registration per supported frame',
-      'decodes a minimum valid payload for every supported frame registration',
+      'maps a minimum valid payload to the registered decoder result contract for every supported frame',
       'dispatches every supported frame to exactly its registered decoder'
     ])
   })
@@ -333,15 +369,48 @@ describe('decodeBinaryFramePayload', () => {
     }
   })
 
-  it('decodes a minimum valid payload for every supported frame registration', () => {
+  it('maps a minimum valid payload to the registered decoder result contract for every supported frame', () => {
     const registeredDecoderNames = new Set(binaryFrameDecoderRegistrations.map(([, decoder]) => decoder.name))
     expect([...validPayloadByDecoder.keys()].sort()).toEqual([...registeredDecoderNames].sort())
+    expect(Object.keys(routingReplacementLedger.decoderResultSha256).sort())
+      .toEqual([...registeredDecoderNames].sort())
 
     for (const [frameType, decoder] of binaryFrameDecoderRegistrations) {
       const createPayload = validPayloadByDecoder.get(decoder.name)
       expect(createPayload, `missing valid payload for ${decoder.name}`).toBeTypeOf('function')
-      expect(() => decodeBinaryFramePayload(frameType, createPayload!()), `${frameType}:${decoder.name}`).not.toThrow()
+      const result = decodeBinaryFramePayload(frameType, createPayload!())
+      expect(resultFingerprint(result), `${frameType}:${decoder.name}`)
+        .toBe(routingReplacementLedger.decoderResultSha256[decoder.name as keyof typeof routingReplacementLedger.decoderResultSha256])
     }
+  })
+
+  it('rejects a truncated real article detail payload', () => {
+    const payload = protocolFixturePayload(articleDetailFrameHex)
+
+    expect(() => decodeBinaryFramePayload(FrameType.ArticleDetail, payload.subarray(0, payload.byteLength - 1)))
+      .toThrow()
+  })
+
+  it('rejects a frame with a mismatched protocol version before payload routing', async () => {
+    const { decodeAedsEnvelopeNoCopy } = await vi.importActual<typeof import('@wasm/aeds')>('@wasm/aeds')
+    const frame = aedsEnvelope(FrameType.ArticleDetail, protocolFixturePayload(articleDetailFrameHex), AEDS_VERSION + 1)
+
+    expect(decodeAedsEnvelopeNoCopy(frame)).toMatchObject({
+      ok: false,
+      frameType: FrameType.ArticleDetail,
+      error: 'version_mismatch'
+    })
+  })
+
+  it('rejects the legacy v1 envelope before payload routing', async () => {
+    const { decodeAedsEnvelopeNoCopy } = await vi.importActual<typeof import('@wasm/aeds')>('@wasm/aeds')
+    const frame = aedsEnvelope(FrameType.ArticleDetail, protocolFixturePayload(articleDetailFrameHex), 1)
+
+    expect(decodeAedsEnvelopeNoCopy(frame)).toMatchObject({
+      ok: false,
+      frameType: FrameType.ArticleDetail,
+      error: 'version_mismatch'
+    })
   })
 
   it('maps CommentPolicySnapshot for composer author-mode controls', () => {
