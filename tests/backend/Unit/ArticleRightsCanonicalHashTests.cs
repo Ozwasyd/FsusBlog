@@ -1,50 +1,102 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
+
 using FsusBlog.Core.Integrity;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ArticleRightsCanonicalHashTests
 {
-    [Fact]
-    public void BuildPayload_GoldenFixture_NormalizesTextAndHashPrefix()
-    {
-        ArticleRightsCanonicalInput input = Baseline();
-        ArticleRightsCanonicalInput normalized = input with
+    private static readonly JsonSerializerOptions s_jsonOptions = new() { PropertyNameCaseInsensitive = true };
+
+    public static TheoryData<string> BoundFields
+        => new()
         {
-            CopyrightHolder = "Fésus Café",
-            RightsStatement = "Line one\nLine two Café",
-            ContentCanonicalHash = "sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+            nameof(ArticleRightsCanonicalInput.ArticleId),
+            nameof(ArticleRightsCanonicalInput.ArticleRevisionId),
+            nameof(ArticleRightsCanonicalInput.RevisionNo),
+            nameof(ArticleRightsCanonicalInput.LicenseType),
+            nameof(ArticleRightsCanonicalInput.CopyrightHolder),
+            nameof(ArticleRightsCanonicalInput.CopyrightYear),
+            nameof(ArticleRightsCanonicalInput.RightsStatement),
+            nameof(ArticleRightsCanonicalInput.AttributionTemplate),
+            nameof(ArticleRightsCanonicalInput.CopyPolicy),
+            nameof(ArticleRightsCanonicalInput.MaxExcerptChars),
+            nameof(ArticleRightsCanonicalInput.AllowCodeCopy),
+            nameof(ArticleRightsCanonicalInput.ShowPublicBadge),
+            nameof(ArticleRightsCanonicalInput.CanonicalUrl),
+            nameof(ArticleRightsCanonicalInput.ContentCanonicalHash)
         };
 
-        string hash = ArticleRightsCanonicalHashV1.ComputeHashHex(input);
-        string normalizedHash = ArticleRightsCanonicalHashV1.ComputeHashHex(normalized);
-        string payload = ArticleRightsCanonicalPayloadV1.BuildPayloadUtf8(input);
+    public static TheoryData<string> CanonicalEquivalenceCases
+        => new()
+        {
+            "crlf-lf",
+            "unicode-nfc",
+            "content-hash-prefix-and-case"
+        };
 
-        Assert.Equal(1, ArticleRightsCanonicalHashV1.HashVersion);
-        Assert.Equal("fsusblog.rights.article-policy.v1", ArticleRightsCanonicalHashV1.DomainSeparator);
-        Assert.Equal("sha256:fb79f2fe498ac6e39de1d1a65161a773c83324cd776b2ed7346e7a1c68b8c1ef", hash);
-        Assert.Equal(normalizedHash, hash);
-        Assert.StartsWith("fsusblog.rights.article-policy.v1\nhashVersion:i:1\n", payload, StringComparison.Ordinal);
-        Assert.DoesNotContain("\r", payload, StringComparison.Ordinal);
-        Assert.Contains("\nallowCodeCopy:b:1\n", payload, StringComparison.Ordinal);
-        Assert.Contains("\ncontentCanonicalHash:h:sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789\n", payload, StringComparison.Ordinal);
+    [Fact]
+    [Trait("Category", "GoldenContract")]
+    public void GoldenVector_ArticleRightsV1MatchesCompletePayloadAndHash()
+    {
+        JsonObject vector = ReadGoldenVector("article-rights-v1-unicode-newline-hash-prefix");
+        ArticleRightsCanonicalInput input = vector["input"]!.Deserialize<ArticleRightsCanonicalInput>(s_jsonOptions)!;
+
+        Assert.Equal(ArticleRightsCanonicalHashV1.HashVersion, vector["version"]!.GetValue<int>());
+        Assert.Equal(ArticleRightsCanonicalHashV1.DomainSeparator, vector["domain"]!.GetValue<string>());
+        Assert.Equal(
+            Convert.FromBase64String(vector["payloadBase64"]!.GetValue<string>()),
+            ArticleRightsCanonicalPayloadV1.BuildPayloadBytes(input));
+        Assert.Equal(vector["hash"]!.GetValue<string>(), ArticleRightsCanonicalHashV1.ComputeHashHex(input));
     }
 
     [Theory]
-    [InlineData(nameof(ArticleRightsCanonicalInput.ArticleId))]
-    [InlineData(nameof(ArticleRightsCanonicalInput.ArticleRevisionId))]
-    [InlineData(nameof(ArticleRightsCanonicalInput.RevisionNo))]
-    [InlineData(nameof(ArticleRightsCanonicalInput.LicenseType))]
-    [InlineData(nameof(ArticleRightsCanonicalInput.CopyrightHolder))]
-    [InlineData(nameof(ArticleRightsCanonicalInput.CopyrightYear))]
-    [InlineData(nameof(ArticleRightsCanonicalInput.RightsStatement))]
-    [InlineData(nameof(ArticleRightsCanonicalInput.AttributionTemplate))]
-    [InlineData(nameof(ArticleRightsCanonicalInput.CopyPolicy))]
-    [InlineData(nameof(ArticleRightsCanonicalInput.MaxExcerptChars))]
-    [InlineData(nameof(ArticleRightsCanonicalInput.AllowCodeCopy))]
-    [InlineData(nameof(ArticleRightsCanonicalInput.ShowPublicBadge))]
-    [InlineData(nameof(ArticleRightsCanonicalInput.CanonicalUrl))]
-    [InlineData(nameof(ArticleRightsCanonicalInput.ContentCanonicalHash))]
-    public void ComputeHash_ChangesWhenBoundFieldChanges(string field)
+    [MemberData(nameof(CanonicalEquivalenceCases))]
+    public void ComputeHash_CanonicalEquivalentInputsRemainEqual(string invariant)
+    {
+        (ArticleRightsCanonicalInput first, ArticleRightsCanonicalInput second) = invariant switch
+        {
+            "crlf-lf" => (
+                Baseline() with
+                {
+                    RightsStatement = "first\r\nsecond\rthird"
+                },
+                Baseline() with
+                {
+                    RightsStatement = "first\nsecond\nthird"
+                }),
+            "unicode-nfc" => (
+                Baseline() with
+                {
+                    CopyrightHolder = "Fe\u0301sus Cafe\u0301"
+                },
+                Baseline() with
+                {
+                    CopyrightHolder = "Fésus Café"
+                }),
+            "content-hash-prefix-and-case" => (
+                Baseline() with
+                {
+                    ContentCanonicalHash = "SHA256:ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789"
+                },
+                Baseline() with
+                {
+                    ContentCanonicalHash = "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+                }),
+            _ => throw new ArgumentOutOfRangeException(nameof(invariant), invariant, null)
+        };
+
+        Assert.True(
+            ArticleRightsCanonicalPayloadV1.BuildPayloadBytes(first).AsSpan().SequenceEqual(ArticleRightsCanonicalPayloadV1.BuildPayloadBytes(second)),
+            $"canonical payload differed for invariant '{invariant}'");
+        Assert.Equal(ArticleRightsCanonicalHashV1.ComputeHashHex(first), ArticleRightsCanonicalHashV1.ComputeHashHex(second));
+    }
+
+    [Theory]
+    [MemberData(nameof(BoundFields))]
+    public void ComputeHash_EachBoundFieldMutationChangesHash(string field)
     {
         ArticleRightsCanonicalInput baseline = Baseline();
         ArticleRightsCanonicalInput changed = field switch
@@ -66,91 +118,96 @@ public sealed class ArticleRightsCanonicalHashTests
             _ => throw new ArgumentOutOfRangeException(nameof(field), field, null)
         };
 
-        Assert.NotEqual(
-            ArticleRightsCanonicalHashV1.ComputeHashHex(baseline),
-            ArticleRightsCanonicalHashV1.ComputeHashHex(changed));
+        Assert.True(
+            !StringComparer.Ordinal.Equals(
+                ArticleRightsCanonicalHashV1.ComputeHashHex(baseline),
+                ArticleRightsCanonicalHashV1.ComputeHashHex(changed)),
+            $"bound field '{field}' did not change the rights canonical hash");
     }
 
-    [Fact]
-    public void BuildPayload_NullAndEmptyOptionalStringsRemainDistinct()
+    [Theory]
+    [InlineData(nameof(ArticleRightsCanonicalInput.CopyrightHolder))]
+    [InlineData(nameof(ArticleRightsCanonicalInput.RightsStatement))]
+    [InlineData(nameof(ArticleRightsCanonicalInput.AttributionTemplate))]
+    [InlineData(nameof(ArticleRightsCanonicalInput.CanonicalUrl))]
+    public void ComputeHash_NullAndEmptyOptionalStringsRemainDistinct(string field)
     {
-        ArticleRightsCanonicalInput nullHolder = Baseline() with
+        ArticleRightsCanonicalInput nullValue = field switch
         {
-            CopyrightHolder = null
+            nameof(ArticleRightsCanonicalInput.CopyrightHolder) => Baseline() with { CopyrightHolder = null },
+            nameof(ArticleRightsCanonicalInput.RightsStatement) => Baseline() with { RightsStatement = null },
+            nameof(ArticleRightsCanonicalInput.AttributionTemplate) => Baseline() with { AttributionTemplate = null },
+            nameof(ArticleRightsCanonicalInput.CanonicalUrl) => Baseline() with { CanonicalUrl = null },
+            _ => throw new ArgumentOutOfRangeException(nameof(field), field, null)
         };
-        ArticleRightsCanonicalInput emptyHolder = Baseline() with
+        ArticleRightsCanonicalInput emptyValue = field switch
         {
-            CopyrightHolder = string.Empty
+            nameof(ArticleRightsCanonicalInput.CopyrightHolder) => Baseline() with { CopyrightHolder = string.Empty },
+            nameof(ArticleRightsCanonicalInput.RightsStatement) => Baseline() with { RightsStatement = string.Empty },
+            nameof(ArticleRightsCanonicalInput.AttributionTemplate) => Baseline() with { AttributionTemplate = string.Empty },
+            nameof(ArticleRightsCanonicalInput.CanonicalUrl) => Baseline() with { CanonicalUrl = string.Empty },
+            _ => throw new ArgumentOutOfRangeException(nameof(field), field, null)
         };
 
-        string nullPayload = ArticleRightsCanonicalPayloadV1.BuildPayloadUtf8(nullHolder);
-        string emptyPayload = ArticleRightsCanonicalPayloadV1.BuildPayloadUtf8(emptyHolder);
-
-        Assert.NotEqual(
-            ArticleRightsCanonicalHashV1.ComputeHashHex(nullHolder),
-            ArticleRightsCanonicalHashV1.ComputeHashHex(emptyHolder));
-        Assert.Contains("\ncopyrightHolder:n\n", nullPayload, StringComparison.Ordinal);
-        Assert.Contains("\ncopyrightHolder:s:\n", emptyPayload, StringComparison.Ordinal);
+        Assert.True(
+            !StringComparer.Ordinal.Equals(
+                ArticleRightsCanonicalHashV1.ComputeHashHex(nullValue),
+                ArticleRightsCanonicalHashV1.ComputeHashHex(emptyValue)),
+            $"optional field '{field}' collapsed null and empty values");
     }
 
     [Fact]
-    public void AttributionTemplateRenderer_RendersKnownTokensAndLeavesUnknownTokens()
+    public void CanonicalContract_UsesVersionedDomainDistinctFromArticleContent()
     {
-        var values = new ArticleRightsAttributionValues(
-            Title: "Rights Title",
-            Url: "https://example.test/articles/42",
-            Holder: "Fésus",
-            Year: "2026",
-            License: "CC-BY-4.0",
-            Proof: "sha256:abcdef");
-
-        string rendered = ArticleRightsAttributionTemplateRenderer.Render(
-            "{title}|{url}|{holder}|{year}|{license}|{proof}|{unknown}|{broken",
-            values);
-
-        Assert.Equal(
-            "Rights Title|https://example.test/articles/42|Fésus|2026|CC-BY-4.0|sha256:abcdef|{unknown}|{broken",
-            rendered);
+        Assert.Equal(1, ArticleRightsCanonicalHashV1.HashVersion);
+        Assert.Equal("fsusblog.rights.article-policy.v1", ArticleRightsCanonicalHashV1.DomainSeparator);
+        Assert.NotEqual(ArticleCanonicalHashV1.DomainSeparator, ArticleRightsCanonicalHashV1.DomainSeparator);
     }
 
-    [Fact]
-    public void AttributionTemplateRenderer_HandlesEmptyAndLongValuesWithoutThrowing()
+    [Theory]
+    [InlineData("known-and-unknown-tokens")]
+    [InlineData("empty-and-long-values")]
+    public void AttributionTemplateRenderer_PreservesSupportedBoundaryBehavior(string invariant)
     {
+        if (StringComparer.Ordinal.Equals(invariant, "known-and-unknown-tokens"))
+        {
+            var values = new ArticleRightsAttributionValues(
+                Title: "Rights Title",
+                Url: "https://example.test/articles/42",
+                Holder: "Fésus",
+                Year: "2026",
+                License: "CC-BY-4.0",
+                Proof: "sha256:abcdef");
+
+            Assert.Equal(
+                "Rights Title|https://example.test/articles/42|Fésus|2026|CC-BY-4.0|sha256:abcdef|{unknown}|{broken",
+                ArticleRightsAttributionTemplateRenderer.Render(
+                    "{title}|{url}|{holder}|{year}|{license}|{proof}|{unknown}|{broken",
+                    values));
+            return;
+        }
+
         string longTitle = new('x', 8192);
-        var values = new ArticleRightsAttributionValues(
+        var boundaryValues = new ArticleRightsAttributionValues(
             Title: longTitle,
             Url: string.Empty,
             Holder: string.Empty,
             Year: string.Empty,
             License: "all-rights-reserved",
             Proof: string.Empty);
-
         string rendered = ArticleRightsAttributionTemplateRenderer.Render(
             "{title} {holder} {url} {license} {proof}",
-            values);
+            boundaryValues);
 
         Assert.StartsWith(longTitle, rendered, StringComparison.Ordinal);
         Assert.Contains("all-rights-reserved", rendered, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void RuntimeType_IsCoreOnlyAndUsesBufferWriterWithoutReflectionOrDynamic()
-    {
-        Assert.Equal("FsusBlog.Core", typeof(ArticleRightsCanonicalPayloadV1).Assembly.GetName().Name);
-        string runtimeShape = RuntimeMetadataInspection.DescribeType(typeof(ArticleRightsCanonicalPayloadV1));
-        Assert.Contains("IBufferWriter", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("ArrayBufferWriter", runtimeShape, StringComparison.Ordinal);
-        Assert.DoesNotContain("FsusBlog.Server", runtimeShape, StringComparison.Ordinal);
-        Assert.DoesNotContain("SqlSugar", runtimeShape, StringComparison.Ordinal);
-        Assert.DoesNotContain("HttpContext", runtimeShape, StringComparison.Ordinal);
-        Assert.DoesNotContain("System.Reflection", runtimeShape, StringComparison.Ordinal);
-        Assert.DoesNotContain("System.Object Invoke", runtimeShape, StringComparison.Ordinal);
-        Assert.DoesNotContain("JsonSerializer", runtimeShape, StringComparison.Ordinal);
-
-        Assert.DoesNotContain(
-            typeof(ArticleRightsCanonicalPayloadV1).GetMethods(),
-            static method => method.ReturnType.IsPointer || method.GetParameters().Any(parameter => parameter.ParameterType.IsPointer));
-    }
+    private static JsonObject ReadGoldenVector(string id)
+        => BackendTestPaths.ReadJsonFromRoot("tests", "backend", "Fixtures", "canonical-hash-golden-vectors.json")["vectors"]!
+            .AsArray()
+            .Select(static node => node!.AsObject())
+            .Single(vector => StringComparer.Ordinal.Equals(id, vector["id"]!.GetValue<string>()));
 
     private static ArticleRightsCanonicalInput Baseline()
         => new(

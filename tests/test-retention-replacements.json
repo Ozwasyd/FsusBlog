@@ -8226,20 +8226,124 @@
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
         {
+            "id": "xunit:tests/backend/Unit/ArticleCanonicalHashTests.cs#ArticleCanonicalHashTests.BuildPayload_GoldenFixture_NormalizesLineEndingsAndUsesStableVersionedDomain",
+            "path": "tests/backend/Unit/ArticleCanonicalHashTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ArticleCanonicalHashTests.cs#ArticleCanonicalHashTests.GoldenVector_ArticleContentV1MatchesCompletePayloadAndHash",
+                "xunit:tests/backend/Unit/ArticleCanonicalHashTests.cs#ArticleCanonicalHashTests.ComputeHash_CanonicalEquivalentInputsRemainEqual",
+                "xunit:tests/backend/Unit/ArticleCanonicalHashTests.cs#ArticleCanonicalHashTests.CanonicalContract_UsesVersionedDomainDistinctFromRights"
+            ],
+            "reason": "The complete v1 golden bytes and hash plus semantic newline, Unicode and domain cases replace partial payload-fragment assertions."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ArticleCanonicalHashTests.cs#ArticleCanonicalHashTests.BuildPayload_NullAndEmptyStringRemainDistinct",
+            "path": "tests/backend/Unit/ArticleCanonicalHashTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ArticleCanonicalHashTests.cs#ArticleCanonicalHashTests.ComputeHash_NullAndEmptyOptionalStringsRemainDistinct"
+            ],
+            "reason": "The replacement Theory preserves independently discoverable null versus empty behavior for every optional article string."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ArticleCanonicalHashTests.cs#ArticleCanonicalHashTests.ComputeHash_NegativeFixture_ChangesWhenBoundFieldChanges",
+            "path": "tests/backend/Unit/ArticleCanonicalHashTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ArticleCanonicalHashTests.cs#ArticleCanonicalHashTests.ComputeHash_EachBoundFieldMutationChangesHash"
+            ],
+            "reason": "The replacement Theory expands mutation coverage from six fields to every bound article field and reports the exact missing binding."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ArticleCanonicalHashTests.cs#ArticleCanonicalHashTests.ComputeHash_TagIdsAreSetCanonicalized",
+            "path": "tests/backend/Unit/ArticleCanonicalHashTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ArticleCanonicalHashTests.cs#ArticleCanonicalHashTests.ComputeHash_CanonicalEquivalentInputsRemainEqual"
+            ],
+            "reason": "The semantic tag-set-order-and-duplicates Theory row retains sort and duplicate canonicalization without asserting an internal payload fragment."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ArticleCanonicalHashTests.cs#ArticleCanonicalHashTests.ComputeHash_UnicodeNfcCanonicalizationIsStable",
+            "path": "tests/backend/Unit/ArticleCanonicalHashTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ArticleCanonicalHashTests.cs#ArticleCanonicalHashTests.ComputeHash_CanonicalEquivalentInputsRemainEqual"
+            ],
+            "reason": "The semantic unicode-nfc Theory row retains composed and decomposed equivalence with a stable case identity."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ArticleCanonicalHashTests.cs#ArticleCanonicalHashTests.RuntimeType_IsCoreOnlyAndDoesNotReferenceExternalAnchors",
+            "path": "tests/backend/Unit/ArticleCanonicalHashTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs#CanonicalHashSourceGovernanceTests.CanonicalImplementation_StaysInsideCoreWithoutRuntimeOrExternalDependencies",
+                "xunit:tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs#CanonicalHashSourceGovernanceTests.CoreProject_DoesNotReferenceServerOrExternalAnchoringPackages"
+            ],
+            "reason": "The unique source-governance owner checks the Core dependency boundary without mixing runtime metadata shape into product hash behavior."
+        },
+        {
             "id": "xunit:tests/backend/Unit/ArticleCanonicalHashTests.cs#ArticleCanonicalHashTests.Source_IsCoreOnlyAndDoesNotReferenceExternalAnchors",
             "path": "tests/backend/Unit/ArticleCanonicalHashTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/ArticleCanonicalHashTests.cs#ArticleCanonicalHashTests.RuntimeType_IsCoreOnlyAndDoesNotReferenceExternalAnchors"
+                "xunit:tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs#CanonicalHashSourceGovernanceTests.CanonicalImplementation_StaysInsideCoreWithoutRuntimeOrExternalDependencies",
+                "xunit:tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs#CanonicalHashSourceGovernanceTests.CoreProject_DoesNotReferenceServerOrExternalAnchoringPackages"
             ],
-            "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
+            "reason": "The unique source-governance owner now checks the canonical implementation namespace boundary and Core project references without mixing runtime shape into product hash behavior."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ArticleRightsCanonicalHashTests.cs#ArticleRightsCanonicalHashTests.AttributionTemplateRenderer_HandlesEmptyAndLongValuesWithoutThrowing",
+            "path": "tests/backend/Unit/ArticleRightsCanonicalHashTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ArticleRightsCanonicalHashTests.cs#ArticleRightsCanonicalHashTests.AttributionTemplateRenderer_PreservesSupportedBoundaryBehavior"
+            ],
+            "reason": "The semantic empty-and-long-values Theory row preserves the renderer boundary with an independently discoverable case identity."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ArticleRightsCanonicalHashTests.cs#ArticleRightsCanonicalHashTests.AttributionTemplateRenderer_RendersKnownTokensAndLeavesUnknownTokens",
+            "path": "tests/backend/Unit/ArticleRightsCanonicalHashTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ArticleRightsCanonicalHashTests.cs#ArticleRightsCanonicalHashTests.AttributionTemplateRenderer_PreservesSupportedBoundaryBehavior"
+            ],
+            "reason": "The semantic known-and-unknown-tokens Theory row preserves renderer token behavior with an independently discoverable case identity."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ArticleRightsCanonicalHashTests.cs#ArticleRightsCanonicalHashTests.BuildPayload_GoldenFixture_NormalizesTextAndHashPrefix",
+            "path": "tests/backend/Unit/ArticleRightsCanonicalHashTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ArticleRightsCanonicalHashTests.cs#ArticleRightsCanonicalHashTests.GoldenVector_ArticleRightsV1MatchesCompletePayloadAndHash",
+                "xunit:tests/backend/Unit/ArticleRightsCanonicalHashTests.cs#ArticleRightsCanonicalHashTests.ComputeHash_CanonicalEquivalentInputsRemainEqual",
+                "xunit:tests/backend/Unit/ArticleRightsCanonicalHashTests.cs#ArticleRightsCanonicalHashTests.CanonicalContract_UsesVersionedDomainDistinctFromArticleContent"
+            ],
+            "reason": "The complete v1 golden bytes and hash plus semantic normalization, hash-prefix and domain cases replace partial payload-fragment assertions."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ArticleRightsCanonicalHashTests.cs#ArticleRightsCanonicalHashTests.BuildPayload_NullAndEmptyOptionalStringsRemainDistinct",
+            "path": "tests/backend/Unit/ArticleRightsCanonicalHashTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ArticleRightsCanonicalHashTests.cs#ArticleRightsCanonicalHashTests.ComputeHash_NullAndEmptyOptionalStringsRemainDistinct"
+            ],
+            "reason": "The replacement Theory preserves independently discoverable null versus empty behavior for every optional rights string."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ArticleRightsCanonicalHashTests.cs#ArticleRightsCanonicalHashTests.ComputeHash_ChangesWhenBoundFieldChanges",
+            "path": "tests/backend/Unit/ArticleRightsCanonicalHashTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ArticleRightsCanonicalHashTests.cs#ArticleRightsCanonicalHashTests.ComputeHash_EachBoundFieldMutationChangesHash"
+            ],
+            "reason": "The replacement Theory retains every rights field mutation while adding explicit field-specific failure diagnostics."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ArticleRightsCanonicalHashTests.cs#ArticleRightsCanonicalHashTests.RuntimeType_IsCoreOnlyAndUsesBufferWriterWithoutReflectionOrDynamic",
+            "path": "tests/backend/Unit/ArticleRightsCanonicalHashTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs#CanonicalHashSourceGovernanceTests.CanonicalImplementation_StaysInsideCoreWithoutRuntimeOrExternalDependencies",
+                "xunit:tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs#CanonicalHashSourceGovernanceTests.RightsCanonicalWriter_UsesTheGovernedBufferWriterBoundary"
+            ],
+            "reason": "The unique source-governance owner checks Core-only and buffer-writer boundaries without claiming runtime shape proves rights hash behavior."
         },
         {
             "id": "xunit:tests/backend/Unit/ArticleRightsCanonicalHashTests.cs#ArticleRightsCanonicalHashTests.Source_IsCoreOnlyAndUsesBufferWriterWithoutReflectionOrDynamic",
             "path": "tests/backend/Unit/ArticleRightsCanonicalHashTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/ArticleRightsCanonicalHashTests.cs#ArticleRightsCanonicalHashTests.RuntimeType_IsCoreOnlyAndUsesBufferWriterWithoutReflectionOrDynamic"
+                "xunit:tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs#CanonicalHashSourceGovernanceTests.CanonicalImplementation_StaysInsideCoreWithoutRuntimeOrExternalDependencies",
+                "xunit:tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs#CanonicalHashSourceGovernanceTests.RightsCanonicalWriter_UsesTheGovernedBufferWriterBoundary"
             ],
-            "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
+            "reason": "The unique source-governance owner now checks the Core-only dependency boundary and buffer-writer architecture without claiming those source properties prove hash behavior."
         },
         {
             "id": "xunit:tests/backend/Unit/ArticleRightsProofModelTests.cs#ArticleRightsProofModelTests.Source_DoesNotUseExternalNetworkChainsOrUnsafe",

@@ -1,140 +1,171 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
+
 using FsusBlog.Core.Integrity;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ArticleCanonicalHashTests
 {
+    private static readonly JsonSerializerOptions s_jsonOptions = new() { PropertyNameCaseInsensitive = true };
+
+    public static TheoryData<string> BoundFields
+        => new()
+        {
+            nameof(ArticleCanonicalInput.ArticleId),
+            nameof(ArticleCanonicalInput.ArticleRevisionId),
+            nameof(ArticleCanonicalInput.RevisionNo),
+            nameof(ArticleCanonicalInput.PublicRouteKey),
+            nameof(ArticleCanonicalInput.Title),
+            nameof(ArticleCanonicalInput.Summary),
+            nameof(ArticleCanonicalInput.CoverImageUrl),
+            nameof(ArticleCanonicalInput.CategoryId),
+            nameof(ArticleCanonicalInput.TagIds),
+            nameof(ArticleCanonicalInput.Status),
+            nameof(ArticleCanonicalInput.PublishedAt),
+            nameof(ArticleCanonicalInput.ScheduledPublishAt),
+            nameof(ArticleCanonicalInput.MarkdownContent)
+        };
+
+    public static TheoryData<string> CanonicalEquivalenceCases
+        => new()
+        {
+            "crlf-lf",
+            "unicode-nfc",
+            "tag-set-order-and-duplicates"
+        };
+
     [Fact]
-    public void BuildPayload_GoldenFixture_NormalizesLineEndingsAndUsesStableVersionedDomain()
+    [Trait("Category", "GoldenContract")]
+    public void GoldenVector_ArticleContentV1MatchesCompletePayloadAndHash()
     {
-        ArticleCanonicalInput input = Baseline() with
-        {
-            MarkdownContent = "# 标题\r\n\r\nCafe\u0301 中文 😀\r\n"
-        };
-        ArticleCanonicalInput lfInput = input with
-        {
-            MarkdownContent = "# 标题\n\nCafé 中文 😀\n"
-        };
+        JsonObject vector = ReadGoldenVector("article-content-v1-unicode-newline");
+        ArticleCanonicalInput input = vector["input"]!.Deserialize<ArticleCanonicalInput>(s_jsonOptions)!;
 
-        string hash = ArticleCanonicalHashV1.ComputeHashHex(input);
-        string lfHash = ArticleCanonicalHashV1.ComputeHashHex(lfInput);
-        string payload = ArticleCanonicalHashV1.BuildPayloadUtf8(input);
-
-        Assert.Equal(1, ArticleCanonicalHashV1.HashVersion);
-        Assert.Equal("fsusblog.integrity.article-canonical.v1", ArticleCanonicalHashV1.DomainSeparator);
-        Assert.Equal(lfHash, hash);
-        Assert.Equal("129cb6dac691dccdf53e797da943167ef1e5f3f3972327c221f94e13bcbfab66", hash);
-        Assert.StartsWith("fsusblog.integrity.article-canonical.v1\nhashVersion:i:1\n", payload, StringComparison.Ordinal);
-        Assert.DoesNotContain("\r", payload, StringComparison.Ordinal);
-        Assert.Contains("\ntagIds:i:2,5,9\n", payload, StringComparison.Ordinal);
+        Assert.Equal(ArticleCanonicalHashV1.HashVersion, vector["version"]!.GetValue<int>());
+        Assert.Equal(ArticleCanonicalHashV1.DomainSeparator, vector["domain"]!.GetValue<string>());
+        Assert.Equal(
+            Convert.FromBase64String(vector["payloadBase64"]!.GetValue<string>()),
+            ArticleCanonicalHashV1.BuildPayloadBytes(input));
+        Assert.Equal(vector["hash"]!.GetValue<string>(), ArticleCanonicalHashV1.ComputeHashHex(input));
     }
 
     [Theory]
-    [InlineData(nameof(ArticleCanonicalInput.Title))]
-    [InlineData(nameof(ArticleCanonicalInput.PublicRouteKey))]
-    [InlineData(nameof(ArticleCanonicalInput.MarkdownContent))]
-    [InlineData(nameof(ArticleCanonicalInput.ArticleRevisionId))]
-    [InlineData(nameof(ArticleCanonicalInput.RevisionNo))]
-    [InlineData(nameof(ArticleCanonicalInput.TagIds))]
-    public void ComputeHash_NegativeFixture_ChangesWhenBoundFieldChanges(string field)
+    [MemberData(nameof(CanonicalEquivalenceCases))]
+    public void ComputeHash_CanonicalEquivalentInputsRemainEqual(string invariant)
+    {
+        (ArticleCanonicalInput first, ArticleCanonicalInput second) = invariant switch
+        {
+            "crlf-lf" => (
+                Baseline() with
+                {
+                    MarkdownContent = "first\r\nsecond\rthird"
+                },
+                Baseline() with
+                {
+                    MarkdownContent = "first\nsecond\nthird"
+                }),
+            "unicode-nfc" => (
+                Baseline() with
+                {
+                    Title = "Cafe\u0301 中文 😀",
+                    MarkdownContent = "Cafe\u0301 中文 😀"
+                },
+                Baseline() with
+                {
+                    Title = "Café 中文 😀",
+                    MarkdownContent = "Café 中文 😀"
+                }),
+            "tag-set-order-and-duplicates" => (
+                Baseline() with
+                {
+                    TagIds = [9, 2, 5, 2]
+                },
+                Baseline() with
+                {
+                    TagIds = [5, 9, 2]
+                }),
+            _ => throw new ArgumentOutOfRangeException(nameof(invariant), invariant, null)
+        };
+
+        Assert.True(
+            ArticleCanonicalHashV1.BuildPayloadBytes(first).AsSpan().SequenceEqual(ArticleCanonicalHashV1.BuildPayloadBytes(second)),
+            $"canonical payload differed for invariant '{invariant}'");
+        Assert.Equal(ArticleCanonicalHashV1.ComputeHashHex(first), ArticleCanonicalHashV1.ComputeHashHex(second));
+    }
+
+    [Theory]
+    [MemberData(nameof(BoundFields))]
+    public void ComputeHash_EachBoundFieldMutationChangesHash(string field)
     {
         ArticleCanonicalInput baseline = Baseline();
         ArticleCanonicalInput changed = field switch
         {
-            nameof(ArticleCanonicalInput.Title) => baseline with { Title = baseline.Title + " updated" },
-            nameof(ArticleCanonicalInput.PublicRouteKey) => baseline with { PublicRouteKey = "article:42-renamed" },
-            nameof(ArticleCanonicalInput.MarkdownContent) => baseline with { MarkdownContent = baseline.MarkdownContent + "\nextra" },
+            nameof(ArticleCanonicalInput.ArticleId) => baseline with { ArticleId = baseline.ArticleId + 1 },
             nameof(ArticleCanonicalInput.ArticleRevisionId) => baseline with { ArticleRevisionId = baseline.ArticleRevisionId + 1 },
             nameof(ArticleCanonicalInput.RevisionNo) => baseline with { RevisionNo = baseline.RevisionNo + 1 },
+            nameof(ArticleCanonicalInput.PublicRouteKey) => baseline with { PublicRouteKey = "article:42-renamed" },
+            nameof(ArticleCanonicalInput.Title) => baseline with { Title = baseline.Title + " updated" },
+            nameof(ArticleCanonicalInput.Summary) => baseline with { Summary = "summary" },
+            nameof(ArticleCanonicalInput.CoverImageUrl) => baseline with { CoverImageUrl = "/assets/changed.png" },
+            nameof(ArticleCanonicalInput.CategoryId) => baseline with { CategoryId = baseline.CategoryId + 1 },
             nameof(ArticleCanonicalInput.TagIds) => baseline with { TagIds = [2, 5, 10] },
+            nameof(ArticleCanonicalInput.Status) => baseline with { Status = baseline.Status + 1 },
+            nameof(ArticleCanonicalInput.PublishedAt) => baseline with { PublishedAt = baseline.PublishedAt!.Value.AddSeconds(1) },
+            nameof(ArticleCanonicalInput.ScheduledPublishAt) => baseline with { ScheduledPublishAt = baseline.PublishedAt!.Value.AddHours(1) },
+            nameof(ArticleCanonicalInput.MarkdownContent) => baseline with { MarkdownContent = baseline.MarkdownContent + "\nextra" },
             _ => throw new ArgumentOutOfRangeException(nameof(field), field, null)
         };
 
-        Assert.NotEqual(
-            ArticleCanonicalHashV1.ComputeHashHex(baseline),
-            ArticleCanonicalHashV1.ComputeHashHex(changed));
+        Assert.True(
+            !StringComparer.Ordinal.Equals(
+                ArticleCanonicalHashV1.ComputeHashHex(baseline),
+                ArticleCanonicalHashV1.ComputeHashHex(changed)),
+            $"bound field '{field}' did not change the article canonical hash");
+    }
+
+    [Theory]
+    [InlineData(nameof(ArticleCanonicalInput.Summary))]
+    [InlineData(nameof(ArticleCanonicalInput.CoverImageUrl))]
+    [InlineData(nameof(ArticleCanonicalInput.PublicRouteKey))]
+    public void ComputeHash_NullAndEmptyOptionalStringsRemainDistinct(string field)
+    {
+        ArticleCanonicalInput nullValue = field switch
+        {
+            nameof(ArticleCanonicalInput.Summary) => Baseline() with { Summary = null },
+            nameof(ArticleCanonicalInput.CoverImageUrl) => Baseline() with { CoverImageUrl = null },
+            nameof(ArticleCanonicalInput.PublicRouteKey) => Baseline() with { PublicRouteKey = null },
+            _ => throw new ArgumentOutOfRangeException(nameof(field), field, null)
+        };
+        ArticleCanonicalInput emptyValue = field switch
+        {
+            nameof(ArticleCanonicalInput.Summary) => Baseline() with { Summary = string.Empty },
+            nameof(ArticleCanonicalInput.CoverImageUrl) => Baseline() with { CoverImageUrl = string.Empty },
+            nameof(ArticleCanonicalInput.PublicRouteKey) => Baseline() with { PublicRouteKey = string.Empty },
+            _ => throw new ArgumentOutOfRangeException(nameof(field), field, null)
+        };
+
+        Assert.True(
+            !StringComparer.Ordinal.Equals(
+                ArticleCanonicalHashV1.ComputeHashHex(nullValue),
+                ArticleCanonicalHashV1.ComputeHashHex(emptyValue)),
+            $"optional field '{field}' collapsed null and empty values");
     }
 
     [Fact]
-    public void ComputeHash_TagIdsAreSetCanonicalized()
+    public void CanonicalContract_UsesVersionedDomainDistinctFromRights()
     {
-        ArticleCanonicalInput first = Baseline() with
-        {
-            TagIds = [9, 2, 5, 2]
-        };
-        ArticleCanonicalInput second = Baseline() with
-        {
-            TagIds = [5, 9, 2]
-        };
-
-        string firstPayload = ArticleCanonicalHashV1.BuildPayloadUtf8(first);
-        string secondPayload = ArticleCanonicalHashV1.BuildPayloadUtf8(second);
-
-        Assert.Equal(ArticleCanonicalHashV1.ComputeHashHex(first), ArticleCanonicalHashV1.ComputeHashHex(second));
-        Assert.Contains("\ntagIds:i:2,5,9\n", firstPayload, StringComparison.Ordinal);
-        Assert.Equal(firstPayload, secondPayload);
+        Assert.Equal(1, ArticleCanonicalHashV1.HashVersion);
+        Assert.Equal("fsusblog.integrity.article-canonical.v1", ArticleCanonicalHashV1.DomainSeparator);
+        Assert.NotEqual(ArticleRightsCanonicalHashV1.DomainSeparator, ArticleCanonicalHashV1.DomainSeparator);
     }
 
-    [Fact]
-    public void ComputeHash_UnicodeNfcCanonicalizationIsStable()
-    {
-        ArticleCanonicalInput decomposed = Baseline() with
-        {
-            Title = "Cafe\u0301 中文 😀",
-            MarkdownContent = "Cafe\u0301 中文 😀"
-        };
-        ArticleCanonicalInput composed = Baseline() with
-        {
-            Title = "Café 中文 😀",
-            MarkdownContent = "Café 中文 😀"
-        };
-
-        Assert.Equal(
-            ArticleCanonicalHashV1.ComputeHashHex(composed),
-            ArticleCanonicalHashV1.ComputeHashHex(decomposed));
-    }
-
-    [Fact]
-    public void BuildPayload_NullAndEmptyStringRemainDistinct()
-    {
-        ArticleCanonicalInput nullSummary = Baseline() with
-        {
-            Summary = null
-        };
-        ArticleCanonicalInput emptySummary = Baseline() with
-        {
-            Summary = string.Empty
-        };
-
-        string nullPayload = ArticleCanonicalHashV1.BuildPayloadUtf8(nullSummary);
-        string emptyPayload = ArticleCanonicalHashV1.BuildPayloadUtf8(emptySummary);
-
-        Assert.NotEqual(
-            ArticleCanonicalHashV1.ComputeHashHex(nullSummary),
-            ArticleCanonicalHashV1.ComputeHashHex(emptySummary));
-        Assert.Contains("\nsummary:n\n", nullPayload, StringComparison.Ordinal);
-        Assert.Contains("\nsummary:s:\n", emptyPayload, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void RuntimeType_IsCoreOnlyAndDoesNotReferenceExternalAnchors()
-    {
-        Assert.Equal("FsusBlog.Core", typeof(ArticleCanonicalHashV1).Assembly.GetName().Name);
-        Assert.DoesNotContain(
-            typeof(ArticleCanonicalHashV1).Assembly.GetReferencedAssemblies(),
-            static reference => reference.Name?.Contains("FsusBlog.Server", StringComparison.Ordinal) == true ||
-                                reference.Name?.Contains("SqlSugar", StringComparison.Ordinal) == true);
-
-        string runtimeShape = RuntimeMetadataInspection.DescribeType(typeof(ArticleCanonicalHashV1));
-        Assert.DoesNotContain("FsusBlog.Server", runtimeShape, StringComparison.Ordinal);
-        Assert.DoesNotContain("SqlSugar", runtimeShape, StringComparison.Ordinal);
-        Assert.DoesNotContain("HttpContext", runtimeShape, StringComparison.Ordinal);
-        Assert.DoesNotContain("Redis", runtimeShape, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("IPFS", runtimeShape, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Arweave", runtimeShape, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Nethereum", runtimeShape, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("HttpClient", runtimeShape, StringComparison.Ordinal);
-    }
+    private static JsonObject ReadGoldenVector(string id)
+        => BackendTestPaths.ReadJsonFromRoot("tests", "backend", "Fixtures", "canonical-hash-golden-vectors.json")["vectors"]!
+            .AsArray()
+            .Select(static node => node!.AsObject())
+            .Single(vector => StringComparer.Ordinal.Equals(id, vector["id"]!.GetValue<string>()));
 
     private static ArticleCanonicalInput Baseline()
         => new(

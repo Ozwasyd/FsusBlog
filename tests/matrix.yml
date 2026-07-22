@@ -1375,7 +1375,10 @@ tiers:
       evidence:
           [
               .tmp/release-evidence/rights-v3-test-matrix.json,
+              tests/backend/Fixtures/canonical-hash-golden-vectors.json,
+              tests/backend/Fixtures/canonical-hash-test-ownership.json,
               tests/fixtures/evidence-projection/rights-v3-test-matrix.json,
+              tests/test-retention-replacements.json,
           ]
       ciJob: integration-runtime
       localOnly: true

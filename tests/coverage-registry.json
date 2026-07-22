@@ -288,15 +288,18 @@
         },
         {
             "id": "rights-v3-test-matrix",
-            "description": "Rights V3 matrix evidence covers backend schema, canonical hash, write path, V3 codec, projector, proof pipeline, frontend decode/contracts/rendering/PublicAOT hydration, legacy rejection, artifact-hit isolation and the preencoded ArticleDetail hot path.",
+            "description": "Rights V3 matrix evidence covers complete Article content and Rights v1 canonical golden vectors and invariants, backend schema, write path, V3 codec, projector, proof pipeline, frontend decode/contracts/rendering/PublicAOT hydration, legacy rejection, artifact-hit isolation and the preencoded ArticleDetail hot path.",
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
-                ".tmp/release-evidence/rights-v3-test-matrix.json"
+                ".tmp/release-evidence/rights-v3-test-matrix.json",
+                "tests/backend/Fixtures/canonical-hash-golden-vectors.json",
+                "tests/backend/Fixtures/canonical-hash-test-ownership.json",
+                "tests/test-retention-replacements.json"
             ],
             "assertionType": "integration",
             "failClosedRule": "The Rights V3 projection must exit non-zero unless every catalogued backend, frontend, static and integration assertion is present exactly once, passed, and bound to the current source, run and producer digest.",
-            "minimumRequirement": "Backend evidence must include schema migration, canonical hash, write path, V3 codec, projector and proof pipeline tests; frontend evidence must include V3 decode, API/view contracts, admin editor flow, public article rendering and PublicAOT hydration tests; contract evidence must reject legacy ArticleDetail/public artifacts and prove artifact-hit public reads do not query rights tables; performance evidence must include the preencoded ArticleDetail artifact hot path gate.",
+            "minimumRequirement": "Backend evidence must include complete payload/hash golden vectors for every supported Article and Rights canonical version, newline/Unicode/sort/null-empty/domain and every-field mutation cases, schema migration, write path, V3 codec, projector and proof pipeline tests; frontend evidence must include V3 decode, API/view contracts, admin editor flow, public article rendering and PublicAOT hydration tests; contract evidence must reject legacy ArticleDetail/public artifacts and prove artifact-hit public reads do not query rights tables; performance evidence must include the preencoded ArticleDetail artifact hot path gate.",
             "tierIds": [
                 "rights-v3-test-matrix"
             ]
