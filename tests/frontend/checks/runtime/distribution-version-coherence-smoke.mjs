@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { Buffer } from 'node:buffer';
+import { randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import {
@@ -421,12 +422,20 @@ async function assertAdminState(session, articleId, title, status, isDeleted = f
   assert(Number(detail.payload?.status) === status, `${title} admin detail status mismatch: ${detail.payload?.status}`);
 }
 
+function articleMutationHeaders(extra = {}) {
+  return {
+    Origin: trustedOrigin,
+    'X-Fsus-Client-Mutation-Id': randomUUID(),
+    ...extra
+  };
+}
+
 async function createArticle(session, categoryId, tagId, title, marker, options = {}) {
   const { response, payload } = await authBinary('/api/Article', {
     method: 'POST',
     cookieHeader: session.cookieHeader,
     requiresPow: true,
-    headers: { Origin: trustedOrigin },
+    headers: articleMutationHeaders(),
     deviceFingerprint: `distribution-create-${marker}`,
     body: {
       title,
@@ -449,7 +458,7 @@ async function updateArticle(session, articleId, categoryId, tagId, title, marke
     method: 'PUT',
     cookieHeader: session.cookieHeader,
     requiresPow: true,
-    headers: { Origin: trustedOrigin },
+    headers: articleMutationHeaders(),
     deviceFingerprint: `distribution-update-${marker}`,
     body: {
       title,
@@ -473,7 +482,7 @@ async function mutateArticle(session, path, method, operation, marker) {
     method,
     cookieHeader: session.cookieHeader,
     requiresPow: true,
-    headers: { Origin: trustedOrigin, 'X-Fsus-Mfa-Proof': proofToken },
+    headers: articleMutationHeaders({ 'X-Fsus-Mfa-Proof': proofToken }),
     deviceFingerprint: `distribution-${operation}-${marker}`
   });
   if (response.status === 428) {
@@ -486,7 +495,7 @@ async function mutateArticle(session, path, method, operation, marker) {
       method,
       cookieHeader: session.cookieHeader,
       requiresPow: true,
-      headers: { Origin: trustedOrigin, 'X-Fsus-Mfa-Proof': retryProofToken },
+      headers: articleMutationHeaders({ 'X-Fsus-Mfa-Proof': retryProofToken }),
       deviceFingerprint: `distribution-${operation}-retry-${marker}`
     }));
   }

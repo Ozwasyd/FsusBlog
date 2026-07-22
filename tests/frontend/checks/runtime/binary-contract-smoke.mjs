@@ -18,7 +18,9 @@ const successChecks = [
   ['article hot', '/api/binary/article/hot/3.aeds', 3],
   ['category list', '/api/binary/category.aeds', 9],
   ['tag list', '/api/binary/tag.aeds', 10],
-  ['comment cursor', '/api/binary/comment/1?limit=5', 5]
+  // Public article comments are served as CommentTreeRootCursor (208), not the
+  // legacy CommentArticleCursor (5) surface.
+  ['comment cursor', '/api/binary/comment/1?limit=5', 208]
 ]
 
 const denialChecks = [
