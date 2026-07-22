@@ -87,6 +87,26 @@ test('shared inventory and content cache build and read each source once', () =>
     assert.equal(inventory.stats.contentCacheHits, 1);
 });
 
+test('repository inventory excludes tracked files deleted from the current worktree', () =>
+{
+    const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-rule-inventory-delete-'));
+    try
+    {
+        execFileSync('git', ['init', '-q'], { cwd: temporaryRoot });
+        fs.writeFileSync(path.join(temporaryRoot, 'retired-check.mjs'), 'export default true;\n');
+        execFileSync('git', ['add', 'retired-check.mjs'], { cwd: temporaryRoot });
+        fs.rmSync(path.join(temporaryRoot, 'retired-check.mjs'));
+
+        const inventory = new RepositoryInventory(temporaryRoot);
+
+        assert.deepEqual(inventory.Files(), []);
+    }
+    finally
+    {
+        fs.rmSync(temporaryRoot, { recursive: true, force: true });
+    }
+});
+
 test('complexity policies use distinct repository categories and complete metrics', () =>
 {
     assert.equal(FileCategory('src/backend/Modules/Endpoints/Binary/Example.cs'), 'EndpointComposition');

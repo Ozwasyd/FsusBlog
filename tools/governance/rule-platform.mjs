@@ -110,6 +110,7 @@ export class RepositoryInventory
             .split('\0')
             .filter(Boolean)
             .map(ToPosix)
+            .filter((file) => fs.existsSync(path.join(this.root, file)))
             .filter((file) => !Matches(file, this.ignoredPaths))
             .sort(CompareOrdinal);
         this.stats.inventoryBuilds += 1;

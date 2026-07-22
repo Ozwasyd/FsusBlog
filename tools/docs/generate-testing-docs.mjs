@@ -44,7 +44,7 @@ const groupDefinitions = [
   },
   {
     title: 'Cross-Stack And Fuzz Tiers',
-    match: (tier) => ['cross-stack-contract', 'contract-fuzz', 'wasm-fuzz-regression', 'csrf-browser-matrix', 'security-authenticated-dast'].includes(tier.id)
+    match: (tier) => ['cross-stack-contract', 'wasm-fuzz-regression', 'csrf-browser-matrix', 'security-authenticated-dast'].includes(tier.id)
   },
   {
     title: 'Performance And Resilience Depth Tiers',

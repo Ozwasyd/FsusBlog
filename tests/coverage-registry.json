@@ -941,21 +941,6 @@
             ]
         },
         {
-            "id": "contract-fuzz-invalid-inputs",
-            "description": "Contract Fuzz Invalid Inputs is covered by fuzz summaries that exercise the named behavior.",
-            "owner": "ServerContractAgent",
-            "risk": "high",
-            "evidencePaths": [
-                ".tmp/release-evidence/fuzz-seeds.json"
-            ],
-            "assertionType": "fuzz",
-            "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-            "minimumRequirement": "Fuzz evidence must include the declared invalid-input summary and fail closed on decoder or contract regressions.",
-            "tierIds": [
-                "contract-fuzz"
-            ]
-        },
-        {
             "id": "contract-static",
             "description": "Contract Static is covered by runtime artifacts that exercise the named behavior.",
             "owner": "InteropGlueAgent",

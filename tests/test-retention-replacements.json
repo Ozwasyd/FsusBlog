@@ -10613,6 +10613,15 @@
                 "xunit:tests/backend/Unit/CompositionRegistrationContractTests.cs#CompositionRegistrationContractTests.CatalogEntry_MatchesCanonicalCompositionAndResolutionSemantics"
             ],
             "reason": "The canonical registration catalog owns implementation, singleton lifetime, multiplicity and resolution semantics while runtime state behavior remains in the module test."
+        },
+        {
+            "id": "shell:tools/test/lanes/contract-fuzz.sh",
+            "path": "tools/test/lanes/contract-fuzz.sh",
+            "replacementTestIds": [
+                "node-test:tests/tools/wasm-fuzz-runtime.test.mjs#wasm-fuzz-evidence-is-run-bound-reproducible-and-cannot--356c0f3af4",
+                "node-test:tests/tools/wasm-fuzz-runtime.test.mjs#release-evidence-rejects-marker-only-wasm-fuzz-summaries-8983d406ad"
+            ],
+            "reason": "The targetless fixed-success placeholder is retired; the remaining fuzz authority executes real decoder seeds, binds run identity and rejects marker-only evidence. This mapping does not preserve the placeholder's unsupported JWT, cookie, path or HTTP risk claims."
         }
     ],
     "assertionReplacements": [

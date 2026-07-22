@@ -112,7 +112,6 @@ localProfiles:
                       production-build-artifacts,
                       public-hydration-fast,
                       wasm-fuzz-regression,
-                      contract-fuzz,
                       perception-v2-redteam-pr,
                       risk-control-test-matrix,
                       ux-viewport-plan-progress,
@@ -5230,39 +5229,8 @@ tiers:
       cadence: pr
       requiredFor: production
       coverage: [aeds-wasm-markdown-fuzz]
-      artifacts: [.tmp/fuzz/wasm]
-      evidence: [.tmp/fuzz/wasm/summary.json]
-      ciJob: security-static-fuzz
-      localOnly: false
-      nightlyOnly: false
-
-    - id: contract-fuzz
-      owner: ServerContractAgent
-      command: tools/test/lanes/contract-fuzz.sh
-      dependsOn: []
-      services: []
-      parallelizable: true
-      exclusiveResources: []
-      phase: 1
-      cost: medium
-      resourceClass: cpu
-      cpuWeight: 1
-      memoryWeight: 1
-      minCpuUnits: 1
-      requiresBootstrap: none
-      requiresNode: false
-      requiresDotnet: false
-      requiresPlaywright: none
-      cacheProfile: none
-      timeoutMinutes: 20
-      shardable: false
-      defaultShards: 1
-      risk: high
-      cadence: pr
-      requiredFor: production
-      coverage: [contract-fuzz-invalid-inputs]
-      artifacts: [.tmp/fuzz/contract, .tmp/release-evidence/fuzz-seeds.json]
-      evidence: [.tmp/release-evidence/fuzz-seeds.json]
+      artifacts: [.tmp/fuzz/wasm, .tmp/release-evidence/fuzz-seeds.json]
+      evidence: [.tmp/fuzz/wasm/summary.json, .tmp/release-evidence/fuzz-seeds.json]
       ciJob: security-static-fuzz
       localOnly: false
       nightlyOnly: false
@@ -5323,7 +5291,6 @@ tiers:
               perception-v2-test-matrix,
               privacy-zk-comment-matrix,
               wasm-fuzz-regression,
-              contract-fuzz,
               perception-v2-redteam-pr,
               ux-viewport-plan-progress,
               frontend-render-structure,
@@ -6245,7 +6212,6 @@ tiers:
               endpoint-depth,
               security,
               wasm-fuzz-regression,
-              contract-fuzz,
               perception-v2-redteam-pr,
               ux-viewport-plan-progress,
               frontend-render-structure,

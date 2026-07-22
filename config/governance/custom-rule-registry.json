@@ -10179,6 +10179,34 @@
             }
         },
         {
+            "id": "Implementation.ToolsCheckTestLifecycleMjs",
+            "externalId": "tools/check-test-lifecycle.mjs",
+            "symbol": "CheckToolsCheckTestLifecycle",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "parser",
+            "sourceScopes": [
+                "tools/check-test-lifecycle.mjs",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/issue-1162-rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/check-test-lifecycle.mjs",
+                "executionKey": "governance:file:tools/check-test-lifecycle.mjs",
+                "receiptCompatible": true
+            }
+        },
+        {
             "id": "Implementation.ToolsCheckTestMatrixMjs",
             "externalId": "tools/check-test-matrix.mjs",
             "symbol": "CheckToolsCheckTestMatrix",
@@ -13654,34 +13682,6 @@
                 "mode": "delegated-implementation",
                 "implementation": "tools/test/lanes/changed-code-coverage.sh",
                 "executionKey": "governance:file:tools/test/lanes/changed-code-coverage.sh",
-                "receiptCompatible": true
-            }
-        },
-        {
-            "id": "Implementation.ToolsTestLanesContractFuzzSh",
-            "externalId": "tools/test/lanes/contract-fuzz.sh",
-            "symbol": "CheckToolsTestLanesContractFuzz",
-            "owner": "TestGovernanceOwner",
-            "category": "test-governance",
-            "engine": "runtime",
-            "sourceScopes": [
-                "tools/test/lanes/contract-fuzz.sh",
-                "tests/**",
-                "tools/test/**",
-                ".github/workflows/**"
-            ],
-            "severity": "error",
-            "fixable": false,
-            "changedFileSafe": true,
-            "dependencies": [],
-            "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
-            ],
-            "documentation": "docs/development/custom-rule-platform.md",
-            "execution": {
-                "mode": "delegated-implementation",
-                "implementation": "tools/test/lanes/contract-fuzz.sh",
-                "executionKey": "governance:file:tools/test/lanes/contract-fuzz.sh",
                 "receiptCompatible": true
             }
         },
