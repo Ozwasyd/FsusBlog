@@ -135,10 +135,18 @@ internal static class CommentRevisionManagementMigrationDefinitions
             while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                List<Comment> comments = await db.Queryable<Comment>()
+                List<CommentRevisionBackfillSource> comments = await db.Queryable<Comment>()
                     .Where(item => item.Id > lastId)
                     .OrderBy(item => item.Id, OrderByType.Asc)
                     .Take(BatchSize)
+                    .Select(item => new CommentRevisionBackfillSource
+                    {
+                        Id = item.Id,
+                        Content = item.Content,
+                        CreateTime = item.CreateTime,
+                        UserId = item.UserId,
+                        AuthorMode = item.AuthorMode
+                    })
                     .ToListAsync(cancellationToken);
                 if (comments.Count == 0)
                 {
@@ -160,7 +168,7 @@ internal static class CommentRevisionManagementMigrationDefinitions
                         ContentSha256 = Convert.ToHexString(
                             SHA256.HashData(Encoding.UTF8.GetBytes(item.Content))).ToLowerInvariant(),
                         Operation = CommentRevisionOperations.Created,
-                        CreatedAtUtc = item.CreateTime,
+                        CreatedAtUtc = DateTime.SpecifyKind(item.CreateTime, DateTimeKind.Utc),
                         ActorAccountId = item.UserId,
                         ActorAdminPrincipalId = null,
                         ActorMode = string.IsNullOrWhiteSpace(item.AuthorMode) ? "public" : item.AuthorMode
@@ -173,6 +181,28 @@ internal static class CommentRevisionManagementMigrationDefinitions
 
                 lastId = comments[^1].Id;
             }
+        }
+
+        private sealed class CommentRevisionBackfillSource
+        {
+            public long Id
+            {
+                get; init;
+            }
+
+            public string Content { get; init; } = string.Empty;
+
+            public DateTime CreateTime
+            {
+                get; init;
+            }
+
+            public int? UserId
+            {
+                get; init;
+            }
+
+            public string AuthorMode { get; init; } = string.Empty;
         }
     }
 }

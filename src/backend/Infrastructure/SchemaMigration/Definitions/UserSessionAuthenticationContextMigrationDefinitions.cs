@@ -19,6 +19,7 @@ internal static class UserSessionAuthenticationContextMigrationDefinitions
                 new EnsureColumnStep("sys_user_session", "last_step_up_at_utc", "timestamp NULL"),
                 new EnsureColumnStep("sys_user_session", "last_step_up_method", "varchar(24) NULL"),
                 new EnsureColumnStep("sys_user_session", "duration_policy", "varchar(24) NULL"),
+                new EnsureColumnStep("sys_user_session", "mfaverified", "boolean NOT NULL DEFAULT false"),
                 new RawSqlStep(
                     """
                     DO $$

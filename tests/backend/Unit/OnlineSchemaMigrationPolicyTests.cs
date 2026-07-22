@@ -293,6 +293,7 @@ public sealed class OnlineSchemaMigrationPolicyTests
             ArticleResponsibilityVersionMigrationDefinitions.MigrationId,
             ArticleRevisionContentBlockMigrationDefinitions.MigrationId,
             ArticleRevisionRollbackMigrationDefinitions.MigrationId,
+            ArticleTimeSemanticsMigrationDefinitions.MigrationId,
             accountEnrollment.MigrationId,
             refreshTokenLineage.MigrationId,
             userSessionModeAuthority.MigrationId,

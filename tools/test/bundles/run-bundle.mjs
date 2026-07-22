@@ -1386,6 +1386,7 @@ async function runBackendTests() {
     return [tierId, new Set(methods)]
   }))
   const specialMethods = new Set([...categoryMethods.values()].flatMap((methods) => [...methods]))
+/* eslint-disable @stylistic/brace-style, @stylistic/indent, @stylistic/semi, curly */
   const distributedContractClasses = [
     'DistributedContractFastTests',
     'DistributedInvalidationBusTests',
@@ -1411,6 +1412,7 @@ async function runBackendTests() {
       path.join(root, '.tmp/coverage/backend-merged/Summary.json')
     ])
   }
+/* eslint-enable @stylistic/brace-style, @stylistic/indent, @stylistic/semi, curly */
 }
 
 function listFiles(directory, predicate = () => true) {

@@ -115,6 +115,8 @@ Refresh rotation 的数据库 CAS 与 HTTP Cookie 交付由端点显式编排：
 
 生产启动校验通过 `ProductionStartupValidationHostedService` 纳入 DI 生命周期。生产环境校验失败时写入 `StartupRuntimeState` 的 `productionStartupValidation=degraded` 并记录日志，进程保持可观测；就绪探针仍由 DB/Redis 连通性决定。非生产环境报告 `skipped`。
 
+Schema migration 的跨实例启动互斥使用同一个 PostgreSQL session advisory lock，但等待方只能短事务轮询 `pg_try_advisory_lock`，不得用阻塞式 `pg_advisory_lock` 长时间持有 virtual transaction。迁移计划包含 `CREATE INDEX CONCURRENTLY`，阻塞等待方的 virtual transaction 会反向阻塞持锁实例完成索引并形成死锁。轮询连接在成功后持有 session lock，直到全部 PreCodeFirst、CodeFirst、PostCodeFirst 和模型校验结束才显式解锁；取消或异常必须关闭连接释放锁。运行时回退不需要改 schema：保持一个实例执行 migration，其余实例等待或由编排层暂停启动，不能绕过互斥并行执行 DDL。
+
 安全运行策略由 `ISecurityAdminPolicyService` 暴露进程内 immutable 快照，公开读、PoW、RiskControl 和后台概览只读该内存状态。后台 `/api/binary/admin/security/**` 修改 AntiCrawler/PoW 策略时，在原有 admin principal、`system.config`、`X-Fsus-Mfa-Proof` 和高价值审计边界内额外写入 `security_policy_snapshot` 版本化记录；启动期 `SecurityPolicySnapshotHostedService` 必须排在 `LifecycleHostedBootstrapService` 之后，从 active 策略加载内存快照，active 反序列化失败时回退到最近 last-known-good 版本。请求热路径不得为了读取策略同步查询 PostgreSQL；持久化写失败会让管理写请求失败并保留日志诊断，下一次启动仍以最后可用的 active/LKG 持久化快照恢复运行时策略。
 
 RiskControl challenge 的端到端 readiness 由版本化 capability registry 收口，不能用 provider DI 注册数代替。后端 catalog 与前端 registry 对每个 `SecurityChallengeKind` 记录 provider、UI/headless executor、host、取消能力和 action surface；orchestrator 在调用 provider 前按 action fail closed，production readiness 也验证 active policy 的每个 kind。管理端分别展示 provider/executor/UI host/headless host/policy，不把 PoSpace/Passkey 占位组件显示为 ready。回退时无需重启：通过 reload-capable policy 将不合格 kind 的子系统切到 disabled/observe 或回滚 LKG；manifest 本身只能随已验证静态资源构建变更。

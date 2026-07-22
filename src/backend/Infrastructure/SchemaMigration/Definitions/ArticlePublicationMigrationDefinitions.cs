@@ -51,10 +51,27 @@ internal static class ArticlePublicationMigrationDefinitions
                     IF to_regclass('article') IS NOT NULL
                        AND to_regclass('article_revision') IS NOT NULL
                        AND to_regclass('article_body') IS NOT NULL
-                       AND to_regclass('article_tag') IS NOT NULL THEN
+                       AND to_regclass('article_tag') IS NOT NULL
+                       AND to_regclass('article_revision_content_block') IS NOT NULL THEN
+                    INSERT INTO article_revision_content_block (
+                        content_hash, markdown_content, byte_length, created_at)
+                    SELECT
+                        encode(sha256(convert_to(COALESCE(body.markdown_content, ''), 'UTF8')), 'hex'),
+                        COALESCE(body.markdown_content, ''),
+                        octet_length(convert_to(COALESCE(body.markdown_content, ''), 'UTF8')),
+                        MIN(article.createtime)
+                    FROM article
+                    LEFT JOIN article_body body ON body.article_id = article.id
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM article_revision revision WHERE revision.article_id = article.id
+                    )
+                    GROUP BY COALESCE(body.markdown_content, '')
+                    ON CONFLICT (content_hash) DO NOTHING;
+
                     INSERT INTO article_revision (
                         article_id, revision_no, title, summary, cover_image_url, categoryid,
-                        tag_ids, markdown_content, diff_summary, created_by_admin_principal_id, created_at)
+                        tag_ids, content_block_id, markdown_content, diff_summary,
+                        created_by_admin_principal_id, created_at)
                     SELECT
                         article.id,
                         1,
@@ -67,12 +84,16 @@ internal static class ArticlePublicationMigrationDefinitions
                             FROM article_tag
                             WHERE article_tag.articleid = article.id
                         ), ''),
-                        COALESCE(body.markdown_content, ''),
+                        block.id,
+                        '',
                         'publication-coordinate migration',
                         0,
                         article.createtime
                     FROM article
                     LEFT JOIN article_body body ON body.article_id = article.id
+                    JOIN article_revision_content_block block
+                      ON block.content_hash = encode(sha256(convert_to(COALESCE(body.markdown_content, ''), 'UTF8')), 'hex')
+                     AND block.markdown_content = COALESCE(body.markdown_content, '')
                     WHERE NOT EXISTS (
                         SELECT 1 FROM article_revision revision WHERE revision.article_id = article.id
                     )

@@ -23,10 +23,13 @@ internal static class RefreshTokenLineageMigrationDefinitions
                     BEGIN
                     IF to_regclass('sys_user_session') IS NOT NULL THEN
                     EXECUTE $migration$
-                        UPDATE sys_user_session
+                        UPDATE sys_user_session session
                         SET refresh_family_id = COALESCE(NULLIF(refresh_family_id, ''), sessionid),
                             refresh_generation = COALESCE(refresh_generation, 0),
-                            refresh_rotated_at_utc = COALESCE(refresh_rotated_at_utc, lastseenat, createdat)
+                            refresh_rotated_at_utc = COALESCE(
+                                refresh_rotated_at_utc,
+                                NULLIF(to_jsonb(session)->>'lastseenat', '')::timestamp,
+                                createdat)
                         WHERE refresh_family_id IS NULL
                            OR refresh_family_id = ''
                            OR refresh_generation IS NULL

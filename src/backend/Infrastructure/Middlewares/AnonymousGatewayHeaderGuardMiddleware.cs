@@ -15,6 +15,7 @@ public sealed partial class AnonymousGatewayHeaderGuardMiddleware
         "X-Fsus-Challenge-Id",
         "X-Fsus-Challenge-Kind",
         "X-Fsus-Challenge-Proof",
+        "X-Fsus-Client-Mutation-Id",
         "X-Fsus-Csrf-Token",
         "X-Fsus-Device-Fp",
         "X-Fsus-Local-Auth-Fixture-Secret",

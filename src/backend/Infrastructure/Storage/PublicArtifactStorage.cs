@@ -193,9 +193,22 @@ public sealed class LocalPublicArtifactStorage : IPublicArtifactStorage
         cancellationToken.ThrowIfCancellationRequested();
         ValidateKey(key);
         string targetPath = ResolvePath(key);
-        File.Delete(targetPath);
-        File.Delete(GetMetadataPath(targetPath));
+        DeleteIfPresent(targetPath);
+        DeleteIfPresent(GetMetadataPath(targetPath));
         return Task.CompletedTask;
+    }
+
+    private static void DeleteIfPresent(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (DirectoryNotFoundException)
+        {
+            // Artifact removal is an idempotent replay edge. A missing parent
+            // means the artifact is already absent and therefore converged.
+        }
     }
 
     internal string ResolvePathForTests(PublicArtifactKey key) => ResolvePath(key);

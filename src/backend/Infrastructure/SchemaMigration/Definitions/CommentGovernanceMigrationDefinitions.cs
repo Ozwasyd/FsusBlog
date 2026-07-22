@@ -78,7 +78,8 @@ internal static class CommentGovernanceMigrationDefinitions
                             COALESCE(NEW.moderation_reason, NEW.delete_reason),
                             current_setting('fsus.moderation_policy_version', true),
                             current_setting('fsus.moderation_model_version', true),
-                            CASE WHEN NEW.moderated_by_admin_principal_id IS NOT NULL THEN 'admin'
+                            CASE WHEN TG_OP = 'INSERT' THEN 'initial'
+                                 WHEN NEW.moderated_by_admin_principal_id IS NOT NULL THEN 'admin'
                                  WHEN COALESCE(NEW.moderation_reason, '') LIKE 'model_policy:%' THEN 'model' ELSE 'system' END,
                             NEW.moderated_by_admin_principal_id,
                             COALESCE(NEW.moderated_at, NEW.delete_time, NEW.create_time, now() AT TIME ZONE 'utc'));

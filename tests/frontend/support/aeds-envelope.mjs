@@ -1055,8 +1055,26 @@ export function decodeKnownFrame(buffer)
 
 function decodeMutationId(payload)
 {
-    assertPayloadLength(payload, 8, 'mutation_id_payload_invalid');
-    return { id: readInt64FromBytes(payload, 0) };
+    if (payload.byteLength === 8)
+    {
+        return { id: readInt64FromBytes(payload, 0) };
+    }
+    assertPayloadLength(payload, 48, 'mutation_id_payload_invalid');
+    const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength);
+    return {
+        id: readInt32(view, 0),
+        articleId: readInt32(view, 0),
+        revisionId: readInt64Number(view, 4),
+        revisionNo: readInt32(view, 12),
+        releaseId: readInt64Number(view, 16),
+        releaseNo: readInt32(view, 24),
+        status: readInt32(view, 28),
+        rightsSnapshotId: readInt64Number(view, 32),
+        rightsRevisionNo: readInt32(view, 40),
+        idempotencyReplay: payload[44] !== 0,
+        errorCode: payload[45],
+        outcome: payload[46]
+    };
 }
 
 function decodeArticleHot(payload)

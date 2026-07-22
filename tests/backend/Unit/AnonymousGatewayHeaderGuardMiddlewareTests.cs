@@ -63,6 +63,7 @@ public sealed class AnonymousGatewayHeaderGuardMiddlewareTests
     [InlineData("X-Fsus-Challenge-Proof")]
     [InlineData("X-Fsus-Challenge-Id")]
     [InlineData("X-Fsus-Challenge-Kind")]
+    [InlineData("X-Fsus-Client-Mutation-Id")]
     [InlineData("X-Fsus-Device-Fp")]
     [InlineData("X-Fsus-Mfa-Proof")]
     [InlineData("X-Fsus-Region")]

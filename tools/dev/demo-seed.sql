@@ -40,7 +40,7 @@ delete from sys_audit_log where source = 'demo-seed';
 with category as (
   select id from category where name = 'Public Preview'
 )
-insert into article (id, title, summary, coverimageurl, categoryid, views, createtime, status, published_at, isdeleted)
+insert into article (id, title, summary, coverimageurl, categoryid, views, createtime, metadata_updated_at, status, published_at, isdeleted)
 select
   910001,
   'Public Preview Walkthrough',
@@ -48,6 +48,7 @@ select
   '/fixtures/demo-public-preview-route-map.svg',
   category.id,
   42,
+  '2026-06-01 10:00:00+00',
   '2026-06-01 10:00:00+00',
   2,
   '2026-06-01 10:00:00+00',
@@ -57,7 +58,7 @@ from category;
 with category as (
   select id from category where name = 'Operations Notes'
 )
-insert into article (id, title, summary, coverimageurl, categoryid, views, createtime, status, published_at, isdeleted)
+insert into article (id, title, summary, coverimageurl, categoryid, views, createtime, metadata_updated_at, status, published_at, isdeleted)
 select
   910002,
   'AEDS And Public AOT Notes',
@@ -65,6 +66,7 @@ select
   '/fixtures/demo-aeds-frame-inspection.svg',
   category.id,
   18,
+  '2026-06-02 10:00:00+00',
   '2026-06-02 10:00:00+00',
   2,
   '2026-06-02 10:00:00+00',
@@ -84,6 +86,16 @@ This is deterministic fictional demo content for local development.
 
 This article gives the local UI enough content to render lists, details, search metadata, and moderation examples.', '2026-06-02 10:05:00+00');
 
+insert into article_revision_content_block (content_hash, markdown_content, byte_length, created_at)
+select
+  encode(sha256(convert_to(markdown_content, 'UTF8')), 'hex'),
+  markdown_content,
+  octet_length(convert_to(markdown_content, 'UTF8')),
+  updated_at
+from article_body
+where article_id in (910001, 910002)
+on conflict (content_hash) do nothing;
+
 insert into article_tag (articleid, tagid)
 select 910001, id from tag where name in ('demo', 'public-aot')
 on conflict do nothing;
@@ -94,7 +106,7 @@ on conflict do nothing;
 
 insert into article_revision (
   article_id, revision_no, title, summary, cover_image_url, categoryid,
-  tag_ids, markdown_content, diff_summary, created_by_admin_principal_id, created_at
+  tag_ids, content_block_id, markdown_content, diff_summary, created_by_admin_principal_id, created_at
 )
 select
   article.id,
@@ -108,12 +120,16 @@ select
     from article_tag
     where article_tag.articleid = article.id
   ), ''),
-  body.markdown_content,
+  block.id,
+  '',
   'Deterministic local demo seed',
   admin.id,
   body.updated_at
 from article
 join article_body body on body.article_id = article.id
+join article_revision_content_block block
+  on block.content_hash = encode(sha256(convert_to(body.markdown_content, 'UTF8')), 'hex')
+ and block.markdown_content = body.markdown_content
 join admin_principal admin on admin.handle = 'demo-admin'
 where article.id in (910001, 910002);
 
@@ -173,7 +189,7 @@ where revision.article_id in (910001, 910002)
   and revision.revision_no = 1;
 
 insert into comment (
-  id, article_id, content, create_time, author_mode,
+  id, article_id, content, create_time, current_version, author_mode,
   public_handle, anonymous_handle, anonymous_display_name, anonymous_display_language,
   anonymous_nullifier_hash, anonymous_scope, moderation_subject_hash,
   credential_level, reputation_bucket, account_age_bucket,
@@ -186,6 +202,7 @@ values
     910001,
     '[demo] This approved comment is fictional and safe for screenshots.',
     '2026-06-01 11:00:00+00',
+    1,
     'anonymous',
     null,
     'demo-reader-scope',
@@ -211,6 +228,7 @@ values
     910002,
     '[demo] This pending moderation item is fictional and repeatable.',
     '2026-06-02 11:00:00+00',
+    1,
     'anonymous',
     null,
     'demo-reader-scope',

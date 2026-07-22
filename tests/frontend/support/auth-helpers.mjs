@@ -285,11 +285,27 @@ function decodePowChallenge(buffer) {
   };
 }
 
+/* eslint-disable @stylistic/brace-style, @stylistic/indent, @stylistic/semi */
 export async function fetchAedsPayload(path, init = {}, timeoutMs = requestTimeoutMs) {
   const response = await fetchWithTimeout(`${baseUrl}${path}`, init, timeoutMs);
-  const payload = await readAedsResponse(response).catch(() => null);
-  return { response, payload };
+  const diagnosticResponse = response.clone();
+  let payloadError = null;
+  const payload = await readAedsResponse(response).catch((error) => {
+    payloadError = error instanceof Error ? error.message : String(error);
+    return null;
+  });
+  const responseBody = payloadError === null
+    ? null
+    : await diagnosticResponse.text().catch(() => null);
+  return {
+    response,
+    payload,
+    payloadError,
+    responseBody,
+    responseContentType: diagnosticResponse.headers.get('content-type')
+  };
 }
+/* eslint-enable @stylistic/brace-style, @stylistic/indent, @stylistic/semi */
 
 export async function fetchChallenge(timeoutMs = requestTimeoutMs) {
   const response = await fetchWithTimeout(`${baseUrl}/api/binary/auth/pow-challenge`, {

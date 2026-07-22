@@ -28,7 +28,6 @@ internal static class UserSessionModeMigrationDefinitions
                         END
                         FROM sys_user account
                         WHERE account.id = session.userid
-                          AND session.session_mode IS NULL
                     $migration$;
                     END IF;
                     END $$;

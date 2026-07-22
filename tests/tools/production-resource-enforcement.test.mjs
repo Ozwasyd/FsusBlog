@@ -247,7 +247,11 @@ test('production wiring attaches a stopped bundle before resume and propagates O
   assert.match(scheduler, /scheduler interrupted by[\s\S]*?finalizeResourceEnforcer/u)
   assert.match(bundle, /FSUSBLOG_DOCKER_CPU_UNITS[\s\S]*?FSUSBLOG_DOCKER_MEMORY_HIGH_BYTES[\s\S]*?FSUSBLOG_DOCKER_PIDS_MAX/u)
   assert.match(bundle, /docker', \['inspect'[\s\S]*?consistency/u)
+/* eslint-disable @stylistic/indent, @stylistic/semi */
   assert.match(bootstrap, /DOCKER_RESOURCE_ARGS=\([\s\S]*?--cpus[\s\S]*?--memory-reservation[\s\S]*?--pids-limit/u)
+  assert.match(bootstrap, /const dockerCpu = Math\.max\(0\.001, Math\.floor\(childCpu \* 1000\) \/ 1000\)/u)
+  assert.match(bootstrap, /child\.FSUSBLOG_DOCKER_CPU_UNITS = String\(dockerCpu\)/u)
+    /* eslint-enable @stylistic/indent, @stylistic/semi */
   assert.match(bootstrap, /bundleIdentity="\$\{FSUSBLOG_PHYSICAL_BUNDLE_ID:-standalone\}"/u)
   assert.match(bootstrap, /stepIdentity="\$\{FSUSBLOG_STEP_ID:-bootstrap\}"/u)
   assert.match(bootstrap, /docker update[\s\S]*?docker run -d/u)

@@ -451,6 +451,7 @@ const positiveNumber = (value, fallback) => {
 }
 const machineCpu = os.availableParallelism?.() ?? os.cpus().length
 const childCpu = positiveNumber(child.FSUSBLOG_STEP_CPU_BUDGET, 1)
+const dockerCpu = Math.max(0.001, Math.floor(childCpu * 1000) / 1000)
 const childMemoryHigh = Math.max(1, Math.floor(
   positiveNumber(child.FSUSBLOG_STEP_MEMORY_GIB, 1) * bytesPerGiB
 ))
@@ -471,7 +472,7 @@ const parentPids = Math.max(1, Math.floor(positiveNumber(
   env.FSUSBLOG_DOCKER_PIDS_MAX,
   Math.max(64, Math.ceil(parentCpu * 128))
 )))
-child.FSUSBLOG_DOCKER_CPU_UNITS = child.FSUSBLOG_STEP_CPU_BUDGET
+child.FSUSBLOG_DOCKER_CPU_UNITS = String(dockerCpu)
 child.FSUSBLOG_DOCKER_MEMORY_HIGH_BYTES = String(childMemoryHigh)
 child.FSUSBLOG_DOCKER_MEMORY_MAX_BYTES = String(Math.max(
   childMemoryHigh,

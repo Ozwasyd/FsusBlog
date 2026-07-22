@@ -124,6 +124,22 @@ public class PodBinaryCodecTests
     }
 
     [Fact]
+    public void ArticleWriteRequest_DecodesFrontendSupportV5Fixture()
+    {
+        byte[] encoded = Convert.FromBase64String(
+            "AQAAAAEAAAAAAAAAFgAAABYAAABCAAAAWAAAAAwAAABkAAAAAAAAAAEAAABkAAAARGlzdHJpYnV0aW9uIENvaGVyZW5jZSMgRGlzdHJpYnV0aW9uIENvaGVyZW5jZQoKc2FmZSBib2R5IHByb3ZlcyBkaXN0cmlidXRpb24gY29oZXJlbmNlLnNhZmUgc3VtbWFyeQAAAAAAAAAAAAAAAAUAAAAAAAAADwAAAAAAAAAsAQAAAAAAABMAAAATAAAAAAAAABMAAAAAAAAAEwAAAAAAAAATAAAAEgAAACUAAABhbGwtcmlnaHRzLXJlc2VydmVkYXBwZW5kLWF0dHJpYnV0aW9uAAAAAAAAAAA=");
+
+        bool ok = PodBinaryCodec.TryDecodeArticleWriteRequest(encoded, out var decoded);
+
+        Assert.True(ok);
+        Assert.Equal("Distribution Coherence", decoded.Title);
+        Assert.Equal("# Distribution Coherence\n\nsafe body proves distribution coherence.", decoded.Content);
+        Assert.Equal("safe summary", decoded.Summary);
+        Assert.Equal(ArticleRightsMutationMode.Preserve, decoded.RightsMutation);
+        Assert.Null(decoded.BaseRevisionId);
+    }
+
+    [Fact]
     public void ArticleMutationResult_RoundTrip_ReportsVersionAndReplayCoordinates()
     {
         var response = new ArticleMutationResult(

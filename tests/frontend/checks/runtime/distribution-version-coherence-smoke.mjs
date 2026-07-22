@@ -504,7 +504,7 @@ function articleMutationHeaders(extra = {})
 
 async function createArticle(session, categoryId, tagId, title, marker, options = {})
 {
-    const { response, payload } = await authBinary('/api/Article', {
+    const { response, payload, payloadError, responseBody, responseContentType } = await authBinary('/api/Article', {
         method: 'POST',
         cookieHeader: session.cookieHeader,
         requiresPow: true,
@@ -512,15 +512,15 @@ async function createArticle(session, categoryId, tagId, title, marker, options 
         deviceFingerprint: `distribution-create-${marker}`,
         body: {
             title,
-            content: `# ${title}\n\n${marker} body proves distribution coherence.`,
-            summary: `${marker} summary proves feed and search coherence.`,
+            content: `# ${title}\n\n这是一段普通的文章内容，用于验证发布版本一致性。标识：${marker}`,
+            summary: `用于验证订阅与搜索版本一致性的普通摘要。标识：${marker}`,
             categoryId,
             tagIds: [tagId],
             status: options.status ?? ArticleStatus.Published,
             scheduledPublishAt: options.scheduledPublishAt ?? null
         }
     });
-    assert(response.ok, `article create failed: ${response.status}`);
+    assert(response.ok, `article create failed: ${response.status} ${JSON.stringify({ payload, payloadError, responseBody, responseContentType })}`);
     const id = Number(payload?.id);
     assert(Number.isFinite(id) && id > 0, 'article create missing mutation id');
     return id;
@@ -528,6 +528,9 @@ async function createArticle(session, categoryId, tagId, title, marker, options 
 
 async function updateArticle(session, articleId, categoryId, tagId, title, marker, options = {})
 {
+    const current = await fetchArticleDetail(articleId, session.cookieHeader);
+    const baseRevisionId = Number(current.payload?.currentRevisionId);
+    assert(current.response.ok && Number.isSafeInteger(baseRevisionId) && baseRevisionId > 0, `article update base revision unavailable: ${current.response.status}`);
     const { response } = await authBinary(`/api/Article/${articleId}`, {
         method: 'PUT',
         cookieHeader: session.cookieHeader,
@@ -536,12 +539,13 @@ async function updateArticle(session, articleId, categoryId, tagId, title, marke
         deviceFingerprint: `distribution-update-${marker}`,
         body: {
             title,
-            content: `# ${title}\n\n${marker} updated body proves distribution coherence.`,
-            summary: `${marker} updated summary proves feed and search coherence.`,
+            content: `# ${title}\n\n这是一段普通的更新后文章内容，用于验证发布版本一致性。标识：${marker}`,
+            summary: `用于验证更新后订阅与搜索版本一致性的普通摘要。标识：${marker}`,
             categoryId,
             tagIds: [tagId],
             status: options.status ?? ArticleStatus.Published,
-            scheduledPublishAt: options.scheduledPublishAt ?? null
+            scheduledPublishAt: options.scheduledPublishAt ?? null,
+            baseRevisionId
         }
     });
     assert(response.ok, `article update failed: ${response.status}`);
@@ -673,15 +677,15 @@ async function main()
         console.log('[distribution-version-coherence] ok: delete');
 
         await mutateArticle(session, `/api/Article/restore/${articleId}`, 'PUT', 'restore', markerV2);
-        await eventually('restore draft boundary', async () =>
+        await eventually('restore published boundary', async () =>
         {
             const [snapshot] = await Promise.all([
                 readPublicSurfaces(articleId, categoryId, tagId, session.cookieHeader),
-                assertAdminState(session, articleId, titleV2, ArticleStatus.Draft)
+                assertAdminState(session, articleId, titleV2, ArticleStatus.Published)
             ]);
-            assertPublicAbsent(snapshot, articleId, titleV2, markerV2);
+            assertPublicPresent(snapshot, articleId, titleV2, markerV2);
         });
-        console.log('[distribution-version-coherence] ok: restore-draft-hidden');
+        console.log('[distribution-version-coherence] ok: restore-published');
 
         await updateArticle(session, articleId, categoryId, tagId, titleV2, markerV2, {
             status: ArticleStatus.Published
