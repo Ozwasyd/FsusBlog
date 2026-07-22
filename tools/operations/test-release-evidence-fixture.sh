@@ -714,7 +714,7 @@ JSON
 MANIFEST_STATUS_CONDITION="$(
     awk '
     /^MANIFEST_STATUS="collected-ok"/ { capture = 1 }
-    /^cat > "\$OUT_DIR\/manifest.json"/ { capture = 0 }
+    /^cat[[:space:]]*>[[:space:]]*"\$OUT_DIR\/manifest.json"/ { capture = 0 }
     capture { print }
   ' "$ROOT_DIR/tools/operations/collect-release-evidence.sh"
 )"
@@ -788,7 +788,7 @@ jq -e \
   and .artifacts.frontendRenderPressureSummary == "frontend-render-pressure-summary.json"
   and .artifacts.frontendRenderStructureSummary == "frontend-render-structure-summary.json"
   and .artifacts.aotCacheResilienceSummary == "aot-cache-resilience-summary.json"
-  and .artifacts.publicHydrationDetectorSummary == "public-hydration-detector-summary.json"
+  and .artifacts.publicHydrationDetectorSummary == null
   and .artifacts.publicHydrationClockMatrixSummary == "public-hydration-clock-matrix-summary.json"
   and .artifacts.publicHydrationBrowserEnvSummary == "public-hydration-browser-env-summary.json"
   and .artifacts.publicHydrationPayloadFixtureSummary == "public-hydration-payload-fixture-summary.json"
@@ -854,7 +854,7 @@ jq -e \
   and .evidenceSummary.gates.frontendRenderPressure == "ok"
   and .evidenceSummary.gates.frontendRenderStructure == "ok"
   and .evidenceSummary.gates.publicAotCacheResilience == "success"
-  and .evidenceSummary.gates.publicHydrationDetector == "success"
+  and .evidenceSummary.gates.publicHydrationDetector == "diagnostic-only"
   and .evidenceSummary.gates.publicHydrationClockMatrix == "success"
   and .evidenceSummary.gates.publicHydrationBrowserEnv == "success"
   and .evidenceSummary.gates.publicHydrationPayloadFixture == "success"

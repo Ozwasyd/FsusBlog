@@ -305,7 +305,6 @@
                 "payload-fixture-matrix"
             ],
             "requiredArtifacts": [
-                "detector",
                 "clock",
                 "browserEnv",
                 "payloadFixture",

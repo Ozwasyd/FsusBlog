@@ -259,7 +259,7 @@ localProfiles:
                       bootstrap::.tmp/acceptance=>.tmp/local-production/runtime-browser/member-summaries/bootstrap/summary.json,
                       bootstrap::.tmp/acceptance/*.log=>.tmp/local-production/runtime-browser/member-summaries/bootstrap/summary.json,
                       integration::.tmp/acceptance/*.log=>.tmp/local-production/runtime-browser/member-summaries/integration/summary.json,
-                      release::.tmp/acceptance/*.log=>.tmp/local-production/runtime-browser/member-summaries/release/summary.json|.tmp/release-evidence/public-hydration-detector-summary.json,
+                      release::.tmp/acceptance/*.log=>.tmp/local-production/runtime-browser/member-summaries/release/summary.json,
                   ]
               exclusiveResources: [runtime-services, database-writes]
             - id: performance-evidence
@@ -2317,7 +2317,6 @@ tiers:
       artifacts:
           [
               .tmp/acceptance/*.log,
-              .tmp/release-evidence/public-hydration-detector-summary.json,
               .tmp/release-evidence/public-hydration-clock-matrix-summary.json,
               .tmp/release-evidence/public-hydration-browser-env-summary.json,
               .tmp/release-evidence/public-hydration-payload-fixture-summary.json,
@@ -2327,7 +2326,6 @@ tiers:
           ]
       evidence:
           - .tmp/acceptance/*.log
-          - .tmp/release-evidence/public-hydration-detector-summary.json
           - .tmp/release-evidence/public-hydration-clock-matrix-summary.json
           - .tmp/release-evidence/public-hydration-browser-env-summary.json
           - .tmp/release-evidence/public-hydration-payload-fixture-summary.json

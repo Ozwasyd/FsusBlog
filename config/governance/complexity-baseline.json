@@ -1,6 +1,6 @@
 {
     "schema": "fsusblog.complexity-baseline.v1",
-    "sourceRevision": "6b6f67c431c1a8760fd2f10e22b52e1291e06e9b",
+    "sourceRevision": "a5e81f0ed4d8103969292e0fdf9d63c5c5885f90",
     "measurement": "deterministic lexical structure with one shared repository inventory and content cache",
     "metricFields": [
         "fileLines",
@@ -665,7 +665,7 @@
                 "churn365Days": {
                     "p50": 3,
                     "p95": 18,
-                    "max": 72
+                    "max": 73
                 },
                 "testRelationshipCount": {
                     "p50": 0,
@@ -4141,7 +4141,7 @@
         "tools/operations/collect-release-evidence.sh": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1124,
+                "fileLines": 1123,
                 "responsibilityCount": 6
             }
         },
