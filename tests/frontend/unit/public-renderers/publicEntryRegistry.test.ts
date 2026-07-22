@@ -249,6 +249,70 @@ describe('publicEntryRegistry shared coverage', () => {
     expect(hydration?.view?.items).toHaveLength(1)
   })
 
+  it('keeps the complete second-page payload when recommendations reuse current feed articles', async () => {
+    const renderShellMock = vi.mocked(renderShell)
+    renderShellMock.mockClear()
+    const articles = [11, 12, 13].map((id) => ({
+      id,
+      title: `Article ${id}`,
+      summary: `Summary ${id}`,
+      views: id,
+      createTime: `2026-07-${id}T00:00:00.000Z`,
+      category: { id: 2, name: 'Category' },
+      tags: [{ id: 3, name: 'Tag' }]
+    }))
+
+    const result = await buildPublicEntry('Home', {
+      siteTitle: 'FsusBlog',
+      siteDescription: 'desc',
+      routeKey: 'home:page:2',
+      pageIndex: 2,
+      pageSize: 10,
+      total: 13,
+      articles,
+      featuredArticles: [{
+        id: 11,
+        title: 'Article 11',
+        coverImageUrl: '/uploads/11.webp',
+        views: 11,
+        createTime: '2026-07-11T00:00:00.000Z',
+        category: { id: 2, name: 'Category' }
+      }],
+      hotArticles: [
+        { id: 11, title: 'Article 11', views: 11 },
+        { id: 12, title: 'Article 12', views: 12 }
+      ]
+    })
+
+    const hydration = decodePublicAotPayload<{
+      currentPage?: number
+      pageSize?: number
+      total?: number
+      view?: {
+        items?: readonly { id: number }[]
+        pagination?: {
+          indicator?: string
+          previous?: { href?: string; disabled?: boolean }
+          next?: { href?: string; disabled?: boolean }
+        }
+      }
+    }>(result.entry.hydrationPropsPayload)
+    const assembly = renderShellMock.mock.calls.at(-1)?.[2] as {
+      props?: { view?: { items?: readonly { id: number }[] } }
+    }
+
+    expect(hydration?.currentPage).toBe(2)
+    expect(hydration?.pageSize).toBe(10)
+    expect(hydration?.total).toBe(13)
+    expect(hydration?.view?.items?.map((article) => article.id)).toEqual([11, 12, 13])
+    expect(hydration?.view?.pagination).toEqual(expect.objectContaining({
+      indicator: '2 / 2',
+      previous: expect.objectContaining({ href: '/', disabled: false }),
+      next: expect.objectContaining({ href: '/?page=2', disabled: true })
+    }))
+    expect(assembly.props?.view?.items?.map((article) => article.id)).toEqual([11, 12, 13])
+  })
+
   it('preserves page-specific route seeds and canonical pagination links in SSR assemblies', async () => {
     const renderShellMock = vi.mocked(renderShell)
     renderShellMock.mockClear()

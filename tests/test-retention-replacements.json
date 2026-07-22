@@ -7840,7 +7840,7 @@
             "id": "vitest:tests/frontend/unit/view-contracts/homeSpotlight.test.ts#does-not-render-a-secondary-home-section-without-loading-d795f0046d",
             "path": "tests/frontend/unit/view-contracts/homeSpotlight.test.ts",
             "replacementTestIds": [
-                "vitest:tests/frontend/unit/view-contracts/homeSpotlight.test.ts#makes-lead-secondary-recommendations-and-the-current-fee-e44a2e31ca"
+                "vitest:tests/frontend/unit/view-contracts/homeSpotlight.test.ts#deduplicates-recommendations-without-removing-their-arti-0e7df77350"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -7856,7 +7856,7 @@
             "id": "vitest:tests/frontend/unit/view-contracts/homeSpotlight.test.ts#keeps-loading-and-spotlight-layouts-explicit-a477aed882",
             "path": "tests/frontend/unit/view-contracts/homeSpotlight.test.ts",
             "replacementTestIds": [
-                "vitest:tests/frontend/unit/view-contracts/homeSpotlight.test.ts#makes-lead-secondary-recommendations-and-the-current-fee-e44a2e31ca"
+                "vitest:tests/frontend/unit/view-contracts/homeSpotlight.test.ts#deduplicates-recommendations-without-removing-their-arti-0e7df77350"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -7872,7 +7872,7 @@
             "id": "vitest:tests/frontend/unit/view-contracts/homeSpotlight.test.ts#limits-spotlight-candidates-d4cadb3914",
             "path": "tests/frontend/unit/view-contracts/homeSpotlight.test.ts",
             "replacementTestIds": [
-                "vitest:tests/frontend/unit/view-contracts/homeSpotlight.test.ts#drops-invalid-identities-instead-of-allowing-an-untracka-babf01f3bc"
+                "vitest:tests/frontend/unit/view-contracts/homeSpotlight.test.ts#drops-invalid-recommendation-identities-without-sanitizi-0ce5c5deca"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },

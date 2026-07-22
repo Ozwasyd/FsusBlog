@@ -1,9 +1,9 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:dad9d6aa939673b684239bd5dfd08fc6a6838c721602c59fc2c6371bd9f8a3f9",
-    "sourceStateSha256": "dad9d6aa939673b684239bd5dfd08fc6a6838c721602c59fc2c6371bd9f8a3f9",
+    "generatedFrom": "source-state:a223d0080c5e63ed8050f84ff11cc3800fa63922577fbc34d56f7fc339cc49db",
+    "sourceStateSha256": "a223d0080c5e63ed8050f84ff11cc3800fa63922577fbc34d56f7fc339cc49db",
     "configurationSha256": "ecd54024ada83553ed048a05531c8ad064350214c110aa93b54643b6c318bf0c",
-    "violationCount": 322880,
+    "violationCount": 322827,
     "fileCount": 1074,
     "files": [
         {
@@ -5727,14 +5727,14 @@
         },
         {
             "path": "src/frontend/src/view-contracts/homeSpotlight.ts",
-            "sourceSha256": "5c0e78f7edaf40c71f72076e2185f75aaec175db839f7b558978fddd5e149e4c",
-            "violationCount": 169,
-            "violationDigest": "1fce0381991e4cb008eff3efb937fbb69a4211c2ecf708a8e8ee965878edfc83",
+            "sourceSha256": "c0b4979eb03b557a06417c615d804aee123dbfc1b951ecc66a744ba0d540be9c",
+            "violationCount": 116,
+            "violationDigest": "8e985d99752a1e8388a5a7ee9291ef332d66520b58eaf1055430df77d813ae3f",
             "rules": {
-                "eslint/@stylistic/brace-style": 17,
-                "eslint/@stylistic/indent": 95,
+                "eslint/@stylistic/brace-style": 10,
+                "eslint/@stylistic/indent": 63,
                 "eslint/@stylistic/member-delimiter-style": 15,
-                "eslint/@stylistic/semi": 41,
+                "eslint/@stylistic/semi": 27,
                 "eslint/@typescript-eslint/prefer-nullish-coalescing": 1
             }
         },

@@ -2,7 +2,6 @@ import type { FeaturedArticleItem, PopularArticleSummaryResponse } from '@/api/a
 import type { ArticleListCardViewContract, ArticleListViewContract } from '@/view-contracts/articleList'
 
 const DEFAULT_SECONDARY_ARTICLE_LIMIT = 5
-const MINIMUM_FEED_ITEM_COUNT = 1
 
 type HomeArticleIdentity = Readonly<{
   id: number
@@ -44,28 +43,19 @@ export function selectHomeEditorialComposition<TFeedItem extends HomeArticleIden
   feedItems: readonly TFeedItem[]
   secondaryLimit?: number
 }): HomeEditorialComposition<TFeedItem> {
-  const displayedIds = new Set<number>()
+  const recommendationIds = new Set<number>()
   let leadArticle: FeaturedArticleItem | null = null
 
   for (const article of input.featuredArticles) {
     const id = normalizedArticleId(article)
-    if (id === null || displayedIds.has(id)) {
+    if (id === null || recommendationIds.has(id)) {
       continue
     }
 
     leadArticle = article
-    displayedIds.add(id)
+    recommendationIds.add(id)
     break
   }
-
-  const remainingFeedIds = new Set<number>()
-  for (const article of input.feedItems) {
-    const id = normalizedArticleId(article)
-    if (id !== null && !displayedIds.has(id)) {
-      remainingFeedIds.add(id)
-    }
-  }
-  const minimumFeedItemCount = Math.min(MINIMUM_FEED_ITEM_COUNT, remainingFeedIds.size)
 
   const secondaryArticles: PopularArticleSummaryResponse[] = []
   const secondaryLimit = normalizedSecondaryLimit(input.secondaryLimit)
@@ -75,50 +65,17 @@ export function selectHomeEditorialComposition<TFeedItem extends HomeArticleIden
     }
 
     const id = normalizedArticleId(article)
-    if (id === null || displayedIds.has(id)) {
+    if (id === null || recommendationIds.has(id)) {
       continue
     }
-    if (remainingFeedIds.has(id) && remainingFeedIds.size <= minimumFeedItemCount) {
-      continue
-    }
-
-    displayedIds.add(id)
-    remainingFeedIds.delete(id)
+    recommendationIds.add(id)
     secondaryArticles.push(article)
-  }
-
-  const feedItems: TFeedItem[] = []
-  for (const article of input.feedItems) {
-    const id = normalizedArticleId(article)
-    if (id === null || displayedIds.has(id)) {
-      continue
-    }
-
-    displayedIds.add(id)
-    feedItems.push(article)
   }
 
   return {
     leadArticle,
     secondaryArticles,
-    feedItems
-  }
-}
-
-export function withHomeEditorialFeed(
-  view: ArticleListViewContract,
-  feedItems: readonly ArticleListCardViewContract[]
-): ArticleListViewContract {
-  if (
-    view.items.length === feedItems.length
-    && view.items.every((item, index) => item === feedItems[index])
-  ) {
-    return view
-  }
-
-  return {
-    ...view,
-    items: [...feedItems]
+    feedItems: [...input.feedItems]
   }
 }
 
@@ -142,7 +99,7 @@ export function createHomeEditorialPageState(input: {
 
   return {
     composition,
-    view: withHomeEditorialFeed(input.view, composition.feedItems),
+    view: input.view,
     hasRecommendations: Boolean(
       composition.leadArticle
       || composition.secondaryArticles.length > 0

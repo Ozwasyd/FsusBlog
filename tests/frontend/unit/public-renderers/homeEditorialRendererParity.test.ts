@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { mount } from '@vue/test-utils'
-import { defineComponent, h, ref, type PropType, type VNode } from 'vue'
+import { defineComponent, h, nextTick, ref, type PropType, type VNode } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { FeaturedArticleItem, PopularArticleSummaryResponse } from '@/api/article'
 import { createPublicHomePageAssembly } from '@/public-renderers/pageAssemblies'
@@ -79,9 +79,10 @@ describe('home renderer editorial parity', () => {
       .map((article) => article.id)
     const aotFeedIds = assemblyProps.view.items.map((article) => article.id)
 
+    const spaView = ref(view)
     vi.doMock('@/composables/useHomeView', () => ({
       useHomeView: () => ({
-        listView: ref(view),
+        listView: spaView,
         featuredArticles: ref(featuredArticles),
         hotArticles: ref(hotArticles),
         featuredLoading: ref(false),
@@ -147,7 +148,39 @@ describe('home renderer editorial parity', () => {
     expect(wrapper.get('main').attributes('data-has-recommendations')).toBe(String(assemblyProps.hasRecommendations))
     expect(wrapper.get('main').attributes('data-show-article-cta')).toBe('false')
     expect(assemblyProps.showArticleCta).toBe(false)
-    expect([aotLeadId, ...aotSecondaryIds, ...aotFeedIds]).toEqual([1, 2, 3, 4])
+    expect([aotLeadId, ...aotSecondaryIds]).toEqual([1, 2, 3])
+    expect(aotFeedIds).toEqual([1, 2, 3, 4])
+    expect(aotFeedIds).toContain(aotLeadId)
+    expect(aotFeedIds).toEqual(expect.arrayContaining(aotSecondaryIds))
+
+    // SPA navigation replaces the current-page payload without recomposing it.
+    spaView.value = {
+      ...view,
+      items: [card(2), card(6), card(7)],
+      pagination: {
+        previous: { label: '上一页', disabled: false, action: { action: 'page-prev' } },
+        next: { label: '下一页', disabled: true, action: { action: 'page-next' } },
+        indicator: '2 / 2'
+      }
+    }
+    await nextTick()
+    expect(wrapper.get('main').attributes('data-feed-ids')).toBe('2,6,7')
+
+    // A notification preview patch may overlap the recommendation sources.
+    spaView.value = {
+      ...spaView.value,
+      items: [card(9), card(2), card(6), card(7)]
+    }
+    await nextTick()
+    expect(wrapper.get('main').attributes('data-feed-ids')).toBe('9,2,6,7')
+
+    // A reconnect/resync replaces the feed and must not inherit old exclusions.
+    spaView.value = {
+      ...spaView.value,
+      items: [card(10), card(11), card(12)]
+    }
+    await nextTick()
+    expect(wrapper.get('main').attributes('data-feed-ids')).toBe('10,11,12')
 
     wrapper.unmount()
   })
