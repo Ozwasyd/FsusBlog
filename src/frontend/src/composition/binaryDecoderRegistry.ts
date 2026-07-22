@@ -1,5 +1,3 @@
-import { FrameType } from '@wasm/protocol/frame';
-import { AppErrorCode, createAppError } from '@/utils/appError';
 import { mapArticleDetailFromPodPayload, mapArticleFeaturedFromPodPayload, mapArticleHotFromPodPayload, mapArticlePageFromPodPayload, mapArticleSearchFromPodPayload, mapRelatedReadingFromPodPayload, mapTrashClearResponseFromPodPayload } from '@/adapters/binary/articleAdapter';
 import { mapAuthLoginFlowFromPayload, mapCurrentUserSnapshotFromPayload, mapIdentityAccountSnapshotFromPayload, mapMfaChallengeResultFromPayload, mapMfaProfileFromPayload, mapMfaSetupStartFromPayload, mapMfaSetupVerifyFromPayload, mapPowChallengeFromPayload, mapRecoveryKeyCreateResponseFromPayload, mapRecoveryKeyVerifyResponseFromPayload, mapUserSessionsFromPayload } from '@/adapters/binary/authAdapter';
 import { mapAuthoringJsonFromPayload } from '@/adapters/binary/authoringAdapter';
@@ -15,147 +13,196 @@ import { mapPageContentFromPayload, mapSeoConfigFromPayload, mapSiteComplianceCo
 import { mapCategoryListFromPayload, mapTagListFromPayload } from '@/adapters/binary/taxonomyAdapter';
 import { mapUploadCompleteFromPayload, mapUploadInitFromPayload, mapUploadPartAckFromPayload, mapUploadPartMapFromPayload, mapUploadStatusFromPayload } from '@/adapters/binary/uploadAdapter';
 import { mapAdminUserPageFromPayload } from '@/adapters/binary/userAdapter';
+import { AppErrorCode, createAppError } from '@/utils/appError';
 
-export const binaryFrameDecoderRegistry: Readonly<Record<number, (payload: Uint8Array) => unknown>> = Object.freeze({
-  [FrameType.ArticleList]: mapArticlePageFromPodPayload,
-  [FrameType.ArticleDetail]: mapArticleDetailFromPodPayload,
-  [FrameType.ArticleHot]: mapArticleHotFromPodPayload,
-  [FrameType.ArticleSearch]: mapArticleSearchFromPodPayload,
-  [FrameType.ArticleFeatured]: mapArticleFeaturedFromPodPayload,
-  [FrameType.ArticleRelatedReading]: mapRelatedReadingFromPodPayload,
-  [FrameType.HumanReadChallengeResponse]: mapHumanReadChallengeFromPayload,
-  [FrameType.HumanReadSubmitResponse]: mapHumanReadSubmitFromPayload,
-  [FrameType.TrashClearResponse]: mapTrashClearResponseFromPodPayload,
-  [FrameType.AdminUserList]: mapAdminUserPageFromPayload,
-  [FrameType.AuthLoginFlow]: mapAuthLoginFlowFromPayload,
-  [FrameType.CurrentUserSnapshot]: mapCurrentUserSnapshotFromPayload,
-  [FrameType.IdentityAccountSnapshot]: mapIdentityAccountSnapshotFromPayload,
-  [FrameType.AuthSessionList]: mapUserSessionsFromPayload,
-  [FrameType.PowChallenge]: mapPowChallengeFromPayload,
-  [FrameType.MfaSetupStart]: mapMfaSetupStartFromPayload,
-  [FrameType.MfaSetupVerify]: mapMfaSetupVerifyFromPayload,
-  [FrameType.MfaProfile]: mapMfaProfileFromPayload,
-  [FrameType.MfaChallengeResult]: mapMfaChallengeResultFromPayload,
-  [FrameType.RecoveryKeyCreateResponse]: mapRecoveryKeyCreateResponseFromPayload,
-  [FrameType.RecoveryKeyVerifyResponse]: mapRecoveryKeyVerifyResponseFromPayload,
-  [FrameType.ConversationList]: mapConversationListFromPayload,
-    [FrameType.ConversationDetail]: mapConversationDetailFromPayload,
-    [FrameType.ConversationDetailV2]: mapConversationDetailV2FromPayload,
-    [FrameType.ConversationDetailV3]: mapConversationDetailV3FromPayload,
-    [FrameType.AdminConversationList]: mapAdminConversationListFromPayload,
-    [FrameType.AdminConversationDetail]: mapAdminConversationDetailFromPayload,
-    [FrameType.ConversationStatusMutationResult]: mapConversationStatusMutationResultFromPayload,
-    [FrameType.ConversationMessage]: mapConversationMessageFromPayload,
-    [FrameType.PasskeyRegisterBegin]: mapPasskeyRegisterBeginFromPayload,
-    [FrameType.PasskeyLoginBegin]: mapPasskeyLoginBeginFromPayload,
-    [FrameType.PasskeyCredentialList]: mapPasskeyCredentialListFromPayload,
-    [FrameType.PasskeySignalState]: mapPasskeySignalStateFromPayload,
-    [FrameType.CommentPolicySnapshot]: mapCommentPolicySnapshotFromPayload,
-    [FrameType.CommentCreateResult]: mapCommentCreateResultFromPayload,
-    [FrameType.AnonymousCommentCreateResult]: mapAuthoringJsonFromPayload,
-    [FrameType.CommentManagementChallengeResponse]: mapAuthoringJsonFromPayload,
-    [FrameType.CommentAuthorMutationResult]: mapAuthoringJsonFromPayload,
-    [FrameType.CommentAuthorStatusResult]: mapAuthoringJsonFromPayload,
-    [FrameType.CommentRevisionList]: mapAuthoringJsonFromPayload,
-    [FrameType.CommentArticleCursor]: mapCommentCursorFromPodPayload,
-    [FrameType.CommentUserCursor]: mapUserCommentCursorFromPodPayload,
-    [FrameType.CommentThreadReplyCursor]: mapThreadReplyCursorFromPodPayload,
-    [FrameType.CommentTreeRootCursor]: mapCommentTreeRootCursorFromPayload,
-    [FrameType.CommentChildCursor]: mapCommentChildCursorFromPayload,
-    [FrameType.CommentPermalinkContext]: mapCommentPermalinkContextFromPayload,
-    [FrameType.AnonymousCredentialRootSnapshot]: mapAnonymousCredentialRootSnapshotFromPayload,
-    [FrameType.AnonymousCredentialRevocationSnapshot]: mapAnonymousCredentialRevocationArtifactFromPayload,
-  [FrameType.AnonymousCredentialRevocationDelta]: mapAnonymousCredentialRevocationArtifactFromPayload,
-  [FrameType.AnonymousCommentTicketResponse]: mapAnonymousCommentTicketResponseFromPayload,
-  [FrameType.AnonymousPrivacyStateSnapshot]: mapAnonymousPrivacyStateSnapshotFromPayload,
-  [FrameType.BlindCredentialIssuerMetadata]: mapBlindCredentialIssuerMetadataFromPayload,
-  [FrameType.BlindCredentialIssueResponse]: mapBlindCredentialIssueResponseFromPayload,
-  [FrameType.AdminStats]: mapSiteStatsFromPodPayload,
-  [FrameType.CategoryList]: mapCategoryListFromPayload,
-  [FrameType.TagList]: mapTagListFromPayload,
-  [FrameType.RecentCommentStats]: mapRecentCommentsFromPodPayload,
-  [FrameType.RegionStats]: mapRegionsFromPodPayload,
-  [FrameType.SeoConfig]: mapSeoConfigFromPayload,
-  [FrameType.PageContent]: mapPageContentFromPayload,
-  [FrameType.SiteComplianceConfig]: mapSiteComplianceConfigFromPayload,
-  [FrameType.UploadInit]: mapUploadInitFromPayload,
-  [FrameType.UploadStatus]: mapUploadStatusFromPayload,
-  [FrameType.UploadPartAck]: mapUploadPartAckFromPayload,
-  [FrameType.UploadComplete]: mapUploadCompleteFromPayload,
-  [FrameType.UploadPartMap]: mapUploadPartMapFromPayload,
-  [FrameType.AuthorDraftResponse]: mapAuthoringJsonFromPayload,
-  [FrameType.AuthorDraftDiscardResponse]: mapAuthoringJsonFromPayload,
-  [FrameType.ArticlePreviewResponse]: mapAuthoringJsonFromPayload,
-  [FrameType.PrepublishCheckResponse]: mapAuthoringJsonFromPayload,
-  [FrameType.AiAssistResponse]: mapAuthoringJsonFromPayload,
-  [FrameType.AssetLibraryList]: mapAuthoringJsonFromPayload,
-  [FrameType.AssetCleanupResponse]: mapAuthoringJsonFromPayload,
-  [FrameType.AuthorTaxonomyCategoryList]: mapAuthoringJsonFromPayload,
-  [FrameType.AuthorTaxonomyTagList]: mapAuthoringJsonFromPayload,
-  [FrameType.AuthorAnalytics]: mapAuthoringJsonFromPayload,
-  [FrameType.AuditLogList]: mapAuthoringJsonFromPayload,
-  [FrameType.AuditLogSummary]: mapAuthoringJsonFromPayload,
-  [FrameType.AuditLogDetail]: mapAuthoringJsonFromPayload,
-  [FrameType.AuditTamperVerifyResponse]: mapAuthoringJsonFromPayload,
-  [FrameType.OpsHealth]: mapAuthoringJsonFromPayload,
-  [FrameType.BackupStatus]: mapAuthoringJsonFromPayload,
-  [FrameType.DangerousOperationPolicy]: mapAuthoringJsonFromPayload,
-  [FrameType.CacheDiagnostics]: mapAuthoringJsonFromPayload,
-  [FrameType.AdminCacheActionResponse]: mapAuthoringJsonFromPayload,
-  [FrameType.IntegrityReport]: mapAuthoringJsonFromPayload,
-  [FrameType.IntegrityFixPreview]: mapAuthoringJsonFromPayload,
-  [FrameType.IntegrityFixResponse]: mapAuthoringJsonFromPayload,
-  [FrameType.CommentModerationQueue]: mapAuthoringJsonFromPayload,
-  [FrameType.CommentModerationBulkResponse]: mapAuthoringJsonFromPayload,
-  [FrameType.CommentModerationResult]: mapAuthoringJsonFromPayload,
-  [FrameType.AnonymousGovernanceActionResponse]: mapAuthoringJsonFromPayload,
-  [FrameType.ContentExport]: mapAuthoringJsonFromPayload,
-  [FrameType.ContentBackupExport]: mapAuthoringJsonFromPayload,
-  [FrameType.ContentImportResponse]: mapAuthoringJsonFromPayload,
-  [FrameType.ArticleRevisionList]: mapAuthoringJsonFromPayload,
-  [FrameType.ArticleRevisionDetail]: mapAuthoringJsonFromPayload,
-  [FrameType.ArticleRevisionRollbackResponse]: mapAuthoringJsonFromPayload,
-  [FrameType.ModerationOverview]: mapAuthoringJsonFromPayload,
-  [FrameType.ModerationDictionarySnapshot]: mapAuthoringJsonFromPayload,
-  [FrameType.ModerationDictionaryReloadResponse]: mapAuthoringJsonFromPayload,
-  [FrameType.ModerationRuntimeStatus]: mapAuthoringJsonFromPayload,
-  [FrameType.ModerationRegionList]: mapAuthoringJsonFromPayload,
-  [FrameType.ModerationRegionGroupList]: mapAuthoringJsonFromPayload,
-  [FrameType.ModerationPolicyTemplateList]: mapAuthoringJsonFromPayload,
-  [FrameType.ModerationEffectivePolicy]: mapAuthoringJsonFromPayload,
-  [FrameType.RegionPolicySummaryList]: mapAuthoringJsonFromPayload,
-  [FrameType.ModerationModelStatus]: mapAuthoringJsonFromPayload,
-  [FrameType.ModerationReplayPreview]: mapAuthoringJsonFromPayload,
-  [FrameType.SecurityOverview]: mapSecurityJsonFromPayload,
-  [FrameType.AntiCrawlerOverview]: mapSecurityJsonFromPayload,
-  [FrameType.AntiCrawlerPolicySnapshot]: mapSecurityJsonFromPayload,
-  [FrameType.CrawlerRangesAdminStatus]: mapSecurityJsonFromPayload,
-  [FrameType.CrawlerRangeSyncResponse]: mapSecurityJsonFromPayload,
-  [FrameType.SecurityRiskEventList]: mapSecurityJsonFromPayload,
-  [FrameType.SecurityRiskSnapshotList]: mapSecurityJsonFromPayload,
-  [FrameType.SecurityRiskResetResponse]: mapSecurityJsonFromPayload,
-  [FrameType.AntiCrawlerRuleList]: mapSecurityJsonFromPayload,
-  [FrameType.AntiCrawlerRuleResponse]: mapSecurityJsonFromPayload,
-  [FrameType.AntiCrawlerRuleDeleteResponse]: mapSecurityJsonFromPayload,
-  [FrameType.AntiCrawlerListEntryList]: mapSecurityJsonFromPayload,
-  [FrameType.AntiCrawlerListEntryResponse]: mapSecurityJsonFromPayload,
-  [FrameType.AntiCrawlerListEntryDeleteResponse]: mapSecurityJsonFromPayload,
-  [FrameType.AntiCrawlerSimulationResult]: mapSecurityJsonFromPayload,
-  [FrameType.PowOverview]: mapSecurityJsonFromPayload,
-  [FrameType.PowPolicySnapshot]: mapSecurityJsonFromPayload,
-  [FrameType.SecurityChallengeIssueResponse]: mapSecurityChallengeIssueResponseFromPayload,
-  [FrameType.SecurityChallengeVerifyResponse]: mapSecurityChallengeVerifyResponseFromPayload,
-  [FrameType.SiteSubscriptionResponse]: mapSiteSubscriptionResponseFromPayload,
-  [FrameType.AdminPrincipalSnapshot]: mapAuthoringJsonFromPayload,
-  [FrameType.EmptySuccess]: mapEmptySuccessFromPayload,
-  [FrameType.MutationId]: mapMutationIdFromPayload
-});
+import { FrameType } from '@wasm/protocol/frame';
 
-export function decodeBinaryFramePayload(frameType: FrameType, payload: Uint8Array): unknown {
-  const mapper = binaryFrameDecoderRegistry[frameType];
-  if (!mapper) {
-    throw createAppError(AppErrorCode.ProtocolFailure, `frame_type_unsupported:${frameType}`);
-  }
+export type BinaryFrameDecoder = (payload: Uint8Array) => unknown;
+export type BinaryFrameDecoderRegistration = readonly [FrameType, BinaryFrameDecoder];
 
-  return mapper(payload);
+const knownFrameTypes = new Set<number>(Object.values(FrameType));
+
+export function createBinaryFrameDecoderRegistry(
+    registrations: readonly BinaryFrameDecoderRegistration[]
+): Readonly<Record<number, BinaryFrameDecoder>>
+{
+    const registry: Record<number, BinaryFrameDecoder> = Object.create(null) as Record<number, BinaryFrameDecoder>;
+    for (const [frameType, decoder] of registrations)
+    {
+        if (!knownFrameTypes.has(frameType) || frameType === FrameType.Unknown || frameType === FrameType.ApiError)
+        {
+            throw createAppError(AppErrorCode.ProtocolFailure, `decoder_frame_type_invalid:${frameType}`);
+        }
+        if (registry[frameType])
+        {
+            throw createAppError(AppErrorCode.ProtocolFailure, `decoder_frame_type_duplicate:${frameType}`);
+        }
+        if (typeof decoder !== 'function')
+        {
+            throw createAppError(AppErrorCode.ProtocolFailure, `decoder_invalid:${frameType}`);
+        }
+        registry[frameType] = decoder;
+    }
+    if (Object.keys(registry).length === 0)
+    {
+        throw createAppError(AppErrorCode.ProtocolFailure, 'decoder_registry_empty');
+    }
+    return Object.freeze(registry);
+}
+
+export const binaryFrameDecoderRegistrations = Object.freeze([
+    [FrameType.ArticleList, mapArticlePageFromPodPayload],
+    [FrameType.ArticleDetail, mapArticleDetailFromPodPayload],
+    [FrameType.ArticleHot, mapArticleHotFromPodPayload],
+    [FrameType.ArticleSearch, mapArticleSearchFromPodPayload],
+    [FrameType.ArticleFeatured, mapArticleFeaturedFromPodPayload],
+    [FrameType.ArticleRelatedReading, mapRelatedReadingFromPodPayload],
+    [FrameType.HumanReadChallengeResponse, mapHumanReadChallengeFromPayload],
+    [FrameType.HumanReadSubmitResponse, mapHumanReadSubmitFromPayload],
+    [FrameType.TrashClearResponse, mapTrashClearResponseFromPodPayload],
+    [FrameType.AdminUserList, mapAdminUserPageFromPayload],
+    [FrameType.AuthLoginFlow, mapAuthLoginFlowFromPayload],
+    [FrameType.CurrentUserSnapshot, mapCurrentUserSnapshotFromPayload],
+    [FrameType.IdentityAccountSnapshot, mapIdentityAccountSnapshotFromPayload],
+    [FrameType.AuthSessionList, mapUserSessionsFromPayload],
+    [FrameType.PowChallenge, mapPowChallengeFromPayload],
+    [FrameType.MfaSetupStart, mapMfaSetupStartFromPayload],
+    [FrameType.MfaSetupVerify, mapMfaSetupVerifyFromPayload],
+    [FrameType.MfaProfile, mapMfaProfileFromPayload],
+    [FrameType.MfaChallengeResult, mapMfaChallengeResultFromPayload],
+    [FrameType.RecoveryKeyCreateResponse, mapRecoveryKeyCreateResponseFromPayload],
+    [FrameType.RecoveryKeyVerifyResponse, mapRecoveryKeyVerifyResponseFromPayload],
+    [FrameType.ConversationList, mapConversationListFromPayload],
+    [FrameType.ConversationDetail, mapConversationDetailFromPayload],
+    [FrameType.ConversationDetailV2, mapConversationDetailV2FromPayload],
+    [FrameType.ConversationDetailV3, mapConversationDetailV3FromPayload],
+    [FrameType.AdminConversationList, mapAdminConversationListFromPayload],
+    [FrameType.AdminConversationDetail, mapAdminConversationDetailFromPayload],
+    [FrameType.ConversationStatusMutationResult, mapConversationStatusMutationResultFromPayload],
+    [FrameType.ConversationMessage, mapConversationMessageFromPayload],
+    [FrameType.PasskeyRegisterBegin, mapPasskeyRegisterBeginFromPayload],
+    [FrameType.PasskeyLoginBegin, mapPasskeyLoginBeginFromPayload],
+    [FrameType.PasskeyCredentialList, mapPasskeyCredentialListFromPayload],
+    [FrameType.PasskeySignalState, mapPasskeySignalStateFromPayload],
+    [FrameType.CommentPolicySnapshot, mapCommentPolicySnapshotFromPayload],
+    [FrameType.CommentCreateResult, mapCommentCreateResultFromPayload],
+    [FrameType.AnonymousCommentCreateResult, mapAuthoringJsonFromPayload],
+    [FrameType.CommentManagementChallengeResponse, mapAuthoringJsonFromPayload],
+    [FrameType.CommentAuthorMutationResult, mapAuthoringJsonFromPayload],
+    [FrameType.CommentAuthorStatusResult, mapAuthoringJsonFromPayload],
+    [FrameType.CommentRevisionList, mapAuthoringJsonFromPayload],
+    [FrameType.CommentArticleCursor, mapCommentCursorFromPodPayload],
+    [FrameType.CommentUserCursor, mapUserCommentCursorFromPodPayload],
+    [FrameType.CommentThreadReplyCursor, mapThreadReplyCursorFromPodPayload],
+    [FrameType.CommentTreeRootCursor, mapCommentTreeRootCursorFromPayload],
+    [FrameType.CommentChildCursor, mapCommentChildCursorFromPayload],
+    [FrameType.CommentPermalinkContext, mapCommentPermalinkContextFromPayload],
+    [FrameType.AnonymousCredentialRootSnapshot, mapAnonymousCredentialRootSnapshotFromPayload],
+    [FrameType.AnonymousCredentialRevocationSnapshot, mapAnonymousCredentialRevocationArtifactFromPayload],
+    [FrameType.AnonymousCredentialRevocationDelta, mapAnonymousCredentialRevocationArtifactFromPayload],
+    [FrameType.AnonymousCommentTicketResponse, mapAnonymousCommentTicketResponseFromPayload],
+    [FrameType.AnonymousPrivacyStateSnapshot, mapAnonymousPrivacyStateSnapshotFromPayload],
+    [FrameType.BlindCredentialIssuerMetadata, mapBlindCredentialIssuerMetadataFromPayload],
+    [FrameType.BlindCredentialIssueResponse, mapBlindCredentialIssueResponseFromPayload],
+    [FrameType.AdminStats, mapSiteStatsFromPodPayload],
+    [FrameType.CategoryList, mapCategoryListFromPayload],
+    [FrameType.TagList, mapTagListFromPayload],
+    [FrameType.RecentCommentStats, mapRecentCommentsFromPodPayload],
+    [FrameType.RegionStats, mapRegionsFromPodPayload],
+    [FrameType.SeoConfig, mapSeoConfigFromPayload],
+    [FrameType.PageContent, mapPageContentFromPayload],
+    [FrameType.SiteComplianceConfig, mapSiteComplianceConfigFromPayload],
+    [FrameType.UploadInit, mapUploadInitFromPayload],
+    [FrameType.UploadStatus, mapUploadStatusFromPayload],
+    [FrameType.UploadPartAck, mapUploadPartAckFromPayload],
+    [FrameType.UploadComplete, mapUploadCompleteFromPayload],
+    [FrameType.UploadPartMap, mapUploadPartMapFromPayload],
+    [FrameType.AuthorDraftResponse, mapAuthoringJsonFromPayload],
+    [FrameType.AuthorDraftDiscardResponse, mapAuthoringJsonFromPayload],
+    [FrameType.ArticlePreviewResponse, mapAuthoringJsonFromPayload],
+    [FrameType.PrepublishCheckResponse, mapAuthoringJsonFromPayload],
+    [FrameType.AiAssistResponse, mapAuthoringJsonFromPayload],
+    [FrameType.AssetLibraryList, mapAuthoringJsonFromPayload],
+    [FrameType.AssetCleanupResponse, mapAuthoringJsonFromPayload],
+    [FrameType.AuthorTaxonomyCategoryList, mapAuthoringJsonFromPayload],
+    [FrameType.AuthorTaxonomyTagList, mapAuthoringJsonFromPayload],
+    [FrameType.AuthorAnalytics, mapAuthoringJsonFromPayload],
+    [FrameType.AuditLogList, mapAuthoringJsonFromPayload],
+    [FrameType.AuditLogSummary, mapAuthoringJsonFromPayload],
+    [FrameType.AuditLogDetail, mapAuthoringJsonFromPayload],
+    [FrameType.AuditTamperVerifyResponse, mapAuthoringJsonFromPayload],
+    [FrameType.OpsHealth, mapAuthoringJsonFromPayload],
+    [FrameType.BackupStatus, mapAuthoringJsonFromPayload],
+    [FrameType.DangerousOperationPolicy, mapAuthoringJsonFromPayload],
+    [FrameType.CacheDiagnostics, mapAuthoringJsonFromPayload],
+    [FrameType.AdminCacheActionResponse, mapAuthoringJsonFromPayload],
+    [FrameType.IntegrityReport, mapAuthoringJsonFromPayload],
+    [FrameType.IntegrityFixPreview, mapAuthoringJsonFromPayload],
+    [FrameType.IntegrityFixResponse, mapAuthoringJsonFromPayload],
+    [FrameType.CommentModerationQueue, mapAuthoringJsonFromPayload],
+    [FrameType.CommentModerationBulkResponse, mapAuthoringJsonFromPayload],
+    [FrameType.CommentModerationResult, mapAuthoringJsonFromPayload],
+    [FrameType.AnonymousGovernanceActionResponse, mapAuthoringJsonFromPayload],
+    [FrameType.ContentExport, mapAuthoringJsonFromPayload],
+    [FrameType.ContentBackupExport, mapAuthoringJsonFromPayload],
+    [FrameType.ContentImportResponse, mapAuthoringJsonFromPayload],
+    [FrameType.ArticleRevisionList, mapAuthoringJsonFromPayload],
+    [FrameType.ArticleRevisionDetail, mapAuthoringJsonFromPayload],
+    [FrameType.ArticleRevisionRollbackResponse, mapAuthoringJsonFromPayload],
+    [FrameType.ModerationOverview, mapAuthoringJsonFromPayload],
+    [FrameType.ModerationDictionarySnapshot, mapAuthoringJsonFromPayload],
+    [FrameType.ModerationDictionaryReloadResponse, mapAuthoringJsonFromPayload],
+    [FrameType.ModerationRuntimeStatus, mapAuthoringJsonFromPayload],
+    [FrameType.ModerationRegionList, mapAuthoringJsonFromPayload],
+    [FrameType.ModerationRegionGroupList, mapAuthoringJsonFromPayload],
+    [FrameType.ModerationPolicyTemplateList, mapAuthoringJsonFromPayload],
+    [FrameType.ModerationEffectivePolicy, mapAuthoringJsonFromPayload],
+    [FrameType.RegionPolicySummaryList, mapAuthoringJsonFromPayload],
+    [FrameType.ModerationModelStatus, mapAuthoringJsonFromPayload],
+    [FrameType.ModerationReplayPreview, mapAuthoringJsonFromPayload],
+    [FrameType.SecurityOverview, mapSecurityJsonFromPayload],
+    [FrameType.AntiCrawlerOverview, mapSecurityJsonFromPayload],
+    [FrameType.AntiCrawlerPolicySnapshot, mapSecurityJsonFromPayload],
+    [FrameType.CrawlerRangesAdminStatus, mapSecurityJsonFromPayload],
+    [FrameType.CrawlerRangeSyncResponse, mapSecurityJsonFromPayload],
+    [FrameType.SecurityRiskEventList, mapSecurityJsonFromPayload],
+    [FrameType.SecurityRiskSnapshotList, mapSecurityJsonFromPayload],
+    [FrameType.SecurityRiskResetResponse, mapSecurityJsonFromPayload],
+    [FrameType.AntiCrawlerRuleList, mapSecurityJsonFromPayload],
+    [FrameType.AntiCrawlerRuleResponse, mapSecurityJsonFromPayload],
+    [FrameType.AntiCrawlerRuleDeleteResponse, mapSecurityJsonFromPayload],
+    [FrameType.AntiCrawlerListEntryList, mapSecurityJsonFromPayload],
+    [FrameType.AntiCrawlerListEntryResponse, mapSecurityJsonFromPayload],
+    [FrameType.AntiCrawlerListEntryDeleteResponse, mapSecurityJsonFromPayload],
+    [FrameType.AntiCrawlerSimulationResult, mapSecurityJsonFromPayload],
+    [FrameType.PowOverview, mapSecurityJsonFromPayload],
+    [FrameType.PowPolicySnapshot, mapSecurityJsonFromPayload],
+    [FrameType.SecurityChallengeIssueResponse, mapSecurityChallengeIssueResponseFromPayload],
+    [FrameType.SecurityChallengeVerifyResponse, mapSecurityChallengeVerifyResponseFromPayload],
+    [FrameType.SiteSubscriptionResponse, mapSiteSubscriptionResponseFromPayload],
+    [FrameType.AdminPrincipalSnapshot, mapAuthoringJsonFromPayload],
+    [FrameType.EmptySuccess, mapEmptySuccessFromPayload],
+    [FrameType.MutationId, mapMutationIdFromPayload]
+] as const satisfies readonly BinaryFrameDecoderRegistration[]);
+
+export const binaryFrameDecoderRegistry = createBinaryFrameDecoderRegistry(binaryFrameDecoderRegistrations);
+
+export function decodeBinaryFramePayload(frameType: FrameType, payload: Uint8Array): unknown
+{
+    return decodeBinaryFramePayloadWithRegistry(binaryFrameDecoderRegistry, frameType, payload);
+}
+
+export function decodeBinaryFramePayloadWithRegistry(
+    registry: Readonly<Record<number, BinaryFrameDecoder>>,
+    frameType: FrameType,
+    payload: Uint8Array
+): unknown
+{
+    const mapper = registry[frameType];
+    if (!mapper)
+    {
+        throw createAppError(AppErrorCode.ProtocolFailure, `frame_type_unsupported:${frameType}`);
+    }
+
+    return mapper(payload);
 }

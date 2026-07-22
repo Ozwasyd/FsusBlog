@@ -1,7 +1,16 @@
-import { describe, it, expect } from 'vitest'
+import { createHash } from 'node:crypto'
+import { describe, it, expect, vi } from 'vitest'
+import articleDetailFrameHex from '../../../../fixtures/protocol/article-detail-frame.hex?raw'
+import routingReplacementLedger from '../../../../fixtures/binary-decoder-routing-replacements.json'
 import { FrameType } from '@wasm/protocol/frame'
 import { CommentPolicyContractVersion, CommentPolicyReadiness } from '@/contracts/commentPolicy'
-import { decodeBinaryFramePayload } from '@/composition/binaryDecoderRegistry'
+import {
+  binaryFrameDecoderRegistrations,
+  binaryFrameDecoderRegistry,
+  createBinaryFrameDecoderRegistry,
+  decodeBinaryFramePayload,
+  decodeBinaryFramePayloadWithRegistry
+} from '@/composition/binaryDecoderRegistry'
 import { ANONYMOUS_PRIVACY_STATE_SNAPSHOT_POD_SIZE } from '@/adapters/binary/types'
 
 function writeInt32(bytes: Uint8Array, offset: number, value: number): void {
@@ -57,6 +66,86 @@ function writeSliceRef(bytes: Uint8Array, offset: number, sliceOffset: number, l
   writeInt32(bytes, offset + 4, length)
 }
 
+function writeFixedUtf8(bytes: Uint8Array, offset: number, length: number, value: string): void {
+  bytes.set(textBytes(value).subarray(0, length), offset)
+}
+
+function blobbedZeroPod(podSize: number): Uint8Array {
+  return new Uint8Array(podSize + 4)
+}
+
+function protocolFixturePayload(hexSource: string): Uint8Array {
+  const hex = hexSource.replaceAll(/\s+/gu, '')
+  return Uint8Array.from(hex.match(/.{2}/gu) ?? [], (value) => Number.parseInt(value, 16)).subarray(16)
+}
+
+function recoveryKeyCreatePayload(): Uint8Array {
+  const pod = new Uint8Array(24)
+  const key = textBytes('recovery-key')
+  writeSliceRef(pod, 16, 0, key.byteLength)
+  return buildPayload(pod, blobParts(key))
+}
+
+function recoveryKeyVerifyPayload(): Uint8Array {
+  const payload = new Uint8Array(144)
+  writeFixedUtf8(payload, 16, 128, 'recovery-session')
+  return payload
+}
+
+function conversationDetailPayload(podSize: 44 | 52 | 68): Uint8Array {
+  const payload = blobbedZeroPod(podSize + 4)
+  writeInt64(payload, 24, 1n)
+  if (podSize === 68) writeInt32(payload, 60, 3)
+  return payload
+}
+
+function unavailablePermalinkPayload(): Uint8Array {
+  const payload = new Uint8Array(32)
+  payload[24] = 1
+  return payload
+}
+
+function revocationArtifactPayload(): Uint8Array {
+  const pod = new Uint8Array(88)
+  const algorithm = textBytes('non-membership.v1')
+  const issuer = textBytes('issuer')
+  const root = new Uint8Array(32).fill(1)
+  const hash = new Uint8Array(32).fill(2)
+  const signature = new Uint8Array(32).fill(3)
+  const blob = buildPayload(algorithm, issuer, root, hash, signature)
+  writeUint16(pod, 36, 128)
+  pod[38] = 1
+  let offset = 0
+  for (const [at, value] of [[40, algorithm], [48, issuer], [56, root], [64, hash], [72, signature]] as const) {
+    writeSliceRef(pod, at, offset, value.byteLength)
+    offset += value.byteLength
+  }
+  writeSliceRef(pod, 80, offset, 0)
+  return buildPayload(pod, blobParts(blob))
+}
+
+function securityChallengeVerifyPayload(): Uint8Array {
+  const pod = new Uint8Array(232)
+  const reason = textBytes('ok')
+  pod[1] = 1
+  writeInt32(pod, 12, 1)
+  writeFixedUtf8(pod, 16, 64, '01900000-0000-7000-8000-000000000001')
+  writeFixedUtf8(pod, 80, 64, '01900000-0000-7000-8000-000000000002')
+  writeFixedUtf8(pod, 144, 64, 'policy-v1')
+  writeSliceRef(pod, 208, 0, 0)
+  writeSliceRef(pod, 216, 0, reason.byteLength)
+  return buildPayload(pod, blobParts(reason))
+}
+
+function commentCreatePayload(): Uint8Array {
+  const payload = new Uint8Array(40)
+  writeInt64(payload, 0, 1n)
+  writeInt64(payload, 8, 1n)
+  writeInt64(payload, 24, 1n)
+  payload[38] = 1
+  return payload
+}
+
 function commentPolicyPayload(languages: string): Uint8Array {
   const encodedLanguages = new TextEncoder().encode(languages)
   const snapshotHash = new TextEncoder().encode('9'.repeat(64))
@@ -71,6 +160,85 @@ function commentPolicyPayload(languages: string): Uint8Array {
   writeSliceRef(pod, 25, encodedLanguages.byteLength, snapshotHash.byteLength)
   writeSliceRef(pod, 33, encodedLanguages.byteLength + snapshotHash.byteLength, 0)
   return buildPayload(pod, blobParts(encodedLanguages, snapshotHash))
+}
+
+const jsonPayload = (): Uint8Array => textBytes('{}')
+const zeroPayload = (size: number): (() => Uint8Array) => () => new Uint8Array(size)
+const validPayloadByDecoder = new Map<string, () => Uint8Array>([
+  ['mapArticlePageFromPodPayload', zeroPayload(16)],
+  ['mapArticleDetailFromPodPayload', () => protocolFixturePayload(articleDetailFrameHex)],
+  ['mapArticleHotFromPodPayload', zeroPayload(8)],
+  ['mapArticleSearchFromPodPayload', zeroPayload(4)],
+  ['mapArticleFeaturedFromPodPayload', zeroPayload(4)],
+  ['mapRelatedReadingFromPodPayload', zeroPayload(12)],
+  ['mapHumanReadChallengeFromPayload', zeroPayload(56)],
+  ['mapHumanReadSubmitFromPayload', zeroPayload(16)],
+  ['mapTrashClearResponseFromPodPayload', zeroPayload(4)],
+  ['mapAdminUserPageFromPayload', zeroPayload(8)],
+  ['mapAuthLoginFlowFromPayload', zeroPayload(168)],
+  ['mapCurrentUserSnapshotFromPayload', zeroPayload(372)],
+  ['mapIdentityAccountSnapshotFromPayload', zeroPayload(76)],
+  ['mapUserSessionsFromPayload', zeroPayload(4)],
+  ['mapPowChallengeFromPayload', zeroPayload(204)],
+  ['mapMfaSetupStartFromPayload', zeroPayload(40)],
+  ['mapMfaSetupVerifyFromPayload', zeroPayload(8)],
+  ['mapMfaProfileFromPayload', zeroPayload(12)],
+  ['mapMfaChallengeResultFromPayload', zeroPayload(296)],
+  ['mapRecoveryKeyCreateResponseFromPayload', recoveryKeyCreatePayload],
+  ['mapRecoveryKeyVerifyResponseFromPayload', recoveryKeyVerifyPayload],
+  ['mapConversationListFromPayload', zeroPayload(12)],
+  ['mapConversationDetailFromPayload', zeroPayload(44)],
+  ['mapConversationDetailV2FromPayload', () => conversationDetailPayload(44)],
+  ['mapConversationDetailV3FromPayload', () => conversationDetailPayload(52)],
+  ['mapAdminConversationListFromPayload', zeroPayload(12)],
+  ['mapAdminConversationDetailFromPayload', () => conversationDetailPayload(68)],
+  ['mapConversationStatusMutationResultFromPayload', zeroPayload(12)],
+  ['mapConversationMessageFromPayload', zeroPayload(52)],
+  ['mapPasskeyRegisterBeginFromPayload', zeroPayload(152)],
+  ['mapPasskeyLoginBeginFromPayload', zeroPayload(104)],
+  ['mapPasskeyCredentialListFromPayload', zeroPayload(8)],
+  ['mapPasskeySignalStateFromPayload', zeroPayload(52)],
+  ['mapCommentPolicySnapshotFromPayload', () => commentPolicyPayload('en')],
+  ['mapCommentCreateResultFromPayload', commentCreatePayload],
+  ['mapAuthoringJsonFromPayload', jsonPayload],
+  ['mapCommentCursorFromPodPayload', zeroPayload(13)],
+  ['mapUserCommentCursorFromPodPayload', zeroPayload(13)],
+  ['mapThreadReplyCursorFromPodPayload', zeroPayload(21)],
+  ['mapCommentTreeRootCursorFromPayload', zeroPayload(13)],
+  ['mapCommentChildCursorFromPayload', zeroPayload(32)],
+  ['mapCommentPermalinkContextFromPayload', unavailablePermalinkPayload],
+  ['mapAnonymousCredentialRootSnapshotFromPayload', zeroPayload(84)],
+  ['mapAnonymousCredentialRevocationArtifactFromPayload', revocationArtifactPayload],
+  ['mapAnonymousCommentTicketResponseFromPayload', zeroPayload(40)],
+  ['mapAnonymousPrivacyStateSnapshotFromPayload', zeroPayload(70)],
+  ['mapBlindCredentialIssuerMetadataFromPayload', zeroPayload(76)],
+  ['mapBlindCredentialIssueResponseFromPayload', zeroPayload(68)],
+  ['mapSiteStatsFromPodPayload', zeroPayload(96)],
+  ['mapCategoryListFromPayload', zeroPayload(8)],
+  ['mapTagListFromPayload', zeroPayload(8)],
+  ['mapRecentCommentsFromPodPayload', zeroPayload(8)],
+  ['mapRegionsFromPodPayload', zeroPayload(8)],
+  ['mapSeoConfigFromPayload', () => blobbedZeroPod(5000)],
+  ['mapPageContentFromPayload', zeroPayload(140)],
+  ['mapSiteComplianceConfigFromPayload', () => blobbedZeroPod(1709)],
+  ['mapUploadInitFromPayload', zeroPayload(568)],
+  ['mapUploadStatusFromPayload', zeroPayload(136)],
+  ['mapUploadPartAckFromPayload', zeroPayload(92)],
+  ['mapUploadCompleteFromPayload', zeroPayload(648)],
+  ['mapUploadPartMapFromPayload', zeroPayload(72)],
+  ['mapSecurityJsonFromPayload', jsonPayload],
+  ['mapSecurityChallengeIssueResponseFromPayload', zeroPayload(152)],
+  ['mapSecurityChallengeVerifyResponseFromPayload', securityChallengeVerifyPayload],
+  ['mapSiteSubscriptionResponseFromPayload', zeroPayload(36)],
+  ['mapEmptySuccessFromPayload', () => new Uint8Array([1, 0, 0, 0])],
+  ['mapMutationIdFromPayload', zeroPayload(8)]
+])
+
+function registrationFingerprint(
+  registrations: ReadonlyArray<readonly [FrameType, (payload: Uint8Array) => unknown]>
+): string {
+  const identity = registrations.map(([frameType, decoder]) => `${frameType}:${decoder.name}`).join('\n')
+  return createHash('sha256').update(identity).digest('hex')
 }
 
 describe('decodeBinaryFramePayload', () => {
@@ -110,93 +278,70 @@ describe('decodeBinaryFramePayload', () => {
     expect(() => decodeBinaryFramePayload(FrameType.ApiError, new Uint8Array(0))).toThrow()
   })
 
-  it('calls mapper for ArticleList (throws on empty payload, confirms routing)', () => {
-    // The ArticleList mapper will throw for empty payload - this confirms routing is correct
-    expect(() => decodeBinaryFramePayload(FrameType.ArticleList, new Uint8Array(0))).toThrow()
+  it('builds one authoritative decoder registration per supported frame', () => {
+    const frameTypes = binaryFrameDecoderRegistrations.map(([frameType]) => frameType)
+    expect(binaryFrameDecoderRegistrations).toHaveLength(routingReplacementLedger.registrationCount)
+    expect(registrationFingerprint(binaryFrameDecoderRegistrations))
+      .toBe(routingReplacementLedger.registrationSha256)
+    expect(new Set(frameTypes).size).toBe(frameTypes.length)
+    expect(Object.keys(binaryFrameDecoderRegistry).map(Number).sort((left, right) => left - right))
+      .toEqual([...frameTypes].sort((left, right) => left - right))
+    expect(() => createBinaryFrameDecoderRegistry([
+      binaryFrameDecoderRegistrations[0],
+      binaryFrameDecoderRegistrations[0]
+    ])).toThrow('decoder_frame_type_duplicate')
+    expect(() => createBinaryFrameDecoderRegistry([
+      [999 as FrameType, () => null]
+    ])).toThrow('decoder_frame_type_invalid')
+    expect(registrationFingerprint(binaryFrameDecoderRegistrations.slice(1)))
+      .not.toBe(routingReplacementLedger.registrationSha256)
+    const rewired = binaryFrameDecoderRegistrations.map((registration, index) => index === 0
+      ? [registration[0], binaryFrameDecoderRegistrations[1][1]] as const
+      : registration)
+    expect(registrationFingerprint(rewired))
+      .not.toBe(routingReplacementLedger.registrationSha256)
   })
 
-  it('calls mapper for ArticleDetail (throws on empty payload, confirms routing)', () => {
-    expect(() => decodeBinaryFramePayload(FrameType.ArticleDetail, new Uint8Array(0))).toThrow()
+  it('records every retired empty-payload pseudo-routing assertion', () => {
+    expect(routingReplacementLedger.schema).toBe('fsusblog.binary-decoder-routing-replacements.v1')
+    expect(routingReplacementLedger.removedTestIds).toHaveLength(32)
+    expect(new Set(routingReplacementLedger.removedTestIds).size).toBe(32)
+    expect(routingReplacementLedger.removedTestIds.every((id) => id.includes('empty payload'))).toBe(true)
+    expect(routingReplacementLedger.replacementTestIds).toEqual([
+      'builds one authoritative decoder registration per supported frame',
+      'decodes a minimum valid payload for every supported frame registration',
+      'dispatches every supported frame to exactly its registered decoder'
+    ])
   })
 
-  it('calls mapper for ArticleHot (throws on empty payload, confirms routing)', () => {
-    expect(() => decodeBinaryFramePayload(FrameType.ArticleHot, new Uint8Array(0))).toThrow()
+  it('dispatches every supported frame to exactly its registered decoder', () => {
+    const payload = new Uint8Array([0xa5])
+    const calls = new Map<FrameType, ReturnType<typeof vi.fn>>()
+    const registrations = binaryFrameDecoderRegistrations.map(([frameType]) => {
+      const decoder = vi.fn(() => ({ frameType }))
+      calls.set(frameType, decoder)
+      return [frameType, decoder] as const
+    })
+    const registry = createBinaryFrameDecoderRegistry(registrations)
+
+    for (const [frameType] of registrations) {
+      expect(decodeBinaryFramePayloadWithRegistry(registry, frameType, payload)).toEqual({ frameType })
+      for (const [candidateFrameType, decoder] of calls) {
+        expect(decoder).toHaveBeenCalledTimes(candidateFrameType === frameType ? 1 : 0)
+        decoder.mockClear()
+      }
+    }
   })
 
-  it('calls mapper for ArticleSearch (throws on empty payload, confirms routing)', () => {
-    expect(() => decodeBinaryFramePayload(FrameType.ArticleSearch, new Uint8Array(0))).toThrow()
-  })
+  it('decodes a minimum valid payload for every supported frame registration', () => {
+    const registeredDecoderNames = new Set(binaryFrameDecoderRegistrations.map(([, decoder]) => decoder.name))
+    expect([...validPayloadByDecoder.keys()].sort()).toEqual([...registeredDecoderNames].sort())
 
-  it('calls mapper for ArticleFeatured (throws on empty payload, confirms routing)', () => {
-    expect(() => decodeBinaryFramePayload(FrameType.ArticleFeatured, new Uint8Array(0))).toThrow()
-  })
-
-  it('calls mapper for ArticleRelatedReading (throws on empty payload, confirms routing)', () => {
-    expect(() => decodeBinaryFramePayload(FrameType.ArticleRelatedReading, new Uint8Array(0))).toThrow()
-  })
-
-  it('calls mapper for human read proof frames (throws on empty payload, confirms routing)', () => {
-    expect(() => decodeBinaryFramePayload(FrameType.HumanReadChallengeResponse, new Uint8Array(0))).toThrow()
-    expect(() => decodeBinaryFramePayload(FrameType.HumanReadSubmitResponse, new Uint8Array(0))).toThrow()
-  })
-
-  it('calls mapper for TrashClearResponse (throws on empty payload, confirms routing)', () => {
-    expect(() => decodeBinaryFramePayload(FrameType.TrashClearResponse, new Uint8Array(0))).toThrow()
-  })
-
-  it('calls mapper for AdminUserList (throws on empty payload, confirms routing)', () => {
-    expect(() => decodeBinaryFramePayload(FrameType.AdminUserList, new Uint8Array(0))).toThrow()
-  })
-
-  it('calls mapper for AuthLoginFlow (throws on empty payload, confirms routing)', () => {
-    expect(() => decodeBinaryFramePayload(FrameType.AuthLoginFlow, new Uint8Array(0))).toThrow()
-  })
-
-  it('calls mapper for CurrentUserSnapshot (throws on empty payload, confirms routing)', () => {
-    expect(() => decodeBinaryFramePayload(FrameType.CurrentUserSnapshot, new Uint8Array(0))).toThrow()
-  })
-
-  it('calls mapper for IdentityAccountSnapshot (throws on empty payload, confirms routing)', () => {
-    expect(() => decodeBinaryFramePayload(FrameType.IdentityAccountSnapshot, new Uint8Array(0))).toThrow()
-  })
-
-  it('calls mapper for AuthSessionList (throws on empty payload, confirms routing)', () => {
-    expect(() => decodeBinaryFramePayload(FrameType.AuthSessionList, new Uint8Array(0))).toThrow()
-  })
-
-  it('calls mapper for PowChallenge (throws on empty payload, confirms routing)', () => {
-    expect(() => decodeBinaryFramePayload(FrameType.PowChallenge, new Uint8Array(0))).toThrow()
-  })
-
-  it('calls mapper for MFA frames (throws on empty payload, confirms routing)', () => {
-    expect(() => decodeBinaryFramePayload(FrameType.MfaSetupStart, new Uint8Array(0))).toThrow()
-    expect(() => decodeBinaryFramePayload(FrameType.MfaSetupVerify, new Uint8Array(0))).toThrow()
-    expect(() => decodeBinaryFramePayload(FrameType.MfaProfile, new Uint8Array(0))).toThrow()
-    expect(() => decodeBinaryFramePayload(FrameType.MfaChallengeResult, new Uint8Array(0))).toThrow()
-  })
-
-  it('calls mapper for conversation frames (throws on empty payload, confirms routing)', () => {
-    expect(() => decodeBinaryFramePayload(FrameType.ConversationList, new Uint8Array(0))).toThrow()
-    expect(() => decodeBinaryFramePayload(FrameType.ConversationDetail, new Uint8Array(0))).toThrow()
-    expect(() => decodeBinaryFramePayload(FrameType.ConversationMessage, new Uint8Array(0))).toThrow()
-  })
-
-  it('calls mapper for Passkey frames (throws on empty payload, confirms routing)', () => {
-    expect(() => decodeBinaryFramePayload(FrameType.PasskeyRegisterBegin, new Uint8Array(0))).toThrow()
-    expect(() => decodeBinaryFramePayload(FrameType.PasskeyLoginBegin, new Uint8Array(0))).toThrow()
-    expect(() => decodeBinaryFramePayload(FrameType.PasskeyCredentialList, new Uint8Array(0))).toThrow()
-  })
-
-  it('calls mapper for CommentArticleCursor (throws on empty payload, confirms routing)', () => {
-    expect(() => decodeBinaryFramePayload(FrameType.CommentArticleCursor, new Uint8Array(0))).toThrow()
-  })
-
-  it('calls mapper for CommentUserCursor (throws on empty payload, confirms routing)', () => {
-    expect(() => decodeBinaryFramePayload(FrameType.CommentUserCursor, new Uint8Array(0))).toThrow()
-  })
-
-  it('calls mapper for CommentThreadReplyCursor (throws on empty payload, confirms routing)', () => {
-    expect(() => decodeBinaryFramePayload(FrameType.CommentThreadReplyCursor, new Uint8Array(0))).toThrow()
+    for (const [frameType, decoder] of binaryFrameDecoderRegistrations) {
+      const createPayload = validPayloadByDecoder.get(decoder.name)
+      expect(createPayload, `missing valid payload for ${decoder.name}`).toBeTypeOf('function')
+      expect(() => decodeBinaryFramePayload(frameType, createPayload!()), `${frameType}:${decoder.name}`).not.toThrow()
+    }
   })
 
   it('maps CommentPolicySnapshot for composer author-mode controls', () => {
@@ -255,54 +400,6 @@ describe('decodeBinaryFramePayload', () => {
       credentialStatus: 'active',
       credentialLevel: 'strong_anonymous'
     })
-  })
-
-  it('calls mapper for AdminStats (throws on empty payload, confirms routing)', () => {
-    expect(() => decodeBinaryFramePayload(FrameType.AdminStats, new Uint8Array(0))).toThrow()
-  })
-
-  it('calls mapper for CategoryList (throws on empty payload, confirms routing)', () => {
-    expect(() => decodeBinaryFramePayload(FrameType.CategoryList, new Uint8Array(0))).toThrow()
-  })
-
-  it('calls mapper for TagList (throws on empty payload, confirms routing)', () => {
-    expect(() => decodeBinaryFramePayload(FrameType.TagList, new Uint8Array(0))).toThrow()
-  })
-
-  it('calls mapper for RecentCommentStats (throws on empty payload, confirms routing)', () => {
-    expect(() => decodeBinaryFramePayload(FrameType.RecentCommentStats, new Uint8Array(0))).toThrow()
-  })
-
-  it('calls mapper for RegionStats (throws on empty payload, confirms routing)', () => {
-    expect(() => decodeBinaryFramePayload(FrameType.RegionStats, new Uint8Array(0))).toThrow()
-  })
-
-  it('calls mapper for SeoConfig (throws on empty payload, confirms routing)', () => {
-    expect(() => decodeBinaryFramePayload(FrameType.SeoConfig, new Uint8Array(0))).toThrow()
-  })
-
-  it('calls mapper for PageContent (throws on empty payload, confirms routing)', () => {
-    expect(() => decodeBinaryFramePayload(FrameType.PageContent, new Uint8Array(0))).toThrow()
-  })
-
-  it('calls mapper for UploadInit (throws on empty payload, confirms routing)', () => {
-    expect(() => decodeBinaryFramePayload(FrameType.UploadInit, new Uint8Array(0))).toThrow()
-  })
-
-  it('calls mapper for UploadStatus (throws on empty payload, confirms routing)', () => {
-    expect(() => decodeBinaryFramePayload(FrameType.UploadStatus, new Uint8Array(0))).toThrow()
-  })
-
-  it('calls mapper for UploadPartAck (throws on empty payload, confirms routing)', () => {
-    expect(() => decodeBinaryFramePayload(FrameType.UploadPartAck, new Uint8Array(0))).toThrow()
-  })
-
-  it('calls mapper for UploadComplete (throws on empty payload, confirms routing)', () => {
-    expect(() => decodeBinaryFramePayload(FrameType.UploadComplete, new Uint8Array(0))).toThrow()
-  })
-
-  it('calls mapper for UploadPartMap (throws on empty payload, confirms routing)', () => {
-    expect(() => decodeBinaryFramePayload(FrameType.UploadPartMap, new Uint8Array(0))).toThrow()
   })
 
   it('maps security JSON bridge frames', () => {
