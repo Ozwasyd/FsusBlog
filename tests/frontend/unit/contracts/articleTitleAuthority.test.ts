@@ -42,9 +42,4 @@ describe('article title authority', () => {
     expect(themeTokens.articleDetail.title).toContain('leading-[1.25] sm:leading-[1.2]')
   })
 
-  it('retains punctuation and loading contracts', () => {
-    expect(themeTokens.articleList.metaSeparator).toContain('font-normal')
-    expect(themeTokens.articleList.metaSeparator).toContain('text-[var(--fsusblog-text-decorative)]')
-    expect(themeTokens.articleDetail.commentsPlaceholderDot).toBe('fsusblog-dot-loader')
-  })
 })

@@ -10847,6 +10847,41 @@
                 "node-test:tests/tools/cross-stack-receipt-join.test.mjs#join-fails-closed-for-missing-shared-or-unique-assertion-5582ed56e4"
             ],
             "reason": "The canonical join proves both halves form one logical conclusion and fails closed when either owner or assertion is missing."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/components/PublicPeriodMotif.test.ts#uses-midpoints-for-inline-list-and-article-metadata-bc92418512",
+            "path": "tests/frontend/unit/components/PublicPeriodMotif.test.ts",
+            "replacementTestIds": [
+                "node-script:tests/frontend/checks/static/check-period-motif-contract.mjs",
+                "vitest:tests/frontend/unit/components/PublicContentSemantics.test.ts#keeps-list-and-article-metadata-content-available-to-use-b48689c234"
+            ],
+            "reason": "The canonical motif contract now owns the decorative glyph and renderer binding, while the component test retains visible list/detail metadata and link semantics without counting hidden punctuation nodes."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/components/PublicPeriodMotif.test.ts#renders-one-shared-dot-for-each-loading-surface-8e726a065a",
+            "path": "tests/frontend/unit/components/PublicPeriodMotif.test.ts",
+            "replacementTestIds": [
+                "node-script:tests/frontend/checks/static/check-period-motif-contract.mjs",
+                "vitest:tests/frontend/unit/components/PublicContentSemantics.test.ts#exposes-loading-states-through-stable-status-names-72832344a8"
+            ],
+            "reason": "The static visual contract owns the shared loader interface; the replacement behavior test proves public loading states expose stable status names and polite announcements."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/components/PublicPeriodMotif.test.ts#adds-the-dot-to-neutral-empty-states-without-decorating--9d9fdb7b87",
+            "path": "tests/frontend/unit/components/PublicPeriodMotif.test.ts",
+            "replacementTestIds": [
+                "node-script:tests/frontend/checks/static/check-period-motif-contract.mjs",
+                "vitest:tests/frontend/unit/components/PublicContentSemantics.test.ts#switches-empty-and-error-announcements-without-losing-co-d5c9f53678"
+            ],
+            "reason": "The owner contract records the neutral-only decorative policy; the component replacement verifies status-to-alert transitions, live-region priority and retained empty/error content."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/contracts/articleTitleAuthority.test.ts#retains-punctuation-and-loading-contracts-f741dfa3ba",
+            "path": "tests/frontend/unit/contracts/articleTitleAuthority.test.ts",
+            "replacementTestIds": [
+                "node-script:tests/frontend/checks/static/check-period-motif-contract.mjs"
+            ],
+            "reason": "Punctuation and loading visuals no longer belong to article title authority; the single canonical motif contract now owns those exact design tokens and shared-renderer bindings."
         }
     ],
     "assertionReplacements": [

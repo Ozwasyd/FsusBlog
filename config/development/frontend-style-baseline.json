@@ -1,10 +1,10 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:54e4efe2271536e823fc94666006dddc78ed3476c22ba04ad97853a999d1ca69",
-    "sourceStateSha256": "54e4efe2271536e823fc94666006dddc78ed3476c22ba04ad97853a999d1ca69",
+    "generatedFrom": "source-state:e74781a7b91d9db719aa56ab745076a1487561ba77226fc7b4430e22e909e319",
+    "sourceStateSha256": "e74781a7b91d9db719aa56ab745076a1487561ba77226fc7b4430e22e909e319",
     "configurationSha256": "3aba534caa13d9279fbebb8c81d72486d7154fe3a425764f094dc705b0ddf5f1",
-    "violationCount": 315178,
-    "fileCount": 1070,
+    "violationCount": 314653,
+    "fileCount": 1062,
     "files": [
         {
             "path": "src/frontend/public/sw.js",
@@ -1734,20 +1734,6 @@
             }
         },
         {
-            "path": "src/frontend/src/components/article/ArticleDetailHeader.vue",
-            "sourceSha256": "b60669604d447e1a4221a5fa0003e65d80a0855eea546b8e9a71dfe277890b8f",
-            "violationCount": 75,
-            "violationDigest": "83c8744f66f5ceef01c4afe7dfe8496ee1b0c78372c5be5447434f7bbbb0cfb3",
-            "rules": {
-                "eslint/@stylistic/brace-style": 2,
-                "eslint/@stylistic/semi": 11,
-                "eslint/import-x/order": 1,
-                "eslint/vue/html-indent": 34,
-                "eslint/vue/max-attributes-per-line": 10,
-                "eslint/vue/script-indent": 17
-            }
-        },
-        {
             "path": "src/frontend/src/components/article/ArticleDetailLoadingState.vue",
             "sourceSha256": "ddb58854874c103c32cc5d3a0586c612671d1f05dd026329f7796f455dc188c7",
             "violationCount": 28,
@@ -1947,17 +1933,6 @@
             }
         },
         {
-            "path": "src/frontend/src/components/home/HomeArticleLoadingState.vue",
-            "sourceSha256": "7ec5cc0ec7c26f11e78c0beda875314eece11fc3c059c869e6d451bb1c5f15c0",
-            "violationCount": 32,
-            "violationDigest": "2864ad3cacce0b6c6e3b7a0e499632b3de0a52899f1ef2015cb036fd02d112ea",
-            "rules": {
-                "eslint/vue/component-name-in-template-casing": 5,
-                "eslint/vue/html-indent": 25,
-                "eslint/vue/max-attributes-per-line": 2
-            }
-        },
-        {
             "path": "src/frontend/src/components/home/HomeTextFirstRecommendations.vue",
             "sourceSha256": "2e7226c4f89af2373914cda6a97e6456cc454f5314601cb150716008bc1cfa1b",
             "violationCount": 61,
@@ -2043,22 +2018,6 @@
             }
         },
         {
-            "path": "src/frontend/src/components/public/PublicArticleList.vue",
-            "sourceSha256": "4388df7b4994b24784a112aa90bb604947cf93cc52726c002eabb1d32f5c3ecf",
-            "violationCount": 154,
-            "violationDigest": "7fd2397f428307716f2600eb1caffdac1414a04edfffa94746b84ee21db2e4b1",
-            "rules": {
-                "eslint/@stylistic/brace-style": 7,
-                "eslint/import-x/order": 2,
-                "eslint/vue/component-name-in-template-casing": 1,
-                "eslint/vue/html-indent": 96,
-                "eslint/vue/max-attributes-per-line": 12,
-                "eslint/vue/script-indent": 30,
-                "stylelint/@stylistic/block-opening-brace-newline-before": 2,
-                "stylelint/@stylistic/indentation": 4
-            }
-        },
-        {
             "path": "src/frontend/src/components/public/PublicBlogLayoutShell.vue",
             "sourceSha256": "2f218695bb9a4d5032ae4199e8ce8f4c382cea0fb5b090c73feab9496af14c07",
             "violationCount": 442,
@@ -2094,21 +2053,6 @@
                 "eslint/vue/html-indent": 69,
                 "eslint/vue/max-attributes-per-line": 8,
                 "eslint/vue/script-indent": 53
-            }
-        },
-        {
-            "path": "src/frontend/src/components/public/PublicContentState.vue",
-            "sourceSha256": "af805ce3ba6d803a6467302c2bf9e1a15fdc6e002b4004540319ab4501761d59",
-            "violationCount": 73,
-            "violationDigest": "1484d93d007a4c4d969784db5609fdb22f3ab5f9b50257452ce069ddb90631dd",
-            "rules": {
-                "eslint/@stylistic/member-delimiter-style": 6,
-                "eslint/@stylistic/semi": 1,
-                "eslint/vue/html-indent": 11,
-                "eslint/vue/max-attributes-per-line": 8,
-                "eslint/vue/script-indent": 11,
-                "stylelint/@stylistic/block-opening-brace-newline-before": 10,
-                "stylelint/@stylistic/indentation": 26
             }
         },
         {
@@ -3620,16 +3564,6 @@
             "rules": {
                 "eslint/@stylistic/indent": 2,
                 "eslint/@stylistic/semi": 15
-            }
-        },
-        {
-            "path": "src/frontend/src/copy/layout.ts",
-            "sourceSha256": "3bb89f11d6531b97b4b9e6f80035642f1cffc028264826820d9d1ec578ea68c8",
-            "violationCount": 29,
-            "violationDigest": "1876ed096b5f68893dedd79f7f9a00d6112898297540363f6f233c4151263227",
-            "rules": {
-                "eslint/@stylistic/indent": 27,
-                "eslint/@stylistic/semi": 2
             }
         },
         {
@@ -5321,15 +5255,6 @@
             "sourceSha256": "d8d4d83f46b8d63ac68b65dbecafead5e7b64b04144cd7e1047b9a85ac0b2bf9",
             "violationCount": 41,
             "violationDigest": "620cd531aaf9e6228812843f9b48a0274f549ddc7da1a1c248d049e3dbd8e8ff",
-            "rules": {
-                "eslint/@stylistic/indent": 41
-            }
-        },
-        {
-            "path": "src/frontend/src/ui-tokens/themeTokens.ts",
-            "sourceSha256": "2d8fe81f705333fa876cbe8d29d07b116d843251c8282ad162a709c2a702c232",
-            "violationCount": 41,
-            "violationDigest": "443042bde3b539f18f23f92743bcdc3abb803555b4b48a846c280023eb990447",
             "rules": {
                 "eslint/@stylistic/indent": 41
             }
@@ -7987,18 +7912,6 @@
             }
         },
         {
-            "path": "tests/frontend/checks/static/check-article-title-authority.mjs",
-            "sourceSha256": "0c3fc88eb4cb9b56a39d59a17847c84b04470a8cf8339d40e30cb329ed908dc7",
-            "violationCount": 51,
-            "violationDigest": "380ca884425d36d001f107f297e10dfc08a9d3e31f2864bbd9c70c6b28fcb4ed",
-            "rules": {
-                "eslint/@stylistic/brace-style": 6,
-                "eslint/@stylistic/indent": 19,
-                "eslint/@stylistic/semi": 23,
-                "eslint/curly": 3
-            }
-        },
-        {
             "path": "tests/frontend/checks/static/check-asset-size-budget.mjs",
             "sourceSha256": "83064f43f364399eed0e9f3a8e4c8a980cc7f2d6d436fbdc61ff2c91d3399542",
             "violationCount": 251,
@@ -8427,18 +8340,6 @@
                 "eslint/@stylistic/semi": 65,
                 "eslint/import-x/no-relative-parent-imports": 1,
                 "eslint/import-x/order": 1
-            }
-        },
-        {
-            "path": "tests/frontend/checks/static/check-period-motif-contract.mjs",
-            "sourceSha256": "985304a6f84521506878c467d3679223445dad9e1efb2774151298e27ab39b8f",
-            "violationCount": 70,
-            "violationDigest": "bb8b4239e0982590f9b3dc1e33e3f236ce426c79b6051d8d9a804a448289d2c5",
-            "rules": {
-                "eslint/@stylistic/brace-style": 11,
-                "eslint/@stylistic/indent": 21,
-                "eslint/@stylistic/semi": 37,
-                "eslint/curly": 1
             }
         },
         {

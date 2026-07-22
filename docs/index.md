@@ -307,6 +307,7 @@
 - [Summary](reports/open-source-readiness/v1.1.0-public-preview/supply-chain/summary.json) - owner `governance`
 - [PerceptionCharacterV3 release validation v1](security/issue-1369-perception-character-v3-release-validation-v1.md) - owner `security`; issues #1369
 - [Issue #1032：紧凑且无源码的删测前基线](testing/issue-1032-compact-retention-baseline.md) - owner `release`; issues #1032
+- [Issue #1434：public period motif 测试分层](testing/issue-1434-public-period-motif-contract.md) - owner `frontend`; issues #1434
 - [Issue #1036：隐私与身份切换伪 gate 的行为替代](testing/issue-1036-privacy-and-cutover-replacements.md) - owner `release`; issues #1036
 - [Issue #1038：端点安全契约改为 EndpointDataSource 与 TestServer](testing/issue-1038-endpoint-security-contract-replacements.md) - owner `release`; issues #1038
 - [Issue #1040：并发与状态机行为测试替换](testing/issue-1040-concurrency-state-machines.md) - owner `release`; issues #1040
