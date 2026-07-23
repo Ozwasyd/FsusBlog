@@ -8,18 +8,15 @@ browser_profile="${FSUSBLOG_BROWSER_PROFILE:-browser-full-matrix}"
 case "$browser_profile" in
     browser-primary-correctness)
         profile_browsers="chromium"
-        profile_targets="acceptance/public-routes.spec.ts"
-        profile_test_id="browser-test:primary-public-route-navigation"
+        profile_script="check:cross-browser:smoke:primary"
         ;;
     browser-capability-delta)
         profile_browsers="chromium,firefox,webkit"
-        profile_targets="acceptance/cross-browser-smoke.spec.ts"
-        profile_test_id="browser-test:capability-engine-delta"
+        profile_script="check:cross-browser:smoke:delta"
         ;;
     browser-full-matrix)
         profile_browsers="chromium,firefox,webkit"
-        profile_targets="acceptance/public-routes.spec.ts acceptance/cross-browser-smoke.spec.ts"
-        profile_test_id="browser-test:(primary-public-route-navigation|capability-engine-delta)"
+        profile_script="check:cross-browser:smoke:full"
         ;;
     *)
         Log "unknown browser capability profile: $browser_profile"
@@ -37,8 +34,6 @@ previous_output_dir="${PLAYWRIGHT_OUTPUT_DIR-}"
 previous_browsers_path="${PLAYWRIGHT_BROWSERS_PATH-}"
 previous_ld_library_path="${LD_LIBRARY_PATH-}"
 previous_disable_notification_stream="${FSUSBLOG_DISABLE_NOTIFICATION_STREAM-}"
-previous_browser_test_targets="${FSUSBLOG_BROWSER_TEST_TARGETS-}"
-previous_browser_test_grep_arg="${FSUSBLOG_BROWSER_TEST_GREP_ARG-}"
 
 proof_args=(select --profile "$browser_profile" --output ".tmp/browser-capability-risk/$browser_profile.json")
 if [[ -n "${FSUSBLOG_BROWSER_CHANGED_PATHS_FILE:-}" ]]; then
@@ -48,8 +43,6 @@ node "$ROOT_DIR/tools/testing/browser-capability-risk.mjs" "${proof_args[@]}"
 
 export PLAYWRIGHT_OUTPUT_DIR="test-results/playwright/$browser_profile"
 export FSUSBLOG_PLAYWRIGHT_BROWSERS="$profile_browsers"
-export FSUSBLOG_BROWSER_TEST_TARGETS="$profile_targets"
-export FSUSBLOG_BROWSER_TEST_GREP_ARG="--grep=$profile_test_id"
 # Use Playwright's standard persistent cache unless the caller explicitly
 # selects another path. Fresh production cleanup owns repository .tmp output
 # and must never erase installed browser toolchain dependencies.
@@ -67,7 +60,7 @@ if [[ -d "$ROOT_DIR/.tmp/playwright-system-deps/root/usr/lib/x86_64-linux-gnu" ]
 fi
 
 ResetSecurityRuntimeState "pre cross-browser smoke"
-RunInClient npm run check:cross-browser:smoke
+RunInClient npm run "$profile_script"
 
 if [[ -n "$previous_playwright_browsers" ]]; then
     export FSUSBLOG_PLAYWRIGHT_BROWSERS="$previous_playwright_browsers"
@@ -109,16 +102,4 @@ if [[ -n "$previous_disable_notification_stream" ]]; then
     export FSUSBLOG_DISABLE_NOTIFICATION_STREAM="$previous_disable_notification_stream"
 else
     unset FSUSBLOG_DISABLE_NOTIFICATION_STREAM
-fi
-
-if [[ -n "$previous_browser_test_targets" ]]; then
-    export FSUSBLOG_BROWSER_TEST_TARGETS="$previous_browser_test_targets"
-else
-    unset FSUSBLOG_BROWSER_TEST_TARGETS
-fi
-
-if [[ -n "$previous_browser_test_grep_arg" ]]; then
-    export FSUSBLOG_BROWSER_TEST_GREP_ARG="$previous_browser_test_grep_arg"
-else
-    unset FSUSBLOG_BROWSER_TEST_GREP_ARG
 fi

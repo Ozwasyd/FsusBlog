@@ -99,7 +99,9 @@ test.describe('public browser-only navigation contract', () => {
   test.skip(({ browserName }) => browserName !== 'chromium',
     'Firefox/WebKit project the Chromium canonical product path and run only capability delta probes')
 
-  test('[browser-test:primary-public-route-navigation] Home → article A → article B → archive → category → tag → Home and history keep one coherent head', async ({ page }) => {
+  test('Home → article A → article B → archive → category → tag → Home and history keep one coherent head', {
+    tag: '@browser-test:primary-public-route-navigation',
+  }, async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' })
     await waitForAppReady(page, WARMUP_TIMEOUT_MS)
     await settlePage(page)

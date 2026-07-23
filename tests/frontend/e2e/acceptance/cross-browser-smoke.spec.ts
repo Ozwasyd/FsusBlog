@@ -9,7 +9,9 @@ import {
 } from '../../support/playwright/browser-capability-contract.mjs'
 
 test.describe('cross-browser release smoke', () => {
-  test('[browser-test:capability-engine-delta] public shell engine capabilities and PWA cache stay coherent', async ({ page, browserName }) => {
+  test('public shell engine capabilities and PWA cache stay coherent', {
+    tag: '@browser-test:capability-engine-delta',
+  }, async ({ page, browserName }) => {
     const consoleMessages: string[] = []
     page.on('console', (message) => {
       if (message.type() === 'error' || message.type() === 'warning') {
