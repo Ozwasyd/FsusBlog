@@ -8,6 +8,7 @@
         name="articleTitle"
         placeholder="写下文章标题"
         type="textarea"
+        :csp-safe="true"
         :autosize="{ minRows: 1, maxRows: 3 }"
         maxlength="100"
         show-word-limit
