@@ -10997,7 +10997,7 @@
             "symbol": "CheckToolsDocsCheckPublicPreviewDocs",
             "owner": "FrontendProductGovernanceOwner",
             "category": "product-governance",
-            "engine": "text",
+            "engine": "parser",
             "sourceScopes": [
                 "tools/docs/check-public-preview-docs.mjs",
                 "src/frontend/src/**",
@@ -11016,8 +11016,7 @@
                 "implementation": "tools/docs/check-public-preview-docs.mjs",
                 "executionKey": "governance:file:tools/docs/check-public-preview-docs.mjs",
                 "receiptCompatible": true
-            },
-            "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
+            }
         },
         {
             "id": "Implementation.ToolsDocsCheckPublicPreviewScreenshotsMjs",

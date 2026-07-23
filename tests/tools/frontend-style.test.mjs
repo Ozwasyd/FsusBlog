@@ -481,6 +481,12 @@ test('frontend style governance baseline configuration migration requires explic
     });
 });
 
+test('frontend style governance configuration identity binds the Node runtime boundary', () =>
+{
+    const checkerSource = readFileSync(path.join(root, 'tools/frontend/check-frontend-style.mjs'), 'utf8');
+    assert.match(checkerSource, /runtime\\nnode=\$\{process\.version\}\\nplatform=\$\{process\.platform\}\\narch=\$\{process\.arch\}/u);
+});
+
 test('frontend style governance migrates reviewed semantic paths without admitting new debt', () =>
 {
     withFixture((fixtureRoot) =>

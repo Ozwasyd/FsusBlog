@@ -3,8 +3,8 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
-export const DocumentLifecycleSchema = 'fsusblog.document-lifecycle-policy.v1';
-export const DocumentInventorySchema = 'fsusblog.document-inventory.v1';
+export const DocumentLifecycleSchema = 'fsusblog.document-lifecycle-policy.v2';
+export const DocumentInventorySchema = 'fsusblog.document-inventory.v2';
 
 function CompareOrdinal(left, right)
 {
@@ -19,46 +19,6 @@ function ToPosix(value)
 function Sha256(value)
 {
     return crypto.createHash('sha256').update(value).digest('hex');
-}
-
-function GlobToRegExp(pattern)
-{
-    let source = '';
-    for (let index = 0; index < pattern.length; index += 1)
-    {
-        const character = pattern[index];
-        if (character === '*' && pattern[index + 1] === '*')
-        {
-            if (pattern[index + 2] === '/')
-            {
-                source += '(?:.*/)?';
-                index += 2;
-            }
-            else
-            {
-                source += '.*';
-                index += 1;
-            }
-            continue;
-        }
-        if (character === '*')
-        {
-            source += '[^/]*';
-            continue;
-        }
-        if (character === '?')
-        {
-            source += '[^/]';
-            continue;
-        }
-        source += /[.+^${}()|[\]\\]/u.test(character) ? `\\${character}` : character;
-    }
-    return new RegExp(`^${source}$`, 'u');
-}
-
-function Matches(file, patterns)
-{
-    return patterns.some((pattern) => GlobToRegExp(pattern).test(file));
 }
 
 function WalkFiles(root, relativeRoot)
@@ -102,31 +62,6 @@ function DocumentTitle(root, file)
         .join(' ');
 }
 
-function RelatedIssues(file)
-{
-    if (!/(?:^|\/)issues?-/u.test(file))
-    {
-        return [];
-    }
-    return [...new Set([...file.matchAll(/issues?-(\d{3,5})(?:-(\d{3,5}))?/gu)]
-        .flatMap((match) => [match[1], match[2]])
-        .filter(Boolean)
-        .map(Number))]
-        .sort((left, right) => left - right);
-}
-
-function FirstRuleValue(file, rules, field, fallback)
-{
-    for (const rule of rules)
-    {
-        if (Matches(file, rule.patterns))
-        {
-            return rule[field];
-        }
-    }
-    return fallback;
-}
-
 function DocumentKind(file)
 {
     const extension = path.extname(file).toLowerCase();
@@ -152,12 +87,13 @@ export function ReadDocumentLifecyclePolicy(root, relative = 'config/development
 
 export function BuildDocumentInventory(root, policy)
 {
-    const producerByDocument = new Map((policy.generatedDocuments ?? []).map((entry) => [entry.path, entry.producer]));
+    const metadataByPath = new Map((policy.documents ?? []).map((entry) => [entry.path, entry]));
     const documents = WalkFiles(root, 'docs').map((file) =>
     {
         const kind = DocumentKind(file);
-        const status = FirstRuleValue(file, policy.statusRules ?? [], 'status', 'current');
-        const owner = FirstRuleValue(file, policy.ownerRules ?? [], 'owner', 'governance');
+        const metadata = metadataByPath.get(file) ?? {};
+        const status = metadata.status ?? 'unclassified';
+        const owner = metadata.owner ?? 'unclassified';
         const sourceOfTruth = status === 'current' && kind !== 'asset';
         return {
             path: file,
@@ -167,10 +103,10 @@ export function BuildDocumentInventory(root, policy)
             owner,
             sourceOfTruth,
             lastVerifiedCommit: policy.lastVerifiedCommit,
-            supersedes: [],
-            supersededBy: null,
-            relatedIssues: RelatedIssues(file),
-            producer: producerByDocument.get(file) ?? null
+            supersedes: metadata.supersedes ?? [],
+            supersededBy: metadata.supersededBy ?? null,
+            relatedIssues: metadata.relatedIssues ?? [],
+            producer: metadata.producer ?? null
         };
     });
     const content = {
@@ -192,11 +128,11 @@ export function RenderDocumentIndex(inventory)
     const lines = [
         '# Documentation Index',
         '',
-        '本索引由 `config/development/document-lifecycle.json` 和当前 `docs/` inventory 生成。长期事实源只出现在 Current 区域；issue handoff、迁移记录和实施快照会被显式分类为 Historical，不再与当前权威文档并列。',
+        '本索引由 `config/development/document-lifecycle.json` 中的显式 metadata 和当前 `docs/` inventory 生成。长期事实源只出现在 Current 区域；工单关联和替代关系不再从文件名推导。',
         '',
         '- Lifecycle policy: [`development/document-lifecycle.md`](development/document-lifecycle.md)',
         '- Machine-readable inventory: [`../config/development/document-inventory.generated.json`](../config/development/document-inventory.generated.json)',
-        '- Historical documents keep stable paths until an explicit redirect-map migration is reviewed.',
+        '- Path migrations are repository records, not GitHub blob URL redirects.',
         ''
     ];
     const owners = ['backend', 'frontend', 'security', 'release', 'governance'];
@@ -225,15 +161,47 @@ export function RenderDocumentIndex(inventory)
             lines.push('- None.', '');
             continue;
         }
-        for (const document of documents)
+        if (status === 'historical')
         {
-            const issues = document.relatedIssues.length > 0 ? `; issues ${document.relatedIssues.map((issue) => `#${issue}`).join(', ')}` : '';
-            const producer = document.producer ? `; producer \`${document.producer}\`` : '';
-            lines.push(`- [${document.title}](${RelativeIndexTarget(document.path)}) - owner \`${document.owner}\`${issues}${producer}`);
+            const groups = new Map();
+            for (const document of documents)
+            {
+                const relative = RelativeIndexTarget(document.path);
+                const parts = relative.split('/');
+                const group = parts.length === 1 ? 'root migration records' : parts.slice(0, document.kind === 'asset' ? 2 : 1).join('/');
+                const current = groups.get(group) ?? { documents: 0, assets: 0 };
+                current[document.kind === 'asset' ? 'assets' : 'documents'] += 1;
+                groups.set(group, current);
+            }
+            for (const [group, counts] of [...groups].sort(([left], [right]) => CompareOrdinal(left, right)))
+            {
+                const summary = [
+                    counts.documents > 0 ? `${counts.documents} document${counts.documents === 1 ? '' : 's'}` : null,
+                    counts.assets > 0 ? `${counts.assets} asset${counts.assets === 1 ? '' : 's'}` : null
+                ].filter(Boolean).join(', ');
+                lines.push(`- \`${group}\`: ${summary}`);
+            }
+        }
+        else
+        {
+            for (const document of documents)
+            {
+                const issues = document.relatedIssues.length > 0 ? `; issues ${document.relatedIssues.map((issue) => `#${issue}`).join(', ')}` : '';
+                const producer = document.producer ? `; producer \`${document.producer}\`` : '';
+                lines.push(`- [${document.title}](${RelativeIndexTarget(document.path)}) - owner \`${document.owner}\`${issues}${producer}`);
+            }
         }
         lines.push('');
     }
     return `${lines.join('\n').trimEnd()}\n`;
+}
+
+function NamingViolation(file)
+{
+    const segments = file.split('/');
+    const offending = segments.find((segment) => /^(?:issues?[-_]\d+(?:[-_]\d+)*|pr[-_]?\d+)/iu.test(segment)
+        || /(?:^|[-_])(handoff|implementation-handoff|final|completion|landed)(?:[-_.]|$)/iu.test(segment));
+    return offending ?? null;
 }
 
 function MarkdownLinks(text)
@@ -317,6 +285,19 @@ function ValidatePolicy(root, policy, inventory, errors, options)
     const allowedStatuses = new Set(['current', 'proposed', 'historical', 'generated', 'retired']);
     const allowedOwners = new Set(['backend', 'frontend', 'security', 'release', 'governance']);
     const paths = new Set();
+    const metadataPaths = new Set();
+    for (const metadata of policy.documents ?? [])
+    {
+        if (metadataPaths.has(metadata.path))
+        {
+            errors.push(`duplicate explicit document metadata path ${metadata.path}`);
+        }
+        metadataPaths.add(metadata.path);
+        if (!fs.existsSync(path.join(root, metadata.path)))
+        {
+            errors.push(`explicit document metadata references missing path ${metadata.path}`);
+        }
+    }
     for (const document of inventory.documents)
     {
         if (paths.has(document.path))
@@ -324,6 +305,10 @@ function ValidatePolicy(root, policy, inventory, errors, options)
             errors.push(`duplicate document metadata path ${document.path}`);
         }
         paths.add(document.path);
+        if (!metadataPaths.has(document.path))
+        {
+            errors.push(`${document.path} requires explicit document metadata`);
+        }
         if (!allowedStatuses.has(document.status))
         {
             errors.push(`${document.path} has invalid status ${document.status}`);
@@ -341,6 +326,27 @@ function ValidatePolicy(root, policy, inventory, errors, options)
             errors.push(`${document.path} generated producer does not exist: ${document.producer ?? '<missing>'}`);
         }
     }
+    const compatibilityPaths = new Set();
+    for (const entry of policy.legacyNamingCompatibility ?? [])
+    {
+        if (compatibilityPaths.has(entry.path))
+        {
+            errors.push(`duplicate legacy naming compatibility path ${entry.path}`);
+        }
+        compatibilityPaths.add(entry.path);
+        if (!paths.has(entry.path) || !NamingViolation(entry.path) || !Number.isInteger(entry.removalIssue))
+        {
+            errors.push(`invalid legacy naming compatibility entry ${entry.path}`);
+        }
+    }
+    for (const document of inventory.documents)
+    {
+        const offending = NamingViolation(document.path);
+        if (offending && !compatibilityPaths.has(document.path))
+        {
+            errors.push(`${document.path} has forbidden long-term name ${offending}; use domain, subject, lifecycle state, and audience semantics`);
+        }
+    }
     const claims = new Map();
     for (const claim of policy.authorityClaims ?? [])
     {
@@ -355,12 +361,47 @@ function ValidatePolicy(root, policy, inventory, errors, options)
             errors.push(`authority ${claim.id} must reference one current source of truth: ${claim.path}`);
         }
     }
-    const closedIssues = new Set(policy.closedIssues ?? []);
+    const documentByPath = new Map(inventory.documents.map((entry) => [entry.path, entry]));
     for (const document of inventory.documents)
     {
-        if (document.relatedIssues.some((issue) => closedIssues.has(issue)) && !['historical', 'retired'].includes(document.status))
+        for (const targetPath of document.supersedes)
         {
-            errors.push(`${document.path} belongs to a closed issue and must be historical or retired`);
+            const target = documentByPath.get(targetPath);
+            if (!target)
+            {
+                errors.push(`${document.path} supersedes missing target ${targetPath}`);
+            }
+            else if (target.supersededBy !== document.path)
+            {
+                errors.push(`${document.path} supersedes ${targetPath} without reciprocal supersededBy`);
+            }
+        }
+        if (document.supersededBy)
+        {
+            const replacement = documentByPath.get(document.supersededBy);
+            if (!replacement)
+            {
+                errors.push(`${document.path} supersededBy target does not exist: ${document.supersededBy}`);
+            }
+            else if (!replacement.supersedes.includes(document.path))
+            {
+                errors.push(`${document.path} supersededBy ${document.supersededBy} without reciprocal supersedes`);
+            }
+        }
+    }
+    for (const start of inventory.documents)
+    {
+        const visited = new Set();
+        let current = start;
+        while (current?.supersededBy)
+        {
+            if (visited.has(current.path))
+            {
+                errors.push(`document supersession cycle includes ${current.path}`);
+                break;
+            }
+            visited.add(current.path);
+            current = documentByPath.get(current.supersededBy);
         }
     }
     if (options.validateGit !== false)
@@ -391,17 +432,17 @@ function ValidatePolicy(root, policy, inventory, errors, options)
             }
         }
     }
-    const redirectSources = new Set();
-    for (const redirect of policy.redirects ?? [])
+    const migrationSources = new Set();
+    for (const migration of policy.pathMigrations ?? [])
     {
-        if (redirectSources.has(redirect.from))
+        if (migrationSources.has(migration.from))
         {
-            errors.push(`duplicate document redirect source ${redirect.from}`);
+            errors.push(`duplicate document path migration source ${migration.from}`);
         }
-        redirectSources.add(redirect.from);
-        if (paths.has(redirect.from) || !paths.has(redirect.to))
+        migrationSources.add(migration.from);
+        if (paths.has(migration.from) || !paths.has(migration.to))
         {
-            errors.push(`invalid document redirect ${redirect.from} -> ${redirect.to}`);
+            errors.push(`invalid document path migration ${migration.from} -> ${migration.to}`);
         }
     }
 }

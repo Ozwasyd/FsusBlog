@@ -1,9 +1,9 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:982e707426637f25c907fdf0822c0544207b334e045f5352e36485cf09548348",
-    "sourceStateSha256": "982e707426637f25c907fdf0822c0544207b334e045f5352e36485cf09548348",
-    "configurationSha256": "94749862fca30a16e3aa4249fcd4aa61f8ad1df1c2823c9d14780e6b3e1f776d",
-    "violationCount": 304404,
+    "generatedFrom": "source-state:eff760c96daa43fde5fac4c0721ddc61c1951689573731e82ae54e35b4eefafb",
+    "sourceStateSha256": "eff760c96daa43fde5fac4c0721ddc61c1951689573731e82ae54e35b4eefafb",
+    "configurationSha256": "178ff83b1d2e9e0fbb167309754c7a7db206085a41f2f106ce0460c248918f26",
+    "violationCount": 304382,
     "fileCount": 1057,
     "files": [
         {
@@ -11886,13 +11886,10 @@
         },
         {
             "path": "tools/docs/check-public-preview-docs.mjs",
-            "sourceSha256": "d439b6e4ad788470ed4a0d8be8e30f198420c2ba22252c343ab5d564a446eb77",
-            "violationCount": 22,
-            "violationDigest": "3a55859d653be8ccd0e153066f59f73451517bb76b9e2660e80076e66e05cf68",
-            "rules": {
-                "eslint/@stylistic/indent": 21,
-                "eslint/import-x/order": 1
-            }
+            "sourceSha256": "f6ae233d196fec86ab56e9b0b20748794634a464f6279f78fca3ae3c9700a62a",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/docs/check-public-preview-screenshots.mjs",
@@ -13582,7 +13579,7 @@
             "path": "tools/test/bundles/run-bundle.mjs",
             "sourceSha256": "09d4df0dbc737fc3146dce90598ee33c9c11e3ba9a82ca9fd5112d75d8229fb6",
             "violationCount": 2971,
-            "violationDigest": "63d08ad59136f9ca82a7545c401c2c13cd6b19f7c544f36e2b0a7fa7aad2c542",
+            "violationDigest": "482fb08bc99d01d040366a6278cdb8691c28f3fadfe865a64e1ec30c7fee4771",
             "rules": {
                 "eslint/@stylistic/brace-style": 243,
                 "eslint/@stylistic/indent": 1860,

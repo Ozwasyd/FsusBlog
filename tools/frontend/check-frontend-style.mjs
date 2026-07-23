@@ -422,7 +422,9 @@ function configurationDigest()
         path.join(root, policy.toolchain.lock),
         ...policy.configurationSources.map((file) => path.join(root, file))
     ];
-    return sha256(paths.map((file) => `${toPosix(path.relative(root, file))}\n${sha256(fs.readFileSync(file))}`).join('\n'));
+    const sources = paths.map((file) => `${toPosix(path.relative(root, file))}\n${sha256(fs.readFileSync(file))}`);
+    sources.push(`runtime\nnode=${process.version}\nplatform=${process.platform}\narch=${process.arch}`);
+    return sha256(sources.join('\n'));
 }
 
 function sourceStateDigest()

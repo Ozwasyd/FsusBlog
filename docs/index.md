@@ -1,10 +1,10 @@
 # Documentation Index
 
-本索引由 `config/development/document-lifecycle.json` 和当前 `docs/` inventory 生成。长期事实源只出现在 Current 区域；issue handoff、迁移记录和实施快照会被显式分类为 Historical，不再与当前权威文档并列。
+本索引由 `config/development/document-lifecycle.json` 中的显式 metadata 和当前 `docs/` inventory 生成。长期事实源只出现在 Current 区域；工单关联和替代关系不再从文件名推导。
 
 - Lifecycle policy: [`development/document-lifecycle.md`](development/document-lifecycle.md)
 - Machine-readable inventory: [`../config/development/document-inventory.generated.json`](../config/development/document-inventory.generated.json)
-- Historical documents keep stable paths until an explicit redirect-map migration is reviewed.
+- Path migrations are repository records, not GitHub blob URL redirects.
 
 ## Current sources of truth
 
@@ -235,144 +235,16 @@
 
 ## Historical
 
-- [Issue 1208：发布文章正文缺失契约](api/issue-1208-article-body-missing.md) - owner `backend`; issues #1208
-- [Runtime capability slices and source-file budget](architecture/issue-1119-runtime-capability-slices.md) - owner `backend`; issues #1119
-- [Issue 1208：ArticleBody 本机修复与公开产物门禁](architecture/issue-1208-article-body-repair.md) - owner `backend`; issues #1208
-- [Router and FullApp bootstrap ownership](architecture/issue-1262-router-bootstrap-ownership.md) - owner `backend`; issues #1262
-- [Article Core use-case ownership](architecture/issue-1264-article-core-ownership.md) - owner `backend`; issues #1264
-- [Retired character challenge migration note](history/retired-character-challenges.md) - owner `governance`
-- [IntegrityProof Developer Implementation Notes](integrity/implementation-notes.md) - owner `backend`
-- [Issue #1013 runtime fallback retirement handoff](issue-1013-runtime-fallback-retirement-handoff.md) - owner `governance`; issues #1013
-- [Issue #1014 identity retirement handoff](issue-1014-identity-retirement-handoff.md) - owner `governance`; issues #1014
-- [Issue #1016 public shell sticky geometry handoff](issue-1016-public-shell-sticky-geometry-handoff.md) - owner `governance`; issues #1016
-- [Issue #1017 archive sticky offset handoff](issue-1017-archive-sticky-offset-handoff.md) - owner `governance`; issues #1017
-- [Issue #1018 public typography handoff](issue-1018-public-typography-handoff.md) - owner `governance`; issues #1018
-- [Issue #1019 public-home editorial handoff](issue-1019-public-home-editorial-handoff.md) - owner `governance`; issues #1019
-- [Issue #1020 content-driven cover handoff](issue-1020-content-cover-handoff.md) - owner `governance`; issues #1020
-- [Issue #1021 public chrome handoff](issue-1021-public-chrome-handoff.md) - owner `governance`; issues #1021
-- [Issue #1022 admin dashboard handoff](issue-1022-admin-dashboard-handoff.md) - owner `governance`; issues #1022
-- [Issue #1023 admin information-architecture handoff](issue-1023-admin-ia-handoff.md) - owner `governance`; issues #1023
-- [Issue #1024 immutable release identity handoff](issue-1024-release-identity-handoff.md) - owner `governance`; issues #1024
-- [Issue #1025 Blue/Green slot handoff](issue-1025-blue-green-slots-handoff.md) - owner `governance`; issues #1025
-- [Issue #1026 atomic gateway handoff](issue-1026-gateway-switch-handoff.md) - owner `governance`; issues #1026
-- [Issue #1027 deployment lifecycle handoff](issue-1027-deployment-lifecycle-handoff.md) - owner `governance`; issues #1027
-- [Issue #1028 integration handoff](issue-1028-online-migration-handoff.md) - owner `governance`; issues #1028
-- [Issues #1029 / #1031：Service Worker 浏览器证据交接](issue-1029-1031-service-worker-browser-handoff.md) - owner `governance`; issues #1029, #1031
-- [Issue #1029 implementation handoff](issue-1029-storage-lifecycle-handoff.md) - owner `governance`; issues #1029
-- [Issue #1030 集成 handoff](issue-1030-active-release-fencing-handoff.md) - owner `governance`; issues #1030
-- [Issue #1031 old frontend and retained asset compatibility handoff](issue-1031-asset-compatibility-handoff.md) - owner `governance`; issues #1031
-- [Issue 1031 Documentation Handoff](issue-1031-documentation-handoff.json) - owner `governance`; issues #1031
-- [Issue #1031 Online Migration Qualification Handoff](issue-1031-migration-qualification-handoff.md) - owner `governance`; issues #1031
-- [Issue #1031 Notification Evidence Handoff](issue-1031-notification-evidence-handoff.md) - owner `governance`; issues #1031
-- [Issue #1031 release evidence 测试交接](issue-1031-release-evidence-handoff.md) - owner `governance`; issues #1031
-- [Issue #1031：HTTP traffic probe 强证据交接](issue-1031-traffic-probe-handoff.md) - owner `governance`; issues #1031
-- [Issue #1031：正常 worker observer producer 交接](issue-1031-worker-normal-observer-handoff.md) - owner `governance`; issues #1031
-- [Issue #1031 worker reconciliation drill handoff](issue-1031-worker-reconciliation-handoff.md) - owner `governance`; issues #1031
-- [Issue #1031：零停机发布端到端演练编排交接](issue-1031-zero-downtime-rehearsal-handoff.md) - owner `governance`; issues #1031
-- [Issue #1041 executable data test governance](issue-1041-executable-data-test-governance.md) - owner `governance`; issues #1041
-- [Issue #1285 touch-target floor](issue-1285-touch-target-floor.md) - owner `governance`; issues #1285
-- [Issue #1287 article title authority](issue-1287-article-title-authority.md) - owner `governance`; issues #1287
-- [Issue #1289 loaded font-weight acceptance](issue-1289-loaded-font-weight-acceptance.md) - owner `governance`; issues #1289
-- [Issue #1291 account page title hierarchy](issue-1291-account-page-title-hierarchy.md) - owner `governance`; issues #1291
-- [Issue #1292 account navigation hierarchy](issue-1292-account-navigation-hierarchy.md) - owner `governance`; issues #1292
-- [Issue #1293 account integer typography](issue-1293-account-integer-typography.md) - owner `governance`; issues #1293
-- [Issue #1294 document Markdown layout](issue-1294-document-markdown-layout.md) - owner `governance`; issues #1294
-- [Issue #1306 PublicShell auth/search delegation handoff](issue-1306-public-shell-delegation-handoff.md) - owner `governance`; issues #1306
-- [Issue #1307 PublicShell CSS ownership handoff](issue-1307-public-shell-css-ownership-handoff.md) - owner `governance`; issues #1307
-- [Issue #1309 account frame handoff](issue-1309-account-frame-handoff.md) - owner `governance`; issues #1309
-- [Issue #1310 Account CSS ownership handoff](issue-1310-account-css-ownership-handoff.md) - owner `governance`; issues #1310
-- [Issue #1311 account header action handoff](issue-1311-account-header-actions.md) - owner `governance`; issues #1311
-- [Issue #1312 Account route motion handoff](issue-1312-account-route-motion-handoff.md) - owner `governance`; issues #1312
-- [Issue #399 节点间缓存失效总线](issue-399-distributed-invalidation.md) - owner `governance`; issues #399
-- [A3-1 Upload session root-sweep retirement](releases/issue-1013-a3-1-upload-session-root-sweep.md) - owner `release`; issues #1013
-- [A3-2 Site-subscription HMAC cutover](releases/issue-1013-a3-2-subscription-hmac-cutover.md) - owner `release`; issues #1013
-- [A3-3 Article content-column fallback retirement](releases/issue-1013-a3-3-article-content-finalize.md) - owner `release`; issues #1013
-- [A3-4 Legacy plain-cookie read retirement](releases/issue-1013-a3-4-plain-cookie-read.md) - owner `release`; issues #1013
-- [A3-7 PublicAOT legacy sidecar-hash retirement](releases/issue-1013-a3-7-aot-sidecar-hash.md) - owner `release`; issues #1013
-- [A3-8 Legacy public-artifact clear migration](releases/issue-1013-a3-8-artifact-clear-migration.md) - owner `release`; issues #1013
-- [Historical / Legacy: v1.1.0 Public Preview](releases/v1.1.0-public-preview.md) - owner `release`
-- [v1.1.0 Public Preview Readiness Snapshot](reports/open-source-readiness/v1.1.0-public-preview/README.md) - owner `governance`
-- [Dependency License Audit](reports/open-source-readiness/v1.1.0-public-preview/dependency-license-audit.json) - owner `governance`
-- [Dependency License Audit](reports/open-source-readiness/v1.1.0-public-preview/dependency-license-audit.md) - owner `governance`
-- [v1.1.0 Open Source Readiness Checklist](reports/open-source-readiness/v1.1.0-public-preview/readiness-checklist.md) - owner `governance`
-- [Secret Scan](reports/open-source-readiness/v1.1.0-public-preview/secret-scan.json) - owner `governance`
-- [Open Source Readiness Secret Scan](reports/open-source-readiness/v1.1.0-public-preview/secret-scan.md) - owner `governance`
-- [Snapshot Manifest](reports/open-source-readiness/v1.1.0-public-preview/snapshot-manifest.json) - owner `governance`
-- [Supply-Chain Audit](reports/open-source-readiness/v1.1.0-public-preview/supply-chain-audit.md) - owner `governance`
-- [Npm Audit](reports/open-source-readiness/v1.1.0-public-preview/supply-chain/npm-audit.json) - owner `governance`
-- [Npm Audit](reports/open-source-readiness/v1.1.0-public-preview/supply-chain/npm-audit.stderr) - owner `governance`
-- [Benchmarks Core FsusBlog.Core.Benchmarks.csproj](reports/open-source-readiness/v1.1.0-public-preview/supply-chain/nuget/benchmarks__core__FsusBlog.Core.Benchmarks.csproj.json) - owner `governance`
-- [Src Backend FsusBlog.Server.csproj](reports/open-source-readiness/v1.1.0-public-preview/supply-chain/nuget/src__backend__FsusBlog.Server.csproj.json) - owner `governance`
-- [Src Core FsusBlog.Core.csproj](reports/open-source-readiness/v1.1.0-public-preview/supply-chain/nuget/src__core__FsusBlog.Core.csproj.json) - owner `governance`
-- [Src Shared FsusBlog.Shared.csproj](reports/open-source-readiness/v1.1.0-public-preview/supply-chain/nuget/src__shared__FsusBlog.Shared.csproj.json) - owner `governance`
-- [Tests Backend FsusBlog.Server.Tests.csproj](reports/open-source-readiness/v1.1.0-public-preview/supply-chain/nuget/tests__backend__FsusBlog.Server.Tests.csproj.json) - owner `governance`
-- [Summary](reports/open-source-readiness/v1.1.0-public-preview/supply-chain/summary.json) - owner `governance`
-- [PerceptionCharacterV3 release validation v1](security/issue-1369-perception-character-v3-release-validation-v1.md) - owner `security`; issues #1369
-- [Issue #1032：紧凑且无源码的删测前基线](testing/issue-1032-compact-retention-baseline.md) - owner `release`; issues #1032
-- [Issue #1036：隐私与身份切换伪 gate 的行为替代](testing/issue-1036-privacy-and-cutover-replacements.md) - owner `release`; issues #1036
-- [Issue #1038：端点安全契约改为 EndpointDataSource 与 TestServer](testing/issue-1038-endpoint-security-contract-replacements.md) - owner `release`; issues #1038
-- [Issue #1040：并发与状态机行为测试替换](testing/issue-1040-concurrency-state-machines.md) - owner `release`; issues #1040
-- [Issue #1042：HotPath 可执行测量交接](testing/issue-1042-hotpath-measurement-handoff.md) - owner `release`; issues #1042
-- [Issue #1045：匿名身份与评论协议行为交接](testing/issue-1045-anonymous-identity-behavior-handoff.md) - owner `release`; issues #1045
-- [Issue #1046：反爬虫与评论风险控制行为交接](testing/issue-1046-risk-control-behavior-handoff.md) - owner `release`; issues #1046
-- [Issue #1047：统计隐私、Taxonomy、ReadModel 与序列化交接](testing/issue-1047-projection-serialization-handoff.md) - owner `release`; issues #1047
-- [Issue #1063 AEDS Wasm throughput handoff](testing/issue-1063-aeds-wasm-throughput-handoff.md) - owner `release`; issues #1063
-- [#1068 Vitest transform cache evidence](testing/issue-1068-vitest-transform-cache-evidence.md) - owner `release`; issues #1068
-- [Issue #1069：Production run-bound 构建输出](testing/issue-1069-run-bound-production-builds.md) - owner `release`; issues #1069
-- [Issue #1070：Production 物理 Artifact 摘要表](testing/issue-1070-production-artifact-digest-table.md) - owner `release`; issues #1070
-- [Production resource utilization evidence](testing/issue-1071-production-resource-utilization.md) - owner `release`; issues #1071
-- [Production cgroup and OCI resource enforcement](testing/issue-1072-production-resource-enforcement.md) - owner `release`; issues #1072
-- [Production Vitest rolling hosts](testing/issue-1073-production-vitest-rolling-hosts.md) - owner `release`; issues #1073
-- [Runtime browser counted slots (retired from correctness)](testing/issue-1074-runtime-browser-counted-slots.md) - owner `release`; issues #1074
-- [Production startup grants](testing/issue-1075-production-startup-grants.md) - owner `release`; issues #1075
-- [Frontend perf readiness](testing/issue-1076-frontend-perf-readiness.md) - owner `release`; issues #1076
-- [#1077 Live-grant command pools](testing/issue-1077-live-grant-command-pools.md) - owner `release`; issues #1077
-- [#1078 Immutable CI production build fan-out](testing/issue-1078-immutable-ci-production-builds.md) - owner `release`; issues #1078
-- [Issue #1079: Run-bound physical execution receipts](testing/issue-1079-run-bound-physical-execution.md) - owner `release`; issues #1079
-- [#1080 Resident Resource Lease 与跨 Bundle Handoff](testing/issue-1080-resident-resource-leases.md) - owner `release`; issues #1080
-- [#1081 Performance evidence marker DAG](testing/issue-1081-performance-evidence-marker-dag.md) - owner `release`; issues #1081
-- [Issue #1082：Production 单一异步日志管线](testing/issue-1082-async-log-pipeline.md) - owner `release`; issues #1082
-- [Issue #1083：前端构建 live grant stage DAG](testing/issue-1083-frontend-live-grant-build-dag.md) - owner `release`; issues #1083
-- [Issue #1084：persistent UX browser pool 退役边界](testing/issue-1084-persistent-ux-browser-pool.md) - owner `release`; issues #1084
-- [Issue #1085：公共路由真实状态门禁](testing/issue-1085-public-route-real-status.md) - owner `release`; issues #1085
-- [Issue #1087：标签 URL 单一身份](testing/issue-1087-tag-url-identity.md) - owner `release`; issues #1087
-- [Issue #1091 — Public SEO head contract verification](testing/issue-1091-public-seo-head.md) - owner `release`; issues #1091
-- [Issue #1095：本地 FsusUI 移动菜单动效验收](testing/issue-1095-local-fsusui-mobile-menu-motion.md) - owner `release`; issues #1095
-- [Issue #1096: Local FsusUI article theme verification](testing/issue-1096-local-fsusui-article-theme.md) - owner `release`; issues #1096
-- [Issue #1108 Service Worker cache verification](testing/issue-1108-service-worker-private-cache.md) - owner `release`; issues #1108
-- [Issue #1111 local verification](testing/issue-1111-audit-detached-checkpoints.md) - owner `release`; issues #1111
-- [Issue 1125: article outbox crash-window verification](testing/issue-1125-article-outbox-crash-window.md) - owner `release`; issues #1125
-- [Issue #1126 source-read convergence](testing/issue-1126-source-read-convergence.md) - owner `release`; issues #1126
-- [Issue #1128 fenced commit drills](testing/issue-1128-fenced-commit-drills.md) - owner `release`; issues #1128
-- [Issue #1141 local verification](testing/issue-1141-audit-retention.md) - owner `release`; issues #1141
-- [#1145 Public 合成矩阵轻量化交接](testing/issue-1145-browserless-public-contracts.md) - owner `release`; issues #1145
-- [#1146 Acceptance 轻量化交接](testing/issue-1146-lightweight-acceptance.md) - owner `release`; issues #1146
-- [#1148 Browser diagnostics 交接](testing/issue-1148-browser-diagnostics.md) - owner `release`; issues #1148
-- [#1149 Browser Contract 单命名空间夹具](testing/issue-1149-browser-contract-fixture.md) - owner `release`; issues #1149
-- [#1150 Browserless correctness 与单 Browser Contract 交接](testing/issue-1150-browserless-ci-topology.md) - owner `release`; issues #1150
-- [#1151 轻量测试 Evidence 治理](testing/issue-1151-evidence-governance.md) - owner `release`; issues #1151
-- [AEDS frame-cost evidence gate](testing/issue-1152-aeds-frame-cost-evidence.md) - owner `release`; issues #1152
-- [Frontend test support ownership](testing/issue-1173-frontend-test-support-ownership.md) - owner `release`; issues #1173
-- [C# entrypoint and protocol-fixture ownership](testing/issue-1174-csharp-entrypoint-ownership.md) - owner `release`; issues #1174
-- [Issue #1180 scheduler.yield local experiment](testing/issue-1180-scheduler-yield-experiment.md) - owner `release`; issues #1180
-- [Issue #1188 Passkey metadata / projection 验收](testing/issue-1188-passkey-metadata-projection.md) - owner `release`; issues #1188
-- [Issue 1189 Comment Moderation Window Verification](testing/issue-1189-comment-moderation-window.md) - owner `release`; issues #1189
-- [Issue 1211 article asset reference verification](testing/issue-1211-article-asset-reference-tests.md) - owner `release`; issues #1211
-- [Issue 1228 长会话消息分页验收](testing/issue-1228-message-thread-pagination.md) - owner `release`; issues #1228
-- [Issue 1243 router Session matrix](testing/issue-1243-router-session-matrix.md) - owner `release`; issues #1243
-- [Issue 1246 本地脱敏矩阵](testing/issue-1246-telemetry-redaction-matrix.md) - owner `release`; issues #1246
-- [Issue #1247 Private Navigation Matrix](testing/issue-1247-private-navigation-matrix.md) - owner `release`; issues #1247
-- [Issue #1248 private storage registry](testing/issue-1248-private-storage-registry.md) - owner `release`; issues #1248
-- [Issue 1249 本地会话刷新矩阵](testing/issue-1249-session-refresh-matrix.md) - owner `release`; issues #1249
-- [#1267 单一测试编排器](testing/issue-1267-single-orchestrator.md) - owner `release`; issues #1267
-- [Issue 1305 identity primitive evidence](testing/issue-1305-identity-primitives-evidence.md) - owner `release`; issues #1305
-- [Cross-stack canonical receipt join](testing/issue-1381-cross-stack-receipt-join.md) - owner `release`; issues #1381
-- [Issue #1387 rolling Vitest cache 与 coverage 合同](testing/issue-1387-rolling-vitest-cache-and-coverage.md) - owner `release`; issues #1387
-- [Backend Production build authority](testing/issue-1389-backend-build-authority.md) - owner `release`; issues #1389
-- [#1418 frontend build readiness DAG](testing/issue-1418-frontend-build-readiness-dag.md) - owner `release`; issues #1418
-- [Issue #1434：public period motif 测试分层](testing/issue-1434-public-period-motif-contract.md) - owner `release`; issues #1434
-- [Issue #1435：admin inline empty-state 测试职责](testing/issue-1435-admin-inline-empty-state-contract.md) - owner `release`; issues #1435
-- [Issues #1033–#1035：治理测试与阻塞 tier 收口](testing/issues-1033-1035-test-governance-retirements.md) - owner `release`; issues #1033, #1035
+- `api`: 1 document
+- `architecture`: 4 documents
+- `history`: 1 document
+- `integrity`: 1 document
+- `releases`: 7 documents
+- `reports`: 15 documents
+- `reports/open-source-readiness`: 1 asset
+- `root migration records`: 42 documents
+- `security`: 1 document
+- `testing`: 65 documents
 
 ## Generated
 

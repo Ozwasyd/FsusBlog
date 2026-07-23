@@ -3938,7 +3938,7 @@
         },
         {
             "id": "document-lifecycle-governance",
-            "description": "Every docs file has generated status and owner metadata; current authority, historical handoffs, generated producers, links and redirects are fail-closed.",
+            "description": "Every docs file has explicit status, owner, issue and supersession metadata; current authority, semantic naming, generated producers, links and path migrations are fail-closed.",
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
@@ -3952,7 +3952,7 @@
                 "docs/index.md"
             ],
             "assertionType": "integration",
-            "failClosedRule": "Reject incomplete or stale inventory/index output, duplicate source-of-truth claims, closed-issue documents presented as current, missing generated producers, broken internal links, retired references, invalid redirects, and stale verification commits.",
+            "failClosedRule": "Reject incomplete or stale inventory/index output, duplicate source-of-truth claims, unregistered or legacy-named documents, invalid supersession graphs, missing generated producers, broken internal links, retired references, invalid path migrations, and stale verification commits.",
             "minimumRequirement": "Static governance must project every docs file into the lifecycle inventory and exercise positive and negative metadata, link, producer, retired-reference and redirect fixtures.",
             "tierIds": [
                 "static-governance"

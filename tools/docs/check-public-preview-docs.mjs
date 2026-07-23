@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const root = resolve(import.meta.dirname, '../..');
 
@@ -28,23 +28,23 @@ export function ValidateProductVersionGovernance(contents)
     const errors = [];
     const get = (path) => contents.get(path) ?? '';
     const includes = (path, token) =>
-{
+    {
         if (!get(path).includes(token))
-{
+        {
             errors.push(`${path} missing ${token}`);
         }
     };
 
     for (const path of ProductPolicyPaths)
-{
+    {
         for (const line of get(path).split(/\r?\n/u))
-{
+        {
             const matches = [...line.matchAll(ProductSemVerPattern)];
             const historicalContext = /\b(?:historical|legacy|provenance)\b/iu.test(line);
             for (const match of matches)
-{
+            {
                 if (!historicalContext)
-{
+                {
                     errors.push(`${path} uses product SemVer ${match[0]} in an active policy source`);
                 }
             }
@@ -52,11 +52,11 @@ export function ValidateProductVersionGovernance(contents)
     }
 
     for (const line of get('README.md').split(/\r?\n/u))
-{
+    {
         const productPromise = /(?:FsusBlog\s+v\d+\.\d+\.\d+|(?:\b(?:before|until|from|during)\b|在|从|直到)[^\n]*\bv\d+\.\d+\.\d+)/iu.test(line);
         const historicalContext = /\b(?:historical|legacy|provenance)\b/iu.test(line);
         if (productPromise && !historicalContext)
-{
+        {
             errors.push('README.md uses product SemVer as a current status or compatibility boundary');
         }
     }
@@ -69,7 +69,7 @@ export function ValidateProductVersionGovernance(contents)
         'canonical ReleaseId',
         'docs/releases/public-preview-policy.md'
     ])
-{
+    {
         includes('README.md', token);
     }
 
@@ -81,7 +81,7 @@ export function ValidateProductVersionGovernance(contents)
         'Completion condition',
         'not product versions or delivery-date promises'
     ])
-{
+    {
         includes('ROADMAP.md', token);
     }
 
@@ -98,7 +98,7 @@ export function ValidateProductVersionGovernance(contents)
         'robots.txt',
         'health probes'
     ])
-{
+    {
         includes('docs/api/stability.md', token);
     }
 
@@ -110,13 +110,13 @@ export function ValidateProductVersionGovernance(contents)
         '.github/ISSUE_TEMPLATE/documentation.yml',
         '.github/ISSUE_TEMPLATE/governance_process.yml'
     ])
-{
+    {
         includes(path, 'Release ID or full commit SHA');
         includes(path, '20260720143025-32a785eabb20');
     }
 
     if (!CanonicalReleaseHeadingPattern.test(get('CHANGELOG.md')))
-{
+    {
         errors.push('CHANGELOG.md missing canonical ReleaseId heading example');
     }
     includes('CHANGELOG.md', '## Unreleased');
@@ -133,12 +133,22 @@ export function ValidateProductVersionGovernance(contents)
     const index = get('docs/index.md');
     const currentPolicyLinks = index.match(/\]\(releases\/public-preview-policy\.md\)/gu) ?? [];
     if (currentPolicyLinks.length !== 1)
-{
+    {
         errors.push(`docs/index.md must list exactly one current preview policy; found ${currentPolicyLinks.length}`);
     }
-    if (!/## Historical[\s\S]*\]\(releases\/v1\.1\.0-public-preview\.md\)/u.test(index))
-{
-        errors.push('docs/index.md must classify the legacy preview policy as Historical');
+    let inventory;
+    try
+    {
+        inventory = JSON.parse(get('config/development/document-inventory.generated.json'));
+    }
+    catch
+    {
+        errors.push('config/development/document-inventory.generated.json must be valid JSON');
+    }
+    const legacyPreview = inventory?.documents?.find((document) => document.path === 'docs/releases/v1.1.0-public-preview.md');
+    if (legacyPreview?.status !== 'historical' || legacyPreview.sourceOfTruth !== false)
+    {
+        errors.push('document inventory must classify the legacy preview policy as historical and non-authoritative');
     }
 
     return errors;
@@ -151,6 +161,7 @@ function ReadRepositorySources()
         ...ProductPolicyPaths,
         'README.md',
         'docs/index.md',
+        'config/development/document-inventory.generated.json',
         'docs/releases/v1.1.0-public-preview.md',
         'src/backend/CHANGELOG.md',
         '.github/ISSUE_TEMPLATE/accessibility_ui.yml',
@@ -162,13 +173,13 @@ function ReadRepositorySources()
     ]);
     const contents = new Map();
     for (const path of paths)
-{
+    {
         try
-{
+        {
             contents.set(path, readFileSync(resolve(root, path), 'utf8'));
         }
- catch
-{
+        catch
+        {
             errors.push(`missing ${path}`);
             contents.set(path, '');
         }
@@ -181,9 +192,9 @@ function Main()
     const { contents, errors } = ReadRepositorySources();
     errors.push(...ValidateProductVersionGovernance(contents));
     if (errors.length > 0)
-{
+    {
         for (const error of errors)
-{
+        {
             console.error(`[public-preview-docs] ${error}`);
         }
         process.exitCode = 1;
