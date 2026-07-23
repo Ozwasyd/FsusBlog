@@ -142,6 +142,8 @@ for (const token of [
     'manual screenshot shards cannot write docs assets',
     'public-preview docs capture requires the complete unfiltered registry',
     'assertContentDrivenCoverContract',
+    'await page.screenshot(screenshotOptions)',
+    'await waitForScreenshotPaintStability(page)',
     'data-content-cover',
     'data-cover-concept=',
     'cover should avoid a large bright block'

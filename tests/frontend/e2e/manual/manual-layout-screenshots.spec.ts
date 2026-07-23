@@ -451,11 +451,14 @@ async function captureRouteScreenshot(page: Page, route: ManualRoute, viewport: 
 
   const outputPath = screenshotPath(route, viewport, theme)
   const docsPath = docsScreenshotPath(route, viewport, theme)
-  const screenshot = await page.screenshot({
+  const screenshotOptions = {
     fullPage: true,
-    animations: 'disabled',
-    caret: 'hide'
-  })
+    animations: 'disabled' as const,
+    caret: 'hide' as const
+  }
+  await page.screenshot(screenshotOptions)
+  await waitForScreenshotPaintStability(page)
+  const screenshot = await page.screenshot(screenshotOptions)
 
   await mkdir(path.dirname(outputPath), { recursive: true })
   await writeFile(outputPath, screenshot)
