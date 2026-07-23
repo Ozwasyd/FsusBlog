@@ -64,6 +64,11 @@ if (args.Contains("--pod-binary-codec-batch-profile", StringComparer.Ordinal))
     return PodBinaryCodecBatchProfiler.Run(args);
 }
 
+if (args.Contains("--perception-character-v3-pool-issue-profile", StringComparer.Ordinal))
+{
+    return PerceptionCharacterV3PoolIssueProfiler.Run(args);
+}
+
 var benchmarkJob = string.Equals(
     Environment.GetEnvironmentVariable("FSUSBLOG_BENCHMARK_IN_PROCESS_NO_EMIT"),
     "1",

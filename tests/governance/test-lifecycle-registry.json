@@ -82,6 +82,18 @@
             ]
         },
         {
+            "file": "tests/security/perception-character-v3-release-gate.test.mjs",
+            "owner": "repository-governance:perception-character-v3-release-gate",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "behavior",
+                "perf",
+                "runtime"
+            ]
+        },
+        {
             "file": "tests/security/perception-character-v3-spec.test.mjs",
             "owner": "manual-diagnostic:tests/security/perception-character-v3-spec.test.mjs",
             "executionCategory": "manual-diagnostic",

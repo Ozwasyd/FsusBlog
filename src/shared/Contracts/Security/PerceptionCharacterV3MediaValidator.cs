@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.IO.Compression;
 
 namespace FsusBlog.Shared.Contracts.Security;
 
@@ -18,7 +19,7 @@ internal static class PerceptionCharacterV3MediaValidator
             header[8] != 4 || header[9] != 0 || header[10] != 0 || header[11] != 0 || header[12] != 0)
             return false;
         if (!TryChunk(bytes, ref offset, "IDAT"u8, out ReadOnlySpan<byte> imageData) ||
-            !ValidateStoredImageData(imageData))
+            !ValidateCompressedImageData(imageData))
             return false;
         return TryChunk(bytes, ref offset, "IEND"u8, out ReadOnlySpan<byte> end) &&
                end.IsEmpty && offset == bytes.Length;
@@ -67,15 +68,29 @@ internal static class PerceptionCharacterV3MediaValidator
         return pageCount >= 3 && sawTags && sawAudio && sawEos;
     }
 
-    private static bool ValidateStoredImageData(ReadOnlySpan<byte> data)
+    private static bool ValidateCompressedImageData(ReadOnlySpan<byte> data)
     {
         int scanlineBytes = PerceptionCharacterV3Contracts.PhysicalHeight *
             (1 + PerceptionCharacterV3Contracts.PhysicalWidth / 2);
-        if (data.Length != 2 + 5 + scanlineBytes + 4 || data[0] != 0x78 || data[1] != 0x01 ||
-            data[2] != 1 || BinaryPrimitives.ReadUInt16LittleEndian(data[3..]) != scanlineBytes ||
-            BinaryPrimitives.ReadUInt16LittleEndian(data[5..]) != (ushort)(0xffff ^ scanlineBytes))
+        if (data.Length < 6 || data[0] != 0x78 || data[1] != 0xda)
             return false;
-        ReadOnlySpan<byte> scanlines = data.Slice(7, scanlineBytes);
+        byte[] scanlines = new byte[scanlineBytes];
+        try
+        {
+            using var input = new MemoryStream(data.ToArray(), writable: false);
+            using var zlib = new ZLibStream(input, CompressionMode.Decompress, leaveOpen: true);
+            zlib.ReadExactly(scanlines);
+            if (zlib.ReadByte() != -1)
+                return false;
+        }
+        catch (InvalidDataException)
+        {
+            return false;
+        }
+        catch (EndOfStreamException)
+        {
+            return false;
+        }
         int stride = 1 + PerceptionCharacterV3Contracts.PhysicalWidth / 2;
         for (int row = 0; row < PerceptionCharacterV3Contracts.PhysicalHeight; row++)
             if (scanlines[row * stride] != 0)

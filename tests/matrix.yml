@@ -122,6 +122,7 @@ localProfiles:
                       app-config-local-tuning,
                       wasm-fuzz-regression,
                       perception-v2-redteam-pr,
+                      perception-character-v3-release-gate,
                       risk-control-test-matrix,
                       ux-viewport-plan-progress,
                       native-smoke,
@@ -5503,6 +5504,45 @@ tiers:
       localOnly: false
       nightlyOnly: false
 
+    - id: perception-character-v3-release-gate
+      owner: ServerContractAgent
+      command: tools/test/lanes/perception-character-v3-release-gate.sh
+      dependsOn: []
+      services: []
+      parallelizable: true
+      exclusiveResources: [perception-character-v3-release-corpus]
+      phase: 1
+      cost: high
+      resourceClass: benchmark
+      cpuWeight: 8
+      memoryWeight: 3
+      minCpuUnits: 4
+      requiresBootstrap: none
+      requiresNode: true
+      requiresDotnet: true
+      requiresPlaywright: none
+      cacheProfile: none
+      timeoutMinutes: 30
+      shardable: false
+      defaultShards: 1
+      risk: critical
+      cadence: push
+      requiredFor: production
+      coverage: [perception-character-v3-breaking-release]
+      artifacts: [.tmp/security/perception-character-v3/release-gate]
+      evidence:
+          [
+              .tmp/security/perception-character-v3/release-gate/gate-summary.json,
+              .tmp/security/perception-character-v3/release-gate/corpus/perception-character-v3-corpus-report.json,
+              .tmp/security/perception-character-v3/release-gate/perception-character-v3-benchmark-report.json,
+              .tmp/security/perception-character-v3/release-gate/perception-character-v3-migration-receipt.json,
+              .tmp/security/perception-character-v3/release-gate/implementation-verification-receipt.json,
+              .tmp/security/perception-character-v3/release-gate/independent-review-receipt.json,
+          ]
+      ciJob: security-static-fuzz
+      localOnly: false
+      nightlyOnly: false
+
     - id: release-evidence
       owner: ServerContractAgent
       command: tools/test/lanes/release-evidence.sh
@@ -5525,6 +5565,7 @@ tiers:
               privacy-zk-comment-matrix,
               wasm-fuzz-regression,
               perception-v2-redteam-pr,
+              perception-character-v3-release-gate,
               ux-viewport-plan-progress,
               frontend-render-structure,
               resilience,
@@ -6465,6 +6506,7 @@ tiers:
               release-final-shard-completeness,
               test-quality-lint,
               native-fuzz-sanitizer,
+              perception-character-v3-release-gate,
           ]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false

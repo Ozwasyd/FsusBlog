@@ -1,4 +1,5 @@
 import { createHmac } from 'node:crypto';
+import { constants as zlibConstants, deflateSync } from 'node:zlib';
 
 export function encodeVisualArtifact(contract, gray8, artifactSeed)
 {
@@ -25,7 +26,10 @@ export function encodeVisualArtifact(contract, gray8, artifactSeed)
     header.writeUInt32BE(height, 4);
     header.set([4, 0, 0, 0, 0], 8);
     const png = Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), chunk('IHDR', header),
-        chunk('IDAT', zlibStored(scanlines)), chunk('IEND', Buffer.alloc(0))]);
+        chunk('IDAT', deflateSync(scanlines, {
+            level: 9,
+            strategy: zlibConstants.Z_DEFAULT_STRATEGY
+        })), chunk('IEND', Buffer.alloc(0))]);
     if (png.length > contract.media.visual.maximumBytes)
         throw new Error('visual artifact exceeds canonical hard limit');
     return png;
@@ -117,30 +121,6 @@ function chunk(type, data)
     const checksum = Buffer.alloc(4);
     checksum.writeUInt32BE(crc32(Buffer.concat([name, data])));
     return Buffer.concat([length, name, data, checksum]);
-}
-
-function zlibStored(data)
-{
-    const block = Buffer.alloc(5 + data.length);
-    block[0] = 1;
-    block.writeUInt16LE(data.length, 1);
-    block.writeUInt16LE(0xffff ^ data.length, 3);
-    data.copy(block, 5);
-    const checksum = Buffer.alloc(4);
-    checksum.writeUInt32BE(adler32(data));
-    return Buffer.concat([Buffer.from([0x78, 0x01]), block, checksum]);
-}
-
-function adler32(data)
-{
-    let a = 1;
-    let b = 0;
-    for (const value of data)
-    {
-        a = (a + value) % 65521;
-        b = (b + a) % 65521;
-    }
-    return ((b << 16) | a) >>> 0;
 }
 
 function crc32(data)

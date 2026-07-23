@@ -28,7 +28,7 @@ export function isCanonicalPerceptionCharacterV3Png(bytes: Uint8Array): boolean 
   }
 
   const image = readPngChunk(bytes, header.nextOffset, IDAT)
-  if (!image || !isCanonicalStoredImageData(image.data)) return false
+  if (!image || !hasCanonicalCompressedImageEnvelope(image.data)) return false
   const end = readPngChunk(bytes, image.nextOffset, IEND)
   return Boolean(end && end.data.byteLength === 0 && end.nextOffset === bytes.byteLength)
 }
@@ -86,29 +86,10 @@ function readPngChunk(
   return { data, nextOffset: crcOffset + 4 }
 }
 
-function isCanonicalStoredImageData(data: Uint8Array): boolean {
-  const scanlineBytes = VISUAL_HEIGHT * (1 + VISUAL_WIDTH / 2)
-  if (
-    data.byteLength !== 2 + 5 + scanlineBytes + 4 ||
-    data[0] !== 0x78 ||
-    data[1] !== 0x01 ||
-    data[2] !== 1
-  ) {
-    return false
-  }
-  const dataView = view(data)
-  if (
-    dataView.getUint16(3, true) !== scanlineBytes ||
-    dataView.getUint16(5, true) !== (0xffff ^ scanlineBytes)
-  ) {
-    return false
-  }
-  const scanlines = data.subarray(7, 7 + scanlineBytes)
-  const stride = 1 + VISUAL_WIDTH / 2
-  for (let row = 0; row < VISUAL_HEIGHT; row += 1) {
-    if (scanlines[row * stride] !== 0) return false
-  }
-  return dataView.getUint32(data.byteLength - 4) === adler32(scanlines)
+function hasCanonicalCompressedImageEnvelope(data: Uint8Array): boolean {
+  if (data.byteLength < 8 || data[0] !== 0x78 || data[1] !== 0xda) return false
+  const header = ((data[0] ?? 0) << 8) | (data[1] ?? 0)
+  return header % 31 === 0 && ((data[1] ?? 0) & 0x20) === 0
 }
 
 function readOggPage(
@@ -181,16 +162,6 @@ function isCanonicalOpusTags(packet: Uint8Array): boolean {
   return vendorLength <= packet.byteLength - 16 &&
     packet.byteLength === 16 + vendorLength &&
     packetView.getUint32(12 + vendorLength, true) === 0
-}
-
-function adler32(data: Uint8Array): number {
-  let a = 1
-  let b = 0
-  for (const value of data) {
-    a = (a + value) % 65_521
-    b = (b + a) % 65_521
-  }
-  return (((b << 16) | a) >>> 0)
 }
 
 function pngCrc(type: Uint8Array, data: Uint8Array): number {

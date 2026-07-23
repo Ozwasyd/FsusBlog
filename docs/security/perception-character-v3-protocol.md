@@ -55,7 +55,7 @@ The transported visual media is the exact deterministic PNG byte string:
 | physical | `384 x 144` |
 | display | `320 x 120` |
 | PNG IHDR | bit depth 4, color type 0 grayscale, no alpha |
-| compression/filter/interlace | zlib stored DEFLATE / filter 0 / none |
+| compression/filter/interlace | zlib DEFLATE level 9 / filter 0 / none |
 | hard limit | 32 KiB (`32768` bytes) |
 
 Generation order is answer sampling, glyph placement, affine transform, interference
@@ -78,8 +78,9 @@ level(x,y) = clamp4(round(gray8(x,y) * 15 / 255)
 The bias is constant across a cell, bounded to one 4-bit level and never transported.
 It preserves low-frequency interference while limiting entropy. Each scanline starts
 with PNG filter byte zero; two pixels are packed high nibble then low nibble.
-The zlib stream uses header `78 01`, one final uncompressed DEFLATE block, and
-Adler-32. PNG chunks are `IHDR`, one `IDAT`, then `IEND`, each with IEEE CRC-32.
+The zlib stream uses deterministic level-9 DEFLATE and Adler-32; stored-only DEFLATE
+is retired because it cannot satisfy the release percentile budgets. PNG chunks are
+exactly `IHDR`, one `IDAT`, then `IEND`, each with IEEE CRC-32.
 
 ## Final audio artifact
 

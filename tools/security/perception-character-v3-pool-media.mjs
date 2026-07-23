@@ -59,9 +59,13 @@ function ensureEncoder()
     return encoderPath;
 }
 
-export function encodeAudioArtifact(answer)
+export function encodeAudioArtifact(answer, { serialSeed = randomBytes(4), temporaryId = randomUUID() } = {})
 {
-    const prefix = randomUUID();
+    if (!Buffer.isBuffer(serialSeed) || serialSeed.length !== 4)
+        throw new Error('audio serial seed must be exactly four bytes');
+    if (!/^[0-9A-Za-z._-]{1,128}$/u.test(temporaryId))
+        throw new Error('audio temporary id is invalid');
+    const prefix = temporaryId;
     const pcm = buildSpokenPcm(answer);
     try
     {
@@ -83,7 +87,7 @@ export function encodeAudioArtifact(answer)
             packets.push(Buffer.from(bytes.subarray(offset, offset + length)));
             offset += length;
         }
-        return buildAudioArtifactFromPackets(contract, packets, randomBytes(4));
+        return buildAudioArtifactFromPackets(contract, packets, serialSeed);
     }
     finally
     {

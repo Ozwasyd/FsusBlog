@@ -229,7 +229,7 @@
             "alpha": false,
             "interlace": 0,
             "filter": 0,
-            "compression": "zlib-deflate-stored",
+            "compression": "zlib-deflate-level-9",
             "maximumBytes": 32768
         },
         "audio": {

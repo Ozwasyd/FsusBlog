@@ -4367,6 +4367,26 @@
             ]
         },
         {
+            "id": "perception-character-v3-breaking-release",
+            "description": "Breaking PerceptionCharacterV3 release is independently verified against deterministic visual/audio corpus budgets, one-time encrypted pool issuance, retired-format rejection, real Redis cutover idempotency and pool-path resource ratios.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                ".tmp/security/perception-character-v3/release-gate/gate-summary.json",
+                ".tmp/security/perception-character-v3/release-gate/corpus/perception-character-v3-corpus-report.json",
+                ".tmp/security/perception-character-v3/release-gate/perception-character-v3-benchmark-report.json",
+                ".tmp/security/perception-character-v3/release-gate/perception-character-v3-migration-receipt.json",
+                ".tmp/security/perception-character-v3/release-gate/implementation-verification-receipt.json",
+                ".tmp/security/perception-character-v3/release-gate/independent-review-receipt.json"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "Reject undersized, duplicate, biased, over-budget or baseline-readable corpus; stored-DEFLATE visual output; old formats; corrupt or wrong-key pools; repeat leases; non-idempotent cutover; insufficient CPU/allocation ratios; pre-admission allocation or leases; sensitive evidence; receipt digest drift; and any high or critical independent finding.",
+            "minimumRequirement": "One clean-checkout physical gate must generate at least 10000 visual and 2000 audio artifacts, execute the pool benchmark and real Redis cutover twice, bind exact commands and evidence hashes to one full commit and release target, and emit convergent implementation and independent-review receipts without duplicating corpus or benchmark work.",
+            "tierIds": [
+                "perception-character-v3-release-gate"
+            ]
+        },
+        {
             "id": "configuration-layout-governance",
             "description": "Repository and backend runtime configuration have one canonical owner, semantic contract, environment classification and fail-closed drift gate.",
             "owner": "ServerContractAgent",

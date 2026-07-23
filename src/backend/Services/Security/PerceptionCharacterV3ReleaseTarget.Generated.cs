@@ -8,7 +8,7 @@ public static class PerceptionCharacterV3ReleaseTarget
     public const string Schema = "fsusblog.security.perception-character-v3-release-target.v1";
     public const string Algorithm = "fsu.challenge/perception-character-artifact@v3";
     public const string WireName = "perceptionCharacterV3";
-    public const string ContractDigest = "0f901fad1168707621ef8866ac606f5a7c97294530b8c8916bfa04f068cd49d6";
+    public const string ContractDigest = "7206502fb3b558a0f5f1250b18ab0ab8eedf46df74d8449c9ea9b15295a335f4";
     public const string AedsSchemaFingerprint = "51b92ab8a82bac8977aea764558dd87ca9b7de0e326b1eefc4ad13ed436175b6";
-    public const string TargetFingerprint = "6498e2dfeb7c953a5f1eee4fa6882d85ce7728e4a920316f34811b4135811ece";
+    public const string TargetFingerprint = "07ecefcba99b653844a68e8adda52817012b0f927ac728649693a3b9b1211b9f";
 }
