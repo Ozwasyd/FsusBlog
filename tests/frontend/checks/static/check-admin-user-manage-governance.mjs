@@ -76,6 +76,8 @@ for (const [file, source] of [
 
 const requiredPageTokens = [
   '管理匿名账号容器、凭据状态与封禁操作。',
+  '<CollectionWorkbench',
+  '封禁与解封会触发强制算力校验。',
   "const userTableHasActiveFilters = computed(() => activeFilterChips.value.length > 0)",
   "userTableEmptyTitle = computed(() => userTableHasActiveFilters.value ? '没有匹配的账号' : '暂无匿名账号记录')",
   "userTableHasActiveFilters.value",
@@ -91,12 +93,11 @@ for (const token of requiredPageTokens) {
 }
 
 const requiredHeaderTokens = [
-  '账号筛选',
-  'text-[15px]',
-  '封禁与解封会触发强制算力校验',
+  'role="search"',
+  'aria-label="账号筛选"',
   'user-filter-actions',
   'grid-template-columns: minmax(0, 1fr);',
-  'max-width: 44rem;'
+  'max-width: 52rem;'
 ]
 
 for (const token of requiredHeaderTokens) {

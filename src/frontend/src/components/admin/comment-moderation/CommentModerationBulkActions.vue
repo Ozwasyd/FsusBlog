@@ -1,5 +1,5 @@
 <template>
-  <section class="border-t border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)] p-6" aria-label="评论批量审核">
+  <div class="comment-moderation-bulk-actions" aria-label="评论批量审核">
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
       <el-input
         :model-value="reason"
@@ -61,7 +61,7 @@
         </div>
       </template>
     </FsusDialog>
-  </section>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -119,5 +119,10 @@ const confirmPreview = (): void => {
 <style scoped>
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+.comment-moderation-bulk-actions {
+  width: 100%;
+  min-width: 0;
 }
 </style>

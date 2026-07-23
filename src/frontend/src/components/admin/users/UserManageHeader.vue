@@ -1,19 +1,5 @@
 <template>
-  <section class="mb-10 px-8" aria-label="账号筛选">
-    <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-      <div class="min-w-0">
-        <h2 class="flex flex-wrap items-center gap-4 text-[15px] font-bold tracking-normal text-[var(--fsusblog-text-primary)]">
-          账号筛选
-          <span class="text-xs tabular-nums font-bold text-[var(--fsusblog-text-muted)] bg-[var(--fsusblog-panel-bg-soft)] px-3 py-1 normal-case tracking-normal">
-            共 {{ total }}
-          </span>
-        </h2>
-        <p class="mt-3 max-w-2xl text-[12px] text-[var(--fsusblog-text-tertiary)] leading-relaxed normal-case tracking-normal font-bold">
-          封禁与解封会触发强制算力校验。
-        </p>
-      </div>
-
-      <div class="user-filter-stack grid gap-2">
+  <div class="user-filter-stack grid gap-2" role="search" aria-label="账号筛选">
         <div class="min-w-0">
           <el-select
             :model-value="status"
@@ -67,9 +53,6 @@
             重置
           </el-button>
         </div>
-      </div>
-    </div>
-
     <div v-if="activeFilters.length > 0" class="mt-6 flex flex-wrap gap-3">
       <el-tag
         v-for="chip in activeFilters"
@@ -80,8 +63,8 @@
       >
         {{ chip.label }}
       </el-tag>
-      </div>
-  </section>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -121,7 +104,7 @@ const onStatusChange = (value: number | undefined): void => {
 <style scoped>
 .user-filter-stack {
   width: 100%;
-  max-width: 44rem;
+  max-width: 52rem;
   grid-template-columns: minmax(0, 1fr);
 }
 
@@ -136,7 +119,7 @@ const onStatusChange = (value: number | undefined): void => {
 @media (min-width: 640px) {
   .user-filter-stack {
     grid-template-columns: 10rem minmax(0, 1fr) auto;
-    align-items: stretch;
+    align-items: center;
   }
 }
 </style>

@@ -1,0 +1,45 @@
+{
+    "pages": [
+        {
+            "name": "comment",
+            "source": "src/frontend/src/views/admin/CommentModeration.vue",
+            "states": ["loading", "empty", "error", "ready"],
+            "selectedCounts": [0, 1, 10],
+            "beforeRegions": ["all-filters-toolbar", "always-mounted-selection-actions", "results"],
+            "afterRegions": ["summary", "primary-filter", "selection-actions-when-selected", "results"],
+            "operationFlow": ["choose-status", "search", "select-row", "apply-selection-action"]
+        },
+        {
+            "name": "user",
+            "source": "src/frontend/src/views/admin/UserManage.vue",
+            "states": ["loading", "empty", "ready"],
+            "selectedCounts": [0],
+            "beforeRegions": ["page-specific-summary", "page-specific-toolbar", "results", "detached-pagination"],
+            "afterRegions": ["summary", "primary-filter", "results", "pagination"],
+            "operationFlow": ["filter-status", "search", "inspect-row", "change-status"]
+        },
+        {
+            "name": "article",
+            "source": "src/frontend/src/views/admin/article/List.vue",
+            "states": ["loading", "empty", "ready"],
+            "selectedCounts": [0],
+            "beforeRegions": ["standalone-toolbar", "standalone-summary", "results", "detached-pagination"],
+            "afterRegions": ["summary", "primary-filter", "results", "pagination"],
+            "operationFlow": ["filter-status", "search", "inspect-row", "open-editor"]
+        }
+    ],
+    "viewports": [
+        { "width": 1366, "height": 768 },
+        { "width": 375, "height": 812 }
+    ],
+    "themes": ["light", "dark"],
+    "densities": ["compact", "comfortable"],
+    "geometry": {
+        "pageHeaderGapPx": [20, 24],
+        "toolbarHeightPx": 44,
+        "toolbarGapPx": [8, 12],
+        "resultsGapPx": [20, 24],
+        "selectionHeightPx": [48, 56],
+        "paginationGapPx": [16, 20]
+    }
+}

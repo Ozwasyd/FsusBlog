@@ -217,6 +217,122 @@ html[data-theme-resolved='dark'] .admin-workspace-frame .article-list-toolbar-bu
     min-width: 0;
 }
 
+.admin-workspace-frame .collection-workbench
+ {
+    width: 100%;
+    min-width: 0;
+    margin-top: var(--fsus-space-6);
+    border-block: 1px solid var(--fsusblog-panel-border);
+    background: var(--fsusblog-page-bg);
+}
+
+.admin-workspace-frame .collection-workbench > *
+ {
+    min-width: 0;
+}
+
+.admin-workspace-frame .collection-workbench__summary
+ {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--fsus-space-3);
+    padding: var(--fsus-space-3) var(--fsus-space-4);
+    border-bottom: 1px solid var(--fsusblog-panel-border);
+    background: var(--fsusblog-page-bg-soft);
+}
+
+.admin-workspace-frame .collection-workbench__title
+ {
+    margin: 0;
+    color: var(--fsusblog-text-primary);
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.4;
+}
+
+.admin-workspace-frame .collection-workbench__meta
+ {
+    margin: var(--fsus-space-1) 0 0;
+    color: var(--fsusblog-text-tertiary);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.admin-workspace-frame .collection-workbench__toolbar,
+.admin-workspace-frame .collection-workbench__advanced-trigger
+ {
+    min-width: 0;
+}
+
+.admin-workspace-frame .collection-workbench__toolbar
+ {
+    display: flex;
+    min-height: 44px;
+    align-items: center;
+    gap: var(--fsus-space-3);
+    justify-content: space-between;
+    padding: var(--fsus-space-2) var(--fsus-space-4);
+}
+
+.admin-workspace-frame .collection-workbench__selection
+ {
+    display: flex;
+    min-height: 52px;
+    align-items: center;
+    padding: var(--fsus-space-2) var(--fsus-space-4);
+    border-top: 1px solid var(--fsusblog-panel-border);
+    background: var(--fsusblog-page-bg-soft);
+}
+
+.admin-workspace-frame .collection-workbench__results
+ {
+    min-width: 0;
+    margin-top: var(--fsus-space-6);
+    border-top: 1px solid var(--fsusblog-panel-border);
+}
+
+.admin-workspace-frame .collection-workbench__pagination
+ {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--fsus-space-4);
+    margin-top: var(--fsus-space-4);
+    padding: var(--fsus-space-3) var(--fsus-space-4);
+    border-top: 1px solid var(--fsusblog-panel-border);
+}
+
+.admin-workspace-frame .collection-workbench--compact .collection-workbench__results
+ {
+    --fsusblog-collection-row-density: 44px;
+}
+
+.admin-workspace-frame .collection-workbench--comfortable .collection-workbench__results
+ {
+    --fsusblog-collection-row-density: 56px;
+}
+
+.admin-workspace-frame .admin-inline-empty-state
+ {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    padding: var(--fsus-space-5);
+    text-align: left;
+}
+
+.admin-workspace-frame .admin-inline-empty-state__actions
+ {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--fsus-space-3);
+    margin-top: var(--fsus-space-3);
+}
+
 @media (width >= 640px)
  {
     .admin-workspace-frame .workbench-panel__header
@@ -235,6 +351,43 @@ html[data-theme-resolved='dark'] .admin-workspace-frame .article-list-toolbar-bu
  {
         align-items: stretch;
         flex-direction: column;
+    }
+}
+
+@media (width <= 639px)
+ {
+    .admin-workspace-frame .collection-workbench
+ {
+        margin-top: var(--fsus-space-5);
+    }
+
+    .admin-workspace-frame .collection-workbench__summary,
+    .admin-workspace-frame .collection-workbench__toolbar
+ {
+        align-items: stretch;
+        flex-direction: column;
+        gap: var(--fsus-space-2);
+    }
+
+    .admin-workspace-frame .collection-workbench__toolbar
+ {
+        padding-block: var(--fsus-space-2);
+    }
+
+    .admin-workspace-frame .collection-workbench__advanced-trigger,
+    .admin-workspace-frame .collection-workbench__advanced-trigger :where(button)
+ {
+        width: 100%;
+    }
+
+    .admin-workspace-frame .admin-inline-empty-state
+ {
+        padding: var(--fsus-space-4);
+    }
+
+    .admin-workspace-frame .admin-inline-empty-state__actions
+ {
+        gap: var(--fsus-space-2);
     }
 }
 

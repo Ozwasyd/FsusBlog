@@ -1,5 +1,5 @@
 <template>
-  <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)] p-6" aria-label="评论审核筛选">
+  <div class="comment-moderation-toolbar" role="search" aria-label="评论审核筛选">
     <div class="flex flex-wrap items-center gap-3">
       <div
         class="comment-moderation-status-tabs"
@@ -181,7 +181,7 @@
         <el-button :disabled="loading || activeFilters.length <= 1" @click="emit('reset')">重置</el-button>
       </div>
     </div>
-  </section>
+  </div>
 </template>
 
 <script setup lang="ts">

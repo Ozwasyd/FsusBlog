@@ -7,8 +7,14 @@
       density="compact"
     />
 
-    <AdminCollectionToolbar label="文章筛选" class="mb-8">
-      <template #filters>
+    <CollectionWorkbench
+      title="文章列表"
+      title-id="article-list-title"
+      :meta="articleListResultText"
+      :state="articleWorkbenchState"
+      :busy="isBusy"
+    >
+      <template #primary-filter>
         <el-form class="article-list-toolbar-form" :model="queryParam" @submit.prevent="handleSearch">
           <el-form-item class="article-list-toolbar-item !m-0">
             <div class="article-list-toolbar-search">
@@ -96,37 +102,38 @@
             </el-button>
           </el-form-item>
         </el-form>
+
+        <div
+          v-if="activeFilterChips.length > 0"
+          class="mt-2 flex flex-wrap items-center gap-2"
+          aria-label="当前筛选条件"
+        >
+          <el-tag
+            v-for="chip in activeFilterChips"
+            :key="chip.key"
+            closable
+            type="info"
+            @close="removeFilter(chip.key)"
+          >
+            {{ chip.label }}
+          </el-tag>
+        </div>
       </template>
 
-      <div
-        v-if="activeFilterChips.length > 0"
-        class="mt-5 flex flex-wrap items-center gap-2"
-        aria-label="当前筛选条件"
-      >
-        <el-tag
-          v-for="chip in activeFilterChips"
-          :key="chip.key"
-          closable
-          type="info"
-          @close="removeFilter(chip.key)"
-        >
-          {{ chip.label }}
-        </el-tag>
-      </div>
-    </AdminCollectionToolbar>
+      <template #loading>
+        <div class="px-4 py-6" aria-busy="true"><el-skeleton :rows="6" animated /></div>
+      </template>
 
-    <section class="border-t border-[var(--fsusblog-panel-border)]" aria-labelledby="article-list-title">
-      <AdminCollectionSummary id="article-list-title" title="文章列表" :meta="articleListResultText" />
+      <template #results>
       <p
-        v-if="hasArticleRows && rowMotion.summary.value"
+        v-if="rowMotion.summary.value"
         class="sr-only blog-motion-summary-enter"
         role="status"
         aria-live="polite"
       >
         {{ rowMotion.summary.value }}
       </p>
-      <el-responsive-collection
-        v-if="hasArticleRows"
+        <el-responsive-collection
         v-loading="loading"
         :items="articleListView"
         :row-key="getArticleRowKey"
@@ -239,10 +246,11 @@
             </el-table-column>
           </el-table>
         </template>
-      </el-responsive-collection>
+        </el-responsive-collection>
+      </template>
 
+      <template #empty>
       <div
-        v-else
         v-loading="loading"
         class="article-list-empty-container"
       >
@@ -259,8 +267,10 @@
           </template>
         </AdminInlineEmptyState>
       </div>
+      </template>
 
-      <div v-if="total > 0" class="article-list-pagination px-4 py-4 border-t border-[var(--fsusblog-panel-border)] flex items-center justify-between">
+      <template v-if="total > 0" #pagination>
+        <div class="article-list-pagination flex w-full items-center justify-between">
         <span class="text-[12px] text-[var(--fsusblog-text-muted)] font-medium tabular-nums">
           {{ totalText }}
         </span>
@@ -275,7 +285,8 @@
           @current-change="handlePageChange"
         />
       </div>
-    </section>
+      </template>
+    </CollectionWorkbench>
   </div>
 </template>
 
@@ -287,8 +298,7 @@ import { type ArticleListItemResponse } from '@/api/article'
 import { useAdminArticleList } from '@/composables/useAdminArticleList'
 import { useMediaQuery } from '@/composables/useMediaQuery'
 import AdminArticleCompactCard from '@/components/admin/article/AdminArticleCompactCard.vue'
-import AdminCollectionSummary from '@/components/admin/AdminCollectionSummary.vue'
-import AdminCollectionToolbar from '@/components/admin/AdminCollectionToolbar.vue'
+import CollectionWorkbench from '@/components/admin/CollectionWorkbench.vue'
 import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import AdminSegmentedControl from '@/components/admin/AdminSegmentedControl.vue'
 import SemanticTime from '@/components/ui/SemanticTime.vue'
@@ -337,6 +347,11 @@ const articleTableRowClassName = ({ row }: { row: ArticleListViewItem }): string
 const isCompactPagination = useMediaQuery('(max-width: 767px)')
 const articleListResultText = computed(() => `文章列表 · ${total.value} 条结果`)
 const hasArticleRows = computed(() => articleListView.value.length > 0)
+const articleWorkbenchState = computed(() => loading.value && !hasArticleRows.value
+  ? 'loading'
+  : hasArticleRows.value
+    ? 'ready'
+    : 'empty')
 const handleStatusFilterChange = (value: string | number | boolean | undefined): void => {
   setStatusFilter(typeof value === 'number' ? value as Parameters<typeof setStatusFilter>[0] : undefined)
 }

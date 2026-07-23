@@ -183,18 +183,6 @@
       </template>
     </el-responsive-collection>
 
-    <div class="admin-data-surface__footer">
-      <el-pagination
-        :current-page="currentPage"
-        :page-size="pageSize"
-        :total="total"
-        :pager-count="5"
-        :page-sizes="[10, 20, 50]"
-        layout="total, sizes, prev, pager, next"
-        @current-change="emit('update:current-page', $event)"
-        @size-change="emit('update:page-size', $event)"
-      />
-    </div>
   </section>
 </template>
 
