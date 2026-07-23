@@ -5452,6 +5452,130 @@
       "deprecation": null
     },
     {
+      "key": "Security:PerceptionCharacterV3:Pool:RootPath",
+      "owner": "security",
+      "purpose": "Owned immutable local root for encrypted PerceptionCharacterV3 artifact pool generations.",
+      "valueType": "string",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "Security__PerceptionCharacterV3__Pool__RootPath"
+      ],
+      "secret": false,
+      "requiredStatus": "required",
+      "requiredWhen": "Production",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "startup",
+        "owner": "PerceptionCharacterV3StartupGate"
+      },
+      "documentation": "docs/security/perception-character-v3-protocol.md",
+      "consumer": "src/backend/Services/Security/PerceptionCharacterV3ArtifactPool.cs",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
+      "key": "Security:PerceptionCharacterV3:Pool:ActiveGeneration",
+      "owner": "security",
+      "purpose": "Exact immutable PerceptionCharacterV3 pool generation selected at startup.",
+      "valueType": "string",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "Security__PerceptionCharacterV3__Pool__ActiveGeneration"
+      ],
+      "secret": false,
+      "requiredStatus": "required",
+      "requiredWhen": "Production",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": true,
+      "validation": {
+        "kind": "startup",
+        "owner": "PerceptionCharacterV3StartupGate"
+      },
+      "documentation": "docs/security/perception-character-v3-protocol.md",
+      "consumer": "src/backend/Services/Security/PerceptionCharacterV3ArtifactPool.cs",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
+      "key": "Security:PerceptionCharacterV3:Pool:KeyCurrent",
+      "owner": "security",
+      "purpose": "Version selector for the dedicated PerceptionCharacterV3 pool encryption key.",
+      "valueType": "string",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "Security__PerceptionCharacterV3__Pool__KeyCurrent"
+      ],
+      "secret": false,
+      "requiredStatus": "required",
+      "requiredWhen": "Production",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": true,
+      "validation": {
+        "kind": "startup",
+        "owner": "PerceptionCharacterV3StartupGate"
+      },
+      "documentation": "docs/security/perception-character-v3-protocol.md",
+      "consumer": "src/backend/Services/Security/PerceptionCharacterV3ArtifactPoolContracts.cs",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
+      "key": "Security:PerceptionCharacterV3:Pool:Keys",
+      "owner": "security",
+      "purpose": "Dedicated externally supplied 256-bit PerceptionCharacterV3 pool encryption key ring.",
+      "valueType": "secret-object",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "Security__PerceptionCharacterV3__Pool__Keys"
+      ],
+      "secret": true,
+      "requiredStatus": "required",
+      "requiredWhen": "Production",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "startup",
+        "owner": "PerceptionCharacterV3StartupGate"
+      },
+      "documentation": "docs/security/perception-character-v3-protocol.md",
+      "consumer": "src/backend/Services/Security/PerceptionCharacterV3ArtifactPoolContracts.cs",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
       "key": "Security:UserSessions:MaxActiveSessions",
       "owner": "security",
       "purpose": "Owned configuration key: Security:UserSessions:MaxActiveSessions",

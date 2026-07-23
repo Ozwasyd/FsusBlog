@@ -102,13 +102,15 @@ public sealed partial class PerceptionCharacterV3KeyRing : IPerceptionCharacterV
     [GeneratedRegex("^[A-Za-z0-9._-]{1,64}$", RegexOptions.CultureInvariant)] private static partial Regex VersionRegex();
 }
 
-public sealed class PerceptionCharacterV3StartupGate(IPerceptionCharacterV3KeyRing keys) : IHostedService
+public sealed class PerceptionCharacterV3StartupGate(
+    IPerceptionCharacterV3KeyRing keys,
+    IPerceptionCharacterV3ArtifactPool artifactPool) : IHostedService
 {
-    public Task StartAsync(CancellationToken cancellationToken)
+    public async Task StartAsync(CancellationToken cancellationToken)
     {
         _ = keys.CurrentTokenVersion;
         _ = PerceptionCharacterV3CanonicalContract.Value;
-        return Task.CompletedTask;
+        await artifactPool.InitializeAsync(cancellationToken).ConfigureAwait(false);
     }
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }

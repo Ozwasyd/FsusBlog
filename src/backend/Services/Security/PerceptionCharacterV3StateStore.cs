@@ -456,14 +456,11 @@ public sealed class RedisPerceptionCharacterV3DeviceAuthority(IConnectionMultipl
 public interface IPerceptionCharacterV3ResourceGate
 {
     bool TryAcquireIssue(string ip, string device, string subject, string action, string identity, long nowUnixMs, out string dimension);
-    ValueTask<IAsyncDisposable?> EnterRenderAsync(CancellationToken cancellationToken);
 }
 
 public sealed class PerceptionCharacterV3ResourceGate : IPerceptionCharacterV3ResourceGate
 {
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, Window> _windows = new(StringComparer.Ordinal);
-    private readonly SemaphoreSlim _renders = new(2, 2);
-    private int _queued;
     public bool TryAcquireIssue(string ip, string device, string subject, string action, string identity, long nowUnixMs, out string dimension)
     {
         foreach ((string name, string value, int max) in new[] { ("ip", ip, 12), ("device", device, 10), ("subject", subject, 8), ("action", action, 30), ("challenge", identity, 2) })
@@ -475,41 +472,10 @@ public sealed class PerceptionCharacterV3ResourceGate : IPerceptionCharacterV3Re
         dimension = string.Empty;
         return true;
     }
-    public async ValueTask<IAsyncDisposable?> EnterRenderAsync(CancellationToken cancellationToken)
-    {
-        if (Interlocked.Increment(ref _queued) > 8)
-        {
-            Interlocked.Decrement(ref _queued);
-            return null;
-        }
-        try
-        {
-            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeout.CancelAfter(TimeSpan.FromSeconds(2));
-            await _renders.WaitAsync(timeout.Token);
-            return new Lease(_renders);
-        }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-        {
-            return null;
-        }
-        finally
-        {
-            Interlocked.Decrement(ref _queued);
-        }
-    }
     private bool Acquire(string key, int max, long now)
     {
         Window window = _windows.AddOrUpdate(key, _ => new(now, 1), (_, old) => now - old.Start >= 60_000 ? new(now, 1) : old with { Count = old.Count + 1 });
         return window.Count <= max;
     }
     private sealed record Window(long Start, int Count);
-    private sealed class Lease(SemaphoreSlim semaphore) : IAsyncDisposable
-    {
-        public ValueTask DisposeAsync()
-        {
-            semaphore.Release();
-            return ValueTask.CompletedTask;
-        }
-    }
 }

@@ -131,18 +131,43 @@ public static class PerceptionCharacterV3Crypto
     public static byte[] EncodeAnswerMaterial(PerceptionCharacterV3BindingContext context, string answer)
     {
         string normalized = NormalizeAnswer(answer) ?? throw new ArgumentException("Answer normalization failed.", nameof(answer));
+        return EncodeAnswerMaterial(context, Encoding.ASCII.GetBytes(normalized));
+    }
+
+    private static byte[] EncodeAnswerMaterial(PerceptionCharacterV3BindingContext context, ReadOnlySpan<byte> normalizedAnswer)
+    {
         PerceptionCharacterV3ProtocolContract c = PerceptionCharacterV3CanonicalContract.Value;
+        if (normalizedAnswer.Length != c.Answer.Length ||
+            normalizedAnswer.IndexOfAnyExcept(Encoding.ASCII.GetBytes(c.Answer.Alphabet)) >= 0)
+            throw new ArgumentException("Normalized answer bytes are invalid.", nameof(normalizedAnswer));
         return EncodeLp(Utf8(c.Cryptography.AnswerDomain), new byte[] { c.Version }, Utf8(context.ChallengeId), Utf8(context.EnvelopeId),
             Utf8(context.Action), Utf8(context.RouteKey), Hex32(context.SubjectHash), Hex32(context.DeviceBindingHash),
             Utf8(context.PolicyVersion), Hex32(context.ArtifactHash), Ascii(context.Representation), Ascii(context.MediaType),
             UInt16(context.PhysicalWidth), UInt16(context.PhysicalHeight), UInt16(context.DisplayWidth), UInt16(context.DisplayHeight),
-            Encoding.ASCII.GetBytes(normalized));
+            normalizedAnswer.ToArray());
     }
 
     public static byte[] ComputeAnswerTag(ReadOnlySpan<byte> key, PerceptionCharacterV3BindingContext context, string answer)
     {
         RequireKey(key);
         byte[] material = EncodeAnswerMaterial(context, answer);
+        try
+        {
+            return HMACSHA256.HashData(key, material);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(material);
+        }
+    }
+
+    internal static byte[] ComputeAnswerTag(
+        ReadOnlySpan<byte> key,
+        PerceptionCharacterV3BindingContext context,
+        ReadOnlySpan<byte> normalizedAnswer)
+    {
+        RequireKey(key);
+        byte[] material = EncodeAnswerMaterial(context, normalizedAnswer);
         try
         {
             return HMACSHA256.HashData(key, material);

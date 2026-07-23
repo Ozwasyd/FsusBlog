@@ -31,7 +31,7 @@ export function encodeVisualArtifact(contract, gray8, artifactSeed)
     return png;
 }
 
-export function buildAudioArtifactVector(contract)
+export function buildAudioArtifactVector(contract, serialSeed = Buffer.from('SUSF'))
 {
     const head = Buffer.alloc(19);
     head.write('OpusHead', 0, 'ascii');
@@ -47,7 +47,34 @@ export function buildAudioArtifactVector(contract)
     vendor.copy(tags, 12);
     tags.writeUInt32LE(0, 12 + vendor.length);
     const packets = [Buffer.from('f8fffe', 'hex'), Buffer.from('f8fffe', 'hex')];
-    return Buffer.concat([oggPage(0, 0, 2, [head]), oggPage(1, 0, 0, [tags]), oggPage(2, 1920, 4, packets)]);
+    const serial = Buffer.from(serialSeed).readUInt32LE(0);
+    return Buffer.concat([oggPage(serial, 0, 0, 2, [head]), oggPage(serial, 1, 0, 0, [tags]), oggPage(serial, 2, 1920, 4, packets)]);
+}
+
+export function buildAudioArtifactFromPackets(contract, packets, serialSeed)
+{
+    if (!Array.isArray(packets) || packets.length === 0 || packets.some(packet => !Buffer.isBuffer(packet) || packet.length === 0 || packet.length >= 255))
+        throw new Error('Opus packet set is invalid');
+    const head = Buffer.alloc(19);
+    head.write('OpusHead', 0, 'ascii');
+    head.set([1, 1], 8);
+    head.writeUInt16LE(contract.media.audio.preSkip, 10);
+    head.writeUInt32LE(contract.media.audio.inputSampleRate, 12);
+    head.writeInt16LE(contract.media.audio.outputGainQ8, 16);
+    head[18] = contract.media.audio.mappingFamily;
+    const vendor = Buffer.from('FsusBlog offline pool', 'utf8');
+    const tags = Buffer.alloc(16 + vendor.length);
+    tags.write('OpusTags', 0, 'ascii');
+    tags.writeUInt32LE(vendor.length, 8);
+    vendor.copy(tags, 12);
+    const serial = Buffer.from(serialSeed).readUInt32LE(0);
+    const pages = [oggPage(serial, 0, 0, 2, [head]), oggPage(serial, 1, 0, 0, [tags])];
+    for (let index = 0; index < packets.length; index += 1)
+        pages.push(oggPage(serial, index + 2, (index + 1) * 960, index === packets.length - 1 ? 4 : 0, [packets[index]]));
+    const artifact = Buffer.concat(pages);
+    if (artifact.length > contract.media.audio.maximumBytes)
+        throw new Error('audio artifact exceeds canonical hard limit');
+    return artifact;
 }
 
 function deterministicStream(seed)
@@ -128,13 +155,13 @@ function crc32(data)
     return (crc ^ 0xffffffff) >>> 0;
 }
 
-function oggPage(sequence, granule, headerType, packets)
+function oggPage(serial, sequence, granule, headerType, packets)
 {
     const header = Buffer.alloc(27 + packets.length);
     header.write('OggS', 0, 'ascii');
     header[5] = headerType;
     header.writeBigUInt64LE(BigInt(granule), 6);
-    header.writeUInt32LE(0x46535553, 14);
+    header.writeUInt32LE(serial, 14);
     header.writeUInt32LE(sequence, 18);
     header[26] = packets.length;
     header.set(packets.map((packet) => packet.length), 27);

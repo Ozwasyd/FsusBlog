@@ -21,17 +21,15 @@ public sealed class PerceptionCharacterV3AuditSink(ILogger<PerceptionCharacterV3
 
 public sealed class PerceptionCharacterV3Provider(
     IPerceptionCharacterV3KeyRing keys,
-    IPerceptionCharacterV3Renderer renderer,
+    IPerceptionCharacterV3ArtifactPool artifactPool,
     IPerceptionCharacterV3StateStore stateStore,
     IPerceptionCharacterV3ResourceGate resourceGate,
     IPerceptionCharacterV3DeviceAuthority deviceAuthority,
     IPerceptionCharacterV3NonceSource nonceSource,
     IPerceptionCharacterV3AuditSink audit,
-    TimeProvider timeProvider,
-    PerceptionCharacterV3ProviderOptions? providerOptions = null) : ISecurityChallengeProvider
+    TimeProvider timeProvider) : ISecurityChallengeProvider
 {
     private static readonly TimeSpan s_lifetime = TimeSpan.FromMinutes(2);
-    private readonly TimeSpan _renderTimeout = providerOptions?.RenderTimeout ?? TimeSpan.FromSeconds(2);
     public string Kind => PerceptionCharacterV3Contracts.WireName;
 
     public async Task<SecurityChallengeProviderIssueResult> IssueAsync(SecurityChallengeProviderIssueRequest request, CancellationToken cancellationToken = default)
@@ -104,45 +102,32 @@ public sealed class PerceptionCharacterV3Provider(
             };
         }
         PerceptionCharacterV3Representation representation = ResolveRepresentation(request.Context);
-        await using IAsyncDisposable? lease = await resourceGate.EnterRenderAsync(cancellationToken);
-        if (lease is null)
-        {
-            await audit.WriteAsync("issue", string.Empty, request.Action, "unavailable", "render_queue_saturated", cancellationToken);
-            return SecurityChallengeProviderIssueResult.Failed("unavailable");
-        }
-        string challengeId = SecurityChallengeContracts.CreateChallengeId();
-        string answer = PerceptionCharacterV3Crypto.SampleAnswer();
-        byte[] seed = RandomNumberGenerator.GetBytes(32);
-        byte[] media;
-        using var renderDeadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        renderDeadline.CancelAfter(_renderTimeout);
+        PerceptionCharacterV3ArtifactLease? artifactLease;
         try
         {
-            media = representation == PerceptionCharacterV3Representation.Visual ? renderer.RenderVisual(answer, seed, renderDeadline.Token) : renderer.RenderAudio(answer, seed, renderDeadline.Token);
+            artifactLease = await artifactPool.LeaseAsync(representation, cancellationToken);
         }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        catch (PerceptionCharacterV3StoreUnavailableException)
         {
-            await audit.WriteAsync("issue", challengeId, request.Action, "unavailable", "render_timeout", CancellationToken.None);
+            await audit.WriteAsync("issue", string.Empty, request.Action, "unavailable", "pool_lease_ambiguous", CancellationToken.None);
             return SecurityChallengeProviderIssueResult.Failed("unavailable");
         }
-        catch (OperationCanceledException)
+        catch (InvalidOperationException)
         {
-            throw;
-        }
-        catch (Exception)
-        {
-            await audit.WriteAsync("issue", challengeId, request.Action, "unavailable", "render_failed", cancellationToken);
+            await audit.WriteAsync("issue", string.Empty, request.Action, "unavailable", "pool_generation_invalid", CancellationToken.None);
             return SecurityChallengeProviderIssueResult.Failed("unavailable");
         }
-        finally
+        if (artifactLease is null)
         {
-            CryptographicOperations.ZeroMemory(seed);
+            await audit.WriteAsync("issue", string.Empty, request.Action, "unavailable", "pool_exhausted", cancellationToken);
+            return SecurityChallengeProviderIssueResult.Failed("unavailable");
         }
-        string artifactHash = Convert.ToHexStringLower(SHA256.HashData(media));
+        await using PerceptionCharacterV3ArtifactLease lease = artifactLease;
+        string challengeId = SecurityChallengeContracts.CreateChallengeId();
+        byte[] media = lease.Artifact;
+        string artifactHash = lease.ArtifactHash;
         string representationName = representation == PerceptionCharacterV3Representation.Visual ? "visual" : "audio";
-        string mediaType = representation == PerceptionCharacterV3Representation.Visual
-            ? PerceptionCharacterV3Contracts.VisualMediaType
-            : PerceptionCharacterV3Contracts.AudioMediaType;
+        string mediaType = lease.MediaType;
         ushort physicalWidth = representation == PerceptionCharacterV3Representation.Visual ? (ushort)PerceptionCharacterV3Contracts.PhysicalWidth : (ushort)0;
         ushort physicalHeight = representation == PerceptionCharacterV3Representation.Visual ? (ushort)PerceptionCharacterV3Contracts.PhysicalHeight : (ushort)0;
         ushort displayWidth = representation == PerceptionCharacterV3Representation.Visual ? (ushort)PerceptionCharacterV3Contracts.DisplayWidth : (ushort)0;
@@ -151,7 +136,15 @@ public sealed class PerceptionCharacterV3Provider(
         var context = new PerceptionCharacterV3BindingContext(challengeId, envelopeId, request.Action, request.RouteKey, request.SubjectHash, deviceBinding, request.ClientIpHash, request.PolicyVersion, artifactHash,
             representationName, mediaType, physicalWidth, physicalHeight, displayWidth, displayHeight,
             issuedAt.ToUnixTimeMilliseconds(), expiresAt.ToUnixTimeMilliseconds(), keys.CurrentTokenVersion);
-        byte[] answerTag = PerceptionCharacterV3Crypto.ComputeAnswerTag(answerKey, context, answer);
+        byte[] answerTag;
+        try
+        {
+            answerTag = PerceptionCharacterV3Crypto.ComputeAnswerTag(answerKey, context, lease.AnswerBytes);
+        }
+        finally
+        {
+            await lease.DisposeAsync();
+        }
         var state = new PerceptionCharacterV3State(answerTag, artifactHash, mediaType, physicalWidth, physicalHeight, displayWidth, displayHeight,
             challengeId, envelopeId, request.Action, request.RouteKey, request.SubjectHash, deviceBinding, request.ClientIpHash, request.PolicyVersion, 2,
             representationName, context.IssuedAtUnixMs, context.ExpiresAtUnixMs, keys.CurrentTokenVersion, keys.CurrentAnswerVersion);
@@ -313,5 +306,3 @@ public sealed class PerceptionCharacterV3Provider(
             && state.IssuedAtUnixMs == record.IssuedAtUnixMs && state.ExpiresAtUnixMs == record.ExpiresAtUnixMs && state.TokenKeyVersion == record.TokenKeyVersion
             && state.AnswerKeyVersion == record.AnswerKeyVersion;
 }
-
-public sealed record PerceptionCharacterV3ProviderOptions(TimeSpan RenderTimeout);

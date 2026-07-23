@@ -107,7 +107,9 @@ function allCSharpFiles() {
   const files = result.status === 0
     ? result.stdout.split(/\r?\n/u).filter(Boolean).map(toPosix)
     : walkCSharpFiles(root)
-  return [...new Set(files)].sort()
+  return [...new Set(files)]
+    .filter((file) => fs.existsSync(path.join(root, file)))
+    .sort()
 }
 
 function normalizeFile(value) {

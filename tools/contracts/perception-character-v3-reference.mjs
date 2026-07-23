@@ -379,9 +379,9 @@ export function encodeVisualArtifact(gray8, artifactSeed)
     return encodeVisual(contract, gray8, artifactSeed);
 }
 
-export function buildAudioArtifactVector()
+export function buildAudioArtifactVector(serialSeed)
 {
-    return buildAudioArtifact(contract);
+    return buildAudioArtifact(contract, serialSeed);
 }
 
 export function atlasVariantBytes(character, variant)

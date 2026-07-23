@@ -110,6 +110,27 @@ test('C# style governance accepts Microsoft-style C# through the changed-file ga
   })
 })
 
+test('C# style governance full mode ignores tracked files deleted in the working tree', () => {
+  withFixture((fixtureRoot) => {
+    const relativePath = 'src/sample/DeletedType.cs'
+    writeFixture(fixtureRoot, relativePath, validSource)
+    for (const args of [
+      ['init'],
+      ['config', 'user.email', 'fixture@example.invalid'],
+      ['config', 'user.name', 'Fixture'],
+      ['add', '.'],
+      ['commit', '-m', 'fixture']
+    ]) {
+      const result = spawnSync('git', args, { cwd: fixtureRoot, encoding: 'utf8' })
+      assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`)
+    }
+    rmSync(path.join(fixtureRoot, relativePath))
+    const result = runChecker(fixtureRoot, ['--mode', 'full'])
+    assert.equal(result.status, 0, output(result))
+    assert.match(result.stdout, /\[csharp-style\] ok files=0 violations=0 new=0/u)
+  })
+})
+
 test('C# style governance accepts Roslyn expression braces and multiline verbatim content', () => {
   withFixture((fixtureRoot) => {
     writeFixture(

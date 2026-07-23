@@ -113,12 +113,16 @@ HMAC-SHA-256(K_answer, EncodeLP(
   "fsus.perception-character.answer", 03,
   challengeId, envelopeId, action, routeKey,
   subjectHash, deviceBindingHash, policyVersion,
-  artifactHash, normalizedAnswer))
+  artifactHash, representation, mediaType,
+  physicalWidth, physicalHeight, displayWidth, displayHeight,
+  normalizedAnswer))
 ```
 
 AES-256-GCM AAD order is enum, wire, algorithm, version, challengeId, envelopeId,
-action, routeKey, artifactHash, issuedAt, expiresAt, tokenKeyVersion. Plaintext order
-is answerTag, artifactHash, challengeId, envelopeId, action, routeKey, subjectHash,
+action, routeKey, artifactHash, representation, mediaType, physicalWidth,
+physicalHeight, displayWidth, displayHeight, issuedAt, expiresAt, tokenKeyVersion.
+Plaintext order is answerTag, artifactHash, mediaType, physicalWidth, physicalHeight,
+displayWidth, displayHeight, challengeId, envelopeId, action, routeKey, subjectHash,
 deviceBindingHash, clientIpBindingHash, policyVersion, attemptBudget, representation,
 issuedAt, expiresAt, tokenKeyVersion, answerKeyVersion. The same artifact hash,
 representation, media type and dimensions are checked by the typed AEDS payload,
@@ -129,6 +133,47 @@ Every identity has exactly two attempts and follows:
 `active -> consumed | exhausted | expired | revoked`. Public failures remain
 `retryable`, `reissueRequired`, `unavailable`, and `rejected`. Redis failure or
 ambiguous mutation fails closed.
+
+## Encrypted one-time artifact pool
+
+Public issuance never invokes the reference rasterizer, audio builder, PNG encoder or
+Opus/Ogg encoder. Operators create an immutable generation before deployment:
+
+```bash
+FSUSBLOG_V3_POOL_KEY='<external 32-byte key>' node tools/security/perception-character-v3-pool.mjs generate \
+  --root /srv/fsusblog/perception-v3-pools --generation '<generation-id>' \
+  --key-env FSUSBLOG_V3_POOL_KEY --key-version '<key-version>' \
+  --visual '<count>' --audio '<count>'
+FSUSBLOG_V3_POOL_KEY='<same key>' node tools/security/perception-character-v3-pool.mjs validate \
+  --root /srv/fsusblog/perception-v3-pools --generation '<generation-id>' \
+  --key-env FSUSBLOG_V3_POOL_KEY
+```
+
+The packfile is a contiguous sequence of independently AES-256-GCM authenticated
+records. Each record contains its random internal ID, generation, representation,
+media type, exact final artifact bytes/hash, normalized answer, contract digest and
+offline-generator identity. The manifest contains only offset/length, nonce,
+ciphertext digest and non-secret representation metadata; it contains neither answer
+nor media bytes. `Security:PerceptionCharacterV3:Pool:*` selects the immutable root,
+active generation and dedicated key ring, which must be disjoint from JWT, answer,
+token, PoW and audit keys.
+
+Audio entries are built only by this offline command from the repository-owned,
+golden-verified spoken atlas. The command compiles the repository-owned
+`perception-character-v3-opus.c` helper with `cc` against host `libopus.so.0`, uses
+the fixed contract profile, and fails before publishing the generation when either
+prerequisite is unavailable. Generation writes to a private staging directory,
+validates every record, then atomically renames it to the immutable generation name.
+
+Startup authenticates every record and rejects unknown contract digests, wrong keys,
+duplicate IDs, overlapping/truncated offsets, invalid artifacts and revoked
+generations before traffic. Runtime loads only the compact manifest index. Redis
+stores one small `burned` marker per leased entry plus generation revocation state;
+it never stores media ciphertext/plaintext or answers. A single Lua `SET NX` burns an
+entry before packfile read and response delivery. Cancellation, connection loss,
+codec/state failure or an ambiguous Redis reply never returns the entry to ready and
+never tries online rendering. The decrypted five-byte answer is held only by the
+lease, used directly for request-bound HMAC, then zeroed on every exit.
 
 ## Validation and negative vectors
 

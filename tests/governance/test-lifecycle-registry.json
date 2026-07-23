@@ -71,6 +71,17 @@
             ]
         },
         {
+            "file": "tests/security/perception-character-v3-pool.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
             "file": "tests/security/perception-character-v3-spec.test.mjs",
             "owner": "manual-diagnostic:tests/security/perception-character-v3-spec.test.mjs",
             "executionCategory": "manual-diagnostic",

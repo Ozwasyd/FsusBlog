@@ -134,6 +134,8 @@ V3 服务端只交付最终 `384 x 144`、4-bit grayscale、无 alpha 的 PNG，
 
 V3 只提高 OCR/model/relay 的成本，不是 humanity proof。公开失败只按 recoverability/state 映射为 `retryable`、`reissueRequired`、`unavailable` 或 `rejected`，不能泄露 crypto/binding/parser/Redis 内因。无需重启的回退是热更新 policy 停止新 V3 签发并让已签发短 TTL identity fail closed 或过期；不得回退到公开 recipe、明文答案、V1/V2 alias 或客户端自行选择 representation/provider。
 
+V3 签发只从预部署的 immutable encrypted packfile 租用最终媒体。离线命令以独立外部 256-bit pool key 对每条 media+answer record 使用 fresh AES-GCM nonce；manifest 只保存 compact offset/length、nonce、ciphertext digest 和非敏感表示信息。运行时 Redis 只保存 generation revocation 与 `burned` lease marker；一个 Lua `SET NX` 在响应前永久消耗 entry，取消、进程失败或 reply loss 都不归还、不重试第二条，也不触发在线 renderer。startup gate 会逐条认证合同 digest、pack/record digest、artifact hash/type/limit、duplicate ID 与 key；启用 V3 但没有有效 active generation 时拒绝启动。
+
 前端动态 import 的启动恢复只使用固定 `fsus:bootstrap-import-retry` SessionStorage key；value 仅保存低敏 build id 与尝试时间，不得包含 pathname、query、hash、对象 ID 或筛选条件。Public AOT 与 Full SPA 共用同一单次 reload 控制器；成功启动、build id 变化或五分钟窗口过期会清理 marker。存储不可用时不 reload，原错误继续上抛；无需后端重启即可通过发布新 build id 清除旧版本状态。
 
 perception-sealed@v2 的服务端真相使用 `IPerceptionSealedTokenService` 生成 AEAD sealed token；sealed payload 只包含 Localization/MicroInteraction 所需的 challenge、task、action、route、subject/client/device/UA hash、algorithm/family/variant、recipe hash、expected point 或 step hash、容差、时长、attempt、nonce、keyVersion 和 policyVersion。token envelope 只明文携带解密所需的非 secret AAD 字段；ciphertext 完整性由 AES-GCM tag 覆盖。`Security:PerceptionSealedToken:CurrentKeyVersion` 和 `Security:PerceptionSealedToken:Keys:{version}` 支持 key rotation；未知 keyVersion、AAD/密文篡改、payload binding mismatch、context mismatch 或过期均 fail closed，不读取旧 schema 或派生 fallback key。sealed token 不提供 Redis consume-once 语义，也不能替代普通 challenge proof 或 admin MFA proof。
@@ -660,7 +662,7 @@ credential vault 与 Service Worker 私有缓存。Service Worker 对 `/api/**` 
 
 ## PerceptionCharacterV3 运行时边界
 
-V3 runtime 只从 embedded canonical `perception-character-v3-contract.json` 读取 identity、alphabet、atlas、raster bounds 和 crypto 尺寸；不得引用 `tools/contracts/perception-character-v3-reference.mjs`。answer 与 token 使用两个独立 versioned 256-bit key ring。启用 provider 时 hosted startup gate 在监听流量前拒绝 missing、非 32-byte、equal、unknown-current、非法 version、placeholder 和 checked-in vector key；test vector 仅允许 `environment=Test && AllowTestVectors=true`。
+V3 runtime 只从 embedded canonical `perception-character-v3-contract.json` 读取 identity、alphabet、artifact bounds 和 crypto 尺寸；不得引用 `tools/contracts/perception-character-v3-reference.mjs`。answer、token 与 pool encryption 使用三个互相独立的 versioned 256-bit key ring。启用 provider 时 hosted startup gate 在监听流量前拒绝 missing、非 32-byte、equal、unknown-current、非法 version、placeholder、checked-in vector key、无效 active generation 或无法认证的 pack；test vector 仅允许 `environment=Test && AllowTestVectors=true`。
 
 服务端用 answer key 对 server-issued device authority 做 domain-separated HMAC，并与 pseudonymous IP、subject、action、route、envelope/challenge、issued policy、representation、media hash 同时写入 AES-GCM state 与 Redis authoritative state。authenticated/admin authority 来自服务端会话 claim；anonymous authority 来自 Redis 租约和 `__Host-` cookie，client fingerprint 不能创建或轮换 device bucket。Redis Lua 在一个原子操作内检查全部 binding、处理 expiry/revoke、递增两次尝试并写入 consumed/exhausted；timeout、连接失败或 ambiguous result fail closed。replacement 的旧 token hash/envelope/full binding 也在该原子 transition 内校验，避免 challenge-ID 撤销 oracle。日志只保留 operation/outcome/internal reason 等低基数审计字段，严禁 token、answer、key、seed、media 或原始 IP/device material。
 

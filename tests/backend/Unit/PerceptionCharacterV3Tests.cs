@@ -20,7 +20,7 @@ using StackExchange.Redis;
 
 namespace FsusBlog.Server.Tests.Unit;
 
-public sealed class PerceptionCharacterV3Tests
+public sealed partial class PerceptionCharacterV3Tests
 {
     private static readonly string s_root = BackendTestPaths.RepositoryRoot;
     private static JsonElement Vectors => JsonDocument.Parse(File.ReadAllBytes(Path.Combine(s_root, "tests/fixtures/security/perception-character-v3-vectors.json"))).RootElement.Clone();
@@ -179,18 +179,13 @@ public sealed class PerceptionCharacterV3Tests
     }
 
     [Fact]
-    public async Task ResourceLimits_RunBeforeRenderAndQueueHonorsCancellation()
+    public void ResourceLimits_RunBeforePoolLease()
     {
         var gate = new PerceptionCharacterV3ResourceGate();
         for (int i = 0; i < 8; i++)
             Assert.True(gate.TryAcquireIssue("ip" + i, "d" + i, "s", "a" + i, "c" + i, 1, out _));
         Assert.False(gate.TryAcquireIssue("new-ip", "new-device", "s", "new-action", "new-id", 1, out string dimension));
         Assert.Equal("subject", dimension);
-        await using IAsyncDisposable? first = await gate.EnterRenderAsync(CancellationToken.None);
-        Assert.NotNull(first);
-        using var cts = new CancellationTokenSource();
-        cts.Cancel();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await gate.EnterRenderAsync(cts.Token));
     }
 
     [Theory]
@@ -226,15 +221,15 @@ public sealed class PerceptionCharacterV3Tests
     }
 
     [Fact]
-    public async Task RejectedResourceGate_PreventsRenderAndCryptography()
+    public async Task RejectedResourceGate_PreventsPoolLeaseAndCryptography()
     {
-        var renderer = new CountingRenderer();
+        var pool = new CountingPool();
         var keys = new CountingKeys();
         var nonce = new CountingNonce();
         var store = new MemoryStore();
         var provider = new PerceptionCharacterV3Provider(
             keys,
-            renderer,
+            pool,
             store,
             new DenyGate(),
             new TestDeviceAuthority(),
@@ -245,7 +240,7 @@ public sealed class PerceptionCharacterV3Tests
         SecurityChallengeProviderIssueResult result = await provider.IssueAsync(ProviderIssueRequest(), CancellationToken.None);
 
         Assert.False(result.Succeeded);
-        Assert.Equal(0, renderer.Calls);
+        Assert.Equal(0, pool.Calls);
         Assert.Equal(0, keys.Accesses);
         Assert.Equal(0, nonce.Calls);
         Assert.Empty(store.Records);
@@ -255,7 +250,7 @@ public sealed class PerceptionCharacterV3Tests
     public async Task StableActiveIdentityAndServerDeviceBindingCannotBeBypassedByFingerprintRotation()
     {
         var gate = new PerceptionCharacterV3ResourceGate();
-        var provider = new PerceptionCharacterV3Provider(new Keys(Enumerable.Repeat((byte)0x23, 32).ToArray(), Enumerable.Repeat((byte)0x24, 32).ToArray()), new FixedRenderer(), new MemoryStore(), gate, new TestDeviceAuthority(), new PerceptionCharacterV3RandomNonceSource(), new AuditSink(), TimeProvider.System);
+        var provider = new PerceptionCharacterV3Provider(new Keys(Enumerable.Repeat((byte)0x23, 32).ToArray(), Enumerable.Repeat((byte)0x24, 32).ToArray()), new FixedPool(), new MemoryStore(), gate, new TestDeviceAuthority(), new PerceptionCharacterV3RandomNonceSource(), new AuditSink(), TimeProvider.System);
         SecurityChallengeProviderIssueRequest template = ProviderIssueRequest();
         for (int i = 0; i < 2; i++)
         {
@@ -283,36 +278,25 @@ public sealed class PerceptionCharacterV3Tests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task RenderExecutionDeadlineCancelsVisualAndAudioWithoutHoldingLease(bool audio)
+    public async Task PoolExhaustionFailsClosedWithoutOnlineFallback(bool audio)
     {
-        var renderer = new TimeoutThenRenderRenderer();
+        var pool = new EmptyPool();
         var provider = new PerceptionCharacterV3Provider(
             new Keys(Enumerable.Repeat((byte)0x25, 32).ToArray(), Enumerable.Repeat((byte)0x26, 32).ToArray()),
-            renderer,
+            pool,
             new MemoryStore(),
             new PerceptionCharacterV3ResourceGate(),
             new TestDeviceAuthority(),
             new PerceptionCharacterV3RandomNonceSource(),
             new AuditSink(),
-            TimeProvider.System,
-            new PerceptionCharacterV3ProviderOptions(TimeSpan.FromMilliseconds(40)));
+            TimeProvider.System);
         SecurityChallengeProviderIssueRequest first = ProviderIssueRequest();
         if (audio)
             first.Context.Request.Headers["X-Fsus-Challenge-Representation"] = "audio";
-        SecurityChallengeProviderIssueResult timedOut = await provider.IssueAsync(first);
-        Assert.False(timedOut.Succeeded);
-        Assert.Equal(0, renderer.ActiveCalls);
-
-        var secondContext = new DefaultHttpContext();
-        if (audio)
-            secondContext.Request.Headers["X-Fsus-Challenge-Representation"] = "audio";
-        SecurityChallengeProviderIssueResult recovered = await provider.IssueAsync(first with
-        {
-            Context = secondContext,
-            EnvelopeId = Guid.CreateVersion7().ToString("D")
-        });
-        Assert.True(recovered.Succeeded);
-        Assert.Equal(0, renderer.ActiveCalls);
+        SecurityChallengeProviderIssueResult exhausted = await provider.IssueAsync(first);
+        Assert.False(exhausted.Succeeded);
+        Assert.Equal("unavailable", exhausted.Reason);
+        Assert.Equal(1, pool.Calls);
     }
 
     [Fact]
@@ -336,25 +320,22 @@ public sealed class PerceptionCharacterV3Tests
     }
 
     [Fact]
-    public void RetiredRequestTimeRendererFailsClosed()
+    public async Task ArtifactLeaseZeroesDecryptedAnswerOnEveryExit()
     {
-        Assert.Throws<InvalidOperationException>(() => new PerceptionCharacterV3Renderer().RenderVisual("A7C9Q", new byte[32]));
-        Assert.Throws<InvalidOperationException>(() => new PerceptionCharacterV3Renderer().RenderAudio("A7C9Q", new byte[32]));
-    }
+        byte[] answer = Encoding.ASCII.GetBytes("A7C9Q");
+        var lease = new PerceptionCharacterV3ArtifactLease(
+            Guid.CreateVersion7().ToString("D"),
+            "test-generation",
+            PerceptionCharacterV3Representation.Visual,
+            PerceptionCharacterV3Contracts.VisualMediaType,
+            VisualArtifact(),
+            new string('a', 64),
+            answer);
 
-    [Fact]
-    public async Task RenderQueueRejectsSaturationAtBoundedDepth()
-    {
-        var gate = new PerceptionCharacterV3ResourceGate();
-        await using IAsyncDisposable? one = await gate.EnterRenderAsync(CancellationToken.None);
-        await using IAsyncDisposable? two = await gate.EnterRenderAsync(CancellationToken.None);
-        using var cts = new CancellationTokenSource();
-        Task<IAsyncDisposable?>[] queued = Enumerable.Range(0, 8).Select(_ => gate.EnterRenderAsync(cts.Token).AsTask()).ToArray();
-        await Task.Delay(50);
-        Assert.Null(await gate.EnterRenderAsync(CancellationToken.None));
-        cts.Cancel();
-        foreach (Task<IAsyncDisposable?> task in queued)
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await task);
+        await lease.DisposeAsync();
+
+        Assert.All(answer, value => Assert.Equal(0, value));
+        Assert.True(lease.AnswerBytes.IsEmpty);
     }
 
     [Fact]
@@ -378,7 +359,7 @@ public sealed class PerceptionCharacterV3Tests
         var store = new MemoryStore();
         var audit = new AuditSink();
         byte[] tokenKey = Enumerable.Repeat((byte)0x61, 32).ToArray(), answerKey = Enumerable.Repeat((byte)0x62, 32).ToArray();
-        var provider = new PerceptionCharacterV3Provider(new Keys(tokenKey, answerKey), new FixedRenderer(), store, new AllowGate(), new TestDeviceAuthority(), new FixedNonce(new byte[12]), audit, TimeProvider.System);
+        var provider = new PerceptionCharacterV3Provider(new Keys(tokenKey, answerKey), new FixedPool(), store, new AllowGate(), new TestDeviceAuthority(), new FixedNonce(new byte[12]), audit, TimeProvider.System);
         SecurityChallengeProviderIssueRequest request = ProviderIssueRequest();
         SecurityChallengeProviderIssueResult result = await provider.IssueAsync(request, CancellationToken.None);
         Assert.True(result.Succeeded);
@@ -422,7 +403,7 @@ public sealed class PerceptionCharacterV3Tests
         var store = new MemoryStore();
         var audit = new AuditSink();
         byte[] tokenKey = Enumerable.Repeat((byte)0x27, 32).ToArray(), answerKey = Enumerable.Repeat((byte)0x28, 32).ToArray();
-        var provider = new PerceptionCharacterV3Provider(new Keys(tokenKey, answerKey), new FixedRenderer(), store, new AllowGate(), new TestDeviceAuthority(), new PerceptionCharacterV3RandomNonceSource(), audit, TimeProvider.System);
+        var provider = new PerceptionCharacterV3Provider(new Keys(tokenKey, answerKey), new FixedPool(), store, new AllowGate(), new TestDeviceAuthority(), new PerceptionCharacterV3RandomNonceSource(), audit, TimeProvider.System);
         SecurityChallengeProviderIssueRequest initial = ProviderIssueRequest() with
         {
             Context = ContextWithSession("server-session-a")
@@ -455,7 +436,7 @@ public sealed class PerceptionCharacterV3Tests
     {
         var store = new MemoryStore();
         var audit = new AuditSink();
-        var provider = new PerceptionCharacterV3Provider(new Keys(Enumerable.Repeat((byte)0x29, 32).ToArray(), Enumerable.Repeat((byte)0x2a, 32).ToArray()), new FixedRenderer(), store, new AllowGate(), new TestDeviceAuthority(), new PerceptionCharacterV3RandomNonceSource(), audit, TimeProvider.System);
+        var provider = new PerceptionCharacterV3Provider(new Keys(Enumerable.Repeat((byte)0x29, 32).ToArray(), Enumerable.Repeat((byte)0x2a, 32).ToArray()), new FixedPool(), store, new AllowGate(), new TestDeviceAuthority(), new PerceptionCharacterV3RandomNonceSource(), audit, TimeProvider.System);
         SecurityChallengeProviderIssueRequest initial = ProviderIssueRequest();
         SecurityChallengeProviderIssueResult issued = await provider.IssueAsync(initial);
         PerceptionCharacterV3StateRecord old = Assert.Single(store.Records.Values);
@@ -498,7 +479,7 @@ public sealed class PerceptionCharacterV3Tests
             Enumerable.Repeat((byte)0x42, 32).ToArray(),
             Enumerable.Repeat((byte)0x43, 32).ToArray());
         var provider = new PerceptionCharacterV3Provider(
-            keys, new FixedRenderer(), store, new AllowGate(), new TestDeviceAuthority(),
+            keys, new FixedPool(), store, new AllowGate(), new TestDeviceAuthority(),
             new PerceptionCharacterV3RandomNonceSource(), new AuditSink(), TimeProvider.System);
         SecurityChallengeProviderIssueRequest request = ProviderIssueRequest();
         SecurityChallengeProviderIssueResult issued = await provider.IssueAsync(request);
@@ -531,7 +512,7 @@ public sealed class PerceptionCharacterV3Tests
         var audit = new AuditSink();
         var provider = new PerceptionCharacterV3Provider(
             new Keys(Enumerable.Repeat((byte)0x31, 32).ToArray(), Enumerable.Repeat((byte)0x32, 32).ToArray()),
-            new FixedRenderer(), store, new AllowGate(), new TestDeviceAuthority(), new FixedNonce(new byte[12]), audit, TimeProvider.System);
+            new FixedPool(), store, new AllowGate(), new TestDeviceAuthority(), new FixedNonce(new byte[12]), audit, TimeProvider.System);
         SecurityChallengeProviderIssueRequest initial = ProviderIssueRequest();
         SecurityChallengeProviderIssueResult issued = await provider.IssueAsync(initial);
         PerceptionCharacterV3StateRecord old = Assert.Single(store.Records.Values);
@@ -569,7 +550,7 @@ public sealed class PerceptionCharacterV3Tests
             Convert.ToHexStringLower(SHA256.HashData(Encoding.ASCII.GetBytes(token))));
         var audit = new AuditSink();
         var provider = new PerceptionCharacterV3Provider(
-            new Keys(Enumerable.Repeat((byte)0x33, 32).ToArray(), answerKey), new FixedRenderer(),
+            new Keys(Enumerable.Repeat((byte)0x33, 32).ToArray(), answerKey), new FixedPool(),
             new ReplacementFailureStore(record, failRead), new AllowGate(), new TestDeviceAuthority(),
             new FixedNonce(new byte[12]), audit, TimeProvider.System);
         var context = new DefaultHttpContext();
@@ -593,10 +574,10 @@ public sealed class PerceptionCharacterV3Tests
     public async Task ReplacementPreparationFailureLeavesOnlyTheOldIdentityActive()
     {
         var store = new MemoryStore();
-        var gate = new ToggleGate();
+        var pool = new TogglePool();
         var provider = new PerceptionCharacterV3Provider(
             new Keys(Enumerable.Repeat((byte)0x35, 32).ToArray(), Enumerable.Repeat((byte)0x36, 32).ToArray()),
-            new FixedRenderer(), store, gate, new TestDeviceAuthority(), new FixedNonce(new byte[12]),
+            pool, store, new AllowGate(), new TestDeviceAuthority(), new FixedNonce(new byte[12]),
             new AuditSink(), TimeProvider.System);
         SecurityChallengeProviderIssueRequest request = ProviderIssueRequest();
         SecurityChallengeProviderIssueResult issued = await provider.IssueAsync(request);
@@ -605,7 +586,7 @@ public sealed class PerceptionCharacterV3Tests
         replacementContext.Request.Headers["X-Fsus-Replaces-Challenge"] = old.ChallengeId;
         replacementContext.Request.Headers["X-Fsus-Replaces-Envelope"] = old.EnvelopeId;
         replacementContext.Request.Headers["X-Fsus-Replaces-State-Token"] = issued.PerceptionCharacterV3!.StateToken;
-        gate.AllowRender = false;
+        pool.Available = false;
 
         SecurityChallengeProviderIssueResult failed = await provider.IssueAsync(request with
         {
@@ -630,7 +611,7 @@ public sealed class PerceptionCharacterV3Tests
     {
         byte[] tokenKey = Enumerable.Repeat((byte)0x31, 32).ToArray(), answerKey = Enumerable.Repeat((byte)0x32, 32).ToArray();
         var store = new MemoryStore();
-        var provider = new PerceptionCharacterV3Provider(new Keys(tokenKey, answerKey), new FixedRenderer(), store, new AllowGate(), new TestDeviceAuthority(), new FixedNonce(new byte[12]), new AuditSink(), TimeProvider.System);
+        var provider = new PerceptionCharacterV3Provider(new Keys(tokenKey, answerKey), new FixedPool(), store, new AllowGate(), new TestDeviceAuthority(), new FixedNonce(new byte[12]), new AuditSink(), TimeProvider.System);
         SecurityChallengeProviderIssueRequest request = ProviderIssueRequest() with
         {
             Action = action,
@@ -670,7 +651,7 @@ public sealed class PerceptionCharacterV3Tests
             TokenHash = Convert.ToHexStringLower(SHA256.HashData(Encoding.ASCII.GetBytes(token)))
         };
         Assert.True(await store.CreateAsync(record, CancellationToken.None));
-        var provider = new PerceptionCharacterV3Provider(new Keys(tokenKey, answerKey), new FixedRenderer(), store, new AllowGate(), new TestDeviceAuthority(), new FixedNonce(new byte[12]), audit, TimeProvider.System);
+        var provider = new PerceptionCharacterV3Provider(new Keys(tokenKey, answerKey), new FixedPool(), store, new AllowGate(), new TestDeviceAuthority(), new FixedNonce(new byte[12]), audit, TimeProvider.System);
         var typed = new PerceptionCharacterV3VerifyPayload(PerceptionCharacterV3Contracts.Algorithm, record.ChallengeId, record.EnvelopeId, PerceptionCharacterV3Representation.Visual, "A7C9Q", token);
         var request = new SecurityChallengeProviderVerifyRequest(new DefaultHttpContext(), PerceptionCharacterV3Contracts.WireName, record.ChallengeId, record.Action, record.RouteKey, record.SubjectHash, record.ClientIpBindingHash, rawDevice, "newly-published-policy", new Dictionary<string, string>()) { EnvelopeId = record.EnvelopeId, PerceptionCharacterV3 = typed };
         Assert.True((await provider.VerifyAsync(request)).Succeeded);
@@ -993,6 +974,22 @@ public sealed class PerceptionCharacterV3Tests
         => Convert.FromBase64String(Vectors.GetProperty("visual").GetProperty("artifactBase64").GetString()!);
     private static byte[] AudioArtifact()
         => Convert.FromBase64String(Vectors.GetProperty("audio").GetProperty("artifactBase64").GetString()!);
+    private static PerceptionCharacterV3ArtifactLease Lease(PerceptionCharacterV3Representation representation)
+    {
+        byte[] artifact = representation == PerceptionCharacterV3Representation.Visual
+            ? VisualArtifact()
+            : AudioArtifact();
+        return new(
+            Guid.CreateVersion7().ToString("D"),
+            "test-generation",
+            representation,
+            representation == PerceptionCharacterV3Representation.Visual
+                ? PerceptionCharacterV3Contracts.VisualMediaType
+                : PerceptionCharacterV3Contracts.AudioMediaType,
+            artifact,
+            Convert.ToHexStringLower(SHA256.HashData(artifact)),
+            Encoding.ASCII.GetBytes("A7C9Q"));
+    }
     private static PerceptionCharacterV3IssuePayload Issue(
         string challenge,
         string envelope,
@@ -1157,57 +1154,49 @@ public sealed class PerceptionCharacterV3Tests
             return Task.FromResult(PerceptionCharacterV3DeviceAuthorityResult.Success("session:" + binding));
         }
     }
-    private sealed class FixedRenderer : IPerceptionCharacterV3Renderer
+    private sealed class FixedPool : IPerceptionCharacterV3ArtifactPool
     {
-        public byte[] RenderVisual(string answer, ReadOnlySpan<byte> seed, CancellationToken cancellationToken = default)
-            => VisualArtifact();
-        public byte[] RenderAudio(string answer, ReadOnlySpan<byte> seed, CancellationToken cancellationToken = default)
-            => AudioArtifact();
+        public string ActiveGenerationId => "test-generation";
+        public Task InitializeAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task<PerceptionCharacterV3ArtifactLease?> LeaseAsync(PerceptionCharacterV3Representation representation, CancellationToken cancellationToken)
+            => Task.FromResult<PerceptionCharacterV3ArtifactLease?>(Lease(representation));
     }
-    private sealed class CountingRenderer : IPerceptionCharacterV3Renderer
+    private sealed class CountingPool : IPerceptionCharacterV3ArtifactPool
     {
+        public string ActiveGenerationId => "test-generation";
         public int Calls
         {
             get; private set;
         }
-        public byte[] RenderVisual(string answer, ReadOnlySpan<byte> seed, CancellationToken cancellationToken = default)
+        public Task InitializeAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task<PerceptionCharacterV3ArtifactLease?> LeaseAsync(PerceptionCharacterV3Representation representation, CancellationToken cancellationToken)
         {
             Calls++;
-            return VisualArtifact();
-        }
-        public byte[] RenderAudio(string answer, ReadOnlySpan<byte> seed, CancellationToken cancellationToken = default)
-        {
-            Calls++;
-            return AudioArtifact();
+            return Task.FromResult<PerceptionCharacterV3ArtifactLease?>(Lease(representation));
         }
     }
-    private sealed class TimeoutThenRenderRenderer : IPerceptionCharacterV3Renderer
+    private sealed class EmptyPool : IPerceptionCharacterV3ArtifactPool
     {
-        private int _calls;
-        public int ActiveCalls
+        public string ActiveGenerationId => "test-generation";
+        public int Calls
         {
             get; private set;
         }
-        public byte[] RenderVisual(string answer, ReadOnlySpan<byte> seed, CancellationToken cancellationToken = default)
-            => Render(false, cancellationToken);
-        public byte[] RenderAudio(string answer, ReadOnlySpan<byte> seed, CancellationToken cancellationToken = default)
-            => Render(true, cancellationToken);
-        private byte[] Render(bool audio, CancellationToken cancellationToken)
+        public Task InitializeAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task<PerceptionCharacterV3ArtifactLease?> LeaseAsync(PerceptionCharacterV3Representation representation, CancellationToken cancellationToken)
         {
-            ActiveCalls++;
-            try
-            {
-                if (Interlocked.Increment(ref _calls) == 1)
-                {
-                    cancellationToken.WaitHandle.WaitOne();
-                    cancellationToken.ThrowIfCancellationRequested();
-                }
-                return audio ? AudioArtifact() : VisualArtifact();
-            }
-            finally
-            {
-                ActiveCalls--;
-            }
+            Calls++;
+            return Task.FromResult<PerceptionCharacterV3ArtifactLease?>(null);
+        }
+    }
+    private sealed class TogglePool : IPerceptionCharacterV3ArtifactPool
+    {
+        public string ActiveGenerationId => "test-generation";
+        public bool Available { get; set; } = true;
+        public Task InitializeAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task<PerceptionCharacterV3ArtifactLease?> LeaseAsync(PerceptionCharacterV3Representation representation, CancellationToken cancellationToken)
+        {
+            return Task.FromResult<PerceptionCharacterV3ArtifactLease?>(Available ? Lease(representation) : null);
         }
     }
     private sealed class AllowGate : IPerceptionCharacterV3ResourceGate
@@ -1217,7 +1206,6 @@ public sealed class PerceptionCharacterV3Tests
             dimension = string.Empty;
             return true;
         }
-        public ValueTask<IAsyncDisposable?> EnterRenderAsync(CancellationToken cancellationToken) => ValueTask.FromResult<IAsyncDisposable?>(new AsyncLease());
     }
     private sealed class DenyGate : IPerceptionCharacterV3ResourceGate
     {
@@ -1226,22 +1214,6 @@ public sealed class PerceptionCharacterV3Tests
             dimension = "ip";
             return false;
         }
-        public ValueTask<IAsyncDisposable?> EnterRenderAsync(CancellationToken cancellationToken) => throw new InvalidOperationException("Render queue must not be reached.");
-    }
-    private sealed class ToggleGate : IPerceptionCharacterV3ResourceGate
-    {
-        public bool AllowRender { get; set; } = true;
-        public bool TryAcquireIssue(string ip, string device, string subject, string action, string identity, long nowUnixMs, out string dimension)
-        {
-            dimension = string.Empty;
-            return true;
-        }
-        public ValueTask<IAsyncDisposable?> EnterRenderAsync(CancellationToken cancellationToken)
-            => ValueTask.FromResult<IAsyncDisposable?>(AllowRender ? new AsyncLease() : null);
-    }
-    private sealed class AsyncLease : IAsyncDisposable
-    {
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
     private sealed class AuditSink : IPerceptionCharacterV3AuditSink
     {
