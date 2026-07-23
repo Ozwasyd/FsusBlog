@@ -730,13 +730,23 @@ public static partial class PodBinaryCodec
                 !reader.TryReadInt32(out int tagCount) ||
                 !reader.TryReadByte(out byte isDeleted) ||
                 !reader.TryReadByte(out byte hasIsDeleted) ||
-                !reader.TryReadByte(out _) ||
-                !reader.TryReadByte(out _) ||
+                !reader.TryReadByte(out byte reserved0) ||
+                !reader.TryReadByte(out byte reserved1) ||
                 tagStart < 0 ||
                 tagCount < 0 ||
                 tagStart + tagCount > tagRecordCount ||
                 isDeleted > 1 ||
-                hasIsDeleted > 1)
+                hasIsDeleted > 1 ||
+                reserved0 != 0 ||
+                reserved1 != 0)
+            {
+                page = default;
+                return false;
+            }
+
+            if (!IsSliceValid(categoryName, blob)
+                || !IsSliceValid(title, blob)
+                || !IsSliceValid(summary, blob))
             {
                 page = default;
                 return false;
@@ -782,44 +792,62 @@ public static partial class PodBinaryCodec
         }
 
         var tagRecords = new List<TagCoreModel>(tagRecordCount);
-        for (int i = 0; i < tagRecordCount; i++)
+        try
         {
-            if (!reader.TryReadInt32(out int tagId) || !reader.TryReadSliceRef(out Utf8SliceRef tagName))
+            for (int i = 0; i < tagRecordCount; i++)
             {
-                page = default;
-                return false;
-            }
+                if (!reader.TryReadInt32(out int tagId)
+                    || !reader.TryReadSliceRef(out Utf8SliceRef tagName)
+                    || !IsSliceValid(tagName, blob))
+                {
+                    page = default;
+                    return false;
+                }
 
-            tagRecords.Add(new TagCoreModel(tagId, PodUtf8Codec.ReadSlice(tagName, blob)));
+                tagRecords.Add(new TagCoreModel(tagId, PodUtf8Codec.ReadSlice(tagName, blob)));
+            }
+        }
+        catch (DecoderFallbackException)
+        {
+            page = default;
+            return false;
         }
 
         var items = new List<ArticleListCoreModel>(count);
-        foreach (var record in pending)
+        try
         {
-            string title = PodUtf8Codec.ReadSlice(record.Title, blob);
-            string summary = PodUtf8Codec.ReadSlice(record.Summary, blob);
-            string categoryName = PodUtf8Codec.ReadSlice(record.CategoryName, blob);
-            var tags = tagRecords.GetRange(record.TagStart, record.TagCount);
-            var pod = PodProjector.ProjectArticleList(record.Id, record.Views, PodTimeCodec.FromUnixMs(record.CreateTimeUnixMs), record.CategoryId, categoryName, title, summary, record.IsDeleted, out _);
-            items.Add(new ArticleListCoreModel(
-                pod,
-                record.Id,
-                title,
-                summary,
-                null,
-                null,
-                record.Views,
-                PodTimeCodec.FromUnixMs(record.CreateTimeUnixMs),
-                new ArticleCategoryCoreModel(record.CategoryId, categoryName),
-                tags,
-                record.IsDeleted,
-                record.Status,
-                record.ScheduledPublishAt,
-                record.PublishedAt,
-                record.CurrentRevisionId,
-                record.RevisionNo,
-                record.CurrentPublicationId,
-                record.PublicationNo));
+            foreach (var record in pending)
+            {
+                string title = PodUtf8Codec.ReadSlice(record.Title, blob);
+                string summary = PodUtf8Codec.ReadSlice(record.Summary, blob);
+                string categoryName = PodUtf8Codec.ReadSlice(record.CategoryName, blob);
+                var tags = tagRecords.GetRange(record.TagStart, record.TagCount);
+                var pod = PodProjector.ProjectArticleList(record.Id, record.Views, PodTimeCodec.FromUnixMs(record.CreateTimeUnixMs), record.CategoryId, categoryName, title, summary, record.IsDeleted, out _);
+                items.Add(new ArticleListCoreModel(
+                    pod,
+                    record.Id,
+                    title,
+                    summary,
+                    null,
+                    null,
+                    record.Views,
+                    PodTimeCodec.FromUnixMs(record.CreateTimeUnixMs),
+                    new ArticleCategoryCoreModel(record.CategoryId, categoryName),
+                    tags,
+                    record.IsDeleted,
+                    record.Status,
+                    record.ScheduledPublishAt,
+                    record.PublishedAt,
+                    record.CurrentRevisionId,
+                    record.RevisionNo,
+                    record.CurrentPublicationId,
+                    record.PublicationNo));
+            }
+        }
+        catch (DecoderFallbackException)
+        {
+            page = default;
+            return false;
         }
 
         if (hasMore && nextCursor is not null && nextCursor.IndexOf(':', StringComparison.Ordinal) < 0

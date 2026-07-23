@@ -1,9 +1,16 @@
 #include <cstring>
 
+#include "aeds_access_profiles.generated.hpp"
 #include "pod_views.hpp"
 
 namespace FsusBlog::Pod
 {
+
+static_assert(AedsAccess::PublicCardCurrentRecordBytes == 100u);
+static_assert(AedsAccess::PublicCardLegacyRecordBytes == 76u);
+static_assert(AedsAccess::PublicCardFallbackRecordBytes == 56u);
+static_assert(AedsAccess::TitleOffset == 28u);
+static_assert(AedsAccess::CurrentRevisionIdOffset == 76u);
 
 namespace
 {

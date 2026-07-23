@@ -25,6 +25,7 @@
 - [Admin dangerous-operation policy boundary](architecture/admin-dangerous-operation-policy-boundary.md)
 - [Admin integrity operations boundary](architecture/admin-integrity-operations-boundary.md)
 - [Admin operations health boundary](architecture/admin-operations-health-boundary.md)
+- [AEDS v2 access projections](architecture/aeds-access-projections.md)
 - [Article asset reference lifecycle](architecture/article-asset-reference-lifecycle.md)
 - [Article Deletion Data Catalog](architecture/article-deletion-data-catalog.json)
 - [Article permanent-deletion lifecycle](architecture/article-deletion-lifecycle.md)

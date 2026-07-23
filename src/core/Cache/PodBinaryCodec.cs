@@ -188,6 +188,19 @@ public static partial class PodBinaryCodec
             return true;
         }
 
+        public bool TryReadSpan(int length, out ReadOnlySpan<byte> value)
+        {
+            if (length < 0 || _offset + length > _source.Length)
+            {
+                value = default;
+                return false;
+            }
+
+            value = _source.Slice(_offset, length);
+            _offset += length;
+            return true;
+        }
+
         public bool TryReadSliceRef(out Utf8SliceRef value)
         {
             if (!TryReadInt32(out int offset) || !TryReadInt32(out int length) || offset < 0 || length < 0)

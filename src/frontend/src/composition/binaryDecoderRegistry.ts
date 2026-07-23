@@ -14,6 +14,8 @@ import { mapCategoryListFromPayload, mapTagListFromPayload } from '@/adapters/bi
 import { mapUploadCompleteFromPayload, mapUploadInitFromPayload, mapUploadPartAckFromPayload, mapUploadPartMapFromPayload, mapUploadStatusFromPayload } from '@/adapters/binary/uploadAdapter';
 import { mapAdminUserPageFromPayload } from '@/adapters/binary/userAdapter';
 import { AppErrorCode, createAppError } from '@/utils/appError';
+import { mapPublicArticleListCardProjection } from '@/adapters/binary/articleProjectionReader';
+import { AEDS_ACCESS_PROFILE, type AedsAccessProfileId } from '@/generated/aedsAccessProfiles';
 
 import { FrameType } from '@wasm/protocol/frame';
 
@@ -354,8 +356,24 @@ export const binaryFrameDecoderRegistry = createBinaryFrameDecoderRegistry(
     binaryFrameDecoderFrameTypes
 );
 
-export function decodeBinaryFramePayload(frameType: FrameType, payload: Uint8Array): unknown
+export function decodeBinaryFramePayload(
+    frameType: FrameType,
+    payload: Uint8Array,
+    accessProfile?: AedsAccessProfileId
+): unknown
 {
+    if (accessProfile === AEDS_ACCESS_PROFILE.publicArticleListCard)
+    {
+        if (frameType !== FrameType.ArticleList)
+        {
+            throw createAppError(AppErrorCode.ProtocolFailure, 'access_profile_frame_type_mismatch');
+        }
+        return mapPublicArticleListCardProjection(payload);
+    }
+    if (accessProfile !== undefined)
+    {
+        throw createAppError(AppErrorCode.ProtocolFailure, `access_profile_not_enabled:${accessProfile}`);
+    }
     return decodeBinaryFramePayloadWithRegistry(binaryFrameDecoderRegistry, frameType, payload);
 }
 

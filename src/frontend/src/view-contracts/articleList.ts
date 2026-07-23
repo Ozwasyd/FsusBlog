@@ -3,6 +3,7 @@ import { createPublicArticleDetailNavigationTarget } from '@/public-renderers/pu
 import { buildPublicCategoryHref, buildPublicHomePaginationHref, buildPublicTagHref } from '@/public-renderers/publicRouteIdentity'
 import type { CardContract, PaginationContract } from '@/ui-contracts/primitives';
 import { TimeUtils, type TimeRenderOptions } from '@/utils/time';
+import type { PublicArticleListCardProjection } from '@/adapters/binary/articleProjectionReader'
 
 const DEFAULT_CATEGORY = '通用类';
 const MAX_TAGS_DISPLAY = 5;
@@ -51,7 +52,7 @@ function toArticleTagView(id: number, name: string): ArticleTagViewContract {
 }
 
 export function createArticleListCardViewContract(
-  article: ArticleListItemResponse,
+  article: ArticleListItemResponse | PublicArticleListCardProjection,
   index = 0,
   timeOptions?: TimeRenderOptions
 ): ArticleListCardViewContract {
@@ -77,7 +78,7 @@ export function createArticleListCardViewContract(
 }
 
 export function createArticleListViewContract(
-  response: PageResponse<ArticleListItemResponse>,
+  response: PageResponse<ArticleListItemResponse | PublicArticleListCardProjection>,
   options: {
     currentPage: number;
     pageSize: number;

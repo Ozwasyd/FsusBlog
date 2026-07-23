@@ -89,6 +89,7 @@ BenchmarkSwitcher
         typeof(PublicHotReadEarlyDataPlaneBenchmarks),
         typeof(CacheAndFrameFixedCostHotPathBenchmarks),
         typeof(CspNonceHtmlHotPathBenchmarks),
+        typeof(FsusBlog.Core.Benchmarks.AedsAccessProjectionBenchmarks),
         typeof(RateLimiterRejectionSamplerBenchmarks),
         typeof(CompositeAcBenchmarks),
         typeof(DoubleArrayAcBenchmarks),

@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v2",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:d589f696369746128c98edeff077a00437bb2deda32aa58c797c1dc345c56786",
+    "policyDigest": "sha256:f9c1115ca82839ad5375cda22369a1d3dfb32573f004bf9098378fc3ea2ea031",
     "documents": [
         {
             "path": "docs/active-release-fenced-commits.md",
@@ -259,6 +259,21 @@
             "supersedes": [],
             "supersededBy": null,
             "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/architecture/aeds-access-projections.md",
+            "title": "AEDS v2 access projections",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "backend",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1452
+            ],
             "producer": null
         },
         {

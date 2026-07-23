@@ -1,8 +1,11 @@
 import type { ArticleListItemResponse } from '@/api/article'
 
-const articleCreateTimeMsCache = new WeakMap<ArticleListItemResponse, number>()
+type ArticlePreviewIdentity = Pick<ArticleListItemResponse, 'id' | 'createTime'>
+type ArticleFilterIdentity = ArticlePreviewIdentity & Pick<ArticleListItemResponse, 'category' | 'tags'>
 
-function resolveArticleCreateTimeMs(article: ArticleListItemResponse): number {
+const articleCreateTimeMsCache = new WeakMap<object, number>()
+
+function resolveArticleCreateTimeMs(article: ArticlePreviewIdentity): number {
   const cached = articleCreateTimeMsCache.get(article)
   if (cached !== undefined) {
     return cached
@@ -13,13 +16,13 @@ function resolveArticleCreateTimeMs(article: ArticleListItemResponse): number {
   return timeMs
 }
 
-function compareArticlesByCreateTime(left: ArticleListItemResponse, right: ArticleListItemResponse): number {
+function compareArticlesByCreateTime(left: ArticlePreviewIdentity, right: ArticlePreviewIdentity): number {
   const leftTime = resolveArticleCreateTimeMs(left)
   const rightTime = resolveArticleCreateTimeMs(right)
   return rightTime - leftTime || right.id - left.id
 }
 
-export function upsertArticlePreview(items: readonly ArticleListItemResponse[], preview: ArticleListItemResponse): ArticleListItemResponse[] {
+export function upsertArticlePreview<T extends ArticlePreviewIdentity>(items: readonly T[], preview: T): T[] {
   const next = items.slice()
   const existingIndex = next.findIndex((item) => item.id === preview.id)
   if (existingIndex >= 0) {
@@ -36,7 +39,7 @@ export function upsertArticlePreview(items: readonly ArticleListItemResponse[], 
   return next
 }
 
-export function removeArticlePreview(items: readonly ArticleListItemResponse[], articleId: number): ArticleListItemResponse[] {
+export function removeArticlePreview<T extends ArticlePreviewIdentity>(items: readonly T[], articleId: number): T[] {
   const index = items.findIndex((item) => item.id === articleId)
   if (index === -1) {
     return [...items]
@@ -47,10 +50,10 @@ export function removeArticlePreview(items: readonly ArticleListItemResponse[], 
   return next
 }
 
-export function matchesCategoryFilter(article: ArticleListItemResponse, categoryId: number): boolean {
+export function matchesCategoryFilter(article: ArticleFilterIdentity, categoryId: number): boolean {
   return Number(article.category?.id) === Number(categoryId)
 }
 
-export function matchesTagFilter(article: ArticleListItemResponse, tagId: number): boolean {
+export function matchesTagFilter(article: ArticleFilterIdentity, tagId: number): boolean {
   return Array.isArray(article.tags) && article.tags.some((tag) => Number(tag.id) === Number(tagId))
 }

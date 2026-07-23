@@ -1,6 +1,6 @@
 import { computed, nextTick, onMounted, ref, watch, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getArticles, getFeaturedArticles, getHotArticles, type ArticleListItemResponse, type FeaturedArticleItem, type PopularArticleSummaryResponse } from '@/api/article'
+import { getFeaturedArticles, getHotArticles, getPublicArticleCardProjections, type FeaturedArticleItem, type PopularArticleSummaryResponse } from '@/api/article'
 import { toBootstrapArticleListItem } from '@/bootstrap/publicAotBootstrap'
 import { consumePublicPageSeed } from '@/public-renderers/pageSeed'
 import { useNotificationStreamStore } from '@/store/notificationStream'
@@ -16,6 +16,7 @@ import { createArticleListViewContract, type ArticleListCardViewContract } from 
 import { createStableArticleCardMapper } from '@/view-contracts/articleListStableCache'
 import { createPublicSeedRenderTimeOptions } from '@/public-renderers/publicRenderClock'
 import { buildPublicHomePaginationHref } from '@/public-renderers/publicRouteIdentity'
+import { toPublicArticleListCardProjection, type PublicArticleListCardProjection } from '@/adapters/binary/articleProjectionReader'
 
 const HOME_FEATURED_ARTICLE_COUNT = 1
 const HOME_FEATURED_ARTICLE_PREFETCH_COUNT = 3
@@ -55,7 +56,7 @@ export function useHomeView() {
     initialBootstrap?.hotArticles
   )
 
-  const articleItems = ref<ArticleListItemResponse[]>([])
+  const articleItems = ref<PublicArticleListCardProjection[]>([])
   const featuredArticles = ref<FeaturedArticleItem[]>(initialFeaturedArticles)
   const hotArticles = ref<PopularArticleSummaryResponse[]>(initialHotArticles)
   const featuredLoading = ref(false)
@@ -155,7 +156,8 @@ export function useHomeView() {
   }
 
   if (initialBootstrap) {
-    articleItems.value = initialBootstrap.articles.map((article) => toBootstrapArticleListItem(article))
+    articleItems.value = initialBootstrap.articles
+      .map((article) => toPublicArticleListCardProjection(toBootstrapArticleListItem(article)))
     setPageTotal(Number(initialBootstrap.total) || 0)
   }
   if (initialHydrationView) {
@@ -195,7 +197,7 @@ export function useHomeView() {
     try {
       const response = await articleTask.run(
         async (signal) =>
-          await getArticles(
+          await getPublicArticleCardProjections(
             {
               page: currentPage.value,
               size: pageSize.value,
@@ -411,7 +413,10 @@ export function useHomeView() {
 
       if (currentPage.value === 1) {
         initialViewItems.value = null
-        articleItems.value = upsertArticlePreview(articleItems.value, payload.preview).slice(0, pageSize.value)
+        articleItems.value = upsertArticlePreview(
+          articleItems.value,
+          toPublicArticleListCardProjection(payload.preview)
+        ).slice(0, pageSize.value)
         homeRuntimeMetrics.patchApplied++
       } else {
         homeRuntimeMetrics.stalePageMarks++
@@ -434,7 +439,10 @@ export function useHomeView() {
         return false
       }
 
-      articleItems.value = upsertArticlePreview(articleItems.value, payload.preview)
+      articleItems.value = upsertArticlePreview(
+        articleItems.value,
+        toPublicArticleListCardProjection(payload.preview)
+      )
       initialViewItems.value = null
       homeRuntimeMetrics.patchApplied++
       return true

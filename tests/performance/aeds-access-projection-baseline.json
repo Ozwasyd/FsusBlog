@@ -1,0 +1,100 @@
+{
+  "schema": "fsusblog.aeds-access-projection-benchmark.v1",
+  "runtime": ".NET 10.0.8",
+  "benchmarkDotNet": "0.15.8",
+  "job": "ShortRun/InProcessNoEmit",
+  "profile": "publicArticleListCard",
+  "correctnessDigestVerified": true,
+  "gate": {
+    "minimumAllocationReductionPercent": 25,
+    "minimumTimeReductionPercent": 15,
+    "status": "passed",
+    "defaultEnabled": true
+  },
+  "cases": [
+    {
+      "parameters": "PageSize=5,TagsPerArticle=1,RecordBytes=76",
+      "canonical": { "nsPerOp": 9401.2, "allocatedBytesPerOp": 7248 },
+      "projection": { "nsPerOp": 3994.64, "allocatedBytesPerOp": 2600 },
+      "timeReductionPercent": 57.5,
+      "allocationReductionPercent": 64.1
+    },
+    {
+      "parameters": "PageSize=5,TagsPerArticle=1,RecordBytes=100",
+      "canonical": { "nsPerOp": 12265.99, "allocatedBytesPerOp": 7248 },
+      "projection": { "nsPerOp": 4768.66, "allocatedBytesPerOp": 2600 },
+      "timeReductionPercent": 61.1,
+      "allocationReductionPercent": 64.1
+    },
+    {
+      "parameters": "PageSize=5,TagsPerArticle=8,RecordBytes=76",
+      "canonical": { "nsPerOp": 12445.68, "allocatedBytesPerOp": 9488 },
+      "projection": { "nsPerOp": 8615.87, "allocatedBytesPerOp": 5280 },
+      "timeReductionPercent": 30.8,
+      "allocationReductionPercent": 44.4
+    },
+    {
+      "parameters": "PageSize=5,TagsPerArticle=8,RecordBytes=100",
+      "canonical": { "nsPerOp": 13643.39, "allocatedBytesPerOp": 9488 },
+      "projection": { "nsPerOp": 7823.77, "allocatedBytesPerOp": 5280 },
+      "timeReductionPercent": 42.7,
+      "allocationReductionPercent": 44.4
+    },
+    {
+      "parameters": "PageSize=20,TagsPerArticle=1,RecordBytes=76",
+      "canonical": { "nsPerOp": 50498.9, "allocatedBytesPerOp": 28456 },
+      "projection": { "nsPerOp": 17110.44, "allocatedBytesPerOp": 10128 },
+      "timeReductionPercent": 66.1,
+      "allocationReductionPercent": 64.4
+    },
+    {
+      "parameters": "PageSize=20,TagsPerArticle=1,RecordBytes=100",
+      "canonical": { "nsPerOp": 38411.23, "allocatedBytesPerOp": 28456 },
+      "projection": { "nsPerOp": 16983.65, "allocatedBytesPerOp": 10128 },
+      "timeReductionPercent": 55.8,
+      "allocationReductionPercent": 64.4
+    },
+    {
+      "parameters": "PageSize=20,TagsPerArticle=8,RecordBytes=76",
+      "canonical": { "nsPerOp": 58571.88, "allocatedBytesPerOp": 37417 },
+      "projection": { "nsPerOp": 40799.57, "allocatedBytesPerOp": 20848 },
+      "timeReductionPercent": 30.3,
+      "allocationReductionPercent": 44.3
+    },
+    {
+      "parameters": "PageSize=20,TagsPerArticle=8,RecordBytes=100",
+      "canonical": { "nsPerOp": 60257.64, "allocatedBytesPerOp": 37416 },
+      "projection": { "nsPerOp": 38803.97, "allocatedBytesPerOp": 20848 },
+      "timeReductionPercent": 35.6,
+      "allocationReductionPercent": 44.3
+    },
+    {
+      "parameters": "PageSize=100,TagsPerArticle=1,RecordBytes=76",
+      "canonical": { "nsPerOp": 316188.8, "allocatedBytesPerOp": 141736 },
+      "projection": { "nsPerOp": 88307.16, "allocatedBytesPerOp": 50448 },
+      "timeReductionPercent": 72.1,
+      "allocationReductionPercent": 64.4
+    },
+    {
+      "parameters": "PageSize=100,TagsPerArticle=1,RecordBytes=100",
+      "canonical": { "nsPerOp": 662750.99, "allocatedBytesPerOp": 141736 },
+      "projection": { "nsPerOp": 351275.93, "allocatedBytesPerOp": 50451 },
+      "timeReductionPercent": 47.0,
+      "allocationReductionPercent": 64.4
+    },
+    {
+      "parameters": "PageSize=100,TagsPerArticle=8,RecordBytes=76",
+      "canonical": { "nsPerOp": 831372.07, "allocatedBytesPerOp": 186536 },
+      "projection": { "nsPerOp": 671023.11, "allocatedBytesPerOp": 104048 },
+      "timeReductionPercent": 19.3,
+      "allocationReductionPercent": 44.2
+    },
+    {
+      "parameters": "PageSize=100,TagsPerArticle=8,RecordBytes=100",
+      "canonical": { "nsPerOp": 439240.27, "allocatedBytesPerOp": 186536 },
+      "projection": { "nsPerOp": 362276.14, "allocatedBytesPerOp": 104048 },
+      "timeReductionPercent": 17.5,
+      "allocationReductionPercent": 44.2
+    }
+  ]
+}

@@ -29,6 +29,7 @@ import { toTrustedApplicationWorkerScriptUrl } from '@/security/trustedTypesRunt
 import { privateRequestRuntime } from '@/services/privateRequestRuntime';
 import wasmDecodeWorkerUrl from '@/workers/wasmDecode.worker.ts?worker&url';
 import { FrameType } from '@wasm/protocol/frame';
+import type { AedsAccessProfileId } from '@/generated/aedsAccessProfiles';
 import {
   buildFsusBinaryRoute,
   fsusBinaryRouteDescriptors,
@@ -134,6 +135,7 @@ type QueuedDecodeRequest = {
   requestId: number;
   buffer: ArrayBuffer;
   expectedFrameType: FrameType;
+  accessProfile?: AedsAccessProfileId;
   signal?: AbortSignal;
   resolve: (value: unknown) => void;
   reject: (reason?: unknown) => void;
@@ -420,7 +422,8 @@ function startWorkerDecode<T>(queued: QueuedDecodeRequest): void {
       requestId,
       buffer: queued.buffer,
       expectedFrameType: queued.expectedFrameType,
-      sentAtUnixMs: Date.now()
+      sentAtUnixMs: Date.now(),
+      accessProfile: queued.accessProfile
     };
     worker.postMessage(request, [queued.buffer]);
   } catch (error) {
@@ -429,7 +432,12 @@ function startWorkerDecode<T>(queued: QueuedDecodeRequest): void {
   }
 }
 
-function decodeInWorker<T>(buffer: ArrayBuffer, expectedFrameType: FrameType, signal?: AbortSignal): Promise<T> {
+function decodeInWorker<T>(
+  buffer: ArrayBuffer,
+  expectedFrameType: FrameType,
+  accessProfile?: AedsAccessProfileId,
+  signal?: AbortSignal
+): Promise<T> {
   if (signal?.aborted) {
     return Promise.reject(createAbortLikeError('binary_decode_aborted'));
   }
@@ -451,6 +459,7 @@ function decodeInWorker<T>(buffer: ArrayBuffer, expectedFrameType: FrameType, si
       requestId,
       buffer,
       expectedFrameType,
+      accessProfile,
       signal,
       resolve: (value) => resolve(value as T),
       reject,
@@ -482,6 +491,7 @@ async function loadBinaryAndDecode<T>(
   decodeFramePayload: BinaryFramePayloadDecoder,
   url: string,
   frameType: FrameType,
+  accessProfile?: AedsAccessProfileId,
   requestOptions?: BinaryRequestOptions,
   signal?: AbortSignal
 ): Promise<T> {
@@ -524,11 +534,11 @@ async function loadBinaryAndDecode<T>(
       throw createAppError(AppErrorCode.ProtocolFailure, 'frame_type_unexpected');
     }
 
-    return decodeFramePayload(frame.frameType, frame.payloadView) as T;
+    return decodeFramePayload(frame.frameType, frame.payloadView, accessProfile) as T;
   }
 
   const workerDecodeStartedAt = typeof performance !== 'undefined' ? performance.now() : 0;
-  const value = await decodeInWorker<T>(buffer, frameType, signal);
+  const value = await decodeInWorker<T>(buffer, frameType, accessProfile, signal);
   if (workerDecodeStartedAt > 0) {
     const durationMs = Math.round(performance.now() - workerDecodeStartedAt);
     emitRumMetric('wasm_decode_timing', {
@@ -544,10 +554,11 @@ async function loadBinaryAndDecodeSafe<T>(
   decodeFramePayload: BinaryFramePayloadDecoder,
   url: string,
   frameType: FrameType,
+  accessProfile?: AedsAccessProfileId,
   requestOptions?: BinaryRequestOptions,
   signal?: AbortSignal
 ): Promise<BinaryDecodeResult<T>> {
-  return loadBinaryAndDecode<T>(decodeFramePayload, url, frameType, requestOptions, signal)
+  return loadBinaryAndDecode<T>(decodeFramePayload, url, frameType, accessProfile, requestOptions, signal)
     .then((value): BinaryDecodeSuccess<T> => ({ ok: true, value }))
     .catch(async (error: unknown) => {
       if (!signal?.aborted && error instanceof TypeError && error.message === 'Failed to fetch') {
@@ -696,6 +707,7 @@ async function executeBinaryRequest<T>(
     decodeFramePayload,
     binaryUrl,
     options.frameType,
+    options.accessProfile,
     requestOptions,
     requestSignal
   );
@@ -704,6 +716,7 @@ async function executeBinaryRequest<T>(
       decodeFramePayload,
       binaryUrl,
       options.frameType,
+      options.accessProfile,
       {
         ...(requestOptions ?? {}),
         requiresPow: true,

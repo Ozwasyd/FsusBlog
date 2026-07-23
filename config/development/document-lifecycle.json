@@ -119,6 +119,16 @@
             "supersededBy": null
         },
         {
+            "path": "docs/architecture/aeds-access-projections.md",
+            "status": "current",
+            "owner": "backend",
+            "relatedIssues": [
+                1452
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
             "path": "docs/architecture/admin-artifact-operations-boundary.md",
             "status": "current",
             "owner": "backend",

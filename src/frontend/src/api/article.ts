@@ -20,6 +20,8 @@ import { encodeAedsFrame } from './binaryFrame';
 import type { ApiRequestConfig } from './requestConfig';
 
 import { AppErrorCode, createAppError } from '@/utils/appError'
+import { AEDS_ACCESS_PROFILE } from '@/generated/aedsAccessProfiles'
+import type { PublicArticleListProjectionPage } from '@/adapters/binary/articleProjectionReader'
 export { ArticlePublishStatus };
 export type {
     ArticleDetailResponse,
@@ -59,6 +61,27 @@ export const getArticles = (
     return requestBinaryOnly<PageResponse<ArticleListItemResponse>>({
         binaryRoute: buildPublicArticleListRoute(normalized),
         frameType: FrameType.ArticleList,
+        requestOptions: { credentials: 'omit' },
+        signal: config?.signal
+    });
+};
+
+/** 获取公开首页卡片投影；不构造完整 ArticleListItemResponse。 */
+export const getPublicArticleCardProjections = (
+    params: { page?: number; size?: number; cursor?: string | null; },
+    config?: ApiRequestConfig
+): Promise<PublicArticleListProjectionPage> =>
+{
+    const normalized = {
+        page: params.page ?? 1,
+        size: params.size ?? 10,
+        cursor: params.cursor,
+        listKind: 'home' as const
+    };
+    return requestBinaryOnly<PublicArticleListProjectionPage>({
+        binaryRoute: buildPublicArticleListRoute(normalized),
+        frameType: FrameType.ArticleList,
+        accessProfile: AEDS_ACCESS_PROFILE.publicArticleListCard,
         requestOptions: { credentials: 'omit' },
         signal: config?.signal
     });

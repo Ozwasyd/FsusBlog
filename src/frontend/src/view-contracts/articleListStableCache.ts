@@ -1,9 +1,12 @@
 import type { ArticleListItemResponse } from '@/api/article'
 import { createArticleListCardViewContract, type ArticleListCardViewContract } from '@/view-contracts/articleList'
 import type { TimeRenderOptions } from '@/utils/time'
+import type { PublicArticleListCardProjection } from '@/adapters/binary/articleProjectionReader'
+
+type ArticleCardSource = ArticleListItemResponse | PublicArticleListCardProjection
 
 type CachedArticleCard = {
-  source: ArticleListItemResponse
+  source: ArticleCardSource
   index: number
   timeKey: string
   view: ArticleListCardViewContract
@@ -29,7 +32,7 @@ export function createStableArticleCardMapper(timeOptions?: TimeOptionsInput) {
   const cache = new Map<number, CachedArticleCard>()
   let generation = 0
 
-  return (items: readonly ArticleListItemResponse[]): ArticleListCardViewContract[] => {
+  return (items: readonly ArticleCardSource[]): ArticleListCardViewContract[] => {
     generation += 1
     const resolvedTimeOptions = resolveTimeOptions(timeOptions)
     const timeKey = toTimeKey(resolvedTimeOptions)

@@ -9,6 +9,8 @@
     "generate:public-shell-emergency": "node ../../tools/frontend/generate-public-shell-emergency.mjs",
     "check:public-shell-emergency": "node ../../tools/frontend/generate-public-shell-emergency.mjs --check",
     "generate:aeds-protocol": "node ../../tools/frontend/generate-aeds-protocol.mjs",
+    "generate:aeds-access-profiles": "node ../../tools/frontend/generate-aeds-access-profiles.mjs",
+    "check:aeds-access-profiles": "node ../../tools/frontend/generate-aeds-access-profiles.mjs --check",
     "check:aeds-protocol": "node ../../tools/frontend/generate-aeds-protocol.mjs --check",
     "predev": "npm run generate:public-page-manifest && npm run generate:public-shell-emergency",
     "prebuild": "npm run generate:public-page-manifest && npm run generate:public-shell-emergency",

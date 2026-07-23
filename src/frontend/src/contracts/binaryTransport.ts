@@ -1,5 +1,6 @@
 import type { FrameType } from '@wasm/protocol/frame'
 import type { FsusBinaryOperationId } from '@/generated/fsusBinaryRoutes'
+import type { AedsAccessProfileId } from '@/generated/aedsAccessProfiles'
 import type {
   RiskChallengeFailureReason,
   RiskChallengeHandoff,
@@ -29,7 +30,7 @@ export interface PowParams {
   timestamp: number
 }
 
-export type BinaryFramePayloadDecoder = (frameType: FrameType, payload: Uint8Array) => unknown
+export type BinaryFramePayloadDecoder = (frameType: FrameType, payload: Uint8Array, accessProfile?: AedsAccessProfileId) => unknown
 
 export interface BinaryRouteRequest {
   operationId: FsusBinaryOperationId
@@ -44,6 +45,7 @@ export interface BinaryTransportRequest {
   requestOptions?: BinaryRequestOptions
   signal?: AbortSignal
   suppressAuthFailureTelemetry?: boolean
+  accessProfile?: AedsAccessProfileId
   /** Required by the static gate for legacy binaryUrl calls. Generated routes infer it from auth metadata. */
   privateScope?: PrivateRequestScope
 }
@@ -107,6 +109,7 @@ export interface DecodeWorkerRequest {
   buffer: ArrayBuffer
   expectedFrameType?: number
   sentAtUnixMs?: number
+  accessProfile?: AedsAccessProfileId
 }
 
 export interface CancelWorkerRequest {

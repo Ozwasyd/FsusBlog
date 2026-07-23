@@ -112,7 +112,7 @@ self.onmessage = async (event: MessageEvent<BinaryWorkerRequest>) => {
       return;
     }
 
-    const { buffer, expectedFrameType, sentAtUnixMs } = event.data;
+    const { buffer, expectedFrameType, sentAtUnixMs, accessProfile } = event.data;
     const workerTransferMs = typeof sentAtUnixMs === 'number' && Number.isFinite(sentAtUnixMs)
       ? Math.max(0, Date.now() - sentAtUnixMs)
       : undefined;
@@ -177,7 +177,7 @@ self.onmessage = async (event: MessageEvent<BinaryWorkerRequest>) => {
       return;
     }
 
-    const data = decodeBinaryFramePayload(frame.frameType, frame.payloadView);
+    const data = decodeBinaryFramePayload(frame.frameType, frame.payloadView, accessProfile);
     if (isRequestCanceled(requestId)) {
       canceledRequests.delete(requestId);
       return;

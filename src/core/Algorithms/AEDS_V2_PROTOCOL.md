@@ -14,6 +14,8 @@ This file is the current wire protocol specification. AEDS v2 is the only accept
 
 Core, backend, benchmarks, and backend tests import the generated Shared packed header instead of defining another `AedsFrameHeader`. `node tools/frontend/generate-aeds-protocol.mjs --check` fails when any generated surface is stale. The cross-stack frame-schema check also compiles the production C++ decoder, runs every active manifest value through it, and decodes a C# golden frame. C++ callers use generated `IsKnownFrameType`; values absent from the active manifest, including retired slots, must be rejected rather than silently accepted.
 
+Access profiles do not alter this wire protocol. `src/shared/Contracts/Validation/aeds-access-profiles.json` generates C#/TypeScript/C++ reader constants for existing payload layouts, while the frame header, CRC, frame type and POD layout authorities remain unchanged. A projection reader validates the complete frame and payload before returning selected fields; it may not skip CRC, range, UTF-8, reserved-byte, count or trailing-byte checks. The default `publicArticleListCard` profile reads 76-byte and 100-byte ArticleList records; the legal 56-byte layout routes to the canonical decoder, and unknown or malformed layouts fail closed. See `docs/architecture/aeds-access-projections.md`.
+
 ## Frame Layout
 
 - Header: 16 bytes
