@@ -2,7 +2,7 @@
     "schema": "fsusblog.custom-rule-registry.v1",
     "generatedBy": "tools/governance/check-rule-platform.mjs --write-registry",
     "inventory": {
-        "packageScriptCount": 191,
+        "packageScriptCount": 192,
         "implementationCount": 342
     },
     "rules": [
@@ -497,6 +497,36 @@
                 "command": "node ../../tests/frontend/checks/static/check-admin-user-manage-governance.mjs",
                 "implementation": "tests/frontend/checks/static/check-admin-user-manage-governance.mjs",
                 "executionKey": "governance:check:admin-user-manage-governance",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Command.CheckAedsAccessProfiles",
+            "externalId": "check:aeds-access-profiles",
+            "symbol": "CheckAedsAccessProfiles",
+            "owner": "AedsContractOwner",
+            "category": "aeds-wire",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tools/frontend/generate-aeds-access-profiles.mjs",
+                "src/core/**",
+                "src/shared/**",
+                "src/frontend/wasm/**",
+                "tests/frontend/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": false,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-command",
+                "command": "node ../../tools/frontend/generate-aeds-access-profiles.mjs --check",
+                "implementation": "tools/frontend/generate-aeds-access-profiles.mjs",
+                "executionKey": "governance:check:aeds-access-profiles",
                 "receiptCompatible": true
             }
         },

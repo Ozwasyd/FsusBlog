@@ -719,34 +719,7 @@ public static partial class PodBinaryCodec
         var pending = new List<(int Id, int Views, long CreateTimeUnixMs, int CategoryId, Utf8SliceRef CategoryName, Utf8SliceRef Title, Utf8SliceRef Summary, int TagStart, int TagCount, bool? IsDeleted, int Status, DateTime? ScheduledPublishAt, DateTime? PublishedAt, long CurrentRevisionId, int RevisionNo, long? CurrentPublicationId, int? PublicationNo)>(count);
         for (int i = 0; i < count; i++)
         {
-            if (!reader.TryReadInt32(out int id) ||
-                !reader.TryReadInt32(out int views) ||
-                !reader.TryReadInt64(out long createTimeUnixMs) ||
-                !reader.TryReadInt32(out int categoryId) ||
-                !reader.TryReadSliceRef(out Utf8SliceRef categoryName) ||
-                !reader.TryReadSliceRef(out Utf8SliceRef title) ||
-                !reader.TryReadSliceRef(out Utf8SliceRef summary) ||
-                !reader.TryReadInt32(out int tagStart) ||
-                !reader.TryReadInt32(out int tagCount) ||
-                !reader.TryReadByte(out byte isDeleted) ||
-                !reader.TryReadByte(out byte hasIsDeleted) ||
-                !reader.TryReadByte(out byte reserved0) ||
-                !reader.TryReadByte(out byte reserved1) ||
-                tagStart < 0 ||
-                tagCount < 0 ||
-                tagStart + tagCount > tagRecordCount ||
-                isDeleted > 1 ||
-                hasIsDeleted > 1 ||
-                reserved0 != 0 ||
-                reserved1 != 0)
-            {
-                page = default;
-                return false;
-            }
-
-            if (!IsSliceValid(categoryName, blob)
-                || !IsSliceValid(title, blob)
-                || !IsSliceValid(summary, blob))
+            if (!TryReadArticleListRecordHeader(ref reader, tagRecordCount, blob, out ArticleListRecordHeader header))
             {
                 page = default;
                 return false;
@@ -788,26 +761,10 @@ public static partial class PodBinaryCodec
                 publicationNo = decodedPublicationNo > 0 ? decodedPublicationNo : null;
             }
 
-            pending.Add((id, views, createTimeUnixMs, categoryId, categoryName, title, summary, tagStart, tagCount, hasIsDeleted == 1 ? isDeleted == 1 : null, status, scheduledPublishAt, publishedAt, currentRevisionId, revisionNo, currentPublicationId, publicationNo));
+            pending.Add((header.Id, header.Views, header.CreateTimeUnixMs, header.CategoryId, header.CategoryName, header.Title, header.Summary, header.TagStart, header.TagCount, header.IsDeleted, status, scheduledPublishAt, publishedAt, currentRevisionId, revisionNo, currentPublicationId, publicationNo));
         }
 
-        var tagRecords = new List<TagCoreModel>(tagRecordCount);
-        try
-        {
-            for (int i = 0; i < tagRecordCount; i++)
-            {
-                if (!reader.TryReadInt32(out int tagId)
-                    || !reader.TryReadSliceRef(out Utf8SliceRef tagName)
-                    || !IsSliceValid(tagName, blob))
-                {
-                    page = default;
-                    return false;
-                }
-
-                tagRecords.Add(new TagCoreModel(tagId, PodUtf8Codec.ReadSlice(tagName, blob)));
-            }
-        }
-        catch (DecoderFallbackException)
+        if (!TryReadArticleListTags(ref reader, tagRecordCount, blob, out List<TagCoreModel> tagRecords))
         {
             page = default;
             return false;
@@ -850,11 +807,7 @@ public static partial class PodBinaryCodec
             return false;
         }
 
-        if (hasMore && nextCursor is not null && nextCursor.IndexOf(':', StringComparison.Ordinal) < 0
-            && long.TryParse(nextCursor, out long legacyUnixMs) && items.Count > 0)
-        {
-            nextCursor = string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{legacyUnixMs}:{items[^1].Id}");
-        }
+        nextCursor = NormalizeLegacyArticleListCursor(nextCursor, hasMore, items);
         page = new CorePageResult<ArticleListCoreModel>(items, total, nextCursor, hasMore);
         return reader.IsConsumed;
     }
