@@ -187,6 +187,62 @@
             ]
         },
         {
+            "id": "native-test-governance",
+            "description": "Repository-owned CMake smoke and libFuzzer targets have semantic identities, exact matrix ownership and fail-closed lifecycle governance.",
+            "owner": "WasmEngineAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "config/testing/native-test-assets.json",
+                "tools/test/native-test-governance.mjs",
+                "tools/test/run-native-tests.mjs",
+                "tests/tools/native-test-governance.test.mjs",
+                "docs/testing.md"
+            ],
+            "assertionType": "static",
+            "failClosedRule": "Static governance rejects unregistered native sources, duplicate owners, empty corpora, unmapped target renames and missing production/release evidence.",
+            "minimumRequirement": "Every active native source, target, corpus, profile and receipt has one semantic catalog owner and central replacement/retirement policy.",
+            "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
+            "id": "native-smoke-execution",
+            "description": "The quick CTest smoke target produces source/toolchain-bound evidence independently of fuzz execution.",
+            "owner": "WasmEngineAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "tests/native/CMakeLists.txt",
+                "tests/native/AedsCrc16SmokeTests.cpp",
+                ".tmp/release-evidence/native-smoke.json",
+                "tools/test/run-native-tests.mjs"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "Missing compiler, CMake or CTest capability records a blocked receipt and the smoke target cannot be projected as passed.",
+            "minimumRequirement": "Production fresh consumes the smoke target exactly once and verifies source, compiler, target, flags, empty-corpus identity, outcome and crash digest.",
+            "tierIds": [
+                "native-smoke"
+            ]
+        },
+        {
+            "id": "native-fuzz-sanitizer-execution",
+            "description": "The libFuzzer target consumes a tracked seed corpus under ASAN/UBSAN and produces resource-controlled release evidence.",
+            "owner": "WasmEngineAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "tests/native/CMakeLists.txt",
+                "tests/native/AedsCrc16Fuzz.cpp",
+                "tests/native/corpus/aeds-crc16",
+                "tools/test/run-native-tests.mjs",
+                ".tmp/release-evidence/native-fuzz-sanitizer.json"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "Missing Clang, sanitizer, corpus or fuzzer capability records a blocked receipt and cannot satisfy release-final.",
+            "minimumRequirement": "Release-final consumes the fuzz/sanitizer target exactly once with source, compiler, target, flags, corpus, outcome and crash digest, using run and job counts rather than a fixed-time gate.",
+            "tierIds": [
+                "native-fuzz-sanitizer"
+            ]
+        },
+        {
             "id": "runtime-publish-profile-matrix",
             "description": "Named .NET/container publish profiles are one-factor comparable, digest-bound to release images and measured across all production route classes on isolated target/load-generator resources.",
             "owner": "ServerContractAgent",

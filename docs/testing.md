@@ -588,6 +588,17 @@ CI 的 file-only checks 与 app-stack checks 必须分阶段：`cross-stack-cont
 
 `wasm-fuzz-regression` 必须先用 ASAN/UBSAN 编译实际 AEDS exports 并运行 handle epoch 合约，再以 libFuzzer 覆盖 reserve/decode/clear 与 stale token；随后在当前 fresh namespace 内同时加载本轮 `frontend-build` 生成的 `aeds_decoder_basic.wasm` 与 `aeds_decoder_speed.wasm`，按 scheduler 授予的 CPU 容量生成可复现种子并真实调用两套 Wasm arena decode 导出。每个 seed 的 success/error code、frame type、payload length/hash 必须一致，并验证 sensitive arena 清零及 payload handle 在 clear 后失效；仅写入计划、读取“已执行”环境标记或复用旧 run 的 fuzz summary 都不构成通过。权威证据必须包含 `executionSource=fresh-wasm-runtime`、非零 `seedsRun`、ABI、两套解码器 SHA-256、合并 identity digest 与可重放 seed plan。
 
+Repository-owned CMake/CTest 与 libFuzzer 资产由
+`config/testing/native-test-assets.json` 统一登记语义 test ID、source owner、target、corpus、lifecycle 和
+receipt。`node tools/test/run-native-tests.mjs --profile smoke` 是独立快速 smoke 入口，production fresh
+exact-once 消费其 source/toolchain-bound receipt；`--profile fuzz-sanitizer --runs <count> --jobs <count>`
+启用 Clang libFuzzer、ASAN 与 UBSAN，由 release-final 独立消费。runs/jobs 是资源输入，不是固定时间门禁。
+两类 receipt 都绑定 commit、source input digest、compiler/CMake、target、sanitizer/fuzzer flags、corpus
+identity、outcome 和 crash artifact digest。缺少 compiler、CMake、CTest 或 sanitizer/fuzzer capability
+时 producer 写入结构化 `blocked` 原因并非零退出，不得伪造 pass。删除、重命名、合并或退役 native
+target 前必须先在 `tests/test-retention-replacements.json` 登记映射；静态 checker 的负例无需运行长 fuzz
+campaign 即可覆盖漏登记、重复 owner、丢失 corpus、未映射 target rename 和 release evidence 缺失。
+
 `aeds-decode-budget` 必须读取同次构建的 `aeds-runtime-manifest.json` 和真实 basic/speed Wasm，记录 raw/gzip/br、load/compile、frame-size p50/p95/p99、MB/s/ns-per-byte、arena/reallocation/clear、memory pages 与 copy model。该 browserless evidence 是普通 `aeds-frame-cost` correctness/performance owner；Chromium/Firefox/WebKit 的 download/compile/instantiate、Worker transfer、hydration takeover、long task、tier selection/fallback rate 已迁到 scheduled/manual diagnostics。browser summary 的缺失、unsupported 或失败不阻断普通 correctness，也不能替代 decoder budget。不得用 TypeScript no-copy synthetic loop 代替任一真实 Wasm evidence。
 
 server `aeds-frame-cost` 证据把 `structuralEvidence` 与 `measuredEvidence` 分开：copy count/bytes 明确标记为由旧双缓冲写路径和 `payload.Length` 推导的结构事实，不得伪装成硬件 counter；allocation、mean、p50/p95、方差与逐轮样本才是机器实测。实测必须在同一 Release benchmark/Core artifact set、同一 runtime/CPU/OS/GC/affinity 与同一 commit 上至少执行五轮，且 before/after 逐轮交替顺序；门禁使用 round mean 与 round p95 的中位数控制单个 scheduler outlier，同时保留 pooled arithmetic mean/p95、逐轮值和方差供诊断。`tests/performance/perf-policy.yml::aedsFrameCost` 是轮数、warmup、样本数、代表性场景及相对/绝对噪声带的唯一来源；`ArticleList10/50/100`、`ArticleDetailLarge`、`CommentCursor`、`ConversationDetail`、`PublicAotBootstrap` 全部受 allocation、mean、p95 门禁，`EmptySuccess` 只作 static-preencoded reference，`ApiError` 使用独立 tiny noise band。缺 identity、非 Release artifact、dirty source 或样本不足只能得到 `blocked/structural-only`；任一实测回退都使 overall `regressed`，不能被结构性 copy reduction 改写为 improved。完整 schema、结论表与排障见 [AEDS frame-cost evidence gate](testing/issue-1152-aeds-frame-cost-evidence.md)。

@@ -124,6 +124,7 @@ localProfiles:
                       perception-v2-redteam-pr,
                       risk-control-test-matrix,
                       ux-viewport-plan-progress,
+                      native-smoke,
                   ]
               resourceClass: cpu
               cpuWeight: 8
@@ -1477,6 +1478,7 @@ tiers:
           - pod-binary-codec-batch-allocation
           - per-test-observation-ledger
           - isolated-flaky-observation-lane
+          - native-test-governance
       artifacts:
           [
               .tmp/gate-logs,
@@ -1503,6 +1505,11 @@ tiers:
           - .tmp/release-evidence/flaky/registry.json
           - .tmp/docs/integrity-proof-docs.json
           - .tmp/release-evidence/backend-physical-topology.json
+          - config/testing/native-test-assets.json
+          - tools/test/native-test-governance.mjs
+          - tools/test/run-native-tests.mjs
+          - tests/tools/native-test-governance.test.mjs
+          - docs/testing.md
           - tests/backend/runtime-fallback-milestones.json
           - tests/backend/legacy-identity-retirement-evidence.json
           - docs/security.md
@@ -6332,6 +6339,91 @@ tiers:
       nightlyOnly: false
       manualOnly: true
 
+    - id: native-smoke
+      owner: WasmEngineAgent
+      command: node tools/test/run-native-tests.mjs --profile smoke
+      dependsOn: [validate-matrix]
+      services: []
+      parallelizable: true
+      exclusiveResources: [native-cmake-build]
+      phase: 1
+      cost: low
+      resourceClass: cpu
+      cpuWeight: 1
+      memoryWeight: 0.5
+      minCpuUnits: 1
+      requiresBootstrap: none
+      requiresNode: true
+      requiresDotnet: false
+      requiresPlaywright: none
+      cacheProfile: none
+      timeoutMinutes: 10
+      shardable: false
+      defaultShards: 1
+      risk: critical
+      cadence: pr
+      requiredFor: production
+      coverage: [native-smoke-execution]
+      artifacts: [.tmp/release-evidence/native-smoke.json]
+      evidence:
+          [
+              config/testing/native-test-assets.json,
+              tests/native/CMakeLists.txt,
+              tests/native/AedsCrc16SmokeTests.cpp,
+              tools/test/run-native-tests.mjs,
+              .tmp/release-evidence/native-smoke.json,
+          ]
+      ciJob: production-summary
+      localOnly: false
+      nightlyOnly: false
+      manualOnly: false
+      retentionClass: must-keep
+
+    - id: native-fuzz-sanitizer
+      owner: WasmEngineAgent
+      command: node tools/test/run-native-tests.mjs --profile fuzz-sanitizer
+      dependsOn: [validate-matrix]
+      services: []
+      parallelizable: true
+      exclusiveResources: [native-cmake-build]
+      phase: 5
+      cost: high
+      resourceClass: cpu
+      cpuWeight: 1
+      memoryWeight: 1
+      minCpuUnits: 1
+      requiresBootstrap: none
+      requiresNode: true
+      requiresDotnet: false
+      requiresPlaywright: none
+      cacheProfile: none
+      timeoutMinutes: 60
+      shardable: false
+      defaultShards: 1
+      risk: critical
+      cadence: release-manual
+      requiredFor: release-final
+      coverage: [native-fuzz-sanitizer-execution]
+      artifacts:
+          [
+              .tmp/release-evidence/native-fuzz-sanitizer.json,
+              .tmp/native-tests/fuzz-sanitizer/crashes,
+          ]
+      evidence:
+          [
+              config/testing/native-test-assets.json,
+              tests/native/CMakeLists.txt,
+              tests/native/AedsCrc16Fuzz.cpp,
+              tests/native/corpus/aeds-crc16,
+              tools/test/run-native-tests.mjs,
+              .tmp/release-evidence/native-fuzz-sanitizer.json,
+          ]
+      ciJob: release-final
+      localOnly: false
+      nightlyOnly: false
+      manualOnly: true
+      retentionClass: must-keep
+
     - id: release-final
       owner: ServerContractAgent
       command: tools/test/lanes/release-final.sh
@@ -6358,6 +6450,7 @@ tiers:
               release-final-flaky-governance,
               release-final-shard-completeness,
               test-quality-lint,
+              native-fuzz-sanitizer,
           ]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false
@@ -6434,6 +6527,7 @@ tiers:
               load,
               backend-qps,
               release-evidence,
+              native-smoke,
           ]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false

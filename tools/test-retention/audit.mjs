@@ -631,6 +631,42 @@ export async function retentionSourceState(root) {
 }
 
 export function extractTestRecords(file, source) {
+  if (file === 'tests/native/AedsCrc16SmokeTests.cpp') {
+    return [record({
+      id: 'native-smoke:aeds-crc16-known-vector',
+      file,
+      framework: 'native-smoke',
+      name: 'AEDS CRC16 known vector smoke',
+      source
+    })]
+  }
+  if (file === 'tests/native/AedsCrc16Fuzz.cpp') {
+    return [record({
+      id: 'native-fuzz:aeds-crc16-input-space',
+      file,
+      framework: 'native-fuzz',
+      name: 'AEDS CRC16 input space fuzz',
+      source
+    })]
+  }
+  if (file === 'tests/native/CMakeLists.txt') {
+    return [record({
+      id: 'native-cmake:aeds-crc16-target-graph',
+      file,
+      framework: 'native-cmake',
+      name: 'AEDS CRC16 native target graph',
+      source
+    })]
+  }
+  if (file.startsWith('tests/native/corpus/')) {
+    return [record({
+      id: `native-corpus:${file}`,
+      file,
+      framework: 'native-corpus',
+      name: path.basename(file),
+      source
+    })]
+  }
   if (file.endsWith('.cs')) {
     const xunit = extractXunit(file, source)
     if (xunit.length > 0) return xunit
@@ -668,6 +704,9 @@ export function extractTestRecords(file, source) {
 
 export function isTestInventoryPath(file) {
   if (!String(file).startsWith('tests/') && !String(file).startsWith('tools/')) return false
+  if (file.startsWith('tests/native/')) {
+    return /\.(?:cpp|cc|cxx|dict|txt|bin)$/u.test(file) || path.basename(file) === 'CMakeLists.txt'
+  }
   if (/^tests\/.*\.(?:test|spec)\.[cm]?[jt]sx?$/u.test(file)) return true
   if (file.startsWith('tests/backend/')) {
     return /(?:Tests?|Fixture|Collection)\.cs$/u.test(file)
@@ -690,6 +729,14 @@ export function isTestInventoryPath(file) {
 
 export function inferTierIdsForFile(file, source = '', explicitCategory = undefined) {
   const tiers = new Set()
+  if (file === 'tests/native/AedsCrc16SmokeTests.cpp') tiers.add('native-smoke')
+  if (file === 'tests/native/AedsCrc16Fuzz.cpp' || file.startsWith('tests/native/corpus/')) {
+    tiers.add('native-fuzz-sanitizer')
+  }
+  if (file === 'tests/native/CMakeLists.txt') {
+    tiers.add('native-smoke')
+    tiers.add('native-fuzz-sanitizer')
+  }
   if (/^tests\/frontend\/unit\/.*\.test\.[cm]?[jt]sx?$/u.test(file)) {
     tiers.add('frontend-unit-shard')
     tiers.add('coverage-frontend')
