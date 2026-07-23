@@ -45,7 +45,7 @@ function parseArgs(argv)
             parsed.pruneRemovedBaselinePaths = true;
             continue;
         }
-        if (!['--root', '--policy', '--mode', '--base', '--file', '--migrate-baseline-configuration'].includes(argument))
+        if (!['--root', '--policy', '--mode', '--base', '--file', '--migrate-baseline-configuration', '--migrate-baseline-paths'].includes(argument))
         {
             throw new Error(`unknown argument ${argument}`);
         }
@@ -61,6 +61,10 @@ function parseArgs(argv)
         else if (argument === '--migrate-baseline-configuration')
         {
             parsed.migrateBaselineConfiguration = value;
+        }
+        else if (argument === '--migrate-baseline-paths')
+        {
+            parsed.migrateBaselinePaths = value;
         }
         else
         {
@@ -513,6 +517,22 @@ function writeBaseline(violations, selectedFiles, args)
         rules: Object.fromEntries(Object.entries(entry.rules).sort(([left], [right]) => compareOrdinal(left, right)))
     }]));
     const selected = new Set(selectedFiles);
+    const pathMigration = args.migrateBaselinePaths
+        ? readJson(path.join(root, args.migrateBaselinePaths), args.migrateBaselinePaths)
+        : null;
+    if (pathMigration && (pathMigration.schema !== 'fsusblog.test-asset-semantic-renames.v1'
+        || !Array.isArray(pathMigration.renames)
+        || !Array.isArray(pathMigration.referenceFiles)))
+    {
+        fail('frontend style baseline path migration inventory is invalid');
+        return;
+    }
+    const destinationBySource = new Map((pathMigration?.renames ?? []).map(({ from, to }) => [from, to]));
+    const sourceByDestination = new Map((pathMigration?.renames ?? []).map(({ from, to }) => [to, from]));
+    const identityMigrationFiles = new Set([
+        ...sourceByDestination.keys(),
+        ...(pathMigration?.referenceFiles ?? [])
+    ]);
     let files = [...currentByPath.values()].sort((left, right) => compareOrdinal(left.path, right.path));
     if (fs.existsSync(target))
     {
@@ -542,10 +562,14 @@ function writeBaseline(violations, selectedFiles, args)
         }
         for (const current of currentByPath.values())
         {
-            const prior = previousByPath.get(current.path);
+            const prior = previousByPath.get(current.path)
+                ?? previousByPath.get(sourceByDestination.get(current.path));
             if (!prior)
             {
-                fail(`refusing new frontend style baseline path ${current.path} with ${current.violationCount} violations`);
+                if (!identityMigrationFiles.has(current.path) || current.violationCount > 0)
+                {
+                    fail(`refusing new frontend style baseline path ${current.path} with ${current.violationCount} violations`);
+                }
                 continue;
             }
             if (current.violationCount > prior.violationCount)
@@ -553,7 +577,11 @@ function writeBaseline(violations, selectedFiles, args)
                 fail(`refusing frontend style baseline violation increase for ${current.path}: ${prior.violationCount} -> ${current.violationCount}`);
             }
             else if (current.violationCount === prior.violationCount
-                && current.violationDigest !== prior.violationDigest)
+                && current.violationDigest !== prior.violationDigest
+                && !identityMigrationFiles.has(current.path)
+                && !(args.migrateBaselineConfiguration
+                    && current.sourceSha256 === prior.sourceSha256
+                    && JSON.stringify(current.rules) === JSON.stringify(prior.rules)))
             {
                 fail(`refusing frontend style baseline violation identity change without count decrease for ${current.path}`);
             }
@@ -562,17 +590,18 @@ function writeBaseline(violations, selectedFiles, args)
         const nextFiles = [];
         for (const prior of previous.files)
         {
-            const current = currentByPath.get(prior.path);
+            const destination = destinationBySource.get(prior.path) ?? prior.path;
+            const current = currentByPath.get(destination);
             if (current)
             {
                 nextFiles.push(current);
                 continue;
             }
-            const absolute = path.join(root, prior.path);
-            if (selected.has(prior.path) && fs.existsSync(absolute))
+            const absolute = path.join(root, destination);
+            if (selected.has(destination) && fs.existsSync(absolute))
             {
                 nextFiles.push({
-                    path: prior.path,
+                    path: destination,
                     sourceSha256: sha256(fs.readFileSync(absolute)),
                     violationCount: 0,
                     violationDigest: emptyViolationDigest,
@@ -586,6 +615,15 @@ function writeBaseline(violations, selectedFiles, args)
             }
             fail(`refusing missing frontend style baseline path ${prior.path}; use --prune-removed-baseline-paths only after reviewing its deletion`);
         }
+        const retainedPaths = new Set(nextFiles.map(({ path: file }) => file));
+        for (const current of currentByPath.values())
+        {
+            if (!retainedPaths.has(current.path))
+            {
+                nextFiles.push(current);
+            }
+        }
+        nextFiles.sort((left, right) => compareOrdinal(left.path, right.path));
         if (failures.length > 0)
         {
             return;
@@ -765,7 +803,8 @@ function main()
     {
         throw new Error('--update-baseline and --fix cannot be combined');
     }
-    if ((args.migrateBaselineConfiguration || args.pruneRemovedBaselinePaths) && !args.updateBaseline)
+    if ((args.migrateBaselineConfiguration || args.migrateBaselinePaths || args.pruneRemovedBaselinePaths)
+        && !args.updateBaseline)
     {
         throw new Error('baseline migration options require --update-baseline');
     }

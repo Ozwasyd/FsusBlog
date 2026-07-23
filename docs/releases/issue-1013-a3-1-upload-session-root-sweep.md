@@ -16,7 +16,7 @@ Before this retirement is reported complete for a production release, retain
 evidence that the indexed upload pipeline has served at least one full release cycle
 and that a read-only scan of the old root shape finds zero newly deletable files. The
 current implementation phase did not execute that scan; its evidence fields remain
-null in `tests/backend/issue-1013-runtime-fallback-milestones.json`.
+null in `tests/backend/runtime-fallback-milestones.json`.
 
 ## Operational fallback
 

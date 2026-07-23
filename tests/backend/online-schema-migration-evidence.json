@@ -1,0 +1,196 @@
+{
+    "schema": "fsusblog.online-migration-evidence.v1",
+    "issue": 1028,
+    "status": "implementation-only-not-verified",
+    "productionFiles": [
+        "src/backend/Program.cs",
+        "src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationMetadata.cs",
+        "src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationCompatibility.cs",
+        "src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationCoordinator.cs",
+        "src/backend/Infrastructure/SchemaMigration/PostgresOnlineSchemaMigrationStateStore.cs",
+        "src/backend/Infrastructure/SchemaMigration/AccountSubjectHashBackfillStep.cs",
+        "src/backend/Infrastructure/Operations/ProductionHealth.cs",
+        "tools/db/run-online-migrations.sh"
+    ],
+    "testFiles": [
+        "tests/backend/Unit/OnlineSchemaMigrationPolicyTests.cs",
+        "tests/backend/Unit/OnlineSchemaMigrationCompatibilityTests.cs",
+        "tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs",
+        "tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs",
+        "tests/backend/Unit/ProductionHealthTests.cs",
+        "tests/tools/online-schema-migration-wrapper.test.mjs"
+    ],
+    "documents": [
+        "docs/online-database-migration.md",
+        "docs/online-database-migration-operations.md",
+        "docs/issue-1028-online-migration-handoff.md"
+    ],
+    "protocol": {
+        "order": [
+            "expand",
+            "deploy-compatible-code",
+            "backfill",
+            "observe",
+            "contract"
+        ],
+        "productionServeMutation": false,
+        "explicitMigrationCommandRequired": true,
+        "sharedPostgresAdvisoryLock": true,
+        "legacyDescriptorClassification": "explicit-contract-non-compensable-legacy-bootstrap-only",
+        "onlineExpandDescriptors": [
+            "20260711-pre-account-subject-hash-expand",
+            "20260711-post-recovery-passkey-completion-idempotency"
+        ],
+        "onlineBackfillDescriptor": "20260711-post-account-subject-hash-backfill",
+        "backfillBatchSizeMaximum": 1000,
+        "backfillResumeTable": "__fsus_schema_backfill_progress",
+        "schemaReleaseTable": "__fsus_schema_online_state",
+        "publicNotReadyCode": "schema_incompatible"
+    },
+    "rolloutInterface": {
+        "entry": "bash tools/db/run-online-migrations.sh",
+        "requiredArguments": [
+            "--release-manifest",
+            "--env-file",
+            "--phase"
+        ],
+        "phases": [
+            "expand",
+            "backfill-resume",
+            "contract"
+        ],
+        "supportsDryRun": true,
+        "machineJson": true,
+        "contractRequiresEvidence": true,
+        "contractMutationRequiresSeparateConfirmation": true
+    },
+    "acceptanceMappings": [
+        {
+            "criterion": "every existing migration has explicit online or legacy classification",
+            "testIds": [
+                "xunit:tests/backend/Unit/OnlineSchemaMigrationPolicyTests.cs#OnlineSchemaMigrationPolicyTests.ExistingRegistry_IsExplicitlyClassifiedWithoutInferringOnlinePhases"
+            ]
+        },
+        {
+            "criterion": "Expand remains additive and dual-release compatible",
+            "testIds": [
+                "xunit:tests/backend/Unit/OnlineSchemaMigrationPolicyTests.cs#OnlineSchemaMigrationPolicyTests.Expand_RejectsDropRenameTighteningAndRewriteOperations",
+                "xunit:tests/backend/Unit/OnlineSchemaMigrationCompatibilityTests.cs#OnlineSchemaMigrationCompatibilityTests.Expand_AllowsOldAndNewReleaseToReadAndWriteDuringDualReleaseWindow",
+                "xunit:tests/backend/Unit/OnlineSchemaMigrationCompatibilityTests.cs#OnlineSchemaMigrationCompatibilityTests.PendingExpand_BlocksReadinessWithoutRunningItOnServe"
+            ]
+        },
+        {
+            "criterion": "Backfill is bounded, resumable, observable, and consistency-verified",
+            "testIds": [
+                "xunit:tests/backend/Unit/OnlineSchemaMigrationPolicyTests.cs#OnlineSchemaMigrationPolicyTests.Backfill_RequiresBoundedBatchAndDurableResumeToken",
+                "xunit:tests/backend/Unit/OnlineSchemaMigrationCompatibilityTests.cs#OnlineSchemaMigrationCompatibilityTests.PendingBackfill_IsReadyOnlyAsWarningInsideCompatibilityWindow",
+                "xunit:tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs#OnlineSchemaMigrationCoordinatorTests.Backfill_ResumesFromDurableTokenAndVerifiesBeforeCompletion",
+                "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.OnlineBackfillHandler_ResumesFromDurableKeysetTokenAndFinalizesValidation"
+            ]
+        },
+        {
+            "criterion": "Contract is separately confirmed and gated by N/N-1, observation, backup/restore, switch, and rollback evidence",
+            "testIds": [
+                "xunit:tests/backend/Unit/OnlineSchemaMigrationPolicyTests.cs#OnlineSchemaMigrationPolicyTests.ContractGate_RequiresNAndNMinusOneWindowAndOperationalEvidence",
+                "xunit:tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs#OnlineSchemaMigrationCoordinatorTests.Contract_IsGatedBeforeAnyDestructiveDescriptorExecutes",
+                "xunit:tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs#OnlineSchemaMigrationCoordinatorTests.Contract_ExecutesOnlyAfterRollbackWindowAndBackupEvidencePass",
+                "node:tests/tools/online-schema-migration-wrapper.test.mjs#contract-confirmation"
+            ]
+        },
+        {
+            "criterion": "production serve is read-only and incompatible schema fails closed",
+            "testIds": [
+                "xunit:tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs#OnlineSchemaMigrationCoordinatorTests.ProductionServeRunner_PerformsReadOnlyCheckAndNeverCallsMutation",
+                "xunit:tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs#OnlineSchemaMigrationCoordinatorTests.ProductionServeRunner_PublishesIncompatibilityForReadinessWithoutMutatingOrGuessing",
+                "xunit:tests/backend/Unit/OnlineSchemaMigrationCompatibilityTests.cs#OnlineSchemaMigrationCompatibilityTests.Readiness_ReturnsStable503CodeWhenSchemaReleaseIsOutsideManifest",
+                "xunit:tests/backend/Unit/OnlineSchemaMigrationCompatibilityTests.cs#OnlineSchemaMigrationCompatibilityTests.History_RejectsUnknownDuplicateAndChecksumMismatchEntriesTogether",
+                "xunit:tests/backend/Unit/ProductionHealthTests.cs#ProductionHealthTests.PublicReadinessReport_ExposesOnlyStableSchemaIncompatibleCode"
+            ]
+        },
+        {
+            "criterion": "only mutation commands acquire the shared advisory lock",
+            "testIds": [
+                "xunit:tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs#OnlineSchemaMigrationCoordinatorTests.Backfill_ResumesFromDurableTokenAndVerifiesBeforeCompletion",
+                "xunit:tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs#OnlineSchemaMigrationCoordinatorTests.DryRun_DoesNotAcquireAdvisoryLockOrMutateState"
+            ]
+        },
+        {
+            "criterion": "rollout host supports release manifest, env file, phases, resume, dry-run, and machine JSON",
+            "testIds": [
+                "xunit:tests/backend/Unit/OnlineSchemaMigrationPolicyTests.cs#OnlineSchemaMigrationPolicyTests.CommandLine_ParsesStableRolloutInterface",
+                "node:tests/tools/online-schema-migration-wrapper.test.mjs#all"
+            ]
+        }
+    ],
+    "centralGovernanceStatus": [
+        {
+            "path": "tests/coverage-registry.json",
+            "operation": "registered-append-new-direct-evidence",
+            "id": "backend-online-schema-migration-protocol",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "assertionType": "unit-integration-static",
+            "tierIds": [
+                "backend-unit",
+                "integration",
+                "static-governance"
+            ],
+            "evidencePaths": [
+                "tests/backend/Unit/OnlineSchemaMigrationPolicyTests.cs",
+                "tests/backend/Unit/OnlineSchemaMigrationCompatibilityTests.cs",
+                "tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs",
+                "tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs",
+                "tests/backend/Unit/ProductionHealthTests.cs",
+                "tests/tools/online-schema-migration-wrapper.test.mjs",
+                "tests/backend/online-schema-migration-evidence.json"
+            ],
+            "failClosedRule": "Reject startup mutation, unclassified descriptors, unsafe Expand, non-resumable Backfill, ungated Contract, history/checksum drift, or wrapper contract drift."
+        },
+        {
+            "path": "tests/matrix.yml",
+            "operation": "registered-append-new-direct-evidence",
+            "coverageId": "backend-online-schema-migration-protocol",
+            "tierUpdates": [
+                {
+                    "tierId": "backend-unit",
+                    "appendCoverage": true,
+                    "appendEvidencePath": "tests/backend/online-schema-migration-evidence.json"
+                },
+                {
+                    "tierId": "integration",
+                    "appendCoverage": true,
+                    "appendEvidencePath": "tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs"
+                },
+                {
+                    "tierId": "static-governance",
+                    "appendCoverage": true,
+                    "appendEvidencePath": "tests/tools/online-schema-migration-wrapper.test.mjs"
+                }
+            ]
+        },
+        {
+            "path": "tests/backend/Fixtures/backend-test-requirements.json",
+            "operation": "registered-under-existing-profiles-and-requirements",
+            "profileIds": [
+                "backend-concurrency",
+                "backend-test-governance"
+            ],
+            "requirementIds": [
+                "BACKEND-CONCURRENCY-RACES",
+                "BACKEND-TRANSACTIONS",
+                "BACKEND-MIGRATION-FAILURE-DRILLS",
+                "BACKEND-BLUE-GREEN-SLOTS"
+            ],
+            "evidencePaths": [
+                "tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs",
+                "tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs",
+                "tests/backend/Unit/ProductionHealthTests.cs",
+                "tests/backend/online-schema-migration-evidence.json"
+            ]
+        }
+    ],
+    "verification": {
+        "commandsExecuted": [],
+        "result": "not-run-by-instruction"
+    }
+}

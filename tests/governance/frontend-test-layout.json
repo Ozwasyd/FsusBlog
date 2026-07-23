@@ -41,8 +41,8 @@
             "files": [
                 "tests/frontend/README.md",
                 "tests/frontend/package.json",
-                "tests/frontend/issue-1017-archive-sticky-evidence.json",
-                "tests/frontend/issue-1017-governance-handoff.json"
+                "tests/frontend/archive-sticky-geometry-evidence.json",
+                "tests/frontend/archive-sticky-geometry-governance-handoff.json"
             ]
         }
     },

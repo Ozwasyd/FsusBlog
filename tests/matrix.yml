@@ -4,7 +4,7 @@ governance:
     retention:
         baseline: tests/test-retention-before.json
         replacementLedger: tests/test-retention-replacements.json
-        postBaselines: [tests/admin-inline-empty-state-retirement-baseline.json, tests/issue-1146-acceptance-baseline.json, tests/issue-1410-composition-registration-baseline.json, tests/test-asset-lifecycle-retirement-baseline.json, tests/test-governance-modernization-baseline.json]
+        postBaselines: [tests/admin-inline-empty-state-retirement-baseline.json, tests/lightweight-acceptance-baseline.json, tests/service-composition-registration-baseline.json, tests/test-asset-lifecycle-retirement-baseline.json, tests/test-governance-modernization-baseline.json]
         auditOutput: .tmp/release-evidence/test-retention-audit.json
         automaticDeletion: false
     sourceLocking:
@@ -39,7 +39,7 @@ commandGroups:
         lane: "frontend-static-governance"
         commands:
             - {id: "frontend-style-full", script: "lint:full", access: "write", stage: "blocking-prebuild", reason: "Runs the baseline-aware AST ESLint, Vue template and Stylelint gate over every governed frontend and Node source before other frontend governance checks.", consumedInputs: ["config/development/frontend-style-*.json", "eslint.config.mjs", "stylelint.config.mjs", "src/frontend/src", "src/frontend/wasm/web", "src/frontend/scripts", "src/frontend/public", "tools/**/*.mjs", "tests/**/*.mjs", "tools/frontend/style-toolchain"], ownedOutputs: [".tmp/frontend-style/eslint.cache"], dependsOn: [], resources: {cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1, exclusiveResources: ["frontend-style-cache"]}}
-            - {id: "frontend-style-fixtures", command: ["node", "../../tests/tools/issue-1159-frontend-style.test.mjs"], access: "write", stage: "concurrent", reason: "Exercises positive and negative AST style fixtures, baseline invalidation, fixer idempotency and locale-stable diagnostics in isolated temporary repositories.", consumedInputs: ["config/development/frontend-style-*.json", "eslint.config.mjs", "stylelint.config.mjs", "src/frontend/package.json", "tests/tools/issue-1159-frontend-style.test.mjs", "tools/frontend/check-frontend-style.mjs", "tools/frontend/style-toolchain"], ownedOutputs: ["os-temp://fsusblog-frontend-style-unique"], dependsOn: ["frontend-style-full"], resources: {cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "frontend-style-fixtures", command: ["node", "../../tests/tools/frontend-style.test.mjs"], access: "write", stage: "concurrent", reason: "Exercises positive and negative AST style fixtures, baseline invalidation, fixer idempotency and locale-stable diagnostics in isolated temporary repositories.", consumedInputs: ["config/development/frontend-style-*.json", "eslint.config.mjs", "stylelint.config.mjs", "src/frontend/package.json", "tests/tools/frontend-style.test.mjs", "tools/frontend/check-frontend-style.mjs", "tools/frontend/style-toolchain"], ownedOutputs: ["os-temp://fsusblog-frontend-style-unique"], dependsOn: ["frontend-style-full"], resources: {cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "frontend-test-governance", script: "check:frontend-test-governance", access: "read", stage: "blocking-prebuild", reason: "Validates the Vitest and test-lane admission contract before test execution starts.", consumedInputs: ["src/frontend/vitest*.{ts,mjs}", "tests/frontend", "tools/test"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "layout-archetype-governance", script: "check:layout-archetype-governance", access: "read", stage: "concurrent", reason: "Validates the representative layout registry, visual-change ledger, and source ownership boundaries without starting browser or production services.", consumedInputs: ["src/frontend/src", "tests/frontend/fixtures/layout-*", "tests/frontend/e2e/visual", "tests/frontend/checks/static/check-layout-archetype-governance.mjs"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "page-title-scale", script: "check:page-title-scale", access: "read", stage: "concurrent", reason: "Audits public, auth, error, account, and admin page-title roles from source without writing shared output.", consumedInputs: ["src/frontend/src", "tests/frontend/checks/static/check-page-title-scale.mjs"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
@@ -49,7 +49,7 @@ commandGroups:
             - {id: "csharp-entrypoint-ownership", script: "check:csharp-entrypoint-ownership", access: "read", stage: "blocking-prebuild", reason: "Rejects C# entrypoints under the JavaScript frontend root and any executable source without explicit project or file-app ownership before frontend build work starts.", consumedInputs: ["tests/governance/csharp-entrypoint-ownership.json", "src", "benchmarks", "tests/backend", "tools"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "test-execution-optimization", script: "check:test-execution-optimization", access: "read", stage: "blocking-prebuild", reason: "Fail-closes invalid production test topology before Vitest consumes that topology.", consumedInputs: ["tools/test", "tests/matrix.yml", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "backend-production-build-authority", command: ["node", "../../tools/test/check-backend-production-build-authority.mjs"], access: "read", stage: "blocking-prebuild", reason: "Rejects Debug compatibility builds and governance postlude testhosts in Production fresh while auditing every canonical Release backend artifact consumer.", consumedInputs: ["tests/governance/backend-production-build-consumers.json", "tools/test/bundles/run-bundle.mjs", "tools/test/run-backend-production-shards.mjs", "tools/test/project-rights-v3-evidence.mjs", "tools/test/project-evidence.mjs", "tools/test/lanes/project-privacy-zk-production.mjs", "tools/test/lanes/cross-stack-contract.sh"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "browser-contract-fixture", script: "check:browser-contract-fixture", access: "write", stage: "concurrent", reason: "Exercises the sealed single-namespace fixture lifecycle through injected providers and process-unique temporary roots without starting a browser or shared services.", consumedInputs: ["tests/browser-contract", "tests/tools/issue-1149-browser-contract-fixture.test.mjs", "tests/tools/issue-1149-session-isolation.test.mjs", "src/frontend/package.json"], ownedOutputs: ["os-temp://fsus-browser-contract-fixture-unique"], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "browser-contract-fixture", script: "check:browser-contract-fixture", access: "write", stage: "concurrent", reason: "Exercises the sealed single-namespace fixture lifecycle through injected providers and process-unique temporary roots without starting a browser or shared services.", consumedInputs: ["tests/browser-contract", "tests/tools/browser-contract-fixture.test.mjs", "tests/tools/browser-session-isolation.test.mjs", "src/frontend/package.json"], ownedOutputs: ["os-temp://fsus-browser-contract-fixture-unique"], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "openapi-sync", script: "check:openapi-sync", access: "read", stage: "concurrent", reason: "Canonical current-run owner validates the checked-in OpenAPI document once for Cross-stack and Privacy/ZK consumers.", consumedInputs: ["src/shared/Contracts/Validation/fsusblog.openapi.json", "src/backend", "src/shared/Contracts", "src/frontend/src", "tests/contracts/openapi-policy.yml"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "openapi-generated-contract", script: "check:contract:openapi", access: "read", stage: "concurrent", reason: "Canonical owner validates generated cross-stack contract projection once.", consumedInputs: ["src/shared/Contracts/Validation/fsusblog.openapi.json", "tests/frontend/fixtures/cross-stack-contract-matrix.json", "tests/frontend/fixtures/cross-stack-contract-matrix.generated.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "frontend-routes", script: "check:frontend-routes", access: "read", stage: "concurrent", reason: "Canonical owner validates generated frontend routes once.", consumedInputs: ["src/frontend/src/generated/fsusBinaryRoutes.ts", "src/shared/Contracts/Validation/fsusblog.openapi.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
@@ -456,7 +456,7 @@ tiers:
               tools/build-wasm-artifact.sh,
               tools/frontend/ensure-wasm.mjs,
               tools/test/lanes/production-build-artifacts.sh,
-              tests/tools/issue-1165-wasm-artifact-ownership.test.mjs,
+              tests/tools/wasm-artifact-ownership.test.mjs,
               docs/wasm.md,
               .gitignore,
               .dockerignore,
@@ -477,7 +477,7 @@ tiers:
               src/frontend/**,
               tests/backend/**,
               tests/frontend/**,
-              tests/tools/issue-1165-wasm-artifact-ownership.test.mjs,
+              tests/tools/wasm-artifact-ownership.test.mjs,
               tests/matrix.yml,
               tests/coverage-registry.json,
               tools/ci/**,
@@ -608,7 +608,7 @@ tiers:
           - .tmp/frontend/timings/frontend-unit-shard.json
           - src/frontend/src/components/public/usePublicStickyGeometry.ts
           - tests/frontend/unit/components/usePublicStickyGeometry.test.ts
-          - tests/issue-1016-sticky-geometry-evidence.json
+          - tests/public-shell-sticky-geometry-evidence.json
           - src/frontend/src/view-contracts/homeSpotlight.ts
           - src/frontend/src/views/Home.vue
           - src/frontend/src/public-renderers/pageAssemblies.ts
@@ -652,7 +652,7 @@ tiers:
           - tests/frontend/unit/router/index.test.ts
           - tests/frontend/unit/layouts/accountNavModules.test.ts
           - tests/frontend/unit/components/user/MessagesStateMachine.test.ts
-          - tests/issue-1039-admin-console-evidence.json
+          - tests/admin-console-behavior-evidence.json
           - tests/test-retention-replacements.json
       ciJob: fast-frontend-unit
       localOnly: false
@@ -797,7 +797,7 @@ tiers:
               benchmarks,
               tests/backend,
               tests/governance/csharp-entrypoint-ownership.json,
-              tests/tools/issue-1174-csharp-entrypoint-ownership.test.mjs,
+              tests/tools/csharp-entrypoint-ownership.test.mjs,
               tests/frontend/checks/static,
               tests/frontend/checks/ux,
               tests/frontend/support,
@@ -838,12 +838,12 @@ tiers:
               tests/frontend/checks/static/check-visual-density-governance.mjs,
               tests/frontend/checks/static/check-binary-import-boundaries.mjs,
               tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs,
-              tests/frontend/issue-1017-archive-sticky-evidence.json,
-              tests/issue-1018-public-typography-evidence.json,
+              tests/frontend/archive-sticky-geometry-evidence.json,
+              tests/public-typography-evidence.json,
               docs/issue-1018-public-typography-handoff.md,
               tools/check-csharp-entrypoint-ownership.mjs,
               tests/governance/csharp-entrypoint-ownership.json,
-              tests/tools/issue-1174-csharp-entrypoint-ownership.test.mjs,
+              tests/tools/csharp-entrypoint-ownership.test.mjs,
               tests/matrix.yml,
               src/frontend/package.json,
               docs/testing/issue-1174-csharp-entrypoint-ownership.md,
@@ -1037,7 +1037,7 @@ tiers:
           - tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs
           - tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs
           - tests/backend/Unit/AccountSubjectHashProjectionTests.cs
-          - tests/backend/issue-1014-identity-retirement-evidence.json
+          - tests/backend/legacy-identity-retirement-evidence.json
           - docs/issue-1014-identity-retirement-handoff.md
           - tests/backend/Unit/DeploymentRuntimeStateTests.cs
           - tests/backend/Unit/NotificationStreamBoundaryTests.cs
@@ -1055,7 +1055,7 @@ tiers:
           - tests/backend/Fixtures/schema-ddl-provider-snapshots.json
           - tests/backend/Unit/ReleaseStorageLifecycleTests.cs
           - tests/backend/Unit/PublicAotFileShellCacheTests.cs
-          - tests/backend/issue-1029-storage-lifecycle-evidence.json
+          - tests/backend/storage-lifecycle-evidence.json
           - docs/issue-1029-storage-lifecycle-handoff.md
           - tests/backend/Unit/ActiveReleaseFenceContractTests.cs
           - tests/backend/Unit/SecurityHardening
@@ -1068,7 +1068,7 @@ tiers:
           - tests/backend/Unit/AdminAnonymousAccountGovernanceContractTests.cs
           - tests/backend/Unit/ModerationConsoleContractTests.cs
           - tests/backend/Unit/IntegrityAdminConsoleContractTests.cs
-          - tests/issue-1039-admin-console-evidence.json
+          - tests/admin-console-behavior-evidence.json
           - tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs
           - tests/backend/Unit/SubscriptionEndpointsContractTests.cs
           - tests/backend/Unit/DevSeedSqlContractTests.cs
@@ -1117,7 +1117,7 @@ tiers:
           - tests/backend/Unit/HumanReadProofRequestBindingTests.cs
           - tests/backend/Unit/HumanReadProofPersistencePrivacyTests.cs
           - tests/backend/Unit/RateLimiterRejectionRiskSamplerTests.cs
-          - tests/backend/issue-1055-rate-limiter-rejection-sampler-evidence.json
+          - tests/backend/rate-limiter-rejection-sampler-evidence.json
           - tests/test-retention-replacements.json
           - tests/backend/Unit/StatsPerformanceContractTests.cs
           - tests/backend/Unit/RelatedReadingServiceTests.cs
@@ -1129,7 +1129,7 @@ tiers:
           - tests/backend/Unit/UserSessionValidationServiceTests.cs
           - tests/backend/Unit/UserSessionJwtAuthenticationTests.cs
           - tests/backend/Unit/UserSessionMappedBoundaryTests.cs
-          - tests/backend/issue-1052-user-session-revocation-evidence.json
+          - tests/backend/user-session-revocation-evidence.json
           - tests/backend/Unit/RecoveryKeyServiceBehaviorTests.cs
           - docs/user-session-revocation.md
           - tests/backend/Unit/AuthCookieServiceSecurityTests.cs
@@ -1139,11 +1139,11 @@ tiers:
           - src/backend/Modules/Endpoints/LocalAuthFixtureRefreshRunner.cs
           - tests/backend/Unit/JwtHelperTests.cs
           - tests/backend/Unit/UserServiceValidationTests.cs
-          - tests/backend/issue-1053-auth-cookie-expiry-evidence.json
-          - tests/backend/issue-1053-central-handoff.json
+          - tests/backend/auth-cookie-expiry-evidence.json
+          - tests/backend/auth-cookie-expiry-governance-handoff.json
           - tests/backend/Unit/RecoveryPasskeyCompletionStateTests.cs
           - tests/backend/Unit/RecoveryPasskeyCompletionEndpointTests.cs
-          - tests/backend/issue-1054-recovery-passkey-completion-evidence.json
+          - tests/backend/recovery-passkey-completion-evidence.json
       ciJob: fast-backend
       localOnly: false
       nightlyOnly: false
@@ -1492,13 +1492,13 @@ tiers:
           - .tmp/release-evidence/flaky/registry.json
           - .tmp/docs/integrity-proof-docs.json
           - .tmp/release-evidence/backend-physical-topology.json
-          - tests/backend/issue-1013-runtime-fallback-milestones.json
-          - tests/backend/issue-1014-identity-retirement-evidence.json
+          - tests/backend/runtime-fallback-milestones.json
+          - tests/backend/legacy-identity-retirement-evidence.json
           - docs/issue-1014-identity-retirement-handoff.md
           - tests/tools/dead-code-audit-index.test.mjs
           - tools/governance/check-dead-code-audit-index.mjs
           - docs/planning/dead-code-audit-index.json
-          - tests/issue-1015-dead-code-audit-evidence.json
+          - tests/dead-code-audit-evidence.json
           - tests/tools/gateway-switch.test.mjs
           - tests/tools/deployment-slots.test.mjs
           - tools/governance/check-monolithic-distributed-architecture.mjs
@@ -1530,7 +1530,7 @@ tiers:
           - tests/tools/release-manifest.test.mjs
           - tests/tools/schema-compatibility-coordinate.test.mjs
           - tools/release/schema-compatibility-coordinate.mjs
-          - tests/tools/issue-1315-dotnet-release-metadata.test.mjs
+          - tests/tools/dotnet-release-metadata.test.mjs
           - tests/tools/runtime-publish-profile.test.mjs
           - tests/tools/final-image-toolchain-pin.test.mjs
           - tools/runtime-profiles/runtime-publish-profiles.json
@@ -1553,17 +1553,17 @@ tiers:
           - tools/check-wasm-artifact-ownership.mjs
           - tools/build-wasm-artifact.sh
           - tools/test/lanes/production-build-artifacts.sh
-          - tests/tools/issue-1165-wasm-artifact-ownership.test.mjs
+          - tests/tools/wasm-artifact-ownership.test.mjs
           - docs/wasm.md
           - .gitignore
           - .dockerignore
           - tools/check-repository-source-layout.mjs
           - tests/governance/repository-source-layout.json
-          - tests/tools/issue-1166-zk-source-layout.test.mjs
+          - tests/tools/zk-source-layout.test.mjs
           - docs/architecture/repository-layout.md
           - tools/check-csharp-entrypoint-ownership.mjs
           - tests/governance/csharp-entrypoint-ownership.json
-          - tests/tools/issue-1174-csharp-entrypoint-ownership.test.mjs
+          - tests/tools/csharp-entrypoint-ownership.test.mjs
           - tools/architecture/check-backend-physical-topology.mjs
           - tools/architecture/backend-physical-topology/audit-bootstrap-authoring.mjs
           - tools/architecture/backend-physical-topology/audit-cache-modules.mjs
@@ -1581,11 +1581,11 @@ tiers:
           - config/development/csharp-style-policy.json
           - config/development/csharp-style-baseline.json
           - tools/dotnet/check-csharp-style.mjs
-          - tests/tools/issue-1158-csharp-style.test.mjs
+          - tests/tools/csharp-style.test.mjs
           - docs/development/csharp-style-enforcement.md
           - tools/governance/check-code-intent.mjs
           - tests/governance/code-intent-registry.json
-          - tests/tools/issue-1155-code-intent.test.mjs
+          - tests/tools/code-intent.test.mjs
           - docs/development/code-intent-governance.md
           - tools/docs/check-authoritative-development-docs.mjs
           - tools/docs/document-lifecycle.mjs
@@ -1593,8 +1593,8 @@ tiers:
           - config/development/authoritative-development-docs.json
           - config/development/document-lifecycle.json
           - config/development/document-inventory.generated.json
-          - tests/tools/issue-1157-authoritative-development-docs.test.mjs
-          - tests/tools/issue-1161-document-lifecycle.test.mjs
+          - tests/tools/authoritative-development-docs.test.mjs
+          - tests/tools/document-lifecycle.test.mjs
           - docs/development/document-lifecycle.md
           - docs/development/coding-conventions.md
           - AGENTS.md
@@ -1614,21 +1614,21 @@ tiers:
           - docs/releases/v1.1.0-public-preview.md
           - tools/docs/check-public-preview-docs.mjs
           - tools/docs/check-community-workflow.mjs
-          - tests/tools/issue-1319-product-version-governance.test.mjs
+          - tests/tools/product-version-governance.test.mjs
           - tools/configuration/check-appsettings-authority.mjs
           - tests/governance/appsettings-authority.json
-          - tests/tools/issue-1171-appsettings-authority.test.mjs
+          - tests/tools/appsettings-authority.test.mjs
           - docs/configuration/appsettings-authority.md
           - src/backend/appsettings.Development.example.json
           - .env.production.example
           - tools/crypto/check-zk-artifact-ownership.mjs
           - security/zk/provenance/artifact-ownership.manifest.json
-          - tests/tools/issue-1168-zk-artifact-ownership.test.mjs
+          - tests/tools/zk-artifact-ownership.test.mjs
           - docs/zk/trusted-setup-ceremony.md
           - tools/operations/check-release-evidence-layout.mjs
           - tools/operations/evidence-classification.mjs
           - tools/operations/seal-release-evidence-bundle.mjs
-          - tests/tools/issue-1169-release-evidence-model.test.mjs
+          - tests/tools/release-evidence-model.test.mjs
           - security/evidence-contracts/release-bundle-storage.json
           - security/matrices/privacy-zk-comment.yml
           - tests/fixtures/evidence/anonymous-eligibility-anonymity-set.json
@@ -1651,8 +1651,8 @@ tiers:
           - tools/security/check-security-domain-layout.mjs
           - tools/security/check-security-matrices.mjs
           - tools/security/check-zap-warn-policy.mjs
-          - tests/tools/issue-1170-security-domain-layout.test.mjs
-          - tests/tools/issue-1170-security-matrix-catalog.test.mjs
+          - tests/tools/security-domain-layout.test.mjs
+          - tests/tools/security-matrix-catalog.test.mjs
           - docs/security/security-domain-layout.md
           - docs/security/security-matrix-catalog.md
           - src/backend/appsettings.json
@@ -1665,7 +1665,7 @@ tiers:
           - docs/configuration-layout.md
           - config/application/backend-configuration-contract.json
           - tools/configuration/check-backend-configuration-contract.mjs
-          - tests/tools/issue-1172-backend-configuration-contract.test.mjs
+          - tests/tools/backend-configuration-contract.test.mjs
           - tests/backend/Unit/BackendConfigurationContractTests.cs
           - docs/configuration/backend-configuration-reference.generated.md
           - tools/governance/check-operations-layout.mjs
@@ -1717,10 +1717,10 @@ tiers:
           - src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs
           - tests/backend/Unit/ReleaseStorageLifecycleTests.cs
           - tests/backend/Unit/PublicAotFileShellCacheTests.cs
-          - tests/backend/issue-1029-storage-lifecycle-evidence.json
+          - tests/backend/storage-lifecycle-evidence.json
           - docs/issue-1029-storage-lifecycle-handoff.md
           - tests/tools/online-schema-migration-wrapper.test.mjs
-          - tests/backend/issue-1028-online-migration-evidence.json
+          - tests/backend/online-schema-migration-evidence.json
           - tests/tools/destructive-migration-proof.test.mjs
           - docs/schema-migrations/destructive-rollback-window-proofs.json
           - docs/schema-migrations/destructive-rollback-window.md
@@ -1768,12 +1768,12 @@ tiers:
           - tests/fixtures/deployment/zero-downtime-rehearsal-plan.template.json
           - security/policies/backend-source-policy.json
           - tests/tools/security-source-analyzer.test.mjs
-          - tests/backend/issue-1037-security-hardening-evidence.json
+          - tests/backend/security-hardening-evidence.json
           - tests/test-retention-replacements.json
           - tests/tools/test-suite-convergence.test.mjs
           - tests/tools/fixtures/test-suite-convergence/backend-source-lock-positive.fixture.cs.txt
           - tests/tools/fixtures/test-suite-convergence/backend-source-lock-negative.fixture.cs.txt
-          - tests/backend/issue-1050-cleanup-human-read.md
+          - tests/backend/cleanup-worker-human-read-behavior.md
           - tests/matrix.yml
           - tests/tools/quality-gate-artifact-layout.test.mjs
           - tests/tools/release-evidence-artifact-restore.test.mjs
@@ -1786,7 +1786,7 @@ tiers:
           - tools/perf/merge-saturation-measurement.mjs
           - tools/perf/build-performance-saturation-v2.mjs
           - tests/frontend/checks/static/check-frontend-test-governance.mjs
-          - tests/tools/issue-1154-pod-binary-codec-batch-evidence.test.mjs
+          - tests/tools/pod-binary-codec-batch-evidence.test.mjs
           - tools/operations/check-pod-binary-codec-batch-evidence.mjs
           - tests/backend/Unit/PodBinaryCodecBatchAllocationTests.cs
           - benchmarks/core/PodBinaryCodecBatchProfiler.cs
@@ -2283,15 +2283,15 @@ tiers:
       evidence:
           - .tmp/acceptance/*.log
           - .tmp/runtime/integration.json
-          - tests/backend/issue-1013-runtime-fallback-evidence.json
-          - tests/backend/issue-1014-identity-retirement-evidence.json
+          - tests/backend/runtime-fallback-evidence.json
+          - tests/backend/legacy-identity-retirement-evidence.json
           - docs/issue-1014-identity-retirement-handoff.md
           - tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs
           - tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs
           - tests/backend/Integration/UserSessionRevocationIntegrationTests.cs
-          - tests/backend/issue-1052-user-session-revocation-evidence.json
+          - tests/backend/user-session-revocation-evidence.json
           - tests/backend/Integration/RecoveryPasskeyCompletionIntegrationTests.cs
-          - tests/backend/issue-1054-recovery-passkey-completion-evidence.json
+          - tests/backend/recovery-passkey-completion-evidence.json
           - tests/backend/Integration/PasskeyCounterRollbackIntegrationTests.cs
           - docs/security/passkey-counter-risk-response.md
           - tests/backend/Unit/AdminConsistencyContractTests.cs
@@ -2412,7 +2412,7 @@ tiers:
           - .tmp/release-evidence/public-hydration-matrix-summary.json
           - tests/backend/Unit/ReleaseStorageLifecycleTests.cs
           - tests/backend/Unit/PublicAotFileShellCacheTests.cs
-          - tests/backend/issue-1029-storage-lifecycle-evidence.json
+          - tests/backend/storage-lifecycle-evidence.json
           - docs/issue-1029-storage-lifecycle-handoff.md
           - tests/tools/release-storage-lifecycle.test.mjs
           - tests/tools/release-rollout-evidence.test.mjs
@@ -2517,7 +2517,7 @@ tiers:
       artifacts: [.tmp/security]
       evidence:
           - .tmp/security
-          - tests/backend/issue-1038-endpoint-security-evidence.json
+          - tests/backend/endpoint-security-evidence.json
           - tests/backend/Unit/AdminConsistencyContractTests.cs
           - tests/frontend/unit/api/integrityConsole.test.ts
           - security/catalog/security-domain.json
@@ -2660,10 +2660,10 @@ tiers:
               tools/release/test-evidence-receipts-cli.mjs,
               tests/tools/browser-contract.test.mjs,
               tests/tools/local-runtime-cleanup.test.mjs,
-              tests/tools/issue-1149-browser-contract-fixture.test.mjs,
-              tests/tools/issue-1149-session-isolation.test.mjs,
+              tests/tools/browser-contract-fixture.test.mjs,
+              tests/tools/browser-session-isolation.test.mjs,
               tests/tools/browserless-correctness-contract.test.mjs,
-              tests/tools/issue-1151-evidence-governance.test.mjs,
+              tests/tools/test-evidence-governance.test.mjs,
               .github/workflows/quality-gate.yml,
               docs/testing/browser-contract.md,
               docs/testing/issue-1149-browser-contract-fixture.md,
@@ -2709,8 +2709,8 @@ tiers:
               tests/coverage-registry.json,
               tests/tools/browser-contract.test.mjs,
               tests/tools/local-runtime-cleanup.test.mjs,
-              tests/tools/issue-1149-browser-contract-fixture.test.mjs,
-              tests/tools/issue-1149-session-isolation.test.mjs,
+              tests/tools/browser-contract-fixture.test.mjs,
+              tests/tools/browser-session-isolation.test.mjs,
               .github/workflows/quality-gate.yml,
               .github/actions/consume-production-build/action.yml,
               docs/testing/browser-contract.md,
@@ -2774,14 +2774,14 @@ tiers:
               .tmp/release-evidence/aeds-wasm-browser-summary.json,
               tests/browser-diagnostics/catalog.mjs,
               tests/browser-diagnostics/run.mjs,
-              tests/issue-1148-browser-diagnostics-migration.json,
+              tests/browser-diagnostics-retirement-map.json,
               tests/governance/browser-test-migration.json,
               tests/fixtures/browser-migration/historical-deleted-tests.json,
               tools/check-browser-test-migration.mjs,
               tools/release/test-evidence-receipts.mjs,
               tests/tools/browser-diagnostics.test.mjs,
               tests/tools/browser-migration-contract.test.mjs,
-              tests/tools/issue-1151-evidence-governance.test.mjs,
+              tests/tools/test-evidence-governance.test.mjs,
               tests/frontend/e2e/acceptance/archive-sticky-geometry.spec.ts,
               docs/testing/issue-1148-browser-diagnostics.md,
               docs/testing/issue-1151-evidence-governance.md,
@@ -2826,13 +2826,13 @@ tiers:
           [
               tests/browser-diagnostics/catalog.mjs,
               tests/browser-diagnostics/run.mjs,
-              tests/issue-1148-browser-diagnostics-migration.json,
+              tests/browser-diagnostics-retirement-map.json,
               tests/governance/browser-test-migration.json,
               tools/check-browser-test-migration.mjs,
               tools/release/test-evidence-receipts.mjs,
               tests/tools/browser-diagnostics.test.mjs,
               tests/tools/browser-migration-contract.test.mjs,
-              tests/tools/issue-1151-evidence-governance.test.mjs,
+              tests/tools/test-evidence-governance.test.mjs,
               docs/testing/issue-1148-browser-diagnostics.md,
               docs/testing/issue-1151-evidence-governance.md,
               .github/workflows/browser-diagnostics.yml,
@@ -3482,7 +3482,7 @@ tiers:
           - .tmp/runtime/resilience.json
           - .tmp/release-evidence/aot-cache-resilience-summary.json
           - tests/tools/gateway-switch.test.mjs
-          - tests/backend/issue-1030-implementation-evidence.json
+          - tests/backend/active-release-fencing-implementation-evidence.json
           - tests/tools/release-rollout-probes.test.mjs
           - tests/backend/Unit/UploadSessionCleanupWorkerBehaviorTests.cs
       ciJob: resilience-runtime
@@ -5229,10 +5229,10 @@ tiers:
               .tmp/security/privacy-zk-canonical/frontend-static-governance.json,
               tools/check-repository-source-layout.mjs,
               tests/governance/repository-source-layout.json,
-              tests/tools/issue-1166-zk-source-layout.test.mjs,
+              tests/tools/zk-source-layout.test.mjs,
               tools/crypto/check-zk-artifact-ownership.mjs,
               security/zk/provenance/artifact-ownership.manifest.json,
-              tests/tools/issue-1168-zk-artifact-ownership.test.mjs,
+              tests/tools/zk-artifact-ownership.test.mjs,
               docs/architecture/repository-layout.md,
               src/zk/circuits/anonymous-comment-v5/comment_v5.circuit.json,
               security/zk/contracts/comment-v5-circuit.manifest.json,
@@ -6101,7 +6101,7 @@ tiers:
               tests/flaky.yml,
               tools/ci/run-flaky-governed.mjs,
               tools/ci/check-flaky-evidence.mjs,
-              tests/tools/issue-1151-flaky-governance.test.mjs,
+              tests/tools/flaky-test-governance.test.mjs,
               docs/testing/issue-1151-evidence-governance.md,
           ]
       ciJob: release-final
@@ -6244,7 +6244,7 @@ tiers:
               .tmp/release-evidence/release-final-test-evidence-binding.json,
               tools/release/test-evidence-receipts.mjs,
               tools/release/test-evidence-receipts-cli.mjs,
-              tests/tools/issue-1151-evidence-governance.test.mjs,
+              tests/tools/test-evidence-governance.test.mjs,
               docs/testing/issue-1151-evidence-governance.md,
           ]
       ciJob: release-final
@@ -6321,10 +6321,10 @@ tiers:
               .github/workflows/browser-diagnostics.yml,
               tests/tools/test-matrix-resource-contract.test.mjs,
               tests/tools/browserless-correctness-contract.test.mjs,
-              tests/tools/issue-1151-evidence-governance.test.mjs,
-              tests/tools/issue-1151-receipt-aggregate.test.mjs,
-              tests/tools/issue-1151-receipt-authority.test.mjs,
-              tests/tools/issue-1151-receipt-schema.test.mjs,
+              tests/tools/test-evidence-governance.test.mjs,
+              tests/tools/test-evidence-receipt-aggregation.test.mjs,
+              tests/tools/test-evidence-receipt-authority.test.mjs,
+              tests/tools/test-evidence-receipt-schema.test.mjs,
               docs/testing/issue-1150-browserless-ci-topology.md,
               docs/testing/issue-1151-evidence-governance.md,
           ]
@@ -6400,13 +6400,13 @@ tiers:
           - tests/backend/Unit/DeploymentRuntimeStateTests.cs
           - tests/backend/Unit/ReleaseStorageLifecycleTests.cs
           - tests/backend/Unit/PublicAotFileShellCacheTests.cs
-          - tests/backend/issue-1029-storage-lifecycle-evidence.json
+          - tests/backend/storage-lifecycle-evidence.json
           - docs/issue-1029-storage-lifecycle-handoff.md
           - tests/tools/release-storage-lifecycle.test.mjs
-          - tests/backend/issue-1030-implementation-evidence.json
+          - tests/backend/active-release-fencing-implementation-evidence.json
           - tests/tools/release-rollout-probes.test.mjs
-          - tests/backend/issue-1037-security-hardening-evidence.json
-          - tests/backend/issue-1038-endpoint-security-evidence.json
+          - tests/backend/security-hardening-evidence.json
+          - tests/backend/endpoint-security-evidence.json
           - tests/backend/Unit/AdminConsistencyContractTests.cs
           - docs/issue-1041-executable-data-test-governance.md
           - docs/issue-1041-executable-data-test-governance.md
@@ -6562,20 +6562,20 @@ tiers:
           - tests/backend/Unit/SubscriptionEndpointsContractTests.cs
           - tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs
           - tests/backend/Unit/SecurityChallengePersistenceTests.cs
-          - tests/backend/issue-1038-endpoint-security-evidence.json
+          - tests/backend/endpoint-security-evidence.json
           - tests/backend/Unit/UserSessionValidationServiceTests.cs
           - tests/backend/Unit/UserSessionJwtAuthenticationTests.cs
           - tests/backend/Unit/UserSessionMappedBoundaryTests.cs
-          - tests/backend/issue-1052-user-session-revocation-evidence.json
+          - tests/backend/user-session-revocation-evidence.json
           - tests/backend/Unit/AuthCookieServiceSecurityTests.cs
           - tests/backend/Unit/AuthCookieExpiryFlowTests.cs
           - tests/backend/Unit/JwtHelperTests.cs
           - tests/backend/Unit/UserServiceValidationTests.cs
-          - tests/backend/issue-1053-auth-cookie-expiry-evidence.json
-          - tests/backend/issue-1053-central-handoff.json
+          - tests/backend/auth-cookie-expiry-evidence.json
+          - tests/backend/auth-cookie-expiry-governance-handoff.json
           - tests/backend/Unit/RecoveryPasskeyCompletionStateTests.cs
           - tests/backend/Unit/RecoveryPasskeyCompletionEndpointTests.cs
-          - tests/backend/issue-1054-recovery-passkey-completion-evidence.json
+          - tests/backend/recovery-passkey-completion-evidence.json
       ciJob: fast-backend
       localOnly: false
       nightlyOnly: false
@@ -6654,14 +6654,14 @@ tiers:
           - tests/backend/Unit/LogCleanupWorkerBehaviorTests.cs
           - tests/backend/Unit/UploadSessionCleanupWorkerBehaviorTests.cs
           - tests/backend/Unit/RateLimiterRejectionRiskSamplerTests.cs
-          - tests/backend/issue-1055-rate-limiter-rejection-sampler-evidence.json
+          - tests/backend/rate-limiter-rejection-sampler-evidence.json
           - benchmarks/core/RateLimiterRejectionSamplerBenchmarks.cs
           - tests/backend/Unit/UserSessionValidationServiceTests.cs
           - tests/backend/Integration/UserSessionRevocationIntegrationTests.cs
-          - tests/backend/issue-1052-user-session-revocation-evidence.json
+          - tests/backend/user-session-revocation-evidence.json
           - tests/backend/Unit/RecoveryPasskeyCompletionStateTests.cs
           - tests/backend/Integration/RecoveryPasskeyCompletionIntegrationTests.cs
-          - tests/backend/issue-1054-recovery-passkey-completion-evidence.json
+          - tests/backend/recovery-passkey-completion-evidence.json
           - tests/test-retention-replacements.json
           - docs/testing/issue-1040-concurrency-state-machines.md
           - docs/issue-1041-executable-data-test-governance.md

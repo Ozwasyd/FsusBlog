@@ -498,7 +498,7 @@
                 "producer": "tools/operations/aeds-frame-cost-evidence.mjs",
                 "paths": [
                     "docs/testing/issue-1152-aeds-frame-cost-evidence.md",
-                    "tests/tools/issue-1152-aeds-frame-cost-evidence.test.mjs"
+                    "tests/tools/aeds-frame-cost-evidence.test.mjs"
                 ],
                 "policy": {
                     "path": "tests/performance/perf-policy.yml",
@@ -607,7 +607,7 @@
                 "producer": "tools/operations/check-pod-binary-codec-batch-evidence.mjs",
                 "paths": [
                     "docs/performance-pod-binary-codec-batch.md",
-                    "tests/tools/issue-1154-pod-binary-codec-batch-evidence.test.mjs"
+                    "tests/tools/pod-binary-codec-batch-evidence.test.mjs"
                 ],
                 "policy": {
                     "path": "docs/performance-pod-binary-codec-batch.md",

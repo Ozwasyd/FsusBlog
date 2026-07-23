@@ -628,7 +628,7 @@
                     "src/backend/Services/Security/UserSecurityStepUpService.cs",
                     "tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs",
                     "tests/backend/Unit/UserSecurityStepUpServiceTests.cs",
-                    "tests/backend/issue-1014-identity-retirement-evidence.json",
+                    "tests/backend/legacy-identity-retirement-evidence.json",
                     "docs/database-migration.md",
                     "docs/anonymous-identity-smoke-flow.md",
                     "docs/issue-1014-identity-retirement-handoff.md"

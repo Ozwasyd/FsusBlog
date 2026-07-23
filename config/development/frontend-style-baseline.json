@@ -1,8 +1,8 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:1cc4b9160fd50cf972f89e01ab64839d17e5829f8876ca426c164e948391dbef",
-    "sourceStateSha256": "1cc4b9160fd50cf972f89e01ab64839d17e5829f8876ca426c164e948391dbef",
-    "configurationSha256": "3aba534caa13d9279fbebb8c81d72486d7154fe3a425764f094dc705b0ddf5f1",
+    "generatedFrom": "source-state:982e707426637f25c907fdf0822c0544207b334e045f5352e36485cf09548348",
+    "sourceStateSha256": "982e707426637f25c907fdf0822c0544207b334e045f5352e36485cf09548348",
+    "configurationSha256": "94749862fca30a16e3aa4249fcd4aa61f8ad1df1c2823c9d14780e6b3e1f776d",
     "violationCount": 304404,
     "fileCount": 1057,
     "files": [
@@ -662,6 +662,16 @@
                 "eslint/@stylistic/member-delimiter-style": 11,
                 "eslint/@stylistic/semi": 25,
                 "eslint/import-x/order": 5
+            }
+        },
+        {
+            "path": "src/frontend/src/assets/account-shell-base.css",
+            "sourceSha256": "e2e87173384f95df820bd0200768dbc09adebb4cc4a0622d8aad966ffd15eee7",
+            "violationCount": 2,
+            "violationDigest": "b7592594b14ec4455f1cc33bd2660511a9fbb8e747b1d59dd368fa94210426ae",
+            "rules": {
+                "stylelint/@stylistic/block-opening-brace-newline-before": 1,
+                "stylelint/media-feature-range-notation": 1
             }
         },
         {
@@ -6969,7 +6979,7 @@
         },
         {
             "path": "tests/browser-diagnostics/catalog.mjs",
-            "sourceSha256": "b92b58480817d6843ebac9bce3a50f43f6332ca521cba589dff4c5ed5935a87a",
+            "sourceSha256": "b73e11cd82340aff0530d09e4e26101fba52f0a67c8b211bbda24336575bddaa",
             "violationCount": 247,
             "violationDigest": "881929bf6bd5bb31ef75c058ce045d22eea6a21ba7f9ea9efbb4790587ed6d96",
             "rules": {
@@ -9159,6 +9169,45 @@
             }
         },
         {
+            "path": "tests/tools/aeds-cache-miss-frame-evidence.test.mjs",
+            "sourceSha256": "5e44ccc0609badb7299dfd3c822d786569c2fd155b255271b17653d69553b0c3",
+            "violationCount": 86,
+            "violationDigest": "ec93ba721e736df73168ea5d4ef27941ff0535e211941e9cc8a0c3f5add2317a",
+            "rules": {
+                "eslint/@stylistic/brace-style": 5,
+                "eslint/@stylistic/indent": 58,
+                "eslint/@stylistic/semi": 20,
+                "eslint/import-x/no-relative-parent-imports": 1,
+                "eslint/import-x/order": 2
+            }
+        },
+        {
+            "path": "tests/tools/aeds-frame-cost-evidence.test.mjs",
+            "sourceSha256": "e57b3b54d72b7f84827a2dd7844e4a16671727e84073df8b1cd0ea988dedafa1",
+            "violationCount": 369,
+            "violationDigest": "0abd499279514a9d8775850cd32f8bd41e1ed71f900eb23424e7c9b041191bac",
+            "rules": {
+                "eslint/@stylistic/brace-style": 36,
+                "eslint/@stylistic/indent": 178,
+                "eslint/@stylistic/semi": 151,
+                "eslint/import-x/no-relative-parent-imports": 1,
+                "eslint/import-x/order": 3
+            }
+        },
+        {
+            "path": "tests/tools/appsettings-authority.test.mjs",
+            "sourceSha256": "c936ae171b9e577107e67ce016c7bb49ca3cd7f8dd0c4923dca829656e2f8315",
+            "violationCount": 168,
+            "violationDigest": "5dfa98f6d12bba31686e52ced862891e2aba8ee4a8f3d128274e26501e307eaa",
+            "rules": {
+                "eslint/@stylistic/brace-style": 8,
+                "eslint/@stylistic/indent": 75,
+                "eslint/@stylistic/semi": 82,
+                "eslint/curly": 2,
+                "eslint/import-x/no-relative-parent-imports": 1
+            }
+        },
+        {
             "path": "tests/tools/artifact-digest-table.test.mjs",
             "sourceSha256": "81901fda6fee68d5608404b4876f708f11dc50e80283d28201901fe0c52b4943",
             "violationCount": 2,
@@ -9181,6 +9230,18 @@
             }
         },
         {
+            "path": "tests/tools/authoritative-development-docs.test.mjs",
+            "sourceSha256": "f291de191538e7ec3169b2339a87de121b6843a25abb8d5e18d17d976f631a70",
+            "violationCount": 209,
+            "violationDigest": "becb518bd755eff11d18d8187fa2a85878a96e1e240aaf4c99fc6299ca9f2068",
+            "rules": {
+                "eslint/@stylistic/brace-style": 25,
+                "eslint/@stylistic/indent": 99,
+                "eslint/@stylistic/semi": 80,
+                "eslint/import-x/order": 5
+            }
+        },
+        {
             "path": "tests/tools/backend-benchmark-regression.test.mjs",
             "sourceSha256": "37d00340145d142617535bfd4aeaa7a02dd3b69fb69e97545819ac4feaa62b3f",
             "violationCount": 478,
@@ -9189,6 +9250,26 @@
                 "eslint/@stylistic/brace-style": 21,
                 "eslint/@stylistic/indent": 302,
                 "eslint/@stylistic/semi": 154,
+                "eslint/import-x/no-relative-parent-imports": 1
+            }
+        },
+        {
+            "path": "tests/tools/backend-build-lock-behavior.test.mjs",
+            "sourceSha256": "6aba04e44deb6675175dbf45a6be2dd9a1ff9415fe5b7dcba8f542b70b095626",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
+        },
+        {
+            "path": "tests/tools/backend-configuration-contract.test.mjs",
+            "sourceSha256": "69e1ae8dfc80565120d1b30b99bedc4feceb144e65745d7a82818e87f70fe783",
+            "violationCount": 251,
+            "violationDigest": "c9b7c20694b2b888fe6746b1d3666ddc6985a72f9e40465a2a44521beea2438b",
+            "rules": {
+                "eslint/@stylistic/brace-style": 17,
+                "eslint/@stylistic/indent": 125,
+                "eslint/@stylistic/semi": 103,
+                "eslint/curly": 5,
                 "eslint/import-x/no-relative-parent-imports": 1
             }
         },
@@ -9202,13 +9283,6 @@
                 "eslint/@stylistic/indent": 54,
                 "eslint/@stylistic/semi": 35
             }
-        },
-        {
-            "path": "tests/tools/backend-build-lock-behavior.test.mjs",
-            "sourceSha256": "6aba04e44deb6675175dbf45a6be2dd9a1ff9415fe5b7dcba8f542b70b095626",
-            "violationCount": 0,
-            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-            "rules": {}
         },
         {
             "path": "tests/tools/backend-production-shards.test.mjs",
@@ -9260,6 +9334,21 @@
             }
         },
         {
+            "path": "tests/tools/browser-contract-fixture.test.mjs",
+            "sourceSha256": "0ec5d8493b0852085e683d781eed712bc67ede5605ecd3711e270e069303c297",
+            "violationCount": 1277,
+            "violationDigest": "f8a325fe672126792177455e37a3685055818c2f8da0c31d9e896c6e60437e99",
+            "rules": {
+                "eslint/@stylistic/brace-style": 54,
+                "eslint/@stylistic/indent": 779,
+                "eslint/@stylistic/max-statements-per-line": 2,
+                "eslint/@stylistic/semi": 434,
+                "eslint/curly": 4,
+                "eslint/import-x/no-relative-parent-imports": 3,
+                "eslint/import-x/order": 1
+            }
+        },
+        {
             "path": "tests/tools/browser-contract.test.mjs",
             "sourceSha256": "9bd54f71806b6e50ec77f28e12ec691ea23a016ab5d081e2398be98e314d2d44",
             "violationCount": 1,
@@ -9295,9 +9384,9 @@
         },
         {
             "path": "tests/tools/browser-diagnostics.test.mjs",
-            "sourceSha256": "5026c5b9c25205415e8212049b6c739c8c511d1e59ebbfdfb2c3ac2e47f7fcd6",
+            "sourceSha256": "3aa2ae5ef7a3c686d260873b72e6337ef1fce0d40b0a147edc2cc1b41fa29e54",
             "violationCount": 846,
-            "violationDigest": "964e3c6bdb177c42f9f77205c3b8c3e298a0c57980e3a392de631b77ea39f499",
+            "violationDigest": "35049d0ad687a1e90a41d8ad51d7d75d3bf50ce3dc5ed549454484ffee9a75ff",
             "rules": {
                 "eslint/@stylistic/brace-style": 42,
                 "eslint/@stylistic/indent": 533,
@@ -9330,6 +9419,34 @@
                 "eslint/@stylistic/semi": 23,
                 "eslint/import-x/no-relative-parent-imports": 1
             }
+        },
+        {
+            "path": "tests/tools/browser-migration-contract.test.mjs",
+            "sourceSha256": "4bdc780e04f6580135463a6628f5ca35720c8331b901ed76970effbe6dc58ed4",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
+        },
+        {
+            "path": "tests/tools/browser-session-isolation.test.mjs",
+            "sourceSha256": "5a1c4c23ea322ef5a8eff7cc09abcdd622745eb9bc2c8d447dd5e5d6ca355d6d",
+            "violationCount": 478,
+            "violationDigest": "72587d5235a9f7e952888579e26faff11433b54eb0b91d45dad5cb81ca0f2945",
+            "rules": {
+                "eslint/@stylistic/brace-style": 16,
+                "eslint/@stylistic/indent": 334,
+                "eslint/@stylistic/semi": 121,
+                "eslint/curly": 1,
+                "eslint/import-x/no-relative-parent-imports": 5,
+                "eslint/import-x/order": 1
+            }
+        },
+        {
+            "path": "tests/tools/browserless-correctness-contract.test.mjs",
+            "sourceSha256": "ec7a1911f3c288a59205f43340a4173d90b1736b7b2d1ddb094fe5a83a319ad6",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/browserless-public-contracts.test.mjs",
@@ -9422,6 +9539,17 @@
             }
         },
         {
+            "path": "tests/tools/code-intent.test.mjs",
+            "sourceSha256": "060fea8c14f14f33f9682e792fda87aa3d58c6183497aa97f11a13e02ce9d63b",
+            "violationCount": 121,
+            "violationDigest": "a4cb2c4542a20fc1cc6dc8ae90d2d76064e541fb0196eb7ee37c231bafb9f5b2",
+            "rules": {
+                "eslint/@stylistic/brace-style": 22,
+                "eslint/@stylistic/semi": 98,
+                "eslint/import-x/no-relative-parent-imports": 1
+            }
+        },
+        {
             "path": "tests/tools/configuration-layout.test.mjs",
             "sourceSha256": "4f8bc6e5ed20fb146963ec8532414c4a9df761c1c8a9d165fa50e18f412af88c",
             "violationCount": 168,
@@ -9443,6 +9571,30 @@
                 "eslint/@stylistic/brace-style": 4,
                 "eslint/@stylistic/indent": 53,
                 "eslint/@stylistic/semi": 38
+            }
+        },
+        {
+            "path": "tests/tools/csharp-entrypoint-ownership.test.mjs",
+            "sourceSha256": "71d6490fd7cd7a86efe901b59fac451ea124d7ffd020e194eef0aeb7432a81d3",
+            "violationCount": 192,
+            "violationDigest": "d296eef55ece966c8126ab701f3bd59088f2b101836cf8f32fccff3b5d552892",
+            "rules": {
+                "eslint/@stylistic/brace-style": 10,
+                "eslint/@stylistic/indent": 94,
+                "eslint/@stylistic/semi": 87,
+                "eslint/import-x/no-relative-parent-imports": 1
+            }
+        },
+        {
+            "path": "tests/tools/csharp-style.test.mjs",
+            "sourceSha256": "946e895086382f0b3b1948ed7129ec8ab91c03a12ea69a7e14ce84d85d99c49d",
+            "violationCount": 572,
+            "violationDigest": "88c39fd7a9705e022b410f999599f8d959452e26586c1d2234fa2edadbc80f8b",
+            "rules": {
+                "eslint/@stylistic/brace-style": 40,
+                "eslint/@stylistic/indent": 339,
+                "eslint/@stylistic/semi": 188,
+                "eslint/import-x/order": 5
             }
         },
         {
@@ -9571,6 +9723,13 @@
             }
         },
         {
+            "path": "tests/tools/flaky-test-governance.test.mjs",
+            "sourceSha256": "c4cfaa597d9d9576387a482b9608ae8194993896f8a7806945180240058dd644",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
+        },
+        {
             "path": "tests/tools/frontend-build-resource-plan.test.mjs",
             "sourceSha256": "312ed6730bd998d3eebc8c491270c2122c184f98d80d3a98d07f6109bd21d4ff",
             "violationCount": 83,
@@ -9662,313 +9821,6 @@
             }
         },
         {
-            "path": "tests/tools/issue-1149-browser-contract-fixture.test.mjs",
-            "sourceSha256": "0ec5d8493b0852085e683d781eed712bc67ede5605ecd3711e270e069303c297",
-            "violationCount": 1277,
-            "violationDigest": "f8a40af38f961d4cc951c553c531dd52c891d5c3b70cf17ab6984c15a639eeed",
-            "rules": {
-                "eslint/@stylistic/brace-style": 54,
-                "eslint/@stylistic/indent": 779,
-                "eslint/@stylistic/max-statements-per-line": 2,
-                "eslint/@stylistic/semi": 434,
-                "eslint/curly": 4,
-                "eslint/import-x/no-relative-parent-imports": 3,
-                "eslint/import-x/order": 1
-            }
-        },
-        {
-            "path": "tests/tools/issue-1149-session-isolation.test.mjs",
-            "sourceSha256": "0695caabbf8744ce264e4d95373dabaf5368d4ece7f87f99b55412929d9263f8",
-            "violationCount": 478,
-            "violationDigest": "0a351b9d78368d9d8b1191042556934a4961cb36cc236de80691207e44f198b1",
-            "rules": {
-                "eslint/@stylistic/brace-style": 16,
-                "eslint/@stylistic/indent": 334,
-                "eslint/@stylistic/semi": 121,
-                "eslint/curly": 1,
-                "eslint/import-x/no-relative-parent-imports": 5,
-                "eslint/import-x/order": 1
-            }
-        },
-        {
-            "path": "tests/tools/browserless-correctness-contract.test.mjs",
-            "sourceSha256": "ec7a1911f3c288a59205f43340a4173d90b1736b7b2d1ddb094fe5a83a319ad6",
-            "violationCount": 0,
-            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-            "rules": {}
-        },
-        {
-            "path": "tests/tools/test-matrix-resource-contract.test.mjs",
-            "sourceSha256": "2f2683c58e14cd323e26074aa43fc3bcbc073f3702134b5bcbd1f7cb22e8fbf1",
-            "violationCount": 0,
-            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-            "rules": {}
-        },
-        {
-            "path": "tests/tools/browser-migration-contract.test.mjs",
-            "sourceSha256": "4bdc780e04f6580135463a6628f5ca35720c8331b901ed76970effbe6dc58ed4",
-            "violationCount": 0,
-            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-            "rules": {}
-        },
-        {
-            "path": "tests/tools/issue-1151-evidence-governance.test.mjs",
-            "sourceSha256": "deca00bb63244b8d31a5fced007230591aeba1408f2150be2a6f1c345c90f399",
-            "violationCount": 156,
-            "violationDigest": "587048bdd23e50da79ddb83a2cbd6c6453dea2c9ec38a3dd48b33546bc13b42f",
-            "rules": {
-                "eslint/@stylistic/brace-style": 11,
-                "eslint/@stylistic/indent": 80,
-                "eslint/@stylistic/semi": 61,
-                "eslint/curly": 3,
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
-        },
-        {
-            "path": "tests/tools/issue-1151-flaky-governance.test.mjs",
-            "sourceSha256": "c469746cbcb1473a128081a8a7b57cedae3ecaca4267ed0e9ff2dc8a20d8355c",
-            "violationCount": 0,
-            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-            "rules": {}
-        },
-        {
-            "path": "tests/tools/issue-1151-receipt-aggregate.test.mjs",
-            "sourceSha256": "f64c871dad042a9867204de054c0bef65718e3d1aa94aad575352f454d939cb4",
-            "violationCount": 0,
-            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-            "rules": {}
-        },
-        {
-            "path": "tests/tools/issue-1151-receipt-authority.test.mjs",
-            "sourceSha256": "a95e4acf82306becd2b7105643847eabb9970f026b322a2538c4fdf0a98c791c",
-            "violationCount": 711,
-            "violationDigest": "c44bf0e46b19cdf01c02dbeac4e7bb0dcb454eddf44b9e13aec7ea0b77d14f13",
-            "rules": {
-                "eslint/@stylistic/brace-style": 18,
-                "eslint/@stylistic/indent": 459,
-                "eslint/@stylistic/semi": 222,
-                "eslint/curly": 3,
-                "eslint/import-x/no-relative-parent-imports": 4,
-                "eslint/import-x/order": 3,
-                "eslint/no-unused-vars": 2
-            }
-        },
-        {
-            "path": "tests/tools/issue-1151-receipt-schema.test.mjs",
-            "sourceSha256": "31b38cb10d63c213696a19e75e81fc6d9f532f58f241eaf034d2c9766169d66b",
-            "violationCount": 565,
-            "violationDigest": "e303ce682da93675fcd12e3c51c63fb71c35e266f46c8213b37d08bbaf65f740",
-            "rules": {
-                "eslint/@stylistic/brace-style": 12,
-                "eslint/@stylistic/indent": 399,
-                "eslint/@stylistic/semi": 149,
-                "eslint/curly": 2,
-                "eslint/import-x/no-relative-parent-imports": 2,
-                "eslint/no-unused-vars": 1
-            }
-        },
-        {
-            "path": "tests/tools/issue-1152-aeds-frame-cost-evidence.test.mjs",
-            "sourceSha256": "d96363ce8296fd47c3a28fd621e71187a665bef57c75cd6c81886eedb1a5c1b6",
-            "violationCount": 369,
-            "violationDigest": "d9bfccad7ceed2965b6feaf90d184690854b5d37243d7bca6cee3d0f5bcab0b3",
-            "rules": {
-                "eslint/@stylistic/brace-style": 36,
-                "eslint/@stylistic/indent": 178,
-                "eslint/@stylistic/semi": 151,
-                "eslint/import-x/no-relative-parent-imports": 1,
-                "eslint/import-x/order": 3
-            }
-        },
-        {
-            "path": "tests/tools/issue-1153-aeds-cache-miss-frame-evidence.test.mjs",
-            "sourceSha256": "5e44ccc0609badb7299dfd3c822d786569c2fd155b255271b17653d69553b0c3",
-            "violationCount": 86,
-            "violationDigest": "6a6ae1a6f9dbf734141e79b6748b752165db91f77a1b47f90c7f75fa7751ffcb",
-            "rules": {
-                "eslint/@stylistic/brace-style": 5,
-                "eslint/@stylistic/indent": 58,
-                "eslint/@stylistic/semi": 20,
-                "eslint/import-x/no-relative-parent-imports": 1,
-                "eslint/import-x/order": 2
-            }
-        },
-        {
-            "path": "tests/tools/issue-1154-pod-binary-codec-batch-evidence.test.mjs",
-            "sourceSha256": "c5719a899361af8475b5147f4af35664ec97e997aeb945a760a095f5bb11362b",
-            "violationCount": 278,
-            "violationDigest": "b54ede13a5b710b21d7aa54562c74ac49bbfa98e6f277f08ac288eb2f0533341",
-            "rules": {
-                "eslint/@stylistic/brace-style": 15,
-                "eslint/@stylistic/indent": 198,
-                "eslint/@stylistic/semi": 62,
-                "eslint/import-x/no-relative-parent-imports": 1,
-                "eslint/import-x/order": 2
-            }
-        },
-        {
-            "path": "tests/tools/issue-1155-code-intent.test.mjs",
-            "sourceSha256": "060fea8c14f14f33f9682e792fda87aa3d58c6183497aa97f11a13e02ce9d63b",
-            "violationCount": 121,
-            "violationDigest": "5b7672e8d92dd66f5766c58792dbc3fabadffce11baf6b052e7a4ac193f83e21",
-            "rules": {
-                "eslint/@stylistic/brace-style": 22,
-                "eslint/@stylistic/semi": 98,
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
-        },
-        {
-            "path": "tests/tools/issue-1157-authoritative-development-docs.test.mjs",
-            "sourceSha256": "37f8a1b3a23e819b7837d209481ffeb765b2c455bc93218f73e76f4a3c68397c",
-            "violationCount": 209,
-            "violationDigest": "b187d8e8b0cf2e2262d679ab5a4a29ea5f7e94de8d2e049d5941b4fb3531a442",
-            "rules": {
-                "eslint/@stylistic/brace-style": 25,
-                "eslint/@stylistic/indent": 99,
-                "eslint/@stylistic/semi": 80,
-                "eslint/import-x/order": 5
-            }
-        },
-        {
-            "path": "tests/tools/issue-1158-csharp-style.test.mjs",
-            "sourceSha256": "619636893b2c83f426b9d753bc647df8ef84bae66aa1e3d5608e5a3c2af1edfd",
-            "violationCount": 572,
-            "violationDigest": "1f2a29d46191e9478380826fdffd9cbcbab61f5321a70d8958eededc2b5b0eb9",
-            "rules": {
-                "eslint/@stylistic/brace-style": 40,
-                "eslint/@stylistic/indent": 339,
-                "eslint/@stylistic/semi": 188,
-                "eslint/import-x/order": 5
-            }
-        },
-        {
-            "path": "tests/tools/issue-1160-native-tooling-style.test.mjs",
-            "sourceSha256": "0682b1cc2e764d47392ba9d93ea06f952b481b90e25fb6f5c4f51c68505c74aa",
-            "violationCount": 326,
-            "violationDigest": "568ac837759820717e8cf4ee1fbc8dfb52e05bf1aabd0f8fc981319b942dd3e0",
-            "rules": {
-                "eslint/@stylistic/semi": 324,
-                "eslint/import-x/order": 1,
-                "eslint/no-regex-spaces": 1
-            }
-        },
-        {
-            "path": "tests/tools/issue-1160-yaml-consumers.test.mjs",
-            "sourceSha256": "e1264df96c054b5097b9891f646cb6b0522b5358db7701212fc10ba22132f430",
-            "violationCount": 170,
-            "violationDigest": "b76f7d621c2ba50b0919cc5aca44e8b1437e48b715c597a1e8ee182f44446537",
-            "rules": {
-                "eslint/@stylistic/brace-style": 11,
-                "eslint/@stylistic/indent": 91,
-                "eslint/@stylistic/semi": 64,
-                "eslint/import-x/no-relative-parent-imports": 3,
-                "eslint/import-x/order": 1
-            }
-        },
-        {
-            "path": "tests/tools/issue-1165-wasm-artifact-ownership.test.mjs",
-            "sourceSha256": "14d09ec0b8b7cafde7daedce4d431b34af64f421fc7e70c4392681e7e40251c2",
-            "violationCount": 313,
-            "violationDigest": "b2d139634827b2fafcefcbeb0c04b48e8bfbabf3110523e164322a7171269631",
-            "rules": {
-                "eslint/@stylistic/brace-style": 48,
-                "eslint/@stylistic/indent": 261,
-                "eslint/curly": 2,
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
-        },
-        {
-            "path": "tests/tools/issue-1166-zk-source-layout.test.mjs",
-            "sourceSha256": "c507150c8fbda35408f68367379ad39c27196b43d68f14a64bc1d703f5faddd1",
-            "violationCount": 133,
-            "violationDigest": "bfe81e633460eb955244c417bc36ec24e49381f8ce34b942a469ff0ab5267286",
-            "rules": {
-                "eslint/@stylistic/brace-style": 6,
-                "eslint/@stylistic/indent": 62,
-                "eslint/@stylistic/semi": 63,
-                "eslint/import-x/no-relative-parent-imports": 1,
-                "eslint/import-x/order": 1
-            }
-        },
-        {
-            "path": "tests/tools/issue-1169-release-evidence-model.test.mjs",
-            "sourceSha256": "526e91bb501b0d6158e79c65f933f9d5efeb541d9b1916d58a9591450bd44508",
-            "violationCount": 261,
-            "violationDigest": "32d3d90814a6003b13c2310d0e6cae6f298f4e07a567a9cb53285bfd21121d31",
-            "rules": {
-                "eslint/@stylistic/brace-style": 11,
-                "eslint/@stylistic/indent": 140,
-                "eslint/@stylistic/semi": 105,
-                "eslint/curly": 2,
-                "eslint/import-x/no-relative-parent-imports": 2,
-                "eslint/import-x/order": 1
-            }
-        },
-        {
-            "path": "tests/tools/issue-1170-security-domain-layout.test.mjs",
-            "sourceSha256": "e33df71c5c8fa43c62ed5eb902ca64fb4901e1ae8449496a458f3112a4fa87c0",
-            "violationCount": 125,
-            "violationDigest": "7a34001acb06b7c2384b85ae4f99fd7fc346419dffc945ae9900f524ccee0402",
-            "rules": {
-                "eslint/@stylistic/brace-style": 7,
-                "eslint/@stylistic/indent": 60,
-                "eslint/@stylistic/semi": 56,
-                "eslint/curly": 1,
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
-        },
-        {
-            "path": "tests/tools/issue-1170-security-matrix-catalog.test.mjs",
-            "sourceSha256": "d5cda7b55b859add042c51e7d0ec3676846c51663e17fd5029ad1a3252279524",
-            "violationCount": 162,
-            "violationDigest": "77f57447a21fa84b63d622defb1a5893427610b8f2f7c92bd5b2bd2adcef1d07",
-            "rules": {
-                "eslint/@stylistic/brace-style": 15,
-                "eslint/@stylistic/indent": 84,
-                "eslint/@stylistic/semi": 57,
-                "eslint/curly": 1,
-                "eslint/import-x/order": 5
-            }
-        },
-        {
-            "path": "tests/tools/issue-1171-appsettings-authority.test.mjs",
-            "sourceSha256": "c936ae171b9e577107e67ce016c7bb49ca3cd7f8dd0c4923dca829656e2f8315",
-            "violationCount": 168,
-            "violationDigest": "442e4a7b620e8e9a3907642fe42a2e3dbc0738113d4f361e223c095a015f178d",
-            "rules": {
-                "eslint/@stylistic/brace-style": 8,
-                "eslint/@stylistic/indent": 75,
-                "eslint/@stylistic/semi": 82,
-                "eslint/curly": 2,
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
-        },
-        {
-            "path": "tests/tools/issue-1172-backend-configuration-contract.test.mjs",
-            "sourceSha256": "0707e083f9470022bb1fcc4337890bf745832ce5a89855c3619b64928e32a599",
-            "violationCount": 251,
-            "violationDigest": "663c6c0adcda570d202eded10b98df3a4e3da0cc366d026b6f0fdf54ede96416",
-            "rules": {
-                "eslint/@stylistic/brace-style": 17,
-                "eslint/@stylistic/indent": 125,
-                "eslint/@stylistic/semi": 103,
-                "eslint/curly": 5,
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
-        },
-        {
-            "path": "tests/tools/issue-1174-csharp-entrypoint-ownership.test.mjs",
-            "sourceSha256": "71d6490fd7cd7a86efe901b59fac451ea124d7ffd020e194eef0aeb7432a81d3",
-            "violationCount": 192,
-            "violationDigest": "5b63b46884328c84674cb8adfcc2796e3fd689c57af5504982054806c9d4734b",
-            "rules": {
-                "eslint/@stylistic/brace-style": 10,
-                "eslint/@stylistic/indent": 94,
-                "eslint/@stylistic/semi": 87,
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
-        },
-        {
             "path": "tests/tools/local-production-profile.test.mjs",
             "sourceSha256": "c3c53a033ee3d6286483885a4eb47f1b9db8fb993b405aec4b97a40f34d385b8",
             "violationCount": 0,
@@ -10027,6 +9879,17 @@
                 "eslint/curly": 1,
                 "eslint/import-x/no-relative-parent-imports": 2,
                 "eslint/import-x/order": 1
+            }
+        },
+        {
+            "path": "tests/tools/native-tooling-style.test.mjs",
+            "sourceSha256": "17a4344bd45481c5380f30eb121bd07d631b3d5e4a20e42ec947c5063a77f8d3",
+            "violationCount": 326,
+            "violationDigest": "cc4a31c4863a372a6aaec277ab4c6cb246ffa462e68ec74cdbd6e3486bef96ef",
+            "rules": {
+                "eslint/@stylistic/semi": 324,
+                "eslint/import-x/order": 1,
+                "eslint/no-regex-spaces": 1
             }
         },
         {
@@ -10103,6 +9966,19 @@
                 "eslint/@stylistic/indent": 50,
                 "eslint/@stylistic/semi": 29,
                 "eslint/import-x/no-relative-parent-imports": 1
+            }
+        },
+        {
+            "path": "tests/tools/pod-binary-codec-batch-evidence.test.mjs",
+            "sourceSha256": "19d2757daaa11c1a9851c7e9347e959dd4e17799555cf59fd341942f3d6a6d1a",
+            "violationCount": 278,
+            "violationDigest": "b282616f81cdb7e6246a5127c43daee3b24129a4cb42752bb93d947b159e2bd8",
+            "rules": {
+                "eslint/@stylistic/brace-style": 15,
+                "eslint/@stylistic/indent": 198,
+                "eslint/@stylistic/semi": 62,
+                "eslint/import-x/no-relative-parent-imports": 1,
+                "eslint/import-x/order": 2
             }
         },
         {
@@ -10281,6 +10157,20 @@
                 "eslint/@stylistic/brace-style": 2,
                 "eslint/@stylistic/indent": 22,
                 "eslint/@stylistic/semi": 28,
+                "eslint/import-x/order": 1
+            }
+        },
+        {
+            "path": "tests/tools/release-evidence-model.test.mjs",
+            "sourceSha256": "526e91bb501b0d6158e79c65f933f9d5efeb541d9b1916d58a9591450bd44508",
+            "violationCount": 261,
+            "violationDigest": "43ccd46b84b1a7c8be6335143ecc09b0bc1b00b7b339c6e8dca7c9a723b09e7c",
+            "rules": {
+                "eslint/@stylistic/brace-style": 11,
+                "eslint/@stylistic/indent": 140,
+                "eslint/@stylistic/semi": 105,
+                "eslint/curly": 2,
+                "eslint/import-x/no-relative-parent-imports": 2,
                 "eslint/import-x/order": 1
             }
         },
@@ -10553,13 +10443,6 @@
             }
         },
         {
-            "path": "tests/tools/runtime-worker-admission.test.mjs",
-            "sourceSha256": "c7c02c3a2a9d0d10b160eab51c92accb2c380bb069fb65535408a62b825c7857",
-            "violationCount": 0,
-            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-            "rules": {}
-        },
-        {
             "path": "tests/tools/runtime-preview-stability.test.mjs",
             "sourceSha256": "3b6093f1156b2befe9e37d9090eb32c79f1c2bdc763e80e967ec0548fc8fec1a",
             "violationCount": 337,
@@ -10600,6 +10483,13 @@
             }
         },
         {
+            "path": "tests/tools/runtime-worker-admission.test.mjs",
+            "sourceSha256": "c7c02c3a2a9d0d10b160eab51c92accb2c380bb069fb65535408a62b825c7857",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
+        },
+        {
             "path": "tests/tools/scheduler-yield-experiment.test.mjs",
             "sourceSha256": "129c3da943f093bbc681065118c0d97919a3634585e8737abd7a662561415835",
             "violationCount": 83,
@@ -10638,11 +10528,30 @@
             }
         },
         {
-            "path": "tests/tools/security-worker-admission.test.mjs",
-            "sourceSha256": "05daa35ab2034c37df96fe710ba694448e4a243d3feb3ba317c51d4a04a0750b",
-            "violationCount": 0,
-            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-            "rules": {}
+            "path": "tests/tools/security-domain-layout.test.mjs",
+            "sourceSha256": "e33df71c5c8fa43c62ed5eb902ca64fb4901e1ae8449496a458f3112a4fa87c0",
+            "violationCount": 125,
+            "violationDigest": "93a61925634701f1f929a3277d3651c6114512401b59cf83cbfa9ddfdc485f94",
+            "rules": {
+                "eslint/@stylistic/brace-style": 7,
+                "eslint/@stylistic/indent": 60,
+                "eslint/@stylistic/semi": 56,
+                "eslint/curly": 1,
+                "eslint/import-x/no-relative-parent-imports": 1
+            }
+        },
+        {
+            "path": "tests/tools/security-matrix-catalog.test.mjs",
+            "sourceSha256": "1fc14e0595a9881b7afa1ba2e5bdd289b52a009f0f5c21237263ab1fa80610e7",
+            "violationCount": 162,
+            "violationDigest": "7f49e645a9cfc6c775598123d06fe6a600db3e9bc2fb0cf7e0a6884c9eb35849",
+            "rules": {
+                "eslint/@stylistic/brace-style": 15,
+                "eslint/@stylistic/indent": 84,
+                "eslint/@stylistic/semi": 57,
+                "eslint/curly": 1,
+                "eslint/import-x/order": 5
+            }
         },
         {
             "path": "tests/tools/security-source-analyzer.test.mjs",
@@ -10654,6 +10563,13 @@
                 "eslint/@stylistic/indent": 45,
                 "eslint/@stylistic/semi": 26
             }
+        },
+        {
+            "path": "tests/tools/security-worker-admission.test.mjs",
+            "sourceSha256": "05daa35ab2034c37df96fe710ba694448e4a243d3feb3ba317c51d4a04a0750b",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/seo-measurement.test.mjs",
@@ -10691,6 +10607,62 @@
                 "eslint/@stylistic/indent": 93,
                 "eslint/@stylistic/semi": 61
             }
+        },
+        {
+            "path": "tests/tools/test-evidence-governance.test.mjs",
+            "sourceSha256": "deca00bb63244b8d31a5fced007230591aeba1408f2150be2a6f1c345c90f399",
+            "violationCount": 156,
+            "violationDigest": "c8efa4379d448ca080f81e353d4701793504e80ac3873fd9586268f22b9a3898",
+            "rules": {
+                "eslint/@stylistic/brace-style": 11,
+                "eslint/@stylistic/indent": 80,
+                "eslint/@stylistic/semi": 61,
+                "eslint/curly": 3,
+                "eslint/import-x/no-relative-parent-imports": 1
+            }
+        },
+        {
+            "path": "tests/tools/test-evidence-receipt-aggregation.test.mjs",
+            "sourceSha256": "f64c871dad042a9867204de054c0bef65718e3d1aa94aad575352f454d939cb4",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
+        },
+        {
+            "path": "tests/tools/test-evidence-receipt-authority.test.mjs",
+            "sourceSha256": "a95e4acf82306becd2b7105643847eabb9970f026b322a2538c4fdf0a98c791c",
+            "violationCount": 711,
+            "violationDigest": "a5b5db1f3b0c726e8fd01be6cf0867e98b861c0f6064a831f2c4687d0f2720ac",
+            "rules": {
+                "eslint/@stylistic/brace-style": 18,
+                "eslint/@stylistic/indent": 459,
+                "eslint/@stylistic/semi": 222,
+                "eslint/curly": 3,
+                "eslint/import-x/no-relative-parent-imports": 4,
+                "eslint/import-x/order": 3,
+                "eslint/no-unused-vars": 2
+            }
+        },
+        {
+            "path": "tests/tools/test-evidence-receipt-schema.test.mjs",
+            "sourceSha256": "31b38cb10d63c213696a19e75e81fc6d9f532f58f241eaf034d2c9766169d66b",
+            "violationCount": 565,
+            "violationDigest": "7b2ec650ea6cdb3def61968761b5c3c4579f8d7f31c36a3aecd6becb8c90a414",
+            "rules": {
+                "eslint/@stylistic/brace-style": 12,
+                "eslint/@stylistic/indent": 399,
+                "eslint/@stylistic/semi": 149,
+                "eslint/curly": 2,
+                "eslint/import-x/no-relative-parent-imports": 2,
+                "eslint/no-unused-vars": 1
+            }
+        },
+        {
+            "path": "tests/tools/test-matrix-resource-contract.test.mjs",
+            "sourceSha256": "2f2683c58e14cd323e26074aa43fc3bcbc073f3702134b5bcbd1f7cb22e8fbf1",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/test-matrix-scheduler.test.mjs",
@@ -10851,6 +10823,18 @@
             }
         },
         {
+            "path": "tests/tools/wasm-artifact-ownership.test.mjs",
+            "sourceSha256": "3cf1d666ba92e5467510bb4bd3df2f650a5ef64157c99612e0d8cba1bbdffa87",
+            "violationCount": 313,
+            "violationDigest": "6498530509381448aa98248065768c6a6a8142e143080abc660a6f0cf3143690",
+            "rules": {
+                "eslint/@stylistic/brace-style": 48,
+                "eslint/@stylistic/indent": 261,
+                "eslint/curly": 2,
+                "eslint/import-x/no-relative-parent-imports": 2
+            }
+        },
+        {
             "path": "tests/tools/wasm-fuzz-runtime.test.mjs",
             "sourceSha256": "a23c52f77c40b87e6589865a5cde8b5409a51f27dff032ffa27f08f7169a2402",
             "violationCount": 52,
@@ -10859,6 +10843,19 @@
                 "eslint/@stylistic/brace-style": 5,
                 "eslint/@stylistic/indent": 19,
                 "eslint/@stylistic/semi": 28
+            }
+        },
+        {
+            "path": "tests/tools/yaml-consumer-style.test.mjs",
+            "sourceSha256": "981c91f8d1903cb5a7d3c6d049e20f5667805a08cf282f8206fb127f37d6c580",
+            "violationCount": 170,
+            "violationDigest": "b65ec2cb5017139b8255303b73efc6b0175822c5cd621530d29c0bbd0a210585",
+            "rules": {
+                "eslint/@stylistic/brace-style": 11,
+                "eslint/@stylistic/indent": 91,
+                "eslint/@stylistic/semi": 64,
+                "eslint/import-x/no-relative-parent-imports": 3,
+                "eslint/import-x/order": 1
             }
         },
         {
@@ -10890,6 +10887,19 @@
                 "eslint/import-x/order": 1,
                 "eslint/no-empty": 2,
                 "eslint/no-unused-vars": 2
+            }
+        },
+        {
+            "path": "tests/tools/zk-source-layout.test.mjs",
+            "sourceSha256": "c507150c8fbda35408f68367379ad39c27196b43d68f14a64bc1d703f5faddd1",
+            "violationCount": 133,
+            "violationDigest": "57f1645044e8e4cb0f2573d86d2ebc058f2381bbf2070a6ce2c36a8f3a68a70b",
+            "rules": {
+                "eslint/@stylistic/brace-style": 6,
+                "eslint/@stylistic/indent": 62,
+                "eslint/@stylistic/semi": 63,
+                "eslint/import-x/no-relative-parent-imports": 1,
+                "eslint/import-x/order": 1
             }
         },
         {
@@ -11070,7 +11080,7 @@
         },
         {
             "path": "tools/check-wasm-artifact-ownership.mjs",
-            "sourceSha256": "115319526180a7c5c8d816c7d2533569bd08e68ae13b0623c1200625d4deff98",
+            "sourceSha256": "fcfb34ba2b4dd368c977b84035362783cb13882e999a8073e17e03d42ce205ac",
             "violationCount": 278,
             "violationDigest": "c5a86e9d552df381daa76598615dede8a72f3f3841d7b26aad8ffee4e5c74e4f",
             "rules": {
@@ -12918,7 +12928,7 @@
         },
         {
             "path": "tools/security/check-security-domain-layout.mjs",
-            "sourceSha256": "0e510e7da52bfde7410f6096c4b6a0ec8f9a264498a619fb7e1c0c55aa2c0d86",
+            "sourceSha256": "8a4bbe0aa761835b3b383a34c8a43a533cf81f0ff68c1c98534b4577ff807b22",
             "violationCount": 480,
             "violationDigest": "b00a1bbef6c94644dd068edbe6fc5facee9f715d724dd41f1fbcbfd203615b7e",
             "rules": {
@@ -13271,9 +13281,9 @@
         },
         {
             "path": "tools/test-convergence/audit.mjs",
-            "sourceSha256": "c5fd57a5e471c12fd5ab5bd32bf03e55762c6e0002e807005066441d55ff969d",
+            "sourceSha256": "8dee54f4c10b8e65ebd944842e524a9ca3975f500fa2f9d36ff4f25fe116e36e",
             "violationCount": 925,
-            "violationDigest": "5d96692e3cfbb3482863c08abb26a0c6ad1a86ee7b985da04cacfcda6dc04d06",
+            "violationDigest": "e17c35e55d7aaac20e0a17ca635de0f4d09f14888d2366ed54008b2e891bd582",
             "rules": {
                 "eslint/@stylistic/brace-style": 107,
                 "eslint/@stylistic/indent": 544,
@@ -13572,7 +13582,7 @@
             "path": "tools/test/bundles/run-bundle.mjs",
             "sourceSha256": "09d4df0dbc737fc3146dce90598ee33c9c11e3ba9a82ca9fd5112d75d8229fb6",
             "violationCount": 2971,
-            "violationDigest": "47922cdd52db8186ed85b9f9f2cc87953b0eb450f1feb3aacdb3459f89e3d98a",
+            "violationDigest": "63d08ad59136f9ca82a7545c401c2c13cd6b19f7c544f36e2b0a7fa7aad2c542",
             "rules": {
                 "eslint/@stylistic/brace-style": 243,
                 "eslint/@stylistic/indent": 1860,
@@ -14079,16 +14089,6 @@
                 "eslint/@stylistic/indent": 87,
                 "eslint/@stylistic/semi": 69,
                 "eslint/curly": 23
-            }
-        },
-        {
-            "path": "src/frontend/src/assets/account-shell-base.css",
-            "sourceSha256": "e2e87173384f95df820bd0200768dbc09adebb4cc4a0622d8aad966ffd15eee7",
-            "violationCount": 2,
-            "violationDigest": "b7592594b14ec4455f1cc33bd2660511a9fbb8e747b1d59dd368fa94210426ae",
-            "rules": {
-                "stylelint/@stylistic/block-opening-brace-newline-before": 1,
-                "stylelint/media-feature-range-notation": 1
             }
         }
     ]

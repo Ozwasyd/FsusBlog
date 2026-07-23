@@ -46,7 +46,7 @@ id for a later authorized publish phase.
 - A3-8: successful one-time migration history and cleanup result.
 
 The machine-readable placeholders are in
-`tests/backend/issue-1013-runtime-fallback-milestones.json`. Null counts and null run
+`tests/backend/runtime-fallback-milestones.json`. Null counts and null run
 ids are intentional; replacing them requires actual external evidence, not a source
 assertion.
 

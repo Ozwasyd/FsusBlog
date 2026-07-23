@@ -1,5 +1,5 @@
 {
-    "schema": "fsusblog.issue-1031.documentation-handoff.v1",
+    "schema": "fsusblog.documentation-handoff.v1",
     "issue": 1031,
     "status": "documentation-aligned-validation-pending",
     "scope": "release, zero-downtime rehearsal, migration qualification, strong traffic and retained-asset evidence",

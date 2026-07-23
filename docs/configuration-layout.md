@@ -36,7 +36,7 @@ node tools/configuration/check-backend-configuration-contract.mjs
 node tools/configuration/check-backend-configuration-contract.mjs \
   --report-json .tmp/configuration/backend-configuration-drift.json
 node tools/configuration/check-backend-configuration-contract.mjs --write-doc
-node --test tests/tools/issue-1172-backend-configuration-contract.test.mjs
+node --test tests/tools/backend-configuration-contract.test.mjs
 ```
 
 The static-governance lane runs the checker and its tamper fixtures. A rollback must revert the contract, generated reference, owner registry and checker together; disabling startup validation is not a rollback path.

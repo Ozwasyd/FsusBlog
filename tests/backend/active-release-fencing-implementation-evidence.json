@@ -1,0 +1,116 @@
+{
+    "schemaVersion": "fsus.issue-implementation-evidence.v1",
+    "issue": 1030,
+    "status": "code-landed-validation-not-run",
+    "truthPolicy": "This file maps implementation artifacts only. It does not claim that build, tests, lint, runtime drills or production acceptance passed.",
+    "requirements": [
+        {
+            "id": "active-release-fence",
+            "status": "implemented",
+            "evidence": [
+                "src/backend/Infrastructure/Operations/ActiveReleaseFence.cs:IActiveReleaseFence",
+                "src/backend/Infrastructure/Operations/ActiveReleaseFence.cs:RedisActiveReleaseFenceStore",
+                "src/backend/Infrastructure/Operations/ActiveReleaseFenceHosting.cs:MapActiveReleaseFenceEndpoints"
+            ],
+            "invariants": [
+                "target acquire uses one Redis Lua CAS",
+                "existing owner requires expected release, slot and generation",
+                "generation is strictly monotonic",
+                "production store failure is fail-closed",
+                "dry-run executes compare logic without writing"
+            ]
+        },
+        {
+            "id": "worker-singleton-and-stale-commit-rejection",
+            "status": "implemented-with-central-worker-commit-handoff",
+            "evidence": [
+                "src/backend/Infrastructure/Operations/ActiveReleaseFencedBackgroundWorkerLease.cs:ActiveReleaseFencedBackgroundWorkerLease",
+                "src/backend/Infrastructure/Operations/ActiveReleaseFencedBackgroundWorkerLease.cs:IActiveReleaseCommitGuard",
+                "src/backend/Services/Background/ScheduledPublishWorker.cs:ClaimDueArticlesAsync",
+                "src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs:EnsureCurrentGenerationAsync",
+                "src/backend/Infrastructure/PowLoadResetWorker.cs:ExecuteAsync",
+                "src/backend/Services/VisitLog/ArticleViewProjectionRepairWorker.cs:EnsureCurrentGenerationAsync",
+                "src/backend/Infrastructure/Bootstrap/ServiceCollectionExtensions.cs:AddFsusRuntimeServices"
+            ],
+            "handoff": "docs/issue-1030-active-release-fencing-handoff.md#active-singleton-pre-commit-接线"
+        },
+        {
+            "id": "background-service-classification",
+            "status": "implemented",
+            "evidence": [
+                "tests/backend/Fixtures/background-service-classification.json",
+                "tools/check-background-service-classification.mjs"
+            ],
+            "properties": [
+                "every discovered BackgroundService must be classified",
+                "active-singleton requires IBackgroundWorkerLease",
+                "idempotency, drain, max drain, fence and replay source are mandatory",
+                "checker reports all errors without a maximum-error cutoff"
+            ]
+        },
+        {
+            "id": "unified-parallel-drain",
+            "status": "implemented-with-central-coordinator-handoff",
+            "evidence": [
+                "src/backend/Infrastructure/Operations/ReleaseDrainParticipants.cs:ReleaseDrainParticipantRegistry",
+                "src/backend/Infrastructure/Operations/ReleaseDrainParticipants.cs:ArticleViewReleaseDrainParticipant",
+                "src/backend/Infrastructure/Operations/ReleaseDrainParticipants.cs:HotStatsReleaseDrainParticipant",
+                "src/backend/Infrastructure/Operations/ReleaseDrainParticipants.cs:NotificationStreamReleaseDrainParticipant"
+            ],
+            "handoff": "docs/issue-1030-active-release-fencing-handoff.md#root-唯一接线"
+        },
+        {
+            "id": "notification-restart-and-replay-miss",
+            "status": "implemented",
+            "evidence": [
+                "src/backend/Infrastructure/NotificationStream/NotificationStreamRestartProtocol.cs",
+                "src/backend/Infrastructure/NotificationStream/NotificationStreamSessionService.cs",
+                "src/frontend/src/services/notificationStreamRestartPolicy.ts",
+                "src/frontend/src/services/notificationStreamRuntime.ts"
+            ],
+            "contracts": [
+                "service restart closes WebSocket with 1012/fsus_service_restart",
+                "cursor is preserved and reconnect uses 250-1250ms jitter",
+                "replay gap closes with 4009/fsus_replay_miss",
+                "replay miss clears cursor and reports reconnect success with full resync required"
+            ]
+        },
+        {
+            "id": "host-machine-json",
+            "status": "implemented-with-route-map-handoff",
+            "evidence": [
+                "tools/deployment/active-release-fence.mjs",
+                "tools/deployment/notification-stream-restart.mjs",
+                "docs/active-release-fencing.md#宿主控制契约"
+            ],
+            "runtimeEvidencePaths": [
+                ".tmp/deployment/active-release-fence.json",
+                ".tmp/deployment/notification-stream-restart.json"
+            ]
+        },
+        {
+            "id": "readiness-metrics-release-evidence",
+            "status": "implemented-with-central-health-and-release-evidence-handoff",
+            "evidence": [
+                "src/backend/Infrastructure/Operations/ActiveReleaseFenceHosting.cs:ActiveReleaseFenceReadiness",
+                "src/backend/Infrastructure/Operations/ActiveReleaseFence.cs:ActiveReleaseFenceMetrics",
+                "tests/backend/active-release-fencing-governance-handoff.json"
+            ]
+        },
+        {
+            "id": "tests-and-docs",
+            "status": "authored-not-run",
+            "evidence": [
+                "tests/backend/Unit/ActiveReleaseFenceContractTests.cs",
+                "tests/frontend/unit/services/notificationStreamRestartPolicy.test.ts",
+                "docs/active-release-fencing.md",
+                "docs/issue-1030-active-release-fencing-handoff.md"
+            ]
+        }
+    ],
+    "validation": {
+        "status": "not-run",
+        "reason": "The parent task explicitly deferred all verification until the later unified test-duration phase.",
+        "commands": []
+    }
+}

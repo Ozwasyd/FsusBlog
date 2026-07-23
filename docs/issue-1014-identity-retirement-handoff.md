@@ -5,7 +5,7 @@ fallback that derived an account subject from an internal account id. This hando
 records the current implementation and test ownership only. It does not claim a
 production SQL observation, deployed-configuration observation, or unified
 validation run. The machine-readable companion is
-`tests/backend/issue-1014-identity-retirement-evidence.json`.
+`tests/backend/legacy-identity-retirement-evidence.json`.
 
 ## Current implementation
 

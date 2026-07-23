@@ -1,6 +1,6 @@
 {
     "schema": "fsusblog.complexity-baseline.v1",
-    "sourceRevision": "15a3d288e846dd3b97e4b0bd4b2aac59cb7fd0e2",
+    "sourceRevision": "4e47d2cfa1e6e6dcf6b21a1e0ab5572430bad118",
     "measurement": "deterministic lexical structure with one shared repository inventory and content cache",
     "metricFields": [
         "fileLines",
@@ -501,7 +501,7 @@
                 "churn365Days": {
                     "p50": 3,
                     "p95": 12,
-                    "max": 57
+                    "max": 58
                 },
                 "testRelationshipCount": {
                     "p50": 0,
@@ -593,7 +593,7 @@
             }
         },
         "HandwrittenModule": {
-            "fileCount": 1996,
+            "fileCount": 1997,
             "budgets": {
                 "fileLines": 776,
                 "codeLines": 618,
@@ -3648,6 +3648,14 @@
                 "fileLines": 1732
             }
         },
+        "tests/tools/browser-contract-fixture.test.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 1007,
+                "codeLines": 837,
+                "responsibilityCount": 7
+            }
+        },
         "tests/tools/browser-diagnostics.test.mjs": {
             "category": "HandwrittenModule",
             "excess": {
@@ -3675,20 +3683,6 @@
                 "codeLines": 623
             }
         },
-        "tests/tools/issue-1149-browser-contract-fixture.test.mjs": {
-            "category": "HandwrittenModule",
-            "excess": {
-                "fileLines": 1007,
-                "codeLines": 837,
-                "responsibilityCount": 7
-            }
-        },
-        "tests/tools/issue-1160-native-tooling-style.test.mjs": {
-            "category": "HandwrittenModule",
-            "excess": {
-                "fileLines": 783
-            }
-        },
         "tests/tools/local-production-profile.test.mjs": {
             "category": "HandwrittenModule",
             "excess": {
@@ -3701,6 +3695,12 @@
             "category": "HandwrittenModule",
             "excess": {
                 "fileLines": 955
+            }
+        },
+        "tests/tools/native-tooling-style.test.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 783
             }
         },
         "tests/tools/performance-saturation-v2.test.mjs": {
@@ -4053,11 +4053,11 @@
         "tools/frontend/check-frontend-style.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 849,
-                "codeLines": 811,
-                "functionMethodCount": 49,
-                "cyclomaticComplexity": 170,
-                "cognitiveComplexity": 365,
+                "fileLines": 888,
+                "codeLines": 850,
+                "functionMethodCount": 53,
+                "cyclomaticComplexity": 189,
+                "cognitiveComplexity": 386,
                 "maxNestingDepth": 7
             }
         },

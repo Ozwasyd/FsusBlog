@@ -407,7 +407,7 @@ The six #1013 retirement notes are the operator evidence map for upload-session 
 - `docs/releases/issue-1013-a3-7-aot-sidecar-hash.md`
 - `docs/releases/issue-1013-a3-8-artifact-clear-migration.md`
 
-Run the focused retirement owner during unified validation, but keep production observations separate in `tests/backend/issue-1013-runtime-fallback-milestones.json`. No local source scan or historical GitHub claim may stand in for current release IDs, migration-history rows, exact database counts, or deployed-control absence. Roll back by selecting the previous compatible image/database pair or pausing the affected external action; do not restore any retired request-time fallback.
+Run the focused retirement owner during unified validation, but keep production observations separate in `tests/backend/runtime-fallback-milestones.json`. No local source scan or historical GitHub claim may stand in for current release IDs, migration-history rows, exact database counts, or deployed-control absence. Roll back by selecting the previous compatible image/database pair or pausing the affected external action; do not restore any retired request-time fallback.
 
 `/user/manage/integrity` is the post-migration drift check for article bodies/revisions, taxonomy references, comment chains, sessions and assets. Do not mark a migration complete while it reports unresolved error-severity checks unless the release note documents the accepted manual repair.
 

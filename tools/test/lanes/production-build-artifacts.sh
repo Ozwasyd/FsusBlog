@@ -15,7 +15,7 @@ PRODUCER_JOB="${GITHUB_JOB:-production-build-artifacts}"
 export FSUSBLOG_ZK_PRODUCTION_ENABLED="${FSUSBLOG_ZK_PRODUCTION_ENABLED:-0}"
 IFS=',' read -r -a DOMAIN_LIST <<<"$REQUESTED_DOMAINS"
 
-node --test "$ROOT_DIR/tests/tools/issue-1165-wasm-artifact-ownership.test.mjs"
+node --test "$ROOT_DIR/tests/tools/wasm-artifact-ownership.test.mjs"
 node "$ROOT_DIR/tools/check-wasm-artifact-ownership.mjs"
 node "$ROOT_DIR/tools/security/comment-privacy-build-contract.mjs" --check
 
@@ -161,7 +161,7 @@ CREATE_ARGS=(
     --input security/zk/contracts/comment-v5-circuit.manifest.json
     --input security/zk/provenance/comment-v5-trusted-setup.manifest.json
     --input config/zk/anonymous-comment-v5-verifying-key.manifest.json
-    --input tests/tools/issue-1165-wasm-artifact-ownership.test.mjs
+    --input tests/tools/wasm-artifact-ownership.test.mjs
     --input tools/test/run-with-dotnet-release-build-lock.sh
     --input tools/test/lanes/production-build-artifacts.sh
 )

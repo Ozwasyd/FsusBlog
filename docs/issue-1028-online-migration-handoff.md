@@ -20,7 +20,7 @@ preserves the existing release-storage checks.
 - `tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs`
 - `tests/backend/Unit/ProductionHealthTests.cs`
 - `tests/tools/online-schema-migration-wrapper.test.mjs`
-- `tests/backend/issue-1028-online-migration-evidence.json`
+- `tests/backend/online-schema-migration-evidence.json`
 
 ## Completed cross-owner integration
 

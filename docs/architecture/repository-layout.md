@@ -97,7 +97,7 @@ node tools/security/check-security-domain-layout.mjs
 node tools/security/comment-privacy-build-contract.mjs
 node tools/crypto/check-zk-artifact-ownership.mjs
 node tools/security/check-zk-comment-v5-manifests.mjs
-node --test tests/tools/issue-1166-zk-source-layout.test.mjs
+node --test tests/tools/zk-source-layout.test.mjs
 ```
 
 `tools/check-repository-source-layout.mjs` 从 Git index 读取 top-level inventory，

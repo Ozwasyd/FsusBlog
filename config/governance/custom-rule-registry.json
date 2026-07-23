@@ -24,7 +24,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -53,7 +53,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -82,7 +82,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -111,7 +111,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -140,7 +140,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -168,7 +168,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -198,7 +198,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -228,7 +228,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -256,7 +256,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -285,7 +285,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -314,7 +314,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -343,7 +343,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -372,7 +372,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -401,7 +401,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -430,7 +430,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -460,7 +460,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -489,7 +489,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -519,7 +519,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -549,7 +549,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -579,7 +579,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -609,7 +609,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -639,7 +639,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -668,7 +668,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -697,7 +697,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -726,7 +726,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -755,7 +755,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -784,7 +784,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -812,7 +812,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -841,7 +841,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -870,7 +870,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -899,7 +899,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -928,7 +928,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -958,7 +958,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -988,7 +988,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -1018,7 +1018,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -1048,7 +1048,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -1078,7 +1078,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -1107,7 +1107,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -1126,7 +1126,7 @@
             "category": "test-governance",
             "engine": "runtime",
             "sourceScopes": [
-                "tests/tools/issue-1149-browser-contract-fixture.test.mjs",
+                "tests/tools/browser-contract-fixture.test.mjs",
                 "tests/**",
                 "tools/test/**",
                 ".github/workflows/**"
@@ -1136,13 +1136,13 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
                 "mode": "delegated-command",
-                "command": "node --test ../../tests/tools/issue-1149-browser-contract-fixture.test.mjs ../../tests/tools/issue-1149-session-isolation.test.mjs",
-                "implementation": "tests/tools/issue-1149-browser-contract-fixture.test.mjs",
+                "command": "node --test ../../tests/tools/browser-contract-fixture.test.mjs ../../tests/tools/browser-session-isolation.test.mjs",
+                "implementation": "tests/tools/browser-contract-fixture.test.mjs",
                 "executionKey": "governance:check:browser-contract-fixture",
                 "receiptCompatible": true
             }
@@ -1165,7 +1165,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -1194,7 +1194,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -1223,7 +1223,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -1252,7 +1252,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -1281,7 +1281,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -1310,7 +1310,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -1339,7 +1339,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -1368,7 +1368,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -1398,7 +1398,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -1428,7 +1428,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -1457,7 +1457,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -1487,7 +1487,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -1516,7 +1516,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -1546,7 +1546,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -1576,7 +1576,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -1606,7 +1606,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -1636,7 +1636,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -1665,7 +1665,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -1694,7 +1694,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -1724,7 +1724,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -1754,7 +1754,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -1783,7 +1783,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -1813,7 +1813,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -1842,7 +1842,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -1871,7 +1871,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -1900,7 +1900,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -1929,7 +1929,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -1958,7 +1958,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -1987,7 +1987,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2016,7 +2016,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2045,7 +2045,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2073,7 +2073,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2102,7 +2102,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2131,7 +2131,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2160,7 +2160,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2189,7 +2189,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2218,7 +2218,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2247,7 +2247,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2276,7 +2276,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2306,7 +2306,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2336,7 +2336,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2366,7 +2366,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2395,7 +2395,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2424,7 +2424,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2453,7 +2453,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2481,7 +2481,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2510,7 +2510,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2539,7 +2539,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2568,7 +2568,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2597,7 +2597,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2626,7 +2626,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2655,7 +2655,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2684,7 +2684,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2713,7 +2713,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2742,7 +2742,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2771,7 +2771,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2800,7 +2800,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2829,7 +2829,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2858,7 +2858,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2887,7 +2887,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2916,7 +2916,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2945,7 +2945,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -2974,7 +2974,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3003,7 +3003,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3033,7 +3033,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3063,7 +3063,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3093,7 +3093,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3123,7 +3123,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3153,7 +3153,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3183,7 +3183,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3213,7 +3213,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3243,7 +3243,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3273,7 +3273,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3303,7 +3303,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3333,7 +3333,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3363,7 +3363,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3392,7 +3392,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3421,7 +3421,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3450,7 +3450,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3479,7 +3479,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3508,7 +3508,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3537,7 +3537,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3566,7 +3566,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3595,7 +3595,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3624,7 +3624,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3653,7 +3653,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3682,7 +3682,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3711,7 +3711,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3740,7 +3740,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3769,7 +3769,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3798,7 +3798,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3827,7 +3827,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3855,7 +3855,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3884,7 +3884,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3912,7 +3912,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3940,7 +3940,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3969,7 +3969,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -3998,7 +3998,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4027,7 +4027,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4057,7 +4057,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4086,7 +4086,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4115,7 +4115,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4143,7 +4143,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4172,7 +4172,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4201,7 +4201,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4230,7 +4230,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4260,7 +4260,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4289,7 +4289,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4318,7 +4318,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4347,7 +4347,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4376,7 +4376,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4405,7 +4405,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4433,7 +4433,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4462,7 +4462,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4491,7 +4491,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4520,7 +4520,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4550,7 +4550,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4579,7 +4579,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4609,7 +4609,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4639,7 +4639,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4669,7 +4669,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4699,7 +4699,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4729,7 +4729,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4759,7 +4759,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4789,7 +4789,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4819,7 +4819,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4849,7 +4849,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4879,7 +4879,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4909,7 +4909,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4938,7 +4938,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4967,7 +4967,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -4997,7 +4997,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -5027,7 +5027,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -5056,7 +5056,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -5086,7 +5086,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -5115,7 +5115,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -5145,7 +5145,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -5174,7 +5174,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -5203,7 +5203,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -5232,7 +5232,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -5261,7 +5261,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -5291,7 +5291,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -5321,7 +5321,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -5351,7 +5351,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -5380,7 +5380,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -5410,7 +5410,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -5439,7 +5439,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -5467,7 +5467,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -5497,7 +5497,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -5526,7 +5526,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -5554,7 +5554,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -5583,7 +5583,7 @@
             "changedFileSafe": false,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -5611,7 +5611,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -9680,7 +9680,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -9709,7 +9709,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -9739,7 +9739,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -9768,7 +9768,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -9797,7 +9797,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -9826,7 +9826,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -9855,7 +9855,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -9883,7 +9883,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -9911,7 +9911,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -9940,7 +9940,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -9969,7 +9969,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -9998,7 +9998,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10027,7 +10027,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10055,7 +10055,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10082,7 +10082,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10110,7 +10110,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10139,7 +10139,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10167,7 +10167,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10195,7 +10195,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10223,7 +10223,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10251,7 +10251,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10279,7 +10279,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10308,7 +10308,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10336,7 +10336,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10365,7 +10365,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10394,7 +10394,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10423,7 +10423,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10451,7 +10451,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10480,7 +10480,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10509,7 +10509,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10538,7 +10538,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10567,7 +10567,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10596,7 +10596,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10626,7 +10626,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10656,7 +10656,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10685,7 +10685,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10714,7 +10714,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10743,7 +10743,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10772,7 +10772,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10802,7 +10802,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10831,7 +10831,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10861,7 +10861,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10891,7 +10891,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10921,7 +10921,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10951,7 +10951,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -10981,7 +10981,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11008,7 +11008,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11036,7 +11036,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11065,7 +11065,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11095,7 +11095,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11124,7 +11124,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11153,7 +11153,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11180,7 +11180,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11208,7 +11208,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11235,7 +11235,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11262,7 +11262,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11290,7 +11290,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11318,7 +11318,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11348,7 +11348,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11377,7 +11377,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11406,7 +11406,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11435,7 +11435,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11464,7 +11464,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11493,7 +11493,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11522,7 +11522,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11551,7 +11551,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11580,7 +11580,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11609,7 +11609,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11638,7 +11638,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11668,7 +11668,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11697,7 +11697,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11726,7 +11726,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11755,7 +11755,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11784,7 +11784,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11813,7 +11813,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11842,7 +11842,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11871,7 +11871,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11901,7 +11901,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11930,7 +11930,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11960,7 +11960,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -11989,7 +11989,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12018,7 +12018,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12048,7 +12048,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12078,7 +12078,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12108,7 +12108,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12138,7 +12138,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12167,7 +12167,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12196,7 +12196,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12225,7 +12225,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12254,7 +12254,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12283,7 +12283,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12312,7 +12312,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12341,7 +12341,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12370,7 +12370,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12399,7 +12399,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12428,7 +12428,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12457,7 +12457,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12486,7 +12486,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12515,7 +12515,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12544,7 +12544,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12573,7 +12573,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12602,7 +12602,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12631,7 +12631,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12660,7 +12660,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12689,7 +12689,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12719,7 +12719,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12748,7 +12748,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12776,7 +12776,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12804,7 +12804,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12832,7 +12832,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12860,7 +12860,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12888,7 +12888,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12917,7 +12917,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12946,7 +12946,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -12974,7 +12974,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13002,7 +13002,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13030,7 +13030,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13058,7 +13058,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13086,7 +13086,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13114,7 +13114,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13142,7 +13142,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13170,7 +13170,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13198,7 +13198,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13226,7 +13226,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13254,7 +13254,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13282,7 +13282,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13310,7 +13310,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13338,7 +13338,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13366,7 +13366,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13394,7 +13394,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13423,7 +13423,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13451,7 +13451,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13479,7 +13479,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13507,7 +13507,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13535,7 +13535,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13563,7 +13563,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13591,7 +13591,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13619,7 +13619,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13647,7 +13647,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13675,7 +13675,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13703,7 +13703,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13731,7 +13731,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13759,7 +13759,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13787,7 +13787,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13815,7 +13815,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13843,7 +13843,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13871,7 +13871,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13899,7 +13899,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13927,7 +13927,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13955,7 +13955,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -13983,7 +13983,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14011,7 +14011,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14039,7 +14039,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14067,7 +14067,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14095,7 +14095,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14123,7 +14123,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14151,7 +14151,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14179,7 +14179,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14207,7 +14207,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14235,7 +14235,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14263,7 +14263,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14291,7 +14291,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14319,7 +14319,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14347,7 +14347,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14376,7 +14376,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14404,7 +14404,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14432,7 +14432,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14460,7 +14460,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14488,7 +14488,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14516,7 +14516,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14545,7 +14545,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14574,7 +14574,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14603,7 +14603,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14632,7 +14632,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14661,7 +14661,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14690,7 +14690,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14719,7 +14719,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14748,7 +14748,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14777,7 +14777,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14805,7 +14805,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14833,7 +14833,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14861,7 +14861,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14889,7 +14889,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14918,7 +14918,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14947,7 +14947,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -14976,7 +14976,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -15005,7 +15005,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -15033,7 +15033,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -15061,7 +15061,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -15089,7 +15089,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -15117,7 +15117,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -15145,7 +15145,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -15173,7 +15173,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -15201,7 +15201,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -15229,7 +15229,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -15257,7 +15257,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -15285,7 +15285,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -15313,7 +15313,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
@@ -15342,7 +15342,7 @@
             "changedFileSafe": true,
             "dependencies": [],
             "testFixtures": [
-                "tests/tools/issue-1162-rule-platform.test.mjs"
+                "tests/tools/rule-platform.test.mjs"
             ],
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {

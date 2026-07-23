@@ -107,7 +107,7 @@ export async function checkWasmArtifactOwnership({ repoRoot = defaultRepoRoot } 
 
   const productionBuilder = await readFile(path.join(repoRoot, 'tools/test/lanes/production-build-artifacts.sh'), 'utf8');
   requireOrderedSubset(productionBuilder, [
-    'tests/tools/issue-1165-wasm-artifact-ownership.test.mjs',
+    'tests/tools/wasm-artifact-ownership.test.mjs',
     'tools/check-wasm-artifact-ownership.mjs',
     'npm --prefix "$ROOT_DIR/src/frontend" run ensure:wasm',
     'CopyDirectory "$WASM_SOURCE" "$PAYLOAD_ROOT/wasm"',

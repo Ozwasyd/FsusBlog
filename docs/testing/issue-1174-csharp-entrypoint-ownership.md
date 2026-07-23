@@ -30,7 +30,7 @@ Run:
 
 ```bash
 node tools/check-csharp-entrypoint-ownership.mjs
-node --test tests/tools/issue-1174-csharp-entrypoint-ownership.test.mjs
+node --test tests/tools/csharp-entrypoint-ownership.test.mjs
 ```
 
 The checker aggregates violations in one run. It rejects C# under declared JavaScript roots, any C# source outside a project or complete file-based app declaration, direct global temporary writes, incomplete file-based app declarations, and generated protocol fixtures without a unique generator/check owner.

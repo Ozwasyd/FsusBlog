@@ -584,7 +584,7 @@ dotnet run -c Release
 
 `production` 是 PR/CI 的 production-ci-gate。它执行当前 production DAG 并校验 release evidence schema。local production profile 的 77 个逻辑 tier 全部必须来自本次 fresh 物理 bundle 执行，`security-authenticated-dast` 不再是 `summaryOnly` / `collected-blocked` 占位；其 summary 必须证明四类认证上下文的主动扫描真实执行且全部通过。外部生产暴露面等 release manifest 仍可能以 schema-valid `collected-blocked` 表达运维证据尚未回传，这不等于可以发布。
 
-`static-governance` 同时执行 `tests/tools/release-id.test.mjs`、`tests/tools/release-manifest.test.mjs`、`tests/tools/deployment-slots.test.mjs` 和 `tests/tools/issue-1315-dotnet-release-metadata.test.mjs`。第一组校验唯一 `YYYYMMDDHHmmss-sha12` ReleaseId 权威、真实 UTC 日期、完整 commit/createdAtUtc 交叉绑定、单次 identity snapshot、非发布 sentinel、稳定 shell CLI、跨语言 fixture 与 C#/TypeScript 生成文件漂移；第二组创建不可覆盖的 `fsusblog.release-manifest.v2`，覆盖 commit/image/frontend/Wasm/toolchain 绑定、ReleaseId/createdAtUtc/commitSha 与 OCI tag/ref 不一致拒绝、SemVer 拒绝、V1 writer 拒绝及显式 rollback-only legacy reader、无现场 build 的 deploy dry-run、pull 后 RepoDigest 与 OCI release/commit 标签不一致阻断，以及 release evidence 中 runtime slot/commit/ref/digest 的一致性；第三组以临时本地 manifest/slot/rollout fixture 证明 manifest-first 身份传递，并拒绝 expected value 或 durable source identity 篡改；第四组验证 .NET Assembly/FileVersion 固定为技术版本 `0.0.0.0`、InformationalVersion/SourceRevisionId 与同一发布身份绑定，并在 Release publish 缺失或不一致时 fail closed。本地构建只能得到显式 `local-unversioned` metadata，不能据此生成可部署 manifest。生产启动与 readiness 的对应行为由 `ReleaseIdentityTests` 和 `ProductionStartupValidatorTests` 覆盖；缺少身份不能靠本地默认值进入 Production。
+`static-governance` 同时执行 `tests/tools/release-id.test.mjs`、`tests/tools/release-manifest.test.mjs`、`tests/tools/deployment-slots.test.mjs` 和 `tests/tools/dotnet-release-metadata.test.mjs`。第一组校验唯一 `YYYYMMDDHHmmss-sha12` ReleaseId 权威、真实 UTC 日期、完整 commit/createdAtUtc 交叉绑定、单次 identity snapshot、非发布 sentinel、稳定 shell CLI、跨语言 fixture 与 C#/TypeScript 生成文件漂移；第二组创建不可覆盖的 `fsusblog.release-manifest.v2`，覆盖 commit/image/frontend/Wasm/toolchain 绑定、ReleaseId/createdAtUtc/commitSha 与 OCI tag/ref 不一致拒绝、SemVer 拒绝、V1 writer 拒绝及显式 rollback-only legacy reader、无现场 build 的 deploy dry-run、pull 后 RepoDigest 与 OCI release/commit 标签不一致阻断，以及 release evidence 中 runtime slot/commit/ref/digest 的一致性；第三组以临时本地 manifest/slot/rollout fixture 证明 manifest-first 身份传递，并拒绝 expected value 或 durable source identity 篡改；第四组验证 .NET Assembly/FileVersion 固定为技术版本 `0.0.0.0`、InformationalVersion/SourceRevisionId 与同一发布身份绑定，并在 Release publish 缺失或不一致时 fail closed。本地构建只能得到显式 `local-unversioned` metadata，不能据此生成可部署 manifest。生产启动与 readiness 的对应行为由 `ReleaseIdentityTests` 和 `ProductionStartupValidatorTests` 覆盖；缺少身份不能靠本地默认值进入 Production。
 
 同一 tier 的 `tests/tools/deployment-slots.test.mjs` 使用临时持久状态和受控 Docker/health/port doubles 执行 blue/green 编排：两个 release digest 可同时存在于独立 project/container/loopback port，重复 start/stop 保持幂等，active slot 无法被 stop/替换，候选 health 失败、端口占用、损坏 digest 与资源不足都在不改变 active runtime 的前提下失败。测试还从 fsync + rename 状态文件模拟主机重启后的 active 恢复，并检查 Compose 只共享 uploads/DataProtection、隔离 AOT/log/data 且不再出现固定 `127.0.0.1:8080` 或公网绑定。
 
@@ -842,12 +842,18 @@ tools/operations/cleanup-retention.sh
 
 作者 AI 辅助的静态门禁为 `npm --prefix src/frontend run check:author-ai-assist`，覆盖 admin-only endpoint、actor audit、provider review config、编辑器接线和文档同步。后端行为由 `AuthoringWorkflowServiceTests` 覆盖默认 disabled 与 provider-enabled review-blocked 分支。
 
+## 测试资产语义命名
+
+活动测试、fixture、baseline 和 evidence 路径使用产品能力、协议、场景或治理职责命名，不以 issue、PR、迁移批次或执行者编号作为前缀。`tests/test-asset-semantic-renames.json` 记录历史路径到当前路径的一对一迁移，不提供 alias 或 fallback；历史 retention ledger 与归档文档仍可保留原始身份用于审计。
+
+`node --test tests/tools/test-asset-semantic-renames.test.mjs` 验证迁移目标存在、旧路径不存在、当前可执行 test ID 与 JSON evidence identity 均为语义名称，并检查当前仓库引用已切到新路径。路径迁移引起 frontend-style identity 变化时，必须通过该 inventory 显式授权；新增违规仍会被拒绝。
+
 ## Security domain 静态门禁
 
 `node tools/security/check-security-domain-layout.mjs` 先聚合校验安全域目录、policy metadata、
 ZK contract/provenance 分类与 hash bindings、静态 evidence classification、runtime selection 和
 旧 flat path；`node tools/security/check-security-matrices.mjs` 再按 declarative catalog 校验六份
-矩阵。聚焦回归为 `node --test tests/tools/issue-1170-security-domain-layout.test.mjs`。这些检查只证明
+矩阵。聚焦回归为 `node --test tests/tools/security-domain-layout.test.mjs`。这些检查只证明
 仓库契约自洽，不替代匿名、登录、admin、notification stream 和 binary 的运行时安全测试。
 
 ## Production correctness 风险清单

@@ -48,8 +48,8 @@ Release Browser Contract 使用独立的 `browser-contract` session mode 和 `.t
 ```bash
 node --test tests/browser-contract/fixture-lifecycle.test.mjs
 node --test tests/tools/browser-contract.test.mjs
-node --test tests/tools/issue-1149-browser-contract-fixture.test.mjs
-node --test tests/tools/issue-1149-session-isolation.test.mjs
+node --test tests/tools/browser-contract-fixture.test.mjs
+node --test tests/tools/browser-session-isolation.test.mjs
 node tools/check-test-matrix.mjs
 node tools/docs/generate-testing-docs.mjs --check
 ```

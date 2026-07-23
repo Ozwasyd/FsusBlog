@@ -19,8 +19,8 @@ const legacyPaths = [
 const ignoredRoots = new Set(['.git', '.tmp', 'bin', 'build', 'coverage', 'dist', 'node_modules', 'obj'])
 const legacyReferenceFixtures = new Set([
   'tests/test-retention-before.json',
-  'tests/tools/issue-1170-security-domain-layout.test.mjs',
-  'tests/tools/issue-1170-security-matrix-catalog.test.mjs'
+  'tests/tools/security-domain-layout.test.mjs',
+  'tests/tools/security-matrix-catalog.test.mjs'
 ])
 
 function text(value) {

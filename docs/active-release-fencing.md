@@ -146,7 +146,7 @@ notification drain 调用 `NotificationStreamRestartCoordinator`，取消所有 
 - `fsus.active_release_fence.refresh_stale_seconds{reason,severity}`
 - `fsus.active_release_fence.refresh_shutdowns{reason}`
 
-发布证据必须至少包含 target acquire/CAS、source revoke、target status verify、notification restart status、drain participant terminal snapshot。运行时生成文件不提交；静态实现映射位于 `tests/backend/issue-1030-implementation-evidence.json`。
+发布证据必须至少包含 target acquire/CAS、source revoke、target status verify、notification restart status、drain participant terminal snapshot。运行时生成文件不提交；静态实现映射位于 `tests/backend/active-release-fencing-implementation-evidence.json`。
 
 ## 失败与回退
 

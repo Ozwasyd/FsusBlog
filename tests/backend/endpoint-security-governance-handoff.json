@@ -1,0 +1,82 @@
+{
+    "schemaVersion": "fsus.governance-handoff.v1",
+    "issue": 1038,
+    "status": "central-and-auth-wiring-complete-validation-pending",
+    "sharedFilesNotModifiedByOriginalIssuePass": [
+        "tests/coverage-registry.json",
+        "tests/matrix.yml",
+        "tests/backend/Fixtures/backend-test-requirements.json",
+        "tools/test/lanes/static-governance.sh",
+        "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs"
+    ],
+    "requiredWiring": [
+        {
+            "owner": "root/auth-owner-after-merge",
+            "file": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs",
+            "operation": "replace real filter registration with metadata-preserving real filter registration",
+            "replacements": [
+                "/auth/anonymous/bootstrap: AddEndpointFilterWithMetadata<RequiresPowFilter>()",
+                "/auth/delete-account: AddEndpointFilterWithMetadata<RequiresPowFilter>()",
+                "/auth/recovery-key/verify: AddEndpointFilterWithMetadata<RequiresRiskControlFilter>() then AddEndpointFilterWithMetadata<RequiresPowFilter>()",
+                "/auth/passkey/login/begin: AddEndpointFilterWithMetadata<RequiresRiskControlFilter>()",
+                "/auth/passkey/login/complete: AddEndpointFilterWithMetadata<RequiresRiskControlFilter>()"
+            ],
+            "constraint": "Keep the current filter order and handler behavior exactly; the wrapper still registers each real filter."
+        },
+        {
+            "owner": "root/governance",
+            "file": "tests/coverage-registry.json",
+            "operation": "add or merge coverage owner",
+            "coverageId": "backend-endpoint-security-metadata-and-testserver",
+            "evidencePaths": [
+                "tests/backend/Unit/EndpointPolicyContractTests.cs",
+                "tests/backend/Unit/AuthRiskControlEndpointContractTests.cs",
+                "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
+                "tests/backend/Unit/BackendApiIntegrationContractTests.cs",
+                "tests/backend/endpoint-security-evidence.json",
+                "tests/backend/issue-1038-retention-replacements.json"
+            ]
+        },
+        {
+            "owner": "root/governance",
+            "file": "tests/matrix.yml",
+            "operation": "wire coverage/evidence to existing tiers",
+            "tierIds": [
+                "backend-unit",
+                "backend-api-integration",
+                "security",
+                "auth-state",
+                "production-fresh"
+            ]
+        },
+        {
+            "owner": "root/governance",
+            "file": "tests/backend/Fixtures/backend-test-requirements.json",
+            "operation": "register four rewritten owners and issue evidence under existing auth/security/API requirements"
+        },
+        {
+            "owner": "root/governance",
+            "file": "tools/test/lanes/static-governance.sh",
+            "operation": "do not add a per-issue source scanner; retain centralized source-lock and all-errors behavior"
+        }
+    ],
+    "wiringReadback": {
+        "status": "present-not-verified",
+        "authFilterRegistrationsUseMetadataWrapper": 6,
+        "coverageId": "backend-endpoint-security-metadata-and-testserver",
+        "retentionDeletedTestIds": 40
+    },
+    "deferredValidation": {
+        "status": "not-run",
+        "commands": [
+            "git diff --check -- <endpoint-security paths> (read-only whitespace inspection only)"
+        ],
+        "requiredLater": [
+            "focused backend compile and unit/API integration suites",
+            "test-retention convergence audit",
+            "critical auth/security mutation slice",
+            "production-fresh verification"
+        ],
+        "truthConstraint": "The recorded git diff whitespace inspection is not functional validation. Do not mark #1038 complete until later validation artifacts contain real run IDs and results."
+    }
+}

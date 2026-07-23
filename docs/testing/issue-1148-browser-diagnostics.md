@@ -14,7 +14,7 @@
 | performance | layout/heap/long-task/render-ready、AEDS engine selection/fallback | DOM depth、Markdown structure、decoder budget 与 renderer model |
 | resilience | 浏览器 runtime recovery | HTTP/cache/telemetry/notification state-machine tests |
 
-权威迁移映射位于 `tests/issue-1148-browser-diagnostics-migration.json`。映射区分轻量等价断言和仍需真实浏览器的风险，不把 geometry、像素、引擎差异或真实 renderer timing 伪装成 happy-dom/Node 等价覆盖。
+权威迁移映射位于 `tests/browser-diagnostics-retirement-map.json`。映射区分轻量等价断言和仍需真实浏览器的风险，不把 geometry、像素、引擎差异或真实 renderer timing 伪装成 happy-dom/Node 等价覆盖。
 
 ## 执行拓扑与 evidence
 

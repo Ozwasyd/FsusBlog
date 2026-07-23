@@ -178,10 +178,10 @@ public sealed class RuntimeFallbackRetirementAcceptanceTests
     {
         IConfiguration manifest = new ConfigurationBuilder()
             .SetBasePath(BackendTestPaths.FromRoot("tests", "backend"))
-            .AddJsonFile("issue-1013-runtime-fallback-milestones.json", optional: false, reloadOnChange: false)
+            .AddJsonFile("runtime-fallback-milestones.json", optional: false, reloadOnChange: false)
             .Build();
 
-        Assert.Equal("fsusblog.issue-1013.runtime-fallback-milestones.v1", manifest["schema"]);
+        Assert.Equal("fsusblog.runtime-fallback-milestones.v1", manifest["schema"]);
         Assert.Equal("implementation-only-not-verified", manifest["status"]);
         IConfigurationSection[] items = manifest.GetSection("items").GetChildren().ToArray();
         Assert.Equal(6, items.Length);

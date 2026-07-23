@@ -80,7 +80,7 @@ const replacementLayers = Object.freeze({
     'tests/frontend/unit/services/notificationStreamRestartPolicy.test.ts'
   ],
   acceptance: [
-    'tests/issue-1146-acceptance-baseline.json',
+    'tests/lightweight-acceptance-baseline.json',
     'tests/test-retention-replacements.json',
     'tests/tools/browser-migration-contract.test.mjs'
   ],

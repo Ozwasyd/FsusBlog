@@ -29,8 +29,8 @@ const localFsusUiFixture = Object.freeze({
 })
 
 test('catalog retains every browser-only risk with lightweight replacement ownership', () => {
-  const migration = readJson('tests/issue-1148-browser-diagnostics-migration.json')
-  assert.equal(migration.schema, 'fsusblog.issue-1148-browser-diagnostics-migration.v1')
+  const migration = readJson('tests/browser-diagnostics-retirement-map.json')
+  assert.equal(migration.schema, 'fsusblog.browser-diagnostics-migration.v1')
   assert.deepEqual(
     browserDiagnosticCatalog.map((category) => category.id),
     [

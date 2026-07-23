@@ -1,0 +1,117 @@
+{
+    "schema": "fsusblog.security-hardening-evidence.v1",
+    "issue": 1037,
+    "status": "implementation-complete-central-wiring-present-validation-pending",
+    "dependencyObservation": {
+        "observedAt": "2026-07-11",
+        "textualDependency": {
+            "issue": 1032,
+            "state": "OPEN",
+            "comments": 0
+        },
+        "githubTypedDependencies": [],
+        "interpretation": "Issue #1037 has a body-level dependency on #1032 but no GitHub typed dependency edge. The local master contains the #1032 implementation commit and central registry wiring; GitHub remains open until the unified push and verification phase."
+    },
+    "deletedSourceShapeTestFiles": [
+        "tests/backend/Unit/InjectionHardeningContractTests.cs",
+        "tests/backend/Unit/InputValidationDosHardeningContractTests.cs",
+        "tests/backend/Unit/CryptoRandomnessHardeningContractTests.cs",
+        "tests/backend/Unit/InformationDisclosureHardeningContractTests.cs",
+        "tests/backend/Unit/FileUploadStorageHardeningContractTests.cs"
+    ],
+    "expectedDeletedTestIds": 19,
+    "replacementManifest": "tests/backend/issue-1037-retention-replacements.json",
+    "productionBoundaries": {
+        "canonicalPath": {
+            "implementation": "src/backend/Infrastructure/Security/CanonicalPathBoundary.cs",
+            "callers": [
+                "src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs",
+                "src/backend/Infrastructure/PublicAot/PublicAotDocumentService.cs",
+                "src/backend/Infrastructure/PublicAot/PublicAotNodeSsrRenderer.cs",
+                "src/backend/Infrastructure/Operations/AdminOperationsService.cs"
+            ],
+            "failClosedInputs": [
+                "absolute-relative-input",
+                "lexical-traversal",
+                "encoded-traversal",
+                "backslash-traversal",
+                "null-byte",
+                "physical-symlink-escape"
+            ]
+        },
+        "boundedAssertionJson": {
+            "implementation": "src/backend/Infrastructure/Security/SecurityAssertionPayloadParser.cs",
+            "maxCharacters": 65536,
+            "maxDepth": 32,
+            "callers": [
+                "src/backend/Services/Security/PasskeyStepUpV1ChallengeProvider.cs",
+                "src/backend/Services/Security/AdminPasskeyStepUpV1ChallengeProvider.cs"
+            ]
+        },
+        "cryptography": {
+            "randomSource": "src/backend/Infrastructure/Security/SecurityRandomSource.cs",
+            "fixedTimeComparisons": "src/backend/Infrastructure/Security/SecurityStringComparisons.cs",
+            "injectedCaller": "src/backend/Services/Security/SecurityAdminPolicyService.cs",
+            "fixedTimeCallers": [
+                "src/backend/Services/Security/AnonymousCredentialRevocationAccumulator.cs",
+                "src/backend/Services/Security/AnonymousCommentTicketService.cs"
+            ]
+        },
+        "upload": {
+            "handler": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Uploads.cs#HandleUploadPartAsync",
+            "declaredLimitStatus": 413,
+            "missingLengthStatus": 411,
+            "storageCalledAfterBoundaryChecksOnly": true
+        }
+    },
+    "behaviorSuites": [
+        "tests/backend/Unit/SecurityHardening/CanonicalPathBoundaryTests.cs",
+        "tests/backend/Unit/SecurityHardening/InputLimitBoundaryTests.cs",
+        "tests/backend/Unit/SecurityHardening/CryptographyBoundaryTests.cs",
+        "tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs",
+        "tests/backend/Unit/SecurityHardening/UploadBoundaryTests.cs"
+    ],
+    "roslynAnalyzer": {
+        "project": "tools/security/FsusBlog.SecuritySourceAnalyzer/FsusBlog.SecuritySourceAnalyzer.csproj",
+        "policy": "security/policies/backend-source-policy.json",
+        "positiveFixture": "tests/backend/Fixtures/security-source-analysis/positive.cs",
+        "negativeFixture": "tests/backend/Fixtures/security-source-analysis/negative.cs",
+        "harness": "tests/tools/security-source-analyzer.test.mjs",
+        "ruleIds": [
+            "FSUSBLOGSEC001",
+            "FSUSBLOGSEC002",
+            "FSUSBLOGSEC003",
+            "FSUSBLOGSEC004",
+            "FSUSBLOGSEC005",
+            "FSUSBLOGSEC006",
+            "FSUSBLOGSEC007",
+            "FSUSBLOGSEC008"
+        ],
+        "allDiagnosticsRequired": true,
+        "maximumErrorCount": null
+    },
+    "documentation": [
+        "docs/testing/security-hardening-boundary-replacements.md",
+        "docs/testing/security-hardening-source-policy.md"
+    ],
+    "centralWiring": {
+        "status": "present-not-verified",
+        "coverageId": "backend-security-hardening-boundary-and-ast",
+        "paths": [
+            "tests/coverage-registry.json",
+            "tests/matrix.yml",
+            "tests/backend/Fixtures/backend-test-requirements.json",
+            "tools/test/lanes/static-governance.sh",
+            "tests/test-retention-replacements.json"
+        ]
+    },
+    "riskAndFallback": {
+        "pathResolution": "Fail closed on resolution errors; rollback individual caller integration only, never restore lexical-prefix checks as the authority.",
+        "upload": "The Kestrel limit remains the outer guard if the explicit handler-level 413 mapping is reverted.",
+        "analyzer": "Keep include scopes explicit and require positive/negative fixtures for rule changes."
+    },
+    "verification": {
+        "commandsExecuted": [],
+        "result": "not-run-by-instruction"
+    }
+}

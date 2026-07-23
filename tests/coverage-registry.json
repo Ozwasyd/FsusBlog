@@ -157,7 +157,7 @@
                 "config/development/csharp-style-policy.json",
                 "config/development/csharp-style-baseline.json",
                 "tools/dotnet/check-csharp-style.mjs",
-                "tests/tools/issue-1158-csharp-style.test.mjs",
+                "tests/tools/csharp-style.test.mjs",
                 "docs/development/csharp-style-enforcement.md"
             ],
             "assertionType": "static",
@@ -175,7 +175,7 @@
             "evidencePaths": [
                 "tests/governance/code-intent-registry.json",
                 "tools/governance/check-code-intent.mjs",
-                "tests/tools/issue-1155-code-intent.test.mjs",
+                "tests/tools/code-intent.test.mjs",
                 "docs/development/code-intent-governance.md",
                 "docs/development/coding-conventions.md"
             ],
@@ -406,7 +406,7 @@
             "risk": "high",
             "evidencePaths": [
                 "tests/backend/Unit/PodBinaryCodecBatchAllocationTests.cs",
-                "tests/tools/issue-1154-pod-binary-codec-batch-evidence.test.mjs",
+                "tests/tools/pod-binary-codec-batch-evidence.test.mjs",
                 "tools/operations/check-pod-binary-codec-batch-evidence.mjs",
                 "benchmarks/core/PodBinaryCodecBatchProfiler.cs",
                 "docs/performance-pod-binary-codec-batch.md"
@@ -1554,8 +1554,8 @@
                 "tools/test-matrix/local-runtime-cleanup.mjs",
                 "tests/tools/browser-contract.test.mjs",
                 "tests/tools/local-runtime-cleanup.test.mjs",
-                "tests/tools/issue-1149-browser-contract-fixture.test.mjs",
-                "tests/tools/issue-1149-session-isolation.test.mjs",
+                "tests/tools/browser-contract-fixture.test.mjs",
+                "tests/tools/browser-session-isolation.test.mjs",
                 "tests/tools/browserless-correctness-contract.test.mjs",
                 ".github/workflows/quality-gate.yml",
                 "docs/testing/browser-contract.md",
@@ -1578,7 +1578,7 @@
                 ".tmp/browser-diagnostics",
                 "tests/browser-diagnostics/catalog.mjs",
                 "tests/browser-diagnostics/run.mjs",
-                "tests/issue-1148-browser-diagnostics-migration.json",
+                "tests/browser-diagnostics-retirement-map.json",
                 "tests/tools/browser-diagnostics.test.mjs",
                 "tools/test/lanes/browser-runtime-risk-diagnostics.sh",
                 "tests/tools/test-matrix-resource-contract.test.mjs",
@@ -2750,8 +2750,8 @@
             "risk": "high",
             "evidencePaths": [
                 "tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs",
-                "tests/backend/issue-1013-runtime-fallback-milestones.json",
-                "tests/backend/issue-1013-runtime-fallback-evidence.json"
+                "tests/backend/runtime-fallback-milestones.json",
+                "tests/backend/runtime-fallback-evidence.json"
             ],
             "assertionType": "integration",
             "failClosedRule": "Reject restoration of a retired fallback or any completed external milestone that lacks an exact run id, count and history artifact.",
@@ -2776,7 +2776,7 @@
                 "tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs",
                 "tests/backend/Unit/JwtHelperTests.cs",
                 "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
-                "tests/backend/issue-1014-identity-retirement-evidence.json",
+                "tests/backend/legacy-identity-retirement-evidence.json",
                 "docs/issue-1014-identity-retirement-handoff.md"
             ],
             "assertionType": "integration",
@@ -2797,7 +2797,7 @@
                 "tests/tools/dead-code-audit-index.test.mjs",
                 "tools/governance/check-dead-code-audit-index.mjs",
                 "docs/planning/dead-code-audit-index.json",
-                "tests/issue-1015-dead-code-audit-evidence.json"
+                "tests/dead-code-audit-evidence.json"
             ],
             "assertionType": "static",
             "failClosedRule": "Reject malformed audit ownership, fabricated source-report completion, incomplete stage evidence or a final closeout that bypasses --require-complete.",
@@ -2814,7 +2814,7 @@
             "evidencePaths": [
                 "src/frontend/src/components/public/usePublicStickyGeometry.ts",
                 "tests/frontend/unit/components/usePublicStickyGeometry.test.ts",
-                "tests/issue-1016-sticky-geometry-evidence.json"
+                "tests/public-shell-sticky-geometry-evidence.json"
             ],
             "assertionType": "unit",
             "failClosedRule": "Reject an internal-library selector dependency, missing geometry token, stale resize value, leaked observer or listener, or loss of the static no-JavaScript fallback.",
@@ -2833,7 +2833,7 @@
                 "tests/frontend/checks/static/check-visual-density-governance.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/e2e/acceptance/archive-sticky-geometry.spec.ts",
-                "tests/frontend/issue-1017-archive-sticky-evidence.json"
+                "tests/frontend/archive-sticky-geometry-evidence.json"
             ],
             "assertionType": "browser",
             "failClosedRule": "Reject guessed offsets, hidden current-year sections, generic sticky selectors, broken hash clearance or a sticky heading that does not settle against the measured header.",
@@ -2854,7 +2854,7 @@
                 "src/frontend/public/public-shell-emergency.css",
                 "src/frontend/src/assets/markdown.css",
                 "tests/frontend/checks/static/check-visual-density-governance.mjs",
-                "tests/issue-1018-public-typography-evidence.json",
+                "tests/public-typography-evidence.json",
                 "docs/issue-1018-public-typography-handoff.md"
             ],
             "assertionType": "static",
@@ -3053,7 +3053,7 @@
                 "src/backend/Infrastructure/SchemaMigration/DestructiveMigrationProofs.cs",
                 "docs/schema-migrations/destructive-rollback-window-proofs.json",
                 "docs/schema-migrations/destructive-rollback-window.md",
-                "tests/backend/issue-1028-online-migration-evidence.json"
+                "tests/backend/online-schema-migration-evidence.json"
             ],
             "assertionType": "integration",
             "failClosedRule": "Reject startup mutation, unclassified descriptors, unsafe Expand, non-resumable Backfill, ungated Contract, a destructive step without descriptor-matched source/window proof, history drift or wrapper contract drift.",
@@ -3099,7 +3099,7 @@
                 "tests/frontend/unit/wasmReleaseAssets.test.ts",
                 "tests/frontend/unit/releaseStorage.test.ts",
                 "tests/frontend/unit/bootstrap/bootstrapImportRecovery.test.ts",
-                "tests/backend/issue-1029-storage-lifecycle-evidence.json",
+                "tests/backend/storage-lifecycle-evidence.json",
                 "docs/issue-1029-storage-lifecycle-handoff.md"
             ],
             "assertionType": "integration",
@@ -3160,7 +3160,7 @@
                 "tests/frontend/unit/services/notificationStreamRestartPolicy.test.ts",
                 "tools/check-background-service-classification.mjs",
                 "tests/backend/Fixtures/background-service-classification.json",
-                "tests/backend/issue-1030-implementation-evidence.json"
+                "tests/backend/active-release-fencing-implementation-evidence.json"
             ],
             "assertionType": "integration",
             "failClosedRule": "Reject stale-generation commits, unclassified workers, discarded drain errors, target acquisition identity drift, restart codes other than 1012 or replay-miss flows that reuse an invalid cursor.",
@@ -3237,7 +3237,7 @@
                 "tests/backend/Unit/SecurityHardening",
                 "security/policies/backend-source-policy.json",
                 "tests/tools/security-source-analyzer.test.mjs",
-                "tests/backend/issue-1037-security-hardening-evidence.json",
+                "tests/backend/security-hardening-evidence.json",
                 "tests/test-retention-replacements.json"
             ],
             "assertionType": "integration",
@@ -3260,7 +3260,7 @@
                 "tests/backend/Unit/AuthRiskControlEndpointContractTests.cs",
                 "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
                 "tests/backend/Unit/BackendApiIntegrationContractTests.cs",
-                "tests/backend/issue-1038-endpoint-security-evidence.json",
+                "tests/backend/endpoint-security-evidence.json",
                 "tests/test-retention-replacements.json"
             ],
             "assertionType": "integration",
@@ -3284,7 +3284,7 @@
                 "tests/backend/Unit/AdminAnonymousAccountGovernanceContractTests.cs",
                 "tests/backend/Unit/ModerationConsoleContractTests.cs",
                 "tests/backend/Unit/IntegrityAdminConsoleContractTests.cs",
-                "tests/issue-1039-admin-console-evidence.json",
+                "tests/admin-console-behavior-evidence.json",
                 "tests/test-retention-replacements.json"
             ],
             "assertionType": "integration",
@@ -3307,7 +3307,7 @@
                 "tests/backend/Unit/AdminAnonymousAccountGovernanceContractTests.cs",
                 "tests/backend/Unit/ModerationConsoleContractTests.cs",
                 "tests/backend/Unit/IntegrityAdminConsoleContractTests.cs",
-                "tests/issue-1039-admin-console-evidence.json",
+                "tests/admin-console-behavior-evidence.json",
                 "tests/test-retention-replacements.json"
             ],
             "assertionType": "integration",
@@ -3332,7 +3332,7 @@
                 "tests/frontend/unit/views/IntegrityProofConsole.test.ts",
                 "tests/frontend/unit/router/index.test.ts",
                 "tests/frontend/unit/layouts/accountNavModules.test.ts",
-                "tests/issue-1039-admin-console-evidence.json",
+                "tests/admin-console-behavior-evidence.json",
                 "tests/test-retention-replacements.json",
                 "tests/frontend/unit/components/user/MessagesStateMachine.test.ts",
                 "tests/backend/Integration/MessageCenterPersistenceIntegrationTests.cs"
@@ -3723,7 +3723,7 @@
                 "tests/tools/fixtures/test-suite-convergence/backend-source-lock-negative.fixture.cs.txt",
                 "tests/matrix.yml",
                 "tests/test-retention-replacements.json",
-                "tests/backend/issue-1050-cleanup-human-read.md",
+                "tests/backend/cleanup-worker-human-read-behavior.md",
                 ".tmp/release-evidence/test-suite-convergence.json"
             ],
             "assertionType": "integration",
@@ -3747,7 +3747,7 @@
                 "tests/backend/Unit/UserServiceValidationTests.cs",
                 "tests/backend/Unit/RecoveryKeyServiceBehaviorTests.cs",
                 "tests/backend/Integration/UserSessionRevocationIntegrationTests.cs",
-                "tests/backend/issue-1052-user-session-revocation-evidence.json",
+                "tests/backend/user-session-revocation-evidence.json",
                 "docs/user-session-revocation.md"
             ],
             "assertionType": "integration",
@@ -3773,8 +3773,8 @@
                 "tests/backend/Unit/AuthCookieServiceSecurityTests.cs",
                 "tests/backend/Unit/JwtHelperTests.cs",
                 "tests/backend/Unit/UserServiceValidationTests.cs",
-                "tests/backend/issue-1053-auth-cookie-expiry-evidence.json",
-                "tests/backend/issue-1053-central-handoff.json"
+                "tests/backend/auth-cookie-expiry-evidence.json",
+                "tests/backend/auth-cookie-expiry-governance-handoff.json"
             ],
             "assertionType": "integration",
             "failClosedRule": "Reject a cookie expiry later than JWT exp, a cookie-local duration snapshot, JWT reparsing in the cookie service, or a reloadable issuance change that is not carried to the HTTP handoff.",
@@ -3793,7 +3793,7 @@
                 "tests/backend/Unit/RecoveryPasskeyCompletionStateTests.cs",
                 "tests/backend/Unit/RecoveryPasskeyCompletionEndpointTests.cs",
                 "tests/backend/Integration/RecoveryPasskeyCompletionIntegrationTests.cs",
-                "tests/backend/issue-1054-recovery-passkey-completion-evidence.json"
+                "tests/backend/recovery-passkey-completion-evidence.json"
             ],
             "assertionType": "integration",
             "failClosedRule": "Reject pre-validation session consumption, partial credential commits, duplicate logical completion, different-request replay success, raw recovery token persistence or loss of legacy pending-envelope compatibility.",
@@ -3812,7 +3812,7 @@
             "risk": "critical",
             "evidencePaths": [
                 "tests/backend/Unit/RateLimiterRejectionRiskSamplerTests.cs",
-                "tests/backend/issue-1055-rate-limiter-rejection-sampler-evidence.json",
+                "tests/backend/rate-limiter-rejection-sampler-evidence.json",
                 "tests/test-retention-replacements.json",
                 "benchmarks/core/RateLimiterRejectionSamplerBenchmarks.cs"
             ],
@@ -3844,11 +3844,11 @@
                 "tests/browser-diagnostics/catalog.mjs",
                 "tests/browser-diagnostics/run.mjs",
                 "tests/tools/browser-migration-contract.test.mjs",
-                "tests/tools/issue-1151-evidence-governance.test.mjs",
-                "tests/tools/issue-1151-flaky-governance.test.mjs",
-                "tests/tools/issue-1151-receipt-aggregate.test.mjs",
-                "tests/tools/issue-1151-receipt-authority.test.mjs",
-                "tests/tools/issue-1151-receipt-schema.test.mjs",
+                "tests/tools/test-evidence-governance.test.mjs",
+                "tests/tools/flaky-test-governance.test.mjs",
+                "tests/tools/test-evidence-receipt-aggregation.test.mjs",
+                "tests/tools/test-evidence-receipt-authority.test.mjs",
+                "tests/tools/test-evidence-receipt-schema.test.mjs",
                 "docs/testing/issue-1151-evidence-governance.md",
                 ".github/workflows/quality-gate.yml",
                 ".github/workflows/browser-diagnostics.yml"
@@ -3876,7 +3876,7 @@
                 "tools/build-wasm-artifact.sh",
                 "tools/build-final-image.sh",
                 "tools/test/lanes/production-build-artifacts.sh",
-                "tests/tools/issue-1165-wasm-artifact-ownership.test.mjs",
+                "tests/tools/wasm-artifact-ownership.test.mjs",
                 "tests/tools/final-image-toolchain-pin.test.mjs",
                 "docs/wasm.md",
                 ".gitignore",
@@ -3898,7 +3898,7 @@
             "evidencePaths": [
                 "tools/check-repository-source-layout.mjs",
                 "tests/governance/repository-source-layout.json",
-                "tests/tools/issue-1166-zk-source-layout.test.mjs",
+                "tests/tools/zk-source-layout.test.mjs",
                 "tools/test/lanes/privacy-zk-comment-matrix.sh",
                 "src/zk/circuits/anonymous-comment-v5/comment_v5.circuit.json",
                 "security/zk/contracts/comment-v5-circuit.manifest.json",
@@ -3922,7 +3922,7 @@
                 "tools/check-csharp-entrypoint-ownership.mjs",
                 "tests/governance/csharp-entrypoint-ownership.json",
                 "tests/governance/repository-source-layout.json",
-                "tests/tools/issue-1174-csharp-entrypoint-ownership.test.mjs",
+                "tests/tools/csharp-entrypoint-ownership.test.mjs",
                 "tests/matrix.yml",
                 "src/frontend/package.json",
                 "docs/testing/issue-1174-csharp-entrypoint-ownership.md",
@@ -3947,7 +3947,7 @@
                 "tools/docs/check-authoritative-development-docs.mjs",
                 "config/development/document-lifecycle.json",
                 "config/development/document-inventory.generated.json",
-                "tests/tools/issue-1161-document-lifecycle.test.mjs",
+                "tests/tools/document-lifecycle.test.mjs",
                 "docs/development/document-lifecycle.md",
                 "docs/index.md"
             ],
@@ -3975,7 +3975,7 @@
                 "docs/releases/v1.1.0-public-preview.md",
                 "tools/docs/check-public-preview-docs.mjs",
                 "tools/docs/check-community-workflow.mjs",
-                "tests/tools/issue-1319-product-version-governance.test.mjs"
+                "tests/tools/product-version-governance.test.mjs"
             ],
             "assertionType": "integration",
             "failClosedRule": "Reject product SemVer in active policy sources, missing capability stages or stability classifications, non-canonical issue evidence prompts, an unclassified legacy policy, or multiple current preview-policy authorities while allowing protocol, schema, runtime, dependency and historical provenance versions.",
@@ -3992,7 +3992,7 @@
             "evidencePaths": [
                 "tools/docs/check-authoritative-development-docs.mjs",
                 "config/development/authoritative-development-docs.json",
-                "tests/tools/issue-1157-authoritative-development-docs.test.mjs",
+                "tests/tools/authoritative-development-docs.test.mjs",
                 "docs/development/coding-conventions.md",
                 "AGENTS.md",
                 "CONTRIBUTING.md",
@@ -4017,7 +4017,7 @@
             "evidencePaths": [
                 "tools/configuration/check-appsettings-authority.mjs",
                 "tests/governance/appsettings-authority.json",
-                "tests/tools/issue-1171-appsettings-authority.test.mjs",
+                "tests/tools/appsettings-authority.test.mjs",
                 "docs/configuration/appsettings-authority.md",
                 "src/backend/appsettings.json",
                 "src/backend/appsettings.Production.json",
@@ -4039,7 +4039,7 @@
             "evidencePaths": [
                 "security/zk/provenance/artifact-ownership.manifest.json",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
-                "tests/tools/issue-1168-zk-artifact-ownership.test.mjs",
+                "tests/tools/zk-artifact-ownership.test.mjs",
                 "security/zk/contracts/comment-v5-circuit.manifest.json",
                 "security/zk/provenance/comment-v5-trusted-setup.manifest.json",
                 "config/zk/anonymous-comment-v5-verifying-key.manifest.json",
@@ -4070,7 +4070,7 @@
                 "tools/operations/seal-release-evidence-bundle.mjs",
                 "tools/operations/check-release-evidence-manifest.mjs",
                 "tools/operations/collect-release-evidence.sh",
-                "tests/tools/issue-1169-release-evidence-model.test.mjs",
+                "tests/tools/release-evidence-model.test.mjs",
                 "security/evidence-contracts/release-bundle-storage.json",
                 "security/matrices/privacy-zk-comment.yml",
                 "tests/fixtures/evidence/anonymous-eligibility-anonymity-set.json",
@@ -4109,8 +4109,8 @@
                 "tools/security/check-security-domain-layout.mjs",
                 "tools/security/check-security-matrices.mjs",
                 "tools/security/check-zap-warn-policy.mjs",
-                "tests/tools/issue-1170-security-domain-layout.test.mjs",
-                "tests/tools/issue-1170-security-matrix-catalog.test.mjs",
+                "tests/tools/security-domain-layout.test.mjs",
+                "tests/tools/security-matrix-catalog.test.mjs",
                 "src/backend/appsettings.json",
                 "src/backend/appsettings.Production.json",
                 "config/zk/anonymous-comment-v5-verifying-key.manifest.json",
@@ -4136,7 +4136,7 @@
                 "tools/configuration/check-configuration-layout.mjs",
                 "tools/configuration/check-backend-configuration-contract.mjs",
                 "tests/tools/configuration-layout.test.mjs",
-                "tests/tools/issue-1172-backend-configuration-contract.test.mjs",
+                "tests/tools/backend-configuration-contract.test.mjs",
                 "tests/backend/Unit/BackendConfigurationContractTests.cs",
                 "docs/configuration-layout.md",
                 "docs/configuration/backend-configuration-reference.generated.md",

@@ -50,7 +50,7 @@
     "check:frontend-test-layout": "node ../../tools/test/check-frontend-test-layout.mjs",
     "check:csharp-entrypoint-ownership": "node ../../tools/check-csharp-entrypoint-ownership.mjs",
     "check:test-execution-optimization": "node ../../tests/frontend/checks/static/check-test-execution-optimization-contract.mjs && node ../../tests/frontend/checks/static/check-test-execution-helpers.mjs && node ../../tools/check-postgres-test-collections.mjs",
-    "check:browser-contract-fixture": "node --test ../../tests/tools/issue-1149-browser-contract-fixture.test.mjs ../../tests/tools/issue-1149-session-isolation.test.mjs",
+    "check:browser-contract-fixture": "node --test ../../tests/tools/browser-contract-fixture.test.mjs ../../tests/tools/browser-session-isolation.test.mjs",
     "deps:wasm-codec": "bash ../../tools/frontend/install-wasm-codec-deps.sh",
     "ensure:wasm": "node ../../tools/frontend/ensure-wasm.mjs ensure",
     "build:wasm": "bash ./wasm/build.sh",

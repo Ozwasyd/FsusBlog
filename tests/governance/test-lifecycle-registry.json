@@ -177,6 +177,39 @@
             ]
         },
         {
+            "file": "tests/tools/aeds-cache-miss-frame-evidence.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/aeds-cache-miss-frame-evidence.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/aeds-frame-cost-evidence.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "perf",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/appsettings-authority.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper"
+            ]
+        },
+        {
             "file": "tests/tools/article-core-test-api-governance.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",
@@ -210,6 +243,17 @@
             ]
         },
         {
+            "file": "tests/tools/authoritative-development-docs.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
             "file": "tests/tools/backend-benchmark-regression.test.mjs",
             "owner": "manual-diagnostic:tests/tools/backend-benchmark-regression.test.mjs",
             "executionCategory": "manual-diagnostic",
@@ -228,6 +272,17 @@
             "lifecycle": "canonical-execution",
             "physicalExecutionCount": 1,
             "classifications": [
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/backend-configuration-contract.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
                 "runtime"
             ]
         },
@@ -322,6 +377,18 @@
             ]
         },
         {
+            "file": "tests/tools/browser-contract-fixture.test.mjs",
+            "owner": "package-script:check:browser-contract-fixture",
+            "executionCategory": "package-script",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "perf",
+                "runtime"
+            ]
+        },
+        {
             "file": "tests/tools/browser-contract.test.mjs",
             "owner": "manual-diagnostic:tests/tools/browser-contract.test.mjs",
             "executionCategory": "manual-diagnostic",
@@ -400,6 +467,18 @@
             "classifications": [
                 "source-text",
                 "migration",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/browser-session-isolation.test.mjs",
+            "owner": "package-script:check:browser-contract-fixture",
+            "executionCategory": "package-script",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
                 "runtime"
             ]
         },
@@ -527,6 +606,18 @@
             ]
         },
         {
+            "file": "tests/tools/code-intent.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "migration",
+                "perf"
+            ]
+        },
+        {
             "file": "tests/tools/command-manifest-behavior.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",
@@ -597,6 +688,29 @@
             ]
         },
         {
+            "file": "tests/tools/csharp-entrypoint-ownership.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text"
+            ]
+        },
+        {
+            "file": "tests/tools/csharp-style.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "perf",
+                "runtime"
+            ]
+        },
+        {
             "file": "tests/tools/data-reader-ordinal-analyzer.test.mjs",
             "owner": "manual-diagnostic:tests/tools/data-reader-ordinal-analyzer.test.mjs",
             "executionCategory": "manual-diagnostic",
@@ -664,6 +778,16 @@
             ]
         },
         {
+            "file": "tests/tools/document-lifecycle.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
             "file": "tests/tools/dotnet-build-parallelism.test.mjs",
             "owner": "manual-diagnostic:tests/tools/dotnet-build-parallelism.test.mjs",
             "executionCategory": "manual-diagnostic",
@@ -681,6 +805,16 @@
             "physicalExecutionCount": 1,
             "classifications": [
                 "source-text"
+            ]
+        },
+        {
+            "file": "tests/tools/dotnet-release-metadata.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "runtime"
             ]
         },
         {
@@ -714,6 +848,18 @@
             "classifications": [
                 "source-text",
                 "perf",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/flaky-test-governance.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
                 "runtime"
             ]
         },
@@ -758,6 +904,20 @@
             "classifications": [
                 "source-text",
                 "perf"
+            ]
+        },
+        {
+            "file": "tests/tools/frontend-style.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/frontend-style.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "migration",
+                "perf",
+                "runtime"
             ]
         },
         {
@@ -862,337 +1022,6 @@
             ]
         },
         {
-            "file": "tests/tools/issue-1149-browser-contract-fixture.test.mjs",
-            "owner": "package-script:check:browser-contract-fixture",
-            "executionCategory": "package-script",
-            "lifecycle": "canonical-execution",
-            "physicalExecutionCount": 1,
-            "classifications": [
-                "source-text",
-                "perf",
-                "runtime"
-            ]
-        },
-        {
-            "file": "tests/tools/issue-1149-session-isolation.test.mjs",
-            "owner": "package-script:check:browser-contract-fixture",
-            "executionCategory": "package-script",
-            "lifecycle": "canonical-execution",
-            "physicalExecutionCount": 1,
-            "classifications": [
-                "source-text",
-                "compatibility-wrapper",
-                "runtime"
-            ]
-        },
-        {
-            "file": "tests/tools/issue-1151-evidence-governance.test.mjs",
-            "owner": "repository-governance:static-node-contracts",
-            "executionCategory": "repository-governance",
-            "lifecycle": "canonical-execution",
-            "physicalExecutionCount": 1,
-            "classifications": [
-                "source-text",
-                "compatibility-wrapper",
-                "runtime"
-            ]
-        },
-        {
-            "file": "tests/tools/issue-1151-flaky-governance.test.mjs",
-            "owner": "repository-governance:static-node-contracts",
-            "executionCategory": "repository-governance",
-            "lifecycle": "canonical-execution",
-            "physicalExecutionCount": 1,
-            "classifications": [
-                "source-text",
-                "compatibility-wrapper",
-                "runtime"
-            ]
-        },
-        {
-            "file": "tests/tools/issue-1151-receipt-aggregate.test.mjs",
-            "owner": "repository-governance:static-node-contracts",
-            "executionCategory": "repository-governance",
-            "lifecycle": "canonical-execution",
-            "physicalExecutionCount": 1,
-            "classifications": [
-                "source-text",
-                "runtime"
-            ]
-        },
-        {
-            "file": "tests/tools/issue-1151-receipt-authority.test.mjs",
-            "owner": "repository-governance:static-node-contracts",
-            "executionCategory": "repository-governance",
-            "lifecycle": "canonical-execution",
-            "physicalExecutionCount": 1,
-            "classifications": [
-                "source-text",
-                "perf",
-                "runtime"
-            ]
-        },
-        {
-            "file": "tests/tools/issue-1151-receipt-schema.test.mjs",
-            "owner": "repository-governance:static-node-contracts",
-            "executionCategory": "repository-governance",
-            "lifecycle": "canonical-execution",
-            "physicalExecutionCount": 1,
-            "classifications": [
-                "source-text",
-                "perf"
-            ]
-        },
-        {
-            "file": "tests/tools/issue-1152-aeds-frame-cost-evidence.test.mjs",
-            "owner": "repository-governance:static-node-contracts",
-            "executionCategory": "repository-governance",
-            "lifecycle": "canonical-execution",
-            "physicalExecutionCount": 1,
-            "classifications": [
-                "source-text",
-                "perf",
-                "runtime"
-            ]
-        },
-        {
-            "file": "tests/tools/issue-1153-aeds-cache-miss-frame-evidence.test.mjs",
-            "owner": "manual-diagnostic:tests/tools/issue-1153-aeds-cache-miss-frame-evidence.test.mjs",
-            "executionCategory": "manual-diagnostic",
-            "lifecycle": "manual-diagnostic",
-            "physicalExecutionCount": 0,
-            "classifications": [
-                "behavior"
-            ]
-        },
-        {
-            "file": "tests/tools/issue-1154-pod-binary-codec-batch-evidence.test.mjs",
-            "owner": "repository-governance:static-node-contracts",
-            "executionCategory": "repository-governance",
-            "lifecycle": "canonical-execution",
-            "physicalExecutionCount": 1,
-            "classifications": [
-                "compatibility-wrapper",
-                "runtime"
-            ]
-        },
-        {
-            "file": "tests/tools/issue-1155-code-intent.test.mjs",
-            "owner": "repository-governance:static-node-contracts",
-            "executionCategory": "repository-governance",
-            "lifecycle": "canonical-execution",
-            "physicalExecutionCount": 1,
-            "classifications": [
-                "source-text",
-                "migration",
-                "perf"
-            ]
-        },
-        {
-            "file": "tests/tools/issue-1157-authoritative-development-docs.test.mjs",
-            "owner": "repository-governance:static-node-contracts",
-            "executionCategory": "repository-governance",
-            "lifecycle": "canonical-execution",
-            "physicalExecutionCount": 1,
-            "classifications": [
-                "source-text",
-                "runtime"
-            ]
-        },
-        {
-            "file": "tests/tools/issue-1158-csharp-style.test.mjs",
-            "owner": "repository-governance:static-node-contracts",
-            "executionCategory": "repository-governance",
-            "lifecycle": "canonical-execution",
-            "physicalExecutionCount": 1,
-            "classifications": [
-                "source-text",
-                "compatibility-wrapper",
-                "perf",
-                "runtime"
-            ]
-        },
-        {
-            "file": "tests/tools/issue-1159-frontend-style.test.mjs",
-            "owner": "manual-diagnostic:tests/tools/issue-1159-frontend-style.test.mjs",
-            "executionCategory": "manual-diagnostic",
-            "lifecycle": "manual-diagnostic",
-            "physicalExecutionCount": 0,
-            "classifications": [
-                "source-text",
-                "compatibility-wrapper",
-                "migration",
-                "perf",
-                "runtime"
-            ]
-        },
-        {
-            "file": "tests/tools/issue-1160-native-tooling-style.test.mjs",
-            "owner": "manual-diagnostic:tests/tools/issue-1160-native-tooling-style.test.mjs",
-            "executionCategory": "manual-diagnostic",
-            "lifecycle": "manual-diagnostic",
-            "physicalExecutionCount": 0,
-            "classifications": [
-                "source-text",
-                "compatibility-wrapper",
-                "migration",
-                "perf",
-                "runtime"
-            ]
-        },
-        {
-            "file": "tests/tools/issue-1160-yaml-consumers.test.mjs",
-            "owner": "manual-diagnostic:tests/tools/issue-1160-yaml-consumers.test.mjs",
-            "executionCategory": "manual-diagnostic",
-            "lifecycle": "manual-diagnostic",
-            "physicalExecutionCount": 0,
-            "classifications": [
-                "compatibility-wrapper",
-                "runtime"
-            ]
-        },
-        {
-            "file": "tests/tools/issue-1161-document-lifecycle.test.mjs",
-            "owner": "repository-governance:static-node-contracts",
-            "executionCategory": "repository-governance",
-            "lifecycle": "canonical-execution",
-            "physicalExecutionCount": 1,
-            "classifications": [
-                "behavior"
-            ]
-        },
-        {
-            "file": "tests/tools/issue-1162-rule-platform.test.mjs",
-            "owner": "repository-governance:static-node-contracts",
-            "executionCategory": "repository-governance",
-            "lifecycle": "canonical-execution",
-            "physicalExecutionCount": 1,
-            "classifications": [
-                "source-text",
-                "compatibility-wrapper",
-                "perf",
-                "runtime"
-            ]
-        },
-        {
-            "file": "tests/tools/issue-1165-wasm-artifact-ownership.test.mjs",
-            "owner": "repository-governance:static-node-contracts",
-            "executionCategory": "repository-governance",
-            "lifecycle": "canonical-execution",
-            "physicalExecutionCount": 1,
-            "classifications": [
-                "source-text",
-                "runtime"
-            ]
-        },
-        {
-            "file": "tests/tools/issue-1166-zk-source-layout.test.mjs",
-            "owner": "repository-governance:static-node-contracts",
-            "executionCategory": "repository-governance",
-            "lifecycle": "canonical-execution",
-            "physicalExecutionCount": 1,
-            "classifications": [
-                "source-text"
-            ]
-        },
-        {
-            "file": "tests/tools/issue-1168-zk-artifact-ownership.test.mjs",
-            "owner": "repository-governance:static-node-contracts",
-            "executionCategory": "repository-governance",
-            "lifecycle": "canonical-execution",
-            "physicalExecutionCount": 1,
-            "classifications": [
-                "source-text"
-            ]
-        },
-        {
-            "file": "tests/tools/issue-1169-release-evidence-model.test.mjs",
-            "owner": "repository-governance:static-node-contracts",
-            "executionCategory": "repository-governance",
-            "lifecycle": "canonical-execution",
-            "physicalExecutionCount": 1,
-            "classifications": [
-                "source-text",
-                "perf",
-                "runtime"
-            ]
-        },
-        {
-            "file": "tests/tools/issue-1170-security-domain-layout.test.mjs",
-            "owner": "repository-governance:static-node-contracts",
-            "executionCategory": "repository-governance",
-            "lifecycle": "canonical-execution",
-            "physicalExecutionCount": 1,
-            "classifications": [
-                "source-text",
-                "compatibility-wrapper"
-            ]
-        },
-        {
-            "file": "tests/tools/issue-1170-security-matrix-catalog.test.mjs",
-            "owner": "repository-governance:static-node-contracts",
-            "executionCategory": "repository-governance",
-            "lifecycle": "canonical-execution",
-            "physicalExecutionCount": 1,
-            "classifications": [
-                "source-text",
-                "runtime"
-            ]
-        },
-        {
-            "file": "tests/tools/issue-1171-appsettings-authority.test.mjs",
-            "owner": "repository-governance:static-node-contracts",
-            "executionCategory": "repository-governance",
-            "lifecycle": "canonical-execution",
-            "physicalExecutionCount": 1,
-            "classifications": [
-                "source-text",
-                "compatibility-wrapper"
-            ]
-        },
-        {
-            "file": "tests/tools/issue-1172-backend-configuration-contract.test.mjs",
-            "owner": "repository-governance:static-node-contracts",
-            "executionCategory": "repository-governance",
-            "lifecycle": "canonical-execution",
-            "physicalExecutionCount": 1,
-            "classifications": [
-                "source-text",
-                "runtime"
-            ]
-        },
-        {
-            "file": "tests/tools/issue-1174-csharp-entrypoint-ownership.test.mjs",
-            "owner": "repository-governance:static-node-contracts",
-            "executionCategory": "repository-governance",
-            "lifecycle": "canonical-execution",
-            "physicalExecutionCount": 1,
-            "classifications": [
-                "source-text"
-            ]
-        },
-        {
-            "file": "tests/tools/issue-1315-dotnet-release-metadata.test.mjs",
-            "owner": "repository-governance:static-node-contracts",
-            "executionCategory": "repository-governance",
-            "lifecycle": "canonical-execution",
-            "physicalExecutionCount": 1,
-            "classifications": [
-                "runtime"
-            ]
-        },
-        {
-            "file": "tests/tools/issue-1319-product-version-governance.test.mjs",
-            "owner": "repository-governance:static-node-contracts",
-            "executionCategory": "repository-governance",
-            "lifecycle": "canonical-execution",
-            "physicalExecutionCount": 1,
-            "classifications": [
-                "compatibility-wrapper",
-                "runtime"
-            ]
-        },
-        {
             "file": "tests/tools/local-production-profile.test.mjs",
             "owner": "manual-diagnostic:tests/tools/local-production-profile.test.mjs",
             "executionCategory": "manual-diagnostic",
@@ -1260,6 +1089,20 @@
             "physicalExecutionCount": 1,
             "classifications": [
                 "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/native-tooling-style.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/native-tooling-style.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "migration",
+                "perf",
                 "runtime"
             ]
         },
@@ -1333,6 +1176,17 @@
             ]
         },
         {
+            "file": "tests/tools/pod-binary-codec-batch-evidence.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "compatibility-wrapper",
+                "runtime"
+            ]
+        },
+        {
             "file": "tests/tools/privacy-zk-contract.test.mjs",
             "owner": "manual-diagnostic:tests/tools/privacy-zk-contract.test.mjs",
             "executionCategory": "manual-diagnostic",
@@ -1372,6 +1226,17 @@
             "physicalExecutionCount": 0,
             "classifications": [
                 "source-text"
+            ]
+        },
+        {
+            "file": "tests/tools/product-version-governance.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "compatibility-wrapper",
+                "runtime"
             ]
         },
         {
@@ -1525,6 +1390,18 @@
             "classifications": [
                 "source-text",
                 "compatibility-wrapper",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/release-evidence-model.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "perf",
                 "runtime"
             ]
         },
@@ -1787,6 +1664,19 @@
             ]
         },
         {
+            "file": "tests/tools/rule-platform.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "perf",
+                "runtime"
+            ]
+        },
+        {
             "file": "tests/tools/run-bound-marker.test.mjs",
             "owner": "manual-diagnostic:tests/tools/run-bound-marker.test.mjs",
             "executionCategory": "manual-diagnostic",
@@ -1909,6 +1799,28 @@
             ]
         },
         {
+            "file": "tests/tools/security-domain-layout.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper"
+            ]
+        },
+        {
+            "file": "tests/tools/security-matrix-catalog.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
             "file": "tests/tools/security-source-analyzer.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",
@@ -1970,6 +1882,63 @@
             "classifications": [
                 "source-text",
                 "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/test-asset-semantic-renames.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/test-evidence-governance.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/test-evidence-receipt-aggregation.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/test-evidence-receipt-authority.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "perf",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/test-evidence-receipt-schema.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "perf"
             ]
         },
         {
@@ -2145,6 +2114,17 @@
             ]
         },
         {
+            "file": "tests/tools/wasm-artifact-ownership.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
             "file": "tests/tools/wasm-fuzz-runtime.test.mjs",
             "owner": "manual-diagnostic:tests/tools/wasm-fuzz-runtime.test.mjs",
             "executionCategory": "manual-diagnostic",
@@ -2153,6 +2133,17 @@
             "classifications": [
                 "source-text",
                 "perf"
+            ]
+        },
+        {
+            "file": "tests/tools/yaml-consumer-style.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/yaml-consumer-style.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "compatibility-wrapper",
+                "runtime"
             ]
         },
         {
@@ -2188,6 +2179,26 @@
                 "migration",
                 "perf",
                 "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/zk-artifact-ownership.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text"
+            ]
+        },
+        {
+            "file": "tests/tools/zk-source-layout.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text"
             ]
         }
     ]

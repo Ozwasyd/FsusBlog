@@ -61,7 +61,7 @@ The optional index contains only release ID, commit SHA, image digest, bundle di
 
 ```bash
 node tools/operations/check-release-evidence-layout.mjs
-node --test tests/tools/issue-1169-release-evidence-model.test.mjs
+node --test tests/tools/release-evidence-model.test.mjs
 node tools/operations/check-release-evidence-manifest.mjs --self-test
 ```
 

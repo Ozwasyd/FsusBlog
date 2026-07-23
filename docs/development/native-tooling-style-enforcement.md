@@ -71,4 +71,4 @@ Each formatter-only migration is isolated from semantic changes and recorded by 
 
 The same exact SHA set is registered in `.git-blame-ignore-revs`; placeholder hashes and mixed behavior/format commits are rejected.
 
-The positive and aggregate-negative fixtures live under `tests/fixtures/issue-1160-native-tooling-style/`. The focused contract test proves portable fallback behavior, exception boundaries, full-mode digest invalidation, formatter idempotence and wrapper parity.
+The positive and aggregate-negative fixtures live under `tests/fixtures/native-tooling-style/`. The focused contract test proves portable fallback behavior, exception boundaries, full-mode digest invalidation, formatter idempotence and wrapper parity.

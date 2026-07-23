@@ -580,7 +580,7 @@ export function buildChildIssueStatusEvidence(issues, {
   const missingIssueNumbers = expectedIssueNumbers.filter((number) => !byNumber.has(number))
   const openIssueNumbers = records.filter((issue) => issue.state !== 'CLOSED').map((issue) => issue.number)
   return {
-    schema: 'fsusblog.issue-1051-child-status.v1',
+    schema: 'fsusblog.child-status.v1',
     status: missingIssueNumbers.length === 0 && openIssueNumbers.length === 0 ? 'closed' : 'blocked',
     repository: String(repository ?? '').trim() || null,
     capturedAt,
@@ -598,7 +598,7 @@ export function validateChildIssueStatusEvidence(evidence) {
   const records = Array.isArray(evidence?.issues) ? evidence.issues : []
   const actual = records.map((issue) => Number(issue?.number))
   const unique = new Set(actual)
-  if (evidence?.schema !== 'fsusblog.issue-1051-child-status.v1') {
+  if (evidence?.schema !== 'fsusblog.child-status.v1') {
     errors.push('child issue evidence schema is missing or unsupported')
   }
   if (!String(evidence?.repository ?? '').trim()) errors.push('child issue evidence repository is missing')

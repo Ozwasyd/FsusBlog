@@ -29,7 +29,7 @@ Run the repository checks with:
 node tools/security/comment-privacy-build-contract.mjs
 node tools/crypto/check-zk-artifact-ownership.mjs
 node --test tests/security/comment-privacy-build-contract.test.mjs
-node --test tests/tools/issue-1168-zk-artifact-ownership.test.mjs
+node --test tests/tools/zk-artifact-ownership.test.mjs
 ```
 
 Changing the public statement requires a new circuit identity, layout version,

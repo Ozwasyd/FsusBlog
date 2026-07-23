@@ -2,7 +2,7 @@
 
 ## Metadata and decision
 
-- Issue: `#1369`; report schema/version: `fsusblog.issue-1369.release-validation.v1`.
+- Issue: `#1369`; report schema/version: `fsusblog.release-validation.v1`.
 - Code release candidate: FsusBlog `74dc0ddfc57235a65107f8081ae785d34d07c329` (tree `9c7194efdd44995670644e860fc0d25904ba9909`).
 - Presentation dependency: FsusUI `006ef81f6bfebd7904a2b384ea6b86c36a0c3b81`, package version `1.5.1`.
 - Protocol: `fsu.challenge/perception-character-raster@v3`, wire protocol byte `3`.

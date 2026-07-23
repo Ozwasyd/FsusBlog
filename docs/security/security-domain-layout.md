@@ -28,7 +28,7 @@ node tools/security/check-security-matrices.mjs
 node tools/security/comment-privacy-build-contract.mjs
 node tools/security/check-zk-comment-v5-manifests.mjs
 node tools/security/check-zap-warn-policy.mjs
-node --test tests/tools/issue-1170-security-domain-layout.test.mjs
+node --test tests/tools/security-domain-layout.test.mjs
 ```
 
 场景边界保持不变：匿名请求和普通登录请求仍只能使用已启用且完整绑定的 ZK 配置；admin 不因安全域迁移获得额外权限；notification stream 未改动；binary API 继续只接受 AEDS v2。

@@ -1,6 +1,6 @@
 # #1146 Acceptance 轻量化交接
 
-原 35 个 route/auth/user/admin/public Acceptance 场景已经按错误发现边界拆分：31 个场景迁移到 Router、mounted component、生产 API adapter、HTTP renderer 或隔离 PostgreSQL integration；仅 4 个真实 hydration/navigation 场景保留在 serial Browser Contract。权威逐条记录是 `tests/issue-1146-acceptance-baseline.json` 与 `tests/issue-1146-retention-replacements.json`，中央 retention 链同步在 `tests/test-retention-replacements.json`。
+原 35 个 route/auth/user/admin/public Acceptance 场景已经按错误发现边界拆分：31 个场景迁移到 Router、mounted component、生产 API adapter、HTTP renderer 或隔离 PostgreSQL integration；仅 4 个真实 hydration/navigation 场景保留在 serial Browser Contract。权威逐条记录是 `tests/lightweight-acceptance-baseline.json` 与 `tests/issue-1146-retention-replacements.json`，中央 retention 链同步在 `tests/test-retention-replacements.json`。
 
 | 责任层 | 当前覆盖 |
 | --- | --- |

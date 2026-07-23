@@ -1,0 +1,92 @@
+{
+    "schemaVersion": "fsus.governance-handoff.v1",
+    "issue": 1030,
+    "status": "implementation-and-central-wiring-complete-validation-pending",
+    "centralFilesIntegrated": [
+        "tests/coverage-registry.json",
+        "tests/matrix.yml",
+        "tests/backend/Fixtures/backend-test-requirements.json",
+        "tools/test/lanes/static-governance.sh",
+        "src/backend/Infrastructure/Operations/DeploymentRuntimeState.cs",
+        "src/backend/Infrastructure/Operations/ProductionHealth.cs",
+        "src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs",
+        "docs/architecture.md",
+        "docs/production.md",
+        "docs/operations.md",
+        "docs/security.md",
+        "docs/testing.md",
+        "docs/api/design.md",
+        "docs/api/contracts.md",
+        "docs/api/quick-reference.md",
+        "docs/api/schemas-and-errors.md"
+    ],
+    "requiredWiring": [
+        {
+            "owner": "root/#1027",
+            "file": "src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs",
+            "status": "present-not-verified",
+            "anchor": "MapFsusOperationalRoutes",
+            "add": [
+                "app.MapActiveReleaseFenceEndpoints();",
+                "app.MapNotificationStreamRestartEndpoints();"
+            ]
+        },
+        {
+            "owner": "root/#1027",
+            "file": "src/backend/Infrastructure/Operations/DeploymentRuntimeState.cs",
+            "status": "present-not-verified",
+            "anchor": "DeploymentDrainCoordinator.RunDrainAsync",
+            "contract": "Call ReleaseDrainParticipantRegistry.DrainAsync in parallel and map every pending/error participant to a blocking DeploymentDrainComponentSnapshot."
+        },
+        {
+            "owner": "root/#1027",
+            "file": "src/backend/Infrastructure/Operations/ProductionHealth.cs",
+            "status": "present-not-verified",
+            "anchor": "production readiness checks",
+            "contract": "Add ActiveReleaseFenceReadiness.EvaluateAsync result as checks.activeReleaseFence and fail public active readiness when it is not ok."
+        },
+        {
+            "owner": "root/governance",
+            "file": "tools/test/lanes/static-governance.sh",
+            "status": "present-not-verified",
+            "anchor": "Node governance checks",
+            "add": [
+                "node tools/check-background-service-classification.mjs"
+            ],
+            "constraint": "Do not add a maximum error count; preserve the checker all-errors output."
+        },
+        {
+            "owner": "root/release-evidence",
+            "file": "central release evidence collector and checker",
+            "status": "present-not-verified",
+            "contract": "Collect and semantically validate active-release-fence.json and notification-stream-restart.json as described in docs/issue-1030-active-release-fencing-handoff.md."
+        },
+        {
+            "owner": "root/worker integration",
+            "file": "four remaining active-singleton worker commit boundaries",
+            "status": "present-not-verified",
+            "contract": "ScheduledPublishWorker, ArticleMutationOutboxDispatcher, PowLoadResetWorker and ArticleViewProjectionRepairWorker are wired. Inject IActiveReleaseCommitGuard into the four remaining workers and call EnsureCurrentAsync immediately before irreversible commit/finalize; exact workers are listed in docs/issue-1030-active-release-fencing-handoff.md."
+        }
+    ],
+    "centralTestRegistryRequests": [
+        {
+            "test": "tests/backend/Unit/ActiveReleaseFenceContractTests.cs",
+            "suggestedTier": "backend-unit",
+            "status": "present-not-verified"
+        },
+        {
+            "test": "tests/frontend/unit/services/notificationStreamRestartPolicy.test.ts",
+            "suggestedTier": "frontend-unit",
+            "status": "present-not-verified"
+        },
+        {
+            "test": "tools/check-background-service-classification.mjs",
+            "suggestedTier": "static-governance",
+            "status": "present-not-verified"
+        }
+    ],
+    "validation": {
+        "status": "not-run",
+        "commands": []
+    }
+}

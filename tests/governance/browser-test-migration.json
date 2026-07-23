@@ -28,9 +28,9 @@
         "reason": "#1145 is the last source state before Acceptance thinning, Browser Contract extraction, diagnostics isolation, and removal of elastic/persistent browser orchestration."
     },
     "authorities": {
-        "acceptanceBaseline": "tests/issue-1146-acceptance-baseline.json",
+        "acceptanceBaseline": "tests/lightweight-acceptance-baseline.json",
         "acceptanceReplacements": "tests/test-retention-replacements.json",
-        "diagnosticsMigration": "tests/issue-1148-browser-diagnostics-migration.json"
+        "diagnosticsMigration": "tests/browser-diagnostics-retirement-map.json"
     },
     "browserlessInPlaceSources": [
         "tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs",
@@ -43,7 +43,7 @@
             "kind": "retention-replacements",
             "path": "tests/test-retention-replacements.json",
             "selector": "deletedTests",
-            "idBaseline": "tests/issue-1146-acceptance-baseline.json",
+            "idBaseline": "tests/lightweight-acceptance-baseline.json",
             "disposition": "migrated",
             "fieldMap": {
                 "sourceFile": "path",
@@ -106,7 +106,7 @@
                 "replacementTestIds": [
                     "node-test:tests/tools/browser-diagnostics.test.mjs#catalog-retains-every-browser-only-risk-with-lightweight-52342d36a2",
                     "node-test:tests/tools/browser-diagnostics.test.mjs#diagnostics-topology-is-fixed-managed-and-independent-fr-cea18d9ce2",
-                    "node-test:tests/tools/issue-1151-flaky-governance.test.mjs#diagnostics-retry-exactly-one-explicit-browser-process-c-968458e269"
+                    "node-test:tests/tools/flaky-test-governance.test.mjs#diagnostics-retry-exactly-one-explicit-browser-process-c-968458e269"
                 ],
                 "browserOnlyRisk": {
                     "present": false,

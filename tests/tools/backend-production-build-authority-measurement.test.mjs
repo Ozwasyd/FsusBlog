@@ -87,7 +87,7 @@ test('before-after evidence proves one exact union without changing the authorit
     assert.throws(() => validateBackendBuildAuthorityComparison(restoredPostlude), /retirement is not proven/u);
 });
 
-test('retained issue 1389 evidence remains internally reproducible', () =>
+test('retained backend production build authority evidence remains internally reproducible', () =>
 {
     const evidence = JSON.parse(fs.readFileSync(
         new URL('../performance/backend-production-build-authority-before-after.json', import.meta.url),

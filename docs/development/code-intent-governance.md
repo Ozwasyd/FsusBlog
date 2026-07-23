@@ -80,7 +80,7 @@ registry 不接受 baseline、最大错误数或宽泛 exception。checker 通�
 
 ```bash
 node tools/governance/check-code-intent.mjs
-node --test tests/tools/issue-1155-code-intent.test.mjs
+node --test tests/tools/code-intent.test.mjs
 ```
 
 `static-governance` 同时执行 checker 和 fixture contract。回退 checker 本身不能改变 runtime 语义；若规则误报，应修正 tokenizer 或收窄语义分类并补正反 fixture，不能添加现状 baseline 来隐藏真实债务。

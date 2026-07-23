@@ -46,7 +46,7 @@ Run:
 
 ```bash
 node tools/configuration/check-appsettings-authority.mjs
-node --test tests/tools/issue-1171-appsettings-authority.test.mjs
+node --test tests/tools/appsettings-authority.test.mjs
 ```
 
 The checker rejects another full `appsettings*.example.json`, redundant or undeclared development leaves, unexpected production sections, non-empty fail-closed values, production examples containing non-placeholder secrets, and consumers that use a non-canonical operator template name.

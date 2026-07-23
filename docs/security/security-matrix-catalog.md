@@ -34,4 +34,4 @@ When adding or changing a matrix:
 2. keep the matrix metadata identical to the catalog declaration;
 3. preserve owner, code, test, and evidence mappings for every entry;
 4. add a semantic profile to the checker before using a new profile name;
-5. run `node tools/security/check-security-matrices.mjs` and `node --test tests/tools/issue-1170-security-matrix-catalog.test.mjs`.
+5. run `node tools/security/check-security-matrices.mjs` and `node --test tests/tools/security-matrix-catalog.test.mjs`.

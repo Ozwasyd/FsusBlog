@@ -1,0 +1,387 @@
+{
+  "schema": "fsusblog.test-asset-semantic-renames.v1",
+  "policy": {
+    "activePathsUseDomainSemantics": true,
+    "aliasesAllowed": false,
+    "behaviorChangesAllowed": false
+  },
+  "referenceFiles": [
+    "config/development/frontend-style-policy.json",
+    "config/governance/complexity-baseline.json",
+    "config/governance/custom-rule-registry.json",
+    "docs/active-release-fencing.md",
+    "docs/architecture/repository-layout.md",
+    "docs/configuration-layout.md",
+    "docs/configuration/appsettings-authority.md",
+    "docs/development/code-intent-governance.md",
+    "docs/development/native-tooling-style-enforcement.md",
+    "docs/issue-1013-runtime-fallback-retirement-handoff.md",
+    "docs/issue-1014-identity-retirement-handoff.md",
+    "docs/issue-1016-public-shell-sticky-geometry-handoff.md",
+    "docs/issue-1028-online-migration-handoff.md",
+    "docs/issue-1031-documentation-handoff.json",
+    "docs/operations.md",
+    "docs/planning/dead-code-audit-index.json",
+    "docs/production.md",
+    "docs/rate-limiter-rejection-sampler-operations.md",
+    "docs/release-evidence-model.md",
+    "docs/releases/issue-1013-a3-1-upload-session-root-sweep.md",
+    "docs/security/issue-1369-perception-character-v3-release-validation-v1.md",
+    "docs/security/security-domain-layout.md",
+    "docs/security/security-matrix-catalog.md",
+    "docs/testing.generated.md",
+    "docs/testing.md",
+    "docs/testing/issue-1038-endpoint-security-contract-replacements.md",
+    "docs/testing/issue-1146-lightweight-acceptance.md",
+    "docs/testing/issue-1148-browser-diagnostics.md",
+    "docs/testing/issue-1149-browser-contract-fixture.md",
+    "docs/testing/issue-1174-csharp-entrypoint-ownership.md",
+    "docs/zk/trusted-setup-ceremony.md",
+    "src/frontend/package.json",
+    "tests/backend/Fixtures/backend-test-requirements.json",
+    "tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs",
+    "tests/browser-diagnostics/catalog.mjs",
+    "tests/coverage-registry.json",
+    "tests/fixtures/issue-1160-native-tooling-style/invalid/CMakeLists.txt",
+    "tests/fixtures/issue-1160-native-tooling-style/invalid/Guide.md",
+    "tests/fixtures/issue-1160-native-tooling-style/invalid/NativeStyle.cpp",
+    "tests/fixtures/issue-1160-native-tooling-style/invalid/ScriptStyle.sh",
+    "tests/fixtures/issue-1160-native-tooling-style/invalid/Workflow.yml",
+    "tests/fixtures/issue-1160-native-tooling-style/invalid/contract.json",
+    "tests/fixtures/issue-1160-native-tooling-style/valid/CMakeLists.txt",
+    "tests/fixtures/issue-1160-native-tooling-style/valid/Guide.md",
+    "tests/fixtures/issue-1160-native-tooling-style/valid/NativeStyle.cpp",
+    "tests/fixtures/issue-1160-native-tooling-style/valid/ScriptStyle.sh",
+    "tests/fixtures/issue-1160-native-tooling-style/valid/Workflow.yml",
+    "tests/fixtures/issue-1160-native-tooling-style/valid/contract.json",
+    "tests/governance/browser-test-migration.json",
+    "tests/governance/code-intent-registry.json",
+    "tests/governance/frontend-test-layout.json",
+    "tests/governance/test-lifecycle-registry.json",
+    "tests/matrix.yml",
+    "tests/test-retention-replacements.json",
+    "tests/tools/backend-production-build-authority-measurement.test.mjs",
+    "tests/tools/browser-diagnostics.test.mjs",
+    "tools/check-wasm-artifact-ownership.mjs",
+    "tools/frontend/check-frontend-style.mjs",
+    "tools/governance/rule-platform.mjs",
+    "tools/security/check-security-domain-layout.mjs",
+    "tools/test-convergence/audit.mjs",
+    "tools/test/lanes/production-build-artifacts.sh",
+    "tools/test/lanes/static-governance.sh"
+  ],
+  "renames": [
+    {
+      "from": "tests/backend/issue-1013-runtime-fallback-evidence.json",
+      "to": "tests/backend/runtime-fallback-evidence.json"
+    },
+    {
+      "from": "tests/backend/issue-1013-runtime-fallback-milestones.json",
+      "to": "tests/backend/runtime-fallback-milestones.json"
+    },
+    {
+      "from": "tests/backend/issue-1014-identity-retirement-evidence.json",
+      "to": "tests/backend/legacy-identity-retirement-evidence.json"
+    },
+    {
+      "from": "tests/backend/issue-1028-online-migration-evidence.json",
+      "to": "tests/backend/online-schema-migration-evidence.json"
+    },
+    {
+      "from": "tests/backend/issue-1029-storage-lifecycle-evidence.json",
+      "to": "tests/backend/storage-lifecycle-evidence.json"
+    },
+    {
+      "from": "tests/backend/issue-1030-governance-handoff.json",
+      "to": "tests/backend/active-release-fencing-governance-handoff.json"
+    },
+    {
+      "from": "tests/backend/issue-1030-implementation-evidence.json",
+      "to": "tests/backend/active-release-fencing-implementation-evidence.json"
+    },
+    {
+      "from": "tests/backend/issue-1037-central-handoff.json",
+      "to": "tests/backend/security-hardening-governance-handoff.json"
+    },
+    {
+      "from": "tests/backend/issue-1037-security-hardening-evidence.json",
+      "to": "tests/backend/security-hardening-evidence.json"
+    },
+    {
+      "from": "tests/backend/issue-1038-endpoint-security-evidence.json",
+      "to": "tests/backend/endpoint-security-evidence.json"
+    },
+    {
+      "from": "tests/backend/issue-1038-governance-handoff.json",
+      "to": "tests/backend/endpoint-security-governance-handoff.json"
+    },
+    {
+      "from": "tests/backend/issue-1050-cleanup-human-read.md",
+      "to": "tests/backend/cleanup-worker-human-read-behavior.md"
+    },
+    {
+      "from": "tests/backend/issue-1052-user-session-revocation-evidence.json",
+      "to": "tests/backend/user-session-revocation-evidence.json"
+    },
+    {
+      "from": "tests/backend/issue-1053-auth-cookie-expiry-evidence.json",
+      "to": "tests/backend/auth-cookie-expiry-evidence.json"
+    },
+    {
+      "from": "tests/backend/issue-1053-central-handoff.json",
+      "to": "tests/backend/auth-cookie-expiry-governance-handoff.json"
+    },
+    {
+      "from": "tests/backend/issue-1054-recovery-passkey-completion-evidence.json",
+      "to": "tests/backend/recovery-passkey-completion-evidence.json"
+    },
+    {
+      "from": "tests/backend/issue-1055-rate-limiter-rejection-sampler-evidence.json",
+      "to": "tests/backend/rate-limiter-rejection-sampler-evidence.json"
+    },
+    {
+      "from": "tests/fixtures/issue-1160-native-tooling-style/invalid/CMakeLists.txt",
+      "to": "tests/fixtures/native-tooling-style/invalid/CMakeLists.txt"
+    },
+    {
+      "from": "tests/fixtures/issue-1160-native-tooling-style/invalid/contract.json",
+      "to": "tests/fixtures/native-tooling-style/invalid/contract.json"
+    },
+    {
+      "from": "tests/fixtures/issue-1160-native-tooling-style/invalid/Guide.md",
+      "to": "tests/fixtures/native-tooling-style/invalid/Guide.md"
+    },
+    {
+      "from": "tests/fixtures/issue-1160-native-tooling-style/invalid/NativeStyle.cpp",
+      "to": "tests/fixtures/native-tooling-style/invalid/NativeStyle.cpp"
+    },
+    {
+      "from": "tests/fixtures/issue-1160-native-tooling-style/invalid/ScriptStyle.sh",
+      "to": "tests/fixtures/native-tooling-style/invalid/ScriptStyle.sh"
+    },
+    {
+      "from": "tests/fixtures/issue-1160-native-tooling-style/invalid/Workflow.yml",
+      "to": "tests/fixtures/native-tooling-style/invalid/Workflow.yml"
+    },
+    {
+      "from": "tests/fixtures/issue-1160-native-tooling-style/valid/CMakeLists.txt",
+      "to": "tests/fixtures/native-tooling-style/valid/CMakeLists.txt"
+    },
+    {
+      "from": "tests/fixtures/issue-1160-native-tooling-style/valid/contract.json",
+      "to": "tests/fixtures/native-tooling-style/valid/contract.json"
+    },
+    {
+      "from": "tests/fixtures/issue-1160-native-tooling-style/valid/Guide.md",
+      "to": "tests/fixtures/native-tooling-style/valid/Guide.md"
+    },
+    {
+      "from": "tests/fixtures/issue-1160-native-tooling-style/valid/NativeStyle.cpp",
+      "to": "tests/fixtures/native-tooling-style/valid/NativeStyle.cpp"
+    },
+    {
+      "from": "tests/fixtures/issue-1160-native-tooling-style/valid/ScriptStyle.sh",
+      "to": "tests/fixtures/native-tooling-style/valid/ScriptStyle.sh"
+    },
+    {
+      "from": "tests/fixtures/issue-1160-native-tooling-style/valid/Workflow.yml",
+      "to": "tests/fixtures/native-tooling-style/valid/Workflow.yml"
+    },
+    {
+      "from": "tests/frontend/issue-1017-archive-sticky-evidence.json",
+      "to": "tests/frontend/archive-sticky-geometry-evidence.json"
+    },
+    {
+      "from": "tests/frontend/issue-1017-governance-handoff.json",
+      "to": "tests/frontend/archive-sticky-geometry-governance-handoff.json"
+    },
+    {
+      "from": "tests/issue-1015-dead-code-audit-evidence.json",
+      "to": "tests/dead-code-audit-evidence.json"
+    },
+    {
+      "from": "tests/issue-1015-governance-handoff.json",
+      "to": "tests/dead-code-audit-governance-handoff.json"
+    },
+    {
+      "from": "tests/issue-1016-sticky-geometry-evidence.json",
+      "to": "tests/public-shell-sticky-geometry-evidence.json"
+    },
+    {
+      "from": "tests/issue-1018-public-typography-evidence.json",
+      "to": "tests/public-typography-evidence.json"
+    },
+    {
+      "from": "tests/issue-1032-1039-code-landing-handoff.json",
+      "to": "tests/test-governance-code-landing-handoff.json"
+    },
+    {
+      "from": "tests/issue-1033-governance-handoff.json",
+      "to": "tests/meta-test-retirement-governance-handoff.json"
+    },
+    {
+      "from": "tests/issue-1034-governance-handoff.json",
+      "to": "tests/viewport-canary-retirement-governance-handoff.json"
+    },
+    {
+      "from": "tests/issue-1035-governance-handoff.json",
+      "to": "tests/historical-residue-governance-handoff.json"
+    },
+    {
+      "from": "tests/issue-1036-governance-handoff.json",
+      "to": "tests/privacy-cutover-governance-handoff.json"
+    },
+    {
+      "from": "tests/issue-1039-admin-console-evidence.json",
+      "to": "tests/admin-console-behavior-evidence.json"
+    },
+    {
+      "from": "tests/issue-1039-governance-handoff.json",
+      "to": "tests/admin-console-governance-handoff.json"
+    },
+    {
+      "from": "tests/issue-1048-test-tool-behavior-handoff.md",
+      "to": "tests/test-tool-behavior-handoff.md"
+    },
+    {
+      "from": "tests/issue-1051-test-suite-convergence.md",
+      "to": "tests/test-suite-convergence.md"
+    },
+    {
+      "from": "tests/issue-1146-acceptance-baseline.json",
+      "to": "tests/lightweight-acceptance-baseline.json"
+    },
+    {
+      "from": "tests/issue-1148-browser-diagnostics-migration.json",
+      "to": "tests/browser-diagnostics-retirement-map.json"
+    },
+    {
+      "from": "tests/issue-1410-composition-registration-baseline.json",
+      "to": "tests/service-composition-registration-baseline.json"
+    },
+    {
+      "from": "tests/tools/fixtures/issue-1151-flaky-command.mjs",
+      "to": "tests/tools/fixtures/flaky-test-command.mjs"
+    },
+    {
+      "from": "tests/tools/fixtures/issue-1152-aeds-frame-cost-fixture.mjs",
+      "to": "tests/tools/fixtures/aeds-frame-cost-fixture.mjs"
+    },
+    {
+      "from": "tests/tools/issue-1149-browser-contract-fixture.test.mjs",
+      "to": "tests/tools/browser-contract-fixture.test.mjs"
+    },
+    {
+      "from": "tests/tools/issue-1149-session-isolation.test.mjs",
+      "to": "tests/tools/browser-session-isolation.test.mjs"
+    },
+    {
+      "from": "tests/tools/issue-1151-evidence-governance.test.mjs",
+      "to": "tests/tools/test-evidence-governance.test.mjs"
+    },
+    {
+      "from": "tests/tools/issue-1151-flaky-governance.test.mjs",
+      "to": "tests/tools/flaky-test-governance.test.mjs"
+    },
+    {
+      "from": "tests/tools/issue-1151-receipt-aggregate.test.mjs",
+      "to": "tests/tools/test-evidence-receipt-aggregation.test.mjs"
+    },
+    {
+      "from": "tests/tools/issue-1151-receipt-authority.test.mjs",
+      "to": "tests/tools/test-evidence-receipt-authority.test.mjs"
+    },
+    {
+      "from": "tests/tools/issue-1151-receipt-schema.test.mjs",
+      "to": "tests/tools/test-evidence-receipt-schema.test.mjs"
+    },
+    {
+      "from": "tests/tools/issue-1152-aeds-frame-cost-evidence.test.mjs",
+      "to": "tests/tools/aeds-frame-cost-evidence.test.mjs"
+    },
+    {
+      "from": "tests/tools/issue-1153-aeds-cache-miss-frame-evidence.test.mjs",
+      "to": "tests/tools/aeds-cache-miss-frame-evidence.test.mjs"
+    },
+    {
+      "from": "tests/tools/issue-1154-pod-binary-codec-batch-evidence.test.mjs",
+      "to": "tests/tools/pod-binary-codec-batch-evidence.test.mjs"
+    },
+    {
+      "from": "tests/tools/issue-1155-code-intent.test.mjs",
+      "to": "tests/tools/code-intent.test.mjs"
+    },
+    {
+      "from": "tests/tools/issue-1157-authoritative-development-docs.test.mjs",
+      "to": "tests/tools/authoritative-development-docs.test.mjs"
+    },
+    {
+      "from": "tests/tools/issue-1158-csharp-style.test.mjs",
+      "to": "tests/tools/csharp-style.test.mjs"
+    },
+    {
+      "from": "tests/tools/issue-1159-frontend-style.test.mjs",
+      "to": "tests/tools/frontend-style.test.mjs"
+    },
+    {
+      "from": "tests/tools/issue-1160-native-tooling-style.test.mjs",
+      "to": "tests/tools/native-tooling-style.test.mjs"
+    },
+    {
+      "from": "tests/tools/issue-1160-yaml-consumers.test.mjs",
+      "to": "tests/tools/yaml-consumer-style.test.mjs"
+    },
+    {
+      "from": "tests/tools/issue-1161-document-lifecycle.test.mjs",
+      "to": "tests/tools/document-lifecycle.test.mjs"
+    },
+    {
+      "from": "tests/tools/issue-1162-rule-platform.test.mjs",
+      "to": "tests/tools/rule-platform.test.mjs"
+    },
+    {
+      "from": "tests/tools/issue-1165-wasm-artifact-ownership.test.mjs",
+      "to": "tests/tools/wasm-artifact-ownership.test.mjs"
+    },
+    {
+      "from": "tests/tools/issue-1166-zk-source-layout.test.mjs",
+      "to": "tests/tools/zk-source-layout.test.mjs"
+    },
+    {
+      "from": "tests/tools/issue-1168-zk-artifact-ownership.test.mjs",
+      "to": "tests/tools/zk-artifact-ownership.test.mjs"
+    },
+    {
+      "from": "tests/tools/issue-1169-release-evidence-model.test.mjs",
+      "to": "tests/tools/release-evidence-model.test.mjs"
+    },
+    {
+      "from": "tests/tools/issue-1170-security-domain-layout.test.mjs",
+      "to": "tests/tools/security-domain-layout.test.mjs"
+    },
+    {
+      "from": "tests/tools/issue-1170-security-matrix-catalog.test.mjs",
+      "to": "tests/tools/security-matrix-catalog.test.mjs"
+    },
+    {
+      "from": "tests/tools/issue-1171-appsettings-authority.test.mjs",
+      "to": "tests/tools/appsettings-authority.test.mjs"
+    },
+    {
+      "from": "tests/tools/issue-1172-backend-configuration-contract.test.mjs",
+      "to": "tests/tools/backend-configuration-contract.test.mjs"
+    },
+    {
+      "from": "tests/tools/issue-1174-csharp-entrypoint-ownership.test.mjs",
+      "to": "tests/tools/csharp-entrypoint-ownership.test.mjs"
+    },
+    {
+      "from": "tests/tools/issue-1315-dotnet-release-metadata.test.mjs",
+      "to": "tests/tools/dotnet-release-metadata.test.mjs"
+    },
+    {
+      "from": "tests/tools/issue-1319-product-version-governance.test.mjs",
+      "to": "tests/tools/product-version-governance.test.mjs"
+    }
+  ]
+}

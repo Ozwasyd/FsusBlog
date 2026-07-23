@@ -68,7 +68,7 @@ sole owner of geometry token calculation and ResizeObserver lifecycle.
 The original shell-wide source test is currently deleted by a separate shared
 frontend source-locking migration. This pass did not restore or overwrite that dirty
 test. SSR fallback remains directly integrated in the dirty shell file and is listed
-as retained evidence in `tests/issue-1016-sticky-geometry-evidence.json`.
+as retained evidence in `tests/public-shell-sticky-geometry-evidence.json`.
 
 ## Scope preserved
 

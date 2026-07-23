@@ -254,7 +254,7 @@ function CommandRule(id, command)
         fixable: false,
         changedFileSafe: false,
         dependencies: [],
-        testFixtures: ['tests/tools/issue-1162-rule-platform.test.mjs'],
+        testFixtures: ['tests/tools/rule-platform.test.mjs'],
         documentation: 'docs/development/custom-rule-platform.md',
         execution: {
             mode: 'delegated-command',
@@ -282,7 +282,7 @@ function ImplementationRule(file, content)
         fixable: false,
         changedFileSafe: true,
         dependencies: [],
-        testFixtures: [file.startsWith('tests/') ? file : 'tests/tools/issue-1162-rule-platform.test.mjs'],
+        testFixtures: [file.startsWith('tests/') ? file : 'tests/tools/rule-platform.test.mjs'],
         documentation: 'docs/development/custom-rule-platform.md',
         execution: {
             mode: 'delegated-implementation',
