@@ -1191,6 +1191,16 @@
             "supersededBy": null
         },
         {
+            "path": "docs/performance-app-config-local-tuning.md",
+            "status": "current",
+            "owner": "release",
+            "relatedIssues": [
+                1453
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
             "path": "docs/performance-pod-binary-codec-batch.md",
             "status": "current",
             "owner": "release",

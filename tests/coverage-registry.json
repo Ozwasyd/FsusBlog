@@ -4151,6 +4151,30 @@
             ]
         },
         {
+            "id": "app-config-local-tuning-governance",
+            "description": "Application-level PublicAot and PublicHotRead experiments use one owner-bound catalog, deterministic local interaction designs, uncertainty-aware sensitivity models and bounded reversible proposals without production self-modification.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "config/performance/app-config-knob-catalog.v1.json",
+                "tools/perf/app-config-catalog.mjs",
+                "tools/perf/app-config-local-tuner.mjs",
+                "tools/perf/app-config-local-model.mjs",
+                "tools/perf/run-app-config-local-experiment.mjs",
+                "tests/tools/app-config-local-tuner.test.mjs",
+                "tests/performance/fixtures/app-config-local-surfaces.v1.json",
+                "tests/performance/app-config-local-evidence.v1.json",
+                "docs/performance-app-config-local-tuning.md",
+                "docs/performance-governance.md"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "Reject unknown or unowned knobs, missing guardrails, invalid ranges or lifecycles, hard-constraint conflicts, real notification candidates before issue 1451, high-noise pseudo-optima, infeasible steps, production writes, and candidates without explicit rollback.",
+            "minimumRequirement": "Static governance must exercise positive PublicAot/PublicHotRead synthetic surfaces plus owner, guardrail, range, lifecycle, hard-constraint, notification boundary, noise, guardrail, correctness and security negative fixtures; retained evidence must bind source/build/fixture/toolchain identity and preserve failed runs.",
+            "tierIds": [
+                "app-config-local-tuning"
+            ]
+        },
+        {
             "id": "configuration-layout-governance",
             "description": "Repository and backend runtime configuration have one canonical owner, semantic contract, environment classification and fail-closed drift gate.",
             "owner": "ServerContractAgent",

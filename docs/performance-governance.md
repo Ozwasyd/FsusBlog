@@ -2,6 +2,19 @@
 
 This document records the ongoing frontend performance rules that sit below the public first-screen P0/P1 work.
 
+## Application configuration experiments
+
+Application-level PublicAot and PublicHotRead knobs have one versioned catalog and a repo-local,
+bounded experiment runner. The runner estimates local first-order sensitivity, pairwise interaction
+and curvature, but it cannot write production configuration or relax correctness, security, resident
+memory, snapshot overlap, stale/fallback, queue-age or release guardrails. High noise, residual drift
+or a guardrail failure produces `insufficient-evidence`/`rejected` plus a smaller trust region and an
+explicit rollback profile.
+
+Notification queue tuning remains synthetic-only until issue #1451 defines delivery, loss, ordering
+and lane semantics. Catalog authority, commands, evidence fields, model limits and profile adoption are
+documented in [应用配置局部敏感度与安全步进](performance-app-config-local-tuning.md).
+
 ## Admin route chunks
 
 Admin code is split by domain instead of a single oversized `route-admin` chunk:

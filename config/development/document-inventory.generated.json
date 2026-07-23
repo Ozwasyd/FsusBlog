@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v2",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:969a1443b7ba3921ba5674b332b9cf4f35cc814c8b274cc77f8acc816a00e776",
+    "policyDigest": "sha256:f6f02bf8aa60c918a7f141c6921777b492111f10b38d3c51d4f1181681fc58b1",
     "documents": [
         {
             "path": "docs/active-release-fenced-commits.md",
@@ -1820,6 +1820,21 @@
             "supersedes": [],
             "supersededBy": null,
             "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/performance-app-config-local-tuning.md",
+            "title": "应用配置局部敏感度与安全步进",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "release",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1453
+            ],
             "producer": null
         },
         {

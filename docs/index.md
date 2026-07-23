@@ -165,6 +165,7 @@
 - [Operations Infrastructure Layout](operations-layout.md)
 - [FsusBlog Operations Runbook](operations.md)
 - [AEDS cache-miss owned-frame 构建与生命周期](performance-aeds-cache-miss-owned-frame.md)
+- [应用配置局部敏感度与安全步进](performance-app-config-local-tuning.md)
 - [评论审核队列查询计划与基准证据](performance-comment-moderation-queue.md)
 - [评论树查询计划与基准证据](performance-comment-tree.md)
 - [CSP nonce UTF-8 segment templates](performance-csp-nonce-template.md)

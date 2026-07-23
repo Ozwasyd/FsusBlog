@@ -119,6 +119,7 @@ localProfiles:
                       validate-matrix,
                       production-build-artifacts,
                       public-hydration-fast,
+                      app-config-local-tuning,
                       wasm-fuzz-regression,
                       perception-v2-redteam-pr,
                       risk-control-test-matrix,
@@ -1820,6 +1821,64 @@ tiers:
       localOnly: false
       nightlyOnly: false
 
+    - id: app-config-local-tuning
+      owner: ServerContractAgent
+      command: node --test tests/tools/app-config-local-tuner.test.mjs
+      dependsOn: [validate-matrix]
+      services: []
+      parallelizable: true
+      exclusiveResources: []
+      phase: 1
+      cost: low
+      resourceClass: cpu
+      cpuWeight: 0.5
+      memoryWeight: 0.5
+      minCpuUnits: 1
+      executionKey: app-config-local-tuning
+      executionVariant: ordinary
+      cacheInputs:
+          [
+              config/performance/app-config-knob-catalog.v1.json,
+              tools/perf/app-config-catalog.mjs,
+              tools/perf/app-config-local-tuner.mjs,
+              tools/perf/app-config-local-model.mjs,
+              tools/perf/run-app-config-local-experiment.mjs,
+              tests/tools/app-config-local-tuner.test.mjs,
+              tests/performance/fixtures/app-config-local-surfaces.v1.json,
+              tests/performance/app-config-local-evidence.v1.json,
+              docs/performance-app-config-local-tuning.md,
+              docs/performance-governance.md,
+          ]
+      requiresBootstrap: none
+      requiresNode: true
+      requiresDotnet: false
+      requiresPlaywright: none
+      cacheProfile: none
+      timeoutMinutes: 2
+      shardable: false
+      defaultShards: 1
+      risk: high
+      cadence: pr
+      requiredFor: fast
+      coverage: [app-config-local-tuning-governance]
+      artifacts: []
+      evidence:
+          [
+              config/performance/app-config-knob-catalog.v1.json,
+              tools/perf/app-config-catalog.mjs,
+              tools/perf/app-config-local-tuner.mjs,
+              tools/perf/app-config-local-model.mjs,
+              tools/perf/run-app-config-local-experiment.mjs,
+              tests/performance/app-config-local-evidence.v1.json,
+              tests/performance/fixtures/app-config-local-surfaces.v1.json,
+              tests/tools/app-config-local-tuner.test.mjs,
+              docs/performance-app-config-local-tuning.md,
+              docs/performance-governance.md,
+          ]
+      ciJob: fast-static-governance
+      localOnly: false
+      nightlyOnly: false
+
     - id: public-hydration-fast
       owner: ServerContractAgent
       command: tools/test/lanes/public-hydration-fast.sh
@@ -1862,6 +1921,7 @@ tiers:
               backend-fast,
               integrity-proof-verification,
               static-governance,
+              app-config-local-tuning,
               public-hydration-fast,
           ]
       services: []
