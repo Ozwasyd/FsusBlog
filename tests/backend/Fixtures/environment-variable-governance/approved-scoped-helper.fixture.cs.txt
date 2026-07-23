@@ -1,0 +1,11 @@
+using FsusBlog.Server.Tests.Fixtures;
+
+[Collection(nameof(EnvironmentVariableCollection))]
+public sealed class ApprovedEnvironmentVariableTests
+{
+    public void UsesScopedHelper()
+    {
+        ScopedEnvironmentVariables.Run(["FSUSBLOG_FIXTURE"], scope =>
+            scope.Set("FSUSBLOG_FIXTURE", "value"));
+    }
+}

@@ -9,6 +9,11 @@ const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const requirementCatalogPath = 'tests/backend/Fixtures/backend-test-requirements.json'
 const aedsCatalogPath = 'tests/backend/Fixtures/aeds-golden-catalog.json'
 const pathGovernanceFixtureDirectory = 'tests/backend/Fixtures/backend-test-path-governance'
+const environmentVariableGovernanceFixtureDirectory = 'tests/backend/Fixtures/environment-variable-governance'
+const environmentVariableCollectionPath = 'tests/backend/Fixtures/EnvironmentVariableCollection.cs'
+const approvedEnvironmentVariableMutationFiles = new Set([
+  'tests/backend/Fixtures/ScopedEnvironmentVariables.cs'
+])
 const backendPathGovernanceAllowedFiles = new Set([
   'tests/backend/Unit/TestInfrastructure/BackendTestPaths.cs',
   'tests/backend/Unit/TestInfrastructure/BackendTestPathsTests.cs'
@@ -198,6 +203,108 @@ function verifyBackendTestPathGovernance() {
         `backend-test-path-governance ${violation.path}:${violation.line} ` +
         `${violation.rule}: ${violation.message}`
       )
+    }
+  }
+}
+
+function scanEnvironmentVariableMutations(relativePath, source) {
+  if (approvedEnvironmentVariableMutationFiles.has(relativePath)) {
+    return []
+  }
+
+  const mutationIndexes = findRuleMatches(
+    source,
+    /\bEnvironment\s*\.\s*SetEnvironmentVariable\s*\(/g
+  )
+  if (mutationIndexes.length === 0) {
+    return []
+  }
+
+  const approvedCollectionPattern =
+    /\[\s*Collection\s*\(\s*nameof\s*\(\s*EnvironmentVariableCollection\s*\)\s*\)\s*\]\s*(?:(?:public|internal|private|protected|sealed|abstract|partial)\s+)*class\s+[A-Za-z_][A-Za-z0-9_]*/u
+  if (approvedCollectionPattern.test(source)) {
+    return []
+  }
+
+  return mutationIndexes.map(index => ({
+    path: relativePath,
+    line: lineNumberForIndex(source, index),
+    rule: 'unisolated-environment-variable-mutation',
+    message:
+      'use ScopedEnvironmentVariables and annotate the test class with EnvironmentVariableCollection'
+  }))
+}
+
+function formatEnvironmentVariableViolation(violation) {
+  return `backend-environment-variable-governance ${violation.path}:${violation.line} ` +
+    `${violation.rule}: ${violation.message}`
+}
+
+function verifyEnvironmentVariableGovernanceFixtures() {
+  const positiveFixture =
+    `${environmentVariableGovernanceFixtureDirectory}/approved-scoped-helper.fixture.cs.txt`
+  const negativeFixture =
+    `${environmentVariableGovernanceFixtureDirectory}/unapproved-direct-mutation.fixture.cs.txt`
+
+  requireFile(positiveFixture)
+  requireFile(negativeFixture)
+
+  const positiveViolations = scanEnvironmentVariableMutations(
+    positiveFixture,
+    readFileSync(resolve(root, positiveFixture), 'utf8')
+  )
+  if (positiveViolations.length > 0) {
+    fail(
+      'backend-environment-variable-governance positive fixture emitted violations: ' +
+      positiveViolations.map(violation => violation.rule).join(', ')
+    )
+  }
+
+  const negativeViolations = scanEnvironmentVariableMutations(
+    negativeFixture,
+    readFileSync(resolve(root, negativeFixture), 'utf8')
+  )
+  if (negativeViolations.length !== 1) {
+    fail(
+      'backend-environment-variable-governance negative fixture must emit exactly one violation'
+    )
+    return
+  }
+
+  const diagnostic = formatEnvironmentVariableViolation(negativeViolations[0])
+  if (!diagnostic.includes(`${negativeFixture}:5 `)) {
+    fail(
+      'backend-environment-variable-governance negative fixture diagnostic must include file and line'
+    )
+  }
+}
+
+function verifyEnvironmentVariableGovernance() {
+  requireFile(environmentVariableCollectionPath)
+  const collectionSource = readFileSync(resolve(root, environmentVariableCollectionPath), 'utf8')
+  if (
+    !/\[\s*CollectionDefinition\s*\(\s*nameof\s*\(\s*EnvironmentVariableCollection\s*\)\s*,\s*DisableParallelization\s*=\s*true\s*\)\s*\]/u
+      .test(collectionSource)
+  ) {
+    fail(
+      `${environmentVariableCollectionPath} must keep EnvironmentVariableCollection ` +
+      'DisableParallelization = true'
+    )
+  }
+
+  verifyEnvironmentVariableGovernanceFixtures()
+
+  const backendTestFiles = walk(
+    resolve(root, 'tests/backend'),
+    path => path.endsWith('.cs')
+  )
+    .map(path => ({ fullPath: path, relativePath: toRepoPath(path) }))
+    .sort((left, right) => left.relativePath.localeCompare(right.relativePath))
+
+  for (const { fullPath, relativePath } of backendTestFiles) {
+    const source = readFileSync(fullPath, 'utf8')
+    for (const violation of scanEnvironmentVariableMutations(relativePath, source)) {
+      fail(formatEnvironmentVariableViolation(violation))
     }
   }
 }
@@ -439,6 +546,7 @@ for (const path of [
 }
 
 verifyBackendTestPathGovernance()
+verifyEnvironmentVariableGovernance()
 
 if (errors.length > 0) {
   for (const error of errors) {

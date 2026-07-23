@@ -3,11 +3,13 @@ using System.Reflection;
 using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Tests.Fixtures;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
 using Microsoft.Extensions.Configuration;
 namespace FsusBlog.Server.Tests.Unit;
 
+[Collection(nameof(EnvironmentVariableCollection))]
 public sealed class FsusHostRuntimeTuningTests
 {
     [Fact]
@@ -31,14 +33,18 @@ public sealed class FsusHostRuntimeTuningTests
     [Fact]
     public void Apply_WithDotnetRuntimeSettings_DoesNotMutateStartupEnvironmentVariables()
     {
-        string? originalReadyToRun = Environment.GetEnvironmentVariable("DOTNET_ReadyToRun");
-        string? originalQuickJit = Environment.GetEnvironmentVariable("DOTNET_TC_QuickJitForLoops");
-        string? originalTieredPgo = Environment.GetEnvironmentVariable("DOTNET_TieredPGO");
-        try
+        string[] names =
         {
-            Environment.SetEnvironmentVariable("DOTNET_ReadyToRun", null);
-            Environment.SetEnvironmentVariable("DOTNET_TC_QuickJitForLoops", null);
-            Environment.SetEnvironmentVariable("DOTNET_TieredPGO", null);
+            "DOTNET_ReadyToRun",
+            "DOTNET_TC_QuickJitForLoops",
+            "DOTNET_TieredPGO"
+        };
+
+        ScopedEnvironmentVariables.Run(names, environment =>
+        {
+            environment.Set("DOTNET_ReadyToRun", null);
+            environment.Set("DOTNET_TC_QuickJitForLoops", null);
+            environment.Set("DOTNET_TieredPGO", null);
             IConfiguration configuration = new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string?>
                 {
@@ -59,13 +65,7 @@ public sealed class FsusHostRuntimeTuningTests
             Assert.Null(Environment.GetEnvironmentVariable("DOTNET_ReadyToRun"));
             Assert.Null(Environment.GetEnvironmentVariable("DOTNET_TC_QuickJitForLoops"));
             Assert.Null(Environment.GetEnvironmentVariable("DOTNET_TieredPGO"));
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable("DOTNET_ReadyToRun", originalReadyToRun);
-            Environment.SetEnvironmentVariable("DOTNET_TC_QuickJitForLoops", originalQuickJit);
-            Environment.SetEnvironmentVariable("DOTNET_TieredPGO", originalTieredPgo);
-        }
+        });
     }
 
     [Fact]
@@ -88,26 +88,22 @@ public sealed class FsusHostRuntimeTuningTests
             "DOTNET_GCHeapCount",
             "DOTNET_GCHeapHardLimit"
         ];
-        Dictionary<string, string?> original = names.ToDictionary(
-            static name => name,
-            static name => Environment.GetEnvironmentVariable(name),
-            StringComparer.Ordinal);
-        try
+        ScopedEnvironmentVariables.Run(names, environment =>
         {
-            Environment.SetEnvironmentVariable("DOTNET_ReadyToRun", "0");
-            Environment.SetEnvironmentVariable("DOTNET_TC_QuickJitForLoops", "0");
-            Environment.SetEnvironmentVariable("DOTNET_TieredPGO", "1");
-            Environment.SetEnvironmentVariable("FSUSBLOG_RUNTIME_PROFILE_ID", "throughput-musl");
-            Environment.SetEnvironmentVariable("FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST", "sha256:" + new string('a', 64));
-            Environment.SetEnvironmentVariable("FSUSBLOG_RUNTIME_PROFILE_DIGEST", "sha256:" + new string('b', 64));
-            Environment.SetEnvironmentVariable("FSUSBLOG_RUNTIME_GC_HEAP_COUNT_MODE", "cpuset");
-            Environment.SetEnvironmentVariable("FSUSBLOG_RUNTIME_GC_HEAP_HARD_LIMIT_MODE", "explicit-container-percent");
-            Environment.SetEnvironmentVariable("FSUSBLOG_RUNTIME_GC_HEAP_HARD_LIMIT_PERCENT", "75");
-            Environment.SetEnvironmentVariable("FSUSBLOG_RUNTIME_THREAD_POOL_MODE", "evidence-derived");
-            Environment.SetEnvironmentVariable("FSUSBLOG_RUNTIME_THREAD_POOL_MIN_THREADS_PER_CPU", "0");
-            Environment.SetEnvironmentVariable("FSUSBLOG_RUNTIME_TOPOLOGY_MODE", "physical-core-only");
-            Environment.SetEnvironmentVariable("DOTNET_GCHeapCount", "4");
-            Environment.SetEnvironmentVariable("DOTNET_GCHeapHardLimit", "c0000000");
+            environment.Set("DOTNET_ReadyToRun", "0");
+            environment.Set("DOTNET_TC_QuickJitForLoops", "0");
+            environment.Set("DOTNET_TieredPGO", "1");
+            environment.Set("FSUSBLOG_RUNTIME_PROFILE_ID", "throughput-musl");
+            environment.Set("FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST", "sha256:" + new string('a', 64));
+            environment.Set("FSUSBLOG_RUNTIME_PROFILE_DIGEST", "sha256:" + new string('b', 64));
+            environment.Set("FSUSBLOG_RUNTIME_GC_HEAP_COUNT_MODE", "cpuset");
+            environment.Set("FSUSBLOG_RUNTIME_GC_HEAP_HARD_LIMIT_MODE", "explicit-container-percent");
+            environment.Set("FSUSBLOG_RUNTIME_GC_HEAP_HARD_LIMIT_PERCENT", "75");
+            environment.Set("FSUSBLOG_RUNTIME_THREAD_POOL_MODE", "evidence-derived");
+            environment.Set("FSUSBLOG_RUNTIME_THREAD_POOL_MIN_THREADS_PER_CPU", "0");
+            environment.Set("FSUSBLOG_RUNTIME_TOPOLOGY_MODE", "physical-core-only");
+            environment.Set("DOTNET_GCHeapCount", "4");
+            environment.Set("DOTNET_GCHeapHardLimit", "c0000000");
             IConfiguration configuration = new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string?>
                 {
@@ -137,14 +133,7 @@ public sealed class FsusHostRuntimeTuningTests
             Assert.Equal("evidence-derived", report.ThreadPoolMode);
             Assert.Equal("0", report.ThreadPoolMinThreadsPerCpuDeclared);
             Assert.Equal("physical-core-only", report.TopologyMode);
-        }
-        finally
-        {
-            foreach ((string name, string? value) in original)
-            {
-                Environment.SetEnvironmentVariable(name, value);
-            }
-        }
+        });
     }
 
     [Fact]
