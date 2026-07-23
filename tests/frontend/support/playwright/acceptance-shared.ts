@@ -509,23 +509,28 @@ export async function ensureThemeApplied(page: Page, mode: ThemeMode): Promise<v
 }
 
 export async function prewarmDevRuntime(browser: Browser): Promise<void> {
-  const session = await openAuditedPage(browser)
+  let session = await openAuditedPage(browser)
+
+  const warm = async (): Promise<void> => {
+    await session.page.goto('/', { waitUntil: 'domcontentloaded' })
+    await waitForAppReady(session.page, WARMUP_TIMEOUT_MS)
+  }
 
   try {
-    await session.page.goto('/', { waitUntil: 'domcontentloaded' })
     try {
-      await waitForAppReady(session.page, WARMUP_TIMEOUT_MS)
+      await warm()
     } catch (error) {
       // A cold Vite dependency optimization can invalidate the document that
-      // triggered it. Reload that one stale document after the transform
-      // budget has elapsed; a persistent application failure still fails the
-      // second readiness check instead of being hidden by an open-ended retry.
+      // triggered it and can crash that renderer before reload. Replace the
+      // audited context once after the transform budget; a persistent failure
+      // still fails the second readiness check instead of being hidden.
       if (!(error instanceof Error) || error.name !== 'TimeoutError') {
         throw error
       }
 
-      await session.page.reload({ waitUntil: 'domcontentloaded' })
-      await waitForAppReady(session.page, WARMUP_TIMEOUT_MS)
+      await session.close()
+      session = await openAuditedPage(browser)
+      await warm()
     }
   } finally {
     await session.close()

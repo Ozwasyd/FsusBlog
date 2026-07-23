@@ -323,8 +323,13 @@ CiProductionHasDomain() {
 
 EXECUTION_STARTED_AT_MS="$(date +%s%3N)"
 DEDICATED_RUNTIME_EXECUTION_BUDGET_CAP_MS=240000
+PUBLIC_PREVIEW_CAPTURE_EXECUTION_BUDGET_CAP_MS=1800000
 ResolveExecutionBudgetMs() {
     local inherited="${FSUSBLOG_STEP_DEADLINE_MS:-${FSUSBLOG_BUNDLE_DEADLINE_MS:-}}"
+    if [[ "${FSUSBLOG_PUBLIC_PREVIEW_DOCS_CAPTURE:-0}" == "1" ]]; then
+        printf '%s\n' "$PUBLIC_PREVIEW_CAPTURE_EXECUTION_BUDGET_CAP_MS"
+        return 0
+    fi
     if [[ "${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" == "1" ]]; then
         if [[ -z "$inherited" ]]; then
             printf '%s\n' "$DEDICATED_RUNTIME_EXECUTION_BUDGET_CAP_MS"
@@ -697,6 +702,8 @@ WriteRuntimeProcessIdentity() {
         FSUSBLOG_RUNTIME_IDENTITY_ROLE="$role" \
         FSUSBLOG_RUNTIME_IDENTITY_DEDICATED="${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" \
         FSUSBLOG_RUNTIME_IDENTITY_PREPARATION_ID="${FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID:-}" \
+        FSUSBLOG_RUNTIME_IDENTITY_SOURCE_COMMIT="${FSUSBLOG_TEST_SOURCE_COMMIT:-}" \
+        FSUSBLOG_RUNTIME_IDENTITY_SOURCE_FINGERPRINT="${FSUSBLOG_TEST_SOURCE_FINGERPRINT:-}" \
         FSUSBLOG_RUNTIME_IDENTITY_FILE="$identityFile" \
         FSUSBLOG_RUNTIME_IDENTITY_DEADLINE_AT_MS="$readinessDeadlineAtMs" \
         "${FSUSBLOG_NODE:-node}" <<'NODE'
@@ -709,6 +716,8 @@ const namespace = String(process.env.FSUSBLOG_RUNTIME_IDENTITY_NAMESPACE ?? '').
 const role = String(process.env.FSUSBLOG_RUNTIME_IDENTITY_ROLE ?? '').trim()
 const dedicated = process.env.FSUSBLOG_RUNTIME_IDENTITY_DEDICATED === '1'
 const preparationId = String(process.env.FSUSBLOG_RUNTIME_IDENTITY_PREPARATION_ID ?? '').trim()
+const sourceCommit = String(process.env.FSUSBLOG_RUNTIME_IDENTITY_SOURCE_COMMIT ?? '').trim()
+const sourceFingerprint = String(process.env.FSUSBLOG_RUNTIME_IDENTITY_SOURCE_FINGERPRINT ?? '').trim()
 const file = path.resolve(process.env.FSUSBLOG_RUNTIME_IDENTITY_FILE ?? '')
 const inheritedDeadlineAtMs = Number.parseInt(
   process.env.FSUSBLOG_RUNTIME_IDENTITY_DEADLINE_AT_MS ?? '',
@@ -716,6 +725,7 @@ const inheritedDeadlineAtMs = Number.parseInt(
 )
 if (!Number.isInteger(pid) || pid <= 1 || !runId || !namespace || !role || !file
   || (dedicated && !preparationId)
+  || (dedicated && (!/^[a-f0-9]{40}$/u.test(sourceCommit) || !/^[a-f0-9]{64}$/u.test(sourceFingerprint)))
   || !Number.isInteger(inheritedDeadlineAtMs)) {
   throw new Error('runtime process identity input is incomplete')
 }
@@ -749,6 +759,10 @@ while (Date.now() <= deadlineAtMs) {
       && environment.FSUSBLOG_TEST_NAMESPACE === namespace
       && environment.FSUSBLOG_RUNTIME_ROLE === role
       && (!dedicated || (
+        environment.FSUSBLOG_TEST_SOURCE_COMMIT === sourceCommit
+        && environment.FSUSBLOG_TEST_SOURCE_FINGERPRINT === sourceFingerprint
+      ))
+      && (!dedicated || (
         environment.FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME === '1'
         && environment.FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID === preparationId
       ))) {
@@ -779,6 +793,10 @@ fs.writeFileSync(pending, `${JSON.stringify({
   namespace,
   role,
   preparationId,
+  sourceState: {
+    commit: sourceCommit,
+    worktreeFingerprint: sourceFingerprint
+  },
   createdAt: new Date().toISOString()
 }, null, 2)}\n`, { mode: 0o600 })
 fs.chmodSync(pending, 0o600)

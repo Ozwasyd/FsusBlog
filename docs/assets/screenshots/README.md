@@ -87,6 +87,17 @@ npm --prefix src/frontend run capture:public-preview-docs
 npm --prefix src/frontend run verify:public-preview-docs
 ```
 
+The writer requires a clean checkout and derives its source fingerprint from
+the same Git worktree snapshot authority as the test matrix. Before any docs
+asset is written, it verifies both the backend and debug-frontend PID/identity
+sidecars against the live process group and requires their inherited source
+commit and fingerprint to match that checkout. A mismatch reports expected and
+actual identities and fails while output is still isolated in staging.
+It also fails before taking the writer lock when the checked-out frontend
+toolchain is incomplete; install the lockfile-resolved dependencies locally
+before retrying. The explicit capture command receives a cold-build budget,
+while ordinary dedicated browser-contract runs retain their shorter default.
+
 `verify:public-preview-docs` is read-only: it recaptures into a temporary
 directory, compares every screenshot ID, writes deterministic release evidence
 under `.tmp/release-evidence/`, and requests the explicit capture command when
