@@ -459,8 +459,8 @@ function checkPublicTypographyContract()
 
     assertContains(
         themeTokensPath,
-        /const metadataText = `text-xs sm:text-sm leading-4 sm:leading-5/,
-        'public metadata must use the 12px/14px readable role scale'
+        /const metadataText = `text-xs sm:text-sm leading-\[1\.5\][^`]*normal-case/,
+        'article detail metadata must use the readable 12px/14px natural-case role scale'
     );
     assertContains(
         themeTokensPath,
@@ -489,8 +489,13 @@ function checkPublicTypographyContract()
     );
     assertContains(
         themeTokensPath,
-        /tagLink: `inline-flex min-h-9 items-center px-1 text-xs sm:text-sm leading-4 sm:leading-5[\s\S]*?outline-none \$\{focusRing\}/,
-        'public article tags must retain a 36px mobile touch target and visible focus treatment'
+        /articleDetail:\s*\{[\s\S]*?categoryLink: `inline-flex min-h-11 min-w-11[^`]*normal-case[\s\S]*?outline-none \$\{focusRing\}/,
+        'article detail category links must retain a 44px hit target, natural casing, and visible focus treatment'
+    );
+    assertContains(
+        themeTokensPath,
+        /tagLink: `inline-flex min-h-11 min-w-11[^`]*normal-case[\s\S]*?outline-none \$\{focusRing\}/,
+        'article detail tags must retain a 44px hit target, natural casing, and visible focus treatment'
     );
     assertContains(
         publicArticleListPath,
@@ -510,11 +515,10 @@ function checkPublicTypographyContract()
 
     const publicShellCriticalCss = read(publicShellCriticalCssPath);
     const publicShellEmergencyCss = read(publicShellEmergencyCssPath);
-    const themeTokens = read(themeTokensPath);
-    for (const [file, source] of [
-        [publicPageCssPath, read(publicPageCssPath)],
-        [publicShellCriticalCssPath, publicShellCriticalCss],
-        [publicShellEmergencyCssPath, publicShellEmergencyCss]
+    for (const file of [
+        publicPageCssPath,
+        publicShellCriticalCssPath,
+        publicShellEmergencyCssPath
     ])
     {
         assertContains(file, /--fsusblog-color-focus-ring:\s*var\(--fsus-color-primary, #2A599C\);/, 'focus ring must map to Scholarly Blue');

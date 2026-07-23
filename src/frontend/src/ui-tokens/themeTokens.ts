@@ -12,7 +12,7 @@ const focusRing = 'focus-visible:ring-2 focus-visible:ring-inset focus-visible:r
 const primaryHover = 'hover:text-[var(--fsusblog-color-primary)]';
 const colorTransition = 'transition-fsus transition-fsus-fast';
 const microRadius = 'rounded-[var(--fsusblog-radius-control)]';
-const metadataText = `text-xs sm:text-sm leading-4 sm:leading-5 font-medium ${textMuted} uppercase tracking-normal`;
+const metadataText = `text-xs sm:text-sm leading-[1.5] font-medium ${textMuted} normal-case tracking-normal`;
 const articleListMetadataText = `text-xs sm:text-sm leading-4 sm:leading-5 font-medium ${textMuted} tracking-normal`;
 const numericText = 'tabular-nums';
 
@@ -33,14 +33,14 @@ export const themeTokens: ThemeTokenContract = {
     },
     articleDetail: {
         header: `mb-3 sm:mb-4 pb-3 sm:pb-4 border-b ${lineBorder}`,
-        title: `text-2xl sm:text-3xl font-bold ${textHeading} leading-[1.25] sm:leading-[1.2] tracking-normal mb-8 sm:mb-10`,
-        metaRow: `flex flex-wrap items-center gap-6 ${metadataText}`,
+        title: `text-2xl sm:text-3xl font-bold ${textHeading} leading-[1.25] sm:leading-[1.2] tracking-normal mb-5`,
+        metaRow: `article-detail-metadata flex flex-wrap items-center gap-x-4 gap-y-2 ${metadataText}`,
         metaSeparator: publicPeriodMotif.metadata.className,
-        categoryLink: `inline-flex min-h-9 items-center px-1 ${textMuted} ${primaryHover} ${colorTransition} outline-none ${focusRing}`,
+        categoryLink: `inline-flex min-h-11 min-w-11 items-center px-1 normal-case ${textMuted} ${primaryHover} ${colorTransition} outline-none ${focusRing}`,
         categoryText: textMuted,
         footer: `mt-12 sm:mt-16 pt-6 sm:pt-8 border-t ${lineBorder}`,
         tagList: 'flex flex-wrap gap-x-5 gap-y-2 sm:gap-x-6',
-        tagLink: `inline-flex min-h-9 items-center px-1 text-xs sm:text-sm leading-4 sm:leading-5 font-medium uppercase tracking-normal ${textMuted} hover:text-[var(--fsusblog-text-primary)] ${colorTransition} outline-none ${focusRing}`,
+        tagLink: `inline-flex min-h-11 min-w-11 items-center px-1 text-xs sm:text-sm leading-[1.5] font-medium normal-case tracking-normal ${textMuted} hover:text-[var(--fsusblog-text-primary)] ${colorTransition} outline-none ${focusRing}`,
         commentsRoot: 'mt-6 sm:mt-8 pb-20',
         commentsHeading: `text-xs font-medium ${textMuted} uppercase tracking-normal mb-6`,
         commentsPlaceholderRoot: `flex items-center justify-center gap-2 rounded-[var(--fsusblog-radius-panel)] py-3 text-xs ${textTertiary} font-medium normal-case tracking-normal shadow-none`,

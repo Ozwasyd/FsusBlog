@@ -87,6 +87,22 @@ describe('public content semantics', () => {
     expect(detail.get('h1').text()).toBe(listItem.title)
     expect(detail.get('[itemprop="articleSection"]').text()).toBe(listItem.meta.categoryName)
     expect(detail.text()).toContain('18 浏览')
+    expect(detail.findAll('[data-article-metadata-group]')).toHaveLength(2)
+    expect(detail.get('[data-article-metadata-group="dates"]').text()).toContain('2026')
+    expect(detail.get('[data-article-metadata-group="context"]').text()).toContain('18 浏览')
+    expect(
+      detail
+        .findAll('[data-article-metadata-group] [aria-hidden="true"]')
+        .every((separator) =>
+          separator.element.closest('.article-detail-metadata__unit--fixed')
+        )
+    ).toBe(true)
+    expect(detail.get('[itemprop="articleSection"]').classes()).toEqual(
+      expect.arrayContaining(['min-h-11', 'min-w-11', 'normal-case'])
+    )
+    expect(detail.get('[data-article-metadata]').classes()).toEqual(
+      expect.arrayContaining(['gap-x-4', 'gap-y-2', 'normal-case'])
+    )
 
     list.unmount()
     detail.unmount()
