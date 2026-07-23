@@ -99,7 +99,7 @@ const canonicalTaskPageFiles = [
     'src/frontend/src/views/admin/UserManage.vue',
     'src/frontend/src/views/admin/article/List.vue',
     'src/frontend/src/views/admin/article/Trash.vue',
-    'src/frontend/src/views/admin/article/Write.vue',
+    'src/frontend/src/components/admin/article/ArticleWriteCommandBar.vue',
     'src/frontend/src/views/admin/moderation/ModerationLayout.vue',
     'src/frontend/src/views/admin/security/SecurityLayout.vue'
 ];
