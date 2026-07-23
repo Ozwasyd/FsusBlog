@@ -18,7 +18,6 @@ const componentFiles = [
     'src/frontend/src/components/filter/FilterHeader.vue',
     'src/frontend/src/components/public/pages/PublicArchivePageContent.vue',
     'src/frontend/src/components/public/pages/PublicAboutPageContent.vue',
-    'src/frontend/src/components/home/FeaturedArticlesSection.vue',
     'src/frontend/src/views/auth/Login.vue',
     'src/frontend/src/views/auth/Register.vue',
     'src/frontend/src/views/auth/Recover.vue',
@@ -39,6 +38,19 @@ for (const file of componentFiles)
     }
     assert(!/gradient|glow|text-shadow/u.test(source), `${file} must not create a decorative title focus layer`);
 }
+
+const featuredHomePath = 'src/frontend/src/components/home/FeaturedArticlesSection.vue';
+const featuredHome = read(featuredHomePath);
+const featuredHomeHeadings = [...featuredHome.matchAll(/<h1\b[^>]*>/gs)];
+assert(featuredHomeHeadings.length === 1, `${featuredHomePath} must expose exactly one page H1`);
+for (const token of ['text-[28px]', 'font-bold', 'leading-[1.15]', 'tracking-normal'])
+{
+    assert(featuredHomeHeadings[0][0].includes(token), `${featuredHomePath} editorial H1 is missing ${token}`);
+}
+assert(!/\btext-(?:4xl|5xl|6xl|7xl|8xl|9xl)\b/u.test(featuredHome),
+    `${featuredHomePath} contains an oversized display utility`);
+assert(!/gradient|glow|text-shadow/u.test(featuredHome),
+    `${featuredHomePath} must not create a decorative title focus layer`);
 
 for (const file of ['src/frontend/src/views/auth/Login.vue', 'src/frontend/src/views/auth/Register.vue', 'src/frontend/src/views/auth/Recover.vue'])
 {
