@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import FsusSecurityChallenge from '@/components/security/FsusSecurityChallenge.vue'
 import { SecurityChallengeKind, type SecurityChallengeAssignment } from '@/api/security'
 import { PerceptionCharacterV3Representation } from '@/contracts/binaryApi'
+import { canonicalPerceptionCharacterV3Png } from '../../helpers/perceptionCharacterV3Media'
 import {
   SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION,
   resolveChallengeCapability,
@@ -343,14 +344,14 @@ describe('FsusSecurityChallenge capability dispatch', () => {
       expiresAtUnixMs: Date.now() + 60_000
     }
     const payload = {
-      algorithm: 'fsu.challenge/perception-character-raster@v3' as const,
+      algorithm: 'fsu.challenge/perception-character-artifact@v3' as const,
       challengeId: currentAssignment.challengeId,
       envelopeId: '01900000-0000-7000-8000-000000000001',
       representation: PerceptionCharacterV3Representation.Visual,
-      mediaType: 'application/x-fsus-gray8' as const,
-      mediaBytes: new Uint8Array(512 * 192).fill(127),
-      physicalWidth: 512,
-      physicalHeight: 192,
+      mediaType: 'image/png' as const,
+      mediaBytes: canonicalPerceptionCharacterV3Png(),
+      physicalWidth: 384,
+      physicalHeight: 144,
       displayWidth: 320,
       displayHeight: 120,
       attemptBudget: 2 as const,
@@ -395,7 +396,7 @@ describe('FsusSecurityChallenge capability dispatch', () => {
     const host = wrapper.findComponent({ name: 'FsusPerceptionCharacterChallenge' })
     expect(host.exists()).toBe(true)
     expect(host.props('state')).toBe('ready')
-    expect(host.props('media').raster).toMatchObject({ kind: 'rgba-raster', width: 512, height: 192 })
+    expect(host.props('media').raster).toMatchObject({ kind: 'image-url', width: 320, height: 120 })
     host.vm.$emit('submit', { kind: 'character', value: 'AB12', challengeId: currentAssignment.challengeId })
     await flushPromises()
     expect(host.props('state')).toBe('retryable')

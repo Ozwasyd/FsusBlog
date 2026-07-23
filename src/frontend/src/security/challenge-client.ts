@@ -128,7 +128,7 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
 
     async function issue(context: SecurityChallengeContext, issueOptions: { forceRefresh?: boolean; } = {}): Promise<SecurityChallengeIssueResult>
 {
-        return issueInternal(context, issueOptions);
+        return issueInternal(context, { ...issueOptions, requestedRepresentation: 'visual' });
     }
 
     async function issueInternal(

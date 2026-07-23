@@ -10,6 +10,10 @@ import {
   type SecurityChallengeVerifyResponse
 } from '@/contracts/binaryApi';
 import { readByte, readFixedUtf8, readInt32, readInt64Number, readSliceRef, readSliceText } from '@/codecs/binary/reader';
+import {
+  isCanonicalPerceptionCharacterV3OpusOgg,
+  isCanonicalPerceptionCharacterV3Png
+} from '@/services/securityPerceptionCharacterV3MediaValidator';
 
 const decoder = new TextDecoder('utf-8', { fatal: true });
 
@@ -18,9 +22,9 @@ const SECURITY_CHALLENGE_ASSIGNMENT_POD_SIZE = 664;
 const SECURITY_CHALLENGE_PROVIDER_PAYLOAD_POD_SIZE = 72;
 const SECURITY_CHALLENGE_VERIFY_RESPONSE_POD_SIZE = 968;
 const PERCEPTION_CHARACTER_V3_ISSUE_POD_SIZE = 256;
-const PERCEPTION_CHARACTER_V3_ALGORITHM = 'fsu.challenge/perception-character-raster@v3';
-const PERCEPTION_CHARACTER_V3_VISUAL_BYTES = 512 * 192;
-const PERCEPTION_CHARACTER_V3_MAX_AUDIO_BYTES = 256 * 1024;
+const PERCEPTION_CHARACTER_V3_ALGORITHM = 'fsu.challenge/perception-character-artifact@v3';
+const PERCEPTION_CHARACTER_V3_MAX_VISUAL_BYTES = 32 * 1024;
+const PERCEPTION_CHARACTER_V3_MAX_AUDIO_BYTES = 48 * 1024;
 const PERCEPTION_CHARACTER_V3_MAX_STATE_BYTES = 2048;
 const PERCEPTION_CHARACTER_V3_MAX_ENCODED_BYTES =
     PERCEPTION_CHARACTER_V3_ISSUE_POD_SIZE + 4 + 128 + 64 + PERCEPTION_CHARACTER_V3_MAX_AUDIO_BYTES + PERCEPTION_CHARACTER_V3_MAX_STATE_BYTES;
@@ -159,7 +163,7 @@ export function mapPerceptionCharacterV3IssuePayload(
     const mediaTypeBytes = readSliceBytesStrict(blob, readSliceRef(payload, 232), 'perception_character_v3_media_type_slice_invalid', 64);
     const mediaRef = readSliceRef(payload, 240);
     const mediaMaximum = representation === PerceptionCharacterV3Representation.Visual
-        ? PERCEPTION_CHARACTER_V3_VISUAL_BYTES
+        ? PERCEPTION_CHARACTER_V3_MAX_VISUAL_BYTES
         : PERCEPTION_CHARACTER_V3_MAX_AUDIO_BYTES;
     if (mediaRef.length !== mediaByteCount || mediaRef.length > mediaMaximum)
 {
@@ -173,16 +177,19 @@ export function mapPerceptionCharacterV3IssuePayload(
 
     if (algorithm !== PERCEPTION_CHARACTER_V3_ALGORITHM || !stateToken ||
       (representation === PerceptionCharacterV3Representation.Visual &&
-        (mediaType !== 'application/x-fsus-gray8' || mediaBytes.byteLength !== PERCEPTION_CHARACTER_V3_VISUAL_BYTES ||
-          physicalWidth !== 512 || physicalHeight !== 192 || displayWidth !== 320 || displayHeight !== 120)) ||
+        (mediaType !== 'image/png' || physicalWidth !== 384 || physicalHeight !== 144 ||
+          displayWidth !== 320 || displayHeight !== 120 ||
+          !isCanonicalPerceptionCharacterV3Png(mediaBytes))) ||
       (representation === PerceptionCharacterV3Representation.Audio &&
-        (mediaType !== 'audio/wav' || physicalWidth !== 0 || physicalHeight !== 0 || displayWidth !== 0 || displayHeight !== 0)))
+        (mediaType !== 'audio/ogg; codecs=opus' || physicalWidth !== 0 || physicalHeight !== 0 ||
+          displayWidth !== 0 || displayHeight !== 0 ||
+          !isCanonicalPerceptionCharacterV3OpusOgg(mediaBytes))))
 {
         throw protocolFailure('perception_character_v3_issue_shape_invalid');
     }
     const typedMediaType = representation === PerceptionCharacterV3Representation.Visual
-        ? 'application/x-fsus-gray8' as const
-        : 'audio/wav' as const;
+        ? 'image/png' as const
+        : 'audio/ogg; codecs=opus' as const;
 
     return {
         algorithm,

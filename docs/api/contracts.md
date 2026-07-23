@@ -219,7 +219,18 @@ PoSpace UI 与 notification headless 路径都必须调用共享 executor 完成
 `PerceptionCharacterV3` 是上述 frame 内由 `kind=14` 封闭判别的 typed AEDS union member；它不经过 `ProviderPayloadJson`。issue member 只编码 `algorithm/challengeId/envelopeId/representation/mediaType/mediaBytes/physicalWidth/physicalHeight/displayWidth/displayHeight/attemptBudget/policyVersion/issuedAtUnixMs/expiresAtUnixMs/stateToken`。visual 只接受不超过 32 KiB 的最终 `image/png`：物理尺寸 `384×144`、显示尺寸 `320×120`、IHDR bit depth 4、color type 0 grayscale、无 alpha；audio 只接受不超过 48 KiB 的最终 mono `audio/ogg; codecs=opus`，固定 48 kHz、pre-skip 312、mapping family 0、20 ms frame、16 kbps CBR/VOIP/complexity 5。`artifactHash` 是 exact transported `mediaBytes` 的 SHA-256，并进入 answer HMAC、AEAD AAD/plaintext、Redis state 和 verify binding。verify member 只编码 `algorithm/challengeId/envelopeId/representation/answer/stateToken`，不接受 issue media、seed、recipe、signature、key 或 client solve duration。unknown union kind、truncated slice、旧 algorithm/media/dimensions/state layout、越界/超限或 malformed PNG/Ogg 均在 provider 调用前拒绝。
 
 前端 response adapter 必须先用 assignment `kind=14` 判别 provider slice，再执行 typed POD 解码；
-不得尝试 JSON parse。通过校验的 final PNG/Ogg Opus 只映射为 FsusUI public character media union。
+不得尝试 JSON parse。前端 typed adapter 在创建任何浏览器媒体资源前执行同一组 bounded
+PNG/Ogg Opus 结构、CRC、尺寸和 hard-limit 校验；通过校验的 final PNG 直接创建
+`image/png` Blob object URL 并作为 FsusUI `image-url` media 消费，不重建 Gray8/canvas。
+audio 只创建 `audio/ogg; codecs=opus` Blob，并由现有 accessible audio control 播放。
+替换、完成、取消、过期与 unmount 均先停止/断开当前 audio 并 revoke object URL。
+challenge proof、opaque state token 与 media 只保存在当前内存状态机，不写入
+localStorage、sessionStorage 或 IndexedDB。
+
+deferred envelope 只渲染 `completedCount` 对应的当前 member。客户端在首次 issue 前固定选择一个
+representation（默认 visual），完成 prerequisite 后只消费服务端返回的单个
+`nextAssignment/nextProviderPayload`，不得并行预取 visual/audio。ambiguous verify send 保留当前
+member 并等待服务端 outcome；不会自动 refresh/reissue 或租用另一 artifact。
 representation switch 与 refresh 都重新调用 issue：普通 refresh 先调用 cancel 撤销旧 envelope，
 switch 则由 replacement headers 触发服务端原子撤销并替换；新的
 identity 进入 `ready` 前不得复用旧 answer、state token、attempt state 或媒体资源。公开 UI 只映射

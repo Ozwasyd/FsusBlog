@@ -399,6 +399,14 @@ PoSpace capability 不属于客户端授权输入。客户端不能执行已签�
 
 `PerceptionCharacterV3` 不复用 dictionary/JSON provider payload，而在同一 envelope frame 中使用按 assignment kind 判别的 typed binary union。server 只交付最终 PNG/Ogg Opus 和 opaque state；客户端不能控制生成参数，也不能回传媒体、recipe 或 solve duration。artifact pool 尚未接管前旧 request-time renderer fail closed，不得签发 raw Gray8/WAV。登录/admin device authority 来自服务端签发的 `sid/admin_sid`；匿名 device authority 是 Redis 权威 UUIDv7 租约与 `__Host-Fsus-Perception-Device` HttpOnly/Secure cookie，缺 cookie 时同 IP 复用已有租约，伪造或任意轮换 identity 会 fail closed，client fingerprint 只可作为非权威风险信号。normal policy publication 不改写已签发 envelope 的 policy version，verify 读取并使用 issued version；需要立即停用时由热策略停止新签发，并对 active identity 显式 revoke，不要求重启。
 
+浏览器 composition 在首次 issue 前只选择一种 representation（默认 visual），后续仅接受 verify
+response 中严格顺序的单个 deferred member；不得同时预取 visual/audio，也不得在 ambiguous
+send 后自动租用新 artifact。typed adapter 必须在 Blob 分配前完成 bounded final-media 校验。
+final PNG 作为 `image/png` object URL 直接交给 FsusUI image-url primitive，Opus 作为
+`audio/ogg; codecs=opus` object URL 交给 accessible audio control；不允许 canvas 重建、
+PNG 安全决策或客户端 generator。替换、完成、取消、过期和 unmount 都必须停止媒体并 revoke
+URL。proof、opaque state 与 media 只允许存在于内存状态机，不得写入任何 browser storage。
+
 V3 的同表示 refresh 与 visual/audio switch 都必须走 issue 请求的 replacement contract；客户端不得先异步 cancel 再签发。active-index 使用从 server-authoritative device material 派生、与 answer/token key rotation 无关的 domain-separated stable digest；answer-key HMAC 只绑定具体 challenge，replacement 校验旧 challenge 时使用其记录的旧 answer key version。服务端在触碰旧状态前完成新 media、token 和 typed payload 校验，再用一个 Redis Lua 线性化点校验旧 binding/active-index、将旧状态置为 `revoked`、以 NX 写入完整新状态和绝对 TTL，并把 active-index 切到新 challenge。commit 前失败时旧 identity 保持 active；commit 后旧 identity 永不恢复。Redis 回包丢失只按本次 operation result readback，不重放 mutation；readback 仍不确定时该 identity 保持 ambiguous fence 并 fail closed。
 
 representation replacement 必须同时提交旧 challenge ID、旧 envelope ID 和旧 opaque state token；provider 以当前权威 action/route/subject/server-device/IP 与旧 challenge 已签发的 policy version、token hash 构造旧 state binding，并由 Redis Lua 原子校验后 revoke；替换成功后新 challenge 再绑定当前发布的 policy version。仅知道 challenge ID、跨主体、伪造旧 policy 或替换任一 binding 都不能撤销旧 challenge；已经显式撤销或过期的旧 challenge 也不能再次授权 replacement。

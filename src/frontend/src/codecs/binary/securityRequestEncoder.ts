@@ -66,7 +66,7 @@ function encodePerceptionCharacterV3Verify(request: PerceptionCharacterV3VerifyP
 {
         throw new TypeError('perception_character_v3_identity_invalid');
     }
-    if (request.algorithm !== 'fsu.challenge/perception-character-raster@v3' ||
+    if (request.algorithm !== 'fsu.challenge/perception-character-artifact@v3' ||
       (request.representation !== 1 && request.representation !== 2) ||
       request.answer.length > 32 || !request.stateToken || textEncoder.encode(request.stateToken).byteLength > 2048)
 {

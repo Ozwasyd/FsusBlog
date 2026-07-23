@@ -891,11 +891,11 @@ export type PerceptionCharacterV3Representation =
     typeof PerceptionCharacterV3Representation[keyof typeof PerceptionCharacterV3Representation];
 
 export interface PerceptionCharacterV3IssuePayload {
-    algorithm: 'fsu.challenge/perception-character-raster@v3';
+    algorithm: 'fsu.challenge/perception-character-artifact@v3';
     challengeId: string;
     envelopeId: string;
     representation: PerceptionCharacterV3Representation;
-    mediaType: 'application/x-fsus-gray8' | 'audio/wav';
+    mediaType: 'image/png' | 'audio/ogg; codecs=opus';
     mediaBytes: Uint8Array;
     physicalWidth: number;
     physicalHeight: number;
@@ -909,7 +909,7 @@ export interface PerceptionCharacterV3IssuePayload {
 }
 
 export interface PerceptionCharacterV3VerifyPayload {
-    algorithm: 'fsu.challenge/perception-character-raster@v3';
+    algorithm: 'fsu.challenge/perception-character-artifact@v3';
     challengeId: string;
     envelopeId: string;
     representation: PerceptionCharacterV3Representation;

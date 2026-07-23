@@ -1,4 +1,13 @@
 import { expect, test, type Page } from '@playwright/test'
+import { readFileSync } from 'node:fs'
+
+const mediaVectors = JSON.parse(readFileSync(
+  new URL('../../../fixtures/security/perception-character-v3-vectors.json', import.meta.url),
+  'utf8'
+)) as {
+  visual: { artifactBase64: string }
+  audio: { artifactBase64: string }
+}
 
 const DESKTOP_VIEWPORT = { width: 1440, height: 960 }
 const MOBILE_VIEWPORT = { width: 390, height: 844 }
@@ -13,7 +22,7 @@ async function openChallenge(
   await page.goto('/login', { waitUntil: 'domcontentloaded' })
   await page.waitForFunction(() => document.readyState === 'complete'
     && ((document.getElementById('global-loader') as HTMLElement | null)?.hidden ?? true))
-  await page.evaluate(async ({ representation, expiresInMs }) => {
+  await page.evaluate(async ({ representation, expiresInMs, visualBase64, audioBase64 }) => {
     const fullAppPath = '/src/bootstrap/fullApp.ts'
     const coordinatorPath = '/src/composables/useRiskChallengeCommand.ts'
     const transportPath = '/src/composition/binaryTransport.ts'
@@ -27,6 +36,8 @@ async function openChallenge(
     const { PerceptionCharacterV3Representation } = await import(/* @vite-ignore */ contractPath)
     const coordinator = getRiskChallengeCoordinator()
     coordinator.handleCancel()
+    const nativeCreateObjectUrl = URL.createObjectURL.bind(URL)
+    const nativeRevokeObjectUrl = URL.revokeObjectURL.bind(URL)
 
     const state = {
       representation,
@@ -38,10 +49,25 @@ async function openChallenge(
       cancelled: [] as string[],
       cleared: 0,
       replacements: [] as Array<{ from: string; to: string }>,
+      objectUrls: [] as string[],
+      revokedObjectUrls: [] as string[],
       result: '',
       rejection: ''
     }
     ;(window as typeof window & { __v3DialogState?: typeof state }).__v3DialogState = state
+    URL.createObjectURL = (blob: Blob) => {
+      const url = nativeCreateObjectUrl(blob)
+      state.objectUrls.push(url)
+      return url
+    }
+    URL.revokeObjectURL = (url: string) => {
+      state.revokedObjectUrls.push(url)
+      nativeRevokeObjectUrl(url)
+    }
+    const decodeBase64 = (value: string) => {
+      const decoded = atob(value)
+      return Uint8Array.from(decoded, (character) => character.charCodeAt(0))
+    }
 
     const buildIssue = (nextRepresentation: Representation) => {
       state.identity += 1
@@ -68,16 +94,14 @@ async function openChallenge(
         expiresAtUnixMs
       }
       const payload = {
-        algorithm: 'fsu.challenge/perception-character-raster@v3' as const,
+        algorithm: 'fsu.challenge/perception-character-artifact@v3' as const,
         challengeId,
         envelopeId,
         representation: representationValue,
-        mediaType: nextRepresentation === 'visual' ? 'application/x-fsus-gray8' as const : 'audio/wav' as const,
-        mediaBytes: nextRepresentation === 'visual'
-          ? new Uint8Array(512 * 192).fill(126)
-          : new Uint8Array([82, 73, 70, 70, 4, 0, 0, 0, 87, 65, 86, 69]),
-        physicalWidth: nextRepresentation === 'visual' ? 512 : 0,
-        physicalHeight: nextRepresentation === 'visual' ? 192 : 0,
+        mediaType: nextRepresentation === 'visual' ? 'image/png' as const : 'audio/ogg; codecs=opus' as const,
+        mediaBytes: decodeBase64(nextRepresentation === 'visual' ? visualBase64 : audioBase64),
+        physicalWidth: nextRepresentation === 'visual' ? 384 : 0,
+        physicalHeight: nextRepresentation === 'visual' ? 144 : 0,
         displayWidth: nextRepresentation === 'visual' ? 320 : 0,
         displayHeight: nextRepresentation === 'visual' ? 120 : 0,
         attemptBudget: 2 as const,
@@ -192,7 +216,12 @@ async function openChallenge(
     ).then((value) => { state.result = value }).catch((error) => {
       state.rejection = error instanceof Error ? error.message : String(error)
     })
-  }, { representation, expiresInMs })
+  }, {
+    representation,
+    expiresInMs,
+    visualBase64: mediaVectors.visual.artifactBase64,
+    audioBase64: mediaVectors.audio.artifactBase64
+  })
 
   await expect(page.locator('[data-test="security-challenge-dialog-host"]')).toBeVisible()
   await expect(page.locator('[data-fsus-perception-character-challenge="true"]')).toBeVisible()
@@ -214,6 +243,7 @@ for (const viewport of [
       await expect(dialog.locator('[role="status"][aria-live="polite"]')).toHaveCount(1)
       await expect(dialog.locator('[role="alert"]')).toHaveCount(0)
       await expect(dialog.locator('[data-test="perception-character-raster"]')).toBeVisible()
+      await expect(dialog.locator('[data-test="perception-character-raster"]')).toHaveAttribute('src', /^blob:/)
       await expect(dialog.locator('[data-test="perception-character-input"]')).toBeFocused()
 
       const mediaStyle = await dialog.locator('[data-test="perception-character-raster"]').evaluate((element) => {
@@ -232,6 +262,9 @@ for (const viewport of [
       await dialog.locator('[data-test="perception-character-representation"]').click()
       await expect(dialog.locator('[data-test="perception-character-audio"]')).toBeVisible()
       await expect(dialog.locator('[data-test="perception-character-audio"]')).toHaveJSProperty('paused', true)
+      await expect.poll(() => page.evaluate(() =>
+        (window as any).__v3DialogState.revokedObjectUrls.length
+      )).toBeGreaterThanOrEqual(2)
     })
   }
 }
@@ -279,6 +312,14 @@ test('retry, reissue, representation replacement and exact-once resume preserve 
     from: expect.stringMatching(/^challenge-v3-/),
     to: expect.stringMatching(/^challenge-v3-/)
   })
+  const storageLeak = await page.evaluate(() => {
+    const values = [
+      ...Object.values(localStorage),
+      ...Object.values(sessionStorage)
+    ].join('\n')
+    return /opaque-(?:proof|state)|blob:/u.test(values)
+  })
+  expect(storageLeak).toBe(false)
 })
 
 test('cancel, Escape and route change revoke the envelope, reject the command and restore focus', async ({ page }) => {
@@ -287,6 +328,7 @@ test('cancel, Escape and route change revoke the envelope, reject the command an
   await expect(page.locator('[data-test="security-challenge-dialog-host"]')).toBeHidden()
   await expect(page.locator('[data-test="challenge-source"]')).toBeFocused()
   expect(await page.evaluate(() => (window as any).__v3DialogState.cancelled.length)).toBeGreaterThan(0)
+  expect(await page.evaluate(() => (window as any).__v3DialogState.revokedObjectUrls.length)).toBeGreaterThan(0)
   expect(await page.evaluate(() => (window as any).__v3DialogState.rejection)).toContain('risk_challenge_cancelled')
 
   await openChallenge(page)

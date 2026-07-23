@@ -7,18 +7,24 @@ import {
     type SecurityChallengeVerifyResponse
 } from '@/contracts/binaryApi';
 import type { FsusUiPerceptionCharacterMedia } from '@/fsusui/perceptionCharacterChallenge';
+import {
+    isCanonicalPerceptionCharacterV3OpusOgg,
+    isCanonicalPerceptionCharacterV3Png
+} from './securityPerceptionCharacterV3MediaValidator';
 
-const ALGORITHM = 'fsu.challenge/perception-character-raster@v3' as const;
-const VISUAL_WIDTH = 512;
-const VISUAL_HEIGHT = 192;
-const VISUAL_BYTES = VISUAL_WIDTH * VISUAL_HEIGHT;
-const MAX_AUDIO_BYTES = 256 * 1024;
+const ALGORITHM = 'fsu.challenge/perception-character-artifact@v3' as const;
+const VISUAL_WIDTH = 384;
+const VISUAL_HEIGHT = 144;
+const DISPLAY_WIDTH = 320;
+const DISPLAY_HEIGHT = 120;
+const MAX_VISUAL_BYTES = 32 * 1024;
+const MAX_AUDIO_BYTES = 48 * 1024;
 const MAX_ANSWER_CHARS = 32;
 
 interface MutableVisualMedia {
     raster: {
-        kind: 'rgba-raster';
-        pixels: Uint8ClampedArray;
+        kind: 'image-url';
+        src: string;
         width: number;
         height: number;
     } | null;
@@ -144,23 +150,25 @@ export function createPerceptionCharacterV3Media(
 {
     if (payload.representation === PerceptionCharacterV3Representation.Visual)
     {
-        if (payload.mediaType !== 'application/x-fsus-gray8' || payload.mediaBytes.byteLength !== VISUAL_BYTES ||
+        if (payload.mediaType !== 'image/png' || payload.mediaBytes.byteLength <= 0 ||
+        payload.mediaBytes.byteLength > MAX_VISUAL_BYTES ||
         payload.physicalWidth !== VISUAL_WIDTH || payload.physicalHeight !== VISUAL_HEIGHT ||
-        payload.displayWidth !== 320 || payload.displayHeight !== 120)
+        payload.displayWidth !== DISPLAY_WIDTH || payload.displayHeight !== DISPLAY_HEIGHT ||
+        !isCanonicalPerceptionCharacterV3Png(payload.mediaBytes))
         {
             throw new TypeError('perception_character_v3_visual_media_invalid');
         }
-        const pixels = new Uint8ClampedArray(VISUAL_BYTES * 4);
-        for (let source = 0, target = 0; source < VISUAL_BYTES; source += 1, target += 4)
-        {
-            const gray = payload.mediaBytes[source];
-            pixels[target] = gray;
-            pixels[target + 1] = gray;
-            pixels[target + 2] = gray;
-            pixels[target + 3] = 255;
-        }
+        const createObjectUrl = options.createObjectUrl ?? URL.createObjectURL.bind(URL);
+        const revokeObjectUrl = options.revokeObjectUrl ?? URL.revokeObjectURL.bind(URL);
+        const mediaBytes = Uint8Array.from(payload.mediaBytes);
+        const objectUrl = createObjectUrl(new Blob([mediaBytes], { type: 'image/png' }));
         const media: MutableVisualMedia = {
-            raster: { kind: 'rgba-raster', pixels, width: VISUAL_WIDTH, height: VISUAL_HEIGHT }
+            raster: {
+                kind: 'image-url',
+                src: objectUrl,
+                width: DISPLAY_WIDTH,
+                height: DISPLAY_HEIGHT
+            }
         };
         let disposed = false;
         return {
@@ -172,23 +180,27 @@ export function createPerceptionCharacterV3Media(
                     return;
                 }
                 disposed = true;
-                pixels.fill(0);
+                revokeObjectUrl(objectUrl);
+                mediaBytes.fill(0);
                 media.raster = null;
             }
         };
     }
 
-    if (payload.representation !== PerceptionCharacterV3Representation.Audio || payload.mediaType !== 'audio/wav' ||
+    if (payload.representation !== PerceptionCharacterV3Representation.Audio ||
+      payload.mediaType !== 'audio/ogg; codecs=opus' ||
       payload.mediaBytes.byteLength <= 0 || payload.mediaBytes.byteLength > MAX_AUDIO_BYTES ||
-      payload.physicalWidth !== 0 || payload.physicalHeight !== 0 || payload.displayWidth !== 0 || payload.displayHeight !== 0)
+      payload.physicalWidth !== 0 || payload.physicalHeight !== 0 ||
+      payload.displayWidth !== 0 || payload.displayHeight !== 0 ||
+      !isCanonicalPerceptionCharacterV3OpusOgg(payload.mediaBytes))
     {
         throw new TypeError('perception_character_v3_audio_media_invalid');
     }
     const createObjectUrl = options.createObjectUrl ?? URL.createObjectURL.bind(URL);
     const revokeObjectUrl = options.revokeObjectUrl ?? URL.revokeObjectURL.bind(URL);
     const audioBytes = Uint8Array.from(payload.mediaBytes);
-    const objectUrl = createObjectUrl(new Blob([audioBytes], { type: 'audio/wav' }));
-    const media: MutableAudioMedia = { audio: { src: objectUrl, type: 'audio/wav' } };
+    const objectUrl = createObjectUrl(new Blob([audioBytes], { type: 'audio/ogg; codecs=opus' }));
+    const media: MutableAudioMedia = { audio: { src: objectUrl, type: 'audio/ogg; codecs=opus' } };
     let disposed = false;
     return {
         media,

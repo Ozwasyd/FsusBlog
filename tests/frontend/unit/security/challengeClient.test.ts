@@ -12,6 +12,10 @@ import {
 import { createChallengeProofStore } from '@/security/challenge-proof-store'
 import { PerceptionCharacterV3Representation } from '@/contracts/binaryApi'
 import {
+  canonicalPerceptionCharacterV3OpusOgg,
+  canonicalPerceptionCharacterV3Png
+} from '../../helpers/perceptionCharacterV3Media'
+import {
   SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION,
   resolveChallengeCapability,
   securityChallengeCapabilityManifest
@@ -344,6 +348,98 @@ describe('security challenge client and proof store', () => {
     expect(verifyChallenge.mock.calls.map(([request]) => request.envelopeId)).toEqual([ENVELOPE_ID, ENVELOPE_ID])
   })
 
+  it('accepts one deferred V3 member only after its prerequisite completes', async () => {
+    const prerequisite = localizationIssueResponse()
+    const deferredV3 = perceptionCharacterV3IssueResponse('visual', 1)
+    const nextAssignment = deferredV3.envelope!.assignments[0]!
+    const nextProviderPayload = deferredV3.providerPayloads[0]!
+    const issueChallenge = vi.fn().mockResolvedValue(prerequisite)
+    const verifyChallenge = vi.fn()
+      .mockResolvedValueOnce({
+        verified: true,
+        envelopeId: ENVELOPE_ID,
+        challengeId: 'localization-1',
+        kind: SecurityChallengeKind.PerceptionLocalizationV2,
+        policyVersion: 'risk-v1',
+        completedCount: 1,
+        memberCount: 2,
+        envelopeCompleted: false,
+        proofToken: '',
+        expiresAtUnixMs: 0,
+        reason: 'continued',
+        retryAfterMs: 0,
+        nextAssignment,
+        nextProviderPayload
+      })
+      .mockResolvedValueOnce({
+        verified: true,
+        envelopeId: ENVELOPE_ID,
+        challengeId: nextAssignment.challengeId,
+        kind: SecurityChallengeKind.PerceptionCharacterV3,
+        policyVersion: 'risk-v1',
+        completedCount: 2,
+        memberCount: 2,
+        envelopeCompleted: true,
+        proofToken: 'aggregate-proof',
+        expiresAtUnixMs: 10_000,
+        reason: 'verified',
+        retryAfterMs: 0
+      })
+    const client = createSecurityChallengeClient({ issueChallenge, verifyChallenge, now: () => 1_000 })
+
+    const first = await client.issue(context)
+    expect(first.assignment?.challengeId).toBe('localization-1')
+    expect(first.response?.providerPayloads).toHaveLength(1)
+
+    const continued = await client.verify(context, memberRequest('localization-1'))
+    expect(continued).toMatchObject({
+      status: 'continue',
+      next: {
+        assignment: { challengeId: nextAssignment.challengeId },
+        providerPayload: { perceptionCharacterV3: { representation: PerceptionCharacterV3Representation.Visual } }
+      }
+    })
+    expect(issueChallenge).toHaveBeenCalledOnce()
+
+    const completed = await client.verify(context, v3MemberRequest(nextAssignment.challengeId, ENVELOPE_ID))
+    expect(completed).toMatchObject({
+      status: 'verified',
+      proof: { proofToken: 'aggregate-proof' }
+    })
+    expect(verifyChallenge).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps the current V3 lease after an ambiguous verify send instead of auto-leasing another artifact', async () => {
+    const issueChallenge = vi.fn().mockResolvedValue(perceptionCharacterV3IssueResponse('visual', 1))
+    const verifyChallenge = vi.fn()
+      .mockRejectedValueOnce(new Error('reply_lost_after_send'))
+      .mockResolvedValueOnce({
+        verified: false,
+        envelopeId: ENVELOPE_ID,
+        challengeId: 'character-v3-1',
+        kind: SecurityChallengeKind.PerceptionCharacterV3,
+        policyVersion: 'risk-v1',
+        completedCount: 0,
+        memberCount: 1,
+        envelopeCompleted: false,
+        proofToken: '',
+        expiresAtUnixMs: 0,
+        reason: 'retryable',
+        retryAfterMs: 0
+      })
+    const client = createSecurityChallengeClient({ issueChallenge, verifyChallenge, now: () => 2_000 })
+    await client.issue(context)
+
+    await expect(client.verify(context, v3MemberRequest('character-v3-1', ENVELOPE_ID)))
+      .resolves.toMatchObject({ status: 'failed', reason: 'security_challenge_verify_failed' })
+    await expect(client.verify(context, v3MemberRequest('character-v3-1', ENVELOPE_ID)))
+      .resolves.toMatchObject({ status: 'failed', reason: 'retryable' })
+
+    expect(issueChallenge).toHaveBeenCalledOnce()
+    expect(verifyChallenge).toHaveBeenCalledTimes(2)
+    expect(verifyChallenge.mock.calls[0]?.[0]).toEqual(verifyChallenge.mock.calls[1]?.[0])
+  })
+
   it('rejects out-of-order members and cancels a replaced envelope before transport', async () => {
     const firstIssue = localizationIssueResponse()
     firstIssue.envelope!.assignments.push({
@@ -609,7 +705,8 @@ describe('security challenge client and proof store', () => {
 
     expect(issueChallenge).toHaveBeenCalledWith(
       expect.objectContaining({
-        capabilityManifestVersion: SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION
+        capabilityManifestVersion: SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION,
+        representation: 'visual'
       }),
       expect.objectContaining({ signal: expect.any(AbortSignal) })
     )
@@ -739,16 +836,16 @@ function perceptionCharacterV3IssueResponse(
       challengeId,
       payload: {},
       perceptionCharacterV3: {
-        algorithm: 'fsu.challenge/perception-character-raster@v3',
+        algorithm: 'fsu.challenge/perception-character-artifact@v3',
         challengeId,
         envelopeId,
         representation: visual
           ? PerceptionCharacterV3Representation.Visual
           : PerceptionCharacterV3Representation.Audio,
-        mediaType: visual ? 'application/x-fsus-gray8' : 'audio/wav',
-        mediaBytes: visual ? new Uint8Array(512 * 192) : new Uint8Array([1, 2, 3]),
-        physicalWidth: visual ? 512 : 0,
-        physicalHeight: visual ? 192 : 0,
+        mediaType: visual ? 'image/png' : 'audio/ogg; codecs=opus',
+        mediaBytes: visual ? canonicalPerceptionCharacterV3Png() : canonicalPerceptionCharacterV3OpusOgg(),
+        physicalWidth: visual ? 384 : 0,
+        physicalHeight: visual ? 144 : 0,
         displayWidth: visual ? 320 : 0,
         displayHeight: visual ? 120 : 0,
         attemptBudget: 2,
@@ -770,6 +867,24 @@ function memberRequest(challengeId: string) {
     action: context.action,
     routeKey: context.routeKey,
     providerPayload: { x: '192', y: '99' }
+  }
+}
+
+function v3MemberRequest(challengeId: string, envelopeId: string) {
+  return {
+    envelopeId,
+    challengeId,
+    kind: SecurityChallengeKind.PerceptionCharacterV3,
+    action: context.action,
+    routeKey: context.routeKey,
+    perceptionCharacterV3: {
+      algorithm: 'fsu.challenge/perception-character-artifact@v3' as const,
+      challengeId,
+      envelopeId,
+      representation: PerceptionCharacterV3Representation.Visual,
+      answer: 'ACD23',
+      stateToken: 'opaque-state-1'
+    }
   }
 }
 

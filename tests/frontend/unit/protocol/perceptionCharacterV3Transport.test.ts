@@ -5,14 +5,17 @@ import {
   PerceptionCharacterV3Representation,
   SecurityChallengeKind
 } from '@/contracts/binaryApi'
+import {
+  canonicalPerceptionCharacterV3Png
+} from '../../helpers/perceptionCharacterV3Media'
 
 const challengeId = '01900000-0000-7000-8000-000000000014'
 const envelopeId = '01900000-0000-7000-8000-000000000001'
 const policyVersion = 'risk-v3'
-const algorithm = 'fsu.challenge/perception-character-raster@v3'
+const algorithm = 'fsu.challenge/perception-character-artifact@v3'
 
 describe('PerceptionCharacterV3 typed transport', () => {
-  it('decodes the nested issue POD and preserves bounded Gray8 media', () => {
+  it('decodes the nested issue POD and preserves the bounded final PNG', () => {
     const decoded = mapSecurityChallengeIssueResponseFromPayload(createIssueResponse())
     const typed = decoded.providerPayloads[0]?.perceptionCharacterV3
 
@@ -22,16 +25,16 @@ describe('PerceptionCharacterV3 typed transport', () => {
       challengeId,
       envelopeId,
       representation: PerceptionCharacterV3Representation.Visual,
-      mediaType: 'application/x-fsus-gray8',
-      physicalWidth: 512,
-      physicalHeight: 192,
+      mediaType: 'image/png',
+      physicalWidth: 384,
+      physicalHeight: 144,
       displayWidth: 320,
       displayHeight: 120,
       attemptBudget: 2,
       policyVersion,
       stateToken: 'opaque-state'
     })
-    expect(typed?.mediaBytes).toHaveLength(512 * 192)
+    expect(typed?.mediaBytes).toEqual(canonicalPerceptionCharacterV3Png())
     expect(decoded.providerPayloads[0]?.payload).toEqual({})
   })
 
@@ -40,9 +43,22 @@ describe('PerceptionCharacterV3 typed transport', () => {
     const outerBlobStart = 148 + 664 + 72 + 4
     const nestedView = new DataView(response.buffer, response.byteOffset + outerBlobStart)
     nestedView.setInt32(240, 0, true)
-    nestedView.setInt32(244, 512 * 192 + 1, true)
+    nestedView.setInt32(244, 32 * 1024 + 1, true)
 
     expect(() => mapSecurityChallengeIssueResponseFromPayload(response)).toThrow('perception_character_v3_media_size_invalid')
+  })
+
+  it.each([
+    ['truncated', (bytes: Uint8Array) => bytes.subarray(0, bytes.byteLength - 1)],
+    ['polyglot', (bytes: Uint8Array) => {
+      const result = new Uint8Array(bytes.byteLength + 1)
+      result.set(bytes)
+      return result
+    }],
+    ['wrong type', () => new TextEncoder().encode('not-a-png')]
+  ])('rejects %s PNG bytes in the typed codec', (_name, mutate) => {
+    expect(() => mapSecurityChallengeIssueResponseFromPayload(createIssueResponse(mutate(canonicalPerceptionCharacterV3Png()))))
+      .toThrow()
   })
 
   it('encodes verify as the closed nested typed POD without forbidden client truth', () => {
@@ -76,16 +92,15 @@ describe('PerceptionCharacterV3 typed transport', () => {
   })
 })
 
-function createIssueResponse(): Uint8Array {
-  const media = new Uint8Array(512 * 192).fill(127)
-  const nestedBlobParts = [encode(algorithm), encode('application/x-fsus-gray8'), media, encode('opaque-state')]
+function createIssueResponse(media = canonicalPerceptionCharacterV3Png()): Uint8Array {
+  const nestedBlobParts = [encode(algorithm), encode('image/png'), media, encode('opaque-state')]
   const nestedBlobLength = nestedBlobParts.reduce((sum, part) => sum + part.byteLength, 0)
   const nested = new Uint8Array(256 + 4 + nestedBlobLength)
   const nestedView = new DataView(nested.buffer)
   nested[0] = PerceptionCharacterV3Representation.Visual
   nested[1] = 2
-  nestedView.setUint16(2, 512, true)
-  nestedView.setUint16(4, 192, true)
+  nestedView.setUint16(2, 384, true)
+  nestedView.setUint16(4, 144, true)
   nestedView.setUint16(6, 320, true)
   nestedView.setUint16(8, 120, true)
   nestedView.setInt32(12, media.byteLength, true)

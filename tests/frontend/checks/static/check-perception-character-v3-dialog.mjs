@@ -12,6 +12,12 @@ const challenge = read('src/frontend/src/components/security/FsusSecurityChallen
 const adapter = read('src/frontend/src/fsusui/perceptionCharacterChallenge.ts');
 const coordinator = read('src/frontend/src/composables/useRiskChallengeCommand.ts');
 const transport = read('src/frontend/src/services/securityPerceptionCharacterV3Flow.ts');
+const mediaValidator = read('src/frontend/src/services/securityPerceptionCharacterV3MediaValidator.ts');
+const binaryContracts = read('src/frontend/src/contracts/binaryApi.ts');
+const binaryAdapter = read('src/frontend/src/adapters/binary/securityAdapter.ts');
+const requestEncoder = read('src/frontend/src/codecs/binary/securityRequestEncoder.ts');
+const challengeClient = read('src/frontend/src/security/challenge-client.ts');
+const proofStore = read('src/frontend/src/security/challenge-proof-store.ts');
 const productionSharedFlowOwners = [
     'src/frontend/src/composables/usePasskeyLogin.ts',
     'src/frontend/src/views/auth/Recover.vue',
@@ -62,6 +68,29 @@ assert.doesNotMatch(challenge, /@ozwasyd\/element-plus/u);
 assert.doesNotMatch(challenge, /\.el-perception-character/u);
 assert.doesNotMatch(challenge, /FSUSBLOG_SECURITY_COPY|[\u3400-\u9fff]/u);
 assert.doesNotMatch(transport, /solveDuration|recipe|glyph|seed|riskScore|answerVerifier/iu);
+assert.match(transport, /new Blob\(\[mediaBytes\], \{ type: 'image\/png' \}\)/u);
+assert.match(transport, /new Blob\(\[audioBytes\], \{ type: 'audio\/ogg; codecs=opus' \}\)/u);
+assert.match(transport, /kind: 'image-url'/u);
+assert.doesNotMatch(transport, /ImageData|canvas|getContext|rgba-raster/iu);
+assert.match(transport, /revokeObjectUrl\(objectUrl\)/u);
+assert.match(challengeClient, /requestedRepresentation: 'visual'/u);
+
+const productionV3Surface = [
+    transport,
+    mediaValidator,
+    binaryContracts,
+    binaryAdapter,
+    requestEncoder,
+    challengeClient
+].join('\n');
+assert.doesNotMatch(
+    productionV3Surface,
+    /fsu\.challenge\/perception-character-raster@v3|application\/x-fsus-gray8|audio\/wav|512\s*\*\s*192|VISUAL_WIDTH\s*=\s*512/u
+);
+assert.doesNotMatch(
+    [transport, challengeClient, proofStore].join('\n'),
+    /\blocalStorage\b|\bsessionStorage\b|\bindexedDB\b/u
+);
 assert.match(coordinator, /risk_challenge_command_already_pending/u);
 assert.match(coordinator, /current\.settled/u);
 assert.match(app, /securityChallengeCoordinator\.handleCancel\(\)/u);
