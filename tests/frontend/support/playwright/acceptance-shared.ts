@@ -305,38 +305,7 @@ function isIgnorableHttpResponse(url: string, status: number): boolean {
 }
 
 export async function waitForAppReady(page: Page, timeout = APP_READY_TIMEOUT_MS): Promise<void> {
-  await page.waitForFunction(
-    () => {
-      const isPublicShell = Boolean(document.querySelector('#fsus-aot-shell'))
-      const renderableStylesheets = Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]'))
-        .filter((link) => {
-          const href = (link.getAttribute('href') ?? '').toLowerCase()
-          const marker = (link.dataset.fsusblogStyle ?? '').toLowerCase()
-          return !marker.includes('font') && !href.includes('font')
-        })
-      const stylesReady = !isPublicShell || (
-        renderableStylesheets.length === 0
-        || renderableStylesheets.some((link) => Boolean(link.sheet))
-      )
-
-      return document.readyState === 'complete'
-        && (() => {
-          const app = document.querySelector<HTMLElement>('#app')
-          if (!app) return false
-          const style = window.getComputedStyle(app)
-          const rect = app.getBoundingClientRect()
-          return style.display !== 'none'
-            && style.visibility !== 'hidden'
-            && Number(style.opacity || '1') > 0
-            && rect.width > 0
-            && rect.height > 0
-        })()
-        && stylesReady
-        && ((document.getElementById('global-loader') as HTMLElement | null)?.hidden ?? true)
-    },
-    undefined,
-    { timeout }
-  )
+  await waitForCanonicalApplicationReady(page, { timeoutMs: timeout })
 }
 
 export async function settlePage(page: Page): Promise<void> {

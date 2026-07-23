@@ -7,12 +7,40 @@ import {
   inspectMeasurementHelper
 } from '../../tools/testing/check-browser-readiness-contract.mjs'
 import {
+  applicationReadyPredicate,
   waitForAuthPermissionReady,
   waitForNotificationSuppressed,
   waitForPublicHydration,
   waitForServiceWorkerCacheReady,
   waitForSpaRoute
 } from '../frontend/support/playwright/readiness.mjs'
+
+test('application readiness accepts a visible SPA shell once the runtime loader is closed', () => {
+  const previousDocument = globalThis.document
+  const previousHTMLElement = globalThis.HTMLElement
+  const previousWindow = globalThis.window
+  class FakeElement {}
+  const app = Object.assign(new FakeElement(), {
+    getBoundingClientRect: () => ({ width: 1280, height: 720 })
+  })
+  const spaShell = new FakeElement()
+  globalThis.HTMLElement = FakeElement
+  globalThis.document = {
+    readyState: 'complete',
+    querySelector: (selector) => selector === '#app' ? app : selector === '#fsus-aot-shell' ? spaShell : null,
+    getElementById: (id) => id === 'global-loader' ? { hidden: true } : null
+  }
+  globalThis.window = {
+    getComputedStyle: () => ({ display: 'block', visibility: 'visible', opacity: '1' })
+  }
+  try {
+    assert.equal(applicationReadyPredicate(), true)
+  } finally {
+    globalThis.document = previousDocument
+    globalThis.HTMLElement = previousHTMLElement
+    globalThis.window = previousWindow
+  }
+})
 
 class FakePage {
   constructor({ fail = false } = {}) {

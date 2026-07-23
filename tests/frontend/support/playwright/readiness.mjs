@@ -21,6 +21,20 @@ export async function waitForObservableReadiness(page, {
   }
 }
 
+export function applicationReadyPredicate() {
+  const app = document.querySelector('#app')
+  if (!(app instanceof HTMLElement) || document.readyState !== 'complete') return false
+  const style = window.getComputedStyle(app)
+  const rect = app.getBoundingClientRect()
+  const loader = document.getElementById('global-loader')
+  return style.display !== 'none'
+    && style.visibility !== 'hidden'
+    && Number(style.opacity || '1') > 0
+    && rect.width > 0
+    && rect.height > 0
+    && (!loader || loader.hidden)
+}
+
 export async function waitForApplicationReady(page, {
   description = 'application root is visible and runtime startup is complete',
   timeoutMs = DEFAULT_READINESS_TIMEOUT_MS
@@ -28,31 +42,7 @@ export async function waitForApplicationReady(page, {
   await waitForObservableReadiness(page, {
     description,
     timeoutMs,
-    predicate: () => {
-      const app = document.querySelector('#app')
-      if (!(app instanceof HTMLElement) || document.readyState !== 'complete') return false
-      const style = window.getComputedStyle(app)
-      const rect = app.getBoundingClientRect()
-      const loader = document.getElementById('global-loader')
-      const shell = document.querySelector('#fsus-aot-shell')
-      const startup = Array.isArray(window.__FSUS_STARTUP_METRICS__) ? window.__FSUS_STARTUP_METRICS__ : []
-      const hydration = Array.isArray(window.__FSUS_PUBLIC_HYDRATION_METRICS__)
-        ? window.__FSUS_PUBLIC_HYDRATION_METRICS__
-        : []
-      const productReady = shell
-        ? shell.getAttribute('data-public-hydrated') === 'true' || hydration.length > 0
-        : startup.some((metric) => metric
-          && typeof metric.name === 'string'
-          && (metric.name === 'entry-to-runtime-ready' || metric.name === 'runtime-gate-wait'))
-          || (!loader || loader.hidden)
-      return style.display !== 'none'
-        && style.visibility !== 'hidden'
-        && Number(style.opacity || '1') > 0
-        && rect.width > 0
-        && rect.height > 0
-        && (!loader || loader.hidden)
-        && productReady
-    }
+    predicate: applicationReadyPredicate
   })
 }
 

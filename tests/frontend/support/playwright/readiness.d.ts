@@ -10,6 +10,7 @@ export function waitForObservableReadiness(
   }
 ): Promise<void>
 export function waitForApplicationReady(page: Page, options?: { description?: string; timeoutMs?: number }): Promise<void>
+export function applicationReadyPredicate(): boolean
 export function waitForPublicHydration(page: Page, options?: { timeoutMs?: number }): Promise<void>
 export function waitForSpaRoute(
   page: Page,

@@ -205,18 +205,12 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
       !options.ssr
       && publicSeoRoute
       && hasServerAotShell(appRoot)
-    const needsInitialSpaFallbackHead =
-      !options.ssr
-      && options.history === undefined
-      && publicSeoRoute
-      && !hasServerAotShell(appRoot)
-      && from.matched.length === 0
     const fullAppOwnsPublicRoute =
       getPublicRuntimeOwner() === 'spa'
       || (appRoot !== null && !hasServerAotShell(appRoot) && from.matched.length > 0)
 
     if (!options.ssr && publicSeoRoute &&
-        (needsInitialSpaFallbackHead || (fullAppOwnsPublicRoute && to.fullPath !== from.fullPath)) &&
+        fullAppOwnsPublicRoute && to.fullPath !== from.fullPath &&
       !hasPreparedPublicSeoHead(to.fullPath)) {
       if (!options.prewarmPublicRoute) {
         window.location.assign(to.fullPath)

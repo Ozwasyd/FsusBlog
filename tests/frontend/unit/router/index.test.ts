@@ -357,6 +357,29 @@ describe('account router meta and guards', () => {
     expect(router.currentRoute.value.name).toBe('Archive')
   })
 
+  it('renders the initial SPA fallback without entering the atomic AOT prewarm path', async () => {
+    document.body.innerHTML = '<div id="app"></div>'
+    const prewarmPublicRoute = vi.fn(async (target: string) => ({
+      status: 'timeout' as const,
+      target,
+      reason: 'atomic-navigation' as const,
+      routeKind: 'Home' as const,
+      routeComponentReady: true,
+      seedReady: false,
+      error: 'cold snapshot unavailable'
+    }))
+    const router = createAppRouter({
+      ssr: false,
+      prewarmPublicRoute
+    })
+
+    await router.push('/')
+
+    expect(prewarmPublicRoute).not.toHaveBeenCalled()
+    expect(router.currentRoute.value.name).toBe('Home')
+    expect(ensurePublicShell).toHaveBeenCalledTimes(1)
+  })
+
   it('guestOnly route probes account only', async () => {
     userStore.isLoggedIn = false
     const router = await createTestRouter()

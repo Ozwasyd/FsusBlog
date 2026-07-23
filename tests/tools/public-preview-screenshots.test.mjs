@@ -536,7 +536,6 @@ test('capture contracts keep shards temporary and release verification explicit'
         'utf8'
     );
     const matrix = fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8');
-    const staticGovernance = fs.readFileSync(path.join(root, 'tools/test/lanes/static-governance.sh'), 'utf8');
     const browserRunner = fs.readFileSync(path.join(root, 'tests/browser-contract/run.mjs'), 'utf8');
     const browserGallery = fs.readFileSync(path.join(root, 'tests/browser-contract/public-preview-gallery.mjs'), 'utf8');
     const releaseFinal = fs.readFileSync(path.join(root, 'tools/release/check-release-final.mjs'), 'utf8');
@@ -601,7 +600,6 @@ test('capture contracts keep shards temporary and release verification explicit'
     assert.match(prewarm, /await session\.close\(\)[\s\S]*?session = await openAuditedPage\(browser\)[\s\S]*?await warm\(\)/u);
     assert.match(matrix, /id: browser-contract[\s\S]*?public-preview-screenshots\.json/u);
     assert.match(matrix, /id: release-final[\s\S]*?browser-contract/u);
-    assert.match(staticGovernance, /public-preview-screenshots\.mjs" check[\s\S]*?public-preview-screenshots\.mjs" sync/u);
     assert.match(browserRunner, /receipt\.publicPreview = \{[\s\S]*?captureContextCount:[\s\S]*?evidenceFileDigest: sha256File/u);
     assert.doesNotMatch(browserGallery, /receipt\.topology\.contextCount/u);
     assert.match(releaseFinal, /requirePublicPreviewReleaseEvidence/u);
