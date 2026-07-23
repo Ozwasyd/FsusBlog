@@ -160,6 +160,14 @@ for (const token of [
 {
     includes('tests/frontend/support/playwright/manualScreenshotConfiguration.ts', manualConfiguration, token);
 }
+const playwrightConfiguration = read('src/frontend/playwright.config.ts');
+for (const token of [
+    'FSUSBLOG_PUBLIC_PREVIEW_DOCS_CAPTURE',
+    '--disable-gpu'
+])
+{
+    includes('src/frontend/playwright.config.ts', playwrightConfiguration, token);
+}
 for (const token of [
     'buildAnonymousRoutes',
     'buildUserRoutes',

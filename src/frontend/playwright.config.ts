@@ -93,7 +93,11 @@ const chromiumLaunchOptions: {
   executablePath?: string
   args: string[]
 } = {
-  args: ['--no-sandbox', '--disable-dev-shm-usage']
+  args: [
+    '--no-sandbox',
+    '--disable-dev-shm-usage',
+    ...(process.env.FSUSBLOG_PUBLIC_PREVIEW_DOCS_CAPTURE === '1' ? ['--disable-gpu'] : [])
+  ]
 }
 
 if (executablePath) {
