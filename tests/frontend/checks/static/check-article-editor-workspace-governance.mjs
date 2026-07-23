@@ -13,6 +13,8 @@ const writePath = path.join(repoRoot, 'src/frontend/src/views/admin/article/Writ
 const sidebarPath = path.join(repoRoot, 'src/frontend/src/components/admin/article/ArticleWriteSidebar.vue')
 const seoPath = path.join(repoRoot, 'src/frontend/src/components/admin/article/ArticleSeoPreviewPanel.vue')
 const titleFieldPath = path.join(repoRoot, 'src/frontend/src/components/admin/article/ArticleWriteTitleField.vue')
+const commandBarPath = path.join(repoRoot, 'src/frontend/src/components/admin/article/ArticleWriteCommandBar.vue')
+const accessibilityPath = path.join(repoRoot, 'src/frontend/src/components/admin/article/articleEditorAccessibility.ts')
 const productionFixturePath = path.join(repoRoot, 'tests/frontend/fixtures/articleEditorProductionVisual.ts')
 const productionFixtureContractPath = path.join(repoRoot, 'tests/frontend/fixtures/article-editor-production-contract.json')
 const productionFixtureSpecPath = path.join(repoRoot, 'tests/frontend/e2e/article-editor-production-fixture.spec.ts')
@@ -35,6 +37,8 @@ const write = read(writePath)
 const sidebar = read(sidebarPath)
 const seo = read(seoPath)
 const titleField = read(titleFieldPath)
+const commandBar = read(commandBarPath)
+const accessibility = read(accessibilityPath)
 const productionFixture = read(productionFixturePath)
 const productionFixtureContract = JSON.parse(read(productionFixtureContractPath))
 const productionFixtureSpec = read(productionFixtureSpecPath)
@@ -84,8 +88,9 @@ for (const [file, source, tokens] of [
 }
 
 const requiredWriteTokens = [
-  'class="write-command-actions',
-  'class="write-submit-button"',
+  '<ArticleWriteCommandBar',
+  '@save-draft="saveDraftNow"',
+  'focusFirstArticleValidationError()',
   'class="write-inspector"',
   'class="write-inspector-section"',
   'openResourcesInspector',
@@ -105,6 +110,37 @@ for (const token of requiredWriteTokens) {
   if (!write.includes(token)) {
     fail(writePath, 1, `Article editor workspace contract is missing ${token}`)
   }
+}
+
+for (const token of [
+  'min-height: 3.5rem;',
+  'min-height: 2.75rem;',
+  'height: calc(4rem + env(safe-area-inset-bottom));',
+  'border-top: 1px solid var(--fsusblog-panel-border);',
+  'background: var(--fsusblog-page-bg);',
+  'padding: 0.625rem 1rem calc(0.625rem + env(safe-area-inset-bottom));',
+  'article-write-command-bar__save-status',
+  'article-write-command-bar__save-draft',
+  'article-write-command-bar__primary',
+  'type="primary"',
+  'aria-live="polite"'
+]) {
+  if (!commandBar.includes(token)) {
+    fail(commandBarPath, 1, `Article editor command bar contract is missing ${token}`)
+  }
+}
+for (const forbidden of [/gradient/iu, /backdrop-filter/iu, /box-shadow/iu, /border-radius:\s*999/iu]) {
+  if (forbidden.test(commandBar)) {
+    fail(commandBarPath, 1, `Article editor command bar must not use decorative emphasis matching ${forbidden}`)
+  }
+}
+for (const token of ['.el-form-item.is-error', 'target.focus({ preventScroll: true })', "block: 'center'"]) {
+  if (!accessibility.includes(token)) {
+    fail(accessibilityPath, 1, `Article editor validation focus contract is missing ${token}`)
+  }
+}
+if (!/padding-bottom:\s*calc\(5rem \+ env\(safe-area-inset-bottom\)\);/u.test(commandBar)) {
+  fail(commandBarPath, 1, 'Article editor body must reserve mobile action bar height plus 16px')
 }
 
 for (const token of [
@@ -154,7 +190,10 @@ for (const token of [
   '150% zoom',
   'height).toBeGreaterThanOrEqual(360)',
   'FsusUI|Element Plus|adapter|component|MarkdownEditor',
-  'new Set([40])'
+  'new Set([40])',
+  'actionBox!.height).toBe(64)',
+  'toBeGreaterThanOrEqual(80)',
+  'toBeFocused()'
 ]) {
   if (!productionFixtureSpec.includes(token)) {
     fail(productionFixtureSpecPath, 1, `Article editor production fixture acceptance is missing ${token}`)

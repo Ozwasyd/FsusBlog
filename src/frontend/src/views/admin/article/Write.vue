@@ -9,36 +9,18 @@
       v-loading="pageLoading"
       element-loading-text="正在载入数据资源..."
     >
-      <FsusUiTaskPageHeader
-        class="account-task-page-header"
-        density="compact"
-      >
-        <template #title>
-          <span id="article-write-title">{{ pageTitle }}</span>
-        </template>
-        <template #description>
-          <span id="article-editor-status" aria-live="polite">
-            {{ editorStatusText }}
-          </span>
-        </template>
-        <template #actions>
-          <div class="write-command-actions">
-            <el-button class="write-command-back" text @click="requestLeave" :disabled="submitting">
-              返回
-            </el-button>
-            <div class="write-submit-button">
-              <el-button
-                type="primary"
-                :loading="submitting"
-                @click="requestSubmit"
-                aria-describedby="article-editor-status"
-              >
-                {{ submitButtonText }}
-              </el-button>
-            </div>
-          </div>
-        </template>
-      </FsusUiTaskPageHeader>
+      <ArticleWriteCommandBar
+        :page-title="pageTitle"
+        :article-state-text="articleStateText"
+        :status-text="editorSaveStatusText"
+        :status-tone="editorSaveStatusTone"
+        :primary-action-text="submitButtonText"
+        :show-save-draft="submitButtonText !== '保存草稿'"
+        :submitting="submitting"
+        @back="requestLeave"
+        @save-draft="saveDraftNow"
+        @submit="requestSubmit"
+      />
 
       <el-form
         ref="formRef"
@@ -659,14 +641,15 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { FsusUiTaskPageHeader } from '@/fsusui'
 import ArticleAssetLibraryPanel from '@/components/admin/article/ArticleAssetLibraryPanel.vue'
 import ArticlePrivatePreviewPanel from '@/components/admin/article/ArticlePrivatePreviewPanel.vue'
 import ArticleRevisionPanel from '@/components/admin/article/ArticleRevisionPanel.vue'
 import ArticleSeoPreviewPanel from '@/components/admin/article/ArticleSeoPreviewPanel.vue'
+import ArticleWriteCommandBar from '@/components/admin/article/ArticleWriteCommandBar.vue'
 import ArticleWriteEditor from '@/components/admin/article/ArticleWriteEditor.vue'
 import ArticleWriteSidebar from '@/components/admin/article/ArticleWriteSidebar.vue'
 import ArticleWriteTitleField from '@/components/admin/article/ArticleWriteTitleField.vue'
+import { focusFirstArticleValidationError } from '@/components/admin/article/articleEditorAccessibility'
 import FsusDialog from '@/components/ui/FsusDialog.vue'
 import ImageUploadOptionsPanel from '@/components/ui/ImageUploadOptionsPanel.vue'
 import { useAdminArticleWrite } from '@/composables/useAdminArticleWrite'
@@ -767,7 +750,19 @@ const {
   isHighlighted: isTaskHighlighted
 } = taskFeedback
 
-const pageTitle = computed(() => submitButtonText.value.includes('更新') ? '编辑文章' : '撰写文章')
+const pageTitle = computed(() => isEdit.value ? '编辑文章' : '新建文章')
+const articleStateText = computed(() => {
+  switch (articleForm.status) {
+    case ArticlePublishStatus.Draft:
+      return '草稿'
+    case ArticlePublishStatus.Scheduled:
+      return '定时发布'
+    case ArticlePublishStatus.Archived:
+      return '已归档'
+    default:
+      return isEdit.value ? '已发布' : '待发布'
+  }
+})
 const quickCreateCategoryDialog = ref(false)
 const quickCreateTagDialog = ref(false)
 const quickCategoryName = ref('')
@@ -905,18 +900,6 @@ const onCoverFileChange = (event: Event): void => {
   }
 }
 
-const editorStatusText = computed(() => {
-  if (pageLoading.value) {
-    return '正在载入文章、分类与标签资源'
-  }
-
-  if (submitting.value) {
-    return '正在提交文章内容，请保持页面打开'
-  }
-
-  return `正文 ${articleForm.content.length} 字符，标题 ${articleForm.title.length}/100`
-})
-
 const editorSaveStatusText = computed(() => {
   if (pageLoading.value) {
     return '正在载入'
@@ -939,7 +922,11 @@ const requestSubmit = async (): Promise<void> => {
   const isValid = await validateBeforeSubmit()
   if (isValid) {
     submitConfirmDialog.value = true
+    return
   }
+
+  await nextTick()
+  focusFirstArticleValidationError()
 }
 
 const insertAssetIntoEditor = (asset: AssetLibraryItemResponse): void => {
@@ -1009,26 +996,6 @@ const submitQuickCreateTag = async (): Promise<void> => {
 .write-workspace {
   display: flex;
   flex-direction: column;
-}
-
-.write-command-back {
-  min-width: 40px;
-  min-height: 40px;
-  align-self: flex-start;
-  padding: 0 0.5rem;
-  color: var(--fsusblog-text-muted);
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.write-command-back:hover,
-.write-command-back:focus-visible {
-  color: var(--fsusblog-text-primary);
-}
-
-.write-submit-button {
-  display: grid;
-  min-width: 8rem;
 }
 
 .write-draft-banner {

@@ -11,7 +11,7 @@ async function openFixture(
   page: Page,
   title: keyof typeof contract.titles,
   theme: 'light' | 'dark',
-  surface: 'title' | 'editor' = 'title'
+  surface: 'title' | 'editor' | 'command' = 'title'
 ): Promise<void> {
   await page.route('**/__article-editor-production-fixture**', async (route) => {
     await route.fulfill({
@@ -124,6 +124,101 @@ test.describe('article editor production fixture title hierarchy', () => {
         expect(geometry.right).toBeLessThanOrEqual(geometry.viewportWidth)
       }
     }
+  })
+})
+
+test.describe('article editor production fixture command bar', () => {
+  test.use({ viewport: { width: 1440, height: 900 } })
+
+  test('desktop unifies back, state, save feedback, draft and one primary action', async ({ page }) => {
+    await openFixture(page, 'short', 'light', 'command')
+    const bar = page.locator('.article-write-command-bar')
+    const actions = page.locator('.article-write-command-bar__actions')
+    const status = page.getByRole('status')
+    await expect(bar).toBeVisible()
+    await expect(page.getByRole('button', { name: '返回' })).toBeVisible()
+    await expect(page.getByText('已发布', { exact: true })).toHaveCount(0)
+    await expect(page.getByText('草稿', { exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: '保存草稿' })).toBeVisible()
+    await expect(page.getByRole('button', { name: '更新文章' })).toBeVisible()
+    await expect(actions.locator('.el-button--primary')).toHaveCount(1)
+    await expect(actions.locator('.article-write-command-bar__save-draft.el-button--primary')).toHaveCount(0)
+
+    const barBox = await bar.boundingBox()
+    expect(barBox).not.toBeNull()
+    expect(barBox!.height).toBeGreaterThanOrEqual(56)
+    const buttonGeometry = await actions.getByRole('button').evaluateAll((buttons) => buttons.map((button) => {
+      const box = button.getBoundingClientRect()
+      return { height: box.height, center: box.y + box.height / 2 }
+    }))
+    expect(buttonGeometry.every(({ height }) => height >= 44)).toBe(true)
+    expect(Math.max(...buttonGeometry.map(({ center }) => center))
+      - Math.min(...buttonGeometry.map(({ center }) => center))).toBeLessThanOrEqual(1)
+
+    for (const state of ['saving', 'failed', 'saved', 'published'] as const) {
+      await page.evaluate((nextState) => {
+        const controller = (
+          window as Window & {
+            __articleEditorFixtureSetState?: (value: typeof nextState) => void
+          }
+        ).__articleEditorFixtureSetState
+        controller?.(nextState)
+      }, state)
+      await expect(status).toHaveText({
+        saving: '正在保存',
+        failed: '保存失败，请重试',
+        saved: '已保存',
+        published: '发布完成'
+      }[state])
+    }
+    await expect(page.getByText('已发布', { exact: true })).toBeVisible()
+
+    await page.getByRole('button', { name: '返回' }).click()
+    await page.getByRole('button', { name: '保存草稿' }).click()
+    await page.getByRole('button', { name: '更新文章' }).click()
+    await expect(page.getByLabel('缺失标题')).toBeFocused()
+    expect(await page.evaluate(() => (
+      window as Window & {
+        __articleEditorFixtureActionCounts?: { back: number, saveDraft: number, submit: number }
+      }
+    ).__articleEditorFixtureActionCounts)).toEqual({
+      back: 1,
+      saveDraft: 1,
+      submit: 1
+    })
+  })
+
+  test('375px bottom bar respects 64px geometry, safe content spacing and keyboard-height viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await openFixture(page, 'short', 'dark', 'command')
+    const actions = page.locator('.article-write-command-bar__actions')
+    const workspace = page.locator('.write-workspace')
+    const primary = page.getByRole('button', { name: '更新文章' })
+    const secondary = page.getByRole('button', { name: '保存草稿' })
+    const actionBox = await actions.boundingBox()
+    expect(actionBox).not.toBeNull()
+    expect(actionBox!.height).toBe(64)
+    expect(actionBox!.y + actionBox!.height).toBe(812)
+    for (const button of [primary, secondary]) {
+      expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth))
+      .toBeLessThanOrEqual(1)
+    expect(await workspace.evaluate((element) => Number.parseFloat(getComputedStyle(element).paddingBottom)))
+      .toBeGreaterThanOrEqual(80)
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+    const lastLineBox = await page.locator('[data-fixture-last-line]').boundingBox()
+    const scrolledActionBox = await actions.boundingBox()
+    expect(lastLineBox).not.toBeNull()
+    expect(scrolledActionBox).not.toBeNull()
+    expect(lastLineBox!.y + lastLineBox!.height).toBeLessThanOrEqual(scrolledActionBox!.y - 16)
+
+    await page.setViewportSize({ width: 375, height: 420 })
+    await page.getByLabel('缺失标题').focus()
+    const resizedActionBox = await actions.boundingBox()
+    expect(resizedActionBox).not.toBeNull()
+    expect(resizedActionBox!.y + resizedActionBox!.height).toBe(420)
+    await expect(primary).toBeVisible()
   })
 })
 
