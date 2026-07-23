@@ -1,0 +1,46 @@
+{
+  "schema": "fsusblog.security.perception-character-v3-independent-review.v1",
+  "reviewKind": "independent-security-resource-second-pass",
+  "testedCommit": "021030dc1027f6e5de2c16360d9bbebca9558785",
+  "implementationReceiptFingerprint": "93a082431c521b1a1d2427e73e2a2a0f0e56232ba5ec34610eeea980f75f2eef",
+  "releaseTarget": {
+    "targetFingerprint": "07ecefcba99b653844a68e8adda52817012b0f927ac728649693a3b9b1211b9f",
+    "contractDigest": "7206502fb3b558a0f5f1250b18ab0ab8eedf46df74d8449c9ea9b15295a335f4",
+    "aedsSchemaFingerprint": "51b92ab8a82bac8977aea764558dd87ca9b7de0e326b1eefc4ad13ed436175b6"
+  },
+  "pool": {
+    "generationId": "release-gate-generation",
+    "manifestDigest": "41b24673704cd4129352c4f90d3bdf954d4b743ba6e445716fcf4e3bf8e4c3ff"
+  },
+  "corpus": {
+    "corpusDigest": "53c0622fd0aec8b58f130ade723474fc440a09be97e1a9c1e676b721fc590a28",
+    "visualCount": 10000,
+    "audioCount": 2000
+  },
+  "benchmark": {
+    "cpuRatio": 6296,
+    "nonPayloadManagedAllocationRatio": 196720
+  },
+  "migration": {
+    "releaseTargetFingerprint": "07ecefcba99b653844a68e8adda52817012b0f927ac728649693a3b9b1211b9f",
+    "idempotentSecondRun": true
+  },
+  "checks": {
+    "implementationFingerprint": true,
+    "evidenceDigests": true,
+    "sameReleaseTarget": true,
+    "corpusBudgets": true,
+    "benchmarkRatios": true,
+    "idempotentMigration": true,
+    "noSensitiveEvidenceFields": true,
+    "retiredRuntimeAbsent": true,
+    "offlineGeneratorUnreachable": true,
+    "publicRecipeAbsent": true
+  },
+  "unresolvedFindings": {
+    "high": [],
+    "critical": []
+  },
+  "status": "passed",
+  "receiptFingerprint": "52880755ac70ec4b908fa35d0bf1aadac0da43277a1a5f15cc4b14388d6edbb2"
+}

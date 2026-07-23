@@ -1,0 +1,66 @@
+{
+  "schema": "fsusblog.security.perception-character-v3-implementation-verification.v1",
+  "reviewKind": "clean-checkout-implementation",
+  "testedCommit": "021030dc1027f6e5de2c16360d9bbebca9558785",
+  "releaseTarget": {
+    "targetFingerprint": "07ecefcba99b653844a68e8adda52817012b0f927ac728649693a3b9b1211b9f",
+    "contractDigest": "7206502fb3b558a0f5f1250b18ab0ab8eedf46df74d8449c9ea9b15295a335f4",
+    "aedsSchemaFingerprint": "51b92ab8a82bac8977aea764558dd87ca9b7de0e326b1eefc4ad13ed436175b6"
+  },
+  "pool": {
+    "generationId": "release-gate-generation",
+    "manifestDigest": "41b24673704cd4129352c4f90d3bdf954d4b743ba6e445716fcf4e3bf8e4c3ff"
+  },
+  "corpus": {
+    "corpusDigest": "53c0622fd0aec8b58f130ade723474fc440a09be97e1a9c1e676b721fc590a28",
+    "visualCount": 10000,
+    "audioCount": 2000
+  },
+  "benchmark": {
+    "cpuRatio": 6296,
+    "nonPayloadManagedAllocationRatio": 196720
+  },
+  "migration": {
+    "releaseTargetFingerprint": "07ecefcba99b653844a68e8adda52817012b0f927ac728649693a3b9b1211b9f",
+    "idempotentSecondRun": true
+  },
+  "evidence": {
+    "poolManifest": {
+      "path": ".tmp/security/perception-character-v3/release-gate/pool/release-gate-generation/manifest.json",
+      "sha256": "41b24673704cd4129352c4f90d3bdf954d4b743ba6e445716fcf4e3bf8e4c3ff"
+    },
+    "corpusReport": {
+      "path": ".tmp/security/perception-character-v3/release-gate/corpus/perception-character-v3-corpus-report.json",
+      "sha256": "00f8fcd1929059598389d1fdda22829fb06599266b5bc6f66e7e14595a745d31"
+    },
+    "benchmarkReport": {
+      "path": ".tmp/security/perception-character-v3/release-gate/perception-character-v3-benchmark-report.json",
+      "sha256": "0cc17a2631443757b90621eabc22b8a63f8b4100877d30283b207892814bbe63"
+    },
+    "migrationReceipt": {
+      "path": ".tmp/security/perception-character-v3/release-gate/perception-character-v3-migration-receipt.json",
+      "sha256": "78dfa55d67125b1962ed60c18df930f2ab38a213dbd57c569f9d7d9570e8097e"
+    }
+  },
+  "exactCommands": [
+    "node tools/contracts/generate-perception-character-v3-release-target.mjs --check",
+    "node tools/contracts/check-perception-character-v3-retirement.mjs",
+    "node tools/security/perception-character-v3-pool.mjs generate --root /home/lyuaoss/projects/.fsusblog-1461-gate.4nMUay/.tmp/security/perception-character-v3/release-gate/pool --generation release-gate-generation --key-env FSUSBLOG_V3_GATE_POOL_KEY --key-version release-gate-k1 --visual 10 --audio 2",
+    "node tools/security/perception-character-v3-pool.mjs validate --root /home/lyuaoss/projects/.fsusblog-1461-gate.4nMUay/.tmp/security/perception-character-v3/release-gate/pool --generation release-gate-generation --key-env FSUSBLOG_V3_GATE_POOL_KEY",
+    "node tools/security/perception-character-v3-release-corpus.mjs --profile release --visual 10000 --audio 2000 --workers 8 --output /home/lyuaoss/projects/.fsusblog-1461-gate.4nMUay/.tmp/security/perception-character-v3/release-gate/corpus",
+    "dotnet run --project benchmarks/core/FsusBlog.Core.Benchmarks.csproj -c Release --no-restore -- --perception-character-v3-pool-issue-profile --out /home/lyuaoss/projects/.fsusblog-1461-gate.4nMUay/.tmp/security/perception-character-v3/release-gate/perception-character-v3-benchmark-report.json --iterations 96 --warmup 24",
+    "dotnet test tests/backend/FsusBlog.Server.Tests.csproj -c Release --no-restore --filter \"FullyQualifiedName~PerceptionCharacterV3Tests|FullyQualifiedName~PerceptionCharacterV3ArtifactPoolTests|FullyQualifiedName~PerceptionCharacterV3ResourcePlannerTests|FullyQualifiedName~SecurityChallengeOrchestratorTests|FullyQualifiedName~SecurityChallengeProtocolActivationGuardTests|FullyQualifiedName~PerceptionCharacterV3ContractCutoverTests\" --logger \"console;verbosity=minimal\"",
+    "bash tools/test/perception-character-v3-redis-fixture.sh",
+    "node --test tests/security/perception-character-v3-spec.test.mjs tests/security/perception-character-v3-pool.test.mjs tests/security/perception-character-v3-release-gate.test.mjs tests/tools/perception-character-v3-cutover.test.mjs",
+    "pnpm --dir src/frontend exec vitest run ../../tests/frontend/unit/services/securityPerceptionCharacterV3Flow.test.ts ../../tests/frontend/unit/security/challengeClient.test.ts ../../tests/frontend/unit/protocol/perceptionCharacterV3Transport.test.ts",
+    "dotnet build src/backend/FsusBlog.Server.csproj -c Release --no-restore --nologo",
+    "node tools/security/perception-character-v3-release-receipt.mjs --commit 021030dc1027f6e5de2c16360d9bbebca9558785 --pool-manifest /home/lyuaoss/projects/.fsusblog-1461-gate.4nMUay/.tmp/security/perception-character-v3/release-gate/pool/release-gate-generation/manifest.json --corpus-report /home/lyuaoss/projects/.fsusblog-1461-gate.4nMUay/.tmp/security/perception-character-v3/release-gate/corpus/perception-character-v3-corpus-report.json --benchmark-report /home/lyuaoss/projects/.fsusblog-1461-gate.4nMUay/.tmp/security/perception-character-v3/release-gate/perception-character-v3-benchmark-report.json --migration-receipt /home/lyuaoss/projects/.fsusblog-1461-gate.4nMUay/.tmp/security/perception-character-v3/release-gate/perception-character-v3-migration-receipt.json --commands /home/lyuaoss/projects/.fsusblog-1461-gate.4nMUay/.tmp/security/perception-character-v3/release-gate/exact-commands.json --output /home/lyuaoss/projects/.fsusblog-1461-gate.4nMUay/.tmp/security/perception-character-v3/release-gate/implementation-verification-receipt.json",
+    "node tools/security/perception-character-v3-independent-review.mjs --implementation-receipt /home/lyuaoss/projects/.fsusblog-1461-gate.4nMUay/.tmp/security/perception-character-v3/release-gate/implementation-verification-receipt.json --pool-manifest /home/lyuaoss/projects/.fsusblog-1461-gate.4nMUay/.tmp/security/perception-character-v3/release-gate/pool/release-gate-generation/manifest.json --corpus-report /home/lyuaoss/projects/.fsusblog-1461-gate.4nMUay/.tmp/security/perception-character-v3/release-gate/corpus/perception-character-v3-corpus-report.json --benchmark-report /home/lyuaoss/projects/.fsusblog-1461-gate.4nMUay/.tmp/security/perception-character-v3/release-gate/perception-character-v3-benchmark-report.json --migration-receipt /home/lyuaoss/projects/.fsusblog-1461-gate.4nMUay/.tmp/security/perception-character-v3/release-gate/perception-character-v3-migration-receipt.json --output /home/lyuaoss/projects/.fsusblog-1461-gate.4nMUay/.tmp/security/perception-character-v3/release-gate/independent-review-receipt.json"
+  ],
+  "unresolvedFindings": {
+    "high": [],
+    "critical": []
+  },
+  "status": "passed",
+  "receiptFingerprint": "93a082431c521b1a1d2427e73e2a2a0f0e56232ba5ec34610eeea980f75f2eef"
+}
