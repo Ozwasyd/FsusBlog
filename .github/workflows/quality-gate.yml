@@ -406,6 +406,7 @@ jobs:
                   node-version: 24.x
             - run: node tools/db/migration-doc-lint.mjs
             - run: ./tools/test.sh static-governance --no-deps
+            - run: ./tools/test.sh app-config-local-tuning --no-deps
             - run: ./tools/test.sh public-hydration-fast --no-deps
             - run: ./tools/test.sh backend-test-governance --no-deps
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

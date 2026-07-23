@@ -179,6 +179,18 @@
             "pathType": "file"
         },
         {
+            "id": "release-document-migrations",
+            "owner": "documentation-governance",
+            "canonicalPath": "config/governance/release-document-migrations.json",
+            "pathType": "file"
+        },
+        {
+            "id": "browser-readiness-migrations",
+            "owner": "browser-test-governance",
+            "canonicalPath": "config/testing/browser-readiness-migrations.json",
+            "pathType": "file"
+        },
+        {
             "id": "repository-governance-authorities",
             "owner": "repository-governance",
             "canonicalPath": "config/governance/repository-governance-authorities.json",

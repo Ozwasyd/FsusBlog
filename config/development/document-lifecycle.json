@@ -2022,6 +2022,16 @@
             "supersededBy": null
         },
         {
+            "path": "docs/testing/browser-readiness-contract.md",
+            "status": "current",
+            "owner": "release",
+            "relatedIssues": [
+                1443
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
             "path": "docs/testing/canonical-hash-test-ownership.md",
             "status": "current",
             "owner": "release",

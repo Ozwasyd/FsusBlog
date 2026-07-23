@@ -177,6 +177,18 @@
             ]
         },
         {
+            "file": "tests/tools/account-layout-document-authority.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "migration"
+            ]
+        },
+        {
             "file": "tests/tools/aeds-cache-miss-frame-evidence.test.mjs",
             "owner": "manual-diagnostic:tests/tools/aeds-cache-miss-frame-evidence.test.mjs",
             "executionCategory": "manual-diagnostic",
@@ -196,6 +208,17 @@
                 "source-text",
                 "perf",
                 "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/app-config-local-tuner.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/app-config-local-tuner.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "perf"
             ]
         },
         {
@@ -219,17 +242,6 @@
                 "source-text",
                 "compatibility-wrapper",
                 "runtime"
-            ]
-        },
-        {
-            "file": "tests/tools/account-layout-document-authority.test.mjs",
-            "owner": "repository-governance:static-node-contracts",
-            "executionCategory": "repository-governance",
-            "lifecycle": "canonical-execution",
-            "physicalExecutionCount": 1,
-            "classifications": [
-                "source-text",
-                "behavior"
             ]
         },
         {
@@ -1393,6 +1405,7 @@
             "physicalExecutionCount": 1,
             "classifications": [
                 "source-text",
+                "perf",
                 "runtime"
             ]
         },

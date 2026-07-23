@@ -3,7 +3,7 @@
     "generatedBy": "tools/governance/check-rule-platform.mjs --write-registry",
     "inventory": {
         "packageScriptCount": 191,
-        "implementationCount": 341
+        "implementationCount": 342
     },
     "rules": [
         {
@@ -15348,6 +15348,34 @@
                 "mode": "delegated-implementation",
                 "implementation": "tools/test/lanes/wasm-fuzz-regression.sh",
                 "executionKey": "governance:file:tools/test/lanes/wasm-fuzz-regression.sh",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Implementation.ToolsTestingCheckBrowserReadinessContractMjs",
+            "externalId": "tools/testing/check-browser-readiness-contract.mjs",
+            "symbol": "CheckToolsTestingCheckBrowserReadinessContract",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tools/testing/check-browser-readiness-contract.mjs",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/testing/check-browser-readiness-contract.mjs",
+                "executionKey": "governance:file:tools/testing/check-browser-readiness-contract.mjs",
                 "receiptCompatible": true
             }
         }

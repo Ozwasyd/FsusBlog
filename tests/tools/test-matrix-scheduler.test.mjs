@@ -23,9 +23,11 @@ import {
     writeResidentLeaseDocument
 } from '../../tools/test-matrix/resident-resource-leases.mjs';
 import {
-    materializeEsmFixture,
-    preflightMaterializedEsmFixture
-} from './support/esm-fixture-materializer.mjs';
+    assertAllowedRootBoundary,
+    assertMissingDependencyDiagnostic,
+    assertTransitiveMaterialization,
+    materializeTestMatrixRunner
+} from './support/esm-fixture-materializer-contracts.mjs';
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 const schedulerFile = path.join(root, 'tools/test-matrix/scheduler.mjs');
@@ -49,85 +51,12 @@ function createTempDir(name)
 
 function createRunnerFixture(temp)
 {
-    const workflowDirectory = path.join(temp, '.github/workflows');
-    fs.mkdirSync(workflowDirectory, { recursive: true });
-    const fixture = materializeEsmFixture({
-        repositoryRoot: root,
-        fixtureRoot: temp,
-        entries: ['tools/run-test-matrix.mjs'],
-        allowedRoots: ['tools']
-    });
-    fs.copyFileSync(path.join(root, '.github/workflows/quality-gate.yml'), path.join(workflowDirectory, 'quality-gate.yml'));
-    return fixture.entryFiles[0];
+    return materializeTestMatrixRunner(root, temp);
 }
 
-test('ESM fixture materializer follows first- and second-level relative imports without a file list', async () =>
-{
-    const source = createTempDir('esm-fixture-source');
-    const fixture = createTempDir('esm-fixture-target');
-    fs.mkdirSync(path.join(source, 'tools/nested'), { recursive: true });
-    fs.writeFileSync(path.join(source, 'tools/entry.mjs'), "export { value } from './level-one.mjs';\n");
-    fs.writeFileSync(path.join(source, 'tools/level-one.mjs'), "import { value } from './nested/level-two.mjs';\nexport { value };\n");
-    fs.writeFileSync(path.join(source, 'tools/nested/level-two.mjs'), "export const value = 'complete';\n");
-
-    const result = materializeEsmFixture({
-        repositoryRoot: source,
-        fixtureRoot: fixture,
-        entries: ['tools/entry.mjs'],
-        allowedRoots: ['tools']
-    });
-
-    assert.deepEqual(result.files, [
-        'tools/entry.mjs',
-        'tools/level-one.mjs',
-        'tools/nested/level-two.mjs'
-    ]);
-    const loaded = await import(`${pathToFileURL(result.entryFiles[0]).href}?test=${Date.now()}-${Math.random()}`);
-    assert.equal(loaded.value, 'complete');
-});
-
-test('ESM fixture preflight reports importer, specifier and resolved target for a missing dependency', () =>
-{
-    const fixture = createTempDir('esm-fixture-missing');
-    fs.mkdirSync(path.join(fixture, 'tools'), { recursive: true });
-    const importer = path.join(fixture, 'tools/entry.mjs');
-    const missing = path.join(fixture, 'tools/missing.mjs');
-    fs.writeFileSync(importer, "import './missing.mjs';\n");
-
-    assert.throws(
-        () => preflightMaterializedEsmFixture({
-            fixtureRoot: fixture,
-            entries: ['tools/entry.mjs'],
-            allowedRoots: ['tools']
-        }),
-        (error) =>
-        {
-            assert.match(error.message, new RegExp(`importer=${importer.replaceAll('\\', '\\\\')}`, 'u'));
-            assert.match(error.message, /specifier=\.\/missing\.mjs/u);
-            assert.match(error.message, new RegExp(`resolved=${missing.replaceAll('\\', '\\\\')}`, 'u'));
-            return true;
-        }
-    );
-});
-
-test('ESM fixture materializer rejects a relative import outside explicit allowed roots', () =>
-{
-    const source = createTempDir('esm-fixture-escape-source');
-    const fixture = createTempDir('esm-fixture-escape-target');
-    fs.mkdirSync(path.join(source, 'tools'), { recursive: true });
-    fs.writeFileSync(path.join(source, 'outside.mjs'), 'export const escaped = true;\n');
-    fs.writeFileSync(path.join(source, 'tools/entry.mjs'), "export { escaped } from '../outside.mjs';\n");
-
-    assert.throws(
-        () => materializeEsmFixture({
-            repositoryRoot: source,
-            fixtureRoot: fixture,
-            entries: ['tools/entry.mjs'],
-            allowedRoots: ['tools']
-        }),
-        /resolved target escapes allowed roots.*specifier=\.\.\/outside\.mjs/u
-    );
-});
+test('ESM fixture materializer follows first- and second-level relative imports without a file list', assertTransitiveMaterialization);
+test('ESM fixture preflight reports importer, specifier and resolved target for a missing dependency', assertMissingDependencyDiagnostic);
+test('ESM fixture materializer rejects a relative import outside explicit allowed roots', assertAllowedRootBoundary);
 
 function tier(id, overrides = {})
 {

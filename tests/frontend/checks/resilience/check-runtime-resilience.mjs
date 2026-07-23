@@ -8,6 +8,12 @@ import { readPublicFixtures } from '../../support/public-fixtures.mjs';
 import { systemChromiumLaunchOptions } from '../../support/system-chromium.mjs';
 import { testSessionHeaders } from '../../support/test-session.mjs';
 import {
+  attachAudit,
+  selectedRoutes,
+  selectValues,
+  toCookieEntries
+} from '../../support/runtime-resilience-audit.mjs';
+import {
   waitForApplicationReady,
   waitForNotificationSuppressed,
   waitForObservableReadiness,
@@ -25,76 +31,16 @@ const hydrationReadyTimeoutMs = Number.parseInt(process.env.FSUSBLOG_HYDRATION_R
 const require = createRequire(import.meta.url);
 const { chromium } = require(require.resolve('@playwright/test', { paths: [process.cwd()] }));
 
-function selectValues(values, rawSelection, label) {
-  const requested = new Set(String(rawSelection ?? '')
-    .split(',')
-    .map((value) => value.trim())
-    .filter(Boolean));
-  if (requested.size === 0) return values;
-  const selected = values.filter((value) => requested.has(value));
-  const selectedValues = new Set(selected);
-  const unknown = [...requested].filter((value) => !selectedValues.has(value));
-  if (unknown.length > 0) throw new Error(`unknown ${label}: ${unknown.join(', ')}`);
-  return selected;
-}
-
 const resilienceScopes = new Set(selectValues(
   ['guest', 'user', 'admin', 'mobile'],
   process.env.FSUSBLOG_RESILIENCE_SCOPES,
   'runtime resilience scope'
 ));
 
-function selectedRoutes(scope, routes) {
-  const envName = `FSUSBLOG_RESILIENCE_${scope.toUpperCase()}_ROUTES`;
-  return selectValues(routes, process.env[envName], `${scope} resilience route`);
-}
-
 function assert(condition, message) {
   if (!condition) {
     throw new Error(message);
   }
-}
-
-function isIgnorableConsole(text) {
-  return text.includes('favicon.ico')
-    || text.includes('ERR_ABORTED')
-    || text.includes('ERR_NETWORK_CHANGED')
-    || text.includes('Failed to load resource: the server responded with a status of 401 (Unauthorized)');
-}
-
-function attachAudit(page) {
-  const events = [];
-
-  page.on('console', (message) => {
-    if (message.type() !== 'error' && message.type() !== 'warning') {
-      return;
-    }
-    const text = message.text().trim();
-    if (isIgnorableConsole(text)) {
-      return;
-    }
-    events.push(`console:${message.type()}:${text}`);
-  });
-
-  page.on('pageerror', (error) => {
-    const text = error.message.trim();
-    if (isIgnorableConsole(text)) {
-      return;
-    }
-    events.push(`pageerror:${text}`);
-  });
-
-  page.on('requestfailed', (request) => {
-    const failure = request.failure()?.errorText || 'request_failed';
-    if (failure.includes('ERR_ABORTED') || failure.includes('ERR_NETWORK_CHANGED')) {
-      return;
-    }
-    events.push(`requestfailed:${request.method()} ${request.url()} ${failure}`);
-  });
-
-  return () => {
-    assert(events.length === 0, `runtime resilience captured unexpected events:\n${events.join('\n')}`);
-  };
 }
 
 async function addRuntimeIsolation(context) {
@@ -151,22 +97,6 @@ async function addSessionCookies(context, session) {
       url: frontendBaseUrl
     };
   }));
-}
-
-function toCookieEntries(cookieMapOrHeader) {
-  if (cookieMapOrHeader instanceof Map) {
-    return Array.from(cookieMapOrHeader.entries());
-  }
-
-  return String(cookieMapOrHeader || '')
-    .split(';')
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .map((part) => {
-      const eq = part.indexOf('=');
-      return eq > 0 ? [part.slice(0, eq), part.slice(eq + 1)] : null;
-    })
-    .filter(Boolean);
 }
 
 async function assertNoHorizontalOverflow(page, label, tolerance = 8) {

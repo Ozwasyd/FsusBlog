@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v2",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:f6f02bf8aa60c918a7f141c6921777b492111f10b38d3c51d4f1181681fc58b1",
+    "policyDigest": "sha256:d589f696369746128c98edeff077a00437bb2deda32aa58c797c1dc345c56786",
     "documents": [
         {
             "path": "docs/active-release-fenced-commits.md",
@@ -3192,6 +3192,21 @@
             "supersedes": [],
             "supersededBy": null,
             "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/testing/browser-readiness-contract.md",
+            "title": "Browser readiness contract",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "release",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1443
+            ],
             "producer": null
         },
         {
