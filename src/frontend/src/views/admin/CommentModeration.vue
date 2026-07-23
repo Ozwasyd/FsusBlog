@@ -18,22 +18,34 @@
       density="compact"
     >
       <template #primary-filter>
+        <div
+          v-if="hasQueueRiskAlert"
+          class="admin-muted-alert admin-muted-alert--warning mb-4 px-4 py-3 text-sm"
+          role="alert"
+        >
+          当前队列包含地区策略或模型运行异常，请优先复核对应评论。
+        </div>
         <CommentModerationToolbar
           :filters="filters"
           :loading="loading"
-          :total="allItems.length"
-          :filtered-total="filteredItems.length"
+          @search="refreshAndPrune"
+          @update:status="updateStatus"
+          @update:keyword="filters.keyword = $event"
+        />
+      </template>
+
+      <template #advanced-filter-trigger>
+        <CommentModerationAdvancedFilters
+          :filters="filters"
+          :loading="loading"
           :hit-reason-options="hitReasonOptions"
           :blocked-region-options="blockedRegionOptions"
           :model-label-options="modelLabelOptions"
           :model-runtime-options="modelProviderOptions"
           :active-filters="activeFilterChips"
-          @refresh="refreshAndPrune"
-          @search="refreshAndPrune"
-          @reset="resetAndPrune"
+          @apply="refreshAndPrune"
+          @clear="clearAdvancedFilters"
           @remove-filter="removeFilterAndPrune"
-          @update:status="updateStatus"
-          @update:keyword="filters.keyword = $event"
           @update:article="filters.article = $event"
           @update:user="filters.user = $event"
           @update:hit-reason="filters.hitReason = $event"
@@ -108,6 +120,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { FsusUiTaskPageHeader } from "@/fsusui"
 import CommentModerationBulkActions from '@/components/admin/comment-moderation/CommentModerationBulkActions.vue'
+import CommentModerationAdvancedFilters from '@/components/admin/comment-moderation/CommentModerationAdvancedFilters.vue'
 import CommentModerationDetailDrawer from '@/components/admin/comment-moderation/CommentModerationDetailDrawer.vue'
 import CommentModerationQueue from '@/components/admin/comment-moderation/CommentModerationQueue.vue'
 import CommentModerationToolbar from '@/components/admin/comment-moderation/CommentModerationToolbar.vue'
@@ -168,6 +181,11 @@ const {
 const detailVisible = ref(false)
 const detailItem = ref<CommentModerationViewItem | null>(null)
 const hasAdditionalQueueFilters = computed(() => activeFilterChips.value.length > 1)
+const hasQueueRiskAlert = computed(() => allItems.value.some((item) =>
+  item.blockedRegions.length > 0
+  || item.modelStatusLabel.includes('异常')
+  || item.modelStatusLabel.includes('失败')
+))
 const currentStatusLabel = computed(() => commentModerationStatusLabel(filters.status))
 const commentQueueEmptyTitle = computed(() =>
   hasAdditionalQueueFilters.value ? `没有匹配的${currentStatusLabel.value}评论` : `${currentStatusLabel.value}队列暂无评论`
@@ -204,6 +222,17 @@ const resetAndPrune = async (): Promise<void> => {
 const removeFilterAndPrune = async (key: CommentModerationFilterKey): Promise<void> => {
   await removeFilter(key)
   pruneVisibleSelection()
+}
+
+const clearAdvancedFilters = async (): Promise<void> => {
+  filters.article = ''
+  filters.user = ''
+  filters.hitReason = ''
+  filters.blockedRegion = ''
+  filters.modelLabel = ''
+  filters.modelProvider = ''
+  filters.dateRange = null
+  await refreshAndPrune()
 }
 
 const updateStatus = async (status: CommentModerationStatus): Promise<void> => {

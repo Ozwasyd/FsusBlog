@@ -43,6 +43,22 @@ function lowCardinalityToken(maximumLength = 64): QueryValueNormalizer {
   }
 }
 
+function boundedSearchText(maximumLength = 80): QueryValueNormalizer {
+  return (value) => {
+    const candidate = firstString(value)?.trim()
+    return candidate
+      && candidate.length <= maximumLength
+      && !/[\u0000-\u001f\u007f<>`\\]/u.test(candidate)
+      ? candidate
+      : undefined
+  }
+}
+
+function isoDate(value: unknown): string | undefined {
+  const candidate = firstString(value)
+  return candidate && /^\d{4}-\d{2}-\d{2}$/u.test(candidate) ? candidate : undefined
+}
+
 const PRIVATE_ROUTE_QUERY_POLICIES = Object.freeze<Record<string, PrivateRouteQueryPolicy>>({
   UserMessage: Object.freeze({ filter: enumValue('all', 'unread', 'system', 'open', 'pending', 'closed') }),
   ManageUsers: Object.freeze({
@@ -56,6 +72,18 @@ const PRIVATE_ROUTE_QUERY_POLICIES = Object.freeze<Record<string, PrivateRouteQu
     categoryId: positiveInteger(Number.MAX_SAFE_INTEGER),
     tagId: positiveInteger(Number.MAX_SAFE_INTEGER),
     status: enumValue('0', '1', '2', '3')
+  }),
+  ManageModerationComments: Object.freeze({
+    status: enumValue('0', '1', '2', '3'),
+    q: boundedSearchText(),
+    article: boundedSearchText(),
+    user: boundedSearchText(),
+    reason: lowCardinalityToken(),
+    region: lowCardinalityToken(32),
+    model: lowCardinalityToken(32),
+    runtime: lowCardinalityToken(32),
+    from: isoDate,
+    to: isoDate
   }),
   ManageWriteArticle: Object.freeze({ preview: enumValue('private') }),
   ManageEditArticle: Object.freeze({ preview: enumValue('private') }),

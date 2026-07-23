@@ -1,4 +1,5 @@
-import { computed, reactive, ref, shallowRef } from 'vue'
+import { computed, reactive, ref, shallowRef, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
   CommentModerationStatus,
   listCommentModerationQueue,
@@ -86,6 +87,48 @@ export const commentModerationStatusOptions = [
   { value: CommentModerationStatus.Rejected, label: '已拒绝' },
   { value: CommentModerationStatus.Hidden, label: '已隐藏' }
 ] as const
+
+function firstQueryValue(value: unknown): string {
+  const candidate = Array.isArray(value) ? value[0] : value
+  return typeof candidate === 'string' ? candidate : ''
+}
+
+export function applyCommentModerationQuery(
+  filters: CommentModerationFilters,
+  query: Readonly<Record<string, unknown>>
+): void {
+  const status = Number(firstQueryValue(query.status))
+  if (commentModerationStatusOptions.some((option) => option.value === status)) {
+    filters.status = status as CommentModerationStatus
+  }
+  filters.keyword = firstQueryValue(query.q)
+  filters.article = firstQueryValue(query.article)
+  filters.user = firstQueryValue(query.user)
+  filters.hitReason = firstQueryValue(query.reason)
+  filters.blockedRegion = firstQueryValue(query.region)
+  filters.modelLabel = firstQueryValue(query.model)
+  filters.modelProvider = firstQueryValue(query.runtime)
+  const from = firstQueryValue(query.from)
+  const to = firstQueryValue(query.to)
+  filters.dateRange = from && to ? [from, to] : null
+}
+
+export function createCommentModerationQuery(filters: CommentModerationFilters): Record<string, string> {
+  const query: Record<string, string> = {}
+  if (filters.status !== CommentModerationStatus.Pending) query.status = String(filters.status)
+  if (filters.keyword.trim()) query.q = filters.keyword.trim()
+  if (filters.article.trim()) query.article = filters.article.trim()
+  if (filters.user.trim()) query.user = filters.user.trim()
+  if (filters.hitReason) query.reason = filters.hitReason
+  if (filters.blockedRegion) query.region = filters.blockedRegion
+  if (filters.modelLabel) query.model = filters.modelLabel
+  if (filters.modelProvider) query.runtime = filters.modelProvider
+  if (filters.dateRange) {
+    query.from = filters.dateRange[0]
+    query.to = filters.dateRange[1]
+  }
+  return query
+}
 
 export function commentModerationStatusLabel(status: CommentModerationStatus): string {
   switch (status) {
@@ -429,6 +472,8 @@ function toViewItem(item: CommentModerationItemResponse): CommentModerationViewI
 }
 
 export function useCommentModerationQueue(options: UseCommentModerationQueueOptions = {}) {
+  const route = useRoute()
+  const router = useRouter()
   const limit = options.limit ?? 100
   const task = useViewTask()
   const queue = shallowRef<CommentModerationQueueResponse | null>(null)
@@ -444,6 +489,15 @@ export function useCommentModerationQueue(options: UseCommentModerationQueueOpti
     modelProvider: '',
     dateRange: null
   })
+  const hydrateQuery = (): void => {
+    applyCommentModerationQuery(filters, route.query)
+  }
+  const syncQuery = async (): Promise<void> => {
+    const query = createCommentModerationQuery(filters)
+    if (JSON.stringify(query) === JSON.stringify(route.query)) return
+    await router.replace({ name: 'ManageModerationComments', query })
+  }
+  hydrateQuery()
 
   const rawItems = computed(() => queue.value?.items ?? [])
   const allItems = computed<CommentModerationViewItem[]>(() => rawItems.value.map(toViewItem))
@@ -605,6 +659,7 @@ export function useCommentModerationQueue(options: UseCommentModerationQueueOpti
   })
 
   const refreshQueue = async (): Promise<boolean> => {
+    await syncQuery()
     const result = await task.run(
       async (signal) => await listCommentModerationQueue(filters.status, limit, { signal }),
       {
@@ -663,7 +718,14 @@ export function useCommentModerationQueue(options: UseCommentModerationQueueOpti
     if (key === 'modelLabel') filters.modelLabel = ''
     if (key === 'modelProvider') filters.modelProvider = ''
     if (key === 'dateRange') filters.dateRange = null
+    await syncQuery()
   }
+
+  watch(() => route.query, () => {
+    const before = JSON.stringify(createCommentModerationQuery(filters))
+    hydrateQuery()
+    if (before !== JSON.stringify(createCommentModerationQuery(filters))) void refreshQueue()
+  })
 
   return {
     loading: task.loading,

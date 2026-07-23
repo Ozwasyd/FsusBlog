@@ -28,6 +28,9 @@ describe('private navigation policy', () => {
   it('publishes route-specific fields and excludes free text and object selections', () => {
     expect(PRIVATE_NAVIGATION_ALLOWED_FIELDS.UserMessage).toEqual(['filter'])
     expect(PRIVATE_NAVIGATION_ALLOWED_FIELDS.ManageUsers).toEqual(['page', 'pageSize', 'status'])
+    expect(PRIVATE_NAVIGATION_ALLOWED_FIELDS.ManageModerationComments).toEqual([
+      'status', 'q', 'article', 'user', 'reason', 'region', 'model', 'runtime', 'from', 'to'
+    ])
     expect(PRIVATE_NAVIGATION_ALLOWED_FIELDS.ManageArticleList).not.toContain('keyword')
     expect(PRIVATE_NAVIGATION_ALLOWED_FIELDS.UserMessage).not.toContain('conversation')
   })
@@ -48,6 +51,26 @@ describe('private navigation policy', () => {
       page2: '1'
     })).toEqual({})
     expect(sanitizePrivateRouteQuery('UserMessage', { filter: ['unread', 'closed'] })).toEqual({ filter: 'unread' })
+    expect(sanitizePrivateRouteQuery('ManageModerationComments', {
+      status: '2',
+      q: '重复内容',
+      article: '42',
+      user: 'anonymous-7',
+      reason: 'spam-repeat',
+      region: 'CN-MAINLAND',
+      from: '2026-07-01',
+      to: '2026-07-23',
+      proof: 'secret'
+    })).toEqual({
+      status: '2',
+      q: '重复内容',
+      article: '42',
+      user: 'anonymous-7',
+      reason: 'spam-repeat',
+      region: 'CN-MAINLAND',
+      from: '2026-07-01',
+      to: '2026-07-23'
+    })
   })
 
   it('preserves public targets while rejecting external or ambiguous redirects', () => {
