@@ -2,6 +2,7 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import './check-reading-layout-primitive.mjs'
 
 const repoRoot = resolve(process.cwd(), '../..')
 const errors = []
@@ -623,10 +624,10 @@ expectNotMatches(publicArticleDetail, /@ozwasyd\/element-plus\/motion/, 'PublicA
 expectIncludes(publicArticleDetail, 'data-article-tail-group', 'PublicArticleDetailPageContent.vue groups article tail sections')
 expectIncludes(
   publicArticleDetail,
-  '<!-- 760px 将中文正文行长控制在舒适阅读范围，避免宽屏下单行文字过长。 -->',
+  '<!-- reading layout 的 content line 将中文正文限制在 760px，并为 wide media 提供共享 bleed line。 -->',
   'PublicArticleDetailPageContent.vue Chinese reading-line rationale'
 )
-expectIncludes(publicArticleDetail, 'max-w-[760px]', 'PublicArticleDetailPageContent.vue reading column width')
+expectIncludes(publicArticleDetail, 'data-fsus-reading-layout', 'PublicArticleDetailPageContent.vue shared reading geometry')
 expectMatches(
   publicArticleDetail,
   /id="comments"\s+class="mb-6 border-b border-\[var\(--fsusblog-panel-border\)\] pb-4 text-sm font-bold normal-case text-\[var\(--fsusblog-text-primary\)\]"/u,

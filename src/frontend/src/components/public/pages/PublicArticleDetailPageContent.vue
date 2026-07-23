@@ -1,7 +1,8 @@
 <template>
-  <!-- 760px 将中文正文行长控制在舒适阅读范围，避免宽屏下单行文字过长。 -->
+  <!-- reading layout 的 content line 将中文正文限制在 760px，并为 wide media 提供共享 bleed line。 -->
   <article
-    class="public-article-detail mx-auto min-h-screen max-w-[760px] px-4 pt-6 pb-10 sm:px-12 sm:pt-10 sm:pb-12"
+    class="public-article-detail min-h-screen pt-6 pb-10 sm:pt-10 sm:pb-12"
+    data-fsus-reading-layout
     data-readable-region
     data-fsus-surface="reading"
     itemscope
@@ -42,6 +43,7 @@
     <div
       v-if="detailCover"
       class="mb-12 overflow-hidden rounded-[var(--fsusblog-radius-reading-media)] border border-[var(--fsusblog-panel-border)] shadow-none sm:mb-16"
+      data-fsus-reading-bleed
       data-fsus-motion-surface="article-cover"
       data-content-cover="article-detail"
       :data-cover-safe-area="detailCover.safeArea"
@@ -456,11 +458,4 @@ const appendixCopyrightText = computed(() => {
   outline-offset: -2px;
 }
 
-@media (max-width: 639px) {
-  .public-article-detail {
-    width: calc(100% + 2rem);
-    margin-right: -1rem;
-    margin-left: -1rem;
-  }
-}
 </style>
