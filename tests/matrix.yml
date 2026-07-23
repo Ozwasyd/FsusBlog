@@ -3548,6 +3548,8 @@ tiers:
               src/frontend/src/services,
               src/frontend/src/workers,
               tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts,
+              tests/frontend/support/playwright/browser-capability-contract.mjs,
+              tests/tools/browser-capability-contract.test.mjs,
           ]
       triggerFiles: [src/frontend/vite.config.ts, tests/matrix.yml]
       triggerCoverage: [cross-browser-smoke]

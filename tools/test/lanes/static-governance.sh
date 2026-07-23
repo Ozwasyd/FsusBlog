@@ -99,6 +99,7 @@ STATIC_NODE_CONTRACT_FILES=(
     "$ROOT_DIR/tests/tools/zap-baseline-contract.test.mjs"
     "$ROOT_DIR/tests/tools/browser-migration-contract.test.mjs"
     "$ROOT_DIR/tests/tools/browser-readiness-contract.test.mjs"
+    "$ROOT_DIR/tests/tools/browser-capability-contract.test.mjs"
     "$ROOT_DIR/tests/tools/historical-topology-test-dispositions.test.mjs"
     "$ROOT_DIR/tests/tools/command-manifest-behavior.test.mjs"
     "$ROOT_DIR/tests/tools/command-manifest-test-migration.test.mjs"
