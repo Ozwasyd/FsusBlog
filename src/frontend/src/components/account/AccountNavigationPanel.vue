@@ -206,10 +206,10 @@ const localNavigationTitleId = computed(() => (
 
 .account-module-link__helper,
 .account-local-navigation__helper {
-  color: var(--fsusblog-text-muted);
+  color: var(--fsusblog-text-tertiary);
   font-size: 12px;
   font-weight: 500;
-  line-height: 1.35;
+  line-height: 1.45;
   white-space: nowrap;
 }
 

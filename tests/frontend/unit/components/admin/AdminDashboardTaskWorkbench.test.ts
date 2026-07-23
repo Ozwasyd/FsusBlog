@@ -7,8 +7,11 @@ import AdminDashboardTaskWorkbench from '@/components/admin/AdminDashboardTaskWo
 import type { ConsoleSupportLink } from '@/config/consoleWelcomeCallout'
 import {
   createAdminDashboardLedger,
+  createAdminDashboardSystemStatus,
   createAdminDashboardTasks,
   type AdminDashboardLedgerItem,
+  type AdminDashboardRecentChangeItem,
+  type AdminDashboardSystemStatus,
   type AdminDashboardTaskItem
 } from '@/view-contracts/adminDashboard'
 
@@ -51,26 +54,46 @@ const zeroLedger = createAdminDashboardLedger({
 })
 
 type WorkbenchProps = {
+  canViewAuditLog: boolean
   hasSummaryData: boolean
   helpLinks: readonly ConsoleSupportLink[]
   ledgerItems: readonly AdminDashboardLedgerItem[]
+  pendingActions: readonly AdminDashboardTaskItem<string>[]
+  recentChanges: readonly AdminDashboardRecentChangeItem[]
+  recentChangesErrorMessage: string
+  recentChangesLoaded: boolean
+  recentChangesLoading: boolean
   summaryErrorMessage: string
   summaryLoaded: boolean
   summaryLoading: boolean
-  todayActions: readonly AdminDashboardTaskItem[]
+  systemStatus: AdminDashboardSystemStatus
+  writeAction: AdminDashboardTaskItem<string> | null
 }
 
 const mountWorkbench = (override: Partial<WorkbenchProps> = {}) => mount(AdminDashboardTaskWorkbench, {
   props: {
+    canViewAuditLog: true,
     hasSummaryData: false,
     helpLinks: [
       { key: 'issue', label: '提交问题', href: 'https://example.test/support' }
     ],
     ledgerItems: zeroLedger,
+    pendingActions: [],
+    recentChanges: [],
+    recentChangesErrorMessage: '',
+    recentChangesLoaded: true,
+    recentChangesLoading: false,
     summaryErrorMessage: '',
     summaryLoaded: true,
     summaryLoading: false,
-    todayActions: zeroTasks,
+    systemStatus: createAdminDashboardSystemStatus({
+      status: 'ok',
+      aot: { status: 'ready' },
+      search: { status: 'ready' },
+      distribution: { status: 'ok' },
+      outputCache: { status: 'ready', enabled: true }
+    }, 'ready'),
+    writeAction: zeroTasks.find((item) => item.key === 'write') ?? null,
     ...override
   },
   global: {
@@ -88,13 +111,14 @@ describe('AdminDashboardTaskWorkbench', () => {
       summaryLoading: true
     })
 
-    expect(wrapper.get('[role="status"]').text()).toBe('正在读取站点摘要…')
+    expect(wrapper.findAll('[role="status"]').map((item) => item.text()))
+      .toContain('正在读取站点摘要…')
 
     await wrapper.setProps({ summaryLoading: false })
-    expect(wrapper.get('[role="status"]').text()).toContain('站点摘要尚未检查')
+    expect(wrapper.text()).toContain('站点摘要尚未检查')
 
     await wrapper.setProps({ summaryLoaded: true })
-    expect(wrapper.get('.dashboard-summary__empty').text()).toContain('先写新文章')
+    expect(wrapper.get('.dashboard-summary__empty').text()).toContain('发布内容后摘要会自动更新')
 
     await wrapper.setProps({
       hasSummaryData: true,
@@ -113,21 +137,18 @@ describe('AdminDashboardTaskWorkbench', () => {
     expect(wrapper.get('dl[aria-label="站点统计摘要"]').text()).toContain('12')
   })
 
-  it('renders all four zero-workload actions and the compact definition list', () => {
+  it('renders a compact healthy state and an explicit next step for zero workload', () => {
     const wrapper = mountWorkbench()
 
     expect(wrapper.get('h1').text()).toBe('站点工作台')
-    expect(wrapper.get('[aria-label="今日待处理任务"]').findAll('li')).toHaveLength(4)
-    expect(wrapper.findAll('.dashboard-task-row').map((row) => row.text())).toEqual([
-      expect.stringContaining('待审评论'),
-      expect.stringContaining('待处理工单'),
-      expect.stringContaining('缓存异常'),
-      expect.stringContaining('写新文章')
-    ])
+    expect(wrapper.find('[aria-label="今日待处理任务"]').exists()).toBe(false)
+    expect(wrapper.get('.dashboard-healthy-empty').text()).toContain('暂无待处理')
+    expect(wrapper.get('.dashboard-primary-action').text()).toBe('写新文章')
+    expect(wrapper.get('.dashboard-system-status').text()).toContain('系统处于预期状态')
     expect(wrapper.get('dl[aria-label="站点统计摘要"]').findAll('dt')).toHaveLength(3)
     expect(wrapper.get('dl[aria-label="站点统计摘要"]').findAll('dd').map((item) => item.text()))
       .toEqual(['0', '0', '0'])
-    expect(wrapper.text()).toContain('先写新文章，发布后摘要会自动更新')
+    expect(wrapper.text()).toContain('发布内容后摘要会自动更新')
     expect(wrapper.text()).not.toContain('暂无数据')
     expect(wrapper.find('.dashboard-stat-card').exists()).toBe(false)
     expect(wrapper.find('.el-icon').exists()).toBe(false)
@@ -151,19 +172,32 @@ describe('AdminDashboardTaskWorkbench', () => {
         articleReads: 0,
         siteReads: 0
       }),
-      todayActions
+      pendingActions: todayActions.slice(0, 3),
+      recentChanges: [{
+        id: 'change-1',
+        category: '策略',
+        title: '更新了评论审核策略',
+        occurredAtUtc: '2026-07-23T08:00:00Z',
+        to: { name: 'ManageAuditLog' }
+      }]
     })
 
     expect(wrapper.findAll('.dashboard-task-row__value').map((item) => item.text()))
-      .toEqual(['1384', '92', '3', '开始'])
+      .toEqual(['1384', '92', '3'])
+    expect(wrapper.findAll('.dashboard-task-row__cta').map((item) => item.text()))
+      .toEqual(['处理', '处理', '处理'])
+    expect(wrapper.get('.dashboard-change-row').text()).toContain('更新了评论审核策略')
     expect(wrapper.findAll('.dashboard-stat-ledger dd').map((item) => item.text()))
       .toEqual(['12000', '84291', '71'])
     expect(wrapper.findAll('[data-route]').map((link) => link.attributes('data-route'))).toEqual([
       '{"name":"ManageModerationComments"}',
       '{"name":"ManageMessages"}',
       '{"name":"ManageCacheDiagnostics"}',
-      '{"name":"ManageWriteArticle"}',
-      '{"name":"ManageAnalytics"}'
+      '{"name":"ManageAuditLog"}',
+      '{"name":"ManageAuditLog"}',
+      '{"name":"ManageCacheDiagnostics"}',
+      '{"name":"ManageAnalytics"}',
+      '{"name":"ManageCacheDiagnostics"}'
     ])
   })
 
@@ -181,6 +215,15 @@ describe('AdminDashboardTaskWorkbench', () => {
     expect(wrapper.get('.el-task-page-header__actions').find('details').exists()).toBe(true)
   })
 
+  it('keeps the recent-change empty state without exposing an unauthorized audit link', () => {
+    const wrapper = mountWorkbench({ canViewAuditLog: false })
+
+    expect(wrapper.get('.dashboard-changes').text()).toContain('暂无可显示的最近变更')
+    expect(wrapper.findAll('[data-route]').some((link) => (
+      link.attributes('data-route') === '{"name":"ManageAuditLog"}'
+    ))).toBe(false)
+  })
+
   it('offers an explicit retry when the summary fails', async () => {
     const wrapper = mountWorkbench({
       hasSummaryData: false,
@@ -189,7 +232,7 @@ describe('AdminDashboardTaskWorkbench', () => {
       summaryLoaded: false
     })
 
-    expect(wrapper.get('[role="alert"]').text()).toContain('站点摘要读取失败；请重新加载')
+    expect(wrapper.get('[role="alert"]').text()).toContain('站点摘要读取失败；系统状态不受影响')
     await wrapper.get('button.dashboard-inline-action').trigger('click')
     expect(wrapper.emitted('refresh-summary')).toHaveLength(1)
   })

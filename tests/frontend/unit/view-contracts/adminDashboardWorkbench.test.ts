@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { StatsSummary } from '@/api/stats'
+import type { AuditLogItemResponse } from '@/api/authoring'
 import {
   countCacheDiagnosticsIncidents,
   createAdminDashboardLedger,
+  createAdminDashboardRecentChanges,
+  createAdminDashboardSystemStatus,
   createAdminDashboardTasks,
   type CacheDiagnosticsHealthSnapshot
 } from '@/view-contracts/adminDashboard'
@@ -27,6 +30,37 @@ const cacheSnapshot = (
   search: { status: 'ready' },
   distribution: { status: 'ok' },
   outputCache: { status: 'ready', enabled: true },
+  ...override
+})
+
+const auditItem = (override: Partial<AuditLogItemResponse> = {}): AuditLogItemResponse => ({
+  id: 'audit-1',
+  source: 'admin',
+  type: 'article',
+  action: 'article.publish',
+  outcome: 'success',
+  severity: 'info',
+  isHighValue: false,
+  actorType: 'admin',
+  actorId: null,
+  actorRole: 'admin',
+  targetType: 'article',
+  targetId: '42',
+  reasonCode: null,
+  occurredAtUtc: '2026-07-23T08:00:00Z',
+  eventInfo: '发布了文章',
+  traceId: null,
+  requestPath: '/api/binary/authoring/articles/42',
+  requestMethod: 'POST',
+  ipHash: null,
+  userAgentHash: null,
+  sessionIdHash: null,
+  deviceFingerprintHash: null,
+  chainId: null,
+  prevHash: null,
+  recordHash: null,
+  recordMac: null,
+  piiMode: 'pii-redacted',
   ...override
 })
 
@@ -113,5 +147,41 @@ describe('admin dashboard workbench view contract', () => {
     }))).toBe(3)
     expect(countCacheDiagnosticsIncidents(cacheSnapshot({ status: 'degraded' }))).toBe(1)
     expect(countCacheDiagnosticsIncidents(null)).toBe(0)
+  })
+
+  it('groups recent audit records into task-readable change categories', () => {
+    const changes = createAdminDashboardRecentChanges([
+      auditItem(),
+      auditItem({ id: 'comment', type: 'comment', action: 'moderation.approve', targetType: 'comment', requestPath: '/api/binary/authoring/comments', eventInfo: '批准了评论' }),
+      auditItem({ id: 'policy', type: 'security', action: 'policy.update', targetType: 'policy', requestPath: '/api/binary/authoring/policy', eventInfo: '更新了安全策略' }),
+      auditItem({ id: 'system', type: 'cache', action: 'cache.rebuild', targetType: 'cache', requestPath: '/api/binary/authoring/cache', eventInfo: '' })
+    ])
+
+    expect(changes.map((item) => item.category)).toEqual(['文章', '评论', '策略', '系统'])
+    expect(changes[3]).toMatchObject({
+      title: 'cache.rebuild',
+      to: { name: 'ManageAuditLog' }
+    })
+  })
+
+  it('does not report an unchecked system as healthy and aggregates real incidents', () => {
+    expect(createAdminDashboardSystemStatus(null, 'idle')).toMatchObject({
+      state: 'idle',
+      label: '系统状态尚未检查'
+    })
+    expect(createAdminDashboardSystemStatus(cacheSnapshot(), 'ready')).toMatchObject({
+      state: 'healthy',
+      label: '系统处于预期状态'
+    })
+    expect(createAdminDashboardSystemStatus(cacheSnapshot({
+      search: { status: 'failed' }
+    }), 'ready')).toMatchObject({
+      state: 'attention',
+      label: '1 项运行异常需要处理'
+    })
+    expect(createAdminDashboardSystemStatus(cacheSnapshot(), 'error')).toMatchObject({
+      state: 'error',
+      label: '系统状态读取失败'
+    })
   })
 })

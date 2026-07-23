@@ -1,4 +1,4 @@
-import type { CacheDiagnosticsResponse } from '@/api/authoring'
+import type { AuditLogItemResponse, CacheDiagnosticsResponse } from '@/api/authoring'
 import type { StatsSummary } from '@/api/stats'
 import type { RouteLocationRaw } from 'vue-router'
 
@@ -11,12 +11,27 @@ export type AdminDashboardTaskSource = Readonly<{
   state: AdminDashboardReadState
 }>
 
-export type AdminDashboardTaskItem = Readonly<{
-  key: AdminDashboardTaskKey
+export type AdminDashboardTaskItem<Key extends string = AdminDashboardTaskKey> = Readonly<{
+  key: Key
   label: string
   countText: string
   helper: string
   state: AdminDashboardReadState
+  to: RouteLocationRaw
+}>
+
+export type AdminDashboardRecentChangeItem = Readonly<{
+  id: string
+  category: '文章' | '评论' | '策略' | '系统'
+  title: string
+  occurredAtUtc: string
+  to: RouteLocationRaw
+}>
+
+export type AdminDashboardSystemStatus = Readonly<{
+  state: AdminDashboardReadState | 'healthy' | 'attention'
+  label: string
+  helper: string
   to: RouteLocationRaw
 }>
 
@@ -146,4 +161,79 @@ export function createAdminDashboardTasks(input: Readonly<{
       to: { name: 'ManageWriteArticle' }
     }
   ]
+}
+
+const includesAny = (value: string, needles: readonly string[]): boolean =>
+  needles.some((needle) => value.includes(needle))
+
+const recentChangeCategory = (item: AuditLogItemResponse): AdminDashboardRecentChangeItem['category'] => {
+  const searchable = [
+    item.source,
+    item.type,
+    item.action,
+    item.targetType ?? '',
+    item.requestPath ?? ''
+  ].join(' ').toLowerCase()
+
+  if (includesAny(searchable, ['article', 'post', 'taxonomy', 'category', 'tag'])) return '文章'
+  if (includesAny(searchable, ['comment', 'moderation', 'message', 'conversation'])) return '评论'
+  if (includesAny(searchable, ['policy', 'security', 'permission', 'role', 'challenge'])) return '策略'
+  return '系统'
+}
+
+export function createAdminDashboardRecentChanges(
+  items: readonly AuditLogItemResponse[]
+): readonly AdminDashboardRecentChangeItem[] {
+  return items.slice(0, 5).map((item) => ({
+    id: item.id,
+    category: recentChangeCategory(item),
+    title: item.eventInfo.trim() || item.action.trim() || '后台变更已记录',
+    occurredAtUtc: item.occurredAtUtc,
+    to: { name: 'ManageAuditLog' }
+  }))
+}
+
+export function createAdminDashboardSystemStatus(
+  diagnostics: CacheDiagnosticsHealthSnapshot | CacheDiagnosticsResponse | null,
+  state: AdminDashboardReadState
+): AdminDashboardSystemStatus {
+  if (state === 'loading') {
+    return {
+      state,
+      label: '正在检查系统状态',
+      helper: '缓存、索引与分发状态正在汇总。',
+      to: { name: 'ManageCacheDiagnostics' }
+    }
+  }
+  if (state === 'error') {
+    return {
+      state,
+      label: '系统状态读取失败',
+      helper: '进入运行诊断重新检查，不将未知状态显示为正常。',
+      to: { name: 'ManageCacheDiagnostics' }
+    }
+  }
+  if (state === 'idle' || !diagnostics) {
+    return {
+      state: 'idle',
+      label: '系统状态尚未检查',
+      helper: '进入运行诊断完成首次检查。',
+      to: { name: 'ManageCacheDiagnostics' }
+    }
+  }
+
+  const incidents = countCacheDiagnosticsIncidents(diagnostics)
+  return incidents > 0
+    ? {
+        state: 'attention',
+        label: `${incidents} 项运行异常需要处理`,
+        helper: '异常来自缓存、索引或内容分发链路。',
+        to: { name: 'ManageCacheDiagnostics' }
+      }
+    : {
+        state: 'healthy',
+        label: '系统处于预期状态',
+        helper: '缓存、索引与内容分发最近一次检查均正常。',
+        to: { name: 'ManageCacheDiagnostics' }
+      }
 }

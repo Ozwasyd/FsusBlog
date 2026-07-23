@@ -2,7 +2,9 @@ import { computed, onUnmounted, ref, shallowRef, watch } from 'vue'
 import {
   CommentModerationStatus,
   getCacheDiagnostics,
+  listAuditLogs,
   listCommentModerationQueue,
+  type AuditLogItemResponse,
   type CacheDiagnosticsResponse
 } from '@/api/authoring'
 import { messageApi } from '@/api/message'
@@ -16,6 +18,8 @@ import {
 import {
   countCacheDiagnosticsIncidents,
   createAdminDashboardLedger,
+  createAdminDashboardRecentChanges,
+  createAdminDashboardSystemStatus,
   createAdminDashboardTasks,
   type AdminDashboardReadState
 } from '@/view-contracts/adminDashboard'
@@ -35,6 +39,7 @@ export function useAdminDashboardWorkbench() {
   const commentsTask = useViewTask()
   const ticketsTask = useViewTask()
   const cacheTask = useViewTask()
+  const changesTask = useViewTask()
   const { userStore, adminStore } = useSessionBootstrap()
 
   const summary = shallowRef<StatsSummary | null>(null)
@@ -45,12 +50,15 @@ export function useAdminDashboardWorkbench() {
   const ticketsLoaded = ref(false)
   const cacheDiagnostics = shallowRef<CacheDiagnosticsResponse | null>(null)
   const cacheLoaded = ref(false)
+  const recentAuditItems = shallowRef<readonly AuditLogItemResponse[]>([])
+  const recentChangesLoaded = ref(false)
   const helpLinks = buildConsoleSupportLinks(resolveConsoleWelcomeCalloutConfig())
   let hasFetched = false
 
   const cacheIncidentCount = computed(() =>
     countCacheDiagnosticsIncidents(cacheDiagnostics.value)
   )
+  const canViewAuditLog = computed(() => adminStore.hasPermission('audit.read'))
   const ledgerItems = computed(() => createAdminDashboardLedger(summary.value))
   const hasSummaryData = computed(() => ledgerItems.value.some((item) => item.value > 0))
   const todayActions = computed(() => createAdminDashboardTasks({
@@ -79,6 +87,25 @@ export function useAdminDashboardWorkbench() {
       )
     }
   }))
+  const pendingActions = computed(() => todayActions.value.filter((action) => (
+    action.key !== 'write'
+    && (
+      action.state !== 'ready'
+      || Number.parseInt(action.countText, 10) > 0
+    )
+  )))
+  const writeAction = computed(() => (
+    todayActions.value.find((action) => action.key === 'write') ?? null
+  ))
+  const recentChanges = computed(() => createAdminDashboardRecentChanges(recentAuditItems.value))
+  const systemStatus = computed(() => createAdminDashboardSystemStatus(
+    cacheDiagnostics.value,
+    resolveReadState(
+      cacheTask.loading.value,
+      cacheTask.errorMessage.value,
+      cacheLoaded.value
+    )
+  ))
 
   const refreshSummary = async (): Promise<boolean> => {
     const overview = await statsTask.run(
@@ -160,13 +187,42 @@ export function useAdminDashboardWorkbench() {
     return true
   }
 
+  const refreshRecentChanges = async (): Promise<boolean> => {
+    if (!canViewAuditLog.value) {
+      recentAuditItems.value = []
+      recentChangesLoaded.value = true
+      return true
+    }
+
+    const response = await changesTask.run(
+      async (signal) => await listAuditLogs(
+        { page: 1, pageSize: 5, piiMode: 'pii-redacted' },
+        { signal }
+      ),
+      {
+        fallbackMessage: '最近变更加载失败',
+        onError: () => {
+          recentAuditItems.value = []
+          recentChangesLoaded.value = false
+        }
+      }
+    )
+
+    if (!response) return false
+
+    recentAuditItems.value = response.items
+    recentChangesLoaded.value = true
+    return true
+  }
+
   const refreshDashboard = async (): Promise<void> => {
     hasFetched = true
     await Promise.all([
       refreshSummary(),
       refreshPendingComments(),
       refreshPendingTickets(),
-      refreshCacheDiagnostics()
+      refreshCacheDiagnostics(),
+      refreshRecentChanges()
     ])
   }
 
@@ -175,10 +231,12 @@ export function useAdminDashboardWorkbench() {
     commentsTask.cancel()
     ticketsTask.cancel()
     cacheTask.cancel()
+    changesTask.cancel()
     statsTask.clearError()
     commentsTask.clearError()
     ticketsTask.clearError()
     cacheTask.clearError()
+    changesTask.clearError()
     summary.value = null
     summaryLoaded.value = false
     pendingCommentCount.value = 0
@@ -187,6 +245,8 @@ export function useAdminDashboardWorkbench() {
     ticketsLoaded.value = false
     cacheDiagnostics.value = null
     cacheLoaded.value = false
+    recentAuditItems.value = []
+    recentChangesLoaded.value = false
   }
 
   watch(
@@ -209,13 +269,21 @@ export function useAdminDashboardWorkbench() {
 
   return {
     hasSummaryData,
+    canViewAuditLog,
     helpLinks,
     ledgerItems,
+    pendingActions,
+    recentChanges,
+    recentChangesErrorMessage: changesTask.errorMessage,
+    recentChangesLoaded,
+    recentChangesLoading: changesTask.loading,
     refreshDashboard,
+    refreshRecentChanges,
     refreshSummary,
     summaryErrorMessage: statsTask.errorMessage,
     summaryLoaded,
     summaryLoading: statsTask.loading,
-    todayActions
+    systemStatus,
+    writeAction
   }
 }
