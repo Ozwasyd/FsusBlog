@@ -59,6 +59,10 @@ const userCommentsListPath = path.join(repoRoot, 'src/frontend/src/components/us
 const messagesConversationListPath = path.join(repoRoot, 'src/frontend/src/components/user/messages/MessagesConversationList.vue');
 const articleTrashPath = path.join(repoRoot, 'src/frontend/src/views/admin/article/Trash.vue');
 const articleWritePath = path.join(repoRoot, 'src/frontend/src/views/admin/article/Write.vue');
+const articleWriteCommandBarPath = path.join(
+    repoRoot,
+    'src/frontend/src/components/admin/article/ArticleWriteCommandBar.vue'
+);
 const auditLogPath = path.join(repoRoot, 'src/frontend/src/views/admin/AuditLog.vue');
 const dashboardAuthorAnalyticsListPath = path.join(repoRoot, 'src/frontend/src/components/admin/DashboardAuthorAnalyticsList.vue');
 
@@ -308,8 +312,8 @@ function checkTouchTargetFloor()
         'article trash empty actions must keep the 40px admin compact tier'
     );
     assertContains(
-        articleWritePath,
-        /\.write-command-back\s*\{[\s\S]*?min-width:\s*40px;[\s\S]*?min-height:\s*40px;/,
+        articleWriteCommandBarPath,
+        /\.article-write-command-bar__back\s*\{[\s\S]*?min-width:\s*2\.5rem;[\s\S]*?min-height:\s*2\.5rem;/,
         'article write back actions must keep 40px targets on both axes'
     );
     assertContains(
