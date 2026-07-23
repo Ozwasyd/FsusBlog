@@ -22,6 +22,10 @@ import {
     readResidentLeaseDocument,
     writeResidentLeaseDocument
 } from '../../tools/test-matrix/resident-resource-leases.mjs';
+import {
+    materializeEsmFixture,
+    preflightMaterializedEsmFixture
+} from './support/esm-fixture-materializer.mjs';
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 const schedulerFile = path.join(root, 'tools/test-matrix/scheduler.mjs');
@@ -45,23 +49,85 @@ function createTempDir(name)
 
 function createRunnerFixture(temp)
 {
-    const toolsDirectory = path.join(temp, 'tools');
-    const schedulerDirectory = path.join(toolsDirectory, 'test-matrix');
-    const yamlDirectory = path.join(toolsDirectory, 'yaml');
     const workflowDirectory = path.join(temp, '.github/workflows');
-    fs.mkdirSync(schedulerDirectory, { recursive: true });
-    fs.mkdirSync(yamlDirectory, { recursive: true });
     fs.mkdirSync(workflowDirectory, { recursive: true });
-    fs.copyFileSync(path.join(root, 'tools/run-test-matrix.mjs'), path.join(toolsDirectory, 'run-test-matrix.mjs'));
-    for (const file of ['scheduler.mjs', 'async-log-pipeline.mjs', 'local-profile.mjs', 'parse-matrix.mjs', 'projection-declaration.mjs', 'topology.mjs', 'fresh-production.mjs', 'local-runtime-cleanup.mjs', 'dotnet-build-server-cleanup.mjs', 'production-build-layout.mjs', 'production-build-gc.mjs', 'artifact-digest-table.mjs', 'resource-utilization.mjs', 'production-resource-enforcement.mjs', 'resident-resource-leases.mjs'])
-    {
-        fs.copyFileSync(path.join(root, 'tools/test-matrix', file), path.join(schedulerDirectory, file));
-    }
-    fs.copyFileSync(path.join(root, 'tools/yaml/parse-document.mjs'), path.join(yamlDirectory, 'parse-document.mjs'));
-    fs.copyFileSync(path.join(root, 'tools/yaml/workflow-structure.mjs'), path.join(yamlDirectory, 'workflow-structure.mjs'));
+    const fixture = materializeEsmFixture({
+        repositoryRoot: root,
+        fixtureRoot: temp,
+        entries: ['tools/run-test-matrix.mjs'],
+        allowedRoots: ['tools']
+    });
     fs.copyFileSync(path.join(root, '.github/workflows/quality-gate.yml'), path.join(workflowDirectory, 'quality-gate.yml'));
-    return path.join(toolsDirectory, 'run-test-matrix.mjs');
+    return fixture.entryFiles[0];
 }
+
+test('ESM fixture materializer follows first- and second-level relative imports without a file list', async () =>
+{
+    const source = createTempDir('esm-fixture-source');
+    const fixture = createTempDir('esm-fixture-target');
+    fs.mkdirSync(path.join(source, 'tools/nested'), { recursive: true });
+    fs.writeFileSync(path.join(source, 'tools/entry.mjs'), "export { value } from './level-one.mjs';\n");
+    fs.writeFileSync(path.join(source, 'tools/level-one.mjs'), "import { value } from './nested/level-two.mjs';\nexport { value };\n");
+    fs.writeFileSync(path.join(source, 'tools/nested/level-two.mjs'), "export const value = 'complete';\n");
+
+    const result = materializeEsmFixture({
+        repositoryRoot: source,
+        fixtureRoot: fixture,
+        entries: ['tools/entry.mjs'],
+        allowedRoots: ['tools']
+    });
+
+    assert.deepEqual(result.files, [
+        'tools/entry.mjs',
+        'tools/level-one.mjs',
+        'tools/nested/level-two.mjs'
+    ]);
+    const loaded = await import(`${pathToFileURL(result.entryFiles[0]).href}?test=${Date.now()}-${Math.random()}`);
+    assert.equal(loaded.value, 'complete');
+});
+
+test('ESM fixture preflight reports importer, specifier and resolved target for a missing dependency', () =>
+{
+    const fixture = createTempDir('esm-fixture-missing');
+    fs.mkdirSync(path.join(fixture, 'tools'), { recursive: true });
+    const importer = path.join(fixture, 'tools/entry.mjs');
+    const missing = path.join(fixture, 'tools/missing.mjs');
+    fs.writeFileSync(importer, "import './missing.mjs';\n");
+
+    assert.throws(
+        () => preflightMaterializedEsmFixture({
+            fixtureRoot: fixture,
+            entries: ['tools/entry.mjs'],
+            allowedRoots: ['tools']
+        }),
+        (error) =>
+        {
+            assert.match(error.message, new RegExp(`importer=${importer.replaceAll('\\', '\\\\')}`, 'u'));
+            assert.match(error.message, /specifier=\.\/missing\.mjs/u);
+            assert.match(error.message, new RegExp(`resolved=${missing.replaceAll('\\', '\\\\')}`, 'u'));
+            return true;
+        }
+    );
+});
+
+test('ESM fixture materializer rejects a relative import outside explicit allowed roots', () =>
+{
+    const source = createTempDir('esm-fixture-escape-source');
+    const fixture = createTempDir('esm-fixture-escape-target');
+    fs.mkdirSync(path.join(source, 'tools'), { recursive: true });
+    fs.writeFileSync(path.join(source, 'outside.mjs'), 'export const escaped = true;\n');
+    fs.writeFileSync(path.join(source, 'tools/entry.mjs'), "export { escaped } from '../outside.mjs';\n");
+
+    assert.throws(
+        () => materializeEsmFixture({
+            repositoryRoot: source,
+            fixtureRoot: fixture,
+            entries: ['tools/entry.mjs'],
+            allowedRoots: ['tools']
+        }),
+        /resolved target escapes allowed roots.*specifier=\.\.\/outside\.mjs/u
+    );
+});
 
 function tier(id, overrides = {})
 {
