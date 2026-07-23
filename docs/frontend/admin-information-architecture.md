@@ -48,6 +48,15 @@ Prefix-sensitive routes have explicit matching:
 
 Security and moderation retain their existing internal section navigation. The account shell provides module context; those nested workspaces continue to own their deeper subpages.
 
+The security workspace uses its top-level `AdminSystemTabs` as the single complete
+security navigation authority. `/user/manage/security` does not repeat those
+destinations as a card directory. Its dashboard is an operational view ordered as:
+current status, actionable anomalies, key trends and recent policy changes.
+Anomaly rows may link directly to the relevant subsystem because those links are
+contextual next actions, not a second navigation taxonomy. When no anomaly exists,
+the dashboard renders one compact healthy summary rather than one normal-state
+card per subsystem.
+
 ## Desktop behavior
 
 The desktop rail renders the six module links and only the active module’s local leaves. It is sticky but has no internal `overflow-y` scroll container. A regular 768px-high viewport therefore does not acquire a scrollbar merely because unrelated modules contain more pages.
