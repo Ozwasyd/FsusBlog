@@ -41,6 +41,12 @@ adapterLines.forEach((line, index) => {
 const requiredTokens = [
   '保存中',
   '加载中',
+  '>编辑</el-radio-button>',
+  '>分屏</el-radio-button>',
+  '>预览</el-radio-button>',
+  'height: 2.5rem;',
+  "statusTone?: 'quiet' | 'danger'",
+  'editor-shell__status--danger',
   'preview-panel__state',
   'preview-panel__empty',
   '暂无预览内容',
@@ -53,6 +59,17 @@ const requiredTokens = [
 for (const token of requiredTokens) {
   if (!adapter.includes(token)) {
     fail(adapterPath, 1, `Markdown editor local-state contract is missing ${token}`)
+  }
+}
+
+for (const forbiddenProductionToken of [
+  '{{ provider.label }}',
+  'FsusUI MarkdownEditor',
+  'Element Plus',
+  '>编写</el-radio-button>'
+]) {
+  if (adapter.includes(forbiddenProductionToken)) {
+    fail(adapterPath, 1, `Markdown editor production DOM must not expose ${forbiddenProductionToken}`)
   }
 }
 

@@ -10,7 +10,8 @@ const fixtureModule = `/@fs/${fileURLToPath(
 async function openFixture(
   page: Page,
   title: keyof typeof contract.titles,
-  theme: 'light' | 'dark'
+  theme: 'light' | 'dark',
+  surface: 'title' | 'editor' = 'title'
 ): Promise<void> {
   await page.route('**/__article-editor-production-fixture**', async (route) => {
     await route.fulfill({
@@ -27,7 +28,7 @@ async function openFixture(
     })
   })
 
-  await page.goto(`/__article-editor-production-fixture?title=${title}&theme=${theme}`, {
+  await page.goto(`/__article-editor-production-fixture?title=${title}&theme=${theme}&surface=${surface}`, {
     waitUntil: 'domcontentloaded'
   })
   await expect.poll(() => page.evaluate(() => (
@@ -121,6 +122,68 @@ test.describe('article editor production fixture title hierarchy', () => {
         expect(geometry.fontSize).toBeLessThanOrEqual(40)
         expect(geometry.left).toBeGreaterThanOrEqual(0)
         expect(geometry.right).toBeLessThanOrEqual(geometry.viewportWidth)
+      }
+    }
+  })
+})
+
+test.describe('article editor production fixture mode and save status', () => {
+  test.use({ viewport: { width: 1440, height: 900 } })
+
+  test('exposes only task copy and keeps all status transitions on a 40px baseline', async ({ page }) => {
+    await openFixture(page, 'short', 'light', 'editor')
+
+    const header = page.locator('.editor-shell__header')
+    const status = page.getByRole('status')
+    const heights: number[] = []
+    for (const state of ['editing', 'saving', 'saved', 'failed'] as const) {
+      await page.evaluate((nextState) => {
+        const controller = (
+          window as Window & {
+            __articleEditorFixtureSetState?: (value: typeof nextState) => void
+          }
+        ).__articleEditorFixtureSetState
+        controller?.(nextState)
+      }, state)
+      await expect(status).toHaveText({
+        editing: '自动保存已就绪',
+        saving: '正在保存',
+        saved: '已保存',
+        failed: '保存失败，请重试'
+      }[state])
+      heights.push(await header.evaluate((element) => element.getBoundingClientRect().height))
+    }
+    expect(new Set(heights)).toEqual(new Set([40]))
+    await expect(status).toHaveClass(/editor-shell__status--danger/u)
+
+    const productionText = await page.locator('.editor-shell-minimal').innerText()
+    expect(productionText).not.toMatch(/FsusUI|Element Plus|adapter|component|MarkdownEditor/iu)
+    await expect(page.getByText('正文', { exact: true })).toBeVisible()
+    await expect(page.getByRole('radio', { name: '编辑' })).toBeChecked()
+    await page.getByText('分屏', { exact: true }).click()
+    await expect(page.getByRole('radio', { name: '分屏' })).toBeChecked()
+    await page.getByText('预览', { exact: true }).click()
+    await expect(page.getByRole('radio', { name: '预览' })).toBeChecked()
+  })
+
+  test('375/768/1440 light/dark keep the mode/status row stable', async ({ page }) => {
+    await openFixture(page, 'short', 'light', 'editor')
+    const header = page.locator('.editor-shell__header')
+    for (const viewport of contract.viewports.filter(({ width }) => [375, 768, 1440].includes(width))) {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height })
+      for (const theme of contract.themes) {
+        await page.evaluate((nextTheme) => {
+          document.documentElement.classList.toggle('dark', nextTheme === 'dark')
+          document.documentElement.dataset.themeResolved = nextTheme
+        }, theme)
+        await expect(header).toBeVisible()
+        expect(await header.evaluate((element) => element.getBoundingClientRect().height)).toBe(40)
+        expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth))
+          .toBeLessThanOrEqual(1)
+        await expect(page.getByRole('radio', { name: '编辑' })).toBeVisible()
+        await expect(page.getByRole('radio', { name: '预览' })).toBeVisible()
+        await expect(page.getByRole('radio', { name: '分屏' }))
+          .toHaveCount(viewport.width < 768 ? 0 : 1)
       }
     }
   })

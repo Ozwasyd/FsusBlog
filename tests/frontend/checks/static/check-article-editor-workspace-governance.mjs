@@ -149,7 +149,13 @@ for (const token of ['ArticleWriteTitleField', 'articleEditorFixtureReady']) {
     fail(productionFixturePath, 1, `Article editor production fixture is missing ${token}`)
   }
 }
-for (const token of ['fontSize).toBeLessThanOrEqual(40)', '150% zoom', 'height).toBeGreaterThanOrEqual(360)']) {
+for (const token of [
+  'fontSize).toBeLessThanOrEqual(40)',
+  '150% zoom',
+  'height).toBeGreaterThanOrEqual(360)',
+  'FsusUI|Element Plus|adapter|component|MarkdownEditor',
+  'new Set([40])'
+]) {
   if (!productionFixtureSpec.includes(token)) {
     fail(productionFixtureSpecPath, 1, `Article editor production fixture acceptance is missing ${token}`)
   }

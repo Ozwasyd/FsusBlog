@@ -1,18 +1,25 @@
 import { createApp, h, nextTick, ref } from 'vue'
 import {
+  ElButton,
   ElForm,
   ElFormItem,
-  ElInput
+  ElInput,
+  ElRadioButton,
+  ElRadioGroup,
+  ElSkeleton,
+  ElSkeletonItem
 } from '@ozwasyd/element-plus'
 import '@/assets/main.css'
 import './article-editor-production-fixture.css'
 import ArticleWriteTitleField from '@/components/admin/article/ArticleWriteTitleField.vue'
+import MarkdownEditorAdapter from '@/components/ui/MarkdownEditorAdapter.vue'
 import contract from './article-editor-production-contract.json'
 
 const params = new URL(window.location.href).searchParams
 const requestedTitle = params.get('title') as keyof typeof contract.titles | null
 const titleKey = requestedTitle && requestedTitle in contract.titles ? requestedTitle : 'empty'
 const theme = params.get('theme') === 'dark' ? 'dark' : 'light'
+const surface = params.get('surface') === 'editor' ? 'editor' : 'title'
 
 document.documentElement.classList.toggle('dark', theme === 'dark')
 document.documentElement.dataset.themeMode = theme
@@ -27,10 +34,45 @@ if (!fixtureHost) {
 const app = createApp({
   setup() {
     const title = ref(contract.titles[titleKey])
+    const content = ref('先写下可以验证的正文，再检查预览。')
+    const editorState = ref<'editing' | 'saving' | 'saved' | 'failed'>('editing')
+    const statusByState = {
+      editing: '自动保存已就绪',
+      saving: '正在保存',
+      saved: '已保存',
+      failed: '保存失败，请重试'
+    } as const
+
+    Object.assign(window, {
+      __articleEditorFixtureSetState: (state: typeof editorState.value) => {
+        editorState.value = state
+      }
+    })
+
+    const renderEditor = () => h('section', {
+      class: 'article-editor-production-fixture__editor-component',
+      'aria-label': '正文编辑器'
+    }, [
+      h(MarkdownEditorAdapter, {
+        modelValue: content.value,
+        statusText: statusByState[editorState.value],
+        statusTone: editorState.value === 'failed' ? 'danger' : 'quiet',
+        previewComponent: {
+          props: ['content'],
+          render() {
+            return h('article', { 'data-fixture-preview': 'true' }, String(this.content))
+          }
+        },
+        'onUpdate:modelValue': (value: string) => {
+          content.value = value
+        }
+      })
+    ])
+
     return () => h('main', {
       class: 'article-editor-production-fixture',
       'aria-label': '文章编辑器 production fixture'
-    }, [
+    }, surface === 'editor' ? [renderEditor()] : [
       h('header', { class: 'article-editor-production-fixture__task' }, [
         h('div', [
           h('h1', '撰写文章'),
@@ -68,6 +110,11 @@ const app = createApp({
 app.component('ElForm', ElForm)
 app.component('ElFormItem', ElFormItem)
 app.component('ElInput', ElInput)
+app.component('ElButton', ElButton)
+app.component('ElRadioButton', ElRadioButton)
+app.component('ElRadioGroup', ElRadioGroup)
+app.component('ElSkeleton', ElSkeleton)
+app.component('ElSkeletonItem', ElSkeletonItem)
 app.mount(fixtureHost)
 
 await nextTick()

@@ -98,6 +98,8 @@
                 v-model="articleForm.content"
                 :loading="pageLoading"
                 :saving="submitting"
+                :status-text="editorSaveStatusText"
+                :status-tone="editorSaveStatusTone"
                 @save="saveDraftNow"
                 @draft-save="saveDraftNow"
                 @submit="requestSubmit"
@@ -914,6 +916,24 @@ const editorStatusText = computed(() => {
 
   return `正文 ${articleForm.content.length} 字符，标题 ${articleForm.title.length}/100`
 })
+
+const editorSaveStatusText = computed(() => {
+  if (pageLoading.value) {
+    return '正在载入'
+  }
+
+  if (submitting.value) {
+    return '正在保存'
+  }
+
+  return draftStatusText.value.trim() || '自动保存已就绪'
+})
+
+const editorSaveStatusTone = computed<'quiet' | 'danger'>(() =>
+  /失败|不可用|暂停|未同步|冲突|勿关闭/u.test(editorSaveStatusText.value)
+    ? 'danger'
+    : 'quiet'
+)
 
 const requestSubmit = async (): Promise<void> => {
   const isValid = await validateBeforeSubmit()

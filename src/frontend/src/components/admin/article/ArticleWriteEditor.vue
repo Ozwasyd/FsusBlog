@@ -11,6 +11,8 @@
     :toolbars-exclude="['save']"
     :loading="loading"
     :saving="saving"
+    :status-text="statusText"
+    :status-tone="statusTone"
     @save="$emit('draft-save')"
     @draft-save="$emit('draft-save')"
     @submit="$emit('submit')"
@@ -29,9 +31,13 @@ const props = withDefaults(defineProps<{
   modelValue: string
   loading?: boolean
   saving?: boolean
+  statusText?: string
+  statusTone?: 'quiet' | 'danger'
   layoutMode?: EditorLayoutMode
 }>(), {
-  layoutMode: 'standard'
+  layoutMode: 'standard',
+  statusText: '',
+  statusTone: 'quiet'
 })
 
 const emit = defineEmits<{

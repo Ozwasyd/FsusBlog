@@ -1,21 +1,20 @@
 <template>
   <div class="editor-shell-minimal">
-    <header class="editor-shell__header mb-6 pb-4 border-b border-[var(--fsusblog-panel-border)]">
+    <header class="editor-shell__header border-b border-[var(--fsusblog-panel-border)]">
       <div class="editor-shell__meta">
-        <span class="editor-shell__title text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-primary)]" id="markdown-editor-title">Markdown 编辑器</span>
-        <span class="text-[11px] tabular-nums font-bold normal-case tracking-normal px-2 py-0.5 border border-[var(--fsusblog-panel-border)] text-[var(--fsusblog-text-muted)] rounded-[var(--fsus-radius-control-small)]">{{ provider.label }}</span>
+        <span class="editor-shell__title" id="markdown-editor-title">正文</span>
         <span
-          v-if="editorStatusText"
-          class="text-[11px] font-bold normal-case tracking-normal "
-          :class="saving ? 'text-[var(--fsusblog-color-warning-text)]' : 'text-[var(--fsusblog-text-muted)]'"
+          class="editor-shell__status"
+          :class="{ 'editor-shell__status--danger': statusTone === 'danger' }"
           role="status"
           aria-live="polite"
+          aria-atomic="true"
         >
           {{ editorStatusText }}
         </span>
       </div>
       <el-radio-group class="editor-shell__modes" v-model="mode" size="small" :disabled="loading">
-        <el-radio-button value="write">编写</el-radio-button>
+        <el-radio-button value="write">编辑</el-radio-button>
         <el-radio-button v-if="!hideSplitMode" class="editor-shell__split-option" value="split">分屏</el-radio-button>
         <el-radio-button value="preview">预览</el-radio-button>
       </el-radio-group>
@@ -107,6 +106,8 @@ const props = withDefaults(defineProps<{
   toolbarsExclude?: string[]
   loading?: boolean
   saving?: boolean
+  statusText?: string
+  statusTone?: 'quiet' | 'danger'
 }>(), {
   placeholder: '',
   textareaId: undefined,
@@ -114,7 +115,9 @@ const props = withDefaults(defineProps<{
   editorClass: '',
   previewClass: 'preview-panel',
   loading: false,
-  saving: false
+  saving: false,
+  statusText: '',
+  statusTone: 'quiet'
 })
 
 const emit = defineEmits<{
@@ -153,6 +156,10 @@ const previewContent = computed(() => isLargePreviewContent.value ? manualPrevie
 const isManualPreviewStale = computed(() => manualPreviewContent.value !== content.value)
 const resolvedPreviewComponent = computed(() => props.previewComponent ?? provider.value.previewComponent)
 const editorStatusText = computed(() => {
+  if (props.statusText.trim()) {
+    return props.statusText.trim()
+  }
+
   if (props.saving) {
     return '保存中'
   }
@@ -242,26 +249,62 @@ defineExpose({
 }
 
 .editor-shell__header {
-  display: flex;
+  box-sizing: border-box;
+  display: grid;
+  height: 2.5rem;
   align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
   width: 100%;
   min-width: 0;
 }
 
 .editor-shell__meta {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 1rem;
   min-width: 0;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.editor-shell__title,
+.editor-shell__status {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.editor-shell__title {
+  flex: 0 0 auto;
+  color: var(--fsusblog-text-primary);
+  font-weight: 650;
+}
+
+.editor-shell__status {
+  width: 12rem;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fsusblog-text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-shell__status--danger {
+  color: var(--fsusblog-color-danger);
 }
 
 .editor-shell__modes {
   flex: 0 0 auto;
   margin-left: auto;
+}
+
+@media (max-width: 640px) {
+  .editor-shell__meta {
+    gap: 0.5rem;
+  }
+
+  .editor-shell__status {
+    width: 7rem;
+  }
 }
 
 .preview-panel {

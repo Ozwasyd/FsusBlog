@@ -68,6 +68,10 @@ body {
   color: var(--fsusblog-text-secondary);
 }
 
+.article-editor-production-fixture__editor-component {
+  min-height: 32rem;
+}
+
 @media (max-width: 640px) {
   .article-editor-production-fixture {
     width: min(calc(100% - 1.5rem), 70rem);
