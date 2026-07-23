@@ -1,14 +1,9 @@
-using System.Net;
-using System.Net.Http.Json;
-using System.Security.Claims;
-
-using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Models.Security;
+using FsusBlog.Server.Services.Security;
 
-using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,43 +15,61 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class SecurityChallengeProtocolActivationGuardTests
 {
     [Fact]
-    public async Task Guard_RemainsClosedUntilDurableAppliedReceiptAndExactFenceThenPersistsOpenMarker()
+    public async Task Guard_RemainsClosedUntilDurableExactReceiptThenFailsClosedOnFenceDrift()
     {
         ServiceProvider services = new ServiceCollection().AddDistributedMemoryCache().BuildServiceProvider();
-        IReleaseIdentityProvider identity = Substitute.For<IReleaseIdentityProvider>();
-        identity.Current.Returns(new ReleaseIdentitySnapshot("release-a", "green", "commit", "image", $"sha256:{new string('a', 64)}", true));
-        IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
-        {
-            ["FSUSBLOG_DEPLOYMENT_GENERATION"] = "42"
-        }).Build();
-        ISecurityChallengeKindCutoverStore store = Substitute.For<ISecurityChallengeKindCutoverStore>();
+        IPerceptionCharacterV3CutoverStore store = Substitute.For<IPerceptionCharacterV3CutoverStore>();
+        IPerceptionCharacterV3ArtifactPool pool = HealthyPool();
         IActiveReleaseFence fence = Substitute.For<IActiveReleaseFence>();
-        IWebHostEnvironment environment = Substitute.For<IWebHostEnvironment>();
-        environment.EnvironmentName.Returns("Production");
-        var guard = new SecurityChallengeProtocolActivationGuard(
-            services.GetRequiredService<IDistributedCache>(), identity, environment, configuration, store, fence);
-        var request = new SecurityChallengeProtocolActivationRequest(
-            "operation-a", new string('b', 64), new string('c', 64), "release-a", "green", 42);
+        fence.VerifyAsync(Arg.Any<ActiveReleaseFenceVerifyRequest>(), Arg.Any<CancellationToken>())
+            .Returns(Verified());
+        var guard = CreateGuard(
+            services.GetRequiredService<IDistributedCache>(),
+            store,
+            pool,
+            PolicyProvider(),
+            fence);
+        PerceptionCharacterV3CutoverReceipt receipt = Receipt();
 
         Assert.False(await guard.IsOpenAsync());
-        store.ReadReceiptAsync("operation-a", Arg.Any<CancellationToken>())
-            .Returns((SecurityChallengeKindCutoverReceipt?)null);
-        SecurityChallengeProtocolActivationResult premature = await guard.ActivateAsync(request);
-        Assert.False(premature.Accepted);
-        await store.DidNotReceive().PrepareAsync(
-            Arg.Any<SecurityChallengeKindCutoverIntent>(),
-            Arg.Any<CancellationToken>());
+        await Assert.ThrowsAsync<InvalidOperationException>(() => guard.OpenAsync(receipt));
 
-        store.ReadReceiptAsync("operation-a", Arg.Any<CancellationToken>()).Returns(AppliedReceipt());
-        fence.VerifyAsync(Arg.Any<ActiveReleaseFenceVerifyRequest>(), Arg.Any<CancellationToken>()).Returns(Verified());
+        store.ReadReceiptAsync(receipt.OperationId, Arg.Any<CancellationToken>())
+            .Returns(receipt);
+        await guard.OpenAsync(receipt);
 
-        SecurityChallengeProtocolActivationResult result = await guard.ActivateAsync(request);
-
-        Assert.True(result.Accepted);
-        Assert.Equal("open", result.Status);
         Assert.True(await guard.IsOpenAsync());
         fence.VerifyAsync(Arg.Any<ActiveReleaseFenceVerifyRequest>(), Arg.Any<CancellationToken>())
             .Returns(RejectedFence());
+        Assert.False(await guard.IsOpenAsync());
+    }
+
+    [Fact]
+    public async Task Guard_FailsClosedWhenPoolPolicyOrFrontendFingerprintDrifts()
+    {
+        ServiceProvider services = new ServiceCollection().AddDistributedMemoryCache().BuildServiceProvider();
+        IPerceptionCharacterV3CutoverStore store = Substitute.For<IPerceptionCharacterV3CutoverStore>();
+        IPerceptionCharacterV3ArtifactPool pool = HealthyPool();
+        IActiveReleaseFence fence = Substitute.For<IActiveReleaseFence>();
+        fence.VerifyAsync(Arg.Any<ActiveReleaseFenceVerifyRequest>(), Arg.Any<CancellationToken>())
+            .Returns(Verified());
+        var guard = CreateGuard(
+            services.GetRequiredService<IDistributedCache>(),
+            store,
+            pool,
+            PolicyProvider(),
+            fence);
+        PerceptionCharacterV3CutoverReceipt receipt = Receipt();
+        store.ReadReceiptAsync(receipt.OperationId, Arg.Any<CancellationToken>()).Returns(receipt);
+        await guard.OpenAsync(receipt);
+
+        pool.GetIdentityAsync(Arg.Any<CancellationToken>())
+            .Returns(new PerceptionCharacterV3PoolIdentity(
+                PoolGeneration,
+                new string('e', 64),
+                PerceptionCharacterV3ReleaseTarget.ContractDigest,
+                new string('d', 64)));
+
         Assert.False(await guard.IsOpenAsync());
     }
 
@@ -70,7 +83,13 @@ public sealed class SecurityChallengeProtocolActivationGuardTests
     {
         ServiceProvider services = new ServiceCollection().AddDistributedMemoryCache().BuildServiceProvider();
         IReleaseIdentityProvider identity = Substitute.For<IReleaseIdentityProvider>();
-        identity.Current.Returns(new ReleaseIdentitySnapshot("release-a", "invalid", "commit", "image", "digest", true));
+        identity.Current.Returns(new ReleaseIdentitySnapshot(
+            "release-a",
+            "invalid",
+            "commit",
+            "image",
+            "digest",
+            true));
         IWebHostEnvironment environment = Substitute.For<IWebHostEnvironment>();
         environment.EnvironmentName.Returns(environmentName);
         var guard = new SecurityChallengeProtocolActivationGuard(
@@ -78,7 +97,9 @@ public sealed class SecurityChallengeProtocolActivationGuardTests
             identity,
             environment,
             new ConfigurationBuilder().Build(),
-            Substitute.For<ISecurityChallengeKindCutoverStore>(),
+            Substitute.For<IPerceptionCharacterV3CutoverStore>(),
+            Substitute.For<IPerceptionCharacterV3ArtifactPool>(),
+            PolicyProvider(),
             Substitute.For<IActiveReleaseFence>());
 
         Assert.Equal(expectedOpen, await guard.IsOpenAsync());
@@ -90,85 +111,217 @@ public sealed class SecurityChallengeProtocolActivationGuardTests
         IDistributedCache cache = Substitute.For<IDistributedCache>();
         cache.GetAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns<Task<byte[]?>>(_ => throw new InvalidOperationException("cache unavailable"));
-        IReleaseIdentityProvider identity = Substitute.For<IReleaseIdentityProvider>();
-        identity.Current.Returns(new ReleaseIdentitySnapshot("release-a", "green", "commit", "image", "digest", true));
-        IWebHostEnvironment environment = Substitute.For<IWebHostEnvironment>();
-        environment.EnvironmentName.Returns("Production");
-        IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
-        {
-            ["FSUSBLOG_DEPLOYMENT_GENERATION"] = "42"
-        }).Build();
-        var guard = new SecurityChallengeProtocolActivationGuard(
-            cache, identity, environment, configuration,
-            Substitute.For<ISecurityChallengeKindCutoverStore>(),
+        var guard = CreateGuard(
+            cache,
+            Substitute.For<IPerceptionCharacterV3CutoverStore>(),
+            HealthyPool(),
+            PolicyProvider(),
             Substitute.For<IActiveReleaseFence>());
 
         Assert.False(await guard.IsOpenAsync());
     }
 
     [Fact]
-    public async Task RealEndpoint_RejectsClosedWindowAndReturnsOpenOnlyFromGuard()
+    public void PublishedFrontendTarget_ExactBuildPassesAndMixedFingerprintFailsReadinessValidation()
     {
-        ISecurityChallengeProtocolActivationGuard guard = Substitute.For<ISecurityChallengeProtocolActivationGuard>();
-        guard.ActivateAsync(Arg.Any<SecurityChallengeProtocolActivationRequest>(), Arg.Any<CancellationToken>())
-            .Returns(new SecurityChallengeProtocolActivationResult(
-                SecurityChallengeProtocolActivationGuard.ResultSchemaVersion, false, "closed",
-                "cutover_receipt_not_verified", "operation-a", "release-a", "green", 42, null));
-        WebApplicationBuilder builder = WebApplication.CreateBuilder();
-        builder.WebHost.UseTestServer();
-        builder.Configuration["AllowedHosts"] = "*";
-        builder.Services.AddAuthorization();
-        builder.Services.AddRateLimiter(options => options.AddFixedWindowLimiter("fixed_ip", limiter =>
+        string root = Path.Combine(Path.GetTempPath(), "fsus-v3-target-" + Guid.CreateVersion7().ToString("N"));
+        string target = Path.Combine(
+            root,
+            PerceptionCharacterV3ReleaseTargetValidator.PublicTargetPath.Replace(
+                '/',
+                Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+        try
         {
-            limiter.PermitLimit = 10;
-            limiter.Window = TimeSpan.FromMinutes(1);
-        }));
-        builder.Services.AddSingleton(guard);
-        await using WebApplication app = builder.Build();
-        app.UseRouting();
-        app.Use(async (context, next) =>
-        {
-            context.Connection.RemoteIpAddress = IPAddress.Loopback;
-            context.User = new ClaimsPrincipal(new ClaimsIdentity(
-            [
-                new Claim("identity_kind", AnonymousIdentityRuntime.AdminPrincipalKind),
-                new Claim("admin_id", "39"),
-                new Claim(AdminPermissions.PermissionClaimType, AdminPermissions.SystemConfig)
-            ], "test"));
-            await next(context);
-        });
-        app.UseAuthorization();
-        app.UseRateLimiter();
-        app.MapActiveReleaseFenceEndpoints();
-        await app.StartAsync();
+            File.WriteAllText(target, System.Text.Json.JsonSerializer.Serialize(new
+            {
+                schema = PerceptionCharacterV3ReleaseTarget.Schema,
+                algorithm = PerceptionCharacterV3ReleaseTarget.Algorithm,
+                wireName = PerceptionCharacterV3ReleaseTarget.WireName,
+                contractDigest = PerceptionCharacterV3ReleaseTarget.ContractDigest,
+                aedsSchemaFingerprint = PerceptionCharacterV3ReleaseTarget.AedsSchemaFingerprint,
+                targetFingerprint = PerceptionCharacterV3ReleaseTarget.TargetFingerprint
+            }));
+            PerceptionCharacterV3ReleaseTargetValidator.ValidatePublishedFrontendTarget(root);
 
-        var payload = new SecurityChallengeProtocolActivationRequest(
-            "operation-a", new string('b', 64), new string('c', 64), "release-a", "green", 42);
-        HttpClient client = app.GetTestClient();
-        client.BaseAddress = new Uri("http://localhost");
-        HttpResponseMessage response = await client.PostAsJsonAsync(
-            ActiveReleaseFenceEndpoints.ChallengeProtocolActivatePath,
-            payload);
-        string responseText = await response.Content.ReadAsStringAsync();
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        SecurityChallengeProtocolActivationResult? body = System.Text.Json.JsonSerializer.Deserialize<SecurityChallengeProtocolActivationResult>(responseText, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
-        Assert.NotNull(body);
-        Assert.False(body.Accepted);
-        Assert.Equal("closed", body.Status);
+            string mixed = File.ReadAllText(target).Replace(
+                PerceptionCharacterV3ReleaseTarget.AedsSchemaFingerprint,
+                new string('f', 64),
+                StringComparison.Ordinal);
+            File.WriteAllText(target, mixed);
+            InvalidOperationException error = Assert.Throws<InvalidOperationException>(
+                () => PerceptionCharacterV3ReleaseTargetValidator.ValidatePublishedFrontendTarget(root));
+            Assert.Contains("mixed aedsSchemaFingerprint", error.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
-    private static SecurityChallengeKindCutoverReceipt AppliedReceipt() => new(
-        SecurityChallengeKindCutover.ReceiptSchemaVersion, "operation-a", new string('b', 64),
-        "release-a", "green", 42, [3, 10, 13], new string('c', 64), false, true, false,
-        "applied", null, true, true, true, 1, 1, 1, 1, new string('d', 64), DateTimeOffset.UtcNow);
+    private static SecurityChallengeProtocolActivationGuard CreateGuard(
+        IDistributedCache cache,
+        IPerceptionCharacterV3CutoverStore store,
+        IPerceptionCharacterV3ArtifactPool pool,
+        ISecurityRiskPolicyProvider policy,
+        IActiveReleaseFence fence)
+    {
+        IReleaseIdentityProvider identity = Substitute.For<IReleaseIdentityProvider>();
+        identity.Current.Returns(new ReleaseIdentitySnapshot(
+            "release-a",
+            "green",
+            "commit",
+            "image",
+            $"sha256:{new string('a', 64)}",
+            true));
+        IWebHostEnvironment environment = Substitute.For<IWebHostEnvironment>();
+        environment.EnvironmentName.Returns("Production");
+        IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(
+            new Dictionary<string, string?>
+            {
+                ["FSUSBLOG_DEPLOYMENT_GENERATION"] = "42"
+            }).Build();
+        return new(cache, identity, environment, configuration, store, pool, policy, fence);
+    }
 
-    private static ActiveReleaseFenceOperationResult Verified() => new(
-        true, true, "verified", null, false,
-        new ActiveReleaseFenceSnapshot(true, ActiveReleaseFenceStatuses.Active, "release-a", "green", 42,
-            $"sha256:{new string('a', 64)}", DateTimeOffset.UtcNow, null));
+    internal static IPerceptionCharacterV3ArtifactPool HealthyPool()
+    {
+        IPerceptionCharacterV3ArtifactPool pool = Substitute.For<IPerceptionCharacterV3ArtifactPool>();
+        pool.GetIdentityAsync(Arg.Any<CancellationToken>()).Returns(new PerceptionCharacterV3PoolIdentity(
+            PoolGeneration,
+            PoolManifestDigest,
+            PerceptionCharacterV3ReleaseTarget.ContractDigest,
+            new string('d', 64)));
+        pool.GetInventoryAsync(Arg.Any<CancellationToken>()).Returns(new PerceptionCharacterV3PoolInventory(
+            PoolGeneration,
+            100,
+            100,
+            200,
+            0,
+            0,
+            false,
+            false,
+            true));
+        return pool;
+    }
 
-    private static ActiveReleaseFenceOperationResult RejectedFence() => new(
-        false, false, "rejected", "active_release_generation_mismatch", false,
-        new ActiveReleaseFenceSnapshot(false, ActiveReleaseFenceStatuses.Revoked, "release-b", "blue", 43,
-            $"sha256:{new string('b', 64)}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
+    internal static ISecurityRiskPolicyProvider PolicyProvider(string version = PolicyVersion)
+        => new FixedRiskPolicyProvider(new SecurityRiskPolicySnapshotV2(
+            "risk-policy-snapshot-1",
+            version,
+            DateTimeOffset.UtcNow,
+            SecuritySystemModes.Enforce,
+            100,
+            125,
+            null,
+            new SecurityRiskActionPolicy(
+                "*",
+                new SecurityRiskActionThresholds(10, 25, 50, 75, 90),
+                PerceptionCharacterV3ReleaseTarget.WireName,
+                1,
+                null,
+                AnonymousWriteAllowed: true),
+            new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal),
+            new Dictionary<string, string>(StringComparer.Ordinal)));
+
+    internal static PerceptionCharacterV3CutoverTarget Target()
+    {
+        var target = new PerceptionCharacterV3CutoverTarget(
+            PerceptionCharacterV3ReleaseTarget.ContractDigest,
+            PoolGeneration,
+            PoolManifestDigest,
+            PerceptionCharacterV3ReleaseTarget.AedsSchemaFingerprint,
+            PerceptionCharacterV3ReleaseTarget.AedsSchemaFingerprint,
+            PerceptionCharacterV3ReleaseTarget.AedsSchemaFingerprint,
+            PolicyVersion,
+            string.Empty);
+        return target with
+        {
+            TargetFingerprint = PerceptionCharacterV3ContractCutover.ComputeTargetFingerprint(target)
+        };
+    }
+
+    internal static PerceptionCharacterV3CutoverReceipt Receipt()
+    {
+        PerceptionCharacterV3CutoverTarget target = Target();
+        return new(
+            PerceptionCharacterV3ContractCutover.ReceiptSchemaVersion,
+            "operation-a",
+            new string('1', 64),
+            new string('2', 64),
+            "release-a",
+            "green",
+            42,
+            target.ContractDigest,
+            target.PoolGeneration,
+            target.PoolManifestDigest,
+            target.BackendAedsSchemaFingerprint,
+            target.SharedAedsSchemaFingerprint,
+            target.FrontendAedsSchemaFingerprint,
+            target.PolicySnapshotVersion,
+            target.TargetFingerprint,
+            false,
+            true,
+            false,
+            "activated",
+            null,
+            true,
+            true,
+            true,
+            new PerceptionCharacterV3CutoverMutationResult(
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                new string('3', 64)),
+            DateTimeOffset.UtcNow);
+    }
+
+    internal static ActiveReleaseFenceOperationResult Verified() => new(
+        true,
+        true,
+        "verified",
+        null,
+        false,
+        new ActiveReleaseFenceSnapshot(
+            true,
+            ActiveReleaseFenceStatuses.Active,
+            "release-a",
+            "green",
+            42,
+            $"sha256:{new string('a', 64)}",
+            DateTimeOffset.UtcNow,
+            null));
+
+    internal static ActiveReleaseFenceOperationResult RejectedFence() => new(
+        false,
+        false,
+        "rejected",
+        "active_release_generation_mismatch",
+        false,
+        new ActiveReleaseFenceSnapshot(
+            false,
+            ActiveReleaseFenceStatuses.Revoked,
+            "release-b",
+            "blue",
+            43,
+            $"sha256:{new string('b', 64)}",
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow));
+
+    internal const string PoolGeneration = "generation-a";
+    internal const string PoolManifestDigest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    internal const string PolicyVersion = "policy-a";
+
+    private sealed class FixedRiskPolicyProvider(SecurityRiskPolicySnapshotV2 policy)
+        : ISecurityRiskPolicyProvider
+    {
+        public SecurityRiskPolicySnapshot CurrentRiskPolicy
+            => SecurityRiskPolicySnapshotV2Adapter.ToLegacy(policy);
+
+        public SecurityRiskPolicySnapshotV2 CurrentRiskPolicyV2 => policy;
+    }
 }

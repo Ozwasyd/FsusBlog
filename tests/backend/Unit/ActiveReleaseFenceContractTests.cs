@@ -134,7 +134,7 @@ public sealed class ActiveReleaseFenceContractTests
             (ActiveReleaseFenceEndpoints.RevokePath, HttpMethods.Post),
             (ActiveReleaseFenceEndpoints.StatusPath, HttpMethods.Get),
             (ActiveReleaseFenceEndpoints.ChallengeKindCutoverPath, HttpMethods.Post),
-            (ActiveReleaseFenceEndpoints.ChallengeProtocolActivatePath, HttpMethods.Post),
+            (ActiveReleaseFenceEndpoints.PerceptionCharacterV3CutoverPath, HttpMethods.Post),
             (NotificationStreamRestartEndpoints.RestartPath, HttpMethods.Post),
             (NotificationStreamRestartEndpoints.StatusPath, HttpMethods.Get)
         })

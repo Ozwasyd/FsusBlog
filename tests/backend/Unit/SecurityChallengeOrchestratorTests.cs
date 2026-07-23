@@ -745,7 +745,13 @@ public sealed class SecurityChallengeOrchestratorTests
     private sealed class ClosedProtocolGuard : ISecurityChallengeProtocolActivationGuard
     {
         public Task<bool> IsOpenAsync(CancellationToken cancellationToken = default) => Task.FromResult(false);
-        public Task<SecurityChallengeProtocolActivationResult> ActivateAsync(SecurityChallengeProtocolActivationRequest request, CancellationToken cancellationToken = default)
+
+        public Task CloseAsync(CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task OpenAsync(
+            PerceptionCharacterV3CutoverReceipt receipt,
+            CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
     }
 

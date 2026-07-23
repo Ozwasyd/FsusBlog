@@ -75,6 +75,7 @@ public sealed class RedisPerceptionCharacterV3ArtifactPool : IPerceptionCharacte
     private readonly byte[] _key;
     private readonly Func<bool>? _discardLeaseReply;
     private PerceptionCharacterV3PoolManifest? _manifest;
+    private PerceptionCharacterV3PoolIdentity? _identity;
     private string _packPath = string.Empty;
 
     public RedisPerceptionCharacterV3ArtifactPool(
@@ -126,6 +127,7 @@ public sealed class RedisPerceptionCharacterV3ArtifactPool : IPerceptionCharacte
     {
         cancellationToken.ThrowIfCancellationRequested();
         string manifestPath = Path.Combine(_generationRoot, "manifest.json");
+        string manifestDigest = Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(manifestPath)));
         PerceptionCharacterV3PoolManifest manifest = PerceptionCharacterV3PoolCodec.ReadManifest(manifestPath);
         ValidateManifest(manifest);
         _packPath = Path.GetFullPath(Path.Combine(_generationRoot, manifest.PackFile));
@@ -138,6 +140,11 @@ public sealed class RedisPerceptionCharacterV3ArtifactPool : IPerceptionCharacte
                 Encoding.ASCII.GetBytes(manifest.PackSha256)))
             throw new InvalidOperationException("PerceptionCharacterV3 packfile digest mismatch.");
         ValidateRecords(manifest);
+        _identity = new(
+            manifest.GenerationId,
+            manifestDigest,
+            manifest.ContractDigest,
+            packDigest);
         try
         {
             if (await _redis.GetDatabase().KeyExistsAsync(RevocationKey(manifest.GenerationId)).ConfigureAwait(false))
@@ -149,6 +156,13 @@ public sealed class RedisPerceptionCharacterV3ArtifactPool : IPerceptionCharacte
         }
         _manifest = manifest;
         await InitializeInventoryAsync(manifest).ConfigureAwait(false);
+    }
+
+    public Task<PerceptionCharacterV3PoolIdentity> GetIdentityAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(_identity
+            ?? throw new InvalidOperationException("PerceptionCharacterV3 artifact pool is not initialized."));
     }
 
     public async Task<PerceptionCharacterV3ArtifactLease?> LeaseAsync(

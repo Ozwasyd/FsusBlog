@@ -1823,6 +1823,7 @@ tiers:
           - tests/fixtures/deployment/release-worker-normal-observer-plan.template.json
           - tests/tools/release-rollout-evidence.test.mjs
           - tests/tools/challenge-kind-cutover-rollout.test.mjs
+          - tests/tools/perception-character-v3-cutover.test.mjs
           - tests/tools/public-aot-warm-evidence.test.mjs
           - tests/tools/release-rollout-bundle.test.mjs
           - tools/deployment/release-resource-probe.mjs

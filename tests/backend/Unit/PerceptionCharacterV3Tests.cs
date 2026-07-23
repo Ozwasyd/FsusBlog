@@ -83,6 +83,11 @@ public sealed partial class PerceptionCharacterV3Tests
         Assert.True(PerceptionCharacterV3Crypto.TryOpenState(tokenKey, token, context, out PerceptionCharacterV3State? opened));
         Assert.NotNull(opened);
         Assert.Equal(PerceptionCharacterV3Crypto.EncodeState(state), PerceptionCharacterV3Crypto.EncodeState(opened));
+        Assert.False(PerceptionCharacterV3Crypto.TryOpenState(
+            tokenKey,
+            Convert.ToBase64String(Encoding.UTF8.GetBytes("retired-v3-state-layout")),
+            context,
+            out _));
     }
 
     [Fact]
@@ -142,6 +147,10 @@ public sealed partial class PerceptionCharacterV3Tests
         encoded[0] = 99;
         Assert.False(PodBinaryCodec.TryDecodePerceptionCharacterV3Issue(encoded, out _));
         var verify = new PerceptionCharacterV3VerifyPayload(PerceptionCharacterV3Contracts.Algorithm, challenge, envelope, PerceptionCharacterV3Representation.Visual, "A7C9Q", "opaque");
+        Assert.False(PerceptionCharacterV3Contracts.ValidateVerify(verify with
+        {
+            Algorithm = "fsu.challenge/perception-character-raster@v3"
+        }).IsValid);
         byte[] verifyBytes = PodBinaryCodec.EncodePerceptionCharacterV3Verify(verify);
         Assert.True(PodBinaryCodec.TryDecodePerceptionCharacterV3Verify(verifyBytes, out PerceptionCharacterV3VerifyPayload verifyDecoded));
         Assert.Equal(verify, verifyDecoded);

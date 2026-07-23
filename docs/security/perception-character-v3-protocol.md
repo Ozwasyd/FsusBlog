@@ -17,11 +17,14 @@ The reference-test path is deterministic and uses no external service.
 | algorithm | `fsu.challenge/perception-character-artifact@v3` |
 | version byte | `03` |
 
-The former raster algorithm, raw Gray8 media, `512 x 192` dimensions, 98,304-byte
-payload, WAV representation, `mediaHash`, HMAC/AAD/state layouts and vectors are
+<!-- retired-v3-history:start -->
+The former `fsu.challenge/perception-character-raster@v3` algorithm,
+`application/x-fsus-gray8` media, `512 x 192` dimensions, 98,304-byte payload,
+`audio/wav` representation, `mediaHash`, HMAC/AAD/state layouts and vectors are
 retired. They are rejected, never interpreted. There is no V4, alias, feature flag,
 dual decoder, migration adapter or compatibility parser. Rollback may remove V3 from
 the hot RiskControl policy; it may not restore the retired contract.
+<!-- retired-v3-history:end -->
 
 The public issue payload is limited to algorithm, challenge/envelope identity,
 representation, final media type and bytes, physical/display dimensions, attempt
@@ -198,3 +201,12 @@ RiskControl policy and revoke active identities. Other challenge kinds,
 authentication, admin authorization, notification stream and binary routing remain
 enabled. Re-enablement requires a current artifact pool, keys and contract-vector
 evidence; restoring the retired representation is prohibited.
+
+Production activation is one release-fenced transaction. Its target map binds the
+generated contract digest, exact pool generation and manifest digest, identical
+backend/shared/frontend AEDS schema fingerprints, active policy version, release,
+slot and deployment generation. The service closes issuance, revokes former V3
+envelopes and namespaces without transforming them, retires non-target pool
+generations, persists an idempotent hashed receipt, then reopens only after the
+current receipt/pool/policy/fence smoke succeeds. A mixed or partial target remains
+closed. Retry never leases an artifact and never repeats mutation accounting.

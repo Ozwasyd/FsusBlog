@@ -684,9 +684,9 @@ V3 runtime 只从 embedded canonical `perception-character-v3-contract.json` 读
 V3 初次签发以 Redis state+TTL+active-index 的单脚本 NX 为权威；active-index 使用不随 answer/token key rotation 变化的 server-device stable digest，禁止用具体 challenge 的 `DeviceBindingHash` 作为索引身份。同表示 refresh 和 representation switch 以旧 binding/active-index 为 CAS 条件，在一个脚本内撤销旧 state、创建带 TTL 的新 state并交换 index；旧 binding 使用旧 state 记录的 answer-key version 校验，新 challenge 才使用 current version。客户端不以异步 cancel 作为 refresh 正确性条件。脚本结果回包丢失时只读取同一 operation result；无法确定时保留 ambiguous fence并拒绝后续 mutation，避免把一次 verify/replace 计为两次。无需重启的紧急回退：从热 RiskControl policy 移除 `perceptionCharacterV3`，立即停止新签发和 replacement；随后通过 cancel/revocation 批量撤销 active identity。已签发 challenge 使用 envelope 记录的 policy version，普通策略发布不会误杀它；显式 revoke 始终生效。`Enabled` 与 key-ring 变更是启动边界，恢复时应使用独立安全域上一版有效 key 并滚动部署，禁止借用 JWT、PoW 或 V2 key。
 
 浏览器 V3 adapter 在读取媒体 slice 前先验证 algorithm、UUIDv7 identity、representation、时间窗、
-attempt budget、所有 slice 边界以及固定 Gray8/有界 WAV 尺寸。visual 只允许一次固定上限的
-Gray8-to-RGBA 转换；audio 只创建有界 Blob URL。replacement、close、路由变化与组件卸载释放
-旧 RGBA、object URL、audio 和由 FsusUI primitive 接管的 bitmap。前端 verify 只回传 typed
+attempt budget、所有 slice 边界以及最终 PNG/Ogg Opus 的固定结构、尺寸和字节上限。visual 直接
+创建受限 `image/png` Blob URL；audio 只创建受限 `audio/ogg; codecs=opus` Blob URL。replacement、
+close、路由变化与组件卸载释放 object URL、audio 和由 FsusUI primitive 接管的 bitmap。前端 verify 只回传 typed
 `algorithm/challengeId/envelopeId/representation/answer/stateToken`；不得产生或记录 solve duration、
 recipe、seed、glyph id、risk score、answer verifier 或内部失败原因。
 

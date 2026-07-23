@@ -35,7 +35,7 @@ const REQUIRED_AUXILIARY_EVIDENCE = Object.freeze([
     'challengeKindCutoverReceipt',
     'challengeKindCutoverAcceptance',
     'challengeKindCutoverGate',
-    'challengeProtocolActivation',
+    'perceptionCharacterV3Cutover',
     'publicTrafficCheckpoint',
     'sourceDrainSnapshot',
     'sourceDrainGate',
@@ -387,20 +387,20 @@ function validateAuxiliaryEvidence(name, value, state, errors) {
       || value.lifecycle?.stage !== 'source-drain'
       || value.bindings?.backendFence !== true || value.bindings?.frontend !== true
       || value.bindings?.staticAssets !== true || value.bindings?.cutover !== true
-      || value.bindings?.protocolActivation !== true)
+      || value.bindings?.perceptionCharacterV3 !== true)
 {
             errors.push(`${name}: cross-layer target binding gate is invalid`);
         }
         return;
     }
-    if (name === 'challengeProtocolActivation')
+    if (name === 'perceptionCharacterV3Cutover')
 {
-        if (value.schemaVersion !== 'fsus.security-challenge-protocol-activation.v1'
-      || value.accepted !== true || value.status !== 'open'
+        if (value.schemaVersion !== 'fsus.security.perception-character-v3-cutover-receipt.v1'
+      || value.accepted !== true || value.status !== 'activated' || value.dryRun !== false
       || value.releaseId !== state.target.releaseId || value.slot !== state.target.slot
       || value.generation !== targetGeneration)
 {
-            errors.push(`${name}: protocol activation is not bound to the target release fence`);
+            errors.push(`${name}: V3 cutover is not bound to the target release fence`);
         }
         return;
     }

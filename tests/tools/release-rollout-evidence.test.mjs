@@ -46,7 +46,7 @@ const requiredAuxiliaryNames = [
     'assetMaterialization', 'retentionPrepared', 'retainedAssets', 'publicAotWarm',
     'candidateSmoke', 'compatibilityMatrix', 'gatewayTransition', 'activeFenceAcquire',
     'activeFenceSourceRevoke', 'activeFenceVerify', 'challengeKindCutoverReceipt',
-    'challengeKindCutoverAcceptance', 'challengeKindCutoverGate', 'challengeProtocolActivation',
+    'challengeKindCutoverAcceptance', 'challengeKindCutoverGate', 'perceptionCharacterV3Cutover',
     'publicTrafficCheckpoint',
     'sourceDrainSnapshot', 'sourceDrainGate', 'targetHealth',
     'retentionDrainComplete', 'operatorNote'
@@ -435,9 +435,9 @@ function writeAuxiliary(fixture) {
         : name === 'challengeKindCutoverAcceptance'
           ? { schemaVersion: 'fsus.security-challenge-kind-cutover-acceptance.v1', accepted: true, releaseId: target.releaseId, slot: target.slot, generation: target.runtimeGeneration }
         : name === 'challengeKindCutoverGate'
-          ? { schema: 'fsusblog.release-challenge-kind-cutover-gate.v1', status: 'pass', rolloutId, releaseId: target.releaseId, slot: target.slot, generation: target.runtimeGeneration, lifecycle: { destructiveCutoverStarted: true, activationCommitted: false, stage: 'source-drain' }, bindings: { backendFence: true, frontend: true, staticAssets: true, cutover: true, protocolActivation: true }, errors: [] }
-        : name === 'challengeProtocolActivation'
-          ? { schemaVersion: 'fsus.security-challenge-protocol-activation.v1', accepted: true, status: 'open', operationId: 'op', releaseId: target.releaseId, slot: target.slot, generation: target.runtimeGeneration }
+          ? { schema: 'fsusblog.release-challenge-kind-cutover-gate.v1', status: 'pass', rolloutId, releaseId: target.releaseId, slot: target.slot, generation: target.runtimeGeneration, lifecycle: { destructiveCutoverStarted: true, activationCommitted: false, stage: 'source-drain' }, bindings: { backendFence: true, frontend: true, staticAssets: true, cutover: true, perceptionCharacterV3: true }, errors: [] }
+        : name === 'perceptionCharacterV3Cutover'
+          ? { schemaVersion: 'fsus.security.perception-character-v3-cutover-receipt.v1', accepted: true, status: 'activated', dryRun: false, operationId: 'op', releaseId: target.releaseId, slot: target.slot, generation: target.runtimeGeneration }
         : name === 'operatorNote'
         ? {
             schema: 'fsusblog.release-rollout-operator-note.v1',

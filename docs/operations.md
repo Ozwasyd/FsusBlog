@@ -533,10 +533,24 @@ When rotating `Moderation:RegionPolicy:IpHashKey`, old `comment_region_complianc
 
 ## PerceptionCharacterV3 stop and recovery
 
+正式切换只能由 `release-rollout.sh` 在 `source-drain` 的 active-release fence 内调用
+`invoke-perception-character-v3-cutover.mjs`。输入必须是当前构建生成的
+`perception-character-v3-release-target.json`、candidate 实际加载的 immutable pool
+`manifest.json` 与当前 RiskControl `PolicyVersion`；禁止手工调用 endpoint、分步开放 marker，
+或复用通用 challenge-kind operation id。命令先写 mode 0600 receipt，再要求
+`status=activated`；同一 operation id 重试只读取 durable mutation/receipt。receipt 只含数量、
+digest 与 release/slot/generation/contract/schema/policy/pool 绑定，不含 challenge ID、answer、
+token、media、IP、device 或 user material。
+
 1. 热更新 `Security:PerceptionCharacterV3:Resources:AllocationsEnabled=false`，并从 RiskControl policy 移除 `perceptionCharacterV3`；前者让下一次 planner decision 立即按 action disposition queue/fail closed，后者停止新的 ordered assignment，均无需重启。
 2. 对 active envelope 调用 binary cancel/revocation；确认 audit 中 terminal state 为 `revoked`，不要删除 Redis key 或重置 attempts。
 3. renderer/Redis/crypto 故障时保持公开 `unavailable`，不得切到退休 challenge、JSON 或本地进程内 attempt state。
 4. key ring 故障使用独立 V3 token/answer ring 的上一有效 version 修正 secret 后滚动重启。两个 ring 的任何 key material 都不得相等；未知旧 version 的 active token保持 fail closed。
+
+切换后的无重启回退只有上述 allocation disable 与移除 V3 policy 两种路径；不得恢复旧 pool
+generation、旧 parser/codec/state reader、旧前端资产或旧 contract feature flag。active fence、
+receipt、marker、pool 或 policy 任一不一致时保持 V3 closed，其他明确配置的 challenge kind、
+authentication、admin、notification stream 与 binary API 继续按各自策略运行。
 
 恢复 allocation 前检查 active generation 的 visual/audio/total ready、watermark、leased/burned、revocation/corruption、minute/rolling-hour lease 与 exact-byte egress budget；不要通过删除 operation fence、burn marker 或 budget key制造“可用容量”。离线补充只在低于 high watermark、无 CPU/memory/I/O/latency pressure 时按单次 entries/bytes 上限执行，失败的 staging generation 不得替换 active generation。
 

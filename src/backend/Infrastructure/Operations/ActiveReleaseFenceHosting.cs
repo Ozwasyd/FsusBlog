@@ -2,6 +2,7 @@ using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.NotificationStream;
+using FsusBlog.Server.Services.Security;
 
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -64,7 +65,13 @@ public static class ActiveReleaseFenceServiceCollectionExtensions
         services.TryAddSingleton<IActiveReleaseTransactionalCommitGuard, ActiveReleaseTransactionalCommitGuard>();
         services.TryAddSingleton<ISecurityChallengeKindCutoverStore, RedisSecurityChallengeKindCutoverStore>();
         services.TryAddSingleton<SecurityChallengeKindCutover>();
-        services.TryAddSingleton<ISecurityChallengeProtocolActivationGuard, SecurityChallengeProtocolActivationGuard>();
+        services.TryAddSingleton<IPerceptionCharacterV3CutoverStore, RedisPerceptionCharacterV3CutoverStore>();
+        services.TryAddSingleton<SecurityChallengeProtocolActivationGuard>();
+        services.TryAddSingleton<ISecurityChallengeProtocolActivationGuard>(
+            static provider => provider.GetRequiredService<SecurityChallengeProtocolActivationGuard>());
+        services.TryAddSingleton<IPerceptionCharacterV3ActivationGate>(
+            static provider => provider.GetRequiredService<SecurityChallengeProtocolActivationGuard>());
+        services.TryAddSingleton<PerceptionCharacterV3ContractCutover>();
         services.TryAddSingleton<ActiveReleaseFenceReadiness>();
         services.TryAddSingleton<NotificationStreamRestartCoordinator>();
         services.TryAddSingleton<ReleaseDrainParticipantRegistry>();
@@ -98,7 +105,7 @@ public static class ActiveReleaseFenceEndpoints
     public const string RevokePath = "/api/ops/deployment/fence/revoke";
     public const string StatusPath = "/api/ops/deployment/fence/status";
     public const string ChallengeKindCutoverPath = "/api/ops/deployment/fence/challenge-kind-cutover";
-    public const string ChallengeProtocolActivatePath = "/api/ops/deployment/fence/challenge-protocol-activate";
+    public const string PerceptionCharacterV3CutoverPath = "/api/ops/deployment/fence/perception-character-v3-cutover";
 
     public static IEndpointRouteBuilder MapActiveReleaseFenceEndpoints(this IEndpointRouteBuilder endpoints)
     {
@@ -193,18 +200,18 @@ public static class ActiveReleaseFenceEndpoints
         .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
-        endpoints.MapPost(ChallengeProtocolActivatePath, async Task<IResult> (
+        endpoints.MapPost(PerceptionCharacterV3CutoverPath, async Task<IResult> (
             HttpContext context,
-            SecurityChallengeProtocolActivationRequest request,
-            [FromServices] ISecurityChallengeProtocolActivationGuard guard,
+            PerceptionCharacterV3CutoverRequest request,
+            [FromServices] PerceptionCharacterV3ContractCutover cutover,
             CancellationToken cancellationToken) =>
         {
             if (!DeploymentControlEndpoints.IsTrustedHostControl(context))
             {
                 return TrustedHostRequired();
             }
-            SecurityChallengeProtocolActivationResult result = await guard
-                .ActivateAsync(request, cancellationToken).ConfigureAwait(false);
+            PerceptionCharacterV3CutoverReceipt result = await cutover
+                .ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
             return HttpResults.Json(result, statusCode: result.Accepted
                 ? StatusCodes.Status200OK
                 : StatusCodes.Status409Conflict);

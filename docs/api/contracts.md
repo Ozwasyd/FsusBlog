@@ -223,7 +223,7 @@ artifact pool manifest v1 的 additive `artifactBytes` 是 server-only index met
 前端 response adapter 必须先用 assignment `kind=14` 判别 provider slice，再执行 typed POD 解码；
 不得尝试 JSON parse。前端 typed adapter 在创建任何浏览器媒体资源前执行同一组 bounded
 PNG/Ogg Opus 结构、CRC、尺寸和 hard-limit 校验；通过校验的 final PNG 直接创建
-`image/png` Blob object URL 并作为 FsusUI `image-url` media 消费，不重建 Gray8/canvas。
+`image/png` Blob object URL 并作为 FsusUI `image-url` media 消费，不做客户端栅格重建或 canvas 解码。
 audio 只创建 `audio/ogg; codecs=opus` Blob，并由现有 accessible audio control 播放。
 替换、完成、取消、过期与 unmount 均先停止/断开当前 audio 并 revoke object URL。
 challenge proof、opaque state token 与 media 只保存在当前内存状态机，不写入
@@ -2183,7 +2183,7 @@ Rollback request frame `ArticleRevisionRollbackRequest(213)` 的 payload 是 AED
 | GET | `/api/ops/deployment/status` | 受保护发布状态 JSON；要求 admin principal `system.config`、fixed-IP limit 与 loopback source |
 | POST | `/api/ops/deployment/activate` | 受保护激活 CAS；body 为 `releaseId/slot/generation`，仅 Ready Candidate 接受；正确重复请求幂等 |
 | POST | `/api/ops/deployment/drain` | 受保护排空 CAS；body 为 `releaseId/slot/generation/timeoutSeconds?`，超时仅限 5..300 秒；正确重复请求幂等 |
-| GET/POST | `/api/ops/deployment/fence/status`、`/api/ops/deployment/fence/acquire`、`/api/ops/deployment/fence/revoke`、`/api/ops/deployment/fence/challenge-kind-cutover`、`/api/ops/deployment/fence/challenge-protocol-activate` | 受保护 active-release fence 查询/CAS/撤销、challenge-kind 状态切换与协议开放；要求 admin principal `system.config`、fixed-IP limit 与 loopback source。cutover request 绑定 release/slot/generation、完整数值集合 3/10/13、权威 target fingerprint 与 operation id。V3 issue/verify 在 marker 缺失、cache failure 或 fence 复验失败时统一 fail closed；activate 只读并接受与当前 runtime identity、active fence、durable applied receipt 完全相同的 operation，marker 按 release/slot/generation 隔离 |
+| GET/POST | `/api/ops/deployment/fence/status`、`/api/ops/deployment/fence/acquire`、`/api/ops/deployment/fence/revoke`、`/api/ops/deployment/fence/challenge-kind-cutover`、`/api/ops/deployment/fence/perception-character-v3-cutover` | 受保护 active-release fence 查询/CAS/撤销、challenge-kind 状态切换与 V3 单次切换；要求 admin principal `system.config`、fixed-IP limit 与 loopback source。通用 cutover request 绑定 release/slot/generation、完整数值集合 3/10/13、权威 target fingerprint 与 operation id。V3 request 另外绑定 canonical contract digest、active pool generation/manifest digest、backend/shared/frontend AEDS schema fingerprint 与当前 RiskControl policy version；服务端验证 target 后关闭 V3 issuance，幂等撤销 V3 DB/Redis/envelope/旧 pool generation 状态，复验 fence，持久化无敏感字段的 hashed receipt，通过 activation smoke 后才写 release/slot/generation marker。重试读取同一 durable mutation/receipt，不二次计数、不租用 pool entry。V3 issue/verify 在 marker 缺失、cache failure、pool/policy/schema 漂移或 fence 复验失败时统一 fail closed |
 | GET/POST | `/api/ops/deployment/notification-stream/restart/status`、`/api/ops/deployment/notification-stream/restart` | 受保护 notification stream 1012 restart 协议；请求必须绑定精确 release/slot/generation |
 | POST | `/api/ops/deployment/notification-stream/drill/publish` | 零停机演练专用事件发布；`Deployment:NotificationStreamDrillEnabled=false` 时固定 404，启用后仍要求 admin `system.config`、loopback、active runtime 与 active fence |
 

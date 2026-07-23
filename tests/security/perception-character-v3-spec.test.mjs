@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
@@ -28,6 +30,61 @@ const fixturePath = new URL('../fixtures/security/perception-character-v3-vector
 const fixture = JSON.parse(readFileSync(fixturePath, 'utf8'));
 const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
 const spokenAtlasGenerator = fileURLToPath(new URL('../../tools/contracts/generate-perception-character-v3-spoken-atlas.mjs', import.meta.url));
+const releaseTargetGenerator = fileURLToPath(new URL('../../tools/contracts/generate-perception-character-v3-release-target.mjs', import.meta.url));
+const retirementChecker = fileURLToPath(new URL('../../tools/contracts/check-perception-character-v3-retirement.mjs', import.meta.url));
+
+test('release target is generated from backend shared frontend and AEDS sources', () =>
+{
+    const result = spawnSync(process.execPath, [releaseTargetGenerator, '--check'], {
+        cwd: repositoryRoot,
+        encoding: 'utf8'
+    });
+    assert.equal(result.status, 0, result.stderr);
+    const shared = readFileSync(
+        new URL('../../src/shared/Contracts/Validation/Security/perception-character-v3-release-target.json', import.meta.url),
+        'utf8');
+    const frontend = readFileSync(
+        new URL('../../src/frontend/public/generated/perception-character-v3-release-target.json', import.meta.url),
+        'utf8');
+    assert.equal(frontend, shared);
+
+    const frontendBuild = readFileSync(
+        new URL('../../tools/frontend/build.mjs', import.meta.url),
+        'utf8');
+    assert.match(
+        frontendBuild,
+        /managedDistEntries\s*=\s*\[[^\]]*'generated'/u,
+        'frontend release build must sync generated public contracts into backend wwwroot'
+    );
+});
+
+test('retirement checker permits one historical note and rejects production reintroduction', () =>
+{
+    const current = spawnSync(process.execPath, [retirementChecker], {
+        cwd: repositoryRoot,
+        encoding: 'utf8'
+    });
+    assert.equal(current.status, 0, current.stderr);
+
+    const fixtureRoot = mkdtempSync(path.join(tmpdir(), 'fsus-v3-retirement-'));
+    mkdirSync(path.join(fixtureRoot, 'docs/security'), { recursive: true });
+    mkdirSync(path.join(fixtureRoot, 'src/backend'), { recursive: true });
+    writeFileSync(path.join(fixtureRoot, 'docs/security/perception-character-v3-protocol.md'), `
+<!-- retired-v3-history:start -->
+Retired fsu.challenge/perception-character-raster@v3, application/x-fsus-gray8,
+512 x 192, 98,304-byte and audio/wav.
+<!-- retired-v3-history:end -->
+`);
+    writeFileSync(
+        path.join(fixtureRoot, 'src/backend/RetiredParser.cs'),
+        'const string media = "application/x-fsus-gray8";\n');
+    const rejected = spawnSync(process.execPath, [retirementChecker, '--root', fixtureRoot], {
+        cwd: repositoryRoot,
+        encoding: 'utf8'
+    });
+    assert.notEqual(rejected.status, 0);
+    assert.match(rejected.stderr, /src\/backend\/RetiredParser\.cs/u);
+});
 
 test('spoken atlas check is repository-contained and regeneration reports a missing eSpeak cleanly', () =>
 {

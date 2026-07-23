@@ -22,6 +22,9 @@ WORKER_EVENT_LEDGER="${FSUSBLOG_ROLLOUT_WORKER_EVENT_LEDGER:-${FSUSBLOG_ROLLOUT_
 RESOURCE_BUDGET_EVIDENCE="${FSUSBLOG_ROLLOUT_RESOURCE_BUDGET_EVIDENCE:-}"
 FAULT_INJECTION_EVIDENCE="${FSUSBLOG_ROLLOUT_FAULT_INJECTION_EVIDENCE:-}"
 CHALLENGE_KIND_TARGET_MAP="${FSUSBLOG_CHALLENGE_KIND_CUTOVER_TARGET_MAP:-}"
+PERCEPTION_V3_RELEASE_TARGET="${FSUSBLOG_PERCEPTION_V3_RELEASE_TARGET:-}"
+PERCEPTION_V3_POOL_MANIFEST="${FSUSBLOG_PERCEPTION_V3_POOL_MANIFEST:-}"
+PERCEPTION_V3_POLICY_VERSION="${FSUSBLOG_PERCEPTION_V3_POLICY_VERSION:-}"
 OPERATOR_NOTE_FILE="${FSUSBLOG_ROLLOUT_OPERATOR_NOTE:-}"
 OPERATOR_NOTE_EXPLICIT=0
 [[ -z "$OPERATOR_NOTE_FILE" ]] || OPERATOR_NOTE_EXPLICIT=1
@@ -101,6 +104,9 @@ Required evidence/configuration:
   --resource-budget-evidence <file>   Dual-slot resource budget evidence.
   --fault-injection-evidence <file>   Automated rollout fault matrix evidence.
   --challenge-kind-target-map <file> Independent numeric-to-wire JSON target map for the mandatory cutover.
+  --perception-v3-release-target <file> Generated backend/shared/frontend V3 target map.
+  --perception-v3-pool-manifest <file> Exact active immutable V3 pool manifest.
+  --perception-v3-policy-version <id> Exact active RiskControl policy snapshot version.
 
 Modes:
   --dry-run       Validate immutable inputs/state and print the exact ordered plan without mutation.
@@ -233,6 +239,21 @@ while [[ $# -gt 0 ]]; do
         --challenge-kind-target-map)
             [[ $# -ge 2 ]] || RolloutFail "--challenge-kind-target-map requires a path"
             CHALLENGE_KIND_TARGET_MAP="$2"
+            shift 2
+            ;;
+        --perception-v3-release-target)
+            [[ $# -ge 2 ]] || RolloutFail "--perception-v3-release-target requires a path"
+            PERCEPTION_V3_RELEASE_TARGET="$2"
+            shift 2
+            ;;
+        --perception-v3-pool-manifest)
+            [[ $# -ge 2 ]] || RolloutFail "--perception-v3-pool-manifest requires a path"
+            PERCEPTION_V3_POOL_MANIFEST="$2"
+            shift 2
+            ;;
+        --perception-v3-policy-version)
+            [[ $# -ge 2 ]] || RolloutFail "--perception-v3-policy-version requires a value"
+            PERCEPTION_V3_POLICY_VERSION="$2"
             shift 2
             ;;
         --public-url)
@@ -609,6 +630,25 @@ RequireRuntimeInputs() {
     if [[ "$NO_SWITCH" == "0" ]]; then
         [[ -f "$CHALLENGE_KIND_TARGET_MAP" ]] ||
             RolloutFail "challenge kind cutover target map is required and must exist: ${CHALLENGE_KIND_TARGET_MAP:-<empty>}"
+        [[ -f "$PERCEPTION_V3_RELEASE_TARGET" ]] ||
+            RolloutFail "PerceptionCharacterV3 release target is required and must exist: ${PERCEPTION_V3_RELEASE_TARGET:-<empty>}"
+        [[ -f "$PERCEPTION_V3_POOL_MANIFEST" ]] ||
+            RolloutFail "PerceptionCharacterV3 pool manifest is required and must exist: ${PERCEPTION_V3_POOL_MANIFEST:-<empty>}"
+        [[ "$PERCEPTION_V3_POLICY_VERSION" =~ ^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$ ]] ||
+            RolloutFail "PerceptionCharacterV3 policy version is missing or invalid"
+        jq -e '
+          .schema == "fsusblog.security.perception-character-v3-release-target.v1"
+          and (.contractDigest | test("^[0-9a-f]{64}$"))
+          and (.aedsSchemaFingerprint | test("^[0-9a-f]{64}$"))
+          and (.targetFingerprint | test("^[0-9a-f]{64}$"))
+        ' "$PERCEPTION_V3_RELEASE_TARGET" >/dev/null ||
+            RolloutFail "PerceptionCharacterV3 release target is invalid"
+        jq -e --slurpfile target "$PERCEPTION_V3_RELEASE_TARGET" '
+          .schema == "fsusblog.security.perception-character-v3.pool-manifest.v1"
+          and (.generationId | type == "string" and test("^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"))
+          and .contractDigest == $target[0].contractDigest
+        ' "$PERCEPTION_V3_POOL_MANIFEST" >/dev/null ||
+            RolloutFail "PerceptionCharacterV3 pool manifest is not bound to the release target"
         jq -e '
           type == "array" and length == 3
           and ([.[].numericKind] | (sort == [3,10,13]) and ((unique | length) == 3))
@@ -1462,18 +1502,22 @@ StageSourceDrain() {
         --targets "$CHALLENGE_KIND_TARGET_MAP" \
         --release-id "$TARGET_RELEASE" --slot "$TARGET_SLOT" --generation "$TARGET_GENERATION" \
         >"$EVIDENCE_DIR/challenge-kind-cutover-acceptance.json"
-    node "$ROOT_DIR/tools/deployment/activate-security-challenge-protocol.mjs" \
+    node "$ROOT_DIR/tools/deployment/invoke-perception-character-v3-cutover.mjs" \
         --port "$TARGET_PORT" --release-id "$TARGET_RELEASE" --slot "$TARGET_SLOT" \
-        --generation "$TARGET_GENERATION" --operation-id "$ROLLOUT_ID:challenge-kind-cutover" \
-        --request-fingerprint "$(jq -r '.requestFingerprint' "$EVIDENCE_DIR/challenge-kind-cutover-acceptance.json")" \
-        --target-fingerprint "$(jq -r '.targetFingerprint' "$EVIDENCE_DIR/challenge-kind-cutover-acceptance.json")" \
+        --generation "$TARGET_GENERATION" --operation-id "$ROLLOUT_ID:perception-character-v3-cutover" \
+        --release-target "$PERCEPTION_V3_RELEASE_TARGET" \
+        --pool-manifest "$PERCEPTION_V3_POOL_MANIFEST" \
+        --policy-version "$PERCEPTION_V3_POLICY_VERSION" \
         --admin-header-file "$ADMIN_HEADER_FILE" --origin "$CONTROL_ORIGIN" \
-        --receipt "$EVIDENCE_DIR/challenge-protocol-activation.json" >/dev/null
+        --receipt "$EVIDENCE_DIR/perception-character-v3-cutover-receipt.json" >/dev/null
     node "$ROOT_DIR/tools/deployment/verify-release-challenge-kind-cutover.mjs" \
         --rollout-state "$ROLLOUT_STATE_FILE" \
         --active-fence "$EVIDENCE_DIR/active-release-fence.json" \
         --cutover-acceptance "$EVIDENCE_DIR/challenge-kind-cutover-acceptance.json" \
-        --protocol-activation "$EVIDENCE_DIR/challenge-protocol-activation.json" \
+        --perception-v3-cutover "$EVIDENCE_DIR/perception-character-v3-cutover-receipt.json" \
+        --release-target "$PERCEPTION_V3_RELEASE_TARGET" \
+        --pool-manifest "$PERCEPTION_V3_POOL_MANIFEST" \
+        --policy-version "$PERCEPTION_V3_POLICY_VERSION" \
         --asset-materialization "$EVIDENCE_DIR/asset-materialization.json" \
         --public-aot-warm "$EVIDENCE_DIR/public-aot-warm.json" \
         --out "$EVIDENCE_DIR/challenge-kind-cutover-gate.json" >/dev/null
@@ -1544,7 +1588,7 @@ AuxiliaryArgs() {
         --auxiliary "challengeKindCutoverReceipt=$EVIDENCE_DIR/challenge-kind-cutover-receipt.json" \
         --auxiliary "challengeKindCutoverAcceptance=$EVIDENCE_DIR/challenge-kind-cutover-acceptance.json" \
         --auxiliary "challengeKindCutoverGate=$EVIDENCE_DIR/challenge-kind-cutover-gate.json" \
-        --auxiliary "challengeProtocolActivation=$EVIDENCE_DIR/challenge-protocol-activation.json" \
+        --auxiliary "perceptionCharacterV3Cutover=$EVIDENCE_DIR/perception-character-v3-cutover-receipt.json" \
         --auxiliary "publicTrafficCheckpoint=$EVIDENCE_DIR/public-traffic-checkpoint.json" \
         --auxiliary "sourceDrainSnapshot=$EVIDENCE_DIR/source-drain.snapshot.json" \
         --auxiliary "sourceDrainGate=$EVIDENCE_DIR/source-drain-gate.json" \

@@ -59,7 +59,7 @@ const publicRoot = join(clientRoot, 'public');
 const frontendWasmRoot = resolve(process.env.FSUSBLOG_FRONTEND_WASM_ROOT || join(publicRoot, 'wasm'));
 const backendWebRoot = resolve(process.env.FSUSBLOG_BACKEND_WEBROOT || join(clientRoot, '..', 'backend', 'wwwroot'));
 const stableSpaEntryName = 'fsus-spa-entry.js';
-const managedDistEntries = ['.vite', 'assets', 'dist', 'favicon.svg', 'index.html', 'server', 'sw.js', 'vite.svg', 'wasm'];
+const managedDistEntries = ['.vite', 'assets', 'dist', 'favicon.svg', 'generated', 'index.html', 'server', 'sw.js', 'vite.svg', 'wasm'];
 const fsusUiMarkdownRuntimeAssets = [
     'markdown_simd.js',
     'markdown_simd.wasm',

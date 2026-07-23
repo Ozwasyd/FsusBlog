@@ -23,7 +23,7 @@ const auxiliaryNames = [
     'assetMaterialization', 'retentionPrepared', 'retainedAssets', 'publicAotWarm', 'candidateSmoke',
     'compatibilityMatrix', 'gatewayTransition', 'activeFenceAcquire',
     'activeFenceSourceRevoke', 'activeFenceVerify', 'challengeKindCutoverReceipt',
-    'challengeKindCutoverAcceptance', 'challengeKindCutoverGate', 'challengeProtocolActivation',
+    'challengeKindCutoverAcceptance', 'challengeKindCutoverGate', 'perceptionCharacterV3Cutover',
     'publicTrafficCheckpoint',
     'sourceDrainSnapshot', 'sourceDrainGate', 'targetHealth',
     'retentionDrainComplete', 'operatorNote'

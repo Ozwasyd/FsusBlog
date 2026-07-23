@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { createHash } from 'node:crypto';
 import { readFile, writeFile, mkdir, rename } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
@@ -32,11 +33,16 @@ async function json(options, name)
 async function main()
 {
     const options = parse(process.argv.slice(2));
-    const [state, fence, cutover, protocol, assets, publicAot] = await Promise.all([
+    const [state, fence, cutover, perceptionV3, releaseTarget, poolManifestBytes, assets, publicAot] = await Promise.all([
         json(options, 'rollout-state'), json(options, 'active-fence'), json(options, 'cutover-acceptance'),
-        json(options, 'protocol-activation'),
+        json(options, 'perception-v3-cutover'),
+        json(options, 'release-target'),
+        readFile(options['pool-manifest'] ?? fail('--pool-manifest is required')),
         json(options, 'asset-materialization'), json(options, 'public-aot-warm')
     ]);
+    const poolManifest = JSON.parse(poolManifestBytes);
+    const poolManifestDigest = createHash('sha256').update(poolManifestBytes).digest('hex');
+    const policyVersion = options['policy-version'] ?? fail('--policy-version is required');
     const target = state.target ?? {};
     const generation = Number(target.runtimeGeneration ?? target.generation);
     const errors = [];
@@ -74,13 +80,20 @@ async function main()
     {
         errors.push('cutover acceptance is invalid');
     }
-    if (protocol.schemaVersion !== 'fsus.security-challenge-protocol-activation.v1'
-      || protocol.accepted !== true || protocol.status !== 'open'
-      || protocol.releaseId !== target.releaseId || protocol.slot !== target.slot
-      || protocol.generation !== generation || protocol.operationId !== cutover.operationId
-      || protocol.targetFingerprint !== cutover.targetFingerprint)
+    if (perceptionV3.schemaVersion !== 'fsus.security.perception-character-v3-cutover-receipt.v1'
+      || perceptionV3.accepted !== true || perceptionV3.status !== 'activated'
+      || perceptionV3.dryRun !== false
+      || perceptionV3.releaseId !== target.releaseId || perceptionV3.slot !== target.slot
+      || perceptionV3.generation !== generation
+      || perceptionV3.contractDigest !== releaseTarget.contractDigest
+      || perceptionV3.backendAedsSchemaFingerprint !== releaseTarget.aedsSchemaFingerprint
+      || perceptionV3.sharedAedsSchemaFingerprint !== releaseTarget.aedsSchemaFingerprint
+      || perceptionV3.frontendAedsSchemaFingerprint !== releaseTarget.aedsSchemaFingerprint
+      || perceptionV3.poolGeneration !== poolManifest.generationId
+      || perceptionV3.poolManifestDigest !== poolManifestDigest
+      || perceptionV3.policySnapshotVersion !== policyVersion)
     {
-        errors.push('challenge protocol activation is not bound to verified cutover');
+        errors.push('PerceptionCharacterV3 cutover is not bound to the exact release target, pool, policy and schema');
     }
     if (assets.status !== 'ok' || assets.releaseId !== target.releaseId || assets.slot !== target.slot)
     {
@@ -104,7 +117,7 @@ async function main()
         operationId: cutover.operationId ?? null,
         targetFingerprint: cutover.targetFingerprint ?? null,
         lifecycle: { destructiveCutoverStarted: state.destructiveCutoverStarted, activationCommitted: state.activationCommitted, stage: state.currentStage },
-        bindings: { backendFence: true, frontend: errors.every(error => !error.startsWith('frontend')), staticAssets: errors.every(error => !error.startsWith('static asset')), cutover: errors.every(error => !error.startsWith('cutover')), protocolActivation: errors.every(error => !error.startsWith('challenge protocol')) },
+        bindings: { backendFence: true, frontend: errors.every(error => !error.startsWith('frontend')), staticAssets: errors.every(error => !error.startsWith('static asset')), cutover: errors.every(error => !error.startsWith('cutover')), perceptionCharacterV3: errors.every(error => !error.startsWith('PerceptionCharacterV3')) },
         errors
     };
     const output = path.resolve(options.out ?? fail('--out is required'));

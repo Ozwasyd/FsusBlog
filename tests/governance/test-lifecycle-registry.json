@@ -1260,6 +1260,18 @@
             ]
         },
         {
+            "file": "tests/tools/perception-character-v3-cutover.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "migration",
+                "runtime"
+            ]
+        },
+        {
             "file": "tests/tools/perception-union-projection.test.mjs",
             "owner": "manual-diagnostic:tests/tools/perception-union-projection.test.mjs",
             "executionCategory": "manual-diagnostic",

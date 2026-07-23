@@ -1,34 +1,34 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
+
+using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Services.Security;
 
 using Microsoft.Extensions.Caching.Distributed;
 
 namespace FsusBlog.Server.Infrastructure.Operations;
 
-public sealed record SecurityChallengeProtocolActivationRequest(
-    string OperationId,
-    string RequestFingerprint,
-    string TargetFingerprint,
-    string ReleaseId,
-    string Slot,
-    long Generation);
-
-public sealed record SecurityChallengeProtocolActivationResult(
+public sealed record PerceptionCharacterV3ActivationMarker(
     string SchemaVersion,
     bool Accepted,
     string Status,
-    string? ErrorCode,
     string OperationId,
+    string ReceiptFingerprint,
     string ReleaseId,
     string Slot,
     long Generation,
-    string? TargetFingerprint);
+    string ContractDigest,
+    string PoolGeneration,
+    string PoolManifestDigest,
+    string BackendAedsSchemaFingerprint,
+    string SharedAedsSchemaFingerprint,
+    string FrontendAedsSchemaFingerprint,
+    string PolicySnapshotVersion,
+    string TargetFingerprint);
 
-public interface ISecurityChallengeProtocolActivationGuard
+public interface ISecurityChallengeProtocolActivationGuard : IPerceptionCharacterV3ActivationGate
 {
-    Task<bool> IsOpenAsync(CancellationToken cancellationToken = default);
-    Task<SecurityChallengeProtocolActivationResult> ActivateAsync(
-        SecurityChallengeProtocolActivationRequest request,
-        CancellationToken cancellationToken = default);
 }
 
 public sealed class SecurityChallengeProtocolActivationGuard(
@@ -36,10 +36,12 @@ public sealed class SecurityChallengeProtocolActivationGuard(
     IReleaseIdentityProvider releaseIdentityProvider,
     IWebHostEnvironment environment,
     IConfiguration configuration,
-    ISecurityChallengeKindCutoverStore cutoverStore,
+    IPerceptionCharacterV3CutoverStore cutoverStore,
+    IPerceptionCharacterV3ArtifactPool artifactPool,
+    ISecurityRiskPolicyProvider policyProvider,
     IActiveReleaseFence activeReleaseFence) : ISecurityChallengeProtocolActivationGuard
 {
-    public const string ResultSchemaVersion = "fsus.security-challenge-protocol-activation.v1";
+    public const string MarkerSchemaVersion = "fsus.security.perception-character-v3-activation.v1";
     private readonly ReleaseIdentitySnapshot _identity = releaseIdentityProvider.Current;
     private readonly long _generation = configuration.GetValue<long?>("FSUSBLOG_DEPLOYMENT_GENERATION")
         ?? configuration.GetValue<long?>("Deployment:Generation")
@@ -62,12 +64,37 @@ public sealed class SecurityChallengeProtocolActivationGuard(
             {
                 return false;
             }
-            SecurityChallengeProtocolActivationResult? marker = JsonSerializer.Deserialize<SecurityChallengeProtocolActivationResult>(encoded);
+            PerceptionCharacterV3ActivationMarker? marker =
+                JsonSerializer.Deserialize<PerceptionCharacterV3ActivationMarker>(encoded);
             if (marker is not { Accepted: true, Status: "open" }
-                || marker.SchemaVersion != ResultSchemaVersion
+                || marker.SchemaVersion != MarkerSchemaVersion
                 || marker.ReleaseId != _identity.ReleaseId
                 || marker.Slot != _identity.ReleaseSlot
-                || marker.Generation != _generation)
+                || marker.Generation != _generation
+                || !FixedEquals(marker.ContractDigest, PerceptionCharacterV3ReleaseTarget.ContractDigest)
+                || !FixedEquals(marker.BackendAedsSchemaFingerprint, PerceptionCharacterV3ReleaseTarget.AedsSchemaFingerprint)
+                || !FixedEquals(marker.SharedAedsSchemaFingerprint, PerceptionCharacterV3ReleaseTarget.AedsSchemaFingerprint)
+                || !FixedEquals(marker.FrontendAedsSchemaFingerprint, PerceptionCharacterV3ReleaseTarget.AedsSchemaFingerprint))
+            {
+                return false;
+            }
+
+            PerceptionCharacterV3CutoverReceipt? receipt = await cutoverStore
+                .ReadReceiptAsync(marker.OperationId, cancellationToken)
+                .ConfigureAwait(false);
+            if (receipt is not { Accepted: true, Status: "activated", DryRun: false }
+                || !FixedEquals(receipt.ReceiptFingerprint, marker.ReceiptFingerprint)
+                || !FixedEquals(receipt.TargetFingerprint, marker.TargetFingerprint))
+            {
+                return false;
+            }
+            PerceptionCharacterV3PoolIdentity pool = await artifactPool
+                .GetIdentityAsync(cancellationToken)
+                .ConfigureAwait(false);
+            if (!FixedEquals(pool.GenerationId, marker.PoolGeneration)
+                || !FixedEquals(pool.ManifestDigest, marker.PoolManifestDigest)
+                || !FixedEquals(pool.ContractDigest, marker.ContractDigest)
+                || !FixedEquals(policyProvider.CurrentRiskPolicyV2.PolicyVersion, marker.PolicySnapshotVersion))
             {
                 return false;
             }
@@ -86,55 +113,73 @@ public sealed class SecurityChallengeProtocolActivationGuard(
         }
     }
 
-    public async Task<SecurityChallengeProtocolActivationResult> ActivateAsync(
-        SecurityChallengeProtocolActivationRequest request,
+    public Task CloseAsync(CancellationToken cancellationToken = default)
+        => cache.RemoveAsync(Key(), cancellationToken);
+
+    public async Task OpenAsync(
+        PerceptionCharacterV3CutoverReceipt receipt,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(request);
-        if (request.ReleaseId != _identity.ReleaseId || request.Slot != _identity.ReleaseSlot
-            || request.Generation != _generation || request.Generation <= 0)
+        ArgumentNullException.ThrowIfNull(receipt);
+        if (receipt is not { Accepted: true, Status: "activated", DryRun: false }
+            || receipt.ReleaseId != _identity.ReleaseId
+            || receipt.Slot != _identity.ReleaseSlot
+            || receipt.Generation != _generation
+            || receipt.Generation <= 0
+            || !FixedEquals(receipt.ContractDigest, PerceptionCharacterV3ReleaseTarget.ContractDigest)
+            || !FixedEquals(receipt.BackendAedsSchemaFingerprint, PerceptionCharacterV3ReleaseTarget.AedsSchemaFingerprint)
+            || !FixedEquals(receipt.SharedAedsSchemaFingerprint, PerceptionCharacterV3ReleaseTarget.AedsSchemaFingerprint)
+            || !FixedEquals(receipt.FrontendAedsSchemaFingerprint, PerceptionCharacterV3ReleaseTarget.AedsSchemaFingerprint))
         {
-            return Rejected(request, "runtime_identity_mismatch");
+            throw new InvalidOperationException("The V3 cutover receipt does not match the current runtime.");
         }
-        SecurityChallengeKindCutoverReceipt? receipt = await cutoverStore
-            .ReadReceiptAsync(request.OperationId, cancellationToken).ConfigureAwait(false);
-        if (receipt is not
-            {
-                Accepted: true,
-                Status: "applied",
-                DryRun: false,
-                FenceVerifiedBefore: true,
-                FenceVerifiedImmediatelyBeforeMutation: true,
-                FenceVerifiedAfter: true
-            }
-            || receipt.ReleaseId != request.ReleaseId || receipt.Slot != request.Slot
-            || receipt.Generation != request.Generation
-            || receipt.OperationId != request.OperationId
-            || receipt.RequestFingerprint != request.RequestFingerprint
-            || receipt.TargetFingerprint != request.TargetFingerprint)
+        PerceptionCharacterV3CutoverReceipt? stored = await cutoverStore
+            .ReadReceiptAsync(receipt.OperationId, cancellationToken)
+            .ConfigureAwait(false);
+        if (stored is null
+            || !FixedEquals(stored.ReceiptFingerprint, receipt.ReceiptFingerprint)
+            || !FixedEquals(stored.RequestFingerprint, receipt.RequestFingerprint))
         {
-            return Rejected(request, "cutover_receipt_not_verified");
+            throw new InvalidOperationException("The V3 cutover receipt is not durably verified.");
         }
         ActiveReleaseFenceOperationResult fence = await activeReleaseFence.VerifyAsync(
-            new(request.ReleaseId, request.Slot, request.Generation, RequireActive: true),
+            new(receipt.ReleaseId, receipt.Slot, receipt.Generation, RequireActive: true),
             cancellationToken).ConfigureAwait(false);
         if (!fence.Accepted)
         {
-            return Rejected(request, "active_release_fence_mismatch");
+            throw new InvalidOperationException("The active release fence changed before V3 activation.");
         }
-        var result = new SecurityChallengeProtocolActivationResult(
-            ResultSchemaVersion, true, "open", null, request.OperationId,
-            request.ReleaseId, request.Slot, request.Generation, receipt.TargetFingerprint);
-        await cache.SetStringAsync(Key(), JsonSerializer.Serialize(result), new DistributedCacheEntryOptions(), cancellationToken)
-            .ConfigureAwait(false);
-        return result;
+        var marker = new PerceptionCharacterV3ActivationMarker(
+            MarkerSchemaVersion,
+            true,
+            "open",
+            receipt.OperationId,
+            receipt.ReceiptFingerprint,
+            receipt.ReleaseId,
+            receipt.Slot,
+            receipt.Generation,
+            receipt.ContractDigest,
+            receipt.PoolGeneration,
+            receipt.PoolManifestDigest,
+            receipt.BackendAedsSchemaFingerprint,
+            receipt.SharedAedsSchemaFingerprint,
+            receipt.FrontendAedsSchemaFingerprint,
+            receipt.PolicySnapshotVersion,
+            receipt.TargetFingerprint);
+        await cache.SetStringAsync(
+            Key(),
+            JsonSerializer.Serialize(marker),
+            new DistributedCacheEntryOptions(),
+            cancellationToken).ConfigureAwait(false);
     }
 
-    private string Key() => $"fsus:security:challenge-protocol-activation:{_identity.ReleaseId}:{_identity.ReleaseSlot}:{_generation}";
+    private string Key()
+        => $"fsus:security:perception-character-v3-activation:{_identity.ReleaseId}:{_identity.ReleaseSlot}:{_generation}";
 
-    private static SecurityChallengeProtocolActivationResult Rejected(
-        SecurityChallengeProtocolActivationRequest request,
-        string errorCode) => new(ResultSchemaVersion, false, "closed", errorCode,
-            request.OperationId ?? string.Empty, request.ReleaseId ?? string.Empty,
-            request.Slot ?? string.Empty, request.Generation, null);
+    private static bool FixedEquals(string left, string right)
+    {
+        byte[] a = Encoding.UTF8.GetBytes(left ?? string.Empty);
+        byte[] b = Encoding.UTF8.GetBytes(right ?? string.Empty);
+        return a.Length == b.Length && CryptographicOperations.FixedTimeEquals(a, b);
+    }
 }

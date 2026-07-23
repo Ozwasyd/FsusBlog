@@ -5,6 +5,10 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_lane-collect-support.sh"
 
 StaticEvidencePlan() { Run "$ROOT_DIR/tools/test/run-matrix-governance-once.sh" static-evidence-plan; }
 StaticAedsPolicy() { Run "$ROOT_DIR/tools/check-aeds-only-policy.sh"; }
+StaticPerceptionCharacterV3Cutover() {
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/contracts/generate-perception-character-v3-release-target.mjs" --check
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/contracts/check-perception-character-v3-retirement.mjs"
+}
 StaticBackgroundServices() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-background-service-classification.mjs"; }
 StaticSuiteConvergence() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-suite-convergence.mjs"; }
 StaticBackendPhysicalTopology() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/architecture/check-backend-physical-topology.mjs" --out "$ROOT_DIR/.tmp/release-evidence/backend-physical-topology.json"; }
@@ -72,6 +76,7 @@ STATIC_NODE_CONTRACT_FILES=(
     "$ROOT_DIR/tests/tools/configuration-layout.test.mjs"
     "$ROOT_DIR/tests/tools/operations-layout.test.mjs"
     "$ROOT_DIR/tests/tools/monolithic-distributed-architecture.test.mjs"
+    "$ROOT_DIR/tests/tools/perception-character-v3-cutover.test.mjs"
     "$ROOT_DIR/tests/tools/deployment-slots.test.mjs"
     "$ROOT_DIR/tests/tools/gateway-switch.test.mjs"
     "$ROOT_DIR/tests/tools/dead-code-audit-index.test.mjs"
@@ -142,6 +147,7 @@ StaticNodeContracts() {
 RunApplicationStaticPrechecksPhase() {
     RunCollectParallel application-static-governance-prechecks \
         aeds-policy StaticAedsPolicy \
+        perception-character-v3-cutover StaticPerceptionCharacterV3Cutover \
         background-services StaticBackgroundServices \
         backend-physical-topology StaticBackendPhysicalTopology \
         code-intent StaticCodeIntent \

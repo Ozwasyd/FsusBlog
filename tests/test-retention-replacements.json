@@ -1653,7 +1653,7 @@
       "replacementTestIds": [
         "xunit:tests/backend/Unit/ArticleViewWriteBufferTests.cs#ArticleViewWriteBufferTests.FlushAsync_CoalescesSameArticleAndFlushesMultipleArticles",
         "xunit:tests/backend/Unit/SecurityChallengeOrchestratorTests.cs#SecurityChallengeOrchestratorTests.IssueAsync_ProviderFailure_FailsClosedAndWritesRisk",
-        "xunit:tests/backend/Unit/SecurityChallengeOrchestratorTests.cs#SecurityChallengeOrchestratorTests.IssueAsync_MultipleChallenges_ReturnsEnvelopeAssignments"
+        "xunit:tests/backend/Unit/SecurityChallengeOrchestratorTests.cs#SecurityChallengeOrchestratorTests.IssueAsync_MultipleChallenges_ReturnsOnlyFirstActionableAssignment"
       ],
       "reason": "Runtime view aggregation and provider-first challenge issue behavior remain executable; legacy/backfill prose is documented separately."
     },

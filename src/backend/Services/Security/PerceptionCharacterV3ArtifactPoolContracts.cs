@@ -41,6 +41,12 @@ public sealed record PerceptionCharacterV3PoolInventory(
         => new(generationId, int.MaxValue, int.MaxValue, int.MaxValue, 0, 0, false, false, true);
 }
 
+public sealed record PerceptionCharacterV3PoolIdentity(
+    string GenerationId,
+    string ManifestDigest,
+    string ContractDigest,
+    string PackDigest);
+
 public sealed record PerceptionCharacterV3LeaseBudget(
     string OperationId,
     string ActionClass,
@@ -165,6 +171,9 @@ public interface IPerceptionCharacterV3ArtifactPool
 
     Task<PerceptionCharacterV3PoolInventory> GetInventoryAsync(CancellationToken cancellationToken)
         => Task.FromResult(PerceptionCharacterV3PoolInventory.UnknownHealthy(ActiveGenerationId));
+
+    Task<PerceptionCharacterV3PoolIdentity> GetIdentityAsync(CancellationToken cancellationToken)
+        => throw new InvalidOperationException("PerceptionCharacterV3 pool identity is unavailable.");
 
     async Task<PerceptionCharacterV3PoolLeaseResult> LeaseBudgetedAsync(
         PerceptionCharacterV3Representation representation,

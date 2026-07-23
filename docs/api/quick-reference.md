@@ -458,7 +458,7 @@
 | POST | `/api/ops/deployment/fence/acquire` | 👑🚦 loopback | CAS 获取或单调推进 active-release fence；旧 generation/token 不得复用 |
 | POST | `/api/ops/deployment/fence/revoke` | 👑🚦 loopback | 精确撤销当前 fence 所有者；身份不匹配返回 409 |
 | POST | `/api/ops/deployment/fence/challenge-kind-cutover` | 👑🚦 loopback | 在精确 release/slot/generation fence 下清理完整数值集合 3/10/13 并返回幂等审计 receipt；operator target map 必须命中权威不可逆 fingerprint，验收再从独立 target JSON 复算 |
-| POST | `/api/ops/deployment/fence/challenge-protocol-activate` | 👑🚦 loopback | 只读并验证 durable cutover receipt 后开放本 release/slot/generation 的 V3 issue/verify；每次使用重验 fence，marker/cache/fence 异常均 fail closed |
+| POST | `/api/ops/deployment/fence/perception-character-v3-cutover` | 👑🚦 loopback | 单次验证 release/slot/generation、V3 contract、pool manifest、backend/shared/frontend AEDS schema 与热策略版本，关闭签发、幂等撤销旧状态并只在 smoke 通过后开放当前 target；receipt/marker/cache/fence 任一漂移均 fail closed |
 | GET | `/api/ops/deployment/notification-stream/restart/status` | 👑🚦 loopback | 读取当前 1012 restart epoch、原因与连接排空快照 |
 | POST | `/api/ops/deployment/notification-stream/restart` | 👑🚦 loopback | 按精确 release/slot/generation 触发一次有序 1012 重连 |
 | POST | `/api/ops/deployment/notification-stream/drill/publish` | 👑🚦 loopback | 仅显式启用的发布演练事件；校验 active fence 后发布 1..32 个可对账 event ID，生产默认 404 |
