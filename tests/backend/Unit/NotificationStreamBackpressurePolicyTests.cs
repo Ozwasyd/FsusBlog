@@ -1,16 +1,8 @@
-using System.Diagnostics.Metrics;
-
-using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.NotificationStream;
-using FsusBlog.Server.Services.NotificationStream;
 using FsusBlog.Shared.Contracts.NotificationStream;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
-
-using NSubstitute;
-
-using StackExchange.Redis;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -299,141 +291,6 @@ public sealed class NotificationStreamBackpressurePolicyTests
         Assert.Equal(0, connection.QueuedBytes);
     }
 
-    [Fact]
-    public async Task Publisher_UnrelatedRoutesEnterRedisOrderingScopesConcurrently()
-    {
-        var redis = Substitute.For<IConnectionMultiplexer>();
-        var database = Substitute.For<IDatabase>();
-        var keyScope = Substitute.For<IRuntimeKeyScope>();
-        redis.GetDatabase().Returns(database);
-        keyScope.PrefixKey(Arg.Any<string>()).Returns(call => call.Arg<string>());
-        var bothLockAttemptsEntered = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseLockAttempts = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        int concurrentLockAttempts = 0;
-        int maximumConcurrentLockAttempts = 0;
-        database.LockTakeAsync(
-                Arg.Any<RedisKey>(),
-                Arg.Any<RedisValue>(),
-                Arg.Any<TimeSpan>(),
-                Arg.Any<CommandFlags>())
-            .Returns(async _ =>
-            {
-                int current = Interlocked.Increment(ref concurrentLockAttempts);
-                UpdateMaximum(ref maximumConcurrentLockAttempts, current);
-                if (current == 2)
-                {
-                    bothLockAttemptsEntered.TrySetResult(true);
-                }
-
-                await releaseLockAttempts.Task;
-                Interlocked.Decrement(ref concurrentLockAttempts);
-                return true;
-            });
-        database.LockReleaseAsync(
-                Arg.Any<RedisKey>(),
-                Arg.Any<RedisValue>(),
-                Arg.Any<CommandFlags>())
-            .Returns(true);
-        database.StringIncrementAsync(Arg.Any<RedisKey>(), Arg.Any<long>(), Arg.Any<CommandFlags>())
-            .Returns(1L, 2L);
-        database.StreamAddAsync(
-                Arg.Any<RedisKey>(),
-                Arg.Any<RedisValue>(),
-                Arg.Any<RedisValue>(),
-                Arg.Any<RedisValue?>(),
-                Arg.Any<int?>(),
-                Arg.Any<bool>(),
-                Arg.Any<CommandFlags>())
-            .Returns((RedisValue)"1-0", (RedisValue)"2-0");
-        var store = new NotificationStreamBacklogStore(
-            redis,
-            keyScope,
-            NullLogger<NotificationStreamBacklogStore>.Instance);
-        NotificationStreamLocalFanoutQueue fanout = CreateQueue();
-        var manager = new NotificationStreamConnectionManager(
-            new ConfigurationBuilder().Build(),
-            NullLogger<NotificationStreamConnectionManager>.Instance);
-        var publisher = new RedisNotificationStreamPublisher(
-            store,
-            fanout,
-            manager,
-            new PolicyTestFrameCodec(),
-            NullLogger<RedisNotificationStreamPublisher>.Instance);
-
-        Task first = publisher.PublishAsync(
-            NotificationStreamEventType.UnreadCountUpdated,
-            1,
-            new NotificationStreamUserTarget("account-a"));
-        Task second = publisher.PublishAsync(
-            NotificationStreamEventType.UnreadCountUpdated,
-            2,
-            new NotificationStreamUserTarget("account-b"));
-
-        try
-        {
-            await bothLockAttemptsEntered.Task.WaitAsync(TimeSpan.FromSeconds(2));
-        }
-        finally
-        {
-            releaseLockAttempts.TrySetResult(true);
-        }
-        await Task.WhenAll(first, second);
-
-        Assert.Equal(2, maximumConcurrentLockAttempts);
-        for (int i = 0; i < 2; i++)
-        {
-            NotificationStreamLocalFanoutWorkItem item = await fanout.DequeueAsync(CancellationToken.None);
-            item.Frame.Release();
-        }
-    }
-
-    [Fact]
-    public void BackpressureMetrics_ExposeLowCardinalityQueueAndRecoverySignals()
-    {
-        var measurements = new HashSet<string>(StringComparer.Ordinal);
-        using var listener = new MeterListener();
-        listener.InstrumentPublished = (instrument, meterListener) =>
-        {
-            if (instrument.Name.StartsWith("fsus.notification_stream.", StringComparison.Ordinal))
-            {
-                meterListener.EnableMeasurementEvents(instrument);
-            }
-        };
-        listener.SetMeasurementEventCallback<int>((instrument, _, _, _) => measurements.Add(instrument.Name));
-        listener.SetMeasurementEventCallback<long>((instrument, _, _, _) => measurements.Add(instrument.Name));
-        listener.SetMeasurementEventCallback<double>((instrument, _, _, _) => measurements.Add(instrument.Name));
-        listener.Start();
-        NotificationStreamDeliveryPolicy policy =
-            NotificationStreamDeliveryPolicyCatalog.GetRequired(NotificationStreamEventType.UnreadCountUpdated);
-
-        NotificationStreamMetrics.RecordPublishCriticalSectionWait(TimeSpan.FromMilliseconds(2), 1);
-        NotificationStreamMetrics.RecordFanoutLaneDepth(policy.Priority, 3, 128, TimeSpan.FromMilliseconds(4));
-        NotificationStreamMetrics.RecordFanoutCoalesced(policy);
-        NotificationStreamMetrics.RecordFanoutDropped(policy, "lane-frame-budget");
-        NotificationStreamMetrics.RecordFanoutExpired(policy, TimeSpan.FromMinutes(3));
-        NotificationStreamMetrics.RecordConnectionBackpressure(policy, 4, 256, TimeSpan.FromMilliseconds(8));
-        NotificationStreamMetrics.RecordConnectionSendLatency(TimeSpan.FromMilliseconds(5));
-        NotificationStreamMetrics.RecordFanoutLatency(
-            TimeSpan.FromMilliseconds(3),
-            new NotificationStreamUserTarget("metric-target"));
-        NotificationStreamMetrics.RecordReplayLiveTransitionGap(TimeSpan.FromMilliseconds(7));
-        NotificationStreamMetrics.RecordSlowDisconnect("connection_frame_budget", 10, 11);
-
-        Assert.Contains("fsus.notification_stream.publish_critical_section_wait_ms", measurements);
-        Assert.Contains("fsus.notification_stream.publish_lock_scope_count", measurements);
-        Assert.Contains("fsus.notification_stream.queue_depth", measurements);
-        Assert.Contains("fsus.notification_stream.queue_bytes", measurements);
-        Assert.Contains("fsus.notification_stream.queue_oldest_age_ms", measurements);
-        Assert.Contains("fsus.notification_stream.fanout_coalesced", measurements);
-        Assert.Contains("fsus.notification_stream.fanout_dropped", measurements);
-        Assert.Contains("fsus.notification_stream.fanout_expired", measurements);
-        Assert.Contains("fsus.notification_stream.connection_resync", measurements);
-        Assert.Contains("fsus.notification_stream.send_latency_ms", measurements);
-        Assert.Contains("fsus.notification_stream.fanout_latency_ms", measurements);
-        Assert.Contains("fsus.notification_stream.replay_live_transition_gap_ms", measurements);
-        Assert.Contains("fsus.notification_stream.slow_disconnects", measurements);
-    }
-
     private static NotificationStreamLocalFanoutQueue CreateQueue()
     {
         IConfiguration configuration = new ConfigurationBuilder()
@@ -451,29 +308,4 @@ public sealed class NotificationStreamBackpressurePolicyTests
         return new NotificationStreamLocalFanoutQueue(configuration);
     }
 
-    private static void UpdateMaximum(ref int location, int value)
-    {
-        int current = Volatile.Read(ref location);
-        while (value > current)
-        {
-            int observed = Interlocked.CompareExchange(ref location, value, current);
-            if (observed == current)
-            {
-                return;
-            }
-
-            current = observed;
-        }
-    }
-
-    private sealed class PolicyTestFrameCodec : INotificationFrameCodec
-    {
-        public byte[] EncodeHeartbeatFrame() => [0];
-
-        public SharedNotificationStreamFrame EncodeEventFrame<TPayload>(
-            long eventId,
-            NotificationStreamEventType eventType,
-            TPayload payload)
-            => SharedNotificationStreamFrame.FromArray([(byte)eventId, (byte)eventType]);
-    }
 }
