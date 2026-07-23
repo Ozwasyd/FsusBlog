@@ -16,6 +16,8 @@ const files = {
   about: path.join(repoRoot, 'src/frontend/src/components/public/pages/PublicAboutPageContent.vue'),
   featured: path.join(repoRoot, 'src/frontend/src/components/home/FeaturedArticlesSection.vue'),
   readingNotice: path.join(repoRoot, 'src/frontend/src/components/article/ArticleReadingNotice.vue'),
+  recommendations: path.join(repoRoot, 'src/frontend/src/components/home/HomeTextFirstRecommendations.vue'),
+  publicLayoutRules: path.join(repoRoot, 'docs/public-layout-rules.md'),
   packageJson: path.join(repoRoot, 'src/frontend/package.json')
 }
 
@@ -120,6 +122,43 @@ checkLines(files.home, [
     message: 'home intro copy must keep normal readable weight'
   }
 ])
+
+const homeSource = read(files.home)
+const featuredSource = read(files.featured)
+const recommendationsSource = read(files.recommendations)
+const publicLayoutRules = read(files.publicLayoutRules)
+
+const expectHomeIncludes = (file, source, expected, message) => {
+  if (!source.includes(expected)) {
+    fail(file, 1, message)
+  }
+}
+
+expectHomeIncludes(files.featured, featuredSource, 'home-editorial-lead__title text-[28px]', 'home lead title must keep the 28px editorial tier')
+expectHomeIncludes(files.featured, featuredSource, "'gap-8 py-12 md:grid-cols-2 md:items-center md:py-16'", 'home media lead must keep 48/64px block padding')
+expectHomeIncludes(files.featured, featuredSource, "'py-12 md:py-16'", 'home text lead must keep 48/64px block padding')
+expectHomeIncludes(files.recommendations, recommendationsSource, 'class="text-xl font-bold leading-[1.2]', 'home section headings must keep the 20px/700 tier')
+expectHomeIncludes(files.home, homeSource, 'data-home-punctuation-motif="metadata"', 'home must confine the punctuation motif to feed metadata')
+expectHomeIncludes(files.home, homeSource, 'font-size: 12px;', 'home feed metadata must keep a readable 12px tier')
+expectHomeIncludes(files.home, homeSource, 'font-size: 14px;', 'home feed summaries must keep the 14px tier')
+expectHomeIncludes(files.home, homeSource, 'line-height: 1.6;', 'home feed summaries must keep 1.6 line height')
+expectHomeIncludes(files.publicLayoutRules, publicLayoutRules, 'Scholarly Blue 仅用于 link hover、focus 与 active', 'public layout rules must document interaction-only Scholarly Blue')
+
+for (const [file, source] of [
+  [files.home, homeSource],
+  [files.featured, featuredSource],
+  [files.recommendations, recommendationsSource]
+]) {
+  for (const [pattern, message] of [
+    [/\b(?:bg-gradient|from-\[|via-\[|to-\[)/u, 'home hierarchy must not introduce gradients'],
+    [/\b(?:shadow-lg|shadow-xl|backdrop-blur|hover:-translate|hover:scale)/u, 'home hierarchy must not introduce card/glow/lift treatments'],
+    [/\buppercase\b/u, 'home editorial headings and metadata must preserve natural casing']
+  ]) {
+    if (pattern.test(source)) {
+      fail(file, 1, message)
+    }
+  }
+}
 
 const packageJson = JSON.parse(read(files.packageJson))
 const scripts = packageJson.scripts ?? {}

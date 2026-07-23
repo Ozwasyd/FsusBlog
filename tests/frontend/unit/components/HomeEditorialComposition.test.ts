@@ -127,7 +127,7 @@ describe('home editorial components', () => {
     expect(link.classes()).not.toContain('items-start')
     expect(index?.classes()).toEqual(expect.arrayContaining(['leading-5']))
     expect(index?.classes()).not.toContain('mt-1')
-    expect(title?.classes()).toEqual(expect.arrayContaining(['leading-5']))
+    expect(title?.classes()).toEqual(expect.arrayContaining(['text-lg', 'leading-[1.25]', 'font-bold']))
     expect(views?.classes()).toEqual(expect.arrayContaining(['mt-1', 'leading-4']))
 
     wrapper.unmount()
@@ -169,12 +169,73 @@ describe('home editorial components', () => {
     expect(wrapper.text()).toContain('2026-07-11')
     expect(wrapper.get('a').classes()).toEqual(expect.arrayContaining([
       'rounded-[var(--fsusblog-radius-panel)]',
-      'pt-8',
-      'pb-10'
+      'py-12',
+      'md:py-16'
     ]))
     expect(wrapper.get('a').classes()).not.toEqual(expect.arrayContaining(['border-y', 'py-8', 'sm:py-10']))
 
     wrapper.unmount()
+  })
+
+  it('exposes four explicit editorial levels without decorative card treatments', () => {
+    const featuredWrapper = mount(FeaturedArticlesSection, {
+      props: { article: featured('/uploads/lead.webp'), loading: false },
+      global: homeGlobals
+    })
+    const recommendationsWrapper = mount(HomeTextFirstRecommendations, {
+      props: { articles: [recommendation(1)] },
+      global: homeGlobals
+    })
+    const homeWrapper = mount(PublicHomePageContent, {
+      props: {
+        view: listView([card(1)]),
+        loading: false,
+        isError: false,
+        showArticleCta: false
+      },
+      slots: {
+        featured: '<div data-test="fixture-featured" />'
+      },
+      global: homeGlobals
+    })
+
+    expect(featuredWrapper.get('header h2').classes()).toEqual(expect.arrayContaining([
+      'text-xl',
+      'font-bold'
+    ]))
+    expect(featuredWrapper.get('h1').classes()).toEqual(expect.arrayContaining([
+      'text-[28px]',
+      'font-bold',
+      'tracking-normal'
+    ]))
+    expect(featuredWrapper.get('a').classes()).toEqual(expect.arrayContaining([
+      'py-12',
+      'md:py-16'
+    ]))
+    expect(featuredWrapper.html()).not.toMatch(/\b(?:gradient|glow|shadow-lg|hover:-translate|hover:scale)\b/u)
+
+    expect(recommendationsWrapper.get('header h2').classes()).toEqual(expect.arrayContaining([
+      'text-xl',
+      'font-bold'
+    ]))
+    expect(recommendationsWrapper.get('ol > li span.block').classes()).toEqual(expect.arrayContaining([
+      'text-lg',
+      'font-bold'
+    ]))
+
+    expect(homeWrapper.get('[data-home-feed-heading]').classes()).toEqual(expect.arrayContaining([
+      'text-xl',
+      'font-bold'
+    ]))
+    expect(homeWrapper.get('[data-home-feed-section]').attributes('data-home-punctuation-motif')).toBe('metadata')
+    expect(homeWrapper.get('[data-home-feed-section]').classes()).not.toEqual(expect.arrayContaining([
+      'border-t',
+      'pt-10'
+    ]))
+
+    featuredWrapper.unmount()
+    recommendationsWrapper.unmount()
+    homeWrapper.unmount()
   })
 
   it('keeps the same content hierarchy across desktop/mobile and light/dark snapshots', () => {
@@ -331,6 +392,9 @@ describe('home editorial components', () => {
     expect(wrapper.get('[data-home-feed-heading]').text()).toBe('最新文章')
     expect(wrapper.get('[data-home-feed-section]').attributes('aria-labelledby')).toBe('home-feed-heading')
     expect(wrapper.get('[data-home-feed-section]').classes()).toEqual(
+      expect.arrayContaining(['home-editorial-section', 'home-editorial-section--feed'])
+    )
+    expect(wrapper.get('[data-home-feed-section]').classes()).not.toEqual(
       expect.arrayContaining(['border-t', 'pt-10'])
     )
     expect(wrapper.get('[data-home-feed-section]').classes()).not.toContain('border-t-2')

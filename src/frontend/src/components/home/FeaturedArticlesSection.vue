@@ -1,16 +1,16 @@
 <template>
   <section
     v-if="loading || article"
-    class="featured-articles-section mb-12 sm:mb-16"
+    class="featured-articles-section home-editorial-section home-editorial-section--lead mb-10 sm:mb-12"
     data-fsus-surface="reading"
     data-fsus-motion-surface="home-featured-article"
     :aria-labelledby="article ? 'home-editorial-lead-title' : undefined"
     :aria-label="!article && loading ? copy.leadLoadingLabel : undefined"
   >
-    <header class="mb-5 border-b border-[var(--fsusblog-panel-border)] pb-3">
-      <div class="text-xs tabular-nums font-medium normal-case text-[var(--fsusblog-text-muted)]">
+    <header class="home-editorial-section__header mb-5 border-b border-[var(--fsusblog-panel-border)] pb-3">
+      <h2 class="text-xl font-bold leading-[1.2] tracking-normal text-[var(--fsusblog-text-primary)]">
         {{ copy.leadEyebrow }}
-      </div>
+      </h2>
     </header>
 
     <el-skeleton
@@ -45,8 +45,8 @@
           :class="[
             focusRingClass,
             hasCover
-              ? 'gap-8 md:grid-cols-2 md:items-center'
-              : 'pt-8 pb-10'
+              ? 'gap-8 py-12 md:grid-cols-2 md:items-center md:py-16'
+              : 'py-12 md:py-16'
           ]"
           :aria-label="readFullLabel(article.title)"
           @click="navigate"
@@ -86,7 +86,7 @@
             </div>
             <h1
               id="home-editorial-lead-title"
-              class="text-2xl font-bold leading-tight tracking-normal text-[var(--fsusblog-text-primary)] transition-fsus transition-fsus-fast group-hover:text-[var(--fsusblog-color-primary)] sm:text-3xl"
+              class="home-editorial-lead__title text-[28px] font-bold leading-[1.15] tracking-normal text-[var(--fsusblog-text-primary)] transition-fsus transition-fsus-fast group-hover:text-[var(--fsusblog-color-primary)]"
             >
               {{ article.title }}
             </h1>

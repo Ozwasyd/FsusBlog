@@ -1,0 +1,118 @@
+{
+  "viewports": [
+    { "name": "mobile", "width": 375, "height": 812 },
+    { "name": "tablet", "width": 768, "height": 1024 },
+    { "name": "laptop", "width": 1024, "height": 900 },
+    { "name": "desktop", "width": 1440, "height": 1000 }
+  ],
+  "themes": ["light", "dark"],
+  "articleCounts": [3, 10],
+  "locales": ["zh-CN", "en-US"],
+  "coverModes": ["with-cover", "without-cover"],
+  "articles": {
+    "zh-CN": [
+      {
+        "title": "让公开阅读路径保持可验证",
+        "summary": "从真实路由、焦点顺序和响应证据开始，而不是用装饰替代内容。",
+        "category": "工程实践"
+      },
+      {
+        "title": "一次公开路由审计",
+        "summary": "记录匿名访问、键盘导航与首屏响应的完整检查过程。",
+        "category": "可访问性"
+      },
+      {
+        "title": "当标题很长时，编辑层级仍要在窄屏内自然换行且不挤压日期、分类和摘要",
+        "summary": "长标题用于验证 375px 下的换行、组距与内容基线。",
+        "category": "排版"
+      },
+      {
+        "title": "热读链路的测量方法",
+        "summary": "区分缓存预热、运行时回退与真正的接口失败。",
+        "category": "性能"
+      },
+      {
+        "title": "键盘焦点路径",
+        "summary": "让默认 Ink 和交互态 Scholarly Blue 各自承担明确职责。",
+        "category": "交互"
+      },
+      {
+        "title": "AEDS 帧检查记录",
+        "summary": "以真实二进制输出解释协议边界。",
+        "category": "协议"
+      },
+      {
+        "title": "公开页面的暗色阅读面",
+        "summary": "Dark 只替换语义颜色，不改变内容层级。",
+        "category": "设计"
+      },
+      {
+        "title": "静态 fixture 如何隔离后端",
+        "summary": "fixture 直接装配生产组件和固定数据，不发出 API 请求。",
+        "category": "测试"
+      },
+      {
+        "title": "内容证据型封面",
+        "summary": "封面展示界面、图表或协议证据，不复用统一渐变模板。",
+        "category": "内容"
+      },
+      {
+        "title": "发布前的几何核验",
+        "summary": "在多个 viewport、主题和灰度模式下检查稳定基线。",
+        "category": "质量"
+      }
+    ],
+    "en-US": [
+      {
+        "title": "Keep the public reading path verifiable",
+        "summary": "Start from real routes, focus order, and response evidence.",
+        "category": "Engineering"
+      },
+      {
+        "title": "A public route audit",
+        "summary": "Record anonymous access, keyboard navigation, and first-response checks.",
+        "category": "Accessibility"
+      },
+      {
+        "title": "A deliberately long editorial title must wrap naturally without flattening metadata and summary hierarchy",
+        "summary": "The long title verifies wrapping and rhythm at narrow widths.",
+        "category": "Typography"
+      },
+      {
+        "title": "Measuring the hot-read path",
+        "summary": "Separate warm-up behavior from genuine endpoint failures.",
+        "category": "Performance"
+      },
+      {
+        "title": "Keyboard focus paths",
+        "summary": "Keep default Ink separate from interactive Scholarly Blue.",
+        "category": "Interaction"
+      },
+      {
+        "title": "Inspecting an AEDS frame",
+        "summary": "Use real binary output to explain protocol boundaries.",
+        "category": "Protocol"
+      },
+      {
+        "title": "Dark reading surfaces",
+        "summary": "Dark mode replaces semantic colors without changing hierarchy.",
+        "category": "Design"
+      },
+      {
+        "title": "Backend-free fixtures",
+        "summary": "Mount production components with fixed data and no API calls.",
+        "category": "Testing"
+      },
+      {
+        "title": "Evidence-led cover art",
+        "summary": "Use interfaces, charts, and protocol evidence instead of gradients.",
+        "category": "Content"
+      },
+      {
+        "title": "Pre-release geometry",
+        "summary": "Check stable baselines across viewport, theme, and grayscale modes.",
+        "category": "Quality"
+      }
+    ]
+  }
+}

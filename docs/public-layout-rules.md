@@ -89,6 +89,14 @@ Glass material 只允许用于以下 surface：
 
 首页评审必须同时核对：单主推荐数量、页面内 article ID 唯一性、无封面纯文字退化、空推荐、分页前后、四组 Desktop/Mobile × Light/Dark 截图以及 reduced-motion 层级完整性。
 
+首页的“主命题”由单篇主推荐承担，不重新引入站点名 Hero。无论移除颜色或切到
+Dark，编辑层级固定为主推荐标题 → 18/20px section title → 18/20px 普通文章标题
+→ 12px/500 metadata 与 14px/400 摘要。主推荐内容区使用 48px mobile / 64px
+desktop 的 block padding；各 section 使用 32–48px 组距，并只在 section heading
+下保留一条 1px editorial rule，不再叠加 card border、section top rule 或装饰背景。
+Scholarly Blue 仅用于 link hover、focus 与 active。首页句点 motif 只承担普通文章
+metadata 分隔，不得在主推荐、section heading、loading 与推荐序号中重复铺陈。
+
 ## 12. 内容驱动的封面规范
 
 封面是文章内容证据，不是卡片背景。是否存在封面不得改变标题、分类、日期、摘要和正文入口的完整性。素材优先级固定为：

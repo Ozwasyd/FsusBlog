@@ -17,14 +17,15 @@
 
           <section
             v-if="view.items.length > 0"
-            class="border-t border-[var(--fsusblog-panel-border)] pt-10"
+            class="home-editorial-section home-editorial-section--feed"
             aria-labelledby="home-feed-heading"
             data-home-feed-section
+            data-home-punctuation-motif="metadata"
           >
-            <header class="mb-5 border-b border-[var(--fsusblog-panel-border)] pb-3">
+            <header class="home-editorial-section__header mb-5 border-b border-[var(--fsusblog-panel-border)] pb-3">
               <h2
                 id="home-feed-heading"
-                class="text-xs font-medium normal-case text-[var(--fsusblog-text-muted)]"
+                class="text-xl font-bold leading-[1.2] tracking-normal text-[var(--fsusblog-text-primary)]"
                 data-home-feed-heading
               >
                 {{ copy.feedEyebrow }}
@@ -83,3 +84,36 @@ const emit = defineEmits<{
 const copy = FSUSBLOG_LAYOUT_COPY.recommendations
 
 </script>
+
+<style scoped>
+.home-editorial-section--feed :deep(.ui-article-list) {
+  gap: 40px;
+}
+
+.home-editorial-section--feed :deep(.ui-article-card) {
+  gap: 16px;
+}
+
+.home-editorial-section--feed :deep(.ui-article-meta) {
+  color: var(--fsusblog-text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.home-editorial-section--feed :deep(.ui-article-title) {
+  color: var(--fsusblog-text-heading);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.home-editorial-section--feed :deep(.ui-article-summary) {
+  margin-top: 8px;
+  color: var(--fsusblog-text-secondary);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+</style>

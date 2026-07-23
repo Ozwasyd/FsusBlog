@@ -1,17 +1,17 @@
 <template>
   <section
     v-if="articles.length > 0"
-    class="home-text-first-recommendations mb-8 sm:mb-10"
+    class="home-text-first-recommendations mb-8 sm:mb-10 home-editorial-section"
     aria-labelledby="home-text-first-recommendations-title"
     data-home-editorial-secondary
   >
-    <header class="mb-4 border-b border-[var(--fsusblog-panel-border)] pb-3">
-      <div
+    <header class="home-editorial-section__header mb-4 border-b border-[var(--fsusblog-panel-border)] pb-3">
+      <h2
         id="home-text-first-recommendations-title"
-        class="text-xs tabular-nums font-bold normal-case text-[var(--fsusblog-text-muted)]"
+        class="text-xl font-bold leading-[1.2] tracking-normal text-[var(--fsusblog-text-primary)]"
       >
         {{ copy.eyebrow }}
-      </div>
+      </h2>
     </header>
 
     <ol role="list" class="grid gap-3 sm:grid-cols-2 sm:gap-4">
@@ -33,7 +33,7 @@
               {{ (index + 1).toString().padStart(2, '0') }}
             </span>
             <span class="min-w-0">
-              <span class="block text-sm font-bold leading-5 text-[var(--fsusblog-text-primary)] transition-colors group-hover:text-[var(--fsusblog-color-primary)]">
+              <span class="block text-lg font-bold leading-[1.25] tracking-normal text-[var(--fsusblog-text-primary)] transition-colors group-hover:text-[var(--fsusblog-color-primary)]">
                 {{ article.title }}
               </span>
               <span class="mt-1 block text-xs leading-4 tabular-nums font-medium normal-case text-[var(--fsusblog-text-muted)]">
