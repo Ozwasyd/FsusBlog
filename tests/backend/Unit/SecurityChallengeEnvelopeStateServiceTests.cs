@@ -231,6 +231,43 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
     }
 
     [Fact]
+    public async Task CompleteIssuanceAsync_RedisReplyLossDoesNotReopenIssuedMember()
+    {
+        Fixture fixture = CreateFixture();
+        await fixture.Service.CreateAsync(CreateState() with
+        {
+            RequiredKinds = ["sha256PowV1", "perceptionCharacterV3"]
+        });
+        SecurityChallengeEnvelopeMemberRequest firstRequest = CreateRequest(
+            s_challengeA,
+            "sha256PowV1");
+        SecurityChallengeEnvelopeMemberRequest secondRequest = CreateRequest(
+            s_challengeB,
+            "perceptionCharacterV3");
+        Assert.True((await fixture.Service.ReserveMemberAsync(firstRequest)).Accepted);
+        SecurityChallengeEnvelopeMemberResult advanced =
+            await fixture.Service.CompleteMemberAsync(firstRequest);
+        Assert.True(advanced.Accepted);
+        Assert.Equal(1, advanced.IssuanceIndex);
+        fixture.Cache.LoseReplyOnNextSuccessfulWrite = true;
+
+        SecurityChallengeEnvelopeMemberResult ambiguous =
+            await fixture.Service.CompleteIssuanceAsync(secondRequest, 1);
+        SecurityChallengeEnvelopeMemberResult retry =
+            await fixture.Service.CompleteIssuanceAsync(secondRequest, 1);
+
+        Assert.False(ambiguous.Accepted);
+        Assert.Equal("challenge_envelope_issuance_not_reserved", ambiguous.Reason);
+        Assert.False(retry.Accepted);
+        Assert.Equal("challenge_envelope_issuance_not_reserved", retry.Reason);
+        SecurityChallengeEnvelopeState? state = await fixture.Service.GetAsync(s_envelopeId);
+        Assert.NotNull(state);
+        Assert.Equal(
+            [SecurityChallengeEnvelopeMemberStatuses.Verified, SecurityChallengeEnvelopeMemberStatuses.Issued],
+            state.MemberStatuses);
+    }
+
+    [Fact]
     public async Task RevokeAsync_RevokesIncompleteMembersAndBlocksFinalCompletion()
     {
         Fixture fixture = CreateFixture();

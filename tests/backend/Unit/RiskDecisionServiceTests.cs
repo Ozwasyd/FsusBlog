@@ -157,6 +157,27 @@ public sealed class RiskDecisionServiceTests
     }
 
     [Fact]
+    public void Decide_PasskeySubstitutionPolicy_OmitsPerceptionCharacterV3()
+    {
+        var overrides = new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal)
+        {
+            [RiskActionNames.AdminSecurityWrite] = CreateActionPolicy(
+                RiskActionNames.AdminSecurityWrite,
+                "adminPasskeyStepUpV1")
+        };
+        SecurityRiskPolicySnapshotV2 policy = CreatePolicy(SecuritySystemModes.Enforce, overrides);
+
+        RiskDecision decision = _service.Decide(
+            CreateContext(RiskActionNames.AdminSecurityWrite),
+            policy,
+            50);
+
+        Assert.Equal(RiskDecisionKind.StepUp, decision.Kind);
+        Assert.Equal(["adminPasskeyStepUpV1"], decision.RequiredChallenges);
+        Assert.DoesNotContain("perceptionCharacterV3", decision.RequiredChallenges);
+    }
+
+    [Fact]
     public void Decide_AuthLoginCharacterChallengePolicy_ReturnsMediumCharacterChallengeAndHighComboChallenge()
     {
         SecurityRiskActionPolicy authPolicy = CreateCharacterChallengeActionPolicy(RiskActionNames.AuthLogin) with
