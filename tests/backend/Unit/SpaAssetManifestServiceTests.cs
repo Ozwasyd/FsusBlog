@@ -10,6 +10,9 @@ namespace FsusBlog.Server.Tests;
 
 public sealed class SpaAssetManifestServiceTests
 {
+    private static readonly DateTime s_initialManifestVersionUtc = new(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+    private static readonly DateTime s_updatedManifestVersionUtc = new(2024, 1, 2, 0, 0, 0, DateTimeKind.Utc);
+
     [Fact]
     public void GetPublicAssetSet_DevelopmentViteHost_UsesSourceAssets()
     {
@@ -71,7 +74,7 @@ public sealed class SpaAssetManifestServiceTests
         string root = CreateTempDirectory();
         try
         {
-            WriteManifest(root, "public-page-a.css");
+            WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
             var env = new TestWebHostEnvironment(root, Environments.Development);
             var service = new SpaAssetManifestService(env, NullLogger<SpaAssetManifestService>.Instance);
             var context = new DefaultHttpContext();
@@ -94,7 +97,7 @@ public sealed class SpaAssetManifestServiceTests
         string root = CreateTempDirectory();
         try
         {
-            WriteManifest(root, "public-page-a.css");
+            WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
             var env = new TestWebHostEnvironment(root, Environments.Production);
             var service = new SpaAssetManifestService(env, NullLogger<SpaAssetManifestService>.Instance);
 
@@ -132,7 +135,7 @@ public sealed class SpaAssetManifestServiceTests
         string root = CreateTempDirectory();
         try
         {
-            WriteManifest(root, "public-page-a.css");
+            WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
             var env = new TestWebHostEnvironment(root, Environments.Production);
             var service = new SpaAssetManifestService(env, NullLogger<SpaAssetManifestService>.Instance);
 
@@ -155,13 +158,12 @@ public sealed class SpaAssetManifestServiceTests
         string root = CreateTempDirectory();
         try
         {
-            WriteManifest(root, "public-page-a.css");
+            WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
             var env = new TestWebHostEnvironment(root, Environments.Production);
             var service = new SpaAssetManifestService(env, NullLogger<SpaAssetManifestService>.Instance);
             string first = service.GetFrontendAssetVersion();
 
-            Thread.Sleep(1100);
-            WriteManifest(root, "public-page-b.css");
+            WriteManifest(root, "public-page-b.css", s_updatedManifestVersionUtc);
             string second = service.GetFrontendAssetVersion();
 
             Assert.Equal(first, second);
@@ -178,16 +180,20 @@ public sealed class SpaAssetManifestServiceTests
         string root = CreateTempDirectory();
         try
         {
-            WriteManifest(root, "public-page-a.css");
+            WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
             var env = new TestWebHostEnvironment(root, Environments.Development);
             var service = new SpaAssetManifestService(env, NullLogger<SpaAssetManifestService>.Instance);
             string first = service.GetFrontendAssetVersion();
 
-            Thread.Sleep(1100);
-            WriteManifest(root, "public-page-b.css");
-            string second = service.GetFrontendAssetVersion();
+            string unchanged = service.GetFrontendAssetVersion();
+            WriteManifest(root, "public-page-b.css", s_initialManifestVersionUtc);
+            string sameVersion = service.GetFrontendAssetVersion();
+            WriteManifest(root, "public-page-b.css", s_updatedManifestVersionUtc);
+            string updatedVersion = service.GetFrontendAssetVersion();
 
-            Assert.NotEqual(first, second);
+            Assert.Equal(first, unchanged);
+            Assert.Equal(first, sameVersion);
+            Assert.NotEqual(first, updatedVersion);
         }
         finally
         {
@@ -204,7 +210,7 @@ public sealed class SpaAssetManifestServiceTests
         return path;
     }
 
-    private static void WriteManifest(string root, string publicCss)
+    private static void WriteManifest(string root, string publicCss, DateTime versionUtc)
     {
         string manifestPath = Path.Combine(root, "wwwroot", ".vite", "manifest.json");
         File.WriteAllText(manifestPath, $$"""
@@ -243,7 +249,8 @@ public sealed class SpaAssetManifestServiceTests
   }
 }
 """);
-        File.SetLastWriteTimeUtc(manifestPath, DateTime.UtcNow.AddSeconds(1));
+        File.SetLastWriteTimeUtc(manifestPath, versionUtc);
+        Assert.Equal(versionUtc, File.GetLastWriteTimeUtc(manifestPath));
     }
 
     private sealed class TestWebHostEnvironment(string root, string environmentName) : IWebHostEnvironment

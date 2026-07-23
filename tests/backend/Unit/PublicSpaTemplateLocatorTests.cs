@@ -8,6 +8,9 @@ namespace FsusBlog.Server.Tests;
 [Collection(PublicSpaTemplateLocatorTestCollection.Name)]
 public sealed class PublicSpaTemplateLocatorTests
 {
+    private static readonly DateTime s_initialFileVersionUtc = new(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+    private static readonly DateTime s_updatedFileVersionUtc = new(2024, 1, 2, 0, 0, 0, DateTimeKind.Utc);
+
     [Fact]
     public async Task ReleaseTemplate_ConfiguredWebRootWinsOverAdjacentSourceDist()
     {
@@ -52,13 +55,13 @@ public sealed class PublicSpaTemplateLocatorTests
         try
         {
             string indexPath = CreateIndex(root, "<html>v1</html>");
+            SetFileVersion(indexPath, s_initialFileVersionUtc);
             var env = new TestWebHostEnvironment(root, Environments.Production);
             PublicSpaTemplateLocator.ResetCacheForTests();
 
             string first = await PublicSpaTemplateLocator.ReadIndexTemplateAsync(env, CancellationToken.None);
-            await Task.Delay(1100);
             await File.WriteAllTextAsync(indexPath, "<html>v2</html>");
-            File.SetLastWriteTimeUtc(indexPath, DateTime.UtcNow.AddSeconds(1));
+            SetFileVersion(indexPath, s_updatedFileVersionUtc);
             string second = await PublicSpaTemplateLocator.ReadIndexTemplateAsync(env, CancellationToken.None);
 
             Assert.Equal("<html>v1</html>", first);
@@ -78,17 +81,20 @@ public sealed class PublicSpaTemplateLocatorTests
         try
         {
             string indexPath = CreateIndex(root, "<html>v1</html>");
+            SetFileVersion(indexPath, s_initialFileVersionUtc);
             var env = new TestWebHostEnvironment(root, Environments.Development);
             PublicSpaTemplateLocator.ResetCacheForTests();
 
             string first = await PublicSpaTemplateLocator.ReadIndexTemplateAsync(env, CancellationToken.None);
-            await Task.Delay(1100);
             await File.WriteAllTextAsync(indexPath, "<html>v2</html>");
-            File.SetLastWriteTimeUtc(indexPath, DateTime.UtcNow.AddSeconds(1));
-            string second = await PublicSpaTemplateLocator.ReadIndexTemplateAsync(env, CancellationToken.None);
+            SetFileVersion(indexPath, s_initialFileVersionUtc);
+            string sameVersion = await PublicSpaTemplateLocator.ReadIndexTemplateAsync(env, CancellationToken.None);
+            SetFileVersion(indexPath, s_updatedFileVersionUtc);
+            string updatedVersion = await PublicSpaTemplateLocator.ReadIndexTemplateAsync(env, CancellationToken.None);
 
             Assert.Equal("<html>v1</html>", first);
-            Assert.Equal("<html>v2</html>", second);
+            Assert.Equal("<html>v1</html>", sameVersion);
+            Assert.Equal("<html>v2</html>", updatedVersion);
         }
         finally
         {
@@ -104,16 +110,18 @@ public sealed class PublicSpaTemplateLocatorTests
         try
         {
             string indexPath = CreateIndex(root, "<html><script type=\"module\" src=\"/assets/index-a.js\"></script></html>");
+            SetFileVersion(indexPath, s_initialFileVersionUtc);
             var env = new TestWebHostEnvironment(root, Environments.Development);
             PublicSpaTemplateLocator.ResetCacheForTests();
 
             string first = await PublicSpaTemplateLocator.ReadFrontendAssetVersionAsync(env, CancellationToken.None);
-            await Task.Delay(1100);
+            string unchanged = await PublicSpaTemplateLocator.ReadFrontendAssetVersionAsync(env, CancellationToken.None);
             await File.WriteAllTextAsync(indexPath, "<html><script type=\"module\" src=\"/assets/index-b.js\"></script></html>");
-            File.SetLastWriteTimeUtc(indexPath, DateTime.UtcNow.AddSeconds(1));
-            string second = await PublicSpaTemplateLocator.ReadFrontendAssetVersionAsync(env, CancellationToken.None);
+            SetFileVersion(indexPath, s_updatedFileVersionUtc);
+            string changed = await PublicSpaTemplateLocator.ReadFrontendAssetVersionAsync(env, CancellationToken.None);
 
-            Assert.NotEqual(first, second);
+            Assert.Equal(first, unchanged);
+            Assert.NotEqual(first, changed);
         }
         finally
         {
@@ -135,6 +143,12 @@ public sealed class PublicSpaTemplateLocatorTests
         string indexPath = Path.Combine(root, "wwwroot", "index.html");
         File.WriteAllText(indexPath, html);
         return indexPath;
+    }
+
+    private static void SetFileVersion(string path, DateTime versionUtc)
+    {
+        File.SetLastWriteTimeUtc(path, versionUtc);
+        Assert.Equal(versionUtc, File.GetLastWriteTimeUtc(path));
     }
 
     private sealed class TestWebHostEnvironment(string root, string environmentName) : IWebHostEnvironment
