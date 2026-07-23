@@ -15,11 +15,19 @@ public interface ISecurityChallengeProvider
         get;
     }
 
-    // Provider IssueAsync must persist the challenge before returning a successful assignment.
-    // SecurityChallengeOrchestrator only builds the client envelope after every provider succeeds.
+    // Provider IssueAsync must persist the one reserved member before returning its assignment.
+    // SecurityChallengeOrchestrator invokes exactly one provider per authoritative issuance transition.
     Task<SecurityChallengeProviderIssueResult> IssueAsync(SecurityChallengeProviderIssueRequest request, CancellationToken cancellationToken = default);
 
     Task<SecurityChallengeProviderVerifyResult> VerifyAsync(SecurityChallengeProviderVerifyRequest request, CancellationToken cancellationToken = default);
+}
+
+public enum SecurityChallengeCostClass : byte
+{
+    Credential = 1,
+    CheapProof = 2,
+    MemoryProof = 3,
+    ScarceArtifact = 4
 }
 
 public interface ISecurityChallengeOrchestrator
@@ -43,6 +51,8 @@ public sealed record SecurityChallengeProviderIssueRequest(
     string Traceparent)
 {
     public string EnvelopeId { get; init; } = string.Empty;
+    public string ChallengeId { get; init; } = string.Empty;
+    public string Representation { get; init; } = "visual";
     public int RiskScore
     {
         get; init;
@@ -177,6 +187,19 @@ public sealed record SecurityChallengeOrchestrationVerifyResult(
     DateTimeOffset? ProofExpiresAt)
 {
     public string PolicyVersion { get; init; } = string.Empty;
+    public SecurityChallengeAssignment? NextAssignment
+    {
+        get; init;
+    }
+    public IReadOnlyDictionary<string, string> NextProviderPayload
+    {
+        get; init;
+    }
+        = new Dictionary<string, string>(0, StringComparer.Ordinal);
+    public PerceptionCharacterV3IssuePayload? NextPerceptionCharacterV3
+    {
+        get; init;
+    }
     public static SecurityChallengeOrchestrationVerifyResult Progress(
         SecurityChallengeEnvelopeMemberResult member,
         string challengeId,
@@ -253,12 +276,22 @@ public sealed partial class SecurityChallengeOrchestrator(
         }
 
         string envelopeId = SecurityChallengeContracts.CreateChallengeId();
-        var assignments = new List<SecurityChallengeAssignment>(request.Decision.RequiredChallenges.Count);
-        var providerPayloads = new Dictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.Ordinal);
-        var v3Payloads = new Dictionary<string, PerceptionCharacterV3IssuePayload>(StringComparer.Ordinal);
-        foreach (string rawKind in request.Decision.RequiredChallenges)
+        string representation = ResolveRepresentation(request.Context);
+        string[] orderedPlan = request.Decision.RequiredChallenges
+            .Select(NormalizeKind)
+            .OrderBy(ResolveCostClass)
+            .ToArray();
+        if (orderedPlan.Distinct(StringComparer.Ordinal).Count() != orderedPlan.Length)
         {
-            string kind = NormalizeKind(rawKind);
+            await RecordRiskAsync(request.Context, request.Decision.ActionName, "challenge_plan_duplicate", cancellationToken).ConfigureAwait(false);
+            return SecurityChallengeOrchestrationIssueResult.Failed("challenge_plan_duplicate");
+        }
+        string[] kinds = new string[orderedPlan.Length];
+        string[] challengeIds = new string[kinds.Length];
+        // Validate the complete plan before materializing even its first member.
+        for (int index = 0; index < orderedPlan.Length; index++)
+        {
+            string kind = orderedPlan[index];
             if (!SecurityChallengeContracts.TryParseKind(kind, out SecurityChallengeKind parsedKind))
             {
                 RecordChallengeFailure("issue", kind, request.Decision.ActionName, request.Decision.PolicyVersion, "kind_unknown");
@@ -285,68 +318,29 @@ public sealed partial class SecurityChallengeOrchestrator(
                 return SecurityChallengeOrchestrationIssueResult.Failed(reason);
             }
 
-            SecurityChallengeProviderIssueResult providerResult;
-            try
-            {
-                providerResult = await provider.IssueAsync(
-                    new SecurityChallengeProviderIssueRequest(
-                        request.Context,
-                        kind,
-                        request.Decision.ActionName,
-                        request.Decision.RouteKey,
-                        NormalizeRequired(request.TenantId, nameof(request.TenantId), 64),
-                        NormalizeHash(request.SubjectHash, nameof(request.SubjectHash)),
-                        NormalizeHash(request.ClientIpHash, nameof(request.ClientIpHash)),
-                        NormalizeHash(request.DeviceFpHash, nameof(request.DeviceFpHash)),
-                        request.Decision.PolicyVersion,
-                        request.Decision.EscalationLevel,
-                        NormalizeRequired(request.Traceparent, nameof(request.Traceparent), 128))
-                    {
-                        EnvelopeId = envelopeId,
-                        RiskScore = request.Decision.RiskScore,
-                        EffectiveRiskScore = request.Decision.EffectiveRiskScore,
-                        GeneratorDistributionPolicy = request.Decision.PerceptionGeneratorPolicy
-                    },
-                    cancellationToken);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                RecordChallengeFailure("issue", kind, request.Decision.ActionName, request.Decision.PolicyVersion, "provider_exception", ex);
-                await RecordRiskAsync(request.Context, request.Decision.ActionName, $"provider_exception:{kind}", cancellationToken);
-                return SecurityChallengeOrchestrationIssueResult.Failed("provider_exception");
-            }
-
-            if (!providerResult.Succeeded || providerResult.Assignment is null)
-            {
-                string reason = providerResult.Reason;
-                RecordChallengeFailure("issue", kind, request.Decision.ActionName, request.Decision.PolicyVersion, reason);
-                await RecordRiskAsync(request.Context, request.Decision.ActionName, $"provider_failure:{kind}:{reason}", cancellationToken);
-                return SecurityChallengeOrchestrationIssueResult.Failed(reason);
-            }
-
-            SecurityChallengeValidationResult validation = ValidateProviderAssignment(providerResult.Assignment, kind);
-            if (!validation.IsValid)
-            {
-                RecordChallengeFailure("issue", kind, request.Decision.ActionName, request.Decision.PolicyVersion, validation.ErrorCode);
-                await RecordRiskAsync(request.Context, request.Decision.ActionName, $"provider_assignment_invalid:{kind}:{validation.ErrorCode}", cancellationToken);
-                return SecurityChallengeOrchestrationIssueResult.Failed(validation.ErrorCode);
-            }
-
-            assignments.Add(providerResult.Assignment);
-            if (providerResult.ProviderPayload.Count > 0)
-            {
-                providerPayloads[providerResult.Assignment.ChallengeId] = providerResult.ProviderPayload;
-            }
-            if (providerResult.PerceptionCharacterV3 is not null)
-            {
-                v3Payloads[providerResult.Assignment.ChallengeId] = providerResult.PerceptionCharacterV3;
-            }
+            kinds[index] = kind;
+            challengeIds[index] = SecurityChallengeContracts.CreateChallengeId();
         }
+
+        SecurityChallengeProviderIssueResult providerResult = await IssueMemberAsync(
+            request.Context, envelopeId, challengeIds[0], kinds[0], request.Decision.ActionName,
+            request.Decision.RouteKey, request.TenantId, request.SubjectHash, request.ClientIpHash,
+            request.DeviceFpHash, request.Decision.PolicyVersion, request.Decision.EscalationLevel,
+            request.Traceparent, request.Decision.RiskScore, request.Decision.EffectiveRiskScore,
+            request.Decision.PerceptionGeneratorPolicy, representation, cancellationToken).ConfigureAwait(false);
+        if (!providerResult.Succeeded || providerResult.Assignment is null)
+        {
+            RecordChallengeFailure("issue", kinds[0], request.Decision.ActionName, request.Decision.PolicyVersion, providerResult.Reason);
+            await RecordRiskAsync(request.Context, request.Decision.ActionName, $"provider_failure:{kinds[0]}:{providerResult.Reason}", cancellationToken).ConfigureAwait(false);
+            return SecurityChallengeOrchestrationIssueResult.Failed(providerResult.Reason);
+        }
+
+        SecurityChallengeAssignment firstAssignment = providerResult.Assignment;
 
         var envelope = new SecurityChallengeEnvelope(
             envelopeId,
             NormalizeRequired(request.Decision.PolicyVersion, nameof(request.Decision.PolicyVersion), 64),
-            assignments);
+            [firstAssignment]);
         var envelopeState = new SecurityChallengeEnvelopeState(
             envelope.EnvelopeId,
             request.Decision.ActionName,
@@ -355,13 +349,24 @@ public sealed partial class SecurityChallengeOrchestrator(
             request.ClientIpHash,
             request.DeviceFpHash,
             envelope.PolicyVersion,
-            assignments.Select(static assignment => assignment.ChallengeId).ToArray(),
-            assignments.Select(static assignment => SecurityChallengeContracts.ToWireName(assignment.Kind)).ToArray(),
-            Enumerable.Repeat(SecurityChallengeEnvelopeMemberStatuses.Issued, assignments.Count).ToArray(),
-            assignments.Min(static assignment => assignment.IssuedAtUnixMs),
-            assignments.Min(static assignment => assignment.ExpiresAtUnixMs),
+            challengeIds,
+            kinds,
+            kinds.Select((_, index) => index == 0
+                ? SecurityChallengeEnvelopeMemberStatuses.Issued
+                : SecurityChallengeEnvelopeMemberStatuses.Planned).ToArray(),
+            firstAssignment.IssuedAtUnixMs,
+            firstAssignment.ExpiresAtUnixMs,
             SecurityChallengeEnvelopeStatuses.Active,
-            Version: 0);
+            Version: 0)
+        {
+            TenantId = NormalizeRequired(request.TenantId, nameof(request.TenantId), 64),
+            Traceparent = NormalizeRequired(request.Traceparent, nameof(request.Traceparent), 128),
+            EscalationLevel = request.Decision.EscalationLevel,
+            RiskScore = request.Decision.RiskScore,
+            EffectiveRiskScore = request.Decision.EffectiveRiskScore,
+            GeneratorDistributionPolicy = request.Decision.PerceptionGeneratorPolicy,
+            Representation = representation
+        };
         if (!await envelopeStateService.CreateAsync(envelopeState, cancellationToken).ConfigureAwait(false))
         {
             RecordChallengeFailure("issue", "envelope", request.Decision.ActionName, request.Decision.PolicyVersion, "envelope_state_unavailable");
@@ -370,14 +375,91 @@ public sealed partial class SecurityChallengeOrchestrator(
         }
         if (logger is not null)
         {
-            LogChallengeIssueSucceeded(logger, request.Decision.ActionName, assignments.Count, request.Decision.PolicyVersion);
+            LogChallengeIssueSucceeded(logger, request.Decision.ActionName, 1, request.Decision.PolicyVersion);
         }
 
+        var providerPayloads = providerResult.ProviderPayload.Count == 0
+            ? null
+            : new Dictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.Ordinal)
+            {
+                [firstAssignment.ChallengeId] = providerResult.ProviderPayload
+            };
         return SecurityChallengeOrchestrationIssueResult.Success(envelope, providerPayloads) with
         {
-            PerceptionCharacterV3Payloads = v3Payloads
+            PerceptionCharacterV3Payloads = providerResult.PerceptionCharacterV3 is null
+                ? new Dictionary<string, PerceptionCharacterV3IssuePayload>(0, StringComparer.Ordinal)
+                : new Dictionary<string, PerceptionCharacterV3IssuePayload>(StringComparer.Ordinal)
+                {
+                    [firstAssignment.ChallengeId] = providerResult.PerceptionCharacterV3
+                }
         };
     }
+
+    private async Task<SecurityChallengeProviderIssueResult> IssueMemberAsync(
+        HttpContext context,
+        string envelopeId,
+        string challengeId,
+        string kind,
+        string action,
+        string routeKey,
+        string tenantId,
+        string subjectHash,
+        string clientIpHash,
+        string deviceFpHash,
+        string policyVersion,
+        int escalationLevel,
+        string traceparent,
+        int riskScore,
+        int effectiveRiskScore,
+        PerceptionChallengeGeneratorDistributionPolicy generatorDistributionPolicy,
+        string representation,
+        CancellationToken cancellationToken)
+    {
+        if (!_providers.TryGetValue(kind, out ISecurityChallengeProvider? provider))
+            return SecurityChallengeProviderIssueResult.Failed("provider_missing");
+        try
+        {
+            SecurityChallengeProviderIssueResult result = await provider.IssueAsync(
+                new SecurityChallengeProviderIssueRequest(
+                    context, kind, action, routeKey,
+                    NormalizeRequired(tenantId, nameof(tenantId), 64),
+                    NormalizeHash(subjectHash, nameof(subjectHash)),
+                    NormalizeHash(clientIpHash, nameof(clientIpHash)),
+                    NormalizeHash(deviceFpHash, nameof(deviceFpHash)),
+                    policyVersion, escalationLevel,
+                    NormalizeRequired(traceparent, nameof(traceparent), 128))
+                {
+                    EnvelopeId = envelopeId,
+                    ChallengeId = challengeId,
+                    RiskScore = riskScore,
+                    EffectiveRiskScore = effectiveRiskScore,
+                    GeneratorDistributionPolicy = generatorDistributionPolicy,
+                    Representation = representation
+                }, cancellationToken).ConfigureAwait(false);
+            if (!result.Succeeded || result.Assignment is null)
+                return SecurityChallengeProviderIssueResult.Failed(result.Reason);
+            SecurityChallengeValidationResult validation = ValidateProviderAssignment(result.Assignment, kind);
+            if (!validation.IsValid || !string.Equals(result.Assignment.ChallengeId, challengeId, StringComparison.Ordinal))
+                return SecurityChallengeProviderIssueResult.Failed(validation.IsValid ? "challenge_id_mismatch" : validation.ErrorCode);
+            return result;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            RecordChallengeFailure("issue", kind, action, policyVersion, "provider_exception", ex);
+            await RecordRiskAsync(context, action, $"provider_exception:{kind}", cancellationToken).ConfigureAwait(false);
+            return SecurityChallengeProviderIssueResult.Failed("provider_exception");
+        }
+    }
+
+    internal static SecurityChallengeCostClass ResolveCostClass(string kind)
+        => NormalizeKind(kind) switch
+        {
+            "passkeyStepUpV1" or "adminPasskeyStepUpV1" or "recoveryKeyProofV1"
+                or "anonymousCredentialProofV1" or "zkAnonymousCommentProofV1" => SecurityChallengeCostClass.Credential,
+            "argon2idPoSpaceV1" => SecurityChallengeCostClass.MemoryProof,
+            "perceptionCharacterV3" => SecurityChallengeCostClass.ScarceArtifact,
+            _ => SecurityChallengeCostClass.CheapProof
+        };
 
     public async Task<SecurityChallengeOrchestrationVerifyResult> VerifyAsync(SecurityChallengeOrchestrationVerifyRequest request, CancellationToken cancellationToken = default)
     {
@@ -416,10 +498,6 @@ public sealed partial class SecurityChallengeOrchestrator(
         SecurityChallengeEnvelopeMemberResult validation = await envelopeStateService.ValidateMemberAsync(memberRequest, cancellationToken).ConfigureAwait(false);
         if (!validation.Accepted)
         {
-            if (string.Equals(validation.Reason, "challenge_member_replayed", StringComparison.Ordinal))
-            {
-                await envelopeStateService.FailAsync(memberRequest, validation.Reason, cancellationToken).ConfigureAwait(false);
-            }
             RecordChallengeFailure("verify", kind, request.Action, request.PolicyVersion, validation.Reason);
             await RecordRiskAsync(request.Context, request.Action, $"envelope_member_rejected:{kind}:{validation.Reason}", cancellationToken);
             return SecurityChallengeOrchestrationVerifyResult.Failed(
@@ -442,6 +520,22 @@ public sealed partial class SecurityChallengeOrchestrator(
             await RecordRiskAsync(request.Context, request.Action, $"provider_missing:{kind}", cancellationToken);
             await envelopeStateService.FailAsync(memberRequest, "provider_missing", cancellationToken).ConfigureAwait(false);
             return SecurityChallengeOrchestrationVerifyResult.Failed("provider_missing", request.EnvelopeId, request.ChallengeId, kind, validation.CompletedCount, validation.MemberCount);
+        }
+
+        SecurityChallengeEnvelopeMemberResult reservation = await envelopeStateService.ReserveMemberAsync(
+            memberRequest,
+            cancellationToken).ConfigureAwait(false);
+        if (!reservation.Accepted || reservation.State is null)
+        {
+            RecordChallengeFailure("verify", kind, request.Action, request.PolicyVersion, reservation.Reason);
+            await RecordRiskAsync(request.Context, request.Action, $"envelope_reservation_failed:{kind}:{reservation.Reason}", cancellationToken);
+            return SecurityChallengeOrchestrationVerifyResult.Failed(
+                reservation.Reason,
+                request.EnvelopeId,
+                request.ChallengeId,
+                kind,
+                reservation.CompletedCount,
+                reservation.MemberCount);
         }
 
         SecurityChallengeProviderVerifyResult providerResult;
@@ -482,7 +576,7 @@ public sealed partial class SecurityChallengeOrchestrator(
         }
 
         DateTimeOffset issuedAt = _timeProvider.GetUtcNow();
-        DateTimeOffset envelopeExpiresAt = DateTimeOffset.FromUnixTimeMilliseconds(validation.State!.ExpiresAtUnixMs);
+        DateTimeOffset envelopeExpiresAt = DateTimeOffset.FromUnixTimeMilliseconds(reservation.State.ExpiresAtUnixMs);
         DateTimeOffset expiresAt = providerResult.ProofExpiresAt is { } proofExpiresAt && proofExpiresAt > issuedAt
             ? proofExpiresAt
             : issuedAt.Add(s_defaultProofTtl);
@@ -490,7 +584,7 @@ public sealed partial class SecurityChallengeOrchestrator(
         {
             expiresAt = envelopeExpiresAt;
         }
-        SecurityChallengeProofPreparation? proofPreparation = validation.MemberIndex == validation.MemberCount - 1
+        SecurityChallengeProofPreparation? proofPreparation = reservation.MemberIndex == reservation.MemberCount - 1
             ? new SecurityChallengeProofPreparation(issuedAt, expiresAt)
             : null;
         SecurityChallengeEnvelopeMemberResult member = await envelopeStateService.CompleteMemberAsync(
@@ -499,21 +593,71 @@ public sealed partial class SecurityChallengeOrchestrator(
             cancellationToken).ConfigureAwait(false);
         if (!member.Accepted || member.State is null)
         {
-            if (string.Equals(member.Reason, "challenge_member_replayed", StringComparison.Ordinal))
-            {
-                await envelopeStateService.FailAsync(memberRequest, member.Reason, cancellationToken).ConfigureAwait(false);
-            }
             RecordChallengeFailure("verify", kind, request.Action, request.PolicyVersion, member.Reason);
             await RecordRiskAsync(request.Context, request.Action, $"envelope_transition_failed:{kind}:{member.Reason}", cancellationToken);
             return SecurityChallengeOrchestrationVerifyResult.Failed(member.Reason, request.EnvelopeId, request.ChallengeId, kind, member.CompletedCount, member.MemberCount);
         }
         if (string.Equals(member.State.Status, SecurityChallengeEnvelopeStatuses.Active, StringComparison.Ordinal))
         {
+            if (member.IssuanceIndex < 0 || member.IssuanceIndex >= member.State.MemberCount)
+                return SecurityChallengeOrchestrationVerifyResult.Failed("challenge_envelope_issuance_not_reserved", request.EnvelopeId, request.ChallengeId, kind, member.CompletedCount, member.MemberCount);
+            int nextIndex = member.IssuanceIndex;
+            string nextKind = member.State.RequiredKinds[nextIndex];
+            string nextChallengeId = member.State.ChallengeIds[nextIndex];
+            SecurityChallengeProviderIssueResult issued = await IssueMemberAsync(
+                request.Context,
+                member.State.EnvelopeId,
+                nextChallengeId,
+                nextKind,
+                member.State.Action,
+                member.State.RouteKey,
+                member.State.TenantId,
+                member.State.SubjectHash,
+                member.State.ClientIpHash,
+                member.State.DeviceFpHash,
+                member.State.PolicyVersion,
+                member.State.EscalationLevel,
+                member.State.Traceparent,
+                member.State.RiskScore,
+                member.State.EffectiveRiskScore,
+                member.State.GeneratorDistributionPolicy,
+                member.State.Representation,
+                cancellationToken).ConfigureAwait(false);
+            if (!issued.Succeeded || issued.Assignment is null)
+            {
+                var nextRequest = memberRequest with
+                {
+                    ChallengeId = nextChallengeId,
+                    Kind = nextKind
+                };
+                await envelopeStateService.FailAsync(nextRequest, issued.Reason, cancellationToken).ConfigureAwait(false);
+                RecordChallengeFailure("issue", nextKind, member.State.Action, member.State.PolicyVersion, issued.Reason);
+                await RecordRiskAsync(request.Context, member.State.Action, $"provider_failure:{nextKind}:{issued.Reason}", cancellationToken).ConfigureAwait(false);
+                return SecurityChallengeOrchestrationVerifyResult.Failed(issued.Reason, request.EnvelopeId, request.ChallengeId, kind, member.CompletedCount, member.MemberCount);
+            }
+            var issuedRequest = memberRequest with
+            {
+                ChallengeId = nextChallengeId,
+                Kind = nextKind
+            };
+            SecurityChallengeEnvelopeMemberResult issuance = await envelopeStateService.CompleteIssuanceAsync(
+                issuedRequest, nextIndex, cancellationToken).ConfigureAwait(false);
+            if (!issuance.Accepted)
+            {
+                // The provider state may already exist. Never retry issuance after an ambiguous CAS.
+                await envelopeStateService.FailAsync(issuedRequest, "challenge_issuance_ambiguous", CancellationToken.None).ConfigureAwait(false);
+                return SecurityChallengeOrchestrationVerifyResult.Failed("challenge_issuance_ambiguous", request.EnvelopeId, request.ChallengeId, kind, member.CompletedCount, member.MemberCount);
+            }
             if (logger is not null)
             {
                 LogChallengeVerifySucceeded(logger, request.Action, kind, request.PolicyVersion);
             }
-            return SecurityChallengeOrchestrationVerifyResult.Progress(member, request.ChallengeId, kind);
+            return SecurityChallengeOrchestrationVerifyResult.Progress(issuance, request.ChallengeId, kind) with
+            {
+                NextAssignment = issued.Assignment,
+                NextProviderPayload = issued.ProviderPayload,
+                NextPerceptionCharacterV3 = issued.PerceptionCharacterV3
+            };
         }
         return await FinalizePreparedProofAsync(request, memberRequest, kind, member, cancellationToken).ConfigureAwait(false);
     }
@@ -672,6 +816,14 @@ public sealed partial class SecurityChallengeOrchestrator(
 
     [LoggerMessage(EventId = 1704, Level = LogLevel.Information, Message = "security challenge verify succeeded action={Action} kind={Kind} policyVersion={PolicyVersion}")]
     private static partial void LogChallengeVerifySucceeded(ILogger logger, string action, string kind, string policyVersion);
+
+    private static string ResolveRepresentation(HttpContext context)
+        => string.Equals(
+            context.Request.Headers["X-Fsus-Challenge-Representation"].ToString(),
+            "audio",
+            StringComparison.Ordinal)
+            ? "audio"
+            : "visual";
 
     private static string NormalizeKind(string? value)
     {

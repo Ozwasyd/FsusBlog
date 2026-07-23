@@ -42,7 +42,7 @@ public sealed record SecurityChallengeCapabilityResolution(
 /// </summary>
 public static class SecurityChallengeCapabilityCatalog
 {
-    public const string ManifestVersion = "2026.07.21.1";
+    public const string ManifestVersion = "2026.07.22.1";
     public const string NotificationSubscribeAction = "notification.subscribe";
 
     public static readonly IReadOnlyList<SecurityChallengeCapability> All =

@@ -379,7 +379,8 @@ public sealed partial class PerceptionCharacterV3Tests
         SecurityChallengeProviderIssueResult replacement = await provider.IssueAsync(request with
         {
             Context = audioContext,
-            EnvelopeId = Guid.CreateVersion7().ToString("D")
+            EnvelopeId = Guid.CreateVersion7().ToString("D"),
+            Representation = requestedRepresentation
         }, CancellationToken.None);
         Assert.True(replacement.Succeeded);
         Assert.Equal(

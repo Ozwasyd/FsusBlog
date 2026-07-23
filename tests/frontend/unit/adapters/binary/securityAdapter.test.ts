@@ -6,7 +6,7 @@ describe('security challenge binary adapter', () => {
   it('decodes the authoritative proof expiry from the fixed response pod', () => {
     const proof = new TextEncoder().encode('fcp_authoritative')
     const reason = new TextEncoder().encode('ok')
-    const bytes = new Uint8Array(232 + 4 + proof.length + reason.length)
+    const bytes = new Uint8Array(968 + 4 + proof.length + reason.length)
     const view = new DataView(bytes.buffer)
     bytes[0] = 1
     bytes[1] = SecurityChallengeKind.Sha256PowV1
@@ -22,9 +22,9 @@ describe('security challenge binary adapter', () => {
     view.setInt32(216, proof.length, true)
     view.setInt32(220, reason.length, true)
     view.setBigInt64(224, 1_770_000_300_000n, true)
-    view.setInt32(232, proof.length + reason.length, true)
-    bytes.set(proof, 236)
-    bytes.set(reason, 236 + proof.length)
+    view.setInt32(968, proof.length + reason.length, true)
+    bytes.set(proof, 972)
+    bytes.set(reason, 972 + proof.length)
 
     const decoded = mapSecurityChallengeVerifyResponseFromPayload(bytes)
 
@@ -40,7 +40,9 @@ describe('security challenge binary adapter', () => {
       policyVersion: 'risk-v2',
       proofToken: 'fcp_authoritative',
       reason: 'ok',
-      expiresAtUnixMs: 1_770_000_300_000
+      expiresAtUnixMs: 1_770_000_300_000,
+      nextAssignment: null,
+      nextProviderPayload: null
     })
   })
 
@@ -74,7 +76,7 @@ function createVerifyResponse(state: {
 }): Uint8Array {
   const proof = new TextEncoder().encode(state.proofToken)
   const reason = new TextEncoder().encode('ok')
-  const bytes = new Uint8Array(232 + 4 + proof.length + reason.length)
+  const bytes = new Uint8Array(968 + 4 + proof.length + reason.length)
   const view = new DataView(bytes.buffer)
   bytes[0] = 1
   bytes[1] = SecurityChallengeKind.Sha256PowV1
@@ -89,9 +91,9 @@ function createVerifyResponse(state: {
   view.setInt32(216, proof.length, true)
   view.setInt32(220, reason.length, true)
   view.setBigInt64(224, 1_770_000_300_000n, true)
-  view.setInt32(232, proof.length + reason.length, true)
-  bytes.set(proof, 236)
-  bytes.set(reason, 236 + proof.length)
+  view.setInt32(968, proof.length + reason.length, true)
+  bytes.set(proof, 972)
+  bytes.set(reason, 972 + proof.length)
   return bytes
 }
 

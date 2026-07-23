@@ -19,7 +19,9 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
         Fixture fixture = CreateFixture();
         Assert.True(await fixture.Service.CreateAsync(CreateState()));
 
-        SecurityChallengeEnvelopeMemberResult first = await fixture.Service.CompleteMemberAsync(CreateRequest(s_challengeA, "perceptionCharacterV3"));
+        SecurityChallengeEnvelopeMemberRequest firstRequest = CreateRequest(s_challengeA, "perceptionCharacterV3");
+        Assert.True((await fixture.Service.ReserveMemberAsync(firstRequest)).Accepted);
+        SecurityChallengeEnvelopeMemberResult first = await fixture.Service.CompleteMemberAsync(firstRequest);
 
         Assert.True(first.Accepted, first.Reason);
         Assert.Equal(1, first.CompletedCount);
@@ -27,6 +29,8 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
         Assert.False(first.EnvelopeCompleted);
 
         SecurityChallengeEnvelopeMemberRequest finalRequest = CreateRequest(s_challengeB, "sha256PowV1");
+        Assert.True((await fixture.Service.CompleteIssuanceAsync(finalRequest, 1)).Accepted);
+        Assert.True((await fixture.Service.ReserveMemberAsync(finalRequest)).Accepted);
         SecurityChallengeEnvelopeMemberResult second = await fixture.Service.CompleteMemberAsync(finalRequest, CreateProofPreparation());
 
         Assert.True(second.Accepted, second.Reason);
@@ -50,7 +54,9 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
         await fixture.Service.CreateAsync(CreateState());
 
         SecurityChallengeEnvelopeMemberResult outOfOrder = await fixture.Service.ValidateMemberAsync(CreateRequest(s_challengeB, "sha256PowV1"));
-        SecurityChallengeEnvelopeMemberResult first = await fixture.Service.CompleteMemberAsync(CreateRequest(s_challengeA, "perceptionCharacterV3"));
+        SecurityChallengeEnvelopeMemberRequest firstRequest = CreateRequest(s_challengeA, "perceptionCharacterV3");
+        Assert.True((await fixture.Service.ReserveMemberAsync(firstRequest)).Accepted);
+        SecurityChallengeEnvelopeMemberResult first = await fixture.Service.CompleteMemberAsync(firstRequest);
 
         Assert.False(outOfOrder.Accepted);
         Assert.Equal("challenge_member_out_of_order", outOfOrder.Reason);
@@ -63,10 +69,14 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
     {
         Fixture fixture = CreateFixture();
         await fixture.Service.CreateAsync(CreateState());
-        await fixture.Service.CompleteMemberAsync(CreateRequest(s_challengeA, "perceptionCharacterV3"));
+        SecurityChallengeEnvelopeMemberRequest firstRequest = CreateRequest(s_challengeA, "perceptionCharacterV3");
+        await fixture.Service.ReserveMemberAsync(firstRequest);
+        await fixture.Service.CompleteMemberAsync(firstRequest);
 
         SecurityChallengeEnvelopeMemberResult duplicate = await fixture.Service.CompleteMemberAsync(CreateRequest(s_challengeA, "perceptionCharacterV3"));
         SecurityChallengeEnvelopeMemberRequest finalRequest = CreateRequest(s_challengeB, "sha256PowV1");
+        Assert.True((await fixture.Service.CompleteIssuanceAsync(finalRequest, 1)).Accepted);
+        Assert.True((await fixture.Service.ReserveMemberAsync(finalRequest)).Accepted);
         SecurityChallengeEnvelopeMemberResult prepared = await fixture.Service.CompleteMemberAsync(finalRequest, CreateProofPreparation());
         SecurityChallengeEnvelopeMemberResult retry = await fixture.Service.CompleteMemberAsync(finalRequest, CreateProofPreparation());
         await fixture.Service.CompleteProofAsync(finalRequest, prepared.State!.ProofToken!);
@@ -118,7 +128,9 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
     {
         Fixture fixture = CreateFixture();
         await fixture.Service.CreateAsync(CreateState());
-        await fixture.Service.CompleteMemberAsync(CreateRequest(s_challengeA, "perceptionCharacterV3"));
+        SecurityChallengeEnvelopeMemberRequest firstRequest = CreateRequest(s_challengeA, "perceptionCharacterV3");
+        await fixture.Service.ReserveMemberAsync(firstRequest);
+        await fixture.Service.CompleteMemberAsync(firstRequest);
 
         bool failed = await fixture.Service.FailAsync(
             CreateRequest(s_challengeA, "perceptionCharacterV3"),
@@ -150,11 +162,82 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
     }
 
     [Fact]
+    public async Task CompleteMemberAsync_ConcurrentAdvance_ReservesNextMemberOnce()
+    {
+        Fixture fixture = CreateFixture();
+        await fixture.Service.CreateAsync(CreateState());
+        SecurityChallengeEnvelopeMemberRequest request = CreateRequest(s_challengeA, "perceptionCharacterV3");
+
+        SecurityChallengeEnvelopeMemberResult[] results = await Task.WhenAll(
+            fixture.Service.ReserveMemberAsync(request),
+            fixture.Service.ReserveMemberAsync(request));
+
+        SecurityChallengeEnvelopeMemberResult winner = Assert.Single(results, static result => result.Accepted);
+        Assert.Equal(0, winner.MemberIndex);
+        SecurityChallengeEnvelopeMemberResult loser = Assert.Single(results, static result => !result.Accepted);
+        Assert.Equal("challenge_envelope_transition_pending", loser.Reason);
+        SecurityChallengeEnvelopeState? state = await fixture.Service.GetAsync(s_envelopeId);
+        Assert.NotNull(state);
+        Assert.Equal(
+            [SecurityChallengeEnvelopeMemberStatuses.Verifying, SecurityChallengeEnvelopeMemberStatuses.Planned],
+            state.MemberStatuses);
+    }
+
+    [Fact]
+    public async Task CompleteIssuanceAsync_ExpiryBetweenMembers_ExpiresReservedMember()
+    {
+        var clock = new MutableTimeProvider(s_now);
+        var cache = new FakeVersionedCache();
+        var service = new SecurityChallengeEnvelopeStateService(cache, cache, clock);
+        await service.CreateAsync(CreateState());
+        SecurityChallengeEnvelopeMemberRequest firstRequest = CreateRequest(s_challengeA, "perceptionCharacterV3");
+        await service.ReserveMemberAsync(firstRequest);
+        await service.CompleteMemberAsync(firstRequest);
+        clock.UtcNow = s_now.AddMinutes(6);
+
+        SecurityChallengeEnvelopeMemberResult result = await service.CompleteIssuanceAsync(
+            CreateRequest(s_challengeB, "sha256PowV1"),
+            1);
+
+        Assert.False(result.Accepted);
+        Assert.Equal("challenge_envelope_issuance_not_reserved", result.Reason);
+        Assert.Equal(SecurityChallengeEnvelopeStatuses.Expired, result.State?.Status);
+        Assert.NotNull(result.State);
+        Assert.Equal(
+            [SecurityChallengeEnvelopeMemberStatuses.Verified, SecurityChallengeEnvelopeMemberStatuses.Expired],
+            result.State.MemberStatuses);
+    }
+
+    [Fact]
+    public async Task CompleteMemberAsync_RedisReplyLossAfterReservation_FailsClosedWithoutSecondReservation()
+    {
+        Fixture fixture = CreateFixture();
+        await fixture.Service.CreateAsync(CreateState());
+        fixture.Cache.LoseReplyOnNextSuccessfulWrite = true;
+        SecurityChallengeEnvelopeMemberRequest request = CreateRequest(s_challengeA, "perceptionCharacterV3");
+
+        SecurityChallengeEnvelopeMemberResult result = await fixture.Service.ReserveMemberAsync(request);
+        SecurityChallengeEnvelopeMemberResult retry = await fixture.Service.ReserveMemberAsync(request);
+
+        Assert.False(result.Accepted);
+        Assert.Equal("challenge_envelope_transition_pending", result.Reason);
+        Assert.False(retry.Accepted);
+        Assert.Equal("challenge_envelope_transition_pending", retry.Reason);
+        SecurityChallengeEnvelopeState? state = await fixture.Service.GetAsync(s_envelopeId);
+        Assert.NotNull(state);
+        Assert.Equal(
+            [SecurityChallengeEnvelopeMemberStatuses.Verifying, SecurityChallengeEnvelopeMemberStatuses.Planned],
+            state.MemberStatuses);
+    }
+
+    [Fact]
     public async Task RevokeAsync_RevokesIncompleteMembersAndBlocksFinalCompletion()
     {
         Fixture fixture = CreateFixture();
         await fixture.Service.CreateAsync(CreateState());
-        await fixture.Service.CompleteMemberAsync(CreateRequest(s_challengeA, "perceptionCharacterV3"));
+        SecurityChallengeEnvelopeMemberRequest firstRequest = CreateRequest(s_challengeA, "perceptionCharacterV3");
+        await fixture.Service.ReserveMemberAsync(firstRequest);
+        await fixture.Service.CompleteMemberAsync(firstRequest);
 
         bool revoked = await fixture.Service.RevokeAsync(CreateBindingRequest(), "client_cancelled");
         SecurityChallengeEnvelopeMemberResult final = await fixture.Service.ValidateMemberAsync(
@@ -174,8 +257,12 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
     {
         Fixture fixture = CreateFixture();
         await fixture.Service.CreateAsync(CreateState());
-        await fixture.Service.CompleteMemberAsync(CreateRequest(s_challengeA, "perceptionCharacterV3"));
+        SecurityChallengeEnvelopeMemberRequest firstRequest = CreateRequest(s_challengeA, "perceptionCharacterV3");
+        await fixture.Service.ReserveMemberAsync(firstRequest);
+        await fixture.Service.CompleteMemberAsync(firstRequest);
         SecurityChallengeEnvelopeMemberRequest finalRequest = CreateRequest(s_challengeB, "sha256PowV1");
+        Assert.True((await fixture.Service.CompleteIssuanceAsync(finalRequest, 1)).Accepted);
+        Assert.True((await fixture.Service.ReserveMemberAsync(finalRequest)).Accepted);
         SecurityChallengeEnvelopeMemberResult prepared = await fixture.Service.CompleteMemberAsync(finalRequest, CreateProofPreparation());
         await fixture.Service.CompleteProofAsync(finalRequest, prepared.State!.ProofToken!);
 
@@ -193,7 +280,10 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
         await fixture.Service.CreateAsync(CreateState());
         SecurityChallengeEnvelopeMemberRequest firstRequest = CreateRequest(s_challengeA, "perceptionCharacterV3");
         SecurityChallengeEnvelopeMemberRequest finalRequest = CreateRequest(s_challengeB, "sha256PowV1");
+        await fixture.Service.ReserveMemberAsync(firstRequest);
         await fixture.Service.CompleteMemberAsync(firstRequest);
+        Assert.True((await fixture.Service.CompleteIssuanceAsync(finalRequest, 1)).Accepted);
+        Assert.True((await fixture.Service.ReserveMemberAsync(finalRequest)).Accepted);
         SecurityChallengeEnvelopeMemberResult prepared = await fixture.Service.CompleteMemberAsync(
             finalRequest,
             CreateProofPreparation());
@@ -227,7 +317,7 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
             "risk-v2",
             [s_challengeA, s_challengeB],
             ["perceptionCharacterV3", "sha256PowV1"],
-            [SecurityChallengeEnvelopeMemberStatuses.Issued, SecurityChallengeEnvelopeMemberStatuses.Issued],
+            [SecurityChallengeEnvelopeMemberStatuses.Issued, SecurityChallengeEnvelopeMemberStatuses.Planned],
             s_now.ToUnixTimeMilliseconds(),
             s_now.AddMinutes(5).ToUnixTimeMilliseconds(),
             SecurityChallengeEnvelopeStatuses.Active,
@@ -246,10 +336,18 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
     {
         private readonly Dictionary<string, string> _values = new(StringComparer.Ordinal);
 
+        public bool LoseReplyOnNextSuccessfulWrite
+        {
+            get; set;
+        }
+
         public Task<string?> GetStringAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(_values.GetValueOrDefault(Key(policyId, identity)));
+            lock (_values)
+            {
+                return Task.FromResult(_values.GetValueOrDefault(Key(policyId, identity)));
+            }
         }
 
         public Task<bool> TrySetVersionedStringAsync(
@@ -263,18 +361,26 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             string key = Key(policyId, identity);
-            if (_values.TryGetValue(key, out string? current) && !allowOverwrite)
+            lock (_values)
             {
-                string[] parts = current.Split('|', 3, StringSplitOptions.None);
-                if (parts.Length != 3 || !string.Equals(parts[0], "v1", StringComparison.Ordinal)
-                    || !string.Equals(parts[1], version, StringComparison.Ordinal))
+                if (_values.TryGetValue(key, out string? current) && !allowOverwrite)
                 {
+                    string[] parts = current.Split('|', 3, StringSplitOptions.None);
+                    if (parts.Length != 3 || !string.Equals(parts[0], "v1", StringComparison.Ordinal)
+                        || !string.Equals(parts[1], version, StringComparison.Ordinal))
+                    {
+                        return Task.FromResult(false);
+                    }
+                }
+
+                _values[key] = value;
+                if (LoseReplyOnNextSuccessfulWrite)
+                {
+                    LoseReplyOnNextSuccessfulWrite = false;
                     return Task.FromResult(false);
                 }
+                return Task.FromResult(true);
             }
-
-            _values[key] = value;
-            return Task.FromResult(true);
         }
 
         private static string Key(CachePolicyId policyId, string identity) => $"{policyId}:{identity}";

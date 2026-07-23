@@ -12,6 +12,15 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class SecurityChallengeOrchestratorTests
 {
     [Fact]
+    public void CostClasses_PutCredentialAndProofPrerequisitesBeforeScarceArtifacts()
+    {
+        Assert.Equal(SecurityChallengeCostClass.Credential, SecurityChallengeOrchestrator.ResolveCostClass("passkeyStepUpV1"));
+        Assert.Equal(SecurityChallengeCostClass.CheapProof, SecurityChallengeOrchestrator.ResolveCostClass("sha256PowV1"));
+        Assert.Equal(SecurityChallengeCostClass.MemoryProof, SecurityChallengeOrchestrator.ResolveCostClass("argon2idPoSpaceV1"));
+        Assert.Equal(SecurityChallengeCostClass.ScarceArtifact, SecurityChallengeOrchestrator.ResolveCostClass("perceptionCharacterV3"));
+    }
+
+    [Fact]
     public async Task V3IssueAndVerify_FailClosedBeforeProtocolActivationWithoutCallingProvider()
     {
         var provider = new FakeChallengeProvider("perceptionCharacterV3");
@@ -87,7 +96,7 @@ public sealed class SecurityChallengeOrchestratorTests
     }
 
     [Fact]
-    public async Task IssueAsync_MultipleChallenges_ReturnsEnvelopeAssignments()
+    public async Task IssueAsync_MultipleChallenges_ReturnsOnlyFirstActionableAssignment()
     {
         var perception = new FakeChallengeProvider("perceptionLocalizationV2");
         var characterChallenge = new FakeChallengeProvider("perceptionCharacterV3");
@@ -99,9 +108,10 @@ public sealed class SecurityChallengeOrchestratorTests
         Assert.True(result.Succeeded, result.Reason);
         Assert.NotNull(result.Envelope);
         Assert.Equal("risk-policy-v2", result.Envelope.PolicyVersion);
-        Assert.Equal(2, result.Envelope.Assignments.Count);
+        Assert.Single(result.Envelope.Assignments);
         Assert.Equal(SecurityChallengeKind.PerceptionLocalizationV2, result.Envelope.Assignments[0].Kind);
-        Assert.Equal(SecurityChallengeKind.PerceptionCharacterV3, result.Envelope.Assignments[1].Kind);
+        Assert.Equal(1, perception.IssueCalls);
+        Assert.Equal(0, characterChallenge.IssueCalls);
         Assert.All(result.Envelope.Assignments, assignment =>
         {
             Assert.Equal("public.read", assignment.Action);
@@ -111,6 +121,89 @@ public sealed class SecurityChallengeOrchestratorTests
             Assert.Equal(HashC, assignment.DeviceFpHash);
             Assert.True(SecurityChallengeContracts.ValidateAssignment(assignment).IsValid);
         });
+    }
+
+    [Fact]
+    public async Task IssueAndAdvance_PowBeforeV3_DoesNotLeaseScarceMemberEarly()
+    {
+        var pow = new FakeChallengeProvider("sha256PowV1");
+        var v3 = new FakeChallengeProvider("perceptionCharacterV3");
+        var orchestrator = new SecurityChallengeOrchestrator(
+            [pow, v3], new MintingProofService(), new CapturingRiskSink(),
+            new TestSecurityChallengeEnvelopeStateService(autoCreateSingleMember: false));
+
+        SecurityChallengeOrchestrationIssueRequest issueRequest = CreateIssueRequest(["perceptionCharacterV3", "sha256PowV1"]);
+        issueRequest.Context.Request.Headers["X-Fsus-Challenge-Representation"] = "audio";
+        SecurityChallengeEnvelope envelope = Assert.IsType<SecurityChallengeEnvelope>((await orchestrator.IssueAsync(issueRequest)).Envelope);
+
+        Assert.Equal(1, pow.IssueCalls);
+        Assert.Equal(0, v3.IssueCalls);
+        Assert.Equal(SecurityChallengeKind.Sha256PowV1, Assert.Single(envelope.Assignments).Kind);
+        SecurityChallengeOrchestrationVerifyResult advanced = await orchestrator.VerifyAsync(CreateVerifyRequest(envelope, 0));
+        Assert.True(advanced.Succeeded, advanced.Reason);
+        Assert.Equal(1, v3.IssueCalls);
+        Assert.Equal("audio", v3.LastIssueRequest?.Representation);
+        Assert.Equal(SecurityChallengeKind.PerceptionCharacterV3, advanced.NextAssignment?.Kind);
+    }
+
+    [Fact]
+    public async Task ConcurrentPowCompletion_IssuesV3AtMostOnce()
+    {
+        var pow = new FakeChallengeProvider("sha256PowV1");
+        var v3 = new FakeChallengeProvider("perceptionCharacterV3");
+        var state = new TestSecurityChallengeEnvelopeStateService(autoCreateSingleMember: false);
+        var orchestrator = new SecurityChallengeOrchestrator(
+            [pow, v3], new MintingProofService(), new CapturingRiskSink(), state);
+        SecurityChallengeEnvelope envelope = Assert.IsType<SecurityChallengeEnvelope>((await orchestrator.IssueAsync(
+            CreateIssueRequest(["sha256PowV1", "perceptionCharacterV3"]))).Envelope);
+        SecurityChallengeOrchestrationVerifyRequest request = CreateVerifyRequest(envelope, 0);
+
+        SecurityChallengeOrchestrationVerifyResult[] results = await Task.WhenAll(
+            orchestrator.VerifyAsync(request), orchestrator.VerifyAsync(request));
+
+        Assert.Equal(1, pow.VerifyCalls);
+        Assert.Equal(1, v3.IssueCalls);
+        Assert.Single(results, static result => result.NextAssignment is not null);
+        Assert.Equal(SecurityChallengeEnvelopeStatuses.Active, state.Get(envelope.EnvelopeId)?.Status);
+    }
+
+    [Fact]
+    public async Task OrderedPlan_PowThenPoSpaceThenV3_MaterializesOneMemberPerTransition()
+    {
+        var pow = new FakeChallengeProvider("sha256PowV1");
+        var space = new FakeChallengeProvider("argon2idPoSpaceV1");
+        var v3 = new FakeChallengeProvider("perceptionCharacterV3");
+        var orchestrator = new SecurityChallengeOrchestrator(
+            [pow, space, v3], new MintingProofService(), new CapturingRiskSink(),
+            new TestSecurityChallengeEnvelopeStateService(autoCreateSingleMember: false));
+        SecurityChallengeEnvelope envelope = Assert.IsType<SecurityChallengeEnvelope>((await orchestrator.IssueAsync(
+            CreateIssueRequest(["sha256PowV1", "argon2idPoSpaceV1", "perceptionCharacterV3"]))).Envelope);
+
+        SecurityChallengeOrchestrationVerifyResult afterPow = await orchestrator.VerifyAsync(CreateVerifyRequest(envelope, 0));
+        Assert.Equal(SecurityChallengeKind.Argon2IdPoSpaceV1, afterPow.NextAssignment?.Kind);
+        Assert.Equal(0, v3.IssueCalls);
+        SecurityChallengeOrchestrationVerifyResult afterSpace = await orchestrator.VerifyAsync(
+            CreateVerifyRequest(envelope, Assert.IsType<SecurityChallengeAssignment>(afterPow.NextAssignment)));
+
+        Assert.True(afterSpace.Succeeded, afterSpace.Reason);
+        Assert.Equal(SecurityChallengeKind.PerceptionCharacterV3, afterSpace.NextAssignment?.Kind);
+        Assert.Equal(1, v3.IssueCalls);
+    }
+
+    [Fact]
+    public async Task DuplicateV3Plan_FailsBeforeAnyProviderIssue()
+    {
+        var v3 = new FakeChallengeProvider("perceptionCharacterV3");
+        var orchestrator = new SecurityChallengeOrchestrator(
+            [v3], new MintingProofService(), new CapturingRiskSink(),
+            new TestSecurityChallengeEnvelopeStateService(autoCreateSingleMember: false));
+
+        SecurityChallengeOrchestrationIssueResult issued = await orchestrator.IssueAsync(
+            CreateIssueRequest(["perceptionCharacterV3", "perceptionCharacterV3"]));
+
+        Assert.False(issued.Succeeded);
+        Assert.Equal("challenge_plan_duplicate", issued.Reason);
+        Assert.Equal(0, v3.IssueCalls);
     }
 
     [Fact]
@@ -130,8 +223,9 @@ public sealed class SecurityChallengeOrchestratorTests
         SecurityChallengeOrchestrationVerifyResult first = await orchestrator.VerifyAsync(
             CreateVerifyRequest(envelope, 0),
             CancellationToken.None);
+        SecurityChallengeAssignment secondAssignment = Assert.IsType<SecurityChallengeAssignment>(first.NextAssignment);
         SecurityChallengeOrchestrationVerifyResult second = await orchestrator.VerifyAsync(
-            CreateVerifyRequest(envelope, 1),
+            CreateVerifyRequest(envelope, secondAssignment),
             CancellationToken.None);
 
         Assert.True(first.Succeeded, first.Reason);
@@ -145,11 +239,11 @@ public sealed class SecurityChallengeOrchestratorTests
         Assert.Equal(proof.LastMintRequest?.ProofToken, second.ProofToken);
         Assert.Equal(envelope.EnvelopeId, proof.LastMintRequest?.EnvelopeId);
         Assert.Equal(["perceptionLocalizationV2", "perceptionCharacterV3"], proof.LastMintRequest?.RequiredKinds);
-        Assert.Equal(envelope.Assignments[1].ChallengeId, proof.LastMintRequest?.ChallengeId);
+        Assert.Equal(secondAssignment.ChallengeId, proof.LastMintRequest?.ChallengeId);
     }
 
     [Fact]
-    public async Task VerifyAsync_ReplayedMemberTerminatesEnvelopeAndPreventsCompletion()
+    public async Task VerifyAsync_ReplayedMemberIsRejectedWithoutDestroyingConcurrentProgress()
     {
         var state = new TestSecurityChallengeEnvelopeStateService(autoCreateSingleMember: false);
         var orchestrator = new SecurityChallengeOrchestrator(
@@ -163,20 +257,20 @@ public sealed class SecurityChallengeOrchestratorTests
         Assert.True(issued.Succeeded, issued.Reason);
         SecurityChallengeEnvelope envelope = Assert.IsType<SecurityChallengeEnvelope>(issued.Envelope);
 
-        Assert.True((await orchestrator.VerifyAsync(CreateVerifyRequest(envelope, 0), CancellationToken.None)).Succeeded);
+        SecurityChallengeOrchestrationVerifyResult advanced = await orchestrator.VerifyAsync(CreateVerifyRequest(envelope, 0), CancellationToken.None);
+        SecurityChallengeAssignment secondAssignment = Assert.IsType<SecurityChallengeAssignment>(advanced.NextAssignment);
         SecurityChallengeOrchestrationVerifyResult replay = await orchestrator.VerifyAsync(
             CreateVerifyRequest(envelope, 0),
             CancellationToken.None);
         SecurityChallengeOrchestrationVerifyResult final = await orchestrator.VerifyAsync(
-            CreateVerifyRequest(envelope, 1),
+            CreateVerifyRequest(envelope, secondAssignment),
             CancellationToken.None);
 
         Assert.False(replay.Succeeded);
         Assert.Equal("challenge_member_replayed", replay.Reason);
-        Assert.Equal(SecurityChallengeEnvelopeStatuses.Failed, state.Get(envelope.EnvelopeId)?.Status);
-        Assert.False(final.Succeeded);
-        Assert.Equal("challenge_envelope_failed", final.Reason);
-        Assert.Null(final.ProofToken);
+        Assert.Equal(SecurityChallengeEnvelopeStatuses.Completed, state.Get(envelope.EnvelopeId)?.Status);
+        Assert.True(final.Succeeded, final.Reason);
+        Assert.NotNull(final.ProofToken);
     }
 
     [Fact]
@@ -199,12 +293,13 @@ public sealed class SecurityChallengeOrchestratorTests
         Assert.True(issued.Succeeded, issued.Reason);
         SecurityChallengeEnvelope envelope = Assert.IsType<SecurityChallengeEnvelope>(issued.Envelope);
 
-        Assert.True((await orchestrator.VerifyAsync(CreateVerifyRequest(envelope, 0), CancellationToken.None)).Succeeded);
+        SecurityChallengeOrchestrationVerifyResult advanced = await orchestrator.VerifyAsync(CreateVerifyRequest(envelope, 0), CancellationToken.None);
+        SecurityChallengeAssignment secondAssignment = Assert.IsType<SecurityChallengeAssignment>(advanced.NextAssignment);
         SecurityChallengeOrchestrationVerifyResult failed = await orchestrator.VerifyAsync(
-            CreateVerifyRequest(envelope, 1),
+            CreateVerifyRequest(envelope, secondAssignment),
             CancellationToken.None);
         SecurityChallengeOrchestrationVerifyResult retry = await orchestrator.VerifyAsync(
-            CreateVerifyRequest(envelope, 1),
+            CreateVerifyRequest(envelope, secondAssignment),
             CancellationToken.None);
 
         Assert.False(failed.Succeeded);
@@ -220,19 +315,26 @@ public sealed class SecurityChallengeOrchestratorTests
     {
         var perception = new FakeChallengeProvider("perceptionLocalizationV2");
         var characterChallenge = new FakeChallengeProvider("perceptionCharacterV3");
+        var state = new TestSecurityChallengeEnvelopeStateService(autoCreateSingleMember: false);
         var orchestrator = new SecurityChallengeOrchestrator(
             [perception, characterChallenge],
             new MintingProofService(),
             new CapturingRiskSink(),
-            new TestSecurityChallengeEnvelopeStateService(autoCreateSingleMember: false));
+            state);
         SecurityChallengeOrchestrationIssueResult issued = await orchestrator.IssueAsync(
             CreateIssueRequest(["perceptionLocalizationV2", "perceptionCharacterV3"]),
             CancellationToken.None);
         Assert.True(issued.Succeeded, issued.Reason);
         SecurityChallengeEnvelope envelope = Assert.IsType<SecurityChallengeEnvelope>(issued.Envelope);
 
+        SecurityChallengeEnvelopeState planned = Assert.IsType<SecurityChallengeEnvelopeState>(state.Get(envelope.EnvelopeId));
+        SecurityChallengeAssignment forged = envelope.Assignments[0] with
+        {
+            ChallengeId = planned.ChallengeIds[1],
+            Kind = SecurityChallengeKind.PerceptionCharacterV3
+        };
         SecurityChallengeOrchestrationVerifyResult result = await orchestrator.VerifyAsync(
-            CreateVerifyRequest(envelope, 1),
+            CreateVerifyRequest(envelope, forged),
             CancellationToken.None);
 
         Assert.False(result.Succeeded);
@@ -446,8 +548,8 @@ public sealed class SecurityChallengeOrchestratorTests
         SecurityChallengeEnvelope envelope = Assert.IsType<SecurityChallengeEnvelope>((await orchestrator.IssueAsync(
             CreateIssueRequest(["perceptionLocalizationV2", "perceptionCharacterV3"]),
             CancellationToken.None)).Envelope);
-        Assert.True((await orchestrator.VerifyAsync(CreateVerifyRequest(envelope, 0), CancellationToken.None)).Succeeded);
-        SecurityChallengeOrchestrationVerifyRequest finalRequest = CreateVerifyRequest(envelope, 1);
+        SecurityChallengeOrchestrationVerifyResult advanced = await orchestrator.VerifyAsync(CreateVerifyRequest(envelope, 0), CancellationToken.None);
+        SecurityChallengeOrchestrationVerifyRequest finalRequest = CreateVerifyRequest(envelope, Assert.IsType<SecurityChallengeAssignment>(advanced.NextAssignment));
 
         SecurityChallengeOrchestrationVerifyResult[] results = await Task.WhenAll(
             orchestrator.VerifyAsync(finalRequest, CancellationToken.None),
@@ -469,7 +571,8 @@ public sealed class SecurityChallengeOrchestratorTests
         SecurityChallengeEnvelope envelope = Assert.IsType<SecurityChallengeEnvelope>((await orchestrator.IssueAsync(
             CreateIssueRequest(["perceptionLocalizationV2", "perceptionCharacterV3"]),
             CancellationToken.None)).Envelope);
-        Assert.True((await orchestrator.VerifyAsync(CreateVerifyRequest(envelope, 0), CancellationToken.None)).Succeeded);
+        SecurityChallengeOrchestrationVerifyResult advanced = await orchestrator.VerifyAsync(CreateVerifyRequest(envelope, 0), CancellationToken.None);
+        SecurityChallengeAssignment secondAssignment = Assert.IsType<SecurityChallengeAssignment>(advanced.NextAssignment);
         SecurityChallengeAssignment first = envelope.Assignments[0];
         Assert.True(await state.RevokeAsync(
             new SecurityChallengeEnvelopeBindingRequest(
@@ -483,7 +586,7 @@ public sealed class SecurityChallengeOrchestratorTests
             "identity_replaced"));
 
         SecurityChallengeOrchestrationVerifyResult final = await orchestrator.VerifyAsync(
-            CreateVerifyRequest(envelope, 1),
+            CreateVerifyRequest(envelope, secondAssignment),
             CancellationToken.None);
 
         Assert.False(final.Succeeded);
@@ -553,8 +656,12 @@ public sealed class SecurityChallengeOrchestratorTests
             });
 
     private static SecurityChallengeOrchestrationVerifyRequest CreateVerifyRequest(SecurityChallengeEnvelope envelope, int memberIndex)
+        => CreateVerifyRequest(envelope, envelope.Assignments[memberIndex]);
+
+    private static SecurityChallengeOrchestrationVerifyRequest CreateVerifyRequest(
+        SecurityChallengeEnvelope envelope,
+        SecurityChallengeAssignment assignment)
     {
-        SecurityChallengeAssignment assignment = envelope.Assignments[memberIndex];
         return new SecurityChallengeOrchestrationVerifyRequest(
             new DefaultHttpContext(),
             envelope.EnvelopeId,
@@ -588,6 +695,11 @@ public sealed class SecurityChallengeOrchestratorTests
             get; private set;
         }
 
+        public SecurityChallengeProviderIssueRequest? LastIssueRequest
+        {
+            get; private set;
+        }
+
         public SecurityChallengeProviderIssueResult? IssueResult
         {
             get; init;
@@ -598,6 +710,7 @@ public sealed class SecurityChallengeOrchestratorTests
         public Task<SecurityChallengeProviderIssueResult> IssueAsync(SecurityChallengeProviderIssueRequest request, CancellationToken cancellationToken = default)
         {
             IssueCalls++;
+            LastIssueRequest = request;
             if (IssueResult is { } result)
             {
                 return Task.FromResult(result);
@@ -606,7 +719,7 @@ public sealed class SecurityChallengeOrchestratorTests
             SecurityChallengeContracts.TryParseKind(Kind, out SecurityChallengeKind parsed);
             long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             var assignment = new SecurityChallengeAssignment(
-                SecurityChallengeContracts.CreateChallengeId(),
+                request.ChallengeId,
                 request.Traceparent,
                 request.TenantId,
                 parsed,

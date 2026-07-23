@@ -253,7 +253,7 @@ describe('security challenge client and proof store', () => {
       challengeId: 'localization-1',
       kind: SecurityChallengeKind.PerceptionLocalizationV2,
       policyVersion: 'risk-v1',
-      completedCount: 1,
+      completedCount: 0,
       memberCount: 1,
       envelopeCompleted: false,
       proofToken: '',
@@ -290,8 +290,6 @@ describe('security challenge client and proof store', () => {
       ...response.envelope!.assignments[0]!,
       challengeId: 'localization-2'
     }
-    response.envelope!.assignments.push(second)
-    response.providerPayloads.push({ challengeId: 'localization-2', payload: { algorithm: 'second' } })
     const verifyChallenge = vi.fn()
       .mockResolvedValueOnce({
         verified: true,
@@ -305,7 +303,9 @@ describe('security challenge client and proof store', () => {
         proofToken: '',
         expiresAtUnixMs: 0,
         reason: 'ok',
-        retryAfterMs: 0
+        retryAfterMs: 0,
+        nextAssignment: second,
+        nextProviderPayload: { challengeId: 'localization-2', payload: { algorithm: 'second' } }
       } satisfies SecurityChallengeVerifyResponse)
       .mockResolvedValueOnce({
         verified: true,
@@ -493,7 +493,7 @@ describe('security challenge client and proof store', () => {
         challengeId: 'localization-1',
         kind: SecurityChallengeKind.PerceptionLocalizationV2,
         policyVersion: 'risk-v1',
-        completedCount: 1,
+        completedCount: 0,
         memberCount: 1,
         envelopeCompleted: false,
         proofToken: '',

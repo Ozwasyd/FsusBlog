@@ -4,7 +4,7 @@ import {
 } from '@/contracts/binaryApi'
 import { securityChallengeKindWireName } from './challenge-kind-wire'
 
-export const SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION = '2026.07.21.1'
+export const SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION = '2026.07.22.1'
 
 export type ChallengeExecutionMode = 'ui' | 'headless'
 export type ChallengeUiHost = 'perception' | 'pospace' | 'sha256-pow'

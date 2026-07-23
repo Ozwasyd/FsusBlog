@@ -102,6 +102,7 @@ public sealed record PerceptionChallengeV2IssueRequest(
     string Traceparent,
     RenderRecipeV2TaskKind TaskKind)
 {
+    public string ChallengeId { get; init; } = string.Empty;
     public int RiskScore
     {
         get; init;
@@ -316,7 +317,9 @@ public sealed class PerceptionChallengeV2IssueService(
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
 
-        string challengeId = SecurityChallengeContracts.CreateChallengeId();
+        string challengeId = string.IsNullOrWhiteSpace(request.ChallengeId)
+            ? SecurityChallengeContracts.CreateChallengeId()
+            : request.ChallengeId;
         PerceptionChallengeV2GeneratorSelection generatorSelection = PerceptionChallengeV2GeneratorSelector.Select(
             request.GeneratorDistributionPolicy,
             request.Action,

@@ -330,7 +330,40 @@ public sealed class SecurityChallengeContractTests
 
         Assert.True(PodBinaryCodec.TryDecodeSecurityChallengeVerifyResponse(verifyEncoded, out SecurityChallengeVerifyBinaryResponse decodedVerify));
         Assert.Equal(verifyResponse, decodedVerify);
-        Assert.Equal(232, PodSizeCatalog.SecurityChallengeVerifyResponsePod);
+        Assert.Equal(968, PodSizeCatalog.SecurityChallengeVerifyResponsePod);
+    }
+
+    [Fact]
+    public void SecurityChallengeVerifyProgress_RoundTripsDeferredNextMember()
+    {
+        SecurityChallengeAssignment current = CreateAssignment();
+        SecurityChallengeAssignment next = current with
+        {
+            ChallengeId = SecurityChallengeContracts.CreateChallengeId()
+        };
+        var response = new SecurityChallengeVerifyBinaryResponse(
+            true,
+            SecurityChallengeContracts.CreateChallengeId(),
+            current.ChallengeId,
+            current.Kind,
+            "risk-policy-v2",
+            1,
+            2,
+            false,
+            string.Empty,
+            0,
+            "ok",
+            0)
+        {
+            NextAssignment = next,
+            NextProviderPayload = new SecurityChallengeProviderPayload(next.ChallengeId, "{\"salt\":\"next\"}")
+        };
+
+        Assert.True(PodBinaryCodec.TryDecodeSecurityChallengeVerifyResponse(
+            PodBinaryCodec.EncodeSecurityChallengeVerifyResponse(response),
+            out SecurityChallengeVerifyBinaryResponse decoded));
+        Assert.Equal(next, decoded.NextAssignment);
+        Assert.Equal(response.NextProviderPayload, decoded.NextProviderPayload);
     }
 
     [Fact]

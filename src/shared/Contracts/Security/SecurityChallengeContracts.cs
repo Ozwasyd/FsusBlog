@@ -126,7 +126,18 @@ public sealed record class SecurityChallengeVerifyBinaryResponse(
     string ProofToken,
     long ExpiresAtUnixMs,
     string Reason,
-    int RetryAfterMs);
+    int RetryAfterMs)
+{
+    public SecurityChallengeAssignment? NextAssignment
+    {
+        get; init;
+    }
+
+    public SecurityChallengeProviderPayload? NextProviderPayload
+    {
+        get; init;
+    }
+}
 
 /// <summary>
 /// Defines the security transport contract represented by <c>SecurityChallengeValidationResult</c>.
@@ -330,6 +341,19 @@ public static class SecurityChallengeContracts
             return Invalid("reason_missing");
         if (response.RetryAfterMs < 0)
             return Invalid("retry_after_invalid");
+        if (response.EnvelopeCompleted && response.NextAssignment is not null)
+            return Invalid("next_assignment_invalid");
+        if (response.NextAssignment is not null)
+        {
+            SecurityChallengeValidationResult next = ValidateAssignment(response.NextAssignment);
+            if (!next.IsValid)
+                return next;
+            if (response.NextProviderPayload is not null
+                && !string.Equals(response.NextProviderPayload.ChallengeId, response.NextAssignment.ChallengeId, StringComparison.Ordinal))
+                return Invalid("next_provider_payload_invalid");
+        }
+        else if (response.NextProviderPayload is not null)
+            return Invalid("next_provider_payload_invalid");
 
         return SecurityChallengeValidationResult.Valid;
     }

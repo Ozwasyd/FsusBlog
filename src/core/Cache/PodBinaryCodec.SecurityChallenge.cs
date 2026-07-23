@@ -499,12 +499,30 @@ public static partial class PodBinaryCodec
             throw new ArgumentException($"Invalid security challenge verify response: {validation.ErrorCode}", nameof(response));
         }
 
-        var blob = new ArrayBufferWriter<byte>(Math.Max(128, (response.ProofToken?.Length ?? 0) + (response.Reason?.Length ?? 0)));
+        byte[]? typedV3 = response.NextProviderPayload?.PerceptionCharacterV3 is null
+            ? null
+            : EncodePerceptionCharacterV3Issue(response.NextProviderPayload.PerceptionCharacterV3);
+        var blob = new ArrayBufferWriter<byte>(Math.Max(128,
+            (response.ProofToken?.Length ?? 0) + (response.Reason?.Length ?? 0)
+            + (typedV3?.Length ?? response.NextProviderPayload?.PayloadJson?.Length ?? 0)));
+        SecurityChallengeProviderPayloadPod nextPayload = default;
+        if (response.NextProviderPayload is not null)
+        {
+            var mutablePayload = new MutableSecurityChallengeProviderPayloadPod
+            {
+                ChallengeId = PodUtf8Codec.ToFixed64(response.NextProviderPayload.ChallengeId),
+                PayloadJson = typedV3 is null
+                    ? PodUtf8Codec.AppendSlice(response.NextProviderPayload.PayloadJson, blob)
+                    : AppendBytes(typedV3, blob)
+            };
+            nextPayload = Cast<MutableSecurityChallengeProviderPayloadPod, SecurityChallengeProviderPayloadPod>(mutablePayload);
+        }
         var mutable = new MutableSecurityChallengeVerifyResponsePod
         {
             Verified = response.Verified ? (byte)1 : (byte)0,
             Kind = (byte)response.Kind,
             EnvelopeCompleted = response.EnvelopeCompleted ? (byte)1 : (byte)0,
+            HasNextAssignment = response.NextAssignment is null ? (byte)0 : (byte)1,
             RetryAfterMs = response.RetryAfterMs,
             CompletedCount = response.CompletedCount,
             MemberCount = response.MemberCount,
@@ -513,7 +531,9 @@ public static partial class PodBinaryCodec
             PolicyVersion = PodUtf8Codec.ToFixed64(response.PolicyVersion),
             ProofToken = PodUtf8Codec.AppendSlice(response.ProofToken, blob),
             Reason = PodUtf8Codec.AppendSlice(response.Reason, blob),
-            ExpiresAtUnixMs = response.ExpiresAtUnixMs
+            ExpiresAtUnixMs = response.ExpiresAtUnixMs,
+            NextAssignment = response.NextAssignment is null ? default : CreateSecurityChallengeAssignmentPod(response.NextAssignment),
+            NextProviderPayload = nextPayload
         };
 
         var writer = new BinaryPodWriter(destination);
@@ -538,12 +558,38 @@ public static partial class PodBinaryCodec
         if (!reader.TryReadPod(out SecurityChallengeVerifyResponsePod pod) ||
             pod.Verified > 1 ||
             pod.EnvelopeCompleted > 1 ||
+            pod.HasNextAssignment > 1 ||
             !reader.TryReadBytes(out ReadOnlySpan<byte> blob))
         {
             response = EmptySecurityChallengeVerifyResponse();
             return false;
         }
 
+        SecurityChallengeAssignment? nextAssignment = pod.HasNextAssignment == 1
+            ? FromSecurityChallengeAssignmentPod(pod.NextAssignment)
+            : null;
+        SecurityChallengeProviderPayload? nextPayload = null;
+        if (nextAssignment is not null && !string.IsNullOrEmpty(PodUtf8Codec.FromFixed64(pod.NextProviderPayload.ChallengeId)))
+        {
+            string payloadChallengeId = PodUtf8Codec.FromFixed64(pod.NextProviderPayload.ChallengeId);
+            if (!string.Equals(payloadChallengeId, nextAssignment.ChallengeId, StringComparison.Ordinal))
+            {
+                response = EmptySecurityChallengeVerifyResponse();
+                return false;
+            }
+            if (nextAssignment.Kind == SecurityChallengeKind.PerceptionCharacterV3)
+            {
+                if (!TryReadBytes(pod.NextProviderPayload.PayloadJson, blob, out byte[] bytes)
+                    || !TryDecodePerceptionCharacterV3Issue(bytes, out PerceptionCharacterV3IssuePayload typed))
+                {
+                    response = EmptySecurityChallengeVerifyResponse();
+                    return false;
+                }
+                nextPayload = new SecurityChallengeProviderPayload(payloadChallengeId, string.Empty) { PerceptionCharacterV3 = typed };
+            }
+            else
+                nextPayload = new SecurityChallengeProviderPayload(payloadChallengeId, PodUtf8Codec.ReadSlice(pod.NextProviderPayload.PayloadJson, blob));
+        }
         response = new SecurityChallengeVerifyBinaryResponse(
             pod.Verified == 1,
             PodUtf8Codec.FromFixed64(pod.EnvelopeId),
@@ -556,7 +602,11 @@ public static partial class PodBinaryCodec
             PodUtf8Codec.ReadSlice(pod.ProofToken, blob),
             pod.ExpiresAtUnixMs,
             PodUtf8Codec.ReadSlice(pod.Reason, blob),
-            pod.RetryAfterMs);
+            pod.RetryAfterMs)
+        {
+            NextAssignment = nextAssignment,
+            NextProviderPayload = nextPayload
+        };
         return reader.IsConsumed && SecurityChallengeContracts.ValidateVerifyResponse(response).IsValid;
     }
 
@@ -722,7 +772,7 @@ public static partial class PodBinaryCodec
         public byte Verified;
         public byte Kind;
         public byte EnvelopeCompleted;
-        public byte Reserved0;
+        public byte HasNextAssignment;
         public int RetryAfterMs;
         public int CompletedCount;
         public int MemberCount;
@@ -732,5 +782,7 @@ public static partial class PodBinaryCodec
         public Utf8SliceRef ProofToken;
         public Utf8SliceRef Reason;
         public long ExpiresAtUnixMs;
+        public SecurityChallengeAssignmentPod NextAssignment;
+        public SecurityChallengeProviderPayloadPod NextProviderPayload;
     }
 }

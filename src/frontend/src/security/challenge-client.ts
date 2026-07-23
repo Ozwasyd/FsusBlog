@@ -265,6 +265,9 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
       }
 
       if (!response.envelopeCompleted) {
+        if (!appendDeferredMember(context, run, response)) {
+          return failedVerifyResult('security_challenge_progress_invalid', response)
+        }
         run.completedCount = response.completedCount
         const next = selectEnvelopeMember(context, run, run.completedCount, now())
         return {
@@ -538,11 +541,41 @@ function isExpectedProgressResponse(
   assignment: SecurityChallengeAssignment,
   response: SecurityChallengeVerifyResponse
 ): boolean {
-  const memberCount = run.response.envelope?.assignments.length ?? 0
-  return response.envelopeId === run.envelopeId && response.challengeId === assignment.challengeId &&
-    response.kind === assignment.kind && response.policyVersion === run.response.policyVersion &&
-    response.memberCount === memberCount &&
-    response.completedCount === run.completedCount + 1
+  const identityMatches = response.envelopeId === run.envelopeId && response.challengeId === assignment.challengeId &&
+    response.kind === assignment.kind && response.policyVersion === run.response.policyVersion
+  if (!identityMatches) {
+    return false
+  }
+  if (!response.verified) {
+    return !response.envelopeCompleted && !response.nextAssignment &&
+      response.completedCount === run.completedCount &&
+      response.memberCount >= run.response.envelope!.assignments.length
+  }
+  return response.completedCount === run.completedCount + 1 &&
+    response.memberCount >= run.response.envelope!.assignments.length &&
+    (response.envelopeCompleted
+      ? response.completedCount === response.memberCount && !response.nextAssignment
+      : response.completedCount < response.memberCount && Boolean(response.nextAssignment))
+}
+
+function appendDeferredMember(
+  context: SecurityChallengeContext,
+  run: ActiveEnvelopeRun,
+  response: SecurityChallengeVerifyResponse
+): boolean {
+  const envelope = run.response.envelope
+  const next = response.nextAssignment
+  if (!envelope || !next || !response.nextProviderPayload ||
+      next.action !== context.action || next.routeKey !== context.routeKey ||
+      response.nextProviderPayload.challengeId !== next.challengeId ||
+      envelope.assignments.some((member) => member.challengeId === next.challengeId) ||
+      envelope.assignments.length !== response.completedCount ||
+      envelope.assignments.length >= response.memberCount) {
+    return false
+  }
+  envelope.assignments.push(next)
+  run.response.providerPayloads.push(response.nextProviderPayload)
+  return true
 }
 
 function failedVerifyResult(reason: string, response: SecurityChallengeVerifyResponse | null = null): SecurityChallengeVerifyResult {

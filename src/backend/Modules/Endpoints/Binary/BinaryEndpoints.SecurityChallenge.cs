@@ -230,7 +230,7 @@ public static partial class BinaryEndpoints
             .Concat(issued.PerceptionCharacterV3Payloads.Select(static item =>
                 new SecurityChallengeProviderPayload(item.Key, string.Empty) { PerceptionCharacterV3 = item.Value }))
             .ToArray();
-        bool containsV3 = issued.PerceptionCharacterV3Payloads.Count > 0;
+        bool containsV3 = DecisionRequiresPerceptionCharacterV3(decision);
         var challengeResponse = new SecurityChallengeIssueBinaryResponse(
             ToChallengeDecisionKind(decision.Kind),
             containsV3 ? 0 : decision.RiskScore,
@@ -334,35 +334,42 @@ public static partial class BinaryEndpoints
             bool containsV3 = state?.RequiredKinds.Contains(PerceptionCharacterV3Contracts.WireName, StringComparer.Ordinal) == true;
             if (containsV3)
             {
-                if (perceptionV3StateStore is null || perceptionV3DeviceAuthority is null || perceptionV3KeyRing is null || perceptionV3Audit is null)
-                    return CreatePerceptionCharacterV3Failure(aeds, "provider_missing");
-                PerceptionCharacterV3DeviceAuthorityResult device = await perceptionV3DeviceAuthority.ResolveAsync(httpContext, binding.ClientIpHash, cancellationToken).ConfigureAwait(false);
                 int[] v3MemberIndexes = state!.RequiredKinds
                     .Select(static (kind, index) => (kind, index))
                     .Where(static member => string.Equals(member.kind, PerceptionCharacterV3Contracts.WireName, StringComparison.Ordinal))
                     .Select(static member => member.index)
+                    .Where(index => !string.Equals(
+                        state.MemberStatuses[index],
+                        SecurityChallengeEnvelopeMemberStatuses.Planned,
+                        StringComparison.Ordinal))
                     .ToArray();
+                if (v3MemberIndexes.Length > 0
+                    && (perceptionV3StateStore is null || perceptionV3DeviceAuthority is null || perceptionV3KeyRing is null || perceptionV3Audit is null))
+                    return CreatePerceptionCharacterV3Failure(aeds, "provider_missing");
+                PerceptionCharacterV3DeviceAuthorityResult? device = v3MemberIndexes.Length == 0
+                    ? null
+                    : await perceptionV3DeviceAuthority!.ResolveAsync(httpContext, binding.ClientIpHash, cancellationToken).ConfigureAwait(false);
                 foreach (int memberIndex in v3MemberIndexes)
                 {
                     string challengeId = state.ChallengeIds[memberIndex];
                     v3AuditChallengeId = challengeId;
-                    if (!device.Succeeded)
+                    if (!device!.Succeeded)
                     {
                         string deviceOutcome = device.Reason.EndsWith("unavailable", StringComparison.Ordinal) ? "unavailable" : "rejected";
-                        await perceptionV3Audit.WriteAsync("cancel", challengeId, action, deviceOutcome, device.Reason, cancellationToken).ConfigureAwait(false);
+                        await perceptionV3Audit!.WriteAsync("cancel", challengeId, action, deviceOutcome, device.Reason, cancellationToken).ConfigureAwait(false);
                         return deviceOutcome == "unavailable"
                             ? CreatePerceptionCharacterV3Failure(aeds, "device_binding_unavailable")
                             : BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
                     }
-                    PerceptionCharacterV3StateRecord? record = await perceptionV3StateStore.ReadAsync(challengeId, cancellationToken).ConfigureAwait(false);
+                    PerceptionCharacterV3StateRecord? record = await perceptionV3StateStore!.ReadAsync(challengeId, cancellationToken).ConfigureAwait(false);
                     if (record is null)
                     {
-                        await perceptionV3Audit.WriteAsync("cancel", challengeId, action, "rejected", "state_missing", cancellationToken).ConfigureAwait(false);
-                        return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
+                        await perceptionV3Audit!.WriteAsync("cancel", challengeId, action, "rejected", "state_missing", cancellationToken).ConfigureAwait(false);
+                        continue;
                     }
-                    if (!perceptionV3KeyRing.TryGetAnswerKey(record.AnswerKeyVersion, out byte[] answerKey))
+                    if (!perceptionV3KeyRing!.TryGetAnswerKey(record.AnswerKeyVersion, out byte[] answerKey))
                     {
-                        await perceptionV3Audit.WriteAsync("cancel", challengeId, action, "unavailable", "answer_key_unavailable", cancellationToken).ConfigureAwait(false);
+                        await perceptionV3Audit!.WriteAsync("cancel", challengeId, action, "unavailable", "answer_key_unavailable", cancellationToken).ConfigureAwait(false);
                         return CreatePerceptionCharacterV3Failure(aeds, "crypto_failure");
                     }
                     string currentDeviceBinding = PerceptionCharacterV3Crypto.DeriveDeviceBinding(answerKey, device.Binding);
@@ -376,7 +383,7 @@ public static partial class BinaryEndpoints
                         ClientIpBindingHash = binding.ClientIpHash,
                         PolicyVersion = state.PolicyVersion
                     };
-                    PerceptionCharacterV3Transition transition = await perceptionV3StateStore.RevokeAsync(
+                    PerceptionCharacterV3Transition transition = await perceptionV3StateStore!.RevokeAsync(
                         expected,
                         DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                         cancellationToken).ConfigureAwait(false);
@@ -387,7 +394,7 @@ public static partial class BinaryEndpoints
                         PerceptionCharacterV3TransitionKind.Unavailable => "unavailable",
                         _ => "rejected"
                     };
-                    await perceptionV3Audit.WriteAsync("cancel", challengeId, action, transitionOutcome, transition.InternalReason, cancellationToken).ConfigureAwait(false);
+                    await perceptionV3Audit!.WriteAsync("cancel", challengeId, action, transitionOutcome, transition.InternalReason, cancellationToken).ConfigureAwait(false);
                     if (transition.Kind == PerceptionCharacterV3TransitionKind.Unavailable)
                         return CreatePerceptionCharacterV3Failure(aeds, "state_unavailable");
                     if (transition.Kind != PerceptionCharacterV3TransitionKind.ReissueRequired
@@ -536,14 +543,25 @@ public static partial class BinaryEndpoints
             verified.EnvelopeId,
             verified.ChallengeId,
             request.Kind,
-            isV3 && verified.PolicyVersion.Length > 0 ? verified.PolicyVersion : policyVersion,
+            verified.PolicyVersion.Length > 0 ? verified.PolicyVersion : policyVersion,
             verified.CompletedCount,
             verified.MemberCount,
             verified.EnvelopeCompleted,
             verified.ProofToken ?? string.Empty,
             verified.ProofExpiresAt?.ToUnixTimeMilliseconds() ?? 0,
             "ok",
-            RetryAfterMs: 0);
+            RetryAfterMs: 0)
+        {
+            NextAssignment = verified.NextAssignment,
+            NextProviderPayload = verified.NextAssignment is null
+                ? null
+                : new SecurityChallengeProviderPayload(
+                    verified.NextAssignment.ChallengeId,
+                    verified.NextProviderPayload.Count == 0 ? "{}" : JsonSerializer.Serialize(verified.NextProviderPayload))
+                {
+                    PerceptionCharacterV3 = verified.NextPerceptionCharacterV3
+                }
+        };
         return BinaryResults.Frame(aeds, AedsFrameType.SecurityChallengeVerifyResponse, writer => PodBinaryCodec.WriteSecurityChallengeVerifyResponse(response, writer));
     }
 

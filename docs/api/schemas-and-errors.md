@@ -591,7 +591,7 @@ replyToAuthorPayload?:CommentAuthorViewPod + blobLength:int32 + blob
 | `SecurityChallengeAssignmentPod` | 664 |
 | `SecurityChallengeEnvelopePod` | 132 |
 | `SecurityChallengeVerifyRequestPod` | 44 |
-| `SecurityChallengeVerifyResponsePod` | 232 |
+| `SecurityChallengeVerifyResponsePod` | 968 |
 | `SecurityChallengeCancelRequestPod` | 40 |
 | `PerceptionSealedChallengeV2Pod` | 916 |
 | `PerceptionSealedResultV2Pod` | 892 |

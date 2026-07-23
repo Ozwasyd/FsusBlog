@@ -171,7 +171,7 @@ Redis envelope state 必须带不超过最短 required member expiry 的 TTL，�
 
 单个 challenge provider 校验成功只把对应 member 标为 verified 并返回 progress，不得签发业务 proof。只有 CAS 确认 ordered required members 全部 verified 后，orchestrator 才能 mint 一个 aggregate proof token，并通过 `X-Fsus-Challenge-Proof` header 传递。该 token 是 opaque 值；Redis `SecurityChallengeProof` cache 保存一次性 claims，并绑定 `envelopeId`、ordered `requiredKinds`、最后一个 ordered member 的 `challengeId` / `kind`、`action`、`routeKey`、`subjectHash`、`clientIpHash`、`deviceFpHash`、`issuedAt`、`expiresAt`、`nonce` 和 `policyVersion`。最终业务请求为兼容既有三项 header，`X-Fsus-Challenge-Id` 与 `X-Fsus-Challenge-Kind` 仍发送最后一个 ordered member 的值；服务端必须从 proof claims 校验 envelopeId 与完整 ordered requiredKinds，不能把 header 中最后一个 member 当作“全部完成”的声明。服务端消费时必须先执行 consume-once，再校验全部绑定字段；replay / Redis miss、action 或 route mismatch、IP/device mismatch、过期 proof、requiredKinds 重排或 envelope replacement 都不得进入业务写入，并必须写 challenge attempt。该 header 不替代 `X-Fsus-Mfa-Proof`、legacy `X-Fsus-Pow-Proof` 或 HumanReadProof 阅读计数 proof。
 
-challenge provider 统一通过 `ISecurityChallengeProvider` 接入，wire kind 与上表 `SecurityChallengeKind` 一致。provider 必须先持久化 challenge，再返回可下发 assignment；`SecurityChallengeOrchestrator` 根据 `RiskDecision.RequiredChallenges` 建立 UUIDv7 envelope，按策略顺序调用 provider，返回完整 assignments，并携带按 `challengeId` 一一对应的 provider payload 供 binary response 编码。provider missing、provider failure、assignment/payload 对应无效、member state CAS 失败或 aggregate proof mint failure 必须返回可观测错误并 fail closed，不得落入具体业务 endpoint 的 fallback 分支。policy validation/readiness 必须在启用组合 band 前确认每个 required kind 同时具备后端 provider、前端 executor 与对应 UI/headless host；尚不满足时拒绝策略启用，而不是让运行时永久返回 `RISK_CHALLENGE_SET_INCOMPLETE`。
+challenge provider 统一通过 `ISecurityChallengeProvider` 接入，wire kind 与上表 `SecurityChallengeKind` 一致。provider 必须先持久化 challenge，再返回可下发 assignment；`SecurityChallengeOrchestrator` 根据 `RiskDecision.RequiredChallenges` 建立 UUIDv7 envelope，按 server-owned cost class 稳定排序完整计划，但每次只调用并返回一个 actionable provider。其 assignment/payload 由 `challengeId` 一一对应，下一项只能由前一项完成后的 version CAS winner 签发。provider missing、provider failure、assignment/payload 对应无效、member state CAS 失败或 aggregate proof mint failure 必须返回可观测错误并 fail closed，不得落入具体业务 endpoint 的 fallback 分支。policy validation/readiness 必须在启用组合 band 前确认每个 required kind 同时具备后端 provider、前端 executor 与对应 UI/headless host；尚不满足时拒绝策略启用，而不是让运行时永久返回 `RISK_CHALLENGE_SET_INCOMPLETE`。
 
 `sha256PowV1` provider 的 issue payload 只包含 legacy PoW challenge 必需字段：`salt`、`difficulty`、`timestamp`、`signature`。`signature` 是无 padding Base64Url HMAC，不能使用旧标准 Base64 `+`、`/`、`=` 兼容格式。verify payload 必须包含 `proof`，其值为旧 `X-Fsus-Pow-Proof` 使用的 Base64 FPOW binary proof；服务端复用同一解析器、`IPowService.VerifyAsync` 和 `AdaptivePowGovernor` difficulty 裁决。该 provider 不引入公开 JSON fallback，不改变现有 FPOW wire format，也不删除 `GET /api/binary/auth/pow-challenge` 或 `X-Fsus-Pow-Proof` legacy 路径。
 
@@ -243,6 +243,7 @@ V3 issue response 将公开 `riskScore/effectiveRiskScore` 归零，失败只公
 | `routeKey` | string | 业务 route key，例如 `article:42`；必填 |
 | `deviceFp` | string | 可选设备指纹；服务端只使用规范化状态和 SHA-256 hash |
 | `attributes` | string | 可选 JSON 字符串，当前仅作为 wire 契约预留，不进入持久化 payload 原文 |
+| `capabilityManifestVersion` | string | 必须等于 `2026.07.22.1`；旧的 eager-envelope 客户端收到 409 并整页刷新，不解析新 verify POD |
 
 `SecurityChallengeIssueResponse` 字段：
 
@@ -253,8 +254,8 @@ V3 issue response 将公开 `riskScore/effectiveRiskScore` 归零，失败只公
 | `escalationLevel` | int | 策略要求的升级等级 |
 | `policyVersion` | string | 产生该裁决的 RiskControl policy version |
 | `retryAfterMs` | int | 限流 / 排队建议等待时间；当前 endpoint 返回 0 |
-| `envelope` | `SecurityChallengeEnvelope?` | `challenge` / `stepUp` 时返回 UUIDv7 `envelopeId`、policyVersion 与完整 ordered assignments（1..8）；非 challenge 裁决为空 |
-| `providerPayloads` | array | 与 ordered assignments 一一对应并按 `challengeId` 关联的 provider payload JSON；不得只返回第一项；`sha256PowV1` 包含 `salt`、`difficulty`、`timestamp`、Base64Url `signature` |
+| `envelope` | `SecurityChallengeEnvelope?` | `challenge` / `stepUp` 时返回 UUIDv7 `envelopeId`、policyVersion 与当前唯一 actionable assignment；完整 ordered plan 只保存在服务端；非 challenge 裁决为空 |
+| `providerPayloads` | array | 只与当前 actionable assignment 按 `challengeId` 关联；`sha256PowV1` 包含 `salt`、`difficulty`、`timestamp`、Base64Url `signature` |
 
 `SecurityChallengeVerifyRequest` 字段：
 
@@ -283,6 +284,8 @@ V3 issue response 将公开 `riskScore/effectiveRiskScore` 归零，失败只公
 | `expiresAtUnixMs` | int64 | completed 时来自 aggregate mint claims 的服务端权威绝对到期时间；客户端只可应用保守时钟偏差，不得固定推算 TTL |
 | `reason` | string | 成功为 `ok`；失败走 `ApiError` frame |
 | `retryAfterMs` | int | 当前成功响应为 0 |
+| `nextAssignment` | assignment? | 未完成时由原子推进签发的唯一下一 member；完成或失败时为空 |
+| `nextProviderPayload` | payload? | 与 `nextAssignment.challengeId` 严格一致；V3 使用 typed union，其他 kind 使用 provider JSON |
 
 `SecurityChallengeCancelRequest` 字段固定为 `envelopeId`、`action`、`routeKey`、`deviceFingerprint` 与 `policyVersion`。服务端重新派生 subject/client IP/device hash 并对完整 binding 执行 CAS revoke；撤销后全部 member 状态变为 `revoked`，未消费 aggregate proof 立即失效。客户端先推进 generation/abort，再异步发送可重试的 keepalive cancel；cancel response 迟到或丢失不能恢复 envelope。
 
@@ -290,7 +293,7 @@ V3 issue response 将公开 `riskScore/effectiveRiskScore` 归零，失败只公
 
 notification preflight 的当前所有权语义是 proof 到 grant 的单条 Redis Lua 原子交换，不是先 GETDEL 再独立 mint。grant token 从 proof token 确定性派生；HTTP 响应丢失时只恢复同一未消费 grant，WebSocket 消费后不能再次恢复或重新 mint。grant 只保存 proof token hash 与 envelopeId；恢复和 WebSocket 消费都必须重新确认 envelope 仍为 completed、prepared proof token hash 与全部 binding 一致，因此 cancel/revoke 会立即拒绝已经交换但尚未消费的 grant。
 
-前端 `BinaryRequestOptions.riskChallengeProof` 只接受 proof store reservation 产生的 typed aggregate lease，不接受 header map。UI host 与 notification headless host 共用一个 envelope runner：它迭代完整 assignments，用 `challengeId` 查找对应 provider payload 和已注册 executor，逐 member 提交 verify，并只在 `envelopeCompleted=true` 后向业务层暴露 proof。默认顺序执行；只有服务端 policy/capability 明示时才能有界并行，PoSpace、perception 或其他 expensive Worker 必须受固定小并发上限约束，不能按 member 数量无界启动。refresh、cancel、身份变化、route generation 变化、组件 unmount 或 notification dispose 会取消整个 envelope；旧 generation 的迟到 worker/verify 结果不得提交或覆盖新 envelope。
+前端 `BinaryRequestOptions.riskChallengeProof` 只接受 proof store reservation 产生的 typed aggregate lease，不接受 header map。UI host 与 notification headless host 共用一个 envelope runner：runner 只持当前页内存中的已签发 prefix；每次 verify 校验并追加服务端返回的 `nextAssignment/nextProviderPayload`，不把 proof、计划或 provider state 写入 local/session storage。只有 `envelopeCompleted=true` 后才能向业务层暴露 proof。refresh、cancel、身份变化、route generation 变化、组件 unmount 或 notification dispose 会取消整个 envelope；旧 generation 的迟到 worker/verify 结果不得提交或覆盖新 envelope。
 
 transport 校验 action、routeKey、最后 member challengeId/kind、proofToken、policyVersion 与服务端权威 expiry 后统一写 header；旧 `requiresPow/powScope` 始终只生成 legacy `X-Fsus-Pow-Proof`，两者不互转。fetch 前取消恢复 reservation；进入 fetch 后的成功、业务拒绝、明确 expired/replayed/binding mismatch/revoked/rejected 或未知网络结果都进入终态。`BinaryTransportError.riskChallengeFailure` 是 428 的唯一业务可见结构化分类。challenge-aware command 只可重放 `idempotent` 或带固定 `mutationIdentity` 的原始命令，proof 已可能到达服务端时不自动重放。旧客户端缺少 `envelopeId` verify wire 时在 decode/validation 阶段返回 `security_challenge_verify_request_invalid`；有效 envelope/member 但 binding 不符时内部 reason 为 `challenge_envelope_binding_mismatch`，对 binary caller 统一收敛为 428 `challenge_failed`，不得泄露哪项绑定失败。manifest 不支持组合 capability 时沿用 catalog 的 `capability_unavailable` / `executor_unavailable` 等内部 reason，不承诺新增 public 版本码，也不得执行第一项后继续业务。
 
@@ -303,7 +306,7 @@ transport 校验 action、routeKey、最后 member challengeId/kind、proofToken
 | `SecurityChallengeIssueRequest` | 173 | `SecurityChallengeIssueRequestPod` + UTF-8 blob | RiskControl challenge 签发请求 |
 | `SecurityChallengeVerifyRequest` | 174 | `SecurityChallengeVerifyRequestPod` + UTF-8 blob | 携带 envelopeId/member identity 的 provider proof 验证请求 |
 | `SecurityChallengeIssueResponse` | 175 | `SecurityChallengeIssueResponsePod` + assignment / provider payload records + UTF-8 blob | RiskControl challenge 签发响应 |
-| `SecurityChallengeVerifyResponse` | 176 | `SecurityChallengeVerifyResponsePod` + UTF-8 blob | member progress；仅全部完成时携带 aggregate proof token |
+| `SecurityChallengeVerifyResponse` | 176 | `SecurityChallengeVerifyResponsePod` + UTF-8 blob | member progress；未完成时携带 next assignment/payload，全部完成时只携带 aggregate proof token |
 | `SecurityChallengeCancelRequest` | 200 | `SecurityChallengeCancelRequestPod` + UTF-8 blob | 绑定 action/route/device/policy 的 envelope revoke；响应使用 `EmptySuccess` |
 | `PerceptionSealedChallengeV2` | 184 | `PerceptionSealedChallengeV2Pod` + UTF-8 blob | perception-sealed@v2 issue payload；Localization/MicroInteraction 共用 |
 | `PerceptionSealedResultV2` | 185 | `PerceptionSealedResultV2Pod` + UTF-8 blob | perception-sealed@v2 verify payload；coordinates/steps 共用 |

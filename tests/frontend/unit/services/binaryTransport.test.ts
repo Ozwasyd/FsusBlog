@@ -88,7 +88,7 @@ describe('binaryTransport ApiError mapping', () => {
       frameType: FrameType.EmptySuccess
     })).resolves.toBe(injectedValue)
     expect(decodeFramePayload).toHaveBeenCalledOnce()
-    expect(decodeFramePayload).toHaveBeenCalledWith(FrameType.EmptySuccess, expect.any(Uint8Array))
+    expect(decodeFramePayload).toHaveBeenCalledWith(FrameType.EmptySuccess, expect.any(Uint8Array), undefined)
   })
 
   it('rejects a decoded legacy admin response from an older generation', async () => {

@@ -941,6 +941,8 @@ export interface SecurityChallengeVerifyResponse {
     expiresAtUnixMs: number;
     reason: string;
     retryAfterMs: number;
+    nextAssignment?: SecurityChallengeAssignment | null;
+    nextProviderPayload?: SecurityChallengeProviderPayload | null;
 }
 
 export interface SecurityChallengeIssuePodRequest {

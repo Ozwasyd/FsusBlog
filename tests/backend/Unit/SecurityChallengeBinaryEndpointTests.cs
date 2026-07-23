@@ -133,8 +133,25 @@ public sealed class SecurityChallengeBinaryEndpointTests
         ISecurityChallengeProtocolActivationGuard guard = Substitute.For<ISecurityChallengeProtocolActivationGuard>();
         guard.IsOpenAsync(Arg.Any<CancellationToken>()).Returns(false);
         ISecurityChallengeEnvelopeStateService stateService = Substitute.For<ISecurityChallengeEnvelopeStateService>();
+        SecurityChallengeEnvelopeState reservedState = new(
+            SecurityChallengeContracts.CreateChallengeId(),
+            "public.read",
+            "article:42",
+            new string('a', 64),
+            new string('b', 64),
+            new string('c', 64),
+            "risk-v1",
+            [SecurityChallengeContracts.CreateChallengeId()],
+            [PerceptionCharacterV3Contracts.WireName],
+            [SecurityChallengeEnvelopeMemberStatuses.Verifying],
+            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            DateTimeOffset.UtcNow.AddMinutes(5).ToUnixTimeMilliseconds(),
+            SecurityChallengeEnvelopeStatuses.Active,
+            Version: 1);
         stateService.ValidateMemberAsync(Arg.Any<SecurityChallengeEnvelopeMemberRequest>(), Arg.Any<CancellationToken>())
-            .Returns(new SecurityChallengeEnvelopeMemberResult(true, "ok", null, 0, 0, 1, false));
+            .Returns(new SecurityChallengeEnvelopeMemberResult(true, "ok", reservedState, 0, 0, 1, false));
+        stateService.ReserveMemberAsync(Arg.Any<SecurityChallengeEnvelopeMemberRequest>(), Arg.Any<CancellationToken>())
+            .Returns(new SecurityChallengeEnvelopeMemberResult(true, "ok", reservedState, 0, 0, 1, false));
         var orchestrator = new SecurityChallengeOrchestrator(
             [provider],
             Substitute.For<ISecurityChallengeProofService>(),
@@ -848,6 +865,35 @@ public sealed class SecurityChallengeBinaryEndpointTests
             Arg.Any<string>(),
             Arg.Any<string?>(),
             Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CancelAsync_PlannedV3RevokesEnvelopeWithoutRequiringUnissuedProviderState()
+    {
+        var aeds = new AedsEncoder();
+        string envelopeId = SecurityChallengeContracts.CreateChallengeId();
+        string powId = SecurityChallengeContracts.CreateChallengeId();
+        string v3Id = SecurityChallengeContracts.CreateChallengeId();
+        var request = new SecurityChallengeCancelBinaryRequest(envelopeId, "public.read", "article:42", "device", "policy");
+        var context = CreateContext(
+            AedsFrameType.SecurityChallengeCancelRequest,
+            BinaryRequestPayload.Success(PodBinaryCodec.EncodeSecurityChallengeCancelRequest(request)));
+        var stateService = Substitute.For<ISecurityChallengeEnvelopeStateService>();
+        stateService.GetAsync(envelopeId, Arg.Any<CancellationToken>()).Returns(new SecurityChallengeEnvelopeState(
+            envelopeId, request.Action, request.RouteKey, HashA, HashB, HashC, request.PolicyVersion,
+            [powId, v3Id], ["sha256PowV1", PerceptionCharacterV3Contracts.WireName],
+            [SecurityChallengeEnvelopeMemberStatuses.Issued, SecurityChallengeEnvelopeMemberStatuses.Planned],
+            1, 2, SecurityChallengeEnvelopeStatuses.Active, 0));
+        stateService.RevokeAsync(
+            Arg.Any<SecurityChallengeEnvelopeBindingRequest>(), "client_cancelled", Arg.Any<CancellationToken>()).Returns(true);
+        var persistence = Substitute.For<ISecurityChallengePersistenceService>();
+
+        BinaryFrameResult result = await BinaryEndpoints.HandleSecurityChallengeCancelAsync(
+            context, aeds, new RiskControlContextFactory(), stateService, persistence, CancellationToken.None);
+
+        Assert.Equal(AedsFrameType.EmptySuccess, (await ExecuteAndDecodeAsync(result, context, aeds)).FrameType);
+        await stateService.Received(1).RevokeAsync(
+            Arg.Any<SecurityChallengeEnvelopeBindingRequest>(), "client_cancelled", Arg.Any<CancellationToken>());
     }
 
     [Fact]

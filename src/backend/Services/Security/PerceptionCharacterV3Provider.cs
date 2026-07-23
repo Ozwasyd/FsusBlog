@@ -101,7 +101,9 @@ public sealed class PerceptionCharacterV3Provider(
                 TokenHash = replacementTokenHash
             };
         }
-        PerceptionCharacterV3Representation representation = ResolveRepresentation(request.Context);
+        PerceptionCharacterV3Representation representation = string.Equals(request.Representation, "audio", StringComparison.Ordinal)
+            ? PerceptionCharacterV3Representation.Audio
+            : PerceptionCharacterV3Representation.Visual;
         PerceptionCharacterV3ArtifactLease? artifactLease;
         try
         {
@@ -123,7 +125,9 @@ public sealed class PerceptionCharacterV3Provider(
             return SecurityChallengeProviderIssueResult.Failed("unavailable");
         }
         await using PerceptionCharacterV3ArtifactLease lease = artifactLease;
-        string challengeId = SecurityChallengeContracts.CreateChallengeId();
+        string challengeId = string.IsNullOrWhiteSpace(request.ChallengeId)
+            ? SecurityChallengeContracts.CreateChallengeId()
+            : request.ChallengeId;
         byte[] media = lease.Artifact;
         string artifactHash = lease.ArtifactHash;
         string representationName = representation == PerceptionCharacterV3Representation.Visual ? "visual" : "audio";
@@ -295,7 +299,6 @@ public sealed class PerceptionCharacterV3Provider(
             CryptographicOperations.ZeroMemory(material);
         }
     }
-    private static PerceptionCharacterV3Representation ResolveRepresentation(HttpContext context) => string.Equals(context.Request.Headers["X-Fsus-Challenge-Representation"].ToString(), "audio", StringComparison.Ordinal) ? PerceptionCharacterV3Representation.Audio : PerceptionCharacterV3Representation.Visual;
     private static bool StateMatchesRecord(PerceptionCharacterV3State state, PerceptionCharacterV3StateRecord record)
         => state.AttemptBudget == 2 && state.ArtifactHash == record.ArtifactHash && state.MediaType == record.MediaType &&
             state.PhysicalWidth == record.PhysicalWidth && state.PhysicalHeight == record.PhysicalHeight &&

@@ -16,7 +16,7 @@ const decoder = new TextDecoder('utf-8', { fatal: true });
 const SECURITY_CHALLENGE_ISSUE_RESPONSE_POD_SIZE = 148;
 const SECURITY_CHALLENGE_ASSIGNMENT_POD_SIZE = 664;
 const SECURITY_CHALLENGE_PROVIDER_PAYLOAD_POD_SIZE = 72;
-const SECURITY_CHALLENGE_VERIFY_RESPONSE_POD_SIZE = 232;
+const SECURITY_CHALLENGE_VERIFY_RESPONSE_POD_SIZE = 968;
 const PERCEPTION_CHARACTER_V3_ISSUE_POD_SIZE = 256;
 const PERCEPTION_CHARACTER_V3_ALGORITHM = 'fsu.challenge/perception-character-raster@v3';
 const PERCEPTION_CHARACTER_V3_VISUAL_BYTES = 512 * 192;
@@ -217,6 +217,36 @@ export function mapSecurityChallengeVerifyResponseFromPayload(payload: Uint8Arra
   }
 
   const blob = readBinaryPodBlob(payload, SECURITY_CHALLENGE_VERIFY_RESPONSE_POD_SIZE, 'security_challenge_verify_payload_truncated');
+  const hasNextAssignment = readByte(payload, 3);
+  if (hasNextAssignment > 1) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'security_challenge_verify_boolean_invalid');
+  }
+  const nextAssignment = hasNextAssignment === 1 ? readSecurityChallengeAssignment(payload, 232) : null;
+  let nextProviderPayload: SecurityChallengeProviderPayload | null = null;
+  if (nextAssignment) {
+    const challengeId = readFixedUtf8(payload, 896, 64);
+    if (challengeId) {
+      if (challengeId !== nextAssignment.challengeId) {
+        throw createAppError(AppErrorCode.ProtocolFailure, 'security_challenge_provider_payload_challenge_mismatch');
+      }
+      const payloadBytes = readSliceBytesStrict(
+        blob,
+        readSliceRef(payload, 960),
+        'security_challenge_provider_payload_slice_invalid',
+        nextAssignment.kind === SecurityChallengeKind.PerceptionCharacterV3 ? PERCEPTION_CHARACTER_V3_MAX_ENCODED_BYTES : Number.MAX_SAFE_INTEGER);
+      nextProviderPayload = nextAssignment.kind === SecurityChallengeKind.PerceptionCharacterV3
+        ? {
+            challengeId,
+            payload: {},
+            perceptionCharacterV3: mapPerceptionCharacterV3IssuePayload(payloadBytes, {
+              challengeId,
+              envelopeId: readFixedUtf8(payload, 16, 64),
+              policyVersion: readFixedUtf8(payload, 144, 64)
+            })
+          }
+        : { challengeId, payload: parseProviderPayloadJson(decodeUtf8Strict(payloadBytes, 'security_challenge_provider_payload_invalid')) };
+    }
+  }
   const response: SecurityChallengeVerifyResponse = {
     verified: verifiedRaw === 1,
     kind: mapSecurityChallengeKind(readByte(payload, 1)),
@@ -229,7 +259,9 @@ export function mapSecurityChallengeVerifyResponseFromPayload(payload: Uint8Arra
     policyVersion: readFixedUtf8(payload, 144, 64),
     proofToken: readSliceText(blob, readSliceRef(payload, 208)),
     reason: readSliceText(blob, readSliceRef(payload, 216)),
-    expiresAtUnixMs: readInt64Number(payload, 224)
+    expiresAtUnixMs: readInt64Number(payload, 224),
+    nextAssignment,
+    nextProviderPayload
   };
 
   if (!isValidSecurityChallengeVerifyResponse(response)) {
@@ -255,7 +287,9 @@ function isValidSecurityChallengeVerifyResponse(response: SecurityChallengeVerif
 
   const expectedCompleted = response.verified && response.completedCount === response.memberCount;
   return response.envelopeCompleted === expectedCompleted &&
-    (response.envelopeCompleted ? response.proofToken.trim().length > 0 : response.proofToken.length === 0);
+    (response.envelopeCompleted ? response.proofToken.trim().length > 0 : response.proofToken.length === 0) &&
+    (!response.envelopeCompleted || !response.nextAssignment) &&
+    (!response.nextProviderPayload || response.nextProviderPayload.challengeId === response.nextAssignment?.challengeId);
 }
 
 function isCompatibleChallengeId(_kind: SecurityChallengeKind, value: string): boolean

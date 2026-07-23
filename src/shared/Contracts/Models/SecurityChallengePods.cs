@@ -102,7 +102,7 @@ public readonly struct SecurityChallengeVerifyResponsePod
     public readonly byte Verified;
     public readonly byte Kind;
     public readonly byte EnvelopeCompleted;
-    public readonly byte Reserved0;
+    public readonly byte HasNextAssignment;
     public readonly int RetryAfterMs;
     public readonly int CompletedCount;
     public readonly int MemberCount;
@@ -112,6 +112,8 @@ public readonly struct SecurityChallengeVerifyResponsePod
     public readonly Utf8SliceRef ProofToken;
     public readonly Utf8SliceRef Reason;
     public readonly long ExpiresAtUnixMs;
+    public readonly SecurityChallengeAssignmentPod NextAssignment;
+    public readonly SecurityChallengeProviderPayloadPod NextProviderPayload;
 }
 
 /// <summary>

@@ -637,7 +637,9 @@ public sealed class SecurityChallengeProofServiceTests
 
         public Task<bool> CreateAsync(SecurityChallengeEnvelopeState state, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<SecurityChallengeEnvelopeMemberResult> ValidateMemberAsync(SecurityChallengeEnvelopeMemberRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<SecurityChallengeEnvelopeMemberResult> ReserveMemberAsync(SecurityChallengeEnvelopeMemberRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<SecurityChallengeEnvelopeMemberResult> CompleteMemberAsync(SecurityChallengeEnvelopeMemberRequest request, SecurityChallengeProofPreparation? proofPreparation = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<SecurityChallengeEnvelopeMemberResult> CompleteIssuanceAsync(SecurityChallengeEnvelopeMemberRequest request, int memberIndex, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<SecurityChallengeEnvelopeMemberResult> CompleteProofAsync(SecurityChallengeEnvelopeMemberRequest request, string proofToken, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<bool> FailAsync(SecurityChallengeEnvelopeMemberRequest request, string reason, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<bool> RevokeAsync(SecurityChallengeEnvelopeBindingRequest request, string reason, CancellationToken cancellationToken = default) => throw new NotSupportedException();

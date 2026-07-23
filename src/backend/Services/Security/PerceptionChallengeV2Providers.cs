@@ -680,7 +680,13 @@ public abstract class PerceptionChallengeV2ProviderBase(
                 request.PolicyVersion,
                 request.EscalationLevel,
                 request.Traceparent,
-                taskKind),
+                taskKind)
+            {
+                ChallengeId = request.ChallengeId,
+                RiskScore = request.RiskScore,
+                EffectiveRiskScore = request.EffectiveRiskScore,
+                GeneratorDistributionPolicy = request.GeneratorDistributionPolicy
+            },
             cancellationToken);
 
         if (!issued.Succeeded || issued.Assignment is null)

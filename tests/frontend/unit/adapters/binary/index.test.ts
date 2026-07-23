@@ -138,7 +138,7 @@ function revocationArtifactPayload(): Uint8Array {
 }
 
 function securityChallengeVerifyPayload(): Uint8Array {
-  const pod = new Uint8Array(232)
+  const pod = new Uint8Array(968)
   const reason = textBytes('ok')
   pod[1] = 1
   writeInt32(pod, 12, 1)

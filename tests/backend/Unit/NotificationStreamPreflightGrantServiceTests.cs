@@ -229,9 +229,20 @@ public sealed class NotificationStreamPreflightGrantServiceTests
             CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
+        public Task<SecurityChallengeEnvelopeMemberResult> ReserveMemberAsync(
+            SecurityChallengeEnvelopeMemberRequest request,
+            CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
         public Task<SecurityChallengeEnvelopeMemberResult> CompleteMemberAsync(
             SecurityChallengeEnvelopeMemberRequest request,
             SecurityChallengeProofPreparation? proofPreparation = null,
+            CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<SecurityChallengeEnvelopeMemberResult> CompleteIssuanceAsync(
+            SecurityChallengeEnvelopeMemberRequest request,
+            int memberIndex,
             CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 

@@ -40,7 +40,9 @@ public sealed class HumanReadProofV1ChallengeProvider(
             return SecurityChallengeProviderIssueResult.Failed("human_read_proof_challenge_rejected");
         }
 
-        string challengeId = SecurityChallengeContracts.CreateChallengeId();
+        string challengeId = string.IsNullOrWhiteSpace(request.ChallengeId)
+            ? SecurityChallengeContracts.CreateChallengeId()
+            : request.ChallengeId;
         var payload = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["algorithm"] = Algorithm,

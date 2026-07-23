@@ -41,7 +41,9 @@ public sealed class AdminPasskeyStepUpV1ChallengeProvider(
 
         DateTimeOffset issuedAt = timeProvider.GetUtcNow();
         DateTimeOffset expiresAt = issuedAt.AddSeconds(ChallengeTtlSeconds);
-        string challengeId = SecurityChallengeContracts.CreateChallengeId();
+        string challengeId = string.IsNullOrWhiteSpace(request.ChallengeId)
+            ? SecurityChallengeContracts.CreateChallengeId()
+            : request.ChallengeId;
         var payload = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["algorithm"] = Algorithm,

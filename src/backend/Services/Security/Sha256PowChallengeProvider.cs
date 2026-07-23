@@ -31,7 +31,9 @@ public sealed class Sha256PowChallengeProvider(
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
 
-        string challengeId = SecurityChallengeContracts.CreateChallengeId();
+        string challengeId = string.IsNullOrWhiteSpace(request.ChallengeId)
+            ? SecurityChallengeContracts.CreateChallengeId()
+            : request.ChallengeId;
         string clientIp = request.Context.GetClientIp();
         string bindingContext = BuildPowBindingContext(
             challengeId,
