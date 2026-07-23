@@ -1,0 +1,15 @@
+[Collection(nameof(EnvironmentVariableCollection))]
+public sealed class ApprovedEnvironmentVariableTests
+{
+    public void DoesNotMutateProcessEnvironment()
+    {
+    }
+}
+
+public sealed class UnapprovedEnvironmentVariableTests
+{
+    public void MutatesProcessEnvironment()
+    {
+        Environment.SetEnvironmentVariable("FSUSBLOG_FIXTURE", "value");
+    }
+}

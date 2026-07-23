@@ -4,6 +4,7 @@ import { join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { parseMatrix } from './test-matrix/parse-matrix.mjs'
+import { maskCSharpTrivia } from './test/csharp-source-mask.mjs'
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const requirementCatalogPath = 'tests/backend/Fixtures/backend-test-requirements.json'
@@ -212,27 +213,69 @@ function scanEnvironmentVariableMutations(relativePath, source) {
     return []
   }
 
+  const masked = maskCSharpTrivia(source)
   const mutationIndexes = findRuleMatches(
-    source,
+    masked,
     /\bEnvironment\s*\.\s*SetEnvironmentVariable\s*\(/g
   )
   if (mutationIndexes.length === 0) {
     return []
   }
 
-  const approvedCollectionPattern =
-    /\[\s*Collection\s*\(\s*nameof\s*\(\s*EnvironmentVariableCollection\s*\)\s*\)\s*\]\s*(?:(?:public|internal|private|protected|sealed|abstract|partial)\s+)*class\s+[A-Za-z_][A-Za-z0-9_]*/u
-  if (approvedCollectionPattern.test(source)) {
-    return []
+  const collectionPattern =
+    /\[\s*Collection\s*\(\s*nameof\s*\(\s*EnvironmentVariableCollection\s*\)\s*\)\s*\]/u
+  const classes = []
+  const classPattern = /\bclass\s+([A-Za-z_][A-Za-z0-9_]*)\b/gu
+  for (const match of masked.matchAll(classPattern)) {
+    const declarationRemainder = masked.slice(match.index + match[0].length)
+    const openingOffset = declarationRemainder.search(/[\{;]/u)
+    if (openingOffset < 0) {
+      continue
+    }
+
+    const openingIndex = match.index + match[0].length + openingOffset
+    if (masked[openingIndex] !== '{') {
+      continue
+    }
+
+    let depth = 0
+    let bodyEnd = masked.length
+    for (let index = openingIndex; index < masked.length; index += 1) {
+      if (masked[index] === '{') {
+        depth += 1
+      } else if (masked[index] === '}') {
+        depth -= 1
+        if (depth === 0) {
+          bodyEnd = index + 1
+          break
+        }
+      }
+    }
+
+    const previousBrace = masked.lastIndexOf('}', match.index)
+    const previousSemicolon = masked.lastIndexOf(';', match.index)
+    const declarationStart = Math.max(0, previousBrace + 1, previousSemicolon + 1)
+    const declarationPrefix = masked.slice(declarationStart, match.index)
+    classes.push({
+      bodyStart: openingIndex,
+      bodyEnd,
+      approved: collectionPattern.test(declarationPrefix)
+    })
   }
 
-  return mutationIndexes.map(index => ({
-    path: relativePath,
-    line: lineNumberForIndex(source, index),
-    rule: 'unisolated-environment-variable-mutation',
-    message:
-      'use ScopedEnvironmentVariables and annotate the test class with EnvironmentVariableCollection'
-  }))
+  return mutationIndexes
+    .filter(index => !classes.some(currentClass =>
+      currentClass.approved &&
+      currentClass.bodyStart < index &&
+      index < currentClass.bodyEnd
+    ))
+    .map(index => ({
+      path: relativePath,
+      line: lineNumberForIndex(source, index),
+      rule: 'unisolated-environment-variable-mutation',
+      message:
+        'use ScopedEnvironmentVariables and annotate the owning test class with EnvironmentVariableCollection'
+    }))
 }
 
 function formatEnvironmentVariableViolation(violation) {
@@ -245,9 +288,12 @@ function verifyEnvironmentVariableGovernanceFixtures() {
     `${environmentVariableGovernanceFixtureDirectory}/approved-scoped-helper.fixture.cs.txt`
   const negativeFixture =
     `${environmentVariableGovernanceFixtureDirectory}/unapproved-direct-mutation.fixture.cs.txt`
+  const mixedOwnershipFixture =
+    `${environmentVariableGovernanceFixtureDirectory}/mixed-collection-ownership.fixture.cs.txt`
 
   requireFile(positiveFixture)
   requireFile(negativeFixture)
+  requireFile(mixedOwnershipFixture)
 
   const positiveViolations = scanEnvironmentVariableMutations(
     positiveFixture,
@@ -275,6 +321,26 @@ function verifyEnvironmentVariableGovernanceFixtures() {
   if (!diagnostic.includes(`${negativeFixture}:5 `)) {
     fail(
       'backend-environment-variable-governance negative fixture diagnostic must include file and line'
+    )
+  }
+
+  const mixedOwnershipViolations = scanEnvironmentVariableMutations(
+    mixedOwnershipFixture,
+    readFileSync(resolve(root, mixedOwnershipFixture), 'utf8')
+  )
+  if (mixedOwnershipViolations.length !== 1) {
+    fail(
+      'backend-environment-variable-governance mixed-class fixture must reject the unapproved owner'
+    )
+    return
+  }
+
+  const mixedOwnershipDiagnostic = formatEnvironmentVariableViolation(
+    mixedOwnershipViolations[0]
+  )
+  if (!mixedOwnershipDiagnostic.includes(`${mixedOwnershipFixture}:13 `)) {
+    fail(
+      'backend-environment-variable-governance mixed-class diagnostic must include file and line'
     )
   }
 }
