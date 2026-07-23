@@ -187,6 +187,26 @@
             ]
         },
         {
+            "id": "test-asset-audit-reconciliation",
+            "description": "A local source-bound audit reconciles every authoritative backend, frontend, Node, browser and native test ID with one producer outcome, structured blocked reasons, coverage universe and replacement evidence.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "config/testing/test-asset-audit-profile.json",
+                "tools/test/run-test-asset-audit.mjs",
+                "tools/test/test-asset-audit",
+                "tests/tools/test-asset-audit.test.mjs",
+                "docs/testing.md",
+                ".tmp/test-asset-audit/report.json"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "Unowned or multiply owned IDs, missing capabilities, stale replacements, frontend coverage-universe shrink, producer failure and secret-bearing logs must fail or remain explicitly blocked; none can be projected as pass.",
+            "minimumRequirement": "The report binds source/toolchain/package/browser/database identity and records discovered, executed, passed, failed, skipped and blocked IDs plus release-final/production producer mappings without a fixed-time gate.",
+            "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
             "id": "native-test-governance",
             "description": "Repository-owned CMake smoke and libFuzzer targets have semantic identities, exact matrix ownership and fail-closed lifecycle governance.",
             "owner": "WasmEngineAgent",

@@ -1,0 +1,70 @@
+{
+  "schema": "fsusblog.test-asset-audit-profile.v1",
+  "entrypoint": "npm run test:audit",
+  "fixedTimeGate": false,
+  "inventoryProducer": "tools/check-test-retention.mjs",
+  "replacementManifest": "tests/test-retention-replacements.json",
+  "coverageBaseline": "tests/test-coverage-retention-baseline.json",
+  "layers": [
+    {
+      "id": "backend-xunit",
+      "producerTier": "coverage-backend",
+      "requirements": ["dotnet10", "databaseFixture"],
+      "frameworks": ["xunit", "xunit-support"],
+      "command": ["bash", "tools/test.sh", "ci-tier", "coverage-backend"]
+    },
+    {
+      "id": "frontend-vitest",
+      "producerTier": "coverage-frontend",
+      "requirements": ["node", "packages"],
+      "frameworks": ["vitest", "test-support"],
+      "command": ["bash", "tools/test.sh", "ci-tier", "coverage-frontend"]
+    },
+    {
+      "id": "browser-contract",
+      "producerTier": "browser-contract",
+      "requirements": ["node", "dotnet10", "playwrightChromium", "databaseFixture"],
+      "frameworks": ["node-test", "node-script"],
+      "pathPrefixes": ["tests/browser-contract/"],
+      "command": ["bash", "tools/test.sh", "ci-tier", "browser-contract"]
+    },
+    {
+      "id": "playwright-diagnostics",
+      "producerTier": "browser-diagnostics-manual",
+      "requirements": ["node", "dotnet10", "playwrightAll", "databaseFixture"],
+      "frameworks": ["playwright-dynamic", "node-test", "node-script"],
+      "pathPrefixes": ["tests/browser-diagnostics/", "tests/frontend/e2e/"],
+      "command": ["bash", "tools/test.sh", "ci-tier", "browser-diagnostics-manual"]
+    },
+    {
+      "id": "native-smoke",
+      "producerTier": "native-smoke",
+      "requirements": ["nativeSmoke"],
+      "frameworks": ["native-smoke"],
+      "command": ["node", "tools/test/run-native-tests.mjs", "--profile", "smoke"]
+    },
+    {
+      "id": "native-fuzz-sanitizer",
+      "producerTier": "native-fuzz-sanitizer",
+      "requirements": ["nativeFuzz"],
+      "frameworks": ["native-fuzz"],
+      "command": ["node", "tools/test/run-native-tests.mjs", "--profile", "fuzz-sanitizer"]
+    },
+    {
+      "id": "node-governance",
+      "producerTier": "static-governance",
+      "requirements": ["node"],
+      "frameworks": ["node-test", "node-script", "shell"],
+      "excludePathPrefixes": ["tests/browser-contract/", "tests/browser-diagnostics/", "tests/frontend/e2e/"],
+      "command": ["bash", "tools/test.sh", "ci-tier", "static-governance"]
+    },
+    {
+      "id": "discovery-assets",
+      "producerTier": "authoritative-discovery",
+      "requirements": [],
+      "frameworks": ["support", "native-cmake", "native-corpus"],
+      "discoveryOnly": true,
+      "command": []
+    }
+  ]
+}

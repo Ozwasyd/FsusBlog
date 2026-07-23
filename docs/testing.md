@@ -885,6 +885,16 @@ tools/operations/cleanup-retention.sh
 
 `node --test tests/tools/test-asset-semantic-renames.test.mjs` 验证迁移目标存在、旧路径不存在、当前可执行 test ID 与 JSON evidence identity 均为语义名称，并检查当前仓库引用已切到新路径。路径迁移引起 frontend-style identity 变化时，必须通过该 inventory 显式授权；新增违规仍会被拒绝。
 
+## 全量测试资产审计
+
+`npm --prefix src/frontend run test:audit` 是本地、非日常门禁的权威审计入口。它依次执行 source-bound preflight、retention discovery、test ID 唯一归属、canonical producer 分层执行和最终对账；单层失败不会阻止其它安全层生成诊断，但最终报告保持失败。只需检查环境或 inventory 时可分别使用 `-- --phase preflight` 与 `-- --phase discovery`，迁移前后比较使用 `-- --baseline <prior-report>`。
+
+审计层覆盖 backend xUnit、frontend Vitest、Node/governance、Browser Contract、Playwright diagnostics 与 native smoke/fuzz；support、CMake graph 和 corpus 只作为 discovery asset，明确记录为不可独立执行。producer 继续由 matrix tier 权威拥有，audit 不建立第二套测试实现，也不成为 `fast`、production fresh 或 release-final 的依赖。
+
+preflight 从 lockfile 实际 registry 推导 package auth：公共 npm 不要求私有 token；只有 lockfile 指向私有 registry 时才要求环境 credential provider，报告只保存是否需要/是否存在，不保存值。缺 .NET 10、browser、database fixture 或 native toolchain 时，相关 test IDs 全部标记 `blocked` 并非零退出，不得算作 pass。日志写入 `.tmp/test-asset-audit/logs` 前会按 secret 环境变量值脱敏。
+
+最终 `.tmp/test-asset-audit/report.json` 包含 discovered/executed/passed/failed/skipped/blocked、每个未执行 ID 的结构化原因、replacement/retirement 状态、release-final/production producer mapping、coverage baseline，以及 `src/frontend/src` TypeScript/Vue include universe 的文件集合与 digest。baseline 比较若发现 test ID 无 live replacement 或 frontend coverage universe 静默缩小会 fail closed；不得通过放宽 include/exclude 或删除低覆盖生产文件虚增 coverage。
+
 ## Security domain 静态门禁
 
 `node tools/security/check-security-domain-layout.mjs` 先聚合校验安全域目录、policy metadata、

@@ -32,6 +32,7 @@
     "test:acceptance": "bash ../../tools/test.sh acceptance",
     "test:visual": "bash ../../tools/test.sh visual",
     "test:production": "bash ../../tools/test.sh production",
+    "test:audit": "node ../../tools/test/run-test-asset-audit.mjs",
     "test:unit:fast": "npm run check:public-page-manifest-sync && vitest run --config vitest.config.ts",
     "test:unit:coverage": "npm run check:public-page-manifest-sync && vitest run --config vitest.config.ts --coverage",
     "coverage:unit-core": "npm run check:public-page-manifest-sync && vitest run --config vitest.unit-core.config.ts --coverage",

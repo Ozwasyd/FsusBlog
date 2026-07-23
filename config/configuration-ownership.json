@@ -138,6 +138,12 @@
             "pathType": "file"
         },
         {
+            "id": "test-asset-audit-profile",
+            "owner": "test-asset-audit-reconciliation",
+            "canonicalPath": "config/testing/test-asset-audit-profile.json",
+            "pathType": "file"
+        },
+        {
             "id": "zk-verification-key-manifests",
             "owner": "backend-zk-security",
             "canonicalPath": "config/zk",

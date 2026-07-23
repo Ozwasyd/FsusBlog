@@ -1438,6 +1438,7 @@ tiers:
           - matrix-integrity
           - evidence-schema
           - test-retention-classification
+          - test-asset-audit-reconciliation
           - integrity-proof-docs-consistency
           - immutable-release-identity
           - wasm-release-artifact-ownership
@@ -1489,6 +1490,7 @@ tiers:
               .tmp/release-evidence/flaky/registry.json,
               .tmp/docs/integrity-proof-docs.json,
               .tmp/release-evidence/backend-physical-topology.json,
+              .tmp/test-asset-audit,
           ]
       evidence:
           - .tmp/gate-logs
@@ -1506,9 +1508,14 @@ tiers:
           - .tmp/docs/integrity-proof-docs.json
           - .tmp/release-evidence/backend-physical-topology.json
           - config/testing/native-test-assets.json
+          - config/testing/test-asset-audit-profile.json
           - tools/test/native-test-governance.mjs
           - tools/test/run-native-tests.mjs
           - tests/tools/native-test-governance.test.mjs
+          - tools/test/run-test-asset-audit.mjs
+          - tools/test/test-asset-audit
+          - tests/tools/test-asset-audit.test.mjs
+          - .tmp/test-asset-audit/report.json
           - docs/testing.md
           - tests/backend/runtime-fallback-milestones.json
           - tests/backend/legacy-identity-retirement-evidence.json
