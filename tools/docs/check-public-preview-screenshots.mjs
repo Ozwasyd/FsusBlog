@@ -163,7 +163,9 @@ for (const token of [
 const playwrightConfiguration = read('src/frontend/playwright.config.ts');
 for (const token of [
     'FSUSBLOG_PUBLIC_PREVIEW_DOCS_CAPTURE',
-    '--disable-gpu'
+    '--disable-gpu',
+    '--disable-lcd-text',
+    '--disable-font-subpixel-positioning'
 ])
 {
     includes('src/frontend/playwright.config.ts', playwrightConfiguration, token);

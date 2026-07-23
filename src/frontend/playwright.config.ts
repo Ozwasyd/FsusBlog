@@ -96,7 +96,9 @@ const chromiumLaunchOptions: {
   args: [
     '--no-sandbox',
     '--disable-dev-shm-usage',
-    ...(process.env.FSUSBLOG_PUBLIC_PREVIEW_DOCS_CAPTURE === '1' ? ['--disable-gpu'] : [])
+    ...(process.env.FSUSBLOG_PUBLIC_PREVIEW_DOCS_CAPTURE === '1'
+      ? ['--disable-gpu', '--disable-lcd-text', '--disable-font-subpixel-positioning']
+      : [])
   ]
 }
 
