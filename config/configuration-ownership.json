@@ -132,6 +132,12 @@
             "pathType": "file"
         },
         {
+            "id": "native-test-assets",
+            "owner": "native-test-governance",
+            "canonicalPath": "config/testing/native-test-assets.json",
+            "pathType": "file"
+        },
+        {
             "id": "zk-verification-key-manifests",
             "owner": "backend-zk-security",
             "canonicalPath": "config/zk",
