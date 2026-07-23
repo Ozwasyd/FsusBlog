@@ -1,75 +1,14 @@
 #!/usr/bin/env node
-import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
-import { relative, sep } from 'node:path'
-
-const commitPattern = /^[0-9a-f]{40}$/u
-const digestPattern = /^[0-9a-f]{64}$/u
-
-export function sha256(value) {
-  return createHash('sha256').update(value).digest('hex')
-}
-
-function canonicalize(value) {
-  if (Array.isArray(value)) return value.map(canonicalize)
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.keys(value).sort().map((key) => [key, canonicalize(value[key])])
-    )
-  }
-  return value
-}
-
-export function canonicalJson(value) {
-  return JSON.stringify(canonicalize(value))
-}
-
-function normalizedPath(value) {
-  const path = String(value ?? '').trim().replaceAll('\\', '/').replace(/^\.\/+/u, '')
-  if (!path || path.startsWith('/') || path === '..' || path.startsWith('../') || path.includes('/../')) {
-    throw new Error(`changed path must be repository-relative: ${value}`)
-  }
-  return path
-}
-
-function globExpression(pattern) {
-  let result = '^'
-  for (let index = 0; index < pattern.length; index += 1) {
-    const character = pattern[index]
-    if (character === '*' && pattern[index + 1] === '*') {
-      const followedBySlash = pattern[index + 2] === '/'
-      result += followedBySlash ? '(?:.*/)?' : '.*'
-      index += followedBySlash ? 2 : 1
-      continue
-    }
-    if (character === '*') {
-      result += '[^/]*'
-      continue
-    }
-    if (character === '?') {
-      result += '[^/]'
-      continue
-    }
-    result += /[\\^$.*+?()[\]{}|]/u.test(character) ? `\\${character}` : character
-  }
-  return new RegExp(`${result}$`, 'u')
-}
-
-function matches(path, patterns) {
-  return patterns.some((pattern) => globExpression(normalizedPath(pattern)).test(path))
-}
-
-function requireSourceState(sourceState) {
-  const commit = String(sourceState?.commit ?? '').trim()
-  const worktreeFingerprint = String(sourceState?.worktreeFingerprint ?? '').trim()
-  if (!commitPattern.test(commit)) {
-    throw new Error('sourceState.commit must be a 40-character lowercase Git SHA')
-  }
-  if (!digestPattern.test(worktreeFingerprint)) {
-    throw new Error('sourceState.worktreeFingerprint must be a SHA-256 digest')
-  }
-  return { commit, worktreeFingerprint }
-}
+import {
+  canonicalJson,
+  requireChangedCriticalSourceState,
+  sha256
+} from './changed-critical-mutation-identity.mjs'
+import {
+  matchesChangedPath,
+  normalizeChangedPath,
+  resolveChangedCriticalSourceProject
+} from './changed-critical-mutation-support.mjs'
 
 export function validateChangedCriticalCatalog(catalog) {
   if (catalog?.schema !== 'fsusblog.changed-critical-mutation-catalog.v1' || catalog.version !== 1) {
@@ -118,17 +57,6 @@ export function validateChangedCriticalCatalog(catalog) {
   return catalog
 }
 
-function resolveSourceProject(path, sourceProjects) {
-  const candidates = sourceProjects
-    .map((project) => normalizedPath(project).replace(/\/+$/u, ''))
-    .filter((project) => path.startsWith(`${project}/`))
-    .sort((left, right) => right.length - left.length)
-  if (candidates.length === 0) {
-    throw new Error(`critical source path has no source-project mapping: ${path}`)
-  }
-  return candidates[0]
-}
-
 export function selectChangedCriticalMutation({
   catalog,
   rawCatalog,
@@ -136,16 +64,16 @@ export function selectChangedCriticalMutation({
   sourceState
 }) {
   validateChangedCriticalCatalog(catalog)
-  const normalizedSourceState = requireSourceState(sourceState)
-  const uniquePaths = [...new Set(changedPaths.map(normalizedPath))].sort()
+  const normalizedSourceState = requireChangedCriticalSourceState(sourceState)
+  const uniquePaths = [...new Set(changedPaths.map(normalizeChangedPath))].sort()
   const catalogBytes = rawCatalog ?? Buffer.from(`${JSON.stringify(catalog, null, 2)}\n`)
   const catalogDigest = sha256(catalogBytes)
   const selectedDomains = new Map()
   const unmappedCriticalPaths = []
 
   for (const path of uniquePaths) {
-    const domains = catalog.domains.filter((domain) => matches(path, domain.sourcePatterns))
-    if (matches(path, catalog.criticalSourcePatterns) && domains.length === 0) {
+    const domains = catalog.domains.filter((domain) => matchesChangedPath(path, domain.sourcePatterns))
+    if (matchesChangedPath(path, catalog.criticalSourcePatterns) && domains.length === 0) {
       unmappedCriticalPaths.push(path)
       continue
     }
@@ -158,7 +86,7 @@ export function selectChangedCriticalMutation({
         sourceMappings: [],
         testOwners: domain.testOwners.map(({ id, filter }) => ({ id, filter }))
       }
-      const sourceProject = resolveSourceProject(path, domain.mutationPolicy.sourceProjects)
+      const sourceProject = resolveChangedCriticalSourceProject(path, domain.mutationPolicy.sourceProjects)
       current.reasons.push(`changed:${path}`)
       current.mutateFiles.push(path)
       current.sourceMappings.push({
@@ -258,18 +186,4 @@ export function createChangedCriticalStrykerConfig(selection, catalog, sourcePro
       'ignore-methods': catalog.defaults.ignoreMethods
     }
   }
-}
-
-export function readChangedPaths(path) {
-  const raw = readFileSync(path, 'utf8')
-  if (path.endsWith('.json')) {
-    const parsed = JSON.parse(raw)
-    if (!Array.isArray(parsed)) throw new Error('changed-path JSON must be an array')
-    return parsed
-  }
-  return raw.split(/\r?\n/u).map((entry) => entry.trim()).filter(Boolean)
-}
-
-export function repoRelative(root, path) {
-  return relative(root, path).split(sep).join('/')
 }

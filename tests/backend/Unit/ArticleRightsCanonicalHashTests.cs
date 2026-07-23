@@ -201,9 +201,15 @@ public sealed class ArticleRightsCanonicalHashTests
     public void ComputeHash_NormalizesEveryCarriageReturnForm(string source, string canonical)
     {
         string sourceHash = ArticleRightsCanonicalHashV1.ComputeHashHex(
-            Baseline() with { RightsStatement = source });
+            Baseline() with
+            {
+                RightsStatement = source,
+            });
         string canonicalHash = ArticleRightsCanonicalHashV1.ComputeHashHex(
-            Baseline() with { RightsStatement = canonical });
+            Baseline() with
+            {
+                RightsStatement = canonical,
+            });
 
         Assert.Equal(canonicalHash, sourceHash);
     }

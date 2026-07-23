@@ -3,7 +3,7 @@
     "generatedBy": "tools/governance/check-rule-platform.mjs --write-registry",
     "inventory": {
         "packageScriptCount": 196,
-        "implementationCount": 342
+        "implementationCount": 343
     },
     "rules": [
         {
@@ -13295,6 +13295,34 @@
                 "mode": "delegated-implementation",
                 "implementation": "tools/test/lanes/backend-golden.sh",
                 "executionKey": "governance:file:tools/test/lanes/backend-golden.sh",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Implementation.ToolsTestLanesBackendMutationChangedCriticalSh",
+            "externalId": "tools/test/lanes/backend-mutation-changed-critical.sh",
+            "symbol": "CheckToolsTestLanesBackendMutationChangedCritical",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tools/test/lanes/backend-mutation-changed-critical.sh",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/test/lanes/backend-mutation-changed-critical.sh",
+                "executionKey": "governance:file:tools/test/lanes/backend-mutation-changed-critical.sh",
                 "receiptCompatible": true
             }
         },

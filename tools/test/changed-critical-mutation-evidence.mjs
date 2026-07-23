@@ -4,7 +4,7 @@ import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { createStrykerAuthority } from './check-stryker-report.mjs'
-import { canonicalJson, sha256 } from './changed-critical-mutation.mjs'
+import { canonicalJson, sha256 } from './changed-critical-mutation-identity.mjs'
 
 function assertEqual(actual, expected, label) {
   if (actual !== expected) throw new Error(`${label} mismatch`)

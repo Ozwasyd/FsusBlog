@@ -6,11 +6,9 @@ import { fileURLToPath } from 'node:url'
 
 import {
   createChangedCriticalStrykerConfig,
-  readChangedPaths,
-  repoRelative,
-  selectChangedCriticalMutation,
-  sha256
+  selectChangedCriticalMutation
 } from './changed-critical-mutation.mjs'
+import { readChangedPaths, repoRelative } from './changed-critical-mutation-support.mjs'
 import {
   createChangedCriticalMutationAuthority
 } from './changed-critical-mutation-evidence.mjs'
@@ -70,6 +68,35 @@ function parseArguments(args) {
   return options
 }
 
+function runPhysicalMutations({ selection, catalog, runDirectory, root, physicalRuns }) {
+  const restore = spawnSync('dotnet', ['tool', 'restore'], { cwd: root, stdio: 'inherit' })
+  if (restore.status !== 0) return restore
+  for (const closure of selection.projectClosures) {
+    const runName = closure.sourceProject.replaceAll('/', '-')
+    const physicalOutput = resolve(runDirectory, 'physical', runName)
+    const config = createChangedCriticalStrykerConfig(selection, catalog, closure.sourceProject)
+    const configPath = resolve(runDirectory, 'configs', `${runName}.json`)
+    writeJsonAtomic(configPath, config)
+    const result = spawnSync(
+      'dotnet',
+      ['tool', 'run', 'dotnet-stryker', '--config-file', configPath, '--output', physicalOutput],
+      {
+        cwd: resolve(root, closure.sourceProject),
+        stdio: 'inherit',
+        env: { ...process.env, FSUSBLOG_MUTATION_BUILD: '1' }
+      }
+    )
+    if (result.status !== 0) return result
+    physicalRuns.push({
+      sourceProject: closure.sourceProject,
+      config,
+      configPath,
+      reportPath: resolve(physicalOutput, 'reports/changed-critical-mutation.json')
+    })
+  }
+  return { status: 0 }
+}
+
 function main() {
   const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
   const options = parseArguments(process.argv.slice(2))
@@ -93,34 +120,7 @@ function main() {
   const physicalRuns = []
   const run = executeChangedCriticalSelection({
     selection,
-    spawnStryker: () => {
-      const restore = spawnSync('dotnet', ['tool', 'restore'], { cwd: root, stdio: 'inherit' })
-      if (restore.status !== 0) return restore
-      for (const closure of selection.projectClosures) {
-        const runName = closure.sourceProject.replaceAll('/', '-')
-        const physicalOutput = resolve(runDirectory, 'physical', runName)
-        const config = createChangedCriticalStrykerConfig(selection, catalog, closure.sourceProject)
-        const configPath = resolve(runDirectory, 'configs', `${runName}.json`)
-        writeJsonAtomic(configPath, config)
-        const result = spawnSync(
-          'dotnet',
-          ['tool', 'run', 'dotnet-stryker', '--config-file', configPath, '--output', physicalOutput],
-          {
-            cwd: resolve(root, closure.sourceProject),
-            stdio: 'inherit',
-            env: { ...process.env, FSUSBLOG_MUTATION_BUILD: '1' }
-          }
-        )
-        if (result.status !== 0) return result
-        physicalRuns.push({
-          sourceProject: closure.sourceProject,
-          config,
-          configPath,
-          reportPath: resolve(physicalOutput, 'reports/changed-critical-mutation.json')
-        })
-      }
-      return { status: 0 }
-    }
+    spawnStryker: () => runPhysicalMutations({ selection, catalog, runDirectory, root, physicalRuns })
   })
   writeJsonAtomic(resolve(runDirectory, 'run.json'), run)
   if (run.status === 'empty') {
