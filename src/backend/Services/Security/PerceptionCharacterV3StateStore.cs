@@ -206,7 +206,7 @@ return 0
             RedisResult result = await EvaluateAfterPendingAsync(
                 TransitionScript,
                 [key, ActiveIdentityKey(x)],
-                [operation, now, correct ? "1" : "0", operationId, x.EnvelopeId, x.Action, x.RouteKey, x.SubjectHash, x.DeviceBindingHash, x.DeviceAuthorityHash, x.ClientIpBindingHash, x.PolicyVersion, x.ArtifactHash, x.Representation, x.MediaType, x.PhysicalWidth, x.PhysicalHeight, x.DisplayWidth, x.DisplayHeight, x.TokenHash, x.ChallengeId],
+                [operation, now, correct ? "1" : "0", operationId, x.EnvelopeId, x.Action, x.RouteKey, x.SubjectHash, x.DeviceBindingHash, x.DeviceAuthorityHash, x.ClientIpBindingHash, x.PolicyVersion, x.ArtifactHash, x.Representation, x.MediaType, (int)x.PhysicalWidth, (int)x.PhysicalHeight, (int)x.DisplayWidth, (int)x.DisplayHeight, x.TokenHash, x.ChallengeId],
                 ct).ConfigureAwait(false);
             if (_discardReply?.Invoke(PerceptionCharacterV3RedisFaultPoint.TransitionReply) == true)
                 throw new OperationReplyLostException(key, operationId);
@@ -230,7 +230,7 @@ return 0
         try
         {
             RedisValue[] replacementArguments = CreateArguments(replacement);
-            RedisValue[] arguments = [now, operationId, expected.ChallengeId, expected.EnvelopeId, expected.Action, expected.RouteKey, expected.SubjectHash, expected.DeviceBindingHash, expected.DeviceAuthorityHash, expected.ClientIpBindingHash, expected.PolicyVersion, expected.ArtifactHash, expected.Representation, expected.MediaType, expected.PhysicalWidth, expected.PhysicalHeight, expected.DisplayWidth, expected.DisplayHeight, expected.TokenHash, .. replacementArguments];
+            RedisValue[] arguments = [now, operationId, expected.ChallengeId, expected.EnvelopeId, expected.Action, expected.RouteKey, expected.SubjectHash, expected.DeviceBindingHash, expected.DeviceAuthorityHash, expected.ClientIpBindingHash, expected.PolicyVersion, expected.ArtifactHash, expected.Representation, expected.MediaType, (int)expected.PhysicalWidth, (int)expected.PhysicalHeight, (int)expected.DisplayWidth, (int)expected.DisplayHeight, expected.TokenHash, .. replacementArguments];
             RedisResult result = await EvaluateAfterPendingAsync(
                 ReplaceScript,
                 [oldKey, Key(replacement.ChallengeId), ActiveIdentityKey(expected), ActiveIdentityKey(replacement)],
@@ -336,7 +336,7 @@ return 0
         => ["status", "active", "attempts", 0, "envelopeId", record.EnvelopeId, "action", record.Action, "routeKey", record.RouteKey,
             "subjectHash", record.SubjectHash, "deviceHash", record.DeviceBindingHash, "deviceAuthorityHash", record.DeviceAuthorityHash, "ipHash", record.ClientIpBindingHash, "policyVersion", record.PolicyVersion,
             "artifactHash", record.ArtifactHash, "representation", record.Representation, "mediaType", record.MediaType,
-            "physicalWidth", record.PhysicalWidth, "physicalHeight", record.PhysicalHeight, "displayWidth", record.DisplayWidth, "displayHeight", record.DisplayHeight,
+            "physicalWidth", (int)record.PhysicalWidth, "physicalHeight", (int)record.PhysicalHeight, "displayWidth", (int)record.DisplayWidth, "displayHeight", (int)record.DisplayHeight,
             "issuedAt", record.IssuedAtUnixMs, "expiresAt", record.ExpiresAtUnixMs,
             "tokenKeyVersion", record.TokenKeyVersion, "answerKeyVersion", record.AnswerKeyVersion, "tokenHash", record.TokenHash];
 

@@ -108,7 +108,6 @@ public sealed class PerceptionCharacterV3StartupGate(IPerceptionCharacterV3KeyRi
     {
         _ = keys.CurrentTokenVersion;
         _ = PerceptionCharacterV3CanonicalContract.Value;
-        _ = PerceptionCharacterV3SpokenAtlasContract.Value;
         return Task.CompletedTask;
     }
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;

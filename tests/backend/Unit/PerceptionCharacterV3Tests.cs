@@ -101,16 +101,31 @@ public sealed class PerceptionCharacterV3Tests
             PhysicalWidth = 512,
             PhysicalHeight = 192
         }).IsValid);
-        Assert.False(PerceptionCharacterV3Contracts.ValidateIssue(audio with { MediaType = "audio/wav" }).IsValid);
+        Assert.False(PerceptionCharacterV3Contracts.ValidateIssue(audio with
+        {
+            MediaType = "audio/wav"
+        }).IsValid);
         byte[] badPngCrc = [.. visual.MediaBytes];
         badPngCrc[40] ^= 1;
-        Assert.False(PerceptionCharacterV3Contracts.ValidateIssue(visual with { MediaBytes = badPngCrc }).IsValid);
-        Assert.False(PerceptionCharacterV3Contracts.ValidateIssue(visual with { MediaBytes = [.. visual.MediaBytes, 0] }).IsValid);
+        Assert.False(PerceptionCharacterV3Contracts.ValidateIssue(visual with
+        {
+            MediaBytes = badPngCrc
+        }).IsValid);
+        Assert.False(PerceptionCharacterV3Contracts.ValidateIssue(visual with
+        {
+            MediaBytes = [.. visual.MediaBytes, 0]
+        }).IsValid);
         byte[] badOggCrc = [.. audio.MediaBytes];
         badOggCrc[22] ^= 1;
-        Assert.False(PerceptionCharacterV3Contracts.ValidateIssue(audio with { MediaBytes = badOggCrc }).IsValid);
+        Assert.False(PerceptionCharacterV3Contracts.ValidateIssue(audio with
+        {
+            MediaBytes = badOggCrc
+        }).IsValid);
         byte[] polyglot = [.. audio.MediaBytes, .. Encoding.ASCII.GetBytes("OpusHeadOpusTags")];
-        Assert.False(PerceptionCharacterV3Contracts.ValidateIssue(audio with { MediaBytes = polyglot }).IsValid);
+        Assert.False(PerceptionCharacterV3Contracts.ValidateIssue(audio with
+        {
+            MediaBytes = polyglot
+        }).IsValid);
     }
 
     [Fact]
