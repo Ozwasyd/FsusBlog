@@ -3863,6 +3863,29 @@
             ]
         },
         {
+            "id": "isolated-flaky-observation-lane",
+            "description": "Explicit test candidates run in isolated local processes to produce source-, runner- and producer-bound attempt evidence and deterministic flaky classifications without changing canonical correctness.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "tools/test-observations/flaky-observer-execution.mjs",
+                "tools/test-observations/flaky-observer.mjs",
+                "config/schemas/flaky-observation-set.schema.json",
+                "config/testing/flaky-observation-candidates.json",
+                "config/configuration-ownership.json",
+                "tests/tools/fixtures/flaky-observation-command.mjs",
+                "tests/tools/flaky-observation-lane.test.mjs",
+                "docs/testing.md",
+                "docs/testing/evidence-projection-contract.md"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "Reject implicit candidate expansion, incomplete attempt evidence, source/worktree/runner/producer drift, modified raw evidence, non-contiguous attempts, classification drift, or any observation claim that changes canonical correctness or satisfies release correctness.",
+            "minimumRequirement": "Deterministic local fixtures must cover stable pass, stable fail, alternating outcome, distinct failure signatures, environment failure, insufficient samples, identity mismatch, explicit manifest selection, raw evidence tampering and immutable canonical first-failure evidence.",
+            "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
             "id": "testing-evidence-governance",
             "description": "Browserless correctness, the single release Browser Contract, and scheduled/manual diagnostics have separate source-bound receipts, retry semantics, migration coverage and aggregate authority.",
             "owner": "ServerContractAgent",

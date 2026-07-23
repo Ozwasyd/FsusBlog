@@ -898,6 +898,17 @@
             ]
         },
         {
+            "file": "tests/tools/flaky-observation-lane.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
             "file": "tests/tools/flaky-test-governance.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",

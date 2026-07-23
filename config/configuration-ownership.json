@@ -110,6 +110,18 @@
             "pathType": "file"
         },
         {
+            "id": "flaky-observation-schema",
+            "owner": "flaky-observation-lane",
+            "canonicalPath": "config/schemas/flaky-observation-set.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "flaky-observation-candidates",
+            "owner": "flaky-observation-lane",
+            "canonicalPath": "config/testing/flaky-observation-candidates.json",
+            "pathType": "file"
+        },
+        {
             "id": "zk-verification-key-manifests",
             "owner": "backend-zk-security",
             "canonicalPath": "config/zk",

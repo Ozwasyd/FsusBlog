@@ -1475,6 +1475,7 @@ tiers:
           - backend-operations-readiness-behavior
           - pod-binary-codec-batch-allocation
           - per-test-observation-ledger
+          - isolated-flaky-observation-lane
       artifacts:
           [
               .tmp/gate-logs,
@@ -1596,10 +1597,16 @@ tiers:
           - tools/test-matrix/scheduler.mjs
           - config/schemas/test-observation-artifact.schema.json
           - config/schemas/test-matrix-priority-score.schema.json
+          - tools/test-observations/flaky-observer-execution.mjs
+          - tools/test-observations/flaky-observer.mjs
+          - config/schemas/flaky-observation-set.schema.json
+          - config/testing/flaky-observation-candidates.json
           - tests/fixtures/test-observations
           - tests/fixtures/test-matrix-priority
           - tests/tools/test-observation-ledger.test.mjs
           - tests/tools/test-matrix-priority-score.test.mjs
+          - tests/tools/fixtures/flaky-observation-command.mjs
+          - tests/tools/flaky-observation-lane.test.mjs
           - docs/testing.md
           - docs/testing/evidence-projection-contract.md
           - tools/test/lanes/static-governance.sh

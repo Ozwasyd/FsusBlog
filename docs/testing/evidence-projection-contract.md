@@ -168,3 +168,54 @@ real waiting:
 node tools/test-matrix/run-priority-fixture.mjs tests/fixtures/test-matrix-priority/ready-set.json
 node --test tests/tools/test-matrix-priority-score.test.mjs
 ```
+
+## Isolated flaky observation lane
+
+The flaky observer is diagnostic sampling, not a retry wrapper. It never participates
+in the canonical correctness process and never turns a later pass into a release
+success. Candidate selection is explicit:
+
+```bash
+node tools/test-observations/flaky-observer.mjs \
+  --test-id node-test:tests/tools/example.test.mjs#example \
+  --attempts 5 \
+  --seed 100 \
+  --canonical-evidence .tmp/release-evidence/flaky/unit-correctness.json \
+  --output .tmp/test-observations/example.json \
+  -- node --test tests/tools/example.test.mjs
+```
+
+Alternatively, `--manifest config/testing/flaky-observation-candidates.json` reads
+only the versioned `fsusblog.flaky-observation-candidates.v1` entries. An empty
+checked-in registry is intentional: adding a candidate is an explicit, reviewable
+configuration change. The command never discovers or repeats Production fresh,
+updates `tests/flaky.yml`, quarantines tests, or changes retry policy.
+
+Every attempt is a new process with a deterministic seed. The set and each attempt
+bind the full source commit, current worktree fingerprint, runner identity digest and
+producer digest. The producer digest binds the command plus repository-local command
+files; the separate raw evidence digest binds stdout, stderr and optional structured
+attempt metadata. Source, worktree, runner or producer drift aborts the set instead
+of merging incomparable samples.
+
+Classification is deterministic. Uniform passes are `stable-pass`; uniform failures
+with one signature are `stable-fail`; mixed pass/fail is `outcome-inconsistent`;
+uniform failures with multiple signatures are `signature-inconsistent`; uniformly
+environmental failures are `environment-failure`; and fewer than the minimum usable
+samples (or an unsupported outcome topology) is `insufficient-samples`. Browser
+process/environment failures remain distinct from product assertions.
+
+When `--canonical-evidence` is supplied, its digest and first attempt outcome are
+copied as a read-only binding. Both the set and binding state that observation does
+not affect canonical correctness and cannot satisfy release correctness. Validate
+the versioned schema, classification, bindings and live raw evidence locally:
+
+```bash
+node tools/test-observations/flaky-observer.mjs check \
+  --evidence .tmp/test-observations/example.json
+
+node --test tests/tools/flaky-observation-lane.test.mjs
+```
+
+No remote runner, network service, elapsed-day threshold or online sample quota is
+part of this contract.
