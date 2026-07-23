@@ -2947,7 +2947,7 @@
                 "tests/frontend/e2e/visual/console-visual.spec.ts",
                 "tests/frontend/checks/static/check-visual-density-governance.mjs",
                 "src/frontend/tests/frontend/fixtures/adminDashboardWorkbenchVisual.ts",
-                "docs/issue-1022-admin-dashboard-handoff.md",
+                "docs/frontend/admin-dashboard-workbench.md",
                 ".tmp/visual/console"
             ],
             "assertionType": "browser",
@@ -2996,7 +2996,8 @@
                 "tests/frontend/unit/router/index.test.ts",
                 "tests/frontend/e2e/visual/console-visual.spec.ts",
                 "tests/frontend/checks/static/check-visual-density-governance.mjs",
-                "docs/issue-1023-admin-ia-handoff.md",
+                "docs/frontend/admin-information-architecture.md",
+                "docs/frontend/account-navigation.md",
                 ".tmp/visual/console"
             ],
             "assertionType": "browser",
@@ -3955,6 +3956,11 @@
                 "docs/design/reading-typography.md",
                 "docs/design/page-title-scale.md",
                 "docs/frontend/layout-visual-governance.md",
+                "tests/tools/account-layout-document-authority.test.mjs",
+                "docs/frontend/account-layout-ownership.md",
+                "docs/frontend/account-navigation.md",
+                "docs/frontend/account-style-ownership.md",
+                "docs/frontend/account-motion.md",
                 "docs/index.md"
             ],
             "assertionType": "integration",

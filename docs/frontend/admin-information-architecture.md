@@ -2,6 +2,8 @@
 
 The account shell separates persistent modules from module-local destinations. It does not flatten every admin route into the desktop sidebar.
 
+This document owns the admin module taxonomy, leaf responsibility and filtering semantics. Shared identity/admin frame geometry, navigation rendering, CSS and motion are defined by [Account layout ownership](account-layout-ownership.md), [Account navigation](account-navigation.md), [Account style ownership](account-style-ownership.md) and [Account motion](account-motion.md).
+
 ## Persistent modules
 
 A fully authorized admin sees six first-level modules, below the hard limit of seven:

@@ -25,6 +25,24 @@ function expectIncludes(file, source, token, message)
     }
 }
 
+function expectMatches(file, source, pattern, message)
+{
+    if (!pattern.test(source))
+    {
+        fail(file, message);
+    }
+}
+
+function escapeRegExp(value)
+{
+    return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+}
+
+function expectSelector(file, source, selector, message)
+{
+    expectMatches(file, source, new RegExp(`${escapeRegExp(selector)}\\s*\\{`, 'u'), message);
+}
+
 function expectNotMatches(file, source, pattern, message)
 {
     if (pattern.test(source))
@@ -44,7 +62,7 @@ const identityFramePath = 'src/frontend/src/layouts/AccountIdentityFrame.vue';
 const adminFramePath = 'src/frontend/src/layouts/AdminWorkspaceFrame.vue';
 const pageKindPath = 'src/frontend/src/layouts/accountPageKind.ts';
 const userBanDialogPath = 'src/frontend/src/components/admin/users/UserBanDialog.vue';
-const docsPath = 'docs/design/task-surface-geometry.md';
+const docsPath = 'docs/frontend/account-style-ownership.md';
 
 const base = read(basePath);
 const identity = read(identityPath);
@@ -87,38 +105,38 @@ for (const [file, source] of [[basePath, base], [identityPath, identity], [admin
 }
 
 for (const token of [
-    '.account-route-frame {',
-    '.account-route-frame__sidebar {',
-    '.account-frame-outlet {',
-    '.account-mobile-drawer {',
-    '.account-mobile-drawer-trigger {'
+    '.account-route-frame',
+    '.account-route-frame__sidebar',
+    '.account-frame-outlet',
+    '.account-mobile-drawer',
+    '.account-mobile-drawer-trigger'
 ])
 {
-    expectIncludes(basePath, base, token, `shared base layer is missing ${token}`);
+    expectSelector(basePath, base, token, `shared base layer is missing ${token}`);
 }
 for (const token of [
-    '.account-identity-frame .account-frame-outlet {',
-    '.account-identity-frame .account-frame-outlet--takeover {',
-    '.account-identity-frame .identity-page-shell--inbox {'
+    '.account-identity-frame .account-frame-outlet',
+    '.account-identity-frame .account-frame-outlet--takeover',
+    '.account-identity-frame .identity-page-shell--inbox'
 ])
 {
-    expectIncludes(identityPath, identity, token, `identity layer is missing ${token}`);
+    expectSelector(identityPath, identity, token, `identity layer is missing ${token}`);
 }
 for (const token of [
-    '.admin-workspace-frame {',
-    '.admin-workspace-frame .account-frame-outlet {',
-    '.admin-workspace-frame .admin-data-surface {',
-    '.admin-workspace-frame .admin-page-shell--settings {'
+    '.admin-workspace-frame',
+    '.admin-workspace-frame .account-frame-outlet',
+    '.admin-workspace-frame .admin-data-surface',
+    '.admin-workspace-frame .admin-page-shell--settings'
 ])
 {
-    expectIncludes(adminPath, admin, token, `admin layer is missing ${token}`);
+    expectSelector(adminPath, admin, token, `admin layer is missing ${token}`);
 }
 
 expectNotMatches(layoutPath, layout, /<style\b/u,
     'AccountLayout must not retain a fourth account CSS owner');
 expectNotMatches(layoutPath, layout, /\.el-[a-z0-9_-]+/u,
     'AccountLayout must not rewrite FsusUI primitive internals');
-expectIncludes(routeFramePath, routeFrame, 'class="account-route-frame" :class="frameClass"',
+expectMatches(routeFramePath, routeFrame, /class="account-route-frame"\s+:class="frameClass"/u,
     'shared frame must expose the explicit frame-root hook');
 expectIncludes(routeFramePath, routeFrame, 'class="account-frame-outlet"',
     'shared frame must expose the outlet hook');
@@ -132,11 +150,11 @@ expectIncludes(userBanDialogPath, userBanDialog, 'modal-class="admin-workspace-f
     'teleported admin dialog must retain the admin frame root');
 
 for (const token of [
-    'Account CSS ownership',
+    'Account style ownership',
     '`account-shell-base.css`',
     '`account-identity.css`',
     '`admin-workspace.css`',
-    'zero FsusUI internal-selector exemptions'
+    'cannot reach into FsusUI component internals'
 ])
 {
     expectIncludes(docsPath, docs, token, `ownership documentation is missing ${token}`);

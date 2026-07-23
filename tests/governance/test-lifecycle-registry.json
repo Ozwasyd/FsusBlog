@@ -222,6 +222,17 @@
             ]
         },
         {
+            "file": "tests/tools/account-layout-document-authority.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "behavior"
+            ]
+        },
+        {
             "file": "tests/tools/artifact-digest-table.test.mjs",
             "owner": "repository-governance:test-asset-behavior",
             "executionCategory": "repository-governance",

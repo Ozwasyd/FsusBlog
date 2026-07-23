@@ -95,6 +95,10 @@
 - [页面级标题比例](design/page-title-scale.md)
 - [阅读排版契约](design/reading-typography.md)
 - [Task surface geometry](design/task-surface-geometry.md)
+- [Account layout ownership](frontend/account-layout-ownership.md)
+- [Account motion](frontend/account-motion.md)
+- [Account navigation](frontend/account-navigation.md)
+- [Account style ownership](frontend/account-style-ownership.md)
 - [Admin dashboard task workbench](frontend/admin-dashboard-workbench.md)
 - [Admin information architecture](frontend/admin-information-architecture.md)
 - [Browser Runtime Baseline](frontend/browser-runtime-baseline.md)
@@ -243,7 +247,7 @@
 - `releases`: 7 documents
 - `reports`: 15 documents
 - `reports/open-source-readiness`: 1 asset
-- `root migration records`: 30 documents
+- `root migration records`: 21 documents
 - `security`: 1 document
 - `testing`: 65 documents
 

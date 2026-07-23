@@ -618,7 +618,9 @@
             "path": "docs/design/task-surface-geometry.md",
             "status": "current",
             "owner": "frontend",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1429
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -709,7 +711,10 @@
             "path": "docs/frontend/admin-dashboard-workbench.md",
             "status": "current",
             "owner": "frontend",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1022,
+                1429
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -717,7 +722,58 @@
             "path": "docs/frontend/admin-information-architecture.md",
             "status": "current",
             "owner": "frontend",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1023,
+                1429
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/frontend/account-layout-ownership.md",
+            "status": "current",
+            "owner": "frontend",
+            "relatedIssues": [
+                1309,
+                1429
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/frontend/account-motion.md",
+            "status": "current",
+            "owner": "frontend",
+            "relatedIssues": [
+                1312,
+                1429
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/frontend/account-navigation.md",
+            "status": "current",
+            "owner": "frontend",
+            "relatedIssues": [
+                1023,
+                1291,
+                1292,
+                1311,
+                1429
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/frontend/account-style-ownership.md",
+            "status": "current",
+            "owner": "frontend",
+            "relatedIssues": [
+                1293,
+                1310,
+                1429
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -775,7 +831,9 @@
             "path": "docs/frontend/motion-guidelines.md",
             "status": "current",
             "owner": "frontend",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1429
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -960,26 +1018,6 @@
             "supersededBy": null
         },
         {
-            "path": "docs/issue-1022-admin-dashboard-handoff.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1022
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1023-admin-ia-handoff.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1023
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
             "path": "docs/issue-1024-release-identity-handoff.md",
             "status": "historical",
             "owner": "governance",
@@ -1156,76 +1194,6 @@
             "owner": "governance",
             "relatedIssues": [
                 1041
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1291-account-page-title-hierarchy.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1291
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1292-account-navigation-hierarchy.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1292
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1293-account-integer-typography.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1293
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1309-account-frame-handoff.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1309
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1310-account-css-ownership-handoff.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1310
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1311-account-header-actions.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1311
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1312-account-route-motion-handoff.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1312
             ],
             "supersedes": [],
             "supersededBy": null
@@ -1479,7 +1447,8 @@
             "relatedIssues": [
                 1019,
                 1020,
-                1428
+                1428,
+                1429
             ],
             "supersedes": [],
             "supersededBy": null
@@ -3052,16 +3021,6 @@
             "removalIssue": 1406
         },
         {
-            "path": "docs/issue-1022-admin-dashboard-handoff.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1023-admin-ia-handoff.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
             "path": "docs/issue-1024-release-identity-handoff.md",
             "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
             "removalIssue": 1406
@@ -3148,41 +3107,6 @@
         },
         {
             "path": "docs/issue-1041-executable-data-test-governance.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1291-account-page-title-hierarchy.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1292-account-navigation-hierarchy.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1293-account-integer-typography.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1309-account-frame-handoff.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1310-account-css-ownership-handoff.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1311-account-header-actions.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1312-account-route-motion-handoff.md",
             "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
             "removalIssue": 1406
         },
@@ -3589,6 +3513,30 @@
         {
             "id": "api-stability-policy",
             "path": "docs/api/stability.md"
+        },
+        {
+            "id": "frontend-account-layout-ownership",
+            "path": "docs/frontend/account-layout-ownership.md"
+        },
+        {
+            "id": "frontend-account-navigation",
+            "path": "docs/frontend/account-navigation.md"
+        },
+        {
+            "id": "frontend-account-style-ownership",
+            "path": "docs/frontend/account-style-ownership.md"
+        },
+        {
+            "id": "frontend-account-motion",
+            "path": "docs/frontend/account-motion.md"
+        },
+        {
+            "id": "frontend-admin-dashboard-workbench",
+            "path": "docs/frontend/admin-dashboard-workbench.md"
+        },
+        {
+            "id": "frontend-admin-information-architecture",
+            "path": "docs/frontend/admin-information-architecture.md"
         }
     ],
     "retiredReferences": [
@@ -3651,6 +3599,42 @@
         {
             "from": "docs/issue-1307-public-shell-css-ownership-handoff.md",
             "to": "docs/frontend/public-shell-ownership.md"
+        },
+        {
+            "from": "docs/issue-1022-admin-dashboard-handoff.md",
+            "to": "docs/frontend/admin-dashboard-workbench.md"
+        },
+        {
+            "from": "docs/issue-1023-admin-ia-handoff.md",
+            "to": "docs/frontend/admin-information-architecture.md"
+        },
+        {
+            "from": "docs/issue-1291-account-page-title-hierarchy.md",
+            "to": "docs/frontend/account-navigation.md"
+        },
+        {
+            "from": "docs/issue-1292-account-navigation-hierarchy.md",
+            "to": "docs/frontend/account-navigation.md"
+        },
+        {
+            "from": "docs/issue-1293-account-integer-typography.md",
+            "to": "docs/frontend/account-style-ownership.md"
+        },
+        {
+            "from": "docs/issue-1309-account-frame-handoff.md",
+            "to": "docs/frontend/account-layout-ownership.md"
+        },
+        {
+            "from": "docs/issue-1310-account-css-ownership-handoff.md",
+            "to": "docs/frontend/account-style-ownership.md"
+        },
+        {
+            "from": "docs/issue-1311-account-header-actions.md",
+            "to": "docs/frontend/account-navigation.md"
+        },
+        {
+            "from": "docs/issue-1312-account-route-motion-handoff.md",
+            "to": "docs/frontend/account-motion.md"
         }
     ]
 }

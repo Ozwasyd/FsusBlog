@@ -134,28 +134,13 @@ Don't：
 
 ## 14. Account shell module navigation
 
-`AccountLayout` 只持有共享 chrome；`AccountIdentityFrame` 与 `AdminWorkspaceFrame` 分别持有身份、管理导航和内容容器，并通过同一 `AccountRouteFrame` 结构保持既有几何与滚动策略。持久导航限制为一级模块，并只展开当前模块的局部导航。完整后台固定为工作台、内容、互动、安全、系统、运维六个模块；permission、feature 和 policy gate 在模块生成前过滤叶子，空模块不渲染。
+Account 与 admin 不属于 public layout 事实源。长期职责分别收口于：
 
-- 桌面侧栏不再因全部叶子页面产生内部滚动；一级模块与当前模块局部导航使用不同的 ARIA label 和 current 状态。
-- 移动端仍只使用一个 Drawer，同时承载一级模块和当前模块局部导航，不新增顶部 Tabs 或第二个抽屉。
-- Drawer 内一级模块和局部导航链接保持 44px 最小点击目标，active 状态沿用桌面侧栏的主色左侧标记。
-- Drawer 标题和触发器同时说明当前模块上下文，并使用站点 motion preset。
-- 顶栏只保留品牌、主站、主题与账号菜单；使用规范、隐私政策和登出统一进入账号菜单。
-- URL、刷新与深链接保持原路由；浏览器后退时根据恢复后的 path 重新计算模块和叶子 current 状态。
+- [Account layout ownership](frontend/account-layout-ownership.md)：shared chrome、identity/admin frame、route metadata 与滚动职责；
+- [Account navigation](frontend/account-navigation.md)：一级模块、局部导航、单 Drawer、页面标题与 header actions；
+- [Account style ownership](frontend/account-style-ownership.md)：base、identity 与 admin CSS 边界；
+- [Account motion](frontend/account-motion.md)：稳定 chrome、route replacement、focus 与 reduced motion；
+- [Admin information architecture](frontend/admin-information-architecture.md)：admin 模块与权限/feature/policy filtering；
+- [Admin dashboard task workbench](frontend/admin-dashboard-workbench.md)：dashboard task model 与 summary boundary。
 
-### Account route composition metadata
-
-`/user/**` 的叶子路由必须通过 typed route meta 明确页面组合角色。元数据各自回答一个问题，不得相互推导：
-
-| Contract | Question answered | Owner |
-| --- | --- | --- |
-| `accountPageKind` | 页面是 identity settings、inbox、dashboard、collection、form、settings 还是 console？ | Router 声明，layout 做有限且穷尽的 class 映射。 |
-| `accountArea` | 页面属于 self-service 账户区还是 manage 工作区？ | Router 与权限过滤后的 workspace context。 |
-| `accountContentMode` | 内容宽度是 standard、wide 还是 takeover？ | Router；它与 page kind 保持正交。 |
-| `routeState` | URL/query 是否可分享、可恢复、session-sensitive 或只在内存中存在？ | Private navigation security policy。 |
-| `requiredAdminPermissions` | 当前 admin principal 是否可进入页面？ | 服务端权威权限与 router guard。 |
-| feature / policy visibility | 导航入口当前是否应显示？ | Runtime feature/policy snapshot；不替代权限或直接改变 shell。 |
-
-`selfMeta` 与 `manageMeta` 只接受 named options；新增 account leaf 缺少 `accountPageKind` 或 `accountContentMode` 时，development assertion 与 router contract test 必须失败。`AccountLayout` 不得按 area 或具体 route name 选择主内容结构；身份与管理 frame 只能使用 typed metadata 选择容器和 page-kind class。
-
-本次 typed migration 的 class 输出保持原样：self-service kinds 不增加 admin shell class；manage 的 `form`、`settings`、`dashboard` 分别映射到既有 modifier，`identity-settings`、`inbox`、`collection`、`console` 保持既有 list modifier。`ManageSecurityDashboard` 与 `ManageModerationDashboard` 在迁移前实际落入 list shell，因此暂以 `collection` 记录兼容分类；是否在 frame 拆分后提升为 dashboard composition 由 #1309 处理，不能在零视觉预算的 metadata issue 中静默重设计。
+视觉变化分类仍只由 [Layout visual governance](frontend/layout-visual-governance.md) 及其 ledger 管理。

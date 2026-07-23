@@ -636,8 +636,12 @@ tiers:
           - src/frontend/src/components/account/AccountHeaderMenu.vue
           - tests/frontend/unit/layouts/accountNavModules.test.ts
           - tests/frontend/unit/components/account/AccountNavigationPanel.test.ts
-          - docs/issue-1022-admin-dashboard-handoff.md
-          - docs/issue-1023-admin-ia-handoff.md
+          - docs/frontend/admin-dashboard-workbench.md
+          - docs/frontend/admin-information-architecture.md
+          - docs/frontend/account-layout-ownership.md
+          - docs/frontend/account-navigation.md
+          - docs/frontend/account-style-ownership.md
+          - docs/frontend/account-motion.md
           - tests/frontend/unit/wasmReleaseAssets.test.ts
           - tests/frontend/unit/releaseStorage.test.ts
           - tests/frontend/unit/bootstrap/bootstrapImportRecovery.test.ts
@@ -1601,7 +1605,12 @@ tiers:
           - docs/design/reading-typography.md
           - docs/design/page-title-scale.md
           - docs/frontend/layout-visual-governance.md
+          - tests/tools/account-layout-document-authority.test.mjs
           - docs/development/document-lifecycle.md
+          - docs/frontend/account-layout-ownership.md
+          - docs/frontend/account-navigation.md
+          - docs/frontend/account-style-ownership.md
+          - docs/frontend/account-motion.md
           - docs/development/coding-conventions.md
           - AGENTS.md
           - CONTRIBUTING.md
@@ -2595,7 +2604,8 @@ tiers:
           - src/frontend/src/layouts/accountWorkspaceContext.ts
           - src/frontend/src/components/account/AccountNavigationPanel.vue
           - src/frontend/src/components/account/AccountHeaderMenu.vue
-          - docs/issue-1023-admin-ia-handoff.md
+          - docs/frontend/admin-information-architecture.md
+          - docs/frontend/account-navigation.md
       ciJob: browser-diagnostics
       localOnly: false
       nightlyOnly: true
@@ -3072,8 +3082,12 @@ tiers:
               src/frontend/src/components/account/AccountNavigationPanel.vue,
               src/frontend/src/components/account/AccountHeaderMenu.vue,
               tests/frontend/e2e/visual/console-visual.spec.ts,
-              docs/issue-1022-admin-dashboard-handoff.md,
-              docs/issue-1023-admin-ia-handoff.md,
+              docs/frontend/admin-dashboard-workbench.md,
+              docs/frontend/admin-information-architecture.md,
+              docs/frontend/account-layout-ownership.md,
+              docs/frontend/account-navigation.md,
+              docs/frontend/account-style-ownership.md,
+              docs/frontend/account-motion.md,
           ]
       ciJob: browser-diagnostics
       localOnly: false

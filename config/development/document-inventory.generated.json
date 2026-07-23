@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v2",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:433a4ed6d52d0f19ef730bc03698388cb781e0db3eb6171ebb7f017472bf810c",
+    "policyDigest": "sha256:332bf24c3be03037591ff126c25d56bd0e54e3b1a786bcd166f9aac9b9adebdb",
     "documents": [
         {
             "path": "docs/active-release-fenced-commits.md",
@@ -993,7 +993,9 @@
             "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
             "supersedes": [],
             "supersededBy": null,
-            "relatedIssues": [],
+            "relatedIssues": [
+                1429
+            ],
             "producer": null
         },
         {
@@ -1130,6 +1132,74 @@
             "producer": null
         },
         {
+            "path": "docs/frontend/account-layout-ownership.md",
+            "title": "Account layout ownership",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "frontend",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1309,
+                1429
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/frontend/account-motion.md",
+            "title": "Account motion",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "frontend",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1312,
+                1429
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/frontend/account-navigation.md",
+            "title": "Account navigation",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "frontend",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1023,
+                1291,
+                1292,
+                1311,
+                1429
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/frontend/account-style-ownership.md",
+            "title": "Account style ownership",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "frontend",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1293,
+                1310,
+                1429
+            ],
+            "producer": null
+        },
+        {
             "path": "docs/frontend/admin-dashboard-workbench.md",
             "title": "Admin dashboard task workbench",
             "kind": "markdown",
@@ -1139,7 +1209,10 @@
             "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
             "supersedes": [],
             "supersededBy": null,
-            "relatedIssues": [],
+            "relatedIssues": [
+                1022,
+                1429
+            ],
             "producer": null
         },
         {
@@ -1152,7 +1225,10 @@
             "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
             "supersedes": [],
             "supersededBy": null,
-            "relatedIssues": [],
+            "relatedIssues": [
+                1023,
+                1429
+            ],
             "producer": null
         },
         {
@@ -1219,7 +1295,9 @@
             "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
             "supersedes": [],
             "supersededBy": null,
-            "relatedIssues": [],
+            "relatedIssues": [
+                1429
+            ],
             "producer": null
         },
         {
@@ -1534,36 +1612,6 @@
             "producer": null
         },
         {
-            "path": "docs/issue-1022-admin-dashboard-handoff.md",
-            "title": "Issue #1022 admin dashboard handoff",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1022
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1023-admin-ia-handoff.md",
-            "title": "Issue #1023 admin information-architecture handoff",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1023
-            ],
-            "producer": null
-        },
-        {
             "path": "docs/issue-1024-release-identity-handoff.md",
             "title": "Issue #1024 immutable release identity handoff",
             "kind": "markdown",
@@ -1831,111 +1879,6 @@
             "supersededBy": null,
             "relatedIssues": [
                 1041
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1291-account-page-title-hierarchy.md",
-            "title": "Issue #1291 account page title hierarchy",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1291
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1292-account-navigation-hierarchy.md",
-            "title": "Issue #1292 account navigation hierarchy",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1292
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1293-account-integer-typography.md",
-            "title": "Issue #1293 account integer typography",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1293
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1309-account-frame-handoff.md",
-            "title": "Issue #1309 account frame handoff",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1309
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1310-account-css-ownership-handoff.md",
-            "title": "Issue #1310 Account CSS ownership handoff",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1310
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1311-account-header-actions.md",
-            "title": "Issue #1311 account header action handoff",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1311
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1312-account-route-motion-handoff.md",
-            "title": "Issue #1312 Account route motion handoff",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1312
             ],
             "producer": null
         },
@@ -2344,7 +2287,8 @@
             "relatedIssues": [
                 1019,
                 1020,
-                1428
+                1428,
+                1429
             ],
             "producer": null
         },

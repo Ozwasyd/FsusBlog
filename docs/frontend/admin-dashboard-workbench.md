@@ -2,6 +2,8 @@
 
 `/user/manage` is a task workbench, not an analytics landing page. Its first content region is always `今日待处理`, followed by one compact site-summary ledger.
 
+This document owns dashboard task and summary composition only. Admin module taxonomy belongs to [Admin information architecture](admin-information-architecture.md); frame, navigation, CSS and motion responsibilities belong to the focused account layout documents.
+
 ## First-fold contract
 
 The workbench exposes four direct actions in a stable order:

@@ -694,7 +694,7 @@ function checkIssueDensityContracts()
     assertContains(siteChromeHeaderAdapterPath, /\.site-chrome-header__brand-mark\s*\{[\s\S]*?max-width:\s*min\(14rem, 42vw\);/, 'site chrome default wordmark must retain its public width cap');
     assertContains(siteChromeHeaderAdapterPath, /\.site-chrome-header__brand-mark--account\s*\{[\s\S]*?max-width:\s*min\(10rem, 32vw\);/, 'site chrome account wordmark must retain its tighter width cap');
     assertNotContains(siteChromeHeaderAdapterPath, /\.site-chrome-header__brand-mark--public\s*\{/, 'site chrome public wordmark must keep the shared default rather than a forked override');
-    assertContains(path.join(repoRoot, 'docs/public-layout-rules.md'), /AccountLayout[\s\S]*Drawer[\s\S]*一级模块[\s\S]*局部导航[\s\S]*44px/, 'public layout rules must document the AccountLayout single-drawer module navigation pattern');
+    assertContains(path.join(repoRoot, 'docs/frontend/account-navigation.md'), /Desktop[\s\S]*Mobile[\s\S]*exactly one Drawer[\s\S]*44px/, 'account navigation authority must document the single-drawer module navigation pattern');
 
     assertNotContains(registerPath, /高级|极致|奢华|未来感|智能|大气|简约而不简单|沉浸式/, 'Register copy must avoid FsusUI marketing adjective blacklist');
     const registerCopyPath = path.join(repoRoot, 'src/frontend/src/copy/auth.ts');

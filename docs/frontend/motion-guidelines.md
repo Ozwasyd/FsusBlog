@@ -15,7 +15,7 @@ Use FsusUI motion primitives for page and interaction presets:
 - Article title: public article detail titles render statically; do not use `v-motion` on `[data-fsus-surface='reading']`.
 - Article body images and code blocks: `useScrollReveal()` with `fsusBlogScrollRevealOptions`; do not animate ordinary paragraphs.
 - Media overlay and back-to-top: `mediaOverlay` / `backToTop` (`scale-fade`).
-- Route transitions: the active app host consumes the FsusUI route preset and cleans up through `useMotionRouteCleanup()`. Account chrome never transitions: identity settings alone may use the opacity-only `identityRoute` preset, while inbox/takeover and every admin page kind replace immediately through the typed frame policy in `accountRouteMotion.ts`.
+- Route transitions: the active app host consumes the FsusUI route preset and cleans up through `useMotionRouteCleanup()`. Account-specific route policy is defined only in [Account motion](account-motion.md).
 
 Do not import `@element-plus/motion`, `motion-dom`, or `gsap` directly from FsusBlog business code. If a new surface needs preset motion, add a named mapping to `fsusBlogMotionPresets` and use the FsusUI adapter.
 
