@@ -1,5 +1,22 @@
 {
     "schema": "fsusblog.public-preview-screenshot-registry.v1",
+    "capturePolicy": {
+        "animations": "disabled",
+        "completeRegistry": true,
+        "language": "C.UTF-8",
+        "layoutAudit": true,
+        "reducedMotion": "reduce",
+        "runtimeAudit": true,
+        "timezone": "UTC"
+    },
+    "failClosedRoots": [
+        {
+            "path": "src/frontend/src",
+            "excludedEntries": [
+                "vite-env.d.ts"
+            ]
+        }
+    ],
     "screenshots": [
         {
             "id": "admin-dashboard-desktop-light",
@@ -79,12 +96,17 @@
             "config/docs/public-preview-screenshots.json",
             "tests/browser-contract/public-preview-gallery.mjs",
             "tests/frontend/e2e/manual/manual-layout-screenshots.spec.ts",
-            "tests/frontend/support/playwright",
-            "tools/docs/public-preview-screenshots.mjs",
-            "tools/docs/run-public-preview-capture.sh"
+            "tests/frontend/support/playwright"
         ],
         "dependencies": [
-            "src/frontend/package.json",
+            {
+                "path": "src/frontend/package.json",
+                "jsonKeys": [
+                    "dependencies",
+                    "devDependencies",
+                    "overrides"
+                ]
+            },
             "src/frontend/package-lock.json",
             "src/frontend/vite.config.ts",
             "src/frontend/scripts/fsusui-local.ts"
@@ -102,7 +124,31 @@
             "src/frontend/src/router",
             "src/frontend/src/views"
         ],
+        "sharedFrontend": [
+            "src/frontend/src/adapters",
+            "src/frontend/src/api",
+            "src/frontend/src/bootstrap",
+            "src/frontend/src/codecs",
+            "src/frontend/src/composables",
+            "src/frontend/src/composition",
+            "src/frontend/src/config",
+            "src/frontend/src/contracts",
+            "src/frontend/src/generated",
+            "src/frontend/src/performance",
+            "src/frontend/src/policies",
+            "src/frontend/src/privacy",
+            "src/frontend/src/public-renderers",
+            "src/frontend/src/security",
+            "src/frontend/src/services",
+            "src/frontend/src/store",
+            "src/frontend/src/ui-contracts",
+            "src/frontend/src/ui-tokens",
+            "src/frontend/src/utils",
+            "src/frontend/src/view-contracts",
+            "src/frontend/src/workers"
+        ],
         "visualSystem": [
+            "src/frontend/src/App.vue",
             "src/frontend/src/assets",
             "src/frontend/src/components",
             "src/frontend/src/fsusui",

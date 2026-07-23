@@ -60,6 +60,13 @@ frontend/backend build identities, deterministic fixture and capture digests,
 the resolved local FsusUI commit/tree/lock identity, the visual-input digest,
 and each PNG SHA-256. `sourceCommit` answers where an image was captured;
 `visualInputDigest` independently decides whether it is fresh for this checkout.
+The reviewed input registry hashes full route, view, component, style, fixture,
+localization, capture-support, lockfile, Vite, and local FsusUI inputs. For
+`package.json`, it hashes only `dependencies`, `devDependencies`, and
+`overrides`: changing a non-visual npm script does not invalidate pixels, while
+changing a resolved dependency still does. Validator and lifecycle-only docs
+tools are deliberately outside the pixel digest; the declarative capture
+policy in the registry remains inside it.
 The writer emits canonical top-level, screenshot, and FsusUI field order and
 sorts screenshot entries by stable ID. The offline checker rejects reordered
 fields or entries, duplicate files/IDs, cross-entry identity drift, dirty or

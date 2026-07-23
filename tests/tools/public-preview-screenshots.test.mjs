@@ -6,8 +6,15 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-// eslint-disable-next-line import-x/no-relative-parent-imports
+/* eslint-disable import-x/no-relative-parent-imports */
 import { verifyPublicPreviewRuntimeIdentity } from '../../tools/docs/public-preview-runtime-identity.mjs';
+import {
+    categoryDigest,
+    combineVisualInputDigest,
+    computeVisualInputs,
+    validateFailClosedCoverage
+} from '../../tools/docs/public-preview-screenshots.mjs';
+/* eslint-enable import-x/no-relative-parent-imports */
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const tool = path.join(root, 'tools/docs/public-preview-screenshots.mjs');
@@ -197,6 +204,103 @@ test('manifest generation is byte-identical for the same source and visual input
     }
 });
 
+test('visual input projections ignore non-visual scripts but bind dependencies and capture sources', () =>
+{
+    const firstRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsus-visual-input-first-'));
+    const secondRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsus-visual-input-second-'));
+    const projection = [{
+        path: 'package.json',
+        jsonKeys: ['dependencies', 'devDependencies', 'overrides']
+    }];
+    const packageDocument = {
+        scripts: { unrelated: 'node unrelated.mjs' },
+        dependencies: { vue: '3.5.32' },
+        devDependencies: { vite: '8.0.16' },
+        overrides: { vue: '3.5.32' }
+    };
+    try
+    {
+        for (const directory of [firstRoot, secondRoot])
+        {
+            fs.writeFileSync(path.join(directory, 'package.json'), `${JSON.stringify(packageDocument)}\n`);
+            fs.writeFileSync(path.join(directory, 'capture.ts'), 'export const viewport = 1365\n');
+        }
+        const baseline = categoryDigest(projection, firstRoot).digest;
+        assert.equal(categoryDigest(projection, secondRoot).digest, baseline);
+
+        fs.writeFileSync(path.join(firstRoot, 'package.json'), `${JSON.stringify({
+            ...packageDocument,
+            scripts: { unrelated: 'node changed-but-still-unrelated.mjs' }
+        })}\n`);
+        assert.equal(categoryDigest(projection, firstRoot).digest, baseline);
+
+        fs.writeFileSync(path.join(firstRoot, 'package.json'), `${JSON.stringify({
+            ...packageDocument,
+            dependencies: { vue: '3.5.33' }
+        })}\n`);
+        assert.notEqual(categoryDigest(projection, firstRoot).digest, baseline);
+
+        const captureBaseline = categoryDigest(['capture.ts'], secondRoot).digest;
+        fs.writeFileSync(path.join(secondRoot, 'capture.ts'), 'export const viewport = 390\n');
+        assert.notEqual(categoryDigest(['capture.ts'], secondRoot).digest, captureBaseline);
+        assert.throws(
+            () => categoryDigest([{ path: 'package.json', jsonKeys: ['scripts', 'dependencies'] }], secondRoot),
+            /sorted unique jsonKeys/u
+        );
+    }
+    finally
+    {
+        fs.rmSync(firstRoot, { recursive: true, force: true });
+        fs.rmSync(secondRoot, { recursive: true, force: true });
+    }
+});
+
+test('fail-closed roots reject a new unclassified shared visual directory', () =>
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsus-visual-coverage-'));
+    const registry = {
+        visualInputs: { visualSystem: ['src/known'] },
+        failClosedRoots: [{ path: 'src', excludedEntries: [] }]
+    };
+    try
+    {
+        fs.mkdirSync(path.join(directory, 'src/known'), { recursive: true });
+        fs.mkdirSync(path.join(directory, 'src/new-shared'), { recursive: true });
+        assert.throws(
+            () => validateFailClosedCoverage(registry, directory),
+            /unclassified shared visual input: src\/new-shared/u
+        );
+        registry.visualInputs.sharedFrontend = ['src/new-shared'];
+        assert.doesNotThrow(() => validateFailClosedCoverage(registry, directory));
+    }
+    finally
+    {
+        fs.rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test('registry covers visible authorities and binds the resolved FsusUI identity', () =>
+{
+    const inputs = computeVisualInputs();
+    const files = new Set(Object.values(inputs.categories).flatMap((category) => category.files));
+    for (const expected of [
+        'src/frontend/package-lock.json',
+        'src/frontend/vite.config.ts',
+        'src/frontend/src/assets/main.css',
+        'src/frontend/src/bootstrap/criticalFonts.ts',
+        'src/frontend/src/components/public/PublicComplianceFooter.vue',
+        'src/frontend/src/components/public/pages/PublicArticleDetailPageContent.vue',
+        'src/frontend/src/ui-tokens/themeTokens.ts',
+        'tests/frontend/e2e/manual/manual-layout-screenshots.spec.ts',
+        'tests/frontend/fixtures/discover-playwright-fixtures.mjs'
+    ])
+    {
+        assert.ok(files.has(expected), `visual input registry must cover ${expected}`);
+    }
+    const changedFsusUi = { ...inputs.fsusUi, commit: 'f'.repeat(40) };
+    assert.notEqual(combineVisualInputDigest(inputs.categories, changedFsusUi), inputs.visualInputDigest);
+});
+
 test('formal capture verifies both runtime processes against the current source identity', () =>
 {
     const runtime = runtimeIdentityFixture();
@@ -261,6 +365,10 @@ test('capture contracts keep shards temporary and release verification explicit'
     );
     const runner = fs.readFileSync(path.join(root, 'tools/docs/run-public-preview-capture.sh'), 'utf8');
     const bootstrap = fs.readFileSync(path.join(root, 'tools/bootstrap-acceptance-env.sh'), 'utf8');
+    const registry = JSON.parse(fs.readFileSync(
+        path.join(root, 'config/docs/public-preview-screenshots.json'),
+        'utf8'
+    ));
     const acceptanceShared = fs.readFileSync(
         path.join(root, 'tests/frontend/support/playwright/acceptance-shared.ts'),
         'utf8'
@@ -289,6 +397,19 @@ test('capture contracts keep shards temporary and release verification explicit'
     assert.match(runner, /status == 0 && cleanupStatus != 0/u);
     assert.match(runner, /public-preview-screenshots\.mjs" publish/u);
     assert.match(runner, /cleanupLocalRuntime/u);
+    assert.deepEqual(registry.capturePolicy, {
+        animations: 'disabled',
+        completeRegistry: true,
+        language: 'C.UTF-8',
+        layoutAudit: true,
+        reducedMotion: 'reduce',
+        runtimeAudit: true,
+        timezone: 'UTC'
+    });
+    assert.ok(registry.visualInputs.capture.includes('tests/frontend/e2e/manual/manual-layout-screenshots.spec.ts'));
+    assert.ok(registry.visualInputs.capture.includes('tests/frontend/support/playwright'));
+    assert.ok(!registry.visualInputs.capture.includes('tools/docs/public-preview-screenshots.mjs'));
+    assert.ok(!registry.visualInputs.capture.includes('tools/docs/run-public-preview-capture.sh'));
     const prewarm = acceptanceShared.slice(
         acceptanceShared.indexOf('export async function prewarmDevRuntime'),
         acceptanceShared.indexOf('export async function captureStorageState')

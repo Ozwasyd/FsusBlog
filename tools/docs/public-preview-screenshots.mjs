@@ -51,21 +51,32 @@ function git(args, directory = root)
     return execFileSync('git', ['-C', directory, ...args], { encoding: 'utf8' }).trim();
 }
 
-function repositoryFileList(input)
+function assertRepositoryPath(input)
 {
-    const absolute = path.join(root, input);
+    const normalized = path.normalize(String(input ?? '')).split(path.sep).join('/');
+    if (!normalized || path.isAbsolute(normalized) || normalized === '..' || normalized.startsWith('../'))
+    {
+        throw new Error(`visual input must stay inside the repository: ${input}`);
+    }
+    return normalized;
+}
+
+function repositoryFileList(input, rootDirectory = root)
+{
+    const normalizedInput = assertRepositoryPath(input);
+    const absolute = path.join(rootDirectory, normalizedInput);
     if (!fs.existsSync(absolute))
     {
-        throw new Error(`visual input is missing: ${input}`);
+        throw new Error(`visual input is missing: ${normalizedInput}`);
     }
     const stat = fs.lstatSync(absolute);
     if (stat.isSymbolicLink() || stat.isFile())
     {
-        return [input];
+        return [normalizedInput];
     }
     if (!stat.isDirectory())
     {
-        throw new Error(`visual input is not a file or directory: ${input}`);
+        throw new Error(`visual input is not a file or directory: ${normalizedInput}`);
     }
     const files = [];
     const visit = (directory) =>
@@ -83,7 +94,7 @@ function repositoryFileList(input)
             }
             else if (entry.isFile() || entry.isSymbolicLink())
             {
-                files.push(path.relative(root, file).split(path.sep).join('/'));
+                files.push(path.relative(rootDirectory, file).split(path.sep).join('/'));
             }
         }
     };
@@ -91,18 +102,121 @@ function repositoryFileList(input)
     return files;
 }
 
-function categoryDigest(inputs)
+export function validateFailClosedCoverage(registry, rootDirectory = root)
 {
-    const files = [...new Set(inputs.flatMap(repositoryFileList))].sort();
-    const hash = crypto.createHash('sha256');
-    for (const file of files)
+    if (!registry.visualInputs || typeof registry.visualInputs !== 'object' || Array.isArray(registry.visualInputs))
     {
-        hash.update(file);
+        throw new Error('screenshot registry visualInputs must be an object');
+    }
+    const declared = Object.values(registry.visualInputs).flatMap((inputs) =>
+    {
+        if (!Array.isArray(inputs) || inputs.length === 0)
+        {
+            throw new Error('every visual input category must be non-empty');
+        }
+        return inputs.map((input) => assertRepositoryPath(typeof input === 'string' ? input : input?.path));
+    });
+    for (const rootEntry of registry.failClosedRoots ?? [])
+    {
+        if (stableJson(Object.keys(rootEntry).sort()) !== stableJson(['excludedEntries', 'path'])
+            || !Array.isArray(rootEntry.excludedEntries)
+            || stableJson(rootEntry.excludedEntries) !== stableJson([...new Set(rootEntry.excludedEntries)].sort()))
+        {
+            throw new Error('failClosedRoots entries must contain path and sorted unique excludedEntries');
+        }
+        const rootPath = assertRepositoryPath(rootEntry.path);
+        const absoluteRoot = path.join(rootDirectory, rootPath);
+        const entries = fs.readdirSync(absoluteRoot, { withFileTypes: true }).map((entry) => entry.name).sort();
+        for (const entry of entries)
+        {
+            if (rootEntry.excludedEntries.includes(entry))
+            {
+                continue;
+            }
+            const child = `${rootPath}/${entry}`;
+            if (!declared.some((input) => child === input || child.startsWith(`${input}/`)))
+            {
+                throw new Error(`unclassified shared visual input: ${child}`);
+            }
+        }
+    }
+}
+
+function semanticJsonRecord(input, rootDirectory)
+{
+    const keys = Object.keys(input).sort();
+    if (stableJson(keys) !== stableJson(['jsonKeys', 'path'])
+        || !Array.isArray(input.jsonKeys)
+        || input.jsonKeys.length === 0
+        || input.jsonKeys.some((key) => typeof key !== 'string' || !key.trim())
+        || stableJson(input.jsonKeys) !== stableJson([...new Set(input.jsonKeys)].sort()))
+    {
+        throw new Error('semantic visual input must contain only path and sorted unique jsonKeys');
+    }
+    const files = repositoryFileList(input.path, rootDirectory);
+    if (files.length !== 1 || files[0] !== input.path)
+    {
+        throw new Error(`semantic visual input must be one regular JSON file: ${input.path}`);
+    }
+    const document = readJson(path.join(rootDirectory, input.path));
+    const projection = {};
+    for (const key of input.jsonKeys)
+    {
+        if (!Object.hasOwn(document, key))
+        {
+            throw new Error(`semantic visual input key is missing: ${input.path}#${key}`);
+        }
+        projection[key] = document[key];
+    }
+    return {
+        file: input.path,
+        projection: `json:${input.jsonKeys.join(',')}`,
+        contentDigest: digest(stableJson(projection))
+    };
+}
+
+function visualInputRecords(input, rootDirectory)
+{
+    if (typeof input === 'string')
+    {
+        return repositoryFileList(input, rootDirectory).map((file) => ({
+            file,
+            projection: 'full',
+            contentDigest: fileDigest(path.join(rootDirectory, file))
+        }));
+    }
+    if (!input || typeof input !== 'object' || Array.isArray(input))
+    {
+        throw new Error('visual input must be a repository path or semantic projection');
+    }
+    return [semanticJsonRecord(input, rootDirectory)];
+}
+
+export function categoryDigest(inputs, rootDirectory = root)
+{
+    const records = inputs.flatMap((input) => visualInputRecords(input, rootDirectory))
+        .sort((left, right) => `${left.file}\0${left.projection}`.localeCompare(`${right.file}\0${right.projection}`));
+    const identities = new Set();
+    const hash = crypto.createHash('sha256');
+    for (const record of records)
+    {
+        const identity = `${record.file}\0${record.projection}`;
+        if (identities.has(identity))
+        {
+            throw new Error(`duplicate visual input projection: ${record.file} (${record.projection})`);
+        }
+        identities.add(identity);
+        hash.update(record.file);
         hash.update('\0');
-        hash.update(fileDigest(path.join(root, file)));
+        if (record.projection !== 'full')
+        {
+            hash.update(`semantic:${record.projection}`);
+            hash.update('\0');
+        }
+        hash.update(record.contentDigest);
         hash.update('\n');
     }
-    return { digest: hash.digest('hex'), files };
+    return { digest: hash.digest('hex'), files: [...new Set(records.map((record) => record.file))].sort() };
 }
 
 function resolveFsusUiIdentity()
@@ -132,6 +246,7 @@ export function readRegistry()
     {
         throw new Error(`unexpected screenshot registry schema: ${registry.schema ?? 'missing'}`);
     }
+    validateFailClosedCoverage(registry);
     return registry;
 }
 
@@ -144,11 +259,18 @@ export function computeVisualInputs()
         categories[name] = categoryDigest(registry.visualInputs[name]);
     }
     const fsusUi = resolveFsusUiIdentity();
-    const visualInputDigest = digest(stableJson({
-        categories: Object.fromEntries(Object.entries(categories).map(([name, value]) => [name, value.digest])),
+    const visualInputDigest = combineVisualInputDigest(categories, fsusUi);
+    return { categories, fsusUi, visualInputDigest };
+}
+
+export function combineVisualInputDigest(categories, fsusUi)
+{
+    return digest(stableJson({
+        categories: Object.fromEntries(Object.entries(categories)
+            .sort(([left], [right]) => left.localeCompare(right))
+            .map(([name, value]) => [name, value.digest])),
         fsusUi
     }));
-    return { categories, fsusUi, visualInputDigest };
 }
 
 function sourceIdentity(sourceCommit)
