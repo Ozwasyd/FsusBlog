@@ -192,6 +192,7 @@
 - [公共文章列表 Keyset 验证](testing/article-list-keyset-pagination.md)
 - [文章发布坐标迁移与一致性验证](testing/article-publication-consistency.md)
 - [Backend Production topology calibration](testing/backend-production-topology-calibration.md)
+- [Browser capability-risk budget](testing/browser-capability-risk-budget.md)
 - [Release Browser Contract](testing/browser-contract.md)
 - [Browser geometry、motion 与 focus 分层](testing/browser-geometry-motion-focus.md)
 - [Browser readiness contract](testing/browser-readiness-contract.md)

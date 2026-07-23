@@ -2012,6 +2012,16 @@
             "supersededBy": null
         },
         {
+            "path": "docs/testing/browser-capability-risk-budget.md",
+            "status": "current",
+            "owner": "release",
+            "relatedIssues": [
+                1449
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
             "path": "docs/testing/browser-contract.md",
             "status": "current",
             "owner": "release",
