@@ -2,7 +2,7 @@
     "schema": "fsusblog.security.perception-character-v3.v1",
     "enum": "PerceptionCharacterV3",
     "wireName": "perceptionCharacterV3",
-    "algorithm": "fsu.challenge/perception-character-raster@v3",
+    "algorithm": "fsu.challenge/perception-character-artifact@v3",
     "version": 3,
     "answer": {
         "alphabet": "ACDEFGHJKMNPQRTUVWXY234679",
@@ -28,7 +28,13 @@
             "subjectHash",
             "deviceBindingHash",
             "policyVersion",
-            "mediaHash",
+            "artifactHash",
+            "representation",
+            "mediaType",
+            "physicalWidth",
+            "physicalHeight",
+            "displayWidth",
+            "displayHeight",
             "normalizedAnswer"
         ],
         "aadFieldOrder": [
@@ -40,14 +46,25 @@
             "envelopeId",
             "action",
             "routeKey",
-            "mediaHash",
+            "artifactHash",
+            "representation",
+            "mediaType",
+            "physicalWidth",
+            "physicalHeight",
+            "displayWidth",
+            "displayHeight",
             "issuedAtUnixMs",
             "expiresAtUnixMs",
             "tokenKeyVersion"
         ],
         "stateFieldOrder": [
             "answerTag",
-            "mediaHash",
+            "artifactHash",
+            "mediaType",
+            "physicalWidth",
+            "physicalHeight",
+            "displayWidth",
+            "displayHeight",
             "challengeId",
             "envelopeId",
             "action",
@@ -76,9 +93,9 @@
         "tokenEncoding": "base64url-no-padding"
     },
     "raster": {
-        "pixelFormat": "Gray8",
-        "physicalWidth": 512,
-        "physicalHeight": 192,
+        "pixelFormat": "Gray4",
+        "physicalWidth": 384,
+        "physicalHeight": 144,
         "displayWidth": 320,
         "displayHeight": 120,
         "glyphVariantsPerSymbol": 6,
@@ -87,6 +104,12 @@
         "glyphAtlasWidth": 7,
         "glyphAtlasHeight": 9,
         "glyphScalePixels": 10,
+        "layout": {
+            "firstOriginX": 39,
+            "centerOffsetX": 26,
+            "centerY": 72,
+            "advancePixels": 61
+        },
         "glyphAtlasBaseRows": {
             "A": ["01110", "10001", "10001", "11111", "10001", "10001", "10001"],
             "C": ["01111", "10000", "10000", "10000", "10000", "10000", "01111"],
@@ -166,6 +189,11 @@
         "interferenceCurves": {
             "minCount": 2,
             "maxCount": 5,
+            "x0": {"min": 0, "max": 72},
+            "x1": {"min": 132, "max": 252},
+            "x2": {"min": 311, "max": 383},
+            "endpointY": {"min": 12, "max": 131},
+            "controlY": {"min": 0, "max": 143},
             "minWidthPixels": 1,
             "maxWidthPixels": 3,
             "minGray": 32,
@@ -174,6 +202,8 @@
         "occluders": {
             "minCount": 1,
             "maxCount": 3,
+            "centerX": {"min": 18, "max": 365},
+            "centerY": {"min": 15, "max": 128},
             "minWidthPixels": 8,
             "maxWidthPixels": 28,
             "minHeightPixels": 6,
@@ -182,9 +212,41 @@
             "maxGray": 184
         },
         "noise": {
-            "additiveAmplitude": 12,
-            "minImpulseCount": 256,
-            "maxImpulseCount": 768
+            "name": "structured-cell-bias-v1",
+            "cellWidthPixels": 24,
+            "cellHeightPixels": 12,
+            "levelBiasMin": -1,
+            "levelBiasMax": 1,
+            "formula": "clamp4(round(gray8*15/255)+bias[floor(y/12)][floor(x/24)])"
+        }
+    },
+    "media": {
+        "visual": {
+            "mediaType": "image/png",
+            "format": "PNG",
+            "colorType": 0,
+            "bitDepth": 4,
+            "alpha": false,
+            "interlace": 0,
+            "filter": 0,
+            "compression": "zlib-deflate-stored",
+            "maximumBytes": 32768
+        },
+        "audio": {
+            "mediaType": "audio/ogg; codecs=opus",
+            "container": "Ogg",
+            "codec": "Opus",
+            "channels": 1,
+            "inputSampleRate": 48000,
+            "preSkip": 312,
+            "outputGainQ8": 0,
+            "mappingFamily": 0,
+            "frameDurationMs": 20,
+            "bitrateBitsPerSecond": 16000,
+            "application": "voip",
+            "vbr": false,
+            "complexity": 5,
+            "maximumBytes": 49152
         }
     },
     "state": {
@@ -236,6 +298,7 @@
         "forbiddenTruthFields": [
             "answerHash",
             "answerTag",
+            "artifactHash",
             "expectedAnswer",
             "glyphId",
             "glyphVariant",

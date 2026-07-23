@@ -7,10 +7,12 @@ import { fileURLToPath } from 'node:url';
 
 const {
     atlasVariantBytes,
+    buildAudioArtifactVector,
     buildVectors,
     computeAnswerTag,
     contract,
     encodeLP,
+    encodeVisualArtifact,
     fixedTimeTagEquals,
     normalizeAnswer,
     openStateBytes,
@@ -51,7 +53,7 @@ test('V3 identity is exact and exposes no alias contract', () =>
 {
     assert.equal(contract.enum, 'PerceptionCharacterV3');
     assert.equal(contract.wireName, 'perceptionCharacterV3');
-    assert.equal(contract.algorithm, 'fsu.challenge/perception-character-raster@v3');
+    assert.equal(contract.algorithm, 'fsu.challenge/perception-character-artifact@v3');
     assert.equal(Object.hasOwn(contract, 'forbiddenAliases'), false);
     assert.deepEqual(contract.wire.verifyFields, [
         'algorithm',
@@ -164,7 +166,13 @@ test('AES-GCM rejects every AAD binding substitution and token tampering', () =>
         'envelopeId',
         'action',
         'routeKey',
-        'mediaHash',
+        'artifactHash',
+        'representation',
+        'mediaType',
+        'physicalWidth',
+        'physicalHeight',
+        'displayWidth',
+        'displayHeight',
         'issuedAtUnixMs',
         'expiresAtUnixMs',
         'tokenKeyVersion'
@@ -174,7 +182,7 @@ test('AES-GCM rejects every AAD binding substitution and token tampering', () =>
             ...fixture.state.context,
             [field]: typeof fixture.state.context[field] === 'number'
                 ? fixture.state.context[field] + 1
-                : field === 'mediaHash' ? 'ff'.repeat(32) : `${fixture.state.context[field]}-changed`
+                : field === 'artifactHash' ? 'ff'.repeat(32) : `${fixture.state.context[field]}-changed`
         };
         assert.throws(() => openStateBytes(key, fixture.state.token, changed), { name: /Error/u });
     }
@@ -226,16 +234,43 @@ test('approved atlas has six distinct raster variants for every alphabet symbol'
     assert.equal(sha256(Buffer.concat(allVariants)), fixture.atlas.sha256);
 });
 
-test('normative Gray8 raster is fixed-size, deterministic, and hash-bound', () =>
+test('final PNG and Ogg Opus artifacts are deterministic, bounded, and hash-bound', () =>
 {
-    const first = rasterize(fixture.raster.answer, Buffer.from(fixture.raster.seedHex, 'hex'));
-    const second = rasterize(fixture.raster.answer, Buffer.from(fixture.raster.seedHex, 'hex'));
-    const changed = rasterize(fixture.raster.answer, Buffer.from('ff'.repeat(32), 'hex'));
-    assert.equal(first.length, 512 * 192);
+    const seed = Buffer.from(fixture.visual.seedHex, 'hex');
+    const first = encodeVisualArtifact(rasterize(fixture.visual.answer, seed), seed);
+    const second = encodeVisualArtifact(rasterize(fixture.visual.answer, seed), seed);
+    const changedSeed = Buffer.from('ff'.repeat(32), 'hex');
+    const changed = encodeVisualArtifact(rasterize(fixture.visual.answer, changedSeed), changedSeed);
+    assert.ok(first.length <= 32 * 1024);
     assert.deepEqual(first, second);
-    assert.equal(sha256(first), fixture.raster.mediaHashHex);
-    assert.notEqual(sha256(changed), fixture.raster.mediaHashHex);
-    assert.ok(new Set(first).size > 100);
+    assert.equal(sha256(first), fixture.visual.artifactHashHex);
+    assert.notEqual(sha256(changed), fixture.visual.artifactHashHex);
+    assert.deepEqual(first.subarray(0, 8), Buffer.from('89504e470d0a1a0a', 'hex'));
+    assert.equal(first[24], 4);
+    assert.equal(first[25], 0);
+
+    const audio = buildAudioArtifactVector();
+    assert.ok(audio.length <= 48 * 1024);
+    assert.equal(sha256(audio), fixture.audio.artifactHashHex);
+    assert.equal(audio.subarray(0, 4).toString('ascii'), 'OggS');
+    assert.ok(audio.includes(Buffer.from('OpusHead')));
+    assert.ok(audio.includes(Buffer.from('OpusTags')));
+});
+
+test('retired V3 representations are absent from the canonical contract', () =>
+{
+    const serialized = JSON.stringify(contract);
+    for (const retired of [
+        'fsu.challenge/perception-character-raster@v3',
+        'application/x-fsus-gray8',
+        '"physicalWidth":512',
+        '"physicalHeight":192',
+        '"additiveAmplitude"',
+        '"mediaHash"'
+    ])
+    {
+        assert.equal(serialized.includes(retired), false, retired);
+    }
 });
 
 test('atomic model permits one concurrent success and rejects replay without a third attempt', () =>
@@ -323,7 +358,7 @@ test('normative documents bind formulas, threat model, coarse errors, and test-o
         'ASCIIUpper(RemoveASCIIWhitespace(x))',
         'HMAC-SHA-256',
         'AES-256-GCM',
-        '512 x 192',
+        '384 x 144',
         'A_i = T_i * R_i * H_i * S_i',
         'Catmull–Rom',
         'active -> consumed | exhausted | expired | revoked',
@@ -335,10 +370,10 @@ test('normative documents bind formulas, threat model, coarse errors, and test-o
     {
         assert.ok(protocol.includes(required), required);
     }
-    assert.ok(api.includes('fsu.challenge/perception-character-raster@v3'));
+    assert.ok(api.includes('fsu.challenge/perception-character-artifact@v3'));
     assert.ok(security.includes('PerceptionCharacterV3 规范边界'));
     assert.ok(protocol.includes('reference-test path'));
-    assert.ok(protocol.includes('not a UI or production provider'));
+    assert.ok(protocol.includes('uses no external service'));
 });
 
 function activeState()

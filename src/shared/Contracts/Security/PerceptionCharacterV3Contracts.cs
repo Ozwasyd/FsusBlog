@@ -42,10 +42,16 @@ public sealed record PerceptionCharacterV3VerifyPayload(
 /// </summary>
 public static class PerceptionCharacterV3Contracts
 {
-    public const string Algorithm = "fsu.challenge/perception-character-raster@v3";
+    public const string Algorithm = "fsu.challenge/perception-character-artifact@v3";
     public const string WireName = "perceptionCharacterV3";
-    public const int MaxVisualMediaBytes = 512 * 192;
-    public const int MaxAudioMediaBytes = 256 * 1024;
+    public const string VisualMediaType = "image/png";
+    public const string AudioMediaType = "audio/ogg; codecs=opus";
+    public const int PhysicalWidth = 384;
+    public const int PhysicalHeight = 144;
+    public const int DisplayWidth = 320;
+    public const int DisplayHeight = 120;
+    public const int MaxVisualMediaBytes = 32 * 1024;
+    public const int MaxAudioMediaBytes = 48 * 1024;
     public const int MaxStateTokenBytes = 2048;
     public const int MaxAnswerChars = 32;
 
@@ -63,10 +69,13 @@ public static class PerceptionCharacterV3Contracts
         if (payload.MediaBytes is null || payload.MediaBytes.Length is <= 0 || payload.MediaBytes.Length > maximum)
             return Invalid("v3_media_size_invalid");
         if (payload.Representation == PerceptionCharacterV3Representation.Visual &&
-            (payload.MediaBytes.Length != MaxVisualMediaBytes || payload.PhysicalWidth != 512 || payload.PhysicalHeight != 192 || payload.DisplayWidth != 320 || payload.DisplayHeight != 120 || payload.MediaType != "application/x-fsus-gray8"))
+            (payload.PhysicalWidth != PhysicalWidth || payload.PhysicalHeight != PhysicalHeight ||
+             payload.DisplayWidth != DisplayWidth || payload.DisplayHeight != DisplayHeight ||
+             payload.MediaType != VisualMediaType || !PerceptionCharacterV3MediaValidator.IsCanonicalVisualPng(payload.MediaBytes)))
             return Invalid("v3_visual_shape_invalid");
         if (payload.Representation == PerceptionCharacterV3Representation.Audio &&
-            (payload.MediaType != "audio/wav" || payload.PhysicalWidth != 0 || payload.PhysicalHeight != 0 || payload.DisplayWidth != 0 || payload.DisplayHeight != 0))
+            (payload.MediaType != AudioMediaType || payload.PhysicalWidth != 0 || payload.PhysicalHeight != 0 ||
+             payload.DisplayWidth != 0 || payload.DisplayHeight != 0 || !PerceptionCharacterV3MediaValidator.IsCanonicalOpusOgg(payload.MediaBytes)))
             return Invalid("v3_audio_shape_invalid");
         if (payload.AttemptBudget != 2 || payload.ExpiresAtUnixMs <= payload.IssuedAtUnixMs)
             return Invalid("v3_lifetime_invalid");

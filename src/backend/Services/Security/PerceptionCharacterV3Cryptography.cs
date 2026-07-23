@@ -44,11 +44,13 @@ public static class PerceptionCharacterV3CanonicalContract
 
 public sealed record PerceptionCharacterV3BindingContext(
     string ChallengeId, string EnvelopeId, string Action, string RouteKey, string SubjectHash,
-    string DeviceBindingHash, string ClientIpBindingHash, string PolicyVersion, string MediaHash,
+    string DeviceBindingHash, string ClientIpBindingHash, string PolicyVersion, string ArtifactHash,
+    string Representation, string MediaType, ushort PhysicalWidth, ushort PhysicalHeight, ushort DisplayWidth, ushort DisplayHeight,
     long IssuedAtUnixMs, long ExpiresAtUnixMs, string TokenKeyVersion);
 
 public sealed record PerceptionCharacterV3State(
-    byte[] AnswerTag, string MediaHash, string ChallengeId, string EnvelopeId, string Action, string RouteKey,
+    byte[] AnswerTag, string ArtifactHash, string MediaType, ushort PhysicalWidth, ushort PhysicalHeight, ushort DisplayWidth, ushort DisplayHeight,
+    string ChallengeId, string EnvelopeId, string Action, string RouteKey,
     string SubjectHash, string DeviceBindingHash, string ClientIpBindingHash, string PolicyVersion, byte AttemptBudget,
     string Representation, long IssuedAtUnixMs, long ExpiresAtUnixMs, string TokenKeyVersion, string AnswerKeyVersion);
 
@@ -132,7 +134,9 @@ public static class PerceptionCharacterV3Crypto
         PerceptionCharacterV3ProtocolContract c = PerceptionCharacterV3CanonicalContract.Value;
         return EncodeLp(Utf8(c.Cryptography.AnswerDomain), new byte[] { c.Version }, Utf8(context.ChallengeId), Utf8(context.EnvelopeId),
             Utf8(context.Action), Utf8(context.RouteKey), Hex32(context.SubjectHash), Hex32(context.DeviceBindingHash),
-            Utf8(context.PolicyVersion), Hex32(context.MediaHash), Encoding.ASCII.GetBytes(normalized));
+            Utf8(context.PolicyVersion), Hex32(context.ArtifactHash), Ascii(context.Representation), Ascii(context.MediaType),
+            UInt16(context.PhysicalWidth), UInt16(context.PhysicalHeight), UInt16(context.DisplayWidth), UInt16(context.DisplayHeight),
+            Encoding.ASCII.GetBytes(normalized));
     }
 
     public static byte[] ComputeAnswerTag(ReadOnlySpan<byte> key, PerceptionCharacterV3BindingContext context, string answer)
@@ -162,14 +166,18 @@ public static class PerceptionCharacterV3Crypto
     {
         PerceptionCharacterV3ProtocolContract c = PerceptionCharacterV3CanonicalContract.Value;
         return EncodeLp(Ascii(c.Enum), Ascii(c.WireName), Ascii(c.Algorithm), new byte[] { c.Version }, Utf8(x.ChallengeId), Utf8(x.EnvelopeId),
-            Utf8(x.Action), Utf8(x.RouteKey), Hex32(x.MediaHash), Int64(x.IssuedAtUnixMs), Int64(x.ExpiresAtUnixMs), Ascii(x.TokenKeyVersion));
+            Utf8(x.Action), Utf8(x.RouteKey), Hex32(x.ArtifactHash), Ascii(x.Representation), Ascii(x.MediaType),
+            UInt16(x.PhysicalWidth), UInt16(x.PhysicalHeight), UInt16(x.DisplayWidth), UInt16(x.DisplayHeight),
+            Int64(x.IssuedAtUnixMs), Int64(x.ExpiresAtUnixMs), Ascii(x.TokenKeyVersion));
     }
 
     public static byte[] EncodeState(PerceptionCharacterV3State x)
     {
         if (x.AnswerTag.Length != 32)
             throw new ArgumentException("Answer tag must be 32 bytes.");
-        return EncodeLp(x.AnswerTag, Hex32(x.MediaHash), Utf8(x.ChallengeId), Utf8(x.EnvelopeId), Utf8(x.Action), Utf8(x.RouteKey),
+        return EncodeLp(x.AnswerTag, Hex32(x.ArtifactHash), Ascii(x.MediaType),
+            UInt16(x.PhysicalWidth), UInt16(x.PhysicalHeight), UInt16(x.DisplayWidth), UInt16(x.DisplayHeight),
+            Utf8(x.ChallengeId), Utf8(x.EnvelopeId), Utf8(x.Action), Utf8(x.RouteKey),
             Hex32(x.SubjectHash), Hex32(x.DeviceBindingHash), Hex32(x.ClientIpBindingHash), Utf8(x.PolicyVersion), new byte[] { x.AttemptBudget },
             Ascii(x.Representation), Int64(x.IssuedAtUnixMs), Int64(x.ExpiresAtUnixMs), Ascii(x.TokenKeyVersion), Ascii(x.AnswerKeyVersion));
     }
@@ -246,9 +254,17 @@ public static class PerceptionCharacterV3Crypto
 
     private static PerceptionCharacterV3State? DecodeState(ReadOnlySpan<byte> bytes)
     {
-        if (!TryDecodeLp(bytes, 16, out byte[][] f) || f[0].Length != 32 || f[1].Length != 32 || f[6].Length != 32 || f[7].Length != 32 || f[8].Length != 32 || f[10].Length != 1 || f[12].Length != 8 || f[13].Length != 8)
+        if (!TryDecodeLp(bytes, 21, out byte[][] f) || f[0].Length != 32 || f[1].Length != 32 ||
+            f[3].Length != 2 || f[4].Length != 2 || f[5].Length != 2 || f[6].Length != 2 ||
+            f[11].Length != 32 || f[12].Length != 32 || f[13].Length != 32 || f[15].Length != 1 ||
+            f[17].Length != 8 || f[18].Length != 8)
             return null;
-        return new(f[0], Convert.ToHexStringLower(f[1]), Text(f[2]), Text(f[3]), Text(f[4]), Text(f[5]), Convert.ToHexStringLower(f[6]), Convert.ToHexStringLower(f[7]), Convert.ToHexStringLower(f[8]), Text(f[9]), f[10][0], Text(f[11]), BinaryPrimitives.ReadInt64BigEndian(f[12]), BinaryPrimitives.ReadInt64BigEndian(f[13]), Text(f[14]), Text(f[15]));
+        return new(f[0], Convert.ToHexStringLower(f[1]), Text(f[2]),
+            BinaryPrimitives.ReadUInt16BigEndian(f[3]), BinaryPrimitives.ReadUInt16BigEndian(f[4]),
+            BinaryPrimitives.ReadUInt16BigEndian(f[5]), BinaryPrimitives.ReadUInt16BigEndian(f[6]),
+            Text(f[7]), Text(f[8]), Text(f[9]), Text(f[10]), Convert.ToHexStringLower(f[11]),
+            Convert.ToHexStringLower(f[12]), Convert.ToHexStringLower(f[13]), Text(f[14]), f[15][0],
+            Text(f[16]), BinaryPrimitives.ReadInt64BigEndian(f[17]), BinaryPrimitives.ReadInt64BigEndian(f[18]), Text(f[19]), Text(f[20]));
     }
 
     private static bool TryDecodeLp(ReadOnlySpan<byte> bytes, int expected, out byte[][] fields)
@@ -293,6 +309,12 @@ public static class PerceptionCharacterV3Crypto
     {
         byte[] result = new byte[8];
         BinaryPrimitives.WriteInt64BigEndian(result, value);
+        return result;
+    }
+    private static byte[] UInt16(ushort value)
+    {
+        byte[] result = new byte[2];
+        BinaryPrimitives.WriteUInt16BigEndian(result, value);
         return result;
     }
     private static void RequireKey(ReadOnlySpan<byte> key)

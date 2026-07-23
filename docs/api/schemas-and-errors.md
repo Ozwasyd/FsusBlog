@@ -401,7 +401,7 @@ frame 208 的 `no_change`，不属于错误。动态关闭 `Messages:StatusMutat
 | 183 | `AnonymousPrivacyStateSnapshot` | `AnonymousPrivacyStateSnapshotPod` | 前端匿名隐私状态快照 |
 | 184 | `PerceptionSealedChallengeV2` | `PerceptionSealedChallengeV2Pod` | `fsu.challenge/perception-sealed@v2` issue payload；只覆盖 Localization 与 MicroInteraction |
 | 185 | `PerceptionSealedResultV2` | `PerceptionSealedResultV2Pod` | `fsu.challenge/perception-sealed@v2` verify payload；只支持 coordinates 与 steps response payload |
-| nested | `PerceptionCharacterV3Issue` | `PerceptionCharacterV3IssuePod` | frame 175 内按 assignment `kind=14` 判别的 typed union；final Gray8/WAV bytes + opaque state |
+| nested | `PerceptionCharacterV3Issue` | `PerceptionCharacterV3IssuePod` | frame 175 内按 assignment `kind=14` 判别的 typed union；final 4-bit PNG/Ogg Opus bytes + opaque state |
 | nested | `PerceptionCharacterV3Verify` | `PerceptionCharacterV3VerifyPod` | frame 174 内按 `kind=14` 判别的 typed union；只含 answer + opaque state |
 | 186 | `RetiredCredentialSpecificRevocationRequest` | 无 | 永久 retired；不得复用或解析 body |
 | 187 | `RetiredCredentialSpecificRevocationResponse` | 无 | 永久 retired；服务端不发送 |

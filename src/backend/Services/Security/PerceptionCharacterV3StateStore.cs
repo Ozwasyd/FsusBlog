@@ -7,7 +7,8 @@ namespace FsusBlog.Server.Services.Security;
 
 public sealed record PerceptionCharacterV3StateRecord(
     string ChallengeId, string EnvelopeId, string Action, string RouteKey, string SubjectHash, string DeviceBindingHash,
-    string DeviceAuthorityHash, string ClientIpBindingHash, string PolicyVersion, string MediaHash, string Representation, long IssuedAtUnixMs,
+    string DeviceAuthorityHash, string ClientIpBindingHash, string PolicyVersion, string ArtifactHash, string Representation,
+    string MediaType, ushort PhysicalWidth, ushort PhysicalHeight, ushort DisplayWidth, ushort DisplayHeight, long IssuedAtUnixMs,
     long ExpiresAtUnixMs, string TokenKeyVersion, string AnswerKeyVersion, string TokenHash);
 
 public enum PerceptionCharacterV3TransitionKind
@@ -59,17 +60,17 @@ local attempts=tonumber(redis.call('HGET',key,'attempts') or '0')
 local previous=redis.call('HGET',key,'lastOperationId')
 if previous==ARGV[4] then return {tonumber(redis.call('HGET',key,'lastOperationCode')),tonumber(redis.call('HGET',key,'lastOperationAttempts'))} end
 if previous and redis.call('HGET',key,'lastOperationSettled')~='1' then return {-3,attempts} end
-local fields={'envelopeId','action','routeKey','subjectHash','deviceHash','deviceAuthorityHash','ipHash','policyVersion','mediaHash','representation','tokenHash'}
+local fields={'envelopeId','action','routeKey','subjectHash','deviceHash','deviceAuthorityHash','ipHash','policyVersion','artifactHash','representation','mediaType','physicalWidth','physicalHeight','displayWidth','displayHeight','tokenHash'}
 for i,name in ipairs(fields) do if redis.call('HGET',key,name)~=ARGV[i+4] then return {-2,attempts} end end
 local status=redis.call('HGET',key,'status')
 if status~='active' then
   if status=='expired' or status=='revoked' then return {3,attempts} end
   return {2,attempts}
 end
-if redis.call('GET',KEYS[2])~=ARGV[16] then return {-4,attempts} end
+if redis.call('GET',KEYS[2])~=ARGV[21] then return {-4,attempts} end
 local function changed(code,newAttempts,newStatus)
   redis.call('HSET',key,'status',newStatus,'lastOperationId',ARGV[4],'lastOperationCode',code,'lastOperationAttempts',newAttempts,'lastOperationSettled','0')
-  if newStatus~='active' and redis.call('GET',KEYS[2])==ARGV[16] then redis.call('DEL',KEYS[2]) end
+  if newStatus~='active' and redis.call('GET',KEYS[2])==ARGV[21] then redis.call('DEL',KEYS[2]) end
   return {code,newAttempts}
 end
 local now=tonumber(ARGV[2]); local expires=tonumber(redis.call('HGET',key,'expiresAt'))
@@ -89,7 +90,7 @@ local attempts=tonumber(redis.call('HGET',old,'attempts') or '0')
 local previous=redis.call('HGET',old,'lastOperationId')
 if previous==ARGV[2] then return {tonumber(redis.call('HGET',old,'lastOperationCode')),tonumber(redis.call('HGET',old,'lastOperationAttempts'))} end
 if previous and redis.call('HGET',old,'lastOperationSettled')~='1' then return {-3,attempts} end
-local fields={'envelopeId','action','routeKey','subjectHash','deviceHash','deviceAuthorityHash','ipHash','policyVersion','mediaHash','representation','tokenHash'}
+local fields={'envelopeId','action','routeKey','subjectHash','deviceHash','deviceAuthorityHash','ipHash','policyVersion','artifactHash','representation','mediaType','physicalWidth','physicalHeight','displayWidth','displayHeight','tokenHash'}
 for i,name in ipairs(fields) do if redis.call('HGET',old,name)~=ARGV[i+3] then return {-2,attempts} end end
 local oldStatus=redis.call('HGET',old,'status')
 if oldStatus~='active' then
@@ -102,7 +103,7 @@ if tonumber(ARGV[1])>=tonumber(redis.call('HGET',old,'expiresAt')) then
   if redis.call('GET',oldIdentity)==ARGV[3] then redis.call('DEL',oldIdentity) end
   return {7,attempts}
 end
-local replacementStart=15
+local replacementStart=20
 local expiry=ARGV[replacementStart]
 local identityOwner=redis.call('GET',replacementIdentity)
 if replacementIdentity==oldIdentity then
@@ -180,9 +181,12 @@ return 0
             if (e.Length == 0)
                 return null;
             var d = e.ToDictionary(x => x.Name.ToString(), x => x.Value.ToString(), StringComparer.Ordinal);
-            return new(challengeId, d["envelopeId"], d["action"], d["routeKey"], d["subjectHash"], d["deviceHash"], d["deviceAuthorityHash"], d["ipHash"], d["policyVersion"], d["mediaHash"], d["representation"], long.Parse(d["issuedAt"], System.Globalization.CultureInfo.InvariantCulture), long.Parse(d["expiresAt"], System.Globalization.CultureInfo.InvariantCulture), d["tokenKeyVersion"], d["answerKeyVersion"], d["tokenHash"]);
+            return new(challengeId, d["envelopeId"], d["action"], d["routeKey"], d["subjectHash"], d["deviceHash"], d["deviceAuthorityHash"], d["ipHash"], d["policyVersion"], d["artifactHash"], d["representation"],
+                d["mediaType"], ushort.Parse(d["physicalWidth"], System.Globalization.CultureInfo.InvariantCulture), ushort.Parse(d["physicalHeight"], System.Globalization.CultureInfo.InvariantCulture),
+                ushort.Parse(d["displayWidth"], System.Globalization.CultureInfo.InvariantCulture), ushort.Parse(d["displayHeight"], System.Globalization.CultureInfo.InvariantCulture),
+                long.Parse(d["issuedAt"], System.Globalization.CultureInfo.InvariantCulture), long.Parse(d["expiresAt"], System.Globalization.CultureInfo.InvariantCulture), d["tokenKeyVersion"], d["answerKeyVersion"], d["tokenHash"]);
         }
-        catch (Exception ex) when (ex is RedisException or KeyNotFoundException or FormatException)
+        catch (Exception ex) when (ex is RedisException or KeyNotFoundException or FormatException or OverflowException)
         {
             throw new PerceptionCharacterV3StoreUnavailableException(ex);
         }
@@ -202,7 +206,7 @@ return 0
             RedisResult result = await EvaluateAfterPendingAsync(
                 TransitionScript,
                 [key, ActiveIdentityKey(x)],
-                [operation, now, correct ? "1" : "0", operationId, x.EnvelopeId, x.Action, x.RouteKey, x.SubjectHash, x.DeviceBindingHash, x.DeviceAuthorityHash, x.ClientIpBindingHash, x.PolicyVersion, x.MediaHash, x.Representation, x.TokenHash, x.ChallengeId],
+                [operation, now, correct ? "1" : "0", operationId, x.EnvelopeId, x.Action, x.RouteKey, x.SubjectHash, x.DeviceBindingHash, x.DeviceAuthorityHash, x.ClientIpBindingHash, x.PolicyVersion, x.ArtifactHash, x.Representation, x.MediaType, x.PhysicalWidth, x.PhysicalHeight, x.DisplayWidth, x.DisplayHeight, x.TokenHash, x.ChallengeId],
                 ct).ConfigureAwait(false);
             if (_discardReply?.Invoke(PerceptionCharacterV3RedisFaultPoint.TransitionReply) == true)
                 throw new OperationReplyLostException(key, operationId);
@@ -226,7 +230,7 @@ return 0
         try
         {
             RedisValue[] replacementArguments = CreateArguments(replacement);
-            RedisValue[] arguments = [now, operationId, expected.ChallengeId, expected.EnvelopeId, expected.Action, expected.RouteKey, expected.SubjectHash, expected.DeviceBindingHash, expected.DeviceAuthorityHash, expected.ClientIpBindingHash, expected.PolicyVersion, expected.MediaHash, expected.Representation, expected.TokenHash, .. replacementArguments];
+            RedisValue[] arguments = [now, operationId, expected.ChallengeId, expected.EnvelopeId, expected.Action, expected.RouteKey, expected.SubjectHash, expected.DeviceBindingHash, expected.DeviceAuthorityHash, expected.ClientIpBindingHash, expected.PolicyVersion, expected.ArtifactHash, expected.Representation, expected.MediaType, expected.PhysicalWidth, expected.PhysicalHeight, expected.DisplayWidth, expected.DisplayHeight, expected.TokenHash, .. replacementArguments];
             RedisResult result = await EvaluateAfterPendingAsync(
                 ReplaceScript,
                 [oldKey, Key(replacement.ChallengeId), ActiveIdentityKey(expected), ActiveIdentityKey(replacement)],
@@ -331,7 +335,9 @@ return 0
     private static RedisValue[] StateFieldArguments(PerceptionCharacterV3StateRecord record)
         => ["status", "active", "attempts", 0, "envelopeId", record.EnvelopeId, "action", record.Action, "routeKey", record.RouteKey,
             "subjectHash", record.SubjectHash, "deviceHash", record.DeviceBindingHash, "deviceAuthorityHash", record.DeviceAuthorityHash, "ipHash", record.ClientIpBindingHash, "policyVersion", record.PolicyVersion,
-            "mediaHash", record.MediaHash, "representation", record.Representation, "issuedAt", record.IssuedAtUnixMs, "expiresAt", record.ExpiresAtUnixMs,
+            "artifactHash", record.ArtifactHash, "representation", record.Representation, "mediaType", record.MediaType,
+            "physicalWidth", record.PhysicalWidth, "physicalHeight", record.PhysicalHeight, "displayWidth", record.DisplayWidth, "displayHeight", record.DisplayHeight,
+            "issuedAt", record.IssuedAtUnixMs, "expiresAt", record.ExpiresAtUnixMs,
             "tokenKeyVersion", record.TokenKeyVersion, "answerKeyVersion", record.AnswerKeyVersion, "tokenHash", record.TokenHash];
 
     private async Task<bool> ConfirmSettlementAsync(RedisKey key, string operationId)

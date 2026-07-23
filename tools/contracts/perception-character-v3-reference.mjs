@@ -1,7 +1,30 @@
-import { createCipheriv, createDecipheriv, createHmac, createHash, timingSafeEqual } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHmac, timingSafeEqual } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import {
+    buildAudioArtifactVector as buildAudioArtifact,
+    encodeVisualArtifact as encodeVisual
+} from './perception-character-v3-artifacts.mjs';
+import {
+    switchRepresentation as switchStateRepresentation,
+    transition as transitionState
+} from './perception-character-v3-state-machine.mjs';
+import {
+    ascii,
+    base64url,
+    bytes32,
+    clamp,
+    clampByte,
+    fixedBytesEqual,
+    hex32,
+    int64,
+    requireKey as requireExactKey,
+    sha256,
+    uint16,
+    utf8
+} from './perception-character-v3-bytes.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const contract = Object.freeze(JSON.parse(readFileSync(
@@ -91,7 +114,13 @@ export function encodeAnswerMaterial(context, answer)
         hex32(context.subjectHash),
         hex32(context.deviceBindingHash),
         utf8(context.policyVersion),
-        hex32(context.mediaHash),
+        hex32(context.artifactHash),
+        ascii(context.representation),
+        ascii(context.mediaType),
+        uint16(context.physicalWidth),
+        uint16(context.physicalHeight),
+        uint16(context.displayWidth),
+        uint16(context.displayHeight),
         ascii(normalized)
     ]);
 }
@@ -126,7 +155,13 @@ export function encodeAad(context)
         utf8(context.envelopeId),
         utf8(context.action),
         utf8(context.routeKey),
-        hex32(context.mediaHash),
+        hex32(context.artifactHash),
+        ascii(context.representation),
+        ascii(context.mediaType),
+        uint16(context.physicalWidth),
+        uint16(context.physicalHeight),
+        uint16(context.displayWidth),
+        uint16(context.displayHeight),
         int64(context.issuedAtUnixMs),
         int64(context.expiresAtUnixMs),
         ascii(context.tokenKeyVersion)
@@ -137,7 +172,12 @@ export function encodeState(state)
 {
     return encodeLP([
         bytes32(state.answerTag, 'answerTag'),
-        hex32(state.mediaHash),
+        hex32(state.artifactHash),
+        ascii(state.mediaType),
+        uint16(state.physicalWidth),
+        uint16(state.physicalHeight),
+        uint16(state.displayWidth),
+        uint16(state.displayHeight),
         utf8(state.challengeId),
         utf8(state.envelopeId),
         utf8(state.action),
@@ -265,7 +305,7 @@ export function rasterize(answer, rasterSeed)
     const random = createDeterministicStream(rasterSeed);
     const { physicalWidth: width, physicalHeight: height } = contract.raster;
     const pixels = Buffer.alloc(width * height, 255);
-    let originX = 52;
+    let originX = 39;
     for (let index = 0; index < normalized.length; index += 1)
     {
         const variant = random.integer(0, 5);
@@ -279,27 +319,27 @@ export function rasterize(answer, rasterSeed)
         const overlap = index === normalized.length - 1 ? 0 : random.integer(4, 16);
         const gray = random.integer(0, 64);
         drawGlyph(pixels, width, height, normalized[index], variant, {
-            centerX: originX + 35 + translationX,
-            centerY: 96 + translationY + baseline,
+            centerX: originX + 26 + translationX,
+            centerY: 72 + translationY + baseline,
             rotation,
             shear,
             scaleX,
             scaleY,
             gray
         });
-        originX += 82 - overlap;
+        originX += 61 - overlap;
     }
 
     const curveCount = random.integer(2, 5);
     for (let index = 0; index < curveCount; index += 1)
     {
         drawCurve(pixels, width, height, {
-            x0: random.integer(0, 96),
-            y0: random.integer(16, 175),
-            x1: random.integer(176, 336),
-            y1: random.integer(0, 191),
-            x2: random.integer(415, 511),
-            y2: random.integer(16, 175),
+            x0: random.integer(0, 72),
+            y0: random.integer(12, 131),
+            x1: random.integer(132, 252),
+            y1: random.integer(0, 143),
+            x2: random.integer(311, 383),
+            y2: random.integer(12, 131),
             radius: random.integer(1, 3),
             gray: random.integer(32, 144)
         });
@@ -309,8 +349,8 @@ export function rasterize(answer, rasterSeed)
     for (let index = 0; index < occluderCount; index += 1)
     {
         drawOccluder(pixels, width, height, {
-            x: random.integer(24, 487),
-            y: random.integer(20, 171),
+            x: random.integer(18, 365),
+            y: random.integer(15, 128),
             width: random.integer(8, 28),
             height: random.integer(6, 20),
             gray: random.integer(72, 184)
@@ -331,16 +371,17 @@ export function rasterize(answer, rasterSeed)
         }
     }
 
-    for (let index = 0; index < warped.length; index += 1)
-    {
-        warped[index] = clampByte(warped[index] + random.integer(-12, 12));
-    }
-    const impulseCount = random.integer(256, 768);
-    for (let index = 0; index < impulseCount; index += 1)
-    {
-        warped[random.integer(0, warped.length - 1)] = random.integer(0, 1) === 0 ? 0 : 255;
-    }
     return warped;
+}
+
+export function encodeVisualArtifact(gray8, artifactSeed)
+{
+    return encodeVisual(contract, gray8, artifactSeed);
+}
+
+export function buildAudioArtifactVector()
+{
+    return buildAudioArtifact(contract);
 }
 
 export function atlasVariantBytes(character, variant)
@@ -357,64 +398,12 @@ export function atlasVariantBytes(character, variant)
 
 export function transition(state, command)
 {
-    if (!command.storeAvailable)
-    {
-        return { ...state, publicError: 'unavailable' };
-    }
-    if (state.status !== 'active')
-    {
-        return { ...state, publicError: state.status === 'expired' || state.status === 'revoked' ? 'reissueRequired' : 'rejected' };
-    }
-    if (command.type === 'revoke')
-    {
-        return { ...state, status: 'revoked', publicError: 'reissueRequired' };
-    }
-    if (command.nowUnixMs >= state.expiresAtUnixMs)
-    {
-        return { ...state, status: 'expired', publicError: 'reissueRequired' };
-    }
-    if (command.type !== 'verify')
-    {
-        throw new Error('unknown state command');
-    }
-    const attempts = state.attempts + 1;
-    if (command.answerMatches)
-    {
-        return { ...state, attempts, status: 'consumed', publicError: null };
-    }
-    if (attempts >= contract.state.attemptBudget)
-    {
-        return { ...state, attempts, status: 'exhausted', publicError: 'rejected' };
-    }
-    return { ...state, attempts, publicError: 'retryable' };
+    return transitionState(contract, state, command);
 }
 
 export function switchRepresentation(state, replacement)
 {
-    if (state.status !== 'active')
-    {
-        throw new Error('only an active challenge can switch representation');
-    }
-    if (!contract.representations.includes(replacement.representation)
-        || replacement.representation === state.representation)
-    {
-        throw new Error('replacement representation must be the other supported representation');
-    }
-    if (!replacement.challengeId || !replacement.envelopeId
-        || replacement.challengeId === state.challengeId
-        || replacement.envelopeId === state.envelopeId
-        || replacement.stateToken === state.stateToken)
-    {
-        throw new Error('replacement must use fresh challenge, envelope, and token identities');
-    }
-    return {
-        revoked: { ...state, status: 'revoked' },
-        issued: {
-            ...replacement,
-            attempts: 0,
-            status: 'active'
-        }
-    };
+    return switchStateRepresentation(contract, state, replacement);
 }
 
 export function buildVectors()
@@ -432,15 +421,23 @@ export function buildVectors()
         deviceBindingHash: '22'.repeat(32),
         clientIpBindingHash: '33'.repeat(32),
         policyVersion: 'risk-v3-2026-07-20',
+        representation: 'visual',
+        mediaType: contract.media.visual.mediaType,
+        physicalWidth: contract.raster.physicalWidth,
+        physicalHeight: contract.raster.physicalHeight,
+        displayWidth: contract.raster.displayWidth,
+        displayHeight: contract.raster.displayHeight,
         issuedAtUnixMs: 1784538000123,
         expiresAtUnixMs: 1784538120123,
         tokenKeyVersion: 'tk-2026-07'
     };
     const raster = rasterize('A7C9Q', rasterSeed);
+    const visualArtifact = encodeVisualArtifact(raster, rasterSeed);
+    const audioArtifact = buildAudioArtifactVector();
     const atlas = Buffer.concat([...contract.answer.alphabet].flatMap((character) =>
         Array.from({ length: contract.raster.glyphVariantsPerSymbol }, (_, variant) =>
             atlasVariantBytes(character, variant))));
-    context.mediaHash = sha256(raster).toString('hex');
+    context.artifactHash = sha256(visualArtifact).toString('hex');
     const answerTag = computeAnswerTag(answerKey, context, ' a7\tC\n9q ');
     const state = {
         ...context,
@@ -468,11 +465,19 @@ export function buildVectors()
             keyHex: answerKey.toString('hex'),
             tagHex: answerTag.toString('hex')
         },
-        raster: {
+        visual: {
             answer: 'A7C9Q',
             seedHex: rasterSeed.toString('hex'),
-            byteLength: raster.length,
-            mediaHashHex: context.mediaHash
+            mediaType: contract.media.visual.mediaType,
+            byteLength: visualArtifact.length,
+            artifactHashHex: context.artifactHash,
+            artifactBase64: visualArtifact.toString('base64')
+        },
+        audio: {
+            mediaType: contract.media.audio.mediaType,
+            byteLength: audioArtifact.length,
+            artifactHashHex: sha256(audioArtifact).toString('hex'),
+            artifactBase64: audioArtifact.toString('base64')
         },
         atlas: {
             symbolCount: contract.answer.alphabet.length,
@@ -676,89 +681,9 @@ function createDeterministicStream(seed)
     };
 }
 
-function utf8(value)
-{
-    const text = String(value);
-    const bytes = Buffer.from(text, 'utf8');
-    if (bytes.toString('utf8') !== text)
-    {
-        throw new Error('invalid UTF-8 scalar sequence');
-    }
-    return bytes;
-}
-
-function ascii(value)
-{
-    const text = String(value);
-    for (const character of text)
-    {
-        if (character.codePointAt(0) > 0x7f)
-        {
-            throw new Error('ASCII field contains a non-ASCII code point');
-        }
-    }
-    return Buffer.from(text, 'ascii');
-}
-
-function hex32(value)
-{
-    if (!/^[0-9a-f]{64}$/u.test(String(value)))
-    {
-        throw new Error('hash field must be 32-byte lowercase hexadecimal');
-    }
-    return Buffer.from(value, 'hex');
-}
-
-function bytes32(value, label)
-{
-    const bytes = Buffer.from(value);
-    if (bytes.length !== 32)
-    {
-        throw new Error(`${label} must be 32 bytes`);
-    }
-    return bytes;
-}
-
-function int64(value)
-{
-    const bytes = Buffer.alloc(8);
-    bytes.writeBigInt64BE(BigInt(value));
-    return bytes;
-}
-
 function requireKey(value)
 {
-    if (!Buffer.isBuffer(value) || value.length !== contract.cryptography.keyBytes)
-    {
-        throw new Error('key must be exactly 256 bits');
-    }
-}
-
-function base64url(value)
-{
-    return Buffer.from(value).toString('base64url');
-}
-
-function sha256(value)
-{
-    return createHash('sha256').update(value).digest();
-}
-
-function fixedBytesEqual(left, right)
-{
-    const leftBytes = Buffer.from(left);
-    const rightBytes = Buffer.from(right);
-    return leftBytes.length === rightBytes.length && timingSafeEqual(leftBytes, rightBytes);
-}
-
-function clamp(value, minimum, maximum)
-{
-    return Math.max(minimum, Math.min(maximum, value));
-}
-
-function clampByte(value)
-{
-    return clamp(value, 0, 255);
+    requireExactKey(contract, value);
 }
 
 const testKeyDigests = new Set([

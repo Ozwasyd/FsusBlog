@@ -128,9 +128,9 @@ UI challenge host 与 notification headless flow 共用一个 envelope runner �
 
 ### PerceptionCharacterV3 规范边界
 
-`PerceptionCharacterV3` 是独立的新协议身份：wire name `perceptionCharacterV3`，algorithm `fsu.challenge/perception-character-raster@v3`。其完整规范见 [PerceptionCharacterV3 protocol](security/perception-character-v3-protocol.md)，唯一 machine-readable source 位于 `src/shared/Contracts/Validation/Security/perception-character-v3-contract.json`。运行时以独立 enum/provider/parser/typed AEDS frame 实现，不形成 V1/V2 compatibility path。
+`PerceptionCharacterV3` 是原位破坏性重定义后的独立协议身份：wire name `perceptionCharacterV3`，algorithm `fsu.challenge/perception-character-artifact@v3`。其完整规范见 [PerceptionCharacterV3 protocol](security/perception-character-v3-protocol.md)，唯一 machine-readable source 位于 `src/shared/Contracts/Validation/Security/perception-character-v3-contract.json`。运行时以独立 enum/provider/parser/typed AEDS frame 实现，不形成 V1/V2 或 retired V3 compatibility path。
 
-V3 服务端生成最终 `512 x 192` Gray8 或最终 audio media；客户端永远不接收答案 tag、seed、recipe、atlas variant、warp/noise 参数或音素顺序。答案由 26 字符 alphabet 独立无偏采样五次，ASCII-only normalization 后使用独立 256-bit answer key 做 length-prefixed HMAC；状态由另一套独立 versioned 256-bit key以 AES-256-GCM 封装。AAD、密文、Redis 原子状态共同绑定 challenge/envelope、action/route、subject/device/IP、policy、representation 和 exact media hash。每个 identity 仅有两次原子 attempt，visual/audio 切换撤销旧 identity 并签发完全独立的新 state。
+V3 服务端只交付最终 `384 x 144`、4-bit grayscale、无 alpha 的 PNG，或固定 mono Opus-in-Ogg audio；hard limit 分别为 32 KiB 与 48 KiB。客户端永远不接收答案 tag、seed、recipe、atlas variant、warp/noise 参数或音素顺序。答案由 26 字符 alphabet 独立无偏采样五次，ASCII-only normalization 后使用独立 256-bit answer key 做 length-prefixed HMAC；状态由另一套独立 versioned 256-bit key以 AES-256-GCM 封装。`artifactHash` 覆盖 exact transported final-media bytes，AAD、密文、Redis 原子状态共同绑定 challenge/envelope、action/route、subject/device/IP、policy、representation、media type、dimensions 和 artifact hash。每个 identity 仅有两次原子 attempt，visual/audio 切换撤销旧 identity 并签发完全独立的新 state。
 
 V3 只提高 OCR/model/relay 的成本，不是 humanity proof。公开失败只按 recoverability/state 映射为 `retryable`、`reissueRequired`、`unavailable` 或 `rejected`，不能泄露 crypto/binding/parser/Redis 内因。无需重启的回退是热更新 policy 停止新 V3 签发并让已签发短 TTL identity fail closed 或过期；不得回退到公开 recipe、明文答案、V1/V2 alias 或客户端自行选择 representation/provider。
 

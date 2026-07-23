@@ -72,7 +72,9 @@ public sealed class PerceptionCharacterV3Tests
         Assert.Equal(root.GetProperty("answer").GetProperty("materialHex").GetString(), Convert.ToHexStringLower(PerceptionCharacterV3Crypto.EncodeAnswerMaterial(context, " a7\tC\n9q ")));
         Assert.Equal(root.GetProperty("answer").GetProperty("tagHex").GetString(), Convert.ToHexStringLower(PerceptionCharacterV3Crypto.ComputeAnswerTag(answerKey, context, " a7\tC\n9q ")));
         byte[] tag = Convert.FromHexString(root.GetProperty("answer").GetProperty("tagHex").GetString()!);
-        var state = new PerceptionCharacterV3State(tag, context.MediaHash, context.ChallengeId, context.EnvelopeId, context.Action, context.RouteKey, context.SubjectHash, context.DeviceBindingHash, context.ClientIpBindingHash, context.PolicyVersion, 2, "visual", context.IssuedAtUnixMs, context.ExpiresAtUnixMs, context.TokenKeyVersion, root.GetProperty("state").GetProperty("answerKeyVersion").GetString()!);
+        var state = new PerceptionCharacterV3State(tag, context.ArtifactHash, context.MediaType, context.PhysicalWidth, context.PhysicalHeight, context.DisplayWidth, context.DisplayHeight,
+            context.ChallengeId, context.EnvelopeId, context.Action, context.RouteKey, context.SubjectHash, context.DeviceBindingHash, context.ClientIpBindingHash, context.PolicyVersion, 2,
+            context.Representation, context.IssuedAtUnixMs, context.ExpiresAtUnixMs, context.TokenKeyVersion, root.GetProperty("state").GetProperty("answerKeyVersion").GetString()!);
         Assert.Equal(root.GetProperty("state").GetProperty("aadHex").GetString(), Convert.ToHexStringLower(PerceptionCharacterV3Crypto.EncodeAad(context)));
         Assert.Equal(root.GetProperty("state").GetProperty("plaintextHex").GetString(), Convert.ToHexStringLower(PerceptionCharacterV3Crypto.EncodeState(state)));
         byte[] tokenKey = Convert.FromHexString(root.GetProperty("state").GetProperty("tokenKeyHex").GetString()!);
@@ -84,33 +86,44 @@ public sealed class PerceptionCharacterV3Tests
     }
 
     [Fact]
-    public void Raster_MatchesCanonicalHash_AndAudioIsBoundedFinalMedia()
+    public void FinalMediaVectors_AreAcceptedAndRetiredMediaIsRejected()
     {
-        JsonElement vector = Vectors.GetProperty("raster");
-        var renderer = new PerceptionCharacterV3Renderer();
-        byte[] raster = renderer.RenderVisual(vector.GetProperty("answer").GetString()!, Convert.FromHexString(vector.GetProperty("seedHex").GetString()!));
-        Assert.Equal(98_304, raster.Length);
-        Assert.Equal(vector.GetProperty("mediaHashHex").GetString(), Convert.ToHexStringLower(SHA256.HashData(raster)));
-        byte[] audio = renderer.RenderAudio("A7C9Q", new byte[32]);
-        Assert.InRange(audio.Length, 45, PerceptionCharacterV3Contracts.MaxAudioMediaBytes);
-        Assert.Equal("RIFF", Encoding.ASCII.GetString(audio, 0, 4));
-        AssertSpokenAudioFixture(audio, "A7C9Q");
-        PerceptionCharacterV3SpokenUnit longest = PerceptionCharacterV3SpokenAtlasContract.Value.Units.Values.MaxBy(static unit => unit.SampleCount)!;
-        string longestSymbol = PerceptionCharacterV3SpokenAtlasContract.Value.Units.Single(item => item.Value == longest).Key;
-        Assert.InRange(renderer.RenderAudio(string.Concat(Enumerable.Repeat(longestSymbol, 5)), new byte[32]).Length, 45, PerceptionCharacterV3Contracts.MaxAudioMediaBytes);
+        string challenge = Guid.CreateVersion7().ToString("D");
+        string envelope = Guid.CreateVersion7().ToString("D");
+        var visual = Issue(challenge, envelope, PerceptionCharacterV3Representation.Visual, VisualArtifact());
+        var audio = Issue(challenge, envelope, PerceptionCharacterV3Representation.Audio, AudioArtifact());
+        Assert.True(PerceptionCharacterV3Contracts.ValidateIssue(visual).IsValid);
+        Assert.True(PerceptionCharacterV3Contracts.ValidateIssue(audio).IsValid);
+        Assert.False(PerceptionCharacterV3Contracts.ValidateIssue(visual with
+        {
+            MediaType = "application/x-fsus-gray8",
+            MediaBytes = new byte[98_304],
+            PhysicalWidth = 512,
+            PhysicalHeight = 192
+        }).IsValid);
+        Assert.False(PerceptionCharacterV3Contracts.ValidateIssue(audio with { MediaType = "audio/wav" }).IsValid);
+        byte[] badPngCrc = [.. visual.MediaBytes];
+        badPngCrc[40] ^= 1;
+        Assert.False(PerceptionCharacterV3Contracts.ValidateIssue(visual with { MediaBytes = badPngCrc }).IsValid);
+        Assert.False(PerceptionCharacterV3Contracts.ValidateIssue(visual with { MediaBytes = [.. visual.MediaBytes, 0] }).IsValid);
+        byte[] badOggCrc = [.. audio.MediaBytes];
+        badOggCrc[22] ^= 1;
+        Assert.False(PerceptionCharacterV3Contracts.ValidateIssue(audio with { MediaBytes = badOggCrc }).IsValid);
+        byte[] polyglot = [.. audio.MediaBytes, .. Encoding.ASCII.GetBytes("OpusHeadOpusTags")];
+        Assert.False(PerceptionCharacterV3Contracts.ValidateIssue(audio with { MediaBytes = polyglot }).IsValid);
     }
 
     [Fact]
     public void TypedAedsUnion_RoundTripsAndRejectsMalformedOversizedTruncatedAndUnknownKind()
     {
         string challenge = Guid.CreateVersion7().ToString("D"), envelope = Guid.CreateVersion7().ToString("D");
-        byte[] media = new byte[98_304];
-        var issue = new PerceptionCharacterV3IssuePayload(PerceptionCharacterV3Contracts.Algorithm, challenge, envelope, PerceptionCharacterV3Representation.Visual, "application/x-fsus-gray8", media, 512, 192, 320, 120, 2, "p1", 1, 2, "opaque");
+        byte[] media = VisualArtifact();
+        var issue = Issue(challenge, envelope, PerceptionCharacterV3Representation.Visual, media);
         byte[] encoded = PodBinaryCodec.EncodePerceptionCharacterV3Issue(issue);
         Assert.True(PodBinaryCodec.TryDecodePerceptionCharacterV3Issue(encoded, out PerceptionCharacterV3IssuePayload decoded));
         Assert.Equal(issue.MediaBytes, decoded.MediaBytes);
         Assert.False(PodBinaryCodec.TryDecodePerceptionCharacterV3Issue(encoded[..^1], out _));
-        Assert.Throws<ArgumentException>(() => PodBinaryCodec.EncodePerceptionCharacterV3Issue(issue with { MediaBytes = new byte[98_305] }));
+        Assert.Throws<ArgumentException>(() => PodBinaryCodec.EncodePerceptionCharacterV3Issue(issue with { MediaBytes = new byte[32 * 1024 + 1] }));
         encoded[0] = 99;
         Assert.False(PodBinaryCodec.TryDecodePerceptionCharacterV3Issue(encoded, out _));
         var verify = new PerceptionCharacterV3VerifyPayload(PerceptionCharacterV3Contracts.Algorithm, challenge, envelope, PerceptionCharacterV3Representation.Visual, "A7C9Q", "opaque");
@@ -308,12 +321,10 @@ public sealed class PerceptionCharacterV3Tests
     }
 
     [Fact]
-    public void RendererHonorsCancellationBeforeExpensiveWork()
+    public void RetiredRequestTimeRendererFailsClosed()
     {
-        using var cts = new CancellationTokenSource();
-        cts.Cancel();
-        Assert.ThrowsAny<OperationCanceledException>(() => new PerceptionCharacterV3Renderer().RenderVisual("A7C9Q", new byte[32], cts.Token));
-        Assert.ThrowsAny<OperationCanceledException>(() => new PerceptionCharacterV3Renderer().RenderAudio("A7C9Q", new byte[32], cts.Token));
+        Assert.Throws<InvalidOperationException>(() => new PerceptionCharacterV3Renderer().RenderVisual("A7C9Q", new byte[32]));
+        Assert.Throws<InvalidOperationException>(() => new PerceptionCharacterV3Renderer().RenderAudio("A7C9Q", new byte[32]));
     }
 
     [Fact]
@@ -358,7 +369,7 @@ public sealed class PerceptionCharacterV3Tests
         Assert.True(result.Succeeded);
         Assert.NotNull(result.PerceptionCharacterV3);
         Assert.Empty(result.ProviderPayload);
-        Assert.Equal(98_304, result.PerceptionCharacterV3.MediaBytes.Length);
+        Assert.Equal(VisualArtifact().Length, result.PerceptionCharacterV3.MediaBytes.Length);
         Assert.DoesNotContain("answer", result.PerceptionCharacterV3.StateToken, StringComparison.OrdinalIgnoreCase);
 
         PerceptionCharacterV3StateRecord first = store.Records.Values.Single();
@@ -538,7 +549,8 @@ public sealed class PerceptionCharacterV3Tests
         string deviceBinding = PerceptionCharacterV3Crypto.DeriveDeviceBinding(answerKey, "session:server-issued-test");
         var record = new PerceptionCharacterV3StateRecord(
             oldChallengeId, oldEnvelopeId, request.Action, request.RouteKey, request.SubjectHash, deviceBinding,
-            new string('9', 64), request.ClientIpHash, request.PolicyVersion, new string('4', 64), "visual", 1, 2, "tk", "ak",
+            new string('9', 64), request.ClientIpHash, request.PolicyVersion, new string('4', 64), "visual",
+            PerceptionCharacterV3Contracts.VisualMediaType, 384, 144, 320, 120, 1, 2, "tk", "ak",
             Convert.ToHexStringLower(SHA256.HashData(Encoding.ASCII.GetBytes(token))));
         var audit = new AuditSink();
         var provider = new PerceptionCharacterV3Provider(
@@ -630,9 +642,13 @@ public sealed class PerceptionCharacterV3Tests
         {
             DeviceBindingHash = device
         };
-        var context = new PerceptionCharacterV3BindingContext(record.ChallengeId, record.EnvelopeId, record.Action, record.RouteKey, record.SubjectHash, record.DeviceBindingHash, record.ClientIpBindingHash, record.PolicyVersion, record.MediaHash, record.IssuedAtUnixMs, record.ExpiresAtUnixMs, record.TokenKeyVersion);
+        var context = new PerceptionCharacterV3BindingContext(record.ChallengeId, record.EnvelopeId, record.Action, record.RouteKey, record.SubjectHash, record.DeviceBindingHash, record.ClientIpBindingHash, record.PolicyVersion, record.ArtifactHash,
+            record.Representation, record.MediaType, record.PhysicalWidth, record.PhysicalHeight, record.DisplayWidth, record.DisplayHeight,
+            record.IssuedAtUnixMs, record.ExpiresAtUnixMs, record.TokenKeyVersion);
         byte[] tag = PerceptionCharacterV3Crypto.ComputeAnswerTag(answerKey, context, "A7C9Q");
-        var state = new PerceptionCharacterV3State(tag, record.MediaHash, record.ChallengeId, record.EnvelopeId, record.Action, record.RouteKey, record.SubjectHash, record.DeviceBindingHash, record.ClientIpBindingHash, record.PolicyVersion, 2, "visual", record.IssuedAtUnixMs, record.ExpiresAtUnixMs, record.TokenKeyVersion, record.AnswerKeyVersion);
+        var state = new PerceptionCharacterV3State(tag, record.ArtifactHash, record.MediaType, record.PhysicalWidth, record.PhysicalHeight, record.DisplayWidth, record.DisplayHeight,
+            record.ChallengeId, record.EnvelopeId, record.Action, record.RouteKey, record.SubjectHash, record.DeviceBindingHash, record.ClientIpBindingHash, record.PolicyVersion, 2,
+            record.Representation, record.IssuedAtUnixMs, record.ExpiresAtUnixMs, record.TokenKeyVersion, record.AnswerKeyVersion);
         string token = PerceptionCharacterV3Crypto.SealState(tokenKey, context, state, new FixedNonce(new byte[12]));
         record = record with
         {
@@ -651,13 +667,9 @@ public sealed class PerceptionCharacterV3Tests
     }
 
     [Fact]
-    public void RendererAndCryptoStayWithinLocalPerformanceBudget()
+    public void CryptoStaysWithinLocalPerformanceBudget()
     {
-        var renderer = new PerceptionCharacterV3Renderer();
         var watch = Stopwatch.StartNew();
-        _ = renderer.RenderVisual("A7C9Q", new byte[32]);
-        watch.Stop();
-        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(3), watch.Elapsed.ToString());
         PerceptionCharacterV3BindingContext context = Context(Vectors);
         byte[] key = Enumerable.Repeat((byte)0x41, 32).ToArray();
         watch.Restart();
@@ -958,9 +970,38 @@ public sealed class PerceptionCharacterV3Tests
     private static PerceptionCharacterV3BindingContext Context(JsonElement root)
     {
         JsonElement c = root.GetProperty("state").GetProperty("context");
-        return new(c.GetProperty("challengeId").GetString()!, c.GetProperty("envelopeId").GetString()!, c.GetProperty("action").GetString()!, c.GetProperty("routeKey").GetString()!, c.GetProperty("subjectHash").GetString()!, c.GetProperty("deviceBindingHash").GetString()!, c.GetProperty("clientIpBindingHash").GetString()!, c.GetProperty("policyVersion").GetString()!, c.GetProperty("mediaHash").GetString()!, c.GetProperty("issuedAtUnixMs").GetInt64(), c.GetProperty("expiresAtUnixMs").GetInt64(), c.GetProperty("tokenKeyVersion").GetString()!);
+        return new(c.GetProperty("challengeId").GetString()!, c.GetProperty("envelopeId").GetString()!, c.GetProperty("action").GetString()!, c.GetProperty("routeKey").GetString()!, c.GetProperty("subjectHash").GetString()!, c.GetProperty("deviceBindingHash").GetString()!, c.GetProperty("clientIpBindingHash").GetString()!, c.GetProperty("policyVersion").GetString()!, c.GetProperty("artifactHash").GetString()!,
+            c.GetProperty("representation").GetString()!, c.GetProperty("mediaType").GetString()!, c.GetProperty("physicalWidth").GetUInt16(), c.GetProperty("physicalHeight").GetUInt16(), c.GetProperty("displayWidth").GetUInt16(), c.GetProperty("displayHeight").GetUInt16(),
+            c.GetProperty("issuedAtUnixMs").GetInt64(), c.GetProperty("expiresAtUnixMs").GetInt64(), c.GetProperty("tokenKeyVersion").GetString()!);
     }
-    private static PerceptionCharacterV3StateRecord Record(long now) => new(Guid.CreateVersion7().ToString("D"), Guid.CreateVersion7().ToString("D"), "comment.create", "/api/binary/comment", new string('1', 64), new string('2', 64), new string('9', 64), new string('3', 64), "issued-policy", new string('4', 64), "visual", now, now + 120_000, "tk", "ak", new string('5', 64));
+    private static byte[] VisualArtifact()
+        => Convert.FromBase64String(Vectors.GetProperty("visual").GetProperty("artifactBase64").GetString()!);
+    private static byte[] AudioArtifact()
+        => Convert.FromBase64String(Vectors.GetProperty("audio").GetProperty("artifactBase64").GetString()!);
+    private static PerceptionCharacterV3IssuePayload Issue(
+        string challenge,
+        string envelope,
+        PerceptionCharacterV3Representation representation,
+        byte[] media)
+        => new(
+            PerceptionCharacterV3Contracts.Algorithm,
+            challenge,
+            envelope,
+            representation,
+            representation == PerceptionCharacterV3Representation.Visual
+                ? PerceptionCharacterV3Contracts.VisualMediaType
+                : PerceptionCharacterV3Contracts.AudioMediaType,
+            media,
+            representation == PerceptionCharacterV3Representation.Visual ? (ushort)PerceptionCharacterV3Contracts.PhysicalWidth : (ushort)0,
+            representation == PerceptionCharacterV3Representation.Visual ? (ushort)PerceptionCharacterV3Contracts.PhysicalHeight : (ushort)0,
+            representation == PerceptionCharacterV3Representation.Visual ? (ushort)PerceptionCharacterV3Contracts.DisplayWidth : (ushort)0,
+            representation == PerceptionCharacterV3Representation.Visual ? (ushort)PerceptionCharacterV3Contracts.DisplayHeight : (ushort)0,
+            2,
+            "p1",
+            1,
+            2,
+            "opaque");
+    private static PerceptionCharacterV3StateRecord Record(long now) => new(Guid.CreateVersion7().ToString("D"), Guid.CreateVersion7().ToString("D"), "comment.create", "/api/binary/comment", new string('1', 64), new string('2', 64), new string('9', 64), new string('3', 64), "issued-policy", new string('4', 64), "visual", PerceptionCharacterV3Contracts.VisualMediaType, 384, 144, 320, 120, now, now + 120_000, "tk", "ak", new string('5', 64));
     private static string ActiveIdentityKeySuffix(PerceptionCharacterV3StateRecord record)
     {
         byte[] material = PerceptionCharacterV3Crypto.EncodeLp(
@@ -989,8 +1030,13 @@ public sealed class PerceptionCharacterV3Tests
         yield return x => x with { DeviceAuthorityHash = new string('f', 64) };
         yield return x => x with { ClientIpBindingHash = new string('c', 64) };
         yield return x => x with { PolicyVersion = "new-policy" };
-        yield return x => x with { MediaHash = new string('d', 64) };
+        yield return x => x with { ArtifactHash = new string('d', 64) };
         yield return x => x with { Representation = "audio" };
+        yield return x => x with { MediaType = PerceptionCharacterV3Contracts.AudioMediaType };
+        yield return x => x with { PhysicalWidth = 383 };
+        yield return x => x with { PhysicalHeight = 143 };
+        yield return x => x with { DisplayWidth = 319 };
+        yield return x => x with { DisplayHeight = 119 };
         yield return x => x with { TokenHash = new string('e', 64) };
     }
     private static Dictionary<string, string?> Config(string tokenCurrent, string answerCurrent, string token, string answer)
@@ -1099,9 +1145,9 @@ public sealed class PerceptionCharacterV3Tests
     private sealed class FixedRenderer : IPerceptionCharacterV3Renderer
     {
         public byte[] RenderVisual(string answer, ReadOnlySpan<byte> seed, CancellationToken cancellationToken = default)
-            => new byte[98_304];
+            => VisualArtifact();
         public byte[] RenderAudio(string answer, ReadOnlySpan<byte> seed, CancellationToken cancellationToken = default)
-            => Encoding.ASCII.GetBytes("RIFF-final-audio");
+            => AudioArtifact();
     }
     private sealed class CountingRenderer : IPerceptionCharacterV3Renderer
     {
@@ -1112,12 +1158,12 @@ public sealed class PerceptionCharacterV3Tests
         public byte[] RenderVisual(string answer, ReadOnlySpan<byte> seed, CancellationToken cancellationToken = default)
         {
             Calls++;
-            return new byte[98_304];
+            return VisualArtifact();
         }
         public byte[] RenderAudio(string answer, ReadOnlySpan<byte> seed, CancellationToken cancellationToken = default)
         {
             Calls++;
-            return Encoding.ASCII.GetBytes("RIFF-final-audio");
+            return AudioArtifact();
         }
     }
     private sealed class TimeoutThenRenderRenderer : IPerceptionCharacterV3Renderer
@@ -1141,7 +1187,7 @@ public sealed class PerceptionCharacterV3Tests
                     cancellationToken.WaitHandle.WaitOne();
                     cancellationToken.ThrowIfCancellationRequested();
                 }
-                return audio ? Encoding.ASCII.GetBytes("RIFF-final-audio") : new byte[98_304];
+                return audio ? AudioArtifact() : VisualArtifact();
             }
             finally
             {
