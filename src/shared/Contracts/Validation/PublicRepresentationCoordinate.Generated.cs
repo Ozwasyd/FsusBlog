@@ -3,6 +3,7 @@
 
 namespace FsusBlog.Shared.Contracts.Validation;
 
+/// <summary>Identifies one immutable public representation across storage, transport, and browser projections.</summary>
 public sealed record PublicRepresentationCoordinate(
     string RouteIdentity,
     ulong SourceVersion,
@@ -19,6 +20,7 @@ public sealed record PublicRepresentationCoordinate(
     string SeoIdentity,
     string HydrationPageKind);
 
+/// <summary>Lists public representation transitions governed by the canonical coordinate contract.</summary>
 public enum PublicRepresentationTransition : byte
 {
     CanonicalToPublicAot = 1,
@@ -30,6 +32,7 @@ public enum PublicRepresentationTransition : byte
     ServiceWorkerNavigation = 7
 }
 
+/// <summary>Exposes the generated public representation coordinate schema and invariant set.</summary>
 public static class PublicRepresentationCoordinateContract
 {
     public const int Version = 1;
