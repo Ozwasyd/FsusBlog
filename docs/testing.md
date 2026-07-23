@@ -761,6 +761,7 @@ tools/operations/check-release-evidence-manifest.mjs --require-ok
 - `coverage-gate-strict`：backend line >= 85、backend branch >= 75、frontend line >= 75、frontend branch >= 65、changed-code line >= 90，critical backend module branch >= 90 或有批准例外。
 - `production-correctness`：完整 browserless correctness closure 必须先通过。
 - `browser-contract`：只允许一个消费 immutable production build 的 managed Chromium job，固定 worker/session/concurrency 1、零 shard、零 retry；release-final 聚合器自身保持 `requiresPlaywright: none`。
+- public-preview screenshot evidence：Browser Contract 只读重捕获完整九图矩阵并绑定当前 commit/ReleaseId、visual input digest、九个图片 hash、三类 audit 结果及本地 JSON 文件 digest；`check-release-final.mjs` 缺少或读到不同 SHA/内容的本地证据时 fail closed，不要求 CI run URL。
 - release runtime lanes：admin console、auth flow、authoring flow、private preview 与 error boundary 使用 Vitest/API/static contract 绑定 release artifact；真实 RBAC browser negative path 已迁入 diagnostics。
 - release AOT lanes：generation 与 static asset digest coherence 作为 browserless release evidence；真实 consumption/browser fallback 属于 diagnostics。
 - release load/scale/stability lanes：peak、burst、scale-m、soak-min、memory leak budget、open handle budget、critical mutation slice。

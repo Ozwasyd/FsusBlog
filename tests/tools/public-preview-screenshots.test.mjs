@@ -6,6 +6,8 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import './public-preview-release-evidence.cases.mjs';
+
 /* eslint-disable import-x/no-relative-parent-imports */
 import { verifyPublicPreviewRuntimeIdentity } from '../../tools/docs/public-preview-runtime-identity.mjs';
 import {
@@ -534,6 +536,11 @@ test('capture contracts keep shards temporary and release verification explicit'
         'utf8'
     );
     const matrix = fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8');
+    const staticGovernance = fs.readFileSync(path.join(root, 'tools/test/lanes/static-governance.sh'), 'utf8');
+    const browserRunner = fs.readFileSync(path.join(root, 'tests/browser-contract/run.mjs'), 'utf8');
+    const browserGallery = fs.readFileSync(path.join(root, 'tests/browser-contract/public-preview-gallery.mjs'), 'utf8');
+    const releaseFinal = fs.readFileSync(path.join(root, 'tools/release/check-release-final.mjs'), 'utf8');
+    const releaseEvidence = fs.readFileSync(path.join(root, 'tools/release/public-preview-release-evidence.mjs'), 'utf8');
     assert.match(specification, /manual screenshot shards cannot write docs assets/u);
     assert.match(specification, /public-preview docs capture requires the complete unfiltered registry/u);
     assert.match(manualConfiguration, /FSUSBLOG_MANUAL_SCREENSHOT_SHARD_NAME must match/u);
@@ -594,4 +601,11 @@ test('capture contracts keep shards temporary and release verification explicit'
     assert.match(prewarm, /await session\.close\(\)[\s\S]*?session = await openAuditedPage\(browser\)[\s\S]*?await warm\(\)/u);
     assert.match(matrix, /id: browser-contract[\s\S]*?public-preview-screenshots\.json/u);
     assert.match(matrix, /id: release-final[\s\S]*?browser-contract/u);
+    assert.match(staticGovernance, /public-preview-screenshots\.mjs" check[\s\S]*?public-preview-screenshots\.mjs" sync/u);
+    assert.match(browserRunner, /receipt\.publicPreview = \{[\s\S]*?captureContextCount:[\s\S]*?evidenceFileDigest: sha256File/u);
+    assert.doesNotMatch(browserGallery, /receipt\.topology\.contextCount/u);
+    assert.match(releaseFinal, /requirePublicPreviewReleaseEvidence/u);
+    assert.match(releaseEvidence, /public-preview screenshot evidence is required; release-final fails closed without local evidence/u);
+    assert.match(releaseEvidence, /validatePublicPreviewEvidenceBinding/u);
+    assert.match(releaseFinal, /public-preview commit=\$\{publicPreviewEvidence\.sourceCommit\} releaseId=\$\{publicPreviewEvidence\.releaseId\} images=/u);
 });

@@ -11828,7 +11828,7 @@
             "symbol": "CheckToolsReleaseCheckReleaseFinal",
             "owner": "ReleaseEngineeringOwner",
             "category": "release-evidence",
-            "engine": "parser",
+            "engine": "eslint",
             "sourceScopes": [
                 "tools/release/check-release-final.mjs",
                 ".github/**",

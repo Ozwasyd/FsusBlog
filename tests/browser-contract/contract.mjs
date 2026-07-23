@@ -277,6 +277,7 @@ export function createBrowserContractReceipt({
             artifacts: [],
             error: null
         })),
+        publicPreview: null,
         startedAt,
         finishedAt: null,
         wallClockMs: null,

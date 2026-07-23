@@ -115,7 +115,6 @@ export async function capturePublicPreviewGallery({
     sourceCommit,
     stagingDirectory,
     evidenceFile,
-    receipt,
     timeoutMs,
     operations
 })
@@ -126,7 +125,6 @@ export async function capturePublicPreviewGallery({
     for (const entry of registry.screenshots)
     {
         await captureEntry(browser, fixture, entry, stagingDirectory, timeoutMs);
-        receipt.topology.contextCount += 1;
     }
     operations.writeManifest(stagingDirectory, sourceCommit);
     return operations.verifyCapturedDirectory(stagingDirectory, evidenceFile);

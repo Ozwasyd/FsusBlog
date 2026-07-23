@@ -7,9 +7,11 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+/* eslint-disable import-x/no-relative-parent-imports */
 import { verifyProductionBuildReceipt } from '../../tools/ci/production-build-artifacts.mjs';
 import {
     sealBrowserContractReceipt,
+    sha256File,
     validateBrowserContractReceipt
 } from '../../tools/release/test-evidence-receipts.mjs';
 
@@ -460,16 +462,22 @@ async function main()
         const publicPreviewOperations = await import(pathToFileURL(
             path.join(root, 'tools/docs/public-preview-screenshots.mjs')
         ).href);
-        await capturePublicPreviewGallery({
+        const publicPreviewEvidenceFile = path.join(root, '.tmp/release-evidence/public-preview-screenshots.json');
+        const publicPreview = await capturePublicPreviewGallery({
             browser,
             fixture,
             sourceCommit: build.sourceState.commit,
             stagingDirectory: publicPreviewStaging,
-            evidenceFile: path.join(root, '.tmp/release-evidence/public-preview-screenshots.json'),
-            receipt,
+            evidenceFile: publicPreviewEvidenceFile,
             timeoutMs: browserContractAppReadyTimeoutMs,
             operations: publicPreviewOperations
         });
+        receipt.publicPreview = {
+            ...publicPreview,
+            captureContextCount: Object.keys(publicPreview.images).length,
+            evidencePath: relative(publicPreviewEvidenceFile),
+            evidenceFileDigest: sha256File(publicPreviewEvidenceFile)
+        };
 
         closingBrowser = true;
         await browser.close();

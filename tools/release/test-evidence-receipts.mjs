@@ -60,6 +60,98 @@ function isDigest(value)
     return /^sha256:[a-f0-9]{64}$/u.test(String(value ?? ''));
 }
 
+function validatePublicPreviewBinding(binding, sourceCommit, requireSuccess)
+{
+    const errors = [];
+    if (!binding || typeof binding !== 'object' || Array.isArray(binding))
+    {
+        return requireSuccess ? ['Browser Contract public-preview evidence is required'] : errors;
+    }
+    if (binding.schema !== 'fsusblog.public-preview-screenshot-verification.v1')
+    {
+        errors.push(`Browser Contract public-preview schema is invalid: ${binding.schema ?? 'missing'}`);
+    }
+    if (binding.status !== 'ok')
+    {
+        errors.push(`Browser Contract public-preview status must be ok, got ${binding.status ?? 'missing'}`);
+    }
+    if (binding.sourceCommit !== sourceCommit)
+    {
+        errors.push('Browser Contract public-preview source commit mismatch');
+    }
+    if (binding.manifestSchema !== 'fsusblog.public-preview-screenshot-manifest.v1')
+    {
+        errors.push('Browser Contract public-preview manifest schema is invalid');
+    }
+    if (!/^\d{14}-[a-f0-9]{12}$/u.test(String(binding.releaseId ?? '')))
+    {
+        errors.push('Browser Contract public-preview releaseId is invalid');
+    }
+    for (const field of ['visualInputDigest', 'commandVersion'])
+    {
+        if (!/^[a-f0-9]{64}$/u.test(String(binding[field] ?? '')))
+        {
+            errors.push(`Browser Contract public-preview ${field} must be SHA-256`);
+        }
+    }
+    for (const field of ['runtimeAudit', 'layoutAudit', 'sanitizationCheck'])
+    {
+        if (binding[field] !== true)
+        {
+            errors.push(`Browser Contract public-preview ${field} must be true`);
+        }
+    }
+    const images = binding.images && typeof binding.images === 'object' && !Array.isArray(binding.images)
+        ? binding.images
+        : {};
+    if (Object.keys(images).length !== 9 || Object.values(images).some((value) => !/^[a-f0-9]{64}$/u.test(String(value))))
+    {
+        errors.push('Browser Contract public-preview must bind exactly nine image SHA-256 values');
+    }
+    if (binding.captureContextCount !== 9)
+    {
+        errors.push('Browser Contract public-preview capture context count must be 9');
+    }
+    if (!Array.isArray(binding.differences) || binding.differences.length !== 0)
+    {
+        errors.push('Browser Contract public-preview differences must be empty');
+    }
+    if (binding.evidencePath !== '.tmp/release-evidence/public-preview-screenshots.json')
+    {
+        errors.push('Browser Contract public-preview evidence path is invalid');
+    }
+    if (!isDigest(binding.evidenceFileDigest))
+    {
+        errors.push('Browser Contract public-preview evidence file digest is invalid');
+    }
+    return errors;
+}
+
+export function validatePublicPreviewEvidenceBinding(binding, evidence, {
+    expectedCommit = null,
+    evidenceFileDigest = null
+} = {})
+{
+    const errors = validatePublicPreviewBinding(binding, expectedCommit ?? evidence?.sourceCommit, true);
+    if (!evidence || typeof evidence !== 'object' || Array.isArray(evidence))
+    {
+        errors.push('public-preview screenshot evidence document is required');
+        return errors;
+    }
+    for (const [key, value] of Object.entries(evidence))
+    {
+        if (JSON.stringify(binding?.[key]) !== JSON.stringify(value))
+        {
+            errors.push(`public-preview screenshot evidence ${key} does not match Browser Contract`);
+        }
+    }
+    if (evidenceFileDigest && binding?.evidenceFileDigest !== evidenceFileDigest)
+    {
+        errors.push('public-preview screenshot evidence file digest does not match Browser Contract');
+    }
+    return errors;
+}
+
 function sourceStateErrors(sourceState, label)
 {
     const errors = [];
@@ -704,6 +796,7 @@ export function validateBrowserContractReceipt(receipt, {
         {
             errors.push('Browser Contract success cannot contain unexpected diagnostics');
         }
+        errors.push(...validatePublicPreviewBinding(receipt?.publicPreview, receipt?.sourceState?.commit, true));
     }
     if (receipt?.status === 'failure')
     {
