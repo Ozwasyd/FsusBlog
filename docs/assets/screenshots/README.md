@@ -100,6 +100,14 @@ asset is written, it verifies both the backend and debug-frontend PID/identity
 sidecars against the live process group and requires their inherited source
 commit and fingerprint to match that checkout. A mismatch reports expected and
 actual identities and fails while output is still isolated in staging.
+The single-writer lock records the owning namespace and PID; a concurrent
+writer fails with that owner identity, and a different process cannot release
+the lock. The staging path must match the lock-owning namespace exactly. The
+publisher accepts only the complete registry, `manifest.json`, and this README,
+then performs one same-filesystem directory transaction. Validation or
+replacement failure restores the previous gallery byte-for-byte; success
+removes the old global-registry directory, including files retired by the full
+registry, without consulting any manual shard filter.
 It also fails before taking the writer lock when the checked-out frontend
 toolchain is incomplete; install the lockfile-resolved dependencies locally
 before retrying. The explicit capture command receives a cold-build budget,
@@ -134,7 +142,9 @@ values are `light` and `dark`; supported `FSUSBLOG_MANUAL_SCREENSHOT_SCOPES`
 values are `anonymous`, `user`, `admin`, and `edge`. When
 `FSUSBLOG_MANUAL_SCREENSHOT_SHARD_NAME` is set and
 `FSUSBLOG_MANUAL_SCREENSHOT_DIR` is not set, output defaults to a shard-local
-folder under `.tmp/manual-layout-screenshots/current/<shard>`.
+folder under `.tmp/manual-layout-screenshots/current/<shard>`. Shard names must
+match `^[a-z0-9][a-z0-9_-]*$`; invalid names fail instead of being silently
+rewritten to another output directory.
 
 All shards keep PNGs in shard-local temporary folders. Only the unfiltered,
 single-writer `capture:public-preview-docs` command can publish the complete

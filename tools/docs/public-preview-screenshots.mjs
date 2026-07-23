@@ -16,6 +16,7 @@ import {
     validateScreenshotMetadata,
     validateSharedIdentityAgreement
 } from './public-preview-manifest-validation.mjs';
+import { atomicPublishDirectory } from './public-preview-writer-transaction.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const registryPath = path.join(root, 'config/docs/public-preview-screenshots.json');
@@ -404,12 +405,23 @@ function validateManifest(directory, { requireFresh = false } = {})
             errors.push(`manifest is missing screenshot id: ${expected.id}`);
         }
     }
-    const actualPngs = fs.readdirSync(directory).filter((file) => file.endsWith('.png')).sort();
+    const directoryEntries = fs.readdirSync(directory, { withFileTypes: true });
+    const actualPngs = directoryEntries.filter((entry) => entry.isFile() && entry.name.endsWith('.png'))
+        .map((entry) => entry.name)
+        .sort();
     for (const file of actualPngs)
     {
         if (!files.has(file))
         {
             errors.push(`unregistered screenshot file: ${file}`);
+        }
+    }
+    const allowedFiles = new Set([manifestName, 'README.md', ...files]);
+    for (const entry of directoryEntries)
+    {
+        if (!entry.isFile() || !allowedFiles.has(entry.name))
+        {
+            errors.push(`unexpected managed screenshot entry: ${entry.name}`);
         }
     }
     if (requireFresh)
@@ -500,34 +512,25 @@ export function verifyCapturedDirectory(directory, evidenceFile)
     return readJson(evidenceFile);
 }
 
-function publishDirectory(stagingDirectory)
+export function publishDirectory(stagingDirectory)
 {
-    const errors = validateManifest(stagingDirectory, { requireFresh: true });
-    if (errors.length > 0)
-    {
-        throw new Error(errors.join('\n'));
-    }
     const readme = path.join(stagingDirectory, 'README.md');
     if (!fs.existsSync(readme))
     {
         fs.copyFileSync(path.join(managedDirectory, 'README.md'), readme);
     }
-    const parent = path.dirname(managedDirectory);
-    const backup = path.join(parent, `.screenshots-backup-${process.pid}`);
-    fs.renameSync(managedDirectory, backup);
-    try
-    {
-        fs.renameSync(stagingDirectory, managedDirectory);
-        fs.rmSync(backup, { recursive: true, force: true });
-    }
-    catch (error)
-    {
-        if (!fs.existsSync(managedDirectory) && fs.existsSync(backup))
+    atomicPublishDirectory({
+        stagingDirectory,
+        managedDirectory,
+        validate: (directory) =>
         {
-            fs.renameSync(backup, managedDirectory);
+            const errors = validateManifest(directory, { requireFresh: true });
+            if (errors.length > 0)
+            {
+                throw new Error(errors.join('\n'));
+            }
         }
-        throw error;
-    }
+    });
 }
 
 function usage()

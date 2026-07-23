@@ -14,6 +14,11 @@ import {
     computeVisualInputs,
     validateFailClosedCoverage
 } from '../../tools/docs/public-preview-screenshots.mjs';
+import {
+    acquireWriterLock,
+    atomicPublishDirectory,
+    releaseWriterLock
+} from '../../tools/docs/public-preview-writer-transaction.mjs';
 /* eslint-enable import-x/no-relative-parent-imports */
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -41,6 +46,48 @@ function mutateManifest(directory, mutate)
     const manifest = JSON.parse(fs.readFileSync(file, 'utf8'));
     mutate(manifest);
     fs.writeFileSync(file, `${JSON.stringify(manifest, null, 4)}\n`);
+}
+
+function directorySnapshot(directory)
+{
+    const snapshot = new Map();
+    const visit = (current) =>
+    {
+        for (const entry of fs.readdirSync(current, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name)))
+        {
+            const absolute = path.join(current, entry.name);
+            const relative = path.relative(directory, absolute);
+            snapshot.set(relative, entry.isDirectory() ? 'directory' : fs.readFileSync(absolute).toString('hex'));
+            if (entry.isDirectory())
+            {
+                visit(absolute);
+            }
+        }
+    };
+    visit(directory);
+    return snapshot;
+}
+
+function publicationFixture()
+{
+    const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'fsus-public-preview-publish-'));
+    const managed = path.join(parent, 'screenshots');
+    const stagingParent = path.join(parent, 'work');
+    const staging = path.join(stagingParent, 'staging');
+    fs.mkdirSync(managed);
+    fs.mkdirSync(staging, { recursive: true });
+    fs.writeFileSync(path.join(managed, 'manifest.json'), 'old manifest\n');
+    fs.writeFileSync(path.join(managed, 'old.png'), 'old image\n');
+    fs.writeFileSync(path.join(staging, 'manifest.json'), 'new manifest\n');
+    fs.writeFileSync(path.join(staging, 'new.png'), 'new image\n');
+    return { parent, managed, staging };
+}
+
+function validatePublicationFixture(directory)
+{
+    assert.equal(fs.readFileSync(path.join(directory, 'manifest.json'), 'utf8'), 'new manifest\n');
+    assert.equal(fs.readFileSync(path.join(directory, 'new.png'), 'utf8'), 'new image\n');
+    assert.deepEqual(fs.readdirSync(directory).sort(), ['manifest.json', 'new.png']);
 }
 
 function runtimeIdentityFixture()
@@ -111,10 +158,119 @@ test('manifest checker reports missing, extra, and modified PNG files', () =>
         assert.match(result.stderr, /unregistered screenshot file: extra\.png/u);
 
         fs.rmSync(path.join(directory, 'extra.png'));
+        fs.writeFileSync(path.join(directory, 'capture.tmp'), 'partial publication');
+        result = check(directory);
+        assert.notEqual(result.status, 0);
+        assert.match(result.stderr, /unexpected managed screenshot entry: capture\.tmp/u);
+
+        fs.rmSync(path.join(directory, 'capture.tmp'));
         fs.appendFileSync(path.join(directory, 'public-dark.png'), 'changed');
         result = check(directory);
         assert.notEqual(result.status, 0);
         assert.match(result.stderr, /public-dark\.png hash mismatch/u);
+    }
+    finally
+    {
+        fs.rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test('atomic publisher replaces the complete gallery and prunes only global-registry leftovers', () =>
+{
+    const current = publicationFixture();
+    try
+    {
+        atomicPublishDirectory({
+            stagingDirectory: current.staging,
+            managedDirectory: current.managed,
+            validate: validatePublicationFixture,
+            transactionId: 'success'
+        });
+        validatePublicationFixture(current.managed);
+        assert.ok(!fs.existsSync(current.staging));
+        assert.deepEqual(
+            fs.readdirSync(current.parent).filter((entry) => entry.startsWith('.screenshots-backup-')),
+            []
+        );
+    }
+    finally
+    {
+        fs.rmSync(current.parent, { recursive: true, force: true });
+    }
+});
+
+test('atomic publisher preserves the old gallery byte-for-byte when validation or replacement fails', () =>
+{
+    for (const failure of ['validation', 'replacement', 'backup-removal'])
+    {
+        const current = publicationFixture();
+        const original = directorySnapshot(current.managed);
+        let renameCount = 0;
+        const fileSystem = Object.create(fs);
+        fileSystem.renameSync = (...args) =>
+        {
+            renameCount++;
+            if (failure === 'replacement' && renameCount === 2)
+            {
+                const error = new Error('simulated replacement failure');
+                error.code = 'EIO';
+                throw error;
+            }
+            return fs.renameSync(...args);
+        };
+        fileSystem.rmSync = (...args) =>
+        {
+            if (failure === 'backup-removal' && String(args[0]).includes('.screenshots-backup-'))
+            {
+                const error = new Error('simulated backup cleanup failure');
+                error.code = 'EIO';
+                throw error;
+            }
+            return fs.rmSync(...args);
+        };
+        try
+        {
+            assert.throws(() => atomicPublishDirectory({
+                stagingDirectory: current.staging,
+                managedDirectory: current.managed,
+                validate: failure === 'validation'
+                    ? () =>
+                    {
+                        throw new Error('simulated validation failure');
+                    }
+                    : validatePublicationFixture,
+                fileSystem,
+                transactionId: failure
+            }), /simulated/u);
+            assert.deepEqual(directorySnapshot(current.managed), original, `${failure} must preserve the old gallery`);
+            assert.deepEqual(
+                fs.readdirSync(current.parent).filter((entry) => entry.startsWith('.screenshots-backup-')),
+                [],
+                `${failure} must not leave a backup directory`
+            );
+        }
+        finally
+        {
+            fs.rmSync(current.parent, { recursive: true, force: true });
+        }
+    }
+});
+
+test('docs writer lock rejects a concurrent owner and only the owner can release it', () =>
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsus-public-preview-lock-'));
+    const lock = path.join(directory, 'public-preview-docs.lock');
+    const first = { namespace: 'writer-first', pid: 4101 };
+    const second = { namespace: 'writer-second', pid: 4102 };
+    try
+    {
+        acquireWriterLock(lock, first);
+        assert.throws(() => acquireWriterLock(lock, second), /another docs writer owns.*writer-first pid=4101/u);
+        assert.throws(() => releaseWriterLock(lock, second), /refusing to release.*writer-first pid=4101/u);
+        releaseWriterLock(lock, first);
+        assert.ok(!fs.existsSync(lock));
+        acquireWriterLock(lock, second);
+        releaseWriterLock(lock, second);
     }
     finally
     {
@@ -363,6 +519,10 @@ test('capture contracts keep shards temporary and release verification explicit'
         path.join(root, 'tests/frontend/e2e/manual/manual-layout-screenshots.spec.ts'),
         'utf8'
     );
+    const manualConfiguration = fs.readFileSync(
+        path.join(root, 'tests/frontend/support/playwright/manualScreenshotConfiguration.ts'),
+        'utf8'
+    );
     const runner = fs.readFileSync(path.join(root, 'tools/docs/run-public-preview-capture.sh'), 'utf8');
     const bootstrap = fs.readFileSync(path.join(root, 'tools/bootstrap-acceptance-env.sh'), 'utf8');
     const registry = JSON.parse(fs.readFileSync(
@@ -376,9 +536,15 @@ test('capture contracts keep shards temporary and release verification explicit'
     const matrix = fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8');
     assert.match(specification, /manual screenshot shards cannot write docs assets/u);
     assert.match(specification, /public-preview docs capture requires the complete unfiltered registry/u);
+    assert.match(manualConfiguration, /FSUSBLOG_MANUAL_SCREENSHOT_SHARD_NAME must match/u);
+    assert.match(manualConfiguration, /public-preview docs staging path mismatch/u);
+    assert.match(manualConfiguration, /public-preview docs writer lock identity mismatch/u);
     assert.match(runner, /public-preview-docs\.lock/u);
+    assert.match(runner, /public-preview-writer-transaction\.mjs/u);
+    assert.match(runner, /acquire-lock/u);
+    assert.match(runner, /release-lock/u);
     assert.ok(
-        runner.indexOf('trap Cleanup EXIT INT TERM') > runner.indexOf('if ! mkdir "$LOCK_DIR"'),
+        runner.indexOf('trap Cleanup EXIT INT TERM') > runner.indexOf('acquire-lock "$LOCK_DIR"'),
         'cleanup trap must only be armed after this writer owns the lock'
     );
     assert.match(runner, /ROOT_DIR=.*\ncd "\$ROOT_DIR"/u);
@@ -387,6 +553,8 @@ test('capture contracts keep shards temporary and release verification explicit'
     assert.match(runner, /snapshotGitWorktree/u);
     assert.match(runner, /FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME=1/u);
     assert.match(runner, /FSUSBLOG_PUBLIC_PREVIEW_DOCS_CAPTURE=1/u);
+    assert.match(runner, /FSUSBLOG_PUBLIC_PREVIEW_WRITER_NAMESPACE="\$NAMESPACE"/u);
+    assert.match(runner, /FSUSBLOG_PUBLIC_PREVIEW_WRITER_PID="\$\$"/u);
     assert.match(bootstrap, /PUBLIC_PREVIEW_CAPTURE_EXECUTION_BUDGET_CAP_MS=1800000/u);
     assert.match(bootstrap, /PUBLIC_PREVIEW_DOCS_CAPTURE:-0\}" == "1"[\s\S]*?PUBLIC_PREVIEW_CAPTURE_EXECUTION_BUDGET_CAP_MS/u);
     assert.match(runner, /FSUSBLOG_PHYSICAL_BUNDLE_ID=standalone/u);
@@ -396,6 +564,14 @@ test('capture contracts keep shards temporary and release verification explicit'
     assert.match(runner, /FSUSBLOG_MANUAL_SCREENSHOT_DIR="\$WORK_DIR\/manual"/u);
     assert.match(runner, /status == 0 && cleanupStatus != 0/u);
     assert.match(runner, /public-preview-screenshots\.mjs" publish/u);
+    const captureIndex = runner.indexOf('run capture:manual-layout-screenshots');
+    const generateIndex = runner.indexOf('public-preview-screenshots.mjs" generate');
+    const checkIndex = runner.indexOf('public-preview-screenshots.mjs" check');
+    const publishIndex = runner.indexOf('public-preview-screenshots.mjs" publish');
+    assert.ok(
+        captureIndex >= 0 && captureIndex < generateIndex && generateIndex < checkIndex && checkIndex < publishIndex,
+        'docs writer must capture and validate the complete staging directory before atomic publication'
+    );
     assert.match(runner, /cleanupLocalRuntime/u);
     assert.deepEqual(registry.capturePolicy, {
         animations: 'disabled',

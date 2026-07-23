@@ -25,6 +25,10 @@ import {
   waitForAppReady
 } from '../../support/playwright/acceptance-shared'
 import { loadAuditFixtures, type PlaywrightAuditFixtures } from '../../support/playwright/routeAuditFixtures'
+import {
+  normalizeManualScreenshotShardName,
+  resolveDocsScreenshotRoot
+} from '../../support/playwright/manualScreenshotConfiguration'
 
 type ManualRouteScope = 'anonymous' | 'user' | 'admin' | 'edge'
 type ManualRouteStorage = 'anonymous' | 'user' | 'admin'
@@ -50,7 +54,6 @@ type ManualViewport = Readonly<{
   routeFilter?: (route: ManualRoute) => boolean
 }>
 
-const fixtures = loadAuditFixtures()
 const themes: ThemeMode[] = ['light', 'dark']
 const strictRuntimeAudit = process.env.FSUSBLOG_MANUAL_SCREENSHOT_RUNTIME_AUDIT !== '0'
 const strictLayoutAudit = process.env.FSUSBLOG_MANUAL_SCREENSHOT_LAYOUT_AUDIT !== '0'
@@ -69,6 +72,8 @@ if (publicPreviewDocsCapture && (
 )) {
   throw new Error('public-preview docs capture requires the complete unfiltered registry')
 }
+
+const fixtures = loadAuditFixtures()
 
 const viewports: ManualViewport[] = [
   { name: 'desktop', size: DESKTOP_VIEWPORT },
@@ -113,9 +118,7 @@ const screenshotRoot = manualScreenshotShardName && !process.env.FSUSBLOG_MANUAL
   ? path.join(baseScreenshotRoot, manualScreenshotShardName)
   : baseScreenshotRoot
 
-const docsScreenshotRoot = publicPreviewDocsCapture
-  ? path.resolve(requiredEnvironment('FSUSBLOG_PUBLIC_PREVIEW_STAGING_DIR'))
-  : null
+const docsScreenshotRoot = resolveDocsScreenshotRoot({ publicPreviewDocsCapture })
 const docsScreenshotRegistry = JSON.parse(readFileSync(
   path.resolve(process.cwd(), '../../config/docs/public-preview-screenshots.json'),
   'utf8'
@@ -388,11 +391,6 @@ function filterManualScreenshotItems<T>(
   return selected
 }
 
-function normalizeManualScreenshotShardName(raw: string | undefined): string | null {
-  const value = raw?.trim()
-  return value ? sanitizeFilename(value) : null
-}
-
 function screenshotPath(route: ManualRoute, viewport: ManualViewport, theme: ThemeMode): string {
   return path.join(
     screenshotRoot,
@@ -418,14 +416,6 @@ function docsScreenshotAliasKey(routeName: string, viewportName: string, theme: 
 
 function sanitizeFilename(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'route'
-}
-
-function requiredEnvironment(name: string): string {
-  const value = process.env[name]?.trim()
-  if (!value) {
-    throw new Error(`${name} is required for public-preview docs capture`)
-  }
-  return value
 }
 
 async function captureRouteScreenshot(page: Page, route: ManualRoute, viewport: ManualViewport, theme: ThemeMode): Promise<void> {

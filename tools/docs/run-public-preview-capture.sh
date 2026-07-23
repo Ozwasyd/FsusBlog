@@ -14,6 +14,7 @@ NAMESPACE="public-preview-docs-$$"
 WORK_DIR="$ROOT_DIR/.tmp/public-preview-screenshots/$NAMESPACE"
 STAGING_DIR="$WORK_DIR/staging"
 LOCK_DIR="$ROOT_DIR/.tmp/locks/public-preview-docs.lock"
+LOCK_TOOL="$ROOT_DIR/tools/docs/public-preview-writer-transaction.mjs"
 ENV_FILE="$ROOT_DIR/.tmp/env/$NAMESPACE.env"
 SOURCE_COMMIT="$(git -C "$ROOT_DIR" rev-parse HEAD)"
 mapfile -t SOURCE_STATE < <(node --input-type=module - "$ROOT_DIR" <<'NODE'
@@ -54,7 +55,9 @@ NODE
     then
         cleanupStatus=1
     fi
-    rmdir "$LOCK_DIR" 2>/dev/null || true
+    if ! node "$LOCK_TOOL" release-lock "$LOCK_DIR" "$NAMESPACE" "$$"; then
+        cleanupStatus=1
+    fi
     rm -rf "$WORK_DIR"
     if ((status == 0 && cleanupStatus != 0)); then
         status="$cleanupStatus"
@@ -64,8 +67,7 @@ NODE
 }
 
 mkdir -p "$(dirname "$LOCK_DIR")"
-if ! mkdir "$LOCK_DIR" 2>/dev/null; then
-    printf '[public-preview-capture] another docs writer owns %s\n' "$LOCK_DIR" >&2
+if ! node "$LOCK_TOOL" acquire-lock "$LOCK_DIR" "$NAMESPACE" "$$"; then
     exit 1
 fi
 trap Cleanup EXIT INT TERM
@@ -76,6 +78,8 @@ export FSUSBLOG_TEST_SOURCE_FINGERPRINT="$SOURCE_FINGERPRINT"
 export FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME=1
 export FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID="$NAMESPACE"
 export FSUSBLOG_PUBLIC_PREVIEW_DOCS_CAPTURE=1
+export FSUSBLOG_PUBLIC_PREVIEW_WRITER_NAMESPACE="$NAMESPACE"
+export FSUSBLOG_PUBLIC_PREVIEW_WRITER_PID="$$"
 export FSUSBLOG_PHYSICAL_BUNDLE_ID=standalone
 export FSUSBLOG_STEP_ID=bootstrap
 FSUSBLOG_TEST_NAMESPACE="$NAMESPACE" \
