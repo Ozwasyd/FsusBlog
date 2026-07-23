@@ -67,6 +67,7 @@ STATIC_NODE_CONTRACT_FILES=(
     "$ROOT_DIR/tests/tools/csharp-entrypoint-ownership.test.mjs"
     "$ROOT_DIR/tests/tools/authoritative-development-docs.test.mjs"
     "$ROOT_DIR/tests/tools/document-lifecycle.test.mjs"
+    "$ROOT_DIR/tests/tools/public-design-document-authority.test.mjs"
     "$ROOT_DIR/tests/tools/product-version-governance.test.mjs"
     "$ROOT_DIR/tests/tools/csharp-style.test.mjs"
     "$ROOT_DIR/tests/tools/code-intent.test.mjs"

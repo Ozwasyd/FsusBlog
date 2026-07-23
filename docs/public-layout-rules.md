@@ -6,13 +6,9 @@
 
 FsusBlog consumer token 使用 `--fsusblog-*` 命名空间。公开布局不得伪造未注册的 `--fsus-*` 中转别名；需要承接 FsusUI 或 Element Plus 稳定变量时，直接引用公开 token，例如 `--fsus-scholarly-blue`、`--el-fill-color-light` 或 `--el-a11y-focus-color`。
 
-## 2. Mobile navigation 模式
+## 2. Public shell 边界
 
-PublicBlogLayoutShell 显式选择 FsusUI `mobileNavMode="menu"` 语义。移动端主导航使用 header 内原生 `details/summary`：无 JavaScript 时仍可展开，当前页链接使用 `aria-current="page"`，Escape 关闭后把焦点交还给 summary。Blog consumer 不渲染全局 BottomTabBar，也不为不存在的 fixed dock 在根节点预留底部空间；窄屏 safe area 只由自然文档流末尾的 footer 吸收。
-
-FsusUI 的 `inline | menu | bottom | none` 四种模式是组件库契约，`bottom` 仅供明确采用 app-like navigation 的 consumer opt-in。FsusBlog 若未来启用页面级 reading dock，装配层仍必须确保它与任何全局 bottom navigation 互斥。
-
-桌面 header 采用编辑出版式 text-link 导航。品牌和首页/归档/关于是唯一持续可见的识别与主导航；搜索是带 `/search` fallback 的低噪音 trigger，增强后才展开输入层，必须同步 `aria-expanded`，打开后聚焦输入，Escape 关闭并把焦点还给 trigger。主题入口固定使用 FsusUI `menu-button`，不得常驻展示浅色/深色/系统三段控件。登录入口保持低噪音 text action。
+公开顶栏、移动导航、搜索增强、鉴权入口、footer、AOT/emergency CSS 和 sticky geometry 的权威契约见 [`frontend/public-shell-ownership.md`](frontend/public-shell-ownership.md)。本文只决定内容如何进入壳层：顶栏是唯一站点品牌面，页面正文不复制 Hero；全局 BottomTabBar 与页面 reading dock 互斥。
 
 ## 3. Reading surface 契约
 
@@ -56,40 +52,9 @@ Glass material 只允许用于以下 surface：
 
 导航进度与管理面交互反馈使用同一条 Scholarly Blue 降级链：优先消费已注册 token，最终静态 fallback 为 `#2A599C`。文章阅读进度条的已读段固定使用 `--fsusblog-color-primary` 58% 透明混合，未读轨道继续使用 `--fsusblog-panel-border` 72% 透明混合；不得用 `--fsusblog-text-primary` 代替功能反馈色。`src/frontend/src` 不得重新引入 Element Plus `#409EFF` 或暖棕 `#4A453C` 作为交互反馈兜底；`check:foundation-token-governance` 与 `check:public-reading-motion` 共同守住该契约。
 
-## 7. 字号标度规则
+## 7. 排版边界
 
-公开布局字号使用 12/14/16/18/20px 步进。`src/frontend/src` 的 public、account 与 admin surface 中，CSS `font-size` 小字号只写 `12px`、`14px` 或 `16px`；也禁止 `0.6` 到 `0.9` 区间的任意 `rem`/`em` 小数字号。`AccountNavigationPanel.vue` 的导航层级是唯一例外：分组标签使用 11px，导航项使用 13px，以维持账户工作台的层级合同；该例外不得扩散到其他组件。需要紧凑信息时优先使用 12px、14px 与清晰行高；20/24/30px display 标题仍按下方响应式契约表达。
-
-除上述账户导航例外外，旧值统一归档到相邻标度：11px 与 `0.6875rem` 归入 12px，13px 与 `0.8125rem` 归入 14px。Markdown blockquote 继承 16px / 1.8 的正文基线，不单独缩小字号；AOT emergency、首屏 CSS 与 hydration 后样式使用相同的 12/14px metadata 数值。
-
-### 字重白名单
-
-公开布局与管理端共用同一字重契约：只允许真实加载的 `400`、`500`、`700`。CSS `font-weight` 必须使用这三个数值；utility class 只允许对应的 `font-normal`、`font-medium`、`font-bold`。不得使用 `100`/`200`/`300`/`600`/`800`/`900`、对应的 `font-thin`/`font-extralight`/`font-light`/`font-semibold`/`font-extrabold`/`font-black`，也不得依赖浏览器合成缺失的粗体或细体。
-
-弱层级通过 `muted`、`tertiary`、`--fsusblog-text-decorative` 等颜色角色表达，不用未加载的轻字重模拟；标题需要强调时使用 `700`，metadata 与操作强调使用 `500`，正文默认为 `400`。AOT 首帧、hydration 与 SPA takeover 必须消费相同白名单，避免阶段切换时出现合成字形跳变。
-
-### 等宽字体栈
-
-Markdown 代码块与管理面审计详情统一使用 `'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace`。`JetBrains Mono` 的 `400`/`500`/`700` 由 `src/frontend/src/bootstrap/nonCriticalResources.ts` 加载；consumer 不得消费未注册的 `--fsus-font-family-mono`，也不得为同页审计内容维护第二套 system mono fallback。`check:foundation-token-governance` 同时校验全局禁用 token 与两处字体栈逐字一致。
-
-### 公开排版角色
-
-- `display`：文章列表卡片标题使用 18/20/24px 档位和 1.25/1.2 行高；public、account、auth、error 页面级 H1 统一使用 24/30px（`text-2xl sm:text-3xl`），包括文章详情且不扩张到 36/48px。H1 为 700 字重、正常字距，移动端/桌面行高分别不低于 1.25/1.2，说明文字在其下方保持 16px 间距，首个控件再保持 24px 间距。
-- `src/frontend/src/ui-tokens/` 与 `src/frontend/src/components/public/` 禁止使用 `text-4xl`、`text-5xl`，防止详情标题或公共页面 H1 重新越出 display 档位。
-- `reading`：文章列表摘要使用 14/16px、400 字重和 1.7 行高；正文和引用使用 16px 或 18px 档位，Markdown 段落只保留一条权威规则。
-- `metadata`：日期、分类、状态、阅读量和操作文案使用 12px 或 14px 档位，不能以装饰性微缩文字承载信息。
-- `--text-decorative` 与 `--fsusblog-text-decorative` 只用于分隔点、列表 marker 等无语义装饰；日期、分类、状态和操作必须使用达到 AA 的 `muted` 或 `tertiary` token。
-- article list 的 metadata 与 CTA 不使用 `uppercase`；CTA 静态态使用 `muted`，hover 时才使用 Scholarly Blue。
-- emergency AOT 与 hydration 后的文章列表标题、摘要、metadata 和 CTA 必须使用相同的响应式排版与颜色角色契约。
-- Reading surface 的正文基线为 16px / 1.8 行高；附录链接、标签和空态操作在窄视口与 150% 缩放下仍保持至少 44px 点击高度。
-
-### 长文提示层级
-
-文章顶部的长文提示只保留两层视觉焦点：字数与预计分钟使用 `700` 和 primary text，成为唯一深色答案；“长文”标签使用 `500` 和 secondary text，连接词使用 `400` 和 secondary text。竖条、间距、分隔点及其圆角 token 保持布局职责，不以额外字重或 primary text 制造第三个焦点。
-
-### 评论阅读层级
-
-评论区用稳定的语义角色区分“身份、内容、元信息、操作”：实名作者使用 `700` 与 primary text，匿名作者保持 `400` 与 quiet text；匿名徽章使用 muted text 和 strong border。时间继续使用 quiet text 与 `400`，可操作文字使用 muted text 与 `500`，删除只在 hover 时切换到 `--el-color-danger`，不得复用链接主色。回复区以 2px strong border 表达嵌套边界；评论操作及 focus ring 继续消费 `--fsusblog-radius-control`，不得为层级调整引入新的圆角字面值。
+正文、摘要、metadata、Markdown document mode、代码字体和加载字重的唯一权威见 [`design/reading-typography.md`](design/reading-typography.md)；页面级 H1 比例和文章标题唯一性见 [`design/page-title-scale.md`](design/page-title-scale.md)。布局只消费这些角色，不复制字号、字重或 heading 规则。
 
 ## 8. 圆角标度规则
 
@@ -109,34 +74,6 @@ Markdown 代码块与管理面审计详情统一使用 `'JetBrains Mono', ui-mon
 - Reading surface 新组件必须声明 `data-fsus-surface="reading"`。
 - 新 glass surface 必须在本文档白名单中登记。
 - 新 public motion 必须说明状态语义，并通过 static governance 检查。
-
-### 触控目标档位
-
-触控目标档位按表面语义收口：FsusUI 的 public header 契约保证 desktop 控件最小命中区为 `40px`、mobile 控件最小命中区为 `44px`；FsusBlog 不再通过内部选择器复制这条高度链。identity 用户操作使用 44px 档；admin 紧凑操作不得低于 40px。移动横屏与窄高视口只能减少外部间距，不能把命中区域降回 36px / `2.25rem`。`check:visual-density-governance` 必须扫描 `src/frontend/src` 并阻止这两个旧 `min-height` 孤值回流，同时拒绝 public foundation 重新出现 FsusUI 内部选择器。
-
-`AccountLayout` 顶栏的主站、主题、账号菜单和当前 route frame 提供的移动导航动作使用同一密度链：desktop 消费 `--fsus-control-height-compact`（40px），mobile 与窄高布局消费 `--fsus-control-height`（44px）。持久主题入口使用 FsusUI `ThemeModeToggle` 的 `menu-button` 变体；所有动作保留常驻 1px 边界以避免 open/closed 状态切换引发布局位移，并通过 `aria-expanded`、2px inset focus ring 与 forced-colors outline 区分键盘焦点和打开态。
-
-### 公共壳层 CSS 所有权
-
-公共壳层的职责固定如下，AOT、hydration 和 SPA takeover 不得通过后加载覆盖切换视觉真值：
-
-| 层 / 文件 | 保留的声明与职责 | 明确禁止 |
-| --- | --- | --- |
-| FsusUI critical/runtime CSS | `PublicShell` 的 header/main/footer DOM 布局、40/44px 控件几何、Search/Auth/Theme/Menu 的 open/closed、focus、motion、reduced-motion 与 safe-area | Consumer 通过 `.el-public-shell__*` 或 `.el-theme-mode-toggle__*` 修补组件内部实现 |
-| Foundation 层（`public-shell-foundation.css`） | 已注册的 palette 与 Consumer token、`#fsus-aot-shell` 首帧背景/字体/最小高度、`[data-public-shell-header]` 稳定测量占位、Blog 品牌、`public-colophon`、reading fallback 和 emergency 源块 | FsusUI 内部 class、通用控件/overlay/Dialog 几何、组件状态或交互外观 |
-| Emergency 层（`public-shell-emergency.css`） | 由 foundation 的 `emergency:keep` 块生成；仅保留无脚本/资源失败时的 palette、根壳与 reading fallback | 复制 FsusUI runtime/critical 组件 CSS，或成为 hydration 后的第二视觉来源 |
-| Component 层（`PublicBlogLayoutShell.vue` scoped style） | `.fsusblog-public-main-target` 的内容溢出边界，以及 `.fsusblog-public-mobile-menu-utilities` 的 Blog slot 编排 | FsusUI BEM、品牌/页脚基础外观、Search/Theme/Menu 内部状态样式 |
-| Public page 层（`public-page.css`） | reading surface、article/list/filter 页面结构、编辑内容与溢出边界 | `.el-public-shell__*`、`.el-theme-mode-toggle__*`、`.public-chrome-*`、`.public-colophon*` 与 Markdown heading/paragraph 完整重定义 |
-
-所有权与 DOM 转移必须保持等价：移除 Consumer 的通用 chrome 重复声明后，由已接入的 FsusUI critical/runtime CSS 继续提供相同组件状态和响应式规则；间距、对齐等视觉差异必须明确分类为 FsusUI canonical harmonization，Blog 的品牌、footer/editorial 编排及 emergency fallback 保持产品所有。任何未来的 canonical harmonization 或产品例外都必须使用公开 token、slot 或稳定 `data-*` hook，并单独记录视觉差异；不得把内部 BEM 重新加入 boundary allowlist。
-
-边界清单以 `check-fsusui-boundary.mjs` 为机器真值：`public-shell-foundation.css` 与 `public-page.css` 对 FsusUI 内部选择器均为零豁免。`PublicBlogLayoutShell.vue` 只允许上述两个 `.fsusblog-*` scoped selector；emergency 文件只能来自生成器，不接受手改。
-
-### Header 与 sticky 几何契约
-
-公开壳层以应用自有的 `[data-public-shell-header]` 为唯一测量锚点。`usePublicStickyGeometry` 将实际 header 高度发布为 `--fsusblog-public-header-height-current`，并由此派生 sticky top 与 anchor scroll margin；viewport resize、横屏断点或控件触控高度变化必须重新测量，组件卸载必须断开 observer 与 listener。Archive 年份标题和 hash target 只能消费这些 token，不得复制固定像素偏移，也不得依赖 FsusUI 内部 class selector。Footer safe area 由 FsusUI 壳层在自身自然文档流内吸收，根 shell 不为不存在的 bottom navigation 预留空间。
-
-SSR/AOT 无 JavaScript 首帧保留静态 token fallback，hydration 后再以实际测量值覆盖。排版或触控面积调整不能改变这一所有权：标题、摘要和 metadata 可按公开排版角色变化，但 header selector、sticky token 和锚点间距仍由同一几何链路管理。实现与验收映射见 `docs/issue-1016-public-shell-sticky-geometry-handoff.md`、`docs/issue-1017-archive-sticky-offset-handoff.md` 和 `docs/issue-1285-touch-target-floor.md`。
 
 ## 11. 首页单一编辑主线 recipe
 
@@ -194,19 +131,6 @@ Don't：
 - 确认相邻标题、分类、日期和正文在两种主题下可读，图片不承担这些文字的唯一表达。
 - 检查页面内没有重复文章标题、分类、CTA 或同一抽象构图换色；无封面路径没有空白 media box。
 - public-preview 截图必须通过 manual route capture 重新生成；Home desktop Light/Dark、ArticleDetail desktop Light 与 ArticleDetail mobile Light 是文档别名的最低覆盖面。
-
-## 13. 顶栏与页脚的编辑出版语法
-
-公开壳层在 AOT/SSR、hydration 和 SPA takeover 三种阶段保持同一信息层级：
-
-1. 顶栏第一层只包含品牌、核心导航与低噪音搜索/主题/账号动作；不常驻搜索输入，不并排堆叠带边框按钮。
-2. Desktop 搜索 trigger 保留 `/search` 原生链接作为无脚本回退。JavaScript 接管普通主键点击后在 trigger 邻近打开搜索层；修饰键、新窗口与复制链接行为仍由浏览器处理。
-3. Mobile 第一行只显示搜索和菜单 trigger。菜单内部依次放核心导航、主题与账号；使用原生 `details/summary` 保证 no-JS 与键盘路径。
-4. 页脚是紧凑 colophon。第一行只放品牌/版权摘要和 RSS；许可、政策、备案与回到顶部进入次级行，不能与品牌形成第二个站点 Hero。
-5. Light/Dark 共用同一 DOM，不以主题切换改变顺序；窄屏只允许换行和纵向排列。footer 保留 `safe-area-inset-bottom`，根 shell 不保留 BottomTabBar ghost padding。
-6. 页面不能同时出现全局 BottomTabBar 与 reading dock。Blog 默认 `menu` 模式，组件库默认也不得隐式输出 fixed bottom navigation。
-
-评审需覆盖：未增强 AOT 链接与原生菜单、hydration 前后 DOM 层级、Desktop/Mobile、Light/Dark、键盘 Tab/Enter/Escape、窄屏与横屏，以及搜索 trigger 的 accessible name、`aria-expanded` 和焦点归还。
 
 ## 14. Account shell module navigation
 

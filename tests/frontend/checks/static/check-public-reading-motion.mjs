@@ -827,12 +827,12 @@ if (!exists('docs/public-layout-rules.md')) {
   const publicLayoutRules = read('docs/public-layout-rules.md')
   for (const heading of [
     '## 1. Token 命名空间策略',
-    '## 2. Mobile navigation 模式',
+    '## 2. Public shell 边界',
     '## 3. Reading surface 契约',
     '## 4. Dialog 宽度变体白名单',
     '## 5. Glass material 启用 surface 白名单',
     '## 6. 暗色 Scholarly Blue 决策',
-    '## 7. 字号标度规则',
+    '## 7. 排版边界',
     '## 8. 圆角标度规则',
     '## 9. 动效标度规则',
     '## 10. Commit 评审 checklist'

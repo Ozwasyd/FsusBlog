@@ -49,7 +49,9 @@ const publicShellEmergencyCssPath = path.join(repoRoot, 'src/frontend/public/pub
 const mainCssPath = path.join(repoRoot, 'src/frontend/src/assets/main.css');
 const markdownCssPath = path.join(repoRoot, 'src/frontend/src/assets/markdown.css');
 const markdownRendererPath = path.join(repoRoot, 'src/frontend/src/components/ui/MarkdownRenderer.vue');
-const publicLayoutRulesPath = path.join(repoRoot, 'docs/public-layout-rules.md');
+const publicShellOwnershipPath = path.join(repoRoot, 'docs/frontend/public-shell-ownership.md');
+const readingTypographyPath = path.join(repoRoot, 'docs/design/reading-typography.md');
+const pageTitleScalePath = path.join(repoRoot, 'docs/design/page-title-scale.md');
 const publicRenderersRoot = path.join(repoRoot, 'src/frontend/src/public-renderers');
 const commentDetailViewContractPath = path.join(repoRoot, 'src/frontend/src/view-contracts/commentDetail.ts');
 const identityCenterPath = path.join(repoRoot, 'src/frontend/src/views/user/IdentityCenter.vue');
@@ -321,9 +323,9 @@ function checkTouchTargetFloor()
         'dashboard analytics rows must keep the 40px admin compact tier'
     );
     assertContains(
-        publicLayoutRulesPath,
+        publicShellOwnershipPath,
         /触控目标档位[\s\S]*?public header[\s\S]*?40px[\s\S]*?identity[\s\S]*?44px[\s\S]*?admin[\s\S]*?40px/,
-        'public layout rules must document public, identity, and admin touch-target tiers'
+        'public shell authority must document public, identity, and admin touch-target tiers'
     );
 }
 
@@ -618,14 +620,14 @@ function checkPublicTypographyContract()
     }
 
     assertContains(
-        publicLayoutRulesPath,
-        /### 公开排版角色[\s\S]*?display[\s\S]*?reading[\s\S]*?metadata/,
-        'public layout rules must document display, reading, and metadata typography roles'
+        readingTypographyPath,
+        /## Display、reading 与 metadata[\s\S]*?display[\s\S]*?reading[\s\S]*?metadata/,
+        'reading typography authority must document display, reading, and metadata roles'
     );
     assertContains(
-        publicLayoutRulesPath,
-        /页面级 H1 统一使用 24\/30px[\s\S]*?禁止使用 `text-4xl`、`text-5xl`/,
-        'public layout rules must document the bounded H1 scale and oversized utility ban'
+        pageTitleScalePath,
+        /页面级标题统一使用[\s\S]*?24\/30px[\s\S]*?`text-4xl`/,
+        'page-title authority must document the bounded H1 scale and oversized utility ban'
     );
 }
 

@@ -28,8 +28,17 @@ archetypes, missing dependency classifications, route-name visual branching,
 consumer dependencies on PublicShell internal BEM selectors, misleading local
 `FsusUi*` implementations, and retired generic primitives.
 
-`PublicBlogLayoutShell.vue` is the sole documented owner allowed to address
-`el-public-shell__*` selectors. There are no temporary external-selector
-exceptions. Apple Touch Icon remains a standards-facing asset label; Apple or
-Linear design-language names in production classes, tokens, or route metadata
-are prohibited.
+`PublicBlogLayoutShell.vue` is the sole Blog integration point for PublicShell,
+but it may use only public props, slots, tokens and stable `data-*` hooks. No
+consumer file may address `el-public-shell__*` selectors, and there are no
+temporary external-selector exceptions. Apple Touch Icon remains a
+standards-facing asset label; Apple or Linear design-language names in
+production classes, tokens, or route metadata are prohibited.
+
+Public/design documentation changes use the same authority rule as visual
+baselines: one concern has one current document. Shell implementation ownership
+and geometry live in `public-shell-ownership.md`; product composition lives in
+`../public-layout-rules.md`; reading typography and page titles live in their
+separate design documents. A current document must not cite an issue/handoff file
+as its contract, and deleted migration sources are represented only by lifecycle
+`pathMigrations`, not by replacement aliases or copied session notes.

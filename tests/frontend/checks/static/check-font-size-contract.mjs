@@ -8,7 +8,7 @@ const scriptDir = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(scriptDir, '../../../..')
 const sourceRoot = resolve(repoRoot, 'src/frontend/src')
 const emergencyShellPath = resolve(repoRoot, 'src/frontend/public/public-shell-emergency.css')
-const layoutRulesPath = resolve(repoRoot, 'docs/public-layout-rules.md')
+const layoutRulesPath = resolve(repoRoot, 'docs/design/reading-typography.md')
 const markdownPath = resolve(sourceRoot, 'assets/markdown.css');
 const commentListPath = resolve(sourceRoot, 'components/article/ArticleCommentsVirtualList.vue');
 const identityCenterPath = resolve(sourceRoot, 'views/user/IdentityCenter.vue');
@@ -114,7 +114,7 @@ for (const requiredText of [
 {
     if (!layoutRules.includes(requiredText))
 {
-    errors.push(`docs/public-layout-rules.md: missing font-size contract text: ${requiredText}`)
+    errors.push(`docs/design/reading-typography.md: missing font-size contract text: ${requiredText}`)
   }
 }
 

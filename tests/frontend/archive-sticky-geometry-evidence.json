@@ -93,7 +93,7 @@
         ]
     },
     "handoff": {
-        "documentation": "docs/issue-1017-archive-sticky-offset-handoff.md",
+        "documentation": "docs/frontend/public-shell-ownership.md",
         "centralGovernance": "tests/frontend/archive-sticky-geometry-governance-handoff.json"
     },
     "verification": {

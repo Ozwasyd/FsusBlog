@@ -43,7 +43,7 @@ commandGroups:
             - {id: "frontend-test-governance", script: "check:frontend-test-governance", access: "read", stage: "blocking-prebuild", reason: "Validates the Vitest and test-lane admission contract before test execution starts.", consumedInputs: ["src/frontend/vitest*.{ts,mjs}", "tests/frontend", "tools/test"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "layout-archetype-governance", script: "check:layout-archetype-governance", access: "read", stage: "concurrent", reason: "Validates the representative layout registry, visual-change ledger, and source ownership boundaries without starting browser or production services.", consumedInputs: ["src/frontend/src", "tests/frontend/fixtures/layout-*", "tests/frontend/e2e/visual", "tests/frontend/checks/static/check-layout-archetype-governance.mjs"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "page-title-scale", script: "check:page-title-scale", access: "read", stage: "concurrent", reason: "Audits public, auth, error, account, and admin page-title roles from source without writing shared output.", consumedInputs: ["src/frontend/src", "tests/frontend/checks/static/check-page-title-scale.mjs"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "public-shell-css-ownership", script: "check:public-shell-css-ownership", access: "read", stage: "concurrent", reason: "Validates public-shell CSS ownership, emergency-source generation, and layout documentation without mutating generated output.", consumedInputs: ["src/frontend/src", "src/frontend/public/public-shell-emergency.css", "src/frontend/package.json", "tools/frontend/generate-public-shell-emergency.mjs", "docs/public-layout-rules.md", "tests/frontend/checks/static/check-public-shell-css-ownership.mjs"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "public-shell-css-ownership", script: "check:public-shell-css-ownership", access: "read", stage: "concurrent", reason: "Validates public-shell CSS ownership, emergency-source generation, and shell authority documentation without mutating generated output.", consumedInputs: ["src/frontend/src", "src/frontend/public/public-shell-emergency.css", "src/frontend/package.json", "tools/frontend/generate-public-shell-emergency.mjs", "docs/frontend/public-shell-ownership.md", "tests/frontend/checks/static/check-public-shell-css-ownership.mjs"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "radius-scale-contract", script: "check:radius-scale-contract", access: "read", stage: "concurrent", reason: "Scans frontend source and public layout documentation for the approved radius scale without writing shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json", "docs/public-layout-rules.md", "tests/frontend/checks/static/check-radius-scale-contract.mjs"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "frontend-test-layout", script: "check:frontend-test-layout", access: "read", stage: "blocking-prebuild", reason: "Rejects a secondary frontend test root and validates canonical setup, support, fixture, runner, and transform-cache ownership before Vitest starts.", consumedInputs: ["tests/governance/frontend-test-layout.json", "tests/frontend", "src/frontend/vitest*.{ts,mjs}", "src/frontend/vite.config.ts", "tools/test/frontend-vitest-transform-cache.mjs"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "csharp-entrypoint-ownership", script: "check:csharp-entrypoint-ownership", access: "read", stage: "blocking-prebuild", reason: "Rejects C# entrypoints under the JavaScript frontend root and any executable source without explicit project or file-app ownership before frontend build work starts.", consumedInputs: ["tests/governance/csharp-entrypoint-ownership.json", "src", "benchmarks", "tests/backend", "tools"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}
@@ -61,8 +61,8 @@ commandGroups:
             - {id: "cross-stack-test-governance", script: "check:cross-stack-test-governance", access: "read", stage: "concurrent", reason: "Audits cross-stack test declarations independently of Vitest outputs.", consumedInputs: ["tests/frontend", "tests/backend", "src/shared/Contracts"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "cross-stack-receipt-fixtures", command: ["node", "--test", "../../tests/tools/cross-stack-receipt-join.test.mjs"], access: "write", stage: "concurrent", reason: "Exercises current-run receipt joins and fail-closed mutations in process-unique temporary repositories.", consumedInputs: ["tests/fixtures/evidence-projection/cross-stack-assertion-ownership.json", "tests/tools/cross-stack-receipt-join.test.mjs", "tools/test-matrix/cross-stack-receipts.mjs"], ownedOutputs: ["os-temp://fsus-cross-stack-join-unique"], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "modern-standards", script: "check:modern-standards", access: "read", stage: "concurrent", reason: "Scans source standards without touching build or test artifacts.", consumedInputs: ["src/frontend/src", "tests/frontend"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "font-weight-contract", command: ["node", "../../tests/frontend/checks/static/check-font-weight-contract.mjs"], access: "read", stage: "concurrent", reason: "Rejects CSS declarations and utility classes outside the loaded 400/500/700 font-weight contract.", consumedInputs: ["src/frontend/src", "docs/public-layout-rules.md", "tests/frontend/checks/static/check-font-weight-contract.mjs"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "font-size-contract", command: ["node", "../../tests/frontend/checks/static/check-font-size-contract.mjs"], access: "read", stage: "concurrent", reason: "Rejects arbitrary 0.6-0.9 rem/em declarations and legacy 11px/13px CSS sizes outside the 12/14/16px compact typography scale.", consumedInputs: ["src/frontend/src", "src/frontend/public/public-shell-emergency.css", "docs/public-layout-rules.md", "tests/frontend/checks/static/check-font-size-contract.mjs"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "font-weight-contract", command: ["node", "../../tests/frontend/checks/static/check-font-weight-contract.mjs"], access: "read", stage: "concurrent", reason: "Rejects CSS declarations and utility classes outside the loaded 400/500/700 font-weight contract.", consumedInputs: ["src/frontend/src", "docs/design/reading-typography.md", "tests/frontend/checks/static/check-font-weight-contract.mjs"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "font-size-contract", command: ["node", "../../tests/frontend/checks/static/check-font-size-contract.mjs"], access: "read", stage: "concurrent", reason: "Rejects arbitrary 0.6-0.9 rem/em declarations and legacy 11px/13px CSS sizes outside the 12/14/16px compact typography scale.", consumedInputs: ["src/frontend/src", "src/frontend/public/public-shell-emergency.css", "docs/design/reading-typography.md", "tests/frontend/checks/static/check-font-size-contract.mjs"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "result-boundaries", script: "check:result-boundaries", access: "read", stage: "concurrent", reason: "Checks result boundaries from source only.", consumedInputs: ["src/frontend/src", "src/shared/Contracts"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "error-code-alignment", script: "check:error-code-alignment", access: "read", stage: "concurrent", reason: "Compares error-code declarations without producing shared output.", consumedInputs: ["src/frontend/src", "src/shared/Contracts", "docs/api"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "runtime-message-branching", script: "check:no-runtime-message-branching", access: "read", stage: "concurrent", reason: "Scans runtime message handling and does not share Vitest state.", consumedInputs: ["src/frontend/src"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
@@ -613,13 +613,13 @@ tiers:
           - src/frontend/src/views/Home.vue
           - src/frontend/src/public-renderers/pageAssemblies.ts
           - tests/frontend/unit/view-contracts/homeSpotlight.test.ts
-          - docs/issue-1019-public-home-editorial-handoff.md
+          - docs/public-layout-rules.md
           - src/frontend/src/view-contracts/coverArt.ts
           - src/frontend/src/components/home/FeaturedArticlesSection.vue
           - src/frontend/src/components/public/pages/PublicArticleDetailPageContent.vue
           - src/frontend/public/fixtures/cover-art-manifest.json
           - tests/frontend/unit/view-contracts/coverArt.test.ts
-          - docs/issue-1020-content-cover-handoff.md
+          - docs/public-layout-rules.md
           - tests/frontend/unit/components/ArticleCommentComposer.test.ts
           - tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts
           - docs/testing/issue-1045-anonymous-identity-behavior-handoff.md
@@ -840,7 +840,7 @@ tiers:
               tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs,
               tests/frontend/archive-sticky-geometry-evidence.json,
               tests/public-typography-evidence.json,
-              docs/issue-1018-public-typography-handoff.md,
+              docs/design/reading-typography.md,
               tools/check-csharp-entrypoint-ownership.mjs,
               tests/governance/csharp-entrypoint-ownership.json,
               tests/tools/csharp-entrypoint-ownership.test.mjs,
@@ -1595,6 +1595,12 @@ tiers:
           - config/development/document-inventory.generated.json
           - tests/tools/authoritative-development-docs.test.mjs
           - tests/tools/document-lifecycle.test.mjs
+          - tests/tools/public-design-document-authority.test.mjs
+          - docs/frontend/public-shell-ownership.md
+          - docs/public-layout-rules.md
+          - docs/design/reading-typography.md
+          - docs/design/page-title-scale.md
+          - docs/frontend/layout-visual-governance.md
           - docs/development/document-lifecycle.md
           - docs/development/coding-conventions.md
           - AGENTS.md
@@ -2979,12 +2985,12 @@ tiers:
           - tests/frontend/e2e/visual/public-visual.spec.ts
           - src/frontend/src/view-contracts/homeSpotlight.ts
           - tests/frontend/unit/view-contracts/homeSpotlight.test.ts
-          - docs/issue-1019-public-home-editorial-handoff.md
+          - docs/public-layout-rules.md
           - src/frontend/src/view-contracts/coverArt.ts
           - src/frontend/public/fixtures/cover-art-manifest.json
           - tests/frontend/unit/view-contracts/coverArt.test.ts
-          - docs/issue-1020-content-cover-handoff.md
-          - docs/issue-1021-public-chrome-handoff.md
+          - docs/public-layout-rules.md
+          - docs/frontend/public-shell-ownership.md
       ciJob: browser-diagnostics
       localOnly: false
       nightlyOnly: true

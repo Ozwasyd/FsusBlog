@@ -1,0 +1,51 @@
+# Public shell ownership
+
+本文档是 FsusBlog 公开壳层的唯一长期事实源。它描述 FsusUI `PublicShell`、Blog consumer、AOT/emergency CSS 与运行时 sticky geometry 的边界；产品级内容编排见 [`../public-layout-rules.md`](../public-layout-rules.md)，组件库内部规范仍由 FsusUI 维护。
+
+## 组件与交互所有权
+
+`PublicBlogLayoutShell.vue` 通过 alias 使用真实的 FsusUI `ElPublicShell`，并显式选择 `mobileNavMode="menu"` 与 `desktop-search-mode="trigger"`。FsusUI 拥有 header/main/footer DOM 布局、desktop 40px 与 mobile 44px 控件几何、原生 `details/summary` 菜单、search/auth/theme 的 open/closed、focus、Escape、outside-pointer、reduced-motion 与 safe-area 行为；Blog 只传入导航文案、鉴权目标、搜索 query/action 与 SPA 路由选择。
+
+Desktop 搜索 trigger 保留 `/search` 原生链接。普通点击增强为邻近输入层，修饰键和 no-JS 继续走浏览器导航；关闭后焦点回到 trigger。Mobile 第一行只保留菜单与搜索 trigger，核心导航、主题和鉴权动作进入 disclosure。Blog 不选择 `bottom` 模式，不渲染全局 BottomTabBar，也不为不存在的 fixed dock 预留 ghost padding。
+
+`PublicComplianceFooter.vue` 是产品 colophon：第一行只含品牌/版权与 RSS，许可、政策、备案和回到顶部位于次级行。AOT、hydration 与 SPA takeover 必须维持同一信息层级和 native fallback，不得在 consumer 中复制 FsusUI 状态机。
+
+## CSS 分层
+
+| 层 / 文件 | 权威职责 | 禁止事项 |
+| --- | --- | --- |
+| FsusUI critical/runtime CSS | `PublicShell` 布局、控件尺寸、Search/Auth/Theme/Menu 状态、focus、motion、reduced-motion 与 safe-area | Consumer 用 `.el-public-shell__*` 或 `.el-theme-mode-toggle__*` 修补内部实现 |
+| `public-shell-foundation.css` | palette 与注册过的 Consumer token、`#fsus-aot-shell` 首帧背景/字体/最小高度、`[data-public-shell-header]` 测量占位、Blog 品牌、`public-colophon`、reading fallback 和 emergency 源块 | FsusUI 内部 class、通用控件/overlay/Dialog 几何和组件状态 |
+| `public-shell-emergency.css` | 由 foundation 的 `emergency:keep` 块生成；资源失败时的 palette、根壳和 reading fallback | 手工编辑、复制 runtime/critical 组件 CSS 或成为 hydration 后第二视觉来源 |
+| `PublicBlogLayoutShell.vue` scoped style | `.fsusblog-public-main-target` 内容溢出边界与 `.fsusblog-public-mobile-menu-utilities` slot 编排 | FsusUI BEM、品牌/页脚基础外观、Search/Theme/Menu 内部状态 |
+| `public-page.css` | article/list/filter reading surface、编辑内容和溢出边界 | public chrome、colophon、FsusUI internals 或 Markdown heading/paragraph 的完整重定义 |
+
+`public-shell-foundation.css` 与 `public-page.css` 对 FsusUI 内部选择器均为零豁免。所有未来差异必须使用公开 token、slot 或稳定 `data-*` hook；组件库通用 harmonization 进入 FsusUI，Blog 品牌、footer、editorial composition 与 emergency fallback 留在 consumer。
+
+## Header 与 sticky geometry
+
+`[data-public-shell-header]` 是唯一测量锚点。SSR/AOT 在 `#fsus-aot-shell` 发布静态 fallback：
+
+| token | fallback |
+| --- | --- |
+| `--fsusblog-public-header-height-current` | `var(--fsusblog-public-header-height, 4rem)` |
+| `--fsusblog-public-sticky-top` | `var(--fsusblog-public-header-height-current)` |
+| `--fsusblog-public-anchor-offset` | `calc(var(--fsusblog-public-sticky-top) + 0.75rem)` |
+
+hydration 后，`usePublicStickyGeometry` 在 mount/`nextTick` 测量真实 header，将正高度向上取整后发布三个 token。`ResizeObserver` 处理 header reflow，viewport resize 重新解析测量元素；元素变化先断开旧 observer，相同高度不重复写入，卸载时断开 observer 并移除准确注册的 listener。JavaScript、header、observer 或有效测量缺失时，静态 4rem 链仍可用。
+
+Archive 年份 section 以 `--fsusblog-public-anchor-offset` 提供 hash clearance，sticky 年份标题以 `--fsusblog-public-sticky-top` 对齐 header。它们不得复制固定像素、查询 `.el-*` 内部选择器或隐藏当前年份。SPA 与 public AOT assembly 必须消费同一 archive component。
+
+## 触控目标档位
+
+触控目标按 surface 归属：FsusUI public header 的 desktop 控件至少 40px、mobile 控件至少 44px；identity 用户操作至少 44px；admin 紧凑操作至少 40px。移动横屏或窄高布局只能缩小外部间距，不能恢复 36px / `2.25rem` tier。header 控件高度变化由上述测量链吸收，Archive 不复制差值。
+
+## 验收与降级
+
+- `check:public-shell-css-ownership` 验证 CSS 分层、delegated search/auth 与 emergency 生成来源。
+- `check:visual-density-governance` 拒绝旧触控高度、固定 archive offset 和内部选择器。
+- `usePublicStickyGeometry.test.ts` 覆盖初始测量、observer 更新、viewport resize、元素替换与卸载清理。
+- archive unit/browser contract 验证稳定 year id/hash link、AOT/SPA 共用组件，以及目标在真实 header 下方并与 sticky heading 对齐。
+- PublicShell 的 no-JS、hydration、keyboard、Desktop/Mobile、Light/Dark 与窄屏行为由 public header 和 visual suites 覆盖。
+
+发生增强层故障时可停用 SPA takeover：native search、`details/summary` menu、static geometry token 与自然文档流 footer 仍工作，无需重启。不得以恢复 consumer 内部选择器、固定 offset 或第二套 shell CSS 作为回退。

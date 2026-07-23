@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v2",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:37e7d07b12f9190cdda7130b59e17aa1484f6db7413250c4060cdd1cf5c23c28",
+    "policyDigest": "sha256:433a4ed6d52d0f19ef730bc03698388cb781e0db3eb6171ebb7f017472bf810c",
     "documents": [
         {
             "path": "docs/active-release-fenced-commits.md",
@@ -959,7 +959,10 @@
             "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
             "supersedes": [],
             "supersededBy": null,
-            "relatedIssues": [],
+            "relatedIssues": [
+                1287,
+                1428
+            ],
             "producer": null
         },
         {
@@ -972,7 +975,12 @@
             "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
             "supersedes": [],
             "supersededBy": null,
-            "relatedIssues": [],
+            "relatedIssues": [
+                1018,
+                1289,
+                1294,
+                1428
+            ],
             "producer": null
         },
         {
@@ -1196,7 +1204,9 @@
             "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
             "supersedes": [],
             "supersededBy": null,
-            "relatedIssues": [],
+            "relatedIssues": [
+                1428
+            ],
             "producer": null
         },
         {
@@ -1210,6 +1220,27 @@
             "supersedes": [],
             "supersededBy": null,
             "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/frontend/public-shell-ownership.md",
+            "title": "Public shell ownership",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "frontend",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1016,
+                1017,
+                1021,
+                1285,
+                1306,
+                1307,
+                1428
+            ],
             "producer": null
         },
         {
@@ -1499,96 +1530,6 @@
             "supersededBy": null,
             "relatedIssues": [
                 1014
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1016-public-shell-sticky-geometry-handoff.md",
-            "title": "Issue #1016 public shell sticky geometry handoff",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1016
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1017-archive-sticky-offset-handoff.md",
-            "title": "Issue #1017 archive sticky offset handoff",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1017
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1018-public-typography-handoff.md",
-            "title": "Issue #1018 public typography handoff",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1018
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1019-public-home-editorial-handoff.md",
-            "title": "Issue #1019 public-home editorial handoff",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1019
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1020-content-cover-handoff.md",
-            "title": "Issue #1020 content-driven cover handoff",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1020
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1021-public-chrome-handoff.md",
-            "title": "Issue #1021 public chrome handoff",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1021
             ],
             "producer": null
         },
@@ -1894,51 +1835,6 @@
             "producer": null
         },
         {
-            "path": "docs/issue-1285-touch-target-floor.md",
-            "title": "Issue #1285 touch-target floor",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1285
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1287-article-title-authority.md",
-            "title": "Issue #1287 article title authority",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1287
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1289-loaded-font-weight-acceptance.md",
-            "title": "Issue #1289 loaded font-weight acceptance",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1289
-            ],
-            "producer": null
-        },
-        {
             "path": "docs/issue-1291-account-page-title-hierarchy.md",
             "title": "Issue #1291 account page title hierarchy",
             "kind": "markdown",
@@ -1980,51 +1876,6 @@
             "supersededBy": null,
             "relatedIssues": [
                 1293
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1294-document-markdown-layout.md",
-            "title": "Issue #1294 document Markdown layout",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1294
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1306-public-shell-delegation-handoff.md",
-            "title": "Issue #1306 PublicShell auth/search delegation handoff",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1306
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1307-public-shell-css-ownership-handoff.md",
-            "title": "Issue #1307 PublicShell CSS ownership handoff",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1307
             ],
             "producer": null
         },
@@ -2490,7 +2341,11 @@
             "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
             "supersedes": [],
             "supersededBy": null,
-            "relatedIssues": [],
+            "relatedIssues": [
+                1019,
+                1020,
+                1428
+            ],
             "producer": null
         },
         {

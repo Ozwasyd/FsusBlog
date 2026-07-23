@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(scriptDir, '../../../..')
 const sourceRoot = resolve(repoRoot, 'src/frontend/src')
-const layoutRulesPath = resolve(repoRoot, 'docs/public-layout-rules.md')
+const layoutRulesPath = resolve(repoRoot, 'docs/design/reading-typography.md')
 const markdownPath = resolve(sourceRoot, 'assets/markdown.css')
 const commentComposerPath = resolve(sourceRoot, 'components/article/ArticleCommentComposer.vue')
 const articleTocPath = resolve(sourceRoot, 'components/article/ArticleTocPanel.vue')
@@ -117,13 +117,13 @@ if (blockquoteRule.length === 0 || /font-weight\s*:/u.test(blockquoteRule)) {
 
 const layoutRules = readFileSync(layoutRulesPath, 'utf8')
 for (const requiredText of [
-  '### 字重白名单',
+  '## 加载字重',
   '只允许真实加载的 `400`、`500`、`700`',
   '`font-normal`、`font-medium`、`font-bold`',
   '不得依赖浏览器合成缺失的粗体或细体'
 ]) {
   if (!layoutRules.includes(requiredText)) {
-    errors.push(`docs/public-layout-rules.md: missing font-weight contract text: ${requiredText}`)
+    errors.push(`docs/design/reading-typography.md: missing font-weight contract text: ${requiredText}`)
   }
 }
 

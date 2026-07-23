@@ -594,7 +594,10 @@
             "path": "docs/design/page-title-scale.md",
             "status": "current",
             "owner": "frontend",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1287,
+                1428
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -602,7 +605,12 @@
             "path": "docs/design/reading-typography.md",
             "status": "current",
             "owner": "frontend",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1018,
+                1289,
+                1294,
+                1428
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -741,7 +749,25 @@
             "path": "docs/frontend/layout-visual-governance.md",
             "status": "current",
             "owner": "frontend",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1428
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/frontend/public-shell-ownership.md",
+            "status": "current",
+            "owner": "frontend",
+            "relatedIssues": [
+                1016,
+                1017,
+                1021,
+                1285,
+                1306,
+                1307,
+                1428
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -929,66 +955,6 @@
             "owner": "governance",
             "relatedIssues": [
                 1014
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1016-public-shell-sticky-geometry-handoff.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1016
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1017-archive-sticky-offset-handoff.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1017
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1018-public-typography-handoff.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1018
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1019-public-home-editorial-handoff.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1019
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1020-content-cover-handoff.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1020
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1021-public-chrome-handoff.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1021
             ],
             "supersedes": [],
             "supersededBy": null
@@ -1195,36 +1161,6 @@
             "supersededBy": null
         },
         {
-            "path": "docs/issue-1285-touch-target-floor.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1285
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1287-article-title-authority.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1287
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1289-loaded-font-weight-acceptance.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1289
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
             "path": "docs/issue-1291-account-page-title-hierarchy.md",
             "status": "historical",
             "owner": "governance",
@@ -1250,36 +1186,6 @@
             "owner": "governance",
             "relatedIssues": [
                 1293
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1294-document-markdown-layout.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1294
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1306-public-shell-delegation-handoff.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1306
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1307-public-shell-css-ownership-handoff.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1307
             ],
             "supersedes": [],
             "supersededBy": null
@@ -1570,7 +1476,11 @@
             "path": "docs/public-layout-rules.md",
             "status": "current",
             "owner": "frontend",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1019,
+                1020,
+                1428
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -3142,36 +3052,6 @@
             "removalIssue": 1406
         },
         {
-            "path": "docs/issue-1016-public-shell-sticky-geometry-handoff.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1017-archive-sticky-offset-handoff.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1018-public-typography-handoff.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1019-public-home-editorial-handoff.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1020-content-cover-handoff.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1021-public-chrome-handoff.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
             "path": "docs/issue-1022-admin-dashboard-handoff.md",
             "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
             "removalIssue": 1406
@@ -3272,21 +3152,6 @@
             "removalIssue": 1406
         },
         {
-            "path": "docs/issue-1285-touch-target-floor.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1287-article-title-authority.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1289-loaded-font-weight-acceptance.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
             "path": "docs/issue-1291-account-page-title-hierarchy.md",
             "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
             "removalIssue": 1406
@@ -3298,21 +3163,6 @@
         },
         {
             "path": "docs/issue-1293-account-integer-typography.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1294-document-markdown-layout.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1306-public-shell-delegation-handoff.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1307-public-shell-css-ownership-handoff.md",
             "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
             "removalIssue": 1406
         },
@@ -3753,5 +3603,54 @@
         }
     ],
     "brokenLinkExceptions": [],
-    "pathMigrations": []
+    "pathMigrations": [
+        {
+            "from": "docs/issue-1016-public-shell-sticky-geometry-handoff.md",
+            "to": "docs/frontend/public-shell-ownership.md"
+        },
+        {
+            "from": "docs/issue-1017-archive-sticky-offset-handoff.md",
+            "to": "docs/frontend/public-shell-ownership.md"
+        },
+        {
+            "from": "docs/issue-1018-public-typography-handoff.md",
+            "to": "docs/design/reading-typography.md"
+        },
+        {
+            "from": "docs/issue-1019-public-home-editorial-handoff.md",
+            "to": "docs/public-layout-rules.md"
+        },
+        {
+            "from": "docs/issue-1020-content-cover-handoff.md",
+            "to": "docs/public-layout-rules.md"
+        },
+        {
+            "from": "docs/issue-1021-public-chrome-handoff.md",
+            "to": "docs/frontend/public-shell-ownership.md"
+        },
+        {
+            "from": "docs/issue-1285-touch-target-floor.md",
+            "to": "docs/frontend/public-shell-ownership.md"
+        },
+        {
+            "from": "docs/issue-1287-article-title-authority.md",
+            "to": "docs/design/page-title-scale.md"
+        },
+        {
+            "from": "docs/issue-1289-loaded-font-weight-acceptance.md",
+            "to": "docs/design/reading-typography.md"
+        },
+        {
+            "from": "docs/issue-1294-document-markdown-layout.md",
+            "to": "docs/design/reading-typography.md"
+        },
+        {
+            "from": "docs/issue-1306-public-shell-delegation-handoff.md",
+            "to": "docs/frontend/public-shell-ownership.md"
+        },
+        {
+            "from": "docs/issue-1307-public-shell-css-ownership-handoff.md",
+            "to": "docs/frontend/public-shell-ownership.md"
+        }
+    ]
 }

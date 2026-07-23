@@ -102,6 +102,7 @@
 - [FsusUI Typecheck Modes](frontend/fsusui-typecheck-modes.md)
 - [Layout visual governance](frontend/layout-visual-governance.md)
 - [FsusBlog Motion Guidelines](frontend/motion-guidelines.md)
+- [Public shell ownership](frontend/public-shell-ownership.md)
 - [Public Layout Rules](public-layout-rules.md)
 - [SEO measurement operations](seo/measurement-operations.md)
 - [小样本可用性测试脚本](ux/usability-test-script.md)
@@ -242,7 +243,7 @@
 - `releases`: 7 documents
 - `reports`: 15 documents
 - `reports/open-source-readiness`: 1 asset
-- `root migration records`: 42 documents
+- `root migration records`: 30 documents
 - `security`: 1 document
 - `testing`: 65 documents
 

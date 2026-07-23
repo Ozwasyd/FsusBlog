@@ -38,7 +38,7 @@ const publicPagePath = 'src/frontend/src/assets/public-page.css'
 const componentPath = 'src/frontend/src/components/public/PublicBlogLayoutShell.vue'
 const emergencyPath = 'src/frontend/public/public-shell-emergency.css'
 const generatorPath = 'tools/frontend/generate-public-shell-emergency.mjs'
-const docsPath = 'docs/public-layout-rules.md'
+const docsPath = 'docs/frontend/public-shell-ownership.md'
 const packagePath = 'src/frontend/package.json'
 
 const foundation = read(foundationPath)
@@ -150,16 +150,16 @@ expectIncludes(generatorPath, generator, "const sourceRelativePath = 'src/assets
 expectIncludes(emergencyPath, emergency, 'Source: src/assets/public-shell-foundation.css emergency:keep blocks.', 'generated emergency CSS must identify its foundation source')
 
 for (const token of [
-    'Foundation 层',
+    '`public-shell-foundation.css`',
     'FsusUI critical/runtime CSS',
-    'Component 层',
-    'Public page 层',
+    '`PublicBlogLayoutShell.vue` scoped style',
+    '`public-page.css`',
     'public-shell-foundation.css` 与 `public-page.css` 对 FsusUI 内部选择器均为零豁免',
     '`[data-public-shell-header]`',
     '`--fsusblog-public-header-height-current`'
 ])
 {
-    expectIncludes(docsPath, docs, token, `public layout ownership documentation is missing ${token}`);
+    expectIncludes(docsPath, docs, token, `public shell ownership documentation is missing ${token}`);
 }
 
 const checkCommand = 'node ../../tests/frontend/checks/static/check-public-shell-css-ownership.mjs'

@@ -1330,6 +1330,18 @@
             ]
         },
         {
+            "file": "tests/tools/public-design-document-authority.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "migration"
+            ]
+        },
+        {
             "file": "tests/tools/public-load-readiness.test.mjs",
             "owner": "manual-diagnostic:tests/tools/public-load-readiness.test.mjs",
             "executionCategory": "manual-diagnostic",

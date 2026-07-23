@@ -2855,7 +2855,7 @@
                 "src/frontend/src/assets/markdown.css",
                 "tests/frontend/checks/static/check-visual-density-governance.mjs",
                 "tests/public-typography-evidence.json",
-                "docs/issue-1018-public-typography-handoff.md"
+                "docs/design/reading-typography.md"
             ],
             "assertionType": "static",
             "failClosedRule": "Reject sub-12px information-bearing text, duplicate Markdown paragraph ownership, Light or Dark contrast below 4.5:1, decorative gray used as readable copy, or divergent hydrated and first-paint typography roles.",
@@ -2875,7 +2875,7 @@
                 "src/frontend/src/public-renderers/pageAssemblies.ts",
                 "tests/frontend/unit/view-contracts/homeSpotlight.test.ts",
                 "tests/frontend/e2e/visual/public-visual.spec.ts",
-                "docs/issue-1019-public-home-editorial-handoff.md",
+                "docs/public-layout-rules.md",
                 ".tmp/visual/public"
             ],
             "assertionType": "browser",
@@ -2898,7 +2898,7 @@
                 "src/frontend/public/fixtures/cover-art-manifest.json",
                 "tests/frontend/unit/view-contracts/coverArt.test.ts",
                 "tests/frontend/e2e/visual/public-visual.spec.ts",
-                "docs/issue-1020-content-cover-handoff.md",
+                "docs/public-layout-rules.md",
                 ".tmp/visual/public"
             ],
             "assertionType": "browser",
@@ -2920,7 +2920,7 @@
                 "src/frontend/src/fsusui/publicShell.ts",
                 "tests/frontend/checks/public/check-public-header-material.mjs",
                 "tests/frontend/e2e/visual/public-visual.spec.ts",
-                "docs/issue-1021-public-chrome-handoff.md",
+                "docs/frontend/public-shell-ownership.md",
                 ".tmp/visual/public"
             ],
             "assertionType": "browser",
@@ -3948,7 +3948,13 @@
                 "config/development/document-lifecycle.json",
                 "config/development/document-inventory.generated.json",
                 "tests/tools/document-lifecycle.test.mjs",
+                "tests/tools/public-design-document-authority.test.mjs",
                 "docs/development/document-lifecycle.md",
+                "docs/frontend/public-shell-ownership.md",
+                "docs/public-layout-rules.md",
+                "docs/design/reading-typography.md",
+                "docs/design/page-title-scale.md",
+                "docs/frontend/layout-visual-governance.md",
                 "docs/index.md"
             ],
             "assertionType": "integration",
