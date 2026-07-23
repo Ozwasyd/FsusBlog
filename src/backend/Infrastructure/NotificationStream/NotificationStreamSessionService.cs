@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Net.WebSockets;
 using System.Threading.Channels;
@@ -60,6 +61,7 @@ internal sealed class NotificationStreamSessionService(
                 return;
             }
 
+            long replayStarted = Stopwatch.GetTimestamp();
             var replay = await backlogStore.ReplayAsync(cursor, handshake.UserId, handshake.Groups, cancellationToken);
             if (replay.MissedGap)
             {
@@ -85,6 +87,7 @@ internal sealed class NotificationStreamSessionService(
             {
                 await SendHeartbeatAsync(socket, sendGate, sessionToken);
                 await SendReplayAsync(socket, replay.Frames, sendGate, sessionToken);
+                NotificationStreamMetrics.RecordReplayLiveTransitionGap(Stopwatch.GetElapsedTime(replayStarted));
                 await PumpConnectionAsync(socket, connection, sendGate, drillSendDelay, sessionToken);
             }
             catch (OperationCanceledException) when (sessionToken.IsCancellationRequested)
@@ -221,9 +224,11 @@ internal sealed class NotificationStreamSessionService(
         await CloseSocketAsync(
             socket,
             sendGate,
-            NotificationStreamRestartProtocol.Resolve(
-                replayMissed: false,
-                serviceRestartRequested: restartCoordinator?.IsRestartRequested == true));
+            connection.IsClosed
+                ? connection.CloseInstruction
+                : NotificationStreamRestartProtocol.Resolve(
+                    replayMissed: false,
+                    serviceRestartRequested: restartCoordinator?.IsRestartRequested == true));
     }
 
     private static async Task SendQueuedFrameAsync(
@@ -239,7 +244,9 @@ internal sealed class NotificationStreamSessionService(
             await Task.Delay(delay, cancellationToken);
         }
 
+        long started = Stopwatch.GetTimestamp();
         await SendBinaryAsync(socket, frame, sendGate, cancellationToken);
+        connection.RecordSendLatency(Stopwatch.GetElapsedTime(started));
         connection.MarkWriteActivity();
     }
 

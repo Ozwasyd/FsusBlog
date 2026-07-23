@@ -1261,7 +1261,7 @@ status，`closed` 返回 `409`，只能由独立 status mutation 显式重开；
 - 传输语义：notification stream 不是标准 Server-Sent Events，不使用 `EventSource` 或 `text/event-stream`
 - Origin 语义：preflight 与正式 WebSocket 握手共用 allowlist 校验；允许 `Seo:BaseUrl`、`Fido2:Origins`、`CORS_ALLOWED_HOSTS` 与开发 localhost，生产跨站、非 HTTPS/WSS 或浏览器缺失 Origin 返回 AEDS `ApiError`，错误码 `origin_not_allowed`
 - 匿名连接：优先走 `notification.subscribe` RiskControl 准入；UI 与 notification headless 共用同一 ordered envelope runner，preflight 使用 `X-Fsus-Challenge-*` header 原子消费最终 aggregate proof，并设置短效一次性 HttpOnly grant；浏览器 WebSocket 只消费 grant，member proof / aggregate proof 原文都不进入 URL。旧 `pow` query 参数继续兼容，用于传递二进制 FPOW 证明的 base64 文本形式
-- 断线续传：使用 `cursor` query 参数传递最后确认的事件 ID；event id 分配、route backlog append 与本机 fanout enqueue 按全局发布顺序提交，同一 route 不得因并发 publisher 写入倒序 Redis stream id
+- 断线续传：使用 `cursor` query 参数传递最后确认的事件 ID；event id 分配、route backlog append 与本机 fanout enqueue 按 storage route 排序提交。同一或重叠 route 由 route-scoped ownership lock 保持 Redis stream id 单调，互不相关 route 不共享进程级或 Redis 全局串行区
 
 ### 握手预检
 
@@ -1320,6 +1320,17 @@ binary-value payload
 ```text
 int64 timestampUnixMs
 ```
+
+### Backpressure close instructions
+
+| Close code | Reason | Cursor | Client action |
+| --- | --- | --- | --- |
+| `4010` | `fsus_replay_required:<bounded-reason>` | preserve | 快速重连，并从最后已确认 cursor replay |
+| `4011` | `fsus_full_resync_required:<bounded-reason>` | clear | 事件 policy 要求丢弃局部状态并执行 full resync |
+| `4009` | `fsus_replay_miss` | clear | retention gap；执行 full resync |
+| `1012` | `fsus_service_restart` | preserve | deployment restart；快速重连 |
+
+lossless/state/low lane 无法继续安全实时投递时必须按 delivery policy 使用 `4010` 或 `4011`，不能普通关闭或静默丢失。`bounded-reason` 只使用固定低基数值，例如 `connection_frame_budget`、`connection_byte_budget`、`connection_age_budget`、`local_fanout_max_age`；不得携带账号、route、cursor、payload 或异常文本。
 
 ### Development/Test drill publish
 
@@ -1416,6 +1427,23 @@ fixture redirect query 最大 2048 字符；`user.storage-state.json` / `admin.s
 | 14 | `InboxReadUpdated` | `InboxReadUpdatedPayload` | 对话已读状态更新 |
 | 15 | `InboxConversationStatusChanged` | `InboxConversationStatusChangedPayload` | 对话状态变更；载荷携带精确目标状态，覆盖 pending/closed/reopen |
 | 16 | `SessionRevoked` | `SessionRevokedPayload` | 已验证的 Passkey counter 回滚等账号级安全事件撤销全部普通会话；客户端立即进入重新认证，独立 admin principal 不受影响 |
+
+### Notification delivery policy
+
+权威源码为 `src/shared/Contracts/NotificationStream/NotificationStreamDeliveryPolicy.cs`。每个 active `NotificationStreamEventType` 必须显式声明 ordering scope、durability、loss policy、coalescing key、priority、maximum useful age 与 recovery action；catalog 未登记的 enum 值在 publisher 入口 fail closed，不能落入默认可丢弃 lane。
+
+| Event | Ordering | Loss / lane | Coalescing key | Recovery |
+| --- | --- | --- | --- | --- |
+| `NoticeReceived`、`MessageReceived`、`SessionRevoked` | target | lossless | — | cursor replay；账号/会话状态要求 full resync |
+| `GlobalNoticePublished` | global | lossless | — | cursor replay |
+| `CommentAdded`、`CommentRemoved` | route | lossless | — | cursor replay |
+| `MessageRevoked`、`InboxMessageAppend` | conversation | lossless | — | cursor replay |
+| `UnreadCountUpdated`、`AccountStatusChanged`、`ArticleChanged` | target / route | replaceable state | target | cursor replay；账号状态要求 full resync |
+| `CacheControl` | route | replaceable state | type + scope + cache | cursor replay |
+| `InboxConversationUpsert`、`InboxReadUpdated`、`InboxConversationStatusChanged` | conversation | replaceable state | conversation id | cursor replay |
+| `SearchIndexUpdated` | route | coalescible low | manifest URL | cursor replay |
+
+所有当前 active event 都要求 Redis backlog；coalescing 只影响 live shallow lane，不删除 durable frame，也不改变 event id、cursor、conversation/message ordering 或 multi-route dedupe。只有未来显式登记为 `diagnostic-drop` 的事件才允许静默丢弃。
 
 `ArticleChangedPayload` 固定包含 `articleId:int32`、`action:string`、`eventTime:datetime`、可空 `preview`，并为 v2 article mutation 携带可空 decimal-string `revisionId` 与 `releaseId`。两项坐标标识通知实际对应的不可变 revision/release；前端禁止将它们转为 JavaScript `number`。dispatcher 必须在发送前重新核验当前 publication/revision 坐标；若已被新版本取代，不发送旧通知，并将 notification 及其余未完成 edge 以相同 superseded reason 持久化为 skipped。legacy v1 payload 允许两项均为空。
 

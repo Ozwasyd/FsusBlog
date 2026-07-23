@@ -1,21 +1,22 @@
+using System.Diagnostics;
+using System.Globalization;
+
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Shared.Contracts.NotificationStream;
-
-using StackExchange.Redis;
+using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Server.Services.NotificationStream;
 
 internal sealed class RedisNotificationStreamPublisher(
     NotificationStreamBacklogStore backlogStore,
     NotificationStreamLocalFanoutQueue localFanoutQueue,
+    NotificationStreamConnectionManager connectionManager,
     INotificationFrameCodec frameCodec,
     ILogger<RedisNotificationStreamPublisher> logger) : INotificationStreamPublisher
 {
-    private readonly SemaphoreSlim _publishGate = new(1, 1);
-
     public async Task<Result<NotificationStreamCursor>> PublishAsync<TPayload>(
         NotificationStreamEventType eventType,
         TPayload payload,
@@ -34,17 +35,31 @@ internal sealed class RedisNotificationStreamPublisher(
                     : ErrorDetail.Create(ErrorCode.Validation, "Unsupported notification stream target."));
         }
 
-        await _publishGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        RedisValue publishOrderLock = RedisValue.Null;
+        NotificationStreamDeliveryPolicy policy;
+        try
+        {
+            policy = NotificationStreamDeliveryPolicyCatalog.GetRequired(eventType);
+        }
+        catch (InvalidOperationException ex)
+        {
+            logger.LogError(ex, "notification-stream-unknown-event-type {EventType}", (short)eventType);
+            return Result<NotificationStreamCursor>.Failure(ErrorCode.Validation, "Unsupported notification stream event type.");
+        }
+
+        string route = routeResult.Value!;
+        IReadOnlyList<NotificationStreamPublishOrderLock> publishOrderLocks = [];
         SharedNotificationStreamFrame? frame = null;
         long eventId = 0;
         try
         {
-            publishOrderLock = await backlogStore.AcquirePublishOrderLockAsync(cancellationToken).ConfigureAwait(false);
+            long waitStarted = Stopwatch.GetTimestamp();
+            publishOrderLocks = await backlogStore.AcquirePublishOrderLocksAsync(route, cancellationToken).ConfigureAwait(false);
+            NotificationStreamMetrics.RecordPublishCriticalSectionWait(
+                Stopwatch.GetElapsedTime(waitStarted),
+                publishOrderLocks.Count);
             eventId = await backlogStore.GetOrCreateEventIdAsync(idempotencyKey, cancellationToken).ConfigureAwait(false);
             frame = frameCodec.EncodeEventFrame(eventId, eventType, payload);
 
-            string route = routeResult.Value!;
             Result<NotificationStreamAppendResult> appendResult = await backlogStore.AppendAsync(
                     eventId,
                     route,
@@ -57,12 +72,29 @@ internal sealed class RedisNotificationStreamPublisher(
                 return Result<NotificationStreamCursor>.Failure(appendResult.Error);
             }
 
-            if (appendResult.Value is { Appended: true } && !localFanoutQueue.TryEnqueue(frame, target))
+            if (appendResult.Value is { Appended: true })
             {
-                logger.LogWarning("notification-stream-local-fanout-enqueue-dropped {EventType} {EventId} {DroppedCount}",
-                    eventType,
-                    eventId,
-                    localFanoutQueue.DroppedCount);
+                string coalescingKey = ResolveCoalescingKey(eventType, payload, route, policy);
+                NotificationStreamFanoutEnqueueResult enqueue = localFanoutQueue.TryEnqueue(
+                    frame,
+                    target,
+                    policy,
+                    coalescingKey,
+                    eventId);
+                if (enqueue.Status == NotificationStreamFanoutEnqueueStatus.ReplayRequired)
+                {
+                    connectionManager.RequireRecovery(
+                        target,
+                        policy,
+                        eventId,
+                        string.Concat("publish_lane_", enqueue.Reason));
+                    logger.LogWarning(
+                        "notification-stream-local-fanout-replay-required {EventType} {EventId} {Reason} {DroppedCount}",
+                        eventType,
+                        eventId,
+                        enqueue.Reason,
+                        localFanoutQueue.DroppedCount);
+                }
             }
             return Result<NotificationStreamCursor>.Success(new NotificationStreamCursor(eventId));
         }
@@ -78,11 +110,11 @@ internal sealed class RedisNotificationStreamPublisher(
         finally
         {
             frame?.Release();
-            if (!publishOrderLock.IsNullOrEmpty)
+            if (publishOrderLocks.Count > 0)
             {
                 try
                 {
-                    bool released = await backlogStore.ReleasePublishOrderLockAsync(publishOrderLock).ConfigureAwait(false);
+                    bool released = await backlogStore.ReleasePublishOrderLocksAsync(publishOrderLocks).ConfigureAwait(false);
                     if (!released)
                     {
                         logger.LogWarning("notification-stream-publish-order-lock-release-missed {EventType} {EventId}", eventType, eventId);
@@ -93,7 +125,28 @@ internal sealed class RedisNotificationStreamPublisher(
                     logger.LogWarning(ex, "notification-stream-publish-order-lock-release-failed {EventType} {EventId}", eventType, eventId);
                 }
             }
-            _publishGate.Release();
         }
+    }
+
+    private static string ResolveCoalescingKey<TPayload>(
+        NotificationStreamEventType eventType,
+        TPayload payload,
+        string route,
+        NotificationStreamDeliveryPolicy policy)
+    {
+        string semanticKey = payload switch
+        {
+            InboxConversationUpsertPayload value => value.Conversation.ConversationId,
+            InboxMessageAppendPayload value => value.ConversationId,
+            InboxReadUpdatedPayload value => value.ConversationId,
+            InboxConversationStatusChangedPayload value => value.ConversationId,
+            CacheControlPayload value => string.Concat(value.Type, ":", value.Scope ?? string.Empty, ":", value.Cache ?? string.Empty),
+            SearchIndexUpdatePayload value => value.ManifestUrl,
+            _ => route
+        };
+
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"{(short)eventType}:{policy.CoalescingKey ?? "none"}:{route}:{semanticKey}");
     }
 }

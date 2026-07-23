@@ -8,12 +8,16 @@ public static class NotificationStreamRestartCloseCodes
 {
     public const int ServiceRestart = 1012;
     public const int ReplayMissed = 4009;
+    public const int ReplayRequired = 4010;
+    public const int FullResyncRequired = 4011;
 }
 
 public static class NotificationStreamRestartReasons
 {
     public const string ServiceRestart = "fsus_service_restart";
     public const string ReplayMissed = "fsus_replay_miss";
+    public const string ReplayRequired = "fsus_replay_required";
+    public const string FullResyncRequired = "fsus_full_resync_required";
 }
 
 public sealed record NotificationStreamCloseInstruction(
@@ -46,6 +50,20 @@ public sealed record NotificationStreamRestartSnapshot(
 
 public static class NotificationStreamRestartProtocol
 {
+    public static NotificationStreamCloseInstruction ReplayRequired(string detail)
+        => new(
+            NotificationStreamRestartCloseCodes.ReplayRequired,
+            string.Concat(NotificationStreamRestartReasons.ReplayRequired, ":", NormalizeDetail(detail)),
+            PreserveCursor: true,
+            RequireFullResync: false);
+
+    public static NotificationStreamCloseInstruction FullResyncRequired(string detail)
+        => new(
+            NotificationStreamRestartCloseCodes.FullResyncRequired,
+            string.Concat(NotificationStreamRestartReasons.FullResyncRequired, ":", NormalizeDetail(detail)),
+            PreserveCursor: false,
+            RequireFullResync: true);
+
     public static NotificationStreamCloseInstruction Resolve(bool replayMissed, bool serviceRestartRequested)
     {
         if (replayMissed)
@@ -75,6 +93,17 @@ public static class NotificationStreamRestartProtocol
 
     public static WebSocketCloseStatus ToWebSocketCloseStatus(NotificationStreamCloseInstruction instruction)
         => (WebSocketCloseStatus)instruction.CloseCode;
+
+    private static string NormalizeDetail(string detail)
+    {
+        if (string.IsNullOrWhiteSpace(detail))
+        {
+            return "backpressure";
+        }
+
+        string normalized = detail.Trim().ToLowerInvariant();
+        return normalized[..Math.Min(normalized.Length, 64)];
+    }
 }
 
 public sealed class NotificationStreamRestartCoordinator(

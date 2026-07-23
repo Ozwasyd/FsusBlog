@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  NotificationStreamFullResyncRequiredCloseCode,
   NotificationStreamReplayMissedCloseCode,
+  NotificationStreamReplayRequiredCloseCode,
   NotificationStreamRestartCloseCode,
   resolveNotificationStreamCloseRecovery
 } from '@/services/notificationStreamRestartPolicy'
@@ -33,6 +35,36 @@ describe('notificationStreamRestartPolicy', () => {
       preserveCursor: false,
       requireFullResync: true,
       reconnectDelayMs: 1250
+    })
+  })
+
+  it('preserves the cursor and immediately replays after an explicit backpressure instruction', () => {
+    const recovery = resolveNotificationStreamCloseRecovery(
+      NotificationStreamReplayRequiredCloseCode,
+      'fsus_replay_required:connection_byte_budget',
+      () => 0.5
+    )
+
+    expect(recovery).toEqual({
+      kind: 'replay_required',
+      preserveCursor: true,
+      requireFullResync: false,
+      reconnectDelayMs: 750
+    })
+  })
+
+  it('clears the cursor when policy requires a full resync after backpressure', () => {
+    const recovery = resolveNotificationStreamCloseRecovery(
+      NotificationStreamFullResyncRequiredCloseCode,
+      'fsus_full_resync_required:connection_byte_budget',
+      () => 0
+    )
+
+    expect(recovery).toEqual({
+      kind: 'full_resync_required',
+      preserveCursor: false,
+      requireFullResync: true,
+      reconnectDelayMs: 250
     })
   })
 

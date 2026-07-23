@@ -16,6 +16,7 @@
 
 - 一旦端点路径发布，非 breaking 语义变更在原路径叠加；breaking 变更须通过新 frame type、payload layout、显式 route segment 或新端点表达，不能随意复用旧路径语义。
 - 所有请求/响应字段用 `src/shared/Contracts/Outputs/ServerResponseContracts.cs` 作为唯一来源，任何业务逻辑层不得自行定义与之并行的 DTO。
+- Notification stream 的 transport 不得自行猜测事件重要性。所有 active event 必须由共享 delivery policy catalog 显式声明 ordering、durability、loss/coalescing、priority、maximum useful age 与 replay/resync；未知类型 fail closed。可替换事件只允许在 live shallow lane 合并，durable backlog、cursor 与 AEDS payload 保持不变；lossless 无法入队时必须向客户端发送明确 replay/full-resync 指令。
 - 跨语言安全协议的手写 machine-readable source 归入 `src/shared/Contracts/Validation/Security/`，并只由 `tools/contracts/` 的跨栈生成器派生 C# 与 TypeScript consumer；根目录 `contracts/security/` 和单侧 `tools/frontend/` 不得形成第二入口。
 - 请求期网络身份只能在同步入口生成用途隔离、短 epoch 的限流/去重材料；任何 AEDS response、异步消息、retry/fallback、日志、trace 或 metric contract 都不得携带 raw IP。依赖不可用时允许返回现有响应 frame 的固定低基数状态并丢弃统计，不能把请求上下文转入后台补偿。
 

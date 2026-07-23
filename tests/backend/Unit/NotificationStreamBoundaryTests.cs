@@ -862,7 +862,7 @@ public class NotificationStreamBoundaryTests
     }
 
     [Fact]
-    public async Task BacklogPublishOrderLock_RetriesAndReleasesOwnedToken()
+    public async Task BacklogPublishOrderLocks_AreScopedToSortedStorageRoutesAndReleaseOwnedTokens()
     {
         var redis = Substitute.For<IConnectionMultiplexer>();
         var database = Substitute.For<IDatabase>();
@@ -885,19 +885,22 @@ public class NotificationStreamBoundaryTests
             keyScope,
             NullLogger<NotificationStreamBacklogStore>.Instance);
 
-        RedisValue token = await store.AcquirePublishOrderLockAsync(CancellationToken.None);
-        bool released = await store.ReleasePublishOrderLockAsync(token);
+        IReadOnlyList<NotificationStreamPublishOrderLock> locks =
+            await store.AcquirePublishOrderLocksAsync("m:20,10", CancellationToken.None);
+        bool released = await store.ReleasePublishOrderLocksAsync(locks);
 
-        Assert.False(token.IsNullOrEmpty);
+        Assert.Equal(2, locks.Count);
+        Assert.EndsWith("publish-order-lock:u:10", locks[0].Key.ToString(), StringComparison.Ordinal);
+        Assert.EndsWith("publish-order-lock:u:20", locks[1].Key.ToString(), StringComparison.Ordinal);
         Assert.True(released);
-        await database.Received(2).LockTakeAsync(
-            Arg.Is<RedisKey>(key => key.ToString().EndsWith("publish-order-lock", StringComparison.Ordinal)),
-            token,
+        await database.Received(3).LockTakeAsync(
+            Arg.Is<RedisKey>(key => key.ToString().Contains("publish-order-lock:u:", StringComparison.Ordinal)),
+            Arg.Any<RedisValue>(),
             Arg.Any<TimeSpan>(),
             Arg.Any<CommandFlags>());
-        await database.Received(1).LockReleaseAsync(
+        await database.Received(2).LockReleaseAsync(
             Arg.Any<RedisKey>(),
-            token,
+            Arg.Any<RedisValue>(),
             Arg.Any<CommandFlags>());
     }
 
@@ -965,6 +968,8 @@ public class NotificationStreamBoundaryTests
         Assert.Equal(64, capacity.Invoke(test, [context]));
         string runRuntime = RuntimeMetadataInspection.DescribeMethods(typeof(NotificationStreamSessionService), nameof(NotificationStreamSessionService.RunAsync));
         Assert.Contains("NotificationStreamConnectionManager.RegisterConnection", runRuntime, StringComparison.Ordinal);
+        Assert.Contains("NotificationStreamBacklogStore.ReplayAsync", runRuntime, StringComparison.Ordinal);
+        Assert.Contains("NotificationStreamSessionService.PumpConnectionAsync", runRuntime, StringComparison.Ordinal);
         Assert.Contains("HttpContextExtensions.GetClientIp", runRuntime, StringComparison.Ordinal);
     }
 

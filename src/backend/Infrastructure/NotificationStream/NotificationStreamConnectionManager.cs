@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Threading.Channels;
 
 using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Shared.Contracts.NotificationStream;
 
 namespace FsusBlog.Server.Infrastructure.NotificationStream;
 
@@ -42,6 +43,8 @@ public sealed class NotificationStreamConnectionManager(
     private readonly Dictionary<string, int> _connectionsByIp = new(StringComparer.Ordinal);
     private readonly Dictionary<string, int> _connectionsByAccount = new(StringComparer.Ordinal);
     private readonly int _queueCapacity = NormalizeQueueCapacity(configuration.GetValue<int?>("NotificationStream:QueueCapacity") ?? 256);
+    private readonly long _queueByteCapacity = Math.Clamp(configuration.GetValue<long?>("NotificationStream:QueueByteCapacity") ?? 2L * 1024 * 1024, 64 * 1024, 64L * 1024 * 1024);
+    private readonly TimeSpan _queueMaximumAge = TimeSpan.FromMilliseconds(Math.Clamp(configuration.GetValue<int?>("NotificationStream:QueueMaximumAgeMs") ?? 30_000, 1_000, 300_000));
     private readonly int _maxConnectionsGlobal = NormalizeLimit(configuration.GetValue<int?>("NotificationStream:MaxConnectionsGlobal"), DefaultMaxConnectionsGlobal);
     private readonly int _maxConnectionsPerIp = NormalizeLimit(configuration.GetValue<int?>("NotificationStream:MaxConnectionsPerIp"), DefaultMaxConnectionsPerIp);
     private readonly int _maxConnectionsPerAccount = NormalizeLimit(configuration.GetValue<int?>("NotificationStream:MaxConnectionsPerAccount"), DefaultMaxConnectionsPerAccount);
@@ -71,7 +74,16 @@ public sealed class NotificationStreamConnectionManager(
         AcquireQuota(ipQuotaKey, accountQuotaKey);
 
         int queueCapacity = queueCapacityOverride.HasValue ? NormalizeQueueCapacity(queueCapacityOverride.Value) : _queueCapacity;
-        var connection = new NotificationStreamConnection(connectionId, userId, groups, queueCapacity, ipQuotaKey, accountQuotaKey);
+        var connection = new NotificationStreamConnection(
+            connectionId,
+            userId,
+            groups,
+            queueCapacity,
+            ipQuotaKey,
+            accountQuotaKey,
+            _queueByteCapacity,
+            _queueMaximumAge,
+            logger);
         if (!_byConnectionId.TryAdd(connectionId, connection))
         {
             ReleaseQuota(ipQuotaKey, accountQuotaKey);
@@ -148,18 +160,46 @@ public sealed class NotificationStreamConnectionManager(
     }
 
     public int Publish(SharedNotificationStreamFrame frame, NotificationStreamTarget target)
+        => Publish(
+            frame,
+            target,
+            NotificationStreamDeliveryPolicyCatalog.GetRequired(NotificationStreamEventType.NoticeReceived),
+            eventId: 0,
+            coalescedOccurrences: 0);
+
+    public int Publish(
+        SharedNotificationStreamFrame frame,
+        NotificationStreamTarget target,
+        NotificationStreamDeliveryPolicy policy,
+        long eventId,
+        long coalescedOccurrences = 0)
     {
         long allocationEstimateBytes = EstimatePublishAllocationBytes(target);
         int delivered = target switch
         {
-            NotificationStreamUserTarget account => PublishByIndexSnapshot(frame, _byUserId, account.AccountId),
-            NotificationStreamGroupTarget group => PublishByIndexSnapshot(frame, _byGroup, group.GroupName),
-            NotificationStreamMultiUserTarget multi => PublishMultiUser(frame, multi.UserIds),
+            NotificationStreamUserTarget account => PublishByIndexSnapshot(frame, _byUserId, account.AccountId, policy, eventId, coalescedOccurrences),
+            NotificationStreamGroupTarget group => PublishByIndexSnapshot(frame, _byGroup, group.GroupName, policy, eventId, coalescedOccurrences),
+            NotificationStreamMultiUserTarget multi => PublishMultiUser(frame, multi.UserIds, policy, eventId, coalescedOccurrences),
             _ => 0
         };
 
         NotificationStreamMetrics.RecordPublishFanout(delivered, target, allocationEstimateBytes);
         return delivered;
+    }
+
+    public int RequireRecovery(
+        NotificationStreamTarget target,
+        NotificationStreamDeliveryPolicy policy,
+        long eventId,
+        string reason)
+    {
+        IReadOnlyList<NotificationStreamConnection> connections = ResolveConnectionsSnapshot(target);
+        foreach (NotificationStreamConnection connection in connections)
+        {
+            connection.RequireRecovery(policy, reason, eventId);
+        }
+
+        return connections.Count;
     }
 
     private static long EstimatePublishAllocationBytes(NotificationStreamTarget target)
@@ -206,17 +246,28 @@ public sealed class NotificationStreamConnectionManager(
         return connections;
     }
 
-    private int PublishByIndexSnapshot(SharedNotificationStreamFrame frame, ConcurrentDictionary<string, ConnectionIndexBucket> index, string key)
+    private int PublishByIndexSnapshot(
+        SharedNotificationStreamFrame frame,
+        ConcurrentDictionary<string, ConnectionIndexBucket> index,
+        string key,
+        NotificationStreamDeliveryPolicy policy,
+        long eventId,
+        long coalescedOccurrences)
     {
         if (!index.TryGetValue(key, out ConnectionIndexBucket? bucket))
         {
             return 0;
         }
 
-        return PublishToConnectionIds(frame, bucket.Snapshot);
+        return PublishToConnectionIds(frame, bucket.Snapshot, policy, eventId, coalescedOccurrences);
     }
 
-    private int PublishToConnectionIds(SharedNotificationStreamFrame frame, IReadOnlyList<string> connectionIds)
+    private int PublishToConnectionIds(
+        SharedNotificationStreamFrame frame,
+        IReadOnlyList<string> connectionIds,
+        NotificationStreamDeliveryPolicy policy,
+        long eventId,
+        long coalescedOccurrences)
     {
         int delivered = 0;
         foreach (string connectionId in connectionIds)
@@ -227,7 +278,7 @@ public sealed class NotificationStreamConnectionManager(
             }
 
             frame.Retain();
-            if (connection.TryEnqueue(frame))
+            if (connection.TryEnqueue(frame, policy, eventId, coalescedOccurrences))
             {
                 delivered++;
             }
@@ -267,7 +318,12 @@ public sealed class NotificationStreamConnectionManager(
         return connections ?? [];
     }
 
-    private int PublishMultiUser(SharedNotificationStreamFrame frame, IReadOnlyList<string> userIds)
+    private int PublishMultiUser(
+        SharedNotificationStreamFrame frame,
+        IReadOnlyList<string> userIds,
+        NotificationStreamDeliveryPolicy policy,
+        long eventId,
+        long coalescedOccurrences)
     {
         var seenConnectionIds = new HashSet<string>(StringComparer.Ordinal);
         int delivered = 0;
@@ -292,7 +348,7 @@ public sealed class NotificationStreamConnectionManager(
                 }
 
                 frame.Retain();
-                if (connection.TryEnqueue(frame))
+                if (connection.TryEnqueue(frame, policy, eventId, coalescedOccurrences))
                 {
                     delivered++;
                 }
@@ -454,9 +510,20 @@ public sealed class NotificationStreamConnection
     private readonly Channel<SharedNotificationStreamFrame> _queue;
     private readonly HashSet<string> _groups;
     private readonly int _queueCapacity;
+    private readonly long _queueByteCapacity;
+    private readonly TimeSpan _queueMaximumAge;
+    private readonly ILogger<NotificationStreamConnectionManager>? _logger;
+    private readonly object _queueAccountingGate = new();
+    private readonly Queue<NotificationStreamQueuedFrameAccounting> _queueAccounting = new();
     private int _queuedFrames;
+    private long _queuedBytes;
+    private long _coalescedCount;
+    private long _droppedCount;
+    private long _resyncCount;
+    private long _lastCursor;
     private int _closed;
     private long _lastActivityUnixMs;
+    private NotificationStreamCloseInstruction? _closeInstruction;
 
     internal NotificationStreamConnection(
         string connectionId,
@@ -464,7 +531,10 @@ public sealed class NotificationStreamConnection
         IReadOnlyCollection<string> groups,
         int queueCapacity,
         string ipQuotaKey = "unknown-ip",
-        string accountQuotaKey = "anonymous:unknown-ip")
+        string accountQuotaKey = "anonymous:unknown-ip",
+        long queueByteCapacity = 2L * 1024 * 1024,
+        TimeSpan? queueMaximumAge = null,
+        ILogger<NotificationStreamConnectionManager>? logger = null)
     {
         ConnectionId = connectionId;
         UserId = userId;
@@ -472,6 +542,9 @@ public sealed class NotificationStreamConnection
         AccountQuotaKey = accountQuotaKey;
         _groups = new HashSet<string>(groups, StringComparer.Ordinal);
         _queueCapacity = queueCapacity;
+        _queueByteCapacity = Math.Max(1, queueByteCapacity);
+        _queueMaximumAge = queueMaximumAge ?? TimeSpan.FromSeconds(30);
+        _logger = logger;
         _queue = Channel.CreateBounded<SharedNotificationStreamFrame>(new BoundedChannelOptions(queueCapacity)
         {
             SingleReader = true,
@@ -509,12 +582,52 @@ public sealed class NotificationStreamConnection
 
     public bool IsClosed => Volatile.Read(ref _closed) == 1;
 
+    public int QueuedFrameCount => Volatile.Read(ref _queuedFrames);
+
+    public long QueuedBytes => Volatile.Read(ref _queuedBytes);
+
+    public long CoalescedCount => Volatile.Read(ref _coalescedCount);
+
+    public long DroppedCount => Volatile.Read(ref _droppedCount);
+
+    public long ResyncCount => Volatile.Read(ref _resyncCount);
+
+    public long LastCursor => Volatile.Read(ref _lastCursor);
+
+    public NotificationStreamCloseInstruction CloseInstruction
+        => Volatile.Read(ref _closeInstruction)
+            ?? NotificationStreamRestartProtocol.Resolve(replayMissed: false, serviceRestartRequested: false);
+
+    public TimeSpan OldestQueuedAge
+    {
+        get
+        {
+            lock (_queueAccountingGate)
+            {
+                return _queueAccounting.TryPeek(out NotificationStreamQueuedFrameAccounting oldest)
+                    ? TimeProvider.System.GetUtcNow() - oldest.EnqueuedAtUtc
+                    : TimeSpan.Zero;
+            }
+        }
+    }
+
     public bool IsIdle(TimeSpan idleWindow)
         => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - Volatile.Read(ref _lastActivityUnixMs) >= (long)idleWindow.TotalMilliseconds;
 
     public void MarkWriteActivity() => Touch();
 
     public bool TryEnqueue(SharedNotificationStreamFrame frame)
+        => TryEnqueue(
+            frame,
+            NotificationStreamDeliveryPolicyCatalog.GetRequired(NotificationStreamEventType.NoticeReceived),
+            eventId: 0,
+            coalescedOccurrences: 0);
+
+    public bool TryEnqueue(
+        SharedNotificationStreamFrame frame,
+        NotificationStreamDeliveryPolicy policy,
+        long eventId,
+        long coalescedOccurrences = 0)
     {
         // Consumes one caller-transferred retain on every path:
         // success queues it for the writer, failure releases it here.
@@ -524,34 +637,88 @@ public sealed class NotificationStreamConnection
             return false;
         }
 
-        int depth = Interlocked.Increment(ref _queuedFrames);
-        if (depth > _queueCapacity)
+        int depth;
+        long bytes;
+        TimeSpan oldestAge;
+        bool queued;
+        lock (_queueAccountingGate)
         {
-            Interlocked.Decrement(ref _queuedFrames);
-            CloseSlowConsumer();
-            frame.Release();
-            return false;
+            DateTimeOffset now = TimeProvider.System.GetUtcNow();
+            TimeSpan maximumAge = _queueMaximumAge;
+            if (_queueAccounting.TryPeek(out NotificationStreamQueuedFrameAccounting oldest))
+            {
+                oldestAge = now - oldest.EnqueuedAtUtc;
+                if (oldest.Policy.MaximumUsefulAge < maximumAge)
+                {
+                    maximumAge = oldest.Policy.MaximumUsefulAge;
+                }
+            }
+            else
+            {
+                oldestAge = TimeSpan.Zero;
+            }
+            depth = _queuedFrames + 1;
+            bytes = _queuedBytes + frame.Length;
+            if (depth > _queueCapacity || bytes > _queueByteCapacity || oldestAge > maximumAge)
+            {
+                Interlocked.Increment(ref _droppedCount);
+                if (policy.LossPolicy != NotificationStreamLossPolicy.DiagnosticDrop)
+                {
+                    RequireRecovery(
+                        policy,
+                        depth > _queueCapacity
+                            ? "connection_frame_budget"
+                            : bytes > _queueByteCapacity
+                                ? "connection_byte_budget"
+                                : "connection_age_budget",
+                        eventId);
+                }
+
+                frame.Release();
+                NotificationStreamMetrics.RecordConnectionBackpressure(policy, depth, bytes, oldestAge);
+                return false;
+            }
+
+            _queueAccounting.Enqueue(new NotificationStreamQueuedFrameAccounting(frame.Length, now, policy, eventId));
+            Volatile.Write(ref _queuedFrames, depth);
+            Volatile.Write(ref _queuedBytes, bytes);
+            queued = _queue.Writer.TryWrite(frame);
+            if (!queued)
+            {
+                RollBackLastAccountingUnderLock();
+            }
         }
 
-        if (_queue.Writer.TryWrite(frame))
+        if (queued)
         {
+            if (eventId > 0)
+            {
+                InterlockedExtensions.Max(ref _lastCursor, eventId);
+            }
+            if (coalescedOccurrences > 0)
+            {
+                Interlocked.Add(ref _coalescedCount, coalescedOccurrences);
+            }
             Touch();
             NotificationStreamMetrics.RecordQueueDepth(depth);
+            NotificationStreamMetrics.RecordConnectionQueue(policy, depth, bytes, oldestAge);
             return true;
         }
 
         frame.Release();
-        Interlocked.Decrement(ref _queuedFrames);
-        CloseSlowConsumer();
+        RequireRecovery(policy, "connection_channel_rejected", eventId);
         return false;
     }
 
     public void AcknowledgeDequeuedFrame()
     {
-        int depth = Interlocked.Decrement(ref _queuedFrames);
-        if (depth < 0)
+        lock (_queueAccountingGate)
         {
-            Interlocked.Exchange(ref _queuedFrames, 0);
+            if (_queueAccounting.TryDequeue(out NotificationStreamQueuedFrameAccounting accounting))
+            {
+                _queuedFrames = Math.Max(0, _queuedFrames - 1);
+                _queuedBytes = Math.Max(0, _queuedBytes - accounting.Length);
+            }
         }
 
         Touch();
@@ -576,16 +743,77 @@ public sealed class NotificationStreamConnection
         }
     }
 
-    private void CloseSlowConsumer()
+    public void RequireRecovery(
+        NotificationStreamDeliveryPolicy policy,
+        string reason,
+        long eventId)
     {
         if (Interlocked.Exchange(ref _closed, 1) != 0)
         {
             return;
         }
 
-        NotificationStreamMetrics.RecordSlowDisconnect();
+        Volatile.Write(
+            ref _closeInstruction,
+            policy.RecoveryAction == NotificationStreamRecoveryAction.FullResync
+                ? NotificationStreamRestartProtocol.FullResyncRequired(reason)
+                : NotificationStreamRestartProtocol.ReplayRequired(reason));
+        Interlocked.Increment(ref _resyncCount);
+        NotificationStreamMetrics.RecordSlowDisconnect(reason, LastCursor, eventId);
+        _logger?.LogWarning(
+            "notification-stream-connection-replay-required {Reason} {ConnectionId} {LastCursor} {FailedEventId}",
+            reason,
+            ConnectionId,
+            LastCursor,
+            eventId);
         _queue.Writer.TryComplete();
     }
 
+    public void RecordSendLatency(TimeSpan latency)
+        => NotificationStreamMetrics.RecordConnectionSendLatency(latency);
+
+    private void RollBackLastAccountingUnderLock()
+    {
+        if (_queueAccounting.Count == 0)
+        {
+            return;
+        }
+
+        NotificationStreamQueuedFrameAccounting[] entries = _queueAccounting.ToArray();
+        NotificationStreamQueuedFrameAccounting removed = entries[^1];
+        _queueAccounting.Clear();
+        for (int i = 0; i < entries.Length - 1; i++)
+        {
+            _queueAccounting.Enqueue(entries[i]);
+        }
+
+        _queuedFrames = Math.Max(0, _queuedFrames - 1);
+        _queuedBytes = Math.Max(0, _queuedBytes - removed.Length);
+    }
+
     private void Touch() => Volatile.Write(ref _lastActivityUnixMs, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+}
+
+internal readonly record struct NotificationStreamQueuedFrameAccounting(
+    int Length,
+    DateTimeOffset EnqueuedAtUtc,
+    NotificationStreamDeliveryPolicy Policy,
+    long EventId);
+
+internal static class InterlockedExtensions
+{
+    public static void Max(ref long location, long value)
+    {
+        long current = Volatile.Read(ref location);
+        while (value > current)
+        {
+            long observed = Interlocked.CompareExchange(ref location, value, current);
+            if (observed == current)
+            {
+                return;
+            }
+
+            current = observed;
+        }
+    }
 }

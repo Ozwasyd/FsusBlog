@@ -10,12 +10,14 @@ namespace FsusBlog.Server.Infrastructure.NotificationStream;
 
 public readonly record struct NotificationStreamAppendResult(bool Appended);
 
+public readonly record struct NotificationStreamPublishOrderLock(RedisKey Key, RedisValue Token);
+
 public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis, IRuntimeKeyScope keyScope, ILogger<NotificationStreamBacklogStore> logger)
 {
     private const string SequenceKey = "fsus:notification-stream:v2:sequence";
     private const string IdempotencyKeyPrefix = "fsus:notification-stream:v2:idempotency:";
     private const string RouteStreamPrefix = "fsus:notification-stream:v2:route:";
-    private const string PublishOrderLockKey = "fsus:notification-stream:v2:publish-order-lock";
+    private const string PublishOrderLockPrefix = "fsus:notification-stream:v2:publish-order-lock:";
     private const int StreamMaxLength = 4096;
     private const int MaxReplayEntries = 512;
     private static readonly TimeSpan s_idempotencyRetention = TimeSpan.FromDays(7);
@@ -24,20 +26,62 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
 
     private readonly IDatabase _database = redis.GetDatabase();
 
-    public async Task<RedisValue> AcquirePublishOrderLockAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<NotificationStreamPublishOrderLock>> AcquirePublishOrderLocksAsync(
+        string route,
+        CancellationToken cancellationToken = default)
     {
-        RedisKey lockKey = keyScope.PrefixKey(PublishOrderLockKey);
-        RedisValue lockToken = Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture);
-        while (!await _database.LockTakeAsync(lockKey, lockToken, s_publishOrderLockExpiry).ConfigureAwait(false))
+        IReadOnlyList<string> storageRoutes = NotificationStreamTargetRouteCodec.GetStorageRoutes(route);
+        if (storageRoutes.Count == 0)
         {
-            await Task.Delay(s_publishOrderRetryDelay, cancellationToken).ConfigureAwait(false);
+            throw new InvalidOperationException("Notification stream publish-order route is invalid.");
         }
 
-        return lockToken;
+        string[] orderedRoutes = storageRoutes
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        var acquired = new List<NotificationStreamPublishOrderLock>(orderedRoutes.Length);
+        try
+        {
+            foreach (string storageRoute in orderedRoutes)
+            {
+                RedisKey lockKey = keyScope.PrefixKey(PublishOrderLockPrefix + storageRoute);
+                RedisValue lockToken = Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture);
+                while (!await _database.LockTakeAsync(lockKey, lockToken, s_publishOrderLockExpiry).ConfigureAwait(false))
+                {
+                    await Task.Delay(s_publishOrderRetryDelay, cancellationToken).ConfigureAwait(false);
+                }
+
+                acquired.Add(new NotificationStreamPublishOrderLock(lockKey, lockToken));
+            }
+
+            return acquired;
+        }
+        catch
+        {
+            try
+            {
+                await ReleasePublishOrderLocksAsync(acquired).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "notification-stream-publish-order-partial-lock-release-failed {LockCount}", acquired.Count);
+            }
+            throw;
+        }
     }
 
-    public Task<bool> ReleasePublishOrderLockAsync(RedisValue lockToken)
-        => _database.LockReleaseAsync(keyScope.PrefixKey(PublishOrderLockKey), lockToken);
+    public async Task<bool> ReleasePublishOrderLocksAsync(IReadOnlyList<NotificationStreamPublishOrderLock> locks)
+    {
+        bool releasedAll = true;
+        for (int i = locks.Count - 1; i >= 0; i--)
+        {
+            NotificationStreamPublishOrderLock ownedLock = locks[i];
+            releasedAll &= await _database.LockReleaseAsync(ownedLock.Key, ownedLock.Token).ConfigureAwait(false);
+        }
+
+        return releasedAll;
+    }
 
     public async Task<long> NextEventIdAsync(CancellationToken cancellationToken = default)
     {

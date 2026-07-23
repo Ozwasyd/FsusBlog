@@ -231,8 +231,9 @@ public class BackgroundWorkflowSourceTests
 
         Assert.Contains("NotificationStreamLocalFanoutQueue", publisher, StringComparison.Ordinal);
         Assert.Contains("TryEnqueue", publisher, StringComparison.Ordinal);
-        Assert.Contains("AcquirePublishOrderLockAsync", publisher, StringComparison.Ordinal);
-        Assert.Contains("ReleasePublishOrderLockAsync", publisher, StringComparison.Ordinal);
+        Assert.Contains("AcquirePublishOrderLocksAsync", publisher, StringComparison.Ordinal);
+        Assert.Contains("ReleasePublishOrderLocksAsync", publisher, StringComparison.Ordinal);
+        Assert.DoesNotContain("SemaphoreSlim.WaitAsync", publisher, StringComparison.Ordinal);
         Assert.Contains("IDatabase.CreateBatch", backlog, StringComparison.Ordinal);
         Assert.Contains("Task.WhenAll", backlog, StringComparison.Ordinal);
     }
