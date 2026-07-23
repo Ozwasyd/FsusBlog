@@ -421,6 +421,16 @@
             ]
         },
         {
+            "file": "tests/tools/browser-capability-risk.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text"
+            ]
+        },
+        {
             "file": "tests/tools/browser-contract-fixture.test.mjs",
             "owner": "package-script:check:browser-contract-fixture",
             "executionCategory": "package-script",
@@ -634,7 +644,6 @@
             "physicalExecutionCount": 1,
             "classifications": [
                 "source-text",
-                "behavior",
                 "runtime"
             ]
         },
@@ -2090,17 +2099,6 @@
             ]
         },
         {
-            "file": "tests/tools/test-matrix-resource-contract.test.mjs",
-            "owner": "manual-diagnostic:tests/tools/test-matrix-resource-contract.test.mjs",
-            "executionCategory": "manual-diagnostic",
-            "lifecycle": "manual-diagnostic",
-            "physicalExecutionCount": 0,
-            "classifications": [
-                "source-text",
-                "perf"
-            ]
-        },
-        {
             "file": "tests/tools/test-matrix-priority-score.test.mjs",
             "owner": "repository-governance:test-asset-behavior",
             "executionCategory": "repository-governance",
@@ -2110,6 +2108,17 @@
                 "source-text",
                 "perf",
                 "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/test-matrix-resource-contract.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/test-matrix-resource-contract.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "perf"
             ]
         },
         {
