@@ -73,12 +73,13 @@ for (const [name, run] of categories) {
 
 test('negative governance fixture reports file and line for forbidden waits', () => {
   const violations = inspectBrowserReadinessSource(
-    "await page.goto('/', { waitUntil: 'networkidle' })\nawait page.waitForTimeout(500)\n",
+    "await page.goto('/', { waitUntil:\n  'networkidle' })\nawait page\n  .waitForTimeout(500)\nawait page.waitForURL('/ready')\n  .catch(() => {})\n",
     'tests/frontend/checks/runtime/fixture.mjs'
   )
   assert.deepEqual(violations, [
     'tests/frontend/checks/runtime/fixture.mjs:1: networkidle is not a correctness readiness condition',
-    'tests/frontend/checks/runtime/fixture.mjs:2: direct page.waitForTimeout is forbidden in correctness assets'
+    'tests/frontend/checks/runtime/fixture.mjs:4: direct page.waitForTimeout is forbidden in correctness assets',
+    'tests/frontend/checks/runtime/fixture.mjs:5: readiness timeout must not be silently ignored'
   ])
 })
 
