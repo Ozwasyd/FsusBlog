@@ -2,6 +2,17 @@
 
 `release evidence` is reserved for fresh output bound to one immutable release identity. Historical reports, implementation attestations and fixtures are useful inputs, but none of them is a release credential.
 
+## Contract, schema, receipt and handoff boundary
+
+Release documentation has four non-interchangeable layers:
+
+1. **Current contract** defines stable behavior, field meaning, failure handling and operator choices. Current contracts live under semantic `docs/` paths.
+2. **Evidence schema** defines machine-verifiable input and output shapes. Schemas live in `security/evidence-contracts/`, `config/` or controlled `tests/fixtures/`; a schema is never proof of execution.
+3. **Execution receipt** records one run ID, immutable identity, counters, timestamps, observed results and artifact digests. Receipts live in `.tmp/release-evidence/<release-identity>/` during collection and in the configured immutable artifact store after closeout.
+4. **Implementation handoff** records branch coordination, shared-file ownership, commands not run and next-thread work. It belongs in issue/PR history and is not a repository document or evidence input.
+
+A Markdown file cannot substitute for a schema or receipt. Current docs must not contain a run-specific pass claim, synthetic zero count, unexecuted validation list or permission limitation. A tracked fixture, implementation attestation or historical report cannot be promoted to fresh evidence by changing its filename or `status` field.
+
 ## Evidence classes
 
 | Class | Canonical location | Fresh or release-gate authority |
@@ -62,6 +73,7 @@ The optional index contains only release ID, commit SHA, image digest, bundle di
 ```bash
 node tools/operations/check-release-evidence-layout.mjs
 node --test tests/tools/release-evidence-model.test.mjs
+node --test tests/tools/release-document-convergence.test.mjs
 node tools/operations/check-release-evidence-manifest.mjs --self-test
 ```
 

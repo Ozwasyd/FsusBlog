@@ -1,0 +1,59 @@
+{
+  "schema": "fsusblog.active-release-fencing-implementation.v1",
+  "evidenceClass": "implementation-attestation",
+  "freshExecution": false,
+  "releaseBound": false,
+  "productionFreshRun": false,
+  "generatedFrom": {
+    "kind": "repository-contract-map",
+    "source": "active-release-fencing-current-owners"
+  },
+  "relatedIssues": [1030, 1431],
+  "requirements": [
+    {
+      "id": "active-release-fence",
+      "owners": [
+        "src/backend/Infrastructure/Operations/ActiveReleaseFence.cs",
+        "src/backend/Infrastructure/Operations/ActiveReleaseFenceHosting.cs"
+      ],
+      "invariants": [
+        "target acquire uses compare-and-swap over the durable owner",
+        "generation is strictly monotonic",
+        "production store failure is fail closed",
+        "dry-run performs comparison without mutation"
+      ]
+    },
+    {
+      "id": "worker-singleton-and-stale-commit-rejection",
+      "owners": [
+        "src/backend/Infrastructure/Operations/ActiveReleaseFencedBackgroundWorkerLease.cs",
+        "src/backend/Services/Background/ScheduledPublishWorker.cs",
+        "src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs",
+        "src/backend/Infrastructure/PowLoadResetWorker.cs",
+        "src/backend/Services/VisitLog/ArticleViewProjectionRepairWorker.cs"
+      ],
+      "invariants": [
+        "active singleton work requires an active release ticket",
+        "irreversible commit boundaries revalidate current generation",
+        "lost ownership cancels the mutation and leaves replay to the target"
+      ]
+    },
+    {
+      "id": "drain-and-notification-restart",
+      "owners": [
+        "src/backend/Infrastructure/Operations/ReleaseDrainParticipants.cs",
+        "src/backend/Infrastructure/NotificationStream/NotificationStreamRestartProtocol.cs",
+        "src/backend/Infrastructure/NotificationStream/NotificationStreamSessionService.cs"
+      ],
+      "invariants": [
+        "drain participants report bounded pending and error state",
+        "service restart uses 1012 and preserves cursor",
+        "replay miss uses 4009 and requires full resynchronization"
+      ]
+    }
+  ],
+  "runtimeReceiptPaths": [
+    ".tmp/deployment/active-release-fence.json",
+    ".tmp/deployment/notification-stream-restart.json"
+  ]
+}

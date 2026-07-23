@@ -56,3 +56,9 @@ registry 本身由静态 suite 校验 schema、唯一 invariant ID、唯一 owne
 ## 风险与回退
 
 Browser Contract 失败时 release-final 保持阻断，并根据 receipt 的 `product`、`contract` 或 `infra` 分类定位；browserless production correctness 不会被改写成失败。无论成功、失败、取消或 timeout 都执行同一幂等 cleanup；cleanup failure 单独记录且不覆盖第一个产品/契约失败，并保留当前 identity 的私有 recovery state 供重试。无法证明 container/PID ownership 时必须 fail closed，禁止按名称强制删除。紧急回退可以暂停 release-final 发布动作并保留 browserless gate，不能改用旧 Acceptance 矩阵、系统浏览器、共享 `public` schema 或自动重试生成 clean pass。Nightly/manual visual、cross-browser、geometry 和性能诊断由 #1148 独立承接。
+
+## 发布资产与 Service Worker 兼容性
+
+Browser Contract 的离线场景证明当前 release 的公开缓存边界；Blue/Green 发布还必须通过 [零停机发布资格运行手册](../releases/zero-downtime-release-runbook.md) 中独立的 N/N-1 retained-asset 场景。该场景在真实 gateway switch 前后读取旧 release 的 manifest、HTML、Service Worker 和 immutable assets，并在 GC 后复读受保护 URL。`browser.required=true` 时，HTTP-only probe 不能替代受控浏览器 checkpoint。
+
+浏览器 evidence 绑定 release ID、asset manifest hash、gateway generation、Service Worker script/cache identity 和独立 HMAC key。模板、Playwright 测试源码、历史 receipt 与 `browser.required=false` 都不能声明一次执行已通过。私有/认证流量禁止进入 Cache Storage，长期安全规则由 [Service Worker private-cache boundary](../security/service-worker-cache-boundary.md) 唯一声明。

@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v2",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:b3c7bf6fe832790712cceb166ec80e64fddcb35e47adb9cb26e928d26e3cd8ce",
+    "policyDigest": "sha256:969a1443b7ba3921ba5674b332b9cf4f35cc814c8b274cc77f8acc816a00e776",
     "documents": [
         {
             "path": "docs/active-release-fenced-commits.md",
@@ -26,7 +26,10 @@
             "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
             "supersedes": [],
             "supersededBy": null,
-            "relatedIssues": [],
+            "relatedIssues": [
+                1030,
+                1431
+            ],
             "producer": null
         },
         {
@@ -659,7 +662,10 @@
             "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
             "supersedes": [],
             "supersededBy": null,
-            "relatedIssues": [],
+            "relatedIssues": [
+                1029,
+                1431
+            ],
             "producer": null
         },
         {
@@ -1611,277 +1617,6 @@
             "producer": null
         },
         {
-            "path": "docs/issue-1024-release-identity-handoff.md",
-            "title": "Issue #1024 immutable release identity handoff",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1024
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1025-blue-green-slots-handoff.md",
-            "title": "Issue #1025 Blue/Green slot handoff",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1025
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1026-gateway-switch-handoff.md",
-            "title": "Issue #1026 atomic gateway handoff",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1026
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1027-deployment-lifecycle-handoff.md",
-            "title": "Issue #1027 deployment lifecycle handoff",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1027
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1028-online-migration-handoff.md",
-            "title": "Issue #1028 integration handoff",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1028
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1029-1031-service-worker-browser-handoff.md",
-            "title": "Issues #1029 / #1031：Service Worker 浏览器证据交接",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1029,
-                1031
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1029-storage-lifecycle-handoff.md",
-            "title": "Issue #1029 implementation handoff",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1029
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1030-active-release-fencing-handoff.md",
-            "title": "Issue #1030 集成 handoff",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1030
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1031-asset-compatibility-handoff.md",
-            "title": "Issue #1031 old frontend and retained asset compatibility handoff",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1031
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1031-documentation-handoff.json",
-            "title": "Issue 1031 Documentation Handoff",
-            "kind": "json",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1031
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1031-migration-qualification-handoff.md",
-            "title": "Issue #1031 Online Migration Qualification Handoff",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1031
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1031-notification-evidence-handoff.md",
-            "title": "Issue #1031 Notification Evidence Handoff",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1031
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1031-release-evidence-handoff.md",
-            "title": "Issue #1031 release evidence 测试交接",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1031
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1031-traffic-probe-handoff.md",
-            "title": "Issue #1031：HTTP traffic probe 强证据交接",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1031
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1031-worker-normal-observer-handoff.md",
-            "title": "Issue #1031：正常 worker observer producer 交接",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1031
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1031-worker-reconciliation-handoff.md",
-            "title": "Issue #1031 worker reconciliation drill handoff",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1031
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1031-zero-downtime-rehearsal-handoff.md",
-            "title": "Issue #1031：零停机发布端到端演练编排交接",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1031
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1041-executable-data-test-governance.md",
-            "title": "Issue #1041 executable data test governance",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1041
-            ],
-            "producer": null
-        },
-        {
             "path": "docs/known-limitations.md",
             "title": "Known Limitations",
             "kind": "markdown",
@@ -1982,7 +1717,11 @@
             "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
             "supersedes": [],
             "supersededBy": null,
-            "relatedIssues": [],
+            "relatedIssues": [
+                1028,
+                1031,
+                1431
+            ],
             "producer": null
         },
         {
@@ -1995,7 +1734,11 @@
             "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
             "supersedes": [],
             "supersededBy": null,
-            "relatedIssues": [],
+            "relatedIssues": [
+                1028,
+                1031,
+                1431
+            ],
             "producer": null
         },
         {
@@ -2331,7 +2074,10 @@
             "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
             "supersedes": [],
             "supersededBy": null,
-            "relatedIssues": [],
+            "relatedIssues": [
+                1031,
+                1431
+            ],
             "producer": null
         },
         {
@@ -2345,6 +2091,24 @@
             "supersedes": [],
             "supersededBy": null,
             "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/releases/blue-green-deployment-runbook.md",
+            "title": "Blue/Green deployment runbook",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "release",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1025,
+                1026,
+                1027,
+                1431
+            ],
             "producer": null
         },
         {
@@ -2374,6 +2138,22 @@
             "producer": null
         },
         {
+            "path": "docs/releases/release-identity.md",
+            "title": "Immutable release identity",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "release",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1024,
+                1431
+            ],
+            "producer": null
+        },
+        {
             "path": "docs/releases/release-storage-backup-and-restore.md",
             "title": "Release storage backup and restore",
             "kind": "markdown",
@@ -2396,7 +2176,11 @@
             "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
             "supersedes": [],
             "supersededBy": null,
-            "relatedIssues": [],
+            "relatedIssues": [
+                1029,
+                1031,
+                1431
+            ],
             "producer": null
         },
         {
@@ -2423,6 +2207,22 @@
             "supersedes": [],
             "supersededBy": null,
             "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/releases/zero-downtime-release-runbook.md",
+            "title": "Zero-downtime release qualification runbook",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "release",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1031,
+                1431
+            ],
             "producer": null
         },
         {
@@ -3182,7 +2982,12 @@
             "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
             "supersedes": [],
             "supersededBy": null,
-            "relatedIssues": [],
+            "relatedIssues": [
+                1029,
+                1031,
+                1108,
+                1431
+            ],
             "producer": null
         },
         {
@@ -3286,7 +3091,10 @@
             "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
             "supersedes": [],
             "supersededBy": null,
-            "relatedIssues": [],
+            "relatedIssues": [
+                1041,
+                1431
+            ],
             "producer": null
         },
         {
@@ -3351,7 +3159,11 @@
             "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
             "supersedes": [],
             "supersededBy": null,
-            "relatedIssues": [],
+            "relatedIssues": [
+                1029,
+                1031,
+                1431
+            ],
             "producer": null
         },
         {

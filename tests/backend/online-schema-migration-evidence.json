@@ -23,7 +23,7 @@
     "documents": [
         "docs/online-database-migration.md",
         "docs/online-database-migration-operations.md",
-        "docs/issue-1028-online-migration-handoff.md"
+        "docs/online-database-migration.md"
     ],
     "protocol": {
         "order": [

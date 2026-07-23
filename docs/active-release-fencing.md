@@ -120,7 +120,7 @@ production 必须显式配置 `ActiveReleaseFence:RefreshIntervalMs`（100–300
 
 ## 统一 drain 与 notification stream
 
-`ReleaseDrainParticipantRegistry` 并行启动所有 participant，每项有独立 `MaxDrain`，同时受全局 deadline 约束。当前显式 adapter 包含 article-view、hot-stats invalidation 和 notification stream；其余 channel/queue 的接线要求记录在 issue handoff。排空不是无界等待：每个 participant 必须声明 pending count、状态、最大时长和 replay 来源。
+`ReleaseDrainParticipantRegistry` 并行启动所有 participant，每项有独立 `MaxDrain`，同时受全局 deadline 约束。当前显式 adapter 包含 article-view、hot-stats invalidation 和 notification stream；其余 channel/queue 的长期分类由 `tests/backend/Fixtures/background-service-classification.json` 与当前实现共同约束。排空不是无界等待：每个 participant 必须声明 pending count、状态、最大时长和 replay 来源。
 
 notification drain 调用 `NotificationStreamRestartCoordinator`，取消所有 session 的 linked token。现有连接使用 WebSocket 1012 / `fsus_service_restart` 关闭；浏览器保留 cursor，并在 250–1250ms 抖动窗口内快速重连。服务端 replay 检测到保留窗口缺口时，不发送不完整 batch，而以 4009 / `fsus_replay_miss` 关闭；浏览器清除 cursor，重连成功后通过 `onReconnectSuccess(true)` 触发已有 full-resync 调度。
 
@@ -146,7 +146,7 @@ notification drain 调用 `NotificationStreamRestartCoordinator`，取消所有 
 - `fsus.active_release_fence.refresh_stale_seconds{reason,severity}`
 - `fsus.active_release_fence.refresh_shutdowns{reason}`
 
-发布证据必须至少包含 target acquire/CAS、source revoke、target status verify、notification restart status、drain participant terminal snapshot。运行时生成文件不提交；静态实现映射位于 `tests/backend/active-release-fencing-implementation-evidence.json`。
+发布证据必须至少包含 target acquire/CAS、source revoke、target status verify、notification restart status、drain participant terminal snapshot。运行时生成文件不提交；不具 fresh authority 的静态实现映射位于 `security/evidence-contracts/active-release-fencing-implementation.json`。
 
 ## 失败与回退
 
@@ -161,4 +161,4 @@ notification drain 调用 `NotificationStreamRestartCoordinator`，取消所有 
 
 ## 验证边界
 
-聚焦测试覆盖 SQL-first 写入顺序、Redis total-loss 恢复、legacy Redis 启动引导、同 generation 分歧 fail-closed、revoked 优先、reloadable mutation pause、production synthetic local fence 硬门禁、迁移与指标契约。匿名、登录、notification stream 与 binary API 的请求/响应契约未改变；控制端点仍仅允许 loopback admin，既有 endpoint contract 测试继续覆盖该边界。实际执行结果记录在 issue handoff，不在本文伪造。
+聚焦测试覆盖 SQL-first 写入顺序、Redis total-loss 恢复、legacy Redis 启动引导、同 generation 分歧 fail-closed、revoked 优先、reloadable mutation pause、production synthetic local fence 硬门禁、迁移与指标契约。匿名、登录、notification stream 与 binary API 的请求/响应契约未改变；控制端点仍仅允许 loopback admin，既有 endpoint contract 测试继续覆盖该边界。实际执行结果只进入 run-scoped release evidence receipt，不在 current 文档中声明。

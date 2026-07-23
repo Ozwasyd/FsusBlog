@@ -33,7 +33,7 @@
                 "ops/docker/FsusBlog.Server.Dockerfile",
                 "src/backend/FsusBlog.Server.csproj",
                 "ops/docker/docker-compose.production.yml",
-                "docs/issue-1025-blue-green-slots-handoff.md"
+                "docs/releases/blue-green-deployment-runbook.md"
             ],
             "assertionType": "integration",
             "failClosedRule": "The static-governance lane must fail when slots collide, bind publicly, lose durable active state, stop the active slot, bypass capacity checks, accept an unpinned vcpkg or mismatched Node/npm/ReadyToRun image contract, or a failed candidate changes the active runtime.",
@@ -54,7 +54,7 @@
                 "tools/deployment/gateway-rollback.sh",
                 "tools/deployment/gateway-recover.sh",
                 "ops/gateway/production-openresty.conf",
-                "docs/issue-1026-gateway-switch-handoff.md"
+                "docs/releases/blue-green-deployment-runbook.md"
             ],
             "assertionType": "integration",
             "failClosedRule": "The static-governance lane must fail if an unready or mismatched release can receive traffic, a config/reload failure changes the durable active release, concurrent transitions bypass the host lock, public release headers disagree, or recovery guesses an unknown slot.",
@@ -136,7 +136,7 @@
                 "tests/frontend/unit/services/serviceWorkerRuntime.test.ts",
                 "tests/frontend/unit/view-contracts/opsReleaseIdentity.test.ts",
                 "tools/operations/test-release-evidence-fixture.sh",
-                "docs/issue-1024-release-identity-handoff.md"
+                "docs/releases/release-identity.md"
             ],
             "assertionType": "integration",
             "failClosedRule": "The static-governance lane must reject malformed calendar timestamps, SemVer or mutable ReleaseIds, generated cross-language contract drift, inconsistent commit/time/assembly identity, ambiguous admin operations version fields, missing or invalid production frontend BuildIds, mutable or inconsistent manifests, pulled image digests or labels, missing production runtime identity, and release evidence that does not match its commit and image digest.",
@@ -3104,7 +3104,7 @@
                 "tests/frontend/unit/releaseStorage.test.ts",
                 "tests/frontend/unit/bootstrap/bootstrapImportRecovery.test.ts",
                 "tests/backend/storage-lifecycle-evidence.json",
-                "docs/issue-1029-storage-lifecycle-handoff.md"
+                "docs/architecture/release-storage-lifecycle.md"
             ],
             "assertionType": "integration",
             "failClosedRule": "Reject cross-instance temp reuse, mutable active-release paths, missing retained releases, unsafe garbage collection, browser URLs that lose immutable release identity, publication lock timeout mutation, conflicting generation reuse, wrong-release reactivation, or a compatibility manifest projected before its complete generation.",
@@ -3164,7 +3164,7 @@
                 "tests/frontend/unit/services/notificationStreamRestartPolicy.test.ts",
                 "tools/check-background-service-classification.mjs",
                 "tests/backend/Fixtures/background-service-classification.json",
-                "tests/backend/active-release-fencing-implementation-evidence.json"
+                "security/evidence-contracts/active-release-fencing-implementation.json"
             ],
             "assertionType": "integration",
             "failClosedRule": "Reject stale-generation commits, unclassified workers, discarded drain errors, target acquisition identity drift, restart codes other than 1012 or replay-miss flows that reuse an invalid cursor.",
@@ -3381,7 +3381,7 @@
                 "tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs",
                 "tests/backend/Unit/SubscriptionEndpointsContractTests.cs",
                 "tests/backend/Unit/DevSeedSqlContractTests.cs",
-                "docs/issue-1041-executable-data-test-governance.md"
+                "docs/testing.md"
             ],
             "assertionType": "integration",
             "failClosedRule": "Reject non-atomic attempt counts, credential existence disclosure, replayable subscription proofs, pre-committed failed mutations, non-idempotent demo seed data, legacy credential residue or invalid seeded relations.",
@@ -3964,6 +3964,11 @@
                 "docs/frontend/account-navigation.md",
                 "docs/frontend/account-style-ownership.md",
                 "docs/frontend/account-motion.md",
+                "config/governance/release-document-migrations.json",
+                "tests/tools/release-document-convergence.test.mjs",
+                "docs/releases/release-identity.md",
+                "docs/releases/blue-green-deployment-runbook.md",
+                "docs/releases/zero-downtime-release-runbook.md",
                 "docs/index.md"
             ],
             "assertionType": "integration",

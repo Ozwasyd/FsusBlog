@@ -16,8 +16,8 @@
     "docs/development/code-intent-governance.md",
     "docs/development/native-tooling-style-enforcement.md",
     "docs/frontend/public-shell-ownership.md",
-    "docs/issue-1028-online-migration-handoff.md",
-    "docs/issue-1031-documentation-handoff.json",
+    "docs/online-database-migration.md",
+    "config/governance/release-document-migrations.json",
     "docs/operations.md",
     "docs/planning/dead-code-audit-index.json",
     "docs/production.md",
@@ -95,12 +95,8 @@
       "to": "tests/backend/storage-lifecycle-evidence.json"
     },
     {
-      "from": "tests/backend/issue-1030-governance-handoff.json",
-      "to": "tests/backend/active-release-fencing-governance-handoff.json"
-    },
-    {
       "from": "tests/backend/issue-1030-implementation-evidence.json",
-      "to": "tests/backend/active-release-fencing-implementation-evidence.json"
+      "to": "security/evidence-contracts/active-release-fencing-implementation.json"
     },
     {
       "from": "tests/backend/issue-1037-central-handoff.json",

@@ -66,7 +66,7 @@ and requires `anonymous_account|basic|active`.
 
 ## Zero-Downtime Migration Qualification
 
-Issue #1031 qualification is an isolated Test-topology gate around the production
+Release migration qualification is an isolated Test-topology gate around the production
 Expand/Backfill/Contract protocol. Its private plan supplies
 `target.migrationServerDll` and
 `migrationQualification.{scenarioTemplate,timeoutSeconds,expandMigrationId,backfillMigrationId,contractMigrationId}`.

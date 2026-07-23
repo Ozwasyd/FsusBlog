@@ -15,7 +15,10 @@
             "path": "docs/active-release-fencing.md",
             "status": "current",
             "owner": "release",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1030,
+                1431
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -413,7 +416,10 @@
             "path": "docs/architecture/release-storage-lifecycle.md",
             "status": "current",
             "owner": "backend",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1029,
+                1431
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -461,14 +467,6 @@
             "path": "docs/architecture/user-session-refresh-boundary.md",
             "status": "current",
             "owner": "backend",
-            "relatedIssues": [],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/assets/screenshots/README.md",
-            "status": "current",
-            "owner": "frontend",
             "relatedIssues": [],
             "supersedes": [],
             "supersededBy": null
@@ -539,6 +537,14 @@
         },
         {
             "path": "docs/assets/screenshots/public-home-light.png",
+            "status": "current",
+            "owner": "frontend",
+            "relatedIssues": [],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/assets/screenshots/README.md",
             "status": "current",
             "owner": "frontend",
             "relatedIssues": [],
@@ -732,28 +738,6 @@
             "supersededBy": null
         },
         {
-            "path": "docs/frontend/admin-dashboard-workbench.md",
-            "status": "current",
-            "owner": "frontend",
-            "relatedIssues": [
-                1022,
-                1429
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/frontend/admin-information-architecture.md",
-            "status": "current",
-            "owner": "frontend",
-            "relatedIssues": [
-                1023,
-                1429
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
             "path": "docs/frontend/account-layout-ownership.md",
             "status": "current",
             "owner": "frontend",
@@ -802,6 +786,28 @@
             "supersededBy": null
         },
         {
+            "path": "docs/frontend/admin-dashboard-workbench.md",
+            "status": "current",
+            "owner": "frontend",
+            "relatedIssues": [
+                1022,
+                1429
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/frontend/admin-information-architecture.md",
+            "status": "current",
+            "owner": "frontend",
+            "relatedIssues": [
+                1023,
+                1429
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
             "path": "docs/frontend/browser-runtime-baseline.md",
             "status": "current",
             "owner": "frontend",
@@ -836,6 +842,16 @@
             "supersededBy": null
         },
         {
+            "path": "docs/frontend/motion-guidelines.md",
+            "status": "current",
+            "owner": "frontend",
+            "relatedIssues": [
+                1429
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
             "path": "docs/frontend/public-shell-ownership.md",
             "status": "current",
             "owner": "frontend",
@@ -847,16 +863,6 @@
                 1306,
                 1307,
                 1428
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/frontend/motion-guidelines.md",
-            "status": "current",
-            "owner": "frontend",
-            "relatedIssues": [
-                1429
             ],
             "supersedes": [],
             "supersededBy": null
@@ -1022,187 +1028,6 @@
             "supersededBy": null
         },
         {
-            "path": "docs/issue-1024-release-identity-handoff.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1024
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1025-blue-green-slots-handoff.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1025
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1026-gateway-switch-handoff.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1026
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1027-deployment-lifecycle-handoff.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1027
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1028-online-migration-handoff.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1028
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1029-1031-service-worker-browser-handoff.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1029,
-                1031
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1029-storage-lifecycle-handoff.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1029
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1030-active-release-fencing-handoff.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1030
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1031-asset-compatibility-handoff.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1031
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1031-documentation-handoff.json",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1031
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1031-migration-qualification-handoff.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1031
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1031-notification-evidence-handoff.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1031
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1031-release-evidence-handoff.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1031
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1031-traffic-probe-handoff.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1031
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1031-worker-normal-observer-handoff.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1031
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1031-worker-reconciliation-handoff.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1031
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1031-zero-downtime-rehearsal-handoff.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1031
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1041-executable-data-test-governance.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1041
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
             "path": "docs/known-limitations.md",
             "status": "current",
             "owner": "governance",
@@ -1262,7 +1087,11 @@
             "path": "docs/online-database-migration-operations.md",
             "status": "current",
             "owner": "governance",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1028,
+                1031,
+                1431
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -1270,7 +1099,11 @@
             "path": "docs/online-database-migration.md",
             "status": "current",
             "owner": "governance",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1028,
+                1031,
+                1431
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -1481,7 +1314,10 @@
             "path": "docs/release-evidence-model.md",
             "status": "current",
             "owner": "release",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1031,
+                1431
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -1490,6 +1326,19 @@
             "status": "current",
             "owner": "governance",
             "relatedIssues": [],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/releases/blue-green-deployment-runbook.md",
+            "status": "current",
+            "owner": "release",
+            "relatedIssues": [
+                1025,
+                1026,
+                1027,
+                1431
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -1510,6 +1359,17 @@
             "supersededBy": null
         },
         {
+            "path": "docs/releases/release-identity.md",
+            "status": "current",
+            "owner": "release",
+            "relatedIssues": [
+                1024,
+                1431
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
             "path": "docs/releases/release-storage-backup-and-restore.md",
             "status": "current",
             "owner": "release",
@@ -1521,7 +1381,11 @@
             "path": "docs/releases/release-storage-compatibility-matrix.md",
             "status": "current",
             "owner": "release",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1029,
+                1031,
+                1431
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -1542,10 +1406,13 @@
             "supersededBy": null
         },
         {
-            "path": "docs/reports/open-source-readiness/v1.1.0-public-preview/README.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [],
+            "path": "docs/releases/zero-downtime-release-runbook.md",
+            "status": "current",
+            "owner": "release",
+            "relatedIssues": [
+                1031,
+                1431
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -1567,6 +1434,14 @@
         },
         {
             "path": "docs/reports/open-source-readiness/v1.1.0-public-preview/readiness-checklist.md",
+            "status": "historical",
+            "owner": "governance",
+            "relatedIssues": [],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/reports/open-source-readiness/v1.1.0-public-preview/README.md",
             "status": "historical",
             "owner": "governance",
             "relatedIssues": [],
@@ -2007,7 +1882,12 @@
             "path": "docs/security/service-worker-cache-boundary.md",
             "status": "current",
             "owner": "security",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1029,
+                1031,
+                1108,
+                1431
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -2072,7 +1952,10 @@
             "path": "docs/testing.md",
             "status": "current",
             "owner": "release",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1041,
+                1431
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -2112,7 +1995,11 @@
             "path": "docs/testing/browser-contract.md",
             "status": "current",
             "owner": "release",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1029,
+                1031,
+                1431
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -2955,96 +2842,6 @@
             "removalIssue": 1406
         },
         {
-            "path": "docs/issue-1024-release-identity-handoff.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1025-blue-green-slots-handoff.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1026-gateway-switch-handoff.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1027-deployment-lifecycle-handoff.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1028-online-migration-handoff.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1029-1031-service-worker-browser-handoff.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1029-storage-lifecycle-handoff.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1030-active-release-fencing-handoff.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1031-asset-compatibility-handoff.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1031-documentation-handoff.json",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1031-migration-qualification-handoff.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1031-notification-evidence-handoff.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1031-release-evidence-handoff.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1031-traffic-probe-handoff.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1031-worker-normal-observer-handoff.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1031-worker-reconciliation-handoff.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1031-zero-downtime-rehearsal-handoff.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1041-executable-data-test-governance.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
             "path": "docs/recovery-passkey-completion.md",
             "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
             "removalIssue": 1406
@@ -3382,40 +3179,40 @@
     ],
     "authorityClaims": [
         {
-            "id": "repository-document-index",
-            "path": "docs/index.md"
-        },
-        {
-            "id": "document-lifecycle",
-            "path": "docs/development/document-lifecycle.md"
-        },
-        {
-            "id": "coding-conventions",
-            "path": "docs/development/coding-conventions.md"
+            "id": "active-release-fencing",
+            "path": "docs/active-release-fencing.md"
         },
         {
             "id": "api-contracts",
             "path": "docs/api/contracts.md"
         },
         {
-            "id": "security-model",
-            "path": "docs/security.md"
-        },
-        {
-            "id": "testing-model",
-            "path": "docs/testing.md"
-        },
-        {
-            "id": "public-preview-policy",
-            "path": "docs/releases/public-preview-policy.md"
-        },
-        {
             "id": "api-stability-policy",
             "path": "docs/api/stability.md"
         },
         {
+            "id": "blue-green-deployment",
+            "path": "docs/releases/blue-green-deployment-runbook.md"
+        },
+        {
+            "id": "coding-conventions",
+            "path": "docs/development/coding-conventions.md"
+        },
+        {
+            "id": "distributed-cache-invalidation",
+            "path": "docs/architecture/distributed-cache-invalidation.md"
+        },
+        {
+            "id": "document-lifecycle",
+            "path": "docs/development/document-lifecycle.md"
+        },
+        {
             "id": "frontend-account-layout-ownership",
             "path": "docs/frontend/account-layout-ownership.md"
+        },
+        {
+            "id": "frontend-account-motion",
+            "path": "docs/frontend/account-motion.md"
         },
         {
             "id": "frontend-account-navigation",
@@ -3426,10 +3223,6 @@
             "path": "docs/frontend/account-style-ownership.md"
         },
         {
-            "id": "frontend-account-motion",
-            "path": "docs/frontend/account-motion.md"
-        },
-        {
             "id": "frontend-admin-dashboard-workbench",
             "path": "docs/frontend/admin-dashboard-workbench.md"
         },
@@ -3438,8 +3231,44 @@
             "path": "docs/frontend/admin-information-architecture.md"
         },
         {
-            "id": "distributed-cache-invalidation",
-            "path": "docs/architecture/distributed-cache-invalidation.md"
+            "id": "online-database-migration",
+            "path": "docs/online-database-migration.md"
+        },
+        {
+            "id": "public-preview-policy",
+            "path": "docs/releases/public-preview-policy.md"
+        },
+        {
+            "id": "release-browser-contract",
+            "path": "docs/testing/browser-contract.md"
+        },
+        {
+            "id": "release-evidence-model",
+            "path": "docs/release-evidence-model.md"
+        },
+        {
+            "id": "release-identity",
+            "path": "docs/releases/release-identity.md"
+        },
+        {
+            "id": "release-storage-lifecycle",
+            "path": "docs/architecture/release-storage-lifecycle.md"
+        },
+        {
+            "id": "repository-document-index",
+            "path": "docs/index.md"
+        },
+        {
+            "id": "security-model",
+            "path": "docs/security.md"
+        },
+        {
+            "id": "testing-model",
+            "path": "docs/testing.md"
+        },
+        {
+            "id": "zero-downtime-release-qualification",
+            "path": "docs/releases/zero-downtime-release-runbook.md"
         }
     ],
     "retiredReferences": [
@@ -3455,6 +3284,16 @@
     ],
     "brokenLinkExceptions": [],
     "pathMigrations": [
+        {
+            "from": "docs/issue-1013-runtime-fallback-retirement-handoff.md",
+            "to": "docs/production.md",
+            "issue": 1430
+        },
+        {
+            "from": "docs/issue-1014-identity-retirement-handoff.md",
+            "to": "docs/security.md",
+            "issue": 1430
+        },
         {
             "from": "docs/issue-1016-public-shell-sticky-geometry-handoff.md",
             "to": "docs/frontend/public-shell-ownership.md"
@@ -3480,6 +3319,82 @@
             "to": "docs/frontend/public-shell-ownership.md"
         },
         {
+            "from": "docs/issue-1022-admin-dashboard-handoff.md",
+            "to": "docs/frontend/admin-dashboard-workbench.md"
+        },
+        {
+            "from": "docs/issue-1023-admin-ia-handoff.md",
+            "to": "docs/frontend/admin-information-architecture.md"
+        },
+        {
+            "from": "docs/issue-1024-release-identity-handoff.md",
+            "to": "docs/releases/release-identity.md"
+        },
+        {
+            "from": "docs/issue-1025-blue-green-slots-handoff.md",
+            "to": "docs/releases/blue-green-deployment-runbook.md"
+        },
+        {
+            "from": "docs/issue-1026-gateway-switch-handoff.md",
+            "to": "docs/releases/blue-green-deployment-runbook.md"
+        },
+        {
+            "from": "docs/issue-1027-deployment-lifecycle-handoff.md",
+            "to": "docs/releases/blue-green-deployment-runbook.md"
+        },
+        {
+            "from": "docs/issue-1028-online-migration-handoff.md",
+            "to": "docs/online-database-migration.md"
+        },
+        {
+            "from": "docs/issue-1029-1031-service-worker-browser-handoff.md",
+            "to": "docs/testing/browser-contract.md"
+        },
+        {
+            "from": "docs/issue-1029-storage-lifecycle-handoff.md",
+            "to": "docs/architecture/release-storage-lifecycle.md"
+        },
+        {
+            "from": "docs/issue-1030-active-release-fencing-handoff.md",
+            "to": "docs/active-release-fencing.md"
+        },
+        {
+            "from": "docs/issue-1031-asset-compatibility-handoff.md",
+            "to": "docs/releases/release-storage-compatibility-matrix.md"
+        },
+        {
+            "from": "docs/issue-1031-migration-qualification-handoff.md",
+            "to": "docs/online-database-migration-operations.md"
+        },
+        {
+            "from": "docs/issue-1031-notification-evidence-handoff.md",
+            "to": "docs/releases/zero-downtime-release-runbook.md"
+        },
+        {
+            "from": "docs/issue-1031-release-evidence-handoff.md",
+            "to": "docs/release-evidence-model.md"
+        },
+        {
+            "from": "docs/issue-1031-traffic-probe-handoff.md",
+            "to": "docs/releases/zero-downtime-release-runbook.md"
+        },
+        {
+            "from": "docs/issue-1031-worker-normal-observer-handoff.md",
+            "to": "docs/releases/zero-downtime-release-runbook.md"
+        },
+        {
+            "from": "docs/issue-1031-worker-reconciliation-handoff.md",
+            "to": "docs/releases/zero-downtime-release-runbook.md"
+        },
+        {
+            "from": "docs/issue-1031-zero-downtime-rehearsal-handoff.md",
+            "to": "docs/releases/zero-downtime-release-runbook.md"
+        },
+        {
+            "from": "docs/issue-1041-executable-data-test-governance.md",
+            "to": "docs/testing.md"
+        },
+        {
             "from": "docs/issue-1285-touch-target-floor.md",
             "to": "docs/frontend/public-shell-ownership.md"
         },
@@ -3492,26 +3407,6 @@
             "to": "docs/design/reading-typography.md"
         },
         {
-            "from": "docs/issue-1294-document-markdown-layout.md",
-            "to": "docs/design/reading-typography.md"
-        },
-        {
-            "from": "docs/issue-1306-public-shell-delegation-handoff.md",
-            "to": "docs/frontend/public-shell-ownership.md"
-        },
-        {
-            "from": "docs/issue-1307-public-shell-css-ownership-handoff.md",
-            "to": "docs/frontend/public-shell-ownership.md"
-        },
-        {
-            "from": "docs/issue-1022-admin-dashboard-handoff.md",
-            "to": "docs/frontend/admin-dashboard-workbench.md"
-        },
-        {
-            "from": "docs/issue-1023-admin-ia-handoff.md",
-            "to": "docs/frontend/admin-information-architecture.md"
-        },
-        {
             "from": "docs/issue-1291-account-page-title-hierarchy.md",
             "to": "docs/frontend/account-navigation.md"
         },
@@ -3522,6 +3417,18 @@
         {
             "from": "docs/issue-1293-account-integer-typography.md",
             "to": "docs/frontend/account-style-ownership.md"
+        },
+        {
+            "from": "docs/issue-1294-document-markdown-layout.md",
+            "to": "docs/design/reading-typography.md"
+        },
+        {
+            "from": "docs/issue-1306-public-shell-delegation-handoff.md",
+            "to": "docs/frontend/public-shell-ownership.md"
+        },
+        {
+            "from": "docs/issue-1307-public-shell-css-ownership-handoff.md",
+            "to": "docs/frontend/public-shell-ownership.md"
         },
         {
             "from": "docs/issue-1309-account-frame-handoff.md",
@@ -3538,16 +3445,6 @@
         {
             "from": "docs/issue-1312-account-route-motion-handoff.md",
             "to": "docs/frontend/account-motion.md"
-        },
-        {
-            "from": "docs/issue-1013-runtime-fallback-retirement-handoff.md",
-            "to": "docs/production.md",
-            "issue": 1430
-        },
-        {
-            "from": "docs/issue-1014-identity-retirement-handoff.md",
-            "to": "docs/security.md",
-            "issue": 1430
         },
         {
             "from": "docs/issue-399-distributed-invalidation.md",

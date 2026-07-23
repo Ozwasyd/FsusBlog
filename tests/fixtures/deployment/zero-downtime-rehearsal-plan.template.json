@@ -1,11 +1,11 @@
 {
   "schema": "fsusblog.zero-downtime-rehearsal-plan.v1",
   "_notice": "NON-PRODUCTION TEMPLATE ONLY. Replace every REPLACE_* value with local Test materials; never place secret values in this JSON.",
-  "rehearsalId": "issue-1031-local-zdt",
+  "rehearsalId": "local-zero-downtime-qualification",
   "nonProductionOnly": true,
   "environment": "Test",
   "acknowledgement": "DESTROY_ISOLATED_LOCAL_REHEARSAL_ONLY",
-  "workRoot": "../../../.tmp/issue-1031-zero-downtime-rehearsal",
+  "workRoot": "../../../.tmp/zero-downtime-release-qualification",
   "publicUrl": "http://127.0.0.1:18080/health/ready",
   "controlOrigin": "http://127.0.0.1:18080",
   "publicPort": 18080,
@@ -39,8 +39,8 @@
   "assets": {
     "deployScenario": "REPLACE_BLUE_TO_GREEN_ASSET_SCENARIO",
     "rollbackScenario": "REPLACE_GREEN_TO_BLUE_ASSET_SCENARIO",
-    "store": "../../../.tmp/issue-1031-zero-downtime-rehearsal/assets",
-    "retentionState": "../../../.tmp/issue-1031-zero-downtime-rehearsal/assets/retention-state.json"
+    "store": "../../../.tmp/zero-downtime-release-qualification/assets",
+    "retentionState": "../../../.tmp/zero-downtime-release-qualification/assets/retention-state.json"
   },
   "workers": {
     "timeoutSeconds": 600,

@@ -795,7 +795,8 @@
             "lifecycle": "canonical-execution",
             "physicalExecutionCount": 1,
             "classifications": [
-                "behavior"
+                "compatibility-wrapper",
+                "migration"
             ]
         },
         {
@@ -1414,6 +1415,18 @@
             "classifications": [
                 "compatibility-wrapper",
                 "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/release-document-convergence.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "migration"
             ]
         },
         {

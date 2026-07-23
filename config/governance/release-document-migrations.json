@@ -1,0 +1,28 @@
+{
+  "schema": "fsusblog.release-document-migrations.v1",
+  "relatedIssues": [1024, 1025, 1026, 1027, 1028, 1029, 1030, 1031, 1041, 1431],
+  "retiredSupportAssets": [
+    { "source": "tests/backend/active-release-fencing-governance-handoff.json", "canonicalTarget": null, "disposition": "delete-implementation-snapshot" },
+    { "source": "tests/backend/active-release-fencing-implementation-evidence.json", "canonicalTarget": "security/evidence-contracts/active-release-fencing-implementation.json", "disposition": "move-implementation-attestation" }
+  ],
+  "entries": [
+    { "source": "docs/issue-1024-release-identity-handoff.md", "canonicalTarget": "docs/releases/release-identity.md", "disposition": "absorbed-current-contract" },
+    { "source": "docs/issue-1025-blue-green-slots-handoff.md", "canonicalTarget": "docs/releases/blue-green-deployment-runbook.md", "disposition": "absorbed-current-contract" },
+    { "source": "docs/issue-1026-gateway-switch-handoff.md", "canonicalTarget": "docs/releases/blue-green-deployment-runbook.md", "disposition": "absorbed-current-contract" },
+    { "source": "docs/issue-1027-deployment-lifecycle-handoff.md", "canonicalTarget": "docs/releases/blue-green-deployment-runbook.md", "disposition": "absorbed-current-contract" },
+    { "source": "docs/issue-1028-online-migration-handoff.md", "canonicalTarget": "docs/online-database-migration.md", "disposition": "absorbed-current-contract" },
+    { "source": "docs/issue-1029-storage-lifecycle-handoff.md", "canonicalTarget": "docs/architecture/release-storage-lifecycle.md", "disposition": "absorbed-current-contract" },
+    { "source": "docs/issue-1029-1031-service-worker-browser-handoff.md", "canonicalTarget": "docs/testing/browser-contract.md", "supportingTargets": ["docs/security/service-worker-cache-boundary.md"], "disposition": "split-current-contract" },
+    { "source": "docs/issue-1030-active-release-fencing-handoff.md", "canonicalTarget": "docs/active-release-fencing.md", "disposition": "absorbed-current-contract" },
+    { "source": "docs/issue-1031-asset-compatibility-handoff.md", "canonicalTarget": "docs/releases/release-storage-compatibility-matrix.md", "supportingTargets": ["docs/releases/zero-downtime-release-runbook.md"], "disposition": "split-current-contract" },
+    { "source": "docs/issue-1031-documentation-handoff.json", "canonicalTarget": null, "disposition": "delete-implementation-snapshot" },
+    { "source": "docs/issue-1031-migration-qualification-handoff.md", "canonicalTarget": "docs/online-database-migration-operations.md", "supportingTargets": ["docs/releases/zero-downtime-release-runbook.md"], "disposition": "split-current-contract" },
+    { "source": "docs/issue-1031-notification-evidence-handoff.md", "canonicalTarget": "docs/releases/zero-downtime-release-runbook.md", "disposition": "absorbed-current-contract" },
+    { "source": "docs/issue-1031-release-evidence-handoff.md", "canonicalTarget": "docs/release-evidence-model.md", "disposition": "absorbed-current-contract" },
+    { "source": "docs/issue-1031-traffic-probe-handoff.md", "canonicalTarget": "docs/releases/zero-downtime-release-runbook.md", "disposition": "absorbed-current-contract" },
+    { "source": "docs/issue-1031-worker-normal-observer-handoff.md", "canonicalTarget": "docs/releases/zero-downtime-release-runbook.md", "disposition": "absorbed-current-contract" },
+    { "source": "docs/issue-1031-worker-reconciliation-handoff.md", "canonicalTarget": "docs/releases/zero-downtime-release-runbook.md", "disposition": "absorbed-current-contract" },
+    { "source": "docs/issue-1031-zero-downtime-rehearsal-handoff.md", "canonicalTarget": "docs/releases/zero-downtime-release-runbook.md", "disposition": "absorbed-current-contract" },
+    { "source": "docs/issue-1041-executable-data-test-governance.md", "canonicalTarget": "docs/testing.md", "disposition": "absorbed-current-contract" }
+  ]
+}

@@ -177,11 +177,14 @@
 - [Rate limiter rejection sampler operations](rate-limiter-rejection-sampler-operations.md)
 - [Rate limiter rejection risk sampling](rate-limiter-rejection-sampling.md)
 - [Release Evidence Model](release-evidence-model.md)
+- [Blue/Green deployment runbook](releases/blue-green-deployment-runbook.md)
 - [Production release storage contract](releases/production-release-storage.md)
 - [Public Preview Policy](releases/public-preview-policy.md)
+- [Immutable release identity](releases/release-identity.md)
 - [Release storage backup and restore](releases/release-storage-backup-and-restore.md)
 - [Release storage compatibility matrix](releases/release-storage-compatibility-matrix.md)
 - [Release storage operations](releases/release-storage-operations.md)
+- [Zero-downtime release qualification runbook](releases/zero-downtime-release-runbook.md)
 - [测试策略](testing.md)
 - [管理控制台行为测试边界](testing/admin-console-behavior-tests.md)
 - [公共文章列表 Keyset 验证](testing/article-list-keyset-pagination.md)
@@ -248,7 +251,6 @@
 - `releases`: 1 document
 - `reports`: 15 documents
 - `reports/open-source-readiness`: 1 asset
-- `root migration records`: 18 documents
 - `security`: 1 document
 - `testing`: 65 documents
 

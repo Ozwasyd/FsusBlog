@@ -2,6 +2,19 @@
 
 FsusBlog 采用机器可读测试 DAG。`tests/matrix.yml` 是唯一测试拓扑源，`tools/run-test-matrix.mjs` 负责 `preflight` / `validate` / `list` / `plan` / `run` / `ci-plan` / `docs` / `evidence-plan`，`tools/test.sh` 是唯一公开 shell 入口并代理到 runner。lane 脚本只能执行一个已由 matrix 声明的叶节点；共享 shell 文件是 source-only 能力库，不得包含 tier 分派、依赖关系或另一个命令清单。后端 profile、mutation、security static/runtime 和 cross-stack static/runtime 都由 matrix 或 production bundle 投影到同一组叶节点，不能通过兼容 alias 再建一套拓扑。
 
+## 可执行数据测试治理
+
+可执行数据约束必须由真实 owner test 和中央事实源共同表达，不使用 issue 文档充当测试清单：
+
+- `tests/backend/Fixtures/backend-test-requirements.json` 声明后端能力与直接测试 owner；
+- `tests/coverage-registry.json` 声明 coverage 语义和最低证据要求；
+- `tests/matrix.yml` 声明执行 DAG、资源和 artifact；
+- `tests/test-retention-replacements.json` 记录删除或合并时的 replacement 证明。
+
+数据库 fixture 必须保留生产字段语义、约束和安全版本。例如 recovery-key limiter 由对应 service/contract tests 证明 attempt/window/lockout；subscription fixture 保留 `user_id`、`public_handle`、`hash_version` 和 proof 校验；demo seed 只能生成开发数据且不能绕过 production schema。静态文本检查不能替代事务、并发、幂等、迁移失败或 `WebApplicationFactory` 行为测试。
+
+测试删除或合并时，先在 retention ledger 中给出仍存活的 replacement IDs，再更新 requirement、coverage 与 matrix。没有等价可执行断言时不得用文档、fixture 文件存在性或历史 evidence 替代测试。
+
 性能测试资产统一放在 `tests/performance/`，不再保留旧短名测试根。`browser-contract` 是 release correctness 的最小浏览器契约，而 `browser-diagnostics` 是 scheduled/manual 的诊断集合；两者的命令、artifact 和结论互不替代，diagnostics 失败不能伪装成 correctness 通过，contract 通过也不能覆盖 diagnostics 的独立风险报告。
 
 `tests/coverage-registry.json` 是 matrix `coverage[]` 的机器可读索引。每个 coverage id 必须声明 `description`、`owner`、`risk`、`evidencePaths`、`assertionType`、`failClosedRule` 和 `minimumRequirement`；`description` 必须描述实际覆盖语义，不能保留 `Coverage contract for ...` 这类模板句，`minimumRequirement` 必须写明最低可接受断言或 evidence 形态，不能只重复 tier 类型。`tools/run-test-matrix.mjs validate` 会拒绝未注册的 coverage id、未被对应 tier artifact/evidence 声明的 evidence path、未使用的 registry id，拒绝只指向 unit/property 测试文件却标成非 `unit` 的明显 assertionType 错配，也会拒绝 `runtime` / `browser` / `perf` / `fuzz` / `mutation` 类型只指向静态 docs/source 文件的条目。该 registry 不替代测试本体，只把“这个 coverage 标签由什么证据证明”变成 fail-closed 合同。
@@ -598,7 +611,7 @@ dotnet run -c Release
 
 `SchemaMigrationDdlPrimitivesTests` 覆盖 typed identifier / column definition、PostgreSQL / MySQL / SQLite provider、全部 DDL step kind、dry-run preview 与 descriptor transaction wrapper。MySQL/SQLite 生成结果必须逐项匹配 `tests/backend/Fixtures/schema-ddl-provider-snapshots.json`；非法 identifier、任意 column SQL、错误 DDL kind、多语句注入和注释逃逸均 fail closed。
 
-Issue #1031 的工具测试按独立临时目录和 loopback ephemeral ports 并行运行：
+发布资格工具测试按独立临时目录和 loopback ephemeral ports 并行运行：
 
 - `release-rollout-state.test.mjs`：15-stage 顺序、rollout identity、failed-stage recovery 与 resume。
 - `release-rollout-evidence.test.mjs` / `release-rollout-bundle.test.mjs`：attempt/stage/recovery seal、恰好六类 artifact、hash/size readback、symlink/path escape/第七 artifact 拒绝。

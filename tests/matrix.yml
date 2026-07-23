@@ -1063,7 +1063,7 @@ tiers:
           - tests/backend/Unit/ReleaseStorageLifecycleTests.cs
           - tests/backend/Unit/PublicAotFileShellCacheTests.cs
           - tests/backend/storage-lifecycle-evidence.json
-          - docs/issue-1029-storage-lifecycle-handoff.md
+          - docs/architecture/release-storage-lifecycle.md
           - tests/backend/Unit/ActiveReleaseFenceContractTests.cs
           - tests/backend/Unit/SecurityHardening
           - tests/backend/Unit/EndpointPolicyContractTests.cs
@@ -1104,7 +1104,7 @@ tiers:
           - tests/backend/Unit/ArticleCoreQueryCacheBehaviorTests.cs
           - tests/backend/Unit/PublicAotBinaryPayloadTests.cs
           - tests/backend/Unit/AedsFrameNamingTests.cs
-          - docs/issue-1041-executable-data-test-governance.md
+          - docs/testing.md
           - docs/passkey-test-governance.md
           - docs/testing/issue-1045-anonymous-identity-behavior-handoff.md
           - docs/testing/issue-1046-risk-control-behavior-handoff.md
@@ -1525,7 +1525,7 @@ tiers:
           - tests/backend/Unit/FsusHostRuntimeTuningTests.cs
           - ops/docker/FsusBlog.Server.Dockerfile
           - src/backend/FsusBlog.Server.csproj
-          - docs/issue-1024-release-identity-handoff.md
+          - docs/releases/release-identity.md
           - src/shared/Contracts/Validation/release-id-contract.json
           - tools/release/release-id.mjs
           - src/backend/Infrastructure/Operations/ReleaseIdContract.Generated.cs
@@ -1617,6 +1617,11 @@ tiers:
           - docs/frontend/account-navigation.md
           - docs/frontend/account-style-ownership.md
           - docs/frontend/account-motion.md
+          - config/governance/release-document-migrations.json
+          - tests/tools/release-document-convergence.test.mjs
+          - docs/releases/release-identity.md
+          - docs/releases/blue-green-deployment-runbook.md
+          - docs/releases/zero-downtime-release-runbook.md
           - docs/development/coding-conventions.md
           - AGENTS.md
           - CONTRIBUTING.md
@@ -1727,8 +1732,7 @@ tiers:
           - tests/frontend/unit/services/serviceWorkerRuntime.test.ts
           - tests/frontend/unit/view-contracts/opsReleaseIdentity.test.ts
           - tools/operations/test-release-evidence-fixture.sh
-          - docs/issue-1025-blue-green-slots-handoff.md
-          - docs/issue-1026-gateway-switch-handoff.md
+          - docs/releases/blue-green-deployment-runbook.md
           - tools/deployment/gateway-switch.sh
           - tools/deployment/gateway-rollback.sh
           - tools/deployment/gateway-recover.sh
@@ -1739,7 +1743,7 @@ tiers:
           - tests/backend/Unit/ReleaseStorageLifecycleTests.cs
           - tests/backend/Unit/PublicAotFileShellCacheTests.cs
           - tests/backend/storage-lifecycle-evidence.json
-          - docs/issue-1029-storage-lifecycle-handoff.md
+          - docs/architecture/release-storage-lifecycle.md
           - tests/tools/online-schema-migration-wrapper.test.mjs
           - tests/backend/online-schema-migration-evidence.json
           - tests/tools/destructive-migration-proof.test.mjs
@@ -2437,7 +2441,7 @@ tiers:
           - tests/backend/Unit/ReleaseStorageLifecycleTests.cs
           - tests/backend/Unit/PublicAotFileShellCacheTests.cs
           - tests/backend/storage-lifecycle-evidence.json
-          - docs/issue-1029-storage-lifecycle-handoff.md
+          - docs/architecture/release-storage-lifecycle.md
           - tests/tools/release-storage-lifecycle.test.mjs
           - tests/tools/release-rollout-evidence.test.mjs
           - tests/tools/public-aot-warm-evidence.test.mjs
@@ -3514,7 +3518,7 @@ tiers:
           - .tmp/runtime/resilience.json
           - .tmp/release-evidence/aot-cache-resilience-summary.json
           - tests/tools/gateway-switch.test.mjs
-          - tests/backend/active-release-fencing-implementation-evidence.json
+          - security/evidence-contracts/active-release-fencing-implementation.json
           - tests/tools/release-rollout-probes.test.mjs
           - tests/backend/Unit/UploadSessionCleanupWorkerBehaviorTests.cs
       ciJob: resilience-runtime
@@ -6436,15 +6440,14 @@ tiers:
           - tests/backend/Unit/ReleaseStorageLifecycleTests.cs
           - tests/backend/Unit/PublicAotFileShellCacheTests.cs
           - tests/backend/storage-lifecycle-evidence.json
-          - docs/issue-1029-storage-lifecycle-handoff.md
+          - docs/architecture/release-storage-lifecycle.md
           - tests/tools/release-storage-lifecycle.test.mjs
-          - tests/backend/active-release-fencing-implementation-evidence.json
+          - security/evidence-contracts/active-release-fencing-implementation.json
           - tests/tools/release-rollout-probes.test.mjs
           - tests/backend/security-hardening-evidence.json
           - tests/backend/endpoint-security-evidence.json
           - tests/backend/Unit/AdminConsistencyContractTests.cs
-          - docs/issue-1041-executable-data-test-governance.md
-          - docs/issue-1041-executable-data-test-governance.md
+          - docs/testing.md
           - tests/frontend/unit/api/admin.test.ts
           - tests/backend/Unit/BackendAuthStateMachineTests.cs
           - tests/backend/Unit/BackendConcurrencyModelTests.cs
@@ -6529,7 +6532,7 @@ tiers:
           - tests/backend/Unit/AdminPrincipalSecurityContractTests.cs
           - tests/backend/Unit/BackendApiIntegrationContractTests.cs
           - tests/backend/Unit/AdminConsistencyContractTests.cs
-          - docs/issue-1041-executable-data-test-governance.md
+          - docs/testing.md
       ciJob: fast-backend
       localOnly: false
       nightlyOnly: false
@@ -6699,7 +6702,7 @@ tiers:
           - tests/backend/recovery-passkey-completion-evidence.json
           - tests/test-retention-replacements.json
           - docs/testing/issue-1040-concurrency-state-machines.md
-          - docs/issue-1041-executable-data-test-governance.md
+          - docs/testing.md
           - docs/passkey-test-governance.md
       ciJob: fast-backend
       localOnly: false

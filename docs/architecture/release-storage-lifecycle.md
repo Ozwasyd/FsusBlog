@@ -1,6 +1,6 @@
 # Release storage lifecycle
 
-Issue #1029 defines storage by lifecycle, not by the container that first wrote a file. Blue and green may read shared durable state, but a candidate may never mutate active release-derived state or replace bytes behind an immutable asset URL.
+Release storage is classified by lifecycle, not by the container that first wrote a file. Blue and green may read shared durable state, but a candidate may never mutate active release-derived state or replace bytes behind an immutable asset URL.
 
 ## State classes
 
