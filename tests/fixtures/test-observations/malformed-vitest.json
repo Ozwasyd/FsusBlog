@@ -1,0 +1,16 @@
+{
+  "testResults": [
+    {
+      "name": "tests/unit/malformed.test.ts",
+      "assertionResults": [
+        {
+          "ancestorTitles": ["malformed"],
+          "title": "uses an unknown producer outcome",
+          "status": "sometimes",
+          "duration": -1,
+          "failureMessages": []
+        }
+      ]
+    }
+  ]
+}

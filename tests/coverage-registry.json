@@ -3829,6 +3829,31 @@
             ]
         },
         {
+            "id": "per-test-observation-ledger",
+            "description": "TRX, Vitest, Node TAP and Playwright reports project into one source-bound per-test observation schema with verified producer digests and a rebuildable local history index.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "tools/test-observations/adapters.mjs",
+                "tools/test-observations/source-identity.mjs",
+                "tools/test-observations/validation.mjs",
+                "tools/test-observations/ledger.mjs",
+                "tools/test-observations/cli.mjs",
+                "config/schemas/test-observation-artifact.schema.json",
+                "config/configuration-ownership.json",
+                "tests/fixtures/test-observations",
+                "tests/tools/test-observation-ledger.test.mjs",
+                "docs/testing.md",
+                "docs/testing/evidence-projection-contract.md"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "Reject malformed producer reports, missing canonical test IDs, illegal outcomes or durations, unbound source or closure identity, modified producer evidence, inconsistent record bindings, or an index that cannot be rebuilt from normalized artifacts.",
+            "minimumRequirement": "Repository fixtures must cover all four adapters, passed/failed/skipped/blocked outcomes, parameterized and duplicate names, cross-partition merge, failure-signature noise and distinction, producer/source/closure tampering, idempotent ingest, P50/P95 aggregation, compaction, rebuild and explicit cold start.",
+            "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
             "id": "testing-evidence-governance",
             "description": "Browserless correctness, the single release Browser Contract, and scheduled/manual diagnostics have separate source-bound receipts, retry semantics, migration coverage and aggregate authority.",
             "owner": "ServerContractAgent",

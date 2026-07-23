@@ -112,7 +112,7 @@ STATIC_NODE_CONTRACT_FILES=(
     "$ROOT_DIR/tests/tools/flaky-test-governance.test.mjs"
     "$ROOT_DIR/tests/tools/test-evidence-receipt-aggregation.test.mjs"
     "$ROOT_DIR/tests/tools/test-evidence-receipt-authority.test.mjs"
-    "$ROOT_DIR/tests/tools/test-evidence-receipt-schema.test.mjs"
+    "$ROOT_DIR/tests/tools/test-evidence-receipt-schema.test.mjs" "$ROOT_DIR/tests/tools/test-observation-ledger.test.mjs"
     "$ROOT_DIR/tests/tools/aeds-frame-cost-evidence.test.mjs"
     "$ROOT_DIR/tests/tools/pod-binary-codec-batch-evidence.test.mjs"
     "$ROOT_DIR/tests/tools/test-lifecycle-governance.test.mjs"

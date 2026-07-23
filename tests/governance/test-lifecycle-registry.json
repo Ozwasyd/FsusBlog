@@ -2058,6 +2058,17 @@
             ]
         },
         {
+            "file": "tests/tools/test-observation-ledger.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
             "file": "tests/tools/test-retention-audit.test.mjs",
             "owner": "manual-diagnostic:tests/tools/test-retention-audit.test.mjs",
             "executionCategory": "manual-diagnostic",

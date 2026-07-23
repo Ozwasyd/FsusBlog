@@ -29,6 +29,10 @@ local production 的 backend union 由 `tools/test/run-backend-production-shards
 
 同一 run 的物理 artifact 内容摘要由单一、source-bound 表生成，bundle member 与 logical tier 通过 artifact ID 引用复用；表最终副本和自身 content digest 一并进入 release evidence/checkpoint。缓存只用 inode/size/mtime/ctime 等判定是否需要重新读取，权威值始终是内容 SHA-256 或确定性目录树 fingerprint。详见 [`testing/issue-1070-production-artifact-digest-table.md`](testing/issue-1070-production-artifact-digest-table.md)。
 
+逐测试稳定性与耗时使用 `fsusblog.test-observation-artifact.v1` run-local projection。`tools/test-observations/cli.mjs adapt` 将 TRX、Vitest JSON、Node TAP 或 Playwright JSON report 映射到同一 schema；每条 observation 都绑定 canonical test ID、suite/framework/partition、outcome、duration、failure signature、source commit、worktree fingerprint、test/source closure digest、runner identity、run/attempt/evidence class 和原 report SHA-256。原 producer report 始终是权威 evidence，ledger 不复制完整 report，也不改变任何 correctness pass/fail 结论。聚合器会在可用时重新哈希 producer reference，并拒绝 record/artifact 间 source、closure、run、runner 或 producer binding 不一致。
+
+本地历史目录只接受按 artifact content digest 幂等追加的 normalized artifacts；`rebuild` 可在删除 `index.json` 后重建按 test ID 的 P50/P95、outcome count 与 signature count。空目录返回 `coldStart=true`，历史缺失不阻断当前 correctness。默认显式 compaction policy 为 180 天或最多 2,000 个 run artifact，取更严格边界；compaction 只删除本地 projection artifact 并使派生 index 失效，绝不删除 producer report。仓库不提交个人机器历史。完整字段、命令与 failure normalization 规则见 [`testing/evidence-projection-contract.md`](testing/evidence-projection-contract.md#per-test-observation-ledger)。
+
 production scheduler 的 reserved/granted 资源不能替代实际利用率。fresh 运行会生成绑定 run/source/checkpoint/bundle summary 的 canonical CPU、RSS、I/O、动态 grant 积分、等待分类及 collector 开销证据；失败运行也保留 partial evidence。指标定义、平台降级和采样误差见 [`testing/issue-1071-production-resource-utilization.md`](testing/issue-1071-production-resource-utilization.md)。
 
 Linux production 可把动态 grant 映射为 run-bound cgroup v2 与 Docker/OCI CPU、memory、pids 边界；bundle entry 在归组后才恢复执行，动态扩缩会立即更新控制文件。无 controller/delegation/rootless 权限时 `auto` 明确降级并写 evidence，`strict` fail closed，`off` 可完整回滚。策略、平台合同和清理语义见 [`testing/issue-1072-production-resource-enforcement.md`](testing/issue-1072-production-resource-enforcement.md)。

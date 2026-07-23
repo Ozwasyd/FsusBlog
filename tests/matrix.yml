@@ -1474,6 +1474,7 @@ tiers:
           - frontend-source-locking-convergence
           - backend-operations-readiness-behavior
           - pod-binary-codec-batch-allocation
+          - per-test-observation-ledger
       artifacts:
           [
               .tmp/gate-logs,
@@ -1584,6 +1585,16 @@ tiers:
           - tools/architecture/backend-physical-topology/csharp-source.mjs
           - tests/governance/backend-physical-topology.json
           - tests/tools/backend-physical-topology.test.mjs
+          - tools/test-observations/adapters.mjs
+          - tools/test-observations/source-identity.mjs
+          - tools/test-observations/validation.mjs
+          - tools/test-observations/ledger.mjs
+          - tools/test-observations/cli.mjs
+          - config/schemas/test-observation-artifact.schema.json
+          - tests/fixtures/test-observations
+          - tests/tools/test-observation-ledger.test.mjs
+          - docs/testing.md
+          - docs/testing/evidence-projection-contract.md
           - tools/test/lanes/static-governance.sh
           - docs/testing/issue-1174-csharp-entrypoint-ownership.md
           - .editorconfig

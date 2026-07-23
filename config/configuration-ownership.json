@@ -98,6 +98,12 @@
             ]
         },
         {
+            "id": "test-observation-schema",
+            "owner": "test-observation-ledger",
+            "canonicalPath": "config/schemas/test-observation-artifact.schema.json",
+            "pathType": "file"
+        },
+        {
             "id": "zk-verification-key-manifests",
             "owner": "backend-zk-security",
             "canonicalPath": "config/zk",
