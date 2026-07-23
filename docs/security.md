@@ -255,6 +255,14 @@ AntiCrawler 支持 `disabled | observe | enforce | strict`。`disabled` 只关�
 
 ## JWT 认证
 
+### 账号 subject 物理投影
+
+普通账号的稳定安全主体只来自 `sys_user.account_subject_hash`。新账号在创建事务中持久化最终 digest；缓存只接受 `account:subject-v1:*` 命名空间中包含有效物理投影的 snapshot，不能在读取时调用 `AccountSubjectHasher.Create`，也不能从 account id、public handle 或 Passkey handle 重新派生。
+
+JWT 签发、binary auth、credential step-up、blacklist/account-state cache 和 notification stream admission 都必须先取得有效物理投影。缺失或格式错误分别沿既有协议返回 `ACCOUNT_SUBJECT_REQUIRED`、`account_subject_invalid` 或对应 fail-closed 结果，并且必须在 proof 验证、blacklist lookup 或业务 mutation 前终止。修复数据投影后使旧 snapshot 失效并从 PostgreSQL 重载即可；历史 session 需要重新认证以取得携带物理 subject 的 token，不得恢复 identity reset 或 id-derived fallback。
+
+Expand/backfill、完成查询和 nullable rolling-schema 边界只由 [Account Subject Physical Projection Cutover](database-migration.md#account-subject-physical-projection-cutover) 定义；永久 startup/readiness 顺序只由 [生产启动保护](architecture.md#生产启动保护) 定义；操作验收由 [Anonymous Identity Smoke Flow](anonymous-identity-smoke-flow.md#physical-account-subject-projection) 定义。
+
 | 参数 | 值 |
 | ------ | ----- |
 | Access Token 有效期 | `Jwt:AccessTokenExpiresMinutes`（默认 15 分钟） |
@@ -473,6 +481,10 @@ FsusBlog 采用三级角色体系：
 - 前端主调用凭据是 HttpOnly Cookie session / AEDS auth frame；credentialed binary mutation 会在存在 `<meta name="fsus-csrf-token">` 或 `XSRF-TOKEN` cookie 时附带 `X-Fsus-Csrf-Token`，服务端仍保留 `UseAntiforgery()` 与 CSRF Origin guard。匿名强隐私请求显式 `credentials=omit`，不得携带该 token 或 Cookie。高风险写操作还会叠加 PoW、admin step-up proof、RBAC 与 no-store metadata，避免只依赖自动携带 Cookie。
 
 ## 作者工作台、订阅与 RUM 隐私
+
+站点订阅写入与退订 ownership proof 只使用 `Subscription:EmailHashPepper` 派生的 `hmac-v1` identity。运行时不接受 `sha256-legacy` lookup、OR fallback 或 `LegacySha256EmailHash`；finalize migration 会隔离 legacy rows 并断言遗留计数为零。发生 cutover 问题时暂停 subscription mutation 并在隔离恢复库诊断，不得重新启用可关联的无密钥 SHA-256 identity。
+
+认证 Cookie 的生产读取只接受当前 `__Host-*` 名称。Development 的 `AuthCookies:AllowInsecureTransportCookies` 仅控制本地非 HTTPS transport 下的当前 cookie 名称，不是旧 plain-cookie 名称回退。旧 cookie 应清除并重新认证；不得恢复 `AllowLegacyPlainCookieRead`。
 
 - `/api/binary/author/**` 全部要求 admin principal，并按路由声明 `AdminPermissions.*`：草稿、预览、修订、资产、导入导出和 AI 辅助要求 `article.write`，评论队列/审核要求 `comment.moderate`，匿名治理分别要求 `anonymous.comment.configure` / `anonymous.nullifier.block` / `anonymous.credential.revoke`，审计查询要求 `audit.read`，审核运行时、缓存和完整性运维要求 `system.config`。外部 `/api/author/**` JSON 入口和 internal bridge 兼容层均已移除。
 - 服务端草稿按 `ownerAdminPrincipalId + draftKey` 唯一保存，owner 来自 independent admin principal 的 `admin_id`，不复用普通匿名账号 id；浏览器 localStorage 只能保存 draftKey、保存时间、来源文章和 client revision 这类不可恢复正文的 metadata，不得保存标题、摘要、正文 Markdown 或未发布内容。跨设备/刷新恢复必须通过 admin cookie 读取 `/api/binary/author/drafts/{draftKey}`，不得落入公开 AOT、Service Worker shell cache 或搜索索引。

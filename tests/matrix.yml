@@ -1042,7 +1042,10 @@ tiers:
           - tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs
           - tests/backend/Unit/AccountSubjectHashProjectionTests.cs
           - tests/backend/legacy-identity-retirement-evidence.json
-          - docs/issue-1014-identity-retirement-handoff.md
+          - docs/security.md
+          - docs/database-migration.md
+          - docs/architecture.md
+          - docs/anonymous-identity-smoke-flow.md
           - tests/backend/Unit/DeploymentRuntimeStateTests.cs
           - tests/backend/Unit/NotificationStreamBoundaryTests.cs
           - tests/backend/Unit/OnlineSchemaMigrationPolicyTests.cs
@@ -1183,7 +1186,7 @@ tiers:
               tests/backend/Unit/ArticleMutationOutboxFailurePropagationTests.cs,
               tools/test/lanes/distributed-contract-fast.sh,
               tools/test/lanes/_suite-support.sh,
-              docs/issue-399-distributed-invalidation.md,
+              docs/architecture/distributed-cache-invalidation.md,
           ]
       runtimeMode: single
       nodeCount: 1
@@ -1210,7 +1213,7 @@ tiers:
           - tests/backend/Unit/DistributedContractFastTests.cs
           - tests/backend/Unit/DistributedInvalidationBusTests.cs
           - tests/backend/Unit/PublicAotBackfillLeaseTests.cs
-          - docs/issue-399-distributed-invalidation.md
+          - docs/architecture/distributed-cache-invalidation.md
           - tests/backend/Unit/ArticleMutationProjectionCheckpointTests.cs
           - tests/backend/Unit/ArticleMutationOutboxFailurePropagationTests.cs
       ciJob: fast-backend
@@ -1498,7 +1501,10 @@ tiers:
           - .tmp/release-evidence/backend-physical-topology.json
           - tests/backend/runtime-fallback-milestones.json
           - tests/backend/legacy-identity-retirement-evidence.json
-          - docs/issue-1014-identity-retirement-handoff.md
+          - docs/security.md
+          - docs/database-migration.md
+          - docs/architecture.md
+          - docs/anonymous-identity-smoke-flow.md
           - tests/tools/dead-code-audit-index.test.mjs
           - tools/governance/check-dead-code-audit-index.mjs
           - docs/planning/dead-code-audit-index.json
@@ -2300,7 +2306,10 @@ tiers:
           - .tmp/runtime/integration.json
           - tests/backend/runtime-fallback-evidence.json
           - tests/backend/legacy-identity-retirement-evidence.json
-          - docs/issue-1014-identity-retirement-handoff.md
+          - docs/security.md
+          - docs/database-migration.md
+          - docs/architecture.md
+          - docs/anonymous-identity-smoke-flow.md
           - tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs
           - tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs
           - tests/backend/Integration/UserSessionRevocationIntegrationTests.cs

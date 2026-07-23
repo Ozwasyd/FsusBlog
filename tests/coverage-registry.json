@@ -2777,7 +2777,10 @@
                 "tests/backend/Unit/JwtHelperTests.cs",
                 "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
                 "tests/backend/legacy-identity-retirement-evidence.json",
-                "docs/issue-1014-identity-retirement-handoff.md"
+                "docs/security.md",
+                "docs/database-migration.md",
+                "docs/architecture.md",
+                "docs/anonymous-identity-smoke-flow.md"
             ],
             "assertionType": "integration",
             "failClosedRule": "Reject a new account without a physical projection, mutable-handle rehashing, missing or malformed projection acceptance, proof consumption before subject validation, non-resumable backfill, startup past an incomplete projection, or restoration of the retired reset surface.",

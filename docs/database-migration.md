@@ -192,6 +192,8 @@ This migration does not write or serve a legacy `rights.aeds` artifact. Public r
 
 ## Account Subject Physical Projection Cutover
 
+本节是 account subject Expand、resumable backfill、完成查询与 rolling-schema nullable 边界的唯一迁移事实源。安全消费者与失败语义见 [账号 subject 物理投影](security.md#账号-subject-物理投影)，永久启动顺序见 [生产启动保护](architecture.md#生产启动保护)；迁移文档不重复维护请求期认证规则。
+
 The anonymous-account cutover preserves existing accounts and comments. `20260711-pre-account-subject-hash-expand` adds nullable `sys_user.account_subject_hash` so the old and new binaries can overlap during a rolling deployment. `20260711-post-account-subject-hash-backfill` then scans missing or malformed rows in `id` keyset batches of 256 and computes each digest with the same C# `AccountSubjectHasher` used by account creation. The migration intentionally does not duplicate .NET case-folding in PostgreSQL SQL, and it is non-transactional so an interrupted run resumes from rows that still need projection.
 
 Before activating the new binary:
@@ -213,6 +215,16 @@ Before activating the new binary:
 The column remains nullable only for rolling-schema compatibility. It is not optional to the new runtime: token issuance, account-state/blacklist caches, MFA step-up, binary auth and notification admission fail closed when the physical value is absent or malformed. The account snapshot cache namespace is `account:subject-v1:*`, so snapshots written before this projection are never accepted. The permanent startup gate reruns the count/format invariant even after migration history is complete, catching a stale writer that reintroduces null rows.
 
 Rollback does not require a destructive data action. Route traffic back to the previous binary while leaving the additive column in place, correct or backfill affected rows, then retry the candidate. Do not delete projected values or reintroduce account-id-derived runtime fallbacks.
+
+## Retired runtime fallback migrations
+
+以下 finalization 是不可逆 cutover 的当前迁移入口，而不是请求期兼容开关：
+
+- `20260709-post-site-subscription-hmac-finalize` 将 subscription identity 固定为 `hmac-v1`，隔离 `sha256-legacy` rows，并断言遗留计数为零；运行时安全语义由 [作者工作台、订阅与 RUM 隐私](security.md#作者工作台订阅与-rum-隐私) 拥有。
+- `20260418-post-content-cleanup` 完成 `article_body` / `ArticleBody.MarkdownContent` 读取模型。候选环境缺失该 history 时必须保持 out of traffic 并补齐 migration，不能恢复 `a.content` schema probe 或 `COALESCE` fallback。
+- `20260709-post-clear-legacy-public-artifacts` 通过 `ClearLegacyPublicArtifactsStep` 一次性清理 legacy ArticleDetail AEDS artifact。该步骤不补偿且不重新暴露 admin manual clear action；当前 artifact 缺失时使用 rights recompute 与受支持的 V3 rebuild。
+
+这些 migration 的生产 history/count 仍属于 release evidence；本地源码、测试通过或旧 issue 状态不能替代外部观察。
 
 The anonymous account schema keeps `sys_user` as its account container:
 

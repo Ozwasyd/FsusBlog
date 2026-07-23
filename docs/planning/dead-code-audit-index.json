@@ -631,7 +631,10 @@
                     "tests/backend/legacy-identity-retirement-evidence.json",
                     "docs/database-migration.md",
                     "docs/anonymous-identity-smoke-flow.md",
-                    "docs/issue-1014-identity-retirement-handoff.md"
+                    "docs/security.md",
+                    "docs/database-migration.md",
+                    "docs/architecture.md",
+                    "docs/anonymous-identity-smoke-flow.md"
                 ]
             },
             "stageGate": {

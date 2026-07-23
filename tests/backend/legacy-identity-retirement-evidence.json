@@ -1,8 +1,16 @@
 {
-    "schema": "fsusblog.identity-retirement-evidence.v1",
-    "issue": 1014,
-    "status": "implementation-and-central-wiring-complete-validation-pending",
-    "handoff": "docs/issue-1014-identity-retirement-handoff.md",
+    "schema": "fsusblog.identity-retirement-evidence.v2",
+    "relatedIssues": [
+        1014,
+        1430
+    ],
+    "status": "physical-projection-current-external-acceptance-deferred",
+    "canonicalDocuments": [
+        "docs/security.md",
+        "docs/database-migration.md",
+        "docs/architecture.md",
+        "docs/anonymous-identity-smoke-flow.md"
+    ],
     "productionFiles": [
         "src/backend/Entities/User.cs",
         "src/backend/Services/UserService.cs",
@@ -27,7 +35,6 @@
         "docs/api/contracts.md",
         "docs/security.md",
         "docs/architecture.md",
-        "docs/issue-1014-identity-retirement-handoff.md",
         "docs/dead-code-audit-tracking.md",
         "docs/planning/dead-code-audit-index.json"
     ],
@@ -74,19 +81,6 @@
             ]
         }
     ],
-    "retiredSurfaceInspection": {
-        "liveProductionDefinitionObserved": false,
-        "liveDependencyInjectionRegistrationObserved": false,
-        "liveLifecycleInvocationObserved": false,
-        "liveOperationsControlObserved": false,
-        "intentionalHistoricalResiduePaths": [
-            "docs/planning/dead-code-audit-index.json",
-            "tests/test-retention-replacements.json",
-            "tests/issue-1036-retention-replacements.json",
-            "tests/privacy-cutover-governance-handoff.json"
-        ],
-        "claimScope": "static path and symbol inspection only; not an executed residue checker"
-    },
     "knownTestGaps": [],
     "governanceStageGate": {
         "status": "aligned-blocked",
@@ -102,37 +96,21 @@
         ],
         "reason": "The prose tracker and machine index now use the same non-destructive, executable evidence contract. Every trigger remains unsatisfied until its real result paths exist."
     },
-    "externalAcceptance": [
+    "externalAcceptanceRequirements": [
         {
-            "criterion": "account-subject Expand Backfill and permanent invariant integration verification executes",
-            "status": "not-run"
+            "criterion": "account-subject Expand Backfill and permanent invariant integration verification executes"
         },
         {
-            "criterion": "production null blank or malformed account_subject_hash count is zero",
-            "status": "not-observed"
+            "criterion": "production null blank or malformed account_subject_hash count is zero"
         },
         {
-            "criterion": "retired identity-reset control is absent from deployed operations configuration",
-            "status": "not-observed"
+            "criterion": "retired identity-reset control is absent from deployed operations configuration"
         },
         {
-            "criterion": "repository residue report distinguishes historical audit records from live reset surface",
-            "status": "not-run"
+            "criterion": "repository residue report distinguishes historical audit records from live reset surface"
         },
         {
-            "criterion": "unified backend and Playwright verification completes",
-            "status": "not-run"
+            "criterion": "unified backend and Playwright verification completes"
         }
-    ],
-    "centralGovernanceFilesModified": [
-        "docs/dead-code-audit-tracking.md",
-        "docs/planning/dead-code-audit-index.json",
-        "tests/coverage-registry.json",
-        "tests/matrix.yml",
-        "tests/backend/Fixtures/backend-test-requirements.json"
-    ],
-    "verification": {
-        "commandsExecuted": [],
-        "result": "not-run-by-instruction"
-    }
+    ]
 }

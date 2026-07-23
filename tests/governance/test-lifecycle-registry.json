@@ -799,6 +799,18 @@
             ]
         },
         {
+            "file": "tests/tools/document-topic-retirement.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "migration"
+            ]
+        },
+        {
             "file": "tests/tools/dotnet-build-parallelism.test.mjs",
             "owner": "manual-diagnostic:tests/tools/dotnet-build-parallelism.test.mjs",
             "executionCategory": "manual-diagnostic",

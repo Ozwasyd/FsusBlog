@@ -1,0 +1,122 @@
+{
+    "schema": "fsusblog.document-topic-retirement.v1",
+    "relatedIssues": [
+        399,
+        1013,
+        1014,
+        1430
+    ],
+    "discardedSessionDocuments": [
+        "docs/releases/issue-1013-a3-1-upload-session-root-sweep.md",
+        "docs/releases/issue-1013-a3-2-subscription-hmac-cutover.md",
+        "docs/releases/issue-1013-a3-3-article-content-finalize.md",
+        "docs/releases/issue-1013-a3-4-plain-cookie-read.md",
+        "docs/releases/issue-1013-a3-7-aot-sidecar-hash.md",
+        "docs/releases/issue-1013-a3-8-artifact-clear-migration.md"
+    ],
+    "migrations": [
+        {
+            "source": "docs/issue-399-distributed-invalidation.md",
+            "disposition": "fully-absorbed",
+            "sections": [
+                {
+                    "id": "runtime-modes-and-transport",
+                    "target": "docs/architecture/distributed-cache-invalidation.md",
+                    "anchor": "runtime-modes-and-transport-scope"
+                },
+                {
+                    "id": "publish-and-apply-ordering",
+                    "target": "docs/architecture/distributed-cache-invalidation.md",
+                    "anchor": "publish-and-apply-ordering"
+                },
+                {
+                    "id": "replay-retry-and-loop-prevention",
+                    "target": "docs/architecture/distributed-cache-invalidation.md",
+                    "anchor": "replay-retry-and-loop-prevention"
+                },
+                {
+                    "id": "degraded-operation-and-recovery",
+                    "target": "docs/architecture/distributed-cache-invalidation.md",
+                    "anchor": "degraded-operation-and-recovery"
+                },
+                {
+                    "id": "verification-ownership",
+                    "target": "docs/architecture/distributed-cache-invalidation.md",
+                    "anchor": "verification-ownership"
+                }
+            ]
+        },
+        {
+            "source": "docs/issue-1014-identity-retirement-handoff.md",
+            "disposition": "current-rules-distributed-session-notes-discarded",
+            "sections": [
+                {
+                    "id": "identity-security-contract",
+                    "target": "docs/security.md",
+                    "anchor": "账号-subject-物理投影"
+                },
+                {
+                    "id": "expand-and-resumable-backfill",
+                    "target": "docs/database-migration.md",
+                    "anchor": "account-subject-physical-projection-cutover"
+                },
+                {
+                    "id": "startup-readiness-invariant",
+                    "target": "docs/architecture.md",
+                    "anchor": "生产启动保护"
+                },
+                {
+                    "id": "operator-acceptance",
+                    "target": "docs/anonymous-identity-smoke-flow.md",
+                    "anchor": "physical-account-subject-projection"
+                },
+                {
+                    "id": "implementation-session-and-unexecuted-validation",
+                    "target": null,
+                    "reason": "Transient implementation ownership and unexecuted-validation notes are neither runtime contracts nor durable migration evidence."
+                }
+            ]
+        },
+        {
+            "source": "docs/issue-1013-runtime-fallback-retirement-handoff.md",
+            "disposition": "current-rules-distributed-unexecuted-session-notes-discarded",
+            "sections": [
+                {
+                    "id": "a3-1-upload-session-cleanup",
+                    "target": "docs/operations.md",
+                    "anchor": "upload-session-expiration-cleanup"
+                },
+                {
+                    "id": "a3-2-subscription-hmac",
+                    "target": "docs/security.md",
+                    "anchor": "作者工作台订阅与-rum-隐私"
+                },
+                {
+                    "id": "a3-3-article-content-finalization",
+                    "target": "docs/database-migration.md",
+                    "anchor": "retired-runtime-fallback-migrations"
+                },
+                {
+                    "id": "a3-4-cookie-read",
+                    "target": "docs/security.md",
+                    "anchor": "作者工作台订阅与-rum-隐私"
+                },
+                {
+                    "id": "a3-7-public-aot-sidecar-hash",
+                    "target": "docs/architecture/public-aot-artifact-storage-boundary.md",
+                    "anchor": "public-aot-artifact-storage-boundary"
+                },
+                {
+                    "id": "a3-8-artifact-clear-migration",
+                    "target": "docs/database-migration.md",
+                    "anchor": "retired-runtime-fallback-migrations"
+                },
+                {
+                    "id": "shared-file-ownership-and-unexecuted-validation",
+                    "target": null,
+                    "reason": "Concurrent-workspace ownership, Git or GitHub restrictions, and commands not run in one implementation pass are transient session state."
+                }
+            ]
+        }
+    ]
+}

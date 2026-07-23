@@ -23,7 +23,10 @@
             "path": "docs/anonymous-identity-smoke-flow.md",
             "status": "current",
             "owner": "security",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1014,
+                1430
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -105,7 +108,10 @@
             "path": "docs/architecture.md",
             "status": "current",
             "owner": "backend",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1014,
+                1430
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -286,6 +292,17 @@
             "supersededBy": null
         },
         {
+            "path": "docs/architecture/distributed-cache-invalidation.md",
+            "status": "current",
+            "owner": "backend",
+            "relatedIssues": [
+                399,
+                1430
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
             "path": "docs/architecture/issue-1119-runtime-capability-slices.md",
             "status": "historical",
             "owner": "backend",
@@ -361,7 +378,10 @@
             "path": "docs/architecture/public-aot-artifact-storage-boundary.md",
             "status": "current",
             "owner": "backend",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1013,
+                1430
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -578,7 +598,11 @@
             "path": "docs/database-migration.md",
             "status": "current",
             "owner": "backend",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1013,
+                1014,
+                1430
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -998,26 +1022,6 @@
             "supersededBy": null
         },
         {
-            "path": "docs/issue-1013-runtime-fallback-retirement-handoff.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1013
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/issue-1014-identity-retirement-handoff.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                1014
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
             "path": "docs/issue-1024-release-identity-handoff.md",
             "status": "historical",
             "owner": "governance",
@@ -1199,16 +1203,6 @@
             "supersededBy": null
         },
         {
-            "path": "docs/issue-399-distributed-invalidation.md",
-            "status": "historical",
-            "owner": "governance",
-            "relatedIssues": [
-                399
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
             "path": "docs/known-limitations.md",
             "status": "current",
             "owner": "governance",
@@ -1300,7 +1294,10 @@
             "path": "docs/operations.md",
             "status": "current",
             "owner": "release",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1013,
+                1430
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -1428,7 +1425,10 @@
             "path": "docs/production.md",
             "status": "current",
             "owner": "release",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1013,
+                1430
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -1490,66 +1490,6 @@
             "status": "current",
             "owner": "governance",
             "relatedIssues": [],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/releases/issue-1013-a3-1-upload-session-root-sweep.md",
-            "status": "historical",
-            "owner": "release",
-            "relatedIssues": [
-                1013
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/releases/issue-1013-a3-2-subscription-hmac-cutover.md",
-            "status": "historical",
-            "owner": "release",
-            "relatedIssues": [
-                1013
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/releases/issue-1013-a3-3-article-content-finalize.md",
-            "status": "historical",
-            "owner": "release",
-            "relatedIssues": [
-                1013
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/releases/issue-1013-a3-4-plain-cookie-read.md",
-            "status": "historical",
-            "owner": "release",
-            "relatedIssues": [
-                1013
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/releases/issue-1013-a3-7-aot-sidecar-hash.md",
-            "status": "historical",
-            "owner": "release",
-            "relatedIssues": [
-                1013
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
-            "path": "docs/releases/issue-1013-a3-8-artifact-clear-migration.md",
-            "status": "historical",
-            "owner": "release",
-            "relatedIssues": [
-                1013
-            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -1829,7 +1769,11 @@
             "path": "docs/security.md",
             "status": "current",
             "owner": "security",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1013,
+                1014,
+                1430
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -3011,16 +2955,6 @@
             "removalIssue": 1406
         },
         {
-            "path": "docs/issue-1013-runtime-fallback-retirement-handoff.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/issue-1014-identity-retirement-handoff.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
             "path": "docs/issue-1024-release-identity-handoff.md",
             "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
             "removalIssue": 1406
@@ -3111,42 +3045,7 @@
             "removalIssue": 1406
         },
         {
-            "path": "docs/issue-399-distributed-invalidation.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
             "path": "docs/recovery-passkey-completion.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/releases/issue-1013-a3-1-upload-session-root-sweep.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/releases/issue-1013-a3-2-subscription-hmac-cutover.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/releases/issue-1013-a3-3-article-content-finalize.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/releases/issue-1013-a3-4-plain-cookie-read.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/releases/issue-1013-a3-7-aot-sidecar-hash.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/releases/issue-1013-a3-8-artifact-clear-migration.md",
             "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
             "removalIssue": 1406
         },
@@ -3537,6 +3436,10 @@
         {
             "id": "frontend-admin-information-architecture",
             "path": "docs/frontend/admin-information-architecture.md"
+        },
+        {
+            "id": "distributed-cache-invalidation",
+            "path": "docs/architecture/distributed-cache-invalidation.md"
         }
     ],
     "retiredReferences": [
@@ -3635,6 +3538,21 @@
         {
             "from": "docs/issue-1312-account-route-motion-handoff.md",
             "to": "docs/frontend/account-motion.md"
+        },
+        {
+            "from": "docs/issue-1013-runtime-fallback-retirement-handoff.md",
+            "to": "docs/production.md",
+            "issue": 1430
+        },
+        {
+            "from": "docs/issue-1014-identity-retirement-handoff.md",
+            "to": "docs/security.md",
+            "issue": 1430
+        },
+        {
+            "from": "docs/issue-399-distributed-invalidation.md",
+            "to": "docs/architecture/distributed-cache-invalidation.md",
+            "issue": 1430
         }
     ]
 }

@@ -41,6 +41,7 @@
 - [Composition root boundary](architecture/composition-root-boundary.md)
 - [ADR: anonymous credentials use RFC 9474 blind issuance](architecture/decisions/ADR-Anonymous-Credential-Blind-Issuance.md)
 - [DI lifetime validation](architecture/dependency-injection-lifetime-validation.md)
+- [Distributed cache invalidation](architecture/distributed-cache-invalidation.md)
 - [MessageCenter 内部职责边界](architecture/message-center-responsibilities.md)
 - [单体分布式架构边界](architecture/monolithic-distributed-boundary.md)
 - [Notification stream handshake use-case boundaries](architecture/notification-stream-handshake-use-case-boundaries.md)
@@ -244,10 +245,10 @@
 - `architecture`: 4 documents
 - `history`: 1 document
 - `integrity`: 1 document
-- `releases`: 7 documents
+- `releases`: 1 document
 - `reports`: 15 documents
 - `reports/open-source-readiness`: 1 asset
-- `root migration records`: 21 documents
+- `root migration records`: 18 documents
 - `security`: 1 document
 - `testing`: 65 documents
 

@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v2",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:332bf24c3be03037591ff126c25d56bd0e54e3b1a786bcd166f9aac9b9adebdb",
+    "policyDigest": "sha256:b3c7bf6fe832790712cceb166ec80e64fddcb35e47adb9cb26e928d26e3cd8ce",
     "documents": [
         {
             "path": "docs/active-release-fenced-commits.md",
@@ -39,7 +39,10 @@
             "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
             "supersedes": [],
             "supersededBy": null,
-            "relatedIssues": [],
+            "relatedIssues": [
+                1014,
+                1430
+            ],
             "producer": null
         },
         {
@@ -171,7 +174,10 @@
             "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
             "supersedes": [],
             "supersededBy": null,
-            "relatedIssues": [],
+            "relatedIssues": [
+                1014,
+                1430
+            ],
             "producer": null
         },
         {
@@ -461,6 +467,22 @@
             "producer": null
         },
         {
+            "path": "docs/architecture/distributed-cache-invalidation.md",
+            "title": "Distributed cache invalidation",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "backend",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                399,
+                1430
+            ],
+            "producer": null
+        },
+        {
             "path": "docs/architecture/issue-1119-runtime-capability-slices.md",
             "title": "Runtime capability slices and source-file budget",
             "kind": "markdown",
@@ -582,7 +604,10 @@
             "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
             "supersedes": [],
             "supersededBy": null,
-            "relatedIssues": [],
+            "relatedIssues": [
+                1013,
+                1430
+            ],
             "producer": null
         },
         {
@@ -933,7 +958,11 @@
             "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
             "supersedes": [],
             "supersededBy": null,
-            "relatedIssues": [],
+            "relatedIssues": [
+                1013,
+                1014,
+                1430
+            ],
             "producer": null
         },
         {
@@ -1582,36 +1611,6 @@
             "producer": null
         },
         {
-            "path": "docs/issue-1013-runtime-fallback-retirement-handoff.md",
-            "title": "Issue #1013 runtime fallback retirement handoff",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1013
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/issue-1014-identity-retirement-handoff.md",
-            "title": "Issue #1014 identity retirement handoff",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1014
-            ],
-            "producer": null
-        },
-        {
             "path": "docs/issue-1024-release-identity-handoff.md",
             "title": "Issue #1024 immutable release identity handoff",
             "kind": "markdown",
@@ -1883,21 +1882,6 @@
             "producer": null
         },
         {
-            "path": "docs/issue-399-distributed-invalidation.md",
-            "title": "Issue #399 节点间缓存失效总线",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "governance",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                399
-            ],
-            "producer": null
-        },
-        {
             "path": "docs/known-limitations.md",
             "title": "Known Limitations",
             "kind": "markdown",
@@ -2050,7 +2034,10 @@
             "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
             "supersedes": [],
             "supersededBy": null,
-            "relatedIssues": [],
+            "relatedIssues": [
+                1013,
+                1430
+            ],
             "producer": null
         },
         {
@@ -2258,7 +2245,10 @@
             "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
             "supersedes": [],
             "supersededBy": null,
-            "relatedIssues": [],
+            "relatedIssues": [
+                1013,
+                1430
+            ],
             "producer": null
         },
         {
@@ -2355,96 +2345,6 @@
             "supersedes": [],
             "supersededBy": null,
             "relatedIssues": [],
-            "producer": null
-        },
-        {
-            "path": "docs/releases/issue-1013-a3-1-upload-session-root-sweep.md",
-            "title": "A3-1 Upload session root-sweep retirement",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "release",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1013
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/releases/issue-1013-a3-2-subscription-hmac-cutover.md",
-            "title": "A3-2 Site-subscription HMAC cutover",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "release",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1013
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/releases/issue-1013-a3-3-article-content-finalize.md",
-            "title": "A3-3 Article content-column fallback retirement",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "release",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1013
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/releases/issue-1013-a3-4-plain-cookie-read.md",
-            "title": "A3-4 Legacy plain-cookie read retirement",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "release",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1013
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/releases/issue-1013-a3-7-aot-sidecar-hash.md",
-            "title": "A3-7 PublicAOT legacy sidecar-hash retirement",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "release",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1013
-            ],
-            "producer": null
-        },
-        {
-            "path": "docs/releases/issue-1013-a3-8-artifact-clear-migration.md",
-            "title": "A3-8 Legacy public-artifact clear migration",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "release",
-            "sourceOfTruth": false,
-            "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1013
-            ],
             "producer": null
         },
         {
@@ -2899,7 +2799,11 @@
             "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
             "supersedes": [],
             "supersededBy": null,
-            "relatedIssues": [],
+            "relatedIssues": [
+                1013,
+                1014,
+                1430
+            ],
             "producer": null
         },
         {

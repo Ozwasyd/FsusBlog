@@ -317,6 +317,8 @@ Compose 把 `${FSUSBLOG_RELEASE_ASSET_STORE}/releases` 只读挂载为 `/app/rel
 
 ## 缓存分层
 
+跨节点失效的模式选择、Redis transport、publish/apply 顺序、replay identity、重试、无回环与 degraded 语义只由 [Distributed cache invalidation](architecture/distributed-cache-invalidation.md) 定义。本节只描述各缓存层自身的存储和局部失效边界，不复制分布式总线协议。
+
 | 层级 | 类型 | 用途 | 失效策略 |
 | ------ | ------ | ------ | ---------- |
 | L0 — Hot read snapshot | `PublicHotReadSnapshot` 不可变进程内快照 | 公开 article/category/tag `.aeds` 与公开 HTML 高频命中 | 文章、浏览量、分类标签、定时发布与 AOT 变更只入队刷新；后台 projector debounce/coalesce 后重建并原子发布 |
@@ -667,6 +669,8 @@ Schema migration 不再使用 runtime service partial。`SchemaMigrationRegistry
 ## 生产启动保护
 
 服务器通过 HostedService 在启动后执行以下生产校验，失败时进入可观测降级状态而不是直接终止进程：
+
+账号 subject 物理投影的永久 invariant 在 schema migration 完成后、AOT cache、search 与普通 cache 初始化前执行。null、空白或非 64 位小写十六进制值会让 candidate 保持 not-ready；不得从 account id、public handle 或 Passkey handle 在请求期重建 subject。修复或继续 backfill 后重新启动 candidate 即可，健康节点无需清空数据或恢复已退役 reset surface。迁移顺序与查询由 [Account Subject Physical Projection Cutover](database-migration.md#account-subject-physical-projection-cutover) 定义，安全消费者由 [账号 subject 物理投影](security.md#账号-subject-物理投影) 定义。
 
 - JWT 密钥不得为默认占位值
 - PoW、sealed perception、Recovery Key、匿名凭证、VisitLog 与 moderation 的密钥必须使用独立高熵值，且不得等于 `Jwt:SecretKey`；VisitLog root 由 KMS/secret manager 注入并携带正整数 epoch
