@@ -9,8 +9,7 @@ StaticBackgroundServices() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check
 StaticSuiteConvergence() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-suite-convergence.mjs"; }
 StaticBackendPhysicalTopology() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/architecture/check-backend-physical-topology.mjs" --out "$ROOT_DIR/.tmp/release-evidence/backend-physical-topology.json"; }
 StaticBrowserTestMigration() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-browser-test-migration.mjs"; }
-StaticTestLifecycle() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-lifecycle.mjs"; }
-StaticNativeTestGovernance() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/native-test-governance.mjs"; }
+StaticTestLifecycle() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-lifecycle.mjs"; Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/native-test-governance.mjs"; }
 StaticArticleCoreTestApi() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-article-core-test-api.mjs"; }
 StaticBackendGovernance() { RunTier "static-governance" RunBackendTestGovernanceOnly; }
 StaticGateIntegrity() { Run "$ROOT_DIR/tools/check-gate-integrity.sh" --self-test; }
@@ -128,8 +127,7 @@ STATIC_NODE_CONTRACT_FILES=(
     "$ROOT_DIR/tests/tools/rights-v3-projection.test.mjs"
     "$ROOT_DIR/tests/tools/repository-governance-authority.test.mjs"
     "$ROOT_DIR/tests/tools/privacy-zk-prebuild-projection.test.mjs"
-    "$ROOT_DIR/tests/tools/article-core-test-api-governance.test.mjs"
-    "$ROOT_DIR/tests/tools/native-test-governance.test.mjs"
+    "$ROOT_DIR/tests/tools/article-core-test-api-governance.test.mjs" "$ROOT_DIR/tests/tools/native-test-governance.test.mjs"
 )
 StaticNodeContracts() {
     FSUSBLOG_STATIC_CONTRACT_FILES="$(printf '%s\n' "${STATIC_NODE_CONTRACT_FILES[@]}")" \
@@ -217,7 +215,6 @@ RunTestAssetGovernancePhase() {
         suite-convergence StaticSuiteConvergence \
         browser-test-migration StaticBrowserTestMigration \
         test-lifecycle StaticTestLifecycle \
-        native-test-lifecycle StaticNativeTestGovernance \
         canonical-node-behavior StaticTestAssetBehavior \
         article-core-test-api StaticArticleCoreTestApi \
         backend-governance StaticBackendGovernance \

@@ -2,17 +2,20 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
-import { createHash } from 'node:crypto'
-import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
 import { loadNativeGovernance, validateNativeReceipt } from './native-test-governance.mjs'
+import { fileSetDigest, nativeSha256 } from './native-test-digest.mjs'
+import { listNativeFiles } from './native-test-files.mjs'
+import {
+  commandPath,
+  commandVersion,
+  runNativeCommand,
+  sourceCommit,
+  writeNativeReceipt
+} from './native-test-runtime-support.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-
-function sha256(value) {
-  return `sha256:${createHash('sha256').update(value).digest('hex')}`
-}
 
 function parsePositiveInteger(value, label) {
   const parsed = Number(value)
@@ -39,53 +42,6 @@ function parseArgs(argv) {
   return options
 }
 
-function commandPath(command) {
-  const result = spawnSync('which', [command], { encoding: 'utf8' })
-  return result.status === 0 ? result.stdout.trim() : null
-}
-
-function commandVersion(command, args = ['--version']) {
-  const result = spawnSync(command, args, { encoding: 'utf8' })
-  return result.status === 0 ? String(result.stdout || result.stderr).trim() : null
-}
-
-function sourceCommit() {
-  const result = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' })
-  return result.status === 0 ? result.stdout.trim() : '0'.repeat(40)
-}
-
-function fileSetDigest(paths) {
-  const rows = paths.map((relative) => {
-    const absolute = path.join(root, relative)
-    return `${relative}\0${sha256(fs.readFileSync(absolute))}`
-  })
-  return sha256(rows.sort().join('\n'))
-}
-
-function walk(relativeDirectory) {
-  const absolute = path.join(root, relativeDirectory)
-  if (!fs.existsSync(absolute)) return []
-  return fs.readdirSync(absolute, { withFileTypes: true }).flatMap((entry) => {
-    const relative = path.posix.join(relativeDirectory, entry.name)
-    return entry.isDirectory() ? walk(relative) : [relative]
-  }).sort()
-}
-
-function run(command, args, options = {}) {
-  const result = spawnSync(command, args, {
-    cwd: options.cwd ?? root,
-    encoding: 'utf8',
-    stdio: options.capture === true ? 'pipe' : 'inherit',
-    env: options.env ?? process.env
-  })
-  return result.status ?? 1
-}
-
-function writeReceipt(out, receipt) {
-  fs.mkdirSync(path.dirname(out), { recursive: true })
-  fs.writeFileSync(out, `${JSON.stringify(receipt, null, 2)}\n`)
-}
-
 function main() {
   const options = parseArgs(process.argv.slice(2))
   const { catalog } = loadNativeGovernance(root)
@@ -93,7 +49,7 @@ function main() {
   const target = catalog.targets.find((entry) => entry.profile === options.profile)
   if (!profile || !target) throw new Error(`unknown native profile: ${options.profile}`)
   const corpus = target.corpusId ? catalog.corpora.find((entry) => entry.id === target.corpusId) : null
-  const corpusFiles = corpus ? walk(corpus.path) : []
+  const corpusFiles = corpus ? listNativeFiles(root, corpus.path) : []
   const sourceInputs = [target.source, ...catalog.supportAssets.map((entry) => entry.path), ...corpusFiles]
   const compilerName = options.profile === 'fuzz-sanitizer'
     ? (process.env.FSUSBLOG_NATIVE_FUZZ_CXX ?? 'clang++')
@@ -116,8 +72,8 @@ function main() {
     testId: target.testId,
     target: target.cmakeTarget,
     source: {
-      commit: sourceCommit(),
-      inputDigest: fileSetDigest(sourceInputs)
+      commit: sourceCommit(root),
+      inputDigest: fileSetDigest(root, sourceInputs)
     },
     toolchain: {
       compilerPath: compilerPath ?? compilerName,
@@ -131,12 +87,12 @@ function main() {
     corpus: {
       id: corpus?.id ?? 'empty-smoke-corpus',
       files: corpusFiles,
-      identity: fileSetDigest(corpusFiles)
+      identity: fileSetDigest(root, corpusFiles)
     },
     crashArtifacts: {
       path: crashDirectory,
       count: 0,
-      digest: sha256('')
+      digest: nativeSha256('')
     },
     resources: {
       runs: options.profile === 'fuzz-sanitizer' ? options.runs : null,
@@ -152,7 +108,7 @@ function main() {
   }
 
   if (missing.length > 0) {
-    writeReceipt(receiptPath, receipt)
+    writeNativeReceipt(receiptPath, receipt)
     console.error(receipt.preflight.missingReason)
     process.exitCode = 2
     return
@@ -175,13 +131,13 @@ function main() {
     `-DFSUSBLOG_ENABLE_FUZZING=${options.profile === 'fuzz-sanitizer' ? 'ON' : 'OFF'}`,
     `-DFSUSBLOG_ENABLE_SANITIZERS=${options.profile === 'fuzz-sanitizer' ? 'ON' : 'OFF'}`
   ]
-  let status = run(cmakePath, configureArgs)
-  if (status === 0) status = run(cmakePath, ['--build', buildDirectory, '--target', target.cmakeTarget, '--parallel', String(options.jobs)])
+  let status = runNativeCommand(root, cmakePath, configureArgs)
+  if (status === 0) status = runNativeCommand(root, cmakePath, ['--build', buildDirectory, '--target', target.cmakeTarget, '--parallel', String(options.jobs)])
   if (status === 0 && options.profile === 'smoke') {
-    status = run(ctestPath, ['--test-dir', buildDirectory, '--output-on-failure', '-R', `^${target.ctestName}$`])
+    status = runNativeCommand(root, ctestPath, ['--test-dir', buildDirectory, '--output-on-failure', '-R', `^${target.ctestName}$`])
   } else if (status === 0) {
     const executable = path.join(buildDirectory, 'tests/native', target.cmakeTarget)
-    status = run(executable, [
+    status = runNativeCommand(root, executable, [
       `-runs=${options.runs}`,
       `-jobs=${options.jobs}`,
       `-artifact_prefix=${path.join(root, crashDirectory)}/`,
@@ -189,11 +145,11 @@ function main() {
     ])
   }
 
-  const crashes = walk(crashDirectory)
+  const crashes = listNativeFiles(root, crashDirectory)
   receipt.crashArtifacts.count = crashes.length
-  receipt.crashArtifacts.digest = fileSetDigest(crashes)
+  receipt.crashArtifacts.digest = fileSetDigest(root, crashes)
   receipt.outcome = status === 0 ? 'passed' : 'failed'
-  writeReceipt(receiptPath, receipt)
+  writeNativeReceipt(receiptPath, receipt)
   const receiptErrors = validateNativeReceipt(receipt, profile, target)
   if (receiptErrors.length > 0) throw new Error(`native receipt is invalid:\n${receiptErrors.join('\n')}`)
   if (status !== 0) process.exitCode = status
