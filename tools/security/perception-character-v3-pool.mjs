@@ -129,7 +129,8 @@ function makeEntry(generationId, contractDigest, representation, key, offset)
             offset,
             length: record.length,
             nonceBase64: nonce.toString('base64'),
-            ciphertextSha256: digest(record)
+            ciphertextSha256: digest(record),
+            artifactBytes: artifact.length
         }
     };
 }
@@ -200,6 +201,7 @@ function validate(options, key, ownedGenerationRoot)
     {
         if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(entry.entryId) ||
             entry.offset !== expectedOffset || !Number.isSafeInteger(entry.length) || entry.length <= 16 ||
+            !Number.isSafeInteger(entry.artifactBytes) || entry.artifactBytes <= 0 ||
             Buffer.from(entry.nonceBase64 ?? '', 'base64').length !== 12)
             errors.push(`invalid compact index entry: ${entry.entryId}`);
         if (ids.has(entry.entryId)) errors.push(`duplicate entry id: ${entry.entryId}`);
@@ -230,7 +232,8 @@ function validate(options, key, ownedGenerationRoot)
             if (plaintext.schema !== entrySchema || plaintext.entryId !== entry.entryId ||
                 plaintext.generationId !== manifest.generationId || plaintext.contractDigest !== manifest.contractDigest ||
                 plaintext.representation !== entry.representation || plaintext.mediaType !== entry.mediaType ||
-                digest(artifact) !== plaintext.artifactHash || plaintext.answer.length !== contract.answer.length ||
+                artifact.length !== entry.artifactBytes || digest(artifact) !== plaintext.artifactHash ||
+                plaintext.answer.length !== contract.answer.length ||
                 [...plaintext.answer].some((value) => !contract.answer.alphabet.includes(String.fromCharCode(value))) || artifact.length > maximum)
                 throw new Error('decrypted entry contract mismatch');
             if (entry.representation === 'visual') validateVisualArtifact(artifact);

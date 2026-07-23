@@ -452,30 +452,3 @@ public sealed class RedisPerceptionCharacterV3DeviceAuthority(IConnectionMultipl
     private RedisKey DeviceKey(string id) => keyScope.PrefixKey("security:perception-v3-device:" + id);
     private RedisKey IpKey(string ipHash) => keyScope.PrefixKey("security:perception-v3-device-ip:" + ipHash);
 }
-
-public interface IPerceptionCharacterV3ResourceGate
-{
-    bool TryAcquireIssue(string ip, string device, string subject, string action, string identity, long nowUnixMs, out string dimension);
-}
-
-public sealed class PerceptionCharacterV3ResourceGate : IPerceptionCharacterV3ResourceGate
-{
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, Window> _windows = new(StringComparer.Ordinal);
-    public bool TryAcquireIssue(string ip, string device, string subject, string action, string identity, long nowUnixMs, out string dimension)
-    {
-        foreach ((string name, string value, int max) in new[] { ("ip", ip, 12), ("device", device, 10), ("subject", subject, 8), ("action", action, 30), ("challenge", identity, 2) })
-            if (!Acquire(name + ":" + value, max, nowUnixMs))
-            {
-                dimension = name;
-                return false;
-            }
-        dimension = string.Empty;
-        return true;
-    }
-    private bool Acquire(string key, int max, long now)
-    {
-        Window window = _windows.AddOrUpdate(key, _ => new(now, 1), (_, old) => now - old.Start >= 60_000 ? new(now, 1) : old with { Count = old.Count + 1 });
-        return window.Count <= max;
-    }
-    private sealed record Window(long Start, int Count);
-}

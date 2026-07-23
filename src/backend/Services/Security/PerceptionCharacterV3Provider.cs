@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Net;
 
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Shared.Contracts.Security;
@@ -23,7 +24,7 @@ public sealed class PerceptionCharacterV3Provider(
     IPerceptionCharacterV3KeyRing keys,
     IPerceptionCharacterV3ArtifactPool artifactPool,
     IPerceptionCharacterV3StateStore stateStore,
-    IPerceptionCharacterV3ResourceGate resourceGate,
+    IPerceptionCharacterV3ResourcePlanner resourcePlanner,
     IPerceptionCharacterV3DeviceAuthority deviceAuthority,
     IPerceptionCharacterV3NonceSource nonceSource,
     IPerceptionCharacterV3AuditSink audit,
@@ -49,12 +50,43 @@ public sealed class PerceptionCharacterV3Provider(
             return SecurityChallengeProviderIssueResult.Failed(device.Reason.EndsWith("unavailable", StringComparison.Ordinal) ? "unavailable" : "rejected");
         }
         string trustedDeviceMaterial = device.Binding;
-        string activeIdentity = ActiveIdentity(request.SubjectHash, trustedDeviceMaterial, request.ClientIpHash, request.Action, request.RouteKey);
-        if (!resourceGate.TryAcquireIssue(request.ClientIpHash, trustedDeviceMaterial, request.SubjectHash, request.Action, activeIdentity, timeProvider.GetUtcNow().ToUnixTimeMilliseconds(), out string limit))
+        PerceptionCharacterV3Representation representation = string.Equals(request.Representation, "audio", StringComparison.Ordinal)
+            ? PerceptionCharacterV3Representation.Audio
+            : PerceptionCharacterV3Representation.Visual;
+        long nowUnixMs = timeProvider.GetUtcNow().ToUnixTimeMilliseconds();
+        PerceptionCharacterV3PoolInventory inventory;
+        try
         {
-            await audit.WriteAsync("issue", string.Empty, request.Action, "unavailable", "rate_limit_" + limit, cancellationToken);
-            return SecurityChallengeProviderIssueResult.Failed("unavailable");
+            inventory = await artifactPool.GetInventoryAsync(cancellationToken).ConfigureAwait(false);
         }
+        catch (PerceptionCharacterV3StoreUnavailableException)
+        {
+            inventory = new(artifactPool.ActiveGenerationId, 0, 0, 0, 0, 0, false, false, false);
+        }
+        bool authenticated = request.Context.User.Identity?.IsAuthenticated == true;
+        bool passkeyAssured = request.Context.User.Claims.Any(claim =>
+            (claim.Type == "amr" || claim.Type == "mfa_method" || claim.Type == "assurance") &&
+            (claim.Value.Contains("passkey", StringComparison.OrdinalIgnoreCase) ||
+             claim.Value.Contains("webauthn", StringComparison.OrdinalIgnoreCase)));
+        var planInput = new PerceptionCharacterV3ResourcePlanInput(
+            request.Action,
+            representation,
+            inventory,
+            request.EscalationLevel,
+            request.EffectiveRiskScore,
+            authenticated,
+            passkeyAssured,
+            inventory.RedisAvailable);
+        PerceptionCharacterV3ResourceDecision plan = resourcePlanner.Plan(planInput);
+        FsusObservability.RecordPerceptionCharacterV3Inventory(
+            inventory.VisualReady,
+            inventory.AudioReady,
+            inventory.VisualLeased,
+            inventory.AudioLeased,
+            inventory.Revoked ? "revoked" : inventory.Corrupted ? "corrupted" : inventory.RedisAvailable ? "active" : "unavailable",
+            plan.Watermark.ToString().ToLowerInvariant());
+        if (plan.Disposition != PerceptionCharacterV3ResourceDisposition.AllocateV3)
+            return await DeniedByPlanner(request, plan, cancellationToken).ConfigureAwait(false);
         if (!keys.TryGetAnswerKey(keys.CurrentAnswerVersion, out byte[] answerKey) || !keys.TryGetTokenKey(keys.CurrentTokenVersion, out byte[] tokenKey))
         {
             await audit.WriteAsync("issue", string.Empty, request.Action, "unavailable", "key_ring_unavailable", cancellationToken);
@@ -101,28 +133,48 @@ public sealed class PerceptionCharacterV3Provider(
                 TokenHash = replacementTokenHash
             };
         }
-        PerceptionCharacterV3Representation representation = string.Equals(request.Representation, "audio", StringComparison.Ordinal)
-            ? PerceptionCharacterV3Representation.Audio
-            : PerceptionCharacterV3Representation.Visual;
-        PerceptionCharacterV3ArtifactLease? artifactLease;
+        PerceptionCharacterV3ArtifactLease artifactLease;
         try
         {
-            artifactLease = await artifactPool.LeaseAsync(representation, cancellationToken);
+            PerceptionCharacterV3ResourcePlannerOptions options = resourcePlanner.CurrentOptions();
+            var budget = new PerceptionCharacterV3LeaseBudget(
+                string.IsNullOrWhiteSpace(request.ChallengeId) ? request.EnvelopeId : request.ChallengeId,
+                plan.ActionClass.ToString().ToLowerInvariant(),
+                DeriveIpPrefixHash(request.Context.Connection.RemoteIpAddress, request.ClientIpHash),
+                deviceAuthorityHash,
+                request.SubjectHash,
+                nowUnixMs,
+                options.LeasePerMinute,
+                options.LeaseRollingHour,
+                options.EgressBytesPerMinute,
+                options.EgressBytesRollingHour,
+                options.IpPrefixPerMinute,
+                options.DevicePerMinute,
+                options.SubjectPerMinute,
+                options.ActionPerMinute);
+            PerceptionCharacterV3PoolLeaseResult result = await artifactPool
+                .LeaseBudgetedAsync(representation, budget, cancellationToken)
+                .ConfigureAwait(false);
+            if (result.Outcome != PerceptionCharacterV3PoolLeaseOutcome.Leased || result.Lease is null)
+            {
+                PerceptionCharacterV3ResourceDecision denied = resourcePlanner.ResolveLeaseFailure(plan, result.Outcome);
+                return await DeniedByPlanner(request, denied, cancellationToken).ConfigureAwait(false);
+            }
+            artifactLease = result.Lease;
         }
         catch (PerceptionCharacterV3StoreUnavailableException)
         {
-            await audit.WriteAsync("issue", string.Empty, request.Action, "unavailable", "pool_lease_ambiguous", CancellationToken.None);
-            return SecurityChallengeProviderIssueResult.Failed("unavailable");
+            return await DeniedByPlanner(
+                request,
+                resourcePlanner.ResolveLeaseFailure(plan, PerceptionCharacterV3PoolLeaseOutcome.Unavailable),
+                CancellationToken.None).ConfigureAwait(false);
         }
         catch (InvalidOperationException)
         {
-            await audit.WriteAsync("issue", string.Empty, request.Action, "unavailable", "pool_generation_invalid", CancellationToken.None);
-            return SecurityChallengeProviderIssueResult.Failed("unavailable");
-        }
-        if (artifactLease is null)
-        {
-            await audit.WriteAsync("issue", string.Empty, request.Action, "unavailable", "pool_exhausted", cancellationToken);
-            return SecurityChallengeProviderIssueResult.Failed("unavailable");
+            return await DeniedByPlanner(
+                request,
+                resourcePlanner.ResolveLeaseFailure(plan, PerceptionCharacterV3PoolLeaseOutcome.Corrupted),
+                CancellationToken.None).ConfigureAwait(false);
         }
         await using PerceptionCharacterV3ArtifactLease lease = artifactLease;
         string challengeId = string.IsNullOrWhiteSpace(request.ChallengeId)
@@ -207,6 +259,12 @@ public sealed class PerceptionCharacterV3Provider(
         }
         await audit.WriteAsync("issue", challengeId, request.Action, "issued", "ok", cancellationToken);
         FsusObservability.RecordSecurityChallengeIssued(Kind, request.Action, request.PolicyVersion);
+        FsusObservability.RecordPerceptionCharacterV3Allocation(
+            "allocated",
+            plan.Watermark.ToString().ToLowerInvariant(),
+            plan.ActionClass.ToString().ToLowerInvariant(),
+            representationName,
+            media.LongLength);
         return SecurityChallengeProviderIssueResult.Success(assignment) with
         {
             PerceptionCharacterV3 = payload
@@ -283,8 +341,46 @@ public sealed class PerceptionCharacterV3Provider(
         await audit.WriteAsync("verify", request.ChallengeId, request.Action, publicReason, internalReason, ct);
         return SecurityChallengeProviderVerifyResult.Failed(publicReason);
     }
-    private static string ActiveIdentity(string subjectHash, string trustedDeviceMaterial, string clientIpHash, string action, string routeKey)
-        => subjectHash + ":" + trustedDeviceMaterial + ":" + clientIpHash + ":" + action + ":" + routeKey;
+    private async Task<SecurityChallengeProviderIssueResult> DeniedByPlanner(
+        SecurityChallengeProviderIssueRequest request,
+        PerceptionCharacterV3ResourceDecision decision,
+        CancellationToken cancellationToken)
+    {
+        string disposition = decision.Disposition.ToString().ToLowerInvariant();
+        await audit.WriteAsync("issue", string.Empty, request.Action, disposition, decision.Reason, cancellationToken);
+        FsusObservability.RecordPerceptionCharacterV3Allocation(
+            disposition,
+            decision.Watermark.ToString().ToLowerInvariant(),
+            decision.ActionClass.ToString().ToLowerInvariant(),
+            string.Equals(request.Representation, "audio", StringComparison.Ordinal) ? "audio" : "visual",
+            0);
+        return SecurityChallengeProviderIssueResult.Failed(
+            decision.Disposition is PerceptionCharacterV3ResourceDisposition.Block
+                ? "rejected"
+                : decision.Disposition is PerceptionCharacterV3ResourceDisposition.Throttle
+                    ? "throttled"
+                    : "unavailable");
+    }
+    private static string DeriveIpPrefixHash(IPAddress? address, string fallback)
+    {
+        if (address is null)
+            return fallback;
+        IPAddress normalized = address.IsIPv4MappedToIPv6 ? address.MapToIPv4() : address;
+        byte[] bytes = normalized.GetAddressBytes();
+        int prefixLength = bytes.Length == 4 ? 3 : 6;
+        byte[] material = PerceptionCharacterV3Crypto.EncodeLp(
+            Encoding.ASCII.GetBytes("fsus.perception-character.ip-prefix"),
+            bytes.AsSpan(0, prefixLength).ToArray());
+        try
+        {
+            return Convert.ToHexStringLower(SHA256.HashData(material));
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(material);
+            CryptographicOperations.ZeroMemory(bytes);
+        }
+    }
     private static string DeriveStableDeviceAuthorityHash(string trustedDeviceMaterial)
     {
         byte[] material = PerceptionCharacterV3Crypto.EncodeLp(

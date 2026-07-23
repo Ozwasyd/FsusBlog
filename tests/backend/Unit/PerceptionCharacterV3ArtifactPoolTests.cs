@@ -152,6 +152,124 @@ public sealed partial class PerceptionCharacterV3Tests
         }
     }
 
+    [Fact]
+    [Trait("Fixture", "LocalRedis")]
+    public async Task BudgetedLeaseAtomicallyAccountsExactBytesQuotasAndRetryIdentity()
+    {
+        string? connectionString = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_REDIS");
+        if (string.IsNullOrWhiteSpace(connectionString))
+            return;
+        string poolRoot = Path.Combine(Path.GetTempPath(), "fsusblog-v3-budget-pool-" + Guid.CreateVersion7().ToString("N"));
+        string generation = "runtime-budget-generation";
+        byte[] key = RandomNumberGenerator.GetBytes(32);
+        try
+        {
+            await GeneratePoolAsync(poolRoot, generation, key);
+            await using ConnectionMultiplexer redis = await ConnectionMultiplexer.ConnectAsync(connectionString);
+            string redisPrefix = "test:perception-v3-budget:" + Guid.CreateVersion7().ToString("N") + ":";
+            var keyScope = new TestRuntimeKeyScope(redisPrefix);
+            await using var redisCleanup = new RedisPrefixCleanup(redis, redisPrefix);
+            var options = new PerceptionCharacterV3ArtifactPoolOptions
+            {
+                RootPath = poolRoot,
+                ActiveGeneration = generation,
+                KeyCurrent = "pool-k1",
+                Keys = new(StringComparer.Ordinal) { ["pool-k1"] = Convert.ToHexStringLower(key) }
+            };
+            var pool = new RedisPerceptionCharacterV3ArtifactPool(redis, keyScope, options, s_root);
+            await pool.InitializeAsync(CancellationToken.None);
+            long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            PerceptionCharacterV3LeaseBudget firstBudget = Budget("operation-1", now);
+
+            PerceptionCharacterV3PoolLeaseResult first = await pool.LeaseBudgetedAsync(
+                PerceptionCharacterV3Representation.Visual,
+                firstBudget,
+                CancellationToken.None);
+            await using PerceptionCharacterV3ArtifactLease firstLease = Assert.IsType<PerceptionCharacterV3ArtifactLease>(first.Lease);
+            long exactBytes = firstLease.Artifact.LongLength;
+            RedisKey minuteBytesKey = keyScope.PrefixKey(
+                $"security:perception-v3-pool:{generation}:budget:bytes:minute:{now / 60_000}");
+            Assert.Equal(exactBytes, (long)await redis.GetDatabase().StringGetAsync(minuteBytesKey));
+
+            PerceptionCharacterV3PoolLeaseResult retry = await pool.LeaseBudgetedAsync(
+                PerceptionCharacterV3Representation.Visual,
+                firstBudget,
+                CancellationToken.None);
+            Assert.Equal(PerceptionCharacterV3PoolLeaseOutcome.AlreadyAccounted, retry.Outcome);
+            Assert.Null(retry.Lease);
+            Assert.Equal(exactBytes, (long)await redis.GetDatabase().StringGetAsync(minuteBytesKey));
+            Assert.Equal(8, (await pool.GetInventoryAsync(CancellationToken.None)).VisualReady);
+
+            PerceptionCharacterV3PoolLeaseResult subjectLimited = await pool.LeaseBudgetedAsync(
+                PerceptionCharacterV3Representation.Visual,
+                Budget("operation-2", now) with
+                {
+                    SubjectPerMinute = 1
+                },
+                CancellationToken.None);
+            Assert.Equal(PerceptionCharacterV3PoolLeaseOutcome.SubjectQuotaExhausted, subjectLimited.Outcome);
+            Assert.Equal(8, (await pool.GetInventoryAsync(CancellationToken.None)).VisualReady);
+
+            PerceptionCharacterV3PoolLeaseResult byteLimited = await pool.LeaseBudgetedAsync(
+                PerceptionCharacterV3Representation.Visual,
+                Budget("operation-3", now) with
+                {
+                    EgressBytesPerMinute = exactBytes
+                },
+                CancellationToken.None);
+            Assert.Equal(PerceptionCharacterV3PoolLeaseOutcome.EgressBudgetExhausted, byteLimited.Outcome);
+            Assert.Equal(exactBytes, (long)await redis.GetDatabase().StringGetAsync(minuteBytesKey));
+
+            int discardReply = 1;
+            var ambiguousPool = new RedisPerceptionCharacterV3ArtifactPool(
+                redis, keyScope, options, s_root, () => Interlocked.Exchange(ref discardReply, 0) == 1);
+            await ambiguousPool.InitializeAsync(CancellationToken.None);
+            PerceptionCharacterV3LeaseBudget ambiguousBudget = Budget("operation-ambiguous", now) with
+            {
+                SubjectHash = "subject-ambiguous"
+            };
+            await Assert.ThrowsAsync<PerceptionCharacterV3StoreUnavailableException>(() =>
+                ambiguousPool.LeaseBudgetedAsync(
+                    PerceptionCharacterV3Representation.Visual,
+                    ambiguousBudget,
+                    CancellationToken.None));
+            long bytesAfterAmbiguous = (long)await redis.GetDatabase().StringGetAsync(minuteBytesKey);
+            Assert.True(bytesAfterAmbiguous > exactBytes);
+            Assert.Equal(7, (await pool.GetInventoryAsync(CancellationToken.None)).VisualReady);
+
+            PerceptionCharacterV3PoolLeaseResult ambiguousRetry = await pool.LeaseBudgetedAsync(
+                PerceptionCharacterV3Representation.Visual,
+                ambiguousBudget,
+                CancellationToken.None);
+            Assert.Equal(PerceptionCharacterV3PoolLeaseOutcome.AlreadyAccounted, ambiguousRetry.Outcome);
+            Assert.Equal(bytesAfterAmbiguous, (long)await redis.GetDatabase().StringGetAsync(minuteBytesKey));
+            Assert.Equal(7, (await pool.GetInventoryAsync(CancellationToken.None)).VisualReady);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(key);
+            if (Directory.Exists(poolRoot))
+                Directory.Delete(poolRoot, recursive: true);
+        }
+    }
+
+    private static PerceptionCharacterV3LeaseBudget Budget(string operationId, long nowUnixMs)
+        => new(
+            operationId,
+            "comment",
+            "ip-prefix",
+            "device",
+            "subject",
+            nowUnixMs,
+            100,
+            1_000,
+            1_000_000,
+            10_000_000,
+            100,
+            100,
+            100,
+            100);
+
     private static async Task GeneratePoolAsync(string poolRoot, string generation, byte[] key)
     {
         var start = new ProcessStartInfo("node")

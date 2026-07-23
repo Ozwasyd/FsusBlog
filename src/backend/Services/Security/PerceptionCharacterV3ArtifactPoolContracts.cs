@@ -23,7 +23,66 @@ public sealed record PerceptionCharacterV3PoolManifestEntry(
     long Offset,
     int Length,
     string NonceBase64,
-    string CiphertextSha256);
+    string CiphertextSha256,
+    int ArtifactBytes);
+
+public sealed record PerceptionCharacterV3PoolInventory(
+    string GenerationId,
+    int VisualReady,
+    int AudioReady,
+    int TotalReady,
+    int VisualLeased,
+    int AudioLeased,
+    bool Revoked,
+    bool Corrupted,
+    bool RedisAvailable)
+{
+    public static PerceptionCharacterV3PoolInventory UnknownHealthy(string generationId)
+        => new(generationId, int.MaxValue, int.MaxValue, int.MaxValue, 0, 0, false, false, true);
+}
+
+public sealed record PerceptionCharacterV3LeaseBudget(
+    string OperationId,
+    string ActionClass,
+    string IpPrefixHash,
+    string DeviceHash,
+    string SubjectHash,
+    long NowUnixMs,
+    int LeasePerMinute,
+    int LeaseRollingHour,
+    long EgressBytesPerMinute,
+    long EgressBytesRollingHour,
+    int IpPrefixPerMinute,
+    int DevicePerMinute,
+    int SubjectPerMinute,
+    int ActionPerMinute);
+
+public enum PerceptionCharacterV3PoolLeaseOutcome : byte
+{
+    Leased = 1,
+    Empty = 2,
+    LeaseBudgetExhausted = 3,
+    EgressBudgetExhausted = 4,
+    IpPrefixQuotaExhausted = 5,
+    DeviceQuotaExhausted = 6,
+    SubjectQuotaExhausted = 7,
+    ActionQuotaExhausted = 8,
+    Revoked = 9,
+    Corrupted = 10,
+    Unavailable = 11,
+    AlreadyAccounted = 12
+}
+
+public sealed record PerceptionCharacterV3PoolLeaseResult(
+    PerceptionCharacterV3PoolLeaseOutcome Outcome,
+    PerceptionCharacterV3ArtifactLease? Lease)
+{
+    public static PerceptionCharacterV3PoolLeaseResult Success(PerceptionCharacterV3ArtifactLease lease)
+        => new(PerceptionCharacterV3PoolLeaseOutcome.Leased, lease);
+
+    public static PerceptionCharacterV3PoolLeaseResult Failed(PerceptionCharacterV3PoolLeaseOutcome outcome)
+        => new(outcome, null);
+}
 
 internal sealed record PerceptionCharacterV3PoolPlaintext(
     string Schema,
@@ -103,6 +162,20 @@ public interface IPerceptionCharacterV3ArtifactPool
     Task<PerceptionCharacterV3ArtifactLease?> LeaseAsync(
         PerceptionCharacterV3Representation representation,
         CancellationToken cancellationToken);
+
+    Task<PerceptionCharacterV3PoolInventory> GetInventoryAsync(CancellationToken cancellationToken)
+        => Task.FromResult(PerceptionCharacterV3PoolInventory.UnknownHealthy(ActiveGenerationId));
+
+    async Task<PerceptionCharacterV3PoolLeaseResult> LeaseBudgetedAsync(
+        PerceptionCharacterV3Representation representation,
+        PerceptionCharacterV3LeaseBudget budget,
+        CancellationToken cancellationToken)
+    {
+        PerceptionCharacterV3ArtifactLease? lease = await LeaseAsync(representation, cancellationToken).ConfigureAwait(false);
+        return lease is null
+            ? PerceptionCharacterV3PoolLeaseResult.Failed(PerceptionCharacterV3PoolLeaseOutcome.Empty)
+            : PerceptionCharacterV3PoolLeaseResult.Success(lease);
+    }
 }
 
 public sealed class PerceptionCharacterV3ArtifactPoolOptions

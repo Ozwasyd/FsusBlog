@@ -103,6 +103,9 @@ public static class FsusObservability
     private static readonly Counter<long> s_securityChallengeFailedCounter = s_meter.CreateCounter<long>("fsus.security.challenge.failed.count");
     private static readonly Counter<long> s_securityChallengeReplayedCounter = s_meter.CreateCounter<long>("fsus.security.challenge.replayed.count");
     private static readonly Histogram<double> s_securityChallengeSolveDuration = s_meter.CreateHistogram<double>("fsus.security.challenge.solve.duration", "ms");
+    private static readonly Counter<long> s_perceptionCharacterV3AllocationCounter = s_meter.CreateCounter<long>("fsus.security.perception_character_v3.allocation.count");
+    private static readonly Counter<long> s_perceptionCharacterV3EgressBytes = s_meter.CreateCounter<long>("fsus.security.perception_character_v3.egress.bytes", "By");
+    private static readonly Histogram<long> s_perceptionCharacterV3PoolEntries = s_meter.CreateHistogram<long>("fsus.security.perception_character_v3.pool.entries", "{entry}");
     private static readonly Counter<long> s_securityChallengeV2IssuedCounter = s_meter.CreateCounter<long>("fsus.security.challenge.v2.issued.count");
     private static readonly Counter<long> s_securityChallengeV2VerifiedCounter = s_meter.CreateCounter<long>("fsus.security.challenge.v2.verified.count");
     private static readonly Counter<long> s_securityChallengeV2FailedCounter = s_meter.CreateCounter<long>("fsus.security.challenge.v2.failed.count");
@@ -728,6 +731,63 @@ public static class FsusObservability
         {
             TagList tags = CreateSecurityChallengeTags("challenge_issue", "issued", kind, action, policyVersion);
             s_securityChallengeIssuedCounter.Add(1, tags);
+        });
+    }
+
+    public static void RecordPerceptionCharacterV3Allocation(
+        string disposition,
+        string watermark,
+        string actionClass,
+        string representation,
+        long exactArtifactBytes)
+    {
+        TryRecord(() =>
+        {
+            var tags = new TagList
+            {
+                { "fsus.security.disposition", NormalizeTelemetryValue(disposition, "unavailable") },
+                { "fsus.security.watermark", NormalizeTelemetryValue(watermark, "unknown") },
+                { "fsus.security.action_class", NormalizeTelemetryValue(actionClass, "other") },
+                { "fsus.security.representation", NormalizeTelemetryValue(representation, "unknown") }
+            };
+            s_perceptionCharacterV3AllocationCounter.Add(1, tags);
+            if (exactArtifactBytes > 0)
+                s_perceptionCharacterV3EgressBytes.Add(exactArtifactBytes, tags);
+        });
+    }
+
+    public static void RecordPerceptionCharacterV3Inventory(
+        long visualReady,
+        long audioReady,
+        long visualLeased,
+        long audioLeased,
+        string poolState,
+        string watermark)
+    {
+        TryRecord(() =>
+        {
+            foreach ((string representation, long ready, long leased) in new[]
+            {
+                ("visual", visualReady, visualLeased),
+                ("audio", audioReady, audioLeased)
+            })
+            {
+                foreach ((string inventoryState, long value) in new[]
+                {
+                    ("ready", ready),
+                    ("leased_burned", leased)
+                })
+                {
+                    var tags = new TagList
+                    {
+                        { "fsus.security.representation", representation },
+                        { "fsus.security.pool_state", NormalizeTelemetryValue(poolState, "unavailable") },
+                        { "fsus.security.watermark", NormalizeTelemetryValue(watermark, "unknown") },
+                        { "fsus.security.inventory_state", inventoryState }
+                    };
+                    s_perceptionCharacterV3PoolEntries.Record(Math.Max(0, value), tags);
+                }
+            }
         });
     }
 

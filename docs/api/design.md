@@ -407,6 +407,8 @@ final PNG 作为 `image/png` object URL 直接交给 FsusUI image-url primitive�
 PNG 安全决策或客户端 generator。替换、完成、取消、过期和 unmount 都必须停止媒体并 revoke
 URL。proof、opaque state 与 media 只允许存在于内存状态机，不得写入任何 browser storage。
 
+V3 是 scarce server resource，业务 endpoint、provider 与前端不得各自选择 capacity fallback。server-owned planner 先按 action、identity assurance、risk、pool watermark/health 与预算返回 allocation/disposition；Passkey/user-presence 已满足 assurance 时优先 credential step-up，public read 不为“前端能显示”而消费 V3。comment exhaustion 只有 policy 明示时才进入 moderation queue；enrollment、recovery 与 admin security exhaustion fail closed。planner 的内部 `throttle/block/queue/cheaper-proof/unavailable` 继续映射到既有 RiskControl/AEDS coarse error 或业务 queue 语义，不新增 JSON、文本 reason 或 `allow` response。
+
 V3 的同表示 refresh 与 visual/audio switch 都必须走 issue 请求的 replacement contract；客户端不得先异步 cancel 再签发。active-index 使用从 server-authoritative device material 派生、与 answer/token key rotation 无关的 domain-separated stable digest；answer-key HMAC 只绑定具体 challenge，replacement 校验旧 challenge 时使用其记录的旧 answer key version。服务端在触碰旧状态前完成新 media、token 和 typed payload 校验，再用一个 Redis Lua 线性化点校验旧 binding/active-index、将旧状态置为 `revoked`、以 NX 写入完整新状态和绝对 TTL，并把 active-index 切到新 challenge。commit 前失败时旧 identity 保持 active；commit 后旧 identity 永不恢复。Redis 回包丢失只按本次 operation result readback，不重放 mutation；readback 仍不确定时该 identity 保持 ambiguous fence 并 fail closed。
 
 representation replacement 必须同时提交旧 challenge ID、旧 envelope ID 和旧 opaque state token；provider 以当前权威 action/route/subject/server-device/IP 与旧 challenge 已签发的 policy version、token hash 构造旧 state binding，并由 Redis Lua 原子校验后 revoke；替换成功后新 challenge 再绑定当前发布的 policy version。仅知道 challenge ID、跨主体、伪造旧 policy 或替换任一 binding 都不能撤销旧 challenge；已经显式撤销或过期的旧 challenge 也不能再次授权 replacement。

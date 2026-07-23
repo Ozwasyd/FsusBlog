@@ -86,6 +86,14 @@ AEDS pooled response buffer 采用敏感优先分类：未知 frame 以及 auth�
 - 受保护端点：PoW 挑战、匿名账号 bootstrap、Token 续签、Passkey 登录开始/完成、MFA challenge verify、Recovery Key verify、评论审核队列和单条/批量审核写入、ReadProof challenge/submit、RiskControl challenge issue/verify、公开评论读取、公开 taxonomy、related-reading、公开 HTML 与 PublicHotRead hot binary artifact 候选。
 - MFA challenge verify 的失败计数同时按 ticket、客户端 IP hash 和账号稳定 subject hash 累加；三类计数必须通过统一缓存的单次 Redis Lua 原子递增并返回同一 post-increment 快照，lock 决策只能使用该快照。账号维度固定为 `fail:subject:{accountSubjectHash}`，不得恢复 `fail:user:{userId}`。`accountSubjectHash` 只能来自 `sys_user.account_subject_hash` 投影、匿名账号快照或已签名 ticket 内保存的 subject hash；缺失或格式错误必须拒绝 challenge/proof，不得按账号 id 重新派生。MFA failure audit context 使用 `AccountId` 与 `AccountSubjectHash`，不得写 `UserId`。
 
+## PerceptionCharacterV3 资源安全边界
+
+V3 allocation 只由 `IPerceptionCharacterV3ResourcePlanner` 决定。配置必须满足 representation/total 的 `0 <= critical < low < high`、正数 minute/rolling-hour lease 与 exact-byte egress budgets、正数 IP-prefix/server-device/subject/action quota，以及 comment/enrollment/account-recovery/admin-sensitive/public-read/other 的完整 exhaustion disposition；生产启动在 pool 接流量前验证这些不变量。缺配置、乱序 watermark、hour budget 小于 minute budget或 disposition 缺失均 fail closed。
+
+pool manifest v1 只增加旧 runtime 可忽略的非秘密 additive `artifactBytes`，startup 仍完整认证 ciphertext、解密 record，并确认该值等于最终 PNG/Ogg bytes 且不超过 hard limit。Redis Lua 把 entry burn、ready/leased inventory、exact-byte budget、各身份维度 quota 与 operation retry fence 一次提交；ambiguous reply 后 retry 不会租第二项或重复计费。Redis key 只使用用途隔离的 IP prefix hash、server-device hash、subject hash、coarse action 与 operation hash，不写 raw IP、answer、token、media、challenge ID 或自由文本 reason。
+
+运行时紧急停止使用 reload-capable `Security:PerceptionCharacterV3:Resources:AllocationsEnabled=false`，下一次 planner decision 即按 action table queue/fail closed，无需重启。恢复前必须确认 active generation 未 revoked/corrupted、inventory 和 rolling budget 健康；该开关不能重新激活 retired generation。公开 read、notification stream 和 binary frame contract 不变，既有 challenge 只允许 verify/cancel 到期 drain，不回退在线渲染。
+
 ## 防爬虫闭环
 
 `ShieldMiddleware` 在常规 endpoint 前分类处理请求；精确的 search crawler / social-preview family 必须先于通用 `bot|spider|crawler` unknown-bot 关键词判断：

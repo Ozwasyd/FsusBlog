@@ -533,10 +533,14 @@ When rotating `Moderation:RegionPolicy:IpHashKey`, old `comment_region_complianc
 
 ## PerceptionCharacterV3 stop and recovery
 
-1. 热更新 RiskControl policy，移除 `perceptionCharacterV3`，先停止所有匿名、登录、admin 和 notification subscribe action 的新 V3 assignment；无需重启。
+1. 热更新 `Security:PerceptionCharacterV3:Resources:AllocationsEnabled=false`，并从 RiskControl policy 移除 `perceptionCharacterV3`；前者让下一次 planner decision 立即按 action disposition queue/fail closed，后者停止新的 ordered assignment，均无需重启。
 2. 对 active envelope 调用 binary cancel/revocation；确认 audit 中 terminal state 为 `revoked`，不要删除 Redis key 或重置 attempts。
 3. renderer/Redis/crypto 故障时保持公开 `unavailable`，不得切到退休 challenge、JSON 或本地进程内 attempt state。
 4. key ring 故障使用独立 V3 token/answer ring 的上一有效 version 修正 secret 后滚动重启。两个 ring 的任何 key material 都不得相等；未知旧 version 的 active token保持 fail closed。
+
+恢复 allocation 前检查 active generation 的 visual/audio/total ready、watermark、leased/burned、revocation/corruption、minute/rolling-hour lease 与 exact-byte egress budget；不要通过删除 operation fence、burn marker 或 budget key制造“可用容量”。离线补充只在低于 high watermark、无 CPU/memory/I/O/latency pressure 时按单次 entries/bytes 上限执行，失败的 staging generation 不得替换 active generation。
+
+部署 resource-planner candidate 前必须用当前离线 builder 生成带 additive `artifactBytes` 的 manifest v1 generation，并让 candidate 指向该 generation；旧 runtime 会忽略 additive 字段，因此仍可回切。candidate 不接受缺少 exact-byte metadata 的旧 generation，不能用 ciphertext length 或上线后解码估算补齐。
 
 匿名 device authority 的 Redis keys 与 challenge state 同属 fail-closed 基础设施；不要只清理 device lease 或 IP→device 映射中的一侧。cookie 丢失时同一 pseudonymous IP 复用权威租约，伪造 UUID 不会自动创建新 bucket。spoken atlas 由 embedded JSON 提供，startup 完整性失败时不得回退到 runtime TTS、Morse、索引音调或 V2 audio。
 

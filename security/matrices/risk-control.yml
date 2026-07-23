@@ -42,6 +42,7 @@ scenarios:
           - src/backend/Services/Security/PerceptionCharacterV3Provider.cs
           - src/backend/Services/Security/PerceptionCharacterV3ArtifactPool.cs
           - src/backend/Services/Security/PerceptionCharacterV3ArtifactPoolContracts.cs
+          - src/backend/Services/Security/PerceptionCharacterV3ResourcePlanner.cs
           - src/backend/Services/Security/Argon2idPoSpaceV1ChallengeProvider.cs
           - src/backend/Services/Security/HumanReadProofV1ChallengeProvider.cs
           - src/backend/Services/Security/PasskeyService.cs
@@ -51,6 +52,8 @@ scenarios:
           - tests/backend/Unit/Sha256PowChallengeProviderTests.cs
           - tests/backend/Unit/PerceptionChallengeV2E2eTests.cs
           - tests/backend/Unit/PerceptionCharacterV3Tests.cs
+          - tests/backend/Unit/PerceptionCharacterV3ArtifactPoolTests.cs
+          - tests/backend/Unit/PerceptionCharacterV3ResourcePlannerTests.cs
           - tests/security/perception-character-v3-pool.test.mjs
           - tests/backend/Unit/Argon2idPoSpaceV1ChallengeProviderTests.cs
           - tests/backend/Unit/HumanReadProofV1ChallengeProviderTests.cs

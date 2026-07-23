@@ -218,6 +218,8 @@ PoSpace UI 与 notification headless 路径都必须调用共享 executor 完成
 
 `PerceptionCharacterV3` 是上述 frame 内由 `kind=14` 封闭判别的 typed AEDS union member；它不经过 `ProviderPayloadJson`。issue member 只编码 `algorithm/challengeId/envelopeId/representation/mediaType/mediaBytes/physicalWidth/physicalHeight/displayWidth/displayHeight/attemptBudget/policyVersion/issuedAtUnixMs/expiresAtUnixMs/stateToken`。visual 只接受不超过 32 KiB 的最终 `image/png`：物理尺寸 `384×144`、显示尺寸 `320×120`、IHDR bit depth 4、color type 0 grayscale、无 alpha；audio 只接受不超过 48 KiB 的最终 mono `audio/ogg; codecs=opus`，固定 48 kHz、pre-skip 312、mapping family 0、20 ms frame、16 kbps CBR/VOIP/complexity 5。`artifactHash` 是 exact transported `mediaBytes` 的 SHA-256，并进入 answer HMAC、AEAD AAD/plaintext、Redis state 和 verify binding。verify member 只编码 `algorithm/challengeId/envelopeId/representation/answer/stateToken`，不接受 issue media、seed、recipe、signature、key 或 client solve duration。unknown union kind、truncated slice、旧 algorithm/media/dimensions/state layout、越界/超限或 malformed PNG/Ogg 均在 provider 调用前拒绝。
 
+artifact pool manifest v1 的 additive `artifactBytes` 是 server-only index metadata，不进入 AEDS payload；旧 runtime 可忽略该字段，新 runtime startup 必须把它与解密后 exact `mediaBytes.Length` 和现有 hard limit 复验。lease、minute/rolling-hour egress accounting、IP-prefix/device/subject/action quota 与 operation retry fence 在同一 Redis Lua commit；compression estimate、HTTP envelope 大小和 ciphertext record length 均不得代替 exact transported artifact bytes。预算或 inventory 竞争失败不改变 frame schema，不触发 runtime rendering，也不返回旧 V1/V2/parser fallback。
+
 前端 response adapter 必须先用 assignment `kind=14` 判别 provider slice，再执行 typed POD 解码；
 不得尝试 JSON parse。前端 typed adapter 在创建任何浏览器媒体资源前执行同一组 bounded
 PNG/Ogg Opus 结构、CRC、尺寸和 hard-limit 校验；通过校验的 final PNG 直接创建

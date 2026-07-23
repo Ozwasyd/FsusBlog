@@ -126,7 +126,7 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
             services.AddSingleton<IPerceptionCharacterV3KeyRing, PerceptionCharacterV3KeyRing>();
             services.AddSingleton<IPerceptionCharacterV3NonceSource, PerceptionCharacterV3RandomNonceSource>();
             services.AddSingleton<IPerceptionCharacterV3ArtifactPool, RedisPerceptionCharacterV3ArtifactPool>();
-            services.AddSingleton<IPerceptionCharacterV3ResourceGate, PerceptionCharacterV3ResourceGate>();
+            services.AddSingleton<IPerceptionCharacterV3ResourcePlanner, PerceptionCharacterV3ResourcePlanner>();
             services.AddSingleton<IPerceptionCharacterV3AuditSink, PerceptionCharacterV3AuditSink>();
             services.AddScoped<ISecurityChallengeProvider, PerceptionCharacterV3Provider>();
         }

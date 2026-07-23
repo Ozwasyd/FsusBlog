@@ -178,46 +178,29 @@ public sealed partial class PerceptionCharacterV3Tests
         Assert.Throws<InvalidOperationException>(() => CreateKeys(Config("tk", "ak", "f0e0d0c0b0a09080706050403020100ff1e1d1c1b1a191817161514131211100", new string('5', 64))));
     }
 
-    [Fact]
-    public void ResourceLimits_RunBeforePoolLease()
-    {
-        var gate = new PerceptionCharacterV3ResourceGate();
-        for (int i = 0; i < 8; i++)
-            Assert.True(gate.TryAcquireIssue("ip" + i, "d" + i, "s", "a" + i, "c" + i, 1, out _));
-        Assert.False(gate.TryAcquireIssue("new-ip", "new-device", "s", "new-action", "new-id", 1, out string dimension));
-        Assert.Equal("subject", dimension);
-    }
-
     [Theory]
-    [InlineData("ip", 12)]
-    [InlineData("device", 10)]
-    [InlineData("subject", 8)]
-    [InlineData("action", 30)]
-    [InlineData("challenge", 2)]
-    public void ResourceLimits_AreIndependent(string target, int maximum)
+    [InlineData("comment.create", PerceptionCharacterV3ResourceDisposition.QueueForModeration)]
+    [InlineData("auth.passkey.register", PerceptionCharacterV3ResourceDisposition.Block)]
+    [InlineData("account.recovery", PerceptionCharacterV3ResourceDisposition.Block)]
+    [InlineData("admin.security.rotate", PerceptionCharacterV3ResourceDisposition.Block)]
+    [InlineData("article.read", PerceptionCharacterV3ResourceDisposition.RequireCheaperProof)]
+    public void ResourcePlanner_EmptyPoolUsesConfiguredFailClosedDisposition(
+        string action,
+        PerceptionCharacterV3ResourceDisposition expected)
     {
-        var gate = new PerceptionCharacterV3ResourceGate();
-        for (int i = 0; i < maximum; i++)
-        {
-            Assert.True(gate.TryAcquireIssue(
-                target == "ip" ? "same" : "ip" + i,
-                target == "device" ? "same" : "device" + i,
-                target == "subject" ? "same" : "subject" + i,
-                target == "action" ? "same" : "action" + i,
-                target == "challenge" ? "same" : "challenge" + i,
-                1,
-                out _));
-        }
+        IPerceptionCharacterV3ResourcePlanner planner = new AllowGate();
+        PerceptionCharacterV3ResourceDecision decision = planner.Plan(new(
+            action,
+            PerceptionCharacterV3Representation.Visual,
+            new("g", 0, 4, 4, 0, 0, false, false, true),
+            2,
+            100,
+            true,
+            false,
+            true));
 
-        Assert.False(gate.TryAcquireIssue(
-            target == "ip" ? "same" : "ip-final",
-            target == "device" ? "same" : "device-final",
-            target == "subject" ? "same" : "subject-final",
-            target == "action" ? "same" : "action-final",
-            target == "challenge" ? "same" : "challenge-final",
-            1,
-            out string dimension));
-        Assert.Equal(target, dimension);
+        Assert.Equal(expected, decision.Disposition);
+        Assert.NotEqual(PerceptionCharacterV3ResourceDisposition.AllocateV3, decision.Disposition);
     }
 
     [Fact]
@@ -247,10 +230,10 @@ public sealed partial class PerceptionCharacterV3Tests
     }
 
     [Fact]
-    public async Task StableActiveIdentityAndServerDeviceBindingCannotBeBypassedByFingerprintRotation()
+    public async Task ServerDeviceBudgetBindingCannotBeBypassedByFingerprintRotation()
     {
-        var gate = new PerceptionCharacterV3ResourceGate();
-        var provider = new PerceptionCharacterV3Provider(new Keys(Enumerable.Repeat((byte)0x23, 32).ToArray(), Enumerable.Repeat((byte)0x24, 32).ToArray()), new FixedPool(), new MemoryStore(), gate, new TestDeviceAuthority(), new PerceptionCharacterV3RandomNonceSource(), new AuditSink(), TimeProvider.System);
+        var pool = new CapturingBudgetPool();
+        var provider = new PerceptionCharacterV3Provider(new Keys(Enumerable.Repeat((byte)0x23, 32).ToArray(), Enumerable.Repeat((byte)0x24, 32).ToArray()), pool, new MemoryStore(), new AllowGate(), new TestDeviceAuthority(), new PerceptionCharacterV3RandomNonceSource(), new AuditSink(), TimeProvider.System);
         SecurityChallengeProviderIssueRequest template = ProviderIssueRequest();
         for (int i = 0; i < 2; i++)
         {
@@ -264,15 +247,8 @@ public sealed partial class PerceptionCharacterV3Tests
             });
             Assert.True(issued.Succeeded);
         }
-        var finalContext = new DefaultHttpContext();
-        finalContext.Request.Headers["X-Fsus-Device-Fp"] = "third-rotated-client-value";
-        SecurityChallengeProviderIssueResult rejected = await provider.IssueAsync(template with
-        {
-            Context = finalContext,
-            DeviceFpHash = new string('f', 64),
-            EnvelopeId = Guid.CreateVersion7().ToString("D")
-        });
-        Assert.False(rejected.Succeeded);
+        Assert.Equal(2, pool.Budgets.Count);
+        Assert.Equal(pool.Budgets[0].DeviceHash, pool.Budgets[1].DeviceHash);
     }
 
     [Theory]
@@ -285,7 +261,7 @@ public sealed partial class PerceptionCharacterV3Tests
             new Keys(Enumerable.Repeat((byte)0x25, 32).ToArray(), Enumerable.Repeat((byte)0x26, 32).ToArray()),
             pool,
             new MemoryStore(),
-            new PerceptionCharacterV3ResourceGate(),
+            new AllowGate(),
             new TestDeviceAuthority(),
             new PerceptionCharacterV3RandomNonceSource(),
             new AuditSink(),
@@ -713,13 +689,6 @@ public sealed partial class PerceptionCharacterV3Tests
         var independentAnonymous = new DefaultHttpContext();
         PerceptionCharacterV3DeviceAuthorityResult independentDevice = await deviceAuthority.ResolveAsync(independentAnonymous, new string('7', 64), CancellationToken.None);
         Assert.NotEqual(firstDevice.Binding, independentDevice.Binding);
-        var authoritativeDeviceGate = new PerceptionCharacterV3ResourceGate();
-        for (int i = 0; i < 10; i++)
-            Assert.True(authoritativeDeviceGate.TryAcquireIssue("ip" + i, firstDevice.Binding, "subject" + i, "action" + i, "identity" + i, now, out _));
-        Assert.False(authoritativeDeviceGate.TryAcquireIssue("ip-final", firstDevice.Binding, "subject-final", "action-final", "identity-final", now, out string deviceDimension));
-        Assert.Equal("device", deviceDimension);
-        Assert.True(authoritativeDeviceGate.TryAcquireIssue("ip-independent", independentDevice.Binding, "subject-independent", "action-independent", "identity-independent", now, out _));
-
         PerceptionCharacterV3StateRecord correctRace = Record(now);
         Assert.True(await store.CreateAsync(correctRace, CancellationToken.None));
         PerceptionCharacterV3Transition[] correct = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => store.VerifyAsync(correctRace, true, now, CancellationToken.None)));
@@ -1176,6 +1145,24 @@ public sealed partial class PerceptionCharacterV3Tests
             return Task.FromResult<PerceptionCharacterV3ArtifactLease?>(Lease(representation));
         }
     }
+    private sealed class CapturingBudgetPool : IPerceptionCharacterV3ArtifactPool
+    {
+        public string ActiveGenerationId => "test-generation";
+        public List<PerceptionCharacterV3LeaseBudget> Budgets { get; } = [];
+        public Task InitializeAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task<PerceptionCharacterV3ArtifactLease?> LeaseAsync(
+            PerceptionCharacterV3Representation representation,
+            CancellationToken cancellationToken)
+            => Task.FromResult<PerceptionCharacterV3ArtifactLease?>(Lease(representation));
+        public Task<PerceptionCharacterV3PoolLeaseResult> LeaseBudgetedAsync(
+            PerceptionCharacterV3Representation representation,
+            PerceptionCharacterV3LeaseBudget budget,
+            CancellationToken cancellationToken)
+        {
+            Budgets.Add(budget);
+            return Task.FromResult(PerceptionCharacterV3PoolLeaseResult.Success(Lease(representation)));
+        }
+    }
     private sealed class EmptyPool : IPerceptionCharacterV3ArtifactPool
     {
         public string ActiveGenerationId => "test-generation";
@@ -1200,21 +1187,35 @@ public sealed partial class PerceptionCharacterV3Tests
             return Task.FromResult<PerceptionCharacterV3ArtifactLease?>(Available ? Lease(representation) : null);
         }
     }
-    private sealed class AllowGate : IPerceptionCharacterV3ResourceGate
+    private sealed class AllowGate : IPerceptionCharacterV3ResourcePlanner
     {
-        public bool TryAcquireIssue(string ip, string device, string subject, string action, string identity, long nowUnixMs, out string dimension)
-        {
-            dimension = string.Empty;
-            return true;
-        }
+        private readonly PerceptionCharacterV3ResourcePlanner _inner = new(new PerceptionCharacterV3ResourcePlannerOptions());
+        public void Validate() => _inner.Validate();
+        public void ValidateInventory(PerceptionCharacterV3PoolInventory inventory) => _inner.ValidateInventory(inventory);
+        public PerceptionCharacterV3ResourcePlannerOptions CurrentOptions() => _inner.CurrentOptions();
+        public PerceptionCharacterV3ResourceDecision Plan(PerceptionCharacterV3ResourcePlanInput input) => _inner.Plan(input);
+        public PerceptionCharacterV3ResourceDecision ResolveLeaseFailure(
+            PerceptionCharacterV3ResourceDecision planned,
+            PerceptionCharacterV3PoolLeaseOutcome outcome) => _inner.ResolveLeaseFailure(planned, outcome);
+        public PerceptionCharacterV3ReplenishmentDecision PlanReplenishment(PerceptionCharacterV3ReplenishmentInput input)
+            => _inner.PlanReplenishment(input);
     }
-    private sealed class DenyGate : IPerceptionCharacterV3ResourceGate
+    private sealed class DenyGate : IPerceptionCharacterV3ResourcePlanner
     {
-        public bool TryAcquireIssue(string ip, string device, string subject, string action, string identity, long nowUnixMs, out string dimension)
+        private readonly PerceptionCharacterV3ResourcePlannerOptions _options = new();
+        public void Validate() => _options.Validate();
+        public void ValidateInventory(PerceptionCharacterV3PoolInventory inventory)
         {
-            dimension = "ip";
-            return false;
         }
+        public PerceptionCharacterV3ResourcePlannerOptions CurrentOptions() => _options;
+        public PerceptionCharacterV3ResourceDecision Plan(PerceptionCharacterV3ResourcePlanInput input)
+            => new(PerceptionCharacterV3ResourceDisposition.Block, PerceptionCharacterV3WatermarkState.Normal,
+                PerceptionCharacterV3ActionClass.Other, "test_denied");
+        public PerceptionCharacterV3ResourceDecision ResolveLeaseFailure(
+            PerceptionCharacterV3ResourceDecision planned,
+            PerceptionCharacterV3PoolLeaseOutcome outcome) => planned;
+        public PerceptionCharacterV3ReplenishmentDecision PlanReplenishment(PerceptionCharacterV3ReplenishmentInput input)
+            => new(false, 0, 0, "test_denied");
     }
     private sealed class AuditSink : IPerceptionCharacterV3AuditSink
     {

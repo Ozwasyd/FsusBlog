@@ -637,6 +637,8 @@
         "tests/backend/Unit/PerceptionChallengeV2E2eTests.cs",
         "tests/backend/Unit/PerceptionChallengeV2ServiceTests.cs",
         "tests/backend/Unit/PerceptionCharacterV3Tests.cs",
+        "tests/backend/Unit/PerceptionCharacterV3ArtifactPoolTests.cs",
+        "tests/backend/Unit/PerceptionCharacterV3ResourcePlannerTests.cs",
         "tests/security/retired-character-challenge-residue.test.mjs",
         "docs/history/retired-character-challenges.md",
         "tests/security/perception-v2/perception-harness.test.mjs"

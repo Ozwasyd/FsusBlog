@@ -152,8 +152,10 @@ FSUSBLOG_V3_POOL_KEY='<same key>' node tools/security/perception-character-v3-po
 The packfile is a contiguous sequence of independently AES-256-GCM authenticated
 records. Each record contains its random internal ID, generation, representation,
 media type, exact final artifact bytes/hash, normalized answer, contract digest and
-offline-generator identity. The manifest contains only offset/length, nonce,
-ciphertext digest and non-secret representation metadata; it contains neither answer
+offline-generator identity. The v1 manifest has an additive exact-byte field and
+contains only offset/ciphertext length,
+exact final-artifact byte count, nonce, ciphertext digest and non-secret
+representation metadata; it contains neither answer
 nor media bytes. `Security:PerceptionCharacterV3:Pool:*` selects the immutable root,
 active generation and dedicated key ring, which must be disjoint from JWT, answer,
 token, PoW and audit keys.
