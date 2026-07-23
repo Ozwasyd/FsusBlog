@@ -2035,6 +2035,18 @@
             ]
         },
         {
+            "file": "tests/tools/test-matrix-priority-score.test.mjs",
+            "owner": "repository-governance:test-asset-behavior",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "perf",
+                "runtime"
+            ]
+        },
+        {
             "file": "tests/tools/test-matrix-scheduler.test.mjs",
             "owner": "repository-governance:test-asset-behavior",
             "executionCategory": "repository-governance",

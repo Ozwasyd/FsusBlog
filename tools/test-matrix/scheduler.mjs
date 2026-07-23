@@ -16,8 +16,11 @@ import {
 import {
   createLinuxProcessTreeCollector,
   createWaitLedger,
-  resolveResourceSampleIntervalMs
-} from './resource-utilization.mjs'
+  prioritySchemas,
+  rankReadyTiers,
+  resolveResourceSampleIntervalMs,
+  startupAdmissionOrder
+} from './scheduler-admission-support.mjs'
 import { createProductionResourceEnforcer } from './production-resource-enforcement.mjs'
 import { createAsyncLogPipeline } from './async-log-pipeline.mjs'
 import {
@@ -853,12 +856,6 @@ function startupMemoryWeight(tier) {
   return Number(tier.startupMemoryWeight ?? tier.memoryWeight)
 }
 
-function startupAdmissionOrder(left, right) {
-  return Number(right.startupPriority ?? 0) - Number(left.startupPriority ?? 0)
-    || Number(right.deadlineWeight ?? 0) - Number(left.deadlineWeight ?? 0)
-    || left.id.localeCompare(right.id)
-}
-
 function weightedIntegerAllocation(
   tiers,
   totalUnits,
@@ -1651,6 +1648,17 @@ async function runDagUnlocked(options) {
     failurePoint: null,
     failures: []
   }
+  const dynamicPriorityEnabled = options.dynamicPriority !== false
+    && String(options.env?.FSUSBLOG_TEST_DYNAMIC_PRIORITY
+      ?? process.env.FSUSBLOG_TEST_DYNAMIC_PRIORITY
+      ?? '1') !== '0'
+  checkpoint.priorityScheduling = {
+    schema: prioritySchemas.score,
+    modelVersion: 1,
+    enabled: dynamicPriorityEnabled,
+    inputSchema: options.priorityInput?.schema ?? null,
+    waves: []
+  }
   writeCheckpoint(checkpointFile, checkpoint)
 
   const pending = [...tiers]
@@ -1685,6 +1693,8 @@ async function runDagUnlocked(options) {
   }
   options.registerSchedulerFinalizer?.(removeInterruptHandlers)
   const reusedTiers = []
+  const readyAges = new Map()
+  let priorityWaveNumber = 0
   let firstFailure = null
   let residentState = null
   let lastResidentSampleAtMs = 0
@@ -2091,7 +2101,17 @@ async function runDagUnlocked(options) {
     )
     const ready = pending.filter((tier) => tierPhase(tier) === barrierPhase && dependenciesReady(tier))
       .sort(startupAdmissionOrder)
+    const priority = rankReadyTiers(ready, options.priorityInput, {
+      enabled: dynamicPriorityEnabled,
+      minimumSamples: options.priorityMinimumSamples,
+      agingCap: options.priorityAgingCap,
+      readyAges
+    })
+    const readyById = new Map(ready.map((tier) => [tier.id, tier]))
+    const orderedReady = priority.ranked.map((entry) => readyById.get(entry.tierId))
+    const priorityById = new Map(priority.ranked.map((entry) => [entry.tierId, entry]))
     const selected = []
+    const decisions = []
     let fixedCpu = 0
     let fixedMemory = 0
     let dynamicMinimumCpu = 0
@@ -2101,22 +2121,68 @@ async function runDagUnlocked(options) {
       currentFreeMemoryGiB()
     ))
 
-    for (const tier of ready) {
+    for (const tier of orderedReady) {
       const admittedEntries = [...activeEntries, ...selected.map((item) => ({ tier: item }))]
-      if (!canShareAdmission(tier, admittedEntries, maxParallel)) continue
+      let excludedBy = null
+      if (!canShareAdmission(tier, admittedEntries, maxParallel)) {
+        if (admittedEntries.length >= maxParallel) excludedBy = 'max-parallel'
+        else if (admittedEntries.length > 0 && tier.parallelizable !== true) excludedBy = 'tier-non-parallel'
+        else if (admittedEntries.some((entry) => entry.tier.parallelizable !== true)) excludedBy = 'active-non-parallel'
+        else if (admittedEntries.some((entry) => intersects(tier.exclusiveResources, entry.tier.exclusiveResources))) excludedBy = 'exclusive-resource'
+        else if (admittedEntries.some((entry) => (
+          (tier.services?.length ?? 0) > 0
+          && (entry.tier.services?.length ?? 0) > 0
+          && intersects(tier.services, entry.tier.services)
+        ))) excludedBy = 'service-resource'
+        else excludedBy = 'resource-class-parallel-limit'
+      }
+      if (excludedBy) {
+        decisions.push({ ...priorityById.get(tier.id), admitted: false, hardConstraint: excludedBy })
+        continue
+      }
       if (tier.resourceGrantMode === 'dynamic') {
         const minimum = startupMinCpuUnits(tier)
-        if (fixedCpu + dynamicMinimumCpu + minimum > availableCpu || availableMemory - fixedMemory <= 0) continue
+        if (fixedCpu + dynamicMinimumCpu + minimum > availableCpu || availableMemory - fixedMemory <= 0) {
+          decisions.push({
+            ...priorityById.get(tier.id),
+            admitted: false,
+            hardConstraint: fixedCpu + dynamicMinimumCpu + minimum > availableCpu ? 'cpu-budget' : 'memory-budget'
+          })
+          continue
+        }
         dynamicMinimumCpu += minimum
       } else {
         const request = tierResourceUnits(tier)
         if (fixedCpu + dynamicMinimumCpu + request.cpuUnits > availableCpu
-          || fixedMemory + request.memoryGiB > availableMemory) continue
+          || fixedMemory + request.memoryGiB > availableMemory) {
+          decisions.push({
+            ...priorityById.get(tier.id),
+            admitted: false,
+            hardConstraint: fixedCpu + dynamicMinimumCpu + request.cpuUnits > availableCpu ? 'cpu-budget' : 'memory-budget'
+          })
+          continue
+        }
         fixedCpu += request.cpuUnits
         fixedMemory += request.memoryGiB
       }
       selected.push(tier)
+      decisions.push({ ...priorityById.get(tier.id), admitted: true, hardConstraint: null })
     }
+
+    const selectedIds = new Set(selected.map((tier) => tier.id))
+    for (const tier of ready) {
+      if (selectedIds.has(tier.id)) readyAges.delete(tier.id)
+      else readyAges.set(tier.id, (readyAges.get(tier.id) ?? 0) + 1)
+    }
+    checkpoint.priorityScheduling.waves.push({
+      wave: ++priorityWaveNumber,
+      mode: priority.mode,
+      fallbackReason: priority.fallbackReason,
+      readyTierIds: ready.map((tier) => tier.id),
+      admissionOrder: orderedReady.map((tier) => tier.id),
+      decisions
+    })
+    writeCheckpoint(checkpointFile, checkpoint)
 
     const dynamic = selected.filter((tier) => tier.resourceGrantMode === 'dynamic')
     const dynamicCpu = Math.max(0, Math.floor(availableCpu - fixedCpu))
@@ -2130,7 +2196,9 @@ async function runDagUnlocked(options) {
       0
     )
     const admittedAtMs = Date.now()
-    return selected.map((tier) => tier.resourceGrantMode === 'dynamic'
+    return selected.map((tier) => {
+      const priorityDecision = decisions.find((entry) => entry.tierId === tier.id)
+      return tier.resourceGrantMode === 'dynamic'
       ? {
           ...tier,
           resourceGrantMode: 'granted',
@@ -2141,9 +2209,11 @@ async function runDagUnlocked(options) {
             cpuUnits: cpuAllocations.get(tier.id),
             memoryGiB: dynamicMemory * startupMemoryWeight(tier) / memoryWeightTotal
           },
-          admittedAtMs
+          admittedAtMs,
+          priorityDecision
         }
-      : { ...tier, admittedAtMs })
+      : { ...tier, admittedAtMs, priorityDecision }
+    })
   }
 
   const completeReusedTier = (tier, inputFingerprint, dependencyFingerprintValue, tierEnvironment) => {
@@ -2436,6 +2506,7 @@ async function runDagUnlocked(options) {
       startupGrant: entry.startupGrant,
       firstExecutableStepAtMs: entry.firstExecutableStepAtMs,
       resourceGrantHistory: entry.resourceGrantHistory ?? [tierResourceUnits(tier)],
+      priorityDecision: tier.priorityDecision ?? null,
       resourceUtilization,
       inputFingerprint,
       dependencyFingerprint: dependencyFingerprintValue,

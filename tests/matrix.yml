@@ -1590,9 +1590,16 @@ tiers:
           - tools/test-observations/validation.mjs
           - tools/test-observations/ledger.mjs
           - tools/test-observations/cli.mjs
+          - tools/test-matrix/priority-score.mjs
+          - tools/test-matrix/run-priority-fixture.mjs
+          - tools/test-matrix/scheduler-admission-support.mjs
+          - tools/test-matrix/scheduler.mjs
           - config/schemas/test-observation-artifact.schema.json
+          - config/schemas/test-matrix-priority-score.schema.json
           - tests/fixtures/test-observations
+          - tests/fixtures/test-matrix-priority
           - tests/tools/test-observation-ledger.test.mjs
+          - tests/tools/test-matrix-priority-score.test.mjs
           - docs/testing.md
           - docs/testing/evidence-projection-contract.md
           - tools/test/lanes/static-governance.sh

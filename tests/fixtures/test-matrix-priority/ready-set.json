@@ -1,0 +1,66 @@
+{
+  "tiers": [
+    {
+      "id": "general-long",
+      "startupPriority": 2,
+      "deadlineWeight": 10,
+      "risk": "medium",
+      "cacheInputs": ["src/shared"],
+      "priorityTestIds": ["fixture/general-long"]
+    },
+    {
+      "id": "security-fast",
+      "startupPriority": 2,
+      "deadlineWeight": 10,
+      "risk": "critical",
+      "triggerPaths": ["src/backend/Infrastructure/Auth"],
+      "priorityTestIds": ["fixture/security-fast"]
+    }
+  ],
+  "priorityInput": {
+    "schema": "fsusblog.test-matrix.priority-input.v1",
+    "changedPaths": ["src/backend/Infrastructure/Auth/AuthCookieService.cs"],
+    "tierBindings": {
+      "general-long": {
+        "sourceClosureDigest": "sha256:db3d1255676f80f12f87fa5e1d074a83357c518166d3699ed3645b1fc4ffab6e",
+        "testIds": ["fixture/general-long"]
+      },
+      "security-fast": {
+        "sourceClosureDigest": "sha256:d0c8ccb20bc92055b92247e8800f2354d3d10e64bce2e74b2ada61fe04fe3e57",
+        "testIds": ["fixture/security-fast"]
+      }
+    },
+    "ledger": {
+      "schema": "fsusblog.test-observation-index.v1",
+      "coldStart": false,
+      "artifactCount": 2,
+      "observationCount": 20,
+      "tests": [
+        {
+          "testId": "fixture/general-long",
+          "samples": 10,
+          "durationMs": {"p50": 4000, "p95": 4500},
+          "outcomeCounts": {"passed": 10, "failed": 0, "skipped": 0, "blocked": 0},
+          "signatureCounts": {},
+          "sourceCommits": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+          "sourceClosureDigests": ["sha256:db3d1255676f80f12f87fa5e1d074a83357c518166d3699ed3645b1fc4ffab6e"],
+          "runnerIdentities": [{"os": "linux", "arch": "x64", "runtime": "node-v24"}]
+        },
+        {
+          "testId": "fixture/security-fast",
+          "samples": 10,
+          "durationMs": {"p50": 80, "p95": 100},
+          "outcomeCounts": {"passed": 5, "failed": 5, "skipped": 0, "blocked": 0},
+          "signatureCounts": {"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb": 5},
+          "sourceCommits": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+          "sourceClosureDigests": ["sha256:d0c8ccb20bc92055b92247e8800f2354d3d10e64bce2e74b2ada61fe04fe3e57"],
+          "runnerIdentities": [{"os": "linux", "arch": "x64", "runtime": "node-v24"}]
+        }
+      ]
+    },
+    "durationsMs": {
+      "general-long": 4000,
+      "security-fast": 80
+    }
+  }
+}

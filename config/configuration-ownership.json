@@ -104,6 +104,12 @@
             "pathType": "file"
         },
         {
+            "id": "test-matrix-priority-score-schema",
+            "owner": "test-matrix-scheduler",
+            "canonicalPath": "config/schemas/test-matrix-priority-score.schema.json",
+            "pathType": "file"
+        },
+        {
             "id": "zk-verification-key-manifests",
             "owner": "backend-zk-security",
             "canonicalPath": "config/zk",

@@ -134,3 +134,37 @@ idempotent ingest, compaction, cold start, and full index rebuild run with:
 ```bash
 node --test tests/tools/test-observation-ledger.test.mjs
 ```
+
+## Source-bound ready-set priority
+
+The scheduler may use the observation index to reorder only tiers that already belong
+to the same executable ready set. The score contract is
+`fsusblog.test-matrix.priority-score.v1`; its JSON Schema is
+`config/schemas/test-matrix-priority-score.schema.json`. Every wave records the
+version, each signal and contribution, final score, admission result, and any hard
+constraint that excluded an otherwise-ready tier.
+
+Dynamic scoring combines the existing `startupPriority` and `deadlineWeight` with
+changed-path relevance, declared source-domain risk, source-bound failure frequency,
+distinct failure signatures, expected duration, and bounded wave aging. Ledger
+history participates only when every tier in that ready set has enough samples for
+its exact source-closure digest and declared test IDs. Missing history, a closure
+mismatch, insufficient samples, or a missing duration makes the entire ready set
+fall back to the original `startupAdmissionOrder`. This avoids mixing stale history
+with current source.
+
+The score is never an admission permission. Dependency and phase readiness are
+evaluated first; max parallelism, non-parallel tiers, exclusive resources, resident
+services, and CPU/memory grants are evaluated after ordering and remain fail-closed.
+Required tier identity, exact-once execution, final test union, execution owner, and
+evidence owner are unchanged.
+
+Set `FSUSBLOG_TEST_DYNAMIC_PRIORITY=0` to disable dynamic order for a local comparison.
+The file-driven deterministic fixture accepts synthetic tiers, changed paths, ledger
+history, explicit durations, and ready ages without a database, network, Actions, or
+real waiting:
+
+```bash
+node tools/test-matrix/run-priority-fixture.mjs tests/fixtures/test-matrix-priority/ready-set.json
+node --test tests/tools/test-matrix-priority-score.test.mjs
+```

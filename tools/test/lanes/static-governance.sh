@@ -34,6 +34,7 @@ TEST_ASSET_BEHAVIOR_FILES=(
     "$ROOT_DIR/tests/tools/production-resource-enforcement.test.mjs"
     "$ROOT_DIR/tests/tools/resource-utilization.test.mjs"
     "$ROOT_DIR/tests/tools/run-once.test.mjs"
+    "$ROOT_DIR/tests/tools/test-matrix-priority-score.test.mjs"
     "$ROOT_DIR/tests/tools/test-matrix-scheduler.test.mjs"
 )
 StaticTestAssetBehavior() {

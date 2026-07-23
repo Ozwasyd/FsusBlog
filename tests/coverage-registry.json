@@ -3841,16 +3841,23 @@
                 "tools/test-observations/validation.mjs",
                 "tools/test-observations/ledger.mjs",
                 "tools/test-observations/cli.mjs",
+                "tools/test-matrix/priority-score.mjs",
+                "tools/test-matrix/run-priority-fixture.mjs",
+                "tools/test-matrix/scheduler-admission-support.mjs",
+                "tools/test-matrix/scheduler.mjs",
                 "config/schemas/test-observation-artifact.schema.json",
+                "config/schemas/test-matrix-priority-score.schema.json",
                 "config/configuration-ownership.json",
                 "tests/fixtures/test-observations",
+                "tests/fixtures/test-matrix-priority",
                 "tests/tools/test-observation-ledger.test.mjs",
+                "tests/tools/test-matrix-priority-score.test.mjs",
                 "docs/testing.md",
                 "docs/testing/evidence-projection-contract.md"
             ],
             "assertionType": "integration",
-            "failClosedRule": "Reject malformed producer reports, missing canonical test IDs, illegal outcomes or durations, unbound source or closure identity, modified producer evidence, inconsistent record bindings, or an index that cannot be rebuilt from normalized artifacts.",
-            "minimumRequirement": "Repository fixtures must cover all four adapters, passed/failed/skipped/blocked outcomes, parameterized and duplicate names, cross-partition merge, failure-signature noise and distinction, producer/source/closure tampering, idempotent ingest, P50/P95 aggregation, compaction, rebuild and explicit cold start.",
+            "failClosedRule": "Reject malformed producer reports, missing canonical test IDs, illegal outcomes or durations, unbound source or closure identity, modified producer evidence, inconsistent record bindings, an index that cannot be rebuilt from normalized artifacts, or dynamic priority that crosses a scheduler hard constraint.",
+            "minimumRequirement": "Repository fixtures must cover all four adapters, passed/failed/skipped/blocked outcomes, parameterized and duplicate names, cross-partition merge, failure-signature noise and distinction, producer/source/closure tampering, idempotent ingest, P50/P95 aggregation, compaction, rebuild, explicit cold start, deterministic ready-set scoring, stale-history fallback, bounded aging, and unchanged exact-once ownership.",
             "tierIds": [
                 "static-governance"
             ]
