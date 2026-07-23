@@ -424,6 +424,7 @@ jobs:
                       .tmp/docs/**
                       .tmp/backend-test-governance/**
                       .tmp/test-asset-audit/**
+                      .tmp/test-governance/**
                       .tmp/release-evidence/test-plan.json
                       .tmp/release-evidence/doc-sync-summary.json
                       .tmp/release-evidence/test-retention-audit.json

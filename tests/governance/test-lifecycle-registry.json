@@ -1067,6 +1067,16 @@
             ]
         },
         {
+            "file": "tests/tools/governance-suite-plan.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
             "file": "tests/tools/historical-topology-test-dispositions.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",

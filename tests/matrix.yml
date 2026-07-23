@@ -1439,6 +1439,7 @@ tiers:
           - evidence-schema
           - test-retention-classification
           - test-asset-audit-reconciliation
+          - node-governance-policy-convergence
           - integrity-proof-docs-consistency
           - immutable-release-identity
           - wasm-release-artifact-ownership
@@ -1491,6 +1492,7 @@ tiers:
               .tmp/docs/integrity-proof-docs.json,
               .tmp/release-evidence/backend-physical-topology.json,
               .tmp/test-asset-audit,
+              .tmp/test-governance,
           ]
       evidence:
           - .tmp/gate-logs
@@ -1516,6 +1518,10 @@ tiers:
           - tools/test/test-asset-audit
           - tests/tools/test-asset-audit.test.mjs
           - .tmp/test-asset-audit/report.json
+          - tools/test/governance-suite-plan.mjs
+          - tools/test/run-governance-suites.mjs
+          - tests/tools/governance-suite-plan.test.mjs
+          - .tmp/test-governance/suite-plan.json
           - docs/testing.md
           - tests/backend/runtime-fallback-milestones.json
           - tests/backend/legacy-identity-retirement-evidence.json

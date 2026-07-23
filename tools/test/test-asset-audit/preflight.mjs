@@ -46,7 +46,7 @@ function playwrightCapability(root, browser) {
   return commandResult('node', ['--input-type=module', '-e', script], path.join(root, 'src/frontend')).ok
 }
 
-function sourceIdentity(root) {
+export function sourceIdentity(root) {
   const commit = commandResult('git', ['rev-parse', 'HEAD'], root).text
   const worktree = commandResult('git', ['diff', '--binary', 'HEAD'], root).text
   const untracked = commandResult('git', ['ls-files', '--others', '--exclude-standard'], root).text

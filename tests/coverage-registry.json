@@ -207,6 +207,25 @@
             ]
         },
         {
+            "id": "node-governance-policy-convergence",
+            "description": "Node and governance tests map each test ID and invariant to one canonical policy suite while preserving isolation for security, release and process-control cases.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "tools/test/governance-suite-plan.mjs",
+                "tools/test/run-governance-suites.mjs",
+                "tests/tools/governance-suite-plan.test.mjs",
+                "docs/testing.md",
+                ".tmp/test-governance/suite-plan.json"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "Duplicate physical inputs, missing policy owners, lost negative invariants, duplicate test IDs or accidental shared-process execution of security and release suites must fail before projection.",
+            "minimumRequirement": "The source-bound audit inventory records every Node test or script with its canonical policy owner, invariants, coverage IDs and release tiers; the static lane executes exact-once suite plans without issue-number identities.",
+            "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
             "id": "native-test-governance",
             "description": "Repository-owned CMake smoke and libFuzzer targets have semantic identities, exact matrix ownership and fail-closed lifecycle governance.",
             "owner": "WasmEngineAgent",

@@ -2,6 +2,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { createHash } from 'node:crypto'
 
+import { buildGovernancePolicyInventory } from '../governance-suite-plan.mjs'
+
 export { compareAuditSnapshots } from './comparison.mjs'
 
 function startsWithAny(value, prefixes = []) {
@@ -79,6 +81,7 @@ export function buildAuditInventory(root, retentionAudit, profile) {
     counts: retentionAudit.counts,
     testIds: ids.sort(),
     assignments,
+    governancePolicyOwners: buildGovernancePolicyInventory(retentionAudit.testRecords ?? []),
     frontendCoverageUniverse: frontendCoverageUniverse(root),
     retention: {
       reviewCandidates: retentionAudit.reviewCandidates ?? [],

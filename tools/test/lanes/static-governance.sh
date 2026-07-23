@@ -127,70 +127,12 @@ STATIC_NODE_CONTRACT_FILES=(
     "$ROOT_DIR/tests/tools/rights-v3-projection.test.mjs"
     "$ROOT_DIR/tests/tools/repository-governance-authority.test.mjs"
     "$ROOT_DIR/tests/tools/privacy-zk-prebuild-projection.test.mjs"
-    "$ROOT_DIR/tests/tools/article-core-test-api-governance.test.mjs" "$ROOT_DIR/tests/tools/native-test-governance.test.mjs" "$ROOT_DIR/tests/tools/test-asset-audit.test.mjs"
+    "$ROOT_DIR/tests/tools/article-core-test-api-governance.test.mjs" "$ROOT_DIR/tests/tools/native-test-governance.test.mjs" "$ROOT_DIR/tests/tools/test-asset-audit.test.mjs" "$ROOT_DIR/tests/tools/governance-suite-plan.test.mjs"
 )
 StaticNodeContracts() {
     FSUSBLOG_STATIC_CONTRACT_FILES="$(printf '%s\n' "${STATIC_NODE_CONTRACT_FILES[@]}")" \
-        Run "${FSUSBLOG_NODE:-node}" --input-type=module - "$ROOT_DIR/tools/test/run-command-manifest.mjs" "$ROOT_DIR/tests/tools/zero-downtime-rehearsal.test.mjs" <<'NODE'
-import process from 'node:process'
-import { pathToFileURL } from 'node:url'
-
-const { runWeightedCommandManifest } = await import(pathToFileURL(process.argv[2]).href)
-const zdtFile = process.argv[3]
-const node = process.env.FSUSBLOG_NODE || process.execPath
-const historicalDurationMs = new Map([
-  ['gateway-switch.test.mjs', 36_000],
-  ['deployment-slots.test.mjs', 32_000],
-  ['security-source-analyzer.test.mjs', 12_000],
-  ['release-traffic-probe-session.test.mjs', 8_000],
-  ['release-rollout-probes.test.mjs', 4_000],
-  ['release-rollout-evidence.test.mjs', 3_000]
-])
-const files = String(process.env.FSUSBLOG_STATIC_CONTRACT_FILES ?? '').split('\n').filter(Boolean)
-const manifestEnv = { ...process.env }
-// The parent shell uses this override to bound its own collect phase. This
-// nested workload is process orchestration, so derive its fan-out afresh from
-// the admitted STEP CPU/memory grant and orchestrationWorkersPerCpu below.
-delete manifestEnv.FSUSBLOG_COMMAND_MANIFEST_WORKERS
-const measuredNodeOrchestratorGiB = process.memoryUsage().rss / 1024 ** 3
-const zdtShards = [
-  ['all', 1_000],
-  ['sigkill-resume', 16_000],
-  ['explicit-rollback', 12_000],
-  ['post-switch-rollback', 7_000],
-  ['normal', 7_000],
-  ['base', 1_000]
-]
-const commands = [
-  ...files.map((file) => ({
-    id: `contract:${file.split('/').at(-1)}`,
-    access: 'read',
-    command: [node, '--test', file],
-    estimatedDurationMs: historicalDurationMs.get(file.split('/').at(-1)) ?? 1_000
-  })),
-  ...zdtShards.map(([shard, estimatedDurationMs]) => ({
-    id: `zdt:${shard}`,
-    access: 'read',
-    command: [node, '--test', zdtFile],
-    environment: { FSUSBLOG_ZDT_FIXTURE_SHARD: shard },
-    // Every rehearsal shard controls real process groups and durable observer
-    // state. Claim the complete live manifest grant so no sibling rehearsal
-    // can kill or adopt another shard's worker process.
-    concurrencyWeight: Number.MAX_SAFE_INTEGER,
-    estimatedDurationMs
-  }))
-]
-await runWeightedCommandManifest({
-  schema: 'fsusblog.test-command-manifest.v1',
-  lane: 'static-governance-node-contracts',
-  commands
-}, {
-  cwd: process.cwd(),
-  env: manifestEnv,
-  orchestrationWorkersPerCpu: 3,
-  orchestrationMemoryGiBPerWorker: measuredNodeOrchestratorGiB
-})
-NODE
+        Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-governance-suites.mjs" \
+            "$ROOT_DIR/tests/tools/zero-downtime-rehearsal.test.mjs"
 }
 
 # Every concurrent-phase writer owns a distinct artifact path and none reads

@@ -895,6 +895,12 @@ preflight 从 lockfile 实际 registry 推导 package auth：公共 npm 不要�
 
 最终 `.tmp/test-asset-audit/report.json` 包含 discovered/executed/passed/failed/skipped/blocked、每个未执行 ID 的结构化原因、replacement/retirement 状态、release-final/production producer mapping、coverage baseline，以及 `src/frontend/src` TypeScript/Vue include universe 的文件集合与 digest。baseline 比较若发现 test ID 无 live replacement 或 frontend coverage universe 静默缩小会 fail closed；不得通过放宽 include/exclude 或删除低覆盖生产文件虚增 coverage。
 
+## Node governance canonical suites
+
+`static-governance` 不再为每个 Node contract 建立一个外层 command-manifest process。`tools/test/run-governance-suites.mjs` 先将输入 exact-once 分配到 lifecycle/retention、matrix/producer、artifact/receipt/evidence、privacy/security、release/fresh/projection 与 source/layout/naming 六个语义 owner，再以少量 canonical suite command 执行。普通 policy suite 使用单进程串行 test isolation，共享 ESM parser 与只读 fixture module cache；security/privacy、release/process-control suite 保留 per-file process isolation，避免为减少启动数破坏环境和进程组边界。
+
+同一分类器也写入 test asset audit 的 `governancePolicyOwners`：每个 Node test/script ID 均携带 policy owner、assertion/negative invariants、coverage IDs 和 tier/release consumers。`.tmp/test-governance/suite-plan.json` 保存本轮物理 file union；重复输入、丢失 owner 或非 exact-once 分配在启动测试前失败。`check-job-summaries` 继续属于 source/layout owner，privacy/security matrix 保持独立 security owner；没有 test ID 删除，因此本次不需要伪造 replacement mapping。
+
 ## Security domain 静态门禁
 
 `node tools/security/check-security-domain-layout.mjs` 先聚合校验安全域目录、policy metadata、
