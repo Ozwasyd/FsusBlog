@@ -60,6 +60,11 @@ frontend/backend build identities, deterministic fixture and capture digests,
 the resolved local FsusUI commit/tree/lock identity, the visual-input digest,
 and each PNG SHA-256. `sourceCommit` answers where an image was captured;
 `visualInputDigest` independently decides whether it is fresh for this checkout.
+The writer emits canonical top-level, screenshot, and FsusUI field order and
+sorts screenshot entries by stable ID. The offline checker rejects reordered
+fields or entries, duplicate files/IDs, cross-entry identity drift, dirty or
+malformed FsusUI provenance, build identities that are not exactly bound to
+the source commit, and a ReleaseId whose SHA does not match that commit.
 
 These fast local checks do not start an application, browser, database, network
 service, or GitHub API:

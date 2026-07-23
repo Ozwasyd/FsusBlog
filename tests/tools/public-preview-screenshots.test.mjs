@@ -76,12 +76,73 @@ test('manifest checker rejects duplicate and unknown registry values', () =>
         mutateManifest(directory, (manifest) =>
         {
             manifest.screenshots[1].id = manifest.screenshots[0].id;
+            manifest.screenshots[3].file = manifest.screenshots[0].file;
             manifest.screenshots[2].theme = 'sepia';
         });
         const result = check(directory);
         assert.notEqual(result.status, 0);
         assert.match(result.stderr, /duplicate screenshot id/u);
+        assert.match(result.stderr, /duplicate screenshot file/u);
         assert.match(result.stderr, /unknown theme: sepia/u);
+    }
+    finally
+    {
+        fs.rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test('manifest checker rejects reordered fields, reordered entries, and cross-entry identity drift', () =>
+{
+    const directory = fixture();
+    try
+    {
+        mutateManifest(directory, (manifest) =>
+        {
+            const schema = manifest.schema;
+            delete manifest.schema;
+            manifest.schema = schema;
+            manifest.screenshots.reverse();
+            manifest.screenshots[0].frontendBuildIdentity = `${manifest.screenshots[0].sourceCommit}:src/other`;
+            manifest.screenshots[1].fsusUi.lockDigest = '0'.repeat(64);
+            manifest.screenshots[2] = {
+                file: manifest.screenshots[2].file,
+                id: manifest.screenshots[2].id,
+                ...Object.fromEntries(Object.entries(manifest.screenshots[2]).filter(([key]) => !['file', 'id'].includes(key)))
+            };
+        });
+        const result = check(directory);
+        assert.notEqual(result.status, 0);
+        assert.match(result.stderr, /manifest fields must use canonical order/u);
+        assert.match(result.stderr, /canonical registry order/u);
+        assert.match(result.stderr, /frontendBuildIdentity is invalid/u);
+        assert.match(result.stderr, /FsusUI identity differs from manifest/u);
+        assert.match(result.stderr, /fields must use canonical order/u);
+    }
+    finally
+    {
+        fs.rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test('manifest generation is byte-identical for the same source and visual inputs', () =>
+{
+    const directory = fixture();
+    try
+    {
+        const sourceCommit = JSON.parse(fs.readFileSync(path.join(directory, 'manifest.json'), 'utf8')).screenshots[0].sourceCommit;
+        const first = spawnSync(process.execPath, [tool, 'generate', '--dir', directory, '--source-commit', sourceCommit], {
+            cwd: root,
+            encoding: 'utf8'
+        });
+        assert.equal(first.status, 0, first.stderr);
+        const firstBytes = fs.readFileSync(path.join(directory, 'manifest.json'));
+        const second = spawnSync(process.execPath, [tool, 'generate', '--dir', directory, '--source-commit', sourceCommit], {
+            cwd: root,
+            encoding: 'utf8'
+        });
+        assert.equal(second.status, 0, second.stderr);
+        assert.deepEqual(fs.readFileSync(path.join(directory, 'manifest.json')), firstBytes);
+        assert.equal(check(directory).status, 0);
     }
     finally
     {

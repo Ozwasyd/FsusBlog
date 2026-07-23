@@ -10,13 +10,19 @@ import { fileURLToPath } from 'node:url';
 // eslint-disable-next-line import-x/no-relative-parent-imports
 import { createReleaseId, validateReleaseId } from '../release/release-id.mjs';
 
+import {
+    createSharedIdentitySets,
+    validateManifestShape,
+    validateScreenshotMetadata,
+    validateSharedIdentityAgreement
+} from './public-preview-manifest-validation.mjs';
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const registryPath = path.join(root, 'config/docs/public-preview-screenshots.json');
 const managedDirectory = path.join(root, 'docs/assets/screenshots');
 const manifestName = 'manifest.json';
 const manifestSchema = 'fsusblog.public-preview-screenshot-manifest.v1';
 const evidenceSchema = 'fsusblog.public-preview-screenshot-verification.v1';
-const digestPattern = /^[0-9a-f]{64}$/u;
 const commitPattern = /^[0-9a-f]{40}$/u;
 const pngMagic = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
@@ -208,18 +214,22 @@ function validateManifest(directory, { requireFresh = false } = {})
     {
         return [`manifest.json is invalid JSON: ${error.message}`];
     }
-    if (manifest.schema !== manifestSchema)
-    {
-        errors.push(`manifest schema must be ${manifestSchema}`);
-    }
     if (fs.readFileSync(manifestFile, 'utf8') !== stableJson(manifest))
     {
         errors.push('manifest serialization is not deterministic');
     }
+    errors.push(...validateManifestShape(manifest, { schema: manifestSchema, serialize: stableJson }));
     const registry = readRegistry();
-    const expectedById = new Map(registry.screenshots.map((entry) => [entry.id, entry]));
+    const expectedScreenshots = [...registry.screenshots].sort((left, right) => left.id.localeCompare(right.id));
+    const expectedById = new Map(expectedScreenshots.map((entry) => [entry.id, entry]));
+    if (stableJson((manifest.screenshots ?? []).map((entry) => entry.id))
+        !== stableJson(expectedScreenshots.map((entry) => entry.id)))
+    {
+        errors.push('manifest screenshots must use canonical registry order');
+    }
     const ids = new Set();
     const files = new Set();
+    const commonIdentities = createSharedIdentitySets();
     for (const entry of manifest.screenshots ?? [])
     {
         const expected = expectedById.get(entry.id);
@@ -238,35 +248,16 @@ function validateManifest(directory, { requireFresh = false } = {})
         }
         ids.add(entry.id);
         files.add(entry.file);
-        for (const field of ['file', 'route', 'viewport', 'theme', 'scope'])
+        for (const [field, values] of commonIdentities)
         {
-            if (entry[field] !== expected[field])
-            {
-                errors.push(`${entry.id} has unknown ${field}: ${entry[field]}`);
-            }
+            values.add(entry[field]);
         }
-        if (!commitPattern.test(entry.sourceCommit ?? ''))
-        {
-            errors.push(`${entry.id} sourceCommit is invalid`);
-        }
-        for (const field of ['fixtureDigest', 'captureConfigurationDigest', 'visualInputDigest', 'pngSha256'])
-        {
-            if (!digestPattern.test(entry[field] ?? ''))
-            {
-                errors.push(`${entry.id} ${field} is invalid`);
-            }
-        }
-        for (const field of ['frontendBuildIdentity', 'backendBuildIdentity'])
-        {
-            if (typeof entry[field] !== 'string' || !entry[field].startsWith(entry.sourceCommit ?? '#'))
-            {
-                errors.push(`${entry.id} ${field} is invalid`);
-            }
-        }
-        for (const error of validateReleaseId(entry.releaseId, { forPublication: true }))
-        {
-            errors.push(`${entry.id} releaseId: ${error}`);
-        }
+        errors.push(...validateScreenshotMetadata(entry, {
+            expected,
+            manifest,
+            serialize: stableJson,
+            validateReleaseId
+        }));
         const image = path.join(directory, entry.file);
         if (!fs.existsSync(image))
         {
@@ -283,6 +274,7 @@ function validateManifest(directory, { requireFresh = false } = {})
             errors.push(`${entry.file} hash mismatch`);
         }
     }
+    errors.push(...validateSharedIdentityAgreement(commonIdentities));
     for (const expected of registry.screenshots)
     {
         if (!ids.has(expected.id))
