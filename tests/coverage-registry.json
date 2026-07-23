@@ -2271,6 +2271,21 @@
             ]
         },
         {
+            "id": "backend-changed-critical-mutation",
+            "description": "Changed-critical mutation evidence binds exact changed source files in authentication, canonical rights, outbox/transaction, and privacy/security domains to their directly owned tests and executed Stryker mutants.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                ".tmp/mutation/changed-critical"
+            ],
+            "assertionType": "mutation",
+            "failClosedRule": "A critical changed source without a complete catalog mapping must fail selection, and a non-empty selected closure must fail when Stryker executes zero mutants or when source, catalog, selection, config, or raw report digests drift.",
+            "minimumRequirement": "Run-bound evidence must contain the exact mutate files, owned test filter, source/worktree identity, closure and input digests, plus executed, killed, survived, timeout, no-coverage, compile-error and ignored mutant counts.",
+            "tierIds": [
+                "backend-mutation-changed-critical"
+            ]
+        },
+        {
             "id": "release-open-handle-budget",
             "description": "Release Open Handle Budget is covered by runtime artifacts that exercise the named behavior.",
             "owner": "ServerContractAgent",

@@ -7020,6 +7020,40 @@ tiers:
       localOnly: false
       nightlyOnly: true
 
+    - id: backend-mutation-changed-critical
+      owner: ServerContractAgent
+      command: tools/test/lanes/backend-mutation-changed-critical.sh
+      dependsOn: []
+      services: []
+      parallelizable: false
+      serialReason: one generated closure owns the repository Stryker process and run-bound authority
+      exclusiveResources: [stryker]
+      phase: 5
+      cost: high
+      resourceClass: cpu
+      cpuWeight: 1
+      memoryWeight: 1
+      minCpuUnits: 1
+      maxParallel: 1
+      requiresBootstrap: none
+      requiresNode: true
+      requiresDotnet: true
+      requiresPlaywright: none
+      cacheProfile: backend
+      timeoutMinutes: 120
+      shardable: false
+      defaultShards: 1
+      risk: critical
+      cadence: release-manual
+      requiredFor: none
+      coverage: [backend-changed-critical-mutation]
+      artifacts: [.tmp/mutation/changed-critical]
+      evidence: [.tmp/mutation/changed-critical]
+      ciJob: backend-mutation
+      localOnly: false
+      nightlyOnly: false
+      manualOnly: true
+
     - id: backend-nightly
       owner: ServerContractAgent
       command: tools/test/lanes/backend-nightly.sh

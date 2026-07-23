@@ -108,6 +108,7 @@ STATIC_NODE_CONTRACT_FILES=(
     "$ROOT_DIR/tests/tools/backend-build-lock-behavior.test.mjs"
     "$ROOT_DIR/tests/tools/backend-production-build-authority.test.mjs"
     "$ROOT_DIR/tests/tools/backend-production-build-authority-measurement.test.mjs"
+    "$ROOT_DIR/tests/tools/changed-critical-mutation.test.mjs"
     "$ROOT_DIR/tests/tools/canonical-hash-source-governance.test.mjs"
     "$ROOT_DIR/tests/tools/runtime-worker-admission.test.mjs"
     "$ROOT_DIR/tests/tools/security-worker-admission.test.mjs"

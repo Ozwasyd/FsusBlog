@@ -1,0 +1,4 @@
+[
+  "src/backend/Infrastructure/Auth/AccountSubjectHasher.cs",
+  "src/core/Integrity/ArticleRightsCanonicalHashV1.cs"
+]

@@ -165,6 +165,50 @@ public sealed class ArticleRightsCanonicalHashTests
     }
 
     [Theory]
+    [InlineData(nameof(ArticleRightsCanonicalInput.ArticleId))]
+    [InlineData(nameof(ArticleRightsCanonicalInput.ArticleRevisionId))]
+    [InlineData(nameof(ArticleRightsCanonicalInput.RevisionNo))]
+    public void BuildPayload_RejectsZeroForPositiveIdentifiers(string field)
+    {
+        ArticleRightsCanonicalInput input = field switch
+        {
+            nameof(ArticleRightsCanonicalInput.ArticleId) => Baseline() with { ArticleId = 0 },
+            nameof(ArticleRightsCanonicalInput.ArticleRevisionId) => Baseline() with { ArticleRevisionId = 0 },
+            nameof(ArticleRightsCanonicalInput.RevisionNo) => Baseline() with { RevisionNo = 0 },
+            _ => throw new ArgumentOutOfRangeException(nameof(field), field, null)
+        };
+
+        ArgumentOutOfRangeException exception = Assert.Throws<ArgumentOutOfRangeException>(
+            () => ArticleRightsCanonicalPayloadV1.BuildPayloadBytes(input));
+
+        Assert.Equal(field, exception.ParamName);
+    }
+
+    [Fact]
+    public void BuildPayload_RejectsNegativeMaxExcerptChars()
+    {
+        ArgumentOutOfRangeException exception = Assert.Throws<ArgumentOutOfRangeException>(
+            () => ArticleRightsCanonicalPayloadV1.BuildPayloadBytes(Baseline() with { MaxExcerptChars = -1 }));
+
+        Assert.Equal(nameof(ArticleRightsCanonicalInput.MaxExcerptChars), exception.ParamName);
+    }
+
+    [Theory]
+    [InlineData("first\rsecond", "first\nsecond")]
+    [InlineData("first\r\nsecond", "first\nsecond")]
+    [InlineData("\rleading", "\nleading")]
+    [InlineData("trailing\r", "trailing\n")]
+    public void ComputeHash_NormalizesEveryCarriageReturnForm(string source, string canonical)
+    {
+        string sourceHash = ArticleRightsCanonicalHashV1.ComputeHashHex(
+            Baseline() with { RightsStatement = source });
+        string canonicalHash = ArticleRightsCanonicalHashV1.ComputeHashHex(
+            Baseline() with { RightsStatement = canonical });
+
+        Assert.Equal(canonicalHash, sourceHash);
+    }
+
+    [Theory]
     [InlineData("known-and-unknown-tokens")]
     [InlineData("empty-and-long-values")]
     public void AttributionTemplateRenderer_PreservesSupportedBoundaryBehavior(string invariant)

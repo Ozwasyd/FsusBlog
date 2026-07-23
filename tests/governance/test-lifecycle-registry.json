@@ -606,6 +606,18 @@
             ]
         },
         {
+            "file": "tests/tools/changed-critical-mutation.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "behavior",
+                "runtime"
+            ]
+        },
+        {
             "file": "tests/tools/check-job-summaries.test.mjs",
             "owner": "manual-diagnostic:tests/tools/check-job-summaries.test.mjs",
             "executionCategory": "manual-diagnostic",

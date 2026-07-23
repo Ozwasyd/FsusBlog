@@ -98,6 +98,16 @@
             ]
         },
         {
+            "id": "mutation-changed-critical-catalog",
+            "owner": "backend-test-governance",
+            "canonicalPath": "config/testing/mutation/changed-critical-domains.v1.json",
+            "pathType": "file",
+            "rejectedPaths": [
+                "changed-critical-domains.json",
+                "stryker-changed-critical.json"
+            ]
+        },
+        {
             "id": "test-observation-schema",
             "owner": "test-observation-ledger",
             "canonicalPath": "config/schemas/test-observation-artifact.schema.json",
