@@ -189,6 +189,17 @@
             ]
         },
         {
+            "file": "tests/tools/aeds-access-profile-authority.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/aeds-access-profile-authority.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "perf"
+            ]
+        },
+        {
             "file": "tests/tools/aeds-cache-miss-frame-evidence.test.mjs",
             "owner": "manual-diagnostic:tests/tools/aeds-cache-miss-frame-evidence.test.mjs",
             "executionCategory": "manual-diagnostic",
@@ -391,6 +402,16 @@
         },
         {
             "file": "tests/tools/backup-envelope-contract.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text"
+            ]
+        },
+        {
+            "file": "tests/tools/browser-capability-contract.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",
             "lifecycle": "canonical-execution",
@@ -1429,6 +1450,28 @@
             "classifications": [
                 "source-text",
                 "perf",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/public-representation-coordinate-carriers.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/public-representation-coordinate.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
                 "runtime"
             ]
         },

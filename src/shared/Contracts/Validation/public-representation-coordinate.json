@@ -1,0 +1,110 @@
+{
+  "schema": "fsusblog.public-representation-coordinate.v1",
+  "coordinateVersion": 1,
+  "digestAlgorithm": "sha256",
+  "canonicalSerialization": "length-prefixed-utf8-v1",
+  "existingAuthorities": {
+    "aedsProtocol": "src/shared/Contracts/Validation/aeds-protocol.json",
+    "releaseIdentity": "src/shared/Contracts/Validation/release-id-contract.json"
+  },
+  "fields": [
+    { "name": "routeIdentity", "type": "string", "required": true, "source": "canonical-route-registry" },
+    { "name": "sourceVersion", "type": "uint64", "required": true, "source": "projection-publication" },
+    { "name": "articleRevision", "type": "uint64", "required": false, "default": 0, "source": "article-revision" },
+    { "name": "publication", "type": "uint64", "required": false, "default": 0, "source": "article-publication" },
+    { "name": "visibilityVersion", "type": "uint64", "required": true, "source": "visibility-publication" },
+    { "name": "rendererVersion", "type": "string", "required": true, "source": "public-aot-renderer" },
+    { "name": "frontendRelease", "type": "string", "required": true, "source": "release-id-authority" },
+    { "name": "frontendAssetVersion", "type": "string", "required": true, "source": "spa-asset-manifest" },
+    { "name": "aedsProtocolVersion", "type": "uint8", "required": true, "source": "aeds-protocol-authority" },
+    { "name": "aedsSchemaIdentity", "type": "string", "required": true, "source": "aeds-frame-type-and-layout" },
+    { "name": "documentDigest", "type": "sha256", "required": true, "source": "sealed-artifact" },
+    { "name": "hydrationSidecarDigest", "type": "sha256", "required": false, "default": "", "source": "content-addressed-sidecar" },
+    { "name": "seoIdentity", "type": "string", "required": true, "source": "canonical-seo-head" },
+    { "name": "hydrationPageKind", "type": "string", "required": true, "source": "public-page-manifest" }
+  ],
+  "invariants": [
+    "routeIdentity",
+    "sourceVersion",
+    "articleRevision",
+    "publication",
+    "visibilityVersion",
+    "rendererVersion",
+    "frontendRelease",
+    "frontendAssetVersion",
+    "aedsProtocolVersion",
+    "aedsSchemaIdentity",
+    "documentDigest",
+    "seoIdentity",
+    "hydrationPageKind"
+  ],
+  "transitions": [
+    {
+      "id": "canonical-to-public-aot",
+      "input": "canonical-state",
+      "output": "public-aot-entry",
+      "preserves": ["routeIdentity", "sourceVersion", "articleRevision", "publication", "visibilityVersion", "seoIdentity", "hydrationPageKind"],
+      "seals": ["rendererVersion", "frontendRelease", "frontendAssetVersion", "aedsProtocolVersion", "aedsSchemaIdentity", "documentDigest"],
+      "fallback": "reject-publication"
+    },
+    {
+      "id": "public-aot-to-html",
+      "input": "public-aot-entry",
+      "output": "html-artifact",
+      "preserves": ["routeIdentity", "sourceVersion", "articleRevision", "publication", "visibilityVersion", "rendererVersion", "frontendRelease", "frontendAssetVersion", "seoIdentity", "hydrationPageKind"],
+      "seals": ["documentDigest", "hydrationSidecarDigest"],
+      "fallback": "network-canonical-route"
+    },
+    {
+      "id": "hydration-to-sidecar",
+      "input": "hydration-payload",
+      "output": "hydration-sidecar",
+      "preserves": ["routeIdentity", "sourceVersion", "articleRevision", "publication", "visibilityVersion", "rendererVersion", "frontendRelease", "frontendAssetVersion", "aedsProtocolVersion", "aedsSchemaIdentity", "seoIdentity", "hydrationPageKind"],
+      "seals": ["hydrationSidecarDigest"],
+      "fallback": "network-canonical-route"
+    },
+    {
+      "id": "canonical-to-hot-read",
+      "input": "canonical-state",
+      "output": "public-hot-read-artifact",
+      "preserves": ["routeIdentity", "sourceVersion", "articleRevision", "publication", "visibilityVersion", "seoIdentity", "hydrationPageKind"],
+      "seals": ["rendererVersion", "frontendRelease", "frontendAssetVersion", "aedsProtocolVersion", "aedsSchemaIdentity", "documentDigest"],
+      "fallback": "hot-read-not-ready"
+    },
+    {
+      "id": "materialize-runtime-entry",
+      "input": "cache-or-file-artifact",
+      "output": "runtime-entry",
+      "preserves": ["routeIdentity", "sourceVersion", "articleRevision", "publication", "visibilityVersion", "rendererVersion", "frontendRelease", "frontendAssetVersion", "aedsProtocolVersion", "aedsSchemaIdentity", "documentDigest", "hydrationSidecarDigest", "seoIdentity", "hydrationPageKind"],
+      "seals": [],
+      "fallback": "evict-and-rebuild"
+    },
+    {
+      "id": "artifact-to-browser-hydration",
+      "input": "html-sidecar-or-aeds",
+      "output": "browser-hydration-state",
+      "preserves": ["routeIdentity", "sourceVersion", "articleRevision", "publication", "visibilityVersion", "rendererVersion", "frontendRelease", "frontendAssetVersion", "aedsProtocolVersion", "aedsSchemaIdentity", "documentDigest", "seoIdentity", "hydrationPageKind"],
+      "seals": [],
+      "fallback": "network-canonical-route"
+    },
+    {
+      "id": "service-worker-navigation",
+      "input": "service-worker-shell-cache",
+      "output": "navigation-response",
+      "preserves": ["frontendRelease", "frontendAssetVersion"],
+      "seals": [],
+      "fallback": "network-navigation"
+    }
+  ],
+  "diagnostics": {
+    "schema": "fsusblog.public-representation-evidence.v1",
+    "allowedLayers": ["projection", "aot", "html", "sidecar", "hot-read", "cache", "browser", "service-worker"],
+    "allowedTransitions": ["canonical-to-public-aot", "public-aot-to-html", "hydration-to-sidecar", "canonical-to-hot-read", "materialize-runtime-entry", "artifact-to-browser-hydration", "service-worker-navigation"],
+    "counters": ["representationCoordinateMismatch", "deterministicFallback", "closedLoopInvariantMismatch", "artifactRebuild"],
+    "highCardinalityLabelsForbidden": ["routeIdentity", "documentDigest", "hydrationSidecarDigest", "frontendRelease", "frontendAssetVersion"]
+  },
+  "rebuildAmplification": {
+    "unit": "artifact-rebuilds-per-mutation",
+    "mutationKinds": ["create", "update", "publish", "archive", "restore", "category-rename", "tag-rename"]
+  }
+}

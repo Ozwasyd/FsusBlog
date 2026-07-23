@@ -3086,6 +3086,31 @@
             ]
         },
         {
+            "id": "public-representation-coordinate-closed-loop",
+            "description": "PublicAOT HTML and hydration sidecars, PublicHotRead AEDS/HTML, runtime cache entries and browser or Service Worker projections share one generated coordinate authority and deterministic transport fallbacks.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "src/shared/Contracts/Validation/public-representation-coordinate.json",
+                "src/shared/Contracts/Validation/PublicRepresentationCoordinate.Generated.cs",
+                "src/frontend/src/generated/publicRepresentationCoordinate.ts",
+                "src/frontend/wasm/aeds/include/public_representation_coordinate.hpp",
+                "tools/contracts/generate-public-representation-coordinate.mjs",
+                "tools/contracts/public-representation-coordinate.mjs",
+                "tools/contracts/check-public-representation-coordinate.mjs",
+                "tests/tools/public-representation-coordinate.test.mjs",
+                "tests/tools/public-representation-coordinate-carriers.test.mjs",
+                "docs/api/contracts.md",
+                "docs/architecture.md"
+            ],
+            "assertionType": "static",
+            "failClosedRule": "Reject generated-surface drift, incomplete coordinates, renderer, assets, release, source, route or digest mismatch, divergent AOT and HotRead loops, high-cardinality evidence labels, or a mismatch without a deterministic fallback.",
+            "minimumRequirement": "Local property and contract tests must cover create, update, publish, archive, restore, taxonomy rename, old Service Worker release, sidecar tamper or absence, wrong URL or source version, both canonical loops and rebuild amplification without a hot-path database or Redis lookup.",
+            "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
             "id": "backend-typed-schema-ddl-providers",
             "description": "Schema migration DDL steps validate typed identifiers and column definitions, resolve provider-specific PostgreSQL, MySQL and SQLite builders, and support transaction-aware dry-run previews.",
             "owner": "ServerContractAgent",

@@ -3,7 +3,7 @@
     "generatedBy": "tools/governance/check-rule-platform.mjs --write-registry",
     "inventory": {
         "packageScriptCount": 196,
-        "implementationCount": 343
+        "implementationCount": 344
     },
     "rules": [
         {
@@ -10780,6 +10780,34 @@
                 "mode": "delegated-implementation",
                 "implementation": "tools/contracts/check-openapi-sync.mjs",
                 "executionKey": "governance:file:tools/contracts/check-openapi-sync.mjs",
+                "receiptCompatible": true
+            },
+            "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
+        },
+        {
+            "id": "Implementation.ToolsContractsCheckPublicRepresentationCoordinateMjs",
+            "externalId": "tools/contracts/check-public-representation-coordinate.mjs",
+            "symbol": "CheckToolsContractsCheckPublicRepresentationCoordinate",
+            "owner": "FrontendProductGovernanceOwner",
+            "category": "product-governance",
+            "engine": "text",
+            "sourceScopes": [
+                "tools/contracts/check-public-representation-coordinate.mjs",
+                "src/frontend/src/**",
+                "tests/frontend/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/contracts/check-public-representation-coordinate.mjs",
+                "executionKey": "governance:file:tools/contracts/check-public-representation-coordinate.mjs",
                 "receiptCompatible": true
             },
             "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
