@@ -55,7 +55,7 @@
         label-position="top"
         @submit.prevent="requestSubmit"
       >
-      <section class="write-title-panel px-4 mb-12" aria-label="文章标题">
+      <section class="write-title-panel px-4" aria-label="文章标题">
         <div
           v-if="pendingDraft"
           class="write-draft-banner border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] py-4 px-6 mb-8"
@@ -78,21 +78,10 @@
           </div>
         </div>
 
-        <el-form-item class="write-title-item" prop="title">
-          <div class="write-title-field">
-            <el-input
-              v-model="articleForm.title"
-              class="write-title-input"
-              label="文章标题"
-              name="articleTitle"
-              placeholder="写下文章标题"
-              size="large"
-              maxlength="100"
-              show-word-limit
-              :disabled="submitting"
-            />
-          </div>
-        </el-form-item>
+        <ArticleWriteTitleField
+          v-model="articleForm.title"
+          :disabled="submitting"
+        />
       </section>
 
       <div
@@ -675,6 +664,7 @@ import ArticleRevisionPanel from '@/components/admin/article/ArticleRevisionPane
 import ArticleSeoPreviewPanel from '@/components/admin/article/ArticleSeoPreviewPanel.vue'
 import ArticleWriteEditor from '@/components/admin/article/ArticleWriteEditor.vue'
 import ArticleWriteSidebar from '@/components/admin/article/ArticleWriteSidebar.vue'
+import ArticleWriteTitleField from '@/components/admin/article/ArticleWriteTitleField.vue'
 import FsusDialog from '@/components/ui/FsusDialog.vue'
 import ImageUploadOptionsPanel from '@/components/ui/ImageUploadOptionsPanel.vue'
 import { useAdminArticleWrite } from '@/composables/useAdminArticleWrite'
@@ -1109,50 +1099,8 @@ const submitQuickCreateTag = async (): Promise<void> => {
   min-width: 0;
 }
 
-.write-title-item,
-.write-title-item :deep(.el-form-item__content),
-.write-title-field,
-.write-title-input {
-  --write-title-inline-inset: clamp(1rem, 3vw, 1.5rem);
-
-  width: 100%;
-  min-width: 0;
-}
-
-.write-title-input :deep(.el-input__wrapper) {
-  min-height: clamp(4.5rem, 8vw, 6.5rem);
-  border: 0;
-  box-shadow: none;
-  background: transparent;
-  padding: 0 var(--write-title-inline-inset);
-}
-
-.write-title-input :deep(.el-input__wrapper.is-focus),
-.write-title-input :deep(.el-input__wrapper:hover) {
-  box-shadow: inset 0 -2px 0 var(--fsusblog-panel-border);
-}
-
-.write-title-input :deep(.el-input__inner) {
-  height: auto;
-  min-height: 2.5rem;
-  color: var(--fsusblog-text-primary);
-  font-size: clamp(2.25rem, 5vw, 4rem);
-  font-weight: 700;
-  line-height: 1.08;
-  letter-spacing: 0;
-}
-
-.write-title-input :deep(.el-input__inner::placeholder) {
-  color: color-mix(in srgb, var(--fsusblog-text-muted) 72%, transparent);
-  font-weight: 700;
-}
-
-.write-title-input :deep(.el-input__count) {
-  bottom: 0.35rem;
-  background: transparent;
-  color: var(--fsusblog-text-tertiary);
-  font-size: 14px;
-  font-weight: 700;
+.write-title-panel {
+  margin-bottom: 1.5rem;
 }
 
 .write-side-panel {
@@ -1288,20 +1236,6 @@ const submitQuickCreateTag = async (): Promise<void> => {
 
   .write-grid {
     grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-@media (max-width: 640px) {
-  .write-title-input :deep(.el-input__wrapper) {
-    padding-inline: 0.5rem;
-  }
-
-  .write-title-input :deep(.el-input__count) {
-    display: none;
-  }
-
-  .write-title-input :deep(.el-input__inner) {
-    font-size: clamp(1.5rem, 10vw, 2.25rem);
   }
 }
 

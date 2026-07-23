@@ -12,6 +12,10 @@ const read = (file) => fs.readFileSync(file, 'utf8')
 const writePath = path.join(repoRoot, 'src/frontend/src/views/admin/article/Write.vue')
 const sidebarPath = path.join(repoRoot, 'src/frontend/src/components/admin/article/ArticleWriteSidebar.vue')
 const seoPath = path.join(repoRoot, 'src/frontend/src/components/admin/article/ArticleSeoPreviewPanel.vue')
+const titleFieldPath = path.join(repoRoot, 'src/frontend/src/components/admin/article/ArticleWriteTitleField.vue')
+const productionFixturePath = path.join(repoRoot, 'tests/frontend/fixtures/articleEditorProductionVisual.ts')
+const productionFixtureContractPath = path.join(repoRoot, 'tests/frontend/fixtures/article-editor-production-contract.json')
+const productionFixtureSpecPath = path.join(repoRoot, 'tests/frontend/e2e/article-editor-production-fixture.spec.ts')
 const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json')
 
 function fail(file, line, message) {
@@ -30,6 +34,10 @@ function lineOf(source, token) {
 const write = read(writePath)
 const sidebar = read(sidebarPath)
 const seo = read(seoPath)
+const titleField = read(titleFieldPath)
+const productionFixture = read(productionFixturePath)
+const productionFixtureContract = JSON.parse(read(productionFixtureContractPath))
+const productionFixtureSpec = read(productionFixtureSpecPath)
 
 for (const [file, source, tokens] of [
   [writePath, write, [
@@ -96,6 +104,54 @@ const requiredWriteTokens = [
 for (const token of requiredWriteTokens) {
   if (!write.includes(token)) {
     fail(writePath, 1, `Article editor workspace contract is missing ${token}`)
+  }
+}
+
+for (const token of [
+  'type="textarea"',
+  ':autosize="{ minRows: 1, maxRows: 3 }"',
+  'font-size: clamp(2.25rem, 2.8vw, 2.5rem);',
+  'font-size: 1.875rem;',
+  'line-height: 1.2;',
+  'letter-spacing: 0;',
+  'color: var(--fsusblog-text-muted);'
+]) {
+  if (!titleField.includes(token)) {
+    fail(titleFieldPath, 1, `Article title field contract is missing ${token}`)
+  }
+}
+
+for (const forbidden of [
+  /font-size:\s*(?:4rem|[4-9]\dpx)/u,
+  /min-height:\s*(?:6\.5rem|10[0-9]px)/u,
+  /letter-spacing:\s*-/u
+]) {
+  if (forbidden.test(titleField)) {
+    fail(titleFieldPath, 1, `Article title field exceeds task-surface hierarchy: ${forbidden}`)
+  }
+}
+
+if (productionFixtureContract.schema !== 'fsusblog.article-editor-production-fixture.v1') {
+  fail(productionFixtureContractPath, 1, 'Article editor production fixture schema is missing or stale')
+}
+for (const width of [375, 768, 1366, 1440]) {
+  if (!productionFixtureContract.viewports.some((viewport) => viewport.width === width)) {
+    fail(productionFixtureContractPath, 1, `Article editor production fixture must cover ${width}px`)
+  }
+}
+for (const title of ['empty', 'short', 'long', 'mixed']) {
+  if (!(title in productionFixtureContract.titles)) {
+    fail(productionFixtureContractPath, 1, `Article editor production fixture must cover ${title} title`)
+  }
+}
+for (const token of ['ArticleWriteTitleField', 'articleEditorFixtureReady']) {
+  if (!productionFixture.includes(token)) {
+    fail(productionFixturePath, 1, `Article editor production fixture is missing ${token}`)
+  }
+}
+for (const token of ['fontSize).toBeLessThanOrEqual(40)', '150% zoom', 'height).toBeGreaterThanOrEqual(360)']) {
+  if (!productionFixtureSpec.includes(token)) {
+    fail(productionFixtureSpecPath, 1, `Article editor production fixture acceptance is missing ${token}`)
   }
 }
 

@@ -1,0 +1,17 @@
+{
+  "schema": "fsusblog.article-editor-production-fixture.v1",
+  "titles": {
+    "empty": "",
+    "short": "把复杂问题写清楚",
+    "long": "从一次真实故障复盘中整理可验证的工程决策，并让标题在编辑列内自然换行",
+    "mixed": "AEDS 运行时边界：从 CJK 到 Latin without a poster-sized heading"
+  },
+  "viewports": [
+    { "id": "mobile", "width": 375, "height": 812 },
+    { "id": "tablet", "width": 768, "height": 1024 },
+    { "id": "laptop", "width": 1366, "height": 768 },
+    { "id": "desktop", "width": 1440, "height": 900 }
+  ],
+  "themes": ["light", "dark"],
+  "zoom": [1, 1.5]
+}
