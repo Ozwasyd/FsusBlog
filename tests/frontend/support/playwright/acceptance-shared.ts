@@ -2128,20 +2128,54 @@ export async function freezeUiForScreenshot(page: Page): Promise<void> {
     `)
 }
 
+type DynamicScreenshotTextRule = Readonly<{
+  pattern: string
+  flags: string
+  replacement: string
+  pathname?: string
+}>
+
+export const DYNAMIC_SCREENSHOT_TEXT_RULES: readonly DynamicScreenshotTextRule[] = [
+  { pattern: String.raw`\b\d{1,2}\/\d{1,2}\/\d{4},\s+\d{1,2}:\d{2}:\d{2}\s+(?:AM|PM)\b`, flags: 'gu', replacement: '1/1/2026, 12:00:00 AM' },
+  { pattern: String.raw`\b\d{4}-\d{2}-\d{2}\b`, flags: 'gu', replacement: '2026-01-01' },
+  { pattern: String.raw`\b\d{4}年\d{1,2}月\d{1,2}日\b`, flags: 'gu', replacement: '2026年1月1日' },
+  { pattern: String.raw`\b\d+\s*小时前\b`, flags: 'gu', replacement: '2 小时前' },
+  { pattern: String.raw`\/home\/[^\s]+\/\.tmp\/data\/public-preview-docs-[A-Za-z0-9_.-]+\/backups`, flags: 'gu', replacement: '/workspace/.tmp/data/public-preview-docs-stable/backups' },
+  { pathname: '/user/manage/ops', pattern: String.raw`\b\d+\s+\/\s+\d+\b`, flags: 'gu', replacement: '0 / 0' },
+  { pathname: '/user/manage/ops', pattern: String.raw`\bqueued=\d+\b`, flags: 'gu', replacement: 'queued=0' }
+]
+
+export function normalizeDynamicScreenshotText(value: string, pathname: string): string {
+  return DYNAMIC_SCREENSHOT_TEXT_RULES.reduce((normalized, rule) => {
+    if (rule.pathname && rule.pathname !== pathname) {
+      return normalized
+    }
+    return normalized.replace(new RegExp(rule.pattern, rule.flags), rule.replacement)
+  }, value)
+}
+
 export async function normalizeDynamicEvidenceForScreenshot(page: Page): Promise<void> {
-  await page.evaluate(() => {
+  await page.evaluate((rules) => {
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
     let node = walker.nextNode()
     while (node) {
-      const value = node.nodeValue ?? ''
-      node.nodeValue = value
-        .replace(/\b\d{1,2}\/\d{1,2}\/\d{4},\s+\d{1,2}:\d{2}:\d{2}\s+(?:AM|PM)\b/gu, '1/1/2026, 12:00:00 AM')
-        .replace(/\b\d{4}-\d{2}-\d{2}\b/gu, '2026-01-01')
-        .replace(/\b\d{4}年\d{1,2}月\d{1,2}日\b/gu, '2026年1月1日')
-        .replace(/\b\d+\s*小时前\b/gu, '2 小时前')
-        .replace(/\/home\/[^\s]+\/\.tmp\/data\/public-preview-docs-[A-Za-z0-9_.-]+\/backups/gu, '/workspace/.tmp/data/public-preview-docs-stable/backups')
+      node.nodeValue = rules.reduce((normalized, rule) => {
+        if (rule.pathname && rule.pathname !== window.location.pathname) {
+          return normalized
+        }
+        return normalized.replace(new RegExp(rule.pattern, rule.flags), rule.replacement)
+      }, node.nodeValue ?? '')
       node = walker.nextNode()
     }
+  }, DYNAMIC_SCREENSHOT_TEXT_RULES)
+}
+
+export async function waitForScreenshotPaintStability(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    await document.fonts.ready
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+    })
   })
 }
 

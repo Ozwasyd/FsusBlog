@@ -20,6 +20,7 @@ import {
   openThemedAuditedPage,
   prewarmDevRuntime,
   settlePage,
+  waitForScreenshotPaintStability,
   userName,
   userPassword,
   waitForAppReady
@@ -446,6 +447,7 @@ async function captureRouteScreenshot(page: Page, route: ManualRoute, viewport: 
   }
   await freezeUiForScreenshot(page)
   await normalizeDynamicEvidenceForScreenshot(page)
+  await waitForScreenshotPaintStability(page)
 
   const outputPath = screenshotPath(route, viewport, theme)
   const docsPath = docsScreenshotPath(route, viewport, theme)

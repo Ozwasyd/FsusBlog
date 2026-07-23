@@ -26,6 +26,7 @@ process.env.FSUSBLOG_PLAYWRIGHT_FIXTURES_FILE = fixtureFile
 
 const {
   DESKTOP_VIEWPORT,
+  normalizeDynamicScreenshotText,
   MOBILE_LANDSCAPE_VIEWPORT,
   MOBILE_VIEWPORT,
   NARROW_MOBILE_VIEWPORT,
@@ -51,5 +52,13 @@ describe('playwright acceptance shared helper', () => {
     expect(ULTRA_WIDE_VIEWPORT).toEqual({ width: 3440, height: 1440 })
     expect(UX_VIEWPORT_MATRIX.modes.smoke.viewports).toContain('ultra-wide')
     expect(UX_CONTENT_BOUNDARY_CORPUS.cases.map((entry) => entry.kind)).toContain('mermaid')
+  })
+
+  it('normalizes screenshot evidence without changing unrelated route counters', () => {
+    const operationsEvidence = '检查时间：7/23/2026, 3:53:05 AM；队列 0 / 1；detail=queued=1, dropped=0'
+    expect(normalizeDynamicScreenshotText(operationsEvidence, '/user/manage/ops')).toBe(
+      '检查时间：1/1/2026, 12:00:00 AM；队列 0 / 0；detail=queued=0, dropped=0'
+    )
+    expect(normalizeDynamicScreenshotText('分页 2 / 7', '/user/manage/comments')).toBe('分页 2 / 7')
   })
 })
