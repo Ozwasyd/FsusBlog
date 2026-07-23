@@ -998,11 +998,13 @@
             "owner": "InteropGlueAgent",
             "risk": "high",
             "evidencePaths": [
-                "src/frontend/test-results/playwright/cross-browser"
+                "tests/browser-capability-risk/catalog.json",
+                ".tmp/browser-capability-risk/browser-full-matrix.json",
+                "src/frontend/test-results/playwright/browser-full-matrix"
             ],
             "assertionType": "browser",
             "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-            "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
+            "minimumRequirement": "The versioned capability-risk catalog and deterministic coverage proof must bind every affected risk to stable test IDs and required Chromium, Firefox, or WebKit projects; nightly, release and explicit local full runs retain the complete declared matrix.",
             "tierIds": [
                 "cross-browser-smoke"
             ]

@@ -1,0 +1,192 @@
+{
+  "schema": "fsusblog.browser-capability-risk-catalog",
+  "version": 1,
+  "engines": [
+    "chromium",
+    "firefox",
+    "webkit"
+  ],
+  "matrixTierId": "cross-browser-smoke",
+  "profiles": {
+    "browser-primary-correctness": {
+      "cadence": [
+        "changed-path"
+      ],
+      "owner": "InteropGlueAgent",
+      "evidencePath": "src/frontend/test-results/playwright/browser-primary-correctness"
+    },
+    "browser-capability-delta": {
+      "cadence": [
+        "changed-path"
+      ],
+      "owner": "InteropGlueAgent",
+      "evidencePath": "src/frontend/test-results/playwright/browser-capability-delta"
+    },
+    "browser-full-matrix": {
+      "cadence": [
+        "local-explicit-full",
+        "nightly",
+        "release-reliability",
+        "release-final"
+      ],
+      "owner": "InteropGlueAgent",
+      "evidencePath": "src/frontend/test-results/playwright/browser-full-matrix"
+    }
+  },
+  "fullMatrixTriggers": [
+    "tests/browser-capability-risk/**",
+    "tools/testing/browser-capability-risk.mjs",
+    "tests/tools/browser-capability-risk.test.mjs",
+    "src/frontend/playwright.config.ts",
+    "src/frontend/playwright.diagnostics.config.ts",
+    "tests/matrix.yml"
+  ],
+  "primaryTriggers": [
+    "src/frontend/src/components/**",
+    "src/frontend/src/views/**",
+    "src/frontend/src/api/**",
+    "src/frontend/src/stores/**",
+    "src/frontend/src/router/**"
+  ],
+  "scenarios": [
+    {
+      "id": "primary-public-route-navigation",
+      "testId": "browser-test:primary-public-route-navigation",
+      "file": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
+      "requiredEngines": [
+        "chromium"
+      ],
+      "profiles": [
+        "browser-primary-correctness",
+        "browser-full-matrix"
+      ],
+      "proves": "Canonical product navigation, hydration and history correctness; Firefox and WebKit project this Chromium evidence instead of repeating the product path."
+    },
+    {
+      "id": "capability-engine-delta",
+      "testId": "browser-test:capability-engine-delta",
+      "file": "tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts",
+      "requiredEngines": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "profiles": [
+        "browser-capability-delta",
+        "browser-full-matrix"
+      ],
+      "proves": "Engine-specific capability classifications, supported behavior and declared fallback behavior."
+    }
+  ],
+  "risks": [
+    {
+      "id": "browser-hydration-dynamic-import",
+      "triggers": [
+        "src/frontend/src/bootstrap/**",
+        "src/frontend/src/public-renderers/**",
+        "src/frontend/src/router/**",
+        "src/frontend/vite.config.ts"
+      ],
+      "requiredEngines": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "scenarioIds": [
+        "capability-engine-delta"
+      ],
+      "fallbackSemantics": "The AOT shell remains usable until hydration completes; a chunk/import failure is observable and must not strand the global loader.",
+      "chromiumCanonicalEvidence": [
+        "browser-test:primary-public-route-navigation"
+      ],
+      "profileOwner": "browser-capability-delta"
+    },
+    {
+      "id": "browser-service-worker-policy",
+      "triggers": [
+        "src/frontend/src/bootstrap/serviceWorker.ts",
+        "src/frontend/src/workers/**",
+        "src/frontend/public/sw.js",
+        "src/frontend/vite.config.ts"
+      ],
+      "requiredEngines": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "scenarioIds": [
+        "capability-engine-delta"
+      ],
+      "fallbackSemantics": "An engine where the worker is intentionally disabled has no registrations, keeps the online shell usable and emits no unhandled registration error.",
+      "chromiumCanonicalEvidence": [
+        "browser-test:primary-public-route-navigation"
+      ],
+      "profileOwner": "browser-capability-delta"
+    },
+    {
+      "id": "browser-cache-storage-runtime",
+      "triggers": [
+        "src/frontend/src/assets/**",
+        "src/frontend/src/services/cache/**",
+        "src/frontend/src/workers/**",
+        "src/frontend/public/sw.js"
+      ],
+      "requiredEngines": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "scenarioIds": [
+        "capability-engine-delta"
+      ],
+      "fallbackSemantics": "Supported engines create only the fsus cache namespace; intentionally disabled engines remain online-only without stale registrations.",
+      "chromiumCanonicalEvidence": [
+        "browser-test:primary-public-route-navigation"
+      ],
+      "profileOwner": "browser-capability-delta"
+    },
+    {
+      "id": "browser-passkey-api",
+      "triggers": [
+        "src/frontend/src/services/passkeyCeremony.ts",
+        "src/frontend/src/services/passkeySignal.ts",
+        "src/frontend/src/views/LoginView.vue",
+        "src/frontend/src/components/auth/**"
+      ],
+      "requiredEngines": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "scenarioIds": [
+        "capability-engine-delta"
+      ],
+      "fallbackSemantics": "When PublicKeyCredential is absent, recovery remains visible and the missing credential API is not called.",
+      "chromiumCanonicalEvidence": [
+        "browser-test:primary-public-route-navigation"
+      ],
+      "profileOwner": "browser-capability-delta"
+    },
+    {
+      "id": "browser-conditional-mediation",
+      "triggers": [
+        "src/frontend/src/services/passkeyCeremony.ts",
+        "src/frontend/src/views/LoginView.vue",
+        "src/frontend/src/components/auth/**"
+      ],
+      "requiredEngines": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "scenarioIds": [
+        "capability-engine-delta"
+      ],
+      "fallbackSemantics": "A missing or negative conditional-mediation probe preserves explicit passkey and recovery actions without speculative credential calls.",
+      "chromiumCanonicalEvidence": [
+        "browser-test:primary-public-route-navigation"
+      ],
+      "profileOwner": "browser-capability-delta"
+    }
+  ]
+}

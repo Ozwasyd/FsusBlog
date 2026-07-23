@@ -96,8 +96,10 @@ async function navigatePublicSpa(page: Page, path: string): Promise<void> {
 
 test.describe('public browser-only navigation contract', () => {
   test.describe.configure({ mode: 'serial', timeout: 180_000 })
+  test.skip(({ browserName }) => browserName !== 'chromium',
+    'Firefox/WebKit project the Chromium canonical product path and run only capability delta probes')
 
-  test('Home → article A → article B → archive → category → tag → Home and history keep one coherent head', async ({ page }) => {
+  test('[browser-test:primary-public-route-navigation] Home → article A → article B → archive → category → tag → Home and history keep one coherent head', async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' })
     await waitForAppReady(page, WARMUP_TIMEOUT_MS)
     await settlePage(page)

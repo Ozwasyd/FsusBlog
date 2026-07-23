@@ -1759,7 +1759,7 @@
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
                 "mode": "delegated-command",
-                "command": "npm run ensure:wasm && env -u NO_COLOR NODE_PATH=./node_modules FSUSBLOG_PLAYWRIGHT_BROWSERS=${FSUSBLOG_PLAYWRIGHT_BROWSERS:-chromium,firefox,webkit} ../../tools/frontend/run-playwright-sanitized-env.sh npx playwright test --config=${FSUSBLOG_PLAYWRIGHT_CONFIG:-playwright.config.ts} ${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-} --workers=${FSUSBLOG_PLAYWRIGHT_WORKERS:-`node ../../tools/test/resolve-playwright-workers.mjs cross-browser-smoke`} acceptance/cross-browser-smoke.spec.ts",
+                "command": "npm run ensure:wasm && env -u NO_COLOR NODE_PATH=./node_modules FSUSBLOG_PLAYWRIGHT_BROWSERS=${FSUSBLOG_PLAYWRIGHT_BROWSERS:-chromium,firefox,webkit} ../../tools/frontend/run-playwright-sanitized-env.sh npx playwright test --config=${FSUSBLOG_PLAYWRIGHT_CONFIG:-playwright.config.ts} ${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-} --workers=${FSUSBLOG_PLAYWRIGHT_WORKERS:-`node ../../tools/test/resolve-playwright-workers.mjs cross-browser-smoke`} ${FSUSBLOG_BROWSER_TEST_GREP_ARG:-} ${FSUSBLOG_BROWSER_TEST_TARGETS:-acceptance/cross-browser-smoke.spec.ts}",
                 "implementation": "tools/frontend/run-playwright-sanitized-env.sh",
                 "executionKey": "governance:check:cross-browser:smoke",
                 "receiptCompatible": true

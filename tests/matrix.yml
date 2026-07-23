@@ -3533,8 +3533,17 @@ tiers:
       cadence: nightly
       requiredFor: none
       coverage: [cross-browser-smoke]
-      artifacts: [src/frontend/test-results/playwright/cross-browser]
-      evidence: [src/frontend/test-results/playwright/cross-browser]
+      artifacts:
+          [
+              .tmp/browser-capability-risk/browser-full-matrix.json,
+              src/frontend/test-results/playwright/browser-full-matrix,
+          ]
+      evidence:
+          [
+              tests/browser-capability-risk/catalog.json,
+              .tmp/browser-capability-risk/browser-full-matrix.json,
+              src/frontend/test-results/playwright/browser-full-matrix,
+          ]
       ciJob: browser-diagnostics
       localOnly: false
       nightlyOnly: true
@@ -3548,12 +3557,22 @@ tiers:
               src/frontend/src/services,
               src/frontend/src/workers,
               tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts,
+              tests/frontend/e2e/acceptance/public-routes.spec.ts,
               tests/frontend/support/playwright/browser-capability-contract.mjs,
+              tests/browser-capability-risk,
               tests/tools/browser-capability-contract.test.mjs,
+              tests/tools/browser-capability-risk.test.mjs,
+              tools/testing/browser-capability-risk.mjs,
           ]
-      triggerFiles: [src/frontend/vite.config.ts, tests/matrix.yml]
+      triggerFiles:
+          [
+              src/frontend/vite.config.ts,
+              src/frontend/playwright.config.ts,
+              src/frontend/playwright.diagnostics.config.ts,
+              tests/matrix.yml,
+          ]
       triggerCoverage: [cross-browser-smoke]
-      triggerReason: browser compatibility, service worker, worker, CSS, or public hydration code changed
+      triggerReason: browser capability-risk closure, selector, Playwright project, service worker, worker, CSS, or public hydration code changed
 
     - id: resilience
       owner: ServerContractAgent
