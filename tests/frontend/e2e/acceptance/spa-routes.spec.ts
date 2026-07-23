@@ -7,6 +7,7 @@ import {
   settlePage,
   waitForAppReady
 } from '../../support/playwright/acceptance-shared'
+import { waitForPublicHydration } from '../../support/playwright/readiness.mjs'
 
 function articleHeadline(page: Page): Locator {
   return page
@@ -52,7 +53,7 @@ test.describe('SPA browser-only hydration contract', () => {
       await expect(session.page.locator('#fsus-aot-shell')).toHaveCount(1)
 
       await session.page.mouse.click(16, 16)
-      await session.page.waitForTimeout(1200)
+      await waitForPublicHydration(session.page)
       await expect(articleHeadline(session.page)).toContainText(fixtures.articleTitle)
 
       await clickPublicNavLink(session.page, '归档')
@@ -82,7 +83,7 @@ test.describe('SPA browser-only hydration contract', () => {
       await expect(session.page.locator('#fsus-aot-shell')).toHaveCount(1)
 
       await session.page.mouse.click(16, 16)
-      await session.page.waitForTimeout(1200)
+      await waitForPublicHydration(session.page)
       await session.page.getByRole('link', { name: '回到主页' }).click()
       await waitForAppReady(session.page)
       await settlePage(session.page)

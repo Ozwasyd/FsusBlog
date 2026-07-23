@@ -1,4 +1,11 @@
 import { BrowserContractFailure, productAssert } from './contract.mjs'
+import {
+  waitForApplicationReady,
+  waitForPublicHydration,
+  waitForServiceWorkerCacheReady,
+  waitForSpaRoute,
+  waitForVisualFrameReady
+} from '../frontend/support/playwright/readiness.mjs'
 
 export const browserContractAppReadyTimeoutMs = 45_000
 const APP_READY_TIMEOUT_MS = browserContractAppReadyTimeoutMs
@@ -75,12 +82,12 @@ async function waitForAppReady(page, timeout = APP_READY_TIMEOUT_MS) {
 }
 
 async function settlePage(page) {
-  await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
-  await page.waitForTimeout(200)
+  await waitForApplicationReady(page)
+  await waitForVisualFrameReady(page)
 }
 
 async function waitForPath(page, expectedPath, timeout = APP_READY_TIMEOUT_MS) {
-  await page.waitForURL((url) => url.pathname === expectedPath, { timeout })
+  await waitForSpaRoute(page, expectedPath, { timeoutMs: timeout })
   productAssert(new URL(page.url()).pathname === expectedPath, `expected route ${expectedPath}, got ${page.url()}`)
 }
 
@@ -208,7 +215,7 @@ async function publicHydrationHistoryReload({ context, page, fixture, audit }) {
   await assertPublicIdentity(page, 'direct hydration')
 
   await page.mouse.click(16, 16)
-  await page.waitForTimeout(1_200)
+  await waitForPublicHydration(page)
   await clickVisiblePublicLink(page, '归档')
   await waitForPath(page, '/archive')
   await waitForAppReady(page)
@@ -309,7 +316,7 @@ async function articlePublishPersistence({ page, fixture, audit }) {
   const discardDraft = page.getByRole('button', { name: '丢弃服务端草稿' })
   if (await discardDraft.isVisible().catch(() => false)) {
     await discardDraft.click()
-    await discardDraft.waitFor({ state: 'hidden', timeout: 10_000 }).catch(() => {})
+    await discardDraft.waitFor({ state: 'hidden', timeout: 10_000 })
   }
 
   await page.getByPlaceholder(/写下文章标题|在此键入博文标题/u).first().fill(title)
@@ -398,14 +405,14 @@ async function waitForServiceWorkerController(page) {
   await page.waitForFunction(() => 'serviceWorker' in navigator, undefined, { timeout: 10_000 })
   await page.evaluate(async () => { await navigator.serviceWorker.ready })
   if (!await page.evaluate(() => Boolean(navigator.serviceWorker.controller))) {
-    await page.reload({ waitUntil: 'networkidle', timeout: RESPONSE_TIMEOUT_MS })
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: RESPONSE_TIMEOUT_MS })
   }
-  await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller), undefined, { timeout: 15_000 })
+  await waitForServiceWorkerCacheReady(page, { timeoutMs: 15_000 })
 }
 
 async function serviceWorkerOfflineReload({ context, page, fixture, audit }) {
   const path = `/article/${fixture.publicArticle.id}`
-  const response = await page.goto(path, { waitUntil: 'networkidle', timeout: RESPONSE_TIMEOUT_MS })
+  const response = await page.goto(path, { waitUntil: 'domcontentloaded', timeout: RESPONSE_TIMEOUT_MS })
   productAssert(response?.ok(), `service worker warm load failed: ${response?.status() ?? 'no response'}`)
   await waitForServiceWorkerController(page)
   await context.setOffline(true)

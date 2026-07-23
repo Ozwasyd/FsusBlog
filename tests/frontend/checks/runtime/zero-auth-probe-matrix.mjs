@@ -7,6 +7,10 @@ import { fileURLToPath } from 'node:url'
 import { encodeAdminPrincipalSnapshotFrame, encodeIdentityAccountSnapshotFrame } from '../../support/aeds-envelope.mjs'
 import { readPublicFixtureIds } from '../../support/public-fixtures.mjs'
 import { resolveSystemChromiumExecutablePath } from '../../support/system-chromium.mjs'
+import {
+  waitForApplicationReady,
+  waitForSpaRoute
+} from '../../support/playwright/readiness.mjs'
 import { resolveRuntimeBrowserTimeoutPlan } from '../../support/runtime-browser-timeout.mjs'
 import { resolveAdaptiveManifestWorkers } from '../../../../tools/test/run-command-manifest.mjs'
 
@@ -156,13 +160,24 @@ async function runScenario(browser, scenario) {
   const context = await browser.newContext()
   await installAuthCounters(context, scenario, counters)
   const page = await context.newPage()
+  const authReady = scenario.expectedAuthMe > 0
+    ? page.waitForResponse((response) => AUTH_ME_PATTERN.test(response.url()), {
+      timeout: timeoutPlan.navigationTimeoutMs
+    })
+    : null
+  const adminReady = scenario.expectedAdminMe > 0
+    ? page.waitForResponse((response) => ADMIN_ME_PATTERN.test(response.url()), {
+      timeout: timeoutPlan.navigationTimeoutMs
+    })
+    : null
 
   try {
     await page.goto(`${baseUrl}${scenario.route}`, {
       waitUntil: 'domcontentloaded',
       timeout: timeoutPlan.navigationTimeoutMs,
     })
-    await page.waitForTimeout(1800)
+    await waitForApplicationReady(page, { timeoutMs: timeoutPlan.navigationTimeoutMs })
+    await Promise.all([authReady, adminReady].filter(Boolean))
   } finally {
     await context.close()
   }
@@ -211,8 +226,10 @@ async function runPublicNavigationScenario(browser) {
     const aboutLink = page.locator('a[href="/about"]:visible').first()
     await aboutLink.waitFor({ state: 'visible', timeout: 0 })
     await aboutLink.click()
-    await page.waitForURL(/\/about(?:[?#].*)?$/u, { timeout: timeoutPlan.navigationTimeoutMs })
-    await page.waitForTimeout(1800)
+    await waitForSpaRoute(page, '/about', {
+      content: page.locator('main'),
+      timeoutMs: timeoutPlan.navigationTimeoutMs
+    })
   } finally {
     await context.close()
   }

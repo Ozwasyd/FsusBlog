@@ -482,6 +482,16 @@
             ]
         },
         {
+            "file": "tests/tools/browser-readiness-contract.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "perf"
+            ]
+        },
+        {
             "file": "tests/tools/browser-session-isolation.test.mjs",
             "owner": "package-script:check:browser-contract-fixture",
             "executionCategory": "package-script",

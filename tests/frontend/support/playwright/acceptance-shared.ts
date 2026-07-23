@@ -11,6 +11,10 @@ import { AEDS_HEADER_LENGTH, AEDS_MAGIC, AEDS_VERSION, FrameType } from '../../.
 import { resolveAuthFixtureDirectory } from '../fixture-paths.mjs'
 import { loadAuditFixtures } from './routeAuditFixtures'
 import { resolveTestSession, testSessionHeaders, withTestSessionContextOptions } from './testSession'
+import {
+  waitForApplicationReady as waitForCanonicalApplicationReady,
+  waitForVisualFrameReady
+} from './readiness.mjs'
 
 export type RuntimeAudit = {
   checkpoint: () => number
@@ -336,8 +340,8 @@ export async function waitForAppReady(page: Page, timeout = APP_READY_TIMEOUT_MS
 }
 
 export async function settlePage(page: Page): Promise<void> {
-  await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
-  await page.waitForTimeout(200)
+  await waitForCanonicalApplicationReady(page)
+  await waitForVisualFrameReady(page)
 }
 
 export async function openAuditedPage(browser: Browser, storageState?: StorageState): Promise<{

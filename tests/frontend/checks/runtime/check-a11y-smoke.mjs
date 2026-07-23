@@ -10,6 +10,7 @@ import {
 } from '../../support/runtime-browser-timeout.mjs';
 import { systemChromiumLaunchOptions } from '../../support/system-chromium.mjs';
 import { testSessionHeaders } from '../../support/test-session.mjs';
+import { waitForApplicationReady } from '../../support/playwright/readiness.mjs';
 
 const frontendBaseUrl = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000';
 const userName = process.env.FSUSBLOG_USER_USERNAME || 'binaryuser';
@@ -72,11 +73,7 @@ function assert(condition, message) {
 
 async function waitForApp(page, deadlineAt) {
   const remaining = Math.max(1, deadlineAt - Date.now());
-  await page.waitForFunction(() => document.readyState === 'complete' && Boolean(document.querySelector('#app')), undefined, {
-    timeout: remaining
-  });
-  await page.waitForLoadState('networkidle', { timeout: Math.min(10_000, Math.max(1, deadlineAt - Date.now())) }).catch(() => {});
-  await page.waitForTimeout(400);
+  await waitForApplicationReady(page, { timeoutMs: remaining });
 }
 
 async function addSessionCookies(context, session) {

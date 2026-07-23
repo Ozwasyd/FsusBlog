@@ -10,6 +10,9 @@ import {
 } from '../../support/runtime-browser-timeout.mjs'
 import { resolveSystemChromiumExecutablePath } from '../../support/system-chromium.mjs'
 import { resolveAdaptiveManifestWorkers } from '../../../../tools/test/run-command-manifest.mjs'
+import {
+  waitForApplicationReady
+} from '../../support/playwright/readiness.mjs'
 
 const require = createRequire(import.meta.url)
 const { chromium } = require(require.resolve('@playwright/test', { paths: [process.cwd()] }))
@@ -39,10 +42,7 @@ async function gotoRuntime(page, url) {
   await page.waitForFunction(() => document.readyState === 'complete', undefined, {
     timeout: navigationTimeoutMs()
   })
-  // Vite can replace the initial execution context immediately after
-  // domcontentloaded while its client reconnects. Settle that bounded startup
-  // edge before importing modules whose PoW side effects are counted exactly.
-  await page.waitForTimeout(250)
+  await waitForApplicationReady(page, { timeoutMs: navigationTimeoutMs() })
 }
 
 async function evaluateAcrossStartupNavigation(page, callback, argument) {
@@ -95,7 +95,6 @@ const scenarios = [
     route: '/',
     action: async (page) => {
       await gotoRuntime(page, `${baseUrl}/`)
-      await page.waitForTimeout(1200)
     },
     maxPowChallenges: 0,
     maxWorkerInits: 0,
@@ -106,7 +105,6 @@ const scenarios = [
     route: `/article/${publicFixtureIds.articleId}`,
     action: async (page) => {
       await gotoRuntime(page, `${baseUrl}/article/${publicFixtureIds.articleId}`)
-      await page.waitForTimeout(1200)
     },
     maxPowChallenges: 0,
     maxWorkerInits: 0,
@@ -128,7 +126,6 @@ const scenarios = [
           getRelatedReading(articleId),
         ])
       }, { articleId: publicFixtureIds.articleId })
-      await page.waitForTimeout(400)
     },
     maxPowChallenges: 0,
     maxWorkerInits: 0,

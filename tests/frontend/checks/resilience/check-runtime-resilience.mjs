@@ -7,6 +7,12 @@ import { createAdminStepUpProofToken } from '../../support/session-fixtures.mjs'
 import { readPublicFixtures } from '../../support/public-fixtures.mjs';
 import { systemChromiumLaunchOptions } from '../../support/system-chromium.mjs';
 import { testSessionHeaders } from '../../support/test-session.mjs';
+import {
+  waitForApplicationReady,
+  waitForNotificationSuppressed,
+  waitForObservableReadiness,
+  waitForVisualFrameReady
+} from '../../support/playwright/readiness.mjs';
 
 const frontendBaseUrl = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000';
 const trustedOrigin = process.env.PLAYWRIGHT_BASE_URL || process.env.FSUSBLOG_DEBUG_FRONTEND_URL || process.env.FSUSBLOG_PUBLIC_BASE_URL || baseUrl;
@@ -15,7 +21,6 @@ const userPassword = process.env.FSUSBLOG_USER_PASSWORD ?? '';
 const adminName = process.env.FSUSBLOG_ADMIN_USERNAME || 'binaryadmin';
 const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD ?? '';
 const markdownExtremeSize = normalizeMarkdownExtremeSize(process.env.FSUSBLOG_MARKDOWN_EXTREME_SIZE);
-const appSettleDelayMs = Number.parseInt(process.env.FSUSBLOG_PLAYWRIGHT_SETTLE_MS || '2600', 10);
 const hydrationReadyTimeoutMs = Number.parseInt(process.env.FSUSBLOG_HYDRATION_READY_TIMEOUT_MS || '12000', 10);
 const require = createRequire(import.meta.url);
 const { chromium } = require(require.resolve('@playwright/test', { paths: [process.cwd()] }));
@@ -122,30 +127,8 @@ async function newRuntimeContext(browser, options = {}) {
 }
 
 async function waitForApp(page) {
-  await page.waitForFunction(() => document.readyState === 'complete' && Boolean(document.querySelector('#app')), undefined, {
-    timeout: 45000
-  });
-  await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
-
-  // Public shell -> full SPA takeover is deferred; wait for hydration/runtime markers
-  // when available, then keep an extra settle window for async warnings.
-  await page.waitForFunction(() => {
-    const win = window;
-    const startup = Array.isArray(win.__FSUS_STARTUP_METRICS__) ? win.__FSUS_STARTUP_METRICS__ : [];
-    const hydration = Array.isArray(win.__FSUS_PUBLIC_HYDRATION_METRICS__) ? win.__FSUS_PUBLIC_HYDRATION_METRICS__ : [];
-
-    const runtimeReady = startup.some((metric) =>
-      metric && typeof metric.name === 'string' &&
-      (metric.name === 'entry-to-runtime-ready' || metric.name === 'runtime-gate-wait')
-    );
-
-    const hydrationDone = hydration.length > 0;
-    return runtimeReady || hydrationDone;
-  }, undefined, {
-    timeout: hydrationReadyTimeoutMs
-  }).catch(() => {});
-
-  await page.waitForTimeout(appSettleDelayMs);
+  await waitForApplicationReady(page, { timeoutMs: Math.max(45_000, hydrationReadyTimeoutMs) });
+  await waitForNotificationSuppressed(page);
 }
 
 async function addSessionCookies(context, session) {
@@ -238,20 +221,12 @@ function loadFixtureArticle() {
 }
 
 async function waitForMainText(page, expectedText, label, timeoutMs = 20_000) {
-  const deadline = Date.now() + timeoutMs;
-  let lastText = '';
-  while (Date.now() < deadline) {
-    lastText = await page.locator('main').innerText().catch(() => '');
-    if (lastText.includes(expectedText)) {
-      return;
-    }
-    await page.waitForTimeout(500);
-  }
-
-  const pageTitle = await page.title().catch(() => '');
-  throw new Error(
-    `${label} should render title; url=${page.url()} documentTitle=${JSON.stringify(pageTitle)} main=${JSON.stringify(lastText.slice(0, 240))}`
-  );
+  await waitForObservableReadiness(page, {
+    description: `${label} main content includes ${JSON.stringify(expectedText)}`,
+    timeoutMs,
+    argument: expectedText,
+    predicate: (text) => document.querySelector('main')?.textContent?.includes(text) === true
+  });
 }
 
 async function waitForArticleTitle(page, title) {
@@ -276,9 +251,7 @@ async function visitAuditedRoute(context, path, label, options = {}) {
     console.log(`[check-runtime-resilience] ${label} ${path}`);
     await page.goto(path, { waitUntil: 'domcontentloaded' });
     await waitForApp(page);
-    if (options.settleMs) {
-      await page.waitForTimeout(options.settleMs);
-    }
+    if (options.waitForVisualFrame) await waitForVisualFrameReady(page);
 
     await assertNoHorizontalOverflow(page, `${label} ${path}`);
     if (options.after) {
@@ -382,7 +355,7 @@ async function main() {
       const userContext = await newRuntimeContext(browser);
       await addSessionCookies(userContext, userSession);
       for (const path of selectedRoutes('user', ['/user/profile', '/user/messagebox', '/user/comments', '/user/profile', '/'])) {
-        await visitAuditedRoute(userContext, path, 'user', { settleMs: 800 });
+        await visitAuditedRoute(userContext, path, 'user', { waitForVisualFrame: true });
       }
       await userContext.close();
     }
@@ -407,7 +380,7 @@ async function main() {
           '/search?q=blog'
         ])) {
           await visitAuditedRoute(adminContext, path, 'admin', {
-            settleMs: 900,
+            waitForVisualFrame: true,
             after: path.startsWith('/article/')
               ? (page) => waitForArticleTitle(page, publicArticle.title)
               : null

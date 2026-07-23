@@ -3,6 +3,10 @@ import path from 'node:path';
 
 import { BrowserContractFailure } from './contract.mjs';
 import { createPageAudit } from './scenarios.mjs';
+import {
+    waitForApplicationReady,
+    waitForVisualFrameReady
+} from '../frontend/support/playwright/readiness.mjs';
 
 function publicPreviewRoute(entry, fixture)
 {
@@ -87,8 +91,8 @@ async function captureEntry(browser, fixture, entry, stagingDirectory, timeoutMs
         await page.addStyleTag({
             content: '*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}'
         });
-        await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => undefined);
-        await page.waitForTimeout(250);
+        await waitForApplicationReady(page);
+        await waitForVisualFrameReady(page);
         const layout = await page.evaluate(() => ({
             overflow: globalThis.document.documentElement.scrollWidth > globalThis.innerWidth + 1,
             appRoots: globalThis.document.querySelectorAll('#app').length,

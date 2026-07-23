@@ -1,4 +1,8 @@
 import { test, expect } from '@playwright/test'
+import {
+  waitForPublicHydration,
+  waitForServiceWorkerCacheReady
+} from '../../support/playwright/readiness.mjs'
 
 test.describe('cross-browser release smoke', () => {
   test('public shell engine capabilities and PWA cache stay coherent', async ({ page, browserName }) => {
@@ -81,17 +85,16 @@ test.describe('cross-browser release smoke', () => {
     expect(typeof hydrationState.passkeySupported).toBe('boolean')
     expect(typeof hydrationState.conditionalMediationProbeAvailable).toBe('boolean')
 
-    // Hydration can publish its ready marker while background dynamic imports
-    // are still in flight. Navigating immediately makes Firefox abort those
-    // requests with NS_BINDING_ABORTED and report a false module-load failure.
-    // Finish the real module graph before testing the next route.
-    await page.waitForLoadState('networkidle')
+    await waitForPublicHydration(page)
     if (hydrationState.serviceWorkerSupported && browserName !== 'webkit') {
-      await page.goto('/', { waitUntil: 'networkidle' })
-      await page.evaluate(async () => {
-        await navigator.serviceWorker.ready
+      await page.goto('/', { waitUntil: 'domcontentloaded' })
+      await waitForPublicHydration(page)
+      if (!await page.evaluate(() => Boolean(navigator.serviceWorker.controller))) {
+        await page.reload({ waitUntil: 'domcontentloaded' })
+      }
+      await waitForServiceWorkerCacheReady(page, {
+        requireShellCache: browserName === 'chromium'
       })
-      await page.reload({ waitUntil: 'networkidle' })
       const cacheNames = await page.evaluate(async () => await caches.keys())
       expect(cacheNames.every((name) => name.startsWith('fsus-'))).toBeTruthy()
       expect(cacheNames.some((name) => name.includes('shell')) || browserName !== 'chromium').toBeTruthy()

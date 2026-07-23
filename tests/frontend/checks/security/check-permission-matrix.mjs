@@ -22,6 +22,7 @@ import {
   resolveRuntimeBrowserTimeoutPlan
 } from '../../support/runtime-browser-timeout.mjs';
 import { testSessionHeaders } from '../../support/test-session.mjs';
+import { waitForAuthPermissionReady } from '../../support/playwright/readiness.mjs';
 import { resolveSystemChromiumExecutablePath } from '../../support/system-chromium.mjs'
 
 const frontendBaseUrl = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000';
@@ -405,10 +406,11 @@ async function assertGuestAndRoleRoutes() {
       waitUntil: 'domcontentloaded',
       timeout: runtimeTimeout(timeoutPlan.navigationTimeoutMs)
     });
-    await adminPage.waitForURL(/\/user\/manage(?:[/?#]|$)/u, {
-      timeout: runtimeTimeout(timeoutPlan.navigationTimeoutMs)
+    await waitForAuthPermissionReady(adminPage, {
+      pathPrefix: '/user/manage',
+      content: adminPage.getByText('站点工作台', { exact: true }).first(),
+      timeoutMs: runtimeTimeout(timeoutPlan.navigationTimeoutMs)
     });
-    await adminPage.waitForTimeout(2500);
     assert(new URL(adminPage.url()).pathname.startsWith('/user/manage'), 'admin should be able to stay on admin route');
     await adminContext.close();
   } finally {

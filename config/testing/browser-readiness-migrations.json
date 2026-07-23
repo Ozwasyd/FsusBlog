@@ -1,0 +1,31 @@
+{
+  "schema": "fsusblog.browser-readiness-migrations.v1",
+  "canonicalOwner": "tests/frontend/support/playwright/readiness.mjs",
+  "migrations": [
+    {
+      "oldLocations": ["tests/browser-contract/**", "tests/frontend/e2e/acceptance/**"],
+      "oldCondition": "networkidle or fixed post-navigation delay",
+      "replacement": "public hydration marker, SPA path and visible route content"
+    },
+    {
+      "oldLocations": ["tests/browser-contract/public-preview-gallery.mjs"],
+      "oldCondition": "networkidle plus fixed screenshot delay",
+      "replacement": "font readiness and two post-style animation frames"
+    },
+    {
+      "oldLocations": ["tests/frontend/checks/runtime/**", "tests/frontend/checks/resilience/**"],
+      "oldCondition": "fixed runtime settle delay",
+      "replacement": "application startup metrics, product locator or completed response"
+    },
+    {
+      "oldLocations": ["tests/frontend/checks/security/**"],
+      "oldCondition": "fixed permission settle delay",
+      "replacement": "authorized route and visible permission-gated content"
+    },
+    {
+      "oldLocations": ["tests/frontend/support/playwright/acceptance-shared.ts"],
+      "oldCondition": "shared networkidle settle",
+      "replacement": "application readiness and post-style visual frame"
+    }
+  ]
+}
