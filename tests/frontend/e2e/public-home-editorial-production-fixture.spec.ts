@@ -67,6 +67,12 @@ async function openFixture(page: Page, options: FixtureOptions): Promise<{
   }
 }
 
+async function readArticleIds(page: Page, selector: string): Promise<number[]> {
+  return await page.locator(selector).evaluateAll((elements) => elements.map((element) => (
+    Number(element.getAttribute('data-article-id'))
+  )))
+}
+
 async function attachColorEvidence(
   page: Page,
   testInfo: TestInfo,
@@ -108,6 +114,16 @@ test.describe('public home production fixture editorial hierarchy', () => {
         await expect(page).toHaveTitle('公开首页编辑层级 fixture')
         await expect(page.locator('main[aria-label]')).toBeVisible()
         await expect(page.locator('vite-error-overlay, #vite-error-overlay, .vite-error-overlay')).toHaveCount(0)
+
+        const recommendationIds = await readArticleIds(
+          page,
+          '[data-home-editorial-lead][data-article-id], [data-home-editorial-secondary] [data-article-id]'
+        )
+        const feedIds = await readArticleIds(page, '[data-home-feed-section] [data-article-id]')
+        expect(recommendationIds).toEqual([1, 2, 3, 4, 5])
+        expect(new Set(recommendationIds).size).toBe(recommendationIds.length)
+        expect(feedIds).toEqual(Array.from({ length: 10 }, (_, index) => index + 1))
+        expect(feedIds).toEqual(expect.arrayContaining(recommendationIds))
 
         const tiers = await Promise.all([
           leadTitle,
@@ -184,9 +200,20 @@ test.describe('public home production fixture editorial hierarchy', () => {
     await expect(page.locator('[data-home-editorial-lead]')).toHaveAttribute('data-home-lead-layout', 'text')
     await expect(page.locator('[data-content-cover]')).toHaveCount(0)
     await expect(page.locator('[data-home-editorial-secondary] [data-article-id]')).toHaveCount(1)
-    await expect(page.locator('[data-home-feed-section] [data-article-id]')).toHaveCount(1)
+    await expect(page.locator('[data-home-feed-section] [data-article-id]')).toHaveCount(3)
+
+    const recommendationIds = await readArticleIds(
+      page,
+      '[data-home-editorial-lead][data-article-id], [data-home-editorial-secondary] [data-article-id]'
+    )
+    const feedIds = await readArticleIds(page, '[data-home-feed-section] [data-article-id]')
+    expect(recommendationIds).toEqual([1, 2])
+    expect(new Set(recommendationIds).size).toBe(recommendationIds.length)
+    expect(feedIds).toEqual([1, 2, 3])
+    expect(feedIds).toEqual(expect.arrayContaining(recommendationIds))
+
     await expect(page.locator('.home-editorial-lead__title')).toContainText('verifiable')
-    await expect(page.locator('[data-home-feed-section] .ui-article-title')).toContainText('deliberately long')
+    await expect(page.locator('[data-home-feed-section] .ui-article-title').last()).toContainText('deliberately long')
     expect(diagnostics.apiRequestCount()).toBe(0)
     expect(diagnostics.runtimeErrors).toEqual([])
   })
