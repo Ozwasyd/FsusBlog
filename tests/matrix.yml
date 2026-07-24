@@ -6555,8 +6555,10 @@ tiers:
 
     - id: release-final
       owner: ServerContractAgent
+      executionMode: summary
       command: tools/test/lanes/release-final.sh
-      dependsOn:
+      dependsOn: [release-closeout]
+      requiresEvidenceFrom:
           [
               coverage-gate-strict,
               production-correctness,
@@ -6582,20 +6584,20 @@ tiers:
               native-fuzz-sanitizer,
               perception-character-v3-release-gate,
           ]
-      services: [postgres, redis, backend, frontend, preview]
+      services: []
       parallelizable: false
       serialReason: aggregates and signs the final shared release evidence
       exclusiveResources: [release-final]
       phase: 6
-      cost: very-high
+      cost: low
       resourceClass: io
       cpuWeight: 1
       memoryWeight: 1
       minCpuUnits: 1
       maxParallel: 1
-      requiresBootstrap: full
+      requiresBootstrap: none
       requiresNode: true
-      requiresDotnet: true
+      requiresDotnet: false
       requiresPlaywright: none
       evidenceClass: correctness
       cacheProfile: full
