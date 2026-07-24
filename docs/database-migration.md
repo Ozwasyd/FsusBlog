@@ -19,7 +19,7 @@ before selecting a compatible retained image/database pair.
 
 `SchemaMigrationRegistry` is a thin runtime adapter over the explicit
 `SchemaMigrationManifest`; it no longer owns descriptor implementations or a single
-ever-growing array. The manifest composes four immutable version catalogs:
+ever-growing array. The manifest composes these immutable version catalogs:
 
 | Catalog | Version range | Gap policy | Required previous phase tails |
 | --- | --- | --- | --- |
@@ -27,13 +27,17 @@ ever-growing array. The manifest composes four immutable version catalogs:
 | `identity-security-20260602-20260621` | 20260602-20260621 | sparse dates allowed | 20260518 pre/post tails |
 | `projection-integrity-20260625-20260704` | 20260625-20260704 | sparse dates allowed | 20260621 pre/post tails |
 | `current-20260709-20260716` | 20260709-20260716 | sparse dates allowed | 20260629 pre and 20260704 post tails |
+| `current-20260719` | 20260719 | sparse dates allowed | 20260716 pre/post tails |
+| `current-20260720` | 20260720 | sparse dates allowed | 20260719 pre/post tails |
+| `current-20260724` | 20260724 | sparse dates allowed | 20260720 post tail |
 
-Catalog boundaries have three explicitly declared gaps: 20260519-20260601,
-20260622-20260624, and 20260705-20260708. Startup composition fails before any SQL
-runs when catalog IDs or migration IDs repeat, a descriptor is outside its range,
-declaration order is not monotonic, a dependency is absent or does not point to the
-latest earlier migration in the same phase, or the actual boundaries differ from
-the declared gaps. The runner consumes this manifest order directly: all
+Catalog boundaries have five explicitly declared gaps: 20260519-20260601,
+20260622-20260624, 20260705-20260708, 20260717-20260718, and
+20260721-20260723. Startup composition fails before any SQL runs when catalog IDs or
+migration IDs repeat, a descriptor is outside its range, declaration order is not
+monotonic, a dependency is absent or does not point to the latest earlier migration
+in the same phase, or the actual boundaries differ from the declared gaps. The
+runner consumes this manifest order directly: all
 `PreCodeFirst` descriptors remain ordered by migration ID before all
 `PostCodeFirst` descriptors, which preserves the historical execution contract.
 
@@ -63,6 +67,21 @@ pre-quoted SQL fragments. For example, use `DefaultValue = "basic"`, never
 and changes the database default to a value containing quote characters. The fresh
 fixture inserts a `sys_user` row after the second run while omitting these columns
 and requires `anonymous_account|basic|active`.
+
+## Plugin Registry
+
+`20260724-post-plugin-registry` additively creates `plugin_registry`. The table keeps
+the closed Manifest JSON, verified package bytes, SHA-256 digest, install state,
+enabled bit, UTC timestamps and monotonic version. A primary key makes plugin IDs
+globally unique; check constraints bind enabled state, digest width, lifecycle state
+and uninstalled package erasure. Runtime/state and update-order indexes support
+bounded startup synchronization across homogeneous nodes.
+
+The migration is transactional and safe to retry. It does not activate or execute
+plugins. Rollback keeps the additive table while an N-1 application ignores it;
+operators disable affected plugins through the Registry lifecycle without restarting
+healthy nodes. Dropping the table is not a rollback path because it destroys package
+and lifecycle evidence.
 
 ## Zero-Downtime Migration Qualification
 

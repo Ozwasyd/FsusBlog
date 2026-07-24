@@ -6,6 +6,7 @@ using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Infrastructure.Plugins;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Security;
@@ -44,12 +45,34 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddPublicReadArtifactRuntime(configuration);
         services.AddFsusDistributedInvalidation(configuration);
         services.AddFsusClusterMembership(configuration);
+        services.AddPluginFoundation(configuration);
         services.AddIdentityRuntime();
         services.AddBackgroundRuntime();
         services.AddScoped<IArticleRevisionContentBlockMaintenance, ArticleRevisionContentBlockMaintenance>();
         services.AddSpaRuntime();
         services.AddObjectPools(configuration);
 
+        return services;
+    }
+
+    private static IServiceCollection AddPluginFoundation(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        string configuredVersion = configuration["PluginCompatibility:HostVersion"] ?? "1.3.0";
+        if (!Version.TryParse(configuredVersion, out Version? hostVersion)
+            || hostVersion.Major < 1)
+        {
+            throw new InvalidOperationException(
+                "PluginCompatibility:HostVersion must be a stable dotted host version.");
+        }
+
+        services.AddSingleton(sp => new PluginPackageReader(
+            hostVersion,
+            sp.GetService<IPluginPackageSignatureVerifier>()));
+        services.AddScoped<IPluginRegistryStore, PostgresPluginRegistryStore>();
+        services.AddScoped<IPluginRegistry, PluginRegistry>();
+        services.AddScoped<IPluginLifecycle, PluginLifecycle>();
         return services;
     }
 

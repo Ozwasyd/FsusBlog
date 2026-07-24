@@ -676,6 +676,17 @@ Search index、article service、PublicHotRead 与 application composition 仍�
 
 Schema migration 不再使用 runtime service partial。`SchemaMigrationRegistry` 只暴露由 `SchemaMigrationManifest` 验证后的执行计划；release-range catalog 声明本区间 descriptor，domain-oriented definition 类型承载不可删除的历史 SQL/step。manifest 在数据库访问前校验 ID 唯一、phase + migration ID 单调顺序、catalog range、phase-tail dependency 和显式 gap，runner 不再自行重排数组。空库与 20260517 代表性历史 fixture 都必须在重复执行前后保持各自的 columns/indexes/constraints snapshot、history 和数据转换结果不变。目录、版本边界和新增迁移规则见 [Database Migration Runbook](database-migration.md#versioned-legacy-catalog)。
 
+## Plugin foundation boundary
+
+v1.3.0 plugin foundation is an inert package and control-plane boundary. A hostile
+`.fspkg` is bounded and fully verified before persistence; it cannot extract files
+or execute code. PostgreSQL `plugin_registry` stores the verified package bytes,
+manifest, digest and lifecycle CAS coordinate, so cluster nodes read one authority
+instead of node-local install state. Runtime execution, Hook dispatch, permission
+grants, Raw SQL and native C# loading are not enabled by this layer. Exact package,
+state transition, failure-isolation and no-restart disable semantics are documented
+in [Plugin package and Registry foundation](architecture/plugin-foundation.md).
+
 ## 生产启动保护
 
 服务器通过 HostedService 在启动后执行以下生产校验，失败时进入可观测降级状态而不是直接终止进程：
