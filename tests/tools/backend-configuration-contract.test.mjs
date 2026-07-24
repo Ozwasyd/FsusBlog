@@ -74,8 +74,8 @@ test('canonical contract inventories settings, environment inputs, mounted files
   const canonical = checkBackendConfigurationContract({ root: repositoryRoot })
   assert.deepEqual(canonical.errors, [])
   assert.equal(canonical.report.status, 'ok')
-  assert.equal(canonical.report.counts.applicationSettings, 194)
-  assert.equal(canonical.report.counts.environmentVariables, 231)
+  assert.equal(canonical.report.counts.applicationSettings, 222)
+  assert.equal(canonical.report.counts.environmentVariables, 236)
   assert.equal(canonical.report.counts.mountedFiles, 4)
   assert.match(canonical.generatedReference, /not an input template/u)
 
