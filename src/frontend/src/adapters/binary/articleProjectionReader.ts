@@ -1,25 +1,11 @@
 import type { ArticleListItemResponse } from '@/contracts/binaryApi'
+import type { PublicArticleListCardProjection, PublicArticleListProjectionPage } from '@/view-contracts/articleList'
 import { BinaryReader, readInt32, readInt64Number, readSliceRef } from '@/codecs/binary/reader'
 import { ARTICLE_LIST_ACCESS } from '@/generated/aedsAccessProfiles'
 import { AppErrorCode, createAppError } from '@/utils/appError'
 import { mapArticlePageFromPodPayload } from './articleAdapter'
 
-export type PublicArticleListCardProjection = Readonly<{
-  id: number
-  createTime: string
-  category: Readonly<{ id: number; name: string }>
-  title: string
-  summary: string
-  tags: readonly Readonly<{ id: number; name: string }>[]
-}>
-
-export type PublicArticleListProjectionPage = Readonly<{
-  items: readonly PublicArticleListCardProjection[]
-  total: number
-  nextCursor?: string | null
-  hasMore?: boolean
-  decodePath: 'projection' | 'canonical-fallback'
-}>
+export type { PublicArticleListCardProjection, PublicArticleListProjectionPage }
 
 const strictUtf8 = new TextDecoder('utf-8', { fatal: true })
 const PUBLIC_CARD_TAG_LIMIT = 5

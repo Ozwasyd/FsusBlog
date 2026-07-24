@@ -1,9 +1,25 @@
-import type { ArticleListItemResponse, PageResponse } from '@/api/article';
+import type { ArticleListItemResponse, BinaryPageResponse as PageResponse } from '@/contracts/binaryApi';
 import { createPublicArticleDetailNavigationTarget } from '@/public-renderers/publicNavigationTargets'
 import { buildPublicCategoryHref, buildPublicHomePaginationHref, buildPublicTagHref } from '@/public-renderers/publicRouteIdentity'
 import type { CardContract, PaginationContract } from '@/ui-contracts/primitives';
 import { TimeUtils, type TimeRenderOptions } from '@/utils/time';
-import type { PublicArticleListCardProjection } from '@/adapters/binary/articleProjectionReader'
+
+export type PublicArticleListCardProjection = Readonly<{
+  id: number
+  createTime: string
+  category: Readonly<{ id: number; name: string }>
+  title: string
+  summary: string
+  tags: readonly Readonly<{ id: number; name: string }>[]
+}>
+
+export type PublicArticleListProjectionPage = Readonly<{
+  items: readonly PublicArticleListCardProjection[]
+  total: number
+  nextCursor?: string | null
+  hasMore?: boolean
+  decodePath: 'projection' | 'canonical-fallback'
+}>
 
 const DEFAULT_CATEGORY = '通用类';
 const MAX_TAGS_DISPLAY = 5;

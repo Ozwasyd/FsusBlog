@@ -21,7 +21,7 @@ import type { ApiRequestConfig } from './requestConfig';
 
 import { AppErrorCode, createAppError } from '@/utils/appError'
 import { AEDS_ACCESS_PROFILE } from '@/generated/aedsAccessProfiles'
-import type { PublicArticleListProjectionPage } from '@/adapters/binary/articleProjectionReader'
+import type { PublicArticleListProjectionPage } from '@/view-contracts/articleList'
 export { ArticlePublishStatus };
 export type {
     ArticleDetailResponse,

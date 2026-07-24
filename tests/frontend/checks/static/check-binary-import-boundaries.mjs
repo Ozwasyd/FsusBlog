@@ -3,7 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
-const sourceRoot = path.join(repositoryRoot, 'src/frontend/src')
+const sourceRoot = path.resolve(process.env.FSUSBLOG_BINARY_IMPORT_SOURCE_ROOT || path.join(repositoryRoot, 'src/frontend/src'))
 const sourceFiles = collectTypeScriptFiles(sourceRoot)
 const sourceByPath = new Map(sourceFiles.map((file) => [file, fs.readFileSync(file, 'utf8')]))
 const graph = new Map(sourceFiles.map((file) => [file, resolveImports(file, sourceByPath.get(file))]))
