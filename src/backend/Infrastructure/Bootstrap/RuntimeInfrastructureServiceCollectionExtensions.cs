@@ -3,6 +3,7 @@ using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Fonts;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Infrastructure.Operations;
@@ -52,6 +53,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddPluginFoundation(configuration);
         services.AddIdentityRuntime();
         services.AddBackgroundRuntime();
+        services.AddFontRuntime(configuration);
         services.AddScoped<IArticleRevisionContentBlockMaintenance, ArticleRevisionContentBlockMaintenance>();
         services.AddSpaRuntime();
         services.AddObjectPools(configuration);
@@ -330,6 +332,20 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
     private static IServiceCollection AddIdentityRuntime(this IServiceCollection services)
     {
         services.AddScoped<IBlacklistService, BlacklistService>();
+        return services;
+    }
+
+    private static IServiceCollection AddFontRuntime(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        string dataRoot = configuration["FSUSBLOG_DATA_ROOT"]
+            ?? Environment.GetEnvironmentVariable("FSUSBLOG_DATA_ROOT")
+            ?? Path.Combine(AppContext.BaseDirectory, "data");
+        string fontRoot = Path.Combine(Path.GetFullPath(dataRoot), "fonts");
+        services.AddSingleton<IFontRegistry>(provider => new LocalFontRegistry(
+            fontRoot,
+            provider.GetRequiredService<TimeProvider>()));
         return services;
     }
 

@@ -317,6 +317,14 @@ Blue/Green 存储按四类互不重叠的 root 分类：
 | release derived | `<derived-root>/<releaseId>/{public-aot,public-hot,search,ssr,precompressed,generated-manifests}` | 只写本 release subtree；多文件通过 staging + generation manifest + atomic pointer 发布 |
 | instance scoped | `<instance-root>/<slot>/<releaseId>/<instanceId>/{logs,tmp,runtime-snapshots}` | 仅当前实例；不得成为 rollback 或跨槽真源 |
 
+Font Registry 属于 durable shared 数据：`FSUSBLOG_DATA_ROOT/fonts/registry.json`
+保存 activation 与已安装元数据，`fonts/assets/<sha256>.woff2` 保存内容寻址资产，
+不随 candidate cleanup 或 release 切换删除。`.fsfont` 在任何写盘前完成路径、版本、
+WOFF2、预算和来源 metadata 校验；registry 通过同目录临时文件原子替换，active font
+的 disable/delete 必须先切换到 enabled replacement 或 built-in fallback。无需重启的
+降级是把受影响 scope 重新 activate 到 built-in selection；格式与生命周期详见
+[`.fsfont` package and registry](fonts/fsfont-package.md)。
+
 Compose 把 `${FSUSBLOG_RELEASE_ASSET_STORE}/releases` 只读挂载为 `/app/release-assets`，把共享 release-derived volume 挂载为 `/app/release-derived`。`UseReleaseScopedStaticAssets` 在 SPA fallback 前注册 `/release-assets/<releaseId>/...` 与 `/release-derived/<releaseId>/...`；Production 缺任一 root 配置会拒绝启动。服务可达不等于产物可发布：rollout 仍必须先 materialize exact manifest、验证 N/N-1、持久 retention state，执行 applied GC 后再复读旧 index/hash/SW/cache。无需重启的降级是停止 GC、保护 active/N-1、为当前 release 重新发布 generation；禁止 clear shared root、改写旧 release 或恢复 mutable `current/latest` 路径。
 
 通用静态文件中间件与 Release SPA template locator 始终以配置后的物理 `WebRootPath` 为权威来源，不采用 Development static-web-assets 或源码树候选可能注入的 source-first 结果。这样本地 Release 验收中的 `ASPNETCORE_WEBROOT`、SPA `index.html`、hashed assets、搜索索引 writer 与 `/search/index.bin` / `index.manifest.aeds` reader 指向同一 run-bound root；源码树里的历史 bundle 或 alias 不能与当前产物跨代拼接。显式 `preferSourceTemplate` 只保留给开发源码模板路径。
