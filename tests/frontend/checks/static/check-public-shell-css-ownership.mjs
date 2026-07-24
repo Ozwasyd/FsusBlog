@@ -118,7 +118,8 @@ for (const pattern of [
 
 for (const token of [
     'desktop-search-mode="trigger"',
-    ':desktop-search-trigger-label="layoutCopy.searchTriggerLabel"',
+    ':desktop-search-trigger-label="layoutCopy.search"',
+    `:content-flow="hydrationKind === 'ArticleDetail' ? 'content-driven' : 'viewport-stable'"`,
     ':auth-label="resolvedAuthLabel"',
     ':auth-href="resolvedAuthHref"',
     ':search-action="PUBLIC_ROUTE_PATHS.search"',
@@ -132,6 +133,9 @@ for (const token of [
 }
 
 for (const pattern of [
+    /:deep\s*\(/u,
+    /main:has\s*\(/u,
+    /\.el-public-shell__main/u,
     /<template\s+#desktop-search>/u,
     /desktopSearchExpanded/u,
     /desktopSearch(?:Container|Panel|Trigger)Ref/u,

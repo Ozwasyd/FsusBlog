@@ -2,6 +2,8 @@ import type { SiteComplianceConfigPublic } from '@/api/system'
 import { PUBLIC_SITE_IDENTITY_DEFAULTS } from '@/public-renderers/publicSiteIdentityDefaults'
 
 export type PublicActiveNav = 'home' | 'archive' | 'about' | 'none'
+export type PublicShellAuthAction = 'login' | 'account' | 'dashboard'
+export type PublicShellSearchAction = 'search' | 'search-shortcut'
 
 export type PublicShellState = Readonly<{
   hydrationKind?: string | null
@@ -11,9 +13,9 @@ export type PublicShellState = Readonly<{
   siteLogoDarkUrl: string
   siteWordmarkUrl: string
   activeNav: PublicActiveNav
-  authLabel: string
+  authAction: PublicShellAuthAction
   authHref: string
-  searchPlaceholder: string
+  searchAction: PublicShellSearchAction
   initialSearchQuery: string
   spaSearch: boolean
   showRuntime: boolean
@@ -29,9 +31,9 @@ export const PUBLIC_SHELL_DEFAULTS: PublicShellState = {
   siteLogoDarkUrl: '',
   siteWordmarkUrl: '',
   activeNav: 'none',
-  authLabel: '登录',
+  authAction: 'login',
   authHref: '/login',
-  searchPlaceholder: '搜索文章、标签或关键词',
+  searchAction: 'search',
   initialSearchQuery: '',
   spaSearch: false,
   showRuntime: false,

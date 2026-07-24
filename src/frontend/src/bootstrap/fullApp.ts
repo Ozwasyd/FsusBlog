@@ -207,6 +207,7 @@ function createPublicTakeoverRenderer(payload: PublicHydrationPayload): () => VN
 
     return h(PublicBlogLayoutShell, {
       ...shellState,
+      initialLocale: shellSeed.renderLocale,
       spaNavigation: true,
       onNavigate: handleNavigate,
       onSearch: handleSearch,

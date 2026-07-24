@@ -9,6 +9,7 @@ import type { ArticleDetailPageViewContract } from '@/view-contracts/articleDeta
 import type { ArticleResponsibilityPublicView } from '@/view-contracts/articleResponsibility'
 import type { ArticleListViewContract } from '@/view-contracts/articleList'
 import type { FilterPageViewContract } from '@/view-contracts/filterView'
+import type { SupportedLocale } from '@/locales'
 
 export type PublicAotBootstrapKind = PublicPageKind
 
@@ -49,6 +50,7 @@ type BaseBootstrapPayload<K extends PublicAotBootstrapKind> = Readonly<{
   renderTimestamp?: string
   renderYear?: number
   renderTimeZone?: string
+  renderLocale?: SupportedLocale
 }>
 
 export type PublicAotBootstrapPayloadByKind = {
@@ -140,6 +142,7 @@ type BaseHydrationPayload<K extends PublicPageKind> = Readonly<{
   renderTimestamp?: string
   renderYear?: number
   renderTimeZone?: string
+  renderLocale?: SupportedLocale
 }>
 
 export type PublicHydrationPayloadByKind = {

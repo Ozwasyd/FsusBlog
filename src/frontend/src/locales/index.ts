@@ -35,6 +35,11 @@ let storageListener: ((event: StorageEvent) => void) | null = null;
 export const locale = readonly(localeState);
 export const messages = computed<LocaleMessages>(() => localeMessages[localeState.value]);
 
+export function getLocaleMessages(value: SupportedLocale): LocaleMessages
+{
+    return localeMessages[value];
+}
+
 function resolveMessage(dictionary: LocaleMessages, key: string): string | null
 {
     let current: unknown = dictionary;
@@ -56,14 +61,6 @@ function interpolate(message: string, params: TranslationParams = {}): string
     ));
 }
 
-function warnMissingKey(key: string, requestedLocale: SupportedLocale): void
-{
-    if (import.meta.env.DEV && typeof console !== 'undefined')
-    {
-        console.warn(`[i18n] missing ${requestedLocale} translation: ${key}; falling back to ${DEFAULT_LOCALE}`);
-    }
-}
-
 export function translate(key: TranslationKey, params?: TranslationParams): string
 {
     return translateUnsafe(key, params);
@@ -78,9 +75,7 @@ export function translateUnsafe(key: string, params?: TranslationParams): string
         return interpolate(localized, params);
     }
 
-    const fallback = resolveMessage(localeMessages[DEFAULT_LOCALE], key);
-    warnMissingKey(key, requestedLocale);
-    return fallback === null ? key : interpolate(fallback, params);
+    throw new Error(`i18n_missing_message:${requestedLocale}:${key}`);
 }
 
 function localeToOpenGraph(value: SupportedLocale): string
@@ -131,10 +126,14 @@ export function toggleLocale(): SupportedLocale
     return setLocale(localeState.value === 'zh-CN' ? 'en-US' : 'zh-CN');
 }
 
-export function initializeLocaleRuntime(): SupportedLocale
+export function initializeLocaleRuntime(initialLocale?: SupportedLocale): SupportedLocale
 {
     if (runtimeInitialized)
     {
+        if (initialLocale && initialLocale !== localeState.value)
+        {
+            return applyLocale(initialLocale, false);
+        }
         syncLocaleDocumentMetadata();
         return localeState.value;
     }
@@ -143,7 +142,7 @@ export function initializeLocaleRuntime(): SupportedLocale
     const storedLocale = typeof localStorage === 'undefined'
         ? null
         : localStorage.getItem(LOCALE_PREFERENCE_STORAGE_KEY);
-    const initialLocale = isSupportedLocale(storedLocale) ? storedLocale : DEFAULT_LOCALE;
+    const resolvedLocale = initialLocale ?? (isSupportedLocale(storedLocale) ? storedLocale : DEFAULT_LOCALE);
 
     if (typeof window !== 'undefined')
     {
@@ -157,7 +156,7 @@ export function initializeLocaleRuntime(): SupportedLocale
         window.addEventListener('storage', storageListener);
     }
 
-    return applyLocale(initialLocale, false);
+    return applyLocale(resolvedLocale, false);
 }
 
 export function formatDate(

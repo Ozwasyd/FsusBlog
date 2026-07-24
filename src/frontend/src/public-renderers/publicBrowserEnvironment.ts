@@ -20,7 +20,7 @@ export type PublicBrowserEnvironmentProjection = Readonly<{
   hydrationKind: PublicPageKind
   themeMode: ThemeMode
   themeResolved: 'light' | 'dark'
-  authText: string
+  authAction: 'login' | 'account' | 'dashboard'
   authHref: string
   reducedMotion: boolean
   darkColorScheme: boolean
@@ -50,7 +50,7 @@ export function projectPublicBrowserEnvironment(
     hydrationKind: input.hydrationKind,
     themeMode,
     themeResolved,
-    authText: shell.authLabel,
+    authAction: shell.authAction,
     authHref: shell.authHref,
     reducedMotion: input.motionPreference === 'reduced',
     darkColorScheme: input.colorScheme === 'dark',

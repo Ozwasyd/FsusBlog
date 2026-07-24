@@ -65,13 +65,15 @@ describe('createPublicShellViewState', () => {
       siteDescription: 'My description',
       renderYear: 2025,
       activeNav: 'home',
-      authLabel: '登录',
+      authAction: 'login',
       authHref: '/login',
-      searchPlaceholder: '搜索文章、标签或关键词',
+      searchAction: 'search',
       initialSearchQuery: '',
       spaSearch: false,
       showRuntime: false
     })
+    expect(state).not.toHaveProperty('authLabel')
+    expect(state).not.toHaveProperty('searchPlaceholder')
   })
 
   it('switches auth actions only after runtime-auth state is resolved', () => {
@@ -83,7 +85,7 @@ describe('createPublicShellViewState', () => {
       isLoggedIn: true,
       isAdmin: true
     })).toMatchObject({
-      authLabel: '登录',
+      authAction: 'login',
       authHref: '/login'
     })
 
@@ -95,7 +97,7 @@ describe('createPublicShellViewState', () => {
       isLoggedIn: true,
       isAdmin: false
     })).toMatchObject({
-      authLabel: '账户',
+      authAction: 'account',
       authHref: '/user/profile'
     })
 
@@ -107,7 +109,7 @@ describe('createPublicShellViewState', () => {
       isLoggedIn: true,
       isAdmin: true
     })).toMatchObject({
-      authLabel: '控制板',
+      authAction: 'dashboard',
       authHref: '/user/manage'
     })
   })
@@ -121,7 +123,7 @@ describe('createPublicShellViewState', () => {
       showRuntime: true
     })
 
-    expect(state.searchPlaceholder).toBe('搜索文章、标签或关键词 (Ctrl+K)')
+    expect(state.searchAction).toBe('search-shortcut')
     expect(state.initialSearchQuery).toBe('vue hydration')
     expect(state.spaSearch).toBe(true)
     expect(state.showRuntime).toBe(true)
@@ -135,33 +137,33 @@ describe('publicShellRuntimeAuthState', () => {
 
   it('starts and resets to the SSR-compatible anonymous auth action', () => {
     expect(publicShellRuntimeAuthState.value).toEqual({
-      authLabel: '登录',
+      authAction: 'login',
       authHref: '/login'
     })
 
     setPublicShellRuntimeAuthState({
-      authLabel: '账户',
+      authAction: 'account',
       authHref: '/user/identity'
     })
     resetPublicShellRuntimeAuthState()
 
     expect(publicShellRuntimeAuthState.value).toEqual({
-      authLabel: '登录',
+      authAction: 'login',
       authHref: '/login'
     })
   })
 
   it('resolves anonymous and logged-in runtime account states', () => {
     expect(resolvePublicShellRuntimeAuthState(null)).toEqual({
-      authLabel: '登录',
+      authAction: 'login',
       authHref: '/login'
     })
     expect(resolvePublicShellRuntimeAuthState({ accountId: 1 })).toEqual({
-      authLabel: '账户',
+      authAction: 'account',
       authHref: '/user/profile'
     })
     expect(resolvePublicShellRuntimeAuthState({ accountId: 1, canManage: true })).toEqual({
-      authLabel: '控制板',
+      authAction: 'dashboard',
       authHref: '/user/manage'
     })
   })

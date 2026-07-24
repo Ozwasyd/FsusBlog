@@ -3,6 +3,7 @@ import PublicBlogLayoutShell from '@/components/public/PublicBlogLayoutShell.vue
 import type { SiteComplianceConfigPublic } from '@/api/system'
 import type { PublicPageKind } from '@/public-renderers/publicRenderBase'
 import { createPublicShellViewState } from '@/public-renderers/publicShellViewState'
+import type { SupportedLocale } from '@/locales'
 
 export type PublicHydrationPageKind = PublicPageKind
 
@@ -23,6 +24,7 @@ export type PublicAotShellAssembly = Readonly<{
   siteWordmarkUrl?: string | null
   renderYear?: number | null
   compliance?: SiteComplianceConfigPublic | null
+  renderLocale: SupportedLocale
   page: PublicAotPageAssembly
 }>
 
@@ -31,18 +33,21 @@ export function renderPublicAotPage(assembly: PublicAotPageAssembly): VNode {
 }
 
 export function renderPublicAotShell(assembly: PublicAotShellAssembly): VNode {
-  return h(PublicBlogLayoutShell, createPublicShellViewState({
-    hydrationKind: assembly.kind,
-    siteTitle: assembly.siteTitle,
-    siteDescription: assembly.siteDescription ?? null,
-    siteLogoUrl: assembly.siteLogoUrl ?? null,
-    siteLogoDarkUrl: assembly.siteLogoDarkUrl ?? null,
-    siteWordmarkUrl: assembly.siteWordmarkUrl ?? null,
-    renderYear: assembly.renderYear ?? null,
-    compliance: assembly.compliance ?? null,
-    spaSearch: false,
-    showRuntime: false
-  }), {
+  return h(PublicBlogLayoutShell, {
+    ...createPublicShellViewState({
+      hydrationKind: assembly.kind,
+      siteTitle: assembly.siteTitle,
+      siteDescription: assembly.siteDescription ?? null,
+      siteLogoUrl: assembly.siteLogoUrl ?? null,
+      siteLogoDarkUrl: assembly.siteLogoDarkUrl ?? null,
+      siteWordmarkUrl: assembly.siteWordmarkUrl ?? null,
+      renderYear: assembly.renderYear ?? null,
+      compliance: assembly.compliance ?? null,
+      spaSearch: false,
+      showRuntime: false
+    }),
+    initialLocale: assembly.renderLocale
+  }, {
     default: () => renderPublicAotPage(assembly.page)
   })
 }

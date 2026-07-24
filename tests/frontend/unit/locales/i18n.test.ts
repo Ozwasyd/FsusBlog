@@ -45,11 +45,10 @@ describe('locale runtime', () => {
     expect(translate('article.metadata.longRead')).toBe('Long read')
   })
 
-  it('falls back to the key without crashing when both dictionaries miss a runtime key', () => {
-    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  it('fails closed when the active locale is missing a message key', () => {
     setLocale('en-US')
-    expect(translateUnsafe('future.missing.key')).toBe('future.missing.key')
-    expect(warning).toHaveBeenCalledOnce()
+    expect(() => translateUnsafe('future.missing.key'))
+      .toThrowError('i18n_missing_message:en-US:future.missing.key')
   })
 
   it('formats dates and numbers through the active Intl locale', () => {

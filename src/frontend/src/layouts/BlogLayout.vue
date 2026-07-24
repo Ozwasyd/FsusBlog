@@ -1,6 +1,7 @@
 <template>
   <PublicBlogLayoutShell
     v-bind="shellState"
+    :initial-locale="takeoverShellSeed?.renderLocale"
     :spa-navigation="isMounted"
     @navigate="handleNavigate"
     @search="handleSearch"

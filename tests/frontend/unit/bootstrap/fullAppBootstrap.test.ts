@@ -61,8 +61,14 @@ const beginPublicTakeoverVisualGuard = vi.fn((options: { navigationId: string; t
 const waitForPublicTakeoverVisualReady = vi.fn(async () => {})
 
 vi.mock('vue', () => ({
+  computed: vi.fn((getter: () => unknown) => ({
+    get value() {
+      return getter()
+    }
+  })),
   createApp,
   h: vi.fn(),
+  readonly: vi.fn((value) => value),
   ref: vi.fn((value) => ({ value })),
   shallowRef: vi.fn((value) => ({ value })),
   triggerRef: vi.fn()

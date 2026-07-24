@@ -4,12 +4,15 @@
     ref="shellRootRef"
     class="fsusblog-public-shell-runtime"
     :data-public-hydration-kind="hydrationKind || undefined"
+    data-public-mobile-menu-message-key="public.shell.mobileMenu"
+    data-public-search-message-key="public.shell.search"
+    :data-public-auth-message-key="resolvedAuthMessageKey"
   >
     <a
       href="#main-content"
       class="fsusblog-public-skip-link sr-only focus:not-sr-only focus:fixed focus:left-4 focus:z-[1000] focus:inline-flex focus:min-h-10 focus:items-center focus:bg-[var(--fsusblog-text-primary)] focus:px-4 focus:text-[var(--fsusblog-page-bg)]"
     >
-      {{ t('public.shell.skipToMain') }}
+      {{ layoutCopy.skipToMain }}
     </a>
     <FsusUiPublicShell
       class="is-sticky"
@@ -23,13 +26,13 @@
       :active-nav="activeNav"
       active-nav-motion="indicator"
       :mobile-nav-mode="PUBLIC_MOBILE_NAV_MODE"
-      :mobile-nav-label="layoutCopy.navAriaLabel"
-      :mobile-nav-menu-label="layoutCopy.mobileNavMenuLabel"
+      :mobile-nav-label="layoutCopy.navigation"
+      :mobile-nav-menu-label="layoutCopy.mobileMenu"
       desktop-search-mode="trigger"
-      :desktop-search-trigger-label="layoutCopy.searchTriggerLabel"
+      :desktop-search-trigger-label="layoutCopy.search"
       mobile-search-mode="trigger"
-      :mobile-search-trigger-label="layoutCopy.searchTriggerLabel"
-      :mobile-search-cancel-label="layoutCopy.searchCancelLabel"
+      :mobile-search-trigger-label="layoutCopy.search"
+      :mobile-search-cancel-label="layoutCopy.searchCancel"
       :auth-label="resolvedAuthLabel"
       :auth-href="resolvedAuthHref"
       :show-search="true"
@@ -37,10 +40,11 @@
       search-name="q"
       :search-query="searchQuery"
       :search-placeholder="resolvedSearchPlaceholder"
-      :search-aria-label="layoutCopy.searchAriaLabel"
+      :search-aria-label="layoutCopy.searchAria"
       :spa-search="spaSearch"
       :sticky="true"
       :csp-safe="true"
+      :content-flow="hydrationKind === 'ArticleDetail' ? 'content-driven' : 'viewport-stable'"
       max-width="64rem"
       @update:search-query="handleSearchInput"
       @search="handleSearch"
@@ -74,7 +78,7 @@
       </template>
 
       <template #desktop-actions>
-        <LocaleToggle />
+        <LocaleToggle :locale-override="localeRuntimeReady ? null : initialLocale" />
         <ThemeModeToggle visibility="desktop" variant="menu-button" />
       </template>
 
@@ -82,14 +86,14 @@
         <div
           class="fsusblog-public-mobile-menu-utilities"
           role="group"
-          :aria-label="layoutCopy.mobileUtilityAriaLabel"
+          :aria-label="layoutCopy.mobileUtilities"
         >
           <ThemeModeToggle
             visibility="mobile"
             variant="menu-button"
             :labels="PUBLIC_THEME_MODE_LABELS"
           />
-          <LocaleToggle />
+          <LocaleToggle :locale-override="localeRuntimeReady ? null : initialLocale" />
         </div>
       </template>
 
@@ -108,6 +112,7 @@
           :site-title="shellIdentity.siteTitle"
           :compliance="shellIdentity.compliance"
           :render-year="shellIdentity.renderYear"
+          :locale-override="localeRuntimeReady ? null : initialLocale"
         />
       </template>
     </FsusUiPublicShell>
@@ -130,6 +135,10 @@ import {
   PUBLIC_ROUTE_PATHS,
 } from '@/public-renderers/publicRoutePaths'
 import type { PublicActiveNav } from '@/public-renderers/publicShellState'
+import type {
+  PublicShellAuthAction,
+  PublicShellSearchAction,
+} from '@/public-renderers/publicShellState'
 import {
   createPublicSiteIdentity,
   providePublicSiteIdentity,
@@ -138,9 +147,15 @@ import { normalizePublicSiteDescription } from '@/public-renderers/publicSiteIde
 import { publicShellRuntimeAuthState } from '@/public-renderers/publicShellRuntimeState'
 import type { SiteComplianceConfigPublic } from '@/api/system'
 import { FSUSBLOG_LAYOUT_COPY } from '@/copy'
+import { getLocaleMessages, type SupportedLocale } from '@/locales'
 
-const { initializeLocaleRuntime, messages, t } = useI18nText()
-const layoutCopy = computed(() => messages.value.public.shell)
+const { initializeLocaleRuntime, messages } = useI18nText()
+const localeRuntimeReady = ref(false)
+const layoutCopy = computed(() => (
+  !localeRuntimeReady.value && props.initialLocale
+    ? getLocaleMessages(props.initialLocale).public.shell
+    : messages.value.public.shell
+))
 const PUBLIC_MOBILE_NAV_MODE = FSUSBLOG_PUBLIC_MOBILE_NAV_MODE
 
 const SHELL_DEFAULTS = {
@@ -148,9 +163,9 @@ const SHELL_DEFAULTS = {
   siteTitle: FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackTitle,
   siteDescription: FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackDescription,
   activeNav: 'none',
-  authLabel: '登录',
+  authAction: 'login',
   authHref: '/login',
-  searchPlaceholder: FSUSBLOG_LAYOUT_COPY.siteHeader.searchPlaceholder,
+  searchAction: 'search',
   initialSearchQuery: '',
   spaSearch: false,
   spaNavigation: false,
@@ -162,9 +177,9 @@ const SHELL_DEFAULTS = {
   siteTitle: string
   siteDescription: string
   activeNav: PublicActiveNav
-  authLabel: string
+  authAction: PublicShellAuthAction
   authHref: string
-  searchPlaceholder: string
+  searchAction: PublicShellSearchAction
   initialSearchQuery: string
   spaSearch: boolean
   spaNavigation: boolean
@@ -182,9 +197,10 @@ const props = withDefaults(
     siteLogoDarkUrl?: string | null
     siteWordmarkUrl?: string | null
     activeNav?: PublicActiveNav
-    authLabel?: string
+    authAction?: PublicShellAuthAction
     authHref?: string
-    searchPlaceholder?: string
+    searchAction?: PublicShellSearchAction
+    initialLocale?: SupportedLocale | null
     initialSearchQuery?: string
     spaSearch?: boolean
     spaNavigation?: boolean
@@ -200,9 +216,10 @@ const props = withDefaults(
     siteLogoDarkUrl: '',
     siteWordmarkUrl: '',
     activeNav: 'none',
-    authLabel: '登录',
+    authAction: 'login',
     authHref: '/login',
-    searchPlaceholder: FSUSBLOG_LAYOUT_COPY.siteHeader.searchPlaceholder,
+    searchAction: 'search',
+    initialLocale: null,
     initialSearchQuery: '',
     spaSearch: false,
     spaNavigation: false,
@@ -269,7 +286,7 @@ const brandImageDark = computed(() => firstPresent(
 const hasBrandImage = computed(() => Boolean(brandImageLight.value || brandImageDark.value))
 usePublicStickyGeometry(shellRootRef)
 const shouldUseRuntimeAuthState = computed(() =>
-  (props.authLabel?.trim() || SHELL_DEFAULTS.authLabel) === SHELL_DEFAULTS.authLabel
+  props.authAction === SHELL_DEFAULTS.authAction
   && (props.authHref?.trim() || SHELL_DEFAULTS.authHref) === SHELL_DEFAULTS.authHref
 )
 const shouldShowRuntime = computed(() => props.showRuntime || clientRuntimeEnabled.value)
@@ -278,24 +295,24 @@ const resolvedAuthHref = computed(() =>
     ? publicShellRuntimeAuthState.value.authHref
     : props.authHref?.trim() || SHELL_DEFAULTS.authHref
 )
-const resolvedAuthLabel = computed(() =>
-  resolvedAuthHref.value === '/login'
-    ? layoutCopy.value.login
-    : resolvedAuthHref.value === '/user/manage'
-      ? layoutCopy.value.dashboard
-      : resolvedAuthHref.value.startsWith('/user')
-        ? layoutCopy.value.account
-        : props.authLabel?.trim() || layoutCopy.value.login
+const resolvedAuthAction = computed(() =>
+  shouldUseRuntimeAuthState.value
+    ? publicShellRuntimeAuthState.value.authAction
+    : props.authAction
 )
-const resolvedSearchPlaceholder = computed(() => {
-  const value = props.searchPlaceholder?.trim()
-  if (!value || value === SHELL_DEFAULTS.searchPlaceholder || value.startsWith(SHELL_DEFAULTS.searchPlaceholder)) {
-    return value?.includes('Ctrl+K')
-      ? layoutCopy.value.searchPlaceholderShortcut
-      : layoutCopy.value.searchPlaceholder
-  }
-  return value
-})
+const resolvedAuthMessageKey = computed(() => `public.shell.${resolvedAuthAction.value}`)
+const resolvedAuthLabel = computed(() =>
+  resolvedAuthAction.value === 'dashboard'
+    ? layoutCopy.value.dashboard
+    : resolvedAuthAction.value === 'account'
+      ? layoutCopy.value.account
+      : layoutCopy.value.login
+)
+const resolvedSearchPlaceholder = computed(() =>
+  props.searchAction === 'search-shortcut'
+    ? layoutCopy.value.searchPlaceholderShortcut
+    : layoutCopy.value.searchPlaceholder
+)
 
 providePublicSiteIdentity(shellIdentity)
 
@@ -379,7 +396,8 @@ watch(
 )
 
 onMounted(() => {
-  initializeLocaleRuntime()
+  initializeLocaleRuntime(props.initialLocale ?? undefined)
+  localeRuntimeReady.value = true
   enableRuntimeAfterHydration()
 })
 
@@ -394,11 +412,6 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
-:deep(main:has(> [data-public-content-flow='content-driven'])) {
-  flex: 0 0 auto;
-  padding-bottom: 0;
-}
-
 .fsusblog-public-mobile-menu-utilities {
   display: flex;
   min-width: 0;
@@ -406,4 +419,5 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: 0.75rem;
 }
+
 </style>

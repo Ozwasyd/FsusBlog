@@ -26,23 +26,23 @@ export type PublicShellViewInput = Readonly<{
   isAdmin?: boolean
 }>
 
-function resolveAuthState(input: PublicShellViewInput): Pick<PublicShellState, 'authLabel' | 'authHref'> {
+function resolveAuthState(input: PublicShellViewInput): Pick<PublicShellState, 'authAction' | 'authHref'> {
   if (!input.isRuntimeAuthResolved || !input.isLoggedIn) {
     return {
-      authLabel: PUBLIC_SHELL_DEFAULTS.authLabel,
+      authAction: PUBLIC_SHELL_DEFAULTS.authAction,
       authHref: PUBLIC_SHELL_DEFAULTS.authHref
     }
   }
 
   if (input.isAdmin) {
     return {
-      authLabel: '控制板',
+      authAction: 'dashboard',
       authHref: '/user/manage'
     }
   }
 
   return {
-    authLabel: '账户',
+    authAction: 'account',
     authHref: '/user/profile'
   }
 }
@@ -59,7 +59,7 @@ export function createPublicShellViewState(input: PublicShellViewInput = {}): Pu
     siteLogoDarkUrl: input.siteLogoDarkUrl?.trim() || '',
     siteWordmarkUrl: input.siteWordmarkUrl?.trim() || '',
     activeNav: hydrationKind ? getActiveNavForKind(hydrationKind) : PUBLIC_SHELL_DEFAULTS.activeNav,
-    searchPlaceholder: isSearchRoute ? '搜索文章、标签或关键词 (Ctrl+K)' : PUBLIC_SHELL_DEFAULTS.searchPlaceholder,
+    searchAction: isSearchRoute ? 'search-shortcut' : PUBLIC_SHELL_DEFAULTS.searchAction,
     initialSearchQuery: isSearchRoute ? String(input.initialSearchQuery ?? '') : '',
     spaSearch: Boolean(input.spaSearch),
     showRuntime: Boolean(input.showRuntime),

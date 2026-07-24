@@ -2,7 +2,7 @@ import { readonly, shallowRef } from 'vue'
 import { createPublicShellViewState } from '@/public-renderers/publicShellViewState'
 import type { PublicShellState } from '@/public-renderers/publicShellState'
 
-export type PublicShellRuntimeAuthState = Pick<PublicShellState, 'authLabel' | 'authHref'>
+export type PublicShellRuntimeAuthState = Pick<PublicShellState, 'authAction' | 'authHref'>
 
 export type PublicShellRuntimeAuthUser = Readonly<{
   accountId?: number | null
@@ -10,7 +10,7 @@ export type PublicShellRuntimeAuthUser = Readonly<{
 }> | null
 
 const anonymousAuthState: PublicShellRuntimeAuthState = {
-  authLabel: '登录',
+  authAction: 'login',
   authHref: '/login'
 }
 
@@ -28,7 +28,7 @@ export function resolvePublicShellRuntimeAuthState(
   })
 
   return {
-    authLabel: shellState.authLabel,
+    authAction: shellState.authAction,
     authHref: shellState.authHref
   }
 }

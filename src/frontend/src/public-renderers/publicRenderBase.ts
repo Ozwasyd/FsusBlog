@@ -1,6 +1,7 @@
 import type { SharedSeoEligiblePublicPageKind } from '@/public-renderers/generated/publicPageManifest'
 import type { SiteComplianceConfigPublic } from '@/api/system'
 import type { PublicRenderClock } from '@/public-renderers/publicRenderClock'
+import type { SupportedLocale } from '@/locales'
 
 export type PublicPageKind = SharedSeoEligiblePublicPageKind
 
@@ -21,6 +22,7 @@ export type PublicRenderBase = Readonly<{
     renderTimestamp: string
     renderYear: number
     renderTimeZone: string
+    renderLocale: SupportedLocale
   }>
   bootstrapBase: Readonly<{
     kind: PublicPageKind
@@ -38,6 +40,7 @@ export type PublicRenderBase = Readonly<{
     renderTimestamp: string
     renderYear: number
     renderTimeZone: string
+    renderLocale: SupportedLocale
   }>
 }>
 
@@ -56,6 +59,7 @@ export function createPublicRenderBase(
     loginIconUrl?: string | null
     compliance?: SiteComplianceConfigPublic | null
     renderClock: PublicRenderClock
+    renderLocale: SupportedLocale
   }>
 ): PublicRenderBase {
   return {
@@ -74,7 +78,8 @@ export function createPublicRenderBase(
       compliance: options.compliance ?? null,
       renderTimestamp: options.renderClock.renderTimestamp,
       renderYear: options.renderClock.renderYear,
-      renderTimeZone: options.renderClock.renderTimeZone
+      renderTimeZone: options.renderClock.renderTimeZone,
+      renderLocale: options.renderLocale
     },
     bootstrapBase: {
       kind,
@@ -91,7 +96,8 @@ export function createPublicRenderBase(
       compliance: options.compliance ?? null,
       renderTimestamp: options.renderClock.renderTimestamp,
       renderYear: options.renderClock.renderYear,
-      renderTimeZone: options.renderClock.renderTimeZone
+      renderTimeZone: options.renderClock.renderTimeZone,
+      renderLocale: options.renderLocale
     }
   }
 }

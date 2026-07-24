@@ -3,10 +3,10 @@ import { projectPublicBrowserEnvironment } from '@/public-renderers/publicBrowse
 
 describe('public browser environment projection', () => {
   it.each([
-    ['anonymous', '登录', '/login'],
-    ['user', '账户', '/user/profile'],
-    ['admin', '控制板', '/user/manage']
-  ] as const)('projects %s auth through the production shell contract', (sessionState, authText, authHref) => {
+    ['anonymous', 'login', '/login'],
+    ['user', 'account', '/user/profile'],
+    ['admin', 'dashboard', '/user/manage']
+  ] as const)('projects %s auth through the production shell contract', (sessionState, authAction, authHref) => {
     const result = projectPublicBrowserEnvironment({
       hydrationKind: 'Home',
       sessionState,
@@ -16,7 +16,7 @@ describe('public browser environment projection', () => {
       colorScheme: 'light'
     })
 
-    expect(result).toMatchObject({ authText, authHref, activeNav: 'home' })
+    expect(result).toMatchObject({ authAction, authHref, activeNav: 'home' })
   })
 
   it.each([

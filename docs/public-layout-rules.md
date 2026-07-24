@@ -8,7 +8,7 @@ FsusBlog consumer token 使用 `--fsusblog-*` 命名空间。公开布局不得�
 
 ## 2. Public shell 边界
 
-公开顶栏、移动导航、搜索增强、鉴权入口、footer、AOT/emergency CSS 和 sticky geometry 的权威契约见 [`frontend/public-shell-ownership.md`](frontend/public-shell-ownership.md)。本文只决定内容如何进入壳层：顶栏是唯一站点品牌面，页面正文不复制 Hero；全局 BottomTabBar 与页面 reading dock 互斥。
+公开顶栏、移动导航、搜索增强、鉴权入口、footer、AOT/emergency CSS 和 sticky geometry 的权威契约见 [`frontend/public-shell-ownership.md`](frontend/public-shell-ownership.md)。本文只决定内容如何进入壳层：顶栏是唯一站点品牌面，页面正文不复制 Hero；全局 BottomTabBar 与页面 reading dock 互斥。文章详情通过 FsusUI `content-flow="content-driven"` 使用自然文档流，其他公开路由使用 `viewport-stable`；consumer 禁止用 deep/internal selector 改写 shell 主内容 flex 或 padding。
 
 ## 3. Reading surface 契约
 

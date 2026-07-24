@@ -11,7 +11,7 @@ export const common = {
         backHome: '回到主页'
     },
     locale: {
-        toggleLabel: '切换到 English',
+        toggleLabel: '切换到英文',
         compactLabel: '中 / EN',
         chinese: '中文',
         english: 'English'

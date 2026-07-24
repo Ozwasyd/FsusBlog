@@ -17,16 +17,18 @@ Desktop 搜索 trigger 保留 `/search` 原生链接。普通点击增强为邻�
 | FsusUI critical/runtime CSS | `PublicShell` 布局、控件尺寸、Search/Auth/Theme/Menu 状态、focus、motion、reduced-motion 与 safe-area | Consumer 用 `.el-public-shell__*` 或 `.el-theme-mode-toggle__*` 修补内部实现 |
 | `public-shell-foundation.css` | palette 与注册过的 Consumer token、`#fsus-aot-shell` 首帧背景/字体/最小高度、`[data-public-shell-header]` 测量占位、Blog 品牌、`public-colophon`、reading fallback 和 emergency 源块 | FsusUI 内部 class、通用控件/overlay/Dialog 几何和组件状态 |
 | `public-shell-emergency.css` | 由 foundation 的 `emergency:keep` 块生成；资源失败时的 palette、根壳和 reading fallback | 手工编辑、复制 runtime/critical 组件 CSS 或成为 hydration 后第二视觉来源 |
-| `PublicBlogLayoutShell.vue` scoped style | `.fsusblog-public-main-target` 内容溢出边界、`[data-public-content-flow="content-driven"]` 文章详情自然文档流与 `.fsusblog-public-mobile-menu-utilities` slot 编排 | FsusUI BEM、品牌/页脚基础外观、Search/Theme/Menu 内部状态 |
+| `PublicBlogLayoutShell.vue` scoped style | `.fsusblog-public-main-target` 内容溢出边界与 `.fsusblog-public-mobile-menu-utilities` slot 编排 | FsusUI BEM、主内容 flex/padding、品牌/页脚基础外观、Search/Theme/Menu 内部状态 |
 | `public-page.css` | article/list/filter reading surface、编辑内容和溢出边界 | public chrome、colophon、FsusUI internals 或 Markdown heading/paragraph 的完整重定义 |
 
 `public-shell-foundation.css` 与 `public-page.css` 对 FsusUI 内部选择器均为零豁免。所有未来差异必须使用公开 token、slot 或稳定 `data-*` hook；组件库通用 harmonization 进入 FsusUI，Blog 品牌、footer、editorial composition 与 emergency fallback 留在 consumer。
 
-ArticleDetail 是内容高度驱动的长文面：Blog 在自己的 slot 根节点声明
-`data-public-content-flow="content-driven"`，使承载该 slot 的语义 `main` 不参与
-viewport 填充，也不保留 shell 通用列表页底部预算。footer 起点由文章最后一个真实
-区块及文章自身的 48px mobile / 64px desktop section gap 决定；其他 public route
-继续使用 FsusUI 默认的 `main` flex 与 padding。
+ArticleDetail 是内容高度驱动的长文面：Blog 向 FsusUI PublicShell 传入
+`content-flow="content-driven"`，由组件库拥有的 full/critical CSS 使语义 `main`
+不参与 viewport 填充，也不保留 shell 通用列表页底部预算。其他 public route
+显式使用 `viewport-stable`。Blog slot 根节点的
+`data-public-content-flow="content-driven"` 只负责 AOT 首帧最小高度，不得通过
+`:deep()`、`:has()` 或 `.el-public-shell__main` 改写组件库内部布局。footer 起点由
+文章最后一个真实区块及文章自身的 48px mobile / 64px desktop section gap 决定。
 
 ## Header 与 sticky geometry
 

@@ -434,7 +434,8 @@ describe('publicEntryRegistry shared coverage', () => {
       siteTitle: 'FsusBlog',
       siteDescription: 'desc',
       content: 'About content',
-      renderTimestamp: '2025-12-31T23:59:30Z'
+      renderTimestamp: '2025-12-31T23:59:30Z',
+      renderLocale: 'en-US'
     })
     const hydration = decodePublicAotPayload<Parameters<typeof createPublicHydrationRoot>[0]>(result.entry.hydrationPropsPayload)
     const renderShellMock = vi.mocked(renderPublicAotShell)
@@ -444,6 +445,7 @@ describe('publicEntryRegistry shared coverage', () => {
 
     expect(renderShellMock).toHaveBeenCalledTimes(1)
     expect(renderShellMock.mock.calls[0]?.[0].renderYear).toBe(2025)
+    expect(renderShellMock.mock.calls[0]?.[0].renderLocale).toBe('en-US')
     expect(renderShellMock.mock.calls[0]?.[0].siteDescription).toBe('desc')
   })
 

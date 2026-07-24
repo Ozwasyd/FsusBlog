@@ -14,6 +14,7 @@ import {
   normalizePublicSiteDescription,
   normalizePublicSiteTitle
 } from '@/public-renderers/publicSiteIdentity'
+import { DEFAULT_LOCALE, isSupportedLocale } from '@/locales'
 
 function getSiteTitle(payload: PublicHydrationPayload): string {
   return normalizePublicSiteTitle(payload.siteTitle ?? payload.title)
@@ -92,6 +93,7 @@ export function createPublicHydrationRoot(payload: PublicHydrationPayload): VNod
     siteWordmarkUrl: payload.siteWordmarkUrl ?? null,
     renderYear: payload.renderYear ?? null,
     compliance: normalizePublicComplianceConfig(payload.compliance),
+    renderLocale: isSupportedLocale(payload.renderLocale) ? payload.renderLocale : DEFAULT_LOCALE,
     page
   })
 }

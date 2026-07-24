@@ -70,6 +70,7 @@ import {
   normalizePublicSiteTitle
 } from '@/public-renderers/publicSiteIdentity'
 import type { TimeRenderOptions } from '@/utils/time'
+import { DEFAULT_LOCALE, isSupportedLocale, type SupportedLocale } from '@/locales'
 
 export type PublicEntryBuilder = (options: PublicEntryBuildOptions) => Promise<RenderResult>
 
@@ -90,6 +91,7 @@ type PublicEntryScope<K extends PublicPageKind = PublicPageKind> = Readonly<{
   baseUrlText: string
   renderClock: PublicRenderClock
   renderTimeOptions: TimeRenderOptions
+  renderLocale: SupportedLocale
   baseModel: PublicRenderBase
   renderShell: (page: PublicAotPageAssembly) => Promise<string>
   createEntry: (
@@ -145,6 +147,9 @@ function createPublicEntryScope<K extends PublicPageKind>(kind: K, options: Publ
     locale: toText(options.renderLocale ?? options.locale, ''),
     timeZone: toText(options.renderDisplayTimeZone ?? options.timeZone, '')
   })
+  const renderLocale = isSupportedLocale(localeContext.locale)
+    ? localeContext.locale
+    : DEFAULT_LOCALE
   const renderTimeOptions = createPublicRenderTimeOptions(renderClock, localeContext)
   const baseModel = createPublicRenderBase(kind, routeKey, {
     rendererVersion: PUBLIC_RENDERER_VERSION,
@@ -157,7 +162,8 @@ function createPublicEntryScope<K extends PublicPageKind>(kind: K, options: Publ
     loginLogoUrl,
     loginIconUrl,
     compliance,
-    renderClock
+    renderClock,
+    renderLocale
   })
 
   return {
@@ -175,13 +181,15 @@ function createPublicEntryScope<K extends PublicPageKind>(kind: K, options: Publ
     baseUrlText,
     renderClock,
     renderTimeOptions,
+    renderLocale,
     baseModel,
     renderShell: async (page) => await renderShell(kind, siteTitle, page, compliance, {
       siteDescription,
       siteLogoUrl,
       siteLogoDarkUrl,
       siteWordmarkUrl,
-      renderYear: renderClock.renderYear
+      renderYear: renderClock.renderYear,
+      renderLocale
     }),
     createEntry: (html, bootstrap, hydration, entryOptions) => createEntry(kind, routeKey, html, bootstrap, hydration, {
       ...entryOptions,

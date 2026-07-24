@@ -10,6 +10,7 @@ import { renderPublicAotShell, type PublicAotPageAssembly } from '@/public-rende
 import { registerPublicStaticRouterLink } from '@/public-renderers/publicStaticRouterLink'
 import { renderMarkdownWithFsusRuntime } from '@/fsusui/markdown'
 import { sanitizeMarkdownRuntimeHtml } from '@/utils/safeHtml'
+import { DEFAULT_LOCALE, type SupportedLocale } from '@/locales'
 
 export const PUBLIC_RENDERER_VERSION = 'public-app-ssr@2026-06-03-fsusui-boundary-3'
 
@@ -325,6 +326,7 @@ export async function renderShell(
     siteLogoDarkUrl?: string | null
     siteWordmarkUrl?: string | null
     renderYear?: number | null
+    renderLocale?: SupportedLocale
   }> = {}
 ): Promise<string> {
   const Root: Component = {
@@ -337,6 +339,7 @@ export async function renderShell(
         siteLogoDarkUrl: brand.siteLogoDarkUrl ?? null,
         siteWordmarkUrl: brand.siteWordmarkUrl ?? null,
         renderYear: brand.renderYear ?? null,
+        renderLocale: brand.renderLocale ?? DEFAULT_LOCALE,
         compliance,
         page
       })
