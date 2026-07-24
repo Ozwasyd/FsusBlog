@@ -62,7 +62,7 @@ import HomeArticleErrorState from '@/components/home/HomeArticleErrorState.vue'
 import HomeArticleEmptyState from '@/components/home/HomeArticleEmptyState.vue'
 import HomeFeedSurface from '@/components/public/HomeFeedSurface.vue'
 import PublicArticleList from '@/components/public/PublicArticleList.vue'
-import { FSUSBLOG_LAYOUT_COPY } from '@/copy'
+import { useI18nText } from '@/composables/useI18nText'
 import type { ArticleListViewContract } from '@/view-contracts/articleList'
 
 defineProps<{
@@ -82,6 +82,7 @@ const emit = defineEmits<{
   (event: 'page-next'): void
 }>()
 
-const copy = FSUSBLOG_LAYOUT_COPY.recommendations
+const { messages } = useI18nText()
+const copy = computed(() => messages.value.layout.recommendations)
 
 </script>

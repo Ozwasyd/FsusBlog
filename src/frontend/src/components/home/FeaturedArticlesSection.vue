@@ -100,7 +100,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { FeaturedArticleItem } from '@/api/article'
-import { FSUSBLOG_LAYOUT_COPY } from '@/copy'
+import { useI18nText } from '@/composables/useI18nText'
 import { themeTokens } from '@/ui-tokens/themeTokens'
 import { resolvePublicCoverPresentation } from '@/view-contracts/coverArt'
 
@@ -110,11 +110,12 @@ const props = defineProps<{
 }>()
 
 const focusRingClass = themeTokens.focusRing
-const copy = FSUSBLOG_LAYOUT_COPY.recommendations
+const { messages } = useI18nText()
+const copy = computed(() => messages.value.layout.recommendations)
 const coverPresentation = computed(() => resolvePublicCoverPresentation(props.article?.coverImageUrl))
 const hasCover = computed(() => coverPresentation.value !== null)
 const articleHref = (id: number) => `/article/${id}`
-const readFullLabel = (title: string): string => copy.ariaReadFull.replace('{title}', title)
+const readFullLabel = (title: string): string => copy.value.ariaReadFull.replace('{title}', title)
 
 const formatTime = (isoString: string): string => {
   const normalized = String(isoString ?? '').trim()

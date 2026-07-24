@@ -146,7 +146,6 @@ import {
 import { normalizePublicSiteDescription } from '@/public-renderers/publicSiteIdentity'
 import { publicShellRuntimeAuthState } from '@/public-renderers/publicShellRuntimeState'
 import type { SiteComplianceConfigPublic } from '@/api/system'
-import { FSUSBLOG_LAYOUT_COPY } from '@/copy'
 import { getLocaleMessages, type SupportedLocale } from '@/locales'
 
 const { initializeLocaleRuntime, messages } = useI18nText()
@@ -160,8 +159,8 @@ const PUBLIC_MOBILE_NAV_MODE = FSUSBLOG_PUBLIC_MOBILE_NAV_MODE
 
 const SHELL_DEFAULTS = {
   hydrationKind: null,
-  siteTitle: FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackTitle,
-  siteDescription: FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackDescription,
+  siteTitle: "Fsu's Blog",
+  siteDescription: '工程记录、性能实验、UI 系统与 FsusBlog 构建过程。',
   activeNav: 'none',
   authAction: 'login',
   authHref: '/login',
@@ -210,8 +209,8 @@ const props = withDefaults(
   }>(),
   {
     hydrationKind: null,
-    siteTitle: FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackTitle,
-    siteDescription: FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackDescription,
+    siteTitle: "Fsu's Blog",
+    siteDescription: '工程记录、性能实验、UI 系统与 FsusBlog 构建过程。',
     siteLogoUrl: '',
     siteLogoDarkUrl: '',
     siteWordmarkUrl: '',

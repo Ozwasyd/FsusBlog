@@ -4,7 +4,7 @@ import { useAppShellStore } from '@/store/appShell'
 import { useAdminStore } from '@/store/admin'
 import { useSiteStore } from '@/store/site'
 import { useUserStore } from '@/store/user'
-import { FSUSBLOG_LAYOUT_COPY } from '@/copy'
+import { useI18nText } from '@/composables/useI18nText'
 import { translate } from '@/locales'
 import { resolveRouteTitleKey } from '@/locales/routeTitles'
 import {
@@ -31,8 +31,9 @@ export function useSessionBootstrap() {
   const adminStore = useAdminStore()
   const siteStore = useSiteStore()
   const userStore = useUserStore()
+  const { messages } = useI18nText()
 
-  const baseTitle = computed(() => siteStore.siteInfo.title || FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackTitle)
+  const baseTitle = computed(() => siteStore.siteInfo.title || messages.value.layout.siteHeader.fallbackTitle)
 
   const needsBootstrap = (): boolean => {
     return !appShellStore.isReady || !siteStore.isLoaded

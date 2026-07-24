@@ -38,8 +38,10 @@
 </template>
 
 <script setup lang="ts">
-import { FSUSBLOG_LAYOUT_COPY } from '@/copy';
+import { computed } from 'vue';
+import { useI18nText } from '@/composables/useI18nText';
 import { publicPeriodMotif } from '@/ui-contracts/publicPeriodMotif';
 
-const copy = FSUSBLOG_LAYOUT_COPY.recommendations;
+const { messages } = useI18nText();
+const copy = computed(() => messages.value.layout.recommendations);
 </script>

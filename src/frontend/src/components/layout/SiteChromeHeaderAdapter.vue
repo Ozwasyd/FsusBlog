@@ -109,7 +109,7 @@ import { computed, useSlots } from 'vue'
 import ThemeModeToggle from '@/components/ui/ThemeModeToggle.vue'
 import { FSUSBLOG_THEME_MODE_LABELS, type ThemeModeToggleLabels } from '@/components/ui/themeModeLabels'
 import { FsusUiSiteHeader } from '@/fsusui/siteHeader'
-import { FSUSBLOG_LAYOUT_COPY } from '@/copy'
+import { useI18nText } from '@/composables/useI18nText'
 
 export type SiteChromeClassValue =
   | string
@@ -159,7 +159,7 @@ const props = withDefaults(
     themeModeLabels?: SiteChromeThemeModeLabels
   }>(),
   {
-    siteTitle: FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackTitle,
+    siteTitle: "Fsu's Blog",
     siteLogoUrl: '',
     siteLogoDarkUrl: '',
     siteWordmarkUrl: '',
@@ -172,8 +172,8 @@ const props = withDefaults(
     brandLinkClass: '',
     navItems: () => [],
     activeNav: '',
-    ariaLabel: FSUSBLOG_LAYOUT_COPY.siteHeader.ariaLabel,
-    navAriaLabel: FSUSBLOG_LAYOUT_COPY.siteHeader.navAriaLabel,
+    ariaLabel: '站点导航',
+    navAriaLabel: '主导航',
     sticky: true,
     maxWidth: '64rem',
     headerClass: '',
@@ -192,9 +192,10 @@ const props = withDefaults(
 )
 
 const slots = useSlots()
+const { messages } = useI18nText()
 
 const siteTitleText = computed(
-  () => props.siteTitle?.trim() || FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackTitle,
+  () => props.siteTitle?.trim() || messages.value.layout.siteHeader.fallbackTitle,
 )
 const brandImageLight = computed(() => resolveBrandImage('light'))
 const brandImageDark = computed(() => resolveBrandImage('dark'))

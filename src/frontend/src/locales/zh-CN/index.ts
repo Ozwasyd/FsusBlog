@@ -4,6 +4,7 @@ import { auth } from './auth';
 import { common } from './common';
 import { errors } from './errors';
 import { identity } from './identity';
+import { layout } from './layout';
 import { messages } from './messages';
 import { publicMessages } from './public';
 import { security } from './security';
@@ -14,6 +15,7 @@ export const zhCN = {
     article,
     auth,
     identity,
+    layout,
     messages,
     security,
     admin,

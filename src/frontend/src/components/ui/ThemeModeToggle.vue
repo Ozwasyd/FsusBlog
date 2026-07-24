@@ -16,9 +16,10 @@
 import { computed, onMounted } from 'vue'
 import { reconcileThemeRuntimeAfterHydration, useThemeRuntime, type ThemeMode } from '@/services/themeRuntime'
 import { FSUSBLOG_THEME_MODE_LABELS, type ThemeModeToggleLabels } from '@/components/ui/themeModeLabels'
-import { FSUSBLOG_LAYOUT_COPY } from '@/copy'
+import { useI18nText } from '@/composables/useI18nText'
 
-const themeModeCopy = FSUSBLOG_LAYOUT_COPY.themeMode
+const { messages } = useI18nText()
+const themeModeCopy = computed(() => messages.value.layout.themeMode)
 
 const props = withDefaults(defineProps<{
   compact?: boolean

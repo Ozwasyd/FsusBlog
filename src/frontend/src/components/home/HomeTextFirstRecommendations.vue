@@ -48,11 +48,13 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { PopularArticleSummaryResponse } from '@/api/article'
 import { themeTokens } from '@/ui-tokens/themeTokens'
-import { FSUSBLOG_LAYOUT_COPY } from '@/copy'
+import { useI18nText } from '@/composables/useI18nText'
 
-const copy = FSUSBLOG_LAYOUT_COPY.recommendations
+const { messages } = useI18nText()
+const copy = computed(() => messages.value.layout.recommendations)
 
 defineProps<{
   articles: readonly PopularArticleSummaryResponse[]
@@ -62,5 +64,5 @@ const focusRingClass = themeTokens.focusRing
 const articleHref = (id: number) => `/article/${id}`
 const viewFormatter = new Intl.NumberFormat('en-US', { notation: 'compact', compactDisplay: 'short' })
 const formatViews = (views: number) => viewFormatter.format(views)
-const readFullLabel = (title: string) => copy.ariaReadFull.replace('{title}', title)
+const readFullLabel = (title: string) => copy.value.ariaReadFull.replace('{title}', title)
 </script>

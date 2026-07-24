@@ -12,7 +12,6 @@ import {
   normalizePublicSiteDescription,
   normalizePublicSiteTitle
 } from '@/public-renderers/publicSiteIdentity'
-import { FSUSBLOG_LAYOUT_COPY } from '@/copy'
 
 type SiteBrandConfig = Omit<SeoConfigPublic, 'title' | 'description' | 'keywords' | 'author' | 'ogImage' | 'baseUrl'>
 
@@ -23,8 +22,8 @@ export const DEFAULT_SITE_BRAND_CONFIG: SiteBrandConfig = {
   faviconIcoUrl: '/favicon/favicon.ico',
   faviconPngUrl: '/favicon/favicon-32x32.png',
   appleTouchIconUrl: '/favicon/apple-touch-icon.png',
-  manifestName: FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackManifestName,
-  manifestShortName: FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackManifestShortName,
+  manifestName: "Fsu's Blog",
+  manifestShortName: 'FsusBlog',
   pwaIcon192Url: '/favicon/pwa-192x192.png',
   pwaIcon512Url: '/favicon/pwa-512x512.png',
   pwaMaskableIconUrl: '/favicon/maskable-icon-512x512.png',
@@ -39,7 +38,7 @@ export const DEFAULT_SITE_BRAND_CONFIG: SiteBrandConfig = {
   loginIconUrl: ''
 }
 
-const DEFAULT_SITE_KEYWORDS = FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackKeywords
+const DEFAULT_SITE_KEYWORDS = '.NET, 前端性能, 系统设计, UI 系统, 技术博客, FsusBlog'
 
 function resolveBaseUrl(): string {
   if (typeof window === 'undefined') {
@@ -57,7 +56,8 @@ export const useSiteStore = defineStore('site', () => {
     title: normalizePublicSiteTitle(payload?.siteTitle ?? payload?.title),
     description: normalizePublicSiteDescription(payload?.siteDescription),
     keywords: DEFAULT_SITE_KEYWORDS,
-    author: FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackAuthor,
+    author: 'Fsu',
+    ogImage: DEFAULT_SITE_OG_IMAGE,
     ogImage: DEFAULT_SITE_OG_IMAGE,
     baseUrl: payload?.baseUrl || resolveBaseUrl(),
     ...DEFAULT_SITE_BRAND_CONFIG,
