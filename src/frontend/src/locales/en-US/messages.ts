@@ -5,16 +5,16 @@ export const messages = {
     conversationList: {
         titleAccount: 'Messages',
         titleAdmin: 'Active Conversations',
-        newTicketCta: '__FSUSBLOG_TRANSLATION_PENDING__:messages.conversationList.newTicketCta',
-        emptyTitleAccount: '__FSUSBLOG_TRANSLATION_PENDING__:messages.conversationList.emptyTitleAccount',
-        emptyTitleAdmin: '__FSUSBLOG_TRANSLATION_PENDING__:messages.conversationList.emptyTitleAdmin',
-        emptyDescriptionAccount: '__FSUSBLOG_TRANSLATION_PENDING__:messages.conversationList.emptyDescriptionAccount',
-        emptyDescriptionAdmin: '__FSUSBLOG_TRANSLATION_PENDING__:messages.conversationList.emptyDescriptionAdmin',
-        noContentAdmin: '__FSUSBLOG_TRANSLATION_PENDING__:messages.conversationList.noContentAdmin',
-        noContentAccount: '__FSUSBLOG_TRANSLATION_PENDING__:messages.conversationList.noContentAccount',
+        newTicketCta: 'Submit Ticket',
+        emptyTitleAccount: 'No Site Messages',
+        emptyTitleAdmin: 'No Pending Conversations',
+        emptyDescriptionAccount: 'Notifications, system messages, and appeal tickets.',
+        emptyDescriptionAdmin: 'No messages require action under current filter.',
+        noContentAdmin: 'No content',
+        noContentAccount: 'No message content',
         systemTag: 'System',
         listAriaLabel: 'Conversation list',
-        showMoreLabel: '__FSUSBLOG_TRANSLATION_PENDING__:messages.conversationList.showMoreLabel'
+        showMoreLabel: 'Show more conversations ({n})'
     },
     threadPanel: {
         backAriaLabel: 'Back to conversation list',
@@ -23,27 +23,27 @@ export const messages = {
         titleFallbackAccount: 'Select conversation or submit ticket',
         titleFallbackAdmin: 'Select conversation',
         systemTag: 'System',
-        statusChangeWillNotify: '__FSUSBLOG_TRANSLATION_PENDING__:messages.threadPanel.statusChangeWillNotify',
-        markOpen: '__FSUSBLOG_TRANSLATION_PENDING__:messages.threadPanel.markOpen',
-        moveToPending: '__FSUSBLOG_TRANSLATION_PENDING__:messages.threadPanel.moveToPending',
-        closeConversation: '__FSUSBLOG_TRANSLATION_PENDING__:messages.threadPanel.closeConversation',
-        emptyDescriptionAccount: '__FSUSBLOG_TRANSLATION_PENDING__:messages.threadPanel.emptyDescriptionAccount',
-        emptyDescriptionAdmin: '__FSUSBLOG_TRANSLATION_PENDING__:messages.threadPanel.emptyDescriptionAdmin',
-        newTicketCta: '__FSUSBLOG_TRANSLATION_PENDING__:messages.threadPanel.newTicketCta',
-        replyingToPrefix: '__FSUSBLOG_TRANSLATION_PENDING__:messages.threadPanel.replyingToPrefix',
+        statusChangeWillNotify: 'Status changes will notify user',
+        markOpen: 'Mark Open',
+        moveToPending: 'Move to Pending',
+        closeConversation: 'Close Conversation',
+        emptyDescriptionAccount: 'Conversation details and reply section.',
+        emptyDescriptionAdmin: 'Pending conversation.',
+        newTicketCta: 'Submit Ticket',
+        replyingToPrefix: 'Replying to',
         accountContext: 'Current conversation',
         accountContextAdmin: 'Account {id}',
         statusPrefix: 'Status',
-        showOlder: '__FSUSBLOG_TRANSLATION_PENDING__:messages.threadPanel.showOlder',
-        replyHeader: '__FSUSBLOG_TRANSLATION_PENDING__:messages.threadPanel.replyHeader',
+        showOlder: 'Load older messages',
+        replyHeader: 'Reply to current conversation',
         replyLabel: 'Reply',
         replyLabelAccount: 'Reply to administrator',
-        replyPlaceholder: '__FSUSBLOG_TRANSLATION_PENDING__:messages.threadPanel.replyPlaceholder',
+        replyPlaceholder: 'Enter reply message',
         replyCta: 'Send reply'
     },
     composePanel: {
         titleAdmin: 'Send System Message',
-        titleAccount: 'Submit Ticket',
+        titleAccount: 'Submit Appeal Ticket',
         targetAccountIdLabel: 'Target Account ID',
         targetAccountIdPlaceholder: 'Enter account ID',
         subjectLabel: 'Subject',
@@ -71,7 +71,7 @@ export const messages = {
         systemTag: 'System'
     },
     errors: {
-        loadFailed: '__FSUSBLOG_TRANSLATION_PENDING__:messages.errors.loadFailed',
-        sendFailed: '__FSUSBLOG_TRANSLATION_PENDING__:messages.errors.sendFailed'
+        loadFailed: 'Failed to load messages',
+        sendFailed: 'Failed to send message'
     }
 } as const satisfies DeepStringShape<typeof zhCNMessages>;

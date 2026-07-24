@@ -46,13 +46,9 @@ describe('locale parity and migration placeholder contract (#1479)', () => {
         expect(invalidFormat.error).toContain('invalid key format');
     });
 
-    it('enumerates all migration placeholders in enUS dictionary', () => {
+    it('verifies 0 migration placeholders remain in enUS dictionary (#1485)', () => {
         const placeholders = enumeratePlaceholders(enUS);
-        expect(placeholders.length).toBeGreaterThan(0);
-        for (const ph of placeholders) {
-            expect(ph.isValid).toBe(true);
-            expect(ph.path).toBe(ph.key);
-        }
+        expect(placeholders.length).toBe(0);
     });
 
     it('extracts interpolation parameters accurately', () => {
