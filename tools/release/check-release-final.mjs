@@ -11,6 +11,7 @@ import { validateReleaseRuntimeMatrix } from '../runtime-profiles/release-runtim
 
 import { requirePublicPreviewReleaseEvidence } from './public-preview-release-evidence.mjs';
 import { validateReleaseManifest } from './release-manifest.mjs';
+import { validateThemeCssSafetyEvidence } from './theme-css-safety-evidence.mjs';
 import {
     createReleaseFinalTestEvidenceBinding,
     writeJsonAtomic
@@ -418,6 +419,20 @@ function validateManifest(manifest, manifestFile)
         errors.push(...validateReleaseResourceSummary(readJson(file), artifactKey));
     }
 
+    const themeCssSafetyFile = artifactPath(
+        manifestFile,
+        manifest.artifacts?.themeCssSafetySummary);
+    if (!themeCssSafetyFile || !fs.existsSync(themeCssSafetyFile))
+    {
+        errors.push('themeCssSafetySummary release evidence artifact is required');
+    }
+    else
+    {
+        errors.push(
+            ...validateThemeCssSafetyEvidence(readJson(themeCssSafetyFile))
+                .map(error => `themeCssSafetySummary: ${error}`));
+    }
+
     return errors;
 }
 
@@ -471,6 +486,20 @@ async function runSelfTest()
             threshold: 16
         }]
     }));
+    fs.writeFileSync(path.join(tmp, 'theme-css-safety-summary.json'), JSON.stringify({
+        schema: 'fsusblog.theme.css-safety.v1',
+        themeId: 'fsusblog.theme.minimal-ink',
+        status: 'ok',
+        cssBytes: 42112,
+        assetBytes: 210944,
+        previewBytes: 120000,
+        selectorCount: 312,
+        maxSelectorDepth: 3,
+        importantCount: 2,
+        maxMotionDurationMs: 180,
+        violations: [],
+        warnings: []
+    }));
     const manifestFile = path.join(tmp, 'manifest.json');
     const { createReleaseRuntimeMatrixFixture } = await import('../../tests/tools/fixtures/release-runtime-matrix.mjs');
     const matrixEvidence = createReleaseRuntimeMatrixFixture({ commitSha: commit, profileManifestDigest, profileDigest });
@@ -521,6 +550,7 @@ async function runSelfTest()
             jobSummaries: 'job-summaries',
             memoryLeakSummary: 'memory-leak-summary.json',
             openHandleSummary: 'open-handle-summary.json',
+            themeCssSafetySummary: 'theme-css-safety-summary.json',
             runtimePublishMatrix: 'runtime-publish-matrix.json',
             visualGateSkip: null
         },

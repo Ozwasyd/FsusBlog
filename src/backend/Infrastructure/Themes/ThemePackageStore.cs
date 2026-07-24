@@ -9,6 +9,8 @@ public interface IThemePackageStore
         ValidatedThemePackage package,
         CancellationToken cancellationToken);
 
+    Task<Stream> OpenReadAsync(string location, CancellationToken cancellationToken);
+
     Task DeleteAsync(string location, CancellationToken cancellationToken);
 }
 
@@ -40,6 +42,22 @@ public sealed class InMemoryThemePackageStore : IThemePackageStore
         }
 
         return Task.CompletedTask;
+    }
+
+    public Task<Stream> OpenReadAsync(string location, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate)
+        {
+            if (!_packages.TryGetValue(location, out byte[]? package))
+            {
+                throw new ThemeLifecycleException(
+                    "theme_package_store_missing",
+                    "Installed theme package is missing from the package store.");
+            }
+
+            return Task.FromResult<Stream>(new MemoryStream(package, writable: false));
+        }
     }
 }
 
@@ -166,6 +184,27 @@ public sealed class LocalThemePackageStore : IThemePackageStore
         return Task.CompletedTask;
     }
 
+    public Task<Stream> OpenReadAsync(string location, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        string fullPath = ResolveStoredLocation(location);
+        string packagePath = Path.Combine(fullPath, PackageFileName);
+        if (!File.Exists(packagePath))
+        {
+            throw new ThemeLifecycleException(
+                "theme_package_store_missing",
+                "Installed theme package is missing from the package store.");
+        }
+
+        return Task.FromResult<Stream>(new FileStream(
+            packagePath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            bufferSize: 81920,
+            FileOptions.Asynchronous | FileOptions.SequentialScan));
+    }
+
     private static async Task CopyAndVerifyEntryAsync(
         Stream source,
         Stream destination,
@@ -213,5 +252,21 @@ public sealed class LocalThemePackageStore : IThemePackageStore
         }
 
         return destination;
+    }
+
+    private string ResolveStoredLocation(string location)
+    {
+        string fullPath = Path.GetFullPath(location);
+        string rootPrefix = _rootPath.EndsWith(Path.DirectorySeparatorChar)
+            ? _rootPath
+            : _rootPath + Path.DirectorySeparatorChar;
+        if (!fullPath.StartsWith(rootPrefix, StringComparison.Ordinal))
+        {
+            throw new ThemeLifecycleException(
+                "theme_package_store_location_invalid",
+                "Theme package location is outside the configured store root.");
+        }
+
+        return fullPath;
     }
 }

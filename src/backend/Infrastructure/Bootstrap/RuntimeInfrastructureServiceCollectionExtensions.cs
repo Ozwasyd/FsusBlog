@@ -104,6 +104,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
                 "Themes:FsusBlogVersion must be a numeric major.minor.patch version.");
         }
 
+        services.AddSingleton<ThemeCssSafetyScanner>();
         services.AddSingleton<ThemePackageValidator>();
         services.AddSingleton<ThemeTokenCompiler>();
         string packageStoreRoot = configuration["Themes:PackageStoreRoot"]

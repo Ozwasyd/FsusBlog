@@ -58,6 +58,14 @@ After collection, `seal-release-evidence-bundle.mjs` inventories every copied re
 - exact artifact inventory hashes;
 - the GitHub Actions storage and retention binding.
 
+After the theme runtime is present, release collection also requires the fresh
+`.tmp/release-evidence/theme-css-safety-summary.json` produced by scanning the
+release candidate theme. The collector runs
+`tools/release/theme-css-safety-evidence.mjs` before copying it, and
+`release-final` revalidates the copied artifact. Missing, blocked, malformed,
+symlinked or over-budget evidence keeps collection blocked. See
+[Theme CSS safety and asset budgets](themes/css-safety.md).
+
 Running the collector without `--require-ok` never creates `release-index.json`. With `--require-ok`, the collector first passes the existing semantic checker and only then creates the small index. A failed or blocked collection therefore cannot manufacture an index.
 
 ## Storage and retention

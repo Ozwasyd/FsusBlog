@@ -162,12 +162,22 @@ public sealed class ThemeRegistryPostgresTests(PostgresSchemaMigrationFixture fi
                     "budgets": {
                         "cssBytes": 65536,
                         "assetBytes": 524288,
-                        "maxSelectors": 512
+                        "maxSelectors": 512,
+                        "maxSelectorDepth": 4,
+                        "maxImportant": 8,
+                        "maxMotionDurationMs": 1000,
+                        "previewBytes": 262144
                     }
                 }
                 """);
-            WriteEntry(archive, "styles/tokens.css", ":root { --paper: #fff; }");
-            WriteEntry(archive, "styles/theme.css", "body { background: var(--paper); }");
+            WriteEntry(
+                archive,
+                "styles/tokens.css",
+                $":root[data-theme=\"{id}\"] {{ --fsus-color-page-bg: #fff; }}");
+            WriteEntry(
+                archive,
+                "styles/theme.css",
+                $"[data-theme=\"{id}\"] .fsus-theme-scope {{ background: var(--fsus-color-page-bg); }}");
             WriteEntry(archive, "assets/preview.png", "PNG");
             WriteEntry(
                 archive,

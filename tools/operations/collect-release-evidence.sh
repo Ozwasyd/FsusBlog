@@ -788,6 +788,13 @@ UX_ARTIFACT="$(CopyIfPresent "$ROOT_DIR/.tmp/ux" ux)"
 UX_VIEWPORT_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/ux-viewport-summary.json" ux-viewport-summary.json)"
 FRONTEND_RENDER_PRESSURE_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json" frontend-render-pressure-summary.json)"
 FRONTEND_RENDER_STRUCTURE_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/frontend-render-structure-summary.json" frontend-render-structure-summary.json)"
+THEME_CSS_SAFETY_SOURCE="$ROOT_DIR/.tmp/release-evidence/theme-css-safety-summary.json"
+THEME_CSS_SAFETY_STATUS_VALUE="missing"
+if [[ -f "$THEME_CSS_SAFETY_SOURCE" ]]; then
+    node "$ROOT_DIR/tools/release/theme-css-safety-evidence.mjs" "$THEME_CSS_SAFETY_SOURCE" >/dev/null
+    THEME_CSS_SAFETY_STATUS_VALUE="ok"
+fi
+THEME_CSS_SAFETY_SUMMARY="$(CopyIfPresent "$THEME_CSS_SAFETY_SOURCE" theme-css-safety-summary.json)"
 PUBLISH_ARTIFACTS_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/publish-artifacts-summary.json" publish-artifacts-summary.json)"
 BACKEND_QPS_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/backend-qps-summary.json" backend-qps-summary.json)"
 MEMORY_LEAK_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/memory-leak-summary.json" memory-leak-summary.json)"
@@ -916,6 +923,7 @@ if [[ "$PRODUCTION_STATUS_VALUE" != "ok" ||
     "$AUTHENTICATED_DAST_STATUS_VALUE" != "ok" ||
     "$WASM_FUZZ_STATUS_VALUE" != "ok" ||
     "$FRONTEND_RENDER_STRUCTURE_STATUS_VALUE" != "ok" ||
+    "$THEME_CSS_SAFETY_STATUS_VALUE" != "ok" ||
     "$AOT_CACHE_RESILIENCE_STATUS_VALUE" != "success" ||
     "$PUBLIC_HYDRATION_CLOCK_MATRIX_STATUS_VALUE" != "success" ||
     "$PUBLIC_HYDRATION_BROWSER_ENV_STATUS_VALUE" != "success" ||
@@ -994,6 +1002,7 @@ cat >"$OUT_DIR/manifest.json" <<JSON
     "uxViewportSummary": $UX_VIEWPORT_SUMMARY,
     "frontendRenderPressureSummary": $FRONTEND_RENDER_PRESSURE_SUMMARY,
     "frontendRenderStructureSummary": $FRONTEND_RENDER_STRUCTURE_SUMMARY,
+    "themeCssSafetySummary": $THEME_CSS_SAFETY_SUMMARY,
     "publishArtifactsSummary": $PUBLISH_ARTIFACTS_SUMMARY,
     "backendQpsSummary": $BACKEND_QPS_SUMMARY,
     "memoryLeakSummary": $MEMORY_LEAK_SUMMARY,

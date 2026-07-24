@@ -2,6 +2,16 @@
 
 本文档说明 FsusBlog 采用的安全机制及其实现要点。
 
+主题 CSS 是不可信的声明式输入。安装和激活都通过
+`ThemeCssSafetyScanner` fail closed：只允许 exact `data-theme` 稳定 scope，
+拒绝 Element Plus internal selector、远程或未知资源、script-like URL、
+full-viewport fixed overlay、超预算 z-index/filter、无限 motion、layout
+transition，以及 CSS/asset/preview/selector/depth/`!important`/duration
+超限。激活从内容寻址存储重开 archive 并重验 package hash，失败不会改变现有
+activation。无需重启的回退是禁用受影响 scope 或切回仍能通过重扫的已安装主题，
+不得绕过 scanner 或放宽 hard ceiling。详细合同与 release evidence 见
+[Theme CSS safety and asset budgets](themes/css-safety.md)。
+
 > 2026-07-16 匿名资格最小披露覆盖说明：运行时 contract 为 `fsus.anonymous.comment.v5` / layout `6`。精确 credential epoch/level、reputation bucket 和 account age 不再是 public input，也不得进入 ticket、comment、moderation/provider、stats/admin 或 release evidence。公开只允许 `is_eligible`、`may_comment`、`rate_class=common|unknown`、`requires_moderation` 与 root/version/hash 绑定；Production 匿名集下限为 20，低于阈值必须合并重证或 fail closed。v5 ceremony 尚未执行且 `production_usable=false`，旧 layout/key/ticket codec 不能回退启用。发布前运行 `check:privacy-zk-prod-release`；无需重启的回退是热更新 `AnonymousIdentity:ZkProd:Enabled=false`（并关闭 ZK anonymous comments），不删除已写入的匿名评论、root 或 vault 数据。
 
 Production build 同样遵守该 fail-closed 边界。`FSUSBLOG_ZK_PRODUCTION_ENABLED` 默认 `0`；当前 v5 trusted-setup manifest 为 `production_usable=false` 时，Docker/Wasm/CI build 不读取、不复制也不发布 proving key 或 browser prover manifest，普通 AEDS/PoW/search/image Wasm 仍正常构建。只有显式设置为 `1` 才会进入 ZK prover 打包，并且必须先通过 `tools/security/comment-privacy-build-contract.mjs`：circuit/setup/config 必须全部为 `fsus.anonymous.comment.v5` / layout `6`，ceremony 与 phase2 为 `verified`，贡献数、transcript、R1CS、proving key、verifying key、prover bundle 与 verifying-key binding 的 SHA-256 必须完整且与实际文件一致。任何缺失、路径越界、淘汰 layout 或 digest 漂移都会在昂贵编译前失败；旧 key 没有兼容、恢复或回退入口。

@@ -207,7 +207,50 @@ public sealed record ThemeBudgetManifest
         get;
         init;
     }
+
+    public int MaxSelectorDepth
+    {
+        get;
+        init;
+    }
+
+    public int MaxImportant
+    {
+        get;
+        init;
+    }
+
+    public int MaxMotionDurationMs
+    {
+        get;
+        init;
+    }
+
+    public long PreviewBytes
+    {
+        get;
+        init;
+    }
 }
+
+public sealed record ThemeCssSafetyViolation(
+    string Code,
+    string Path,
+    string Detail);
+
+public sealed record ThemeCssSafetyEvidence(
+    string Schema,
+    string ThemeId,
+    string Status,
+    long CssBytes,
+    long AssetBytes,
+    long PreviewBytes,
+    int SelectorCount,
+    int MaxSelectorDepth,
+    int ImportantCount,
+    int MaxMotionDurationMs,
+    IReadOnlyList<ThemeCssSafetyViolation> Violations,
+    IReadOnlyList<string> Warnings);
 
 public sealed record ThemePackageEntry(
     string Path,
@@ -227,7 +270,14 @@ public sealed record ValidatedThemePackage(
     string PackageHash,
     ReadOnlyMemory<byte> PackageBytes,
     IReadOnlyList<ThemePackageEntry> Entries,
-    IReadOnlyDictionary<string, ThemeAssetMetadata> Assets);
+    IReadOnlyDictionary<string, ThemeAssetMetadata> Assets)
+{
+    public ThemeCssSafetyEvidence? CssSafetyEvidence
+    {
+        get;
+        init;
+    }
+}
 
 public sealed record ThemePackageStoreReceipt(
     string Location,
@@ -322,12 +372,18 @@ public sealed record ThemeActivationSnapshot(
 public sealed class ThemePackageException(
     string errorCode,
     string message,
-    Exception? innerException = null) : Exception(message, innerException)
+    Exception? innerException = null,
+    ThemeCssSafetyEvidence? cssSafetyEvidence = null) : Exception(message, innerException)
 {
     public string ErrorCode
     {
         get;
     } = errorCode;
+
+    public ThemeCssSafetyEvidence? CssSafetyEvidence
+    {
+        get;
+    } = cssSafetyEvidence;
 }
 
 public sealed class ThemeLifecycleException(
@@ -346,4 +402,5 @@ public sealed class ThemeLifecycleException(
     PropertyNameCaseInsensitive = false,
     UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow)]
 [JsonSerializable(typeof(ThemeManifest))]
+[JsonSerializable(typeof(ThemeCssSafetyEvidence))]
 internal partial class ThemeJsonSerializerContext : JsonSerializerContext;

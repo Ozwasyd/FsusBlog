@@ -51,7 +51,7 @@ public sealed class ThemeLifecycleService(
         CancellationToken cancellationToken)
         => EnableAsync(scope, themeId, "auto", cancellationToken);
 
-    public Task EnableAsync(
+    public async Task EnableAsync(
         ThemeActivationScope scope,
         string themeId,
         string mode,
@@ -64,12 +64,39 @@ public sealed class ThemeLifecycleService(
                 "Theme activation mode must be auto, light, or dark.");
         }
 
-        return registry.EnableAsync(
+        ThemeRegistrySnapshot theme = await registry.GetThemeAsync(themeId, cancellationToken).ConfigureAwait(false)
+            ?? throw new ThemeLifecycleException(
+                "theme_not_installed",
+                $"Theme '{themeId}' is not installed.");
+        await using Stream storedPackage = await _packageStore.OpenReadAsync(
+            theme.PackageLocation,
+            cancellationToken).ConfigureAwait(false);
+        ValidatedThemePackage rescanned;
+        try
+        {
+            rescanned = Validate(storedPackage);
+        }
+        catch (ThemePackageException exception)
+        {
+            throw new ThemeLifecycleException(
+                "theme_activation_safety_scan_failed",
+                $"Theme '{themeId}' failed activation safety validation.",
+                exception);
+        }
+        if (!string.Equals(rescanned.Manifest.Id, themeId, StringComparison.Ordinal)
+            || !string.Equals(rescanned.PackageHash, theme.PackageHash, StringComparison.Ordinal))
+        {
+            throw new ThemeLifecycleException(
+                "theme_activation_package_mismatch",
+                $"Theme '{themeId}' package identity changed after installation.");
+        }
+
+        await registry.EnableAsync(
             scope,
             themeId,
             mode,
             timeProvider.GetUtcNow(),
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
     }
 
     public Task DisableAsync(

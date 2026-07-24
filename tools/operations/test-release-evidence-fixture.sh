@@ -7,6 +7,7 @@ RESTORE_DIR="$TMP_ROOT/restore"
 TRACKED_TMP_FILES=(
     ".tmp/release-evidence/frontend-render-pressure-summary.json"
     ".tmp/release-evidence/frontend-render-structure-summary.json"
+    ".tmp/release-evidence/theme-css-safety-summary.json"
     ".tmp/release-evidence/aeds-decode-budget-summary.json"
     ".tmp/release-evidence/aeds-wasm-browser-summary.json"
     ".tmp/release-evidence/doc-sync-summary.json"
@@ -368,6 +369,7 @@ printf '{"summary":{"linecoverage":76,"branchcoverage":56,"functioncoverage":86,
 mkdir -p "$ROOT_DIR/.tmp/frontend" "$ROOT_DIR/.tmp/release-evidence"
 printf '{"schema":"fsusblog.frontend-render-pressure.v1","status":"ok","evidenceClass":"diagnostic","affectsCorrectness":false,"executionBoundary":"real-browser-render-diagnostics","results":[{"scenario":"fixture","status":"ok"}]}\n' >"$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json"
 printf '{"schema":"fsusblog.frontend-render-structure.v1","status":"ok","evidenceClass":"correctness","affectsCorrectness":true,"executionBoundary":"browserless-static-analysis","checks":["dom-depth-static","markdown-render-budget"]}\n' >"$ROOT_DIR/.tmp/release-evidence/frontend-render-structure-summary.json"
+printf '{"schema":"fsusblog.theme.css-safety.v1","themeId":"fsusblog.theme.minimal-ink","status":"ok","cssBytes":42112,"assetBytes":210944,"previewBytes":120000,"selectorCount":312,"maxSelectorDepth":3,"importantCount":2,"maxMotionDurationMs":180,"violations":[],"warnings":[]}\n' >"$ROOT_DIR/.tmp/release-evidence/theme-css-safety-summary.json"
 node - "$ROOT_DIR/.tmp/release-evidence" "$COMMIT_SHA" <<'NODE'
 const fs = require('node:fs')
 const path = require('node:path')
@@ -787,6 +789,7 @@ jq -e \
   and .artifacts.uxViewportSummary == "ux-viewport-summary.json"
   and .artifacts.frontendRenderPressureSummary == "frontend-render-pressure-summary.json"
   and .artifacts.frontendRenderStructureSummary == "frontend-render-structure-summary.json"
+  and .artifacts.themeCssSafetySummary == "theme-css-safety-summary.json"
   and .artifacts.aotCacheResilienceSummary == "aot-cache-resilience-summary.json"
   and .artifacts.publicHydrationDetectorSummary == null
   and .artifacts.publicHydrationClockMatrixSummary == "public-hydration-clock-matrix-summary.json"

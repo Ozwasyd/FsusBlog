@@ -72,7 +72,11 @@ budgets declared by the manifest.
     "budgets": {
         "cssBytes": 65536,
         "assetBytes": 524288,
-        "maxSelectors": 512
+        "maxSelectors": 512,
+        "maxSelectorDepth": 4,
+        "maxImportant": 8,
+        "maxMotionDurationMs": 1000,
+        "previewBytes": 262144
     }
 }
 ```
@@ -96,10 +100,12 @@ API. The compiler returns the exact CSS SHA-256 used by the content-addressed
 runtime URL; the package does not gain a remote loading permission.
 
 All permission values must remain `false`. CSS and asset bytes are measured
-from the expanded entries and must fit the manifest budgets. The platform also
-caps CSS at 1 MiB, assets at 4 MiB and declared selectors at 4096. CSS safety
-analysis and selector counting belong to the later theme validation layer; the
-package layer only establishes the budget contract.
+from the expanded entries and must fit both the manifest budgets and the
+platform ceilings: CSS 64 KiB, all declared image assets 512 KiB, preview image
+256 KiB, 512 selectors, selector depth 4, eight `!important` declarations and
+1000 ms motion duration. A manifest cannot raise those ceilings. Installation
+and every activation run the fail-closed scanner described in
+[Theme CSS safety](css-safety.md); byte counting alone is not acceptance.
 
 ## Configuration schema
 
@@ -153,8 +159,10 @@ Discovered -> Validated -> Installed -> Enabled <-> Disabled
                                 +-> Uninstalled
 ```
 
-Validation completes before a registry transaction starts. A malformed or
-incompatible package therefore cannot alter an existing activation.
+Validation and CSS safety scanning complete before a registry transaction
+starts. A malformed, incompatible or unsafe package therefore cannot alter an
+existing activation. Activation reopens the exact content-addressed archive,
+revalidates its hash and reruns the scanner before changing registry state.
 Activations are atomic per `site-wide`, `public`, `admin`, `console` or
 `user-preview:{positiveUserId}` scope. An active theme cannot be uninstalled
 unless an already-installed replacement is selected in the same transaction.

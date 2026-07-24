@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Text;
+using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
@@ -32,6 +33,144 @@ public sealed class ThemeInfrastructureTests
         Assert.Equal(
             validated.Entries.Single(static entry => entry.Path == "assets/preview.png").ContentHash,
             validated.Assets["preview"].ContentHash);
+        Assert.NotNull(validated.CssSafetyEvidence);
+        Assert.Equal("ok", validated.CssSafetyEvidence.Status);
+        Assert.Empty(validated.CssSafetyEvidence.Violations);
+        string evidenceJson = JsonSerializer.Serialize(
+            validated.CssSafetyEvidence,
+            ThemeJsonSerializerContext.Default.ThemeCssSafetyEvidence);
+        Assert.Contains(
+            """"schema":"fsusblog.theme.css-safety.v1"""",
+            evidenceJson,
+            StringComparison.Ordinal);
+        Assert.Contains(""""maxSelectorDepth":2"""", evidenceJson, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Validate_RejectsUnsafeSelectorsRemoteResourcesAndMotionWithMachineEvidence()
+    {
+        using MemoryStream package = CreatePackage(entryOverrides: new Dictionary<string, byte[]>
+        {
+            ["styles/theme.css"] = Encoding.UTF8.GetBytes(
+                """
+                body, .el-dialog__body {
+                    background: url("https://tracker.invalid/theme.png");
+                    position: fixed;
+                    inset: 0;
+                    animation: pulse 2s infinite;
+                    transition: width 2s;
+                    z-index: 999999;
+                    backdrop-filter: blur(40px) !important;
+                }
+                """)
+        });
+
+        ThemePackageException exception = Assert.Throws<ThemePackageException>(
+            () => new ThemePackageValidator().Validate(package, new Version(1, 3, 0)));
+
+        Assert.Equal("theme_css_safety_blocked", exception.ErrorCode);
+        ThemeCssSafetyEvidence evidence = Assert.IsType<ThemeCssSafetyEvidence>(
+            exception.CssSafetyEvidence);
+        Assert.Equal(ThemeCssSafetyScanner.EvidenceSchema, evidence.Schema);
+        Assert.Equal("blocked", evidence.Status);
+        Assert.Contains(evidence.Violations, static item => item.Code == "selector_scope_denied");
+        Assert.Contains(evidence.Violations, static item => item.Code == "element_plus_internal_selector_denied");
+        Assert.Contains(evidence.Violations, static item => item.Code == "resource_url_denied");
+        Assert.Contains(evidence.Violations, static item => item.Code == "unbounded_animation_denied");
+        Assert.Contains(evidence.Violations, static item => item.Code == "layout_transition_denied");
+        Assert.Contains(evidence.Violations, static item => item.Code == "full_viewport_fixed_overlay_denied");
+        Assert.Contains(evidence.Violations, static item => item.Code == "z_index_budget_exceeded");
+        Assert.Contains(evidence.Violations, static item => item.Code == "filter_budget_exceeded");
+        Assert.Contains(evidence.Violations, static item => item.Code == "motion_duration_exceeded");
+    }
+
+    [Fact]
+    public void Validate_EnforcesPreviewSelectorDepthAndImportantBudgets()
+    {
+        string manifest = ManifestJson()
+            .Replace("\"previewBytes\": 262144", "\"previewBytes\": 3", StringComparison.Ordinal)
+            .Replace("\"maxSelectorDepth\": 4", "\"maxSelectorDepth\": 2", StringComparison.Ordinal)
+            .Replace("\"maxImportant\": 8", "\"maxImportant\": 0", StringComparison.Ordinal);
+        using MemoryStream package = CreatePackage(
+            manifest: manifest,
+            entryOverrides: new Dictionary<string, byte[]>
+            {
+                ["styles/theme.css"] = Encoding.UTF8.GetBytes(
+                    """
+                    [data-theme="fsusblog.theme.minimal-ink"] .fsus-prose .note strong {
+                        color: var(--fsus-color-text-primary) !important;
+                    }
+                    """)
+            });
+
+        ThemePackageException exception = Assert.Throws<ThemePackageException>(
+            () => new ThemePackageValidator().Validate(package, new Version(1, 3, 0)));
+
+        ThemeCssSafetyEvidence evidence = Assert.IsType<ThemeCssSafetyEvidence>(
+            exception.CssSafetyEvidence);
+        Assert.Contains(evidence.Violations, static item => item.Code == "preview_bytes_exceeded");
+        Assert.Contains(evidence.Violations, static item => item.Code == "selector_depth_exceeded");
+        Assert.Contains(evidence.Violations, static item => item.Code == "important_count_exceeded");
+    }
+
+    [Fact]
+    public void Validate_EnforcesSelectorCountAndFailsClosedOnMalformedCss()
+    {
+        string selectorFlood = string.Join(
+            ",",
+            Enumerable.Range(0, 513).Select(
+                static index =>
+                    $"[data-theme=\"fsusblog.theme.minimal-ink\"] .fsus-theme-scope .item-{index}"));
+        using MemoryStream overSelectorBudget = CreatePackage(entryOverrides: new Dictionary<string, byte[]>
+        {
+            ["styles/theme.css"] = Encoding.UTF8.GetBytes($"{selectorFlood} {{ color: red; }}")
+        });
+        using MemoryStream malformed = CreatePackage(entryOverrides: new Dictionary<string, byte[]>
+        {
+            ["styles/theme.css"] = Encoding.UTF8.GetBytes(
+                """[data-theme="fsusblog.theme.minimal-ink"] .fsus-theme-scope { color: red;""")
+        });
+
+        ThemePackageException selectorException = Assert.Throws<ThemePackageException>(
+            () => new ThemePackageValidator().Validate(
+                overSelectorBudget,
+                new Version(1, 3, 0)));
+        ThemePackageException malformedException = Assert.Throws<ThemePackageException>(
+            () => new ThemePackageValidator().Validate(
+                malformed,
+                new Version(1, 3, 0)));
+
+        Assert.Contains(
+            Assert.IsType<ThemeCssSafetyEvidence>(selectorException.CssSafetyEvidence).Violations,
+            static item => item.Code == "selector_count_exceeded");
+        Assert.Contains(
+            Assert.IsType<ThemeCssSafetyEvidence>(malformedException.CssSafetyEvidence).Violations,
+            static item => item.Code == "css_syntax_unbalanced");
+    }
+
+    [Fact]
+    public void Validate_AllowsOnlyDeclaredRelativePackageAssetUrls()
+    {
+        using MemoryStream package = CreatePackage(
+            manifest: ManifestJson().Replace(
+                "\"maxImportant\": 8",
+                "\"maxImportant\": 0",
+                StringComparison.Ordinal),
+            entryOverrides: new Dictionary<string, byte[]>
+            {
+                ["styles/theme.css"] = Encoding.UTF8.GetBytes(
+                    """
+                    [data-theme="fsusblog.theme.minimal-ink"] .fsus-theme-scope {
+                        background-image: url("../assets/preview.png");
+                    }
+                    """)
+            });
+
+        ValidatedThemePackage validated = new ThemePackageValidator().Validate(
+            package,
+            new Version(1, 3, 0));
+
+        Assert.Equal("ok", validated.CssSafetyEvidence?.Status);
     }
 
     [Fact]
@@ -340,6 +479,60 @@ public sealed class ThemeInfrastructureTests
     }
 
     [Fact]
+    public async Task Enable_RescansStoredPackageAndPreservesCurrentActivationOnFailure()
+    {
+        string root = Path.Combine(
+            Path.GetTempPath(),
+            $"fsusblog-theme-activation-safety-{Guid.NewGuid():N}");
+        try
+        {
+            var registry = new InMemoryThemeRegistry();
+            var store = new LocalThemePackageStore(root);
+            var lifecycle = new ThemeLifecycleService(
+                new ThemePackageValidator(),
+                registry,
+                new Version(1, 3, 0),
+                TimeProvider.System,
+                store);
+            using MemoryStream package = CreatePackage();
+            ThemeRegistrySnapshot installed = await lifecycle.InstallAsync(
+                package,
+                CancellationToken.None);
+            using MemoryStream unsafePackage = CreatePackage(entryOverrides: new Dictionary<string, byte[]>
+            {
+                ["styles/theme.css"] = Encoding.UTF8.GetBytes(
+                    """body { background: url("javascript:alert(1)"); }""")
+            });
+            await File.WriteAllBytesAsync(
+                Path.Combine(installed.PackageLocation, "archive.fstheme"),
+                unsafePackage.ToArray());
+
+            ThemeLifecycleException exception = await Assert.ThrowsAsync<ThemeLifecycleException>(
+                () => lifecycle.EnableAsync(
+                    ThemeActivationScope.Public,
+                    installed.Manifest.Id,
+                    CancellationToken.None));
+
+            Assert.Equal("theme_activation_safety_scan_failed", exception.ErrorCode);
+            Assert.Null(await registry.GetActivationAsync(
+                ThemeActivationScope.Public,
+                CancellationToken.None));
+            ThemeRegistrySnapshot? unchanged = await registry.GetThemeAsync(
+                installed.Manifest.Id,
+                CancellationToken.None);
+            Assert.NotNull(unchanged);
+            Assert.Equal(ThemeInstallState.Installed, unchanged.InstallState);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task SaveConfig_RequiresSchemaValidityAndMonotonicVersion()
     {
         var registry = new InMemoryThemeRegistry();
@@ -384,6 +577,9 @@ public sealed class ThemeInfrastructureTests
         ServiceDescriptor validator = Assert.Single(
             services,
             static descriptor => descriptor.ServiceType == typeof(ThemePackageValidator));
+        ServiceDescriptor cssSafetyScanner = Assert.Single(
+            services,
+            static descriptor => descriptor.ServiceType == typeof(ThemeCssSafetyScanner));
         ServiceDescriptor tokenCompiler = Assert.Single(
             services,
             static descriptor => descriptor.ServiceType == typeof(ThemeTokenCompiler));
@@ -397,6 +593,7 @@ public sealed class ThemeInfrastructureTests
             services,
             static descriptor => descriptor.ServiceType == typeof(ThemeLifecycleService));
         Assert.Equal(ServiceLifetime.Singleton, validator.Lifetime);
+        Assert.Equal(ServiceLifetime.Singleton, cssSafetyScanner.Lifetime);
         Assert.Equal(ServiceLifetime.Singleton, tokenCompiler.Lifetime);
         Assert.Equal(ServiceLifetime.Scoped, registry.Lifetime);
         Assert.Equal(typeof(PostgresThemeRegistry), registry.ImplementationType);
@@ -427,20 +624,34 @@ public sealed class ThemeInfrastructureTests
     private static MemoryStream CreatePackage(
         string? manifest = null,
         IReadOnlyCollection<string>? entriesToOmit = null,
-        IReadOnlyDictionary<string, byte[]>? extraEntries = null)
+        IReadOnlyDictionary<string, byte[]>? extraEntries = null,
+        IReadOnlyDictionary<string, byte[]>? entryOverrides = null)
     {
+        string manifestJson = manifest ?? ManifestJson();
+        using JsonDocument manifestDocument = JsonDocument.Parse(manifestJson);
+        string themeId = manifestDocument.RootElement.GetProperty("id").GetString()
+            ?? throw new InvalidOperationException("Theme fixture id is required.");
         var package = new MemoryStream();
         using (var archive = new ZipArchive(package, ZipArchiveMode.Create, leaveOpen: true))
         {
             var entries = new Dictionary<string, byte[]>(StringComparer.Ordinal)
             {
-                ["manifest.json"] = Encoding.UTF8.GetBytes(manifest ?? ManifestJson()),
-                ["styles/tokens.css"] = Encoding.UTF8.GetBytes(":root { --paper: #fff; }"),
-                ["styles/theme.css"] = Encoding.UTF8.GetBytes("body { background: var(--paper); }"),
+                ["manifest.json"] = Encoding.UTF8.GetBytes(manifestJson),
+                ["styles/tokens.css"] = Encoding.UTF8.GetBytes(
+                    $":root[data-theme=\"{themeId}\"] {{ --fsus-color-page-bg: #fff; }}"),
+                ["styles/theme.css"] = Encoding.UTF8.GetBytes(
+                    $"[data-theme=\"{themeId}\"] .fsus-theme-scope {{ background: var(--fsus-color-page-bg); }}"),
                 ["assets/preview.png"] = [0x89, 0x50, 0x4e, 0x47],
                 ["config/schema.json"] = Encoding.UTF8.GetBytes(
                     """{"type":"object","additionalProperties":false,"properties":{"fontScale":{"type":"number"},"showAuthor":{"type":"boolean"}}}""")
             };
+            if (entryOverrides is not null)
+            {
+                foreach ((string path, byte[] content) in entryOverrides)
+                {
+                    entries[path] = content;
+                }
+            }
             foreach ((string path, byte[] content) in entries)
             {
                 if (entriesToOmit?.Contains(path) != true)
@@ -499,7 +710,11 @@ public sealed class ThemeInfrastructureTests
                 "budgets": {
                     "cssBytes": 65536,
                     "assetBytes": 524288,
-                    "maxSelectors": 512
+                    "maxSelectors": 512,
+                    "maxSelectorDepth": 4,
+                    "maxImportant": 8,
+                    "maxMotionDurationMs": 1000,
+                    "previewBytes": 262144
                 }
             }
             """;

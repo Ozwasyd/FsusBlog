@@ -11,10 +11,8 @@ public sealed partial class ThemePackageValidator
 {
     private const long MaximumPackageBytes = 16 * 1024 * 1024;
     private const long MaximumExpandedBytes = 8 * 1024 * 1024;
-    private const long MaximumCssBudgetBytes = 1024 * 1024;
-    private const long MaximumAssetBudgetBytes = 4 * 1024 * 1024;
     private const int MaximumEntries = 128;
-    private const int MaximumSelectors = 4096;
+    private readonly ThemeCssSafetyScanner _cssSafetyScanner;
 
     private static readonly string[] s_requiredPaths =
     [
@@ -24,6 +22,11 @@ public sealed partial class ThemePackageValidator
         "assets/preview.png",
         "config/schema.json"
     ];
+
+    public ThemePackageValidator(ThemeCssSafetyScanner? cssSafetyScanner = null)
+    {
+        _cssSafetyScanner = cssSafetyScanner ?? new ThemeCssSafetyScanner();
+    }
 
     public ValidatedThemePackage Validate(Stream packageStream, Version fsusBlogVersion)
     {
@@ -49,6 +52,19 @@ public sealed partial class ThemePackageValidator
                 contents[manifest.ConfigSchema].Content,
                 "theme_config_schema_encoding_invalid");
             ValidateConfigSchema(configSchemaJson);
+            ThemeCssSafetyEvidence cssSafetyEvidence = _cssSafetyScanner.Scan(
+                manifest,
+                contents.ToDictionary(
+                    static pair => pair.Key,
+                    static pair => (ReadOnlyMemory<byte>)pair.Value.Content,
+                    StringComparer.Ordinal));
+            if (!string.Equals(cssSafetyEvidence.Status, "ok", StringComparison.Ordinal))
+            {
+                throw new ThemePackageException(
+                    "theme_css_safety_blocked",
+                    $"Theme CSS safety scan found {cssSafetyEvidence.Violations.Count} violation(s).",
+                    cssSafetyEvidence: cssSafetyEvidence);
+            }
 
             ThemePackageEntry[] entries =
             [
@@ -75,7 +91,10 @@ public sealed partial class ThemePackageValidator
                 packageHash,
                 packageBytes,
                 Array.AsReadOnly(entries),
-                new System.Collections.ObjectModel.ReadOnlyDictionary<string, ThemeAssetMetadata>(assets));
+                new System.Collections.ObjectModel.ReadOnlyDictionary<string, ThemeAssetMetadata>(assets))
+            {
+                CssSafetyEvidence = cssSafetyEvidence
+            };
         }
         catch (ThemePackageException)
         {
@@ -343,9 +362,13 @@ public sealed partial class ThemePackageValidator
                 "Theme packages cannot request script, network, or filesystem permissions.");
         }
 
-        if (manifest.Budgets.CssBytes is <= 0 or > MaximumCssBudgetBytes
-            || manifest.Budgets.AssetBytes is <= 0 or > MaximumAssetBudgetBytes
-            || manifest.Budgets.MaxSelectors is <= 0 or > MaximumSelectors)
+        if (manifest.Budgets.CssBytes is <= 0 or > ThemeCssSafetyScanner.MaximumCssBytes
+            || manifest.Budgets.AssetBytes is <= 0 or > ThemeCssSafetyScanner.MaximumAssetBytes
+            || manifest.Budgets.PreviewBytes is <= 0 or > ThemeCssSafetyScanner.MaximumPreviewBytes
+            || manifest.Budgets.MaxSelectors is <= 0 or > ThemeCssSafetyScanner.MaximumSelectorCount
+            || manifest.Budgets.MaxSelectorDepth is <= 0 or > ThemeCssSafetyScanner.MaximumSelectorDepth
+            || manifest.Budgets.MaxImportant is < 0 or > ThemeCssSafetyScanner.MaximumImportantCount
+            || manifest.Budgets.MaxMotionDurationMs is <= 0 or > ThemeCssSafetyScanner.MaximumMotionDurationMs)
         {
             throw new ThemePackageException(
                 "theme_manifest_budget_invalid",
