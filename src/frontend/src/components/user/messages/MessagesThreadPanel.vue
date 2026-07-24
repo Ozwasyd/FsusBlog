@@ -133,7 +133,7 @@
 import { computed, ref } from 'vue'
 import type { ConversationDetailResponse, ConversationMessageResponse, ConversationStatus } from '@/api/message'
 import MessagesEmptyState from './MessagesEmptyState.vue'
-import { FSUSBLOG_MESSAGES_COPY } from '@/copy'
+import { useI18nText } from '@/composables/useI18nText'
 
 type MessageRow = ConversationMessageResponse & {
   createdAtText: string
@@ -142,7 +142,8 @@ type MessageRow = ConversationMessageResponse & {
   motionClass: string
 }
 
-const threadCopy = FSUSBLOG_MESSAGES_COPY.threadPanel
+const { messages } = useI18nText()
+const threadCopy = computed(() => messages.value.messages.threadPanel)
 
 const props = withDefaults(defineProps<{
   mode: 'admin' | 'account'
@@ -178,9 +179,9 @@ const emit = defineEmits<{
 const paneRef = ref<HTMLElement | null>(null)
 const isAdminMode = computed(() => props.mode === 'admin')
 const adminContextText = computed(() =>
-  threadCopy.accountContextAdmin.replace('{id}', props.contextAccountText)
+  threadCopy.value.accountContextAdmin.replace('{id}', props.contextAccountText)
 )
-const showOlderText = computed(() => threadCopy.showOlder)
+const showOlderText = computed(() => threadCopy.value.showOlder)
 
 const handleReplyBodyUpdate = (value: string): void => {
   emit('update:replyBody', value)

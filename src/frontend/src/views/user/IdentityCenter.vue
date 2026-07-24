@@ -490,23 +490,24 @@ import { useAccountWorkspaceContext } from '@/layouts/accountWorkspaceContext'
 import { useUserStore } from '@/store/user'
 import { confirmDanger, toast } from '@/fsusui/feedback'
 import { toAppError } from '@/utils/appError'
-import { FSUSBLOG_IDENTITY_COPY } from '@/copy'
+import { useI18nText } from '@/composables/useI18nText'
 import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime'
 import { webauthnSignalService } from '@/services/webauthnSignal'
 
-const identityCopy = FSUSBLOG_IDENTITY_COPY
-const copy = identityCopy.overview
-const passkeysCopy = identityCopy.passkeys
-const recoveryKeyCopy = identityCopy.recoveryKey
-const mfaCopy = identityCopy.mfa
-const anonymousCopy = identityCopy.anonymous
-const publicProfileCopy = identityCopy.publicProfile
-const sessionsCopy = identityCopy.sessions
-const commentRecordsCopy = identityCopy.commentRecords
-const confirmCopy = identityCopy.confirm
-const errorCopy = identityCopy.errors
+const { messages } = useI18nText()
+const identityCopy = computed(() => messages.value.identity)
+const copy = computed(() => identityCopy.value.overview)
+const passkeysCopy = computed(() => identityCopy.value.passkeys)
+const recoveryKeyCopy = computed(() => identityCopy.value.recoveryKey)
+const mfaCopy = computed(() => identityCopy.value.mfa)
+const anonymousCopy = computed(() => identityCopy.value.anonymous)
+const publicProfileCopy = computed(() => identityCopy.value.publicProfile)
+const sessionsCopy = computed(() => identityCopy.value.sessions)
+const commentRecordsCopy = computed(() => identityCopy.value.commentRecords)
+const confirmCopy = computed(() => identityCopy.value.confirm)
+const errorCopy = computed(() => identityCopy.value.errors)
 
-const sectionMetaByRoute = identityCopy.meta
+const sectionMetaByRoute = computed(() => identityCopy.value.meta)
 
 type IdentityRouteName = keyof typeof sectionMetaByRoute
 type IdentityPolicyState = 'open' | 'active' | 'closed' | 'muted'
@@ -675,10 +676,10 @@ const deleteAccountError = ref('')
 
 const currentRouteName = computed<IdentityRouteName>(() => {
   const name = typeof route.name === 'string' ? route.name : ''
-  return name in sectionMetaByRoute ? name as IdentityRouteName : 'UserIdentityOverview'
+  return name in sectionMetaByRoute.value ? name as IdentityRouteName : 'UserIdentityOverview'
 })
 
-const sectionMeta = computed(() => sectionMetaByRoute[currentRouteName.value])
+const sectionMeta = computed(() => sectionMetaByRoute.value[currentRouteName.value])
 const isSection = (name: IdentityRouteName): boolean => currentRouteName.value === name
 
 const ensureCommentRecordsLoaded = (): void => {
@@ -696,19 +697,19 @@ const currentSession = computed(() => sessions.value.find((session) => session.i
 const otherSessions = computed(() => sessions.value.filter((session) => !session.isCurrent))
 
 const passkeyDeviceCountText = computed(() =>
-  copy.passkeyDeviceCount.replace('{n}', String(passkeyCredentials.value.length))
+  copy.value.passkeyDeviceCount.replace('{n}', String(passkeyCredentials.value.length))
 )
 
 const publicHandleDisplayText = computed(() =>
-  identityAccountSnapshot.value.publicHandle || copy.publicHandleEmpty
+  identityAccountSnapshot.value.publicHandle || copy.value.publicHandleEmpty
 )
 
 const anonymousPolicyDisplayText = computed(() =>
-  identityAccountSnapshot.value.anonymousPolicyEnabled ? copy.anonymousPolicyAllowed : copy.anonymousPolicyClosed
+  identityAccountSnapshot.value.anonymousPolicyEnabled ? copy.value.anonymousPolicyAllowed : copy.value.anonymousPolicyClosed
 )
 
 const publicSendOptionDisplayText = computed(() =>
-  identityAccountSnapshot.value.publicSendOptionEnabled ? copy.publicSendOptionAllowed : copy.publicSendOptionClosed
+  identityAccountSnapshot.value.publicSendOptionEnabled ? copy.value.publicSendOptionAllowed : copy.value.publicSendOptionClosed
 )
 
 const publicSendOptionState = computed<IdentityPolicyState>(() =>
@@ -717,8 +718,8 @@ const publicSendOptionState = computed<IdentityPolicyState>(() =>
 
 const publicSendOptionValue = computed(() =>
   workspaceFeatures.value.publicSendOptionEnabled
-    ? publicProfileCopy.publicSendOptionAvailable
-    : publicProfileCopy.publicSendOptionUnavailable
+    ? publicProfileCopy.value.publicSendOptionAvailable
+    : publicProfileCopy.value.publicSendOptionUnavailable
 )
 
 const commentRecordPolicyItems = computed<Array<{ label: string; value: string; state: IdentityPolicyState }>>(() => {
@@ -727,30 +728,30 @@ const commentRecordPolicyItems = computed<Array<{ label: string; value: string; 
 
   return [
     {
-      label: commentRecordsCopy.policyPublicSendLabel,
-      value: features.publicSendOptionEnabled ? commentRecordsCopy.policyOpen : commentRecordsCopy.policyClosed,
+      label: commentRecordsCopy.value.policyPublicSendLabel,
+      value: features.publicSendOptionEnabled ? commentRecordsCopy.value.policyOpen : commentRecordsCopy.value.policyClosed,
       state: features.publicSendOptionEnabled ? 'open' : 'muted'
     },
     {
-      label: commentRecordsCopy.policyAnonymousLabel,
-      value: features.anonymousCommentsEnabled ? commentRecordsCopy.policyOpen : commentRecordsCopy.policyClosed,
+      label: commentRecordsCopy.value.policyAnonymousLabel,
+      value: features.anonymousCommentsEnabled ? commentRecordsCopy.value.policyOpen : commentRecordsCopy.value.policyClosed,
       state: features.anonymousCommentsEnabled ? 'open' : 'closed'
     },
     {
-      label: commentRecordsCopy.policyZkLabel,
-      value: features.zkAnonymousEnabled ? commentRecordsCopy.policyOpen : commentRecordsCopy.policyUnavailable,
+      label: commentRecordsCopy.value.policyZkLabel,
+      value: features.zkAnonymousEnabled ? commentRecordsCopy.value.policyOpen : commentRecordsCopy.value.policyUnavailable,
       state: features.zkAnonymousEnabled ? 'open' : 'muted'
     },
     {
-      label: commentRecordsCopy.policyGovernanceLabel,
-      value: policies.anonymousCommentGovernanceAvailable ? commentRecordsCopy.policyActive : commentRecordsCopy.policyUnavailable,
+      label: commentRecordsCopy.value.policyGovernanceLabel,
+      value: policies.anonymousCommentGovernanceAvailable ? commentRecordsCopy.value.policyActive : commentRecordsCopy.value.policyUnavailable,
       state: policies.anonymousCommentGovernanceAvailable ? 'active' : 'closed'
     }
   ]
 })
 
 const sessionsActiveCountText = computed(() =>
-  sessionsCopy.activeCountPrefix.replace('{n}', String(sessions.value.length))
+  sessionsCopy.value.activeCountPrefix.replace('{n}', String(sessions.value.length))
 )
 
 const identityAccountSnapshot = computed(() => {
@@ -765,7 +766,7 @@ const identityAccountSnapshot = computed(() => {
     recoveryEnabled: user?.recoveryEnabled === true || recoveryKeyKnown.value || recoveryKeyPlaintext.value.length > 0,
     totpStepUpEnabled: mfaProfile.value?.enabled === true,
     anonymousPolicyEnabled: features.anonymousCommentsEnabled && policies.anonymousCommentGovernanceAvailable,
-    anonymousCardStatus: features.anonymousCommentsEnabled ? copy.anonymousCardAvailable : copy.anonymousCardClosed,
+    anonymousCardStatus: features.anonymousCommentsEnabled ? copy.value.anonymousCardAvailable : copy.value.anonymousCardClosed,
     zkAnonymousAvailable: features.zkAnonymousEnabled,
     publicSendOptionEnabled: features.publicSendOptionEnabled
   }
@@ -786,7 +787,7 @@ const refreshMfaProfile = async (): Promise<void> => {
   try {
     mfaProfile.value = await getMfaProfile()
   } catch (error) {
-    mfaError.value = toAppError(error, mfaCopy.loadFailedFallback).message || mfaCopy.loadFailedFallback
+    mfaError.value = toAppError(error, mfaCopy.value.loadFailedFallback).message || mfaCopy.value.loadFailedFallback
   } finally {
     mfaLoading.value = false
   }
@@ -804,7 +805,7 @@ const startMfaSetupFlow = async (): Promise<void> => {
     const action = mfaProfile.value?.enabled ? 'mfa_setup_rebind' : 'mfa_setup'
     const proof = await startMfaChallenge(action) as MfaChallengeResult
     if (!proof.verified || !proof.proofToken) {
-      mfaSetupError.value = mfaCopy.setupChallengeRequired
+      mfaSetupError.value = mfaCopy.value.setupChallengeRequired
       return
     }
 
@@ -812,7 +813,7 @@ const startMfaSetupFlow = async (): Promise<void> => {
     mfaSetupSecret.value = response.secret
     mfaSetupOtpAuthUrl.value = response.otpAuthUrl
   } catch (error) {
-    mfaSetupError.value = identityOperationErrorMessage(error, mfaCopy.initFailedFallback, mfaCopy.setupChallengeRequired)
+    mfaSetupError.value = identityOperationErrorMessage(error, mfaCopy.value.initFailedFallback, mfaCopy.value.setupChallengeRequired)
   } finally {
     mfaSetupLoading.value = false
   }
@@ -829,9 +830,9 @@ const completeMfaSetupFlow = async (): Promise<void> => {
     const response = await verifyMfaSetup(mfaSetupCode.value.trim()) as MfaSetupVerify
     mfaSetupRecoveryCodes.value = response.recoveryCodes
     await refreshMfaProfile()
-    toast.success(mfaCopy.enabledSuccess)
+    toast.success(mfaCopy.value.enabledSuccess)
   } catch (error) {
-    mfaSetupError.value = toAppError(error, mfaCopy.verifyFailedFallback).message || mfaCopy.verifyFailedFallback
+    mfaSetupError.value = toAppError(error, mfaCopy.value.verifyFailedFallback).message || mfaCopy.value.verifyFailedFallback
   } finally {
     mfaSetupLoading.value = false
   }
@@ -839,9 +840,9 @@ const completeMfaSetupFlow = async (): Promise<void> => {
 
 const disableTotpMfa = async (): Promise<void> => {
   const confirmation = await confirmDanger(
-    mfaCopy.disableConfirmBody,
-    mfaCopy.disableConfirmTitle,
-    { confirmButtonText: mfaCopy.disableConfirmCta, cancelButtonText: confirmCopy.cancelButton }
+    mfaCopy.value.disableConfirmBody,
+    mfaCopy.value.disableConfirmTitle,
+    { confirmButtonText: mfaCopy.value.disableConfirmCta, cancelButtonText: confirmCopy.value.cancelButton }
   )
   if (confirmation.kind !== 'confirmed') {
     return
@@ -852,15 +853,15 @@ const disableTotpMfa = async (): Promise<void> => {
   try {
     const proof = await startMfaChallenge('mfa_disable') as MfaChallengeResult
     if (!proof.verified || !proof.proofToken) {
-      mfaError.value = mfaCopy.disableChallengeRequired
+      mfaError.value = mfaCopy.value.disableChallengeRequired
       return
     }
 
     await disableMfa({ mfaProofToken: proof.proofToken })
     await refreshMfaProfile()
-    toast.success(mfaCopy.disabledSuccess)
+    toast.success(mfaCopy.value.disabledSuccess)
   } catch (error) {
-    mfaError.value = identityOperationErrorMessage(error, mfaCopy.disableFailedFallback, mfaCopy.disableChallengeRequired)
+    mfaError.value = identityOperationErrorMessage(error, mfaCopy.value.disableFailedFallback, mfaCopy.value.disableChallengeRequired)
   } finally {
     mfaDisableLoading.value = false
   }
@@ -872,7 +873,7 @@ const refreshSessions = async (): Promise<void> => {
   try {
     sessions.value = await listSessions()
   } catch (error) {
-    sessionError.value = toAppError(error, sessionsCopy.loadFailedFallback).message || sessionsCopy.loadFailedFallback
+    sessionError.value = toAppError(error, sessionsCopy.value.loadFailedFallback).message || sessionsCopy.value.loadFailedFallback
   } finally {
     sessionLoading.value = false
   }
@@ -903,15 +904,15 @@ const savePasskeyName = async (id: number): Promise<void> => {
       passkeyEditingId.value = null
     }
   } catch (error) {
-    passkeyError.value = identityOperationErrorMessage(error, errorCopy.renameFailedFallback, errorCopy.passkeySensitiveOperationRequired)
+    passkeyError.value = identityOperationErrorMessage(error, errorCopy.value.renameFailedFallback, errorCopy.value.passkeySensitiveOperationRequired)
   }
 }
 
 const confirmDeletePasskey = async (id: number): Promise<void> => {
   const confirmed = await confirmDanger(
-    confirmCopy.deletePasskeyBody,
-    confirmCopy.deletePasskeyTitle,
-    { confirmButtonText: confirmCopy.confirmButton, cancelButtonText: confirmCopy.cancelButton }
+    confirmCopy.value.deletePasskeyBody,
+    confirmCopy.value.deletePasskeyTitle,
+    { confirmButtonText: confirmCopy.value.confirmButton, cancelButtonText: confirmCopy.value.cancelButton }
   )
   if (!confirmed) {
     return
@@ -921,7 +922,7 @@ const confirmDeletePasskey = async (id: number): Promise<void> => {
     const proofToken = await resolveSensitiveOperationProof('passkey.delete')
     await removePasskey(id, proofToken)
   } catch (error) {
-    passkeyError.value = identityOperationErrorMessage(error, errorCopy.deleteFailedFallback, errorCopy.passkeySensitiveOperationRequired)
+    passkeyError.value = identityOperationErrorMessage(error, errorCopy.value.deleteFailedFallback, errorCopy.value.passkeySensitiveOperationRequired)
   }
 }
 
@@ -949,9 +950,9 @@ const issueRecoveryKey = async (mode: 'create' | 'rotate'): Promise<void> => {
       ? await createRecoveryKey({ mfaProofToken: proofToken })
       : await rotateRecoveryKey({ mfaProofToken: proofToken })
     setRecoveryKeyResponse(response)
-    toast.success(mode === 'create' ? errorCopy.recoveryKeyCreatedSuccess : errorCopy.recoveryKeyRotatedSuccess)
+    toast.success(mode === 'create' ? errorCopy.value.recoveryKeyCreatedSuccess : errorCopy.value.recoveryKeyRotatedSuccess)
   } catch (error) {
-    recoveryKeyError.value = identityOperationErrorMessage(error, errorCopy.recoveryKeyFailedFallback, errorCopy.recoveryKeySensitiveOperationRequired)
+    recoveryKeyError.value = identityOperationErrorMessage(error, errorCopy.value.recoveryKeyFailedFallback, errorCopy.value.recoveryKeySensitiveOperationRequired)
   } finally {
     recoveryLoading.value = false
   }
@@ -963,9 +964,9 @@ const createRecoveryKeyForAccount = async (): Promise<void> => {
 
 const rotateRecoveryKeyForAccount = async (): Promise<void> => {
   const confirmed = await confirmDanger(
-    confirmCopy.rotateRecoveryKeyBody,
-    confirmCopy.rotateRecoveryKeyTitle,
-    { confirmButtonText: confirmCopy.confirmButton, cancelButtonText: confirmCopy.cancelButton }
+    confirmCopy.value.rotateRecoveryKeyBody,
+    confirmCopy.value.rotateRecoveryKeyTitle,
+    { confirmButtonText: confirmCopy.value.confirmButton, cancelButtonText: confirmCopy.value.cancelButton }
   )
   if (!confirmed) {
     return
@@ -995,9 +996,9 @@ const savePublicHandle = async (): Promise<void> => {
     }
     await userStore.fetchUserInfo(true)
     publicHandleDraft.value = userStore.userInfo?.publicHandle ?? ''
-    toast.success(nextPublicHandle ? publicProfileCopy.savedSuccess : publicProfileCopy.clearedSuccess)
+    toast.success(nextPublicHandle ? publicProfileCopy.value.savedSuccess : publicProfileCopy.value.clearedSuccess)
   } catch (error) {
-    publicHandleError.value = toAppError(error, publicProfileCopy.saveFailedFallback).message || publicProfileCopy.saveFailedFallback
+    publicHandleError.value = toAppError(error, publicProfileCopy.value.saveFailedFallback).message || publicProfileCopy.value.saveFailedFallback
   } finally {
     publicHandleSaving.value = false
   }
@@ -1005,9 +1006,9 @@ const savePublicHandle = async (): Promise<void> => {
 
 const deleteCurrentAccount = async (): Promise<void> => {
   const confirmed = await confirmDanger(
-    confirmCopy.deleteAccountBody,
-    confirmCopy.deleteAccountTitle,
-    { confirmButtonText: confirmCopy.confirmButton, cancelButtonText: confirmCopy.cancelButton }
+    confirmCopy.value.deleteAccountBody,
+    confirmCopy.value.deleteAccountTitle,
+    { confirmButtonText: confirmCopy.value.confirmButton, cancelButtonText: confirmCopy.value.cancelButton }
   )
   if (!confirmed) {
     return
@@ -1022,10 +1023,10 @@ const deleteCurrentAccount = async (): Promise<void> => {
       mfaProofToken: proofToken
     })
     await clearPrivateBrowserState('account-deletion')
-    toast.success(errorCopy.accountDeletedSuccess)
+    toast.success(errorCopy.value.accountDeletedSuccess)
     await userStore.logout()
   } catch (error) {
-    deleteAccountError.value = identityOperationErrorMessage(error, errorCopy.accountDeleteFailedFallback, errorCopy.accountDeleteSensitiveOperationRequired)
+    deleteAccountError.value = identityOperationErrorMessage(error, errorCopy.value.accountDeleteFailedFallback, errorCopy.value.accountDeleteSensitiveOperationRequired)
   } finally {
     deleteAccountLoading.value = false
   }
@@ -1033,7 +1034,7 @@ const deleteCurrentAccount = async (): Promise<void> => {
 
 const revokeSessionDevice = async (sessionId: string): Promise<void> => {
   await revokeSession(sessionId)
-  toast.success(sessionsCopy.revokeSuccess)
+  toast.success(sessionsCopy.value.revokeSuccess)
   await refreshSessions()
 }
 
@@ -1043,22 +1044,22 @@ const revokeOtherSessionDevices = async (): Promise<void> => {
   }
 
   await revokeOtherSessionsApi()
-  toast.success(sessionsCopy.revokeOthersSuccess)
+  toast.success(sessionsCopy.value.revokeOthersSuccess)
   await refreshSessions()
 }
 
 const formatSessionDevice = (label: string | null | undefined): string =>
-  label?.trim() || sessionsCopy.deviceFallback
+  label?.trim() || sessionsCopy.value.deviceFallback
 
 const formatAuthenticationMethod = (method: UserSessionSummary['authenticationMethod']): string => ({
-  passkey: sessionsCopy.authenticationPasskey,
-  recovery_key: sessionsCopy.authenticationRecoveryKey,
-  enrollment: sessionsCopy.authenticationEnrollment,
-  other: sessionsCopy.authenticationOther
+  passkey: sessionsCopy.value.authenticationPasskey,
+  recovery_key: sessionsCopy.value.authenticationRecoveryKey,
+  enrollment: sessionsCopy.value.authenticationEnrollment,
+  other: sessionsCopy.value.authenticationOther
 })[method]
 
 const formatDurationPolicy = (policy: UserSessionSummary['durationPolicy']): string =>
-  policy === 'persistent_30d' ? sessionsCopy.durationPersistent : sessionsCopy.durationBrowserSession
+  policy === 'persistent_30d' ? sessionsCopy.value.durationPersistent : sessionsCopy.value.durationBrowserSession
 
 onMounted(() => {
   void refreshIdentityData()

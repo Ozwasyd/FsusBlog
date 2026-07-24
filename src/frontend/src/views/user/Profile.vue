@@ -27,12 +27,13 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { FsusUiEmptyState, FsusUiTaskPageHeader } from '@/fsusui'
-import { FSUSBLOG_IDENTITY_COPY } from '@/copy'
+import { useI18nText } from '@/composables/useI18nText'
 
-const profileCopy = FSUSBLOG_IDENTITY_COPY.profile
+const { messages } = useI18nText()
+const profileCopy = computed(() => messages.value.identity.profile)
 
 const router = useRouter()
 

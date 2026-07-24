@@ -116,15 +116,16 @@
 import { computed, ref } from 'vue'
 import type { ConversationFilter, ConversationListItemResponse } from '@/api/message'
 import MessagesEmptyState from './MessagesEmptyState.vue'
-import { FSUSBLOG_MESSAGES_COPY } from '@/copy'
+import { useI18nText } from '@/composables/useI18nText'
 
 type ConversationRow = ConversationListItemResponse & {
   lastMessageAtText: string
   ariaLabel: string
 }
 
-const conversationListCopy = FSUSBLOG_MESSAGES_COPY.conversationList
-const filterCopy = FSUSBLOG_MESSAGES_COPY.filter
+const { messages } = useI18nText()
+const conversationListCopy = computed(() => messages.value.messages.conversationList)
+const filterCopy = computed(() => messages.value.messages.filter)
 
 const props = defineProps<{
   mode: 'admin' | 'account'
@@ -154,23 +155,23 @@ const isAdminMode = computed(() => props.mode === 'admin')
 const filterOptions = computed(() =>
   isAdminMode.value
     ? [
-        { label: filterCopy.open, value: 'open' },
-        { label: filterCopy.pending, value: 'pending' },
-        { label: filterCopy.closed, value: 'closed' },
-        { label: filterCopy.system, value: 'system' },
-        { label: filterCopy.all, value: 'all' }
+        { label: filterCopy.value.open, value: 'open' },
+        { label: filterCopy.value.pending, value: 'pending' },
+        { label: filterCopy.value.closed, value: 'closed' },
+        { label: filterCopy.value.system, value: 'system' },
+        { label: filterCopy.value.all, value: 'all' }
       ] satisfies { label: string; value: ConversationFilter }[]
     : [
-        { label: filterCopy.all, value: 'all' },
-        { label: filterCopy.unread, value: 'unread' },
-        { label: filterCopy.systemMessages, value: 'system' },
-        { label: filterCopy.open, value: 'open' },
-        { label: filterCopy.pending, value: 'pending' },
-        { label: filterCopy.closed, value: 'closed' }
+        { label: filterCopy.value.all, value: 'all' },
+        { label: filterCopy.value.unread, value: 'unread' },
+        { label: filterCopy.value.systemMessages, value: 'system' },
+        { label: filterCopy.value.open, value: 'open' },
+        { label: filterCopy.value.pending, value: 'pending' },
+        { label: filterCopy.value.closed, value: 'closed' }
       ] satisfies { label: string; value: ConversationFilter }[]
 )
 const showMoreText = computed(() =>
-  conversationListCopy.showMoreLabel.replace('{n}', String(Math.max(0, props.hiddenCount)))
+  conversationListCopy.value.showMoreLabel.replace('{n}', String(Math.max(0, props.hiddenCount)))
 )
 
 const handleFilterUpdate = (value: unknown): void => {

@@ -70,9 +70,10 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { FSUSBLOG_MESSAGES_COPY } from '@/copy'
+import { useI18nText } from '@/composables/useI18nText'
 
-const composeCopy = FSUSBLOG_MESSAGES_COPY.composePanel
+const { messages } = useI18nText()
+const composeCopy = computed(() => messages.value.messages.composePanel)
 
 const props = withDefaults(defineProps<{
   mode: 'admin' | 'account'
@@ -101,7 +102,7 @@ const emit = defineEmits<{
   submit: []
 }>()
 
-const title = computed(() => (props.mode === 'admin' ? composeCopy.titleAdmin : composeCopy.titleAccount))
+const title = computed(() => (props.mode === 'admin' ? composeCopy.value.titleAdmin : composeCopy.value.titleAccount))
 </script>
 
 <style scoped>
