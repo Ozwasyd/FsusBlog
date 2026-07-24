@@ -733,6 +733,16 @@ and cancellation. The repository currently ships no concrete Lua engine; its
 default unavailable adapter therefore rejects load before Hook registration
 instead of pretending to interpret source or weakening the sandbox.
 
+JavaScript Hooks now use the real Jint adapter documented in
+[TypeScript plugin SDK and Jint runtime](plugins/typescript-sdk.md). TypeScript is
+authoring input only: the server loads a verified, import-free ESM `dist/main.js`
+and never runs `tsc`, installs npm dependencies or emulates Node.js. Load prewarms
+bounded per-Hook engine buckets; a lease is never shared concurrently, its
+cancellation constraint is rebound to the current invocation, and every completed
+or failed engine is discarded and replaced to remove captured request context.
+The SDK remains a private repository type/source asset and has no package publish
+flow.
+
 ## 生产启动保护
 
 服务器通过 HostedService 在启动后执行以下生产校验，失败时进入可观测降级状态而不是直接终止进程：

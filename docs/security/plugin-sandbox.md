@@ -81,6 +81,17 @@ graph; source is never interpreted by an ad-hoc host parser. The adapter contrac
 package load sequence and engine-integration boundary are documented in
 [Controlled Lua plugin runtime](../architecture/lua-plugin-runtime.md).
 
+The JavaScript adapter now implements that Level 1 profile with Jint. It enables
+strict mode and disables string compilation, CLR interop, `GetType`, reflection
+and CLR object writes; it never calls `AllowClr`. A built ESM entry can only
+register Hooks declared by its verified Manifest. Host methods are created by the
+runtime from a closed operation catalog, and every call still crosses
+`PluginHostApiProxy` before the host implementation. SDK types do not widen this
+runtime authority. Full authoring, engine-pool and rollback semantics are in
+[TypeScript plugin SDK and Jint runtime](../plugins/typescript-sdk.md). The default
+host currently implements only bounded structured `log.write`; other typed
+operations fail closed until a domain owner is installed.
+
 ## Resource budgets and isolation
 
 Every execution receives a `PluginExecutionBudgetGuard` with positive limits for
@@ -94,6 +105,13 @@ the timeout, charges the instruction guard and then calls the plugin-scoped prox
 The proxy rechecks the capability on every call. A concrete engine binding must
 not cache the result, surface the proxy object itself, or turn library names into
 arbitrary CLR member access.
+
+Jint independently enforces memory allocation, executed statements, recursion
+depth, timeout, regex timeout and the current linked cancellation token. The
+adapter rebinds the cancellation constraint when an engine is rented. Serialized
+context bytes, Host API call depth, Host API output and log bytes are also charged
+to `PluginExecutionBudgetGuard`. Any limit breach poisons and discards the engine
+and is classified as a critical isolation failure.
 
 Isolation state is `Healthy -> Degraded -> Quarantined`, with `Disabled` as an
 operator state. Five failures in one minute degrade a plugin. The next failure

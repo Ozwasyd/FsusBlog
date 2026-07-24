@@ -531,7 +531,13 @@ Manifest 中每个 Hook 必须同时声明其封闭 capability，dispatcher 在 
 登录相关 Hook 额外要求敏感的 `user.auth.hook`，且调用方不得把凭据、Cookie、JWT、
 Passkey assertion 或原始请求头放入 Hook DTO。`cluster-once` / `scheduled` / `leased`
 必须声明幂等并使用 fencing lease；隔离、清空 grant 和移除本地注册均可在不重启时
-阻断后续调用。
+阻断后续调用。TypeScript 仅在开发期通过仓库内 private SDK/alias 提供类型；服务端只执行
+验证后的 ESM JavaScript。Jint 以 strict、禁用 string compilation、未启用 `AllowClr` 的
+Level 1 profile 运行，并直接限制 memory、statements、recursion、timeout、regex 与
+cancellation；Host API 输入、输出、日志和调用深度继续由共享 budget guard 计量。engine
+只在一次调用中独占，完成或失败后丢弃并补充预热实例，避免捕获的 payload/Host delegate
+跨请求残留。完整运行时边界见
+[TypeScript plugin SDK and Jint runtime](plugins/typescript-sdk.md)。
 
 站点订阅写入与退订 ownership proof 只使用 `Subscription:EmailHashPepper` 派生的 `hmac-v1` identity。运行时不接受 `sha256-legacy` lookup、OR fallback 或 `LegacySha256EmailHash`；finalize migration 会隔离 legacy rows 并断言遗留计数为零。发生 cutover 问题时暂停 subscription mutation 并在隔离恢复库诊断，不得重新启用可关联的无密钥 SHA-256 identity。
 
@@ -705,6 +711,7 @@ credential vault 与 Service Worker 私有缓存。Service Worker 对 `/api/**` 
 | ------ | ------ | ------ |
 | BCrypt.Net-Next | 4.1.0 | 密码哈希 |
 | Fido2 | 4.0.1 | WebAuthn / FIDO2 |
+| Jint | 4.13.0 | Level 1 JavaScript plugin runtime（CLR interop 默认关闭） |
 | System.Buffers.Text.Base64Url | .NET 10 BCL | WebAuthn ID 编解码（替代旧版 FIDO2 helper 的 `Base64Url` 类） |
 | ASP.NET Core Data Protection | 10 | Cookie 保护 |
 | ASP.NET Core RateLimiting | 10 | IP 速率限制 |

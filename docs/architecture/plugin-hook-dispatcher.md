@@ -11,10 +11,14 @@ core event -> cached Hook registry -> capability/isolation check
 
 No plugin receives a repository, `DbContext`, `IServiceProvider`, filesystem or
 unrestricted network handle. Runtime adapters are replaceable behind
-`IPluginHookRuntimeInvoker`. The Lua route and its fail-closed engine adapter are
-specified in [Controlled Lua plugin runtime](lua-plugin-runtime.md); the default
-engine remains intentionally unavailable until a concrete adapter proves the full
-Level 1 contract.
+`IPluginHookRuntimeInvoker`, which routes by the manifest runtime without relying
+on DI registration order. JavaScript dispatch is implemented by the real Jint
+adapter and is documented in
+[TypeScript plugin SDK and Jint runtime](../plugins/typescript-sdk.md). The Lua
+route and its fail-closed engine adapter are specified in
+[Controlled Lua plugin runtime](lua-plugin-runtime.md); its default engine remains
+intentionally unavailable until a concrete adapter proves the full Level 1
+contract.
 
 ## Stable models and ordering
 
@@ -46,6 +50,12 @@ Before every invocation the dispatcher:
 3. clamps the declared timeout to the Hook's host maximum;
 4. creates the six-dimensional execution budget and linked cancellation token;
 5. passes only a plugin-scoped `PluginHostApiProxy` to the runtime.
+
+JavaScript `LoadAsync` prewarms bounded per-Hook engine buckets from the verified
+ESM entry. A rented engine is exclusive and its cancellation constraint is rebound
+to the current invocation. It is discarded after success as well as failure, then
+replaced with a freshly activated engine; this prevents a plugin from retaining a
+request payload or Host API delegate for a later invocation.
 
 `fail-open` and `ignore` record failure and continue. `fail-closed` records failure
 and blocks the core operation. `quarantine` immediately isolates the plugin and

@@ -658,6 +658,7 @@ public sealed class PluginCapabilityDeniedException(string message) : Unauthoriz
 
 public sealed class PluginPermissionApprovalException(string message) : InvalidOperationException(message);
 
-public sealed class PluginResourceLimitException(string message) : InvalidOperationException(message);
+public sealed class PluginResourceLimitException(string message, Exception? innerException = null)
+    : InvalidOperationException(message, innerException);
 
 public sealed class PluginIsolationException(string message) : InvalidOperationException(message);

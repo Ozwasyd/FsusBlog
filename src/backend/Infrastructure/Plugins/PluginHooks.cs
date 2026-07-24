@@ -210,6 +210,23 @@ public interface IPluginHookRuntimeInvoker
         CancellationToken cancellationToken);
 }
 
+public sealed class ScriptPluginHookRuntimeInvoker(
+    IJavaScriptPluginRuntime javaScript,
+    ILuaPluginRuntime lua) : IPluginHookRuntimeInvoker
+{
+    public ValueTask<PluginHookResult> InvokeAsync(
+        PluginHookInvocation invocation,
+        CancellationToken cancellationToken)
+        => invocation.Runtime switch
+        {
+            PluginRuntimeType.JavaScript => javaScript.InvokeHookAsync(invocation, cancellationToken),
+            PluginRuntimeType.Lua => lua.InvokeHookAsync(invocation, cancellationToken),
+            _ => ValueTask.FromException<PluginHookResult>(
+                new PluginHookDispatchException(
+                    $"Plugin runtime '{invocation.Runtime}' is not available on this node."))
+        };
+}
+
 public interface IPluginHookScopeCoordinator
 {
     ValueTask<PluginHookScopeExecution> ExecuteAsync(

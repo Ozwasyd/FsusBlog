@@ -35,6 +35,15 @@
                     "Newtonsoft.Json": "13.0.4"
                 }
             },
+            "Jint": {
+                "type": "Direct",
+                "requested": "[4.13.0, )",
+                "resolved": "4.13.0",
+                "contentHash": "UfHAhT/d1oRFdf8QLH3tNXypVZVP3lEw9Fi5+oy7UCeLVAp/0toUSRzq8ApdxYecr09U7ngDk416Nobg4L5Vkg==",
+                "dependencies": {
+                    "Acornima": "1.6.2"
+                }
+            },
             "Konscious.Security.Cryptography.Argon2": {
                 "type": "Direct",
                 "requested": "[1.3.1, )",
@@ -223,6 +232,11 @@
                 "dependencies": {
                     "Pipelines.Sockets.Unofficial": "2.2.8"
                 }
+            },
+            "Acornima": {
+                "type": "Transitive",
+                "resolved": "1.6.2",
+                "contentHash": "laakpDHzMwHr5C8+q5RlRf0XJJshUvghNeo4xDerICrYR3iEuGvwfpauCmXuU3RE437XDaQO5ZxieWDpADuD+w=="
             },
             "Azure.Core": {
                 "type": "Transitive",

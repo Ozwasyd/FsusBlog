@@ -86,7 +86,15 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<IPluginHookRegistry, PluginHookRegistry>();
         services.AddSingleton<ILuaScriptEngineAdapter, UnavailableLuaScriptEngineAdapter>();
         services.AddSingleton<ILuaPluginRuntime, LuaPluginRuntime>();
-        services.AddSingleton<IPluginHookRuntimeInvoker, LuaPluginHookRuntimeInvoker>();
+        services.AddSingleton(JavaScriptPluginRuntimeOptions.FromConfiguration(configuration));
+        services.AddSingleton<IJavaScriptPluginHostApi, DefaultJavaScriptPluginHostApi>();
+        services.AddSingleton<JavaScriptPluginRuntime>();
+        services.AddSingleton<IJavaScriptPluginRuntime>(
+            static sp => sp.GetRequiredService<JavaScriptPluginRuntime>());
+        services.AddSingleton<IPluginHookRuntimeInvoker>(
+            static sp => new ScriptPluginHookRuntimeInvoker(
+                sp.GetRequiredService<IJavaScriptPluginRuntime>(),
+                sp.GetRequiredService<ILuaPluginRuntime>()));
         services.AddSingleton<IPluginHookScopeCoordinator, PluginHookScopeCoordinator>();
         services.AddSingleton<IPluginHookDispatcher, PluginHookDispatcher>();
         services.AddScoped<PluginSecurityAdministrativeSnapshotService>();
